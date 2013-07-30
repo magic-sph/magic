@@ -1,0 +1,1212 @@
+# -*- coding: utf-8 -*-
+from magic import MagicGraph, MagicSetup
+from libmagic import *
+import pylab as P
+import os
+import numpy as N
+from matplotlib import rc, rcParams
+from scipy.integrate import trapz
+#rc('ps', useafm=True)
+rc('text', usetex=True)
+rc('font',**{'family':'serif','serif':['Computer Modern']})
+#P.rc('axes', facecolor='None')
+#P.rc('savefig', facecolor='None', edgecolor='None')
+
+__author__  = "$Author$"
+__date__   = "$Date$"
+__version__ = "$Revision$"
+
+
+
+class Surf:
+
+    def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None):
+        self.datadir = datadir
+        self.gr = MagicGraph(ivar=ivar, datadir=self.datadir, ave=ave, tag=tag)
+
+        if vort:
+            thlin = self.gr.colatitude
+            th3D = N.zeros_like(self.gr.vphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+
+            s3D = rr3D * N.sin(th3D)
+            dtheta = thetaderavg(self.gr.vphi*s3D)
+            dr = rderavg(self.gr.vphi*s3D, eta=self.gr.radratio, spectral=True, 
+                         exclude=False)
+            ds = N.sin(th3D)*dr + N.cos(th3D)/rr3D*dtheta
+            vs = self.gr.vr * N.sin(th3D) + self.gr.vtheta * N.cos(th3D) # 'vs'
+            self.vortz = -1./s3D*phideravg(vs)+ds/s3D
+            del dr, dtheta, ds, rr3D, th3D, s3D
+
+    def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None, 
+             vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', 
+             normed=True, cbar=True, tit=True):
+        """
+        Plot the surface distribution of a field at a given
+        normalised radius.
+
+        :param field: the name of the field you want to display
+        :param proj: the type of projection. Default is Hammer, in case
+                     you want to use 'ortho' or 'moll', then Basemap is
+                     required.
+        :param r: the radius you want to display (in normalised values)
+        :param levels: the number of levels in the contour
+        :param cm: the colormap name
+        :param tit: display/hide the title of the figure
+        :param cbar: display/hide the colorbar
+        """
+        r /= (1-self.gr.radratio) # as we give a normalised radius
+        ind = N.nonzero(N.where(abs(self.gr.radius-r) \
+                        == min(abs(self.gr.radius-r)), 1, 0))
+        indPlot = ind[0][0]
+        rad = self.gr.radius[indPlot] * (1.-self.gr.radratio)
+
+        if proj != 'ortho':
+            lon_0 = 0.
+
+        if field in ('Vs', 'vs'):
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.sin(th3D) + vt * N.cos(th3D)
+            label = r'$v_s$'
+        elif field in ('Vz', 'vz'):
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.cos(th3D) - vt * N.sin(th3D)
+            label = r'$v_z$'
+        else:
+            data, label = selectField(self.gr, field)
+
+        phi = N.linspace(-N.pi, N.pi, self.gr.nphi)
+        theta = N.linspace(N.pi/2, -N.pi/2, self.gr.ntheta)
+        pphi, ttheta = N.mgrid[-N.pi:N.pi:self.gr.nphi*1j,
+                            N.pi/2.:-N.pi/2.:self.gr.ntheta*1j]
+        lon2 = pphi * 180./N.pi
+        lat2 = ttheta * 180./N.pi
+
+        delat = 30. ; delon = 60.
+        circles = N.arange(delat, 90.+delat, delat).tolist()+\
+                  N.arange(-delat, -90.-delat, -delat).tolist()
+        meridians = N.arange(-180+delon, 180, delon)
+
+        if proj == 'moll' or proj == 'hammer':
+            if tit:
+                if cbar:
+                    fig = P.figure(figsize=(9,4.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.87, 0.87])
+                else:
+                    fig = P.figure(figsize=(8,4.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.87])
+                ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), 
+                             fontsize=24)
+            else:
+                if cbar:
+                    fig = P.figure(figsize=(9,4))
+                    ax = fig.add_axes([0.01, 0.01, 0.87, 0.98])
+                else:
+                    fig = P.figure(figsize=(8,4))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+                tit1 = r'%.2f Ro' % rad
+                ax.text(0.12, 0.9, tit1, fontsize=16,
+                      horizontalalignment='right',
+                      verticalalignment='center',
+                      transform = ax.transAxes)
+        else:
+            if tit:
+                if cbar:
+                    fig = P.figure(figsize=(6,5.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.82, 0.9])
+                else:
+                    fig = P.figure(figsize=(5,5.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
+                ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), 
+                             fontsize=24)
+            else:
+                if cbar:
+                    fig = P.figure(figsize=(6,5))
+                    ax = fig.add_axes([0.01, 0.01, 0.82, 0.98])
+                else:
+                    fig = P.figure(figsize=(5,5))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+                tit1 = r'%.2f Ro' % rad
+                ax.text(0.12, 0.9, tit1, fontsize=16,
+                      horizontalalignment='right',
+                      verticalalignment='center',
+                      transform = ax.transAxes)
+            
+        if proj != 'hammer':
+            from mpl_toolkits.basemap import Basemap
+            map = Basemap(projection=proj, lon_0=lon_0, lat_0=lat_0,
+                          resolution='c')
+            map.drawparallels([0.], dashes=[2, 3], linewidth=0.5)
+            map.drawparallels(circles, dashes=[2,3], linewidth=0.5)
+            map.drawmeridians(meridians, dashes=[2,3], linewidth=0.5)
+            map.drawmeridians([-180], dashes=[20,0], linewidth=0.5)
+            map.drawmeridians([180], dashes=[20,0], linewidth=0.5)
+            x, y = map(lon2, lat2)
+        else:
+            x, y = hammer2cart(ttheta, pphi)
+            for lat0 in circles:
+                x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                ax.plot(x0, y0, 'k:', linewidth=0.7)
+            for lon0 in meridians:
+                x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                ax.plot(x0, y0, 'k:', linewidth=0.7)
+            xxout, yyout  = hammer2cart(theta, -N.pi)
+            xxin, yyin  = hammer2cart(theta, N.pi)
+            ax.plot(xxin, yyin, 'k-')
+            ax.plot(xxout, yyout, 'k-')
+            P.axis('off')
+
+        rprof = data[..., indPlot]
+        rprof = symmetrize(rprof, self.gr.minc)
+
+        cmap = P.get_cmap(cm)
+
+        if proj == 'ortho': 
+            lats = N.linspace(-90., 90., self.gr.ntheta)
+            dat = map.transform_scalar(rprof.T, phi*180/N.pi, lats, 
+                                       self.gr.nphi, self.gr.ntheta, masked=True)
+            im = map.imshow(dat, cmap=cmap)
+        else:
+            if vmax is not None or vmin is not None:
+                normed = False
+                cs = N.linspace(vmin, vmax, levels)
+                im = ax.contourf(x, y, rprof, cs, cmap=cmap, extend='both')
+                #im = ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
+                #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
+            else:
+                cs = levels
+                im = ax.contourf(x, y, rprof, cs, cmap=cmap)
+                #im = ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
+                #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
+
+        # Add the colorbar at the right place
+        pos = ax.get_position()
+        l, b, w, h = pos.bounds
+        if cbar:
+            if tit:
+                cax = P.axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
+            else:
+                cax = P.axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
+            mir = P.colorbar(im, cax=cax)
+
+        # Normalise around zero
+        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
+            and normed is True:
+            im.set_clim(-max(abs(rprof.max()), abs(rprof.min())), 
+                         max(abs(rprof.max()), abs(rprof.min())))
+
+    def equat(self, field='vr', levels=16, cm='RdYlBu_r', normed=True,
+              vmax=None, vmin=None, cbar=True, tit=True, avg=False):
+        """
+        Plot the equatorial cut of a given field
+
+        :param field: the name of the field
+        :param levels: the number of contour levels
+        :param cm: the name of the colormap
+        :param cbar: display/hide the colorbar
+        :param tit: display/hide the title
+        :param avg: display also the radial profile of the quantity
+                    (average in azimuth)
+        """
+        phi = N.linspace(0., 2.*N.pi, self.gr.nphi)
+        rr, pphi = N.meshgrid(self.gr.radius, phi)
+        xx = rr * N.cos(pphi)
+        yy = rr * N.sin(pphi)
+
+        if field in ('vortz'):
+            philoc = N.linspace(0., 2.*N.pi/self.gr.minc, self.gr.npI)
+            rrloc, pphiloc = N.meshgrid(self.gr.radius, philoc)
+            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta/2,:], spectral=False,
+                         eta=self.gr.radratio, exclude=True)
+            equator = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta/2,:]))
+            label = r'$\omega_z$'
+        elif field in ('vopot'):
+            philoc = N.linspace(0., 2.*N.pi/self.gr.minc, self.gr.npI)
+            rrloc, pphiloc = N.meshgrid(self.gr.radius, philoc)
+            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta/2,:], spectral=False,
+                         eta=self.gr.radratio, exclude=True)
+            wz = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta/2,:]))
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            #equator = (wz + 2./(self.gr.ek))/(rho0)
+            height = 2. * N.sqrt( self.gr.radius.max()**2-self.gr.radius**2 )
+            equator = (wz + 2./(self.gr.ek))/(rho0*height)
+            #equator = wz - 2./(self.gr.ek)*N.log(height)
+            label = r'PV'
+            P.figure()
+            P.plot(self.gr.radius, equator.mean(axis=0))
+            P.plot(self.gr.radius, 2./(self.gr.ek)/(rho0*height))
+        elif field in ('rey'):
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            vp = self.gr.vphi.copy()
+            vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
+            data =  rho0 * self.gr.vr * vp
+            label = r'$\rho v_s v_\phi$'
+        elif field in ('mr'):
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data =  rho0 * self.gr.vr
+            label = r'$\rho v_r$'
+
+        else:
+            data, label = selectField(self.gr, field)
+
+        if field not in ('vortz', 'vopot'):
+            equator = data[:, self.gr.ntheta/2,:]
+
+        equator = symmetrize(equator, self.gr.minc)
+
+        if tit:
+            if cbar:
+                fig = P.figure(figsize=(6.5,5.5))
+                ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
+            else:
+                fig = P.figure(figsize=(5,5.5))
+                ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
+            ax.set_title(label, fontsize=24)
+        else:
+            if cbar:
+                fig = P.figure(figsize=(6.5,5))
+                ax = fig.add_axes([0.01, 0.01, 0.76, 0.98])
+            else:
+                fig = P.figure(figsize=(5, 5))
+                ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+
+        cmap = P.get_cmap(cm)
+        if vmax is not None or vmin is not None:
+            normed = False
+            cs = N.linspace(vmin, vmax, levels)
+            im = ax.contourf(xx, yy, equator, cs, cmap=cmap, extend='both')
+        else:
+            cs = levels
+            im = ax.contourf(xx, yy, equator, cs, cmap=cmap)
+            #im = ax.pcolormesh(xx, yy, equator, cmap=cmap, antialiased=True)
+        ax.plot(self.gr.radius[0] * N.cos(phi), self.gr.radius[0]*N.sin(phi),
+               'k-')
+        ax.plot(self.gr.radius[-1] * N.cos(phi), self.gr.radius[-1]*N.sin(phi),
+               'k-')
+
+        P.axis('off')
+
+        # Variable conductivity: add a dashed line
+        if hasattr(self.gr, 'nVarCond'):
+            if self.gr.nVarCond == 2:
+                radi = self.gr.con_RadRatio * self.gr.radius[0]
+                ax.plot(radi*N.cos(phi), radi*N.sin(phi), 'k--')
+
+        #radi = 0.95*self.gr.radius[0]
+        #ax.plot(radi*N.cos(phi), radi*N.sin(phi), 'k--', linewidth=2)
+
+        # Add the colorbar at the right place
+        pos = ax.get_position()
+        l, b, w, h = pos.bounds
+        if cbar:
+            if tit:
+                cax = P.axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
+            else:
+                cax = P.axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
+            mir = P.colorbar(im, cax=cax)
+
+        # Normalise data 
+        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
+            and normed is True:
+            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+                         max(abs(equator.max()), abs(equator.min())))
+
+        # If avg is requested, then display an additional figure
+        # with azimutal average 
+        if avg:
+            P.figure()
+            P.plot(self.gr.radius, equator.mean(axis=0))
+            P.xlabel('Radius', fontsize=18)
+            P.ylabel(label, fontsize=18)
+            P.xlim(self.gr.radius.min(), self.gr.radius.max())
+            P.subplots_adjust(right=0.95, top=0.95)
+
+    def avg(self, field='vphi', levels=16, cm='RdYlBu_r', normed=True,
+            vmax=None, vmin=None, cbar=True, tit=True,
+            pol=False, tor=False, mer=False,
+            merLevels=16, polLevels=16):
+        """
+        Plot the azimutal average of a given field.
+
+        :param field: the field you want to display
+        :param levels: the number of levels of the colormap
+        :param cm: the name of the colormap
+        :param cbar: display/hide the colorbar
+        :param tit: display/hide the title
+        :param pol: poloidal field lines
+        :param mer: meridional circulation
+        :param merLevels: number of levels to display meridional circulation
+        :param polLevels: number of levels to display poloidal field lines
+        """
+        if pol:
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros_like(rr2D)
+            data = N.zeros_like(rr2D)
+            brm = self.gr.Br.mean(axis=0)
+            for i in range(self.gr.ntheta):
+                rr2D[i, :] = self.gr.radius
+                th2D[i, :] = self.gr.colatitude[i]+N.pi/2.
+            s2D = rr2D * N.abs(N.cos(th2D))
+            data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
+
+            for i in range(1, self.gr.ntheta):
+                data[i, :] = data[i-1, :] \
+                            -(s2D[i, :]*brm[i, :]+s2D[i-1,:]*brm[i-1,:])* \
+                             (th2D[i,:]-th2D[i-1,:])
+            dataerr = data[-1, :]-0.5*(s2D[-1,:]*brm[-1,:])*\
+                      (N.pi-self.gr.colatitude[-1])
+            for i in range(self.gr.ntheta):
+                data[i, :] = data[i, :] - dataerr*self.gr.colatitude[i]/N.pi
+            poloLines = 0.5*data/N.cos(th2D)
+
+        if mer:
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros_like(rr2D)
+            data = N.zeros_like(rr2D)
+            if hasattr(self.gr, 'strat'):
+                temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
+                           self.gr.polind,
+                           g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
+            else:
+                rho = 1.
+            vrm = self.gr.vr.mean(axis=0)*rho
+            for i in range(self.gr.ntheta):
+                rr2D[i, :] = self.gr.radius
+                th2D[i, :] = self.gr.colatitude[i]+N.pi/2.
+            s2D = rr2D * N.abs(N.cos(th2D))
+            data[0, :] = -0.5*s2D[0, :]*vrm[0, :]*self.gr.colatitude[0]
+
+            for i in range(1, self.gr.ntheta):
+                data[i, :] = data[i-1, :] \
+                            -(s2D[i, :]*vrm[i, :]+s2D[i-1,:]*vrm[i-1,:])* \
+                             (th2D[i,:]-th2D[i-1,:])
+            dataerr = data[-1, :]-0.5*(s2D[-1,:]*vrm[-1,:])*\
+                      (N.pi-self.gr.colatitude[-1])
+            for i in range(self.gr.ntheta):
+                data[i, :] = data[i, :] - dataerr*self.gr.colatitude[i]/N.pi
+            meriLines = 0.5*data/N.cos(th2D)
+
+        if field in ('Vs', 'vs'):
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.sin(th3D) + vt * N.cos(th3D)
+            label = 'Vs'
+        elif field in ('Vz', 'vz'):
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.cos(th3D) - vt * N.sin(th3D)
+            label = 'Vz'
+        elif field in ('Omega'):
+            label = r'$\Omega$'
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros_like(th2D)
+            for i in range(self.gr.ntheta):
+                th2D[i, :] = self.gr.colatitude[i]
+                rr2D[i, :] = self.gr.radius
+            s2D = rr2D * N.sin(th2D)
+            data = self.gr.vphi/s2D + 1./self.gr.ek
+        elif field in ('omeffect'):
+            label = r'$\Omega$-effect'
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros_like(rr2D)
+            for i in range(self.gr.ntheta):
+                th2D[i, :] = self.gr.colatitude[i]
+                rr2D[i, :] = self.gr.radius
+            brm = self.gr.Br.mean(axis=0)
+            btm = self.gr.Btheta.mean(axis=0)
+            bpm = self.gr.Bphi.mean(axis=0)
+            vrm = self.gr.vr.mean(axis=0)
+            vtm = self.gr.vtheta.mean(axis=0)
+            vpm = self.gr.vphi.mean(axis=0)
+            dvpdr = rderavg(vpm, eta=self.gr.radratio, spectral=True, 
+                            exclude=False)
+            dvpdt = thetaderavg(vpm)
+            # B. Brown
+            # Phi component of <B> dot grad <u>
+            #data = brm*dvpdr+btm/rr2D*dvpdt+vrm*bpm/rr2D+\
+                   #vtm*bpm*N.cos(th2D)/(N.sin(th2D)*rr2D)
+            # M. Schrinner and U. Christensen
+            # Phi component of curl <Vphi> x <B> 
+            data = brm*dvpdr+btm/rr2D*dvpdt-vpm*brm/rr2D-\
+                   vpm*btm*N.cos(th2D)/(N.sin(th2D)*rr2D)
+
+        elif field in ('flux'):
+            label = 'flux'
+            temp0, rho0, beta0 = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            ssm = self.gr.entropy.mean(axis=0)
+            data = rho0*temp0*rderavg(ssm, self.gr.radratio, spectral=True, exclude=False)
+        elif field in ('alphaeffect'):
+            label = r'$-\alpha \langle B_\phi\rangle$'
+            th3D = N.zeros_like(self.gr.vphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            dphi = 2.*N.pi/self.gr.nphi
+
+            vt = self.gr.vtheta - self.gr.vtheta.mean(axis=0)
+            vr = self.gr.vr-self.gr.vr.mean(axis=0)
+            vp = self.gr.vphi-self.gr.vphi.mean(axis=0)
+            wp = (N.roll(vt,-1,axis=2)-N.roll(vt,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) + \
+                 vt/rr3D - \
+                 (N.roll(vr,-1,axis=1)-N.roll(vr,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1)))
+            wt = (N.roll(vr,-1,axis=0)-N.roll(vr,1,axis=0))/\
+                  (rr3D*N.sin(th3D)*dphi) - \
+                 (N.roll(vp,-1,axis=2)-N.roll(vp,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) - \
+                 vp/rr3D
+            wr = (N.roll(vp,-1,axis=1)-N.roll(vp,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1))) + \
+                 N.cos(th3D)*vp/(rr3D*N.sin(th3D)) - \
+                 (N.roll(vt,-1,axis=0)-N.roll(vt,1,axis=0))/\
+                 (rr3D*N.sin(th3D)*dphi)
+
+            wr[:, 0, :] = wr[:, 1, :] 
+            wr[:, -1, :] = wr[:, -2, :]
+            wt[..., 0] = wt[..., 1]
+            wt[..., -1] = wt[..., -2]
+            wp[..., 0] = wp[..., 1]
+            wp[..., -1] = wp[..., -2]
+            data = -self.gr.Bphi.mean(axis=0)*(vr*wr+vp*wp+vt*wt)
+            
+        elif field in ('emf'):
+            label = r"$\langle u'\times B'\rangle_\phi$"
+            vrp = self.gr.vr-self.gr.vr.mean(axis=0)
+            vtp = self.gr.vtheta-self.gr.vtheta.mean(axis=0)
+            brp = self.gr.Br-self.gr.Br.mean(axis=0)
+            btp = self.gr.Btheta-self.gr.Btheta.mean(axis=0)
+            data = vrp*btp-vtp*brp
+        elif field in ('hz'):
+            label = 'Hz'
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            vz = vr * N.cos(th3D) - vt * N.sin(th3D)
+            data = self.vortz * vz
+            denom = N.sqrt(N.mean(vz**2, axis=0)* N.mean(self.vortz**2, axis=0))
+        elif field in ('enstrophy'):
+            label = 'Enstrophy'
+            normed = False
+            data = self.vortz**2
+        elif field in ('helicity'):
+            label = 'Helicity'
+            th3D = N.zeros_like(self.gr.vphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            dphi = 2.*N.pi/self.gr.nphi
+
+            wp = (N.roll(self.gr.vtheta,-1,axis=2)-N.roll(self.gr.vtheta,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) + \
+                 self.gr.vtheta/rr3D - \
+                 (N.roll(self.gr.vr,-1,axis=1)-N.roll(self.gr.vr,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1)))
+            wt = (N.roll(self.gr.vr,-1,axis=0)-N.roll(self.gr.vr,1,axis=0))/\
+                  (rr3D*N.sin(th3D)*dphi) - \
+                 (N.roll(self.gr.vphi,-1,axis=2)-N.roll(self.gr.vphi,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) - \
+                 self.gr.vphi/rr3D
+            wr = (N.roll(self.gr.vphi,-1,axis=1)-N.roll(self.gr.vphi,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1))) + \
+                 N.cos(th3D)*self.gr.vphi/(rr3D*N.sin(th3D)) - \
+                 (N.roll(self.gr.vtheta,-1,axis=0)-N.roll(self.gr.vtheta,1,axis=0))/\
+                 (rr3D*N.sin(th3D)*dphi)
+
+            wr[:, 0, :] = wr[:, 1, :] 
+            wr[:, -1, :] = wr[:, -2, :]
+            wt[..., 0] = wt[..., 1]
+            wt[..., -1] = wt[..., -2]
+            wp[..., 0] = wp[..., 1]
+            wp[..., -1] = wp[..., -2]
+            data = self.gr.vr*wr+self.gr.vphi*wp+self.gr.vtheta*wt
+            self.hel = data.mean(axis=0)
+
+
+        elif field in ('poloidal'):
+            label = 'poloidal field lines'
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros_like(rr2D)
+            data = N.zeros_like(rr2D)
+            brm = self.gr.Br.mean(axis=0)
+            for i in range(self.gr.ntheta):
+                rr2D[i, :] = self.gr.radius
+                th2D[i, :] = self.gr.colatitude[i]+N.pi/2.
+            s2D = rr2D * N.abs(N.cos(th2D))
+            data[0, :] = -0.5*s2D[0, :]*brm[0, :]*self.gr.colatitude[0]
+
+            for i in range(1, self.gr.ntheta):
+                data[i, :] = data[i-1, :] \
+                            -(s2D[i, :]*brm[i, :]+s2D[i-1,:]*brm[i-1,:])* \
+                             (th2D[i,:]-th2D[i-1,:])
+            dataerr = data[-1, :]-0.5*(s2D[-1,:]*brm[-1,:])*\
+                      (N.pi-self.gr.colatitude[-1])
+            for i in range(self.gr.ntheta):
+                data[i, :] = data[i, :] - dataerr*self.gr.colatitude[i]/N.pi
+            data = 0.5*data/N.cos(th2D)
+
+        elif field in ('meridional'):
+            label = "meridional circulation"
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros_like(rr2D)
+            data = N.zeros_like(rr2D)
+            temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
+                           self.gr.polind,
+                           g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
+            vrm = self.gr.vr.mean(axis=0)*rho
+            for i in range(self.gr.ntheta):
+                rr2D[i, :] = self.gr.radius
+                th2D[i, :] = self.gr.colatitude[i]+N.pi/2.
+            s2D = rr2D * N.abs(N.cos(th2D))
+            data[0, :] = -0.5*s2D[0, :]*vrm[0, :]*self.gr.colatitude[0]
+
+            for i in range(1, self.gr.ntheta):
+                data[i, :] = data[i-1, :] \
+                            -(s2D[i, :]*vrm[i, :]+s2D[i-1,:]*vrm[i-1,:])* \
+                             (th2D[i,:]-th2D[i-1,:])
+            dataerr = data[-1, :]-0.5*(s2D[-1,:]*vrm[-1,:])*\
+                      (N.pi-self.gr.colatitude[-1])
+            for i in range(self.gr.ntheta):
+                data[i, :] = data[i, :] - dataerr*self.gr.colatitude[i]/N.pi
+            data = 0.5*data/N.cos(th2D)
+
+        elif field in ('ra', 'ratio'):
+            label = 'Ratio'
+            data = self.gr.vphi**2#/(self.gr.vphi**2+\
+                   #self.gr.vtheta**2+self.gr.vr**2)
+            denom = N.mean(self.gr.vphi**2+ self.gr.vtheta**2+self.gr.vr**2, 
+                           axis=0)
+            #denom = 1.
+        elif field in ('beta'):
+            label = r'$\beta$'
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data = beta * N.ones_like(self.gr.vr)#* self.gr.vr
+        elif field in ('angular'):
+            label = 'Angular momentum'
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros_like(th2D)
+            rho2D = N.zeros_like(th2D)
+            if hasattr(self.gr, 'strat'):
+                temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            else:
+                rho0 = 1.
+            for i in range(self.gr.ntheta):
+                rho2D[i, :] = rho0
+                rr2D[i, :] = self.gr.radius
+                th2D[i, :] = self.gr.colatitude[i]
+            s2D = rr2D * N.sin(th2D)
+            norm = self.gr.radius[0]**2/self.gr.ek
+            data = (self.gr.vphi*s2D+1./self.gr.ek*s2D**2)/norm
+        elif field in ('Cr', 'cr'):
+            if hasattr(self.gr, 'strat'):
+                temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            else:
+                rho0 = 1.
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            vp = self.gr.vphi.copy()
+            vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            vs = vr * N.sin(th3D) + vt * N.cos(th3D)
+            data =  vs * vp
+            denom = N.sqrt(N.mean(vs**2, axis=0)* N.mean(vp**2, axis=0))
+            label = r'$\langle v_s v_\phi\rangle$'
+        elif field == 'vortz':
+            data = self.vortz
+            label = 'vortz'
+        elif field == 'vopot':
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            height = 2. * N.sqrt( self.gr.radius.max()**2-self.gr.radius**2 )
+            data = (self.vortz+2./self.gr.ek)/(rho0*height)
+            label = 'Pot. vort.'
+        elif field in ('rhocr'):
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            vp = self.gr.vphi.copy()
+            vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            vs = vr * N.sin(th3D) + vt * N.cos(th3D)
+            data =  rho0 * vs * vp
+            denom = N.sqrt(N.mean(rho0*vs**2, axis=0)* N.mean(rho0*vp**2, axis=0))
+            label = r'$C_{s\phi}$'
+        elif field in ('Cz', 'cz'):
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            vp = self.gr.vphi.copy()
+            vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            vz = vr * N.cos(th3D) - vt * N.sin(th3D)
+            data =  vz * vp
+            denom = N.sqrt(N.mean(vz**2, axis=0)* N.mean(vp**2, axis=0))
+            label = r'$\langle v_z v_\phi\rangle$'
+        elif field in ('balance'):
+            label = r'$\partial u_z/\partial z +\beta u_r$'
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data1 = beta * self.gr.vr
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = (vr * N.cos(th3D) - vt * N.sin(th3D))
+        elif field in ('anel'):
+            label = r'$\beta u_r$'
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data = beta * self.gr.vr
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            vs = vr * N.sin(th3D) + vt * N.cos(th3D)
+            data *= self.vortz
+        elif field in ('dvzdz'):
+            label = r'$\partial u_z/\partial z$'
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = (vr * N.cos(th3D) - vt * N.sin(th3D))
+        else:
+            data, label = selectField(self.gr, field)
+
+        if field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz', 'hz',
+                         'rhocr', 'omeffect', 'poloidal', 'flux', 'meridional'):
+            phiavg = data.mean(axis=0)
+        elif field == 'balance':
+            phiavg = zderavg(data.mean(axis=0), eta=self.gr.radratio,
+                             spectral=True, exclude=True)
+            phiavg = phiavg + data1.mean(axis=0)
+        elif field == 'dvzdz':
+            phiavg = zderavg(data.mean(axis=0), eta=self.gr.radratio,
+                             spectral=True, exclude=True)
+        elif field in ('omeffect', 'poloidal', 'flux', 'meridional'):
+            phiavg = data
+        else:
+            ro = self.gr.radius[0]
+            ri = self.gr.radius[-1]
+            fac = 2./(N.pi*(ro**2-ri**2))
+            facOTC = ro**2.*(N.pi-2.*N.arcsin(self.gr.radratio))/2. \
+                     -ri**2*N.sqrt(1.-self.gr.radratio**2)/self.gr.radratio
+            facOTC = 1./facOTC
+            facITC = ri**2*N.sqrt(1.-self.gr.radratio**2)/self.gr.radratio \
+                     +(ro**2-ri**2)* N.arcsin(self.gr.radratio) \
+                     -ri**2/2.*(N.pi - 2.*N.arcsin(self.gr.radratio))
+            facITC = 1./facITC
+            #mask = N.where(denom == 0, 1, 0)
+            phiavg = data.mean(axis=0)
+
+            TC = N.array([], dtype='f')
+            outTC = N.array([], dtype='f')
+            inTC = N.array([], dtype='f')
+            denomTC = N.array([], dtype='f')
+            denomoutTC = N.array([], dtype='f')
+            denominTC = N.array([], dtype='f')
+            integ = N.array([], dtype='f')
+            for k, th in enumerate(self.gr.colatitude):
+                rr = self.gr.radius[::-1]
+                dat = phiavg[k, ::-1] * rr
+                dat2 = denom[k, ::-1] * rr
+                corr = intcheb(dat, self.gr.nr-1, ri, ro)
+                TC = N.append(TC, corr)
+                corr2 = intcheb(dat2, self.gr.nr-1, ri, ro)
+                denomTC = N.append(denomTC, corr2)
+                if th >= N.arcsin(self.gr.radratio)  and \
+                   th <= N.pi - N.arcsin(self.gr.radratio):
+                    # Outside tangent cylinder
+                    val = trapz(dat[rr >= ri/N.sin(th)], rr[rr >= ri/N.sin(th)])
+                    outTC = N.append(outTC, val)
+                    integ = N.append(integ, th)
+                    val2 = trapz(dat2[rr >= ri/N.sin(th)], rr[rr >= ri/N.sin(th)])
+                    denomoutTC = N.append(denomoutTC, val2)
+                    # Inside tangent cylinder
+                    val = trapz(dat[rr < ri/N.sin(th)], rr[rr < ri/N.sin(th)])
+                    inTC = N.append(inTC, val)
+                    val2 = trapz(dat2[rr < ri/N.sin(th)], rr[rr < ri/N.sin(th)])
+                    denominTC = N.append(denominTC, val2)
+                else:
+                    val= intcheb(dat, self.gr.nr-1, ri, ro)
+                    inTC = N.append(inTC, val)
+                    val2= intcheb(dat2, self.gr.nr-1, ri, ro)
+                    denominTC = N.append(denominTC, val2)
+
+            num = fac*trapz(TC, self.gr.colatitude)
+            den = fac*trapz(denomTC, self.gr.colatitude)
+            print 'Correlation', num/den
+            num = facOTC*trapz(outTC, integ)
+            den = facOTC*trapz(denomoutTC, integ)
+            print 'Correlation out TC', num/den
+            num = facITC*trapz(inTC, self.gr.colatitude)
+            den = facITC*trapz(denominTC, self.gr.colatitude)
+            print 'Correlation in TC', num/den
+
+            mask = N.where(denom == 0, 1, 0)
+            phiavg /= (denom + mask)
+            #phiavg /= den
+
+        th = N.linspace(0, N.pi, self.gr.ntheta)
+        rr, tth = N.meshgrid(self.gr.radius, th)
+        xx = rr * N.sin(tth)
+        yy = rr * N.cos(tth)
+
+        if tit:
+            if cbar:
+                fig = P.figure(figsize=(5,7.5))
+                ax = fig.add_axes([0.01, 0.01, 0.69, 0.91])
+            else:
+                fig = P.figure(figsize=(3.5,7.5))
+                ax = fig.add_axes([0.01, 0.01, 0.98, 0.91])
+            ax.set_title(label, fontsize=24)
+        else:
+            if cbar:
+                fig = P.figure(figsize=(5,7))
+                ax = fig.add_axes([0.01, 0.01, 0.69, 0.98])
+            else:
+                fig = P.figure(figsize=(3.5,7))
+                ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+
+        cmap = P.get_cmap(cm)
+        if vmax is not None and vmin is not None:
+            normed = False
+            cs = N.linspace(vmin, vmax, levels)
+            im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap, extend='both')
+        else:
+            cs = levels
+            im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
+            #im = ax.pcolormesh(xx, yy, phiavg, cmap=cmap, antialiased=True)
+
+        if pol:
+            ax.contour(xx, yy, poloLines, polLevels, colors=['k'],
+                       linewidths=[0.8, 0.8])
+        elif tor:
+            toroLines = self.gr.Bphi.mean(axis=0)
+            ax.contour(xx, yy, toroLines, polLevels, colors=['k'], 
+                       linewidths=[0.8])
+        elif mer:
+            maxMeri = abs(meriLines).max()
+            minMeri = -maxMeri
+            lev = N.linspace(minMeri, maxMeri, merLevels)
+            im2 = ax.contour(xx, yy, meriLines, lev, colors=['k'],
+                       linewidths=[0.8])
+        ax.plot(self.gr.radius[0]*N.sin(th), self.gr.radius[0]*N.cos(th), 'k-')
+        ax.plot(self.gr.radius[-1]*N.sin(th), self.gr.radius[-1]*N.cos(th), 'k-')
+        P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+        P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+        #P.axvline(0., color='k', ymin=self.gr.radius[-1])
+        P.axis('off')
+
+        # Add the colorbar at the right place
+        pos = ax.get_position()
+        l, b, w, h = pos.bounds
+        if cbar:
+            if tit:
+                cax = P.axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
+            else:
+                cax = P.axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
+            mir = P.colorbar(im, cax=cax)
+        
+        if field == 'b2':
+            P.figure()
+            P.plot(self.gr.radius, phiavg.mean(axis=0), 'k-')
+            P.xlim(self.gr.radius.min(), self.gr.radius.max())
+            P.xlabel('Radius', fontsize=18)
+            P.ylabel('Amplitude of B', fontsize=18)
+            P.subplots_adjust(top=0.95, right=0.95)
+            if hasattr(self.gr, 'nVarCond'):
+                if self.gr.nVarCond == 2:
+                    P.axvline(self.gr.con_RadRatio*self.gr.radius[0],
+                              color='k', linestyle='--')
+
+
+        # Variable conductivity: add a dashed line
+        if hasattr(self.gr, 'nVarCond'):
+            if self.gr.nVarCond == 2:
+                radi = self.gr.con_RadRatio * self.gr.radius[0]
+                ax.plot(radi*N.sin(th), radi*N.cos(th), 'k--')
+
+        # Normalisation of the contours around zero
+        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
+            and normed is True:
+            im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
+                         max(abs(phiavg.max()), abs(phiavg.min())))
+
+    def slice(self, field='Bphi', lon_0=0., levels=12, cm='RdYlBu_r', 
+              normed=True, vmin=None, vmax=None, cbar=True, tit=True,
+              grid=False, nGridLevs=16):
+        """
+        Plot an azimuthal slice of a given field.
+
+        :param field: the field to display
+        :param lon_0: the longitude of the slice, or an array of longitudes
+        :param levels: the number of contour levels
+        :param cm: the name of the colormap
+        :param cbar: display/hide the colorbar
+        :param tit: display/hide the title
+        :param grid: display/hide the grid
+        :param nGridLevs: number of grid levels
+        """
+        if field in ('Vs', 'vs'):
+            label = r'$\beta_h v_s$'
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.sin(th3D) + vt * N.cos(th3D)
+        elif field in ('Vz', 'vz'):
+            label = '$v_z$'
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.cos(th3D) - vt * N.sin(th3D)
+        elif field in ('anel'):
+            label = r'$\beta v_r$'
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data = beta * self.gr.vr
+        elif field in ('dvzdz'):
+            label = '$\partial v_z / \partial z$'
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.cos(th3D) - vt * N.sin(th3D)
+        elif field in ('balance'):
+            label = r'$\partial v_z / \partial z+\beta v_r$'
+            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
+                                         self.gr.polind, self.gr.g0, self.gr.g1,
+                                         self.gr.g2)
+            data1 = beta * self.gr.vr
+            vr = self.gr.vr
+            vt = self.gr.vtheta
+            thlin = N.linspace(0., N.pi, self.gr.ntheta)
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = thlin[i]
+            data = vr * N.cos(th3D) - vt * N.sin(th3D)
+        else:
+            data, label = selectField(self.gr, field)
+
+        data = symmetrize(data, self.gr.minc)
+
+        th = N.linspace(N.pi/2, -N.pi/2, self.gr.ntheta)
+        rr, tth = N.meshgrid(self.gr.radius, th)
+        xx = rr * N.cos(tth)
+        yy = rr * N.sin(tth)
+        phi = N.linspace(0., 360, self.gr.nphi)
+
+        lon_0 = N.asarray(lon_0)
+        cmap = P.get_cmap(cm)
+
+        if len(lon_0) > 1:
+            fig = P.figure(figsize=(2.5*len(lon_0), 5.1))
+            P.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01,
+                              wspace=0.01)
+            for k, lon in enumerate(lon_0):
+                ind = N.nonzero(N.where(abs(phi-lon) \
+                                == min(abs(phi-lon)), 1, 0))
+                indPlot = ind[0][0]
+                phislice = data[indPlot, ...]
+                if field == 'dvzdz':
+                    phislice = zderavg(phislice, eta=self.gr.radratio,
+                                       spectral=True, exclude=True)
+                elif field == 'balance':
+                    phislice = zderavg(phislice, eta=self.gr.radratio,
+                                       spectral=True, exclude=True)
+                    phislice1 = data1[indPlot, ...]
+                    phislice = phislice + phislice1
+                elif field == 'vs':
+                    th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+                    rr2D = N.zeros_like(th2D)
+                    for i in range(self.gr.ntheta):
+                        th2D[i, :] = self.gr.colatitude[i]
+                        rr2D[i, :] = self.gr.radius
+                    s2D = rr2D * N.sin(th2D)
+                    ro = 1./(1.-self.gr.radratio)
+                    coeff = -s2D/(ro**2-s2D**2)
+                    phislice *= coeff
+
+                ax = fig.add_subplot(1,len(lon_0),k+1, frameon=False)
+                if vmax is not None or vmin is not None:
+                    normed = False
+                    cs = N.linspace(vmin, vmax, levels)
+                    im = ax.contourf(xx, yy, phislice, cs, cmap=cmap, 
+                                     extend='both')
+                else:
+                    cs = levels
+                    im = ax.contourf(xx, yy, phislice, cs, cmap=cmap)
+                ax.plot(self.gr.radius[0]*N.cos(th), self.gr.radius[0]*N.sin(th),
+                   'k-')
+                ax.plot(self.gr.radius[-1]*N.cos(th), 
+                        self.gr.radius[-1]*N.sin(th), 'k-')
+                P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+                P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+                P.axis('off')
+
+                tit1 = r'$%i^\circ$' % lon
+                ax.text(0.9, 0.9, tit1, fontsize=18,
+                      horizontalalignment='right',
+                      verticalalignment='center',
+                      transform = ax.transAxes)
+                #fig.colorbar(im)
+                if field not in ['entropy', 's', 'S'] and normed is True:
+                    im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+                                 max(abs(phislice.max()), abs(phislice.min())))
+
+        else:
+            ind = N.nonzero(N.where(abs(phi-lon_0[0]) \
+                            == min(abs(phi-lon_0[0])), 1, 0))
+            indPlot = ind[0][0]
+            phislice = data[indPlot, ...]
+            if field == 'dvzdz':
+                phislice = zderavg(phislice, eta=self.gr.radratio,
+                                   spectral=True, exclude=True)
+            elif field == 'balance':
+                phislice = zderavg(phislice, eta=self.gr.radratio,
+                                   spectral=True, exclude=True)
+                phislice1 = data1[indPlot, ...]
+                phislice = phislice + phislice1
+            elif field == 'vs':
+                th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+                rr2D = N.zeros_like(th2D)
+                for i in range(self.gr.ntheta):
+                    th2D[i, :] = self.gr.colatitude[i]
+                    rr2D[i, :] = self.gr.radius
+                s2D = rr2D * N.sin(th2D)
+                ro = 1./(1.-self.gr.radratio)
+                coeff = -s2D/(ro**2-s2D**2)
+                phislice *= coeff
+
+
+            if tit:
+                if cbar:
+                    fig = P.figure(figsize=(5,7.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.69, 0.91])
+                else:
+                    fig = P.figure(figsize=(3.5,7.5))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.91])
+                ax.set_title(label, fontsize=24)
+            else:
+                if cbar:
+                    fig = P.figure(figsize=(5,7))
+                    ax = fig.add_axes([0.01, 0.01, 0.69, 0.98])
+                else:
+                    fig = P.figure(figsize=(3.5,7))
+                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
+
+            if vmax is not None or vmin is not None:
+                normed = False
+                cs = N.linspace(vmin, vmax, levels)
+                im = ax.contourf(xx, yy, phislice, cs, cmap=cmap, extend='both')
+            else:
+                cs = levels
+                im = ax.contourf(xx, yy, phislice, cs, cmap=cmap)
+            ax.plot(self.gr.radius[0]*N.cos(th), self.gr.radius[0]*N.sin(th),
+                   'k-')
+            ax.plot(self.gr.radius[-1]*N.cos(th), self.gr.radius[-1]*N.sin(th),
+                   'k-')
+            P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+            P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+            if grid:
+                ax.contour(xx, yy, tth, nGridLevs, colors='k', linestyles='--',
+                           linewidths=0.5)
+            P.axis('off')
+
+            tit1 = r'$%i^\circ$' % lon_0
+            ax.text(0.9, 0.9, tit1, fontsize=18,
+                  horizontalalignment='right',
+                  verticalalignment='center',
+                  transform = ax.transAxes)
+
+            # Add the colorbar at the right place
+            pos = ax.get_position()
+            l, b, w, h = pos.bounds
+            if cbar:
+                if tit:
+                    cax = P.axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
+                else:
+                    cax = P.axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
+                mir = P.colorbar(im, cax=cax)
+
+            # Normalise the data
+            if field not in ['entropy', 's', 'S'] and normed is True:
+                im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+                             max(abs(phislice.max()), abs(phislice.min())))
+
+
+def report(nvar=1, levels=16, lclean=True):
+    file = open('report.tex', 'w')
+    file.write("\documentclass[a4paper,10pt]{article}\n")
+    file.write("\usepackage[utf8]{inputenc}\n")
+    file.write("\usepackage{amsmath,amsfonts,amssymb}\n")
+    file.write("\usepackage[francais]{babel}\n")
+    file.write("\usepackage[T1]{fontenc}\n")
+    file.write("\usepackage[dvips]{graphicx}\n")
+    file.write("\usepackage{geometry}\n")
+    file.write("\usepackage[pdftex]{xcolor}\n")
+
+    file.write("\geometry{hmargin=1cm,vmargin=2cm}\n")
+
+    file.write("\\begin{document}\n")
+
+    s = Surf(ivar=nvar)
+
+    st = "Ek = %.2e, Ra = %.2e, Pr = %.1f, $N_{\\rho}$=%.2f, $\eta$=%.1f" % \
+            (s.gr.ek, s.gr.ra, s.gr.pr, s.gr.strat, s.gr.radratio)
+    file.write("\\begin{center}\\begin{large}\n")
+    file.write(" "+st+"\n")
+    file.write("\\end{large}\\end{center}\n")
+
+    r1 = 0.98
+    r3 = 1.03 * s.gr.radratio
+    r2 = (r1+r3)/2.
+
+    s.avg(field='vp', levels=levels, cm='RdYlBu_r', normed=True)
+    P.savefig('vp.png')
+    P.close()
+
+    s.avg(field='entropy', levels=levels, cm='RdYlBu_r', normed=True)
+    P.savefig('entropy.png')
+    P.close()
+
+    s.equat(field='entropy', levels=levels, cm='RdYlBu_r', normed=False)
+    P.savefig('equ_s.png')
+    P.close()
+
+    s.equat(field='vr', levels=levels, cm='RdYlBu_r', normed=False)
+    P.savefig('equ_vr.png')
+    P.close()
+
+    s.surf(field='vp', cm='RdYlBu_r', levels=levels, r=r1, proj='moll', 
+           normed=False)
+    P.savefig('surf_vp.png')
+    P.close()
+
+    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r2, proj='moll', 
+           normed=False)
+    P.savefig('surf_vp_08.png')
+    P.close()
+
+    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r3, proj='moll', 
+           normed=False)
+    P.savefig('surf_vp_06.png')
+    P.close()
+
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r1, proj='moll', 
+           normed=False)
+    P.savefig('surf_vr.png')
+    P.close()
+
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r2, proj='moll', 
+           normed=False)
+    P.savefig('surf_vr_08.png')
+    P.close()
+
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r3, proj='moll', 
+           normed=False)
+    P.savefig('surf_vr_06.png')
+    P.close()
+
+    file.write("\\begin{figure}[htbp]\n")
+    file.write(" \\centering\n")
+    file.write(" \\includegraphics[width=9cm]{equ_s}\n")
+    file.write(" \\includegraphics[width=9cm]{equ_vr}\n")
+    file.write(" \\includegraphics[height=9cm]{entropy}\n")
+    file.write(" \\includegraphics[height=9cm]{vp}\n")
+    file.write("\\end{figure}\n")
+    file.write("\\newpage\n")
+
+    file.write("\\begin{figure}\n")
+    file.write(" \\centering\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vr_06}\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vr_08}\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vr}\n")
+    file.write("\\end{figure}\n")
+    file.write("\\newpage\n")
+    file.write("\\begin{figure}\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vp_06}\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vp_08}\n")
+    file.write(" \\includegraphics[width=18cm]{surf_vp}\n")
+    file.write("\\end{figure}\n")
+
+    file.write("\\end{document}")
+
+
+    file.close()
+    os.system("pdflatex report.tex")
+    if lclean:
+        os.system("rm vp.png entropy.png equ_s.png equ_vr.png surf_vp.png \
+                   surf_vr.png surf_vr_06.png surf_vr_08.png surf_vp_06.png\
+                   surf_vp_08.png")
+        os.system("rm report.log report.aux report.tex")

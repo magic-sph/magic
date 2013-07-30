@@ -1,0 +1,7 @@
+#!/bin/sh
+
+unlink magic.exe 2> /dev/null
+rm -fr src
+rm -f scond.dat
+rm -f run_magic.sh
+rm -f *.test

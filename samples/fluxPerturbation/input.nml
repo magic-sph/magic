@@ -1,0 +1,54 @@
+&grid
+ n_r_max     =33,
+ n_cheb_max  =31,
+ n_phi_tot   =192,
+ n_r_ic_max  =13,
+n_cheb_ic_max=11,
+ nalias      =20,
+ minc        =1,
+/
+&control
+ mode        =1,
+ tag         ="test",
+ n_time_steps=500,
+ courfac     =2.5,
+ alffac      =1.0,
+ alpha       =0.6,
+ dtmax       =1.0E-3,
+ n_cour_step =4,
+ runHours    =0,
+ runMinutes  =50,
+ nThreadsRun =8,
+/
+&phys_param
+ ra          =1.D6,
+ ek          =1.D-3,
+ pr          =1.D0,
+ prmag       =1.D0,
+ radratio    =0.35,
+ ktops       =2,
+ kbots       =2,
+ ktopv       =2,
+ kbotv       =2,
+ s_top       = 0 0 -1.0 0.0 1 0 0.577 0.0,
+ s_bot       = 0 0 0.0 0.0, 
+/
+&start_field
+ l_start_file=.FALSE.,
+ start_file  ="NONE",
+ init_s1     =0100,
+ amp_s1      =0.5,  
+/
+&output_control
+ n_log_step  =10,
+ n_graphs    =3,
+ n_rsts      =3,
+ runid       ="IHBF",
+/
+&mantle 
+ nRotMa      =0,
+/
+&inner_core 
+ sigma_ratio =0.D0,
+ nRotIc      =0,
+/

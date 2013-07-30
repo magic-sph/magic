@@ -1,0 +1,9 @@
+If you want to enable all the features of the python suboutines, libraries
+have to be generated using f2py.
+Depending on your fortran compiler, you have to modify genLib.py and then
+execute it: ./genLib.py
+
+with gfortran, you also need to set up an environement variable to ensure
+that the program reads big endian binary files:
+
+export GFORTRAN_CONVERT_UNIT=big_endian

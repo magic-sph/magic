@@ -1,0 +1,410 @@
+!$Id$
+!***********************************************************************
+    subroutine costf2(f,n_f_max,n_f_start,n_f_stop,f2, &
+                      i_costf_init,d_costf_init,isign)
+!***********************************************************************
+
+!    !------------ This is release 2 level 2  --------------!
+!    !------------ Created on 2/5/02  by JW. --------------!
+
+!  +-------------+----------------+------------------------------------+
+!  |                                                                   |
+!  |  Purpose of this subroutine is to perform a multiple              |
+!  |  cosine transforms for n+1 datapoints                             |
+!  |  on the columns numbered n_f_start to n_f_stop in the array       |
+!  |   y(n_f_max,n+1)                                                  |
+!  |  Depending whether the input y contains data or coeff arrays      |
+!  |  coeffs or data are returned in y.                                |
+!  |                                                                   |
+!  +-------------------------------------------------------------------+
+!  |  ruler                                                            |
+!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
+!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+
+
+    use truncation, only: lm_max_real
+
+    implicit none
+
+!-- input:
+    integer :: n
+    integer :: n_f_max         ! number of columns in y,y2
+    integer :: n_f_start,n_f_stop  ! columns to be transformed
+    real(kind=8) :: f(n_f_max,*)     ! data/coeff input
+    real(kind=8) :: f2(n_f_max,*)    ! work array of the same size as y
+    integer :: i_costf_init(*) ! prestored integers
+    real(kind=8) :: d_costf_init(*)  ! prestored dble numbers
+    integer :: isign           !  = +1 (-1) for forward (backward) transform
+
+
+!-- output: transformed f(n_f_max,*)
+     
+!-- local:
+    logical :: l_f2_data
+    integer :: n_f
+    integer :: i,j,j1,j2,j3,j4
+    integer :: k1,k2,k3,k4
+    integer :: n_P1  ! n+1
+    integer :: n_P2  ! n+2
+    integer :: n_P3  ! n+3
+    integer :: n_O2  ! n/2
+    integer :: n_O2_P1 ! n/2+1
+    integer :: n_O2_P2 ! n/2+2
+    integer :: n_O2_P3 ! n/2+3
+
+    real(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+    real(kind=8) :: fac_norm,facn
+    real(kind=8) :: w_h1,w_h2
+    real(kind=8) :: wr_j,wi_j,wr_i,wi_i
+
+    integer :: n_fac,fac,fac_tot,n_factors
+
+    real(kind=8) :: sum(lm_max_real)
+
+!-- end of declaration
+!---------------------------------------------------------------------------
+
+    n=i_costf_init(1)
+
+    n_P1=n+1
+    n_P2=n+2
+    n_P3=n+3
+    n_O2=n/2
+    n_O2_P1=n/2+1
+    n_O2_P2=n/2+2
+    n_O2_P3=n/2+3
+
+!-- Normalisation factor:
+!   The actual normalisition factor for the cos transform is the
+!   usual sqrt(2/n). We have in addition a factor 1/2 from the
+!   pre-processing (sum over two f's) and another factor 1/2 from
+!   post-processing (again sum over two f2's).
+    fac_norm=1.d0/dsqrt(dble(8*n))
+
+
+!-- Build auxiliary function for cos transform
+!   and shuffle data according to k2k in the process:
+
+
+    if ( isign == 1 ) then
+
+        do j=1,n/2-1,2    ! step 2 unrolling
+
+            j1=i_costf_init(j+1)    ! first step
+            j2=i_costf_init(n_P2-j)
+            wi_j=d_costf_init(2*n+j)
+
+            i=j+1
+            j3=i_costf_init(i+1)   ! second step
+            j4=i_costf_init(n_P2-i)
+            wi_i=d_costf_init(2*n+i)
+             
+            do n_f=n_f_start,n_f_stop
+
+                f_h1=f(n_f,j)+f(n_f,n_P1-j)
+                f_h2=wi_j*(f(n_f,j)-f(n_f,n_P1-j))
+                f2(n_f,j1)=f_h1+f_h2
+                f2(n_f,j2)=f_h1-f_h2
+
+                f_h1=f(n_f,i)+f(n_f,n_P1-i)
+                f_h2=wi_i*(f(n_f,i)-f(n_f,n_P1-i))
+                f2(n_f,j3)=f_h1+f_h2
+                f2(n_f,j4)=f_h1-f_h2
+
+            end do
+
+        end do
+
+
+    !----- Preform transform for n_fac factors:
+
+        fac_tot=1              ! total factor
+        l_f2_data=.true.   ! data are on f2
+
+        n_factors=i_costf_init(n+2)
+
+        do n_fac=1,n_factors   ! loop over factors
+
+            fac=i_costf_init(n+2+n_fac)
+            if ( l_f2_data ) then
+
+            !----- Vpassm returns complex transform of f2's on f's:
+                call fft_fac(f2(1,1),f2(1,2),f(1,1),f(1,2),       &
+                             d_costf_init(n+1),n_f_max,           &
+                             n_f_start,n_f_stop,n_O2,fac,fac_tot, &
+                             d_costf_init(2*n+n/2+1))
+                l_f2_data=.false.
+
+            else
+
+            !----- Vpassm returns complex transform of f's on f2's:
+                call fft_fac(f(1,1),f(1,2),f2(1,1),f2(1,2),       &
+                             d_costf_init(n+1),n_f_max,           &
+                             n_f_start,n_f_stop,n_O2,fac,fac_tot, &
+                             d_costf_init(2*n+n/2+1))
+                l_f2_data=.true.
+
+            end if
+            fac_tot=fac_tot*fac
+
+        end do
+         
+        if ( l_f2_data ) then
+
+        !----- Copy data on f:
+            do j1=1,n,4       ! Step size 4: Loop unrolling
+                j2=j1+1
+                j3=j2+1
+                j4=j3+1
+                do n_f=n_f_start,n_f_stop
+                    f(n_f,j1)=f2(n_f,j1)
+                    f(n_f,j2)=f2(n_f,j2)
+                    f(n_f,j3)=f2(n_f,j3)
+                    f(n_f,j4)=f2(n_f,j4)
+                end do
+            end do
+
+        end if
+
+
+    !----- Postprocessing:
+
+    !----- Unscramble two real transforms from the complex transform:
+
+        facn=2.d0*fac_norm
+        do n_f=n_f_start,n_f_stop
+            f_h1=f(n_f,1)
+            f(n_f,1)      =facn*(f_h1+f(n_f,2))
+            f(n_f,2)      =facn*(f_h1-f(n_f,2))
+            f(n_f,n_O2_P1)=facn*f(n_f,n_O2_P1)
+            f(n_f,n_O2_P2)=facn*f(n_f,n_O2_P2)
+        end do
+
+        do j=2,n/4
+
+            j2=2*j
+            j1=j2-1
+            j3=n_P3-j2
+            j4=j3+1
+
+            wr_j=d_costf_init(n_O2+2*j-1)
+            wi_j=d_costf_init(n_O2+2*j)
+
+            do n_f=n_f_start,n_f_stop
+
+                f_h1=fac_norm*(f(n_f,j1)+f(n_f,j3))
+                f_h2=fac_norm*(f(n_f,j2)-f(n_f,j4))
+                f_h3=fac_norm*(f(n_f,j2)+f(n_f,j4))
+                f_h4=fac_norm*(f(n_f,j3)-f(n_f,j1))
+
+                w_h1=-wr_j*f_h4+wi_j*f_h3
+                w_h2= wr_j*f_h3+wi_j*f_h4
+
+                f(n_f,j1)= f_h1+w_h2
+                f(n_f,j2)=-f_h2+w_h1
+                f(n_f,j3)= f_h1-w_h2
+                f(n_f,j4)= f_h2+w_h1
+
+            end do
+
+        end do
+
+
+    !----- Extract auxiliary function for cos TF:
+
+        do j1=3,n,2
+            j2=j1+1
+            i=(j1-1)/2
+
+            wr_i=d_costf_init(i)
+            wi_i=d_costf_init(n_O2-i)
+
+            do n_f=n_f_start,n_f_stop
+                        
+                f_h1=  wr_i*f(n_f,j1) - &
+                       wi_i*f(n_f,j2)
+                f_h2=  wr_i*f(n_f,j2) + &
+                       wi_i*f(n_f,j1)
+                f(n_f,j1)=f_h1
+                f(n_f,j2)=f_h2
+
+            end do
+
+        end do
+
+                   
+    !----- Initialize recurrence:
+        do n_f=n_f_start,n_f_stop
+            sum(n_f)=0.5d0*f(n_f,2)
+        end do
+
+    !----- Carry out recurrence for odd terms, even terms unchanged:
+        do j=n,2,-2
+            do n_f=n_f_start,n_f_stop
+                f_h1=sum(n_f)
+                sum(n_f)=sum(n_f)+f(n_f,j)
+                f(n_f,j)=f_h1
+            end do
+        end do
+
+
+    else if ( isign == -1 ) then  ! Inverse transform:
+
+
+    !-- Calculation of auxiliary function:
+
+    !----- Save f(n):
+        do n_f=n_f_start,n_f_stop
+            sum(n_f)=f(n_f,n)          ! save f(n)
+        end do
+
+        do j1=n,4,-2
+            j2=j1-2
+            do n_f=n_f_start,n_f_stop
+                f(n_f,j1)=f(n_f,j2)-f(n_f,j1)  ! Difference of odd terms
+            end do
+        end do
+
+        do n_f=n_f_start,n_f_stop
+            f(n_f,2)=2.d0*sum(n_f)      ! Write saved f(n) to f(2)
+        end do
+
+        do j1=3,n,2
+            j2=j1+1
+            i=(j1-1)/2
+
+            wr_i=d_costf_init(i)
+            wi_i=d_costf_init(n_O2-i)
+
+            do n_f=n_f_start,n_f_stop
+                f_h1=f(n_f,j1)*wr_i + &
+                     f(n_f,j2)*wi_i
+                f_h2=f(n_f,j2)*wr_i - &
+                     f(n_f,j1)*wi_i
+                f(n_f,j1)=f_h1
+                f(n_f,j2)=f_h2
+            end do
+        end do
+
+
+    !-- Preprocessing for realtf, copying on f2:
+
+        k1=i_costf_init(2)
+        k2=i_costf_init(3)
+        k3=i_costf_init(n_O2_P2)
+        k4=i_costf_init(n_O2_P3)
+        facn=2.d0*fac_norm
+        do n_f=n_f_start,n_f_stop
+            f_h1=f(n_f,1)
+            f2(n_f,k1)=fac_norm*(f(n_f,1)+f(n_f,2))
+            f2(n_f,k2)=fac_norm*(f_h1-f(n_f,2))
+            f2(n_f,k3)=facn*f(n_f,n_O2_P1)
+            f2(n_f,k4)=facn*f(n_f,n_O2_P2)
+        end do
+
+        do j=2,n/4
+
+            j2=2*j
+            j1=j2-1
+            j3=n_P3-j2
+            j4=j3+1
+
+            wr_j=d_costf_init(n_O2+2*j-1)
+            wi_j=d_costf_init(n_O2+2*j)
+
+            k1=i_costf_init(j1+1)
+            k2=i_costf_init(j2+1)
+            k3=i_costf_init(j3+1)
+            k4=i_costf_init(j4+1)
+
+            do n_f=n_f_start,n_f_stop
+
+                f_h1=fac_norm*(f(n_f,j1)+f(n_f,j3))
+                f_h2=fac_norm*(f(n_f,j2)-f(n_f,j4))
+                f_h3=-fac_norm*(f(n_f,j2)+f(n_f,j4))
+                f_h4=fac_norm*(f(n_f,j1)-f(n_f,j3))
+
+                w_h1=-wr_j*f_h4+wi_j*f_h3
+                w_h2= wr_j*f_h3+wi_j*f_h4
+
+                f2(n_f,k1)= f_h1+w_h2
+                f2(n_f,k2)= f_h2-w_h1
+                f2(n_f,k3)= f_h1-w_h2
+                f2(n_f,k4)=-f_h2-w_h1
+
+            end do
+
+        end do
+
+    !-- Perform transform for n_fac factors:
+
+        fac_tot=1              ! total factor
+        l_f2_data=.true.       ! data are on f2
+
+        n_factors=i_costf_init(n+2)
+
+        do n_fac=1,n_factors   ! loop over factors
+
+            fac=i_costf_init(n+2+n_fac)
+
+            if ( l_f2_data ) then
+
+            !----- Vpassm returns complex transform of f2's on f's:
+                call fft_fac(f2(1,1),f2(1,2),f(1,1),f(1,2),       &
+                             d_costf_init(n+1),n_f_max,n_f_start, &
+                             n_f_stop,n_O2,fac,fac_tot,           &
+                             d_costf_init(2*n+n/2+1))
+                l_f2_data=.false.
+
+            else
+
+            !----- Vpassm returns complex transform of f's on f2's:
+                call fft_fac(f(1,1),f(1,2),f2(1,1),f2(1,2),       &
+                             d_costf_init(n+1),n_f_max,n_f_start, &
+                             n_f_stop,n_O2,fac,fac_tot,           &
+                             d_costf_init(2*n+n/2+1))
+                l_f2_data=.true.
+
+            end if
+            fac_tot=fac_tot*fac
+
+        end do
+
+        if ( l_f2_data ) then
+
+        !----- Copy data on f2:
+            do j1=1,n,4       ! Step size 4: Loop unrolling
+                j2=j1+1
+                j3=j2+1
+                j4=j3+1
+                do n_f=n_f_start,n_f_stop
+                    f(n_f,j1)=f2(n_f,j1)
+                    f(n_f,j2)=f2(n_f,j2)
+                    f(n_f,j3)=f2(n_f,j3)
+                    f(n_f,j4)=f2(n_f,j4)
+                end do
+            end do
+
+        end if
+
+
+    !------- Extract auxiliary function for costf using recurrence:
+
+        do j1=1,n_O2
+            j2=n_P1-j1
+            wi_j=d_costf_init(2*n+j1)
+            do n_f=n_f_start,n_f_stop
+                f_h1=f(n_f,j1)+f(n_f,j2)
+                f_h2=(f(n_f,j1)-f(n_f,j2))/wi_j
+                f(n_f,j1)=f_h1+f_h2
+                f(n_f,j2)=f_h1-f_h2
+            end do
+        end do
+
+                
+    end if
+     
+
+    return
+    end subroutine costf2
+!-------------------------------------------------------------------------

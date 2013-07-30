@@ -1,0 +1,6 @@
+*.o
+*.mod
+magic.exe
+perf.*.xml
+TAGS
+*~

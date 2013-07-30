@@ -1,0 +1,19 @@
+#!/bin/bash
+#                      magic_build
+#                      -----------
+#-----------------------------------------------------------------------------
+if [ -d src ]; then
+    startpath="`pwd`"
+    echo "Initial path: $startpath"
+    cd src
+    make -j
+    cd $startpath
+    if [ -f magic.exe ]; then
+        echo 'Symbolic link already exists'
+    else
+        ln -s src/magic.exe .
+    fi
+else
+    echo 'No src dir! Run magic_setup before'
+fi
+

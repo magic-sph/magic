@@ -1,0 +1,16 @@
+In this case Nrho=3.
+Rac=1.281e5 with mc=15 (Denise's PHD)
+
+
+With Ra=1.29e5: growth (and 1515 as init_s1)
+With Ra=1.28e5: decay (and 1515 as init_s1)
+
+With Ra=1.29e5: decay (and 1414 as init_s1)
+With Ra=1.29e5: growth (and 1616 as init_s1)
+With Ra=1.285e5: decay (and 1616 as init_s1)
+With Ra=1.285e5: growth (and 1515 as init_s1)
+
+So m=15 is the most unstable mode. And the critical Rayleigh
+number is between 1.28e5 and 1.285e5
+
+---> It works !!!!!!!!!!!!!!!

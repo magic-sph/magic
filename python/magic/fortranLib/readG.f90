@@ -1,0 +1,168 @@
+module greader
+
+implicit none
+
+real :: ra,ek,pr,prmag,radratio,sigma
+real :: time
+integer :: nr,nt,np,minc,nric,nThetasBs
+real,allocatable,dimension(:) :: radius,colat
+real,allocatable,dimension(:,:,:) :: entropy,vr,vt,vp
+real,allocatable,dimension(:,:,:) :: Br,Bt,Bp
+
+contains
+!----------------------------------------------------------------------------
+   subroutine readG(filename)
+
+   implicit none
+
+   character(len=*),intent(in) :: filename
+   integer      :: i,j,nth_loc
+   character(len=20) :: version
+   character(len=64) :: runid
+   real  :: ir,rad,ilat1,ilat2
+   real :: nrF,ntF,npF,mincF,nricF,nThetasBsF
+   real,allocatable,dimension(:,:) :: dummy
+
+   open(unit=10, file=filename,form='unformatted')
+   read(10) version
+   read(10) runid
+   read(10) time,nrF,ntF,npF,nricF,mincF,nThetasBsF,ra,ek,pr,prmag, &
+            radratio,sigma
+
+   nr=int(nrF)
+   nt=int(ntF)
+   np=int(npF)
+   minc=int(mincF)
+   np=np/minc
+   nThetasBs=int(nThetasBsF)
+   nric=int(nricF)
+
+   if ( allocated(colat) ) then
+       deallocate( colat )
+       deallocate( radius )
+       deallocate( entropy )
+       deallocate( vr )
+       deallocate( vt )
+       deallocate( vp )
+       if ( prmag /= 0. ) then
+           deallocate( Br )
+           deallocate( Bt )
+           deallocate( Bp )
+       end if
+   end if
+
+   allocate( colat(1:nt) )
+   allocate( radius(1:nr) )
+
+   allocate( dummy(1:np,1:nt) )
+
+   allocate( entropy(1:np,1:nt,1:nr) )
+   allocate( vr(1:np,1:nt,1:nr) )
+   allocate( vt(1:np,1:nt,1:nr) )
+   allocate( vp(1:np,1:nt,1:nr) )
+   if ( prmag /= 0. ) then
+       allocate( Br(1:np,1:nt,1:nr) )
+       allocate( Bt(1:np,1:nt,1:nr) )
+       allocate( Bp(1:np,1:nt,1:nr) )
+   end if
+
+   read(10) colat
+
+   !reading
+   if ( version == 'Graphout_Version_9' ) then
+      do i=1,nr*nThetasBs
+         read(10) ir, rad, ilat1, ilat2
+         radius(int(ir)+1) = rad
+         nth_loc=int(ilat2)-int(ilat1)+1
+         read(10) entropy(:,int(ilat1):int(ilat2),int(ir+1))
+         read(10) vr(:,int(ilat1):int(ilat2),int(ir+1))
+         read(10) vt(:,int(ilat1):int(ilat2),int(ir+1))
+         read(10) vp(:,int(ilat1):int(ilat2),int(ir+1))
+         if ( prmag /= 0 ) then
+            read(10) Br(:,int(ilat1):int(ilat2),int(ir+1))
+            read(10) Bt(:,int(ilat1):int(ilat2),int(ir+1))
+            read(10) Bp(:,int(ilat1):int(ilat2),int(ir+1))
+         end if
+      end do
+   else
+      do i=1,nr*nThetasBs
+         read(10) ir, rad, ilat1, ilat2
+         radius(int(ir)+1) = rad
+         nth_loc=int(ilat2)-int(ilat1)+1
+         do j=int(ilat1),int(ilat2)
+           read(10) entropy(:,j,int(ir+1))
+         end do
+         do j=int(ilat1),int(ilat2)
+           read(10) vr(:,j,int(ir+1))
+         end do
+         do j=int(ilat1),int(ilat2)
+           read(10) vt(:,j,int(ir+1))
+         end do
+         do j=int(ilat1),int(ilat2)
+           read(10) vp(:,j,int(ir+1))
+         end do
+         if ( prmag /= 0 ) then
+             do j=int(ilat1),int(ilat2)
+               read(10) Br(:,j,int(ir+1))
+             end do
+             do j=int(ilat1),int(ilat2)
+               read(10) Bt(:,j,int(ir+1))
+             end do
+             do j=int(ilat1),int(ilat2)
+               read(10) Bp(:,j,int(ir+1))
+             end do
+         end if
+      end do
+
+   end if
+
+   close(10)
+
+   !rearanging hemispherical data
+   do i=1,nr
+      dummy = entropy(:,:,i)
+      do j=1,nt/2
+         entropy(:,j,i)=dummy(:,2*(j-1)+1)
+         entropy(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+      end do
+      dummy = vr(:,:,i)
+      do j=1,nt/2
+         vr(:,j,i)=dummy(:,2*(j-1)+1)
+         vr(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+      end do
+      dummy = vt(:,:,i)
+      do j=1,nt/2
+         vt(:,j,i)=dummy(:,2*(j-1)+1)
+         vt(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+      end do
+      dummy = vp(:,:,i)
+      do j=1,nt/2
+         vp(:,j,i)=dummy(:,2*(j-1)+1)
+         vp(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+      end do
+      if ( prmag /= 0 ) then
+         dummy = Br(:,:,i)
+         do j=1,nt/2
+            Br(:,j,i)=dummy(:,2*(j-1)+1)
+            Br(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+         end do
+         dummy = Bt(:,:,i)
+         do j=1,nt/2
+            Bt(:,j,i)=dummy(:,2*(j-1)+1)
+            Bt(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+         end do
+         dummy = Bp(:,:,i)
+         do j=1,nt/2
+            Bp(:,j,i)=dummy(:,2*(j-1)+1)
+            Bp(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+         end do
+      end if
+   end do
+
+   deallocate(dummy)
+
+   radius = radius/(1.-radratio)
+
+   end subroutine
+!----------------------------------------------------------------------------
+end module greader

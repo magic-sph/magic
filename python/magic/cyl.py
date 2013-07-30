@@ -1,0 +1,539 @@
+# -*- coding: utf-8 -*-
+import numpy as N
+import pylab as P
+from libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
+from magic import MagicGraph, MagicSetup
+from scipy.ndimage import map_coordinates
+from scipy.interpolate import interp1d
+import os, pickle
+
+__author__  = "$Author$"
+__date__   = "$Date$"
+__version__ = "$Revision$"
+
+
+
+def sph2cyl_plane(data, rad, ns, nz):
+    ntheta, nr = data.shape
+    radius = rad[::-1]
+
+    theta = N.linspace(0., N.pi, ntheta)
+
+    Z, S = N.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+
+    new_r = N.sqrt(S**2+Z**2).ravel()
+    new_theta = N.arctan2(S, Z).ravel()
+    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
+
+    new_ir = ir(new_r)
+    new_it = it(new_theta)
+    new_ir[new_r > radius.max()] = len(radius)-1.
+    new_ir[new_r < radius.min()] = 0.
+
+    coords = N.array([new_it, new_ir])
+
+    dat_cyl = map_coordinates(data[:, ::-1], coords, order=3)
+    #dat_cyl[new_r > radius.max()] = 0.
+    #dat_cyl[new_r < radius.min()] = 0.
+    dat_cyl = dat_cyl.reshape((nz, ns))
+
+    return dat_cyl
+
+
+
+def sph2cyl(g, ns=None, nz=None):
+    if ns is None or nz is None:
+        ns = g.nr ; nz = 2*ns
+
+    theta = N.linspace(0., N.pi, g.ntheta)
+    radius = g.radius[::-1]
+
+    Z, S = N.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+
+    new_r = N.sqrt(S**2+Z**2).ravel()
+    new_theta = N.arctan2(S, Z).ravel()
+    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
+
+    new_ir = ir(new_r)
+    new_it = it(new_theta)
+    new_ir[new_r > radius.max()] = len(radius)-1.
+    new_ir[new_r < radius.min()] = 0.
+
+    coords = N.array([new_it, new_ir])
+
+    vr_cyl = N.zeros((g.npI, nz, ns), dtype='f')
+    vp_cyl = N.zeros_like(vr_cyl)
+    vt_cyl = N.zeros_like(vr_cyl)
+    for k in range(g.npI):
+        print k
+        dat = map_coordinates(g.vphi[k, :, ::-1], coords, order=3)
+        dat[new_r > radius.max()] = 0.
+        dat[new_r < radius.min()] = 0.
+        vp_cyl[k, ...] = dat.reshape((nz, ns))
+        dat = map_coordinates(g.vtheta[k, :, ::-1], coords, order=3)
+        dat[new_r > radius.max()] = 0.
+        dat[new_r < radius.min()] = 0.
+        vt_cyl[k, ...] = dat.reshape((nz, ns))
+        dat = map_coordinates(g.vr[k, :, ::-1], coords, order=3)
+        dat[new_r > radius.max()] = 0.
+        dat[new_r < radius.min()] = 0.
+        vr_cyl[k, ...] = dat.reshape((nz, ns))
+
+    th3D = N.zeros((g.npI, nz, ns), dtype='f')
+    for i in range(g.npI):
+        th3D[i, ...] = N.arctan2(S, Z)
+    vs = vr_cyl * N.sin(th3D) + vt_cyl * N.cos(th3D)
+    vz = vr_cyl * N.cos(th3D) - vt_cyl * N.sin(th3D)
+
+    return S, Z, vs, vp_cyl, vz
+
+
+class Cyl(MagicSetup):
+
+    def __init__(self, lastvar=1, avg=False, datadir='.', ns=None):
+        MagicSetup.__init__(self, datadir)
+         
+        self.datadir = datadir
+
+        filename = '%sG_%i.%s' % ('cyl', lastvar, self.tag)
+        if not os.path.exists(filename):
+            print "sph2cyl..."
+            gr = MagicGraph(ivar=lastvar, datadir=self.datadir)
+            if ns is None:
+                self.ns = gr.nr
+                self.nz = 2*self.ns
+            else:
+                self.ns = ns
+                self.nz = 2*ns
+            self.nphi = gr.nphi
+            self.npI = gr.npI
+            self.minc = gr.minc
+            self.ro = gr.radius[0]
+            self.ri = gr.radius[-1]
+            self.S, self.Z, self.vs, self.vphi, self.vz = sph2cyl(gr, 
+                                    self.ns, self.nz)
+            file = open(filename, 'wb')
+            pickle.dump([self.ns, self.nz, self.nphi, self.npI, self.minc], file)
+            pickle.dump([self.ro, self.ri], file)
+            pickle.dump([self.S, self.Z, self.vs, self.vphi, self.vz], 
+                        file)
+            file.close()
+        else:
+            print "read cyl file"
+            file = open(filename, 'r')
+            self.ns, self.nz, self.nphi, self.npI, self.minc = pickle.load(file)
+            self.ro, self.ri = pickle.load(file)
+            self.S, self.Z, self.vs, self.vphi, self.vz = \
+                         pickle.load(file)
+            file.close()
+        self.radius = N.linspace(0., self.ro, self.ns)
+        temp0, rho0, beta0 = anelprof(N.linspace(self.ro, self.ri, self.ns), 
+                                     self.strat, self.polind)
+        rho = N.zeros((self.nphi/2, self.ns), dtype='f')
+        beta = N.zeros_like(rho)
+        for i in range(self.nphi/2):
+            rho[i, :] = rho0
+            beta[i, :] = beta0
+        rho = sph2cyl_plane(rho, N.linspace(self.ro, self.ri, self.ns), 
+                                 self.ns, self.nz)
+        beta = sph2cyl_plane(beta, N.linspace(self.ro, self.ri, self.ns), 
+                                 self.ns, self.nz)
+        self.rho = N.zeros_like(self.vs)
+        self.beta = N.zeros_like(self.vs)
+        for i in range(self.npI):
+            self.rho[i, ...] = rho
+            self.beta[i, ...] = beta
+        self.z = N.linspace(-self.ro, self.ro, self.nz)
+
+    def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None, 
+             levels=16, cm='RdYlBu_r', normed=True, figsize=None):
+        r /= (1-self.ri/self.ro) # as we give a normalised radius
+        ind = N.nonzero(N.where(abs(self.radius-r) \
+                        == min(abs(self.radius-r)), 1, 0))
+        indPlot = ind[0][0]
+
+        if field in ('Vr', 'vr', 'Ur', 'ur'):
+            data = self.vp
+            label = 'Radial velocity'
+        elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
+            data = self.vphi
+            label = r'$V_{\phi}$'
+        elif field in ('Vs', 'vs'):
+            data = self.vs
+            label = 'Vs'
+        elif field in ('Vz', 'vz'):
+            data = self.vz
+            label = 'Vz'
+
+        phi = N.linspace(0., 2.*N.pi, self.nphi)
+
+        data[..., indPlot] = cut(data[..., indPlot], vmax, vmin)
+        data = symmetrize(data, self.minc)
+
+        cmap = P.get_cmap(cm)
+
+        P.figure()
+        im = P.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap, 
+                        aa=True)
+        P.xlabel(r'$\phi$', fontsize=18)
+        P.ylabel(r'$z$', fontsize=18)
+        rad = self.radius[indPlot] * (1. - self.ri/self.ro)
+        P.title('%s: $r/r_o$ = %.3f' % (label, rad), fontsize=24)
+        cbar = P.colorbar(im)
+
+        if field not in ['entropy', 's', 'S'] and normed is True:
+            im.set_clim(-max(abs(data[..., indPlot].max()), 
+                             abs(data[..., indPlot].min())), 
+                         max(abs(data[..., indPlot].max()),
+                             abs(data[..., indPlot].min())))
+
+    def equat(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmax=None,
+              vmin=None):
+        """
+        Plot the equatorial plane of a given field
+        """
+        if field in ('Vr', 'vr', 'Ur', 'ur'):
+            data = self.vp
+            label = 'Radial velocity'
+        elif field in ('beta'):
+            data = self.beta
+            label = r'$\beta$'
+        elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
+            data = self.vphi
+            label = r'$v_{\phi}$'
+        elif field in ('Vs', 'vs'):
+            data = self.vs
+            label = r'$v_s$'
+        elif field in ('Vz', 'vz'):
+            data = self.vz
+            label = r'$v_z$'
+        elif field in ('dvz'):
+            data =  cylZder(self.z, self.vz)
+            label = r'$\partial v_z/\partial z$'
+        elif field in ('anel'):
+            betas = cylSder(self.radius, N.log(self.rho))
+            betaz = cylZder(self.z, N.log(self.rho))
+            data = self.vs * betas + self.vz * betaz
+            label = r'$\beta v_r$'
+        elif field in ('Cr', 'cr'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            data =  self.rho * self.vs * vp 
+            label = r'$\langle \rho v_s v_\phi\rangle$'
+
+        equator = data[:, self.nz/2,:]
+        equator = cut(equator, vmax, vmin)
+        equator = symmetrize(equator, self.minc)
+
+        phi = N.linspace(0., 2.*N.pi, self.nphi)
+        rr, pphi = N.meshgrid(self.radius, phi)
+        xx = rr * N.cos(pphi)
+        yy = rr * N.sin(pphi)
+
+        fig = P.figure(figsize=(8.25, 6))
+        ax = fig.add_subplot(111, frameon=False)
+        cmap = P.get_cmap(cm)
+        im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
+        ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
+        ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
+        P.title(label, fontsize=24)
+        P.axis('off')
+        fig.colorbar(im)
+
+        if field not in ['entropy', 's', 'S'] and normed is True:
+            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+                         max(abs(equator.max()), abs(equator.min())))
+
+    def avg(self, field='Bphi', levels=16, cm='RdYlBu_r', normed=True,
+            vmax=None, vmin=None):
+        """
+        Plot the azimutal average of a given field.
+        """
+        if field in ('Vr', 'vr', 'Ur', 'ur'):
+            data = self.vp
+            label = 'Radial velocity'
+        elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
+            data = self.vphi
+            label = r'$V_{\phi}$'
+        elif field in ('Vs', 'vs'):
+            data = self.vs
+            label = 'Vs'
+        elif field in ('Vz', 'vz'):
+            data = self.vz
+            label = 'Vz'
+        elif field in ('rho'):
+            data = self.rho
+            label = r'$\rho$'
+        elif field in ('Cr', 'cr'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            data =  self.vs * vp
+            denom = N.sqrt(N.mean(self.vs**2, axis=0)* N.mean(vp**2, axis=0))
+            label = r'$\langle v_s v_\phi\rangle$'
+
+        th = N.linspace(0., N.pi, 128)
+
+        if field not in ('Cr', 'cr'):
+            phiavg = data.mean(axis=0)
+        else:
+            mask = N.where(denom == 0, 1, 0)
+            phiavg = data.mean(axis=0)/(denom+mask)
+            m1 = N.sqrt(self.S**2+self.Z**2) >= self.ri
+            m2 = N.sqrt(self.S**2+self.Z**2) <= self.ro
+            m3 = self.S <= self.ri
+            m4 = self.S >= self.ri
+            print 'Correlation', phiavg[m1*m2].mean()
+            print 'Correlation out TC', phiavg[m1*m2*m4].mean()
+            print 'Correlation in TC', phiavg[m1*m2*m3].mean()
+
+        phiavg = cut(phiavg, vmax, vmin)
+
+        fig = P.figure(figsize=(5.5, 8))
+        ax = fig.add_subplot(111, frameon=False)
+        cmap = P.get_cmap(cm)
+        im = ax.contourf(self.S, self.Z, phiavg, levels, cmap=cmap)
+        ax.plot(self.ri*N.sin(th), self.ri*N.cos(th), 'k-')
+        ax.plot(self.ro*N.sin(th), self.ro*N.cos(th), 'k-')
+        P.plot([0., 0], [self.ri, self.ro], 'k-')
+        P.plot([0., 0], [-self.ri, -self.ro], 'k-')
+        P.title(label, fontsize=24)
+        P.axis('off')
+        fig.colorbar(im)
+
+        if field not in ['entropy', 's', 'S'] and normed is True:
+            im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
+                         max(abs(phiavg.max()), abs(phiavg.min())))
+
+    def avgz(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmin=None,
+             vmax=None, avg=False):
+        """
+        Plot the z-average of a given field
+        """
+        phi = N.linspace(0., 2.*N.pi, self.nphi)
+        rr, pphi = N.meshgrid(self.radius, phi)
+        xx = rr * N.cos(pphi)
+        yy = rr * N.sin(pphi)
+        if field in ('Vr', 'vr', 'Ur', 'ur'):
+            data = self.vphi
+            label = 'Radial velocity'
+        elif field in ('betaz'):
+            betaz = cylZder(self.z, N.log(self.rho))
+            data =  self.vz * betaz
+            data *= self.vs
+            label = r'$\beta_z u_z$'
+        elif field in ('betas'):
+            betas = cylSder(self.radius, N.log(self.rho))
+            data =  self.vs * betas
+            data *= self.vs
+            label = r'$\beta_s u_s$'
+        elif field in ('rho'):
+            data = self.rho
+            label = r'$\rho$'
+        elif field in ('anel'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            betas = cylSder(self.radius, N.log(self.rho))
+            betaz = cylZder(self.z, N.log(self.rho))
+            data = self.vs * betas + self.vz * betaz
+            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            mask = N.where(self.S == 0, 1, 0)
+            data1 = data1/(self.S+mask)
+            data *= data1
+            label = r'$\beta u_r$'
+        elif field in ('vortz'):
+            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            mask = N.where(self.S == 0, 1, 0)
+            data = data/(self.S+mask)
+            label = r'$\omega_z$'
+        elif field in ('vopot'):
+            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            mask = N.where(self.S == 0, 1, 0)
+            data = data/(self.S+mask)
+            data = data-2./self.ek*N.log(self.rho)
+            label = r'vopot'
+        elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
+            data = self.vphi
+            label = r'$V_{\phi}$'
+        elif field in ('Vs', 'vs'):
+            data = self.vs
+            label = r'$v_s$'
+        elif field in ('Vz', 'vz'):
+            data = self.vz
+            label = r'$v_z$'
+        elif field in ('vpc'):
+            data = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            label = r'$v_p$ conv'
+        elif field in ('Cr', 'cr'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            data =  self.rho * self.vs * vp
+            denom = N.zeros((self.npI, self.ns), dtype='f')
+            label = r'$\langle \rho v_s v_\phi\rangle$'
+        elif field in ('reynolds'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            phi = N.linspace(0., 2.*N.pi, self.npI)
+            data =  self.rho * self.vs * vp
+            label = r'$\rho v_s v_\phi$'
+        elif field in ('vsvp'):
+            vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
+            phi = N.linspace(0., 2.*N.pi, self.npI)
+            data =  self.vs * vp
+            label = r'$v_s v_\phi$'
+        elif field in ('vrvs'):
+            th2D = N.arctan2(self.S, self.Z)
+            vr = self.vs * N.sin(th2D) + self.vz * N.cos(th2D)
+            phi = N.linspace(0., 2.*N.pi, self.npI)
+            data =  self.vs * vr
+            denom = N.zeros((self.npI, self.ns), dtype='f')
+            label = r'$\rho v_s v_r$'
+        elif field in ('dvz'):
+            data =  cylZder(self.z, self.vz)
+            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            mask = N.where(self.S == 0, 1, 0)
+            data1 = data1/(self.S+mask)
+            data *= data1
+            label = r'$\partial v_z/\partial z$'
+        elif field in ('balance'):
+            label = r'$\partial v_z/\partial z+\beta v_r$'
+            data =  cylZder(self.z, self.vz)
+            betas = cylSder(self.radius, N.log(self.rho))
+            betaz = cylZder(self.z, N.log(self.rho))
+            data1 = self.vs * betas + self.vz * betaz
+            data += data1
+            data2 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            mask = N.where(self.S == 0, 1, 0)
+            data2 = data2/(self.S+mask)
+            data *= data2
+
+        equator = N.zeros((self.npI, self.ns), dtype='f')
+        for i, rad in enumerate(self.radius):
+            if rad <= self.ri:
+                zo = N.sqrt(self.ro**2-rad**2) 
+                zi = N.sqrt(self.ri**2-rad**2) 
+                m1 = abs(self.z) <= zo
+                m2 = abs(self.z) >= zi
+                equator[:, i] = data[:, m1*m2, i].mean(axis=1)
+                if field  in ('Cr', 'cr'):
+                    denom[:, i] = N.sqrt( \
+                   N.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
+                 * N.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
+                elif field in ('vrvs'):
+                    denom[:, i] = N.sqrt( \
+                   N.mean(vr[:, m1*m2, i]**2, axis=1)\
+                 * N.mean(self.vs[:, m1*m2, i]**2, axis=1))
+            elif rad > self.ri and rad < self.ro:
+                zo = N.sqrt(self.ro**2-rad**2) 
+                m1 = self.z >= -zo
+                m2 = self.z <= zo
+                equator[:, i] = data[:, m1*m2, i].mean(axis=1)
+                if field  in ('Cr', 'cr'):
+                    denom[:, i] = N.sqrt( \
+                   N.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
+                 * N.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
+                elif field in ('vrvs'):
+                    denom[:, i] = N.sqrt( \
+                   N.mean(vr[:, m1*m2, i]**2, axis=1)\
+                 * N.mean(self.vs[:, m1*m2, i]**2, axis=1))
+        if field  in ('Cr', 'cr', 'vrvs'):
+            mask = N.where(denom == 0, 1, 0)
+            equator /= (denom+mask)
+
+        equator = cut(equator, vmax, vmin)
+        equator = symmetrize(equator, self.minc)
+
+
+        fig = P.figure(figsize=(8.25, 6))
+        ax = fig.add_subplot(111, frameon=False)
+        cmap = P.get_cmap(cm)
+        im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
+        ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
+        ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
+        P.title(label, fontsize=24)
+        P.axis('off')
+        fig.colorbar(im)
+        if avg:
+            P.figure()
+            if field in ('vphi'):
+                dat  = N.mean(equator, axis=0)
+                dat = dat[:-1]
+                P.plot(self.radius[:-1], dat)
+            else:
+                P.plot(self.radius, N.mean(equator, axis=0))
+            P.xlabel('Radius', fontsize=18)
+            P.xlim(0, self.radius.max())
+
+        if field not in ['entropy', 's', 'S'] and normed is True:
+            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+                         max(abs(equator.max()), abs(equator.min())))
+
+    def slice(self, field='Bphi', lon_0=0., levels=16, cm='RdYlBu_r', 
+              normed=True):
+        """
+        Plot an azimuthal slice of a given field.
+        """
+        if field in ('Vr', 'vr', 'Ur', 'ur'):
+            data = self.vp
+            label = 'Radial velocity'
+        elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
+            data = self.vphi
+            label = r'$V_{phi}$'
+        elif field in ('Vs', 'vs'):
+            data = self.vs
+            label = r'$V_s$'
+        elif field in ('Vz', 'vz'):
+            data = self.vz
+            label = r'$V_z$'
+
+        data = symmetrize(data, self.minc)
+
+        th = N.linspace(-N.pi/2, N.pi/2, 128)
+        phi = N.linspace(0., 360, self.nphi)
+
+        lon_0 = N.asarray(lon_0)
+        
+        cmap = P.get_cmap(cm)
+
+        if len(lon_0) > 1:
+            fig = P.figure(figsize=(3.5*len(lon_0), 5.1))
+            for k, lon in enumerate(lon_0):
+                ind = N.nonzero(N.where(abs(phi-lon) \
+                                == min(abs(phi-lon)), 1, 0))
+                indPlot = ind[0][0]
+                phislice = data[indPlot, ...]
+                ax = fig.add_subplot(1,len(lon_0),k+1, frameon=False)
+
+                im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
+                ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
+                ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
+                P.plot([0., 0], [self.ri, self.ro], 'k-')
+                P.plot([0., 0], [-self.ri, -self.ro], 'k-')
+                P.axis('off')
+                P.title(label+r' $%i^\circ$' % lon)
+                #fig.colorbar(im, orientation='horizontal')
+
+        else:
+            ind = N.nonzero(N.where(abs(phi-lon_0[0]) \
+                            == min(abs(phi-lon_0[0])), 1, 0))
+            indPlot = ind[0][0]
+            phislice = data[indPlot, ...]
+
+            fig = P.figure(figsize=(5.5, 8))
+            ax = fig.add_subplot(111, frameon=False)
+            im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
+            ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
+            ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
+            P.plot([0., 0], [self.ri, self.ro], 'k-')
+            P.plot([0., 0], [-self.ri, -self.ro], 'k-')
+            P.title(label, fontsize=24)
+            P.axis('off')
+            fig.colorbar(im)
+
+        if field not in ['entropy', 's', 'S'] and normed is True:
+            im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+                         max(abs(phislice.max()), abs(phislice.min())))
+
+
+
+
+if __name__ == '__main__':
+    c=Cyl(lastvar=1)
+    c.equat(field='vs', normed=False)
+    P.show()

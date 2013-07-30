@@ -1,0 +1,57 @@
+#!/bin/sh
+#                      magic_setup
+#                      -----------
+# Description:
+#   Link files into a local src directory
+#   Also link script files from the bin directory ==> should be renamed
+#
+#
+#-----------------------------------------------------------------------------
+make_src_dir()
+{
+## src subdirectory
+  if [ ! -d src ]; then
+    echo "No src directory found: creating new one (`pwd`/src)."
+    mkdir src
+  fi
+}
+#
+link_src_files()
+{
+#
+#  LINK all *.f90, *.f, *.cpp, *.F90 and the Makefile to local src directory
+#
+  echo "Linking files in 'src'."
+  old_dir="`pwd`"
+  cd src
+  n=0
+  to_link=
+  for file in $srcdir/Makefile $srcdir/*.cpp $srcdir/*.F90
+  do
+    if [ -f $file ] || [ -d $file ]; then
+      if [ -h "`basename $file`" ]; then
+        rm -f "`basename $file`"
+        to_link="$to_link $file"
+        #ln -s $file .
+      elif [ -f "`basename $file`" ] \
+        || [ -d "`basename $file`" ]; then
+        n="`expr $n + 1`"
+        existf="$existf`basename $file` "
+      else
+        to_link="$to_link $file"
+        #ln -s $file .
+      fi
+    else
+      echo "No such file: $file"
+    fi
+  done
+  [ "$to_link" ] && ln -s $to_link .
+  cd $old_dir
+}
+#
+srcdir=$MAGIC_HOME/src
+#
+echo "Files will be linked to the root code directory '$magic_home_path'."
+#
+make_src_dir
+link_src_files

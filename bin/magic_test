@@ -1,0 +1,9 @@
+#!/bin/sh
+
+magic_setup
+cp $MAGIC_HOME/bin/run_magic.sh .
+cp truncation.f src/
+echo "---> Compilation start"
+magic_build
+echo "<--- Compilation finished"
+./run_magic.sh
