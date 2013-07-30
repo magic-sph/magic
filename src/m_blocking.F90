@@ -11,7 +11,8 @@ MODULE blocking
   USE parallel_mod
   USE truncation
   USE output_data
-
+  USE LMmapping,ONLY: mappings,allocate_mappings,&
+       & allocate_subblocks_mappings,subblocks_mappings!,sizeLMB2max
   IMPLICIT NONE
 
   !------------------------------------------------------------------------
@@ -26,26 +27,31 @@ MODULE blocking
   INTEGER,PARAMETER :: nChunk=512
   INTEGER :: nThreadsMax
   ! nthreads > 1
-  INTEGER,ALLOCATABLE :: lm2(:,:),lm2l(:),lm2m(:)
-  INTEGER,ALLOCATABLE :: lm2mc(:),l2lmAS(:)
-  !INTEGER,ALLOCATABLE :: m2mc(:)
-  INTEGER,ALLOCATABLE :: lm2lmS(:),lm2lmA(:)
+  INTEGER,POINTER :: lm2(:,:),lm2l(:),lm2m(:)
+  INTEGER,POINTER :: lm2mc(:),l2lmAS(:)
+  INTEGER,POINTER :: lm2lmS(:),lm2lmA(:)
 
-  INTEGER,ALLOCATABLE :: lmP2(:,:),lmP2l(:)!,lmP2m(:)
-  !INTEGER,ALLOCATABLE :: l2lmPAS(:)
-  INTEGER,ALLOCATABLE :: lmP2lmPS(:),lmP2lmPA(:)
+  INTEGER,POINTER :: lmP2(:,:),lmP2l(:)
+  INTEGER,POINTER :: lmP2lmPS(:),lmP2lmPA(:)
 
-  INTEGER,ALLOCATABLE :: lm2lmP(:),lmP2lm(:)
+  INTEGER,POINTER :: lm2lmP(:),lmP2lm(:)
+
+  
+  TYPE(mappings),target :: st_map
+  TYPE(mappings),target :: lo_map
 
   !INTEGER :: nLMBsMax
   INTEGER :: nLMBs,sizeLMB
 
   INTEGER,ALLOCATABLE :: lmStartB(:),lmStopB(:)
-  INTEGER,ALLOCATABLE :: nLMBs2(:),sizeLMB2(:,:)
-  INTEGER,PARAMETER :: sizeLMB2max=201
-  INTEGER,ALLOCATABLE :: lm22lm(:,:,:)
-  INTEGER,ALLOCATABLE :: lm22l(:,:,:)
-  INTEGER,ALLOCATABLE :: lm22m(:,:,:)
+  !INTEGER,PARAMETER :: sizeLMB2max=201
+
+  INTEGER,POINTER :: nLMBs2(:),sizeLMB2(:,:)
+  INTEGER,POINTER :: lm22lm(:,:,:)
+  INTEGER,POINTER :: lm22l(:,:,:)
+  INTEGER,POINTER :: lm22m(:,:,:)
+
+  TYPE(subblocks_mappings),TARGET :: st_sub_map, lo_sub_map
 
   INTEGER :: sizeRB
 
@@ -86,22 +92,33 @@ MODULE blocking
   INTEGER,PARAMETER :: sizeThetaBI=284,nBSave=16,nBDown=8
 
   INTEGER :: nThetaBs,sizeThetaB
-
 contains
   SUBROUTINE initialize_blocking
     integer :: nThreadsAva
 
+    REAL(kind=8) :: load
+    INTEGER :: iLoad
+    INTEGER :: n
+    integer :: LMB_with_l1m0,l1m0,irank
+
+    character(len=255) :: message
+    !--- End of declaration
+
     ! nthreads > 1
-    ALLOCATE( lm2(0:l_max,0:l_max),lm2l(lm_max),lm2m(lm_max) )
-    ALLOCATE( lm2mc(lm_max),l2lmAS(0:l_max) )
-    !ALLOCATE( m2mc(0:l_max) )
-    ALLOCATE( lm2lmS(lm_max),lm2lmA(lm_max) )
+    !ALLOCATE( lm2(0:l_max,0:l_max),lm2l(lm_max),lm2m(lm_max) )
+    !ALLOCATE( lm2mc(lm_max),l2lmAS(0:l_max) )
+    !ALLOCATE( lm2lmS(lm_max),lm2lmA(lm_max) )
 
-    ALLOCATE( lmP2(0:l_max+1,0:l_max+1),lmP2l(lmP_max) )!,lmP2m(lmP_max) )
-    !ALLOCATE( l2lmPAS(0:l_max+1) )
-    ALLOCATE( lmP2lmPS(lmP_max),lmP2lmPA(lmP_max) )
+    !ALLOCATE( lmP2(0:l_max+1,0:l_max+1),lmP2l(lmP_max) )
+    !ALLOCATE( lmP2lmPS(lmP_max),lmP2lmPA(lmP_max) )
+    !ALLOCATE( lm2lmP(lm_max),lmP2lm(lmP_max) )
 
-    ALLOCATE( lm2lmP(lm_max),lmP2lm(lmP_max) )
+    CALL allocate_mappings(st_map,l_max,lm_max,lmP_max)
+    CALL allocate_mappings(lo_map,l_max,lm_max,lmP_max)
+
+    IF ( (rank.EQ.0).AND.l_save_out ) THEN
+       OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
+    END IF
 
     !--- Setting and checking thread number
     !    The number of threads can be selected by the input
@@ -119,305 +136,137 @@ contains
     END IF
 #ifdef WITHOMP
     CALL OMP_SET_NUM_THREADS(nThreads)
-#endif
     WRITE(*,*)
     WRITE(*,*) '! Max thread number available :',nThreadsAva
     WRITE(*,*) '! Max thread number demanded  :',nThreadsRun
     WRITE(*,*) '! Number of threads I will use:',nThreads
     WRITE(*,*)
-
-#ifdef WITH_MPI
-    nLMBs=2*((lm_max-1)/(nChunk*n_procs)+1) * n_procs
-#else
-#ifdef WITHOMP
-    nThreadsMax = omp_get_max_threads()
-#else
-    nThreadsMax = 1
-#endif
-    nLMBs=2*((lm_max-1)/(nChunk*nThreads)+1) * nThreads
-#endif
-
-    ALLOCATE( lmStartB(nLMBs),lmStopB(nLMBs) )
-    ALLOCATE( nLMBs2(nLMBs),sizeLMB2(l_max+1,nLMBs) )
-    ALLOCATE( lm22lm(sizeLMB2max,l_max+1,nLMBs) )
-    ALLOCATE( lm22l(sizeLMB2max,l_max+1,nLMBs) )
-    ALLOCATE( lm22m(sizeLMB2max,l_max+1,nLMBs) )
-
-    nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
-
-  END SUBROUTINE initialize_blocking
-
-  !***********************************************************************
-  SUBROUTINE getBlocking
-
-    INTEGER :: lm,l,m,n,n2,n3
-    INTEGER :: lmP,mc
-    INTEGER :: nThreadsAva,nB2
-
-    INTEGER :: check(0:l_max,0:l_max)
-    INTEGER :: help,help1(lm_max),help2(lm_max),help3(lm_max)
-
-    integer :: lmP2m(lmP_max)
-    REAL(kind=8) :: load
-    INTEGER :: iLoad
-
-    LOGICAL :: lStop
-    INTEGER :: size, necessary_nLMBs
-
-    !--- End of declaration
-    !----------------------------------------------------------------------
-
-    IF ( l_save_out ) THEN
-       OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
-    END IF
-
-#ifdef WITHOMP
-    nThreadsAva=OMP_GET_NUM_PROCS()
-#else
-    nThreadsAva=1
-#endif
     WRITE(nLF,*)
     WRITE(nLF,*) '! Max thread number available :',nThreadsAva
     WRITE(nLF,*) '! Max thread number demanded  :',nThreadsRun
     WRITE(nLF,*) '! Number of threads I will use:',nThreads
     WRITE(nLF,*)
+#endif
 
 
-
-    IF ( l_RMS .AND. nThreads > nThreadsMax ) THEN
-       WRITE(*,*) '! Too small value of nThreadsMax !'
-       WRITE(*,*) '! for calculating RMS forces!'
-       WRITE(*,*) '! See c_RMS.f!'
-       WRITE(*,*) '! Increase nThreadsMax in m_blocking.F90!'
-       STOP
+    IF (rank.EQ.0) THEN
+       WRITE(message,*) '! Number of ranks I will use:',n_procs
+       call logWrite(message)
     END IF
 
-    !--- Get radial blocking
-    IF ( MOD(n_r_max-1,nThreads) /= 0 ) THEN
-       WRITE(*,*) 'Number of threads has to be multiple of n_r_max-1!'
-       WRITE(*,*) 'nThreads :',nThreads
-       WRITE(*,*) 'n_r_max-1:',n_r_max-1
-       STOP
-    END IF
-    sizeRB=(n_r_max-1)/nThreads
-
-    !--- Calculate lm and ml blocking:
-
-    DO m=0,l_max
-       DO l=m,l_max
-          lm2(l,m)  =-1
-          lmP2(l,m) =-1
-          check(l,m)=0
-       END DO
-       l=l_max+1
-       lmP2(l,m)=-1
-    END DO
-
-    lm =0
-    lmP=0
-    mc =0
-    DO m=0,l_max,minc
-       mc=mc+1
-       !m2mc(m)=mc
-       DO l=m,l_max
-          lm         =lm+1
-          lm2l(lm)   =l
-          lm2m(lm)   =m
-          lm2mc(lm)  =mc
-          lm2(l,m)   =lm
-          IF ( m == 0 ) l2lmAS(l)=lm
-          lmP        =lmP+1
-          lmP2l(lmP) =l
-          lmP2m(lmP) =m
-          lmP2(l,m)  =lmP
-          !IF ( m == 0 ) l2lmPAS(l)=lmP
-          lm2lmP(lm) =lmP
-          lmP2lm(lmP)=lm
-       END DO
-       l=l_max+1    ! Extra l for lmP
-       lmP=lmP+1
-       lmP2l(lmP) =l
-       lmP2m(lmP) =m
-       lmP2(l,m)  =lmP
-       !IF ( m == 0 ) l2lmPAS(l)=lmP
-       lmP2lm(lmP)=-1
-    END DO
-    IF ( lm /= lm_max ) THEN
-       WRITE(*,*) 'Wrong lm!'
-       STOP
-    END IF
-    IF ( lmP /= lmP_max ) THEN
-       WRITE(*,*) 'Wrong lmP!'
-       STOP
-    END IF
-    DO lm=1,lm_max
-       l=lm2l(lm)
-       m=lm2m(lm)
-       IF ( l > 0 .AND. l > m ) THEN
-          lm2lmS(lm)=lm2(l-1,m)
-       ELSE
-          lm2lmS(lm)=-1
-       END IF
-       IF ( l < l_max ) THEN
-          lm2lmA(lm)=lm2(l+1,m)
-       ELSE
-          lm2lmA(lm)=-1
-       END IF
-    END DO
-    DO lm=1,lmP_max
-       l=lmP2l(lm)
-       m=lmP2m(lm)
-       IF ( l > 0 .AND. l > m ) THEN
-          lmP2lmPS(lm)=lmP2(l-1,m)
-       ELSE
-          lmP2lmPS(lm)=-1
-       END IF
-       IF ( l < l_max+1 ) THEN
-          lmP2lmPA(lm)=lmP2(l+1,m)
-       ELSE
-          lmP2lmPA(lm)=-1
-       END IF
-    END DO
-
-    !--- Check whether we need less than nLMBsMax blocks:
-    !#ifdef WITH_MPI
-    !  nLMBs  =((lm_max-1)/(nChunk*n_procs)+1)*n_procs
-    !#else
-    !  nLMBs  =((lm_max-1)/(nChunk*nThreads)+1)*nThreads
-    !#endif
-    !       nLMBs=nThreads
+    nLMBs = n_procs
+    nLMBs_per_rank = nLMBs/n_procs
+    nThreadsMax = 1
+    !PRINT*,"nLMBs first = ",nLMBs
     sizeLMB=(lm_max-1)/nLMBs+1
-    !  IF ( nLMBs > nLMBsMax ) THEN
-    !     WRITE(*,*) '! Too small nLMBsMax in m_blocking.F90!'
-    !     WRITE(*,*) '! nLMBs=',nLMBs
-    !     WRITE(*,*) '! nLMBsMax=',nLMBsMax
-    !     WRITE(*,*) '! nThreads=',nThreads
-    !     WRITE(*,*) '! nThreadsMax=',nThreadsMax
-    !     WRITE(*,*) '! Increase nThreadsMax!'
-    !     STOP
-    !  END IF
-    !PRINT*,"lm_max = ",lm_max,", nLMBs = ",nLMBs,", nThreads = ",nThreads
-    necessary_nLMBs = (lm_max+(sizeLMB-1))/sizeLMB
-    IF ( necessary_nLMBs .LT. nLMBs ) THEN
-       WRITE(*,*) '!  Not all lm-Blocks necessary!'
-       WRITE(*,*) '!  No of redundant blocks:',nLMBs-necessary_nLMBs
-       nLMBs = necessary_nLMBs
-    END IF
+    !nLMBs = nLMBs - (nLMBs*sizeLMB-lm_max)/sizeLMB
+
     IF ( nLMBs*sizeLMB > lm_max ) THEN
-       WRITE(*,*) '! Uneven load balancing in LM blocks!'
+       WRITE(message,*) '! Uneven load balancing in LM blocks!'
+       call logWrite(message)
        load=DBLE(lm_max-(nLMBs-1)*sizeLMB)/sizeLMB
-       WRITE(*,*) '! Load percentage of last block:',load*100.D0
+       WRITE(message,*) '! Load percentage of last block:',load*100.D0
+       call logWrite(message)
        iLoad=INT(load,4)
        IF ( iLoad >= 1 ) THEN
           WRITE(*,*) '! No. of redundant blocks:',iLoad
           nLMBs=nLMBs-iLoad
        END IF
     END IF
-    !--- Get lm start and stop for main blocks:
-    DO n=1,nLMBs
-       lmStartB(n)=(n-1)*sizeLMB+1
-       lmStopB(n) =MIN(n*sizeLMB,lm_max)
-       WRITE(*,*) n,lmStartB(n),lmStopB(n),lmStopB(n)-lmStartB(n)+1
-       IF ( lmStopB(n) == lm_max ) EXIT
-    END DO
+    !PRINT*,"nLMBs final = ",nLMBs
+    ALLOCATE( lmStartB(nLMBs),lmStopB(nLMBs) )
+    !ALLOCATE( nLMBs2(nLMBs),sizeLMB2(l_max+1,nLMBs) )
+    !ALLOCATE( lm22lm(sizeLMB2max,l_max+1,nLMBs) )
+    !ALLOCATE( lm22l(sizeLMB2max,l_max+1,nLMBs) )
+    !ALLOCATE( lm22m(sizeLMB2max,l_max+1,nLMBs) )
 
-    !--- Getting lm sub-blocks:
-    lStop=.FALSE.
-    size=0
-    nB2=0
-    DO n=1,nLMBs
-       nLMBs2(n)=1
-       lm=lmStartB(n)
-       !------ Start first sub-block:
-       sizeLMB2(1,n) =1
-       lm22lm(1,1,n) =lm
-       lm22l(1,1,n)  =lm2l(lm)
-       lm22m(1,1,n)  =lm2m(lm)
-       IF ( lmStartB(n) < lmStopB(n) ) THEN
-          DO lm=lmStartB(n)+1,lmStopB(n)
-             DO n2=1,nLMBs2(n)
-                IF ( lm22l(1,n2,n) == lm2l(lm) ) THEN
-                   !------ Add to old block
-                   sizeLMB2(n2,n)=sizeLMB2(n2,n)+1
-                   GOTO 20
-                END IF
-             END DO
-             !------ Start new l-block:
-             n2            =nLMBs2(n)+1
-             nLMBs2(n)     =n2
-             sizeLMB2(n2,n)=1
-20           CONTINUE
-             lm22lm(sizeLMB2(n2,n),n2,n)=lm
-             lm22l(sizeLMB2(n2,n),n2,n) =lm2l(lm)
-             lm22m(sizeLMB2(n2,n),n2,n) =lm2m(lm)
-          END DO
+    nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
+
+
+    IF ( l_RMS .AND. nThreads > nThreadsMax ) THEN
+       IF (rank.EQ.0) THEN
+          WRITE(*,*) '! Too small value of nThreadsMax !'
+          WRITE(*,*) '! for calculating RMS forces!'
+          WRITE(*,*) '! See c_RMS.f!'
+          WRITE(*,*) '! Increase nThreadsMax in m_blocking.F90!'
        END IF
-
-       !------ Resort:
-       IF ( nLMBs2(n) > 1 ) THEN
-          n2=1
-30        DO n3=n2+1,nLMBs2(n)
-             IF  ( lm22m(1,n2,n) > lm22m(1,n3,n) ) THEN
-                help=sizeLMB2(n2,n)
-                DO lm=1,help
-                   help1(lm)=lm22l(lm,n2,n)
-                   help2(lm)=lm22m(lm,n2,n)
-                   help3(lm)=lm22lm(lm,n2,n)
-                END DO
-                sizeLMB2(n2,n)=sizeLMB2(n3,n)
-                DO lm=1,sizeLMB2(n2,n)
-                   lm22l(lm,n2,n) =lm22l(lm,n3,n)
-                   lm22m(lm,n2,n) =lm22m(lm,n3,n)
-                   lm22lm(lm,n2,n)=lm22lm(lm,n3,n)
-                END DO
-                sizeLMB2(n3,n)=help
-                DO lm=1,help
-                   lm22l(lm,n3,n) =help1(lm)
-                   lm22m(lm,n3,n) =help2(lm)
-                   lm22lm(lm,n3,n)=help3(lm)
-                END DO
-                GOTO 30
-             END IF
-          END DO
-          n2=n2+1
-          IF ( n2 == nLMBs2(n) ) GOTO 40
-          GOTO 30
-       END IF
-40     CONTINUE
-
-       nB2=nB2+nLMBs2(n)
-       DO n2=1,nLMBs2(n)
-          IF ( sizeLMB2(n2,n) > sizeLMB2max ) THEN
-             lStop=.TRUE.
-             size=MAX(size,sizeLMB2(n2,n))
-          END IF
-          DO n3=1,sizeLMB2(n2,n)
-             l=lm22l(n3,n2,n)
-             m=lm22m(n3,n2,n)
-             check(l,m)=check(l,m)+1
-          END DO
-          !             WRITE(99,*) n,n2,sizeLMB2(n2,n)
-       END DO
-
-    END DO
-    IF ( lStop ) THEN
-       WRITE(*,*) '! Increase sizeLMB2max in m_blocking.F90!'
-       WRITE(*,*) '! to at least:',size
        STOP
     END IF
 
+    !--- Get radial blocking
+    IF ( MOD(n_r_max-1,nThreads) /= 0 ) THEN
+       IF (rank.EQ.0) THEN
+          WRITE(*,*) 'Number of threads has to be multiple of n_r_max-1!'
+          WRITE(*,*) 'nThreads :',nThreads
+          WRITE(*,*) 'n_r_max-1:',n_r_max-1
+       END IF
+       STOP
+    END IF
+    sizeRB=(n_r_max-1)/nThreads
 
-    DO m=0,l_max,minc
-       DO l=m,l_max
-          IF ( check(l,m) == 0 ) THEN
-             WRITE(*,*) 'Warning, forgotten l,m:',l,m,lm2(l,m)
-             STOP
-          ELSE IF ( check(l,m) > 1 ) THEN
-             WRITE(*,*) 'Warning, too much l,m:',l,m,check(l,m)
-             STOP
-          END IF
-       END DO
+    DO n=1,nLMBs
+       lmStartB(n)=(n-1)*sizeLMB+1
+       lmStopB(n) =MIN(n*sizeLMB,lm_max)
+       WRITE(message,*) n,lmStartB(n),lmStopB(n),lmStopB(n)-lmStartB(n)+1
+       CALL logWrite(message)
+       IF ( lmStopB(n) == lm_max ) EXIT
     END DO
+
+    !--- Calculate lm and ml blocking:
+
+    CALL get_standard_lm_blocking(st_map,minc)
+    !CALL get_standard_lm_blocking(lo_map,minc)
+    CALL get_lorder_lm_blocking(lo_map,minc)
+
+    !--- Get the block (rank+1) with the l1m0 mode
+    l1m0 = st_map%lm2(1,0)
+    DO n=1,nLMBs
+       IF ( (l1m0.GE.lmStartB(n)) .AND. (l1m0.LE.lmStopB(n)) ) THEN
+          LMB_with_l1m0=n
+          exit
+       END IF
+    END DO
+
+    ! which rank does have the LMB with LMB_with_l1m0?
+    do irank=0,n_procs-1
+       IF ((LMB_with_l1m0-1.GE.irank*nLMBs_per_rank).AND.&
+            &(LMB_with_l1m0-1.LE.(irank+1)*nLMBs_per_rank-1)) THEN
+          rank_with_l1m0 = irank
+       end if
+    end do
+    WRITE(message,"(2(A,I4))") "rank no ",rank_with_l1m0," has l1m0 in block ",LMB_with_l1m0
+    CALL logWrite(message)
+       
+    ! set the standard ordering as default
+    lm2(0:l_max,0:l_max) => st_map%lm2
+    lm2l(1:lm_max) => st_map%lm2l
+    lm2m(1:lm_max) => st_map%lm2m
+    lm2mc(1:lm_max)=> st_map%lm2mc
+    l2lmAS(0:l_max)=> st_map%l2lmAS
+    lm2lmS(1:lm_max) => st_map%lm2lmS
+    lm2lmA(1:lm_max) => st_map%lm2lmA
+    lmP2(0:l_max+1,0:l_max+1) => st_map%lmP2
+    lmP2l(1:lmP_max) => st_map%lmP2l
+    lmP2lmPS(1:lmP_max) => st_map%lmP2lmPS
+    lmP2lmPA(1:lmP_max) => st_map%lmP2lmPA
+    lm2lmP(1:lm_max) => st_map%lm2lmP
+    lmP2lm(1:lmP_max) => st_map%lmP2lm
+
+    CALL allocate_subblocks_mappings(st_sub_map,st_map,nLMBs,l_max,lmStartB,lmStopB)
+    CALL allocate_subblocks_mappings(lo_sub_map,lo_map,nLMBs,l_max,lmStartB,lmStopB)
+
+    !--- Getting lm sub-blocks:
+    !PRINT*," ---------------- Making the standard subblocks -------------- "
+    CALL get_subblocks(st_map, st_sub_map) !nLMBs,lm2l,lm2m, nLMBs2,sizeLMB2,lm22lm,lm22l,lm22m)
+    !PRINT*," ---------------- Making the lorder subblocks -------------- "
+    CALL get_subblocks(lo_map, lo_sub_map)
+
+    ! default mapping
+    nLMBs2(1:nLMBs) => st_sub_map%nLMBs2
+    sizeLMB2(1:l_max+1,1:nLMBs) => st_sub_map%sizeLMB2
+    lm22lm(1:st_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => st_sub_map%lm22lm
+    lm22l(1:st_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => st_sub_map%lm22l
+    lm22m(1:st_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => st_sub_map%lm22m
 
     !-- Calculate blocking parameters for blocking loops over theta:
     !   This is not relevant for parallelisation so far.
@@ -455,33 +304,343 @@ contains
 
 
 
-    WRITE(*,*) '!-- Blocking information:'
-    WRITE(*,*)
-    WRITE(*,*) '!    Number of LM-blocks:',nLMBs
-    WRITE(*,*) '!    Size   of LM-blocks:',sizeLMB
-    WRITE(*,*) '!               nChunk  :',nChunk
-    WRITE(*,*) '!               nThreads:',nThreads
-    WRITE(*,*)
-    WRITE(*,*) '! Number of theta blocks:',nThetaBs
-    WRITE(*,*) '!   size of theta blocks:',sizeThetaB
-    WRITE(*,*) '!       ideal size (nfs):',nfs
-    WRITE(nLF,*) '!-- Blocking information:'
-    WRITE(nLF,*)
-    WRITE(nLF,*) '!    Number of LM-blocks:',nLMBs
-    WRITE(nLF,*) '!    Size   of LM-blocks:',sizeLMB
-    WRITE(nLF,*) '!               nChunk  :',nChunk
-    WRITE(nLF,*) '!               nThreads:',nThreads
-    WRITE(nLF,*)
-    WRITE(nLF,*) '! Number of theta blocks:',nThetaBs
-    WRITE(nLF,*) '!   size of theta blocks:',sizeThetaB
-    WRITE(nLF,*) '!       ideal size (nfs):',nfs
+    IF (rank.EQ.0) THEN
+       WRITE(*,*) '!-- Blocking information:'
+       WRITE(*,*)
+       WRITE(*,*) '!    Number of LM-blocks:',nLMBs
+       WRITE(*,*) '!    Size   of LM-blocks:',sizeLMB
+       WRITE(*,*) '!               nChunk  :',nChunk
+       WRITE(*,*) '!               nThreads:',nThreads
+       WRITE(*,*)
+       WRITE(*,*) '! Number of theta blocks:',nThetaBs
+       WRITE(*,*) '!   size of theta blocks:',sizeThetaB
+       WRITE(*,*) '!       ideal size (nfs):',nfs
+       WRITE(nLF,*) '!-- Blocking information:'
+       WRITE(nLF,*)
+       WRITE(nLF,*) '!    Number of LM-blocks:',nLMBs
+       WRITE(nLF,*) '!    Size   of LM-blocks:',sizeLMB
+       WRITE(nLF,*) '!               nChunk  :',nChunk
+       WRITE(nLF,*) '!               nThreads:',nThreads
+       WRITE(nLF,*)
+       WRITE(nLF,*) '! Number of theta blocks:',nThetaBs
+       WRITE(nLF,*) '!   size of theta blocks:',sizeThetaB
+       WRITE(nLF,*) '!       ideal size (nfs):',nfs
+
+       IF ( l_save_out ) CLOSE(nLF)
+    END IF
 
 
-    IF ( l_save_out ) CLOSE(n_log_file)
 
     RETURN
-  end SUBROUTINE getBlocking
+  END SUBROUTINE initialize_blocking
 
   !------------------------------------------------------------------------
+
+  ! Uses also the module variables lmStartB, lmStopB
+  !SUBROUTINE get_subblocks(number_of_blocks,lm2l,lm2m,&
+  !     &                   number_of_subblocks,size_of_subblocks,lm22lm,lm22l,lm22m)
+  SUBROUTINE get_subblocks(map,sub_map) 
+    TYPE(mappings),intent(IN) :: map
+    TYPE(subblocks_mappings),intent(INOUT) :: sub_map
+
+    
+    ! Local variables
+    INTEGER :: number_of_blocks
+    logical :: lStop
+    integer :: size
+    INTEGER :: nB2,n,n2,n3
+    INTEGER :: help,help1(lm_max),help2(lm_max),help3(lm_max)
+    INTEGER :: lm,l,m
+    INTEGER :: check(0:l_max,0:l_max)
+
+    LOGICAL :: DEBUG_OUTPUT=.false.
+
+    number_of_blocks=sub_map%nLMBs
+    
+    check = 0
+    lStop=.FALSE.
+    size=0
+    nB2=0
+    DO n=1,nLMBs
+       sub_map%nLMBs2(n)=1
+       lm=lmStartB(n)
+       !PRINT*,n,": lm = ",lm
+       !------ Start first sub-block:
+       sub_map%sizeLMB2(1,n) =1
+       sub_map%lm22lm(1,1,n) =lm
+       sub_map%lm22l(1,1,n)  =map%lm2l(lm)
+       sub_map%lm22m(1,1,n)  =map%lm2m(lm)
+       DO lm=lmStartB(n)+1,lmStopB(n)
+          !WRITE(*,"(4X,A,I4)") "lm = ",lm
+          DO n2=1,sub_map%nLMBs2(n)
+             !WRITE(*,"(8X,A,I4)") "n2 = ",n2
+             IF ( sub_map%lm22l(1,n2,n) == map%lm2l(lm) ) THEN
+                !------ Add to old block
+                sub_map%sizeLMB2(n2,n)=sub_map%sizeLMB2(n2,n)+1
+                GOTO 20
+             END IF
+          END DO
+          !------ Start new l-block:
+          n2 = sub_map%nLMBs2(n)+1
+          sub_map%nLMBs2(n)     =n2
+          sub_map%sizeLMB2(n2,n)=1
+20        CONTINUE
+          sub_map%lm22lm(sub_map%sizeLMB2(n2,n),n2,n)=lm
+          sub_map%lm22l(sub_map%sizeLMB2(n2,n),n2,n) =map%lm2l(lm)
+          sub_map%lm22m(sub_map%sizeLMB2(n2,n),n2,n) =map%lm2m(lm)
+       END DO
+
+       !------ Resort:
+       IF ( sub_map%nLMBs2(n) > 1 ) THEN
+          DO n2=1,sub_map%nLMBs2(n)
+             DO n3=n2+1,sub_map%nLMBs2(n)
+                IF  ( sub_map%lm22m(1,n2,n) > sub_map%lm22m(1,n3,n) ) THEN
+                   help=sub_map%sizeLMB2(n2,n)
+                   DO lm=1,help
+                      help1(lm)=sub_map%lm22l(lm,n2,n)
+                      help2(lm)=sub_map%lm22m(lm,n2,n)
+                      help3(lm)=sub_map%lm22lm(lm,n2,n)
+                   END DO
+                   sub_map%sizeLMB2(n2,n)=sub_map%sizeLMB2(n3,n)
+                   DO lm=1,sub_map%sizeLMB2(n2,n)
+                      sub_map%lm22l(lm,n2,n) =sub_map%lm22l(lm,n3,n)
+                      sub_map%lm22m(lm,n2,n) =sub_map%lm22m(lm,n3,n)
+                      sub_map%lm22lm(lm,n2,n)=sub_map%lm22lm(lm,n3,n)
+                   END DO
+                   sub_map%sizeLMB2(n3,n)=help
+                   DO lm=1,help
+                      sub_map%lm22l(lm,n3,n) =help1(lm)
+                      sub_map%lm22m(lm,n3,n) =help2(lm)
+                      sub_map%lm22lm(lm,n3,n)=help3(lm)
+                   END DO
+                END IF
+             END DO
+          END DO
+       END IF
+
+       nB2=nB2+sub_map%nLMBs2(n)
+       DO n2=1,sub_map%nLMBs2(n)
+          IF ( sub_map%sizeLMB2(n2,n) > sub_map%sizeLMB2max ) THEN
+             lStop=.TRUE.
+             size=MAX(size,sub_map%sizeLMB2(n2,n))
+          END IF
+          DO n3=1,sub_map%sizeLMB2(n2,n)
+             l=sub_map%lm22l(n3,n2,n)
+             m=sub_map%lm22m(n3,n2,n)
+             check(l,m)=check(l,m)+1
+          END DO
+          !             WRITE(99,*) n,n2,sub_map%sizeLMB2(n2,n)
+       END DO
+       if (DEBUG_OUTPUT) then
+          IF (rank.EQ.0) THEN
+             WRITE(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",nLMBs
+             DO n2=1,sub_map%nLMBs2(n)
+                WRITE(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
+                DO n3=1,sub_map%sizeLMB2(n2,n)
+                   WRITE(*,"(10X,2(A,I4),2I4)") "local lm is ",n3,&
+                        &" translates into global lm,l,m : ",sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n),sub_map%lm22m(n3,n2,n)
+                END DO
+             END DO
+          END IF
+       endif
+
+    END DO
+
+    IF ( lStop ) THEN
+       WRITE(*,*) '! Increase sizeLMB2max in m_blocking.F90!'
+       WRITE(*,*) '! to at least:',size
+       STOP
+    END IF
+
+    DO m=0,l_max,minc
+       DO l=m,l_max
+          IF ( check(l,m) == 0 ) THEN
+             WRITE(*,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
+             STOP
+          ELSE IF ( check(l,m) > 1 ) THEN
+             WRITE(*,*) 'Warning, too much l,m:',l,m,check(l,m)
+             STOP
+          END IF
+       END DO
+    END DO
+
+  END SUBROUTINE get_subblocks
+
+  SUBROUTINE get_standard_lm_blocking(map,minc)
+    type(mappings) :: map
+    INTEGER,INTENT(IN) :: minc
+    
+    ! Local variables
+    INTEGER :: m,l,lm,lmP,mc
+    INTEGER,dimension(lmP_max) :: lmP2m
+    
+    DO m=0,map%l_max
+       DO l=m,map%l_max
+          map%lm2(l,m)  =-1
+          map%lmP2(l,m) =-1
+          !check(l,m)=0
+       END DO
+       l=map%l_max+1
+       map%lmP2(l,m)=-1
+    END DO
+
+    lm =0
+    lmP=0
+    mc =0
+    DO m=0,map%l_max,minc
+       mc=mc+1
+       !m2mc(m)=mc
+       DO l=m,map%l_max
+          lm         =lm+1
+          map%lm2l(lm)   =l
+          map%lm2m(lm)   =m
+          map%lm2mc(lm)  =mc
+          map%lm2(l,m)   =lm
+          IF ( m == 0 ) map%l2lmAS(l)=lm
+          lmP        =lmP+1
+          map%lmP2l(lmP) = l
+          lmP2m(lmP) = m
+          map%lmP2(l,m)  =lmP
+          !IF ( m == 0 ) l2lmPAS(l)=lmP
+          map%lm2lmP(lm) =lmP
+          map%lmP2lm(lmP)=lm
+       END DO
+       l=map%l_max+1    ! Extra l for lmP
+       lmP=lmP+1
+       map%lmP2l(lmP) =l
+       lmP2m(lmP) = m
+       map%lmP2(l,m)  =lmP
+       !IF ( m == 0 ) l2lmPAS(l)=lmP
+       map%lmP2lm(lmP)=-1
+    END DO
+    IF ( lm /= map%lm_max ) THEN
+       WRITE(*,*) 'Wrong lm!'
+       STOP
+    END IF
+    IF ( lmP /= map%lmP_max ) THEN
+       WRITE(*,*) 'Wrong lmP!'
+       STOP
+    END IF
+    DO lm=1,map%lm_max
+       l=map%lm2l(lm)
+       m=map%lm2m(lm)
+       IF ( l > 0 .AND. l > m ) THEN
+          map%lm2lmS(lm)=map%lm2(l-1,m)
+       ELSE
+          map%lm2lmS(lm)=-1
+       END IF
+       IF ( l < map%l_max ) THEN
+          map%lm2lmA(lm)=map%lm2(l+1,m)
+       ELSE
+          map%lm2lmA(lm)=-1
+       END IF
+    END DO
+    DO lmP=1,map%lmP_max
+       l=map%lmP2l(lmP)
+       m=lmP2m(lmP)
+       IF ( l > 0 .AND. l > m ) THEN
+          map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
+       ELSE
+          map%lmP2lmPS(lmP)=-1
+       END IF
+       IF ( l < map%l_max+1 ) THEN
+          map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
+       ELSE
+          map%lmP2lmPA(lmP)=-1
+       END IF
+    END DO
+  END SUBROUTINE get_standard_lm_blocking
+
+  SUBROUTINE get_lorder_lm_blocking(map,minc)
+    type(mappings) :: map
+    INTEGER,INTENT(IN) :: minc
+    
+    ! Local variables
+    INTEGER :: m,l,lm,lmP,mc
+    INTEGER,dimension(lmP_max) :: lmP2m
+    
+    DO m=0,map%l_max
+       DO l=m,map%l_max
+          map%lm2(l,m)  =-1
+          map%lmP2(l,m) =-1
+          !check(l,m)=0
+       END DO
+       l=map%l_max+1
+       map%lmP2(l,m)=-1
+    END DO
+
+    lm =0
+    lmP=0
+    DO l=0,map%l_max
+       mc =0
+       ! set l2lmAS for m==0
+       map%l2lmAS(l)=lm
+       DO m=0,l,minc
+          mc=mc+1
+
+          lm         =lm+1
+          map%lm2l(lm)   =l
+          map%lm2m(lm)   =m
+          map%lm2mc(lm)  =mc
+          map%lm2(l,m)   =lm
+
+          lmP        =lmP+1
+          map%lmP2l(lmP) = l
+          lmP2m(lmP) = m
+          map%lmP2(l,m)  =lmP
+          !IF ( m == 0 ) l2lmPAS(l)=lmP
+          map%lm2lmP(lm) =lmP
+          map%lmP2lm(lmP)=lm
+       END DO
+    END DO
+    l=map%l_max+1    ! Extra l for lmP
+    mc =0
+    DO m=0,map%l_max,minc
+       mc=mc+1
+
+       lmP=lmP+1
+       map%lmP2l(lmP) =l
+       lmP2m(lmP) = m
+       map%lmP2(l,m)  =lmP
+       map%lmP2lm(lmP)=-1
+    END DO
+
+    IF ( lm /= map%lm_max ) THEN
+       WRITE(*,*) 'Wrong lm!'
+       STOP
+    END IF
+    IF ( lmP /= map%lmP_max ) THEN
+       WRITE(*,*) 'Wrong lmP!'
+       STOP
+    END IF
+    DO lm=1,map%lm_max
+       l=map%lm2l(lm)
+       m=map%lm2m(lm)
+       IF ( l > 0 .AND. l > m ) THEN
+          map%lm2lmS(lm)=map%lm2(l-1,m)
+       ELSE
+          map%lm2lmS(lm)=-1
+       END IF
+       IF ( l < map%l_max ) THEN
+          map%lm2lmA(lm)=map%lm2(l+1,m)
+       ELSE
+          map%lm2lmA(lm)=-1
+       END IF
+    END DO
+    DO lmP=1,map%lmP_max
+       l=map%lmP2l(lmP)
+       m=lmP2m(lmP)
+       IF ( l > 0 .AND. l > m ) THEN
+          map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
+       ELSE
+          map%lmP2lmPS(lmP)=-1
+       END IF
+       IF ( l < map%l_max+1 ) THEN
+          map%lmP2lmPA(lmP)=map%lmP2(l+1,m)
+       ELSE
+          map%lmP2lmPA(lmP)=-1
+       END IF
+    END DO
+  END SUBROUTINE get_lorder_lm_blocking
 
 END MODULE blocking

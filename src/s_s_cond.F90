@@ -30,7 +30,7 @@
     IMPLICIT NONE
 
 !-- output:
-    real(kind=8) :: s0(*)
+    REAL(kind=8),intent(OUT) :: s0(*)
 
 !-- local:
     integer :: n_cheb,n_r,info

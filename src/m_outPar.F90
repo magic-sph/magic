@@ -70,9 +70,7 @@ contains
 
     !--- Property parameters:
     REAL(kind=8) :: Mtmp
-    REAL(kind=8) :: sR(n_r_max)
-    REAL(kind=8) :: ReR(n_r_max)
-    REAL(kind=8) :: RoR(n_r_max),RolR(n_r_max)
+    REAL(kind=8),DIMENSION(n_r_max) :: sR, ReR, RoR, RolR
 
     CHARACTER(len=76) :: filename
 
@@ -83,16 +81,15 @@ contains
 
     !--- end of declaration
     !-----------------------------------------------------------------
-
-
     DO nR=1,n_r_max
-       ReR(nR)=DSQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
+       ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
        RoR(nR)=ReR(nR)*ek
        IF ( dlVR(nR) /= 0d0 ) THEN
            RolR(nR)=RoR(nR)/dlVR(nR)
        ELSE
            RolR(nR)=RoR(nR)
        END IF
+       !WRITE(*,"(A,I3,4ES20.12)") "outPar: ",nR,ReR(nR),RoR(nR),dlVR(nR),RolR(nR)
        RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
     END DO
 
@@ -177,15 +174,15 @@ contains
        filename='parR.'//tag
        OPEN(99,FILE=filename,STATUS='UNKNOWN')
        DO nR=1,n_r_max
-          WRITE(99,'(D20.10,8D12.4)')               &
-                     &   r(nR),                     &! 1) radius
-                     &   RmMeanR(nR),               &! 2) magnetic Reynolds number
-                     &   RolMeanR(nR),              &! 3) local Rossby number
-                     &   RolMeanRu2(nR),            &! 4) u squared local Rossby number
-                     &   dlVMeanR(nR),              &! 5) local length scale
-                     &   dlVcMeanR(nR),             &! 6) conv. local length scale
-                     &   dlVu2MeanR(nR),            &! 7) u squared local length scale 
-                     &   dlVu2cMeanR(nR)             ! 8) u squared conv. local length scale
+          WRITE(99,'(D20.10,8D12.4)')       &
+                     &   r(nR),             &! 1) radius
+                     &   RmMeanR(nR),       &! 2) magnetic Reynolds number
+                     &   RolMeanR(nR),      &! 3) local Rossby number
+                     &   RolMeanRu2(nR),    &! 4) u squared local Rossby number
+                     &   dlVMeanR(nR),      &! 5) local length scale
+                     &   dlVcMeanR(nR),     &! 6) conv. local length scale
+                     &   dlVu2MeanR(nR),    &! 7) u squared local length scale 
+                     &   dlVu2cMeanR(nR)     ! 8) u squared conv. local length scale
        END DO
        CLOSE(99)
 

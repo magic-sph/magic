@@ -30,14 +30,14 @@
 
     IMPLICIT NONE
 
-    COMPLEX(kind=8) :: w(lm_max,n_r_max)
-    COMPLEX(kind=8) :: dw(lm_max,n_r_max)
-    COMPLEX(kind=8) :: z(lm_max,n_r_max)
-    CHARACTER(len=1) :: switch
+    COMPLEX(kind=8),INTENT(IN) :: w(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: dw(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: z(lm_max,n_r_max)
+    CHARACTER(len=1),INTENT(IN) :: switch
 
 !-- Output:
-    REAL(kind=8) :: dlR(n_r_max),dlRc(n_r_max)
-    REAL(kind=8) :: dl,dlc,dm
+    REAL(kind=8),INTENT(OUT) :: dlR(n_r_max),dlRc(n_r_max)
+    REAL(kind=8),INTENT(OUT) :: dl,dlc,dm
 
 !-- local:
     INTEGER :: nR,lm,l,mc,m,lFirst
@@ -97,6 +97,7 @@
                 end if
                 e_lr(nR,l)=e_lr(nR,l) + e_p+e_t
                 e_mr(nR,m)=e_mr(nR,m) + e_p+e_t
+                !WRITE(*,"(A,3I4,2ES20.12)") "e_lr,e_mr = ",nR,l,m,e_lr(nR,l),e_mr(nR,m)
             END DO ! do loop over lms in block
         END DO    ! radial grid points
         lFirst=1

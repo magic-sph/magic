@@ -1,171 +1,168 @@
 !$Id$
 !***********************************************************************
-    SUBROUTINE get_dtBLMfinish(time,n_time_step, &
-               TstrRLM,TadvRLM,TomeRLM,omega_ic, &
-              b,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic, &
-                             aj_ic,dj_ic,ddj_ic)
-!***********************************************************************
+SUBROUTINE get_dtBLMfinish(time,n_time_step, &
+     &                     omega_ic, &
+     &                     b,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic, &
+     &                     aj_ic,dj_ic,ddj_ic)
+  !***********************************************************************
 
-!  Parallelization note: this routine accesses the r-distributed
-!  fields TstrRLM,TadvRLM,TomeRLM, and the fields in c_dtB.v
-!  and also the LM-distributed scalar fields  b,ddb,aj,dj,ddj,b_ic,
-!  db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic
+  USE truncation
+  USE radial_functions,ONLY: O_r_ic,lambda,or2,dLlambda,i_costf_init,d_costf_init,&
+       &drx,or1
+  USE physical_parameters,ONLY: opm,O_sr
+  USE blocking, ONLY:lo_map,st_map
+  USE horizontal_data, ONLY: dPhi,D_lP1,dLh,hdif_B
+  USE logic,ONLY: l_cond_ic,l_DTrMagSpec
+  USE dtB_mod,ONLY: PdifLM,TdifLM,PstrLM,TstrLM,TomeLM,PadvLM,TadvLM,&
+       & PadvLMIC,TadvLMIC,PdifLMIC,TdifLMIC,TstrRLM,TadvRLM,TomeRLM,&
+       & PdifLM_LMloc,TdifLM_LMloc,PadvLMIC_LMloc,TadvLMIC_LMloc,PdifLMIC_LMloc,TdifLMIC_LMloc,&
+       &dtB_gather_Rloc_on_rank0
+  USE LMLoop_data, ONLY: llmMag,ulmMag,llm,ulm,llm_real,ulm_real
+  USE communications,ONLY: gather_all_from_lo_to_rank0,gt_OC,gt_IC
+  USE parallel_mod,only: rank
+  IMPLICIT NONE
 
-!  +-------------------------------------------------------------------+
-!  |                                                                   |
-!  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-      
-    USE truncation
-    USE radial_functions
-    USE physical_parameters
-    USE blocking
-    USE horizontal_data
-    USE logic
-    USE dtB_mod
+  !-- Input of variables:
+  REAL(kind=8),intent(IN) :: time
+  INTEGER,intent(IN) :: n_time_step
+  REAL(kind=8),intent(IN) :: omega_ic
 
-    IMPLICIT NONE
+  !-- Input of scalar fields:
+  COMPLEX(kind=8),intent(IN) :: b(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: ddb(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: aj(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: dj(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: ddj(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
-!-- Input of constant parameters:
-! include 'truncation.f'    ! contains mins,nmaf,nlaf
-! include 'c_horizontal.f'  ! contains
-! include 'c_phys_param.f'  ! includes conductance_ma,prmag,sigma_ratio
-! include 'c_radial.f'      ! includes radial functions
-! include 'c_logic.f'
-! include 'c_blocking.f'
+  !-- Local variables:
+  INTEGER :: nLMB,nR    ! position of degree and order
+  INTEGER :: lmStart,lmStop! limits of lm-block
+  INTEGER :: lmStart_real,lmStop_real
 
-!-- Input of variables:
-    REAL(kind=8) :: time
-    INTEGER :: n_time_step
-!-- Input from stuff calculated in s_get_dtB.f in s_radialLoopG.f:
-    COMPLEX(kind=8) :: TstrRLM(lm_max_dtB,n_r_max_dtB)
-    COMPLEX(kind=8) :: TadvRLM(lm_max_dtB,n_r_max_dtB)
-    COMPLEX(kind=8) :: TomeRLM(lm_max_dtB,n_r_max_dtB)
-    REAL(kind=8) :: omega_ic
+  COMPLEX(kind=8) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
+  COMPLEX(kind=8),DIMENSION(lm_max) :: temp_global
 
-!-- Input of scalar fields:
-    COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: ddb(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: dj(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: ddj(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: ddj_ic(lm_maxMag,n_r_ic_maxMag)
+  INTEGER :: l,m,lm
+  !-- end of declaration
+  !-----------------------------------------------------------------------
+  
+  ! gathering TstrRLM,TadvRLM and TomeRLM on rank0,
+  ! they are then in st_map order
+  call dtB_gather_Rloc_on_rank0
 
-!-- Input/Output:
-!   Parallelization note:
-!   On input the following fields in c_dtB.f are R-distributed
-!   and have to be collected onto the processor
-!   executing this routine:
-!            PstrLM,PadvLM,TstrLM,TadvLM,TomeLM
-! include 'c_dtB.f'
+  !DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
 
-!-- Local variables:
-    INTEGER :: nLMB,lm,nR    ! position of degree and order
-    INTEGER :: lmStart,lmStop! limits of lm-block
-    INTEGER :: lmStart_real,lmStop_real
+  !   lmStart=lmStartB(nLMB)
+  !   lmStop =lmStopB(nLMB)
+  !   lmStart_real=2*lmStart-1
+  !   lmStop_real =2*lmStop
 
-    COMPLEX(kind=8) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
-
-!-- end of declaration
-!-----------------------------------------------------------------------
-
-
-    DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-
-        lmStart=lmStartB(nLMB)
-        lmStop =lmStopB(nLMB)
-        lmStart_real=2*lmStart-1
-        lmStop_real =2*lmStop
-
-        IF ( l_cond_ic ) THEN
-            DO nR=1,n_r_ic_max
-                DO lm=lmStart,lmStop
-                    PadvLMIC(lm,nR)=-omega_ic*dPhi(lm)*b_ic(lm,nR)
-                    TadvLMIC(lm,nR)=-omega_ic*dPhi(lm)*aj_ic(lm,nR)
-                    PdifLMIC(lm,nR)=opm*O_sr * ( ddb_ic(lm,nR) + &
-                        2.D0*D_lP1(lm)*O_r_ic(nR)*db_ic(lm,nR) )
-                    TdifLMIC(lm,nR)=opm*O_sr * ( ddj_ic(lm,nR) + &
-                        2.D0*D_lP1(lm)*O_r_ic(nR)*dj_ic(lm,nR) )
-                END DO
-            END DO
-        END IF
-
-        DO nR=1,n_r_max
-            DO lm=lmStart,lmStop
-                PdifLM(lm,nR)= opm*lambda(nR)*hdif_B(lm) * &
-                    (ddb(lm,nR)-dLh(lm)*or2(nR)*b(lm,nR))
-                TdifLM(lm,nR)= opm*lambda(nR)*hdif_B(lm) * &
-                   ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - &
-                               dLh(lm)*or2(nR)*aj(lm,nR) )
-            END DO
+  IF ( l_cond_ic ) THEN
+     DO nR=1,n_r_ic_max
+        DO lm=llm,ulm
+           l=lo_map%lm2l(lm)
+           m=lo_map%lm2m(lm)
+           PadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*b_ic(lm,nR)
+           TadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*aj_ic(lm,nR)
+           PdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddb_ic(lm,nR) + &
+                2.D0*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*db_ic(lm,nR) )
+           TdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddj_ic(lm,nR) + &
+                2.D0*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*dj_ic(lm,nR) )
         END DO
+     END DO
+  END IF
 
-        CALL get_drNS(TstrRLM,workA,lm_max_real, &
-                       lmStart_real,lmStop_real, &
-                       n_r_max,n_cheb_max,workB, &
-                  i_costf_init,d_costf_init,drx)
+  DO nR=1,n_r_max
+     DO lm=llm,ulm
+        l=lo_map%lm2l(lm)
+        m=lo_map%lm2m(lm)
+        PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
+             (ddb(lm,nR)-dLh(st_map%lm2(l,m))*or2(nR)*b(lm,nR))
+        TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
+             ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - &
+             dLh(st_map%lm2(l,m))*or2(nR)*aj(lm,nR) )
+     END DO
+  END DO
 
-        DO nR=1,n_r_max
-            DO lm=lmStart,lmStop
-                TstrLM(lm,nR)=TstrLM(lm,nR)+or1(nR)*workA(lm,nR)
-            END DO
+  IF (rank.EQ.0) THEN
+     CALL get_drNS(TstrRLM,workA,lm_max_real, &
+          1,lm_max_real, &
+          n_r_max,n_cheb_max,workB, &
+          i_costf_init,d_costf_init,drx)
+
+     DO nR=1,n_r_max
+        DO lm=1,lm_max
+           TstrLM(lm,nR)=TstrLM(lm,nR)+or1(nR)*workA(lm,nR)
         END DO
-
-        CALL get_drNS(TomeRLM,workA,lm_max_real, &
-                       lmStart_real,lmStop_real, &
-                      n_r_max,n_cheb_max,workB, &
-                  i_costf_init,d_costf_init,drx)
-
-        DO nR=1,n_r_max
-            DO lm=lmStart,lmStop
-                TomeLM(lm,nR)=TomeLM(lm,nR)+or1(nR)*workA(lm,nR)
-            END DO
+     END DO
+     
+     CALL get_drNS(TomeRLM,workA,lm_max_real, &
+          1,lm_max_real, &
+          n_r_max,n_cheb_max,workB, &
+          i_costf_init,d_costf_init,drx)
+     
+     DO nR=1,n_r_max
+        DO lm=1,lm_max
+           TomeLM(lm,nR)=TomeLM(lm,nR)+or1(nR)*workA(lm,nR)
         END DO
-
-        CALL get_drNS(TadvRLM,workA,lm_max_real, &
-                       lmStart_real,lmStop_real, &
-                       n_r_max,n_cheb_max,workB, &
-                  i_costf_init,d_costf_init,drx)
-
-        DO nR=1,n_r_max
-            DO lm=lmStart,lmStop
-                TadvLM(lm,nR)=TadvLM(lm,nR)+or1(nR)*workA(lm,nR)
-            END DO
+     END DO
+     
+     CALL get_drNS(TadvRLM,workA,lm_max_real, &
+          1,lm_max_real, &
+          n_r_max,n_cheb_max,workB, &
+          i_costf_init,d_costf_init,drx)
+     
+     DO nR=1,n_r_max
+        DO lm=1,lm_max
+           TadvLM(lm,nR)=TadvLM(lm,nR)+or1(nR)*workA(lm,nR)
         END DO
+     END DO
+  END IF
+  !END DO
 
-    END DO
+  ! PdifLM and TdifLM need to be gathered over lm
+  CALL gather_all_from_lo_to_rank0(gt_OC,PdifLM_LMloc,PdifLM)
+  CALL gather_all_from_lo_to_rank0(gt_OC,TdifLM_LMloc,TdifLM)
+     
+  IF ( l_DTrMagSpec .AND. n_time_step > 1 ) THEN
 
+     ! also gather PadvLMIC,TadvLMIC,PdifLMIC and TdifLMIC
+     CALL gather_all_from_lo_to_rank0(gt_IC,PadvLMIC_LMloc,PadvLMIC)
+     CALL gather_all_from_lo_to_rank0(gt_IC,TadvLMIC_LMloc,TadvLMIC)
+     CALL gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMloc,PdifLMIC)
+     CALL gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMloc,TdifLMIC)
 
-    IF ( l_DTrMagSpec .AND. n_time_step > 1 ) THEN
-        CALL rBrSpec(time,PstrLM,PadvLMIC,'rBrProSpec',.FALSE.)
-        CALL rBrSpec(time,PadvLM,PadvLMIC,'rBrAdvSpec',.TRUE.)
-        CALL rBrSpec(time,PdifLM,PdifLMIC,'rBrDifSpec',.TRUE.)
+     IF (rank.EQ.0) THEN
+        CALL rBrSpec(time,PstrLM,PadvLMIC,'rBrProSpec',.FALSE.,st_map)
+        CALL rBrSpec(time,PadvLM,PadvLMIC,'rBrAdvSpec',.TRUE.,st_map)
+        CALL rBrSpec(time,PdifLM,PdifLMIC,'rBrDifSpec',.TRUE.,st_map)
         DO nR=1,n_r_max
-            DO lm=1,lm_max
-                PstrLM(lm,nR)=PstrLM(lm,nR)-PadvLM(lm,nR)
-            END DO
+           DO lm=1,lm_max
+              PstrLM(lm,nR)=PstrLM(lm,nR)-PadvLM(lm,nR)
+           END DO
         END DO
-        CALL rBrSpec(time,PstrLM,PadvLMIC,'rBrDynSpec',.FALSE.)
-        CALL rBpSpec(time,TstrLM,TadvLMIC,'rBpProSpec',.FALSE.)
-        CALL rBpSpec(time,TadvLM,TadvLMIC,'rBpAdvSpec',.TRUE.)
-        CALL rBpSpec(time,TdifLM,TdifLMIC,'rBpDifSpec',.TRUE.)
+        CALL rBrSpec(time,PstrLM,PadvLMIC,'rBrDynSpec',.FALSE.,st_map)
+
+        CALL rBpSpec(time,TstrLM,TadvLMIC,'rBpProSpec',.FALSE.,st_map)
+        CALL rBpSpec(time,TadvLM,TadvLMIC,'rBpAdvSpec',.TRUE.,st_map)
+        CALL rBpSpec(time,TdifLM,TdifLMIC,'rBpDifSpec',.TRUE.,st_map)
         DO nR=1,n_r_max
-            DO lm=1,lm_max
-                TstrLM(lm,nR)=TstrLM(lm,nR)-TadvLM(lm,nR)
-            END DO
+           DO lm=1,lm_max
+              TstrLM(lm,nR)=TstrLM(lm,nR)-TadvLM(lm,nR)
+           END DO
         END DO
-        CALL rBpSpec(time,TstrLM,TadvLMIC,'rBpDynSpec',.FALSE.)
-    END IF
+        CALL rBpSpec(time,TstrLM,TadvLMIC,'rBpDynSpec',.FALSE.,st_map)
+     END IF
+  END IF
 
 
-    RETURN
-    end SUBROUTINE get_dtBLMfinish
+  RETURN
+end SUBROUTINE get_dtBLMfinish
 
 !-----------------------------------------------------------------------

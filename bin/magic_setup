@@ -26,7 +26,7 @@ link_src_files()
   cd src
   n=0
   to_link=
-  for file in $srcdir/Makefile $srcdir/*.cpp $srcdir/*.F90
+  for file in $srcdir/Makefile $srcdir/*.cpp $srcdir/*.F90 $srcdir/*.h
   do
     if [ -f $file ] || [ -d $file ]; then
       if [ -h "`basename $file`" ]; then

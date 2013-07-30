@@ -121,23 +121,28 @@
     use fields
     use fieldsLast
     use movie_data
-    use RMS
+    use RMS,only: initialize_RMS
     use dtB_mod
+    USE radial_data,only: initialize_radial_data
     use radialLoop
-    use kinetic_energy
+    USE lmLoop_data,ONLY: initialize_LMLoop_data
+    USE kinetic_energy
     use magnetic_energy
     use fields_average_mod
     use Egeos_mod
     use spectrum_average_mod
     use spectrumC_average_mod
     USE output_data
-    use outPar_mod
-    use outPV3
+    use output_mod
+    use outPV3, only:initialize_outPV3
+    USE outTO_mod,only: initialize_outTO_mod
     USE parallel_mod
     use Namelists
-    USE outTO_mod, only: initialize_outTO_mod
+    use step_time_mod, only: initialize_step_time, step_time
     USE timing, only: get_resetTime,writeTime,wallTime
+    USE communications, only:initialize_communications
     USE power, only: initialize_output_power
+    use outPar_mod
 
     IMPLICIT NONE
 
@@ -157,26 +162,27 @@
 
 #ifdef WITH_MPI
     ! MPI specific variables
-    INTEGER :: required_level,provided_level,ierr
+    INTEGER :: required_level,provided_level
 #endif
 
 !-- end of declaration
 !------------------------------------------------------------------------
 #ifdef WITH_MPI
-    required_level=MPI_THREAD_SINGLE
-    CALL mpi_init_thread(required_level,provided_level,ierr)
-    IF (provided_level.LT.required_level) THEN
-       PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
-       stop
-    END IF
+    !required_level=MPI_THREAD_SINGLE
+    !CALL mpi_init_thread(required_level,provided_level,ierr)
+    !If (provided_level.LT.required_level) THEN
+    !   PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
+    !   stop
+    !END IF
+    call mpi_init(ierr)
 #endif
     PERFINIT
     PERFON('main')
 
     CALL parallel
 
-!--- Read startin time
-    IF ( iAmProc == logProc ) THEN
+!--- Read starting time
+    IF ( rank.eq.0 ) THEN
         CALL get_resetTime(resetTime)
         CALL wallTime(runTimeStart)
         WRITE(*,*)
@@ -189,11 +195,19 @@
     CALL readNamelists  ! includes sent to other procs !
 
     call initialize_const
+    !--- Check parameters and write info to SDTOUT
+    CALL checkTruncation
+    call openFiles
+
     call initialize_blocking
+    call initialize_radial_data
     call initialize_radial_functions
+    call initialize_radialLoop
+    call initialize_LMLoop_data
+
     call initialize_num_param
     call initialize_TO
-    call initialize_outTO_mod
+    if (l_TO) call initialize_outTO_mod
     call initialize_init_fields
     call initialize_Grenoble
     call initialize_horizontal_data
@@ -201,34 +215,27 @@
     call initialize_fields
     call initialize_fieldsLast
     call initialize_movie_data
-    call initialize_RMS
+    if (l_RMS) call initialize_RMS
     call initialize_dtB_mod
-    call initialize_radialLoop
     call initialize_kinetic_energy
     call initialize_magnetic_energy
     call initialize_fields_average_mod
     call initialize_Egeos_mod
     call initialize_spectrum_average_mod
     call initialize_spectrumC_average_mod
+    if (l_PV) call initialize_outPV3
+    call initialize_step_time
+    call initialize_communications
     call initialize_outPar_mod
-    call initialize_outPV3
-
     IF ( l_power ) call initialize_output_power
 
 !--- Open output files:
-    CALL openFiles
-
-!--- Check parameters and write info to SDTOUT and log-file:
-    CALL checkTruncation
-    IF ( iAmProc == logProc ) THEN
-        message='!--- PROGRAM MAGIC3.44, 19 Feb. 2010, BY JW ---!'
-        CALL logWrite(message)
-    END IF
+    !CALL openFiles
 
 !--- Do pre-calculations:
-    CALL getBlocking
+    !CALL getBlocking
     CALL preCalc
-    IF ( iAmProc == logProc ) THEN
+    IF ( rank.eq.0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')
@@ -239,17 +246,13 @@
     END IF
 
 !--- Now read start-file or initialize fields:
-    !IF ( iAmProc == inProc ) THEN
     CALL getStartFields(time,dt,dtNew,n_time_step)
-    !ELSE
-    !          RECIEVE DATA ON OTHER PROCESSORS
-    !END IF
 
 !--- Second pre-calculation:
     CALL preCalcTimes(time,n_time_step)
 
 !--- Write info to STDOUT and log-file:
-    IF ( iAmProc == logProc ) THEN
+    IF ( rank.eq.0 ) THEN
         CALL writeInfo(6)
         CALL writeInfo(n_log_file)
     END IF
@@ -260,7 +263,7 @@
 !--- AND NOW FOR THE TIME INTEGRATION:
 
 !--- Write starting time to SDTOUT and logfile:
-    IF ( iAmProc == logProc ) THEN
+    IF ( rank.eq.0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')
@@ -284,7 +287,7 @@
     CALL step_time(time,dt,dtNew,n_time_step)
     PERFOFF
 !--- Write stop time to SDTOUR and logfile:
-    IF ( iAmProc == logProc ) THEN
+    IF ( rank.eq.0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')

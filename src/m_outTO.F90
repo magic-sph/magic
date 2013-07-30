@@ -10,7 +10,7 @@ MODULE outTO_mod
   USE logic
   USE output_data
   USE const
-
+  USE LMLoop_data,ONLY: llm,ulm
   IMPLICIT NONE 
   
   INTEGER :: lmMaxS
@@ -54,12 +54,12 @@ contains
   END SUBROUTINE initialize_outTO_mod
 
   !***********************************************************************
-  SUBROUTINE outTO(time,n_time_step,                                      &
-       &                     eKin,eKinTAS,nOutFile,nOutFile2,             &
-       &                 TOfileNhs,TOfileShs,movFile,tayFile,             &
-       &                       nTOsets,nTOmovSets,nTOrmsSets,             &
-       &                             lTOmov,lTOrms,lTOZwrite,             &
-       &                                 z,omega_ic,omega_ma)
+  SUBROUTINE outTO(time,n_time_step,                   &
+       &           eKin,eKinTAS,nOutFile,nOutFile2,    &
+       &           TOfileNhs,TOfileShs,movFile,tayFile,&
+       &           nTOsets,nTOmovSets,nTOrmsSets,      &
+       &           lTOmov,lTOrms,lTOZwrite,            &
+       &           z,omega_ic,omega_ma)
     !***********************************************************************
 
     !-----------------------------------------------------------------------
@@ -77,21 +77,18 @@ contains
     USE integration, ONLY: rInt_R
     USE plms_theta, ONLY: plm_theta
 
-    REAL(kind=8) :: time
-    INTEGER :: n_time_step
-    REAL(kind=8) :: eKin,eKinTAS
-    INTEGER :: nOutFile,nOutFile2
-    CHARACTER(len=*) :: TOfileNhs,TOfileShs,movFile,tayFile
-    INTEGER :: nTOsets,nTOmovSets,nTOrmsSets
-    LOGICAL :: lTOmov,lTOrms   
-    LOGICAL :: lTOZwrite
-
-    !-- Input of stuff calculated in getTO and getTOfinish
-    ! include 'c_TO.f'
+    REAL(kind=8),INTENT(IN) :: time
+    INTEGER,INTENT(IN) :: n_time_step
+    REAL(kind=8),INTENT(IN) :: eKin,eKinTAS
+    INTEGER,INTENT(IN) :: nOutFile,nOutFile2
+    CHARACTER(len=*),INTENT(IN) :: TOfileNhs,TOfileShs,movFile,tayFile
+    INTEGER,INTENT(INOUT) :: nTOsets,nTOmovSets,nTOrmsSets
+    LOGICAL,INTENT(IN) :: lTOmov
+    LOGICAL,intent(INOUT) :: lTOrms,lTOZwrite
 
     !-- Input of toroidal flow scalar and rotation rates:
-    COMPLEX(kind=8) :: z(lm_max,n_r_max)
-    REAL(kind=8) :: omega_ic,omega_ma
+    COMPLEX(kind=8),INTENT(in) :: z(llm:ulm,n_r_max)
+    REAL(kind=8),INTENT(in) :: omega_ic,omega_ma
 
     !-- Output field:
     REAL(kind=8) :: fOut(n_theta_maxStr*n_r_maxStr)
@@ -293,7 +290,7 @@ contains
 
     DO nR=1,n_r_max
        DO l=1,l_max
-          lm=lm2(l,0)
+          lm=lo_map%lm2(l,0)
           dzVpLMr(l+1,nR)=REAL(z(lm,nR))
        END DO
     END DO
@@ -934,7 +931,7 @@ contains
        !--- Transform back to radial space:
        DO nR=1,n_r_max
           DO l=1,l_max
-             lm=lm2(l,0)
+             lm=lo_map%lm2(l,0)
              !              dzRstrLMr(lm,nR)=dzRstrLMr(lm,nR) +
              !     +                         dzAstrLMr(lm,nR)
              dzVpLMr(l+1,nR)=REAL(z(lm,nR)) ! instead of transform copy again

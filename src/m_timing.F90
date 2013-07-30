@@ -1,6 +1,6 @@
 !$Id$
 module timing
-  
+  USE parallel_mod,only: rank
   IMPLICIT NONE
 
 contains
@@ -167,7 +167,7 @@ contains
 
   !------------------------------------------------------------------
   LOGICAL FUNCTION lTimeLimit(time,timeMax)
-    !  False when time exeeds timeMax
+    !  True when time exeeds timeMax
     !------------------------------------------------------------------
 
     integer, dimension(4) :: time,timeMax
@@ -224,8 +224,10 @@ contains
 
     tms=time2ms(time)
     IF ( n==0 ) THEN
-       WRITE(*,*) '! Error in meanTime !'
-       WRITE(*,*) '! Cant build mean for zero steps!'
+       IF (rank.EQ.0) THEN
+          WRITE(*,*) '! Error in meanTime !'
+          WRITE(*,*) '! Cant build mean for zero steps!'
+       END IF
        tms=0
     ELSE
        tms=tms/n
@@ -266,7 +268,7 @@ contains
     !  Returns time passed between timeStop and timeStart.
     !  Note timeStop has to be younger than timeStart, otherwise
     !  24 hours are added. This is necessary on systems like the IBM
-    !  where the time counter as reset every day at midnight.
+    !  where the time counter are reset every day at midnight.
     !------------------------------------------------------------------
 
     !--- Input:
@@ -285,7 +287,7 @@ contains
     timeH=time(1)-days*hoursDay
     WRITE(nOut,                                &
          &       '(/,1x,A," ",i2,"d : ",i2,"h : ",i2, &
-         &       "m : ",i2,"s : ",i3,"ms",/)')        &
+         &       "m : ",i2,"s : ",i3,"ms")')        &
          &       text,days,timeH,time(2),time(3),time(4)
 
   end SUBROUTINE writeTime

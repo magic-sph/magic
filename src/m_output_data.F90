@@ -9,35 +9,16 @@
 
 MODULE output_data
   USE truncation
-
+  use movie_data
   IMPLICIT NONE
 
   !----- Identification of run:
   character(len=64) :: runid
-  LOGICAL :: lVerbose
-  !COMMON/ident/runid,lVerbose
-
 
   !----- Information for graphic output grid:
   INTEGER :: ngform
   LOGICAL :: l_graph_time
   !common/graphic_grid/ngform,l_graph_time
-
-  !-- Info in movie type and were the frames are stored:
-  INTEGER,PARAMETER :: n_movies_max=30  ! Max no. of different movies
-  INTEGER,PARAMETER :: n_movie_fields_max=6 ! Max no. of fields per movie
-  REAL(kind=8) ::  movie_const(n_movies_max)
-  CHARACTER(len=80) :: movie(n_movies_max)  ! Only for input !
-  logical lStoreMov(n_movies_max),lICField(n_movies_max)
-  INTEGER :: n_movies
-  INTEGER :: n_movie_type(n_movies_max)
-  INTEGER :: n_movie_surface(n_movies_max)
-  INTEGER :: n_movie_const(n_movies_max)
-  INTEGER :: n_movie_fields(n_movies_max)
-  INTEGER :: n_movie_fields_ic(n_movies_max)
-  INTEGER :: n_movie_field_type(n_movie_fields_max,n_movies_max)
-  INTEGER :: n_movie_field_start(n_movie_fields_max,n_movies_max)
-  INTEGER :: n_movie_field_stop(n_movie_fields_max,n_movies_max)
 
   !----- Output time control:
   REAL(kind=8) :: t_graph_start,t_graph_stop,dt_graph
@@ -99,6 +80,7 @@ MODULE output_data
   INTEGER :: n_log_file,nLF
 #ifdef WITH_MPI
   integer :: graph_mpi_fh
+  integer :: rst_mpi_fh
 #endif
   INTEGER :: n_graph_file
   integer :: n_lp_file,n_rst_file
@@ -112,7 +94,6 @@ MODULE output_data
   INTEGER :: n_cmb_file,n_dt_cmb_file
   INTEGER :: n_cmbMov_file
   INTEGER :: n_misc_file
-  INTEGER :: n_movie_file(n_movies_max)
   INTEGER :: n_SRIC_file
   INTEGER :: n_SRMA_file
   INTEGER :: n_v_r_file(n_coeff_r_max)
@@ -159,6 +140,4 @@ MODULE output_data
   REAL(kind=8) :: rCut,rDea
   !COMMON/RMScut/rCut,rDea
 
-
-  !---------------------------------------------------------------------
 END MODULE output_data

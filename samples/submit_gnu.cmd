@@ -12,11 +12,10 @@ export MACHINE=odin
 
 source ../sourceme.sh
 
-module load gcc intel
+module load intel gcc mkl
 module load perflib/2.2
 export PERFLIB_OUTPUT_FORMAT=xml
 #export I_MPI_PIN_PROCESSOR_LIST=allcores
-#export PATH=/u/tisd/scalasca/1.4.2-medium/icc/bin:${PATH}
 export KMP_AFFINITY=verbose,granularity=core,compact,1
 
 ### set OMP_NUM_THREADS

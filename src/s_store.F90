@@ -24,28 +24,18 @@
 
     IMPLICIT NONE
 
-!-- Input of constant parameters:
-! include 'truncation.f'
-! include 'c_blocking.f'
-! include 'c_phys_param.f'
-! include 'c_num_param.f'
-! include 'c_radial.f'
-! include 'c_logic.f'
-! include 'c_output.f'
-! include 'c_init_fields.f'
-
 !-- Input of variables:
-    REAL(kind=8) :: time,dt,dtNew
+    REAL(kind=8),INTENT(IN) :: time,dt,dtNew
 
 !-- Input of scalar fields to be stored:
-    COMPLEX(kind=8) :: w(lm_max,n_r_max)
-    COMPLEX(kind=8) :: z(lm_max,n_r_max)
-    COMPLEX(kind=8) :: p(lm_max,n_r_max)
-    COMPLEX(kind=8) :: s(lm_max,n_r_max)
-    COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+    COMPLEX(kind=8),INTENT(IN) :: w(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: z(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: p(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: s(lm_max,n_r_max)
+    COMPLEX(kind=8),INTENT(IN) :: b(lm_maxMag,n_r_maxMag)
+    COMPLEX(kind=8),INTENT(IN) :: aj(lm_maxMag,n_r_maxMag)
+    COMPLEX(kind=8),INTENT(IN) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+    COMPLEX(kind=8),INTENT(IN) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
 
 !-- end of declaration
 !---------------------------------------------------------------------
@@ -63,14 +53,13 @@
                                n_r_ic_max,sigma_ratio
 
 !-- Write velocity, pressure, entropy:
+    !WRITE(*,"(A,I4,A,2ES20.13)") "w(3,",1,") = ",w(3,1)
+
     IF ( l_heat ) THEN
         WRITE(n_rst_file) w,z,p,s
-    ELSE
-        WRITE(n_rst_file) w,z,p
-    END IF
-    IF ( l_heat ) THEN
         WRITE(n_rst_file) dsdtLast,dwdtLast,dzdtLast,dpdtLast
     ELSE
+        WRITE(n_rst_file) w,z,p
         WRITE(n_rst_file) dwdtLast,dzdtLast,dpdtLast
     END IF
 

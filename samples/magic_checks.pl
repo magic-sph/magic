@@ -78,6 +78,7 @@ Options:
        --level=LEV         \tRun only tests from level LEV
        --max-level=LEV     \tRun all tests below with level <= LEV (default: 0)
        --no-recompile      \tCompile only once
+  -m,  --mpi               \tRun with MPI, without OpenMP threading
 
 Example:
   magic_checks.pl --clean
@@ -97,6 +98,7 @@ GetOptions(\%opts,
                     --level=s
                     --max-level=s
 		    --no-recompile
+               -m   --mpi
                     )
           ) or $help=1, die "Aborting.\n";
 
@@ -106,6 +108,7 @@ my $all=($opts{'a'} || $opts{'all'} || 0 );
 my $recomp=($opts{'no-recompile'} || 0 );
 my $level=($opts{'level'});
 my $max_level=($opts{'max-level'});
+my $mpi=($opts{'m'} || $opts{'mpi'} || 0 );
 
 # Make sure we are in the top directory and have the right PATH
 die "Need to set environment variable MAGIC_HOME\n"
@@ -223,7 +226,11 @@ sub test_rundir {
     `magic_clean`;
     #1. Compilation
     `magic_setup`;
-    `cp $MAGIC_HOME/bin/run_magic.sh .`;
+    if ( $mpi ) {
+	`cp $MAGIC_HOME/bin/run_magic_mpi.sh .`;
+    } else {
+	`cp $MAGIC_HOME/bin/run_magic.sh .`;
+    }
 #    `magic_build &> /dev/null`;
     `magic_build`;
     my $t1 = get_time();
@@ -231,13 +238,17 @@ sub test_rundir {
 
     #2. Run
     my $t2 = get_time();
-    if ( -e 'runMe.sh' ) {
-       `./runMe.sh &> /dev/null`;
+    if ( $mpi ) {
+	if ( -e 'runMe_mpi.sh' ) {
+	    `./runMe_mpi.sh &> /dev/null`;
+	} else { `./run_magic_mpi.sh &> /dev/null`; }
+    } else {
+	if ( -e 'runMe.sh' ) {
+	    `./runMe.sh &> /dev/null`;
+	} else { `./run_magic.sh &> /dev/null`; }
     }
-    else {
-#       `./run_magic.sh &> /dev/null`;
-       `./run_magic.sh`;
-    }
+    my $exitcode=$?;
+    print "exitcode = $exitcode";
     test_results($dir);
 
     my $t3 = get_time();
@@ -251,7 +262,7 @@ sub test_rundir {
       " + ", s_to_hms(time_diff($t1,$t3)),
       "\n";
 
-    if ($clean) {
+    if ($clean && $exitcode==0) {
         `magic_clean`;
     };
 
@@ -279,15 +290,22 @@ sub test_rundir_no_recomp {
     `magic_clean`;
     #1. Link
     `ln -s $topdir/src/magic.exe .`;
-    `cp $MAGIC_HOME/bin/run_magic.sh .`;
+    if ( $mpi ) {
+	`cp $MAGIC_HOME/bin/run_magic_mpi.sh .`;
+    } else {
+	`cp $MAGIC_HOME/bin/run_magic.sh .`;
+    }
 
     #2. Run
     my $t2 = get_time();
-    if ( -e 'runMe.sh' ) {
-       `./runMe.sh &> /dev/null`;
-    }
-    else {
-       `./run_magic.sh`;
+    if ( $mpi ) {
+	if ( -e 'runMe_mpi.sh' ) {
+	    `./runMe_mpi.sh &> /dev/null`;
+	} else { `./run_magic_mpi.sh &> /dev/null`; }
+    } else {
+	if ( -e 'runMe.sh' ) {
+	    `./runMe.sh &> /dev/null`;
+	} else { `./run_magic.sh`; }
     }
     test_results($dir);
 
@@ -365,8 +383,12 @@ sub test_results {
     printf "$indi_fmt ", '';
 
     my @output;
-    
-    @output = read_lines('e_kin.test', $rdmsg);
+
+    #if ( $mpi ) {
+#	@output = read_lines('e_kin.0000.test', $rdmsg);
+#    } else {
+	@output = read_lines('e_kin.test', $rdmsg);
+#    }
     if ($rdmsg) {
         my_ok(0,1,"[$rdmsg]",$dir,"results");
         return;

@@ -5,6 +5,7 @@
 !*******************************************************************
 MODULE radial_functions
   use truncation
+  use radial_data
   implicit none
 
   !-- arrays depending on r:
@@ -20,7 +21,6 @@ MODULE radial_functions
   REAL(kind=8) :: dr_fac,dr_fac_ic,alpha1,alpha2
   REAL(kind=8) :: topcond, botcond
   REAL(kind=8) :: r_cmb,r_icb,r_surface
-  INTEGER :: n_r_cmb,n_r_icb
 
   !-- arrays for buoyancy, depend on Ra and Pr:
   REAL(kind=8),allocatable :: rgrav(:),agrav(:)
@@ -55,16 +55,16 @@ MODULE radial_functions
   REAL(kind=8),ALLOCATABLE :: d2cheb_ic(:,:) 
   REAL(kind=8),ALLOCATABLE :: cheb_int_ic(:)        
   INTEGER nDi_costf1_ic
-  !PARAMETER (nDi_costf1_ic=2*n_r_ic_max+2)
+
   INTEGER,allocatable :: i_costf1_ic_init(:)
   INTEGER :: nDd_costf1_ic
-  !PARAMETER (nDd_costf1_ic=2*n_r_ic_max+5)
+
   REAL(kind=8),ALLOCATABLE ::  d_costf1_ic_init(:)
   INTEGER :: nDi_costf2_ic
-  !PARAMETER (nDi_costf2_ic=2*n_r_ic_max)
+
   INTEGER,ALLOCATABLE :: i_costf2_ic_init(:)
   INTEGER :: nDd_costf2_ic
-  !PARAMETER (nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5)
+
   REAL(kind=8),ALLOCATABLE ::  d_costf2_ic_init(:)
   !$OMP THREADPRIVATE( cheb_norm_ic,cheb_ic,dcheb_ic,d2cheb_ic )
   !$OMP THREADPRIVATE( cheb_int_ic )
@@ -79,6 +79,7 @@ MODULE radial_functions
   REAL(kind=8) :: alph1,alph2
   INTEGER :: n_r_maxC,n_cheb_maxC,nCut
 
+  PUBLIC :: initialize_radial_functions, radial
   REAL(kind=8),ALLOCATABLE :: lambda(:),dLlambda(:),jVarCon(:)
   REAL(kind=8),ALLOCATABLE :: sigma(:)
   REAL(kind=8),ALLOCATABLE :: kappa(:),dLkappa(:)
@@ -137,9 +138,6 @@ CONTAINS
     ALLOCATE( i_costf_initC(nDi_costf1) )   ! info for transform
     ALLOCATE( d_costf_initC(nDd_costf1) )   ! info for tranform
     ALLOCATE( rC(n_r_max),dr_facC(n_r_max) )
-
-    n_r_cmb=1
-    n_r_icb=n_r_max
 
   END SUBROUTINE initialize_radial_functions
   !********************************************************************

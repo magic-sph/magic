@@ -188,7 +188,7 @@
                 BzpdMean=BzpdMean+BzL*(BpL-BpLast(nPhi,nTheta,nR))
                 BpzdMean=BpzdMean+BpL*(BzL-BzLast(nPhi,nTheta,nR))
             END IF
-        END DO
+         END DO
 
         Vr2Mean=phiNorm*or4(nR)*Vr2Mean
         Vt2Mean=phiNorm*or2(nR)*Osin2*Vt2Mean

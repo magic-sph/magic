@@ -47,6 +47,7 @@
 
 !-- end of declaration
 !-----------------------------------------------------------------------
+    write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
 
     IF ( bc == 'CMB' ) THEN
 

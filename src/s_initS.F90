@@ -42,10 +42,10 @@
 #endif
     USE usefull, ONLY: random
     USE algebra, ONLY: sgesl,sgefa
-
+    USE LMLoop_data,ONLY: llm,ulm
     IMPLICIT NONE
 
-    INTEGER :: lmStart,lmStop
+    INTEGER,INTENT(IN) :: lmStart,lmStop
 
 !-- output:
     COMPLEX(kind=8) :: s(lm_max,n_r_max)
@@ -65,15 +65,18 @@
     REAL(kind=8) :: zS(n_impS_max),sFac(n_impS_max)
     REAL(kind=8) :: sCMB(nrp,nfs)
     COMPLEX(kind=8) :: sLM(lmP_max)
-    INTEGER :: info,i,j
+    INTEGER :: info,i,j,l1,m1
 
+    !COMPLEX(kind=8) :: sumVal
 !-- end of declaration
 !----------------------------------------------------------------------
      
 !--  Calculate conductive solution for entropy; (l=0,m=0)-mode
 !    (returned in array s0)
 
-    lm00=lm2(0,0)
+    !WRITE(*,"(A,2I5,2ES22.15)") "START initS: ",lmStart,lmStop, SUM( s(lmStart:lmStop,:) )
+
+    lm00=st_map%lm2(0,0)
     lmMin=MAX(lmStart,2)
 
     IF ( .NOT. l_start_file ) THEN
@@ -84,7 +87,7 @@
         !--- Initialize (l=0,m=0)-mode with s0:
             open(unit=999, file='scond.dat')
             DO n_r=1,n_r_max
-                s(1,n_r)=s0(n_r)
+                s(lm00,n_r)=s0(n_r)
                 write(999,*) r(n_r), s0(n_r)/SQRT(4.*DACOS(-1.d0))
             END DO
             close(999)
@@ -104,13 +107,15 @@
          
         rr=random(1.d0)
         DO lm=lmMin,lmStop
-            ra1=(-1.d0+2.d0*random(0.d0))*amp_s1/D_l(lm)**(init_s1-1)
-            ra2=(-1.d0+2.d0*random(0.d0))*amp_s1/D_l(lm)**(init_s1-1)
+           m1 = st_map%lm2m(lm)
+           l1 = st_map%lm2l(lm)
+            ra1=(-1.d0+2.d0*random(0.d0))*amp_s1/D_l(st_map%lm2(l1,m1))**(init_s1-1)
+            ra2=(-1.d0+2.d0*random(0.d0))*amp_s1/D_l(st_map%lm2(l1,m1))**(init_s1-1)
             DO n_r=1,n_r_max
                 c_r=ra1*s1(n_r)
                 c_i=ra2*s1(n_r)
-                IF ( lm2m(lm) > 0 ) THEN  ! non axisymmetric modes
-                    s(lm,n_r)=s(lm,n_r)+CMPLX(c_r,c_i,KIND=KIND(0d0))
+                IF ( m1 > 0 ) THEN  ! non axisymmetric modes
+                   s(lm,n_r)=s(lm,n_r)+CMPLX(c_r,c_i,KIND=KIND(0d0))
                 ELSE
                     s(lm,n_r)=s(lm,n_r)+CMPLX(c_r,0.d0,KIND=KIND(0d0))
                 END IF
@@ -138,7 +143,7 @@
             WRITE(*,*) '! > l_max or < m !',l
             STOP
         END IF
-        lm=lm2(l,m)
+        lm=st_map%lm2(l,m)
 
         IF ( lmMin <= lm .AND. lmStop >= lm ) THEN
             DO n_r=1,n_r_max
@@ -169,7 +174,7 @@
                 STOP
             END IF
 
-            lm=lm2(l,m)
+            lm=st_map%lm2(l,m)
             IF ( lmMin <= lm .AND. lmStop >= lm ) THEN
                 s_r=amp_s2
                 s_i=0.d0
@@ -191,7 +196,12 @@
 
     END IF
 
-    IF ( lmStart > lm00 .OR. impS == 0 ) RETURN
+    IF ( lmStart > lm00 .OR. impS == 0 ) THEN
+       !sumVal = SUM( s(lmStart:lmStop,:) )
+       !WRITE(*,"(A,2I5,2(I4,F20.16))") "END   initS: ",lmStart,lmStop, EXPONENT(REAL(sumVal)),FRACTION(REAL(sumVal)),&
+       !     &EXPONENT(aimag(sumVal)),FRACTION(aimag(sumVal))
+       RETURN
+    END IF
 
 !--- Now care for the prescribed boundary condition:
 
@@ -250,7 +260,7 @@
     !--- sFac describes the linear dependence of the (l=0,m=0) mode
     !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
     !    according to the spherical harmonic function form chosen here.
-        sFac(nS)=REAL(sLM(lm00))/DSQRT(4*pi)
+        sFac(nS)=REAL(sLM(st_map%lm2(0,0)))/DSQRT(4*pi)
 
     END DO ! Loop over peak
 
@@ -326,10 +336,12 @@
 !    for example by setting: s_top= 0 0 -1 0
     DO m=0,l_max,minc
         DO l=m,l_max
-            lm=lmP2(l,m)
+            lm=st_map%lmP2(l,m)
             IF ( l <= l_max .AND. l > 0 ) tops(l,m)=tops(l,m)+sLM(lm)
         END DO
     END DO
+
+    !WRITE(*,"(A,2I5,2ES22.15)") "END   initS: ",lmStart,lmStop, SUM( s(lmStart:lmStop,:) )
 
 
     RETURN

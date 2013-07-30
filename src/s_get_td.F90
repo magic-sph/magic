@@ -20,9 +20,6 @@
 !  |  contained in flmw1-3,flms1-3, flmb1-3 (input)                    |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE radial_functions
@@ -37,7 +34,7 @@
 
 !-- Input of variables:
     INTEGER,intent(IN) :: nR
-    INTEGER,intent(IN) :: nBc ! signifies baundary conditions
+    INTEGER,intent(IN) :: nBc ! signifies boundary conditions
     LOGICAL,intent(IN) :: lRmsCalc
 
 !----- Nonlinear terms:
@@ -70,7 +67,6 @@
 !-- end of declaration
 !-------------------------------------------------------------------------
 
-
     DO lm=1,lm_max
         IF ( dLh(lm) > 0 ) THEN
             wR(lm) =dLhw(lm)/dLh(lm)
@@ -100,9 +96,9 @@
                 lmPA=lmP2lmPA(lmP)   ! l+1
                 IF ( l > m ) THEN
                     dVxBhLM(lm)=r(nR)*r(nR)* (                &
-                                  dTheta1S(lm)*VxBtLM(lmPS) - &
-                                  dTheta1A(lm)*VxBtLM(lmPA) + &
-                                      dPhi(lm)*VxBpLM(lmP)  )
+                         & dTheta1S(lm)*VxBtLM(lmPS) - &
+                         & dTheta1A(lm)*VxBtLM(lmPA) + &
+                         & dPhi(lm)*VxBpLM(lmP)  )
                 ELSE IF ( l == m ) THEN ! (l-1) not allowed !
                     dVxBhLM(lm)=r(nR)*r(nR)* (                &
                                 - dTheta1A(lm)*VxBtLM(lmPA) + &
@@ -190,7 +186,7 @@
                 dwdt(lm)=AdvPol(lm)+CorPol(lm)
                 IF ( lRmsCalc .AND. l_mag_LF ) THEN
                 !------ When RMS values are required, the Lorentz force is treated
-                !       seperately:
+                !       separately:
                 !--------- FLPol = ( curl(B)xB )_r
                     LFPol(lm) =or2(nR)*LFrLM(lmP)
                     AdvPol(lm)=AdvPol(lm)-LFPol(lm)
@@ -249,28 +245,28 @@
             IF ( lRmsCalc ) THEN
 
                 IF ( l_conv_nl ) THEN
-                    CALL hInt2Pol(AdvPol,nR,2,lm_max,AdvPolLMr, &
-                                  AdvPol2hInt(nR),AdvPolAs2hInt(nR))
-                    CALL hInt2Tor(AdvTor,nR,2,lm_max, &
-                                  AdvTor2hInt(nR),AdvTorAs2hInt(nR))
+                    CALL hInt2Pol(AdvPol,1,lm_max,nR,2,lm_max,AdvPolLMr, &
+                                  AdvPol2hInt(nR),AdvPolAs2hInt(nR),st_map)
+                    CALL hInt2Tor(AdvTor,1,lm_max,nR,2,lm_max, &
+                                  AdvTor2hInt(nR),AdvTorAs2hInt(nR),st_map)
                 END IF
             ! rho* grad(p/rho) = grad(p) - beta*p
-                CALL hInt2Pol(dpR-beta(nR)*preR,nR,2,lm_max,PreLMr, &
-                              Pre2hInt(nR),PreAs2hInt(nR))
+                CALL hInt2Pol(dpR-beta(nR)*preR,1,lm_max,nR,2,lm_max,PreLMr, &
+                              Pre2hInt(nR),PreAs2hInt(nR),st_map)
                 IF ( ra /= 0.D0 ) &
-                CALL hInt2Pol(sR,nR,2,lm_max,BuoLMr, &
-                              Buo2hInt(nR),BuoAs2hInt(nR))
+                CALL hInt2Pol(sR,1,lm_max,nR,2,lm_max,BuoLMr, &
+                              Buo2hInt(nR),BuoAs2hInt(nR),st_map)
                 IF ( l_corr ) THEN
-                    CALL hInt2Pol(CorPol,nR,2,lm_max,CorPolLMr, &
-                                  CorPol2hInt(nR),CorPolAs2hInt(nR))
-                    CALL hInt2Tor(CorTor,nR,2,lm_max, &
-                                  CorTor2hInt(nR),CorTorAs2hInt(nR))
+                    CALL hInt2Pol(CorPol,1,lm_max,nR,2,lm_max,CorPolLMr, &
+                                  CorPol2hInt(nR),CorPolAs2hInt(nR),st_map)
+                    CALL hInt2Tor(CorTor,1,lm_max,nR,2,lm_max, &
+                                  CorTor2hInt(nR),CorTorAs2hInt(nR),st_map)
                 END IF
                 IF ( l_mag_LF ) THEN
-                    CALL hInt2Pol(LFPol,nR,2,lm_max,LFPolLMr, &
-                                  LFPol2hInt(nR),LFPolAs2hInt(nR))
-                    CALL hInt2Tor(LFTor,nR,2,lm_max, &
-                                  LFTor2hInt(nR),LFTorAs2hInt(nR))
+                    CALL hInt2Pol(LFPol,1,lm_max,nR,2,lm_max,LFPolLMr, &
+                                  LFPol2hInt(nR),LFPolAs2hInt(nR),st_map)
+                    CALL hInt2Tor(LFTor,1,lm_max,nR,2,lm_max, &
+                                  LFTor2hInt(nR),LFTorAs2hInt(nR),st_map)
                 END IF
 
             !----- Calculate balances: recycle AdvPol, AdvTor for this:
@@ -287,17 +283,17 @@
                         CorPol(lm)=AdvTor(lm)+rho0(nR)*rgrav(nR)*sR(lm)
                     END IF
                 END DO
-                CALL hInt2Pol(AdvPol,nR,2,lm_max,GeoLMr, &
-                              Geo2hInt(nR),GeoAs2hInt(nR))
+                CALL hInt2Pol(AdvPol,1,lm_max,nR,2,lm_max,GeoLMr, &
+                              Geo2hInt(nR),GeoAs2hInt(nR),st_map)
                 IF ( l_RMStest ) THEN
-                    CALL hInt2Tor(AdvTor,nR,2,lm_max, &
-                                  Mag2hInt(nR),MagAs2hInt(nR))
+                    CALL hInt2Tor(AdvTor,1,lm_max,nR,2,lm_max, &
+                                  Mag2hInt(nR),MagAs2hInt(nR),st_map)
                 ELSE
-                    CALL hInt2Pol(AdvTor,nR,2,lm_max,MagLMr, &
-                                  Mag2hInt(nR),MagAs2hInt(nR))
+                    CALL hInt2Pol(AdvTor,1,lm_max,nR,2,lm_max,MagLMr, &
+                                  Mag2hInt(nR),MagAs2hInt(nR),st_map)
                 END IF
-                CALL hInt2Pol(CorPol,nR,2,lm_max,ArcLMr, &
-                              Arc2hInt(nR),ArcAs2hInt(nR))
+                CALL hInt2Pol(CorPol,1,lm_max,nR,2,lm_max,ArcLMr, &
+                              Arc2hInt(nR),ArcAs2hInt(nR),st_map)
 
             END IF
 
@@ -404,8 +400,8 @@
             DO lm=2,lm_max
                 dsdt(lm)  =0.D0
                 dVSrLM(lm)=0.D0
-            END DO
-        END IF
+             END DO
+          END IF
 
         IF ( l_mag_nl .OR. l_mag_kin  ) THEN
 

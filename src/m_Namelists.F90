@@ -28,8 +28,6 @@ CONTAINS
     !  |  Purpose of this subroutine is to read the input namelists.       |
     !  |  This program also determins logical parameters that are stored   |
     !  |  in c_logic.f.                                                    |
-    !  |  MPI: This is only done by one processor. Namelists content and   |
-    !  |  common block c_logic.f must be send to all the other processors. |
     !  |                                                                   |
     !  +-------------------------------------------------------------------+
   SUBROUTINE readNamelists
@@ -40,6 +38,9 @@ CONTAINS
     INTEGER :: length
     integer :: argument_count
     character(len=100) :: input_filename
+#ifdef WITH_MPI
+  character(len=100) :: new_tag
+#endif
 
     !-- Name lists:
     INTEGER :: runHours,runMinutes,runSeconds
@@ -152,15 +153,15 @@ CONTAINS
        OPEN(105,file=trim(input_filename))
 
        !-- Reading control parameters from namelists in STDIN:
-       WRITE(*,*) '!  Reading grid parameters!'
+       if (rank.eq.0) write(*,*) '!  Reading grid parameters!'
        READ(105,grid)
 
        !-- Reading control parameters from namelists in STDIN:
-       WRITE(*,*) '!  Reading control parameters!'
+       if (rank.eq.0) write(*,*) '!  Reading control parameters!'
        READ(105,control)
 
        !-- Reading physical parameters from namelists in STDIN:
-       WRITE(*,*) '!  Reading physical parameters!'
+       if (rank.eq.0) write(*,*) '!  Reading physical parameters!'
        READ(105,phys_param)
 
        !-- Reading external field parameters for feedback:
@@ -168,32 +169,43 @@ CONTAINS
        !           READ(105,B_external)
 
        !-- Reading start field info from namelists in STDIN:
-       WRITE(*,*) '!  Reading start information!'
+       if (rank.eq.0) write(*,*) '!  Reading start information!'
        READ(105,start_field)
 
        !-- Reading output parameters from namelists in STDIN:
-       WRITE(*,*) '!  Reading output information!'
+       if (rank.eq.0) write(*,*) '!  Reading output information!'
        READ(105,output_control)
 
        !-- Reading mantle parameters from namelists in STDIN:
-       WRITE(*,*) '!  Reading mantle information!'
+       if (rank.eq.0) write(*,*) '!  Reading mantle information!'
        READ(105,mantle)
 
        !-- Reading inner-core parameter from namelists in STDIN:
-       WRITE(*,*) '!  Reading inner core information!'
+       if (rank.eq.0) write(*,*) '!  Reading inner core information!'
        READ(105,inner_core)
 
        close(105)
        !-- Correcting some parameters:
     END IF
 
+
+#ifdef WITH_MPI
+    tag_wo_rank=tag
+    !WRITE(new_tag,"(I4.4,A,A)") rank,".",TRIM(tag)
+    !tag=new_tag
+#endif
     !-- Does log-file already exist?
     log_file='log.'//tag
-    INQUIRE(file=TRIM(log_file),exist=log_does_exist)
+    IF (rank.EQ.0) THEN
+       INQUIRE(file=TRIM(log_file),exist=log_does_exist)
+    END IF
+    CALL MPI_Bcast(log_does_exist,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
     IF (log_does_exist) THEN
-       WRITE(*,*)
-       WRITE(*,*) '! The log-file exists already !'
-       WRITE(*,*) '! I add _BIS to the tag and create new files!'
+       IF (rank.EQ.0) THEN 
+          WRITE(*,*)
+          WRITE(*,*) '! The log-file exists already !'
+          WRITE(*,*) '! I add _BIS to the tag and create new files!'
+       END IF
        length=length_to_blank(tag)
        tag=tag(1:length)//'_BIS'
     END IF

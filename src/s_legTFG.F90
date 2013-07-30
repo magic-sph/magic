@@ -1,4 +1,5 @@
 !$Id$
+#include "perflib_preproc.cpp"
 !*******************************************************************************
     SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
        vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
@@ -48,6 +49,7 @@
     USE horizontal_data
     USE logic
     USE const
+    use parallel_mod
     IMPLICIT NONE
 
 !-- input:
@@ -98,16 +100,18 @@
      
 !-- end of declaration
 !----------------------------------------------------------------------
-     
+    !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
 
     nThetaNHS=(nThetaStart-1)/2
 
     IF ( nBc == 0 .OR. lDeriv ) THEN ! not a boundary or derivs required
-
+       PERFON('TFG_inn')
+       PERFON('TFG_thl')
         DO nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
              
+            PERFON_I('TFG_1')
             IF ( l_heat ) THEN
                 DO mc=1,n_m_max
                     lmS=lStop(mc)
@@ -122,8 +126,9 @@
                     sc(mc,nThetaS)=sES-sEA
                 END DO
             END IF
-
+            PERFOFF_I
         !--- Loop over all oders m: (numbered by mc)
+            PERFON_I('TFG_2')
             DO mc=1,n_m_max
                 lmS=lStop(mc)
                 cvrES  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -153,7 +158,8 @@
                 brc(mc,nThetaN)   =brES   +brEA
                 brc(mc,nThetaS)   =brES   -brEA
             END DO
-
+            PERFOFF_I
+            PERFON_I('TFG_3')
             DO mc=1,n_m_max
                 dm =D_mc2m(mc)
                 lmS=lStop(mc)
@@ -189,7 +195,9 @@
                 dvrdtc(mc,nThetaS)=dvrdtES-dvrdtEA
                 cbrc(mc,nThetaN)  =cbrES  +cbrEA
                 cbrc(mc,nThetaS)  =cbrES  -cbrEA
-            END DO
+             END DO
+             PERFOFF_I
+            PERFON_I('TFG_4')
 
         !--- Now the stuff using generalized harmonics:
             DO mc=1,n_m_max
@@ -216,6 +224,8 @@
                 vhN2M(mc)=0.5D0*vhN2
                 vhS2M(mc)=0.5D0*vhS2
             END DO
+            PERFOFF_I
+            PERFON_I('TFG_5')
 
             DO mc=1,n_m_max
                 lmS=lStop(mc)
@@ -245,6 +255,8 @@
                 dvhdrN2M(mc)=0.5D0*dvhdrN2
                 dvhdrS2M(mc)=0.5D0*dvhdrS2
             END DO
+            PERFOFF_I
+            PERFON_I('TFG_6')
 
             DO mc=1,n_m_max
                 lmS=lStop(mc)
@@ -270,6 +282,8 @@
                 bhN2M(mc)=0.5D0*bhN2
                 bhS2M(mc)=0.5D0*bhS2
             END DO
+            PERFOFF_I
+            PERFON_I('TFG_7')
 
             DO mc=1,n_m_max
                 lmS=lStop(mc)
@@ -295,6 +309,8 @@
                 cbhN2M(mc)=0.5D0*cbhN2
                 cbhS2M(mc)=0.5D0*cbhS2
             END DO
+            PERFOFF_I
+            PERFON_I('TFG_8')
 
         !--- Unscramble:
         !--- 6 add/mult, 20 DBLE words
@@ -335,7 +351,8 @@
                 cbpc(mc,nThetaN)=CMPLX(AIMAG(cbhN),-REAL(cbhN),KIND=KIND(0d0))
                 cbpc(mc,nThetaS)=CMPLX(AIMAG(cbhS),-REAL(cbhS),KIND=KIND(0d0))
             END DO ! Loop over order m
-
+            PERFOFF_I
+            PERFON_I('TFG_9')
 
         !--- Calculate phi derivatives:
             DO mc=1,n_m_max
@@ -362,9 +379,10 @@
                       CMPLX(-dmT*AIMAG(vpc(mc,nThetaS)), &
                               dmT*REAL(vpc(mc,nThetaS)),KIND=KIND(0d0))
             END DO   ! End of loop over oder m numbered by mc
-
+            PERFOFF_I
         END DO      ! End global loop over nTheta
-                
+             
+        PERFOFF
 
     !-- Zero out terms with index mc > n_m_max:
         IF ( n_m_max < ncp ) THEN
@@ -393,11 +411,11 @@
                 END DO
             END DO  ! loop over nThetaN (theta)
         END IF
-          
+        PERFOFF
            
     ELSE   ! boundary ?
          
-
+       PERFON('TFG_bnd')
     !-- Calculation for boundary r_cmb or r_icb:
 
         DO nThetaN=1,sizeThetaB,2
@@ -519,7 +537,7 @@
                 END DO
             END IF
         END IF
-
+        PERFOFF
     END IF  ! boundary ? nBc?
 
 

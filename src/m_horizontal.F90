@@ -22,10 +22,6 @@ MODULE horizontal_data
   REAL(kind=8),ALLOCATABLE :: O_sin_theta_E2(:)
   REAL(kind=8),ALLOCATABLE :: sinTheta(:)
   REAL(kind=8),ALLOCATABLE :: cosTheta(:)
-  !COMMON/theta_func/n_theta_cal2ord,                              &
-  !     &                    sn2,osn2,cosn2,osn1,sinTheta,cosTheta,        &
-  !     &                    theta,theta_ord,O_sin_theta,O_sin_theta_E2
-!!$OMP THREADPRIVATE(/theta_func/)
   !$OMP THREADPRIVATE( n_theta_cal2ord )
   !$OMP THREADPRIVATE( sn2,osn2,cosn2,osn1,sinTheta,cosTheta )
   !$OMP THREADPRIVATE( theta,theta_ord,O_sin_theta,O_sin_theta_E2 )

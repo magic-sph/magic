@@ -1,7 +1,8 @@
 !$Id$
 !******************************************************************************
-    SUBROUTINE graph_write(n_phis,n_thetas,dummy, &
-                           precision,format,n_graph_file)
+#include "perflib_preproc.cpp"
+  SUBROUTINE graph_write(n_phis,n_thetas,dummy, &
+       &                 PRECISION,FORMAT,n_graph_file)
 !******************************************************************************
 
 !    !------------ This is release 2 level 1  --------------!
@@ -33,7 +34,7 @@
 !-- End of declaration
 !------------------------------------------------------------------------------
 
-
+    PERFON('gwrite')
     DO n_theta=1,n_thetas
          
         IF ( format == 0 ) THEN ! unformatted output
@@ -54,6 +55,7 @@
     900 FORMAT(512(1X,F7.2))
     901 FORMAT(512(1X,F7.3))
 
+    PERFOFF
     RETURN
     end SUBROUTINE graph_write
 

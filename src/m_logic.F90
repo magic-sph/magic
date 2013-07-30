@@ -49,22 +49,6 @@ MODULE logic
   LOGICAL :: l_prms
   LOGICAL :: l_viscBcCalc 
 
-  !COMMON/logic/l_update_v,l_update_b,l_update_s,                  &
-  !     &               l_mag,l_conv,l_mag_nl,l_conv_nl,l_mag_kin,         &
-  !     &               l_heat,l_heat_nl,l_SRIC,l_SRMA,l_corr,             &
-  !     &               l_mag_LF,l_rot_ic,l_rot_ma,l_z10mat,               &
-  !     &               l_cond_ic,l_cond_ma,l_time_hits,                   &
-  !     &               l_average,l_save_out,l_non_rot,l_anel,             &
-  !     &               l_interior_model,l_isothermal,                     &
-  !     &               l_movie,l_movie_oc,l_movie_ic,l_HTmovie,           &
-  !     &               l_dtBmovie,l_dtB,l_HT,l_true_time,l_cmb_field,     &
-  !     &               l_dt_cmb_field,l_r_field,                          &
-  !     &               l_b_nl_cmb,l_b_nl_icb,                             &
-  !     &               l_correct_AMe,l_correct_AMz,l_store_frame,         &
-  !     &               l_rMagSpec,l_DTrMagSpec,                           &
-  !     &               l_TO,l_TOmovie,l_hel,l_AM,l_power,                 &
-  !     &               l_drift,l_runTimeLimit,l_storeBpot,l_storeVpot,    &
-  !     &               l_storeTpot,l_storePot,l_RMS,l_RMStest,            &
-  !     &               l_par,l_corrMov,l_newmap,l_plotmap,l_prms,         &
-  !     &               l_PV,l_iner,lviscBcCalc
+  LOGICAL :: lVerbose
+
 END MODULE logic

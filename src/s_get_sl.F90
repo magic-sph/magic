@@ -13,9 +13,6 @@
 !  |    sl(r,theta)=d_theta v(r,theta,m=0)/r                           |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
 
     USE truncation
@@ -23,16 +20,16 @@
     USE blocking
     USE horizontal_data
     USE logic
-    USE fields
+    USE fields,ONLY: w_Rloc
 
     IMPLICIT NONE
 
-    integer :: n_r             ! No. of radial grid point
-    integer :: n_theta_start   ! No. of theta to start with
-    integer :: n_theta_block   ! Size of theta block
+    INTEGER,INTENT(IN) :: n_r             ! No. of radial grid point
+    integer,INTENT(IN) :: n_theta_start   ! No. of theta to start with
+    integer,INTENT(IN) :: n_theta_block   ! Size of theta block
 
 !-- output:
-    real(kind=8) ::  sl(*)           ! Field for field lines
+    real(kind=8),INTENT(OUT) ::  sl(*)           ! Field for field lines
 
 !-- local:
     integer :: n_theta         ! No. of theta
@@ -72,7 +69,7 @@
         do l=1,l_max
             lm=lm+1
             sign=-sign
-            sl_1=O_r*REAL(w(lm,n_r))*dPlm(lm,n_theta_nhs)
+            sl_1=O_r*REAL(w_Rloc(lm,n_r))*dPlm(lm,n_theta_nhs)
         !-------- Northern hemisphere:
             sl_n=sl_n+sl_1
         !-------- Southern hemisphere:

@@ -26,7 +26,7 @@ class MagicGraph(MagicSetup):
     def __init__(self, ivar=None, datadir='.', format='B', quiet=True, 
                  ave=False, tag=None):
         """
-        :param format: format of bynary output: 'n' (native), 'B' (big endian)
+        :param format: format of binary output: 'n' (native), 'B' (big endian)
                        or 'l' (little endian)
         :param ave: in case of the average G file G_ave.tag
         :param ivar: the number of the G file

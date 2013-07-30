@@ -23,9 +23,6 @@
 !  |   lDeriv=.TRUE. field derivatives required                        |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE radial_functions
@@ -35,7 +32,8 @@
     USE blocking
     USE horizontal_data
     USE logic
-    USE fields
+    USE fields,ONLY: s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,p_Rloc,dp_Rloc,b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc,&
+         & w_Rloc,dw_Rloc,ddw_Rloc,omega_ic,omega_ma
     USE const
 
     IMPLICIT NONE
@@ -81,8 +79,8 @@
 
         IF ( l_heat ) THEN
             DO lm=1,lm_max
-                sR(lm) =s(lm,nR)   ! used for plotting and Rms
-                dsR(lm)=ds(lm,nR)  ! used for plotting and Rms
+               sR(lm) =s_Rloc(lm,nR)   ! used for plotting and Rms
+               dsR(lm)=ds_Rloc(lm,nR)  ! used for plotting and Rms
             END DO
         END IF
         IF ( lTOnext .OR. lTOnext2 .OR. lTOCalc ) THEN
@@ -90,8 +88,8 @@
                 l=lm2l(lm)
                 m=lm2m(lm)
                 IF ( l <= l_max .AND. m == 0 ) THEN
-                    zAS(l+1)  =REAL(z(lm,nR))   ! used in TO
-                    dzAS(l+1) =REAL(dz(lm,nR))  ! used in TO (anelastic)
+                    zAS(l+1)  =REAL(z_Rloc(lm,nR))   ! used in TO
+                    dzAS(l+1) =REAL(dz_Rloc(lm,nR))  ! used in TO (anelastic)
                     ddzAS(l+1)=ddzASL(l+1,nR)    ! used in TO
                 END IF
             END DO
@@ -100,15 +98,15 @@
             preR(1)=zero
             dpR(1)=zero
             DO lm=2,lm_max
-                preR(lm)=p(lm,nR)    ! used for Rms in get_td (anelastic)
-                dpR(lm)=dp(lm,nR)  ! used for Rms in get_td
+                preR(lm)=p_Rloc(lm,nR)    ! used for Rms in get_td (anelastic)
+                dpR(lm)=dp_Rloc(lm,nR)  ! used for Rms in get_td
             END DO
         END IF
         IF ( l_mag .AND. l_frame .AND. &
              l_movie_oc .AND. nR == n_r_cmb ) THEN
             bCMB(1)=zero ! used in s_store_movie_frame.f
             DO lm=2,lm_max
-                bCMB(lm)=b(lm,nR)  ! used for movie output of surface field
+                bCMB(lm)=b_Rloc(lm,nR)  ! used for movie output of surface field
             END DO
         END IF
 
@@ -117,11 +115,11 @@
             vhG(1) =zero
             vhC(1) =zero
             DO lm=2,lm_max
-                dLhw(lm)=dLh(lm)*w(lm,nR)
-                vhG(lm) =dw(lm,nR) - &
-                     CMPLX(-AIMAG(z(lm,nR)),REAL(z(lm,nR)),KIND=KIND(0d0))
-                vhC(lm) =dw(lm,nR) + &
-                     CMPLX(-AIMAG(z(lm,nR)),REAL(z(lm,nR)),KIND=KIND(0d0))
+                dLhw(lm)=dLh(lm)*w_Rloc(lm,nR)
+                vhG(lm) =dw_Rloc(lm,nR) - &
+                     CMPLX(-AIMAG(z_Rloc(lm,nR)),REAL(z_Rloc(lm,nR)),KIND=KIND(0d0))
+                vhC(lm) =dw_Rloc(lm,nR) + &
+                     CMPLX(-AIMAG(z_Rloc(lm,nR)),REAL(z_Rloc(lm,nR)),KIND=KIND(0d0))
             END DO
         END IF
 
@@ -131,12 +129,12 @@
             dvhdrG(1)=zero
             dvhdrC(1)=zero
             DO lm=2,lm_max
-                dLhz(lm)  =dLh(lm)*z(lm,nR)
-                dLhdw(lm) =dLh(lm)*dw(lm,nR)
-                dvhdrG(lm)=ddw(lm,nR) - &
-                     CMPLX(-AIMAG(dz(lm,nR)),REAL(dz(lm,nR)),KIND=KIND(0d0))
-                dvhdrC(lm)=ddw(lm,nR) + &
-                     CMPLX(-AIMAG(dz(lm,nR)),REAL(dz(lm,nR)),KIND=KIND(0d0))
+                dLhz(lm)  =dLh(lm)*z_Rloc(lm,nR)
+                dLhdw(lm) =dLh(lm)*dw_Rloc(lm,nR)
+                dvhdrG(lm)=ddw_Rloc(lm,nR) - &
+                     CMPLX(-AIMAG(dz_Rloc(lm,nR)),REAL(dz_Rloc(lm,nR)),KIND=KIND(0d0))
+                dvhdrC(lm)=ddw_Rloc(lm,nR) + &
+                     CMPLX(-AIMAG(dz_Rloc(lm,nR)),REAL(dz_Rloc(lm,nR)),KIND=KIND(0d0))
             END DO
         END IF
 
@@ -150,11 +148,11 @@
         bhG(1) =zero
         bhC(1) =zero
         DO lm=2,lm_max
-            dLhb(lm)=dLh(lm)*b(lm,nR)
-            bhG(lm) =db(lm,nR) - &
-                 CMPLX(-AIMAG(aj(lm,nR)),REAL(aj(lm,nR)),KIND=KIND(0d0))
-            bhC(lm) =db(lm,nR) + &
-                 CMPLX(-AIMAG(aj(lm,nR)),REAL(aj(lm,nR)),KIND=KIND(0d0))
+            dLhb(lm)=dLh(lm)*b_Rloc(lm,nR)
+            bhG(lm) =db_Rloc(lm,nR) - &
+                 CMPLX(-AIMAG(aj_Rloc(lm,nR)),REAL(aj_Rloc(lm,nR)),KIND=KIND(0d0))
+            bhC(lm) =db_Rloc(lm,nR) + &
+                 CMPLX(-AIMAG(aj_Rloc(lm,nR)),REAL(aj_Rloc(lm,nR)),KIND=KIND(0d0))
         END DO
         IF ( lGrenoble ) THEN ! Add dipole imposed by inner core
             lm=lm2(1,0)
@@ -167,10 +165,10 @@
             cbhG(1)=zero
             cbhC(1)=zero
             DO lm=2,lm_max
-                dLhj(lm)=dLh(lm)*aj(lm,nR)
-                dbd     =or2(nR)*dLhb(lm)-ddb(lm,nR)
-                cbhG(lm)=dj(lm,nR)-CMPLX(-AIMAG(dbd),REAL(dbd),KIND=KIND(0d0))
-                cbhC(lm)=dj(lm,nR)+CMPLX(-AIMAG(dbd),REAL(dbd),KIND=KIND(0d0))
+                dLhj(lm)=dLh(lm)*aj_Rloc(lm,nR)
+                dbd     =or2(nR)*dLhb(lm)-ddb_Rloc(lm,nR)
+                cbhG(lm)=dj_Rloc(lm,nR)-CMPLX(-AIMAG(dbd),REAL(dbd),KIND=KIND(0d0))
+                cbhC(lm)=dj_Rloc(lm,nR)+CMPLX(-AIMAG(dbd),REAL(dbd),KIND=KIND(0d0))
             END DO
             IF ( lGrenoble ) THEN ! Add dipole imposed by inner core
                 lm=lm2(1,0)

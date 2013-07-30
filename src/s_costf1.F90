@@ -17,27 +17,25 @@
 !  |  coeffs or data are returned in f.                                |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     use truncation,  only: lm_max_real
 
     implicit none
 
 !-- Input:
-    integer :: n
-    integer :: n_f_max         ! number of columns in f,f2
-    integer :: n_f_start,n_f_stop  ! columns to be transformed
-    real(kind=8) :: f(n_f_max,*)     ! data/coeff input
-    real(kind=8) :: f2(n_f_max,*)    ! work array of the same size as f
-    integer :: i_costf_init(*) ! prestored integers
-    real(kind=8) :: d_costf_init(*)  ! prestored dble numbers
+    integer,intent(IN) :: n_f_max         ! number of columns in f,f2
+    integer,intent(IN) :: n_f_start,n_f_stop  ! columns to be transformed
+    real(kind=8),intent(INOUT) :: f(n_f_max,*)     ! data/coeff input
+    real(kind=8),intent(OUT) :: f2(n_f_max,*)    ! work array of the same size as f
+    integer,intent(IN) :: i_costf_init(*) ! prestored integers
+    real(kind=8),intent(IN) :: d_costf_init(*)  ! prestored dble numbers
 
 
 !-- Output: transformed f(n_f_max,*)
      
 !-- Local:
+    integer :: n
+
     logical :: l_f2_data
     integer :: n_f
     integer :: j,j1,j2,j3,j4

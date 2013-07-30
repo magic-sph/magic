@@ -20,7 +20,7 @@
     USE num_param
     USE logic
     USE output_data
-
+    USE parallel_mod,only:rank
     IMPLICIT NONE
 
 !-- input:
@@ -94,17 +94,19 @@
         WRITE(*, &
       &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
       &     time_new*tScale,time*tScale
-        IF ( l_save_out ) THEN
-            OPEN(n_log_file,file=log_file,status='unknown', &
-                 POSITION='APPEND')
-            WRITE(n_log_file, &
-          &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
-          &     time_new*tScale,time*tScale
-            CLOSE(n_log_file)
-        ELSE
-            WRITE(n_log_file, &
-          &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
-          &    time_new*tScale,time*tScale
+        IF (rank.EQ.0) THEN
+           IF ( l_save_out ) THEN
+              OPEN(n_log_file,file=log_file,status='unknown', &
+                   POSITION='APPEND')
+              WRITE(n_log_file, &
+                   &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+                   &     time_new*tScale,time*tScale
+              CLOSE(n_log_file)
+           ELSE
+              WRITE(n_log_file, &
+                   &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+                   &    time_new*tScale,time*tScale
+           END IF
         END IF
     END IF
 

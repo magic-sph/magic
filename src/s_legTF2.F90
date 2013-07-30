@@ -33,11 +33,11 @@
 ! include 'c_horizontal.f'
 ! include 'c_blocking.f'
 
-    INTEGER :: nThetaStart ! First no of theta on block
-    COMPLEX(kind=8) :: f1TM(ncp,nfs),f2TM(ncp,nfs)
+    INTEGER,intent(IN) :: nThetaStart ! First no of theta on block
+    COMPLEX(kind=8),intent(IN) :: f1TM(ncp,nfs),f2TM(ncp,nfs)
 
 !-- output:
-    COMPLEX(kind=8) :: f1LM(lmP_max),f2LM(lmP_max)
+    COMPLEX(kind=8),intent(OUT) :: f1LM(lmP_max),f2LM(lmP_max)
 
 !-- local:
     INTEGER :: nThetaN     ! No. of theta in NHS

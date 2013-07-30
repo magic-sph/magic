@@ -19,10 +19,6 @@
 !  |   r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp                 |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-
 
     USE truncation
     USE radial_functions
@@ -43,16 +39,16 @@
 ! include 'c_horizontal.f'! contains horizontal functions
 
 !-- Input of variables:
-    INTEGER :: n_theta_start   ! No. of theta to start with
-    INTEGER :: n_theta_block   ! Size of theta block
+    INTEGER,INTENT(IN) :: n_theta_start   ! No. of theta to start with
+    INTEGER,INTENT(IN) :: n_theta_block   ! Size of theta block
 
 !-- Input of poloidal magnetic field scalar:
-    COMPLEX(kind=8) :: bCMB(lm_max)
+    COMPLEX(kind=8),INTENT(IN) :: bCMB(lm_max)
 
 !-- Output:
-    REAL(kind=8) :: b_r(nrp,*)       ! Radial magnetic field in (phi,theta)-space
-    REAL(kind=8) :: b_t(nrp,*)       ! Latitudinal magnetic field
-    REAL(kind=8) :: b_p(nrp,*)       ! Azimuthal magnetic field.
+    REAL(kind=8),INTENT(OUT) :: b_r(nrp,*)       ! Radial magnetic field in (phi,theta)-space
+    REAL(kind=8),INTENT(OUT) :: b_t(nrp,*)       ! Latitudinal magnetic field
+    REAL(kind=8),INTENT(OUT) :: b_p(nrp,*)       ! Azimuthal magnetic field.
 
 !-- local:
     INTEGER :: n_theta         ! No. of theta

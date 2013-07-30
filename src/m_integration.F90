@@ -103,11 +103,11 @@ MODULE integration
 !---------------------------------------------------------------------------
     IMPLICIT NONE
                
-    REAL(kind=8) :: f(*)
-    INTEGER :: n_r_max,n_cheb_max
-    REAL(kind=8) :: dr_fac(*)
-    REAL(kind=8) :: d_costf_init(*)
-    INTEGER :: i_costf_init(*)
+    REAL(kind=8),INTENT(IN) :: f(*)
+    INTEGER,INTENT(IN) :: n_r_max,n_cheb_max
+    REAL(kind=8),INTENT(IN) :: dr_fac(*)
+    REAL(kind=8),INTENT(IN) :: d_costf_init(*)
+    INTEGER,INTENT(IN) :: i_costf_init(*)
             
     REAL(kind=8) :: f2(n_r_max)
     REAL(kind=8) :: work(n_r_max)

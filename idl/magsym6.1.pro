@@ -4,25 +4,29 @@
 ;SOME LONGITUDINAL SYMMETRY MAY BE ASSUMED IN THE CALCULATION.
 ;ADAPTED FOR PARALLEL OUTPUT OF GRAPHIC DATA BY C.KUTZNER
 ;VERSION6 DISPLAYS INNER CORE DATA AS WELL.
- 
+
        VERSION="Magsym 6  (September 4, 2000)"
 
+       print, !VERSION.OS_Family
 ;DETERMINE OPERATING SYSTEM
-       CASE !VERSION.OS_FAMILY OF
-          "MacOS" :  BEGIN
+       CASE !VERSION.OS_Family OF
+          'MacOS' :  BEGIN
              PLATFORM="MAC"
              SCWINDOW=0.95
-             END
-          "unix" : BEGIN
+          END
+          'unix' : BEGIN
              PLATFORM="X"
              SCWINDOW=1.5
-             END
-          "Windows" : BEGIN
-             PLATFORM="WIN" 
+          END
+          'Windows' : BEGIN
+             PLATFORM="WIN"
              SCWINDOW=1.25
-             END
+          END
+          else : begin
+             print, "No OS_Family chosen"
+          end
         ENDCASE
-     
+
 ;ACCESS RGB-VALUES OF COLOR TABLE
         COMMON COLORS,R_ORIG,G_ORIG,B_ORIG,R_CURR,G_CURR,B_CURR
 
@@ -52,7 +56,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
 
           GRAPHOUTVERSION=3   ; GRAPHOUTVERSION >=3, this eventually gets
           ;                     overwritten if the version is even newer
-          OPENU, 1, INFILE, /F77_UNFORMATTED
+          OPENU, 1, INFILE, /F77_UNFORMATTED, /SWAP_IF_LITTLE_ENDIAN
 
           ; determine file format (GRAPHOUTVERSION) and read run identifyer RUNID
           INFOSTRING='12345678901234567890'  ; 20 byte
@@ -61,7 +65,9 @@ LABELREAD: CLOSE, 1  ;close old file if any
           IF STRPOS(INFOSTRING, 'Graphout_Version_5' ) NE -1 THEN $
              GRAPHOUTVERSION=5 $
 	  ELSE IF STRPOS(INFOSTRING, 'Graphout_Version_7' ) NE -1 THEN $
-	     GRAPHOUTVERSION=7
+	     GRAPHOUTVERSION=7 $
+          ELSE IF STRPOS(INFOSTRING, 'Graphout_Version_9' ) NE -1 THEN $
+	     GRAPHOUTVERSION=9
 
 	  print, 'Graphout version is:',graphoutversion
 
@@ -71,7 +77,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
 	  PRINT, 'Runid is:',RUNID
 
 ; now read the header data:
-	  IF ( GRAPHOUTVERSION EQ 7 ) THEN BEGIN
+	  IF ( ( GRAPHOUTVERSION EQ 7 ) or ( GRAPHOUTVERSION eq 9 ) ) THEN BEGIN
 
             READU, 1, TIME,NNf,NIf,NJf,NN_ICf, $
                       NSYMf,NFSIZEf,RA,EK,PR,PM, $
@@ -100,7 +106,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
 
 	ENDELSE
 
-        PRINT        
+        PRINT
         PRINT, RUNID
 
  	PRINT, FORMAT='("    Ra =", E11.3, "  n_r     =    ", I3 )', RA , nn
@@ -142,7 +148,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
 	   nr_ic=nn_ic
 	   nt=ni
 	   npfull=nj
-	end 
+	end
 
         NP=NPFULL/NSYM                          ;# PHI-POINTS IN DATA FILE
 	PI2NP = 2*PI/NPFULL
@@ -288,10 +294,10 @@ LABELREAD: CLOSE, 1  ;close old file if any
 ;*******************************************************************************
 
 ; #1: UNSORTED GRAPHIC DATA FROM PARALLEL CODE VERSION *************************
-      IF GRAPHOUTVERSION GE 2 THEN BEGIN 
+      IF GRAPHOUTVERSION GE 2 THEN BEGIN
 
 ; define arrays that contain data from input file:
-	T1 =FLTARR(NP,NT,NR)       ;temperature     in 1/minc part of 3D shell      
+	T1 =FLTARR(NP,NT,NR)       ;temperature     in 1/minc part of 3D shell
 	VR1=FLTARR(NP,NT,NR)       ;radial velocity in 1/minc part of 3D shell
 	VT1=FLTARR(NP,NT,NR)       ;theta  velocity in 1/minc part of 3D shell
 	VP1=FLTARR(NP,NT,NR)       ;phi    velocity in 1/minc part of 3D shell
@@ -310,89 +316,119 @@ LABELREAD: CLOSE, 1  ;close old file if any
         FOR IR=1,NR*NFSIZE DO BEGIN ;*** LOOP OVER # OF DATA BLOCKS ************
             IF GRAPHOUTVERSION MOD 2 EQ 0 THEN $ ; version=2 or 4 or 6: ascii-data
                                                    ;         3 or 5 or 7: binary-data
-                READF,1, KC,R1,i1,i2 $
-                ELSE BEGIN
-                    READU,1, DUMMYI
-                    KC=DUMMYI(0)
-                    R1=DUMMYI(1)
-                    i1=DUMMYI(2)
-                    i2=DUMMYI(3)
-                ENDELSE
+               READF,1, KC,R1,i1,i2 $
+            ELSE BEGIN
+               READU,1, DUMMYI
+               KC=DUMMYI(0)
+               R1=DUMMYI(1)
+               i1=DUMMYI(2)
+               i2=DUMMYI(3)
+            ENDELSE
 
 ;	  PRINT,FORMAT='($, I2, " (", I3, "-", I3, "), ")', KC, i1, i2
-                PRINT,FORMAT='($,".")'                  
-                R(KC)=R1
-                REQ(*,KC)=R1
-                RZON(*,KC)=R1
-                R3D(*,*,KC)=R1
-
-     	    FOR i=i1,i2 DO BEGIN                                 ;READ TEMPERATURE
-              READU,1,DUMMY
-              T1(*,i-1,KC)=DUMMY
-            ENDFOR
-       	    FOR i=i1,i2 DO BEGIN                                  ;READ VELOCITIES
-              READU,1,DUMMY
-              VR1(*,i-1,KC)=DUMMY
-            ENDFOR
-       	    FOR i=i1,i2 DO BEGIN
+            PRINT,FORMAT='($,".")'
+            R(KC)=R1
+            REQ(*,KC)=R1
+            RZON(*,KC)=R1
+            R3D(*,*,KC)=R1
+            
+            if GRAPHOUTVERSION eq 9 then begin
+               print, "i1,i2 = ",i1,i2,NP,NP*(i2-i1+1)
+               DUMMY=FLTARR(NP*(i2-i1+1))
+               readu,1,DUMMY
+               T1(*,i1-1:i2-1,KC)=DUMMY
                READU,1,DUMMY
-               VT1(*,i-1,KC)=DUMMY
+               VR1(*,i1-1:i2-1,KC)=DUMMY
+               READU,1,DUMMY
+               VT1(*,i1-1:i2-1,KC)=DUMMY
+               READU,1,DUMMY
+               VP1(*,i1-1:i2-1,KC)=DUMMY
+               IF IMAG GT 0 THEN BEGIN ;READ MAGNETIC FIELD (IF PRESENT)
+                  READU,1,DUMMY
+                  BR1(*,i1-1:i2-1,KC)=DUMMY
+                  READU,1,DUMMY
+                  BT1(*,i1-1:i2-1,KC)=DUMMY
+                  READU,1,DUMMY
+                  BP1(*,i1-1:i2-1,KC)=DUMMY
+               endif
+            endif else begin
+               FOR i=i1,i2 DO BEGIN ;READ TEMPERATURE
+                  READU,1,DUMMY
+                  T1(*,i-1,KC)=DUMMY
                ENDFOR
-             FOR i=i1,i2 DO BEGIN
-               READU,1,DUMMY
-               VP1(*,i-1,KC)=DUMMY
-             ENDFOR
+               FOR i=i1,i2 DO BEGIN ;READ VELOCITIES
+                  READU,1,DUMMY
+                  VR1(*,i-1,KC)=DUMMY
+               ENDFOR
+               FOR i=i1,i2 DO BEGIN
+                  READU,1,DUMMY
+                  VT1(*,i-1,KC)=DUMMY
+               ENDFOR
+               FOR i=i1,i2 DO BEGIN
+                  READU,1,DUMMY
+                  VP1(*,i-1,KC)=DUMMY
+               ENDFOR
+               IF IMAG GT 0 THEN BEGIN ;READ MAGNETIC FIELD (IF PRESENT)
+                  FOR i=i1,i2 DO BEGIN
+                     READU,1,DUMMY
+                     BR1(*,i-1,KC)=DUMMY
+                  ENDFOR
+                  FOR i=i1,i2 DO BEGIN
+                     READU,1,DUMMY
+                     BT1(*,i-1,KC)=DUMMY
+                  ENDFOR
+                  FOR i=i1,i2 DO BEGIN
+                     READU,1,DUMMY
+                     BP1(*,i-1,KC)=DUMMY
+                  ENDFOR
+               ENDIF
+            endelse
 
-            IF IMAG GT 0 THEN BEGIN              ;READ MAGNETIC FIELD (IF PRESENT)
-      	      FOR i=i1,i2 DO BEGIN
-                READU,1,DUMMY
-                BR1(*,i-1,KC)=DUMMY
- 	        ENDFOR
-      	      FOR i=i1,i2 DO BEGIN
-                READU,1,DUMMY
-                BT1(*,i-1,KC)=DUMMY
-              ENDFOR
-     	      FOR i=i1,i2 DO BEGIN
-                READU,1,DUMMY
-                BP1(*,i-1,KC)=DUMMY
-              ENDFOR
-            ENDIF
-
-        ENDFOR ;*** END OF LOOP OVER # OF DATA BLOCKS **************************
+         ENDFOR                 ;*** END OF LOOP OVER # OF DATA BLOCKS **************************
 
 
 ;THIS PART IS FOR THE INNER-CORE DATA (ONLY MAGNETIC FIELD) ********************
- 
+
         IF GRAPHOUTVERSION GE 4 AND NN_IC GT 0 AND IMAG THEN BEGIN
 
-          PRINT
-          PRINT, FORMAT='($, "IC: ")'
-	  FOR IR=1,NR_IC  DO BEGIN  ;*** LOOP OVER # OF DATA BLOCKS IC *********
-            READU,1, KCf,R1,i1f,i2f
-            KC=FIX(KCf)
-            i1=FIX(i1f)
-            i2=FIX(i2f)
-
- 	    PRINT,FORMAT='($,".")'           
-       
-	    R(KC)=R1
-	    REQ(*,KC)=R1
-	    RZON(*,KC)=R1
-	    R3D(*,*,KC)=R1
-
-     	    FOR i=i1,i2 DO BEGIN
-               READU,1,DUMMY
-               BR1(*,i-1,KC)=DUMMY
- 	    ENDFOR
-      	    FOR i=i1,i2 DO BEGIN
-               READU,1,DUMMY
-               BT1(*,i-1,KC)=DUMMY
-            ENDFOR
-     	    FOR i=i1,i2 DO BEGIN
-               READU,1,DUMMY
-               BP1(*,i-1,KC)=DUMMY
-            ENDFOR
-          ENDFOR
+           PRINT
+           PRINT, FORMAT='($, "IC: ")'
+           FOR IR=1,NR_IC  DO BEGIN ;*** LOOP OVER # OF DATA BLOCKS IC *********
+              READU,1, KCf,R1,i1f,i2f
+              KC=FIX(KCf)
+              i1=FIX(i1f)
+              i2=FIX(i2f)
+              
+              PRINT,FORMAT='($,".")'
+              
+              R(KC)=R1
+              REQ(*,KC)=R1
+              RZON(*,KC)=R1
+              R3D(*,*,KC)=R1
+              
+              if GRAPHOUTVERSION eq 9 then begin
+                 DUMMY=FLTARR(NP*(i2-i1+1))
+                 READU,1,DUMMY
+                 BR1(*,i1-1:i2-1,KC)=DUMMY
+                 READU,1,DUMMY
+                 BT1(*,i1-1:i2-1,KC)=DUMMY
+                 READU,1,DUMMY
+                 BP1(*,i1-1:i2-1,KC)=DUMMY
+              endif else begin
+                 FOR i=i1,i2 DO BEGIN
+                    READU,1,DUMMY
+                    BR1(*,i-1,KC)=DUMMY
+                 ENDFOR
+                 FOR i=i1,i2 DO BEGIN
+                    READU,1,DUMMY
+                    BT1(*,i-1,KC)=DUMMY
+                 ENDFOR
+                 FOR i=i1,i2 DO BEGIN
+                    READU,1,DUMMY
+                    BP1(*,i-1,KC)=DUMMY
+                 ENDFOR
+              endelse
+           ENDFOR
         ENDIF
 ;*******************************************************************************
 
@@ -405,46 +441,46 @@ LABELREAD: CLOSE, 1  ;close old file if any
        DUMMY2=FLTARR(NP,NT)
 
        FOR IR=0, NR-1 DO BEGIN ;*** LOOP OVER RADIAL LEVELS (OC) ***************
-         PRINT,FORMAT='($,".")'                  
+         PRINT,FORMAT='($,".")'
 
          DUMMY2=T1(*,*,IR)
          FOR i=0,NT/2-1 DO BEGIN                               ;SORT TEMPERATURE
            T1(*,i,IR)=DUMMY2(*,2*i)
            T1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-         ENDFOR 
+         ENDFOR
 
          DUMMY2=VR1(*,*,IR)
-         FOR i=0,NT/2-1 DO BEGIN                                  ;SORT VELOCITY  
+         FOR i=0,NT/2-1 DO BEGIN                                  ;SORT VELOCITY
            VR1(*,i,IR)=DUMMY2(*,2*i)
            VR1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-         ENDFOR         
+         ENDFOR
          DUMMY2=VP1(*,*,IR)
          FOR i=0,NT/2-1 DO BEGIN
            VP1(*,i,IR)=DUMMY2(*,2*i)
            VP1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-         ENDFOR  
+         ENDFOR
          DUMMY2=VT1(*,*,IR)
          FOR i=0,NT/2-1 DO BEGIN
            VT1(*,i,IR)=DUMMY2(*,2*i)
            VT1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-         ENDFOR 
- 
+         ENDFOR
+
  	 IF IMAG GT 0 THEN BEGIN               ;SORT MAGNETIC FIELD (IF PRESENT)
            DUMMY2=BR1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
              BR1(*,i,IR)=DUMMY2(*,2*i)
              BR1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-           ENDFOR         
+           ENDFOR
            DUMMY2=BP1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
              BP1(*,i,IR)=DUMMY2(*,2*i)
              BP1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-           ENDFOR  
+           ENDFOR
            DUMMY2=BT1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
              BT1(*,i,IR)=DUMMY2(*,2*i)
              BT1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-           ENDFOR  
+           ENDFOR
 	 ENDIF
        ENDFOR ;*** END OF LOOP OVER RADIAL LEVELS (OC) *************************
 
@@ -452,18 +488,18 @@ LABELREAD: CLOSE, 1  ;close old file if any
          PRINT,FORMAT='($," IC: ")'
          FOR IR=NR, NR+NR_IC-1 DO BEGIN   ;*** LOOP OVER RADIAL LEVELS (IC) ****
            PRINT,FORMAT='($,".")'
-                  
+
            DUMMY2=BR1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
              BR1(*,i,IR)=DUMMY2(*,2*i)
              BR1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-             ENDFOR         
+             ENDFOR
 
            DUMMY2=BP1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
              BP1(*,i,IR)=DUMMY2(*,2*i)
              BP1(*,i+NT/2,IR)=DUMMY2(*,NT-1-2*i)
-             ENDFOR  
+             ENDFOR
 
            DUMMY2=BT1(*,*,IR)
            FOR i=0,NT/2-1 DO BEGIN
@@ -519,12 +555,12 @@ LABELREAD: CLOSE, 1  ;close old file if any
             ENDFOR
           TMEAN(IR)=TM/(SM*NP)
           PRINT, FORMAT='(I5, F11.5, F11.5)', IR, R[IR], TMEAN(IR)
-          ENDFOR 
+          ENDFOR
         FOR IR=NR, NR+NR_IC-1 DO BEGIN
           IF IR EQ NR THEN PRINT, " --- inner core ---"
-          PRINT, FORMAT='(I5, F11.5)', IR, R[IR]          
-          END     
-  
+          PRINT, FORMAT='(I5, F11.5)', IR, R[IR]
+          END
+
       END $
 
 ; #2: SORTED GRAPHIC DATA FROM SEQUENTIAL CODE VERSION *************************
@@ -532,16 +568,16 @@ LABELREAD: CLOSE, 1  ;close old file if any
       ELSE BEGIN
 
 ; define arrays that contain data from input file:
-	T1 =FLTARR(NP,NT)        ;temperature     on spherical 2D surface 
-	VR1=FLTARR(NP,NT)        ;radial velocity on spherical 2D surface 
-	VT1=FLTARR(NP,NT)        ;theta  velocity on spherical 2D surface 
-	VP1=FLTARR(NP,NT)        ;phi    velocity on spherical 2D surface 
-	BR1=FLTARR(NP,NT)        ;radial field    on spherical 2D surface  
-	BT1=FLTARR(NP,NT)        ;theta  field    on spherical 2D surface 
+	T1 =FLTARR(NP,NT)        ;temperature     on spherical 2D surface
+	VR1=FLTARR(NP,NT)        ;radial velocity on spherical 2D surface
+	VT1=FLTARR(NP,NT)        ;theta  velocity on spherical 2D surface
+	VP1=FLTARR(NP,NT)        ;phi    velocity on spherical 2D surface
+	BR1=FLTARR(NP,NT)        ;radial field    on spherical 2D surface
+	BT1=FLTARR(NP,NT)        ;theta  field    on spherical 2D surface
 	BP1=FLTARR(NP,NT)        ;phi    field    on spherical 2D surface
 
 	FOR IR=0,NR-1 DO BEGIN ;*** LOOP OVER RADIAL LEVELS ********************
-	  READF,1, format='(i4,e13.5)', KC, R1 
+	  READF,1, format='(i4,e13.5)', KC, R1
           PRINT, IR,R1
           R(IR)=R1
           REQ(*,IR)=R1
@@ -564,7 +600,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
           ENDFOR
           TMEAN(IR)=TM/(SM*NP)
 
-;         MAKES 3D SHELL ARRAYS FROM 
+;         MAKES 3D SHELL ARRAYS FROM
 ;         2D SPHERICAL SURFACE ARRAYS:
   	  FOR J=0,NP-1 DO BEGIN
             FOR NS=1,NSYM DO BEGIN
@@ -575,9 +611,9 @@ LABELREAD: CLOSE, 1  ;close old file if any
     	      VP(JNS,*,IR)= VP1(J,*)
     	      BR(JNS,*,IR)= BR1(J,*)
     	      BT(JNS,*,IR)= BT1(J,*)
-    	      BP(JNS,*,IR)= BP1(J,*)   
+    	      BP(JNS,*,IR)= BP1(J,*)
             ENDFOR
-          ENDFOR        
+          ENDFOR
 
 	ENDFOR ;*** END OF LOOP OVER RADIAL LEVELS ****************************
 
@@ -761,7 +797,7 @@ LABELREAD: CLOSE, 1  ;close old file if any
         BFAC=1.
         VFAC=1.
         HFAC=1.
-        ARRV=1.  
+        ARRV=1.
 	ARRB=1.
 
 ;HEADLINES
@@ -881,7 +917,7 @@ ERASE
 ;**************  HERE THE PLOTTING MENU STARTS  **************************
 ;******************************************************************************
 
-LABEL0: 
+LABEL0:
         !P.BACKGROUND=255 ;background color=white
         !P.THICK=1.75
         !P.CHARTHICK=1
@@ -949,7 +985,7 @@ LABEL11:  PRINT, FORMAT='($, "scale window=1, add window=2")'
             WINDOW,WINDOWCOUNT,xsize=XWIND,ysize=YWIND,title=VERSION
             ERASE
           ENDIF
-         
+
           GOTO, LABEL0
 
 LABEL12:  PRINT, FORMAT='("arrow length v / B ?  current=",2F7.3)',ARRV,ARRB
@@ -1211,7 +1247,7 @@ XYOUTS,9.25/XDIM,XC(1)-1.2/YDIM,'longitude',SIZE=CSS*SZF,$
 XYOUTS,0.60/XDIM,(XC(1)+XC(3))/2.,'latitude',SIZE=CSS*SZF,$
          /NORMAL,ALIGNMENT=0.5,ORIENTATION=-90,COLOR=0
 
-LABEL2C:  
+LABEL2C:
         DEVICE, SET_FONT=SCHRIFT_GROSS
         XYOUTS,0.5,22.7/YDIM,ANNTEXT1,/NORM,SIZE=CSB*SZF,$
           ALIGNMENT=0.5,COLOR=0
@@ -1256,7 +1292,7 @@ LABEL3: PRINT, FORMAT='($, "velocity arrows=0, field arrows=1, TW=2, B component
         POLAR_CONTOUR,dVPdzMER,PHIEQ(*,0:NR-1),REQ(*,0:NR-1), $
           LEVELS=VV/VFAC,C_COLORS=LCINV*VCOLORS,FILL=LCOLOR,$
           XSTYLE=4,YSTYLE=4
-        
+
         XYOUTS,XT1,YT1,'Meridional average of dVPdz',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
           /NORMAL,COLOR=BWCOL
         GOTO, LABELCOV
@@ -1267,7 +1303,7 @@ L15EQ:  !P.POSITION=XY2   &  IFR=11  & COVER_IC=1
           XSTYLE=4,YSTYLE=4
 ;         print,TV
 ;         print,(TV+0.5)/1000
-    
+
         XYOUTS,XT2,YT2,'Meridional average of dTdt',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
           /NORMAL,COLOR=BWCOL
         GOTO, LABELCOV
@@ -1280,11 +1316,11 @@ L15EQ1: !P.POSITION=XS3    &  ISF=72
           LEVELS=VV/VFAC,C_COLORS=LCINV*VCOLORS,FILL=LCOLOR,XSTYLE=4,YSTYLE=4
         COVER_IC=1
         GOTO, LABELSCOV
-        
+
 L15EQ2: !P.POSITION=XS4     &  ISF=44
         POLAR_CONTOUR,dTdtMER2(*,0:NR-1),THPLT(*,0:NR-1),RZON(*,0:NR-1),LEVELS=TV/TFAC,$
           C_COLORS=LCINV*VCOLORS,FILL=LCOLOR,XSTYLE=4,YSTYLE=4
-        
+
         COVER_IC=1
         GOTO, LABELSCOV
 
@@ -1300,7 +1336,7 @@ XYOUTS,XT1,YT1,'temperature',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
          /NORMAL,COLOR=BWCOL
         GOTO, LABELCOV
 
-L2:    
+L2:
         IF IOPT1 EQ 3 THEN BEGIN
             !P.POSITION=XY2  &  IFR=2  & COVER_IC=1
             BZE(*,*)=-(BR2(*,NT/2,*)+BR2(*,(NT/2)-1,*))/2 ;FORM EQUATORIAL B_R
@@ -1313,7 +1349,7 @@ L2:
             ELSE $
               POLAR_CONTOUR,BZE,PHIEQ,REQ,LEVELS=BRL/BFAC,C_COLORS=VCOLORS,$
               /FILL,XSTYLE=4,YSTYLE=4
-            
+
             XYOUTS,XT2,YT2,'Br',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
               /NORMAL,COLOR=BWCOL
         ENDIF ELSE IF IOPT1 EQ 4 THEN BEGIN
@@ -1382,7 +1418,7 @@ L2:
               /NORMAL,COLOR=BWCOL
         ENDELSE
         GOTO, LABELCOV
-        
+
 
 L3:
         IF IOPT1 EQ 3 THEN BEGIN
@@ -1397,7 +1433,7 @@ L3:
             ELSE $
               POLAR_CONTOUR,BZE,PHIEQ,REQ,LEVELS=BTL/BFAC,C_COLORS=VCOLORS,$
               /FILL,XSTYLE=4,YSTYLE=4
-            
+
             XYOUTS,XT3,YT3,'Btheta',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
               /NORMAL,COLOR=BWCOL
             GOTO, LABELCOV
@@ -1424,7 +1460,7 @@ L3:
                             UY(IX,IY)=0.0
                         END
                     END
-                END  
+                END
             END $
             ELSE BEGIN
 ;FORM EQUATORIAL FIELD PLOT
@@ -1440,7 +1476,7 @@ L3:
             endif
         END
     ENDELSE
-        
+
         IF IOPT1 ne 3 THEN BEGIN
             IF IGIFPS LT 1 THEN BEGIN
                 VHMAX=SQRT(MAX(UX^2+UY^2))
@@ -1454,7 +1490,7 @@ L3:
               XRANGE=[-1,1],YRANGE=[-1,1],XSTYLE=5,YSTYLE=5
             OPLOT,/POLAR,RFAC*REQ(*,NR-1),PHIEQ(*,NR-1),COLOR=BWCOL
         ENDIF
-        
+
 
 L4:
     IF IOPT1 EQ 3 THEN BEGIN
@@ -1469,7 +1505,7 @@ L4:
         ELSE $
           POLAR_CONTOUR,BZE,PHIEQ,REQ,LEVELS=BPL/BFAC,C_COLORS=VCOLORS,$
           /FILL,XSTYLE=4,YSTYLE=4
-        
+
         XYOUTS,XT4,YT4,'Bphi',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
           /NORMAL,COLOR=BWCOL
     ENDIF ELSE BEGIN
@@ -1516,11 +1552,11 @@ LABELCOV:    OPLOT,/POLAR,REQ(*,0),PHIEQ(*,0),COLOR=BWCOL ; DRAW OUTER EQUATOR
 LABEL15:  IPAGE=15
 
 LABEL15A: ERASE
-          
+
           !P.POSITION=XS1     &  ISF=70
           POLAR_CONTOUR,dTdtZON(*,0:NR-1),THPLT(*,0:NR-1),RZON(*,0:NR-1),LEVELS=TV/TFAC,$
             C_COLORS=LCINV*VCOLORS,FILL=LCOLOR,XSTYLE=4,YSTYLE=4
-          
+
           XYOUTS,XTS1,YTS1,'dT/dtheta',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
             /NORMAL,COLOR=BWCOL
           COVER_IC=1
@@ -1550,7 +1586,7 @@ LABEL4:	PRINT, FORMAT='($, "slice longitude in degrees")'
 	READ,PHIMS
         PHIMS=PI*PHIMS/180
         IPMS=FIX(PHIMS/PI2NP)
-        PRINT, FORMAT='("angle=", F10.5, "°")', IPMS*360./NPFULL
+        PRINT, FORMAT='("angle=", F10.5, "ï¿½")', IPMS*360./NPFULL
         IPMS=IPMS+NPFULL/2 & IF IPMS GE NPFULL THEN IPMS=IPMS-NPFULL
         PRINT, FORMAT='($, "merid. v=0 / B=1 / TW=2, z-vorticity=0 / v_phi=1")'
         READ, IOPT1,IOPT2
@@ -1570,7 +1606,7 @@ L40:    IF IOPT1 NE 2 THEN GOTO, L41
           !P.POSITION=XS1     &  ISF=40
           POLAR_CONTOUR,dTdt(IPMS,*,0:NR-1),THPLT(*,0:NR-1),RZON(*,0:NR-1),LEVELS=TV/TFAC,$
             C_COLORS=LCINV*VCOLORS,FILL=LCOLOR,XSTYLE=4,YSTYLE=4
-          
+
           XYOUTS,XTS1,YTS1,'dT/dtheta',CHARSIZE=CSZ*SZF,ALIGNMENT=0.5,$
             /NORMAL,COLOR=BWCOL
           COVER_IC=1
@@ -1595,7 +1631,7 @@ L41:    IF IOPT1 LT 0 THEN GOTO, L42
           VXM=VR(IPMS,*,*)*SIN(THZON(*,0:NR-1))+VT(IPMS,*,*)*COS(THZON(*,0:NR-1))
           VZM=VR(IPMS,*,*)*COS(THZON(*,0:NR-1))-VT(IPMS,*,*)*SIN(THZON(*,0:NR-1))
           PTITLE='meridional velocity'
-          COVER_IC=1  ; set COVER_IC to 1 so that the inner core is covered in LABELSCOV 
+          COVER_IC=1  ; set COVER_IC to 1 so that the inner core is covered in LABELSCOV
           ARRLEN=ARRV
           UX=POLAR_SURFACE(VXM,RZON(*,0:NR-1),THPLT(*,0:NR-1),SPACING=ARRST)
           UZ=POLAR_SURFACE(VZM,RZON(*,0:NR-1),THPLT(*,0:NR-1),SPACING=ARRST)
@@ -1830,7 +1866,7 @@ LABEL6A: ERASE
 ;	PRINT, RZON(92,30),RZON(92,31),RZON(92,32),RZON(92,33)
 ;	PRINT, BRZON(91,31),BRZON(93,31),BRZON(91,32),BRZON(93,32)
 ;	PRINT, THZON(91,31),THZON(93,31),THZON(91,32),THZON(93,32)
-	
+
 
 ;CALCULATE OMZON, THE TOROIDAL FIELD OMEGA-EFFECT SOURCE TERM
         IF IOPT3 EQ 1 THEN BEGIN
@@ -1854,7 +1890,7 @@ LABEL6A: ERASE
               (SHIFT(RZON,0,-1)-SHIFT(RZON,0,1))    $
               +BTZON*(SHIFT(WORK2D,1,0) -SHIFT(WORK2D,-1,0))/$
               (RZON*(SHIFT(THZON,1,0) -SHIFT(THZON,-1,0)))
-            
+
 
         	OMZON(0,*)=0 & OMZON(NT-1,*)=0    ;CORRECT ENDPOINTS
 ;;;     	OMZON(*,0)=OMZON(*,1) & OMZON(*,NR-1)=OMZON(*,NR-2)
@@ -1988,7 +2024,7 @@ L64:   !P.POSITION=XS4  &  ISF=64
 ;*******  COVER UP INNER CORE AND DRAW CIRCLES FOR SLICE PLOTS  ****************
 ;*******************************************************************************
 
-LABELSCOV:  
+LABELSCOV:
         IF COVER_IC EQ 1  THEN POLYFILL,-XIC,YIC,COLOR=!P.BACKGROUND
         OPLOT,/POLAR,RZON(*,0),THPLT(*,0),COLOR=BWCOL ; DRAW OUTER EQUATOR
         OPLOT,/POLAR,VCOND*RZON(*,0),THPLT(*,0),COLOR=BWCOL,LINESTYLE=2 ;DRAW STABLE LAYER
@@ -2043,7 +2079,7 @@ LABEL7A:  ERASE
 ;*************** PLOT IN AITOFF PROJECTION *************************************
 ;*******************************************************************************
 
-LABEL8: 
+LABEL8:
         IPAGE=8
         ERASE
 
@@ -2081,19 +2117,19 @@ LABEL8A:
             YTXT= 9./YDIM
           END
 
-	  MAP_SET, 0, LONSHIFT, 0, /AITOFF, /NOBORDER, /NOERASE        
+	  MAP_SET, 0, LONSHIFT, 0, /AITOFF, /NOBORDER, /NOERASE
 
-          IF IOPTBV EQ 0 THEN BEGIN 
+          IF IOPTBV EQ 0 THEN BEGIN
           ;*** MAP RADIAL FIELD
             PTITLE=STRING(FORMAT='("radial field at r=", F5.3)', R(NRAD))
             WRAP(0:NPFULL-1,*)=BR(*,*,NRAD) & WRAP(NPFULL,*)=BR(0,*,NRAD)
             IF LCOLOR GT 0 THEN $
 	      CONTOUR,WRAP,LONWRAP,LAT,LEVELS=BRV/BFAC,/OVERPLOT,$
-              /CELL_FILL,/NOERASE,C_COLORS=LCINV*VCOLORS 
+              /CELL_FILL,/NOERASE,C_COLORS=LCINV*VCOLORS
             IF LCOLOR EQ 0 THEN $
               CONTOUR,WRAP,LONWRAP,LAT,LEVELS=BRV/BFAC,/OVERPLOT,$
-              /NOERASE,COLOR=0,C_LINESTYLE=NLS*(BRV LT LIMIT) 
-          END ELSE BEGIN 
+              /NOERASE,COLOR=0,C_LINESTYLE=NLS*(BRV LT LIMIT)
+          END ELSE BEGIN
           ;*** MAP RADIAL VELOCITY
               CASE IOPTBV OF
                   1: BEGIN
@@ -2118,7 +2154,7 @@ LABEL8A:
 ;;;            WRAP(0:NPFULL-1,*)=VT(*,*,NRAD) & WRAP(NPFULL,*)=VT(0,*,NRAD)
             IF LCOLOR GT 0 THEN $
   	      CONTOUR,WRAP,LONWRAP,LAT,LEVELS=VV/VFAC,/OVERPLOT,$
-              /CELL_FILL,/NOERASE,C_COLORS=LCINV*VCOLORS 
+              /CELL_FILL,/NOERASE,C_COLORS=LCINV*VCOLORS
             IF LCOLOR EQ 0 THEN $
               CONTOUR,WRAP,LONWRAP,LAT,LEVELS=VV/VFAC,/OVERPLOT,$
               /NOERASE,COLOR=0,C_LINESTYLE=NLS*(VV LT LIMIT)

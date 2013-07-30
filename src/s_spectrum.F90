@@ -1,412 +1,460 @@
 !$Id$
 !********************************************************************
-    SUBROUTINE spectrum(time,n_spec,w,dw,z, &
-                        b,db,aj,b_ic,db_ic,aj_ic)
-!********************************************************************
+SUBROUTINE spectrum(time,n_spec,w,dw,z, &
+     &              b,db,aj,b_ic,db_ic,aj_ic)
+  !********************************************************************
 
-!    !------------ This is release 2 level 1  --------------!
-!    !------------ Created on 1/17/02  by JW. --------------!
+  !    !------------ This is release 2 level 1  --------------!
+  !    !------------ Created on 1/17/02  by JW. --------------!
 
-!--------------------------------------------------------------------
+  !--------------------------------------------------------------------
 
-!  calculates magnetic energy  = 1/2 Integral(B^2 dV)
-!  integration in theta,phi by summation over harmonic coeffs.
-!  integration in r by Chebycheff integrals
+  !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
+  !  integration in theta,phi by summation over harmonic coeffs.
+  !  integration in r by Chebycheff integrals
 
-!  Output:
-!  enbp: Total poloidal        enbt: Total toroidal
-!  apome: Axisym. poloidal     atome: Axisym. toroidal
+  !  Output:
+  !  enbp: Total poloidal        enbt: Total toroidal
+  !  apome: Axisym. poloidal     atome: Axisym. toroidal
 
-!--------------------------------------------------------------------
+  !--------------------------------------------------------------------
 
-    USE truncation
-    USE radial_functions
-    USE physical_parameters
-    USE num_param
-    USE blocking
-    USE horizontal_data
-    USE logic
-    USE output_data
-    USE usefull, ONLY: cc2real,cc22real
-    USE integration, ONLY: rInt_R,rIntIC
+  USE truncation
+  USE radial_data,ONLY: n_r_cmb
+  USE radial_functions
+  USE physical_parameters
+  USE num_param
+  USE blocking
+  USE horizontal_data
+  USE logic
+  USE output_data
+  USE charmanip, ONLY: length_to_blank
+  USE usefull, ONLY: cc2real,cc22real
+  USE LMLoop_data,ONLY: llm,ulm,llmMag,ulmMag
+  USE integration,ONLY: rInt_R,rIntIC
+  IMPLICIT NONE
 
-    IMPLICIT NONE
+  !-- Input of variables:
+  INTEGER,intent(IN) :: n_spec     ! number of spectrum/call, file
+  REAL(kind=8),intent(IN) :: time
 
-!-- Input of variables:
-    INTEGER :: n_spec     ! number of spectrum/call, file
-    REAL(kind=8) :: time
+  !-- Input of fields:
+  COMPLEX(kind=8),intent(IN) :: w(llm:ulm,n_r_max)
+  COMPLEX(kind=8),intent(IN) :: dw(llm:ulm,n_r_max)
+  COMPLEX(kind=8),intent(IN) :: z(llm:ulm,n_r_max)
+  COMPLEX(kind=8),intent(IN) :: b(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: db(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: aj(llmMag:ulmMag,n_r_maxMag)
+  COMPLEX(kind=8),intent(IN) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),intent(IN) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
-!-- Input of fields:
-    COMPLEX(kind=8) :: w(lm_max,n_r_max)
-    COMPLEX(kind=8) :: dw(lm_max,n_r_max)
-    COMPLEX(kind=8) :: z(lm_max,n_r_max)
-    COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: db(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag)
-    COMPLEX(kind=8) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+  !-- Output:
+  REAL(kind=8) :: b_rms
+  REAL(kind=8) :: e_mag_p_l(l_max),e_mag_t_l(l_max)
+  REAL(kind=8) :: e_kin_p_l(l_max),e_kin_t_l(l_max)
+  REAL(kind=8) :: e_mag_p_ic_l(l_max),e_mag_t_ic_l(l_max)
+  REAL(kind=8) :: u2_p_l(l_max),u2_t_l(l_max)
 
-!-- Output:
-    REAL(kind=8) :: b_rms
-    REAL(kind=8) :: e_mag_p_l(l_max),e_mag_t_l(l_max)
-    REAL(kind=8) :: e_kin_p_l(l_max),e_kin_t_l(l_max)
-    REAL(kind=8) :: e_mag_p_ic_l(l_max),e_mag_t_ic_l(l_max)
-    REAL(kind=8) :: u2_p_l(l_max),u2_t_l(l_max)
+  REAL(kind=8) :: e_mag_p_m(l_max+1),e_mag_t_m(l_max+1)
+  REAL(kind=8) :: e_kin_p_m(l_max+1),e_kin_t_m(l_max+1)
+  REAL(kind=8) :: e_mag_p_ic_m(l_max+1),e_mag_t_ic_m(l_max+1)
+  REAL(kind=8) :: u2_p_m(l_max+1),u2_t_m(l_max+1)
 
-    REAL(kind=8) :: e_mag_p_m(l_max+1),e_mag_t_m(l_max+1)
-    REAL(kind=8) :: e_kin_p_m(l_max+1),e_kin_t_m(l_max+1)
-    REAL(kind=8) :: e_mag_p_ic_m(l_max+1),e_mag_t_ic_m(l_max+1)
-    REAL(kind=8) :: u2_p_m(l_max+1),u2_t_m(l_max+1)
+  REAL(kind=8) :: e_mag_cmb_l(l_max)
+  REAL(kind=8) :: e_mag_cmb_m(l_max+1)
+  REAL(kind=8) :: eCMB(l_max),eCMB_global(l_max)
 
-    REAL(kind=8) :: e_mag_cmb_l(l_max)
-    REAL(kind=8) :: e_mag_cmb_m(l_max+1)
-    REAL(kind=8) :: eCMB(l_max)
-            
-!-- local:
-    CHARACTER(len=14) :: string
-    CHARACTER(len=72) :: mag_spec_file,kin_spec_file,u2_spec_file
-    INTEGER :: n_r,lm,ml,l,mc,m
+  !-- local:
+  CHARACTER(len=14) :: string
+  CHARACTER(len=72) :: mag_spec_file,kin_spec_file,u2_spec_file
+  INTEGER :: n_r,lm,ml,l,mc,m
 
-    REAL(kind=8) :: r_ratio,O_r_icb_E_2
-    REAL(kind=8) :: e_mag_p_temp,e_mag_t_temp
-    REAL(kind=8) :: e_kin_p_temp,e_kin_t_temp
-    REAL(kind=8) :: u2_p_temp,u2_t_temp
-    REAL(kind=8) :: O_surface,pi
-    REAL(kind=8) :: fac_mag,fac_kin
+  REAL(kind=8) :: r_ratio,O_r_icb_E_2
+  REAL(kind=8) :: e_mag_p_temp,e_mag_t_temp
+  REAL(kind=8) :: e_kin_p_temp,e_kin_t_temp
+  REAL(kind=8) :: u2_p_temp,u2_t_temp
+  REAL(kind=8) :: O_surface,pi
+  REAL(kind=8) :: fac_mag,fac_kin
 
-    REAL(kind=8) :: e_mag_p_r_l(n_r_max,l_max)
-    REAL(kind=8) :: e_mag_t_r_l(n_r_max,l_max)
-    REAL(kind=8) :: e_kin_p_r_l(n_r_max,l_max)
-    REAL(kind=8) :: e_kin_t_r_l(n_r_max,l_max)
-    REAL(kind=8) :: u2_p_r_l(n_r_max,l_max)
-    REAL(kind=8) :: u2_t_r_l(n_r_max,l_max)
-    REAL(kind=8) :: e_mag_p_r_m(n_r_max,l_max+1)
-    REAL(kind=8) :: e_mag_t_r_m(n_r_max,l_max+1)
-    REAL(kind=8) :: e_kin_p_r_m(n_r_max,l_max+1)
-    REAL(kind=8) :: e_kin_t_r_m(n_r_max,l_max+1)
-    REAL(kind=8) :: u2_p_r_m(n_r_max,l_max+1)
-    REAL(kind=8) :: u2_t_r_m(n_r_max,l_max+1)
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_mag_p_r_l,e_mag_p_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_mag_t_r_l,e_mag_t_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_kin_p_r_l,e_kin_p_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_kin_t_r_l,e_kin_t_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: u2_p_r_l,u2_p_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max) :: u2_t_r_l,u2_t_r_l_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: e_mag_p_r_m,e_mag_p_r_m_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: e_mag_t_r_m,e_mag_t_r_m_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: e_kin_p_r_m,e_kin_p_r_m_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: e_kin_t_r_m,e_kin_t_r_m_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: u2_p_r_m,u2_p_r_m_global
+  REAL(kind=8),DIMENSION(n_r_max,l_max+1) :: u2_t_r_m,u2_t_r_m_global
 
-    REAL(kind=8) :: e_mag_p_ic_r_l(n_r_ic_max,l_max)
-    REAL(kind=8) :: e_mag_t_ic_r_l(n_r_ic_max,l_max)
-    REAL(kind=8) :: e_mag_p_ic_r_m(n_r_ic_max,l_max+1)
-    REAL(kind=8) :: e_mag_t_ic_r_m(n_r_ic_max,l_max+1)
+  REAL(kind=8),DIMENSION(n_r_ic_max,l_max) :: e_mag_p_ic_r_l,e_mag_p_ic_r_l_global
+  REAL(kind=8),DIMENSION(n_r_ic_max,l_max) :: e_mag_t_ic_r_l,e_mag_t_ic_r_l_global
+  REAL(kind=8),DIMENSION(n_r_ic_max,l_max+1) :: e_mag_p_ic_r_m,e_mag_p_ic_r_m_global
+  REAL(kind=8),DIMENSION(n_r_ic_max,l_max+1) :: e_mag_t_ic_r_m,e_mag_t_ic_r_m_global
 
-    COMPLEX(kind=8) :: r_dr_b
+  COMPLEX(kind=8) :: r_dr_b
 
-!-- end of declaration
-!---------------------------------------------------------------------
+  INTEGER :: length
 
-    pi=4.d0*DATAN(1.d0)
+  !-- end of declaration
+  !---------------------------------------------------------------------
 
-    DO n_r=1,n_r_max
+  pi=4.d0*DATAN(1.d0)
+  eCMB=0.0d0
 
-        DO l=1,l_max
-            IF ( l_mag ) THEN
-                e_mag_p_r_l(n_r,l)=0.d0
-                e_mag_t_r_l(n_r,l)=0.d0
-            END IF
-            IF ( l_anel ) THEN
-                u2_p_r_l(n_r,l)=0.d0
-                u2_t_r_l(n_r,l)=0.d0
-            END IF
-            e_kin_p_r_l(n_r,l)=0.d0
-            e_kin_t_r_l(n_r,l)=0.d0
-        END DO
-        DO mc=1,l_max+1
-            IF ( l_mag ) THEN
-                e_mag_p_r_m(n_r,mc)=0.d0
-                e_mag_t_r_m(n_r,mc)=0.d0
-            END IF
-            IF ( l_anel ) THEN
-                u2_p_r_m(n_r,mc)=0.d0
-                u2_t_r_m(n_r,mc)=0.d0
-            END IF
-            e_kin_p_r_m(n_r,mc)=0.d0
-            e_kin_t_r_m(n_r,mc)=0.d0
-        END DO
+  DO n_r=1,n_r_max
 
-        DO lm=2,lm_max
+     DO l=1,l_max
+        IF ( l_mag ) THEN
+           e_mag_p_r_l(n_r,l)=0.d0
+           e_mag_t_r_l(n_r,l)=0.d0
+        END IF
+        IF ( l_anel ) THEN
+           u2_p_r_l(n_r,l)=0.d0
+           u2_t_r_l(n_r,l)=0.d0
+        END IF
+        e_kin_p_r_l(n_r,l)=0.d0
+        e_kin_t_r_l(n_r,l)=0.d0
+     END DO
+     DO mc=1,l_max+1
+        IF ( l_mag ) THEN
+           e_mag_p_r_m(n_r,mc)=0.d0
+           e_mag_t_r_m(n_r,mc)=0.d0
+        END IF
+        IF ( l_anel ) THEN
+           u2_p_r_m(n_r,mc)=0.d0
+           u2_t_r_m(n_r,mc)=0.d0
+        END IF
+        e_kin_p_r_m(n_r,mc)=0.d0
+        e_kin_t_r_m(n_r,mc)=0.d0
+     END DO
 
-            l  =lm2l(lm)
-            m  =lm2m(lm)
-            mc=m+1
+     !DO lm=2,lm_max
+     DO lm=MAX(llm,2),ulm
 
-            IF ( l_mag ) THEN
-                e_mag_p_temp=                  dLh(lm) *  ( &
-                    dLh(lm)*or2(n_r)*cc2real(b(lm,n_r),m) + &
-                                     cc2real(db(lm,n_r),m) )
-                e_mag_t_temp=dLh(lm)*cc2real(aj(lm,n_r),m)
-            END IF
-            IF ( l_anel ) THEN
-                u2_p_temp=       orho2(n_r)*dLh(lm) *  ( &
-                 dLh(lm)*or2(n_r)*cc2real(w(lm,n_r),m) + &
-                                  cc2real(dw(lm,n_r),m) )
-                u2_t_temp=orho2(n_r)*dLh(lm)*cc2real(z(lm,n_r),m)
-            END IF
-            e_kin_p_temp=       orho1(n_r)*dLh(lm) *  ( &
-                dLh(lm)*or2(n_r)*cc2real(w(lm,n_r),m) + &
-                                 cc2real(dw(lm,n_r),m) )
-            e_kin_t_temp=orho1(n_r)*dLh(lm)*cc2real(z(lm,n_r),m)
+        l  =lo_map%lm2l(lm)
+        m  =lo_map%lm2m(lm)
+        mc=m+1
 
+        IF ( l_mag ) THEN
+           e_mag_p_temp= dLh(st_map%lm2(l,m)) * ( &
+                &          dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(b(lm,n_r),m) + &
+                &          cc2real(db(lm,n_r),m) )
+           e_mag_t_temp=dLh(st_map%lm2(l,m))*cc2real(aj(lm,n_r),m)
+        END IF
+        IF ( l_anel ) THEN
+           u2_p_temp=  orho2(n_r)*dLh(st_map%lm2(l,m)) *  ( &
+                &        dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
+                &        cc2real(dw(lm,n_r),m) )
+           u2_t_temp=orho2(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
+        END IF
+        e_kin_p_temp= orho1(n_r)*dLh(st_map%lm2(l,m)) *  ( &
+             &          dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
+             &          cc2real(dw(lm,n_r),m) )
+        e_kin_t_temp=orho1(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
 
         !----- l-spectra:
-            IF ( l_mag ) THEN
-                e_mag_p_r_l(n_r,l)=e_mag_p_r_l(n_r,l) + &
-                                   e_mag_p_temp
-                e_mag_t_r_l(n_r,l)=e_mag_t_r_l(n_r,l) + &
-                                   e_mag_t_temp
-            END IF
-            IF ( l_anel ) THEN
-                u2_p_r_l(n_r,l)=u2_p_r_l(n_r,l)+u2_p_temp
-                u2_t_r_l(n_r,l)=u2_t_r_l(n_r,l)+u2_t_temp
-            END IF
-            e_kin_p_r_l(n_r,l)=e_kin_p_r_l(n_r,l) + &
-                               e_kin_p_temp
-            e_kin_t_r_l(n_r,l)=e_kin_t_r_l(n_r,l) + &
-                               e_kin_t_temp
-            IF ( l_mag .AND. m == 0 .AND. n_r == n_r_cmb ) &
-                 eCMB(l)=e_mag_p_temp
+        IF ( l_mag ) THEN
+           e_mag_p_r_l(n_r,l) = e_mag_p_r_l(n_r,l) + e_mag_p_temp
+           e_mag_t_r_l(n_r,l) = e_mag_t_r_l(n_r,l) + e_mag_t_temp
+           IF ( m == 0 .AND. n_r == n_r_cmb ) eCMB(l)=e_mag_p_temp
+        END IF
+        IF ( l_anel ) THEN
+           u2_p_r_l(n_r,l) = u2_p_r_l(n_r,l) + u2_p_temp
+           u2_t_r_l(n_r,l) = u2_t_r_l(n_r,l) + u2_t_temp
+        END IF
+        e_kin_p_r_l(n_r,l) = e_kin_p_r_l(n_r,l) + e_kin_p_temp
+        e_kin_t_r_l(n_r,l) = e_kin_t_r_l(n_r,l) + e_kin_t_temp
 
         !----- m-spectra:
-            IF ( l_mag ) THEN
-                e_mag_p_r_m(n_r,mc)=e_mag_p_r_m(n_r,mc) + &
-                                    e_mag_p_temp
-                e_mag_t_r_m(n_r,mc)=e_mag_t_r_m(n_r,mc) + &
-                                    e_mag_t_temp
-            END IF
-            IF ( l_anel ) THEN
-                u2_p_r_m(n_r,mc)=u2_p_r_m(n_r,mc)+u2_p_temp
-                u2_t_r_m(n_r,mc)=u2_t_r_m(n_r,mc)+u2_t_temp
+        IF ( l_mag ) THEN
+           e_mag_p_r_m(n_r,mc) = e_mag_p_r_m(n_r,mc) + e_mag_p_temp
+           e_mag_t_r_m(n_r,mc) = e_mag_t_r_m(n_r,mc) + e_mag_t_temp
+        END IF
+        IF ( l_anel ) THEN
+           u2_p_r_m(n_r,mc) = u2_p_r_m(n_r,mc) + u2_p_temp
+           u2_t_r_m(n_r,mc) = u2_t_r_m(n_r,mc) + u2_t_temp
+        END IF
+        e_kin_p_r_m(n_r,mc)=e_kin_p_r_m(n_r,mc) + e_kin_p_temp
+        e_kin_t_r_m(n_r,mc)=e_kin_t_r_m(n_r,mc) + e_kin_t_temp
 
-            END IF
-            e_kin_p_r_m(n_r,mc)=e_kin_p_r_m(n_r,mc) + &
-                                e_kin_p_temp
-            e_kin_t_r_m(n_r,mc)=e_kin_t_r_m(n_r,mc) + &
-                                e_kin_t_temp
+     END DO    ! do loop over lms in block
 
-        END DO    ! do loop over lms in block
+  END DO    ! radial grid points
 
-    END DO    ! radial grid points
+  ! ----------- We need a reduction here ----------------
+  ! first the l-spectra
+  IF (l_mag) THEN
+     CALL MPI_Reduce(e_mag_p_r_l, e_mag_p_r_l_global, n_r_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(e_mag_t_r_l, e_mag_t_r_l_global, n_r_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  END IF
+  IF (l_anel) THEN
+     CALL MPI_Reduce(u2_p_r_l, u2_p_r_l_global, n_r_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(u2_t_r_l, u2_t_r_l_global, n_r_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  END IF
+  CALL MPI_Reduce(e_kin_p_r_l, e_kin_p_r_l_global, n_r_max*l_max,&
+       &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Reduce(e_kin_t_r_l, e_kin_t_r_l_global, n_r_max*l_max,&
+       &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
+  ! then the m-spectra
+  IF (l_mag) THEN
+     CALL MPI_Reduce(e_mag_p_r_m, e_mag_p_r_m_global, n_r_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(e_mag_t_r_m, e_mag_t_r_m_global, n_r_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(eCMB, eCMB_global, l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  END IF
+  IF (l_anel) THEN
+     CALL MPI_Reduce(u2_p_r_m, u2_p_r_m_global, n_r_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(u2_t_r_m, u2_t_r_m_global, n_r_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  END IF
+  CALL MPI_Reduce(e_kin_p_r_m, e_kin_p_r_m_global, n_r_max*(l_max+1),&
+       &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Reduce(e_kin_t_r_m, e_kin_t_r_m_global, n_r_max*(l_max+1),&
+       &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-!-- Save CMB energy spectra:
+  ! now switch to rank 0 for the postprocess
+  IF (rank.EQ.0) THEN
+     !-- Save CMB energy spectra:
+     O_surface=1.d0/(4.d0*pi*r(1)*r(1))
 
-    O_surface=1.d0/(4.d0*pi*r(1)*r(1))
-
-    IF ( l_mag ) THEN
+     IF ( l_mag ) THEN
         b_rms=0.d0
         DO l=1,l_max
-            e_mag_cmb_l(l)=e_mag_p_r_l(1,l)
-            b_rms=b_rms + e_mag_cmb_l(l)
+           e_mag_cmb_l(l)=e_mag_p_r_l_global(1,l)
+           b_rms=b_rms + e_mag_cmb_l(l)
         END DO
         b_rms=dsqrt(b_rms*O_surface)
         DO mc=1,l_max+1
-            e_mag_cmb_m(mc)=e_mag_p_r_m(1,mc)
+           e_mag_cmb_m(mc)=e_mag_p_r_m_global(1,mc)
         END DO
-    END IF
+     END IF
 
-!-- Radial Integrals:
-    fac_mag=0.5*LFfac*eScale
-    fac_kin=0.5*eScale
-    DO l=1,l_max
+     !-- Radial Integrals:
+     fac_mag=0.5*LFfac*eScale
+     fac_kin=0.5*eScale
+     DO l=1,l_max
         IF ( l_mag ) THEN
-            e_mag_p_l(l)=                                            &
-                fac_mag*rInt_R(e_mag_p_r_l(1,l),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            e_mag_t_l(l)=                                            &
-                fac_mag*rInt_R(e_mag_t_r_l(1,l),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            e_mag_cmb_l(l)=fac_mag*e_mag_cmb_l(l)
+           e_mag_p_l(l)=                                            &
+                fac_mag*rInt_R(e_mag_p_r_l_global(1,l),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           e_mag_t_l(l)=                                            &
+                fac_mag*rInt_R(e_mag_t_r_l_global(1,l),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           e_mag_cmb_l(l)=fac_mag*e_mag_cmb_l(l)
         END IF
         IF ( l_anel ) THEN
-            u2_p_l(l)  =                                          &
-                fac_kin*rInt_R(u2_p_r_l(1,l),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            u2_t_l(l)  =                                          &
-                fac_kin*rInt_R(u2_t_r_l(1,l),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
+           u2_p_l(l)  =                                          &
+                fac_kin*rInt_R(u2_p_r_l_global(1,l),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           u2_t_l(l)  =                                          &
+                fac_kin*rInt_R(u2_t_r_l_global(1,l),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
 
         END IF
         e_kin_p_l(l)  =                                          &
-            fac_kin*rInt_R(e_kin_p_r_l(1,l),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
+             fac_kin*rInt_R(e_kin_p_r_l_global(1,l),n_r_max,n_r_max,drx, &
+             i_costf_init,d_costf_init)
         e_kin_t_l(l)  =                                          &
-            fac_kin*rInt_R(e_kin_t_r_l(1,l),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
-    END DO
-    DO m=1,l_max+1 ! Note: counter m is actual order+1
+             fac_kin*rInt_R(e_kin_t_r_l_global(1,l),n_r_max,n_r_max,drx, &
+             i_costf_init,d_costf_init)
+     END DO
+     DO m=1,l_max+1 ! Note: counter m is actual order+1
         IF ( l_mag )  THEN
-            e_mag_p_m(m)=                                            &
-                fac_mag*rInt_R(e_mag_p_r_m(1,m),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            e_mag_t_m(m)=                                            &
-                fac_mag*rInt_R(e_mag_t_r_m(1,m),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            e_mag_cmb_m(m)=fac_mag*e_mag_cmb_m(m)
+           e_mag_p_m(m)=                                            &
+                fac_mag*rInt_R(e_mag_p_r_m_global(1,m),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           e_mag_t_m(m)=                                            &
+                fac_mag*rInt_R(e_mag_t_r_m_global(1,m),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           e_mag_cmb_m(m)=fac_mag*e_mag_cmb_m(m)
         END IF
         IF ( l_anel ) THEN
-            u2_p_m(m)  =                                          &
-                fac_kin*rInt_R(u2_p_r_m(1,m),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
-            u2_t_m(m)  =                                          &
-                fac_kin*rInt_R(u2_t_r_m(1,m),n_r_max,n_r_max,drx, &
-                               i_costf_init,d_costf_init)
+           u2_p_m(m)  =                                          &
+                fac_kin*rInt_R(u2_p_r_m_global(1,m),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
+           u2_t_m(m)  =                                          &
+                fac_kin*rInt_R(u2_t_r_m_global(1,m),n_r_max,n_r_max,drx, &
+                i_costf_init,d_costf_init)
         END IF
         e_kin_p_m(m)  =                                          &
-            fac_kin*rInt_R(e_kin_p_r_m(1,m),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
+             fac_kin*rInt_R(e_kin_p_r_m_global(1,m),n_r_max,n_r_max,drx, &
+             i_costf_init,d_costf_init)
         e_kin_t_m(m)  =                                          &
-            fac_kin*rInt_R(e_kin_t_r_m(1,m),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
-    END DO
+             fac_kin*rInt_R(e_kin_t_r_m_global(1,m),n_r_max,n_r_max,drx, &
+             i_costf_init,d_costf_init)
+     END DO
+  END IF
 
-!-- inner core:
+  !-- inner core:
 
-    IF ( l_cond_ic ) THEN
+  IF ( l_cond_ic ) THEN
 
-        O_r_icb_E_2=1.d0/(r_ic(1)*r_ic(1))
+     O_r_icb_E_2=1.d0/(r_ic(1)*r_ic(1))
 
-        DO n_r=1,n_r_ic_max
+     DO n_r=1,n_r_ic_max
 
-            r_ratio=r_ic(n_r)/r_ic(1)
+        r_ratio=r_ic(n_r)/r_ic(1)
 
-            DO mc=1,l_max+1
-                e_mag_p_ic_r_m(n_r,mc)=0.d0
-                e_mag_t_ic_r_m(n_r,mc)=0.d0
-            END DO
-            DO l=1,l_max
-                e_mag_p_ic_r_l(n_r,l)=0.d0
-                e_mag_t_ic_r_l(n_r,l)=0.d0
-            END DO
+        DO mc=1,l_max+1
+           e_mag_p_ic_r_m(n_r,mc)=0.d0
+           e_mag_t_ic_r_m(n_r,mc)=0.d0
+        END DO
+        DO l=1,l_max
+           e_mag_p_ic_r_l(n_r,l)=0.d0
+           e_mag_t_ic_r_l(n_r,l)=0.d0
+        END DO
 
-            DO lm=2,lm_max
+        !DO lm=2,lm_max
+        DO lm=MAX(llm,2),ulm
 
-                l =lm2l(lm)
-                m =lm2m(lm)
-                mc=m+1
-                r_dr_b=r_ic(n_r)*db_ic(lm,n_r)
+           l =lo_map%lm2l(lm)
+           m =lo_map%lm2m(lm)
+           mc=m+1
+           r_dr_b=r_ic(n_r)*db_ic(lm,n_r)
 
-                e_mag_p_temp=                                        &
-                              dLh(lm)*O_r_icb_E_2*r_ratio**(2*l) * ( &
+           e_mag_p_temp=                                        &
+                dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * ( &
                 DBLE((2*l+1)*(l+1))*cc2real(b_ic(lm,n_r),m)        + &
-                     DBLE(2*(l+1))*cc22real(b_ic(lm,n_r),r_dr_b,m) + &
-                                   cc2real(r_dr_b,m) )
-                e_mag_t_temp= dLh(lm)*r_ratio**(2*l+2) * &
-                                 cc2real(aj_ic(lm,n_r),m)
+                DBLE(2*(l+1))*cc22real(b_ic(lm,n_r),r_dr_b,m) + &
+                cc2real(r_dr_b,m) )
+           e_mag_t_temp= dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) * &
+                cc2real(aj_ic(lm,n_r),m)
 
-                e_mag_p_ic_r_l(n_r,l)=e_mag_p_ic_r_l(n_r,l) + &
-                                      e_mag_p_temp
-                e_mag_t_ic_r_l(n_r,l)=e_mag_t_ic_r_l(n_r,l) + &
-                                      e_mag_t_temp
-                e_mag_p_ic_r_m(n_r,mc)=e_mag_p_ic_r_m(n_r,mc) + &
-                                       e_mag_p_temp
-                e_mag_t_ic_r_m(n_r,mc)=e_mag_t_ic_r_m(n_r,mc) + &
-                                       e_mag_t_temp
-                            
-            END DO  ! loop over lm's
+           e_mag_p_ic_r_l(n_r,l)=e_mag_p_ic_r_l(n_r,l) + &
+                e_mag_p_temp
+           e_mag_t_ic_r_l(n_r,l)=e_mag_t_ic_r_l(n_r,l) + &
+                e_mag_t_temp
+           e_mag_p_ic_r_m(n_r,mc)=e_mag_p_ic_r_m(n_r,mc) + &
+                e_mag_p_temp
+           e_mag_t_ic_r_m(n_r,mc)=e_mag_t_ic_r_m(n_r,mc) + &
+                e_mag_t_temp
 
-        END DO ! loop over radial levels
+        END DO  ! loop over lm's
 
-    !----- Radial Integrals:
+     END DO ! loop over radial levels
+
+     CALL MPI_Reduce(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, n_r_ic_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, n_r_ic_max*l_max,&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(e_mag_p_ic_r_m, e_mag_p_ic_r_m_global, n_r_ic_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+     CALL MPI_Reduce(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, n_r_ic_max*(l_max+1),&
+          &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+
+     IF (rank.EQ.0) THEN
+        !----- Radial Integrals:
         fac_mag=LFfac*eScale/2.D0
         DO l=1,l_max
-            e_mag_p_ic_l(l)=fac_mag*rIntIC(e_mag_p_ic_r_l(1,l), &
+           e_mag_p_ic_l(l)=fac_mag*rIntIC(e_mag_p_ic_r_l_global(1,l), &
                 n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
-            e_mag_t_ic_l(l)=fac_mag*rIntIC(e_mag_t_ic_r_l(1,l), &
+           e_mag_t_ic_l(l)=fac_mag*rIntIC(e_mag_t_ic_r_l_global(1,l), &
                 n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
         END DO
         DO m=1,l_max+1
-            e_mag_p_ic_m(m)=fac_mag*rIntIC(e_mag_p_ic_r_m(1,m), &
+           e_mag_p_ic_m(m)=fac_mag*rIntIC(e_mag_p_ic_r_m_global(1,m), &
                 n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
-            e_mag_t_ic_m(m)=fac_mag*rIntIC(e_mag_t_ic_r_m(1,m), &
+           e_mag_t_ic_m(m)=fac_mag*rIntIC(e_mag_t_ic_r_m_global(1,m), &
                 n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
         END DO
+     END IF
+  ELSE
+     DO l=1,l_max
+        e_mag_p_ic_l(l)=0.d0
+        e_mag_t_ic_l(l)=0.d0
+     END DO
+     DO mc=1,l_max+1
+        e_mag_p_ic_m(mc)=0.d0
+        e_mag_t_ic_m(mc)=0.d0
+     END DO
+  END IF  ! conducting inner core ?
 
-    ELSE
-        DO l=1,l_max
-            e_mag_p_ic_l(l)=0.d0
-            e_mag_t_ic_l(l)=0.d0
-        END DO
-        DO mc=1,l_max+1
-            e_mag_p_ic_m(mc)=0.d0
-            e_mag_t_ic_m(mc)=0.d0
-        END DO
-    END IF  ! conducting inner core ?
-
-!-- Output into files:
-    IF ( l_mag ) THEN
+  IF (rank.EQ.0) THEN
+     !-- Output into files:
+     IF ( l_mag ) THEN
         WRITE(string, *) n_spec
-        mag_spec_file='mag_spec_'//trim(adjustl(string))//'.'//tag
+        mag_spec_file='mag_spec_'//TRIM(ADJUSTL(string))//'.'//tag
         OPEN(n_mag_spec_file,FILE=mag_spec_file,STATUS='UNKNOWN')
         IF ( n_spec == 0 ) THEN
-            WRITE(n_mag_spec_file,'(1x, &
-          &      ''Magnetic energy spectra of time averaged field:'')')
+           WRITE(n_mag_spec_file,'(1x, &
+                &      ''Magnetic energy spectra of time averaged field:'')')
         ELSE
-            WRITE(n_mag_spec_file,'(1x, &
-          &      ''Magnetic energy spectra at time:'', &
-          &      d20.12)') time*tScale
+           WRITE(n_mag_spec_file,'(1x, &
+                &      ''Magnetic energy spectra at time:'', &
+                &      d20.12)') time*tScale
         END IF
         WRITE(n_mag_spec_file,'(1p,i4,11d12.4)')         &
-               0,0.d0,e_mag_p_m(1)   ,0.d0,e_mag_t_m(1), &
-              0.d0,e_mag_p_ic_m(1),0.d0,e_mag_t_ic_m(1), &
-                               0.d0,e_mag_cmb_m(1),0.d0
+             0,0.d0,e_mag_p_m(1)   ,0.d0,e_mag_t_m(1), &
+             0.d0,e_mag_p_ic_m(1),0.d0,e_mag_t_ic_m(1), &
+             0.d0,e_mag_cmb_m(1),0.d0
         DO ml=1,l_max
-            WRITE(n_mag_spec_file,'(1p,i4,11d12.4)') &
+           WRITE(n_mag_spec_file,'(1p,i4,11d12.4)') &
                 ml,e_mag_p_l(ml),   e_mag_p_m(ml+1), &
-                   e_mag_t_l(ml),   e_mag_t_m(ml+1), &
+                e_mag_t_l(ml),   e_mag_t_m(ml+1), &
                 e_mag_p_ic_l(ml),e_mag_p_ic_m(ml+1), &
                 e_mag_t_ic_l(ml),e_mag_t_ic_m(ml+1), &
-                 e_mag_cmb_l(ml), e_mag_cmb_m(ml+1), &
-                                           eCMB(ml)
+                e_mag_cmb_l(ml), e_mag_cmb_m(ml+1), &
+                eCMB_global(ml)
         END DO
         CLOSE(n_mag_spec_file)
-    END IF
+     END IF
 
-    IF ( l_anel ) THEN
+     IF ( l_anel ) THEN
         WRITE(string, *) n_spec
         u2_spec_file='u2_spec_'//trim(adjustl(string))//'.'//tag
         OPEN(n_u2_spec_file,FILE=u2_spec_file,STATUS='UNKNOWN')
         IF ( n_spec == 0 ) THEN
-            WRITE(n_u2_spec_file,'(1x, &
-          &     ''Velocity square spectra of time averaged field:'')')
+           WRITE(n_u2_spec_file,'(1x, &
+                &     ''Velocity square spectra of time averaged field:'')')
         ELSE
-            WRITE(n_u2_spec_file,'(1x,                &
-          &     ''Velocity square spectra at time:'', &
-          &     d20.12)') time*tScale
+           WRITE(n_u2_spec_file,'(1x,                &
+                &     ''Velocity square spectra at time:'', &
+                &     d20.12)') time*tScale
         END IF
         WRITE(n_u2_spec_file,'(1p,i4,4d12.4)') &
-          &   0,0.d0,u2_p_m(1),0.d0,u2_t_m(1)
+             &   0,0.d0,u2_p_m(1),0.d0,u2_t_m(1)
         DO ml=1,l_max
-            WRITE(n_u2_spec_file,'(1p,i4,4d12.4)') &
-          &       ml,u2_p_l(ml),u2_p_m(ml+1),u2_t_l(ml),u2_t_m(ml+1)
+           WRITE(n_u2_spec_file,'(1p,i4,4d12.4)') &
+                &       ml,u2_p_l(ml),u2_p_m(ml+1),u2_t_l(ml),u2_t_m(ml+1)
         END DO
         CLOSE(n_u2_spec_file)
-    END IF
+     END IF
 
-    WRITE(string, *) n_spec
-    kin_spec_file='kin_spec_'//trim(adjustl(string))//'.'//tag
-    OPEN(n_kin_spec_file,FILE=kin_spec_file,STATUS='UNKNOWN')
-    IF ( n_spec == 0 ) THEN
+     WRITE(string, *) n_spec
+     kin_spec_file='kin_spec_'//TRIM(ADJUSTL(string))//'.'//tag
+     OPEN(n_kin_spec_file,FILE=kin_spec_file,STATUS='UNKNOWN')
+     IF ( n_spec == 0 ) THEN
         WRITE(n_kin_spec_file,'(1x, &
-       &      ''Kinetic energy spectra of time averaged field:'')')
-    ELSE
+             &      ''Kinetic energy spectra of time averaged field:'')')
+     ELSE
         WRITE(n_kin_spec_file,'(1x,                &
-       &      ''Kinetic energy spectra at time:'', &
-       &      d20.12)') time*tScale
-    END IF
-    WRITE(n_kin_spec_file,'(1p,i4,4d12.4)')        &
+             &      ''Kinetic energy spectra at time:'', &
+             &      d20.12)') time*tScale
+     END IF
+     WRITE(n_kin_spec_file,'(1p,i4,4d12.4)')        &
           0,0.d0,e_kin_p_m(1),0.d0,e_kin_t_m(1)
-    DO ml=1,l_max
+     DO ml=1,l_max
         WRITE(n_kin_spec_file,'(1p,i4,4d12.4)')    &
-                 ml,e_kin_p_l(ml),e_kin_p_m(ml+1), &
-                    e_kin_t_l(ml),e_kin_t_m(ml+1)
-    END DO
-    CLOSE(n_kin_spec_file)
+             ml,e_kin_p_l(ml),e_kin_p_m(ml+1), &
+             e_kin_t_l(ml),e_kin_t_m(ml+1)
+     END DO
+     CLOSE(n_kin_spec_file)
+  END IF
 
-
-    RETURN
-    end SUBROUTINE spectrum
+  RETURN
+end SUBROUTINE spectrum
 
 !----------------------------------------------------------------------------

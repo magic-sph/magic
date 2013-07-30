@@ -11,6 +11,7 @@ MODULE outPV3
 
   IMPLICIT NONE 
 
+  private
   INTEGER,PARAMETER :: nSmaxA=97
   INTEGER,PARAMETER :: nZmaxA=2*nSmaxA
   REAL(kind=8),ALLOCATABLE :: rZ(:,:)
@@ -21,6 +22,8 @@ MODULE outPV3
   REAL(kind=8),ALLOCATABLE :: OsinTS(:,:)
   REAL(kind=8),ALLOCATABLE :: VorOld(:,:,:)
 
+  public :: initialize_outPV3,outPV
+  
 contains
   SUBROUTINE initialize_outPV3
 

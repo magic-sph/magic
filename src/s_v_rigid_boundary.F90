@@ -1,8 +1,8 @@
 !$Id$
 !***********************************************************************
     subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr, &
-                           cvrr,dvrdtr,dvrdpr,dvtdpr,dvpdpr, &
-                                                nThetaStart)
+         &                      cvrr,dvrdtr,dvrdpr,dvtdpr,dvpdpr, &
+         &                      nThetaStart)
 !***********************************************************************
 
 !    !------------ This is release 2 level 1  --------------!
@@ -18,9 +18,6 @@
 !  |       r**2  2 cos(theta) omega                                    |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE radial_functions
@@ -30,22 +27,22 @@
     IMPLICIT NONE
 
 !-- Input of variables:
-    INTEGER :: nR            ! no of radial grid point
-    LOGICAL :: lDeriv         ! derivatives required ?
-    INTEGER :: nThetaStart    ! no of theta to start with
+    INTEGER,INTENT(in) :: nR            ! no of radial grid point
+    LOGICAL,INTENT(in) :: lDeriv         ! derivatives required ?
+    INTEGER,INTENT(in) :: nThetaStart    ! no of theta to start with
             
 !-- Input of boundary rotation rate
-    REAL(kind=8) :: omega
+    REAL(kind=8),INTENT(in) :: omega
 
 !-- output:
-    REAL(kind=8) :: vrr(nrp,nfs)
-    REAL(kind=8) :: vpr(nrp,nfs)
-    REAL(kind=8) :: vtr(nrp,nfs)
-    REAL(kind=8) :: cvrr(nrp,nfs)
-    REAL(kind=8) :: dvrdtr(nrp,nfs)
-    REAL(kind=8) :: dvrdpr(nrp,nfs)
-    REAL(kind=8) :: dvtdpr(nrp,nfs)
-    REAL(kind=8) :: dvpdpr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: vrr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: vpr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: vtr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: cvrr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: dvrdtr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: dvrdpr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: dvtdpr(nrp,nfs)
+    REAL(kind=8),INTENT(OUT) :: dvpdpr(nrp,nfs)
 
 !-- local:
     REAL(kind=8) :: r2

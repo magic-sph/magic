@@ -10,39 +10,35 @@
 
 !  +-------------------------------------------------------------------+
 !  |                                                                   |
-!  |  Returns first rarial derivative df and second radial             |
+!  |  Returns first radial derivative df and second radial             |
 !  |  derivative ddf of the input function f.                          |
 !  |  Array f(n_f_max,*) may contain several functions numbered by     |
-!  |  the first index. The subroutine calculates the derivaties of     |
+!  |  the first index. The subroutine calculates the derivatives of    |
 !  |  the functions f(n_f_start,*) to f(n_f_stop) by transforming      |
 !  |  to a Chebychev representation using n_r_max radial grid points.  |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-
 
     IMPLICIT NONE
 
 !-- input:
-    INTEGER :: n_f_max         ! first dim of f
-    REAL(kind=8) :: f(n_f_max,*)
-    INTEGER :: n_f_start       ! first function to be treated
-    INTEGER :: n_f_stop        ! last function to be treated
-    INTEGER :: n_r_max         ! number of radial grid points
-    INTEGER :: n_cheb_max      ! number of cheb modes
-    REAL(kind=8) :: work1(n_f_max,*)  ! work array needed for costf
-    REAL(kind=8) :: work2(n_f_max,*)  ! work array for f transfer
-    REAL(kind=8) :: drx(*)           ! first derivatives of x(r)
-    REAL(kind=8) :: ddrx(*)          ! second derivatives of x(r)
+    INTEGER,intent(IN) :: n_f_max         ! first dim of f
+    REAL(kind=8),intent(IN) :: f(n_f_max,*)
+    INTEGER,intent(IN) :: n_f_start       ! first function to be treated
+    INTEGER,intent(IN) :: n_f_stop        ! last function to be treated
+    INTEGER,intent(IN) :: n_r_max         ! number of radial grid points
+    INTEGER,intent(IN) :: n_cheb_max      ! number of cheb modes
+    REAL(kind=8),intent(OUT) :: work1(n_f_max,*)  ! work array needed for costf
+    REAL(kind=8),intent(OUT) :: work2(n_f_max,*)  ! work array for f transfer
+    REAL(kind=8),intent(IN) :: drx(*)           ! first derivatives of x(r)
+    REAL(kind=8),intent(IN) :: ddrx(*)          ! second derivatives of x(r)
 
-    INTEGER :: i_costf_init(*) ! info for costf
-    REAL(kind=8) :: d_costf_init(*)  ! info for costf
+    INTEGER,intent(IN) :: i_costf_init(*) ! info for costf
+    REAL(kind=8),intent(IN) :: d_costf_init(*)  ! info for costf
 
 !-- output:
-    REAL(kind=8) :: df(n_f_max,*)  ! first derivative of f
-    REAL(kind=8) :: ddf(n_f_max,*) ! second derivative of f
+    REAL(kind=8),intent(OUT) :: df(n_f_max,*)  ! first derivative of f
+    REAL(kind=8),intent(OUT) :: ddf(n_f_max,*) ! second derivative of f
 
 !-- Local:
     INTEGER :: n_r,n_f

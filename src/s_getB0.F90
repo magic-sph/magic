@@ -12,9 +12,6 @@
 !  |  magnetic field by the inner core permanent magnet.               |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE radial_functions
@@ -27,6 +24,7 @@
     USE output_data
     USE const
     USE usefull, ONLY: cc2real
+    USE parallel_mod,only:rank
     USE integration, ONLY: rInt_R
 
     IMPLICIT NONE
@@ -63,13 +61,14 @@
     eP=rInt_R(ePr,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
     eP=0.5D0*LFfac*eScale*eP
 
-    WRITE(*,'(1x,1P," ! Energy of imposed IC field:",D16.4)') eP
-    IF ( l_save_out ) THEN
-        OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
+    IF (rank.EQ.0) THEN
+       WRITE(*,'(1x,1P," ! Energy of imposed IC field:",D16.4)') eP
+       IF ( l_save_out ) THEN
+          OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
+       END IF
+       WRITE(nLF,'(1x,1P," ! Energy of imposed IC field:",D16.4)') eP
+       IF ( l_save_out ) CLOSE(n_log_file)
     END IF
-    WRITE(nLF,'(1x,1P," ! Energy of imposed IC field:",D16.4)') eP
-    IF ( l_save_out ) CLOSE(n_log_file)
-     
     RETURN
     end SUBROUTINE getB0
 

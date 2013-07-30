@@ -31,22 +31,23 @@
     USE logic
     USE const
     USE usefull, only: random
+    USE LMLoop_data,ONLY: llmMag,ulmMag
 
     IMPLICIT NONE
 
     INTEGER :: lmStart,lmStop
 
 !-- output:
-    REAL(kind=8) :: lorentz_torque_ic
-    REAL(kind=8) :: lorentz_torque_ma
+    REAL(kind=8),intent(OUT) :: lorentz_torque_ic
+    REAL(kind=8),intent(OUT) :: lorentz_torque_ma
 
-    COMPLEX(kind=8) :: b(lm_max,n_r_max)
-    COMPLEX(kind=8) :: aj(lm_max,n_r_max)
-    COMPLEX(kind=8) :: b_ic(lm_max,n_r_ic_max)
-    COMPLEX(kind=8) :: aj_ic(lm_max,n_r_ic_max)
+    COMPLEX(kind=8),INTENT(INOUT) :: b(lm_maxMag,n_r_maxMag)
+    COMPLEX(kind=8),intent(INOUT) :: aj(lm_maxMag,n_r_maxMag)
+    COMPLEX(kind=8),intent(INOUT) :: b_ic(lm_maxMag,n_r_ic_max)
+    COMPLEX(kind=8),intent(INOUT) :: aj_ic(lm_maxMag,n_r_ic_max)
 
 !-- local:
-    INTEGER :: lm,lm0,lmStart00
+    INTEGER :: lm,lm0,lmStart00,l1,m1
     INTEGER :: n_r
     REAL(kind=8) :: b_pol,b_tor
     COMPLEX(kind=8) :: aj0(n_r_max+1)
@@ -68,10 +69,10 @@
 
 !        IF ( lGrenoble ) CALL getB0
 
-    l1m0=lm2(1,0)
-    l2m0=lm2(2,0)
-    l3m0=lm2(3,0)
-    l1m1=lm2(1,1)
+    l1m0=st_map%lm2(1,0)
+    l2m0=st_map%lm2(2,0)
+    l3m0=st_map%lm2(3,0)
+    l1m1=st_map%lm2(1,1)
 
     lm0=l2m0 ! Default quadrupole field
 
@@ -196,15 +197,16 @@
             END IF
         END IF
          
-    ELSE IF ( init_b1 == 3 ) THEN  ! l=2,m=0 toroidal field and l=1,m=0 poloidal field
-    ! toroidal field has again its maximum of amp_b1
-    ! at mid-radius between r_icb and r_cmb for an
-    ! insulating inner core and at r_cmb/2 for a
-    ! conducting inner core
-    ! The outer core poloidal field is defined by
-    ! a homogeneous  current density, its maximum at
-    ! the ICB is set to amp_b1.
-    ! The inner core poloidal field is chosen accordingly.
+    ELSE IF ( init_b1 == 3 ) THEN  
+       ! l=2,m=0 toroidal field and l=1,m=0 poloidal field
+       ! toroidal field has again its maximum of amp_b1
+       ! at mid-radius between r_icb and r_cmb for an
+       ! insulating inner core and at r_cmb/2 for a
+       ! conducting inner core
+       ! The outer core poloidal field is defined by
+       ! a homogeneous  current density, its maximum at
+       ! the ICB is set to amp_b1.
+       ! The inner core poloidal field is chosen accordingly.
         IF ( lmStart <= l1m0 .AND. lmStop >= l1m0 ) THEN ! select processor
             b_tor=-4.d0/3.d0*amp_b1*dsqrt(pi/5.d0)
             IF ( l_cond_ic ) THEN
@@ -410,16 +412,17 @@
     !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
         rr=random(1.D0)
         DO lm=lmStart00,lmStop
-            bR=(-1.d0+2.d0*random(0.d0))*amp_b1/D_l(lm)**(bExp-1)
-            bI=(-1.d0+2.d0*random(0.d0))*amp_b1/D_l(lm)**(bExp-1)
-            IF ( lm2m(lm) == 0 ) bI=0.D0
+           l1=st_map%lm2l(lm)
+           m1=st_map%lm2m(lm)
+           bR=(-1.d0+2.d0*random(0.d0))*amp_b1/D_l(st_map%lm2(l1,m1))**(bExp-1)
+           bI=(-1.d0+2.d0*random(0.d0))*amp_b1/D_l(st_map%lm2(l1,m1))**(bExp-1)
+            IF ( m1 == 0 ) bI=0.D0
             DO n_r=1,n_r_max
-                b(lm,n_r)=b(lm,n_r) + CMPLX(bR*b1(n_r),bI*b1(n_r),KIND=KIND(0d0))
+               b(lm,n_r)=b(lm,n_r) + CMPLX(bR*b1(n_r),bI*b1(n_r),KIND=KIND(0d0))
             END DO
             IF ( l_cond_ic ) THEN
                 DO n_r=1,n_r_ic_max
-                    b_ic(lm,n_r)=b_ic(lm,n_r) + &
-                                 CMPLX(bR*b1_ic(n_r),bI*b1_ic(n_r),KIND=KIND(0d0))
+                    b_ic(lm,n_r)=b_ic(lm,n_r) + CMPLX(bR*b1_ic(n_r),bI*b1_ic(n_r),KIND=KIND(0d0))
                 END DO
             END IF
         END DO

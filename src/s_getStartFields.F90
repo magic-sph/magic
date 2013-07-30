@@ -1,295 +1,452 @@
 !$Id$
 !***********************************************************************
-    SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
-!***********************************************************************
+SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
+  !***********************************************************************
 
-!    !------------ This is release 2 level 1  --------------!
-!    !------------ Created on 1/15/02  by JW. --------------!
+  !    !------------ This is release 2 level 1  --------------!
+  !    !------------ Created on 1/15/02  by JW. --------------!
 
-!  +-------------+----------------+------------------------------------+
-!  |                                                                   |
-!  |  Purpose of this subroutine is to initialize the fields and       |
-!  |  other auxiliary parameters.                                      |
-!  |                                                                   |
-!  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+  !  +-------------+----------------+------------------------------------+
+  !  |                                                                   |
+  !  |  Purpose of this subroutine is to initialize the fields and       |
+  !  |  other auxiliary parameters.                                      |
+  !  |                                                                   |
+  !  +-------------------------------------------------------------------+
+  !  |  ruler                                                            |
+  !  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
+  !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
-    USE truncation
-    USE radial_functions
-    USE physical_parameters
-    USE num_param
-    USE init_fields
-    USE Grenoble
-    USE blocking
-    USE horizontal_data
-    USE logic
-    USE fields
-    USE fieldsLast
-    USE output_data
-    USE const
-    USE usefull, ONLY: cc2real
+  USE truncation
+  USE radial_functions
+  USE physical_parameters
+  USE num_param
+  USE init_fields
+  USE Grenoble
+  USE blocking
+  USE horizontal_data
+  USE logic
+  USE fields,ONLY: w,dw,ddw,z,dz,s,ds,p,dp,b,db,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,&
+       &omega_ic,omega_ma,&
+       &w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,&
+       &ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,db_LMloc,dj_LMloc,ddb_LMloc,&
+       &ddj_LMloc,db_ic_LMloc,dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_lo,dz_lo,&
+       &s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,&
+       &b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc
+  USE fieldsLast
+  USE output_data
+  USE const
+  USE usefull, ONLY: cc2real
+  USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm_realMag,ulm_realMag,llm_real,ulm_real
+  USE parallel_mod,ONLY: rank,n_procs
+  USE communications, ONLY: lo2r_redist_start,lo2r_redist,&
+       & lo2r_s,lo2r_ds,lo2r_z, lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
+       & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj,scatter_from_rank0_to_lo
+  IMPLICIT NONE
 
-    IMPLICIT NONE
+  !---- Output variables:
+  REAL(kind=8) :: time,dt,dtNew
+  INTEGER :: n_time_step
 
-!---- Output variables:
-    REAL(kind=8) :: time,dt,dtNew
-    INTEGER :: n_time_step
+  !-- Local variables:
+  INTEGER :: nR,lm,l1m0,nLMB,l,m
+  INTEGER :: lmStart,lmStop,lmStartReal,lmStopReal
+  REAL(kind=8) :: coex
+  REAL(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
+  CHARACTER(len=76) :: message
 
-!-- Local variables:
-    INTEGER :: nR,lm,l1m0,nLMB,l,m
-    INTEGER :: lmStart,lmStop,lmStartReal,lmStopReal
-    REAL(kind=8) :: coex
-    REAL(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
-    CHARACTER(len=76) :: message
+  REAL(kind=8) :: sEA,sES,sAA
 
-    REAL(kind=8) :: sEA,sES,sAA
+  REAL(kind=8) :: s0(n_r_max),ds0(n_r_max)
+  REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
 
-    REAL(kind=8) :: s0(n_r_max),ds0(n_r_max)
-    REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
+  COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
+  COMPLEX(kind=8) :: workB_LMloc(llm:ulm,n_r_max)
+  !COMPLEX(kind=8) :: temp_lo(lm_max,n_r_max)
+  !COMPLEX(kind=8) :: temp_lo(lm_max)
 
-    COMPLEX(kind=8) :: workA(lm_max,n_r_max)
-    COMPLEX(kind=8) :: workB(lm_max,n_r_max)
+  INTEGER :: irank
+  INTEGER,DIMENSION(:),ALLOCATABLE :: sendcounts,displs
+  logical :: DEBUG_OUTPUT=.false.
+  !-- end of declaration
+  !---------------------------------------------------------------
 
+  !print*,"Starting getStartFields"
 
-!-- end of declaration
-!---------------------------------------------------------------
-     
-
-!-- Start with setting fields to zero:
-!   Touching the fields with the appropriate processor
-!   for the LM-distribute parallel region (LMLoop) makes
-!   sure that they are located close the individual
-!   processors in memory:
-     
-    !$OMP PARALLEL DO SCHEDULE(STATIC,1)   &
-    !$OMP  PRIVATE(lmStart,lmStop,lm,nR)
-    DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-
-        lmStart=lmStartB(nLMB)
-        lmStop =lmStopB(nLMB)
-        DO lm=lmStart,lmStop
-
-            IF ( l_conv ) THEN
-                DO nR=1,n_r_max
-                    w(lm,nR)       =zero
-                    dw(lm,nR)      =zero
-                    ddw(lm,nR)     =zero
-                    dwdtLast(lm,nR)=zero
-                    z(lm,nR)       =zero
-                    dz(lm,nR)      =zero
-                    dzdtLast(lm,nR)=zero
-                    p(lm,nR)       =zero
-                    dp(lm,nR)      =zero
-                    dpdtLast(lm,nR)=zero
-                END DO
-            END IF
-            IF ( l_heat ) THEN
-                DO nR=1,n_r_max
-                    s(lm,nR)       =zero
-                    ds(lm,nR)      =zero
-                    dsdtLast(lm,nR)=zero
-                END DO
-            END IF
-            IF ( l_mag ) THEN
-                DO nR=1,n_r_max
-                    b(lm,nR)       =zero
-                    db(lm,nR)      =zero
-                    ddb(lm,nR)     =zero
-                    dbdtLast(lm,nR)=zero
-                    aj(lm,nR)      =zero
-                    dj(lm,nR)      =zero
-                    ddj(lm,nR)     =zero
-                    djdtLast(lm,nR)=zero
-                END DO
-            END IF
-            IF ( l_cond_ic ) THEN
-                DO nR=1,n_r_ic_max
-                    b_ic(lm,nR)       =zero
-                    db_ic(lm,nR)      =zero
-                    ddb_ic(lm,nR)     =zero
-                    dbdt_icLast(lm,nR)=zero
-                    aj_ic(lm,nR)      =zero
-                    dj_ic(lm,nR)      =zero
-                    ddj_ic(lm,nR)     =zero
-                    djdt_icLast(lm,nR)=zero
-                END DO
-            END IF
-
-        END DO
-
-    END DO
-
-    !$OMP   END PARALLEL DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
+  !---- Computations for the Nusselt number if we are anelastic
+  !     Can be done before setting the fields
+  IF (l_heat) THEN
+     CALL s_cond(s0)
+     CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
+          w1,w2,i_costf_init,d_costf_init,drx)
+  END IF
+  ! For computing the Nusselt number
+  topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)
+  botcond=-1.D0/DSQRT(4.D0*pi)*ds0(n_r_max)
 
 
-    IF ( l_start_file ) THEN
-        CALL readStartFields(   w,dwdtLast,z,dzdtLast, &
-                                p,dpdtLast,s,dsdtLast, &
-                               b,dbdtLast,aj,djdtLast, &
-                   b_ic,dbdt_icLast,aj_ic,djdt_icLast, &
-                                    omega_ic,omega_ma, &
-          lorentz_torque_icLast,lorentz_torque_maLast, &
-                            time,dt,dtNew,n_time_step)
+  !-- Start with setting fields to zero:
+  !   Touching the fields with the appropriate processor
+  !   for the LM-distribute parallel region (LMLoop) makes
+  !   sure that they are located close the individual
+  !   processors in memory:
+
+  IF (rank.EQ.0) THEN
+     IF ( l_start_file ) THEN
+        CALL readStartFields( w,dwdtLast,z,dzdtLast, &
+             &                p,dpdtLast,s,dsdtLast, &
+             &                b,dbdtLast,aj,djdtLast, &
+             &                b_ic,dbdt_icLast,aj_ic,djdt_icLast, &
+             &                omega_ic,omega_ma, &
+             &                lorentz_torque_icLast,lorentz_torque_maLast, &
+             &                time,dt,dtNew,n_time_step)
         IF ( dt > 0.D0 ) THEN
-            WRITE(message,'(''! Using old time step:'',D16.6)') dt
+           WRITE(message,'(''! Using old time step:'',D16.6)') dt
         ELSE
-            dt=dtMax
-            WRITE(message,'(''! Using dtMax time step:'',D16.6)') dtMax
+           dt=dtMax
+           WRITE(message,'(''! Using dtMax time step:'',D16.6)') dtMax
         END IF
-    ELSE
+
+     ELSE
+        ! Initialize with zero
+        IF ( l_conv ) THEN
+           w       =zero
+           dwdtLast=zero
+           z       =zero
+           dzdtLast=zero
+           p       =zero
+           dpdtLast=zero
+        END IF
+        IF ( l_heat ) THEN
+           s       =zero
+           dsdtLast=zero
+        END IF
+        IF ( l_mag ) THEN
+           b       =zero
+           dbdtLast=zero
+           aj      =zero
+           djdtLast=zero
+        END IF
+        IF ( l_cond_ic ) THEN
+           b_ic       =zero
+           dbdt_icLast=zero
+           aj_ic      =zero
+           djdt_icLast=zero
+        END IF
+
         time =0.D0
         dt   =dtMax
         dtNew=dtMax
         n_time_step=0
         WRITE(message,'(''! Using dtMax time step:'',D16.6)') dtMax
-    END IF
-    CALL logWrite(message)
+     END IF
+     CALL logWrite(message)
 
-!---- Computations for the Nusselt number if we are anelastic
-    IF (l_heat) THEN
-        CALL s_cond(s0)
-        CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
-                    w1,w2,i_costf_init,d_costf_init,drx)
-    END IF
+     !----- Get radial derivatives and initialize:
 
-! For computing the Nusselt number
-    topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)
-    botcond=-1.D0/DSQRT(4.D0*pi)*ds0(n_r_max)
-!----- Get radial derivatives and initialize:
-
-    !$OMP PARALLEL DO SCHEDULE(STATIC,1)  &
-    !$OMP  PRIVATE(lmStart,lmStop,lmStartReal,lmStopReal)
-
-    DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-
+     DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
         lmStart=lmStartB(nLMB)
         lmStop =lmStopB(nLMB)
         lmStartReal=2*lmStart-1
         lmStopReal =2*lmStop
 
-    !----- Initialize/add magnetic field:
+        !----- Initialize/add magnetic field:
         IF ( ( imagcon /= 0 .OR. init_b1 /= 0 .OR. lGrenoble ) &
-              .AND. ( l_mag .OR. l_mag_LF ) ) THEN
-            CALL initB(b,aj,b_ic,aj_ic, &
-                 lorentz_torque_icLast, &
-                 lorentz_torque_maLast, &
-                        lmStart,lmStop)
+             & .AND. ( l_mag .OR. l_mag_LF ) ) THEN
+           !CALL initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           !     lorentz_torque_icLast, lorentz_torque_maLast, &
+           !     lmStart,lmStop)
+           CALL initB(b,aj,b_ic,aj_ic, &
+                &     lorentz_torque_icLast, lorentz_torque_maLast, &
+                &     lmStart,lmStop)
         END IF
 
-    !----- Initialize/add velocity, set IC and ma rotation:
-        IF ( l_conv .OR. l_mag_kin .OR. l_SRIC .OR. l_SRMA ) &
-            CALL initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
-
-                
-    !----- Initialize/add entropy:
-        IF ( ( init_s1 /= 0 .OR. impS /= 0 ) .AND. l_heat ) &
-            CALL initS(s,lmStart,lmStop)
-
-
-        IF ( l_conv .OR. l_mag_kin ) THEN
-            CALL get_ddr(      w,dw,ddw,lm_max_real, &
-                             lmStartReal,lmStopReal, &
-                     n_r_max,n_cheb_max,workA,workB, &
-                 i_costf_init,d_costf_init,drx,ddrx)
-            CALL get_dr(           z,dz,lm_max_real, &
-                             lmStartReal,lmStopReal, &
-                     n_r_max,n_cheb_max,workA,workB, &
-                      i_costf_init,d_costf_init,drx)
+        !----- Initialize/add velocity, set IC and ma rotation:
+        IF ( l_conv .OR. l_mag_kin .OR. l_SRIC .OR. l_SRMA ) THEN
+           !CALL initV(w_LMloc,z_lo,omega_ic,omega_ma,lmStart,lmStop)
+           CALL initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
         END IF
 
-        IF ( l_mag .OR. l_mag_kin  ) THEN
-            CALL get_ddr(      b,db,ddb,lm_max_real, &
-                             lmStartReal,lmStopReal, &
-                     n_r_max,n_cheb_max,workA,workB, &
-                 i_costf_init,d_costf_init,drx,ddrx)
-            CALL get_ddr(     aj,dj,ddj,lm_max_real, &
-                             lmStartReal,lmStopReal, &
-                     n_r_max,n_cheb_max,workA,workB, &
-                 i_costf_init,d_costf_init,drx,ddrx)
-        END IF
-        IF ( l_cond_ic ) then
-            CALL get_ddr_even(b_ic,db_ic,ddb_ic,lm_max_real, &
-                                     lmStartReal,lmStopReal, &
-             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA,workB, &
-                          i_costf1_ic_init,d_costf1_ic_init, &
-                          i_costf2_ic_init,d_costf2_ic_init)
-            CALL get_ddr_even(aj_ic,dj_ic,ddj_ic,lm_max_real, &
-                                      lmStartReal,lmStopReal, &
-              n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA,workB, &
-                           i_costf1_ic_init,d_costf1_ic_init, &
-                           i_costf2_ic_init,d_costf2_ic_init)
+        !----- Initialize/add entropy:
+        IF ( ( init_s1 /= 0 .OR. impS /= 0 ) .AND. l_heat ) THEN
+           !CALL initS(s_LMloc,lmStart,lmStop)
+           CALL initS(s,lmStart,lmStop)
         END IF
 
-        IF ( l_heat ) THEN
+        IF (DEBUG_OUTPUT) THEN
+           WRITE(*,"(A,I3,10ES22.15)") "direct after init: w,z,s,b,aj ",nLMB,SUM(w), &
+                & SUM(z), SUM(s),SUM(b),SUM(aj)
+        END IF
+
+     END DO ! Loop over LM blocks
+
+  END IF
+
+#ifdef WITH_MPI
+  ! ========== Redistribution of the fields ============
+  ! 1. Broadcast the scalars
+  CALL MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(lorentz_torque_icLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(lorentz_torque_maLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(time,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(dt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(dtNew,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  CALL MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+
+  ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
+  !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
+  ALLOCATE(sendcounts(0:n_procs-1),displs(0:n_procs-1))
+  DO irank=0,n_procs-1
+     sendcounts(irank) = lm_per_rank
+     displs(irank) = irank*lm_per_rank
+  END DO
+  sendcounts(n_procs-1) = lm_on_last_rank
+  DO nR=1,n_r_max
+     !write(*,"(8X,A,I4)") "nR = ",nR
+     CALL scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
+     CALL scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
+     CALL scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
+     CALL scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
+
+     IF (l_mag) THEN
+        CALL scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
+        CALL scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
+     END IF
+  END DO
+  IF (l_cond_ic) THEN
+     DO nR=1,n_r_ic_max
+        CALL scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
+        CALL scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
+     END DO
+  END IF
+
+  ! 3. Scatter the fields to the LMloc space
+  !write(*,"(4X,A)") "Start Scatter the fields"
+  DO nR=1,n_r_max
+     CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm,nR))
+     CALL scatter_from_rank0_to_lo(z(1,nR),z_lo(llm,nR))
+     CALL scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm,nR))
+     CALL scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm,nR))
+
+     IF (l_mag) THEN
+        CALL scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llm,nR))
+        CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llm,nR))
+     END IF
+     !IF (DEBUG_OUTPUT) THEN
+     !   IF (rank.EQ.0) THEN
+     !      WRITE(*,"(A,I4,6ES22.14)") "full arrays: ",nR,SUM( s(:,nR) ),SUM( b(:,nR) ),SUM( aj(:,nR) )
+     !   END IF
+     !   WRITE(*,"(A,I4,6ES22.14)") "LMloc arrays: ",nR,SUM( s_LMloc(:,nR) ),SUM( b_LMloc(:,nR) ),SUM( aj_LMloc(:,nR) )
+     !END IF
+
+  END DO
+  IF (l_cond_ic) THEN
+     DO nR=1,n_r_ic_max
+        CALL scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
+        CALL scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
+     END DO
+  END IF
+  DEALLOCATE(sendcounts,displs)
+
+  !IF (DEBUG_OUTPUT) THEN
+  !   IF (rank.EQ.0) THEN
+  !      WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast full = ",SUM( z ),SUM( dzdtLast )
+  !   END IF!
+
+  !   WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ",SUM( z_lo ),SUM( dzdtLast_lo )
+  !END IF
+
+#else
+  ! ============================ NO MPI ==============================
+  ! just copy to the _LMloc arrays
+  dwdtLast_LMloc=dwdtLast
+  dzdtLast_LMloc=dzdtLast
+  dpdtLast_LMloc=dpdtLast
+  dsdtLast_LMloc=dsdtLast
+  w_LMloc = w
+  z_lo = z
+  p_LMloc = p
+  s_LMloc = s
+
+  IF (l_mag) THEN
+     dbdtLast_LMloc=dbdtLast
+     djdtLast_LMloc=djdtLast
+     b_LMloc = b
+     aj_LMloc = aj
+  END IF
+  IF (l_cond_ic) THEN
+     dbdt_icLast_LMloc=dbdt_icLast
+     djdt_icLast_LMloc=djdt_icLast
+     b_ic_LMloc = b_ic
+     aj_ic_LMloc = aj_ic
+  END IF
+
+#endif
+
+
+  !  print*,"Computing derivatives"
+  DO nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs) ! Blocking of loop over all (l,m)
+     lmStart=lmStartB(nLMB)
+     lmStop =lmStopB(nLMB)
+     lmStartReal=2*lmStart-1
+     lmStopReal =2*lmStop
+
+     !IF (DEBUG_OUTPUT) THEN
+     !   WRITE(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB,SUM(w_LMloc), SUM(z_lo), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
+     !END IF
+
+
+     IF ( l_conv .OR. l_mag_kin ) THEN
+        CALL get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm_real-llm_real+1, &
+             lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
+             n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
+             i_costf_init,d_costf_init,drx,ddrx)
+        CALL get_dr( z_lo,dz_lo,ulm_real-llm_real+1, &
+             lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
+             n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
+             i_costf_init,d_costf_init,drx)
+     END IF
+
+     IF ( l_mag .OR. l_mag_kin  ) THEN
+        CALL get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulm_realMag-llm_realMag+1, &
+             lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
+             n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
+             i_costf_init,d_costf_init,drx,ddrx)
+        CALL get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulm_realMag-llm_realMag+1, &
+             lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
+             n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
+             i_costf_init,d_costf_init,drx,ddrx)
+     END IF
+     IF ( l_cond_ic ) then
+        CALL get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulm_realMag-llm_realMag+1, &
+             lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
+             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,workB_LMloc, &
+             i_costf1_ic_init,d_costf1_ic_init, &
+             i_costf2_ic_init,d_costf2_ic_init)
+        CALL get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulm_realMag-llm_realMag+1, &
+             lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
+             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,workB_LMloc, &
+             i_costf1_ic_init,d_costf1_ic_init, &
+             i_costf2_ic_init,d_costf2_ic_init)
+     END IF
+
+     IF ( l_heat ) THEN
         !-- Get radial derivatives of entropy:
-            CALL get_dr(              s,ds,lm_max_real, &
-                                lmStartReal,lmStopReal, &
-                        n_r_max,n_cheb_max,workA,workB, &
-                         i_costf_init,d_costf_init,drx)
+        IF (DEBUG_OUTPUT) THEN
+           DO nR=1,n_r_max
+              WRITE(*,"(A,I4)") "nR=",nR
+              DO lm=lmStart,lmStop
+                 WRITE(*,"(4X,A,4I5,2ES22.14)") "s : ", nR,lm,lo_map%lm2l(lm),lo_map%lm2m(lm),&
+                      &s_LMloc(lm,nR)
+              END DO
+           END DO
         END IF
+        CALL get_dr( s_LMloc,ds_LMloc,ulm_real-llm_real+1, &
+             lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
+             n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
+             i_costf_init,d_costf_init,drx)
+     END IF
 
-    END DO ! Loop over LM blocks
+     IF (DEBUG_OUTPUT) THEN
+        !DO nR=1,n_r_max
+        !   WRITE(*,"(A,I5,4ES22.14)") "Rdep: s,ds : ", nR,SUM(s_LMloc(lmStart:lmStop,nR)),SUM(ds_LMloc(lmStart:lmStop,nR))
+        !END DO
+        !DO lm=lmStart,lmStop
+        !   WRITE(*,"(A,3I5,4ES22.14)") "s,ds : ", lm,lo_map%lm2l(lm),lo_map%lm2m(lm),&
+        !        &SUM(s_LMloc(lm,:)),SUM(ds_LMloc(lm,:))
+        !END DO
+        WRITE(*,"(A,I3,10ES22.15)") "derivatives: w,z,s,b,aj ",nLMB,SUM(dw_LMloc), SUM(dz_lo), &
+             & SUM(ds_LMloc),SUM(db_LMloc),SUM(dj_LMloc)
+     END IF
+     
+  END DO
 
-    !$OMP   END PARALLEL DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
-
-!--- Get symmetry properties of tops excluding l=m=0:
-    sES=0.D0
-    sEA=0.D0
-    sAA=0.D0
-    DO m=0,l_max,minc
-        DO l=m,l_max
-            IF ( l > 0 ) THEN
-                IF ( MOD(l+m,2) == 0 ) THEN
-                    sES=sES+cc2real(tops(l,m),m)
-                ELSE
-                    sEA=sEA+cc2real(tops(l,m),m)
-                END IF
-                IF ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
-            END IF
-        END DO
-    END DO
-    IF ( sEA+sES == 0 ) THEN
-        WRITE(message,'(''! Only l=m=0 comp. in tops:'')')
-        CALL logWrite(message)
-    ELSE
-        sEA=DSQRT(sEA/(sEA+sES))
-        sAA=DSQRT(sAA/(sEA+sES))
-        WRITE(message,'(''! Rel. RMS equ. asym. tops:'',D16.6)') sEA
-        CALL logWrite(message)
-        WRITE(message,'(''! Rel. RMS axi. asym. tops:'',D16.6)') sAA
-        CALL logWrite(message)
-    END IF
-
-!----- Get changes in mantle and ic rotation rate:
-    IF ( .NOT. l_mag_LF ) THEN
-        lorentz_torque_icLast=0.D0
-        lorentz_torque_maLast=0.D0
-    END IF
-    IF ( l_z10mat ) THEN
-        l1m0=lm2(1,0)
-        coex=-2.D0*(alpha-1.D0)
-        IF ( .NOT. l_SRMA .AND. ktopv == 2 .AND. l_rot_ma ) THEN
-            d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
-            d_omega_ma_dtLast=d_omega_ma_dt -              &
-                   coex * ( 2.d0*or1(1)*REAL(z(l1m0,1)) - &
-                                        REAL(dz(l1m0,1)) )
+  !--- Get symmetry properties of tops excluding l=m=0:
+  sES=0.D0
+  sEA=0.D0
+  sAA=0.D0
+  DO m=0,l_max,minc
+     DO l=m,l_max
+        IF ( l > 0 ) THEN
+           IF ( MOD(l+m,2) == 0 ) THEN
+              sES=sES+cc2real(tops(l,m),m)
+           ELSE
+              sEA=sEA+cc2real(tops(l,m),m)
+           END IF
+           IF ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
         END IF
-        IF ( .NOT. l_SRIC .AND. kbotv == 2 .AND. l_rot_ic ) THEN
-            d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
-            d_omega_ic_dtLast=                    d_omega_ic_dt + &
-              coex * ( 2.D0*or1(n_r_max)*REAL(z(l1m0,n_r_max)) - &
-                                         REAL(dz(l1m0,n_r_max)) )
-        END IF
-    ELSE
-        d_omega_ma_dtLast=0.D0
-        d_omega_ic_dtLast=0.D0
-    END IF
+     END DO
+  END DO
+  IF ( sEA+sES == 0 ) THEN
+     WRITE(message,'(''! Only l=m=0 comp. in tops:'')')
+     CALL logWrite(message)
+  ELSE
+     sEA=DSQRT(sEA/(sEA+sES))
+     sAA=DSQRT(sAA/(sEA+sES))
+     WRITE(message,'(''! Rel. RMS equ. asym. tops:'',D16.6)') sEA
+     CALL logWrite(message)
+     WRITE(message,'(''! Rel. RMS axi. asym. tops:'',D16.6)') sAA
+     CALL logWrite(message)
+  END IF
+
+  !----- Get changes in mantle and ic rotation rate:
+  IF ( .NOT. l_mag_LF ) THEN
+     lorentz_torque_icLast=0.D0
+     lorentz_torque_maLast=0.D0
+  END IF
+  IF ( l_z10mat ) THEN
+     l1m0=lo_map%lm2(1,0)
+     coex=-2.D0*(alpha-1.D0)
+     IF ( ( .NOT. l_SRMA .AND. ktopv == 2 .AND. l_rot_ma ).AND.&
+          & (l1m0.ge.llm .and.l1m0.le.ulm) ) THEN
+        d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
+        d_omega_ma_dtLast=d_omega_ma_dt -           &
+             coex * ( 2.d0*or1(1)*REAL(z_lo(l1m0,1)) - &
+             REAL(dz_lo(l1m0,1)) )
+     END IF
+     IF ( ( .NOT. l_SRIC .AND. kbotv == 2 .AND. l_rot_ic ).AND.&
+          & (l1m0.ge.llm .and. l1m0.le.ulm) ) THEN
+        d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
+        d_omega_ic_dtLast= d_omega_ic_dt +                      &
+             coex * ( 2.D0*or1(n_r_max)*REAL(z_lo(l1m0,n_r_max)) - &
+             REAL(dz_lo(l1m0,n_r_max)) )
+     END IF
+  ELSE
+     d_omega_ma_dtLast=0.D0
+     d_omega_ic_dtLast=0.D0
+  END IF
 
 
-    RETURN
-    end SUBROUTINE getStartFields
+     ! --------------- end of insertion ----------
+
+  !print*,"Start redistribution in getStartfields"
+  ! start the redistribution
+  IF (l_heat) THEN
+     CALL lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
+     CALL lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
+  END IF
+  IF (l_conv) THEN
+     CALL lo2r_redist_start(lo2r_z,z_lo,z_Rloc)
+     CALL lo2r_redist_start(lo2r_dz,dz_lo,dz_Rloc)
+     CALL lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
+     CALL lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
+     CALL lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
+     CALL lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
+     CALL lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
+  END IF
+
+  IF (l_mag) THEN
+     CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
+     CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
+     CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
+     
+     CALL lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
+     CALL lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
+  END IF
+
+  !print*,"End of getStartFields"
+  RETURN
+end SUBROUTINE getStartFields
 
 
 !---------------------------------------------------------------------------

@@ -16,10 +16,10 @@
 !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
-    USE init_fields
+    USE init_fields,only: n_start_file
     USE logic
     USE output_data
-    USE parallel_mod
+    USE parallel_mod,ONLY: rank
     USE charmanip, only: length_to_blank
 
     IMPLICIT NONE
@@ -132,67 +132,57 @@
 !-- Open various output files that will be used throughout the run:
     IF ( .NOT. l_save_out ) THEN
 
-        IF ( iAmProc == logProc ) THEN
-            OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN')
-            OPEN(n_e_kin_file,FILE=e_kin_file,STATUS='NEW')
-            OPEN(n_par_file,FILE=par_file,STATUS='NEW')
-            IF ( l_RMS .OR. l_RMStest) THEN
-                OPEN(n_dtvrms_file,FILE=dtvrms_file,STATUS='NEW')
-                OPEN(n_dtvasrms_file,FILE=dtvasrms_file,STATUS='NEW')
-            END IF
-            IF ( l_anel ) THEN
-                OPEN(n_u_square_file,FILE=u_square_file,STATUS='NEW')
-            END IF
-            IF ( l_AM ) THEN
-                OPEN(n_angular_file,FILE=angular_file,STATUS='NEW')
-            END IF
-            IF ( l_mag ) THEN
-                OPEN(n_e_mag_oc_file,FILE=e_mag_oc_file,STATUS='NEW')
-                OPEN(n_e_mag_ic_file,FILE=e_mag_ic_file,STATUS='NEW')
-                OPEN(n_dipole_file,file=dipole_file,status='new')
-                IF ( l_RMS .OR. l_RMStest) THEN
-                    OPEN(n_dtbrms_file,FILE=dtbrms_file,STATUS='NEW')
-                    OPEN(n_dtdrms_file,FILE=dtdrms_file,STATUS='NEW')
+       IF (rank.EQ.0) THEN
+          OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN')
+
+          OPEN(n_e_kin_file,FILE=e_kin_file,STATUS='NEW')
+          OPEN(n_par_file,FILE=par_file,STATUS='NEW')
+          IF ( l_RMS .OR. l_RMStest) THEN
+             OPEN(n_dtvrms_file,FILE=dtvrms_file,STATUS='NEW')
+             OPEN(n_dtvasrms_file,FILE=dtvasrms_file,STATUS='NEW')
+          END IF
+          IF ( l_anel ) THEN
+             OPEN(n_u_square_file,FILE=u_square_file,STATUS='NEW')
+          END IF
+          IF ( l_AM ) THEN
+             OPEN(n_angular_file,FILE=angular_file,STATUS='NEW')
+          END IF
+          IF ( l_mag ) THEN
+             OPEN(n_e_mag_oc_file,FILE=e_mag_oc_file,STATUS='NEW')
+             OPEN(n_e_mag_ic_file,FILE=e_mag_ic_file,STATUS='NEW')
+             OPEN(n_dipole_file,file=dipole_file,status='new')
+             IF ( l_RMS .OR. l_RMStest) THEN
+                OPEN(n_dtbrms_file,FILE=dtbrms_file,STATUS='NEW')
+                OPEN(n_dtdrms_file,FILE=dtdrms_file,STATUS='NEW')
+             END IF
+             IF ( l_cmb_field ) THEN
+                OPEN(n_cmb_file,file=cmb_file, &
+                     STATUS='NEW',FORM='UNFORMATTED')
+                IF ( l_movie ) THEN
+                   OPEN(n_cmbMov_file,FILE=cmbMov_file, &
+                        STATUS='NEW',FORM='UNFORMATTED')
                 END IF
-                IF ( l_cmb_field ) THEN
-                    OPEN(n_cmb_file,file=cmb_file, &
-                         STATUS='NEW',FORM='UNFORMATTED')
-                    IF ( l_movie ) THEN
-                        OPEN(n_cmbMov_file,FILE=cmbMov_file, &
-                             STATUS='NEW',FORM='UNFORMATTED')
-                    END IF
-                END IF
-                IF ( l_dt_cmb_field )                    &
-                    OPEN(n_dt_cmb_file,FILE=dt_cmb_file, &
-                         STATUS='NEW',FORM='UNFORMATTED')
-                IF ( l_r_field ) THEN
-                    DO n=1,n_coeff_r_max
-                        OPEN(n_v_r_file(n),FILE=v_r_file(n), &
-                             STATUS='NEW',FORM='UNFORMATTED')
-                        OPEN(n_b_r_file(n),FILE=b_r_file(n), &
-                             STATUS='NEW',FORM='UNFORMATTED')
-                    END DO
-                ENDIF
-            END IF
-            IF ( .NOT. l_SRIC .AND. .NOT. l_SRMA ) THEN
-                IF( l_rot_ic .OR. l_rot_ma ) &
-                     OPEN(n_rot_file,FILE=rot_file,STATUS="NEW")
-            END IF
-            OPEN(n_misc_file,FILE=misc_file,STATUS="NEW")
-            IF ( l_power ) &
-                 OPEN(n_power_file,FILE=power_file,STATUS="NEW")
-        END IF
-
-    !          IF ( iAmProc.EQ.TOProc .AND. l_TO ) THEN
-    !--------  TO files are openen in outTO !
-    !          END IF
-
-    !          IF ( iAmProc.EQ.movProc .AND. l_movie ) THEN
-    !-------- open movie files ?
-    !          END IF
-
+             END IF
+             IF ( l_dt_cmb_field )                    &
+                  OPEN(n_dt_cmb_file,FILE=dt_cmb_file, &
+                  STATUS='NEW',FORM='UNFORMATTED')
+             IF ( l_r_field ) THEN
+                DO n=1,n_coeff_r_max
+                   OPEN(n_v_r_file(n),FILE=v_r_file(n), &
+                        STATUS='NEW',FORM='UNFORMATTED')
+                   OPEN(n_b_r_file(n),FILE=b_r_file(n), &
+                        STATUS='NEW',FORM='UNFORMATTED')
+                END DO
+             ENDIF
+          END IF
+          IF ( .NOT. l_SRIC .AND. .NOT. l_SRMA ) THEN
+             IF( l_rot_ic .OR. l_rot_ma ) &
+                  OPEN(n_rot_file,FILE=rot_file,STATUS="NEW")
+          END IF
+          OPEN(n_misc_file,FILE=misc_file,STATUS="NEW")
+          IF ( l_power ) OPEN(n_power_file,FILE=power_file,STATUS="NEW")
+       END IF
     END IF
-
 
     RETURN
     end SUBROUTINE openFiles
