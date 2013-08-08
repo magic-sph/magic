@@ -183,6 +183,7 @@ contains
     INTEGER :: length_of_error,nR,nLMB
 #endif
     COMPLEX(KIND=8),POINTER,DIMENSION(:) :: ptr_dbdt_CMB
+    !REAL(kind=8) :: start_time, end_time
     !-- end of declaration
 
 
@@ -909,9 +910,12 @@ contains
 
        !----- Timing and info of advancement:
        ! =================================== BARRIER ======================
+       !start_time=MPI_Wtime()
        PERFON('barr_lm')
        CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        PERFOFF
+       !end_time=MPI_Wtime()
+       !WRITE(*,"(I4,F10.6)") rank,end_time-start_time
        ! ==================================================================
        CALL wallTime(runTimeTstop)
        IF ( .NOT.lNegTime(runTimeTstart,runTimeTstop) ) THEN

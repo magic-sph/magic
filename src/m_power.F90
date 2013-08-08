@@ -194,7 +194,7 @@ CONTAINS
           ohmDissR=ohmDissR+timePassed*curlB2_r_global*LFfac*opm*eScale
           curlB2=rInt_R(curlB2_r_global,n_r_max,n_r_max,drx, &
                &        i_costf_init,d_costf_init)
-          !curlB2=LFfac*opm*eScale*curlB2
+          curlB2=LFfac*opm*eScale*curlB2
        ELSE
           curlB2=0.D0
        END IF

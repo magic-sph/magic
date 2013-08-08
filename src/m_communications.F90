@@ -161,54 +161,6 @@ CONTAINS
     CALL MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,ierr)
   END FUNCTION get_global_sum_cmplx_1d
 
-#if 0
-  SUBROUTINE gather_all_from_lo_to_rank0(arr_lo,arr_full)
-    COMPLEX(kind=8),DIMENSION(llm:ulm,dim2) :: arr_lo
-    COMPLEX(kind=8),dimension(1:lm_max,dim2) :: arr_full
-    
-    INTEGER :: ierr,irank,l,m,nR
-    COMPLEX(kind=8),dimension(1:lm_max,dim2) :: temp_lo
-    INTEGER :: type_size,gather_tag,status(MPI_STATUS_SIZE)
-
-    !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-    gather_tag=1990
-    IF (rank.EQ.0) THEN
-       DO irank=1,n_procs-2
-          CALL MPI_Type_size(r_lm_gather_type,type_size,ierr)
-          !WRITE(*,"(A,I5,A,I2,A,I5)") "Receiving ",type_size/16," dc from rank ",irank,&
-          !     &" and write it at displacement ",1+irank*lm_per_rank
-          CALL MPI_Recv(temp_lo(1+irank*lm_per_rank,1),1,r_lm_gather_type,irank,gather_tag,&
-               & MPI_COMM_WORLD,status,ierr)
-       END DO
-       irank=n_procs-1
-       CALL MPI_Type_size(r_lm_gather_type_lm_end,type_size,ierr)
-       CALL MPI_Recv(temp_lo(1+irank*lm_per_rank,1),1,r_lm_gather_type_lm_end,irank,gather_tag,&
-               & MPI_COMM_WORLD,status,ierr)
-       ! copy the data on rank 0
-       DO nR=1,dim2
-          temp_lo(llm:ulm,nR)=arr_lo(:,nR)
-       END DO
-    ELSE
-       ! Now send the data to rank 0
-       !WRITE(*,"(A,I5,A,I2)") "Sending ",(ulm-llm+1)*dim2," dc from rank ",rank
-       CALL MPI_Send(arr_lo,dim2*(ulm-llm+1),MPI_DOUBLE_COMPLEX,0,gather_tag,&
-            &MPI_COMM_WORLD,ierr)
-    END IF
-    !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-
-    IF (rank.EQ.0) THEN
-       ! reorder
-       do nR=1,dim2
-          DO l=0,l_max
-             DO m=0,l,minc
-                arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
-             END DO
-          END DO
-       end do
-    END IF
-
-  end subroutine gather_all_from_lo_to_rank0
-#endif
 
   SUBROUTINE gather_all_from_lo_to_rank0(self,arr_lo,arr_full)
     type(gather_type) :: self

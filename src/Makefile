@@ -13,7 +13,8 @@ USE_FFTLIB=JW
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-	FFLAG_ARCH_OPT = -xsse3
+#	FFLAG_ARCH_OPT = -xsse3
+	FFLAG_ARCH_OPT = -xAVX
 	FFLAG_OPENMP = -openmp
 	FFLAG_CHECK_ALL = -check all
 	FFLAG_FPE = -fpe0 -fp-stack-check -ftrapuv
@@ -80,6 +81,9 @@ ifeq ($(USE_PERFLIB),itac)
 endif
 ifeq ($(USE_PERFLIB),coverage)
 	FFLAGS += $(FFLAG_PROFILING)
+endif
+ifeq ($(USE_PERFLIB),mpitrace)
+	LIBS += -L$(IHPCT_BASE)/lib64 -lmpitrace
 endif
 
 ifeq ($(USE_FFTLIB),JW)

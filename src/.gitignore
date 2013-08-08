@@ -1,1 +1,9 @@
 *__genmod.f90
+*.dyn
+CODE_COVERAGE.HTML
+CodeCoverage
+*.dpi
+*.spi
+*.spl
+profmerge
+*.dpi.lock
