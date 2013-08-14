@@ -433,8 +433,7 @@ MODULE fields_average_mod
 
        !----- Write info about graph-file into STDOUT and log-file:
        IF ( l_stop_time ) THEN
-          WRITE(*,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
-          WRITE(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
+          IF (rank.EQ.0) WRITE(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
        END IF
 
        !--- Store time averaged poloidal magnetic coeffs at cmb
