@@ -350,10 +350,15 @@ contains
           CALL get_u_square(time,w_LMloc,dw_LMloc,z_lo,RolRu2,dlVRu2,dlVRu2c)
        END IF
 
+       !----- Radial properties
+       IF (rank.EQ.0) CALL getDlm(w,dw,z,dlV,dlVR,dmV,dlVc,dlVRc,'V')
+       CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
+            &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
+            &      uhLMr,duhLMr,RmR)
 
        !----- Write misc. output:
        CALL outMisc( timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,   &
-            &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_lo,dz_lo,&
+            &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_lo,dz_lo,    &
             &        s_LMloc,ds_LMloc,p_LMloc,Geos,dpV,dzV)
 
     END IF
@@ -595,7 +600,6 @@ contains
           !    performed for l_log=.TRUE.
 
           !----- Getting the property parameters:
-          CALL getDlm(w,dw,z,dlV,dlVR,dmV,dlVc,dlVRc,'V')
           Re=DSQRT(2.D0*e_kin/vol_oc)/DSQRT(mass)
           ReConv=DSQRT(2.D0*e_kin_nas/vol_oc)/DSQRT(mass)
 
@@ -632,12 +636,6 @@ contains
              Rol=Ro
              RolC=RoConv
           END IF
-
-          !----- Radial properties
-          CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
-               &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,           &
-               &      uhLMr,duhLMr,RmR)
-
 
           IF ( prmag.NE.0 .AND. nVarCond.GT.0 ) THEN
              Rm=0.d0

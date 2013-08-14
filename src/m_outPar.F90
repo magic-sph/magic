@@ -61,9 +61,9 @@ contains
     REAL(kind=8),INTENT(IN) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
     REAL(kind=8),INTENT(IN) :: dlVR(n_r_max),dlVRc(n_r_max)
     REAL(kind=8),INTENT(IN) :: ekinR(n_r_max)     ! kinetic energy w radius
-    REAL(kind=8),INTENT(IN) :: uhLMr(l_max+1,n_r_max)
-    REAL(kind=8),INTENT(IN) :: duhLMr(l_max+1,n_r_max)
-    REAL(kind=8),INTENT(OUT) :: RmR(n_r_max)
+    REAL(kind=8),INTENT(IN) :: uhLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: duhLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(OUT):: RmR(n_r_max)
 
     !-- Further counter
     INTEGER :: nR,lm,n
@@ -76,42 +76,36 @@ contains
 
     ! For horizontal velocity
     INTEGER :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-    REAL(kind=8) :: duhR(n_r_max),uhR(n_r_max)
+    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR
+    REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global
     REAL(kind=8) :: duh(nfs),uh(nfs)
+
+    INTEGER :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+
 
     !--- end of declaration
     !-----------------------------------------------------------------
-    DO nR=1,n_r_max
-       ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
-       RoR(nR)=ReR(nR)*ek
-       IF ( dlVR(nR) /= 0d0 ) THEN
-           RolR(nR)=RoR(nR)/dlVR(nR)
-       ELSE
-           RolR(nR)=RoR(nR)
-       END IF
-       !WRITE(*,"(A,I3,4ES20.12)") "outPar: ",nR,ReR(nR),RoR(nR),dlVR(nR),RolR(nR)
-       RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
-    END DO
-
     IF ( l_viscBcCalc ) THEN
-        DO nR=1,n_r_max
-           sR(nR)=0.D0
-           ! Mean entropy profile
-           DO lm=1,lm_max
-               sR(nR) = sR(nR)+REAL(s(lm,nR))
+        IF (rank.EQ.0) THEN
+           DO nR=1,n_r_max
+              sR(nR)=0.D0
+              ! Mean entropy profile
+              DO lm=1,lm_max
+                  sR(nR) = sR(nR)+REAL(s(lm,nR))
+              END DO
+              ! calculate entropy/temperature variance:
+              IF (n_time_step .LE. 1) THEN
+                  Mvar(nR)       =sR(nR)
+                  Svar(nR)       =0.d0
+              ELSE
+                  Mtmp      =Mvar(nR)
+                  Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
+                  Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
+              END IF
            END DO
-           ! calculate entropy/temperature variance:
-           IF (n_time_step .LE. 1) THEN
-               Mvar(nR)       =sR(nR)
-               Svar(nR)       =0.d0
-           ELSE
-               Mtmp      =Mvar(nR)
-               Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
-               Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
-           END IF
-        END DO
+        END IF
 
-        DO nR=1,n_r_max
+        DO nR=nRstart,nRstop
             uhR(nR) =0.d0
             duhR(nR)=0.d0
             DO n=1,nThetaBs ! Loop over theta blocks
@@ -129,79 +123,107 @@ contains
         END DO
         duhR=0.5d0*duhR ! Normalisation for the theta integration
         uhR =0.5d0* uhR ! Normalisation for the theta integration
+
+        sendcount  = (nRstop-nRstart+1)
+        recvcounts = nr_per_rank
+        recvcounts(n_procs-1) = (nr_per_rank+1)
+        DO i=0,n_procs-1
+            displs(i) = i*nr_per_rank
+        END DO
+        CALL MPI_GatherV(duhR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           duhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(uhR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           uhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+
     END IF
 
-    dlVMeanR   =dlVMeanR   +timePassed*dlVR
-    dlVcMeanR  =dlVcMeanR  +timePassed*dlVRc
-    dlVu2MeanR =dlVu2MeanR +timePassed*dlVRu2
-    dlVu2cMeanR=dlVu2cMeanR+timePassed*dlVRu2c
-    RolMeanR   =RolMeanR   +timePassed*RolR
-    RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
-    RmMeanR    =RmMeanR    +timePassed*RmR*dsqrt(mass/rho0)*or2
-    ! this is to get u2 value for RmR(r) to plot in parrad.tag
-    ! and also remove r**2, so it has to be volume-averaged 
-    ! like RolR
-    IF ( l_viscBcCalc ) THEN
-       sMeanR     =sMeanR    +timePassed*sR
-       uhMeanR    =uhMeanR   +timePassed*uhR
-       duhMeanR   =duhMeanR  +timePassed*duhR
-    END IF
-
-    IF ( l_stop_time ) THEN 
-
-       dlVMeanR   =dlVMeanR/timeNorm
-       dlVcMeanR  =dlVcMeanR/timeNorm
-       RolMeanR   =RolMeanR/timeNorm
-       IF ( l_anel ) THEN
-          dlVu2MeanR =dlVu2MeanR/timeNorm
-          dlVu2cMeanR=dlVu2cMeanR/timeNorm
-          RolMeanRu2 =RolMeanRu2/timeNorm
-       ELSE
-          dlVu2MeanR =dlVMeanR
-          dlVu2cMeanR=dlVcMeanR
-          RolMeanRu2 =RolMeanR
-       END IF
-       RmMeanR    =RmMeanR/timeNorm
-
-       IF ( l_viscBcCalc ) THEN
-          sMeanR     =sMeanR/timeNorm
-          Svar       =Svar/(n_time_step-1)
-          duhMeanR   =duhMeanR/timeNorm
-          uhMeanR    =uhMeanR/timeNorm
-       END IF
-
-       !----- Output into parrad file:
-       filename='parR.'//tag
-       OPEN(99,FILE=filename,STATUS='UNKNOWN')
+    IF (rank.EQ.0) THEN
        DO nR=1,n_r_max
-          WRITE(99,'(D20.10,8D12.4)')       &
-                     &   r(nR),             &! 1) radius
-                     &   RmMeanR(nR),       &! 2) magnetic Reynolds number
-                     &   RolMeanR(nR),      &! 3) local Rossby number
-                     &   RolMeanRu2(nR),    &! 4) u squared local Rossby number
-                     &   dlVMeanR(nR),      &! 5) local length scale
-                     &   dlVcMeanR(nR),     &! 6) conv. local length scale
-                     &   dlVu2MeanR(nR),    &! 7) u squared local length scale 
-                     &   dlVu2cMeanR(nR)     ! 8) u squared conv. local length scale
+          ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
+          RoR(nR)=ReR(nR)*ek
+          IF ( dlVR(nR) /= 0d0 ) THEN
+              RolR(nR)=RoR(nR)/dlVR(nR)
+          ELSE
+              RolR(nR)=RoR(nR)
+          END IF
+          !WRITE(*,"(A,I3,4ES20.12)") "outPar: ",nR,ReR(nR),RoR(nR),dlVR(nR),RolR(nR)
+          RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
        END DO
-       CLOSE(99)
 
+       dlVMeanR   =dlVMeanR   +timePassed*dlVR
+       dlVcMeanR  =dlVcMeanR  +timePassed*dlVRc
+       dlVu2MeanR =dlVu2MeanR +timePassed*dlVRu2
+       dlVu2cMeanR=dlVu2cMeanR+timePassed*dlVRu2c
+       RolMeanR   =RolMeanR   +timePassed*RolR
+       RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
+       RmMeanR    =RmMeanR    +timePassed*RmR*dsqrt(mass/rho0)*or2
+       ! this is to get u2 value for RmR(r) to plot in parrad.tag
+       ! and also remove r**2, so it has to be volume-averaged 
+       ! like RolR
        IF ( l_viscBcCalc ) THEN
-          filename='bLayersR.'//tag
+          sMeanR     =sMeanR    +timePassed*sR
+          uhMeanR    =uhMeanR   +timePassed*uhR_global
+          duhMeanR   =duhMeanR  +timePassed*duhR_global
+       END IF
+
+       IF ( l_stop_time ) THEN 
+
+          dlVMeanR   =dlVMeanR/timeNorm
+          dlVcMeanR  =dlVcMeanR/timeNorm
+          RolMeanR   =RolMeanR/timeNorm
+          IF ( l_anel ) THEN
+             dlVu2MeanR =dlVu2MeanR/timeNorm
+             dlVu2cMeanR=dlVu2cMeanR/timeNorm
+             RolMeanRu2 =RolMeanRu2/timeNorm
+          ELSE
+             dlVu2MeanR =dlVMeanR
+             dlVu2cMeanR=dlVcMeanR
+             RolMeanRu2 =RolMeanR
+          END IF
+          RmMeanR    =RmMeanR/timeNorm
+
+          IF ( l_viscBcCalc ) THEN
+             sMeanR     =sMeanR/timeNorm
+             Svar       =Svar/(n_time_step-1)
+             duhMeanR   =duhMeanR/timeNorm
+             uhMeanR    =uhMeanR/timeNorm
+          END IF
+
+          !----- Output into parrad file:
+          filename='parR.'//tag
           OPEN(99,FILE=filename,STATUS='UNKNOWN')
           DO nR=1,n_r_max
-             WRITE(99,'(D20.10,5D12.4)')            &
-                     &   r(nR),                     &! 1) radius
-                     &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
-                     &   Svar(nR),                  &! 3) entropy variance
-                     &   uhMeanR(nR),               &! 4) uh
-                     &   duhMeanR(nR)                ! 5) duh/dr
+             WRITE(99,'(D20.10,8D12.4)')       &
+                        &   r(nR),             &! 1) radius
+                        &   RmMeanR(nR),       &! 2) magnetic Reynolds number
+                        &   RolMeanR(nR),      &! 3) local Rossby number
+                        &   RolMeanRu2(nR),    &! 4) u squared local Rossby number
+                        &   dlVMeanR(nR),      &! 5) local length scale
+                        &   dlVcMeanR(nR),     &! 6) conv. local length scale
+                        &   dlVu2MeanR(nR),    &! 7) u squared local length scale 
+                        &   dlVu2cMeanR(nR)     ! 8) u squared conv. local length scale
           END DO
           CLOSE(99)
-       END IF
 
-    END IF ! l_stop_time ?
+          IF ( l_viscBcCalc ) THEN
+             filename='bLayersR.'//tag
+             OPEN(99,FILE=filename,STATUS='UNKNOWN')
+             DO nR=1,n_r_max
+                WRITE(99,'(D20.10,5D12.4)')            &
+                        &   r(nR),                     &! 1) radius
+                        &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
+                        &   Svar(nR),                  &! 3) entropy variance
+                        &   uhMeanR(nR),               &! 4) uh
+                        &   duhMeanR(nR)                ! 5) duh/dr
+             END DO
+             CLOSE(99)
+          END IF
 
+       END IF ! l_stop_time ?
+
+    END IF ! rank0
 
     RETURN 
   END SUBROUTINE outPar
