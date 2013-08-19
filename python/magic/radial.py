@@ -42,6 +42,8 @@ class MagicRadial(MagicSetup):
             self.name = 'parrad'
         elif field in ('bLayersR'):
             self.name = 'bLayersR'
+        elif field in ('parR'):
+            self.name = 'parR'
         else:
             print 'No corresponding radial profiles... Try again'
 
@@ -130,6 +132,15 @@ class MagicRadial(MagicSetup):
             self.varS = data[:, 10]
             self.uh = data[:, 11]
             self.duhdr = data[:, 12]
+        elif self.name == 'parR':
+            self.radius = data[:, 0]
+            self.rm = data[:, 1]
+            self.rol = data[:, 2]
+            self.urol = data[:, 3]
+            self.dlV = data[:, 4]
+            self.dlVc = data[:, 5]
+            self.udlV = data[:, 6]
+            self.udlVc = data[:, 7]
         elif self.name == 'bLayersR':
             self.radius = data[:, 0]
             self.entropy = data[:, 1]
@@ -255,6 +266,12 @@ class MagicRadial(MagicSetup):
             P.plot(self.radius, self.uh, 'b-', label='uh')
             P.plot(self.radius, self.duhdr, 'g-', label='duhdr')
             P.xlabel('Radius')
+            P.xlim(self.radius.min(), self.radius.max())
+        elif self.name == 'parR':
+            P.plot(self.radius, self.rol, label='Rol')
+            P.plot(self.radius, self.urol, label='u Rol')
+            P.xlabel('Radius')
+            P.ylabel('Rol')
             P.xlim(self.radius.min(), self.radius.max())
 
         if hasattr(self, 'nVarCond'):
