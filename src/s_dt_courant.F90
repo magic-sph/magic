@@ -76,7 +76,7 @@ SUBROUTINE dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new, &
 
      l_new_dt=.TRUE.
      dt_new=dtMax
-     WRITE(message,'(1P," ! COURANT: dt=dtMax =",d12.4,/,A)') dtMax,&
+     WRITE(message,'(1P," ! COURANT: dt=dtMax =",d12.4,A)') dtMax,&
           &" ! Think about changing dtMax !"
      call logWrite(message)
 
