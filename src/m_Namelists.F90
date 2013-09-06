@@ -316,8 +316,8 @@ CONTAINS
 
     IF ( mode == 7 .OR. mode == 8 .OR. &
          mode == 9 .OR. mode == 10 ) THEN
-       kbotv=2
-       ktopv=2
+       !kbotv=2
+       !ktopv=2
        l_correct_AMz=.FALSE.
        l_heat       =.FALSE.
     END IF

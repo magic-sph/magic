@@ -64,7 +64,7 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   !-- Initialize rotation according to
   !   given inner core and mantel rotation rate:
   IF ( init_v1 == 1 .AND. &
-       ( omega_ic1 /= 0.D0 .OR. omega_ma1 /= 0.D0 ) ) THEN
+     &  ( omega_ic1 /= 0.D0 .OR. omega_ma1 /= 0.D0 ) ) THEN
 
      !-- Approximating the Stewardson solution:
      DO nR=1,n_r_max
@@ -107,15 +107,69 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
                    dTheta1S(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPS(st_lmP)) &
                    & - dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP)) )
            ELSE IF ( l == m ) THEN
-              z(lm,nR)=z(lm,nR) - &
-                   r(nR)**2/dLh(st_map%lm2(l,m)) * &
-                   dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP))
+              IF ( dLh(st_map%lm2(l,m)) /= 0.D0 ) THEN 
+                 z(lm,nR)=z(lm,nR) - &
+                      r(nR)**2/dLh(st_map%lm2(l,m)) * &
+                      dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP))
+              END IF
            END IF
         END DO
 
      END DO ! close loop over radial grid points
 
-  ELSE IF ( init_v1 > 1 ) THEN
+  ELSE IF ( init_v1 == 2 ) THEN
+
+     !-- Approximating the Stewardson solution:
+     DO nR=1,n_r_max
+
+        nTheta=0
+        DO n=1,nThetaBs ! loop over the theta blocks
+
+           nThetaStart=(n-1)*sizeThetaB+1
+           DO nThetaB=1,sizeThetaB
+              nTheta=nTheta+1
+              ss=r(nR)*sinTheta(nTheta)
+              !------------ start with constructing rotation rate ome:
+              DO nPhi=1,n_phi_max
+                 !ome(nPhi,nThetaB)=amp_v1*(1.d0-(r(nR)-r(n_r_max))**2/r(nR)**3)
+                 !ome(nPhi,nThetaB)=amp_v1*r_icb/r(nR)
+                 ome(nPhi,nThetaB)=amp_v1/DSQRT(1.d0+ss**4)
+              END DO
+           END DO
+           !------------ Transform to spherical hamonic space for each theta block
+           CALL fft_thetab(ome,-1)
+           CALL legTF1(nThetaStart,omeLM,ome)
+        END DO ! End of loop over theta blocks
+
+        !------------ ome now in spherical harmonic space,
+        !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
+        !             additional application of r**2/(l*(l+1)) then yields
+        !             the axisymmetric toriodal flow contribution:
+        DO lm=lmStart00,lmStop
+           l   =lo_map%lm2l(lm)
+           m   =lo_map%lm2m(lm)
+           lmP =lo_map%lm2lmP(lm)
+           st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
+           lmPS=lo_map%lmP2lmPS(lmP)   ! l-1
+           lmPA=lo_map%lmP2lmPA(lmP)   ! l+1
+           IF ( l > m ) THEN
+              z(lm,nR)=z(lm,nR) + &
+                   r(nR)**2/dLh(st_map%lm2(l,m)) * ( &
+                   dTheta1S(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPS(st_lmP)) &
+                   & - dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP)) )
+           ELSE IF ( l == m ) THEN
+              IF ( dLh(st_map%lm2(l,m)) /= 0.D0 ) THEN 
+                  z(lm,nR)=z(lm,nR) - &
+                       r(nR)**2/dLh(st_map%lm2(l,m)) * &
+                       dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP))
+              END IF
+           END IF
+        END DO
+
+     END DO ! close loop over radial grid points
+
+
+  ELSE IF ( init_v1 > 2 ) THEN
 
      !--- Add random noise toroidal field of all (l,m) modes exept (l=0,m=0):
      !    It decays likes l**(init_v1-1)

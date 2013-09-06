@@ -246,7 +246,7 @@
     IF (rank.EQ.0) THEN
        !-- Evaluate nusselt numbers (boundary heat flux density):
        osq4pi =1.D0/DSQRT(4.D0*pi)
-       IF (topcond.NE.0.D0) THEN
+       IF (topcond/=0.D0 .AND. l_heat) THEN
           botnuss=-osq4pi/botcond*REAL(ds(1,n_r_icb))/lScale
           topnuss=-osq4pi/topcond*REAL(ds(1,n_r_cmb))/lScale
        ELSE

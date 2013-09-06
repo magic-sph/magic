@@ -631,9 +631,12 @@ contains
 
           IF ( dlV /= 0d0 ) THEN
              Rol=Ro/dlV   ! See Christensen&Aubert 2006, eqn.(27)
-             RolC=RoConv/dlVc
           ELSE
              Rol=Ro
+          END IF
+          IF ( dlVc /= 0d0 ) THEN
+             RolC=RoConv/dlVc
+          ELSE
              RolC=RoConv
           END IF
 

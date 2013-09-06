@@ -157,9 +157,12 @@
         IF ( switch == 'V' ) THEN
             IF ( ELR(nR) /= 0d0 ) THEN
                dlR(nR)=pi*ER(nR)/ELR(nR)
-               dlRc(nR)=pi*ERc(nR)/ELRc(nR)
             ELSE
                dlR(nR)=0.d0
+            END IF
+            IF ( ELRc(nR) /= 0d0 ) THEN
+               dlRc(nR)=pi*ERc(nR)/ELRc(nR)
+            ELSE
                dlRc(nR)=0.d0
             END IF
         ELSE IF ( switch == 'B' ) THEN
