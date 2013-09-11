@@ -2,14 +2,14 @@
 COMPILER=intel
 
 USE_PERFLIB=none
-PRODRUN=no
+PRODRUN=yes
 OPENMP=no
 # DEBUG = no noopt check all
-DEBUG=all
+DEBUG=no
 USE_MPI=yes
 
 # USE_FFTLIB can be MKL or JW
-USE_FFTLIB=MKL
+USE_FFTLIB=JW
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
