@@ -45,7 +45,7 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   REAL(kind=8) :: omega_ic,omega_ma
 
   !-- local:
-  INTEGER :: lm,lmP,lmPS,lmPA,l,m,n,lmStart00,st_lmP
+  INTEGER :: lm,l,m,n,lmStart00,st_lmP
   INTEGER :: nR,nTheta,nThetaB,nThetaStart,nPhi
   REAL(kind=8) :: ra1,ra2,c_r,c_i
   REAL(kind=8) :: amp_r,rExp,rr
@@ -95,12 +95,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
         !             additional application of r**2/(l*(l+1)) then yields
         !             the axisymmetric toriodal flow contribution:
         DO lm=lmStart00,lmStop
-           l   =lo_map%lm2l(lm)
-           m   =lo_map%lm2m(lm)
-           lmP =lo_map%lm2lmP(lm)
+           l   =st_map%lm2l(lm)
+           m   =st_map%lm2m(lm)
            st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
-           lmPS=lo_map%lmP2lmPS(lmP)   ! l-1
-           lmPA=lo_map%lmP2lmPA(lmP)   ! l+1
            IF ( l > m ) THEN
               z(lm,nR)=z(lm,nR) + &
                    r(nR)**2/dLh(st_map%lm2(l,m)) * ( &
@@ -146,12 +143,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
         !             additional application of r**2/(l*(l+1)) then yields
         !             the axisymmetric toriodal flow contribution:
         DO lm=lmStart00,lmStop
-           l   =lo_map%lm2l(lm)
-           m   =lo_map%lm2m(lm)
-           lmP =lo_map%lm2lmP(lm)
+           l   =st_map%lm2l(lm)
+           m   =st_map%lm2m(lm)
            st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
-           lmPS=lo_map%lmP2lmPS(lmP)   ! l-1
-           lmPA=lo_map%lmP2lmPA(lmP)   ! l+1
            IF ( l > m ) THEN
               z(lm,nR)=z(lm,nR) + &
                    r(nR)**2/dLh(st_map%lm2(l,m)) * ( &
