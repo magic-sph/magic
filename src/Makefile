@@ -2,19 +2,19 @@
 COMPILER=intel
 
 USE_PERFLIB=none
-PRODRUN=yes
+PRODRUN=no
 OPENMP=no
 # DEBUG = no noopt check all
-DEBUG=no
+DEBUG=all
 USE_MPI=yes
 
 # USE_FFTLIB can be MKL or JW
-USE_FFTLIB=JW
+USE_FFTLIB=MKL
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
 #	FFLAG_ARCH_OPT = -xsse3
-	FFLAG_ARCH_OPT = -xAVX
+	FFLAG_ARCH_OPT = #-xAVX
 	FFLAG_OPENMP = -openmp
 	FFLAG_CHECK_ALL = -check all
 	FFLAG_FPE = -fpe0 -fp-stack-check -ftrapuv

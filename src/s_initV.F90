@@ -48,7 +48,7 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   INTEGER :: lm,l,m,n,lmStart00,st_lmP
   INTEGER :: nR,nTheta,nThetaB,nThetaStart,nPhi
   REAL(kind=8) :: ra1,ra2,c_r,c_i
-  REAL(kind=8) :: amp_r,rExp,rr
+  REAL(kind=8) :: amp_r,rExp
   REAL(kind=8) :: rDep(n_r_max)
   INTEGER :: l1m0
 
@@ -170,7 +170,6 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
      !    Amplitude is chosen so that the (1,0) term resembles amp_v1 *
      !    the 'solid body' rotation set by inner core and mantle rotation.
 
-     rr=random(1.d0)
      rExp=4.
      IF ( omega_ic1 /= 0 ) THEN
         amp_r=amp_v1*omega_ic1*r_ICB**(rExp+1.)/y10_norm
@@ -180,16 +179,18 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
      DO nR=1,n_r_max
         rDep(nR)=amp_r/r(nR)**(rExp-1.)
         DO lm=lmStart00,lmStop
-           l=lo_map%lm2l(lm)
-           m=lo_map%lm2m(lm)
-           ra1=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(init_v1-1)
-           ra2=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(init_v1-1)
-           c_r=ra1*rDep(nR)
-           c_i=ra2*rDep(nR)
-           IF ( m == 0 ) THEN  ! non axisymmetric modes
-              z(lm,nR)=z(lm,nR)+CMPLX(c_r,0.D0,KIND=KIND(0d0))
-           ELSE
-              z(lm,nR)=z(lm,nR)+CMPLX(c_r,c_i,KIND=KIND(0d0))
+           l=st_map%lm2l(lm)
+           m=st_map%lm2m(lm)
+           IF ( D_l(st_map%lm2(l,m)) /= 0.D0 ) THEN
+              ra1=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(init_v1-1)
+              ra2=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(init_v1-1)
+              c_r=ra1*rDep(nR)
+              c_i=ra2*rDep(nR)
+              IF ( m == 0 ) THEN  ! non axisymmetric modes
+                 z(lm,nR)=z(lm,nR)+CMPLX(c_r,0.D0,KIND=KIND(0d0))
+              ELSE
+                 z(lm,nR)=z(lm,nR)+CMPLX(c_r,c_i,KIND=KIND(0d0))
+              END IF
            END IF
         END DO
      END DO
@@ -200,7 +201,6 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
      !    It decays likes l**(init_v1-1)
      !    Amplitude is chosen to be comparable to amp * inner core roation speed
      !    at inner core boundary...
-     rr=random(1.d0)
      IF ( omega_ic1 /= 0.D0 ) THEN
         amp_r=amp_v1*omega_ic1*r_icb*r_icb/(y10_norm*PI)
      ELSE
@@ -209,8 +209,8 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
      DO nR=1,n_r_max
         rDep(nR)=-amp_r*DSIN( (r(nR)-r_ICB)*PI )
         DO lm=lmStart00,lmStop
-           l=lo_map%lm2l(lm)
-           m=lo_map%lm2m(lm)
+           l=st_map%lm2l(lm)
+           m=st_map%lm2m(lm)
            ra1=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(-init_v1-1)
            ra2=(-1.d0+2.d0*random(0.d0))/D_l(st_map%lm2(l,m))**(-init_v1-1)
            c_r=ra1*rDep(nR)
