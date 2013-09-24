@@ -10,7 +10,7 @@ sed "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml >input_omp1.nml
 mpiexec -n 8 ./magic.exe input_omp1.nml
 
 # Concatenate the different output file in one single e_kin.test file
-cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start misc.start par.start power.start u_square.start dtVrms.start dtBrms.start > e_kin.test
+cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start misc.start par.start power.start u_square.start > e_kin.test
 #mv dtBrms.start myBrms.dat
 
 # Clean
