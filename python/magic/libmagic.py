@@ -105,6 +105,22 @@ def avgField(time, field, tstart):
     avgField = fac*N.trapz(field[ind:], time[ind:])
     return avgField
 
+def writeVpEq(par, tstart):
+    """
+    subroutine to compute the time-averaged surface zonal flow (and Rolc)
+
+    :param par: a MagicTs object containing the par file
+    :param tstart: the starting time of the averaging
+    """
+    mask = N.where(abs(par.time-tstart) == min(abs(par.time-tstart)), 1, 0)
+    ind = N.nonzero(mask)[0][0]
+    fac = 1./(par.time.max()-par.time[ind])
+    avgReEq = fac*N.trapz(par.reEquat[ind:], par.time[ind:])
+    roEq = avgReEq*par.ek*(1.-par.radratio)
+    avgRolC = fac*N.trapz(par.rolc[ind:], par.time[ind:])
+    st = '%10.3e%5.2f%6.2f%11.3e%11.3e%11.3e' % (par.ek, par.strat, par.pr, 
+                                                 par.ra, roEq, avgRolC)
+    return st
 
 def scanDir(pattern):
     """
@@ -115,7 +131,6 @@ def scanDir(pattern):
     dat.sort()
     out = [i[1] for i in dat]
     return out
-
 
 def hammer2cart(ttheta, pphi):
     xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\

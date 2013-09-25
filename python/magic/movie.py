@@ -19,12 +19,11 @@ def hammer2cart(ttheta, pphi):
     return xx, yy
 
 
-
 class Movie:
 
     def __init__(self, file=None, avg=False, iplot=False, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cmap='RdYlBu_r', cut=0.5,
-                 bgcolor=None, fluct=False, centered=True, normed=False):
+                 bgcolor=None, fluct=False, centered=True, normed=False, dpi=80):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
@@ -37,6 +36,7 @@ class Movie:
         :param centered: if centered=True, the colormap is centered around 0
         :param normed: if normed=True, the colormap is rescaled every timestep,
                        otherwise it is computed from the first line
+        :param dpi: dot per inch when saving PNGs
         """
         if file == None:
             dat = glob.glob('*_mov.*')
@@ -52,16 +52,18 @@ class Movie:
 
         else:
             filename = file
-        print filename
         mot = re.compile(r'.*_mov\.(.*)')
         end = mot.findall(filename)[0]
 
         # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
         logfile = open('log.%s' % end, 'r')
         mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
+        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
         for line in logfile.readlines():
             if mot.match(line):
-                 nlines = int(mot.findall(line)[0])
+                nlines = int(mot.findall(line)[0])
+            elif mot2.match(line):
+                nlines = int(mot2.findall(line)[0])
         logfile.close()
         if lastvar is None:
             self.var2 = nlines
@@ -79,7 +81,12 @@ class Movie:
         version = infile.fort_read('|S64')
         n_type, n_surface, const, n_fields = infile.fort_read('f')
         movtype = infile.fort_read('f')
-        self.movtype = int(movtype)
+        n_fields = int(n_fields)
+        if n_fields > 1:
+            print '!!! Warning: several fields in the movie file !!!'
+            print '!!! Only the last one will be displayed       !!!'
+            print '!!! For TO_mov.TAG, use TOMovie(...) instead  !!!'
+        self.movtype = movtype[0]
         n_surface = int(n_surface)
 
         # RUN PARAMETERS
@@ -108,7 +115,7 @@ class Movie:
             shape = (self.n_r_max, self.n_phi_tot)
         elif n_surface == 3:
             surftype = 'phi_constant'
-            if self.movtype in [8, 9]:
+            if self.movtype in [8., 9.]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
             else:
                 shape = (self.n_r_max, self.n_theta_max)
@@ -121,14 +128,16 @@ class Movie:
                 n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                      movieDipLon, movieDipStrength, \
                      movieDipStrengthGeo = infile.fort_read('f')
-                self.data = infile.fort_read('f', shape=shape)
+                for ll in n_fields:
+                    self.data = infile.fort_read('f', shape=shape)
             for k in range(self.nvar):
                 n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                      movieDipLon, movieDipStrength, \
                      movieDipStrengthGeo = infile.fort_read('f')
                 self.time[k] = t_movieS
                 if k == 0:
-                    self.data = infile.fort_read('f', shape=shape).T
+                    for ll in range(n_fields):
+                        self.data = infile.fort_read('f', shape=shape).T
                     if fluct:
                         self.data = self.data-self.data.mean(axis=0)
                     if self.movtype in [8, 9]:
@@ -202,7 +211,8 @@ class Movie:
                 elif k != 0 and k % step == 0:
                     print k+self.var2-self.nvar
                     P.cla()
-                    self.data = infile.fort_read('f', shape=shape).T
+                    for ll in range(n_fields):
+                        self.data = infile.fort_read('f', shape=shape).T
                     if self.movtype in [8, 9]:
                         self.data = self.data[:, :self.n_r_max] # remove inner core
                     if surftype == '3d volume':
@@ -224,7 +234,8 @@ class Movie:
                     P.axis('off')
                     man.canvas.draw()
                 else: # On lit quand meme
-                    self.data = infile.fort_read('f', shape=shape)
+                    for ll in range(n_fields):
+                        self.data = infile.fort_read('f', shape=shape)
         else:
             P.ioff()
             if not os.path.exists('movie'):
@@ -235,7 +246,8 @@ class Movie:
                      movieDipStrengthGeo = infile.fort_read('f')
                 self.time[k] = t_movieS
                 if k == 0:
-                    self.dat = infile.fort_read('f', shape=shape).T
+                    for ll in range(n_fields):
+                        self.dat = infile.fort_read('f', shape=shape).T
                     if self.movtype in [8, 9]:
                         self.dat = self.dat[:, :self.n_r_max] # remove inner core
                     if surftype == 'phi_constant':
@@ -279,7 +291,8 @@ class Movie:
                     man.canvas.draw()
                 elif k != 0 and k % step == 0:
                     P.cla()
-                    self.data = infile.fort_read('f', shape=shape).T
+                    for ll in range(n_fields):
+                        self.data = infile.fort_read('f', shape=shape).T
                     if self.movtype in [8, 9]:
                         self.data = self.data[:, :self.n_r_max] # remove inner core
                     im = ax.contourf(xx, yy, self.data, cs, cmap=cmap,
@@ -289,14 +302,15 @@ class Movie:
                     P.axis('off')
                     man.canvas.draw()
                 else: # On lit quand meme
-                    self.data = infile.fort_read('f', shape=shape)
+                    for ll in range(n_fields):
+                        self.data = infile.fort_read('f', shape=shape)
                 filename = 'movie/img%05d.png' % k
                 print 'write %s' % filename
                 #st = 'echo %i' % ivar + ' > movie/imgmax'
                 if bgcolor is not None:
-                    P.savefig(filename, facecolor=bgcolor)
+                    P.savefig(filename, facecolor=bgcolor, dpi=dpi)
                 else:
-                    P.savefig(filename)
+                    P.savefig(filename, dpi=dpi)
 
         #if len(self.dat.shape) > 2:
             #self.dat = self.data

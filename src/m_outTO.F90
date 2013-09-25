@@ -934,7 +934,7 @@ contains
              lm=lo_map%lm2(l,0)
              !              dzRstrLMr(lm,nR)=dzRstrLMr(lm,nR) +
              !     +                         dzAstrLMr(lm,nR)
-             dzVpLMr(l+1,nR)=REAL(z(lm,nR)) ! instead of transform copy again
+             dzVpLMr(l+1,nR)=orho1(nR)*REAL(z(lm,nR)) ! instead of transform copy again
           END DO
        END DO
 

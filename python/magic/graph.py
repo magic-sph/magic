@@ -26,7 +26,7 @@ class MagicGraph(MagicSetup):
     def __init__(self, ivar=None, datadir='.', format='B', quiet=True, 
                  ave=False, tag=None):
         """
-        :param format: format of binary output: 'n' (native), 'B' (big endian)
+        :param format: format of bynary output: 'n' (native), 'B' (big endian)
                        or 'l' (little endian)
         :param ave: in case of the average G file G_ave.tag
         :param ivar: the number of the G file
@@ -162,7 +162,12 @@ class MagicGraph(MagicSetup):
                         Bphi[:,ilat1:ilat2+1,ir] = data.T
                     else:
                         # vectorize
-                        # data = inline.fort_read('f',shape=(4*(nth_loc*npI+2)-2)) 
+                        #data = inline.fort_read('f',shape=(4*(nth_loc*self.npI+2)-2)) 
+                        #entropy[:, ilat1:ilat2+1,ir] = data[:nth_loc*self.npI].reshape(nth_loc,self.npI).T
+                        #vr[:, ilat1:ilat2+1,ir] = data[nth_loc*self.npI+2:2*nth_loc*self.npI+2].T.reshape(nth_loc,self.npI).T
+                        #vtheta[:, ilat1:ilat2+1,ir] = data[2*nth_loc*self.npI+4:3*nth_loc*self.npI+4].reshape(nth_loc,self.npI).T
+                        #vphi[:, ilat1:ilat2+1,ir] = data[3*nth_loc*self.npI+6:4*nth_loc*self.npI+6].reshape(nth_loc,self.npI).T
+#
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         entropy[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))

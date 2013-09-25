@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import pylab as P
 import numpy as N
-from magic import MagicRadial, matder, intcheb, MagicSetup
+from magic import MagicRadial, matder, intcheb, MagicSetup, scanDir
 from scipy.signal import argrelextrema
+from scipy.integrate import simps
 
 def getMaxima(rr, field):
     maxS = []
@@ -14,7 +15,8 @@ def getMaxima(rr, field):
 class BLayers(MagicSetup):
 
     def __init__(self, iplot=False, quiet=False):
-        MagicSetup.__init__(self, quiet=True)
+        logFiles = scanDir('log.*')
+        MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
         par = MagicRadial(field='bLayersR', iplot=False)
         self.varS = par.varS
         self.ss = par.entropy
@@ -49,14 +51,18 @@ class BLayers(MagicSetup):
         # First way of defining the viscous boundary layers: with duhdr
         #rViscousLayer = getMaxima(self.rad, self.duh)
         ind = argrelextrema(self.duh, N.greater)[0]
-        if ind[0] < 4:
-            self.bcTopduh = self.ro-self.rad[ind[1]]
+        if len(ind) == 0:
+            self.bcTopduh = 1.
+            self.bcBotduh = 1.
         else:
-            self.bcTopduh = self.ro-self.rad[ind[0]]
-        if len(self.rad)-ind[-1] < 4:
-            self.bcBotduh = self.rad[ind[-2]]-self.ri
-        else:
-            self.bcBotduh = self.rad[ind[-1]]-self.ri
+            if ind[0] < 4:
+                self.bcTopduh = self.ro-self.rad[ind[1]]
+            else:
+                self.bcTopduh = self.ro-self.rad[ind[0]]
+            if len(self.rad)-ind[-1] < 4:
+                self.bcBotduh = self.rad[ind[-2]]-self.ri
+            else:
+                self.bcBotduh = self.rad[ind[-1]]-self.ri
 
         # Second way of defining the viscous boundary layers: with the viscous heating profile
         #rViscousLayer = getMaxima(self.rad, self.vi)
@@ -69,6 +75,22 @@ class BLayers(MagicSetup):
             self.bcBotDiss = self.rad[ind[-2]]-self.ri
         else:
             self.bcBotDiss = self.rad[ind[-1]]-self.ri
+
+
+        # Convective Rol in the thermal boundary Layer
+        par = MagicRadial(field='parR', iplot=False)
+        kin = MagicRadial(field='eKinR', iplot=False)
+        ekinNas = kin.ekin_pol+kin.ekin_tor-kin.ekin_pol_axi-kin.ekin_tor_axi
+        ReR = N.sqrt(2.*ekinNas/par.radius**2/(4.*N.pi))
+        RolC = ReR*par.ek/par.dlVc
+
+        y = RolC[par.radius >= self.ro-self.bcTopSlope]
+        x = par.radius[par.radius >= self.ro-self.bcTopSlope]
+        self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
+
+        y = RolC[par.radius <= self.ri+self.bcBotSlope]
+        x = par.radius[par.radius <= self.ri+self.bcBotSlope]
+        self.rolBot = simps(3.*y*x**2, x)/((self.ri+self.bcBotSlope)**3-self.ri**3)
 
         if iplot:
             self.plot(slopeTop, slopeBot)
@@ -122,6 +144,7 @@ class BLayers(MagicSetup):
                                             self.bcBotVarS, self.bcBotSlope)
         st += '%12.5e%12.5e%12.5e%12.5e' % (self.bcTopduh, self.bcTopDiss,
                                             self.bcBotduh, self.bcBotDiss)
+        st += '%12.5e%12.5e' % (abs(self.rolTop), abs(self.rolBot))
         return st
 
 

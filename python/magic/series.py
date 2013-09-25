@@ -179,6 +179,8 @@ class MagicTs(MagicSetup):
             self.dmB = data[:, 14]
             self.els_cmb = data[:, 15]
             try:
+                self.rolc = data[:, 16]
+                self.dlVc = data[:, 17]
                 self.reEquat = data[:, 18]
             except IndexError:
                 pass
@@ -329,6 +331,8 @@ class MagicTs(MagicSetup):
             P.semilogy(self.time, self.elsasser, label='Elsasser')
             P.semilogy(self.time, self.els_cmb, label='Elsasser CMB')
             P.semilogy(self.time, self.rossby_l, label='Rossby l')
+            if hasattr(self, 'rolc'):
+                P.semilogy(self.time, self.rolc, label='Roc l')
             P.legend(loc='lower right')
             P.xlabel('Time', fontsize=18)
             P.ylabel('Params', fontsize=18)
