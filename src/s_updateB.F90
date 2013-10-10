@@ -1,4 +1,5 @@
 !$Id$
+#include "perflib_preproc.cpp"
 !***********************************************************************
 SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      &             dbdt,dbdtLast,djdt,djdtLast, &
@@ -36,7 +37,11 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
   !-----------------------------------------------------------------------
 
   USE truncation
-  USE radial_functions
+  USE radial_functions, ONLY: i_costf_init,d_costf_init,drx,ddrx,or2,r_cmb,&
+       & i_costf1_ic_init,d_costf1_ic_init,&
+       & i_costf2_ic_init,d_costf2_ic_init,&
+       & dr_fac_ic,lambda,dLlambda,o_r_ic
+  USE radial_data,ONLY: n_r_cmb,n_r_icb
   USE physical_parameters
   USE num_param
   USE init_fields
@@ -49,6 +54,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
   USE Bext
   USE algebra, ONLY: cgeslML
   USE LMLoop_data, ONLY: llmMag,ulmMag,llm_realMag,ulm_realMag
+  USE parallel_mod, only:rank
   IMPLICIT NONE
 
   !-- Input/output of scalar potentials and time stepping arrays:
@@ -136,11 +142,11 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
   IF ( .NOT. l_update_b ) RETURN
 
   nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
-  sizeLMB2(1:l_max+1,1:nLMBs) => lo_sub_map%sizeLMB2
-  lm22lm(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22lm
-  lm22l(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22l
-  lm22m(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22m
-  lm2(0:l_max,0:l_max) => lo_map%lm2
+  sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
+  lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
+  lm22l(1:,1:,1:) => lo_sub_map%lm22l
+  lm22m(1:,1:,1:) => lo_sub_map%lm22m
+  lm2(0:,0:) => lo_map%lm2
   lm2l(1:lm_max) => lo_map%lm2l
   lm2m(1:lm_max) => lo_map%lm2m
 
@@ -163,10 +169,27 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
   !--- Start with finishing djdt:
   !    dVxBhLM is still in the R-distributed space,
   !    the ouput workA is in the LM-distributed space.
+  !IF (2*lmStart-1 - llm_realMag+1.NE.1) THEN
+  !   WRITE(*,"(I4,2(A,I6))") rank,": lmStart = ",lmStart,", llm_realMag = ",llm_realMag
+  !   STOP
+  !END IF
+  !IF (lmStop_real .NE. ulm_realMag) THEN
+  !   WRITE(*,"(I4,A,2I6)") rank,": ",ulm_realMag,lmStop_real
+  !   stop
+  !END IF
+  !CALL get_drNS( dVxBhLM,workA, &
+  !     &         ulm_realMag-llm_realMag+1,(2*lmStart-1)-llm_realMag+1,lmStop_real-llm_realMag+1, &
+  !     &         n_r_max,n_cheb_max,workB, &
+  !     &         i_costf_init,d_costf_init,drx)
+  ! simplified interface
+  !PRINT*,rank,": computing for ",ulm_realMag-llm_realMag+1," rows, i_costf_init = ",i_costf_init
+
+  PERFON('drNS')
   CALL get_drNS( dVxBhLM,workA, &
-       &         ulm_realMag-llm_realMag+1,(2*lmStart-1)-llm_realMag+1,lmStop_real-llm_realMag+1, &
+       &         ulm_realMag-llm_realMag+1,1,ulm_realMag-llm_realMag+1, &
        &         n_r_max,n_cheb_max,workB, &
        &         i_costf_init,d_costf_init,drx)
+  PERFOFF
 
   DO nR=1,n_r_max
       DO lm=lmStart_00,lmStop
@@ -175,6 +198,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
    END DO
  
   DO nLMB2=1,nLMBs2(nLMB)
+     !WRITE(*,"(2(A,I4))") "nLMB2 = ",nLMB2,", sizeLMB2 = ",sizeLMB2(nLMB2,nLMB)
      lmB=0
      DO lm=1,sizeLMB2(nLMB2,nLMB)
         lm1=lm22lm(lm,nLMB2,nLMB)
@@ -184,21 +208,23 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
            lmB=lmB+1
 
            IF ( .NOT. lBmat(l1) ) THEN
+              PERFON('get_bMat')
               CALL get_bMat(dt,l1,hdif_B(st_map%lm2(l1,m1)), &
                    bMat(1,1,l1),bPivot(1,l1), &
                    jMat(1,1,l1),jPivot(1,l1))
               lBmat(l1)=.TRUE.
+              PERFOFF
            END IF
 
            !-------- Magnetic boundary conditions, outer core:
            !         Note: the CMB condition is not correct if we assume free slip
            !         and a conducting mantle (conductance_ma>0).
            IF ( l_b_nl_cmb ) THEN ! finitely conducting mantle
-              rhs1(1,lmB)=b_nl_cmb(st_map%lm2(l1,m1))
-              rhs2(1,lmB)=aj_nl_cmb(st_map%lm2(l1,m1))
+              rhs1(1,lmB) =  b_nl_cmb(st_map%lm2(l1,m1))
+              rhs2(1,lmB) = aj_nl_cmb(st_map%lm2(l1,m1))
            ELSE
-              rhs1(1,lmB)=0.D0
-              rhs2(1,lmB)=0.D0
+              rhs1(1,lmB) = 0.D0
+              rhs2(1,lmB) = 0.D0
            END IF
 
            rhs1(n_r_max,lmB)=0.D0
@@ -207,8 +233,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
            rhs2(n_r_max,lmB)=0.D0
            IF ( m1 == 0 ) THEN   ! Magnetoconvection boundary conditions
               IF ( imagcon /= 0 .AND. tmagcon <= time ) THEN
-                 IF ( l1 == 2 .AND. &
-                      imagcon > 0 .AND. imagcon /= 12 ) THEN
+                 IF ( l1 == 2 .AND. imagcon > 0 .AND. imagcon .NE. 12 ) THEN
                     rhs2(1,lmB)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
                     rhs2(n_r_max,lmB)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                  ELSE IF( l1 == 1 .AND. imagcon == 12 ) THEN
@@ -338,10 +363,12 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
         !     & SUM( rhs2(1:n_r_max+n_r_ic_max,lmB) )
      END DO    ! loop over lm in block
      IF ( lmB > 0 ) THEN
+        PERFON('bMat_sol')
         CALL cgeslML(bMat(1,1,l1),n_r_tot,n_r_real, &
              bPivot(1,l1),rhs1,2*n_r_max,lmB)
         CALL cgeslML(jMat(1,1,l1),n_r_tot,n_r_real, &
              jPivot(1,l1),rhs2,2*n_r_max,lmB)
+        PERFOFF
      END IF
 
      IF ( lRmsNext ) THEN ! Store old b,aj
@@ -416,6 +443,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      END DO
   END IF
 
+  PERFON('rad_der')
   !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
   CALL costf1(b,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &      dbdtLast,i_costf_init,d_costf_init)
@@ -469,7 +497,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      !     & i_costf1_ic_init,d_costf1_ic_init, &
      !     & i_costf2_ic_init,d_costf2_ic_init)
   END IF
-
+  PERFOFF
   !-- We are now back in radial space !
 
   DO nR=n_r_cmb+1,n_r_icb-1

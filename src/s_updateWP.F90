@@ -15,7 +15,10 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
   !-------------------------------------------------------------------------
 
   USE truncation
-  USE radial_functions
+  USE radial_data,ONLY: n_r_cmb,n_r_icb
+  USE radial_functions, ONLY: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav,&
+       &i_costf_init,d_costf_init,&
+       &visc,dlvisc,beta,dbeta
   USE physical_parameters
   USE num_param
   USE blocking,only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map,&
@@ -26,6 +29,7 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
   USE RMS
   USE algebra, ONLY: cgeslML
   USE LMLoop_data, ONLY:llm,ulm, llm_real,ulm_real
+  USE communications, only: get_global_sum
   IMPLICIT NONE
 
   !-- Input/output of scalar fields:
@@ -83,11 +87,11 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
   IF ( .NOT. l_update_v ) RETURN
 
   nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
-  sizeLMB2(1:l_max+1,1:nLMBs) => lo_sub_map%sizeLMB2
-  lm22lm(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22lm
-  lm22l(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22l
-  lm22m(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22m
-  lm2(0:l_max,0:l_max) => lo_map%lm2
+  sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
+  lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
+  lm22l(1:,1:,1:) => lo_sub_map%lm22l
+  lm22m(1:,1:,1:) => lo_sub_map%lm22m
+  lm2(0:,0:) => lo_map%lm2
   lm2l(1:lm_max) => lo_map%lm2l
   lm2m(1:lm_max) => lo_map%lm2m
 
@@ -142,7 +146,7 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
         !        &EXPONENT(AIMAG(rhs2_sum)),FRACTION(AIMAG(rhs2_sum))
         !END IF
         CALL cgeslML(wpMat(1,1,l1),2*n_r_max,2*n_r_max,    &
-             & wpPivot(1,l1),rhs1,2*n_r_max,lmB)
+             &       wpPivot(1,l1),rhs1,2*n_r_max,lmB)
         !IF (lm1.GE.244) THEN
         !   rhs1_sum=SUM(rhs1(1:n_r_max,1:lmB))
         !   rhs2_sum=SUM(rhs1(n_r_max+1:2*n_r_max,1:lmB))
@@ -187,6 +191,8 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
 
   END DO   ! end of loop over lm1 blocks
 
+  !WRITE(*,"(A,I3,4ES22.12)") "w,p after: ",nLMB,get_global_SUM(w),get_global_SUM(p)
+
   !-- set cheb modes > n_cheb_max to zero (dealiazing)
   DO n_cheb=n_cheb_max+1,n_r_max
      DO lm1=lmStart_00,lmStop
@@ -205,9 +211,13 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
        &         i_costf_init,d_costf_init,drx,ddrx,dddrx)
   CALL costf1( p, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
        &       dwdtLast,i_costf_init,d_costf_init)
-  CALL get_dr( p, dp, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
+  !WRITE(*,"(A,I4,A,4I5)") "size(p,1)=",SIZE(p,1),", llm_real,ulm_real,lmStart_real,lmStop_real=",&
+  !     &llm_real,ulm_real,lmStart_real,lmStop_real
+  CALL get_dr( p, dp, &
+       &       ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
        &       n_r_max,n_cheb_max,dwdtLast,dpdtLast, &
        &       i_costf_init,d_costf_init,drx)
+  !WRITE(*,"(A,4ES22.10)") "after get_dr: p,dp = ",get_global_sum(p),get_global_sum(dp)
 
   !-- Calculate explicit time step part:
   IF ( ra /= 0.D0 ) THEN
@@ -215,29 +225,36 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
         DO lm1=lmStart_00,lmStop
            l1=lm2l(lm1)
            m1=lm2m(lm1)
-           Dif(lm1)=   hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))*or2(nR)*visc(nR) * &
-                (                   ddw(lm1,nR)        + &
-                (2.d0*dLvisc(nR)-beta(nR)/3.d0)*dw(lm1,nR) - &
-                (dLh(st_map%lm2(l1,m1))*or2(nR)+4.d0/3.d0*(dbeta(nR)           + &
-                dLvisc(nR)*beta(nR)+ &
-                (3.d0*dLvisc(nR)+beta(nR))*or1(nR)))              * &
-                w(lm1,nR) )
-           Pre(lm1)=-dp(lm1,nR)+beta(nR)*p(lm1,nR)
-           Buo(lm1)=rho0(nR)*rgrav(nR)*s(lm1,nR)
-           dwdtLast(lm1,nR)=dwdt(lm1,nR) - &
-                coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
-           dpdtLast(lm1,nR)=     dpdt(lm1,nR)  - coex*( &
-                dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) + &
-                hdif_V(st_map%lm2(l1,m1))*visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR) * ( &
-                -workA(lm1,nR)          + &
-                (beta(nR)-dLvisc(nR))*ddw(lm1,nR)          + &
-                ( dLh(st_map%lm2(l1,m1))*or2(nR)+dLvisc(nR)*beta(nR)    + &
-                dbeta(nR) &
-                +2.d0*(dLvisc(nR)+beta(nR))*or1(nR))    * &
-                dw(lm1,nR)          - &
-                dLh(st_map%lm2(l1,m1))*or2(nR)    * &
-                (2.d0*or1(nR)+2.d0/3.d0*beta(nR)+dLvisc(nR))* &
-                w(lm1,nR)          )  )
+
+           Dif(lm1) = hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))*or2(nR)*visc(nR) * &
+                & ( ddw(lm1,nR) &
+                &   +(2.d0*dLvisc(nR)-beta(nR)/3.d0)*dw(lm1,nR) &
+                &   -( dLh(st_map%lm2(l1,m1))*or2(nR)&
+                &      +4.d0/3.d0*( dbeta(nR)&
+                &                   +dLvisc(nR)*beta(nR)&
+                &                   +(3.d0*dLvisc(nR)+beta(nR))*or1(nR)&
+                &                 )&
+                &    ) * w(lm1,nR) &
+                & )
+           Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
+           Buo(lm1) = rho0(nR)*rgrav(nR)*s(lm1,nR)
+           dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
+           dpdtLast(lm1,nR)=&
+                & dpdt(lm1,nR) &
+                & - coex*( dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
+                &          + hdif_V(st_map%lm2(l1,m1))*visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR) &
+                &            * ( -workA(lm1,nR) &
+                &                + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
+                &                + ( dLh(st_map%lm2(l1,m1))*or2(nR)&
+                &                    + dLvisc(nR)*beta(nR) &
+                &                    + dbeta(nR) &
+                &                    +2.d0*(dLvisc(nR)+beta(nR))*or1(nR)&
+                &                  ) * dw(lm1,nR) &
+                &                - dLh(st_map%lm2(l1,m1))*or2(nR) &
+                &                  * (2.d0*or1(nR)+2.d0/3.d0*beta(nR)+dLvisc(nR))&
+                &                  * w(lm1,nR)    &
+                &              )  &
+                &        )
            IF ( lRmsNext ) THEN
               workB(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
                    &        ( w(lm1,nR)-workB(lm1,nR) )
@@ -268,8 +285,7 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
                 (3.d0*dLvisc(nR)+beta(nR))*or1(nR)))              * &
                 w(lm1,nR) )
            Pre(lm1)=-dp(lm1,nR)+beta(nR)*p(lm1,nR)
-           dwdtLast(lm1,nR)=dwdt(lm1,nR)  - &
-                coex*(Pre(lm1)+Dif(lm1))
+           dwdtLast(lm1,nR) = dwdt(lm1,nR) - coex*(Pre(lm1)+Dif(lm1))
            dpdtLast(lm1,nR)=        dpdt(lm1,nR) - coex*( &
                 dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) + &
                 hdif_V(st_map%lm2(l1,m1))*visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR) * ( &

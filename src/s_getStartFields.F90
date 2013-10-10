@@ -12,9 +12,6 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !  |  other auxiliary parameters.                                      |
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
-  !  |  ruler                                                            |
-  !  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-  !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
   USE truncation
   USE radial_functions
@@ -29,7 +26,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
        &omega_ic,omega_ma,&
        &w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,&
        &ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,db_LMloc,dj_LMloc,ddb_LMloc,&
-       &ddj_LMloc,db_ic_LMloc,dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_lo,dz_lo,&
+       &ddj_LMloc,db_ic_LMloc,dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,dz_LMloc,&
        &s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,&
        &b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc
   USE fieldsLast
@@ -38,9 +35,10 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   USE usefull, ONLY: cc2real
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm_realMag,ulm_realMag,llm_real,ulm_real
   USE parallel_mod,ONLY: rank,n_procs
-  USE communications, ONLY: lo2r_redist_start,lo2r_redist,&
+  USE communications, ONLY: lo2r_redist_start,& !lo2r_redist,&
        & lo2r_s,lo2r_ds,lo2r_z, lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
-       & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj,scatter_from_rank0_to_lo
+       & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj,scatter_from_rank0_to_lo,&
+       &get_global_sum
   IMPLICIT NONE
 
   !---- Output variables:
@@ -65,13 +63,12 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !COMPLEX(kind=8) :: temp_lo(lm_max)
 
   INTEGER :: irank
-  INTEGER,DIMENSION(:),ALLOCATABLE :: sendcounts,displs
   logical :: DEBUG_OUTPUT=.false.
   !-- end of declaration
   !---------------------------------------------------------------
 
   !print*,"Starting getStartFields"
-
+  !WRITE(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
   !---- Computations for the Nusselt number if we are anelastic
   !     Can be done before setting the fields
   IF (l_heat) THEN
@@ -162,7 +159,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
         !----- Initialize/add velocity, set IC and ma rotation:
         IF ( l_conv .OR. l_mag_kin .OR. l_SRIC .OR. l_SRMA ) THEN
-           !CALL initV(w_LMloc,z_lo,omega_ic,omega_ma,lmStart,lmStop)
+           !CALL initV(w_LMloc,z_LMloc,omega_ic,omega_ma,lmStart,lmStop)
            CALL initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
         END IF
 
@@ -181,7 +178,6 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   END IF
 
-#ifdef WITH_MPI
   ! ========== Redistribution of the fields ============
   ! 1. Broadcast the scalars
   CALL MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
@@ -195,12 +191,6 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
   !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
-  ALLOCATE(sendcounts(0:n_procs-1),displs(0:n_procs-1))
-  DO irank=0,n_procs-1
-     sendcounts(irank) = lm_per_rank
-     displs(irank) = irank*lm_per_rank
-  END DO
-  sendcounts(n_procs-1) = lm_on_last_rank
   DO nR=1,n_r_max
      !write(*,"(8X,A,I4)") "nR = ",nR
      CALL scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
@@ -222,12 +212,12 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   ! 3. Scatter the fields to the LMloc space
   !write(*,"(4X,A)") "Start Scatter the fields"
+  IF (rank.EQ.0) WRITE(*,"(A,2ES20.12)") "init z = ",SUM(z)
   DO nR=1,n_r_max
      CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(z(1,nR),z_lo(llm,nR))
+     CALL scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm,nR))
      CALL scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm,nR))
      CALL scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm,nR))
-
      IF (l_mag) THEN
         CALL scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llm,nR))
         CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llm,nR))
@@ -240,48 +230,21 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      !END IF
 
   END DO
+  !WRITE(*,"(A,2ES20.12)") "init z_LMloc = ",get_global_sum(z_LMloc)
   IF (l_cond_ic) THEN
      DO nR=1,n_r_ic_max
         CALL scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
         CALL scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
      END DO
   END IF
-  DEALLOCATE(sendcounts,displs)
 
   !IF (DEBUG_OUTPUT) THEN
   !   IF (rank.EQ.0) THEN
   !      WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast full = ",SUM( z ),SUM( dzdtLast )
   !   END IF!
 
-  !   WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ",SUM( z_lo ),SUM( dzdtLast_lo )
+  !   WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ",SUM( z_LMloc ),SUM( dzdtLast_lo )
   !END IF
-
-#else
-  ! ============================ NO MPI ==============================
-  ! just copy to the _LMloc arrays
-  dwdtLast_LMloc=dwdtLast
-  dzdtLast_LMloc=dzdtLast
-  dpdtLast_LMloc=dpdtLast
-  dsdtLast_LMloc=dsdtLast
-  w_LMloc = w
-  z_lo = z
-  p_LMloc = p
-  s_LMloc = s
-
-  IF (l_mag) THEN
-     dbdtLast_LMloc=dbdtLast
-     djdtLast_LMloc=djdtLast
-     b_LMloc = b
-     aj_LMloc = aj
-  END IF
-  IF (l_cond_ic) THEN
-     dbdt_icLast_LMloc=dbdt_icLast
-     djdt_icLast_LMloc=djdt_icLast
-     b_ic_LMloc = b_ic
-     aj_ic_LMloc = aj_ic
-  END IF
-
-#endif
 
 
   !  print*,"Computing derivatives"
@@ -292,7 +255,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      lmStopReal =2*lmStop
 
      !IF (DEBUG_OUTPUT) THEN
-     !   WRITE(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB,SUM(w_LMloc), SUM(z_lo), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
+     !   WRITE(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB,SUM(w_LMloc), SUM(z_LMloc), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
      !END IF
 
 
@@ -301,7 +264,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx,ddrx)
-        CALL get_dr( z_lo,dz_lo,ulm_real-llm_real+1, &
+        CALL get_dr( z_LMloc,dz_LMloc,ulm_real-llm_real+1, &
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx)
@@ -332,15 +295,15 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
      IF ( l_heat ) THEN
         !-- Get radial derivatives of entropy:
-        IF (DEBUG_OUTPUT) THEN
-           DO nR=1,n_r_max
-              WRITE(*,"(A,I4)") "nR=",nR
-              DO lm=lmStart,lmStop
-                 WRITE(*,"(4X,A,4I5,2ES22.14)") "s : ", nR,lm,lo_map%lm2l(lm),lo_map%lm2m(lm),&
-                      &s_LMloc(lm,nR)
-              END DO
-           END DO
-        END IF
+        !IF (DEBUG_OUTPUT) THEN
+         !  DO nR=1,n_r_max
+        !      WRITE(*,"(A,I4)") "nR=",nR
+        !      DO lm=lmStart,lmStop
+        !         WRITE(*,"(4X,A,4I5,2ES22.14)") "s : ", nR,lm,lo_map%lm2l(lm),lo_map%lm2m(lm),&
+        !              &s_LMloc(lm,nR)
+        !      END DO
+        !   END DO
+        !END IF
         CALL get_dr( s_LMloc,ds_LMloc,ulm_real-llm_real+1, &
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
@@ -355,7 +318,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         !   WRITE(*,"(A,3I5,4ES22.14)") "s,ds : ", lm,lo_map%lm2l(lm),lo_map%lm2m(lm),&
         !        &SUM(s_LMloc(lm,:)),SUM(ds_LMloc(lm,:))
         !END DO
-        WRITE(*,"(A,I3,10ES22.15)") "derivatives: w,z,s,b,aj ",nLMB,SUM(dw_LMloc), SUM(dz_lo), &
+        WRITE(*,"(A,I3,10ES22.15)") "derivatives: w,z,s,b,aj ",nLMB,SUM(dw_LMloc), SUM(dz_LMloc), &
              & SUM(ds_LMloc),SUM(db_LMloc),SUM(dj_LMloc)
      END IF
      
@@ -401,15 +364,15 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
           & (l1m0.ge.llm .and.l1m0.le.ulm) ) THEN
         d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
         d_omega_ma_dtLast=d_omega_ma_dt -           &
-             coex * ( 2.d0*or1(1)*REAL(z_lo(l1m0,1)) - &
-             REAL(dz_lo(l1m0,1)) )
+             coex * ( 2.d0*or1(1)*REAL(z_LMloc(l1m0,1)) - &
+             REAL(dz_LMloc(l1m0,1)) )
      END IF
      IF ( ( .NOT. l_SRIC .AND. kbotv == 2 .AND. l_rot_ic ).AND.&
           & (l1m0.ge.llm .and. l1m0.le.ulm) ) THEN
         d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
         d_omega_ic_dtLast= d_omega_ic_dt +                      &
-             coex * ( 2.D0*or1(n_r_max)*REAL(z_lo(l1m0,n_r_max)) - &
-             REAL(dz_lo(l1m0,n_r_max)) )
+             coex * ( 2.D0*or1(n_r_max)*REAL(z_LMloc(l1m0,n_r_max)) - &
+             REAL(dz_LMloc(l1m0,n_r_max)) )
      END IF
   ELSE
      d_omega_ma_dtLast=0.D0
@@ -426,8 +389,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      CALL lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
   END IF
   IF (l_conv) THEN
-     CALL lo2r_redist_start(lo2r_z,z_lo,z_Rloc)
-     CALL lo2r_redist_start(lo2r_dz,dz_lo,dz_Rloc)
+     CALL lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
+     CALL lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
      CALL lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
      CALL lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
      CALL lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
@@ -443,6 +406,9 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      CALL lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
      CALL lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
   END IF
+
+  !WRITE(*,"(A,10ES22.15)") "end of getStartFields: w,z,s,b,aj ",GET_GLOBAL_SUM(w_LMloc), &
+  !     & GET_GLOBAL_SUM(z_LMloc), GET_GLOBAL_SUM(s_LMloc),GET_GLOBAL_SUM(b_LMloc),GET_GLOBAL_SUM(aj_LMloc)
 
   !print*,"End of getStartFields"
   RETURN

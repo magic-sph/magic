@@ -1138,10 +1138,9 @@ contains
        END IF
        IF ( lTOmov ) THEN 
           CLOSE(nOutFile)
-          WRITE(n_log_file,'(1p,/,                                  &
-               &           '' ! WRITING TO MOVIE FRAME NO '',i8,                  &
-               &           '' AT STEP/TIME :'',i8,d16.6)')                        &
-               &              nTOmovSets,n_time_step,time*tScale
+          WRITE(n_log_file,'(1p,/,A,I8,A,i8,D16.6)')                    &
+               &           ' ! WRITING TO MOVIE FRAME NO ',nTOmovSets,  &
+               &           ' AT STEP/TIME :',n_time_step,time*tScale  
        END IF
 
        !--- Realtive importance of azimuthal and geostrophic flow

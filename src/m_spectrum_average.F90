@@ -279,10 +279,8 @@ CONTAINS
 
           IF ( l_stop_time ) THEN
              CALL safeOpen(nLF,log_file)
-             WRITE(nLF,'(/,                                            &
-                  &'' ! TIME AVERAGED SPECTRA STORED IN FILE: '',a)') outFile
-             WRITE(nLF,'(                                              &
-                  &'' !              No. of averaged spectra: '',I5)') n_time_ave
+             WRITE(nLF,"(/,A,A)") ' ! TIME AVERAGED SPECTRA STORED IN FILE: ',outFile
+             WRITE(nLF,"(A,I5)")  ' !              No. of averaged spectra: ',n_time_ave
              CALL safeClose(nLF)
           END IF
 

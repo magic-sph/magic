@@ -118,9 +118,9 @@ SUBROUTINE dtBrms(time)
           &        n_r_max,n_cheb_max,workB, &
           &        i_costf_init,d_costf_init,drx)
      !--- Finalize rms poloidal and toroidal stretching:
-     WRITE(*,"(A,6ES22.12)") "PstrLM,drPstrLM,TstrLM = ",SUM(PstrLM),SUM(workA),SUM(TstrLM)
+     !WRITE(*,"(A,6ES22.12)") "PstrLM,drPstrLM,TstrLM = ",SUM(PstrLM),SUM(workA),SUM(TstrLM)
      CALL get_PolTorRms(PstrLM,workA,TstrLM,PstrRms,TstrRms,PstrAsRms,TstrAsRms,st_map)
-     WRITE(*,"(A,4ES22.12)") "PstrRms,TstrRMS = ",PstrRms,TstrRms,PstrAsRms,TstrAsRms
+     !WRITE(*,"(A,4ES22.12)") "PstrRms,TstrRMS = ",PstrRms,TstrRms,PstrAsRms,TstrAsRms
 
      !--- Calculate dipole stretching and copy for total dynamo term:
      DO nR=1,n_r_max

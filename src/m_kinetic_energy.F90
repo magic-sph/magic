@@ -121,8 +121,9 @@ CONTAINS
           l=lo_map%lm2l(lm)
           m=lo_map%lm2m(lm)
 
-          e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * ( dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
-               &                      + cc2real(dw(lm,nR),m) )
+          e_p_temp= O_rho*dLh(st_map%lm2(l,m)) * ( &
+               &      dLh(st_map%lm2(l,m))*or2(nR)*cc2real(w(lm,nR),m) &
+               &      + cc2real(dw(lm,nR),m) )
           e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
           !WRITE(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
           IF ( m.EQ.0 ) THEN  ! axisymmetric part

@@ -13,7 +13,7 @@ MODULE output_mod
        &b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,&
        &w,dw,ddw,z,dz,s,ds,p,&
        & w_LMloc,dw_LMloc,ddw_LMloc,p_LMloc,&
-       & s_LMloc,ds_LMloc,z_lo,dz_lo,&
+       & s_LMloc,ds_LMloc,z_LMloc,dz_LMloc,&
        & b_LMloc,db_LMloc,ddb_LMloc,&
        & aj_LMloc,dj_LMloc,ddj_LMloc,&
        & b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc,&
@@ -39,6 +39,7 @@ MODULE output_mod
   USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,&
        & gt_OC,gt_IC
   USE write_special,only: write_Bcmb
+  USE getDlm_mod,only: getDlm
 #ifdef WITH_MPI
   use store_rst
 #endif
@@ -274,19 +275,24 @@ contains
 
        !----- Write torques and rotation rates:
        PERFON('out_rot')
-       CALL write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_lo,dz_lo,b_LMloc,  &
+       CALL write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
             &          omega_ic,omega_ma,               &
             &          lorentz_torque_ic,lorentz_torque_ma)
        PERFOFF
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  write_rot  on rank ",rank
 
        PERFON('out_ekin')
        n_e_sets=n_e_sets+1
        CALL get_e_kin(time,.TRUE.,l_stop_time,n_e_sets,     &
-            &         w_LMloc,dw_LMloc,z_lo,                &
+            &         w_LMloc,dw_LMloc,z_LMloc,                &
             &         e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
             &         ekinR)
        e_kin=e_kin_p+e_kin_t
+       !WRITE(*,"(A,3(I4,F20.17))") "e_kin, e_kin_p_as,e_kin_t_as = ",&
+       !     &EXPONENT(e_kin),FRACTION(e_kin),&
+       !     &EXPONENT(e_kin_p_as),FRACTION(e_kin_p_as),EXPONENT(e_kin_t_as),FRACTION(e_kin_t_as)
        e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  e_kin  on rank ",rank
 
        CALL get_e_mag(time,.TRUE.,l_stop_time,n_e_sets,             &
             &         b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,  &
@@ -298,13 +304,15 @@ contains
        e_mag   =e_mag_p+e_mag_t
        e_mag_ic=e_mag_p_ic+e_mag_t_ic
        PERFOFF
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  e_mag  on rank ",rank
 
        IF (l_average) THEN
           PERFON('out_aver')
           CALL spectrum_average(nLogs,l_stop_time,                  &
-               &                timePassedLog,timeNormLog,w_LMloc,z_lo,dw_LMloc,'V')
+               &                timePassedLog,timeNormLog,w_LMloc,z_LMloc,dw_LMloc,'V')
           CALL spectrumC_average(nLogs,l_stop_time,                 &
                &                 timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
+
           IF ( l_mag ) THEN
              CALL spectrum_average(nLogs,l_stop_time, &
                   &                timePassedLog,timeNormLog,b_LMloc,aj_LMloc,db_LMloc,'B')
@@ -313,11 +321,13 @@ contains
           CALL fields_average(nLogs,l_stop_time,        &
                &              timePassedLog,timeNormLog,&
                &              omega_ic,omega_ma,        &
-               &              w_LMloc,z_lo,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+               &              w_LMloc,z_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
           PERFOFF
+          IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  averages  on rank ",rank
        END IF
 
        IF ( l_power ) THEN
+
           PERFON('out_pwr')
           IF (rank.EQ.0) THEN
              IF ( nLogs.GT.1 ) THEN
@@ -340,34 +350,45 @@ contains
           CALL get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                &          omega_ic,omega_ma,                   &
                &          lorentz_torque_ic,lorentz_torque_ma, &
-               &          w_LMloc,ddw_LMloc,z_lo,dz_lo,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,&
+               &          w_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,&
                &          db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
           PERFOFF
+          IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  power  on rank ",rank
        END IF
 
        !----- If anelastic additional u**2 outputs
        IF ( l_anel) THEN
-          CALL get_u_square(time,w_LMloc,dw_LMloc,z_lo,RolRu2,dlVRu2,dlVRu2c)
+          CALL get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2,dlVRu2,dlVRu2c)
+          IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  u_square  on rank ",rank
        END IF
 
        !----- Radial properties
-       IF (rank.EQ.0) CALL getDlm(w,dw,z,dlV,dlVR,dmV,dlVc,dlVRc,'V')
+       CALL getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
        CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
             &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
             &      uhLMr,duhLMr,RmR)
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  outPar  on rank ",rank
 
        !----- Write misc. output:
        CALL outMisc( timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,   &
-            &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_lo,dz_lo,    &
+            &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,    &
             &        s_LMloc,ds_LMloc,p_LMloc,Geos,dpV,dzV)
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  outMisc  on rank ",rank
 
+       IF ( l_mag .OR. l_mag_LF ) THEN 
+          CALL getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlBR,dmB,dlBc,dlBRc,'B')
+       ELSE
+          dlB=0.D0
+          dmB=0.D0
+       END IF
     END IF
 
     IF ( l_spectrum ) THEN
        n_spec=n_spec+1
-       CALL spectrum(time,n_spec,w_LMloc,dw_LMloc,z_lo,                            &
+       CALL spectrum(time,n_spec,w_LMloc,dw_LMloc,z_LMloc,                            &
             &        b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
        CALL spectrumC(time,n_spec,s_LMloc,ds_LMloc)
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  spectrum  on rank ",rank
     END IF
 
     IF ( lTOCalc ) THEN
@@ -382,18 +403,18 @@ contains
        lTOrms   =.TRUE.
        IF ( .NOT.l_log ) THEN
           CALL get_e_kin(time,.FALSE.,l_stop_time,0,           &
-               &         w_LMloc,dw_LMloc,z_lo,                &
+               &         w_LMloc,dw_LMloc,z_LMloc,                &
                &         e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
                &         ekinR)
        END IF
        CALL outTO(time,n_time_step,e_kin,e_kin_t_as,                      &
             &     nF1,nF2,TOfileNhs,TOfileShs,movFile,tayFile,            &
             &     nTOsets,nTOmovSets,nTOrmsSets,lTOframe,lTOrms,lTOZwrite,&
-            &     z_lo,omega_ic,omega_ma)
+            &     z_LMloc,omega_ic,omega_ma)
        !------ Note: time averaging, time differencing done by IDL routine!
 
        IF ( lVerbose ) WRITE(*,*) '! outTO finished !'
-
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  TO  on rank ",rank
     END IF
 
     !--- Get radial derivatives and add dt dtB terms:
@@ -413,6 +434,7 @@ contains
        CALL dtVrms(time,nRMS_sets)
        IF ( l_mag ) CALL dtBrms(time)
        !CALL zeroRms
+       IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
     END IF
 
 #ifdef WITH_MPI
@@ -436,8 +458,8 @@ contains
 
        call gather_all_from_lo_to_rank0(gt_OC,s_LMloc,s)
 
-       call gather_all_from_lo_to_rank0(gt_OC,z_lo,z)
-       call gather_all_from_lo_to_rank0(gt_OC,dz_lo,dz)
+       call gather_all_from_lo_to_rank0(gt_OC,z_LMloc,z)
+       call gather_all_from_lo_to_rank0(gt_OC,dz_LMloc,dz)
 
        IF (l_mag) THEN
           CALL gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
@@ -600,8 +622,8 @@ contains
           !    performed for l_log=.TRUE.
 
           !----- Getting the property parameters:
-          Re=DSQRT(2.D0*e_kin/vol_oc)/DSQRT(mass)
-          ReConv=DSQRT(2.D0*e_kin_nas/vol_oc)/DSQRT(mass)
+          Re     = SQRT(2.D0*e_kin/vol_oc)/SQRT(mass)
+          ReConv = SQRT(2.D0*e_kin_nas/vol_oc)/SQRT(mass)
 
           IF ( l_non_rot ) THEN
              Ro=0.D0
@@ -622,13 +644,6 @@ contains
              ReEquat=0.d0
           END IF
 
-          IF ( l_mag .OR. l_mag_LF ) THEN 
-             CALL getDlm(b,db,aj,dlB,dlBR,dmB,dlBc,dlBRc,'B')
-          ELSE
-             dlB=0.D0
-             dmB=0.D0
-          END IF
-
           IF ( dlV /= 0d0 ) THEN
              Rol=Ro/dlV   ! See Christensen&Aubert 2006, eqn.(27)
           ELSE
@@ -639,6 +654,7 @@ contains
           ELSE
              RolC=RoConv
           END IF
+          !WRITE(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
 
           IF ( prmag.NE.0 .AND. nVarCond.GT.0 ) THEN
              Rm=0.d0

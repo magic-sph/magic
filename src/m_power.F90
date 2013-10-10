@@ -122,6 +122,8 @@ CONTAINS
     REAL(kind=8) :: tStart
     SAVE   powerDiff,eDiffInt,marker,tStart
 
+    logical :: rank_has_l1m0
+    INTEGER :: sr_tag, status(MPI_STATUS_SIZE)
     !-- end of declaration
     !---------------------------------------------------------------------
 
@@ -255,15 +257,41 @@ CONTAINS
     !  ICB (CMB)! The energy transfere is described by the very
     !  correction terms.
     l1m0=lo_map%lm2(1,0)
+    rank_has_l1m0=.FALSE. ! set default
+    sr_tag=46378 !arbitray send-recv tag
     IF (lmStartB(rank+1).LE.l1m0 .AND. lmStopB(rank+1).GE.l1m0 ) THEN
-       IF (rank.NE.0) THEN
-          PRINT*,"in get_power, l1m0 is not on rank 0!"
-          stop
-       END IF
+       !IF (rank.NE.0) THEN
+       !   PRINT*,"in get_power, l1m0 is not on rank 0!"
+       !   stop
+       !END IF
        z10ICB  =REAL(z(l1m0,n_r_ICB))
        drz10ICB=REAL(dz(l1m0,n_r_ICB))
        z10CMB  =REAL(z(l1m0,n_r_CMB))
        drz10CMB=REAL(dz(l1m0,n_r_CMB))
+
+       IF (rank.NE.0) THEN
+          ! send data to rank 0
+          CALL MPI_Send(z10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+          CALL MPI_Send(drz10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+          CALL MPI_Send(z10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+2,MPI_COMM_WORLD,ierr)
+          CALL MPI_Send(drz10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+3,MPI_COMM_WORLD,ierr)
+       END IF
+       rank_has_l1m0=.TRUE.
+    END IF
+
+    IF (rank.EQ.0) THEN
+       IF (.NOT.rank_has_l1m0) THEN
+          ! receive data from the source ranks
+          CALL MPI_Recv(z10ICB,1,MPI_DOUBLE_COMPLEX,&
+               & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
+          CALL MPI_Recv(drz10ICB,1,MPI_DOUBLE_COMPLEX,&
+               & MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
+          CALL MPI_Recv(z10CMB,1,MPI_DOUBLE_COMPLEX,&
+               & MPI_ANY_SOURCE,sr_tag+2,MPI_COMM_WORLD,status,ierr)
+          CALL MPI_Recv(drz10CMB,1,MPI_DOUBLE_COMPLEX,&
+               & MPI_ANY_SOURCE,sr_tag+3,MPI_COMM_WORLD,status,ierr)
+       END IF
+
        IF ( l_conv ) THEN
           viscDiss= -curlU2
           IF ( l_rot_IC ) viscDiss=viscDiss - 2.D0*z10ICB*drz10ICB
@@ -278,13 +306,13 @@ CONTAINS
        !-- Calculating viscous torques:
        IF ( l_rot_ic .AND. kbotv == 2 ) THEN
           CALL get_viscous_torque(viscous_torque_ic, &
-               z(l1m0,n_r_icb),dz(l1m0,n_r_icb),r_icb)
+               &                  z10ICB,drz10ICB,r_icb)
        ELSE
           viscous_torque_ic=0.d0
        END IF
        IF ( l_rot_ma .AND. ktopv == 2 ) THEN
           CALL get_viscous_torque(viscous_torque_ma, &
-               z(l1m0,n_r_cmb),dz(l1m0,n_r_cmb),r_cmb)
+               &                  z10CMB,drz10CMB,r_cmb)
        ELSE
           viscous_torque_ma=0.d0
        END IF
@@ -292,7 +320,7 @@ CONTAINS
        IF ( l_rot_IC .AND. .NOT. l_SRIC ) THEN
           IF ( kbotv == 2 ) THEN
              CALL get_viscous_torque(viscous_torque_ic, &
-                  z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
+                  &                  z10ICB,drz10ICB,r_icb)
           ELSE
              viscous_torque_ic=0.d0
           END IF
@@ -303,7 +331,7 @@ CONTAINS
        IF ( l_rot_MA ) THEN
           IF ( ktopv == 2 ) THEN
              CALL get_viscous_torque(viscous_torque_ma, &
-                  z(l1m0,1),dz(l1m0,1),r_cmb)
+                  &                  z10CMB,drz10CMB,r_cmb)
           ELSE
              viscous_torque_ma=0.d0
           END IF
@@ -311,9 +339,7 @@ CONTAINS
        ELSE
           powerMA=0.D0
        END IF
-    END IF
 
-    IF (rank.EQ.0) THEN
        !--- Because the two systems are coupled only the total ohmic dissipation in usefull:
        ohmDiss=-curlB2-curlB2_IC
 

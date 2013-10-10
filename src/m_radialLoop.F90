@@ -34,9 +34,6 @@ MODULE radialLoop
   COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: VxBrLM, VxBtLM, VxBpLM
   COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: VSrLM,  VStLM,  VSpLM
   COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: ViscHeatLM, OhmLossLM
-  !$OMP THREADPRIVATE( AdvrLM,AdvtLM,AdvpLM,LFrLM,LFtLM,LFpLM )
-  !$OMP THREADPRIVATE( VxBrLM,VxBtLM,VxBpLM,VSrLM,VStLM,VSpLM )
-  !$OMP THREADPRIVATE( ViscHeatLM,OhmLossLM )
 
   !----- Nonlinear terms in phi/theta space: 
   REAL(kind=8),DIMENSION(:,:),ALLOCATABLE :: Advr, Advt, Advp
@@ -44,9 +41,6 @@ MODULE radialLoop
   REAL(kind=8),DIMENSION(:,:),ALLOCATABLE :: VxBr, VxBt, VxBp
   REAL(kind=8),DIMENSION(:,:),ALLOCATABLE :: VSr,  VSt,  VSp
   REAL(kind=8),DIMENSION(:,:),ALLOCATABLE :: ViscHeat, OhmLoss
-  !$OMP THREADPRIVATE( Advr,Advt,Advp,LFr,LFt,LFp )
-  !$OMP THREADPRIVATE( VxBr,VxBt,VxBp,VSr,VSt,VSp )
-  !$OMP THREADPRIVATE( ViscHeat,OhmLoss )
 
   !----- Fields calculated from these help arrays by legtf:
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: vrc, vtc, vpc
@@ -57,9 +51,6 @@ MODULE radialLoop
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: brc, btc, bpc
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: cbrc, cbtc, cbpc
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: sc, drSc
-  !$OMP THREADPRIVATE( vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc )
-  !$OMP THREADPRIVATE( cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc )
-  !$OMP THREADPRIVATE( brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc )
 
   !----- Help arrays for Legendre transform calculated in legPrepG:
   !      Parallelizatio note: these are the R-distributed versions
@@ -84,10 +75,6 @@ MODULE radialLoop
   REAL(kind=8) :: omegaIC,omegaMA
   COMPLEX(kind=8),ALLOCATABLE :: bCMB(:)
 
-  !$OMP THREADPRIVATE( dLhw,dLhdw,dLhz,dLhb,dLhj,vhG,vhC )
-  !$OMP THREADPRIVATE( dvhdrG,dvhdrC,bhG,bhC,cbhG,cbhC )
-  !$OMP THREADPRIVATE( sR,dsR,preR,dpR,zAS,dzAS,ddzAS,bCMB,omegaIC,omegaMA )
-
   !----- Local dtB output stuff:
   COMPLEX(kind=8),ALLOCATABLE :: BtVrLM(:)
   COMPLEX(kind=8),ALLOCATABLE :: BpVrLM(:)
@@ -104,17 +91,9 @@ MODULE radialLoop
   COMPLEX(kind=8),ALLOCATABLE :: BtVZcotLM(:)
   COMPLEX(kind=8),ALLOCATABLE :: BtVZsn2LM(:)
 
-  !$OMP THREADPRIVATE( BtVrLM,BpVrLM,BrVtLM )
-  !$OMP THREADPRIVATE( BrVpLM,BtVpLM,BpVtLM,BtVpCotLM )
-  !$OMP THREADPRIVATE( BpVtCotLM,BtVpSn2LM,BpVtSn2LM )
-  !$OMP THREADPRIVATE( BrVZLM,BtVZLM,BtVZcotLM,BtVZsn2LM )
-
   !----- Local TO output stuff:
   REAL(kind=8),ALLOCATABLE :: dzRstrLM(:),dzAstrLM(:)
   REAL(kind=8),ALLOCATABLE :: dzCorLM(:),dzLFLM(:)
-
-  !$OMP THREADPRIVATE( dzRstrLM,dzAstrLM,dzCorLM,dzLFLM )
-
 
   !----- Saved magnetic field components from last time step:
   !      This is needed for the current TO version. However,
@@ -132,7 +111,6 @@ MODULE radialLoop
 CONTAINS
   SUBROUTINE initialize_radialLoop
 
-    !$OMP PARALLEL
     !----- Nonlinear terms in lm-space: 
     ALLOCATE( AdvrLM(lmP_max) )
     ALLOCATE( AdvtLM(lmP_max) )
@@ -219,7 +197,6 @@ CONTAINS
     !----- Local TO output stuff:
     ALLOCATE( dzRstrLM(l_max+2),dzAstrLM(l_max+2) )
     ALLOCATE( dzCorLM(l_max+2),dzLFLM(l_max+2) )
-    !$OMP END PARALLEL
 
     allocate( BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
     allocate( BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
@@ -228,13 +205,14 @@ CONTAINS
   END SUBROUTINE initialize_radialLoop
 
   !***********************************************************************
-  SUBROUTINE radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,           &
-       &                    lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,   &
-       &                  dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM,   &
-       &                           lorentz_torque_ic,lorentz_torque_ma,   &
-       &                                     br_vt_lm_cmb,br_vp_lm_cmb,   &
-       &                                     br_vt_lm_icb,br_vp_lm_icb,   &
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,dtrkc,dthkc)
+  SUBROUTINE radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
+       &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,   &
+       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
+       &                 lorentz_torque_ic,lorentz_torque_ma,   &
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
+       &                 br_vt_lm_icb,br_vp_lm_icb,   &
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
+       &                 dtrkc,dthkc)
     !***********************************************************************
 
     !    !------------ This is release 2 level 10  --------------!
@@ -255,36 +233,36 @@ CONTAINS
     !---- Output of explicit time step:
     !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
     !     need a further treatment (radial derivatives required):
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_max,nRstart:nRstop) :: dwdt,dzdt,dpdt,dsdt,dVSrLM
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_maxMag,nRstartMag:nRstopMag) :: dbdt,djdt,dVxBhLM
+    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_max,nRstart:nRstop) :: &
+         & dwdt,dzdt,dpdt,dsdt,dVSrLM
+    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_maxMag,nRstartMag:nRstopMag) :: &
+         & dbdt,djdt,dVxBhLM
     REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
 
     !---- Output for axisymmetric helicity:
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: uhLMr,duhLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
+         & HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
+         & uhLMr,duhLMr
 
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
-    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
-    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
-    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
-    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
+    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
+    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
+    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
+    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
 
     !---- Output for Courant criteria:
     REAL(kind=8),INTENT(OUT) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
+
     !--- Local variables:
 
-
     !---- Counter, logicals ...
-    INTEGER :: nR!,nRC,nRC2,nRC2stop
-    INTEGER :: nR_Mag
-    INTEGER :: nBc,nPhi,nTh,lm,l
+    INTEGER :: nR,nR_Mag,nBc,nPhi,nTh,lm,l
     INTEGER :: nTheta,nThetaB,nThetaLast
     INTEGER :: nThetaStart,nThetaStop
-    LOGICAL :: lDeriv
-    LOGICAL :: lOutBc
-    LOGICAL :: lMagNlBc
+    LOGICAL :: lDeriv,lOutBc,lMagNlBc
     LOGICAL :: lGraphHeader    ! Write header into graph file
     logical :: isRadialBoundaryPoint
 
@@ -294,13 +272,8 @@ CONTAINS
 
     lGraphHeader=l_graph
     IF ( lGraphHeader ) THEN
-#ifdef WITH_MPI
        CALL graphOut_mpi(time,nR,ngform,vrc,vtc,vpc,brc,btc,bpc,sc,&
             &        nThetaStart,sizeThetaB,lGraphHeader)
-#else
-       CALL graphOut(time,nR,ngform,vrc,vtc,vpc,brc,btc,bpc,sc,&
-            &        nThetaStart,sizeThetaB,lGraphHeader)
-#endif
     END IF
 
     IF ( l_cour ) THEN
@@ -343,8 +316,8 @@ CONTAINS
     !       the fields at the boundaries. This is done in one thread and 
     !       is triggered by lOutBc=.TRUE.
     lOutBc=.FALSE.
-    IF ( lTOCalc .OR. lHelCalc .OR. l_frame .OR.                    &
-         &       l_cour .OR. l_dtB .OR. lMagNlBc .OR. l_graph               &
+    IF ( lTOCalc .OR. lHelCalc .OR. l_frame .OR.         &
+         & l_cour .OR. l_dtB .OR. lMagNlBc .OR. l_graph  &
          &     ) lOutBc=.TRUE.
 
     !nRstart=n_r_cmb
@@ -352,24 +325,9 @@ CONTAINS
 
     !--- Start the big do loop over the radial threads:
 
-    !$OMP PARALLEL &
-    !$OMP PRIVATE(nTh,nR,nR_Mag,nBc,lDeriv,l,nThetaB,isRadialBoundaryPoint)   &
-    !$OMP private(nThetaLast,nThetaStart,nThetaStop,nTheta,nPhi,lm)
-
-#ifdef WITHOMP
-    !$OMP MASTER
-    nThreadsRmax=omp_get_num_threads()
-    !$OMP END MASTER
-#else
     nThreadsRmax=1
-#endif
-    !$OMP DO SCHEDULE(STATIC,sizeRB) 
     DO nR=nRstart,nRstop
-#ifdef WITHOMP
-       nTh=OMP_GET_THREAD_NUM()+1
-#else
        nTh=1
-#endif
        !IF( nTh.GT.nThreadsRmax ) nThreadsRmax=nTh
        IF ( lVerbose ) THEN
           WRITE(*,'(/," ! Starting radial level ",i4)') nR
@@ -417,11 +375,12 @@ CONTAINS
        !      legPrepG collects all the different modes necessary 
        !      to calculate the non-linear terms at a radial grid point nR
        PERFON('legPrepG')
-       CALL legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame,             &
-            &        lTOnext,lTOnext2,lTOcalc,             &
-            &        dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,             &
+       CALL legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame,          &
+            &        lTOnext,lTOnext2,lTOcalc,                &
+            &        dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,   &
             &        dLhb,dLhj,bhG,bhC,cbhG,cbhC,             &
-            &        sR,dsR,preR,dpR,zAS,dzAS,ddzAS,bCMB,omegaIC,omegaMA)
+            &        sR,dsR,preR,dpR,zAS,dzAS,ddzAS,bCMB,     &
+            &        omegaIC,omegaMA)
        PERFOFF
 
        !----- Blocking of loops over ic (theta):
@@ -495,13 +454,13 @@ CONTAINS
                 IF ( nR.EQ.n_r_cmb ) THEN
                    CALL v_rigid_boundary(nR,omegaMA,lDeriv, &
                         &                vrc,vtc,vpc,&
-                        &                cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc,      &
+                        &                cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
                         &                nThetaStart)
                 ELSE IF ( nR.EQ.n_r_icb ) THEN
                    !write(*,"(I4,A,ES20.13)") nR,", omegaIC = ",omegaIC
                    CALL v_rigid_boundary(nR,omegaIC,lDeriv, &
                         &                vrc,vtc,vpc,      &
-                        &                cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc,      &
+                        &                cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
                         &                nThetaStart)
                 END IF
                 IF ( lDeriv ) THEN
@@ -556,13 +515,13 @@ CONTAINS
                 CALL fft_thetab(Advt,-1)
                 CALL fft_thetab(Advp,-1)
                 CALL legTF3(nThetaStart,AdvrLM,AdvtLM,AdvpLM,    &
-                     &                                               Advr,Advt,Advp)
+                     &      Advr,Advt,Advp)
                 IF ( lRmsCalc .AND. l_mag_LF ) THEN ! LF treated extra:
                    CALL fft_thetab(LFr,-1)
                    CALL fft_thetab(LFt,-1)
                    CALL fft_thetab(LFp,-1)
                    CALL legTF3(nThetaStart,LFrLM,LFtLM,LFpLM,    &
-                        &                                                  LFr,LFt,LFp)
+                        &      LFr,LFt,LFp)
                 END IF
              END IF
              IF ( (.not.isRadialBoundaryPoint) .AND. l_heat ) THEN
@@ -570,18 +529,17 @@ CONTAINS
                 CALL fft_thetab(VSt,-1)
                 CALL fft_thetab(VSp,-1)
                 CALL legTF3(nThetaStart,VSrLM,VStLM,VSpLM,       &
-                     &                                               VSr,VSt,VSp)
+                     &      VSr,VSt,VSp)
                 IF (l_anel) THEN ! anelastic stuff 
                    IF (l_mag_nl) THEN
                       CALL fft_thetab(ViscHeat,-1)
                       CALL fft_thetab(OhmLoss,-1)
                       CALL legTF2(nThetaStart,OhmLossLM,         &
-                           &                                   ViscHeatLM,OhmLoss,            &
-                           &                                   ViscHeat)
+                           &      ViscHeatLM,OhmLoss,            &
+                           &      ViscHeat)
                    ELSE
                       CALL fft_thetab(ViscHeat,-1)
-                      CALL legTF1(nThetaStart,ViscHeatLM,        &
-                           &                                   ViscHeat)
+                      CALL legTF1(nThetaStart,ViscHeatLM,ViscHeat)
                    END IF
                 END IF
              END IF
@@ -605,13 +563,13 @@ CONTAINS
              END DO
           END IF
 
-          !--------- Calculation of nonlinear products needed for conducting mantle or
-          !          conducting inner core if free stress BCs are applied:
-          !          input are brc,vtc,vpc in (theta,phi) space (plus omegaMA and ..)
-          !          ouput are the products br_vt_lm_icb, br_vt_lm_cmb, br_vp_lm_icb,
-          !          and br_vp_lm_cmb in lm-space, respectively the contribution
-          !          to these products from the points theta(nThetaStart)-theta(nThetaStop)
-          !          These products are used in get_b_nl_bcs.
+          !---- Calculation of nonlinear products needed for conducting mantle or
+          !     conducting inner core if free stress BCs are applied:
+          !     input are brc,vtc,vpc in (theta,phi) space (plus omegaMA and ..)
+          !     ouput are the products br_vt_lm_icb, br_vt_lm_cmb, br_vp_lm_icb,
+          !     and br_vp_lm_cmb in lm-space, respectively the contribution
+          !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
+          !     These products are used in get_b_nl_bcs.
           PERFON('nl_cmb')
           IF ( nR.EQ.n_r_cmb .AND. l_b_nl_cmb ) THEN
              CALL get_br_v_bcs(brc,vtc,vpc,omegaMA,              &
@@ -653,26 +611,20 @@ CONTAINS
           !          point for graphical output:
           IF ( l_graph ) THEN
              PERFON('graphout')
-#ifdef WITH_MPI
              CALL graphOut_mpi(time,nR,ngform,vrc,vtc,vpc, &
                   &        brc,btc,bpc,sc,&
                   &        nThetaStart,sizeThetaB,lGraphHeader)
-#else
-             CALL graphOut(time,nR,ngform,vrc,vtc,vpc, &
-                  &        brc,btc,bpc,sc,&
-                  &        nThetaStart,sizeThetaB,lGraphHeader)
-#endif
              PERFOFF
           END IF
 
           !--------- Helicity output:
           IF ( lHelCalc ) THEN
              PERFON('hel_out')
-             CALL getHelLM(vrc,vtc,vpc,                          &
-                  &                  cvrc,dvrdtc,dvrdpc,dvtdrc,dvpdrc,               &
-                  &                        HelLMr(:,nR),Hel2LMr(:,nR),               &
-                  &                    HelnaLMr(:,nR),Helna2LMr(:,nR),               &
-                  &                                    nR,nThetaStart)
+             CALL getHelLM(vrc,vtc,vpc,                        &
+                  &        cvrc,dvrdtc,dvrdpc,dvtdrc,dvpdrc,   &
+                  &        HelLMr(:,nR),Hel2LMr(:,nR),         &
+                  &        HelnaLMr(:,nR),Helna2LMr(:,nR),     &
+                  &        nR,nThetaStart)
              PERFOFF
           END IF
 
@@ -699,10 +651,10 @@ CONTAINS
           !          for graphic output:
           IF ( l_dtB ) THEN
              PERFON('dtBLM')
-             CALL get_dtBLM(nR,vrc,vtc,vpc,brc,btc,bpc,          &
-                  &                              nThetaStart,sizeThetaB,             &
-                  &           BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,             &
-                  &         BrVZLM,BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,             &
+             CALL get_dtBLM(nR,vrc,vtc,vpc,brc,btc,bpc,                 &
+                  &         nThetaStart,sizeThetaB,                     &
+                  &         BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,  &
+                  &         BrVZLM,BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,&
                   &                       BtVpSn2LM,BpVtSn2LM,BtVZsn2LM)
              PERFOFF
           END IF
@@ -710,16 +662,16 @@ CONTAINS
 
           !--------- Torsional oscillation terms:
           PERFON('TO_terms')
-          IF ( ( lTONext .OR. lTONext2 ) .AND. l_mag )                            &
-               &              CALL getTOnext(zAS,brc,btc,bpc,lTONext,             &
-               &            lTONext2,dt,dtLast,nR,nThetaStart,sizeThetaB,         &
+          IF ( ( lTONext .OR. lTONext2 ) .AND. l_mag )                    &
+               &              CALL getTOnext(zAS,brc,btc,bpc,lTONext,     &
+               &            lTONext2,dt,dtLast,nR,nThetaStart,sizeThetaB, &
                &                                    BsLast,BpLast,BzLast)
 
           IF ( lTOCalc )                                         &
-               &              CALL getTO(vrc,vtc,vpc,cvrc,dvpdrc,                 &
-               &                           brc,btc,bpc,cbrc,cbtc,                 &
-               &                            BsLast,BpLast,BzLast,                 &
-               &                dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,                 &
+               &              CALL getTO(vrc,vtc,vpc,cvrc,dvpdrc,         &
+               &                           brc,btc,bpc,cbrc,cbtc,         &
+               &                            BsLast,BpLast,BzLast,         &
+               &                dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,         &
                &                dtLast,nR,nThetaStart,sizeThetaB)
           PERFOFF
        END DO ! Loop over theta blocks
@@ -745,24 +697,23 @@ CONTAINS
             &      ViscHeatLM,OhmLossLM,dLhw,dLhdw,dLhz,sR,preR,dpR)
        !write(*,"(A,I4,ES20.13)") "after_td:  ",nR,sum(real(conjg(dVxBhLM(:,nR_Mag))*dVxBhLM(:,nR_Mag)))
        !-- Finish calculation of TO variables:
-       IF ( lTOcalc )                                            &
-            &           CALL getTOfinish(nR,dtLast,zAS,dzAS,ddzAS,             &
-            &               dzRstrLM,dzAstrLM,dzCorLM,dzLFLM)
+       IF ( lTOcalc ) THEN                                   
+          CALL getTOfinish(nR,dtLast,zAS,dzAS,ddzAS, &
+               &           dzRstrLM,dzAstrLM,dzCorLM,dzLFLM)
+       END IF
 
        !--- Form partial horizontal derivaties of magnetic production and
        !    advection terms:
-       IF ( l_dtB )                                              &
-            &           CALL get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,             &
-            &        BrVpLM,BtVpLM,BpVtLM,BrVZLM,BtVZLM,BtVpCotLM,             &
-            &                       BpVtCotLM,BtVZcotLM,BtVpSn2LM,             &
-            &                                 BpVtSn2LM,BtVZsn2LM)
+       IF ( l_dtB ) THEN
+          CALL get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,                      &
+               &            BrVpLM,BtVpLM,BpVtLM,BrVZLM,BtVZLM,BtVpCotLM, &
+               &            BpVtCotLM,BtVZcotLM,BtVpSn2LM,                &
+               &            BpVtSn2LM,BtVZsn2LM)
+       END IF
 
        !END DO ! Loop over radial sub level n_r_cmb,n_r_icb
 
     END DO    ! Loop over radial levels 
-
-    !$OMP END DO
-    !$OMP END PARALLEL   ! END OF SMP PARALLEL LOOP OVER RADIAL LEVELS !
 
     !----- Correct sign of mantel Lorentz torque (see above):
     lorentz_torque_ma=-lorentz_torque_ma

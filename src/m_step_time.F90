@@ -23,11 +23,13 @@ MODULE step_time_mod
          &aj_Rloc,dj_Rloc,&
          &dp,dp_LMloc,db_LMloc,ddb_LMloc,dj_LMloc,ddj_LMloc,b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,&
          &ddj_ic_LMloc,s,ds,z,dz,dw,ddw,p,b,db,ddb,aj,dj,ddj,b_ic,aj_ic,db_ic,dj_ic,ddb_ic,ddj_ic,omega_ic,omega_ma,w,&
-         & z_lo,dz_lo
+         & z_LMloc,dz_LMloc
     USE fieldsLast
     USE charmanip, only: capitalize,dble2str
     USE usefull, only: l_correct_step
-    USE communications,ONLY: get_global_sum,lm2r_redist,lo2r_redist,r2lm_redist,r2lo_redist,lm2r_type,&
+    USE communications,ONLY: get_global_sum,& !lm2r_redist,lo2r_redist,r2lm_redist,&
+         & r2lo_redist,&
+         & lm2r_type,&
          & lo2r_redist_start,lo2r_redist_wait,&
          &lo2r_s,lo2r_ds,lo2r_z,lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
          & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
@@ -256,14 +258,13 @@ contains
        n_time_steps_go=n_time_steps+1  ! Last time step for output only !
     END IF
 
-#ifdef WITH_MPI
     CALL mpi_barrier(MPI_COMM_WORLD,ierr)
-#endif
+
     PERFON('tloop')
     DO n_time_step=1,n_time_steps_go 
        n_time_cour=n_time_cour+1
        
-       IF ( lVerbose) THEN 
+       IF ( lVerbose .or. DEBUG_OUTPUT ) THEN 
           WRITE(*,*)
           WRITE(*,*) '! Starting time step ',n_time_step
        END IF
@@ -516,29 +517,37 @@ contains
              lmStop=lmStopB(nLMB)
              lmStart_00  =MAX(2,lmStart)
 
-             WRITE(*,"(A,I3,6ES20.12)") "start w: ",nLMB,GET_GLOBAL_SUM( w_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( dw_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( ddw_LMloc(lmStart:lmStop,:) )
-             !WRITE(*,"(A,I3,4ES20.12)") "start z: ",nLMB,GET_GLOBAL_SUM( z_LMloc(lmStart:lmStop,:) ),&
-             !     &GET_GLOBAL_SUM( dz_LMloc(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,4ES20.12)") "start z: ",nLMB,GET_GLOBAL_SUM( z_lo(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( dz_lo(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,4ES20.12)") "start s: ",nLMB,GET_GLOBAL_SUM( s_LMloc(lmStart:lmStop,:) ),&
+             WRITE(*,"(A,I3,6ES20.12)") "start w: ",nLMB,&
+                  & GET_GLOBAL_SUM( w_LMloc(lmStart:lmStop,:) ),&
+                  & GET_GLOBAL_SUM( dw_LMloc(lmStart:lmStop,:) ),&
+                  & GET_GLOBAL_SUM( ddw_LMloc(lmStart:lmStop,:) )
+             WRITE(*,"(A,I3,4ES20.12)") "start z: ",nLMB,&
+                  &GET_GLOBAL_SUM( z_LMloc(lmStart:lmStop,:) ),&
+                  &GET_GLOBAL_SUM( dz_LMloc(lmStart:lmStop,:) )
+             WRITE(*,"(A,I3,4ES20.12)") "start s: ",nLMB,&
+                  &GET_GLOBAL_SUM( s_LMloc(lmStart:lmStop,:) ),&
                   &GET_GLOBAL_SUM( ds_LMloc(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,4ES20.12)") "start p: ",nLMB,GET_GLOBAL_SUM( p_LMloc(lmStart:lmStop,:) ),&
+             WRITE(*,"(A,I3,4ES20.12)") "start p: ",nLMB,&
+                  &GET_GLOBAL_SUM( p_LMloc(lmStart:lmStop,:) ),&
                   &GET_GLOBAL_SUM( dp_LMloc(lmStart_00:lmStop,:) )
-             WRITE(*,"(A,I3,8ES20.12)") "start b: ",nLMB,&
-                  &GET_GLOBAL_SUM( b_LMloc(lmStart:lmStop,:) ),GET_GLOBAL_SUM( db_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( ddb_LMloc(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,8ES20.12)") "start aj: ",nLMB,&
-                  &GET_GLOBAL_SUM( aj_LMloc(lmStart:lmStop,:) ),GET_GLOBAL_SUM( dj_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( ddj_LMloc(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,8ES20.12)") "start b_ic: ",nLMB,&
-                  &GET_GLOBAL_SUM( b_ic_LMloc(lmStart:lmStop,:) ),GET_GLOBAL_SUM( db_ic_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( ddb_ic_LMloc(lmStart:lmStop,:) )
-             WRITE(*,"(A,I3,8ES20.12)") "start aj_ic: ",nLMB,&
-                  &GET_GLOBAL_SUM( aj_ic_LMloc(lmStart:lmStop,:) ),GET_GLOBAL_SUM( dj_ic_LMloc(lmStart:lmStop,:) ),&
-                  &GET_GLOBAL_SUM( ddj_ic_LMloc(lmStart:lmStop,:) )
+             IF (l_mag) THEN
+                WRITE(*,"(A,I3,8ES20.12)") "start b: ",nLMB,&
+                     &GET_GLOBAL_SUM( b_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( db_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( ddb_LMloc(lmStart:lmStop,:) )
+                WRITE(*,"(A,I3,8ES20.12)") "start aj: ",nLMB,&
+                     &GET_GLOBAL_SUM( aj_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( dj_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( ddj_LMloc(lmStart:lmStop,:) )
+                WRITE(*,"(A,I3,8ES20.12)") "start b_ic: ",nLMB,&
+                     &GET_GLOBAL_SUM( b_ic_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( db_ic_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( ddb_ic_LMloc(lmStart:lmStop,:) )
+                WRITE(*,"(A,I3,8ES20.12)") "start aj_ic: ",nLMB,&
+                     &GET_GLOBAL_SUM( aj_ic_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( dj_ic_LMloc(lmStart:lmStop,:) ),&
+                     &GET_GLOBAL_SUM( ddj_ic_LMloc(lmStart:lmStop,:) )
+             END IF
           END DO
        END IF
        
@@ -699,9 +708,9 @@ contains
 
 
        IF (DEBUG_OUTPUT) THEN
-          WRITE(*,"(A,8ES20.12)") "lo_arr middl: dzdt_lo,z_lo,dz_lo,dzdtLast_lo = ",&
+          WRITE(*,"(A,8ES20.12)") "lo_arr middl: dzdt_lo,z_LMloc,dz_LMloc,dzdtLast_lo = ",&
                & GET_GLOBAL_SUM( dzdt_lo(:,2:n_r_max-1) ),&
-               & GET_GLOBAL_SUM( z_lo ),GET_GLOBAL_SUM( dz_lo ),get_global_sum( dzdtLast_lo )
+               & GET_GLOBAL_SUM( z_LMloc ),GET_GLOBAL_SUM( dz_LMloc ),get_global_sum( dzdtLast_lo )
           WRITE(*,"(A,8ES20.12)") "lo_arr middl: dsdt,s,ds,dsdtLast = ",&
                & GET_GLOBAL_SUM( dsdt_LMloc(:,2:n_r_max-1) ),&
                & GET_GLOBAL_SUM( s_LMloc ),GET_GLOBAL_SUM( ds_LMloc ),get_global_sum( dsdtLast_LMloc )
@@ -717,7 +726,8 @@ contains
              WRITE(*,"(A,12ES20.12)") "lo_arr middl: djdt,aj,dj,ddj,djdtLast,dVxBhLM = ",&
                   & GET_GLOBAL_SUM( djdt_LMloc(:,2:n_r_max-1) ),&
                   & GET_GLOBAL_SUM( aj_LMloc ),GET_GLOBAL_SUM( dj_LMloc ),&
-                  & GET_GLOBAL_SUM( ddj_LMloc ),get_global_sum( djdtLast_LMloc ), get_global_sum( dVxBhLM_LMloc )
+                  & GET_GLOBAL_SUM( ddj_LMloc ),get_global_sum( djdtLast_LMloc ), &
+                  & get_global_sum( dVxBhLM_LMloc )
           END IF
        END IF
 
@@ -745,6 +755,7 @@ contains
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
             &      uhLMr_Rloc,duhLMr_Rloc)
        PERFOFF
+
        IF ( l_graph ) THEN
 #ifdef WITH_MPI
           CALL MPI_File_close(graph_mpi_fh,ierr)
@@ -887,6 +898,7 @@ contains
 
        IF ( lVerbose ) WRITE(*,*) '! lm-loop finished!'
        CALL wallTime(runTimeRstop)
+
        IF ( .NOT.lNegTime(runTimeRstart,runTimeRstop) ) THEN
           nTimeLM=nTimeLM+1
           CALL subTime(runTimeRstart,runTimeRstop,runTimePassed)
@@ -894,8 +906,8 @@ contains
        END IF
 
        IF (DEBUG_OUTPUT) THEN
-          WRITE(*,"(A,6ES20.12)") "lo_arr end: z_lo,dz_lo,dzdtLast_lo = ",&
-               & GET_GLOBAL_SUM( z_lo ),GET_GLOBAL_SUM( dz_lo ),get_global_sum( dzdtLast_lo )
+          WRITE(*,"(A,6ES20.12)") "lo_arr end: z_LMloc,dz_LMloc,dzdtLast_lo = ",&
+               & GET_GLOBAL_SUM( z_LMloc ),GET_GLOBAL_SUM( dz_LMloc ),get_global_sum( dzdtLast_lo )
           WRITE(*,"(A,6ES20.12)") "lo_arr end: s,ds,dsdtLast = ",&
                & GET_GLOBAL_SUM( s_LMloc ),GET_GLOBAL_SUM( ds_LMloc ),get_global_sum( dsdtLast_LMloc )
           WRITE(*,"(A,6ES20.12)") "lo_arr end: w,dw,dwdtLast = ",&
@@ -915,7 +927,8 @@ contains
        CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        PERFOFF
        !end_time=MPI_Wtime()
-       !WRITE(*,"(I4,F10.6)") rank,end_time-start_time
+       !WRITE(*,"(A,I4,A,F10.6,A)") " lm barrier on rank ",rank,&
+       !     & " takes ",end_time-start_time," s."
        ! ==================================================================
        CALL wallTime(runTimeTstop)
        IF ( .NOT.lNegTime(runTimeTstart,runTimeTstop) ) THEN
@@ -995,10 +1008,6 @@ contains
 
     IF ( l_cmb_field ) THEN
        WRITE(message,'(A,i9)') " !  No of stored sets of b at CMB: ",n_cmb_sets
-       !CALL safeOpen(nLF,log_file)
-       !WRITE(nLF,'(//," !  No of stored sets of b at CMB: ",i9)')   &
-       !     &        n_cmb_sets
-       !CALL safeClose(nLF)
        CALL logWrite(message)
     END IF
 

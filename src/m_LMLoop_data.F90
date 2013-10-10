@@ -47,7 +47,7 @@ CONTAINS
     llm_realMag = 2*llmMag-1
     ulm_realMag = 2*ulmMag
     IF (DEBUG_OUTPUT) THEN
-       WRITE(*,"(4(A,I6))") "ulm = ",ulm,", llm = ",llm,", ulmMag = ",ulmMag,", llmMag = ",llmMag
+       WRITE(*,"(4(A,I6))") "llm = ",llm,", ulm = ",ulm,", llmMag = ",llmMag,", ulmMag = ",ulmMag
     END IF
   END SUBROUTINE initialize_LMLoop_data
 END MODULE LMLoop_data

@@ -21,6 +21,9 @@ MODULE LMLoop_mod
   USE communications,ONLY: get_global_sum, lo2r_redist_start,&
        & lo2r_s,lo2r_ds, lo2r_z, lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
        & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
+#ifdef WITH_LIKWID
+#include "likwid_f90.h"
+#endif
   IMPLICIT NONE
 
   PRIVATE
@@ -143,13 +146,13 @@ CONTAINS
     END IF
     IF ( l_conv ) THEN
        if (DEBUG_OUTPUT) then
-          WRITE(*,"(A,I2,6ES20.12)") "z_before: ",nLMB,GET_GLOBAL_SUM( z_lo(:,:) ),&
-               & GET_GLOBAL_SUM( dz_lo(:,:) ),GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
+          WRITE(*,"(A,I2,6ES20.12)") "z_before: ",nLMB,GET_GLOBAL_SUM( z_LMloc(:,:) ),&
+               & GET_GLOBAL_SUM( dz_LMloc(:,:) ),GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
        end if
        PERFON('up_Z')
        ! dp, dVSrLM, workA used as work arrays
        !CALL updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_LMloc, time, &
-       CALL updateZ( z_lo, dz_lo, dzdt, dzdtLast_lo, time, &
+       CALL updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_lo, time, &
             &        omega_ma,d_omega_ma_dtLast, &
             &        omega_ic,d_omega_ic_dtLast, &
             &        lorentz_torque_ma,lorentz_torque_maLast, &
@@ -159,17 +162,17 @@ CONTAINS
 
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        !PERFON('rdstZst')
-       CALL lo2r_redist_start(lo2r_z,z_lo,z_Rloc)
-       CALL lo2r_redist_start(lo2r_dz,dz_lo,dz_Rloc)
+       CALL lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
+       CALL lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
        !PERFOFF
 
        if (DEBUG_OUTPUT) then
           !DO lm=lmStart,lmStop
-          !   WRITE(*,"(A,I4,6ES20.12)") "z_after : ",lm,SUM( z_lo(lm,:) ),&
-          !        & SUM( dz_lo(lm,:) ),SUM( dzdtLast_lo(lm,:) )
+          !   WRITE(*,"(A,I4,6ES20.12)") "z_after : ",lm,SUM( z_LMloc(lm,:) ),&
+          !        & SUM( dz_LMloc(lm,:) ),SUM( dzdtLast_lo(lm,:) )
           !END DO
-          WRITE(*,"(A,I2,6ES20.12)") "z_after: ",nLMB,GET_GLOBAL_SUM( z_lo(:,:) ),&
-               & GET_GLOBAL_SUM( dz_lo(:,:) ),GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
+          WRITE(*,"(A,I2,6ES20.12)") "z_after: ",nLMB,GET_GLOBAL_SUM( z_LMloc(:,:) ),&
+               & GET_GLOBAL_SUM( dz_LMloc(:,:) ),GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
        end if
        ! dVSrLM, workA used as work arrays
        !CALL debug_write(dwdt(:,:),lmStop-lmStart+1,n_r_max,"dwdt",n_time_step*1000+nLMB*100,"E")
@@ -215,6 +218,7 @@ CONTAINS
                &GET_GLOBAL_SUM( djdt_icLast_LMloc(:,:) ),&
                &GET_GLOBAL_SUM( dVxBhLM(:,:) )
        END IF
+       LIKWID_ON('up_B')
        PERFON('up_B')
        CALL updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc,dVxBhLM, &
             &        dbdt,dbdtLast_LMloc,djdt,djdtLast_LMloc, &
@@ -223,6 +227,7 @@ CONTAINS
             &        b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_icLast, &
             &        w1,coex,dt,time,nLMB,lRmsNext,nTh)
        PERFOFF
+       LIKWID_OFF('up_B')
        CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
        CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
        CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)

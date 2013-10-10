@@ -10,12 +10,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   !  |                                                                   |
   !  |  Purpose of this subroutine is to initialize the velocity field   |
   !  |  So far it is only rudimentary and will be expanded later.        |
-  !  |  Because s is neede for dwdt init_s has to be called before.      |
+  !  |  Because s is needed for dwdt init_s has to be called before.     |
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
-  !  |  ruler                                                            |
-  !  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-  !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
   USE truncation
   USE radial_functions
@@ -40,9 +37,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   INTEGER,intent(IN) :: lmStart,lmStop
 
   !--output:
-  COMPLEX(kind=8) :: w(lm_max,n_r_max)
-  COMPLEX(kind=8) :: z(lm_max,n_r_max)
-  REAL(kind=8) :: omega_ic,omega_ma
+  COMPLEX(kind=8),INTENT(INOUT) :: w(lm_max,n_r_max)
+  COMPLEX(kind=8),INTENT(INOUT) :: z(lm_max,n_r_max)
+  REAL(kind=8),intent(OUT) :: omega_ic,omega_ma
 
   !-- local:
   INTEGER :: lm,l,m,n,lmStart00,st_lmP
@@ -57,9 +54,11 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
 
   !-- end of declaration
   !----------------------------------------------------------------------
+  ! This routine is called from a rank-0 region and is operating
+  ! on the full fields in standard order.
 
   lmStart00=MAX(lmStart,1)
-  l1m0=lo_map%lm2(1,0)
+  l1m0=st_map%lm2(1,0)
 
   !-- Initialize rotation according to
   !   given inner core and mantel rotation rate:
@@ -100,8 +99,8 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
            st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
            IF ( l > m ) THEN
               z(lm,nR)=z(lm,nR) + &
-                   r(nR)**2/dLh(st_map%lm2(l,m)) * ( &
-                   dTheta1S(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPS(st_lmP)) &
+                   r(nR)**2/dLh(lm) * ( &
+                   dTheta1S(lm)*omeLM(lmP2lmPS(st_lmP)) &
                    & - dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP)) )
            ELSE IF ( l == m ) THEN
               IF ( dLh(st_map%lm2(l,m)) /= 0.D0 ) THEN 
@@ -178,6 +177,7 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
      END IF
      DO nR=1,n_r_max
         rDep(nR)=amp_r/r(nR)**(rExp-1.)
+        !WRITE(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
         DO lm=lmStart00,lmStop
            l=st_map%lm2l(lm)
            m=st_map%lm2m(lm)
@@ -192,6 +192,7 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
                  z(lm,nR)=z(lm,nR)+CMPLX(c_r,c_i,KIND=KIND(0d0))
               END IF
            END IF
+           WRITE(*,"(A,4I4,2ES20.12)") "z = ",nR,lm,l,m,z(lm,nR)
         END DO
      END DO
 
@@ -225,11 +226,11 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   END IF
 
   !----- Caring for IC and mantle rotation rates if this
-  !      has not been done alread in read_start_file.f:
+  !      has not been done already in read_start_file.f:
   IF ( lmStart == 1 ) THEN ! Selects one processor !
      IF ( ( .NOT. l_start_file ) &
-          & .AND.( llm.LE.lo_map%lm2(1,0) ) &
-          & .AND.( lo_map%lm2(1,0).LE.ulm ) ) THEN
+          & .AND.( llm.LE.st_map%lm2(1,0) ) &
+          & .AND.( st_map%lm2(1,0).LE.ulm ) ) THEN
         WRITE(*,*) '! NO STARTFILE READ, SETTING Z10!'
         IF ( l_SRIC .OR. &
              l_rot_ic .AND. omega_ic1 /= 0.d0 ) THEN
@@ -238,9 +239,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
            WRITE(*,*)
            WRITE(*,*) '! I use prescribed inner core rotation rate:'
            WRITE(*,*) '! omega_ic=',omega_ic
-           z(lo_map%lm2(1,0),n_r_icb)=CMPLX(omega_ic/c_z10_omega_ic,KIND=KIND(0d0))
+           z(st_map%lm2(1,0),n_r_icb)=CMPLX(omega_ic/c_z10_omega_ic,KIND=KIND(0d0))
         ELSE IF ( l_rot_ic .AND. omega_ic1 == 0.D0 ) THEN
-           omega_ic=c_z10_omega_ic*REAL(z(lo_map%lm2(1,0),n_r_icb))
+           omega_ic=c_z10_omega_ic*REAL(z(st_map%lm2(1,0),n_r_icb))
         ELSE
            omega_ic=0.D0
         END IF
@@ -251,9 +252,9 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
            WRITE(*,*)
            WRITE(*,*) '! I use prescribed mantle rotation rate:'
            WRITE(*,*) '! omega_ma=',omega_ma
-           z(lo_map%lm2(1,0),n_r_cmb)=CMPLX(omega_ma/c_z10_omega_ma,KIND=KIND(0d0))
+           z(st_map%lm2(1,0),n_r_cmb)=CMPLX(omega_ma/c_z10_omega_ma,KIND=KIND(0d0))
         ELSE IF ( l_rot_ma .AND. omega_ma1 == 0.D0 ) THEN
-           omega_ma=c_z10_omega_ma*REAL(z(lo_map%lm2(1,0),n_r_cmb))
+           omega_ma=c_z10_omega_ma*REAL(z(st_map%lm2(1,0),n_r_cmb))
         ELSE
            omega_ma=0.D0
         END IF

@@ -122,11 +122,15 @@ contains
     !-- time averaging of e(r):
     CHARACTER(len=80) :: filename
     REAL(kind=8) :: timeLast,timeTot,dt,surf
+    LOGICAL :: rank_has_l1m0,rank_has_l1m1
+    INTEGER :: status(MPI_STATUS_SIZE),sr_tag,request1,request2
     SAVE timeLast,timeTot
 
     !-- end of declaration
     !---------------------------------------------------------------------
 
+    ! some arbitrary send recv tag
+    sr_tag=18654
 
     l_geo=11   ! max degree for geomagnetic field seen on Earth  
     ! surface
@@ -539,26 +543,58 @@ contains
 
     l1m0=lo_map%lm2(1,0)
     l1m1=lo_map%lm2(1,1)
-    IF ((l1m0.LT.lmStartB(1)).OR.(l1m0.GT.lmStopB(1))) THEN
-       IF (rank.EQ.0) PRINT*,"in get_e_mag, dipole part: l1m0 not on rank 0"
-       stop
+    !IF ((l1m0.LT.lmStartB(1)).OR.(l1m0.GT.lmStopB(1))) THEN
+    !   IF (rank.EQ.0) PRINT*,"in get_e_mag, dipole part: l1m0 not on rank 0"
+    !   stop
+    !END IF
+    !IF (  ( l1m1.GT.0).AND.&
+    !     &( (l1m1.LT.lmStartB(1)).OR.(l1m1.GT.lmStopB(1)) ) ) THEN
+    !   IF (rank.EQ.0) PRINT*,"in get_e_mag, dipole part: l1m1 not on rank 0:"
+    !   stop
+    !END IF
+    rank_has_l1m0=.FALSE.
+    rank_has_l1m1=.FALSE.
+    !WRITE(*,"(I5,A,2I5,A,2I5)") rank,": l1m0,l1m1 = ",l1m0,l1m1,&
+    !     & ", lm block: ",lmStartB(rank+1),lmStopB(rank+1)
+    IF ( (l1m0.GE.lmStartB(rank+1)) .AND. (l1m0.LE.lmStopB(rank+1)) ) THEN
+       b10=b(l1m0,n_r_cmb)
+       IF (rank.NE.0) THEN
+          CALL MPI_Send(b10,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+       END IF
+       rank_has_l1m0=.TRUE.
     END IF
-    IF (  ( l1m1.GT.0).AND.&
-         &( (l1m1.LT.lmStartB(1)).OR.(l1m1.GT.lmStopB(1)) ) ) THEN
-       IF (rank.EQ.0) PRINT*,"in get_e_mag, dipole part: l1m1 not on rank 0:"
-       stop
+    IF (l1m1.GT.0) THEN
+       IF ( (l1m1.GE.lmStartB(rank+1)) .AND. (l1m1.LE.lmStopB(rank+1)) ) THEN
+          b11=b(l1m1,n_r_cmb)
+          IF (rank.NE.0) THEN
+             CALL MPI_Send(b11,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+          END IF
+          rank_has_l1m1=.TRUE.
+       END IF
+    ELSE
+       b11=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+       rank_has_l1m1=.TRUE.
     END IF
+
+       
     IF (rank.EQ.0) THEN
        !-- Calculate pole position:
        rad =45.D0/DATAN(1.D0)   ! 180/pi
-       l1m0=lo_map%lm2(1,0)
-       l1m1=lo_map%lm2(1,1)
-       b10=b(l1m0,n_r_cmb)
-       IF ( l1m1.GT.0 ) THEN
-          b11=b(l1m1,n_r_cmb)
-       ELSE
-          b11=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+       IF (.NOT.rank_has_l1m0) THEN
+          CALL MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
+               &sr_tag,MPI_COMM_WORLD,request1, ierr)
        END IF
+       IF (.NOT.rank_has_l1m1) THEN
+          CALL MPI_IRecv(b11,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
+               &sr_tag+1,MPI_COMM_WORLD,request2,ierr)
+       END IF
+       IF (.NOT.rank_has_l1m0) THEN
+          CALL MPI_Wait(request1,status,ierr)
+       END IF
+       IF (.NOT.rank_has_l1m1) THEN
+          CALL MPI_Wait(request2,status,ierr)
+       END IF
+
        theta_dip= rad*DATAN2(DSQRT(2.D0)*ABS(b11),REAL(b10))
        IF ( theta_dip.LT.0.D0 ) theta_dip=180.D0+theta_dip
        phi_dip  =-rad*DATAN2(AIMAG(b11),REAL(b11))

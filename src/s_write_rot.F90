@@ -66,33 +66,54 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   COMPLEX(kind=8),DIMENSION(8,3) :: zvals_on_rank0,bvals_on_rank0
   COMPLEX(kind=8),DIMENSION(21) :: vals_on_rank0_1d
 
+  INTEGER :: sr_tag,status(MPI_STATUS_SIZE)
+  LOGICAL :: rank_has_l1m0,rank_has_l1m1
   !-- end of declaration
   !-----------------------------------------------------------------------
+  ! some arbitrary tag for the send and recv
+  sr_tag=12345
 
-  lm2(0:l_max,0:l_max) => lo_map%lm2
+  lm2(0:,0:) => lo_map%lm2
 
   l1m0=lm2(1,0)
   IF ( lmStartB(rank+1).LE.l1m0 .AND. lmStopB(rank+1).GE.l1m0 ) THEN
-     IF (rank.NE.0) THEN
-        PRINT*,"in s_write_rot, l1m0 not on rank 0"
-        stop
-     END IF
+     !IF (rank.NE.0) THEN
+     !   PRINT*,"in s_write_rot, l1m0 not on rank 0"
+     !   stop
+     !END IF
      !-- Calculating viscous torques:
      IF ( l_rot_ic .AND. kbotv == 2 ) THEN
         CALL get_viscous_torque(viscous_torque_ic, &
-             z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
+             &                  z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
      ELSE
         viscous_torque_ic=0.d0
      END IF
      IF ( l_rot_ma .AND. ktopv == 2 ) THEN
         CALL get_viscous_torque(viscous_torque_ma, &
-             z(l1m0,1),dz(l1m0,1),r_cmb)
+             &                  z(l1m0,1),dz(l1m0,1),r_cmb)
      ELSE
         viscous_torque_ma=0.d0
      END IF
+     rank_has_l1m0=.TRUE.
+     IF (rank.NE.0) THEN
+        ! send viscous_torque_ic and viscous_torque_ma to rank 0 for 
+        ! output
+        CALL MPI_Send(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,0,&
+             &sr_tag,MPI_COMM_WORLD,ierr)
+        CALL MPI_Send(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,0,&
+             &sr_tag+1,MPI_COMM_WORLD,ierr)
+     END IF
+  ELSE
+     rank_has_l1m0=.FALSE.
   END IF
 
   IF (rank.EQ.0) THEN
+     IF (.NOT.rank_has_l1m0) THEN
+        CALL MPI_Recv(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
+             &sr_tag,MPI_COMM_WORLD,status,ierr)
+        CALL MPI_Recv(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
+             &sr_tag+1,MPI_COMM_WORLD,status,ierr)
+     END IF
      IF ( l_SRIC ) THEN
         powerLor=lorentz_torque_ic*omega_IC
         powerVis=viscous_torque_ic*omega_IC
@@ -200,20 +221,49 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   END IF
   
   IF ( l_AM ) THEN
-     IF (rank.EQ.0) THEN
-        l1m0=lo_map%lm2(1,0)
-        l1m1=lo_map%lm2(1,1)
-        IF ( l1m1 > 0 ) THEN
+     rank_has_l1m0=.false.
+     rank_has_l1m1=.false.
+     l1m0=lo_map%lm2(1,0)
+     l1m1=lo_map%lm2(1,1)
+     IF ( (lmStartB(rank+1).LE.l1m0) .AND. (l1m0.LE.lmStopB(rank+1)) ) THEN
+        DO nR=1,n_r_max
+           z10(nR)=z(l1m0,nR)
+        END DO
+        rank_has_l1m0=.true.
+        IF (rank.NE.0) THEN
+           CALL MPI_Send(z10,n_r_max,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+        END IF
+     END IF
+
+     IF ( l1m1 > 0 ) THEN
+        IF ( (lmStartB(rank+1).LE.l1m1) .AND. (l1m1.LE.lmStopB(rank+1)) ) THEN
            DO nR=1,n_r_max
-              z10(nR)=z(l1m0,nR)
               z11(nR)=z(l1m1,nR)
            END DO
-        ELSE
-           DO nR=1,n_r_max
-              z10(nR)=z(l1m0,nR)
-              z11(nR)=CMPLX(0d0,0d0,KIND=KIND(0d0))
-           END DO
+           rank_has_l1m1=.TRUE.
+           IF (rank.NE.0) THEN
+              CALL MPI_Send(z11,n_r_max,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+           END IF
         END IF
+     ELSE
+        DO nR=1,n_r_max
+           z11(nR)=CMPLX(0d0,0d0,KIND=KIND(0d0))
+        END DO
+     END IF
+     ! now we have z10 and z11 in the worst case on two different
+     ! ranks, which are also different from rank 0
+     IF (rank.EQ.0) THEN
+        IF (.NOT.rank_has_l1m0) THEN
+           CALL MPI_Recv(z10,n_r_max,MPI_DOUBLE_COMPLEX,&
+                & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
+        END IF
+        IF ( l1m1 > 0 ) THEN
+           IF (.NOT.rank_has_l1m1) THEN
+              CALL MPI_Recv(z11,n_r_max,MPI_DOUBLE_COMPLEX,&
+                   & MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
+           END IF
+        END IF
+
         CALL get_angular_moment(z10,z11,omega_ic,omega_ma, &
              angular_moment_oc, &
              angular_moment_ic,angular_moment_ma)
@@ -246,6 +296,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   END IF
 
   IF ( l_iner ) THEN
+     ! l_iner can only be .TRUE. for minc=1
      n_lm_vals=0
      DO l=1,6
         DO m=1,l

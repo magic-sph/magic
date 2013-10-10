@@ -123,11 +123,11 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
   IF ( .NOT. l_update_v ) RETURN
 
   nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
-  sizeLMB2(1:l_max+1,1:nLMBs) => lo_sub_map%sizeLMB2
-  lm22lm(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22lm
-  lm22l(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22l
-  lm22m(1:lo_sub_map%sizeLMB2max,1:l_max+1,1:nLMBs) => lo_sub_map%lm22m
-  lm2(0:l_max,0:l_max) => lo_map%lm2
+  sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
+  lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
+  lm22l(1:,1:,1:) => lo_sub_map%lm22l
+  lm22m(1:,1:,1:) => lo_sub_map%lm22m
+  lm2(0:,0:) => lo_map%lm2
   lm2l(1:lm_max) => lo_map%lm2l
   lm2m(1:lm_max) => lo_map%lm2m
 

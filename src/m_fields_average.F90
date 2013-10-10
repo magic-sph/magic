@@ -30,6 +30,10 @@ MODULE fields_average_mod
   COMPLEX(kind=8),ALLOCATABLE :: b_ic_ave(:,:)
   COMPLEX(kind=8),ALLOCATABLE :: aj_ic_ave(:,:)
 
+  ! on rank 0 we also allocate the following fields
+  COMPLEX(kind=8),DIMENSION(:),allocatable :: db_ave_global,aj_ave_global,&
+       & w_ave_global,dw_ave_global,z_ave_global, s_ave_global
+
   contains
     SUBROUTINE initialize_fields_average_mod
 
@@ -40,6 +44,15 @@ MODULE fields_average_mod
       ALLOCATE( aj_ave(llm:ulm,n_r_max) )
       ALLOCATE( b_ic_ave(llm:ulm,n_r_ic_max) )
       ALLOCATE( aj_ic_ave(llm:ulm,n_r_ic_max) )
+
+      IF (rank.EQ.0) THEN
+         allocate(db_ave_global(1:lm_max))
+         allocate(aj_ave_global(1:lm_max))
+         allocate(w_ave_global(1:lm_max))
+         allocate(dw_ave_global(1:lm_max))
+         allocate(z_ave_global(1:lm_max))
+         allocate(s_ave_global(1:lm_max))
+      END IF
 
     END SUBROUTINE initialize_fields_average_mod
   !**********************************************************************
@@ -79,8 +92,8 @@ MODULE fields_average_mod
     COMPLEX(kind=8),DIMENSION(1:lm_maxMag,n_r_ic_maxMag) :: b_ic_ave_global,&
          & db_ic_ave_global,ddb_ic_ave_global,aj_ic_ave_global,dj_ic_ave_global
     COMPLEX(kind=8),DIMENSION(1:lm_maxMag,n_r_maxMag) :: b_ave_global
-    COMPLEX(kind=8),DIMENSION(1:lm_max) :: db_ave_global,aj_ave_global,&
-         & w_ave_global,dw_ave_global,z_ave_global, s_ave_global
+    !COMPLEX(kind=8),DIMENSION(1:lm_max) :: db_ave_global,aj_ave_global,&
+    !     & w_ave_global,dw_ave_global,z_ave_global, s_ave_global
 
     !----- Time averaged fields:
     COMPLEX(kind=8) :: dw_ave(llm:ulm,n_r_max)
@@ -240,14 +253,19 @@ MODULE fields_average_mod
        lmStart_real=2*lmStart-1
        lmStop_real =2*lmStop
 
-       CALL get_drNS(w_ave,dw_ave,ulm_real-llm_real+1,lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+       CALL get_drNS(w_ave,dw_ave,ulm_real-llm_real+1,&
+            &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
             &        n_r_max,n_cheb_max,workA_LMloc,        &
             &        i_costf_init,d_costf_init,drx)
-       CALL get_drNS(b_ave,db_ave,ulm_real-llm_real+1,lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-            &        n_r_max,n_cheb_max,workA_LMloc,           &
-            &        i_costf_init,d_costf_init,drx)
+       IF (l_mag) THEN
+          CALL get_drNS(b_ave,db_ave,ulm_real-llm_real+1,&
+               &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+               &        n_r_max,n_cheb_max,workA_LMloc,           &
+               &        i_costf_init,d_costf_init,drx)
+       END IF
        IF ( l_heat ) THEN
-          CALL get_drNS(s_ave,ds_ave,ulm_real-llm_real+1,lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+          CALL get_drNS(s_ave,ds_ave,ulm_real-llm_real+1,&
+               &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
                &        n_r_max,n_cheb_max,workA_LMloc,     &
                &        i_costf_init,d_costf_init,drx)
        END IF
@@ -302,8 +320,8 @@ MODULE fields_average_mod
 
           IF (rank.EQ.0) THEN
              !----- Output of energies of averaged field:
-             WRITE(nLF,'(/,                                            &
-                  &           '' ! ENERGIES OF TIME AVERAGED FIELD'')')
+             WRITE(nLF,'(/,A)')                                        &
+                  &           ' ! ENERGIES OF TIME AVERAGED FIELD'
              WRITE(nLF,                                                &
                   &        '('' !  (total,poloidal,toroidal,total density)'')')
              WRITE(nLF,'(1P,'' !  Kinetic energies:'',4D16.6)')        &
@@ -361,22 +379,30 @@ MODULE fields_average_mod
        END IF
 
        !----- Transform and output of data:
-       CALL gather_all_from_lo_to_rank0(gt_OC,b_ave,b_ave_global)
+       ! b_ave is different as it is again used later for graphOut_IC
+       IF (l_mag) THEN
+          CALL gather_all_from_lo_to_rank0(gt_OC,b_ave,b_ave_global)
+       END IF
        !----- Outer core:
        DO nR=1,n_r_max
-          ! b_ave is different as it is again used later for graphOut_IC
-          CALL gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
-          CALL gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
+          IF (l_mag) THEN
+             CALL gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
+             CALL gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
+          END IF
           CALL gather_from_lo_to_rank0(w_ave(llm,nR),w_ave_global)
           CALL gather_from_lo_to_rank0(dw_ave(llm,nR),dw_ave_global)
           CALL gather_from_lo_to_rank0(z_ave(llm,nR),z_ave_global)
-          CALL gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
+          IF (l_heat) THEN
+             CALL gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
+          END IF
 
           IF (rank.EQ.0) THEN
-             CALL legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
-                  &       aj_ave_global,aj_ave_global,dLh,lm_max,  &
-                  &       l_max,minc,r(nR),.FALSE.,.TRUE.,       &
-                  &       dLhb,bhG,bhC,dLhb,bhG,bhC)
+             IF (l_mag) THEN
+                CALL legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
+                     &       aj_ave_global,aj_ave_global,dLh,lm_max,  &
+                     &       l_max,minc,r(nR),.FALSE.,.TRUE.,       &
+                     &       dLhb,bhG,bhC,dLhb,bhG,bhC)
+             END IF
              CALL legPrep(w_ave_global,dw_ave_global,dw_ave_global, &
                   &       z_ave_global,z_ave_global,dLh,lm_max,    &
                   &       l_max,minc,r(nR),.FALSE.,.TRUE.,       &

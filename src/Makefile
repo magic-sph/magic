@@ -4,7 +4,7 @@ COMPILER=intel
 USE_PERFLIB=none
 PRODRUN=yes
 OPENMP=no
-# DEBUG = no noopt check all
+# DEBUG = no noopt check all marmot
 DEBUG=no
 USE_MPI=yes
 
@@ -22,9 +22,16 @@ ifeq ($(COMPILER),intel)
 	FFLAG_PREPROCESSOR = -fpp
 	FFLAG_CONVERT = -convert big
 	FFLAG_PROFILING = -prof-gen=srcpos
-	FFLAG_STD = -stand f03  -diag-disable 7025 -fp-model precise
+	FFLAG_STD = -stand f03  -diag-disable 7025
+	ifneq ($(PRODRUN),yes)
+		FFLAG_STD += -fp-model precise
+	endif
 	COMP_FC      = ifort
-	COMP_MPFC = mpiifort
+	ifeq ($(DEBUG),marmot)
+		COMP_MPFC = marmotf90
+	else
+		COMP_MPFC = mpiifort
+	endif	
 
 	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
 		-Wl,-rpath,$(MKLROOT)/lib/intel64 
@@ -74,7 +81,7 @@ ifeq ($(USE_PERFLIB),perf)
      LIBS += -L$(PERFLIB_HOME)/lib -looperf -Wl,-rpath,$(PERFLIB_HOME)/lib
 endif
 ifeq ($(USE_PERFLIB),scalasca)
-	FC:= scalasca -instrument -user $(FC)
+	FC:= scalasca -instrument $(FC)
 endif
 ifeq ($(USE_PERFLIB),itac)
 	FFLAGS += -tcollect -tcollect-filter itac_filter.list
@@ -84,6 +91,11 @@ ifeq ($(USE_PERFLIB),coverage)
 endif
 ifeq ($(USE_PERFLIB),mpitrace)
 	LIBS += -L$(IHPCT_BASE)/lib64 -lmpitrace
+endif
+
+ifeq ($(USE_PERFLIB),likwid)
+	INCPATHS += -I$(LIKWID_HOME)/include
+	LIBS += -L$(LIKWID_HOME)/lib -llikwid
 endif
 
 ifeq ($(USE_FFTLIB),JW)
@@ -117,6 +129,8 @@ else ifeq ($(DEBUG),check)
 else ifeq ($(DEBUG),all)
 	OPT = -O0
 	FFLAGS += $(FFLAG_CHECK_ALL) $(FFLAG_WARN_ALL) $(FFLAG_FPE)
+else ifeq ($(DEBUG),marmot)
+	LIBS += -L$(MARMOT_HOME)/lib -Wl,-rpath,$(MARMOT_HOME)/lib
 endif
 
 INCPATHS += -I.
@@ -323,11 +337,11 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           s_write_coeff_r.o s_outMisc.o\
                           s_write_rot.o m_kinetic_energy.o m_magnetic_energy.o\
                           m_spectrum_average.o m_spectrumC_average.o\
-                          m_fields_average.o m_power.o s_getDlm.o\
+                          m_fields_average.o m_power.o m_getDlm.o\
                           s_get_u_square.o s_safeOut.o m_outTO.o\
                           s_dtVrms.o s_zeroRms.o m_char_manip.o s_store.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
-			  m_communications.o m_write_special.o
+			  m_communications.o m_write_special.o m_outPar.o
 m_communications.o	: m_blocking.o m_parallel.o m_LMLoop_data.o truncation.o
 ifeq ($(USE_MPI),yes)
 m_output.o		: m_store_mpi.o
@@ -458,7 +472,7 @@ s_lmAS2pt.o             : truncation.o m_blocking.o m_horizontal.o m_radial.o
 s_get_dtBLMfinish.o     : truncation.o m_horizontal.o m_phys_param.o\
                           m_radial.o m_logic.o m_blocking.o m_dtB.o\
                           s_get_drNS.o s_rBrSpec.o s_rBpSpec.o 
-s_getDlm.o              : truncation.o m_blocking.o m_num_param.o\
+m_getDlm.o              : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_const.o\
                           m_usefull.o m_integration.o
 s_costf1.o              : s_fft_fac.o truncation.o

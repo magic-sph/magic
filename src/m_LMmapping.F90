@@ -5,13 +5,13 @@ MODULE LMmapping
   TYPE,PUBLIC :: mappings
      INTEGER :: l_max,lm_max,lmP_max
      INTEGER,ALLOCATABLE :: lm2(:,:),lm2l(:),lm2m(:)
-     INTEGER,ALLOCATABLE :: lm2mc(:),l2lmAS(:)
-     INTEGER,ALLOCATABLE :: lm2lmS(:),lm2lmA(:)
-     
-     INTEGER,ALLOCATABLE :: lmP2(:,:),lmP2l(:)
-     INTEGER,ALLOCATABLE :: lmP2lmPS(:),lmP2lmPA(:)
-     
-     INTEGER,ALLOCATABLE :: lm2lmP(:),lmP2lm(:)
+     INTEGER,ALLOCATABLE :: lm2mc(:),l2lmAS(:)      
+     INTEGER,ALLOCATABLE :: lm2lmS(:),lm2lmA(:)     
+                                                    
+     INTEGER,ALLOCATABLE :: lmP2(:,:),lmP2l(:)      
+     INTEGER,ALLOCATABLE :: lmP2lmPS(:),lmP2lmPA(:) 
+                                                    
+     INTEGER,ALLOCATABLE :: lm2lmP(:),lmP2lm(:)     
 
   END TYPE mappings
 
@@ -50,8 +50,8 @@ contains
   SUBROUTINE allocate_subblocks_mappings(self,map,nLMBs,l_max,lmStartB,lmStopB)
     type(subblocks_mappings) :: self
     type(mappings) :: map
-    integer,dimension(nLMBs) :: lmStartB,lmStopB
     INTEGER :: nLMBs,l_max
+    integer,dimension(nLMBs) :: lmStartB,lmStopB
 
     integer :: nLMB,lm1,l1,max_size_of_subblock,lmStart,lmStop
     integer :: counter(0:l_max)

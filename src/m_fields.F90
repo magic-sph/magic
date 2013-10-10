@@ -24,9 +24,9 @@ MODULE fields
   COMPLEX(kind=8),ALLOCATABLE :: z(:,:)
   COMPLEX(kind=8),ALLOCATABLE :: dz(:,:)
   !COMPLEX(kind=8),ALLOCATABLE :: z_LMloc(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: z_lo(:,:)
+  COMPLEX(kind=8),ALLOCATABLE :: z_LMloc(:,:)
   !COMPLEX(kind=8),ALLOCATABLE :: dz_LMloc(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: dz_lo(:,:)
+  COMPLEX(kind=8),ALLOCATABLE :: dz_LMloc(:,:)
   COMPLEX(kind=8),ALLOCATABLE :: z_Rloc(:,:)
   COMPLEX(kind=8),ALLOCATABLE :: dz_Rloc(:,:)
 
@@ -138,8 +138,8 @@ CONTAINS
     ALLOCATE( ddw_Rloc(lm_max,nRstart:nRstop) )
     !ALLOCATE( z_LMloc(llm:ulm,n_r_max) )
     !ALLOCATE( dz_LMloc(llm:ulm,n_r_max) )
-    ALLOCATE( z_lo(llm:ulm,n_r_max) )
-    ALLOCATE( dz_lo(llm:ulm,n_r_max) )
+    ALLOCATE( z_LMloc(llm:ulm,n_r_max) )
+    ALLOCATE( dz_LMloc(llm:ulm,n_r_max) )
     ALLOCATE( z_Rloc(lm_max,nRstart:nRstop) )
     ALLOCATE( dz_Rloc(lm_max,nRstart:nRstop) )
 
