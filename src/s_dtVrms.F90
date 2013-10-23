@@ -398,16 +398,16 @@ SUBROUTINE dtVrms(time,nRMS_sets)
         DO nR=1,n_r_maxC
            CALL hInt2dPol( workA(1,nR+nCut),2,lm_max, &
                 &          DifPol2hInt(nR+nCut,1),DifPolAs2hInt(nR+nCut,1),lo_map)
-           DO n=2,nThreadsLMmax
-              DifPol2hInt(nR+nCut,1)  =DifPol2hInt(nR+nCut,1) + &
-                   DifPol2hInt(nR+nCut,n)
-              DifPolAs2hInt(nR+nCut,1)=DifPolAs2hInt(nR+nCut,1) + &
-                   DifPolAs2hInt(nR+nCut,n)
-              DifTor2hInt(nR+nCut,1)  =DifTor2hInt(nR+nCut,1) + &
-                   DifTor2hInt(nR+nCut,n)
-              DifTorAs2hInt(nR+nCut,1)=DifTorAs2hInt(nR+nCut,1) + &
-                   DifTorAs2hInt(nR+nCut,n)
-           END DO
+           !DO n=2,nThreadsLMmax
+           !   DifPol2hInt(nR+nCut,1)  =DifPol2hInt(nR+nCut,1) + &
+           !        DifPol2hInt(nR+nCut,n)
+           !   DifPolAs2hInt(nR+nCut,1)=DifPolAs2hInt(nR+nCut,1) + &
+           !        DifPolAs2hInt(nR+nCut,n)
+           !   DifTor2hInt(nR+nCut,1)  =DifTor2hInt(nR+nCut,1) + &
+           !        DifTor2hInt(nR+nCut,n)
+           !   DifTorAs2hInt(nR+nCut,1)=DifTorAs2hInt(nR+nCut,1) + &
+           !        DifTorAs2hInt(nR+nCut,n)
+           !END DO
         END DO
         DifPolRms  =rInt_R(DifPol2hInt(nRC,1),n_r_maxC, &
              n_cheb_maxC,dr_facC, &
@@ -435,16 +435,16 @@ SUBROUTINE dtVrms(time,nRMS_sets)
            !     & dtVPol2hInt(nR+nCut,1)
            CALL hInt2dPol( workA(1,nR+nCut),2,lm_max, &
                 &          dtVPol2hInt(nR+nCut,1),dtVPolAs2hInt(nR+nCut,1),lo_map)
-           DO n=2,nThreadsLMmax
-              dtVPol2hInt(nR+nCut,1)  =dtVPol2hInt(nR+nCut,1) + &
-                   &                   dtVPol2hInt(nR+nCut,n)
-              dtVPolAs2hInt(nR+nCut,1)=dtVPolAs2hInt(nR+nCut,1) + &
-                   &                   dtVPolAs2hInt(nR+nCut,n)
-              dtVTor2hInt(nR+nCut,1)  =dtVTor2hInt(nR+nCut,1) + &
-                   &                   dtVTor2hInt(nR+nCut,n)
-              dtVTorAs2hInt(nR+nCut,1)=dtVTorAs2hInt(nR+nCut,1) + &
-                   &                   dtVTorAs2hInt(nR+nCut,n)
-           END DO
+           !DO n=2,nThreadsLMmax
+           !   dtVPol2hInt(nR+nCut,1)  =dtVPol2hInt(nR+nCut,1) + &
+           !        &                   dtVPol2hInt(nR+nCut,n)
+           !   dtVPolAs2hInt(nR+nCut,1)=dtVPolAs2hInt(nR+nCut,1) + &
+           !        &                   dtVPolAs2hInt(nR+nCut,n)
+           !   dtVTor2hInt(nR+nCut,1)  =dtVTor2hInt(nR+nCut,1) + &
+           !        &                   dtVTor2hInt(nR+nCut,n)
+           !   dtVTorAs2hInt(nR+nCut,1)=dtVTorAs2hInt(nR+nCut,1) + &
+           !        &                   dtVTorAs2hInt(nR+nCut,n)
+           !END DO
            !WRITE(*,"(A,I3,ES22.14)") "after = ",nR+nCut,dtVPol2hInt(nR+nCut,1)
         END DO
         !WRITE(*,"(A,I3,ES22.14)") "dtVPol2hInt(nRC,1) = ",nRC,dtVPol2hInt(nRC,1)

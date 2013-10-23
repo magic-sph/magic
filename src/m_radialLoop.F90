@@ -1,6 +1,5 @@
 !$Id$
 #include "perflib_preproc.cpp"
-
 MODULE radialLoop
   USE truncation
   USE radial_functions
@@ -14,10 +13,14 @@ MODULE radialLoop
   USE const
   USE parallel_mod, ONLY: rank, n_procs
   USE radial_data,ONLY: nRstart,nRstop,n_r_cmb
+  USE legendre_trafo,only: legTFG
 #if (FFTLIB==JW)
   USE fft_JW
 #elif (FFTLIB==MKL)
   USE fft_MKL
+#endif
+#ifdef WITH_LIKWID
+#  include "likwid_f90.h"
 #endif
   IMPLICIT NONE
 
@@ -259,7 +262,7 @@ CONTAINS
     !--- Local variables:
 
     !---- Counter, logicals ...
-    INTEGER :: nR,nR_Mag,nBc,nPhi,nTh,lm,l
+    INTEGER :: nR,nR_Mag,nBc,nPhi,lm,l
     INTEGER :: nTheta,nThetaB,nThetaLast
     INTEGER :: nThetaStart,nThetaStop
     LOGICAL :: lDeriv,lOutBc,lMagNlBc
@@ -269,7 +272,7 @@ CONTAINS
     !---- End of declaration
     !----------------------------------------------------------------------
     PERFON('rloop')
-
+    LIKWID_ON('rloop')
     lGraphHeader=l_graph
     IF ( lGraphHeader ) THEN
        CALL graphOut_mpi(time,nR,ngform,vrc,vtc,vpc,brc,btc,bpc,sc,&
@@ -325,13 +328,11 @@ CONTAINS
 
     !--- Start the big do loop over the radial threads:
 
-    nThreadsRmax=1
+    !nThreadsRmax=1
     DO nR=nRstart,nRstop
-       nTh=1
        !IF( nTh.GT.nThreadsRmax ) nThreadsRmax=nTh
        IF ( lVerbose ) THEN
           WRITE(*,'(/," ! Starting radial level ",i4)') nR
-          WRITE(*,'(" ! using thread no:",i4)') nTh
        END IF
 
        !nR = nRC
@@ -394,19 +395,23 @@ CONTAINS
           !      First version with PlmTF needed for first-touch policy  
           IF ( l_mag ) THEN
              PERFON('legTFG')
+             LIKWID_ON('legTFG')
              CALL legTFG(nBc,lDeriv,nThetaStart,                &
                   &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
                   &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,           &
                   &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc,    &
                   &      dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,        &
                   &      dvhdrC,dLhb,dLhj,bhG,bhC,cbhG,cbhC,sR,dsR)
+             LIKWID_OFF('legTFG')
              PERFOFF
           ELSE
              PERFON('legTFGnm')
+             LIKWID_ON('legTFGnm')
              CALL legTFGnomag(nBc,lDeriv,nThetaStart,                 &
                   &           vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,  &
                   &           dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc,    &
                   &           dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR)
+             LIKWID_OFF('legTFGnm')
              PERFOFF
           END IF
 
@@ -493,7 +498,8 @@ CONTAINS
                   &      ViscHeat,OhmLoss,               &
                   &      nR,nBc,nThetaStart)
              PERFOFF
-             IF ( (.not.isRadialBoundaryPoint) .AND. ( l_conv_nl .OR. l_mag_LF ) ) THEN
+             IF ( (.NOT.isRadialBoundaryPoint) .AND. ( l_conv_nl .OR. l_mag_LF ) ) THEN
+                PERFON('inner1')
                 IF ( l_conv_nl .AND. l_mag_LF ) THEN
                    DO nTheta=1,sizeThetaB
                       DO nPhi=1,nrp
@@ -523,8 +529,10 @@ CONTAINS
                    CALL legTF3(nThetaStart,LFrLM,LFtLM,LFpLM,    &
                         &      LFr,LFt,LFp)
                 END IF
+                PERFOFF
              END IF
-             IF ( (.not.isRadialBoundaryPoint) .AND. l_heat ) THEN
+             IF ( (.NOT.isRadialBoundaryPoint) .AND. l_heat ) THEN
+                PERFON('inner2')
                 CALL fft_thetab(VSr,-1)
                 CALL fft_thetab(VSt,-1)
                 CALL fft_thetab(VSp,-1)
@@ -542,8 +550,10 @@ CONTAINS
                       CALL legTF1(nThetaStart,ViscHeatLM,ViscHeat)
                    END IF
                 END IF
+                PERFOFF
              END IF
              IF ( l_mag_nl ) THEN
+                PERFON('mag_nl')
                 IF ( .not.isRadialBoundaryPoint ) THEN
                    CALL fft_thetab(VxBr,-1)
                    CALL fft_thetab(VxBt,-1)
@@ -555,6 +565,7 @@ CONTAINS
                    CALL fft_thetab(VxBp,-1)
                    CALL legTF2(nThetaStart,VxBtLM,VxBpLM, VxBt,VxBp)
                 END IF
+                PERFOFF
              END IF
           ELSE IF ( l_mag ) THEN
              DO lm=1,lmP_max
@@ -689,12 +700,14 @@ CONTAINS
           nR_Mag=1
        END IF
        !write(*,"(A,I4,2ES20.13)") "before_td: ",nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
+       PERFON('get_td')
        CALL get_td(nR,nBc,lRmsCalc,dVSrLM(:,nR),dVxBhLM(:,nR_Mag),   &
             &      dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),   &
             &      dsdt(:,nR),dbdt(:,nR_Mag),djdt(:,nR_Mag),   &
             &      AdvrLM,AdvtLM,AdvpLM,LFrLM,LFtLM,LFpLM,   &
             &      VSrLM,VStLM,VSpLM,VxBrLM,VxBtLM,VxBpLM,   &
             &      ViscHeatLM,OhmLossLM,dLhw,dLhdw,dLhz,sR,preR,dpR)
+       PERFOFF
        !write(*,"(A,I4,ES20.13)") "after_td:  ",nR,sum(real(conjg(dVxBhLM(:,nR_Mag))*dVxBhLM(:,nR_Mag)))
        !-- Finish calculation of TO variables:
        IF ( lTOcalc ) THEN                                   
@@ -718,6 +731,7 @@ CONTAINS
     !----- Correct sign of mantel Lorentz torque (see above):
     lorentz_torque_ma=-lorentz_torque_ma
 
+    LIKWID_OFF('rloop')
     PERFOFF
   END SUBROUTINE radialLoopG
 END MODULE radialLoop

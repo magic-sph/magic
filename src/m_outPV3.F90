@@ -222,9 +222,6 @@ contains
     END IF
 
 
-    !$OMP DO ORDERED                                                        &
-    !$OMP  PRIVATE(nS,nZ,rZS,thetaZ,nZmaxNS,nZS,VpAS,omS,VsS,VzS,VpS,VorS,  &
-    !$OMP          dpVorS,out1,out2,out3,out4,out5,nC,nPhi,nZN)
 
     DO nS=1,nSmax
 
@@ -279,7 +276,6 @@ contains
             &        nZmaxNS,nZmaxA,PlmZ(1,1,nS),dPlmZ(1,1,nS),OsinTS(1,nS),   &
             &                                       VsS,VpS,VzS,VorS,dpVorS)
 
-       !$OMP ORDERED
        IF ( l_stop_time ) THEN
           WRITE(95) (SNGL(omS(nZ)),nZ=1,nZmax)
           WRITE(96) FLOAT(nZmaxNS)
@@ -308,11 +304,8 @@ contains
              END DO
           END DO
        END IF
-       !$OMP END ORDERED
-
 
     END DO  ! Loop over s 
-    !$OMP END DO
 
     IF ( l_stop_time ) CLOSE (95)
     IF ( l_stop_time ) CLOSE(96)

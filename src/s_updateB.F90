@@ -184,12 +184,12 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
   ! simplified interface
   !PRINT*,rank,": computing for ",ulm_realMag-llm_realMag+1," rows, i_costf_init = ",i_costf_init
 
-  PERFON('drNS')
+  !PERFON('drNS')
   CALL get_drNS( dVxBhLM,workA, &
        &         ulm_realMag-llm_realMag+1,1,ulm_realMag-llm_realMag+1, &
        &         n_r_max,n_cheb_max,workB, &
        &         i_costf_init,d_costf_init,drx)
-  PERFOFF
+  !PERFOFF
 
   DO nR=1,n_r_max
       DO lm=lmStart_00,lmStop
@@ -208,12 +208,12 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
            lmB=lmB+1
 
            IF ( .NOT. lBmat(l1) ) THEN
-              PERFON('get_bMat')
+              !PERFON('get_bMat')
               CALL get_bMat(dt,l1,hdif_B(st_map%lm2(l1,m1)), &
                    bMat(1,1,l1),bPivot(1,l1), &
                    jMat(1,1,l1),jPivot(1,l1))
               lBmat(l1)=.TRUE.
-              PERFOFF
+              !PERFOFF
            END IF
 
            !-------- Magnetic boundary conditions, outer core:
@@ -363,12 +363,12 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
         !     & SUM( rhs2(1:n_r_max+n_r_ic_max,lmB) )
      END DO    ! loop over lm in block
      IF ( lmB > 0 ) THEN
-        PERFON('bMat_sol')
+        !PERFON('bMat_sol')
         CALL cgeslML(bMat(1,1,l1),n_r_tot,n_r_real, &
              bPivot(1,l1),rhs1,2*n_r_max,lmB)
         CALL cgeslML(jMat(1,1,l1),n_r_tot,n_r_real, &
              jPivot(1,l1),rhs2,2*n_r_max,lmB)
-        PERFOFF
+        !PERFOFF
      END IF
 
      IF ( lRmsNext ) THEN ! Store old b,aj
@@ -443,7 +443,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      END DO
   END IF
 
-  PERFON('rad_der')
+  !PERFON('rad_der')
   !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
   CALL costf1(b,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &      dbdtLast,i_costf_init,d_costf_init)
@@ -497,7 +497,7 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      !     & i_costf1_ic_init,d_costf1_ic_init, &
      !     & i_costf2_ic_init,d_costf2_ic_init)
   END IF
-  PERFOFF
+  !PERFOFF
   !-- We are now back in radial space !
 
   DO nR=n_r_cmb+1,n_r_icb-1

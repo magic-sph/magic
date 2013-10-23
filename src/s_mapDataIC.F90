@@ -106,13 +106,9 @@ SUBROUTINE mapDataIC(n_r_ic_max_old,l_max_old,minc_old,         &
        &                     (dbdt_ic_old(i),i=1,n_data_old),             &
        &                     (djdt_ic_old(i),i=1,n_data_old)
 
-  !$OMP PARALLEL &
-  !$OMP  PRIVATE(nLMB,lmStart,lmStop,lm,lmo,nR,n,b_ic_oldR,aj_ic_oldR,    &
-  !$OMP          dbdt_ic_oldR,djdt_ic_oldR)
   ALLOCATE( b_ic_oldR(n_r_ic_maxL),aj_ic_oldR(n_r_ic_maxL) )
   ALLOCATE( dbdt_ic_oldR(n_r_ic_maxL),djdt_ic_oldR(n_r_ic_maxL) )
 
-  !$OMP DO SCHEDULE(STATIC,1) 
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
      lmStop =lmStopB(nLMB)
@@ -150,12 +146,8 @@ SUBROUTINE mapDataIC(n_r_ic_max_old,l_max_old,minc_old,         &
         END IF
      END DO
   END DO
-  !$OMP END DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
   DEALLOCATE( b_ic_oldR,aj_ic_oldR )
   DEALLOCATE( dbdt_ic_oldR,djdt_ic_oldR )
-  !$OMP END PARALLEL
-
-
   DEALLOCATE( lm2lmo )
   DEALLOCATE( b_ic_old,aj_ic_old )
   DEALLOCATE( dbdt_ic_old,djdt_ic_old )

@@ -25,16 +25,6 @@ MODULE matrices
   INTEGER, ALLOCATABLE :: bPivot(:,:)
   INTEGER, ALLOCATABLE :: jPivot(:,:)
 
-  !COMMON/matricies/s0Mat,sMat,z10Mat,zMat,                        &
-  !     &                   wpMat,bMat,jMat,                               &
-  !     &                   s0Pivot,sPivot,z10Pivot,                       &
-  !     &                   zPivot,wpPivot,bPivot,jPivot
-  !!$OMP THREADPRIVATE(/matricies/)
-  !$OMP THREADPRIVATE( s0Mat,sMat,z10Mat,zMat )
-  !$OMP THREADPRIVATE( wpMat,bMat,jMat )
-  !$OMP THREADPRIVATE( s0Pivot,sPivot,z10Pivot )
-  !$OMP THREADPRIVATE( zPivot,wpPivot,bPivot,jPivot )
-
   !--- Logicals that inform whether the respective matrix
   !    has been updated:           
   LOGICAL :: lZ10mat
@@ -42,14 +32,10 @@ MODULE matrices
   LOGICAL,ALLOCATABLE :: lZmat(:)
   LOGICAL,ALLOCATABLE :: lWPmat(:)
   LOGICAL,ALLOCATABLE :: lBmat(:)
-  !COMMON/matUpdated/lSmat,lZmat,lZ10mat,lWPmat,lBmat 
-  !!$OMP THREADPRIVATE(/matUpdated/)
-  !$OMP THREADPRIVATE( lSmat,lZmat,lZ10mat,lWPmat,lBmat )
 
 CONTAINS
   SUBROUTINE initialize_matrices
 
-    !$OMP PARALLEL
     !-- the matrices, already LU-decomposed:
     ALLOCATE( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
     ALLOCATE( sMat(n_r_max,n_r_max,l_max) )
@@ -74,7 +60,6 @@ CONTAINS
     ALLOCATE( lZmat(0:l_max) )
     ALLOCATE( lWPmat(0:l_max) )
     ALLOCATE( lBmat(0:l_max) )
-    !$OMP END PARALLEL
 
   END SUBROUTINE initialize_matrices
 END MODULE matrices

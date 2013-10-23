@@ -14,7 +14,6 @@ MODULE fft_mkl
   !----------- MKL specific variables -------------
   INTEGER :: status
   TYPE(DFTI_DESCRIPTOR),POINTER :: c2r_handle, r2c_handle
-  !$OMP THREADPRIVATE( c2r_handle, r2c_handle )
   !----------- END MKL specific variables
 
 

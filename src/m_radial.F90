@@ -24,13 +24,6 @@ MODULE radial_functions
 
   !-- arrays for buoyancy, depend on Ra and Pr:
   REAL(kind=8),allocatable :: rgrav(:),agrav(:)
-  !$OMP THREADPRIVATE( r,r_ic,or1,or2,or3,or4,O_r_ic,O_r_ic2 )            
-  !$OMP THREADPRIVATE( rgrav,agrav )             
-  !$OMP THREADPRIVATE( drx,ddrx,dddrx,alpha1,alpha2 )
-  !$OMP THREADPRIVATE( dr_fac,dr_fac_ic,r_cmb,r_icb,r_surface )
-  !$OMP THREADPRIVATE( topcond, botcond )
-  !$OMP THREADPRIVATE( otemp1,temp0,rho0,orho1,orho2,beta,dbeta )
-
 
   !-- chebychev polynomials, derivatives and integral:
   REAL(kind=8) :: cheb_norm                   ! cheb normalisation 
@@ -45,8 +38,6 @@ MODULE radial_functions
   INTEGER :: nDd_costf1
   !PARAMETER (nDd_costf1=2*n_r_max+5)
   REAL(kind=8),ALLOCATABLE ::  d_costf_init(:)   ! info for tranform
-  !$OMP THREADPRIVATE( cheb_norm,cheb,dcheb,d2cheb,d3cheb,cheb_int )
-  !$OMP THREADPRIVATE( d_costf_init,i_costf_init )
 
   !-- same for inner core:
   REAL(kind=8) :: cheb_norm_ic
@@ -66,10 +57,6 @@ MODULE radial_functions
   INTEGER :: nDd_costf2_ic
 
   REAL(kind=8),ALLOCATABLE ::  d_costf2_ic_init(:)
-  !$OMP THREADPRIVATE( cheb_norm_ic,cheb_ic,dcheb_ic,d2cheb_ic )
-  !$OMP THREADPRIVATE( cheb_int_ic )
-  !$OMP THREADPRIVATE( d_costf1_ic_init,d_costf2_ic_init )
-  !$OMP THREADPRIVATE( i_costf1_ic_init,i_costf2_ic_init )
 
   !-- Radius functions for cut-back grid without boundaries:
   !-- (and for the nonlinear mapping)
@@ -98,7 +85,6 @@ CONTAINS
     nDi_costf2_ic=2*n_r_ic_max
     nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
 
-    !$OMP PARALLEL
     ! allocate the arrays
     ALLOCATE( r(n_r_max) )
     ALLOCATE( r_ic(n_r_ic_max) )
@@ -127,7 +113,6 @@ CONTAINS
     ALLOCATE( d_costf1_ic_init(nDd_costf1_ic) )
     ALLOCATE( i_costf2_ic_init(nDi_costf2_ic) )
     ALLOCATE( d_costf2_ic_init(nDd_costf2_ic) )
-    !$OMP END PARALLEL
 
     ALLOCATE( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
     ALLOCATE( sigma(n_r_max) )

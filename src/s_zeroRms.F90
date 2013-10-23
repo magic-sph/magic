@@ -21,7 +21,7 @@
 !-------------------------------------------------------------------
 
 
-    DO n=1,nThreadsMax
+    DO n=1,1
         DO nR=1,n_r_max
             dtVPol2hInt(nR,n)  =0.D0
             dtVTor2hInt(nR,n)  =0.D0

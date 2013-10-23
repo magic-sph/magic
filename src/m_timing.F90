@@ -1,5 +1,6 @@
 !$Id$
 module timing
+  use MPI
   USE parallel_mod,only: rank
   IMPLICIT NONE
 
@@ -14,7 +15,7 @@ contains
     INTEGER, dimension(4) :: time
     INTEGER :: count,countRate,countMax
     INTEGER(kind=8) :: mSeconds
-
+    double precision :: dbl_seconds
     !------------------------------------------------------------------
 
     !--- SYSTEM_CLOCK is a Fortran90 subroutine that
@@ -28,9 +29,11 @@ contains
     !    is performed at midnight. Thus, the count
     !    can be used to get the real wallclock time.
 
-    CALL SYSTEM_CLOCK(count,countRate,countMax)
+    dbl_seconds = MPI_Wtime()
+    !CALL SYSTEM_CLOCK(count,countRate,countMax)
 
-    mSeconds=IDINT(1.D3*DBLE(count)/DBLE(countRate))
+    !mSeconds=IDINT(1.D3*DBLE(count)/DBLE(countRate))
+    mSeconds = INT(1000.0*dbl_seconds)
     CALL ms2time(mSeconds,time)
 
   END SUBROUTINE wallTime

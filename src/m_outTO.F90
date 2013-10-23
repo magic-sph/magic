@@ -265,8 +265,6 @@ contains
 
     !--- Transform to lm-space for all radial grid points:
 
-    !$OMP PARALLEL DO SCHEDULE(DYNAMIC,1)                                   &
-    !$OMP  PRIVATE(nR,n,nThetaStart)
     DO nR=1,n_r_max
        DO n=1,nThetaBs
           nThetaStart=(n-1)*sizeThetaB+1
@@ -286,7 +284,6 @@ contains
                &               l_max+1,nThetaStart,sizeThetaB)
        END DO
     END DO ! Loop over radial grid points
-    !$OMP END PARALLEL DO
 
     DO nR=1,n_r_max
        DO l=1,l_max
@@ -358,12 +355,6 @@ contains
     END IF
 
     lStopRun=.FALSE.
-    !$OMP DO ORDERED                                                        &
-    !$OMP  PRIVATE(zMax,zMin,lTC,nZmax,nZ,nZmaxNS,nZmaxH,thetaZ,fileZ,      &
-    !$OMP             VpS,dVpS,ddVpS,RstrS,AstrS,StrS,LFS,CorS,TayS,        &
-    !$OMP                     TayRS,TayVS,V2S,Bs2S,BspS,BspdS,BpsdS,        &
-    !$OMP            rB,BspB,BspdB,BpsdB,Bs2B,BszB,BpzB,BzpdB,BpzdB)
-
     DO nS=1,nSmax
 
        !------ Get integral boundaries for this s:
@@ -528,7 +519,6 @@ contains
           END IF
        END IF
 
-       !$OMP ORDERED
        IF ( l_TOZave .AND. nTOsets.GT.1 ) THEN
           WRITE(96) FLOAT(nZmaxNS)
           WRITE(96) (SNGL(zALL(nZ))      ,nZ=1,nZmaxNS),            &
@@ -552,7 +542,6 @@ contains
                &                  (SNGL(StrS(nZ)) ,nZ=1,nZmaxNS),                 &
                &                  (SNGL(CorS(nZ)) ,nZ=1,nZmaxNS)
        END IF
-       !$OMP END ORDERED
 
        !--- Z-integrals:
        VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,nZmaxA,             &
@@ -753,7 +742,6 @@ contains
 99     CONTINUE
 
     END DO  ! Loop over s 
-    !$OMP END DO
     ! Integration finished
 
     CLOSE (95)

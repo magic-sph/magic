@@ -144,8 +144,6 @@ SUBROUTINE graphOut(time,n_r,FORMAT,vr,vt,vp,br,bt,bp,sr, &
      !  get mixed up
      !*******************************************************************
 
-     !$OMP CRITICAL
-
      !-- Determine radius and thetas in this block:
      n_theta_stop=n_theta_start+n_theta_block_size-1
      IF ( format < 0 ) WRITE(n_graph_file, &
@@ -258,8 +256,6 @@ SUBROUTINE graphOut(time,n_r,FORMAT,vr,vt,vp,br,bt,bp,sr, &
              precision,format,n_graph_file)
 
      END IF ! l_mag ?
-
-     !$OMP end critical
 
      !-- End of CRITICAL section ********************************************
 

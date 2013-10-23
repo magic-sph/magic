@@ -146,9 +146,7 @@ SUBROUTINE preCalc
   dtMin  =dtMax/1.0D6
 
   !-- Calculate radial functions for all threads (chebs,r,.....):
-  !$OMP PARALLEL
   CALL radial
-  !$OMP END PARALLEL
   IF ( ( l_plotmap ).and.(rank.eq.0) ) THEN
      fileName='rNM.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
@@ -234,9 +232,7 @@ SUBROUTINE preCalc
 
   !-- Initialize everything that has to do with the horizontal representation
   !   on all threads:
-  !$OMP PARALLEL
   CALL horizontal
-  !$OMP END PARALLEL
 
   !-- Computation of the average density (usefull to compute Re and Rm)
   IF ( l_anel ) THEN

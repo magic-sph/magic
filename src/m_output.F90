@@ -274,14 +274,14 @@ contains
        timeNormLog=timeNormLog+timePassedLog
 
        !----- Write torques and rotation rates:
-       PERFON('out_rot')
+       !PERFON('out_rot')
        CALL write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
             &          omega_ic,omega_ma,               &
             &          lorentz_torque_ic,lorentz_torque_ma)
-       PERFOFF
+       !PERFOFF
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  write_rot  on rank ",rank
 
-       PERFON('out_ekin')
+       !PERFON('out_ekin')
        n_e_sets=n_e_sets+1
        CALL get_e_kin(time,.TRUE.,l_stop_time,n_e_sets,     &
             &         w_LMloc,dw_LMloc,z_LMloc,                &
@@ -303,11 +303,11 @@ contains
             &         elsAnel)
        e_mag   =e_mag_p+e_mag_t
        e_mag_ic=e_mag_p_ic+e_mag_t_ic
-       PERFOFF
+       !PERFOFF
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  e_mag  on rank ",rank
 
        IF (l_average) THEN
-          PERFON('out_aver')
+          !PERFON('out_aver')
           CALL spectrum_average(nLogs,l_stop_time,                  &
                &                timePassedLog,timeNormLog,w_LMloc,z_LMloc,dw_LMloc,'V')
           CALL spectrumC_average(nLogs,l_stop_time,                 &
@@ -322,13 +322,13 @@ contains
                &              timePassedLog,timeNormLog,&
                &              omega_ic,omega_ma,        &
                &              w_LMloc,z_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
-          PERFOFF
+          !PERFOFF
           IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  averages  on rank ",rank
        END IF
 
        IF ( l_power ) THEN
 
-          PERFON('out_pwr')
+          !PERFON('out_pwr')
           IF (rank.EQ.0) THEN
              IF ( nLogs.GT.1 ) THEN
                 filename='dtE.'//tag
@@ -352,7 +352,7 @@ contains
                &          lorentz_torque_ic,lorentz_torque_ma, &
                &          w_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,&
                &          db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
-          PERFOFF
+          !PERFOFF
           IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  power  on rank ",rank
        END IF
 
@@ -449,7 +449,7 @@ contains
     IF (l_log.OR.l_frame.OR.l_graph.OR.l_cmb.OR.l_r.OR.l_Bpot.OR.l_Vpot&
          & .OR.l_Tpot.OR.l_store.OR.(l_SRIC.AND.l_stop_time).OR.l_PVout) THEN
 
-       PERFON('out_comm')
+       !PERFON('out_comm')
        CALL gather_all_from_lo_to_rank0(gt_OC,w_LMloc,w)
        call gather_all_from_lo_to_rank0(gt_OC,dw_LMloc,dw)
        call gather_all_from_lo_to_rank0(gt_OC,ddw_LMloc,ddw)
@@ -501,7 +501,7 @@ contains
           END IF
        END IF
 
-       PERFOFF
+       !PERFOFF
 
        IF (DEBUG_OUTPUT) THEN
           IF (rank.EQ.0) THEN
@@ -528,7 +528,7 @@ contains
     ! ======= compute output on rank 0 ==============
     ! =======================================================================
     IF (rank.EQ.0) THEN
-       PERFON('out_out')
+       !PERFON('out_out')
 
        !----- Plot out inner core magnetic field, outer core
        !      field has been written in radialLoop !
@@ -549,7 +549,7 @@ contains
 
        !--- Movie output and various supplementary things:
        IF ( l_frame ) THEN
-          PERFON('out_fram')
+          !PERFON('out_fram')
           IF ( l_movie_ic .AND. l_store_frame ) THEN
              !WRITE(*,"(A)") "Calling store_movie_frame_IC from output."
              CALL store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
@@ -572,13 +572,13 @@ contains
                   &          l_max_cmb,minc,lm2,n_cmb_setsMov,     &
                   &          cmbMov_file,n_cmbMov_file)
           END IF
-          PERFOFF
+          !PERFOFF
        END IF ! write movie frame ?
 
 
        !--- Store poloidal magnetic coeffs at cmb
        IF ( l_cmb ) THEN
-          PERFON('out_cmb')
+          !PERFON('out_cmb')
           CALL write_Bcmb(timeScaled,b(1,n_r_cmb),1,lm_max,l_max,           &
                &          l_max_cmb,minc,lm2,n_cmb_sets,           &
                &          cmb_file,n_cmb_file)
@@ -595,12 +595,12 @@ contains
                   &          l_max_cmb,minc,lm2,n_dt_cmb_sets,             &
                   &          dt_cmb_file,n_dt_cmb_file)
           END IF
-          PERFOFF
+          !PERFOFF
        END IF
 
        !--- Store potential coeffs for velocity fields and magnetic fields
        IF ( l_r ) THEN
-          PERFON('out_r')
+          !PERFON('out_r')
           DO n=1,n_coeff_r_max
              nR=n_coeff_r(n)
              CALL write_coeff_r(timeScaled,                            &
@@ -614,7 +614,7 @@ contains
                      &            b_r_file(n),n_b_r_file(n),l_save_out,.FALSE.)
              END IF
           END DO
-          PERFOFF
+          !PERFOFF
        END IF
 
        IF ( l_log ) THEN
@@ -825,7 +825,7 @@ contains
        !            this is written into rst_end.TAG
        !#undef WITH_MPI
        IF ( l_store ) THEN
-          PERFON('out_rst')
+          !PERFON('out_rst')
           IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
 #ifdef WITH_MPI
              rst_file="rst_end."//tag_wo_rank
@@ -865,7 +865,7 @@ contains
                & "            step no.=",n_time_step,&
                & "           into file=",rst_file
           CALL safeClose(nLF)
-          PERFOFF
+          !PERFOFF
        END IF
        
        IF ( l_SRIC .AND. l_stop_time ) CALL outOmega(z,omega_ic)
@@ -877,7 +877,7 @@ contains
        IF ( l_PVout ) CALL outPV(time,l_stop_time,nPVsets,             &
             &                     w,dw,ddw,z,dz,omega_ic,omega_ma)
        
-       PERFOFF
+       !PERFOFF
     END IF
 
     IF ( l_log ) THEN

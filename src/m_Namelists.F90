@@ -38,6 +38,7 @@ CONTAINS
     INTEGER :: length
     integer :: argument_count
     character(len=100) :: input_filename
+    integer :: nThreadsRun
 #ifdef WITH_MPI
   character(len=100) :: new_tag
 #endif
@@ -598,7 +599,7 @@ CONTAINS
     write(n_out,'(''  runMinutes   ='',i4,'','')') runTimeLimit(2)
     write(n_out,'(''  runSeconds   ='',i4,'','')') runTimeLimit(3)
     write(n_out,'(1p,''  tEND        ='',d14.6,'','')') tEND
-    write(n_out,'(''  nThreadsRun  ='',i4,'','')') nThreadsRun
+    !WRITE(n_out,'(''  nThreadsRun  ='',i4,'','')') nThreadsRun
     write(n_out,*) "/"
 
     sq4pi=DSQRT(16.D0*DATAN(1.D0))
@@ -907,7 +908,8 @@ CONTAINS
     DO n=1,4
        runTimeLimit(n)=0
     END DO
-    nThreadsRun   =1
+
+    !nThreadsRun   =1
     tEND          =0.D0    ! numerical time where run should end
 
     !----- Hyperdiffusion:

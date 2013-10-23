@@ -13,8 +13,8 @@ USE_FFTLIB=JW
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-#	FFLAG_ARCH_OPT = -xsse3
-	FFLAG_ARCH_OPT = #-xAVX
+	FFLAG_ARCH_OPT = -xsse3
+#	FFLAG_ARCH_OPT = -xAVX
 	FFLAG_OPENMP = -openmp
 	FFLAG_CHECK_ALL = -check all
 	FFLAG_FPE = -fpe0 -fp-stack-check -ftrapuv
@@ -22,9 +22,10 @@ ifeq ($(COMPILER),intel)
 	FFLAG_PREPROCESSOR = -fpp
 	FFLAG_CONVERT = -convert big
 	FFLAG_PROFILING = -prof-gen=srcpos
+	FFLAG_REPORT = -vec-report6
 	FFLAG_STD = -stand f03  -diag-disable 7025
 	ifneq ($(PRODRUN),yes)
-		FFLAG_STD += -fp-model precise
+		FFLAG_STD += -fp-model source
 	endif
 	COMP_FC      = ifort
 	ifeq ($(DEBUG),marmot)
@@ -94,6 +95,7 @@ ifeq ($(USE_PERFLIB),mpitrace)
 endif
 
 ifeq ($(USE_PERFLIB),likwid)
+	PREPROC += -DWITH_LIKWID
 	INCPATHS += -I$(LIKWID_HOME)/include
 	LIBS += -L$(LIKWID_HOME)/lib -llikwid
 endif
@@ -165,6 +167,9 @@ OBJS += truncation.o
 
 $(OUT): $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LIBS)
+
+#s_legTFG.o: s_legTFG.F90
+#	$(FC) -c $(FFLAGS) $(FFLAG_REPORT) $(PREPROC) $(INCPATHS) -o $@ $<
 
 %.o: %.F90
 	$(FC) -c $(FFLAGS) $(PREPROC) $(INCPATHS) -o $@ $<
@@ -291,7 +296,7 @@ s_spectrumC.o           : truncation.o m_blocking.o m_num_param.o\
 m_radialLoop.o          : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_num_param.o m_logic.o m_output_data.o\
                           m_radial.o m_horizontal.o m_const.o m_TO.o \
-                          s_legPrepG.o s_legTFG.o s_legTFGnomag.o\
+                          s_legPrepG.o m_legendre_trafo.o s_legTFGnomag.o\
                           $(FFT_OBJS) s_v_rigid_boundary.o s_get_nl.o\
                           s_legTF3.o s_legTF2.o s_legTF1.o s_get_br_v_bcs.o\
                           s_get_td.o s_graphOut.o m_radial_data.o
@@ -309,7 +314,7 @@ s_get_ddrNS_even.o      : s_costf1.o s_get_ddcheb_even.o s_costf2.o
 s_get_movie_type.o      : truncation.o m_output_data.o m_phys_param.o m_radial.o\
                           m_logic.o m_movie.o m_horizontal.o m_char_manip.o
 s_dt_courant.o          : truncation.o m_output_data.o m_logic.o  m_radial_data.o
-s_legTFG.o              : truncation.o m_blocking.o m_horizontal.o m_logic.o\
+m_legendre_trafo.o      : truncation.o m_blocking.o m_horizontal.o m_logic.o\
                           m_const.o 
 s_get_s0Mat.o           : truncation.o m_phys_param.o m_num_param.o m_radial.o\
                           m_algebra.o 

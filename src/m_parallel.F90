@@ -9,8 +9,8 @@ MODULE parallel_mod
   USE omp_lib
   IMPLICIT NONE
 
-  INTEGER :: nThreadsRun,nThreads
-  INTEGER :: nThreadsRmax,nThreadsLMmax
+  !INTEGER :: nThreadsRun,nThreads
+  !INTEGER :: nThreadsRmax,nThreadsLMmax
 
   INTEGER :: rank,n_procs
   INTEGER :: nr_per_rank,nr_on_last_rank
@@ -35,8 +35,8 @@ CONTAINS
     n_procs=1
 #endif
 
-    nThreadsRmax=0
-    nThreadsLMmax=0
+    !nThreadsRmax=0
+    !nThreadsLMmax=0
 
   END SUBROUTINE parallel
   !------------------------------------------------------------------------

@@ -86,6 +86,7 @@ CONTAINS
 !-- end of declaration
 
     PERFON('LMloop')
+    LIKWID_ON('LMloop')
     IF ( lVerbose ) CALL safeOpen(nLF,log_file)
 
     omega_icLast=omega_ic
@@ -104,12 +105,12 @@ CONTAINS
         END DO
     END IF
 
-    nThreadsLMmax = 1
+    !nThreadsLMmax = 1
     nLMB=1+rank
     nTH=1
     !IF ( nTh > nThreadsLMmax ) nThreadsLMmax=nTh
     IF ( lVerbose ) WRITE(*,'(/," ! lm block no:",i3)') nLMB
-    IF ( lVerbose ) WRITE(*,'(/," !   thread no:",i3)') nTh
+    !IF ( lVerbose ) WRITE(*,'(/," !   thread no:",i3)') nTh
 
     IF ( lVerbose ) CALL wallTime(tStart)
 
@@ -126,11 +127,11 @@ CONTAINS
                & GET_GLOBAL_SUM( dsdtLast_LMloc(:,:) )
        end if
        !CALL debug_write(dsdt,ulm-llm+1,n_r_max,"dsdt_LMloc",n_time_step*1000+nLMB*100,"E")
-       PERFON('up_S')
+       !PERFON('up_S')
        CALL updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
                                 !&       dp,workA,w1,coex,dt,nLMB)
             &       w1,coex,dt,nLMB)
-       PERFOFF
+       !PERFOFF
        ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
        ! nonblocking send
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
@@ -149,7 +150,7 @@ CONTAINS
           WRITE(*,"(A,I2,6ES20.12)") "z_before: ",nLMB,GET_GLOBAL_SUM( z_LMloc(:,:) ),&
                & GET_GLOBAL_SUM( dz_LMloc(:,:) ),GET_GLOBAL_SUM( dzdtLast_lo(:,:) )
        end if
-       PERFON('up_Z')
+       !PERFON('up_Z')
        ! dp, dVSrLM, workA used as work arrays
        !CALL updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_LMloc, time, &
        CALL updateZ( z_LMloc, dz_LMloc, dzdt, dzdtLast_lo, time, &
@@ -158,7 +159,7 @@ CONTAINS
             &        lorentz_torque_ma,lorentz_torque_maLast, &
             &        lorentz_torque_ic,lorentz_torque_icLast, &
             &        w1,coex,dt,lRmsNext,nTh)
-       PERFOFF
+       !PERFOFF
 
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        !PERFON('rdstZst')
@@ -184,12 +185,12 @@ CONTAINS
           !&EXPONENT(REAL(sum_dwdt)),FRACTION(REAL(sum_dwdt)),&
           !     &EXPONENT(AIMAG(sum_dwdt)),FRACTION(AIMAG(sum_dwdt))
        end if
-       PERFON('up_WP')
+       !PERFON('up_WP')
        CALL updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
             &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc, &
                                 !&         workA,workB,w1,coex,dt,nLMB,lRmsNext,nTh)
             &         w1,coex,dt,nLMB,lRmsNext,nTh)
-       PERFOFF
+       !PERFOFF
 
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        !PERFON('rdstWPst')
@@ -218,16 +219,16 @@ CONTAINS
                &GET_GLOBAL_SUM( djdt_icLast_LMloc(:,:) ),&
                &GET_GLOBAL_SUM( dVxBhLM(:,:) )
        END IF
-       LIKWID_ON('up_B')
-       PERFON('up_B')
+       !LIKWID_ON('up_B')
+       !PERFON('up_B')
        CALL updateB( b_LMloc,db_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,ddj_LMloc,dVxBhLM, &
             &        dbdt,dbdtLast_LMloc,djdt,djdtLast_LMloc, &
             &        b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc, &
             &        dbdt_icLast_LMloc, djdt_icLast_LMloc, &
             &        b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_icLast, &
             &        w1,coex,dt,time,nLMB,lRmsNext,nTh)
-       PERFOFF
-       LIKWID_OFF('up_B')
+       !PERFOFF
+       !LIKWID_OFF('up_B')
        CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
        CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
        CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
@@ -263,6 +264,7 @@ CONTAINS
 
     IF ( lVerbose ) CALL safeClose(nLF)
 
+    LIKWID_OFF('LMloop')
     PERFOFF
     RETURN
   END SUBROUTINE LMLoop

@@ -33,6 +33,9 @@ MODULE step_time_mod
          & lo2r_redist_start,lo2r_redist_wait,&
          &lo2r_s,lo2r_ds,lo2r_z,lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
          & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
+#ifdef WITH_LIKWID
+#   include "likwid_f90.h"
+#endif
     IMPLICIT NONE 
 
   private
@@ -261,6 +264,7 @@ contains
     CALL mpi_barrier(MPI_COMM_WORLD,ierr)
 
     PERFON('tloop')
+    LIKWID_ON('tloop')
     DO n_time_step=1,n_time_steps_go 
        n_time_cour=n_time_cour+1
        
@@ -970,9 +974,10 @@ contains
        END IF
 
     END DO ! end of time stepping !
-    PERFOFF
 
 6000 CONTINUE  ! jump point for termination upon "kill -30" signal
+    LIKWID_OFF('tloop')
+    PERFOFF
 
     IF ( l_movie ) THEN
        IF (rank.EQ.0) THEN

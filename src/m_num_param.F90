@@ -42,7 +42,7 @@ MODULE num_param
   INTEGER :: istop
 
   !-- Controlling run time:
-  INTEGER :: runTimeLimit(4),runTime(4),runTimeStart(4),resetTime(4)
+  INTEGER :: runTimeLimit(4),runTime(4),runTimeStart(4)!,resetTime(4)
 
 CONTAINS
   SUBROUTINE initialize_num_param

@@ -149,13 +149,10 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
 
   !-- Select only the spherical harmonic modes you need:
 
-  !$OMP PARALLEL &
-  !$OMP PRIVATE(nLMB,lmStart,lmStop,lm,lmo,nR,n,woR,zoR,poR,soR)
   !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
   
-  !$OMP DO SCHEDULE(STATIC,1)
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
      lmStop =lmStopB(nLMB)
@@ -199,10 +196,8 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END IF
      END DO
   END DO
-  !$OMP END DO
   !PRINT*,omp_get_thread_num(),": After nLMB loop"
   DEALLOCATE(woR,zoR,poR,soR)
-  !$OMP END PARALLEL
 
   !---- Read time derivatives:
   IF ( lreadS ) THEN
@@ -217,12 +212,9 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   END IF
 
 
-  !$OMP PARALLEL &
-  !$OMP  PRIVATE(nLMB,lmStart,lmStop,lm,lmo,nR,n,woR,zoR,poR,soR)
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
 
-  !$OMP DO SCHEDULE(STATIC,1) 
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
      lmStop =lmStopB(nLMB)
@@ -263,9 +255,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END IF
      END DO
   END DO
-  !$OMP END DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
   DEALLOCATE( woR,zoR,poR,soR )
-  !$OMP END PARALLEL
 
 
   !--- Read magnetic field
@@ -276,12 +266,9 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
              &                           (zo(i),i=1,n_data_old),                &
              &                           (po(i),i=1,n_data_old)
 
-     !$OMP PARALLEL &
-     !$OMP  PRIVATE(nLMB,lmStart,lmStop,lm,lmo,nR,n,woR,zoR,poR,soR)
      ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
      ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
 
-     !$OMP DO SCHEDULE(STATIC,1)
      DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
         lmStart=lmStartB(nLMB)
         lmStop =lmStopB(nLMB)
@@ -319,9 +306,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
            END IF
         END DO
      END DO
-     !$OMP END DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
      DEALLOCATE( woR,zoR,poR,soR )
-     !$OMP END PARALLEL 
   ELSE
      WRITE(*,*) '! No magnetic data in input file!'
   END IF
@@ -331,8 +316,6 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   !   mode (l,m)=(minc,minc) if parameter tipdipole .ne. 0
   IF ( l_heat .AND.                                               &
        &       minc.LT.minc_old .AND. tipdipole.GT.0.D0 ) THEN
-     !$OMP PARALLEL DO SCHEDULE(STATIC,1)                                    &
-     !$OMP  PRIVATE(lmStart,lmStop,lm,l,m,nR,n)
      DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
         lmStart=lmStartB(nLMB)
         lmStop =lmStopB(nLMB)
@@ -345,7 +328,6 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
            END DO
         END IF
      END DO
-     !$OMP END PARALLEL DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
   END IF
 
   !-- If starting from data file with longitudinal symmetry, add
@@ -353,8 +335,6 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   IF ( ( l_mag .OR. l_mag_LF )                                    &
        &       .AND. minc.EQ.1 .AND. minc_old.NE.1 .AND.                  &
        &       tipdipole.GT.0.d0 .AND. l_mag_old ) THEN
-     !$OMP PARALLEL DO SCHEDULE(STATIC,1)                                    &
-     !$OMP  PRIVATE(lmStart,lmStop,lm,l,m,nR,n)
      DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
         lmStart=lmStartB(nLMB)
         lmStop =lmStopB(nLMB)
@@ -365,7 +345,6 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
            END DO
         END IF
      END DO
-     !$OMP END PARALLEL DO   ! END OF SMP PARALLEL LOOP OVER LM blocks !
   END IF
 
   ! deallocation of the local arrays

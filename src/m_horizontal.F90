@@ -22,14 +22,9 @@ MODULE horizontal_data
   REAL(kind=8),ALLOCATABLE :: O_sin_theta_E2(:)
   REAL(kind=8),ALLOCATABLE :: sinTheta(:)
   REAL(kind=8),ALLOCATABLE :: cosTheta(:)
-  !$OMP THREADPRIVATE( n_theta_cal2ord )
-  !$OMP THREADPRIVATE( sn2,osn2,cosn2,osn1,sinTheta,cosTheta )
-  !$OMP THREADPRIVATE( theta,theta_ord,O_sin_theta,O_sin_theta_E2 )
 
   !-- Phi (longitude)
   REAL(kind=8),ALLOCATABLE :: phi(:)
-  !COMMON/phi_func/phi
-  !$OMP THREADPRIVATE(phi)
 
   !-- Legendres:
   REAL(kind=8),ALLOCATABLE :: Plm(:,:)
@@ -37,9 +32,6 @@ MODULE horizontal_data
   REAL(kind=8),ALLOCATABLE :: dPlm(:,:)
   REAL(kind=8),ALLOCATABLE :: gauss(:)
   REAL(kind=8),ALLOCATABLE :: dPl0Eq(:)
-  !COMMON/legendres/Plm,wPlm,dPlm,gauss,dPl0Eq
-!!$OMP THREADPRIVATE(/legendres/)
-  !$OMP THREADPRIVATE( Plm,wPlm,dPlm,gauss,dPl0Eq )
 
   !-- Arrays depending on l and m:
   COMPLEX(kind=8),ALLOCATABLE :: dPhi(:)
@@ -53,30 +45,15 @@ MODULE horizontal_data
   REAL(kind=8),ALLOCATABLE :: D_m(:),D_l(:),D_lP1(:)
   REAL(kind=8),ALLOCATABLE :: D_mc2m(:)
   REAL(kind=8),ALLOCATABLE :: hdif_B(:),hdif_V(:),hdif_S(:)
-  !COMMON/lm_func/dPhi,dPhi0,dPhi02,dLh,dTheta1S,dTheta1A,         &
-  !     &                 dTheta2S,dTheta2A,dTheta3S,dTheta3A,             &
-  !     &                 dTheta4S,dTheta4A,D_m,D_l,D_lP1,D_mc2m,          &
-  !     &                 hdif_B,hdif_V,hdif_S
-!!$OMP THREADPRIVATE(/lm_func/)
-  !$OMP THREADPRIVATE( dPhi,dPhi0,dPhi02,dLh,dTheta1S,dTheta1A )
-  !$OMP THREADPRIVATE( dTheta2S,dTheta2A,dTheta3S,dTheta3A )
-  !$OMP THREADPRIVATE( dTheta4S,dTheta4A,D_m,D_l,D_lP1,D_mc2m )
-  !$OMP THREADPRIVATE( hdif_B,hdif_V,hdif_S )
-
 
   !-- Limiting l for a given m, used in legtf
   INTEGER,ALLOCATABLE :: lStart(:),lStop(:)
   INTEGER,ALLOCATABLE :: lStartP(:),lStopP(:)
   LOGICAL,ALLOCATABLE :: lmOdd(:),lmOddP(:)
-  !COMMON/llimits/lStart,lStop,lStartP,lStopP,lmOdd,lmOddP
-!!$OMP THREADPRIVATE(/llimits/)
-  !$OMP THREADPRIVATE( lStart,lStop,lStartP,lStopP,lmOdd,lmOddP )
 
   !----------------------------------------------------------------------
 CONTAINS
   SUBROUTINE initialize_horizontal_data
-
-    !$OMP PARALLEL 
 
     ALLOCATE( n_theta_cal2ord(n_theta_max) )
     ALLOCATE( theta(n_theta_max) )
@@ -117,7 +94,6 @@ CONTAINS
     ALLOCATE( lStart(n_m_max),lStop(n_m_max) )
     ALLOCATE( lStartP(n_m_max),lStopP(n_m_max) )
     ALLOCATE( lmOdd(n_m_max),lmOddP(n_m_max) )
-    !$OMP END PARALLEL
 
   END SUBROUTINE initialize_horizontal_data
 !***************************************************************

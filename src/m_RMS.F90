@@ -5,7 +5,7 @@
 
 MODULE RMS
   USE truncation
-  USE blocking, only: nThreadsMax
+  !USE blocking, ONLY: nThreadsMax
 
   IMPLICIT NONE
 
@@ -69,7 +69,7 @@ MODULE RMS
 
 CONTAINS
   SUBROUTINE initialize_RMS
-
+    INTEGER,PARAMETER :: nThreadsMax=1
   ALLOCATE( dtBPol2hInt(n_r_maxMag,nThreadsMax) )
   ALLOCATE( dtBTor2hInt(n_r_maxMag,nThreadsMax) )
   ALLOCATE( dtBPolAs2hInt(n_r_maxMag,nThreadsMax) )

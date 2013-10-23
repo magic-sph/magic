@@ -199,12 +199,12 @@ SUBROUTINE dtBrms(time)
      DO nR=1,n_r_max
         CALL hInt2dPol(workA(1,nR),2,lm_max, &
              dtBPol2hInt(nR,1),dtBPolAs2hInt(nR,1),lo_map)
-        DO n=2,nThreadsLMmax
-           dtBPol2hInt(nR,1)  = dtBPol2hInt(nR,1)   + dtBPol2hInt(nR,n)
-           dtBPolAs2hInt(nR,1)= dtBPolAs2hInt(nR,1) + dtBPolAs2hInt(nR,n)
-           dtBTor2hInt(nR,1)  = dtBTor2hInt(nR,1)   + dtBTor2hInt(nR,n)
-           dtBTorAs2hInt(nR,1)= dtBTorAs2hInt(nR,1) + dtBTorAs2hInt(nR,n)
-        END DO
+        !DO n=2,nThreadsLMmax
+        !   dtBPol2hInt(nR,1)  = dtBPol2hInt(nR,1)   + dtBPol2hInt(nR,n)
+        !   dtBPolAs2hInt(nR,1)= dtBPolAs2hInt(nR,1) + dtBPolAs2hInt(nR,n)
+        !   dtBTor2hInt(nR,1)  = dtBTor2hInt(nR,1)   + dtBTor2hInt(nR,n)
+        !   dtBTorAs2hInt(nR,1)= dtBTorAs2hInt(nR,1) + dtBTorAs2hInt(nR,n)
+        !END DO
      END DO
      dtBPolRms  =rInt_R(dtBPol2hInt(1,1),n_r_max, &
           &             n_r_max,drx,i_costf_init,d_costf_init)

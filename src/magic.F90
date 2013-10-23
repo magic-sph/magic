@@ -139,11 +139,13 @@
     USE parallel_mod
     use Namelists
     use step_time_mod, only: initialize_step_time, step_time
-    USE timing, only: get_resetTime,writeTime,wallTime
+    USE timing, only: writeTime,wallTime
     USE communications, only:initialize_communications
     USE power, only: initialize_output_power
     use outPar_mod
-
+#ifdef WITH_LIKWID
+#   include "likwid_f90.h"
+#endif
     IMPLICIT NONE
 
 !-- Local variables:
@@ -178,12 +180,13 @@
 #endif
     PERFINIT
     PERFON('main')
-
+    LIKWID_INIT
+    LIKWID_ON('main')
     CALL parallel
 
 !--- Read starting time
     IF ( rank.eq.0 ) THEN
-        CALL get_resetTime(resetTime)
+       !CALL get_resetTime(resetTime)
         CALL wallTime(runTimeStart)
         WRITE(*,*)
         message='!--- PROGRAM MAGIC3.44, 31 Aug. 2010, BY JW ---!'
@@ -308,10 +311,10 @@
                 WRITE(nO,*) '!!! REGULAR END OF PROGRAM MAGIC !!!'
             END IF
             WRITE(nO,*)
-            WRITE(nO,'('' max. thread number in  R-loop='',i3)') &
-                  nThreadsRmax
-            WRITE(nO,'('' max. thread number in LM-loop='',i3)') &
-                  nThreadsLMmax
+            !WRITE(nO,'('' max. thread number in  R-loop='',i3)') &
+            !      nThreadsRmax
+            !WRITE(nO,'('' max. thread number in LM-loop='',i3)') &
+            !      nThreadsLMmax
             WRITE(nO,*)
             CALL writeTime(nO,'! Total run time:',runTime)
             WRITE(nO,*)
@@ -333,6 +336,8 @@
 
     PERFOFF
     PERFOUT('main')
+    LIKWID_OFF('main')
+    LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
     call mpi_finalize(ierr)

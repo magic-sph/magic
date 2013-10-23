@@ -25,7 +25,7 @@ MODULE blocking
   !  since nLMBs must be a multiple of nThreadsUse!
 
   INTEGER,PARAMETER :: nChunk=512
-  INTEGER :: nThreadsMax
+  !INTEGER :: nThreadsMax
   ! nthreads > 1
   INTEGER,POINTER :: lm2(:,:),lm2l(:),lm2m(:)
   INTEGER,POINTER :: lm2mc(:),l2lmAS(:)
@@ -95,7 +95,7 @@ MODULE blocking
   INTEGER :: nThetaBs,sizeThetaB
 contains
   SUBROUTINE initialize_blocking
-    integer :: nThreadsAva
+    !INTEGER :: nThreadsAva
 
     REAL(kind=8) :: load
     INTEGER :: iLoad
@@ -113,35 +113,6 @@ contains
        OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
     END IF
 
-    !--- Setting and checking thread number
-    !    The number of threads can be selected by the input
-    !    variable nThreadsRun. If nThreadsRun=0 I check
-    !    use the number of processors available.
-#ifdef WITHOMP
-    nThreadsAva=OMP_GET_NUM_PROCS()
-#else
-    nThreadsAva=1
-#endif
-    IF ( nThreadsRun == 0 .OR. nThreadsRun > nThreadsAva ) THEN
-       nThreads=nThreadsAva
-    ELSE
-       nThreads=nThreadsRun
-    END IF
-#ifdef WITHOMP
-    CALL OMP_SET_NUM_THREADS(nThreads)
-    WRITE(*,*)
-    WRITE(*,*) '! Max thread number available :',nThreadsAva
-    WRITE(*,*) '! Max thread number demanded  :',nThreadsRun
-    WRITE(*,*) '! Number of threads I will use:',nThreads
-    WRITE(*,*)
-    WRITE(nLF,*)
-    WRITE(nLF,*) '! Max thread number available :',nThreadsAva
-    WRITE(nLF,*) '! Max thread number demanded  :',nThreadsRun
-    WRITE(nLF,*) '! Number of threads I will use:',nThreads
-    WRITE(nLF,*)
-#endif
-
-
     IF (rank.EQ.0) THEN
        WRITE(message,*) '! Number of ranks I will use:',n_procs
        call logWrite(message)
@@ -149,7 +120,7 @@ contains
 
     nLMBs = n_procs
     nLMBs_per_rank = nLMBs/n_procs
-    nThreadsMax = 1
+    !nThreadsMax = 1
     !PRINT*,"nLMBs first = ",nLMBs
     sizeLMB=(lm_max-1)/nLMBs+1
     !nLMBs = nLMBs - (nLMBs*sizeLMB-lm_max)/sizeLMB
@@ -166,36 +137,20 @@ contains
           nLMBs=nLMBs-iLoad
        END IF
     END IF
-    !PRINT*,"nLMBs final = ",nLMBs
     ALLOCATE( lmStartB(nLMBs),lmStopB(nLMBs) )
-    !ALLOCATE( nLMBs2(nLMBs),sizeLMB2(l_max+1,nLMBs) )
-    !ALLOCATE( lm22lm(sizeLMB2max,l_max+1,nLMBs) )
-    !ALLOCATE( lm22l(sizeLMB2max,l_max+1,nLMBs) )
-    !ALLOCATE( lm22m(sizeLMB2max,l_max+1,nLMBs) )
 
     nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
 
-
-    IF ( l_RMS .AND. nThreads > nThreadsMax ) THEN
-       IF (rank.EQ.0) THEN
-          WRITE(*,*) '! Too small value of nThreadsMax !'
-          WRITE(*,*) '! for calculating RMS forces!'
-          WRITE(*,*) '! See c_RMS.f!'
-          WRITE(*,*) '! Increase nThreadsMax in m_blocking.F90!'
-       END IF
-       STOP
-    END IF
-
     !--- Get radial blocking
-    IF ( MOD(n_r_max-1,nThreads) /= 0 ) THEN
+    IF ( MOD(n_r_max-1,n_procs) /= 0 ) THEN
        IF (rank.EQ.0) THEN
-          WRITE(*,*) 'Number of threads has to be multiple of n_r_max-1!'
-          WRITE(*,*) 'nThreads :',nThreads
+          WRITE(*,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
+          WRITE(*,*) 'n_procs :',n_procs
           WRITE(*,*) 'n_r_max-1:',n_r_max-1
        END IF
        STOP
     END IF
-    sizeRB=(n_r_max-1)/nThreads
+    sizeRB=(n_r_max-1)/n_procs
 
     !--- Calculate lm and ml blocking:
     DO n=1,nLMBs
@@ -317,7 +272,7 @@ contains
        WRITE(*,*) '!    Number of LM-blocks:',nLMBs
        WRITE(*,*) '!    Size   of LM-blocks:',sizeLMB
        WRITE(*,*) '!               nChunk  :',nChunk
-       WRITE(*,*) '!               nThreads:',nThreads
+       !WRITE(*,*) '!               nThreads:',nThreads
        WRITE(*,*)
        WRITE(*,*) '! Number of theta blocks:',nThetaBs
        WRITE(*,*) '!   size of theta blocks:',sizeThetaB
@@ -327,7 +282,7 @@ contains
        WRITE(nLF,*) '!    Number of LM-blocks:',nLMBs
        WRITE(nLF,*) '!    Size   of LM-blocks:',sizeLMB
        WRITE(nLF,*) '!               nChunk  :',nChunk
-       WRITE(nLF,*) '!               nThreads:',nThreads
+       !WRITE(nLF,*) '!               nThreads:',nThreads
        WRITE(nLF,*)
        WRITE(nLF,*) '! Number of theta blocks:',nThetaBs
        WRITE(nLF,*) '!   size of theta blocks:',sizeThetaB

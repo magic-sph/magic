@@ -14,7 +14,6 @@ MODULE fft_JW
   INTEGER :: nd
   INTEGER :: i_fft_init(ni)
   REAL(kind=8),ALLOCATABLE ::  d_fft_init(:)
-  !$OMP THREADPRIVATE( i_fft_init,d_fft_init )
 
   INTERFACE fft_thetab
      module procedure fft_thetab_real
@@ -54,10 +53,7 @@ CONTAINS
 
     !-- end of declaration
     !-------------------------------------------------------------------
-    !$OMP MASTER
     nd = 3*(n/2)
-    !$OMP END MASTER
-    !$OMP BARRIER
 
     !-- For Fourier transform (calculated in init_fft)
     ALLOCATE( d_fft_init(nd) )
@@ -149,9 +145,9 @@ CONTAINS
 
     REAL(kind=8) :: work(ld_f,nrep)
 
-    PERFON('fft2r')
+    !PERFON('fft2r')
     CALL fftJW(f,ld_f,n_phi_max,1,nrep,work,ld_f,nrep,i_fft_init,d_fft_init)
-    PERFOFF
+    !PERFOFF
   END SUBROUTINE fft_to_real
 
   !-------------------------------------------------------------------
@@ -164,12 +160,12 @@ CONTAINS
 
     !---------------------------------------------------------------
 
-    PERFON('fft_thc')
+    !PERFON('fft_thc')
     !WRITE(*,"(6(A,I6))") "fft_thetab_cmplx: nrp = ",nrp,", nfs = ", nfs,&
     !     &", size(f) = ",SIZE(f),", n_phi_max = ",n_phi_max,", dir = ",dir,", sizeThetaB = ",sizeThetaB
     !flush(6)
     CALL fftJW(f,nrp,n_phi_max,dir,sizeThetaB,work,nrp,nfs,i_fft_init,d_fft_init)
-    PERFOFF
+    !PERFOFF
   END SUBROUTINE fft_thetab_cmplx
 
   SUBROUTINE fft_thetab_real(f,dir)
@@ -179,11 +175,11 @@ CONTAINS
 
     REAL(kind=8) :: work(nrp,nfs)
 
-    PERFON('fft_thr')
+    !PERFON('fft_thr')
     !---------------------------------------------------------------
     CALL fftJW(f,nrp,n_phi_max,dir,sizeThetaB, &
          work,nrp,nfs,i_fft_init,d_fft_init)
-    PERFOFF
+    !PERFOFF
   END SUBROUTINE fft_thetab_real
 
 END MODULE fft_JW
