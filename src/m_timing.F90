@@ -113,6 +113,7 @@ contains
 
   END FUNCTION time2ms
 
+#if 0
   !------------------------------------------------------------------
   SUBROUTINE subTime(timeStart,timeStop,timeD)
     !  Returns time passed between timeStop and timeStart.
@@ -167,7 +168,30 @@ contains
     CALL ms2time(msDiff,timeD)
 
   END SUBROUTINE subTime
+#else
+  !------------------------------------------------------------------
+  SUBROUTINE subTime(timeStart,timeStop,timeD)
+    !  Returns time passed between timeStop and timeStart.
+    !  Note timeStop has to be younger than timeStart, otherwise
+    !  24 hours are added. This is necessary on systems like the IBM
+    !  where the time counter as reset every day at midnight.
+    !------------------------------------------------------------------
 
+    INTEGER,DIMENSION(4),INTENT(IN) :: timeStart,timeStop
+    INTEGER,DIMENSION(4),intent(OUT) :: timeD
+
+    INTEGER(kind=8), PARAMETER :: msDay=1000*24*3600
+    INTEGER(kind=8) :: msDiff,msStart,msStop
+    !------------------------------------------------------------------
+
+    msStart=time2ms(timeStart)
+    msStop =time2ms(timeStop)
+
+    msDiff=msStop-msStart
+    CALL ms2time(msDiff,timeD)
+
+  END SUBROUTINE subTime
+#endif
   !------------------------------------------------------------------
   LOGICAL FUNCTION lTimeLimit(time,timeMax)
     !  True when time exeeds timeMax
@@ -241,7 +265,7 @@ contains
   end SUBROUTINE meanTime
 
   !------------------------------------------------------------------
-
+#if 0
   LOGICAL FUNCTION lNegTime(time1,time2)
     !  Negative passed time? Means we have passed midnight.
     !  The wallclock time is reset to zero on some
@@ -266,6 +290,26 @@ contains
     END IF
 
   end FUNCTION lNegTime
+#else
+  LOGICAL FUNCTION lNegTime(time1,time2)
+    !  Negative passed time? Means we have passed midnight.
+    !  The wallclock time is reset to zero on some
+    !  computers at midnight.
+    !------------------------------------------------------------------
+
+    INTEGER, dimension(4) :: time1,time2
+    INTEGER(kind=8) :: tms1,tms2
+
+    tms1=time2ms(time1)
+    tms2=time2ms(time2)
+    IF ( tms2 < tms1-1 ) THEN
+       lNegTime=.TRUE.
+    ELSE
+       lNegTime=.FALSE.
+    END IF
+
+  end FUNCTION lNegTime
+#endif
   !------------------------------------------------------------------
   SUBROUTINE writeTime(nOut,text,time)
     !  Returns time passed between timeStop and timeStart.

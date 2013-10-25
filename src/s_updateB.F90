@@ -445,57 +445,39 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
 
   !PERFON('rad_der')
   !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
-  CALL costf1(b,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+  CALL costf1(b,ulm_realMag-llm_realMag+1,&
+       &      lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &      dbdtLast,i_costf_init,d_costf_init)
-  CALL get_ddr(b,db,ddb,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+  CALL get_ddr(b,db,ddb,ulm_realMag-llm_realMag+1,&
+       &       lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &       n_r_max,n_cheb_max,dbdtLast,djdtLast, &
        &       i_costf_init,d_costf_init,drx,ddrx)
-  CALL costf1(aj,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+  CALL costf1(aj,ulm_realMag-llm_realMag+1,&
+       &      lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &      dbdtLast,i_costf_init,d_costf_init)
-  CALL get_ddr(aj,dj,ddj,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+  CALL get_ddr(aj,dj,ddj,ulm_realMag-llm_realMag+1,&
+       &       lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
        &       n_r_max,n_cheb_max,dbdtLast,djdtLast, &
        &       i_costf_init,d_costf_init,drx,ddrx)
-  !CALL costf1(b,lm_max_real,lmStart_real,lmStop_real, &
-  !     dbdtLast,i_costf_init,d_costf_init)
-  !CALL get_ddr(b,db,ddb,lm_max_real,lmStart_real,lmStop_real, &
-  !     n_r_max,n_cheb_max,dbdtLast,djdtLast, &
-  !     i_costf_init,d_costf_init,drx,ddrx)
-  !CALL costf1(aj,lm_max_real,lmStart_real,lmStop_real, &
-  !     dbdtLast,i_costf_init,d_costf_init)
-  !CALL get_ddr(aj,dj,ddj,lm_max_real,lmStart_real,lmStop_real, &
-  !     n_r_max,n_cheb_max,dbdtLast,djdtLast, &
-  !     i_costf_init,d_costf_init,drx,ddrx)
 
   !-- Same for inner core:
   IF ( l_cond_ic ) THEN
-     CALL costf1(b_ic,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
-          dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
+     CALL costf1(b_ic,ulm_realMag-llm_realMag+1,&
+          &      lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+          &      dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
      CALL get_ddr_even( b_ic,db_ic,ddb_ic, &
           & ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
           & n_r_ic_max,n_cheb_ic_max,dr_fac_ic,dbdtLast,djdtLast, &
           & i_costf1_ic_init,d_costf1_ic_init, &
           & i_costf2_ic_init,d_costf2_ic_init)
-     CALL costf1(aj_ic,ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
+     CALL costf1(aj_ic,ulm_realMag-llm_realMag+1,&
+          & lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
           & dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
      CALL get_ddr_even( aj_ic,dj_ic,ddj_ic, &
           & ulm_realMag-llm_realMag+1,lmStart_real-llm_realMag+1,lmStop_real-llm_realMag+1, &
           & n_r_ic_max,n_cheb_ic_max,dr_fac_ic,dbdtLast,djdtLast, &
           & i_costf1_ic_init,d_costf1_ic_init, &
           & i_costf2_ic_init,d_costf2_ic_init)
-     !CALL costf1(b_ic,lm_max_real,lmStart_real,lmStop_real, &
-     !     dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
-     !CALL get_ddr_even( b_ic,db_ic,ddb_ic, &
-     !     & lm_max_real,lmStart_real,lmStop_real, &
-     !     & n_r_ic_max,n_cheb_ic_max,dr_fac_ic,dbdtLast,djdtLast, &
-     !     & i_costf1_ic_init,d_costf1_ic_init, &
-     !     & i_costf2_ic_init,d_costf2_ic_init)
-     !CALL costf1(aj_ic,lm_max_real,lmStart_real,lmStop_real, &
-     !     & dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
-     !CALL get_ddr_even( aj_ic,dj_ic,ddj_ic, &
-     !     & lm_max_real,lmStart_real,lmStop_real, &
-     !     & n_r_ic_max,n_cheb_ic_max,dr_fac_ic,dbdtLast,djdtLast, &
-     !     & i_costf1_ic_init,d_costf1_ic_init, &
-     !     & i_costf2_ic_init,d_costf2_ic_init)
   END IF
   !PERFOFF
   !-- We are now back in radial space !
