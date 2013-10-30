@@ -30,10 +30,11 @@ contains
     !    can be used to get the real wallclock time.
 
     dbl_seconds = MPI_Wtime()
+    !WRITE(*,"(A,ES20.12)") "MPI_Wtime = ",dbl_seconds
     !CALL SYSTEM_CLOCK(count,countRate,countMax)
 
     !mSeconds=IDINT(1.D3*DBLE(count)/DBLE(countRate))
-    mSeconds = INT(1000.0*dbl_seconds)
+    mSeconds = INT(1000.0*dbl_seconds,8)
     CALL ms2time(mSeconds,time)
 
   END SUBROUTINE wallTime
@@ -113,62 +114,6 @@ contains
 
   END FUNCTION time2ms
 
-#if 0
-  !------------------------------------------------------------------
-  SUBROUTINE subTime(timeStart,timeStop,timeD)
-    !  Returns time passed between timeStop and timeStart.
-    !  Note timeStop has to be younger than timeStart, otherwise
-    !  24 hours are added. This is necessary on systems like the IBM
-    !  where the time counter as reset every day at midnight.
-    !------------------------------------------------------------------
-
-    INTEGER, dimension(4) :: timeD,timeStart,timeStop
-    INTEGER(kind=8) :: msDiff,msStart,msStop
-
-    INTEGER :: count,countRate,countMax
-    INTEGER(kind=8) :: msReset
-
-    INTEGER(kind=8), PARAMETER :: msDay=1000*24*3600
-
-    !------------------------------------------------------------------
-
-    CALL SYSTEM_CLOCK(count,countRate,countMax)
-    msReset=IDINT(1.D3*DBLE(countMax)/DBLE(countRate))
-    msStart=time2ms(timeStart)
-    msStop =time2ms(timeStop)
-
-    IF ( msStop < msStart ) THEN
-       IF ( msStop > msStart-1 ) THEN
-          ! Some weird inprecision:
-          msStop=msStop+1
-       ELSE
-          IF ( msDay < msReset ) THEN
-             IF ( msStop > msStart-msDay ) THEN
-                ! Thats a day reset:
-                msStop=msStop+msDay
-             ELSE IF ( msStop > msStart-msReset ) THEN
-                ! Thats the overrun reset:
-                msStop=msStop+msReset
-             ELSE
-                WRITE(*,*) 'Timing problem!'
-                WRITE(*,*) 'Negative time in ms:',msStop-msStart
-                STOP
-             END IF
-          ELSE IF ( msStop > msStart-msReset ) THEN
-             ! Thats the overrun reset:
-             msStop=msStop+msReset
-          ELSE
-             WRITE(*,*) 'Timing problem!'
-             WRITE(*,*) 'Negative time in ms:',msStop-msStart
-             STOP
-          END IF
-       END IF
-    END IF
-    msDiff=msStop-msStart
-    CALL ms2time(msDiff,timeD)
-
-  END SUBROUTINE subTime
-#else
   !------------------------------------------------------------------
   SUBROUTINE subTime(timeStart,timeStop,timeD)
     !  Returns time passed between timeStop and timeStart.
@@ -180,7 +125,6 @@ contains
     INTEGER,DIMENSION(4),INTENT(IN) :: timeStart,timeStop
     INTEGER,DIMENSION(4),intent(OUT) :: timeD
 
-    INTEGER(kind=8), PARAMETER :: msDay=1000*24*3600
     INTEGER(kind=8) :: msDiff,msStart,msStop
     !------------------------------------------------------------------
 
@@ -191,7 +135,7 @@ contains
     CALL ms2time(msDiff,timeD)
 
   END SUBROUTINE subTime
-#endif
+
   !------------------------------------------------------------------
   LOGICAL FUNCTION lTimeLimit(time,timeMax)
     !  True when time exeeds timeMax
@@ -265,32 +209,6 @@ contains
   end SUBROUTINE meanTime
 
   !------------------------------------------------------------------
-#if 0
-  LOGICAL FUNCTION lNegTime(time1,time2)
-    !  Negative passed time? Means we have passed midnight.
-    !  The wallclock time is reset to zero on some
-    !  computers at midnight.
-    !------------------------------------------------------------------
-
-    INTEGER, dimension(4) :: time1,time2
-    INTEGER(kind=8) :: tms1,tms2
-
-    INTEGER :: count,countRate,countMax
-
-    !------------------------------------------------------------------
-
-    CALL SYSTEM_CLOCK(count,countRate,countMax)
-
-    tms1=time2ms(time1)
-    tms2=time2ms(time2)
-    IF ( countRate*tms2 < countRate*tms1-1 ) THEN
-       lNegTime=.TRUE.
-    ELSE
-       lNegTime=.FALSE.
-    END IF
-
-  end FUNCTION lNegTime
-#else
   LOGICAL FUNCTION lNegTime(time1,time2)
     !  Negative passed time? Means we have passed midnight.
     !  The wallclock time is reset to zero on some
@@ -309,7 +227,7 @@ contains
     END IF
 
   end FUNCTION lNegTime
-#endif
+
   !------------------------------------------------------------------
   SUBROUTINE writeTime(nOut,text,time)
     !  Returns time passed between timeStop and timeStart.
@@ -333,7 +251,7 @@ contains
     days=time(1)/hoursDay
     timeH=time(1)-days*hoursDay
     WRITE(nOut,                                &
-         &       '(/,1x,A," ",i2,"d : ",i2,"h : ",i2, &
+         &       '(/,1x,A," ",i4,"d : ",i2,"h : ",i2, &
          &       "m : ",i2,"s : ",i3,"ms")')        &
          &       text,days,timeH,time(2),time(3),time(4)
 
