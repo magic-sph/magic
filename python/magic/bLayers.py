@@ -2,8 +2,13 @@
 import pylab as P
 import numpy as N
 from magic import MagicRadial, matder, intcheb, MagicSetup, scanDir
+from magic.setup import labTex
 from scipy.signal import argrelextrema
 from scipy.integrate import simps
+
+__author__  = "$Author$"
+__date__   = "$Date$"
+__version__ = "$Revision$"
 
 def getMaxima(rr, field):
     maxS = []
@@ -15,11 +20,16 @@ def getMaxima(rr, field):
 class BLayers(MagicSetup):
 
     def __init__(self, iplot=False, quiet=False):
+        """
+        :param iplot: a boolean to toggle plotting
+        :param quiet: a boolean to (not) display the output
+        """
         logFiles = scanDir('log.*')
         MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
         par = MagicRadial(field='bLayersR', iplot=False)
         self.varS = par.varS
         self.ss = par.entropy
+        self.uh = par.uh
         self.duh = par.duhdr
         self.rad = par.radius
         self.ro = self.rad[0]
@@ -50,38 +60,65 @@ class BLayers(MagicSetup):
 
         # First way of defining the viscous boundary layers: with duhdr
         #rViscousLayer = getMaxima(self.rad, self.duh)
-        ind = argrelextrema(self.duh, N.greater)[0]
-        if len(ind) == 0:
-            self.bcTopduh = 1.
-            self.bcBotduh = 1.
+        if self.kbotv == 1 and self.ktopv == 1:
+            ind = argrelextrema(self.duh, N.greater)[0]
+            if len(ind) == 0:
+                self.bcTopduh = 1.
+                self.bcBotduh = 1.
+            else:
+                if ind[0] < 4:
+                    self.bcTopduh = self.ro-self.rad[ind[1]]
+                else:
+                    self.bcTopduh = self.ro-self.rad[ind[0]]
+                if len(self.rad)-ind[-1] < 4:
+                    self.bcBotduh = self.rad[ind[-2]]-self.ri
+                else:
+                    self.bcBotduh = self.rad[ind[-1]]-self.ri
         else:
-            if ind[0] < 4:
-                self.bcTopduh = self.ro-self.rad[ind[1]]
+            ind = argrelextrema(self.uh, N.greater)[0]
+            if len(ind) == 0:
+                self.bcTopduh = 1.
+                self.bcBotduh = 1.
             else:
-                self.bcTopduh = self.ro-self.rad[ind[0]]
-            if len(self.rad)-ind[-1] < 4:
-                self.bcBotduh = self.rad[ind[-2]]-self.ri
-            else:
-                self.bcBotduh = self.rad[ind[-1]]-self.ri
+                if ind[0] < 4:
+                    self.bcTopduh = self.ro-self.rad[ind[1]]
+                else:
+                    self.bcTopduh = self.ro-self.rad[ind[0]]
+                if len(self.rad)-ind[-1] < 4:
+                    self.bcBotduh = self.rad[ind[-2]]-self.ri
+                else:
+                    self.bcBotduh = self.rad[ind[-1]]-self.ri
 
-        # Second way of defining the viscous boundary layers: with the viscous heating profile
+        # Second way of defining the viscous boundary layers: with 
+        # the viscous heating profile
         #rViscousLayer = getMaxima(self.rad, self.vi)
-        ind = argrelextrema(self.vi, N.greater)[0]
-        if ind[0] < 4:
-            self.bcTopDiss = self.ro-self.rad[ind[1]]
+        if self.kbotv == 1 and self.ktopv == 1:
+            ind = argrelextrema(self.vi, N.greater)[0]
+            if ind[0] < 4:
+                self.bcTopDiss = self.ro-self.rad[ind[1]]
+            else:
+                self.bcTopDiss = self.ro-self.rad[ind[0]]
+            if len(self.rad)-ind[-1] < 4:
+                self.bcBotDiss = self.rad[ind[-2]]-self.ri
+            else:
+                self.bcBotDiss = self.rad[ind[-1]]-self.ri
         else:
-            self.bcTopDiss = self.ro-self.rad[ind[0]]
-        if len(self.rad)-ind[-1] < 4:
-            self.bcBotDiss = self.rad[ind[-2]]-self.ri
-        else:
-            self.bcBotDiss = self.rad[ind[-1]]-self.ri
+            ind = argrelextrema(-self.vi, N.greater)[0]
+            if ind[0] < 4:
+                self.bcTopDiss = self.ro-self.rad[ind[1]]
+            else:
+                self.bcTopDiss = self.ro-self.rad[ind[0]]
+            if len(self.rad)-ind[-1] < 4:
+                self.bcBotDiss = self.rad[ind[-2]]-self.ri
+            else:
+                self.bcBotDiss = self.rad[ind[-1]]-self.ri
 
 
         # Convective Rol in the thermal boundary Layer
         par = MagicRadial(field='parR', iplot=False)
         kin = MagicRadial(field='eKinR', iplot=False)
         ekinNas = kin.ekin_pol+kin.ekin_tor-kin.ekin_pol_axi-kin.ekin_tor_axi
-        ReR = N.sqrt(2.*ekinNas/par.radius**2/(4.*N.pi))
+        ReR = N.sqrt(2.*abs(ekinNas)/par.radius**2/(4.*N.pi))
         RolC = ReR*par.ek/par.dlVc
 
         y = RolC[par.radius >= self.ro-self.bcTopSlope]
@@ -107,27 +144,37 @@ class BLayers(MagicSetup):
         ax.plot(self.rad, slopeTop, 'k--')
         ax.plot(self.rad, slopeBot, 'k--')
         ax.set_ylim(self.ss[0], self.ss[-1])
-        ax.set_ylabel('Entropy', fontsize=18)
+        ax.set_ylabel('Entropy')
         ax1 = ax.twinx()
         ax1.plot(self.rad, self.varS/self.varS.max(), 'g-')
         ax1.axvline(self.ro-self.bcTopVarS, color='k', linestyle=':')
         ax1.axvline(self.ri+self.bcBotVarS, color='k', linestyle=':')
         ax1.set_ylim(0, 1)
-        ax1.set_ylabel('var(s)', fontsize=18)
-        ax.set_xlabel('Radius', fontsize=18)
+        ax1.set_ylabel('var(s)')
+        ax.set_xlabel('Radius')
         ax.set_xlim(self.rad[-1], self.rad[0])
 
         fig1 = P.figure()
         ax = fig1.add_subplot(111)
-        ax.plot(self.rad, self.duh/self.duh.max())
+        if self.kbotv == 1 and self.ktopv == 1:
+            ax.plot(self.rad, self.duh/self.duh.max())
+            if labTex:
+                ax.set_ylabel(r'$\partial u_h/\partial r$')
+            else:
+                ax.set_ylabel('duh/dr')
+        else:
+            ax.plot(self.rad, self.uh/self.uh.max())
+            if labTex:
+                ax.set_ylabel(r'$u_h$')
+            else:
+                ax.set_ylabel('uh')
         ax.axvline(self.ro-self.bcTopduh, color='k', linestyle='--')
         ax.axvline(self.ri+self.bcBotduh, color='k', linestyle='--')
         ax.plot(self.rad, self.vi/self.vi.max())
         ax.axvline(self.ro-self.bcTopDiss, color='k', linestyle=':')
         ax.axvline(self.ri+self.bcBotDiss, color='k', linestyle=':')
         ax.set_xlim(self.rad[-1], self.rad[0])
-        ax.set_xlabel('Radius', fontsize=18)
-        ax.set_ylabel('duh/dr', fontsize=18)
+        ax.set_xlabel('Radius')
 
     def __str__(self):
         if self.ek == -1:

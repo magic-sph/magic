@@ -1,16 +1,11 @@
 # -*- coding: utf-8 -*-
 from magic import MagicGraph, MagicSetup
+from magic.setup import labTex
 from libmagic import *
 import pylab as P
 import os
 import numpy as N
-from matplotlib import rc, rcParams
 from scipy.integrate import trapz
-#rc('ps', useafm=True)
-rc('text', usetex=True)
-rc('font',**{'family':'serif','serif':['Computer Modern']})
-#P.rc('axes', facecolor='None')
-#P.rc('savefig', facecolor='None', edgecolor='None')
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -76,7 +71,10 @@ class Surf:
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
-            label = r'$v_s$'
+            if labTex:
+                label = r'$v_s$'
+            else:
+                label = r'vs'
         elif field in ('Vz', 'vz'):
             vr = self.gr.vr
             vt = self.gr.vtheta
@@ -85,9 +83,12 @@ class Surf:
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
-            label = r'$v_z$'
+            if labTex:
+                label = r'$v_z$'
+            else:
+                label = r'vz'
         else:
-            data, label = selectField(self.gr, field)
+            data, label = selectField(self.gr, field, labTex)
 
         phi = N.linspace(-N.pi, N.pi, self.gr.nphi)
         theta = N.linspace(N.pi/2, -N.pi/2, self.gr.ntheta)
@@ -109,7 +110,7 @@ class Surf:
                 else:
                     fig = P.figure(figsize=(8,4.5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.87])
-                ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), 
+                ax.set_title('%s: r/ro = %.3f' % (label, rad), 
                              fontsize=24)
             else:
                 if cbar:
@@ -131,7 +132,7 @@ class Surf:
                 else:
                     fig = P.figure(figsize=(5,5.5))
                     ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-                ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), 
+                ax.set_title('%s: r/ro = %.3f' % (label, rad), 
                              fontsize=24)
             else:
                 if cbar:
@@ -168,7 +169,7 @@ class Surf:
             xxin, yyin  = hammer2cart(theta, N.pi)
             ax.plot(xxin, yyin, 'k-')
             ax.plot(xxout, yyout, 'k-')
-            P.axis('off')
+            ax.axis('off')
 
         rprof = data[..., indPlot]
         rprof = symmetrize(rprof, self.gr.minc)
@@ -198,10 +199,10 @@ class Surf:
         l, b, w, h = pos.bounds
         if cbar:
             if tit:
-                cax = P.axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
+                cax = fig.add_axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
             else:
-                cax = P.axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
-            mir = P.colorbar(im, cax=cax)
+                cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
+            mir = fig.colorbar(im, cax=cax)
 
         # Normalise around zero
         if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
@@ -233,7 +234,10 @@ class Surf:
             dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta/2,:], spectral=False,
                          eta=self.gr.radratio, exclude=True)
             equator = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta/2,:]))
-            label = r'$\omega_z$'
+            if labTex:
+                label = r'$\omega_z$'
+            else:
+                label = r'omega'
         elif field in ('vopot'):
             philoc = N.linspace(0., 2.*N.pi/self.gr.minc, self.gr.npI)
             rrloc, pphiloc = N.meshgrid(self.gr.radius, philoc)
@@ -248,9 +252,10 @@ class Surf:
             equator = (wz + 2./(self.gr.ek))/(rho0*height)
             #equator = wz - 2./(self.gr.ek)*N.log(height)
             label = r'PV'
-            P.figure()
-            P.plot(self.gr.radius, equator.mean(axis=0))
-            P.plot(self.gr.radius, 2./(self.gr.ek)/(rho0*height))
+            fig1 = P.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.gr.radius, equator.mean(axis=0))
+            ax1.plot(self.gr.radius, 2./(self.gr.ek)/(rho0*height))
         elif field in ('rey'):
             temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
@@ -258,16 +263,21 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             data =  rho0 * self.gr.vr * vp
-            label = r'$\rho v_s v_\phi$'
+            if labTex:
+                label = r'$\rho v_s v_\phi$'
+            else:
+                label = r'rho vs vp'
         elif field in ('mr'):
             temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
             data =  rho0 * self.gr.vr
-            label = r'$\rho v_r$'
-
+            if labTex:
+                label = r'$\rho v_r$'
+            else:
+                label = r'rho vr'
         else:
-            data, label = selectField(self.gr, field)
+            data, label = selectField(self.gr, field, labTex)
 
         if field not in ('vortz', 'vopot'):
             equator = data[:, self.gr.ntheta/2,:]
@@ -304,7 +314,7 @@ class Surf:
         ax.plot(self.gr.radius[-1] * N.cos(phi), self.gr.radius[-1]*N.sin(phi),
                'k-')
 
-        P.axis('off')
+        ax.axis('off')
 
         # Variable conductivity: add a dashed line
         if hasattr(self.gr, 'nVarCond'):
@@ -320,10 +330,10 @@ class Surf:
         l, b, w, h = pos.bounds
         if cbar:
             if tit:
-                cax = P.axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
+                cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
             else:
-                cax = P.axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
-            mir = P.colorbar(im, cax=cax)
+                cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
+            mir = fig.colorbar(im, cax=cax)
 
         # Normalise data 
         if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
@@ -334,12 +344,12 @@ class Surf:
         # If avg is requested, then display an additional figure
         # with azimutal average 
         if avg:
-            P.figure()
-            P.plot(self.gr.radius, equator.mean(axis=0))
-            P.xlabel('Radius', fontsize=18)
-            P.ylabel(label, fontsize=18)
-            P.xlim(self.gr.radius.min(), self.gr.radius.max())
-            P.subplots_adjust(right=0.95, top=0.95)
+            fig1 = P.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.gr.radius, equator.mean(axis=0))
+            ax1.set_xlabel('Radius')
+            ax1.set_ylabel(label)
+            ax1.set_xlim(self.gr.radius.min(), self.gr.radius.max())
 
     def avg(self, field='vphi', levels=16, cm='RdYlBu_r', normed=True,
             vmax=None, vmin=None, cbar=True, tit=True,
@@ -425,7 +435,10 @@ class Surf:
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
             label = 'Vz'
         elif field in ('Omega'):
-            label = r'$\Omega$'
+            if labTex:
+                label = r'$\Omega$'
+            else:
+                label = 'omega'
             th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
             rr2D = N.zeros_like(th2D)
             for i in range(self.gr.ntheta):
@@ -433,8 +446,25 @@ class Surf:
                 rr2D[i, :] = self.gr.radius
             s2D = rr2D * N.sin(th2D)
             data = self.gr.vphi/s2D + 1./self.gr.ek
+        elif field in ('jphi'):
+            if labTex:
+                label = r'$j_\phi$'
+            else:
+                label = 'jphi'
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros_like(th2D)
+            for i in range(self.gr.ntheta):
+                th2D[i, :] = self.gr.colatitude[i]
+                rr2D[i, :] = self.gr.radius
+            Brm = self.gr.Br.mean(axis=0)
+            Btm = self.gr.Btheta.mean(axis=0)
+            data = 1./rr2D*( rderavg(rr2D*Btm, eta=self.gr.radratio) - \
+                             thetaderavg(Brm) )
         elif field in ('omeffect'):
-            label = r'$\Omega$-effect'
+            if labTex:
+                label = r'$\Omega$-effect'
+            else:
+                label = r'omega-effect'
             rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
             th2D = N.zeros_like(rr2D)
             for i in range(self.gr.ntheta):
@@ -466,7 +496,10 @@ class Surf:
             ssm = self.gr.entropy.mean(axis=0)
             data = rho0*temp0*rderavg(ssm, self.gr.radratio, spectral=True, exclude=False)
         elif field in ('alphaeffect'):
-            label = r'$-\alpha \langle B_\phi\rangle$'
+            if labTex:
+                label = r'$-\alpha \langle B_\phi\rangle$'
+            else:
+                label = 'alpha*Bphi'
             th3D = N.zeros_like(self.gr.vphi)
             rr3D = N.zeros_like(th3D)
             for i in range(self.gr.ntheta):
@@ -503,14 +536,20 @@ class Surf:
             data = -self.gr.Bphi.mean(axis=0)*(vr*wr+vp*wp+vt*wt)
             
         elif field in ('emf'):
-            label = r"$\langle u'\times B'\rangle_\phi$"
+            if labTex:
+                label = r"$\langle u'\times B'\rangle_\phi$"
+            else:
+                label = 'emf'
             vrp = self.gr.vr-self.gr.vr.mean(axis=0)
             vtp = self.gr.vtheta-self.gr.vtheta.mean(axis=0)
             brp = self.gr.Br-self.gr.Br.mean(axis=0)
             btp = self.gr.Btheta-self.gr.Btheta.mean(axis=0)
             data = vrp*btp-vtp*brp
         elif field in ('hz'):
-            label = 'Hz'
+            if labTex:
+                label = r'$H_z$'
+            else:
+                label = 'Hz'
             vr = self.gr.vr
             vt = self.gr.vtheta
             th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
@@ -557,7 +596,6 @@ class Surf:
             wp[..., -1] = wp[..., -2]
             data = self.gr.vr*wr+self.gr.vphi*wp+self.gr.vtheta*wt
             self.hel = data.mean(axis=0)
-
 
         elif field in ('poloidal'):
             label = 'poloidal field lines'
@@ -614,7 +652,10 @@ class Surf:
                            axis=0)
             #denom = 1.
         elif field in ('beta'):
-            label = r'$\beta$'
+            if labTex:
+                label = r'$\beta$'
+            else:
+                label = r'd ln rho/dr'
             temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
@@ -655,7 +696,10 @@ class Surf:
             vs = vr * N.sin(th3D) + vt * N.cos(th3D)
             data =  vs * vp
             denom = N.sqrt(N.mean(vs**2, axis=0)* N.mean(vp**2, axis=0))
-            label = r'$\langle v_s v_\phi\rangle$'
+            if labTex:
+                label = r'$\langle v_s v_\phi\rangle$'
+            else:
+                label = 'vs vphi'
         elif field == 'vortz':
             data = self.vortz
             label = 'vortz'
@@ -681,7 +725,10 @@ class Surf:
             vs = vr * N.sin(th3D) + vt * N.cos(th3D)
             data =  rho0 * vs * vp
             denom = N.sqrt(N.mean(rho0*vs**2, axis=0)* N.mean(rho0*vp**2, axis=0))
-            label = r'$C_{s\phi}$'
+            if labTex:
+                label = r'$C_{s\phi}$'
+            else:
+                label = 'Csp'
         elif field in ('Cz', 'cz'):
             vr = self.gr.vr
             vt = self.gr.vtheta
@@ -694,36 +741,15 @@ class Surf:
             vz = vr * N.cos(th3D) - vt * N.sin(th3D)
             data =  vz * vp
             denom = N.sqrt(N.mean(vz**2, axis=0)* N.mean(vp**2, axis=0))
-            label = r'$\langle v_z v_\phi\rangle$'
-        elif field in ('balance'):
-            label = r'$\partial u_z/\partial z +\beta u_r$'
-            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
-                                         self.gr.polind, self.gr.g0, self.gr.g1,
-                                         self.gr.g2)
-            data1 = beta * self.gr.vr
-            vr = self.gr.vr
-            vt = self.gr.vtheta
-            thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
-            data = (vr * N.cos(th3D) - vt * N.sin(th3D))
-        elif field in ('anel'):
-            label = r'$\beta u_r$'
-            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
-                                         self.gr.polind, self.gr.g0, self.gr.g1,
-                                         self.gr.g2)
-            data = beta * self.gr.vr
-            vr = self.gr.vr
-            vt = self.gr.vtheta
-            thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
-            vs = vr * N.sin(th3D) + vt * N.cos(th3D)
-            data *= self.vortz
+            if labTex:
+                label = r'$\langle v_z v_\phi\rangle$'
+            else:
+                label = 'vz vphi'
         elif field in ('dvzdz'):
-            label = r'$\partial u_z/\partial z$'
+            if labTex:
+                label = r'$\partial u_z/\partial z$'
+            else:
+                label = 'dvz/dz'
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
@@ -732,9 +758,9 @@ class Surf:
                 th3D[:, i, :] = thlin[i]
             data = (vr * N.cos(th3D) - vt * N.sin(th3D))
         else:
-            data, label = selectField(self.gr, field)
+            data, label = selectField(self.gr, field, labTex)
 
-        if field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz', 'hz',
+        if field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz', 'hz', 'jphi',
                          'rhocr', 'omeffect', 'poloidal', 'flux', 'meridional'):
             phiavg = data.mean(axis=0)
         elif field == 'balance':
@@ -744,7 +770,7 @@ class Surf:
         elif field == 'dvzdz':
             phiavg = zderavg(data.mean(axis=0), eta=self.gr.radratio,
                              spectral=True, exclude=True)
-        elif field in ('omeffect', 'poloidal', 'flux', 'meridional'):
+        elif field in ('omeffect', 'poloidal', 'flux', 'meridional', 'jphi'):
             phiavg = data
         else:
             ro = self.gr.radius[0]
@@ -854,31 +880,31 @@ class Surf:
                        linewidths=[0.8])
         ax.plot(self.gr.radius[0]*N.sin(th), self.gr.radius[0]*N.cos(th), 'k-')
         ax.plot(self.gr.radius[-1]*N.sin(th), self.gr.radius[-1]*N.cos(th), 'k-')
-        P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
-        P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
-        #P.axvline(0., color='k', ymin=self.gr.radius[-1])
-        P.axis('off')
+        ax.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+        ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+        #ax.axvline(0., color='k', ymin=self.gr.radius[-1])
+        ax.axis('off')
 
         # Add the colorbar at the right place
         pos = ax.get_position()
         l, b, w, h = pos.bounds
         if cbar:
             if tit:
-                cax = P.axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
+                cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
             else:
-                cax = P.axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
-            mir = P.colorbar(im, cax=cax)
+                cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
+            mir = fig.colorbar(im, cax=cax)
         
         if field == 'b2':
-            P.figure()
-            P.plot(self.gr.radius, phiavg.mean(axis=0), 'k-')
-            P.xlim(self.gr.radius.min(), self.gr.radius.max())
-            P.xlabel('Radius', fontsize=18)
-            P.ylabel('Amplitude of B', fontsize=18)
-            P.subplots_adjust(top=0.95, right=0.95)
+            fig1 = P.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.gr.radius, phiavg.mean(axis=0), 'k-')
+            ax1.set_xlim(self.gr.radius.min(), self.gr.radius.max())
+            ax1.set_xlabel('Radius')
+            ax1.set_ylabel('Amplitude of B')
             if hasattr(self.gr, 'nVarCond'):
                 if self.gr.nVarCond == 2:
-                    P.axvline(self.gr.con_RadRatio*self.gr.radius[0],
+                    ax1.axvline(self.gr.con_RadRatio*self.gr.radius[0],
                               color='k', linestyle='--')
 
 
@@ -910,7 +936,10 @@ class Surf:
         :param nGridLevs: number of grid levels
         """
         if field in ('Vs', 'vs'):
-            label = r'$\beta_h v_s$'
+            if labTex:
+                label = r'$\beta_h v_s$'
+            else:
+                label = 'beta vs'
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
@@ -919,7 +948,10 @@ class Surf:
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
         elif field in ('Vz', 'vz'):
-            label = '$v_z$'
+            if labTex:
+                label = '$v_z$'
+            else:
+                label = 'vz'
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
@@ -928,26 +960,19 @@ class Surf:
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
         elif field in ('anel'):
-            label = r'$\beta v_r$'
+            if labTex:
+                label = r'$\beta v_r$'
+            else:
+                label = r'beta vr'
             temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
             data = beta * self.gr.vr
         elif field in ('dvzdz'):
-            label = '$\partial v_z / \partial z$'
-            vr = self.gr.vr
-            vt = self.gr.vtheta
-            thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
-            for i in range(self.gr.ntheta):
-                th3D[:, i, :] = thlin[i]
-            data = vr * N.cos(th3D) - vt * N.sin(th3D)
-        elif field in ('balance'):
-            label = r'$\partial v_z / \partial z+\beta v_r$'
-            temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
-                                         self.gr.polind, self.gr.g0, self.gr.g1,
-                                         self.gr.g2)
-            data1 = beta * self.gr.vr
+            if labTex:
+                label = '$\partial v_z / \partial z$'
+            else:
+                label = 'dvz/dz'
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
@@ -956,7 +981,7 @@ class Surf:
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
         else:
-            data, label = selectField(self.gr, field)
+            data, label = selectField(self.gr, field, labTex)
 
         data = symmetrize(data, self.gr.minc)
 
@@ -971,7 +996,7 @@ class Surf:
 
         if len(lon_0) > 1:
             fig = P.figure(figsize=(2.5*len(lon_0), 5.1))
-            P.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01,
+            fig.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01,
                               wspace=0.01)
             for k, lon in enumerate(lon_0):
                 ind = N.nonzero(N.where(abs(phi-lon) \
@@ -1010,9 +1035,9 @@ class Surf:
                    'k-')
                 ax.plot(self.gr.radius[-1]*N.cos(th), 
                         self.gr.radius[-1]*N.sin(th), 'k-')
-                P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
-                P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
-                P.axis('off')
+                ax.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+                ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+                ax.axis('off')
 
                 tit1 = r'$%i^\circ$' % lon
                 ax.text(0.9, 0.9, tit1, fontsize=18,
@@ -1076,14 +1101,17 @@ class Surf:
                    'k-')
             ax.plot(self.gr.radius[-1]*N.cos(th), self.gr.radius[-1]*N.sin(th),
                    'k-')
-            P.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
-            P.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
+            ax.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
+            ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
             if grid:
                 ax.contour(xx, yy, tth, nGridLevs, colors='k', linestyles='--',
                            linewidths=0.5)
-            P.axis('off')
+            ax.axis('off')
 
-            tit1 = r'$%i^\circ$' % lon_0
+            if labTex:
+                tit1 = r'$%i^\circ$' % lon_0
+            else:
+                tit1 = '%i' % lon_0
             ax.text(0.9, 0.9, tit1, fontsize=18,
                   horizontalalignment='right',
                   verticalalignment='center',
@@ -1094,10 +1122,10 @@ class Surf:
             l, b, w, h = pos.bounds
             if cbar:
                 if tit:
-                    cax = P.axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
+                    cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
                 else:
-                    cax = P.axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
-                mir = P.colorbar(im, cax=cax)
+                    cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
+                mir = fig.colorbar(im, cax=cax)
 
             # Normalise the data
             if field not in ['entropy', 's', 'S'] and normed is True:

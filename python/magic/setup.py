@@ -1,69 +1,89 @@
 # -*- coding: utf-8 -*-
-import re
 import os
-import string
+import pylab as P
+import ConfigParser as CoPa
 
 __author__  = "$Author$"
 __date__   = "$Date$"
 __version__ = "$Revision$"
 
 
-class MagicSetup:
+path = os.environ['MAGIC_HOME']
+magicdir = path+'/python/magic'
 
-    def __init__(self, datadir='.', nml='input.nml', quiet=False):
-        logFile = re.compile(r'log\.(.*)')
-        valueInt  = re.compile(r'^[0-9]$')
-        valueReal = re.compile(r'[+-]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)')
-        valueNumber = re.compile(r'\b(([\+\-]?[0-9]+)?\.)?[0-9]*([eE][-+]?[0-9]+)?')
-        valueFalse = re.compile(r"(\.(true|false|t|f)\.)",re.I)
-        valueTrue = re.compile(r"(\.(true|t)\.)",re.I)
-        valueNone = re.compile(r"(NONE)",re.I)
-        filename = os.path.join(datadir, nml)
-        file = open(filename,'r')
-        tab = file.readlines()
-        tab2 = []
-        for i in tab:
-            if re.search('=', i) is not None:
-                st = string.replace(i, ',', ' ')
-                st = st.rstrip('\n')
-                if not st.startswith(' !'):
-                    tab2.append(st)
+parser = CoPa.RawConfigParser()
+parser.read(magicdir + '/magic.cfg')
+backend = parser.get('plots', 'backend')
+labTex = parser.getboolean('plots', 'labTex')
+# Do you want to build so libraries -> need f2py + ifort or gfortran (> 4.1)
+buildSo = parser.getboolean('libraries', 'buildLib')
+compiler = parser.get('libraries', 'compiler')
+f2pycmd = parser.get('libraries', 'f2pyexec')
 
-        for i in tab2:
-            val = string.split(i, '=')
-            rhs = val[1].strip()
-            rhs = rhs.strip('"')
-            if valueReal.match(rhs):
-                rhs = string.replace(rhs, 'D', 'e')
-                rhs = string.replace(rhs, 'd', 'e')
-                try:
-                    rhs = float(rhs)
-                except ValueError:
-                    pass
-            elif valueFalse.match(rhs):
-                rhs = False
-            elif valueTrue.match(rhs):
-                rhs = True
-            elif valueNone.match(rhs):
-                rhs = None
-            elif valueInt.match(rhs):
-                rhs = int(rhs)
-            setattr(self, val[0].strip(), rhs)
-            
-        self.ra = float(self.ra)
-        if not quiet:
-            print self
+#
+# Plots setup
+#
 
-        # Overwrite self.tag to be sure that nothing is messed up
-        if logFile.match(nml):
-            self.tag = logFile.search(nml).groups()[0]
+P.switch_backend(backend)
+P.rc('xtick.major', size=7, width=1)
+P.rc('xtick.minor', size=3.5, width=1)
+P.rc('ytick.major', size=7, width=1)
+P.rc('ytick.minor', size=3.5, width=1)
+P.rc('axes.formatter', limits=(-5,5))
 
+if labTex:
+    P.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
+    P.rc('xtick', labelsize=14)
+    P.rc('ytick', labelsize=14)
+    P.rc('legend', fontsize=14)
+    P.rc('axes', labelsize=20)
+    P.rc('text', usetex=True)
+    P.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
+else:
+    P.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
+    P.rc('xtick', labelsize=12)
+    P.rc('ytick', labelsize=12)
+    P.rc('legend', fontsize=12)
+    P.rc('axes', labelsize=16)
+    P.rc('font', size=14)
 
-    #def __repr__(self):
-        #st = 'Welcome in the run %s\n' % self.tag
-        #st += ' ---- Params ---- \n'
-        #st += 'Rayleigh = %.2e\n' % self.ra
-        #st += 'Ekman = %.2e\n' % self.ek
-        #st += 'Prandtl = %.2e\n' % self.pr
-        #st += 'Magnetic Prandtl = %.2e' % self.prmag
-        #return st
+#
+# Library setup
+#
+
+if buildSo:
+    startdir = os.getcwd()
+    os.chdir(magicdir)
+
+    # For reading G files
+    if not os.path.exists('greader.so'):
+        os.chdir('fortranLib')
+        print "Please wait: building greader..."
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader readG.f90 &> /dev/null' % (f2pycmd, compiler)
+        os.system(cmd)
+        cmd = 'mv greader.so %s' % magicdir
+        os.system(cmd)
+        os.chdir(magicdir)
+
+    # For the potential field extrapolation
+    if not os.path.exists('potential.so'):
+        os.chdir('fortranLib')
+        print "Please wait: building potential extrapolation..."
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 potential spec.f90 &> /dev/null' % (f2pycmd, compiler)
+        os.system(cmd)
+        cmd = 'mv potential.so %s' % magicdir
+        os.system(cmd)
+        os.chdir(magicdir)
+
+    # For the vtk file format convertion
+    if not os.path.exists('vtklib.so'):
+        os.chdir('fortranLib')
+        print "Please wait: building vtklib..."
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 vtklib vtkLib.f90 &> /dev/null' % (f2pycmd, compiler)
+        os.system(cmd)
+        cmd = 'mv vtklib.so %s' % magicdir
+        os.system(cmd)
+        os.chdir(magicdir)
+
+    os.chdir(startdir)
+

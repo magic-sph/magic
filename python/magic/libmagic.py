@@ -15,79 +15,139 @@ def selectField(obj, field, labTex=True):
     """
     if field in ('Bp', 'bp', 'bphi', 'Bphi'):
         data = obj.Bphi
-        label = r'$B_{\phi}$'
+        if labTex:
+            label = r'$B_{\phi}$'
+        else:
+            label = 'Bphi'
     elif field in ('Bt', 'bt', 'btheta', 'Btheta'):
         data = obj.Btheta
-        label = r'$B_{\theta}$'
+        if labTex:
+            label = r'$B_{\theta}$'
+        else:
+            label = 'Btheta'
     elif field in ('Br', 'br'):
         data = obj.Br
-        label = r'$B_r$'
+        if labTex:
+            label = r'$B_r$'
+        else:
+            label = 'Br'
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
-        label = r'$v_r$'
+        if labTex:
+            label = r'$v_r$'
+        else:
+            label = 'vr'
     elif field in ('Vtheta', 'vtheta', 'Utheta', 'utheta', 'vt', 'Vt',
                    'Ut', 'ut'):
         data = obj.vtheta
-        label = r'$v_{\theta}$'
+        if labTex:
+            label = r'$v_{\theta}$'
+        else:
+            label = 'vtheta'
     elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
         data = obj.vphi
-        label = r'$v_{\phi}$'
+        if labTex:
+            label = r'$v_{\phi}$'
+        else:
+            label = 'vphi'
     elif field in ('entropy', 's', 'S'):
         data = obj.entropy
         label = 'Entropy'
     elif field in ('u2'):
         data = obj.vphi**2+obj.vr**2+obj.vtheta**2
-        label = r'$u^2$'
+        if labTex:
+            label = r'$u^2$'
+        else:
+            label = 'u2'
     elif field in ('nrj'):
         temp0, rho0, beta = anelprof(obj.radius, obj.strat, obj.polind)
         data = 1./2.*rho0*(obj.vphi**2+obj.vr**2+obj.vtheta**2)
-        label = r'$E_{\hbox{kin}}$'
+        if labTex:
+            label = r'$E_{\hbox{kin}}$'
+        else:
+            label = 'Ekin'
     elif field in ('b2', 'B2'):
         data = (obj.Bphi**2+obj.Br**2+obj.Btheta**2)
-        label = r'$B^2$'
+        if labTex:
+            label = r'$B^2$'
+        else:
+            label = 'B2'
     elif field in ('vrconv', 'vrc'):
         data = obj.vr-obj.vr.mean(axis=0)
-        label = r'$v_{r}$ conv'
+        if labTex:
+            label = r'$v_{r}$ conv'
+        else:
+            label = 'vr conv'
     elif field in ('vtconv', 'vtc'):
         data = obj.vtheta-obj.vtheta.mean(axis=0)
-        label = r'$v_{\theta}$ conv'
+        if labTex:
+            label = r'$v_{\theta}$ conv'
+        else:
+            label = 'vt conv'
     elif field in ('vpconv', 'vpc'):
         data = obj.vphi-obj.vphi.mean(axis=0)
-        label = r'$v_{\phi}$ conv'
+        if labTex:
+            label = r'$v_{\phi}$ conv'
+        else:
+            label = 'vp conv'
     elif field in ('bpfluct'):
         data = obj.Bphi-obj.Bphi.mean(axis=0)
-        label = r"$B_{\phi}'$"
+        if labTex:
+            label = r"$B_{\phi}'$"
+        else:
+            label = "Bp'"
     elif field in ('brfluct'):
         data = obj.Br-obj.Br.mean(axis=0)
-        label = r"$B_r'$"
+        if labTex:
+            label = r"$B_r'$"
+        else:
+            label = "Br'"
     elif field in ('entropyfluct'):
         data = obj.entropy-obj.entropy.mean(axis=0)
-        label = r"$s'$"
+        if labTex:
+            label = r"$s'$"
+        else:
+            label = "s'"
     elif field in ('vrea'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]-obj.vr[:, -i-1, :])/2.
-        label = r'$v_{r}$ ea'
+        if labTex:
+            label = r'$v_{r}$ ea'
+        else:
+            label = 'vr ea'
     elif field in ('vra'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]+obj.vr[:, -i-1, :])/2.
-        label = r'$v_{r}$ es'
+        if labTex:
+            label = r'$v_{r}$ es'
+        else:
+            label = 'vr es'
     elif field in ('vpea'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]-obj.vphi[:, -i-1, :])/2.
-        label = r'$v_{\phi}$ ea'
+        if labTex:
+            label = r'$v_{\phi}$ ea'
+        else:
+            label = r'vp ea'
     elif field in ('vpa'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]+obj.vphi[:, -i-1, :])/2.
-        label = r'$v_{\phi}$ es'
+        if labTex:
+            label = r'$v_{\phi}$ es'
+        else:
+            label = r'vp es'
     elif field in ('tea'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.entropy[:, i, :]-obj.entropy[:, -i-1, :])/2.
-        label = r'$s$ ea'
+        if labTex:
+            label = r'$s$ ea'
+        else:
+            label = r's ea'
 
     return data, label
 
@@ -339,12 +399,31 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
         der[:, -1] = (data[:, -1]-data[:, -2])/(grid[-1]-grid[-2])
     return der
 
-def thetaderavg(data):
-    ntheta = data.shape[0]
-    dtheta = N.pi/(ntheta-1.)
-    der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dtheta)
-    der[0, :] = (data[1, :]-data[0, :])/dtheta
-    der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+def thetaderavg(data, order=4):
+    if len(data.shape) == 3: # 3-D
+        ntheta = data.shape[1]
+        dtheta = N.pi/(ntheta-1.)
+        if order == 2:
+            der = (N.roll(data, -1,  axis=1)-N.roll(data, 1, axis=1))/(2.*dtheta)
+            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
+            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dtheta
+        elif order == 4:
+            der = (   -N.roll(data,-2,axis=1) \
+                   +8.*N.roll(data,-1,axis=1) \
+                   -8.*N.roll(data, 1,axis=1)  \
+                      +N.roll(data, 2,axis=1)   )/(12.*dtheta)
+            der[:, 1, :] = (data[:, 2, :]-data[:, 0, :])/(2.*dtheta)
+            der[:, -2, :] = (data[:, -1, :]-data[:, -3, :])/(2.*dtheta)
+            der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
+            der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dtheta
+
+    elif len(data.shape) == 2: #2-D
+        ntheta = data.shape[0]
+        dtheta = N.pi/(ntheta-1.)
+        der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dtheta)
+        der[0, :] = (data[1, :]-data[0, :])/dtheta
+        der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+
     return der
 
 

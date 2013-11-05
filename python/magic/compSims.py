@@ -236,9 +236,9 @@ class CompSims:
                 im = ax.contourf(xx, yy, data[..., indPlot], cs, 
                                   cmap=cmap, aa=True)
             rad = gr.radius[indPlot] * (1. - gr.radratio)
-            P.title('%s, $r/r_o$=%.3f, Ra=%.1e' % (label, rad, gr.ra), 
+            ax.set_title('%s, r/ro=%.3f, Ra=%.1e' % (label, rad, gr.ra), 
                     fontsize=10)
-            P.axis('off')
+            ax.axis('off')
 
 
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
@@ -284,7 +284,10 @@ class CompSims:
                     dr = rderavg(rrloc*gr.vphi[:,gr.ntheta/2,:], spectral=False,
                                  eta=gr.radratio, exclude=True)
                     equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta/2, :]))
-                    label = r'$\omega_z$'
+                    if labTex:
+                        label = r'$\omega_z$'
+                    else:
+                        label = 'omega'
                 else:
                     data, label = selectField(gr, self.field)
             except AttributeError:
@@ -341,8 +344,8 @@ class CompSims:
                               verticalalignment='center',
                               transform = ax.transAxes)
 
-            #P.title(label, fontsize=10)
-            P.axis('off')
+            #ax.set_title(label, fontsize=10)
+            ax.axis('off')
             #fig.colorbar(im)
 
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
@@ -477,8 +480,8 @@ class CompSims:
             ax.plot(gr.radius[-1]*N.sin(th), gr.radius[-1]*N.cos(th),
                    'k-')
 
-            P.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
-            P.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
+            ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
+            ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
             
             # Variable conductivity
             if hasattr(gr, 'nVarCond'):
@@ -486,8 +489,8 @@ class CompSims:
                     radi = gr.con_radratio * gr.radius[0]
                     ax.plot(radi*N.sin(th), radi*N.cos(th), 'k--')
 
-            P.title(label, fontsize=12)
-            P.axis('off')
+            ax.set_title(label, fontsize=12)
+            ax.axis('off')
             #fig.colorbar(im)
 
             """
@@ -597,8 +600,8 @@ class CompSims:
             ax.plot(gr.radius[-1]*N.sin(th), gr.radius[-1]*N.cos(th),
                    'k-')
 
-            P.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
-            P.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
+            ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
+            ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
             
             # Variable conductivity
             if hasattr(gr, 'nVarCond'):
@@ -606,8 +609,8 @@ class CompSims:
                     radi = gr.con_radratio * gr.radius[0]
                     ax.plot(radi*N.sin(th), radi*N.cos(th), 'k--')
 
-            P.title(label, fontsize=12)
-            P.axis('off')
+            ax.set_title(label, fontsize=12)
+            ax.axis('off')
             #fig.colorbar(im)
 
             if gr.strat >= 1:

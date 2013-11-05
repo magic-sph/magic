@@ -7,8 +7,8 @@ import pylab as P
 from npfile import *
 
 __author__  = "$Author: gastine $"
-__date__   = "$Date: 2013-03-07 15:06:48 +0100 (jeu. 07 mars 2013) $"
-__version__ = "$Revision: 456 $"
+__date__   = "$Date: 2013-11-05 13:27:50 +0100 (mar. 05 nov. 2013) $"
+__version__ = "$Revision: 540 $"
 
 
 class TOMovie:
@@ -93,9 +93,10 @@ class TOMovie:
 
         # READ the data
         for k in range(self.nvar):
+            print k
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                 movieDipLon, movieDipStrength, \
-                 movieDipStrengthGeo = infile.fort_read('f')
+                                   movieDipLon, movieDipStrength, \
+                           movieDipStrengthGeo = infile.fort_read('f')
             self.time[k] = t_movieS
             self.asVphi[k, ...] = infile.fort_read('f', shape=shape).T
             self.rey[k, ...] = infile.fort_read('f', shape=shape).T
@@ -107,9 +108,9 @@ class TOMovie:
 
         if iplot:
             cmap = P.get_cmap(cm)
-            self.plot(cm, cut, levels, avg)
+            self.plot(cut, levels, avg, cmap)
 
-    def plot(self, cm, cut, levs, avg):
+    def plot(self, cut, levs, avg, cmap):
         th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
         rr, tth = N.meshgrid(self.radius, th)
         xx = rr * N.cos(tth)
@@ -119,7 +120,7 @@ class TOMovie:
         xxin = rr.min() * N.cos(th)
         yyin = rr.min() * N.sin(th)
         fig = P.figure(figsize=(20, 5))
-        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01, wspace=0.01)
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01, wspace=0.01)
 
         if avg:
             cor = self.coriolis.mean(axis=0)
@@ -135,59 +136,64 @@ class TOMovie:
             vmax = -vmin
             cs = N.linspace(vmin, vmax, levs)
 
+            vmin = - max(abs(asVp.max()), abs(asVp.min()))
+            vmin = cut * vmin
+            vmax = -vmin
+            csVp = N.linspace(vmin, vmax, levs)
+
             ax = fig.add_subplot(181)
-            P.axis('off')
-            im = ax.contourf(xx, yy, asVp, levs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, asVp, csVp, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'uphi', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(182)
-            P.axis('off')
-            im = ax.contourf(xx, yy, adv, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, adv, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Adv', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(183)
-            P.axis('off')
-            im = ax.contourf(xx, yy, rey, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, rey, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Rey', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(184)
-            P.axis('off')
-            im = ax.contourf(xx, yy, vis, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, vis, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Visc', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(185)
-            P.axis('off')
-            im = ax.contourf(xx, yy, lor, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, lor, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Lo.', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(186)
-            P.axis('off')
-            im = ax.contourf(xx, yy, cor, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, cor, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'Cor.', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(187)
-            P.axis('off')
+            ax.axis('off')
             balance = adv+cor+vis+lor+rey
-            im = ax.contourf(xx, yy, balance, cs, cmap=cm, extend='both')
+            im = ax.contourf(xx, yy, balance, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.05, 0., 'sum', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
             ax = fig.add_subplot(188)
-            P.axis('off')
-            im = ax.contourf(xx, yy, dt, cs, cmap=cm, extend='both')
+            ax.axis('off')
+            im = ax.contourf(xx, yy, dt, cs, cmap=cmap, extend='both')
             ax.plot(xxout, yyout, 'k-', lw=1.5)
             ax.plot(xxin, yyin, 'k-', lw=1.5)
             ax.text(0.01, 0., 'dvp/dt', fontsize=20, horizontalalignment='left',
@@ -206,71 +212,70 @@ class TOMovie:
             vmax = -vmin
             cs1 = N.linspace(vmin, vmax, levs)
 
-            print self.nvar
             for k in range(self.nvar-1): # avoid last dvp/dt which is wrong
                 bal = self.asVphi[k, ...]+self.adv[k, ...]+self.rey[k, ...]+\
                       self.visc[k, ...]+self.lorentz[k, ...]+self.coriolis[k, ...]
                 if k == 0:
                     ax1 = fig.add_subplot(181)
-                    P.axis('off')
+                    ax1.axis('off')
                     im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax1.plot(xxout, yyout, 'k-', lw=1.5)
                     ax1.plot(xxin, yyin, 'k-', lw=1.5)
                     ax1.text(0.05, 0., 'uphi', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax2 = fig.add_subplot(182)
-                    P.axis('off')
+                    ax2.axis('off')
                     im = ax2.contourf(xx, yy, self.adv[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax2.plot(xxout, yyout, 'k-', lw=1.5)
                     ax2.plot(xxin, yyin, 'k-', lw=1.5)
                     ax2.text(0.05, 0., 'Adv', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax3 = fig.add_subplot(183)
-                    P.axis('off')
+                    ax3.axis('off')
                     im = ax3.contourf(xx, yy, self.rey[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax3.plot(xxout, yyout, 'k-', lw=1.5)
                     ax3.plot(xxin, yyin, 'k-', lw=1.5)
                     ax3.text(0.05, 0., 'Rey', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax4 = fig.add_subplot(184)
-                    P.axis('off')
+                    ax4.axis('off')
                     im = ax4.contourf(xx, yy, self.visc[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax4.plot(xxout, yyout, 'k-', lw=1.5)
                     ax4.plot(xxin, yyin, 'k-', lw=1.5)
                     ax4.text(0.05, 0., 'Visc', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax5 = fig.add_subplot(185)
-                    P.axis('off')
+                    ax5.axis('off')
                     im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax5.plot(xxout, yyout, 'k-', lw=1.5)
                     ax5.plot(xxin, yyin, 'k-', lw=1.5)
                     ax5.text(0.05, 0., 'Lo.', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax6 = fig.add_subplot(186)
-                    P.axis('off')
+                    ax6.axis('off')
                     im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax6.plot(xxout, yyout, 'k-', lw=1.5)
                     ax6.plot(xxin, yyin, 'k-', lw=1.5)
                     ax6.text(0.05, 0., 'Cor.', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax7 = fig.add_subplot(187)
-                    P.axis('off')
+                    ax7.axis('off')
                     im = ax7.contourf(xx, yy, bal, cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax7.plot(xxout, yyout, 'k-', lw=1.5)
                     ax7.plot(xxin, yyin, 'k-', lw=1.5)
                     ax7.text(0.05, 0., 'sum', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
                     ax8 = fig.add_subplot(188)
-                    P.axis('off')
+                    ax8.axis('off')
                     im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     ax8.plot(xxout, yyout, 'k-', lw=1.5)
                     ax8.plot(xxin, yyin, 'k-', lw=1.5)
                     ax8.text(0.05, 0., 'dvp/dt', fontsize=20, horizontalalignment='left',
@@ -280,23 +285,22 @@ class TOMovie:
                     man.canvas.draw()
                 else:
                     P.cla()
-                    print k
                     im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax2.contourf(xx, yy, self.adv[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax3.contourf(xx, yy, self.rey[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax4.contourf(xx, yy, self.visc[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax7.contourf(xx, yy, bal, cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
                     im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs, 
-                                     cmap=cm, extend='both')
+                                     cmap=cmap, extend='both')
 
                     P.axis('off')
                     man.canvas.draw()

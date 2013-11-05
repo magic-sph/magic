@@ -7,6 +7,7 @@ import numpy as N
 import pylab as P
 import scipy.interpolate as S
 from magic.libmagic import cut, hammer2cart
+from magic.setup import labTex
 from scipy.integrate import simps
 from npfile import *
 
@@ -154,11 +155,11 @@ class Butterfly:
         :param renorm: rebin the time series in case of irregularly spaced data
         :param cut: levels cutting
         """
-        P.figure()
-        ax = P.subplot(111)
+        fig = P.figure()
+        ax = fig.add_subplot(111)
         vmax = max(abs(self.data.max()), abs(self.data.min()))
         if contour:
-            im = P.contourf(self.time, self.theta*180/N.pi, self.data[::-1,:], 
+            im = ax.contourf(self.time, self.theta*180/N.pi, self.data[::-1,:], 
                             levels, cmap=self.cmap, aa=True)
         else:
             extent = self.time.min(), self.time.max(), -90, 90
@@ -177,21 +178,22 @@ class Butterfly:
                 im = ax.imshow(self.data, origin='upper', aspect='auto', 
                            cmap=self.cmap, extent=extent, interpolation='bicubic')
         im.set_clim(-cut*vmax, cut*vmax)
-        P.xlabel('Time', fontsize=24)
-        P.ylabel('Latitude', fontsize=24)
+        ax.set_xlabel('Time')
+        ax.set_ylabel('Latitude')
         if self.surftype == 'phi_constant':
-            txt = r'$r = %.1f\ r_o$' % self.rad
-            ax.text(0.8, 0.07, txt, fontsize=20, transform =ax.transAxes)
-            #ax.text(0.05, 0.9, 'a)', fontsize=24, transform =ax.transAxes)
-        for xtick in ax.get_xticklabels():
-            xtick.set_fontsize(16)
-        for ytick in ax.get_yticklabels():
-            ytick.set_fontsize(16)
+            if labTex:
+                txt = r'$r = %.1f\ r_o$' % self.rad
+            else:
+                txt = r'r = %.1f ro' % self.rad
+            ax.text(0.8, 0.07, txt, transform =ax.transAxes)
+            #ax.text(0.05, 0.9, 'a)', transform =ax.transAxes)
         ax.set_yticks([-90,-45,0,45,90])
-        ax.set_yticklabels(['$-90^\circ$', '$-45^\circ$', '$0^\circ$', 
-                            '$45^\circ$', '$90^\circ$'])
+        if labTex:
+            ax.set_yticklabels(['$-90^\circ$', '$-45^\circ$', '$0^\circ$', 
+                                '$45^\circ$', '$90^\circ$'])
+        else:
+            ax.set_yticklabels(['-90', '-45', '0', '45', '90'])
 
-        P.subplots_adjust(right=0.95, top=0.95)
 
     def fourier2D(self, renorm=False):
         """
@@ -219,21 +221,19 @@ class Butterfly:
         for i in range(len(self.omega)):
             self.amp1D[i] = simps(self.amp[:, i], self.theta)
 
-        P.figure()
-        P.subplot(211)
+        fig = P.figure()
+        ax = fig.add_subplot(211)
         extent = self.omega.min(), self.omega.max(), -90, 90
-        P.imshow(self.amp, extent=extent, aspect='auto', origin='upper')
-        P.xlabel('Frequency', fontsize=18)
-        P.ylabel('Latitude', fontsize=18)
-        P.subplot(212)
-        P.semilogy(self.omega, self.amp1D)
-        P.xlabel('Frequency', fontsize=18)
-        P.ylabel('Spectrum', fontsize=18)
-        P.xlim(self.omega.min(), self.omega.max())
-        P.subplots_adjust(right=0.95, top=0.95)
+        ax.imshow(self.amp, extent=extent, aspect='auto', origin='upper')
+        ax.set_xlabel('Frequency')
+        ax.set_ylabel('Latitude')
+
+        ax = fig.add_subplot(212)
+        ax.semilogy(self.omega, self.amp1D)
+        ax.set_xlabel('Frequency')
+        ax.set_ylabel('Spectrum')
+        ax.set_xlim(self.omega.min(), self.omega.max())
         print 'Fourier frequency:%.2f' % (self.omega[self.amp1D==self.amp1D.max()])
-
-
 
 
 if __name__ == '__main__':

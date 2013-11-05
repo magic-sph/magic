@@ -2,8 +2,9 @@
 import os, re
 import pylab as P
 import numpy as N
-from setup import MagicSetup
+from log import MagicSetup
 from libmagic import scanDir
+from magic.setup import labTex
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -103,85 +104,115 @@ class MagicSpectrum(MagicSetup):
             self.plot()
 
     def plot(self):
-        P.rc('figure.subplot', right=0.95, top=0.98, hspace=0.24)
-        P.rc('axes', labelsize=20)
-        P.rc('xtick', labelsize=14)
-        P.rc('ytick', labelsize=14)
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
             if self.gather:
-                P.figure()
-                P.subplot(211)
-                P.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                P.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
-                P.xlabel('Degree $\ell$')
-                P.ylabel('Kinetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
-                P.subplot(212)
-                P.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                fig = P.figure()
+                ax = fig.add_subplot(211)
+                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                else:
+                    ax.set_xlabel('Degree l')
+                ax.set_ylabel('Kinetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+                ax = fig.add_subplot(212)
+                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                          'k-', label='poloidal')
-                P.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
                          'b-', label='toroidal')
-                P.xlabel('Order $m$')
-                P.ylabel('Kinetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
+                if labTex:
+                    ax.set_xlabel('Order $m+1$')
+                else:
+                    ax.set_xlabel('m+1')
+                ax.set_ylabel('Kinetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
             else:
-                P.figure()
-                P.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                P.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
-                P.xlabel('Degree $\ell$')
-                P.ylabel('Kinetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
-                P.figure()
-                P.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                else:
+                    ax.set_xlabel('Degree l')
+                ax.set_ylabel('Kinetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                          'k-', label='poloidal')
-                P.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
                          'b-', label='toroidal')
-                P.xlabel('$m$ + 1')
-                P.ylabel('Kinetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
+                if labTex:
+                    ax.set_xlabel('$m$ + 1')
+                else:
+                    ax.set_xlabel('m + 1')
+                ax.set_ylabel('Kinetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
         elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
             if self.gather:
-                P.figure()
-                P.subplot(211)
-                P.loglog(self.index, self.emag_poll, 'k-', label='poloidal')
-                P.loglog(self.index, self.emag_torl, 'b-', label='toroidal')
-                P.loglog(self.index, self.emagcmb_l, 'g-', label='cmb')
-                P.xlabel('Degree $\ell$')
-                P.ylabel('Magnetic Energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
-                P.subplot(212)
-                P.loglog(self.index[::self.minc], self.emag_polm[::self.minc],
+                fig = P.figure()
+                ax = fig.add_subplot(211)
+                ax.loglog(self.index, self.emag_poll, 'k-', label='poloidal')
+                ax.loglog(self.index, self.emag_torl, 'b-', label='toroidal')
+                ax.loglog(self.index, self.emagcmb_l, 'g-', label='cmb')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                else:
+                    ax.set_xlabel('Degree l')
+                ax.set_ylabel('Magnetic Energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+
+                ax = fig.add_subplot(212)
+                ax.loglog(self.index[::self.minc], self.emag_polm[::self.minc],
                          'k-', label='poloidal')
-                P.loglog(self.index[::self.minc], self.emag_torm[::self.minc],
+                ax.loglog(self.index[::self.minc], self.emag_torm[::self.minc],
                          'b-', label='toroidal')
-                P.loglog(self.index[::self.minc], self.emagcmb_m[::self.minc],
+                ax.loglog(self.index[::self.minc], self.emagcmb_m[::self.minc],
                          'g-', label='cmb')
-                P.xlabel('Order $m$')
-                P.ylabel('Magnetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
+                if labTex:
+                    ax.set_xlabel('Order $m$')
+                else:
+                    ax.set_xlabel('Order m')
+                ax.set_ylabel('Magnetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
             else:
-                P.figure()
-                P.loglog(self.index, self.emag_poll/self.emag_poll.max(), 'k-', label='poloidal')
-                P.loglog(self.index, self.emag_torl/self.emag_torl.max(), 'b-', label='toroidal')
-                P.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(), 'g-', label='cmb')
-                P.xlabel('Degree $\ell$')
-                P.ylabel('Magnetic Energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
-                P.figure()
-                P.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc],
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index, self.emag_poll/self.emag_poll.max(),
+                          'k-', label='poloidal')
+                ax.loglog(self.index, self.emag_torl/self.emag_torl.max(), 'b-',
+                          label='toroidal')
+                ax.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(), 'g-',
+                          label='cmb')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                else:
+                    ax.set_xlabel('Degree l')
+                ax.set_ylabel('Magnetic Energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc],
                          'k-', label='poloidal')
-                P.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc],
                          'b-', label='toroidal')
-                P.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc],
                          'g-', label='cmb')
-                P.xlabel('$m$+1')
-                P.ylabel('Magnetic energy')
-                P.xlim(self.index.min(), self.index.max())
-                P.legend(loc='upper right', frameon=False)
+                if labTex:
+                    ax.set_xlabel('$m$+1')
+                else:
+                    ax.set_xlabel('m+1')
+                ax.set_ylabel('Magnetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)

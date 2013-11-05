@@ -1,23 +1,25 @@
 # -*- coding: utf-8 -*-
 import numpy as N
 import os, re
-from setup import MagicSetup
+from log import MagicSetup
 from libmagic import scanDir
+from magic.setup import buildSo
 import glob
-#f2py -c -m greader sub.f90
 
 __author__  = "$Author$"
 __date__   = "$Date$"
 __version__ = "$Revision$"
 
-
-try:
-    import greader as G
-    os.environ['F_UFMTENDIAN'] = 'big'
-    os.system('export GFORTRAN_CONVERT_UNIT=big_endian')
-    #os.environ['GFORTRAN_CONVERT_UNIT']='big_endian'
-    lect = 'f2py'
-except ImportError:
+if buildSo:
+    try:
+        import greader as G
+        os.environ['F_UFMTENDIAN'] = 'big'
+        os.system('export GFORTRAN_CONVERT_UNIT=big_endian')
+        lect = 'f2py'
+    except ImportError:
+        from npfile import *
+        lect = 'python'
+else:
     from npfile import *
     lect = 'python'
 

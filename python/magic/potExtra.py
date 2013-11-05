@@ -2,6 +2,7 @@
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 from magic import MagicGraph
+from magic.setup import labTex
 from magic.libmagic import symmetrize, thetaderavg, rderavg, phideravg
 import pylab as P
 import numpy as N
@@ -144,10 +145,16 @@ class ExtraPot:
         """
 
         if field == 'br':
-            label = 'Br'
+            if labTex:
+                label = r'$B_r$'
+            else:
+                label = 'Br'
             data = self.brout
         elif field == 'bp':
-            label = 'Bp'
+            if labTex:
+                label = r'$B_\phi$'
+            else:
+                label = 'Bphi'
             data = self.bpout
 
         phiavg = data.mean(axis=0)
@@ -157,7 +164,7 @@ class ExtraPot:
         yy = rr * N.cos(tth)
 
         fig = P.figure(figsize=(4,8))
-        P.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01)
+        fig.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
         cmap = P.get_cmap(cm)
         if vmax is not None and vmin is not None:
@@ -167,10 +174,8 @@ class ExtraPot:
         else:
             cs = levels
             im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-
         ax.plot(self.rcmb*N.sin(th), self.rcmb*N.cos(th), 'k-')
-
-        P.axis('off')
+        ax.axis('off')
 
     def writeVTS(self, filename):
         """

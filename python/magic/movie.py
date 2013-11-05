@@ -2,6 +2,7 @@
 import glob
 import re
 import os
+import copy
 import numpy as N
 import pylab as P
 from npfile import *
@@ -21,23 +22,30 @@ def hammer2cart(ttheta, pphi):
 
 class Movie:
 
-    def __init__(self, file=None, avg=False, iplot=False, step=1, png=False,
+    def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cmap='RdYlBu_r', cut=0.5,
-                 bgcolor=None, fluct=False, centered=True, normed=False, dpi=80):
+                 bgcolor=None, fluct=False, normed=False, avg=False, 
+                 std=False, dpi=80):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
+        :param png: if png=True, write the png files instead of display
+        :param iplot: if iplot=True, display otherwise just read
         :param lastvar: the rank of the last line to be read
         :param step: the stepping between two lines             
         :param levels: the number of contour levels
         :param cmap: the name of the color map
         :param png: if png=True, write the png outputs
         :param fluct: if fluct=True, substract the axisymmetric part
-        :param centered: if centered=True, the colormap is centered around 0
         :param normed: if normed=True, the colormap is rescaled every timestep,
                        otherwise it is computed from the first line
+        :param avg: if avg=True, time-average is displayed
+        :param avg: if std=True, standard deviation is displayed
         :param dpi: dot per inch when saving PNGs
         """
+
+        if avg or std:
+            iplot = False
         if file == None:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
@@ -105,224 +113,225 @@ class Movie:
         self.phi = infile.fort_read('f')
 
         if n_surface == 0:
-            surftype = '3d volume'
+            self.surftype = '3d volume'
             shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
         elif n_surface == 1:
-            surftype = 'r_constant'
+            self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
+            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), 'f')
         elif n_surface == 2:
-            surftype = 'theta_constant'
+            self.surftype = 'theta_constant'
             shape = (self.n_r_max, self.n_phi_tot)
+            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_r_max), 'f')
         elif n_surface == 3:
-            surftype = 'phi_constant'
+            self.surftype = 'phi_constant'
             if self.movtype in [8., 9.]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
             else:
                 shape = (self.n_r_max, self.n_theta_max)
+            # Inner core is not stored here
+            self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), 'f')
 
-        cmap = P.get_cmap(cmap)
-        self. time = N.zeros(self.nvar, 'f')
-        if not png:
-            P.ion()
-            for i in range(self.var2-self.nvar):
-                n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                     movieDipLon, movieDipStrength, \
-                     movieDipStrengthGeo = infile.fort_read('f')
-                for ll in n_fields:
-                    self.data = infile.fort_read('f', shape=shape)
-            for k in range(self.nvar):
-                n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                     movieDipLon, movieDipStrength, \
-                     movieDipStrengthGeo = infile.fort_read('f')
-                self.time[k] = t_movieS
-                if k == 0:
-                    for ll in range(n_fields):
-                        self.data = infile.fort_read('f', shape=shape).T
-                    if fluct:
-                        self.data = self.data-self.data.mean(axis=0)
-                    if self.movtype in [8, 9]:
-                        self.data = self.data[:, :self.n_r_max] # remove inner core
-                    if surftype == 'phi_constant':
-                        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-                        rr, tth = N.meshgrid(self.radius, th)
-                        xx = rr * N.cos(tth)
-                        yy = rr * N.sin(tth)
-                        xxout = rr.max() * N.cos(th)
-                        yyout = rr.max() * N.sin(th)
-                        xxin = rr.min() * N.cos(th)
-                        yyin = rr.min() * N.sin(th)
-                        fig = P.figure(figsize=(4, 8))
-                        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
-                                          left=0.01)
-                    elif surftype == 'r_constant':
-                        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-                        phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-                        ttheta, pphi = N.meshgrid(th, phi)
-                        xx, yy = hammer2cart(ttheta, pphi)
-                        #xxout, yyout = hammer2cart(N.pi/4., phi)
-                        #xxin, yyin = hammer2cart(-N.pi/4., phi)
-                        xxout, yyout = hammer2cart(th, -N.pi)
-                        xxin, yyin = hammer2cart(th, N.pi)
-                        fig = P.figure(figsize=(8, 4))
-                        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
-                                          left=0.01)
-                    elif surftype == 'theta_constant':
-                        phi = N.linspace(0., 2.*N.pi, self.n_phi_tot)
-                        rr, pphi = N.meshgrid(self.radius, phi)
-                        xx = rr * N.cos(pphi)
-                        yy = rr * N.sin(pphi)
-                        xxout = rr.max() * N.cos(pphi)
-                        yyout = rr.max() * N.sin(pphi)
-                        xxin = rr.min() * N.cos(pphi)
-                        yyin = rr.min() * N.sin(pphi)
-                        fig = P.figure(figsize=(6, 6))
-                        P.subplots_adjust(top=0.99, bottom=0.01, right=0.99,
-                                          left=0.01)
-                    elif surftype == '3d volume':
-                        self.data = self.data[..., 0]
-                        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-                        phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-                        ttheta, pphi = N.meshgrid(th, phi)
-                        xx, yy = hammer2cart(ttheta, pphi)
-                        xxout, yyout = hammer2cart(th, -N.pi)
-                        xxin, yyin = hammer2cart(th, N.pi)
-                        fig = P.figure(figsize=(8, 4))
-                        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
-                                          left=0.01)
-                    ax = fig.add_subplot(111, frameon=False)
-                    P.axis('off')
-                    if centered:
-                        vmin = - max(abs(self.data.max()),
-                                     abs(self.data.min()))
-                        vmin = cut * vmin
-                        vmax = -vmin
-                        cs = N.linspace(vmin, vmax, levels)
-                    else:
-                        vmin = self.data.min()
-                        vmax = self.data.max()
-                        cs = N.linspace(vmin, vmax, levels)
-                    im = ax.contourf(xx, yy, self.data, cs, cmap=cmap,
-                                     extend='both')
-                    ax.plot(xxout, yyout, 'k-', lw=1.5)
-                    ax.plot(xxin, yyin, 'k-', lw=1.5)
-                    #P.colorbar(im)
-                    man = P.get_current_fig_manager()
-                    man.canvas.draw()
-                elif k != 0 and k % step == 0:
-                    print k+self.var2-self.nvar
-                    P.cla()
-                    for ll in range(n_fields):
-                        self.data = infile.fort_read('f', shape=shape).T
-                    if self.movtype in [8, 9]:
-                        self.data = self.data[:, :self.n_r_max] # remove inner core
-                    if surftype == '3d volume':
-                        self.data = self.data[..., 0]
-                    if fluct:
-                        self.data = self.data-self.data.mean(axis=0)
-                    if normed:
-                        vmin = - max(abs(self.data.max()),
-                                     abs(self.data.min()))
-                        vmin = cut * vmin
-                        vmax = -vmin
-                        cs = N.linspace(vmin, vmax, levels)
-                    im = ax.contourf(xx, yy, self.data, cs, cmap=cmap,
-                                     extend='both')
+        self.time = N.zeros(self.nvar, 'f')
 
-                    ax.plot(xxout, yyout, 'k-', lw=1.5)
-                    ax.plot(xxin, yyin, 'k-', lw=1.5)
-                    #P.colorbar(im)
-                    P.axis('off')
-                    man.canvas.draw()
-                else: # On lit quand meme
-                    for ll in range(n_fields):
-                        self.data = infile.fort_read('f', shape=shape)
+        # READ the data
+
+        # If one skip the beginning, nevertheless read but do not store
+        for i in range(self.var2-self.nvar):
+            n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
+                                   movieDipLon, movieDipStrength, \
+                            movieDipStrengthGeo = infile.fort_read('f')
+            for ll in range(n_fields):
+                dat = infile.fort_read('f', shape=shape)
+        # then read the remaining requested nvar lines
+        for k in range(self.nvar):
+            n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
+                                   movieDipLon, movieDipStrength, \
+                            movieDipStrengthGeo = infile.fort_read('f')
+            self.time[k] = t_movieS
+            if self.movtype in [8, 9]:
+                dat = infile.fort_read('f', shape=shape).T
+                self.data[k, ...] = dat[:, :self.n_r_max] # remove inner core
+            else:
+                for ll in range(n_fields):
+                    self.data[k, ...] = infile.fort_read('f', shape=shape).T
+            if fluct:
+                self.data[k, ...] = self.data[k, ...]-self.data[k, ...].mean(axis=0)
+
+        if iplot:
+            cmap = P.get_cmap(cmap)
+            self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor)
+        if avg or std:
+            cmap = P.get_cmap(cmap)
+            self.avgStd(std, cut, levels, cmap)
+
+    def __add__(self, new):
+        """
+        Built-in function to sum two movies
+        So far only works for same grid sizes: at some point we should introduce
+        extrapolation to allow any summation
+        """
+        out = copy.deepcopy(new)
+        out.time = N.concatenate((self.time, new.time), axis=0)
+        out.data = N.concatenate((self.data, new.data), axis=0)
+        out.nvar = out.nvar+new.nvar
+        out.var2 = out.nvar
+        return out
+
+    def avgStd(self, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
+        """
+        plot time-average or standard deviation
+
+        :param std: if std=True standard deviation is computed instead avg
+        """
+        if std:
+            avg = self.data.std(axis=0)
         else:
+            avg = self.data.avg(axis=0)
+        vmin = - max(abs(avg.max()), abs(avg.min()))
+        vmin = cut * vmin
+        vmax = -vmin
+        cs = N.linspace(vmin, vmax, levels)
+
+        if self.surftype == 'phi_constant':
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            rr, tth = N.meshgrid(self.radius, th)
+            xx = rr * N.cos(tth)
+            yy = rr * N.sin(tth)
+            xxout = rr.max() * N.cos(th)
+            yyout = rr.max() * N.sin(th)
+            xxin = rr.min() * N.cos(th)
+            yyin = rr.min() * N.sin(th)
+            fig = P.figure(figsize=(4, 8))
+        elif self.surftype == 'r_constant':
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
+            ttheta, pphi = N.meshgrid(th, phi)
+            xx, yy = hammer2cart(ttheta, pphi)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+            fig = P.figure(figsize=(8, 4))
+        elif self.surftype == 'theta_constant':
+            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot)
+            rr, pphi = N.meshgrid(self.radius, phi)
+            xx = rr * N.cos(pphi)
+            yy = rr * N.sin(pphi)
+            xxout = rr.max() * N.cos(pphi)
+            yyout = rr.max() * N.sin(pphi)
+            xxin = rr.min() * N.cos(pphi)
+            yyin = rr.min() * N.sin(pphi)
+            fig = P.figure(figsize=(6, 6))
+        elif self.surftype == '3d volume':
+            self.data = self.data[..., 0]
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
+            ttheta, pphi = N.meshgrid(th, phi)
+            xx, yy = hammer2cart(ttheta, pphi)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+            fig = P.figure(figsize=(8, 4))
+
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+        ax = fig.add_subplot(111, frameon=False)
+        im = ax.contourf(xx, yy, avg, cs, cmap=cmap, extend='both')
+        ax.plot(xxout, yyout, 'k-', lw=1.5)
+        ax.plot(xxin, yyin, 'k-', lw=1.5)
+        ax.axis('off')
+
+    def plot(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
+             normed=False, dpi=80, bgcolor=None):
+        """
+        plotting subroutine (can also write the png files)
+        """
+
+        if png:
             P.ioff()
             if not os.path.exists('movie'):
                 os.mkdir('movie')
-            for k in range(0, self.nvar, step):
-                n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
-                     movieDipLon, movieDipStrength, \
-                     movieDipStrengthGeo = infile.fort_read('f')
-                self.time[k] = t_movieS
-                if k == 0:
-                    for ll in range(n_fields):
-                        self.dat = infile.fort_read('f', shape=shape).T
-                    if self.movtype in [8, 9]:
-                        self.dat = self.dat[:, :self.n_r_max] # remove inner core
-                    if surftype == 'phi_constant':
-                        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-                        rr, tth = N.meshgrid(self.radius, th)
-                        xx = rr * N.cos(tth)
-                        yy = rr * N.sin(tth)
-                        xxout = rr.max() * N.cos(th)
-                        yyout = rr.max() * N.sin(th)
-                        xxin = rr.min() * N.cos(th)
-                        yyin = rr.min() * N.sin(th)
-                        fig = P.figure(figsize=(4, 8))
-                        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
-                                          left=0.01)
-                    elif surftype == 'r_constant':
-                        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-                        phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-                        ttheta, pphi = N.meshgrid(th, phi)
-                        xx, yy = hammer2cart(ttheta, pphi)
-                        xxout, yyout = hammer2cart(th, -N.pi)
-                        xxin, yyin = hammer2cart(th, N.pi)
+        else:
+            P.ion()
 
-                        fig = P.figure(figsize=(8, 4))
-                        P.subplots_adjust(top=0.99, right=0.99, bottom=0.01,
-                                          left=0.01)
-                    ax = fig.add_subplot(111, frameon=False)
-                    P.axis('off')
-                    if centered:
-                        vmin = - max(abs(self.dat.max()),
-                                     abs(self.dat.min()))
-                        vmin = cut * vmin
-                        vmax = -vmin
-                        cs = N.linspace(vmin, vmax, levels)
-                    else:
-                        vmin = self.dat.min()
-                        vmax = self.dat.max()
-                        cs = N.linspace(vmin, vmax, levels)
-                    im = ax.contourf(xx, yy, self.dat, cs, cmap=cmap,
-                                     extend='both')
-                    man = P.get_current_fig_manager()
-                    man.canvas.draw()
-                elif k != 0 and k % step == 0:
-                    P.cla()
-                    for ll in range(n_fields):
-                        self.data = infile.fort_read('f', shape=shape).T
-                    if self.movtype in [8, 9]:
-                        self.data = self.data[:, :self.n_r_max] # remove inner core
-                    im = ax.contourf(xx, yy, self.data, cs, cmap=cmap,
-                                     extend='both')
-                    ax.plot(xxout, yyout, 'k-', lw=1.5)
-                    ax.plot(xxin, yyin, 'k-', lw=1.5)
-                    P.axis('off')
-                    man.canvas.draw()
-                else: # On lit quand meme
-                    for ll in range(n_fields):
-                        self.data = infile.fort_read('f', shape=shape)
+        if not normed:
+            vmin = - max(abs(self.data.max()), abs(self.data.min()))
+            vmin = cut * vmin
+            vmax = -vmin
+            cs = N.linspace(vmin, vmax, levels)
+
+        if self.surftype == 'phi_constant':
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            rr, tth = N.meshgrid(self.radius, th)
+            xx = rr * N.cos(tth)
+            yy = rr * N.sin(tth)
+            xxout = rr.max() * N.cos(th)
+            yyout = rr.max() * N.sin(th)
+            xxin = rr.min() * N.cos(th)
+            yyin = rr.min() * N.sin(th)
+            fig = P.figure(figsize=(4, 8))
+        elif self.surftype == 'r_constant':
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
+            ttheta, pphi = N.meshgrid(th, phi)
+            xx, yy = hammer2cart(ttheta, pphi)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+            fig = P.figure(figsize=(8, 4))
+        elif self.surftype == 'theta_constant':
+            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot)
+            rr, pphi = N.meshgrid(self.radius, phi)
+            xx = rr * N.cos(pphi)
+            yy = rr * N.sin(pphi)
+            xxout = rr.max() * N.cos(pphi)
+            yyout = rr.max() * N.sin(pphi)
+            xxin = rr.min() * N.cos(pphi)
+            yyin = rr.min() * N.sin(pphi)
+            fig = P.figure(figsize=(6, 6))
+        elif self.surftype == '3d volume':
+            self.data = self.data[..., 0]
+            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
+            ttheta, pphi = N.meshgrid(th, phi)
+            xx, yy = hammer2cart(ttheta, pphi)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+            fig = P.figure(figsize=(8, 4))
+
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+        ax = fig.add_subplot(111)
+
+        for k in range(self.nvar):
+            if k == 0:
+                if normed:
+                    vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+                man = P.get_current_fig_manager()
+                man.canvas.draw()
+            if k !=0 and k % step == 0:
+                if not png:
+                    print k+self.var2-self.nvar
+                P.cla()
+                if normed:
+                    vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+                ax.axis('off')
+                man.canvas.draw()
+            if png:
                 filename = 'movie/img%05d.png' % k
                 print 'write %s' % filename
                 #st = 'echo %i' % ivar + ' > movie/imgmax'
                 if bgcolor is not None:
-                    P.savefig(filename, facecolor=bgcolor, dpi=dpi)
+                    fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
                 else:
-                    P.savefig(filename, dpi=dpi)
-
-        #if len(self.dat.shape) > 2:
-            #self.dat = self.data
-
-        # Choose which type of representation
-        #if iplot:
-            #if surftype == 'r_constant':
-                #self.surf()
-            #elif surftype == 'theta_constant':
-                #self.equat()
-            #elif surftype == 'phi_constant':
-                #self.avg()
+                    fig.savefig(filename, dpi=dpi)
 
 
 

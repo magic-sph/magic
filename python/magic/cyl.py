@@ -3,6 +3,7 @@ import numpy as N
 import pylab as P
 from libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
 from magic import MagicGraph, MagicSetup
+from magic.setup import labTex
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import os, pickle
@@ -159,7 +160,10 @@ class Cyl(MagicSetup):
             label = 'Radial velocity'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
-            label = r'$V_{\phi}$'
+            if labTex:
+                label = r'$V_{\phi}$'
+            else:
+                label = 'vphi'
         elif field in ('Vs', 'vs'):
             data = self.vs
             label = 'Vs'
@@ -174,13 +178,19 @@ class Cyl(MagicSetup):
 
         cmap = P.get_cmap(cm)
 
-        P.figure()
-        im = P.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap, 
+        fig = P.figure()
+        ax = fig.add_subplot(111)
+        im = ax.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap, 
                         aa=True)
-        P.xlabel(r'$\phi$', fontsize=18)
-        P.ylabel(r'$z$', fontsize=18)
         rad = self.radius[indPlot] * (1. - self.ri/self.ro)
-        P.title('%s: $r/r_o$ = %.3f' % (label, rad), fontsize=24)
+        if labTex:
+            ax.set_xlabel(r'$\phi$', fontsize=18)
+            ax.set_ylabel(r'$z$', fontsize=18)
+            ax.set_title('%s: $r/r_o$ = %.3f' % (label, rad), fontsize=24)
+        else:
+            ax.set_xlabel('phi', fontsize=18)
+            ax.set_ylabel('z', fontsize=18)
+            ax.set_title('%s: r/ro = %.3f' % (label, rad), fontsize=24)
         cbar = P.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
@@ -199,28 +209,46 @@ class Cyl(MagicSetup):
             label = 'Radial velocity'
         elif field in ('beta'):
             data = self.beta
-            label = r'$\beta$'
+            if labTex:
+                label = r'$\beta$'
+            else:
+                label = 'beta'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
-            label = r'$v_{\phi}$'
+            if labTex:
+                label = r'$v_{\phi}$'
+            else:
+                label = 'vphi'
         elif field in ('Vs', 'vs'):
             data = self.vs
             label = r'$v_s$'
         elif field in ('Vz', 'vz'):
             data = self.vz
-            label = r'$v_z$'
+            if labTex:
+                label = r'$v_z$'
+            else:
+                label = 'vz'
         elif field in ('dvz'):
             data =  cylZder(self.z, self.vz)
-            label = r'$\partial v_z/\partial z$'
+            if labTex:
+                label = r'$\partial v_z/\partial z$'
+            else:
+                label = 'dvzdz'
         elif field in ('anel'):
             betas = cylSder(self.radius, N.log(self.rho))
             betaz = cylZder(self.z, N.log(self.rho))
             data = self.vs * betas + self.vz * betaz
-            label = r'$\beta v_r$'
+            if labTex:
+                label = r'$\beta v_r$'
+            else:
+                label = 'beta vr'
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.rho * self.vs * vp 
-            label = r'$\langle \rho v_s v_\phi\rangle$'
+            if labTex:
+                label = r'$\langle \rho v_s v_\phi\rangle$'
+            else:
+                label = 'rho vs vphi'
 
         equator = data[:, self.nz/2,:]
         equator = cut(equator, vmax, vmin)
@@ -237,8 +265,8 @@ class Cyl(MagicSetup):
         im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
         ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
         ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
-        P.title(label, fontsize=24)
-        P.axis('off')
+        ax.set_title(label, fontsize=24)
+        ax.axis('off')
         fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
@@ -255,7 +283,10 @@ class Cyl(MagicSetup):
             label = 'Radial velocity'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
-            label = r'$V_{\phi}$'
+            if labTex:
+                label = r'$V_{\phi}$'
+            else:
+                label = 'vphi'
         elif field in ('Vs', 'vs'):
             data = self.vs
             label = 'Vs'
@@ -264,12 +295,18 @@ class Cyl(MagicSetup):
             label = 'Vz'
         elif field in ('rho'):
             data = self.rho
-            label = r'$\rho$'
+            if labTex:
+                label = r'$\rho$'
+            else:
+                label = 'rho'
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.vs * vp
             denom = N.sqrt(N.mean(self.vs**2, axis=0)* N.mean(vp**2, axis=0))
-            label = r'$\langle v_s v_\phi\rangle$'
+            if labTex:
+                label = r'$\langle v_s v_\phi\rangle$'
+            else:
+                label = 'vs vphi'
 
         th = N.linspace(0., N.pi, 128)
 
@@ -294,10 +331,10 @@ class Cyl(MagicSetup):
         im = ax.contourf(self.S, self.Z, phiavg, levels, cmap=cmap)
         ax.plot(self.ri*N.sin(th), self.ri*N.cos(th), 'k-')
         ax.plot(self.ro*N.sin(th), self.ro*N.cos(th), 'k-')
-        P.plot([0., 0], [self.ri, self.ro], 'k-')
-        P.plot([0., 0], [-self.ri, -self.ro], 'k-')
-        P.title(label, fontsize=24)
-        P.axis('off')
+        ax.plot([0., 0], [self.ri, self.ro], 'k-')
+        ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
+        ax.set_title(label, fontsize=24)
+        ax.axis('off')
         fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
@@ -320,15 +357,24 @@ class Cyl(MagicSetup):
             betaz = cylZder(self.z, N.log(self.rho))
             data =  self.vz * betaz
             data *= self.vs
-            label = r'$\beta_z u_z$'
+            if labTex:
+                label = r'$\beta_z u_z$'
+            else:
+                label = 'betaz uz'
         elif field in ('betas'):
             betas = cylSder(self.radius, N.log(self.rho))
             data =  self.vs * betas
             data *= self.vs
-            label = r'$\beta_s u_s$'
+            if labTex:
+                label = r'$\beta_s u_s$'
+            else:
+                label = 'betas us'
         elif field in ('rho'):
             data = self.rho
-            label = r'$\rho$'
+            if labTex:
+                label = r'$\rho$'
+            else:
+                label = 'rho'
         elif field in ('anel'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             betas = cylSder(self.radius, N.log(self.rho))
@@ -338,61 +384,97 @@ class Cyl(MagicSetup):
             mask = N.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
-            label = r'$\beta u_r$'
+            if labTex:
+                label = r'$\beta u_r$'
+            else:
+                label = 'beta ur'
         elif field in ('vortz'):
             data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
             mask = N.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
-            label = r'$\omega_z$'
+            if labTex:
+                label = r'$\omega_z$'
+            else:
+                label = 'omegaz'
         elif field in ('vopot'):
             data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
             mask = N.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
             data = data-2./self.ek*N.log(self.rho)
-            label = r'vopot'
+            label = 'vopot'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
-            label = r'$V_{\phi}$'
+            if labTex:
+                label = r'$V_{\phi}$'
+            else:
+                label = 'vphi'
         elif field in ('Vs', 'vs'):
             data = self.vs
-            label = r'$v_s$'
+            if labTex:
+                label = r'$v_s$'
+            else:
+                label = 'vs'
         elif field in ('Vz', 'vz'):
             data = self.vz
-            label = r'$v_z$'
+            if labTex:
+                label = r'$v_z$'
+            else:
+                label = 'vz'
         elif field in ('vpc'):
             data = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
-            label = r'$v_p$ conv'
+            if labTex:
+                label = r'$v_p$ conv'
+            else:
+                label = 'vphi conv'
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.rho * self.vs * vp
             denom = N.zeros((self.npI, self.ns), dtype='f')
-            label = r'$\langle \rho v_s v_\phi\rangle$'
+            if labTex:
+                label = r'$\langle \rho v_s v_\phi\rangle$'
+            else:
+                label = 'rho vs vphi'
         elif field in ('reynolds'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             phi = N.linspace(0., 2.*N.pi, self.npI)
             data =  self.rho * self.vs * vp
-            label = r'$\rho v_s v_\phi$'
+            if labTex:
+                label = r'$\rho v_s v_\phi$'
+            else:
+                label = 'rho vs vphi'
         elif field in ('vsvp'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             phi = N.linspace(0., 2.*N.pi, self.npI)
             data =  self.vs * vp
-            label = r'$v_s v_\phi$'
+            if labTex:
+                label = r'$v_s v_\phi$'
+            else:
+                label = 'vs vphi'
         elif field in ('vrvs'):
             th2D = N.arctan2(self.S, self.Z)
             vr = self.vs * N.sin(th2D) + self.vz * N.cos(th2D)
             phi = N.linspace(0., 2.*N.pi, self.npI)
             data =  self.vs * vr
             denom = N.zeros((self.npI, self.ns), dtype='f')
-            label = r'$\rho v_s v_r$'
+            if labTex:
+                label = r'$\rho v_s v_r$'
+            else:
+                label = 'rho vs vr'
         elif field in ('dvz'):
             data =  cylZder(self.z, self.vz)
             data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
             mask = N.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
-            label = r'$\partial v_z/\partial z$'
+            if labTex:
+                label = r'$\partial v_z/\partial z$'
+            else:
+                label = 'dvz/dz'
         elif field in ('balance'):
-            label = r'$\partial v_z/\partial z+\beta v_r$'
+            if labTex:
+                label = r'$\partial v_z/\partial z+\beta v_r$'
+            else:
+                label = 'dvz/dz + beta*vr'
             data =  cylZder(self.z, self.vz)
             betas = cylSder(self.radius, N.log(self.rho))
             betaz = cylZder(self.z, N.log(self.rho))
@@ -446,19 +528,20 @@ class Cyl(MagicSetup):
         im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
         ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
         ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
-        P.title(label, fontsize=24)
-        P.axis('off')
+        ax.set_title(label, fontsize=24)
+        ax.axis('off')
         fig.colorbar(im)
         if avg:
-            P.figure()
+            fig = P.figure()
+            ax = fig.add_subplot(111)
             if field in ('vphi'):
                 dat  = N.mean(equator, axis=0)
                 dat = dat[:-1]
-                P.plot(self.radius[:-1], dat)
+                ax.plot(self.radius[:-1], dat)
             else:
-                P.plot(self.radius, N.mean(equator, axis=0))
-            P.xlabel('Radius', fontsize=18)
-            P.xlim(0, self.radius.max())
+                ax.plot(self.radius, N.mean(equator, axis=0))
+            ax.set_xlabel('Radius', fontsize=18)
+            ax.set_xlim(0, self.radius.max())
 
         if field not in ['entropy', 's', 'S'] and normed is True:
             im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
@@ -474,13 +557,22 @@ class Cyl(MagicSetup):
             label = 'Radial velocity'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
-            label = r'$V_{phi}$'
+            if labTex:
+                label = r'$v_{phi}$'
+            else:
+                label = 'vphi'
         elif field in ('Vs', 'vs'):
             data = self.vs
-            label = r'$V_s$'
+            if labTex:
+                label = r'$v_s$'
+            else:
+                label = 'vs'
         elif field in ('Vz', 'vz'):
             data = self.vz
-            label = r'$V_z$'
+            if labTex:
+                label = r'$v_z$'
+            else:
+                label = 'vz'
 
         data = symmetrize(data, self.minc)
 
@@ -503,10 +595,10 @@ class Cyl(MagicSetup):
                 im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
                 ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
                 ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
-                P.plot([0., 0], [self.ri, self.ro], 'k-')
-                P.plot([0., 0], [-self.ri, -self.ro], 'k-')
-                P.axis('off')
-                P.title(label+r' $%i^\circ$' % lon)
+                ax.plot([0., 0], [self.ri, self.ro], 'k-')
+                ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
+                ax.axis('off')
+                ax.set_title(label+r' $%i^\circ$' % lon)
                 #fig.colorbar(im, orientation='horizontal')
 
         else:
@@ -520,10 +612,10 @@ class Cyl(MagicSetup):
             im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
             ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
             ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
-            P.plot([0., 0], [self.ri, self.ro], 'k-')
-            P.plot([0., 0], [-self.ri, -self.ro], 'k-')
-            P.title(label, fontsize=24)
-            P.axis('off')
+            ax.plot([0., 0], [self.ri, self.ro], 'k-')
+            ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
+            ax.set_title(label, fontsize=24)
+            ax.axis('off')
             fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
@@ -534,6 +626,6 @@ class Cyl(MagicSetup):
 
 
 if __name__ == '__main__':
-    c=Cyl(lastvar=1)
+    c = Cyl(lastvar=1)
     c.equat(field='vs', normed=False)
     P.show()
