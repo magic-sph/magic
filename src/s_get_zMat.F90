@@ -1,6 +1,10 @@
 !$Id$
 !***********************************************************************
+#ifdef WITH_PRECOND_Z
+SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot,zMat_fac)
+#else
 SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
+#endif
   !***********************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -30,12 +34,25 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
   !-- Output:
   REAL(kind=8),intent(OUT) :: zMat(n_r_max,n_r_max)
   INTEGER,intent(OUT) :: zPivot(n_r_max)
+#ifdef WITH_PRECOND_Z
+  REAL(kind=8),intent(out) :: zMat_fac(n_r_max)
+#endif
 
   !-- local variables:
   INTEGER :: nR,nCheb
   INTEGER :: info
   REAL(kind=8) :: O_dt,dLh
 
+#ifdef MATRIX_CHECK
+  INTEGER :: i,j
+  real(kind=8) :: rcond
+  INTEGER ::ipiv(n_r_max),iwork(n_r_max)
+  REAL(kind=8) :: work(4*n_r_max),anorm,linesum
+  REAL(kind=8) :: temp_Mat(n_r_max,n_r_max)
+  INTEGER,save :: counter=0
+  integer :: filehandle
+  character(len=100) :: filename
+#endif
   !-- End of declaration
   !-----------------------------------------------------------------------
 
@@ -88,6 +105,44 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
      zMat(nR,1)      =0.5D0*zMat(nR,1)
      zMat(nR,n_r_max)=0.5D0*zMat(nR,n_r_max)
   END DO
+
+#ifdef WITH_PRECOND_Z
+  ! compute the linesum of each line
+  DO nR=1,n_r_max
+     zMat_fac(nR)=1.0D0/MAXVAL(ABS(zMat(nR,:)))
+     zMat(nR,:) = zMat(nR,:)*zMat_fac(nR)
+  END DO
+#endif
+
+#ifdef MATRIX_CHECK
+     ! copy the zMat to a temporary variable for modification
+     WRITE(filename,"(A,I3.3,A,I3.3,A)") "zMat_",l,"_",counter,".dat"
+     OPEN(NEWUNIT=filehandle,file=TRIM(filename))
+     counter= counter+1
+
+     DO i=1,n_r_max
+        DO j=1,n_r_max
+           WRITE(filehandle,"(2ES20.12,1X)",advance="no") zMat(i,j)
+        END DO
+        WRITE(filehandle,"(A)") ""
+     END DO
+     CLOSE(filehandle)
+     temp_Mat=zMat
+     anorm = 0.0D0
+     DO i=1,n_r_max
+        linesum = 0.0D0
+        DO j=1,n_r_max
+           linesum = linesum + ABS(temp_Mat(i,j))
+        END DO
+        IF (linesum .GT. anorm) anorm=linesum
+     END DO
+     !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
+     ! LU factorization
+     CALL dgetrf(n_r_max,n_r_max,temp_Mat,n_r_max,ipiv,info)
+     ! estimate the condition number
+     CALL dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
+     WRITE(*,"(A,I3,A,ES11.3)") "inverse condition number of zMat for l=",l," is ",rcond
+#endif
 
   !----- LU decomposition:
   CALL sgefa(zMat,n_r_max,n_r_max,zPivot,info)

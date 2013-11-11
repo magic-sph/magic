@@ -1,6 +1,10 @@
 !$Id$
 !***********************************************************************
-    SUBROUTINE get_Smat(dt,l,hdif,sMat,sPivot)
+#ifdef WITH_PRECOND_S
+  SUBROUTINE get_Smat(dt,l,hdif,sMat,sPivot,sMat_fac)
+#else
+  SUBROUTINE get_Smat(dt,l,hdif,sMat,sPivot)
+#endif
 !***********************************************************************
 
 !    !------------ This is release 2 level 1  --------------!
@@ -12,9 +16,6 @@
 !  |  sMat(i,j) and s0mat for the entropy equation.                    |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
       
     USE truncation
     USE radial_functions
@@ -29,12 +30,25 @@
     REAL(kind=8) :: hdif
 
 !-- Output
-    REAL(kind=8) :: sMat(n_r_max,n_r_max)
-    INTEGER :: sPivot(n_r_max)
-
+    REAL(kind=8),INTENT(OUT) :: sMat(n_r_max,n_r_max)
+    INTEGER,INTENT(OUT) :: sPivot(n_r_max)
+#ifdef WITH_PRECOND_S
+    REAL(kind=8),INTENT(out) :: sMat_fac(n_r_max)
+#endif
 !-- Local variables:
     INTEGER :: info,nCheb,nR
     REAL(kind=8) :: O_dt,dLh
+
+#ifdef MATRIX_CHECK
+  INTEGER :: i,j
+  real(kind=8) :: rcond
+  INTEGER ::ipiv(n_r_max),iwork(n_r_max)
+  REAL(kind=8) :: work(4*n_r_max),anorm,linesum
+  REAL(kind=8) :: temp_Mat(n_r_max,n_r_max)
+  INTEGER,save :: counter=0
+  integer :: filehandle
+  character(len=100) :: filename
+#endif
 
 !-- end of declaration
 !-----------------------------------------------------------------------
@@ -80,6 +94,47 @@
         sMat(nR,1)      =0.5D0*sMat(nR,1)
         sMat(nR,n_r_max)=0.5D0*sMat(nR,n_r_max)
     END DO
+
+#ifdef WITH_PRECOND_S
+    ! compute the linesum of each line
+    DO nR=1,n_r_max
+       sMat_fac(nR)=1.0D0/MAXVAL(ABS(sMat(nR,:)))
+    END DO
+    ! now divide each line by the linesum to regularize the matrix
+    DO nr=1,n_r_max
+       sMat(nR,:) = sMat(nR,:)*sMat_fac(nR)
+    END DO
+#endif
+
+#ifdef MATRIX_CHECK
+     ! copy the sMat to a temporary variable for modification
+     WRITE(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
+     OPEN(NEWUNIT=filehandle,file=TRIM(filename))
+     counter= counter+1
+
+     DO i=1,n_r_max
+        DO j=1,n_r_max
+           WRITE(filehandle,"(2ES20.12,1X)",advance="no") sMat(i,j)
+        END DO
+        WRITE(filehandle,"(A)") ""
+     END DO
+     CLOSE(filehandle)
+     temp_Mat=sMat
+     anorm = 0.0D0
+     DO i=1,n_r_max
+        linesum = 0.0D0
+        DO j=1,n_r_max
+           linesum = linesum + ABS(temp_Mat(i,j))
+        END DO
+        IF (linesum .GT. anorm) anorm=linesum
+     END DO
+     !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
+     ! LU factorization
+     CALL dgetrf(n_r_max,n_r_max,temp_Mat,n_r_max,ipiv,info)
+     ! estimate the condition number
+     CALL dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
+     WRITE(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
+#endif
 
 !----- LU decomposition:
     CALL sgefa(sMat,n_r_max,n_r_max,sPivot,info)

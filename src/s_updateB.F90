@@ -209,9 +209,15 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
 
            IF ( .NOT. lBmat(l1) ) THEN
               !PERFON('get_bMat')
+#ifdef WITH_PRECOND_BJ
+              CALL get_bMat(dt,l1,hdif_B(st_map%lm2(l1,m1)), &
+                   bMat(1,1,l1),bPivot(1,l1), bMat_fac(1,l1),&
+                   jMat(1,1,l1),jPivot(1,l1), jMat_fac(1,l1))
+#else
               CALL get_bMat(dt,l1,hdif_B(st_map%lm2(l1,m1)), &
                    bMat(1,1,l1),bPivot(1,l1), &
-                   jMat(1,1,l1),jPivot(1,l1))
+                   jMat(1,1,l1),jPivot(1,l1) )
+#endif
               lBmat(l1)=.TRUE.
               !PERFOFF
            END IF
@@ -364,6 +370,15 @@ SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
      END DO    ! loop over lm in block
      IF ( lmB > 0 ) THEN
         !PERFON('bMat_sol')
+#ifdef WITH_PRECOND_BJ
+        DO lm=1,lmB
+           DO nR=1,n_r_tot
+              rhs1(nR,lm)=rhs1(nR,lm)*bMat_fac(nR,l1)
+              rhs2(nR,lm)=rhs2(nR,lm)*jMat_fac(nR,l1)
+           END DO
+        END DO
+#endif
+
         CALL cgeslML(bMat(1,1,l1),n_r_tot,n_r_real, &
              bPivot(1,l1),rhs1,2*n_r_max,lmB)
         CALL cgeslML(jMat(1,1,l1),n_r_tot,n_r_real, &

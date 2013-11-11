@@ -2,7 +2,6 @@
 !***********************************************************************
 SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
      &              p,dp,dpdt,dpdtLast,s, &
-     !&              workA,workB,w1,coex,dt,nLMB,lRmsNext,nTh)
      &              w1,coex,dt,nLMB,lRmsNext,nTh)
   !***********************************************************************
 
@@ -113,8 +112,13 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
         m1 =lm22m(lm,nLMB2,nLMB)
         IF ( l1 > 0 ) THEN
            IF ( .NOT. lWPmat(l1) ) THEN
+#ifdef WITH_PRECOND_WP
+              CALL get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,m1)), &
+                   wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
+#else
               CALL get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,m1)), &
                    wpMat(1,1,l1),wpPivot(1,l1))
+#endif
               lWPmat(l1)=.TRUE.
            END IF
            lmB=lmB+1
@@ -132,6 +136,14 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
                    -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
                    w1*dpdt(lm1,nR) + &
                    w2*dpdtLast(lm1,nR)
+              !IF ((l1.EQ.60).OR.(l1.EQ.61)) THEN
+              !   WRITE(*,"(3I3,3(A,I3),A,12ES20.12)") lm1,l1,m1,": rhs1(",nR,"/",&
+              !        & nR+n_r_max,",",lmB,") = ",&
+              !        & w(lm1,nR),s(lm1,nR),dwdt(lm1,nR),dwdtLast(lm1,nR),&
+              !        & rhs1(nR,lmB),rhs1(nR+n_r_max,lmB)
+              !   WRITE(*,"(6X,A,8ES20.12)") "w,s,dwdt,dwdtLast = ",&
+              !        & w(lm1,nR),s(lm1,nR),dwdt(lm1,nR),dwdtLast(lm1,nR)
+              !END IF
            END DO
         END IF
      END DO
@@ -140,20 +152,40 @@ SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
         !rhs1_sum=SUM(rhs1(1:n_r_max,1:lmB))
         !rhs2_sum=SUM(rhs1(n_r_max+1:2*n_r_max,1:lmB))
            
-        !   WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs1 before ",EXPONENT(REAL(rhs1_sum)),FRACTION(REAL(rhs1_sum)),&
-        !        &EXPONENT(AIMAG(rhs1_sum)),FRACTION(AIMAG(rhs1_sum))
-        !   WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs2 before ",EXPONENT(REAL(rhs2_sum)),FRACTION(REAL(rhs2_sum)),&
-        !        &EXPONENT(AIMAG(rhs2_sum)),FRACTION(AIMAG(rhs2_sum))
+        !WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs1 before ",&
+        !     & EXPONENT(REAL(rhs1_sum)),FRACTION(REAL(rhs1_sum)),&
+        !     & EXPONENT(AIMAG(rhs1_sum)),FRACTION(AIMAG(rhs1_sum))
+        !WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs2 before ",&
+        !     & EXPONENT(REAL(rhs2_sum)),FRACTION(REAL(rhs2_sum)),&
+        !     & EXPONENT(AIMAG(rhs2_sum)),FRACTION(AIMAG(rhs2_sum))
         !END IF
+        ! use the mat_fac(:,1) to scale the rhs
+#ifdef WITH_PRECOND_WP
+        DO lm=1,lmB
+           DO nR=1,2*n_r_max
+              rhs1(nR,lm)=rhs1(nR,lm)*wpMat_fac(nR,1,l1)
+           END DO
+        END DO
+#endif
         CALL cgeslML(wpMat(1,1,l1),2*n_r_max,2*n_r_max,    &
              &       wpPivot(1,l1),rhs1,2*n_r_max,lmB)
-        !IF (lm1.GE.244) THEN
-        !   rhs1_sum=SUM(rhs1(1:n_r_max,1:lmB))
-        !   rhs2_sum=SUM(rhs1(n_r_max+1:2*n_r_max,1:lmB))
-        !   WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs1 after ",EXPONENT(REAL(rhs1_sum)),FRACTION(REAL(rhs1_sum)),&
-        !        &EXPONENT(AIMAG(rhs1_sum)),FRACTION(AIMAG(rhs1_sum))
-        !   WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs2 after ",EXPONENT(REAL(rhs2_sum)),FRACTION(REAL(rhs2_sum)),&
-        !        &EXPONENT(AIMAG(rhs2_sum)),FRACTION(AIMAG(rhs2_sum))
+
+#ifdef WITH_PRECOND_WP
+        ! rescale the solution with mat_fac(:,2)
+        DO lm=1,lmB
+           DO nR=1,2*n_r_max
+              rhs1(nR,lm)=rhs1(nR,lm)*wpMat_fac(nR,2,l1)
+           END DO
+        END DO
+#endif
+        !rhs1_sum=SUM(rhs1(1:n_r_max,1:lmB))
+        !rhs2_sum=SUM(rhs1(n_r_max+1:2*n_r_max,1:lmB))
+        !WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs1 after ",&
+        !     & EXPONENT(REAL(rhs1_sum)),FRACTION(REAL(rhs1_sum)),&
+        !     & EXPONENT(AIMAG(rhs1_sum)),FRACTION(AIMAG(rhs1_sum))
+        !WRITE(*,"(2I4,A,2(I4,ES22.15))") nLMB2,lmB,": rhs2 after ",&
+        !     & EXPONENT(REAL(rhs2_sum)),FRACTION(REAL(rhs2_sum)),&
+        !     & EXPONENT(AIMAG(rhs2_sum)),FRACTION(AIMAG(rhs2_sum))
         !END IF
      END IF
 

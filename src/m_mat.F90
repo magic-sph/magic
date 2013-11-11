@@ -25,6 +25,20 @@ MODULE matrices
   INTEGER, ALLOCATABLE :: bPivot(:,:)
   INTEGER, ALLOCATABLE :: jPivot(:,:)
 
+  ! -- respective linesums of the matrices
+#ifdef WITH_PRECOND_WP
+  REAL(kind=8),ALLOCATABLE :: wpMat_fac(:,:,:)
+#endif
+#ifdef WITH_PRECOND_Z
+  REAL(kind=8),ALLOCATABLE :: zMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_S
+  REAL(kind=8),ALLOCATABLE :: sMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_BJ
+  REAL(kind=8),ALLOCATABLE :: bMat_fac(:,:)
+  REAL(kind=8),ALLOCATABLE :: jMat_fac(:,:)
+#endif
   !--- Logicals that inform whether the respective matrix
   !    has been updated:           
   LOGICAL :: lZ10mat
@@ -53,6 +67,20 @@ CONTAINS
     ALLOCATE( wpPivot(2*n_r_max,l_max) )
     ALLOCATE( bPivot(n_r_totMag,l_maxMag) )
     ALLOCATE( jPivot(n_r_totMag,l_maxMag) )
+
+#ifdef WITH_PRECOND_WP
+    ALLOCATE(wpMat_fac(2*n_r_max,2,l_max))
+#endif
+#ifdef WITH_PRECOND_Z
+    ALLOCATE(zMat_fac(n_r_max,l_max))
+#endif
+#ifdef WITH_PRECOND_S
+    ALLOCATE(sMat_fac(n_r_max,l_max))
+#endif
+#ifdef WITH_PRECOND_BJ
+    ALLOCATE(bMat_fac(n_r_tot,l_max))
+    ALLOCATE(jMat_fac(n_r_tot,l_max))
+#endif
 
     !--- Logicals that inform whether the respective matrix
     !    has been updated:           

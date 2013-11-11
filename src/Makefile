@@ -11,6 +11,16 @@ USE_MPI=yes
 # USE_FFTLIB can be MKL or JW
 USE_FFTLIB=JW
 
+# preconditioning of the matrices
+# switches are WITH_PRECOND_WP,WITH_PRECOND_S,WITH_PRECOND_BJ,
+# WITH_PRECOND_Z
+# to switch the preconditioner off and get the old ill-conditioned matrices
+# just comment the following statement
+PREPROC += 	-DWITH_PRECOND_WP \
+		-DWITH_PRECOND_S \
+		-DWITH_PRECOND_Z \
+		-DWITH_PRECOND_BJ
+
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
 	FFLAG_ARCH_OPT = -xsse3

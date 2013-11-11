@@ -1,6 +1,10 @@
 !$Id$
 !***********************************************************************
+#ifdef WITH_PRECOND_BJ
+SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,bMat_fac,jMat,jPivot,jMat_fac)
+#else
 SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
+#endif
   !***********************************************************************
 
   !  +-------------+----------------+------------------------------------+
@@ -30,6 +34,9 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
   INTEGER,INTENT(OUT) :: bPivot(n_r_totMag)
   REAL(kind=8),INTENT(OUT) :: jMat(n_r_totMag,n_r_totMag)
   INTEGER,INTENT(OUT) :: jPivot(n_r_totMag)
+#ifdef WITH_PRECOND_BJ
+  REAL(kind=8),INTENT(OUT) :: bMat_fac(n_r_totMag),jMat_fac(n_r_totMag)
+#endif
 
   !-- local variables:
   INTEGER :: nR,nCheb,nRall
@@ -37,6 +44,18 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
   REAL(kind=8) :: l_P_1
   REAL(kind=8) :: O_dt,dLh
   REAL(kind=8) :: rRatio
+
+#undef MATRIX_CHECK
+#ifdef MATRIX_CHECK
+  INTEGER :: i,j
+  real(kind=8) :: rcond
+  INTEGER ::ipiv(n_r_tot),iwork(n_r_tot)
+  REAL(kind=8) :: work(4*n_r_tot),anorm,linesum
+  REAL(kind=8) :: temp_Mat(n_r_tot,n_r_tot)
+  INTEGER,save :: counter=0
+  integer :: filehandle
+  character(len=100) :: filename
+#endif
 
   !-- end of declaration
   !-----------------------------------------------------------------------
@@ -271,6 +290,77 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
      END DO
 
   END IF  ! conducting inner core ?
+
+#ifdef WITH_PRECOND_BJ
+  ! compute the linesum of each line
+  DO nR=1,n_r_tot
+     bMat_fac(nR)=1.0D0/MAXVAL(ABS(bMat(nR,:)))
+     bMat(nR,:) = bMat(nR,:)*bMat_fac(nR)
+  END DO
+  DO nR=1,n_r_tot
+     jMat_fac(nR)=1.0D0/MAXVAL(ABS(jMat(nR,:)))
+     jMat(nR,:) = jMat(nR,:)*jMat_fac(nR)
+  END DO
+#endif
+
+#ifdef MATRIX_CHECK
+  ! copy the bMat to a temporary variable for modification
+  WRITE(filename,"(A,I3.3,A,I3.3,A)") "bMat_",l,"_",counter,".dat"
+  OPEN(NEWUNIT=filehandle,file=TRIM(filename))
+  counter= counter+1
+  
+  DO i=1,n_r_tot
+     DO j=1,n_r_tot
+        WRITE(filehandle,"(2ES20.12,1X)",advance="no") bMat(i,j)
+     END DO
+     WRITE(filehandle,"(A)") ""
+  END DO
+  CLOSE(filehandle)
+  temp_Mat=bMat
+  anorm = 0.0D0
+  DO i=1,n_r_tot
+     linesum = 0.0D0
+     DO j=1,n_r_tot
+        linesum = linesum + ABS(temp_Mat(i,j))
+     END DO
+     IF (linesum .GT. anorm) anorm=linesum
+  END DO
+  !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
+  ! LU factorization
+  CALL dgetrf(n_r_tot,n_r_tot,temp_Mat,n_r_tot,ipiv,info)
+  ! estimate the condition number
+  CALL dgecon('I',n_r_tot,temp_Mat,n_r_tot,anorm,rcond,work,iwork,info)
+  WRITE(*,"(A,I3,A,ES11.3)") "inverse condition number of bMat for l=",l," is ",rcond
+  
+  ! The same computation for jMat.
+  ! copy the jMat to a temporary variable for modification
+  WRITE(filename,"(A,I3.3,A,I3.3,A)") "jMat_",l,"_",counter,".dat"
+  OPEN(NEWUNIT=filehandle,file=TRIM(filename))
+  counter= counter+1
+  
+  DO i=1,n_r_tot
+     DO j=1,n_r_tot
+        WRITE(filehandle,"(2ES20.12,1X)",advance="no") jMat(i,j)
+     END DO
+     WRITE(filehandle,"(A)") ""
+  END DO
+  CLOSE(filehandle)
+  temp_Mat=jMat
+  anorm = 0.0D0
+  DO i=1,n_r_tot
+     linesum = 0.0D0
+     DO j=1,n_r_tot
+        linesum = linesum + ABS(temp_Mat(i,j))
+     END DO
+     IF (linesum .GT. anorm) anorm=linesum
+  END DO
+  !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
+  ! LU factorization
+  CALL dgetrf(n_r_tot,n_r_tot,temp_Mat,n_r_tot,ipiv,info)
+  ! estimate the condition number
+  CALL dgecon('I',n_r_tot,temp_Mat,n_r_tot,anorm,rcond,work,iwork,info)
+  WRITE(*,"(A,I3,A,ES11.3)") "inverse condition number of jMat for l=",l," is ",rcond
+#endif
 
   !----- LU decomposition:
   CALL sgefa(bMat,n_r_tot,nRall,bPivot,info)

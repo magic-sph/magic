@@ -19,7 +19,11 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
   USE blocking,ONLY: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
   USE horizontal_data,ONLY: dLh,hdif_S
   USE logic,only: l_update_s
+#ifdef WITH_PRECOND_S
+  USE matrices,ONLY: lSmat,s0Mat,s0Pivot,sMat,sPivot,sMat_fac
+#else
   USE matrices,ONLY: lSmat,s0Mat,s0Pivot,sMat,sPivot
+#endif
   USE algebra, ONLY: cgeslML,sgesl
   USE LMLoop_data, ONLY: llm,ulm,llm_real,ulm_real
   USE parallel_mod,only: rank
@@ -126,19 +130,31 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
            CALL sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
         ELSE
            IF ( .NOT. lSmat(l1) ) THEN
+#ifdef WITH_PRECOND_S
+              CALL get_sMat(dt,l1,hdif_S(st_map%lm2(l1,m1)), &
+                   sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
+#else
               CALL get_sMat(dt,l1,hdif_S(st_map%lm2(l1,m1)), &
                    sMat(1,1,l1),sPivot(1,l1))
+#endif
               lSmat(l1)=.TRUE.
               !WRITE(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
            END IF
            lmB=lmB+1
            rhs1(1,lmB)=      tops(l1,m1)
            rhs1(n_r_max,lmB)=bots(l1,m1)
+#ifdef WITH_PRECOND_S
+           rhs1(1,lmB)=      sMat_fac(1,l1)*rhs1(1,lmB)
+           rhs1(n_r_max,lmB)=sMat_fac(1,l1)*rhs1(n_r_max,lmB)
+#endif
 
            DO nR=2,n_r_max-1
               rhs1(nR,lmB)=s(lm1,nR)*O_dt + &
                    w1*dsdt(lm1,nR) + &
                    w2*dsdtLast(lm1,nR)
+#ifdef WITH_PRECOND_S
+              rhs1(nR,lmB) = sMat_fac(nR,l1)*rhs1(nR,lmB)
+#endif
            END DO
         END IF
         !IF (lmB.GT.0) WRITE(*,"(A,3I4,8ES20.12)") "rhs1 = ",lm1,l1,m1,SUM( rhs1(:,lmB) ),&
