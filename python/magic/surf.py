@@ -87,6 +87,139 @@ class Surf:
                 label = r'$v_z$'
             else:
                 label = r'vz'
+        elif field in ('flux'):
+            data = rderavg(self.gr.entropy, eta=self.gr.radratio)
+            label = 'flux'
+        elif field in ('mag_pres_force_r'):
+            data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, eta=self.gr.radratio)/2.0
+            label = 'Rad. mag. pres. force'
+        elif field in ('mag_pres_force_t'):
+            rr3D = N.zeros_like(self.gr.Bphi)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, order=2)/rr3D/2.0
+            label = 'Lati. mag. pres. force'
+        elif field in ('mag_pres_force_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2)/(rr3D*N.sin(th3D))/2.0
+            label = 'Longi. mag. pres. force'
+        elif field in ('mag_tens_force_r'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Br, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Br) / N.sin(th3D) / rr3D - \
+                   (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
+            label = 'Rad. tens. force'
+        elif field in ('mag_tens_force_t'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Btheta, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Btheta) / N.sin(th3D) / rr3D + \
+                   self.gr.Btheta * self.gr.Br / rr3D - \
+                   self.gr.Bphi**2 * N.arctan(th3D) / rr3D
+            label = 'Lati. tens. force'
+        elif field in ('mag_tens_force_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Bphi, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Bphi) / N.sin(th3D) / rr3D+ \
+                   self.gr.Bphi * self.gr.Br / rr3D + \
+                   self.gr.Bphi * self.gr.Btheta * N.arctan(th3D) / rr3D
+            label = 'Longi. tens. force'
+        elif field in ('Lorentz_r'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, eta=self.gr.radratio)/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Br, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Br) / N.sin(th3D) / rr3D - \
+                   (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
+            label = 'Radial Loretz force'
+        elif field in ('Lorentz_t'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, order=2)/rr3D/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Btheta, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Btheta) / N.sin(th3D) / rr3D + \
+                   self.gr.Btheta * self.gr.Br / rr3D - \
+                   self.gr.Bphi**2 * N.arctan(th3D) / rr3D
+            label = 'Lati. Loretz force'
+        elif field in ('Lorentz_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2)/(rr3D*N.sin(th3D))/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Bphi, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Bphi) / N.sin(th3D) / rr3D+ \
+                   self.gr.Bphi * self.gr.Br / rr3D + \
+                   self.gr.Bphi * self.gr.Btheta * N.arctan(th3D) / rr3D
+            label = 'Longi. Loretz force'
+        elif field in ('ohm'):
+            label = 'Ohmic dissipation/1e6'
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            dphi = 2.*N.pi/self.gr.nphi
+
+            Op = (N.roll(self.gr.Btheta,-1,axis=2)-N.roll(self.gr.Btheta,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) + \
+                 self.gr.Btheta/rr3D - \
+                 (N.roll(self.gr.Br,-1,axis=1)-N.roll(self.gr.Br,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1)))
+            Ot = (N.roll(self.gr.Br,-1,axis=0)-N.roll(self.gr.Br,1,axis=0))/\
+                  (rr3D*N.sin(th3D)*dphi) - \
+                 (N.roll(self.gr.Bphi,-1,axis=2)-N.roll(self.gr.Bphi,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) - \
+                 self.gr.Bphi/rr3D
+            Or = (N.roll(self.gr.Bphi,-1,axis=1)-N.roll(self.gr.Bphi,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1))) + \
+                 N.cos(th3D)*self.gr.Bphi/(rr3D*N.sin(th3D)) - \
+                 (N.roll(self.gr.Btheta,-1,axis=0)-N.roll(self.gr.Btheta,1,axis=0))/\
+                 (rr3D*N.sin(th3D)*dphi)
+
+            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, -1, :] = Or[:, -2, :]
+            Ot[..., 0] = Ot[..., 1]
+            Ot[..., -1] = Ot[..., -2]
+            Op[..., 0] = Op[..., 1]
+            Op[..., -1] = Op[..., -2]
+            data = (Op**2+Ot**2+Or**2)/1e6
         else:
             data, label = selectField(self.gr, field, labTex)
 
@@ -980,6 +1113,139 @@ class Surf:
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
+        elif field in ('ohm'):
+            label = 'Ohmic dissipation/1e6'
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            dphi = 2.*N.pi/self.gr.nphi
+
+            Op = (N.roll(self.gr.Btheta,-1,axis=2)-N.roll(self.gr.Btheta,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) + \
+                 self.gr.Btheta/rr3D - \
+                 (N.roll(self.gr.Br,-1,axis=1)-N.roll(self.gr.Br,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1)))
+            Ot = (N.roll(self.gr.Br,-1,axis=0)-N.roll(self.gr.Br,1,axis=0))/\
+                  (rr3D*N.sin(th3D)*dphi) - \
+                 (N.roll(self.gr.Bphi,-1,axis=2)-N.roll(self.gr.Bphi,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) - \
+                 self.gr.Bphi/rr3D
+            Or = (N.roll(self.gr.Bphi,-1,axis=1)-N.roll(self.gr.Bphi,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1))) + \
+                 N.cos(th3D)*self.gr.Bphi/(rr3D*N.sin(th3D)) - \
+                 (N.roll(self.gr.Btheta,-1,axis=0)-N.roll(self.gr.Btheta,1,axis=0))/\
+                 (rr3D*N.sin(th3D)*dphi)
+
+            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, -1, :] = Or[:, -2, :]
+            Ot[..., 0] = Ot[..., 1]
+            Ot[..., -1] = Ot[..., -2]
+            Op[..., 0] = Op[..., 1]
+            Op[..., -1] = Op[..., -2]
+            data = (Op**2+Ot**2+Or**2)/1e6
+        elif field in ('flux'):
+            data = rderavg(self.gr.entropy, eta=self.gr.radratio)
+            label = 'flux'
+        elif field in ('mag_pres_force_r'):
+            data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, eta=self.gr.radratio)/2.0
+            label = 'Rad. mag. pres. force'
+        elif field in ('mag_pres_force_t'):
+            rr3D = N.zeros_like(self.gr.Bphi)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, order=2)/rr3D/2.0
+            label = 'Lati. mag. pres. force'
+        elif field in ('mag_pres_force_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2)/(rr3D*N.sin(th3D))/2.0
+            label = 'Longi. mag. pres. force'
+        elif field in ('mag_tens_force_r'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Br, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Br) / N.sin(th3D) / rr3D - \
+                   (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
+            label = 'Rad. tens. force'
+        elif field in ('mag_tens_force_t'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Btheta, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Btheta) / N.sin(th3D) / rr3D + \
+                   self.gr.Btheta * self.gr.Br / rr3D - \
+                   self.gr.Bphi**2 * N.arctan(th3D) / rr3D
+            label = 'Lati. tens. force'
+        elif field in ('mag_tens_force_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = self.gr.Br * rderavg(self.gr.Bphi, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Bphi) / N.sin(th3D) / rr3D+ \
+                   self.gr.Bphi * self.gr.Br / rr3D + \
+                   self.gr.Bphi * self.gr.Btheta * N.arctan(th3D) / rr3D
+            label = 'Longi. tens. force'
+        elif field in ('Lorentz_r'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -rderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, eta=self.gr.radratio)/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Br, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Br, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Br) / N.sin(th3D) / rr3D - \
+                   (self.gr.Btheta**2 + self.gr.Bphi**2) / rr3D
+            label = 'Radial Loretz force'
+        elif field in ('Lorentz_t'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -thetaderavg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2, order=2)/rr3D/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Btheta, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Btheta, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Btheta) / N.sin(th3D) / rr3D + \
+                   self.gr.Btheta * self.gr.Br / rr3D - \
+                   self.gr.Bphi**2 * N.arctan(th3D) / rr3D
+            label = 'Lati. Loretz force'
+        elif field in ('Lorentz_p'):
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            data = -phideravg(self.gr.Br**2+self.gr.Btheta**2+self.gr.Bphi**2)/(rr3D*N.sin(th3D))/2.0 + \
+                   self.gr.Br * rderavg(self.gr.Bphi, eta=self.gr.radratio) + \
+                   self.gr.Btheta * thetaderavg(self.gr.Bphi, order=2) / rr3D + \
+                   self.gr.Bphi * phideravg(self.gr.Bphi) / N.sin(th3D) / rr3D+ \
+                   self.gr.Bphi * self.gr.Br / rr3D + \
+                   self.gr.Bphi * self.gr.Btheta * N.arctan(th3D) / rr3D
+            label = 'Longi. Loretz force'
         else:
             data, label = selectField(self.gr, field, labTex)
 
