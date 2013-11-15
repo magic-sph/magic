@@ -4,7 +4,7 @@ MODULE legendre_trafo
   USE truncation, ONLY: ncp,lm_max,n_m_max
   USE blocking, ONLY: nfs,sizeThetaB,lm2mc
   USE horizontal_data, ONLY: Plm,dPlm,lStart,lStop,lmOdd,D_mc2m,osn2
-  USE logic, ONLY: l_heat,l_ht
+  USE logic, ONLY: l_heat,l_ht, l_viscBcCalc
   USE parallel_mod,only: rank
 #ifdef WITH_LIKWID
 # include "likwid_f90.h"
@@ -13,11 +13,12 @@ MODULE legendre_trafo
 
 CONTAINS
 !*******************************************************************************
-SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
+SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
      &            vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
-     &            dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
-     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc, &
-     &            dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG, &
+     &            dvrdtc,dvrdpc,dvtdpc,dvpdpc,           &
+     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc,    &
+     &                                   dsdtc,dsdpc,    &
+     &            dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,        &
      &            dvhdrC,dLhb,dLhj,bhG,bhC,cbhG,cbhC,sR,dsR)
   !*******************************************************************************
   
@@ -80,6 +81,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: brc,btc,bpc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cbrc,cbtc,cbpc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: sc,drSc
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
 
   !------ Legendre Polynomials in m_horizontal.F90
   REAL(kind=8) :: PlmG(lm_max)
@@ -87,7 +89,8 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
 
   !-- local:
   COMPLEX(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-  complex(kind=8) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA
+  COMPLEX(kind=8) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA
+  COMPLEX(kind=8) :: dsdtES,dsdtEA
   INTEGER :: nThetaN,nThetaS,nThetaNHS
   INTEGER :: mc,lm,lmS
   REAL(kind=8) :: dm,dmT
@@ -132,6 +135,36 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
+
+           IF ( l_viscBcCalc ) THEN
+              DO mc=1,n_m_max
+                 dm =D_mc2m(mc)
+                 lmS=lStop(mc)
+                 dsdtES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdtEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 DO lm=lStart(mc),lmS-1,2
+                    dsdtEA =dsdtEA + sR(lm)*  dPlm(lm,nThetaNHS)
+                    dsdtES =dsdtES + sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                 END DO
+                 IF ( lmOdd(mc) ) THEN
+                    dsdtEA =dsdtEA + sR(lmS)*dPlm(lmS,nThetaNHS)
+                 END IF
+                 dsdtc(mc,nThetaN)=dsdtES+dsdtEA
+                 dsdtc(mc,nThetaS)=dsdtES-dsdtEA
+              END DO
+
+              DO mc=1,n_m_max
+                 dm=D_mc2m(mc)
+                 dsdpc(mc,nThetaN)= &
+                  CMPLX(-dm*AIMAG(sc(mc,nThetaN)), &
+                          dm*REAL(sc(mc,nThetaN)),KIND=KIND(0d0))
+                 dsdpc(mc,nThetaS)= &
+                  CMPLX(-dm*AIMAG(sc(mc,nThetaS)), &
+                          dm*REAL(sc(mc,nThetaS)),KIND=KIND(0d0))
+              END DO
+
+           END IF ! thermal dissipation layer
+
         END IF
         PERFOFF_I
         !--- Loop over all orders m: (numbered by mc)
@@ -396,6 +429,10 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
         DO nThetaN=1,sizeThetaB
            DO mc=n_m_max+1,ncp
               sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              IF ( l_viscBcCalc) THEN
+                 dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              END IF
               vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -548,7 +585,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart, &
   END IF  ! boundary ? nBc?
 
 
-  IF ( l_HT ) THEN    ! For movie output !
+  IF ( l_HT .OR. l_viscBcCalc ) THEN    ! For movie output !
      nThetaNHS=(nThetaStart-1)/2
 
      !-- Caculate radial derivate of S for heatflux:

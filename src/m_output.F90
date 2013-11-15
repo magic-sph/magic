@@ -51,13 +51,14 @@ MODULE output_mod
 contains
 
   !***********************************************************************
-  SUBROUTINE output(time,dt,dtNew,n_time_step,l_stop_time,        &
-       &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,        &
-       &            l_store,l_new_rst_file,        &
-       &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,        &
-       &            l_frame,n_frame,l_cmb,n_cmb_sets,        &
-       &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,        &
-       &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr)
+  SUBROUTINE output(time,dt,dtNew,n_time_step,l_stop_time,            &
+       &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,      &
+       &            l_store,l_new_rst_file,                           &
+       &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,            &
+       &            l_frame,n_frame,l_cmb,n_cmb_sets,                 &
+       &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,  &
+       &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
+       &            gradsLMr)
     !***********************************************************************
 
     !  +-------------+----------------+------------------------------------+
@@ -120,6 +121,7 @@ contains
     REAL(kind=8),intent(IN) :: HelnaLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: Helna2LMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: uhLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: gradsLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: duhLMr(l_max+1,nRstart:nRstop)
 
     !--- Local stuff:
@@ -366,7 +368,7 @@ contains
        CALL getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
        CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
             &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
-            &      uhLMr,duhLMr,RmR)
+            &      uhLMr,duhLMr,gradsLMr,RmR)
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  outPar  on rank ",rank
 
        !----- Write misc. output:

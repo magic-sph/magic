@@ -16,6 +16,8 @@ MODULE outPar_mod
   REAL(kind=8),ALLOCATABLE :: RolMeanR(:),RolMeanRu2(:),RmMeanR(:)
   REAL(kind=8),ALLOCATABLE :: sMeanR(:),Svar(:),Mvar(:)
   REAL(kind=8),ALLOCATABLE :: uhMeanR(:),duhMeanR(:)
+  REAL(kind=8),ALLOCATABLE :: gradT2MeanR(:)
+
 
 contains
   SUBROUTINE initialize_outPar_mod
@@ -24,7 +26,7 @@ contains
     ALLOCATE( sMeanR(n_r_max),Svar(n_r_max),Mvar(n_r_max) )
     ALLOCATE( dlVu2MeanR(n_r_max),dlVu2cMeanR(n_r_max) )
     ALLOCATE( RolMeanR(n_r_max),RolMeanRu2(n_r_max),RmMeanR(n_r_max) )
-    ALLOCATE( uhMeanR(n_r_max),duhMeanR(n_r_max) )
+    ALLOCATE( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
 
     dlVMeanR     =0.D0
     dlVcMeanR    =0.D0
@@ -36,6 +38,7 @@ contains
     sMeanR       =0.d0
     uhMeanR      =0.d0
     duhMeanR     =0.d0
+    gradT2MeanR  =0.d0
 
 
   END SUBROUTINE initialize_outPar_mod
@@ -43,14 +46,8 @@ contains
   !***********************************************************************
   SUBROUTINE outPar(timePassed,timeNorm,n_time_step,l_stop_time, &
                     ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c, &
-                    uhLMr,duhLMr,RmR)
+                    uhLMr,duhLMr,gradsLMr,RmR)
     !***********************************************************************
-
-    !  +-------------+----------------+------------------------------------+
-    !  |                                                                   |
-    !  |  This subroutine controls most of the output.                     |
-    !  |                                                                   |
-    !  +-------------------------------------------------------------------+
 
     !--- Input of variables
     IMPLICIT NONE
@@ -63,6 +60,7 @@ contains
     REAL(kind=8),INTENT(IN) :: ekinR(n_r_max)     ! kinetic energy w radius
     REAL(kind=8),INTENT(IN) :: uhLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),INTENT(IN) :: duhLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: gradsLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),INTENT(OUT):: RmR(n_r_max)
 
     !-- Further counter
@@ -76,9 +74,9 @@ contains
 
     ! For horizontal velocity
     INTEGER :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR
-    REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global
-    REAL(kind=8) :: duh(nfs),uh(nfs)
+    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R
+    REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global,gradT2R_global
+    REAL(kind=8),DIMENSION(nfs) :: duh,uh,gradT2
 
     INTEGER :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
@@ -107,22 +105,26 @@ contains
 
         DO nR=nRstart,nRstop
             uhR(nR) =0.d0
+            gradT2R(nR)=0.d0
             duhR(nR)=0.d0
             DO n=1,nThetaBs ! Loop over theta blocks
                 nTheta=(n-1)*sizeThetaB
                 nThetaStart=nTheta+1
                 CALL lmAS2pt(duhLMr(1,nR),duh,nThetaStart,sizeThetaB)
                 CALL lmAS2pt(uhLMr(1,nR),uh,nThetaStart,sizeThetaB)
+                CALL lmAS2pt(gradsLMr(1,nR),gradT2,nThetaStart,sizeThetaB)
                 DO nThetaBlock=1,sizeThetaB
                     nTheta=nTheta+1
                     nThetaNHS=(nTheta+1)/2
                     duhR(nR)=duhR(nR)+gauss(nThetaNHS)*duh(nThetaBlock)
                     uhR(nR) =uhR(nR) +gauss(nThetaNHS)* uh(nThetaBlock)
+                    gradT2R(nR)=gradT2R(nR)+gauss(nThetaNHS)*gradT2(nThetaBlock)
                 END DO
             END DO
         END DO
         duhR=0.5d0*duhR ! Normalisation for the theta integration
         uhR =0.5d0* uhR ! Normalisation for the theta integration
+        gradT2R =0.5d0*gradT2R ! Normalisation for the theta integration
 
         sendcount  = (nRstop-nRstart+1)
         recvcounts = nr_per_rank
@@ -135,6 +137,9 @@ contains
             &           0,MPI_COMM_WORLD,ierr)
         CALL MPI_GatherV(uhR,sendcount,MPI_DOUBLE_PRECISION,&
             &           uhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(gradT2R,sendcount,MPI_DOUBLE_PRECISION,&
+            &           gradT2R_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
             &           0,MPI_COMM_WORLD,ierr)
 
     END IF
@@ -166,6 +171,7 @@ contains
           sMeanR     =sMeanR    +timePassed*sR
           uhMeanR    =uhMeanR   +timePassed*uhR_global
           duhMeanR   =duhMeanR  +timePassed*duhR_global
+          gradT2MeanR=gradT2MeanR+timePassed*gradT2R_global
        END IF
 
        IF ( l_stop_time ) THEN 
@@ -189,6 +195,7 @@ contains
              Svar       =Svar/(n_time_step-1)
              duhMeanR   =duhMeanR/timeNorm
              uhMeanR    =uhMeanR/timeNorm
+             gradT2MeanR=gradT2MeanR/timeNorm
           END IF
 
           !----- Output into parrad file:
@@ -211,12 +218,13 @@ contains
              filename='bLayersR.'//tag
              OPEN(99,FILE=filename,STATUS='UNKNOWN')
              DO nR=1,n_r_max
-                WRITE(99,'(D20.10,5D12.4)')            &
+                WRITE(99,'(D20.10,6D12.4)')            &
                         &   r(nR),                     &! 1) radius
                         &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
                         &   Svar(nR),                  &! 3) entropy variance
                         &   uhMeanR(nR),               &! 4) uh
-                        &   duhMeanR(nR)                ! 5) duh/dr
+                        &   duhMeanR(nR),              &! 5) duh/dr
+                        &   gradT2MeanR(nR)             ! 6) (grad T)**2
              END DO
              CLOSE(99)
           END IF

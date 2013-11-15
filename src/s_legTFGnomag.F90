@@ -2,7 +2,7 @@
 !********************************************************************************
     SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
     vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
-    dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc, &
+    dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc,dsdtc,dsdpc, &
     dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR)
 !********************************************************************************
 
@@ -50,15 +50,9 @@
     USE horizontal_data
     USE logic
     USE const
+
     IMPLICIT NONE
 
-!-- input:
-! include 'truncation.f'
-! include 'c_blocking.f'
-! include 'c_horizontal.f'
-! include 'c_logic.f'
-! include 'c_const.f'
-     
     INTEGER :: nBc
     LOGICAL :: lDeriv
     INTEGER :: nThetaStart
@@ -69,10 +63,6 @@
     COMPLEX(kind=8) :: dvhdrG(lm_max),dvhdrC(lm_max)
     COMPLEX(kind=8) :: sR(lm_max),dsR(lm_max)
 
-!------ Legendre Polynomials in c_horizontal.f
-!       REAL(kind=8) Plm(lm_max,n_theta_max/2)
-!       REAL(kind=8) dPlm(lm_max,n_theta_max/2)
-!       REAL(kind=8) osn2(*)
     REAL(kind=8) :: PlmG(lm_max)
     REAL(kind=8) :: PlmC(lm_max)
 
@@ -91,6 +81,8 @@
     COMPLEX(kind=8) :: cvrc(ncp,nfs),cvrES,cvrEA
     COMPLEX(kind=8) :: sc(ncp,nfs),sES,sEA
     COMPLEX(kind=8) :: drSc(ncp,nfs),drsES,drsEA
+    COMPLEX(kind=8) :: dsdtc(ncp,nfs),dsdtES,dsdtEA
+    COMPLEX(kind=8) :: dsdpc(ncp,nfs)
      
 !-- local:
     INTEGER :: nThetaN,nThetaS,nThetaNHS
@@ -128,6 +120,36 @@
                     sc(mc,nThetaN)=sES+sEA
                     sc(mc,nThetaS)=sES-sEA
                 END DO
+
+                IF ( l_viscBcCalc ) THEN
+                    DO mc=1,n_m_max
+                        dm =D_mc2m(mc)
+                        lmS=lStop(mc)
+                        dsdtES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                        dsdtEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                        DO lm=lStart(mc),lmS-1,2
+                            dsdtEA =dsdtEA + sR(lm)*  dPlm(lm,nThetaNHS)
+                            dsdtES =dsdtES + sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                        END DO
+                        IF ( lmOdd(mc) ) THEN
+                            dsdtEA =dsdtEA + sR(lmS)*dPlm(lmS,nThetaNHS)
+                        END IF
+                        dsdtc(mc,nThetaN)=dsdtES+dsdtEA
+                        dsdtc(mc,nThetaS)=dsdtES-dsdtEA
+                    END DO
+
+                    DO mc=1,n_m_max
+                        dm=D_mc2m(mc)
+                        dsdpc(mc,nThetaN)= &
+                          CMPLX(-dm*AIMAG(sc(mc,nThetaN)), &
+                                  dm*REAL(sc(mc,nThetaN)),KIND=KIND(0d0))
+                        dsdpc(mc,nThetaS)= &
+                          CMPLX(-dm*AIMAG(sc(mc,nThetaS)), &
+                                 dm*REAL(sc(mc,nThetaS)),KIND=KIND(0d0))
+                    END DO
+               
+               END IF ! thermal dissipation layer
+
             END IF
 
         !--- Loop over all oders m: (numbered by mc)
@@ -295,6 +317,10 @@
             DO nThetaN=1,sizeThetaB
                 DO mc=n_m_max+1,ncp
                     sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                    IF ( l_viscBcCalc) THEN
+                        dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                        dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                    END IF
                     vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                     vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                     vpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -395,7 +421,7 @@
     END IF  ! boundary ? nBc?
 
 
-    IF ( l_HT ) THEN    ! For movie output !
+    IF ( l_HT .OR. l_viscBcCalc ) THEN    ! For movie output !
         nThetaNHS=(nThetaStart-1)/2
 
     !-- Caculate radial derivate of S for heatflux:

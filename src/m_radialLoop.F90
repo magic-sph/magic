@@ -54,6 +54,7 @@ MODULE radialLoop
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: brc, btc, bpc
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: cbrc, cbtc, cbpc
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: sc, drSc
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: dsdtc,dsdpc
 
   !----- Help arrays for Legendre transform calculated in legPrepG:
   !      Parallelizatio note: these are the R-distributed versions
@@ -157,6 +158,7 @@ CONTAINS
     bpc=1.0d50
     ALLOCATE( cbrc(ncp,nfs),cbtc(ncp,nfs),cbpc(ncp,nfs) )
     ALLOCATE( sc(ncp,nfs),drSc(ncp,nfs) )
+    ALLOCATE( dsdtc(ncp,nfs),dsdpc(ncp,nfs) )
 
     !----- Help arrays for Legendre transform calculated in legPrepG:
     !      Parallelizatio note: these are the R-distributed versions
@@ -211,11 +213,11 @@ CONTAINS
   SUBROUTINE radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
        &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,   &
        &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
-       &                 lorentz_torque_ic,lorentz_torque_ma,   &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
-       &                 br_vt_lm_icb,br_vp_lm_icb,   &
+       &                 lorentz_torque_ic,lorentz_torque_ma,          &
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
+       &                 br_vt_lm_icb,br_vp_lm_icb,                    &
        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
-       &                 dtrkc,dthkc)
+       &                 gradsLMr,dtrkc,dthkc)
     !***********************************************************************
 
     !    !------------ This is release 2 level 10  --------------!
@@ -246,7 +248,7 @@ CONTAINS
     REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
          & HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
     REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
-         & uhLMr,duhLMr
+         & uhLMr,duhLMr,gradsLMr
 
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
@@ -400,6 +402,7 @@ CONTAINS
                   &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
                   &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,           &
                   &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc,    &
+                  &                             dsdtc,dsdpc,    &
                   &      dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,        &
                   &      dvhdrC,dLhb,dLhj,bhG,bhC,cbhG,cbhC,sR,dsR)
              LIKWID_OFF('legTFG')
@@ -409,7 +412,8 @@ CONTAINS
              LIKWID_ON('legTFGnm')
              CALL legTFGnomag(nBc,lDeriv,nThetaStart,                 &
                   &           vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,  &
-                  &           dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc,    &
+                  &             dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc,  &
+                  &                                     dsdtc,dsdpc,  &
                   &           dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR)
              LIKWID_OFF('legTFGnm')
              PERFOFF
@@ -417,8 +421,22 @@ CONTAINS
 
           !------ Fourier transform from (r,theta,m) to (r,theta,phi):
           IF ( l_conv .OR. l_mag_kin ) THEN
-             IF ( l_heat ) CALL fft_thetab(sc,1)
-             IF ( l_HT ) CALL fft_thetab(drSc,1)
+             IF ( l_heat ) THEN
+                CALL fft_thetab(sc,1)
+                IF ( l_viscBcCalc ) THEN
+                   CALL fft_thetab(dsdtc,1)
+                   CALL fft_thetab(dsdpc,1)
+                   IF (nR==n_r_cmb .AND. ktops==1) THEN
+                       dsdtc=zero
+                       dsdpc=zero
+                   END IF
+                   IF (nR==n_r_icb .AND. kbots==1) THEN
+                       dsdtc=zero
+                       dsdpc=zero
+                   END IF
+                END IF
+             END IF
+             IF ( l_HT .OR. l_viscBcCalc ) CALL fft_thetab(drSc,1)
              IF ( nBc.EQ.0 ) THEN
                 CALL fft_thetab(vrc,1)
                 CALL fft_thetab(vtc,1)
@@ -642,8 +660,9 @@ CONTAINS
           !--------- horizontal velocity :
 
           IF ( l_viscBcCalc ) THEN
-             CALL get_duHorizontal(vtc,vpc,dvtdrc,dvpdrc,    &
-                  &                uhLMr(1,nR),duhLMr(1,nR),nR,nThetaStart)
+             CALL get_nlBLayers(vtc,vpc,dvtdrc,dvpdrc,    &
+                  &                  drSc,dsdtc,dsdpc,    &
+                  &   uhLMr(1,nR),duhLMr(1,nR),gradsLMr(1,nR),nR,nThetaStart)
           END IF
 
           !--------- Movie output:

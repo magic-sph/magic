@@ -411,7 +411,7 @@ s_get_Bpol.o            : truncation.o m_blocking.o m_num_param.o m_radial.o\
 s_getHelLM.o            : truncation.o m_blocking.o m_horizontal.o\
                           m_num_param.o m_phys_param.o m_radial.o m_logic.o\
                           m_output_data.o s_legtfAS2.o 
-s_get_uHorizontal.o     : truncation.o m_blocking.o m_horizontal.o\
+s_get_nlBLayers.o       : truncation.o m_blocking.o m_horizontal.o\
                           m_radial.o s_legtfAS2.o 
 s_hInt2Pol.o            : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o

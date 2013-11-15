@@ -132,9 +132,8 @@ contains
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: HelLMr_Rloc,Hel2LMr_Rloc,&
          & HelnaLMr_Rloc,Helna2LMr_Rloc
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: uhLMr_Rloc,duhLMr_Rloc
+    REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: gradsLMr_Rloc
 
-    !REAL(kind=8),DIMENSION(l_max+1,n_r_max) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
-    !REAL(kind=8),DIMENSION(l_max+1,n_r_max) :: uhLMr,duhLMr
 
     !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
     COMPLEX(kind=8) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -614,15 +613,15 @@ contains
        ! ===================================================================
 
        CALL wallTime(runTimeRstart)
-       CALL radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,      &
-            &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,      &
+       CALL radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,                      &
+            &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,                 &
             &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dbdt_Rloc,djdt_Rloc,&
-            &           dVxBhLM_Rloc,dVSrLM_Rloc, &
-            &           lorentz_torque_ic,lorentz_torque_ma,      &
-            &           br_vt_lm_cmb,br_vp_lm_cmb,      &
-            &           br_vt_lm_icb,br_vp_lm_icb,      &
-            &           HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-            &           uhLMr_Rloc,duhLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+            &           dVxBhLM_Rloc,dVSrLM_Rloc,                                   &
+            &           lorentz_torque_ic,lorentz_torque_ma,                        &
+            &           br_vt_lm_cmb,br_vp_lm_cmb,                                  &
+            &           br_vt_lm_icb,br_vp_lm_icb,                                  &
+            &           HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,      &
+            &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
 
 
        IF ( lVerbose ) WRITE(*,*) '! r-loop finished!'
@@ -757,7 +756,7 @@ contains
             &      l_frame,n_frame,l_cmb,n_cmb_sets,                     &
             &      lorentz_torque_ic,lorentz_torque_ma,ptr_dbdt_CMB,     &
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-            &      uhLMr_Rloc,duhLMr_Rloc)
+            &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc)
        PERFOFF
 
        IF ( l_graph ) THEN
