@@ -49,7 +49,10 @@ class MagicTs(MagicSetup):
             # Concatenate the files that correspond to the tag
             for k,file in enumerate(files):
                 filename = os.path.join(datadir, file)
-                datanew = fast_read(filename)
+                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+                    datanew = fast_read(filename, binary=True)
+                else:
+                    datanew = fast_read(filename)
                 if k == 0:
                     data = datanew.copy()
                     ncolRef = data.shape[1]
@@ -67,13 +70,19 @@ class MagicTs(MagicSetup):
                                     nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
-                data = fast_read(filename)
+                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+                    data = fast_read(filename, binary=True)
+                else:
+                    data = fast_read(filename)
             else:
                 mot = '%s.*' % (self.field)
                 dat = [(os.stat(i).st_mtime, i) for i in glob.glob(mot)]
                 dat.sort()
                 filename = dat[-1][1]
-                data = fast_read(filename)
+                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+                    data = fast_read(filename, binary=True)
+                else:
+                    data = fast_read(filename)
 
         # If no tag is specified but all=True, all the directory is plotted
         else:
@@ -83,7 +92,10 @@ class MagicTs(MagicSetup):
             files = scanDir('%s.*' % (self.field))
             for k,file in enumerate(files):
                 filename = os.path.join(datadir, file)
-                datanew = fast_read(filename)
+                if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
+                    datanew = fast_read(filename, binary=True)
+                else:
+                    datanew = fast_read(filename)
                 if k == 0:
                     data = datanew.copy()
                     ncolRef = data.shape[1]
@@ -252,7 +264,6 @@ class MagicTs(MagicSetup):
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
             self.coeffs = data[:, 1:]
-            iplot = False
 
         if iplot:
             self.plot()
@@ -447,6 +458,27 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
+
+        elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            print self.coeffs.shape
+            for k in range(self.coeffs.shape[1]):
+                ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
+            ax.set_xlabel('Time')  
+            if self.coeffs.shape[1] < 20:
+                ax.legend(loc='best', frameon=False)
+            if self.field == 'am_mag_pol':
+                ax.set_ylabel('Emag poloidal')
+            elif self.field == 'am_mag_tor':
+                ax.set_ylabel('Emag toroidal')
+            elif self.field == 'am_kin_pol':
+                ax.set_ylabel('Ekin poloidal')
+            elif self.field == 'am_kin_tor':
+                ax.set_ylabel('Ekin toroidal')
+
+
+
 
 
 class AvgField:

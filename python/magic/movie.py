@@ -6,18 +6,12 @@ import copy
 import numpy as N
 import pylab as P
 from npfile import *
+from magic.libmagic import symmetrize, hammer2cart
 
 __author__  = "$Author$"
 __date__   = "$Date$"
 __version__ = "$Revision$"
 
-
-def hammer2cart(ttheta, pphi):
-    xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\
-         /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
-    yy = N.sqrt(2.) * N.sin(ttheta)\
-         /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
-    return xx, yy
 
 
 class Movie:
@@ -94,13 +88,15 @@ class Movie:
             print '!!! Warning: several fields in the movie file !!!'
             print '!!! Only the last one will be displayed       !!!'
             print '!!! For TO_mov.TAG, use TOMovie(...) instead  !!!'
-        self.movtype = movtype[0]
+        self.movtype = int(movtype[0])
         n_surface = int(n_surface)
+        print 'movtype, nsurf', self.movtype, n_surface
 
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
              self.ek, self.pr, self.prmag, self.radratio, self.tScale = infile.fort_read('f')
+        self.minc = int(self.minc)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
@@ -121,13 +117,20 @@ class Movie:
             self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), 'f')
         elif n_surface == 2:
             self.surftype = 'theta_constant'
-            shape = (self.n_r_max, self.n_phi_tot)
+            if self.movtype in [1, 2, 3]: # read inner core
+                shape = (n_r_mov_tot+2, self.n_phi_tot)
+            else:
+                shape = (self.n_r_max, self.n_phi_tot)
             self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_r_max), 'f')
         elif n_surface == 3:
             self.surftype = 'phi_constant'
-            if self.movtype in [8., 9.]:
+            if self.movtype in [1, 2, 3]: # read inner core
+                shape = (n_r_mov_tot+2, 2*self.n_theta_max)
+            elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
-            else:
+            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
+                shape = (self.n_r_max, 2*self.n_theta_max)
+            elif self.movtype in [10, 11, 12, 19]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
             self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), 'f')
@@ -149,12 +152,30 @@ class Movie:
                                    movieDipLon, movieDipStrength, \
                             movieDipStrengthGeo = infile.fort_read('f')
             self.time[k] = t_movieS
-            if self.movtype in [8, 9]:
-                dat = infile.fort_read('f', shape=shape).T
-                self.data[k, ...] = dat[:, :self.n_r_max] # remove inner core
-            else:
-                for ll in range(n_fields):
-                    self.data[k, ...] = infile.fort_read('f', shape=shape).T
+            for ll in range(n_fields):
+                dat = infile.fort_read('f', shape=shape)
+                if n_surface == 2:
+                    if self.movtype in [1, 2, 3]:
+                        dat = dat[:self.n_r_max, :].T
+                        self.data[k, ...] = dat
+                    else:
+                        self.data[k, ...] = dat.T
+                elif n_surface == 3:
+                    if self.movtype in [1, 2, 3]:
+                        dat = dat[:self.n_r_max, :self.n_theta_max].T
+                        self.data[k, :, ::2] = dat[:, :n_r_max/2+1]
+                        self.data[k, :, 1::2] = dat[:, n_r_max/2+1:]
+                    elif self.movtype in [8, 9]:
+                        dat = dat[:self.n_r_max, :].T
+                        self.data[k, ...] = dat
+                    elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
+                        dat = dat[:, :self.n_theta_max].T
+                        self.data[k, :, ::2] = dat[:, :n_r_max/2+1]
+                        self.data[k, :, 1::2] = dat[:, n_r_max/2+1:]
+                    elif self.movtype in [10, 11, 12, 19]:
+                        self.data[k, ...] = dat.T
+                else:
+                    self.data[k, ...] = dat.T
             if fluct:
                 self.data[k, ...] = self.data[k, ...]-self.data[k, ...].mean(axis=0)
 
@@ -187,7 +208,7 @@ class Movie:
         if std:
             avg = self.data.std(axis=0)
         else:
-            avg = self.data.avg(axis=0)
+            avg = self.data.mean(axis=0)
         vmin = - max(abs(avg.max()), abs(avg.min()))
         vmin = cut * vmin
         vmax = -vmin
@@ -258,6 +279,9 @@ class Movie:
             cs = N.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
+            #if self.movtype in [1, 7]:
+                #th = N.linspace(0., 2.*N.pi, 2*self.n_theta_max)
+            #else:
             th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
             rr, tth = N.meshgrid(self.radius, th)
             xx = rr * N.cos(tth)
@@ -269,14 +293,14 @@ class Movie:
             fig = P.figure(figsize=(4, 8))
         elif self.surftype == 'r_constant':
             th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
+            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot*self.minc+1)
             ttheta, pphi = N.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
             xxout, yyout = hammer2cart(th, -N.pi)
             xxin, yyin = hammer2cart(th, N.pi)
             fig = P.figure(figsize=(8, 4))
         elif self.surftype == 'theta_constant':
-            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot)
+            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot*self.minc+1)
             rr, pphi = N.meshgrid(self.radius, phi)
             xx = rr * N.cos(pphi)
             yy = rr * N.sin(pphi)
@@ -305,7 +329,11 @@ class Movie:
                     vmin = cut * vmin
                     vmax = -vmin
                     cs = N.linspace(vmin, vmax, levels)
-                im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                if self.surftype in ['r_constant', 'theta_constant']:
+                    im = ax.contourf(xx, yy, symmetrize(self.data[k, ...], self.minc),
+                                     cs, cmap=cmap, extend='both')
+                else:
+                    im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 man = P.get_current_fig_manager()
@@ -319,7 +347,11 @@ class Movie:
                     vmin = cut * vmin
                     vmax = -vmin
                     cs = N.linspace(vmin, vmax, levels)
-                im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                if self.surftype in ['r_constant', 'theta_constant']:
+                    im = ax.contourf(xx, yy, symmetrize(self.data[k, ...], self.minc),
+                                     cs, cmap=cmap, extend='both')
+                else:
+                    im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')

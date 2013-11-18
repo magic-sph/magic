@@ -2,6 +2,7 @@
 import scipy.interpolate as S
 import numpy as N
 import glob, os
+from npfile import *
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -229,15 +230,26 @@ def symmetrize(data, ms):
     out[-1, ...] = out[0, ...]
     return out
 
-def fast_read(file, skiplines=0):
-    f = open(file, 'r')
-    X = []
-    for k, line in enumerate(f.readlines()):
-        st = line.replace('D', 'E')
-        if k >= skiplines:
-            X.append(st.split())
-    X = N.array(X, dtype='Float64')
-    f.close()
+def fast_read(file, skiplines=0, binary=False):
+    if not binary:
+        f = open(file, 'r')
+        X = []
+        for k, line in enumerate(f.readlines()):
+            st = line.replace('D', 'E')
+            if k >= skiplines:
+                X.append(st.split())
+        X = N.array(X, dtype='Float64')
+        f.close()
+    else:
+        f = npfile(file, endian='B')
+        X = []
+        while 1:
+            try:
+                X.append(f.fort_read('Float64'))
+            except TypeError:
+                break
+        X = N.array(X, dtype='Float64')
+        f.close()
     return X
 
 
@@ -420,9 +432,16 @@ def thetaderavg(data, order=4):
     elif len(data.shape) == 2: #2-D
         ntheta = data.shape[0]
         dtheta = N.pi/(ntheta-1.)
-        der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dtheta)
-        der[0, :] = (data[1, :]-data[0, :])/dtheta
-        der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+        if order == 2:
+            der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dtheta)
+            der[0, :] = (data[1, :]-data[0, :])/dtheta
+            der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
+        elif order == 4:
+            der = (-N.roll(data,-2,axis=0)+8.*N.roll(data,-1,axis=0)-8.*N.roll(data,1,axis=0)+N.roll(data,2,axis=0))/(12.*dtheta)
+            der[1, :] = (data[2, :]-data[0, :])/(2.*dtheta)
+            der[-2, :] = (data[-1, :]-data[-3, :])/(2.*dtheta)
+            der[0, :] = (data[1, :]-data[0, :])/dtheta
+            der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
 
     return der
 

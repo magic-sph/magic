@@ -153,6 +153,10 @@ class MagicRadial(MagicSetup):
             self.varS = data[:, 2]
             self.uh = data[:, 3]
             self.duhdr = data[:, 4]
+            try:
+                self.dissS = data[:, 5]
+            except IndexError:
+                pass
 
         if iplot:
             self.plot()

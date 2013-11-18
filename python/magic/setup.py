@@ -8,27 +8,32 @@ __date__   = "$Date$"
 __version__ = "$Revision$"
 
 
-path = os.environ['MAGIC_HOME']
-magicdir = path+'/python/magic'
+if os.environ.has_key('MAGIC_HOME'):
+    path = os.environ['MAGIC_HOME']
+    magicdir = path+'/python/magic'
 
-parser = CoPa.RawConfigParser()
-parser.read(magicdir + '/magic.cfg')
-backend = parser.get('plots', 'backend')
-labTex = parser.getboolean('plots', 'labTex')
-# Do you want to build so libraries -> need f2py + ifort or gfortran (> 4.1)
-buildSo = parser.getboolean('libraries', 'buildLib')
-compiler = parser.get('libraries', 'compiler')
-f2pycmd = parser.get('libraries', 'f2pyexec')
+    parser = CoPa.RawConfigParser()
+    parser.read(magicdir + '/magic.cfg')
+    backend = parser.get('plots', 'backend')
+    labTex = parser.getboolean('plots', 'labTex')
+    # Do you want to build so libraries -> need f2py + ifort or gfortran (> 4.1)
+    buildSo = parser.getboolean('libraries', 'buildLib')
+    compiler = parser.get('libraries', 'compiler')
+    f2pycmd = parser.get('libraries', 'f2pyexec')
+else: # Default if the PATH is messed up
+    backend = 'GTKAgg'
+    labTex = False
+    buildSo = False
 
 #
 # Plots setup
 #
 
 P.switch_backend(backend)
-P.rc('xtick.major', size=7, width=1)
-P.rc('xtick.minor', size=3.5, width=1)
-P.rc('ytick.major', size=7, width=1)
-P.rc('ytick.minor', size=3.5, width=1)
+P.rc('xtick.major', size=7)
+P.rc('xtick.minor', size=3.5)
+P.rc('ytick.major', size=7)
+P.rc('ytick.minor', size=3.5)
 P.rc('axes.formatter', limits=(-5,5))
 
 if labTex:
