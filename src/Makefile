@@ -4,6 +4,7 @@ COMPILER=intel
 USE_PERFLIB=none
 PRODRUN=yes
 OPENMP=no
+
 # DEBUG = no noopt check all marmot
 DEBUG=no
 USE_MPI=yes
@@ -25,8 +26,8 @@ PREPROC += 	-DWITH_PRECOND_WP \
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-	FFLAG_ARCH_OPT = -xsse3
-#	FFLAG_ARCH_OPT = -xAVX
+#	FFLAG_ARCH_OPT = -xsse3
+	FFLAG_ARCH_OPT = -xAVX
 	FFLAG_OPENMP = -openmp
 	FFLAG_CHECK_ALL = -check all
 	FFLAG_FPE = -fpe0 -fp-stack-check -ftrapuv
@@ -78,6 +79,11 @@ ifeq ($(COMPILER),amd)
 	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
 		-Wl,-rpath,$(MKLROOT)/lib/intel64
 endif
+
+# the following path is only used, if the mpi.mod file is
+# not found in the standard location. It is used for example
+# on hydra, if one compiles with the gnu compilers.
+MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 
 PREPROC += -DJW=1 -DMKL=2
 ifeq ($(USE_MPI),yes)
@@ -156,7 +162,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard [ms]*.F90)
-RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi% s_graphOut_IC_mpi% m_store_mpi%,$(SOURCES))
+RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi% s_graphOut_IC_mpi% m_store_mpi% mpimod%,$(SOURCES))
 #RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi%,$(SOURCES))
 
 ifeq ($(USE_FFTLIB),JW)
@@ -176,6 +182,11 @@ OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
 OBJS += truncation.o
 
 .SUFFIXES: 
+
+ifeq ($(COMPILER),gnu)
+all: mpi.mod
+	make $(OUT)
+endif
 
 $(OUT): $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LIBS)
@@ -583,6 +594,9 @@ m_Namelists.o           : m_const.o truncation.o m_phys_param.o m_num_param.o m_
 			  m_init_fields.o m_output_data.o m_parallel.o \
 			  m_TO.o m_Grenoble.o m_radial.o m_Bext.o m_char_manip.o
 m_store_mpi.o		: truncation.o m_output_data.o m_parallel.o m_logic.o m_dt_fieldsLast.o
+
+mpi.mod: $(MPI_INCPATH)/mpif.h
+	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.F90
 
 .PHONY: clean echo
 clean:
