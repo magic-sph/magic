@@ -13,17 +13,21 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
 
   USE truncation
   USE radial_functions,ONLY: i_costf_init,d_costf_init,orho1,or1,or2,n_r_cmb,n_r_icb,beta,drx,ddrx,&
-       & kappa,dlkappa
+       & kappa,dlkappa,r
   USE physical_parameters,ONLY: opr,polfac
   USE init_fields,ONLY: tops,bots
   USE blocking,ONLY: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
   USE horizontal_data,ONLY: dLh,hdif_S
   USE logic,only: l_update_s
+  USE matrices,only: lSmat,s0Mat,s0Pivot,&
 #ifdef WITH_PRECOND_S
-  USE matrices,ONLY: lSmat,s0Mat,s0Pivot,sMat,sPivot,sMat_fac
-#else
-  USE matrices,ONLY: lSmat,s0Mat,s0Pivot,sMat,sPivot
+       & sMat_fac, &
 #endif
+#ifdef WITH_PRECOND_S0
+       & s0Mat_fac, &
+#endif
+       & sMat,sPivot
+
   USE algebra, ONLY: cgeslML,sgesl
   USE LMLoop_data, ONLY: llm,ulm,llm_real,ulm_real
   USE parallel_mod,only: rank
@@ -116,7 +120,11 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
         m1 =lm22m(lm,nLMB2,nLMB)
         IF ( l1 == 0 ) THEN
            IF ( .NOT. lSmat(l1) ) THEN
+#ifdef WITH_PRECOND_S0
+              CALL get_s0Mat(dt,s0Mat,s0Pivot,s0Mat_fac)
+#else
               CALL get_s0Mat(dt,s0Mat,s0Pivot)
+#endif
               lSmat(l1)=.TRUE.
            END IF
            rhs(1)=      REAL(tops(0,0))
@@ -126,8 +134,14 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
                    w1*REAL(dsdt(lm1,nR)) + &
                    w2*REAL(dsdtLast(lm1,nR))
            END DO
-           !WRITE(*,"(A,5I3,2ES22.12)") "l1==0, rhs=",nLMB2,lm,lm1,l1,m1,SUM(rhs),SUM(s0Mat)
+           !WRITE(*,"(A,4I3,2ES22.12)") "l1==0, rhs=",nLMB2,lm,lm1,m1,SUM(rhs),SUM(s0Mat)
+#ifdef WITH_PRECOND_S0
+             rhs = s0Mat_fac*rhs
+#endif
+           !WRITE(*,"(A,4I3,ES22.12)") "after precond: l1==0, rhs=",nLMB2,lm,lm1,m1,SUM(rhs)
+
            CALL sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+           !WRITE(*,"(A,4I3,ES22.12)") "after solve: l1==0, rhs=",nLMB2,lm,lm1,m1,SUM(rhs(1:n_cheb_max))
         ELSE
            IF ( .NOT. lSmat(l1) ) THEN
 #ifdef WITH_PRECOND_S
@@ -198,11 +212,21 @@ SUBROUTINE updateS(s,ds,dVSrLM,dsdt,dsdtLast, &
   END DO
 
   !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+  !WRITE(*,"(A,2ES22.14)") "before costf1: ",SUM(s(1,:))
+  !PRINT*,"s_c(l=0)=",s(1,1:n_cheb_max)
+
   CALL costf1(s, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
        &      dsdtLast, i_costf_init, d_costf_init)
+  !WRITE(*,"(A,2ES22.14)") "after costf1: ",SUM(s(1,:))
+  !PRINT*,"s_r(l=0)=",s(1,1:n_r_max)
+  !DO nR=1,n_r_max
+  !   WRITE(*,"(2ES30.20)") r(nR),REAL(s(1,nR))
+  !END DO
+
   CALL get_ddr(s, ds, workA, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
        &       n_r_max, n_cheb_max, workB, dsdtLast, &
        &       i_costf_init,d_costf_init,drx,ddrx)
+  !WRITE(*,"(A,4ES22.14)") "after get_ddr: ds = ",SUM(ds(1,:)), ds(1,n_r_icb)
 
   !-- Calculate explicit time step part:
   DO nR=n_r_cmb+1,n_r_icb-1

@@ -1,6 +1,10 @@
 !$Id$
 !***********************************************************************
+#ifdef WITH_PRECOND_Z10
+    SUBROUTINE get_z10Mat(dt,l,hdif,zMat,zPivot,zMat_fac)
+#else
     SUBROUTINE get_z10Mat(dt,l,hdif,zMat,zPivot)
+#endif
 !***********************************************************************
 
 !    !------------ This is release 2 level 1  --------------!
@@ -37,6 +41,9 @@
 !-- Output: z10Mat and pivot_z10
     REAL(kind=8) :: zMat(n_r_max,n_r_max)
     INTEGER :: zPivot(n_r_max)
+#ifdef WITH_PRECOND_Z10
+    REAL(kind=8),INTENT(out) :: zMat_fac(n_r_max)
+#endif
 
 !-- local variables:
     INTEGER :: nR,nCheb,info
@@ -120,6 +127,14 @@
         zMat(1,nCheb)      =0.D0
         zMat(n_r_max,nCheb)=0.D0
     END DO
+
+#ifdef WITH_PRECOND_Z10
+  ! compute the linesum of each line
+  DO nR=1,n_r_max
+     zMat_fac(nR)=1.0D0/MAXVAL(ABS(zMat(nR,:)))
+     zMat(nR,:) = zMat(nR,:)*zMat_fac(nR)
+  END DO
+#endif
 
 !-- LU-decomposition of z10mat:
     CALL sgefa(zMat,n_r_max,n_r_max,zPivot,info)

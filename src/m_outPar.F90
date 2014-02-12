@@ -1,14 +1,16 @@
 !$Id$
 MODULE outPar_mod
-  USE truncation
-  USE blocking
-  USE logic
+  USE truncation, ONLY:n_r_max, l_max, lm_max
+  USE blocking, ONLY: nfs,nThetaBs,sizeThetaB
+  USE logic,ONLY: l_viscBcCalc,l_anel
   USE horizontal_data, ONLY: gauss
-  USE fields, ONLY: s
+  USE fields, ONLY: s_Rloc
   USE physical_parameters, ONLY: ek,prmag
   USE const, ONLY: pi,mass
   USE radial_functions, ONLY:r,or2,sigma,rho0
-
+  USE radial_data, ONLY: n_r_icb,nRstart,nRstop
+  use parallel_mod
+  USE output_data,only: tag
   IMPLICIT NONE
 
   REAL(kind=8),ALLOCATABLE :: dlVMeanR(:),dlVcMeanR(:)
@@ -23,7 +25,7 @@ contains
   SUBROUTINE initialize_outPar_mod
 
     ALLOCATE( dlVMeanR(n_r_max),dlVcMeanR(n_r_max) )
-    ALLOCATE( sMeanR(n_r_max),Svar(n_r_max),Mvar(n_r_max) )
+    ALLOCATE( sMeanR(n_r_max),Svar(nRstart:nRstop),Mvar(nRstart:nRstop) )
     ALLOCATE( dlVu2MeanR(n_r_max),dlVu2cMeanR(n_r_max) )
     ALLOCATE( RolMeanR(n_r_max),RolMeanRu2(n_r_max),RmMeanR(n_r_max) )
     ALLOCATE( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
@@ -68,14 +70,15 @@ contains
 
     !--- Property parameters:
     REAL(kind=8) :: Mtmp
-    REAL(kind=8),DIMENSION(n_r_max) :: sR, ReR, RoR, RolR
+    REAL(kind=8),DIMENSION(n_r_max) :: ReR, RoR, RolR
 
     CHARACTER(len=76) :: filename
 
     ! For horizontal velocity
     INTEGER :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R
-    REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global,gradT2R_global
+    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R,sR
+    REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global,gradT2R_global,sR_global
+    REAL(kind=8),DIMENSION(n_r_max) :: Svar_global
     REAL(kind=8),DIMENSION(nfs) :: duh,uh,gradT2
 
     INTEGER :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -84,24 +87,27 @@ contains
     !--- end of declaration
     !-----------------------------------------------------------------
     IF ( l_viscBcCalc ) THEN
-        IF (rank.EQ.0) THEN
-           DO nR=1,n_r_max
-              sR(nR)=0.D0
-              ! Mean entropy profile
-              DO lm=1,lm_max
-                  sR(nR) = sR(nR)+REAL(s(lm,nR))
-              END DO
-              ! calculate entropy/temperature variance:
-              IF (n_time_step .LE. 1) THEN
-                  Mvar(nR)       =sR(nR)
-                  Svar(nR)       =0.d0
-              ELSE
-                  Mtmp      =Mvar(nR)
-                  Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
-                  Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
-              END IF
-           END DO
-        END IF
+       !IF (rank.EQ.0) THEN
+       !DO nR=1,n_r_max
+       DO nR=nRstart,nRstop
+          !sR(nR)=0.D0
+          ! Mean entropy profile
+          sR(nR) = SUM(REAL(s_Rloc(:,nR)))
+          !DO lm=1,lm_max
+          !   sR(nR) = sR(nR)+REAL(s_Rloc(lm,nR))
+          !END DO
+          ! calculate entropy/temperature variance:
+          IF (n_time_step .LE. 1) THEN
+             Mvar(nR)       =sR(nR)
+             Svar(nR)       =0.d0
+          ELSE
+             Mtmp      =Mvar(nR)
+             Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
+             Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
+          END IF
+          WRITE(*,"(A,I3,A,3ES20.12)") "sR,Svar,Mvar (",nR,") = ",sR(nR),Svar(nR),Mvar(nR)
+       END DO
+       !END IF
 
         DO nR=nRstart,nRstop
             uhR(nR) =0.d0
@@ -141,7 +147,12 @@ contains
         CALL MPI_GatherV(gradT2R,sendcount,MPI_DOUBLE_PRECISION,&
             &           gradT2R_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
             &           0,MPI_COMM_WORLD,ierr)
-
+        CALL MPI_GatherV(sR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           sR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,&
+            &           Svar_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
     END IF
 
     IF (rank.EQ.0) THEN
@@ -153,7 +164,7 @@ contains
           ELSE
               RolR(nR)=RoR(nR)
           END IF
-          !WRITE(*,"(A,I3,4ES20.12)") "outPar: ",nR,ReR(nR),RoR(nR),dlVR(nR),RolR(nR)
+          !WRITE(*,"(A,I3,4ES20.12)") "outPar: ",nR,dlVR(nR),dlVRc(nR),dlVRu2(nR),dlVRu2c(nR)
           RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
        END DO
 
@@ -164,11 +175,12 @@ contains
        RolMeanR   =RolMeanR   +timePassed*RolR
        RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
        RmMeanR    =RmMeanR    +timePassed*RmR*dsqrt(mass/rho0)*or2
+       !WRITE(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
        ! this is to get u2 value for RmR(r) to plot in parrad.tag
        ! and also remove r**2, so it has to be volume-averaged 
        ! like RolR
        IF ( l_viscBcCalc ) THEN
-          sMeanR     =sMeanR    +timePassed*sR
+          sMeanR     =sMeanR    +timePassed*sR_global
           uhMeanR    =uhMeanR   +timePassed*uhR_global
           duhMeanR   =duhMeanR  +timePassed*duhR_global
           gradT2MeanR=gradT2MeanR+timePassed*gradT2R_global
@@ -178,6 +190,7 @@ contains
 
           dlVMeanR   =dlVMeanR/timeNorm
           dlVcMeanR  =dlVcMeanR/timeNorm
+          !WRITE(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
           RolMeanR   =RolMeanR/timeNorm
           IF ( l_anel ) THEN
              dlVu2MeanR =dlVu2MeanR/timeNorm
@@ -192,7 +205,7 @@ contains
 
           IF ( l_viscBcCalc ) THEN
              sMeanR     =sMeanR/timeNorm
-             Svar       =Svar/(n_time_step-1)
+             Svar_global=Svar_global/(n_time_step-1)
              duhMeanR   =duhMeanR/timeNorm
              uhMeanR    =uhMeanR/timeNorm
              gradT2MeanR=gradT2MeanR/timeNorm
@@ -221,7 +234,7 @@ contains
                 WRITE(99,'(D20.10,6D12.4)')            &
                         &   r(nR),                     &! 1) radius
                         &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
-                        &   Svar(nR),                  &! 3) entropy variance
+                        &   Svar_global(nR),           &! 3) entropy variance
                         &   uhMeanR(nR),               &! 4) uh
                         &   duhMeanR(nR),              &! 5) duh/dr
                         &   gradT2MeanR(nR)             ! 6) (grad T)**2

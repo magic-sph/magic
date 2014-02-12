@@ -163,8 +163,13 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
            !      at the boundaries!
            !      Note: no angular momentum correction necessary for this case !
            IF ( .NOT. lZ10mat ) THEN
+#ifdef WITH_PRECOND_Z10
+              CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
+                   z10Mat,z10Pivot,z10Mat_fac)
+#else
               CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
                    z10Mat,z10Pivot)
+#endif
               lZ10mat=.TRUE.
            END IF
            IF ( l_SRMA ) THEN
@@ -208,24 +213,29 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
                    w2*dzdtLast(lm1,nR)
            END DO
 
+#ifdef WITH_PRECOND_Z10
+           DO nR=1,n_r_max
+              rhs(nR) = z10Mat_fac(nR)*rhs(nR)
+           END DO
+#endif
            IF (DEBUG_OUTPUT) THEN
               rhs_sum=SUM(rhs)
               WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) before = ",&
                    & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
                    & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-              DO nR=1,n_r_max
-                 WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) before = ",&
-                      & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
-                      & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-              END DO
+              !DO nR=1,n_r_max
+              !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) before = ",&
+              !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
+              !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
+              !END DO
            END IF
            CALL cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
            IF (DEBUG_OUTPUT) THEN
-              DO nR=1,n_r_max
-                 WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
-                      & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
-                      & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-              END DO
+              !DO nR=1,n_r_max
+              !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
+              !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
+              !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
+              !END DO
               rhs_sum=SUM(rhs)
               WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) after = ",&
                    & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
@@ -246,6 +256,7 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 #endif
               lZmat(l1)=.TRUE.
               !PERFOFF
+              !WRITE(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
            END If
            lmB=lmB+1
            rhs1(1,lmB)      =0.D0
@@ -265,24 +276,24 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 
      !PERFON('upZ_sol')
      IF ( lmB > 0 ) THEN
-        IF (DEBUG_OUTPUT) THEN
-           DO lm=1,lmB
-              rhs_sum=SUM(rhs1(:,lmB))
-              WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) before = ",&
-                   & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-                   & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-           END DO
-        END IF
+        !IF (DEBUG_OUTPUT) THEN
+        !   DO lm=1,lmB
+        !      rhs_sum=SUM(rhs1(:,lmB))
+        !      WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) before = ",&
+        !           & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
+        !           & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
+        !   END DO
+        !END IF
         CALL cgeslML(zMat(1,1,l1),n_r_max,n_r_max, &
              &       zPivot(1,l1),rhs1,n_r_max,lmB)
-        IF (DEBUG_OUTPUT) THEN
-           DO lm=1,lmB
-              rhs_sum=SUM(rhs1(:,lmB))
-              WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) after = ",&
-                   & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-                   & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-           END DO
-        END IF
+        !IF (DEBUG_OUTPUT) THEN
+        !   DO lm=1,lmB
+        !      rhs_sum=SUM(rhs1(:,lmB))
+        !      WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) after = ",&
+        !           & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
+        !           & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
+        !   END DO
+        !END IF
      END IF
      !PERFOFF
      IF ( lRmsNext ) THEN ! Store old z
@@ -467,16 +478,16 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 
   END IF ! l=1,m=1 contained in lm-block ?
 
-  IF (DEBUG_OUTPUT) THEN
-     DO nR=1,n_r_max
-        IF ((nR.EQ.1).OR.(nR.EQ.5)) THEN
-           DO lm=llm,ulm
-              WRITE(*,"(4X,A,2I3,4ES22.14)") "upZ_new: ",nR,lm,z(lm,nR),dz(lm,nR)
-           END DO
-        END IF
-        WRITE(*,"(A,I3,4ES22.14)") "upZ_new: ",nR,get_global_SUM( z(:,nR) ),get_global_SUM( dz(:,nR) )
-     END DO
-  END IF
+  !IF (DEBUG_OUTPUT) THEN
+  !   DO nR=1,n_r_max
+  !      IF ((nR.EQ.1).OR.(nR.EQ.5)) THEN
+  !         DO lm=llm,ulm
+  !            WRITE(*,"(4X,A,2I3,4ES22.14)") "upZ_new: ",nR,lm,z(lm,nR),dz(lm,nR)
+  !         END DO
+  !      END IF
+  !      WRITE(*,"(A,I3,4ES22.14)") "upZ_new: ",nR,get_global_SUM( z(:,nR) ),get_global_SUM( dz(:,nR) )
+  !   END DO
+  !END IF
   !-- Calculate explicit time step part:
   DO nR=n_r_cmb+1,n_r_icb-1
      !WRITE(*,"(A,I4,5ES20.12)") "r-dependent : ",nR,dLvisc(nR),beta(nR),or1(nR),or2(nR),dbeta(nR)

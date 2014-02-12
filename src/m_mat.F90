@@ -32,8 +32,14 @@ MODULE matrices
 #ifdef WITH_PRECOND_Z
   REAL(kind=8),ALLOCATABLE :: zMat_fac(:,:)
 #endif
+#ifdef WITH_PRECOND_Z10
+  REAL(kind=8),ALLOCATABLE :: z10Mat_fac(:)
+#endif
 #ifdef WITH_PRECOND_S
   REAL(kind=8),ALLOCATABLE :: sMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_S0
+  REAL(kind=8),ALLOCATABLE :: s0Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_BJ
   REAL(kind=8),ALLOCATABLE :: bMat_fac(:,:)
@@ -71,11 +77,17 @@ CONTAINS
 #ifdef WITH_PRECOND_WP
     ALLOCATE(wpMat_fac(2*n_r_max,2,l_max))
 #endif
+#ifdef WITH_PRECOND_Z10
+    ALLOCATE(z10Mat_fac(n_r_max))
+#endif
 #ifdef WITH_PRECOND_Z
     ALLOCATE(zMat_fac(n_r_max,l_max))
 #endif
 #ifdef WITH_PRECOND_S
     ALLOCATE(sMat_fac(n_r_max,l_max))
+#endif
+#ifdef WITH_PRECOND_S0
+    ALLOCATE(s0Mat_fac(n_r_max))
 #endif
 #ifdef WITH_PRECOND_BJ
     ALLOCATE(bMat_fac(n_r_tot,l_max))

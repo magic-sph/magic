@@ -1,8 +1,8 @@
 !$Id$
 !***********************************************************************
 SUBROUTINE get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-     n_r_max,n_cheb_max,work1,work2, &
-     i_costf_init,d_costf_init,drx,ddrx)
+     &             n_r_max,n_cheb_max,work1,work2, &
+     &             i_costf_init,d_costf_init,drx,ddrx)
   !***********************************************************************
 
   !------------ This is release 2 level 1  --------------!

@@ -52,6 +52,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   ! Factor energy scale, 1/2 (Energy)  and 1/(4 Pi) for surface to get density
   !             1/r**2 applied below
   fac=0.5D0*eScale/(16.D0*DATAN(1.D0))
+  !WRITE(*,"(A,I3,F22.18)") "rBrSpec, fac = ",EXPONENT(fac),FRACTION(fac)
   length=length_to_blank(fileRoot)
 
   DO n_r=1,n_r_max
@@ -65,6 +66,8 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
            m=map%lm2m(lm)
            amp=REAL(Pol(lm,n_r))
            e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
+           !IF (l.EQ.4) WRITE(*,"(A,4I4,2ES20.12,I5,F22.18)") "e_p_temp: ",n_r,lm,l,m,Pol(lm,n_r),&
+           !     & EXPONENT(e_p_temp),FRACTION(e_p_temp)
            IF ( m == 0 ) THEN
               IF ( ABS(amp)/=0.d0 ) THEN
                  e_p_AS(l,n_r)=fac*amp/ABS(amp)*e_p_temp
@@ -74,6 +77,9 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
         END IF
      END DO    ! do loop over lms in block
   END DO    ! radial grid points
+  
+  !WRITE(*,*) "e_p(1,:) = ",(e_p(1,n_r),n_r=1,n_r_max)
+  !WRITE(*,"(A,2ES22.14)") "e_p after OC: ",SUM(e_p(1,1:n_r_max)),SUM(e_p(2,1:n_r_max))
 
   !WRITE(*,"(A,4ES22.14)") "e_p_AS after OC: ",SUM(e_p_AS(1:6,1:n_r_max)),SUM(e_p(1:6,1:n_r_max))
   !-- Inner core:
@@ -136,20 +142,22 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   !IF ( nLines == 0 ) WRITE(91) FLOAT(n_r_tot-1),SNGL(radratio)
   !IF ( nLines == 0 ) WRITE(91) &
   !    (SNGL(r(n_r)),n_r=1,n_r_max),(SNGL(r_ic(n_r)),n_r=2,n_r_ic_max)
-  WRITE(91) SNGL(time),                          &
-       (SNGL(e_p(1,n_r)),n_r=1,n_r_tot-1),    &
-       (SNGL(e_p(2,n_r)),n_r=1,n_r_tot-1),    &
-       (SNGL(e_p(3,n_r)),n_r=1,n_r_tot-1),    &
-       (SNGL(e_p(4,n_r)),n_r=1,n_r_tot-1),    &
-       (SNGL(e_p(5,n_r)),n_r=1,n_r_tot-1),    &
-       (SNGL(e_p(6,n_r)),n_r=1,n_r_tot-1)
-  WRITE(91) REAL(time),                          &
-       (SNGL(e_p_AS(1,n_r)),n_r=1,n_r_tot-1), &
-       (SNGL(e_p_AS(2,n_r)),n_r=1,n_r_tot-1), &
-       (SNGL(e_p_AS(3,n_r)),n_r=1,n_r_tot-1), &
-       (SNGL(e_p_AS(4,n_r)),n_r=1,n_r_tot-1), &
-       (SNGL(e_p_AS(5,n_r)),n_r=1,n_r_tot-1), &
-       (SNGL(e_p_AS(6,n_r)),n_r=1,n_r_tot-1)
+  !WRITE(*,*) "e_p(4,:) = ",(REAL(e_p(4,n_r),kind=4),n_r=1,n_r_max)
+
+  WRITE(91) REAL(time,kind=4),                          &
+       (REAL(e_p(1,n_r),kind=4),n_r=1,n_r_tot-1),    &
+       (REAL(e_p(2,n_r),kind=4),n_r=1,n_r_tot-1),    &
+       (REAL(e_p(3,n_r),kind=4),n_r=1,n_r_tot-1),    &
+       (REAL(e_p(4,n_r),kind=4),n_r=1,n_r_tot-1),    &
+       (REAL(e_p(5,n_r),kind=4),n_r=1,n_r_tot-1),    &
+       (REAL(e_p(6,n_r),kind=4),n_r=1,n_r_tot-1)
+  WRITE(91) REAL(time,kind=4),                          &
+       (REAL(e_p_AS(1,n_r),kind=4),n_r=1,n_r_tot-1), &
+       (REAL(e_p_AS(2,n_r),kind=4),n_r=1,n_r_tot-1), &
+       (REAL(e_p_AS(3,n_r),kind=4),n_r=1,n_r_tot-1), &
+       (REAL(e_p_AS(4,n_r),kind=4),n_r=1,n_r_tot-1), &
+       (REAL(e_p_AS(5,n_r),kind=4),n_r=1,n_r_tot-1), &
+       (REAL(e_p_AS(6,n_r),kind=4),n_r=1,n_r_tot-1)
 
   CLOSE(91)
 
