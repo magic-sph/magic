@@ -14,8 +14,7 @@ SUBROUTINE store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr, &
   !-------------------------------------------------------------------------
 
   USE truncation
-  USE movie_data, only: frames
-  USE output_data, ONLY: n_movie_fields,n_movies,n_movie_surface,n_movie_const,&
+  USE movie_data, ONLY: frames,n_movie_fields,n_movies,n_movie_surface,n_movie_const,&
        &n_movie_field_type,n_movie_field_start,n_movie_field_stop
   IMPLICIT NONE
 

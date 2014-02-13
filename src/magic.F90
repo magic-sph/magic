@@ -126,6 +126,7 @@
     USE radial_data,only: initialize_radial_data
     use radialLoop
     USE lmLoop_data,ONLY: initialize_LMLoop_data
+    USE LMLoop_mod,only: initialize_LMLoop
     USE kinetic_energy
     use magnetic_energy
     use fields_average_mod
@@ -133,7 +134,7 @@
     use spectrum_average_mod
     use spectrumC_average_mod
     USE output_data
-    use output_mod
+    USE output_mod,only: initialize_output
     use outPV3, only:initialize_outPV3
     USE outTO_mod,only: initialize_outTO_mod
     USE parallel_mod
@@ -143,6 +144,7 @@
     USE communications, only:initialize_communications
     USE power, only: initialize_output_power
     use outPar_mod
+    !USE rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif
@@ -162,26 +164,26 @@
 
     CHARACTER(len=76) :: message
 
-#ifdef WITH_MPI
     ! MPI specific variables
     INTEGER :: required_level,provided_level
-#endif
 
 !-- end of declaration
 !------------------------------------------------------------------------
-#ifdef WITH_MPI
-    !required_level=MPI_THREAD_SINGLE
-    !CALL mpi_init_thread(required_level,provided_level,ierr)
-    !If (provided_level.LT.required_level) THEN
-    !   PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
-    !   stop
-    !END IF
+#ifdef WITHOMP
+    required_level=MPI_THREAD_MULTIPLE
+    CALL mpi_init_thread(required_level,provided_level,ierr)
+    If (provided_level.LT.required_level) THEN
+       PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
+       stop
+    END IF
+#else
     call mpi_init(ierr)
 #endif
+
     PERFINIT
     PERFON('main')
     LIKWID_INIT
-    LIKWID_ON('main')
+    !LIKWID_ON('main')
     CALL parallel
 
 !--- Read starting time
@@ -206,7 +208,9 @@
     call initialize_radial_data
     call initialize_radial_functions
     call initialize_radialLoop
+    !CALL initialize_rIterThetaBlocking
     call initialize_LMLoop_data
+    call initialize_LMLoop
 
     call initialize_num_param
     call initialize_TO
@@ -231,6 +235,7 @@
     call initialize_communications
     call initialize_outPar_mod
     IF ( l_power ) call initialize_output_power
+    call initialize_output
 
 !--- Open output files:
     !CALL openFiles
@@ -336,7 +341,7 @@
 
     PERFOFF
     PERFOUT('main')
-    LIKWID_OFF('main')
+    !LIKWID_OFF('main')
     LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI

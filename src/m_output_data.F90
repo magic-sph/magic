@@ -9,7 +9,7 @@
 
 MODULE output_data
   USE truncation
-  use movie_data
+  USE movie_data,ONLY: n_movies_max
   IMPLICIT NONE
 
   !----- Identification of run:

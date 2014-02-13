@@ -1,5 +1,6 @@
 !$Id: s_step_time.F90 436 2013-02-20 11:17:48Z gastine $
 #include "perflib_preproc.cpp"
+#include "intrinsic_sizes.h"
 MODULE step_time_mod
     USE truncation
     USE radial_functions
@@ -27,22 +28,91 @@ MODULE step_time_mod
     USE fieldsLast
     USE charmanip, only: capitalize,dble2str
     USE usefull, only: l_correct_step
-    USE communications,ONLY: get_global_sum,& !lm2r_redist,lo2r_redist,r2lm_redist,&
+    USE communications,ONLY: get_global_sum,&
          & r2lo_redist,&
          & lm2r_type,&
          & lo2r_redist_start,lo2r_redist_wait,&
-         &lo2r_s,lo2r_ds,lo2r_z,lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
-         & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
+         & lo2r_s,lo2r_z,lo2r_p,&
+         & lo2r_b, lo2r_aj, lo2r_w
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif
+    !USE cutils
     IMPLICIT NONE 
 
   private
 
+  !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc
+
+  !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
+  TARGET :: dbdt_Rloc
+
+  ! The same arrays, but now the LM local part
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dsdt_LMloc,&
+       & dVSrLM_LMloc
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: dbdt_LMloc,djdt_LMloc,dVxBhLM_LMloc
+
+       
   public :: initialize_step_time,step_time
 contains
   SUBROUTINE initialize_step_time
+    INTEGER :: nR,lm
+    character(len=100) :: str
+
+    ALLOCATE(dwdt_Rloc(lm_max,nRstart:nRstop))
+    ALLOCATE(dzdt_Rloc(lm_max,nRstart:nRstop))
+    ALLOCATE(dsdt_Rloc(lm_max,nRstart:nRstop))
+    ALLOCATE(dpdt_Rloc(lm_max,nRstart:nRstop))
+    ALLOCATE(dVSrLM_Rloc(lm_max,nRstart:nRstop))
+
+    ! the magnetic part
+    ALLOCATE(dbdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+    ALLOCATE(djdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+    ALLOCATE(dVxBhLM_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+
+    ! first touch
+    DO nR=nRstart,nRstop
+       !$OMP PARALLEL DO 
+!!$OMP schedule(static,4)
+       DO lm=1,lm_max
+          IF (l_mag) THEN
+             dbdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+             djdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+             dVxBhLM_Rloc(lm,nR)=CMPLX(0.0,0.0)
+          END IF
+          dwdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+          dzdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+          dsdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+          dpdt_Rloc(lm,nR)=CMPLX(0.0,0.0)
+          dVSrLM_Rloc(lm,nR)=CMPLX(0.0,0.0)
+       END DO
+       !$OMP END PARALLEL DO
+    END DO
+    !CALL print_address("dbdt_Rloc"//C_NULL_CHAR,dbdt_Rloc)
+    !CALL print_address("djdt_Rloc"//C_NULL_CHAR,djdt_Rloc)
+    !CALL print_address("dsdt_Rloc"//C_NULL_CHAR,dsdt_Rloc)
+    !CALL print_address("dVSrLM_Rloc"//C_NULL_CHAR,dVSrLM_Rloc)
+    !CALL print_address("dVxBhLM"//C_NULL_CHAR,dVxBhLM_Rloc)
+
+    !DO lm=1,lm_maxMag,4
+    !   WRITE(str,"(A,I3,A)") "djdt_Rloc(",lm,")"//C_NULL_CHAR
+    !   CALL print_address(str,djdt_Rloc(lm,nRStartMag))
+    !END DO
+
+
+    ! The same arrays, but now the LM local part
+    ALLOCATE(dwdt_LMloc(llm:ulm,n_r_max))
+    ALLOCATE(dzdt_LMloc(llm:ulm,n_r_max))
+    ALLOCATE(dpdt_LMloc(llm:ulm,n_r_max))
+    ALLOCATE(dsdt_LMloc(llm:ulm,n_r_max))
+    ALLOCATE(dVSrLM_LMloc(llm:ulm,n_r_max))
+
+    ALLOCATE(dbdt_LMloc(llmMag:ulmmag,n_r_maxMag))
+    ALLOCATE(djdt_LMloc(llmMag:ulmmag,n_r_maxMag))
+    ALLOCATE(dVxBhLM_LMloc(llmMag:ulmmag,n_r_maxMag))
+
   END SUBROUTINE initialize_step_time
 
   !***********************************************************************
@@ -113,17 +183,6 @@ contains
     !    Note that the respective arrays for the changes in inner-core
     !    magnetic field are calculated in s_updateB.f and are only
     !    needed there.
-    !--- dVSrLM and dVxBhLM are help arrays for calculating dsdt and djdt (see s_updateS.f,s_updateB.f):
-    COMPLEX(kind=8),DIMENSION(lm_max,nRstart:nRstop) :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,&
-         & dVSrLM_Rloc
-    COMPLEX(kind=8),DIMENSION(lm_maxMag,nRstartMag:nRstopMag) :: dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc
-    TARGET :: dbdt_Rloc
-
-    ! The same arrays, but now the LM local part
-    COMPLEX(kind=8),DIMENSION(llm:ulm,n_r_max) :: dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dsdt_LMloc,&
-         & dVSrLM_LMloc
-    COMPLEX(kind=8),DIMENSION(llm:ulm,n_r_max) :: dzdt_lo
-    COMPLEX(kind=8),DIMENSION(llmMag:ulmMag,n_r_maxMag) :: dbdt_LMloc,djdt_LMloc,dVxBhLM_LMloc
 
     !--- Lorentz torques:
     REAL(kind=8) :: lorentz_torque_ma,lorentz_torque_ic
@@ -160,10 +219,12 @@ contains
     REAL(kind=8) :: tenth_n_time_steps
 
     !-- Interupt procedure:
+    INTEGER :: signals(4)
     INTEGER :: n_stop_signal     ! =1 causes run to stop
     INTEGER :: n_graph_signal    ! =1 causes output of graphic file
-    INTEGER :: n_spec_signal     ! =1 causes output of a spec file
     INTEGER :: n_rst_signal      ! =1 causes output of rst file
+    INTEGER :: n_spec_signal     ! =1 causes output of a spec file
+    INTEGER :: old_stop_signal,old_graph_signal,old_rst_signal,old_spec_signal
 
     !--- Timing
     INTEGER :: runTimePassed(4)
@@ -173,11 +234,10 @@ contains
     INTEGER :: runTimeTL(4),runTimeTM(4)
     INTEGER :: nTimeT,nTimeTL,nTimeTM,nTimeR,nTimeLM
 
-    logical,parameter :: DEBUG_OUTPUT=.false.
+    LOGICAL,PARAMETER :: DEBUG_OUTPUT=.false.
     INTEGER :: lmStart,lmStop,lmStart_00
     INTEGER :: nR_i1,nR_i2
     INTEGER :: lm,l,m
-#ifdef WITH_MPI
     ! MPI related variables
     INTEGER :: i,j,info,irank, send_pe, recv_pe
     INTEGER :: sendcount
@@ -185,14 +245,16 @@ contains
     INTEGER,ALLOCATABLE,DIMENSION(:) :: recvcounts,displs
     CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
     INTEGER :: length_of_error,nR,nLMB
-#endif
+
     COMPLEX(KIND=8),POINTER,DIMENSION(:) :: ptr_dbdt_CMB
     !REAL(kind=8) :: start_time, end_time
+
+    INTEGER :: signal_window
+    integer(kind=8)  :: time_in_ms
     !-- end of declaration
 
-
     IF ( lVerbose ) WRITE(*,'(/,'' ! STARTING STEP_TIME !'')')
-    
+
 #ifdef WITH_MPI
     ! allocate the buffers for MPI gathering
     ALLOCATE(recvcounts(0:n_procs-1),displs(0:n_procs-1))
@@ -220,6 +282,7 @@ contains
     n_cmb_sets      =0    ! No. of store dt_b sets at CMB
 
     !---- Prepare signalling via file signal
+    signals=0
     n_stop_signal =0     ! Stop signal returned to calling program
     n_graph_signal=0     ! Graph signal returned to calling program
     n_spec_signal=0      ! Spec signal
@@ -230,6 +293,8 @@ contains
        WRITE(19,'(A3)') 'NOT'
        CLOSE(19)
     END IF
+    !CALL MPI_Win_create(signals,4*SIZEOF_INTEGER,SIZEOF_INTEGER,info,&
+    !     & MPI_COMM_WORLD,signal_window,ierr)
 
     !-- STARTING THE TIME STEPPING LOOP:
     IF (rank.EQ.0) THEN
@@ -263,7 +328,7 @@ contains
     CALL mpi_barrier(MPI_COMM_WORLD,ierr)
 
     PERFON('tloop')
-    LIKWID_ON('tloop')
+    !LIKWID_ON('tloop')
     DO n_time_step=1,n_time_steps_go 
        n_time_cour=n_time_cour+1
        
@@ -272,13 +337,64 @@ contains
           WRITE(*,*) '! Starting time step ',n_time_step
        END IF
 
+       CALL wallTime(runTimeTstart)
+
        ! =================================== BARRIER ======================
-       PERFON('barr_0')
+       !PERFON('barr_0')
+       !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       !PERFOFF
+       ! ==================================================================
+
+       ! Here now comes the block where the LM distributed fields
+       ! are redistributed to Rloc distribution which is needed for the radialLoop.
+       ! s,ds
+       ! z,dz
+       ! w,dw,ddw,p,dp
+       ! b,db,ddb,aj,dj,ddj
+       ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
+
+       ! Waiting for the completion before we continue to the radialLoop
+       ! put the waits before signals to avoid cross communication
+       PERFON('lo2r_wt')
+       IF (l_heat) THEN
+          CALL lo2r_redist_wait(lo2r_s)
+          !CALL lo2r_redist_wait(lo2r_ds)
+       END IF
+       IF (l_conv) THEN
+          call lo2r_redist_wait(lo2r_z)
+          !call lo2r_redist_wait(lo2r_dz)
+          CALL lo2r_redist_wait(lo2r_w)
+          !CALL lo2r_redist_wait(lo2r_w)
+          !CALL lo2r_redist_wait(lo2r_dw)
+          !CALL lo2r_redist_wait(lo2r_ddw)
+          CALL lo2r_redist_wait(lo2r_p)
+          !CALL lo2r_redist_wait(lo2r_dp)
+       END IF
+
+       if (l_mag) then
+          CALL lo2r_redist_wait(lo2r_b)
+          !CALL lo2r_redist_wait(lo2r_db)
+          !CALL lo2r_redist_wait(lo2r_ddb)
+
+          CALL lo2r_redist_wait(lo2r_aj)
+          !CALL lo2r_redist_wait(lo2r_dj)
+       end if
+
+       ! Broadcast omega_ic and omega_ma
+       call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+       call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+       PERFOFF
+
+       ! =================================== BARRIER ======================
+       PERFON('barr_1')
        CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        PERFOFF
        ! ==================================================================
 
        PERFON('signals')
+       !This dealing with a signal file is quite expensive
+       ! as the file can be read only on one rank and the result
+       ! must be distributed to all other ranks.
        IF (rank.EQ.0) THEN
           !----- Signalling via file signal:
           message='signal'//'.'//tag
@@ -287,57 +403,108 @@ contains
           CLOSE(19)
           IF ( LEN(TRIM(SIG)).GT.0 ) THEN ! Non blank string ?
              CALL capitalize(SIG)
-             IF ( INDEX(SIG,'END')/=0 ) n_stop_signal=1
-             n_graph_signal=0
+
+             old_stop_signal=n_stop_signal
+             IF ( INDEX(SIG,'END')/=0 ) signals(1)=1  !n_stop_signal=1
+             old_graph_signal=n_graph_signal
              IF ( INDEX(SIG,'GRA')/=0 ) THEN 
-                n_graph_signal=1
+                !n_graph_signal=1
+                signals(2)=1
                 OPEN(19,FILE=TRIM(message),STATUS='unknown')
                 WRITE(19,'(A3)') 'NOT'
                 CLOSE(19)
+             ELSE
+                !n_graph_signal=0
+                signals(2)=0
              END IF
-             n_rst_signal=0
+             old_rst_signal=n_rst_signal
              IF ( INDEX(SIG,'RST')/=0 ) THEN
-                n_rst_signal=1
+                signals(3)=1
+                !n_rst_signal=1
                 OPEN(19,FILE=TRIM(message),STATUS='unknown')
                 WRITE(19,'(A3)') 'NOT'
                 CLOSE(19)
+             ELSE
+                signals(3)=0
+                !n_rst_signal=0
              END IF
-             n_spec_signal=0
+             old_spec_signal=n_spec_signal
              IF ( INDEX(SIG,'SPE')/=0 ) THEN
-                n_spec_signal=1
+                signals(4)=1
+                !n_spec_signal=1
                 OPEN(19,FILE=TRIM(message),STATUS='unknown')
                 WRITE(19,'(A3)') 'NOT'
                 CLOSE(19)
+             ELSE
+                signals(4)=0
+                !n_spec_signal=0
              END IF
           END IF
        END IF
+       ! Only broadcast the results from the signal file if
+       ! something changed. For this we need one-sided communication
+       ! because only process 0 knows if the communication is needed.
+       !WRITE(*,"(A)") "Win_fence 1 start"
+       !PERFON('fence1')
+       !CALL MPI_Win_fence(0,signal_window,ierr)
+       !PERFOFF
+       !WRITE(*,"(A)") "Win_fence 1 end"
+
        ! Broadcast the results from the signal file to all processes
        ! =======> THIS IS A GLOBAL SYNCHRONIZATION POINT <==========
-       CALL MPI_Bcast(n_stop_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-       CALL MPI_Bcast(n_graph_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-       CALL MPI_Bcast(n_spec_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-       CALL MPI_Bcast(n_rst_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-
+#if 0
+       IF (rank.EQ.0) THEN
+          IF ((old_stop_signal.NE.n_stop_signal) .OR. &
+               &(old_graph_signal.NE.n_graph_signal) .OR. &
+               &(old_rst_signal.NE.n_rst_signal) .OR. &
+               &(old_spec_signal.NE.n_spec_signal)) THEN
+             DO iRank=1,n_procs-1
+                WRITE(*,"(A,I4)") "MPI_putting from rank 0 to rank ",iRank
+                CALL MPI_Put(signals,4,MPI_INTEGER,&
+                     & iRank,0,4,MPI_INTEGER,signal_window,ierr)
+             END DO
+          END IF
+       END IF
+#endif
+       CALL MPI_Bcast(signals,4,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       !CALL MPI_Bcast(n_stop_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       !CALL MPI_Bcast(n_graph_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       !CALL MPI_Bcast(n_spec_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       !CALL MPI_Bcast(n_rst_signal,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+       !WRITE(*,"(A)") "Win_fence 2 start"
+       !PERFON('fence2')
+       !CALL MPI_Win_fence(0,signal_window,ierr)
+       !PERFOFF
+       !WRITE(*,"(A)") "Win_fence 2 end"
+       n_stop_signal=signals(1)
+       n_graph_signal=signals(2)
+       n_rst_signal=signals(3)
+       n_spec_signal=signals(4)
        PERFOFF
-       CALL wallTime(runTimeTstart)
 
-       !PERFON('chk_stop')
+       PERFON('barr_2')
+       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       PERFOFF
+
+       PERFON('chk_stop')
        !--- Various reasons to stop the time integration:
        IF ( l_runTimeLimit ) THEN
-          call MPI_Allreduce(MPI_IN_PLACE,runTime,4,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,ierr)
+          time_in_ms=time2ms(runTime)
+          CALL MPI_Allreduce(MPI_IN_PLACE,time_in_ms,1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,ierr)
+          CALL ms2time(time_in_ms,runTime)
           IF ( lTimeLimit(runTime,runTimeLimit) ) THEN
              WRITE(message,'("! Run time limit exeeded !")')
              CALL logWrite(message)
              l_stop_time=.TRUE.
           END IF
        END IF
-       IF ( n_stop_signal.GT.0 .OR.                                 &
-            &          n_time_step.EQ.n_time_steps_go )                        &
-            &        l_stop_time=.TRUE.   ! last time step !
+       IF ( (n_stop_signal.GT.0) .OR. (n_time_step.EQ.n_time_steps_go) ) then
+          l_stop_time=.TRUE.   ! last time step !
+       END IF
 
        !--- Another reasons to stop the time integration:
        IF ( time.GE.tEND .AND. tEND.NE.0.D0 ) l_stop_time=.true.
-       !PERFOFF
+       PERFOFF
        !PERFON('logics')
        !-- Checking logic for output: 
        l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
@@ -353,10 +520,10 @@ contains
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &        n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .OR.     &
             &              n_time_steps_go.EQ.1 )
-           IF ( l_mag .OR. l_mag_LF ) THEN
-              l_dtB=( l_frame .and. l_dtBmovie ) .or.                   &
-     &              ( l_log .and. l_DTrMagSpec ) 
-           END IF
+       IF ( l_mag .OR. l_mag_LF ) THEN
+          l_dtB=( l_frame .AND. l_dtBmovie ) .OR.                   &
+               &              ( l_log .AND. l_DTrMagSpec ) 
+       END IF
        l_HT  = l_frame .and. l_HTmovie
 
        lTOframe=l_TOmovie .AND.                                     &
@@ -450,8 +617,8 @@ contains
        lHelCalc=l_hel.AND.l_log
 
        IF ( l_graph ) THEN  ! write graphic output !
+          PERFON('graph')
           n_graph=n_graph+1     ! increase counter for graphic file
-#ifdef WITH_MPI
           IF ( l_graph_time ) THEN 
              CALL dble2str(time,string)
              IF ( ngform.NE.0 ) THEN
@@ -467,23 +634,6 @@ contains
                 graph_file='G_'//trim(adjustl(string))//'.'//tag_wo_rank
              END IF
           END IF
-#else
-          IF ( l_graph_time ) THEN 
-             CALL dble2str(time,string)
-             IF ( ngform.NE.0 ) THEN
-                graph_file='g_t='//trim(string)//'.'//tag
-             ELSE
-                graph_file='G_t='//trim(string)//'.'//tag
-             END IF
-          ELSE
-             write(string, *) n_graph
-             IF ( ngform.NE.0 ) THEN
-                graph_file='g_'//trim(adjustl(string))//'.'//tag
-             ELSE
-                graph_file='G_'//trim(adjustl(string))//'.'//tag
-             END IF
-          END IF
-#endif
           IF (rank.EQ.0) THEN
              WRITE(*,'(1p,/,A,/,A,D20.10,/,A,i15,/,A,A)')&
                   &" ! Storing graphic file:",&
@@ -498,28 +648,22 @@ contains
                   &"           into file=",graph_file
              CALL safeClose(nLF)
           END IF
-#ifdef WITH_MPI
-          CALL MPI_File_open(MPI_COMM_WORLD,graph_file,IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),MPI_INFO_NULL,graph_mpi_fh,ierr)
+          CALL MPI_File_open(MPI_COMM_WORLD,graph_file,&
+               & IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),MPI_INFO_NULL,graph_mpi_fh,ierr)
           !CALL MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
           !PRINT*,"MPI_FILE_OPEN returned: ",TRIM(error_string)
-#else
-          IF ( ngform.NE.0 ) THEN
-             OPEN(n_graph_file,FILE=graph_file,STATUS='NEW',FORM='FORMATTED')
-          ELSE
-             OPEN(n_graph_file,FILE=graph_file,STATUS='NEW',FORM='UNFORMATTED')
-          END IF
-#endif
-
+          PERFOFF
        END IF
-
-#ifdef WITH_MPI
 
        IF (DEBUG_OUTPUT) THEN
           DO nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs)
              lmStart=lmStartB(nLMB)
              lmStop=lmStopB(nLMB)
              lmStart_00  =MAX(2,lmStart)
-
+             
+             !DO nR=1,n_r_max
+             !   WRITE(*,"(A,I2,A,2ES20.12)") "dw_LMloc for nR=",nR," is ",SUM( dw_LMloc(lmStart:lmStop,nR) )
+             !END DO
              WRITE(*,"(A,I3,6ES20.12)") "start w: ",nLMB,&
                   & GET_GLOBAL_SUM( w_LMloc(lmStart:lmStop,:) ),&
                   & GET_GLOBAL_SUM( dw_LMloc(lmStart:lmStop,:) ),&
@@ -554,50 +698,6 @@ contains
           END DO
        END IF
        
-       ! =================================== BARRIER ======================
-       PERFON('barr_1')
-       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-       PERFOFF
-       ! ==================================================================
-       ! Here now comes the block where the LM distributed fields
-       ! are redistributed to Rloc distribution which is needed for the radialLoop.
-       ! s,ds
-       ! z,dz
-       ! w,dw,ddw,p,dp
-       ! b,db,ddb,aj,dj,ddj
-       ! b_ic,db_ic, ddb_ic,aj_ic,dj_ic,ddj_ic
-
-       ! Waiting for the completion before we continue to the radialLoop
-       IF (l_heat) THEN
-          CALL lo2r_redist_wait(lo2r_s)
-          CALL lo2r_redist_wait(lo2r_ds)
-       END IF
-       IF (l_conv) THEN
-          call lo2r_redist_wait(lo2r_z)
-          call lo2r_redist_wait(lo2r_dz)
-          CALL lo2r_redist_wait(lo2r_w)
-          CALL lo2r_redist_wait(lo2r_dw)
-          CALL lo2r_redist_wait(lo2r_ddw)
-          CALL lo2r_redist_wait(lo2r_p)
-          CALL lo2r_redist_wait(lo2r_dp)
-       END IF
-
-       if (l_mag) then
-          CALL lo2r_redist_wait(lo2r_b)
-          CALL lo2r_redist_wait(lo2r_db)
-          CALL lo2r_redist_wait(lo2r_ddb)
-
-          CALL lo2r_redist_wait(lo2r_aj)
-          CALL lo2r_redist_wait(lo2r_dj)
-       end if
-
-
-       ! Broadcast omega_ic and omega_ma
-       call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-       call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,rank_with_l1m0,MPI_COMM_WORLD,ierr)
-
-#endif
-
        !--- Now the real work starts with the radial loop that calculates
        !    the nonlinear terms:
        IF ( lVerbose ) THEN 
@@ -607,9 +707,9 @@ contains
 
        !PERFOFF
        ! =============================== BARRIER ===========================
-       PERFON('barr_2')
-       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-       PERFOFF
+       !PERFON('barr_2')
+       !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       !PERFOFF
        ! ===================================================================
 
        CALL wallTime(runTimeRstart)
@@ -645,11 +745,9 @@ contains
        ! gather in-place, we need allgatherV because auf the unequal
        ! number of points on the processes (last block is one larger)
 
-
-#ifdef WITH_MPI
        IF (DEBUG_OUTPUT) THEN
-          nR_i1=MAX(2,nRstart)
-          nR_i2=MIN(n_r_max-1,nRstop)
+          nR_i1=MAX(1,nRstart)
+          nR_i2=MIN(n_r_max,nRstop)
           WRITE(*,"(A,10ES20.12)") "middl: dwdt,dsdt,dzdt,dpdt = ",&
                & get_global_sum( dwdt_Rloc(:,nR_i1:nR_i2) ),&
                & get_global_sum( dsdt_Rloc(:,nR_i1:nR_i2) ),&
@@ -663,16 +761,17 @@ contains
        END IF
 
        ! ===================================== BARRIER =======================
-       PERFON('barr_rad')
-       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-       PERFOFF
+       !PERFON('barr_rad')
+       !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       !PERFOFF
        ! =====================================================================
+       PERFON('r2lo_dst')
        !CALL r2lm_redist(dsdt_Rloc,dsdt_LMloc)
        CALL r2lo_redist(dsdt_Rloc,dsdt_LMloc)
        !CALL r2lm_redist(dwdt_Rloc,dwdt_LMloc)
        CALL r2lo_redist(dwdt_Rloc,dwdt_LMloc)
        !CALL r2lm_redist(dzdt_Rloc,dzdt_LMloc)
-       CALL r2lo_redist(dzdt_Rloc,dzdt_lo)
+       CALL r2lo_redist(dzdt_Rloc,dzdt_LMloc)
        !CALL r2lm_redist(dpdt_Rloc,dpdt_LMloc)
        call r2lo_redist(dpdt_Rloc,dpdt_LMloc)
        !CALL r2lm_redist(dVSrLM_Rloc,dVSrLM_LMloc)
@@ -683,36 +782,16 @@ contains
           CALL r2lo_redist(dVxBhLM_Rloc,dVxBhLM_LMloc)
        end if
 
-
-       PERFON('gather')
-
-       !IF (lHelCalc) THEN
-       !   sendcount  = (nRstop-nRstart+1)*(l_max+1)
-       !   recvcounts = nr_per_rank*(l_max+1)
-       !   recvcounts(n_procs-1) = (nr_per_rank+1)*(l_max+1)
-       !   DO i=0,n_procs-1
-       !      displs(i) = i*nr_per_rank*(l_max+1)
-       !   END DO
-       !   CALL MPI_AllGatherV(HelLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-       !        & HelLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-       !   CALL MPI_AllGatherV(Hel2LMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-       !        & Hel2LMr,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-       !   CALL MPI_AllGatherV(HelnaLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-       !        & HelnaLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-       !   CALL MPI_AllGatherV(Helna2LMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-       !        & Helna2LMr,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-       !END IF
-
        ! ------------------
        ! also exchange the lorentz_torques which are only set at the boundary points
        ! but are needed on all processes.
        CALL MPI_Bcast(lorentz_torque_ic,1,MPI_DOUBLE_PRECISION,n_procs-1,MPI_COMM_WORLD,ierr)
        CALL MPI_Bcast(lorentz_torque_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-
+       PERFOFF
 
        IF (DEBUG_OUTPUT) THEN
-          WRITE(*,"(A,8ES20.12)") "lo_arr middl: dzdt_lo,z_LMloc,dz_LMloc,dzdtLast_lo = ",&
-               & GET_GLOBAL_SUM( dzdt_lo(:,2:n_r_max-1) ),&
+          WRITE(*,"(A,8ES20.12)") "lo_arr middl: dzdt_LMloc,z_LMloc,dz_LMloc,dzdtLast_lo = ",&
+               & GET_GLOBAL_SUM( dzdt_LMloc(:,2:n_r_max-1) ),&
                & GET_GLOBAL_SUM( z_LMloc ),GET_GLOBAL_SUM( dz_LMloc ),get_global_sum( dzdtLast_lo )
           WRITE(*,"(A,8ES20.12)") "lo_arr middl: dsdt,s,ds,dsdtLast = ",&
                & GET_GLOBAL_SUM( dsdt_LMloc(:,2:n_r_max-1) ),&
@@ -732,11 +811,11 @@ contains
                   & GET_GLOBAL_SUM( ddj_LMloc ),get_global_sum( djdtLast_LMloc ), &
                   & get_global_sum( dVxBhLM_LMloc )
           END IF
+          WRITE(*,"(A,2ES20.12)") "middl: dtrkc,dthkc = ",SUM(dtrkc_Rloc),SUM(dthkc_Rloc)
        END IF
 
-       PERFOFF
+       !PERFOFF
 
-#endif
        !--- Output before update of fields in LMLoop:
        ! =================================== BARRIER ======================
        !PERFON('barr_4')
@@ -760,14 +839,11 @@ contains
        PERFOFF
 
        IF ( l_graph ) THEN
-#ifdef WITH_MPI
+          PERFON('graph')
           CALL MPI_File_close(graph_mpi_fh,ierr)
           !CALL MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
           !PRINT*,"MPI_FILE_CLOSE returned: ",TRIM(error_string)
-
-#else
-          CLOSE(n_graph_file)  ! close graphic output file !
-#endif
+          PERFOFF
        END IF
        ! =================================== BARRIER ======================
        !PERFON('barr_5')
@@ -884,9 +960,9 @@ contains
        END IF
 
        ! =================================== BARRIER ======================
-       PERFON('barr_6')
-       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-       PERFOFF
+       !PERFON('barr_6')
+       !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       !PERFOFF
        ! ==================================================================
 
        CALL wallTime(runTimeRstart)
@@ -895,7 +971,7 @@ contains
 
        CALL LMLoop(w1,coex,time,dt,lMat,lRmsNext, &
             &      dVxBhLM_LMloc,dVSrLM_LMloc,&
-            &      dsdt_LMloc,dwdt_LMloc,dzdt_lo,dpdt_LMloc,dbdt_LMloc,djdt_LMloc,      &
+            &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dbdt_LMloc,djdt_LMloc,      &
             &      lorentz_torque_ma,lorentz_torque_ic,      &
             &      b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
 
@@ -915,6 +991,8 @@ contains
                & GET_GLOBAL_SUM( s_LMloc ),GET_GLOBAL_SUM( ds_LMloc ),get_global_sum( dsdtLast_LMloc )
           WRITE(*,"(A,6ES20.12)") "lo_arr end: w,dw,dwdtLast = ",&
                & GET_GLOBAL_SUM( w_LMloc ),GET_GLOBAL_SUM( dw_LMloc ),get_global_sum( dwdtLast_LMloc )
+          WRITE(*,"(A,4ES20.12)") "w(bnd_r) = ",get_global_sum( w_LMloc(:,n_r_icb) ),&
+               & get_global_sum( w_LMloc(:,n_r_cmb) )
           WRITE(*,"(A,6ES20.12)") "lo_arr end: p,dpdtLast = ",&
                & GET_GLOBAL_SUM( p_LMloc ),get_global_sum( dpdtLast_LMloc )
           WRITE(*,"(A,6ES20.12)") "lo_arr end: b,db,dbdtLast = ",&
@@ -926,9 +1004,9 @@ contains
        !----- Timing and info of advancement:
        ! =================================== BARRIER ======================
        !start_time=MPI_Wtime()
-       PERFON('barr_lm')
-       CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
-       PERFOFF
+       !PERFON('barr_lm')
+       !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
+       !PERFOFF
        !end_time=MPI_Wtime()
        !WRITE(*,"(A,I4,A,F10.6,A)") " lm barrier on rank ",rank,&
        !     & " takes ",end_time-start_time," s."
@@ -975,7 +1053,7 @@ contains
     END DO ! end of time stepping !
 
 6000 CONTINUE  ! jump point for termination upon "kill -30" signal
-    LIKWID_OFF('tloop')
+    !LIKWID_OFF('tloop')
     PERFOFF
 
     IF ( l_movie ) THEN

@@ -9,17 +9,19 @@ MODULE legendre_trafo
 #ifdef WITH_LIKWID
 # include "likwid_f90.h"
 #endif
+  USE leg_helper_mod,only: leg_helper_t
   IMPLICIT NONE
 
+  PRIVATE
+  PUBLIC :: legTFG
 CONTAINS
 !*******************************************************************************
 SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
      &            vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
-     &            dvrdtc,dvrdpc,dvtdpc,dvpdpc,           &
-     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc,    &
+     &            dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
+     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc, &
      &                                   dsdtc,dsdpc,    &
-     &            dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,        &
-     &            dvhdrC,dLhb,dLhj,bhG,bhC,cbhG,cbhC,sR,dsR)
+     &            leg_helper)
   !*******************************************************************************
   
   !    !------------ This is release 2 level 1  --------------!
@@ -65,13 +67,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
 
 
   !----- Stuff precomputed in legPrep:
-  COMPLEX(kind=8),intent(IN) :: dLhw(lm_max),dLhdw(lm_max),dLhz(lm_max)
-  COMPLEX(kind=8),intent(IN) :: vhG(lm_max),vhC(lm_max)
-  COMPLEX(kind=8),intent(IN) :: dvhdrG(lm_max),dvhdrC(lm_max)
-  COMPLEX(kind=8),intent(IN) :: dLhb(lm_max),dLhj(lm_max)
-  COMPLEX(kind=8),intent(IN) :: bhG(lm_max),bhC(lm_max)
-  COMPLEX(kind=8),intent(IN) :: cbhG(lm_max),cbhC(lm_max)
-  COMPLEX(kind=8),intent(IN) :: sR(lm_max),dsR(lm_max)
+  type(leg_helper_t) :: leg_helper
 
   !-- output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
@@ -105,7 +101,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
   COMPLEX(kind=8) :: cbhN1M(n_m_max),cbhN2M(n_m_max),cbhN,cbhN1,cbhN2
   COMPLEX(kind=8) :: cbhS1M(n_m_max),cbhS2M(n_m_max),cbhS,cbhS1,cbhS2
 
-  COMPLEX(kind=8) :: infield(lm_max,3),outfield(ncp,nfs,3)
+  !COMPLEX(kind=8) :: infield(lm_max,3),outfield(ncp,nfs,3)
   !-- end of declaration
   !----------------------------------------------------------------------
   !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
@@ -128,10 +124,10 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
               sES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
               sEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! The other equatorial symmetry
               DO lm=lStart(mc),lmS-1,2
-                 sES=sES+sR(lm)  *Plm(lm,nThetaNHS)
-                 sEA=sEA+sR(lm+1)*Plm(lm+1,nThetaNHS)
+                 sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
+                 sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
-              IF ( lmOdd(mc) ) sES=sES+sR(lmS)*Plm(lmS,nThetaNHS)
+              IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
@@ -143,11 +139,11 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
                  dsdtES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  dsdtEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  DO lm=lStart(mc),lmS-1,2
-                    dsdtEA =dsdtEA + sR(lm)*  dPlm(lm,nThetaNHS)
-                    dsdtES =dsdtES + sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                    dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
+                    dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
                  END DO
                  IF ( lmOdd(mc) ) THEN
-                    dsdtEA =dsdtEA + sR(lmS)*dPlm(lmS,nThetaNHS)
+                    dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
                  END IF
                  dsdtc(mc,nThetaN)=dsdtES+dsdtEA
                  dsdtc(mc,nThetaS)=dsdtES-dsdtEA
@@ -179,17 +175,17 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            brEA   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 6 add/mult, 26 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              cvrES  =cvrES   +  dLhz(lm)  *Plm(lm,nThetaNHS)
-              dvrdrES=dvrdrES + dLhdw(lm)  *Plm(lm,nThetaNHS)
-              brES   =brES    +  dLhb(lm)  *Plm(lm,nThetaNHS)
-              cvrEA  =cvrEA   +  dLhz(lm+1)*Plm(lm+1,nThetaNHS)
-              dvrdrEA=dvrdrEA + dLhdw(lm+1)*Plm(lm+1,nThetaNHS)
-              brEA   =brEA    +  dLhb(lm+1)*Plm(lm+1,nThetaNHS)
+              cvrES  =cvrES   +  leg_helper%dLhz(lm)  *Plm(lm,nThetaNHS)
+              dvrdrES=dvrdrES + leg_helper%dLhdw(lm)  *Plm(lm,nThetaNHS)
+              brES   =brES    +  leg_helper%dLhb(lm)  *Plm(lm,nThetaNHS)
+              cvrEA  =cvrEA   +  leg_helper%dLhz(lm+1)*Plm(lm+1,nThetaNHS)
+              dvrdrEA=dvrdrEA + leg_helper%dLhdw(lm+1)*Plm(lm+1,nThetaNHS)
+              brEA   =brEA    +  leg_helper%dLhb(lm+1)*Plm(lm+1,nThetaNHS)
            END DO
            IF ( lmOdd(mc) ) THEN
-              cvrES  =cvrES   +  dLhz(lmS)*Plm(lmS,nThetaNHS)
-              dvrdrES=dvrdrES + dLhdw(lmS)*Plm(lmS,nThetaNHS)
-              brES   =brES    +  dLhb(lmS)*Plm(lmS,nThetaNHS)
+              cvrES  =cvrES   +  leg_helper%dLhz(lmS)*Plm(lmS,nThetaNHS)
+              dvrdrES=dvrdrES + leg_helper%dLhdw(lmS)*Plm(lmS,nThetaNHS)
+              brES   =brES    +  leg_helper%dLhb(lmS)*Plm(lmS,nThetaNHS)
            END IF
            cvrc(mc,nThetaN)  =cvrES  +cvrEA
            cvrc(mc,nThetaS)  =cvrES  -cvrEA
@@ -211,26 +207,28 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            cbrEA  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 8 add/mult, 29 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              vrES    =vrES    + dLhw(lm)*   Plm(lm,nThetaNHS)
-              dvrdtEA =dvrdtEA + dLhw(lm)*  dPlm(lm,nThetaNHS)
-              cbrES   =cbrES   + dLhj(lm)*   Plm(lm,nThetaNHS)
+              vrES    =vrES    + leg_helper%dLhw(lm)*   Plm(lm,nThetaNHS)
+              dvrdtEA =dvrdtEA + leg_helper%dLhw(lm)*  dPlm(lm,nThetaNHS)
+              cbrES   =cbrES   + leg_helper%dLhj(lm)*   Plm(lm,nThetaNHS)
               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-              vrEA    =vrEA    + dLhw(lm+1)* Plm(lm+1,nThetaNHS)
-              dvrdtES =dvrdtES + dLhw(lm+1)*dPlm(lm+1,nThetaNHS)
-              cbrEA   =cbrEA   + dLhj(lm+1)* Plm(lm+1,nThetaNHS)
+              vrEA    =vrEA    + leg_helper%dLhw(lm+1)* Plm(lm+1,nThetaNHS)
+              dvrdtES =dvrdtES + leg_helper%dLhw(lm+1)*dPlm(lm+1,nThetaNHS)
+              cbrEA   =cbrEA   + leg_helper%dLhj(lm+1)* Plm(lm+1,nThetaNHS)
               PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
               PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
            END DO
            IF ( lmOdd(mc) ) THEN
-              vrES    =vrES    + dLhw(lmS)* Plm(lmS,nThetaNHS)
-              dvrdtEA =dvrdtEA + dLhw(lmS)*dPlm(lmS,nThetaNHS)
-              cbrES   =cbrES   + dLhj(lmS)* Plm(lmS,nThetaNHS)
+              vrES    =vrES    + leg_helper%dLhw(lmS)* Plm(lmS,nThetaNHS)
+              dvrdtEA =dvrdtEA + leg_helper%dLhw(lmS)*dPlm(lmS,nThetaNHS)
+              cbrES   =cbrES   + leg_helper%dLhj(lmS)* Plm(lmS,nThetaNHS)
               PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
               PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
            END IF
            vrc(mc,nThetaN)   =vrES   +vrEA
            vrc(mc,nThetaS)   =vrES   -vrEA
+           !WRITE(*,"(2(A,I3),A,2ES20.12)") "vrc(",mc,",",nThetaN,") = ",vrc(mc,nThetaN)
+           !WRITE(*,"(2(A,I3),A,2ES20.12)") "vrc(",mc,",",nThetaS,") = ",vrc(mc,nThetaS)
            dvrdtc(mc,nThetaN)=dvrdtES+dvrdtEA
            dvrdtc(mc,nThetaS)=dvrdtES-dvrdtEA
            cbrc(mc,nThetaN)  =cbrES  +cbrEA
@@ -248,16 +246,16 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            vhS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 8 add/mult, 20 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              vhN1=vhN1+vhG(lm)*PlmG(lm)+vhG(lm+1)*PlmG(lm+1)
-              vhS1=vhS1-vhG(lm)*PlmC(lm)+vhG(lm+1)*PlmC(lm+1)
-              vhN2=vhN2+vhC(lm)*PlmC(lm)+vhC(lm+1)*PlmC(lm+1)
-              vhS2=vhS2-vhC(lm)*PlmG(lm)+vhC(lm+1)*PlmG(lm+1)
+              vhN1=vhN1+leg_helper%vhG(lm)*PlmG(lm)+leg_helper%vhG(lm+1)*PlmG(lm+1)
+              vhS1=vhS1-leg_helper%vhG(lm)*PlmC(lm)+leg_helper%vhG(lm+1)*PlmC(lm+1)
+              vhN2=vhN2+leg_helper%vhC(lm)*PlmC(lm)+leg_helper%vhC(lm+1)*PlmC(lm+1)
+              vhS2=vhS2-leg_helper%vhC(lm)*PlmG(lm)+leg_helper%vhC(lm+1)*PlmG(lm+1)
            END DO
            IF ( lmOdd(mc) ) THEN
-              vhN1=vhN1+vhG(lmS)*PlmG(lmS)
-              vhS1=vhS1-vhG(lmS)*PlmC(lmS)
-              vhN2=vhN2+vhC(lmS)*PlmC(lmS)
-              vhS2=vhS2-vhC(lmS)*PlmG(lmS)
+              vhN1=vhN1+leg_helper%vhG(lmS)*PlmG(lmS)
+              vhS1=vhS1-leg_helper%vhG(lmS)*PlmC(lmS)
+              vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
+              vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
            END IF
            vhN1M(mc)=0.5D0*vhN1
            vhS1M(mc)=0.5D0*vhS1
@@ -275,20 +273,20 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            dvhdrS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 8 add/mult, 20 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              dvhdrN1=dvhdrN1+dvhdrG(lm)  *PlmG(lm) + &
-                   dvhdrG(lm+1)*PlmG(lm+1)
-              dvhdrS1=dvhdrS1-dvhdrG(lm)  *PlmC(lm) + &
-                   dvhdrG(lm+1)*PlmC(lm+1)
-              dvhdrN2=dvhdrN2+dvhdrC(lm)  *PlmC(lm) + &
-                   dvhdrC(lm+1)*PlmC(lm+1)
-              dvhdrS2=dvhdrS2-dvhdrC(lm)  *PlmG(lm) + &
-                   dvhdrC(lm+1)*PlmG(lm+1)
+              dvhdrN1=dvhdrN1+leg_helper%dvhdrG(lm)  *PlmG(lm) + &
+                   leg_helper%dvhdrG(lm+1)*PlmG(lm+1)
+              dvhdrS1=dvhdrS1-leg_helper%dvhdrG(lm)  *PlmC(lm) + &
+                   leg_helper%dvhdrG(lm+1)*PlmC(lm+1)
+              dvhdrN2=dvhdrN2+leg_helper%dvhdrC(lm)  *PlmC(lm) + &
+                   leg_helper%dvhdrC(lm+1)*PlmC(lm+1)
+              dvhdrS2=dvhdrS2-leg_helper%dvhdrC(lm)  *PlmG(lm) + &
+                   leg_helper%dvhdrC(lm+1)*PlmG(lm+1)
            END DO
            IF ( lmOdd(mc) ) THEN
-              dvhdrN1=dvhdrN1+dvhdrG(lmS)*PlmG(lmS)
-              dvhdrS1=dvhdrS1-dvhdrG(lmS)*PlmC(lmS)
-              dvhdrN2=dvhdrN2+dvhdrC(lmS)*PlmC(lmS)
-              dvhdrS2=dvhdrS2-dvhdrC(lmS)*PlmG(lmS)
+              dvhdrN1=dvhdrN1+leg_helper%dvhdrG(lmS)*PlmG(lmS)
+              dvhdrS1=dvhdrS1-leg_helper%dvhdrG(lmS)*PlmC(lmS)
+              dvhdrN2=dvhdrN2+leg_helper%dvhdrC(lmS)*PlmC(lmS)
+              dvhdrS2=dvhdrS2-leg_helper%dvhdrC(lmS)*PlmG(lmS)
            END IF
            dvhdrN1M(mc)=0.5D0*dvhdrN1
            dvhdrS1M(mc)=0.5D0*dvhdrS1
@@ -306,16 +304,16 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            bhS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 8 add/mult, 20 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
-              bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
-              bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
-              bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
+              bhN1=bhN1+leg_helper%bhG(lm)*PlmG(lm)+leg_helper%bhG(lm+1)*PlmG(lm+1)
+              bhS1=bhS1-leg_helper%bhG(lm)*PlmC(lm)+leg_helper%bhG(lm+1)*PlmC(lm+1)
+              bhN2=bhN2+leg_helper%bhC(lm)*PlmC(lm)+leg_helper%bhC(lm+1)*PlmC(lm+1)
+              bhS2=bhS2-leg_helper%bhC(lm)*PlmG(lm)+leg_helper%bhC(lm+1)*PlmG(lm+1)
            END DO
            IF ( lmOdd(mc) ) THEN
-              bhN1=bhN1+bhG(lmS)*PlmG(lmS)
-              bhS1=bhS1-bhG(lmS)*PlmC(lmS)
-              bhN2=bhN2+bhC(lmS)*PlmC(lmS)
-              bhS2=bhS2-bhC(lmS)*PlmG(lmS)
+              bhN1=bhN1+leg_helper%bhG(lmS)*PlmG(lmS)
+              bhS1=bhS1-leg_helper%bhG(lmS)*PlmC(lmS)
+              bhN2=bhN2+leg_helper%bhC(lmS)*PlmC(lmS)
+              bhS2=bhS2-leg_helper%bhC(lmS)*PlmG(lmS)
            END IF
            bhN1M(mc)=0.5D0*bhN1
            bhS1M(mc)=0.5D0*bhS1
@@ -333,16 +331,16 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            cbhS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            !--- 8 add/mult, 20 DBLE words
            DO lm=lStart(mc),lmS-1,2
-              cbhN1=cbhN1+cbhG(lm)*PlmG(lm)+cbhG(lm+1)*PlmG(lm+1)
-              cbhS1=cbhS1-cbhG(lm)*PlmC(lm)+cbhG(lm+1)*PlmC(lm+1)
-              cbhN2=cbhN2+cbhC(lm)*PlmC(lm)+cbhC(lm+1)*PlmC(lm+1)
-              cbhS2=cbhS2-cbhC(lm)*PlmG(lm)+cbhC(lm+1)*PlmG(lm+1)
+              cbhN1=cbhN1+leg_helper%cbhG(lm)*PlmG(lm)+leg_helper%cbhG(lm+1)*PlmG(lm+1)
+              cbhS1=cbhS1-leg_helper%cbhG(lm)*PlmC(lm)+leg_helper%cbhG(lm+1)*PlmC(lm+1)
+              cbhN2=cbhN2+leg_helper%cbhC(lm)*PlmC(lm)+leg_helper%cbhC(lm+1)*PlmC(lm+1)
+              cbhS2=cbhS2-leg_helper%cbhC(lm)*PlmG(lm)+leg_helper%cbhC(lm+1)*PlmG(lm+1)
            END DO
            IF ( lmOdd(mc) ) THEN
-              cbhN1=cbhN1+cbhG(lmS)*PlmG(lmS)
-              cbhS1=cbhS1-cbhG(lmS)*PlmC(lmS)
-              cbhN2=cbhN2+cbhC(lmS)*PlmC(lmS)
-              cbhS2=cbhS2-cbhC(lmS)*PlmG(lmS)
+              cbhN1=cbhN1+leg_helper%cbhG(lmS)*PlmG(lmS)
+              cbhS1=cbhS1-leg_helper%cbhG(lmS)*PlmC(lmS)
+              cbhN2=cbhN2+leg_helper%cbhC(lmS)*PlmC(lmS)
+              cbhS2=cbhS2-leg_helper%cbhC(lmS)*PlmG(lmS)
            END IF
            cbhN1M(mc)=0.5D0*cbhN1
            cbhS1M(mc)=0.5D0*cbhS1
@@ -472,10 +470,10 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
               sES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
               sEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! The other equatorial symmetry
               DO lm=lStart(mc),lmS-1,2
-                 sES=sES+sR(lm)  *Plm(lm,nThetaNHS)
-                 sEA=sEA+sR(lm+1)*Plm(lm+1,nThetaNHS)
+                 sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
+                 sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
-              IF ( lmOdd(mc) ) sES=sES+sR(lmS)*Plm(lmS,nThetaNHS)
+              IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
@@ -489,15 +487,15 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            brES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            brEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            DO lm=lStart(mc),lmS-1,2
-              brES=brES + dLhb(lm)  *Plm(lm,nThetaNHS)
-              brEA=brEA + dLhb(lm+1)*Plm(lm+1,nThetaNHS)
+              brES=brES + leg_helper%dLhb(lm)  *Plm(lm,nThetaNHS)
+              brEA=brEA + leg_helper%dLhb(lm+1)*Plm(lm+1,nThetaNHS)
               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
               PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
               PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
            END DO
            IF ( lmOdd(mc) ) THEN
-              brES=brES+dLhb(lm)*Plm(lm,nThetaNHS)
+              brES=brES+leg_helper%dLhb(lm)*Plm(lm,nThetaNHS)
               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
            END IF
@@ -509,16 +507,16 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            bhN2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            bhS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            DO lm=lStart(mc),lmS-1,2
-              bhN1=bhN1+bhG(lm)*PlmG(lm)+bhG(lm+1)*PlmG(lm+1)
-              bhS1=bhS1-bhG(lm)*PlmC(lm)+bhG(lm+1)*PlmC(lm+1)
-              bhN2=bhN2+bhC(lm)*PlmC(lm)+bhC(lm+1)*PlmC(lm+1)
-              bhS2=bhS2-bhC(lm)*PlmG(lm)+bhC(lm+1)*PlmG(lm+1)
+              bhN1=bhN1+leg_helper%bhG(lm)*PlmG(lm)+leg_helper%bhG(lm+1)*PlmG(lm+1)
+              bhS1=bhS1-leg_helper%bhG(lm)*PlmC(lm)+leg_helper%bhG(lm+1)*PlmC(lm+1)
+              bhN2=bhN2+leg_helper%bhC(lm)*PlmC(lm)+leg_helper%bhC(lm+1)*PlmC(lm+1)
+              bhS2=bhS2-leg_helper%bhC(lm)*PlmG(lm)+leg_helper%bhC(lm+1)*PlmG(lm+1)
            END DO
            IF ( lmOdd(mc) ) THEN
-              bhN1=bhN1+bhG(lmS)*PlmG(lmS)
-              bhS1=bhS1-bhG(lmS)*PlmC(lmS)
-              bhN2=bhN2+bhC(lmS)*PlmC(lmS)
-              bhS2=bhS2-bhC(lmS)*PlmG(lmS)
+              bhN1=bhN1+leg_helper%bhG(lmS)*PlmG(lmS)
+              bhS1=bhS1-leg_helper%bhG(lmS)*PlmC(lmS)
+              bhN2=bhN2+leg_helper%bhC(lmS)*PlmC(lmS)
+              bhS2=bhS2-leg_helper%bhC(lmS)*PlmG(lmS)
            END IF
            btc(mc,nThetaN)=0.5D0*bhN1+0.5D0*bhN2
            btc(mc,nThetaS)=0.5D0*bhS1+0.5D0*bhS2
@@ -539,16 +537,16 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
               vhN2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vhS2=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               DO lm=lStart(mc),lmS-1,2
-                 vhN1=vhN1+vhG(lm)*PlmG(lm)+vhG(lm+1)*PlmG(lm+1)
-                 vhS1=vhS1-vhG(lm)*PlmC(lm)+vhG(lm+1)*PlmC(lm+1)
-                 vhN2=vhN2+vhC(lm)*PlmC(lm)+vhC(lm+1)*PlmC(lm+1)
-                 vhS2=vhS2-vhC(lm)*PlmG(lm)+vhC(lm+1)*PlmG(lm+1)
+                 vhN1=vhN1+leg_helper%vhG(lm)*PlmG(lm)+leg_helper%vhG(lm+1)*PlmG(lm+1)
+                 vhS1=vhS1-leg_helper%vhG(lm)*PlmC(lm)+leg_helper%vhG(lm+1)*PlmC(lm+1)
+                 vhN2=vhN2+leg_helper%vhC(lm)*PlmC(lm)+leg_helper%vhC(lm+1)*PlmC(lm+1)
+                 vhS2=vhS2-leg_helper%vhC(lm)*PlmG(lm)+leg_helper%vhC(lm+1)*PlmG(lm+1)
               END DO
               IF ( lmOdd(mc) ) THEN
-                 vhN1=vhN1+vhG(lmS)*PlmG(lmS)
-                 vhS1=vhS1-vhG(lmS)*PlmC(lmS)
-                 vhN2=vhN2+vhC(lmS)*PlmC(lmS)
-                 vhS2=vhS2-vhC(lmS)*PlmG(lmS)
+                 vhN1=vhN1+leg_helper%vhG(lmS)*PlmG(lmS)
+                 vhS1=vhS1-leg_helper%vhG(lmS)*PlmC(lmS)
+                 vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
+                 vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
               END IF
               vtc(mc,nThetaN)=0.5D0*vhN1+0.5D0*vhN2
               vtc(mc,nThetaS)=0.5D0*vhS1+0.5D0*vhS2
@@ -597,10 +595,10 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
            drsES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            drsEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            DO lm=lStart(mc),lmS-1,2
-              drsES=drsES+dsR(lm)*Plm(lm,nThetaNHS)
-              drsEA=drsEA+dsR(lm+1)*Plm(lm+1,nThetaNHS)
+              drsES=drsES+leg_helper%dsR(lm)*Plm(lm,nThetaNHS)
+              drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
            END DO
-           IF ( lmOdd(mc) ) drsES=drsES+dsR(lmS)*Plm(lmS,nThetaNHS)
+           IF ( lmOdd(mc) ) drsES=drsES+leg_helper%dsR(lmS)*Plm(lmS,nThetaNHS)
            drSc(mc,nThetaN)=drsES+drsEA
            drSc(mc,nThetaS)=drsES-drsEA
         END DO

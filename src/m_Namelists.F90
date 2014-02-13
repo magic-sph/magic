@@ -11,7 +11,9 @@ MODULE Namelists
   USE output_data
   USE parallel_mod
   USE Bext
+  USE movie_data,ONLY: movie,n_movies
   USE charmanip, ONLY: length_to_blank
+  USE blocking, only: cacheblock_size_in_B
   IMPLICIT NONE
 
   private
@@ -57,7 +59,9 @@ CONTAINS
          difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe, &
          l_correct_AMz,tEND,l_non_rot,l_isothermal, &
          l_newmap,alph1,alph2,l_interior_model, &
-         runHours,runMinutes,runSeconds,nThreadsRun
+         runHours,runMinutes,runSeconds,nThreadsRun,&
+         & cacheblock_size_in_B
+    
 
     NAMELIST/phys_param/                             &
          ra,pr,prmag,ek,epsc0,radratio, &
@@ -892,6 +896,8 @@ CONTAINS
     alffac        =1.0D0
     intfac        =0.15D0
     n_cour_step   =10
+
+    cacheblock_size_in_B=4096
 
     l_update_v    =.TRUE.
     l_update_b    =.TRUE.

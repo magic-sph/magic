@@ -18,9 +18,6 @@
 !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE blocking
@@ -29,15 +26,11 @@
     IMPLICIT NONE
 
 !-- input:
-! include 'truncation.f'
-! include 'c_horizontal.f'
-! include 'c_blocking.f'
-
     INTEGER,intent(IN) :: nThetaStart ! First no of theta on block
     COMPLEX(kind=8),intent(IN) :: f1TM(ncp,nfs),f2TM(ncp,nfs)
 
 !-- output:
-    COMPLEX(kind=8),intent(OUT) :: f1LM(lmP_max),f2LM(lmP_max)
+    COMPLEX(kind=8),intent(INOUT) :: f1LM(lmP_max),f2LM(lmP_max)
 
 !-- local:
     INTEGER :: nThetaN     ! No. of theta in NHS
@@ -109,7 +102,7 @@
          
         IF ( sizeThetaB <= 4 ) goto 500 !RETURN
 
-    END IF
+     END IF
 
      
 !-- Loop over half of the thetas with step 2 unrolling:

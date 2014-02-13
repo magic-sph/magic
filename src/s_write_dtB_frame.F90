@@ -20,7 +20,8 @@ SUBROUTINE write_dtB_frame(n_movie,b,db,aj,dj, &
   USE dtB_mod,ONLY: PstrLM,PadvLM,PdifLM,TstrLM,TadvLM,TdifLM,&
        &PadvLMIC,PdifLMIC,TadvLMIC,TomeLM,TdifLMIC
   USE output_data
-
+  USE movie_data,ONLY: n_movie_type,n_movie_fields,n_movie_fields_ic,n_movie_file,&
+       & n_movie_const,n_movie_surface,movie_const,n_movie_field_type
   IMPLICIT NONE
 
   !-- Input of variables:

@@ -3,22 +3,22 @@ COMPILER=intel
 
 USE_PERFLIB=none
 PRODRUN=yes
-OPENMP=no
-
+OPENMP=yes
 # DEBUG = no noopt check all marmot
 DEBUG=no
 USE_MPI=yes
 
 # USE_FFTLIB can be MKL or JW
 USE_FFTLIB=JW
+USE_MKL=no
 
 # preconditioning of the matrices
-# switches are WITH_PRECOND_WP,WITH_PRECOND_S,WITH_PRECOND_BJ,
+# switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
 # WITH_PRECOND_Z
+# PRECOND_WP is always set
 # to switch the preconditioner off and get the old ill-conditioned matrices
 # just comment the following statement
-PREPROC += 	-DWITH_PRECOND_WP \
-		-DWITH_PRECOND_S \
+PREPROC += 	-DWITH_PRECOND_S \
 		-DWITH_PRECOND_Z \
 		-DWITH_PRECOND_BJ \
 		-DWITH_PRECOND_S0 \
@@ -29,6 +29,7 @@ ifeq ($(COMPILER),intel)
 #	FFLAG_ARCH_OPT = -xsse3
 	FFLAG_ARCH_OPT = -xAVX
 	FFLAG_OPENMP = -openmp
+	FFLAG_OPENMP_STUBS = -openmp-stubs
 	FFLAG_CHECK_ALL = -check all
 	FFLAG_FPE = -fpe0 -fp-stack-check -ftrapuv
 	FFLAG_WARN_ALL  = -warn all,nointerfaces
@@ -41,14 +42,17 @@ ifeq ($(COMPILER),intel)
 		FFLAG_STD += -fp-model source
 	endif
 	COMP_FC      = ifort
+	COMP_CC      = icc
 	ifeq ($(DEBUG),marmot)
 		COMP_MPFC = marmotf90
 	else
 		COMP_MPFC = mpiifort
+		COMP_MPCC = mpiicc
 	endif	
 
-	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
-		-Wl,-rpath,$(MKLROOT)/lib/intel64 
+	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 \
+			 -lmkl_sequential -lmkl_core -lpthread -lm \
+			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
 endif
 ifeq ($(COMPILER),gnu)
 	FFLAGS = -m64
@@ -61,7 +65,9 @@ ifeq ($(COMPILER),gnu)
 	FFLAG_CHECK_ALL = -fcheck=all
 	FFLAG_FPE = -ffpe-trap=invalid,zero,overflow 
 	COMP_FC = gfortran
+	COMP_CC = gcc
 	COMP_MPFC = mpif90
+	COMP_MPCC = mpicc
 
 	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
 		-Wl,-rpath,$(MKLROOT)/lib/intel64
@@ -89,8 +95,10 @@ PREPROC += -DJW=1 -DMKL=2
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)
+	CC = $(COMP_MPCC)
 else
 	FC = $(COMP_FC)
+	CC = $(COMP_CC)
 endif
 
 ifeq ($(USE_PERFLIB),perf)
@@ -127,6 +135,13 @@ ifeq ($(USE_FFTLIB),MKL)
 	LIBS +=  $(FFLAG_MKL_LIBS)
 endif
 
+ifeq ($(USE_MKL),yes)
+	PREPROC += -DWITH_MKL_LU
+	INCPATHS += -I$(MKLROOT)/include
+	LIBS += $(FFLAG_MKL_LIBS)
+endif
+
+#FFLAGS += -heap-arrays 1024
 FFLAGS += $(FFLAG_STD)
 FFLAGS += -g $(FFLAG_TRACEBACK)
 ifeq ($(PRODRUN),yes)
@@ -139,12 +154,16 @@ ifeq ($(OPENMP),yes)
 	FFLAGS += $(FFLAG_OPENMP)
 	PREPROC += -DWITHOMP
 endif
+ifeq ($(OPENMP),stubs)
+	FFLAGS += $(FFLAG_OPENMP_STUBS)
+endif
 
 FFLAGS_NOCHECK=$(FFLAGS)
 ifeq ($(DEBUG),noopt)
 	OPT = -O0
 else ifeq ($(DEBUG),check)
 	OPT = -O0
+	PREPROC += -DWITH_DEBUG
 	FFLAGS += $(FFLAG_CHECK_ALL) $(FFLAG_WARN_ALL)
 else ifeq ($(DEBUG),all)
 	OPT = -O0
@@ -155,7 +174,8 @@ endif
 
 INCPATHS += -I.
 
-FFLAGS  += $(FFLAG_PREPROCESSOR) $(FFLAG_CONVERT) $(OPT)
+FFLAGS += $(FFLAG_CONVERT) 
+FFLAGS  += $(FFLAG_PREPROCESSOR) $(OPT)
 LDFLAGS =
 
 FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
@@ -180,6 +200,7 @@ endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
 OBJS += truncation.o
+OBJS += c_utils.o
 
 .SUFFIXES: 
 
@@ -191,14 +212,17 @@ endif
 $(OUT): $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LIBS)
 
-#s_legTFG.o: s_legTFG.F90
-#	$(FC) -c $(FFLAGS) $(FFLAG_REPORT) $(PREPROC) $(INCPATHS) -o $@ $<
-
 %.o: %.F90
 	$(FC) -c $(FFLAGS) $(PREPROC) $(INCPATHS) -o $@ $<
 
 s_getStartFields.o: s_getStartFields.F90
 	$(FC) -c $(FFLAGS_NOCHECK) $(PREPROC) $(INCPATHS) -o $@ $<
+
+m_timing.o: m_timing.F90
+	$(FC) -c $(FFLAGS_NOCHECK) $(PREPROC) $(INCPATHS) -o $@ $<
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) $(PREPROC) $(INCPATHS) -o $@ $<
 
 # cancelling the implicit rule for .F files
 #%.f: %.F
@@ -242,7 +266,8 @@ s_storePotW.o           : truncation.o m_radial.o m_output_data.o m_phys_param.o
 s_hInt2dPol.o           : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_usefull.o
 s_get_nl.o              : truncation.o m_horizontal.o m_num_param.o\
-                          m_phys_param.o m_radial.o m_logic.o m_blocking.o 
+                          m_phys_param.o m_radial.o m_logic.o m_blocking.o \
+			  m_leg_helper.o
 s_store_movie_frame.o   : truncation.o m_output_data.o m_blocking.o\
                           m_output_data.o m_radial.o m_horizontal.o m_movie.o\
                           s_get_B_surface.o m_output_data.o m_movie.o\
@@ -255,7 +280,7 @@ s_store_movie_frame.o   : truncation.o m_output_data.o m_blocking.o\
 s_store.o               : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_radial.o m_logic.o m_output_data.o\
                           m_init_fields.o m_dt_fieldsLast.o 
-s_updateS.o             : truncation.o m_blocking.o m_horizontal.o\
+m_updateS.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_radial.o m_logic.o m_output_data.o\
                           m_init_fields.o m_const.o m_mat.o s_get_dr.o\
                           s_get_s0Mat.o m_algebra.o s_get_sMat.o s_costf1.o\
@@ -303,7 +328,8 @@ m_step_time.o           : truncation.o m_blocking.o m_phys_param.o\
                           m_char_manip.o m_timing.o s_logWrite.o\
                           s_safeOut.o m_radialLoop.o s_get_b_nl_bcs.o\
                           s_check_time_hits.o m_LMLoop.o\
-			  m_radialLoop.o m_dt_fieldsLast.o
+			  m_radialLoop.o m_dt_fieldsLast.o \
+			  c_utils.o
 s_get_PAS.o             : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o 
 s_get_wpMat.o           : truncation.o m_blocking.o m_phys_param.o\
@@ -311,6 +337,7 @@ s_get_wpMat.o           : truncation.o m_blocking.o m_phys_param.o\
 s_outMisc.o             : truncation.o m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o s_lmAS2pt.o m_Egeos.o m_integration.o
+m_chebyshev_polynoms.o  : m_const.o m_usefull.o
 s_get_chebs.o           : m_usefull.o 
 s_get_chebs_even.o      : m_usefull.o 
 s_spectrumC.o           : truncation.o m_blocking.o m_num_param.o\
@@ -320,16 +347,27 @@ m_radialLoop.o          : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_num_param.o m_logic.o m_output_data.o\
                           m_radial.o m_horizontal.o m_const.o m_TO.o \
                           s_legPrepG.o m_legendre_trafo.o s_legTFGnomag.o\
-                          $(FFT_OBJS) s_v_rigid_boundary.o s_get_nl.o\
+                          $(FFT_OBJS) s_v_rigid_boundary.o \
                           s_legTF3.o s_legTF2.o s_legTF1.o s_get_br_v_bcs.o\
-                          s_get_td.o s_graphOut.o m_radial_data.o
+                          s_get_td.o s_graphOut.o m_radial_data.o m_rIteration.o \
+			  m_rIterThetaBlocking.o m_rIterThetaBlocking_OpenMP.o \
+			  m_rIterThetaBlocking_seq.o
+m_rIterThetaBlocking.o  : m_rIteration.o truncation.o m_blocking.o \
+			  m_logic.o m_radial.o m_radial_data.o m_output_data.o \
+			  $(FFT_OBJS) m_legendre_trafo.o s_get_nl.o m_leg_helper.o \
+			  m_grid_space_arrays.o m_nonlinear_lm.o
+m_rIterThetaBlocking_OpenMP.o : m_rIterThetaBlocking.o
+m_rIterThetaBlocking_seq.o : m_rIterThetaBlocking.o
+m_grid_space_arrays.o   : m_blocking.o truncation.o
+
 ifeq ($(USE_MPI),yes)
 m_radialLoop.o :	s_graphOut_mpi.o
 endif
 m_LMLoop.o              : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_logic.o m_radial.o m_horizontal.o\
                           m_output_data.o m_fields.o m_dt_fieldsLast.o m_mat.o\
-                          s_updateZ.o s_updateWP.o m_timing.o m_LMLoop_data.o\
+			  m_updateS.o m_updateB.o \
+                          m_updateZ.o m_updateWP.o m_timing.o m_LMLoop_data.o\
 			  m_communications.o m_debugging.o
 m_timing.o		: m_parallel.o
 m_LMLoop_data.o		: m_parallel.o m_blocking.o
@@ -357,7 +395,7 @@ s_get_RAS.o             : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o 
 s_legPrepG.o            : truncation.o m_num_param.o m_radial.o m_horizontal.o\
                           m_logic.o m_const.o m_blocking.o m_Grenoble.o\
-                          m_fields.o m_TO.o 
+                          m_fields.o m_TO.o m_leg_helper.o
 m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_logic.o m_output_data.o m_radial.o\
                           m_horizontal.o m_const.o m_fields.o s_rBrSpec.o\
@@ -387,7 +425,7 @@ s_dtVrms.o              : truncation.o m_parallel.o m_blocking.o\
                           m_output_data.o m_RMS.o s_init_rNB.o s_get_drNS_R.o\
                           s_hInt2dPol.o m_integration.o m_communications.o
 s_get_drNS.o            : s_costf1.o s_get_dcheb.o 
-s_updateWP.o            : truncation.o m_blocking.o m_num_param.o\
+m_updateWP.o            : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_radial.o m_horizontal.o m_logic.o\
                           m_mat.o m_RMS.o s_get_wpMat.o s_costf1.o\
                           s_get_dddr.o s_get_dr.o s_hInt2Pol.o m_LMLoop_data.o
@@ -400,7 +438,9 @@ s_get_dr_even.o         : s_costf1.o s_get_dcheb_even.o s_costf2.o
 s_parallel.o            : m_parallel.o 
 s_get_td.o              : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_radial.o m_logic.o\
-                          m_RMS.o s_hInt2Pol.o s_hInt2Tor.o 
+                          m_RMS.o s_hInt2Pol.o s_hInt2Tor.o m_leg_helper.o \
+			  m_nonlinear_lm.o
+m_nonlinear_lm.o	: m_cutils_iface.o
 s_get_fl.o              : truncation.o m_blocking.o m_radial.o m_fields.o\
                           m_horizontal.o m_logic.o m_Grenoble.o
 s_store_movie_frame_IC.o: truncation.o m_blocking.o m_logic.o m_output_data.o\
@@ -445,7 +485,7 @@ s_readStartFields.o     : truncation.o m_blocking.o m_phys_param.o\
 s_get_ddr_even.o        : s_costf1.o s_get_ddcheb_even.o s_costf2.o 
 s_legTF3.o              : truncation.o m_horizontal.o m_blocking.o 
 s_hInt2Tor.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o 
-s_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
+m_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_const.o m_radial.o m_horizontal.o\
                           m_logic.o m_init_fields.o m_mat.o m_RMS.o m_TO.o\
                           s_get_z10Mat.o m_algebra.o s_get_zMat.o s_costf1.o\
@@ -512,7 +552,7 @@ s_spectrum.o            : truncation.o m_blocking.o m_num_param.o\
                           m_output_data.o  m_usefull.o m_integration.o
 s_get_PolTorRms.o       : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o m_integration.o
-s_updateB.o             : truncation.o m_blocking.o m_horizontal.o\
+m_updateB.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_init_fields.o\
                           m_logic.o m_radial.o m_Bext.o m_const.o m_mat.o\
                           m_RMS.o s_get_drNS.o s_get_bMat.o m_algebra.o\
@@ -569,7 +609,7 @@ m_num_param.o           : truncation.o
 m_radial.o              : truncation.o m_radial_data.o \
 			  m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o s_cheb_x_map_e_xr.o\
-                          s_get_chebs.o s_init_costf1.o s_get_dr.o\
+                          m_chebyshev_polynoms.o s_init_costf1.o s_get_dr.o\
                           m_usefull.o s_get_chebs_even.o s_init_costf2.o
 m_output_data.o         : truncation.o m_movie.o
 m_horizontal.o          : truncation.o m_phys_param.o m_num_param.o\
@@ -597,6 +637,13 @@ m_store_mpi.o		: truncation.o m_output_data.o m_parallel.o m_logic.o m_dt_fields
 
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.F90
+
+ifeq ($(USE_MKL),yes)
+m_updateS.o		: lapack95.mod
+s_get_sMat.o		: lapack95.mod
+lapack95.mod		: $(MKLROOT)/include/lapack.f90
+	$(FC) -c $(FFLAGS) $(INCPATHS) $<
+endif
 
 .PHONY: clean echo
 clean:

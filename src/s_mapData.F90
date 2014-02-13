@@ -1,7 +1,8 @@
 !$Id$
 !***************************************************************************
+#include "perflib_preproc.cpp"
 SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
-     &                   w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)  
+     &             w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)  
   !***************************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -19,18 +20,18 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   IMPLICIT NONE
 
   !-- input:
-  INTEGER :: n_r_max_old
-  INTEGER :: l_max_old
-  INTEGER :: minc_old
-  LOGICAL :: l_mag_old
+  INTEGER,INTENT(IN) :: n_r_max_old
+  INTEGER,INTENT(IN) :: l_max_old
+  INTEGER,INTENT(IN) :: minc_old
+  LOGICAL,INTENT(IN) :: l_mag_old
 
   !-- output:
-  COMPLEX(kind=8) :: w(lm_max,n_r_max),dwdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: z(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: p(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: s(lm_max,n_r_max),dsdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag),dbdt(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag),djdt(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(OUT) :: w(lm_max,n_r_max),dwdt(lm_max,n_r_max)
+  COMPLEX(kind=8),INTENT(OUT) :: z(lm_max,n_r_max),dzdt(lm_max,n_r_max)
+  COMPLEX(kind=8),INTENT(OUT) :: p(lm_max,n_r_max),dpdt(lm_max,n_r_max)
+  COMPLEX(kind=8),INTENT(OUT) :: s(lm_max,n_r_max),dsdt(lm_max,n_r_max)
+  COMPLEX(kind=8),INTENT(OUT) :: b(lm_maxMag,n_r_maxMag),dbdt(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(OUT) :: aj(lm_maxMag,n_r_maxMag),djdt(lm_maxMag,n_r_maxMag)
 
   !-- local:
   INTEGER :: n_data,n_dataL,n_r_maxL,n_map_fac
@@ -49,7 +50,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
 
   !-- end of declaration
   !-----------------------------------------------------------------------
-
+  !PERFON('mapData')
   n_data=lm_max*n_r_max
   n_r_maxL=10*n_r_max
   !-- This allows to increase the number of grid points by 10!
@@ -62,9 +63,9 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
      lreadS=.TRUE.
   END IF
 
-  IF ( l_max.EQ.l_max_old .AND.                                   &
-       &       minc.EQ.minc_old .AND.                                     &
-       &       n_r_max.EQ.n_r_max_old ) THEN
+  IF (  l_max.EQ.l_max_old .AND.      &
+       & minc.EQ.minc_old .AND.       &
+       & n_r_max.EQ.n_r_max_old ) THEN
 
      !----- Direct reading of fields, grid not changed:
      WRITE(*,'(/,'' ! Reading fields directly.'')')
@@ -117,7 +118,8 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   ! if this becomes a performance bottleneck, one can make a module
   ! and allocate the array only once in the initialization
   n_dataL=n_map_fac*lm_max*(n_r_max+1)
-  ALLOCATE( wo(n_dataL),zo(n_dataL),po(n_dataL),so(n_dataL) )
+  !ALLOCATE( wo(n_dataL),zo(n_dataL),po(n_dataL),so(n_dataL) )
+  ALLOCATE( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
   ! end of allocation
 
   DO lm=1,lm_max
@@ -136,29 +138,33 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
      END DO
   END DO
 
+  !PERFON('mD_rd')
   IF ( lreadS ) THEN
-     READ(n_start_file) (wo(i),i=1,n_data_oldP),                  &
-          &                        (zo(i),i=1,n_data_oldP),                  &
-          &                        (po(i),i=1,n_data_oldP),                  &
-          &                        (so(i),i=1,n_data_oldP)
+     !READ(n_start_file) (wo(i),i=1,n_data_oldP),                  &
+     !     &             (zo(i),i=1,n_data_oldP),                  &
+     !     &             (po(i),i=1,n_data_oldP),                  &
+     !     &             (so(i),i=1,n_data_oldP)
+     !WRITE(*,"(A,I10,A)") "Reading four fields, each with ",n_data_oldP," double complex entries."
+     READ(n_start_file) wo, zo, po, so
   ELSE
-     READ(n_start_file) (wo(i),i=1,n_data_oldP),                  &
-          &                        (zo(i),i=1,n_data_oldP),                  &
-          &                        (po(i),i=1,n_data_oldP)
+     !READ(n_start_file) (wo(i),i=1,n_data_oldP),                  &
+     !     &             (zo(i),i=1,n_data_oldP),                  &
+     !     &             (po(i),i=1,n_data_oldP)
+     READ(n_start_file) wo, zo, po
   END If
-
+  !PERFOFF
   !-- Select only the spherical harmonic modes you need:
 
   !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
   
+  !PERFON('mD_map')
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
      lmStop =lmStopB(nLMB)
 
      !PRINT*,nLMB,lmStart,lmStop
-
      DO lm=lmStart,lmStop
         lmo=lm2lmo(lm) 
         IF ( lmo.GT.0 ) THEN
@@ -196,25 +202,34 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END IF
      END DO
   END DO
+  !PERFOFF
   !PRINT*,omp_get_thread_num(),": After nLMB loop"
   DEALLOCATE(woR,zoR,poR,soR)
 
   !---- Read time derivatives:
-  IF ( lreadS ) THEN
-     READ(n_start_file) (so(i),i=1,n_data_old),                   &
-          &                        (wo(i),i=1,n_data_old),                   &
-          &                        (zo(i),i=1,n_data_old),                   &
-          &                        (po(i),i=1,n_data_old)
-  ELSE
-     READ(n_start_file) (wo(i),i=1,n_data_old),                   &
-          &                        (zo(i),i=1,n_data_old),                   &
-          &                        (po(i),i=1,n_data_old)
+  IF (n_data_old.NE.n_data_oldP) THEN
+     WRITE(*,"(2(A,I10))") "mismatch in mapData: n_data_old = ",n_data_old,", n_data_oldP = ",n_data_oldP
+     stop
   END IF
-
+  !PERFON('mD_rd_dt')
+  IF ( lreadS ) THEN
+     !READ(n_start_file) (so(i),i=1,n_data_old),                   &
+     !     &                        (wo(i),i=1,n_data_old),                   &
+     !     &                        (zo(i),i=1,n_data_old),                   &
+     !     &                        (po(i),i=1,n_data_old)
+     READ(n_start_file) so,wo,zo,po
+  ELSE
+     !READ(n_start_file) (wo(i),i=1,n_data_old),                   &
+     !     &                        (zo(i),i=1,n_data_old),                   &
+     !     &                        (po(i),i=1,n_data_old)
+     READ(n_start_file) wo,zo,po
+  END IF
+  !PERFOFF
 
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
 
+  !PERFON('mD_mapdt')
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
      lmStop =lmStopB(nLMB)
@@ -255,16 +270,18 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END IF
      END DO
   END DO
+  !PERFOFF
   DEALLOCATE( woR,zoR,poR,soR )
 
 
   !--- Read magnetic field
   IF ( l_mag_old ) THEN
-
-     READ(n_start_file) (so(i),i=1,n_data_oldP),               &
-             &                           (wo(i),i=1,n_data_oldP),               &
-             &                           (zo(i),i=1,n_data_old),                &
-             &                           (po(i),i=1,n_data_old)
+     !PERFON('mD_rdB')
+     !READ(n_start_file) (so(i),i=1,n_data_oldP),               &
+     !     &             (wo(i),i=1,n_data_oldP),               &
+     !     &             (zo(i),i=1,n_data_old),                &
+     !     &             (po(i),i=1,n_data_old)
+     READ(n_start_file) so,wo,zo,po
 
      ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
      ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
@@ -307,6 +324,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END DO
      END DO
      DEALLOCATE( woR,zoR,poR,soR )
+     !PERFOFF
   ELSE
      WRITE(*,*) '! No magnetic data in input file!'
   END IF
@@ -351,7 +369,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   DEALLOCATE( lm2lmo )
   DEALLOCATE( wo,zo,po,so )
   ! end of deallocation of local arrays
-
+  !PERFOFF
 END SUBROUTINE mapData
 
 !------------------------------------------------------------------------

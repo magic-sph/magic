@@ -12,13 +12,11 @@ SUBROUTINE closeFiles
   !  | MPI: called only by the processor responsible for output !        |
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
-  !  |  ruler                                                            |
-  !  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-  !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
   USE truncation
   USE logic
   USE output_data
+  USE movie_data,ONLY: n_movies,n_movie_file
   USE parallel_mod
 
   IMPLICIT NONE

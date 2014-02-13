@@ -27,11 +27,11 @@
 !-- Input:
 ! include 'c_logic.f'
 
-    real(kind=8) :: a,b  ! intervall boundaries
-    integer :: n   ! degree of Cheb polynomial to
+    REAL(kind=8),INTENT(IN) :: a,b  ! intervall boundaries
+    INTEGER,INTENT(IN) :: n   ! degree of Cheb polynomial to
 ! be represented by the grid points
-    real(kind=8) :: x(*) ! grid points in intervall [a,b]
-    real(kind=8) :: y(*) ! grid points in intervall [-1,1]
+    REAL(kind=8),INTENT(out) :: x(*) ! grid points in intervall [a,b]
+    REAL(kind=8),INTENT(OUT) :: y(*) ! grid points in intervall [-1,1]
     real(kind=8) :: a1,a2,x0,lbd
      
 !-- Local variables:

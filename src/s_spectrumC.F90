@@ -13,6 +13,7 @@
 !--------------------------------------------------------------------
 
     USE truncation
+    use parallel_mod
     USE radial_functions
     USE physical_parameters
     USE num_param

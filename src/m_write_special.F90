@@ -14,7 +14,7 @@ CONTAINS
     !  +-------------+----------------+------------------------------------+
     !  |                                                                   |
     !  | Each call of this subroutine writes time and the poloidal magnetic|
-    !  | potential coeffitients b at the CMB up to degree and order        |
+    !  | potential coefficients b at the CMB up to degree and order        |
     !  | l_max_cmb at the end of output file $cmb_file.                    |
     !  | The parameters l_max_cmb, minc and the number of stored coeffs.   |
     !  | are written into the first line of $cmb_file.                     |
@@ -37,7 +37,6 @@ CONTAINS
     !  +-------------------------------------------------------------------+
 
     IMPLICIT NONE
-
 
     !-- Input variables:
     !INTEGER,INTENT(IN) :: lm_max         ! Leading dimension of b

@@ -6,6 +6,7 @@
 MODULE radial_functions
   use truncation
   use radial_data
+  USE chebyshev_polynoms_mod, only: get_chebs
   implicit none
 
   !-- arrays depending on r:
@@ -160,7 +161,7 @@ CONTAINS
     REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
 
     INTEGER :: stop_signal
-
+    INTEGER :: filehandle,nCheb
     !-- end of declaration
     !-------------------------------------------------------------------
 
@@ -206,6 +207,11 @@ CONTAINS
     CALL cheb_x_map_e_xr(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
          !                         alpha1,alpha2,paraK,paraX0,lambd)
          alpha1,alpha2,paraX0,lambd)
+#if 0
+    DO n_r=1,n_r_max
+       WRITE(*,"(I3,2ES20.12)") n_r,r_cheb(n_r),r(n_r)
+    END DO
+#endif
 
     if (l_newmap) then
        do n_r=1,n_r_max
@@ -233,6 +239,14 @@ CONTAINS
     CALL get_chebs(n_r_max,r_icb,r_cmb,r_cheb,n_r_max, &
              cheb,dcheb,d2cheb,d3cheb,n_r_max,n_r_max, &
                                        drx,ddrx,dddrx)
+
+#if 0
+    OPEN(NEWUNIT=filehandle,file="r_cheb.dat")
+    DO n_r=1,n_r_max
+       WRITE(filehandle,"(2ES20.12)") r_cheb(n_r),r(n_r)
+    END DO
+    close(filehandle)
+#endif
 
     !-- Initialize fast cos transform for chebs:
     CALL init_costf1(n_r_max,i_costf_init,nDi_costf1, &

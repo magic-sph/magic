@@ -1,5 +1,6 @@
 !$Id$
 MODULE spectrum_average_mod
+  use MPI
   USE truncation
   USE radial_functions
   USE physical_parameters
@@ -74,7 +75,7 @@ CONTAINS
     !-- local:
     CHARACTER(len=85) :: outFile
     INTEGER :: nOut
-    INTEGER :: nR,lm,l,m
+    INTEGER :: nR,lm,l,m,ierr
 
     REAL(kind=8) :: e_p_temp,e_t_temp
     REAL(kind=8) :: fac

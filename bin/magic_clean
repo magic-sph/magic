@@ -6,3 +6,6 @@ rm -f scond.dat
 rm -f run_magic.sh
 rm -f run_magic_mpi.sh
 rm -f *.test
+rm -f *_BIS
+rm -f stdout.out
+

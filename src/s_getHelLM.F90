@@ -33,10 +33,10 @@
     REAL(kind=8),intent(IN) :: dvtdr(nrp,nfs),dvpdr(nrp,nfs)
 
 !-- Output:
-    REAL(kind=8),intent(OUT) :: HelLMr(l_max+1)
-    REAL(kind=8),intent(OUT) :: Hel2LMr(l_max+1)
-    REAL(kind=8),intent(OUT) :: HelnaLMr(l_max+1)
-    REAL(kind=8),intent(OUT) :: Helna2LMr(l_max+1)
+    REAL(kind=8),intent(INOUT) :: HelLMr(l_max+1)
+    REAL(kind=8),intent(INOUT) :: Hel2LMr(l_max+1)
+    REAL(kind=8),intent(INOUT) :: HelnaLMr(l_max+1)
+    REAL(kind=8),intent(INOUT) :: Helna2LMr(l_max+1)
 
 !-- Local:
     INTEGER :: nTheta,nThetaB

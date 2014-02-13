@@ -16,7 +16,7 @@ SUBROUTINE checkMovie
   USE logic
   USE output_data
   USE parallel_mod,only: rank
-
+  USE movie_data,ONLY: n_movies,n_movie_file
   IMPLICIT NONE
 
   !-- Local

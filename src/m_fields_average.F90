@@ -52,6 +52,15 @@ MODULE fields_average_mod
          allocate(dw_ave_global(1:lm_max))
          allocate(z_ave_global(1:lm_max))
          allocate(s_ave_global(1:lm_max))
+#ifdef WITH_DEBUG
+      ELSE
+         ALLOCATE(db_ave_global(1))
+         allocate(aj_ave_global(1))
+         allocate(w_ave_global(1))
+         allocate(dw_ave_global(1))
+         allocate(z_ave_global(1))
+         allocate(s_ave_global(1))
+#endif
       END IF
 
     END SUBROUTINE initialize_fields_average_mod

@@ -1,5 +1,6 @@
 !$Id$
 MODULE spectrumC_average_mod
+  use mpi
   USE truncation
   USE radial_functions
   USE physical_parameters
@@ -72,7 +73,7 @@ contains
     REAL(kind=8),DIMENSION(l_max+1) :: dT_ICB_l, dT_ICB_l_global
 
     REAL(kind=8) :: y,t,comp(l_max+1)
-    INTEGER :: nOut
+    INTEGER :: nOut,ierr
 
     !-- end of declaration
     !---------------------------------------------------------------------

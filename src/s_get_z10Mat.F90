@@ -20,9 +20,6 @@
 !  |  chosen to rotate freely (either kbotv=1 and/or ktopv=1).         |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
       
     USE truncation
     USE radial_functions
@@ -34,13 +31,13 @@
 
     IMPLICIT NONE
 
-    REAL(kind=8) :: dt
-    INTEGER :: l
-    REAL(kind=8) :: hdif
+    REAL(kind=8),INTENT(IN) :: dt
+    INTEGER,INTENT(IN) :: l
+    REAL(kind=8),INTENT(IN) :: hdif
 
 !-- Output: z10Mat and pivot_z10
-    REAL(kind=8) :: zMat(n_r_max,n_r_max)
-    INTEGER :: zPivot(n_r_max)
+    REAL(kind=8),INTENT(OUT) :: zMat(n_r_max,n_r_max)
+    INTEGER,INTENT(OUT) :: zPivot(n_r_max)
 #ifdef WITH_PRECOND_Z10
     REAL(kind=8),INTENT(out) :: zMat_fac(n_r_max)
 #endif
@@ -60,7 +57,7 @@
     DO nCheb=1,n_cheb_max
 
     !----- CMB condition:
-    !        Note opposite sign of vicouse torques (-dz+2 z /r )
+    !        Note opposite sign of viscous torques (-dz+2 z /r )
     !        for CMB and ICB!
 
         IF ( ktopv == 1 ) THEN  ! free slip

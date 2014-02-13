@@ -22,7 +22,9 @@
     USE physical_parameters
     USE num_param
     USE algebra, ONLY: sgefa
-
+#ifdef WITH_MKL_LU
+    use lapack95
+#endif
     IMPLICIT NONE
 
     REAL(kind=8) :: dt
@@ -137,12 +139,16 @@
 #endif
 
 !----- LU decomposition:
+#ifdef WITH_MKL_LU
+     CALL getrf(sMat,sPivot,info)
+     !CALL dgetrf(n_r_max,n_r_max,sMat,n_r_max,sPivot,info)
+#else
     CALL sgefa(sMat,n_r_max,n_r_max,sPivot,info)
-    IF ( info /= 0 ) THEN
+#endif
+    IF ( info .ne. 0 ) THEN
         WRITE(*,*) 'Singular matrix sMat!'
         STOP '31'
     END IF
-
             
     RETURN
     end SUBROUTINE get_Smat

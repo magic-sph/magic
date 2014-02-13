@@ -1,8 +1,8 @@
 !$Id$
 !***********************************************************************
     SUBROUTINE get_lorentz_torque(lorentz_torque, &
-                          nThetaStart,sizeThetaB, &
-                                        br,bp,nR)
+         &                        nThetaStart,sizeThetaB, &
+         &                        br,bp,nR)
 !***********************************************************************
 
 !    !------------ This is release 2 level 1  --------------!
@@ -27,10 +27,6 @@
 !  |  use: gauss(latitude)=gauss(-latitude) here.                      |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-      
     USE truncation
     USE radial_functions
     USE physical_parameters
@@ -39,14 +35,14 @@
 
     IMPLICIT NONE
 
-    REAL(kind=8) :: lorentz_torque  ! lorentz_torque for theta(1:n_theta)
-    INTEGER :: nThetaStart    ! first number of theta in block
-    INTEGER :: sizeThetaB     ! size of theta bloching
-    REAL(kind=8) :: br(nrp,*)       ! array containing
+    REAL(kind=8),INTENT(INOUT) :: lorentz_torque  ! lorentz_torque for theta(1:n_theta)
+    INTEGER,INTENT(IN) :: nThetaStart    ! first number of theta in block
+    INTEGER,INTENT(IN) :: sizeThetaB     ! size of theta bloching
+    REAL(kind=8),INTENT(IN) :: br(nrp,*)       ! array containing
 ! r**2 B_r(1:n_phi_max,1:n_theta_block)
-    REAL(kind=8) :: bp(nrp,*)       ! array containing
+    REAL(kind=8),INTENT(IN) :: bp(nrp,*)       ! array containing
 ! r*sin(theta) B_phi(1:n_phi_max,1:n_theta_block)
-    INTEGER :: nR
+    INTEGER,INTENT(IN) :: nR
 
 !-- output:
 !    lorentz_torque increased by the contribution of the theta block

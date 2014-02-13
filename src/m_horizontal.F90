@@ -7,6 +7,7 @@
 MODULE horizontal_data
   USE truncation
   use omp_lib
+  !USE cutils,ONLY: print_cache_info_dcmplx,print_cache_info_dreal,print_cache_info_integer
 
   IMPLICIT NONE
 
@@ -345,6 +346,20 @@ CONTAINS
         END IF
     END DO
 
+#if 0
+    WRITE(*,"(A,I6,A,I10,A,I10,A)") "cache info of first element, all have dimension 1:lm_max=",lm_max,&
+         &" = ",lm_max*16,"B (C), ",lm_max*8,"B (R)"
+    CALL print_cache_info_dcmplx("C: dPhi0"//C_NULL_CHAR,dPhi0(1))
+    CALL print_cache_info_dcmplx("C: dPhi"//C_NULL_CHAR,dPhi(1))
+    CALL print_cache_info_dreal("R: dTheta1A"//C_NULL_CHAR,dTheta1A(1))
+    CALL print_cache_info_dreal("R: dTheta1S"//C_NULL_CHAR,dTheta1S(1))
+    CALL print_cache_info_dreal("R: dTheta2A"//C_NULL_CHAR,dTheta2A(1))
+    CALL print_cache_info_dreal("R: dTheta2S"//C_NULL_CHAR,dTheta2S(1))
+    CALL print_cache_info_dreal("R: dTheta3A"//C_NULL_CHAR,dTheta3A(1))
+    CALL print_cache_info_dreal("R: dTheta3S"//C_NULL_CHAR,dTheta3S(1))
+    CALL print_cache_info_dreal("R: dTheta4A"//C_NULL_CHAR,dTheta4A(1))
+    CALL print_cache_info_dreal("R: dTheta4S"//C_NULL_CHAR,dTheta4S(1))
+#endif
 
     RETURN
     end SUBROUTINE horizontal

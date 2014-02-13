@@ -19,6 +19,7 @@
     USE init_fields,only: n_start_file
     USE logic
     USE output_data
+    USE movie_data,only: n_movie_file
     USE parallel_mod,ONLY: rank
     USE charmanip, only: length_to_blank
 

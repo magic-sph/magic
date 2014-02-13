@@ -1,9 +1,30 @@
 #!/bin/bash
-export OMP_NUM_THREADS=1
-export F_UFMTENDIAN=big
-export KMP_STACKSIZE=100m
-export KMP_AFFINITY=noverbose,granularity=core,scatter
+if [ $# -ge 1 ]; then
+    hybrid=$1
+    nomp=$2
+else
+    hybrid="no"
+fi
 
+export F_UFMTENDIAN=big
+if [ "$hybrid" == "hybrid" ]; then
+    nmpi=2
+    #nomp=4
+    echo "Running hybrid mode with $nomp OpenMP threads per $nmpi MPI processes."
+    export I_MPI_PIN_DOMAIN=socket
+    export MP_BINDPROC=no
+    export MP_TASK_AFFINITY=core:$nomp
+    export KMP_STACKSIZE=1g
+    export KMP_AFFINITY=noverbose,granularity=core,compact
+else
+    nomp=1
+    nmpi=8
+    echo "Running pure MPI code with $nmpi MPI processes."
+    export I_MPI_PIN_PROCESSOR_LIST=allcores
+fi
+export OMP_NUM_THREADS=$nomp
+
+keep=no
 # switch off the threading in the input file
 sed -i "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml
 
@@ -15,11 +36,14 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =96,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 sed -i 's/minc.*/minc        =1,/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
     exitcode=42
     echo "Run failed for tag $tag"
@@ -29,11 +53,14 @@ tag="test96m4"
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -44,11 +71,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =128,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -57,11 +87,14 @@ tag='test128m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -72,11 +105,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =192,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -85,11 +121,14 @@ tag='test192m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -100,11 +139,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =256,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -113,11 +155,14 @@ tag='test256m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -128,11 +173,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =288,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -141,11 +189,14 @@ tag='test288m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -156,11 +207,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =320,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -169,11 +223,14 @@ tag='test320m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -184,11 +241,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =384,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -197,11 +257,14 @@ tag='test384m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -212,11 +275,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =400,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -225,11 +291,14 @@ tag='test400m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -240,11 +309,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =512,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -253,11 +325,14 @@ tag='test512m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -268,11 +343,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =640,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -281,11 +359,14 @@ tag='test640m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -296,11 +377,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =768,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -309,11 +393,14 @@ tag='test768m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -324,11 +411,14 @@ sed -i 's/minc.*/minc        =1,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =800,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -337,11 +427,14 @@ tag='test800m4'
 sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -352,11 +445,14 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =864,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"
@@ -367,11 +463,14 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/n_phi_tot.*/n_phi_tot   =1024,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
-mpiexec -n 16 ./magic.exe input.nml >output.$tag
+rm -f *.$tag
+mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
-    rm *.$tag
+    if [ $keep != "yes" ]; then
+	rm *.$tag
+    fi
 else
 exitcode=42
     echo "Run failed for tag $tag"

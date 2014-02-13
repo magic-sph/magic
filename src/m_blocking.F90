@@ -5,10 +5,10 @@
 
 !    !------------ This is release 1 level 1  --------------!
 !    !------------ Created on 1/17/02  by JW. --------------!
-
+!#define OLD_THETA_BLOCKING 1
 MODULE blocking
   USE logic
-  USE parallel_mod
+  USE parallel_mod,ONLY: nThreads,rank,n_procs,nLMBs_per_rank,rank_with_l1m0
   USE truncation
   USE output_data
   USE LMmapping,ONLY: mappings,allocate_mappings,&
@@ -24,7 +24,7 @@ MODULE blocking
   !  considerably smaller than the chosen nChunk,
   !  since nLMBs must be a multiple of nThreadsUse!
 
-  INTEGER,PARAMETER :: nChunk=512
+  !INTEGER,PARAMETER :: nChunk=512
   !INTEGER :: nThreadsMax
   ! nthreads > 1
   INTEGER,POINTER :: lm2(:,:),lm2l(:),lm2m(:)
@@ -61,11 +61,11 @@ MODULE blocking
   !  Following divides loops over points in theta-direction (index ic) into
   !  blocks. Enhances performance by trying to decrease memory access
   !  but is not relevant for SMP parallel processing.
-  !  It is tried to devide the theta loop into parts whos data
+  !  It is tried to divide the theta loop into parts whose data
   !  fit into cache. Thus ideal block sizes (nfs) highly depend on the
   !  used computer.
   !  The value nfs used here has been determined experientally
-  !  by uli Christensen for an IBM SP2. It represents an upper bound.
+  !  by Uli Christensen for an IBM SP2. It represents an upper bound.
   !  The real block size sizeThetaB used in the code is determined in
   !  s_prep.f by decreasing the size starting with nfs,
   !  until n_theta_max is a multiple of sizeThetaB. The maximum number of
@@ -91,16 +91,22 @@ MODULE blocking
 
   INTEGER :: nfs
   INTEGER,PARAMETER :: sizeThetaBI=284,nBSave=16,nBDown=8
+  INTEGER :: cacheblock_size_in_B=4096
 
   INTEGER :: nThetaBs,sizeThetaB
+
+  INTERFACE get_theta_blocking
+     MODULE PROCEDURE get_theta_blocking_cache,get_theta_blocking_OpenMP
+  END INTERFACE get_theta_blocking
 contains
   SUBROUTINE initialize_blocking
-    !INTEGER :: nThreadsAva
-
     REAL(kind=8) :: load
     INTEGER :: iLoad
     INTEGER :: n
     integer :: LMB_with_l1m0,l1m0,irank
+
+    LOGICAL,PARAMETER :: DEBUG_OUTPUT=.FALSE.
+    INTEGER :: lm,l,m
 
     character(len=255) :: message
     !--- End of declaration
@@ -138,8 +144,6 @@ contains
        END IF
     END IF
     ALLOCATE( lmStartB(nLMBs),lmStopB(nLMBs) )
-
-    nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
 
     !--- Get radial blocking
     IF ( MOD(n_r_max-1,n_procs) /= 0 ) THEN
@@ -197,6 +201,17 @@ contains
     WRITE(message,"(2(A,I4))") "rank no ",rank_with_l1m0," has l1m0 in block ",LMB_with_l1m0
     CALL logWrite(message)
        
+    IF (DEBUG_OUTPUT) THEN
+       ! output the lm -> l,m mapping
+       IF (rank.EQ.0) THEN
+          DO lm=1,lm_max
+             l=lo_map%lm2l(lm)
+             m=lo_map%lm2m(lm)
+             WRITE(*,"(A,I5,2(A,I3))") "lm = ",lm," --> l=",l,", m=",m
+          END DO
+       END IF
+    END IF
+    
     ! set the standard ordering as default
     lm2(0:,0:) => st_map%lm2
     lm2l(1:lm_max) => st_map%lm2l
@@ -232,38 +247,29 @@ contains
     lm22m(1:,1:,1:) => st_sub_map%lm22m
 
     !-- Calculate blocking parameters for blocking loops over theta:
-    !   This is not relevant for parallelisation so far.
-    !   The desired block size is nfs. If n_theta_max is not a
-    !   multiple of nfs I use nThetaBs=n_theta_max/sizeThetaB as a first
-    !   guess for the number of blocks and then increase this
-    !   number adjusting the block size sizeThetaB.
-    !        nThetaBs  =n_theta_max/sizeThetaB
-    !        DO n=1,100
-    !           IF ( nThetaBs*sizeThetaB.EQ.n_theta_max ) GOTO 50  ! done
-    !           nThetaBs=nThetaBs+1
-    !           sizeThetaB=n_theta_max/nThetaBs
-    !        END DO
-    !        IF ( nThetaBs*sizeThetaB.EQ.n_theta_max ) GOTO 50
-    !        WRITE(*,*)
-    !        WRITE(*,*) '! No proper blocking for theta-loops found!'
-    !        STOP
-    ! 0      CONTINUE ! jump point for succesfull theta blocking
 
-    ! JW 6 Mar 2012: There are problems when nfs.NE.sizeThetaB and
-    !                I don't know why!
-    !sizeThetaB=nfs
-    sizeThetaB=MIN(n_theta_max,nfs)
-    nThetaBs  =n_theta_max/sizeThetaB
-    IF ( nThetaBs*sizeThetaB /= n_theta_max ) THEN
-       WRITE(*,*)
-       WRITE(*,*) '! n_theta_max is not multiple of nfs!'
-       WRITE(*,*) '! n_theta_max    =',n_theta_max
-       WRITE(*,*) '! nfs            =',nfs
-       WRITE(*,*) '! n_theta_max/nfs=',n_theta_max/nfs
-       WRITE(*,*) '! Please decrease sizeThetaBI or nBDown in m_blocking.F90!'
-       STOP
+    IF (nThreads.EQ.1) THEN
+#ifdef OLD_THETA_BLOCKING    
+       nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
+       sizeThetaB=MIN(n_theta_max,nfs)
+       nThetaBs  =n_theta_max/sizeThetaB
+       IF ( nThetaBs*sizeThetaB /= n_theta_max ) THEN
+          WRITE(*,*)
+          WRITE(*,*) '! n_theta_max is not multiple of nfs!'
+          WRITE(*,*) '! n_theta_max    =',n_theta_max
+          WRITE(*,*) '! nfs            =',nfs
+          WRITE(*,*) '! n_theta_max/nfs=',n_theta_max/nfs
+          WRITE(*,*) '! Please decrease sizeThetaBI or nBDown in m_blocking.F90!'
+          STOP
+       END IF
+#else
+       CALL get_theta_blocking_cache(n_theta_max,nrp,cacheblock_size_in_B, nThetaBs,sizeThetaB)
+       nfs=sizeThetaB
+#endif
+    ELSE
+       CALL get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs,sizeThetaB)
+       nfs=sizeThetaB
     END IF
-
 
 
     IF (rank.EQ.0) THEN
@@ -271,8 +277,8 @@ contains
        WRITE(*,*)
        WRITE(*,*) '!    Number of LM-blocks:',nLMBs
        WRITE(*,*) '!    Size   of LM-blocks:',sizeLMB
-       WRITE(*,*) '!               nChunk  :',nChunk
-       !WRITE(*,*) '!               nThreads:',nThreads
+       !WRITE(*,*) '!               nChunk  :',nChunk
+       WRITE(*,*) '!               nThreads:',nThreads
        WRITE(*,*)
        WRITE(*,*) '! Number of theta blocks:',nThetaBs
        WRITE(*,*) '!   size of theta blocks:',sizeThetaB
@@ -281,8 +287,8 @@ contains
        WRITE(nLF,*)
        WRITE(nLF,*) '!    Number of LM-blocks:',nLMBs
        WRITE(nLF,*) '!    Size   of LM-blocks:',sizeLMB
-       WRITE(nLF,*) '!               nChunk  :',nChunk
-       !WRITE(nLF,*) '!               nThreads:',nThreads
+       !WRITE(nLF,*) '!               nChunk  :',nChunk
+       WRITE(nLF,*) '!               nThreads:',nThreads
        WRITE(nLF,*)
        WRITE(nLF,*) '! Number of theta blocks:',nThetaBs
        WRITE(nLF,*) '!   size of theta blocks:',sizeThetaB
@@ -315,7 +321,7 @@ contains
     INTEGER :: lm,l,m
     INTEGER :: check(0:l_max,0:l_max)
 
-    LOGICAL :: DEBUG_OUTPUT=.false.
+    LOGICAL,PARAMETER :: DEBUG_OUTPUT=.false.
 
     number_of_blocks=sub_map%nLMBs
     
@@ -397,10 +403,12 @@ contains
           IF (rank.EQ.0) THEN
              WRITE(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",nLMBs
              DO n2=1,sub_map%nLMBs2(n)
-                WRITE(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
+                WRITE(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
+                     & sub_map%nLMBs2(n)," with size ",sub_map%sizeLMB2(n2,n)
                 DO n3=1,sub_map%sizeLMB2(n2,n)
-                   WRITE(*,"(10X,2(A,I4),2I4)") "local lm is ",n3,&
-                        &" translates into global lm,l,m : ",sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n),sub_map%lm22m(n3,n2,n)
+                   WRITE(*,"(10X,A,I4,A,I6,2I4)") "local lm is ",n3,&
+                        &" translates into global lm,l,m : ",&
+                        & sub_map%lm22lm(n3,n2,n),sub_map%lm22l(n3,n2,n),sub_map%lm22m(n3,n2,n)
                 END DO
              END DO
           END IF
@@ -790,5 +798,71 @@ contains
        END IF
     END DO
   END SUBROUTINE get_snake_lm_blocking
+
+SUBROUTINE get_theta_blocking_cache(n_theta_max,nrp,cacheblock_size_in_B, nThetaBs, sizeThetaB)
+  INTEGER, INTENT(IN) :: n_theta_max,nrp,cacheblock_size_in_B
+  INTEGER, INTENT(OUT) :: nThetaBs, sizeThetaB
+
+  INTEGER :: best_s,s,memory_size,min_s
+  
+
+  best_s=0
+  min_s = 0
+  ! The size of the theta blocks must be dividable by 4
+  ! due to the algorithms in the legTF routines.
+  DO s=4,n_theta_max,4
+     IF (MODULO(n_theta_max,s)==0) THEN
+        ! candidate found
+        if (min_s.eq.0) min_s=s
+        nThetaBs=n_theta_max/s
+        memory_size=s*nrp*8
+        IF (cacheblock_size_in_b/REAL(memory_size) .GE. 1.0) THEN
+           best_s=s
+        ELSEIF (cacheblock_size_in_B/memory_size .eq. 0) then
+           EXIT
+        END IF
+     END IF
+  END DO
+  IF (best_s .NE. 0) THEN
+     sizeThetaB=best_s
+  ELSE
+     sizeThetaB=min_s
+  END IF
+  nThetaBs=n_theta_max/sizeThetaB
+END SUBROUTINE get_theta_blocking_cache
+
+!>This routine determines the number of theta blocks and the
+!>blocksize with respect to the number of threads.
+SUBROUTINE get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs, sizeThetaB)
+  INTEGER, INTENT(IN) :: n_theta_max,nThreads
+  INTEGER, INTENT(OUT) :: nThetaBs, sizeThetaB
+
+  INTEGER :: best_s,s,memory_size,min_s
+  
+  best_s=0
+  min_s = 0
+  ! The size of the theta blocks must be dividable by 4
+  ! due to the algorithms in the legTF routines.
+  DO s=4,n_theta_max,4
+     IF (MODULO(n_theta_max,s)==0) THEN
+        ! candidate found
+        if (min_s.eq.0) min_s=s
+        nThetaBs=n_theta_max/s
+        !WRITE(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", nThetaBs = ",nThetaBs
+
+        IF (MODULO(nThetaBs,nThreads).eq.0) then
+           best_s=s
+        ELSEIF (nThetaBs/nThreads .EQ. 0) THEN
+           EXIT
+        END IF
+     END IF
+  END DO
+  IF (best_s .NE. 0) THEN
+     sizeThetaB=best_s
+  ELSE
+     sizeThetaB=min_s
+  END IF
+  nThetaBs=n_theta_max/sizeThetaB
+END SUBROUTINE get_theta_blocking_OpenMP
 
 END MODULE blocking

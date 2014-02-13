@@ -15,6 +15,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
 
+  use mpi
   USE truncation
   USE radial_functions
   USE physical_parameters
@@ -45,6 +46,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   REAL(kind=8),INTENT(OUT) :: eKinIC,eKinMA
 
   !-- Local variables:
+  REAL(kind=8),PARAMETER :: tolerance=1e-16
   REAL(kind=8) :: eKinOC
   INTEGER :: n_r1,n_r2,n_r3,nR
   INTEGER :: l1m0,l1m1
@@ -66,7 +68,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   COMPLEX(kind=8),DIMENSION(8,3) :: zvals_on_rank0,bvals_on_rank0
   COMPLEX(kind=8),DIMENSION(21) :: vals_on_rank0_1d
 
-  INTEGER :: sr_tag,status(MPI_STATUS_SIZE)
+  INTEGER :: sr_tag,status(MPI_STATUS_SIZE),ierr
   LOGICAL :: rank_has_l1m0,rank_has_l1m1
   !-- end of declaration
   !-----------------------------------------------------------------------
@@ -271,23 +273,36 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
            OPEN(n_angular_file,FILE=angular_file,STATUS='UNKNOWN', &
                 POSITION='APPEND')
         END IF
-        AMz=angular_moment_oc(3) + &
-             angular_moment_ic(3)+angular_moment_ma(3)
+        AMz=   angular_moment_oc(3) + &
+             & angular_moment_ic(3)+angular_moment_ma(3)
+        IF (ABS(AMz).LT.tolerance) AMz=0.0D0
         eKinAMz=0.5d0*(angular_moment_oc(3)**2/c_moi_oc + &
              angular_moment_ic(3)**2/c_moi_ic + &
              angular_moment_ma(3)**2/c_moi_ma )
+        if (abs(eKinAMz).lt.tolerance) eKinAMz=0.0D0
         eKinIC=0.5d0*angular_moment_ic(3)**2/c_moi_ic
         eKinOC=0.5d0*angular_moment_oc(3)**2/c_moi_oc
         eKinMA=0.5d0*angular_moment_ma(3)**2/c_moi_ma
-        IF ( AMzLast /= 0.D0 ) THEN
-           WRITE(n_angular_file,'(1p,2x,d20.12,5d14.6,7d20.12)') &
+        IF ( AMzLast .ne. 0.0D0 ) THEN
+           !WRITE(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast,dt,(eKinAMz-eKinAMzLast)
+           WRITE(n_angular_file,'(1p,2x,d20.12,5d14.6,3d20.12)',advance='no') &
                 time*tScale, &
-                angular_moment_oc, &
-                angular_moment_ic(3), &
-                angular_moment_ma(3), &
-                AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz, &
-                (eKinAMz-eKinAMzLast)/eKinAMzLast/dt, &
-                eKinIC,eKinOC,eKinMA
+                & angular_moment_oc, &
+                & angular_moment_ic(3), &
+                & angular_moment_ma(3), &
+                & AMz,&
+                & (AMz-AMzLast)/AMzLast/dt,&
+                & eKinAMz
+           IF (eKinAMzLast.NE.0.0d0) THEN
+              WRITE(n_angular_file,'(1d20.12)',advance='no') &
+                & (eKinAMz-eKinAMzLast)/eKinAMzLast/dt
+           ELSE
+              WRITE(n_angular_file,'(1d20.12)',advance='no') 0.0
+           END IF
+           WRITE(n_angular_file,'(3d20.12)') &
+                & eKinIC,&
+                & eKinOC,&
+                & eKinMA
         END IF
         IF ( l_save_out ) CLOSE(n_angular_file)
         AMzLast=AMz

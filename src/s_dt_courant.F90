@@ -55,19 +55,12 @@ SUBROUTINE dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new, &
   dt_fac=2.D0
   dt_r  =1000.D0*dtMax
   dt_h  =dt_r
-#ifdef WITH_MPI
   DO n_r=nRstart,nRstop
      dt_r=min(dtrkc(n_r),dt_r)
      dt_h=min(dthkc(n_r),dt_h)
   END DO
   CALL MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
   CALL MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,ierr)
-#else
-  DO n_r=1,n_r_max
-     dt_r=min(dtrkc(n_r),dt_r)
-     dt_h=min(dthkc(n_r),dt_h)
-  END DO
-#endif
 
   dt_rh=MIN(dt_r,dt_h)
   dt_2 =MIN(0.5D0*(1.D0/dt_fac+1.D0)*dt_rh,dtMax)

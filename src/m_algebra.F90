@@ -1,8 +1,13 @@
 !$Id$
+#include "perflib_preproc.cpp"
 module algebra
-
+  use omp_lib
+#ifdef WITH_LIKWID
+#   include "likwid_f90.h"
+#endif
   implicit none
 
+  REAL(8),PARAMETER :: zero_tolerance=1.0d-15
 contains
   !***********************************************************************
   subroutine cgesl(a,ia,n,ip,bc1)
@@ -94,8 +99,6 @@ contains
     !  +-------------------------------------------------------------------+
     !---------------------------------------------------------------------------
 
-    IMPLICIT NONE
-
     !-- input:
     INTEGER,intent(IN) :: n           ! dimension of problem
     INTEGER,intent(IN) :: ia          ! leading dimension of a
@@ -117,7 +120,12 @@ contains
     nodd   = MOD(n,2)
     noddRHS= MOD(nRHSs,2)
 
+    !!$OMP PARALLEL default(none) &
+    !!$OMP private(nRHS,k,m,help) &
+    !!$OMP shared(nRHSs,ip,nm1,bc)
     !     permute vectors bc
+    LIKWID_ON('perm')
+    !!$OMP DO
     DO nRHS=1,nRHSs
        DO k=1,nm1
           m=ip(k)
@@ -126,13 +134,25 @@ contains
           bc(k,nRHS) =help
        END DO
     END DO
-
+    !!$OMP END DO
+    LIKWID_OFF('perm')
+    !!$OMP END PARALLEL
 
     !     solve  l * y = b
 
+    !!$OMP PARALLEL default(none) &
+    !!$OMP private(nRHS,nRHS2,k,k1,i) &
+    !!$OMP shared(n,bc,nRHSs,a,nodd,nm1,noddRHS)
+    LIKWID_ON('cgeslML_1')
+    !!$OMP MASTER
+    !WRITE(*,"(A,I4,A,I2,A)") "OpenMP loop over ",(nRHSs-1)/2,&
+    !     &" iterations on ",omp_get_num_threads()," threads"
+    !!$OMP END MASTER
+    !!$OMP DO
     DO nRHS=1,nRHSs-1,2
        nRHS2=nRHS+1
 
+       !PERFON('sol_1')
        DO k=1,n-2,2
           k1=k+1
           bc(k1,nRHS) =bc(k1,nRHS)-bc(k,nRHS)*a(k1,k)
@@ -148,9 +168,9 @@ contains
           bc(n,nRHS) =bc(n,nRHS) -bc(nm1,nRHS)*a(n,nm1)
           bc(n,nRHS2)=bc(n,nRHS2)-bc(nm1,nRHS2)*a(n,nm1)
        END IF
-
+       !PERFOFF
        !     solve  u * x = y
-
+       !PERFON('sol_2')
        DO k=n,3,-2
           k1=k-1
           bc(k,nRHS)  =bc(k,nRHS)*a(k,k)
@@ -173,9 +193,12 @@ contains
           bc(1,nRHS)=bc(1,nRHS)*a(1,1)
           bc(1,nRHS2)=bc(1,nRHS2)*a(1,1)
        END IF
+       !PERFOFF
 
     END DO
+    !!$OMP END DO nowait
 
+    !!$OMP SINGLE
     IF ( noddRHS == 1 ) THEN
        nRHS=nRHSs
 
@@ -206,10 +229,14 @@ contains
        END IF
 
     END IF
+    !!$OMP END SINGLE
+    LIKWID_OFF('cgeslML_1')
+    !!$OMP END PARALLEL
 
 
     RETURN
   end SUBROUTINE cgeslML
+
   !--------------------------------------------------------------------
   SUBROUTINE sgesl(a,ia,n,ip,b)
     !---------------------------------------------------------------------------
@@ -339,7 +366,8 @@ contains
 
        ip(k)=l
 
-       IF( a(l,k) /= 0.D0 ) THEN
+       !IF( a(l,k) /= 0.D0 ) THEN
+       IF( ABS(a(l,k)) .GT. zero_tolerance ) THEN
 
           IF ( l /= k ) THEN
              DO i=1,n
@@ -367,7 +395,8 @@ contains
     END DO
 
     ip(n)=n
-    IF( a(n,n) == 0.D0 ) info=n
+    !IF( a(n,n) == 0.D0 ) info=n
+    IF( ABS(a(n,n)) .LE. zero_tolerance ) info=n
     IF( info > 0 ) RETURN
     DO i=1,n
        a(i,i)=1.D0/a(i,i)

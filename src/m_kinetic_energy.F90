@@ -15,9 +15,12 @@ MODULE kinetic_energy
   USE communications, only: get_global_sum
 
   IMPLICIT NONE
+  PRIVATE
 
   REAL(kind=8),allocatable :: e_pA(:),e_p_asA(:)
   REAL(kind=8),allocatable :: e_tA(:),e_t_asA(:)
+
+  PUBLIC:: get_e_kin,initialize_kinetic_energy
 
 CONTAINS
   SUBROUTINE initialize_kinetic_energy

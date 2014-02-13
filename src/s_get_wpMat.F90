@@ -1,10 +1,6 @@
 !$Id$
 !***********************************************************************
-#ifdef WITH_PRECOND_WP
 SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
-#else
-SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot)
-#endif
   !***********************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -33,9 +29,7 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot)
   !-- Output:
   REAL(kind=8),INTENT(OUT) :: wpMat(2*n_r_max,2*n_r_max)
   INTEGER,INTENT(OUT) :: wpPivot(2*n_r_max)
-#ifdef WITH_PRECOND_WP
   REAL(kind=8),INTENT(OUT) :: wpMat_fac(2*n_r_max,2)
-#endif
 
   !-- local variables:
   INTEGER :: nR,nCheb,nR_p,nCheb_p
@@ -203,7 +197,6 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot)
      wpMat(nR_p,2*n_r_max)=0.5D0*wpMat(nR_p,2*n_r_max)
   END DO
 
-#ifdef WITH_PRECOND_WP
   ! compute the linesum of each line
   DO nR=1,2*n_r_max
      wpMat_fac(nR,1)=1.0D0/MAXVAL(ABS(wpMat(nR,:)))
@@ -221,7 +214,6 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot)
   DO nR=1,2*n_r_max
      wpMat(:,nR) = wpMat(:,nR)*wpMat_fac(nR,2)
   END DO
-#endif
 
 #ifdef MATRIX_CHECK
      ! copy the wpMat to a temporary variable for modification

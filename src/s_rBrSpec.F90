@@ -11,7 +11,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   USE truncation
   USE radial_functions
   USE physical_parameters
-  USE num_param
+  USE num_param,only: eScale
   USE blocking
   USE horizontal_data
   USE logic
@@ -56,10 +56,10 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   length=length_to_blank(fileRoot)
 
   DO n_r=1,n_r_max
-     DO l=1,6
-        e_p(l,n_r)=0.D0
-        e_p_AS(l,n_r)=0.0D0
-     END DO
+     ! setting zero
+     e_p(1:6,n_r)=0.0D0
+     e_p_AS(1:6,n_r)=0.0D0
+
      DO lm=2,lm_max
         l=map%lm2l(lm)
         IF ( l <= 6 ) THEN
@@ -81,7 +81,8 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   !WRITE(*,*) "e_p(1,:) = ",(e_p(1,n_r),n_r=1,n_r_max)
   !WRITE(*,"(A,2ES22.14)") "e_p after OC: ",SUM(e_p(1,1:n_r_max)),SUM(e_p(2,1:n_r_max))
 
-  !WRITE(*,"(A,4ES22.14)") "e_p_AS after OC: ",SUM(e_p_AS(1:6,1:n_r_max)),SUM(e_p(1:6,1:n_r_max))
+  !WRITE(*,*) "e_p(4,:) = ",(e_p(4,n_r),n_r=1,n_r_max)
+  !WRITE(*,"(A,2ES22.14)") "e_p after OC: ",SUM(e_p(4,1:n_r_max)),SUM(e_p(2,1:n_r_max))
   !-- Inner core:
 
   IF ( lIC ) THEN
@@ -144,14 +145,14 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   !    (SNGL(r(n_r)),n_r=1,n_r_max),(SNGL(r_ic(n_r)),n_r=2,n_r_ic_max)
   !WRITE(*,*) "e_p(4,:) = ",(REAL(e_p(4,n_r),kind=4),n_r=1,n_r_max)
 
-  WRITE(91) REAL(time,kind=4),                          &
+  WRITE(91) REAL(time,kind=4),                       &
        (REAL(e_p(1,n_r),kind=4),n_r=1,n_r_tot-1),    &
        (REAL(e_p(2,n_r),kind=4),n_r=1,n_r_tot-1),    &
        (REAL(e_p(3,n_r),kind=4),n_r=1,n_r_tot-1),    &
        (REAL(e_p(4,n_r),kind=4),n_r=1,n_r_tot-1),    &
        (REAL(e_p(5,n_r),kind=4),n_r=1,n_r_tot-1),    &
        (REAL(e_p(6,n_r),kind=4),n_r=1,n_r_tot-1)
-  WRITE(91) REAL(time,kind=4),                          &
+  WRITE(91) REAL(time,kind=4),                       &
        (REAL(e_p_AS(1,n_r),kind=4),n_r=1,n_r_tot-1), &
        (REAL(e_p_AS(2,n_r),kind=4),n_r=1,n_r_tot-1), &
        (REAL(e_p_AS(3,n_r),kind=4),n_r=1,n_r_tot-1), &

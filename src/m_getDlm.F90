@@ -1,6 +1,7 @@
 !$Id$
 MODULE getDlm_mod
   USE truncation
+  use parallel_mod
   USE radial_functions
   USE physical_parameters
   USE num_param
@@ -59,9 +60,17 @@ CONTAINS
     !-- end of declaration
     !---------------------------------------------------------------------
 
+    !DO lm=llm,ulm
+    !   l=lo_map%lm2l(lm)
+    !   m=lo_map%lm2m(lm)
+
+    !   WRITE(*,"(2I3,A,I3,A,2ES20.12)") l,m,": start getDlm, w(",lm,",n_r_icb): ",&
+    !        & w(lm,n_r_icb)
+    !END DO
 
     IF ( switch == 'B' ) THEN
        DO nR=1,n_r_max
+          e_mr(nR,0) = 0.0D0
           DO l=1,l_max
              e_lr(nR,l)=0.D0
              e_lr_c(nR,l)=0.D0
@@ -88,6 +97,7 @@ CONTAINS
     ELSE IF ( switch == 'V' ) THEN
        DO nR=1,n_r_max
           O_rho =orho1(nR)
+          e_mr(nR,0) = 0.0D0
           DO l=1,l_max
              e_lr(nR,l)=0.D0
              e_lr_c(nR,l)=0.D0
@@ -106,10 +116,10 @@ CONTAINS
              end if
              e_lr(nR,l)=e_lr(nR,l) + e_p+e_t
              e_mr(nR,m)=e_mr(nR,m) + e_p+e_t
-             !IF (l.EQ.2) THEN
-             !   WRITE(*,"(A,3I4,4ES20.12)") "e_lr,e_mr,e_p,e_t = ",nR,l,m,&
+             !IF (nR.EQ.n_r_icb) THEN
+             !   WRITE(*,"(A,3I4,10ES20.12)") "e_lr,e_mr,e_p,e_t = ",nR,l,m,&
              !        &e_lr(nR,l),e_mr(nR,m),&
-             !        &e_p,e_t
+             !        &e_p,e_t,w(lm,nR),dw(lm,nR),z(lm,nR)
              !END IF
           END DO ! do loop over lms in block
        END DO    ! radial grid points
@@ -189,6 +199,7 @@ CONTAINS
              ELSE
                 dlRc(nR)=0.d0
              END IF
+             !WRITE(*,"(I3,A,2ES20.12)") nR,": dlRc,dlR = ",dlRc(nR),dlR(nR)
           ELSE IF ( switch == 'B' ) THEN
              dlR(nR)=0.D0
              dlRc(nR)=0.D0

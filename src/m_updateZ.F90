@@ -1,12 +1,45 @@
 !$Id$
 !***********************************************************************
 #include "perflib_preproc.cpp"
-SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
+MODULE updateZ_mod
+  USE truncation
+  USE radial_functions
+  USE physical_parameters
+  USE num_param
+  USE torsional_oscillations
+  USE init_fields
+  USE blocking,ONLY: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map,&
+       &lmStartB,lmStopB
+  USE horizontal_data
+  USE logic
+  USE matrices
+  USE RMS
+  USE const
+  use parallel_mod
+  USE algebra, ONLY: cgesl,cgeslML
+  USE LMLoop_data,ONLY: llm,ulm,llm_real,ulm_real
+  USE communications, only:get_global_sum
+  IMPLICIT NONE
+
+  PRIVATE
+  !-- Input of recycled work arrays:
+  COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: workA,workB,workC
+
+  PUBLIC :: updateZ,initialize_updateZ
+
+CONTAINS
+  SUBROUTINE initialize_updateZ
+    allocate(workA(llm:ulm,n_r_max))
+    allocate(workB(llm:ulm,n_r_max))
+    allocate(workC(llm:ulm,n_r_max))
+  END SUBROUTINE initialize_updateZ
+
+  SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
      &             omega_ma,d_omega_ma_dtLast, &
      &             omega_ic,d_omega_ic_dtLast, &
      &             lorentz_torque_ma,lorentz_torque_maLast, &
      &             lorentz_torque_ic,lorentz_torque_icLast, &
-     &             w1,coex,dt,lRmsNext,nTh)
+     &             w1,coex,dt,lRmsNext)
   !***********************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -29,24 +62,6 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 
   !--------------------------------------------------------------------
 
-  USE truncation
-  USE radial_functions
-  USE physical_parameters
-  USE num_param
-  USE torsional_oscillations
-  USE init_fields
-  USE blocking,ONLY: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map,&
-       &lmStartB,lmStopB
-  USE horizontal_data
-  USE logic
-  USE matrices
-  USE RMS
-  USE const
-  use parallel_mod
-  USE algebra, ONLY: cgesl,cgeslML
-  USE LMLoop_data,ONLY: llm,ulm,llm_real,ulm_real
-  USE communications, only:get_global_sum
-  IMPLICIT NONE
 
   !-- Input/output of scalar fields:
   COMPLEX(kind=8),INTENT(INOUT) :: z(llm:ulm,n_r_max)
@@ -66,12 +81,6 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
   REAL(kind=8),intent(IN) :: coex  ! factor depending on alpha
   REAL(kind=8),intent(IN) :: dt
   LOGICAL,intent(IN) :: lRmsNext
-  INTEGER,intent(IN) :: nTh ! Thread number
-
-  !-- Input of recycled work arrays:
-  COMPLEX(kind=8) :: workA(llm:ulm,n_r_max)
-  COMPLEX(kind=8) :: workB(llm:ulm,n_r_max)
-  COMPLEX(kind=8) :: workC(llm:ulm,n_r_max)
 
 
   !-- local variables:
@@ -110,6 +119,8 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
   INTEGER, DIMENSION(:,:,:),POINTER :: lm22lm,lm22l,lm22m
 
   logical :: DEBUG_OUTPUT=.false.
+  INTEGER :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
+  INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk
   complex(kind=8) :: rhs_sum
 
   !-- end of declaration
@@ -145,199 +156,204 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
   O_dt=1.D0/dt
 
   l10=.FALSE.
+  !$OMP PARALLEL default(shared)
+  !$OMP SINGLE
   DO nLMB2=1,nLMBs2(nLMB)
-     lmB=0
-     DO lm=1,sizeLMB2(nLMB2,nLMB)
-        lm1=lm22lm(lm,nLMB2,nLMB)
-        l1 =lm22l(lm,nLMB2,nLMB)
-        m1 =lm22m(lm,nLMB2,nLMB)
-        IF ( lm1 == l1m0 ) l10= .TRUE. 
+     !$OMP TASK default(shared) &
+     !$OMP firstprivate(nLMB2) &
+     !$OMP private(lmB,lm,lm1,l1,m1,rhs1,n_cheb,nR) &
+     !$OMP private(nChunks,size_of_last_chunk,iChunk) &
+     !$OMP private(tOmega_ma1,tOmega_ma2) &
+     !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
+     nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
+     size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
-        IF ( l_z10mat .AND. lm1 == l1m0 ) THEN
-           !WRITE(*,"(A,3I3)") "l_z10mat and lm1=",lm1,l1,m1
-           !PERFON('upZ_z10')
-           !----- Special treatment of z10 component if ic or mantle
-           !      are allowed to rotate about z-axis (l_z10mat=.true.) and
-           !      we use no slip boundary condition (ktopv=1,kbotv=1):
-           !      Lorentz torque is the explicit part of this time integration
-           !      at the boundaries!
-           !      Note: no angular momentum correction necessary for this case !
-           IF ( .NOT. lZ10mat ) THEN
-#ifdef WITH_PRECOND_Z10
-              CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                   z10Mat,z10Pivot,z10Mat_fac)
-#else
-              CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                   z10Mat,z10Pivot)
-#endif
-              lZ10mat=.TRUE.
-           END IF
-           IF ( l_SRMA ) THEN
-              tOmega_ma1=time+tShift_ma1
-              tOmega_ma2=time+tShift_ma2
-              omega_ma=                                      &
-                   omega_ma1*DCOS(omegaOsz_ma1*tOmega_ma1) + &
-                   omega_ma2*DCOS(omegaOsz_ma2*tOmega_ma2)
-              rhs(1)=omega_ma
-           ELSE IF ( ktopv == 2 .AND. l_rot_ma ) THEN  ! time integration
-              d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
-              rhs(1)=O_dt*c_dt_z10_ma*z(lm1,1) + &
-                   w1*d_omega_ma_dt + &
-                   w2*d_omega_ma_dtLast
-           ELSE
-              rhs(1)=0.d0
-           END IF
-           IF ( l_SRIC ) THEN
-              tOmega_ic1=time+tShift_ic1
-              tOmega_ic2=time+tShift_ic2
-              omega_ic= omega_ic1*COS(omegaOsz_ic1*tOmega_ic1) + &
-                   &    omega_ic2*COS(omegaOsz_ic2*tOmega_ic2)
-              rhs(n_r_max)=omega_ic
-           ELSE if ( kbotv == 2 .AND. l_rot_ic ) then  ! time integration
-              d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
-              rhs(n_r_max)=O_dt*c_dt_z10_ic*z(lm1,n_r_max) + &
-                   w1*d_omega_ic_dt + &
-                   w2*d_omega_ic_dtLast
-              !WRITE(*,"(4(I4,F21.17))") EXPONENT(d_omega_ic_dt),FRACTION(d_omega_ic_dt),&
-              !     & EXPONENT(LFfac),FRACTION(LFfac),&
-              !     & EXPONENT(c_lorentz_ic),FRACTION(c_lorentz_ic),&
-              !     & EXPONENT(lorentz_torque_ic),FRACTION(lorentz_torque_ic)
-           ELSE
-              rhs(n_r_max)=0.d0
-           END IF
+     ! This task treats one l given by l1
+     l1=lm22l(1,nLMB2,nLMB)
+     !WRITE(*,"(3(A,I3),A)") "Launching task for nLMB2=",nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
 
-           !----- This is the normal RHS for the other radial grid points:
-           DO nR=2,n_r_max-1
-              rhs(nR)=O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*z(lm1,nR)+ &
-                   w1*dzdt(lm1,nR)+ &
-                   w2*dzdtLast(lm1,nR)
-           END DO
-
-#ifdef WITH_PRECOND_Z10
-           DO nR=1,n_r_max
-              rhs(nR) = z10Mat_fac(nR)*rhs(nR)
-           END DO
-#endif
-           IF (DEBUG_OUTPUT) THEN
-              rhs_sum=SUM(rhs)
-              WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) before = ",&
-                   & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-                   & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-              !DO nR=1,n_r_max
-              !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) before = ",&
-              !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
-              !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-              !END DO
-           END IF
-           CALL cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
-           IF (DEBUG_OUTPUT) THEN
-              !DO nR=1,n_r_max
-              !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
-              !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
-              !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
-              !END DO
-              rhs_sum=SUM(rhs)
-              WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) after = ",&
-                   & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-                   & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-           END IF
-           !PERFOFF
-
-        ELSE IF ( l1 /= 0 ) THEN
-           !PERFON('upZ_ln0')
-           IF ( .NOT. lZmat(l1) ) THEN
-              !PERFON('upZ_mat')
+     IF ( l1 .NE. 0 ) THEN
+        IF ( .NOT. lZmat(l1) ) THEN
 #ifdef WITH_PRECOND_Z
-              CALL get_zMat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                   zMat(1,1,l1),zPivot(1,l1),zMat_fac(1,l1))
+           CALL get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
+                &        zMat(1,1,l1),zPivot(1,l1),zMat_fac(1,l1))
 #else
-              CALL get_zMat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
-                   zMat(1,1,l1),zPivot(1,l1))
+           CALL get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
+                &        zMat(1,1,l1),zPivot(1,l1))
 #endif
-              lZmat(l1)=.TRUE.
+           lZmat(l1)=.TRUE.
+           !WRITE(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
+        END IF
+     END IF
+
+     DO iChunk=1,nChunks
+        !$OMP TASK default(shared) &
+        !$OMP firstprivate(iChunk) &
+        !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
+        !$OMP private(tOmega_ma1,tOmega_ma2) &
+        !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
+        lmB0=(iChunk-1)*chunksize
+        lmB=lmB0
+
+        DO lm=lmB0+1,MIN(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+           !DO lm=1,sizeLMB2(nLMB2,nLMB)
+           lm1=lm22lm(lm,nLMB2,nLMB)
+           !l1 =lm22l(lm,nLMB2,nLMB)
+           m1 =lm22m(lm,nLMB2,nLMB)
+           IF ( lm1 == l1m0 ) l10= .TRUE. 
+
+           IF ( l_z10mat .AND. lm1 == l1m0 ) THEN
+              !WRITE(*,"(A,3I3)") "l_z10mat and lm1=",lm1,l1,m1
+              !PERFON('upZ_z10')
+              !----- Special treatment of z10 component if ic or mantle
+              !      are allowed to rotate about z-axis (l_z10mat=.true.) and
+              !      we use no slip boundary condition (ktopv=1,kbotv=1):
+              !      Lorentz torque is the explicit part of this time integration
+              !      at the boundaries!
+              !      Note: no angular momentum correction necessary for this case !
+              IF ( .NOT. lZ10mat ) THEN
+#ifdef WITH_PRECOND_Z10
+                 CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
+                      z10Mat,z10Pivot,z10Mat_fac)
+#else
+                 CALL get_z10Mat(dt,l1,hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1))), &
+                      z10Mat,z10Pivot)
+#endif
+                 lZ10mat=.TRUE.
+              END IF
+
+              IF ( l_SRMA ) THEN
+                 tOmega_ma1=time+tShift_ma1
+                 tOmega_ma2=time+tShift_ma2
+                 omega_ma= omega_ma1*DCOS(omegaOsz_ma1*tOmega_ma1) + &
+                      &    omega_ma2*DCOS(omegaOsz_ma2*tOmega_ma2)
+                 rhs(1)=omega_ma
+              ELSE IF ( ktopv == 2 .AND. l_rot_ma ) THEN  ! time integration
+                 d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
+                 rhs(1)=O_dt*c_dt_z10_ma*z(lm1,1) + &
+                      w1*d_omega_ma_dt + &
+                      w2*d_omega_ma_dtLast
+              ELSE
+                 rhs(1)=0.d0
+              END IF
+
+              IF ( l_SRIC ) THEN
+                 tOmega_ic1=time+tShift_ic1
+                 tOmega_ic2=time+tShift_ic2
+                 omega_ic= omega_ic1*COS(omegaOsz_ic1*tOmega_ic1) + &
+                      &    omega_ic2*COS(omegaOsz_ic2*tOmega_ic2)
+                 rhs(n_r_max)=omega_ic
+              ELSE if ( kbotv == 2 .AND. l_rot_ic ) then  ! time integration
+                 d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
+                 rhs(n_r_max)=O_dt*c_dt_z10_ic*z(lm1,n_r_max) + &
+                      w1*d_omega_ic_dt + &
+                      w2*d_omega_ic_dtLast
+              ELSE
+                 rhs(n_r_max)=0.d0
+              END IF
+
+              !----- This is the normal RHS for the other radial grid points:
+              DO nR=2,n_r_max-1
+                 rhs(nR)=O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*z(lm1,nR)+ &
+                      w1*dzdt(lm1,nR)+ &
+                      w2*dzdtLast(lm1,nR)
+              END DO
+
+#ifdef WITH_PRECOND_Z10
+              DO nR=1,n_r_max
+                 rhs(nR) = z10Mat_fac(nR)*rhs(nR)
+              END DO
+#endif
+              IF (DEBUG_OUTPUT) THEN
+                 rhs_sum=SUM(rhs)
+                 WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) before = ",&
+                      & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
+                      & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
+                 !DO nR=1,n_r_max
+                 !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) before = ",&
+                 !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
+                 !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
+                 !END DO
+              END IF
+              CALL cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
+              IF (DEBUG_OUTPUT) THEN
+                 !DO nR=1,n_r_max
+                 !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
+                 !        & EXPONENT(REAL(rhs(nR))),FRACTION(REAL(rhs(nR))),&
+                 !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
+                 !END DO
+                 rhs_sum=SUM(rhs)
+                 WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) after = ",&
+                      & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
+                      & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
+              END IF
+
+
+           ELSE IF ( l1 /= 0 ) THEN
+              !PERFON('upZ_ln0')
+              lmB=lmB+1
+              rhs1(1,lmB)      =0.D0
+              rhs1(n_r_max,lmB)=0.D0
+              DO nR=2,n_r_max-1
+                 rhs1(nR,lmB)=&
+                      & O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*z(lm1,nR)&
+                      & + w1*dzdt(lm1,nR) &
+                      & + w2*dzdtLast(lm1,nR)
+#ifdef WITH_PRECOND_Z
+                 rhs1(nR,lmB) = zMat_fac(nR,l1)*rhs1(nR,lmB)
+#endif
+              END DO
               !PERFOFF
-              !WRITE(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
-           END If
-           lmB=lmB+1
-           rhs1(1,lmB)      =0.D0
-           rhs1(n_r_max,lmB)=0.D0
-           DO nR=2,n_r_max-1
-              rhs1(nR,lmB)=&
-                   & O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*z(lm1,nR)&
-                   & + w1*dzdt(lm1,nR) &
-                   & + w2*dzdtLast(lm1,nR)
-#ifdef WITH_PRECOND_Z
-              rhs1(nR,lmB) = zMat_fac(nR,l1)*rhs1(nR,lmB)
-#endif
-           END DO
-           !PERFOFF
-        END IF
-     END DO
-
-     !PERFON('upZ_sol')
-     IF ( lmB > 0 ) THEN
-        !IF (DEBUG_OUTPUT) THEN
-        !   DO lm=1,lmB
-        !      rhs_sum=SUM(rhs1(:,lmB))
-        !      WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) before = ",&
-        !           & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-        !           & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-        !   END DO
-        !END IF
-        CALL cgeslML(zMat(1,1,l1),n_r_max,n_r_max, &
-             &       zPivot(1,l1),rhs1,n_r_max,lmB)
-        !IF (DEBUG_OUTPUT) THEN
-        !   DO lm=1,lmB
-        !      rhs_sum=SUM(rhs1(:,lmB))
-        !      WRITE(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm,":rhs_sum (z) after = ",&
-        !           & EXPONENT(REAL(rhs_sum)),FRACTION(REAL(rhs_sum)),&
-        !           & EXPONENT(AIMAG(rhs_sum)),FRACTION(AIMAG(rhs_sum))
-        !   END DO
-        !END IF
-     END IF
-     !PERFOFF
-     IF ( lRmsNext ) THEN ! Store old z
-        DO nR=1,n_r_max
-           DO lm=1,sizeLMB2(nLMB2,nLMB)
-              lm1=lm22lm(lm,nLMB2,nLMB)
-              workB(lm1,nR)=z(lm1,nR)
-           END DO
-        END DO
-     END IF
-     !PERFON('upZ_pp')
-     lmB=0
-     DO lm=1,sizeLMB2(nLMB2,nLMB)
-        lm1=lm22lm(lm,nLMB2,nLMB)
-        l1 =lm22l(lm,nLMB2,nLMB)
-        m1 =lm22m(lm,nLMB2,nLMB)
-           
-        IF ( l_z10mat .AND. lm1 == l1m0 ) THEN
-           DO n_cheb=1,n_cheb_max
-              z(lm1,n_cheb)=REAL(rhs(n_cheb))
-           END DO
-        ELSE IF ( l1 /= 0 ) THEN
-           lmB=lmB+1
-           !IF (lm1.EQ.242) THEN
-           !   DO nR=1,n_r_max
-           !      WRITE(*,"(4X,A,2I4,2(I4,F20.16))") "after sol, rhs1 = ",lm1,nR,&
-           !           &EXPONENT(REAL(rhs1(nR,lmB))),FRACTION(REAL(rhs1(nR,lmB))),&
-           !           &EXPONENT(aimag(rhs1(nR,lmB))),FRACTION(aimag(rhs1(nR,lmB)))
-           !   END DO
-           !END IF
-           IF ( m1 > 0 ) THEN
-              DO n_cheb=1,n_cheb_max
-                 z(lm1,n_cheb)=rhs1(n_cheb,lmB)
-              END DO
-           ELSE
-              DO n_cheb=1,n_cheb_max
-                 z(lm1,n_cheb)= &
-                      CMPLX(REAL(rhs1(n_cheb,lmB)),0.D0,KIND=KIND(0d0))
-              END DO
            END IF
+        END DO
+
+        !PERFON('upZ_sol')
+        IF ( lmB > lmB0 ) THEN
+           CALL cgeslML(zMat(1,1,l1),n_r_max,n_r_max, &
+                &       zPivot(1,l1),rhs1(:,lmB0+1:lmB),n_r_max,lmB-lmB0)
         END IF
-     END DO
-     !PERFOFF
+        !PERFOFF
+        IF ( lRmsNext ) THEN ! Store old z
+           DO nR=1,n_r_max
+              DO lm=lmB0+1,MIN(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                 lm1=lm22lm(lm,nLMB2,nLMB)
+                 workB(lm1,nR)=z(lm1,nR)
+              END DO
+           END DO
+        END IF
+
+        lmB=lmB0
+        DO lm=lmB0+1,MIN(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+           !DO lm=1,sizeLMB2(nLMB2,nLMB)
+           lm1=lm22lm(lm,nLMB2,nLMB)
+           !l1 =lm22l(lm,nLMB2,nLMB)
+           m1 =lm22m(lm,nLMB2,nLMB)
+           
+           IF ( l_z10mat .AND. lm1 == l1m0 ) THEN
+              DO n_cheb=1,n_cheb_max
+                 z(lm1,n_cheb)=REAL(rhs(n_cheb))
+              END DO
+           ELSE IF ( l1 /= 0 ) THEN
+              lmB=lmB+1
+              IF ( m1 > 0 ) THEN
+                 DO n_cheb=1,n_cheb_max
+                    z(lm1,n_cheb)=rhs1(n_cheb,lmB)
+                 END DO
+              ELSE
+                 DO n_cheb=1,n_cheb_max
+                    z(lm1,n_cheb)= &
+                         CMPLX(REAL(rhs1(n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                 END DO
+              END IF
+           END IF
+        END DO
+        !PERFOFF
+        !$OMP END TASK
+     end DO
+     !$OMP END TASK
   END DO       ! end of loop over lm blocks
+  !$OMP END SINGLE
+  !$OMP END PARALLEL
 
 
   !-- set cheb modes > n_cheb_max to zero (dealiazing)
@@ -347,24 +363,51 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
      END DO
   END DO
 
-  !IF (llm.LE.242.AND.242.LE.ulm) THEN
-  !   DO nR=1,n_r_max
-        !IF ((nR.EQ.1).OR.(nR.EQ.5)) THEN
-        !DO lm=llm,ulm
-  !      WRITE(*,"(4X,A,I3,2ES22.14)") "bef_der: ",nR,z(242,nR)
-        !END DO
-        !   END IF
-        !   WRITE(*,"(A,I3,2ES22.14)") "bef_der: ",nR,get_global_SUM( z(:,nR) )
-  !   END DO
-  !END IF
-  !PERFON('upZ_der')
-  !-- Get derivatives:
-  CALL costf1(z, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
-       &      dzdtLast, i_costf_init, d_costf_init)
-  CALL get_ddr(z, dz, workA, ulm_real-llm_real+1, lmStart_real-llm_real+1, lmStop_real-llm_real+1, &
-       &       n_r_max, n_cheb_max, dzdtLast, workC, &
-       &       i_costf_init,d_costf_init,drx,ddrx)
+  !PERFON('upZ_drv')
+  all_lms=lmStop_real-lmStart_real+1
+#ifdef WITHOMP
+  IF (all_lms.LT.omp_get_max_threads()) THEN
+     CALL omp_set_num_threads(all_lms)
+     per_thread=1
+  ELSE
+     per_thread=all_lms/omp_get_max_threads()
+  END IF
+#else
+  per_thread=all_lms
+#endif
+  !$OMP PARALLEL default(none) &
+  !$OMP private(iThread,start_lm,stop_lm) &
+  !$OMP shared(per_thread,lmStart_real,lmStop_real,nThreads) &
+  !$OMP shared(z,dz,dzdtLast,i_costf_init,d_costf_init,drx,ddrx) &
+  !$OMP shared(n_r_max,n_cheb_max,workA,workC,llm_real,ulm_real)
+  !$OMP SINGLE
+#ifdef WITHOMP
+  nThreads=omp_get_num_threads()
+#else
+  nThreads=1
+#endif
+  !$OMP END SINGLE
+  !$OMP BARRIER
+  !$OMP DO
+  DO iThread=0,nThreads-1
+     start_lm = lmStart_real+iThread*per_thread
+     stop_lm  = start_lm+per_thread-1
+     IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+     !WRITE(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
+     !-- Get derivatives:
+     CALL costf1(z, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
+          &      dzdtLast, i_costf_init, d_costf_init)
+     CALL get_ddr(z, dz, workA, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
+          &       n_r_max, n_cheb_max, dzdtLast, workC, &
+          &       i_costf_init,d_costf_init,drx,ddrx)
+  END DO
+  !$OMP END DO
+  !$OMP END PARALLEL
+#ifdef WITHOMP
+  CALL omp_set_num_threads(omp_get_max_threads())
+#endif
   !PERFOFF
+  
   !PERFON('upZ_icma')
   !--- Update of inner core and mantle rotation:
   IF ( l10 ) THEN
@@ -426,6 +469,8 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 
      !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
      !         derivatives:
+     !$OMP PARALLEL DO default(shared) &
+     !$OMP PRIVATE(r_E_2,nR)
      DO nR=1,n_r_max
         r_E_2=r(nR)*r(nR)
         z(l1m0,nR)  =z(l1m0,nR)  - rho0(nR)*r_E_2*corr_l1m0
@@ -436,13 +481,13 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
              dbeta(nR)*r_E_2 + &
              beta(nR)*beta(nR)*r_E_2 )*corr_l1m0
      END DO
+     !$OMP END PARALLEL DO
      IF ( ktopv == 2 .AND. l_rot_ma ) &
           omega_ma=c_z10_omega_ma*REAL(z(l1m0,n_r_cmb))
      IF ( kbotv == 2 .AND. l_rot_ic ) &
           omega_ic=c_z10_omega_ic*REAL(z(l1m0,n_r_icb))
      omega_ic1=omega_ic
      omega_ma1=omega_ma
-     !write(*,"(A,I4,A,ES20.13)") "after 2nd ic update, nLMB = ",nLMB,", omega_ic = ",omega_ic
 
   END IF ! l=1,m=0 contained in lm-block ?
 
@@ -465,6 +510,8 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
 
      !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
      !         derivatives:
+     !$OMP PARALLEL DO default(shared) &
+     !$OMP private(nR,r_E_2)
      DO nR=1,n_r_max
         r_E_2=r(nR)*r(nR)
         z(l1m1,nR)  =z(l1m1,nR)  -  rho0(nR)*r_E_2*corr_l1m1
@@ -475,7 +522,7 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
              dbeta(nR)*r_E_2 + &
              beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
      END DO
-
+     !$OMP END PARALLEL DO
   END IF ! l=1,m=1 contained in lm-block ?
 
   !IF (DEBUG_OUTPUT) THEN
@@ -489,6 +536,9 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
   !   END DO
   !END IF
   !-- Calculate explicit time step part:
+  !$OMP PARALLEL default(shared) &
+  !$OMP private(nR,lm1,Dif)
+  !$OMP DO
   DO nR=n_r_cmb+1,n_r_icb-1
      !WRITE(*,"(A,I4,5ES20.12)") "r-dependent : ",nR,dLvisc(nR),beta(nR),or1(nR),or2(nR),dbeta(nR)
      DO lm1=lmStart_00,lmStop
@@ -516,16 +566,18 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
      END DO
      IF ( lRmsNext ) THEN
         CALL hInt2Tor(Dif,1,lm_max,nR,lmStart_00,lmStop, &
-             DifTor2hInt(nR,nTh),DifTorAs2hInt(nR,nTh),lo_map)
+             DifTor2hInt(nR,1),DifTorAs2hInt(nR,1),lo_map)
         CALL hInt2Tor(workB(llm,nR),llm,ulm,nR,lmStart_00,lmStop, &
-             dtVTor2hInt(nR,nTh),dtVTorAs2hInt(nR,nTh),lo_map)
+             dtVTor2hInt(nR,1),dtVTorAs2hInt(nR,1),lo_map)
      END IF
   END DO
+  !$OMP END DO
   !--- Note: from ddz=workA only the axisymmetric contributions are needed
   !    beyond this point for the TO calculation.
   !    Parallization note: Very likely, all axisymmetric modes m=0 are
   !    located on the first processor #0.
   IF ( l_TO ) THEN
+     !$OMP DO private(nR,lm1,l1,m1)
      DO nR=1,n_r_max
         DO lm1=lmStart_00,lmStop
            l1=lm2l(lm1)
@@ -533,7 +585,9 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
            IF ( m1 == 0 ) ddzASL(l1+1,nR)=REAL(workA(lm1,nR))
         END DO
      END DO
+     !$OMP END DO
   END IF
+  !$OMP END PARALLEL
 
   !----- Special thing for l=1,m=0 for rigid boundaries and
   !      if IC or mantle are allowed to rotate:
@@ -552,12 +606,6 @@ SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
      END IF
   END IF
   !PERFOFF
-
-
-  RETURN
 end SUBROUTINE updateZ
 
-
-!--------------------------------------------------------------------
-!-- End of subroutine update_z
-!--------------------------------------------------------------------
+END MODULE updateZ_mod

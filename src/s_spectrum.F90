@@ -18,7 +18,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
   !  apome: Axisym. poloidal     atome: Axisym. toroidal
 
   !--------------------------------------------------------------------
-
+  use parallel_mod
   USE truncation
   USE radial_data,ONLY: n_r_cmb
   USE radial_functions

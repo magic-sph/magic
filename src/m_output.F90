@@ -3,12 +3,15 @@
 #include "perflib_preproc.cpp"
 MODULE output_mod
   USE truncation
-  USE radial_functions
-  USE physical_parameters
-  USE num_param
-  USE blocking
-  USE horizontal_data
-  USE logic
+  USE radial_functions,ONLY: n_r_cmb,or1,or2,r,drx,i_costf_init,d_costf_init,r_cmb,r_icb
+  USE radial_data,ONLY: nRstart,nRstop
+  USE physical_parameters,ONLY: opm,ek,ktopv,prmag,nVarCond,LFfac
+  USE num_param,only: tScale
+  USE blocking,ONLY: st_map,lm2,lo_map
+  USE horizontal_data,ONLY: dLh,hdif_B,dPl0Eq
+  USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB,l_RMS,l_r_field,&
+       & l_PV,l_SRIC,l_cond_ic,l_rMagSpec,l_movie_ic,l_store_frame,l_cmb_field,l_dt_cmb_field,&
+       & l_save_out,l_non_rot
   USE fields,ONLY: omega_ic,omega_ma,b,db,ddb,aj,dj,ddj,&
        &b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,&
        &w,dw,ddw,z,dz,s,ds,p,&
@@ -22,16 +25,17 @@ MODULE output_mod
        &dbdtLast,djdtLast,dbdt_icLast,djdt_icLast,&
        &dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,&
        &dbdtLast_LMloc,djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc
-  USE kinetic_energy
-  USE magnetic_energy
-  USE fields_average_mod
-  USE output_data
-  USE spectrum_average_mod
-  USE spectrumC_average_mod
-  USE outTO_mod
+  USE kinetic_energy,only: get_e_kin
+  USE magnetic_energy,only: get_e_mag
+  USE fields_average_mod,only: fields_average
+  USE spectrum_average_mod,only: spectrum_average
+  USE spectrumC_average_mod,only: spectrumC_average
+  USE outTO_mod,only: outTO
   USE outPV3, only: outPV
-  USE output_data
-  USE const
+  USE output_data,ONLY: tag,tag_wo_rank,ngform,l_max_cmb,cmbMov_file,n_cmbMov_file,cmb_file,n_cmb_file,&
+       & dt_cmb_file,n_dt_cmb_file,n_coeff_r,l_max_r,v_r_file,n_v_r_file,b_r_file,n_b_r_file,&
+       & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,n_rst_file
+  USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
   use parallel_mod
   use outPar_mod, only: outPar
   USE power, ONLY: get_power
@@ -40,15 +44,84 @@ MODULE output_mod
        & gt_OC,gt_IC
   USE write_special,only: write_Bcmb
   USE getDlm_mod,only: getDlm
-#ifdef WITH_MPI
+  USE movie_data,only: movie_gather_frames_to_rank0
   use store_rst
-#endif
   IMPLICIT NONE
 
   PRIVATE
 
-  PUBLIC :: output
+  INTEGER :: nBpotSets, nVpotSets, nTpotSets
+  !-- Counter for output files/sets:
+  INTEGER :: n_dt_cmb_sets, n_cmb_setsMov
+  INTEGER,DIMENSION(n_coeff_r_max) :: n_v_r_sets, n_v_r_mov_sets, n_b_r_sets, n_b_r_mov_sets
+  INTEGER :: n_spec,nPVsets
+
+  INTEGER :: nTOsets,nTOmovSets,nTOrmsSets
+
+  !--- For averaging:
+  REAL(kind=8) :: timePassedLog, timeNormLog
+  INTEGER :: nLogs  
+
+  REAL(kind=8),SAVE :: dlBMean,dmBMean
+  REAL(kind=8),SAVE :: lvDissMean,lbDissMean
+  REAL(kind=8),SAVE :: RmMean,ElMean,ElCmbMean,RolMean,GeosMean
+  REAL(kind=8),SAVE :: DipMean,DipCMBMean
+  REAL(kind=8),SAVE :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
+
+  REAL(kind=8) :: eTot,eTotOld,dtEint
+  REAL(kind=8) :: e_kin_pMean, e_kin_tMean
+  REAL(kind=8) :: e_mag_pMean, e_mag_tMean
+  INTEGER :: n_e_sets, nRMS_sets
+
+
+  PUBLIC :: output,initialize_output
 contains
+
+  SUBROUTINE initialize_output
+    integer :: n
+
+    DO n=1,n_coeff_r_max
+       n_v_r_sets(n)    =0
+       n_v_r_mov_sets(n)=0
+       n_b_r_sets(n)    =0
+       n_b_r_mov_sets(n)=0
+    END DO
+    n_spec       =0
+    n_cmb_setsMov=0
+    n_dt_cmb_sets=0
+    nTOsets      =0
+    nTOmovSets   =0
+    nTOrmsSets   =0
+    nBpotSets    =0
+    nVpotSets    =0
+    nTpotSets    =0
+    n_e_sets     =0
+    nLogs        =0
+    nRMS_sets    =0
+    
+    timeNormLog  =0.D0
+    timePassedLog=0.D0
+    RmMean       =0.D0
+    ElMean       =0.D0
+    ElCmbMean    =0.D0
+    RolMean      =0.D0
+    GeosMean     =0.D0
+    DipMean      =0.D0
+    DipCMBMean   =0.D0
+    e_kin_pMean  =0.D0
+    e_kin_tMean  =0.D0
+    e_mag_pMean  =0.D0
+    e_mag_tMean  =0.D0
+    dlVMean      =0.D0
+    dlVcMean     =0.D0
+    dmVMean      =0.D0
+    dpVMean      =0.D0
+    dzVMean      =0.D0
+    dlBMean      =0.D0
+    dmBMean      =0.D0
+    lvDissmean   =0.D0
+    lbDissmean   =0.D0
+  END SUBROUTINE initialize_output
 
   !***********************************************************************
   SUBROUTINE output(time,dt,dtNew,n_time_step,l_stop_time,            &
@@ -125,11 +198,6 @@ contains
     REAL(kind=8),intent(IN) :: duhLMr(l_max+1,nRstart:nRstop)
 
     !--- Local stuff:
-    INTEGER :: nBpotSets
-    INTEGER :: nVpotSets
-    INTEGER :: nTpotSets
-    SAVE nVpotSets,nBpotSets,nTpotSets
-
     !--- Energies:
     REAL(kind=8) :: ekinR(n_r_max)     ! kinetic energy w radius
     REAL(kind=8) :: e_mag,e_mag_ic,e_mag_cmb       
@@ -141,67 +209,29 @@ contains
     REAL(kind=8) :: e_kin,e_kin_p,e_kin_t  
     REAL(kind=8) :: e_kin_p_as,e_kin_t_as 
     REAL(kind=8) :: eKinIC,eKinMA        
-    REAL(kind=8) :: eTot,eTotOld        
-    REAL(kind=8) :: dtE,dtEint         
-    REAL(kind=8) :: e_kin_pMean,e_kin_tMean
-    REAL(kind=8) :: e_mag_pMean,e_mag_tMean
-    SAVE   e_kin_pMean,e_kin_tMean
-    SAVE   e_mag_pMean,e_mag_tMean
-    INTEGER :: n_e_sets
-    SAVE n_e_sets
-    INTEGER :: nRMS_sets
-    SAVE nRMS_sets
-    SAVE eTot,eTotOld,dtEint
+    REAL(kind=8) :: dtE
 
     !--- Help arrays:
     COMPLEX(kind=8) :: dbdtCMB(lm_max)        ! SV at CMB !
 
-    !-- Counter for output files/sets:
-    INTEGER,SAVE :: n_dt_cmb_sets
-    INTEGER,SAVE :: n_cmb_setsMov
-    INTEGER :: n_v_r_sets(n_coeff_r_max) 
-    INTEGER :: n_v_r_mov_sets(n_coeff_r_max) 
-    INTEGER :: n_b_r_sets(n_coeff_r_max) 
-    INTEGER :: n_b_r_mov_sets(n_coeff_r_max) 
-    INTEGER :: n_spec
-    INTEGER :: nPVsets
-    SAVE n_v_r_sets,n_v_r_mov_sets
-    SAVE n_b_r_sets,n_b_r_mov_sets
-    SAVE n_spec,nPVsets
-
-    !-- Further counter
     INTEGER :: nR,lm,n
 
     !--- For TO:
-    INTEGER :: nTOsets,nTOmovSets,nTOrmsSets
     CHARACTER(len=64) :: TOfileNhs,TOfileShs,movFile
     CHARACTER(len=66) :: tayFile
     LOGICAL :: lTOrms    
-    SAVE nTOsets,nTOmovSets,nTOrmsSets
     INTEGER :: nF1,nF2
-
-    !--- For averaging:
-    REAL(kind=8) :: timePassedLog
-    REAL(kind=8) :: timeNormLog
-    INTEGER :: nLogs  
-    SAVE timePassedLog,timeNormLog,nLogs     
 
     !--- Property parameters:
     REAL(kind=8) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
     REAL(kind=8) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
-
     REAL(kind=8) :: RmR(n_r_max)
-    REAL(kind=8) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,Dip,DipCMB!,ul,um
+    REAL(kind=8) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,Dip,DipCMB
     REAL(kind=8) :: ReConv,RoConv,e_kin_nas,RolC
     REAL(kind=8) :: elsAnel
     REAL(kind=8) :: dlB,dlBc,dmB
-    REAL(kind=8),save :: dlBMean,dmBMean
     REAL(kind=8) :: dlV,dlVc,dmV,dpV,dzV
     REAL(kind=8) :: visDiss,ohmDiss,lvDiss,lbDiss
-    REAL(kind=8),save :: lvDissMean,lbDissMean
-    REAL(kind=8),save :: RmMean,ElMean,ElCmbMean,RolMean,GeosMean
-    REAL(kind=8),save :: DipMean,DipCMBMean
-    REAL(kind=8),save :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
     COMPLEX(kind=8),DIMENSION(lm_max,n_r_max) :: temp_lo
     INTEGER :: l,m,lm0
     REAL(kind=8) :: ReEquat
@@ -216,57 +246,12 @@ contains
     CHARACTER(len=20) :: string
     logical :: DEBUG_OUTPUT=.false.
 
-#ifdef WITH_MPI
     INTEGER,DIMENSION(:),ALLOCATABLE :: sendcounts,displs,recvcounts
     INTEGER :: irank
-#endif
     !--- end of declaration
     !-----------------------------------------------------------------
+
     timeScaled=tScale*time
-
-    IF ( n_time_step.EQ.1 ) THEN
-       DO n=1,n_coeff_r_max
-          n_v_r_sets(n)    =0
-          n_v_r_mov_sets(n)=0
-          n_b_r_sets(n)    =0
-          n_b_r_mov_sets(n)=0
-       END DO
-       n_spec       =0
-       n_cmb_setsMov=0
-       n_dt_cmb_sets=0
-       nTOsets      =0
-       nTOmovSets   =0
-       nTOrmsSets   =0
-       nBpotSets    =0
-       nVpotSets    =0
-       nTpotSets    =0
-       n_e_sets     =0
-       nLogs        =0
-       nRMS_sets    =0
-
-       timeNormLog  =0.D0
-       timePassedLog=0.D0
-       RmMean       =0.D0
-       ElMean       =0.D0
-       ElCmbMean    =0.D0
-       RolMean      =0.D0
-       GeosMean     =0.D0
-       DipMean      =0.D0
-       DipCMBMean   =0.D0
-       e_kin_pMean  =0.D0
-       e_kin_tMean  =0.D0
-       e_mag_pMean  =0.D0
-       e_mag_tMean  =0.D0
-       dlVMean      =0.D0
-       dlVcMean     =0.D0
-       dmVMean      =0.D0
-       dpVMean      =0.D0
-       dzVMean      =0.D0
-       dlBMean      =0.D0
-       dmBMean      =0.D0
-       lvDissmean   =0.D0
-       lbDissmean   =0.D0
-    END IF
     timePassedLog=timePassedLog+dt
 
     ! We start with the computation of the energies
@@ -276,14 +261,14 @@ contains
        timeNormLog=timeNormLog+timePassedLog
 
        !----- Write torques and rotation rates:
-       !PERFON('out_rot')
+       PERFON('out_rot')
        CALL write_rot( time,dt,eKinIC,eKinMA,w_LMloc,z_LMloc,dz_LMloc,b_LMloc,  &
             &          omega_ic,omega_ma,               &
             &          lorentz_torque_ic,lorentz_torque_ma)
-       !PERFOFF
+       PERFOFF
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  write_rot  on rank ",rank
 
-       !PERFON('out_ekin')
+       PERFON('out_ekin')
        n_e_sets=n_e_sets+1
        CALL get_e_kin(time,.TRUE.,l_stop_time,n_e_sets,     &
             &         w_LMloc,dw_LMloc,z_LMloc,                &
@@ -305,11 +290,11 @@ contains
             &         elsAnel)
        e_mag   =e_mag_p+e_mag_t
        e_mag_ic=e_mag_p_ic+e_mag_t_ic
-       !PERFOFF
+       PERFOFF
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  e_mag  on rank ",rank
 
        IF (l_average) THEN
-          !PERFON('out_aver')
+          PERFON('out_aver')
           CALL spectrum_average(nLogs,l_stop_time,                  &
                &                timePassedLog,timeNormLog,w_LMloc,z_LMloc,dw_LMloc,'V')
           CALL spectrumC_average(nLogs,l_stop_time,                 &
@@ -324,13 +309,13 @@ contains
                &              timePassedLog,timeNormLog,&
                &              omega_ic,omega_ma,        &
                &              w_LMloc,z_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
-          !PERFOFF
+          PERFOFF
           IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  averages  on rank ",rank
        END IF
 
        IF ( l_power ) THEN
 
-          !PERFON('out_pwr')
+          PERFON('out_pwr')
           IF (rank.EQ.0) THEN
              IF ( nLogs.GT.1 ) THEN
                 filename='dtE.'//tag
@@ -354,7 +339,7 @@ contains
                &          lorentz_torque_ic,lorentz_torque_ma, &
                &          w_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,&
                &          db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
-          !PERFOFF
+          PERFOFF
           IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  power  on rank ",rank
        END IF
 
@@ -362,10 +347,21 @@ contains
        IF ( l_anel) THEN
           CALL get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2,dlVRu2,dlVRu2c)
           IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  u_square  on rank ",rank
+       ELSE
+          dlVRu2  = 0.0D0
+          dlVRu2c = 0.0D0
        END IF
 
        !----- Radial properties
+       !WRITE(*,"(A,4ES20.12)") "before getDlm, w(n_r_icb,n_r_cmb): ",&
+       !     & w_LMloc(n_r_icb),w_LMloc(n_r_cmb)
+       !WRITE(*,"(A,4ES20.12)") "before getDlm, dw(n_r_icb,n_r_cmb): ",&
+       !     & dw_LMloc(n_r_icb),dw_LMloc(n_r_cmb)
+       !WRITE(*,"(A,4ES20.12)") "before getDlm, z(n_r_icb,n_r_cmb): ",&
+       !     & z_LMloc(n_r_icb),z_LMloc(n_r_cmb)
        CALL getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
+       !WRITE(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_icb) = ",dlVr(n_r_icb),dlVrc(n_r_icb)
+       !WRITE(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_cmb) = ",dlVr(n_r_cmb),dlVrc(n_r_cmb)
        CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
             &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
             &      uhLMr,duhLMr,gradsLMr,RmR)
@@ -439,7 +435,6 @@ contains
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
     END IF
 
-#ifdef WITH_MPI
     ! ===================================================
     !      GATHERING for output
     ! ===================================================
@@ -448,10 +443,26 @@ contains
     l_r= l_r_field .AND. l_cmb
     l_PVout=l_PV .AND. l_log
 
-    IF (l_log.OR.l_frame.OR.l_graph.OR.l_cmb.OR.l_r.OR.l_Bpot.OR.l_Vpot&
-         & .OR.l_Tpot.OR.l_store.OR.(l_SRIC.AND.l_stop_time).OR.l_PVout) THEN
-
-       !PERFON('out_comm')
+    !IF (l_log.OR.l_frame.OR.l_graph.OR.l_cmb.OR.l_r.OR.l_Bpot.OR.l_Vpot&
+    IF (l_frame.OR.l_graph.OR.l_r.OR.l_Bpot.OR.l_Vpot&
+         & .OR.l_Tpot.OR.l_store.OR.(l_SRIC.AND.l_stop_time).OR.l_PVout&
+         & .or.l_rMagSpec) THEN
+#if 1
+       WRITE(*,"(13(A,L1))") "l_log=",l_log,&
+            & ", l_frame=",l_frame,&
+            & ", l_graph=",l_graph,&
+            & ", l_cmb=",l_cmb,&
+            & ", l_r=",l_r,&
+            & ", l_Bpot=",l_Bpot,&
+            & ", l_Vpot=",l_Vpot,&
+            & ", l_Tpot=",l_Tpot,&
+            & ", l_store=",l_store,&
+            & ", l_SRIC=",l_SRIC,&
+            & ", l_stop_time=",l_stop_time,&
+            & ", l_PVout=",l_PVout,&
+            & ", l_rMagSpec=",l_rMagSpec
+#endif
+       PERFON('out_comm')
        CALL gather_all_from_lo_to_rank0(gt_OC,w_LMloc,w)
        call gather_all_from_lo_to_rank0(gt_OC,dw_LMloc,dw)
        call gather_all_from_lo_to_rank0(gt_OC,ddw_LMloc,ddw)
@@ -503,16 +514,20 @@ contains
           END IF
        END IF
 
-       !PERFOFF
+       PERFOFF
 
        IF (DEBUG_OUTPUT) THEN
           IF (rank.EQ.0) THEN
              WRITE(*,"(A,8ES22.14)") "output: w,z,p,s = ",SUM( w ),SUM( z ),SUM( p ),SUM( s )
           END IF
        END IF
+    ELSE if (l_cmb) then
+       ! just gather B_cmb on rank 0 for the B_cmb output
+       IF (l_mag) THEN
+          !WRITE(*,"(A)") "Gathering only b to rank 0."
+          CALL gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
+       END IF
     END IF
-
-#endif
 
     IF (l_frame) THEN
        ! The frames array for the movies is distributed over the ranks
@@ -530,7 +545,7 @@ contains
     ! ======= compute output on rank 0 ==============
     ! =======================================================================
     IF (rank.EQ.0) THEN
-       !PERFON('out_out')
+       PERFON('out_out')
 
        !----- Plot out inner core magnetic field, outer core
        !      field has been written in radialLoop !
@@ -551,7 +566,7 @@ contains
 
        !--- Movie output and various supplementary things:
        IF ( l_frame ) THEN
-          !PERFON('out_fram')
+          PERFON('out_fram')
           IF ( l_movie_ic .AND. l_store_frame ) THEN
              !WRITE(*,"(A)") "Calling store_movie_frame_IC from output."
              CALL store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
@@ -574,17 +589,16 @@ contains
                   &          l_max_cmb,minc,lm2,n_cmb_setsMov,     &
                   &          cmbMov_file,n_cmbMov_file)
           END IF
-          !PERFOFF
+          PERFOFF
        END IF ! write movie frame ?
-
 
        !--- Store poloidal magnetic coeffs at cmb
        IF ( l_cmb ) THEN
-          !PERFON('out_cmb')
+          PERFON('out_cmb')
           CALL write_Bcmb(timeScaled,b(1,n_r_cmb),1,lm_max,l_max,           &
                &          l_max_cmb,minc,lm2,n_cmb_sets,           &
                &          cmb_file,n_cmb_file)
-
+          
           !--- Store SV of poloidal magnetic coeffs at cmb
           IF ( l_dt_cmb_field .AND. ASSOCIATED(dbdt_at_CMB) ) THEN
              !nR=8! at CMB dbdt=induction=0, only diffusion !
@@ -597,26 +611,26 @@ contains
                   &          l_max_cmb,minc,lm2,n_dt_cmb_sets,             &
                   &          dt_cmb_file,n_dt_cmb_file)
           END IF
-          !PERFOFF
+          PERFOFF
        END IF
 
        !--- Store potential coeffs for velocity fields and magnetic fields
        IF ( l_r ) THEN
-          !PERFON('out_r')
+          PERFON('out_r')
           DO n=1,n_coeff_r_max
              nR=n_coeff_r(n)
              CALL write_coeff_r(timeScaled,                            &
-                  &             w(1,nR),dw(1,nR),ddw(1,nR),z(1,nR),r(nR),&
-                  &          lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
-                  &          v_r_file(n),n_v_r_file(n),l_save_out,.TRUE.)
+                  &             w(:,nR),dw(:,nR),ddw(:,nR),z(:,nR),r(nR),&
+                  &             lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
+                  &             v_r_file(n),n_v_r_file(n),l_save_out,.TRUE.)
              IF ( l_mag ) THEN
                 CALL write_coeff_r(timeScaled,                         &
-                     &               b(1,nR),db(1,nR),ddb(1,nR),aj(1,nR),r(nR),&
+                     &             b(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR),&
                      &             lm_max,l_max,l_max_r,minc,lm2,n_b_r_sets(n),&
-                     &            b_r_file(n),n_b_r_file(n),l_save_out,.FALSE.)
+                     &             b_r_file(n),n_b_r_file(n),l_save_out,.FALSE.)
              END IF
           END DO
-          !PERFOFF
+          PERFOFF
        END IF
 
        IF ( l_log ) THEN
@@ -827,20 +841,12 @@ contains
        !            this is written into rst_end.TAG
        !#undef WITH_MPI
        IF ( l_store ) THEN
-          !PERFON('out_rst')
+          PERFON('out_rst')
           IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
-#ifdef WITH_MPI
              rst_file="rst_end."//tag_wo_rank
-#else
-             rst_file="rst_end."//tag
-#endif
           ELSE IF ( l_new_rst_file ) THEN
              CALL dble2str(time,string)
-#ifdef WITH_MPI
              rst_file='rst_t='//TRIM(string)//'.'//tag_wo_rank
-#else
-             rst_file='rst_t='//TRIM(string)//'.'//tag
-#endif
           END IF
           !CALL MPI_File_open(MPI_COMM_WORLD,rst_file,IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),MPI_INFO_NULL,rst_mpi_fh,ierr)
           !CALL MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
@@ -867,7 +873,7 @@ contains
                & "            step no.=",n_time_step,&
                & "           into file=",rst_file
           CALL safeClose(nLF)
-          !PERFOFF
+          PERFOFF
        END IF
        
        IF ( l_SRIC .AND. l_stop_time ) CALL outOmega(z,omega_ic)
@@ -879,7 +885,7 @@ contains
        IF ( l_PVout ) CALL outPV(time,l_stop_time,nPVsets,             &
             &                     w,dw,ddw,z,dz,omega_ic,omega_ma)
        
-       !PERFOFF
+       PERFOFF
     END IF
 
     IF ( l_log ) THEN

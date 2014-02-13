@@ -51,7 +51,7 @@ CONTAINS
     !    column  1: time
     !    column  2: buoyancy
     !    column  3: power due to inner core rotation
-    !    column  4: power due to mantel rotation
+    !    column  4: power due to mantle rotation
     !    column  5: viscous dissipation
     !    column  6: Ohmic dissipation in inner and outer core
     !    column  7: mantle power

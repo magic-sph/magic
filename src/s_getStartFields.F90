@@ -1,5 +1,6 @@
 !$Id$
 !***********************************************************************
+#include "perflib_preproc.cpp"
 SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !***********************************************************************
 
@@ -12,7 +13,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !  |  other auxiliary parameters.                                      |
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
-
+  use mpi
   USE truncation
   USE radial_functions
   USE physical_parameters
@@ -28,7 +29,13 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
        &ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,db_LMloc,dj_LMloc,ddb_LMloc,&
        &ddj_LMloc,db_ic_LMloc,dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,dz_LMloc,&
        &s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,&
-       &b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc
+       &b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc,&
+       & w_LMloc_container,w_Rloc_container,&
+       & s_LMloc_container,s_Rloc_container,&
+       & z_LMloc_container,z_Rloc_container,&
+       & p_LMloc_container,p_Rloc_container,&
+       & b_LMloc_container,b_Rloc_container,&
+       & aj_LMloc_container,aj_Rloc_container
   USE fieldsLast
   USE output_data
   USE const
@@ -36,9 +43,9 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm_realMag,ulm_realMag,llm_real,ulm_real
   USE parallel_mod,ONLY: rank,n_procs
   USE communications, ONLY: lo2r_redist_start,& !lo2r_redist,&
-       & lo2r_s,lo2r_ds,lo2r_z, lo2r_dz, lo2r_w,lo2r_dw,lo2r_ddw,lo2r_p,lo2r_dp,&
-       & lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj,scatter_from_rank0_to_lo,&
-       &get_global_sum
+       & lo2r_s,lo2r_z, lo2r_p,&
+       & lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,&
+       &get_global_sum, lo2r_w
   IMPLICIT NONE
 
   !---- Output variables:
@@ -62,11 +69,11 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !COMPLEX(kind=8) :: temp_lo(lm_max,n_r_max)
   !COMPLEX(kind=8) :: temp_lo(lm_max)
 
-  INTEGER :: irank
+  INTEGER :: irank,ierr
   logical :: DEBUG_OUTPUT=.false.
   !-- end of declaration
   !---------------------------------------------------------------
-
+  !PERFON('getFlds')
   !print*,"Starting getStartFields"
   !WRITE(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
   !---- Computations for the Nusselt number if we are anelastic
@@ -89,6 +96,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   IF (rank.EQ.0) THEN
      IF ( l_start_file ) THEN
+        !PERFON('readFlds')
         CALL readStartFields( w,dwdtLast,z,dzdtLast, &
              &                p,dpdtLast,s,dsdtLast, &
              &                b,dbdtLast,aj,djdtLast, &
@@ -102,7 +110,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
            dt=dtMax
            WRITE(message,'(''! Using dtMax time step:'',D16.6)') dtMax
         END IF
-
+        !PERFOFF
      ELSE
         ! Initialize with zero
         IF ( l_conv ) THEN
@@ -214,13 +222,13 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !write(*,"(4X,A)") "Start Scatter the fields"
   IF (rank.EQ.0) WRITE(*,"(A,2ES20.12)") "init z = ",SUM(z)
   DO nR=1,n_r_max
-     CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm,nR))
+     CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:,nR))
+     CALL scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:,nR))
+     CALL scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:,nR))
+     CALL scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:,nR))
      IF (l_mag) THEN
-        CALL scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llm,nR))
-        CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llm,nR))
+        CALL scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:,nR))
+        CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
      END IF
      !IF (DEBUG_OUTPUT) THEN
      !   IF (rank.EQ.0) THEN
@@ -385,32 +393,44 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !print*,"Start redistribution in getStartfields"
   ! start the redistribution
   IF (l_heat) THEN
-     CALL lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
-     CALL lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
+     CALL lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
+     !CALL lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
   END IF
   IF (l_conv) THEN
-     CALL lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
-     CALL lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
-     CALL lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
-     CALL lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
-     CALL lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
-     CALL lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
-     CALL lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
+     CALL lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
+     !CALL lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
+
+     !DO nR=1,n_r_max
+     !   WRITE(*,"(A,I2,A,2ES20.12)") "before: dw_LMloc for nR=",nR," is ",SUM( dw_LMloc(llm:ulm,nR) )
+     !END DO
+
+     CALL lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
+     !CALL lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
+     !CALL lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
+     CALL lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
+     !CALL lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
   END IF
 
   IF (l_mag) THEN
-     CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
-     CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
-     CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
+     CALL lo2r_redist_start(lo2r_b,  b_LMloc_container,b_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
+     !CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
+     !CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
      
-     CALL lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
-     CALL lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
+     CALL lo2r_redist_start(lo2r_aj, aj_LMloc_container,aj_Rloc_container)
+     !CALL lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
+     !CALL lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
   END IF
 
   !WRITE(*,"(A,10ES22.15)") "end of getStartFields: w,z,s,b,aj ",GET_GLOBAL_SUM(w_LMloc), &
   !     & GET_GLOBAL_SUM(z_LMloc), GET_GLOBAL_SUM(s_LMloc),GET_GLOBAL_SUM(b_LMloc),GET_GLOBAL_SUM(aj_LMloc)
 
   !print*,"End of getStartFields"
+  !PERFOFF
   RETURN
 end SUBROUTINE getStartFields
 

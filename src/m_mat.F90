@@ -26,9 +26,7 @@ MODULE matrices
   INTEGER, ALLOCATABLE :: jPivot(:,:)
 
   ! -- respective linesums of the matrices
-#ifdef WITH_PRECOND_WP
   REAL(kind=8),ALLOCATABLE :: wpMat_fac(:,:,:)
-#endif
 #ifdef WITH_PRECOND_Z
   REAL(kind=8),ALLOCATABLE :: zMat_fac(:,:)
 #endif
@@ -74,9 +72,7 @@ CONTAINS
     ALLOCATE( bPivot(n_r_totMag,l_maxMag) )
     ALLOCATE( jPivot(n_r_totMag,l_maxMag) )
 
-#ifdef WITH_PRECOND_WP
     ALLOCATE(wpMat_fac(2*n_r_max,2,l_max))
-#endif
 #ifdef WITH_PRECOND_Z10
     ALLOCATE(z10Mat_fac(n_r_max))
 #endif

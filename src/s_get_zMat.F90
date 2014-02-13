@@ -89,14 +89,17 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
   !----- Other points:
   DO nCheb=1,n_r_max
      DO nR=2,n_r_max-1
-        zMat(nR,nCheb)=                   cheb_norm * ( &
-             O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
-             alpha*hdif*dLh*visc(nR)*or2(nR) * ( &
-             d2cheb(nCheb,nR) + &
-             (dLvisc(nR)- beta(nR))*      dcheb(nCheb,nR) - &
-             (dLvisc(nR)*beta(nR)+2.d0*dLvisc(nR)*or1(nR)  + &
-             dLh*or2(nR)+dbeta(nR)+2.D0*beta(nR)*or1(nR))* &
-             cheb(nCheb,nR) ) )
+        zMat(nR,nCheb)= cheb_norm * ( &
+             &   O_dt*dLh*or2(nR)*cheb(nCheb,nR) &
+             &   -alpha*hdif*dLh*visc(nR)*or2(nR) * ( &
+             &      d2cheb(nCheb,nR) &
+             &      + (dLvisc(nR)- beta(nR)) * dcheb(nCheb,nR) &
+             &      - ( dLvisc(nR)*beta(nR)&
+             &          +2.d0*dLvisc(nR)*or1(nR) &
+             &          +dLh*or2(nR)&
+             &          +dbeta(nR)&
+             &          +2.D0*beta(nR)*or1(nR) &
+             &        ) * cheb(nCheb,nR) ) )
      END DO
   END DO
 
@@ -147,7 +150,7 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
   !----- LU decomposition:
   CALL sgefa(zMat,n_r_max,n_r_max,zPivot,info)
   IF ( info /= 0 ) THEN
-     WRITE(*,*) 'Singular matrix zmat!'
+     WRITE(*,*) 'Singular matrix zmat for l=',l,", info = ",info
      STOP '34'
   END IF
 

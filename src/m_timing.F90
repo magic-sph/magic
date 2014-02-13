@@ -250,10 +250,20 @@ contains
     hoursDay=24
     days=time(1)/hoursDay
     timeH=time(1)-days*hoursDay
-    WRITE(nOut,                                &
-         &       '(/,1x,A," ",i4,"d : ",i2,"h : ",i2, &
-         &       "m : ",i2,"s : ",i3,"ms")')        &
-         &       text,days,timeH,time(2),time(3),time(4)
+    IF (nOut.EQ.6) THEN
+       WRITE(*,'(/,1X,2A,I4,A,I2,A,I2,A,I2,A,I3,A)')    &
+            &     text," ",days,"d : ",timeH,"h : ",time(2), &
+            &       "m : ",time(3),"s : ",time(4),"ms"
+       !WRITE(*,"(I4,A,I2,A)") days,"d : ",timeH,"h : "
+       !WRITE(*,"(2(I2,A,I3,A))") time(2),"m : ",time(3),"s : ",time(4),"ms"
+       !WRITE(*,'(2A,I4,A,3(I2,A),I3,A)')    &
+       !     &     text," ",days,"d : ",timeH,"h : ",time(2), &
+       !     &       "m : ",time(3),"s : ",time(4),"ms"
+    ELSE
+       WRITE(nOut,'(/,1x,A,A,i4,A,i2,A,i2,A,i2,A,i3,A)')    &
+            &     text," ",days,"d : ",timeH,"h : ",time(2), &
+            &       "m : ",time(3),"s : ",time(4),"ms"
+    END IF
 
   end SUBROUTINE writeTime
   !------------------------------------------------------------------

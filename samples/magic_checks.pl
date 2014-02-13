@@ -59,7 +59,7 @@ my $itest = 1;
 my $ntests      = 0;                 # total number of tests run
 my $failed      = 0;
 my $indi_fmt = '%-17s'; 
-my $MAGIC_HOME = "$ENV{MAGIC_HOME}";
+
 
 my $usage=
 "Usage:  magic_checks.pl [options]
@@ -79,6 +79,7 @@ Options:
        --max-level=LEV     \tRun all tests below with level <= LEV (default: 0)
        --no-recompile      \tCompile only once
   -m,  --mpi               \tRun with MPI, without OpenMP threading
+       --hybrid            \tRun the hybrid version
 
 Example:
   magic_checks.pl --clean
@@ -99,6 +100,7 @@ GetOptions(\%opts,
                     --max-level=s
 		    --no-recompile
                -m   --mpi
+                    --hybrid
                     )
           ) or $help=1, die "Aborting.\n";
 
@@ -109,6 +111,23 @@ my $recomp=($opts{'no-recompile'} || 0 );
 my $level=($opts{'level'});
 my $max_level=($opts{'max-level'});
 my $mpi=($opts{'m'} || $opts{'mpi'} || 0 );
+my $hybrid=($opts{'hybrid'} || 0 );
+my $MAGIC_HOME = "";
+my $OMP_NUM_THREADS = 1;
+
+if (!exists($ENV{MAGIC_HOME})) {
+    die "MAGIC_HOME is not set!\n\tRun one of the sourceme scripts in the MAGIC base directory.!";
+} else {
+    $MAGIC_HOME="$ENV{MAGIC_HOME}";
+}
+
+if ((!exists($ENV{OMP_NUM_THREADS})) && $hybrid) {
+    die "You must set OMP_NUM_THREADS for the hybrid version first.";
+} else {
+    $OMP_NUM_THREADS = "$ENV{OMP_NUM_THREADS}";
+}
+
+if ( $hybrid ) {$mpi=1;}
 
 # Make sure we are in the top directory and have the right PATH
 die "Need to set environment variable MAGIC_HOME\n"
@@ -154,7 +173,8 @@ if ($recomp) {
     print "\n";
     chdir $topdir;
     for my $d (@testdirs) {
-        test_rundir_no_recomp("$d");
+        #test_rundir_no_recomp("$d");
+	test_rundir("$d");
     }
     chdir "$topdir/src";
     print "Clean.. ";
@@ -200,6 +220,7 @@ sub get_sampdirs {
 sub test_rundir {
     my $dir = shift;
     my $t0  = get_time();
+    my $t1;
 
     $test_status = 0;           #  so far, everything is OK
 
@@ -214,34 +235,52 @@ sub test_rundir {
     print " ($itest/$ntests)" if ($ntests>1);
     print "\n";
     $itest++;
-    # Make sure we have everything we need
-    if (! defined(-e 'src/truncation.F90')) { # has `magic_setup' been run yet?
-        my $res = `magic_setup`;
-        if ($?) {
-            print "    Problems running magic_setup:\n", $res;
-        }
+    if ( ! $recomp ) {
+	# Make sure we have everything we need
+	if (! defined(-e 'src/truncation.F90')) { # has `magic_setup' been run yet?
+	    my $res = `magic_setup`;
+	    if ($?) {
+		print "    Problems running magic_setup:\n", $res;
+	    }
+	}
     }
 
     #0. Make sure nothing is here yet
     `magic_clean`;
-    #1. Compilation
-    `magic_setup`;
+    if ( ! $recomp ) {
+	#1. Compilation
+	`magic_setup`;
+#    `magic_build &> /dev/null`;
+	`magic_build`;
+	$t1 = get_time();
+	$t_global{'compile'} += ($t1-$t0);
+    } else {
+	#1. Link
+	`ln -s $topdir/src/magic.exe .`;
+    }
     if ( $mpi ) {
 	`cp $MAGIC_HOME/bin/run_magic_mpi.sh .`;
     } else {
 	`cp $MAGIC_HOME/bin/run_magic.sh .`;
     }
-#    `magic_build &> /dev/null`;
-    `magic_build`;
-    my $t1 = get_time();
-    $t_global{'compile'} += ($t1-$t0);
 
     #2. Run
     my $t2 = get_time();
     if ( $mpi ) {
 	if ( -e 'runMe_mpi.sh' ) {
-	    `./runMe_mpi.sh &> /dev/null`;
-	} else { `./run_magic_mpi.sh &> /dev/null`; }
+	    if ( $hybrid ) {
+		`./runMe_mpi.sh hybrid $OMP_NUM_THREADS &> /dev/null`;
+	    } else {
+		`./runMe_mpi.sh &> /dev/null`;
+	    }
+	} else { 
+	    if ( $hybrid ) {
+		#`./run_magic_mpi.sh hybrid &> /dev/null`; 
+		`./run_magic_mpi.sh hybrid $OMP_NUM_THREADS`; 
+	    } else {
+		`./run_magic_mpi.sh &> /dev/null`; 
+	    }
+	}
     } else {
 	if ( -e 'runMe.sh' ) {
 	    `./runMe.sh &> /dev/null`;
@@ -252,20 +291,29 @@ sub test_rundir {
     test_results($dir);
 
     my $t3 = get_time();
-    $t_global{'start+run'} += ($t3-$t1);
+    if ( ! $recomp ) {
+	$t_global{'start+run'} += ($t3-$t1);
+    } else {
+	$t_global{'run'} += ($t3-$t2);
+    }
 
     # Summarize timings in human-readable form
     my $t4 = get_time();
-    print "    Time used: ",
-      s_to_hms(time_diff($t0,$t3), 44),
-      " = ", s_to_hms(time_diff($t0,$t1)),
-      " + ", s_to_hms(time_diff($t1,$t3)),
-      "\n";
+    if (! $recomp) {
+	print "    Time used: ",
+	s_to_hms(time_diff($t0,$t3), 44),
+	" = ", s_to_hms(time_diff($t0,$t1)),
+	" + ", s_to_hms(time_diff($t1,$t3)),
+	"\n";
+    } else {
+	print "    Time used: ",
+	s_to_hms(time_diff($t0,$t3), 44),
+	"\n";
+    }
 
     if ($clean && $exitcode==0) {
         `magic_clean`;
     };
-
 }
 # ---------------------------------------------------------------------- #
 sub test_rundir_no_recomp {

@@ -86,6 +86,11 @@
     IF (rank.EQ.0) THEN
        ALLOCATE(workA_global(1:lm_max,1:n_cheb_max))
        ALLOCATE(workB_global(1:lm_max,1:n_cheb_max))
+#ifdef WITH_DEBUG
+    ELSE
+       ALLOCATE(workA_global(1,1:n_cheb_max))
+       ALLOCATE(workB_global(1,1:n_cheb_max))
+#endif
     END IF
 
     DO n_cheb=1,n_cheb_max

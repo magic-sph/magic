@@ -77,11 +77,11 @@
     CHARACTER(len=20) :: version
 
     ! MPI related variables
-    INTEGER :: info
+    !INTEGER :: info
     INTEGER :: status(MPI_STATUS_SIZE)
-    CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
+    !CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
     !INTEGER :: count
-    INTEGER :: length_of_error,bytes_written
+    INTEGER :: bytes_written!,length_of_error
     INTEGER :: size_of_header, size_of_data_per_rank, size_of_data_per_r
     integer :: size_of_data_per_thetaB
     integer(KIND=MPI_OFFSET_KIND) :: disp
@@ -94,6 +94,7 @@
     !PRINT*,"lGraphHeader = ",lGraphHeader
     !WRITE(*,"(A,I5,A,I5)") "Theta block start at ",n_theta_start,", size is ",n_theta_block_size
 
+    !$OMP CRITICAL
     IF ( lGraphHeader ) THEN
        !PRINT*,"Setting the View"
        !WRITE(*,"(A,4I5)") "n_phi_max,n_theta_block_size,nThetaBs,nr_per_rank: ",n_phi_max,n_theta_block_size,nThetaBs,nr_per_rank
@@ -396,8 +397,212 @@
 
        !PERFOFF
     END IF
-
+    !$OMP END CRITICAL
   END SUBROUTINE graphOut_mpi
+
+  SUBROUTINE graphOut_mpi_header(time,n_r,which_form, &
+       &              n_theta_start,n_theta_block_size)
+    !*************************************************************************
+
+    !    !------------ This is release 2 level 1  --------------!
+    !    !------------ Created on 1/17/02  by JW. --------------!
+
+    !-------------------------------------------------------------------------
+    !
+    !  called in radialLoop
+    !
+    !  output of components of velocity, magnetic field vector and
+    !  entropy for graphics. Version May, 23, 2000.
+    !
+    !  n_r: (input) for n_r = 0 a header is written
+    !               for n_r > 0 values at radial level n_r are written
+    !
+    !  which_form : (input) = 0: unformatted
+    !                       = 1: formatted writing
+    !                       =-1: comment lines are included into file for
+    !                            easier reading (cannot be used for graphics
+    !                            processing in this form)
+    !
+    !  vr...sr: (input) arrays with grid-point values
+    !
+    !  n_theta_start : (input) values are written for theta-points :
+    !                  n_theta_start <= n_theta <= n_theta_start-1+n_theta_block
+    !
+    !-------------------------------------------------------------------------
+
+    USE truncation
+    USE radial_functions
+    USE physical_parameters
+    USE num_param
+    USE blocking
+    USE horizontal_data
+    USE logic
+    USE parallel_mod
+    USE output_data, ONLY: graph_mpi_fh, runid
+
+    IMPLICIT NONE
+
+    REAL(kind=8),INTENT(IN) :: time
+
+    INTEGER,INTENT(IN) :: n_r                          ! radial grod point no.
+    INTEGER,INTENT(IN) :: which_form                   ! determins format
+    INTEGER,INTENT(IN) :: n_theta_start                ! start theta no.
+    INTEGER,INTENT(IN) :: n_theta_block_size           ! size of theta block
+
+    !-- Local:
+    !INTEGER :: n_phi         ! counter for longitude
+    INTEGER :: n_theta       ! counter for colatitude
+    !INTEGER :: n_theta_cal   ! position of block colat in all colats
+    !INTEGER :: n_theta_stop  ! end theta no.
+
+    !INTEGER :: PRECISION
+
+    !REAL(kind=8) :: fac,fac_r
+    !REAL(kind=4) :: dummy(n_phi_max,nfs)
+
+    CHARACTER(len=20) :: version
+
+    ! MPI related variables
+    !INTEGER :: info
+    INTEGER :: status(MPI_STATUS_SIZE)
+    !CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
+    !INTEGER :: count
+    INTEGER :: bytes_written
+    INTEGER :: size_of_header, size_of_data_per_rank, size_of_data_per_r
+    integer :: size_of_data_per_thetaB
+    integer(KIND=MPI_OFFSET_KIND) :: disp
+    INTEGER :: etype,filetype
+    character(len=MPI_MAX_DATAREP_STRING) :: datarep
+    ! end of MPI related variables
+
+    !-- End of Declaration
+    !----------------------------------------------------------------------
+    !WRITE(*,"(A,I5,A,I5)") "Theta block start at ",n_theta_start,", size is ",n_theta_block_size
+
+    !PRINT*,"Setting the View"
+    !WRITE(*,"(A,4I5)") "n_phi_max,n_theta_block_size,nThetaBs,nr_per_rank: ",n_phi_max,n_theta_block_size,nThetaBs,nr_per_rank
+    size_of_header = 8+LEN(version)+8+LEN(runid)+8+13*SIZEOF_INTEGER+8+n_theta_max*SIZEOF_REAL
+
+#ifdef ONE_LARGE_BLOCK
+    size_of_data_per_thetaB = 8+4*SIZEOF_REAL+4*(8+n_phi_max*SIZEOF_REAL*n_theta_block_size)
+    IF (l_mag) size_of_data_per_thetaB = size_of_data_per_thetaB + 3*(8+n_phi_max*SIZEOF_REAL*n_theta_block_size)
+#else
+    size_of_data_per_thetaB = 8+4*SIZEOF_REAL+4*(8+n_phi_max*SIZEOF_REAL)*n_theta_block_size
+    IF (l_mag) size_of_data_per_thetaB = size_of_data_per_thetaB + 3*(8+n_phi_max*SIZEOF_REAL)*n_theta_block_size
+#endif
+    size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
+    size_of_data_per_rank = size_of_data_per_r * nr_per_rank
+
+    !PRINT*,"size_of_header = ",size_of_header,", size_of_data/rank = ",size_of_data_per_rank
+    IF (rank.EQ.0) THEN
+       ! rank zero writes the Header
+       disp = 0
+       CALL MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+    ELSE
+       disp = size_of_header+rank*size_of_data_per_rank
+       CALL MPI_FILE_SET_VIEW(graph_mpi_fh,disp,&
+            & MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
+    END IF
+    !CALL MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
+    !PRINT*,"MPI_FILE_SET_VIEW returned: ",TRIM(error_string)
+
+    CALL mpi_file_get_view(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
+    !PRINT*,"view = ",disp,etype,filetype,datarep
+
+    bytes_written = 0
+    !-- Write header & colatitudes for n_r=0:
+    IF (rank.EQ.0) THEN
+       IF ( which_form /= 0 ) THEN
+       ELSE
+
+          !----- Unformatted output:
+          version='Graphout_Version_9'
+
+          !-------- Write parameters:
+          CALL MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+          CALL MPI_FILE_WRITE(graph_mpi_fh,version,LEN(version),MPI_CHARACTER,status,ierr)
+          !CALL mpi_get_count(status,MPI_CHARACTER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+          CALL MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+
+
+          CALL MPI_FILE_WRITE(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+          CALL MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid),MPI_CHARACTER,status,ierr)
+          !CALL mpi_get_count(status,MPI_CHARACTER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+          CALL MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+
+          CALL MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(time),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(n_r_max),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(n_theta_max),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(n_phi_tot),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(n_r_ic_max-1),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(minc),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(nThetaBs),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(ra),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(ek),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(pr),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(prmag),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(radratio),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(sigma_ratio),1,MPI_REAL,status,ierr)
+          !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_REAL
+          CALL MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+
+          !-------- Write colatitudes:
+          CALL MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+          DO n_theta=1,n_theta_max
+             CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(theta_ord(n_theta)),1,MPI_REAL,status,ierr)
+             !CALL mpi_get_count(status,MPI_REAL,count,ierr)
+             !bytes_written = bytes_written + count*SIZEOF_REAL
+          END DO
+          CALL MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+          !CALL mpi_get_count(status,MPI_INTEGER,count,ierr)
+          !bytes_written = bytes_written + count*SIZEOF_INTEGER
+
+       END IF
+    END IF
+
+  END SUBROUTINE graphOut_mpi_header
 
   SUBROUTINE graph_write_mpi(n_phis,n_thetas,dummy,PRECISION,which_form,graph_mpi_fh)
     !******************************************************************************
@@ -421,7 +626,7 @@
     INTEGER :: n_thetas            ! number of first colatitude value
     INTEGER :: n_phis              ! number of logitudes to be printed
     REAL(kind=4) :: dummy(n_phi_max,*)   ! data
-    INTEGER :: precision           ! determins precision if output
+    INTEGER :: PRECISION           ! determins precision if output
     INTEGER :: which_form              ! formatted/unformatted output
     INTEGER :: graph_mpi_fh        ! mpi handle of the mpi file
 
@@ -429,7 +634,7 @@
     INTEGER :: n_phi,n_theta
 
     ! MPI related variables
-    INTEGER :: status(MPI_STATUS_SIZE),count
+    INTEGER :: status(MPI_STATUS_SIZE)!,count
     !-- End of declaration
     !------------------------------------------------------------------------------
 #ifdef ONE_LARGE_BLOCK
