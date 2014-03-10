@@ -63,12 +63,15 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
 
   REAL(kind=8) :: e_mag_cmb_l(l_max)
   REAL(kind=8) :: e_mag_cmb_m(l_max+1)
+  REAL(kind=8) :: e_kin_nearSurf_l(l_max)
+  REAL(kind=8) :: e_kin_nearSurf_m(l_max+1)
+
   REAL(kind=8) :: eCMB(l_max),eCMB_global(l_max)
 
   !-- local:
   CHARACTER(len=14) :: string
   CHARACTER(len=72) :: mag_spec_file,kin_spec_file,u2_spec_file
-  INTEGER :: n_r,lm,ml,l,mc,m
+  INTEGER :: n_r,lm,ml,l,mc,m,n_const
 
   REAL(kind=8) :: r_ratio,O_r_icb_E_2
   REAL(kind=8) :: e_mag_p_temp,e_mag_t_temp
@@ -76,6 +79,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
   REAL(kind=8) :: u2_p_temp,u2_t_temp
   REAL(kind=8) :: O_surface,pi
   REAL(kind=8) :: fac_mag,fac_kin
+  REAL(kind=8) :: nearSurfR
 
   REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_mag_p_r_l,e_mag_p_r_l_global
   REAL(kind=8),DIMENSION(n_r_max,l_max) :: e_mag_t_r_l,e_mag_t_r_l_global
@@ -225,6 +229,22 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
        &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
   ! now switch to rank 0 for the postprocess
+  
+
+  ! Getting appropriate radius index for e_kin_nearSurf spectra
+  nearSurfR = r_icb+0.99
+  do n_r=2,n_r_max
+     if ( r(n_r-1) > nearSurfR .AND. &
+          r(n_r)  <= nearSurfR ) then
+        if ( r(n_r-1)-nearSurfR < &
+             nearSurfR-r(n_r) ) then
+           n_const=n_r-1
+        else
+           n_const=n_r
+        end if
+     end if
+  end do
+
   IF (rank.EQ.0) THEN
      !-- Save CMB energy spectra:
      O_surface=1.d0/(4.d0*pi*r(1)*r(1))
@@ -240,6 +260,15 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
            e_mag_cmb_m(mc)=e_mag_p_r_m_global(1,mc)
         END DO
      END IF
+
+     !-- Save nearSurf kin energy spectra:
+     DO l=1,l_max
+        e_kin_nearSurf_l(l)=e_kin_p_r_l_global(n_const,l)
+     END DO
+     DO mc=1,l_max+1
+        e_kin_nearSurf_m(mc)=e_kin_p_r_m_global(n_const,mc)
+     END DO
+
 
      !-- Radial Integrals:
      fac_mag=0.5*LFfac*eScale
@@ -269,6 +298,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
         e_kin_t_l(l)  =                                          &
              fac_kin*rInt_R(e_kin_t_r_l_global(1,l),n_r_max,n_r_max,drx, &
              i_costf_init,d_costf_init)
+        e_kin_nearSurf_l(l)=fac_kin*e_kin_nearSurf_l(l)
      END DO
      DO m=1,l_max+1 ! Note: counter m is actual order+1
         IF ( l_mag )  THEN
@@ -294,6 +324,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
         e_kin_t_m(m)  =                                          &
              fac_kin*rInt_R(e_kin_t_r_m_global(1,m),n_r_max,n_r_max,drx, &
              i_costf_init,d_costf_init)
+        e_kin_nearSurf_m(m)=fac_kin*e_kin_nearSurf_m(m)
      END DO
   END IF
 
@@ -444,12 +475,14 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
              &      ''Kinetic energy spectra at time:'', &
              &      d20.12)') time*tScale
      END IF
-     WRITE(n_kin_spec_file,'(1p,i4,4d12.4)')        &
-          0,0.d0,e_kin_p_m(1),0.d0,e_kin_t_m(1)
+     WRITE(n_kin_spec_file,'(1p,i4,6d12.4)')        &
+          0,0.d0,e_kin_p_m(1),0.d0,e_kin_t_m(1), &
+          0.d0, e_kin_nearSurf_m(1)
      DO ml=1,l_max
-        WRITE(n_kin_spec_file,'(1p,i4,4d12.4)')    &
+        WRITE(n_kin_spec_file,'(1p,i4,6d12.4)')    &
              ml,e_kin_p_l(ml),e_kin_p_m(ml+1), &
-             e_kin_t_l(ml),e_kin_t_m(ml+1)
+             e_kin_t_l(ml),e_kin_t_m(ml+1), &
+             e_kin_nearSurf_l(ml), e_kin_nearSurf_m(ml+1)
      END DO
      CLOSE(n_kin_spec_file)
   END IF
