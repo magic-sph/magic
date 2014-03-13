@@ -343,14 +343,6 @@ CONTAINS
                &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
        END IF
 
-       !IF ( l_viscBcCalc ) THEN
-       !   PERFON('duHoriz')
-       !   CALL get_duHorizontal(this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,&
-       !        &this%gsa(threadid)%dvtdrc,this%gsa(threadid)%dvpdrc,    &
-       !        &                uhLMr,duhLMr,this%nR,nThetaStart)
-       !   PERFOFF
-       !END IF
-
        !--------- Movie output:
        IF ( this%l_frame .AND. l_movie_oc .AND. l_store_frame ) THEN
           PERFON('mov_out')

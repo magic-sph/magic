@@ -3,6 +3,7 @@
 SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
      &                 vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
      &                 dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc, &
+     &                                      dsdtc,dsdpc,    &
      &                 dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR)
   !********************************************************************************
 
@@ -68,21 +69,26 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
 
   !-- output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
-  COMPLEX(kind=8) :: vrc(ncp,nfs),vrES,vrEA
+  COMPLEX(kind=8) :: vrc(ncp,nfs)
   COMPLEX(kind=8) :: vtc(ncp,nfs)
   COMPLEX(kind=8) :: vpc(ncp,nfs)
-  COMPLEX(kind=8) :: dvrdrc(ncp,nfs),dvrdrES,dvrdrEA
+  COMPLEX(kind=8) :: dvrdrc(ncp,nfs)
   COMPLEX(kind=8) :: dvtdrc(ncp,nfs)
   COMPLEX(kind=8) :: dvpdrc(ncp,nfs)
-  COMPLEX(kind=8) :: dvrdtc(ncp,nfs),dvrdtES,dvrdtEA
+  COMPLEX(kind=8) :: dvrdtc(ncp,nfs)
   COMPLEX(kind=8) :: dvrdpc(ncp,nfs)
   COMPLEX(kind=8) :: dvtdpc(ncp,nfs)
   COMPLEX(kind=8) :: dvpdpc(ncp,nfs)
-  COMPLEX(kind=8) :: cvrc(ncp,nfs),cvrES,cvrEA
-  COMPLEX(kind=8) :: sc(ncp,nfs),sES,sEA
-  COMPLEX(kind=8) :: drSc(ncp,nfs),drsES,drsEA
+  COMPLEX(kind=8) :: cvrc(ncp,nfs)
+  COMPLEX(kind=8) :: sc(ncp,nfs)
+  COMPLEX(kind=8) :: drSc(ncp,nfs)
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
 
   !-- local:
+  COMPLEX(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
+  complex(kind=8) :: sES,sEA,drsES,drsEA
+  COMPLEX(kind=8) :: dsdtES,dsdtEA
+
   INTEGER :: nThetaN,nThetaS,nThetaNHS
   INTEGER :: mc,lm,lmS
   REAL(kind=8) :: dm,dmT
@@ -118,6 +124,36 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
+
+           IF ( l_viscBcCalc ) THEN
+              DO mc=1,n_m_max
+                 dm =D_mc2m(mc)
+                 lmS=lStop(mc)
+                 dsdtES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdtEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 DO lm=lStart(mc),lmS-1,2
+                    dsdtEA =dsdtEA + sR(lm)*  dPlm(lm,nThetaNHS)
+                    dsdtES =dsdtES + sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                 END DO
+                 IF ( lmOdd(mc) ) THEN
+                    dsdtEA =dsdtEA + sR(lmS)*dPlm(lmS,nThetaNHS)
+                 END IF
+                 dsdtc(mc,nThetaN)=dsdtES+dsdtEA
+                 dsdtc(mc,nThetaS)=dsdtES-dsdtEA
+              END DO
+
+              DO mc=1,n_m_max
+                 dm=D_mc2m(mc)
+                 dsdpc(mc,nThetaN)= &
+                  CMPLX(-dm*AIMAG(sc(mc,nThetaN)), &
+                          dm*REAL(sc(mc,nThetaN)),KIND=KIND(0d0))
+                 dsdpc(mc,nThetaS)= &
+                  CMPLX(-dm*AIMAG(sc(mc,nThetaS)), &
+                          dm*REAL(sc(mc,nThetaS)),KIND=KIND(0d0))
+              END DO
+
+           END IF ! thermal dissipation layer
+
         END IF
 
         !--- Loop over all oders m: (numbered by mc)
@@ -285,6 +321,10 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
         DO nThetaN=1,sizeThetaB
            DO mc=n_m_max+1,ncp
               sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              IF ( l_viscBcCalc) THEN
+                 dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              END IF
               vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))

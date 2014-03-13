@@ -64,6 +64,7 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
      duhAS(nThetaB)=0.D0
      gradsAS(nThetaB)=0.D0
      DO nPhi=1,n_phi_max
+        !WRITE(*,"(2I4,A,2ES20.12)") nThetaB,nPhi,": vt,vp = ", vt(nPhi,nThetaB),vp(nPhi,nThetaB)
         uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(          &
              vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+  &
              vp(nPhi,nThetaB)*vp(nPhi,nThetaB)  )
@@ -79,18 +80,22 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
              +dsdp(nPhi,nThetaB)*dsdp(nPhi,nThetaB) ) 
 
         uhAS(nThetaB)=uhAS(nThetaB)+DSQRT(uh)
-        duhAS(nThetaB)=duhAS(nThetaB)+DABS(duh)/DSQRT(uh)
+        IF (uh.NE.0.0d0) THEN
+           duhAS(nThetaB)=duhAS(nThetaB)+DABS(duh)/DSQRT(uh)
+        END IF
         gradsAS(nThetaB)=gradsAS(nThetaB)+grads
      END DO
      uhAS(nThetaB)=phiNorm*uhAS(nThetaB)
      duhAS(nThetaB)=phiNorm*duhAS(nThetaB)
+     !WRITE(*,"(I4,2(A,ES20.12))") nThetaB,": uhAS = ",uhAS(nThetaB),", duhAS = ",duhAS(nThetaB)
      gradsAS(nThetaB)=phiNorm*gradsAS(nThetaB)
   END DO
 
   !------ Add contribution from thetas in block:
+  !WRITE(*,"(2I5,A,2ES20.12)") nR,nThetaStart,": uhAS = ",SUM(uhAS),SUM(duhAS)
   CALL legtfAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,sizeThetaB)
   CALL legtfAS(gradsLMr,gradsAS,l_max+1,nThetaStart,sizeThetaB)
-
+  !WRITE(*,"(2I5,A,ES20.12)") nR,nThetaStart,": duhLMr = ",SUM(duhLMr)
   RETURN
 end SUBROUTINE get_nlBLayers
 !-----------------------------------------------------------------------------

@@ -179,6 +179,7 @@ CONTAINS
             &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,  &
             &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,&
             &           gsa%sc,gsa%drSc,    &
+            &           gsa%dsdtc, gsa%dsdpc, &
             &           this%leg_helper%dLhw,this%leg_helper%dLhdw,this%leg_helper%dLhz,&
             &           this%leg_helper%vhG,this%leg_helper%vhC,this%leg_helper%dvhdrG,&
             &           this%leg_helper%dvhdrC,&

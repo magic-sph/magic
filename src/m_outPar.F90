@@ -105,7 +105,7 @@ contains
              Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
              Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
           END IF
-          WRITE(*,"(A,I3,A,3ES20.12)") "sR,Svar,Mvar (",nR,") = ",sR(nR),Svar(nR),Mvar(nR)
+          !WRITE(*,"(A,I3,A,3ES20.12)") "sR,Svar,Mvar (",nR,") = ",sR(nR),Svar(nR),Mvar(nR)
        END DO
        !END IF
 
@@ -153,7 +153,7 @@ contains
         CALL MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,&
             &           Svar_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
             &           0,MPI_COMM_WORLD,ierr)
-    END IF
+     END IF
 
     IF (rank.EQ.0) THEN
        DO nR=1,n_r_max
@@ -182,6 +182,7 @@ contains
        IF ( l_viscBcCalc ) THEN
           sMeanR     =sMeanR    +timePassed*sR_global
           uhMeanR    =uhMeanR   +timePassed*uhR_global
+          !WRITE(*,"(A,3ES20.12)") "duhR_global,timePassed,duhMeanR = ",SUM(duhR_global),timePassed,SUM(duhMeanR)
           duhMeanR   =duhMeanR  +timePassed*duhR_global
           gradT2MeanR=gradT2MeanR+timePassed*gradT2R_global
        END IF
@@ -190,7 +191,6 @@ contains
 
           dlVMeanR   =dlVMeanR/timeNorm
           dlVcMeanR  =dlVcMeanR/timeNorm
-          !WRITE(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
           RolMeanR   =RolMeanR/timeNorm
           IF ( l_anel ) THEN
              dlVu2MeanR =dlVu2MeanR/timeNorm
