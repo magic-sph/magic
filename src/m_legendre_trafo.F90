@@ -19,8 +19,8 @@ CONTAINS
 SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
      &            vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
      &            dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
-     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,drSc, &
-     &                                   dsdtc,dsdpc,    &
+     &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,&
+     &            drSc,dsdtc,dsdpc,    &
      &            leg_helper)
   !*******************************************************************************
   
@@ -614,8 +614,6 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
 
   END IF
 
-
-  RETURN
 END SUBROUTINE legTFG
 
 #if 0

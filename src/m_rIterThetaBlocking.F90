@@ -20,6 +20,7 @@ MODULE rIterThetaBlocking_mod
   USE leg_helper_mod, only: leg_helper_t
   USE nonlinear_lm_mod,only:nonlinear_lm_t
   USE grid_space_arrays_mod,ONLY: grid_space_arrays_t
+  USE physical_parameters,ONLY: kbots,ktops
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif
@@ -190,8 +191,22 @@ CONTAINS
 
     !------ Fourier transform from (r,theta,m) to (r,theta,phi):
     IF ( l_conv .OR. l_mag_kin ) THEN
-       IF ( l_heat ) CALL fft_thetab(gsa%sc,1)
-       IF ( l_HT ) CALL fft_thetab(gsa%drSc,1)
+       IF ( l_heat ) THEN
+          CALL fft_thetab(gsa%sc,1)
+          IF ( l_viscBcCalc ) THEN
+             CALL fft_thetab(gsa%dsdtc,1)
+             CALL fft_thetab(gsa%dsdpc,1)
+             IF (this%nR.eq.n_r_cmb .AND. ktops==1) THEN
+                gsa%dsdtc=CMPLX(0.0,0.0,kind=kind(gsa%dsdtc))
+                gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
+             END IF
+             IF (this%nR.eq.n_r_icb .AND. kbots==1) THEN
+                gsa%dsdtc=CMPLX(0.0,0.0,kind=kind(gsa%dsdtc))
+                gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
+             END IF
+          END IF
+       END IF
+       IF ( l_HT .or. l_viscBcCalc ) CALL fft_thetab(gsa%drSc,1)
        IF ( this%nBc.EQ.0 ) THEN
           CALL fft_thetab(gsa%vrc,1)
           CALL fft_thetab(gsa%vtc,1)

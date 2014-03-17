@@ -1,7 +1,8 @@
 !$Id$
 !***********************************************************************
 SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
-     &                   dsdr,dsdt,dsdp,uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
+     &                   dsdr,dsdt,dsdp,&
+     &                   uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
   !***********************************************************************
 
   !-----------------------------------------------------------------------
@@ -20,7 +21,7 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
 
   USE truncation
   USE radial_functions, ONLY: orho2,or2,or1,beta
-  USE blocking
+  USE blocking, ONLY: sizeThetaB,nfs
   USE horizontal_data, ONLY: O_sin_theta_E2
 
   IMPLICIT NONE
@@ -49,12 +50,12 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
 
   phiNorm=1.D0/DBLE(n_phi_max)
 
-  IF ( nThetaStart == 1 ) THEN
+  !IF ( nThetaStart == 1 ) THEN
      !------ Zero lm coeffs for first theta block:
-     uhLMr =0.D0
-     duhLMr=0.D0
-     gradsLMr=0.D0
-  END IF
+  !   uhLMr =0.D0
+  !   duhLMr=0.D0
+  !   gradsLMr=0.D0
+  !END IF
 
   !--- Horizontal velocity uh and duh/dr + (grad T)**2
   nTheta=nThetaStart-1
@@ -87,7 +88,6 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
      END DO
      uhAS(nThetaB)=phiNorm*uhAS(nThetaB)
      duhAS(nThetaB)=phiNorm*duhAS(nThetaB)
-     !WRITE(*,"(I4,2(A,ES20.12))") nThetaB,": uhAS = ",uhAS(nThetaB),", duhAS = ",duhAS(nThetaB)
      gradsAS(nThetaB)=phiNorm*gradsAS(nThetaB)
   END DO
 

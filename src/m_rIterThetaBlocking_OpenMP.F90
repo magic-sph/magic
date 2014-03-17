@@ -173,7 +173,7 @@ CONTAINS
     !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
     !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
     !$OMP SHARED(lorentz_torques_ic) &
-    !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr)
+    !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
 #ifdef WITHOMP
     threadid = omp_get_thread_num()
 #else
@@ -193,12 +193,13 @@ CONTAINS
     Helna2LMr=0.0D0
     uhLMr = 0.0D0
     duhLMr = 0.0D0
+    gradsLMr = 0.0D0
     !$OMP END SINGLE
     !$OMP BARRIER
     call this%nl_lm(threadid)%set_zero()
     !$OMP DO &
     !$OMP reduction(+:br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
-    !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr)
+    !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
 
     DO nThetaB=1,this%nThetaBs
        nThetaLast =(nThetaB-1) * this%sizeThetaB
@@ -207,7 +208,8 @@ CONTAINS
        !WRITE(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ",nThetaStop
 
        !PERFON('lm2grid')
-       CALL this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa(threadid))
+       CALL this%transform_to_grid_space(nThetaStart,nThetaStop,&
+            &                            this%gsa(threadid))
        !PERFOFF
 
        !--------- Calculation of nonlinear products in grid space:
@@ -338,9 +340,23 @@ CONTAINS
        !--------- horizontal velocity :
 
        IF ( l_viscBcCalc ) THEN
-          CALL get_nlBLayers(this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,this%gsa(threadid)%dvtdrc,this%gsa(threadid)%dvpdrc,    &
-               &             this%gsa(threadid)%drSc,this%gsa(threadid)%dsdtc,this%gsa(threadid)%dsdpc,    &
+          !WRITE(*,"(2I3,A,3('(',2ES20.12,')'))") nR,nThetaB,&
+          !     &" dsdr,dsdt,dsdp = ",&
+          !     & SUM(this%gsa(threadid)%drSc),&
+          !     & SUM(this%gsa(threadid)%dsdtc),&
+          !     & SUM(this%gsa(threadid)%dsdpc)
+
+          CALL get_nlBLayers(this%gsa(threadid)%vtc,    &
+               &             this%gsa(threadid)%vpc,    &
+               &             this%gsa(threadid)%dvtdrc, &
+               &             this%gsa(threadid)%dvpdrc, &
+               &             this%gsa(threadid)%drSc,   &
+               &             this%gsa(threadid)%dsdtc,  &
+               &             this%gsa(threadid)%dsdpc,  &
                &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
+          !WRITE(*,"(2I3,A,3ES20.12)") nR,nThetaB,&
+          !     &" uh,duh,grads = ",&
+          !     & SUM(uhLMr(:)),SUM(duhLMr(:)),SUM(gradsLMr(:))
        END IF
 
        !--------- Movie output:
