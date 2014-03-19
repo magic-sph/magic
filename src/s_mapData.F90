@@ -1,5 +1,6 @@
 !$Id$
 !***************************************************************************
+#include "intrinsic_sizes.h"
 #include "perflib_preproc.cpp"
 SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
      &             w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)  
@@ -48,6 +49,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   COMPLEX(kind=8),ALLOCATABLE :: woR(:),zoR(:)
   COMPLEX(kind=8),ALLOCATABLE :: poR(:),soR(:)
 
+  integer(kind=8) :: bytes_allocated=0
   !-- end of declaration
   !-----------------------------------------------------------------------
   !PERFON('mapData')
@@ -120,6 +122,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   n_dataL=n_map_fac*lm_max*(n_r_max+1)
   !ALLOCATE( wo(n_dataL),zo(n_dataL),po(n_dataL),so(n_dataL) )
   ALLOCATE( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
+  bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
   ! end of allocation
 
   DO lm=1,lm_max
@@ -158,7 +161,9 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
-  
+  bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+  WRITE(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
+
   !PERFON('mD_map')
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
      lmStart=lmStartB(nLMB)
@@ -205,6 +210,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   !PERFOFF
   !PRINT*,omp_get_thread_num(),": After nLMB loop"
   DEALLOCATE(woR,zoR,poR,soR)
+  bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
   !---- Read time derivatives:
   IF (n_data_old.NE.n_data_oldP) THEN
@@ -228,6 +234,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
 
   ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
   ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
+  bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
   !PERFON('mD_mapdt')
   DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
@@ -272,6 +279,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   END DO
   !PERFOFF
   DEALLOCATE( woR,zoR,poR,soR )
+  bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
 
   !--- Read magnetic field
@@ -285,6 +293,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
 
      ALLOCATE( woR(n_r_maxL),zoR(n_r_maxL) )
      ALLOCATE( poR(n_r_maxL),soR(n_r_maxL) )
+     bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
      DO nLMB=1,nLMBs ! Blocking of loop over all (l,m)
         lmStart=lmStartB(nLMB)
@@ -324,6 +333,8 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
         END DO
      END DO
      DEALLOCATE( woR,zoR,poR,soR )
+     bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+  
      !PERFOFF
   ELSE
      WRITE(*,*) '! No magnetic data in input file!'
@@ -368,6 +379,8 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   ! deallocation of the local arrays
   DEALLOCATE( lm2lmo )
   DEALLOCATE( wo,zo,po,so )
+  bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
+
   ! end of deallocation of local arrays
   !PERFOFF
 END SUBROUTINE mapData

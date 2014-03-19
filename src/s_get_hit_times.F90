@@ -98,7 +98,7 @@
         write(*,*)
         write(*,*) '! You have to either provide the total'
         write(*,*) '! number or the step for output:'
-        write(*,'(a)') string
+        WRITE(*,'(A,2(A,I10))') string, "n_tot = ",n_tot,", n_step = ",n_step
         write(*,*) '! I set the step width to zero!'
         n_step=0
     end if

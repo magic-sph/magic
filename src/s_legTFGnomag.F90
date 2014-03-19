@@ -50,15 +50,15 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
   IMPLICIT NONE
 
   !-- input:
-  INTEGER :: nBc
-  LOGICAL :: lDeriv
-  INTEGER :: nThetaStart
+  INTEGER,INTENT(IN) :: nBc
+  LOGICAL,INTENT(IN) :: lDeriv
+  INTEGER,INTENT(IN) :: nThetaStart
 
   !----- Stuff precomputed in legPrep:
-  COMPLEX(kind=8) :: dLhw(lm_max),dLhdw(lm_max),dLhz(lm_max)
-  COMPLEX(kind=8) :: vhG(lm_max),vhC(lm_max)
-  COMPLEX(kind=8) :: dvhdrG(lm_max),dvhdrC(lm_max)
-  COMPLEX(kind=8) :: sR(lm_max),dsR(lm_max)
+  COMPLEX(kind=8),INTENT(IN) :: dLhw(lm_max),dLhdw(lm_max),dLhz(lm_max)
+  COMPLEX(kind=8),INTENT(IN) :: vhG(lm_max),vhC(lm_max)
+  COMPLEX(kind=8),INTENT(IN) :: dvhdrG(lm_max),dvhdrC(lm_max)
+  COMPLEX(kind=8),INTENT(IN) :: sR(lm_max),dsR(lm_max)
 
   !------ Legendre Polynomials in c_horizontal.f
   !       REAL(kind=8) Plm(lm_max,n_theta_max/2)
@@ -69,19 +69,9 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
 
   !-- output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
-  COMPLEX(kind=8) :: vrc(ncp,nfs)
-  COMPLEX(kind=8) :: vtc(ncp,nfs)
-  COMPLEX(kind=8) :: vpc(ncp,nfs)
-  COMPLEX(kind=8) :: dvrdrc(ncp,nfs)
-  COMPLEX(kind=8) :: dvtdrc(ncp,nfs)
-  COMPLEX(kind=8) :: dvpdrc(ncp,nfs)
-  COMPLEX(kind=8) :: dvrdtc(ncp,nfs)
-  COMPLEX(kind=8) :: dvrdpc(ncp,nfs)
-  COMPLEX(kind=8) :: dvtdpc(ncp,nfs)
-  COMPLEX(kind=8) :: dvpdpc(ncp,nfs)
-  COMPLEX(kind=8) :: cvrc(ncp,nfs)
-  COMPLEX(kind=8) :: sc(ncp,nfs)
-  COMPLEX(kind=8) :: drSc(ncp,nfs)
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: vrc,vtc,vpc
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dvrdrc,dvtdrc,dvpdrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cvrc,sc,drSc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
 
   !-- local:
@@ -425,7 +415,7 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
   END IF  ! boundary ? nBc?
 
 
-  IF ( l_HT ) THEN    ! For movie output !
+  IF ( l_HT .OR. l_viscBcCalc ) THEN    ! For movie output !
      nThetaNHS=(nThetaStart-1)/2
 
      !-- Caculate radial derivate of S for heatflux:

@@ -70,14 +70,17 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
 
   INTEGER :: sr_tag,status(MPI_STATUS_SIZE),ierr
   LOGICAL :: rank_has_l1m0,rank_has_l1m1
+  LOGICAL :: DEBUG_OUTPUT=.false.
   !-- end of declaration
   !-----------------------------------------------------------------------
   ! some arbitrary tag for the send and recv
   sr_tag=12345
 
   lm2(0:,0:) => lo_map%lm2
-
   l1m0=lm2(1,0)
+
+  IF (DEBUG_OUTPUT) WRITE(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",lmStartB(rank+1),lmStopB(rank+1),l1m0
+
   IF ( lmStartB(rank+1).LE.l1m0 .AND. lmStopB(rank+1).GE.l1m0 ) THEN
      !IF (rank.NE.0) THEN
      !   PRINT*,"in s_write_rot, l1m0 not on rank 0"

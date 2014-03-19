@@ -1,7 +1,7 @@
 !$Id$
 !*************************************************************************
 SUBROUTINE write_dtB_frame(n_movie,b,db,aj,dj, &
-     b_ic,db_ic,aj_ic,dj_ic)
+     &                     b_ic,db_ic,aj_ic,dj_ic)
   !*************************************************************************
 
   !------------ This is release 2 level 1  --------------!
@@ -28,14 +28,14 @@ SUBROUTINE write_dtB_frame(n_movie,b,db,aj,dj, &
   integer :: n_movie
 
   !-- Input of scalar fields:
-  COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: db(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: dj(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: b(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: db(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: aj(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: dj(lm_maxMag,n_r_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+  COMPLEX(kind=8),INTENT(IN) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
 
   !-- Input of magnetic field generation terms:
   !   Parallelization note: see s_get_dtBLMfinish.f

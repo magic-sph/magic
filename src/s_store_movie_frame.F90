@@ -181,11 +181,11 @@ subroutine store_fields_sur(n_store_last,n_field_type, &
   IMPLICIT NONE
 
   !--- Input:
-  integer :: n_store_last     ! Start position for storing -1
-  integer :: n_field_type     ! Defines field type
-  integer :: n_theta_start    ! Beginning of theta block
-  integer :: n_theta_block    ! Size of theta block
-  complex(kind=8) :: bCMB(lm_max)
+  INTEGER,INTENT(IN) :: n_store_last     ! Start position for storing -1
+  integer,INTENT(IN) :: n_field_type     ! Defines field type
+  integer,INTENT(IN) :: n_theta_start    ! Beginning of theta block
+  integer,INTENT(IN) :: n_theta_block    ! Size of theta block
+  complex(kind=8),INTENT(IN) :: bCMB(lm_max)
 
 
   !--- Local:
@@ -290,18 +290,18 @@ subroutine store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr, &
   !--- Input:
 
   !----- Fields (block):
-  real(kind=8) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-  real(kind=8) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-  real(kind=8) :: sr(nrp,*),drSr(nrp,*)
-  real(kind=8) :: dvrdp(nrp,*),dvpdr(nrp,*)
-  real(kind=8) :: dvtdr(nrp,*),dvrdt(nrp,*)
-  real(kind=8) :: cvr(nrp,*)
+  real(kind=8),INTENT(IN) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+  real(kind=8),INTENT(IN) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+  real(kind=8),INTENT(IN) :: sr(nrp,*),drSr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvrdp(nrp,*),dvpdr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvtdr(nrp,*),dvrdt(nrp,*)
+  real(kind=8),INTENT(IN) :: cvr(nrp,*)
 
-  integer :: n_r
-  integer :: n_store_last     ! Start position in frame(*)-1
-  integer :: n_field_type     ! Defines field type
-  integer :: n_theta_start    ! Beginning of theta block
-  integer :: n_theta_block    ! Size of theta block
+  integer,INTENT(IN) :: n_r
+  integer,INTENT(IN) :: n_store_last     ! Start position in frame(*)-1
+  integer,INTENT(IN) :: n_field_type     ! Defines field type
+  integer,INTENT(IN) :: n_theta_start    ! Beginning of theta block
+  integer,INTENT(IN) :: n_theta_block    ! Size of theta block
 
   !--- Local:
   integer :: n_theta
@@ -897,18 +897,18 @@ subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr, &
   !--- Input:
 
   !----- Fields (block):
-  real(kind=8) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-  real(kind=8) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-  real(kind=8) :: sr(nrp,*),drSr(nrp,*)
-  real(kind=8) :: dvrdp(nrp,*),dvpdr(nrp,*)
-  real(kind=8) :: dvtdr(nrp,*),dvrdt(nrp,*)
-  real(kind=8) :: cvr(nrp,*),cbt(nrp,*)
+  real(kind=8),INTENT(IN) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+  real(kind=8),INTENT(IN) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+  real(kind=8),INTENT(IN) :: sr(nrp,*),drSr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvrdp(nrp,*),dvpdr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvtdr(nrp,*),dvrdt(nrp,*)
+  real(kind=8),INTENT(IN) :: cvr(nrp,*),cbt(nrp,*)
 
-  integer :: n_r              ! No. of radial grid point
-  integer :: n_store_last     ! Position in frame(*)-1
-  integer :: n_field_type     ! Defines field
-  integer :: n_theta_const    ! No. of theta to be stored
-  integer :: n_theta          ! No. of theta in block
+  integer,INTENT(IN) :: n_r              ! No. of radial grid point
+  integer,INTENT(IN) :: n_store_last     ! Position in frame(*)-1
+  integer,INTENT(IN) :: n_field_type     ! Defines field
+  integer,INTENT(IN) :: n_theta_const    ! No. of theta to be stored
+  integer,INTENT(IN) :: n_theta          ! No. of theta in block
 
 
   !--- Output: writes fields into frame(*,*) in c_output.f
@@ -1092,19 +1092,19 @@ subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr, &
   !--- Input:
 
   !----- Fields (block):
-  real(kind=8) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-  real(kind=8) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-  real(kind=8) :: sr(nrp,*),drSr(nrp,*)
-  real(kind=8) :: dvrdp(nrp,*),dvpdr(nrp,*)
-  real(kind=8) :: dvtdr(nrp,*),dvrdt(nrp,*)
-  real(kind=8) :: cvr(nrp,*)
-  real(kind=8) :: cbr(nrp,*),cbt(nrp,*)
+  real(kind=8),INTENT(IN) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+  real(kind=8),INTENT(IN) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+  real(kind=8),INTENT(IN) :: sr(nrp,*),drSr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvrdp(nrp,*),dvpdr(nrp,*)
+  real(kind=8),INTENT(IN) :: dvtdr(nrp,*),dvrdt(nrp,*)
+  real(kind=8),INTENT(IN) :: cvr(nrp,*)
+  real(kind=8),INTENT(IN) :: cbr(nrp,*),cbt(nrp,*)
 
-  integer :: n_r              ! No. of radial grid point
-  integer :: n_store_last     ! Position in frame(*)-1
-  integer :: n_field_type     ! Defines field
-  integer :: n_theta_start    ! No. of first theta to block
-  integer :: n_theta_block    ! Size of theta block
+  integer,INTENT(IN) :: n_r              ! No. of radial grid point
+  integer,INTENT(IN) :: n_store_last     ! Position in frame(*)-1
+  integer,INTENT(IN) :: n_field_type     ! Defines field
+  integer,INTENT(IN) :: n_theta_start    ! No. of first theta to block
+  integer,INTENT(IN) :: n_theta_block    ! Size of theta block
 
 
   !--- Output: writes fields into frame(*,*) in c_output.f

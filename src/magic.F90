@@ -213,8 +213,10 @@
     call initialize_LMLoop
 
     call initialize_num_param
-    call initialize_TO
-    if (l_TO) call initialize_outTO_mod
+    CALL initialize_TO
+    IF (l_TO) THEN
+       CALL initialize_outTO_mod
+    END IF
     call initialize_init_fields
     call initialize_Grenoble
     call initialize_horizontal_data

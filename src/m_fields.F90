@@ -3,7 +3,7 @@
 !  Common blocks containing the potential fields and their radial
 !  derivatives
 !***************************************************************
-
+#include "intrinsic_sizes.h"
 MODULE fields
   use truncation
   USE LMLoop_data,ONLY: llm,ulm,llmMag,ulmMag
@@ -69,6 +69,9 @@ MODULE fields
 
 CONTAINS
   SUBROUTINE initialize_fields
+    INTEGER(kind=8) :: bytes_allocated
+
+    bytes_allocated = 0
     !-- Velocity potentials:
     IF (rank.EQ.0) THEN
        ALLOCATE( w(lm_max,n_r_max) )
@@ -80,18 +83,22 @@ CONTAINS
        ALLOCATE( ds(lm_max,n_r_max) )
        ALLOCATE( p(lm_max,n_r_max) )
        ALLOCATE( dp(lm_max,n_r_max) )
+       bytes_allocated = bytes_allocated + 9*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX
        ALLOCATE( b(lm_maxMag,n_r_maxMag) )
        ALLOCATE( db(lm_maxMag,n_r_maxMag) )
        ALLOCATE( ddb(lm_maxMag,n_r_maxMag) )
        ALLOCATE( aj(lm_maxMag,n_r_maxMag) )
        ALLOCATE( dj(lm_maxMag,n_r_maxMag) )
        ALLOCATE( ddj(lm_maxMag,n_r_maxMag) )
+       bytes_allocated = bytes_allocated + 6*lm_maxMag*n_r_maxMag*SIZEOF_DOUBLE_COMPLEX
        ALLOCATE( b_ic(lm_maxMag,n_r_ic_maxMag) )  
        ALLOCATE( db_ic(lm_maxMag,n_r_ic_maxMag) )
        ALLOCATE( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
        ALLOCATE( aj_ic(lm_maxMag,n_r_ic_maxMag) ) 
        ALLOCATE( dj_ic(lm_maxMag,n_r_ic_maxMag) )
        ALLOCATE( ddj_ic(lm_maxMag,n_r_ic_maxMag) )
+       bytes_allocated = bytes_allocated + 6*lm_maxMag*n_r_ic_maxMag*SIZEOF_DOUBLE_COMPLEX
+
     ELSE
        ALLOCATE( w(1,n_r_max) )
        ALLOCATE( z(1,n_r_max) )
@@ -102,18 +109,21 @@ CONTAINS
        ALLOCATE( ds(1,n_r_max) )
        ALLOCATE( p(1,n_r_max) )
        ALLOCATE( dp(1,n_r_max) )
+       bytes_allocated = bytes_allocated + 9*n_r_max*SIZEOF_DOUBLE_COMPLEX
        ALLOCATE( b(1,n_r_maxMag) )
        ALLOCATE( db(1,n_r_maxMag) )
        ALLOCATE( ddb(1,n_r_maxMag) )
        ALLOCATE( aj(1,n_r_maxMag) )
        ALLOCATE( dj(1,n_r_maxMag) )
        ALLOCATE( ddj(1,n_r_maxMag) )
+       bytes_allocated = bytes_allocated + 6*n_r_maxMag*SIZEOF_DOUBLE_COMPLEX
        ALLOCATE( b_ic(1,n_r_ic_maxMag) )  
        ALLOCATE( db_ic(1,n_r_ic_maxMag) )
        ALLOCATE( ddb_ic(1,n_r_ic_maxMag) )
        ALLOCATE( aj_ic(1,n_r_ic_maxMag) ) 
        ALLOCATE( dj_ic(1,n_r_ic_maxMag) )
        ALLOCATE( ddj_ic(1,n_r_ic_maxMag) )
+       bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DOUBLE_COMPLEX
     END IF
     ALLOCATE( w_LMloc_container(llm:ulm,n_r_max,1:3) )
     w_LMloc(llm:,1:)   => w_LMloc_container(llm:ulm,1:n_r_max,1)
@@ -146,6 +156,9 @@ CONTAINS
     p_Rloc(1:,nRstart:)   => p_Rloc_container(1:,nRstart:,1)
     dp_Rloc(1:,nRstart:)  => p_Rloc_container(1:,nRstart:,2)
 
+    bytes_allocated = bytes_allocated + 9*(ulm-llm+1)*n_r_max*SIZEOF_DOUBLE_COMPLEX
+    bytes_allocated = bytes_allocated + 9*lm_max*(nRstop-nRstart+1)*SIZEOF_DOUBLE_COMPLEX
+
     !-- Magnetic field potentials:
     ALLOCATE( b_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )
     b_LMloc(llmMag:,1:)   => b_LMloc_container(llmMag:,1:,1)
@@ -164,6 +177,9 @@ CONTAINS
     aj_Rloc(1:,nRstart:)  => aj_Rloc_container(1:,nRstart:,1)
     dj_Rloc(1:,nRstart:)  => aj_Rloc_container(1:,nRstart:,2)
 
+    bytes_allocated = bytes_allocated + 6*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DOUBLE_COMPLEX
+    bytes_allocated = bytes_allocated + 5*lm_maxMag*(nRstop-nRstart+1)*SIZEOF_DOUBLE_COMPLEX
+
     !-- Magnetic field potentials in inner core:
     !   NOTE: n_r-dimension may be smaller once CHEBFT is adopted
     !         for even chebs
@@ -173,5 +189,10 @@ CONTAINS
     ALLOCATE( aj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) ) 
     ALLOCATE( dj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
     ALLOCATE( ddj_ic_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
+
+    bytes_allocated = bytes_allocated + 6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DOUBLE_COMPLEX
+
+    WRITE(*,"(I4,A,I12,A)") rank,": Allocated in m_fields ",bytes_allocated," bytes."
+
   END SUBROUTINE initialize_fields
 END MODULE fields

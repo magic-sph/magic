@@ -765,6 +765,8 @@ contains
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        !PERFOFF
        ! =====================================================================
+       IF (lVerbose) WRITE(*,*) "! start r2lo redistribution"
+
        PERFON('r2lo_dst')
        !CALL r2lm_redist(dsdt_Rloc,dsdt_LMloc)
        CALL r2lo_redist(dsdt_Rloc,dsdt_LMloc)
@@ -788,6 +790,7 @@ contains
        CALL MPI_Bcast(lorentz_torque_ic,1,MPI_DOUBLE_PRECISION,n_procs-1,MPI_COMM_WORLD,ierr)
        CALL MPI_Bcast(lorentz_torque_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
        PERFOFF
+       IF (lVerbose) WRITE(*,*) "! r2lo redistribution finished"
 
        IF (DEBUG_OUTPUT) THEN
           WRITE(*,"(A,8ES20.12)") "lo_arr middl: dzdt_LMloc,z_LMloc,dz_LMloc,dzdtLast_lo = ",&
@@ -822,12 +825,14 @@ contains
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        !PERFOFF
        ! ==================================================================
+       IF (lVerbose) WRITE(*,*) "! start output"
        PERFON('output')
        IF (nRstart.LE.n_r_cmb) THEN
           ptr_dbdt_CMB => dbdt_Rloc(:,n_r_cmb)
        ELSE
           NULLIFY(ptr_dbdt_CMB)
        END IF
+       IF (lVerbose) WRITE(*,*) "! start real output"
        CALL output(time,dt,dtNew,n_time_step,l_stop_time,                &
             &      l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,          &
             &      l_store,l_new_rst_file,                               &
@@ -837,6 +842,7 @@ contains
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
             &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc)
        PERFOFF
+       IF (lVerbose) WRITE(*,*) "! output finished"
 
        IF ( l_graph ) THEN
           PERFON('graph')

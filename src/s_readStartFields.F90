@@ -1,11 +1,11 @@
 !$Id$
 !***********************************************************************
 SUBROUTINE readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt, &
-     b,dbdt,aj,djdt, &
-     b_ic,dbdt_ic,aj_ic,djdt_ic, &
-     omega_ic,omega_ma, &
-     lorentz_torque_ic,lorentz_torque_ma, &
-     time,dt_old,dt_new,n_time_step)
+     &                     b,dbdt,aj,djdt, &
+     &                     b_ic,dbdt_ic,aj_ic,djdt_ic, &
+     &                     omega_ic,omega_ma, &
+     &                     lorentz_torque_ic,lorentz_torque_ma, &
+     &                     time,dt_old,dt_new,n_time_step)
   !***********************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -29,22 +29,15 @@ SUBROUTINE readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt, &
   IMPLICIT NONE
 
   !-- output:
-  REAL(kind=8) :: time,dt_old,dt_new
-  INTEGER :: n_time_step
+  REAL(kind=8),INTENT(OUT) :: time,dt_old,dt_new
+  INTEGER,INTENT(OUT) :: n_time_step
 
   !-- Output fields:
-  COMPLEX(kind=8) :: w(lm_max,n_r_max),dwdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: z(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: s(lm_max,n_r_max),dsdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: p(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-  COMPLEX(kind=8) :: b(lm_maxMag,n_r_maxMag),dbdt(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: aj(lm_maxMag,n_r_maxMag),djdt(lm_maxMag,n_r_maxMag)
-  COMPLEX(kind=8) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-  COMPLEX(kind=8) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
-  REAL(kind=8) :: omega_ic,omega_ma
-  REAL(kind=8) :: lorentz_torque_ic,lorentz_torque_ma
+  COMPLEX(kind=8),DIMENSION(lm_max,n_r_max),INTENT(OUT) :: w,z,s,p,dwdt,dzdt,dsdt,dpdt
+  COMPLEX(kind=8),DIMENSION(lm_maxMag,n_r_maxMag),INTENT(OUT) :: b,aj,dbdt,djdt
+  COMPLEX(kind=8),DIMENSION(lm_maxMag,n_r_ic_maxMag),INTENT(OUT) :: b_ic,aj_ic,dbdt_ic,djdt_ic
+  REAL(kind=8),INTENT(OUT) :: omega_ic,omega_ma
+  REAL(kind=8),INTENT(OUT) :: lorentz_torque_ic,lorentz_torque_ma
 
   !-- Local:
   INTEGER :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old

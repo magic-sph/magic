@@ -43,18 +43,22 @@
 
 !-- Get output times:
     l_time_hits=.false.
+
     CALL get_hit_times(t_graph,n_time_hits,n_t_graph,l_time, &
          &             t_graph_start,t_graph_stop,dt_graph, &
          &             n_graphs,n_graph_step,'graph',time,tScale)
     l_time_hits=l_time_hits.OR.l_time
+
     CALL get_hit_times(t_rst,n_time_hits,n_t_rst,l_time, &
          &             t_rst_start,t_rst_stop,dt_rst, &
          &             n_rsts,n_rst_step,'rst',time,tScale)
     l_time_hits=l_time_hits.OR.l_time
+
     CALL get_hit_times(t_log,n_time_hits,n_t_log,l_time, &
          &             t_log_start,t_log_stop,dt_log, &
          &             n_logs,n_log_step,'log',time,tScale)
     l_time_hits=l_time_hits.OR.l_time
+
     CALL get_hit_times(t_spec,n_time_hits,n_t_spec,l_time, &
          &             t_spec_start,t_spec_stop,dt_spec, &
          &             n_specs,n_spec_step,'spec',time,tScale)
