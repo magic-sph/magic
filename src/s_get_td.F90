@@ -39,7 +39,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
   USE leg_helper_mod,only:leg_helper_t
   USE nonlinear_lm_mod,only: nonlinear_lm_t
   USE fields, ONLY: w_Rloc,dw_Rloc,z_Rloc
-  USE cutils
+  !USE cutils
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif

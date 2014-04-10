@@ -26,14 +26,36 @@ MODULE updateWP_mod
   !-- Input of recycled work arrays:
   COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: workA,workB
   !COMPLEX(kind=8),DIMENSION(:,:,:),ALLOCATABLE :: rhs1
+  COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:) :: Dif,Pre,Buo
+  COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:,:) :: rhs1  
+  INTEGER :: maxThreads
   
   PUBLIC :: initialize_updateWP, updateWP
 
 contains
   SUBROUTINE initialize_updateWP
-    allocate(workA(llm:ulm,n_r_max))
+    ALLOCATE(workA(llm:ulm,n_r_max))
     ALLOCATE(workB(llm:ulm,n_r_max))
+    ALLOCATE(Dif(llm:ulm))
+    ALLOCATE(Pre(llm:ulm))
+    ALLOCATE(Buo(llm:ulm))
+#ifdef WITHOMP
+    maxThreads=omp_get_max_threads()
+#else
+    maxThreads=1
+#endif
+
+    ALLOCATE(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
   END SUBROUTINE initialize_updateWP
+
+  SUBROUTINE finalize_updateWP
+    DEALLOCATE(workA)
+    DEALLOCATE(workB)
+    DEALLOCATE(Dif)
+    DEALLOCATE(Pre)
+    DEALLOCATE(Buo)
+    DEALLOCATE(rhs1)
+  END SUBROUTINE finalize_updateWP
 
   SUBROUTINE updateWP(w,dw,ddw,dwdt,dwdtLast, &
        &              p,dp,dpdt,dpdtLast,s, &
@@ -83,9 +105,9 @@ contains
     INTEGER :: nR                ! counts radial grid points
     INTEGER :: n_cheb             ! counts cheb modes
 
-    COMPLEX(kind=8) :: Dif(llm:ulm),Pre(llm:ulm),Buo(llm:ulm)
+    !COMPLEX(kind=8) :: Dif(llm:ulm),Pre(llm:ulm),Buo(llm:ulm)
 
-    COMPLEX(kind=8) :: rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,lo_sub_map%nLMBs2(nLMB))
+    !COMPLEX(kind=8) :: rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,lo_sub_map%nLMBs2(nLMB))
     !COMPLEX(kind=8),DIMENSION(:,:,:),allocatable :: rhs1
     !COMPLEX(kind=8) :: rhs1_sum,rhs2_sum
 
@@ -94,7 +116,7 @@ contains
     INTEGER, DIMENSION(:,:,:),POINTER :: lm22lm,lm22l,lm22m
 
     INTEGER :: iThread,start_lm,stop_lm,all_lms,per_thread,nThreads
-    INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk
+    INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
     !-- end of declaration
     !---------------------------------------------------------------------
 
@@ -131,7 +153,7 @@ contains
 
        !$OMP TASK default(shared) &
        !$OMP firstprivate(nLMB2) &
-       !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk) &
+       !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
        !$OMP shared(workB,nLMB,nLMBs2,rhs1)
 
        ! determine the number of chunks of m
@@ -153,8 +175,15 @@ contains
           DO iChunk=1,nChunks
              !$OMP TASK if (nChunks>1) default(shared) &
              !$OMP firstprivate(iChunk) &
-             !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb)
+             !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
+             !$OMP private(threadid)
+
              !PERFON('upWP_set')
+#ifdef WITHOMP
+             threadid = omp_get_thread_num()
+#else
+             threadid = 0
+#endif
              lmB0=(iChunk-1)*chunksize
              lmB=lmB0
              DO lm=lmB0+1,MIN(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -163,17 +192,17 @@ contains
                 m1 =lm22m(lm,nLMB2,nLMB)
 
                 lmB=lmB+1
-                rhs1(1,lmB,nLMB2)        =0.D0
-                rhs1(n_r_max,lmB,nLMB2)  =0.D0
-                rhs1(n_r_max+1,lmB,nLMB2)=0.D0
-                rhs1(2*n_r_max,lmB,nLMB2)=0.D0
+                rhs1(1,lmB,threadid)        =0.D0
+                rhs1(n_r_max,lmB,threadid)  =0.D0
+                rhs1(n_r_max+1,lmB,threadid)=0.D0
+                rhs1(2*n_r_max,lmB,threadid)=0.D0
                 DO nR=2,n_r_max-1
-                   rhs1(nR,lmB,nLMB2)=                         &
+                   rhs1(nR,lmB,threadid)=                         &
                         & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
                         & rho0(nR)*agrav(nR)*s(lm1,nR) + &
                         & w1*dwdt(lm1,nR) + &
                         & w2*dwdtLast(lm1,nR)
-                   rhs1(nR+n_r_max,lmB,nLMB2)=                 &
+                   rhs1(nR+n_r_max,lmB,threadid)=                 &
                         -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
                         w1*dpdt(lm1,nR) + &
                         w2*dpdtLast(lm1,nR)
@@ -186,16 +215,16 @@ contains
              ! use the mat_fac(:,1) to scale the rhs
              DO lm=lmB0+1,lmB
                 DO nR=1,2*n_r_max
-                   rhs1(nR,lm,nLMB2)=rhs1(nR,lm,nLMB2)*wpMat_fac(nR,1,l1)
+                   rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,l1)
                 END DO
              END DO
              CALL cgeslML(wpMat(1,1,l1),2*n_r_max,2*n_r_max,    &
-                  &       wpPivot(1,l1),rhs1(:,lmB0+1:lmB,nLMB2),2*n_r_max,lmB-lmB0)
+                  &       wpPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
              
              ! rescale the solution with mat_fac(:,2)
              DO lm=lmB0+1,lmB
                 DO nR=1,2*n_r_max
-                   rhs1(nR,lm,nLMB2)=rhs1(nR,lm,nLMB2)*wpMat_fac(nR,2,l1)
+                   rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,2,l1)
                 END DO
              END DO
           !END IF
@@ -220,15 +249,15 @@ contains
                 lmB=lmB+1
                 IF ( m1 > 0 ) THEN
                    DO n_cheb=1,n_cheb_max
-                      w(lm1,n_cheb)=rhs1(n_cheb,lmB,nLMB2)
-                      p(lm1,n_cheb)=rhs1(n_r_max+n_cheb,lmB,nLMB2)
+                      w(lm1,n_cheb)=rhs1(n_cheb,lmB,threadid)
+                      p(lm1,n_cheb)=rhs1(n_r_max+n_cheb,lmB,threadid)
                    END DO
                 ELSE
                    DO n_cheb=1,n_cheb_max
                       w(lm1,n_cheb)= &
-                           CMPLX(REAL(rhs1(n_cheb,lmB,nLMB2)),0.D0,KIND=KIND(0d0))
+                           CMPLX(REAL(rhs1(n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                       p(lm1,n_cheb)= &
-                           CMPLX(REAL(rhs1(n_r_max+n_cheb,lmB,nLMB2)),0.D0,KIND=KIND(0d0))
+                           CMPLX(REAL(rhs1(n_r_max+n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                    END DO
                 END IF
              END DO

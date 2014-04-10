@@ -29,6 +29,8 @@ MODULE updateB_mod
 
   !-- Local work arrays:
   COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: workA,workB
+  COMPLEX(kind=8),DIMENSION(:,:,:),ALLOCATABLE :: rhs1,rhs2
+  integer :: maxThreads
 
   PUBLIC :: initialize_updateB,updateB
 
@@ -36,6 +38,15 @@ contains
   SUBROUTINE initialize_updateB
     ALLOCATE(workA(llmMag:ulmMag,n_r_max))
     ALLOCATE(workB(llmMag:ulmMag,n_r_max))
+#ifdef WITHOMP
+    maxThreads=omp_get_max_threads()
+#else
+    maxThreads=1
+#endif
+
+    ALLOCATE(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
+    ALLOCATE(rhs2(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
+
   END SUBROUTINE initialize_updateB
 
   SUBROUTINE updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
@@ -135,8 +146,8 @@ contains
     COMPLEX(kind=8) :: dbdt_ic,djdt_ic  ! they are calculated here !
 
     !-- right hand sides:
-    COMPLEX(kind=8) :: rhs1(2*n_r_max,lo_sub_map%sizeLMB2max)
-    COMPLEX(kind=8) :: rhs2(2*n_r_max,lo_sub_map%sizeLMB2max)
+    !COMPLEX(kind=8) :: rhs1(2*n_r_max,lo_sub_map%sizeLMB2max)
+    !COMPLEX(kind=8) :: rhs2(2*n_r_max,lo_sub_map%sizeLMB2max)
 
     INTEGER, DIMENSION(:),POINTER :: nLMBs2,lm2l,lm2m
     INTEGER, DIMENSION(:,:),POINTER :: sizeLMB2,lm2
@@ -149,7 +160,7 @@ contains
     SAVE direction
 
     INTEGER :: iThread,start_lm,stop_lm,all_lms,per_thread,nThreads,maxThreads
-    INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk
+    INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
     
     !-- end of declaration
     !-----------------------------------------------------------------------
@@ -263,7 +274,7 @@ contains
        !$OMP TASK default(shared) &
        !$OMP firstprivate(nLMB2) &
        !$OMP private(lmB,lm,lm1,l1,m1,nR,iChunk,nChunks,size_of_last_chunk) &
-       !$OMP private(rhs1,rhs2,dbdt_ic,djdt_ic,fac,bpeaktop,ff,cimp,aimp)
+       !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff,cimp,aimp,threadid)
 
        ! determine the number of chunks of m
        ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -291,7 +302,13 @@ contains
           !$OMP TASK if (nChunks>1) default(shared) &
           !$OMP firstprivate(iChunk) &
           !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
-          !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff)
+          !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff) &
+          !$OMP private(threadid)
+#ifdef WITHOMP
+          threadid = omp_get_thread_num()
+#else
+          threadid = 0
+#endif
           lmB0=(iChunk-1)*chunksize
           lmB=lmB0
           DO lm=lmB0+1,MIN(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -305,32 +322,32 @@ contains
                 !         Note: the CMB condition is not correct if we assume free slip
                 !         and a conducting mantle (conductance_ma>0).
                 IF ( l_b_nl_cmb ) THEN ! finitely conducting mantle
-                   rhs1(1,lmB) =  b_nl_cmb(st_map%lm2(l1,m1))
-                   rhs2(1,lmB) = aj_nl_cmb(st_map%lm2(l1,m1))
+                   rhs1(1,lmB,threadid) =  b_nl_cmb(st_map%lm2(l1,m1))
+                   rhs2(1,lmB,threadid) = aj_nl_cmb(st_map%lm2(l1,m1))
                 ELSE
-                   rhs1(1,lmB) = 0.D0
-                   rhs2(1,lmB) = 0.D0
+                   rhs1(1,lmB,threadid) = 0.D0
+                   rhs2(1,lmB,threadid) = 0.D0
                 END IF
 
-                rhs1(n_r_max,lmB)=0.D0
-                IF ( kbotb == 2 ) rhs1(n_r_max-1,lmB)=0.D0
+                rhs1(n_r_max,lmB,threadid)=0.D0
+                IF ( kbotb == 2 ) rhs1(n_r_max-1,lmB,threadid)=0.D0
 
-                rhs2(n_r_max,lmB)=0.D0
+                rhs2(n_r_max,lmB,threadid)=0.D0
                 IF ( m1 == 0 ) THEN   ! Magnetoconvection boundary conditions
                    IF ( imagcon /= 0 .AND. tmagcon <= time ) THEN
                       IF ( l1 == 2 .AND. imagcon > 0 .AND. imagcon .NE. 12 ) THEN
-                         rhs2(1,lmB)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
-                         rhs2(n_r_max,lmB)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
+                         rhs2(1,lmB,threadid)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                         rhs2(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                       ELSE IF( l1 == 1 .AND. imagcon == 12 ) THEN
-                         rhs2(1,lmB)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
-                         rhs2(n_r_max,lmB)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
+                         rhs2(1,lmB,threadid)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                         rhs2(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                       ELSE IF( l1 == 1 .AND. imagcon == -1) THEN
-                         rhs1(n_r_max,lmB)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
+                         rhs1(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                       ELSE IF( l1 == 1 .AND. imagcon == -2) THEN
-                         rhs1(1,lmB)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                         rhs1(1,lmB,threadid)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
                       ELSE IF( l1 == 3 .AND. imagcon == -10 ) THEN
-                         rhs2(1,lmB)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
-                         rhs2(n_r_max,lmB)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
+                         rhs2(1,lmB,threadid)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                         rhs2(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                       END IF
                    END IF
                    IF ( n_imp > 1 .AND. l1 == 1 ) THEN
@@ -338,18 +355,18 @@ contains
                          !  Chose external field coefficient so that amp_imp is the amplitude of
                          !  the external dipole field:
                          bpeaktop=3.D0/2.D0*r_cmb/y10_norm*amp_imp
-                         rhs1(1,lmB)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                         rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
                       ELSE IF ( n_imp == 3 ) THEN
                          !  Chose external field coefficient so that amp_imp is the amplitude of
                          !  the external dipole field:
                          bpeaktop=3.D0/2.D0*r_cmb/y10_norm*amp_imp
                          IF ( REAL(b(2,1)) > 1.D-9 ) &
                               direction=REAL(b(2,1))/DABS(REAL(b(2,1)))
-                         rhs1(1,lmB)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))*direction
+                         rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))*direction
                       ELSE IF ( n_imp == 4 ) THEN
                          !  I have for gotten what this was supposed to do:
                          bpeaktop=3.D0/r_cmb*amp_imp*REAL(b(2,1))**2
-                         rhs1(1,lmB)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))/b(2,1)
+                         rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))/b(2,1)
 
                       ELSE
 
@@ -397,27 +414,27 @@ contains
                                  (cimp+REAL(b(2,1))**expo_imp)
 
                          END IF
-                         rhs1(1,lmB)=(2*l1+1)/r_cmb*ff
+                         rhs1(1,lmB,threadid)=(2*l1+1)/r_cmb*ff
 
                       END IF
                    END IF
                 END IF
                 
                 DO nR=2,n_r_max-1
-                   rhs1(nR,lmB)= ( w1*dbdt(lm1,nR) + w2*dbdtLast(lm1,nR) ) &
+                   rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR) + w2*dbdtLast(lm1,nR) ) &
                         &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
-                   rhs2(nR,lmB)= ( w1*djdt(lm1,nR) + w2*djdtLast(lm1,nR) ) &
+                   rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR) + w2*djdtLast(lm1,nR) ) &
                         &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
                 END DO
 
                 !-------- Magnetic boundary conditions, inner core for radial derivatives
                 !         of poloidal and toroidal magnetic potentials:
                 IF ( l_cond_ic ) THEN    ! inner core
-                   rhs1(n_r_max+1,lmB)=0.d0
+                   rhs1(n_r_max+1,lmB,threadid)=0.d0
                    IF ( l_b_nl_icb ) THEN
-                      rhs2(n_r_max+1,lmB)=aj_nl_icb(st_map%lm2(l1,m1))
+                      rhs2(n_r_max+1,lmB,threadid)=aj_nl_icb(st_map%lm2(l1,m1))
                    ELSE
-                      rhs2(n_r_max+1,lmB)=0.d0
+                      rhs2(n_r_max+1,lmB,threadid)=0.d0
                    END IF
 
                    DO nR=2,n_r_ic_max
@@ -430,10 +447,10 @@ contains
                          dbdt_ic=fac*b_ic(lm1,nR)
                          djdt_ic=fac*aj_ic(lm1,nR)
                       END IF
-                      rhs1(n_r_max+nR,lmB)=            &
+                      rhs1(n_r_max+nR,lmB,threadid)=            &
                            & ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) ) &
                            & +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * b_ic(lm1,nR)
-                      rhs2(n_r_max+nR,lmB)=            &
+                      rhs2(n_r_max+nR,lmB,threadid)=            &
                            & ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) ) &
                            & +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * aj_ic(lm1,nR)
 
@@ -451,17 +468,17 @@ contains
 #ifdef WITH_PRECOND_BJ
              DO lm=lmB0+1,lmB
                 DO nR=1,n_r_tot
-                   rhs1(nR,lm)=rhs1(nR,lm)*bMat_fac(nR,l1)
-                   rhs2(nR,lm)=rhs2(nR,lm)*jMat_fac(nR,l1)
+                   rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*bMat_fac(nR,l1)
+                   rhs2(nR,lm,threadid)=rhs2(nR,lm,threadid)*jMat_fac(nR,l1)
                 END DO
              END DO
 #endif
 
              !LIKWID_ON('upB_sol')
              CALL cgeslML(bMat(1,1,l1),n_r_tot,n_r_real, &
-                  bPivot(1,l1),rhs1(:,lmB0+1:lmB),2*n_r_max,lmB-lmB0)
+                  bPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
              CALL cgeslML(jMat(1,1,l1),n_r_tot,n_r_real, &
-                  jPivot(1,l1),rhs2(:,lmB0+1:lmB),2*n_r_max,lmB-lmB0)
+                  jPivot(1,l1),rhs2(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
              !LIKWID_OFF('upB_sol')
           END IF
 
@@ -490,30 +507,30 @@ contains
 
                 IF ( m1 > 0 ) THEN
                    DO n_cheb=1,n_cheb_max  ! outer core
-                      b(lm1,n_cheb) =rhs1(n_cheb,lmB)
-                      aj(lm1,n_cheb)=rhs2(n_cheb,lmB)
+                      b(lm1,n_cheb) =rhs1(n_cheb,lmB,threadid)
+                      aj(lm1,n_cheb)=rhs2(n_cheb,lmB,threadid)
                    END DO
                    IF ( l_cond_ic ) THEN   ! inner core
                       DO n_cheb=1,n_cheb_ic_max
                          b_ic(lm1,n_cheb) = &
-                              rhs1(n_r_max+n_cheb,lmB)
+                              rhs1(n_r_max+n_cheb,lmB,threadid)
                          aj_ic(lm1,n_cheb)= &
-                              rhs2(n_r_max+n_cheb,lmB)
+                              rhs2(n_r_max+n_cheb,lmB,threadid)
                       END DO
                    END IF
                 ELSE
                    DO n_cheb=1,n_cheb_max   ! outer core
                       b(lm1,n_cheb) = &
-                           CMPLX(REAL(rhs1(n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                           CMPLX(REAL(rhs1(n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                       aj(lm1,n_cheb)= &
-                           CMPLX(REAL(rhs2(n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                           CMPLX(REAL(rhs2(n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                    END DO
                    IF ( l_cond_ic ) THEN    ! inner core
                       DO n_cheb=1,n_cheb_ic_max
                          b_ic(lm1,n_cheb)= &
-                              CMPLX(REAL(rhs1(n_r_max+n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                              CMPLX(REAL(rhs1(n_r_max+n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                          aj_ic(lm1,n_cheb)= &
-                              CMPLX(REAL(rhs2(n_r_max+n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                              CMPLX(REAL(rhs2(n_r_max+n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                       END DO
                    END IF
                 END IF

@@ -1,6 +1,6 @@
 #include "intrinsic_sizes.h"
 MODULE nonlinear_lm_mod
-  USE cutils
+  !USE cutils
   implicit none
 
   TYPE :: nonlinear_lm_t

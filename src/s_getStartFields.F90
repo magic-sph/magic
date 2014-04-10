@@ -64,8 +64,9 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   REAL(kind=8) :: s0(n_r_max),ds0(n_r_max)
   REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
 
-  COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
-  COMPLEX(kind=8) :: workB_LMloc(llm:ulm,n_r_max)
+  !COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
+  !COMPLEX(kind=8) :: workB_LMloc(llm:ulm,n_r_max)
+  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: workA_LMloc,workB_LMloc
   !COMPLEX(kind=8) :: temp_lo(lm_max,n_r_max)
   !COMPLEX(kind=8) :: temp_lo(lm_max)
 
@@ -254,6 +255,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !   WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ",SUM( z_LMloc ),SUM( dzdtLast_lo )
   !END IF
 
+  ALLOCATE(workA_LMloc(llm:ulm,n_r_max))
+  ALLOCATE(workB_LMloc(llm:ulm,n_r_max))
 
   !  print*,"Computing derivatives"
   DO nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs) ! Blocking of loop over all (l,m)
@@ -332,6 +335,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      
   END DO
 
+  deallocate(workA_LMloc)
+  deallocate(workB_LMloc)
   !--- Get symmetry properties of tops excluding l=m=0:
   sES=0.D0
   sEA=0.D0

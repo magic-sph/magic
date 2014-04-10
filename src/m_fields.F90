@@ -9,7 +9,7 @@ MODULE fields
   USE LMLoop_data,ONLY: llm,ulm,llmMag,ulmMag
   USE radial_data,ONLY: nRstart,nRstop
   USE parallel_mod,only: rank
-  use cutils
+  !USE cutils
   implicit none
 
   !-- Velocity potentials:

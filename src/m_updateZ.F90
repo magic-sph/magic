@@ -24,7 +24,9 @@ MODULE updateZ_mod
   PRIVATE
   !-- Input of recycled work arrays:
   COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: workA,workB,workC
-
+  COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:,:) :: rhs1 ! RHS for other modes
+  INTEGER :: maxThreads
+  
   PUBLIC :: updateZ,initialize_updateZ
 
 CONTAINS
@@ -32,6 +34,13 @@ CONTAINS
     allocate(workA(llm:ulm,n_r_max))
     allocate(workB(llm:ulm,n_r_max))
     allocate(workC(llm:ulm,n_r_max))
+
+#ifdef WITHOMP
+    maxThreads=omp_get_max_threads()
+#else
+    maxThreads=1
+#endif
+    ALLOCATE(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
   END SUBROUTINE initialize_updateZ
 
   SUBROUTINE updateZ(z,dz,dzdt,dzdtLast,time, &
@@ -97,7 +106,7 @@ CONTAINS
   INTEGER :: nR                 ! counts radial grid points
   INTEGER :: n_cheb             ! counts cheb modes
   COMPLEX(kind=8) :: rhs(n_r_max)   ! RHS of matrix multiplication
-  COMPLEX(kind=8) :: rhs1(n_r_max,lo_sub_map%sizeLMB2max) ! RHS for other modes
+  !COMPLEX(kind=8) :: rhs1(n_r_max,lo_sub_map%sizeLMB2max) ! RHS for other modes
   COMPLEX(kind=8) :: z10(n_r_max),z11(n_r_max) ! toroidal flow scalar components
   REAL(kind=8) :: angular_moment(3)   ! total angular momentum
   REAL(kind=8) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
@@ -120,7 +129,7 @@ CONTAINS
 
   logical :: DEBUG_OUTPUT=.false.
   INTEGER :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
-  INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk
+  INTEGER :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
   complex(kind=8) :: rhs_sum
 
   !-- end of declaration
@@ -161,9 +170,9 @@ CONTAINS
   DO nLMB2=1,nLMBs2(nLMB)
      !$OMP TASK default(shared) &
      !$OMP firstprivate(nLMB2) &
-     !$OMP private(lmB,lm,lm1,l1,m1,rhs1,n_cheb,nR) &
+     !$OMP private(lmB,lm,lm1,l1,m1,n_cheb,nR) &
      !$OMP private(nChunks,size_of_last_chunk,iChunk) &
-     !$OMP private(tOmega_ma1,tOmega_ma2) &
+     !$OMP private(tOmega_ma1,tOmega_ma2,threadid) &
      !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
      nChunks = (sizeLMB2(nLMB2,nLMB)+chunksize-1)/chunksize
      size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
@@ -191,7 +200,14 @@ CONTAINS
         !$OMP firstprivate(iChunk) &
         !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
         !$OMP private(tOmega_ma1,tOmega_ma2) &
-        !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum)
+        !$OMP private(tOmega_ic1,tOmega_ic2,rhs_sum) &
+        !$OMP private(threadid)
+#ifdef WITHOMP
+          threadid = omp_get_thread_num()
+#else
+          threadid = 0
+#endif
+
         lmB0=(iChunk-1)*chunksize
         lmB=lmB0
 
@@ -292,15 +308,15 @@ CONTAINS
            ELSE IF ( l1 /= 0 ) THEN
               !PERFON('upZ_ln0')
               lmB=lmB+1
-              rhs1(1,lmB)      =0.D0
-              rhs1(n_r_max,lmB)=0.D0
+              rhs1(1,lmB,threadid)      =0.D0
+              rhs1(n_r_max,lmB,threadid)=0.D0
               DO nR=2,n_r_max-1
-                 rhs1(nR,lmB)=&
+                 rhs1(nR,lmB,threadid)=&
                       & O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*z(lm1,nR)&
                       & + w1*dzdt(lm1,nR) &
                       & + w2*dzdtLast(lm1,nR)
 #ifdef WITH_PRECOND_Z
-                 rhs1(nR,lmB) = zMat_fac(nR,l1)*rhs1(nR,lmB)
+                 rhs1(nR,lmB,threadid) = zMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif
               END DO
               !PERFOFF
@@ -310,7 +326,7 @@ CONTAINS
         !PERFON('upZ_sol')
         IF ( lmB > lmB0 ) THEN
            CALL cgeslML(zMat(1,1,l1),n_r_max,n_r_max, &
-                &       zPivot(1,l1),rhs1(:,lmB0+1:lmB),n_r_max,lmB-lmB0)
+                &       zPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
         END IF
         !PERFOFF
         IF ( lRmsNext ) THEN ! Store old z
@@ -337,12 +353,12 @@ CONTAINS
               lmB=lmB+1
               IF ( m1 > 0 ) THEN
                  DO n_cheb=1,n_cheb_max
-                    z(lm1,n_cheb)=rhs1(n_cheb,lmB)
+                    z(lm1,n_cheb)=rhs1(n_cheb,lmB,threadid)
                  END DO
               ELSE
                  DO n_cheb=1,n_cheb_max
                     z(lm1,n_cheb)= &
-                         CMPLX(REAL(rhs1(n_cheb,lmB)),0.D0,KIND=KIND(0d0))
+                         CMPLX(REAL(rhs1(n_cheb,lmB,threadid)),0.D0,KIND=KIND(0d0))
                  END DO
               END IF
            END IF
