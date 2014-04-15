@@ -25,6 +25,7 @@ MODULE logic
   LOGICAL :: l_storeTpot
   LOGICAL :: l_storePot
   LOGICAL :: l_r_field
+  LOGICAL :: l_r_fieldT
   LOGICAL :: l_b_nl_cmb,l_b_nl_icb
   LOGICAL :: l_correct_AMe,l_correct_AMz
   LOGICAL :: l_HTmovie,l_HT
