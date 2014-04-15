@@ -2,7 +2,7 @@
 !********************************************************************
 SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
      &                   lm_max,l_max,l_max_r,minc, &
-     &                   lm2,n_sets,file,n_file,l_save_out,lV)
+     &                   lm2,n_sets,file,n_file,l_save_out,nVBS)
   !********************************************************************
 
   !  +-------------+----------------+------------------------------------+
@@ -10,7 +10,8 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
   !  | Each call of this subroutine writes time and the poloidal and     |
   !  | toroidal coeffitients w,dw,z at a specific radius up to degree    |
   !  | and order l_max_r at the end of output file $file.                |
-  !  | If the input is magnetic field (lV=.FALSE.) ddw is stored as well.|
+  !  | If the input is magnetic field (nVBS=2) ddw is stored as well.    |
+  !  | If the input is entropy field (nVBS=3) only ddw=s is stored.      |
   !  | The parameters l_max_r, minc, the number of stored coeffs and     |
   !  | radius in the outer core are written into the first line of $file.|
   !  | Each further set contains:                                        |
@@ -56,7 +57,7 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
   character(len=*) :: file     ! Name of output file
   integer :: n_file         ! Output unit for $file
   logical :: l_save_out     ! Controlls output
-  LOGICAL :: lV             ! True if output is flow
+  INTEGER :: nVBS           ! True if output is flow
 
   !-- Output:
   integer :: n_sets         ! Total no. of cmb sets,
@@ -87,23 +88,39 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
        m_max_r*(m_max_r-minc)/(2*minc) + &
        l_max_r-m_max_r+1
   n_data=2*lm_max_r-l_max_r-2
-  if ( 4*n_data > n_data_max ) then
-     write(*,*)
-     write(*,*) ' Dimension n_data_max too small'
-     write(*,*) ' in subroutine write_coeff_r !'
-     write(*,*) ' Should be at least:',3*n_data
-     stop
-  end if
+  !--- JW 10.Apr.2014: corrected dimension check for different output:
+  IF ( nVBS.EQ.1 ) THEN
+     if ( 3*n_data.gt.n_data_max ) then
+        write(*,*)
+        write(*,*) ' Dimension n_data_max too small'
+        write(*,*) ' in subroutine write_coeff_r !'
+        write(*,*) ' Should be at least:',3*n_data
+        stop
+     end if
+  ELSE IF ( nVBS.EQ.2 ) THEN
+     if ( 4*n_data.gt.n_data_max ) then
+        write(*,*)
+        write(*,*) ' Dimension n_data_max too small'
+        write(*,*) ' in subroutine write_coeff_r !'
+        write(*,*) ' Should be at least:',4*n_data
+        stop
+     end if
+  ELSE IF ( nVBS.EQ.3 ) THEN
+     n_data=n_data+1
+     if ( n_data.gt.n_data_max ) then
+        write(*,*)
+        write(*,*) ' Dimension n_data_max too small'
+        write(*,*) ' in subroutine write_coeff_r !'
+        write(*,*) ' Should be at least:',n_data
+        stop
+     end if
+  END IF
 
   !--- Increase no. of sets:
   n_sets=n_sets+1
 
   !--- Open output file with name $file:
-  if ( l_save_out ) then
-     open(n_file,file=file,form='unformatted',status='unknown',position='APPEND')
-     !------ Position file after last set:
-  end if
-
+  open(n_file,file=file,form='unformatted',status='unknown',position='APPEND')
 
   !--- If this is the first set write, l_max_r and minc into first line:
   if ( n_sets == 1 ) then
@@ -115,14 +132,29 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
 
   n_out=0
 
-  !--- Axisymmetric part of w: (m=0) only real part stored
-  do l=1,l_max
-     lm=lm2(l,0)
-     if ( l <= l_max_r ) then
-        n_out=n_out+1
-        out(n_out)=REAL(w(lm))
-     end if
-  end do
+  IF ( nVBS.EQ.3 ) THEN
+
+     !--- Axisymmetric part of s: (m=0) only real part stored
+     do l=0,l_max ! start with l=0
+        lm=lm2(l,0)
+        if ( l.le.l_max_r ) then
+           n_out=n_out+1
+           out(n_out)=dreal(w(lm))
+        end if
+     end do
+
+  ELSE
+
+     !--- Axisymmetric part of w: (m=0) only real part stored
+     do l=1,l_max ! start with l=1
+        lm=lm2(l,0)
+        if ( l <= l_max_r ) then
+           n_out=n_out+1
+           out(n_out)=REAL(w(lm))
+        end if
+     end do
+
+  END IF
 
   !--- Non-axisymmetric part of w: store real and imag part
   do m=minc,l_max_r,minc
@@ -137,54 +169,60 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
      end do
   end do
 
-  !--- Axisymmetric part of dw: (m=0) only real part stored
-  do l=1,l_max
-     lm=lm2(l,0)
-     if ( l <= l_max_r ) then
-        n_out=n_out+1
-        out(n_out)=REAL(dw(lm))
-     end if
-  end do
 
-  !--- Non-axisymmetric part of dv: store real and imag part
-  do m=minc,l_max_r,minc
-     do l=m,l_max
-        lm=lm2(l,m)
+  IF ( nVBS.NE.3 ) THEN
+!-- Now output for flow or magnetic field only:
+
+     !--- Axisymmetric part of dw: (m=0) only real part stored
+     do l=1,l_max
+        lm=lm2(l,0)
         if ( l <= l_max_r ) then
            n_out=n_out+1
            out(n_out)=REAL(dw(lm))
-           n_out=n_out+1
-           out(n_out)=AIMAG(dw(lm))
         end if
      end do
-  end do
 
-  !--- Axisymmetric part of z: (m=0) only real part stored
-  do l=1,l_max
-     lm=lm2(l,0)
-     if ( l <= l_max_r ) then
-        n_out=n_out+1
-        out(n_out)=REAL(z(lm))
-     end if
-  end do
+     !--- Non-axisymmetric part of dv: store real and imag part
+     do m=minc,l_max_r,minc
+        do l=m,l_max
+           lm=lm2(l,m)
+           if ( l <= l_max_r ) then
+              n_out=n_out+1
+              out(n_out)=REAL(dw(lm))
+              n_out=n_out+1
+              out(n_out)=AIMAG(dw(lm))
+           end if
+        end do
+     end do
 
-  !--- Non-axisymmetric part of z: store real and imag part
-  do m=minc,l_max_r,minc
-     do l=m,l_max
-        lm=lm2(l,m)
+     !--- Axisymmetric part of z: (m=0) only real part stored
+     do l=1,l_max
+        lm=lm2(l,0)
         if ( l <= l_max_r ) then
            n_out=n_out+1
            out(n_out)=REAL(z(lm))
-           n_out=n_out+1
-           out(n_out)=AIMAG(z(lm))
         end if
      end do
-  end do
+
+     !--- Non-axisymmetric part of z: store real and imag part
+     do m=minc,l_max_r,minc
+        do l=m,l_max
+           lm=lm2(l,m)
+           if ( l <= l_max_r ) then
+              n_out=n_out+1
+              out(n_out)=REAL(z(lm))
+              n_out=n_out+1
+              out(n_out)=AIMAG(z(lm))
+           end if
+        end do
+     end do
+
+  END IF
 
   !--- If this is a magnetic field I also store the second radial derivative
   !    of the poloidal potential to caluclate diffusion:
 
-  IF ( .NOT. lV ) THEN
+  IF ( nVBS.EQ.2 ) THEN
 
      !--- Axisymmetric part of ddw: (m=0) only real part stored
      do l=1,l_max
