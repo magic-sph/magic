@@ -62,12 +62,6 @@ SUBROUTINE closeFiles
            END IF
            IF ( l_cmb_field ) close(n_cmb_file)
            IF ( l_cmb_field .AND. l_movie ) close(n_cmbMov_file)
-           IF ( l_r_field ) THEN
-              DO n=1,n_coeff_r_max
-                 CLOSE(n_v_r_file(n))
-                 CLOSE(n_b_r_file(n))
-              END DO
-           ENDIF
            IF ( l_dt_cmb_field ) CLOSE(n_dt_cmb_file)
         END IF
         IF ( l_rot_ic .OR. l_rot_ma .AND.      &
