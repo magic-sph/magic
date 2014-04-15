@@ -9,7 +9,7 @@ MODULE output_mod
   USE num_param,only: tScale
   USE blocking,ONLY: st_map,lm2,lo_map
   USE horizontal_data,ONLY: dLh,hdif_B,dPl0Eq
-  USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB,l_RMS,l_r_field,&
+  USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB,l_RMS,l_r_field,l_r_fieldT,&
        & l_PV,l_SRIC,l_cond_ic,l_rMagSpec,l_movie_ic,l_store_frame,l_cmb_field,l_dt_cmb_field,&
        & l_save_out,l_non_rot
   USE fields,ONLY: omega_ic,omega_ma,b,db,ddb,aj,dj,ddj,&
@@ -33,7 +33,7 @@ MODULE output_mod
   USE outTO_mod,only: outTO
   USE outPV3, only: outPV
   USE output_data,ONLY: tag,tag_wo_rank,ngform,l_max_cmb,cmbMov_file,n_cmbMov_file,cmb_file,n_cmb_file,&
-       & dt_cmb_file,n_dt_cmb_file,n_coeff_r,l_max_r,v_r_file,n_v_r_file,b_r_file,n_b_r_file,&
+       & dt_cmb_file,n_dt_cmb_file,n_coeff_r,n_coeff_r_go,l_max_r,n_r_file,&
        & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
   use parallel_mod
@@ -53,7 +53,7 @@ MODULE output_mod
   INTEGER :: nBpotSets, nVpotSets, nTpotSets
   !-- Counter for output files/sets:
   INTEGER :: n_dt_cmb_sets, n_cmb_setsMov
-  INTEGER,DIMENSION(n_coeff_r_max) :: n_v_r_sets, n_v_r_mov_sets, n_b_r_sets, n_b_r_mov_sets
+  INTEGER,DIMENSION(n_coeff_r_max) :: n_v_r_sets, n_b_r_sets, n_T_r_sets
   INTEGER :: n_spec,nPVsets
 
   INTEGER :: nTOsets,nTOmovSets,nTOrmsSets
@@ -82,9 +82,8 @@ contains
 
     DO n=1,n_coeff_r_max
        n_v_r_sets(n)    =0
-       n_v_r_mov_sets(n)=0
        n_b_r_sets(n)    =0
-       n_b_r_mov_sets(n)=0
+       n_T_r_sets(n)    =0
     END DO
     n_spec       =0
     n_cmb_setsMov=0
@@ -245,6 +244,10 @@ contains
 
     CHARACTER(len=20) :: string
     logical :: DEBUG_OUTPUT=.false.
+
+!-- JW 10.Apr.2014: files now radial level output now locally defined
+    CHARACTER(len=72) :: v_r_file,b_r_file,T_r_file
+    INTEGER :: length
 
     INTEGER,DIMENSION(:),ALLOCATABLE :: sendcounts,displs,recvcounts
     INTEGER :: irank
@@ -615,20 +618,39 @@ contains
        END IF
 
        !--- Store potential coeffs for velocity fields and magnetic fields
+!-- JW 10.Apr.2014: Output of potentials at radial levels changed, output of s
+!   added.
        IF ( l_r ) THEN
           PERFON('out_r')
-          DO n=1,n_coeff_r_max
+          DO n=1,n_coeff_r_go 
              nR=n_coeff_r(n)
+             IF ( n.LT.10 ) THEN
+                WRITE(string,'(i1)') n
+                length=1
+                v_r_file='V_coeff_r'//string(1:length)//'.'//tag
+                b_r_file='B_coeff_r'//string(1:length)//'.'//tag
+                T_r_file='T_coeff_r'//string(1:length)//'.'//tag
+             ELSE
+                WRITE(string,'(i2)') n
+                length=2
+                v_r_file='V_coeff_r'//string(1:length)//'.'//tag
+                b_r_file='B_coeff_r'//string(1:length)//'.'//tag
+                T_r_file='T_coeff_r'//string(1:length)//'.'//tag
+             END IF
              CALL write_coeff_r(timeScaled,                            &
                   &             w(:,nR),dw(:,nR),ddw(:,nR),z(:,nR),r(nR),&
                   &             lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
-                  &             v_r_file(n),n_v_r_file(n),l_save_out,.TRUE.)
-             IF ( l_mag ) THEN
+                  &             v_r_file,n_r_file,l_save_out,1)
+             IF ( l_mag ) &
                 CALL write_coeff_r(timeScaled,                         &
                      &             b(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR),&
                      &             lm_max,l_max,l_max_r,minc,lm2,n_b_r_sets(n),&
-                     &             b_r_file(n),n_b_r_file(n),l_save_out,.FALSE.)
-             END IF
+                     &             b_r_file,n_r_file,l_save_out,2)
+             IF ( l_r_fieldT ) &
+                CALL write_coeff_r(timeScaled, &
+                                   s(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR), &
+                                   lm_max,l_max,l_max_r,minc,lm2,n_T_r_sets(n), &
+                                   T_r_file,n_r_file,l_save_out,3)
           END DO
           PERFOFF
        END IF
