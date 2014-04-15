@@ -94,21 +94,42 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
 
   DO nCheb=1,n_cheb_max
 
+!-- JW 10.Apr.2014: pseudo vacuum outer boundary condition included as ktopb=4
+!option.
+     IF ( ktopb == 1 .OR. ktopb == 3 ) THEN
+
      !-------- at CMB (nR=1):
      !         the internal poloidal field should fit a potential
      !         field (matrix bmat) and the toroidal field has to
      !         vanish (matrix ajmat).
 
-     bMat(1,nCheb)=            cheb_norm * ( &
-          dcheb(nCheb,1) + &
-          DBLE(l)*or1(1)*cheb(nCheb,1) + &
-          conductance_ma* ( &
-          d2cheb(nCheb,1) - &
-          dLh*or2(1)*cheb(nCheb,1) ) )
+        bMat(1,nCheb)=            cheb_norm * ( &
+             dcheb(nCheb,1) + &
+             DBLE(l)*or1(1)*cheb(nCheb,1) + &
+             conductance_ma* ( &
+             d2cheb(nCheb,1) - &
+             dLh*or2(1)*cheb(nCheb,1) ) )
 
-     jMat(1,nCheb)=            cheb_norm * ( &
-          cheb(nCheb,1) + &
-          conductance_ma*dcheb(nCheb,1) )
+        jMat(1,nCheb)=            cheb_norm * ( &
+             cheb(nCheb,1) + &
+             conductance_ma*dcheb(nCheb,1) )
+
+     ELSE IF ( ktopb == 2 ) THEN
+
+        WRITE(*,*) '! Boundary condition ktopb=2 not defined!'
+        STOP
+
+     ELSE IF ( ktopb == 4 ) THEN
+
+!----- pseudo vacuum condition, field has only
+!      a radial component, horizontal components
+!      vanish when aj and db are zero:
+        bMat(1,nCheb)=cheb_norm*dcheb(nCheb,1)
+
+        jMat(1,nCheb)=cheb_norm*cheb(nCheb,1)
+
+     END IF
+
 
 
      !-------- at IC (nR=n_r_max):
@@ -146,6 +167,13 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
              cheb(nCheb,n_r_max)
         jMat(n_r_max+1,nCheb)=cheb_norm * &
              sigma_ratio*dcheb(nCheb,n_r_max)
+
+!-- JW 10.Apr.2012: pseudo vacuum condition at lower boundary included.
+     ELSE IF ( kbotb == 4 ) THEN
+
+!----- Pseudovacuum conduction at lower boundary:
+        bMat(n_r_max,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
+        jMat(n_r_max,nCheb)=cheb_norm*cheb(nCheb,n_r_max)
 
      END IF
 
