@@ -82,10 +82,12 @@
 ! *** magnetic boundary condtions
 !     if ktopb = 1, insulating outer boundary (mantle)
 !     if kbotb = 1, insulating inner boundary (core)
-!     if ktopb = 2, perfectly conducting outer boundary
+!     if ktopb = 2, not implemented
 !     if kbotb = 2, perfectly conducting inner boundary
 !     if ktopb = 3, finitely conducting mantle
 !     if kbotb = 3, finitely conducting inner core
+!     if ktopb = 4, pseudo vacuum outer boundary (B=Br)
+!     if kbotb = 4, pseudo vacuum inner boundary (B=Br)
 
 ! *** magneto-convection
 !     amp_b1 = max amplitude of imposed magnetic field
