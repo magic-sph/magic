@@ -114,8 +114,8 @@ CONTAINS
          t_TOmovie_start,t_TOmovie_stop,dt_TOmovie, &
          l_movie,l_average,l_save_out,l_true_time, &
          l_cmb_field,l_rMagSpec,l_DTrMagSpec, &
-         l_dt_cmb_field,l_r_field, &
-         l_max_cmb,n_r_step,l_max_r, &
+         l_dt_cmb_field,l_max_cmb, &
+         l_r_field,l_r_fieldT,n_r_step,l_max_r,n_r_array, &
          l_TO,l_TOmovie,l_hel,lVerbose, &
          l_AM,l_power,l_drift,l_storeBpot,l_storeVpot, &
          l_storeTpot,l_storePot,sDens,zDens,l_RMS, &
@@ -367,20 +367,45 @@ CONTAINS
        l_mag_LF =.FALSE.
     END IF
 
+!-- JW 10.Apr.2014: new checking of magnetic boundary condition.
+    IF ( kbotb > 4 ) THEN
+       WRITE(*,*) '! Only outer boundary conditions kbotb<=4 implemented!'
+       STOP
+    END IF
     IF ( sigma_ratio == 0.D0 ) THEN
        l_cond_ic=.FALSE.
-       kbotb=1
+       IF ( kbotb == 3 ) THEN
+          WRITE(*,*) '! For an insulating  IC with sigma_ratio=0   !'
+          WRITE(*,*) '! boundary condition kbotb=3 is not appropriate!'
+          STOP
+       END IF
     ELSE
        l_cond_ic=.TRUE.      ! tell the code to use a conducting inner core
-       kbotb=3               ! set the boundary condition appropriately
+       IF ( kbotb .NE. 3 ) THEN
+          WRITE(*,*) '! For a conducting IC with sigma_ratio>0   !'
+          WRITE(*,*) '! boundary condition kbotb=3 is appropriate!'
+          STOP
+       END IF
     END IF
 
+    IF ( ktopb > 4 ) THEN
+       WRITE(*,*) '! Only outer boundary conditions ktopb<=4 implemented!'
+       STOP
+    END IF
     IF ( conductance_ma == 0.D0 ) THEN
        l_cond_ma=.FALSE.
-       ktopb=1
+       IF ( ktopb == 3 ) THEN
+          WRITE(*,*) '! For an insulating mantle with conductance_ma=0 !'
+          WRITE(*,*) '! boundary condition ktopb=3 is not appropriate!'
+          STOP
+       END IF
     ELSE
        l_cond_ma=.TRUE.      ! tell the code to use a conducting mantle
-       ktopb=3               ! set the boundary condition appropriately
+       IF ( ktopb .NE. 3 ) THEN
+          WRITE(*,*) '! For a conducting mantle with conductance_ma>0   !'
+          WRITE(*,*) '! boundary condition ktopb=3 is appropriate!'
+          STOP
+       END IF
     END IF
 
     IF ( .NOT. l_mag ) THEN
@@ -525,6 +550,9 @@ CONTAINS
 
     !-- Coeffs at CMB:
     l_max_cmb=MIN(l_max_cmb,l_max)
+
+    !-- Coeffs at radial levels:
+    IF ( l_r_fieldT ) l_r_field=.TRUE.
 
 
     !-- Maximum run time specified?
@@ -776,8 +804,12 @@ CONTAINS
     write(n_out,'(''  l_DTrMagSpec  ='',l3,'','')') l_DTrMagSpec
     write(n_out,'(''  l_max_cmb     ='',i3,'','')') l_max_cmb
     write(n_out,'(''  l_r_field     ='',l3,'','')') l_r_field
+    write(n_out,'(''  l_r_fieldT    ='',l3,'','')') l_r_fieldT
     write(n_out,'(''  l_max_r       ='',i3,'','')') l_max_r
     write(n_out,'(''  n_r_step      ='',i3,'','')') n_r_step
+    DO n=1,n_coeff_r_go
+       write(n_out,'(''    n_coeff_r   ='',i3,'','')') n_coeff_r(n)
+    END DO
     write(n_out,'(''  l_hel         ='',l3,'','')') l_hel
     write(n_out,'(''  l_AM          ='',l3,'','')') l_AM
     write(n_out,'(''  l_power       ='',l3,'','')') l_power
@@ -1062,8 +1094,12 @@ CONTAINS
 
     !----- Output of magnetic and flow potential af five different radial levels:
     l_r_field     =.FALSE.
+    l_r_fieldT    =.FALSE.
     l_max_r       =l_max
     n_r_step      =2
+    DO n=1,n_coeff_r_max
+       n_r_array(n)=0
+    END DO
 
     !----- Movie output:
     l_movie       =.FALSE.
