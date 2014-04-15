@@ -69,12 +69,14 @@ MODULE output_data
   REAL(kind=8) ::  t_pot(n_time_hits)
 
   !----- Output radii and degrees for coeff files:
-  INTEGER,PARAMETER :: n_coeff_r_max=5
+  INTEGER,PARAMETER :: n_coeff_r_max=100
+  INTEGER :: n_coeff_r_go
   INTEGER :: n_coeff_r(n_coeff_r_max)
+  INTEGER :: n_r_array(n_coeff_r_max)
   INTEGER :: l_max_cmb
   INTEGER :: l_max_r
   INTEGER :: n_r_step
-  !common/coeffFiles/n_coeff_r,l_max_cmb,l_max_r,n_r_step
+  !common/coeffFiles/n_coeff_r,n_coeff_r_go,l_max_cmb,l_max_r,n_r_step,n_r_array
 
   !----- Output files:
   INTEGER :: n_log_file,nLF
@@ -91,15 +93,12 @@ MODULE output_data
   INTEGER :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
   INTEGER :: n_rot_file
   INTEGER :: n_dipole_file
+  INTEGER :: n_r_file
   INTEGER :: n_cmb_file,n_dt_cmb_file
   INTEGER :: n_cmbMov_file
   INTEGER :: n_misc_file
   INTEGER :: n_SRIC_file
   INTEGER :: n_SRMA_file
-  INTEGER :: n_v_r_file(n_coeff_r_max)
-  INTEGER :: n_v_r_mov_file(n_coeff_r_max)
-  INTEGER :: n_b_r_file(n_coeff_r_max)
-  INTEGER :: n_b_r_mov_file(n_coeff_r_max)
   INTEGER :: n_power_file
   INTEGER :: n_signal_file
 
@@ -126,10 +125,6 @@ MODULE output_data
   CHARACTER(len=72) :: movie_file(n_movies_max)
   CHARACTER(len=72) :: SRIC_file
   CHARACTER(len=72) :: SRMA_file
-  CHARACTER(len=72) :: v_r_file(n_coeff_r_max)
-  CHARACTER(len=72) :: v_r_mov_file(n_coeff_r_max)
-  CHARACTER(len=72) :: b_r_file(n_coeff_r_max)
-  CHARACTER(len=72) :: b_r_mov_file(n_coeff_r_max)
   CHARACTER(len=72) :: power_file
   
   !----- Z-integrated output:
