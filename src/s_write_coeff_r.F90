@@ -139,7 +139,7 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
         lm=lm2(l,0)
         if ( l.le.l_max_r ) then
            n_out=n_out+1
-           out(n_out)=dreal(w(lm))
+           out(n_out)=real(w(lm))
         end if
      end do
 

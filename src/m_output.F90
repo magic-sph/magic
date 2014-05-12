@@ -450,7 +450,7 @@ contains
     IF (l_frame.OR.l_graph.OR.l_r.OR.l_Bpot.OR.l_Vpot&
          & .OR.l_Tpot.OR.l_store.OR.(l_SRIC.AND.l_stop_time).OR.l_PVout&
          & .or.l_rMagSpec) THEN
-#if 1
+#if 0
        WRITE(*,"(13(A,L1))") "l_log=",l_log,&
             & ", l_frame=",l_frame,&
             & ", l_graph=",l_graph,&
