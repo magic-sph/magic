@@ -29,6 +29,7 @@ n_cheb_ic_max=15,
  kbots       =1,
  ktopv       =2,
  kbotv       =2,
+ kbotb       =3
 /
 &start_field
  l_start_file=.TRUE.,
