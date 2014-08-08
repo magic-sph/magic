@@ -68,7 +68,8 @@ SUBROUTINE dtVrms(time,nRMS_sets)
   REAL(kind=8) :: ArcRms,   ArcAsRms
 
   !-- Local:
-  INTEGER :: nR,n,nRC
+  INTEGER :: nR,nRC
+  !INTEGER :: n
   REAL(kind=8) :: volC
   REAL(kind=8) :: bal1,bal2,bal3
 

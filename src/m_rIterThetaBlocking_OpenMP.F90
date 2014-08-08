@@ -499,7 +499,7 @@ CONTAINS
     CALL get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,dVxBhLM,   &
          &      dwdt,dzdt,dpdt,   &
          &      dsdt,dbdt,djdt,   &
-         &      this%nl_lm, this%leg_helper,this%nThreads)
+         &      this%nl_lm, this%leg_helper)
     !PERFOFF
     !write(*,"(A,I4,ES20.13)") "after_td:  ",this%nR,sum(real(conjg(dVxBhLM(:,this%nR_Mag))*dVxBhLM(:,this%nR_Mag)))
     !-- Finish calculation of TO variables:

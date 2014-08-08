@@ -41,12 +41,12 @@ SUBROUTINE get_dtBLMfinish(time,n_time_step, &
   COMPLEX(kind=8),intent(IN) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
   !-- Local variables:
-  INTEGER :: nLMB,nR    ! position of degree and order
-  INTEGER :: lmStart,lmStop! limits of lm-block
-  INTEGER :: lmStart_real,lmStop_real
+  !INTEGER :: nLMB    ! position of degree and order
+  INTEGER :: nR
+  !INTEGER :: lmStart,lmStop! limits of lm-block
+  !INTEGER :: lmStart_real,lmStop_real
 
   COMPLEX(kind=8) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
-  COMPLEX(kind=8),DIMENSION(lm_max) :: temp_global
 
   INTEGER :: l,m,lm
   !-- end of declaration

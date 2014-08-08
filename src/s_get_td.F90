@@ -3,7 +3,7 @@
 !***********************************************************************
 SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
      &            dwdt,dzdt,dpdt,dsdt,dbdt,djdt, &
-     &            nl_lm,leg_helper,nThreads)
+     &            nl_lm,leg_helper)
   !***********************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -49,7 +49,6 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
   INTEGER,intent(IN) :: nR
   INTEGER,intent(IN) :: nBc ! signifies boundary conditions
   LOGICAL,intent(IN) :: lRmsCalc
-  INTEGER,intent(IN) :: nThreads
 
   !----- Nonlinear terms:
   TYPE(nonlinear_lm_t),intent(IN) :: nl_lm

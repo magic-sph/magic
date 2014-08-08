@@ -72,8 +72,6 @@ CONTAINS
 
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
-    INTEGER :: nTheta,nPhi
-    integer :: nR_Mag
 
     LOGICAL :: DEBUG_OUTPUT=.FALSE.
 
@@ -294,7 +292,7 @@ CONTAINS
     CALL get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,dVxBhLM,   &
          &      dwdt,dzdt,dpdt,   &
          &      dsdt,dbdt,djdt,   &
-         &      this%nl_lm, this%leg_helper,1)
+         &      this%nl_lm, this%leg_helper)
     PERFOFF
     !DO lm=1,lm_max
     !   WRITE(*,"(2(I3,A),2ES20.12)") this%nR,": dwdt(",lm,") = ",dwdt(lm)

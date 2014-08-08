@@ -113,7 +113,6 @@ MODULE fields_average_mod
     COMPLEX(kind=8) :: dj_ic_ave(llm:ulm,n_r_ic_max)
 
     !----- Work array:
-    COMPLEX(kind=8) :: workA(lm_max,n_r_max)
     COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
 
     !----- Fields in grid space:

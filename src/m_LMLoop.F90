@@ -83,16 +83,14 @@ CONTAINS
 !--- Local counter
     INTEGER :: nLMB
     INTEGER :: lmStart,lmStop
-    !INTEGER :: nTh
-    INTEGER :: l,nR,lm
+    !INTEGER :: nTh,lm
+    INTEGER :: l
     INTEGER :: tStart(4),tStop(4),tPassed(4)
 
     LOGICAL,PARAMETER :: DEBUG_OUTPUT=.false.
 !--- Inner core rotation from last time step
     REAL(kind=8) :: omega_icLast
     SAVE omega_icLast
-    COMPLEX(kind=8) :: workA(lm_max,n_r_max)
-    COMPLEX(kind=8) :: workB(lm_max,n_r_max)
     complex(kind=8) :: sum_dwdt
 
 !-- end of declaration

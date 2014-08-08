@@ -76,7 +76,7 @@ contains
     INTEGER :: nSmax,nS,nSI
     REAL(kind=8) ::  sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
 
-    INTEGER :: nZ,nZmax,nZmaxNS,nZN
+    INTEGER :: nZ,nZmax,nZmaxNS
     !PARAMETER (nZmaxA=2*nSmaxA)
     INTEGER :: nZC(nSmaxA),nZ2(nZmaxA,nSmaxA),nZS
     REAL(kind=8) :: zZ(nZmaxA),zstep!,zZC

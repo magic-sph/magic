@@ -72,7 +72,8 @@ contains
     REAL(kind=8),DIMENSION(l_max+1) ::  T_ICB_l,  T_ICB_l_global
     REAL(kind=8),DIMENSION(l_max+1) :: dT_ICB_l, dT_ICB_l_global
 
-    REAL(kind=8) :: y,t,comp(l_max+1)
+    REAL(kind=8) :: comp(l_max+1)
+    !REAL(kind=8) :: y,t
     INTEGER :: nOut,ierr
 
     !-- end of declaration

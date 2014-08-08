@@ -149,7 +149,7 @@ CONTAINS
     type(grid_space_arrays_t) :: gsa
 
     ! Local variables
-    INTEGER :: nTheta,nPhi,lm
+    INTEGER :: nTheta
     LOGICAL :: DEBUG_OUTPUT=.FALSE.
     !----- Legendre transform from (r,l,m) to (r,theta,m):
     !      First version with PlmTF needed for first-touch policy  

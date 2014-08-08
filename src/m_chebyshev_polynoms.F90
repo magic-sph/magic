@@ -145,8 +145,8 @@ CONTAINS
     integer :: n,k   ! counter
     integer :: stop_signal
     real(kind=8) :: map_fac ! maping factor to transfrom y-derivatives
-    REAL(kind=8) :: local_cheb,local_dcheb,local_d2cheb,pos,spos,local_d3cheb
-    real(kind=8) :: yk
+    REAL(kind=8) :: local_cheb,local_dcheb,local_d2cheb,pos
+    !REAL(kind=8) :: spos,local_d3cheb,yk
     ! in [-1,1] to x-derivatives in [a,b]
 
     !-- End of declaration

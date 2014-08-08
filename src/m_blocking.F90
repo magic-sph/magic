@@ -837,7 +837,7 @@ SUBROUTINE get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs, sizeThetaB)
   INTEGER, INTENT(IN) :: n_theta_max,nThreads
   INTEGER, INTENT(OUT) :: nThetaBs, sizeThetaB
 
-  INTEGER :: best_s,s,memory_size,min_s
+  INTEGER :: best_s,s,min_s
   
   best_s=0
   min_s = 0

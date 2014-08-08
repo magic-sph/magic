@@ -63,7 +63,7 @@ contains
     integer(KIND=MPI_OFFSET_KIND) :: disp
     integer :: status(MPI_STATUS_SIZE)
     INTEGER :: number_of_fields,per_process, data_to_write
-    INTEGER :: filetype,n_elem,count
+    INTEGER :: filetype
     !-- end of declaration
     !---------------------------------------------------------------------
 

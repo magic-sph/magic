@@ -59,7 +59,7 @@ MODULE step_time_mod
 contains
   SUBROUTINE initialize_step_time
     INTEGER :: nR,lm
-    character(len=100) :: str
+    !character(len=100) :: str
 
     ALLOCATE(dwdt_Rloc(lm_max,nRstart:nRstop))
     ALLOCATE(dzdt_Rloc(lm_max,nRstart:nRstop))
@@ -237,14 +237,13 @@ contains
     LOGICAL,PARAMETER :: DEBUG_OUTPUT=.false.
     INTEGER :: lmStart,lmStop,lmStart_00
     INTEGER :: nR_i1,nR_i2
-    INTEGER :: lm,l,m
     ! MPI related variables
-    INTEGER :: i,j,info,irank, send_pe, recv_pe
-    INTEGER :: sendcount
+    INTEGER :: info
     !integer :: lmStart_on_rank,lmStop_on_rank,nR
     INTEGER,ALLOCATABLE,DIMENSION(:) :: recvcounts,displs
-    CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
-    INTEGER :: length_of_error,nR,nLMB
+    !CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
+    INTEGER :: nLMB
+    !INTEGER :: nR,length_of_error
 
     COMPLEX(KIND=8),POINTER,DIMENSION(:) :: ptr_dbdt_CMB
     !REAL(kind=8) :: start_time, end_time

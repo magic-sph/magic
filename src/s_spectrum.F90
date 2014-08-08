@@ -101,8 +101,6 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
 
   COMPLEX(kind=8) :: r_dr_b
 
-  INTEGER :: length
-
   !-- end of declaration
   !---------------------------------------------------------------------
 

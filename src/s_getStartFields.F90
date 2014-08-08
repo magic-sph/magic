@@ -53,7 +53,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   INTEGER :: n_time_step
 
   !-- Local variables:
-  INTEGER :: nR,lm,l1m0,nLMB,l,m
+  INTEGER :: nR,l1m0,nLMB,l,m
+  !INTEGER :: lm
   INTEGER :: lmStart,lmStop,lmStartReal,lmStopReal
   REAL(kind=8) :: coex
   REAL(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
@@ -70,7 +71,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !COMPLEX(kind=8) :: temp_lo(lm_max,n_r_max)
   !COMPLEX(kind=8) :: temp_lo(lm_max)
 
-  INTEGER :: irank,ierr
+  INTEGER :: ierr
   logical :: DEBUG_OUTPUT=.false.
   !-- end of declaration
   !---------------------------------------------------------------

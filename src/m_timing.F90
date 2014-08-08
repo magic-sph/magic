@@ -13,7 +13,6 @@ contains
     !------------------------------------------------------------------
 
     INTEGER, dimension(4) :: time
-    INTEGER :: count,countRate,countMax
     INTEGER(kind=8) :: mSeconds
     double precision :: dbl_seconds
     !------------------------------------------------------------------

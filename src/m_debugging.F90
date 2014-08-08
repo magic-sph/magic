@@ -67,7 +67,7 @@ SUBROUTINE debug_write_1D(arr,dim1,label,timestep,form)
 
   character(len=50) :: filename
   LOGICAL :: write_unformatted,write_exponent
-  INTEGER :: i,j
+  INTEGER :: i
 
   IF (PRESENT(form)) THEN
      IF ((form.EQ.'U').OR.(form.EQ.'u')) THEN

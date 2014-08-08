@@ -69,8 +69,8 @@ SUBROUTINE dtBrms(time)
   LOGICAL :: lRmsMov
 
   REAL(kind=8) :: global_sum(n_r_max)
-  INTEGER,DIMENSION(0:n_procs-1) :: recvcounts,displs
-  INTEGER :: irank,sendcount
+  !INTEGER,DIMENSION(0:n_procs-1) :: recvcounts,displs
+  !INTEGER :: sendcount
   !-- end of declaration
   !----------------------------------------------------------------------
   !CALL dtB_gather_Rloc_on_rank0

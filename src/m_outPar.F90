@@ -66,7 +66,8 @@ contains
     REAL(kind=8),INTENT(OUT):: RmR(n_r_max)
 
     !-- Further counter
-    INTEGER :: nR,lm,n
+    INTEGER :: nR,n
+    !INTEGER :: lm
 
     !--- Property parameters:
     REAL(kind=8) :: Mtmp

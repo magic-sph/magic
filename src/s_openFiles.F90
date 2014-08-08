@@ -28,9 +28,7 @@
 !-- Output written into c_output.f
 
 !-- Local:
-    CHARACTER(len=72) :: string
     INTEGER :: n
-    INTEGER ::  length
 
 !-- end of declaration
 !-----------------------------------------------------------------------

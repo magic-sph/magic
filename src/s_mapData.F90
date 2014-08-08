@@ -37,7 +37,7 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
   !-- local:
   INTEGER :: n_data,n_dataL,n_r_maxL,n_map_fac
   INTEGER :: n_data_old,n_data_oldP
-  INTEGER :: i,m_max_old,lm_max_old,nR
+  INTEGER :: m_max_old,lm_max_old,nR
   INTEGER :: lmStart,lmStop,lm,lmo,l,m,nLMB
   INTEGER :: lo,mo,n
   INTEGER,ALLOCATABLE :: lm2lmo(:)

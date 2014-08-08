@@ -118,7 +118,6 @@ contains
     REAL(kind=8),EXTERNAL :: chebInt,chebIntD
 
     LOGICAL lStopRun
-    INTEGER :: l,m
 
     !-- Correlation (new Oct. 4 2007)
     LOGICAL :: lCorrel

@@ -209,7 +209,7 @@ contains
     REAL(kind=4) :: timeAve,dt
     SAVE timeLast,timeAve
 
-    CHARACTER(len=64) :: version,fileName,fileZ
+    CHARACTER(len=64) :: version,fileName
     INTEGER :: nFieldSize,nPos
 
     !INTEGER :: nLines

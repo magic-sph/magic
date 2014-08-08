@@ -21,7 +21,7 @@ contains
   SUBROUTINE initialize(this,lmP_max)
     CLASS(nonlinear_lm_t) :: this
     INTEGER,intent(IN) :: lmP_max
-    integer :: size_in_bytes
+    !integer :: size_in_bytes
 
     ALLOCATE( this%AdvrLM(lmP_max) )   
     ALLOCATE( this%AdvtLM(lmP_max) )   
@@ -53,7 +53,6 @@ contains
 
   SUBROUTINE finalize(this)
     CLASS(nonlinear_lm_t) :: this
-    integer :: size_in_bytes
 
     DEALLOCATE( this%AdvrLM )   
     DEALLOCATE( this%AdvtLM )   

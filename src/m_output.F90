@@ -231,8 +231,7 @@ contains
     REAL(kind=8) :: dlB,dlBc,dmB
     REAL(kind=8) :: dlV,dlVc,dmV,dpV,dzV
     REAL(kind=8) :: visDiss,ohmDiss,lvDiss,lbDiss
-    COMPLEX(kind=8),DIMENSION(lm_max,n_r_max) :: temp_lo
-    INTEGER :: l,m,lm0
+    INTEGER :: l,lm0
     REAL(kind=8) :: ReEquat
 
     LOGICAL :: l_r,l_PVout
@@ -249,8 +248,6 @@ contains
     CHARACTER(len=72) :: v_r_file,b_r_file,T_r_file
     INTEGER :: length
 
-    INTEGER,DIMENSION(:),ALLOCATABLE :: sendcounts,displs,recvcounts
-    INTEGER :: irank
     !--- end of declaration
     !-----------------------------------------------------------------
 
