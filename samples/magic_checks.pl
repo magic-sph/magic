@@ -43,6 +43,7 @@ my %tests = (
                          testTruncations
                          testMapping
                          testOutputs
+                         testRadialOutputs
                     )],
              2 => [qw(
                          hydro_bench_anel
@@ -559,6 +560,8 @@ sub compare_numbers_fuzzily {
 
     # If too small (1e-40), don't test:
     return 1 if (abs("$x1$x2") < 1e-40 and "$x1$x2" != 0.);
+    # If diff too small (1e-20), don't test:
+    return 1 if (abs("$x1$x2"-"$y1$y2") < 1e-20);
 
     # Are $x, $y really numeric?
     unless(defined($x1) && defined($y1)) {

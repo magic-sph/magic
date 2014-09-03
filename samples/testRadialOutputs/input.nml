@@ -1,0 +1,67 @@
+&grid
+ n_r_max     =65,
+ n_cheb_max  =63,
+ n_phi_tot   =336,
+ n_r_ic_max  =17,
+n_cheb_ic_max=14,
+ nalias      =20,
+ minc        =7,
+/
+&control
+ mode        =0,
+ tag         ="start",
+ n_time_steps=100,
+ courfac     =2.5D0,
+ alffac      =1.0D0,
+ dtmax       =5.0D-5,
+ n_cour_step =5,
+ alpha       =0.6D0,
+ runHours    =10,
+ runMinutes  =10,
+ nThreadsRun =4,
+/
+&phys_param
+ ra          =3.38D4,
+ ek          =2.0D-3,
+ pr          =1.0D0,
+ prmag       =5.0D1,
+ strat       =3.D0,
+ polind      =2.0D0,
+ radratio    =0.35D0,
+ g0          =0.D0,
+ g1          =0.D0,
+ g2          =1.D0,
+ ktops       =1,
+ kbots       =1,
+ ktopb       =1,
+ kbotb       =1,
+ ktopv       =1,
+ kbotv       =1,
+/
+&start_field
+ l_start_file=.TRUE.,
+ start_file  ="rst_end.ini",
+ init_b1     =0,
+ amp_b1      =0,
+ init_s1     =0,
+ amp_s1      =0.01,
+/
+&output_control
+ n_log_step  =10,
+ n_graphs    =0,
+ n_specs     =1,
+ n_rsts      =0,
+ n_stores    =0,
+ runid       ="C.Jones bench",
+ l_movie     =.FALSE.,
+ l_power     =.TRUE.,
+ l_viscBcCalc=.TRUE.,
+ l_fluxProfs =.TRUE.,
+/
+&mantle 
+ nRotMa      =0
+/
+&inner_core 
+ sigma_ratio =0.d0,
+ nRotIC      =0,
+/
