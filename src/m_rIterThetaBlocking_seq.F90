@@ -9,7 +9,8 @@ MODULE rIterThetaBlocking_seq_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc
+       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
+       & l_fluxProfs
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -50,10 +51,12 @@ CONTAINS
 
   SUBROUTINE do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
        &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
-       &                 br_vt_lm_icb,br_vp_lm_icb,&
-       &                 lorentz_torque_ic, lorentz_torque_ma,&
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
+       &                 br_vt_lm_icb,br_vp_lm_icb,                    &
+       &                 lorentz_torque_ic, lorentz_torque_ma,         &
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,      &
+       &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
+       &                 fpoynLMr,fresLMr)
     CLASS(rIterThetaBlocking_seq_t) :: this
     INTEGER, INTENT(IN) :: nR,nBc
     REAL(kind=8),INTENT(IN) :: time,dt,dtLast
@@ -69,6 +72,8 @@ CONTAINS
     REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
 
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
@@ -223,6 +228,15 @@ CONTAINS
                &             this%gsa%drSc,this%gsa%dsdtc,this%gsa%dsdpc,    &
                &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
        END IF
+
+       IF ( l_fluxProfs ) THEN
+           CALL get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,  &
+                  &        this%gsa%dvtdrc,this%gsa%dvpdrc,this%gsa%dvrdtc,         &
+                  &        this%gsa%dvrdpc,this%gsa%sc,this%gsa%pc,this%gsa%brc,    &
+                  &        this%gsa%btc,this%gsa%bpc,this%gsa%cbtc,this%gsa%cbpc,   &
+                  &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,nThetaStart)
+       END IF
+
 
        !IF ( l_viscBcCalc ) THEN
        !   CALL get_duHorizontal(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,this%gsa%dvpdrc,    &

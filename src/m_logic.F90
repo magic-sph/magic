@@ -49,6 +49,7 @@ MODULE logic
   LOGICAL :: l_plotmap
   LOGICAL :: l_prms
   LOGICAL :: l_viscBcCalc 
+  LOGICAL :: l_fluxProfs
 
   LOGICAL :: lVerbose
 

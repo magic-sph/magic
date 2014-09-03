@@ -32,7 +32,7 @@ SUBROUTINE legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame, &
   USE Grenoble,ONLY: lGrenoble, b0,db0,ddb0
   USE blocking,ONLY: lm2l,lm2m,lm2
   USE horizontal_data,only: dLh
-  USE logic,ONLY: l_conv,l_mag_kin,l_heat,l_mag,l_movie_oc,l_mag_LF
+  USE logic,ONLY: l_conv,l_mag_kin,l_heat,l_mag,l_movie_oc,l_mag_LF,l_fluxProfs
   USE fields,ONLY: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &           b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,&
        &           w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
@@ -86,7 +86,7 @@ SUBROUTINE legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame, &
            END IF
         END DO
      END IF
-     IF ( lRmsCalc ) THEN
+     IF ( lRmsCalc .OR. l_fluxProfs ) THEN
         leg_helper%preR(1)=zero
         leg_helper%dpR(1)=zero
         DO lm=2,lm_max

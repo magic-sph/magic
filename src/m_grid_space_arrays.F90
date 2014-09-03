@@ -29,6 +29,7 @@ MODULE grid_space_arrays_mod
      COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: brc, btc, bpc
      COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: cbrc, cbtc, cbpc
      COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: sc, drSc
+     COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: pc
      COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: dsdtc, dsdpc
    CONTAINS
      procedure :: initialize
@@ -68,6 +69,7 @@ CONTAINS
     this%bpc=1.0d50
     ALLOCATE( this%cbrc(ncp,nfs),this%cbtc(ncp,nfs),this%cbpc(ncp,nfs) )
     ALLOCATE( this%sc(ncp,nfs),this%drSc(ncp,nfs) )
+    ALLOCATE( this%pc(ncp,nfs) )
     ALLOCATE( this%dsdtc(ncp,nfs),this%dsdpc(ncp,nfs) )
     size_in_bytes=size_in_bytes + 21*ncp*nfs*SIZEOF_DOUBLE_COMPLEX
     !WRITE(*,"(A,I15,A)") "grid_space_arrays: allocated ",size_in_bytes,"B."
@@ -102,6 +104,7 @@ CONTAINS
     DEALLOCATE( this%brc,this%btc,this%bpc )
     DEALLOCATE( this%cbrc,this%cbtc,this%cbpc )
     DEALLOCATE( this%sc,this%drSc )
+    DEALLOCATE( this%pc )
     DEALLOCATE( this%dsdtc, this%dsdpc )
     size_in_bytes=size_in_bytes + 21*ncp*nfs*SIZEOF_DOUBLE_COMPLEX
     WRITE(*,"(A,I15,A)") "grid_space_arrays: deallocated ",size_in_bytes,"B."

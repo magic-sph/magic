@@ -7,7 +7,8 @@ MODULE rIterThetaBlocking_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc
+       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
+       & l_fluxProfs
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -162,7 +163,7 @@ CONTAINS
             &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,           &
             &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,&
             &      gsa%cbtc,gsa%cbpc,gsa%sc,gsa%drSc,    &
-            &      gsa%dsdtc, gsa%dsdpc, &
+            &      gsa%dsdtc, gsa%dsdpc, gsa%pc, &
             &      this%leg_helper)
        !LIKWID_OFF('legTFG')
        !PERFOFF
@@ -180,11 +181,12 @@ CONTAINS
             &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,  &
             &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,&
             &           gsa%sc,gsa%drSc,    &
-            &           gsa%dsdtc, gsa%dsdpc, &
+            &           gsa%dsdtc, gsa%dsdpc,gsa%pc, &
             &           this%leg_helper%dLhw,this%leg_helper%dLhdw,this%leg_helper%dLhz,&
             &           this%leg_helper%vhG,this%leg_helper%vhC,this%leg_helper%dvhdrG,&
             &           this%leg_helper%dvhdrC,&
-            &           this%leg_helper%sR,this%leg_helper%dsR)
+            &           this%leg_helper%sR,this%leg_helper%dsR, &
+            &           this%leg_helper%preR)
        !LIKWID_OFF('legTFGnm')
        !PERFOFF
     END IF
@@ -204,6 +206,9 @@ CONTAINS
                 gsa%dsdtc=CMPLX(0.0,0.0,kind=kind(gsa%dsdtc))
                 gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
              END IF
+          END IF
+          IF ( l_fluxProfs ) THEN
+             CALL fft_thetab(gsa%pc,1)
           END IF
        END IF
        IF ( l_HT .or. l_viscBcCalc ) CALL fft_thetab(gsa%drSc,1)

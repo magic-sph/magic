@@ -4,7 +4,7 @@
 MODULE output_mod
   USE truncation
   USE radial_functions,ONLY: n_r_cmb,or1,or2,r,drx,i_costf_init,d_costf_init,r_cmb,r_icb
-  USE radial_data,ONLY: nRstart,nRstop
+  USE radial_data,ONLY: nRstart,nRstop,nRstartMag,nRstopMag
   USE physical_parameters,ONLY: opm,ek,ktopv,prmag,nVarCond,LFfac
   USE num_param,only: tScale
   USE blocking,ONLY: st_map,lm2,lo_map
@@ -130,7 +130,7 @@ contains
        &            l_frame,n_frame,l_cmb,n_cmb_sets,                 &
        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,  &
        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
-       &            gradsLMr)
+       &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
     !***********************************************************************
 
     !  +-------------+----------------+------------------------------------+
@@ -195,6 +195,11 @@ contains
     REAL(kind=8),intent(IN) :: uhLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: gradsLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: duhLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: fconvLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: fkinLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: fviscLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+    REAL(kind=8),intent(IN) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
 
     !--- Local stuff:
     !--- Energies:
@@ -364,7 +369,8 @@ contains
        !WRITE(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_cmb) = ",dlVr(n_r_cmb),dlVrc(n_r_cmb)
        CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
             &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
-            &      uhLMr,duhLMr,gradsLMr,RmR)
+            &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,      &
+            &      fpoynLMr,fresLMr,RmR)
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  outPar  on rank ",rank
 
        !----- Write misc. output:

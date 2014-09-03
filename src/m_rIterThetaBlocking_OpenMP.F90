@@ -10,7 +10,8 @@ MODULE rIterThetaBlocking_OpenMP_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc
+       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
+       & l_fluxProfs
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -96,7 +97,9 @@ CONTAINS
        &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
        &                 br_vt_lm_icb,br_vp_lm_icb,&
        &                 lorentz_torque_ic, lorentz_torque_ma,&
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
+       &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
+       &                 fpoynLMr,fresLMr)
     CLASS(rIterThetaBlocking_OpenMP_t) :: this
     INTEGER, INTENT(IN) :: nR,nBc
     REAL(kind=8),INTENT(IN) :: time,dt,dtLast
@@ -112,7 +115,8 @@ CONTAINS
     REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
-
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
     !INTEGER :: nTheta,nPhi
@@ -173,7 +177,8 @@ CONTAINS
     !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
     !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
     !$OMP SHARED(lorentz_torques_ic) &
-    !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
+    !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
+    !$OMP shared(fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
 #ifdef WITHOMP
     threadid = omp_get_thread_num()
 #else
@@ -194,12 +199,18 @@ CONTAINS
     uhLMr = 0.0D0
     duhLMr = 0.0D0
     gradsLMr = 0.0D0
+    fconvLMr=0.D0
+    fkinLMr=0.D0
+    fviscLMr=0.D0
+    fpoynLMr=0.D0
+    fresLMr=0.D0
     !$OMP END SINGLE
     !$OMP BARRIER
     call this%nl_lm(threadid)%set_zero()
     !$OMP DO &
     !$OMP reduction(+:br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
-    !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
+    !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
+    !$OMP reduction(+:fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
 
     DO nThetaB=1,this%nThetaBs
        nThetaLast =(nThetaB-1) * this%sizeThetaB
@@ -358,6 +369,28 @@ CONTAINS
           !     &" uh,duh,grads = ",&
           !     & SUM(uhLMr(:)),SUM(duhLMr(:)),SUM(gradsLMr(:))
        END IF
+
+
+       IF ( l_fluxProfs ) THEN
+           CALL get_fluxes(this%gsa(threadid)%vrc, &
+                  &        this%gsa(threadid)%vtc, &
+                  &        this%gsa(threadid)%vpc, &
+                  &        this%gsa(threadid)%dvrdrc,  &
+                  &        this%gsa(threadid)%dvtdrc,  &
+                  &        this%gsa(threadid)%dvpdrc,  &
+                  &        this%gsa(threadid)%dvrdtc,  &
+                  &        this%gsa(threadid)%dvrdpc,  &
+                  &        this%gsa(threadid)%sc, &
+                  &        this%gsa(threadid)%pc, &
+                  &        this%gsa(threadid)%brc, &
+                  &        this%gsa(threadid)%btc, &
+                  &        this%gsa(threadid)%bpc, &
+                  &        this%gsa(threadid)%cbtc,&
+                  &        this%gsa(threadid)%cbpc,&
+                  &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
+                  &        fresLMr,nR,nThetaStart)
+       END IF
+
 
        !--------- Movie output:
        IF ( this%l_frame .AND. l_movie_oc .AND. l_store_frame ) THEN

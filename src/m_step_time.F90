@@ -192,7 +192,9 @@ contains
          & HelnaLMr_Rloc,Helna2LMr_Rloc
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: uhLMr_Rloc,duhLMr_Rloc
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: gradsLMr_Rloc
-
+    REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: fconvLMr_Rloc,fkinLMr_Rloc
+    REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: fviscLMr_Rloc
+    REAL(kind=8),DIMENSION(l_maxMag+1,nRstartMag:nRstopMag) :: fpoynLMr_Rloc,fresLMr_Rloc
 
     !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
     COMPLEX(kind=8) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -720,7 +722,9 @@ contains
             &           br_vt_lm_cmb,br_vp_lm_cmb,                                  &
             &           br_vt_lm_icb,br_vp_lm_icb,                                  &
             &           HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,      &
-            &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+            &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,         &
+            &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc,      &
+            &           dtrkc_Rloc,dthkc_Rloc)
 
 
        IF ( lVerbose ) WRITE(*,*) '! r-loop finished!'
@@ -839,7 +843,8 @@ contains
             &      l_frame,n_frame,l_cmb,n_cmb_sets,                     &
             &      lorentz_torque_ic,lorentz_torque_ma,ptr_dbdt_CMB,     &
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-            &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc)
+            &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,   &
+            &      fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc)
        PERFOFF
        IF (lVerbose) WRITE(*,*) "! output finished"
 

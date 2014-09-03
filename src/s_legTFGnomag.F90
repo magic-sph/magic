@@ -3,8 +3,8 @@
 SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
      &                 vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
      &                 dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc, &
-     &                                      dsdtc,dsdpc,    &
-     &                 dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR)
+     &                                      dsdtc,dsdpc,pc, &
+     &                 dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC,sR,dsR,pR)
   !********************************************************************************
 
   !    !------------ This is release 2 level 1  --------------!
@@ -59,6 +59,7 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
   COMPLEX(kind=8),INTENT(IN) :: vhG(lm_max),vhC(lm_max)
   COMPLEX(kind=8),INTENT(IN) :: dvhdrG(lm_max),dvhdrC(lm_max)
   COMPLEX(kind=8),INTENT(IN) :: sR(lm_max),dsR(lm_max)
+  COMPLEX(kind=8),INTENT(IN) :: pR(lm_max)
 
   !------ Legendre Polynomials in c_horizontal.f
   !       REAL(kind=8) Plm(lm_max,n_theta_max/2)
@@ -73,10 +74,11 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dvrdrc,dvtdrc,dvpdrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cvrc,sc,drSc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: pc
 
   !-- local:
   COMPLEX(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-  complex(kind=8) :: sES,sEA,drsES,drsEA
+  complex(kind=8) :: sES,sEA,drsES,drsEA,pES,pEA
   COMPLEX(kind=8) :: dsdtES,dsdtEA
 
   INTEGER :: nThetaN,nThetaS,nThetaNHS
@@ -114,6 +116,22 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
+
+
+           IF ( l_fluxProfs ) THEN
+              DO mc=1,n_m_max
+                 lmS=lStop(mc)
+                 pES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
+                 pEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! The other equatorial symmetry
+                 DO lm=lStart(mc),lmS-1,2
+                    pES=pES+pR(lm)  *Plm(lm,nThetaNHS)
+                    pEA=pEA+pR(lm+1)*Plm(lm+1,nThetaNHS)
+                 END DO
+                 IF ( lmOdd(mc) ) pES=pES+pR(lmS)*Plm(lmS,nThetaNHS)
+                 pc(mc,nThetaN)=pES+pEA
+                 pc(mc,nThetaS)=pES-pEA
+              END DO
+           END IF
 
            IF ( l_viscBcCalc ) THEN
               DO mc=1,n_m_max
@@ -311,6 +329,9 @@ SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart, &
         DO nThetaN=1,sizeThetaB
            DO mc=n_m_max+1,ncp
               sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              IF ( l_fluxProfs) THEN
+                 pc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              END IF
               IF ( l_viscBcCalc) THEN
                  dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))

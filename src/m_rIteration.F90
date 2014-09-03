@@ -27,7 +27,8 @@ MODULE rIteration_mod
        &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
        &                 br_vt_lm_icb,br_vp_lm_icb,&
        &                 lorentz_torque_ic,lorentz_torque_ma,&
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr)
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr,&
+       &                 fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
        IMPORT
        CLASS(rIteration_t) :: this
        INTEGER,INTENT(IN) :: nR,nBc
@@ -44,6 +45,8 @@ MODULE rIteration_mod
        REAL(kind=8),INTENT(OUT) :: lorentz_torque_ic,lorentz_torque_ma
        REAL(kind=8),INTENT(OUT),DIMENSION(:) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
        REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
+       REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
+       REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
 
      END SUBROUTINE do_iteration_if
 

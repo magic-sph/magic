@@ -1,14 +1,14 @@
 !$Id$
 MODULE outPar_mod
-  USE truncation, ONLY:n_r_max, l_max, lm_max
+  USE truncation, ONLY:n_r_max,n_r_maxMag,l_max,lm_max,l_maxMag
   USE blocking, ONLY: nfs,nThetaBs,sizeThetaB
-  USE logic,ONLY: l_viscBcCalc,l_anel
+  USE logic,ONLY: l_viscBcCalc,l_anel,l_fluxProfs,l_mag_nl
   USE horizontal_data, ONLY: gauss
-  USE fields, ONLY: s_Rloc
-  USE physical_parameters, ONLY: ek,prmag
+  USE fields, ONLY: s_Rloc,ds_Rloc
+  USE physical_parameters, ONLY: ek,prmag,OhmLossFac,ViscHeatFac,opr
   USE const, ONLY: pi,mass
-  USE radial_functions, ONLY:r,or2,sigma,rho0
-  USE radial_data, ONLY: n_r_icb,nRstart,nRstop
+  USE radial_functions, ONLY:r,or2,sigma,rho0,kappa,temp0
+  USE radial_data, ONLY: n_r_icb,nRstart,nRstop,nRstartMag,nRstopMag
   use parallel_mod
   USE output_data,only: tag
   IMPLICIT NONE
@@ -19,6 +19,10 @@ MODULE outPar_mod
   REAL(kind=8),ALLOCATABLE :: sMeanR(:),Svar(:),Mvar(:)
   REAL(kind=8),ALLOCATABLE :: uhMeanR(:),duhMeanR(:)
   REAL(kind=8),ALLOCATABLE :: gradT2MeanR(:)
+  REAL(kind=8),ALLOCATABLE :: fcondMeanR(:),fconvMeanR(:),fkinMeanR(:)
+  REAL(kind=8),ALLOCATABLE :: fviscMeanR(:)
+  REAL(kind=8),ALLOCATABLE :: fresMeanR(:), fpoynMeanR(:)
+
 
 
 contains
@@ -29,6 +33,10 @@ contains
     ALLOCATE( dlVu2MeanR(n_r_max),dlVu2cMeanR(n_r_max) )
     ALLOCATE( RolMeanR(n_r_max),RolMeanRu2(n_r_max),RmMeanR(n_r_max) )
     ALLOCATE( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
+    ALLOCATE( fcondMeanR(n_r_max),fconvMeanR(n_r_max),fkinMeanR(n_r_max) )
+    ALLOCATE( fviscMeanR(n_r_max) )
+    ALLOCATE( fresMeanR(n_r_max),fpoynMeanR(n_r_max) )
+
 
     dlVMeanR     =0.D0
     dlVcMeanR    =0.D0
@@ -41,14 +49,21 @@ contains
     uhMeanR      =0.d0
     duhMeanR     =0.d0
     gradT2MeanR  =0.d0
+    fcondMeanR   =0.d0
+    fconvMeanR   =0.d0
+    fkinMeanR    =0.d0
+    fviscMeanR   =0.d0
+    fresMeanR    =0.D0
+    fpoynMeanR   =0.D0
 
 
   END SUBROUTINE initialize_outPar_mod
 
   !***********************************************************************
   SUBROUTINE outPar(timePassed,timeNorm,n_time_step,l_stop_time, &
-                    ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c, &
-                    uhLMr,duhLMr,gradsLMr,RmR)
+                    ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,      &
+                    uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,      &
+                    fviscLMr,fpoynLMr,fresLMr,RmR)
     !***********************************************************************
 
     !--- Input of variables
@@ -63,6 +78,11 @@ contains
     REAL(kind=8),INTENT(IN) :: uhLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),INTENT(IN) :: duhLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),INTENT(IN) :: gradsLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: fkinLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: fconvLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: fviscLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),INTENT(IN) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+    REAL(kind=8),INTENT(IN) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
     REAL(kind=8),INTENT(OUT):: RmR(n_r_max)
 
     !-- Further counter
@@ -78,9 +98,14 @@ contains
     ! For horizontal velocity
     INTEGER :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
     REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R,sR
+    REAL(kind=8),DIMENSION(nRstart:nRstop) :: fkinR,fcR,fconvR,fviscR
+    REAL(kind=8),DIMENSION(nRstartMag:nRstopMag) :: fresR,fpoynR
     REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global,gradT2R_global,sR_global
     REAL(kind=8),DIMENSION(n_r_max) :: Svar_global
+    REAL(kind=8),DIMENSION(n_r_max) :: fkinR_global,fcR_global,fconvR_global,fviscR_global
+    REAL(kind=8),DIMENSION(n_r_maxMag) :: fresR_global,fpoynR_global
     REAL(kind=8),DIMENSION(nfs) :: duh,uh,gradT2
+    REAL(kind=8),DIMENSION(nfs) :: fkin,fconv,fvisc,fres,fpoyn
 
     INTEGER :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
@@ -156,6 +181,79 @@ contains
             &           0,MPI_COMM_WORLD,ierr)
      END IF
 
+     IF ( l_fluxProfs ) THEN
+        DO nR=nRstart,nRstop
+          fcR(nR)=-REAL(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)*temp0(nR)*r(nR)*r(nR)*DSQRT(4.D0*pi)
+        END DO
+        DO nR=nRstart,nRstop
+            fkinR(nR) =0.d0
+            fconvR(nR)=0.d0
+            fviscR(nR)=0.d0
+            DO n=1,nThetaBs ! Loop over theta blocks
+                nTheta=(n-1)*sizeThetaB
+                nThetaStart=nTheta+1
+                CALL lmAS2pt(fkinLMr(1,nR),fkin,nThetaStart,sizeThetaB)
+                CALL lmAS2pt(fconvLMr(1,nR),fconv,nThetaStart,sizeThetaB)
+                CALL lmAS2pt(fviscLMr(1,nR),fvisc,nThetaStart,sizeThetaB)
+                DO nThetaBlock=1,sizeThetaB
+                    nTheta=nTheta+1
+                    nThetaNHS=(nTheta+1)/2
+                    fkinR(nR) =fkinR(nR) +gauss(nThetaNHS)* fkin(nThetaBlock)
+                    fconvR(nR)=fconvR(nR)+gauss(nThetaNHS)*fconv(nThetaBlock)
+                    fviscR(nR)=fviscR(nR)+gauss(nThetaNHS)*fvisc(nThetaBlock)
+                END DO
+            END DO
+        END DO
+
+        IF ( l_mag_nl ) THEN
+            DO nR=nRstart,nRstop
+                fresR(nR) =0.d0
+                fpoynR(nR)=0.d0
+                DO n=1,nThetaBs ! Loop over theta blocks
+                    nTheta=(n-1)*sizeThetaB
+                    nThetaStart=nTheta+1
+                    CALL lmAS2pt(fpoynLMr(1,nR),fpoyn,nThetaStart,sizeThetaB)
+                    CALL lmAS2pt(fresLMr(1,nR),fres,nThetaStart,sizeThetaB)
+                    DO nThetaBlock=1,sizeThetaB
+                        nTheta=nTheta+1
+                        nThetaNHS=(nTheta+1)/2
+                        fpoynR(nR)=fpoynR(nR)+gauss(nThetaNHS)*fpoyn(nThetaBlock)
+                        fresR(nR) =fresR(nR) +gauss(nThetaNHS)*fres(nThetaBlock)
+                    END DO
+                END DO
+            END DO
+        END IF
+
+        sendcount  = (nRstop-nRstart+1)
+        recvcounts = nr_per_rank
+        recvcounts(n_procs-1) = (nr_per_rank+1)
+        DO i=0,n_procs-1
+            displs(i) = i*nr_per_rank
+        END DO
+        CALL MPI_GatherV(fkinR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           fkinR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(fconvR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           fconvR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(fviscR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           fviscR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+        CALL MPI_GatherV(fcR,sendcount,MPI_DOUBLE_PRECISION,&
+            &           fcR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            &           0,MPI_COMM_WORLD,ierr)
+
+        IF ( l_mag_nl ) THEN
+           CALL MPI_GatherV(fpoynR,sendcount,MPI_DOUBLE_PRECISION,&
+               &           fpoynR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+               &           0,MPI_COMM_WORLD,ierr)
+           CALL MPI_GatherV(fresR,sendcount,MPI_DOUBLE_PRECISION,&
+               &           fresR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+               &           0,MPI_COMM_WORLD,ierr)
+        END IF
+     END IF
+
+
     IF (rank.EQ.0) THEN
        DO nR=1,n_r_max
           ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
@@ -188,6 +286,17 @@ contains
           gradT2MeanR=gradT2MeanR+timePassed*gradT2R_global
        END IF
 
+       IF ( l_fluxProfs ) THEN
+          fkinMeanR =fkinMeanR  +timePassed*fkinR_global
+          fcondMeanR=fcondMeanR +timePassed*fcR_global
+          fconvMeanR=fconvMeanR +timePassed*fconvR_global
+          fviscMeanR=fviscMeanR +timePassed*fviscR_global
+          IF ( l_mag_nl ) THEN
+             fresMeanR =fresMeanR +timePassed*fresR_global
+             fpoynMeanR=fpoynMeanR+timePassed*fpoynR_global
+          END IF
+       END IF
+
        IF ( l_stop_time ) THEN 
 
           dlVMeanR   =dlVMeanR/timeNorm
@@ -211,6 +320,18 @@ contains
              uhMeanR    =uhMeanR/timeNorm
              gradT2MeanR=gradT2MeanR/timeNorm
           END IF
+
+          IF ( l_fluxProfs ) THEN
+             fkinMeanR =ViscHeatFac*fkinMeanR/timeNorm
+             fcondMeanR=opr*fcondMeanR/timeNorm
+             fconvMeanR=fconvMeanR/timeNorm
+             fviscMeanR=ViscHeatFac*fviscMeanR/timeNorm
+             IF ( l_mag_nl ) THEN
+                fresMeanR =OhmLossFac*fresMeanR/timeNorm
+                fpoynMeanR=prmag*OhmLossFac*fpoynMeanR/timeNorm
+             END IF
+          END IF
+
 
           !----- Output into parrad file:
           filename='parR.'//tag
@@ -239,6 +360,22 @@ contains
                         &   uhMeanR(nR),               &! 4) uh
                         &   duhMeanR(nR),              &! 5) duh/dr
                         &   gradT2MeanR(nR)             ! 6) (grad T)**2
+             END DO
+             CLOSE(99)
+          END IF
+
+          IF ( l_fluxProfs ) THEN
+             filename='fluxesR.'//tag
+             OPEN(99,FILE=filename,STATUS='UNKNOWN')
+             DO nR=1,n_r_max
+                WRITE(99,'(D20.10,7D12.4)')            &
+                        &   r(nR),                     &! 1) radius
+                        &   fcondMeanR(nR),            &! 2) Fcond
+                        &   fconvMeanR(nR),            &! 3) Fconv
+                        &   fkinMeanR(nR),             &! 4) Fkin
+                        &   fviscMeanR(nR),            &! 5) Fvisc
+                        &   fpoynMeanR(nR),            &! 6) Fpoyn
+                        &   fresMeanR(nR)               ! 7) Fres
              END DO
              CLOSE(99)
           END IF

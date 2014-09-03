@@ -4,7 +4,7 @@ MODULE legendre_trafo
   USE truncation, ONLY: ncp,lm_max,n_m_max
   USE blocking, ONLY: nfs,sizeThetaB,lm2mc
   USE horizontal_data, ONLY: Plm,dPlm,lStart,lStop,lmOdd,D_mc2m,osn2
-  USE logic, ONLY: l_heat,l_ht, l_viscBcCalc
+  USE logic, ONLY: l_heat,l_ht, l_viscBcCalc, l_fluxProfs
   USE parallel_mod,only: rank
 #ifdef WITH_LIKWID
 # include "likwid_f90.h"
@@ -20,7 +20,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
      &            vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
      &            dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
      &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,&
-     &            drSc,dsdtc,dsdpc,    &
+     &            drSc,dsdtc,dsdpc,pc,    &
      &            leg_helper)
   !*******************************************************************************
   
@@ -78,6 +78,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cbrc,cbtc,cbpc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: sc,drSc
   COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
+  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: pc
 
   !------ Legendre Polynomials in m_horizontal.F90
   REAL(kind=8) :: PlmG(lm_max)
@@ -85,7 +86,7 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
 
   !-- local:
   COMPLEX(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-  COMPLEX(kind=8) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA
+  COMPLEX(kind=8) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
   COMPLEX(kind=8) :: dsdtES,dsdtEA
   INTEGER :: nThetaN,nThetaS,nThetaNHS
   INTEGER :: mc,lm,lmS
@@ -131,6 +132,21 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
               sc(mc,nThetaN)=sES+sEA
               sc(mc,nThetaS)=sES-sEA
            END DO
+
+           IF ( l_fluxProfs ) THEN
+              DO mc=1,n_m_max
+                  lmS=lStop(mc)
+                  pES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
+                  pEA=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! The other equatorial symmetry
+                  DO lm=lStart(mc),lmS-1,2
+                     pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
+                     pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
+                  END DO
+                  IF ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
+                  pc(mc,nThetaN)=pES+pEA
+                  pc(mc,nThetaS)=pES-pEA
+               END DO
+           END IF
 
            IF ( l_viscBcCalc ) THEN
               DO mc=1,n_m_max
@@ -430,6 +446,9 @@ SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
               IF ( l_viscBcCalc) THEN
                  dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              END IF
+              IF ( l_fluxProfs ) THEN
+                 pc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               END IF
               vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))

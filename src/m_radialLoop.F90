@@ -75,7 +75,8 @@ CONTAINS
        &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
        &                 br_vt_lm_icb,br_vp_lm_icb,                    &
        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
-       &                 gradsLMr,dtrkc,dthkc)
+       &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,           &
+       &                 fpoynLMr,fresLMr,dtrkc,dthkc)
     !***********************************************************************
 
     !    !------------ This is release 2 level 10  --------------!
@@ -107,6 +108,10 @@ CONTAINS
          & HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
     REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
          & uhLMr,duhLMr,gradsLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
+         & fkinLMr,fconvLMr,fviscLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(l_maxMag+1,nRstartMag:nRstopMag) :: &
+         & fresLMr,fpoynLMr
 
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
@@ -233,7 +238,8 @@ CONTAINS
             & br_vt_lm_cmb,br_vp_lm_cmb,&
             & br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma,&
             & HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),&
-            & uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR))
+            & uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),&
+            & fviscLMr(:,nR),fpoynLMr(:,nR),fresLMr(:,nR))
 
        !WRITE(*,"(I3,A,2ES20.12)") nR,": lorentz_torque = ",lorentz_torque_ic,lorentz_torque_ma
 

@@ -245,7 +245,7 @@ m_outTO.o               : truncation.o m_horizontal.o m_num_param.o\
                           m_phys_param.o m_radial.o m_logic.o m_blocking.o\
                           m_const.o m_output_data.o m_TO.o s_legtfAS.o s_legtfAS2.o\
                           s_costf1.o s_chebInt.o m_plms.o s_getPAStr.o\
-                          s_getAStr.o s_get_PAS.o m_char_manip.o
+                          s_getAStr.o s_get_PAS.o m_char_manip.o m_integration.o
 s_courant.o             : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_radial.o m_horizontal.o m_logic.o 
 s_get_br_v_bcs.o        : truncation.o m_horizontal.o $(FFT_OBJS)\
@@ -465,7 +465,9 @@ s_getHelLM.o            : truncation.o m_blocking.o m_horizontal.o\
                           m_num_param.o m_phys_param.o m_radial.o m_logic.o\
                           m_output_data.o s_legtfAS2.o 
 s_get_nlBLayers.o       : truncation.o m_blocking.o m_horizontal.o\
-                          m_radial.o s_legtfAS2.o 
+                          m_radial.o s_legtfAS2.o s_legtfAS.o
+s_get_fluxes.o          : truncation.o m_blocking.o m_horizontal.o\
+                          m_radial.o s_legtfAS2.o s_legtfAS.o m_const.o
 s_hInt2Pol.o            : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o
 s_write_movie_frame.o   : truncation.o m_blocking.o m_radial.o m_horizontal.o\
