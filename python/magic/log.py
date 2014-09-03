@@ -4,8 +4,8 @@ import os
 import string
 
 __author__  = "$Author: gastine $"
-__date__   = "$Date: 2013-11-05 16:11:37 +0100 (mar. 05 nov. 2013) $"
-__version__ = "$Revision: 541 $"
+__date__   = "$Date: 2013-12-02 16:36:18 +0100 (Mon, 02 Dec 2013) $"
+__version__ = "$Revision: 553 $"
 
 
 class MagicSetup:
@@ -31,6 +31,8 @@ class MagicSetup:
 
         for i in tab2:
             val = string.split(i, '=')
+            lhs = val[0].strip()
+            lhs = lhs.replace(' ', '_')
             rhs = val[1].strip()
             rhs = rhs.strip('"')
             if valueReal.match(rhs):
@@ -48,7 +50,7 @@ class MagicSetup:
                 rhs = None
             elif valueInt.match(rhs):
                 rhs = int(rhs)
-            setattr(self, val[0].strip(), rhs)
+            setattr(self, lhs, rhs)
             
         self.ra = float(self.ra)
         if not quiet:

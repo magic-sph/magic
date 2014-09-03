@@ -41,7 +41,7 @@ class Movie:
         if avg or std:
             iplot = False
         if file == None:
-            dat = glob.glob('*_mov.*')
+            dat = glob.glob('*[Mm]ov.*')
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
                 str1 += ' %i) %s\n' % (k+1, movie)
@@ -54,7 +54,7 @@ class Movie:
 
         else:
             filename = file
-        mot = re.compile(r'.*_mov\.(.*)')
+        mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(filename)[0]
 
         # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
@@ -320,7 +320,7 @@ class Movie:
             fig = P.figure(figsize=(8, 4))
 
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
-        ax = fig.add_subplot(111)
+        ax = fig.add_subplot(111, frameon=False)
 
         for k in range(self.nvar):
             if k == 0:
@@ -336,6 +336,7 @@ class Movie:
                     im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
+                ax.axis('off')
                 man = P.get_current_fig_manager()
                 man.canvas.draw()
             if k !=0 and k % step == 0:

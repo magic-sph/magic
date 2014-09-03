@@ -483,7 +483,7 @@ class MagicTs(MagicSetup):
 
 class AvgField:
 
-    def __init__(self, tstart, tag=None, dipExtra=False):
+    def __init__(self, tstart=None, tag=None, dipExtra=False):
         """
         A class to get average properties from time series
 
@@ -494,6 +494,15 @@ class AvgField:
                          values extracted from dipole.tag are computed
         """
 
+        if os.path.exists('tInitAvg') and tstart is None:
+            file = open('tInitAvg', 'r')
+            st = file.readline().strip('\n')
+            tstart = float(st)
+            file.close()
+        elif tstart is not None:
+            file = open('tInitAvg', 'w')
+            file.write('%f' % tstart)
+            file.close()
         self.dipExtra = dipExtra
         ts = MagicTs(field='e_kin', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
@@ -567,7 +576,7 @@ class AvgField:
                 self.buoPower = 1.
                 self.fohm = 1.
 
-        if len(glob.glob('u_square.*')) > 0:
+        if len(glob.glob('u_square.*')) > 0 and self.strat > 0:
             ts = MagicTs(field='u_square', all=True, iplot=False)
             mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
             ind = N.nonzero(mask)[0][0]
@@ -620,9 +629,16 @@ class AvgField:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.strat, self.pr, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg)
+            if self.strat == 0:
+                self.u2_pol = self.ekin_pol_avg
+                self.u2_tor = self.ekin_tor_avg
+                self.u2_pola = self.ekin_pola_avg
+                self.u2_tora = self.ekin_tora_avg
+                self.urol = self.rol
+                self.ureynolds = self.reynolds
             st += '%12.5e%12.5e%12.5e%12.5e' % \
                   (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
-            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e\n' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e\n' % \
               (self.reynolds, self.ureynolds, self.rol, self.urol, \
                self.nuss, self.dlV, self.udlV)
         return st

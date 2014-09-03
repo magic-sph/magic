@@ -193,11 +193,17 @@ def scanDir(pattern):
     out = [i[1] for i in dat]
     return out
 
-def hammer2cart(ttheta, pphi):
-    xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\
-         /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
-    yy = N.sqrt(2.) * N.sin(ttheta)\
-         /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
+def hammer2cart(ttheta, pphi, colat=False):
+    if not colat: # for lat and phi \in [-pi, pi]
+        xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\
+             /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
+        yy = N.sqrt(2.) * N.sin(ttheta)\
+             /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
+    else:  # for colat and phi \in [0, 2pi]
+        xx = -2.*N.sqrt(2.) * N.sin(ttheta)*N.cos(pphi/2.)\
+             /N.sqrt(1.+N.sin(ttheta)*N.sin(pphi/2.))
+        yy = N.sqrt(2.) * N.cos(ttheta)\
+             /N.sqrt(1.+N.sin(ttheta)*N.sin(pphi/2.))
     return xx, yy
 
 def cut(dat, vmax=None, vmin=None):

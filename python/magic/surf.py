@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from magic import MagicGraph, MagicSetup
+from magic import MagicGraph, MagicSetup, MagicRadial
 from magic.setup import labTex
 from libmagic import *
 import pylab as P
@@ -39,7 +39,7 @@ class Surf:
 
     def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None, 
              vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', 
-             normed=True, cbar=True, tit=True):
+             normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of a field at a given
         normalised radius.
@@ -319,12 +319,16 @@ class Surf:
                 normed = False
                 cs = N.linspace(vmin, vmax, levels)
                 im = ax.contourf(x, y, rprof, cs, cmap=cmap, extend='both')
-                #im = ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
+                if lines:
+                    ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5, extend='both')
+                    ax.contour(x, y, rprof, 1, colors=['k'])
                 #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
             else:
                 cs = levels
                 im = ax.contourf(x, y, rprof, cs, cmap=cmap)
-                #im = ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
+                if lines:
+                    ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
+                    ax.contour(x, y, rprof, 1, colors=['k'])
                 #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
 
         # Add the colorbar at the right place
@@ -370,7 +374,17 @@ class Surf:
             if labTex:
                 label = r'$\omega_z$'
             else:
-                label = r'omega'
+                label = 'vortz'
+        elif field in ('jz'):
+            philoc = N.linspace(0., 2.*N.pi/self.gr.minc, self.gr.npI)
+            rrloc, pphiloc = N.meshgrid(self.gr.radius, philoc)
+            dr = rderavg(rrloc*self.gr.Bphi[:,self.gr.ntheta/2,:], spectral=False,
+                         eta=self.gr.radratio, exclude=True)
+            equator = 1./rrloc*(dr - phideravg(self.gr.Br[:,self.gr.ntheta/2,:]))
+            if labTex:
+                label = r'$j_z$'
+            else:
+                label = 'jz'
         elif field in ('vopot'):
             philoc = N.linspace(0., 2.*N.pi/self.gr.minc, self.gr.npI)
             rrloc, pphiloc = N.meshgrid(self.gr.radius, philoc)
@@ -412,7 +426,7 @@ class Surf:
         else:
             data, label = selectField(self.gr, field, labTex)
 
-        if field not in ('vortz', 'vopot'):
+        if field not in ('vortz', 'vopot', 'jz'):
             equator = data[:, self.gr.ntheta/2,:]
 
         equator = symmetrize(equator, self.gr.minc)
@@ -593,6 +607,44 @@ class Surf:
             Btm = self.gr.Btheta.mean(axis=0)
             data = 1./rr2D*( rderavg(rr2D*Btm, eta=self.gr.radratio) - \
                              thetaderavg(Brm) )
+        elif field in ('ohm'):
+            if labTex:
+                label = r'$\lambda\,j^2$'
+            else:
+                label = 'Ohmic dissipation'
+            th3D = N.zeros_like(self.gr.Bphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(self.gr.ntheta):
+                th3D[:, i, :] = self.gr.colatitude[i]
+            for i in range(self.gr.nr):
+                rr3D[:, :, i] = self.gr.radius[i]
+            dphi = 2.*N.pi/self.gr.nphi
+
+            Op = (N.roll(self.gr.Btheta,-1,axis=2)-N.roll(self.gr.Btheta,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) + \
+                 self.gr.Btheta/rr3D - \
+                 (N.roll(self.gr.Br,-1,axis=1)-N.roll(self.gr.Br,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1)))
+            Ot = (N.roll(self.gr.Br,-1,axis=0)-N.roll(self.gr.Br,1,axis=0))/\
+                  (rr3D*N.sin(th3D)*dphi) - \
+                 (N.roll(self.gr.Bphi,-1,axis=2)-N.roll(self.gr.Bphi,1,axis=2))/\
+                 (N.roll(rr3D,-1,axis=2)-N.roll(rr3D,1,axis=2)) - \
+                 self.gr.Bphi/rr3D
+            Or = (N.roll(self.gr.Bphi,-1,axis=1)-N.roll(self.gr.Bphi,1,axis=1))/\
+                 (rr3D*(N.roll(th3D,-1,axis=1)-N.roll(th3D,1,axis=1))) + \
+                 N.cos(th3D)*self.gr.Bphi/(rr3D*N.sin(th3D)) - \
+                 (N.roll(self.gr.Btheta,-1,axis=0)-N.roll(self.gr.Btheta,1,axis=0))/\
+                 (rr3D*N.sin(th3D)*dphi)
+
+            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, -1, :] = Or[:, -2, :]
+            Ot[..., 0] = Ot[..., 1]
+            Ot[..., -1] = Ot[..., -2]
+            Op[..., 0] = Op[..., 1]
+            Op[..., -1] = Op[..., -2]
+            data = (Op**2+Ot**2+Or**2)
+            rad = MagicRadial(field='varCond', iplot=False)
+            data *= rad.lmbda[::-1] # it starts from ri in MagicRadial
         elif field in ('omeffect'):
             if labTex:
                 label = r'$\Omega$-effect'
@@ -627,7 +679,7 @@ class Surf:
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
             ssm = self.gr.entropy.mean(axis=0)
-            data = rho0*temp0*rderavg(ssm, self.gr.radratio, spectral=True, exclude=False)
+            data = rderavg(ssm, self.gr.radratio, spectral=True, exclude=False)
         elif field in ('alphaeffect'):
             if labTex:
                 label = r'$-\alpha \langle B_\phi\rangle$'

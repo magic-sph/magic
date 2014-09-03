@@ -203,11 +203,11 @@ class MagicSpectrum(MagicSetup):
 
                 fig = P.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc]/self.emag_polm.max(),
                          'k-', label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc]/self.emag_torm.max(),
                          'b-', label='toroidal')
-                ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc],
+                ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
                          'g-', label='cmb')
                 if labTex:
                     ax.set_xlabel('$m$+1')
