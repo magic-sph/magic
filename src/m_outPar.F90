@@ -113,15 +113,8 @@ contains
     !--- end of declaration
     !-----------------------------------------------------------------
     IF ( l_viscBcCalc ) THEN
-       !IF (rank.EQ.0) THEN
-       !DO nR=1,n_r_max
        DO nR=nRstart,nRstop
-          !sR(nR)=0.D0
-          ! Mean entropy profile
-          sR(nR) = SUM(REAL(s_Rloc(:,nR)))
-          !DO lm=1,lm_max
-          !   sR(nR) = sR(nR)+REAL(s_Rloc(lm,nR))
-          !END DO
+          sR(nR) = REAL(s_Rloc(1,nR))
           ! calculate entropy/temperature variance:
           IF (n_time_step .LE. 1) THEN
              Mvar(nR)       =sR(nR)
@@ -353,7 +346,7 @@ contains
              filename='bLayersR.'//tag
              OPEN(99,FILE=filename,STATUS='UNKNOWN')
              DO nR=1,n_r_max
-                WRITE(99,'(D20.10,6D12.4)')            &
+                WRITE(99,'(D20.10,6D20.12)')           &
                         &   r(nR),                     &! 1) radius
                         &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
                         &   Svar_global(nR),           &! 3) entropy variance
@@ -368,7 +361,7 @@ contains
              filename='fluxesR.'//tag
              OPEN(99,FILE=filename,STATUS='UNKNOWN')
              DO nR=1,n_r_max
-                WRITE(99,'(D20.10,7D12.4)')            &
+                WRITE(99,'(D20.10,7D20.12)')           &
                         &   r(nR),                     &! 1) radius
                         &   fcondMeanR(nR),            &! 2) Fcond
                         &   fconvMeanR(nR),            &! 3) Fconv
