@@ -1,7 +1,7 @@
 !$Id$
 MODULE outPar_mod
   USE truncation, ONLY:n_r_max,n_r_maxMag,l_max,lm_max,l_maxMag
-  USE blocking, ONLY: nfs,nThetaBs,sizeThetaB
+  USE blocking, ONLY: nfs,nThetaBs,sizeThetaB,lm2m
   USE logic,ONLY: l_viscBcCalc,l_anel,l_fluxProfs,l_mag_nl
   USE horizontal_data, ONLY: gauss
   USE fields, ONLY: s_Rloc,ds_Rloc
@@ -11,6 +11,8 @@ MODULE outPar_mod
   USE radial_data, ONLY: n_r_icb,nRstart,nRstop,nRstartMag,nRstopMag
   use parallel_mod
   USE output_data,only: tag
+  USE usefull, ONLY: cc2real
+
   IMPLICIT NONE
 
   REAL(kind=8),ALLOCATABLE :: dlVMeanR(:),dlVcMeanR(:)
@@ -60,7 +62,7 @@ contains
   END SUBROUTINE initialize_outPar_mod
 
   !***********************************************************************
-  SUBROUTINE outPar(timePassed,timeNorm,n_time_step,l_stop_time, &
+  SUBROUTINE outPar(timePassed,timeNorm,nLogs,l_stop_time,       &
                     ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,      &
                     uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,      &
                     fviscLMr,fpoynLMr,fresLMr,RmR)
@@ -71,7 +73,7 @@ contains
 
     REAL(kind=8),INTENT(IN) :: timePassed,timeNorm
     LOGICAL,INTENT(IN) :: l_stop_time
-    INTEGER,INTENT(IN) :: n_time_step
+    INTEGER,INTENT(IN) :: nLogs
     REAL(kind=8),INTENT(IN) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
     REAL(kind=8),INTENT(IN) :: dlVR(n_r_max),dlVRc(n_r_max)
     REAL(kind=8),INTENT(IN) :: ekinR(n_r_max)     ! kinetic energy w radius
@@ -86,18 +88,16 @@ contains
     REAL(kind=8),INTENT(OUT):: RmR(n_r_max)
 
     !-- Further counter
-    INTEGER :: nR,n
-    !INTEGER :: lm
+    INTEGER :: nR,n,m,lm
 
     !--- Property parameters:
-    REAL(kind=8) :: Mtmp
     REAL(kind=8),DIMENSION(n_r_max) :: ReR, RoR, RolR
 
     CHARACTER(len=76) :: filename
 
     ! For horizontal velocity
     INTEGER :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R,sR
+    REAL(kind=8),DIMENSION(nRstart:nRstop) :: duhR,uhR,gradT2R,sR,sR2
     REAL(kind=8),DIMENSION(nRstart:nRstop) :: fkinR,fcR,fconvR,fviscR
     REAL(kind=8),DIMENSION(nRstartMag:nRstopMag) :: fresR,fpoynR
     REAL(kind=8),DIMENSION(n_r_max) :: duhR_global,uhR_global,gradT2R_global,sR_global
@@ -116,17 +116,19 @@ contains
        DO nR=nRstart,nRstop
           sR(nR) = REAL(s_Rloc(1,nR))
           ! calculate entropy/temperature variance:
-          IF (n_time_step .LE. 1) THEN
-             Mvar(nR)       =sR(nR)
-             Svar(nR)       =0.d0
+          sR2(nR)=0.D0
+          DO lm=1,lm_max
+            m=lm2m(lm)
+            sR2(nR)=sR2(nR)+cc2real(s_Rloc(lm,nR),m)
+          END DO
+          IF ( nLogs .LE. 1) THEN
+             Mvar(nR)=sR(nR)
+             Svar(nR)=sR2(nR)-sR(nR)**2
           ELSE
-             Mtmp      =Mvar(nR)
-             Mvar(nR)  =Mvar(nR) + (sR(nR)-Mvar(nR))/n_time_step
-             Svar(nR)  =Svar(nR) + (sR(nR)-Mtmp)*(sR(nR)-Mvar(nR))
+             Mvar(nR)=Mvar(nR)+(sR(nR)-Mvar(nR))/nLogs
+             Svar(nR)=Svar(nR)+(sR2(nR)-Mvar(nR)**2)
           END IF
-          !WRITE(*,"(A,I3,A,3ES20.12)") "sR,Svar,Mvar (",nR,") = ",sR(nR),Svar(nR),Mvar(nR)
        END DO
-       !END IF
 
         DO nR=nRstart,nRstop
             uhR(nR) =0.d0
@@ -308,7 +310,7 @@ contains
 
           IF ( l_viscBcCalc ) THEN
              sMeanR     =sMeanR/timeNorm
-             Svar_global=Svar_global/(n_time_step-1)
+             Svar_global=Svar_global/(nLogs)
              duhMeanR   =duhMeanR/timeNorm
              uhMeanR    =uhMeanR/timeNorm
              gradT2MeanR=gradT2MeanR/timeNorm
@@ -349,7 +351,7 @@ contains
                 WRITE(99,'(D20.10,6D20.12)')           &
                         &   r(nR),                     &! 1) radius
                         &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
-                        &   Svar_global(nR),           &! 3) entropy variance
+                        &   Svar_global(nR)/(4.D0*pi), &! 3) entropy variance
                         &   uhMeanR(nR),               &! 4) uh
                         &   duhMeanR(nR),              &! 5) duh/dr
                         &   gradT2MeanR(nR)             ! 6) (grad T)**2

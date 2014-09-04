@@ -367,7 +367,7 @@ contains
        CALL getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
        !WRITE(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_icb) = ",dlVr(n_r_icb),dlVrc(n_r_icb)
        !WRITE(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_cmb) = ",dlVr(n_r_cmb),dlVrc(n_r_cmb)
-       CALL outPar(timePassedLog,timeNormLog,n_time_step,l_stop_time,    &
+       CALL outPar(timePassedLog,timeNormLog,nLogs,l_stop_time,    &
             &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,               &
             &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,      &
             &      fpoynLMr,fresLMr,RmR)
