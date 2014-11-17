@@ -587,12 +587,13 @@ CONTAINS
     END IF
 
 !-- Eps profiles
+!-- The remaining division by rho will happen in s_updateS.F90
     IF ( nVarEps == 0 ) THEN
         ! eps is constant
-        epscProf=orho1*otemp1
-    ELSE IF ( nVarEps == 1 ) THEN
-        ! rho*eps is constant
         epscProf=otemp1
+    ELSE IF ( nVarEps == 1 ) THEN
+        ! rho*eps in the RHS
+        epscProf=rho0*otemp1
     END IF
 
 !-- Variable viscosity

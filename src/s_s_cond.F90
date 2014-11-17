@@ -89,7 +89,7 @@
      
 !-- Set source terms in RHS:
     do n_r=2,n_r_max-1
-        rhs(n_r)=-epsc*epscProf(n_r)
+        rhs(n_r)=-epsc*epscProf(n_r)*orho1(n_r)
     end do
      
 !-- Set boundary values:
