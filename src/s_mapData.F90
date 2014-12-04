@@ -187,21 +187,21 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
               IF ( l_heat ) CALL mapDataR(soR,n_r_max_old,.FALSE.)
               DO nR=1,n_r_max
                  IF ( lm.GT.1 ) THEN
-                    w(lm,nR)=woR(nR)
-                    z(lm,nR)=zoR(nR)
-                    p(lm,nR)=poR(nR)
+                    w(lm,nR)=scale_v*woR(nR)
+                    z(lm,nR)=scale_v*zoR(nR)
+                    p(lm,nR)=scale_v*poR(nR)
                  END IF
-                 IF ( l_heat ) s(lm,nR)=soR(nR)
+                 IF ( l_heat ) s(lm,nR)=scale_s*soR(nR)
               END DO
            ELSE  
               DO nR=1,n_r_max
                  n=lmo+(nR-1)*lm_max_old
                  IF ( lm.GT.1 ) THEN
-                    w(lm,nR)=wo(n)
-                    z(lm,nR)=zo(n)
-                    p(lm,nR)=po(n)
+                    w(lm,nR)=scale_v*wo(n)
+                    z(lm,nR)=scale_v*zo(n)
+                    p(lm,nR)=scale_v*po(n)
                  END IF
-                 IF ( l_heat ) s(lm,nR)=so(n)
+                 IF ( l_heat ) s(lm,nR)=scale_s*so(n)
               END DO
            END IF
         END IF
@@ -256,21 +256,21 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
               CALL mapDataR(zoR,n_r_max_old,.TRUE.)
               CALL mapDataR(poR,n_r_max_old,.TRUE.)
               DO nR=1,n_r_max
-                 IF ( l_heat ) dsdt(lm,nR)=soR(nR)
+                 IF ( l_heat ) dsdt(lm,nR)=scale_s*soR(nR)
                  IF ( lm.GT.1 ) THEN
-                    dwdt(lm,nR)=woR(nR)
-                    dzdt(lm,nR)=zoR(nR)
-                    dpdt(lm,nR)=poR(nR)
+                    dwdt(lm,nR)=scale_v*woR(nR)
+                    dzdt(lm,nR)=scale_v*zoR(nR)
+                    dpdt(lm,nR)=scale_v*poR(nR)
                  END IF
               END DO
            ELSE
               DO nR=1,n_r_max
                  n=lmo+(nR-1)*lm_max_old
-                 IF ( l_heat ) dsdt(lm,nR)=so(n)
+                 IF ( l_heat ) dsdt(lm,nR)=scale_s*so(n)
                  IF ( lm.GT.1 ) THEN
-                    dwdt(lm,nR)=wo(n)
-                    dzdt(lm,nR)=zo(n)
-                    dpdt(lm,nR)=po(n)
+                    dwdt(lm,nR)=scale_v*wo(n)
+                    dzdt(lm,nR)=scale_v*zo(n)
+                    dpdt(lm,nR)=scale_v*po(n)
                  END IF
               END DO
            END IF
@@ -315,18 +315,18 @@ SUBROUTINE mapData(n_r_max_old,l_max_old,minc_old,l_mag_old,      &
                  CALL mapDataR(zoR,n_r_max_old,.TRUE.)
                  CALL mapDataR(poR,n_r_max_old,.TRUE.)
                  DO nR=1,n_r_max
-                    b(lm,nR)   =soR(nR)
-                    aj(lm,nR)  =woR(nR)
-                    dbdt(lm,nR)=zoR(nR)
-                    djdt(lm,nR)=poR(nR)
+                    b(lm,nR)   =scale_b*soR(nR)
+                    aj(lm,nR)  =scale_b*woR(nR)
+                    dbdt(lm,nR)=scale_b*zoR(nR)
+                    djdt(lm,nR)=scale_b*poR(nR)
                  END DO
               ELSE
                  DO nR=1,n_r_max
                     n=lmo+(nR-1)*lm_max_old
-                    b(lm,nR)   =so(n)
-                    aj(lm,nR)  =wo(n)
-                    dbdt(lm,nR)=zo(n)
-                    djdt(lm,nR)=po(n)
+                    b(lm,nR)   =scale_b*so(n)
+                    aj(lm,nR)  =scale_b*wo(n)
+                    dbdt(lm,nR)=scale_b*zo(n)
+                    djdt(lm,nR)=scale_b*po(n)
                  END DO
               END IF
            END IF

@@ -129,18 +129,18 @@ SUBROUTINE mapDataIC(n_r_ic_max_old,l_max_old,minc_old,         &
               CALL mapDataICR(dbdt_ic_oldR,n_r_ic_max_old)
               CALL mapDataICR(djdt_ic_oldR,n_r_ic_max_old)
               DO nR=1,n_r_ic_max
-                 b_ic(lm,nR)   =b_ic_oldR(nR)
-                 aj_ic(lm,nR)  =aj_ic_oldR(nR)
-                 dbdt_ic(lm,nR)=dbdt_ic_oldR(nR)
-                 djdt_ic(lm,nR)=djdt_ic_oldR(nR)
+                 b_ic(lm,nR)   =scale_b*b_ic_oldR(nR)
+                 aj_ic(lm,nR)  =scale_b*aj_ic_oldR(nR)
+                 dbdt_ic(lm,nR)=scale_b*dbdt_ic_oldR(nR)
+                 djdt_ic(lm,nR)=scale_b*djdt_ic_oldR(nR)
               END DO
            ELSE
               DO nR=1,n_r_ic_max
                  n=lmo+(nR-1)*lm_max_old
-                 b_ic(lm,nR)   =b_ic_old(n)
-                 aj_ic(lm,nR)  =aj_ic_old(n)
-                 dbdt_ic(lm,nR)=dbdt_ic_old(n)
-                 djdt_ic(lm,nR)=djdt_ic_old(n)
+                 b_ic(lm,nR)   =scale_b*b_ic_old(n)
+                 aj_ic(lm,nR)  =scale_b*aj_ic_old(n)
+                 dbdt_ic(lm,nR)=scale_b*dbdt_ic_old(n)
+                 djdt_ic(lm,nR)=scale_b*djdt_ic_old(n)
               END DO
            END IF
         END IF
