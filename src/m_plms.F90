@@ -93,8 +93,8 @@ module plms_theta
             plm1=plm
             plm= dcos(theta)* dsqrt( dble( (2*l-1)*(2*l+1) ) / &
                                dble( (l-m)*(l+m) )  ) * plm1 - &
-                      dsqrt( dble( (2*l+1)*(l+m-1)*(l-m-1) ) / &
-                        dble( (2*l-3)*(l-m)*(l+m) ) ) * plm2
+                      dsqrt( (dble(2*l+1)*dble(l+m-1)*dble(l-m-1))  / &
+                         (dble(2*l-3)*dble(l-m)*dble(l+m))  ) * plm2
             if( norm == 1 ) then
                 dnorm=1.d0/dsqrt(dble(2*l+1))
                 if( m /= 0 ) dnorm=sq2*dnorm
