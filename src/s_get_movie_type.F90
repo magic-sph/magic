@@ -165,6 +165,7 @@ SUBROUTINE get_movie_type
   !  |                     =110  : radial heat flow                      |
   !  |                     =111  : Vz and Vorz north/south correlation   |
   !  |                     =112  : axisymm dtB tersm for Br and Bp       |
+  !  |                     =113  : axisymm dSdr                          |
   !  |                                                                   |
   !  |     n_movie_surface(n_movie) = defines surface                    |
   !  |     n_movie_surface =  1  : r=constant                            |
@@ -760,7 +761,7 @@ SUBROUTINE get_movie_type
            stop
         end if
         n_type=21
-        typeStr=' temperatur field '
+        typeStr=' temperature field '
         file_name='T_'
         n_fields=1
         n_field_type(1)=7
@@ -778,6 +779,14 @@ SUBROUTINE get_movie_type
         l_HTmovie=.true.
         n_fields=1
         n_field_type(1)=17
+     else if ( index(string,'AX' ) /= 0 .AND. &
+               index(string,'HEATF') /= 0   ) then
+        n_type=113
+        typeStr='axisymmetric dSdr '
+        file_name='AHF_'
+        l_HTmovie=.true.
+        n_fields=1
+        n_field_type(1)=92
      else if ( index(string,'HEATF') /= 0 ) THEN
         ns=index(string,'S')
         if ( string(ns:ns+2) == 'SUR' ) then

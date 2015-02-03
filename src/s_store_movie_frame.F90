@@ -715,6 +715,19 @@ subroutine store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr, &
         frames(n_0+n_theta) =phi_norm*fl(1)
      end do
 
+  else if ( n_field_type == 92 ) then
+
+     !--- Axisymmetric dsdr:
+     do n_theta_b=1,n_theta_block
+        n_theta_cal=n_theta_b+n_theta_start-1
+        n_theta=n_theta_cal2ord(n_theta_cal)
+        fl(1)=0.d0
+        do n_phi=1,n_phi_max   ! Average over phis
+           fl(1)=fl(1)+drSr(n_phi,n_theta_b)
+        end do
+        frames(n_0+n_theta) =phi_norm*fl(1)
+     end do
+
   else if ( n_field_type == 16 ) then
 
      fac=or1(n_r)*orho1(n_r)*vScale
