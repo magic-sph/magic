@@ -85,8 +85,8 @@
             sMat(nR,nCheb)= cheb_norm * (                    &
                                        O_dt*cheb(nCheb,nR) - &
               alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) + &
-              ( PolFac*beta(nR)+2.d0*or1(nR)+dLkappa(nR) ) * &
-                                           dcheb(nCheb,nR) - &
+              ( beta(nR)+otemp1(nR)*dtemp0(nR)+              &
+                2.d0*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) - &
                    dLh*or2(nR)*             cheb(nCheb,nR) ) )
         END DO
     END DO

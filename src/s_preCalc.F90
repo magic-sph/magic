@@ -18,7 +18,7 @@ SUBROUTINE preCalc
   USE truncation
   USE radial_functions
   USE physical_parameters,ONLY:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled,&
-       &opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolFac,PolInd,&
+       &opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,&
        &nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0,&
        &ktops,kbots
   USE num_param
@@ -129,15 +129,8 @@ SUBROUTINE preCalc
   !       \delta T the temperature scale, and \kappa the thermal
   !       diffusivity
   BuoFac=raScaled/pr
-  ! PolFac is a factor used in the anelastic approximation
-  ! PolFac = 1 + 1/m (in fact PolFac==gamma)
-  IF ( l_isothermal ) THEN
-     PolFac=1.D0 ! 0-Grünesein case
-  ELSE IF ( l_interior_model ) THEN
+  IF ( l_interior_model ) THEN
      polind=1.d0/0.45d0
-     PolFac=1.D0+1.D0/polind ! General polytrope
-  ELSE
-     PolFac=1.D0+1.D0/polind ! General polytrope
   END IF
 
   dtStart=dtStart/tScale

@@ -46,8 +46,8 @@
         do n_r=2,n_r_max-1
             s0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* ( &
                                      d2cheb(n_cheb,n_r) + &
-           (2.d0*or1(n_r)+PolFac*beta(n_r)+dLkappa(n_r))* &
-                                     dcheb(n_cheb,n_r)  )
+           ( 2.d0*or1(n_r)+beta(n_r)+otemp1(n_r)*dtemp0(n_r)+ &
+                         dLkappa(n_r) )* dcheb(n_cheb,n_r)  )
         end do
     end do
      

@@ -70,7 +70,7 @@ SUBROUTINE get_s0Mat(dt,sMat,sPivot)
         sMat(nR,nCheb)= cheb_norm * (                  &
              O_dt*cheb(nCheb,nR) - & 
              alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-             (PolFac*beta(nR)+2.D0*or1(nR)+dLkappa(nR))* &
+             (beta(nR)+otemp1(nR)*dtemp0(nR)+2.D0*or1(nR)+dLkappa(nR))* &
              dcheb(nCheb,nR) ) )
      END DO
   END DO

@@ -21,7 +21,8 @@ MODULE physical_parameters
   !-- Dimensionless parameters:
   REAL(kind=8) :: radratio
   REAL(kind=8) :: ra,ek,pr,prmag,epsc0,epsc
-  REAL(kind=8) :: strat,polind,PolFac,ViscHeatFac,OhmLossFac
+  REAL(kind=8) :: strat,polind,ViscHeatFac,OhmLossFac
+  REAL(kind=8) :: DissNb ! Dissipation number
   REAL(kind=8) :: r_cut_model
   REAL(kind=8) :: g0,g1,g2
   REAL(kind=8) :: sigma_ratio,conductance_ma

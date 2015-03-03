@@ -4,9 +4,10 @@
 MODULE updateS_mod
   use omp_lib
   USE truncation
-  USE radial_functions,ONLY: i_costf_init,d_costf_init,orho1,or1,or2,n_r_cmb,n_r_icb,beta,drx,ddrx,&
-       & kappa,dlkappa
-  USE physical_parameters,ONLY: opr,polfac
+  USE radial_functions,ONLY: i_costf_init,d_costf_init,orho1,or1,or2, &
+                            &           n_r_cmb,n_r_icb,beta,drx,ddrx,&
+                            &           kappa,dlkappa,dtemp0,otemp1
+  USE physical_parameters,ONLY: opr
   USE init_fields,ONLY: tops,bots
   USE blocking,ONLY: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
   USE horizontal_data,ONLY: dLh,hdif_S
@@ -319,7 +320,7 @@ CONTAINS
     !$OMP shared(s,ds,dsdtLast,i_costf_init,d_costf_init,drx,ddrx) &
     !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm_real,ulm_real) &
     !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S) &
-    !$OMP shared(st_map,lm2l,lm2m,kappa,PolFac,beta,or1,dLkappa,dLh,or2)
+    !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2)
     !$OMP DO
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
@@ -340,7 +341,8 @@ CONTAINS
           dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * kappa(nR) * &
                &   ( workA(lm1,nR) &
-               &     + ( PolFac*beta(nR) + 2.D0*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
+               &     + ( beta(nR) + otemp1(nR)*dtemp0(nR) + &
+               &       2.D0*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
                &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) * or2(nR)   *  s(lm1,nR) &
                &   )
        END DO

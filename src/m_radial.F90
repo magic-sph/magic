@@ -16,6 +16,7 @@ MODULE radial_functions
   REAL(kind=8),ALLOCATABLE :: O_r_ic2(:)
   REAL(kind=8),ALLOCATABLE :: or1(:),or2(:),or3(:),or4(:)
   REAL(kind=8),ALLOCATABLE :: otemp1(:),rho0(:),temp0(:)
+  REAL(kind=8),ALLOCATABLE :: dtemp0(:)
   REAL(kind=8),ALLOCATABLE :: orho1(:),orho2(:)
   REAL(kind=8),ALLOCATABLE :: beta(:), dbeta(:)
   REAL(kind=8),ALLOCATABLE :: drx(:),ddrx(:),dddrx(:)
@@ -93,6 +94,7 @@ CONTAINS
     ALLOCATE( O_r_ic2(n_r_ic_max) )
     ALLOCATE( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max) )
     ALLOCATE( otemp1(n_r_max),rho0(n_r_max),temp0(n_r_max) )
+    ALLOCATE( dtemp0(n_r_max) )
     ALLOCATE( orho1(n_r_max),orho2(n_r_max) )
     ALLOCATE( beta(n_r_max), dbeta(n_r_max) )
     ALLOCATE( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
@@ -150,8 +152,7 @@ CONTAINS
     REAL(kind=8) :: r_cheb(n_r_max)
     REAL(kind=8) :: r_cheb_ic(n_r_ic_tot_local)
     REAL(kind=8) :: r_ic_2(n_r_ic_tot_local)
-    REAL(kind=8) :: ofr ! inverse of the Froude number
-    REAL(kind=8) :: dtemp0(n_r_max),alphaT(n_r_max)
+    REAL(kind=8) :: alphaT(n_r_max)
     REAL(kind=8) :: drho0(n_r_max)
     REAL(kind=8) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
@@ -252,6 +253,11 @@ CONTAINS
     CALL init_costf1(n_r_max,i_costf_init,nDi_costf1, &
                      d_costf_init,nDd_costf1)
 
+    or1=1.D0/r        ! 1/r
+    or2=or1*or1       ! 1/r**2
+    or3=or1*or2       ! 1/r**3
+    or4=or2*or2       ! 1/r**4
+
     !-- Fit to an interior model
     IF ( l_interior_model ) THEN
 
@@ -278,23 +284,64 @@ CONTAINS
 
        alphaT=-dtemp0/(gravFit*temp0)
 
-       ! Inverse of the Froude number needed in the dissipation numbers
-       ofr=alphaT(1)
-       ViscHeatFac=ofr*pr/raScaled
+       ! Dissipation number needed in the dissipation numbers
+       DissNb=alphaT(1)
+       ViscHeatFac=DissNb*pr/raScaled
        IF (l_mag) THEN
           OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
        END IF
+       ! Adiabatic: buoyancy term is linked to the temperature gradient
 
-       !-- Usual polytropic reference state
-    ELSE
+       !       dT
+       !      ---- =  -Di * alpha_T * T * grav
+       !       dr
+       rgrav=-BuoFac*dtemp0/DissNb
+       rho0=rhoFit/rhotop
+
+       CALL get_dr(rho0,drho0,1,1,1,n_r_max,n_cheb_max,w1, &
+                   w2,i_costf_init,d_costf_init,drx)
+       beta=drho0/rho0
+       CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1,     &
+                   w2,i_costf_init,d_costf_init,drx)
+       !CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
+       !         w2,i_costf_init,d_costf_init,drx)
+       !dentropy0=0.D0
+       
+    ELSE  !-- Usual polytropic reference state
+       ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
+       ! Default values: g0=0, g1=1, g2=0
+       ! An easy way to change gravity
+       rgrav=BuoFac*(g0+g1*r/r_cmb+g2*(r_cmb/r)**2)
+       !dentropy0=0.D0
+
        IF (l_anel) THEN
-          ofr=( DEXP(strat/polind)-1.D0 )/ &
-               ( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
           IF (l_isothermal) THEN
-             ofr=strat /( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
+             DissNb=strat /( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
              ViscHeatFac=0.D0
+             temp0=1.D0
+             rho0=DEXP(-DissNb*(g0*(r-r_cmb) + &
+                  g1/(2.d0*r_cmb)*(r**2-r_cmb**2) - &
+                  g2*(r_cmb**2/r-r_cmb)))
+
+             beta =-DissNb*rgrav/BuoFac
+             dbeta=-DissNb*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
+             dtemp0=0.d0
+             !d2temp0=0.d0
           ELSE
-             ViscHeatFac=ofr*pr/raScaled
+             DissNb=( DEXP(strat/polind)-1.D0 )/ &
+               ( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
+             ViscHeatFac=DissNb*pr/raScaled
+             temp0=-DissNb*( g0*r+0.5D0*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
+                    1.D0 + DissNb*r_cmb*(g0+0.5D0*g1-g2)
+             rho0=temp0**polind
+
+             !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
+             beta=-polind*DissNb*rgrav/temp0/BuoFac
+             dbeta=-polind*DissNb/temp0**2 * &
+                  ((g1/r_cmb-2.D0*g2*r_cmb**2*or3)* &
+                  temp0  + DissNb*rgrav**2/BuoFac**2)
+             dtemp0=-DissNb*rgrav/BuoFac
+             !d2temp0=-DissNb*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
           END IF
           IF (l_mag) THEN
              OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -302,87 +349,29 @@ CONTAINS
        END IF
     END IF
 
+    agrav=alpha*rgrav
+
+    IF ( .NOT. l_heat ) THEN
+       rgrav=0.D0
+       agrav=0.D0
+    END IF
+
     !-- Get additional functions of r:
-    DO n_r=1,n_r_max
-       IF ( l_heat ) THEN
-          IF ( l_interior_model ) THEN
-             ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-             !       dT
-             ! Fr * ---- =  alpha_T * T * grav
-             !       dr
-
-             ! N.B. rgrav is not gravity but the whole RHS !!!
-
-             rgrav(n_r)=-BuoFac * dtemp0(n_r)/ofr
-          ELSE
-             ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
-             ! Default values: g0=0, g1=1, g2=0
-             ! An easy way to change gravity
-             rgrav(n_r)=BuoFac*( g0 + &
-                  g1*r(n_r)/r_cmb + &
-                  g2*(r_cmb/r(n_r))**2 )
-          END IF
-          agrav(n_r)=alpha*rgrav(n_r)
-       ELSE
-          rgrav(n_r)=0.D0
-          agrav(n_r)=0.D0
-       END IF
-       IF ( l_anel ) THEN
-          IF ( l_isothermal ) THEN
-             temp0(n_r)=1.D0
-             rho0(n_r)=DEXP(-ofr*(g0*(r(n_r)-r_cmb) + &
-                  g1/(2.d0*r_cmb)*(r(n_r)**2-r_cmb**2) - &
-                  g2*(r_cmb**2/r(n_r)-r_cmb)))
-          ELSE IF ( l_interior_model ) THEN
-             rho0(n_r)=rhoFit(n_r)/rhotop
-             ! temp0(n_r)=rho0(n_r)**(1.d0/polind)
-          ELSE
-             temp0(n_r)=-ofr*( g0*r(n_r) + &
-                  0.5D0*g1*r(n_r)**2/r_cmb - &
-                  g2*r_cmb**2/r(n_r) ) + &
-                  1.D0 + ofr*r_cmb*(g0+0.5D0*g1-g2)
-             rho0(n_r)=temp0(n_r)**polind
-          END IF
-          orho1(n_r)=1.D0/rho0(n_r)
-          orho2(n_r)=orho1(n_r)*orho1(n_r)
-          otemp1(n_r)=1.D0/temp0(n_r)
-       ELSE
-          rho0(n_r)=1.D0
-          temp0(n_r)=1.D0
-          otemp1(n_r)=1.D0
-          orho1(n_r)=1.D0
-          orho2(n_r)=1.D0
-       END IF
-       or1(n_r)=1.D0/r(n_r)             ! 1/r
-       or2(n_r)=or1(n_r)*or1(n_r)       ! 1/r**2
-       or3(n_r)=or1(n_r)*or2(n_r)       ! 1/r**3
-       or4(n_r)=or2(n_r)*or2(n_r)       ! 1/r**4
-    END DO
-
-    !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-    IF (l_anel) THEN
-       ! better than the derivative the log(rho0)
-       ! especially for large stratification Nrho=5
-       IF ( l_isothermal ) THEN
-          beta =-ofr*rgrav/BuoFac
-          dbeta=-ofr*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
-       ELSE IF ( l_interior_model ) THEN
-          CALL get_dr(rho0,drho0,1,1,1,n_r_max,n_cheb_max,w1, &
-                      w2,i_costf_init,d_costf_init,drx)
-          beta=drho0/rho0
-          CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1, &
-                      w2,i_costf_init,d_costf_init,drx)
-       ELSE
-         beta=-polind*ofr*rgrav/temp0/BuoFac
-         dbeta=-polind*ofr/temp0**2 * &
-              ((g1/r_cmb-2.D0*g2*r_cmb**2*or3)* &
-              temp0  + ofr*rgrav**2/BuoFac**2)
-       END IF
-
+    IF ( l_anel ) THEN
+       orho1=1.D0/rho0
+       orho2=orho1*orho1
+       otemp1=1.D0/temp0
     ELSE
-       beta =0.D0
-       dbeta=0.D0
+       rho0     =1.D0
+       temp0    =1.D0
+       otemp1   =1.D0
+       orho1    =1.D0
+       orho2    =1.D0
+       beta     =0.D0
+       dbeta    =0.D0
+       dtemp0   =0.d0
+       !d2temp0  =0.D0
+       !dentropy0=0.D0
     END IF
 
     !-- Factors for cheb integrals:

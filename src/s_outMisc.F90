@@ -255,9 +255,9 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
         botnuss=0.D0
         topnuss=0.D0
      END IF
-     botflux=-rho0(n_r_max)**PolFac*REAL(ds(1,n_r_max))/lScale* &
+     botflux=-rho0(n_r_max)*temp0(n_r_max)*REAL(ds(1,n_r_max))/lScale* &
           r_icb**2*DSQRT(4.D0*pi)*kappa(n_r_max)
-     topflux=-rho0(1)**PolFac*REAL(ds(1,1))/lScale*r_cmb**2* &
+     topflux=-rho0(1)*temp0(1)*REAL(ds(1,1))/lScale*r_cmb**2* &
           DSQRT(4.D0*pi)*kappa(1)
 
      IF ( l_save_out ) THEN
