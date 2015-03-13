@@ -73,6 +73,15 @@
         l_time_hits=l_time_hits.OR.l_time
     END IF
     l_dt_cmb_field=l_dt_cmb_field .AND. l_cmb_field
+    IF ( l_r_field ) then
+        l_r_field=.false.
+        CALL get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time, &
+                              t_r_field_start,t_r_field_stop,dt_r_field, &
+                        n_r_fields,n_r_field_step,'r_field',time,tScale)
+        if ( n_r_fields > 0 .OR. n_r_field_step > 0 .OR. &
+             l_time ) l_r_field= .TRUE. 
+        l_time_hits=l_time_hits.OR.l_time
+    END IF
     IF ( l_movie ) then
         CALL get_hit_times(t_movie,n_time_hits,n_t_movie,l_time, &
                             t_movie_start,t_movie_stop,dt_movie, &

@@ -18,7 +18,6 @@ MODULE output_data
   !----- Information for graphic output grid:
   INTEGER :: ngform
   LOGICAL :: l_graph_time
-  !common/graphic_grid/ngform,l_graph_time
 
   !----- Output time control:
   REAL(kind=8) :: t_graph_start,t_graph_stop,dt_graph
@@ -28,6 +27,7 @@ MODULE output_data
   REAL(kind=8) :: t_spec_start,t_spec_stop,dt_spec
   REAL(kind=8) :: t_diag_start,t_diag_stop,dt_diag
   REAL(kind=8) :: t_cmb_start,t_cmb_stop,dt_cmb
+  REAL(kind=8) :: t_r_field_start,t_r_field_stop,dt_r_field
   REAL(kind=8) :: t_TO_start,t_TO_stop,dt_TO
   REAL(kind=8) :: t_TOZ_start,t_TOZ_stop,dt_TOZ
   REAL(kind=8) :: t_movie_start,t_movie_stop,dt_movie
@@ -43,6 +43,7 @@ MODULE output_data
   INTEGER :: n_spec_step,n_specs,n_t_spec
   INTEGER :: n_diag_step,n_diags,n_t_diag
   INTEGER :: n_cmb_step,n_cmbs,n_t_cmb
+  INTEGER :: n_r_field_step,n_r_fields,n_t_r_field
   INTEGER :: n_movie_step,n_movie_frames,n_t_movie
   INTEGER :: n_TO_step,n_TOs,n_t_TO
   INTEGER :: n_TOZ_step,n_TOZs,n_t_TOZ
@@ -59,6 +60,7 @@ MODULE output_data
   REAL(kind=8) ::  t_spec(n_time_hits)
   REAL(kind=8) ::  t_diag(n_time_hits)
   REAL(kind=8) ::  t_cmb(n_time_hits)
+  REAL(kind=8) ::  t_r_field(n_time_hits)
   REAL(kind=8) ::  t_movie(n_time_hits)
   REAL(kind=8) ::  t_TO(n_time_hits)
   REAL(kind=8) ::  t_TOZ(n_time_hits)
@@ -69,14 +71,12 @@ MODULE output_data
   REAL(kind=8) ::  t_pot(n_time_hits)
 
   !----- Output radii and degrees for coeff files:
-  INTEGER,PARAMETER :: n_coeff_r_max=100
-  INTEGER :: n_coeff_r_go
-  INTEGER :: n_coeff_r(n_coeff_r_max)
-  INTEGER :: n_r_array(n_coeff_r_max)
+  INTEGER :: n_coeff_r_max
+  INTEGER,ALLOCATABLE :: n_coeff_r(:)
+  INTEGER :: n_r_array(100)
   INTEGER :: l_max_cmb
   INTEGER :: l_max_r
   INTEGER :: n_r_step
-  !common/coeffFiles/n_coeff_r,n_coeff_r_go,l_max_cmb,l_max_r,n_r_step,n_r_array
 
   !----- Output files:
   INTEGER :: n_log_file,nLF
@@ -93,12 +93,14 @@ MODULE output_data
   INTEGER :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
   INTEGER :: n_rot_file
   INTEGER :: n_dipole_file
-  INTEGER :: n_r_file
   INTEGER :: n_cmb_file,n_dt_cmb_file
   INTEGER :: n_cmbMov_file
   INTEGER :: n_misc_file
   INTEGER :: n_SRIC_file
   INTEGER :: n_SRMA_file
+  INTEGER,ALLOCATABLE :: n_v_r_file(:)
+  INTEGER,ALLOCATABLE :: n_t_r_file(:)
+  INTEGER,ALLOCATABLE:: n_b_r_file(:)
   INTEGER :: n_power_file
   INTEGER :: n_signal_file
 
@@ -125,6 +127,9 @@ MODULE output_data
   CHARACTER(len=72) :: movie_file(n_movies_max)
   CHARACTER(len=72) :: SRIC_file
   CHARACTER(len=72) :: SRMA_file
+  CHARACTER(len=72),ALLOCATABLE :: v_r_file(:)
+  CHARACTER(len=72),ALLOCATABLE :: t_r_file(:)
+  CHARACTER(len=72),ALLOCATABLE :: b_r_file(:)
   CHARACTER(len=72) :: power_file
   
   !----- Z-integrated output:

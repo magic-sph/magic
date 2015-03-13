@@ -28,6 +28,8 @@
 !-- Output written into c_output.f
 
 !-- Local:
+    CHARACTER(len=72) :: string
+    INTEGER ::  length
     INTEGER :: n
 
 !-- end of declaration
@@ -57,14 +59,25 @@
     n_dt_cmb_file      =27
     n_power_file       =28
     n_u_square_file    =29  
-!-- JW 10.Apr.2014: n_r_file replaces n_v_r_file, n_b_r_file, open in m_output.F90
-    n_r_file           =30 
     n_par_file         =300
     n_angular_file     =301
     n_dtvrms_file      =302
     n_dtvasrms_file    =303
     n_dtbrms_file      =304
     n_dtdrms_file      =305
+    DO n=1,n_coeff_r_max
+        n_v_r_file(n)=40+n
+    END DO
+    IF ( l_r_fieldT ) THEN
+       DO n=1,n_coeff_r_max
+          n_t_r_file(n)=60+n
+       END DO
+    END IF
+    IF ( l_mag ) THEN
+       DO n=1,n_coeff_r_max
+          n_b_r_file(n)=50+n
+       END DO
+    END IF
     DO n=1,n_movies_max
         n_movie_file(n)=70+n
     END DO
@@ -103,6 +116,25 @@
     IF ( l_dt_cmb_field ) THEN
         dt_cmb_file   ='B_coeff_dt_cmb.'//tag
     END IF
+    IF ( l_r_field ) THEN
+        DO n=1,n_coeff_r_max
+            WRITE(string,'(''V_coeff_r'',i1,''.'')') n
+            length=length_to_blank(string)
+            v_r_file(n)=string(1:length)//tag
+            IF ( l_mag ) THEN
+               WRITE(string,'(''B_coeff_r'',i1,''.'')') n
+               length=length_to_blank(string)
+               B_r_file(n)=string(1:length)//tag
+            END IF
+        END DO
+    END IF
+    IF ( l_r_fieldT ) THEN
+        DO n=1,n_coeff_r_max
+            WRITE(string,'(''T_coeff_r'',i1,''.'')') n
+            length=length_to_blank(string)
+            t_r_file(n)=string(1:length)//tag
+        END DO
+    END IF
     misc_file ='misc.'//tag
     SRIC_file ='SRIC.'//tag
     SRMA_file ='SRMA.'//tag
@@ -126,6 +158,18 @@
           IF ( l_AM ) THEN
              OPEN(n_angular_file,FILE=angular_file,STATUS='NEW')
           END IF
+          IF ( l_r_field ) THEN
+             DO n=1,n_coeff_r_max
+                OPEN(n_v_r_file(n),FILE=v_r_file(n), &
+                     STATUS='NEW',FORM='UNFORMATTED')
+             END DO
+          ENDIF
+          IF ( l_r_fieldT ) THEN
+             DO n=1,n_coeff_r_max
+                OPEN(n_t_r_file(n),FILE=t_r_file(n), &
+                     STATUS='NEW',FORM='UNFORMATTED')
+             END DO
+          ENDIF
           IF ( l_mag ) THEN
              OPEN(n_e_mag_oc_file,FILE=e_mag_oc_file,STATUS='NEW')
              OPEN(n_e_mag_ic_file,FILE=e_mag_ic_file,STATUS='NEW')
@@ -145,6 +189,12 @@
              IF ( l_dt_cmb_field )                    &
                 OPEN(n_dt_cmb_file,FILE=dt_cmb_file, &
                   STATUS='NEW',FORM='UNFORMATTED')
+             IF ( l_r_field ) THEN
+                DO n=1,n_coeff_r_max
+                   OPEN(n_b_r_file(n),FILE=b_r_file(n), &
+                        STATUS='NEW',FORM='UNFORMATTED')
+                END DO
+             ENDIF
           END IF
           IF ( .NOT. l_SRIC .AND. .NOT. l_SRMA ) THEN
              IF( l_rot_ic .OR. l_rot_ma ) &

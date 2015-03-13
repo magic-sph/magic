@@ -488,29 +488,6 @@ SUBROUTINE preCalc
 
   END IF
 
-  !-- Define radial grid points for output of v-coeffs:
-  IF ( l_r_field ) THEN
-     n_coeff_r_go=0
-     DO n=1,n_coeff_r_max
-      ! New way of defining the radial level where the potentials should be
-      ! stored. n_r_array is an input array that contains the indiceed of the
-      ! desired grid point.
-        IF ( n_r_array(n).GT.0 ) THEN
-           n_coeff_r_go=n_coeff_r_go+1
-           n_coeff_r(n_coeff_r_go)=n_r_array(n)
-        END IF
-     END DO
-     IF ( n_coeff_r_go.EQ.0 ) THEN
-      ! When n_r_array is empty we use this older way of defining 5 levels.
-        n_r_step=MAX(n_r_step,1)
-        n_coeff_r_go=5
-        DO n=1,n_coeff_r_go
-           n_coeff_r(n)=n*n_r_step  ! used every n_r_step point !
-        END DO
-     END IF
-  END IF
-
-
   RETURN
 end SUBROUTINE preCalc
 

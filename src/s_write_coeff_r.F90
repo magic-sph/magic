@@ -120,7 +120,9 @@ SUBROUTINE write_coeff_r(time,w,dw,ddw,z,r, &
   n_sets=n_sets+1
 
   !--- Open output file with name $file:
-  open(n_file,file=file,form='unformatted',status='unknown',position='APPEND')
+  if ( l_save_out ) then
+      open(n_file,file=file,form='unformatted',status='unknown',position='APPEND')
+  end if
 
   !--- If this is the first set write, l_max_r and minc into first line:
   if ( n_sets == 1 ) then

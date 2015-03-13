@@ -35,6 +35,7 @@ CONTAINS
   SUBROUTINE readNamelists
     !-- Local stuff
     INTEGER :: n
+    INTEGER :: nCounts
     REAL(kind=8) :: sCMB(4*n_impS_max),rad ! cmb heat boundary condition
     logical :: log_does_exist
     INTEGER :: length
@@ -95,6 +96,8 @@ CONTAINS
          t_spec_start,t_spec_stop,dt_spec, &
          n_cmb_step,n_cmbs,t_cmb, &
          t_cmb_start,t_cmb_stop,dt_cmb, &
+         n_r_field_step,n_r_fields,t_r_field, &
+         t_r_field_start,t_r_field_stop,dt_r_field, &
          n_Bpot_step,n_Bpots,t_Bpot, &
          t_Bpot_start,t_Bpot_stop,dt_Bpot, &
          n_Vpot_step,n_Vpots,t_Vpot, &
@@ -539,9 +542,19 @@ CONTAINS
     ! Setting up truncation is required to set up ldif and l_max_r
     CALL initialize_truncation
 
+    !-- Coeffs at radial levels:
+    IF ( l_r_fieldT ) l_r_field=.TRUE.
+
     IF ( l_r_field ) THEN
        IF ( n_r_step == 0 ) n_r_step=2
        IF ( l_max_r == 0 .OR. l_max_r > l_max ) l_max_r=l_max
+       nCounts = COUNT(n_r_array>0)
+
+       IF ( nCounts > 0 ) THEN
+           n_coeff_r_max=nCounts
+       ELSE
+           n_coeff_r_max=5
+       END IF
     END IF
 
     !-- ldif determins at which l hyperdiffusivity starts:
@@ -551,8 +564,6 @@ CONTAINS
     !-- Coeffs at CMB:
     l_max_cmb=MIN(l_max_cmb,l_max)
 
-    !-- Coeffs at radial levels:
-    IF ( l_r_fieldT ) l_r_field=.TRUE.
 
 
     !-- Maximum run time specified?
@@ -773,11 +784,14 @@ CONTAINS
     write(n_out,'(1p,''  dt_spec       ='',d14.6,'','')') dt_spec
     write(n_out,'(''  n_cmb_step    ='',i5,'','')') n_cmb_step
     write(n_out,'(''  n_cmbs        ='',i5,'','')') n_cmbs
-    write(n_out,'(1p,''  t_cmb_start   ='',d14.6,'','')') &
-         t_cmb_start
-    write(n_out,'(1p,''  t_cmb_stop    ='',d14.6,'','')') &
-         t_cmb_stop
+    write(n_out,'(1p,''  t_cmb_start   ='',d14.6,'','')') t_cmb_start
+    write(n_out,'(1p,''  t_cmb_stop    ='',d14.6,'','')') t_cmb_stop
     write(n_out,'(1p,''  dt_cmb        ='',d14.6,'','')') dt_cmb
+    write(n_out,'(''  n_r_field_step   ='',i5,'','')') n_r_field_step
+    write(n_out,'(''  n_r_fields       ='',i5,'','')') n_r_fields
+    write(n_out,'(1p,''  t_r_field_start='',d14.6,'','')') t_r_field_start
+    write(n_out,'(1p,''  t_r_field_stop ='',d14.6,'','')') t_r_field_stop
+    write(n_out,'(1p,''  dt_r_field    ='',d14.6,'','')') dt_r_field
     write(n_out,'(''  l_movie       ='',l3,'','')') l_movie
     write(n_out,'(''  n_movie_step  ='',i5,'','')') n_movie_step
     write(n_out,'(''  n_movie_frames='',i5,'','')') n_movie_frames
@@ -807,7 +821,7 @@ CONTAINS
     write(n_out,'(''  l_r_fieldT    ='',l3,'','')') l_r_fieldT
     write(n_out,'(''  l_max_r       ='',i3,'','')') l_max_r
     write(n_out,'(''  n_r_step      ='',i3,'','')') n_r_step
-    DO n=1,n_coeff_r_go
+    DO n=1,n_coeff_r_max
        write(n_out,'(''    n_coeff_r   ='',i3,'','')') n_coeff_r(n)
     END DO
     write(n_out,'(''  l_hel         ='',l3,'','')') l_hel
@@ -1101,6 +1115,11 @@ CONTAINS
     DO n=1,n_coeff_r_max
        n_r_array(n)=0
     END DO
+    n_r_field_step=0
+    n_r_fields    =0
+    t_r_field_start=0.D0
+    t_r_field_stop =0.D0
+    dt_r_field    =0.D0
 
     !----- Movie output:
     l_movie       =.FALSE.
@@ -1161,6 +1180,7 @@ CONTAINS
        t_p(n)      =-1.D0
        t_spec(n)   =-1.D0
        t_cmb(n)    =-1.D0
+       t_r_field(n)=-1.D0
        t_movie(n)  =-1.D0
        t_Vpot(n)   =-1.D0
        t_Bpot(n)   =-1.D0

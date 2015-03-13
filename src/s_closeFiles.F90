@@ -21,12 +21,6 @@ SUBROUTINE closeFiles
 
   IMPLICIT NONE
 
-  !-- Input: read inputfiles first!
-  ! include 'truncation.f'
-  ! include 'c_logic.f'
-  ! include 'c_output.f'
-  ! include 'c_parallel.f'
-
   !-- Local:
   INTEGER :: n
 
@@ -52,6 +46,16 @@ SUBROUTINE closeFiles
            CLOSE(n_dtvrms_file)
            CLOSE(n_dtvasrms_file)
         END IF
+        IF ( l_r_field ) THEN
+           DO n=1,n_coeff_r_max
+             CLOSE(n_v_r_file(n))
+           END DO
+        ENDIF
+        IF ( l_r_fieldT ) THEN
+           DO n=1,n_coeff_r_max
+             CLOSE(n_t_r_file(n))
+           END DO
+        ENDIF
         IF ( l_mag ) then
            CLOSE(n_e_mag_oc_file)
            CLOSE(n_e_mag_ic_file)
@@ -62,6 +66,11 @@ SUBROUTINE closeFiles
            END IF
            IF ( l_cmb_field ) close(n_cmb_file)
            IF ( l_cmb_field .AND. l_movie ) close(n_cmbMov_file)
+           IF ( l_r_field ) THEN
+              DO n=1,n_coeff_r_max
+                 CLOSE(n_b_r_file(n))
+              END DO
+           ENDIF
            IF ( l_dt_cmb_field ) CLOSE(n_dt_cmb_file)
         END IF
         IF ( l_rot_ic .OR. l_rot_ma .AND.      &

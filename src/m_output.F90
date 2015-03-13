@@ -32,8 +32,10 @@ MODULE output_mod
   USE spectrumC_average_mod,only: spectrumC_average
   USE outTO_mod,only: outTO
   USE outPV3, only: outPV
-  USE output_data,ONLY: tag,tag_wo_rank,ngform,l_max_cmb,cmbMov_file,n_cmbMov_file,cmb_file,n_cmb_file,&
-       & dt_cmb_file,n_dt_cmb_file,n_coeff_r,n_coeff_r_go,l_max_r,n_r_file,&
+  USE output_data,ONLY: tag,tag_wo_rank,ngform,l_max_cmb,cmbMov_file, &
+       & n_cmbMov_file,cmb_file,n_cmb_file,dt_cmb_file,n_dt_cmb_file, &
+       & n_coeff_r,l_max_r,n_v_r_file,n_b_r_file,n_t_r_file,          &
+       & v_r_file,t_r_file,b_r_file,n_r_array,n_r_step,               &
        & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
   use parallel_mod
@@ -53,7 +55,7 @@ MODULE output_mod
   INTEGER :: nBpotSets, nVpotSets, nTpotSets
   !-- Counter for output files/sets:
   INTEGER :: n_dt_cmb_sets, n_cmb_setsMov
-  INTEGER,DIMENSION(n_coeff_r_max) :: n_v_r_sets, n_b_r_sets, n_T_r_sets
+  INTEGER,ALLOCATABLE :: n_v_r_sets(:), n_b_r_sets(:), n_T_r_sets(:)
   INTEGER :: n_spec,nPVsets
 
   INTEGER :: nTOsets,nTOmovSets,nTOrmsSets
@@ -78,13 +80,38 @@ MODULE output_mod
 contains
 
   SUBROUTINE initialize_output
+
     integer :: n
 
-    DO n=1,n_coeff_r_max
-       n_v_r_sets(n)    =0
-       n_b_r_sets(n)    =0
-       n_T_r_sets(n)    =0
-    END DO
+    IF ( l_r_field .OR. l_r_fieldT ) THEN
+       ALLOCATE ( n_coeff_r(n_coeff_r_max))
+       ALLOCATE ( n_v_r_file(n_coeff_r_max), v_r_file(n_coeff_r_max) )
+       ALLOCATE ( n_v_r_sets(n_coeff_r_max) ) 
+       n_v_r_sets=0
+
+       IF ( l_mag ) THEN
+          ALLOCATE ( n_b_r_file(n_coeff_r_max), b_r_file(n_coeff_r_max) )
+          ALLOCATE ( n_b_r_sets(n_coeff_r_max) ) 
+          n_b_r_sets=0
+       END IF
+
+       IF ( l_r_fieldT ) THEN
+          ALLOCATE ( n_t_r_file(n_coeff_r_max), t_r_file(n_coeff_r_max) )
+          ALLOCATE ( n_t_r_sets(n_coeff_r_max) ) 
+          n_T_r_sets=0
+       END IF
+
+       IF ( COUNT(n_r_array>0)> 0 ) THEN
+          n_coeff_r=n_r_array(1:n_coeff_r_max)
+       ELSE
+          n_r_step=MAX(n_r_step,1)
+          DO n=1,n_coeff_r_max
+             n_coeff_r(n)=n*n_r_step  ! used every n_r_step point !
+          END DO
+       END IF
+
+    END IF
+
     n_spec       =0
     n_cmb_setsMov=0
     n_dt_cmb_sets=0
@@ -127,7 +154,7 @@ contains
        &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,      &
        &            l_store,l_new_rst_file,                           &
        &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,            &
-       &            l_frame,n_frame,l_cmb,n_cmb_sets,                 &
+       &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,             &
        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,  &
        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
        &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
@@ -154,7 +181,7 @@ contains
     LOGICAL,INTENT(IN) :: l_new_rst_file, l_spectrum
     LOGICAL,INTENT(IN) :: lTOCalc,lTOframe
     LOGICAL,intent(INOUT) :: lTOZwrite
-    LOGICAL,INTENT(IN) :: l_frame, l_cmb
+    LOGICAL,INTENT(IN) :: l_frame, l_cmb, l_r
     INTEGER,INTENT(INOUT) :: n_frame
     INTEGER,intent(INOUT) :: n_cmb_sets
 
@@ -239,7 +266,7 @@ contains
     INTEGER :: l,lm0
     REAL(kind=8) :: ReEquat
 
-    LOGICAL :: l_r,l_PVout
+    LOGICAL :: l_PVout
 
     REAL(kind=8) :: timeScaled
 
@@ -249,8 +276,6 @@ contains
     CHARACTER(len=20) :: string
     logical :: DEBUG_OUTPUT=.false.
 
-!-- JW 10.Apr.2014: files now radial level output now locally defined
-    CHARACTER(len=72) :: v_r_file,b_r_file,T_r_file
     INTEGER :: length
 
     !--- end of declaration
@@ -446,7 +471,6 @@ contains
     ! ===================================================
     ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
 
-    l_r= l_r_field .AND. l_cmb
     l_PVout=l_PV .AND. l_log
 
     !IF (l_log.OR.l_frame.OR.l_graph.OR.l_cmb.OR.l_r.OR.l_Bpot.OR.l_Vpot&
@@ -625,35 +649,22 @@ contains
 !   added.
        IF ( l_r ) THEN
           PERFON('out_r')
-          DO n=1,n_coeff_r_go 
+          DO n=1,n_coeff_r_max
              nR=n_coeff_r(n)
-             IF ( n.LT.10 ) THEN
-                WRITE(string,'(i1)') n
-                length=1
-                v_r_file='V_coeff_r'//string(1:length)//'.'//tag
-                b_r_file='B_coeff_r'//string(1:length)//'.'//tag
-                T_r_file='T_coeff_r'//string(1:length)//'.'//tag
-             ELSE
-                WRITE(string,'(i2)') n
-                length=2
-                v_r_file='V_coeff_r'//string(1:length)//'.'//tag
-                b_r_file='B_coeff_r'//string(1:length)//'.'//tag
-                T_r_file='T_coeff_r'//string(1:length)//'.'//tag
-             END IF
              CALL write_coeff_r(timeScaled,                            &
                   &             w(:,nR),dw(:,nR),ddw(:,nR),z(:,nR),r(nR),&
                   &             lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
-                  &             v_r_file,n_r_file,l_save_out,1)
+                  &             v_r_file(n),n_v_r_file(n),l_save_out,1)
              IF ( l_mag ) &
                 CALL write_coeff_r(timeScaled,                         &
                      &             b(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR),&
                      &             lm_max,l_max,l_max_r,minc,lm2,n_b_r_sets(n),&
-                     &             b_r_file,n_r_file,l_save_out,2)
+                     &             b_r_file(n),n_b_r_file(n),l_save_out,2)
              IF ( l_r_fieldT ) &
                 CALL write_coeff_r(timeScaled, &
                                    s(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR), &
                                    lm_max,l_max,l_max_r,minc,lm2,n_T_r_sets(n), &
-                                   T_r_file,n_r_file,l_save_out,3)
+                                   T_r_file(n),n_t_r_file(n),l_save_out,3)
           END DO
           PERFOFF
        END IF

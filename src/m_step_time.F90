@@ -149,6 +149,7 @@ contains
     LOGICAL :: l_frame          ! Movie frame output
     LOGICAL :: lTOframe         ! TO movie frame output
     LOGICAL :: l_cmb            ! Store set of b at CMB
+    LOGICAL :: l_r              ! Store coeff at various depths
     LOGICAL :: lHelCalc         ! Calculate helicity for output
     LOGICAL :: lTOCalc          ! Calculate TO stuff
     LOGICAL :: lTONext,lTONext2 ! TO stuff for next steps
@@ -560,6 +561,10 @@ contains
        l_cmb= l_cmb_field .and.                                     &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &                       n_cmb_step,n_cmbs,n_t_cmb,t_cmb,0)
+       l_r= l_r_field .and.                                         &
+            &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+            &                       n_r_field_step,n_r_fields,n_t_r_field,     &
+            &                       t_r_field,0)
        l_logNext=.FALSE.
        IF ( n_time_step+1.LE.n_time_steps+1 )                       &
             &        l_logNext=                                                &
@@ -840,7 +845,7 @@ contains
             &      l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,          &
             &      l_store,l_new_rst_file,                               &
             &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
-            &      l_frame,n_frame,l_cmb,n_cmb_sets,                     &
+            &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
             &      lorentz_torque_ic,lorentz_torque_ma,ptr_dbdt_CMB,     &
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
             &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,   &

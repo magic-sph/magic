@@ -1,7 +1,7 @@
 !$Id$
 #include "perflib_preproc.cpp"
 !***********************************************************************
-    PROGRAM magic3_44
+    PROGRAM magic5
 !***********************************************************************
 
 !--+-------------+----------------+------------------------------------+
@@ -193,7 +193,7 @@
        !CALL get_resetTime(resetTime)
         CALL wallTime(runTimeStart)
         WRITE(*,*)
-        message='!--- PROGRAM MAGIC3.44, 31 Aug. 2010, BY JW ---!'
+        message='!--- PROGRAM MAGIC5 ---!'
         WRITE(*,*) message
         CALL writeTime(6,'! Started at:',runTimeStart)
     END IF
@@ -202,6 +202,8 @@
     CALL readNamelists  ! includes sent to other procs !
 
     call initialize_const
+    call initialize_output
+
     !--- Check parameters and write info to SDTOUT
     CALL checkTruncation
     call openFiles
@@ -239,7 +241,6 @@
     call initialize_communications
     call initialize_outPar_mod
     IF ( l_power ) call initialize_output_power
-    call initialize_output
 
 !--- Open output files:
     !CALL openFiles
