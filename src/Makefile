@@ -311,6 +311,7 @@ m_outPV3.o              : truncation.o m_horizontal.o m_num_param.o\
                           m_phys_param.o m_radial.o m_logic.o m_blocking.o\
                           m_output_data.o s_costf1.o m_plms.o s_getPAStr.o\
                           s_getPVptr.o 
+m_write_special.o       : m_logic.o
 s_graph_write.o         : truncation.o 
 s_lm2pt.o               : truncation.o m_horizontal.o m_blocking.o m_radial.o\
                           $(FFT_OBJS) 
@@ -400,11 +401,10 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_logic.o m_output_data.o m_radial.o\
                           m_horizontal.o m_const.o m_fields.o s_rBrSpec.o\
                           s_rBpSpec.o s_logWrite.o s_write_movie_frame.o\
-                          s_write_coeff_r.o s_outMisc.o\
                           s_write_rot.o m_kinetic_energy.o m_magnetic_energy.o\
                           m_spectrum_average.o m_spectrumC_average.o\
                           m_fields_average.o m_power.o m_getDlm.o\
-                          s_get_u_square.o s_safeOut.o m_outTO.o\
+                          s_get_u_square.o s_safeOut.o m_outTO.o s_outMisc.o\
                           s_dtVrms.o s_zeroRms.o m_char_manip.o s_store.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
 			  m_communications.o m_write_special.o m_outPar.o

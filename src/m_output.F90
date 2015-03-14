@@ -9,22 +9,24 @@ MODULE output_mod
   USE num_param,only: tScale
   USE blocking,ONLY: st_map,lm2,lo_map
   USE horizontal_data,ONLY: dLh,hdif_B,dPl0Eq
-  USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB,l_RMS,l_r_field,l_r_fieldT,&
-       & l_PV,l_SRIC,l_cond_ic,l_rMagSpec,l_movie_ic,l_store_frame,l_cmb_field,l_dt_cmb_field,&
+  USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB, &
+       & l_RMS,l_r_field,l_r_fieldT,l_PV,l_SRIC,l_cond_ic,l_rMagSpec,     &
+       & l_movie_ic,l_store_frame,l_cmb_field,l_dt_cmb_field,             &
        & l_save_out,l_non_rot
-  USE fields,ONLY: omega_ic,omega_ma,b,db,ddb,aj,dj,ddj,&
-       &b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,&
-       &w,dw,ddw,z,dz,s,ds,p,&
-       & w_LMloc,dw_LMloc,ddw_LMloc,p_LMloc,&
-       & s_LMloc,ds_LMloc,z_LMloc,dz_LMloc,&
-       & b_LMloc,db_LMloc,ddb_LMloc,&
-       & aj_LMloc,dj_LMloc,ddj_LMloc,&
-       & b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc,&
+  USE fields,ONLY: omega_ic,omega_ma,b,db,ddb,aj,dj,ddj, &
+       & b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,           &
+       & w,dw,ddw,z,dz,s,ds,p,                           &
+       & w_LMloc,dw_LMloc,ddw_LMloc,p_LMloc,             &
+       & s_LMloc,ds_LMloc,z_LMloc,dz_LMloc,              &
+       & b_LMloc,db_LMloc,ddb_LMloc,                     &
+       & aj_LMloc,dj_LMloc,ddj_LMloc,                    &
+       & b_ic_LMloc,db_ic_LMloc,ddb_ic_LMloc,            &
        & aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc
-  USE fieldsLast,ONLY: dwdtLast,dzdtLast,dpdtLast,dsdtLast,&
-       &dbdtLast,djdtLast,dbdt_icLast,djdt_icLast,&
-       &dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,&
-       &dbdtLast_LMloc,djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc
+  USE fieldsLast,ONLY: dwdtLast,dzdtLast,dpdtLast,dsdtLast,       &
+       & dbdtLast,djdtLast,dbdt_icLast,djdt_icLast,               &
+       & dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,&
+       & dbdtLast_LMloc,djdtLast_LMloc,dbdt_icLast_LMloc,         &
+       & djdt_icLast_LMloc
   USE kinetic_energy,only: get_e_kin
   USE magnetic_energy,only: get_e_mag
   USE fields_average_mod,only: fields_average
@@ -36,15 +38,16 @@ MODULE output_mod
        & n_cmbMov_file,cmb_file,n_cmb_file,dt_cmb_file,n_dt_cmb_file, &
        & n_coeff_r,l_max_r,n_v_r_file,n_b_r_file,n_t_r_file,          &
        & v_r_file,t_r_file,b_r_file,n_r_array,n_r_step,               &
-       & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,n_rst_file
+       & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,     &
+       & n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
   use parallel_mod
   use outPar_mod, only: outPar
   USE power, ONLY: get_power
-  USE LMLoop_data,ONLY:lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
-  USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,&
+  USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
+  USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,   &
        & gt_OC,gt_IC
-  USE write_special,only: write_Bcmb
+  USE write_special,only: write_Bcmb, write_coeff_r
   USE getDlm_mod,only: getDlm
   USE movie_data,only: movie_gather_frames_to_rank0
   use store_rst
@@ -645,26 +648,24 @@ contains
        END IF
 
        !--- Store potential coeffs for velocity fields and magnetic fields
-!-- JW 10.Apr.2014: Output of potentials at radial levels changed, output of s
-!   added.
        IF ( l_r ) THEN
           PERFON('out_r')
           DO n=1,n_coeff_r_max
              nR=n_coeff_r(n)
              CALL write_coeff_r(timeScaled,                            &
-                  &             w(:,nR),dw(:,nR),ddw(:,nR),z(:,nR),r(nR),&
-                  &             lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
-                  &             v_r_file(n),n_v_r_file(n),l_save_out,1)
+                  &             w(1,nR),dw(1,nR),ddw(1,nR),z(1,nR),r(nR),&
+                  &             1,lm_max,l_max,l_max_r,minc,lm2,n_v_r_sets(n),&
+                  &             v_r_file(n),n_v_r_file(n),1)
              IF ( l_mag ) &
                 CALL write_coeff_r(timeScaled,                         &
-                     &             b(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR),&
-                     &             lm_max,l_max,l_max_r,minc,lm2,n_b_r_sets(n),&
-                     &             b_r_file(n),n_b_r_file(n),l_save_out,2)
+                     &             b(1,nR),db(1,nR),ddb(1,nR),aj(1,nR),r(nR),&
+                     &             1,lm_max,l_max,l_max_r,minc,lm2,n_b_r_sets(n),&
+                     &             b_r_file(n),n_b_r_file(n),2)
              IF ( l_r_fieldT ) &
                 CALL write_coeff_r(timeScaled, &
-                                   s(:,nR),db(:,nR),ddb(:,nR),aj(:,nR),r(nR), &
-                                   lm_max,l_max,l_max_r,minc,lm2,n_T_r_sets(n), &
-                                   T_r_file(n),n_t_r_file(n),l_save_out,3)
+                                   s(1,nR),db(1,nR),ddb(1,nR),aj(1,nR),r(nR), &
+                                   1,lm_max,l_max,l_max_r,minc,lm2,n_T_r_sets(n), &
+                                   T_r_file(n),n_t_r_file(n),3)
           END DO
           PERFOFF
        END IF
