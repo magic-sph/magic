@@ -2,13 +2,13 @@
 MODULE rIterThetaBlocking_mod
   USE rIteration_mod, only: rIteration_t
 
-  USE truncation, ONLY: lm_max,lmP_max,nrp,ncp,l_max,lmP_max_dtB,&
-       &n_phi_maxStr,n_theta_maxStr,n_r_maxStr
+  USE truncation, ONLY: lm_max,lmP_max,nrp,ncp,l_max,lmP_max_dtB, &
+       & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
   USE blocking, only: nfs
-  USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
-       & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
+  USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
+       & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
        & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
-       & l_fluxProfs
+       & l_fluxProfs, l_TO
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -17,7 +17,7 @@ MODULE rIterThetaBlocking_mod
 #elif (FFTLIB==MKL)
   USE fft_MKL
 #endif
-  USE legendre_trafo,only: legTFG
+  USE legendre_trafo,only: legTFG,legTFGnomag
   USE leg_helper_mod, only: leg_helper_t
   USE nonlinear_lm_mod,only:nonlinear_lm_t
   USE grid_space_arrays_mod,ONLY: grid_space_arrays_t
@@ -29,9 +29,12 @@ MODULE rIterThetaBlocking_mod
 
   TYPE :: dtB_arrays_t
      !----- Local dtB output stuff:
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVrLM, BpVrLM, BrVtLM, BrVpLM, BtVpLM, BpVtLM
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVpCotLM, BpVtCotLM, BtVpSn2LM, BpVtSn2LM
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BrVZLM, BtVZLM, BtVZcotLM, BtVZsn2LM
+     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
+                                 &               BtVpLM, BpVtLM
+     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVpCotLM,BpVtCotLM,BtVpSn2LM, &
+                                 &               BpVtSn2LM
+     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BrVZLM,BtVZLM,BtVZcotLM,       &
+                                 &               BtVZsn2LM
   END TYPE dtB_arrays_t
 
   TYPE :: TO_arrays_t
@@ -81,7 +84,7 @@ CONTAINS
     !----- Help arrays for Legendre transform calculated in legPrepG:
     !      Parallelizatio note: these are the R-distributed versions
     !      of the field scalars.
-    CALL this%leg_helper%initialize(lm_max,l_max)
+    CALL this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
     !----- Local dtB output stuff:
     ALLOCATE( this%dtB_arrays%BtVrLM(lmP_max_dtB) )
@@ -100,17 +103,21 @@ CONTAINS
     ALLOCATE( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
 
     !----- Local TO output stuff:
-    ALLOCATE( this%TO_arrays%dzRstrLM(l_max+2),this%TO_arrays%dzAstrLM(l_max+2) )
-    ALLOCATE( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
+    IF ( l_TO ) THEN
+      ALLOCATE( this%TO_arrays%dzRstrLM(l_max+2),this%TO_arrays%dzAstrLM(l_max+2) )
+      ALLOCATE( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
+    END IF
 
-    allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
-    allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
-    allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
+    ALLOCATE( this%BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
+    ALLOCATE( this%BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
+    ALLOCATE( this%BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
 
   END SUBROUTINE allocate_common_arrays
 
   SUBROUTINE deallocate_common_arrays(this)
+
     class(rIterThetaBlocking_t) :: this
+
     DEALLOCATE( this%dtB_arrays%BtVrLM )
     DEALLOCATE( this%dtB_arrays%BpVrLM )
     DEALLOCATE( this%dtB_arrays%BrVtLM )
@@ -127,12 +134,14 @@ CONTAINS
     DEALLOCATE( this%dtB_arrays%BtVZsn2LM )
 
     !----- Local TO output stuff:
-    DEALLOCATE( this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM )
-    DEALLOCATE( this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM )
+    IF ( l_TO ) THEN
+      DEALLOCATE( this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM )
+      DEALLOCATE( this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM )
+    END IF
 
-    deallocate( this%BsLast)
-    deallocate( this%BpLast)
-    deallocate( this%BzLast)
+    DEALLOCATE( this%BsLast)
+    DEALLOCATE( this%BpLast)
+    DEALLOCATE( this%BzLast)
   END SUBROUTINE deallocate_common_arrays
 
   SUBROUTINE set_ThetaBlocking(this,nThetaBs,sizeThetaB)
@@ -158,12 +167,12 @@ CONTAINS
        !PERFON('legTFG')
        !LIKWID_ON('legTFG')
        CALL legTFG(this%nBc,this%lDeriv,nThetaStart,                &
-            &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,&
-            &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc, &
-            &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,           &
-            &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,&
-            &      gsa%cbtc,gsa%cbpc,gsa%sc,gsa%drSc,    &
-            &      gsa%dsdtc, gsa%dsdpc, gsa%pc, &
+            &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
+            &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
+            &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
+            &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                &
+            &      gsa%cbtc,gsa%cbpc,gsa%sc,gsa%drSc,               &
+            &      gsa%dsdtc, gsa%dsdpc, gsa%pc,                    &
             &      this%leg_helper)
        !LIKWID_OFF('legTFG')
        !PERFOFF
@@ -177,16 +186,12 @@ CONTAINS
        !PERFON('legTFGnm')
        !LIKWID_ON('legTFGnm')
        CALL legTFGnomag(this%nBc,this%lDeriv,nThetaStart,                 &
-            &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,&
-            &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,  &
-            &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,&
-            &           gsa%sc,gsa%drSc,    &
-            &           gsa%dsdtc, gsa%dsdpc,gsa%pc, &
-            &           this%leg_helper%dLhw,this%leg_helper%dLhdw,this%leg_helper%dLhz,&
-            &           this%leg_helper%vhG,this%leg_helper%vhC,this%leg_helper%dvhdrG,&
-            &           this%leg_helper%dvhdrC,&
-            &           this%leg_helper%sR,this%leg_helper%dsR, &
-            &           this%leg_helper%preR)
+            &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
+            &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
+            &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
+            &           gsa%sc,gsa%drSc,                                  &
+            &           gsa%dsdtc, gsa%dsdpc,gsa%pc,                      &
+            &           this%leg_helper)
        !LIKWID_OFF('legTFGnm')
        !PERFOFF
     END IF
@@ -243,14 +248,13 @@ CONTAINS
        ELSE IF ( this%nBc.EQ.2 ) THEN 
           IF ( this%nR.EQ.n_r_cmb ) THEN
              CALL v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
-                  &                gsa%vrc,gsa%vtc,gsa%vpc,&
-                  &                gsa%cvrc,gsa%dvrdtc,gsa%dvrdpc,&
-                  &                gsa%dvtdpc,gsa%dvpdpc, &
+                  &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
+                  &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
                   &                nThetaStart)
           ELSE IF ( this%nR.EQ.n_r_icb ) THEN
              CALL v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
-                  &                gsa%vrc,gsa%vtc,gsa%vpc,      &
-                  &                gsa%cvrc,gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc, &
+                  &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
+                  &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
                   &                nThetaStart)
           END IF
           IF ( this%lDeriv ) THEN
@@ -325,9 +329,8 @@ CONTAINS
           IF (l_mag_nl) THEN
              CALL fft_thetab(gsa%ViscHeat,-1)
              CALL fft_thetab(gsa%OhmLoss,-1)
-             CALL legTF2(nThetaStart,nl_lm%OhmLossLM,         &
-                  &      nl_lm%ViscHeatLM,gsa%OhmLoss,            &
-                  &      gsa%ViscHeat)
+             CALL legTF2(nThetaStart,nl_lm%OhmLossLM,nl_lm%ViscHeatLM,    &
+                  &      gsa%OhmLoss,gsa%ViscHeat)
           ELSE
              CALL fft_thetab(gsa%ViscHeat,-1)
              CALL legTF1(nThetaStart,nl_lm%ViscHeatLM,gsa%ViscHeat)
@@ -341,13 +344,13 @@ CONTAINS
           CALL fft_thetab(gsa%VxBr,-1)
           CALL fft_thetab(gsa%VxBt,-1)
           CALL fft_thetab(gsa%VxBp,-1)
-          CALL legTF3(nThetaStart,nl_lm%VxBrLM,nl_lm%VxBtLM,nl_lm%VxBpLM,&
+          CALL legTF3(nThetaStart,nl_lm%VxBrLM,nl_lm%VxBtLM,nl_lm%VxBpLM, &
                &       gsa%VxBr,gsa%VxBt,gsa%VxBp)
        ELSE
           !write(*,"(I4,A,ES20.13)") this%nR,", VxBt = ",sum(VxBt*VxBt)
           CALL fft_thetab(gsa%VxBt,-1)
           CALL fft_thetab(gsa%VxBp,-1)
-          CALL legTF2(nThetaStart,nl_lm%VxBtLM,nl_lm%VxBpLM,&
+          CALL legTF2(nThetaStart,nl_lm%VxBtLM,nl_lm%VxBpLM,              &
                &      gsa%VxBt,gsa%VxBp)
        END IF
        !PERFOFF

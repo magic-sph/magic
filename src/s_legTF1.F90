@@ -28,11 +28,6 @@
 
     IMPLICIT NONE
 
-!-- input:
-! include 'truncation.f'
-! include 'c_horizontal.f'
-! include 'c_blocking.f'
-
     INTEGER,INTENT(IN) :: nThetaStart ! First no of theta on block
     COMPLEX(kind=8),INTENT(IN) :: f1TM(ncp,nfs)
 

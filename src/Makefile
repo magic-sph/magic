@@ -90,6 +90,7 @@ endif
 # not found in the standard location. It is used for example
 # on hydra, if one compiles with the gnu compilers.
 MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
+MPI_INCPATH=/usr/include
 
 PREPROC += -DJW=1 -DMKL=2
 ifeq ($(USE_MPI),yes)
@@ -250,8 +251,6 @@ s_courant.o             : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_radial.o m_horizontal.o m_logic.o 
 s_get_br_v_bcs.o        : truncation.o m_horizontal.o $(FFT_OBJS)\
                           s_legTF2.o 
-s_legTFGnomag.o         : truncation.o m_blocking.o m_horizontal.o m_logic.o\
-                          m_const.o 
 m_fields_average.o      : truncation.o m_num_param.o m_output_data.o m_blocking.o\
                           m_logic.o m_const.o m_radial.o m_horizontal.o\
                           s_get_drNS.o s_get_ddrNS_even.o s_get_drNS_even.o\
@@ -347,7 +346,7 @@ s_spectrumC.o           : truncation.o m_blocking.o m_num_param.o\
 m_radialLoop.o          : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_num_param.o m_logic.o m_output_data.o\
                           m_radial.o m_horizontal.o m_const.o m_TO.o \
-                          s_legPrepG.o m_legendre_trafo.o s_legTFGnomag.o\
+                          s_legPrepG.o m_legendre_trafo.o\
                           $(FFT_OBJS) s_v_rigid_boundary.o \
                           s_legTF3.o s_legTF2.o s_legTF1.o s_get_br_v_bcs.o\
                           s_get_td.o s_graphOut.o m_radial_data.o m_rIteration.o \
@@ -377,7 +376,7 @@ s_get_movie_type.o      : truncation.o m_output_data.o m_phys_param.o m_radial.o
                           m_logic.o m_movie.o m_horizontal.o m_char_manip.o
 s_dt_courant.o          : truncation.o m_output_data.o m_logic.o  m_radial_data.o
 m_legendre_trafo.o      : truncation.o m_blocking.o m_horizontal.o m_logic.o\
-                          m_const.o 
+                          m_const.o m_leg_helper.o
 s_get_s0Mat.o           : truncation.o m_phys_param.o m_num_param.o m_radial.o\
                           m_algebra.o 
 s_get_dddr.o            : s_costf1.o s_get_dddcheb.o 
@@ -419,7 +418,7 @@ s_cheb_x_map_e_xr.o     : m_logic.o
 s_mapDataICR.o          : truncation.o m_blocking.o m_radial.o s_init_costf1.o 
 m_spectrum_average.o    : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_logic.o\
-                          m_output_data.o s_safeOut.o m_usefull.o
+                          m_output_data.o s_safeOut.o m_usefull.o m_LMLoop_data.o
 s_dtVrms.o              : truncation.o m_parallel.o m_blocking.o\
                           m_phys_param.o m_radial.o m_const.o m_logic.o\
                           m_output_data.o m_RMS.o s_init_rNB.o s_get_drNS_R.o\
@@ -492,7 +491,7 @@ m_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
                           m_logic.o m_init_fields.o m_mat.o m_RMS.o m_TO.o\
                           s_get_z10Mat.o m_algebra.o s_get_zMat.o s_costf1.o\
                           s_get_ddr.o s_get_angular_moment.o s_hInt2Tor.o \
-			  m_LMLoop_data.o
+			  m_LMLoop_data.o m_communications.o
 s_closeFiles.o          : truncation.o m_logic.o m_output_data.o m_parallel.o 
 s_getPVptr.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_const.o $(FFT_OBJS) 
@@ -590,7 +589,8 @@ s_get_PASLM.o           : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o 
 m_kinetic_energy.o      : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_output_data.o m_logic.o m_const.o\
-                          m_phys_param.o m_usefull.o m_integration.o
+                          m_phys_param.o m_usefull.o m_integration.o\
+                          m_communications.o
 s_get_bMat.o            : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_radial.o m_logic.o m_init_fields.o\
                           m_Bext.o m_algebra.o 
@@ -610,7 +610,7 @@ m_blocking.o            : truncation.o m_LMmapping.o m_logic.o m_parallel.o m_ou
 m_num_param.o           : truncation.o
 m_radial.o              : truncation.o m_radial_data.o \
 			  m_num_param.o m_phys_param.o m_logic.o\
-                          m_output_data.o s_cheb_x_map_e_xr.o\
+                          m_output_data.o s_cheb_x_map_e_xr.o m_init_fields.o\
                           m_chebyshev_polynoms.o s_init_costf1.o s_get_dr.o\
                           m_usefull.o s_get_chebs_even.o s_init_costf2.o
 m_output_data.o         : truncation.o m_movie.o

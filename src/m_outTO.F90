@@ -209,6 +209,7 @@ contains
     REAL(kind=4) :: timeAve,dt
     SAVE timeLast,timeAve
 
+    CHARACTER(len=255) :: message
     CHARACTER(len=64) :: version,fileName
     INTEGER :: nFieldSize,nPos
 
@@ -837,15 +838,12 @@ contains
     OPEN(nOutFile,FILE=TOfileNhs,STATUS='UNKNOWN',                  &
          &       FORM='UNFORMATTED',POSITION='APPEND')
     IF( nTOsets.EQ.1 ) THEN
-       IF ( l_save_out ) THEN
-          OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN',           &
-               &             POSITION='APPEND')
-       END IF
-       WRITE(n_log_file,*)
-       WRITE(n_log_file,*) '! TO: No. of s-values:',INT(nSmax/r_cmb)
-       WRITE(n_log_file,*) '! TO: No. of z-values:',nNorm
-       WRITE(n_log_file,*)
-       IF ( l_save_out ) CLOSE(n_log_file)
+
+       WRITE(message,'(" ! TO: No. of s-values:",i4)') INT(nSmax/r_cmb)
+       call logWrite(message)
+       WRITE(message,'(" ! TO: No. of z-values:",i4)') nNorm
+       call logWrite(message)
+
        WRITE(nOutFile) FLOAT(nSmax)                     ! 1
        WRITE(nOutFile) (SNGL(sZ(nS)),nS=1,nSmax)        ! 2
     END IF

@@ -17,9 +17,9 @@ MODULE leg_helper_mod
      procedure :: initialize
   END TYPE leg_helper_t
 CONTAINS
-  SUBROUTINE initialize(this,lm_max,l_max)
+  SUBROUTINE initialize(this,lm_max,lm_maxMag,l_max)
     CLASS(leg_helper_t) :: this
-    INTEGER,INTENT(IN) :: lm_max,l_max
+    INTEGER,INTENT(IN) :: lm_max,lm_maxMag,l_max
 
     ALLOCATE( this%dLhw(lm_max) )
     ALLOCATE( this%dLhdw(lm_max) )
@@ -30,16 +30,16 @@ CONTAINS
     ALLOCATE( this%vhC(lm_max) )
     ALLOCATE( this%dvhdrG(lm_max) )
     ALLOCATE( this%dvhdrC(lm_max) )
-    ALLOCATE( this%bhG(lm_max) )
-    ALLOCATE( this%bhC(lm_max) )
-    ALLOCATE( this%cbhG(lm_max) )
-    ALLOCATE( this%cbhC(lm_max) )
+    ALLOCATE( this%bhG(lm_maxMag) )
+    ALLOCATE( this%bhC(lm_maxMag) )
+    ALLOCATE( this%cbhG(lm_maxMag) )
+    ALLOCATE( this%cbhC(lm_maxMag) )
     !----- R-distributed versions of scalar fields (see c_fields.f):
     ALLOCATE( this%sR(lm_max),this%dsR(lm_max) )
     ALLOCATE( this%preR(lm_max),this%dpR(lm_max) )
     ALLOCATE( this%zAS(l_max+1),this%dzAS(l_max+1),&
          & this%ddzAS(l_max+1) ) ! used in TO
 
-    ALLOCATE( this%bCMB(lm_max) )
+    ALLOCATE( this%bCMB(lm_maxMag) )
   END SUBROUTINE initialize
 END MODULE leg_helper_mod

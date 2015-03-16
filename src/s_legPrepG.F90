@@ -1,16 +1,8 @@
 !$Id$
 !***********************************************************************
-!SUBROUTINE legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame, &
-!     &              lTOnext,lTOnext2,lTOcalc, &
-!     &              dLhw,dLhdw,dLhz,vhG,vhC,dvhdrG,dvhdrC, &
-!     &              dLhb,dLhj,bhG,bhC,cbhG,cbhC, &
-!     &              sR,dsR,preR,dpR,zAS,dzAS,ddzAS,bCMB,omegaIC,omegaMA)
 SUBROUTINE legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame, &
      &              lTOnext,lTOnext2,lTOcalc, leg_helper)
   !***********************************************************************
-
-  !    !------------ This is release 3 level 1  --------------!
-  !    !------------ Created on 12/08/05  by JW. --------------!
 
   !  +-------------------------------------------------------------------+
   !  |                                                                   |

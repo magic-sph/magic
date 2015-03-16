@@ -13,7 +13,6 @@ MODULE radialLoop
   USE const
   USE parallel_mod, ONLY: rank, n_procs
   USE radial_data,ONLY: nRstart,nRstop,n_r_cmb
-  USE legendre_trafo,only: legTFG
 #if (FFTLIB==JW)
   USE fft_JW
 #elif (FFTLIB==MKL)

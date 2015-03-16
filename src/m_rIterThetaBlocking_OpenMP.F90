@@ -20,7 +20,6 @@ MODULE rIterThetaBlocking_OpenMP_mod
 #elif (FFTLIB==MKL)
   USE fft_MKL
 #endif
-  USE legendre_trafo,only: legTFG
   USE leg_helper_mod, only: leg_helper_t
   USE nonlinear_lm_mod,only:nonlinear_lm_t
   USE grid_space_arrays_mod,only: grid_space_arrays_t
