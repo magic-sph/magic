@@ -131,6 +131,8 @@ contains
     !-- Local variables:
     REAL(kind=8) :: w2             ! weight of second time step
     REAL(kind=8) :: O_dt
+    REAL(kind=8) :: yl0_norm,prefac!External magnetic field of general l
+
     INTEGER :: l1,m1               ! degree and order
     INTEGER :: lm1,lm,lmB          ! position of (l,m) in array
     INTEGER :: lmStart,lmStop      ! max and min number of orders m
@@ -350,16 +352,20 @@ contains
                          rhs2(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
                       END IF
                    END IF
-                   IF ( n_imp > 1 .AND. l1 == 1 ) THEN
+                   IF ( n_imp > 1 .AND. l1 == l_imp ) THEN
+
+                       yl0_norm = 0.5D0*DSQRT((2*l1+1)/pi)   !General normalization for spherical harmonics of degree l and order 0
+                       prefac = DBLE(2*l1+1)/DBLE(l1*(l1+1)) !Prefactor for CMB matching condition
+
                       IF ( n_imp == 2 ) THEN
                          !  Chose external field coefficient so that amp_imp is the amplitude of
-                         !  the external dipole field:
-                         bpeaktop=3.D0/2.D0*r_cmb/y10_norm*amp_imp
+                         !  the external field:
+                         bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                          rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
                       ELSE IF ( n_imp == 3 ) THEN
                          !  Chose external field coefficient so that amp_imp is the amplitude of
-                         !  the external dipole field:
-                         bpeaktop=3.D0/2.D0*r_cmb/y10_norm*amp_imp
+                         !  the external field:
+                         bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
                          IF ( REAL(b(2,1)) > 1.D-9 ) &
                               direction=REAL(b(2,1))/DABS(REAL(b(2,1)))
                          rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))*direction

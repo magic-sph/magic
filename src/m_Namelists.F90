@@ -74,7 +74,7 @@ CONTAINS
          nVarDiff,nVarVisc,difExp,nVarEps
 
     NAMELIST/B_external/ &
-         rrMP,amp_imp,expo_imp,bmax_imp,n_imp
+         rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp
 
     NAMELIST/start_field/                            &
          l_start_file,start_file,inform, &
@@ -173,8 +173,8 @@ CONTAINS
        READ(105,phys_param)
 
        !-- Reading external field parameters for feedback:
-       !           WRITE(*,*) '!  Reading B external parameters!'
-       !           READ(105,B_external)
+       !WRITE(*,*) '!  Reading B external parameters!'
+       !READ(105,B_external)
 
        !-- Reading start field info from namelists in STDIN:
        if (rank.eq.0) write(*,*) '!  Reading start information!'
@@ -437,8 +437,12 @@ CONTAINS
        WRITE(*,*) '! please provide rrMP>1!'
        STOP
     ELSE IF ( n_imp >= 2 .AND. amp_imp == 0.D0 ) THEN
-       WRITE(*,*) '! For runs with n_imp=2!'
+       WRITE(*,*) '! For runs with n_imp>=2!'
        WRITE(*,*) '! please provide amp_imp!'
+       STOP
+    ELSE IF ((n_imp == 2 .OR. n_imp ==3) .AND. l_imp <= 0) THEN
+       WRITE(*,*) '! For runs with n_imp=2 or n_imp=3'
+       WRITE(*,*) '! l_imp must be >=0'
        STOP
     END IF
     IF ( imagcon /= 0 .AND. tmagcon == 0 ) tmagcon=1.D18
@@ -715,6 +719,7 @@ CONTAINS
 
     !----- External field
     write(n_out,'(''  n_imp       ='',i3,'','')') n_imp
+    write(n_out,'(''  l_imp       ='',i3,'','')') l_imp
     write(n_out,'(1p,''  rrMP           ='',d14.6,'','')') rrMP
     write(n_out,'(1p,''  amp_imp        ='',d14.6,'','')') amp_imp
     write(n_out,'(1p,''  expo_imp       ='',d14.6,'','')') expo_imp
@@ -1036,6 +1041,7 @@ CONTAINS
     amp_imp        =0.D0 ! amplitude of external field
     expo_imp       =0.D0 ! oscillation frequency of external field
     bmax_imp       =0.D0
+    l_imp          =1    ! Default external field is axial dipole
 
     !----- Namelist start_field:
     l_start_file  =.FALSE.
