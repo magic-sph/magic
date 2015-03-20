@@ -173,7 +173,7 @@ CONTAINS
        READ(105,phys_param)
 
        !-- Reading external field parameters for feedback:
-       !WRITE(*,*) '!  Reading B external parameters!'
+       !if (rank.eq.0) write(*,*) '!  Reading B external parameters!'
        !READ(105,B_external)
 
        !-- Reading start field info from namelists in STDIN:
@@ -717,7 +717,10 @@ CONTAINS
     !----- Internal heating form:
     write(n_out,'(''  nVarEps     ='',i3,'','')') nVarEps
 
+    write(n_out,*) "/"
+
     !----- External field
+    write(n_out,*) "&B_external"
     write(n_out,'(''  n_imp       ='',i3,'','')') n_imp
     write(n_out,'(''  l_imp       ='',i3,'','')') l_imp
     write(n_out,'(1p,''  rrMP           ='',d14.6,'','')') rrMP
