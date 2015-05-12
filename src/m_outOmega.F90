@@ -116,28 +116,14 @@ MODULE omega
     INTEGER :: nChebMax
     REAL(kind=8) :: theta
     REAL(kind=8) :: r
-    INTEGER,PARAMETER :: lmMaxLocal=5000
-    REAL(kind=8) :: plm(lmMaxLocal),dthetaPlm(lmMaxLocal)
+    REAL(kind=8) :: plm(lmMax),dthetaPlm(lmMax)
     INTEGER :: nCheb
-    INTEGER,PARAMETER :: nChebMaxLocal=192
-    REAL(kind=8) :: cheb(nChebMaxLocal)
+    REAL(kind=8) :: cheb(nChebMax)
     REAL(kind=8) :: ftr
     INTEGER :: l
     REAL(kind=8) :: x,chebNorm
 
 !----------------------------------------------------------------------------
-
-
-    IF ( nChebMax > nChebMaxLocal ) THEN
-        WRITE(*,*) '! nChebMaxH too small in lnPAS2tr!'
-        WRITE(*,*) '! Should be at least:',nChebMax
-        STOP
-    END IF
-    IF ( lmMax > lmMaxLocal ) THEN
-        WRITE(*,*) '! lmMaxLocal small in lnPAS2tr!'
-        WRITE(*,*) '! Should be at least:',lmMax
-        STOP
-    END IF
 
 !--- Map r to cheb intervall [-1,1]:
 !    and calculate the cheb polynomia:
@@ -155,7 +141,7 @@ MODULE omega
     cheb(nChebMax)=0.5D0*cheb(nChebMax)
 
 !--- Calculate Legendres:
-    CALL plm_theta(theta,lMax,0,minc,plm,dthetaPlm,lmMaxLocal,2)
+    CALL plm_theta(theta,lMax,0,minc,plm,dthetaPlm,lmMax,2)
 
 !--- Loop to add all contribution functions:
     ftr=0.D0
