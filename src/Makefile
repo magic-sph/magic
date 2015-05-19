@@ -406,14 +406,18 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           s_get_u_square.o s_safeOut.o m_outTO.o s_outMisc.o\
                           s_dtVrms.o s_zeroRms.o m_char_manip.o s_store.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
-			  m_communications.o m_write_special.o m_outPar.o
+			  m_communications.o m_write_special.o m_outPar.o\
+                          m_outPerpPar.o
 m_communications.o	: m_blocking.o m_parallel.o m_LMLoop_data.o truncation.o
 ifeq ($(USE_MPI),yes)
 m_output.o		: m_store_mpi.o
 endif
 m_outPar.o              : truncation.o m_blocking.o m_phys_param.o\
-                          m_logic.o m_radial.o\
+                          m_logic.o m_radial.o m_output_data.o m_radial_data.o\
                           m_horizontal.o m_const.o m_fields.o s_lmAS2pt.o
+m_outPerpPar.o          : truncation.o m_blocking.o m_horizontal.o m_const.o\
+                          m_radial.o m_output_data.o s_lmAS2pt.o m_radial_data.o\
+                          m_parallel.o m_integration.o m_logic.o m_num_param.o
 s_cheb_x_map_e_xr.o     : m_logic.o 
 s_mapDataICR.o          : truncation.o m_blocking.o m_radial.o s_init_costf1.o 
 m_spectrum_average.o    : truncation.o m_blocking.o m_num_param.o\
@@ -467,6 +471,8 @@ s_get_nlBLayers.o       : truncation.o m_blocking.o m_horizontal.o\
                           m_radial.o s_legtfAS2.o s_legtfAS.o
 s_get_fluxes.o          : truncation.o m_blocking.o m_horizontal.o\
                           m_radial.o s_legtfAS2.o s_legtfAS.o m_const.o
+s_get_perpPar.o         : truncation.o m_blocking.o m_horizontal.o\
+                          m_radial.o s_legtfAS2.o
 s_hInt2Pol.o            : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o
 s_write_movie_frame.o   : truncation.o m_blocking.o m_radial.o m_horizontal.o\

@@ -166,7 +166,8 @@ CONTAINS
     IF ( l_mag ) THEN
        !PERFON('legTFG')
        !LIKWID_ON('legTFG')
-       CALL legTFG(this%nBc,this%lDeriv,nThetaStart,                &
+       CALL legTFG(this%nBc,this%lDeriv,this%lViscBcCalc,           &
+            &      this%lFluxProfCalc,nThetaStart,                  &
             &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
             &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
             &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
@@ -185,7 +186,8 @@ CONTAINS
     ELSE
        !PERFON('legTFGnm')
        !LIKWID_ON('legTFGnm')
-       CALL legTFGnomag(this%nBc,this%lDeriv,nThetaStart,                 &
+       CALL legTFGnomag(this%nBc,this%lDeriv,this%lViscBcCalc,            & 
+            &           this%lFluxProfCalc,nThetaStart,                   &
             &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
             &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
             &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &

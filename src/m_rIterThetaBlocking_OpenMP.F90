@@ -10,8 +10,7 @@ MODULE rIterThetaBlocking_OpenMP_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
-       & l_fluxProfs
+       & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -92,13 +91,14 @@ CONTAINS
   END SUBROUTINE finalize_rIterThetaBlocking_OpenMP
 
   SUBROUTINE do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
-       &                 br_vt_lm_icb,br_vp_lm_icb,&
-       &                 lorentz_torque_ic, lorentz_torque_ma,&
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
-       &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
-       &                 fpoynLMr,fresLMr)
+       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM,    &
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,                       &
+       &                 br_vt_lm_icb,br_vp_lm_icb,                       &
+       &                 lorentz_torque_ic, lorentz_torque_ma,            &
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,  &
+       &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,              &
+       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+       &                 EparaxiLMr)
     CLASS(rIterThetaBlocking_OpenMP_t) :: this
     INTEGER, INTENT(IN) :: nR,nBc
     REAL(kind=8),INTENT(IN) :: time,dt,dtLast
@@ -116,6 +116,7 @@ CONTAINS
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
     !INTEGER :: nTheta,nPhi
@@ -170,14 +171,15 @@ CONTAINS
     !----- Blocking of loops over ic (theta):
     !$OMP PARALLEL default(shared) &
     !$OMP SHARED(this,l_mag,l_b_nl_cmb,l_b_nl_icb,l_mag_LF,l_rot_ic,l_cond_ic) &
-    !$OMP SHARED(l_rot_ma,l_cond_ma,l_viscBcCalc,l_movie_oc,l_store_frame,l_dtB) &
+    !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
     !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
     !$OMP SHARED(or2,orho1,time,ngform,dt,dtLast,DEBUG_OUTPUT) &
     !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
     !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
     !$OMP SHARED(lorentz_torques_ic) &
     !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
-    !$OMP shared(fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
+    !$OMP shared(fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr) &
+    !$OMP shared(EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
 #ifdef WITHOMP
     threadid = omp_get_thread_num()
 #else
@@ -203,13 +205,18 @@ CONTAINS
     fviscLMr=0.D0
     fpoynLMr=0.D0
     fresLMr=0.D0
+    EperpLMr=0.D0
+    EparLMr=0.D0
+    EperpaxiLMr=0.D0
+    EparaxiLMr=0.D0
     !$OMP END SINGLE
     !$OMP BARRIER
     call this%nl_lm(threadid)%set_zero()
     !$OMP DO &
     !$OMP reduction(+:br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
     !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
-    !$OMP reduction(+:fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
+    !$OMP reduction(+:fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr) &
+    !$OMP reduction(+:EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr) 
 
     DO nThetaB=1,this%nThetaBs
        nThetaLast =(nThetaB-1) * this%sizeThetaB
@@ -349,7 +356,7 @@ CONTAINS
 
        !--------- horizontal velocity :
 
-       IF ( l_viscBcCalc ) THEN
+       IF ( this%lViscBcCalc ) THEN
           !WRITE(*,"(2I3,A,3('(',2ES20.12,')'))") nR,nThetaB,&
           !     &" dsdr,dsdt,dsdp = ",&
           !     & SUM(this%gsa(threadid)%drSc),&
@@ -370,7 +377,7 @@ CONTAINS
        END IF
 
 
-       IF ( l_fluxProfs ) THEN
+       IF ( this%lFluxProfCalc ) THEN
            CALL get_fluxes(this%gsa(threadid)%vrc, &
                   &        this%gsa(threadid)%vtc, &
                   &        this%gsa(threadid)%vpc, &
@@ -388,6 +395,14 @@ CONTAINS
                   &        this%gsa(threadid)%cbpc,&
                   &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
                   &        fresLMr,nR,nThetaStart)
+       END IF
+
+       IF ( this%lPerpParCalc ) THEN
+           CALL get_perpPar(this%gsa(threadid)%vrc, &
+                  &         this%gsa(threadid)%vtc, &
+                  &         this%gsa(threadid)%vpc, &
+                  &         EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,&
+                  &         nR,nThetaStart)
        END IF
 
 

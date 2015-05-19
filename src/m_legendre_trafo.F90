@@ -5,7 +5,7 @@ MODULE legendre_trafo
   USE truncation, ONLY: ncp,lm_max,n_m_max
   USE blocking, ONLY: nfs,sizeThetaB,lm2mc
   USE horizontal_data, ONLY: Plm,dPlm,lStart,lStop,lmOdd,D_mc2m,osn2
-  USE logic, ONLY: l_heat,l_ht, l_viscBcCalc, l_fluxProfs
+  USE logic, ONLY: l_heat,l_ht
   USE parallel_mod,only: rank
 #ifdef WITH_LIKWID
 # include "likwid_f90.h"
@@ -17,7 +17,7 @@ MODULE legendre_trafo
   PUBLIC :: legTFG,legTFGnomag
  CONTAINS
 !*******************************************************************************
- SUBROUTINE legTFG(nBc,lDeriv,nThetaStart,                &
+ SUBROUTINE legTFG(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,nThetaStart, &
      &            vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
      &            dvrdtc,dvrdpc,dvtdpc,dvpdpc, &
      &            brc,btc,bpc,cbrc,cbtc,cbpc,sc,&
@@ -63,7 +63,7 @@ MODULE legendre_trafo
 
   !-- input:
   INTEGER,intent(IN) :: nBc
-  LOGICAL,intent(IN) :: lDeriv
+  LOGICAL,intent(IN) :: lDeriv,lFluxProfCalc,lViscBcCalc
   INTEGER,intent(IN) :: nThetaStart
 
 
@@ -134,7 +134,7 @@ MODULE legendre_trafo
               sc(mc,nThetaS)=sES-sEA
            END DO
 
-           IF ( l_fluxProfs ) THEN
+           IF ( lFluxProfCalc ) THEN
               DO mc=1,n_m_max
                   lmS=lStop(mc)
                   pES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
@@ -149,7 +149,7 @@ MODULE legendre_trafo
                END DO
            END IF
 
-           IF ( l_viscBcCalc ) THEN
+           IF ( lViscBcCalc ) THEN
               DO mc=1,n_m_max
                  dm =D_mc2m(mc)
                  lmS=lStop(mc)
@@ -444,11 +444,11 @@ MODULE legendre_trafo
         DO nThetaN=1,sizeThetaB
            DO mc=n_m_max+1,ncp
               sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              IF ( l_viscBcCalc) THEN
+              IF ( lViscBcCalc) THEN
                  dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               END IF
-              IF ( l_fluxProfs ) THEN
+              IF ( lFluxProfCalc ) THEN
                  pc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               END IF
               vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -603,7 +603,7 @@ MODULE legendre_trafo
   END IF  ! boundary ? nBc?
 
 
-  IF ( l_HT .OR. l_viscBcCalc ) THEN    ! For movie output !
+  IF ( l_HT .OR. lViscBcCalc ) THEN    ! For movie output !
      nThetaNHS=(nThetaStart-1)/2
 
      !-- Caculate radial derivate of S for heatflux:
@@ -636,14 +636,15 @@ MODULE legendre_trafo
 
  END SUBROUTINE legTFG
 !*******************************************************************************
- SUBROUTINE legTFGnomag(nBc,lDeriv,nThetaStart,               &
-     &                 vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc, &
-     &                 dvrdtc,dvrdpc,dvtdpc,dvpdpc,sc,drSc,   &
-     &                 dsdtc,dsdpc,pc,leg_helper)
+ SUBROUTINE legTFGnomag(nBc,lDeriv,lViscBcCalc,lFluxProfCalc, & 
+     &                 nThetaStart,vrc,vtc,vpc,dvrdrc,dvtdrc, &
+     &                 dvpdrc,cvrc,dvrdtc,dvrdpc,dvtdpc,      & 
+     &                 dvpdpc,sc,drSc,dsdtc,dsdpc,pc,         &
+     &                 leg_helper)
 
   !-- input:
   INTEGER,INTENT(IN) :: nBc
-  LOGICAL,INTENT(IN) :: lDeriv
+  LOGICAL,INTENT(IN) :: lDeriv,lViscBcCalc,lFluxProfCalc
   INTEGER,INTENT(IN) :: nThetaStart
 
   !----- Stuff precomputed in legPrep:
@@ -703,7 +704,7 @@ MODULE legendre_trafo
            END DO
 
 
-           IF ( l_fluxProfs ) THEN
+           IF ( lFluxProfCalc ) THEN
               DO mc=1,n_m_max
                  lmS=lStop(mc)
                  pES=CMPLX(0.D0,0.D0,KIND=KIND(0d0))    ! One equatorial symmetry
@@ -718,7 +719,7 @@ MODULE legendre_trafo
               END DO
            END IF
 
-           IF ( l_viscBcCalc ) THEN
+           IF ( lViscBcCalc ) THEN
               DO mc=1,n_m_max
                  dm =D_mc2m(mc)
                  lmS=lStop(mc)
@@ -914,10 +915,10 @@ MODULE legendre_trafo
         DO nThetaN=1,sizeThetaB
            DO mc=n_m_max+1,ncp
               sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              IF ( l_fluxProfs) THEN
+              IF ( lFluxProfCalc ) THEN
                  pc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               END IF
-              IF ( l_viscBcCalc) THEN
+              IF ( lViscBcCalc) THEN
                  dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
                  dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
               END IF
@@ -1025,7 +1026,7 @@ MODULE legendre_trafo
   END IF  ! boundary ? nBc?
 
 
-  IF ( l_HT .OR. l_viscBcCalc ) THEN    ! For movie output !
+  IF ( l_HT .OR. lViscBcCalc ) THEN    ! For movie output !
      nThetaNHS=(nThetaStart-1)/2
 
      !-- Caculate radial derivate of S for heatflux:

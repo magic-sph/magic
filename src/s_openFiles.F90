@@ -59,6 +59,7 @@
     n_dt_cmb_file      =27
     n_power_file       =28
     n_u_square_file    =29  
+    n_perpPar_file     =290
     n_par_file         =300
     n_angular_file     =301
     n_dtvrms_file      =302
@@ -101,6 +102,9 @@
     END IF
     IF ( l_anel ) THEN
         u_square_file='u_square.'//tag
+    END IF
+    IF ( l_perpPar ) THEN
+        perpPar_file='perpPar.'//tag
     END IF
     IF ( l_RMS .OR. l_RMStest) THEN
         dtvrms_file='dtVrms.'//tag
@@ -154,6 +158,9 @@
           END IF
           IF ( l_anel ) THEN
              OPEN(n_u_square_file,FILE=u_square_file,STATUS='NEW')
+          END IF
+          IF ( l_perpPar ) THEN
+             OPEN(n_perpPar_file,FILE=perpPar_file,STATUS='NEW')
           END IF
           IF ( l_AM ) THEN
              OPEN(n_angular_file,FILE=angular_file,STATUS='NEW')

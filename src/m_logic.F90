@@ -50,6 +50,7 @@ MODULE logic
   LOGICAL :: l_prms
   LOGICAL :: l_viscBcCalc 
   LOGICAL :: l_fluxProfs
+  LOGICAL :: l_perpPar
 
   LOGICAL :: lVerbose
 

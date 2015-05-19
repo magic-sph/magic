@@ -151,6 +151,9 @@ contains
     LOGICAL :: l_cmb            ! Store set of b at CMB
     LOGICAL :: l_r              ! Store coeff at various depths
     LOGICAL :: lHelCalc         ! Calculate helicity for output
+    LOGICAL :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
+    LOGICAL :: lFluxProfCalc    ! Calculate radial flux components
+    LOGICAL :: lperpParCalc     ! Calculate perpendicular and parallel Ekin
     LOGICAL :: lTOCalc          ! Calculate TO stuff
     LOGICAL :: lTONext,lTONext2 ! TO stuff for next steps
     LOGICAL :: lTOframeNext,lTOframeNext2
@@ -196,6 +199,8 @@ contains
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: fconvLMr_Rloc,fkinLMr_Rloc
     REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: fviscLMr_Rloc
     REAL(kind=8),DIMENSION(l_maxMag+1,nRstartMag:nRstopMag) :: fpoynLMr_Rloc,fresLMr_Rloc
+    REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: EperpLMr_Rloc,EparLMr_Rloc
+    REAL(kind=8),DIMENSION(l_max+1,nRstart:nRstop) :: EperpaxiLMr_Rloc,EparaxiLMr_Rloc
 
     !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
     COMPLEX(kind=8) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
@@ -620,7 +625,14 @@ contains
           l_log=.TRUE.
           lRmsNext=.FALSE.
        END IF
+
        lHelCalc=l_hel.AND.l_log
+
+       lperpParCalc=l_perpPar.AND.l_log
+
+       lFluxProfCalc =l_FluxProfs.AND.l_log
+
+       lViscBcCalc =l_ViscBcCalc.AND.l_log
 
        IF ( l_graph ) THEN  ! write graphic output !
           PERFON('graph')
@@ -720,7 +732,8 @@ contains
 
        CALL wallTime(runTimeRstart)
        CALL radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,                      &
-            &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,                 &
+            &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,                 & 
+            &           lViscBcCalc,lFluxProfCalc,lperpParCalc,                     &
             &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dbdt_Rloc,djdt_Rloc,&
             &           dVxBhLM_Rloc,dVSrLM_Rloc,                                   &
             &           lorentz_torque_ic,lorentz_torque_ma,                        &
@@ -729,7 +742,8 @@ contains
             &           HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,      &
             &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,         &
             &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc,      &
-            &           dtrkc_Rloc,dthkc_Rloc)
+            &           EperpLMr_Rloc,EparLMr_Rloc,EperpaxiLMr_Rloc,                &
+            &           EparaxiLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
 
 
        IF ( lVerbose ) WRITE(*,*) '! r-loop finished!'
@@ -849,7 +863,9 @@ contains
             &      lorentz_torque_ic,lorentz_torque_ma,ptr_dbdt_CMB,     &
             &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
             &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,   &
-            &      fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc)
+            &      fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,             & 
+            &      fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,              & 
+            &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
        PERFOFF
        IF (lVerbose) WRITE(*,*) "! output finished"
 

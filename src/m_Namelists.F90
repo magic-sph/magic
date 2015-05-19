@@ -123,7 +123,8 @@ CONTAINS
          l_AM,l_power,l_drift,l_storeBpot,l_storeVpot, &
          l_storeTpot,l_storePot,sDens,zDens,l_RMS, &
          l_RMStest,l_par,l_corrMov,rCut,rDea,l_prms, &
-         l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs
+         l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs, &
+         l_perpPar
 
     NAMELIST/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          omega_ma1,omegaOsz_ma1,tShift_ma1, &
@@ -837,6 +838,7 @@ CONTAINS
     write(n_out,'(''  l_power       ='',l3,'','')') l_power
     write(n_out,'(''  l_viscBcCalc  ='',l3,'','')') l_viscBcCalc
     write(n_out,'(''  l_fluxProfs   ='',l3,'','')') l_fluxProfs
+    write(n_out,'(''  l_perpPar     ='',l3,'','')') l_perpPar
     write(n_out,'(''  l_drift       ='',l3,'','')') l_drift
     write(n_out,'(''  l_iner        ='',l3,'','')') l_iner
     write(n_out,'(''  l_TO          ='',l3,'','')') l_TO
@@ -1219,6 +1221,8 @@ CONTAINS
     l_power       =.FALSE. ! power budget in power.TAG and dtE.TAG
     l_viscBcCalc  =.FALSE. ! dissipation layer for stress-free BCs
     l_fluxProfs   =.FALSE. ! radial profiles of flux contributions
+    l_perpPar     =.FALSE. ! radial profiles and time series of kinetic energy
+                           ! perpendicular and parallel to the rotation axi
     l_drift       =.FALSE. ! files for calculating drift rates 
     l_iner        =.FALSE. ! files for calculating inertial modes
     l_RMS         =.FALSE. ! RMS force ballance and dynamo term 

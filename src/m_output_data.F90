@@ -92,6 +92,7 @@ MODULE output_data
   INTEGER :: n_dtbrms_file,n_dtdrms_file
   INTEGER :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
   INTEGER :: n_rot_file
+  INTEGER :: n_perpPar_file
   INTEGER :: n_dipole_file
   INTEGER :: n_cmb_file,n_dt_cmb_file
   INTEGER :: n_cmbMov_file
@@ -115,6 +116,7 @@ MODULE output_data
   CHARACTER(len=72) :: e_mag_oc_file,e_mag_ic_file
   CHARACTER(len=72) :: e_kin_file
   CHARACTER(len=72) :: u_square_file
+  CHARACTER(len=72) :: perpPar_file
   CHARACTER(len=72) :: par_file
   CHARACTER(len=72) :: angular_file
   CHARACTER(len=72) :: dtvrms_file,dtvasrms_file

@@ -9,8 +9,7 @@ MODULE rIterThetaBlocking_seq_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic, &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
-       & l_fluxProfs
+       & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -56,7 +55,8 @@ CONTAINS
        &                 lorentz_torque_ic, lorentz_torque_ma,         &
        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,      &
        &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
-       &                 fpoynLMr,fresLMr)
+       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,&
+       &                 EparaxiLmr)
     CLASS(rIterThetaBlocking_seq_t) :: this
     INTEGER, INTENT(IN) :: nR,nBc
     REAL(kind=8),INTENT(IN) :: time,dt,dtLast
@@ -74,6 +74,7 @@ CONTAINS
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
     REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr
 
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
@@ -223,13 +224,13 @@ CONTAINS
 
        !--------- horizontal velocity :
 
-       IF ( l_viscBcCalc ) THEN
+       IF ( this%lViscBcCalc ) THEN
           CALL get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,this%gsa%dvpdrc,    &
                &             this%gsa%drSc,this%gsa%dsdtc,this%gsa%dsdpc,    &
                &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
        END IF
 
-       IF ( l_fluxProfs ) THEN
+       IF ( this%lFluxProfCalc ) THEN
            CALL get_fluxes(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%dvrdrc,  &
                   &        this%gsa%dvtdrc,this%gsa%dvpdrc,this%gsa%dvrdtc,         &
                   &        this%gsa%dvrdpc,this%gsa%sc,this%gsa%pc,this%gsa%brc,    &
@@ -237,11 +238,10 @@ CONTAINS
                   &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,nThetaStart)
        END IF
 
-
-       !IF ( l_viscBcCalc ) THEN
-       !   CALL get_duHorizontal(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,this%gsa%dvpdrc,    &
-       !        &                uhLMr,duhLMr,this%nR,nThetaStart)
-       !END IF
+       IF ( this%lPerpParCalc ) THEN
+           CALL get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
+                  &        EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
+       END IF
 
        !--------- Movie output:
        IF ( this%l_frame .AND. l_movie_oc .AND. l_store_frame ) THEN

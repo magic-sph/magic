@@ -42,6 +42,9 @@ SUBROUTINE closeFiles
         IF ( l_anel ) THEN
            CLOSE(n_u_square_file)
         END IF
+        IF ( l_perpPar ) THEN
+           CLOSE(n_perpPar_file)
+        END IF
         IF ( l_RMS .OR. l_RMStest ) THEN
            CLOSE(n_dtvrms_file)
            CLOSE(n_dtvasrms_file)

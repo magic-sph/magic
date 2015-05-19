@@ -6,7 +6,7 @@ MODULE rIteration_mod
      LOGICAL :: l_cour
      LOGICAL :: lTOCalc,lTOnext,lTOnext2
      LOGICAL :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
-     logical :: l_graph
+     logical :: l_graph,lPerpParCalc,lViscBcCalc,lFluxProfCalc
      logical :: isRadialBoundaryPoint
      REAL(kind=8) :: dtrkc,dthkc
 
@@ -22,13 +22,14 @@ MODULE rIteration_mod
        IMPORT
        class(rIteration_t) :: this
      END SUBROUTINE empty_if
-     SUBROUTINE do_iteration_if(this,nR,nBc,time,dt,dtLast,&
-       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,   &
-       &                 br_vt_lm_icb,br_vp_lm_icb,&
-       &                 lorentz_torque_ic,lorentz_torque_ma,&
+     SUBROUTINE do_iteration_if(this,nR,nBc,time,dt,dtLast,                      &
+       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM,           &
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,                              &
+       &                 br_vt_lm_icb,br_vp_lm_icb,                              &
+       &                 lorentz_torque_ic,lorentz_torque_ma,                    &
        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr,&
-       &                 fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
+       &                 fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,             &
+       &                 EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
        IMPORT
        CLASS(rIteration_t) :: this
        INTEGER,INTENT(IN) :: nR,nBc
@@ -47,6 +48,7 @@ MODULE rIteration_mod
        REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
        REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
        REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
+       REAL(kind=8),INTENT(OUT),DIMENSION(:) :: EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr
 
      END SUBROUTINE do_iteration_if
 
@@ -58,10 +60,12 @@ MODULE rIteration_mod
   END INTERFACE
 CONTAINS
   SUBROUTINE set_steering_variables(this,l_cour,lTOCalc,lTOnext,lTOnext2,&
-       & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph)
+       & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,  &
+       & lFluxProfCalc,lPerpParCalc)
     class(rIteration_t) :: this
     LOGICAL,INTENT(IN) :: l_cour,lDeriv,lRmsCalc,lHelCalc,l_frame
     LOGICAL,INTENT(IN) :: lTOCalc,lTOnext,lTOnext2, lMagNlBc,l_graph
+    LOGICAL,INTENT(IN) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
     this%l_cour = l_cour
     this%lTOCalc = lTOCalc
     this%lTOnext = lTOnext
@@ -72,6 +76,9 @@ CONTAINS
     this%l_frame = l_frame
     this%lMagNlBc = lMagNlBc
     this%l_graph = l_graph
+    this%lPerpParCalc = lPerpParCalc
+    this%lFluxProfCalc = lFluxProfCalc
+    this%lViscBcCalc = lViscBcCalc
   END SUBROUTINE set_steering_variables
 END MODULE rIteration_mod
 

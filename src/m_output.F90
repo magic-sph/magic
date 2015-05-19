@@ -12,7 +12,7 @@ MODULE output_mod
   USE logic,ONLY: l_average,l_mag,l_power,l_anel,l_mag_LF,lVerbose,l_dtB, &
        & l_RMS,l_r_field,l_r_fieldT,l_PV,l_SRIC,l_cond_ic,l_rMagSpec,     &
        & l_movie_ic,l_store_frame,l_cmb_field,l_dt_cmb_field,             &
-       & l_save_out,l_non_rot
+       & l_save_out,l_non_rot,l_perpPar
   USE fields,ONLY: omega_ic,omega_ma,b,db,ddb,aj,dj,ddj, &
        & b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,           &
        & w,dw,ddw,z,dz,s,ds,p,                           &
@@ -41,8 +41,9 @@ MODULE output_mod
        & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,     &
        & n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
-  use parallel_mod
-  use outPar_mod, only: outPar
+  USE parallel_mod
+  USE outPar_mod, only: outPar
+  USE outPerpPar_mod, only: outPerpPar
   USE power, ONLY: get_power
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
   USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,   &
@@ -160,7 +161,8 @@ contains
        &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,             &
        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,  &
        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
-       &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr)
+       &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,      &
+       &            fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
     !***********************************************************************
 
     !  +-------------+----------------+------------------------------------+
@@ -230,6 +232,10 @@ contains
     REAL(kind=8),intent(IN) :: fviscLMr(l_max+1,nRstart:nRstop)
     REAL(kind=8),intent(IN) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
     REAL(kind=8),intent(IN) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+    REAL(kind=8),intent(IN) :: EperpLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: EparLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+    REAL(kind=8),intent(IN) :: EparaxiLMr(l_max+1,nRstart:nRstop)
 
     !--- Local stuff:
     !--- Energies:
@@ -385,6 +391,10 @@ contains
           dlVRu2c = 0.0D0
        END IF
 
+       IF ( l_perpPar ) THEN
+          CALL outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
+                         &EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+       END IF
        !----- Radial properties
        !WRITE(*,"(A,4ES20.12)") "before getDlm, w(n_r_icb,n_r_cmb): ",&
        !     & w_LMloc(n_r_icb),w_LMloc(n_r_cmb)

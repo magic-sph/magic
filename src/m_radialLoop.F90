@@ -69,13 +69,15 @@ CONTAINS
   !***********************************************************************
   SUBROUTINE radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
        &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,   &
+       &                 lViscBcCalc,lFluxProfCalc,lPerpParCalc,       &
        &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
        &                 lorentz_torque_ic,lorentz_torque_ma,          &
        &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
        &                 br_vt_lm_icb,br_vp_lm_icb,                    &
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,&
-       &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,           &
-       &                 fpoynLMr,fresLMr,dtrkc,dthkc)
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,      &
+       &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
+       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,            &
+       &                 EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
     !***********************************************************************
 
     !    !------------ This is release 2 level 10  --------------!
@@ -90,6 +92,7 @@ CONTAINS
     !--- Input of variables:
     LOGICAL,intent(IN) :: l_graph,l_cour,l_frame
     LOGICAL,intent(IN) :: lTOcalc,lTONext,lTONext2,lHelCalc
+    LOGICAL,intent(IN) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
     LOGICAL,intent(IN) :: lRmsCalc
     REAL(kind=8),intent(IN) :: time,dt,dtLast
 
@@ -111,6 +114,8 @@ CONTAINS
          & fkinLMr,fconvLMr,fviscLMr
     REAL(kind=8),INTENT(OUT),DIMENSION(l_maxMag+1,nRstartMag:nRstopMag) :: &
          & fresLMr,fpoynLMr
+    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: EperpLMr,EparLMr, &
+         & EperpaxiLMr,EparaxiLMr
 
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
@@ -185,7 +190,8 @@ CONTAINS
     lOutBc=.FALSE.
     IF ( lTOCalc .OR. lHelCalc .OR. l_frame .OR.         &
          & l_cour .OR. l_dtB .OR. lMagNlBc .OR. l_graph  &
-         &     ) lOutBc=.TRUE.
+         & .OR. lPerpParCalc .OR. lViscBcCalc .OR.       &
+         & lFluxProfCalc) lOutBc=.TRUE.
 
     !nRstart=n_r_cmb
     !nRstop =n_r_icb-1
@@ -208,7 +214,8 @@ CONTAINS
           IF ( lOutBc ) THEN
              !nR  = n_r_cmb
              nBc = ktopv
-             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame 
+             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame .OR. lPerpParCalc &
+          &          .OR. lViscBcCalc .OR. lFluxProfCalc
           ELSE
              CYCLE   ! Nothing needs to be done by thread one !
           END IF
@@ -216,7 +223,8 @@ CONTAINS
           IF ( lOutBc ) THEN
              !nR = n_r_icb
              nBc = kbotv
-             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame 
+             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame  .OR. lPerpParCalc &
+          &          .OR. lViscBcCalc .OR. lFluxProfCalc
           ELSE
              CYCLE
           END IF
@@ -229,16 +237,17 @@ CONTAINS
        END IF
 
        CALL this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext,lTOnext2,&
-            & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph)
+            & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,       &
+            & lFluxProfCalc,lPerpParCalc)
 
-       CALL this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,&
+       CALL this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                         &
             & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),djdt(:,nR_Mag),&
-            & dVxBhLM(:,nR_Mag),dVSrLM(:,nR), &
-            & br_vt_lm_cmb,br_vp_lm_cmb,&
-            & br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma,&
-            & HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),&
-            & uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),&
-            & fviscLMr(:,nR),fpoynLMr(:,nR),fresLMr(:,nR))
+            & dVxBhLM(:,nR_Mag),dVSrLM(:,nR),br_vt_lm_cmb,br_vp_lm_cmb,                 &
+            & br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma,            &
+            & HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),                &
+            & uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),     &
+            & fviscLMr(:,nR),fpoynLMr(:,nR),fresLMr(:,nR),EperpLMr(:,nR),EparLMr(:,nR), &
+            & EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
 
        !WRITE(*,"(I3,A,2ES20.12)") nR,": lorentz_torque = ",lorentz_torque_ic,lorentz_torque_ma
 

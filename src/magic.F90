@@ -145,7 +145,8 @@
     USE timing, only: writeTime,wallTime
     USE communications, only:initialize_communications
     USE power, only: initialize_output_power
-    use outPar_mod
+    USE outPar_mod, only: initialize_outPar_mod
+    use outPerpPar_mod, only: initialize_outPerpPar_mod
     !USE rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
@@ -218,9 +219,7 @@
 
     call initialize_num_param
     CALL initialize_TO
-    IF (l_TO) THEN
-       CALL initialize_outTO_mod
-    END IF
+    IF (l_TO) CALL initialize_outTO_mod
     call initialize_init_fields
     call initialize_Grenoble
     call initialize_horizontal_data
@@ -240,6 +239,7 @@
     call initialize_step_time
     call initialize_communications
     call initialize_outPar_mod
+    if ( l_perpPar ) call initialize_outPerpPar_mod
     IF ( l_power ) call initialize_output_power
 
 !--- Open output files:
