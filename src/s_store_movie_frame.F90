@@ -280,13 +280,6 @@ subroutine store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr, &
 
   IMPLICIT NONE
 
-  ! include 'truncation.f'
-  ! include 'c_output.f'
-  ! include 'c_movie.f'
-  ! include 'c_radial.f'
-  ! include 'c_horizontal.f'
-  ! include 'c_num_param.f'
-
   !--- Input:
 
   !----- Fields (block):
@@ -899,14 +892,6 @@ subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr, &
 
   IMPLICIT NONE
 
-  ! include 'truncation.f'
-  ! include 'c_output.f'
-  ! include 'c_movie.f'
-  ! include 'c_radial.f'
-  ! include 'c_horizontal.f'
-  ! include 'c_num_param.f'
-
-
   !--- Input:
 
   !----- Fields (block):
@@ -1092,15 +1077,6 @@ subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr, &
   USE output_data
 
   IMPLICIT NONE
-
-  ! include 'truncation.f'
-  ! include 'c_output.f'
-  ! include 'c_movie.f'
-  ! include 'c_radial.f'
-  ! include 'c_horizontal.f'
-  ! include 'c_num_param.f'
-  ! include 'c_phys_param.f'
-
 
   !--- Input:
 
