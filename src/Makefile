@@ -422,7 +422,8 @@ s_cheb_x_map_e_xr.o     : m_logic.o
 s_mapDataICR.o          : truncation.o m_blocking.o m_radial.o s_init_costf1.o 
 m_spectrum_average.o    : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_logic.o\
-                          m_output_data.o s_safeOut.o m_usefull.o m_LMLoop_data.o
+                          m_output_data.o s_safeOut.o m_usefull.o m_LMLoop_data.o\
+                          m_integration.o
 s_dtVrms.o              : truncation.o m_parallel.o m_blocking.o\
                           m_phys_param.o m_radial.o m_const.o m_logic.o\
                           m_output_data.o m_RMS.o s_init_rNB.o s_get_drNS_R.o\
@@ -571,7 +572,7 @@ s_getTOnext.o           : truncation.o m_blocking.o m_horizontal.o\
 m_Egeos.o               : truncation.o m_phys_param.o m_num_param.o\
                           m_horizontal.o m_radial.o m_blocking.o m_const.o\
                           m_output_data.o m_logic.o s_costf1.o s_chebInt.o\
-                          m_plms.o s_getDVptr.o 
+                          m_plms.o s_getDVptr.o m_LMLoop_data.o
 s_get_Btor.o            : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o $(FFT_OBJS) 
 s_preCalc.o             : truncation.o m_phys_param.o m_num_param.o m_const.o\
@@ -614,7 +615,7 @@ s_write_rot.o           : truncation.o m_blocking.o m_num_param.o\
                           s_get_angular_moment.o m_integration.o
 m_blocking.o            : truncation.o m_LMmapping.o m_logic.o m_parallel.o m_output_data.o
 m_num_param.o           : truncation.o
-m_radial.o              : truncation.o m_radial_data.o \
+m_radial.o              : truncation.o m_radial_data.o m_mat.o m_algebra.o\
 			  m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o s_cheb_x_map_e_xr.o m_init_fields.o\
                           m_chebyshev_polynoms.o s_init_costf1.o s_get_dr.o\

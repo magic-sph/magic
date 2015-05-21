@@ -81,13 +81,17 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !---- Computations for the Nusselt number if we are anelastic
   !     Can be done before setting the fields
   IF (l_heat) THEN
-     CALL s_cond(s0)
-     CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
-          w1,w2,i_costf_init,d_costf_init,drx)
+
+     IF ( index(interior_model,'EARTH') /= 0 ) THEN
+        topcond=-1.D0/epsS*dtemp0(1)
+        botcond=-1.D0/epsS*dtemp0(n_r_max)
+     ELSE
+        CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
+               &    w1,w2,i_costf_init,d_costf_init,drx)
+        topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)
+        botcond=-1.D0/DSQRT(4.D0*pi)*ds0(n_r_max)
+     END IF
   END IF
-  ! For computing the Nusselt number
-  topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)
-  botcond=-1.D0/DSQRT(4.D0*pi)*ds0(n_r_max)
 
 
   !-- Start with setting fields to zero:

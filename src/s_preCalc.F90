@@ -17,10 +17,10 @@ SUBROUTINE preCalc
 
   USE truncation
   USE radial_functions
-  USE physical_parameters,ONLY:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled,&
-       &opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,&
-       &nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0,&
-       &ktops,kbots
+  USE physical_parameters,ONLY:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled,  &
+       & opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,    &
+       & nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0, & 
+       & ktops,kbots,interior_model
   USE num_param
   USE init_fields
   USE blocking
@@ -129,7 +129,7 @@ SUBROUTINE preCalc
   !       \delta T the temperature scale, and \kappa the thermal
   !       diffusivity
   BuoFac=raScaled/pr
-  IF ( l_interior_model ) THEN
+  IF ( index(interior_model,'JUP') /= 0 ) THEN
      polind=1.d0/0.45d0
   END IF
 
@@ -150,21 +150,22 @@ SUBROUTINE preCalc
      CLOSE(99)
   END IF
 
+  CALL transportProperties
+
   IF ( ( l_anel ).and.( rank.eq.0 ) ) THEN
      ! Write the equilibrium setup in anel.TAG
      fileName='anel.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
-     WRITE(99,'(6a15)') 'radius', 'temp0', 'rho0', 'beta', &
-          'dbeta', 'grav'
+     WRITE(99,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
+         &       'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
      DO n_r=1,n_r_max
-        WRITE(99,'(6e15.7)') r(n_r),1./otemp1(n_r), &
-             rho0(n_r),beta(n_r),dbeta(n_r), &
-             rgrav(n_r)/BuoFac
+        WRITE(99,'(8e15.7)') r(n_r),1./otemp1(n_r),        &
+         &   rho0(n_r),beta(n_r),dbeta(n_r),               &
+         &   rgrav(n_r)/BuoFac,dentropy0(n_r),             &
+         &   divKtemp0(n_r)
      END DO
      CLOSE(99)
   END IF
-
-  CALL transportProperties
 
   !-- Write radial profiles
   IF ( l_mag .AND. nVarCond > 0 ) THEN
@@ -457,6 +458,14 @@ SUBROUTINE preCalc
 
      END IF
 
+     IF ( l_anelastic_liquid ) THEN
+        bots(0,0)=0.D0
+        tops(0,0)=0.D0
+        epsc=0.D0
+        !epsc=4.D0*pi/pr/epsS/vol_oc *          &
+        !     (r_icb**2*dtemp0(n_r_max)*rho0(n_r_max)*kappa(n_r_max) - &
+        !      r_cmb**2*dtemp0(1)*rho0(1)*kappa(1))*sq4pi
+     END IF
      IF ( ktops == 1 ) THEN
         WRITE(message,                                 &
              &  '(''! Constant temp. at CMB T='',D16.6)') &

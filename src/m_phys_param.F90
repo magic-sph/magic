@@ -22,7 +22,10 @@ MODULE physical_parameters
   REAL(kind=8) :: radratio
   REAL(kind=8) :: ra,ek,pr,prmag,epsc0,epsc
   REAL(kind=8) :: strat,polind,ViscHeatFac,OhmLossFac
-  REAL(kind=8) :: DissNb ! Dissipation number
+  REAL(kind=8) :: DissNb,epsS ! Dissipation number, deviation from the adiabat
+  REAL(kind=8) :: cmbHflux
+  REAL(kind=8) :: slopeStrat ! stratified Layer
+  CHARACTER(len=72) :: interior_model ! name of the interior model
   REAL(kind=8) :: r_cut_model
   REAL(kind=8) :: g0,g1,g2
   REAL(kind=8) :: sigma_ratio,conductance_ma

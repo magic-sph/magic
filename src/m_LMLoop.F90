@@ -22,7 +22,7 @@ MODULE LMLoop_mod
        & lo2r_s, lo2r_z, lo2r_p,&
        & lo2r_b, lo2r_aj, &
        & lo2r_w
-  USE updateS_mod,ONLY: initialize_updateS,updateS
+  USE updateS_mod,ONLY: initialize_updateS,updateS,updateS_ala
   USE updateZ_mod,ONLY: initialize_updateZ,updateZ
   USE updateWP_mod,ONLY: initialize_updateWP,updateWP
   USE updateB_mod,ONLY: initialize_updateB,updateB
@@ -137,8 +137,14 @@ CONTAINS
        end if
        !CALL debug_write(dsdt,ulm-llm+1,n_r_max,"dsdt_LMloc",n_time_step*1000+nLMB*100,"E")
        PERFON('up_S')
-       CALL updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
-            &       w1,coex,dt,nLMB)
+       IF ( l_anelastic_liquid ) THEN
+          CALL updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,    & 
+               &       dsdtLast_LMloc,w1,coex,dt,nLMB)
+       ELSE
+          CALL updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
+               &       w1,coex,dt,nLMB)
+
+       END IF
        PERFOFF
        ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
        ! nonblocking send

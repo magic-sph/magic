@@ -82,15 +82,17 @@
     IF ( .NOT. l_start_file ) THEN
 
         IF ( lmStart <= lm00 .AND. lmStop >= lm00 ) THEN
-            CALL s_cond(s0)
+            IF ( .NOT. l_anelastic_liquid ) THEN
+               CALL s_cond(s0)
 
-        !--- Initialize (l=0,m=0)-mode with s0:
-            open(unit=999, file='scond.dat')
-            DO n_r=1,n_r_max
-                s(lm00,n_r)=s0(n_r)
-                write(999,*) r(n_r), s0(n_r)/SQRT(4.*DACOS(-1.d0))
-            END DO
-            close(999)
+            !--- Initialize (l=0,m=0)-mode with s0:
+               open(unit=999, file='scond.dat')
+               DO n_r=1,n_r_max
+                   s(lm00,n_r)=s0(n_r)
+                   write(999,*) r(n_r), s0(n_r)/SQRT(4.*DACOS(-1.d0))
+               END DO
+               close(999)
+            END IF
         END IF
 
     END IF

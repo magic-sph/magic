@@ -19,6 +19,7 @@ SUBROUTINE get_s0Mat(dt,sMat,sPivot)
   USE physical_parameters
   USE num_param
   USE algebra, ONLY: sgefa
+  USE logic, ONLY: l_anelastic_liquid
 
   IMPLICIT NONE
 
@@ -65,15 +66,26 @@ SUBROUTINE get_s0Mat(dt,sMat,sPivot)
      END DO
   END IF
 
-  DO nCheb=1,n_r_max
-     DO nR=2,n_r_max-1
-        sMat(nR,nCheb)= cheb_norm * (                  &
-             O_dt*cheb(nCheb,nR) - & 
-             alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-             (beta(nR)+otemp1(nR)*dtemp0(nR)+2.D0*or1(nR)+dLkappa(nR))* &
-             dcheb(nCheb,nR) ) )
+  IF ( l_anelastic_liquid ) THEN
+     DO nCheb=1,n_r_max
+        DO nR=2,n_r_max-1
+           sMat(nR,nCheb)= cheb_norm * (                                &
+          &                                       O_dt*cheb(nCheb,nR) - & 
+          &                 alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
+          &  (beta(nR)+2.D0*or1(nR)+dLkappa(nR))*     dcheb(nCheb,nR) ) )
+        END DO
      END DO
-  END DO
+  ELSE
+     DO nCheb=1,n_r_max
+        DO nR=2,n_r_max-1
+           sMat(nR,nCheb)= cheb_norm * (                                &
+          &                                       O_dt*cheb(nCheb,nR) - & 
+          &                 alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
+          &  (beta(nR)+otemp1(nR)*dtemp0(nR)+2.D0*or1(nR)+dLkappa(nR))* &
+          &  dcheb(nCheb,nR) ) )
+        END DO
+     END DO
+  END IF
 
   !----- Factors for highest and lowest cheb mode:
   DO nR=1,n_r_max

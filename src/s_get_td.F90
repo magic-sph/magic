@@ -20,21 +20,21 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
   !  +-------------------------------------------------------------------+
   USE,INTRINSIC :: iso_c_binding
   USE truncation
-  USE radial_functions,ONLY: r,or2,or1,beta,rho0,rgrav,epscProf,or4
+  USE radial_functions,ONLY: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
   USE physical_parameters,ONLY: CorFac,ra,epsc,ViscHeatFac,OhmLossFac
   !USE num_param
   USE blocking,ONLY: lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA,lm2lmA,lm2lmS,&
        & st_map
   USE horizontal_data,ONLY: dLh,dTheta1S,dTheta1A,dPhi,dTheta2A,&
-       & dTheta3A,dTheta4A,dPhi0,dTheta2S,dTheta3S,dTheta4S,&
+       & dTheta3A,dTheta4A,dPhi0,dTheta2S,dTheta3S,dTheta4S,    &
        & hdif_V,hdif_B
   USE logic
-  USE RMS,ONLY: AdvPolLMr,AdvPolAs2hInt,AdvPol2hInt,&
-       & AdvTor2hInt,AdvTorAs2hInt,PreLMr,Pre2hInt,&
-       & PreAs2hInt,BuoLMr,Buo2hInt,BuoAs2hInt,CorPolLMr,&
-       & CorPol2hInt,CorPolAs2hInt,CorTor2hInt,CorTorAs2hInt,&
+  USE RMS,ONLY: AdvPolLMr,AdvPolAs2hInt,AdvPol2hInt,              &
+       & AdvTor2hInt,AdvTorAs2hInt,PreLMr,Pre2hInt,               &
+       & PreAs2hInt,BuoLMr,Buo2hInt,BuoAs2hInt,CorPolLMr,         &
+       & CorPol2hInt,CorPolAs2hInt,CorTor2hInt,CorTorAs2hInt,     &
        & LFPolLMr,LFPol2hInt,LFPolAs2hInt,LFTor2hInt,LFTorAs2hInt,&
-       & GeoLMr, Geo2hInt,GeoAs2hInt,Mag2hInt,MagAs2hInt,MagLMr,&
+       & GeoLMr, Geo2hInt,GeoAs2hInt,Mag2hInt,MagAs2hInt,MagLMr,  &
        & ArcLMr,Arc2hInt,ArcAs2hInt
   USE leg_helper_mod,only:leg_helper_t
   USE nonlinear_lm_mod,only: nonlinear_lm_t
@@ -418,14 +418,25 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
      END IF ! l_conv ?
 
      IF ( l_heat ) THEN
-        dsdt_loc  =epsc*epscProf(nR)
+        dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
         dVSrLM(1)=nl_lm%VSrLM(1)
         IF ( l_anel ) THEN
-           IF ( l_mag_nl ) THEN
-              dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*nl_lm%ViscHeatLM(1)+ &
-                   OhmLossFac*hdif_B(1)*nl_lm%OhmLossLM(1)
+           IF ( l_anelastic_liquid ) THEN
+              IF ( l_mag_nl ) THEN
+                 dsdt_loc=dsdt_loc+                                        &
+                 &    ViscHeatFac*hdif_V(1)*temp0(nR)*nl_lm%ViscHeatLM(1)+ &
+                 &     OhmLossFac*hdif_B(1)*temp0(nR)*nl_lm%OhmLossLM(1)
+              ELSE
+                 dsdt_loc=dsdt_loc+ &
+                 &    ViscHeatFac*hdif_V(1)*temp0(nR)*nl_lm%ViscHeatLM(1)
+              END IF
            ELSE
-              dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*nl_lm%ViscHeatLM(1)
+              IF ( l_mag_nl ) THEN
+                 dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*nl_lm%ViscHeatLM(1)+ &
+                      OhmLossFac*hdif_B(1)*nl_lm%OhmLossLM(1)
+              ELSE
+                 dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*nl_lm%ViscHeatLM(1)
+              END IF
            END IF
         END IF
         dsdt(1)=dsdt_loc
@@ -435,8 +446,8 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         !$OMP private(lm,l,m,lmP,lmPS,lmPA,dsdt_loc) &
         !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
         !$OMP shared(lm_max,dsdt,dVSrLM,dTheta1S,nl_lm,dTheta1A,dPhi) &
-        !$OMP shared(l_anel,l_mag_nl,nR) &
-        !$OMP shared(ViscHeatFac,hdif_V,OhmLossFac,hdif_B)
+        !$OMP shared(l_anel,l_anelastic_liquid,l_mag_nl,nR) &
+        !$OMP shared(ViscHeatFac,hdif_V,OhmLossFac,hdif_B,temp0)
         !LIKWID_ON('td_heat')
         !$OMP DO
         DO lm=2,lm_max
@@ -459,11 +470,20 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
            !PERFOFF
            !PERFON('td_h2')
            IF ( l_anel ) THEN
-              dsdt_loc = dsdt_loc+ &
-                   &     ViscHeatFac*hdif_V(lm)*nl_lm%ViscHeatLM(lmP)
-              IF ( l_mag_nl ) THEN
+              IF ( l_anelastic_liquid ) THEN
                  dsdt_loc = dsdt_loc+ &
-                      &     OhmLossFac*hdif_B(lm)*nl_lm%OhmLossLM(lmP)
+                      &     ViscHeatFac*hdif_V(lm)*temp0(nR)*nl_lm%ViscHeatLM(lmP)
+                 IF ( l_mag_nl ) THEN
+                    dsdt_loc = dsdt_loc+ &
+                         &     OhmLossFac*hdif_B(lm)*temp0(nR)*nl_lm%OhmLossLM(lmP)
+                 END IF
+              ELSE
+                 dsdt_loc = dsdt_loc+ &
+                      &     ViscHeatFac*hdif_V(lm)*nl_lm%ViscHeatLM(lmP)
+                 IF ( l_mag_nl ) THEN
+                    dsdt_loc = dsdt_loc+ &
+                         &     OhmLossFac*hdif_B(lm)*nl_lm%OhmLossLM(lmP)
+                 END IF
               END IF
            END IF
            !PERFOFF

@@ -12,7 +12,7 @@ MODULE Namelists
   USE parallel_mod
   USE Bext
   USE movie_data,ONLY: movie,n_movies
-  USE charmanip, ONLY: length_to_blank
+  USE charmanip, ONLY: length_to_blank,capitalize
   USE blocking, only: cacheblock_size_in_B
   IMPLICIT NONE
 
@@ -52,88 +52,77 @@ CONTAINS
          n_r_ic_max,n_cheb_ic_max, &
          minc,nalias
 
-    NAMELIST/control/                                &
-         mode,tag,n_time_steps, &
-         n_tScale,n_lScale,alpha,enscale, &
-         l_update_v,l_update_b,l_update_s, &
-         dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
-         difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe, &
-         l_correct_AMz,tEND,l_non_rot,l_isothermal, &
-         l_newmap,alph1,alph2,l_interior_model, &
-         runHours,runMinutes,runSeconds,nThreadsRun,&
-         & cacheblock_size_in_B
+    NAMELIST/control/                                     &
+       & mode,tag,n_time_steps,                           &
+       & n_tScale,n_lScale,alpha,enscale,                 &
+       & l_update_v,l_update_b,l_update_s,                &
+       & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
+       & difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe,  &
+       & l_correct_AMz,tEND,l_non_rot,l_isothermal,       &
+       & l_newmap,alph1,alph2,                            &
+       & runHours,runMinutes,runSeconds,nThreadsRun,      &
+       & cacheblock_size_in_B
     
 
-    NAMELIST/phys_param/                             &
-         ra,pr,prmag,ek,epsc0,radratio, &
-         ktops,kbots,ktopv,kbotv,ktopb,kbotb, &
-         s_top,s_bot,impS,sCMB, &
-         nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
-         con_LambdaOut,con_FuncWidth, &
-         strat,polind,g0,g1,g2,r_cut_model, &
-         nVarDiff,nVarVisc,difExp,nVarEps
+    NAMELIST/phys_param/                                    &
+       & ra,pr,prmag,ek,epsc0,radratio,                     &
+       & ktops,kbots,ktopv,kbotv,ktopb,kbotb,               &
+       & s_top,s_bot,impS,sCMB,                             &
+       & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
+       & con_LambdaOut,con_FuncWidth,                       &
+       & strat,polind,g0,g1,g2,r_cut_model,                 &
+       & epsS,slopeStrat,cmbHflux,                          &
+       & nVarDiff,nVarVisc,difExp,nVarEps,interior_model
 
-    NAMELIST/B_external/ &
-         rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp
+    NAMELIST/B_external/                                    &
+       & rrMP,amp_imp,expo_imp,bmax_imp,n_imp
 
-    NAMELIST/start_field/                            &
-         l_start_file,start_file,inform, &
-         l_reset_t,scale_s,scale_b,scale_v,tipdipole, &
-         init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon, &
-         amp_s1,amp_s2,amp_v1,amp_b1
+    NAMELIST/start_field/                                   &
+       & l_start_file,start_file,inform,                    &
+       & l_reset_t,scale_s,scale_b,scale_v,tipdipole,       &
+       & init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
+       & amp_s1,amp_s2,amp_v1,amp_b1
 
-    NAMELIST/output_control/                         &
-         n_graph_step,n_graphs,t_graph, &
-         t_graph_start,t_graph_stop,dt_graph, &
-         l_graph_time, &
-         n_stores,n_rst_step,n_rsts,t_rst, &
-         t_rst_start,t_rst_stop,dt_rst, &
-         n_log_step,n_logs,t_log, &
-         t_log_start,t_log_stop,dt_log, &
-         n_p_step,n_ps,t_p, &
-         t_p_start,t_p_stop,dt_p, &
-         n_spec_step,n_specs,t_spec, &
-         t_spec_start,t_spec_stop,dt_spec, &
-         n_cmb_step,n_cmbs,t_cmb, &
-         t_cmb_start,t_cmb_stop,dt_cmb, &
-         n_r_field_step,n_r_fields,t_r_field, &
-         t_r_field_start,t_r_field_stop,dt_r_field, &
-         n_Bpot_step,n_Bpots,t_Bpot, &
-         t_Bpot_start,t_Bpot_stop,dt_Bpot, &
-         n_Vpot_step,n_Vpots,t_Vpot, &
-         t_Vpot_start,t_Vpot_stop,dt_Vpot, &
-         n_Tpot_step,n_Tpots,t_Tpot, &
-         t_Tpot_start,t_Tpot_stop,dt_Tpot, &
-         n_pot_step,n_pots,t_pot, &
-         t_pot_start,t_pot_stop,dt_pot, &
-         ngform,runid, &
-         movie,n_movie_step,n_movie_frames,t_movie, &
-         t_movie_start,t_movie_stop,dt_movie, &
-         n_TO_step,n_TOs,t_TO, &
-         t_TO_start,t_TO_stop,dt_TO, &
-         n_TOZ_step,n_TOZs,t_TOZ, &
-         t_TOZ_start,t_TOZ_stop,dt_TOZ, &
-         n_TOmovie_step,n_TOmovie_frames,t_TOmovie, &
-         t_TOmovie_start,t_TOmovie_stop,dt_TOmovie, &
-         l_movie,l_average,l_save_out,l_true_time, &
-         l_cmb_field,l_rMagSpec,l_DTrMagSpec, &
-         l_dt_cmb_field,l_max_cmb, &
-         l_r_field,l_r_fieldT,n_r_step,l_max_r,n_r_array, &
-         l_TO,l_TOmovie,l_hel,lVerbose, &
-         l_AM,l_power,l_drift,l_storeBpot,l_storeVpot, &
-         l_storeTpot,l_storePot,sDens,zDens,l_RMS, &
-         l_RMStest,l_par,l_corrMov,rCut,rDea,l_prms, &
-         l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs, &
-         l_perpPar
+    NAMELIST/output_control/                                &
+       & n_graph_step,n_graphs,t_graph,                     &
+       & t_graph_start,t_graph_stop,dt_graph,l_graph_time,  &
+       & n_stores,n_rst_step,n_rsts,t_rst,                  &
+       & t_rst_start,t_rst_stop,dt_rst,                     &
+       & n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
+       & dt_log,n_p_step,n_ps,t_p,t_p_start,t_p_stop,dt_p,  &
+       & n_spec_step,n_specs,t_spec,t_spec_start,           &
+       & t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,       &
+       & t_cmb_start,t_cmb_stop,dt_cmb,                     &
+       & n_r_field_step,n_r_fields,t_r_field,               &
+       & t_r_field_start,t_r_field_stop,dt_r_field,         &
+       & n_Bpot_step,n_Bpots,t_Bpot,t_Bpot_start,           &
+       & t_Bpot_stop,dt_Bpot,n_Vpot_step,n_Vpots,t_Vpot,    &
+       & t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
+       & n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
+       & n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
+       & dt_pot,ngform,runid,movie,n_movie_step,            &
+       & n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
+       & dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
+       & dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
+       & t_TOZ_stop,dt_TOZ,n_TOmovie_step,n_TOmovie_frames, &
+       & t_TOmovie,t_TOmovie_start,t_TOmovie_stop,          &
+       & dt_TOmovie,l_movie,l_average,l_save_out,           &
+       & l_true_time,l_cmb_field,l_rMagSpec,l_DTrMagSpec,   &
+       & l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
+       & n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
+       & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
+       & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
+       & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,l_prms,  &
+       & l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs,    &
+       & l_perpPar
 
     NAMELIST/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
-         omega_ma1,omegaOsz_ma1,tShift_ma1, &
-         omega_ma2,omegaOsz_ma2,tShift_ma2
+       & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
+       & omega_ma2,omegaOsz_ma2,tShift_ma2
 
     NAMELIST/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
-         omega_ic1,omegaOsz_ic1,tShift_ic1, &
-         omega_ic2,omegaOsz_ic2,tShift_ic2, &
-         BIC
+       & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
+       & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC
 
     !-- end of declaration
     !----------------------------------------------------------------------
@@ -357,9 +346,19 @@ CONTAINS
        l_corr=.TRUE.
     END IF
 
+    CALL capitalize(interior_model)
+
     IF ( strat > 0.D0 ) l_anel= .TRUE. 
 
-    IF ( l_interior_model ) l_anel= .TRUE. 
+    IF ( index(interior_model,'EARTH') /= 0 ) THEN
+       l_anel=.TRUE.
+       l_anelastic_liquid=.TRUE.
+    ELSE IF ( index(interior_model, 'JUP') /= 0 ) THEN
+       l_anel=.TRUE.
+       l_anelastic_liquid=.FALSE.
+    ELSE
+       l_anelastic_liquid=.FALSE.
+    END IF
 
     IF ( prmag == 0.D0 ) THEN
        l_mag   =.FALSE.
@@ -637,12 +636,12 @@ CONTAINS
     write(n_out,'(1p,''  difnu       ='',d14.6,'','')') difnu
     write(n_out,'(1p,''  difeta      ='',d14.6,'','')') difeta
     write(n_out,'(1p,''  difkap      ='',d14.6,'','')') difkap
-    write(n_out,'(''  ldif         ='',i3,'','')') ldif
-    write(n_out,'(''  ldifexp      ='',i3,'','')') ldifexp
-    write(n_out,'(''  l_correct_AMe='',l3,'','')') l_correct_AMe
-    write(n_out,'(''  l_correct_AMz='',l3,'','')') l_correct_AMz
-    write(n_out,'(''  l_non_rot    ='',l3,'','')') l_non_rot
-    write(n_out,'(''  l_runTimeLimit='',l3,'','')') l_runTimeLimit
+    write(n_out,'(''  ldif           ='',i3,'','')') ldif
+    write(n_out,'(''  ldifexp        ='',i3,'','')') ldifexp
+    write(n_out,'(''  l_correct_AMe  ='',l3,'','')') l_correct_AMe
+    write(n_out,'(''  l_correct_AMz  ='',l3,'','')') l_correct_AMz
+    write(n_out,'(''  l_non_rot      ='',l3,'','')') l_non_rot
+    write(n_out,'('' l_runTimeLimit='',l3,'','')') l_runTimeLimit
     write(n_out,'(''  runHours     ='',i6,'','')') runTimeLimit(1)
     write(n_out,'(''  runMinutes   ='',i4,'','')') runTimeLimit(2)
     write(n_out,'(''  runSeconds   ='',i4,'','')') runTimeLimit(3)
@@ -659,7 +658,12 @@ CONTAINS
     write(n_out,'(1p,''  epsc0       ='',d14.6,'','')') epsc/sq4pi
     write(n_out,'(1p,''  strat       ='',d14.6,'','')') strat
     write(n_out,'(1p,''  polind      ='',d14.6,'','')') polind
+    write(n_out,'(1p,''  epsS        ='',d14.6,'','')') epsS
+    write(n_out,'(1p,''  cmbHflux    ='',d14.6,'','')') cmbHflux
+    write(n_out,'(1p,''  slopeStrat  ='',d14.6,'','')') slopeStrat
     write(n_out,'(1p,''  radratio    ='',d14.6,'','')') radratio
+    length=length_to_blank(interior_model)
+    write(n_out,*) "interior_model = """,interior_model(1:length),""","
     write(n_out,'(''  g0          ='',d14.6,'','')') g0
     write(n_out,'(''  g1          ='',d14.6,'','')') g1
     write(n_out,'(''  g2          ='',d14.6,'','')') g2
@@ -964,7 +968,7 @@ CONTAINS
     l_non_rot     =.FALSE.  ! No Coriolis force !
     l_anel        =.FALSE.  ! Anelastic stuff !
     l_isothermal  =.FALSE.  ! Isothermal = 0 Grünesein !
-    l_interior_model=.FALSE.! Interior model
+    interior_model="None"   ! Name of the interior model
 
     !---- Run time and number of threads:
     l_runTimeLimit=.FALSE. ! Control of absolute run time
@@ -993,6 +997,10 @@ CONTAINS
     strat      =0.D0
     polind     =1.5D0
     r_cut_model=0.98D0 ! outer radius when using interior model
+    !----- Stably  stratified layer
+    epsS       =0.D0
+    cmbHflux   =0.D0
+    slopeStrat =20.D0
     !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
     g0         =0.D0
     g1         =1.D0

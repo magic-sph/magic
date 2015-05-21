@@ -35,7 +35,8 @@ MODULE logic
   LOGICAL :: l_rMagSpec,l_DTrMagSpec
   LOGICAL :: l_TO,l_TOmovie 
   LOGICAL :: l_hel
-  LOGICAL :: l_anel,l_isothermal,l_interior_model
+  LOGICAL :: l_anel,l_isothermal
+  LOGICAL :: l_anelastic_liquid
   LOGICAL :: l_AM
   LOGICAL :: l_power
   LOGICAL :: l_drift

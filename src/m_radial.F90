@@ -16,7 +16,8 @@ MODULE radial_functions
   REAL(kind=8),ALLOCATABLE :: O_r_ic2(:)
   REAL(kind=8),ALLOCATABLE :: or1(:),or2(:),or3(:),or4(:)
   REAL(kind=8),ALLOCATABLE :: otemp1(:),rho0(:),temp0(:)
-  REAL(kind=8),ALLOCATABLE :: dtemp0(:)
+  REAL(kind=8),ALLOCATABLE :: dtemp0(:),d2temp0(:)
+  REAL(kind=8),ALLOCATABLE :: dentropy0(:)
   REAL(kind=8),ALLOCATABLE :: orho1(:),orho2(:)
   REAL(kind=8),ALLOCATABLE :: beta(:), dbeta(:)
   REAL(kind=8),ALLOCATABLE :: drx(:),ddrx(:),dddrx(:)
@@ -73,6 +74,7 @@ MODULE radial_functions
   REAL(kind=8),ALLOCATABLE :: sigma(:)
   REAL(kind=8),ALLOCATABLE :: kappa(:),dLkappa(:)
   REAL(kind=8),ALLOCATABLE :: visc(:),dLvisc(:)
+  REAL(kind=8),ALLOCATABLE :: divKtemp0(:)
   REAL(kind=8),ALLOCATABLE :: epscProf(:)
 
   !------------------------------------------------------------------------------
@@ -94,7 +96,7 @@ CONTAINS
     ALLOCATE( O_r_ic2(n_r_ic_max) )
     ALLOCATE( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max) )
     ALLOCATE( otemp1(n_r_max),rho0(n_r_max),temp0(n_r_max) )
-    ALLOCATE( dtemp0(n_r_max) )
+    ALLOCATE( dtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
     ALLOCATE( orho1(n_r_max),orho2(n_r_max) )
     ALLOCATE( beta(n_r_max), dbeta(n_r_max) )
     ALLOCATE( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
@@ -121,16 +123,15 @@ CONTAINS
     ALLOCATE( sigma(n_r_max) )
     ALLOCATE( kappa(n_r_max),dLkappa(n_r_max) )
     ALLOCATE( visc(n_r_max),dLvisc(n_r_max) )
-    ALLOCATE( epscProf(n_r_max) )
+    ALLOCATE( epscProf(n_r_max),divKtemp0(n_r_max) )
 
     ALLOCATE( i_costf_initC(nDi_costf1) )   ! info for transform
     ALLOCATE( d_costf_initC(nDd_costf1) )   ! info for tranform
     ALLOCATE( rC(n_r_max),dr_facC(n_r_max) )
 
   END SUBROUTINE initialize_radial_functions
-  !********************************************************************
+  !------------------------------------------------------------------------------
   SUBROUTINE radial
-    !********************************************************************
 
     !--------------------------------------------------------------------
     !  Calculates everything needed for radial functions, transfroms etc.
@@ -145,39 +146,31 @@ CONTAINS
 
     !-- LOCAL VARIABLES:
     INTEGER :: n_r,n_cheb,n_cheb_int
-    INTEGER :: n_r_ic_tot
+    INTEGER :: n_r_ic_tot,k
     INTEGER,PARAMETER :: n_r_ic_tot_local=200
+    INTEGER,DIMENSION(1) :: n_const
+
     !INTEGER :: n_r_start
     REAL(kind=8) :: fac_int
-    REAL(kind=8) :: r_cheb(n_r_max)
-    REAL(kind=8) :: r_cheb_ic(n_r_ic_tot_local)
-    REAL(kind=8) :: r_ic_2(n_r_ic_tot_local)
-    REAL(kind=8) :: alphaT(n_r_max)
-    REAL(kind=8) :: drho0(n_r_max)
+    REAL(kind=8),DIMENSION(n_r_max) :: r_cheb
+    REAL(kind=8),DIMENSION(n_r_ic_tot_local) :: r_cheb_ic,r_ic_2
+    REAL(kind=8),DIMENSION(n_r_max) :: alphaT, drho0
     REAL(kind=8) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
     REAL(kind=8) :: a0,a1,a2,a3,a4,a5,a6,a7 ! polynomial fit for density
     REAL(kind=8) :: temptop,gravtop,rhotop
-    REAL(kind=8) :: rrOcmb,gravFit(n_r_max),rhoFit(n_r_max) ! normalised to rcmb
-    REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
+    REAL(kind=8) :: hcomp,CompNb,GrunNb
+    REAL(kind=8),DIMENSION(n_r_max) :: dtemp0cond,dtemp0ad,hcond
+    REAL(kind=8),DIMENSION(n_r_max) :: func
+
+    REAL(kind=8) :: rrOcmb,rStrat
+    REAL(kind=8),DIMENSION(n_r_max) :: gravFit,rhoFit ! normalised to rcmb
+    REAL(kind=8),DIMENSION(n_r_max) :: w1,w2
 
     INTEGER :: stop_signal
     INTEGER :: filehandle,nCheb
     !-- end of declaration
     !-------------------------------------------------------------------
-
-    !-- Polynomial fit for a Jupiter model
-
-    IF ( l_interior_model) THEN
-       a0=-122.36071577d0
-       a1= 440.86067831d0
-       a2=-644.82401602d0
-       a3= 491.00495215d0
-       a4=-201.96655354d0
-       a5=  37.38863965d0
-       a6=  -4.60312999d0
-       a7=   4.46020423d0
-    END IF
 
     !-- Radial grid point:
     !   radratio is aspect ratio
@@ -259,7 +252,15 @@ CONTAINS
     or4=or2*or2       ! 1/r**4
 
     !-- Fit to an interior model
-    IF ( l_interior_model ) THEN
+    IF ( index(interior_model,'JUP') /= 0 ) THEN
+       a0=-122.36071577d0
+       a1= 440.86067831d0
+       a2=-644.82401602d0
+       a3= 491.00495215d0
+       a4=-201.96655354d0
+       a5=  37.38863965d0
+       a6=  -4.60312999d0
+       a7=   4.46020423d0
 
        DO n_r=1,n_r_max
           rrOcmb = r(n_r)/r_cmb*r_cut_model
@@ -303,16 +304,81 @@ CONTAINS
        beta=drho0/rho0
        CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1,     &
                    w2,i_costf_init,d_costf_init,drx)
-       !CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
-       !         w2,i_costf_init,d_costf_init,drx)
-       !dentropy0=0.D0
+       CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
+                w2,i_costf_init,d_costf_init,drx)
+       dentropy0=0.D0
        
+    ELSE IF ( index(interior_model,'EARTH') /= 0 ) THEN
+       DissNb=0.3929D0 ! Di = \alpha_O g d / c_p
+       CompNb=0.0566D0 ! Co = \alpha_O T_O
+       GrunNb=1.5D0 ! Gruneisen paramater
+       hcomp =2.2D0*r_cmb
+
+       alphaT=(1.D0+0.6D0*r**2/hcomp**2)/(1.D0+0.6D0/2.2D0**2)
+       rgrav =(r-0.6D0*r**3/hcomp**2)/(r_cmb*(1.D0-0.6D0/2.2D0**2))
+
+       !dentropy0 = -0.5D0*(ampStrat+1.D0)*(1.D0-DTANH(slopeStrat*(r-rStrat)))+ &
+       !            & ampStrat
+
+       !! d ln(temp0) / dr
+       !dtemp0=epsS*dentropy0-DissNb*alphaT*rgrav
+
+       !CALL getBackground(dtemp0,0.D0,temp0)
+       !temp0=DEXP(temp0) ! this was ln(T_0)
+       !dtemp0=dtemp0*temp0
+
+       !drho0=-CompNb*epsS*alphaT*temp0*dentropy0-DissNb/GrunNb*alphaT*rgrav
+       !CALL getBackground(drho0,0.D0,rho0)
+       !rho0=DEXP(rho0) ! this was ln(rho_0)
+       !beta=drho0
+
+       hcond = (1.D0-0.4469D0*(r/r_cmb)**2)/(1.D0-0.4469D0)
+       hcond = hcond/hcond(1)
+       temp0 = (1.D0+GrunNb*(r_icb**2-r**2)/hcomp**2)
+       temp0 = temp0/temp0(1)
+       dtemp0cond=-cmbHflux/(r**2*hcond)
+        
+       DO k=1,10 ! 10 iterations is enough to converge
+          dtemp0ad=-DissNb*alphaT*rgrav*temp0-epsS*temp0(n_r_max)
+          n_const=MINLOC(DABS(dtemp0ad-dtemp0cond))
+          rStrat=r(n_const(1))
+          func=0.5D0*(DTANH(slopeStrat*(r-rStrat))+1.D0)
+
+          IF ( rStrat<r_cmb ) THEN
+             dtemp0=func*dtemp0cond+(1.D0-func)*dtemp0ad
+          ELSE
+             dtemp0=dtemp0ad
+          END IF
+
+          CALL getBackground(dtemp0,1.D0,temp0)
+       END DO
+
+       dentropy0=dtemp0/temp0/epsS+DissNb*alphaT*rgrav/epsS
+       drho0=-CompNb*epsS*alphaT*temp0*dentropy0-DissNb*alphaT*rgrav/GrunNb
+       CALL getBackground(drho0,0.D0,rho0)
+       rho0=DEXP(rho0) ! this was ln(rho_0)
+       beta=drho0
+
+       ! The final stuff is always required
+       CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1,     &
+              &    w2,i_costf_init,d_costf_init,drx)
+       CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
+              &    w2,i_costf_init,d_costf_init,drx)
+
+       ViscHeatFac=DissNb*pr/raScaled
+       IF (l_mag) THEN
+          OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+       END IF
+
+       ! N.B. rgrav is not gravity but alpha * grav
+       rgrav = BuoFac*alphaT*rgrav
+
     ELSE  !-- Usual polytropic reference state
        ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
        ! Default values: g0=0, g1=1, g2=0
        ! An easy way to change gravity
        rgrav=BuoFac*(g0+g1*r/r_cmb+g2*(r_cmb/r)**2)
-       !dentropy0=0.D0
+       dentropy0=0.D0
 
        IF (l_anel) THEN
           IF (l_isothermal) THEN
@@ -326,7 +392,7 @@ CONTAINS
              beta =-DissNb*rgrav/BuoFac
              dbeta=-DissNb*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
              dtemp0=0.d0
-             !d2temp0=0.d0
+             d2temp0=0.d0
           ELSE
              DissNb=( DEXP(strat/polind)-1.D0 )/ &
                ( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
@@ -341,7 +407,7 @@ CONTAINS
                   ((g1/r_cmb-2.D0*g2*r_cmb**2*or3)* &
                   temp0  + DissNb*rgrav**2/BuoFac**2)
              dtemp0=-DissNb*rgrav/BuoFac
-             !d2temp0=-DissNb*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
+             d2temp0=-DissNb*(g1/r_cmb-2.D0*g2*r_cmb**2*or3)
           END IF
           IF (l_mag) THEN
              OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -370,8 +436,8 @@ CONTAINS
        beta     =0.D0
        dbeta    =0.D0
        dtemp0   =0.d0
-       !d2temp0  =0.D0
-       !dentropy0=0.D0
+       d2temp0  =0.D0
+       dentropy0=0.D0
     END IF
 
     !-- Factors for cheb integrals:
@@ -452,7 +518,8 @@ CONTAINS
   SUBROUTINE transportProperties
 
     USE physical_parameters
-    USE logic, ONLY: l_mag,l_heat
+    USE const, ONLY: pi
+    USE logic, ONLY: l_mag,l_heat,l_anelastic_liquid
     USE init_fields, ONLY: imagcon
 
     IMPLICIT NONE
@@ -461,8 +528,8 @@ CONTAINS
 
     REAL(kind=8) :: a,b,c,s1,s2,r0
     REAL(kind=8) :: dsigma0
-    REAL(kind=8) :: dsigma(n_r_max)
-    REAL(kind=8) :: dvisc(n_r_max),dkappa(n_r_max)
+    REAL(kind=8),DIMENSION(n_r_max) :: dvisc,dkappa,dsigma
+    REAL(kind=8),DIMENSION(n_r_max) :: condBot,condTop,func,kcond
     REAL(kind=8) :: a0,a1,a2,a3,a4,a5
     REAL(kind=8) :: kappatop,rrOcmb
     REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
@@ -572,6 +639,33 @@ CONTAINS
             CALL get_dr(kappa,dkappa,1,1,1,n_r_max,n_cheb_max, &
                         w1,w2,i_costf_init,d_costf_init,drx)
             dLkappa=dkappa/kappa
+        ELSE IF ( nVarDiff == 4) THEN ! Earth case
+            !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
+            !DO n_r=2,n_r_max
+            !  IF ( r(n_r-1)>rStrat .AND. r(n_r)<=rStrat ) THEN
+            !     IF ( r(n_r-1)-rStrat < rStrat-r(n_r) ) THEN
+            !        n_const=n_r-1
+            !     ELSE
+            !        n_const=n_r
+            !     END IF
+            !  END IF
+            !END DO
+            !condBot=(rho0/rho0(n_const))*condTop(n_const)
+            !func=0.5D0*(DTANH(slopeStrat*(r-rStrat))+1.D0)
+            !kcond=condTop*func+condBot*(1-func)
+            !kcond=kcond/kcond(n_r_max)
+            !kappa=kcond/rho0
+            !CALL get_dr(kappa,dkappa,1,1,1,n_r_max,n_cheb_max, &
+            !            w1,w2,i_costf_init,d_costf_init,drx)
+            !dLkappa=dkappa/kappa
+
+            ! Alternative scenario
+            kcond=(1.D0-0.4469D0*(r/r_cmb)**2)/(1.D0-0.4469D0)
+            kcond=kcond/kcond(1)
+            kappa=kcond/rho0
+            CALL get_dr(kappa,dkappa,1,1,1,n_r_max,n_cheb_max, &
+                        w1,w2,i_costf_init,d_costf_init,drx)
+            dLkappa=dkappa/kappa
         END IF
     END IF
 
@@ -600,5 +694,88 @@ CONTAINS
                     w1,w2,i_costf_init,d_costf_init,drx)
         dLvisc=dvisc/visc
     END IF
+
+    IF ( l_anelastic_liquid ) THEN
+      divKtemp0=rho0*kappa*(d2temp0+(beta+dLkappa+2.D0*or1)*dtemp0)*DSQRT(4.D0*pi)
+    ELSE
+      divKtemp0=0.D0
+    END IF
+
   END SUBROUTINE transportProperties
+  !------------------------------------------------------------------------------
+  SUBROUTINE getBackground(input,boundaryVal,output)
+
+    USE truncation
+    USE matrices, ONLY: s0Mat,s0Pivot
+    USE algebra, ONLY: cgesl,sgefa
+    USE const, ONLY: pi
+
+    IMPLICIT NONE
+
+    !-- input, output
+    REAL(KIND=8),INTENT(IN) :: input(n_r_max)
+    REAL(KIND=8),INTENT(IN) :: boundaryVal
+    REAL(KIND=8),INTENT(OUT) :: output(n_r_max)
+
+    !-- local
+    COMPLEX(KIND=8) :: rhs(n_r_max)
+    REAL(KIND=8) :: tmp(n_r_max)
+    INTEGER :: n_cheb,n_r,info
+
+
+    DO n_cheb=1,n_r_max
+      DO n_r=2,n_r_max
+        s0Mat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
+      END DO
+    END DO
+
+    !-- boundary conditions
+    DO n_cheb=1,n_cheb_max
+      s0Mat(1,n_cheb)=cheb_norm
+      s0Mat(n_r_max,n_cheb)=0.D0
+    END DO
+
+    !-- fill with zeros
+    IF ( n_cheb_max < n_r_max ) THEN
+       DO n_cheb=n_cheb_max+1,n_r_max
+         s0Mat(1,n_cheb)=0.d0
+       END DO
+    END IF
+
+    !-- renormalize
+    DO n_r=1,n_r_max
+      s0Mat(n_r,1)      =0.5D0*s0Mat(n_r,1)
+      s0Mat(n_r,n_r_max)=0.5D0*s0Mat(n_r,n_r_max)
+    END DO
+
+    CALL sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
+    IF ( info /= 0 ) THEN
+      WRITE(*,*) '! Singular Matrix in getBackground!'
+      STOP '20'
+    END IF
+
+    DO n_r=2,n_r_max
+      rhs(n_r)=input(n_r)
+    END DO
+    rhs(1)=boundaryVal
+
+    !-- Solve for s0:
+    CALL cgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+
+!-- Copy result to s0:
+    DO n_r=1,n_r_max
+      output(n_r)=REAL(rhs(n_r))
+    END DO
+
+!-- Set cheb-modes > n_cheb_max to zero:
+    IF ( n_cheb_max < n_r_max ) THEN
+       DO n_cheb=n_cheb_max+1,n_r_max
+          output(n_cheb)=0.d0
+       END DO
+    END IF
+
+!-- Transform to radial space:
+    CALL costf1(output,1,1,1,tmp,i_costf_init,d_costf_init)
+
+  END SUBROUTINE getBackground
 END MODULE radial_functions

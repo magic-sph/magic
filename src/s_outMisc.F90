@@ -249,20 +249,30 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
      !-- Evaluate nusselt numbers (boundary heat flux density):
      osq4pi =1.D0/DSQRT(4.D0*pi)
      IF (topcond/=0.D0 .AND. l_heat) THEN
-        botnuss=-osq4pi/botcond*REAL(ds(1,n_r_icb))/lScale
-        topnuss=-osq4pi/topcond*REAL(ds(1,n_r_cmb))/lScale
+        IF ( l_anelastic_liquid ) THEN
+           botnuss=-osq4pi/botcond*REAL(ds(1,n_r_icb))/lScale+1.D0
+           topnuss=-osq4pi/topcond*REAL(ds(1,n_r_cmb))/lScale+1.D0
+           botflux=-rho0(n_r_max)*(REAL(ds(1,n_r_max))*osq4pi+1.D0/epsS*dtemp0(n_r_max))* &
+                    r_icb**2*4.D0*pi*kappa(n_r_max)
+           topflux=-rho0(1)*(REAL(ds(1,1))*osq4pi+1.D0/epsS*dtemp0(1))*r_cmb**2* &
+                    4.D0*pi*kappa(1)
+        ELSE
+           botnuss=-osq4pi/botcond*REAL(ds(1,n_r_icb))/lScale
+           topnuss=-osq4pi/topcond*REAL(ds(1,n_r_cmb))/lScale
+           botflux=-rho0(n_r_max)*temp0(n_r_max)*REAL(ds(1,n_r_max))/lScale* &
+             r_icb**2*DSQRT(4.D0*pi)*kappa(n_r_max)
+           topflux=-rho0(1)*temp0(1)*REAL(ds(1,1))/lScale*r_cmb**2* &
+             DSQRT(4.D0*pi)*kappa(1)
+        END IF
      ELSE
         botnuss=0.D0
         topnuss=0.D0
+        botflux=0.D0
+        topflux=0.D0
      END IF
-     botflux=-rho0(n_r_max)*temp0(n_r_max)*REAL(ds(1,n_r_max))/lScale* &
-          r_icb**2*DSQRT(4.D0*pi)*kappa(n_r_max)
-     topflux=-rho0(1)*temp0(1)*REAL(ds(1,1))/lScale*r_cmb**2* &
-          DSQRT(4.D0*pi)*kappa(1)
 
      IF ( l_save_out ) THEN
-        OPEN(n_misc_file,file=misc_file,status='unknown', &
-             POSITION='APPEND')
+        OPEN(n_misc_file,file=misc_file,status='unknown',POSITION='APPEND')
      ENDIF
      WRITE(n_misc_file,'(1P,D20.12,21D16.8)')     &
           & timeScaled,botnuss,topnuss, &
