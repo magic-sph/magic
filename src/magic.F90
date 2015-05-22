@@ -8,10 +8,11 @@
 
 !     A dynamic dynamo model driven by thermal convection
 !     in a rotating spherical fluid shell.
-!     This version is restricted to Boussinesq fluids and
+!     This version is restricted to anelastic fluids and
 !     non-dimensional variables are used throughout.
 
-!     The following set of equations is solved:
+!     In the Boussinesq limit,
+!     the following set of equations is solved:
 
 !     E {dv/dt + v.grad(v)} = -grad(p) - 2e_z x v
 !         +1/Pm rot(B) x B + RaE/Pr g/g_o T

@@ -17,10 +17,10 @@ SUBROUTINE preCalc
 
   USE truncation
   USE radial_functions
-  USE physical_parameters,ONLY:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled,  &
-       & opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,    &
-       & nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0, & 
-       & ktops,kbots,interior_model
+  USE physical_parameters,ONLY:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled, &
+       & opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,   &
+       & nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0,&
+       & ktops,kbots,interior_model,r_LCR,n_r_LCR
   USE num_param
   USE init_fields
   USE blocking
@@ -215,6 +215,19 @@ SUBROUTINE preCalc
         END DO
      END IF
      CLOSE(99)
+  END IF
+
+  l_LCR=.FALSE.
+  n_r_LCR=0
+  DO n_r=1,n_r_max
+     IF ( r_LCR<=r(n_r)/r_CMB ) THEN
+         l_LCR=.TRUE.
+         n_r_LCR=n_r
+     END IF
+  END DO
+  IF ( n_r_LCR==1 ) THEN
+     l_LCR=.FALSE.
+     n_r_LCR=0
   END IF
 
   !-- Compute some constants:

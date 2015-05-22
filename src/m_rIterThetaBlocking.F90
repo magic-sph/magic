@@ -21,7 +21,7 @@ MODULE rIterThetaBlocking_mod
   USE leg_helper_mod, only: leg_helper_t
   USE nonlinear_lm_mod,only:nonlinear_lm_t
   USE grid_space_arrays_mod,ONLY: grid_space_arrays_t
-  USE physical_parameters,ONLY: kbots,ktops
+  USE physical_parameters,ONLY: kbots,ktops,n_r_LCR
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif
@@ -290,28 +290,40 @@ CONTAINS
     IF ( (.NOT.this%isRadialBoundaryPoint) .AND. ( l_conv_nl .OR. l_mag_LF ) ) THEN
        !PERFON('inner1')
        IF ( l_conv_nl .AND. l_mag_LF ) THEN
-          DO nTheta=1,this%sizeThetaB
-             DO nPhi=1,nrp
-                gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta) + gsa%LFr(nPhi,nTheta)
-                gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta) + gsa%LFt(nPhi,nTheta)
-                gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta) + gsa%LFp(nPhi,nTheta)
+          IF ( this%nR>n_r_LCR ) THEN
+             DO nTheta=1,this%sizeThetaB
+                DO nPhi=1,nrp
+                   gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta) + gsa%LFr(nPhi,nTheta)
+                   gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta) + gsa%LFt(nPhi,nTheta)
+                   gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta) + gsa%LFp(nPhi,nTheta)
+                END DO
              END DO
-          END DO
+          END IF
        ELSE IF ( l_mag_LF ) THEN
-          DO nTheta=1,this%sizeThetaB
-             DO nPhi=1,nrp
-                gsa%Advr(nPhi,nTheta)=gsa%LFr(nPhi,nTheta)
-                gsa%Advt(nPhi,nTheta)=gsa%LFt(nPhi,nTheta)
-                gsa%Advp(nPhi,nTheta)=gsa%LFp(nPhi,nTheta)
+          IF ( this%nR>n_r_LCR ) THEN
+             DO nTheta=1,this%sizeThetaB
+                DO nPhi=1,nrp
+                   gsa%Advr(nPhi,nTheta)=gsa%LFr(nPhi,nTheta)
+                   gsa%Advt(nPhi,nTheta)=gsa%LFt(nPhi,nTheta)
+                   gsa%Advp(nPhi,nTheta)=gsa%LFp(nPhi,nTheta)
+                END DO
              END DO
-          END DO
+          ELSE
+             DO nTheta=1,this%sizeThetaB
+                DO nPhi=1,nrp
+                   gsa%Advr(nPhi,nTheta)=0.D0
+                   gsa%Advt(nPhi,nTheta)=0.D0
+                   gsa%Advp(nPhi,nTheta)=0.D0
+                END DO
+             END DO
+          END IF
        END IF
        CALL fft_thetab(gsa%Advr,-1)
        CALL fft_thetab(gsa%Advt,-1)
        CALL fft_thetab(gsa%Advp,-1)
        CALL legTF3(nThetaStart,nl_lm%AdvrLM,nl_lm%AdvtLM,nl_lm%AdvpLM,    &
             &      gsa%Advr,gsa%Advt,gsa%Advp)
-       IF ( this%lRmsCalc .AND. l_mag_LF ) THEN ! LF treated extra:
+       IF ( this%lRmsCalc .AND. l_mag_LF .AND. this%nR>n_r_LCR ) THEN ! LF treated extra:
           CALL fft_thetab(gsa%LFr,-1)
           CALL fft_thetab(gsa%LFt,-1)
           CALL fft_thetab(gsa%LFp,-1)
@@ -328,7 +340,7 @@ CONTAINS
        CALL legTF3(nThetaStart,nl_lm%VSrLM,nl_lm%VStLM,nl_lm%VSpLM,       &
             &      gsa%VSr,gsa%VSt,gsa%VSp)
        IF (l_anel) THEN ! anelastic stuff 
-          IF (l_mag_nl) THEN
+          IF ( l_mag_nl .AND. this%nR>n_r_LCR ) THEN
              CALL fft_thetab(gsa%ViscHeat,-1)
              CALL fft_thetab(gsa%OhmLoss,-1)
              CALL legTF2(nThetaStart,nl_lm%OhmLossLM,nl_lm%ViscHeatLM,    &
@@ -342,7 +354,7 @@ CONTAINS
     END IF
     IF ( l_mag_nl ) THEN
        !PERFON('mag_nl')
-       IF ( .not.this%isRadialBoundaryPoint ) THEN
+       IF ( .not.this%isRadialBoundaryPoint .AND. this%nR>n_r_LCR ) THEN
           CALL fft_thetab(gsa%VxBr,-1)
           CALL fft_thetab(gsa%VxBt,-1)
           CALL fft_thetab(gsa%VxBp,-1)

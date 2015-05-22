@@ -3,10 +3,10 @@
 !  Module containing logicals that control the run
 !********************************************************************
         
-!   !------------ This is release 1 level 1  --------------!
-!   !------------ Created on 1/17/02  by JW. --------------!
 MODULE logic
+
   IMPLICIT NONE
+
   LOGICAL :: l_update_v,l_update_b,l_update_s
   LOGICAL :: l_mag,l_conv,l_mag_kin,l_SRIC,l_SRMA
   LOGICAL :: l_heat,l_heat_nl
@@ -52,7 +52,7 @@ MODULE logic
   LOGICAL :: l_viscBcCalc 
   LOGICAL :: l_fluxProfs
   LOGICAL :: l_perpPar
-
+  LOGICAL :: l_LCR
   LOGICAL :: lVerbose
 
 END MODULE logic

@@ -54,7 +54,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   !-- Local variables:
   INTEGER :: nR,l1m0,nLMB,l,m
-  !INTEGER :: lm
+  INTEGER :: lm
   INTEGER :: lmStart,lmStop,lmStartReal,lmStopReal
   REAL(kind=8) :: coex
   REAL(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
@@ -308,6 +308,28 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
              i_costf1_ic_init,d_costf1_ic_init, &
              i_costf2_ic_init,d_costf2_ic_init)
      END IF
+
+     IF ( l_LCR ) THEN
+       DO nR=n_r_cmb,n_r_icb-1
+          IF ( nR<=n_r_LCR ) THEN
+             DO lm=lmStart,lmStop
+                l=lo_map%lm2l(lm)
+                m=lo_map%lm2m(lm)
+
+                b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**DBLE(l)* &
+                                                b_LMloc(lm,n_r_LCR)
+                db_LMloc(lm,nR)=-DBLE(l)*(r(n_r_LCR))**DBLE(l)/ &
+                         (r(nR))**DBLE(l+1)*b_LMloc(lm,n_r_LCR)
+                ddb_LMloc(lm,nR)=DBLE(l)*DBLE(l+1)*(r(n_r_LCR))**(l)/ &
+                         (r(nR))**DBLE(l+2)*b_LMloc(lm,n_r_LCR)
+                aj_LMloc(lm,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                dj_LMloc(lm,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                ddj_LMloc(lm,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+             END DO
+          END IF
+       END DO
+     END IF
+
 
      IF ( l_heat ) THEN
         !-- Get radial derivatives of entropy:

@@ -21,7 +21,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
   USE,INTRINSIC :: iso_c_binding
   USE truncation
   USE radial_functions,ONLY: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
-  USE physical_parameters,ONLY: CorFac,ra,epsc,ViscHeatFac,OhmLossFac
+  USE physical_parameters,ONLY: CorFac,ra,epsc,ViscHeatFac,OhmLossFac,n_r_LCR
   !USE num_param
   USE blocking,ONLY: lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA,lm2lmA,lm2lmS,&
        & st_map
@@ -150,7 +150,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         END IF
         dwdt(lm)=AdvPol_loc+CorPol_loc
         dzdt(lm)=AdvTor_loc+CorTor_loc
-        IF ( lRmsCalc .AND. l_mag_LF ) THEN
+        IF ( lRmsCalc .AND. l_mag_LF .AND. nR>n_r_LCR ) THEN
            LFPol(lm) =      or2(nR)*nl_lm%LFrLM(lm)
            LFTor(lm) =-dTheta1A(lm)*nl_lm%LFpLM(lmPA)
            AdvPol(lm)=AdvPol_loc-LFPol(lm)
@@ -165,7 +165,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmPS,lmP2lmPA) &
         !$OMP shared(lm_max,l_corr,l_max,l_conv_nl,nl_lm,lRmsCalc,l_mag_LF) &
         !$OMP shared(CorPol,AdvPol,LFPol,CorTor,AdvTor,LFTor,z_Rloc,nR,w_Rloc,dw_Rloc) &
-        !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S) &
+        !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
         !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
         !$OMP shared(dwdt,dzdt)
         DO lm=1,lm_max
@@ -257,7 +257,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
            dzdt(lm)=CorTor_loc+AdvTor_loc
            ! until here
 
-           IF ( lRmsCalc .AND. l_mag_LF ) THEN
+           IF ( lRmsCalc .AND. l_mag_LF .AND. nR>n_r_LCR ) THEN
               !------ When RMS values are required, the Lorentz force is treated
               !       separately:
               !--------- FLPol = ( curl(B)xB )_r
@@ -304,7 +304,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
               CALL hInt2Tor(CorTor,1,lm_max,nR,2,lm_max, &
                    CorTor2hInt(nR),CorTorAs2hInt(nR),st_map)
            END IF
-           IF ( l_mag_LF ) THEN
+           IF ( l_mag_LF .AND. nR>n_r_LCR ) THEN
               CALL hInt2Pol(LFPol,1,lm_max,nR,2,lm_max,LFPolLMr, &
                    LFPol2hInt(nR),LFPolAs2hInt(nR),st_map)
               CALL hInt2Tor(LFTor,1,lm_max,nR,2,lm_max, &

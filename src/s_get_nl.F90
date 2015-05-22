@@ -69,7 +69,7 @@
 
     nThetaLast=nThetaStart-1
 
-    IF ( l_mag_LF .AND. nBc == 0 ) THEN
+    IF ( l_mag_LF .AND. nBc == 0 .AND. nR>n_r_LCR ) THEN
        !------ Get the Lorentz force:
        nTheta=nThetaLast
        DO nThetaB=1,sizeThetaB
@@ -191,7 +191,7 @@
 
     IF ( l_mag_nl ) THEN
 
-       IF ( nBc == 0 ) THEN
+       IF ( nBc == 0 .AND. nR>n_r_LCR ) THEN
 
           !------ Get (V x B) , the curl of this is the dynamo term:
           nTheta=nThetaLast
@@ -225,7 +225,7 @@
              VxBp(n_phi_max+2,nThetaB)=0.D0
           END DO   ! theta loop
 
-       ELSE IF ( nBc == 1 ) THEN ! stress free boundary
+       ELSE IF ( nBc == 1 .OR. nR<=n_r_LCR ) THEN ! stress free boundary
 
           nTheta=nThetaLast
           DO nThetaB=1,sizeThetaB
@@ -304,7 +304,7 @@
           ViscHeat(n_phi_max+2,nThetaB)=0.D0
        END DO ! theta loop
 
-       IF (l_mag_nl) THEN
+       IF ( l_mag_nl .AND. nR>n_r_LCR ) THEN
           !------ Get ohmic losses
           nTheta=nThetaLast
           DO nThetaB=1,sizeThetaB ! loop over theta points in block

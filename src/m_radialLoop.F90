@@ -215,7 +215,7 @@ CONTAINS
              !nR  = n_r_cmb
              nBc = ktopv
              lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame .OR. lPerpParCalc &
-          &          .OR. lViscBcCalc .OR. lFluxProfCalc
+          &          .OR. lViscBcCalc .OR. lFluxProfCalc 
           ELSE
              CYCLE   ! Nothing needs to be done by thread one !
           END IF

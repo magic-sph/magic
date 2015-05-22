@@ -76,22 +76,37 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
   DO nR=2,n_r_max-1
      DO nCheb=1,n_r_max
         bMat(nR,nCheb)=                       cheb_norm * ( &
-             O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
-             alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
-             d2cheb(nCheb,nR) - &
-             dLh*or2(nR)*cheb(nCheb,nR) ) )
+                          O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
+                  alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
+                                         d2cheb(nCheb,nR) - &
+                               dLh*or2(nR)*cheb(nCheb,nR) ) )
 
         jMat(nR,nCheb)=                       cheb_norm * ( &
-             O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
-             alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
-             d2cheb(nCheb,nR) + &
-             dLlambda(nR)*dcheb(nCheb,nR) - &
-             dLh*or2(nR)*cheb(nCheb,nR) ) )
+                          O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
+                  alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
+                                         d2cheb(nCheb,nR) + &
+                             dLlambda(nR)*dcheb(nCheb,nR) - &
+                               dLh*or2(nR)*cheb(nCheb,nR) ) )
      END DO
   END DO
 
-  !----- boundary conditions for outer core field:
+  IF  ( l_LCR ) THEN
 
+     DO nR=2,n_r_max-1
+        IF ( nR<=n_r_LCR ) THEN
+           DO nCheb=1,n_r_max
+              bMat(nR,nCheb)= cheb_norm*(     dcheb(nCheb,nR) + &
+                               DBLE(l)*or1(nR)*cheb(nCheb,nR) ) 
+
+              jMat(nR,nCheb)= cheb_norm*cheb(nCheb,nR)
+           END DO
+        END IF
+
+     END DO
+
+  END IF
+
+  !----- boundary conditions for outer core field:
   DO nCheb=1,n_cheb_max
 
 !-- JW 10.Apr.2014: pseudo vacuum outer boundary condition included as ktopb=4
@@ -104,15 +119,15 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
      !         vanish (matrix ajmat).
 
         bMat(1,nCheb)=            cheb_norm * ( &
-             dcheb(nCheb,1) + &
-             DBLE(l)*or1(1)*cheb(nCheb,1) + &
-             conductance_ma* ( &
-             d2cheb(nCheb,1) - &
-             dLh*or2(1)*cheb(nCheb,1) ) )
+                               dcheb(nCheb,1) + &
+                 DBLE(l)*or1(1)*cheb(nCheb,1) + &
+                              conductance_ma* ( &
+                              d2cheb(nCheb,1) - &
+                     dLh*or2(1)*cheb(nCheb,1) ) )
 
         jMat(1,nCheb)=            cheb_norm * ( &
-             cheb(nCheb,1) + &
-             conductance_ma*dcheb(nCheb,1) )
+                                cheb(nCheb,1) + &
+                conductance_ma*dcheb(nCheb,1) )
 
      ELSE IF ( ktopb == 2 ) THEN
 
@@ -137,18 +152,15 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
 
         !----------- insulating IC, field has to fit a potential field:
         bMat(n_r_max,nCheb)=       cheb_norm * ( &
-             dcheb(nCheb,n_r_max) - &
+                          dcheb(nCheb,n_r_max) - &
              l_P_1*or1(n_r_max)*cheb(nCheb,n_r_max) )
-        jMat(n_r_max,nCheb)=       cheb_norm * &
-             cheb(nCheb,n_r_max)
+        jMat(n_r_max,nCheb)=       cheb_norm*cheb(nCheb,n_r_max)
 
      ELSE IF ( kbotb == 2 ) THEN
 
         !----------- perfect conducting IC
-        bMat(n_r_max-1,nCheb)=cheb_norm * &
-             d2cheb(nCheb,n_r_max)
-        jMat(n_r_max,nCheb)  =cheb_norm * &
-             dcheb(nCheb,n_r_max)
+        bMat(n_r_max-1,nCheb)=cheb_norm*d2cheb(nCheb,n_r_max)
+        jMat(n_r_max,nCheb)  =cheb_norm* dcheb(nCheb,n_r_max)
 
      ELSE IF ( kbotb == 3 ) THEN
 
@@ -159,14 +171,10 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
         !           the conductivity ratio sigma_ratio is used as
         !           an additional dimensionless parameter.
 
-        bMat(n_r_max,nCheb)=  cheb_norm * &
-             cheb(nCheb,n_r_max)
-        bMat(n_r_max+1,nCheb)=cheb_norm * &
-             dcheb(nCheb,n_r_max)
-        jMat(n_r_max,nCheb)=  cheb_norm * &
-             cheb(nCheb,n_r_max)
-        jMat(n_r_max+1,nCheb)=cheb_norm * &
-             sigma_ratio*dcheb(nCheb,n_r_max)
+        bMat(n_r_max,nCheb)=  cheb_norm*cheb(nCheb,n_r_max)
+        bMat(n_r_max+1,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
+        jMat(n_r_max,nCheb)=  cheb_norm*cheb(nCheb,n_r_max)
+        jMat(n_r_max+1,nCheb)=cheb_norm*sigma_ratio*dcheb(nCheb,n_r_max)
 
 !-- JW 10.Apr.2012: pseudo vacuum condition at lower boundary included.
      ELSE IF ( kbotb == 4 ) THEN
@@ -182,6 +190,10 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
         bMat(n_r_max,nCheb)=  cheb_norm * cheb(nCheb,n_r_max)
 
      ELSE IF ( l == 3 .AND. imagcon == -10 ) THEN
+        IF ( l_LCR ) THEN
+           WRITE(*,*) 'Imposed field not compatible with weak conducting region!'
+           STOP
+        END IF
         jMat(1,nCheb)      =  cheb_norm * cheb(nCheb,1)
         jMat(n_r_max,nCheb)=  cheb_norm * cheb(nCheb,n_r_max)
 
@@ -189,14 +201,18 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
         !-- This is the Uli Christensen idea where the external field is
         !   not fixed but compensates the internal field so that the
         !   radial field component vanishes at r/r_cmb=rrMP
+        IF ( l_LCR ) THEN
+           WRITE(*,*) 'Imposed field not compatible with weak conducting region!'
+           STOP
+        END IF
         rRatio=rrMP**DBLE(2*l+1)
         bMat(1,nCheb)=            cheb_norm * ( &
-             dcheb(nCheb,1) + &
-             DBLE(l)*or1(1)*cheb(nCheb,1) - &
-             DBLE(2*l+1)*or1(1)/(1-rRatio) + &
-             conductance_ma* ( &
-             d2cheb(nCheb,1) - &
-             dLh*or2(1)*cheb(nCheb,1) ) )
+                               dcheb(nCheb,1) + &
+                 DBLE(l)*or1(1)*cheb(nCheb,1) - &
+                DBLE(2*l+1)*or1(1)/(1-rRatio) + &
+                              conductance_ma* ( &
+                              d2cheb(nCheb,1) - &
+                     dLh*or2(1)*cheb(nCheb,1) ) )
      END IF
 
   END DO ! loop over cheb modes !
@@ -205,6 +221,12 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
   DO nCheb=n_cheb_max+1,n_r_max
      bMat(1,nCheb)=0.D0
      jMat(1,nCheb)=0.D0
+     IF ( l_LCR ) THEN
+        DO nR=2,n_r_LCR
+           bMat(nR,nCheb)=0.D0
+           jMat(nR,nCheb)=0.D0
+        END DO
+     END IF
      IF ( kbotb == 1 ) THEN
         bMat(n_r_max,nCheb)  =0.D0
         jMat(n_r_max,nCheb)  =0.D0
@@ -216,6 +238,9 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
         bMat(n_r_max+1,nCheb)=0.D0
         jMat(n_r_max,nCheb)  =0.D0
         jMat(n_r_max+1,nCheb)=0.D0
+     ELSE IF ( kbotb == 4 ) THEN
+        bMat(n_r_max,nCheb)  =0.D0
+        jMat(n_r_max,nCheb)  =0.D0
      END IF
   END DO
 

@@ -38,6 +38,8 @@ MODULE physical_parameters
   REAL(kind=8) :: difExp
   REAL(kind=8) :: con_DecRate,con_RadRatio,con_LambdaMatch
   REAL(kind=8) :: con_LambdaOut,con_FuncWidth
+  REAL(kind=8) :: r_LCR
+  INTEGER :: n_r_LCR
   INTEGER :: nVarDiff
   INTEGER :: nVarVisc
   INTEGER :: nVarEps

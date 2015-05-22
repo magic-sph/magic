@@ -63,7 +63,6 @@ CONTAINS
        & runHours,runMinutes,runSeconds,nThreadsRun,      &
        & cacheblock_size_in_B
     
-
     NAMELIST/phys_param/                                    &
        & ra,pr,prmag,ek,epsc0,radratio,                     &
        & ktops,kbots,ktopv,kbotv,ktopb,kbotb,               &
@@ -71,7 +70,7 @@ CONTAINS
        & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
        & con_LambdaOut,con_FuncWidth,                       &
        & strat,polind,g0,g1,g2,r_cut_model,                 &
-       & epsS,slopeStrat,cmbHflux,                          &
+       & epsS,slopeStrat,cmbHflux,r_LCR,                    &
        & nVarDiff,nVarVisc,difExp,nVarEps,interior_model
 
     NAMELIST/B_external/                                    &
@@ -711,6 +710,7 @@ CONTAINS
     write(n_out,'(1p,''  con_LambdaMatch='',d14.6,'','')') con_LambdaMatch
     write(n_out,'(1p,''  con_LambdaOut  ='',d14.6,'','')') con_LambdaOut
     write(n_out,'(1p,''  con_FuncWidth  ='',d14.6,'','')') con_FuncWidth
+    write(n_out,'(1p,''  r_LCR          ='',d14.6,'','')') r_LCR
 
     !----- Thermal diffusivity variation:
     write(n_out,'(1p,''  difExp    ='',d14.6,'','')') difExp
@@ -1031,6 +1031,7 @@ CONTAINS
     con_LambdaMatch=0.6D0
     con_LambdaOut  =0.1
     con_FuncWidth  =0.25D0
+    r_LCR          =2.D0
 
     !----- Thermal diffusivity variation:
     difExp         =-0.5D0

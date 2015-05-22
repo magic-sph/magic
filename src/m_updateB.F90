@@ -5,9 +5,9 @@ MODULE updateB_mod
   USE radial_functions, ONLY: i_costf_init,d_costf_init,drx,ddrx,or2,r_cmb,&
        & i_costf1_ic_init,d_costf1_ic_init,&
        & i_costf2_ic_init,d_costf2_ic_init,&
-       & dr_fac_ic,lambda,dLlambda,o_r_ic
+       & dr_fac_ic,lambda,dLlambda,o_r_ic,r
   USE radial_data,ONLY: n_r_cmb,n_r_icb
-  USE physical_parameters
+  USE physical_parameters, ONLY: n_r_LCR,opm,O_sr,kbotb
   USE num_param
   USE init_fields
   USE blocking,ONLY: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
@@ -15,7 +15,7 @@ MODULE updateB_mod
   USE logic
   USE matrices
   USE RMS
-  USE const
+  USE const, ONLY: pi
   USE Bext
   USE algebra, ONLY: cgeslML
   USE LMLoop_data, ONLY: llmMag,ulmMag,llm_realMag,ulm_realMag
@@ -337,6 +337,10 @@ contains
                 rhs2(n_r_max,lmB,threadid)=0.D0
                 IF ( m1 == 0 ) THEN   ! Magnetoconvection boundary conditions
                    IF ( imagcon /= 0 .AND. tmagcon <= time ) THEN
+                      IF ( l_LCR ) THEN
+                        WRITE(*,*) 'LCR not compatible with imposed field!'
+                        STOP
+                      END IF
                       IF ( l1 == 2 .AND. imagcon > 0 .AND. imagcon .NE. 12 ) THEN
                          rhs2(1,lmB,threadid)      =CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
                          rhs2(n_r_max,lmB,threadid)=CMPLX(bpeakbot,0.D0,KIND=KIND(0d0))
@@ -353,7 +357,10 @@ contains
                       END IF
                    END IF
                    IF ( n_imp > 1 .AND. l1 == l_imp ) THEN
-
+                       IF ( l_LCR ) THEN
+                         WRITE(*,*) 'LCR not compatible with imposed field!'
+                         STOP
+                       END IF
                        yl0_norm = 0.5D0*DSQRT((2*l1+1)/pi)   !General normalization for spherical harmonics of degree l and order 0
                        prefac = DBLE(2*l1+1)/DBLE(l1*(l1+1)) !Prefactor for CMB matching condition
 
@@ -427,10 +434,15 @@ contains
                 END IF
                 
                 DO nR=2,n_r_max-1
-                   rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR) + w2*dbdtLast(lm1,nR) ) &
+                   IF ( nR<=n_r_LCR ) THEN
+                      rhs1(nR,lmB,threadid)=0.D0
+                      rhs2(nR,lmB,threadid)=0.D0
+                   ELSE
+                      rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR) + w2*dbdtLast(lm1,nR) ) &
                         &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
-                   rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR) + w2*djdtLast(lm1,nR) ) &
+                      rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR) + w2*djdtLast(lm1,nR) ) &
                         &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
+                   END IF
                 END DO
 
                 !-------- Magnetic boundary conditions, inner core for radial derivatives
@@ -649,7 +661,29 @@ contains
     !-- We are now back in radial space !
 
     !PERFON('upB_last')
-    DO nR=n_r_cmb+1,n_r_icb-1
+    IF ( l_LCR ) THEN
+       DO nR=n_r_cmb,n_r_icb-1
+          IF ( nR<=n_r_LCR ) THEN
+             DO lm1=lmStart_00,lmStop
+                l1=lm2l(lm1)
+                m1=lm2m(lm1)
+
+                b(lm1,nR)=(r(n_r_LCR)/r(nR))**D_l(st_map%lm2(l1,m1))*b(lm1,n_r_LCR)
+                db(lm1,nR)=-DBLE(D_l(st_map%lm2(l1,m1)))* &
+                         (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/ &
+                         (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
+                ddb(lm1,nR)=DBLE(D_l(st_map%lm2(l1,m1)))*(DBLE(D_l(st_map%lm2(l1,m1)))+1) &
+                         *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
+                         (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
+                aj(lm1,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                dj(lm1,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                ddj(lm1,nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+             END DO
+          END IF
+       END DO
+    END IF
+
+    DO nR=n_r_cmb,n_r_icb-1
        DO lm1=lmStart_00,lmStop
           l1=lm2l(lm1)
           m1=lm2m(lm1)
