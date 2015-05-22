@@ -7,8 +7,7 @@ MODULE rIterThetaBlocking_mod
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
-       & l_rot_ma, l_cond_ma, l_viscBcCalc, l_dtB, l_store_frame, l_movie_oc, &
-       & l_fluxProfs, l_TO
+       & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
@@ -202,7 +201,7 @@ CONTAINS
     IF ( l_conv .OR. l_mag_kin ) THEN
        IF ( l_heat ) THEN
           CALL fft_thetab(gsa%sc,1)
-          IF ( l_viscBcCalc ) THEN
+          IF ( this%lViscBcCalc ) THEN
              CALL fft_thetab(gsa%dsdtc,1)
              CALL fft_thetab(gsa%dsdpc,1)
              IF (this%nR.eq.n_r_cmb .AND. ktops==1) THEN
@@ -214,11 +213,11 @@ CONTAINS
                 gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
              END IF
           END IF
-          IF ( l_fluxProfs ) THEN
+          IF ( this%lFluxProfCalc ) THEN
              CALL fft_thetab(gsa%pc,1)
           END IF
        END IF
-       IF ( l_HT .or. l_viscBcCalc ) CALL fft_thetab(gsa%drSc,1)
+       IF ( l_HT .or. this%lViscBcCalc ) CALL fft_thetab(gsa%drSc,1)
        IF ( this%nBc.EQ.0 ) THEN
           CALL fft_thetab(gsa%vrc,1)
           CALL fft_thetab(gsa%vtc,1)
