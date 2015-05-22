@@ -264,10 +264,20 @@ CONTAINS
        !   PRINT*,"in get_power, l1m0 is not on rank 0!"
        !   stop
        !END IF
-       z10ICB  =REAL(z(l1m0,n_r_ICB))
-       drz10ICB=REAL(dz(l1m0,n_r_ICB))
-       z10CMB  =REAL(z(l1m0,n_r_CMB))
-       drz10CMB=REAL(dz(l1m0,n_r_CMB))
+       IF ( l_rot_IC ) THEN
+          z10ICB  =REAL(z(l1m0,n_r_ICB))
+          drz10ICB=REAL(dz(l1m0,n_r_ICB))
+       ELSE
+          z10ICB  =0.D0
+          drz10ICB=0.D0
+       END IF
+       IF ( l_rot_MA ) THEN
+          z10CMB  =REAL(z(l1m0,n_r_CMB))
+          drz10CMB=REAL(dz(l1m0,n_r_CMB))
+       ELSE
+          z10CMB  =0.D0
+          drz10CMB=0.D0
+       END IF
 
        IF (rank.NE.0) THEN
           ! send data to rank 0

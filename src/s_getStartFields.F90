@@ -86,6 +86,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         topcond=-1.D0/epsS*dtemp0(1)
         botcond=-1.D0/epsS*dtemp0(n_r_max)
      ELSE
+        CALL s_cond(s0)
         CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
                &    w1,w2,i_costf_init,d_costf_init,drx)
         topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)

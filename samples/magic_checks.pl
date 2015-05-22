@@ -559,9 +559,9 @@ sub compare_numbers_fuzzily {
     $y2 =~ s/[dD]/e/;
 
     # If too small (1e-40), don't test:
-    return 1 if (abs("$x1$x2") < 1e-40 and "$x1$x2" != 0.);
+    return 1 if (abs("$x1$x2") < 1e-20 and "$x1$x2" != 0.);
     # If diff too small (1e-20), don't test:
-    return 1 if (abs("$x1$x2"-"$y1$y2") < 1e-20);
+    return 1 if (abs("$x1$x2"-"$y1$y2") < 1e-15);
 
     # Are $x, $y really numeric?
     unless(defined($x1) && defined($y1)) {

@@ -18,7 +18,7 @@ n_cheb_ic_max=14,
  alpha       =0.6D0,
  runHours    =10,
  runMinutes  =10,
- nThreadsRun =4,
+ nThreadsRun =8,
 /
 &phys_param
  ra          =3.38D4,
@@ -57,6 +57,7 @@ n_cheb_ic_max=14,
  l_power     =.TRUE.,
  l_viscBcCalc=.TRUE.,
  l_fluxProfs =.TRUE.,
+ l_perpPar   =.TRUE.,
 /
 &mantle 
  nRotMa      =0
