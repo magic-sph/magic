@@ -308,6 +308,59 @@ CONTAINS
                 w2,i_costf_init,d_costf_init,drx)
        dentropy0=0.D0
        
+    ELSE IF ( index(interior_model,'SAT') /= 0 ) THEN
+
+       a4=  0.2942794      ! -201.96655354d0
+       a5=  0.20687885     !   37.38863965d0
+       a6= -1.85180588     !   -4.60312999d0
+       a7=  1.35478138     !4.46020423d0
+
+       DO n_r=1,n_r_max
+          rrOcmb = r(n_r)/r_cmb*r_cut_model
+          rhoFit(n_r) = a7 + a6*rrOcmb   + a5*rrOcmb**2 + a4*rrOcmb**3
+          gravFit(n_r)=4.d0*rrOcmb - 3.d0*rrOcmb**2
+          temp0(n_r)=rhoFit(n_r)**(1.d0/polind)
+       END DO
+
+       ! To normalise to the outer radius
+       temptop=temp0(1)
+       rhotop=rhoFit(1)
+       gravtop=gravFit(1)
+
+       temp0  =temp0/temptop
+       gravFit=gravFit/gravtop
+
+       ! Derivative of the temperature needed to get alpha_T
+       CALL get_dr(temp0,dtemp0,1,1,1,n_r_max,n_cheb_max,w1, &
+                   w2,i_costf_init,d_costf_init,drx)
+
+       alphaT=-dtemp0/(gravFit*temp0)
+
+       ! Inverse of the Froude number needed in the dissipation numbers
+       DissNb=alphaT(1)
+       ViscHeatFac=DissNb*pr/raScaled
+       IF (l_mag) THEN
+          OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+       END IF
+       ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+       !       dT
+       !      ---- =  Di * alpha_T * T * grav
+       !       dr
+
+       ! N.B. rgrav is not gravity but the whole RHS !!!
+       rgrav=-BuoFac*dtemp0/DissNb
+       rho0=rhoFit/rhotop
+
+       CALL get_dr(rho0,drho0,1,1,1,n_r_max,n_cheb_max,w1, &
+                   w2,i_costf_init,d_costf_init,drx)
+       beta=drho0/rho0
+       CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1,     &
+                   w2,i_costf_init,d_costf_init,drx)
+       CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
+                w2,i_costf_init,d_costf_init,drx)
+       dentropy0=0.D0
+
     ELSE IF ( index(interior_model,'EARTH') /= 0 ) THEN
        DissNb=0.3929D0 ! Di = \alpha_O g d / c_p
        CompNb=0.0566D0 ! Co = \alpha_O T_O

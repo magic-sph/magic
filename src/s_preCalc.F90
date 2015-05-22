@@ -131,6 +131,8 @@ SUBROUTINE preCalc
   BuoFac=raScaled/pr
   IF ( index(interior_model,'JUP') /= 0 ) THEN
      polind=1.d0/0.45d0
+  ELSE IF ( index(interior_model,'SAT') /= 0 ) THEN
+     polind=1.5d0
   END IF
 
   dtStart=dtStart/tScale
