@@ -129,12 +129,32 @@ CONTAINS
           END IF
 
        else if ( n_surface == 2 ) then ! Surface theta=constant
-          IF (rank.EQ.0) THEN
-             WRITE(*,"(A)") "==============================================="
-             WRITE(*,"(A)") "Gathering for n_surface==2 not yet implemented."
-             WRITE(*,"(A)") "==============================================="
-          END IF
+          DO n_field=1,n_fields
+             n_start = n_movie_field_start(n_field,n_movie)
+             n_stop  = n_movie_field_stop(n_field,n_movie)
+             field_length = n_stop-n_start+1
 
+             local_start=n_start+(nRstart-1)*n_phi_max
+             local_end  =local_start+nr_per_rank*n_phi_max-1
+             IF (rank.EQ.n_procs-1) local_end = local_start+nr_on_last_rank*n_phi_max-1
+             IF (local_end.GT.n_stop) THEN
+                WRITE(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
+                STOP
+             END IF
+             DO irank=0,n_procs-1
+                recvcounts(irank) = nr_per_rank*n_phi_max
+                displs(irank)     = irank*nr_per_rank*n_phi_max
+             END DO
+             recvcounts(n_procs-1) = nr_on_last_rank*n_phi_max
+             sendcount=local_end-local_start+1
+
+             CALL mpi_gatherv(frames(local_start),sendcount,MPI_DOUBLE_PRECISION,&
+                  & field_frames_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+                  & 0,MPI_COMM_WORLD,ierr)
+             IF (rank.EQ.0) THEN
+                frames(n_start:n_stop)=field_frames_global(1:field_length)
+             END IF
+          END DO  ! Do loop over field for one movie
        else if ( IABS(n_surface) == 3 ) then  ! Surface phi=const.
           ! all ranks have a part of the frames array for each movie
           ! we need to gather
