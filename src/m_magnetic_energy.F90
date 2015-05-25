@@ -595,10 +595,14 @@ contains
           CALL MPI_Wait(request2,status,ierr)
        END IF
 
-       !print*, "------------", b11
+       !print*, "------------", b10, b11
        theta_dip= rad*DATAN2(DSQRT(2.D0)*ABS(b11),REAL(b10))
        IF ( theta_dip.LT.0.D0 ) theta_dip=180.D0+theta_dip
-       phi_dip  =-rad*DATAN2(AIMAG(b11),REAL(b11))
+       IF ( ABS(b11) < 1.D-20 ) THEN
+          phi_dip=0.D0
+       ELSE
+          phi_dip=-rad*DATAN2(AIMAG(b11),REAL(b11))
+       END IF
        Dip      =e_dipole_ax/(e_p+e_t)
        DipCMB   =e_dipole_ax_cmb/e_cmb
 
