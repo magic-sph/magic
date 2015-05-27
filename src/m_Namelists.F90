@@ -74,7 +74,7 @@ CONTAINS
        & nVarDiff,nVarVisc,difExp,nVarEps,interior_model
 
     NAMELIST/B_external/                                    &
-       & rrMP,amp_imp,expo_imp,bmax_imp,n_imp
+       & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp
 
     NAMELIST/start_field/                                   &
        & l_start_file,start_file,inform,                    &
