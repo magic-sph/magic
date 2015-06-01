@@ -157,7 +157,7 @@ CONTAINS
     REAL(kind=8),DIMENSION(n_r_max) :: alphaT, drho0
     REAL(kind=8) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
-    REAL(kind=8) :: a0,a1,a2,a3,a4,a5,a6,a7 ! polynomial fit for density
+    REAL(kind=8) :: a0,a1,a2,a3,a4,a5,a6,a7,a8,a9 ! polynomial fit for density
     REAL(kind=8) :: temptop,gravtop,rhotop
     REAL(kind=8) :: hcomp,CompNb,GrunNb
     REAL(kind=8),DIMENSION(n_r_max) :: dtemp0cond,dtemp0ad,hcond
@@ -310,14 +310,24 @@ CONTAINS
        
     ELSE IF ( index(interior_model,'SAT') /= 0 ) THEN
 
-       a4=  0.2942794      ! -201.96655354d0
-       a5=  0.20687885     !   37.38863965d0
-       a6= -1.85180588     !   -4.60312999d0
-       a7=  1.35478138     !4.46020423d0
+       ! the shell can't be thicker than eta=0.15, because the fit doesn't work
+       ! below that (in Nadine's profile, that's where the IC is, anyway)
+       a0=  7791.6205
+       a1=-38964.7491
+       a2= 82576.2667
+       a3=-96511.4441
+       a4= 67847.2219
+       a5=-29393.1585
+       a6=  7745.12023
+       a7= -1177.98473
+       a8=    86.0013409
+       a9=     1.11379407
 
        DO n_r=1,n_r_max
           rrOcmb = r(n_r)/r_cmb*r_cut_model
-          rhoFit(n_r) = a7 + a6*rrOcmb   + a5*rrOcmb**2 + a4*rrOcmb**3
+          rhoFit(n_r) = a9 + a8*rrOcmb   + a7*rrOcmb**2 + a6*rrOcmb**3 &
+                           + a5*rrOcmb**4+ a4*rrOcmb**5 + a3*rrOcmb**6 &
+                           + a2*rrOcmb**7+ a1*rrOcmb**8 + a0*rrOcmb**9
           gravFit(n_r)=4.d0*rrOcmb - 3.d0*rrOcmb**2
           temp0(n_r)=rhoFit(n_r)**(1.d0/polind)
        END DO
@@ -349,6 +359,63 @@ CONTAINS
        !       dr
 
        ! N.B. rgrav is not gravity but the whole RHS !!!
+       rgrav=-BuoFac*dtemp0/DissNb
+       rho0=rhoFit/rhotop
+
+       CALL get_dr(rho0,drho0,1,1,1,n_r_max,n_cheb_max,w1, &
+                   w2,i_costf_init,d_costf_init,drx)
+       beta=drho0/rho0
+       CALL get_dr(beta,dbeta,1,1,1,n_r_max,n_cheb_max,w1,     &
+                   w2,i_costf_init,d_costf_init,drx)
+       CALL get_dr(dtemp0,d2temp0,1,1,1,n_r_max,n_cheb_max,w1, &
+                w2,i_costf_init,d_costf_init,drx)
+       dentropy0=0.D0
+
+    ELSE IF ( index(interior_model,'SUN') /= 0 ) THEN
+
+       a7=  113.63001006
+       a6= -691.6084317
+       a5= 1615.06990369
+       a4=-1570.0073169
+       a3=  -24.81006594
+       a2= 1336.03589943
+       a1=-1038.72509351
+       a0=  260.41507794
+
+       DO n_r=1,n_r_max
+          rrOcmb = r(n_r)/r_cmb*r_cut_model
+          rhoFit(n_r) = a7 + a6*rrOcmb   + a5*rrOcmb**2 + a4*rrOcmb**3 &
+                           + a3*rrOcmb**4+ a2*rrOcmb**5 + a1*rrOcmb**6 &
+                           + a0*rrOcmb**7
+          gravFit(n_r)=4.d0*rrOcmb - 3.d0*rrOcmb**2
+          temp0(n_r)=rhoFit(n_r)**(1.d0/polind)
+       END DO
+
+       ! To normalise to the outer radius
+       temptop=temp0(1)
+       rhotop=rhoFit(1)
+       gravtop=gravFit(1)
+
+       temp0  =temp0/temptop
+       gravFit=gravFit/gravtop
+
+       ! Derivative of the temperature needed to get alpha_T
+       CALL get_dr(temp0,dtemp0,1,1,1,n_r_max,n_cheb_max,w1, &
+                   w2,i_costf_init,d_costf_init,drx)
+
+       alphaT=-dtemp0/(gravFit*temp0)
+
+       ! Dissipation number needed in the dissipation numbers
+       DissNb=alphaT(1)
+       ViscHeatFac=DissNb*pr/raScaled
+       IF (l_mag) THEN
+          OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+       END IF
+       ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+       !       dT
+       !      ---- =  -Di * alpha_T * T * grav
+       !       dr
        rgrav=-BuoFac*dtemp0/DissNb
        rho0=rhoFit/rhotop
 

@@ -358,6 +358,9 @@ CONTAINS
     ELSE IF ( index(interior_model, 'SAT') /= 0 ) THEN
        l_anel=.TRUE.
        l_anelastic_liquid=.FALSE.
+    ELSE IF ( index(interior_model, 'SUN') /= 0 ) THEN
+       l_anel=.TRUE.
+       l_anelastic_liquid=.FALSE.
     ELSE
        l_anelastic_liquid=.FALSE.
     END IF
