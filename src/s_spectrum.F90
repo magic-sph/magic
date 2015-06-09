@@ -439,6 +439,18 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
                 eCMB_global(ml)
         END DO
         CLOSE(n_mag_spec_file)
+
+        mag_spec_file='2D_mag_spec_'//TRIM(ADJUSTL(string))//'.'//tag
+        OPEN(n_mag_spec_file,FILE=mag_spec_file,STATUS='UNKNOWN',FORM='UNFORMATTED')
+
+        WRITE(n_mag_spec_file) time*tScale,n_r_max,l_max,minc
+        WRITE(n_mag_spec_file) r
+        WRITE(n_mag_spec_file) fac_mag*e_mag_p_r_l_global
+        WRITE(n_mag_spec_file) fac_mag*e_mag_p_r_m_global
+        WRITE(n_mag_spec_file) fac_mag*e_mag_t_r_l_global
+        WRITE(n_mag_spec_file) fac_mag*e_mag_t_r_m_global
+
+        CLOSE(n_mag_spec_file)
      END IF
 
      IF ( l_anel ) THEN
@@ -460,6 +472,19 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
                 &       ml,u2_p_l(ml),u2_p_m(ml+1),u2_t_l(ml),u2_t_m(ml+1)
         END DO
         CLOSE(n_u2_spec_file)
+
+        u2_spec_file='2D_u2_spec_'//TRIM(ADJUSTL(string))//'.'//tag
+        OPEN(n_u2_spec_file,FILE=u2_spec_file,STATUS='UNKNOWN',FORM='UNFORMATTED')
+
+        WRITE(n_u2_spec_file) time*tScale,n_r_max,l_max,minc
+        WRITE(n_u2_spec_file) r
+        WRITE(n_u2_spec_file) fac_kin*u2_p_r_l_global
+        WRITE(n_u2_spec_file) fac_kin*u2_p_r_m_global
+        WRITE(n_u2_spec_file) fac_kin*u2_t_r_l_global
+        WRITE(n_u2_spec_file) fac_kin*u2_t_r_m_global
+
+        CLOSE(n_u2_spec_file)
+
      END IF
 
      WRITE(string, *) n_spec
@@ -483,6 +508,19 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
              e_kin_nearSurf_l(ml), e_kin_nearSurf_m(ml+1)
      END DO
      CLOSE(n_kin_spec_file)
+
+     kin_spec_file='2D_kin_spec_'//TRIM(ADJUSTL(string))//'.'//tag
+     OPEN(n_kin_spec_file,FILE=kin_spec_file,STATUS='UNKNOWN',FORM='UNFORMATTED')
+
+     WRITE(n_kin_spec_file) time*tScale,n_r_max,l_max,minc
+     WRITE(n_kin_spec_file) r
+     WRITE(n_kin_spec_file) fac_kin*e_kin_p_r_l_global
+     WRITE(n_kin_spec_file) fac_kin*e_kin_p_r_m_global
+     WRITE(n_kin_spec_file) fac_kin*e_kin_t_r_l_global
+     WRITE(n_kin_spec_file) fac_kin*e_kin_t_r_m_global
+
+     CLOSE(n_kin_spec_file)
+
   END IF
 
   RETURN
