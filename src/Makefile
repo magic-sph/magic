@@ -51,6 +51,7 @@ ifeq ($(COMPILER),intel)
 	endif	
 
 	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 \
+                         -lmkl_lapack95_lp64\
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
 endif
@@ -359,9 +360,8 @@ m_rIterThetaBlocking.o  : m_rIteration.o truncation.o m_blocking.o \
 m_rIterThetaBlocking_OpenMP.o : m_rIterThetaBlocking.o
 m_rIterThetaBlocking_seq.o : m_rIterThetaBlocking.o
 m_grid_space_arrays.o   : m_blocking.o truncation.o
-
 ifeq ($(USE_MPI),yes)
-m_radialLoop.o :	s_graphOut_mpi.o
+m_radialLoop.o          : s_graphOut_mpi.o
 endif
 m_LMLoop.o              : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_logic.o m_radial.o m_horizontal.o\
@@ -647,12 +647,26 @@ m_store_mpi.o		: truncation.o m_output_data.o m_parallel.o m_logic.o m_dt_fields
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.F90
 
+
 ifeq ($(USE_MKL),yes)
+s_initS.o		: lapack95.mod
+m_radial.o		: lapack95.mod
+s_s_cond.o		: lapack95.mod
+s_j_cond.o		: lapack95.mod
+s_get_bMat.o		: lapack95.mod
+m_updateB.o		: lapack95.mod
+s_get_z10Mat.o		: lapack95.mod
+s_get_zMat.o		: lapack95.mod
+m_updateZ.o		: lapack95.mod
+s_get_wpMat.o		: lapack95.mod
+m_updateWP.o		: lapack95.mod
 m_updateS.o		: lapack95.mod
+s_get_s0Mat.o		: lapack95.mod
 s_get_sMat.o		: lapack95.mod
 lapack95.mod		: $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<
 endif
+
 
 .PHONY: clean echo
 clean:

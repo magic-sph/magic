@@ -17,7 +17,11 @@ MODULE updateB_mod
   USE RMS
   USE const, ONLY: pi
   USE Bext
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrs
+#else
   USE algebra, ONLY: cgeslML
+#endif
   USE LMLoop_data, ONLY: llmMag,ulmMag,llm_realMag,ulm_realMag
   USE parallel_mod, ONLY:rank,chunksize
 #ifdef WITH_LIKWID
@@ -493,10 +497,17 @@ contains
 #endif
 
              !LIKWID_ON('upB_sol')
-             CALL cgeslML(bMat(1,1,l1),n_r_tot,n_r_real, &
-                  bPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
-             CALL cgeslML(jMat(1,1,l1),n_r_tot,n_r_real, &
-                  jPivot(1,l1),rhs2(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+#ifdef WITH_MKL_LU
+             CALL getrs(CMPLX(bMat(1:n_r_real,1:n_r_real,l1),0.D0,KIND=KIND(0.D0)), &
+                  bPivot(1:n_r_real,l1),rhs1(1:n_r_real,lmB0+1:lmB,threadid))
+             CALL getrs(CMPLX(jMat(1:n_r_real,1:n_r_real,l1),0.D0,KIND=KIND(0.D0)), &
+                  jPivot(1:n_r_real,l1),rhs2(1:n_r_real,lmB0+1:lmB,threadid))
+#else
+             CALL cgeslML(bMat(:,:,l1),n_r_tot,n_r_real, &
+                  bPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+             CALL cgeslML(jMat(:,:,l1),n_r_tot,n_r_real, &
+                  jPivot(:,l1),rhs2(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+#endif
              !LIKWID_OFF('upB_sol')
           END IF
 

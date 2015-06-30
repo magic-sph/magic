@@ -21,7 +21,11 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
   USE blocking
   USE logic
   USE Bext
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrf
+#else
   USE algebra, ONLY: sgefa
+#endif
 
   IMPLICIT NONE
 
@@ -416,14 +420,23 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
 #endif
 
   !----- LU decomposition:
+#ifdef WITH_MKL_LU
+  CALL getrf(bMat(1:nRall,1:nRall),bPivot(1:nRall),info)
+#else
   CALL sgefa(bMat,n_r_tot,nRall,bPivot,info)
+#endif
+
   IF ( info /= 0 ) THEN
      WRITE(*,*) 'Singular matrix bmat in get_bmat.'
      STOP '32'
   END IF
 
   !----- LU decomposition:
+#ifdef WITH_MKL_LU
+  CALL getrf(jMat(1:nRall,1:nRall),jPivot(1:nRall),info)
+#else
   CALL sgefa(jMat,n_r_tot,nRall,jPivot,info)
+#endif
   IF ( info /= 0 ) THEN
      WRITE(*,*) '! Singular matrix ajmat in get_bmat!'
      STOP '33'

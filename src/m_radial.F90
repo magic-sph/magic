@@ -827,7 +827,11 @@ CONTAINS
 
     USE truncation
     USE matrices, ONLY: s0Mat,s0Pivot
-    USE algebra, ONLY: cgesl,sgefa
+#ifdef WITH_MKL_LU
+    USE lapack95, ONLY: getrf,getrs
+#else
+    USE algebra, ONLY: sgesl,sgefa
+#endif
     USE const, ONLY: pi
 
     IMPLICIT NONE
@@ -838,7 +842,7 @@ CONTAINS
     REAL(KIND=8),INTENT(OUT) :: output(n_r_max)
 
     !-- local
-    COMPLEX(KIND=8) :: rhs(n_r_max)
+    REAL(KIND=8) :: rhs(n_r_max)
     REAL(KIND=8) :: tmp(n_r_max)
     INTEGER :: n_cheb,n_r,info
 
@@ -868,7 +872,11 @@ CONTAINS
       s0Mat(n_r,n_r_max)=0.5D0*s0Mat(n_r,n_r_max)
     END DO
 
+#ifdef WITH_MKL_LU
+    CALL getrf(s0Mat,s0Pivot,info)
+#else
     CALL sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
+#endif
     IF ( info /= 0 ) THEN
       WRITE(*,*) '! Singular Matrix in getBackground!'
       STOP '20'
@@ -880,11 +888,15 @@ CONTAINS
     rhs(1)=boundaryVal
 
     !-- Solve for s0:
-    CALL cgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#ifdef WITH_MKL_LU
+    CALL getrs(s0Mat,s0Pivot,rhs)
+#else
+    CALL sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#endif
 
 !-- Copy result to s0:
     DO n_r=1,n_r_max
-      output(n_r)=REAL(rhs(n_r))
+      output(n_r)=rhs(n_r)
     END DO
 
 !-- Set cheb-modes > n_cheb_max to zero:

@@ -17,14 +17,16 @@
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
       
+    USE parallel_mod,only: rank
     USE truncation
     USE radial_functions
     USE physical_parameters
     USE num_param
-    USE algebra, ONLY: sgefa
     USE logic, ONLY: l_anelastic_liquid
 #ifdef WITH_MKL_LU
-    use lapack95
+    use lapack95, ONLY: getrf
+#else
+    USE algebra, ONLY: sgefa
 #endif
     IMPLICIT NONE
 
@@ -154,8 +156,8 @@
 
 !----- LU decomposition:
 #ifdef WITH_MKL_LU
-     CALL getrf(sMat,sPivot,info)
-     !CALL dgetrf(n_r_max,n_r_max,sMat,n_r_max,sPivot,info)
+    !CALL sgefa(sMat,n_r_max,n_r_max,sPivot,info)
+    CALL getrf(sMat,sPivot,info)
 #else
     CALL sgefa(sMat,n_r_max,n_r_max,sPivot,info)
 #endif

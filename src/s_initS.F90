@@ -41,7 +41,13 @@
   USE fft_MKL
 #endif
     USE usefull, ONLY: random
+#ifdef WITH_MKL_LU
+    USE lapack95,only: getrf,getrs
+#else
     USE algebra, ONLY: sgesl,sgefa
+#endif
+
+
     USE LMLoop_data,ONLY: llm,ulm
     IMPLICIT NONE
 
@@ -292,8 +298,13 @@
                 END IF
             END DO
         END DO
+#ifdef WITH_MKL_LU
+        CALL getrf(mata,pivot,info)
+        CALL getrs(mata,pivot,amp)
+#else
         CALL sgefa(mata,n_impS_max,n_impS,pivot,info)
         CALL sgesl(mata,n_impS_max,n_impS,pivot,amp)
+#endif
     END IF
     s00=0.D0
     DO nS=1,n_impS

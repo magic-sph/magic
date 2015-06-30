@@ -25,7 +25,11 @@
     USE init_fields
     USE horizontal_data
     USE matrices
-    USE algebra, ONLY: cgesl,sgefa
+#ifdef WITH_MKL_LU
+    USE lapack95, ONLY: getrs,getrf
+#else
+    USE algebra, ONLY: sgesl,sgefa
+#endif
 
     IMPLICIT NONE
 
@@ -34,7 +38,7 @@
 
 !-- local:
     integer :: n_cheb,n_r,info
-    complex(kind=8) :: rhs(n_r_max)
+    real(kind=8) :: rhs(n_r_max)
     real(kind=8) :: work(n_r_max)
 
 !-- end of declaration
@@ -81,7 +85,11 @@
     end do
      
 !-- Invert matrix:
+#ifdef WITH_MKL_LU
+    call getrf(s0Mat,s0Pivot,info)
+#else
     call sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
+#endif
     if ( info /= 0 ) then
         write(*,*) '! Singular Matrix s0Mat in init_s!'
         stop '20'
@@ -101,11 +109,15 @@
     rhs(n_r_max)=REAL(bots(0,0))
      
 !-- Solve for s0:
-    call cgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#ifdef WITH_MKL_LU
+    call getrs(s0Mat,s0Pivot,rhs)
+#else
+    call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#endif
      
 !-- Copy result to s0:
     do n_r=1,n_r_max
-        s0(n_r)=REAL(rhs(n_r))
+        s0(n_r)=rhs(n_r)
     end do
 
 !-- Set cheb-modes > n_cheb_max to zero:

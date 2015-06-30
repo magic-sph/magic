@@ -16,7 +16,11 @@ MODULE updateWP_mod
   USE logic
   USE matrices
   USE RMS
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrs
+#else
   USE algebra, ONLY: cgeslML
+#endif
   USE LMLoop_data, ONLY:llm,ulm, llm_real,ulm_real
   USE communications, only: get_global_sum
   USE parallel_mod,only: chunksize
@@ -218,9 +222,13 @@ contains
                    rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,l1)
                 END DO
              END DO
-             CALL cgeslML(wpMat(1,1,l1),2*n_r_max,2*n_r_max,    &
-                  &       wpPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
-             
+#ifdef WITH_MKL_LU
+             CALL getrs(CMPLX(wpMat(:,:,l1),0.D0,KIND=KIND(0.D0)), &
+                  &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+#else
+             CALL cgeslML(wpMat(:,:,l1),2*n_r_max,2*n_r_max,    &
+                  &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+#endif
              ! rescale the solution with mat_fac(:,2)
              DO lm=lmB0+1,lmB
                 DO nR=1,2*n_r_max

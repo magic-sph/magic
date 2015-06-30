@@ -27,7 +27,11 @@
     USE num_param
     USE logic
     USE const
+#ifdef WITH_MKL_LU
+    USE lapack95, ONLY: getrf
+#else
     USE algebra, ONLY: sgefa
+#endif
 
     IMPLICIT NONE
 
@@ -134,7 +138,11 @@
 #endif
 
 !-- LU-decomposition of z10mat:
+#ifdef WITH_MKL_LU
+    CALL getrf(zMat,zPivot,info)
+#else
     CALL sgefa(zMat,n_r_max,n_r_max,zPivot,info)
+#endif
     IF ( info /= 0 ) THEN
         WRITE(*,*) 'ERROR MESSAGE FROM SUBROUTINE GET_z10MAT:'
         WRITE(*,*) 'singular matrix z10Mat!'

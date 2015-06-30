@@ -120,12 +120,8 @@ contains
     nodd   = MOD(n,2)
     noddRHS= MOD(nRHSs,2)
 
-    !!$OMP PARALLEL default(none) &
-    !!$OMP private(nRHS,k,m,help) &
-    !!$OMP shared(nRHSs,ip,nm1,bc)
     !     permute vectors bc
     LIKWID_ON('perm')
-    !!$OMP DO
     DO nRHS=1,nRHSs
        DO k=1,nm1
           m=ip(k)
@@ -134,21 +130,13 @@ contains
           bc(k,nRHS) =help
        END DO
     END DO
-    !!$OMP END DO
     LIKWID_OFF('perm')
-    !!$OMP END PARALLEL
 
     !     solve  l * y = b
 
-    !!$OMP PARALLEL default(none) &
-    !!$OMP private(nRHS,nRHS2,k,k1,i) &
-    !!$OMP shared(n,bc,nRHSs,a,nodd,nm1,noddRHS)
     LIKWID_ON('cgeslML_1')
-    !!$OMP MASTER
     !WRITE(*,"(A,I4,A,I2,A)") "OpenMP loop over ",(nRHSs-1)/2,&
     !     &" iterations on ",omp_get_num_threads()," threads"
-    !!$OMP END MASTER
-    !!$OMP DO
     DO nRHS=1,nRHSs-1,2
        nRHS2=nRHS+1
 
@@ -196,9 +184,7 @@ contains
        !PERFOFF
 
     END DO
-    !!$OMP END DO nowait
 
-    !!$OMP SINGLE
     IF ( noddRHS == 1 ) THEN
        nRHS=nRHSs
 
@@ -229,10 +215,7 @@ contains
        END IF
 
     END IF
-    !!$OMP END SINGLE
     LIKWID_OFF('cgeslML_1')
-    !!$OMP END PARALLEL
-
 
     RETURN
   end SUBROUTINE cgeslML

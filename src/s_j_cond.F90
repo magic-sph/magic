@@ -26,7 +26,11 @@
     USE horizontal_data
     USE logic
     USE matrices
+#ifdef WITH_MKL_LU
+    USE lapack95, ONLY: getrf,getrs
+#else
     USE algebra, ONLY: cgesl,sgefa
+#endif
 
     IMPLICIT NONE
 
@@ -148,7 +152,11 @@
     END IF ! conducting inner core ?
 
 !----- invert matrix:
-    CALL sgefa(jMat(1,1,1),n_r_tot,n_r_real,jPivot(1,1),info)
+#ifdef WITH_MKL_LU
+    CALL getrf(jMat(:,:,1),jPivot(:,1),info)
+#else
+    CALL sgefa(jMat(:,:,1),n_r_tot,n_r_real,jPivot(:,1),info)
+#endif
     IF ( info /= 0 ) then
         write(*,*) 'Singular matrix jMat in j_cond.'
         stop
@@ -162,7 +170,11 @@
     IF ( .NOT. l_cond_ic ) rhs(n_r_max)=bpeakbot  ! Inner boundary
      
 !----- solve linear system:
+#ifdef WITH_MKL_LU
+    CALL getrs(CMPLX(jMat(:,:,1),0.D0,KIND=KIND(0.D0)),jPivot(:,1),rhs)
+#else
     CALL cgesl(jMat(1,1,1),n_r_tot,n_r_real,jPivot(1,1),rhs)
+#endif
 
 !----- copy result for OC:
     DO n_cheb=1,n_cheb_max

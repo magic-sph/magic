@@ -23,7 +23,11 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
   USE num_param
   USE blocking
   USE logic
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrf
+#else
   USE algebra, ONLY: sgefa
+#endif
 
   IMPLICIT NONE
 
@@ -148,7 +152,12 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
 #endif
 
   !----- LU decomposition:
+#ifdef WITH_MKL_LU
+  CALL getrf(zMat,zPivot,info)
+#else
   CALL sgefa(zMat,n_r_max,n_r_max,zPivot,info)
+#endif
+
   IF ( info /= 0 ) THEN
      WRITE(*,*) 'Singular matrix zmat for l=',l,", info = ",info
      STOP '34'

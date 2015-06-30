@@ -18,7 +18,11 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
        & or1,or2,beta,visc,dLvisc,dbeta
   USE physical_parameters, ONLY: ktopv, kbotv
   USE num_param, only: alpha
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrf
+#else
   USE algebra, ONLY: sgefa
+#endif
 
   IMPLICIT NONE
 
@@ -245,8 +249,11 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
      WRITE(*,"(A,I3,A,ES11.3)") "inverse condition number of wpMat for l=",l," is ",rcond
 #endif
 
-  ! this is the original code
+#ifdef WITH_MKL_LU
+  CALL getrf(wpMat,wpPivot,info)
+#else
   CALL sgefa(wpMat,2*n_r_max,2*n_r_max,wpPivot,info)
+#endif
   IF ( info /= 0 ) THEN
      WRITE(*,*) 'Singular matrix wpmat!'
      STOP '35'

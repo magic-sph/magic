@@ -16,7 +16,11 @@ MODULE updateZ_mod
   USE RMS
   USE const
   use parallel_mod
-  USE algebra, ONLY: cgesl,cgeslML
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrs
+#else
+  USE algebra, ONLY: cgeslML,cgesl
+#endif
   USE LMLoop_data,ONLY: llm,ulm,llm_real,ulm_real
   USE communications, only:get_global_sum
   IMPLICIT NONE
@@ -291,7 +295,11 @@ CONTAINS
                  !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                  !END DO
               END IF
+#ifdef WITH_MKL_LU
+              CALL getrs(CMPLX(z10Mat,0.D0,KIND=KIND(0.D0)),z10Pivot,rhs)
+#else
               CALL cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
+#endif
               IF (DEBUG_OUTPUT) THEN
                  !DO nR=1,n_r_max
                  !   WRITE(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
@@ -325,8 +333,13 @@ CONTAINS
 
         !PERFON('upZ_sol')
         IF ( lmB > lmB0 ) THEN
-           CALL cgeslML(zMat(1,1,l1),n_r_max,n_r_max, &
-                &       zPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#ifdef WITH_MKL_LU
+           CALL getrs(CMPLX(zMat(:,:,l1),0.D0,KIND=KIND(0.D0)), &
+                &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+#else
+           CALL cgeslML(zMat(:,:,l1),n_r_max,n_r_max, &
+                &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#endif
         END IF
         !PERFOFF
         IF ( lRmsNext ) THEN ! Store old z

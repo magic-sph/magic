@@ -18,8 +18,12 @@ SUBROUTINE get_s0Mat(dt,sMat,sPivot)
   USE radial_functions
   USE physical_parameters
   USE num_param
-  USE algebra, ONLY: sgefa
   USE logic, ONLY: l_anelastic_liquid
+#ifdef WITH_MKL_LU
+  USE lapack95, ONLY: getrf
+#else
+  USE algebra, ONLY: sgefa
+#endif
 
   IMPLICIT NONE
 
@@ -105,7 +109,11 @@ SUBROUTINE get_s0Mat(dt,sMat,sPivot)
 #endif
 
   !---- LU decomposition:
+#ifdef WITH_MKL_LU
+  CALL getrf(sMat,sPivot,info)
+#else
   CALL sgefa(sMat,n_r_max,n_r_max,sPivot,info)
+#endif
   IF ( info /= 0 ) THEN
      WRITE(*,*) '! Singular matrix sMat0!'
      STOP '28'

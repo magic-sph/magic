@@ -22,11 +22,12 @@ MODULE updateS_mod
 #endif
        & sMat,sPivot
 
-  USE algebra, ONLY: cgeslML,sgesl
   USE LMLoop_data, ONLY: llm,ulm,llm_real,ulm_real
   USE parallel_mod,ONLY: rank,chunksize
 #ifdef WITH_MKL_LU
-  USE lapack95,only: getrs
+  USE lapack95, ONLY: getrs
+#else
+  USE algebra, ONLY: cgeslML,sgesl
 #endif
   IMPLICIT NONE
 
@@ -233,7 +234,12 @@ CONTAINS
 #ifdef WITH_PRECOND_S0
                 rhs = s0Mat_fac*rhs
 #endif
+
+#ifdef WITH_MKL_LU
+                CALL getrs(s0Mat,s0Pivot,rhs)
+#else
                 CALL sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#endif
 
              ELSE ! l1 .ne. 0
                 lmB=lmB+1
@@ -258,8 +264,13 @@ CONTAINS
 
           !PERFON('upS_sol')
           IF ( lmB .GT. lmB0 ) THEN
-             CALL cgeslML(sMat(1,1,l1),n_r_max,n_r_max, &
-                  &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#ifdef WITH_MKL_LU
+             CALL getrs(CMPLX(sMat(:,:,l1),0.D0,KIND=KIND(0.d0)), &
+                  &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+#else
+             CALL cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
+                  &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#endif
           END IF
           !PERFOFF
 
@@ -548,7 +559,12 @@ CONTAINS
 #ifdef WITH_PRECOND_S0
                 rhs = s0Mat_fac*rhs
 #endif
+
+#ifdef WITH_MKL_LU
+                CALL getrs(s0Mat,s0Pivot,rhs)
+#else
                 CALL sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+#endif
 
              ELSE ! l1 .ne. 0
                 lmB=lmB+1
@@ -576,8 +592,12 @@ CONTAINS
 
           !PERFON('upS_sol')
           IF ( lmB .GT. lmB0 ) THEN
-             CALL cgeslML(sMat(1,1,l1),n_r_max,n_r_max, &
-                  &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#ifdef WITH_MKL_LU
+             CALL getrs(CMPLX(sMat(:,:,l1),0.D0,KIND=KIND(0.d0)),sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+#else
+             CALL cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
+                  &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+#endif
           END IF
           !PERFOFF
 
