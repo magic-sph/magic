@@ -338,9 +338,7 @@ s_get_wpMat.o           : truncation.o m_blocking.o m_phys_param.o\
 s_outMisc.o             : truncation.o m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o s_lmAS2pt.o m_Egeos.o m_integration.o
-m_chebyshev_polynoms.o  : m_const.o m_usefull.o
-s_get_chebs.o           : m_usefull.o 
-s_get_chebs_even.o      : m_usefull.o 
+m_chebyshev_polynoms.o  : m_const.o
 s_spectrumC.o           : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_logic.o\
                           m_output_data.o m_const.o m_integration.o
@@ -619,11 +617,11 @@ m_radial.o              : truncation.o m_radial_data.o m_mat.o m_algebra.o\
 			  m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o s_cheb_x_map_e_xr.o m_init_fields.o\
                           m_chebyshev_polynoms.o s_init_costf1.o s_get_dr.o\
-                          m_usefull.o s_get_chebs_even.o s_init_costf2.o
+                          s_get_chebs_even.o s_init_costf2.o
 m_output_data.o         : truncation.o m_movie.o
 m_horizontal.o          : truncation.o m_phys_param.o m_num_param.o\
                           m_radial.o m_logic.o m_output_data.o\
-                          m_blocking.o s_gauleg.o m_plms.o $(FFT_OBJS)
+                          m_blocking.o m_plms.o $(FFT_OBJS)
 m_RMS.o	                : truncation.o m_blocking.o
 m_Grenoble.o            : truncation.o
 m_init_fields.o         : truncation.o

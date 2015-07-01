@@ -140,20 +140,18 @@ CONTAINS
     USE num_param
     USE logic
     USE output_data
-    USE usefull, only: check_dim
 
     IMPLICIT NONE
 
     !-- LOCAL VARIABLES:
     INTEGER :: n_r,n_cheb,n_cheb_int
     INTEGER :: n_r_ic_tot,k
-    INTEGER,PARAMETER :: n_r_ic_tot_local=200
     INTEGER,DIMENSION(1) :: n_const
 
     !INTEGER :: n_r_start
     REAL(kind=8) :: fac_int
     REAL(kind=8),DIMENSION(n_r_max) :: r_cheb
-    REAL(kind=8),DIMENSION(n_r_ic_tot_local) :: r_cheb_ic,r_ic_2
+    REAL(kind=8),DIMENSION(2*n_r_ic_max-1) :: r_cheb_ic,r_ic_2
     REAL(kind=8),DIMENSION(n_r_max) :: alphaT, drho0
     REAL(kind=8) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
@@ -573,10 +571,6 @@ CONTAINS
     IF ( n_r_ic_max > 0 ) THEN
 
        n_r_ic_tot=2*n_r_ic_max-1
-       CALL check_dim(n_r_ic_tot,n_r_ic_tot_local, &
-            'n_r_ic_tot_local','rad_func',stop_signal)
-       IF ( stop_signal == 1 ) STOP
-
 
        !----- cheb_x_map_e calculates the n_r_ic_tot gridpoints,
        !      these are the extrema of a Cheb of degree n_r_ic_tot-1.

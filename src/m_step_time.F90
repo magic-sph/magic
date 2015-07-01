@@ -336,7 +336,7 @@ contains
 
     PERFON('tloop')
     !LIKWID_ON('tloop')
-    DO n_time_step=1,n_time_steps_go 
+    outer: DO n_time_step=1,n_time_steps_go 
        n_time_cour=n_time_cour+1
        
        IF ( lVerbose .or. DEBUG_OUTPUT ) THEN 
@@ -883,7 +883,7 @@ contains
        ! ==================================================================
 
        !----- Finish time stepping, the last step is only for output!
-       IF ( l_stop_time ) GOTO 6000  ! END OF TIME INTEGRATION
+       IF ( l_stop_time ) exit outer  ! END OF TIME INTEGRATION
 
 
        !------ Nonlinear magnetic boundary conditions:
@@ -1081,9 +1081,8 @@ contains
           END IF
        END IF
 
-    END DO ! end of time stepping !
+    END DO outer ! end of time stepping !
 
-6000 CONTINUE  ! jump point for termination upon "kill -30" signal
     !LIKWID_OFF('tloop')
     PERFOFF
 

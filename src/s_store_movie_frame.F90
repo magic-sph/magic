@@ -50,6 +50,7 @@ SUBROUTINE store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr, &
   integer :: n_theta_const
   integer :: n_field_size
   integer :: n_fields
+  logical :: lThetaFound
 
 
   !-- end of declaration
@@ -106,15 +107,16 @@ SUBROUTINE store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr, &
 
         !------ Test whether n_theta_movie is in the current theta block
         !       and find its position n_theta_movie_c:
+        lThetaFound=.FALSE.
         DO n_theta=1,n_theta_block
            n_theta_cal = n_theta_start + n_theta - 1
            IF ( n_theta_cal == n_const ) THEN
               n_theta_const=n_theta
-              GOTO 50   ! Theta found in block
+              lThetaFound=.TRUE.
+              exit
            END IF
         END DO
-        CYCLE        ! Theta not found !
-50      CONTINUE
+        IF ( .NOT. lThetaFound) CYCLE        ! Theta not found !
 
         do n_field=1,n_fields
            n_field_type=n_movie_field_type(n_field,n_movie)

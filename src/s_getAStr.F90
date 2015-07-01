@@ -25,18 +25,12 @@
 
 !--- Local:
     INTEGER :: nCheb
-    INTEGER, PARAMETER :: nChebMaxLocal=625
-    REAL(kind=8) :: cheb(nChebMaxLocal)
+    REAL(kind=8) :: cheb(nChebMax)
     INTEGER ::   l,nZS,nZN
     REAL(kind=8) :: x,chebNorm,flmr
 
 !----------------------------------------------------------------------------
 
-    IF ( nChebMax > nChebMaxLocal ) THEN
-        WRITE(*,*) '! nChebMaxLoxal too small in getPAS!'
-        WRITE(*,*) '! Should be at least:',nChebMax
-        STOP
-    END IF
     chebNorm=DSQRT(2.D0/DBLE(nChebMax-1))
 
     DO nZN=1,nZmax

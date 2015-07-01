@@ -7,29 +7,6 @@ module usefull
 
   contains
 
-!************************************************************************
-    subroutine check_dim(dim,max_dim,dim_name,prog_name,stop_signal)
-!************************************************************************
-!  checks whether dim is not larger than max_dim !
-!-----------------------------------------------------------------------
-
-    implicit none
-
-    character(len=*) :: prog_name,dim_name
-    integer :: max_dim,dim
-    integer :: stop_signal
-
-    stop_signal=0  !? does this make sence ?
-    if( dim > max_dim ) then
-        write(*,'(2x,''MESSAGE FROM PROGRAM '',a)') prog_name
-        write(*,'(2x,'' TOO SMALL DIMENSION '',a)') dim_name
-        write(*,*) '   SHOULD BE AT LEAST',dim
-        write(*,*) '   BUT IS ONLY       ',max_dim
-        stop_signal=1
-    endif
-
-    return
-    end subroutine check_dim
 !-------------------------------------------------------------------------
     logical function l_correct_step(n,t,t_last,                &
                                     n_max,n_step,n_intervalls, &
@@ -112,16 +89,13 @@ module usefull
 
     IF ( n_ts >= 1 ) THEN
         DO n_t=1,n_ts
-            IF ( times(n_t) < t .AND. &
-            times(n_t) >= t_last ) THEN
+            IF ( times(n_t) < t .AND. times(n_t) >= t_last ) THEN
                 l_correct_step=.TRUE.
-                GOTO 100
+                exit
             END IF
         END DO
     END IF
                
-    100 continue
-
     return
     end function l_correct_step
 !------------------------------------------------------------------------
@@ -231,26 +205,23 @@ module usefull
 
         factor_test=fac(n_fac)
 
-        10 if ( mod(n_rest,factor_test) == 0 ) then
+        do while ( mod(n_rest,factor_test) == 0 )
 
             n_rest=n_rest/factor_test
             n_factors=n_factors+1
             factor(n_factors)=factor_test
             factor_tot=factor_tot*factor_test
 
-            if ( n_rest == 1 ) goto 20 ! finished !
+            if ( n_rest == 1 ) return
 
-            goto 10 ! try same factor again
-
-        end if
+        end do
 
     end do
 
-    write(*,*) 'Sorry, no factorisation possible of:',n
-    stop
-
-    20 continue   ! finished, n_rest=1 !
-
+    if ( n_rest /= 1 ) then
+       write(*,*) 'Sorry, no factorisation possible of:',n
+       stop
+    end if
 
     return
     end subroutine factorise

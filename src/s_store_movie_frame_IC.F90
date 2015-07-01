@@ -120,56 +120,57 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
                       n_movie_field_type(n_field,n_movie)
                  n_store_last= &
                       n_movie_field_start(n_field,n_movie)-1
-                 IF ( n_store_last < 0 ) GOTO 110
-                 n_o_r=n_store_last + &
-                      (nR-2)*n_theta_max*n_phi_max
 
-                 IF ( n_field_type == 1 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+(nTheta-1)*n_phi_max
-                       DO nPhi=1,n_phi_max
-                          frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
-                               O_r_ic2(nR)
+                 IF ( n_store_last >= 0 ) THEN
+                    n_o_r=n_store_last + &
+                         (nR-2)*n_theta_max*n_phi_max
+
+                    IF ( n_field_type == 1 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+(nTheta-1)*n_phi_max
+                          DO nPhi=1,n_phi_max
+                             frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
+                                   O_r_ic2(nR)
+                          END DO
                        END DO
-                    END DO
-                 ELSE IF ( n_field_type == 2 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+(nTheta-1)*n_phi_max
-                       help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                       DO nPhi=1,n_phi_max
-                          frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                    ELSE IF ( n_field_type == 2 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+(nTheta-1)*n_phi_max
+                          help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                          DO nPhi=1,n_phi_max
+                             frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                          END DO
                        END DO
-                    END DO
-                 ELSE IF ( n_field_type == 3 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+(nTheta-1)*n_phi_max
-                       help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                       DO nPhi=1,n_phi_max
-                          frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                    ELSE IF ( n_field_type == 3 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+(nTheta-1)*n_phi_max
+                          help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                          DO nPhi=1,n_phi_max
+                             frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                          END DO
                        END DO
-                    END DO
-                 ELSE IF ( n_field_type == 54 ) THEN
-                    help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+(nTheta-1)*n_phi_max
-                       DO nPhi=1,n_phi_max
-                          frames(nPhi+n_o)= &
-                               help*O_sin_theta(nThetaC) * &
-                               ( cBrB(nPhi,nThetaR)*BtB(nPhi,nThetaR) - &
-                               cBtB(nPhi,nThetaR)*BrB(nPhi,nThetaR) )
+                    ELSE IF ( n_field_type == 54 ) THEN
+                       help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+(nTheta-1)*n_phi_max
+                          DO nPhi=1,n_phi_max
+                             frames(nPhi+n_o)= &
+                                  help*O_sin_theta(nThetaC) * &
+                                  ( cBrB(nPhi,nThetaR)*BtB(nPhi,nThetaR) - &
+                                  cBtB(nPhi,nThetaR)*BrB(nPhi,nThetaR) )
+                          END DO
                        END DO
-                    END DO
+                    END IF
+
                  END IF
-
-110              CONTINUE
 
               END DO  ! Loop over fields
 
@@ -213,42 +214,42 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
                    n_movie_field_type(n_field,n_movie)
               n_store_last= &
                    n_movie_field_start(n_field,n_movie)-1
-              IF ( n_store_last < 0 ) GOTO 120
-              n_o_r=n_store_last
 
-              IF ( n_field_type == 1 ) THEN
-                 DO nThetaR=1,sizeThetaB
-                    nThetaC=nThetaStart-1+nThetaR
-                    nTheta=n_theta_cal2ord(nThetaC)
-                    n_o=n_o_r+(nTheta-1)*n_phi_max
-                    DO nPhi=1,n_phi_max
-                       frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
-                            O_r_ic2(nR)
+              IF ( n_store_last >= 0 ) THEN
+                 n_o_r=n_store_last
+
+                 IF ( n_field_type == 1 ) THEN
+                    DO nThetaR=1,sizeThetaB
+                       nThetaC=nThetaStart-1+nThetaR
+                       nTheta=n_theta_cal2ord(nThetaC)
+                       n_o=n_o_r+(nTheta-1)*n_phi_max
+                       DO nPhi=1,n_phi_max
+                          frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
+                               O_r_ic2(nR)
+                       END DO
                     END DO
-                 END DO
-              ELSE IF ( n_field_type == 2 ) THEN
-                 DO nThetaR=1,sizeThetaB
-                    nThetaC=nThetaStart-1+nThetaR
-                    nTheta=n_theta_cal2ord(nThetaC)
-                    n_o=n_o_r+(nTheta-1)*n_phi_max
-                    help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                    DO nPhi=1,n_phi_max
-                       frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                 ELSE IF ( n_field_type == 2 ) THEN
+                    DO nThetaR=1,sizeThetaB
+                       nThetaC=nThetaStart-1+nThetaR
+                       nTheta=n_theta_cal2ord(nThetaC)
+                       n_o=n_o_r+(nTheta-1)*n_phi_max
+                       help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                       DO nPhi=1,n_phi_max
+                          frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                       END DO
                     END DO
-                 END DO
-              ELSE IF ( n_field_type == 3 ) THEN
-                 DO nThetaR=1,sizeThetaB
-                    nThetaC=nThetaStart-1+nThetaR
-                    nTheta=n_theta_cal2ord(nThetaC)
-                    n_o=n_o_r+(nTheta-1)*n_phi_max
-                    help=O_r_ic(nR)*O_sin_theta(nThetaC)
-                    DO nPhi=1,n_phi_max
-                       frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                 ELSE IF ( n_field_type == 3 ) THEN
+                    DO nThetaR=1,sizeThetaB
+                       nThetaC=nThetaStart-1+nThetaR
+                       nTheta=n_theta_cal2ord(nThetaC)
+                       n_o=n_o_r+(nTheta-1)*n_phi_max
+                       help=O_r_ic(nR)*O_sin_theta(nThetaC)
+                       DO nPhi=1,n_phi_max
+                          frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                       END DO
                     END DO
-                 END DO
+                 END IF
               END IF
-
-120           CONTINUE
 
            END DO  ! Loop over fields
 
@@ -296,36 +297,37 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
                    n_movie_field_type(n_field,n_movie)
               n_store_last= &
                    n_movie_field_start(n_field,n_movie)-1
-              IF ( n_store_last < 0 ) GOTO 130
-              n_o=n_store_last+(nR-2)*n_phi_max
-              IF ( n_field_type == 1 ) THEN
-                 DO nPhi=1,n_phi_max
-                    frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
-                         O_r_ic2(nR)
-                 END DO
-              ELSE IF ( n_field_type == 2 ) THEN
-                 help=O_r_ic(nR)*O_sin_theta(nTheta)
-                 DO nPhi=1,n_phi_max
-                    frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
-                 END DO
-              ELSE IF ( n_field_type == 3 ) THEN
-                 help=O_r_ic(nR)*O_sin_theta(nTheta)
-                 DO nPhi=1,n_phi_max
-                    frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
-                 END DO
-              ELSE IF ( n_field_type == 13 ) THEN
-                 help=-O_r_ic(nR)*O_sin_theta(nTheta)
-                 DO nPhi=1,n_phi_max
-                    frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
-                 END DO
-              ELSE IF ( n_field_type == 14 ) THEN
-                 help=-O_r_ic(nR)*O_sin_theta(nTheta)
-                 DO nPhi=1,n_phi_max
-                    frames(nPhi+n_o)=help*cBtB(nPhi,nThetaR)
-                 END DO
-              END IF
 
-130           CONTINUE
+              IF ( n_store_last >= 0 ) THEN
+                 n_o=n_store_last+(nR-2)*n_phi_max
+                 IF ( n_field_type == 1 ) THEN
+                    DO nPhi=1,n_phi_max
+                       frames(nPhi+n_o)=BrB(nPhi,nThetaR) * &
+                            O_r_ic2(nR)
+                    END DO
+                 ELSE IF ( n_field_type == 2 ) THEN
+                    help=O_r_ic(nR)*O_sin_theta(nTheta)
+                    DO nPhi=1,n_phi_max
+                       frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                    END DO
+                 ELSE IF ( n_field_type == 3 ) THEN
+                    help=O_r_ic(nR)*O_sin_theta(nTheta)
+                    DO nPhi=1,n_phi_max
+                       frames(nPhi+n_o)=help*BpB(nPhi,nThetaR)
+                    END DO
+                 ELSE IF ( n_field_type == 13 ) THEN
+                    help=-O_r_ic(nR)*O_sin_theta(nTheta)
+                    DO nPhi=1,n_phi_max
+                       frames(nPhi+n_o)=help*BtB(nPhi,nThetaR)
+                    END DO
+                 ELSE IF ( n_field_type == 14 ) THEN
+                    help=-O_r_ic(nR)*O_sin_theta(nTheta)
+                    DO nPhi=1,n_phi_max
+                       frames(nPhi+n_o)=help*cBtB(nPhi,nThetaR)
+                    END DO
+                 END IF
+
+              END IF
 
            END DO  ! Loop over fields
 
@@ -387,85 +389,85 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
                  n_field_size = &
                       ( n_movie_field_stop(n_field,n_movie) - &
                       n_store_last )/2
-                 IF ( n_store_last < 0 ) GOTO 140
-                 n_o_r=n_store_last+(nR-2)*n_theta_max
 
-                 IF ( n_field_type == 1 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       frames(n_o)=BrB(nPhi0,nThetaR) * &
-                            O_r_ic2(nR)
-                       frames(n_o+n_field_size)= &
-                            O_r_ic2(nR)*BrB(nPhi180,nThetaR)
-                    END DO
-                 ELSE IF ( n_field_type == 2 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       frames(n_o)=BtB(nPhi0,nThetaR) * &
-                            O_r_ic(nR)*O_sin_theta(nThetaC)
-                       frames(n_o+n_field_size)= &
-                            BtB(nPhi180,nThetaR) * &
-                            O_r_ic(nR)*O_sin_theta(nThetaC)
-                    END DO
-                 ELSE IF ( n_field_type == 3 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       frames(n_o)=BpB(nPhi0,nThetaR) * &
-                            O_r_ic(nR)*O_sin_theta(nThetaC)
-                       frames(n_o+n_field_size)= &
-                            BpB(nPhi180,nThetaR) * &
-                            O_r_ic(nR)*O_sin_theta(nThetaC)
-                    END DO
-                 ELSE IF ( n_field_type == 8 ) THEN
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       !WRITE(*,"(A,I5,A)") "store_movie_IC: frames(",n_o,")"
-                       frames(n_o)=fl(nThetaR)
-                    END DO
-                 ELSE IF ( n_field_type == 9 ) then
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       help=0.D0
-                       DO nPhi=1,n_phi_max
-                          help=help+BpB(nPhi,nThetaR)
+                 IF ( n_store_last >= 0 ) THEN
+                    n_o_r=n_store_last+(nR-2)*n_theta_max
+
+                    IF ( n_field_type == 1 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          frames(n_o)=BrB(nPhi0,nThetaR) * &
+                               O_r_ic2(nR)
+                          frames(n_o+n_field_size)= &
+                               O_r_ic2(nR)*BrB(nPhi180,nThetaR)
                        END DO
-                       frames(n_o)=phi_norm*help * &
-                            O_r_ic(nR)*O_sin_theta(nThetaC)
-                    END DO
-                 ELSE IF ( n_field_type == 54 ) THEN
-                    help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       frames(n_o)=help*O_sin_theta(nThetaC) * &
-                            ( cBrB(nPhi0,nThetaR)*BtB(nPhi0,nThetaR) - &
-                            cBtB(nPhi0,nThetaR)*BrB(nPhi0,nThetaR) )
-                       frames(n_o)=help*O_sin_theta(nThetaC) * &
-                            ( cBrB(nPhi180,nThetaR)*BtB(nPhi180,nThetaR) - &
-                            cBtB(nPhi180,nThetaR)*BrB(nPhi180,nThetaR) )
-                    END DO
-                 ELSE
-                    DO nThetaR=1,sizeThetaB
-                       nThetaC=nThetaStart-1+nThetaR
-                       nTheta=n_theta_cal2ord(nThetaC)
-                       n_o=n_o_r+nTheta
-                       frames(n_o)=0.D0
-                       frames(n_o+n_field_size)=0.D0
-                    END DO
+                    ELSE IF ( n_field_type == 2 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          frames(n_o)=BtB(nPhi0,nThetaR) * &
+                               O_r_ic(nR)*O_sin_theta(nThetaC)
+                          frames(n_o+n_field_size)= &
+                              BtB(nPhi180,nThetaR) * &
+                               O_r_ic(nR)*O_sin_theta(nThetaC)
+                      END DO
+                    ELSE IF ( n_field_type == 3 ) THEN
+                        DO nThetaR=1,sizeThetaB
+                           nThetaC=nThetaStart-1+nThetaR
+                           nTheta=n_theta_cal2ord(nThetaC)
+                           n_o=n_o_r+nTheta
+                           frames(n_o)=BpB(nPhi0,nThetaR) * &
+                               O_r_ic(nR)*O_sin_theta(nThetaC)
+                           frames(n_o+n_field_size)= &
+                               BpB(nPhi180,nThetaR) * &
+                               O_r_ic(nR)*O_sin_theta(nThetaC)
+                       END DO
+                    ELSE IF ( n_field_type == 8 ) THEN
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          !WRITE(*,"(A,I5,A)") "store_movie_IC: frames(",n_o,")"
+                          frames(n_o)=fl(nThetaR)
+                       END DO
+                    ELSE IF ( n_field_type == 9 ) then
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          help=0.D0
+                          DO nPhi=1,n_phi_max
+                             help=help+BpB(nPhi,nThetaR)
+                          END DO
+                          frames(n_o)=phi_norm*help * &
+                               O_r_ic(nR)*O_sin_theta(nThetaC)
+                       END DO
+                    ELSE IF ( n_field_type == 54 ) THEN
+                       help=LFfac*O_r_ic(nR)*O_r_ic2(nR)
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          frames(n_o)=help*O_sin_theta(nThetaC) * &
+                               ( cBrB(nPhi0,nThetaR)*BtB(nPhi0,nThetaR) - &
+                               cBtB(nPhi0,nThetaR)*BrB(nPhi0,nThetaR) )
+                          frames(n_o)=help*O_sin_theta(nThetaC) * &
+                               ( cBrB(nPhi180,nThetaR)*BtB(nPhi180,nThetaR) - &
+                              cBtB(nPhi180,nThetaR)*BrB(nPhi180,nThetaR) )
+                       END DO
+                    ELSE
+                       DO nThetaR=1,sizeThetaB
+                          nThetaC=nThetaStart-1+nThetaR
+                          nTheta=n_theta_cal2ord(nThetaC)
+                          n_o=n_o_r+nTheta
+                          frames(n_o)=0.D0
+                          frames(n_o+n_field_size)=0.D0
+                       END DO
+                    END IF
                  END IF
-
-140              CONTINUE
 
               END DO    ! Loop over fields
 

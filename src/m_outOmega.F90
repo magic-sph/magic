@@ -67,10 +67,10 @@ MODULE omega
                 workA,i_costf_init,d_costf_init)
 
     sZ=0.D0
-    DO nS=1,nSmax
+    outer: DO nS=1,nSmax
         sZ=sZ+dsZ
 
-        DO nNS=1,2  !  North and south hemisphere !
+        inner: DO nNS=1,2  !  North and south hemisphere !
 
             IF ( nNS == 1 ) THEN  ! south hemisphere !
                 zZ=r_ICB+0.5D0
@@ -79,19 +79,18 @@ MODULE omega
             END IF
             rZ    =DSQRT(zZ*zZ+sZ*sZ)
             thetaZ=DATAN2(sZ,zZ)
-            IF ( rZ > r_CMB ) GOTO 100
+            IF ( rZ > r_CMB ) exit outer
 
         !------ Get the function values for (sZ,zCy)
             VpS=lnPAS2tr(dzVpLMr,l_max+1,r_ICB,r_CMB, &
                          l_max,minc,n_r_max,thetaZ,rZ)
             omega(nNS)=VpS/(rZ*DSIN(thetaZ))/omega_IC
 
-        END DO  ! Loop over north and south hemisphere
+        END DO inner ! Loop over north and south hemisphere
 
         WRITE(99,*) sZ,omega(1),omega(2)
 
-    END DO  ! Loop over s
-    100 CONTINUE
+    END DO outer ! Loop over s
 
     CLOSE(99)
 

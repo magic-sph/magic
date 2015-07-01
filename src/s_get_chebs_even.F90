@@ -24,8 +24,6 @@
 
 !------------------------------------------------------------------
      
-    use usefull, only: check_dim
-
     implicit none
      
 !-- INPUT:
@@ -45,7 +43,6 @@
      
 !-- INTERNAL VARIABLES:
     integer :: n,k   ! counter
-    integer :: stop_signal
     real(kind=8) :: map_fac ! maping factor to transfrom y-derivatives
 ! in [-1,1] to x-derivatives in [a,b]
     real(kind=8) :: last_cheb,last_dcheb,last_d2cheb
@@ -53,13 +50,6 @@
 !-- End of declaration
 !----------------------------------------------------------------
      
-
-    call check_dim(n_r,dim1, &
-                   'dim1','get_even_chebs',stop_signal)
-    call check_dim(n_r,dim2, &
-                   'dim2','get_even_chebs',stop_signal)
-    if( stop_signal == 1 ) stop
-
 !-- d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
 !                   = map_fac * d Cheb(y) / d y
     map_fac=2.d0/(b-a)

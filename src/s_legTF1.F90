@@ -86,7 +86,7 @@
             END IF
         END DO
          
-        IF ( sizeThetaB <= 4 ) goto 500 ! return
+        IF ( sizeThetaB <= 4 ) return ! return
 
     END IF
 
@@ -120,7 +120,6 @@
 
     END DO  !  loop over theta in block
 
-500 CONTINUE
     PERFOFF
     RETURN
     end SUBROUTINE legTF1

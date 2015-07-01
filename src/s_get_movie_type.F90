@@ -298,7 +298,7 @@ SUBROUTINE get_movie_type
   integer :: n_field_type(n_movie_fields_max)
   integer :: n_rc,n_tc,n_pc
 
-  logical :: lStore,lIC
+  logical :: lStore,lIC,foundGridPoint
 
 
   !--- End of Declaration
@@ -905,7 +905,7 @@ SUBROUTINE get_movie_type
                     n_const=n_r
                  end if
                  const=r(n_const)
-                 goto 100
+                 exit
               end if
            end do
         ELSE
@@ -922,12 +922,10 @@ SUBROUTINE get_movie_type
                     n_const=-n_r
                  end if
                  const=r_ic(-n_const)
-                 goto 100
+                 exit
               end if
            end do
         END IF
-        WRITE(*,*) 'No radius found for movie r:',r_movie
-100     CONTINUE ! Radius chosen
 
      ELSE IF ( INDEX(string,'EQ') /= 0 .OR. lEquator ) THEN
 
@@ -960,6 +958,7 @@ SUBROUTINE get_movie_type
         theta_movie=theta_movie/rad
 
         !------ Choose closest colatitude grid point:
+        foundGridPoint=.FALSE.
         do n_theta=1,n_theta_max-1
            if ( theta(n_theta)  <= theta_movie .AND. &
                 theta(n_theta+1) >= theta_movie ) then
@@ -969,16 +968,18 @@ SUBROUTINE get_movie_type
               else
                  n_const=n_theta
               end if
-              goto 200
+              foundGridPoint=.TRUE.
+              exit
            end if
         end do
-        if ( theta_movie-theta(n_theta_max) <= &
-             theta(1)+180.d0/rad-theta_movie ) then
-           n_const=n_theta
-        else
-           n_const=1
+        if ( .not. foundGridPoint ) then
+           if ( theta_movie-theta(n_theta_max) <= &
+                theta(1)+180.d0/rad-theta_movie ) then
+              n_const=n_theta_max
+           else
+              n_const=1
+           end if
         end if
-200     continue
         const=rad*theta(n_const)
 
         !---------- Now switch to north/south order of thetas:
@@ -1013,14 +1014,14 @@ SUBROUTINE get_movie_type
            do n=minc-1,1,-1
               if ( phi_movie > n*phi_max ) then
                  phi_movie=phi_movie-n*phi_max
-                 goto 250
+                 exit
               end if
            end do
-250        continue
         end if
         phi_movie=phi_movie/rad
 
         !------ Choose closest longitude grid point:
+        foundGridPoint=.FALSE.
         do n_phi=1,n_phi_max-1
            if ( phi(n_phi)  <= phi_movie .AND. &
                 phi(n_phi+1) >= phi_movie ) then
@@ -1030,17 +1031,18 @@ SUBROUTINE get_movie_type
               else
                  n_const=n_phi
               end if
-              goto 300
+              foundGridPoint=.TRUE.
+              exit
            end if
         end do
-        if ( phi_movie-phi(n_phi_max) <= &
-             phi(1)+phi_max-phi_movie ) then
-           n_const=n_phi_max
-        else
-           n_const=1
+        if ( .not. foundGridPoint ) then
+           if ( phi_movie-phi(n_phi_max) <= &
+                phi(1)+phi_max-phi_movie ) then
+              n_const=n_phi_max
+           else
+              n_const=1
+           end if
         end if
-
-300     continue
 
         const=rad*phi(n_const)
 

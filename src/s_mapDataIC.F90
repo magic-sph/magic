@@ -89,16 +89,15 @@ SUBROUTINE mapDataIC(n_r_ic_max_old,l_max_old,minc_old,         &
      m=lm2m(lm)
      lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
      lmo=0
-     DO mo=0,l_max_old,minc_old
-        DO lo=mo,l_max_old
+     outer: DO mo=0,l_max_old,minc_old
+        inner: DO lo=mo,l_max_old
            lmo=lmo+1
            IF ( lo.EQ.l .AND. mo.EQ.m ) THEN
               lm2lmo(lm)=lmo ! data found in startfile
-              GOTO 10
+              exit outer
            END IF
-        END DO
-     END DO
-10   CONTINUE
+        END DO inner
+     END DO outer
   END DO
 
   READ(n_start_file) (b_ic_old(i),i=1,n_data_old),                &

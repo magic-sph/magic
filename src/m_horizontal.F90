@@ -5,11 +5,10 @@
 !********************************************************************
 
 MODULE horizontal_data
-  USE truncation
+  use truncation
   use omp_lib
-  !USE cutils,ONLY: print_cache_info_dcmplx,print_cache_info_dreal,print_cache_info_integer
 
-  IMPLICIT NONE
+  implicit none
 
   !-- Arrays depending on theta (colatitude):
   INTEGER,ALLOCATABLE :: n_theta_cal2ord(:)
@@ -363,6 +362,70 @@ CONTAINS
 
     RETURN
     end SUBROUTINE horizontal
-
 !---------------------------------------------------------------------------
+  subroutine gauleg(sinThMin,sinThMax,theta_ord,gauss,n_theta_max)
+!----------------------------------------------------------------------
+! Subroutine is based on a NR code.
+! Calculates N zeros of legendre polynomial P(l=N) in
+! the interval [sinThMin,sinThMax].
+! Zeros are returned in radiants theta_ord(i)
+! The respective weights for Gauss-integration are given in gauss(i).
+!----------------------------------------------------------------------
+
+!-- input:
+  real(kind=8),intent(in) :: sinThMin,sinThMax ! lower/upper intervall bound in radiants
+  integer,intent(in)      :: n_theta_max       ! desired maximum degree
+
+!-- output:
+  real(kind=8),intent(out),dimension(n_theta_max) :: theta_ord ! zeros cos(theta)
+  real(kind=8),intent(out),dimension(n_theta_max) :: gauss     ! associated Gauss-Legendre weights
+
+!-- local:
+  integer                :: m,i,j
+  real(kind=8)           :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1,pi
+  real(kind=8),parameter :: eps = 10.0D0*EPSILON(1.0D0)
+
+
+!-- end of declaration
+!-----------------------------------------------------------------------
+
+  pi=4.D0*datan(1.D0)
+  m=(n_theta_max+1)/2  ! use symmetry
+
+!-- Map on symmetric interval:
+  sinThMean=0.5D0*(sinThMax+sinThMin)
+  sinThDiff=0.5D0*(sinThMax-sinThMin)
+
+  do i=1,m
+    !----- Initial guess for zeros:
+    z  = dcos( pi*( (dble(i)-0.25D0)/(dble(n_theta_max)+0.5D0)) )
+    z1 = z+10*eps
+
+    do while( dabs(z-z1) > eps)
+      !----- Use recurrence to calulate P(l=n_theta_max,z=cos(theta))
+      p1=1.D0
+      p2=0.D0
+      do j=1,n_theta_max   ! do loop over degree !
+        p3=p2
+        p2=p1
+        p1=( dble(2*j-1)*z*p2-dbLe(j-1)*p3 )/dble(j)
+      end do
+
+      !----- Newton method to refine zero: pp is derivative !
+      pp=dble(n_theta_max)*(z*p1-p2)/(z*z-1.D0)
+      z1=z
+      z=z1-p1/pp
+    end do
+
+    !----- Another zero found
+    theta_ord(i)              =dacos(sinThMean+sinThDiff*z)
+    theta_ord(n_theta_max+1-i)=dacos(sinThMean-sinThDiff*z)
+    gauss(i)                  =2.D0*sinThDiff/((1.D0-z*z)*pp*pp)
+    gauss(n_theta_max+1-i)    =gauss(i)
+
+  end do
+     
+  return
+  end subroutine gauleg
+!---------------------------------------------------------------
 END MODULE horizontal_data

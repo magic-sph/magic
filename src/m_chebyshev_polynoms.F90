@@ -1,6 +1,5 @@
 !$Id$
 MODULE chebyshev_polynoms_mod
-  USE usefull, ONLY: check_dim
   USE const,only: pi
   IMPLICIT NONE
 
@@ -59,12 +58,6 @@ CONTAINS
 
     !-- End of declaration
     !--------------------------------------------------------------------
-
-    call check_dim(n_r,n_r_max, &
-         'n_r_max','get_even_chebs',stop_signal)
-    call check_dim(n_r,dim2,    &
-         'dim2','get_even_chebs',stop_signal)
-    if( stop_signal == 1 ) stop
 
     !-- definition of map_fac:
     !   d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
@@ -151,12 +144,6 @@ CONTAINS
 
     !-- End of declaration
     !--------------------------------------------------------------------
-
-    call check_dim(n_r,n_r_max, &
-         'n_r_max','get_even_chebs',stop_signal)
-    call check_dim(n_r,dim2,    &
-         'dim2','get_even_chebs',stop_signal)
-    if( stop_signal == 1 ) stop
 
     !-- definition of map_fac:
     !   d Cheb(y) / d x = d y / d x * d Cheb(y) / d y

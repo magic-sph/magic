@@ -39,6 +39,7 @@ SUBROUTINE init_rNB(r,n_r_max,n_cheb_max,rCut,rDea, &
   REAL(kind=8) :: r_icb2,r_cmb2,dr_fac
   INTEGER :: nRs(14)
 
+  logical :: lStop
   INTEGER :: nR,n
 
   !-------------------------------------------------------------------------
@@ -46,12 +47,17 @@ SUBROUTINE init_rNB(r,n_r_max,n_cheb_max,rCut,rDea, &
   !--- New radial grid:
 
   !--- Find number of points to be cut away at either side:
+  lStop=.TRUE.
   DO nS=1,(n_r_max-1)/2
-     IF ( r(1)-r(nS) > rCut ) GOTO 10
+     IF ( r(1)-r(nS) > rCut ) THEN
+        lStop=.FALSE.
+        exit
+     END IF
   END DO
-  WRITE(*,*) 'No nS found in init_rNB!'
-  STOP
-10 CONTINUE
+  IF ( lStop ) THEN
+     WRITE(*,*) 'No nS found in init_rNB!'
+     STOP
+  END IF
   n_r_max2=n_r_max-2*nS
 
   ! Allowed number of radial grid points:
@@ -69,12 +75,18 @@ SUBROUTINE init_rNB(r,n_r_max,n_cheb_max,rCut,rDea, &
   nRs(12)=109
   nRs(13)=121
   nRs(14)=161
+  lStop=.TRUE.
   DO n=14,1,-1
-     IF ( nRs(n) <= n_r_max2 ) GOTO 20
+     IF ( nRs(n) <= n_r_max2 ) THEN
+        lStop=.FALSE.
+        exit
+     END IF
   END DO
-  WRITE(*,*) 'No n_r_max2 found in init_rNB!'
-  STOP
-20 CONTINUE
+  IF ( lStop ) THEN
+     WRITE(*,*) 'No n_r_max2 found in init_rNB!'
+     STOP
+  END IF
+
   n_r_max2=nRs(n)
   nS=(n_r_max-n_r_max2)/2
   IF ( n_r_max2 > n_r_maxL ) THEN

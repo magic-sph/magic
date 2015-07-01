@@ -96,10 +96,11 @@ module charmanip
 
     length_to_blank=0
     do i=1,len(string)
-        if( string(i:i) == ' ' ) goto 1
+        if( string(i:i) == ' ' ) then
+           length_to_blank=i-1
+           exit
+        end if
     end do
-
-    1 length_to_blank=i-1
 
     return
     end function length_to_blank
@@ -112,17 +113,21 @@ module charmanip
     character(len=*) :: string
     character(len=1) :: char
 
+    logical :: isDetected
     integer :: i
 
+    isDetected=.FALSE.
     length_to_char=0
     do i=1,len(string)
-        if( string(i:i) == char ) goto 1
+        if( string(i:i) == char ) then
+           length_to_char=i-1
+           isDetected=.TRUE.
+           exit
+        endif
     end do
 
-    length_to_char=-1 ! char not found !
-    return
+    if ( .NOT. isDetected ) length_to_char=-1 ! char not found !
 
-    1 length_to_char=i-1
     return
 
     end function length_to_char
