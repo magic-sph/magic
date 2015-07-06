@@ -46,6 +46,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
        & lo2r_s,lo2r_z, lo2r_p,&
        & lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,&
        &get_global_sum, lo2r_w
+  USE readCheckPoints, ONLY: readStartFields
+
   IMPLICIT NONE
 
   !---- Output variables:
