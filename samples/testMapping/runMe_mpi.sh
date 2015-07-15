@@ -25,6 +25,11 @@ export OMP_NUM_THREADS=$nomp
 sed "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" inputStart.nml >inputStart_omp1.nml
 sed "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml >input_omp1.nml
 
+if grep -Fxq "USE_HDF5=yes" $MAGIC_HOME/src/Makefile; then
+    sed -i 's/start_file  ="rst_end.start"/start_file  ="h5_rst_end.start"/' input_omp1.nml
+fi
+
+
 # First run
 mpiexec -n $nmpi ./magic.exe  inputStart_omp1.nml
 
