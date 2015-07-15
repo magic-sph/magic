@@ -143,7 +143,7 @@ CONTAINS
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
 
        !--- Finish calculation of dsdt:
        CALL get_drNS( dVSrLM,workA, &
@@ -263,7 +263,7 @@ CONTAINS
           !PERFOFF
 
           !PERFON('upS_sol')
-          IF ( lmB .GT. lmB0 ) THEN
+          IF ( lmB  >  lmB0 ) THEN
 #ifdef WITH_MKL_LU
              CALL getrs(CMPLX(sMat(:,:,l1),0.D0,KIND=KIND(0.d0)), &
                   &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
@@ -317,7 +317,7 @@ CONTAINS
     !PERFON('upS_drv')
     all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-    IF (all_lms.LT.maxThreads) THEN
+    IF (all_lms < maxThreads) THEN
        call omp_set_num_threads(all_lms)
        per_thread=1
     ELSE
@@ -337,7 +337,7 @@ CONTAINS
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
        CALL costf1(s, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
             &      dsdtLast, i_costf_init, d_costf_init)
        CALL get_ddr(s, ds, workA, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
@@ -466,7 +466,7 @@ CONTAINS
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
 
        !--- Finish calculation of dsdt:
        CALL get_drNS( dVSrLM,workA, &
@@ -591,7 +591,7 @@ CONTAINS
           !PERFOFF
 
           !PERFON('upS_sol')
-          IF ( lmB .GT. lmB0 ) THEN
+          IF ( lmB  >  lmB0 ) THEN
 #ifdef WITH_MKL_LU
              CALL getrs(CMPLX(sMat(:,:,l1),0.D0,KIND=KIND(0.d0)),sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
 #else
@@ -644,7 +644,7 @@ CONTAINS
     !PERFON('upS_drv')
     all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-    IF (all_lms.LT.maxThreads) THEN
+    IF (all_lms < maxThreads) THEN
        call omp_set_num_threads(all_lms)
        per_thread=1
     ELSE
@@ -665,7 +665,7 @@ CONTAINS
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
        CALL costf1(s, ulm_real-llm_real+1, start_lm-llm_real+1, &
             &      stop_lm-llm_real+1,dsdtLast, i_costf_init,   &
             &      d_costf_init)

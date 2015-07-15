@@ -136,9 +136,9 @@
 
     !----- Initialize first mode:
         l=init_s1/100
-        if ( l.gt.99 ) l=init_s1/1000
+        if ( l > 99 ) l=init_s1/1000
         m=mod(init_s1,100)
-        if ( l.gt.99 ) m=mod(init_s1,1000)
+        if ( l > 99 ) m=mod(init_s1,1000)
         IF ( mod(m,minc) /= 0 ) THEN
             WRITE(*,*) &
                 '! Wave number of mode for entropy initialisation'

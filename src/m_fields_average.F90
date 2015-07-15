@@ -45,7 +45,7 @@ MODULE fields_average_mod
       ALLOCATE( b_ic_ave(llm:ulm,n_r_ic_max) )
       ALLOCATE( aj_ic_ave(llm:ulm,n_r_ic_max) )
 
-      IF (rank.EQ.0) THEN
+      IF (rank == 0) THEN
          allocate(db_ave_global(1:lm_max))
          allocate(aj_ave_global(1:lm_max))
          allocate(w_ave_global(1:lm_max))
@@ -158,10 +158,10 @@ MODULE fields_average_mod
 
     !-- Initialise average for first time step:
 
-    IF ( nAve.EQ.1 ) THEN  
+    IF ( nAve == 1 ) THEN  
 
        !zero=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-       IF ( n_graphs.GT.0 ) THEN
+       IF ( n_graphs > 0 ) THEN
           IF ( l_conv ) THEN
              w_ave=zero
              z_ave=zero
@@ -217,7 +217,7 @@ MODULE fields_average_mod
 
     !--- Output, intermediate output every 10th averaging to save result
     !    will be overwritten.
-    IF ( l_stop_time .OR. MOD(nAve,10).EQ.0 ) THEN
+    IF ( l_stop_time .OR. MOD(nAve,10) == 0 ) THEN
 
        !WRITE(*,"(A,2ES22.15)") "w_ave = ",get_global_sum( w_ave )
        time   =-1.D0  ! This signifies averaging in output files!
@@ -326,7 +326,7 @@ MODULE fields_average_mod
                &         e_mag_os_ave,e_mag_as_os_ave,e_cmb,Dip,DipCMB, &
                &         elsAnel)
 
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              !----- Output of energies of averaged field:
              WRITE(nLF,'(/,A)')                                        &
                   &           ' ! ENERGIES OF TIME AVERAGED FIELD'
@@ -370,8 +370,8 @@ MODULE fields_average_mod
        ! For the graphic file of the average fields, we gather them
        ! on rank 0 and use the old serial output routine.
 
-       IF (rank.EQ.0) THEN
-          IF ( ngform.EQ.0 ) THEN
+       IF (rank == 0) THEN
+          IF ( ngform == 0 ) THEN
              graph_file='G_ave.'//tag
              OPEN(n_graph_file,FILE=graph_file,STATUS='UNKNOWN',FORM='UNFORMATTED')
           ELSE
@@ -404,7 +404,7 @@ MODULE fields_average_mod
              CALL gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
           END IF
 
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              IF (l_mag) THEN
                 CALL legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
                      &       aj_ave_global,aj_ave_global,dLh,lm_max,  &
@@ -449,29 +449,29 @@ MODULE fields_average_mod
        END DO
 
        !----- Inner core: Transform is included in graphOut_IC!
-       IF ( l_mag .AND. n_r_ic_max.GT.0 ) THEN
+       IF ( l_mag .AND. n_r_ic_max > 0 ) THEN
           CALL gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
           CALL gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
           CALL gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
           CALL gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
           CALL gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
 
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              CALL graphOut_IC(ngform,b_ic_ave_global,db_ic_ave_global,&
                   &           ddb_ic_ave_global,aj_ic_ave_global,&
                   &           dj_ic_ave_global,b_ave_global)
           END IF
        END IF
 
-       if (rank.eq.0) CLOSE(n_graph_file)  ! close graphic output file !
+       if (rank == 0) CLOSE(n_graph_file)  ! close graphic output file !
 
        !----- Write info about graph-file into STDOUT and log-file:
        IF ( l_stop_time ) THEN
-          IF (rank.EQ.0) WRITE(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
+          IF (rank == 0) WRITE(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
        END IF
 
        !--- Store time averaged poloidal magnetic coeffs at cmb
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           IF ( l_mag) THEN
              outFile='B_coeff_cmb_ave.'//tag
              nOut   =93

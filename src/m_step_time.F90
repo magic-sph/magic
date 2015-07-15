@@ -294,7 +294,7 @@ contains
     n_graph_signal=0     ! Graph signal returned to calling program
     n_spec_signal=0      ! Spec signal
     n_rst_signal=0
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        message='signal'//'.'//tag
        OPEN(19,FILE=TRIM(message),STATUS='unknown')
        WRITE(19,'(A3)') 'NOT'
@@ -304,7 +304,7 @@ contains
     !     & MPI_COMM_WORLD,signal_window,ierr)
 
     !-- STARTING THE TIME STEPPING LOOP:
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        WRITE(*,*)
        WRITE(*,*) '! Starting time integration!'
     END IF
@@ -324,9 +324,9 @@ contains
 
 !!!!! Time loop starts !!!!!!
     n_time_cour=-2 ! Causes a Courant check after first update
-    IF ( n_time_steps.EQ.1 ) THEN
+    IF ( n_time_steps == 1 ) THEN
        n_time_steps_go=1 ! Output only, for example G-file/movie etc.
-    ELSE IF ( n_time_steps.EQ.2 ) THEN
+    ELSE IF ( n_time_steps == 2 ) THEN
        n_time_steps_go=2 ! 
     ELSE
        n_time_steps_go=n_time_steps+1  ! Last time step for output only !
@@ -402,13 +402,13 @@ contains
        !This dealing with a signal file is quite expensive
        ! as the file can be read only on one rank and the result
        ! must be distributed to all other ranks.
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           !----- Signalling via file signal:
           message='signal'//'.'//tag
           OPEN(19,FILE=TRIM(message),STATUS='old')
           READ(19,*) SIG
           CLOSE(19)
-          IF ( LEN(TRIM(SIG)).GT.0 ) THEN ! Non blank string ?
+          IF ( LEN(TRIM(SIG)) > 0 ) THEN ! Non blank string ?
              CALL capitalize(SIG)
 
              old_stop_signal=n_stop_signal
@@ -460,7 +460,7 @@ contains
        ! Broadcast the results from the signal file to all processes
        ! =======> THIS IS A GLOBAL SYNCHRONIZATION POINT <==========
 #if 0
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           IF ((old_stop_signal.NE.n_stop_signal) .OR. &
                &(old_graph_signal.NE.n_graph_signal) .OR. &
                &(old_rst_signal.NE.n_rst_signal) .OR. &
@@ -505,28 +505,28 @@ contains
              l_stop_time=.TRUE.
           END IF
        END IF
-       IF ( (n_stop_signal.GT.0) .OR. (n_time_step.EQ.n_time_steps_go) ) then
+       IF ( (n_stop_signal > 0) .OR. (n_time_step == n_time_steps_go) ) then
           l_stop_time=.TRUE.   ! last time step !
        END IF
 
        !--- Another reasons to stop the time integration:
-       IF ( time.GE.tEND .AND. tEND.NE.0.D0 ) l_stop_time=.true.
+       IF ( time >= tEND .AND. tEND.NE.0.D0 ) l_stop_time=.true.
        PERFOFF
        !PERFON('logics')
        !-- Checking logic for output: 
        l_graph= l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
             &                  n_graph_step,n_graphs,n_t_graph,t_graph,0) .OR. &
-            &             n_graph_signal.EQ.1
+            &             n_graph_signal == 1
        !l_graph=.FALSE.
        n_graph_signal=0   ! reset interrupt signal !
        l_spectrum=                                                  &
             &         l_correct_step(n_time_step-1,time,timeLast,n_time_steps, &
             &           n_spec_step,n_specs,n_t_spec,t_spec,0) .OR.            &
-            &           n_spec_signal.EQ.1
+            &           n_spec_signal == 1
        l_frame= l_movie .and. (                                     &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &        n_movie_step,n_movie_frames,n_t_movie,t_movie,0) .OR.     &
-            &              n_time_steps_go.EQ.1 )
+            &              n_time_steps_go == 1 )
        IF ( l_mag .OR. l_mag_LF ) THEN
           l_dtB=( l_frame .AND. l_dtBmovie ) .OR.                   &
                &              ( l_log .AND. l_DTrMagSpec ) 
@@ -540,22 +540,22 @@ contains
        l_Bpot=l_storeBpot .AND. (                                   &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).OR. &
-            &            n_time_steps.EQ.1 )
+            &            n_time_steps == 1 )
        l_Vpot=l_storeVpot .AND. (                                   &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &                       n_Vpot_step,n_Vpots,n_t_Vpot,t_Vpot,0).OR. &
-            &            n_time_steps.EQ.1 )
+            &            n_time_steps == 1 )
        l_Tpot=l_storeTpot .AND. (                                   &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &                       n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).OR. &
-            &            n_time_steps.EQ.1 )
+            &            n_time_steps == 1 )
 
        l_cour=.TRUE.
 
        l_new_rst_file=                                              &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
             &                       n_rst_step,n_rsts,n_t_rst,t_rst,0) .OR.    &
-            &        n_rst_signal.EQ.1
+            &        n_rst_signal == 1
        n_rst_signal=0
        l_store= l_new_rst_file .OR.                                 &
             &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
@@ -571,21 +571,21 @@ contains
             &                       n_r_field_step,n_r_fields,n_t_r_field,     &
             &                       t_r_field,0)
        l_logNext=.FALSE.
-       IF ( n_time_step+1.LE.n_time_steps+1 )                       &
+       IF ( n_time_step+1 <= n_time_steps+1 )                       &
             &        l_logNext=                                                &
             &        l_correct_step(n_time_step,time+dt,timeLast,              &
             &              n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
        l_logNext2=.FALSE.
-       IF ( n_time_step+2.LE.n_time_steps+1 )                       &
+       IF ( n_time_step+2 <= n_time_steps+1 )                       &
             &        l_logNext2=                                               &
             &        l_correct_step(n_time_step+1,time+2*dt,timeLast,          &
             &         n_time_steps,n_log_step,n_logs,n_t_log,t_log,0)
-       lTOCalc= n_time_step.GT.2 .AND. l_TO .AND.                   &
+       lTOCalc= n_time_step > 2 .AND. l_TO .AND.                   &
             &          l_correct_step(n_time_step-1,time,timeLast,             &
             &          n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
        lTOnext     =.FALSE.
        lTOframeNext=.FALSE.
-       IF ( n_time_step+1.LE.n_time_steps+1 ) THEN
+       IF ( n_time_step+1 <= n_time_steps+1 ) THEN
           lTONext= l_TO .AND.                                       &
                &           l_correct_step(n_time_step,time+dt,timeLast,           &
                &            n_time_steps,n_TO_step,n_TOs,n_t_TO,t_TO,0)
@@ -597,7 +597,7 @@ contains
        lTONext      =lTOnext.OR.lTOframeNext 
        lTONext2     =.FALSE.
        lTOframeNext2=.FALSE.
-       IF ( n_time_step+2.LE.n_time_steps+1 ) THEN
+       IF ( n_time_step+2 <= n_time_steps+1 ) THEN
           lTONext2= l_TO .AND.                                      &
                &           l_correct_step(n_time_step+1,time+2*dt,timeLast,       &
                &                                    n_time_steps,n_TO_step,       &
@@ -608,20 +608,20 @@ contains
                &                  n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
        END IF
        lTONext2=lTOnext2.OR.lTOframeNext2 
-       lTOZhelp= n_time_step.GT.2 .AND. l_TO .AND.                  &
+       lTOZhelp= n_time_step > 2 .AND. l_TO .AND.                  &
             &                l_correct_step(n_time_step-1,time,timeLast,       &
             &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
        IF ( lTOZhelp ) lTOZwrite=.TRUE.
 
-       lRmsCalc=l_RMS.AND.l_log.AND.(n_time_step.GT.1)
+       lRmsCalc=l_RMS.AND.l_log.AND.(n_time_step > 1)
        IF ( l_mag .OR. l_mag_LF ) l_dtB   =l_dtB.OR.lRmsCalc
        lRmsNext=l_RMS.AND.l_logNext ! Used for storing in update routines !
 
-       IF ( n_time_step.EQ.1 ) l_log=.TRUE.
+       IF ( n_time_step == 1 ) l_log=.TRUE.
 
        IF ( l_stop_time ) THEN                  ! Programm stopped by kill -30
           l_new_rst_file=.TRUE.                 ! Write rst-file and some
-          IF ( n_stores.GT.0 ) l_store=.TRUE.   ! diagnostics before dying ! 
+          IF ( n_stores > 0 ) l_store=.TRUE.   ! diagnostics before dying ! 
           l_log=.TRUE.
           lRmsNext=.FALSE.
        END IF
@@ -652,7 +652,7 @@ contains
                 graph_file='G_'//trim(adjustl(string))//'.'//tag_wo_rank
              END IF
           END IF
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              WRITE(*,'(1p,/,A,/,A,D20.10,/,A,i15,/,A,A)')&
                   &" ! Storing graphic file:",&
                   &"             at time=",timeScaled,&
@@ -849,7 +849,7 @@ contains
        ! ==================================================================
        IF (lVerbose) WRITE(*,*) "! start output"
        PERFON('output')
-       IF (nRstart.LE.n_r_cmb) THEN
+       IF (nRstart <= n_r_cmb) THEN
           ptr_dbdt_CMB => dbdt_Rloc(:,n_r_cmb)
        ELSE
           NULLIFY(ptr_dbdt_CMB)
@@ -927,8 +927,8 @@ contains
        END IF
 
        !----- Stop if time step has become too small:
-       IF ( dtNew.LT.dtMin ) THEN
-          IF (rank.EQ.0) THEN
+       IF ( dtNew < dtMin ) THEN
+          IF (rank == 0) THEN
              WRITE(*,'(1p,/,A,d14.4,/,A)') &
                   &" ! TIME STEP TOO SMALL, dt=",dtNew,&
                   &" ! I THUS STOP THE RUN !"
@@ -945,7 +945,7 @@ contains
           w2New=-0.5D0*dtNew/dt ! Weight I will be using for next update !
           n_dt_changed=0
           lCourChecking=.TRUE.
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              WRITE(*,'(1p,/,A,d18.10,/,A,i9,/,A,d15.8,/,A,d15.8)') &
                   &" ! Changing time step at time=",(time+dt)*tScale,&
                   &"                 time step no=",n_time_step+1,&
@@ -962,7 +962,7 @@ contains
        ELSE
           w2New=-0.5D0 ! Normal weight if timestep is not changed !
           n_dt_changed=n_dt_changed+1
-          IF ( n_dt_changed.LE.n_dt_check  ) THEN
+          IF ( n_dt_changed <= n_dt_check  ) THEN
              lCourChecking=.TRUE.
           ELSE
              lCourChecking=.FALSE.
@@ -984,7 +984,7 @@ contains
        IF ( l_new_dt ) THEN
           !----- Calculate matricies for new time step if dt.NE.dtLast
           lMat=.TRUE.
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              WRITE(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &
                   &              i8,d16.6)') n_time_step,timeScaled
           END IF
@@ -1057,12 +1057,12 @@ contains
           END IF
           CALL addTime(runTime,runTimePassed)
        END IF
-       IF ( DBLE(n_time_step)+tenth_n_time_steps*DBLE(nPercent).GE.DBLE(n_time_steps) &
-            & .OR. n_time_steps.LT.31 ) THEN
+       IF ( DBLE(n_time_step)+tenth_n_time_steps*DBLE(nPercent) >= DBLE(n_time_steps) &
+            & .OR. n_time_steps < 31 ) THEN
           WRITE(message,'(" ! Time step finished:",i6)') n_time_step
           call logWrite(message)
-          IF ( DBLE(n_time_step)+tenth_n_time_steps*DBLE(nPercent).GE.DBLE(n_time_steps) &
-               & .AND. n_time_steps.GE.10 ) THEN
+          IF ( DBLE(n_time_step)+tenth_n_time_steps*DBLE(nPercent) >= DBLE(n_time_steps) &
+               & .AND. n_time_steps >= 10 ) THEN
              WRITE(message,'(" ! This is           :",i3,"%")') (10-nPercent)*10
              call logWrite(message)
              nPercent=nPercent-1
@@ -1070,9 +1070,9 @@ contains
           DO n=1,4
              runTimePassed(n)=runTimeT(n)
           END DO
-          IF ( nTimeT.GT.0 ) THEN
+          IF ( nTimeT > 0 ) THEN
              CALL meanTime(runTimePassed,nTimeT)
-             IF (rank.EQ.0) THEN
+             IF (rank == 0) THEN
                 CALL writeTime(6,'! Mean wall time for time step:', runTimePassed)
                 CALL safeOpen(nLF,log_file)
                 CALL writeTime(nLF,'! Mean wall time for time step:', runTimePassed)
@@ -1087,8 +1087,8 @@ contains
     PERFOFF
 
     IF ( l_movie ) THEN
-       IF (rank.EQ.0) THEN
-          IF (n_frame.GT.0) THEN
+       IF (rank == 0) THEN
+          IF (n_frame > 0) THEN
              WRITE(*,'(1p,/,/,A,i10,3(/,A,d16.6))') &
                   &" !  No of stored movie frames: ",n_frame,&
                   &" !     starting at time: ",t_movieS(1)*tScale,&
@@ -1128,7 +1128,7 @@ contains
     CALL meanTime(runTimeTM,nTimeTM)
     CALL meanTime(runTimeTL,nTimeTL)
     CALL meanTime(runTimeT,nTimeT)
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        CALL writeTime(6,                                               &
             &     '! Mean wall time for r Loop                :',runTimeR)
        CALL writeTime(6,                                               &
@@ -1153,7 +1153,7 @@ contains
        CALL safeClose(nLF)
     END IF
     !-- Write output for variable conductivity test:
-    !       IF ( imagcon.EQ.-10 ) THEN
+    !       IF ( imagcon == -10 ) THEN
     !          message='testVarCond.'//tag
     !          OPEN(99,FILE=message,STATUS='UNKNOWN')
     !           DO nR=n_r_max,1,-1             ! Diffusive toroidal field

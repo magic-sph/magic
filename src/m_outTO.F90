@@ -249,7 +249,7 @@ contains
     nNorm=INT(zDens*n_r_max) ! Covered with nNorm  points !
     nSmax=n_r_max+INT(r_ICB*DBLE(n_r_max))
     nSmax=INT(sDens*nSmax)
-    IF ( nSmax.GT.nSmaxA ) THEN
+    IF ( nSmax > nSmaxA ) THEN
        WRITE(*,*) 'Increase nSmaxA in ouTO!'
        WRITE(*,*) 'Should be at least nSmax=',nSmax
        STOP
@@ -333,10 +333,10 @@ contains
     nSI   =0
     DO nS=1,nSmax
        sZ(nS)=(nS-0.5D0)*dsZ
-       IF ( sZ(nS).LT.r_ICB .AND. nS.GT.nSI ) nSI=nS
+       IF ( sZ(nS) < r_ICB .AND. nS > nSI ) nSI=nS
     END DO
 
-    IF ( nTOsets.EQ.1 ) nTOZfile=0
+    IF ( nTOsets == 1 ) nTOZfile=0
     IF ( lTOZwrite ) THEN
        nTOZfile=nTOZfile+1
        CALL dble2str(DBLE(nTOZfile),string)
@@ -347,7 +347,7 @@ contains
             &         SNGL(omega_ic),SNGL(omega_ma)
        WRITE(95) (SNGL(sZ(nS)),nS=1,nSmax)
     END IF
-    IF ( nTOsets.GT.1 .AND. l_TOZave ) THEN
+    IF ( nTOsets > 1 .AND. l_TOZave ) THEN
        fileName='TOZM.'//TAG
        OPEN(96,FILE=fileName,FORM='UNFORMATTED',                    &
             &                                STATUS='UNKNOWN')
@@ -360,7 +360,7 @@ contains
 
        !------ Get integral boundaries for this s:
        zMax=DSQRT(r_CMB*r_CMB-sZ(nS)*sZ(nS))
-       IF ( sZ(nS).LT.r_ICB ) THEN
+       IF ( sZ(nS) < r_ICB ) THEN
           lTC=.TRUE.
           zMin=DSQRT(r_ICB*r_ICB-sZ(nS)*sZ(nS))
        ELSE
@@ -370,7 +370,7 @@ contains
        h(nS) =zMax-zMin
        Oh(nS)=1.D0/h(nS)
 
-       IF ( nTOsets.EQ.1 ) THEN
+       IF ( nTOsets == 1 ) THEN
           !------ Initialize integration for NHS:
           !       Each processor calculates Cheb transform data
           !       for HIS nS and the Plms along the Cylinder
@@ -386,7 +386,7 @@ contains
           !--- Points in nothers halfsphere
           IF ( lTC ) THEN
              nZmax=nZmaxS(nS)  ! nZmax point in each polar region
-             IF ( 2*nZmax.GT.nZmaxA ) THEN 
+             IF ( 2*nZmax > nZmaxA ) THEN 
                 WRITE(*,*) '! nZmaxA too small in outTO!'
                 WRITE(*,*) '! Should be at least:',2*nZmax
                 lStopRun=.TRUE.
@@ -395,7 +395,7 @@ contains
              nZmax=(nZmaxS(nS)-1)/2+1 ! Odd point number !
              ! all together nZmaxS(nS) from
              ! south to north including equator
-             IF ( nZmaxS(nS).GT.nZmaxA ) THEN 
+             IF ( nZmaxS(nS) > nZmaxA ) THEN 
                 WRITE(*,*) '! nZmaxA too small in outTO!'
                 WRITE(*,*) '! Should be at least:',nZmaxS(nS)
                 lStopRun=.TRUE.
@@ -477,7 +477,7 @@ contains
             &                                rZ(1,nS),PlmS(1,1,nS))
 
        IF ( l_TOZave ) THEN
-          IF ( nTOsets.EQ.1 ) THEN
+          IF ( nTOsets == 1 ) THEN
              timeAve=1.E0
              DO nZ=1,nZmaxNS
                 VpM(nZ,nS)  =SNGL(VpS(nZ))
@@ -489,7 +489,7 @@ contains
                 CorM(nZ,nS) =SNGL(CorS(nZ))
                 CLM(nZ,nS)  =SNGL(CorS(nZ)+LFfac*LFS(nZ))
              END DO
-          ELSE IF ( nTOsets.EQ.2 ) THEN
+          ELSE IF ( nTOsets == 2 ) THEN
              dt=SNGL(time-timeLast)
              timeAve=dt
              DO nZ=1,nZmaxNS
@@ -520,7 +520,7 @@ contains
           END IF
        END IF
 
-       IF ( l_TOZave .AND. nTOsets.GT.1 ) THEN
+       IF ( l_TOZave .AND. nTOsets > 1 ) THEN
           WRITE(96) FLOAT(nZmaxNS)
           WRITE(96) (SNGL(zALL(nZ))      ,nZ=1,nZmaxNS),            &
                &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),            &
@@ -576,7 +576,7 @@ contains
        BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,           &
             &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
 
-       IF ( V2IntN(nS).LT.0.D0 ) THEN
+       IF ( V2IntN(nS) < 0.D0 ) THEN
           VpRIntN(nS)=1.D0
        ELSE
           VpRIntN(nS)=DABS(VpIntN(nS))/DSQRT(V2IntN(nS))
@@ -618,7 +618,7 @@ contains
                &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
           BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,      &
                &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-          IF ( V2IntS(nS).LT.0.D0 ) THEN
+          IF ( V2IntS(nS) < 0.D0 ) THEN
              VpRIntS(nS)=1.D0
           ELSE
              VpRIntS(nS)=DABS(VpIntS(nS))/DSQRT(V2IntS(nS))
@@ -746,7 +746,7 @@ contains
     ! Integration finished
 
     CLOSE (95)
-    IF ( l_TOZave .AND. nTOsets.GT.1 ) CLOSE (96)
+    IF ( l_TOZave .AND. nTOsets > 1 ) CLOSE (96)
 
     IF ( lStopRun ) STOP
 
@@ -765,7 +765,7 @@ contains
        TayRMS =TayRMS +dsZ*DABS(TayIntN(nS))
        TayRRMS=TayRRMS+dsZ*DABS(TayRIntN(nS))
        TayVRMS=TayVRMS+dsZ*DABS(TayVIntN(nS))
-       IF ( nS.LE.nSI ) THEN
+       IF ( nS <= nSI ) THEN
           VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ *                  &
                &                         VpIntS(nS)*VpIntS(nS)
           TayRMS =TayRMS +dsZ*DABS(TayIntS(nS))
@@ -781,7 +781,7 @@ contains
        SVpIntN(nS) =VpIntN(nS)/sZ(nS)
        SBspIntN(nS)=h(nS)*sZ(nS)*sZ(nS)*BspIntN(nS)
        SBs2IntN(nS)=h(nS)*sZ(nS)**3*Bs2IntN(nS)
-       IF ( sZ(nS).LT.r_ICB ) THEN ! inside TC
+       IF ( sZ(nS) < r_ICB ) THEN ! inside TC
           SVpIntS(nS) =VpIntS(nS)/sZ(nS)
           SBspIntS(nS)=h(nS)*sZ(nS)*sZ(nS)*BspIntS(nS)
           SBs2IntS(nS)=h(nS)*sZ(nS)**3*Bs2IntS(nS)
@@ -815,7 +815,7 @@ contains
 
     !------ South hemisphere:
     DO nS=1,nSmax
-       IF ( sZ(nS).LT.r_ICB .AND. nS.GT.2 ) THEN
+       IF ( sZ(nS) < r_ICB .AND. nS > 2 ) THEN
           dSVpIntS =f1*(SVpIntS(nS-2)-8.D0*SVpIntS(nS-1) +          &
                &                          8.D0*SVpIntS(nS+1)-SVpIntS(nS+2) )
           d2SVpIntS=f2*(-SVpIntS(nS-2)+16.D0*SVpIntS(nS-1) -        &
@@ -837,7 +837,7 @@ contains
     !--- Output of z-integral:
     OPEN(nOutFile,FILE=TOfileNhs,STATUS='UNKNOWN',                  &
          &       FORM='UNFORMATTED',POSITION='APPEND')
-    IF( nTOsets.EQ.1 ) THEN
+    IF( nTOsets == 1 ) THEN
 
        WRITE(message,'(" ! TO: No. of s-values:",i4)') INT(nSmax/r_cmb)
        call logWrite(message)
@@ -870,7 +870,7 @@ contains
 
     OPEN(nOutFile,FILE=TOfileShs,STATUS='UNKNOWN',                  &
          &       FORM='UNFORMATTED',POSITION='APPEND')
-    IF( nTOsets.EQ.1 ) THEN
+    IF( nTOsets == 1 ) THEN
        WRITE(nOutFile) FLOAT(nSmax)
        WRITE(nOutFile) (SNGL(sZ(nS)),nS=1,nSmax)
     END IF
@@ -945,7 +945,7 @@ contains
                &             FORM='UNFORMATTED',POSITION='APPEND')
 
           !--- Write header into output file:
-          IF ( nTOmovSets.EQ.0 ) THEN
+          IF ( nTOmovSets == 0 ) THEN
              version='JW_Movie_Version_2'
              WRITE(nOutFile) version
              dumm(1)=102           ! type of input
@@ -1013,7 +1013,7 @@ contains
           nTOrmsSets=nTOrmsSets+1
           OPEN(nOutFile2,FILE=tayFile,FORM='UNFORMATTED',           &
                &             STATUS='UNKNOWN',POSITION='APPEND')
-          IF ( nTOrmsSets.EQ.1 ) THEN
+          IF ( nTOrmsSets == 1 ) THEN
              WRITE(nOutFile2) FLOAT(n_r_max)
              WRITE(nOutFile2) (SNGL(r(nR)),nR=1,n_r_max)
           END IF
@@ -1029,25 +1029,25 @@ contains
                 nThetaStart=(n-1)*sizeThetaB+1
 
                 !------ Convert from lm to theta block: 
-                IF ( nOut.EQ.1 ) THEN
+                IF ( nOut == 1 ) THEN
                    CALL get_PAS(dzVpLMr(1,nR),outBlock,             &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.2 ) THEN
+                ELSE IF ( nOut == 2 ) THEN
                    CALL get_PAS(dzRstrLMr(1,nR),outBlock,           &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.3 ) THEN
+                ELSE IF ( nOut == 3 ) THEN
                    CALL get_PAS(dzAstrLMr(1,nR),outBlock,           &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.4 ) THEN
+                ELSE IF ( nOut == 4 ) THEN
                    CALL get_PAS(dzStrLMr(1,nR),outBlock,            &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.5 ) THEN
+                ELSE IF ( nOut == 5 ) THEN
                    CALL get_PAS(dzLFLMr(1,nR),outBlock,             &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.6 ) THEN
+                ELSE IF ( nOut == 6 ) THEN
                    CALL get_PAS(dzCorLMr(1,nR),outBlock,            &
                         &                              rS,nThetaStart,sizeThetaB)
-                ELSE IF ( nOut.EQ.7 ) THEN
+                ELSE IF ( nOut == 7 ) THEN
                    CALL get_PAS(dzdVpLMr(1,nR),outBlock,            &
                         &                              rS,nThetaStart,sizeThetaB)
                 END IF
@@ -1060,46 +1060,46 @@ contains
                    nThetaNHS=(nTheta+1)/2
                    sS       =rS*sinTheta(nTheta)
                    !--------- Convert to correct order in theta grid points:
-                   IF ( MOD(nTheta,2).EQ.1 ) THEN
+                   IF ( MOD(nTheta,2) == 1 ) THEN
                       nThetaOrd=(nTheta+1)/2
                    ELSE
                       nThetaOrd=n_theta_max-nTheta/2+1
                    END IF
                    nPos=(nR-1)*n_theta_max+nThetaOrd
 
-                   IF ( nOut.EQ.1 ) THEN
+                   IF ( nOut == 1 ) THEN
                       !--------------- Zonal flow:
                       fOut(nPos)=vSF*outBlock(nThetaBlock)
                       VpR(nR)=VpR(nR) +                             &
                            &                       gauss(nThetaNHS)*fOut(nPos)/sS
-                   ELSE IF ( nOut.EQ.2 ) THEN
+                   ELSE IF ( nOut == 2 ) THEN
                       !--------------- Reynolds force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
                       RstrR(nR)=RstrR(nR) +                         &
                            &                               gauss(nThetaNHS)*fOut(nPos)/sS
-                   ELSE IF ( nOut.EQ.3 ) THEN
+                   ELSE IF ( nOut == 3 ) THEN
                       !--------------- Advective force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
                       AstrR(nR)=AstrR(nR) +                         &
                            &                                gauss(nThetaNHS)*fOut(nPos)/sS
-                   ELSE IF ( nOut.EQ.4 ) THEN
+                   ELSE IF ( nOut == 4 ) THEN
                       !--------------- Viscous force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
                       StrR(nR)=StrR(nR) +                           &
                            &                                gauss(nThetaNHS)*fOut(nPos)/sS           
-                   ELSE IF ( nOut.EQ.5 ) THEN
+                   ELSE IF ( nOut == 5 ) THEN
                       !--------------- Lorentz force:
                       fOut(nPos)=fSF*LFfac*outBlock(nThetaBlock)
                       LFR(nR)=LFR(nR) +                             &
                            &                            gauss(nThetaNHS)*fOut(nPos)/sS
                       LFABSR(nR)=LFABSR(nR) +                       &
                            &                            gauss(nThetaNHS)*DABS(fOut(nPos))/sS
-                   ELSE IF ( nOut.EQ.6 ) THEN
+                   ELSE IF ( nOut == 6 ) THEN
                       !--------------- Corriolis force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
                       CorR(nR)=CorR(nR) +                           &
                            &                                gauss(nThetaNHS)*fOut(nPos)/sS
-                   ELSE IF ( nOut.EQ.7 ) THEN
+                   ELSE IF ( nOut == 7 ) THEN
                       !--------------- dtVp:
                       fOut(nPos)=vSF*outBlock(nThetaBlock)
                       dVpR(nR)  =dVpR(nR) +                         &

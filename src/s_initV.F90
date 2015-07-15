@@ -229,8 +229,8 @@ SUBROUTINE initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
   !      has not been done already in read_start_file.f:
   IF ( lmStart == 1 ) THEN ! Selects one processor !
      IF ( ( .NOT. l_start_file ) &
-          & .AND.( llm.LE.st_map%lm2(1,0) ) &
-          & .AND.( st_map%lm2(1,0).LE.ulm ) ) THEN
+          & .AND.( llm <= st_map%lm2(1,0) ) &
+          & .AND.( st_map%lm2(1,0) <= ulm ) ) THEN
         WRITE(*,*) '! NO STARTFILE READ, SETTING Z10!'
         IF ( l_SRIC .OR. &
              l_rot_ic .AND. omega_ic1 /= 0.d0 ) THEN

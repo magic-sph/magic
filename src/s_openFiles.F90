@@ -147,7 +147,7 @@
 !-- Open various output files that will be used throughout the run:
     IF ( .NOT. l_save_out ) THEN
 
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN')
 
           OPEN(n_e_kin_file,FILE=e_kin_file,STATUS='NEW')

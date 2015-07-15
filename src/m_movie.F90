@@ -66,10 +66,10 @@ CONTAINS
           n_start = n_movie_field_start(n_field,n_movie)
           n_stop  = n_movie_field_stop(n_field,n_movie)
           field_length=n_stop-n_start+1
-          if (field_length.gt.max_field_length) max_field_length=field_length
+          if (field_length > max_field_length) max_field_length=field_length
        END DO
     END DO
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE(field_frames_global(max_field_length))
     ELSE
        ! This is only needed for debug runs with boundary check.
@@ -111,8 +111,8 @@ CONTAINS
           n_start=n_movie_field_start(1,n_movie)
           n_stop =n_movie_field_stop(n_fields,n_movie)
           myTag=7654
-          if (rank.eq.0) then
-             IF ((nRstart.LE.n_const) .AND. (n_const.LE.nRstop)) THEN
+          if (rank == 0) then
+             IF ((nRstart <= n_const) .AND. (n_const <= nRstop)) THEN
                 ! relevant frames already set on rank 0
                 ! do nothing
              ELSE
@@ -120,7 +120,7 @@ CONTAINS
                      & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
              END IF
           ELSE
-             IF ((nRstart.LE.n_const) .AND. (n_const.LE.nRstop)) THEN
+             IF ((nRstart <= n_const) .AND. (n_const <= nRstop)) THEN
                 ! relevant frames are all on this rank .ne.0
                 ! send to rank 0
                 CALL MPI_Send(frames(n_start),n_stop-n_start+1,MPI_DOUBLE_PRECISION,&
@@ -136,8 +136,8 @@ CONTAINS
 
              local_start=n_start+(nRstart-1)*n_phi_max
              local_end  =local_start+nr_per_rank*n_phi_max-1
-             IF (rank.EQ.n_procs-1) local_end = local_start+nr_on_last_rank*n_phi_max-1
-             IF (local_end.GT.n_stop) THEN
+             IF (rank == n_procs-1) local_end = local_start+nr_on_last_rank*n_phi_max-1
+             IF (local_end > n_stop) THEN
                 WRITE(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
                 STOP
              END IF
@@ -151,7 +151,7 @@ CONTAINS
              CALL mpi_gatherv(frames(local_start),sendcount,MPI_DOUBLE_PRECISION,&
                   & field_frames_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
                   & 0,MPI_COMM_WORLD,ierr)
-             IF (rank.EQ.0) THEN
+             IF (rank == 0) THEN
                 frames(n_start:n_stop)=field_frames_global(1:field_length)
              END IF
           END DO  ! Do loop over field for one movie
@@ -166,15 +166,15 @@ CONTAINS
 
              local_start=n_start+(nRstart-1)*n_theta_max
              local_end  =local_start+nr_per_rank*n_theta_max-1
-             IF (rank.EQ.n_procs-1) local_end = local_start+nr_on_last_rank*n_theta_max-1
-             IF (local_end.GT.n_stop) THEN
+             IF (rank == n_procs-1) local_end = local_start+nr_on_last_rank*n_theta_max-1
+             IF (local_end > n_stop) THEN
                 WRITE(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
                 STOP
              END IF
              DO irank=0,n_procs-1
                 recvcounts(irank) = nr_per_rank*n_theta_max
                 displs(irank)     = irank*nr_per_rank*n_theta_max
-                !IF (rank.EQ.0) WRITE(*,"(A,I5,A,I3,A,I5,A)") "Receiving ",recvcounts(irank),&
+                !IF (rank == 0) WRITE(*,"(A,I5,A,I3,A,I5,A)") "Receiving ",recvcounts(irank),&
                 !     &" vals from rank ",irank,", writing to frames(",&
                 !     & n_start+displs(irank),")"
              END DO
@@ -188,7 +188,7 @@ CONTAINS
              CALL mpi_gatherv(frames(local_start),sendcount,MPI_DOUBLE_PRECISION,&
                   & field_frames_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
                   & 0,MPI_COMM_WORLD,ierr)
-             IF (rank.EQ.0) THEN
+             IF (rank == 0) THEN
                 frames(n_start:n_stop)=field_frames_global(1:field_length)
                 !DO irank=0,n_procs-1
                  !  WRITE(*,"(A,I2,2(A,I5),A,ES22.12)") "irank=",irank,&
@@ -201,6 +201,6 @@ CONTAINS
 
        END IF
     END DO
-    if (rank.eq.0) DEALLOCATE(field_frames_global)
+    if (rank == 0) DEALLOCATE(field_frames_global)
   END SUBROUTINE movie_gather_frames_to_rank0
 END MODULE movie_data

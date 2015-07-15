@@ -182,7 +182,7 @@ CONTAINS
     if (l_heat) CALL MPI_Reduce(buoy_r,buoy_r_global,n_r_max,&
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Transform to cheb space:
        IF ( l_conv ) THEN
           curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
@@ -235,13 +235,13 @@ CONTAINS
        CALL MPI_Reduce(curlB2_rIC,curlB2_rIC_global,n_r_ic_max,&
             & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic, &
                i_costf1_ic_init,d_costf1_ic_init)
           curlB2_IC=LFfac*opm*eScale*curlB2_IC
        END IF
     ELSE
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           curlB2_IC=0.D0
        END IF
     END IF  ! conducting inner core ?
@@ -259,7 +259,7 @@ CONTAINS
     l1m0=lo_map%lm2(1,0)
     rank_has_l1m0=.FALSE. ! set default
     sr_tag=46378 !arbitray send-recv tag
-    IF (lmStartB(rank+1).LE.l1m0 .AND. lmStopB(rank+1).GE.l1m0 ) THEN
+    IF (lmStartB(rank+1) <= l1m0 .AND. lmStopB(rank+1) >= l1m0 ) THEN
        !IF (rank.NE.0) THEN
        !   PRINT*,"in get_power, l1m0 is not on rank 0!"
        !   stop
@@ -289,7 +289,7 @@ CONTAINS
        rank_has_l1m0=.TRUE.
     END IF
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        IF (.NOT.rank_has_l1m0) THEN
           ! receive data from the source ranks
           CALL MPI_Recv(z10ICB,1,MPI_DOUBLE_COMPLEX,&

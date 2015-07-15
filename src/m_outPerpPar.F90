@@ -107,7 +107,7 @@ CONTAINS
         &           0,MPI_COMM_WORLD,ierr)
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        EperpT  =4.D0*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac,i_costf_init,d_costf_init)
        EparT   =4.D0*pi*rInt(EparR_global*r**2,n_r_max,dr_fac,i_costf_init,d_costf_init)
        EperpaxT=4.D0*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac,i_costf_init,d_costf_init)

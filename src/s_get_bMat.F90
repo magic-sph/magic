@@ -380,7 +380,7 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
      DO j=1,n_r_tot
         linesum = linesum + ABS(temp_Mat(i,j))
      END DO
-     IF (linesum .GT. anorm) anorm=linesum
+     IF (linesum  >  anorm) anorm=linesum
   END DO
   !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
   ! LU factorization
@@ -409,7 +409,7 @@ SUBROUTINE get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
      DO j=1,n_r_tot
         linesum = linesum + ABS(temp_Mat(i,j))
      END DO
-     IF (linesum .GT. anorm) anorm=linesum
+     IF (linesum  >  anorm) anorm=linesum
   END DO
   !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
   ! LU factorization

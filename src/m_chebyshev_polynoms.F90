@@ -174,14 +174,14 @@ CONTAINS
           local_cheb = COS(pi*(n-1)*(k-1)/(n_r-1))
           cheb(n,k)=local_cheb
           !cheb(n,k)=    2.d0*y(k)*cheb(n-1,k)-cheb(n-2,k)
-          !IF (ABS(local_cheb).GT.0.0D0) THEN
+          !IF (ABS(local_cheb) > 0.0D0) THEN
           !   WRITE(*,"(A,2I3,3ES20.12,ES11.3)") "Error in cheb calculation: ",n,k,&
           !        & cheb(n,k),local_cheb,cheb(n,k)-local_cheb,(cheb(n,k)-local_cheb)/local_cheb
           !END IF
-          IF ((k.gt.1) .and. MODULO((n-1)*(k-1),(n_r-1)).EQ.0) THEN
+          IF ((k > 1) .and. MODULO((n-1)*(k-1),(n_r-1)) == 0) THEN
              local_dcheb=0.0D0
              !dcheb(n,k) = 0.0D0
-          ELSEIF (k.EQ.1) THEN
+          ELSEIF (k == 1) THEN
              local_dcheb = map_fac1(k)*(n-1)**2
           ELSE
              local_dcheb = map_fac1(k)*(n-1)*SIN((n-1)*pi*(k-1)/(n_r-1))/SIN(pi*(k-1)/(n_r-1))
@@ -193,26 +193,26 @@ CONTAINS
                2.d0*y(k)*dcheb(n-1,k) - &
                dcheb(n-2,k)
 
-          !IF (ABS(local_dcheb).GT.0.0D0) THEN
+          !IF (ABS(local_dcheb) > 0.0D0) THEN
           !WRITE(*,"(A,2I3,3ES20.12,ES11.3)") "Error in dcheb calculation: ",n,k,&
           !        & dcheb(n,k),local_dcheb,dcheb(n,k)-local_dcheb,&
           !        &(dcheb(n,k)-local_dcheb)/local_dcheb
           !END IF
           dcheb(n,k)=local_dcheb
           
-          IF (2*(k-1).EQ.n_r-1) THEN
-             IF (MODULO((n-1),4).EQ.0) THEN
+          IF (2*(k-1) == n_r-1) THEN
+             IF (MODULO((n-1),4) == 0) THEN
                 local_d2cheb = -(n-1)**2*map_fac1(k)**2
-             ELSEIF (MODULO((n-1),2).eq.0) then
+             ELSEIF (MODULO((n-1),2) == 0) then
                 local_d2cheb = (n-1)**2*map_fac1(k)**2
-             ELSEIF (MODULO((n-1)+3,4).eq.0) then
+             ELSEIF (MODULO((n-1)+3,4) == 0) then
                 ! odd chebs and (n-1)=4r-3
                 local_d2cheb = (n-1)*map_fac2(k)
              ELSE
                 ! odd chebs and (n-1)=4r-1
                 local_d2cheb = -(n-1)*map_fac2(k)
              END IF
-          ELSEIF (k.EQ.n_r) THEN
+          ELSEIF (k == n_r) THEN
              local_d2cheb=0.0D0
              d2cheb(n,k) = 0.0D0
           ELSE
@@ -227,7 +227,7 @@ CONTAINS
                4.d0*map_fac1(k)*dcheb(n-1,k) + &
                2.d0*y(k)*d2cheb(n-1,k) - &
                d2cheb(n-2,k)
-          !IF (ABS(local_d2cheb).GT.0.0D0) THEN
+          !IF (ABS(local_d2cheb) > 0.0D0) THEN
              WRITE(*,"(A,2I3,3ES20.12,ES11.3)") "Error in d2cheb calculation: ",n,k,&
                   & d2cheb(n,k),local_d2cheb,d2cheb(n,k)-local_d2cheb,&
                   &(d2cheb(n,k)-local_d2cheb)/local_d2cheb
@@ -238,10 +238,10 @@ CONTAINS
           !spos = SIN((n-1)*pos)
           !yk= cos(pos)
           !WRITE(*,"(2I3,4ES11.3)") n,k,pos,spos,yk,SIN(pos)
-          !IF (k.EQ.1) THEN
+          !IF (k == 1) THEN
           !   local_d3cheb=0.0D0
           !ELSE
-          !   IF (n.EQ.3) THEN
+          !   IF (n == 3) THEN
           !      local_d3cheb=0.0D0
           !   ELSE
           !      local_d3cheb =( ( 3*(n-1)*spos*yk**2* map_fac1(k)**3) &
@@ -261,7 +261,7 @@ CONTAINS
                6.d0*map_fac1(k)*d2cheb(n-1,k) + &
                2.d0*y(k)*d3cheb(n-1,k) - &
                d3cheb(n-2,k)
-          !IF (ABS(local_d3cheb).GT.0.0D0) THEN
+          !IF (ABS(local_d3cheb) > 0.0D0) THEN
           !WRITE(*,"(A,2I3,3ES20.12,ES11.3)") "Error in d3cheb calculation: ",n,k,&
           !        & d3cheb(n,k),local_d3cheb,d3cheb(n,k)-local_d3cheb,&
           !        &(d3cheb(n,k)-local_d3cheb)/local_d3cheb

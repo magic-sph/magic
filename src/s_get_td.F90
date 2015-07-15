@@ -169,7 +169,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
         !$OMP shared(dwdt,dzdt)
         DO lm=1,lm_max
-           IF (lm.EQ.1) CYCLE
+           IF (lm == 1) CYCLE
            l   =lm2l(lm)
            m   =lm2m(lm)
            lmS =lm2lmS(lm)
@@ -514,7 +514,7 @@ SUBROUTINE get_td(nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         !$OMP shared(nl_lm,dbdt,djdt,dTheta1S,dTheta1A,dPhi) &
         !$OMP shared(dLh,or4,dVxBhLM,r,nR)
         DO lm=1,lm_max
-           IF (lm.EQ.1) THEN
+           IF (lm == 1) THEN
               lmP=1
               lmPA=lmP2lmPA(lmP)
               dVxBhLM(lm)= -r(nR)*r(nR)* dTheta1A(lm)*nl_lm%VxBtLM(lmPA)

@@ -144,7 +144,7 @@ SUBROUTINE preCalc
 
   !-- Calculate radial functions for all threads (chebs,r,.....):
   CALL radial
-  IF ( ( l_plotmap ).and.(rank.eq.0) ) THEN
+  IF ( ( l_plotmap ).and.(rank == 0) ) THEN
      fileName='rNM.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
      DO n_r=1,n_r_max
@@ -156,7 +156,7 @@ SUBROUTINE preCalc
 
   CALL transportProperties
 
-  IF ( ( l_anel ).and.( rank.eq.0 ) ) THEN
+  IF ( ( l_anel ).and.( rank == 0 ) ) THEN
      ! Write the equilibrium setup in anel.TAG
      fileName='anel.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
@@ -183,7 +183,7 @@ SUBROUTINE preCalc
      CLOSE(99)
   END IF
 
-  IF ( ( l_heat .AND. nVarDiff > 0  .OR. nVarVisc > 0).and.( rank.eq.0 ) ) THEN
+  IF ( ( l_heat .AND. nVarDiff > 0  .OR. nVarVisc > 0).and.( rank == 0 ) ) THEN
      fileName='varDiff.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
      WRITE(99,'(5a15)') 'radius', 'conductivity', 'kappa', &
@@ -196,7 +196,7 @@ SUBROUTINE preCalc
      CLOSE(99)
   END IF
 
-  IF ( ( nVarVisc > 0 ).and.(rank.eq.0) ) THEN
+  IF ( ( nVarVisc > 0 ).and.(rank == 0) ) THEN
      fileName='varVisc.'//TAG
      OPEN(99,FILE=fileName,STATUS='UNKNOWN')
      WRITE(99,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &

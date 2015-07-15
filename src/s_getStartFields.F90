@@ -46,7 +46,11 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
        & lo2r_s,lo2r_z, lo2r_p,&
        & lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,&
        &get_global_sum, lo2r_w
-  USE readCheckPoints, ONLY: readStartFields
+#ifdef WITH_HDF5
+  use readCheckPoints, only: readHdf5_serial,readStartFields
+#else
+  use readCheckPoints, only: readStartFields
+#endif
 
   IMPLICIT NONE
 
@@ -103,16 +107,30 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !   sure that they are located close the individual
   !   processors in memory:
 
-  IF (rank.EQ.0) THEN
-     IF ( l_start_file ) THEN
+  if ( rank == 0 ) then
+     if ( l_start_file ) then
         !PERFON('readFlds')
-        CALL readStartFields( w,dwdtLast,z,dzdtLast, &
-             &                p,dpdtLast,s,dsdtLast, &
-             &                b,dbdtLast,aj,djdtLast, &
-             &                b_ic,dbdt_icLast,aj_ic,djdt_icLast, &
-             &                omega_ic,omega_ma, &
+#ifdef WITH_HDF5
+        if ( index(start_file,'h5_') /= 0 ) then
+           call readHdf5_serial( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
+                &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
+                &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
+                &                lorentz_torque_icLast,lorentz_torque_maLast, &
+                &                time,dt,dtNew)
+        else
+           call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
+                &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
+                &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
+                &                lorentz_torque_icLast,lorentz_torque_maLast, &
+                &                time,dt,dtNew,n_time_step)
+        endif
+#else
+        call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
+             &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
+             &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
              &                lorentz_torque_icLast,lorentz_torque_maLast, &
              &                time,dt,dtNew,n_time_step)
+#endif
         IF ( dt > 0.D0 ) THEN
            WRITE(message,'(''! Using old time step:'',D16.6)') dt
         ELSE
@@ -229,7 +247,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   ! 3. Scatter the fields to the LMloc space
   !write(*,"(4X,A)") "Start Scatter the fields"
-  IF (rank.EQ.0) WRITE(*,"(A,2ES20.12)") "init z = ",SUM(z)
+  IF (rank == 0) WRITE(*,"(A,2ES20.12)") "init z = ",SUM(z)
   DO nR=1,n_r_max
      CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:,nR))
      CALL scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:,nR))
@@ -240,7 +258,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
      END IF
      !IF (DEBUG_OUTPUT) THEN
-     !   IF (rank.EQ.0) THEN
+     !   IF (rank == 0) THEN
      !      WRITE(*,"(A,I4,6ES22.14)") "full arrays: ",nR,SUM( s(:,nR) ),SUM( b(:,nR) ),SUM( aj(:,nR) )
      !   END IF
      !   WRITE(*,"(A,I4,6ES22.14)") "LMloc arrays: ",nR,SUM( s_LMloc(:,nR) ),SUM( b_LMloc(:,nR) ),SUM( aj_LMloc(:,nR) )
@@ -256,7 +274,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   END IF
 
   !IF (DEBUG_OUTPUT) THEN
-  !   IF (rank.EQ.0) THEN
+  !   IF (rank == 0) THEN
   !      WRITE(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast full = ",SUM( z ),SUM( dzdtLast )
   !   END IF!
 
@@ -404,14 +422,14 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
      l1m0=lo_map%lm2(1,0)
      coex=-2.D0*(alpha-1.D0)
      IF ( ( .NOT. l_SRMA .AND. ktopv == 2 .AND. l_rot_ma ).AND.&
-          & (l1m0.ge.llm .and.l1m0.le.ulm) ) THEN
+          & (l1m0 >= llm .and.l1m0 <= ulm) ) THEN
         d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
         d_omega_ma_dtLast=d_omega_ma_dt -           &
              coex * ( 2.d0*or1(1)*REAL(z_LMloc(l1m0,1)) - &
              REAL(dz_LMloc(l1m0,1)) )
      END IF
      IF ( ( .NOT. l_SRIC .AND. kbotv == 2 .AND. l_rot_ic ).AND.&
-          & (l1m0.ge.llm .and. l1m0.le.ulm) ) THEN
+          & (l1m0 >= llm .and. l1m0 <= ulm) ) THEN
         d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
         d_omega_ic_dtLast= d_omega_ic_dt +                      &
              coex * ( 2.D0*or1(n_r_max)*REAL(z_LMloc(l1m0,n_r_max)) - &

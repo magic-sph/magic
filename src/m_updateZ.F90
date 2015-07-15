@@ -395,7 +395,7 @@ CONTAINS
   !PERFON('upZ_drv')
   all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-  IF (all_lms.LT.omp_get_max_threads()) THEN
+  IF (all_lms < omp_get_max_threads()) THEN
      CALL omp_set_num_threads(all_lms)
      per_thread=1
   ELSE
@@ -421,7 +421,7 @@ CONTAINS
   DO iThread=0,nThreads-1
      start_lm = lmStart_real+iThread*per_thread
      stop_lm  = start_lm+per_thread-1
-     IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+     IF (iThread == nThreads-1) stop_lm=lmStop_real
      !WRITE(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
      !-- Get derivatives:
      CALL costf1(z, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
@@ -556,7 +556,7 @@ CONTAINS
 
   !IF (DEBUG_OUTPUT) THEN
   !   DO nR=1,n_r_max
-  !      IF ((nR.EQ.1).OR.(nR.EQ.5)) THEN
+  !      IF ((nR == 1).OR.(nR == 5)) THEN
   !         DO lm=llm,ulm
   !            WRITE(*,"(4X,A,2I3,4ES22.14)") "upZ_new: ",nR,lm,z(lm,nR),dz(lm,nR)
   !         END DO
@@ -582,7 +582,7 @@ CONTAINS
              &    ) * z(lm1,nR) &
              & )
 
-!        IF (nR.EQ.2) THEN
+!        IF (nR == 2) THEN
 !           WRITE(*,"(2I4,8ES20.12)") nR,lm1,workA(lm1,nR),Dif(lm1),z(lm1,nR),dz(lm1,nR)
 !        END IF
         dzdtLast(lm1,nR)=dzdt(lm1,nR)-coex*Dif(lm1)

@@ -142,7 +142,7 @@ CONTAINS
           CALL MPI_Type_commit(s_transfer_type_nr_end_cont(proc+1,i),ierr)
 
 #if 0
-          IF (i.EQ.3) THEN
+          IF (i == 3) THEN
              CALL MPI_type_get_extent(r_transfer_type_cont(proc+1,i),lb_marker,myextent,ierr)
              CALL MPI_type_get_true_extent(r_transfer_type_cont(proc+1,i),true_lb,true_extent,ierr)
              WRITE(*,"(2(A,I3),3(A,I10))") "r_transfer_type_cont(",proc+1,",",i,"): lb = ",lb_marker,&
@@ -200,7 +200,7 @@ CONTAINS
 
     ! allocate a temporary array for the gather operations.
     ALLOCATE(temp_r2lo(lm_max,nRstart:nRstop))
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE(temp_gather_lo(1:lm_max))
     ELSE
        allocate(temp_gather_lo(1))
@@ -274,8 +274,8 @@ CONTAINS
     COMPLEX(kind=8),DIMENSION(:,:),allocatable :: temp_lo
     INTEGER :: type_size,gather_tag,status(MPI_STATUS_SIZE)
 
-    IF (rank.EQ.0) ALLOCATE(temp_lo(1:lm_max,self%dim2))
-    IF (n_procs.EQ.1) THEN
+    IF (rank == 0) ALLOCATE(temp_lo(1:lm_max,self%dim2))
+    IF (n_procs == 1) THEN
        ! copy the data on rank 0
        DO nR=1,self%dim2
           temp_lo(llm:ulm,nR)=arr_lo(:,nR)
@@ -283,7 +283,7 @@ CONTAINS
     ELSE
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
        gather_tag=1990
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           DO irank=1,n_procs-1
              CALL MPI_Recv(temp_lo(lmStartB(irank+1),1),1,&
                   &self%gather_mpi_type(irank),irank,gather_tag,&
@@ -306,7 +306,7 @@ CONTAINS
        !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
     END IF
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ! reorder
        do nR=1,self%dim2
           DO l=0,l_max
@@ -375,7 +375,7 @@ CONTAINS
     CALL MPI_GatherV(arr_lo,sendcounts(rank),MPI_DOUBLE_COMPLEX,&
          &temp_gather_lo,sendcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ! reorder
        DO l=0,l_max
           DO m=0,l,minc
@@ -399,7 +399,7 @@ CONTAINS
        displs(irank) = lmStartB(irank+1)-1
     END DO
 
-    if (rank.eq.0) then
+    if (rank == 0) then
        ! reorder
        DO l=0,l_max
           DO m=0,l,minc
@@ -451,10 +451,10 @@ CONTAINS
 
     !PERFON('lm2r_st')
 
-    IF (rank.LT.n_procs-1) THEN
+    IF (rank < n_procs-1) THEN
        ! all the ranks from [0,n_procs-2]
        DO irank=0,n_procs-1
-          !IF (rank.EQ.irank) THEN
+          !IF (rank == irank) THEN
           ! just copy
           !   arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
           !ELSE
@@ -463,7 +463,7 @@ CONTAINS
           send_pe = MODULO(rank+irank,n_procs)
           recv_pe = MODULO(rank-irank+n_procs,n_procs)
           !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
-          IF (rank.EQ.send_pe) THEN
+          IF (rank == send_pe) THEN
              !PERFON('loc_copy')
              ! just copy
              DO i=1,self%count
@@ -472,7 +472,7 @@ CONTAINS
              !PERFOFF
           ELSE
              !PERFON('irecv')
-             !IF (recv_pe.EQ.n_procs-1) THEN
+             !IF (recv_pe == n_procs-1) THEN
              !   CALL MPI_Irecv(arr_Rloc(lmStartB(recv_pe+1),nRstart,1),&
              !        & 1,s_transfer_type_cont(n_procs,self%count),recv_pe,transfer_tag,&
              !        &MPI_COMM_WORLD,self%r_request(irank),ierr)
@@ -483,7 +483,7 @@ CONTAINS
              !END IF
              !PERFOFF
              !PERFON('isend')
-             IF (send_pe.EQ.n_procs-1) THEN
+             IF (send_pe == n_procs-1) THEN
                 CALL MPI_Isend(arr_LMloc(llm,1+nr_per_rank*send_pe,1),&
                      & 1,r_transfer_type_nr_end_cont(rank+1,self%count),send_pe,transfer_tag,&
                      &MPI_COMM_WORLD,self%s_request(irank),ierr)
@@ -506,7 +506,7 @@ CONTAINS
        !CALL mpi_waitall(2*n_procs,final_wait_array,array_of_statuses,ierr)
        !PRINT*,"Nonblocking communication 1 is done."
     ELSE
-       ! rank .eq. n_procs-1
+       ! rank  ==  n_procs-1
        ! all receives are with the s_transfer_type_nr_end
        ! all sends are done with r_transfer_type_lm_end
        DO irank=0,n_procs-1
@@ -515,7 +515,7 @@ CONTAINS
           send_pe = MODULO(rank+irank,n_procs)
           recv_pe = MODULO(rank-irank+n_procs,n_procs)
           !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
-          if (rank.eq.send_pe) then
+          if (rank == send_pe) then
              !PERFON('loc_copy')
              ! just copy
              DO i=1,self%count
@@ -613,10 +613,10 @@ CONTAINS
 
     !WRITE(*,"(A)") "----------- start r2lm_redist -------------"
     !PERFON('r2lm_dst')
-    IF (rank.LT.n_procs-1) THEN
+    IF (rank < n_procs-1) THEN
        ! all the ranks from [0,n_procs-2]
        DO irank=0,n_procs-1
-          !IF (rank.EQ.irank) THEN
+          !IF (rank == irank) THEN
           ! just copy
           !   arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
           !ELSE
@@ -624,14 +624,14 @@ CONTAINS
           ! recv_pe: receive from this rank
           send_pe = MODULO(rank+irank,n_procs)
           recv_pe = MODULO(rank-irank+n_procs,n_procs)
-          IF (rank.EQ.send_pe) THEN
+          IF (rank == send_pe) THEN
              arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
           ELSE
              CALL MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart),&
                   & 1,s_transfer_type(send_pe+1),send_pe,transfer_tag,&
                   &MPI_COMM_WORLD,s_request(irank),ierr)
              !WRITE(*,"(2(A,I3))") "Sending s_transfer_type(",send_pe+1,") to pe ",send_pe
-             IF (recv_pe.EQ.n_procs-1) THEN
+             IF (recv_pe == n_procs-1) THEN
                 CALL MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe),&
                      & 1,r_transfer_type_nr_end(rank+1),recv_pe,transfer_tag,&
                      &MPI_COMM_WORLD,r_request(irank),ierr)
@@ -657,7 +657,7 @@ CONTAINS
        yetComplete=.FALSE.
        completeCounter=0
        i=1
-       DO WHILE (completeCounter.LT.2*(n_procs-1))
+       DO WHILE (completeCounter < 2*(n_procs-1))
           IF (.NOT.yetComplete(i)) CALL mpi_test(final_wait_array(i),flag,status,ierr)
           IF (flag) THEN
              yetComplete(i)=.true.
@@ -671,7 +671,7 @@ CONTAINS
        IF (ierr.NE.MPI_SUCCESS) WRITE(*,"(A)") "Error with nonblocking comm. 1"
        !PRINT*,"Nonblocking communication 1 is done."
     ELSE
-       ! rank .eq. n_procs-1
+       ! rank  ==  n_procs-1
        ! all receives are with the r_transfer_type_lm_end
        ! all sends are done with s_transfer_type_nr_end
        DO irank=0,n_procs-1
@@ -680,7 +680,7 @@ CONTAINS
           send_pe = MODULO(rank+irank,n_procs)
           recv_pe = MODULO(rank-irank+n_procs,n_procs)
           !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
-          IF (rank.EQ.send_pe) THEN
+          IF (rank == send_pe) THEN
              ! just copy
              arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
           ELSE
@@ -744,7 +744,7 @@ CONTAINS
     ! Local variables
     INTEGER :: nR,l,m
 
-    IF (n_procs.GT.1) THEN
+    IF (n_procs > 1) THEN
        PRINT*,"lm2lo not yet parallelized"
        stop
     END IF
@@ -766,7 +766,7 @@ CONTAINS
     ! Local variables
     INTEGER :: nR,l,m
 
-    IF (n_procs.GT.1) THEN
+    IF (n_procs > 1) THEN
        PRINT*,"lo2lm not yet parallelized"
        stop
     END IF

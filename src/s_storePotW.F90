@@ -83,7 +83,7 @@
     ! now gather the fields on rank 0 and write them to file
     ! it would be nicer to write the fields with MPI IO in parallel
     ! but then presumably the file format will change
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE(workA_global(1:lm_max,1:n_cheb_max))
        ALLOCATE(workB_global(1:lm_max,1:n_cheb_max))
 #ifdef WITH_DEBUG
@@ -99,7 +99,7 @@
     END DO
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !--- Write:
        IF ( nPotSets == 0 ) THEN ! nPotSets=-1 on call
           fileName=root(1:lengthR)//'.'//tag
@@ -163,7 +163,7 @@
            CALL gather_from_lo_to_rank0(workB(llm,n_cheb),workB_global(1,n_cheb))
         END DO
 
-        IF (rank.EQ.0) THEN
+        IF (rank == 0) THEN
            WRITE(*,*) 'WRITING IC DATA INTO FILE:',fileName
 
            WRITE(99) SNGL(time), &
@@ -178,7 +178,7 @@
 
     CLOSE(99)
 
-    if (rank.eq.0) DEALLOCATE(workA_global,workB_global)
+    if (rank == 0) DEALLOCATE(workA_global,workB_global)
 
     RETURN
     end SUBROUTINE storePotW

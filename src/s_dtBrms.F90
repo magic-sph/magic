@@ -85,17 +85,17 @@ SUBROUTINE dtBrms(time)
   ! dtBPol2hInt and dtBPolAs2hInt must be added over all ranks.
   CALL mpi_reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  if (rank.eq.0) dtBPol2hInt(:,1)=global_sum
+  if (rank == 0) dtBPol2hInt(:,1)=global_sum
   CALL mpi_reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  if (rank.eq.0) dtBPolAs2hInt(:,1)=global_sum
+  if (rank == 0) dtBPolAs2hInt(:,1)=global_sum
 
   !DO nR=1,n_r_max
   !   WRITE(*,"(I3,ES20.12)") nR,dtBTor2hInt(nR,1)
   !END DO
   CALL mpi_reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      dtBTor2hInt(:,1)=global_sum
      !   DO nR=1,n_r_max
      !      WRITE(*,"(A,I3,ES20.12)") "global_sum = ",nR,global_sum(nR)
@@ -109,7 +109,7 @@ SUBROUTINE dtBrms(time)
   !     & dtBPolLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
 
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      !WRITE(*,"(A,ES20.13)") "dtBPol2hInt = ",SUM( dtBPol2hInt(:,1) )
      l1m0=lm2(1,0)
 

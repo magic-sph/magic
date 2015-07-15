@@ -239,7 +239,7 @@ SUBROUTINE get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
         DO j=1,2*n_r_max
            linesum = linesum + ABS(temp_wpMat(i,j))
         END DO
-        IF (linesum .GT. anorm) anorm=linesum
+        IF (linesum  >  anorm) anorm=linesum
      END DO
      WRITE(*,"(A,ES20.12)") "anorm = ",anorm
      ! LU factorization

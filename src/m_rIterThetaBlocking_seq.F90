@@ -83,7 +83,7 @@ CONTAINS
 
     this%nR=nR
     this%nBc=nBc
-    this%isRadialBoundaryPoint=(nR.EQ.n_r_cmb).OR.(nR.EQ.n_r_icb)
+    this%isRadialBoundaryPoint=(nR == n_r_cmb).OR.(nR == n_r_icb)
 
     IF ( this%l_cour ) THEN
        this%dtrkc=1.D10
@@ -165,11 +165,11 @@ CONTAINS
        !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
        !     These products are used in get_b_nl_bcs.
        PERFON('nl_cmb')
-       IF ( this%nR.EQ.n_r_cmb .AND. l_b_nl_cmb ) THEN
+       IF ( this%nR == n_r_cmb .AND. l_b_nl_cmb ) THEN
           CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc,this%leg_helper%omegaMA,              &
                &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
                &            br_vt_lm_cmb,br_vp_lm_cmb)
-       ELSE IF ( this%nR.EQ.n_r_icb .AND. l_b_nl_icb ) THEN
+       ELSE IF ( this%nR == n_r_icb .AND. l_b_nl_icb ) THEN
           CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc,this%leg_helper%omegaIC,              &
                &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
                &            br_vt_lm_icb,br_vp_lm_icb)
@@ -179,7 +179,7 @@ CONTAINS
        !          each call adds the contribution of the theta-block to
        !          lorentz_torque_ic
        PERFON('lorentz')
-       IF ( this%nR.EQ.n_r_icb .AND. l_mag_LF .AND. l_rot_ic .AND. l_cond_ic  ) &
+       IF ( this%nR == n_r_icb .AND. l_mag_LF .AND. l_rot_ic .AND. l_cond_ic  ) &
             & CALL get_lorentz_torque(lorentz_torque_ic,         &
             &                         nThetaStart,this%sizeThetaB,         &
             &                         this%gsa%brc,this%gsa%bpc,this%nR)
@@ -187,7 +187,7 @@ CONTAINS
        !--------- Calculate Lorentz torque on mantle:
        !          note: this calculates a torque of a wrong sign.
        !          sign is reversed at the end of the theta blocking.
-       IF ( this%nR.EQ.n_r_cmb .AND. l_mag_LF .AND. l_rot_ma .AND. l_cond_ma ) &
+       IF ( this%nR == n_r_cmb .AND. l_mag_LF .AND. l_rot_ma .AND. l_cond_ma ) &
             & CALL get_lorentz_torque(lorentz_torque_ma,          &
             &                         nThetaStart,this%sizeThetaB,          &
             &                         this%gsa%brc,this%gsa%bpc,this%nR)

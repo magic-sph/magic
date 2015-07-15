@@ -92,7 +92,7 @@ SUBROUTINE get_fl(fl,n_r,n_theta_start,n_theta_block,l_ic)
               fl_1=r_dep(l) * &
                    REAL(b_ic(lm,n_r))*dPlm(lm,n_theta_nhs)
            ELSE
-              !                   IF ( lGrenoble .AND. l.EQ.1 ) THEN
+              !                   IF ( lGrenoble .AND. l == 1 ) THEN
               !                       fl_1=r_dep(l) * dPlm(lm,n_theta_nhs) *
               !     *                       (REAL(b(lm,n_r_icb))+b0(n_r_icb))
               !                   ELSE
@@ -100,7 +100,7 @@ SUBROUTINE get_fl(fl,n_r,n_theta_start,n_theta_block,l_ic)
               !                    END IF
            END IF
         ELSE             ! Outer Core
-           !                 IF ( lGrenoble .AND. l.EQ.1 ) THEN
+           !                 IF ( lGrenoble .AND. l == 1 ) THEN
            !                   fl_1=O_r*dPlm(lm,n_theta_nhs) *
            !     *                       (REAL(b(lm,n_r))+b0(n_r))
            !                ELSE

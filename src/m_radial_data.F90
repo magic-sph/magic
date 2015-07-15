@@ -22,7 +22,7 @@ CONTAINS
     nRstart = n_r_cmb + rank*nR_per_rank
     nRstop  = n_r_cmb + (rank+1)*nR_per_rank - 1
 
-    IF (rank.EQ.n_procs-1) THEN
+    IF (rank == n_procs-1) THEN
        ! add the last point to the last process, which now has nR_per_rank+1
        ! radial points
        nRstop = nRstop+1

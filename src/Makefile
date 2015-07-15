@@ -12,6 +12,9 @@ USE_MPI=yes
 USE_FFTLIB=JW
 USE_MKL=no
 
+#Use hdf5 for input/output of the restart files
+USE_HDF5=no
+
 # preconditioning of the matrices
 # switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
 # WITH_PRECOND_Z
@@ -54,6 +57,10 @@ ifeq ($(COMPILER),intel)
                          -lmkl_lapack95_lp64\
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
+
+	FFLAG_HDF5_LIBS = -L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5 \
+                          -Wl,-rpath,$(HDF5_HOME)/lib
+
 endif
 ifeq ($(COMPILER),gnu)
 	FFLAGS = -m64
@@ -143,6 +150,12 @@ ifeq ($(USE_MKL),yes)
 	LIBS += $(FFLAG_MKL_LIBS)
 endif
 
+ifeq ($(USE_HDF5), yes)
+	PREPROC += -DWITH_HDF5
+	INCPATHS += -I$(HDF5_HOME)/include
+	LIBS += $(FFLAG_HDF5_LIBS)
+endif
+
 #FFLAGS += -heap-arrays 1024
 FFLAGS += $(FFLAG_STD)
 FFLAGS += -g $(FFLAG_TRACEBACK)
@@ -198,6 +211,10 @@ endif
 
 ifeq ($(USE_MPI),yes)
 	RED_SOURCES += s_graphOut_mpi.F90 m_store_mpi.F90
+endif
+
+ifeq ($(USE_HDF5),yes)
+	RED_SOURCES += m_hdf5Helpers.F90
 endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
@@ -277,9 +294,11 @@ s_store_movie_frame.o   : truncation.o m_output_data.o m_blocking.o\
                           s_get_sl.o m_output_data.o m_movie.o\
                           m_horizontal.o \
                           m_output_data.o m_movie.o m_horizontal.o
-s_store.o               : truncation.o m_blocking.o m_phys_param.o\
-                          m_num_param.o m_radial.o m_logic.o m_output_data.o\
-                          m_init_fields.o m_dt_fieldsLast.o 
+m_storeCheckPoints.o    : truncation.o m_phys_param.o m_num_param.o m_logic.o\
+                          m_output_data.o m_init_fields.o m_dt_fieldsLast.o 
+ifeq ($(USE_HDF5),yes)
+m_storeCheckPoints.o    : m_hdf5Helpers.o
+endif
 m_updateS.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_radial.o m_logic.o m_output_data.o\
                           m_init_fields.o m_const.o m_mat.o s_get_dr.o\
@@ -400,7 +419,7 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_spectrum_average.o m_spectrumC_average.o\
                           m_fields_average.o m_power.o m_getDlm.o\
                           s_get_u_square.o s_safeOut.o m_outTO.o s_outMisc.o\
-                          s_dtVrms.o s_zeroRms.o m_char_manip.o s_store.o\
+                          s_dtVrms.o s_zeroRms.o m_char_manip.o m_storeCheckPoints.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
 			  m_communications.o m_write_special.o m_outPar.o\
                           m_outPerpPar.o

@@ -141,7 +141,7 @@ SUBROUTINE get_zMat(dt,l,hdif,zMat,zPivot)
         DO j=1,n_r_max
            linesum = linesum + ABS(temp_Mat(i,j))
         END DO
-        IF (linesum .GT. anorm) anorm=linesum
+        IF (linesum  >  anorm) anorm=linesum
      END DO
      !WRITE(*,"(A,ES20.12)") "anorm = ",anorm
      ! LU factorization

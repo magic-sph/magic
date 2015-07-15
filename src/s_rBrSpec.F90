@@ -66,7 +66,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
            m=map%lm2m(lm)
            amp=REAL(Pol(lm,n_r))
            e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
-           !IF (l.EQ.4) WRITE(*,"(A,4I4,2ES20.12,I5,F22.18)") "e_p_temp: ",n_r,lm,l,m,Pol(lm,n_r),&
+           !IF (l == 4) WRITE(*,"(A,4I4,2ES20.12,I5,F22.18)") "e_p_temp: ",n_r,lm,l,m,Pol(lm,n_r),&
            !     & EXPONENT(e_p_temp),FRACTION(e_p_temp)
            IF ( m == 0 ) THEN
               IF ( ABS(amp)/=0.d0 ) THEN

@@ -112,7 +112,7 @@ contains
           T_r_l(n_r,lc) =T_r_l(n_r,lc) +  T_temp
 #endif
 
-          IF ( n_r.EQ.n_r_icb ) THEN
+          IF ( n_r == n_r_icb ) THEN
              dT_temp=DSQRT(cc2real(ds(lm,n_r),m))/or2(n_r)
              T_ICB_l(lc) =  T_ICB_l(lc) +  T_temp
              dT_ICB_l(lc)= dT_ICB_l(lc) + dT_temp
@@ -128,7 +128,7 @@ contains
     CALL MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,&
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Radial Integrals:
        surf_ICB=4.D0*pi*r_icb*r_icb
        fac      =1.D0/vol_oc
@@ -141,7 +141,7 @@ contains
        END DO
 
        !-- Averaging:
-       IF ( n_time_ave.EQ.1 ) THEN
+       IF ( n_time_ave == 1 ) THEN
           DO l=1,l_max+1
              T_ave(l)     =time_passed*T_l(l)
              T_ICB_ave(l) =time_passed*T_ICB_l(l)

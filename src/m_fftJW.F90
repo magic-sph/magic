@@ -245,7 +245,7 @@ END MODULE fft_JW
     !               containing a sequence of gridpoint values x(j) as
     !               defined above, then the result consists of n_theta_max vectors
     !               each containing the corresponding fourier cofficients
-    !               a(k), b(k), 0 .le. k .le n/2.
+    !               a(k), b(k), 0  <=  k .le n/2.
 
     !               when isign = -1, the inverse transform is defined by
     !                 c(k)=(1/n)*sum(j=0,...,n-1)(x(j)*exp(-2*i*j*k*pi/n))

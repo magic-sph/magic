@@ -51,7 +51,8 @@ MODULE output_mod
   USE write_special,only: write_Bcmb, write_coeff_r
   USE getDlm_mod,only: getDlm
   USE movie_data,only: movie_gather_frames_to_rank0
-  use store_rst
+  USE storeCheckPoints
+
   IMPLICIT NONE
 
   PRIVATE
@@ -355,8 +356,8 @@ contains
        IF ( l_power ) THEN
 
           PERFON('out_pwr')
-          IF (rank.EQ.0) THEN
-             IF ( nLogs.GT.1 ) THEN
+          IF (rank == 0) THEN
+             IF ( nLogs > 1 ) THEN
                 filename='dtE.'//tag
                 OPEN(99,file=filename,status='unknown',                &
                      &                POSITION='APPEND')
@@ -470,7 +471,7 @@ contains
     END IF
 
 
-    IF ( l_RMS .AND. n_time_step.EQ.1 ) CALL zeroRms
+    IF ( l_RMS .AND. n_time_step == 1 ) CALL zeroRms
     IF ( lRmsCalc ) THEN
        IF ( lVerbose ) WRITE(*,*) '! Writing RMS output !'
        CALL dtVrms(time,nRMS_sets)
@@ -560,7 +561,7 @@ contains
        PERFOFF
 
        IF (DEBUG_OUTPUT) THEN
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              WRITE(*,"(A,8ES22.14)") "output: w,z,p,s = ",SUM( w ),SUM( z ),SUM( p ),SUM( s )
           END IF
        END IF
@@ -587,16 +588,16 @@ contains
     ! =======================================================================
     ! ======= compute output on rank 0 ==============
     ! =======================================================================
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        PERFON('out_out')
 
        !----- Plot out inner core magnetic field, outer core
        !      field has been written in radialLoop !
-       IF ( l_graph .AND. l_mag .AND. n_r_ic_max.GT.0 )                &
+       IF ( l_graph .AND. l_mag .AND. n_r_ic_max > 0 )                &
             &     CALL graphOut_IC(ngform,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
 
        !--- Write spectra output that has partially been calculated in LMLoop
-       IF ( l_rMagSpec .AND. n_time_step.GT.1 ) THEN
+       IF ( l_rMagSpec .AND. n_time_step > 1 ) THEN
           IF ( l_frame ) THEN
              CALL rBrSpec(time,b, b_ic ,'rBrSpecMov',.TRUE.,st_map)
              CALL rBpSpec(time,aj,aj_ic,'rBpSpecMov',.TRUE.,st_map)
@@ -719,7 +720,7 @@ contains
           END IF
           !WRITE(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
 
-          IF ( prmag.NE.0 .AND. nVarCond.GT.0 ) THEN
+          IF ( prmag.NE.0 .AND. nVarCond > 0 ) THEN
              Rm=0.d0
              Rm=rInt_R(RmR,n_r_max,n_r_max,drx, &
                   &    i_costf_init,d_costf_init)
@@ -889,6 +890,16 @@ contains
        !#undef WITH_MPI
        IF ( l_store ) THEN
           PERFON('out_rst')
+#ifdef WITH_HDF5
+          IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
+             rst_file="h5_rst_end."//tag_wo_rank
+          ELSE IF ( l_new_rst_file ) THEN
+             CALL dble2str(time,string)
+             rst_file='h5_rst_t='//TRIM(string)//'.'//tag_wo_rank
+          END IF
+          
+          CALL storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
+#else
           IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
              rst_file="rst_end."//tag_wo_rank
           ELSE IF ( l_new_rst_file ) THEN
@@ -902,9 +913,9 @@ contains
           !CALL store_mpi(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
           !CALL MPI_File_close(rst_mpi_fh,ierr)
           OPEN(n_rst_file, FILE=rst_file, STATUS='UNKNOWN', FORM='UNFORMATTED')
-          
           CALL store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
           CLOSE(n_rst_file)
+#endif
 
           WRITE(*,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)')&
                " ! Storing restart file:",&

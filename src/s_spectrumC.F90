@@ -119,7 +119,7 @@
     CALL MPI_Reduce(dT_ICB_m,dT_ICB_m_global,l_max+1,&
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Radial Integrals:
        surf_ICB=4.D0*pi*r_icb*r_icb
        fac      =1.D0/vol_oc

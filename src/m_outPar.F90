@@ -121,7 +121,7 @@ contains
             m=lm2m(lm)
             sR2(nR)=sR2(nR)+cc2real(s_Rloc(lm,nR),m)
           END DO
-          IF ( nLogs .LE. 1) THEN
+          IF ( nLogs  <=  1) THEN
              Mvar(nR)=sR(nR)
              Svar(nR)=sR2(nR)-sR(nR)**2
           ELSE
@@ -249,7 +249,7 @@ contains
      END IF
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        DO nR=1,n_r_max
           ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
           RoR(nR)=ReR(nR)*ek

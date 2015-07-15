@@ -243,7 +243,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
      end if
   end do
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      !-- Save CMB energy spectra:
      O_surface=1.d0/(4.d0*pi*r(1)*r(1))
 
@@ -384,7 +384,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
           &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         !----- Radial Integrals:
         fac_mag=LFfac*eScale/2.D0
         DO l=1,l_max
@@ -411,7 +411,7 @@ SUBROUTINE spectrum(time,n_spec,w,dw,z, &
      END DO
   END IF  ! conducting inner core ?
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      !-- Output into files:
      IF ( l_mag ) THEN
         WRITE(string, *) n_spec

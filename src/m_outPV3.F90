@@ -127,7 +127,7 @@ contains
 
     nSmax=n_r_max+INT(r_ICB*DBLE(n_r_max))
     nSmax=INT(sDens*nSmax)
-    IF ( nSmax.GT.nSmaxA ) THEN
+    IF ( nSmax > nSmaxA ) THEN
        WRITE(*,*) 'Increase nSmaxA in outPV!'
        WRITE(*,*) 'Should be at least nSmax=',nSmax
        WRITE(*,*) 'But is only=',nSmaxA
@@ -160,7 +160,7 @@ contains
     DO nR=1,n_r_max
        DO lm=1,lm_max
           m=lm2m(lm)
-          !           IF ( m.EQ.0 ) THEN
+          !           IF ( m == 0 ) THEN
           !             wP(lm,nR)  =0.D0
           !              dwP(lm,nR) =0.D0
           !              ddwP(lm,nR)=0.D0
@@ -192,7 +192,7 @@ contains
     nSI=0                  ! Inner core position
     DO nS=1,nSmax
        sZ(nS)=(nS-0.5D0)*dsZ
-       IF ( sZ(nS).LT.r_ICB .AND. nS.GT.nSI ) nSI=nS
+       IF ( sZ(nS) < r_ICB .AND. nS > nSI ) nSI=nS
     END DO
     zstep=2*r_CMB/DBLE(nZmax-1)
     DO nZ=1,nZmax
@@ -226,14 +226,14 @@ contains
     DO nS=1,nSmax
 
        !------ Get r,theta,Plm,dPlm for northern hemishere:
-       IF ( nPVsets.EQ.1 ) THEN ! DO this only for the first call !
+       IF ( nPVsets == 1 ) THEN ! DO this only for the first call !
           nZC(nS)=0 ! Points within shell
           DO nZ=1,nZmax
              rZS=DSQRT(zZ(nZ)**2+sZ(nS)**2)
-             IF ( rZS.GE.r_ICB .AND. rZS.LE.r_CMB ) THEN
+             IF ( rZS >= r_ICB .AND. rZS <= r_CMB ) THEN
                 nZC(nS)=nZC(nS)+1  ! Counts all z within shell
                 nZ2(nZ,nS)=nZC(nS) ! No of point within shell
-                IF ( zZ(nZ).GT.0 ) THEN ! Onl north hemisphere
+                IF ( zZ(nZ) > 0 ) THEN ! Onl north hemisphere
                    rZ(nZC(nS),nS)=rZS
                    thetaZ=DATAN2(sZ(nS),zZ(nZ))
                    OsinTS(nZC(nS),nS)=1.D0/DSIN(thetaZ)
@@ -259,10 +259,10 @@ contains
           DO nZ=1,nZmax
              rZS=DSQRT(zZ(nZ)**2+sZ(nS)**2)
              nZS=nZ2(nZ,nS)
-             IF ( nZS.GT.0 ) THEN
+             IF ( nZS > 0 ) THEN
                 omS(nZ)=VpAS(nZS)/sZ(nS)
              ELSE
-                IF ( rZS.LE.r_ICB ) THEN
+                IF ( rZS <= r_ICB ) THEN
                    omS(nZ)=1.D0
                 ELSE
                    omS(nZ)=fac*omega_MA

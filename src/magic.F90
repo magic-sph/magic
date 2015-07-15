@@ -92,12 +92,12 @@
 
 ! *** magneto-convection
 !     amp_b1 = max amplitude of imposed magnetic field
-!     if imagcon .eq. 1, imposed toroidal field via inner bc on J(l=2,m=0)
-!     if imagcon .eq.10, imposed tor. field on both icb and cmb J(l=2,m=0)
-!     if imagcon .eq.11, imposed tor. field on both icb and cmb J(l=2,m=0)
+!     if imagcon  ==  1, imposed toroidal field via inner bc on J(l=2,m=0)
+!     if imagcon  == 10, imposed tor. field on both icb and cmb J(l=2,m=0)
+!     if imagcon  == 11, imposed tor. field on both icb and cmb J(l=2,m=0)
 !                        opposite sign
-!     if imagcon .eq.12, imposed tor. field on both icb and cmb J(l=1,m=0)
-!     if imagcon .lt. 0, imposed poloidal field via inner bc on B(l=1,m=0)
+!     if imagcon  == 12, imposed tor. field on both icb and cmb J(l=1,m=0)
+!     if imagcon  <  0, imposed poloidal field via inner bc on B(l=1,m=0)
 
 
 !     if l_start_file=.true. initial fields are read from file $start_file$
@@ -176,7 +176,7 @@
 #ifdef WITHOMP
     required_level=MPI_THREAD_MULTIPLE
     CALL mpi_init_thread(required_level,provided_level,ierr)
-    If (provided_level.LT.required_level) THEN
+    If (provided_level < required_level) THEN
        PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
        stop
     END IF
@@ -191,7 +191,7 @@
     CALL parallel
 
 !--- Read starting time
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
        !CALL get_resetTime(resetTime)
         CALL wallTime(runTimeStart)
         WRITE(*,*)
@@ -249,7 +249,7 @@
 !--- Do pre-calculations:
     !CALL getBlocking
     CALL preCalc
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')
@@ -266,7 +266,7 @@
     CALL preCalcTimes(time,n_time_step)
 
 !--- Write info to STDOUT and log-file:
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
         CALL writeInfo(6)
         CALL writeInfo(n_log_file)
     END IF
@@ -277,7 +277,7 @@
 !--- AND NOW FOR THE TIME INTEGRATION:
 
 !--- Write starting time to SDTOUT and logfile:
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')
@@ -301,7 +301,7 @@
     CALL step_time(time,dt,dtNew,n_time_step)
     PERFOFF
 !--- Write stop time to SDTOUR and logfile:
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
                  POSITION='APPEND')

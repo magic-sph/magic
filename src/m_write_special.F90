@@ -222,11 +222,11 @@ CONTAINS
          l_max_r-m_max_r+1
     n_data=2*lm_max_r-l_max_r-2
     !--- JW 10.Apr.2014: corrected dimension check for different output:
-    IF ( nVBS.EQ.1 ) THEN
+    IF ( nVBS == 1 ) THEN
        ALLOCATE(out(3*n_data))
-    ELSE IF ( nVBS.EQ.2 ) THEN
+    ELSE IF ( nVBS == 2 ) THEN
        ALLOCATE(out(4*n_data))
-    ELSE IF ( nVBS.EQ.3 ) THEN
+    ELSE IF ( nVBS == 3 ) THEN
        ALLOCATE(out(n_data+1))
     END IF
 
@@ -248,7 +248,7 @@ CONTAINS
 
     n_out=0
 
-    IF ( nVBS.EQ.3 ) THEN
+    IF ( nVBS == 3 ) THEN
 
        !--- Axisymmetric part of s: (m=0) only real part stored
        DO l=0,l_max ! start with l=0
@@ -338,7 +338,7 @@ CONTAINS
     !--- If this is a magnetic field I also store the second radial derivative
     !    of the poloidal potential to caluclate diffusion:
 
-    IF ( nVBS.EQ.2 ) THEN
+    IF ( nVBS == 2 ) THEN
 
        !--- Axisymmetric part of ddw: (m=0) only real part stored
        DO l=1,l_max

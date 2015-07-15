@@ -293,7 +293,7 @@ contains
     !PERFON('upWP_drv')
     all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-    IF (all_lms.LT.omp_get_max_threads()) THEN
+    IF (all_lms < omp_get_max_threads()) THEN
        call omp_set_num_threads(all_lms)
     END IF
 #endif
@@ -316,7 +316,7 @@ contains
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
        !WRITE(*,"(2(A,I3),2(A,I5))") "iThread=",iThread," on thread ",omp_get_thread_num(),&
        !     & " lm = ",start_lm,":",stop_lm
 

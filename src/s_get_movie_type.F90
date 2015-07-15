@@ -331,7 +331,7 @@ SUBROUTINE get_movie_type
 
      string=movie(i)
 
-     IF ( LEN(TRIM(string)) .EQ. 0 ) CYCLE !blank string
+     IF ( LEN(TRIM(string))  ==  0 ) CYCLE !blank string
 
      !--- Delete blanks, they are not interpreted
      call delete_string(string,' ',length)
@@ -1177,7 +1177,7 @@ SUBROUTINE get_movie_type
 
      !--- Write info about output files into log-file:
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         IF ( l_save_out ) THEN
            OPEN(n_log_file,file=log_file,status='unknown', &
                 POSITION='APPEND')

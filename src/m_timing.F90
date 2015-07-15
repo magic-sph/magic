@@ -194,7 +194,7 @@ contains
 
     tms=time2ms(time)
     IF ( n==0 ) THEN
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           WRITE(*,*) '! Error in meanTime !'
           WRITE(*,*) '! Cant build mean for zero steps!'
        END IF
@@ -249,7 +249,7 @@ contains
     hoursDay=24
     days=time(1)/hoursDay
     timeH=time(1)-days*hoursDay
-    IF (nOut.EQ.6) THEN
+    IF (nOut == 6) THEN
        WRITE(*,'(/,1X,2A,I4,A,I2,A,I2,A,I2,A,I3,A)')    &
             &     text," ",days,"d : ",timeH,"h : ",time(2), &
             &       "m : ",time(3),"s : ",time(4),"ms"

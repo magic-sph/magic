@@ -147,7 +147,7 @@ contains
     CALL gather_all_from_lo_to_rank0(gt_OC,z,zS)
     CALL gather_all_from_lo_to_rank0(gt_OC,dz,dzS)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        lCorrel=.TRUE. ! Calculate Vz and Vorz north/south correlation
 
        phiNorm=2.D0*pi/n_phi_max
@@ -160,7 +160,7 @@ contains
        nSmax=n_r_max+INT(r_ICB*DBLE(n_r_max)) 
        nSmax=INT(sDens*nSmax)
        dsZ  =r_CMB/DBLE(nSmax)  ! Step in s controlled by nSmax
-       IF ( nSmax.GT.nSmaxA ) THEN
+       IF ( nSmax > nSmaxA ) THEN
           WRITE(*,*) 'Increase nSmaxA in getGeos!'
           WRITE(*,*) 'Should be at least nSmax=',nSmax
           STOP
@@ -218,14 +218,14 @@ contains
 
        DO nS=1,nSmax
           sZ(nS)=(nS-0.5D0)*dsZ
-          IF ( sZ(nS).LT.r_ICB ) THEN
+          IF ( sZ(nS) < r_ICB ) THEN
              lTC=.TRUE.
           ELSE
              lTC=.FALSE.
           END IF
-          IF ( nS.GT.1 ) THEN
-             IF ( sZ(nS-1).LT.r_ICB .AND.                              &
-                  &             sZ(ns).GE.r_ICB ) nS_ICB=nS
+          IF ( nS > 1 ) THEN
+             IF ( sZ(nS-1) < r_ICB .AND.                              &
+                  &             sZ(ns) >= r_ICB ) nS_ICB=nS
           END IF
 
           !------ Get integral boundaries for this s:
@@ -236,7 +236,7 @@ contains
              zMax=-zMin
           ENDIF
 
-          IF ( nGeosSets.EQ.1 ) THEN
+          IF ( nGeosSets == 1 ) THEN
              !------ Initialize integration for NHS:
              !       Each processor calculates Cheb transform data 
              !       for HIS nS and the Plms along the Cylinder
@@ -255,7 +255,7 @@ contains
                 ! all together nZmaxS(nS) from
                 ! south to north including equator
              END IF
-             IF ( 2*nZmax.GT.nZmaxA ) THEN ! TC case most critical
+             IF ( 2*nZmax > nZmaxA ) THEN ! TC case most critical
                 WRITE(*,*) '! nZmaxA too small in getEgeos!'
                 WRITE(*,*) '! Should be at least:',2*nZmax
                 lStopRun=.TRUE.
@@ -309,7 +309,7 @@ contains
                 nInts=1
              END IF
              DO nInt=1,nInts
-                IF ( nInt.EQ.1 ) THEN
+                IF ( nInt == 1 ) THEN
                    DO nZ=1,nZmax ! Copy on simpler array
                       VrInt(nZ)=orhoZ(nZ,nS)*VrS(nPhi,nZ)
                       VtInt(nZ)=orhoZ(nZ,nS)*VtS(nPhi,nZ)
@@ -317,7 +317,7 @@ contains
                       EkInt(nZ)=                                       &
                            &               (VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
                    END DO
-                ELSE IF ( nInt.EQ.2 ) THEN
+                ELSE IF ( nInt == 2 ) THEN
                    help=zMax
                    zMax=-zMin
                    zMin=-help
@@ -346,10 +346,10 @@ contains
                      &                  0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *          &
                      &                          (VrIntS**2+VtIntS**2+VpIntS**2)
                 IF ( lTC ) THEN
-                   IF ( nInt.EQ.1 ) THEN
+                   IF ( nInt == 1 ) THEN
                       EkSTC_s(nS)=EkSTC_s(nS) +                        &
                            &                 0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
-                   ELSE IF ( nInt.EQ.2 ) THEN
+                   ELSE IF ( nInt == 2 ) THEN
                       EkNTC_s(nS)=EkNTC_s(nS) +                        &
                            &                 0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                    END IF
@@ -431,7 +431,7 @@ contains
                 nInts=1
              END IF
              DO nInt=1,nInts
-                IF ( nInt.EQ.2 ) THEN
+                IF ( nInt == 2 ) THEN
                    help=zMax
                    zMax=-zMin
                    zMin=-help
@@ -459,7 +459,7 @@ contains
        CHelOTC=0.D0
        DO nS=1,nSmax
           Egeos=Egeos+Egeos_s(nS)
-          IF ( sZ(ns).LT.r_ICB ) THEN
+          IF ( sZ(ns) < r_ICB ) THEN
              EkSTC=EkSTC+EkSTC_s(nS)
              EkNTC=EkNTC+EkNTC_s(nS)
           ELSE
@@ -474,7 +474,7 @@ contains
        IF ( lCorrel ) THEN
           surf=0.D0
           DO nS=1,nSmax
-             IF ( sZ(nS).GE.r_ICB ) surf=surf+sZ(nS)*dsZ
+             IF ( sZ(nS) >= r_ICB ) surf=surf+sZ(nS)*dsZ
           END DO
           surf   =2.D0*pi*surf
           CVzOTC =CVzOTC/surf
@@ -504,8 +504,8 @@ contains
           !--- Determine s used for correl
           n=0
           DO nS=1,nSmax
-             IF ( sZ(nS).GE.r_ICB+0.1 .AND.                            &
-                  &             sZ(nS).LE.r_CMB-0.1 ) THEN
+             IF ( sZ(nS) >= r_ICB+0.1 .AND.                            &
+                  &             sZ(nS) <= r_CMB-0.1 ) THEN
                 n=n+1
              ELSE 
                 DO nPhi=1,n_phi_max
@@ -523,7 +523,7 @@ contains
                &          FORM='UNFORMATTED',POSITION='APPEND')
 
           !--- Write header into output file:
-          IF ( nGeosSets.EQ.1 ) THEN
+          IF ( nGeosSets == 1 ) THEN
 
              nFields=3
              nFieldSize=(nSmax-nS_ICB+1)*n_phi_max

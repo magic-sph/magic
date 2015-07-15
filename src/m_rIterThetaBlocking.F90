@@ -204,11 +204,11 @@ CONTAINS
           IF ( this%lViscBcCalc ) THEN
              CALL fft_thetab(gsa%dsdtc,1)
              CALL fft_thetab(gsa%dsdpc,1)
-             IF (this%nR.eq.n_r_cmb .AND. ktops==1) THEN
+             IF (this%nR == n_r_cmb .AND. ktops==1) THEN
                 gsa%dsdtc=CMPLX(0.0,0.0,kind=kind(gsa%dsdtc))
                 gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
              END IF
-             IF (this%nR.eq.n_r_icb .AND. kbots==1) THEN
+             IF (this%nR == n_r_icb .AND. kbots==1) THEN
                 gsa%dsdtc=CMPLX(0.0,0.0,kind=kind(gsa%dsdtc))
                 gsa%dsdpc=CMPLX(0.0,0.0,kind=kind(gsa%dsdpc))
              END IF
@@ -218,7 +218,7 @@ CONTAINS
           END IF
        END IF
        IF ( l_HT .or. this%lViscBcCalc ) CALL fft_thetab(gsa%drSc,1)
-       IF ( this%nBc.EQ.0 ) THEN
+       IF ( this%nBc == 0 ) THEN
           CALL fft_thetab(gsa%vrc,1)
           CALL fft_thetab(gsa%vtc,1)
           CALL fft_thetab(gsa%vpc,1)
@@ -232,7 +232,7 @@ CONTAINS
              CALL fft_thetab(gsa%dvtdpc,1)
              CALL fft_thetab(gsa%dvpdpc,1)
           END IF
-       ELSE IF ( this%nBc.EQ.1 ) THEN ! Stress free
+       ELSE IF ( this%nBc == 1 ) THEN ! Stress free
           gsa%vrc = CMPLX(0.D0,0.D0,kind=KIND(gsa%vrc))
           CALL fft_thetab(gsa%vtc,1)
           CALL fft_thetab(gsa%vpc,1)
@@ -246,13 +246,13 @@ CONTAINS
              CALL fft_thetab(gsa%dvtdpc,1)
              CALL fft_thetab(gsa%dvpdpc,1)
           END IF
-       ELSE IF ( this%nBc.EQ.2 ) THEN 
-          IF ( this%nR.EQ.n_r_cmb ) THEN
+       ELSE IF ( this%nBc == 2 ) THEN 
+          IF ( this%nR == n_r_cmb ) THEN
              CALL v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                   &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                   &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
                   &                nThetaStart)
-          ELSE IF ( this%nR.EQ.n_r_icb ) THEN
+          ELSE IF ( this%nR == n_r_icb ) THEN
              CALL v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                   &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                   &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &

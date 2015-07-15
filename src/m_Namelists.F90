@@ -140,7 +140,7 @@ CONTAINS
 
     ! get the filename of the input file as first argument from the command line
     argument_count = command_argument_count()
-    IF (argument_count.EQ.0) THEN
+    IF (argument_count == 0) THEN
        WRITE(*,"(A,/,A)") "The filename of the input file must be provided as first argument.",&
             &"Aborting!"
        STOP
@@ -150,35 +150,35 @@ CONTAINS
        OPEN(105,file=trim(input_filename))
 
        !-- Reading control parameters from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading grid parameters!'
+       if (rank == 0) write(*,*) '!  Reading grid parameters!'
        READ(105,grid)
 
        !-- Reading control parameters from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading control parameters!'
+       if (rank == 0) write(*,*) '!  Reading control parameters!'
        READ(105,control)
 
        !-- Reading physical parameters from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading physical parameters!'
+       if (rank == 0) write(*,*) '!  Reading physical parameters!'
        READ(105,phys_param)
 
        !-- Reading external field parameters for feedback:
-       !if (rank.eq.0) write(*,*) '!  Reading B external parameters!'
+       !if (rank == 0) write(*,*) '!  Reading B external parameters!'
        !READ(105,B_external)
 
        !-- Reading start field info from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading start information!'
+       if (rank == 0) write(*,*) '!  Reading start information!'
        READ(105,start_field)
 
        !-- Reading output parameters from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading output information!'
+       if (rank == 0) write(*,*) '!  Reading output information!'
        READ(105,output_control)
 
        !-- Reading mantle parameters from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading mantle information!'
+       if (rank == 0) write(*,*) '!  Reading mantle information!'
        READ(105,mantle)
 
        !-- Reading inner-core parameter from namelists in STDIN:
-       if (rank.eq.0) write(*,*) '!  Reading inner core information!'
+       if (rank == 0) write(*,*) '!  Reading inner core information!'
        READ(105,inner_core)
 
        close(105)
@@ -193,12 +193,12 @@ CONTAINS
 #endif
     !-- Does log-file already exist?
     log_file='log.'//tag
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        INQUIRE(file=TRIM(log_file),exist=log_does_exist)
     END IF
     CALL MPI_Bcast(log_does_exist,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
     IF (log_does_exist) THEN
-       IF (rank.EQ.0) THEN 
+       IF (rank == 0) THEN 
           WRITE(*,*)
           WRITE(*,*) '! The log-file exists already !'
           WRITE(*,*) '! I add _BIS to the tag and create new files!'

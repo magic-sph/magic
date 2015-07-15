@@ -94,7 +94,7 @@
         WRITE(*, &
       &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
       &     time_new*tScale,time*tScale
-        IF (rank.EQ.0) THEN
+        IF (rank == 0) THEN
            IF ( l_save_out ) THEN
               OPEN(n_log_file,file=log_file,status='unknown', &
                    POSITION='APPEND')

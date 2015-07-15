@@ -10,7 +10,7 @@
     CHARACTER(len=*) :: message
 
 !--------------------------------------------------------------
-    IF ( rank.eq.0 ) THEN
+    IF ( rank == 0 ) THEN
         IF ( l_save_out ) THEN
             OPEN(n_log_file,file=log_file,status='UNKNOWN', &
                  POSITION='APPEND')

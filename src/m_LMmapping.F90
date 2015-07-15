@@ -70,7 +70,7 @@ contains
           l1=map%lm2l(lm1)
           counter(l1) = counter(l1) + 1
        end do
-       if (maxval(counter).gt.max_size_of_subblock) then
+       if (maxval(counter) > max_size_of_subblock) then
           max_size_of_subblock=maxval(counter)
        end if
     end do

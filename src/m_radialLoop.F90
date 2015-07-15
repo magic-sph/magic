@@ -149,10 +149,10 @@ CONTAINS
     END IF
 
     IF ( l_cour ) THEN
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           dtrkc(n_r_cmb)=1.D10
           dthkc(n_r_cmb)=1.D10
-       ELSEIF (rank.EQ.n_procs-1) THEN
+       ELSEIF (rank == n_procs-1) THEN
           dtrkc(n_r_icb)=1.D10
           dthkc(n_r_icb)=1.D10
        END IF
@@ -161,12 +161,12 @@ CONTAINS
     !------ Set nonlinear terms that are possibly needed at the boundaries.
     !       They may be overwritten by get_td later.
     DO lm=1,lm_max
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           dVSrLM(lm,n_r_cmb) =zero
           IF ( l_mag ) THEN
              dVxBhLM(lm,n_r_cmb)=zero
           END IF
-       ELSEIF (rank.EQ.n_procs-1) then
+       ELSEIF (rank == n_procs-1) then
           dVSrLM(lm,n_r_icb) =zero
           IF ( l_mag ) THEN
              dVxBhLM(lm,n_r_icb)=zero
@@ -177,10 +177,10 @@ CONTAINS
     !------ Having to calculate non-linear boundary terms?
     lMagNlBc=.FALSE.
     IF ( ( l_mag_nl .OR. l_mag_kin ) .AND.                          &
-         &       ( ktopv.EQ.1 .OR. l_cond_ma .OR.                           &
-         &          ( ktopv.EQ.2 .AND. l_rot_ma ) ) .OR.                    &
-         &       ( kbotv.EQ.1 .OR. l_cond_ic .OR.                           &
-         &          ( kbotv.EQ.2 .AND. l_rot_ic ) ) )                       &
+         &       ( ktopv == 1 .OR. l_cond_ma .OR.                           &
+         &          ( ktopv == 2 .AND. l_rot_ma ) ) .OR.                    &
+         &       ( kbotv == 1 .OR. l_cond_ic .OR.                           &
+         &          ( kbotv == 2 .AND. l_rot_ic ) ) )                       &
          &     lMagNlBc=.TRUE.
 
     !------ When boundary output, Courant criterion, or non-magnetic 
@@ -200,7 +200,7 @@ CONTAINS
 
     !nThreadsRmax=1
     DO nR=nRstart,nRstop
-       !IF( nTh.GT.nThreadsRmax ) nThreadsRmax=nTh
+       !IF( nTh > nThreadsRmax ) nThreadsRmax=nTh
        IF ( lVerbose ) THEN
           WRITE(*,'(/," ! Starting radial level ",i4)') nR
        END IF
@@ -208,9 +208,9 @@ CONTAINS
        !nR = nRC
        nBc = 0
        lDeriv = .true.
-       isRadialBoundaryPoint=(nR.EQ.n_r_cmb).OR.(nR.EQ.n_r_icb)
+       isRadialBoundaryPoint=(nR == n_r_cmb).OR.(nR == n_r_icb)
 
-       IF ( nR.EQ.n_r_cmb ) THEN 
+       IF ( nR == n_r_cmb ) THEN 
           IF ( lOutBc ) THEN
              !nR  = n_r_cmb
              nBc = ktopv
@@ -219,7 +219,7 @@ CONTAINS
           ELSE
              CYCLE   ! Nothing needs to be done by thread one !
           END IF
-       ELSEif ( nR.eq.n_r_icb ) then
+       ELSEif ( nR == n_r_icb ) then
           IF ( lOutBc ) THEN
              !nR = n_r_icb
              nBc = kbotv

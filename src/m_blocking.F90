@@ -115,11 +115,11 @@ contains
     CALL allocate_mappings(lo_map,l_max,lm_max,lmP_max)
     !CALL allocate_mappings(sn_map,l_max,lm_max,lmP_max)
 
-    IF ( (rank.EQ.0).AND.l_save_out ) THEN
+    IF ( (rank == 0).AND.l_save_out ) THEN
        OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
     END IF
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        WRITE(message,*) '! Number of ranks I will use:',n_procs
        call logWrite(message)
     END IF
@@ -147,7 +147,7 @@ contains
 
     !--- Get radial blocking
     IF ( MOD(n_r_max-1,n_procs) /= 0 ) THEN
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           WRITE(*,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
           WRITE(*,*) 'n_procs :',n_procs
           WRITE(*,*) 'n_r_max-1:',n_r_max-1
@@ -165,7 +165,7 @@ contains
 
     CALL get_standard_lm_blocking(st_map,minc)
     !CALL get_standard_lm_blocking(lo_map,minc)
-    IF (n_procs.LE.l_max/2) THEN
+    IF (n_procs <= l_max/2) THEN
        !better load balancing, but only up to l_max/2
        CALL get_snake_lm_blocking(lo_map,minc)
        WRITE(message,*) "Using snake ordering."
@@ -185,7 +185,7 @@ contains
     !--- Get the block (rank+1) with the l1m0 mode
     l1m0 = lo_map%lm2(1,0)
     DO n=1,nLMBs
-       IF ( (l1m0.GE.lmStartB(n)) .AND. (l1m0.LE.lmStopB(n)) ) THEN
+       IF ( (l1m0 >= lmStartB(n)) .AND. (l1m0 <= lmStopB(n)) ) THEN
           LMB_with_l1m0=n
           exit
        END IF
@@ -193,8 +193,8 @@ contains
 
     ! which rank does have the LMB with LMB_with_l1m0?
     do irank=0,n_procs-1
-       IF ((LMB_with_l1m0-1.GE.irank*nLMBs_per_rank).AND.&
-            &(LMB_with_l1m0-1.LE.(irank+1)*nLMBs_per_rank-1)) THEN
+       IF ((LMB_with_l1m0-1 >= irank*nLMBs_per_rank).AND.&
+            &(LMB_with_l1m0-1 <= (irank+1)*nLMBs_per_rank-1)) THEN
           rank_with_l1m0 = irank
        end if
     end do
@@ -203,7 +203,7 @@ contains
        
     IF (DEBUG_OUTPUT) THEN
        ! output the lm -> l,m mapping
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           DO lm=1,lm_max
              l=lo_map%lm2l(lm)
              m=lo_map%lm2m(lm)
@@ -248,7 +248,7 @@ contains
 
     !-- Calculate blocking parameters for blocking loops over theta:
 
-    IF (nThreads.EQ.1) THEN
+    IF (nThreads == 1) THEN
 #ifdef OLD_THETA_BLOCKING    
        nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
        sizeThetaB=MIN(n_theta_max,nfs)
@@ -272,7 +272,7 @@ contains
     END IF
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        WRITE(*,*) '!-- Blocking information:'
        WRITE(*,*)
        WRITE(*,*) '!    Number of LM-blocks:',nLMBs
@@ -400,7 +400,7 @@ contains
           !             WRITE(99,*) n,n2,sub_map%sizeLMB2(n2,n)
        END DO
        if (DEBUG_OUTPUT) then
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              WRITE(*,"(4X,2(A,I4))") "Subblocks of Block ",n,"/",nLMBs
              DO n2=1,sub_map%nLMBs2(n)
                 WRITE(*,"(8X,3(A,I4))") "subblock no. ",n2,", of ",&
@@ -637,18 +637,18 @@ contains
        l_list(proc,l_counter(proc))=l
        !WRITE(*,"(A,3I3)") "l,l_list,l_counter=",l,l_list(proc,l_counter(proc)),l_counter(proc)
        l_counter(proc) = l_counter(proc)+1
-       if (l.eq.0) l0proc=proc
+       if (l == 0) l0proc=proc
        ! now determine on which proc to put the next l value
        IF (Ascending) THEN
-          IF (proc.LT.n_procs-1) THEN
+          IF (proc < n_procs-1) THEN
              proc=proc+1
-          ELSE IF (proc.EQ.n_procs-1) THEN
+          ELSE IF (proc == n_procs-1) THEN
              Ascending=.FALSE.
           END IF
        ELSE
-          IF (proc.GT.0) THEN
+          IF (proc > 0) THEN
              proc=proc-1
-          ELSE IF (proc.EQ.0) THEN
+          ELSE IF (proc == 0) THEN
              Ascending=.True.
           END IF
        END IF
@@ -656,7 +656,7 @@ contains
 
     IF (DEBUG_OUTPUT) THEN
        DO proc=0,n_procs-1
-          IF (proc.EQ.l0proc) THEN
+          IF (proc == l0proc) THEN
              WRITE(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
           ELSE
              WRITE(*,"(A,I4,A)") "---- proc ",proc," ----"
@@ -693,7 +693,7 @@ contains
     ! Last step in preparation is to put the l=0 on process 0
     ! as the first l in the list
     DO i_l=1,l_counter(0)-1
-       IF (l_list(0,i_l).EQ.0) THEN
+       IF (l_list(0,i_l) == 0) THEN
           !WRITE(*,"(A,I3)") "i_l = ",i_l
           temp=l_list(0,1)
           l_list(0,1)=l_list(0,i_l)
@@ -705,7 +705,7 @@ contains
     IF (DEBUG_OUTPUT) THEN
        WRITE(*,"(A)") "Ordering after the l0proc reordering:"
        DO proc=0,n_procs-1
-          IF (proc.EQ.l0proc) THEN
+          IF (proc == l0proc) THEN
              WRITE(*,"(A,I4,A)") "==== proc ",proc," has l=0 ===="
           ELSE
              WRITE(*,"(A,I4,A)") "---- proc ",proc," ----"
@@ -813,12 +813,12 @@ SUBROUTINE get_theta_blocking_cache(n_theta_max,nrp,cacheblock_size_in_B, nTheta
   DO s=4,n_theta_max,4
      IF (MODULO(n_theta_max,s)==0) THEN
         ! candidate found
-        if (min_s.eq.0) min_s=s
+        if (min_s == 0) min_s=s
         nThetaBs=n_theta_max/s
         memory_size=s*nrp*8
-        IF (cacheblock_size_in_b/REAL(memory_size) .GE. 1.0) THEN
+        IF (cacheblock_size_in_b/REAL(memory_size)  >=  1.0) THEN
            best_s=s
-        ELSEIF (cacheblock_size_in_B/memory_size .eq. 0) then
+        ELSEIF (cacheblock_size_in_B/memory_size  ==  0) then
            EXIT
         END IF
      END IF
@@ -846,13 +846,13 @@ SUBROUTINE get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs, sizeThetaB)
   DO s=4,n_theta_max,4
      IF (MODULO(n_theta_max,s)==0) THEN
         ! candidate found
-        if (min_s.eq.0) min_s=s
+        if (min_s == 0) min_s=s
         nThetaBs=n_theta_max/s
         !WRITE(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", nThetaBs = ",nThetaBs
 
-        IF (MODULO(nThetaBs,nThreads).eq.0) then
+        IF (MODULO(nThetaBs,nThreads) == 0) then
            best_s=s
-        ELSEIF (nThetaBs/nThreads .EQ. 0) THEN
+        ELSEIF (nThetaBs/nThreads  ==  0) THEN
            EXIT
         END IF
      END IF

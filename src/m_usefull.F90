@@ -35,7 +35,7 @@ module usefull
     integer      :: n_step       ! action intervall
     integer      :: n_intervalls ! number of actions
     integer      :: n_ts         ! number of times t
-    real(kind=8) ::  times(*)     ! times where l_correct_step.eq.true
+    real(kind=8) ::  times(*)     ! times where l_correct_step == true
     integer      :: n_eo         ! even/odd controller
 
 !-- Output: l_correct_step   !
@@ -103,11 +103,11 @@ module usefull
 
 !     random number generator
 
-!     if ( r.eq.0 ) then
+!     if ( r == 0 ) then
 !        random(r) = next random number (between 0. and 1.)
-!     if ( r.lt.0 ) then
+!     if ( r < 0 ) then
 !        random(r) = previous random number
-!     if ( r.gt.0 ) then
+!     if ( r > 0 ) then
 !        random(r) = a new sequence of random numbers is started
 !                  with seed r mod 1
 !                  note: r must be a non-integer to get a different seq

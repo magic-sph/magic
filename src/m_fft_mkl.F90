@@ -57,10 +57,10 @@ CONTAINS
     INTEGER,intent(IN) :: dir            ! back or forth transform
 
     PERFON('fft_thc')
-    if (dir.eq.1) then
+    if (dir == 1) then
        ! run FFT
        status = DftiComputeBackward( c2r_handle, f(:,1) )
-    ELSE IF (dir.EQ.-1) THEN
+    ELSE IF (dir == -1) THEN
        ! run FFT
        status = DftiComputeForward( r2c_handle, f(:,1) )
        !PRINT*,"Calling fft_thetab with complex array and dir.ne.1. Don't know what to do!"
@@ -75,10 +75,10 @@ CONTAINS
     INTEGER,intent(IN) :: dir            ! back or forth transform
 
     PERFON('fft_thr')
-    IF (dir.EQ.-1) then
+    IF (dir == -1) then
        ! run FFT
        status = DftiComputeForward( r2c_handle, f(:,1) )
-    ELSE if (dir.eq.1) THEN
+    ELSE if (dir == 1) THEN
        ! we want a backward transform, and the real array f is to be interpreted as complex array
 
        ! run FFT

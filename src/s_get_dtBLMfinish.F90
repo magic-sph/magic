@@ -90,7 +90,7 @@ SUBROUTINE get_dtBLMfinish(time,n_time_step, &
      END DO
   END DO
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      CALL get_drNS(TstrRLM,workA,lm_max_real, &
           1,lm_max_real, &
           n_r_max,n_cheb_max,workB, &
@@ -138,7 +138,7 @@ SUBROUTINE get_dtBLMfinish(time,n_time_step, &
      CALL gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMloc,PdifLMIC)
      CALL gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMloc,TdifLMIC)
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         CALL rBrSpec(time,PstrLM,PadvLMIC,'rBrProSpec',.FALSE.,st_map)
         CALL rBrSpec(time,PadvLM,PadvLMIC,'rBrAdvSpec',.TRUE.,st_map)
         CALL rBrSpec(time,PdifLM,PdifLMIC,'rBrDifSpec',.TRUE.,st_map)

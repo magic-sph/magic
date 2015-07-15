@@ -73,7 +73,7 @@ CONTAINS
 
     bytes_allocated = 0
     !-- Velocity potentials:
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE( w(lm_max,n_r_max) )
        ALLOCATE( z(lm_max,n_r_max) )
        ALLOCATE( dw(lm_max,n_r_max) )

@@ -41,7 +41,7 @@ MODULE fieldsLast
 CONTAINS
   SUBROUTINE initialize_fieldsLast
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE( dwdtLast(lm_max,n_r_max) )
        ALLOCATE( dpdtLast(lm_max,n_r_max) )
        ALLOCATE( dzdtLast(lm_max,n_r_max) )

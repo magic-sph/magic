@@ -139,7 +139,7 @@ SUBROUTINE graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
 #ifdef WITH_MPI
         ! in process n_procs-1 the last oc fields have been written,
         ! Now just append on this process.
-        IF (rank.EQ.n_procs-1) THEN
+        IF (rank == n_procs-1) THEN
            CALL MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
            CALL MPI_FILE_WRITE(graph_mpi_fh,FLOAT(n_r_max+nR-2),1,MPI_REAL,status,ierr)
            CALL MPI_FILE_WRITE(graph_mpi_fh,SNGL(r_ic(nR)/r_cmb),1,MPI_REAL,status,ierr)
@@ -157,7 +157,7 @@ SUBROUTINE graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
      !-- Write radial magnetic field:
      IF ( format == -1 ) WRITE(n_graph_file,'(/'' Br IC: '')')
 #ifdef WITH_MPI
-     IF (rank.EQ.n_procs-1) THEN
+     IF (rank == n_procs-1) THEN
         CALL graph_write_mpi(n_phi_max,n_theta_max,Br, &
              PRECISION,FORMAT,graph_mpi_fh)
      END IF
@@ -169,7 +169,7 @@ SUBROUTINE graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
      !-- Write latitudinal magnetic field:
      IF ( format == -1 ) WRITE(n_graph_file,'(/'' Bt IC: '')')
 #ifdef WITH_MPI
-     IF (rank.EQ.n_procs-1) THEN
+     IF (rank == n_procs-1) THEN
         CALL graph_write_mpi(n_phi_max,n_theta_max,Bt, &
              precision,format,graph_mpi_fh)
      END IF
@@ -181,7 +181,7 @@ SUBROUTINE graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
      !-- Write longitudinal magnetic field:
      IF ( format == -1 ) WRITE(n_graph_file,'(/'' Bp IC: '')')
 #ifdef WITH_MPI
-     IF (rank.EQ.n_procs-1) THEN
+     IF (rank == n_procs-1) THEN
         CALL graph_write_mpi(n_phi_max,n_theta_max,Bp, &
              precision,format,graph_mpi_fh)
      END IF

@@ -576,7 +576,7 @@ MODULE legendre_trafo
               vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
            END DO ! Loop over m
 
-        END IF   ! nBc.eq.1 ? vrc and nBc=2 cared for later !
+        END IF   ! nBc == 1 ? vrc and nBc=2 cared for later !
 
      END DO    ! End loop over nThetaN
 
@@ -1002,7 +1002,7 @@ MODULE legendre_trafo
               vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
            END DO ! Loop over m
 
-        END IF   ! nBc.eq.1 ? vrc and nBc=2 cared for later !
+        END IF   ! nBc == 1 ? vrc and nBc=2 cared for later !
 
      END DO    ! End loop over nThetaN
 
@@ -1154,7 +1154,7 @@ MODULE legendre_trafo
           mc_old = mc
        END IF
        temp = infield(lm)*Plm_slice(lm)
-       IF (MODULO(lm-lStart(mc),2).EQ.0) THEN
+       IF (MODULO(lm-lStart(mc),2) == 0) THEN
           sES = sES + temp
        ELSE
           sEA = sEA + temp

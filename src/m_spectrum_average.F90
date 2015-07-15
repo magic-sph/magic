@@ -91,7 +91,7 @@ CONTAINS
     !-- end of declaration
     !---------------------------------------------------------------------
 
-    IF ( BV.EQ.'V' ) THEN ! kinetic spectrum (correction of density)
+    IF ( BV == 'V' ) THEN ! kinetic spectrum (correction of density)
 
        DO nR=1,n_r_max
           DO l=0,l_max
@@ -150,10 +150,10 @@ CONTAINS
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Radial Integrals:
        fac=0.5D0*eScale
-       IF ( BV.EQ.'B' ) fac=fac*LFfac
+       IF ( BV == 'B' ) fac=fac*LFfac
        DO l=0,l_max
           e_p_l(l)  =fac*rInt_R(e_p_r_l_global(1,l),n_r_max,n_r_max,drx,      &
                &                           i_costf_init,d_costf_init)
@@ -163,7 +163,7 @@ CONTAINS
                &                           i_costf_init,d_costf_init)
           e_t_m(l)  =fac*rInt_R(e_t_r_m_global(1,l),n_r_max,n_r_max,drx,      &
                &                           i_costf_init,d_costf_init)
-          IF ( BV.EQ.'B' ) THEN 
+          IF ( BV == 'B' ) THEN 
              e_cmb_l(l)=fac*e_p_r_l_global(1,l)
              e_cmb_m(l)=fac*e_p_r_m_global(1,l)
           END IF
@@ -171,9 +171,9 @@ CONTAINS
 
 
        !-- Averaging:
-       IF ( n_time_ave.EQ.1 ) THEN
+       IF ( n_time_ave == 1 ) THEN
           DO l=0,l_max
-             IF ( BV.EQ.'B' ) THEN
+             IF ( BV == 'B' ) THEN
                 e_p_l_ave(l)   =time_passed*e_p_l(l)
                 e_t_l_ave(l)   =time_passed*e_t_l(l)
                 e_p2_l_ave(l)  =time_passed*e_p_l(l)*e_p_l(l)
@@ -199,7 +199,7 @@ CONTAINS
           END DO
        ELSE
           DO l=0,l_max
-             IF ( BV.EQ.'B' ) THEN
+             IF ( BV == 'B' ) THEN
                 e_p_l_ave(l)   =e_p_l_ave(l)   +  time_passed*e_p_l(l)
                 e_t_l_ave(l)   =e_t_l_ave(l)   +  time_passed*e_t_l(l)
                 e_p2_l_ave(l)  =e_p2_l_ave(l)  +  time_passed*e_p_l(l)*e_p_l(l)
@@ -227,13 +227,13 @@ CONTAINS
 
 
        !-- Output: every 10th averaging step and at end of run
-       IF ( l_stop_time .OR. MOD(n_time_ave,10).EQ.0 ) THEN
+       IF ( l_stop_time .OR. MOD(n_time_ave,10) == 0 ) THEN
 
           !------ Output:
           dt_norm=1.d0/time_norm
-          IF ( BV.EQ.'B' ) THEN
+          IF ( BV == 'B' ) THEN
              outFile='mag_spec_ave.'//TAG
-          ELSE IF ( BV.EQ.'V' ) THEN
+          ELSE IF ( BV == 'V' ) THEN
              outFile='kin_spec_ave.'//TAG
           ELSE
              WRITE(*,*) 'WRONG BV INPUT TO spectrum_average!'
@@ -241,7 +241,7 @@ CONTAINS
           END IF
           nOut   =93
           OPEN(nOut,file=outFile,status='UNKNOWN')
-          IF ( BV.EQ.'B' ) THEN
+          IF ( BV == 'B' ) THEN
              DO l=0,l_max
                 SDp_l = get_standard_deviation(dt_norm,e_p_l_ave(l),e_p2_l_ave(l))
                 SDp_m = get_standard_deviation(dt_norm,e_p_m_ave(l),e_p2_m_ave(l))
@@ -298,7 +298,7 @@ CONTAINS
 
     mean2    = (dt_norm*mean)**2
     variance = ABS(dt_norm*sum_of_squares - mean2 )
-    IF (variance/mean2.LT.tolerance) THEN
+    IF (variance/mean2 < tolerance) THEN
        stdev = 0.0D0
     ELSE
        stdev = SQRT(variance)

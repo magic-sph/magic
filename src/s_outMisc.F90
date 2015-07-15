@@ -174,7 +174,7 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
           &           HelnaSr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
           &           0,MPI_COMM_WORLD,ierr)
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         !------ Integration over r without the boundaries and normalization:
         HelN  =rInt(HelNr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
         HelS  =rInt(HelSr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
@@ -245,7 +245,7 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
      CHelOTC=0.D0
   ENDIF
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      !-- Evaluate nusselt numbers (boundary heat flux density):
      osq4pi =1.D0/DSQRT(4.D0*pi)
      IF (topcond/=0.D0 .AND. l_heat) THEN
@@ -299,7 +299,7 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
           & MPI_SUM,0,MPI_COMM_WORLD,ierr)
      ! Send the p(4,4) value to rank 0
      lm44=lo_map%lm2(4,4)
-     lm44_is_local=(llm.LE.lm44).AND.(lm44.LE.ulm)
+     lm44_is_local=(llm <= lm44).AND.(lm44 <= ulm)
      mytag=120
      IF (lm44_is_local.and.(rank.ne.0)) THEN
         ! copy one row of p into a vector to send
@@ -307,7 +307,7 @@ SUBROUTINE outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
         p44_local=p(lm44,:)
         CALL MPI_Send(p44_local,n_r_max,MPI_DOUBLE_COMPLEX,0,mytag,MPI_COMM_WORLD,ierr)
      END IF
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         IF (.NOT.lm44_is_local) THEN
            CALL MPI_Recv(p44_local,n_r_max,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,mytag,&
                 & MPI_COMM_WORLD,status,ierr)

@@ -22,9 +22,9 @@ SUBROUTINE debug_write_2D(arr,dim1,dim2,label,timestep,form)
   INTEGER :: i,j
 
   IF (PRESENT(form)) THEN
-     IF ((form.EQ.'U').OR.(form.EQ.'u')) THEN
+     IF ((form == 'U').OR.(form == 'u')) THEN
         write_unformatted=.true.
-     ELSEIF (form.EQ.'E') THEN
+     ELSEIF (form == 'E') THEN
         write_unformatted=.false.
         write_exponent=.true.
      ELSE
@@ -70,9 +70,9 @@ SUBROUTINE debug_write_1D(arr,dim1,label,timestep,form)
   INTEGER :: i
 
   IF (PRESENT(form)) THEN
-     IF ((form.EQ.'U').OR.(form.EQ.'u')) THEN
+     IF ((form == 'U').OR.(form == 'u')) THEN
         write_unformatted=.true.
-     ELSEIF (form.EQ.'E') THEN
+     ELSEIF (form == 'E') THEN
         write_unformatted=.false.
         write_exponent=.true.
      ELSE

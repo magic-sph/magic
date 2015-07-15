@@ -129,10 +129,10 @@ CONTAINS
                &      + cc2real(dw(lm,nR),m) )
           e_t_temp= O_rho*dLh(st_map%lm2(l,m)) * cc2real(z(lm,nR),m)
           !WRITE(*,"(A,3I4,ES22.14)") "e_p_temp = ",nR,l,m,e_p_temp
-          IF ( m.EQ.0 ) THEN  ! axisymmetric part
+          IF ( m == 0 ) THEN  ! axisymmetric part
              e_p_as_r(nR) = e_p_as_r(nR) + e_p_temp
              e_t_as_r(nR) = e_t_as_r(nR) + e_t_temp
-             IF ( MOD(l,2).EQ.0 ) THEN
+             IF ( MOD(l,2) == 0 ) THEN
                 e_p_eas_r(nR)=e_p_eas_r(nR)+e_p_temp
              ELSE
                 e_t_eas_r(nR)=e_t_eas_r(nR)+e_t_temp
@@ -141,7 +141,7 @@ CONTAINS
              e_p_r(nR)=e_p_r(nR) + e_p_temp
              e_t_r(nR)=e_t_r(nR) + e_t_temp
           END IF
-          IF ( MOD(l+m,2).EQ.0 ) THEN
+          IF ( MOD(l+m,2) == 0 ) THEN
              e_p_es_r(nR)=e_p_es_r(nR)+e_p_temp
           ELSE
              e_t_es_r(nR)=e_t_es_r(nR)+e_t_temp
@@ -174,7 +174,7 @@ CONTAINS
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !DO nR=1,n_r_max
        !   WRITE(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
        !END DO
@@ -219,13 +219,13 @@ CONTAINS
        END IF
 
        ! NOTE: n_e_sets=0 prevents averaging
-       IF ( n_e_sets.EQ.1 ) THEN
+       IF ( n_e_sets == 1 ) THEN
           timeTot=1.D0
           e_pA    = e_p_r_global
           e_p_asA = e_p_r_global
           e_tA    = e_t_r_global
           e_t_asA = e_t_r_global
-       ELSE IF ( n_e_sets.EQ.2 ) THEN
+       ELSE IF ( n_e_sets == 2 ) THEN
           dt=time-timeLast
           timeTot=2.D0*dt
           e_pA    = dt*(e_pA   +e_p_r_global   )
@@ -242,7 +242,7 @@ CONTAINS
        END IF
 
        !WRITE(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
-       IF ( l_stop_time .AND. (n_e_sets.GT.1) ) THEN
+       IF ( l_stop_time .AND. (n_e_sets > 1) ) THEN
           fac=0.5D0*eScale
           filename='eKinR.'//tag
           OPEN(99,FILE=filename,STATUS='UNKNOWN')

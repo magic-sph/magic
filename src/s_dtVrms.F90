@@ -168,30 +168,30 @@ SUBROUTINE dtVrms(time,nRMS_sets)
 
   CALL mpi_reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) dtVPol2hInt(:,1)=global_sum
+  IF (rank == 0) dtVPol2hInt(:,1)=global_sum
   CALL mpi_reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) dtVPolAs2hInt(:,1)=global_sum
+  IF (rank == 0) dtVPolAs2hInt(:,1)=global_sum
   CALL mpi_reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) dtVTor2hInt(:,1)=global_sum
+  IF (rank == 0) dtVTor2hInt(:,1)=global_sum
   CALL mpi_reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) dtVTorAs2hInt(:,1)=global_sum
+  IF (rank == 0) dtVTorAs2hInt(:,1)=global_sum
   CALL mpi_reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) DifPol2hInt(:,1)=global_sum
+  IF (rank == 0) DifPol2hInt(:,1)=global_sum
   CALL mpi_reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) DifPolAs2hInt(:,1)=global_sum
+  IF (rank == 0) DifPolAs2hInt(:,1)=global_sum
   CALL mpi_reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) DifTor2hInt(:,1)=global_sum
+  IF (rank == 0) DifTor2hInt(:,1)=global_sum
   CALL mpi_reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,MPI_SUM,&
        &0,MPI_COMM_WORLD,ierr)
-  IF (rank.EQ.0) DifTorAs2hInt(:,1)=global_sum
+  IF (rank == 0) DifTorAs2hInt(:,1)=global_sum
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
 
      !WRITE(*,"(A,ES22.14)") "dtVPol2hInt = ",SUM(dtVPol2hInt)
      IF ( nRMS_sets == 0 ) THEN

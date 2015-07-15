@@ -40,7 +40,7 @@
 !-- end of declaration
 !----------------------------------------------------------------------
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        IF ( l_save_out .AND. n_out == n_log_file ) THEN
           OPEN(n_out,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')
        END IF
@@ -85,12 +85,12 @@
                '! Viscous flow, no inertia, no rotation, no dynamo.'
        END IF
     END IF
-    IF (mode.GT.11) THEN
-       if (rank.eq.0) WRITE(*,'(/," Mode > 11 not implemented ! ")')
+    IF (mode > 11) THEN
+       if (rank == 0) WRITE(*,'(/," Mode > 11 not implemented ! ")')
        STOP
     END IF
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Output of name lists:
        WRITE(n_out, &
             &   '(/,'' ! Normalized OC moment of inertia:'',d14.6)') c_moi_oc

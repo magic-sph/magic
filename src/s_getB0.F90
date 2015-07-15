@@ -61,7 +61,7 @@
     eP=rInt_R(ePr,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
     eP=0.5D0*LFfac*eScale*eP
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        WRITE(*,'(1x,1P," ! Energy of imposed IC field:",D16.4)') eP
        IF ( l_save_out ) THEN
           OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',POSITION='APPEND')

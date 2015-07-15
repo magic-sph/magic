@@ -111,7 +111,7 @@
        size_of_data_per_rank = size_of_data_per_r * nr_per_rank
 
        !PRINT*,"size_of_header = ",size_of_header,", size_of_data/rank = ",size_of_data_per_rank
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           ! rank zero writes the Header
           disp = 0
           CALL MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
@@ -128,7 +128,7 @@
 
        bytes_written = 0
        !-- Write header & colatitudes for n_r=0:
-       IF (rank.EQ.0) THEN
+       IF (rank == 0) THEN
           IF ( which_form /= 0 ) THEN
 #if 0
              !----- Formatted output:
@@ -494,7 +494,7 @@
     size_of_data_per_rank = size_of_data_per_r * nr_per_rank
 
     !PRINT*,"size_of_header = ",size_of_header,", size_of_data/rank = ",size_of_data_per_rank
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ! rank zero writes the Header
        disp = 0
        CALL MPI_FILE_SET_VIEW(graph_mpi_fh,disp,MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
@@ -511,7 +511,7 @@
 
     bytes_written = 0
     !-- Write header & colatitudes for n_r=0:
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        IF ( which_form /= 0 ) THEN
        ELSE
 

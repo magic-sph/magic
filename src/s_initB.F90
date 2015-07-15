@@ -106,7 +106,7 @@
 
     ELSE IF ( imagcon == 11 ) THEN
 
-    !----- same as imagcon.eq.10 but opposite sign at CMB:
+    !----- same as imagcon == 10 but opposite sign at CMB:
         lm0=l2m0
         bpeakbot=4.d0/3.d0*dsqrt(pi/5.d0)*r_icb*amp_b1
         bpeaktop=-4.d0/3.d0*dsqrt(pi/5.d0)*r_cmb*amp_b1

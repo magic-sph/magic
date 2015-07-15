@@ -81,7 +81,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
 
   IF (DEBUG_OUTPUT) WRITE(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",lmStartB(rank+1),lmStopB(rank+1),l1m0
 
-  IF ( lmStartB(rank+1).LE.l1m0 .AND. lmStopB(rank+1).GE.l1m0 ) THEN
+  IF ( lmStartB(rank+1) <= l1m0 .AND. lmStopB(rank+1) >= l1m0 ) THEN
      !IF (rank.NE.0) THEN
      !   PRINT*,"in s_write_rot, l1m0 not on rank 0"
      !   stop
@@ -112,7 +112,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      rank_has_l1m0=.FALSE.
   END IF
 
-  IF (rank.EQ.0) THEN
+  IF (rank == 0) THEN
      IF (.NOT.rank_has_l1m0) THEN
         CALL MPI_Recv(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
              &sr_tag,MPI_COMM_WORLD,status,ierr)
@@ -159,7 +159,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      CALL sendvals_to_rank0(z,n_r2,lm_vals(1:8),zvals_on_rank0(:,2))
      CALL sendvals_to_rank0(z,n_r3,lm_vals(1:8),zvals_on_rank0(:,3))
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         filename='driftVD.'//tag
         OPEN(n_SRIC_file,FILE=filename,STATUS='UNKNOWN', &
              POSITION='APPEND')
@@ -186,7 +186,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
         CALL sendvals_to_rank0(b,n_r1,lm_vals(1:8),bvals_on_rank0(:,1))
         CALL sendvals_to_rank0(b,n_r2,lm_vals(1:8),bvals_on_rank0(:,2))
 
-        IF (rank.EQ.0) THEN
+        IF (rank == 0) THEN
            filename='driftBD.'//tag
            OPEN(n_SRIC_file,FILE=filename,STATUS='UNKNOWN', &
                 POSITION='APPEND')
@@ -208,7 +208,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
   END IF
 
   IF ( .NOT. l_SRIC .AND. ( l_rot_ic .OR. l_rot_ma ) ) THEN
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         IF ( l_save_out ) THEN
            OPEN(n_rot_file,file=rot_file,status='UNKNOWN', &
                 POSITION='APPEND')
@@ -230,7 +230,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      rank_has_l1m1=.false.
      l1m0=lo_map%lm2(1,0)
      l1m1=lo_map%lm2(1,1)
-     IF ( (lmStartB(rank+1).LE.l1m0) .AND. (l1m0.LE.lmStopB(rank+1)) ) THEN
+     IF ( (lmStartB(rank+1) <= l1m0) .AND. (l1m0 <= lmStopB(rank+1)) ) THEN
         DO nR=1,n_r_max
            z10(nR)=z(l1m0,nR)
         END DO
@@ -241,7 +241,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      END IF
 
      IF ( l1m1 > 0 ) THEN
-        IF ( (lmStartB(rank+1).LE.l1m1) .AND. (l1m1.LE.lmStopB(rank+1)) ) THEN
+        IF ( (lmStartB(rank+1) <= l1m1) .AND. (l1m1 <= lmStopB(rank+1)) ) THEN
            DO nR=1,n_r_max
               z11(nR)=z(l1m1,nR)
            END DO
@@ -257,7 +257,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      END IF
      ! now we have z10 and z11 in the worst case on two different
      ! ranks, which are also different from rank 0
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         IF (.NOT.rank_has_l1m0) THEN
            CALL MPI_Recv(z10,n_r_max,MPI_DOUBLE_COMPLEX,&
                 & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
@@ -278,11 +278,11 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
         END IF
         AMz=   angular_moment_oc(3) + &
              & angular_moment_ic(3)+angular_moment_ma(3)
-        IF (ABS(AMz).LT.tolerance) AMz=0.0D0
+        IF (ABS(AMz) < tolerance) AMz=0.0D0
         eKinAMz=0.5d0*(angular_moment_oc(3)**2/c_moi_oc + &
              angular_moment_ic(3)**2/c_moi_ic + &
              angular_moment_ma(3)**2/c_moi_ma )
-        if (abs(eKinAMz).lt.tolerance) eKinAMz=0.0D0
+        if (abs(eKinAMz) < tolerance) eKinAMz=0.0D0
         eKinIC=0.5d0*angular_moment_ic(3)**2/c_moi_ic
         eKinOC=0.5d0*angular_moment_oc(3)**2/c_moi_oc
         eKinMA=0.5d0*angular_moment_ma(3)**2/c_moi_ma
@@ -325,7 +325,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      n_r1=INT(1.D0/2.D0*(n_r_max-1))
      CALL sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         filename='inerP.'//tag
         OPEN(n_SRIC_file,FILE=filename,STATUS='UNKNOWN', &
              POSITION='APPEND')
@@ -337,7 +337,7 @@ SUBROUTINE write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
      n_r1=INT(1.D0/2.D0*(n_r_max-1))
      CALL sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
 
-     IF (rank.EQ.0) THEN
+     IF (rank == 0) THEN
         filename='inerT.'//tag
         OPEN(n_SRIC_file,FILE=filename,STATUS='UNKNOWN', &
              POSITION='APPEND')
@@ -359,7 +359,7 @@ CONTAINS
     INTEGER :: ilm,lm,ierr,status(MPI_STATUS_SIZE),tag,n_lm_vals
     
     n_lm_vals=SIZE(lm_vals)
-    IF (SIZE(vals_on_rank0).LT.n_lm_vals) THEN
+    IF (SIZE(vals_on_rank0) < n_lm_vals) THEN
        WRITE(*,"(2(A,I4))") "write_rot: length of vals_on_rank0=",SIZE(vals_on_rank0),&
             &" must be >= size(lm_vals)=",n_lm_vals
        CALL mpi_abort(MPI_COMM_WORLD,43,ierr)
@@ -367,17 +367,17 @@ CONTAINS
 
     DO ilm=1,n_lm_vals
        lm=lm_vals(ilm)
-       IF (lmStartB(1).LE.lm .AND. lm.LE.lmStopB(1)) THEN
+       IF (lmStartB(1) <= lm .AND. lm <= lmStopB(1)) THEN
           ! the value is already on rank 0
-          if (rank.eq.0) vals_on_rank0(ilm)=field(lm,n_r)
+          if (rank == 0) vals_on_rank0(ilm)=field(lm,n_r)
        ELSE
           tag=876+ilm
           ! on which process is the lm value?
-          IF (lmStartB(rank+1).LE.lm .AND. lm.LE.lmStopB(rank+1)) THEN
+          IF (lmStartB(rank+1) <= lm .AND. lm <= lmStopB(rank+1)) THEN
              CALL MPI_Send(field(lm,n_r),1,MPI_DOUBLE_COMPLEX,&
                   & 0,tag,MPI_COMM_WORLD,ierr)
           END IF
-          IF (rank.EQ.0) THEN
+          IF (rank == 0) THEN
              CALL MPI_Recv(vals_on_rank0(ilm),1,MPI_DOUBLE_COMPLEX,&
                   & MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
           END IF

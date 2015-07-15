@@ -37,7 +37,7 @@ SUBROUTINE checkMovie
 
      CALL get_movie_type
 
-     IF ( rank.eq.0 ) THEN
+     IF ( rank == 0 ) THEN
         !----- Open movie files on first processor only:
         IF ( .NOT. l_save_out ) THEN
            DO n=1,n_movies

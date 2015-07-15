@@ -127,7 +127,7 @@ CONTAINS
 
     this%nR=nR
     this%nBc=nBc
-    this%isRadialBoundaryPoint=(nR.EQ.n_r_cmb).OR.(nR.EQ.n_r_icb)
+    this%isRadialBoundaryPoint=(nR == n_r_cmb).OR.(nR == n_r_icb)
 
     IF ( this%l_cour ) THEN
        this%dtrkc=1.D10
@@ -233,7 +233,7 @@ CONTAINS
        IF ( (.NOT.this%isRadialBoundaryPoint) .OR. this%lMagNlBc ) THEN 
           
           !IF (DEBUG_OUTPUT) THEN
-             !IF (this%nR.EQ.2) THEN
+             !IF (this%nR == 2) THEN
              !   WRITE(*,"(A,I2,A,I2)") "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
              !   CALL this%gsa(threadid)%output_nl_input()
              !   WRITE(*,"(A,I2,A,I2)") "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
@@ -259,7 +259,7 @@ CONTAINS
                &      this%nR,this%nBc,nThetaStart)
           !PERFOFF
           !IF (DEBUG_OUTPUT) THEN
-          !   IF (this%nR.eq.2) THEN
+          !   IF (this%nR == 2) THEN
           !      WRITE(*,"(A,I2,A,I2)") "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
           !      CALL this%gsa(threadid)%output()
           !      WRITE(*,"(A,I2,A,I2)") "---- END   gsa(",threadid,") for nThetaB = ",nThetaB
@@ -284,12 +284,12 @@ CONTAINS
        !     to these products from the points theta(nThetaStart)-theta(nThetaStop)
        !     These products are used in get_b_nl_bcs.
        !PERFON('nl_cmb')
-       IF ( this%nR.EQ.n_r_cmb .AND. l_b_nl_cmb ) THEN
+       IF ( this%nR == n_r_cmb .AND. l_b_nl_cmb ) THEN
           CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,&
                &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,              &
                &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
                &            br_vt_lm_cmb,br_vp_lm_cmb)
-       ELSE IF ( this%nR.EQ.n_r_icb .AND. l_b_nl_icb ) THEN
+       ELSE IF ( this%nR == n_r_icb .AND. l_b_nl_icb ) THEN
           CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,&
                &this%gsa(threadid)%vpc,this%leg_helper%omegaIC,              &
                &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
@@ -300,7 +300,7 @@ CONTAINS
        !          each call adds the contribution of the theta-block to
        !          lorentz_torque_ic
        !PERFON('lorentz')
-       IF ( this%nR.EQ.n_r_icb .AND. l_mag_LF .AND. l_rot_ic .AND. l_cond_ic  ) THEN
+       IF ( this%nR == n_r_icb .AND. l_mag_LF .AND. l_rot_ic .AND. l_cond_ic  ) THEN
           lorentz_torques_ic(nThetaB)=0.0D0
           CALL get_lorentz_torque(lorentz_torques_ic(nThetaB),     &
                &                  nThetaStart,this%sizeThetaB,         &
@@ -314,7 +314,7 @@ CONTAINS
        !--------- Calculate Lorentz torque on mantle:
        !          note: this calculates a torque of a wrong sign.
        !          sign is reversed at the end of the theta blocking.
-       IF ( this%nR.EQ.n_r_cmb .AND. l_mag_LF .AND. l_rot_ma .AND. l_cond_ma ) THEN
+       IF ( this%nR == n_r_cmb .AND. l_mag_LF .AND. l_rot_ma .AND. l_cond_ma ) THEN
           CALL get_lorentz_torque(this%lorentz_torque_ma(threadid),          &
                &                  nThetaStart,this%sizeThetaB,          &
                &                  this%gsa(threadid)%brc,this%gsa(threadid)%bpc,this%nR)
@@ -460,7 +460,7 @@ CONTAINS
        END IF
        PERFOFF
 
-       !IF (this%nR.EQ.n_r_icb) THEN
+       !IF (this%nR == n_r_icb) THEN
        !   !$OMP ORDERED
        !   WRITE(*,"(2I3,A,I4,F21.17)") nThetaB,threadid,": lorentz_torque_ic = ",&
        !        & EXPONENT(this%lorentz_torque_ic(threadid)),FRACTION(this%lorentz_torque_ic(threadid))
@@ -527,7 +527,7 @@ CONTAINS
     !lorentz_torque_ic = this%lorentz_torque_ic(0)
     lorentz_torque_ma = this%lorentz_torque_ma(0)
 
-    !IF (this%nR.EQ.n_r_icb) THEN
+    !IF (this%nR == n_r_icb) THEN
     !   WRITE(*,"(A,2ES20.12)") "after OMP PARALLEL, lorentz_torque = ",&
     !        & lorentz_torque_ic,lorentz_torque_ma
     !END IF

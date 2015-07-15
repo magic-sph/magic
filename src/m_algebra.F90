@@ -350,7 +350,7 @@ contains
        ip(k)=l
 
        !IF( a(l,k) /= 0.D0 ) THEN
-       IF( ABS(a(l,k)) .GT. zero_tolerance ) THEN
+       IF( ABS(a(l,k))  >  zero_tolerance ) THEN
 
           IF ( l /= k ) THEN
              DO i=1,n
@@ -379,7 +379,7 @@ contains
 
     ip(n)=n
     !IF( a(n,n) == 0.D0 ) info=n
-    IF( ABS(a(n,n)) .LE. zero_tolerance ) info=n
+    IF( ABS(a(n,n))  <=  zero_tolerance ) info=n
     IF( info > 0 ) RETURN
     DO i=1,n
        a(i,i)=1.D0/a(i,i)

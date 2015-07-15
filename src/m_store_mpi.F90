@@ -84,14 +84,14 @@ contains
     header_length=8*SIZEOF_DOUBLE_PRECISION+7*SIZEOF_INTEGER
     ! also the recordmarker for the following fields w,z,p(,s) is added to the header length
     !header_length = header_length+4
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        disp = 0
     ELSE
        disp = 2*SIZEOF_INTEGER + header_length
     END IF
     CALL MPI_FILE_SET_VIEW(rst_mpi_fh,disp,MPI_BYTE,MPI_BYTE,"external32",MPI_INFO_NULL,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ! write the header to file in process 0
        CALL MPI_FILE_WRITE(rst_mpi_fh,header_length,1,MPI_INTEGER,status,ierr)
 
@@ -123,7 +123,7 @@ contains
 
     ! define a datatype for the filetype which skips the data from other ranks
     per_process = lm_max*nr_per_rank
-    IF (rank.EQ.n_procs-1) THEN
+    IF (rank == n_procs-1) THEN
        CALL MPI_Type_vector(1,lm_max*(nr_per_rank+1), lm_max*n_r_max, MPI_DOUBLE_COMPLEX, filetype,ierr)
     ELSE
        CALL MPI_Type_vector(1,per_process,            lm_max*n_r_max, MPI_DOUBLE_COMPLEX, filetype,ierr)
@@ -134,7 +134,7 @@ contains
     disp = 8+header_length+4+rank*per_process*SIZEOF_DOUBLE_COMPLEX
     CALL MPI_FILE_SET_VIEW(rst_mpi_fh,disp,MPI_DOUBLE_COMPLEX,filetype,"external32",MPI_INFO_NULL,ierr)
 
-    IF (rank.LT.n_procs-1) THEN
+    IF (rank < n_procs-1) THEN
        data_to_write = per_process
     ELSE
        ! on the last process, we have to write one radial point more
@@ -153,7 +153,7 @@ contains
     disp = 8+header_length+4+number_of_fields*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX
     CALL MPI_FILE_SET_VIEW(rst_mpi_fh,disp,MPI_BYTE,MPI_BYTE,"external32",MPI_INFO_NULL,ierr)
 
-    IF (rank .EQ. n_procs-1) THEN
+    IF (rank  ==  n_procs-1) THEN
        ! write the recordmarker for the first fields
        CALL MPI_FILE_WRITE(rst_mpi_fh,&
             &number_of_fields*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX,&
@@ -182,7 +182,7 @@ contains
          & + 4 + number_of_fields*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX
     CALL MPI_FILE_SET_VIEW(rst_mpi_fh,disp,MPI_BYTE,MPI_BYTE,"external32",MPI_INFO_NULL,ierr)
 
-    IF (rank .EQ. n_procs-1) THEN
+    IF (rank  ==  n_procs-1) THEN
        ! write the recordmarker for the first fields
        CALL MPI_FILE_WRITE(rst_mpi_fh,&
             &number_of_fields*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX,&
@@ -192,7 +192,7 @@ contains
 
     !-- Write magnetic field:
     IF ( l_mag ) THEN
-       IF ( rank.EQ.n_procs-1 ) THEN
+       IF ( rank == n_procs-1 ) THEN
           ! write the starting record marker for the magnetic fields
           CALL MPI_FILE_WRITE(rst_mpi_fh,&
                &4*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX,&
@@ -212,7 +212,7 @@ contains
             & + 4 + 4*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX
        CALL MPI_FILE_SET_VIEW(rst_mpi_fh,disp,MPI_BYTE,MPI_BYTE,"external32",MPI_INFO_NULL,ierr)
 
-       IF (rank .EQ. n_procs-1) THEN
+       IF (rank  ==  n_procs-1) THEN
           CALL MPI_FILE_WRITE(rst_mpi_fh,&
                &4*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX,&
                &1,MPI_INTEGER,status,ierr)
@@ -222,7 +222,7 @@ contains
     !-- Write IC magnetic field:
     IF ( l_mag .AND. l_cond_ic ) THEN
        size_of_field_ic = lm_maxMag*n_r_ic_max
-       IF (rank.EQ.n_procs-1) THEN
+       IF (rank == n_procs-1) THEN
 
           ! write the starting record marker for the ...Last fields
           CALL MPI_FILE_WRITE(rst_mpi_fh,&
@@ -242,7 +242,7 @@ contains
        END IF
     ENDIF
 
-    IF (rank .EQ. n_procs-1) THEN
+    IF (rank  ==  n_procs-1) THEN
        CALL MPI_FILE_WRITE(rst_mpi_fh,&
             &15*SIZEOF_DOUBLE_PRECISION,&
             &1,MPI_INTEGER,status,ierr)

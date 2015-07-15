@@ -116,7 +116,7 @@ CONTAINS
              end if
              e_lr(nR,l)=e_lr(nR,l) + e_p+e_t
              e_mr(nR,m)=e_mr(nR,m) + e_p+e_t
-             !IF (nR.EQ.n_r_icb) THEN
+             !IF (nR == n_r_icb) THEN
              !   WRITE(*,"(A,3I4,10ES20.12)") "e_lr,e_mr,e_p,e_t = ",nR,l,m,&
              !        &e_lr(nR,l),e_mr(nR,m),&
              !        &e_p,e_t,w(lm,nR),dw(lm,nR),z(lm,nR)
@@ -137,7 +137,7 @@ CONTAINS
     CALL MPI_Reduce(e_lr_c,e_lr_c_global,n_r_max*l_max,MPI_DOUBLE_PRECISION,&
          &MPI_SUM,0,MPI_COMM_WORLD,ierr)
        
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Radial Integrals:
        fac=0.5D0*eScale
        E  =0.D0

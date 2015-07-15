@@ -33,7 +33,7 @@ SUBROUTINE closeFiles
 
      CLOSE(n_log_file)
 
-     if (rank.eq.0) then
+     if (rank == 0) then
         CLOSE(n_e_kin_file)
         CLOSE(n_par_file)
         IF ( l_AM ) THEN
@@ -82,7 +82,7 @@ SUBROUTINE closeFiles
         CLOSE(n_misc_file)
         CLOSE(n_power_file)
         !END IF
-        IF ( rank.eq.0 .AND. l_movie ) THEN
+        IF ( rank == 0 .AND. l_movie ) THEN
            IF ( l_movie ) THEN
               DO n=1,n_movies
                  CLOSE(n_movie_file(n))

@@ -122,7 +122,7 @@
     CALL MPI_Reduce(e_lr, e_lr_global,  n_r_max*l_max, &
          & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        !-- Radial Integrals:
        e_p    =rInt_R(e_p_r_global,    n_r_max,n_r_max,drx, &
             i_costf_init,d_costf_init)

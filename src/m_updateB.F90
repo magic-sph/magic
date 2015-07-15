@@ -225,7 +225,7 @@ contains
     !PERFON('upB_fin')
     all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-    IF (all_lms.LT.maxThreads) THEN
+    IF (all_lms < maxThreads) THEN
        call omp_set_num_threads(all_lms)
     END IF
 #endif
@@ -249,7 +249,7 @@ contains
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
 
        CALL get_drNS( dVxBhLM,workA, &
             &         ulm_realMag-llm_realMag+1,start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
@@ -593,7 +593,7 @@ contains
     !PERFON('upB_drv')
     all_lms=lmStop_real-lmStart_real+1
 #ifdef WITHOMP
-    IF (all_lms.LT.maxThreads) THEN
+    IF (all_lms < maxThreads) THEN
        call omp_set_num_threads(all_lms)
     END IF
 #endif
@@ -621,7 +621,7 @@ contains
     DO iThread=0,nThreads-1
        start_lm=lmStart_real+iThread*per_thread
        stop_lm = start_lm+per_thread-1
-       IF (iThread.EQ.nThreads-1) stop_lm=lmStop_real
+       IF (iThread == nThreads-1) stop_lm=lmStop_real
 
        !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
        !PERFON('upB_cb')

@@ -35,7 +35,7 @@ MODULE dtB_mod
 CONTAINS
   SUBROUTINE initialize_dtB_mod
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE( PstrLM(lm_max_dtB,n_r_max_dtB) )
        ALLOCATE( PadvLM(lm_max_dtB,n_r_max_dtB) )
        ALLOCATE( TstrLM(lm_max_dtB,n_r_max_dtB) )
@@ -54,7 +54,7 @@ CONTAINS
     ALLOCATE( TadvLM_Rloc(lm_max_dtB,nRstart:nRstop) )
     ALLOCATE( TomeLM_Rloc(lm_max_dtB,nRstart:nRstop) )
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE( PdifLM(lm_max_dtB,n_r_max_dtB) )
        ALLOCATE( TdifLM(lm_max_dtB,n_r_max_dtB) )
        ALLOCATE( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
@@ -76,7 +76,7 @@ CONTAINS
     ALLOCATE( TadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
     ALLOCATE( TdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
 
-    IF (rank.EQ.0) THEN
+    IF (rank == 0) THEN
        ALLOCATE(TstrRLM(lm_max_dtB,n_r_max_dtB))
        ALLOCATE(TadvRLM(lm_max_dtB,n_r_max_dtB))
        ALLOCATE(TomeRLM(lm_max_dtB,n_r_max_dtB))
@@ -95,7 +95,7 @@ SUBROUTINE dtb_gather_Rloc_on_rank0
   INTEGER :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
   INTEGER :: i,ierr
 
-  IF (ldtBmem.EQ.1) THEN
+  IF (ldtBmem == 1) THEN
      sendcount  = (nRstop-nRstart+1)*lm_max_dtB
      recvcounts = nr_per_rank*lm_max_dtB
      recvcounts(n_procs-1) = nr_on_last_rank*lm_max_dtB
