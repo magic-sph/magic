@@ -15,6 +15,15 @@ USE_MKL=no
 #Use hdf5 for input/output of the restart files
 USE_HDF5=no
 
+ifdef HDF5_HOME
+	HDF5LIB=$(HDF5_HOME)/lib 
+	HDF5ICL=$(HDF5_HOME)/include
+endif
+ifdef HDF5DIR
+	HDF5LIB=$(HDF5DIR) 
+	HDF5ICL=$(HDF5INCLUDE)
+endif
+
 # preconditioning of the matrices
 # switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
 # WITH_PRECOND_Z
@@ -29,8 +38,8 @@ PREPROC += 	-DWITH_PRECOND_S \
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-#	FFLAG_ARCH_OPT = -xsse3
-	FFLAG_ARCH_OPT = -xAVX
+	FFLAG_ARCH_OPT = #-xsse3
+	#FFLAG_ARCH_OPT = -xAVX
 	FFLAG_OPENMP = -openmp
 	FFLAG_OPENMP_STUBS = -openmp-stubs
 	FFLAG_CHECK_ALL = -check all
@@ -58,8 +67,8 @@ ifeq ($(COMPILER),intel)
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
 
-	FFLAG_HDF5_LIBS = -L$(HDF5_HOME)/lib -lhdf5hl_fortran -lhdf5 \
-                          -Wl,-rpath,$(HDF5_HOME)/lib
+	FFLAG_HDF5_LIBS = -L$(HDF5LIB) -lhdf5hl_fortran -lhdf5 \
+                          -Wl,-rpath,$(HDF5LIB)
 
 endif
 ifeq ($(COMPILER),gnu)
@@ -152,7 +161,7 @@ endif
 
 ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
-	INCPATHS += -I$(HDF5_HOME)/include
+	INCPATHS += -I$(HDF5ICL)
 	LIBS += $(FFLAG_HDF5_LIBS)
 endif
 
@@ -297,7 +306,9 @@ s_store_movie_frame.o   : truncation.o m_output_data.o m_blocking.o\
 m_storeCheckPoints.o    : truncation.o m_phys_param.o m_num_param.o m_logic.o\
                           m_output_data.o m_init_fields.o m_dt_fieldsLast.o 
 ifeq ($(USE_HDF5),yes)
-m_storeCheckPoints.o    : m_hdf5Helpers.o
+m_readCheckPoints.o     : m_hdf5Helpers.o
+m_storeCheckPoints.o    : m_hdf5Helpers.o m_LMLoop_data.o
+m_hdf5Helpers.o         : m_blocking.o m_LMLoop_data.o
 endif
 m_updateS.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_radial.o m_logic.o m_output_data.o\
@@ -686,4 +697,3 @@ clean:
 echo:
 	@echo $(RED_SOURCES)
 	@echo $(OBJS)
-

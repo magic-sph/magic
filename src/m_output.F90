@@ -480,6 +480,44 @@ contains
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
     END IF
 
+    !
+    ! Parallel writing of the restart file (possible only when HDF5 is used)
+    !
+#ifdef WITH_HDF5
+    if ( l_store ) then
+
+       if ( l_stop_time .or. .not.l_new_rst_file ) then
+          rst_file='h5_rst_end.'//tag_wo_rank
+       else if ( l_new_rst_file ) then
+          call dble2str(time,string)
+          rst_file='h5_rst_t='//trim(string)//'.'//tag_wo_rank
+       end if
+       call storeHdf5_parallel(time,dt,dtNew,w_LMloc,z_LMloc,p_LMloc,s_LMloc, &
+                               b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,       &
+                               dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,     &
+                               dsdtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,  &
+                               dbdt_icLast_LMloc,djdt_icLast_LMloc)
+
+       if ( rank == 0 ) then
+          write(*,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)')&
+               & " ! Storing restart file:",&
+               & "             at time=",time,&
+               & "            step no.=",n_time_step,&
+               & "           into file=",rst_file
+          call safeOpen(nLF,log_file)
+          
+          write(nLF,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)') &
+               & " ! Storing restart file:",&
+
+               & "             at time=",time,&
+               & "            step no.=",n_time_step,&
+               & "           into file=",rst_file
+          call safeClose(nLF)
+       end if
+    end if
+#endif
+
+
     ! ===================================================
     !      GATHERING for output
     ! ===================================================
@@ -488,9 +526,15 @@ contains
     l_PVout=l_PV .AND. l_log
 
     !IF (l_log.OR.l_frame.OR.l_graph.OR.l_cmb.OR.l_r.OR.l_Bpot.OR.l_Vpot&
+
+#ifdef WITH_HDF5
+    IF (l_frame.OR.l_graph.OR.l_r.OR.l_Bpot.OR.l_Vpot.OR.l_Tpot &
+         .OR.(l_SRIC.AND.l_stop_time).OR.l_PVout .or.l_rMagSpec) THEN
+#else
     IF (l_frame.OR.l_graph.OR.l_r.OR.l_Bpot.OR.l_Vpot&
          & .OR.l_Tpot.OR.l_store.OR.(l_SRIC.AND.l_stop_time).OR.l_PVout&
          & .or.l_rMagSpec) THEN
+#endif
 #if 0
        WRITE(*,"(13(A,L1))") "l_log=",l_log,&
             & ", l_frame=",l_frame,&
@@ -541,6 +585,7 @@ contains
        ! for writing a restart file, we also need the d?dtLast arrays, which first have to
        ! be gathered on rank 0
 
+#ifndef WITH_HDF5
        IF (l_store) THEN
           CALL gather_all_from_lo_to_rank0(gt_OC,dwdtLast_LMloc,dwdtLast)
           CALL gather_all_from_lo_to_rank0(gt_OC,dpdtLast_LMloc,dpdtLast)
@@ -557,6 +602,7 @@ contains
              CALL gather_all_from_lo_to_rank0(gt_IC,djdt_icLast_LMloc,djdt_icLast)
           END IF
        END IF
+#endif
 
        PERFOFF
 
@@ -887,35 +933,34 @@ contains
        !----- Store current solution
        !      Note: unless l_new_rst_file=.TRUE. .and. .not.l_stop_time
        !            this is written into rst_end.TAG
-       !#undef WITH_MPI
+
+#ifndef WITH_HDF5
        IF ( l_store ) THEN
+!#ifdef WITH_HDF5
+!          if ( l_stop_time .or. .not.l_new_rst_file ) then
+!             rst_file='ser_h5_rst_end.'//tag_wo_rank
+!          else if ( l_new_rst_file ) then
+!             CALL dble2str(time,string)
+!             rst_file='h5_rst_t='//trim(string)//'.'//tag_wo_rank
+!          end if
+!          CALL storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
+!                                  dwdtLast,dzdtLast,dpdtLast,          &
+!                                  dsdtLast,dbdtLast,djdtLast,          &
+!                                  dbdt_icLast,djdt_icLast)
+!#else
           PERFON('out_rst')
-#ifdef WITH_HDF5
-          IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
-             rst_file="h5_rst_end."//tag_wo_rank
-          ELSE IF ( l_new_rst_file ) THEN
-             CALL dble2str(time,string)
-             rst_file='h5_rst_t='//TRIM(string)//'.'//tag_wo_rank
-          END IF
-          
-          CALL storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
-#else
           IF ( l_stop_time .OR. .NOT.l_new_rst_file ) THEN
              rst_file="rst_end."//tag_wo_rank
           ELSE IF ( l_new_rst_file ) THEN
              CALL dble2str(time,string)
              rst_file='rst_t='//TRIM(string)//'.'//tag_wo_rank
           END IF
-          !CALL MPI_File_open(MPI_COMM_WORLD,rst_file,IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),MPI_INFO_NULL,rst_mpi_fh,ierr)
-          !CALL MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
-          !PRINT*,"MPI_FILE_OPEN(rst_file) returned: ",TRIM(error_string)
-          
-          !CALL store_mpi(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
-          !CALL MPI_File_close(rst_mpi_fh,ierr)
+
           OPEN(n_rst_file, FILE=rst_file, STATUS='UNKNOWN', FORM='UNFORMATTED')
-          CALL store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic)
+          CALL store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic,dwdtLast,dzdtLast, &
+                     dpdtLast,dsdtLast,dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
           CLOSE(n_rst_file)
-#endif
+!#endif
 
           WRITE(*,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)')&
                " ! Storing restart file:",&
@@ -933,6 +978,7 @@ contains
           CALL safeClose(nLF)
           PERFOFF
        END IF
+#endif
        
        IF ( l_SRIC .AND. l_stop_time ) CALL outOmega(z,omega_ic)
        

@@ -117,6 +117,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
                 &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
                 &                lorentz_torque_icLast,lorentz_torque_maLast, &
                 &                time,dt,dtNew)
+           n_time_step=0
         else
            call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
                 &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
