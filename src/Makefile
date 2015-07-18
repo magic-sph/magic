@@ -206,7 +206,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard [ms]*.F90)
-RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi% s_graphOut_IC_mpi% m_store_mpi% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi% s_graphOut_IC_mpi% m_hdf5Helpers% m_store_mpi% mpimod%,$(SOURCES))
 #RED_SOURCES = $(filter-out m_fft% s_graphOut_mpi%,$(SOURCES))
 
 ifeq ($(USE_FFTLIB),JW)
