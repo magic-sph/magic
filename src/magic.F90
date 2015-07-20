@@ -1,9 +1,6 @@
 !$Id$
 #include "perflib_preproc.cpp"
-!***********************************************************************
-    PROGRAM magic5
-!***********************************************************************
-
+program magic5
 !--+-------------+----------------+------------------------------------+
 
 !     A dynamic dynamo model driven by thermal convection
@@ -110,238 +107,234 @@
 !     Subroutine step_time performes n_time_steps time steps.
 !--+-------------------------------------------------------------------+
 
-    USE truncation
-    USE physical_parameters
-    USE radial_functions
-    USE num_param
-    USE torsional_oscillations
-    use init_fields
-    use Grenoble
-    use blocking
-    use horizontal_data
-    USE logic
-    use matrices
-    use fields
-    use fieldsLast
-    use movie_data
-    use RMS,only: initialize_RMS
-    use dtB_mod
-    USE radial_data,only: initialize_radial_data
-    use radialLoop
-    USE lmLoop_data,ONLY: initialize_LMLoop_data
-    USE LMLoop_mod,only: initialize_LMLoop
-    USE kinetic_energy
-    use magnetic_energy
-    use fields_average_mod
-    use Egeos_mod
-    use spectrum_average_mod
-    use spectrumC_average_mod
-    USE output_data
-    USE output_mod,only: initialize_output
-    use outPV3, only:initialize_outPV3
-    USE outTO_mod,only: initialize_outTO_mod
-    USE parallel_mod
-    use Namelists
-    use step_time_mod, only: initialize_step_time, step_time
-    USE timing, only: writeTime,wallTime
-    USE communications, only:initialize_communications
-    USE power, only: initialize_output_power
-    USE outPar_mod, only: initialize_outPar_mod
-    use outPerpPar_mod, only: initialize_outPerpPar_mod
-    !USE rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
+   use truncation
+   use physical_parameters
+   use radial_functions
+   use num_param
+   use torsional_oscillations
+   use init_fields
+   use Grenoble
+   use blocking
+   use horizontal_data
+   use logic
+   use matrices
+   use fields
+   use fieldsLast
+   use movie_data
+   use RMS, only: initialize_RMS
+   use dtB_mod
+   use radial_data, only: initialize_radial_data
+   use radialLoop
+   use lmLoop_data, only: initialize_LMLoop_data
+   use LMLoop_mod,only: initialize_LMLoop
+   use preCalculations
+   use start_fields, only: getStartFields
+   use kinetic_energy
+   use magnetic_energy
+   use fields_average_mod
+   use Egeos_mod
+   use spectrum_average_mod
+   use spectrumC_average_mod
+   use output_data
+   use output_mod, only: initialize_output
+   use outPV3, only:initialize_outPV3
+   use outTO_mod,only: initialize_outTO_mod
+   use parallel_mod
+   use Namelists
+   use step_time_mod, only: initialize_step_time, step_time
+   use timing, only: writeTime,wallTime
+   use communications, only:initialize_communications
+   use power, only: initialize_output_power
+   use outPar_mod, only: initialize_outPar_mod
+   use outPerpPar_mod, only: initialize_outPerpPar_mod
+   !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
-#   include "likwid_f90.h"
+#  include "likwid_f90.h"
 #endif
-    IMPLICIT NONE
 
-!-- Local variables:
-    INTEGER :: n_time_step
-    INTEGER :: n_time_step_start   ! storing initial time step no
-    INTEGER :: n                   ! counter
-    INTEGER :: nO                  ! output unit
-    REAL(kind=8) :: time
-    REAL(kind=8) :: dt
-    REAL(kind=8) :: dtNew
+   implicit none
 
-    INTEGER :: n_stop_signal       ! signal returned from step_time
-    COMMON/stop_signals/n_stop_signal
+   !-- Local variables:
+   integer :: n_time_step
+   integer :: n_time_step_start   ! storing initial time step no
+   integer :: n                   ! counter
+   integer :: nO                  ! output unit
+   real(kind=8) :: time
+   real(kind=8) :: dt
+   real(kind=8) :: dtNew
 
-    CHARACTER(len=76) :: message
+   integer :: n_stop_signal       ! signal returned from step_time
 
-    ! MPI specific variables
-    INTEGER :: required_level,provided_level
+   character(len=76) :: message
+
+   ! MPI specific variables
+   integer :: required_level,provided_level
 
 !-- end of declaration
 !------------------------------------------------------------------------
 #ifdef WITHOMP
-    required_level=MPI_THREAD_MULTIPLE
-    CALL mpi_init_thread(required_level,provided_level,ierr)
-    If (provided_level < required_level) THEN
-       PRINT*,"We need at least thread level ",required_level,", but have ",provided_level
-       stop
-    END IF
+   required_level=MPI_THREAD_MULTIPLE
+   call mpi_init_thread(required_level,provided_level,ierr)
+   if (provided_level < required_level) then
+      print*,"We need at least thread level ",required_level,", but have ",provided_level
+      stop
+   end if
 #else
-    call mpi_init(ierr)
+   call mpi_init(ierr)
 #endif
 
-    PERFINIT
-    PERFON('main')
-    LIKWID_INIT
-    !LIKWID_ON('main')
-    CALL parallel
+   PERFINIT
+   PERFON('main')
+   LIKWID_INIT
+   !LIKWID_ON('main')
+   call parallel
 
-!--- Read starting time
-    IF ( rank == 0 ) THEN
-       !CALL get_resetTime(resetTime)
-        CALL wallTime(runTimeStart)
-        WRITE(*,*)
-        message='!--- PROGRAM MAGIC5 ---!'
-        WRITE(*,*) message
-        CALL writeTime(6,'! Started at:',runTimeStart)
-    END IF
+   !--- Read starting time
+   if ( rank == 0 ) then
+      !call get_resetTime(resetTime)
+      call wallTime(runTimeStart)
+      write(*,*)
+      message='!--- PROGRAM MAGIC5 ---!'
+      write(*,*) message
+      call writeTime(6,'! Started at:',runTimeStart)
+   end if
 
-!--- Read input parameters:
-    CALL readNamelists  ! includes sent to other procs !
+   !--- Read input parameters:
+   call readNamelists  ! includes sent to other procs !
 
-    call initialize_output
+   call initialize_output
 
-    !--- Check parameters and write info to SDTOUT
-    CALL checkTruncation
-    call openFiles
+   !--- Check parameters and write info to SDTOUT
+   call checkTruncation
 
-    call initialize_blocking
-    call initialize_radial_data
-    call initialize_radial_functions
-    call initialize_radialLoop
-    !CALL initialize_rIterThetaBlocking
-    call initialize_LMLoop_data
-    call initialize_LMLoop
+   !--- Open output files:
+   call openFiles
 
-    call initialize_num_param
-    CALL initialize_TO
-    IF (l_TO) CALL initialize_outTO_mod
-    call initialize_init_fields
-    call initialize_Grenoble
-    call initialize_horizontal_data
-    call initialize_matrices
-    call initialize_fields
-    call initialize_fieldsLast
-    call initialize_movie_data
-    if (l_RMS) call initialize_RMS
-    call initialize_dtB_mod
-    call initialize_kinetic_energy
-    call initialize_magnetic_energy
-    call initialize_fields_average_mod
-    call initialize_Egeos_mod
-    call initialize_spectrum_average_mod
-    call initialize_spectrumC_average_mod
-    if (l_PV) call initialize_outPV3
-    call initialize_step_time
-    call initialize_communications
-    call initialize_outPar_mod
-    if ( l_perpPar ) call initialize_outPerpPar_mod
-    IF ( l_power ) call initialize_output_power
+   call initialize_blocking
+   call initialize_radial_data
+   call initialize_radial_functions
+   call initialize_radialLoop
+   !call initialize_rIterThetaBlocking
+   call initialize_LMLoop_data
+   call initialize_LMLoop
 
-!--- Open output files:
-    !CALL openFiles
+   call initialize_num_param
+   call initialize_TO
+   if (l_TO) call initialize_outTO_mod
+   call initialize_init_fields
+   call initialize_Grenoble
+   call initialize_horizontal_data
+   call initialize_matrices
+   call initialize_fields
+   call initialize_fieldsLast
+   call initialize_movie_data
+   if (l_RMS) call initialize_RMS
+   call initialize_dtB_mod
+   call initialize_kinetic_energy
+   call initialize_magnetic_energy
+   call initialize_fields_average_mod
+   call initialize_Egeos_mod
+   call initialize_spectrum_average_mod
+   call initialize_spectrumC_average_mod
+   if (l_PV) call initialize_outPV3
+   call initialize_step_time
+   call initialize_communications
+   call initialize_outPar_mod
+   if ( l_perpPar ) call initialize_outPerpPar_mod
+   if ( l_power ) call initialize_output_power
 
-!--- Do pre-calculations:
-    !CALL getBlocking
-    CALL preCalc
-    IF ( rank == 0 ) THEN
-        IF ( l_save_out ) THEN
-            OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
-                 POSITION='APPEND')
-        END IF
-        CALL writeNamelists(6)
-        CALL writeNamelists(n_log_file)
-        IF ( l_save_out ) close(n_log_file)
-    END IF
+   !--- Do pre-calculations:
+   call preCalc
+   if ( rank == 0 ) then
+      if ( l_save_out ) then
+         open(n_log_file, file=log_file, status='UNKNOWN', position='APPEND')
+      end if
+      call writeNamelists(6)
+      call writeNamelists(n_log_file)
+      if ( l_save_out ) close(n_log_file)
+   end if
 
-!--- Now read start-file or initialize fields:
-    CALL getStartFields(time,dt,dtNew,n_time_step)
+   !--- Now read start-file or initialize fields:
+   call getStartFields(time,dt,dtNew,n_time_step)
 
-!--- Second pre-calculation:
-    CALL preCalcTimes(time,n_time_step)
+   !--- Second pre-calculation:
+   call preCalcTimes(time,n_time_step)
 
-!--- Write info to STDOUT and log-file:
-    IF ( rank == 0 ) THEN
-        CALL writeInfo(6)
-        CALL writeInfo(n_log_file)
-    END IF
+   !--- Write info to STDOUT and log-file:
+   if ( rank == 0 ) then
+      call writeInfo(6)
+      call writeInfo(n_log_file)
+   end if
 
-!--- Check whether movie data are required:
-    CALL checkMovie
+   !--- Check whether movie data are required:
+    call checkMovie
 
-!--- AND NOW FOR THE TIME INTEGRATION:
+   !--- AND NOW FOR THE TIME INTEGRATION:
 
-!--- Write starting time to SDTOUT and logfile:
-    IF ( rank == 0 ) THEN
-        IF ( l_save_out ) THEN
-            OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
-                 POSITION='APPEND')
-        END IF
-        DO n=1,2
-            IF ( n == 1 ) nO=6
-            IF ( n == 2 ) nO=n_log_file
-            WRITE(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
-            WRITE(nO,'(''   start_time ='',1p,d18.10)') tScale*time
-            WRITE(nO,'(''   step no    ='',i10)') n_time_step
-            WRITE(nO,'(''   start dt   ='',1p,d16.4)') dt
-            WRITE(nO,'(''   start dtNew='',1p,d16.4)') dtNew
-        END DO
-        IF ( l_save_out ) CLOSE(n_log_file)
-    END IF
-    timeStart        =time
-    n_time_step_start=n_time_step
+   !--- Write starting time to SDTOUT and logfile:
+   if ( rank == 0 ) then
+      if ( l_save_out ) then
+         open(n_log_file, file=log_file, status='UNKNOWN',  position='APPEND')
+      end if
+      do n=1,2
+         if ( n == 1 ) nO=6
+         if ( n == 2 ) nO=n_log_file
+         write(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
+         write(nO,'(''   start_time ='',1p,d18.10)') tScale*time
+         write(nO,'(''   step no    ='',i10)') n_time_step
+         write(nO,'(''   start dt   ='',1p,d16.4)') dt
+         write(nO,'(''   start dtNew='',1p,d16.4)') dtNew
+      end do
+      if ( l_save_out ) close(n_log_file)
+   end if
+   timeStart        =time
+   n_time_step_start=n_time_step
 
-!--- Call time-integration routine:
-    PERFON('steptime')
-    CALL step_time(time,dt,dtNew,n_time_step)
-    PERFOFF
-!--- Write stop time to SDTOUR and logfile:
-    IF ( rank == 0 ) THEN
-        IF ( l_save_out ) THEN
-            OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN', &
-                 POSITION='APPEND')
-        END IF
+   !--- Call time-integration routine:
+   PERFON('steptime')
+   call step_time(time,dt,dtNew,n_time_step)
+   PERFOFF
+   !--- Write stop time to SDTOUR and logfile:
+   if ( rank == 0 ) then
+      if ( l_save_out ) then
+         open(n_log_file, file=log_file, status='UNKNOWN', position='APPEND')
+      end if
 
-        DO n=1,2
-            IF ( n == 1 ) nO=6
-            IF ( n == 2 ) nO=n_log_file
-            WRITE(nO,'(/,'' ! STOPPING TIME INTEGRATION AT:'')')
-            WRITE(nO,'(''   stop time ='',1p,d18.10)') tScale*time
-            WRITE(nO,'(''   stop step ='',i10)') &
-                  n_time_step+n_time_step_start
-            WRITE(nO,'(''   steps gone='',i10)') (n_time_step-1)
-            WRITE(nO,*)
-            IF ( n_stop_signal > 0 ) THEN
-                WRITE(nO,*) '!!! MAGIC TERMINATED BY STOP SIGNAL !!!'
-            ELSE
-                WRITE(nO,*) '!!! REGULAR END OF PROGRAM MAGIC !!!'
-            END IF
-            WRITE(nO,*)
-            !WRITE(nO,'('' max. thread number in  R-loop='',i3)') &
-            !      nThreadsRmax
-            !WRITE(nO,'('' max. thread number in LM-loop='',i3)') &
-            !      nThreadsLMmax
-            WRITE(nO,*)
-            CALL writeTime(nO,'! Total run time:',runTime)
-            WRITE(nO,*)
-            WRITE(nO,*) ' !***********************************!'
-            WRITE(nO,*) ' !---- THANK YOU FOR USING MAGIC ----!'
-            WRITE(nO,*) ' !---- ALWAYS HAPPY TO PLEASE YOU ---!'
-            WRITE(nO,*) ' !--------  CALL BACK AGAIN ---------!'
-            WRITE(nO,*) ' !- GET YOUR NEXT DYNAMO WITH MAGIC -!'
-            WRITE(nO,*) ' !***********************************!'
-            WRITE(nO,*) '                                  JW  '
-            WRITE(nO,*)
-        END DO
-        IF ( l_save_out ) CLOSE(n_log_file)
-    END IF
+      do n=1,2
+         if ( n == 1 ) nO=6
+         if ( n == 2 ) nO=n_log_file
+         write(nO,'(/,'' ! STOPPING TIME INTEGRATION AT:'')')
+         write(nO,'(''   stop time ='',1p,d18.10)') tScale*time
+         write(nO,'(''   stop step ='',i10)') n_time_step+n_time_step_start
+         write(nO,'(''   steps gone='',i10)') (n_time_step-1)
+         write(nO,*)
+         if ( n_stop_signal > 0 ) then
+            write(nO,*) '!!! MAGIC TERMINATED BY STOP SIGNAL !!!'
+         else
+            write(nO,*) '!!! REGULAR END OF PROGRAM MAGIC !!!'
+         end if
+         write(nO,*)
+         !write(nO,'('' max. thread number in  R-loop='',i3)') &
+         !      nThreadsRmax
+         !write(nO,'('' max. thread number in LM-loop='',i3)') &
+         !      nThreadsLMmax
+         write(nO,*)
+         call writeTime(nO,'! Total run time:',runTime)
+         write(nO,*)
+         write(nO,*) ' !***********************************!'
+         write(nO,*) ' !---- THANK YOU FOR USING MAGIC ----!'
+         write(nO,*) ' !---- ALWAYS HAPPY TO PLEASE YOU ---!'
+         write(nO,*) ' !--------  call BACK AGAIN ---------!'
+         write(nO,*) ' !- GET YOUR NEXT DYNAMO WITH MAGIC -!'
+         write(nO,*) ' !***********************************!'
+         write(nO,*) '                                  JW  '
+         write(nO,*)
+      end do
+      if ( l_save_out ) close(n_log_file)
+   end if
 
 !--- Closing the output files:
-    CALL closeFiles
+    call closeFiles
 
 
     PERFOFF
@@ -352,8 +345,4 @@
 #ifdef WITH_MPI
     call mpi_finalize(ierr)
 #endif
-    END PROGRAM
-
-!--------------------------------------------------------------------
-!--- FINISHED !
-!--------------------------------------------------------------------
+end program

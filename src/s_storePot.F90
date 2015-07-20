@@ -14,14 +14,6 @@ SUBROUTINE storePot(time,b,aj,b_ic,aj_ic, &
 
   IMPLICIT NONE
 
-  !-- input: field via common blocks
-  ! include 'truncation.f'
-  ! include 'c_radial.f'
-  ! include 'c_output.f'
-  ! include 'c_phys_param.f'
-  ! include 'c_horizontal.f'
-  ! include 'c_logic.f'
-
   REAL(kind=8),INTENT(IN) :: time
 
   !-- Input of fields to be stored:

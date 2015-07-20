@@ -243,7 +243,7 @@ $(OUT): $(OBJS)
 %.o: %.F90
 	$(FC) -c $(FFLAGS) $(PREPROC) $(INCPATHS) -o $@ $<
 
-s_getStartFields.o: s_getStartFields.F90
+m_startFields.o: m_startFields.F90
 	$(FC) -c $(FFLAGS_NOCHECK) $(PREPROC) $(INCPATHS) -o $@ $<
 
 m_timing.o: m_timing.F90
@@ -267,8 +267,6 @@ s_getTO.o               : truncation.o m_blocking.o m_horizontal.o\
                           m_output_data.o m_TO.o s_legtfAS2.o 
 s_init_costf2.o         : m_usefull.o 
 s_legtfAS2.o            : truncation.o m_horizontal.o 
-s_preCalcTimes.o        : truncation.o m_logic.o m_num_param.o m_output_data.o\
-                          m_init_fields.o s_get_hit_times.o  m_phys_param.o
 m_outTO.o               : truncation.o m_horizontal.o m_num_param.o\
                           m_phys_param.o m_radial.o m_logic.o m_blocking.o\
                           m_const.o m_output_data.o m_TO.o s_legtfAS.o s_legtfAS2.o\
@@ -341,8 +339,8 @@ s_lm2pt.o               : truncation.o m_horizontal.o m_blocking.o m_radial.o\
                           $(FFT_OBJS) 
 magic.o                 : truncation.o m_num_param.o m_parallel.o m_logic.o\
                           m_output_data.o m_timing.o s_openFiles.o\
-                          s_logWrite.o s_preCalc.o s_getStartFields.o\
-                          s_preCalcTimes.o s_writeInfo.o s_checkMovie.o\
+                          s_logWrite.o m_startFields.o\
+                          m_preCalculations.o s_writeInfo.o s_checkMovie.o\
                           m_step_time.o s_closeFiles.o m_kinetic_energy.o \
 			  m_magnetic_energy.o m_horizontal.o m_fields_average.o \
 			  m_Egeos.o m_spectrum_average.o m_spectrumC_average.o \
@@ -538,7 +536,7 @@ s_graphOut_mpi.o        : truncation.o m_horizontal.o m_phys_param.o\
                           m_output_data.o s_graph_write.o m_parallel.o
 s_get_angular_moment.o  : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_integration.o
-s_getStartFields.o      : truncation.o m_phys_param.o m_num_param.o m_const.o\
+m_startFields.o         : truncation.o m_phys_param.o m_num_param.o m_const.o\
                           m_radial.o m_init_fields.o m_blocking.o m_logic.o\
                           m_dt_fieldsLast.o m_Grenoble.o m_readCheckPoints.o\
                           s_logWrite.o s_get_dr.o m_fields.o\
@@ -580,10 +578,10 @@ m_Egeos.o               : truncation.o m_phys_param.o m_num_param.o\
                           m_plms.o s_getDVptr.o m_LMLoop_data.o
 s_get_Btor.o            : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o $(FFT_OBJS) 
-s_preCalc.o             : truncation.o m_phys_param.o m_num_param.o m_const.o\
+m_preCalculations.o     : truncation.o m_phys_param.o m_num_param.o m_const.o\
                           m_radial.o m_horizontal.o m_init_fields.o\
                           m_blocking.o m_logic.o m_output_data.o s_get_dr.o\
-                          s_logWrite.o m_integration.o
+                          s_logWrite.o m_integration.o m_parallel.o
 s_get_sl.o              : truncation.o m_blocking.o m_radial.o m_fields.o\
                           m_horizontal.o m_logic.o 
 s_init_rNB.o            : s_cheb_x_map_e.o s_init_costf1.o s_get_dr.o 

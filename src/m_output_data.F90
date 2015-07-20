@@ -136,10 +136,8 @@ MODULE output_data
   
   !----- Z-integrated output:
   REAL(kind=8) :: zDens,sDens
-  !COMMON/zInts/zDens,sDens
 
   !----- RMS cut radius and dealiasing:
   REAL(kind=8) :: rCut,rDea
-  !COMMON/RMScut/rCut,rDea
 
 END MODULE output_data
