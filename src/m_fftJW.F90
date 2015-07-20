@@ -123,7 +123,6 @@ CONTAINS
        WRITE(*,*) '! But is only       :',nd
        STOP
     END IF
-    !pi=4.D0*DATAN(1.D0)
     dPhi=2.D0*pi/DBLE(n)
     DO i=1,n,2
        phi=DBLE(i-1)*dPhi

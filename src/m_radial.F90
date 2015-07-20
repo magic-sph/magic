@@ -634,7 +634,6 @@ CONTAINS
     USE physical_parameters
     USE const, ONLY: pi
     USE logic, ONLY: l_mag,l_heat,l_anelastic_liquid
-    USE init_fields, ONLY: imagcon
 
     IMPLICIT NONE
 

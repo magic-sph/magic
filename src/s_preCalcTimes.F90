@@ -17,7 +17,8 @@
 
     USE truncation
     USE num_param
-    USE init_fields
+    USE init_fields, only: l_reset_t
+    USE physical_parameters, only: tmagcon
     USE logic
     USE output_data
 

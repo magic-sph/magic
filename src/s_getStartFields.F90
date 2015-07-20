@@ -2,11 +2,6 @@
 !***********************************************************************
 #include "perflib_preproc.cpp"
 SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
-  !***********************************************************************
-
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/15/02  by JW. --------------!
-
   !  +-------------+----------------+------------------------------------+
   !  |                                                                   |
   !  |  Purpose of this subroutine is to initialize the fields and       |
@@ -14,73 +9,75 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
   use mpi
-  USE truncation
-  USE radial_functions
-  USE physical_parameters
-  USE num_param
-  USE init_fields
-  USE Grenoble
-  USE blocking
-  USE horizontal_data
-  USE logic
-  USE fields,ONLY: w,dw,ddw,z,dz,s,ds,p,dp,b,db,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,&
-       &omega_ic,omega_ma,&
-       &w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,&
-       &ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,db_LMloc,dj_LMloc,ddb_LMloc,&
-       &ddj_LMloc,db_ic_LMloc,dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,dz_LMloc,&
-       &s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,&
-       &b_Rloc,db_Rloc,ddb_Rloc,aj_Rloc,dj_Rloc,&
-       & w_LMloc_container,w_Rloc_container,&
-       & s_LMloc_container,s_Rloc_container,&
-       & z_LMloc_container,z_Rloc_container,&
-       & p_LMloc_container,p_Rloc_container,&
-       & b_LMloc_container,b_Rloc_container,&
-       & aj_LMloc_container,aj_Rloc_container
-  USE fieldsLast
-  USE output_data
-  USE const
-  USE usefull, ONLY: cc2real
-  USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm_realMag,ulm_realMag,llm_real,ulm_real
-  USE parallel_mod,ONLY: rank,n_procs
-  USE communications, ONLY: lo2r_redist_start,& !lo2r_redist,&
-       & lo2r_s,lo2r_z, lo2r_p,&
-       & lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,&
-       &get_global_sum, lo2r_w
+  use truncation
+  use radial_functions, only: dtemp0, topcond, botcond, i_costf_init,   &
+                              d_costf_init, drx, ddrx, dr_fac_ic,       &
+                              i_costf1_ic_init, d_costf1_ic_init,       &
+                              i_costf2_ic_init, d_costf2_ic_init,       &
+                              n_r_cmb, n_r_icb, r, or1
+  use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
+                                 ktopv, kbotv, LFfac, imagcon
+  use num_param, only: dtMax, alpha
+  use Grenoble, only: lGrenoble
+  use blocking, only: lmStartB, lmStopB, nLMBs, lo_map,nLMBs_per_rank
+  use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
+                   l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
+                   l_rot_ma
+  use init_fields, only: l_start_file, init_s1, init_b1, tops,          &
+                         initV, initS, initB, s_cond
+  use fields, only: w,dw,ddw,z,dz,s,ds,p,dp,b,db,ddb,aj,dj,ddj,b_ic,    &
+                   db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,omega_ic,omega_ma,   &
+                   w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc, &
+                   aj_ic_LMloc,ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,    &
+                   db_LMloc,dj_LMloc,ddb_LMloc,ddj_LMloc,db_ic_LMloc,   &
+                   dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,       &
+                   dz_LMloc,s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,       &
+                   dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,b_Rloc,db_Rloc,      &
+                   ddb_Rloc,aj_Rloc,dj_Rloc,w_LMloc_container,          &
+                   w_Rloc_container,s_LMloc_container,s_Rloc_container, &
+                   z_LMloc_container,z_Rloc_container,p_LMloc_container,&
+                   p_Rloc_container,b_LMloc_container,b_Rloc_container, &
+                   aj_LMloc_container,aj_Rloc_container
+  use fieldsLast ! The entire module is required
+  use const, only: zero, c_lorentz_ma, c_lorentz_ic, pi
+  use usefull, only: cc2real
+  use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
+                         ulm_realMag,llm_real,ulm_real,llm,ulm,   &
+                         ulmMag,llmMag
+  use parallel_mod, only: rank,n_procs
+  use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
+                            lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
+                            get_global_sum, lo2r_w
 #ifdef WITH_HDF5
   use readCheckPoints, only: readHdf5_serial,readStartFields
 #else
   use readCheckPoints, only: readStartFields
 #endif
 
-  IMPLICIT NONE
+  implicit none
 
   !---- Output variables:
-  REAL(kind=8) :: time,dt,dtNew
-  INTEGER :: n_time_step
+  real(kind=8), intent(out) :: time,dt,dtNew
+  integer, intent(out) :: n_time_step
 
   !-- Local variables:
-  INTEGER :: nR,l1m0,nLMB,l,m
-  INTEGER :: lm
-  INTEGER :: lmStart,lmStop,lmStartReal,lmStopReal
-  REAL(kind=8) :: coex
-  REAL(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
-  CHARACTER(len=76) :: message
+  integer :: nR,l1m0,nLMB,l,m
+  integer :: lm
+  integer :: lmStart,lmStop,lmStartReal,lmStopReal
+  real(kind=8) :: coex
+  real(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
+  character(len=76) :: message
 
-  REAL(kind=8) :: sEA,sES,sAA
+  real(kind=8) :: sEA,sES,sAA
 
-  REAL(kind=8) :: s0(n_r_max),ds0(n_r_max)
-  REAL(kind=8) :: w1(n_r_max),w2(n_r_max)
+  real(kind=8) :: s0(n_r_max),ds0(n_r_max)
+  real(kind=8) :: w1(n_r_max),w2(n_r_max)
 
-  !COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
-  !COMPLEX(kind=8) :: workB_LMloc(llm:ulm,n_r_max)
-  COMPLEX(kind=8),DIMENSION(:,:),ALLOCATABLE :: workA_LMloc,workB_LMloc
-  !COMPLEX(kind=8) :: temp_lo(lm_max,n_r_max)
-  !COMPLEX(kind=8) :: temp_lo(lm_max)
+  complex(kind=8), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
 
-  INTEGER :: ierr
+  integer :: ierr
   logical :: DEBUG_OUTPUT=.false.
-  !-- end of declaration
-  !---------------------------------------------------------------
+
   !PERFON('getFlds')
   !print*,"Starting getStartFields"
   !WRITE(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
@@ -92,8 +89,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         topcond=-1.D0/epsS*dtemp0(1)
         botcond=-1.D0/epsS*dtemp0(n_r_max)
      ELSE
-        CALL s_cond(s0)
-        CALL get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
+        call s_cond(s0)
+        call get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
                &    w1,w2,i_costf_init,d_costf_init,drx)
         topcond=-1.D0/DSQRT(4.D0*pi)*ds0(1)
         botcond=-1.D0/DSQRT(4.D0*pi)*ds0(n_r_max)
@@ -172,7 +169,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         n_time_step=0
         WRITE(message,'(''! Using dtMax time step:'',D16.6)') dtMax
      END IF
-     CALL logWrite(message)
+     call logWrite(message)
 
      !----- Get radial derivatives and initialize:
 
@@ -185,24 +182,19 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         !----- Initialize/add magnetic field:
         IF ( ( imagcon /= 0 .OR. init_b1 /= 0 .OR. lGrenoble ) &
              & .AND. ( l_mag .OR. l_mag_LF ) ) THEN
-           !CALL initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-           !     lorentz_torque_icLast, lorentz_torque_maLast, &
-           !     lmStart,lmStop)
-           CALL initB(b,aj,b_ic,aj_ic, &
+           call initB(b,aj,b_ic,aj_ic, &
                 &     lorentz_torque_icLast, lorentz_torque_maLast, &
                 &     lmStart,lmStop)
         END IF
 
         !----- Initialize/add velocity, set IC and ma rotation:
         IF ( l_conv .OR. l_mag_kin .OR. l_SRIC .OR. l_SRMA ) THEN
-           !CALL initV(w_LMloc,z_LMloc,omega_ic,omega_ma,lmStart,lmStop)
-           CALL initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
+           call initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
         END IF
 
         !----- Initialize/add entropy:
         IF ( ( init_s1 /= 0 .OR. impS /= 0 ) .AND. l_heat ) THEN
-           !CALL initS(s_LMloc,lmStart,lmStop)
-           CALL initS(s,lmStart,lmStop)
+           call initS(s,lmStart,lmStop)
         END IF
 
         IF (DEBUG_OUTPUT) THEN
@@ -216,33 +208,33 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
   ! ========== Redistribution of the fields ============
   ! 1. Broadcast the scalars
-  CALL MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(lorentz_torque_icLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(lorentz_torque_maLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(time,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(dt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(dtNew,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-  CALL MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(lorentz_torque_icLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(lorentz_torque_maLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(time,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(dt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(dtNew,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+  call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 
   ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
   !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
   DO nR=1,n_r_max
      !write(*,"(8X,A,I4)") "nR = ",nR
-     CALL scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
-     CALL scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
-     CALL scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
+     call scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
+     call scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
+     call scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
+     call scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
 
      IF (l_mag) THEN
-        CALL scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
-        CALL scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
      END IF
   END DO
   IF (l_cond_ic) THEN
      DO nR=1,n_r_ic_max
-        CALL scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
-        CALL scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
      END DO
   END IF
 
@@ -250,13 +242,13 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !write(*,"(4X,A)") "Start Scatter the fields"
   IF (rank == 0) WRITE(*,"(A,2ES20.12)") "init z = ",SUM(z)
   DO nR=1,n_r_max
-     CALL scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:,nR))
-     CALL scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:,nR))
-     CALL scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:,nR))
-     CALL scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:,nR))
+     call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:,nR))
+     call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:,nR))
+     call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:,nR))
+     call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:,nR))
      IF (l_mag) THEN
-        CALL scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:,nR))
-        CALL scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
+        call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:,nR))
+        call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
      END IF
      !IF (DEBUG_OUTPUT) THEN
      !   IF (rank == 0) THEN
@@ -269,8 +261,8 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !WRITE(*,"(A,2ES20.12)") "init z_LMloc = ",get_global_sum(z_LMloc)
   IF (l_cond_ic) THEN
      DO nR=1,n_r_ic_max
-        CALL scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
-        CALL scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
+        call scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
      END DO
   END IF
 
@@ -298,33 +290,33 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
 
 
      IF ( l_conv .OR. l_mag_kin ) THEN
-        CALL get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm_real-llm_real+1, &
+        call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm_real-llm_real+1, &
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx,ddrx)
-        CALL get_dr( z_LMloc,dz_LMloc,ulm_real-llm_real+1, &
+        call get_dr( z_LMloc,dz_LMloc,ulm_real-llm_real+1, &
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx)
      END IF
 
      IF ( l_mag .OR. l_mag_kin  ) THEN
-        CALL get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulm_realMag-llm_realMag+1, &
+        call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulm_realMag-llm_realMag+1, &
              lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx,ddrx)
-        CALL get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulm_realMag-llm_realMag+1, &
+        call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulm_realMag-llm_realMag+1, &
              lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx,ddrx)
      END IF
      IF ( l_cond_ic ) then
-        CALL get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulm_realMag-llm_realMag+1, &
+        call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,ulm_realMag-llm_realMag+1, &
              lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
              n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,workB_LMloc, &
              i_costf1_ic_init,d_costf1_ic_init, &
              i_costf2_ic_init,d_costf2_ic_init)
-        CALL get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulm_realMag-llm_realMag+1, &
+        call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,ulm_realMag-llm_realMag+1, &
              lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
              n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,workB_LMloc, &
              i_costf1_ic_init,d_costf1_ic_init, &
@@ -364,7 +356,7 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
         !      END DO
         !   END DO
         !END IF
-        CALL get_dr( s_LMloc,ds_LMloc,ulm_real-llm_real+1, &
+        call get_dr( s_LMloc,ds_LMloc,ulm_real-llm_real+1, &
              lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
              i_costf_init,d_costf_init,drx)
@@ -404,14 +396,14 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   END DO
   IF ( sEA+sES == 0 ) THEN
      WRITE(message,'(''! Only l=m=0 comp. in tops:'')')
-     CALL logWrite(message)
+     call logWrite(message)
   ELSE
      sEA=DSQRT(sEA/(sEA+sES))
      sAA=DSQRT(sAA/(sEA+sES))
      WRITE(message,'(''! Rel. RMS equ. asym. tops:'',D16.6)') sEA
-     CALL logWrite(message)
+     call logWrite(message)
      WRITE(message,'(''! Rel. RMS axi. asym. tops:'',D16.6)') sAA
-     CALL logWrite(message)
+     call logWrite(message)
   END IF
 
   !----- Get changes in mantle and ic rotation rate:
@@ -447,37 +439,37 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !print*,"Start redistribution in getStartfields"
   ! start the redistribution
   IF (l_heat) THEN
-     CALL lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
-     !CALL lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
+     call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+     !call lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
+     !call lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
   END IF
   IF (l_conv) THEN
-     CALL lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
-     !CALL lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
+     call lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
+     !call lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
+     !call lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
 
      !DO nR=1,n_r_max
      !   WRITE(*,"(A,I2,A,2ES20.12)") "before: dw_LMloc for nR=",nR," is ",SUM( dw_LMloc(llm:ulm,nR) )
      !END DO
 
-     CALL lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
-     !CALL lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
-     !CALL lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
-     CALL lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
-     !CALL lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
+     call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
+     !call lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
+     !call lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
+     !call lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
+     call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
+     !call lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
+     !call lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
   END IF
 
   IF (l_mag) THEN
-     CALL lo2r_redist_start(lo2r_b,  b_LMloc_container,b_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
-     !CALL lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
-     !CALL lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
+     call lo2r_redist_start(lo2r_b,  b_LMloc_container,b_Rloc_container)
+     !call lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
+     !call lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
+     !call lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
      
-     CALL lo2r_redist_start(lo2r_aj, aj_LMloc_container,aj_Rloc_container)
-     !CALL lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
-     !CALL lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
+     call lo2r_redist_start(lo2r_aj, aj_LMloc_container,aj_Rloc_container)
+     !call lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
+     !call lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
   END IF
 
   !WRITE(*,"(A,10ES22.15)") "end of getStartFields: w,z,s,b,aj ",GET_GLOBAL_SUM(w_LMloc), &
@@ -487,8 +479,3 @@ SUBROUTINE getStartFields(time,dt,dtNew,n_time_step)
   !PERFOFF
   RETURN
 end SUBROUTINE getStartFields
-
-
-!---------------------------------------------------------------------------
-!-- end of subroutine getStartFields
-!---------------------------------------------------------------------------

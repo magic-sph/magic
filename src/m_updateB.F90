@@ -7,9 +7,9 @@ MODULE updateB_mod
        & i_costf2_ic_init,d_costf2_ic_init,&
        & dr_fac_ic,lambda,dLlambda,o_r_ic,r
   USE radial_data,ONLY: n_r_cmb,n_r_icb
-  USE physical_parameters, ONLY: n_r_LCR,opm,O_sr,kbotb
-  USE num_param
+  USE physical_parameters, ONLY: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon
   USE init_fields
+  USE num_param
   USE blocking,ONLY: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
   USE horizontal_data
   USE logic

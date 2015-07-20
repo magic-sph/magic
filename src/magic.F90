@@ -203,7 +203,6 @@
 !--- Read input parameters:
     CALL readNamelists  ! includes sent to other procs !
 
-    call initialize_const
     call initialize_output
 
     !--- Check parameters and write info to SDTOUT

@@ -1,47 +1,51 @@
 !$Id$
+module physical_parameters
 !************************************************************************
 !  Module containing the physical parameters
 !************************************************************************
+
+   implicit none
  
-MODULE physical_parameters
+   !-- Control parameters for boundary conditions:
+   integer :: mode         ! Mode of calculation
+   integer :: ktops,kbots  ! Entropy boundary condition
+   integer :: ktopv,kbotv  ! Velocity boundary condition
+   integer :: ktopb,kbotb  ! Magnetic boundary condition
+   !-- Parameters for a localized temperature (entropy) disturbance at CMB
+   integer :: impS,n_impS
+   integer, parameter :: n_impS_max=20
+   real(kind=8) ::  thetaS(n_impS_max),phiS(n_impS_max)
+   real(kind=8) :: peakS(n_impS_max),widthS(n_impS_max) 
+ 
+   !-- Dimensionless parameters:
+   real(kind=8) :: radratio
+   real(kind=8) :: ra,ek,pr,prmag,epsc0,epsc
+   real(kind=8) :: strat,polind,ViscHeatFac,OhmLossFac
+   real(kind=8) :: DissNb,epsS ! Dissipation number, deviation from the adiabat
+   real(kind=8) :: cmbHflux
+   real(kind=8) :: slopeStrat ! stratified Layer
+   character(len=72) :: interior_model ! name of the interior model
+   real(kind=8) :: r_cut_model
+   real(kind=8) :: g0,g1,g2
+   real(kind=8) :: sigma_ratio,conductance_ma
+   real(kind=8) :: rho_ratio_ic,rho_ratio_ma
+   real(kind=8) :: opr,opm,CorFac,LFfac,BuoFac,O_sr
+   real(kind=8) :: raScaled,ekScaled
+ 
+   !-- Variable properties:
+   integer :: nVarCond
+   real(kind=8) :: difExp
+   real(kind=8) :: con_DecRate,con_RadRatio,con_LambdaMatch
+   real(kind=8) :: con_LambdaOut,con_FuncWidth
+   real(kind=8) :: r_LCR
+   integer :: n_r_LCR
+   integer :: nVarDiff
+   integer :: nVarVisc
+   integer :: nVarEps
 
-  IMPLICIT NONE
+   !-- To avoid circular dependence
+   integer :: imagcon
+   real(kind=8) :: tmagcon
 
-  !-- Control parameters for boundary conditions:
-  INTEGER :: mode         ! Mode of calculation
-  INTEGER :: ktops,kbots  ! Entropy boundary condition
-  INTEGER :: ktopv,kbotv  ! Velocity boundary condition
-  INTEGER :: ktopb,kbotb  ! Magnetic boundary condition
-  !-- Parameters for a localized temperature (entropy) disturbance at CMB
-  INTEGER :: impS,n_impS
-  INTEGER,PARAMETER :: n_impS_max=20
-  REAL(kind=8) ::  thetaS(n_impS_max),phiS(n_impS_max)
-  REAL(kind=8) :: peakS(n_impS_max),widthS(n_impS_max) 
 
-  !-- Dimensionless parameters:
-  REAL(kind=8) :: radratio
-  REAL(kind=8) :: ra,ek,pr,prmag,epsc0,epsc
-  REAL(kind=8) :: strat,polind,ViscHeatFac,OhmLossFac
-  REAL(kind=8) :: DissNb,epsS ! Dissipation number, deviation from the adiabat
-  REAL(kind=8) :: cmbHflux
-  REAL(kind=8) :: slopeStrat ! stratified Layer
-  CHARACTER(len=72) :: interior_model ! name of the interior model
-  REAL(kind=8) :: r_cut_model
-  REAL(kind=8) :: g0,g1,g2
-  REAL(kind=8) :: sigma_ratio,conductance_ma
-  REAL(kind=8) :: rho_ratio_ic,rho_ratio_ma
-  REAL(kind=8) :: opr,opm,CorFac,LFfac,BuoFac,O_sr
-  REAL(kind=8) :: raScaled,ekScaled
-
-  !-- Variable properties:
-  INTEGER :: nVarCond
-  REAL(kind=8) :: difExp
-  REAL(kind=8) :: con_DecRate,con_RadRatio,con_LambdaMatch
-  REAL(kind=8) :: con_LambdaOut,con_FuncWidth
-  REAL(kind=8) :: r_LCR
-  INTEGER :: n_r_LCR
-  INTEGER :: nVarDiff
-  INTEGER :: nVarVisc
-  INTEGER :: nVarEps
-
-END MODULE physical_parameters
+end module physical_parameters
