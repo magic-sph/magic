@@ -311,7 +311,7 @@ endif
 m_updateS.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_radial.o m_logic.o m_output_data.o\
                           m_init_fields.o m_const.o m_mat.o s_get_dr.o\
-                          s_get_s0Mat.o m_algebra.o s_get_sMat.o s_costf1.o\
+                          m_algebra.o s_costf1.o\
                           s_get_ddr.o m_LMLoop_data.o
 s_getTOfinish.o         : truncation.o m_blocking.o m_horizontal.o\
                           m_num_param.o m_phys_param.o m_radial.o m_logic.o\
@@ -355,8 +355,6 @@ m_step_time.o           : truncation.o m_blocking.o m_phys_param.o\
 			  c_utils.o
 s_get_PAS.o             : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o 
-s_get_wpMat.o           : truncation.o m_blocking.o m_phys_param.o\
-                          m_num_param.o m_radial.o m_logic.o m_algebra.o 
 s_outMisc.o             : truncation.o m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o s_lmAS2pt.o m_Egeos.o m_integration.o
@@ -397,8 +395,6 @@ s_get_movie_type.o      : truncation.o m_output_data.o m_phys_param.o m_radial.o
 s_dt_courant.o          : truncation.o m_output_data.o m_logic.o  m_radial_data.o
 m_legendre_trafo.o      : truncation.o m_blocking.o m_horizontal.o m_logic.o\
                           m_const.o m_leg_helper.o
-s_get_s0Mat.o           : truncation.o m_phys_param.o m_num_param.o m_radial.o\
-                          m_algebra.o 
 s_get_dddr.o            : s_costf1.o s_get_dddcheb.o 
 s_openFiles.o           : truncation.o m_logic.o m_output_data.o m_init_fields.o\
                           m_parallel.o m_char_manip.o
@@ -450,12 +446,8 @@ s_dtVrms.o              : truncation.o m_parallel.o m_blocking.o\
 s_get_drNS.o            : s_costf1.o s_get_dcheb.o 
 m_updateWP.o            : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_radial.o m_horizontal.o m_logic.o\
-                          m_mat.o m_RMS.o s_get_wpMat.o s_costf1.o\
+                          m_mat.o m_RMS.o s_costf1.o\
                           s_get_dddr.o s_get_dr.o s_hInt2Pol.o m_LMLoop_data.o
-s_get_sMat.o            : truncation.o m_phys_param.o m_num_param.o m_radial.o\
-                          m_algebra.o 
-s_get_z10Mat.o          : truncation.o m_phys_param.o m_num_param.o m_const.o\
-                          m_radial.o m_logic.o m_algebra.o 
 s_chebInt.o             : s_cheb_x_map_e.o s_init_costf1.o s_get_dcheb.o 
 s_get_dr_even.o         : s_costf1.o s_get_dcheb_even.o s_costf2.o 
 s_parallel.o            : m_parallel.o 
@@ -515,7 +507,7 @@ s_hInt2Tor.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o
 m_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_const.o m_radial.o m_horizontal.o\
                           m_logic.o m_init_fields.o m_mat.o m_RMS.o m_TO.o\
-                          s_get_z10Mat.o m_algebra.o s_get_zMat.o s_costf1.o\
+                          m_algebra.o s_costf1.o\
                           s_get_ddr.o s_get_angular_moment.o s_hInt2Tor.o \
 			  m_LMLoop_data.o m_communications.o
 s_closeFiles.o          : truncation.o m_logic.o m_output_data.o m_parallel.o 
@@ -566,7 +558,7 @@ s_get_PolTorRms.o       : truncation.o m_blocking.o m_const.o m_radial.o\
 m_updateB.o             : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_init_fields.o\
                           m_logic.o m_radial.o m_Bext.o m_const.o m_mat.o\
-                          m_RMS.o s_get_drNS.o s_get_bMat.o m_algebra.o\
+                          m_RMS.o s_get_drNS.o m_algebra.o\
                           s_costf1.o s_get_ddr.o s_get_ddr_even.o s_hInt2Pol.o\
                           s_hInt2Tor.o m_LMLoop_data.o
 s_getTOnext.o           : truncation.o m_blocking.o m_horizontal.o\
@@ -588,8 +580,6 @@ s_init_rNB.o            : s_cheb_x_map_e.o s_init_costf1.o s_get_dr.o
 s_get_u_square.o        : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_output_data.o m_logic.o m_const.o\
                           m_phys_param.o m_integration.o
-s_get_zMat.o            : truncation.o m_blocking.o m_phys_param.o\
-                          m_num_param.o m_radial.o m_logic.o m_algebra.o 
 s_get_lorentz_torque.o  : truncation.o m_radial.o m_horizontal.o m_Grenoble.o\
                           m_phys_param.o 
 s_get_PASLM.o           : truncation.o m_blocking.o m_num_param.o m_radial.o\
@@ -598,9 +588,6 @@ m_kinetic_energy.o      : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_output_data.o m_logic.o m_const.o\
                           m_phys_param.o m_usefull.o m_integration.o\
                           m_communications.o
-s_get_bMat.o            : truncation.o m_blocking.o m_phys_param.o\
-                          m_num_param.o m_radial.o m_logic.o m_init_fields.o\
-                          m_Bext.o m_algebra.o 
 s_get_dH_dtBLM.o        : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_radial.o m_logic.o\
                           m_dtB.o 
@@ -654,16 +641,10 @@ mpi.mod: $(MPI_INCPATH)/mpif.h
 ifeq ($(USE_MKL),yes)
 m_init_fields.o		: lapack95.mod
 m_radial.o		: lapack95.mod
-s_get_bMat.o		: lapack95.mod
 m_updateB.o		: lapack95.mod
-s_get_z10Mat.o		: lapack95.mod
-s_get_zMat.o		: lapack95.mod
 m_updateZ.o		: lapack95.mod
-s_get_wpMat.o		: lapack95.mod
 m_updateWP.o		: lapack95.mod
 m_updateS.o		: lapack95.mod
-s_get_s0Mat.o		: lapack95.mod
-s_get_sMat.o		: lapack95.mod
 lapack95.mod		: $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<
 endif
