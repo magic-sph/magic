@@ -133,8 +133,7 @@ program magic5
    use magnetic_energy
    use fields_average_mod
    use Egeos_mod
-   use spectrum_average_mod
-   use spectrumC_average_mod
+   use spectra, only: initialize_spectra
    use output_data
    use output_mod, only: initialize_output
    use outPV3, only:initialize_outPV3
@@ -234,8 +233,7 @@ program magic5
    call initialize_magnetic_energy
    call initialize_fields_average_mod
    call initialize_Egeos_mod
-   call initialize_spectrum_average_mod
-   call initialize_spectrumC_average_mod
+   call initialize_spectra
    if (l_PV) call initialize_outPV3
    call initialize_step_time
    call initialize_communications

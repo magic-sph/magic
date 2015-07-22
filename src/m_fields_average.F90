@@ -16,23 +16,30 @@ MODULE fields_average_mod
   USE fft_MKL
 #endif
   USE const
-  USE LMLoop_data,ONLY: llm,ulm,llm_real,ulm_real,llmMag,ulmMag
+  USE LMLoop_data, ONLY: llm,ulm,llm_real,ulm_real,llmMag,ulmMag
   USE communications, ONLY: get_global_sum, gather_from_lo_to_rank0,&
-       &gather_all_from_lo_to_rank0,gt_OC,gt_IC
+                          & gather_all_from_lo_to_rank0,gt_OC,gt_IC
   USE write_special,only: write_Bcmb
+  USE spectra, only: spectrum, spectrum_temp
+
   IMPLICIT NONE
 
-  COMPLEX(kind=8),ALLOCATABLE :: w_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: z_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: s_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: b_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: aj_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: b_ic_ave(:,:)
-  COMPLEX(kind=8),ALLOCATABLE :: aj_ic_ave(:,:)
+  private
+
+  COMPLEX(kind=8), ALLOCATABLE :: w_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: z_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: s_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: b_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: aj_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: b_ic_ave(:,:)
+  COMPLEX(kind=8), ALLOCATABLE :: aj_ic_ave(:,:)
 
   ! on rank 0 we also allocate the following fields
-  COMPLEX(kind=8),DIMENSION(:),allocatable :: db_ave_global,aj_ave_global,&
-       & w_ave_global,dw_ave_global,z_ave_global, s_ave_global
+  COMPLEX(kind=8), allocatable :: db_ave_global(:),aj_ave_global(:)
+  COMPLEX(kind=8), allocatable :: w_ave_global(:),dw_ave_global(:)
+  COMPLEX(kind=8), allocatable :: z_ave_global(:), s_ave_global(:)
+
+  public :: initialize_fields_average_mod, fields_average
 
   contains
     SUBROUTINE initialize_fields_average_mod
@@ -68,11 +75,6 @@ MODULE fields_average_mod
     SUBROUTINE fields_average(nAve,l_stop_time,                        &
        &                      time_passed,time_norm,omega_ic,omega_ma, &
        &                      w,z,s,b,aj,b_ic,aj_ic)
-    !***********************************************************************
-
-    !   !------------ This is release 2 level 2  --------------!
-    !   !------------ Created on 2/6/02  by JW. --------------!
-
     !  +-------------+----------------+------------------------------------+
     !  |                                                                   |
     !  |  This subroutine averages fields b and v over time.               |
@@ -80,29 +82,27 @@ MODULE fields_average_mod
     !  +-------------------------------------------------------------------+
 
     !-- Input of variables:
-    INTEGER,intent(IN) :: nAve    ! number for averaged time steps
-    LOGICAL,intent(IN) :: l_stop_time     ! true if this is the last time step
-    REAL(kind=8),intent(IN) :: time_passed     ! time passed since last log
-    REAL(kind=8),INTENT(IN) :: time_norm       ! time passed since start of time loop
-    REAL(kind=8),intent(IN) :: omega_ic,omega_ma
-
-    !-- Input of scalar fields:
-    COMPLEX(kind=8),INTENT(IN) :: w(llm:ulm,n_r_max)
-    COMPLEX(kind=8),intent(IN) :: z(llm:ulm,n_r_max)
-    COMPLEX(kind=8),intent(IN) :: s(llm:ulm,n_r_max)
-    COMPLEX(kind=8),intent(IN) :: b(llmMag:ulmMag,n_r_maxMag)
-    COMPLEX(kind=8),intent(IN) :: aj(llmMag:ulmMag,n_r_maxMag)
-    COMPLEX(kind=8),intent(IN) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-    COMPLEX(kind=8),intent(IN) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-
+    INTEGER,         intent(in) :: nAve    ! number for averaged time steps
+    LOGICAL,         intent(in) :: l_stop_time     ! true if this is the last time step
+    REAL(kind=8),    intent(IN) :: time_passed     ! time passed since last log
+    REAL(kind=8),    INTENT(IN) :: time_norm       ! time passed since start of time loop
+    REAL(kind=8),    intent(IN) :: omega_ic,omega_ma
+    COMPLEX(kind=8), intent(in) :: w(llm:ulm,n_r_max)
+    COMPLEX(kind=8), intent(in) :: z(llm:ulm,n_r_max)
+    COMPLEX(kind=8), intent(in) :: s(llm:ulm,n_r_max)
+    COMPLEX(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+    COMPLEX(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+    COMPLEX(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+    COMPLEX(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
     !-- Local stuff:
     ! fields for the gathering
-    COMPLEX(kind=8),DIMENSION(1:lm_maxMag,n_r_ic_maxMag) :: b_ic_ave_global,&
-         & db_ic_ave_global,ddb_ic_ave_global,aj_ic_ave_global,dj_ic_ave_global
-    COMPLEX(kind=8),DIMENSION(1:lm_maxMag,n_r_maxMag) :: b_ave_global
-    !COMPLEX(kind=8),DIMENSION(1:lm_max) :: db_ave_global,aj_ave_global,&
-    !     & w_ave_global,dw_ave_global,z_ave_global, s_ave_global
+    COMPLEX(kind=8) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+    complex(kind=8) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+    complex(kind=8) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+    complex(kind=8) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+    complex(kind=8) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+    COMPLEX(kind=8) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
 
     !----- Time averaged fields:
     COMPLEX(kind=8) :: dw_ave(llm:ulm,n_r_max)
@@ -152,9 +152,6 @@ MODULE fields_average_mod
     !CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
     !integer :: length_of_error
 #endif
-    !-- end of declaration
-    !---------------------------------------------------------------
-
 
     !-- Initialise average for first time step:
 
@@ -298,7 +295,7 @@ MODULE fields_average_mod
             &        b_ic_ave,db_ic_ave,aj_ic_ave)  
 
        IF ( l_heat ) THEN
-          CALL spectrumC(time,n_spec,s_ave,ds_ave)
+          CALL spectrum_temp(time,n_spec,s_ave,ds_ave)
        END IF
        IF ( l_save_out ) THEN
           OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',                  &

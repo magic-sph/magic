@@ -27,11 +27,11 @@ MODULE output_mod
        & dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,dsdtLast_LMloc,&
        & dbdtLast_LMloc,djdtLast_LMloc,dbdt_icLast_LMloc,         &
        & djdt_icLast_LMloc
-  USE kinetic_energy,only: get_e_kin
+  USE kinetic_energy,only: get_e_kin, get_u_square
   USE magnetic_energy,only: get_e_mag
   USE fields_average_mod,only: fields_average
-  USE spectrum_average_mod,only: spectrum_average
-  USE spectrumC_average_mod,only: spectrumC_average
+  USE spectra, only: spectrum_average, spectrum, spectrum_temp, &
+                     spectrum_temp_average
   USE outTO_mod,only: outTO
   USE outPV3, only: outPV
   USE output_data,ONLY: tag,tag_wo_rank,ngform,l_max_cmb,cmbMov_file, &
@@ -41,6 +41,7 @@ MODULE output_mod
        & par_file,n_par_file,nLF,log_file,n_coeff_r_max,rst_file,     &
        & n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
+  use outMisc_mod, only: outMisc
   USE parallel_mod
   USE outPar_mod, only: outPar
   USE outPerpPar_mod, only: outPerpPar
@@ -53,9 +54,9 @@ MODULE output_mod
   USE movie_data,only: movie_gather_frames_to_rank0
   USE storeCheckPoints
 
-  IMPLICIT NONE
+  implicit none
 
-  PRIVATE
+  private
 
   INTEGER :: nBpotSets, nVpotSets, nTpotSets
   !-- Counter for output files/sets:
@@ -81,7 +82,8 @@ MODULE output_mod
   INTEGER :: n_e_sets, nRMS_sets
 
 
-  PUBLIC :: output,initialize_output
+  public :: output, initialize_output
+
 contains
 
   SUBROUTINE initialize_output
@@ -337,7 +339,7 @@ contains
           PERFON('out_aver')
           CALL spectrum_average(nLogs,l_stop_time,                  &
                &                timePassedLog,timeNormLog,w_LMloc,z_LMloc,dw_LMloc,'V')
-          CALL spectrumC_average(nLogs,l_stop_time,                 &
+          CALL spectrum_temp_average(nLogs,l_stop_time,                 &
                &                 timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
 
           IF ( l_mag ) THEN
@@ -430,7 +432,7 @@ contains
        n_spec=n_spec+1
        CALL spectrum(time,n_spec,w_LMloc,dw_LMloc,z_LMloc,                            &
             &        b_LMloc,db_LMloc,aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-       CALL spectrumC(time,n_spec,s_LMloc,ds_LMloc)
+       CALL spectrum_temp(time,n_spec,s_LMloc,ds_LMloc)
        IF (DEBUG_OUTPUT) WRITE(*,"(A,I6)") "Written  spectrum  on rank ",rank
     END IF
 
