@@ -4,7 +4,12 @@ module output_data
    !  Parameters for output control
    !****************************************************************
 
-   use movie_data, only: n_movies_max
+   use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
+                    l_RMS, l_RMStest, l_save_out, l_cmb_field,       &
+                    l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
+                    l_dt_cmb_field, l_AM, l_movie
+   use parallel_mod, only: rank
+   use charmanip, only: length_to_blank
 
    implicit none
  
@@ -122,7 +127,6 @@ module output_data
    character(len=72) :: cmb_file,dt_cmb_file
    character(len=72) :: cmbMov_file
    character(len=72) :: misc_file
-   character(len=72) :: movie_file(n_movies_max)
    character(len=72) :: SRIC_file
    character(len=72) :: SRMA_file
    character(len=72), allocatable :: v_r_file(:)
@@ -136,4 +140,260 @@ module output_data
    !----- RMS cut radius and dealiasing:
    real(kind=8) :: rCut,rDea
 
+
+contains
+
+   subroutine openFiles
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  | Defines names and unit for output files and opens then.           |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      character(len=72) :: string
+      integer ::  length
+      integer :: n
+
+      !-- Define output unit numbers:
+      n_log_file         =7
+      n_rst_file         =9
+      n_graph_file       =10
+      n_e_kin_file       =11
+      n_kin_spec_file    =12
+      n_e_mag_ic_file    =13
+      n_e_mag_oc_file    =14
+      n_mag_spec_file    =15
+      n_u2_spec_file     =121
+      n_lp_file          =16
+      n_rot_file         =17
+      n_dipole_file      =18
+      n_signal_file      =19
+      n_cmb_file         =20
+      n_misc_file        =21
+      n_cmbMov_file      =24
+      n_SRIC_file        =25
+      n_SRMA_file        =26
+      n_dt_cmb_file      =27
+      n_power_file       =28
+      n_u_square_file    =29  
+      n_perpPar_file     =290
+      n_par_file         =300
+      n_angular_file     =301
+      n_dtvrms_file      =302
+      n_dtvasrms_file    =303
+      n_dtbrms_file      =304
+      n_dtdrms_file      =305
+      do n=1,n_coeff_r_max
+         n_v_r_file(n)=40+n
+      end do
+      if ( l_r_fieldT ) then
+         do n=1,n_coeff_r_max
+            n_t_r_file(n)=60+n
+         end do
+      end if
+      if ( l_mag ) then
+         do n=1,n_coeff_r_max
+            n_b_r_file(n)=50+n
+         end do
+      end if
+      nLF=n_log_file
+
+      !-- Define output file names:
+      e_kin_file='e_kin.'//tag
+      log_file='log.'//tag
+      par_file='par.'//tag
+      if ( l_mag ) then
+         e_mag_ic_file='e_mag_ic.'//tag
+         e_mag_oc_file='e_mag_oc.'//tag
+         dipole_file='dipole.'//tag
+         if ( l_RMS .or. l_RMStest) then
+            dtbrms_file='dtBrms.'//tag
+            dtdrms_file='dtDrms.'//tag
+         end if
+      end if
+      if ( l_AM ) then
+         angular_file='AM.'//tag
+      end if
+      if ( l_anel ) then
+         u_square_file='u_square.'//tag
+      end if
+      if ( l_perpPar ) then
+         perpPar_file='perpPar.'//tag
+      end if
+      if ( l_RMS .or. l_RMStest) then
+         dtvrms_file='dtVrms.'//tag
+         dtvasrms_file='dtVAsRms.'//tag
+      end if
+      if ( l_rot_ic .or. l_rot_ma ) then
+         rot_file='rot.'//tag
+      end if
+      if ( l_cmb_field ) then
+         cmb_file   ='B_coeff_cmb.'//tag
+         cmbMov_file='B_coeff_cmbMov.'//tag
+      end if
+      if ( l_dt_cmb_field ) then
+         dt_cmb_file   ='B_coeff_dt_cmb.'//tag
+      end if
+      if ( l_r_field ) then
+         do n=1,n_coeff_r_max
+            write(string,'(''V_coeff_r'',i1,''.'')') n
+            length=length_to_blank(string)
+            v_r_file(n)=string(1:length)//tag
+            if ( l_mag ) then
+               write(string,'(''B_coeff_r'',i1,''.'')') n
+               length=length_to_blank(string)
+               B_r_file(n)=string(1:length)//tag
+            end if
+         end do
+      end if
+      if ( l_r_fieldT ) then
+         do n=1,n_coeff_r_max
+            write(string,'(''T_coeff_r'',i1,''.'')') n
+            length=length_to_blank(string)
+            t_r_file(n)=string(1:length)//tag
+         end do
+      end if
+      misc_file ='misc.'//tag
+      SRIC_file ='SRIC.'//tag
+      SRMA_file ='SRMA.'//tag
+      power_file='power.'//tag
+
+      !-- Open various output files that will be used throughout the run:
+      if ( .not. l_save_out ) then
+
+         if ( rank == 0 ) then
+            open(n_log_file, file=log_file, status='UNKNOWN')
+            open(n_e_kin_file, file=e_kin_file, status='NEW')
+            open(n_par_file, file=par_file, status='NEW')
+            if ( l_RMS .or. l_RMStest) then
+               open(n_dtvrms_file, file=dtvrms_file, status='NEW')
+               open(n_dtvasrms_file, file=dtvasrms_file, status='NEW')
+            end if
+            if ( l_anel ) then
+               open(n_u_square_file, file=u_square_file, status='NEW')
+            end if
+            if ( l_perpPar ) then
+               open(n_perpPar_file, file=perpPar_file, status='NEW')
+            end if
+            if ( l_AM ) then
+               open(n_angular_file, file=angular_file, status='NEW')
+            end if
+            if ( l_r_field ) then
+               do n=1,n_coeff_r_max
+                  open(n_v_r_file(n), file=v_r_file(n), &
+                       status='NEW', form='UNFORMATTED')
+               end do
+            end if
+            if ( l_r_fieldT ) then
+               do n=1,n_coeff_r_max
+                  open(n_t_r_file(n), file=t_r_file(n), &
+                       status='NEW', form='UNFORMATTED')
+               end do
+            end if
+            if ( l_mag ) then
+               open(n_e_mag_oc_file, file=e_mag_oc_file, status='NEW')
+               open(n_e_mag_ic_file, file=e_mag_ic_file, status='NEW')
+               open(n_dipole_file, file=dipole_file, status='new')
+               if ( l_RMS .or. l_RMStest) then
+                  open(n_dtbrms_file, file=dtbrms_file, status='NEW')
+                  open(n_dtdrms_file, file=dtdrms_file, status='NEW')
+               end if
+               if ( l_cmb_field ) then
+                  open(n_cmb_file, file=cmb_file, &
+                       status='NEW', form='UNFORMATTED')
+                  if ( l_movie ) then
+                     open(n_cmbMov_file, file=cmbMov_file, &
+                          status='NEW', form='UNFORMATTED')
+                  end if
+               end if
+               if ( l_dt_cmb_field )                    &
+                  open(n_dt_cmb_file, file=dt_cmb_file, &
+                       status='NEW', form='UNFORMATTED')
+               if ( l_r_field ) then
+                  do n=1,n_coeff_r_max
+                     open(n_b_r_file(n), file=b_r_file(n), &
+                          status='NEW', form='UNFORMATTED')
+                  end do
+               end if
+            end if
+            if ( .not. l_SRIC .and. .not. l_SRMA ) then
+               if ( l_rot_ic .or. l_rot_ma ) &
+                    open(n_rot_file, file=rot_file, status="NEW")
+            end if
+            open(n_misc_file, file=misc_file, status="NEW")
+            if ( l_power ) open(n_power_file, file=power_file, status="NEW")
+         end if
+      end if
+
+   end subroutine openFiles
+!-------------------------------------------------------------------
+   subroutine closeFiles
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  | Defines names and unit for output files and opens then.           |
+      !  | MPI: called only by the processor responsible for output !        |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      integer :: n
+    
+      !-- Close various output files:
+      if ( .not. l_save_out ) then
+    
+         close(n_log_file)
+    
+         if ( rank == 0 ) then
+            close(n_e_kin_file)
+            close(n_par_file)
+            if ( l_AM ) then
+               close(n_angular_file)
+            end if
+            if ( l_anel ) then
+               close(n_u_square_file)
+            end if
+            if ( l_perpPar ) then
+               close(n_perpPar_file)
+            end if
+            if ( l_RMS .or. l_RMStest ) then
+               close(n_dtvrms_file)
+               close(n_dtvasrms_file)
+            end if
+            if ( l_r_field ) then
+               do n=1,n_coeff_r_max
+                  close(n_v_r_file(n))
+               end do
+            end if
+            if ( l_r_fieldT ) then
+               do n=1,n_coeff_r_max
+                  close(n_t_r_file(n))
+               end do
+            end if
+            if ( l_mag ) then
+               close(n_e_mag_oc_file)
+               close(n_e_mag_ic_file)
+               close(n_dipole_file)
+               if ( l_RMS .or. l_RMStest) then
+                  close(n_dtbrms_file)
+                  close(n_dtdrms_file)
+               end if
+               if ( l_cmb_field ) close(n_cmb_file)
+               if ( l_cmb_field .and. l_movie ) close(n_cmbMov_file)
+               if ( l_r_field ) then
+                  do n=1,n_coeff_r_max
+                     close(n_b_r_file(n))
+                  end do
+               end if
+               if ( l_dt_cmb_field ) close(n_dt_cmb_file)
+            end if
+            if ( l_rot_ic .or. l_rot_ma .and.      &
+                 .not. l_SRIC .and. .not. l_SRMA ) &
+                 close(n_rot_file)
+            close(n_misc_file)
+            close(n_power_file)
+            !end if
+         end if
+      end if
+
+   end subroutine closeFiles
+!-------------------------------------------------------------------
 end module output_data

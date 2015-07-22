@@ -217,7 +217,7 @@ contains
                &4*lm_max*n_r_max*SIZEOF_DOUBLE_COMPLEX,&
                &1,MPI_INTEGER,status,ierr)
        END IF
-    ENDIF
+    END IF
 
     !-- Write IC magnetic field:
     IF ( l_mag .AND. l_cond_ic ) THEN
@@ -240,7 +240,7 @@ contains
                &4*size_of_field_ic*SIZEOF_DOUBLE_COMPLEX,&
                &1,MPI_INTEGER,status,ierr)
        END IF
-    ENDIF
+    END IF
 
     IF (rank  ==  n_procs-1) THEN
        CALL MPI_FILE_WRITE(rst_mpi_fh,&

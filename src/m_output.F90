@@ -49,7 +49,7 @@ MODULE output_mod
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
   USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,   &
        & gt_OC,gt_IC
-  USE write_special,only: write_Bcmb, write_coeff_r
+  USE out_coeff, only: write_Bcmb, write_coeff_r
   USE getDlm_mod,only: getDlm
   USE movie_data,only: movie_gather_frames_to_rank0
   USE storeCheckPoints
@@ -768,12 +768,12 @@ contains
           END IF
           !WRITE(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
 
-          IF ( prmag.NE.0 .AND. nVarCond > 0 ) THEN
+          IF ( prmag /= 0 .AND. nVarCond > 0 ) THEN
              Rm=0.d0
              Rm=rInt_R(RmR,n_r_max,n_r_max,drx, &
                   &    i_costf_init,d_costf_init)
              Rm=Rm*3/(r_cmb**3-r_icb**3)
-          elseif ( prmag.NE.0 ) THEN
+          elseif ( prmag /= 0 ) THEN
              Rm=Re*prmag
           ELSE
              Rm=Re

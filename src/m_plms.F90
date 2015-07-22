@@ -64,16 +64,16 @@ contains
          plm=dsqrt(fac)
          if( dsin(theta) /= 0.d0 ) then
             plm=plm*dsin(theta)**m
-         elseif( m /= 0 ) then
+         else if( m /= 0 ) then
             plm=0.d0
-         endif
+         end if
            
       !-- plm for l=m:
          l=m
-         if( norm == 1 ) then
+         if ( norm == 1 ) then
             dnorm=1.d0/dsqrt(dble(2*l+1))
-            if( m /= 0 ) dnorm=sq2*dnorm
-         endif
+            if ( m /= 0 ) dnorm=sq2*dnorm
+         end if
 
       !-- Now store it:
          pos=pos+1
@@ -89,10 +89,10 @@ contains
                                dble( (l-m)*(l+m) )  ) * plm1 - &
                       dsqrt( (dble(2*l+1)*dble(l+m-1)*dble(l-m-1))  / &
                          (dble(2*l-3)*dble(l-m)*dble(l+m))  ) * plm2
-            if( norm == 1 ) then
+            if ( norm == 1 ) then
                dnorm=1.d0/dsqrt(dble(2*l+1))
-               if( m /= 0 ) dnorm=sq2*dnorm
-            endif
+               if ( m /= 0 ) dnorm=sq2*dnorm
+            end if
                
           !----- Now store it:
             pos=pos+1
@@ -115,10 +115,10 @@ contains
                             dble( (l-m)*(l+m) )  ) * plm1 - &
                    dsqrt( dble( (2*l+1)*(l+m-1)*(l-m-1) ) / &
                      dble( (2*l-3)*(l-m)*(l+m) ) ) * plm2
-         if( norm == 1 ) then
+         if ( norm == 1 ) then
             dnorm=1.d0/dsqrt(dble(2*l+1))
-            if( m /= 0 ) dnorm=sq2*dnorm
-         endif
+            if ( m /= 0 ) dnorm=sq2*dnorm
+         end if
          dtheta_plma(pos)=dnorm*plm
            
       end do    ! loop over order !

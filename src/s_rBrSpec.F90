@@ -115,7 +115,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
                     amp=REAL(Pol(lm,n_r_ICB))
                  END IF
                  IF ( m == 0 ) THEN
-                    IF ( ABS(amp).NE.0d0) THEN
+                    IF ( ABS(amp) /= 0d0) THEN
                        e_p_AS(l,n_r_max-1+n_r)= fac*amp/ABS(amp)*e_p_temp
                     END IF
                  END IF

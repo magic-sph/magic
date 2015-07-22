@@ -668,7 +668,7 @@ CONTAINS
        END DO
 #endif
        CALL mpi_waitall(2*(n_procs-1),final_wait_array,array_of_statuses,ierr)
-       IF (ierr.NE.MPI_SUCCESS) WRITE(*,"(A)") "Error with nonblocking comm. 1"
+       IF (ierr /= MPI_SUCCESS) WRITE(*,"(A)") "Error with nonblocking comm. 1"
        !PRINT*,"Nonblocking communication 1 is done."
     ELSE
        ! rank  ==  n_procs-1
@@ -703,7 +703,7 @@ CONTAINS
        END DO
        !PRINT*,"Waiting for completion of nonblocking communication 2"
        CALL mpi_waitall(2*(n_procs-1),final_wait_array,array_of_statuses,ierr)
-       IF (ierr.NE.MPI_SUCCESS) WRITE(*,"(A)") "Error with nonblocking comm. 2"
+       IF (ierr /= MPI_SUCCESS) WRITE(*,"(A)") "Error with nonblocking comm. 2"
        !PRINT*,"Nonblocking communication 2 is done."
     end if
 

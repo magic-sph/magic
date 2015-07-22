@@ -366,7 +366,7 @@ contains
        ELSE
           lTC=.FALSE.
           zMin=-zMax
-       ENDIF
+       END IF
        h(nS) =zMax-zMin
        Oh(nS)=1.D0/h(nS)
 

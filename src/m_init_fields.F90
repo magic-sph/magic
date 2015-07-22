@@ -46,6 +46,7 @@ contains
 
       use truncation, only: l_max, m_max
 
+      n_start_file=8
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
 
@@ -493,7 +494,7 @@ contains
       !-- Now care for the prescribed boundary condition:
 
       if ( minc /= 1 ) then
-         write(*,*) '! impS doesnt work for minc.NE.1'
+         write(*,*) '! impS doesnt work for minc /= 1'
          stop
       end if
 

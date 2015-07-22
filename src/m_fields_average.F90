@@ -1,544 +1,540 @@
 !$Id$
-MODULE fields_average_mod
-  USE truncation
-  USE radial_functions
-  USE num_param
-  USE blocking,ONLY: lmStartB,lmStopB
-  USE horizontal_data
-  USE logic
-  use kinetic_energy
-  use magnetic_energy
-  USE output_data
-  use parallel_mod
+module fields_average_mod
+
+   use truncation
+   use radial_data, only: n_r_cmb
+   use radial_functions, only: i_costf_init, d_costf_init, drx,    &
+                               i_costf1_ic_init, d_costf1_ic_init, &
+                               i_costf2_ic_init, d_costf2_ic_init, &
+                               r, dr_fac_ic
+   use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2
+   use horizontal_data, only: Plm, dPlm, dLh
+   use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic
+   use kinetic_energy, only: get_e_kin
+   use magnetic_energy, only: get_e_mag
+   use output_data, only: tag, graph_file, nLF, n_graph_file, ngform, &
+                          log_file, n_graphs, l_max_cmb
+   use parallel_mod, only: rank
 #if (FFTLIB==JW)
-  USE fft_JW
+   use fft_JW
 #elif (FFTLIB==MKL)
-  USE fft_MKL
+   use fft_MKL
 #endif
-  USE const
-  USE LMLoop_data, ONLY: llm,ulm,llm_real,ulm_real,llmMag,ulmMag
-  USE communications, ONLY: get_global_sum, gather_from_lo_to_rank0,&
-                          & gather_all_from_lo_to_rank0,gt_OC,gt_IC
-  USE write_special,only: write_Bcmb
-  USE spectra, only: spectrum, spectrum_temp
+   use const, only: zero, vol_oc, vol_ic
+   use LMLoop_data, only: llm,ulm,llm_real,ulm_real,llmMag,ulmMag
+   use communications, only: get_global_sum, gather_from_lo_to_rank0,&
+                           & gather_all_from_lo_to_rank0,gt_OC,gt_IC
+   use out_coeff, only: write_Bcmb
+   use spectra, only: spectrum, spectrum_temp
+ 
+   implicit none
+ 
+   private
+ 
+   complex(kind=8), allocatable :: w_ave(:,:)
+   complex(kind=8), allocatable :: z_ave(:,:)
+   complex(kind=8), allocatable :: s_ave(:,:)
+   complex(kind=8), allocatable :: b_ave(:,:)
+   complex(kind=8), allocatable :: aj_ave(:,:)
+   complex(kind=8), allocatable :: b_ic_ave(:,:)
+   complex(kind=8), allocatable :: aj_ic_ave(:,:)
+ 
+   ! on rank 0 we also allocate the following fields
+   complex(kind=8), allocatable :: db_ave_global(:),aj_ave_global(:)
+   complex(kind=8), allocatable :: w_ave_global(:),dw_ave_global(:)
+   complex(kind=8), allocatable :: z_ave_global(:), s_ave_global(:)
+ 
+   public :: initialize_fields_average_mod, fields_average
 
-  IMPLICIT NONE
+contains
 
-  private
+   subroutine initialize_fields_average_mod
 
-  COMPLEX(kind=8), ALLOCATABLE :: w_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: z_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: s_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: b_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: aj_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: b_ic_ave(:,:)
-  COMPLEX(kind=8), ALLOCATABLE :: aj_ic_ave(:,:)
+      allocate( w_ave(llm:ulm,n_r_max) )
+      allocate( z_ave(llm:ulm,n_r_max) )
+      allocate( s_ave(llm:ulm,n_r_max) )
+      allocate( b_ave(llm:ulm,n_r_max) )
+      allocate( aj_ave(llm:ulm,n_r_max) )
+      allocate( b_ic_ave(llm:ulm,n_r_ic_max) )
+      allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
 
-  ! on rank 0 we also allocate the following fields
-  COMPLEX(kind=8), allocatable :: db_ave_global(:),aj_ave_global(:)
-  COMPLEX(kind=8), allocatable :: w_ave_global(:),dw_ave_global(:)
-  COMPLEX(kind=8), allocatable :: z_ave_global(:), s_ave_global(:)
-
-  public :: initialize_fields_average_mod, fields_average
-
-  contains
-    SUBROUTINE initialize_fields_average_mod
-
-      ALLOCATE( w_ave(llm:ulm,n_r_max) )
-      ALLOCATE( z_ave(llm:ulm,n_r_max) )
-      ALLOCATE( s_ave(llm:ulm,n_r_max) )
-      ALLOCATE( b_ave(llm:ulm,n_r_max) )
-      ALLOCATE( aj_ave(llm:ulm,n_r_max) )
-      ALLOCATE( b_ic_ave(llm:ulm,n_r_ic_max) )
-      ALLOCATE( aj_ic_ave(llm:ulm,n_r_ic_max) )
-
-      IF (rank == 0) THEN
-         allocate(db_ave_global(1:lm_max))
-         allocate(aj_ave_global(1:lm_max))
-         allocate(w_ave_global(1:lm_max))
-         allocate(dw_ave_global(1:lm_max))
-         allocate(z_ave_global(1:lm_max))
-         allocate(s_ave_global(1:lm_max))
+      if (rank == 0) then
+         allocate( db_ave_global(1:lm_max) )
+         allocate( aj_ave_global(1:lm_max) )
+         allocate( w_ave_global(1:lm_max) )
+         allocate( dw_ave_global(1:lm_max) )
+         allocate( z_ave_global(1:lm_max) )
+         allocate( s_ave_global(1:lm_max) )
 #ifdef WITH_DEBUG
-      ELSE
-         ALLOCATE(db_ave_global(1))
-         allocate(aj_ave_global(1))
-         allocate(w_ave_global(1))
-         allocate(dw_ave_global(1))
-         allocate(z_ave_global(1))
-         allocate(s_ave_global(1))
+      else
+         allocate( db_ave_global(1) )
+         allocate( aj_ave_global(1) )
+         allocate( w_ave_global(1) )
+         allocate( dw_ave_global(1) )
+         allocate( z_ave_global(1) )
+         allocate( s_ave_global(1) )
 #endif
-      END IF
+      end if
 
-    END SUBROUTINE initialize_fields_average_mod
-  !**********************************************************************
-    SUBROUTINE fields_average(nAve,l_stop_time,                        &
-       &                      time_passed,time_norm,omega_ic,omega_ma, &
-       &                      w,z,s,b,aj,b_ic,aj_ic)
-    !  +-------------+----------------+------------------------------------+
-    !  |                                                                   |
-    !  |  This subroutine averages fields b and v over time.               |
-    !  |                                                                   |
-    !  +-------------------------------------------------------------------+
+   end subroutine initialize_fields_average_mod
+!----------------------------------------------------------------------------
+   subroutine fields_average(nAve,l_stop_time,                        &
+      &                      time_passed,time_norm,omega_ic,omega_ma, &
+      &                      w,z,s,b,aj,b_ic,aj_ic)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  This subroutine averages fields b and v over time.               |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
 
-    !-- Input of variables:
-    INTEGER,         intent(in) :: nAve    ! number for averaged time steps
-    LOGICAL,         intent(in) :: l_stop_time     ! true if this is the last time step
-    REAL(kind=8),    intent(IN) :: time_passed     ! time passed since last log
-    REAL(kind=8),    INTENT(IN) :: time_norm       ! time passed since start of time loop
-    REAL(kind=8),    intent(IN) :: omega_ic,omega_ma
-    COMPLEX(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-    COMPLEX(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-    COMPLEX(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-    COMPLEX(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-    COMPLEX(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-    COMPLEX(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-    COMPLEX(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      !-- Input of variables:
+      integer,         intent(in) :: nAve         ! number for averaged time steps
+      logical,         intent(in) :: l_stop_time  ! true if this is the last time step
+      real(kind=8),    intent(in) :: time_passed  ! time passed since last log
+      real(kind=8),    intent(in) :: time_norm    ! time passed since start of time loop
+      real(kind=8),    intent(in) :: omega_ic,omega_ma
+      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
+      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
+      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
+      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
-    !-- Local stuff:
-    ! fields for the gathering
-    COMPLEX(kind=8) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-    complex(kind=8) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-    complex(kind=8) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-    complex(kind=8) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-    complex(kind=8) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-    COMPLEX(kind=8) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
+      !-- Local stuff:
+      ! fields for the gathering
+      complex(kind=8) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
 
-    !----- Time averaged fields:
-    COMPLEX(kind=8) :: dw_ave(llm:ulm,n_r_max)
-    COMPLEX(kind=8) :: ds_ave(llm:ulm,n_r_max)
-    COMPLEX(kind=8) :: db_ave(llm:ulm,n_r_max)
-    COMPLEX(kind=8) :: db_ic_ave(llm:ulm,n_r_ic_max)
-    COMPLEX(kind=8) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
-    COMPLEX(kind=8) :: dj_ic_ave(llm:ulm,n_r_ic_max)
+      !----- Time averaged fields:
+      complex(kind=8) :: dw_ave(llm:ulm,n_r_max)
+      complex(kind=8) :: ds_ave(llm:ulm,n_r_max)
+      complex(kind=8) :: db_ave(llm:ulm,n_r_max)
+      complex(kind=8) :: db_ic_ave(llm:ulm,n_r_ic_max)
+      complex(kind=8) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
+      complex(kind=8) :: dj_ic_ave(llm:ulm,n_r_ic_max)
 
-    !----- Work array:
-    COMPLEX(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
+      !----- Work array:
+      complex(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
 
-    !----- Fields in grid space:
-    COMPLEX(kind=8) :: Br(ncp,nfs),Bt(ncp,nfs),Bp(ncp,nfs) ! B field comp.
-    COMPLEX(kind=8) :: Vr(ncp,nfs),Vt(ncp,nfs),Vp(ncp,nfs) ! B field comp.
-    COMPLEX(kind=8) :: Sr(ncp,nfs)                         ! entropy
+      !----- Fields in grid space:
+      complex(kind=8) :: Br(ncp,nfs),Bt(ncp,nfs),Bp(ncp,nfs) ! B field comp.
+      complex(kind=8) :: Vr(ncp,nfs),Vt(ncp,nfs),Vp(ncp,nfs) ! B field comp.
+      complex(kind=8) :: Sr(ncp,nfs)                         ! entropy
 
-    !----- Help arrays for fields:
-    COMPLEX(kind=8) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
-    COMPLEX(kind=8) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
+      !----- Help arrays for fields:
+      complex(kind=8) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
+      complex(kind=8) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
 
-    !----- Energies of time average field:
-    REAL(kind=8) :: ekinR(n_r_max)     ! kinetic energy w radius
-    REAL(kind=8) :: e_kin_p_ave,e_kin_t_ave
-    REAL(kind=8) :: e_kin_p_as_ave,e_kin_t_as_ave
-    REAL(kind=8) :: e_mag_p_ave,e_mag_t_ave
-    REAL(kind=8) :: e_mag_p_as_ave,e_mag_t_as_ave
-    REAL(kind=8) :: e_mag_p_ic_ave,e_mag_t_ic_ave
-    REAL(kind=8) :: e_mag_p_as_ic_ave,e_mag_t_as_ic_ave
-    REAL(kind=8) :: e_mag_os_ave,e_mag_as_os_ave
-    REAL(kind=8) :: Dip,DipCMB,e_cmb,elsAnel
+      !----- Energies of time average field:
+      real(kind=8) :: ekinR(n_r_max)     ! kinetic energy w radius
+      real(kind=8) :: e_kin_p_ave,e_kin_t_ave
+      real(kind=8) :: e_kin_p_as_ave,e_kin_t_as_ave
+      real(kind=8) :: e_mag_p_ave,e_mag_t_ave
+      real(kind=8) :: e_mag_p_as_ave,e_mag_t_as_ave
+      real(kind=8) :: e_mag_p_ic_ave,e_mag_t_ic_ave
+      real(kind=8) :: e_mag_p_as_ic_ave,e_mag_t_as_ic_ave
+      real(kind=8) :: e_mag_os_ave,e_mag_as_os_ave
+      real(kind=8) :: Dip,DipCMB,e_cmb,elsAnel
 
-    INTEGER :: lm,nR,nThetaB,nThetaStart
-    INTEGER :: n_e_sets,n_spec
+      integer :: lm,nR,nThetaB,nThetaStart
+      integer :: n_e_sets,n_spec
 
-    CHARACTER(len=80) :: outFile
-    INTEGER :: nOut,n_cmb_sets
+      character(len=80) :: outFile
+      integer :: nOut,n_cmb_sets
 
-    LOGICAL :: lGraphHeader
+      logical :: lGraphHeader
 
-    REAL(kind=8) :: time
-    REAL(kind=8) :: dt_norm
+      real(kind=8) :: time
+      real(kind=8) :: dt_norm
 
-    INTEGER :: nBpotSets,nVpotSets,nTpotSets
-    INTEGER :: lmStart,lmStop,lmStart_real, lmStop_real
-#ifdef WITH_MPI
-    !CHARACTER(len=MPI_MAX_ERROR_STRING) :: error_string
-    !integer :: length_of_error
-#endif
+      integer :: nBpotSets,nVpotSets,nTpotSets
+      integer :: lmStart,lmStop,lmStart_real, lmStop_real
 
-    !-- Initialise average for first time step:
+      !-- Initialise average for first time step:
 
-    IF ( nAve == 1 ) THEN  
+      if ( nAve == 1 ) then  
 
-       !zero=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-       IF ( n_graphs > 0 ) THEN
-          IF ( l_conv ) THEN
-             w_ave=zero
-             z_ave=zero
-          END IF
-          IF ( l_heat ) THEN
-             s_ave=zero
-          END IF
-          IF ( l_mag ) THEN
-             b_ave=zero
-             aj_ave=zero
-             IF ( l_cond_ic ) THEN
-                b_ic_ave=zero
-                aj_ic_ave=zero
-             END IF
-          END IF
-       END IF
+         !zero=cmplx(0.D0,0.D0,kind=kind(0d0))
+         if ( n_graphs > 0 ) then
+            if ( l_conv ) then
+               w_ave=zero
+               z_ave=zero
+            end if
+            if ( l_heat ) then
+               s_ave=zero
+            end if
+            if ( l_mag ) then
+               b_ave=zero
+               aj_ave=zero
+               if ( l_cond_ic ) then
+                  b_ic_ave=zero
+                  aj_ic_ave=zero
+               end if
+            end if
+         end if
 
-    END IF  ! First step
+      end if  ! First step
 
-    !-- Add new time step:
+      !-- Add new time step:
 
-    IF ( l_conv ) THEN
-       DO nR=1,n_r_max
-          DO lm=llm,ulm
-             w_ave(lm,nR)=w_ave(lm,nR) + time_passed*w(lm,nR)
-             z_ave(lm,nR)=z_ave(lm,nR) + time_passed*z(lm,nR)
-          END DO
-       END DO
-    END IF
-    IF ( l_heat ) THEN
-       DO nR=1,n_r_max
-          DO lm=llm,ulm
-             s_ave(lm,nR)=s_ave(lm,nR) + time_passed*s(lm,nR)
-          END DO
-       END DO
-    END IF
-    IF ( l_mag ) THEN
-       DO nR=1,n_r_max
-          DO lm=llm,ulm
-             b_ave(lm,nR) =b_ave(lm,nR)  + time_passed*b(lm,nR)
-             aj_ave(lm,nR)=aj_ave(lm,nR) + time_passed*aj(lm,nR)
-          END DO
-       END DO
-       IF ( l_cond_ic ) THEN
-          DO nR=1,n_r_ic_max
-             DO lm=llm,ulm
-                b_ic_ave(lm,nR) =b_ic_ave(lm,nR) + time_passed*b_ic(lm,nR)
-                aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)+ time_passed*aj_ic(lm,nR)
-             END DO
-          END DO
-       END IF
-    END IF
+      if ( l_conv ) then
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               w_ave(lm,nR)=w_ave(lm,nR) + time_passed*w(lm,nR)
+               z_ave(lm,nR)=z_ave(lm,nR) + time_passed*z(lm,nR)
+            end do
+         end do
+      end if
+      if ( l_heat ) then
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               s_ave(lm,nR)=s_ave(lm,nR) + time_passed*s(lm,nR)
+            end do
+         end do
+      end if
+      if ( l_mag ) then
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               b_ave(lm,nR) =b_ave(lm,nR)  + time_passed*b(lm,nR)
+               aj_ave(lm,nR)=aj_ave(lm,nR) + time_passed*aj(lm,nR)
+            end do
+         end do
+         if ( l_cond_ic ) then
+            do nR=1,n_r_ic_max
+               do lm=llm,ulm
+                  b_ic_ave(lm,nR) =b_ic_ave(lm,nR) + time_passed*b_ic(lm,nR)
+                  aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)+ time_passed*aj_ic(lm,nR)
+               end do
+            end do
+         end if
+      end if
 
-    !--- Output, intermediate output every 10th averaging to save result
-    !    will be overwritten.
-    IF ( l_stop_time .OR. MOD(nAve,10) == 0 ) THEN
+      !--- Output, intermediate output every 10th averaging to save result
+      !    will be overwritten.
+      if ( l_stop_time .or. mod(nAve,10) == 0 ) then
 
-       !WRITE(*,"(A,2ES22.15)") "w_ave = ",get_global_sum( w_ave )
-       time   =-1.D0  ! This signifies averaging in output files!
-       dt_norm=1.D0/time_norm
+         !write(*,"(A,2ES22.15)") "w_ave = ",get_global_sum( w_ave )
+         time   =-1.D0  ! This signifies averaging in output files!
+         dt_norm=1.D0/time_norm
 
-       IF ( l_conv ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                w_ave(lm,nR)=dt_norm*w_ave(lm,nR)
-                z_ave(lm,nR)=dt_norm*z_ave(lm,nR)
-             END DO
-          END DO
-       END IF
-       IF ( l_heat ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                s_ave(lm,nR)=dt_norm*s_ave(lm,nR)
-             END DO
-          END DO
-       END IF
-       IF ( l_mag ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                b_ave(lm,nR) =dt_norm*b_ave(lm,nR)
-                aj_ave(lm,nR)=dt_norm*aj_ave(lm,nR)
-             END DO
-          END DO
-       END IF
-       IF ( l_cond_ic ) THEN
-          DO nR=1,n_r_ic_max
-             DO lm=llm,ulm
-                b_ic_ave(lm,nR) =dt_norm*b_ic_ave(lm,nR)
-                aj_ic_ave(lm,nR)=dt_norm*aj_ic_ave(lm,nR)
-             END DO
-          END DO
-       END IF
+         if ( l_conv ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  w_ave(lm,nR)=dt_norm*w_ave(lm,nR)
+                  z_ave(lm,nR)=dt_norm*z_ave(lm,nR)
+               end do
+            end do
+         end if
+         if ( l_heat ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  s_ave(lm,nR)=dt_norm*s_ave(lm,nR)
+               end do
+            end do
+         end if
+         if ( l_mag ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  b_ave(lm,nR) =dt_norm*b_ave(lm,nR)
+                  aj_ave(lm,nR)=dt_norm*aj_ave(lm,nR)
+               end do
+            end do
+         end if
+         if ( l_cond_ic ) then
+            do nR=1,n_r_ic_max
+               do lm=llm,ulm
+                  b_ic_ave(lm,nR) =dt_norm*b_ic_ave(lm,nR)
+                  aj_ic_ave(lm,nR)=dt_norm*aj_ic_ave(lm,nR)
+               end do
+            end do
+         end if
 
-       !----- Get the radial derivatives:
-       lmStart=lmStartB(rank+1)
-       lmStop = lmStopB(rank+1)
-       lmStart_real=2*lmStart-1
-       lmStop_real =2*lmStop
+         !----- Get the radial derivatives:
+         lmStart=lmStartB(rank+1)
+         lmStop = lmStopB(rank+1)
+         lmStart_real=2*lmStart-1
+         lmStop_real =2*lmStop
 
-       CALL get_drNS(w_ave,dw_ave,ulm_real-llm_real+1,&
-            &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-            &        n_r_max,n_cheb_max,workA_LMloc,        &
-            &        i_costf_init,d_costf_init,drx)
-       IF (l_mag) THEN
-          CALL get_drNS(b_ave,db_ave,ulm_real-llm_real+1,&
-               &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-               &        n_r_max,n_cheb_max,workA_LMloc,           &
-               &        i_costf_init,d_costf_init,drx)
-       END IF
-       IF ( l_heat ) THEN
-          CALL get_drNS(s_ave,ds_ave,ulm_real-llm_real+1,&
-               &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-               &        n_r_max,n_cheb_max,workA_LMloc,     &
-               &        i_costf_init,d_costf_init,drx)
-       END IF
-       IF ( l_cond_ic ) THEN
-          CALL get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,        &
-               &              ulm_real-llm_real+1,lmStart_real-llm_real+1,lmStop_real-llm_real+1,        &
-               &              n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,        &
-               &              i_costf1_ic_init,d_costf1_ic_init,        &
-               &              i_costf2_ic_init,d_costf2_ic_init)
-          CALL get_drNS_even(aj_ic_ave,dj_ic_ave,                   &
-               &             ulm_real-llm_real+1,lmStart_real-llm_real+1,lmStop_real-llm_real+1,          &
-               &             n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workA_LMloc,          &
-               &             i_costf1_ic_init,d_costf1_ic_init,          &
-               &             i_costf2_ic_init,d_costf2_ic_init)
-       END IF
+         call get_drNS(w_ave,dw_ave,ulm_real-llm_real+1,              &
+              &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+              &        n_r_max,n_cheb_max,workA_LMloc,                &
+              &        i_costf_init,d_costf_init,drx)
+         if (l_mag) then
+            call get_drNS(b_ave,db_ave,ulm_real-llm_real+1,              &
+                 &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+                 &        n_r_max,n_cheb_max,workA_LMloc,                &
+                 &        i_costf_init,d_costf_init,drx)
+         end if
+         if ( l_heat ) then
+            call get_drNS(s_ave,ds_ave,ulm_real-llm_real+1,              &
+                 &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
+                 &        n_r_max,n_cheb_max,workA_LMloc,                &
+                 &        i_costf_init,d_costf_init,drx)
+         end if
+         if ( l_cond_ic ) then
+            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,               &
+                 &              ulm_real-llm_real+1,lmStart_real-llm_real+1, &
+                 &              lmStop_real-llm_real+1,n_r_ic_max,           &
+                 &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,         &
+                 &              i_costf1_ic_init,d_costf1_ic_init,           &
+                 &              i_costf2_ic_init,d_costf2_ic_init)
+            call get_drNS_even(aj_ic_ave,dj_ic_ave,                          &
+                 &             ulm_real-llm_real+1,lmStart_real-llm_real+1,  &
+                 &             lmStop_real-llm_real+1,n_r_ic_max,            &
+                 &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,          &
+                 &             i_costf1_ic_init,d_costf1_ic_init,            &
+                 &             i_costf2_ic_init,d_costf2_ic_init)
+         end if
 
-       !----- Get averaged spectra:
-       !      Note: average spectra will be in file no 0
-       n_spec=0
-       CALL spectrum(time,n_spec,w_ave,dw_ave,z_ave, &
-            &        b_ave,db_ave,aj_ave,            &
-            &        b_ic_ave,db_ic_ave,aj_ic_ave)  
+         !----- Get averaged spectra:
+         !      Note: average spectra will be in file no 0
+         n_spec=0
+         call spectrum(time,n_spec,w_ave,dw_ave,z_ave, &
+              &        b_ave,db_ave,aj_ave,            &
+              &        b_ic_ave,db_ic_ave,aj_ic_ave)  
 
-       IF ( l_heat ) THEN
-          CALL spectrum_temp(time,n_spec,s_ave,ds_ave)
-       END IF
-       IF ( l_save_out ) THEN
-          OPEN(nLF,FILE=log_file,STATUS='UNKNOWN',                  &
-               &             POSITION='APPEND')
-       END IF
+         if ( l_heat ) then
+            call spectrum_temp(time,n_spec,s_ave,ds_ave)
+         end if
+         if ( l_save_out ) then
+            open(nLF,file=log_file, status='UNKNOWN', position='APPEND')
+         end if
 
-       !----- Write averaged energies into log-file at end of run:
-       IF ( l_stop_time ) THEN 
+         !----- Write averaged energies into log-file at end of run:
+         if ( l_stop_time ) then 
+            !----- Calculate energies of averaged field:
+            n_e_sets=1
+            call get_e_kin(time,.false.,.true.,n_e_sets, &
+                 &         w_ave,dw_ave,z_ave,           &
+                 &         e_kin_p_ave,e_kin_t_ave,      &
+                 &         e_kin_p_as_ave,e_kin_t_as_ave,&
+                 &         eKinR)
 
-          !----- Calculate energies of averaged field:
-          n_e_sets=1
-          CALL get_e_kin(time,.FALSE.,.TRUE.,n_e_sets, &
-               &         w_ave,dw_ave,z_ave,           &
-               &         e_kin_p_ave,e_kin_t_ave,      &
-               &         e_kin_p_as_ave,e_kin_t_as_ave,&
-               &         eKinR)
+            call get_e_mag(time,.false.,.true.,n_e_sets,                  &
+                 &         b_ave,db_ave,aj_ave,                           &
+                 &         b_ic_ave,db_ic_ave,aj_ic_ave,                  &
+                 &         e_mag_p_ave,e_mag_t_ave,                       &
+                 &         e_mag_p_as_ave,e_mag_t_as_ave,                 &
+                 &         e_mag_p_ic_ave,e_mag_t_ic_ave,                 &
+                 &         e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,           &
+                 &         e_mag_os_ave,e_mag_as_os_ave,e_cmb,Dip,DipCMB, &
+                 &         elsAnel)
 
-          CALL get_e_mag(time,.FALSE.,.TRUE.,n_e_sets,                  &
-               &         b_ave,db_ave,aj_ave,                           &
-               &         b_ic_ave,db_ic_ave,aj_ic_ave,                  &
-               &         e_mag_p_ave,e_mag_t_ave,                       &
-               &         e_mag_p_as_ave,e_mag_t_as_ave,                 &
-               &         e_mag_p_ic_ave,e_mag_t_ic_ave,                 &
-               &         e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,           &
-               &         e_mag_os_ave,e_mag_as_os_ave,e_cmb,Dip,DipCMB, &
-               &         elsAnel)
+            if (rank == 0) then
+               !----- Output of energies of averaged field:
+               write(nLF,'(/,A)')                                        &
+                    &           ' ! ENERGIES OF TIME AVERAGED FIELD'
+               write(nLF,                                                &
+                    &        '('' !  (total,poloidal,toroidal,total density)'')')
+               write(nLF,'(1P,'' !  Kinetic energies:'',4D16.6)')                  &
+                    &           (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave, &
+                    &           (e_kin_p_ave+e_kin_t_ave)/vol_oc
+               write(nLF,'(1P,'' !  OC Mag  energies:'',4D16.6)')                  &
+                    &           (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave, &
+                    &           (e_mag_p_ave+e_mag_t_ave)/vol_oc
+               write(nLF,'(1P,'' !  IC Mag  energies:'',4D16.6)')        &
+                    &           (e_mag_p_ic_ave+e_mag_t_ic_ave),         &
+                    &           e_mag_p_ic_ave,e_mag_t_ic_ave,           &
+                    &           (e_mag_p_ic_ave+e_mag_t_ic_ave)/vol_ic
+               write(nLF,'(1P,'' !  OS Mag  energies:'',D16.6)')         &
+                    &           e_mag_os_ave
+               write(nLF,'(/,'' !  AXISYMMETRIC PARTS:'')')
+               write(nLF,                                                &
+                    &        '('' !  (total,poloidal,toroidal,total density)'')')
+               write(nLF,'(1P,'' !  Kinetic AS energies:'',4D16.6)')     &
+                    &           (e_kin_p_as_ave+e_kin_t_as_ave),         &
+                    &           e_kin_p_as_ave,e_kin_t_as_ave,           &
+                    &           (e_kin_p_as_ave+e_kin_t_as_ave)/vol_oc
+               write(nLF,'(1P,'' !  OC Mag  AS energies:'',4D16.6)')     &
+                    &           (e_mag_p_as_ave+e_mag_t_as_ave),         &
+                    &           e_mag_p_as_ave,e_mag_t_as_ave,           &
+                    &           (e_mag_p_as_ave+e_mag_t_as_ave)/vol_oc
+               write(nLF,'(1P,'' !  IC Mag  AS energies:'',4D16.6)')     &
+                    &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave),   &
+                    &           e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,     &
+                    &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave)/vol_ic
+               write(nLF,'(1P,'' !  OS Mag  AS energies:'',D16.6)')      &
+                    &           e_mag_os_ave
+               write(nLF,'(1P,'' !  Relative ax. dip. E:'',D16.6)')      &
+                    &           Dip           
+            end if
+         end if ! End of run ?
+            
+         !----- Construct name of graphic file and open it:
+         ! For the graphic file of the average fields, we gather them
+         ! on rank 0 and use the old serial output routine.
 
-          IF (rank == 0) THEN
-             !----- Output of energies of averaged field:
-             WRITE(nLF,'(/,A)')                                        &
-                  &           ' ! ENERGIES OF TIME AVERAGED FIELD'
-             WRITE(nLF,                                                &
-                  &        '('' !  (total,poloidal,toroidal,total density)'')')
-             WRITE(nLF,'(1P,'' !  Kinetic energies:'',4D16.6)')        &
-                  &           (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave,     &
-                  &           (e_kin_p_ave+e_kin_t_ave)/vol_oc
-             WRITE(nLF,'(1P,'' !  OC Mag  energies:'',4D16.6)')        &
-                  &           (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave,     &
-                  &           (e_mag_p_ave+e_mag_t_ave)/vol_oc
-             WRITE(nLF,'(1P,'' !  IC Mag  energies:'',4D16.6)')        &
-                  &           (e_mag_p_ic_ave+e_mag_t_ic_ave),                       &
-                  &           e_mag_p_ic_ave,e_mag_t_ic_ave,                         &
-                  &           (e_mag_p_ic_ave+e_mag_t_ic_ave)/vol_ic
-             WRITE(nLF,'(1P,'' !  OS Mag  energies:'',D16.6)')         &
-                  &           e_mag_os_ave
-             WRITE(nLF,'(/,'' !  AXISYMMETRIC PARTS:'')')
-             WRITE(nLF,                                                &
-                  &        '('' !  (total,poloidal,toroidal,total density)'')')
-             WRITE(nLF,'(1P,'' !  Kinetic AS energies:'',4D16.6)')     &
-                  &           (e_kin_p_as_ave+e_kin_t_as_ave),                       &
-                  &           e_kin_p_as_ave,e_kin_t_as_ave,                         &
-                  &           (e_kin_p_as_ave+e_kin_t_as_ave)/vol_oc
-             WRITE(nLF,'(1P,'' !  OC Mag  AS energies:'',4D16.6)')     &
-                  &           (e_mag_p_as_ave+e_mag_t_as_ave),                       &
-                  &           e_mag_p_as_ave,e_mag_t_as_ave,                         &
-                  &           (e_mag_p_as_ave+e_mag_t_as_ave)/vol_oc
-             WRITE(nLF,'(1P,'' !  IC Mag  AS energies:'',4D16.6)')     &
-                  &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave),                 &
-                  &           e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,                   &
-                  &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave)/vol_ic
-             WRITE(nLF,'(1P,'' !  OS Mag  AS energies:'',D16.6)')      &
-                  &           e_mag_os_ave
-             WRITE(nLF,'(1P,'' !  Relative ax. dip. E:'',D16.6)')      &
-                  &           Dip           
-          END IF
-       END IF ! End of run ?
-          
-       !----- Construct name of graphic file and open it:
-       ! For the graphic file of the average fields, we gather them
-       ! on rank 0 and use the old serial output routine.
+         if ( rank == 0 ) then
+            if ( ngform == 0 ) then
+               graph_file='G_ave.'//tag
+               open(n_graph_file, file=graph_file, status='UNKNOWN', form='UNFORMATTED')
+            else
+               graph_file='g_ave.'//tag
+               open(n_graph_file, file=graph_file, status='UNKNOWN', form='FORMATTED')
+            end if
 
-       IF (rank == 0) THEN
-          IF ( ngform == 0 ) THEN
-             graph_file='G_ave.'//tag
-             OPEN(n_graph_file,FILE=graph_file,STATUS='UNKNOWN',FORM='UNFORMATTED')
-          ELSE
-             graph_file='g_ave.'//tag
-             OPEN(n_graph_file,FILE=graph_file,STATUS='UNKNOWN',FORM='FORMATTED')
-          END IF
+            !----- Write header into graphic file:
+            lGraphHeader=.true.
+            call graphOut(time,0,ngform,Vr,Vt,Vp,Br,Bt,Bp,Sr,0,sizeThetaB,lGraphHeader)
+         end if
 
-          !----- Write header into graphic file:
-          lGraphHeader=.TRUE.
-          CALL graphOut(time,0,ngform,Vr,Vt,Vp,   &
-               &        Br,Bt,Bp,Sr,              &
-               &        0,sizeThetaB,lGraphHeader)
-       END IF
+         !----- Transform and output of data:
+         ! b_ave is different as it is again used later for graphOut_IC
+         if ( l_mag ) then
+            call gather_all_from_lo_to_rank0(gt_OC,b_ave,b_ave_global)
+         end if
+         !----- Outer core:
+         do nR=1,n_r_max
+            if ( l_mag ) then
+               call gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
+               call gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
+            end if
+            call gather_from_lo_to_rank0(w_ave(llm,nR),w_ave_global)
+            call gather_from_lo_to_rank0(dw_ave(llm,nR),dw_ave_global)
+            call gather_from_lo_to_rank0(z_ave(llm,nR),z_ave_global)
+            if ( l_heat ) then
+               call gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
+            end if
 
-       !----- Transform and output of data:
-       ! b_ave is different as it is again used later for graphOut_IC
-       IF (l_mag) THEN
-          CALL gather_all_from_lo_to_rank0(gt_OC,b_ave,b_ave_global)
-       END IF
-       !----- Outer core:
-       DO nR=1,n_r_max
-          IF (l_mag) THEN
-             CALL gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
-             CALL gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
-          END IF
-          CALL gather_from_lo_to_rank0(w_ave(llm,nR),w_ave_global)
-          CALL gather_from_lo_to_rank0(dw_ave(llm,nR),dw_ave_global)
-          CALL gather_from_lo_to_rank0(z_ave(llm,nR),z_ave_global)
-          IF (l_heat) THEN
-             CALL gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
-          END IF
+            if ( rank == 0 ) then
+               if ( l_mag ) then
+                  call legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
+                       &       aj_ave_global,aj_ave_global,dLh,lm_max,         &
+                       &       l_max,minc,r(nR),.false.,.true.,                &
+                       &       dLhb,bhG,bhC,dLhb,bhG,bhC)
+               end if
+               call legPrep(w_ave_global,dw_ave_global,dw_ave_global, &
+                    &       z_ave_global,z_ave_global,dLh,lm_max,     &
+                    &       l_max,minc,r(nR),.false.,.true.,          &
+                    &       dLhw,vhG,vhC,dLhb,bhG,bhC)
 
-          IF (rank == 0) THEN
-             IF (l_mag) THEN
-                CALL legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
-                     &       aj_ave_global,aj_ave_global,dLh,lm_max,  &
-                     &       l_max,minc,r(nR),.FALSE.,.TRUE.,       &
-                     &       dLhb,bhG,bhC,dLhb,bhG,bhC)
-             END IF
-             CALL legPrep(w_ave_global,dw_ave_global,dw_ave_global, &
-                  &       z_ave_global,z_ave_global,dLh,lm_max,    &
-                  &       l_max,minc,r(nR),.FALSE.,.TRUE.,       &
-                  &       dLhw,vhG,vhC,dLhb,bhG,bhC)
+               do nThetaB=1,nThetaBs  
+                  nThetaStart=(nThetaB-1)*sizeThetaB+1
 
-             DO nThetaB=1,nThetaBs  
-                nThetaStart=(nThetaB-1)*sizeThetaB+1
+                  !-------- Transform to grid space:
+                  call legTF(dLhb,bhG,bhC,dLhw,vhG,vhC,                  &
+                       &     l_max,minc,nThetaStart,sizeThetaB,          &
+                       &     Plm,dPlm,lm_max,ncp,.true.,.false.,         &
+                       &     Br,Bt,Bp,Br,Br,Br)
+                  call legTF(dLhw,vhG,vhC,dLhw,vhG,vhC,                  &
+                       &     l_max,minc,nThetaStart,sizeThetaB,          &
+                       &     Plm,dPlm,lm_max,ncp,.true.,.false.,         &
+                       &     Vr,Vt,Vp,Br,Br,Br)
+                  call legTF(s_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
+                       &     l_max,minc,nThetaStart,sizeThetaB,          &
+                       &     Plm,dPlm,lm_max,ncp,.false.,.false.,        &
+                       &     Sr,Vt,Vp,Br,Br,Br)
+                  call fft_thetab(Br,1)
+                  call fft_thetab(Bp,1)
+                  call fft_thetab(Bt,1)
+                  call fft_thetab(Vr,1)
+                  call fft_thetab(Vt,1)
+                  call fft_thetab(Vp,1)
+                  call fft_thetab(Sr,1)
 
-                !-------- Transform to grid space:
-                CALL legTF(dLhb,bhG,bhC,dLhw,vhG,vhC,                  &
-                     &     l_max,minc,nThetaStart,sizeThetaB,                  &
-                     &     Plm,dPlm,lm_max,ncp,.TRUE.,.FALSE.,                  &
-                     &     Br,Bt,Bp,Br,Br,Br)
-                CALL legTF(dLhw,vhG,vhC,dLhw,vhG,vhC,                  &
-                     &     l_max,minc,nThetaStart,sizeThetaB,                  &
-                     &     Plm,dPlm,lm_max,ncp,.TRUE.,.FALSE.,                  &
-                     &     Vr,Vt,Vp,Br,Br,Br)
-                CALL legTF(s_ave_global,vhG,vhC,dLhw,vhG,vhC,           &
-                     &     l_max,minc,nThetaStart,sizeThetaB,           &
-                     &     Plm,dPlm,lm_max,ncp,.FALSE.,.FALSE.,           &
-                     &     Sr,Vt,Vp,Br,Br,Br)
-                CALL fft_thetab(Br,1)
-                CALL fft_thetab(Bp,1)
-                CALL fft_thetab(Bt,1)
-                CALL fft_thetab(Vr,1)
-                CALL fft_thetab(Vt,1)
-                CALL fft_thetab(Vp,1)
-                CALL fft_thetab(Sr,1)
+                  !-------- Graphic output:
+                  call graphOut(time,nR,ngform,Vr,Vt,Vp,Br,Bt,Bp,Sr, &
+                       &        nThetaStart,sizeThetaB,lGraphHeader)
+               end do
+            end if
+         end do
 
-                !-------- Graphic output:
-                CALL graphOut(time,nR,ngform,Vr,Vt,Vp, &
-                     &        Br,Bt,Bp,Sr,&
-                     &        nThetaStart,sizeThetaB,lGraphHeader)
-             END DO
-          END IF
-       END DO
+         !----- Inner core: Transform is included in graphOut_IC!
+         if ( l_mag .and. n_r_ic_max > 0 ) then
+            call gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
+            call gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
+            call gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
+            call gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
+            call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
 
-       !----- Inner core: Transform is included in graphOut_IC!
-       IF ( l_mag .AND. n_r_ic_max > 0 ) THEN
-          CALL gather_all_from_lo_to_rank0(gt_IC,b_ic_ave,b_ic_ave_global)
-          CALL gather_all_from_lo_to_rank0(gt_IC,db_ic_ave,db_ic_ave_global)
-          CALL gather_all_from_lo_to_rank0(gt_IC,ddb_ic_ave,ddb_ic_ave_global)
-          CALL gather_all_from_lo_to_rank0(gt_IC,aj_ic_ave,aj_ic_ave_global)
-          CALL gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
+            if ( rank == 0 ) then
+               call graphOut_IC(ngform,b_ic_ave_global,db_ic_ave_global,&
+                    &           ddb_ic_ave_global,aj_ic_ave_global,     &
+                    &           dj_ic_ave_global,b_ave_global)
+            end if
+         end if
 
-          IF (rank == 0) THEN
-             CALL graphOut_IC(ngform,b_ic_ave_global,db_ic_ave_global,&
-                  &           ddb_ic_ave_global,aj_ic_ave_global,&
-                  &           dj_ic_ave_global,b_ave_global)
-          END IF
-       END IF
+         if ( rank == 0 ) close(n_graph_file)  ! close graphic output file !
 
-       if (rank == 0) CLOSE(n_graph_file)  ! close graphic output file !
+         !----- Write info about graph-file into STDOUT and log-file:
+         if ( l_stop_time ) then
+            if ( rank == 0 ) write(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
+         end if
 
-       !----- Write info about graph-file into STDOUT and log-file:
-       IF ( l_stop_time ) THEN
-          IF (rank == 0) WRITE(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
-       END IF
+         !--- Store time averaged poloidal magnetic coeffs at cmb
+         if ( rank == 0 ) then
+            if ( l_mag) then
+               outFile='B_coeff_cmb_ave.'//tag
+               nOut   =93
+               n_cmb_sets=0
+               !call write_Bcmb(time,b(1,n_r_cmb),lm_max,l_max,           &
+               !     &           l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
+               call write_Bcmb(time,b_ave_global(1,n_r_cmb),1,lm_max,l_max, &
+                    &          l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
+            end if
+         end if
 
-       !--- Store time averaged poloidal magnetic coeffs at cmb
-       IF (rank == 0) THEN
-          IF ( l_mag) THEN
-             outFile='B_coeff_cmb_ave.'//tag
-             nOut   =93
-             n_cmb_sets=0
-             !CALL write_Bcmb(time,b(1,n_r_cmb),lm_max,l_max,           &
-             !     &           l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
-             CALL write_Bcmb(time,b_ave_global(1,n_r_cmb),1,lm_max,l_max,           &
-                  &          l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
-          ENDIF
-       END IF
+         !--- Store potentials of averaged field:
+         !    dw_ave and db_ave used as work arrays here.
+         nBpotSets=-1
+         nVpotSets=-1
+         nTpotSets=-1
+         if ( l_mag) then
+            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,            &
+                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave.', &
+                 &         omega_ma,omega_ic)
+         end if
+         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,             &
+              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave.', &
+              &                                      omega_ma,omega_ic)
+         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,             &
+              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Tpot_ave.', &
+              &                                      omega_ma,omega_ic)
 
-       !--- Store potentials of averaged field:
-       !    dw_ave and db_ave used as work arrays here.
-       nBpotSets=-1
-       nVpotSets=-1
-       nTpotSets=-1
-       IF ( l_mag) THEN
-          CALL storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,      &
-               &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave.', &
-               &         omega_ma,omega_ic)
-       ENDIF
-       CALL storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,          &
-            &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave.', &
-            &                                      omega_ma,omega_ic)
-       CALL storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,          &
-            &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Tpot_ave.', &
-            &                                      omega_ma,omega_ic)
+         if ( l_save_out ) close(nLF)
 
-       IF ( l_save_out ) CLOSE(nLF)
-
-       ! now correct the stored average fields by the factor which has been
-       ! applied before
-       IF ( l_conv ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                w_ave(lm,nR)=w_ave(lm,nR)*time_norm
-                z_ave(lm,nR)=z_ave(lm,nR)*time_norm
-             END DO
-          END DO
-       END IF
-       IF ( l_heat ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                s_ave(lm,nR)=s_ave(lm,nR)*time_norm
-             END DO
-          END DO
-       END IF
-       IF ( l_mag ) THEN
-          DO nR=1,n_r_max
-             DO lm=llm,ulm
-                b_ave(lm,nR) =b_ave(lm,nR)*time_norm
-                aj_ave(lm,nR)=aj_ave(lm,nR)*time_norm
-             END DO
-          END DO
-       END IF
-       IF ( l_cond_ic ) THEN
-          DO nR=1,n_r_ic_max
-             DO lm=llm,ulm
-                b_ic_ave(lm,nR) =b_ic_ave(lm,nR)*time_norm
-                aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)*time_norm
-             END DO
-          END DO
-       END IF
+         ! now correct the stored average fields by the factor which has been
+         ! applied before
+         if ( l_conv ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  w_ave(lm,nR)=w_ave(lm,nR)*time_norm
+                  z_ave(lm,nR)=z_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
+         if ( l_heat ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  s_ave(lm,nR)=s_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
+         if ( l_mag ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  b_ave(lm,nR) =b_ave(lm,nR)*time_norm
+                  aj_ave(lm,nR)=aj_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
+         if ( l_cond_ic ) then
+            do nR=1,n_r_ic_max
+               do lm=llm,ulm
+                  b_ic_ave(lm,nR) =b_ic_ave(lm,nR)*time_norm
+                  aj_ic_ave(lm,nR)=aj_ic_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
 
 
-    END IF ! last time step ?
+      end if ! last time step ?
 
-
-    RETURN
-  END SUBROUTINE fields_average
-
-  !------------------------------------------------------------------------------
-END MODULE fields_average_mod
+   end subroutine fields_average
+!------------------------------------------------------------------------------
+end module fields_average_mod

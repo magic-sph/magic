@@ -136,7 +136,7 @@ contains
     nZmax=2*nSmax
 
     IF ( l_stop_time ) THEN
-       IF ( l_SRIC  .AND. omega_IC.NE.0 ) THEN
+       IF ( l_SRIC  .AND. omega_IC /= 0 ) THEN
           fac=1.D0/omega_IC
        ELSE
           fac=1.D0

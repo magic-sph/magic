@@ -158,10 +158,10 @@ SUBROUTINE write_movie_frame(n_frame,time, &
            n_start=n_movie_field_start(n_field,n_movie)
            IF ( n_fields_oc > 0 ) THEN
               n_stop =n_movie_field_stop(n_field,n_movie)
-           ENDIF
+           END IF
            IF ( n_fields_ic > 0 ) THEN
               n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
-           ENDIF
+           END IF
            !WRITE(*,"(2A,I3,2I10)") "movie: ",TRIM(movie_file(n_movie)),n_field,n_start,n_stop
            !WRITE(*,"(2(A,I5),A,ES22.14)") "frames(",n_start,":",n_stop,")=",SUM(frames(n_start:n_stop))
            WRITE(n_out) (SNGL(frames(n)),n=n_start,n_stop)

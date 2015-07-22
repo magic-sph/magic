@@ -1145,7 +1145,7 @@ MODULE legendre_trafo
     mc_old=1
     DO lm=1,lm_max
        mc=lm2mc(lm)
-       IF (mc.NE.mc_old) THEN
+       IF (mc /= mc_old) THEN
           ! next m
           outN(mc_old) = sES + sEA
           outS(mc_old) = sES - sEA

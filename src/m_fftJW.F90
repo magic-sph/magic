@@ -539,7 +539,7 @@ END MODULE fft_JW
     !     called in fftJW
     !     reduction for factor 2
 
-    !     if(la.ne.1) stop 'call to wpass2 with la .ne. 1'
+    !     if(la /= 1) stop 'call to wpass2 with la  /=  1'
 
     !-----------------------------------------------------------------------
 

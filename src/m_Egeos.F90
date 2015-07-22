@@ -1,17 +1,22 @@
 !$Id$
 MODULE Egeos_mod
+ 
   USE truncation
+  use parallel_mod, only: rank
   USE radial_functions
   USE physical_parameters
   USE num_param
   USE blocking
   USE horizontal_data
   USE logic
-  USE output_data, only: zDens
+  USE output_data, only: sDens, zDens, tag, runid
   USE const
   USE LMLoop_data,ONLY: llm,ulm,llm_real,ulm_real
   USE communications,ONLY: gather_all_from_lo_to_rank0,gt_OC
-  IMPLICIT NONE 
+
+  implicit none 
+
+  private
 
   INTEGER,PARAMETER :: nZmaxL=lGeos*144
   INTEGER,PARAMETER :: nZmaxA=MAX0(2,nZmaxL)  ! Data along z !
@@ -21,6 +26,8 @@ MODULE Egeos_mod
 
   REAL(kind=8),allocatable :: PlmS(:,:,:)  ! This is huge !
   REAL(kind=8),ALLOCATABLE :: dPlmS(:,:,:) ! This is huge !
+
+  public :: initialize_Egeos_mod, getEgeos
 
 contains
   SUBROUTINE initialize_Egeos_mod
@@ -234,7 +241,7 @@ contains
              zMax=-DSQRT(r_ICB*r_ICB-sZ(nS)*sZ(nS))
           ELSE
              zMax=-zMin
-          ENDIF
+          END IF
 
           IF ( nGeosSets == 1 ) THEN
              !------ Initialize integration for NHS:

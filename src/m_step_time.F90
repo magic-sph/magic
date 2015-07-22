@@ -461,10 +461,10 @@ contains
        ! =======> THIS IS A GLOBAL SYNCHRONIZATION POINT <==========
 #if 0
        IF (rank == 0) THEN
-          IF ((old_stop_signal.NE.n_stop_signal) .OR. &
-               &(old_graph_signal.NE.n_graph_signal) .OR. &
-               &(old_rst_signal.NE.n_rst_signal) .OR. &
-               &(old_spec_signal.NE.n_spec_signal)) THEN
+          IF ((old_stop_signal /= n_stop_signal) .OR. &
+               &(old_graph_signal /= n_graph_signal) .OR. &
+               &(old_rst_signal /= n_rst_signal) .OR. &
+               &(old_spec_signal /= n_spec_signal)) THEN
              DO iRank=1,n_procs-1
                 WRITE(*,"(A,I4)") "MPI_putting from rank 0 to rank ",iRank
                 CALL MPI_Put(signals,4,MPI_INTEGER,&
@@ -510,7 +510,7 @@ contains
        END IF
 
        !--- Another reasons to stop the time integration:
-       IF ( time >= tEND .AND. tEND.NE.0.D0 ) l_stop_time=.true.
+       IF ( time >= tEND .AND. tEND /= 0.D0 ) l_stop_time=.true.
        PERFOFF
        !PERFON('logics')
        !-- Checking logic for output: 
@@ -639,14 +639,14 @@ contains
           n_graph=n_graph+1     ! increase counter for graphic file
           IF ( l_graph_time ) THEN 
              CALL dble2str(time,string)
-             IF ( ngform.NE.0 ) THEN
+             IF ( ngform /= 0 ) THEN
                 graph_file='g_t='//TRIM(string)//'.'//tag_wo_rank
              ELSE
                 graph_file='G_t='//trim(string)//'.'//tag_wo_rank
              END IF
           ELSE
              write(string, *) n_graph
-             IF ( ngform.NE.0 ) THEN
+             IF ( ngform /= 0 ) THEN
                 graph_file='g_'//trim(adjustl(string))//'.'//tag_wo_rank
              ELSE
                 graph_file='G_'//trim(adjustl(string))//'.'//tag_wo_rank
@@ -982,7 +982,7 @@ contains
 
        lMat=.FALSE.
        IF ( l_new_dt ) THEN
-          !----- Calculate matricies for new time step if dt.NE.dtLast
+          !----- Calculate matricies for new time step if dt /= dtLast
           lMat=.TRUE.
           IF (rank == 0) THEN
              WRITE(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &

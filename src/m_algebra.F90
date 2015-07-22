@@ -311,7 +311,7 @@ contains
     !     ia: (input) first dimension of a (must be >= n)
     !     n: (input) 2nd dimension and rank of a
     !     ip: (output) pivot pointer array
-    !     info: (output) error message when .ne. 0
+    !     info: (output) error message when  /=  0
 
     !-------------------------------------------------------------------------------
 

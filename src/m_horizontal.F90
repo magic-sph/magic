@@ -328,7 +328,7 @@ CONTAINS
     ELSE
         lmOdd(1) =.FALSE.
         lmOddP(1)=.TRUE.
-    ENDIF
+    END IF
     DO mc=2,n_m_max
         m=(mc-1)*minc
         D_mc2m(mc) =DBLE(m)

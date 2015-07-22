@@ -658,6 +658,6 @@ contains
          stop '35'
       end if
 
-   end sUbroutine get_wpMat
+   end subroutine get_wpMat
 !-----------------------------------------------------------------------------
 end module updateWP_mod

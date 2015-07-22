@@ -63,7 +63,7 @@ CONTAINS
     ELSE IF (dir == -1) THEN
        ! run FFT
        status = DftiComputeForward( r2c_handle, f(:,1) )
-       !PRINT*,"Calling fft_thetab with complex array and dir.ne.1. Don't know what to do!"
+       !PRINT*,"Calling fft_thetab with complex array and dir /= 1. Don't know what to do!"
        !CALL TRACEBACKQQ
        !stop
     END IF
@@ -84,7 +84,7 @@ CONTAINS
        ! run FFT
        status = DftiComputeBackward( c2r_handle, f(:,1) )
 
-       !PRINT*,"Calling fft_thetab with real array and dir.ne.-1. Don't know what to do!"
+       !PRINT*,"Calling fft_thetab with real array and dir /= -1. Don't know what to do!"
        !CALL TRACEBACKQQ
        !stop
     END IF

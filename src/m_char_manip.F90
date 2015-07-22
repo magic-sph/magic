@@ -110,8 +110,8 @@ module charmanip
 
     implicit none
 
-    character(len=*) :: string
-    character(len=1) :: char
+    character(len=*), intent(in) :: string
+    character(len=1), intent(in) :: char
 
     logical :: isDetected
     integer :: i
@@ -123,10 +123,10 @@ module charmanip
            length_to_char=i-1
            isDetected=.TRUE.
            exit
-        endif
+        end if
     end do
 
-    if ( .NOT. isDetected ) length_to_char=-1 ! char not found !
+    if ( .not. isDetected ) length_to_char=-1 ! char not found !
 
     return
 

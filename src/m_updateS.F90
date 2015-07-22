@@ -239,7 +239,7 @@ contains
                   call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
 #endif
 
-               else ! l1 .ne. 0
+               else ! l1  /=  0
                   lmB=lmB+1
 
                   rhs1(1,lmB,threadid)=      tops(l1,m1)
@@ -557,7 +557,7 @@ contains
                   call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
 #endif
 
-               else ! l1 .ne. 0
+               else ! l1  /=  0
                   lmB=lmB+1
 
                   rhs1(1,lmB,threadid)=      tops(l1,m1)

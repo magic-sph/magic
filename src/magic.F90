@@ -120,7 +120,7 @@ program magic5
    use matrices
    use fields
    use fieldsLast
-   use movie_data
+   use movie_data, only: initialize_movie_data, finalize_movie_data
    use RMS, only: initialize_RMS
    use dtB_mod, only: initialize_dtB_mod
    use radial_data, only: initialize_radial_data
@@ -262,9 +262,6 @@ program magic5
       call writeInfo(n_log_file)
    end if
 
-   !--- Check whether movie data are required:
-    call checkMovie
-
    !--- AND NOW FOR THE TIME INTEGRATION:
 
    !--- Write starting time to SDTOUT and logfile:
@@ -329,16 +326,19 @@ program magic5
       if ( l_save_out ) close(n_log_file)
    end if
 
-!--- Closing the output files:
-    call closeFiles
+   !--- Closing the movie files (if any)
+   call finalize_movie_data
+   !--- Closing the output files:
+   call closeFiles
+   
 
 
-    PERFOFF
-    PERFOUT('main')
-    !LIKWID_OFF('main')
-    LIKWID_CLOSE
+   PERFOFF
+   PERFOUT('main')
+   !LIKWID_OFF('main')
+   LIKWID_CLOSE
 !-- EVERYTHING DONE ! THE END !
 #ifdef WITH_MPI
-    call mpi_finalize(ierr)
+   call mpi_finalize(ierr)
 #endif
 end program

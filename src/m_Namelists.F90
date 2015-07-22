@@ -1,3 +1,4 @@
+!$Id$
 MODULE Namelists
   USE const
   USE truncation
@@ -11,19 +12,18 @@ MODULE Namelists
   USE output_data
   USE parallel_mod
   USE Bext
-  USE movie_data,ONLY: movie,n_movies
-  USE charmanip, ONLY: length_to_blank,capitalize
+  USE movie_data, only: movie,n_movies, n_movies_max
+  USE charmanip, only: length_to_blank,capitalize
   USE blocking, only: cacheblock_size_in_B
-  IMPLICIT NONE
+
+  implicit none
 
   private
-  PUBLIC :: readNamelists, writeNamelists
+
+  public :: readNamelists, writeNamelists
 
 CONTAINS
     !***********************************************************************
-
-    !    !------------ This is release 2 level 5  --------------!
-    !    !------------ Created on 1/18/02  by JW. -----------
 
     !  +-------------+----------------+------------------------------------+
     !  |                                                                   |
@@ -389,7 +389,7 @@ CONTAINS
        END IF
     ELSE
        l_cond_ic=.TRUE.      ! tell the code to use a conducting inner core
-       IF ( kbotb .NE. 3 ) THEN
+       IF ( kbotb  /=  3 ) THEN
           WRITE(*,*) '! For a conducting IC with sigma_ratio>0   !'
           WRITE(*,*) '! boundary condition kbotb=3 is appropriate!'
           STOP
@@ -409,7 +409,7 @@ CONTAINS
        END IF
     ELSE
        l_cond_ma=.TRUE.      ! tell the code to use a conducting mantle
-       IF ( ktopb .NE. 3 ) THEN
+       IF ( ktopb  /=  3 ) THEN
           WRITE(*,*) '! For a conducting mantle with conductance_ma>0   !'
           WRITE(*,*) '! boundary condition ktopb=3 is appropriate!'
           STOP

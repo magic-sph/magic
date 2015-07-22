@@ -228,7 +228,7 @@ contains
     
     
       !-- If mapping towards reduced symmetry, add thermal perturbation in
-      !   mode (l,m)=(minc,minc) if parameter tipdipole .ne. 0
+      !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
       if ( l_heat .and. minc<minc_old .and. tipdipole>0.D0 ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
@@ -244,7 +244,7 @@ contains
       end if
     
       !-- If starting from data file with longitudinal symmetry, add
-      !   weak non-axisymmetric dipole component if tipdipole .ne. 0
+      !   weak non-axisymmetric dipole component if tipdipole  /=  0
       if ( ( l_mag .or. l_mag_LF )                                    &
            &       .and. minc==1 .and. minc_old/=1 .and.                  &
            &       tipdipole>0.d0 .and. l_mag_old ) then

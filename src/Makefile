@@ -276,12 +276,12 @@ s_courant.o             : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_radial.o m_horizontal.o m_logic.o 
 s_get_br_v_bcs.o        : truncation.o m_horizontal.o $(FFT_OBJS)\
                           s_legTF2.o 
-m_fields_average.o      : truncation.o m_num_param.o m_output_data.o m_blocking.o\
+m_fields_average.o      : truncation.o m_output_data.o m_blocking.o\
                           m_logic.o m_const.o m_radial.o m_horizontal.o\
                           s_get_drNS.o s_get_ddrNS_even.o s_get_drNS_even.o\
                           m_spectra.o m_kinetic_energy.o\
                           m_magnetic_energy.o s_graphOut.o s_legPrep.o s_legTF.o\
-                          $(FFT_OBJS) m_write_special.o s_storePotW.o 
+                          $(FFT_OBJS) m_out_coeff.o s_storePotW.o 
 ifeq ($(USE_MPI),yes)
 m_fields_average.o	: s_graphOut_mpi.o
 endif
@@ -332,13 +332,13 @@ m_outPV3.o              : truncation.o m_horizontal.o m_num_param.o\
                           m_phys_param.o m_radial.o m_logic.o m_blocking.o\
                           m_output_data.o s_costf1.o m_plms.o s_getPAStr.o\
                           s_getPVptr.o 
-m_write_special.o       : m_logic.o
+m_out_coeff.o           : m_logic.o
 s_graph_write.o         : truncation.o 
 magic.o                 : truncation.o m_num_param.o m_parallel.o m_logic.o\
-                          m_output_data.o m_timing.o s_openFiles.o\
+                          m_output_data.o m_timing.o\
                           s_logWrite.o m_startFields.o\
-                          m_preCalculations.o s_writeInfo.o s_checkMovie.o\
-                          m_step_time.o s_closeFiles.o m_kinetic_energy.o \
+                          m_preCalculations.o s_writeInfo.o\
+                          m_step_time.o m_kinetic_energy.o \
 			  m_magnetic_energy.o m_horizontal.o m_fields_average.o \
 			  m_Egeos.o m_spectra.o\
 			  m_outTO.o m_output_data.o m_outPV3.o m_Namelists.o m_blocking.o
@@ -390,8 +390,6 @@ s_dt_courant.o          : truncation.o m_output_data.o m_logic.o  m_radial_data.
 m_legendre_trafo.o      : truncation.o m_blocking.o m_horizontal.o m_logic.o\
                           m_const.o m_leg_helper.o
 s_get_dddr.o            : s_costf1.o s_get_dddcheb.o 
-s_openFiles.o           : truncation.o m_logic.o m_output_data.o m_init_fields.o\
-                          m_parallel.o m_char_manip.o
 s_writeInfo.o           : truncation.o m_phys_param.o m_num_param.o m_logic.o\
                           m_init_fields.o m_output_data.o m_const.o 
 s_zeroRms.o             : truncation.o m_blocking.o m_RMS.o 
@@ -409,7 +407,7 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           s_safeOut.o m_outTO.o m_outMisc.o\
                           s_dtVrms.o s_zeroRms.o m_char_manip.o m_storeCheckPoints.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
-			  m_communications.o m_write_special.o m_outPar.o
+			  m_communications.o m_out_coeff.o m_outPar.o
 m_communications.o	: m_blocking.o m_parallel.o m_LMLoop_data.o truncation.o
 ifeq ($(USE_MPI),yes)
 m_output.o		: m_store_mpi.o
@@ -477,8 +475,6 @@ m_outOmega.o            : truncation.o m_blocking.o m_logic.o m_const.o\
 s_storePot.o            : truncation.o m_radial.o m_output_data.o m_phys_param.o\
                           m_horizontal.o m_logic.o m_char_manip.o s_costf1.o 
 s_costf2.o              : s_fft_fac.o truncation.o
-s_checkMovie.o          : truncation.o m_logic.o m_output_data.o m_parallel.o\
-                          s_get_movie_type.o s_logWrite.o 
 s_v_rigid_boundary.o    : truncation.o m_blocking.o m_radial.o m_horizontal.o 
 m_readCheckPoints.o     : truncation.o m_blocking.o m_phys_param.o\
                           m_init_fields.o m_const.o m_radial.o\
@@ -492,7 +488,6 @@ m_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
                           m_algebra.o s_costf1.o\
                           s_get_ddr.o m_outRot.o s_hInt2Tor.o \
 			  m_LMLoop_data.o m_communications.o
-s_closeFiles.o          : truncation.o m_logic.o m_output_data.o m_parallel.o 
 s_getPVptr.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_const.o $(FFT_OBJS) 
 s_get_drNS_even.o       : s_costf1.o s_get_dcheb_even.o s_costf2.o 
@@ -571,14 +566,15 @@ s_getDVptr.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o\
 m_outRot.o              : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_logic.o m_radial.o m_output_data.o\
                           m_const.o m_integration.o
-m_blocking.o            : truncation.o m_LMmapping.o m_logic.o m_parallel.o m_output_data.o
+m_blocking.o            : truncation.o m_LMmapping.o m_logic.o m_parallel.o\
+                          m_output_data.o
 m_num_param.o           : truncation.o
 m_radial.o              : truncation.o m_radial_data.o m_mat.o m_algebra.o\
 			  m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o s_cheb_x_map_e_xr.o\
                           m_chebyshev_polynoms.o s_init_costf1.o s_get_dr.o\
                           s_get_chebs_even.o s_init_costf2.o
-m_output_data.o         : m_movie.o
+m_output_data.o         : m_logic.o m_parallel.o m_char_manip.o
 m_horizontal.o          : truncation.o m_phys_param.o m_num_param.o\
                           m_radial.o m_logic.o m_output_data.o\
                           m_blocking.o m_plms.o $(FFT_OBJS)
@@ -586,7 +582,7 @@ m_RMS.o	                : truncation.o m_blocking.o
 m_Grenoble.o            : truncation.o
 m_init_fields.o         : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_const.o m_logic.o $(FFT_OBJS) s_legTF1.o\
-                          m_usefull.o m_phys_param.o
+                          m_usefull.o m_phys_param.o m_LMLoop_data.o
 m_movie.o               : truncation.o m_parallel.o m_radial_data.o
 m_dtB.o                 : truncation.o m_radial_data.o m_parallel.o \
 			  m_LMLoop_data.o

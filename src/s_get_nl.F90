@@ -246,7 +246,7 @@
 
        ELSE IF ( nBc == 2 ) THEN  ! rigid boundary :
 
-          !----- Only vp.ne.0 at boundary allowed (rotation of boundaries about z-axis):
+          !----- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
           nTheta=nThetaLast
           DO nThetaB=1,sizeThetaB
              nTheta   =nTheta+1

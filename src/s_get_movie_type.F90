@@ -391,7 +391,7 @@ SUBROUTINE get_movie_type
            file_name='Br_'
            lIC=.true.
            n_field_type(1)=1
-        endif
+        end if
      else if ( index(string,'BT') /= 0 ) then
         if ( index(string,'TOR') /= 0 ) then
            n_type=95 ! Toroidal B theta
@@ -554,7 +554,7 @@ SUBROUTINE get_movie_type
            lStore=.false.
            n_fields=1
            n_field_type(1)=30
-        endif
+        end if
      else if ( index(string,'BZ') /= 0 ) then
         if ( index(string,'PRO') /= 0 ) then
            n_type=51
@@ -588,7 +588,7 @@ SUBROUTINE get_movie_type
            lStore=.false.
            n_fields=1
            n_field_type(1)=13
-        endif
+        end if
      else if ( index(string,'BP') /= 0 .AND. &
           index(string,'TOR') /= 0 ) then
         if ( index(string,'PRO') /= 0 ) then
@@ -624,7 +624,7 @@ SUBROUTINE get_movie_type
            lStore=.false.
            n_fields=1
            n_field_type(1)=42
-        endif
+        end if
      else if ( index(string,'JZ') /= 0 ) then
         if ( index(string,'PRO') /= 0 ) then
            n_type=91
@@ -659,7 +659,7 @@ SUBROUTINE get_movie_type
            lStore=.false.
            n_fields=1
            n_field_type(1)=14
-        endif
+        end if
      else if ( index(string,'VR') /= 0 ) then
         n_type=11
         typeStr=' radial velocity field '
@@ -685,7 +685,7 @@ SUBROUTINE get_movie_type
            file_name='Vp_'
            n_fields=1
            n_field_type(1)=6
-        ENDIF
+        END IF
      else if ( index(string,'VH') /= 0 .OR. &
           index(string,'VM') /= 0 ) then
         n_type=14

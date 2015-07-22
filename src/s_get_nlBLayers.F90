@@ -81,7 +81,7 @@ SUBROUTINE get_nlBLayers(vt,vp,dvtdr,dvpdr,   &
              +dsdp(nPhi,nThetaB)*dsdp(nPhi,nThetaB) ) 
 
         uhAS(nThetaB)=uhAS(nThetaB)+DSQRT(uh)
-        IF (uh.NE.0.0d0) THEN
+        IF (uh /= 0.0d0) THEN
            duhAS(nThetaB)=duhAS(nThetaB)+DABS(duh)/DSQRT(uh)
         END IF
         gradsAS(nThetaB)=gradsAS(nThetaB)+grads

@@ -1,6 +1,7 @@
 !$Id$
 module kinetic_energy
 
+   use parallel_mod
    use truncation, only: n_r_max, l_max
    use radial_functions, only: r, or1, drx, i_costf_init, d_costf_init, &
                                or2, r_cmb, r_icb, orho1, orho2, sigma
@@ -12,7 +13,6 @@ module kinetic_energy
    use output_data, only: n_e_kin_file, e_kin_file, tag, n_u_square_file, &
                           u_square_file
    use const, only: pi, vol_oc
-   use parallel_mod
    use LMLoop_data, only: llm,ulm
    use communications, only: get_global_sum
  

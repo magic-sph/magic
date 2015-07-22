@@ -222,7 +222,7 @@ contains
          HelnaS   =0.D0
          HelnaRMSN=0.D0
          HelnaRMSS=0.D0
-      ENDIF
+      end if
     
       if ( l_par ) then
          call getEgeos(timeScaled,nLogs,w,dw,ddw,z,dz, &
@@ -240,7 +240,7 @@ contains
          CVzOTC =0.D0
          CVorOTC=0.D0
          CHelOTC=0.D0
-      ENDIF
+      end if
     
       if ( rank == 0 ) then
          !-- Evaluate nusselt numbers (boundary heat flux density):

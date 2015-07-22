@@ -28,7 +28,7 @@ contains
                                      ktopv, kbotv, LFfac, imagcon
       use num_param, only: dtMax, alpha
       use Grenoble, only: lGrenoble
-      use blocking, only: lmStartB, lmStopB, nLMBs, lo_map,nLMBs_per_rank
+      use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
       use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
                        l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
                        l_rot_ma
@@ -53,7 +53,7 @@ contains
       use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
                              ulm_realMag,llm_real,ulm_real,llm,ulm,   &
                              ulmMag,llmMag
-      use parallel_mod, only: rank,n_procs
+      use parallel_mod, only: rank, n_procs, nLMBs_per_rank
       use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
                                 lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
                                 get_global_sum, lo2r_w
@@ -130,7 +130,7 @@ contains
                     &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
                     &                lorentz_torque_icLast,lorentz_torque_maLast, &
                     &                time,dt,dtNew,n_time_step)
-            endif
+            end if
 #else
             call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
                  &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &

@@ -1,14 +1,18 @@
 MODULE LMLoop_data
+
   use parallel_mod
   use blocking
+  use logic, only: l_mag
+
   implicit none
 
   private
-  INTEGER,PUBLIC :: llm,ulm,llmMag,ulmMag
-  INTEGER, PUBLIC :: llm_real,ulm_real,llm_realMag,ulm_realMag
-  INTEGER, PUBLIC :: lm_per_rank,lm_on_last_rank
 
-  PUBLIC :: initialize_LMLoop_data
+  integer, public :: llm,ulm,llmMag,ulmMag
+  integer, public :: llm_real,ulm_real,llm_realMag,ulm_realMag
+  integer, public :: lm_per_rank,lm_on_last_rank
+
+  public :: initialize_LMLoop_data
 CONTAINS
   SUBROUTINE initialize_LMLoop_data
     

@@ -44,7 +44,7 @@ CONTAINS
 
     IF (lVerbose) THEN
        WRITE(*,"(4(A,I4))") "On rank ",rank," nR is in (",nRstart,",",nRstop,"), nr_per_rank is ",nr_per_rank
-    ENDIF
+    END IF
   END SUBROUTINE initialize_radial_data
 END MODULE radial_data
 

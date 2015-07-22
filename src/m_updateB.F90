@@ -203,11 +203,11 @@ contains
       !--- Start with finishing djdt:
       !    dVxBhLM is still in the R-distributed space,
       !    the ouput workA is in the LM-distributed space.
-      !if (2*lmStart-1 - llm_realMag+1.NE.1) then
+      !if (2*lmStart-1 - llm_realMag+1 /= 1) then
       !   write(*,"(I4,2(A,I6))") rank,": lmStart = ",lmStart,", llm_realMag = ",llm_realMag
       !   STOP
       !end if
-      !if (lmStop_real .NE. ulm_realMag) then
+      !if (lmStop_real  /=  ulm_realMag) then
       !   write(*,"(I4,A,2I6)") rank,": ",ulm_realMag,lmStop_real
       !   stop
       !end if
@@ -341,7 +341,7 @@ contains
                            write(*,*) 'LCR not compatible with imposed field!'
                            stop
                         end if
-                        if ( l1 == 2 .and. imagcon > 0 .and. imagcon .NE. 12 ) then
+                        if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
                            rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.D0,kind=kind(0d0))
                            rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.D0,kind=kind(0d0))
                         else if( l1 == 1 .and. imagcon == 12 ) then
