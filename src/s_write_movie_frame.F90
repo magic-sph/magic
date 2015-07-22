@@ -4,10 +4,6 @@ SUBROUTINE write_movie_frame(n_frame,time, &
      b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic, &
      omega_ic,omega_ma)
   !*************************************************************************
-
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/17/02  by JW. --------------!
-
   !-------------------------------------------------------------------------
 
   !  Writes different movie frames into respective output files.
@@ -23,6 +19,7 @@ SUBROUTINE write_movie_frame(n_frame,time, &
   USE logic
   USE movie_data
   USE output_data
+  use out_dtB_frame, only: write_dtB_frame
 
   IMPLICIT NONE
 

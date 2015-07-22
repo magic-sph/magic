@@ -42,9 +42,9 @@ MODULE output_mod
        & n_rst_file
   USE const, ONLY: vol_oc,vol_ic,mass,surf_cmb
   use outMisc_mod, only: outMisc
+  use outRot, only: write_rot
   USE parallel_mod
-  USE outPar_mod, only: outPar
-  USE outPerpPar_mod, only: outPerpPar
+  USE outPar_mod, only: outPar, outPerpPar
   USE power, ONLY: get_power
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
   USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,   &

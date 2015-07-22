@@ -11,7 +11,9 @@ MODULE dtB_mod
   USE parallel_mod,ONLY: nr_per_rank,nr_on_last_rank,MPI_COMM_WORLD,n_procs,&
        &MPI_DOUBLE_COMPLEX,rank
   USE LMLoop_data,ONLY: llmMag,ulmMag
+
   implicit none
+
   COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: PstrLM,TstrLM,PadvLM,TadvLM,TomeLM
   COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: PstrLM_Rloc,TstrLM_Rloc,&
        &PadvLM_Rloc,TadvLM_Rloc,TomeLM_Rloc

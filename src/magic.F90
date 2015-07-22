@@ -122,7 +122,7 @@ program magic5
    use fieldsLast
    use movie_data
    use RMS, only: initialize_RMS
-   use dtB_mod
+   use dtB_mod, only: initialize_dtB_mod
    use radial_data, only: initialize_radial_data
    use radialLoop
    use lmLoop_data, only: initialize_LMLoop_data
@@ -145,7 +145,6 @@ program magic5
    use communications, only:initialize_communications
    use power, only: initialize_output_power
    use outPar_mod, only: initialize_outPar_mod
-   use outPerpPar_mod, only: initialize_outPerpPar_mod
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -238,7 +237,6 @@ program magic5
    call initialize_step_time
    call initialize_communications
    call initialize_outPar_mod
-   if ( l_perpPar ) call initialize_outPerpPar_mod
    if ( l_power ) call initialize_output_power
 
    !--- Do pre-calculations:

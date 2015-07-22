@@ -39,6 +39,7 @@ module updateZ_mod
 #endif
    use LMLoop_data, only: llm,ulm,llm_real,ulm_real
    use communications, only:get_global_sum
+   use outRot, only: get_angular_moment
  
    implicit none
  

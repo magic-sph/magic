@@ -318,8 +318,7 @@ s_getTOfinish.o         : truncation.o m_blocking.o m_horizontal.o\
                           m_output_data.o m_TO.o 
 m_power.o               : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_radial.o m_logic.o\
-                          m_output_data.o m_movie.o s_get_viscous_torque.o\
-                          m_integration.o m_usefull.o
+                          m_output_data.o m_outRot.o m_integration.o m_usefull.o
 m_integration.o         : s_costf1.o 
 s_get_dtBLM.o           : truncation.o m_horizontal.o m_num_param.o\
                           m_phys_param.o m_radial.o m_logic.o m_blocking.o\
@@ -335,8 +334,6 @@ m_outPV3.o              : truncation.o m_horizontal.o m_num_param.o\
                           s_getPVptr.o 
 m_write_special.o       : m_logic.o
 s_graph_write.o         : truncation.o 
-s_lm2pt.o               : truncation.o m_horizontal.o m_blocking.o m_radial.o\
-                          $(FFT_OBJS) 
 magic.o                 : truncation.o m_num_param.o m_parallel.o m_logic.o\
                           m_output_data.o m_timing.o s_openFiles.o\
                           s_logWrite.o m_startFields.o\
@@ -397,8 +394,6 @@ s_openFiles.o           : truncation.o m_logic.o m_output_data.o m_init_fields.o
                           m_parallel.o m_char_manip.o
 s_writeInfo.o           : truncation.o m_phys_param.o m_num_param.o m_logic.o\
                           m_init_fields.o m_output_data.o m_const.o 
-s_get_dtB.o             : truncation.o m_blocking.o m_radial.o m_horizontal.o\
-                          m_logic.o 
 s_zeroRms.o             : truncation.o m_blocking.o m_RMS.o 
 s_get_RAS.o             : truncation.o m_blocking.o m_num_param.o m_radial.o\
                           m_horizontal.o m_logic.o 
@@ -409,23 +404,20 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_logic.o m_output_data.o m_radial.o\
                           m_horizontal.o m_const.o m_fields.o s_rBrSpec.o\
                           s_rBpSpec.o s_logWrite.o s_write_movie_frame.o\
-                          s_write_rot.o m_kinetic_energy.o m_magnetic_energy.o\
+                          m_outRot.o m_kinetic_energy.o m_magnetic_energy.o\
                           m_spectra.o m_fields_average.o m_power.o m_getDlm.o\
                           s_safeOut.o m_outTO.o m_outMisc.o\
                           s_dtVrms.o s_zeroRms.o m_char_manip.o m_storeCheckPoints.o\
                           m_integration.o m_outPV3.o m_outOmega.o m_parallel.o \
-			  m_communications.o m_write_special.o m_outPar.o\
-                          m_outPerpPar.o
+			  m_communications.o m_write_special.o m_outPar.o
 m_communications.o	: m_blocking.o m_parallel.o m_LMLoop_data.o truncation.o
 ifeq ($(USE_MPI),yes)
 m_output.o		: m_store_mpi.o
 endif
 m_outPar.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_logic.o m_radial.o m_output_data.o m_radial_data.o\
-                          m_horizontal.o m_const.o m_fields.o s_lmAS2pt.o
-m_outPerpPar.o          : truncation.o m_blocking.o m_horizontal.o m_const.o\
-                          m_radial.o m_output_data.o s_lmAS2pt.o m_radial_data.o\
-                          m_parallel.o m_integration.o m_logic.o m_num_param.o
+                          m_horizontal.o m_const.o m_fields.o s_lmAS2pt.o\
+                          m_num_param.o m_integration.o
 s_cheb_x_map_e_xr.o     : m_logic.o 
 m_spectra.o             : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_logic.o\
@@ -466,8 +458,6 @@ s_graphOut_IC.o         : truncation.o m_blocking.o m_num_param.o m_radial.o\
 ifeq ($(USE_MPI),yes)
 s_graphOut_IC.o		: s_graphOut_mpi.o
 endif
-s_get_Bpol.o            : truncation.o m_blocking.o m_num_param.o m_radial.o\
-                          m_horizontal.o m_logic.o $(FFT_OBJS) 
 s_getHelLM.o            : truncation.o m_blocking.o m_horizontal.o\
                           m_num_param.o m_phys_param.o m_radial.o m_logic.o\
                           m_output_data.o s_legtfAS2.o 
@@ -481,7 +471,7 @@ s_hInt2Pol.o            : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o
 s_write_movie_frame.o   : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_output_data.o m_logic.o\
-                          m_movie.o s_write_dtB_frame.o 
+                          m_movie.o m_out_dtB_frame.o 
 m_outOmega.o            : truncation.o m_blocking.o m_logic.o m_const.o\
                           m_output_data.o m_radial.o s_costf1.o m_plms.o
 s_storePot.o            : truncation.o m_radial.o m_output_data.o m_phys_param.o\
@@ -500,7 +490,7 @@ m_updateZ.o             : truncation.o m_blocking.o m_phys_param.o\
                           m_num_param.o m_const.o m_radial.o m_horizontal.o\
                           m_logic.o m_init_fields.o m_mat.o m_RMS.o m_TO.o\
                           m_algebra.o s_costf1.o\
-                          s_get_ddr.o s_get_angular_moment.o s_hInt2Tor.o \
+                          s_get_ddr.o m_outRot.o s_hInt2Tor.o \
 			  m_LMLoop_data.o m_communications.o
 s_closeFiles.o          : truncation.o m_logic.o m_output_data.o m_parallel.o 
 s_getPVptr.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o\
@@ -518,8 +508,6 @@ s_graphOut.o            : truncation.o m_horizontal.o m_phys_param.o\
 s_graphOut_mpi.o        : truncation.o m_horizontal.o m_phys_param.o\
                           m_num_param.o m_radial.o m_logic.o m_blocking.o\
                           m_output_data.o s_graph_write.o m_parallel.o
-s_get_angular_moment.o  : truncation.o m_blocking.o m_const.o m_radial.o\
-                          m_integration.o
 m_startFields.o         : truncation.o m_phys_param.o m_num_param.o m_const.o\
                           m_radial.o m_init_fields.o m_blocking.o m_logic.o\
                           m_dt_fieldsLast.o m_Grenoble.o m_readCheckPoints.o\
@@ -539,9 +527,9 @@ m_getDlm.o              : truncation.o m_blocking.o m_num_param.o\
                           m_horizontal.o m_phys_param.o m_radial.o m_const.o\
                           m_usefull.o m_integration.o
 s_costf1.o              : s_fft_fac.o truncation.o
-s_write_dtB_frame.o     : truncation.o m_output_data.o m_blocking.o m_radial.o\
-                          m_horizontal.o m_dtB.o s_get_dtB.o s_get_drNS.o\
-                          s_get_Bpol.o s_get_Btor.o s_lm2pt.o s_get_drNS_even.o 
+m_out_dtB_frame.o       : truncation.o m_blocking.o m_radial.o m_logic.o\
+                          m_horizontal.o m_dtB.o s_get_drNS.o\
+                          s_get_drNS_even.o $(FFT_OBJS)
 s_get_PolTorRms.o       : truncation.o m_blocking.o m_const.o m_radial.o\
                           m_horizontal.o m_usefull.o m_integration.o
 m_updateB.o             : truncation.o m_blocking.o m_horizontal.o\
@@ -557,8 +545,6 @@ m_Egeos.o               : truncation.o m_phys_param.o m_num_param.o\
                           m_horizontal.o m_radial.o m_blocking.o m_const.o\
                           m_output_data.o m_logic.o s_costf1.o s_chebInt.o\
                           m_plms.o s_getDVptr.o m_LMLoop_data.o
-s_get_Btor.o            : truncation.o m_blocking.o m_num_param.o m_radial.o\
-                          m_horizontal.o m_logic.o $(FFT_OBJS) 
 m_preCalculations.o     : truncation.o m_phys_param.o m_num_param.o m_const.o\
                           m_radial.o m_horizontal.o m_init_fields.o\
                           m_blocking.o m_logic.o m_output_data.o s_get_dr.o\
@@ -582,10 +568,9 @@ s_getB0.o               : truncation.o m_blocking.o m_horizontal.o m_radial.o\
                           m_logic.o m_Grenoble.o m_usefull.o m_integration.o
 s_getDVptr.o            : truncation.o m_blocking.o m_radial.o m_horizontal.o\
                           m_const.o $(FFT_OBJS) 
-s_write_rot.o           : truncation.o m_blocking.o m_num_param.o\
+m_outRot.o              : truncation.o m_blocking.o m_num_param.o\
                           m_phys_param.o m_logic.o m_radial.o m_output_data.o\
-                          m_const.o m_horizontal.o s_get_viscous_torque.o\
-                          s_get_angular_moment.o m_integration.o
+                          m_const.o m_integration.o
 m_blocking.o            : truncation.o m_LMmapping.o m_logic.o m_parallel.o m_output_data.o
 m_num_param.o           : truncation.o
 m_radial.o              : truncation.o m_radial_data.o m_mat.o m_algebra.o\
