@@ -4,7 +4,7 @@ MODULE rIterThetaBlocking_seq_mod
   USE grid_space_arrays_mod,ONLY: grid_space_arrays_t
   USE nonlinear_lm_mod,only: nonlinear_lm_t
 
-  USE truncation, ONLY: lm_max,lmP_max,nrp,ncp,l_max,lmP_max_dtB,&
+  USE truncation, ONLY: lm_max,lmP_max,nrp,l_max,lmP_max_dtB,&
        &n_phi_maxStr,n_theta_maxStr,n_r_maxStr
   USE blocking, only: nfs
   USE logic, ONLY: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,&

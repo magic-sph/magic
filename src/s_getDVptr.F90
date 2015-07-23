@@ -83,7 +83,7 @@ SUBROUTINE getDVptr(wS,dwS,ddwS,zS,dzS,rMin,rMax,rS, &
   phiNorm=2.D0*pi/n_phi_max
 
   DO nS=1,nZmax
-     DO mc=1,ncp
+     DO mc=1,ncpGeos
         VrS(mc,nS) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
         VtS(mc,nS) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
         VpS(mc,nS) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -246,17 +246,17 @@ SUBROUTINE getDVptr(wS,dwS,ddwS,zS,dzS,rMin,rMax,rS, &
         DO nS=1,nZmax
            IF ( n == 1 ) THEN
               dpEk(nS)=0.D0
-              DO mc=1,ncp
+              DO mc=1,ncpGeos
                  dp=CMPLX(0.D0,1.D0,KIND=KIND(0d0))*DBLE((mc-1)*minc)  ! - i m
                  dV(mc,nS)=dp*VrS(mc,nS)
               END DO
            ELSE IF ( n == 2 ) THEN
-              DO mc=1,ncp
+              DO mc=1,ncpGeos
                  dp=CMPLX(0.D0,1.D0,KIND=KIND(0d0))*DBLE((mc-1)*minc)  ! - i m
                  dV(mc,nS)=dp*VtS(mc,nS)
               END DO
            ELSE IF ( n == 3 ) THEN
-              DO mc=1,ncp
+              DO mc=1,ncpGeos
                  dp=CMPLX(0.D0,1.D0,KIND=KIND(0d0))*DBLE((mc-1)*minc)  ! - i m
                  dV(mc,nS)=dp*VpS(mc,nS)
               END DO

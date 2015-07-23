@@ -638,7 +638,7 @@ contains
 
       !-- Zero output field:
       do n_theta=1,n_theta_block
-         do mc=1,ncp
+         do mc=1,nrp
             Br(mc,n_theta)=0.d0
             Bt(mc,n_theta)=0.d0
             Bp(mc,n_theta)=0.d0
@@ -927,7 +927,7 @@ contains
        
       !-- Zero output field:
       do nThetaN=1,sizeThetaB
-         do mca=1,ncp
+         do mca=1,nrp
             aij(mca,nThetaN)=0.D0
          end do
       end do

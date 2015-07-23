@@ -2,7 +2,7 @@
 !*******************************************************************************
 #include "perflib_preproc.cpp"
 MODULE legendre_trafo
-  USE truncation, ONLY: ncp,lm_max,n_m_max
+  USE truncation, ONLY: lm_max, n_m_max, nrp
   USE blocking, ONLY: nfs,sizeThetaB,lm2mc
   USE horizontal_data, ONLY: Plm,dPlm,lStart,lStop,lmOdd,D_mc2m,osn2
   USE logic, ONLY: l_heat,l_ht
@@ -24,9 +24,6 @@ MODULE legendre_trafo
      &            drSc,dsdtc,dsdpc,pc,    &
      &            leg_helper)
   !*******************************************************************************
-  
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/17/02  by JW. --------------!
   
   !-----------------------------------------------------------------------------------
   
@@ -60,26 +57,25 @@ MODULE legendre_trafo
   
   !-----------------------------------------------------------------------------------
   
-
   !-- input:
-  INTEGER,intent(IN) :: nBc
-  LOGICAL,intent(IN) :: lDeriv,lFluxProfCalc,lViscBcCalc
-  INTEGER,intent(IN) :: nThetaStart
-
+  integer, intent(in) :: nBc
+  logical, intent(in) :: lDeriv,lFluxProfCalc,lViscBcCalc
+  integer, intent(in) :: nThetaStart
 
   !----- Stuff precomputed in legPrep:
   type(leg_helper_t) :: leg_helper
 
   !-- output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: vrc,vtc,vpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dvrdrc,dvtdrc,dvpdrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cvrc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: brc,btc,bpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cbrc,cbtc,cbpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: sc,drSc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: pc
+  real(kind=8), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
+  real(kind=8), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
+  real(kind=8), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp,nfs)
+  real(kind=8), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
+  real(kind=8), intent(out) :: cvrc(nrp,nfs)
+  real(kind=8), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
+  real(kind=8), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
+  real(kind=8), intent(out) :: sc(nrp,nfs), drSc(nrp,nfs), pc(nrp,nfs)
+  real(kind=8), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
 
   !------ Legendre Polynomials in m_horizontal.F90
   REAL(kind=8) :: PlmG(lm_max)
@@ -103,9 +99,6 @@ MODULE legendre_trafo
   COMPLEX(kind=8) :: cbhN1M(n_m_max),cbhN2M(n_m_max),cbhN,cbhN1,cbhN2
   COMPLEX(kind=8) :: cbhS1M(n_m_max),cbhS2M(n_m_max),cbhS,cbhS1,cbhS2
 
-  !COMPLEX(kind=8) :: infield(lm_max,3),outfield(ncp,nfs,3)
-  !-- end of declaration
-  !----------------------------------------------------------------------
   !CALL MPI_Barrier(MPI_COMM_WORLD,ierr)
 
   nThetaNHS=(nThetaStart-1)/2
@@ -130,8 +123,10 @@ MODULE legendre_trafo
                  sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
               IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-              sc(mc,nThetaN)=sES+sEA
-              sc(mc,nThetaS)=sES-sEA
+              sc(2*mc-1,nThetaN)= real(sES+sEA)
+              sc(2*mc  ,nThetaN)=aimag(sES+sEA)
+              sc(2*mc-1,nThetaS)= real(sES-sEA)
+              sc(2*mc  ,nThetaS)=aimag(sES-sEA)
            END DO
 
            IF ( lFluxProfCalc ) THEN
@@ -144,8 +139,10 @@ MODULE legendre_trafo
                      pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
                   END DO
                   IF ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-                  pc(mc,nThetaN)=pES+pEA
-                  pc(mc,nThetaS)=pES-pEA
+                  pc(2*mc-1,nThetaN)= real(pES+pEA)
+                  pc(2*mc  ,nThetaN)=aimag(pES+pEA)
+                  pc(2*mc-1,nThetaS)= real(pES-pEA)
+                  pc(2*mc  ,nThetaS)=aimag(pES-pEA)
                END DO
            END IF
 
@@ -162,18 +159,18 @@ MODULE legendre_trafo
                  IF ( lmOdd(mc) ) THEN
                     dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
                  END IF
-                 dsdtc(mc,nThetaN)=dsdtES+dsdtEA
-                 dsdtc(mc,nThetaS)=dsdtES-dsdtEA
+                 dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
+                 dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
+                 dsdtc(2*mc-1,nThetaS)= real(dsdtES-dsdtEA)
+                 dsdtc(2*mc  ,nThetaS)=aimag(dsdtES-dsdtEA)
               END DO
 
               DO mc=1,n_m_max
                  dm=D_mc2m(mc)
-                 dsdpc(mc,nThetaN)= &
-                  CMPLX(-dm*AIMAG(sc(mc,nThetaN)), &
-                          dm*REAL(sc(mc,nThetaN)),KIND=KIND(0d0))
-                 dsdpc(mc,nThetaS)= &
-                  CMPLX(-dm*AIMAG(sc(mc,nThetaS)), &
-                          dm*REAL(sc(mc,nThetaS)),KIND=KIND(0d0))
+                 dsdpc(2*mc-1,nThetaN)=-dm*sc(2*mc  ,nThetaN)
+                 dsdpc(2*mc  ,nThetaN)= dm*sc(2*mc-1,nThetaN)
+                 dsdpc(2*mc-1,nThetaS)=-dm*sc(2*mc  ,nThetaS)
+                 dsdpc(2*mc  ,nThetaS)= dm*sc(2*mc-1,nThetaS)
               END DO
 
            END IF ! thermal dissipation layer
@@ -204,12 +201,18 @@ MODULE legendre_trafo
               dvrdrES=dvrdrES + leg_helper%dLhdw(lmS)*Plm(lmS,nThetaNHS)
               brES   =brES    +  leg_helper%dLhb(lmS)*Plm(lmS,nThetaNHS)
            END IF
-           cvrc(mc,nThetaN)  =cvrES  +cvrEA
-           cvrc(mc,nThetaS)  =cvrES  -cvrEA
-           dvrdrc(mc,nThetaN)=dvrdrES+dvrdrEA
-           dvrdrc(mc,nThetaS)=dvrdrES-dvrdrEA
-           brc(mc,nThetaN)   =brES   +brEA
-           brc(mc,nThetaS)   =brES   -brEA
+           cvrc(2*mc-1,nThetaN)  = real(cvrES  +cvrEA)
+           cvrc(2*mc  ,nThetaN)  =aimag(cvrES  +cvrEA)
+           cvrc(2*mc-1,nThetaS)  = real(cvrES  -cvrEA)
+           cvrc(2*mc  ,nThetaS)  =aimag(cvrES  -cvrEA)
+           dvrdrc(2*mc-1,nThetaN)= real(dvrdrES+dvrdrEA)
+           dvrdrc(2*mc  ,nThetaN)=aimag(dvrdrES+dvrdrEA)
+           dvrdrc(2*mc-1,nThetaS)= real(dvrdrES-dvrdrEA)
+           dvrdrc(2*mc  ,nThetaS)=aimag(dvrdrES-dvrdrEA)
+           brc(2*mc-1,nThetaN)   = real(brES   +brEA)
+           brc(2*mc  ,nThetaN)   =aimag(brES   +brEA)
+           brc(2*mc-1,nThetaS)   = real(brES   -brEA)
+           brc(2*mc  ,nThetaS)   =aimag(brES   -brEA)
         END DO
         PERFOFF_I
         PERFON_I('TFG_3')
@@ -242,14 +245,18 @@ MODULE legendre_trafo
               PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
               PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
            END IF
-           vrc(mc,nThetaN)   =vrES   +vrEA
-           vrc(mc,nThetaS)   =vrES   -vrEA
-           !WRITE(*,"(2(A,I3),A,2ES20.12)") "vrc(",mc,",",nThetaN,") = ",vrc(mc,nThetaN)
-           !WRITE(*,"(2(A,I3),A,2ES20.12)") "vrc(",mc,",",nThetaS,") = ",vrc(mc,nThetaS)
-           dvrdtc(mc,nThetaN)=dvrdtES+dvrdtEA
-           dvrdtc(mc,nThetaS)=dvrdtES-dvrdtEA
-           cbrc(mc,nThetaN)  =cbrES  +cbrEA
-           cbrc(mc,nThetaS)  =cbrES  -cbrEA
+           vrc(2*mc-1,nThetaN)   = real(vrES+vrEA)
+           vrc(2*mc  ,nThetaN)   =aimag(vrES+vrEA)
+           vrc(2*mc-1,nThetaS)   = real(vrES-vrEA)
+           vrc(2*mc,nThetaS)     =aimag(vrES-vrEA)
+           dvrdtc(2*mc-1,nThetaN)= real(dvrdtES+dvrdtEA)
+           dvrdtc(2*mc  ,nThetaN)=aimag(dvrdtES+dvrdtEA)
+           dvrdtc(2*mc-1,nThetaS)= real(dvrdtES-dvrdtEA)
+           dvrdtc(2*mc  ,nThetaS)=aimag(dvrdtES-dvrdtEA)
+           cbrc(2*mc-1,nThetaN)  = real(cbrES  +cbrEA)
+           cbrc(2*mc  ,nThetaN)  =aimag(cbrES  +cbrEA)
+           cbrc(2*mc-1,nThetaS)  = real(cbrES  -cbrEA)
+           cbrc(2*mc  ,nThetaS)  =aimag(cbrES  -cbrEA)
         END DO
         PERFOFF_I
         PERFON_I('TFG_4')
@@ -370,41 +377,55 @@ MODULE legendre_trafo
         !--- Unscramble:
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           vtc(mc,nThetaN)=vhN1M(mc)+vhN2M(mc)
-           vhN            =vhN1M(mc)-vhN2M(mc)
-           vtc(mc,nThetaS)=vhS1M(mc)+vhS2M(mc)
-           vhS            =vhS1M(mc)-vhS2M(mc)
-           vpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-           vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+           vtc(2*mc-1,nThetaN)= real(vhN1M(mc)+vhN2M(mc))
+           vtc(2*mc  ,nThetaN)=aimag(vhN1M(mc)+vhN2M(mc))
+           vhN                =vhN1M(mc)-vhN2M(mc)
+           vtc(2*mc-1,nThetaS)= real(vhS1M(mc)+vhS2M(mc))
+           vtc(2*mc  ,nThetaS)=aimag(vhS1M(mc)+vhS2M(mc))
+           vhS                =vhS1M(mc)-vhS2M(mc)
+           vpc(2*mc-1,nThetaN)=aimag(vhN)
+           vpc(2*mc  ,nThetaN)=-real(vhN)
+           vpc(2*mc-1,nThetaS)=aimag(vhS)
+           vpc(2*mc  ,nThetaS)=-real(vhS)
         END DO
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           dvtdrc(mc,nThetaN)=dvhdrN1M(mc)+dvhdrN2M(mc)
-           dvhdrN            =dvhdrN1M(mc)-dvhdrN2M(mc)
-           dvtdrc(mc,nThetaS)=dvhdrS1M(mc)+dvhdrS2M(mc)
-           dvhdrS            =dvhdrS1M(mc)-dvhdrS2M(mc)
-           dvpdrc(mc,nThetaN)= &
-                CMPLX(AIMAG(dvhdrN),-REAL(dvhdrN),KIND=KIND(0d0))
-           dvpdrc(mc,nThetaS)= &
-                CMPLX(AIMAG(dvhdrS),-REAL(dvhdrS),KIND=KIND(0d0))
+           dvtdrc(2*mc-1,nThetaN)= real(dvhdrN1M(mc)+dvhdrN2M(mc))
+           dvtdrc(2*mc  ,nThetaN)=aimag(dvhdrN1M(mc)+dvhdrN2M(mc))
+           dvhdrN                =dvhdrN1M(mc)-dvhdrN2M(mc)
+           dvtdrc(2*mc-1,nThetaS)= real(dvhdrS1M(mc)+dvhdrS2M(mc))
+           dvtdrc(2*mc  ,nThetaS)=aimag(dvhdrS1M(mc)+dvhdrS2M(mc))
+           dvhdrS                =dvhdrS1M(mc)-dvhdrS2M(mc)
+           dvpdrc(2*mc-1,nThetaN)=aimag(dvhdrN)
+           dvpdrc(2*mc  ,nThetaN)=-real(dvhdrN)
+           dvpdrc(2*mc-1,nThetaS)=aimag(dvhdrS)
+           dvpdrc(2*mc  ,nThetaS)=-real(dvhdrS)
         END DO
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           btc(mc,nThetaN)=bhN1M(mc)+bhN2M(mc)
-           bhN            =bhN1M(mc)-bhN2M(mc)
-           btc(mc,nThetaS)=bhS1M(mc)+bhS2M(mc)
-           bhS            =bhS1M(mc)-bhS2M(mc)
-           bpc(mc,nThetaN)=CMPLX(AIMAG(bhN),-REAL(bhN),KIND=KIND(0d0))
-           bpc(mc,nThetaS)=CMPLX(AIMAG(bhS),-REAL(bhS),KIND=KIND(0d0))
+           btc(2*mc-1,nThetaN)= real(bhN1M(mc)+bhN2M(mc))
+           btc(2*mc  ,nThetaN)=aimag(bhN1M(mc)+bhN2M(mc))
+           bhN                =bhN1M(mc)-bhN2M(mc)
+           btc(2*mc-1,nThetaS)= real(bhS1M(mc)+bhS2M(mc))
+           btc(2*mc  ,nThetaS)=aimag(bhS1M(mc)+bhS2M(mc))
+           bhS                =bhS1M(mc)-bhS2M(mc)
+           bpc(2*mc-1,nThetaN)=aimag(bhN)
+           bpc(2*mc  ,nThetaN)=-real(bhN)
+           bpc(2*mc-1,nThetaS)=aimag(bhS)
+           bpc(2*mc  ,nThetaS)=-real(bhS)
         END DO
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           cbtc(mc,nThetaN)=cbhN1M(mc)+cbhN2M(mc)
-           cbhN            =cbhN1M(mc)-cbhN2M(mc)
-           cbtc(mc,nThetaS)=cbhS1M(mc)+cbhS2M(mc)
-           cbhS            =cbhS1M(mc)-cbhS2M(mc)
-           cbpc(mc,nThetaN)=CMPLX(AIMAG(cbhN),-REAL(cbhN),KIND=KIND(0d0))
-           cbpc(mc,nThetaS)=CMPLX(AIMAG(cbhS),-REAL(cbhS),KIND=KIND(0d0))
+           cbtc(2*mc-1,nThetaN)= real(cbhN1M(mc)+cbhN2M(mc))
+           cbtc(2*mc  ,nThetaN)=aimag(cbhN1M(mc)+cbhN2M(mc))
+           cbhN                =cbhN1M(mc)-cbhN2M(mc)
+           cbtc(2*mc-1,nThetaS)= real(cbhS1M(mc)+cbhS2M(mc))
+           cbtc(2*mc  ,nThetaS)=aimag(cbhS1M(mc)+cbhS2M(mc))
+           cbhS                =cbhS1M(mc)-cbhS2M(mc)
+           cbpc(2*mc-1,nThetaN)=aimag(cbhN)
+           cbpc(2*mc  ,nThetaN)=-real(cbhN)
+           cbpc(2*mc-1,nThetaS)=aimag(cbhS)
+           cbpc(2*mc  ,nThetaS)=-real(cbhS)
         END DO ! Loop over order m
         PERFOFF_I
         PERFON_I('TFG_9')
@@ -412,27 +433,21 @@ MODULE legendre_trafo
         !--- Calculate phi derivatives:
         DO mc=1,n_m_max
            dm=D_mc2m(mc)
-           dvrdpc(mc,nThetaN)= &
-                CMPLX(-dm*AIMAG(vrc(mc,nThetaN)), &
-                dm*REAL(vrc(mc,nThetaN)),KIND=KIND(0d0))
-           dvrdpc(mc,nThetaS)= &
-                CMPLX(-dm*AIMAG(vrc(mc,nThetaS)), &
-                dm*REAL(vrc(mc,nThetaS)),KIND=KIND(0d0))
+           dvrdpc(2*mc-1,nThetaN)=-dm*vrc(2*mc  ,nThetaN)
+           dvrdpc(2*mc  ,nThetaN)= dm*vrc(2*mc-1,nThetaN)
+           dvrdpc(2*mc-1,nThetaS)=-dm*vrc(2*mc  ,nThetaS)
+           dvrdpc(2*mc  ,nThetaS)= dm*vrc(2*mc-1,nThetaS)
         END DO
         DO mc=1,n_m_max
            dmT=D_mc2m(mc)*osn2(nThetaNHS)
-           dvtdpc(mc,nThetaN)= &
-                CMPLX(-dmT*AIMAG(vtc(mc,nThetaN)), &
-                dmT*REAL(vtc(mc,nThetaN)),KIND=KIND(0d0))
-           dvtdpc(mc,nThetaS)= &
-                CMPLX(-dmT*AIMAG(vtc(mc,nThetaS)), &
-                dmT*REAL(vtc(mc,nThetaS)),KIND=KIND(0d0))
-           dvpdpc(mc,nThetaN)= &
-                CMPLX(-dmT*AIMAG(vpc(mc,nThetaN)), &
-                dmT*REAL(vpc(mc,nThetaN)),KIND=KIND(0d0))
-           dvpdpc(mc,nThetaS)= &
-                CMPLX(-dmT*AIMAG(vpc(mc,nThetaS)), &
-                dmT*REAL(vpc(mc,nThetaS)),KIND=KIND(0d0))
+           dvtdpc(2*mc-1,nThetaN)=-dmT*vtc(2*mc  ,nThetaN)
+           dvtdpc(2*mc  ,nThetaN)= dmT*vtc(2*mc-1,nThetaN)
+           dvtdpc(2*mc-1,nThetaS)=-dmT*vtc(2*mc  ,nThetaS)
+           dvtdpc(2*mc  ,nThetaS)= dmT*vtc(2*mc-1,nThetaS)
+           dvpdpc(2*mc-1,nThetaN)=-dmT*vpc(2*mc  ,nThetaN)
+           dvpdpc(2*mc  ,nThetaN)= dmT*vpc(2*mc-1,nThetaN)
+           dvpdpc(2*mc-1,nThetaS)=-dmT*vpc(2*mc  ,nThetaS)
+           dvpdpc(2*mc  ,nThetaS)= dmT*vpc(2*mc-1,nThetaS)
         END DO   ! End of loop over oder m numbered by mc
         PERFOFF_I
      END DO      ! End global loop over nTheta
@@ -440,36 +455,36 @@ MODULE legendre_trafo
      !PERFOFF
 
      !-- Zero out terms with index mc > n_m_max:
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              sc(mc,nThetaN)=0.D0
               IF ( lViscBcCalc) THEN
-                 dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-                 dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdtc(mc,nThetaN)=0.D0
+                 dsdpc(mc,nThetaN)=0.D0
               END IF
               IF ( lFluxProfCalc ) THEN
-                 pc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 pc(mc,nThetaN)=0.D0
               END IF
-              vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              vpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cvrc(mc,nThetaN)  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvtdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvpdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              vrc(mc,nThetaN)   =0.D0
+              vtc(mc,nThetaN)   =0.D0
+              vpc(mc,nThetaN)   =0.D0
+              cvrc(mc,nThetaN)  =0.D0
+              dvrdrc(mc,nThetaN)=0.D0
+              dvtdrc(mc,nThetaN)=0.D0
+              dvpdrc(mc,nThetaN)=0.D0
+              dvrdtc(mc,nThetaN)=0.D0
+              dvrdpc(mc,nThetaN)=0.D0
            END DO
-           DO mc=n_m_max+1,ncp
-              dvtdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvpdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              brc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              btc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              bpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cbrc(mc,nThetaN)  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cbtc(mc,nThetaN)  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cbpc(mc,nThetaN)  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              dvtdpc(mc,nThetaN)=0.D0
+              dvpdpc(mc,nThetaN)=0.D0
+              brc(mc,nThetaN)   =0.D0
+              btc(mc,nThetaN)   =0.D0
+              bpc(mc,nThetaN)   =0.D0
+              cbrc(mc,nThetaN)  =0.D0
+              cbtc(mc,nThetaN)  =0.D0
+              cbpc(mc,nThetaN)  =0.D0
            END DO
         END DO  ! loop over nThetaN (theta)
      END IF
@@ -494,8 +509,10 @@ MODULE legendre_trafo
                  sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
               IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-              sc(mc,nThetaN)=sES+sEA
-              sc(mc,nThetaS)=sES-sEA
+              sc(2*mc-1,nThetaN)= real(sES+sEA)
+              sc(2*mc  ,nThetaN)=aimag(sES+sEA)
+              sc(2*mc-1,nThetaS)= real(sES-sEA)
+              sc(2*mc  ,nThetaS)=aimag(sES-sEA)
            END DO
         END IF
 
@@ -519,8 +536,10 @@ MODULE legendre_trafo
               PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
               PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
            END IF
-           brc(mc,nThetaN)=brES+brEA
-           brc(mc,nThetaS)=brES-brEA
+           brc(2*mc-1,nThetaN)=real(brES+brEA)
+           brc(2*mc  ,nThetaN)=aimag(brES+brEA)
+           brc(2*mc-1,nThetaS)=real(brES-brEA)
+           brc(2*mc  ,nThetaS)=aimag(brES-brEA)
 
            bhN1=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
            bhS1=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -538,12 +557,16 @@ MODULE legendre_trafo
               bhN2=bhN2+leg_helper%bhC(lmS)*PlmC(lmS)
               bhS2=bhS2-leg_helper%bhC(lmS)*PlmG(lmS)
            END IF
-           btc(mc,nThetaN)=0.5D0*bhN1+0.5D0*bhN2
-           btc(mc,nThetaS)=0.5D0*bhS1+0.5D0*bhS2
+           btc(2*mc-1,nThetaN)=real(0.5D0*bhN1+0.5D0*bhN2)
+           btc(2*mc  ,nThetaN)=aimag(0.5D0*bhN1+0.5D0*bhN2)
+           btc(2*mc-1,nThetaS)=real(0.5D0*bhS1+0.5D0*bhS2)
+           btc(2*mc  ,nThetaS)=aimag(0.5D0*bhS1+0.5D0*bhS2)
            bhN            =0.5D0*bhN1-0.5D0*bhN2
            bhS            =0.5D0*bhS1-0.5D0*bhS2
-           bpc(mc,nThetaN)=CMPLX(AIMAG(bhN),-REAL(bhN),KIND=KIND(0d0))
-           bpc(mc,nThetaS)=CMPLX(AIMAG(bhS),-REAL(bhS),KIND=KIND(0d0))
+           bpc(2*mc-1,nThetaN)=aimag(bhN)
+           bpc(2*mc  ,nThetaN)=-real(bhN)
+           bpc(2*mc-1,nThetaS)=aimag(bhS)
+           bpc(2*mc  ,nThetaS)=-real(bhS)
 
         END DO
 
@@ -568,12 +591,16 @@ MODULE legendre_trafo
                  vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                  vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
               END IF
-              vtc(mc,nThetaN)=0.5D0*vhN1+0.5D0*vhN2
-              vtc(mc,nThetaS)=0.5D0*vhS1+0.5D0*vhS2
+              vtc(2*mc-1,nThetaN)=real(0.5D0*vhN1+0.5D0*vhN2)
+              vtc(2*mc  ,nThetaN)=aimag(0.5D0*vhN1+0.5D0*vhN2)
+              vtc(2*mc-1,nThetaS)=real(0.5D0*vhS1+0.5D0*vhS2)
+              vtc(2*mc  ,nThetaS)=aimag(0.5D0*vhS1+0.5D0*vhS2)
               vhN            =0.5D0*vhN1-0.5D0*vhN2
               vhS            =0.5D0*vhS1-0.5D0*vhS2
-              vpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-              vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+              vpc(2*mc-1,nThetaN)=aimag(vhN)
+              vpc(2*mc  ,nThetaN)=-real(vhN)
+              vpc(2*mc-1,nThetaS)=aimag(vhS)
+              vpc(2*mc  ,nThetaS)=-real(vhS)
            END DO ! Loop over m
 
         END IF   ! nBc == 1 ? vrc and nBc=2 cared for later !
@@ -581,20 +608,20 @@ MODULE legendre_trafo
      END DO    ! End loop over nThetaN
 
      !-- Zero out terms with index mc > n_m_max :
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              sc(mc,nThetaN) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              brc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              btc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              bpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              sc(mc,nThetaN) =0.D0
+              brc(mc,nThetaN)=0.D0
+              btc(mc,nThetaN)=0.D0
+              bpc(mc,nThetaN)=0.D0
            END DO
         END DO
         IF ( nBc == 1 ) THEN
            DO nThetaN=1,sizeThetaB
-              DO mc=n_m_max+1,ncp
-                 vtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-                 vpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              DO mc=2*n_m_max+1,nrp
+                 vtc(mc,nThetaN)=0.D0
+                 vpc(mc,nThetaN)=0.D0
               END DO
            END DO
         END IF
@@ -619,15 +646,18 @@ MODULE legendre_trafo
               drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
            END DO
            IF ( lmOdd(mc) ) drsES=drsES+leg_helper%dsR(lmS)*Plm(lmS,nThetaNHS)
-           drSc(mc,nThetaN)=drsES+drsEA
-           drSc(mc,nThetaS)=drsES-drsEA
+           drSc(2*mc-1,nThetaN)= real(drsES+drsEA)
+           drSc(2*mc  ,nThetaN)=aimag(drsES+drsEA)
+           drSc(2*mc-1,nThetaS)= real(drsES-drsEA)
+           drSc(2*mc  ,nThetaS)=aimag(drsES-drsEA)
         END DO
      END DO
      !-- Zero out terms with index mc > n_m_max:
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              drSc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              drSc(mc,nThetaN)=0.D0
+              drSc(mc,nThetaN)=0.D0
            END DO
         END DO  ! loop over nThetaN (theta)
      END IF
@@ -652,11 +682,13 @@ MODULE legendre_trafo
 
   !-- output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: vrc,vtc,vpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dvrdrc,dvtdrc,dvpdrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: cvrc,sc,drSc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: dsdtc,dsdpc
-  COMPLEX(kind=8),DIMENSION(ncp,nfs),INTENT(OUT) :: pc
+  real(kind=8), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
+  real(kind=8), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
+  real(kind=8), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp, nfs)
+  real(kind=8), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
+  real(kind=8), intent(out) :: cvrc(nrp,nfs), pc(nrp,nfs)
+  real(kind=8), intent(out) :: sc(nrp,nfs), drSc(nrp, nfs)
+  real(kind=8), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
 
   !------ Legendre Polynomials in m_horizontal.F90
   REAL(kind=8) :: PlmG(lm_max)
@@ -699,8 +731,10 @@ MODULE legendre_trafo
                  sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
               IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-              sc(mc,nThetaN)=sES+sEA
-              sc(mc,nThetaS)=sES-sEA
+              sc(2*mc-1,nThetaN)= real(sES+sEA)
+              sc(2*mc  ,nThetaN)=aimag(sES+sEA)
+              sc(2*mc-1,nThetaS)= real(sES-sEA)
+              sc(2*mc  ,nThetaS)=aimag(sES-sEA)
            END DO
 
 
@@ -714,8 +748,10 @@ MODULE legendre_trafo
                     pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
                  END DO
                  IF ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-                 pc(mc,nThetaN)=pES+pEA
-                 pc(mc,nThetaS)=pES-pEA
+                 pc(2*mc-1,nThetaN)= real(pES+pEA)
+                 pc(2*mc  ,nThetaN)=aimag(pES+pEA)
+                 pc(2*mc-1,nThetaS)= real(pES-pEA)
+                 pc(2*mc  ,nThetaS)=aimag(pES-pEA)
               END DO
            END IF
 
@@ -732,18 +768,18 @@ MODULE legendre_trafo
                  IF ( lmOdd(mc) ) THEN
                     dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
                  END IF
-                 dsdtc(mc,nThetaN)=dsdtES+dsdtEA
-                 dsdtc(mc,nThetaS)=dsdtES-dsdtEA
+                 dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
+                 dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
+                 dsdtc(2*mc-1,nThetaS)= real(dsdtES-dsdtEA)
+                 dsdtc(2*mc  ,nThetaS)=aimag(dsdtES-dsdtEA)
               END DO
 
               DO mc=1,n_m_max
                  dm=D_mc2m(mc)
-                 dsdpc(mc,nThetaN)= &
-                  CMPLX(-dm*AIMAG(sc(mc,nThetaN)), &
-                          dm*REAL(sc(mc,nThetaN)),KIND=KIND(0d0))
-                 dsdpc(mc,nThetaS)= &
-                  CMPLX(-dm*AIMAG(sc(mc,nThetaS)), &
-                          dm*REAL(sc(mc,nThetaS)),KIND=KIND(0d0))
+                 dsdpc(2*mc-1,nThetaN)=-dm*sc(2*mc  ,nThetaN)
+                 dsdpc(2*mc  ,nThetaN)= dm*sc(2*mc-1,nThetaN)
+                 dsdpc(2*mc-1,nThetaS)=-dm*sc(2*mc  ,nThetaS)
+                 dsdpc(2*mc  ,nThetaS)= dm*sc(2*mc-1,nThetaS)
               END DO
 
            END IF ! thermal dissipation layer
@@ -768,10 +804,14 @@ MODULE legendre_trafo
               cvrES  =cvrES   +  leg_helper%dLhz(lmS)*Plm(lmS,nThetaNHS)
               dvrdrES=dvrdrES + leg_helper%dLhdw(lmS)*Plm(lmS,nThetaNHS)
            END IF
-           cvrc(mc,nThetaN)  =cvrES  +cvrEA
-           cvrc(mc,nThetaS)  =cvrES  -cvrEA
-           dvrdrc(mc,nThetaN)=dvrdrES+dvrdrEA
-           dvrdrc(mc,nThetaS)=dvrdrES-dvrdrEA
+           cvrc(2*mc-1,nThetaN)  = real(cvrES  +cvrEA)
+           cvrc(2*mc  ,nThetaN)  =aimag(cvrES  +cvrEA)
+           cvrc(2*mc-1,nThetaS)  = real(cvrES  -cvrEA)
+           cvrc(2*mc  ,nThetaS)  =aimag(cvrES  -cvrEA)
+           dvrdrc(2*mc-1,nThetaN)= real(dvrdrES+dvrdrEA)
+           dvrdrc(2*mc  ,nThetaN)=aimag(dvrdrES+dvrdrEA)
+           dvrdrc(2*mc-1,nThetaS)= real(dvrdrES-dvrdrEA)
+           dvrdrc(2*mc  ,nThetaS)=aimag(dvrdrES-dvrdrEA)
         END DO
 
         DO mc=1,n_m_max
@@ -798,10 +838,14 @@ MODULE legendre_trafo
               PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
               PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
            END IF
-           vrc(mc,nThetaN)   =vrES   +vrEA
-           vrc(mc,nThetaS)   =vrES   -vrEA
-           dvrdtc(mc,nThetaN)=dvrdtES+dvrdtEA
-           dvrdtc(mc,nThetaS)=dvrdtES-dvrdtEA
+           vrc(2*mc-1,nThetaN)   = real(vrES+vrEA)
+           vrc(2*mc  ,nThetaN)   =aimag(vrES+vrEA)
+           vrc(2*mc-1,nThetaS)   = real(vrES-vrEA)
+           vrc(2*mc,nThetaS)     =aimag(vrES-vrEA)
+           dvrdtc(2*mc-1,nThetaN)= real(dvrdtES+dvrdtEA)
+           dvrdtc(2*mc  ,nThetaN)=aimag(dvrdtES+dvrdtEA)
+           dvrdtc(2*mc-1,nThetaS)= real(dvrdtES-dvrdtEA)
+           dvrdtc(2*mc  ,nThetaS)=aimag(dvrdtES-dvrdtEA)
         END DO
 
         !--- Now the stuff using generalized harmonics:
@@ -862,77 +906,77 @@ MODULE legendre_trafo
         !--- Unscramble:
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           vtc(mc,nThetaN)=vhN1M(mc)+vhN2M(mc)
-           vhN            =vhN1M(mc)-vhN2M(mc)
-           vtc(mc,nThetaS)=vhS1M(mc)+vhS2M(mc)
-           vhS            =vhS1M(mc)-vhS2M(mc)
-           vpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-           vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+           vtc(2*mc-1,nThetaN)= real(vhN1M(mc)+vhN2M(mc))
+           vtc(2*mc  ,nThetaN)=aimag(vhN1M(mc)+vhN2M(mc))
+           vhN                =vhN1M(mc)-vhN2M(mc)
+           vtc(2*mc-1,nThetaS)= real(vhS1M(mc)+vhS2M(mc))
+           vtc(2*mc,nThetaS)  =aimag(vhS1M(mc)+vhS2M(mc))
+           vhS                =vhS1M(mc)-vhS2M(mc)
+           vpc(2*mc-1,nThetaN)=aimag(vhN)
+           vpc(2*mc  ,nThetaN)=-real(vhN)
+           vpc(2*mc-1,nThetaS)=aimag(vhS)
+           vpc(2*mc  ,nThetaS)=-real(vhS)
         END DO
         !--- 6 add/mult, 20 DBLE words
         DO mc=1,n_m_max
-           dvtdrc(mc,nThetaN)=dvhdrN1M(mc)+dvhdrN2M(mc)
-           dvhdrN            =dvhdrN1M(mc)-dvhdrN2M(mc)
-           dvtdrc(mc,nThetaS)=dvhdrS1M(mc)+dvhdrS2M(mc)
-           dvhdrS            =dvhdrS1M(mc)-dvhdrS2M(mc)
-           dvpdrc(mc,nThetaN)= &
-                CMPLX(AIMAG(dvhdrN),-REAL(dvhdrN),KIND=KIND(0d0))
-           dvpdrc(mc,nThetaS)= &
-                CMPLX(AIMAG(dvhdrS),-REAL(dvhdrS),KIND=KIND(0d0))
+           dvtdrc(2*mc-1,nThetaN)= real(dvhdrN1M(mc)+dvhdrN2M(mc))
+           dvtdrc(2*mc  ,nThetaN)=aimag(dvhdrN1M(mc)+dvhdrN2M(mc))
+           dvhdrN                =dvhdrN1M(mc)-dvhdrN2M(mc)
+           dvtdrc(2*mc-1,nThetaS)= real(dvhdrS1M(mc)+dvhdrS2M(mc))
+           dvtdrc(2*mc  ,nThetaS)=aimag(dvhdrS1M(mc)+dvhdrS2M(mc))
+           dvhdrS                =dvhdrS1M(mc)-dvhdrS2M(mc)
+           dvpdrc(2*mc-1,nThetaN)=aimag(dvhdrN)
+           dvpdrc(2*mc  ,nThetaN)=-real(dvhdrN)
+           dvpdrc(2*mc-1,nThetaS)=aimag(dvhdrS)
+           dvpdrc(2*mc  ,nThetaS)=-real(dvhdrS)
         END DO
 
         !--- Calculate phi derivatives:
         DO mc=1,n_m_max
            dm=D_mc2m(mc)
-           dvrdpc(mc,nThetaN)= &
-                CMPLX(-dm*AIMAG(vrc(mc,nThetaN)), &
-                dm*REAL(vrc(mc,nThetaN)),KIND=KIND(0d0))
-           dvrdpc(mc,nThetaS)= &
-                CMPLX(-dm*AIMAG(vrc(mc,nThetaS)), &
-                dm*REAL(vrc(mc,nThetaS)),KIND=KIND(0d0))
+           dvrdpc(2*mc-1,nThetaN)=-dm*vrc(2*mc  ,nThetaN)
+           dvrdpc(2*mc  ,nThetaN)= dm*vrc(2*mc-1,nThetaN)
+           dvrdpc(2*mc-1,nThetaS)=-dm*vrc(2*mc  ,nThetaS)
+           dvrdpc(2*mc  ,nThetaS)= dm*vrc(2*mc-1,nThetaS)
         END DO
         DO mc=1,n_m_max
            dmT=D_mc2m(mc)*osn2(nThetaNHS)
-           dvtdpc(mc,nThetaN)= &
-                CMPLX(-dmT*AIMAG(vtc(mc,nThetaN)), &
-                dmT*REAL(vtc(mc,nThetaN)),KIND=KIND(0d0))
-           dvtdpc(mc,nThetaS)= &
-                CMPLX(-dmT*AIMAG(vtc(mc,nThetaS)), &
-                dmT*REAL(vtc(mc,nThetaS)),KIND=KIND(0d0))
-           dvpdpc(mc,nThetaN)= &
-                CMPLX(-dmT*AIMAG(vpc(mc,nThetaN)), &
-                dmT*REAL(vpc(mc,nThetaN)),KIND=KIND(0d0))
-           dvpdpc(mc,nThetaS)= &
-                CMPLX(-dmT*AIMAG(vpc(mc,nThetaS)), &
-                dmT*REAL(vpc(mc,nThetaS)),KIND=KIND(0d0))
+           dvtdpc(2*mc-1,nThetaN)=-dmT*vtc(2*mc  ,nThetaN)
+           dvtdpc(2*mc  ,nThetaN)= dmT*vtc(2*mc-1,nThetaN)
+           dvtdpc(2*mc-1,nThetaS)=-dmT*vtc(2*mc  ,nThetaS)
+           dvtdpc(2*mc  ,nThetaS)= dmT*vtc(2*mc-1,nThetaS)
+           dvpdpc(2*mc-1,nThetaN)=-dmT*vpc(2*mc  ,nThetaN)
+           dvpdpc(2*mc  ,nThetaN)= dmT*vpc(2*mc-1,nThetaN)
+           dvpdpc(2*mc-1,nThetaS)=-dmT*vpc(2*mc  ,nThetaS)
+           dvpdpc(2*mc  ,nThetaS)= dmT*vpc(2*mc-1,nThetaS)
         END DO   ! End of loop over oder m numbered by mc
 
      END DO      ! End global loop over nTheta
 
 
      !-- Zero out terms with index mc > n_m_max:
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              sc(mc,nThetaN)    =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              sc(mc,nThetaN)=0.D0
               IF ( lFluxProfCalc ) THEN
-                 pc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 pc(mc,nThetaN)=0.D0
               END IF
               IF ( lViscBcCalc) THEN
-                 dsdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-                 dsdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+                 dsdtc(mc,nThetaN)=0.D0
+                 dsdpc(mc,nThetaN)=0.D0
               END IF
-              vrc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              vtc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              vpc(mc,nThetaN)   =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cvrc(mc,nThetaN)  =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvtdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvpdrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvrdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvtdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              dvpdpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              vrc(mc,nThetaN)   =0.D0
+              vtc(mc,nThetaN)   =0.D0
+              vpc(mc,nThetaN)   =0.D0
+              cvrc(mc,nThetaN)  =0.D0
+              dvrdrc(mc,nThetaN)=0.D0
+              dvtdrc(mc,nThetaN)=0.D0
+              dvpdrc(mc,nThetaN)=0.D0
+              dvrdtc(mc,nThetaN)=0.D0
+              dvrdpc(mc,nThetaN)=0.D0
+              dvtdpc(mc,nThetaN)=0.D0
+              dvpdpc(mc,nThetaN)=0.D0
            END DO
         END DO  ! loop over nThetaN (theta)
      END IF
@@ -957,8 +1001,10 @@ MODULE legendre_trafo
                  sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
               END DO
               IF ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-              sc(mc,nThetaN)=sES+sEA
-              sc(mc,nThetaS)=sES-sEA
+              sc(2*mc-1,nThetaN)= real(sES+sEA)
+              sc(2*mc  ,nThetaN)=aimag(sES+sEA)
+              sc(2*mc-1,nThetaS)= real(sES-sEA)
+              sc(2*mc  ,nThetaS)=aimag(sES-sEA)
            END DO
         END IF
 
@@ -994,12 +1040,16 @@ MODULE legendre_trafo
                  vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                  vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
               END IF
-              vtc(mc,nThetaN)=0.5D0*vhN1+0.5D0*vhN2
-              vtc(mc,nThetaS)=0.5D0*vhS1+0.5D0*vhS2
+              vtc(2*mc-1,nThetaN)=real(0.5D0*vhN1+0.5D0*vhN2)
+              vtc(2*mc,nThetaN)  =aimag(0.5D0*vhN1+0.5D0*vhN2)
+              vtc(2*mc-1,nThetaS)=real(0.5D0*vhS1+0.5D0*vhS2)
+              vtc(2*mc,nThetaS)  =aimag(0.5D0*vhS1+0.5D0*vhS2)
               vhN            =0.5D0*vhN1-0.5D0*vhN2
               vhS            =0.5D0*vhS1-0.5D0*vhS2
-              vpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-              vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+              vpc(2*mc-1,nThetaN)=aimag(vhN)
+              vpc(2*mc  ,nThetaN)=-real(vhN)
+              vpc(2*mc-1,nThetaS)=aimag(vhS)
+              vpc(2*mc  ,nThetaS)=-real(vhS)
            END DO ! Loop over m
 
         END IF   ! nBc == 1 ? vrc and nBc=2 cared for later !
@@ -1007,17 +1057,17 @@ MODULE legendre_trafo
      END DO    ! End loop over nThetaN
 
      !-- Zero out terms with index mc > n_m_max :
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              sc(mc,nThetaN) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              sc(mc,nThetaN)=0.d0
            END DO
         END DO
         IF ( nBc == 1 ) THEN
            DO nThetaN=1,sizeThetaB
-              DO mc=n_m_max+1,ncp
-                 vtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-                 vpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              DO mc=2*n_m_max+1,nrp
+                 vtc(mc,nThetaN)=0.D0
+                 vpc(mc,nThetaN)=0.D0
               END DO
            END DO
         END IF
@@ -1042,15 +1092,17 @@ MODULE legendre_trafo
               drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
            END DO
            IF ( lmOdd(mc) ) drsES=drsES+leg_helper%dsR(lmS)*Plm(lmS,nThetaNHS)
-           drSc(mc,nThetaN)=drsES+drsEA
-           drSc(mc,nThetaS)=drsES-drsEA
+           drSc(2*mc-1,nThetaN)= real(drsES+drsEA)
+           drSc(2*mc  ,nThetaN)=aimag(drsES+drsEA)
+           drSc(2*mc-1,nThetaS)= real(drsES-drsEA)
+           drSc(2*mc  ,nThetaS)=aimag(drsES-drsEA)
         END DO
      END DO
      !-- Zero out terms with index mc > n_m_max:
-     IF ( n_m_max < ncp ) THEN
+     IF ( n_m_max < nrp/2 ) THEN
         DO nThetaN=1,sizeThetaB
-           DO mc=n_m_max+1,ncp
-              drSc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+           DO mc=2*n_m_max+1,nrp
+              drSc(mc,nThetaN)=0.D0
            END DO
         END DO  ! loop over nThetaN (theta)
      END IF
@@ -1065,15 +1117,16 @@ MODULE legendre_trafo
 #if 0
 #if 1
   SUBROUTINE compute_l_sum_NS_3(nThetaN,nThetaS,infield,Plm_slice,outfield)
-    INTEGER,PARAMETER :: nFields=3
-    INTEGER,INTENT(IN) :: nThetaN,nThetaS
+
+    INTEGER, parameter :: nFields=3
+    INTEGER, intent(in) :: nThetaN,nThetaS
     COMPLEX(kind=8),INTENT(IN) :: infield(lm_max,nFields)
     REAL(kind=8),intent(IN) :: Plm_slice(lm_max)
-    COMPLEX(kind=8),INTENT(INOUT),DIMENSION(ncp,nfs,nFields) :: outfield
+    real(kind=8), intent(inout) :: outfield(nrp,nfs,nFields
 
     ! Local variables
     INTEGER :: mc,lmS,lm,nf
-    COMPLEX(kind=8),DIMENSION(nFields) :: sum_sym,sum_asym
+    COMPLEX(kind=8),DIMENSION(nFields) :: sum_sym(nFields),sum_asym(nFields)
 
     DO mc=1,n_m_max
        lmS=lStop(mc)
@@ -1091,17 +1144,21 @@ MODULE legendre_trafo
           END DO
        END IF
        DO nf=1,nFields
-          outfield(mc,nThetaN,nf) = sum_sym(nf)+sum_asym(nf)
-          outfield(mc,nThetaS,nf) = sum_sym(nf)-sum_asym(nf)
+          outfield(2*mc-1,nThetaN,nf) = real(sum_sym(nf)+sum_asym(nf))
+          outfield(2*mc  ,nThetaN,nf) =aimag(sum_sym(nf)+sum_asym(nf))
+          outfield(2*mc-1,nThetaS,nf) = real(sum_sym(nf)-sum_asym(nf))
+          outfield(2*mc  ,nThetaS,nf) =aimag(sum_sym(nf)-sum_asym(nf))
        END DO
     END DO
+
   END SUBROUTINE compute_l_sum_NS_3
 
   SUBROUTINE compute_l_sum_NS_1(nThetaN,nThetaS,infield,Plm_slice,outfield)
+
     INTEGER,INTENT(IN) :: nThetaN,nThetaS
     COMPLEX(kind=8),INTENT(IN) :: infield(lm_max)
     REAL(kind=8),intent(IN) :: Plm_slice(lm_max)
-    COMPLEX(kind=8),INTENT(INOUT),DIMENSION(ncp,nfs) :: outfield
+    real(kind=8), intent(inout) :: outfield(nrp,nfs)
 
     ! Local variables
     INTEGER :: mc,lmS,lm,nf
@@ -1118,15 +1175,18 @@ MODULE legendre_trafo
        IF ( lmOdd(mc) ) THEN
           sum_sym = sum_sym + infield(lmS) * Plm_slice(lmS)
        END IF
-       outfield(mc,nThetaN) = sum_sym+sum_asym
-       outfield(mc,nThetaS) = sum_sym-sum_asym
+       outfield(2*mc-1,nThetaN) = real(sum_sym+sum_asym)
+       outfield(2*mc  ,nThetaN) =aimag(sum_sym+sum_asym)
+       outfield(2*mc-1,nThetaS) = real(sum_sym-sum_asym)
+       outfield(2*mc  ,nThetaS) =aimag(sum_sym-sum_asym)
     END DO
+
   END SUBROUTINE compute_l_sum_NS_1
 #else
   SUBROUTINE compute_l_sum_NS(infield,Plm_slice,outN,outS)
     COMPLEX(kind=8),INTENT(IN) :: infield(lm_max)
     REAL(kind=8),intent(IN) :: Plm_slice(lm_max)
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(ncp) :: outN,outS
+    real(kind=8), intent(out) :: outN(nrp), outS(nrp)
 
     ! Local variables
     INTEGER :: mc,lmS,lm,mc_old
@@ -1160,8 +1220,10 @@ MODULE legendre_trafo
           sEA = sEA + temp
        END IF
     END DO
-    outN(mc_old) = sES + sEA
-    outS(mc_old) = sES - sEA
+    outN(2*mc_old-1) = real(sES + sEA)
+    outN(2*mc_old  ) =aimag(sES + sEA)
+    outS(2*mc_old-1) = real(sES - sEA)
+    outS(2*mc_old  ) =aimag(sES - sEA)
 #endif
   END SUBROUTINE compute_l_sum_NS
 #endif

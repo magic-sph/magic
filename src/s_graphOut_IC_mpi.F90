@@ -105,7 +105,7 @@ SUBROUTINE graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
         !------ Preform Legendre transform:
         CALL legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
              l_max,minc,nThetaStart,sizeThetaB, &
-             Plm,dPlm,lm_max,ncp,.TRUE.,.FALSE., &
+             Plm,dPlm,.TRUE.,.FALSE., &
              BrB,BtB,BpB,BrB,BrB,BrB)
 
         CALL fft_thetab(BrB,1)

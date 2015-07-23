@@ -122,9 +122,9 @@ contains
       complex(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
 
       !----- Fields in grid space:
-      complex(kind=8) :: Br(ncp,nfs),Bt(ncp,nfs),Bp(ncp,nfs) ! B field comp.
-      complex(kind=8) :: Vr(ncp,nfs),Vt(ncp,nfs),Vp(ncp,nfs) ! B field comp.
-      complex(kind=8) :: Sr(ncp,nfs)                         ! entropy
+      real(kind=8) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
+      real(kind=8) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
+      real(kind=8) :: Sr(nrp,nfs)                         ! entropy
 
       !----- Help arrays for fields:
       complex(kind=8) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
@@ -419,15 +419,15 @@ contains
                   !-------- Transform to grid space:
                   call legTF(dLhb,bhG,bhC,dLhw,vhG,vhC,                  &
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,lm_max,ncp,.true.,.false.,         &
+                       &     Plm,dPlm,.true.,.false.,                    &
                        &     Br,Bt,Bp,Br,Br,Br)
                   call legTF(dLhw,vhG,vhC,dLhw,vhG,vhC,                  &
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,lm_max,ncp,.true.,.false.,         &
+                       &     Plm,dPlm,.true.,.false.,                    &
                        &     Vr,Vt,Vp,Br,Br,Br)
                   call legTF(s_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
-                       &     Plm,dPlm,lm_max,ncp,.false.,.false.,        &
+                       &     Plm,dPlm,.false.,.false.,                   &
                        &     Sr,Vt,Vp,Br,Br,Br)
                   call fft_thetab(Br,1)
                   call fft_thetab(Bp,1)

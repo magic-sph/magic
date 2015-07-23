@@ -107,7 +107,7 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
               !------ Preform Legendre transform:
               CALL legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
                    l_max,minc,nThetaStart,sizeThetaB, &
-                   Plm,dPlm,lm_max,ncp,.TRUE.,.TRUE., &
+                   Plm,dPlm,.TRUE.,.TRUE., &
                    BrB,BtB,BpB,cBrB,cBtB,cBpB)
               CALL fft_thetab(BrB,1)
               CALL fft_thetab(BtB,1)
@@ -203,7 +203,7 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
            !------ Preform Legendre transform:
            CALL legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
                 l_max,minc,nThetaStart,sizeThetaB, &
-                Plm,dPlm,lm_max,ncp,.TRUE.,.TRUE., &
+                Plm,dPlm,.TRUE.,.TRUE., &
                 BrB,BtB,BpB,cBrB,cBtB,cBpB)
            CALL fft_thetab(BrB,1)
            CALL fft_thetab(BtB,1)
@@ -284,7 +284,7 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
            !------ Preform Legendre transform for 2 theta points
            CALL legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
                 l_max,minc,nTheta,2, &
-                Plm,dPlm,lm_max,ncp,.TRUE.,.TRUE., &
+                Plm,dPlm,.TRUE.,.TRUE., &
                 BrB,BtB,BpB,cBrB,cBtB,cBpB)
            CALL fft_thetab(BrB,1)
            CALL fft_thetab(BtB,1)
@@ -371,7 +371,7 @@ SUBROUTINE store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
                  !------ Preform Legendre transform:
                  CALL legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
                       l_max,minc,nThetaStart,sizeThetaB, &
-                      Plm,dPlm,lm_max,ncp,.TRUE.,.TRUE., &
+                      Plm,dPlm,.TRUE.,.TRUE., &
                       BrB,BtB,BpB,cBrB,cBtB,cBpB)
                  CALL fft_thetab(BrB,1)
                  CALL fft_thetab(BtB,1)

@@ -1,127 +1,115 @@
 !$Id$
 !***********************************************************************
 #include "perflib_preproc.cpp"
+subroutine legTF1(nThetaStart,f1LM,f1TM)
+   !  +-------------+----------------+------------------------------------+
+   !  |                                                                   |
+   !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
+   !  |  [grid to spectral] for 2 arrays                                  |
+   !  |  f1TM (input) to f1LM (output)                                    |
+   !  |  One call to this routine does part of the transform              |
+   !  |  by summation over theta points in one theta block:               |
+   !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
+   !  |                                                                   |
+   !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
-    SUBROUTINE legTF1(nThetaStart,f1LM,f1TM)
-!***********************************************************************
+   use truncation, only: n_m_max, nrp, lmP_max
+   use blocking, only: nfs, sizeThetaB
+   use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP
 
-!    !------------ This is release 2 level 1  --------------!
-!    !------------ Created on 1/17/02  by JW. --------------!
+   implicit none
 
-!  +-------------+----------------+------------------------------------+
-!  |                                                                   |
-!  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-!  |  [grid to spectral] for 2 arrays                                  |
-!  |  f1TM (input) to f1LM (output)                                    |
-!  |  One call to this routine does part of the transform              |
-!  |  by summation over theta points in one theta block:               |
-!  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
-!  |                                                                   |
-!  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+   !-- Input variables:
+   integer,      intent(in) :: nThetaStart ! First no of theta on block
+   real(kind=8), intent(in) :: f1TM(nrp,nfs)
 
-    USE truncation
-    USE blocking
-    USE horizontal_data
+   !-- Output variable:
+   complex(kind=8), intent(inout) :: f1LM(lmP_max)
 
-    IMPLICIT NONE
+   !-- Local variables:
+   integer :: nThetaN     ! No. of theta in NHS
+   integer :: nThetaS     ! No. of theta in SHS
+   integer :: nThetaNHS   ! No. of thetas in one HS only
+   integer :: nThetaB1    ! No. of theta in block
+   integer :: nThetaB2    ! No. of theta in block
+   integer :: nTheta1     ! No. of theta (in one HS)
+   integer :: nTheta2     ! No. of theta (in one HS)
+   integer :: nThetaMin   ! Where to start in block
 
-    INTEGER,INTENT(IN) :: nThetaStart ! First no of theta on block
-    COMPLEX(kind=8),INTENT(IN) :: f1TM(ncp,nfs)
+   integer :: mc          ! counter of spherical order
+   integer :: lmS,lm      ! counter of spherical mode
 
-!-- output:
-    COMPLEX(kind=8),INTENT(OUT) :: f1LM(lmP_max)
+   complex(kind=8) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
+   complex(kind=8) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
 
-!-- local:
-    INTEGER :: nThetaN     ! No. of theta in NHS
-    INTEGER :: nThetaS     ! No. of theta in SHS
-    INTEGER :: nThetaNHS   ! No. of thetas in one HS only
-    INTEGER :: nThetaB1    ! No. of theta in block
-    INTEGER :: nThetaB2    ! No. of theta in block
-    INTEGER :: nTheta1     ! No. of theta (in one HS)
-    INTEGER :: nTheta2     ! No. of theta (in one HS)
-    INTEGER :: nThetaMin   ! Where to start in block
+   !PERFON('legTF1')
+   !-- Unscrambles equatorially symmetric and antisymmetric contributions:
+   nThetaNHS=0
+   do nThetaN=1,sizeThetaB,2 ! thetas in NHS
+      nThetaS=nThetaN+1      ! thetas in SHS
+      nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
+      do mc=1,n_m_max        ! counts spherical harmonic orders
+         f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
+                                  kind=kind(0.d0)) +                      &
+                            cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
+                                  kind=kind(0.d0))                        
+         f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
+                                  kind=kind(0.d0)) -                      &
+                            cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
+                                  kind=kind(0.d0))                       
+      end do
+   end do
 
-    INTEGER :: mc          ! counter of spherical order
-    INTEGER :: lmS,lm      ! counter of spherical mode
+   !- Start with first two thetas for first theta block:
+   if ( nThetaStart == 1 ) then
 
-! NTEGER nfs2
-! ARAMETER (nfs2=nfs/2)
-    COMPLEX(kind=8) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
-    COMPLEX(kind=8) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
+      do mc=1,n_m_max
+         lmS=lStopP(mc)
+         f1ES1=f1ES(mc,1)
+         f1ES2=f1ES(mc,2)
+         f1EA1=f1EA(mc,1)
+         f1EA2=f1EA(mc,2)
+         do lm=lStartP(mc),lmS-1,2
+            f1LM(lm)  =f1ES1*wPlm(lm,1) +f1ES2*wPlm(lm,2)
+            f1LM(lm+1)=f1EA1*wPlm(lm+1,1)+f1EA2*wPlm(lm+1,2)
+         end do
+         if ( lmOddP(mc) ) then
+            f1LM(lmS) =f1ES1*wPlm(lmS,1)+f1ES2*wPlm(lmS,2)
+         end if
+      end do
+        
+      if ( sizeThetaB <= 4 ) return ! return
 
-!-- end of declaration
-!---------------------------------------------------------------------
+   end if
 
-    PERFON('legTF1')
-!-- Unscrambles equatorially symmetric and antisymmetric contributions:
-    nThetaNHS=0
-    DO nThetaN=1,sizeThetaB,2 ! thetas in NHS
-        nThetaS=nThetaN+1      ! thetas in SHS
-        nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
-        DO mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=f1TM(mc,nThetaN)+f1TM(mc,nThetaS)
-            f1EA(mc,nThetaNHS)=f1TM(mc,nThetaN)-f1TM(mc,nThetaS)
-        END DO
-    END DO
+    
+   !-- Loop over half of the thetas with step 2 unrolling:
+   nThetaMin=1
+   if ( nThetaStart == 1 ) nThetaMin=3
+   nTheta1=(nThetaStart-1)/2+nThetaMin-2 ! NHS thetas covered before
+   do nThetaB1=nThetaMin,sizeThetaB/2,2
+      nThetaB2=nThetaB1+1
+      nTheta1 =nTheta1+2
+      nTheta2 =nTheta1+1
 
-!- Start with first two thetas for first theta block:
+      do mc=1,n_m_max
+         lmS=lStopP(mc)
+         f1ES1=f1ES(mc,nThetaB1)
+         f1ES2=f1ES(mc,nThetaB2)
+         f1EA1=f1EA(mc,nThetaB1)
+         f1EA2=f1EA(mc,nThetaB2)
+         do lm=lStartP(mc),lmS-1,2
+            f1LM(lm)  =f1LM(lm)   + f1ES1*wPlm(lm,nTheta1) + f1ES2*wPlm(lm,nTheta2)
+            f1LM(lm+1)=f1LM(lm+1) + f1EA1*wPlm(lm+1,nTheta1) + f1EA2*wPlm(lm+1,nTheta2)
+         end do
+         if ( lmOddP(mc) ) then
+            f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + f1ES2*wPlm(lmS,nTheta2)
+         end if
+     end do
 
-    IF ( nThetaStart == 1 ) THEN
+   end do  !  loop over theta in block
 
-        DO mc=1,n_m_max
-            lmS=lStopP(mc)
-            f1ES1=f1ES(mc,1)
-            f1ES2=f1ES(mc,2)
-            f1EA1=f1EA(mc,1)
-            f1EA2=f1EA(mc,2)
-            DO lm=lStartP(mc),lmS-1,2
-                f1LM(lm)  =f1ES1*wPlm(lm,1) +f1ES2*wPlm(lm,2)
-                f1LM(lm+1)=f1EA1*wPlm(lm+1,1)+f1EA2*wPlm(lm+1,2)
-            END DO
-            IF ( lmOddP(mc) ) THEN
-                f1LM(lmS) =f1ES1*wPlm(lmS,1)+f1ES2*wPlm(lmS,2)
-            END IF
-        END DO
-         
-        IF ( sizeThetaB <= 4 ) return ! return
+   !PERFOFF
 
-    END IF
-
-     
-!-- Loop over half of the thetas with step 2 unrolling:
-    nThetaMin=1
-    IF ( nThetaStart == 1 ) nThetaMin=3
-    nTheta1=(nThetaStart-1)/2+nThetaMin-2 ! NHS thetas covered before
-    DO nThetaB1=nThetaMin,sizeThetaB/2,2
-        nThetaB2=nThetaB1+1
-        nTheta1 =nTheta1+2
-        nTheta2 =nTheta1+1
-
-        DO mc=1,n_m_max
-            lmS=lStopP(mc)
-            f1ES1=f1ES(mc,nThetaB1)
-            f1ES2=f1ES(mc,nThetaB2)
-            f1EA1=f1EA(mc,nThetaB1)
-            f1EA2=f1EA(mc,nThetaB2)
-            DO lm=lStartP(mc),lmS-1,2
-                f1LM(lm)  =f1LM(lm)   + f1ES1*wPlm(lm,nTheta1) + &
-                                        f1ES2*wPlm(lm,nTheta2)
-                f1LM(lm+1)=f1LM(lm+1) + f1EA1*wPlm(lm+1,nTheta1) + &
-                                        f1EA2*wPlm(lm+1,nTheta2)
-            END DO
-            IF ( lmOddP(mc) ) THEN
-                f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + &
-                                      f1ES2*wPlm(lmS,nTheta2)
-            END IF
-        END DO
-
-    END DO  !  loop over theta in block
-
-    PERFOFF
-    RETURN
-    end SUBROUTINE legTF1
-
+end subroutine legTF1
 !------------------------------------------------------------------------

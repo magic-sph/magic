@@ -1,8 +1,8 @@
 !$Id$
 !*******************************************************************************
-SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
+SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC,       &
      &           l_max,minc,nThetaStart,sizeThetaB, &
-     &           Plm,dPlm,lm_max,ncp,lHor,lDeriv, &
+     &           Plm,dPlm,lHor,lDeriv,   &
      &           vrc,vtc,vpc,cvrc,cvtc,cvpc)
   !*******************************************************************************
 
@@ -36,15 +36,14 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
   !     sizeThetaB     : (input) size theta block
   !     Plm            : (input) associated Legendre polynomials
   !     dPlm           : (input) sin(theta) d Plm / d theta
-  !     lm_max         : leading dimension of Plm and dPlm
   !     lHor=.TRUE.    : (input) calculate horizontal componenst
   !     lDeric=.TRUE.  : (input) calculate curl of field
   !     vrc, ....,cvpc : (output) components in (nTheta,m)-space
-  !     ncp            : (input) leading dimension of complex vrc
 
   !-----------------------------------------------------------------------------------
 
-  USE truncation, ONLY: n_m_max
+  USE truncation, ONLY: n_m_max, nrp, lm_max
+
   IMPLICIT NONE
 
   !-- INPUT:
@@ -58,7 +57,7 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
   INTEGER,INTENT(IN) :: nThetaStart,sizeThetaB
 
   !------ Legendre Polynomials in c_horizontal.f
-  INTEGER,INTENT(IN) :: l_max,minc,lm_max
+  INTEGER,INTENT(IN) :: l_max,minc
   REAL(kind=8),INTENT(IN) :: Plm(lm_max,*)
   REAL(kind=8),INTENT(IN) :: dPlm(lm_max,*)
 
@@ -66,16 +65,14 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
   LOGICAL,INTENT(IN) :: lHor
   LOGICAL,INTENT(IN) :: lDeriv
 
-  INTEGER,INTENT(IN) :: ncp
-
   !-- Output: field on grid (theta,m) for the radial grid point nR
   !           and equatorially symmetric and antisymmetric contribution
-  COMPLEX(kind=8),INTENT(OUT) :: vrc(ncp,*)
-  COMPLEX(kind=8),INTENT(OUT) :: vtc(ncp,*)
-  COMPLEX(kind=8),INTENT(OUT) :: vpc(ncp,*)
-  COMPLEX(kind=8),INTENT(OUT) :: cvrc(ncp,*)
-  COMPLEX(kind=8),INTENT(OUT) :: cvtc(ncp,*)
-  COMPLEX(kind=8),INTENT(OUT) :: cvpc(ncp,*)
+  real(kind=8), intent(out) :: vrc(nrp,*)
+  real(kind=8), intent(out) :: vtc(nrp,*)
+  real(kind=8), intent(out) :: vpc(nrp,*)
+  real(kind=8), intent(out) :: cvrc(nrp,*)
+  real(kind=8), intent(out) :: cvtc(nrp,*)
+  real(kind=8), intent(out) :: cvpc(nrp,*)
 
   !-- Local:
   COMPLEX(kind=8) :: vrES,vrEA,cvrES,cvrEA
@@ -106,9 +103,9 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
      mc=0
      DO m=0,l_max,minc
         mc=mc+1
-        IF ( mc > ncp ) THEN
-           WRITE(*,*) 'ncp too small in s_legTF!'
-           WRITE(*,*) 'Increase ncp in calling routine!'
+        IF ( mc > nrp/2 ) THEN
+           WRITE(*,*) 'nrp too small in s_legTF!'
+           WRITE(*,*) 'Increase nrp in calling routine!'
            STOP
         END IF
         vrES =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
@@ -141,11 +138,15 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
            END IF
            IF ( lDeriv ) cvrES=cvrES+dLhz(lm)*Plm(lm,nThetaNHS)
         END IF
-        vrc(mc,nThetaN)=vrES+vrEA
-        vrc(mc,nThetaS)=vrES-vrEA
+        vrc(2*mc-1,nThetaN)= real(vrES+vrEA)
+        vrc(2*mc  ,nThetaN)=aimag(vrES+vrEA)
+        vrc(2*mc-1,nThetaS)= real(vrES-vrEA)
+        vrc(2*mc  ,nThetaS)=aimag(vrES-vrEA)
         IF ( lDeriv ) THEN
-           cvrc(mc,nThetaN)=cvrES+cvrEA
-           cvrc(mc,nThetaS)=cvrES-cvrEA
+           cvrc(2*mc-1,nThetaN)= real(cvrES+cvrEA)
+           cvrc(2*mc  ,nThetaN)=aimag(cvrES+cvrEA)
+           cvrc(2*mc-1,nThetaS)= real(cvrES-cvrEA)
+           cvrc(2*mc  ,nThetaS)=aimag(cvrES-cvrEA)
         END IF
      END DO
      n_m_max=mc
@@ -182,12 +183,16 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
         !--- Unscramble:
         n_m_max=mc
         DO mc=1,n_m_max
-           vtc(mc,nThetaN)=vhN1M(mc)+vhN2M(mc)
-           vhN            =vhN1M(mc)-vhN2M(mc)
-           vtc(mc,nThetaS)=vhS1M(mc)+vhS2M(mc)
-           vhS            =vhS1M(mc)-vhS2M(mc)
-           vpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-           vpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+           vtc(2*mc-1,nThetaN)= real(vhN1M(mc)+vhN2M(mc))
+           vtc(2*mc  ,nThetaN)=aimag(vhN1M(mc)+vhN2M(mc))
+           vhN                =vhN1M(mc)-vhN2M(mc)
+           vtc(2*mc-1,nThetaS)= real(vhS1M(mc)+vhS2M(mc))
+           vtc(2*mc  ,nThetaS)=aimag(vhS1M(mc)+vhS2M(mc))
+           vhS                =vhS1M(mc)-vhS2M(mc)
+           vpc(2*mc-1,nThetaN)=aimag(vhN)
+           vpc(2*mc  ,nThetaN)=-real(vhN)
+           vpc(2*mc-1,nThetaS)=aimag(vhS)
+           vpc(2*mc  ,nThetaS)=-real(vhS)
         END DO
      END IF
 
@@ -221,30 +226,34 @@ SUBROUTINE legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC, &
         END DO
         n_m_max=mc
         DO mc=1,n_m_max
-           cvtc(mc,nThetaN)=cvhN1M(mc)+cvhN2M(mc)
-           vhN             =cvhN1M(mc)-cvhN2M(mc)
-           cvtc(mc,nThetaS)=cvhS1M(mc)+cvhS2M(mc)
-           vhS             =cvhS1M(mc)-cvhS2M(mc)
-           cvpc(mc,nThetaN)=CMPLX(AIMAG(vhN),-REAL(vhN),KIND=KIND(0d0))
-           cvpc(mc,nThetaS)=CMPLX(AIMAG(vhS),-REAL(vhS),KIND=KIND(0d0))
+           cvtc(2*mc-1,nThetaN)= real(cvhN1M(mc)+cvhN2M(mc))
+           cvtc(2*mc  ,nThetaN)=aimag(cvhN1M(mc)+cvhN2M(mc))
+           vhN                 =cvhN1M(mc)-cvhN2M(mc)
+           cvtc(2*mc-1,nThetaS)= real(cvhS1M(mc)+cvhS2M(mc))
+           cvtc(2*mc  ,nThetaS)=aimag(cvhS1M(mc)+cvhS2M(mc))
+           vhS                 =cvhS1M(mc)-cvhS2M(mc)
+           cvpc(2*mc-1,nThetaN)=aimag(vhN)
+           cvpc(2*mc  ,nThetaN)=-real(vhN)
+           cvpc(2*mc-1,nThetaS)=aimag(vhS)
+           cvpc(2*mc  ,nThetaS)=-real(vhS)
         END DO
      END IF
 
   END DO
 
   !-- Zero out terms with index mc > n_m_max:
-  IF ( n_m_max < ncp ) THEN
+  IF ( n_m_max < nrp/2 ) THEN
      DO nThetaN=1,sizeThetaB
-        DO mc=n_m_max+1,ncp
-           vrc(mc,nThetaN) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+        DO mc=2*n_m_max+1,nrp
+           vrc(mc,nThetaN) =0.d0
            IF ( lHor ) THEN
-              vtc(mc,nThetaN) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              vpc(mc,nThetaN) =CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              vtc(mc,nThetaN) =0.d0
+              vpc(mc,nThetaN) =0.d0
            END IF
            IF ( lDeriv ) THEN
-              cvrc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cvtc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
-              cvpc(mc,nThetaN)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+              cvrc(mc,nThetaN)=0.d0
+              cvtc(mc,nThetaN)=0.d0
+              cvpc(mc,nThetaN)=0.d0
            END IF
         END DO
      END DO  ! loop over nThetaN (theta)
