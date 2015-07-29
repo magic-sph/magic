@@ -22,14 +22,17 @@ MODULE rIterThetaBlocking_OpenMP_mod
   USE leg_helper_mod, only: leg_helper_t
   USE nonlinear_lm_mod,only:nonlinear_lm_t
   USE grid_space_arrays_mod,only: grid_space_arrays_t
-  IMPLICIT NONE
+  use torsional_oscillations, only: getTO, getTOnext, getTOfinish
+  use graphOut_mod, only: graphOut_mpi
+  use dtB_mod, only: get_dtBLM, get_dH_dtBLM
 
+  implicit none
 
   TYPE,PUBLIC,EXTENDS(rIterThetaBlocking_t) :: rIterThetaBlocking_OpenMP_t
      integer :: nThreads
-     TYPE(grid_space_arrays_t),ALLOCATABLE,DIMENSION(:) :: gsa
-     TYPE(nonlinear_lm_t),ALLOCATABLE,dimension(:) :: nl_lm
-     REAL(kind=8),DIMENSION(:), ALLOCATABLE :: lorentz_torque_ic,lorentz_torque_ma
+     TYPE(grid_space_arrays_t), ALLOCATABLE :: gsa(:)
+     TYPE(nonlinear_lm_t), ALLOCATABLE :: nl_lm(:)
+     REAL(kind=8), ALLOCATABLE :: lorentz_torque_ic(:),lorentz_torque_ma(:)
    CONTAINS
      procedure :: initialize => initialize_rIterThetaBlocking_OpenMP
      procedure :: finalize => finalize_rIterThetaBlocking_OpenMP
@@ -103,8 +106,8 @@ CONTAINS
     INTEGER, INTENT(IN) :: nR,nBc
     REAL(kind=8),INTENT(IN) :: time,dt,dtLast
 
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(:) :: dwdt,dzdt,dpdt,dsdt,dVSrLM
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(:) :: dbdt,djdt,dVxBhLM
+    COMPLEX(kind=8),INTENT(OUT) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
+    COMPLEX(kind=8),INTENT(OUT) :: dbdt(:),djdt(:),dVxBhLM(:)
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
     COMPLEX(kind=8),INTENT(OUT) :: br_vt_lm_cmb(:) ! product br*vt at CMB
@@ -112,16 +115,17 @@ CONTAINS
     COMPLEX(kind=8),INTENT(OUT) :: br_vt_lm_icb(:) ! product br*vt at ICB
     COMPLEX(kind=8),INTENT(OUT) :: br_vp_lm_icb(:) ! product br*vp at ICB
     REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr
+    REAL(kind=8),INTENT(OUT) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
+    REAL(kind=8),INTENT(OUT) :: uhLMr(:),duhLMr(:),gradsLMr(:)
+    REAL(kind=8),INTENT(OUT) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
+    REAL(kind=8),INTENT(OUT) :: fpoynLMr(:),fresLMr(:)
+    REAL(kind=8),INTENT(OUT) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
     !INTEGER :: nTheta,nPhi
     !INTEGER :: nR_Mag
     INTEGER :: threadid,iThread
+    logical :: lGraphHeader=.false.
     LOGICAL :: DEBUG_OUTPUT=.false.
     REAL(kind=8) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
 
@@ -315,42 +319,44 @@ CONTAINS
        !          note: this calculates a torque of a wrong sign.
        !          sign is reversed at the end of the theta blocking.
        IF ( this%nR == n_r_cmb .AND. l_mag_LF .AND. l_rot_ma .AND. l_cond_ma ) THEN
-          CALL get_lorentz_torque(this%lorentz_torque_ma(threadid),          &
-               &                  nThetaStart,this%sizeThetaB,          &
-               &                  this%gsa(threadid)%brc,this%gsa(threadid)%bpc,this%nR)
+          CALL get_lorentz_torque(this%lorentz_torque_ma(threadid),   &
+               &                  nThetaStart,this%sizeThetaB,        &
+               &                  this%gsa(threadid)%brc,             &
+               &                  this%gsa(threadid)%bpc,this%nR)
        END IF
        !PERFOFF
 
        !--------- Calculate courant condition parameters:
        IF ( this%l_cour ) THEN
           !PRINT*,"Calling courant with this%nR=",this%nR
-          CALL courant(this%nR,this%dtrkc,this%dthkc,   &
-               &       this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,&
-               &       this%gsa(threadid)%brc,this%gsa(threadid)%btc,this%gsa(threadid)%bpc,  &
-               &       nThetaStart,this%sizeThetaB)
+          CALL courant(this%nR,this%dtrkc,this%dthkc,this%gsa(threadid)%vrc, &
+               &       this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,        &
+               &       this%gsa(threadid)%brc,this%gsa(threadid)%btc,        &
+               &       this%gsa(threadid)%bpc,nThetaStart,this%sizeThetaB)
        END IF
 
        !--------- Since the fields are given at gridpoints here, this is a good
        !          point for graphical output:
        IF ( this%l_graph ) THEN
           PERFON('graphout')
-          CALL graphOut_mpi(time,this%nR,ngform,this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,&
-               &this%gsa(threadid)%vpc, &
-               &        this%gsa(threadid)%brc,this%gsa(threadid)%btc,this%gsa(threadid)%bpc,&
-               &this%gsa(threadid)%sc,&
-               &        nThetaStart,this%sizeThetaB,.FALSE.)
+          CALL graphOut_mpi(time,this%nR,ngform,this%gsa(threadid)%vrc,    &
+               &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
+               &            this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
+               &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
+               &            nThetaStart,this%sizeThetaB,lGraphHeader)
           PERFOFF
        END IF
 
        !--------- Helicity output:
        IF ( this%lHelCalc ) THEN
           PERFON('hel_out')
-          CALL getHelLM(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,                        &
-               &        this%gsa(threadid)%cvrc,this%gsa(threadid)%dvrdtc,&
-               &this%gsa(threadid)%dvrdpc,this%gsa(threadid)%dvtdrc,this%gsa(threadid)%dvpdrc,   &
-               &        HelLMr,Hel2LMr,         &
-               &        HelnaLMr,Helna2LMr,     &
-               &        this%nR,nThetaStart)
+          CALL getHelLM(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,    &
+               &        this%gsa(threadid)%vpc,this%gsa(threadid)%cvrc,   &
+               &        this%gsa(threadid)%dvrdtc,                        &
+               &        this%gsa(threadid)%dvrdpc,                        &
+               &        this%gsa(threadid)%dvtdrc,                        &
+               &        this%gsa(threadid)%dvpdrc,HelLMr,Hel2LMr,         &
+               &        HelnaLMr,Helna2LMr,this%nR,nThetaStart)
           PERFOFF
        END IF
 
@@ -378,31 +384,23 @@ CONTAINS
 
 
        IF ( this%lFluxProfCalc ) THEN
-           CALL get_fluxes(this%gsa(threadid)%vrc, &
-                  &        this%gsa(threadid)%vtc, &
-                  &        this%gsa(threadid)%vpc, &
-                  &        this%gsa(threadid)%dvrdrc,  &
-                  &        this%gsa(threadid)%dvtdrc,  &
-                  &        this%gsa(threadid)%dvpdrc,  &
-                  &        this%gsa(threadid)%dvrdtc,  &
-                  &        this%gsa(threadid)%dvrdpc,  &
-                  &        this%gsa(threadid)%sc, &
-                  &        this%gsa(threadid)%pc, &
-                  &        this%gsa(threadid)%brc, &
-                  &        this%gsa(threadid)%btc, &
-                  &        this%gsa(threadid)%bpc, &
-                  &        this%gsa(threadid)%cbtc,&
-                  &        this%gsa(threadid)%cbpc,&
-                  &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
-                  &        fresLMr,nR,nThetaStart)
+           CALL get_fluxes(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,   &
+                  &        this%gsa(threadid)%vpc,this%gsa(threadid)%dvrdrc,&
+                  &        this%gsa(threadid)%dvtdrc,                       &
+                  &        this%gsa(threadid)%dvpdrc,                       &
+                  &        this%gsa(threadid)%dvrdtc,                       &
+                  &        this%gsa(threadid)%dvrdpc,this%gsa(threadid)%sc, &
+                  &        this%gsa(threadid)%pc,this%gsa(threadid)%brc,    &
+                  &        this%gsa(threadid)%btc,this%gsa(threadid)%bpc,   &
+                  &        this%gsa(threadid)%cbtc,this%gsa(threadid)%cbpc, &
+                  &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,   &
+                  &        nThetaStart)
        END IF
 
        IF ( this%lPerpParCalc ) THEN
-           CALL get_perpPar(this%gsa(threadid)%vrc, &
-                  &         this%gsa(threadid)%vtc, &
-                  &         this%gsa(threadid)%vpc, &
-                  &         EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,&
-                  &         nR,nThetaStart)
+           CALL get_perpPar(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc, &
+                  &         this%gsa(threadid)%vpc,EperpLMr,EparLMr,       &
+                  &         EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
        END IF
 
 

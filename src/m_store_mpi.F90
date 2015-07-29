@@ -1,4 +1,4 @@
-!$Id: s_store.F90 418 2013-02-14 12:45:13Z gastine $
+!$Id$
 !********************************************************************
 #include "intrinsic_sizes.h"
 MODULE store_rst

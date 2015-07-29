@@ -1,4 +1,4 @@
-!$Id: s_step_time.F90 436 2013-02-20 11:17:48Z gastine $
+!$Id$
 #include "perflib_preproc.cpp"
 #include "intrinsic_sizes.h"
 MODULE step_time_mod
@@ -256,7 +256,7 @@ contains
     COMPLEX(KIND=8),POINTER,DIMENSION(:) :: ptr_dbdt_CMB
     !REAL(kind=8) :: start_time, end_time
 
-    INTEGER :: signal_window
+    !INTEGER :: signal_window
     integer(kind=8)  :: time_in_ms
     !-- end of declaration
 

@@ -3,19 +3,13 @@
     SUBROUTINE get_PAS(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
 !***********************************************************************
 
-!    !------------ This is release 2 level 1  --------------!
-!    !------------ Created on 1/17/02  by JW. --------------!
-
 !  +-------------------------------------------------------------------+
 !  |                                                                   |
-!  |  Purpose of this subroutine is to calculated the axisymmetric     |
+!  |  Purpose of this subroutine is to calculate the axisymmetric      |
 !  |  phi component Bp of an axisymmetric toroidal field Tlm           |
 !  |  given in spherical harmonic space (l,m=0).                       |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE radial_functions

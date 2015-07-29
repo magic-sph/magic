@@ -139,14 +139,15 @@ CONTAINS
   end SUBROUTINE init_fft
 
   SUBROUTINE fft_to_real(f,ld_f,nrep)
-    INTEGER,INTENT(IN) :: ld_f,nrep
-    COMPLEX(kind=8), INTENT(INOUT) :: f(ld_f/2,nrep)
+    INTEGER,      INTENT(IN) :: ld_f, nrep
+    real(kind=8), INTENT(INOUT) :: f(ld_f, nrep)
 
     REAL(kind=8) :: work(ld_f,nrep)
 
     !PERFON('fft2r')
     CALL fftJW(f,ld_f,n_phi_max,1,nrep,work,ld_f,nrep,i_fft_init,d_fft_init)
     !PERFOFF
+
   END SUBROUTINE fft_to_real
 
   !-------------------------------------------------------------------

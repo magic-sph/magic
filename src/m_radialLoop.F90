@@ -1,265 +1,269 @@
 !$Id$
 #include "perflib_preproc.cpp"
-MODULE radialLoop
-  USE truncation
-  USE radial_functions
-  USE physical_parameters
-  USE num_param
-  USE torsional_oscillations
-  USE blocking
-  USE horizontal_data
-  USE logic
-  USE output_data
-  USE const
-  USE parallel_mod, ONLY: rank, n_procs
-  USE radial_data,ONLY: nRstart,nRstop,n_r_cmb
+module radialLoop
+
+   use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
+   use physical_parameters, only: ktopv, kbotv
+   use blocking, only: nThetaBs, sizeThetaB
+   use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
+                    l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl
+   use output_data, only: ngform
+   use const, only: zero
+   use parallel_mod, only: rank, n_procs
+   use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
+                         n_r_icb
 #if (FFTLIB==JW)
-  USE fft_JW
+   use fft_JW
 #elif (FFTLIB==MKL)
-  USE fft_MKL
+   use fft_MKL
 #endif
 #ifdef WITH_LIKWID
-#  include "likwid_f90.h"
+#include "likwid_f90.h"
 #endif
-  USE rIteration_mod, only: rIteration_t
-  USE rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-  USE rIterThetaBlocking_seq_mod,only: rIterThetaBlocking_seq_t
-  USE rIterThetaBlocking_OpenMP_mod,only: rIterThetaBlocking_OpenMP_t
-  IMPLICIT NONE
+   use rIteration_mod, only: rIteration_t
+   use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
+   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
+   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
+   use graphOut_mod, only: graphOut_mpi_header
 
-  PRIVATE
-  !---- Nonlinear terms, field components and help arrays
-  !     for Legendre transform, field components, and dtB and 
-  !     TO output. These are all stored in COMMON BLOCKS
-  !     that are thread privat rather than using explicit 
-  !     PRIVATE statements in the PARALLEL DO clause.
+   implicit none
+
+   private
+   !---- Nonlinear terms, field components and help arrays
+   !     for Legendre transform, field components, and dtB and 
+   !     TO output. These are all stored in COMMON BLOCKS
+   !     that are thread privat rather than using explicit 
+   !     PRIVATE statements in the PARALLEL do clause.
 
 
-  ! public elements of the module
+   public :: initialize_radialLoop,finalize_radialLoop,radialLoopG
 
-  PUBLIC :: initialize_radialLoop,finalize_radialLoop,radialLoopG
+   CLASS(rIteration_t), pointer :: this_rIteration
 
-  CLASS(rIteration_t),pointer :: this_rIteration
+contains
 
-CONTAINS
-  SUBROUTINE initialize_radialLoop
-    CHARACTER(len=100) :: this_type
+   subroutine initialize_radialLoop
+
+      character(len=100) :: this_type
 
 #ifdef WITHOMP
-    allocate( rIterThetaBlocking_OpenMP_t :: this_rIteration )
+      allocate( rIterThetaBlocking_OpenMP_t :: this_rIteration )
 #else
-    ALLOCATE( rIterThetaBlocking_seq_t :: this_rIteration )
+      allocate( rIterThetaBlocking_seq_t :: this_rIteration )
 #endif
-    this_type = this_rIteration%getType()
-    WRITE(*,"(2A)") "Using rIteration type: ",TRIM(this_type)
-    CALL this_rIteration%initialize()
-    SELECT TYPE (this_rIteration)
-    CLASS is (rIterThetaBlocking_t)
-       CALL this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
-    CLASS default
-       PRINT*,"this_rIteration has no matching type in m_radialLoop.F90"
-    END SELECT
-  END SUBROUTINE initialize_radialLoop
+      this_type = this_rIteration%getType()
+      write(*,"(2A)") "Using rIteration type: ",trim(this_type)
+      call this_rIteration%initialize()
+      select type (this_rIteration)
+      CLASS is (rIterThetaBlocking_t)
+         call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
+      CLASS default
+         print*,"this_rIteration has no matching type in m_radialLoop.F90"
+      end select
 
-  SUBROUTINE finalize_radialLoop
-    call this_rIteration%finalize()
-    DEALLOCATE(this_rIteration)
-  END SUBROUTINE finalize_radialLoop
+   end subroutine initialize_radialLoop
+!----------------------------------------------------------------------------
+   subroutine finalize_radialLoop
 
-  !***********************************************************************
-  SUBROUTINE radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
-       &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,   &
-       &                 lViscBcCalc,lFluxProfCalc,lPerpParCalc,       &
-       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
-       &                 lorentz_torque_ic,lorentz_torque_ma,          &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
-       &                 br_vt_lm_icb,br_vp_lm_icb,                    &
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,      &
-       &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
-       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,            &
+      call this_rIteration%finalize()
+      deallocate(this_rIteration)
+
+   end subroutine finalize_radialLoop
+!----------------------------------------------------------------------------
+   subroutine radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
+       &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,    &
+       &                 lViscBcCalc,lFluxProfCalc,lPerpParCalc,        &
+       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM,  &
+       &                 lorentz_torque_ic,lorentz_torque_ma,           &
+       &                 br_vt_lm_cmb,br_vp_lm_cmb,                     &
+       &                 br_vt_lm_icb,br_vp_lm_icb,                     &
+       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,       &
+       &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
+       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,             &
        &                 EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
-    !***********************************************************************
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  This subroutine performs the actual time-stepping.               |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
 
-    !    !------------ This is release 2 level 10  --------------!
-    !    !------------ Created on 2/5/02  by JW. -----------
+      !--- Input of variables:
+      logical,      intent(in) :: l_graph,l_cour,l_frame
+      logical,      intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
+      logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
+      logical,      intent(in) :: lRmsCalc
+      real(kind=8), intent(in) :: time,dt,dtLast
 
-    !  +-------------+----------------+------------------------------------+
-    !  |                                                                   |
-    !  |  This subroutine performs the actual time-stepping.               |
-    !  |                                                                   |
-    !  +-------------------------------------------------------------------+
+      !---- Output of explicit time step:
+      !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
+      !     need a further treatment (radial derivatives required):
+      complex(kind=8), intent(out) :: dwdt(lm_max,nRstart:nRstop)
+      complex(kind=8), intent(out) :: dzdt(lm_max,nRstart:nRstop)
+      complex(kind=8), intent(out) :: dpdt(lm_max,nRstart:nRstop)
+      complex(kind=8), intent(out) :: dsdt(lm_max,nRstart:nRstop)
+      complex(kind=8), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
+      complex(kind=8), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(kind=8), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(kind=8), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
+      real(kind=8),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
-    !--- Input of variables:
-    LOGICAL,intent(IN) :: l_graph,l_cour,l_frame
-    LOGICAL,intent(IN) :: lTOcalc,lTONext,lTONext2,lHelCalc
-    LOGICAL,intent(IN) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-    LOGICAL,intent(IN) :: lRmsCalc
-    REAL(kind=8),intent(IN) :: time,dt,dtLast
+      !---- Output for axisymmetric helicity:
+      real(kind=8),    intent(out) :: HelLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: Hel2LMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: HelnaLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: uhLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: duhLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: gradsLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: fviscLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(kind=8),    intent(out) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(kind=8),    intent(out) :: EperpLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: EparLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      real(kind=8),    intent(out) :: EparaxiLMr(l_max+1,nRstart:nRstop)
 
-    !---- Output of explicit time step:
-    !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
-    !     need a further treatment (radial derivatives required):
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_max,nRstart:nRstop) :: &
-         & dwdt,dzdt,dpdt,dsdt,dVSrLM
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(lm_maxMag,nRstartMag:nRstopMag) :: &
-         & dbdt,djdt,dVxBhLM
-    REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
+      !---- Output of nonlinear products for nonlinear
+      !     magnetic boundary conditions (needed in s_updateB.f):
+      complex(kind=8), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
+      complex(kind=8), intent(out) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
+      complex(kind=8), intent(out) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
+      complex(kind=8), intent(out) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
 
-    !---- Output for axisymmetric helicity:
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
-         & HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
-         & uhLMr,duhLMr,gradsLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: &
-         & fkinLMr,fconvLMr,fviscLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_maxMag+1,nRstartMag:nRstopMag) :: &
-         & fresLMr,fpoynLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(l_max+1,nRstart:nRstop) :: EperpLMr,EparLMr, &
-         & EperpaxiLMr,EparaxiLMr
-
-    !---- Output of nonlinear products for nonlinear
-    !     magnetic boundary conditions (needed in s_updateB.f):
-    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
-    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
-    COMPLEX(kind=8),intent(OUT) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
-    COMPLEX(kind=8),intent(OUT) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
-
-    !---- Output for Courant criteria:
-    REAL(kind=8),INTENT(OUT) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
+      !---- Output for Courant criteria:
+      real(kind=8),intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
 
-    !--- Local variables:
+      !--- Local variables:
+      integer :: nR,nr_Mag,nBc,lm
+      !integer :: nTheta,nThetaB,nThetaLast
+      integer :: nThetaStart!,nThetaStop
+      logical :: lDeriv,lOutBc,lMagNlBc
+      logical :: lGraphHeader    ! Write header into graph file
+      logical :: isRadialBoundaryPoint
 
-    !---- Counter, logicals ...
-    INTEGER :: nR,nr_Mag,nBc,lm
-    !INTEGER :: nTheta,nThetaB,nThetaLast
-    INTEGER :: nThetaStart!,nThetaStop
-    LOGICAL :: lDeriv,lOutBc,lMagNlBc
-    LOGICAL :: lGraphHeader    ! Write header into graph file
-    logical :: isRadialBoundaryPoint
 
-    !---- End of declaration
-    !----------------------------------------------------------------------
-    PERFON('rloop')
-    !LIKWID_ON('rloop')
-    lGraphHeader=l_graph
-    IF ( lGraphHeader ) THEN
-       CALL graphOut_mpi_header(time,nR,ngform,&
-            &        nThetaStart,sizeThetaB)
-    END IF
+      PERFON('rloop')
+      !LIKWID_ON('rloop')
+      lGraphHeader=l_graph
+      if ( lGraphHeader ) then
+         call graphOut_mpi_header(time,nR,ngform,nThetaStart,sizeThetaB)
+      end if
 
-    IF ( l_cour ) THEN
-       IF (rank == 0) THEN
-          dtrkc(n_r_cmb)=1.D10
-          dthkc(n_r_cmb)=1.D10
-       ELSEIF (rank == n_procs-1) THEN
-          dtrkc(n_r_icb)=1.D10
-          dthkc(n_r_icb)=1.D10
-       END IF
-    END IF
+      if ( l_cour ) then
+         if ( rank == 0 ) then
+            dtrkc(n_r_cmb)=1.D10
+            dthkc(n_r_cmb)=1.D10
+         elseif (rank == n_procs-1) then
+            dtrkc(n_r_icb)=1.D10
+            dthkc(n_r_icb)=1.D10
+         end if
+      end if
 
-    !------ Set nonlinear terms that are possibly needed at the boundaries.
-    !       They may be overwritten by get_td later.
-    DO lm=1,lm_max
-       IF (rank == 0) THEN
-          dVSrLM(lm,n_r_cmb) =zero
-          IF ( l_mag ) THEN
-             dVxBhLM(lm,n_r_cmb)=zero
-          END IF
-       ELSEIF (rank == n_procs-1) then
-          dVSrLM(lm,n_r_icb) =zero
-          IF ( l_mag ) THEN
-             dVxBhLM(lm,n_r_icb)=zero
-          END IF
-       END IF
-    END DO
+      !------ Set nonlinear terms that are possibly needed at the boundaries.
+      !       They may be overwritten by get_td later.
+      do lm=1,lm_max
+         if ( rank == 0 ) then
+            dVSrLM(lm,n_r_cmb) =zero
+            if ( l_mag ) then
+               dVxBhLM(lm,n_r_cmb)=zero
+            end if
+         elseif (rank == n_procs-1) then
+            dVSrLM(lm,n_r_icb) =zero
+            if ( l_mag ) then
+               dVxBhLM(lm,n_r_icb)=zero
+            end if
+         end if
+      end do
 
-    !------ Having to calculate non-linear boundary terms?
-    lMagNlBc=.FALSE.
-    IF ( ( l_mag_nl .OR. l_mag_kin ) .AND.                          &
-         &       ( ktopv == 1 .OR. l_cond_ma .OR.                           &
-         &          ( ktopv == 2 .AND. l_rot_ma ) ) .OR.                    &
-         &       ( kbotv == 1 .OR. l_cond_ic .OR.                           &
-         &          ( kbotv == 2 .AND. l_rot_ic ) ) )                       &
-         &     lMagNlBc=.TRUE.
+      !------ Having to calculate non-linear boundary terms?
+      lMagNlBc=.false.
+      if ( ( l_mag_nl .or. l_mag_kin ) .and.                          &
+           &       ( ktopv == 1 .or. l_cond_ma .or.                   &
+           &          ( ktopv == 2 .and. l_rot_ma ) ) .or.            &
+           &       ( kbotv == 1 .or. l_cond_ic .or.                   &
+           &          ( kbotv == 2 .and. l_rot_ic ) ) )               &
+           &     lMagNlBc=.true.
 
-    !------ When boundary output, Courant criterion, or non-magnetic 
-    !       boundary conditions are required I have to calculate 
-    !       the fields at the boundaries. This is done in one thread and 
-    !       is triggered by lOutBc=.TRUE.
-    lOutBc=.FALSE.
-    IF ( lTOCalc .OR. lHelCalc .OR. l_frame .OR.         &
-         & l_cour .OR. l_dtB .OR. lMagNlBc .OR. l_graph  &
-         & .OR. lPerpParCalc .OR. lViscBcCalc .OR.       &
-         & lFluxProfCalc) lOutBc=.TRUE.
+      !------ When boundary output, Courant criterion, or non-magnetic 
+      !       boundary conditions are required I have to calculate 
+      !       the fields at the boundaries. This is done in one thread and 
+      !       is triggered by lOutBc=.true.
+      lOutBc=.false.
+      if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
+           & l_cour .or. l_dtB .or. lMagNlBc .or. l_graph  &
+           & .or. lPerpParCalc .or. lViscBcCalc .or.       &
+           & lFluxProfCalc) lOutBc=.true.
 
-    !nRstart=n_r_cmb
-    !nRstop =n_r_icb-1
+      !nRstart=n_r_cmb
+      !nRstop =n_r_icb-1
 
-    !--- Start the big do loop over the radial threads:
+      !--- Start the big do loop over the radial threads:
 
-    !nThreadsRmax=1
-    DO nR=nRstart,nRstop
-       !IF( nTh > nThreadsRmax ) nThreadsRmax=nTh
-       IF ( lVerbose ) THEN
-          WRITE(*,'(/," ! Starting radial level ",i4)') nR
-       END IF
+      !nThreadsRmax=1
+      do nR=nRstart,nRstop
+         !IF( nTh > nThreadsRmax ) nThreadsRmax=nTh
+         if ( lVerbose ) then
+            write(*,'(/," ! Starting radial level ",i4)') nR
+         end if
 
-       !nR = nRC
-       nBc = 0
-       lDeriv = .true.
-       isRadialBoundaryPoint=(nR == n_r_cmb).OR.(nR == n_r_icb)
+         !nR = nRC
+         nBc = 0
+         lDeriv = .true.
+         isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
 
-       IF ( nR == n_r_cmb ) THEN 
-          IF ( lOutBc ) THEN
-             !nR  = n_r_cmb
-             nBc = ktopv
-             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame .OR. lPerpParCalc &
-          &          .OR. lViscBcCalc .OR. lFluxProfCalc 
-          ELSE
-             CYCLE   ! Nothing needs to be done by thread one !
-          END IF
-       ELSEif ( nR == n_r_icb ) then
-          IF ( lOutBc ) THEN
-             !nR = n_r_icb
-             nBc = kbotv
-             lDeriv= lTOCalc .OR. lHelCalc .OR. l_frame  .OR. lPerpParCalc &
-          &          .OR. lViscBcCalc .OR. lFluxProfCalc
-          ELSE
-             CYCLE
-          END IF
-       END IF
+         if ( nR == n_r_cmb ) then 
+            if ( lOutBc ) then
+               !nR  = n_r_cmb
+               nBc = ktopv
+               lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc &
+            &          .or. lViscBcCalc .or. lFluxProfCalc 
+            else
+               cycle   ! Nothing needs to be done by thread one !
+            end if
+         elseif ( nR == n_r_icb ) then
+            if ( lOutBc ) then
+               !nR = n_r_icb
+               nBc = kbotv
+               lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc &
+            &          .or. lViscBcCalc .or. lFluxProfCalc
+            else
+               cycle
+            end if
+         end if
 
-       IF ( l_mag .OR. l_mag_LF ) THEN
-          nR_Mag=nR
-       ELSE
-          nR_Mag=1
-       END IF
+         if ( l_mag .or. l_mag_LF ) then
+            nR_Mag=nR
+         else
+            nR_Mag=1
+         end if
 
-       CALL this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext,lTOnext2,&
-            & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,       &
-            & lFluxProfCalc,lPerpParCalc)
+         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext,lTOnext2,&
+              & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,       &
+              & lFluxProfCalc,lPerpParCalc)
 
-       CALL this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                         &
-            & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),djdt(:,nR_Mag),&
-            & dVxBhLM(:,nR_Mag),dVSrLM(:,nR),br_vt_lm_cmb,br_vp_lm_cmb,                 &
-            & br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma,            &
-            & HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),                &
-            & uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),     &
-            & fviscLMr(:,nR),fpoynLMr(:,nR),fresLMr(:,nR),EperpLMr(:,nR),EparLMr(:,nR), &
-            & EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
+         call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                  &
+              & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),        &
+              & djdt(:,nR_Mag),dVxBhLM(:,nR_Mag),dVSrLM(:,nR),br_vt_lm_cmb,        &
+              & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,          &
+              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),       &
+              & Helna2LMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),           &
+              & fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),fpoynLMr(:,nR),        &
+              & fresLMr(:,nR),EperpLMr(:,nR),EparLMr(:,nR),EperpaxiLMr(:,nR),      &
+              & EparaxiLMr(:,nR))
 
-       !WRITE(*,"(I3,A,2ES20.12)") nR,": lorentz_torque = ",lorentz_torque_ic,lorentz_torque_ma
+         dtrkc(nR)=this_rIteration%dtrkc      
+         dthkc(nR)=this_rIteration%dthkc      
 
-       dtrkc(nR)=this_rIteration%dtrkc      
-       dthkc(nR)=this_rIteration%dthkc      
+      end do    ! Loop over radial levels 
 
-    END DO    ! Loop over radial levels 
+      !----- Correct sign of mantel Lorentz torque (see above):
+      lorentz_torque_ma=-lorentz_torque_ma
 
-    !----- Correct sign of mantel Lorentz torque (see above):
-    lorentz_torque_ma=-lorentz_torque_ma
-
-    !LIKWID_OFF('rloop')
-    PERFOFF
-  END SUBROUTINE radialLoopG
-END MODULE radialLoop
+      !LIKWID_OFF('rloop')
+      PERFOFF
+   end subroutine radialLoopG
+!----------------------------------------------------------------------------
+end module radialLoop

@@ -3,9 +3,6 @@
     SUBROUTINE legtfAS(flm1,ft1,lmMax,nThetaStart,sizeThetaB)
 !***********************************************************************
 
-!    !------------ This is release 2 level 1  --------------!
-!    !------------ Created on 1/17/02  by JW. --------------!
-
 !  +-------------+----------------+------------------------------------+
 !  |                                                                   |
 !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
@@ -16,18 +13,11 @@
 !  |      n_theta_min,..,n_theta_min+n_theta_block-1                   |
 !  |                                                                   |
 !  +-------------------------------------------------------------------+
-!  |  ruler                                                            |
-!  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-!--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
     USE truncation
     USE horizontal_data
 
     IMPLICIT NONE
-
-!-- input:
-! include 'truncation.f'
-! include 'c_horizontal.f'
 
     INTEGER :: lmMax          ! Number of modes to be processed
     INTEGER :: nThetaStart    ! First no of theta on block

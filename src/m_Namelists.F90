@@ -43,7 +43,7 @@ CONTAINS
     character(len=100) :: input_filename
     integer :: nThreadsRun
 #ifdef WITH_MPI
-  character(len=100) :: new_tag
+    character(len=100) :: new_tag
 #endif
 
     !-- Name lists:
@@ -215,6 +215,7 @@ CONTAINS
 
     lMagMem  =1
     lAveMem  =0
+    lGeos    =0
     ldtBMem  =0
     lStressMem=0
     lMovieMem=0
@@ -519,6 +520,7 @@ CONTAINS
     IF ( l_TO ) lStressMem=1
     IF ( l_RMS .OR. l_DTrMagSpec ) ldtBMem=1
     IF ( l_movie .OR. l_TOmovie ) lMovieMem=1
+    IF ( l_par ) lGeos=1
 
     !-- Output of angular moment?
     l_AM=l_AM .OR. l_correct_AMe .OR. l_correct_AMz

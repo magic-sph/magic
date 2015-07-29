@@ -1,4 +1,4 @@
-!$Id: m_fftJW.F90 394 2013-02-13 09:40:47Z dannert $
+!$Id$
 !*******************************************************************************
 #include "perflib_preproc.cpp"
 #include "mkl_dfti.f90"
@@ -93,19 +93,19 @@ CONTAINS
   END SUBROUTINE fft_thetab_real
 
   SUBROUTINE fft_to_real(f,ld_f,nrep)
-    INTEGER,INTENT(IN) :: ld_f,nrep
-    COMPLEX(kind=8), INTENT(INOUT) :: f(ld_f/2,nrep)
 
-    TYPE(DFTI_DESCRIPTOR),POINTER :: local_c2r_handle
+    integer,      intent(in) :: ld_f,nrep
+    real(kind=8), intent(inout) :: f(ld_f,nrep)
+
+    type(DFTI_DESCRIPTOR), pointer :: local_c2r_handle
 
     PERFON('fft2r')
     ! Fourier transformation COMPLEX->REAL with MKL DFTI interface
     ! init FFT
     status = DftiCreateDescriptor( local_c2r_handle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
     status = DftiSetValue( local_c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nrep )
-    status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f/2 )
+    status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f )
     status = DftiSetValue( local_c2r_handle, DFTI_OUTPUT_DISTANCE, ld_f )
-    status = DftiSetValue( local_c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX )
     status = DftiSetValue( local_c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
     status = DftiCommitDescriptor( local_c2r_handle )
 
@@ -114,6 +114,7 @@ CONTAINS
 
     status = DftiFreeDescriptor( local_c2r_handle )
     PERFOFF
+
   END SUBROUTINE fft_to_real
 
 END MODULE fft_mkl

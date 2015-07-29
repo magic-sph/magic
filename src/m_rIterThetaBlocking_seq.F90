@@ -13,6 +13,9 @@ MODULE rIterThetaBlocking_seq_mod
   USE radial_data,ONLY: n_r_cmb, n_r_icb
   USE radial_functions, ONLY: or2, orho1
   USE output_data, only: ngform
+  use torsional_oscillations, only: getTO, getTOnext, getTOfinish
+  use graphOut_mod, only: graphOut_mpi
+  use dtB_mod, only: get_dtBLM, get_dH_dtBLM
 
   IMPLICIT NONE
 
@@ -58,28 +61,29 @@ CONTAINS
        &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,&
        &                 EparaxiLmr)
     CLASS(rIterThetaBlocking_seq_t) :: this
-    INTEGER, INTENT(IN) :: nR,nBc
-    REAL(kind=8),INTENT(IN) :: time,dt,dtLast
+    INTEGER,      INTENT(IN) :: nR,nBc
+    REAL(kind=8), INTENT(IN) :: time,dt,dtLast
 
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(:) :: dwdt,dzdt,dpdt,dsdt,dVSrLM
-    COMPLEX(kind=8),INTENT(OUT),DIMENSION(:) :: dbdt,djdt,dVxBhLM
+    COMPLEX(kind=8), INTENT(OUT) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
+    COMPLEX(kind=8), INTENT(OUT) :: dbdt(:),djdt(:),dVxBhLM(:)
     !---- Output of nonlinear products for nonlinear
     !     magnetic boundary conditions (needed in s_updateB.f):
-    COMPLEX(kind=8),INTENT(OUT) :: br_vt_lm_cmb(:) ! product br*vt at CMB
-    COMPLEX(kind=8),INTENT(OUT) :: br_vp_lm_cmb(:) ! product br*vp at CMB
-    COMPLEX(kind=8),INTENT(OUT) :: br_vt_lm_icb(:) ! product br*vt at ICB
-    COMPLEX(kind=8),INTENT(OUT) :: br_vp_lm_icb(:) ! product br*vp at ICB
-    REAL(kind=8),intent(OUT) :: lorentz_torque_ma,lorentz_torque_ic
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: HelLMr,Hel2LMr,HelnaLMr,Helna2LMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: uhLMr,duhLMr,gradsLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fconvLMr,fkinLMr,fviscLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: fpoynLMr,fresLMr
-    REAL(kind=8),INTENT(OUT),DIMENSION(:) :: EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr
+    COMPLEX(kind=8), INTENT(OUT) :: br_vt_lm_cmb(:) ! product br*vt at CMB
+    COMPLEX(kind=8), INTENT(OUT) :: br_vp_lm_cmb(:) ! product br*vp at CMB
+    COMPLEX(kind=8), INTENT(OUT) :: br_vt_lm_icb(:) ! product br*vt at ICB
+    COMPLEX(kind=8), INTENT(OUT) :: br_vp_lm_icb(:) ! product br*vp at ICB
+    REAL(kind=8),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
+    REAL(kind=8),    INTENT(OUT) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
+    REAL(kind=8),    INTENT(OUT) :: uhLMr(:),duhLMr(:),gradsLMr(:)
+    REAL(kind=8),    INTENT(OUT) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
+    REAL(kind=8),    INTENT(OUT) :: fpoynLMr(:),fresLMr(:)
+    REAL(kind=8),    INTENT(OUT) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
 
     INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
 
-    LOGICAL :: DEBUG_OUTPUT=.FALSE.
+    logical :: lGraphHeader=.false.
+    LOGICAL :: DEBUG_OUTPUT=.false.
 
     this%nR=nR
     this%nBc=nBc
@@ -205,29 +209,30 @@ CONTAINS
        !          point for graphical output:
        IF ( this%l_graph ) THEN
           PERFON('graphout')
-          CALL graphOut_mpi(time,this%nR,ngform,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc, &
-               &        this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,&
-               &        nThetaStart,this%sizeThetaB,.FALSE.)
+          CALL graphOut_mpi(time,this%nR,ngform,this%gsa%vrc,this%gsa%vtc, &
+               &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,        &
+               &            this%gsa%bpc,this%gsa%sc,nThetaStart,          &
+               &            this%sizeThetaB,lGraphHeader)
           PERFOFF
        END IF
 
        !--------- Helicity output:
        IF ( this%lHelCalc ) THEN
           PERFON('hel_out')
-          CALL getHelLM(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,                        &
-               &        this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvpdrc,   &
-               &        HelLMr,Hel2LMr,         &
-               &        HelnaLMr,Helna2LMr,     &
-               &        this%nR,nThetaStart)
+          CALL getHelLM(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,          &
+               &        this%gsa%cvrc,this%gsa%dvrdtc,this%gsa%dvrdpc,   &
+               &        this%gsa%dvtdrc,this%gsa%dvpdrc,HelLMr,Hel2LMr,  &
+               &        HelnaLMr,Helna2LMr,this%nR,nThetaStart)
           PERFOFF
        END IF
 
        !--------- horizontal velocity :
 
        IF ( this%lViscBcCalc ) THEN
-          CALL get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,this%gsa%dvpdrc,    &
-               &             this%gsa%drSc,this%gsa%dsdtc,this%gsa%dsdpc,    &
-               &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
+          CALL get_nlBLayers(this%gsa%vtc,this%gsa%vpc,this%gsa%dvtdrc,  &
+                  &          this%gsa%dvpdrc,this%gsa%drSc,              &
+                  &          this%gsa%dsdtc,this%gsa%dsdpc,uhLMr,duhLMr, &
+                  &          gradsLMr,nR,nThetaStart)
        END IF
 
        IF ( this%lFluxProfCalc ) THEN
@@ -240,17 +245,19 @@ CONTAINS
 
        IF ( this%lPerpParCalc ) THEN
            CALL get_perpPar(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
-                  &        EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
+                  &        EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,  &
+                  &        nR,nThetaStart)
        END IF
 
        !--------- Movie output:
        IF ( this%l_frame .AND. l_movie_oc .AND. l_store_frame ) THEN
           PERFON('mov_out')
-          CALL store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,                   &
-               &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%sc,this%gsa%drSc, &
-               &                 this%gsa%dvrdpc,this%gsa%dvpdrc,this%gsa%dvtdrc,&
-               &                 this%gsa%dvrdtc,this%gsa%cvrc, &
-               &                 this%gsa%cbrc,this%gsa%cbtc,nThetaStart,this%sizeThetaB,&
+          CALL store_movie_frame(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,  &
+               &                 this%gsa%brc,this%gsa%btc,this%gsa%bpc,          &
+               &                 this%gsa%sc,this%gsa%drSc,this%gsa%dvrdpc,       &
+               &                 this%gsa%dvpdrc,this%gsa%dvtdrc,                 &
+               &                 this%gsa%dvrdtc,this%gsa%cvrc,this%gsa%cbrc,     &
+               &                 this%gsa%cbtc,nThetaStart,this%sizeThetaB,       &
                &                 this%leg_helper%bCMB)
           PERFOFF
        END IF
@@ -261,14 +268,16 @@ CONTAINS
        !          for graphic output:
        IF ( l_dtB ) THEN
           PERFON('dtBLM')
-          CALL get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,&
-               &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,        &
-               &         nThetaStart,this%sizeThetaB,                     &
-               &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,&
-               &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,  &
-               &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,&
-               &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,&
-               &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
+          CALL get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,      &
+               &         this%gsa%brc,this%gsa%btc,this%gsa%bpc,              &
+               &         nThetaStart,this%sizeThetaB,                         &
+               &         this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,       &
+               &         this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,       &
+               &         this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,       &
+               &         this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,       &
+               &         this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM, &
+               &         this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM, &
+               &         this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
           PERFOFF
        END IF
 
@@ -276,18 +285,20 @@ CONTAINS
        !--------- Torsional oscillation terms:
        PERFON('TO_terms')
        IF ( ( this%lTONext .OR. this%lTONext2 ) .AND. l_mag ) THEN
-          CALL getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%lTONext,     &
-               &         this%lTONext2,dt,dtLast,this%nR,nThetaStart,this%sizeThetaB, &
+          CALL getTOnext(this%leg_helper%zAS,this%gsa%brc,this%gsa%btc, &
+               &         this%gsa%bpc,this%lTONext,this%lTONext2,dt,    &
+               &         dtLast,this%nR,nThetaStart,this%sizeThetaB,    &
                &         this%BsLast,this%BpLast,this%BzLast)
        END IF
 
        IF ( this%lTOCalc ) THEN
-          CALL getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,this%gsa%dvpdrc,         &
-               &     this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%cbrc,this%gsa%cbtc,         &
-               &     this%BsLast,this%BpLast,this%BzLast,         &
-               &     this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,&
-               &     this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM,         &
-               &     dtLast,this%nR,nThetaStart,this%sizeThetaB)
+          CALL getTO(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%cvrc,   &
+               &     this%gsa%dvpdrc,this%gsa%brc,this%gsa%btc,this%gsa%bpc, &
+               &     this%gsa%cbrc,this%gsa%cbtc,this%BsLast,this%BpLast,    &
+               &     this%BzLast,this%TO_arrays%dzRstrLM,                    &
+               &     this%TO_arrays%dzAstrLM,this%TO_arrays%dzCorLM,         &
+               &     this%TO_arrays%dzLFLM,dtLast,this%nR,nThetaStart,       &
+               &     this%sizeThetaB)
        END IF
        PERFOFF
 
@@ -322,13 +333,12 @@ CONTAINS
     !--- Form partial horizontal derivaties of magnetic production and
     !    advection terms:
     IF ( l_dtB ) THEN
-       CALL get_dH_dtBLM(this%nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,&
-            &            this%dtB_arrays%BrVtLM,                      &
-            &            this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,&
-            &            this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,&
-            &            this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM, &
-            &            this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,&
-            &            this%dtB_arrays%BtVpSn2LM,                &
+       CALL get_dH_dtBLM(this%nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM, &
+            &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,         &
+            &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,         &
+            &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,         &
+            &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,   &
+            &            this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,   &
             &            this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
     END IF
   END SUBROUTINE do_iteration_ThetaBlocking_seq

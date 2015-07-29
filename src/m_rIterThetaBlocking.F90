@@ -28,18 +28,18 @@ MODULE rIterThetaBlocking_mod
 
   TYPE :: dtB_arrays_t
      !----- Local dtB output stuff:
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
-                                 &               BtVpLM, BpVtLM
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BtVpCotLM,BpVtCotLM,BtVpSn2LM, &
-                                 &               BpVtSn2LM
-     COMPLEX(kind=8),DIMENSION(:),ALLOCATABLE :: BrVZLM,BtVZLM,BtVZcotLM,       &
-                                 &               BtVZsn2LM
+     COMPLEX(kind=8), ALLOCATABLE :: BtVrLM(:),BpVrLM(:),BrVtLM(:),BrVpLM(:), &
+                                 &               BtVpLM(:), BpVtLM(:)
+     COMPLEX(kind=8), ALLOCATABLE :: BtVpCotLM(:),BpVtCotLM(:),BtVpSn2LM(:), &
+                                 &               BpVtSn2LM(:)
+     COMPLEX(kind=8), ALLOCATABLE :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
+                                 &               BtVZsn2LM(:)
   END TYPE dtB_arrays_t
 
   TYPE :: TO_arrays_t
      !----- Local TO output stuff:
-     REAL(kind=8),ALLOCATABLE :: dzRstrLM(:),dzAstrLM(:)
-     REAL(kind=8),ALLOCATABLE :: dzCorLM(:),dzLFLM(:)
+     REAL(kind=8), ALLOCATABLE :: dzRstrLM(:),dzAstrLM(:)
+     REAL(kind=8), ALLOCATABLE :: dzCorLM(:),dzLFLM(:)
   END TYPE TO_arrays_t
 
   

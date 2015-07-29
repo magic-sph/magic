@@ -45,6 +45,7 @@ MODULE output_mod
   use outRot, only: write_rot
   USE parallel_mod
   USE outPar_mod, only: outPar, outPerpPar
+  use graphOut_mod, only: graphOut_IC
   USE power, ONLY: get_power
   USE LMLoop_data,ONLY: lm_per_rank,lm_on_last_rank,llm,ulm,llmMag,ulmMag
   USE communications,ONLY: myAllGather,gather_all_from_lo_to_rank0,   &
@@ -52,6 +53,7 @@ MODULE output_mod
   USE out_coeff, only: write_Bcmb, write_coeff_r
   USE getDlm_mod,only: getDlm
   USE movie_data,only: movie_gather_frames_to_rank0
+  use dtB_mod, only: get_dtBLMfinish
   USE storeCheckPoints
 
   implicit none
@@ -287,11 +289,6 @@ contains
 
     CHARACTER(len=20) :: string
     logical :: DEBUG_OUTPUT=.false.
-
-    INTEGER :: length
-
-    !--- end of declaration
-    !-----------------------------------------------------------------
 
     timeScaled=tScale*time
     timePassedLog=timePassedLog+dt

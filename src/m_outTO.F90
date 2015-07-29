@@ -225,9 +225,6 @@ contains
     INTEGER,SAVE :: nTOZfile!,length
     CHARACTER(len=10) :: string
 
-    !-- End of declaration
-    !---------------------------------------------------------------------------
-
     IF ( lVerbose ) WRITE(*,*) '! Starting outTO!'
 
     nTOsets=nTOsets+1
@@ -255,14 +252,6 @@ contains
        STOP
     END IF
     lAS=.TRUE.
-
-!!! TEST
-    !       DO nR=1,n_r_max
-    !       DO n=1,n_theta_max
-    !          V2AS(n,nR)=n+nR
-    !       END DO
-    !       END DO
-!!!
 
     !--- Transform to lm-space for all radial grid points:
 
@@ -294,40 +283,23 @@ contains
     END DO
 
     !---- Transform the contributions to cheb space for z-integral:
-    CALL costf1(dzVpLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(V2LMr,lmMaxS,1,lmMaxS,                              &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzdVpLMr,lmMaxS,1,lmMaxS,                           &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzddVpLMr,lmMaxS,1,lmMaxS,                          &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(Bs2LMr,lmMaxS,1,lmMaxS,                             &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BszLMr,lmMaxS,1,lmMaxS,                             &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BspLMr,lmMaxS,1,lmMaxS,                             &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BpzLMr,lmMaxS,1,lmMaxS,                             &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzRstrLMr,lmMaxS,1,lmMaxS,                          &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzAstrLMr,lmMaxS,1,lmMaxS,                          &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzStrLMr,lmMaxS,1,lmMaxS,                           &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzLFLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(dzCorLMr,lmMaxS,1,lmMaxS,                           &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BspdLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BpsdLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BpzdLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
-    CALL costf1(BzpdLMr,lmMaxS,1,lmMaxS,                            &
-         &              workA,i_costf_init,d_costf_init)
+    CALL costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(V2LMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BszLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BspLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BpzLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BspdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+    CALL costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
 
     dsZ   =r_CMB/DBLE(nSmax)  ! Step in s controlled by nSmax
     nSI   =0
@@ -341,17 +313,14 @@ contains
        nTOZfile=nTOZfile+1
        CALL dble2str(DBLE(nTOZfile),string)
        fileName='TOZ_'//trim(adjustl(string))//'.'//TAG
-       OPEN(95,FILE=fileName,FORM='UNFORMATTED',                    &
-            &                             STATUS='UNKNOWN')
-       WRITE(95) SNGL(time),FLOAT(nSmax),                           &
-            &         SNGL(omega_ic),SNGL(omega_ma)
+       OPEN(95, FILE=fileName, FORM='UNFORMATTED', STATUS='UNKNOWN')
+       WRITE(95) SNGL(time), FLOAT(nSmax), SNGL(omega_ic), SNGL(omega_ma)
        WRITE(95) (SNGL(sZ(nS)),nS=1,nSmax)
     END IF
     IF ( nTOsets > 1 .AND. l_TOZave ) THEN
        fileName='TOZM.'//TAG
-       OPEN(96,FILE=fileName,FORM='UNFORMATTED',                    &
-            &                                STATUS='UNKNOWN')
-       WRITE(96) FLOAT(nSmax),SNGL(omega_ic),SNGL(omega_ma)
+       OPEN(96,FILE=fileName, FORM='UNFORMATTED', STATUS='UNKNOWN')
+       WRITE(96) FLOAT(nSmax), SNGL(omega_ic), SNGL(omega_ma)
        WRITE(96) (SNGL(sZ(nS)),nS=1,nSmax)
     END IF
 
@@ -380,7 +349,7 @@ contains
           !       starting with zMax, ending with zMin
           !       z(1,nS)=zMin, z(nZmax,nS)=zMax
           CALL chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-               &                    nZmaxA,zZ(1,nS),nZmaxS(nS),                   &
+               &                    nZmaxA,zZ(1,nS),nZmaxS(nS),     &
                &       i_costf_initZ(1,nS),d_costf_initZ(1,nS))
 
           !--- Points in nothers halfsphere
@@ -431,28 +400,28 @@ contains
        END IF
 
        CALL getPAStr(VpS,dzVpLMr,nZmaxNS,nZmaxA,lmMaxS,             &
-            &                      l_max,r_ICB,r_CMB,n_r_max,             &
+            &                      l_max,r_ICB,r_CMB,n_r_max,       &
             &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(dVpS,dzdVpLMr,nZmaxNS,nZmaxA,lmMaxS,           &
-            &                        l_max,r_ICB,r_CMB,n_r_max,           &
+            &                        l_max,r_ICB,r_CMB,n_r_max,     &
             &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(ddVpS,dzddVpLMr,nZmaxNS,nZmaxA,lmMaxS,         &
-            &                          l_max,r_ICB,r_CMB,n_r_max,         &
+            &                          l_max,r_ICB,r_CMB,n_r_max,   &
             &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(RstrS,dzRstrLMr,nZmaxNS,nZmaxA,lmMaxS,         &
-            &                          l_max,r_ICB,r_CMB,n_r_max,         &
+            &                          l_max,r_ICB,r_CMB,n_r_max,   &
             &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(AstrS,dzAstrLMr,nZmaxNS,nZmaxA,lmMaxS,         &
-            &                          l_max,r_ICB,r_CMB,n_r_max,         &
+            &                          l_max,r_ICB,r_CMB,n_r_max,   &
             &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(StrS,dzStrLMr,nZmaxNS,nZmaxA,lmMaxS,           &
-            &                        l_max,r_ICB,r_CMB,n_r_max,           &
+            &                        l_max,r_ICB,r_CMB,n_r_max,     &
             &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(LFS,dzLFLMr,nZmaxNS,nZmaxA,lmMaxS,             &
-            &                      l_max,r_ICB,r_CMB,n_r_max,             &
+            &                      l_max,r_ICB,r_CMB,n_r_max,       &
             &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        CALL getPAStr(CorS,dzCorLMr,nZmaxNS,nZmaxA,lmMaxS,           &
-            &                        l_max,r_ICB,r_CMB,n_r_max,           &
+            &                        l_max,r_ICB,r_CMB,n_r_max,     &
             &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
        DO nZ=1,nZmaxNS
           TayS(nZ) =DABS(LFS(nZ))
@@ -461,19 +430,19 @@ contains
        END DO
 
        CALL getAStr(V2S,V2LMr,nZmaxNS,nZmaxA,lmMaxS,                &
-            &                   l_max,r_ICB,r_CMB,n_r_max,                &
+            &                   l_max,r_ICB,r_CMB,n_r_max,          &
             &                            rZ(1,nS),PlmS(1,1,nS))
        CALL getAStr(Bs2S,Bs2LMr,nZmaxNS,nZmaxA,lmMaxS,              &
-            &                     l_max,r_ICB,r_CMB,n_r_max,              &
+            &                     l_max,r_ICB,r_CMB,n_r_max,        &
             &                              rZ(1,nS),PlmS(1,1,nS))
        CALL getAStr(BspS,BspLMr,nZmaxNS,nZmaxA,lmMaxS,              &
-            &                     l_max,r_ICB,r_CMB,n_r_max,              &
+            &                     l_max,r_ICB,r_CMB,n_r_max,        &
             &                              rZ(1,nS),PlmS(1,1,nS))
        CALL getAStr(BspdS,BspdLMr,nZmaxNS,nZmaxA,lmMaxS,            &
-            &                       l_max,r_ICB,r_CMB,n_r_max,            &
+            &                       l_max,r_ICB,r_CMB,n_r_max,      &
             &                                rZ(1,nS),PlmS(1,1,nS))
        CALL getAStr(BpsdS,BpsdLMr,nZmaxNS,nZmaxA,lmMaxS,            &
-            &                       l_max,r_ICB,r_CMB,n_r_max,            &
+            &                       l_max,r_ICB,r_CMB,n_r_max,      &
             &                                rZ(1,nS),PlmS(1,1,nS))
 
        IF ( l_TOZave ) THEN
@@ -500,8 +469,7 @@ contains
                 AstrM(nZ,nS)=dt*(AstrM(nZ,nS)+SNGL(AstrS(nZ)))
                 StrM(nZ,nS) =dt*(StrM(nZ,nS) +SNGL(StrS(nZ)))
                 CorM(nZ,nS) =dt*(CorM(nZ,nS) +SNGL(CorS(nZ)))
-                CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +                         &
-                     &                            SNGL(CorS(nZ)+LFfac*LFS(nZ)))
+                CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +SNGL(CorS(nZ)+LFfac*LFS(nZ)))
              END DO
           ELSE
              dt=SNGL(time-timeLast)
@@ -514,33 +482,32 @@ contains
                 AstrM(nZ,nS)=AstrM(nZ,nS)+dt*SNGL(AstrS(nZ))
                 StrM(nZ,nS) =StrM(nZ,nS) +dt*SNGL(StrS(nZ))
                 CorM(nZ,nS) =CorM(nZ,nS) +dt*SNGL(CorS(nZ))
-                CLM(nZ,nS)  =CLM(nZ,nS)  +                             &
-                     &                        dt*SNGL(CorS(nZ)+LFfac*LFS(nZ))
+                CLM(nZ,nS)  =CLM(nZ,nS)  +dt*SNGL(CorS(nZ)+LFfac*LFS(nZ))
              END DO
           END IF
        END IF
 
        IF ( l_TOZave .AND. nTOsets > 1 ) THEN
           WRITE(96) FLOAT(nZmaxNS)
-          WRITE(96) (SNGL(zALL(nZ))      ,nZ=1,nZmaxNS),            &
-               &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),            &
-               &                  (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),            &
-               &                  (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),            &
-               &                  (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),            &
-               &                  (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),            &
-               &                  (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),            &
-               &                  (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),            &
+          WRITE(96) (SNGL(zALL(nZ))      ,nZ=1,nZmaxNS),               &
+               &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS), &
+               &                  (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
+               &                  (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS), &
+               &                  (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS), &
+               &                  (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS), &
+               &                  (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
+               &                  (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
                &                  (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
        END IF
        IF ( lTOZwrite ) THEN
           WRITE(95) FLOAT(nZmaxNS)
-          WRITE(95) (SNGL(zALL(nZ)) ,nZ=1,nZmaxNS),                 &
-               &                  (SNGL(VpS(nZ))  ,nZ=1,nZmaxNS),                 &
-               &                  (SNGL(dVpS(nZ)) ,nZ=1,nZmaxNS),                 &
-               &                  (SNGL(RstrS(nZ)),nZ=1,nZmaxNS),                 &
-               &                  (SNGL(AstrS(nZ)),nZ=1,nZmaxNS),                 &
-               &                  (SNGL(LFfac*LFS(nZ)),nZ=1,nZmaxNS),             &
-               &                  (SNGL(StrS(nZ)) ,nZ=1,nZmaxNS),                 &
+          WRITE(95) (SNGL(zALL(nZ)) ,nZ=1,nZmaxNS),                    &
+               &                  (SNGL(VpS(nZ))  ,nZ=1,nZmaxNS),      &
+               &                  (SNGL(dVpS(nZ)) ,nZ=1,nZmaxNS),      &
+               &                  (SNGL(RstrS(nZ)),nZ=1,nZmaxNS),      &
+               &                  (SNGL(AstrS(nZ)),nZ=1,nZmaxNS),      &
+               &                  (SNGL(LFfac*LFS(nZ)),nZ=1,nZmaxNS),  &
+               &                  (SNGL(StrS(nZ)) ,nZ=1,nZmaxNS),      &
                &                  (SNGL(CorS(nZ)) ,nZ=1,nZmaxNS)
        END IF
 
@@ -726,14 +693,11 @@ contains
           CALL getAStr(BpzdB,BpzdLMr,2,2,lmMaxS,l_max,         &
                &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
 
-          TauBS(nS)  = BpzB(1)+sZ(nS)/zMax*BspB(1) -                &
-               &                     BpzB(2)-sZ(nS)/zMin*BspB(2)
-          dTauBS(nS) = BpzdB(1)+BzpdB(1) +                          &
-               &                     sZ(nS)/zMax*(BspdB(1)+BpsdB(1)) -            &
-               &                     BpzdB(2)-BzpdB(2) -                          &
+          TauBS(nS)  = BpzB(1)+sZ(nS)/zMax*BspB(1) - BpzB(2)-sZ(nS)/zMin*BspB(2)
+          dTauBS(nS) = BpzdB(1)+BzpdB(1) + sZ(nS)/zMax*(BspdB(1)+BpsdB(1)) -   &
+               &                     BpzdB(2)-BzpdB(2) -                       &
                &                     sZ(nS)/zMin*(BspdB(2)+BpsdB(2))
-          dTTauBS(nS)= BszB(1)+sZ(nS)/zMax*Bs2B(1) -                &
-               &                     BszB(2)-sZ(nS)/zMin*Bs2B(2)
+          dTTauBS(nS)= BszB(1)+sZ(nS)/zMax*Bs2B(1) - BszB(2)-sZ(nS)/zMin*Bs2B(2)
           TauBN(nS)  =TauBS(nS)
           dTauBN(nS) =dTauBS(nS)
           dTTauBN(nS)=dTTauBS(nS)
@@ -760,14 +724,12 @@ contains
     DO nS=1,nSmax
        ! Old form used again for VgRMS for make is comparable with
        ! VpRMS below.
-       VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ *                     &
-            &                               VpIntN(nS)*VpIntN(nS)
+       VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ * VpIntN(nS)*VpIntN(nS)
        TayRMS =TayRMS +dsZ*DABS(TayIntN(nS))
        TayRRMS=TayRRMS+dsZ*DABS(TayRIntN(nS))
        TayVRMS=TayVRMS+dsZ*DABS(TayVIntN(nS))
        IF ( nS <= nSI ) THEN
-          VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ *                  &
-               &                         VpIntS(nS)*VpIntS(nS)
+          VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ * VpIntS(nS)*VpIntS(nS)
           TayRMS =TayRMS +dsZ*DABS(TayIntS(nS))
           TayRRMS=TayRRMS+dsZ*DABS(TayRIntS(nS))
           TayVRMS=TayVRMS+dsZ*DABS(TayVIntS(nS))
@@ -801,7 +763,7 @@ contains
             &                   8.D0*SBs2IntN(nS+1)-     SBs2IntN(nS+2) )
        TauN(nS)  =Oh(nS)*(Os2(nS)*dSBspIntN+TauBN(nS))
        dTTauN(nS)=sZ(nS)*d2SVpIntN*Bs2IntN(nS) +                    &
-            &               Oh(nS)*(Os2(nS)*dSVpIntN*dSBs2IntN +               &
+            &               Oh(nS)*(Os2(nS)*dSVpIntN*dSBs2IntN +    &
             &                        sZ(nS)*dSVpIntN*dTTauBN(nS) )
     END DO
     TauN(1)        =TauN(3)
@@ -826,7 +788,7 @@ contains
                &                      8.D0*SBs2IntS(nS+1)-SBs2IntS(nS+2) )
           TauS(nS) =Oh(nS)*(Os2(nS)*dSBspIntS+TauBS(nS))
           dTTauS(nS)=sZ(nS)*d2SVpIntS*Bs2IntS(nS) +                 &
-               &               Oh(nS)*(Os2(nS)*dSVpIntS*dSBs2IntS +               &
+               &               Oh(nS)*(Os2(nS)*dSVpIntS*dSBs2IntS + &
                &                        sZ(nS)*dSVpIntS*dTTauBS(nS) )
        ELSE
           TauS(nS)  =TauN(nS)
@@ -835,8 +797,8 @@ contains
     END DO
 
     !--- Output of z-integral:
-    OPEN(nOutFile,FILE=TOfileNhs,STATUS='UNKNOWN',                  &
-         &       FORM='UNFORMATTED',POSITION='APPEND')
+    OPEN(nOutFile, FILE=TOfileNhs, STATUS='UNKNOWN',                  &
+         &       FORM='UNFORMATTED', POSITION='APPEND')
     IF( nTOsets == 1 ) THEN
 
        WRITE(message,'(" ! TO: No. of s-values:",i4)') INT(nSmax/r_cmb)
@@ -848,24 +810,24 @@ contains
        WRITE(nOutFile) (SNGL(sZ(nS)),nS=1,nSmax)        ! 2
     END IF
     WRITE(nOutFile)                                                 &
-         &          SNGL(time),                                             &! 3
-         &          (SNGL(VpIntN(nS))             ,nS=1,nSmax),             &! 4
-         &          (SNGL(dVpIntN(nS))            ,nS=1,nSmax),             &! 5
-         &          (SNGL(ddVpIntN(nS))           ,nS=1,nSmax),             &! 6
-         &          (SNGL(VpRIntN(nS))            ,nS=1,nSmax),             &! 7
-         &          (SNGL(RstrIntN(nS))           ,nS=1,nSmax),             &! 8
-         &          (SNGL(AstrIntN(nS))           ,nS=1,nSmax),             &! 9
-         &          (SNGL(LFfac*LFIntN(nS))       ,nS=1,nSmax),             &! 10
-         &          (SNGL(StrIntN(nS))            ,nS=1,nSmax),             &! 11
-         &          (SNGL(TayIntN(nS))            ,nS=1,nSmax),             &! 12
-         &          (SNGL(LFfac*TauN(nS))         ,nS=1,nSmax),             &! 13
-         &          (SNGL(LFfac*TauBN(nS)/h(nS))  ,nS=1,nSmax),             &! 14
-         &          (SNGL(LFfac*BspdIntN(nS))     ,nS=1,nSmax),             &! 15 For first part of dTau
-         &          (SNGL(LFfac*BpsdIntN(nS))     ,nS=1,nSmax),             &! 16 For second part of dTau
-         &          (SNGL(LFfac*dTauBN(nS)/h(nS)) ,nS=1,nSmax),             &! 17 Boundary contribution !
-         &          (SNGL(LFfac*dTTauN(nS))       ,nS=1,nSmax),             &! 18
-         &          (SNGL(LFfac*dTTauBN(nS)/h(nS)),nS=1,nSmax),             &! 19
-         &          (SNGL(LFfac*Bs2IntN(nS))      ,nS=1,nSmax)  ! 20 New June 7, 2006
+         &          SNGL(time),                                     &! 3
+         &          (SNGL(VpIntN(nS))             ,nS=1,nSmax),     &! 4
+         &          (SNGL(dVpIntN(nS))            ,nS=1,nSmax),     &! 5
+         &          (SNGL(ddVpIntN(nS))           ,nS=1,nSmax),     &! 6
+         &          (SNGL(VpRIntN(nS))            ,nS=1,nSmax),     &! 7
+         &          (SNGL(RstrIntN(nS))           ,nS=1,nSmax),     &! 8
+         &          (SNGL(AstrIntN(nS))           ,nS=1,nSmax),     &! 9
+         &          (SNGL(LFfac*LFIntN(nS))       ,nS=1,nSmax),     &! 10
+         &          (SNGL(StrIntN(nS))            ,nS=1,nSmax),     &! 11
+         &          (SNGL(TayIntN(nS))            ,nS=1,nSmax),     &! 12
+         &          (SNGL(LFfac*TauN(nS))         ,nS=1,nSmax),     &! 13
+         &          (SNGL(LFfac*TauBN(nS)/h(nS))  ,nS=1,nSmax),     &! 14
+         &          (SNGL(LFfac*BspdIntN(nS))     ,nS=1,nSmax),     &! 15 For first part of dTau
+         &          (SNGL(LFfac*BpsdIntN(nS))     ,nS=1,nSmax),     &! 16 For second part of dTau
+         &          (SNGL(LFfac*dTauBN(nS)/h(nS)) ,nS=1,nSmax),     &! 17 Boundary contribution !
+         &          (SNGL(LFfac*dTTauN(nS))       ,nS=1,nSmax),     &! 18
+         &          (SNGL(LFfac*dTTauBN(nS)/h(nS)),nS=1,nSmax),     &! 19
+         &          (SNGL(LFfac*Bs2IntN(nS))      ,nS=1,nSmax)       ! 20 
     CLOSE(nOutFile)
 
     OPEN(nOutFile,FILE=TOfileShs,STATUS='UNKNOWN',                  &
@@ -875,33 +837,25 @@ contains
        WRITE(nOutFile) (SNGL(sZ(nS)),nS=1,nSmax)
     END IF
     WRITE(nOutFile)                                                 &
-         &          SNGL(time),                                             &
-         &          (SNGL(VpIntS(nS))             ,nS=1,nSmax),             &
-         &          (SNGL(dVpIntS(nS))            ,nS=1,nSmax),             &
-         &          (SNGL(ddVpIntS(nS))           ,nS=1,nSmax),             &
-         &          (SNGL(VpRIntS(nS))            ,nS=1,nSmax),             &
-         &          (SNGL(RstrIntS(nS))           ,nS=1,nSmax),             &
-         &          (SNGL(AstrIntS(nS))           ,nS=1,nSmax),             &
-         &          (SNGL(LFfac*LFIntS(nS))       ,nS=1,nSmax),             &
-         &          (SNGL(StrIntS(nS))            ,nS=1,nSmax),             &
-         &          (SNGL(TayIntS(nS))            ,nS=1,nSmax),             &
-         &          (SNGL(LFfac*TauS(nS))         ,nS=1,nSmax),             &
-         &          (SNGL(LFfac*TauBS(nS)/h(nS))  ,nS=1,nSmax),             &
-         &          (SNGL(LFfac*BspdIntS(nS))     ,nS=1,nSmax),             &! For first part of dTau
-         &          (SNGL(LFfac*BpsdIntS(nS))     ,nS=1,nSmax),             &! For second part of dTau
-         &          (SNGL(LFfac*dTauBS(nS)/h(nS)) ,nS=1,nSmax),             &! Boundary contribution !
-         &          (SNGL(LFfac*dTTauS(nS))       ,nS=1,nSmax),             &
-         &          (SNGL(LFfac*dTTauBS(nS)/h(nS)),nS=1,nSmax),             &
+         &          SNGL(time),                                     &
+         &          (SNGL(VpIntS(nS))             ,nS=1,nSmax),     &
+         &          (SNGL(dVpIntS(nS))            ,nS=1,nSmax),     &
+         &          (SNGL(ddVpIntS(nS))           ,nS=1,nSmax),     &
+         &          (SNGL(VpRIntS(nS))            ,nS=1,nSmax),     &
+         &          (SNGL(RstrIntS(nS))           ,nS=1,nSmax),     &
+         &          (SNGL(AstrIntS(nS))           ,nS=1,nSmax),     &
+         &          (SNGL(LFfac*LFIntS(nS))       ,nS=1,nSmax),     &
+         &          (SNGL(StrIntS(nS))            ,nS=1,nSmax),     &
+         &          (SNGL(TayIntS(nS))            ,nS=1,nSmax),     &
+         &          (SNGL(LFfac*TauS(nS))         ,nS=1,nSmax),     &
+         &          (SNGL(LFfac*TauBS(nS)/h(nS))  ,nS=1,nSmax),     &
+         &          (SNGL(LFfac*BspdIntS(nS))     ,nS=1,nSmax),     &! For first part of dTau
+         &          (SNGL(LFfac*BpsdIntS(nS))     ,nS=1,nSmax),     &! For second part of dTau
+         &          (SNGL(LFfac*dTauBS(nS)/h(nS)) ,nS=1,nSmax),     &! Boundary contribution !
+         &          (SNGL(LFfac*dTTauS(nS))       ,nS=1,nSmax),     &
+         &          (SNGL(LFfac*dTTauBS(nS)/h(nS)),nS=1,nSmax),     &
          &          (SNGL(LFfac*Bs2IntS(nS))      ,nS=1,nSmax)
     CLOSE(nOutFile)
-
-    !       WRITE(98,*) TauBS(30),TauBN(30),dTauBS(30),dTauBN(30),
-    !    &              dTTauBS(30),dTTauBN(30)
-    !       WRITE(98,*) 'IntS:',VpIntS(30),RstrIntS(30),TayIntS(30),
-    !    &                          TauS(30),Bs2IntS(30)
-    !       WRITE(98,*) 'IntN:',VpIntN(30),RstrIntN(30),TayIntN(30),
-    !    &                          TauN(30),Bs2IntN(30)
-
 
     ! Note: integral changed on Nov. 2 2007 (see above)
     fac=1.D0/sZ(nSmax) ! I integrate (roughly) from s=0 to s=r_cmb.
@@ -924,18 +878,12 @@ contains
           END DO
        END DO
 
-       CALL costf1(dzdVpLMr,lmMaxS,1,lmMaxS,                        &
-            &                 workA,i_costf_init,d_costf_init)
-       CALL costf1(dzRstrLMr,lmMaxS,1,lmMaxS,                       &
-            &                 workA,i_costf_init,d_costf_init)
-       CALL costf1(dzAstrLMr,lmMaxS,1,lmMaxS,                       &
-            &                 workA,i_costf_init,d_costf_init)
-       CALL costf1(dzStrLMr,lmMaxS,1,lmMaxS,                        &
-            &                 workA,i_costf_init,d_costf_init)
-       CALL costf1(dzLFLMr,lmMaxS,1,lmMaxS,                         &
-            &                 workA,i_costf_init,d_costf_init)
-       CALL costf1(dzCorLMr,lmMaxS,1,lmMaxS,                        &
-            &                 workA,i_costf_init,d_costf_init)
+       CALL costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+       CALL costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+       CALL costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+       CALL costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+       CALL costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+       CALL costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
 
        !--- Open output file
        nFields=7
@@ -1030,26 +978,19 @@ contains
 
                 !------ Convert from lm to theta block: 
                 IF ( nOut == 1 ) THEN
-                   CALL get_PAS(dzVpLMr(1,nR),outBlock,             &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzVpLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 2 ) THEN
-                   CALL get_PAS(dzRstrLMr(1,nR),outBlock,           &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzRstrLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 3 ) THEN
-                   CALL get_PAS(dzAstrLMr(1,nR),outBlock,           &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzAstrLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 4 ) THEN
-                   CALL get_PAS(dzStrLMr(1,nR),outBlock,            &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzStrLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 5 ) THEN
-                   CALL get_PAS(dzLFLMr(1,nR),outBlock,             &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzLFLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 6 ) THEN
-                   CALL get_PAS(dzCorLMr(1,nR),outBlock,            &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzCorLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 ELSE IF ( nOut == 7 ) THEN
-                   CALL get_PAS(dzdVpLMr(1,nR),outBlock,            &
-                        &                              rS,nThetaStart,sizeThetaB)
+                   CALL get_PAS(dzdVpLMr(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                 END IF
 
                 !------ Storage of field in fout for theta block,
@@ -1070,40 +1011,32 @@ contains
                    IF ( nOut == 1 ) THEN
                       !--------------- Zonal flow:
                       fOut(nPos)=vSF*outBlock(nThetaBlock)
-                      VpR(nR)=VpR(nR) +                             &
-                           &                       gauss(nThetaNHS)*fOut(nPos)/sS
+                      VpR(nR)=VpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                    ELSE IF ( nOut == 2 ) THEN
                       !--------------- Reynolds force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
-                      RstrR(nR)=RstrR(nR) +                         &
-                           &                               gauss(nThetaNHS)*fOut(nPos)/sS
+                      RstrR(nR)=RstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                    ELSE IF ( nOut == 3 ) THEN
                       !--------------- Advective force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
-                      AstrR(nR)=AstrR(nR) +                         &
-                           &                                gauss(nThetaNHS)*fOut(nPos)/sS
+                      AstrR(nR)=AstrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                    ELSE IF ( nOut == 4 ) THEN
                       !--------------- Viscous force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
-                      StrR(nR)=StrR(nR) +                           &
-                           &                                gauss(nThetaNHS)*fOut(nPos)/sS           
+                      StrR(nR)=StrR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS           
                    ELSE IF ( nOut == 5 ) THEN
                       !--------------- Lorentz force:
                       fOut(nPos)=fSF*LFfac*outBlock(nThetaBlock)
-                      LFR(nR)=LFR(nR) +                             &
-                           &                            gauss(nThetaNHS)*fOut(nPos)/sS
-                      LFABSR(nR)=LFABSR(nR) +                       &
-                           &                            gauss(nThetaNHS)*DABS(fOut(nPos))/sS
+                      LFR(nR)=LFR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
+                      LFABSR(nR)=LFABSR(nR) + gauss(nThetaNHS)*DABS(fOut(nPos))/sS
                    ELSE IF ( nOut == 6 ) THEN
                       !--------------- Corriolis force:
                       fOut(nPos)=fSF*outBlock(nThetaBlock)
-                      CorR(nR)=CorR(nR) +                           &
-                           &                                gauss(nThetaNHS)*fOut(nPos)/sS
+                      CorR(nR)=CorR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                    ELSE IF ( nOut == 7 ) THEN
                       !--------------- dtVp:
                       fOut(nPos)=vSF*outBlock(nThetaBlock)
-                      dVpR(nR)  =dVpR(nR) +                         &
-                           &                                gauss(nThetaNHS)*fOut(nPos)/sS
+                      dVpR(nR)  =dVpR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
                    END IF
 
                 END DO ! Loop over thetas in block
@@ -1113,14 +1046,12 @@ contains
 
           !------ Output of stress contributions for one radial grid point:
           !       Write all fields into movie style file
-          IF ( lTOmov )                                             &
-               &           WRITE(nOutFile) (SNGL(fOut(nPos)),nPos=1,nFieldSize)
+          IF ( lTOmov ) WRITE(nOutFile) (SNGL(fOut(nPos)),nPos=1,nFieldSize)
 
        END DO ! Loop over output functions
 
        IF ( l_save_out ) THEN
-          OPEN(n_log_file,FILE=log_file,STATUS='UNKNOWN',           &
-               &             POSITION='APPEND')
+          OPEN(n_log_file, FILE=log_file, STATUS='UNKNOWN', POSITION='APPEND')
        END IF
        IF ( lTOmov ) THEN 
           CLOSE(nOutFile)
@@ -1157,8 +1088,7 @@ contains
        END DO
 
        !--- Now perform the radial integral: ( not tested )
-       TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,                  &
-            &                      i_costf_init,d_costf_init)
+       TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
        !--- And finally calculate the mean value, the factor 4*pi comes from
        !    the fact that the surface integral has already been cared for
        !    NOTE: Integral for RMS Taylorisation changed to not respect the 
@@ -1168,16 +1098,16 @@ contains
        TaySRMS=fac*TaySRMS
 
        WRITE(nOutFile2)                                             &
-            &          SNGL(time),SNGL(VpRMS**2),SNGL(VgRMS**2),               &
-            &          SNGL(TayRMS),SNGL(TaySRMS),SNGL(TayRRMS),               &
-            &          SNGL(TayVRMS),SNGL(eKin),                               &! 3
-            &          (SNGL(VpR(nR))  ,nR=1,n_r_max),                         &! 4
-            &          (SNGL(dVpR(nR)) ,nR=1,n_r_max),                         &! 5
-            &          (SNGL(RstrR(nR)),nR=1,n_r_max),                         &! 6
-            &          (SNGL(AstrR(nR)),nR=1,n_r_max),                         &! 7
-            &          (SNGL(LFR(nR))  ,nR=1,n_r_max),                         &! 8
-            &          (SNGL(StrR(nR)) ,nR=1,n_r_max),                         &! 9
-            &          (SNGL(CorR(nR)) ,nR=1,n_r_max),                         &! 10
+            &          SNGL(time),SNGL(VpRMS**2),SNGL(VgRMS**2),    &
+            &          SNGL(TayRMS),SNGL(TaySRMS),SNGL(TayRRMS),    &
+            &          SNGL(TayVRMS),SNGL(eKin),                    &! 3
+            &          (SNGL(VpR(nR))  ,nR=1,n_r_max),              &! 4
+            &          (SNGL(dVpR(nR)) ,nR=1,n_r_max),              &! 5
+            &          (SNGL(RstrR(nR)),nR=1,n_r_max),              &! 6
+            &          (SNGL(AstrR(nR)),nR=1,n_r_max),              &! 7
+            &          (SNGL(LFR(nR))  ,nR=1,n_r_max),              &! 8
+            &          (SNGL(StrR(nR)) ,nR=1,n_r_max),              &! 9
+            &          (SNGL(CorR(nR)) ,nR=1,n_r_max),              &! 10
             &          (SNGL(TayR(nR)) ,nR=1,n_r_max)  ! 11
        CLOSE(nOutFile2)
 
@@ -1188,8 +1118,5 @@ contains
 
     lTOZwrite=.FALSE.
 
-    RETURN
   END SUBROUTINE outTO
-
-  !---------------------------------------------------------------------------------
 END MODULE outTO_mod

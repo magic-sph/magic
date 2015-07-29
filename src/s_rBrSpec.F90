@@ -16,7 +16,6 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   USE horizontal_data
   USE logic
   USE output_data
-  USE charmanip, ONLY: length_to_blank
   USE usefull, ONLY: cc2real
   USE LMmapping,only:mappings
   IMPLICIT NONE
@@ -40,20 +39,13 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   REAL(kind=8) :: fac,O_r_icb_E_2,rRatio,amp
   REAL(kind=8) :: e_p_temp
 
-  INTEGER :: length
-
   !-- Local function:
   LOGICAL :: lAS
 
   !-- end of declaration
   !---------------------------------------------------------------------
 
-  !WRITE(*,"(A,4ES22.15)") "rBrSpec: Pol,PolIC = ",SUM(Pol),SUM(PolIC)
-  ! Factor energy scale, 1/2 (Energy)  and 1/(4 Pi) for surface to get density
-  !             1/r**2 applied below
   fac=0.5D0*eScale/(16.D0*DATAN(1.D0))
-  !WRITE(*,"(A,I3,F22.18)") "rBrSpec, fac = ",EXPONENT(fac),FRACTION(fac)
-  length=length_to_blank(fileRoot)
 
   DO n_r=1,n_r_max
      ! setting zero
@@ -88,7 +80,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   IF ( lIC ) THEN
 
      lAS=.TRUE.
-     IF ( fileRoot(1:length) == 'rBrAdvSpec' ) lAS= .FALSE. 
+     IF ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .FALSE. 
 
      O_r_icb_E_2=1.d0/r_icb**2
 
@@ -136,7 +128,7 @@ SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
   
   !-- Output into file:
   !     writing l=0/1/2 magnetic energy
-  specFile=fileRoot(1:length)//'.'//tag
+  specFile=trim(adjustl(fileRoot))//'.'//tag
   OPEN(91,FILE=specFile,FORM='UNFORMATTED',STATUS='UNKNOWN', &
        POSITION='APPEND')
 

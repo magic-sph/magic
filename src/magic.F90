@@ -225,13 +225,13 @@ program magic5
    call initialize_matrices
    call initialize_fields
    call initialize_fieldsLast
-   call initialize_movie_data
+   if ( l_movie ) call initialize_movie_data
    if ( l_RMS ) call initialize_RMS
-   call initialize_dtB_mod
+   if ( ldtBmem == 1 ) call initialize_dtB_mod
    call initialize_kinetic_energy
    call initialize_magnetic_energy
    call initialize_fields_average_mod
-   call initialize_Egeos_mod
+   if ( l_par ) call initialize_Egeos_mod
    call initialize_spectra
    if ( l_PV ) call initialize_outPV3
    call initialize_step_time

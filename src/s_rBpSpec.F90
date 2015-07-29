@@ -18,7 +18,6 @@ SUBROUTINE rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
   USE horizontal_data
   USE logic
   USE output_data
-  USE charmanip, ONLY: length_to_blank
   USE usefull, ONLY: cc2real
   USE LMmapping,only:mappings
   IMPLICIT NONE
@@ -42,21 +41,13 @@ SUBROUTINE rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
   REAL(kind=8) :: fac,rRatio,amp
   REAL(kind=8) :: e_t_temp
 
-  INTEGER :: length
-
   !-- Local function:
   LOGICAl :: lAS
 
   !-- end of declaration
   !---------------------------------------------------------------------
 
-  !WRITE(*,"(A,4ES22.15,A)") "rBpSpec: Tor,TorIC = ",SUM(Tor),SUM(TorIC),TRIM(fileRoot)
-  !WRITE(*,"(A,2I4,4ES22.12)") "rBpSpec: Tor(lm2(4,0),1) und Tor(lm2(6,0),1) = ",&
-  !     &map%lm2(4,0),map%lm2(6,0),Tor(map%lm2(4,0),1),Tor(map%lm2(6,0),1)
-  ! Factor energy scale, 1/2 (Energy)  and 1/(4 Pi) for surface to get density
-  !             1/r**2 applied below
   fac=0.5D0*eScale/(16.D0*DATAN(1.D0))
-  length=length_to_blank(fileRoot)
 
   DO n_r=1,n_r_max
      DO l=1,6
@@ -89,7 +80,7 @@ SUBROUTINE rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
   IF ( lIC .AND. l_cond_ic ) then
 
      lAS=.true.
-     IF ( fileRoot(1:length) == 'rBrAdvSpec' ) lAS= .FALSE. 
+     IF ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .FALSE. 
 
      DO n_r=2,n_r_ic_max
         rRatio=r_ic(n_r)/r_ic(1)
@@ -118,7 +109,7 @@ SUBROUTINE rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
 
   !-- Output into file:
   !     writing l=0/1/2 magnetic energy
-  specFile=fileRoot(1:length)//'.'//tag
+  specFile=trim(adjustl(fileRoot))//'.'//tag
   OPEN(91,FILE=specFile,FORM='UNFORMATTED',STATUS='UNKNOWN', &
        POSITION='APPEND')
 

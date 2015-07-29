@@ -26,6 +26,7 @@ module fields_average_mod
                            & gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb
    use spectra, only: spectrum, spectrum_temp
+   use graphOut_mod, only: graphOut, graphOut_IC
  
    implicit none
  

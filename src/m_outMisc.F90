@@ -228,12 +228,17 @@ contains
          call getEgeos(timeScaled,nLogs,w,dw,ddw,z,dz, &
               &        Egeos,EkNTC,EkSTC,Ekin,         &
               &        dpFlow,dzFlow,CVzOTC,CVorOTC,CHelOTC)
-         Geos=Egeos/Ekin ! Output, relative geostrophic kinetic Energy
+         if ( Ekin > 0.d0 ) then
+            Geos=Egeos/Ekin ! Output, relative geostrophic kinetic Energy
+         else
+            Geos=0.d0
+            Ekin=-1.D0 ! Only used for ratio, must thus be non-zero
+         end if
       else
          Egeos  =0.D0
          EkNTC  =0.D0
          EkSTC  =0.D0
-         Ekin   =-1.D0 ! Only used for ratio, musst thus be non-zero
+         Ekin   =-1.D0 ! Only used for ratio, must thus be non-zero
          dpFlow =0.D0
          dzFlow =0.D0
          Geos   =0.D0
@@ -271,14 +276,16 @@ contains
          if ( l_save_out ) then
             open(n_misc_file, file=misc_file, status='unknown', position='APPEND')
          end if
-         write(n_misc_file,'(1P,D20.12,21D16.8)')      &
-              & timeScaled,botnuss,topnuss,            &
-              & real(s(1,n_r_icb)),real(s(1,n_r_cmb)), &
-              & HelN,HelS,HelRMSN,HelRMSS,             &
-              & Egeos/Ekin,EkNTC/Ekin,EkSTC/Ekin,Ekin, & !10-13
-              & CVzOTC,CVorOTC,CHelOTC,                & !14-16   
-              & HelnaN,HelnaS,HelnaRMSN,HelnaRMSS,     &
-              & botflux,topflux
+
+         write(n_misc_file,'(1P,D20.12,21D16.8)')         &
+              & timeScaled, botnuss, topnuss,             &
+              & real(s(1,n_r_icb)), real(s(1,n_r_cmb)),   &
+              & HelN, HelS, HelRMSN, HelRMSS,             &
+              & Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin,       & !10-13
+              & CVzOTC, CVorOTC, CHelOTC,                 & !14-16   
+              & HelnaN, HelnaS, HelnaRMSN, HelnaRMSS,     &
+              & botflux, topflux
+
          if ( l_save_out ) close(n_misc_file)
          !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
          !    get an idea of the precision of cylindrical integration in getEgeos.

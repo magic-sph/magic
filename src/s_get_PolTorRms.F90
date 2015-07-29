@@ -4,9 +4,6 @@ SUBROUTINE get_PolTorRms(Pol,drPol,Tor, &
      &                   PolRms,TorRms,PolAsRms,TorAsRms,map)
   !********************************************************************
 
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/17/02  by JW. --------------!
-
   !--------------------------------------------------------------------
 
   !  calculates integral PolRms=sqrt( Integral (pol^2 dV) )

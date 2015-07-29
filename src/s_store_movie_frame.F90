@@ -5,9 +5,6 @@ SUBROUTINE store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr, &
      &                       n_theta_start,n_theta_block,bCMB)
   !*************************************************************************
 
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/17/02  by JW. --------------!
-
   !-------------------------------------------------------------------------
   !  Controls output of movie frames.
   !  Usually called from radialLoop.
@@ -1064,9 +1061,6 @@ subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr, &
   !  |  surfaces r=const. into array frame(*,*)                          |
   !  |                                                                   |
   !  +-------------------------------------------------------------------+
-  !  |  ruler                                                            |
-  !  |5 7 10   15   20   25   30   35   40   45   50   55   60   65   70 |
-  !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
 
   USE truncation
