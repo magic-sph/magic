@@ -90,14 +90,14 @@ contains
       !-- Input of variables:
       real(kind=8),     intent(in) :: time
       integer,          intent(in) :: n_time_step
-      real(kind=8),     intent(in) :: eKin,eKinTAS
-      integer,          intent(in) :: nOutFile,nOutFile2
-      character(len=*), intent(in) :: TOfileNhs,TOfileShs,movFile,tayFile
+      real(kind=8),     intent(in) :: eKin, eKinTAS
+      integer,          intent(in) :: nOutFile, nOutFile2
+      character(len=*), intent(in) :: TOfileNhs, TOfileShs, movFile, tayFile
       logical,          intent(in) :: lTOmov
       complex(kind=8),  intent(in) :: z(llm:ulm,n_r_max)
-      real(kind=8),     intent(in) :: omega_ic,omega_ma
-      integer,          intent(inout) :: nTOsets,nTOmovSets,nTOrmsSets
-      logical,          intent(inout) :: lTOrms,lTOZwrite
+      real(kind=8),     intent(in) :: omega_ic, omega_ma
+      integer,          intent(inout) :: nTOsets, nTOmovSets, nTOrmsSets
+      logical,          intent(inout) :: lTOrms, lTOZwrite
 
       !-- Output field:
       real(kind=8) :: fOut(n_theta_maxStr*n_r_maxStr)

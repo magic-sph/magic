@@ -917,13 +917,13 @@ contains
   
          if ( l_Bpot )                                       &
               &     call storePot(time,b,aj,b_ic,aj_ic,      &
-              &        nBpotSets,'Bpot',omega_ma,omega_ic)
+              &        nBpotSets,'Bpot.',omega_ma,omega_ic)
          if ( l_Vpot )                                       &
               &     call storePot(time,w,z,b_ic,aj_ic,       &
-              &        nVpotSets,'Vpot',omega_ma,omega_ic)
+              &        nVpotSets,'Vpot.',omega_ma,omega_ic)
          if ( l_Tpot )                                       &
               &     call storePot(time,s,z,b_ic,aj_ic,       &
-              &        nVpotSets,'Tpot',omega_ma,omega_ic)
+              &        nTpotSets,'Tpot.',omega_ma,omega_ic)
          
          !----- Store current solution
          !      Note: unless l_new_rst_file=.true. .and. .not.l_stop_time

@@ -278,9 +278,8 @@ m_fields_average.o      : truncation.o m_output_data.o m_blocking.o\
                           m_spectra.o m_kinetic_energy.o m_out_graph_file.o\
                           m_magnetic_energy.o s_legPrep.o s_legTF.o\
                           $(FFT_OBJS) m_out_coeff.o m_store_pot.o 
-s_get_nl.o              : truncation.o m_horizontal.o m_num_param.o\
-                          m_phys_param.o m_radial.o m_logic.o m_blocking.o \
-			  m_leg_helper.o
+m_get_nl.o              : truncation.o m_horizontal.o m_logic.o\
+                          m_phys_param.o m_radial.o m_blocking.o
 m_out_movie_file.o      : truncation.o m_output_data.o m_blocking.o\
                           m_radial.o m_horizontal.o m_movie.o m_fields.o\
                           m_num_param.o $(FFT_OBJS) m_logic.o\
@@ -334,18 +333,16 @@ m_radialLoop.o          : truncation.o m_blocking.o m_parallel.o\
                           m_const.o  s_legPrepG.o m_legendre_trafo.o\
                           $(FFT_OBJS) s_v_rigid_boundary.o \
                           s_legTF3.o s_legTF2.o s_legTF1.o s_get_br_v_bcs.o\
-                          s_get_td.o m_out_graph_file.o m_radial_data.o m_rIteration.o \
+                          m_get_td.o m_out_graph_file.o m_radial_data.o m_rIteration.o \
 			  m_rIterThetaBlocking.o m_rIterThetaBlocking_OpenMP.o \
 			  m_rIterThetaBlocking_seq.o
 m_rIterThetaBlocking.o  : m_rIteration.o truncation.o m_blocking.o \
 			  m_logic.o m_radial.o m_radial_data.o m_output_data.o \
-			  $(FFT_OBJS) m_legendre_trafo.o s_get_nl.o m_leg_helper.o \
-			  m_grid_space_arrays.o m_nonlinear_lm.o
+			  $(FFT_OBJS) m_legendre_trafo.o m_get_nl.o m_leg_helper.o
 m_rIterThetaBlocking_OpenMP.o : m_rIterThetaBlocking.o m_TO.o m_dtB.o\
                           m_out_movie_file.o m_outRot.o
 m_rIterThetaBlocking_seq.o : m_rIterThetaBlocking.o m_TO.o m_dtB.o\
                           m_out_movie_file.o m_outRot.o
-m_grid_space_arrays.o   : m_blocking.o truncation.o
 m_LMLoop.o              : truncation.o m_blocking.o m_parallel.o\
                           m_phys_param.o m_logic.o m_radial.o m_horizontal.o\
                           m_output_data.o m_fields.o m_dt_fieldsLast.o m_mat.o\
@@ -401,11 +398,10 @@ m_updateWP.o            : truncation.o m_blocking.o m_num_param.o\
 s_chebInt.o             : s_cheb_x_map_e.o s_init_costf1.o s_get_dcheb.o 
 s_get_dr_even.o         : s_costf1.o s_get_dcheb_even.o s_costf2.o 
 s_parallel.o            : m_parallel.o 
-s_get_td.o              : truncation.o m_blocking.o m_horizontal.o\
+m_get_td.o              : truncation.o m_blocking.o m_horizontal.o\
                           m_phys_param.o m_num_param.o m_radial.o m_logic.o\
-                          m_RMS.o m_RMS_helpers.o m_leg_helper.o \
-			  m_nonlinear_lm.o
-m_nonlinear_lm.o	: m_cutils_iface.o
+                          m_RMS.o m_RMS_helpers.o m_leg_helper.o m_fields.o\
+                          m_cutils_iface.o
 m_store_movie_IC.o      : truncation.o m_blocking.o m_logic.o m_radial_data.o\
                           m_movie.o m_radial.o m_horizontal.o\
                           m_phys_param.o s_legPrep_IC.o s_legTF.o\

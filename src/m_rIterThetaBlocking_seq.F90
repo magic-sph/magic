@@ -141,17 +141,7 @@ CONTAINS
        IF ( (.NOT.this%isRadialBoundaryPoint) .OR. this%lMagNlBc ) THEN 
           !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
           PERFON('get_nl')
-          CALL get_nl(this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,&
-               &      this%gsa%dvrdrc,this%gsa%dvtdrc,this%gsa%dvpdrc,this%gsa%cvrc,  &
-               &      this%gsa%dvrdtc,this%gsa%dvrdpc,this%gsa%dvtdpc,this%gsa%dvpdpc,    &
-               &      this%gsa%brc,this%gsa%btc,this%gsa%bpc,this%gsa%cbrc,&
-               &      this%gsa%cbtc,this%gsa%cbpc,this%gsa%sc,  &
-               &      this%gsa%Advr,this%gsa%Advt,this%gsa%Advp,&
-               &      this%gsa%LFr,this%gsa%LFt,this%gsa%LFp,     &
-               &      this%gsa%VSr,this%gsa%VSt,this%gsa%VSp,this%gsa%VxBr,&
-               &      this%gsa%VxBt,this%gsa%VxBp,     &
-               &      this%gsa%ViscHeat,this%gsa%OhmLoss,               &
-               &      this%nR,this%nBc,nThetaStart)
+          call this%gsa%get_nl(this%nR, this%nBc, nThetaStart)
           PERFOFF
 
           CALL this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
@@ -316,10 +306,8 @@ CONTAINS
     !WRITE(*,"(A,I4,4ES20.13)") "before_td: ",this%nR,SUM(this%nl_lm%VxBtLM),&
     !     & SUM(this%nl_lm%VxBpLM)
     PERFON('get_td')
-    CALL get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,dVxBhLM,   &
-         &      dwdt,dzdt,dpdt,   &
-         &      dsdt,dbdt,djdt,   &
-         &      this%nl_lm, this%leg_helper)
+    call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,dVxBhLM,   &
+                 &  dwdt,dzdt,dpdt,dsdt,dbdt,djdt,this%leg_helper)
     PERFOFF
     !DO lm=1,lm_max
     !   WRITE(*,"(2(I3,A),2ES20.12)") this%nR,": dwdt(",lm,") = ",dwdt(lm)

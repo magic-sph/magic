@@ -36,7 +36,7 @@ module graphOut_mod
 
 contains
 
-   subroutine graphOut(time,n_r,FORMAT,vr,vt,vp,br,bt,bp,sr, &
+   subroutine graphOut(time,n_r,format,vr,vt,vp,br,bt,bp,sr, &
      &              n_theta_start,n_theta_block_size,lGraphHeader)
       !-------------------------------------------------------------------------
     

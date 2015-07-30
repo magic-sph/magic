@@ -487,15 +487,15 @@ contains
          nVpotSets=-1
          nTpotSets=-1
          if ( l_mag) then
-            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,           &
-                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave', &
+            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,            &
+                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave.', &
                  &         omega_ma,omega_ic)
          end if
-         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,            &
-              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave', &
+         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,             &
+              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave.', &
               &                                      omega_ma,omega_ic)
-         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,            &
-              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Tpot_ave', &
+         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,             &
+              &         workA_LMloc,dw_ave,db_ave,nTpotSets,'Tpot_ave.', &
               &                                      omega_ma,omega_ic)
 
          if ( l_save_out ) close(nLF)

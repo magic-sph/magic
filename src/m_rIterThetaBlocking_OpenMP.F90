@@ -247,23 +247,9 @@ CONTAINS
           !END IF
 
           !PERFON('get_nl')
-          CALL get_nl(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,this%gsa(threadid)%vpc,&
-               &      this%gsa(threadid)%dvrdrc,this%gsa(threadid)%dvtdrc,&
-               &      this%gsa(threadid)%dvpdrc,this%gsa(threadid)%cvrc,  &
-               &      this%gsa(threadid)%dvrdtc,this%gsa(threadid)%dvrdpc,&
-               &      this%gsa(threadid)%dvtdpc,this%gsa(threadid)%dvpdpc,    &
-               &      this%gsa(threadid)%brc,this%gsa(threadid)%btc,this%gsa(threadid)%bpc,&
-               &      this%gsa(threadid)%cbrc,this%gsa(threadid)%cbtc,&
-               &      this%gsa(threadid)%cbpc,this%gsa(threadid)%sc,  &
-               &      this%gsa(threadid)%Advr,this%gsa(threadid)%Advt,&
-               &      this%gsa(threadid)%Advp,this%gsa(threadid)%LFr,&
-               &      this%gsa(threadid)%LFt,this%gsa(threadid)%LFp,     &
-               &      this%gsa(threadid)%VSr,this%gsa(threadid)%VSt,&
-               &      this%gsa(threadid)%VSp,this%gsa(threadid)%VxBr,&
-               &      this%gsa(threadid)%VxBt,this%gsa(threadid)%VxBp,     &
-               &      this%gsa(threadid)%ViscHeat,this%gsa(threadid)%OhmLoss,  &
-               &      this%nR,this%nBc,nThetaStart)
+          call this%gsa(threadid)%get_nl(this%nR, this%nBc, nThetaStart)
           !PERFOFF
+
           !IF (DEBUG_OUTPUT) THEN
           !   IF (this%nR == 2) THEN
           !      WRITE(*,"(A,I2,A,I2)") "++++ START gsa(",threadid,") for nThetaB = ",nThetaB
@@ -543,15 +529,16 @@ CONTAINS
     !   over the different models that s_LMLoop.f parallelizes over. 
     !write(*,"(A,I4,2ES20.13)") "before_td: ",this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
     !PERFON('get_td')
-    CALL get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,dVxBhLM,   &
-         &      dwdt,dzdt,dpdt,   &
-         &      dsdt,dbdt,djdt,   &
-         &      this%nl_lm, this%leg_helper)
+    call this%nl_lm(threadid)%get_td(this%nR,this%nBc,this%lRmsCalc, &
+                                     dVSrLM,dVxBhLM,dwdt,dzdt,dpdt,  &
+                                     dsdt,dbdt,djdt,this%leg_helper)
+
     !PERFOFF
     !write(*,"(A,I4,ES20.13)") "after_td:  ",this%nR,sum(real(conjg(dVxBhLM(:,this%nR_Mag))*dVxBhLM(:,this%nR_Mag)))
     !-- Finish calculation of TO variables:
     IF ( this%lTOcalc ) THEN                                   
-       CALL getTOfinish(this%nR,dtLast,this%leg_helper%zAS,this%leg_helper%dzAS,this%leg_helper%ddzAS, &
+       CALL getTOfinish(this%nR,dtLast,this%leg_helper%zAS,             &
+            &           this%leg_helper%dzAS,this%leg_helper%ddzAS,     &
             &           this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,&
             &           this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM)
     END IF

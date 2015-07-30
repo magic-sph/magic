@@ -38,11 +38,13 @@ contains
       complex(kind=8) :: workC(lm_max,n_r_max)
     
       character(80) :: string
+      character(:), allocatable :: head
       integer :: n_r,lm,n_cheb
       character(80) :: fileName
       logical :: lVB
       real(kind=8) :: chebNorm
     
+      head = trim(adjustl(root))
       nPotSets=nPotSets+1
       lVB=.false.
       if ( root(1:1) /= 'T' ) lVB= .true. 
@@ -78,7 +80,7 @@ contains
     
       !--- Write:
       if ( nPotSets == 0 ) then ! nPotSets=-1 on call
-         fileName=trim(adjustl(root))//'.'//tag
+         fileName=head//tag
       else
          !------ Names including the time:
          !           if ( l_graph_time ) then
@@ -87,7 +89,7 @@ contains
          !           else
          !------ Numbered names:
          write(string, *) nPotSets
-         fileName=trim(adjustl(root))//'_'//trim(adjustl(string))//'.'//tag
+         fileName=head(1:len(head)-1)//'_'//trim(adjustl(string))//'.'//tag
          !           end if
       end if
     
@@ -174,11 +176,13 @@ contains
       !-- Local variables
       complex(kind=8), allocatable :: workA_global(:,:),workB_global(:,:)
       character(len=80) :: string
+      character(:), allocatable :: head
       integer :: n_r,lm,n_cheb
       character(len=80) :: fileName
       logical :: lVB
       real(kind=8) :: chebNorm
        
+      head = trim(adjustl(root))
       nPotSets=nPotSets+1
       lVB=.false.
       if ( root(1:1) /= 'T' ) lVB= .true. 
@@ -233,7 +237,7 @@ contains
       if ( rank == 0 ) then
          !--- Write:
          if ( nPotSets == 0 ) then ! nPotSets=-1 on call
-            fileName=trim(adjustl(root))//'.'//tag
+            fileName=head//tag
          else
             !------ Names including the time:
             !           if ( l_graph_time ) then
@@ -242,7 +246,7 @@ contains
             !           else
             !------ Numbered names:
             write(string, *) nPotSets
-            fileName=trim(adjustl(root))//'_'//trim(adjustl(string))//'.'//tag
+            fileName=head(1:len(head)-1)//'_'//trim(adjustl(string))//'.'//tag
             !         end if
          end if
 
