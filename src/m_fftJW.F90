@@ -34,7 +34,7 @@ CONTAINS
     !  |  The actual transform is performed by the subroutine fftJW.       |
     !  +-------------------------------------------------------------------+
 
-    use usefull, only: factorise
+    use useful, only: factorise
     USE const, only: pi
 
     IMPLICIT NONE

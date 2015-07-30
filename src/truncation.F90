@@ -38,7 +38,6 @@ module truncation
  
    !-- Movie memory control:
    integer :: lMovieMem
-   integer, parameter :: n_movie_work=1
    integer :: ldtBMem
    integer :: lm_max_dtB,n_r_max_dtB,n_r_ic_max_dtB
    integer :: lmP_max_dtB

@@ -18,7 +18,7 @@ module outPar_mod
 
    use num_param, only: tScale
    use output_data, only: tag, n_perpPar_file, perpPar_file
-   use usefull, only: cc2real
+   use useful, only: cc2real
    use integration, only: rInt
 
    implicit none

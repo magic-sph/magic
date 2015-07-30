@@ -17,7 +17,7 @@ module outMisc_mod
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
    use const, only: pi, vol_oc
-   use usefull, only: cc2real
+   use useful, only: cc2real
    use integration, only: rInt,rInt_R
    use LMLoop_data,only: llm,ulm
 

@@ -13,7 +13,7 @@
 !  |  subroutine costf1.                                               |
 !  +-------------------------------------------------------------------+
 
-    use usefull, only: factorise
+    use useful, only: factorise
 
     implicit none
 

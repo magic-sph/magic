@@ -49,7 +49,7 @@ contains
                        aj_LMloc_container,aj_Rloc_container
       use fieldsLast ! The entire module is required
       use const, only: zero, c_lorentz_ma, c_lorentz_ic, pi
-      use usefull, only: cc2real
+      use useful, only: cc2real
       use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
                              ulm_realMag,llm_real,ulm_real,llm,ulm,   &
                              ulmMag,llmMag

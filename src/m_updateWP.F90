@@ -25,7 +25,8 @@ module updateWP_mod
 #endif
    use LMLoop_data, only:llm,ulm, llm_real,ulm_real
    use communications, only: get_global_sum
-   use parallel_mod,only: chunksize
+   use parallel_mod, only: chunksize
+   use RMS_helpers, only:  hInt2Pol
 
    implicit none
 

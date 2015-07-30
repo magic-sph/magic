@@ -21,7 +21,7 @@ module magnetic_energy
    use Bext, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
-   use usefull, only: cc2real,cc22real
+   use useful, only: cc2real,cc22real
  
    implicit none
  

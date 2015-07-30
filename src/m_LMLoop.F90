@@ -26,6 +26,8 @@ MODULE LMLoop_mod
   USE updateZ_mod,ONLY: initialize_updateZ,updateZ
   USE updateWP_mod,ONLY: initialize_updateWP,updateWP
   USE updateB_mod,ONLY: initialize_updateB,updateB
+  use useful, only: safeOpen, safeClose
+
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif

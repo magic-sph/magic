@@ -16,7 +16,7 @@ module power
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
                     l_conv, l_cond_ic, l_heat, l_mag
    use output_data, only: n_power_file, power_file, tag
-   use usefull, only: cc2real,cc22real
+   use useful, only: cc2real,cc22real
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt_R,rIntIC
    use outRot, only: get_viscous_torque
@@ -341,7 +341,7 @@ contains
             powerMA=0.D0
          end if
 
-         !--- Because the two systems are coupled only the total ohmic dissipation in usefull:
+         !--- Because the two systems are coupled only the total ohmic dissipation in useful:
          ohmDiss=-curlB2-curlB2_IC
 
          powerDiffOld=powerDiff

@@ -67,7 +67,7 @@ contains
       use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA
       use radial_functions, only: r_icb,r,n_r_icb,n_r_cmb
       use const, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma
-      use usefull, only: random
+      use useful, only: random
       use LMLoop_data, only: llm,ulm
 #if (FFTLIB==JW)
       use fft_JW
@@ -337,7 +337,7 @@ contains
 #elif (FFTLIB==MKL)
       use fft_MKL
 #endif
-      use usefull, only: random
+      use useful, only: random
 #ifdef WITH_MKL_LU
       use lapack95, only: getrf,getrs
 #else
@@ -653,7 +653,7 @@ contains
       use horizontal_data, only: D_l
       use logic, only: l_cond_ic
       use const, only: pi
-      use usefull, only: random
+      use useful, only: random
       use LMLoop_data, only: llmMag,ulmMag
 
       !-- Input variables:

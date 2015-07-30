@@ -16,7 +16,7 @@ module spectra
    use output_data, only: tag, log_file, nLF, n_mag_spec_file, &
                           n_u2_spec_file, n_kin_spec_file
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
-   use usefull, only: cc2real, cc22real
+   use useful, only: cc2real, cc22real, safeOpen, safeClose
    use integration, only: rInt_R, rIntIC, rInt
    use const, only: pi, vol_oc
 

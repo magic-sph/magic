@@ -36,6 +36,7 @@ module updateB_mod
 #endif
    use LMLoop_data, only: llmMag,ulmMag,llm_realMag,ulm_realMag
    use parallel_mod, only:  rank,chunksize
+   use RMS_helpers, only: hInt2Pol, hInt2Tor
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif

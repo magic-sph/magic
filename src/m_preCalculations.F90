@@ -234,7 +234,7 @@ contains
       !   on all threads:
       call horizontal
     
-      !-- Computation of the average density (usefull to compute Re and Rm)
+      !-- Computation of the average density (useful to compute Re and Rm)
       if ( l_anel ) then
          do n_r=1,n_r_max
             mom(n_r)=r(n_r)**2 * rho0(n_r)

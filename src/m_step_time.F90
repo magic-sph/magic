@@ -27,7 +27,7 @@ MODULE step_time_mod
          & z_LMloc,dz_LMloc
     USE fieldsLast
     USE charmanip, only: capitalize,dble2str
-    USE usefull, only: l_correct_step
+    USE useful, only: l_correct_step, safeOpen, safeClose
     USE communications,ONLY: get_global_sum,&
          & r2lo_redist,&
          & lm2r_type,&

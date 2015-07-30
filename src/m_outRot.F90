@@ -2,8 +2,8 @@
 !***********************************************************************
 module outRot
 
-   use mpi
-   use truncation, only: n_r_max, n_r_maxMag, minc
+   use parallel_mod
+   use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, drx, i_costf_init, &
                                d_costf_init
@@ -17,9 +17,10 @@ module outRot
                           SRMA_file, SRIC_file, rot_file
    use const, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
                     y10_norm
-   use parallel_mod, only: rank
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R
+   use horizontal_data, only: cosTheta, gauss
+   use Grenoble, only: BIC, lGrenoble
 
    implicit none
 
@@ -30,13 +31,13 @@ module outRot
       module procedure get_viscous_torque_complex
    end interface get_viscous_torque
 
-   public :: write_rot, get_viscous_torque, get_angular_moment
+   public :: write_rot, get_viscous_torque, get_angular_moment, &
+             get_lorentz_torque
 
 contains
 
    subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
                       & omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
-      !***********************************************************************
     
       !-- Input of variables:
       real(kind=8),    intent(in) :: omega_ic,omega_ma
@@ -83,7 +84,8 @@ contains
       lm2(0:,0:) => lo_map%lm2
       l1m0=lm2(1,0)
     
-      if (DEBUG_OUTPUT) write(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",lmStartB(rank+1),lmStopB(rank+1),l1m0
+      if ( DEBUG_OUTPUT ) write(*,"(I3,A,3I6)") rank,":lmStartB,lmStopB,l1m0=",& 
+                        lmStartB(rank+1),lmStopB(rank+1),l1m0
     
       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
          !if (rank /= 0) then
@@ -106,10 +108,10 @@ contains
          if ( rank /= 0 ) then
             ! send viscous_torque_ic and viscous_torque_ma to rank 0 for 
             ! output
-            call MPI_Send(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,0,&
-                 &sr_tag,MPI_COMM_WORLD,ierr)
-            call MPI_Send(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,0,&
-                 &sr_tag+1,MPI_COMM_WORLD,ierr)
+            call MPI_Send(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,0, &
+                 &        sr_tag,MPI_COMM_WORLD,ierr)
+            call MPI_Send(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,0, &
+                 &        sr_tag+1,MPI_COMM_WORLD,ierr)
          end if
       else
          rank_has_l1m0=.false.
@@ -118,9 +120,9 @@ contains
       if ( rank == 0 ) then
          if ( .not. rank_has_l1m0 ) then
             call MPI_Recv(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
-                 &sr_tag,MPI_COMM_WORLD,status,ierr)
+                 &        sr_tag,MPI_COMM_WORLD,status,ierr)
             call MPI_Recv(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
-                 &sr_tag+1,MPI_COMM_WORLD,status,ierr)
+                 &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
          end if
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
@@ -160,14 +162,14 @@ contains
     
          if ( rank == 0 ) then
             filename='driftVD.'//tag
-            open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+            open(n_SRIC_file, file=filename, status='unknown', position='append')
             write(n_SRIC_file,'(1P,2X,D20.12,24D12.4)') &
                  time, (zvals_on_rank0(ilm,1),ilm=1,4), &
                  (zvals_on_rank0(ilm,2),ilm=1,4),       &
                  (zvals_on_rank0(ilm,3),ilm=1,4)
             close(n_SRIC_file)
             filename='driftVQ.'//tag
-            open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+            open(n_SRIC_file, file=filename, status='unknown', position='append')
             write(n_SRIC_file,'(1P,2X,D20.12,24D12.4)') &
                  time, (zvals_on_rank0(ilm,1),ilm=5,8), &
                  (zvals_on_rank0(ilm,2),ilm=5,8),       &
@@ -183,13 +185,13 @@ contains
     
             if ( rank == 0 ) then
                filename='driftBD.'//tag
-               open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+               open(n_SRIC_file, file=filename, status='unknown', position='append')
                write(n_SRIC_file,'(1P,2X,D20.12,16D12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=5,8), &
                     (bvals_on_rank0(ilm,2),ilm=5,8)
                close(n_SRIC_file)
                filename='driftBQ.'//tag
-               open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+               open(n_SRIC_file, file=filename, status='unknown', position='append')
                write(n_SRIC_file,'(1P,2X,D20.12,16D12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=1,4), &
                     (bvals_on_rank0(ilm,2),ilm=1,4)
@@ -201,7 +203,7 @@ contains
       if ( .not. l_SRIC .and. ( l_rot_ic .or. l_rot_ma ) ) then
          if ( rank == 0 ) then
             if ( l_save_out ) then
-               open(n_rot_file, file=rot_file, status='UNKNOWN', position='APPEND')
+               open(n_rot_file, file=rot_file, status='unknown', position='append')
             end if
             write(n_rot_file,'(1P,2X,D20.12,6D14.6)') &
                  time*tScale, omega_ic/tScale,        &
@@ -225,7 +227,8 @@ contains
             end do
             rank_has_l1m0=.true.
             if (rank /= 0) then
-               call MPI_Send(z10,n_r_max,MPI_DOUBLE_complex,0,sr_tag,MPI_COMM_WORLD,ierr)
+               call MPI_Send(z10,n_r_max,MPI_DOUBLE_complex,0,sr_tag, & 
+                             MPI_COMM_WORLD,ierr)
             end if
          end if
     
@@ -250,19 +253,20 @@ contains
          if ( rank == 0 ) then
             if ( .not. rank_has_l1m0 ) then
                call MPI_Recv(z10,n_r_max,MPI_DOUBLE_complex,&
-                    & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
+                    &        MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
             end if
             if ( l1m1 > 0 ) then
                if ( .not. rank_has_l1m1 ) then
                   call MPI_Recv(z11,n_r_max,MPI_DOUBLE_complex,&
-                       & MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
+                       &        MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
                end if
             end if
     
             call get_angular_moment(z10,z11,omega_ic,omega_ma, &
                  angular_moment_oc, angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
-               open(n_angular_file,file=angular_file,status='UNKNOWN',position='APPEND')
+               open(n_angular_file, file=angular_file, status='unknown', &
+                    position='append')
             end if
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0D0
@@ -276,7 +280,7 @@ contains
             if ( AMzLast /= 0.0D0 ) then
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast,dt,(eKinAMz-eKinAMzLast)
                write(n_angular_file,'(1p,2x,d20.12,5d14.6,3d20.12)', advance='no') &
-                    time*tScale, angular_moment_oc,               &
+                    & time*tScale, angular_moment_oc,             &
                     & angular_moment_ic(3), angular_moment_ma(3), &
                     & AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz
                if (eKinAMzLast /= 0.0d0) then
@@ -307,7 +311,7 @@ contains
     
          if ( rank == 0 ) then
             filename='inerP.'//tag
-            open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+            open(n_SRIC_file, file=filename, status='unknown', position='append')
             write(n_SRIC_file,'(1P,2X,D20.12,21D12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             close(n_SRIC_file)
@@ -318,7 +322,7 @@ contains
     
          if ( rank == 0 ) then
             filename='inerT.'//tag
-            open(n_SRIC_file, file=filename, status='UNKNOWN', position='APPEND')
+            open(n_SRIC_file, file=filename, status='unknown', position='append')
             write(n_SRIC_file,'(1P,2X,D20.12,21D12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
             close(n_SRIC_file)
@@ -374,6 +378,84 @@ contains
 
    end subroutine get_viscous_torque_complex
 !-----------------------------------------------------------------------
+   subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
+                                 sizeThetaB,br,bp,nR)
+      !  +-------------------------------------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to calculate the lorentz torque    |
+      !  |  on mantle or inner core respectively.                            |
+      !  |  Blocking in theta can be used to increased performance.          |
+      !  |  If no blocking required set n_theta_block=n_theta_max,           |
+      !  |  where n_theta_max is the absolut number of thetas used.          |
+      !  |  Note: lorentz_torque must be set to zero before loop over        |
+      !  |        theta blocks is started.                                   |
+      !  |  WARNING: subroutine returns -lorentz_torque if used at CMB       |
+      !  |        to calculate torque on mantle because if the inward        |
+      !  |        surface normal vector.
+      !  |  The Prandtl number is always the Prandtl number of the outer     |
+      !  |  core. This comes in via scaling of the magnetic field.           |
+      !  |  Theta alternates between northern and southern hemisphere in     |
+      !  |  br and bp but not in gauss. This has to be cared for, and we     |
+      !  |  use: gauss(latitude)=gauss(-latitude) here.                      |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      integer,      intent(in) :: nThetaStart    ! first number of theta in block
+      integer,      intent(in) :: sizeThetaB     ! size of theta bloching
+      real(kind=8), intent(in) :: br(nrp,*)      ! array containing
+      real(kind=8), intent(in) :: bp(nrp,*)      ! array containing
+      integer,      intent(in) :: nR
+
+      real(kind=8), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
+
+
+      !-- local variables:
+      integer :: nTheta,nPhi,nThetaNHS
+      integer :: nThetaB
+      real(kind=8) :: fac,b0r
+
+      ! to avoid rounding errors for different theta blocking, we do not
+      ! calculate sub sums with lorentz_torque_local, but keep on adding
+      ! the contributions to the total lorentz_torque given as argument.
+
+      if ( nThetaStart == 1 ) then
+         lorentz_torque=0.D0
+      end if
+
+      !lorentz_torque_local=0.D0
+      fac=8.D0*datan(1.D0)/dble(n_phi_max) ! 2 pi/n_phi_max
+
+      nTheta=nThetaStart-1
+      do nThetaB=1,sizeThetaB
+         nTheta=nTheta+1
+         nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
+         if ( lGrenoble ) then
+            if ( r(nR) == r_icb ) then
+               b0r=2.D0*BIC*r_icb**2*cosTheta(nTheta)
+            else if ( r(nR) == r_cmb ) then
+               b0r=2.D0*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+            end if
+         else
+            b0r=0.D0
+         end if
+
+         do nPhi=1,n_phi_max
+            !lorentz_torque_local=lorentz_torque_local + &
+            !                          gauss(nThetaNHS) * &
+            !       (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
+            lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
+                   (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
+         end do
+         !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
+      end do
+
+      !-- normalisation of phi-integration and division by Pm:
+      !lorentz_torque=lorentz_torque+fac*lorentz_torque_local
+              
+   end subroutine get_lorentz_torque
+!-----------------------------------------------------------------------
+
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
                                  angular_moment_ic,angular_moment_ma)
       !  +-------------------------------------------------------------------+

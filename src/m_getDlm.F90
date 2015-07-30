@@ -9,7 +9,7 @@ MODULE getDlm_mod
   USE horizontal_data
   USE const
   USE LMLoop_data,ONLY: llm,ulm
-  USE usefull, ONLY: cc2real,cc22real
+  USE useful, ONLY: cc2real,cc22real
   USE integration, ONLY: rInt_R
   
   IMPLICIT NONE

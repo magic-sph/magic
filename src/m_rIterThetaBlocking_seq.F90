@@ -16,6 +16,8 @@ MODULE rIterThetaBlocking_seq_mod
   use torsional_oscillations, only: getTO, getTOnext, getTOfinish
   use graphOut_mod, only: graphOut_mpi
   use dtB_mod, only: get_dtBLM, get_dH_dtBLM
+  use out_movie, only: store_movie_frame
+  use outRot, only: get_lorentz_torque
 
   IMPLICIT NONE
 

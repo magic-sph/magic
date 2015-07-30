@@ -27,6 +27,7 @@ module fields_average_mod
    use out_coeff, only: write_Bcmb
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC
+   use store_pot_mod, only: storePotW
  
    implicit none
  
@@ -59,7 +60,7 @@ contains
       allocate( b_ic_ave(llm:ulm,n_r_ic_max) )
       allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
 
-      if (rank == 0) then
+      if ( rank == 0 ) then
          allocate( db_ave_global(1:lm_max) )
          allocate( aj_ave_global(1:lm_max) )
          allocate( w_ave_global(1:lm_max) )
@@ -486,15 +487,15 @@ contains
          nVpotSets=-1
          nTpotSets=-1
          if ( l_mag) then
-            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,            &
-                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave.', &
+            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,           &
+                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave', &
                  &         omega_ma,omega_ic)
          end if
-         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,             &
-              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave.', &
+         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,            &
+              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave', &
               &                                      omega_ma,omega_ic)
-         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,             &
-              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Tpot_ave.', &
+         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,            &
+              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Tpot_ave', &
               &                                      omega_ma,omega_ic)
 
          if ( l_save_out ) close(nLF)

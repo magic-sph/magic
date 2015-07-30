@@ -17,7 +17,7 @@ module kinetic_energy
    use communications, only: get_global_sum
  
    use integration, only: rInt_R
-   use usefull, only: cc2real
+   use useful, only: cc2real
  
    implicit none
  

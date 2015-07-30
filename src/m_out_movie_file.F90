@@ -1,0 +1,1612 @@
+!$Id$
+module out_movie
+
+   use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
+                         n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
+                         n_r_ic_max, n_r_max
+   use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
+                         n_movie_const, n_movie_field_type,                 &
+                         n_movie_field_start,n_movie_field_stop,            &
+                         movieDipColat, movieDipLon, movieDipStrength,      &
+                         movieDipStrengthGeo, t_movieS, n_movie_type,       &
+                         lStoreMov, n_movie_const, n_movie_file,            &
+                         n_movie_fields_ic, movie_file, movie_const
+   use radial_data, only: n_r_icb
+   use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
+                               r_surface, r_cmb, r, r_ic
+   use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
+   use num_param, only: vScale, tScale
+   use blocking, only: nfs, lm2l, lm2
+   use horizontal_data, only: O_sin_theta, cosTheta, n_theta_cal2ord, &
+                              O_sin_theta_E2, Plm, dLh, dPlm, osn1,   &
+                              D_l, dPhi, phi, theta_ord
+   use fields, only: w_Rloc, b_Rloc, b, b_ic
+#if (FFTLIB==JW)
+   use fft_JW, only: fft_thetab
+#elif (FFTLIB==MKL)
+   use fft_MKL, only: fft_thetab
+#endif
+   use logic, only: l_save_out, l_cond_ic
+   use out_dtB_frame, only: write_dtB_frame
+   use output_data, only: runid
+
+ 
+   implicit none
+
+   private
+
+   public :: store_movie_frame, write_movie_frame, get_fl
+   
+contains
+
+   subroutine store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr,    &
+     &                       dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+     &                       n_theta_start,n_theta_block,bCMB)
+      !-------------------------------------------------------------------------
+      !  Controls output of movie frames.
+      !  Usually called from radialLoop.
+      !-------------------------------------------------------------------------
+
+      !-- Input variables:
+      integer,         intent(in) :: n_r                ! radial grid point no.
+      integer,         intent(in) :: n_theta_start      ! start theta no.
+      integer,         intent(in) :: n_theta_block      ! size of theta block
+      real(kind=8),    intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(kind=8),    intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(kind=8),    intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(kind=8),    intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(kind=8),    intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(kind=8),    intent(in) :: cvr(nrp,*)
+      real(kind=8),    intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      complex(kind=8), intent(in) :: bCMB(lm_max)
+    
+      !-- Local variables:
+      integer :: n_movie        ! No. of movie
+      integer :: n_field        ! No. of field
+      integer :: n_surface      ! Surface (1=r,2=theta,3=phi)
+      integer :: n_const        ! Gives surface
+      integer :: n_field_type   ! Numbers field types
+      integer :: n_store_last   ! Position i in frame(i) were field starts-1
+      integer :: n_theta
+      integer :: n_theta_cal
+      integer :: n_theta_const
+      integer :: n_field_size
+      integer :: n_fields
+      logical :: lThetaFound
+    
+    
+    
+      do n_movie=1,n_movies
+    
+         n_fields =n_movie_fields(n_movie)
+         n_surface=n_movie_surface(n_movie)
+         n_const  =n_movie_const(n_movie)
+    
+         if ( n_surface == -1 ) then ! Earth Surface
+    
+            if ( n_r /= 1 ) cycle  ! not CMB radius
+    
+            do n_field=1,n_fields
+               n_field_type=n_movie_field_type(n_field,n_movie)
+               n_store_last=n_movie_field_start(n_field,n_movie)-1
+               if ( n_store_last >= 0 ) then
+                  call store_fields_sur(n_store_last,n_field_type, &
+                       &                n_theta_start,n_theta_block,bCMB)
+               end if
+            end do
+    
+         else if ( n_surface == 0 ) then ! 3d
+    
+            do n_field=1,n_fields
+               n_field_type=n_movie_field_type(n_field,n_movie)
+               n_store_last=n_movie_field_start(n_field,n_movie)-1
+               if ( n_store_last >= 0 ) then
+                  call store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr,           &
+                       &               dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+                       &               n_r,n_store_last,n_field_type,       &
+                       &               n_theta_start,n_theta_block)
+               end if
+            end do
+    
+         else if ( n_surface == 1 ) then ! Surface r=constant
+    
+            if ( n_r /= n_const ) cycle  ! not desired radius
+    
+            do n_field=1,n_fields
+               n_field_type=n_movie_field_type(n_field,n_movie)
+               n_store_last=n_movie_field_start(n_field,n_movie)-1
+               if ( n_store_last >= 0 ) then
+                  call store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr,     &
+                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,   &
+                       &              n_r,n_store_last,n_field_type, &
+                       &              n_theta_start,n_theta_block)
+               end if
+            end do
+    
+         else if ( n_surface == 2 ) then ! Surface theta=constant
+    
+            !------ Test whether n_theta_movie is in the current theta block
+            !       and find its position n_theta_movie_c:
+            lThetaFound=.false.
+            do n_theta=1,n_theta_block
+               n_theta_cal = n_theta_start + n_theta - 1
+               if ( n_theta_cal == n_const ) then
+                  n_theta_const=n_theta
+                  lThetaFound=.true.
+                  exit
+               end if
+            end do
+            if ( .not. lThetaFound) cycle        ! Theta not found !
+    
+            do n_field=1,n_fields
+               n_field_type=n_movie_field_type(n_field,n_movie)
+               n_store_last=n_movie_field_start(n_field,n_movie)-1
+               if ( n_store_last >= 0 ) then
+                  call store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr,       &
+                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt, &
+                       &              n_r,n_store_last,n_field_type,   &
+                       &              n_const,n_theta_const)
+                 end if
+            end do
+    
+         else if ( IABS(n_surface) == 3 ) then  ! Surface phi=const.
+    
+            do n_field=1,n_fields
+               n_field_type=n_movie_field_type(n_field,n_movie)
+               n_store_last=n_movie_field_start(n_field,n_movie)-1
+               n_field_size=(n_movie_field_stop(n_field,n_movie) - n_store_last)/2
+               if ( n_store_last >= 0 ) then
+                  call store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,           &
+                       &              dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+                       &              n_r,n_store_last,n_field_type,       &
+                       &              n_const,n_field_size,                &
+                       &              n_theta_start,n_theta_block)
+               end if
+            end do  ! Do loop over field for one movie
+    
+    
+         end if  ! Surface ?
+    
+      end do  ! Do loop over movies !
+    
+   end subroutine store_movie_frame
+!----------------------------------------------------------------------------
+   subroutine write_movie_frame(n_frame,time,b,db,aj,dj,b_ic, &
+                                db_ic,aj_ic,dj_ic,omega_ic,   &
+                                omega_ma)
+      !-------------------------------------------------------------------------
+      !  Writes different movie frames into respective output files.
+      !  Called from rank 0 with full arrays in standard LM order.
+      !-------------------------------------------------------------------------
+    
+      !-- Input of variables:
+      real(kind=8),    intent(in) :: time
+      integer,         intent(in) :: n_frame
+      real(kind=8),    intent(in) :: omega_ic,omega_ma
+      complex(kind=8), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: db(lm_maxMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: dj(lm_maxMag,n_r_maxMag)
+      complex(kind=8), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(kind=8), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+    
+      !-- Local variables:
+      integer :: n_fields
+      integer :: n_fields_ic
+      integer :: n_fields_oc
+      integer :: n_movie
+      integer :: n_surface
+      integer :: n_type
+      integer :: n_out
+      integer :: n_field,n,n_start,n_stop
+      integer :: n_r,n_theta,n_phi
+      integer :: n_r_mov_tot
+    
+      character(len=64) :: version
+    
+      real(kind=8) :: const
+      real(kind=8) :: r_mov_tot(n_r_max+n_r_ic_max)
+      real(kind=4) :: dumm(n_theta_max)
+    
+    
+      t_movieS(n_frame)=time
+    
+      do n_movie=1,n_movies
+    
+         n_type      =n_movie_type(n_movie)
+         n_surface   =n_movie_surface(n_movie)
+         n_fields_oc =n_movie_fields(n_movie)
+         n_fields_ic =n_movie_fields_ic(n_movie)
+         n_fields    =max0(n_fields_ic,n_fields_oc)
+         n_out       =n_movie_file(n_movie)
+         const       =movie_const(n_movie)
+         if ( n_surface == 1 ) const=const/r_cmb
+    
+         !------ Open movie file:
+         if ( l_save_out ) then
+            open(n_out, file=movie_file(n_movie), status='unknown', &
+                 form='unformatted', position='append')
+         end if
+    
+         !------ Write header if this is the first frame:
+    
+         if ( n_frame == 1 ) then
+    
+            !------ Start with info about movie type:
+            version='JW_Movie_Version_2'
+            write(n_out) version
+            write(n_out) float(n_type),float(n_surface),sngl(const),float(n_fields)
+            write(n_out) (float(n_movie_field_type(n,n_movie)),n=1,n_fields)
+    
+    
+            !------ Combine OC and IC radial grid points:
+            n_r_mov_tot=n_r_max
+            do n_r=1,n_r_max
+               r_mov_tot(n_r)=r(n_r)
+            end do
+            if ( n_r_ic_max > 0 ) then
+               n_r_mov_tot=n_r_mov_tot+n_r_ic_max-2
+               do n_r=1,n_r_ic_max-2
+                  r_mov_tot(n_r_max+n_r)=r_ic(n_r+1)
+               end do
+            end if
+    
+            !------ Now other info about grid and parameters:
+            write(n_out) runid          ! run identifyer (as set in namelist contrl)
+            dumm( 1)=float(n_r_mov_tot)
+            dumm( 2)=float(n_r_max)
+            dumm( 3)=float(n_theta_max) ! no. of theta points
+            dumm( 4)=float(n_phi_max)   ! no. of phi points
+            dumm( 5)=float(minc)        ! imposed symmetry
+            dumm( 6)=sngl(ra)           ! control parameters
+            dumm( 7)=sngl(ek)           ! (for information only)
+            dumm( 8)=sngl(pr)           !      -"-
+            dumm( 9)=sngl(prmag)        !      -"-
+            dumm(10)=sngl(radratio)     ! ratio of inner / outer core
+            dumm(11)=sngl(tScale)       ! timescale
+            write(n_out) (dumm(n),n=1,11)
+    
+            !------ Write grid:
+            write(n_out) (sngl(r_mov_tot(n_r)/r_cmb), n_r=1,n_r_mov_tot)
+            write(n_out) (sngl(theta_ord(n_theta)), n_theta=1,n_theta_max)
+            write(n_out) (sngl(phi(n_phi)), n_phi=1,n_phi_max)
+    
+         end if  ! Write header ?
+    
+         !------ Write frame number, time and IC and MA rotation rates::
+         dumm(1)=float(n_frame)
+         dumm(2)=sngl(t_movieS(n_frame))
+         dumm(3)=sngl(omega_ic)
+         dumm(4)=sngl(omega_ma)
+         dumm(5)=sngl(movieDipColat)
+         dumm(6)=sngl(movieDipLon)
+         dumm(7)=sngl(movieDipStrength)
+         dumm(8)=sngl(movieDipStrengthGeo)
+         write(n_out) (dumm(n),n=1,8)
+    
+         !------ Write frames:
+         if ( .not. lStoreMov(n_movie) ) then
+            if ( n_type == 99 ) then
+               write(*,*) '! Use TO output for Lorentz force!'
+               stop
+            else
+               call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
+            end if
+         else
+            do n_field=1,n_fields
+               n_start=n_movie_field_start(n_field,n_movie)
+               if ( n_fields_oc > 0 ) then
+                  n_stop =n_movie_field_stop(n_field,n_movie)
+               end if
+               if ( n_fields_ic > 0 ) then
+                  n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
+               end if
+               write(n_out) (sngl(frames(n)),n=n_start,n_stop)
+            end do
+         end if
+    
+    
+         if ( l_save_out ) close(n_out)
+    
+    
+      end do  ! Loop over movies
+
+   end subroutine write_movie_frame
+!----------------------------------------------------------------------------
+   subroutine store_fields_sur(n_store_last,n_field_type, &
+     &                      n_theta_start,n_theta_block,bCMB)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to store movie frames for          |
+      !  |  surfaces r=const. into array frame(*,*)                          |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !--- Input variables:
+      integer,         intent(in) :: n_store_last     ! Start position for storing -1
+      integer,         intent(in) :: n_field_type     ! Defines field type
+      integer,         intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,         intent(in) :: n_theta_block    ! Size of theta block
+      complex(kind=8), intent(in) :: bCMB(lm_max)
+    
+      !--- Local variables:
+      integer :: n_theta
+      integer :: n_theta_b
+      integer :: n_theta_cal
+      integer :: n_phi
+      integer :: n_o
+    
+      !----- Magnetic field at surface (theta-blocks):
+      real(kind=8) :: br_sur(nrp,nfs) ! Radial magnetic field in (phi,theta)-space
+      real(kind=8) :: bt_sur(nrp,nfs) ! Latitudinal magnetic field
+      real(kind=8) :: bp_sur(nrp,nfs) ! Azimuthal magnetic field.
+    
+      call get_B_surface(br_sur,bt_sur,bp_sur,bCMB,n_theta_start,n_theta_block)
+    
+      if ( n_field_type == 1 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=br_sur(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 2 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=bt_sur(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 3 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=bp_sur(n_phi,n_theta_b)
+            end do
+         end do
+    
+      end if
+    
+   end subroutine store_fields_sur
+!----------------------------------------------------------------------------
+   subroutine store_fields_r(vr,vt,vp,br,bt,bp,sr,drSr, &
+                           dvrdp,dvpdr,dvtdr,dvrdt,cvr, &
+                         n_r,n_store_last,n_field_type, &
+                            n_theta_start,n_theta_block)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to store movie frames for          |
+      !  |  surfaces r=const. into array frame(*,*)                          |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(kind=8), intent(in) :: cvr(nrp,*)
+    
+      integer,      intent(in) :: n_r
+      integer,      intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,      intent(in) :: n_field_type     ! Defines field type
+      integer,      intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,      intent(in) :: n_theta_block    ! Size of theta block
+    
+      !-- Local variables:
+      integer :: n_theta
+      integer :: n_theta_b
+      integer :: n_theta_cal
+      integer :: n_phi
+      integer :: n_o
+      real(kind=8) ::  fac,fac_r
+    
+    
+      !--- Store data for all output thetas in the current block
+      !    and all output phis:
+    
+      if ( n_field_type == 1 ) then
+    
+         fac=or2(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*br(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 2 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            fac=or1(n_r)*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*bt(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 3 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            fac=or1(n_r)*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*bp(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 4 ) then
+    
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 5 ) then
+    
+         fac_r=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vt(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 6 ) then
+    
+         fac_r=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vp(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 7 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=sr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 16 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac * (                                  &
+                    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_phi,n_theta_b) - &
+                                        or2(n_r)*dvrdp(n_phi,n_theta_b) + &
+                                                 dvpdr(n_phi,n_theta_b) - &
+                                          beta(n_r)*vp(n_phi,n_theta_b)   )
+            end do
+         end do
+    
+      else if ( n_field_type == 17 ) then
+    
+         fac=-or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac * vr(n_phi,n_theta_b)*drSr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 91 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=drSr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 18 ) then
+    
+         !--- Helicity:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=                                      &
+                    or4(n_r)*orho2(n_r)*vr(n_phi,n_theta_b) *          &
+                                       cvr(n_phi,n_theta_b) +          &
+                    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* ( &
+                                                 vt(n_phi,n_theta_b) * &
+                                   ( or2(n_r)*dvrdp(n_phi,n_theta_b) - &
+                                              dvpdr(n_phi,n_theta_b) + &
+                                    beta(n_r)*vp(n_phi,n_theta_b)  ) + &
+                                                 vp(n_phi,n_theta_b) * &
+                                   (          dvtdr(n_phi,n_theta_b) - &
+                                    beta(n_r)*vt(n_phi,n_theta_b)    - &
+                                  or2(n_r)*dvrdt(n_phi,n_theta_b) ) )
+            end do
+         end do
+    
+      else if ( n_field_type == 48 ) then
+    
+         !--- Radial component of vorticity:
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*cvr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      end if
+    
+   end subroutine store_fields_r
+!----------------------------------------------------------------------------
+   subroutine store_fields_p(vr,vt,vp,br,bp,bt,sr,drSr,        &
+     &                    dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
+     &                    n_r,n_store_last,n_field_type,       &
+     &                    n_phi_const,n_field_size,            &
+     &                    n_theta_start,n_theta_block)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to store movie frames for          |
+      !  |  surfaces phi=const. into array frames(*,*)                          |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(kind=8), intent(in) :: cvr(nrp,*)
+      real(kind=8), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      integer,      intent(in) :: n_r              ! No. of radial point
+      integer,      intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,      intent(in) :: n_field_type     ! Defines field type
+      integer,      intent(in) :: n_phi_const      ! No. of surface phi
+      integer,      intent(in) :: n_field_size     ! Size of field
+      integer,      intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,      intent(in) :: n_theta_block    ! Size of theta block
+    
+      !-- Local variables:
+      integer :: n_phi_0
+      integer :: n_phi_180
+      integer :: n_theta,n_theta2
+      integer :: n_theta_b
+      integer :: n_theta_cal
+      integer :: n_phi
+      integer :: n_0,n_180
+      real(kind=8) ::  phi_norm
+      real(kind=8) ::  fac,fac_r
+    
+      real(kind=8) ::  fl(2)        ! Field for poloidal field lines
+    
+    
+      !--- Get phi no. for left and right halfspheres:
+      n_phi_0=n_phi_const
+      if ( mod(minc,2) == 1 ) then
+         n_phi_180=n_phi_max/2+n_phi_0
+      else
+         n_phi_180=n_phi_0
+      end if
+      n_0=n_store_last+(n_r-1)*n_theta_max
+      n_180=n_0+n_field_size
+      phi_norm=1.d0/n_phi_max
+    
+      if ( n_field_type == 1 ) then
+    
+         fac=or2(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)  =fac*br(n_phi_0,n_theta_b)
+            frames(n_180+n_theta)=fac*br(n_phi_180,n_theta_b)
+         end do
+    
+      else if ( n_field_type == 2 ) then
+    
+         fac=or1(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*bt(n_phi_0,n_theta_b)*O_sin_theta(n_theta_cal)
+            frames(n_180+n_theta)=fac*bt(n_phi_180,n_theta_b)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 3 ) then
+    
+         fac=or1(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*bp(n_phi_0,n_theta_b)*O_sin_theta(n_theta_cal)
+            frames(n_180+n_theta)=fac*bp(n_phi_180,n_theta_b)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 4 ) then
+    
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vr(n_phi_0,n_theta_b)
+            frames(n_180+n_theta)=fac*vr(n_phi_180,n_theta_b)
+         end do
+    
+      else if ( n_field_type == 5 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vt(n_phi_0,n_theta_b)*O_sin_theta(n_theta_cal)
+            frames(n_180+n_theta)=fac*vt(n_phi_180,n_theta_b)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 6 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vp(n_phi_0,n_theta_b)*O_sin_theta(n_theta_cal)
+            frames(n_180+n_theta)=fac*vp(n_phi_180,n_theta_b)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 7 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=sr(n_phi_0,n_theta_b)
+            frames(n_180+n_theta)=sr(n_phi_180,n_theta_b)
+         end do
+    
+      else if ( n_field_type == 8 ) then
+    
+         !--- Field for axisymmetric poloidal field lines:
+         do n_theta_b=1,n_theta_block,2
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_theta2=n_theta_cal2ord(n_theta_cal+1)
+            call get_fl(fl,n_r,n_theta_cal,2,.false.)
+            frames(n_0+n_theta) =fl(1)
+            frames(n_0+n_theta2)=fl(2)
+         end do
+    
+      else if ( n_field_type == 9 ) then
+    
+         !--- Axisymmetric B_phi:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.d0
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+bp(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta)=phi_norm*fl(1)*or1(n_r)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 10 ) then
+    
+         !--- Field for axisymmetric velocity stream lines:
+         do n_theta_b=1,n_theta_block,2
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_theta2=n_theta_cal2ord(n_theta_cal+1)
+            call get_sl(fl,n_r,n_theta_cal,2)
+            frames(n_0+n_theta) =fl(1)
+            frames(n_0+n_theta2)=fl(2)
+         end do
+    
+      else if ( n_field_type == 11 ) then
+    
+         !--- Axisymmetric v_phi:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.d0
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+orho1(n_r)*vp(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta)=phi_norm*fl(1)*or1(n_r)*O_sin_theta(n_theta_cal)
+         end do
+    
+      else if ( n_field_type == 12 ) then
+    
+         !--- Axisymmetric T:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.d0
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+sr(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+    
+      else if ( n_field_type == 92 ) then
+    
+         !--- Axisymmetric dsdr:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.d0
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+drSr(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+    
+      else if ( n_field_type == 16 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac * (                                  &
+                 cosTheta(n_theta_cal)*or1(n_r)*cvr(n_phi_0,n_theta_b) - &
+                                     or2(n_r)*dvrdp(n_phi_0,n_theta_b) + &
+                                              dvpdr(n_phi_0,n_theta_b) - &
+                                       beta(n_r)*vp(n_phi_0,n_theta_b)  )
+            frames(n_180+n_theta)=fac * (                                  &
+                 cosTheta(n_theta_cal)*or1(n_r)*cvr(n_phi_180,n_theta_b) - &
+                                     or2(n_r)*dvrdp(n_phi_180,n_theta_b) + &
+                                              dvpdr(n_phi_180,n_theta_b) - &
+                                       beta(n_r)*vp(n_phi_180,n_theta_b)  )
+         end do
+    
+      else if ( n_field_type == 17 ) then
+    
+         fac=-or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=fac*vr(n_phi_0,n_theta)*drSr(n_phi_0,n_theta_b)
+            frames(n_180+n_theta)=fac*vr(n_phi_180,n_theta)*drSr(n_phi_180,n_theta_b)
+         end do
+    
+      else if ( n_field_type == 91 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=drSr(n_phi_0,n_theta_b)
+            frames(n_180+n_theta)=drSr(n_phi_180,n_theta_b)
+         end do
+    
+      else if ( n_field_type == 18 ) then
+    
+         !--- Helicity:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=                                    &
+                        or4(n_r)*orho2(n_r)*vr(n_phi_0,n_theta_b) * &
+                                           cvr(n_phi_0,n_theta_b) + &
+                 or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* ( &
+                                            vt(n_phi_0,n_theta_b) * &
+                              ( or2(n_r)*dvrdp(n_phi_0,n_theta_b) - &
+                                         dvpdr(n_phi_0,n_theta_b) + &
+                             beta(n_r)*   vp(n_phi_0,n_theta_b) ) + &
+                                            vp(n_phi_0,n_theta_b) * &
+                              (          dvtdr(n_phi_0,n_theta_b) - &
+                               beta(n_r)*   vt(n_phi_0,n_theta_b) - &
+                                or2(n_r)*dvrdt(n_phi_0,n_theta_b) ) )
+            frames(n_180+n_theta)=                                  &
+                      or4(n_r)*orho2(n_r)*vr(n_phi_180,n_theta_b) * &
+                                         cvr(n_phi_180,n_theta_b) + &
+                 or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)* ( &
+                                          vt(n_phi_180,n_theta_b) * &
+                            ( or2(n_r)*dvrdp(n_phi_180,n_theta_b) - &
+                                       dvpdr(n_phi_180,n_theta_b) + &
+                           beta(n_r)*   vp(n_phi_180,n_theta_b) ) + &
+                                          vp(n_phi_180,n_theta_b) * &
+                            (          dvtdr(n_phi_180,n_theta_b) - &
+                              beta(n_r)*  vt(n_phi_180,n_theta_b) - &
+                              or2(n_r)*dvrdt(n_phi_180,n_theta_b) ) )
+         end do
+    
+      else if ( n_field_type == 19 ) then
+    
+         !--- Axisymmetric helicity:
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.d0
+            do n_phi=1,n_phi_max
+               fl(1)=fl(1) +                                          &
+                            or4(n_r)*orho2(n_r)*vr(n_phi,n_theta_b) * &
+                                               cvr(n_phi,n_theta_b) + &
+                    or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_cal)*( &
+                                                vt(n_phi,n_theta_b) * &
+                                  ( or2(n_r)*dvrdp(n_phi,n_theta_b) - &
+                                             dvpdr(n_phi,n_theta_b) + &
+                                 beta(n_r)*   vp(n_phi,n_theta_b) ) + &
+                                                vp(n_phi,n_theta_b) * &
+                                    (        dvtdr(n_phi,n_theta_b) - &
+                                   beta(n_r)*   vt(n_phi,n_theta_b) - &
+                                    or2(n_r)*dvrdt(n_phi,n_theta_b) ) )
+            end do
+            frames(n_0+n_theta)=phi_norm*fl(1)
+         end do
+    
+    
+      else if ( n_field_type == 47 ) then
+    
+         !--- Phi component of vorticity:
+         fac=vScale*orho1(n_r)*or1(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            frames(n_0+n_theta)=                       &
+                         fac*O_sin_theta(n_theta_cal)* &
+                 (          dvtdr(n_phi_0,n_theta_b) - &
+                  beta(n_r)*   vt(n_phi_0,n_theta_b) - &
+                   or2(n_r)*dvrdt(n_phi_0,n_theta_b) )
+            frames(n_180+n_theta)=                       &
+                           fac*O_sin_theta(n_theta_cal)* &
+                 (          dvtdr(n_phi_180,n_theta_b) - &
+                  beta(n_r)*   vt(n_phi_180,n_theta_b) - &
+                   or2(n_r)*dvrdt(n_phi_180,n_theta_b) )
+         end do
+    
+         !--- Phi component of Lorentz-Force:
+    
+      else if ( n_field_type == 54 ) then
+    
+         fac_r=LFfac*or3(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            frames(n_0+n_theta)= fac *                            &
+                 ( cbr(n_phi_0,n_theta_b)*bt(n_phi_0,n_theta_b) - &
+                   cbt(n_phi_0,n_theta_b)*br(n_phi_0,n_theta_b) )
+            frames(n_180+n_theta)= fac *                              &
+                 ( cbr(n_phi_180,n_theta_b)*bt(n_phi_180,n_theta_b) - &
+                   cbt(n_phi_180,n_theta_b)*br(n_phi_180,n_theta_b) )
+         end do
+    
+      end if
+    
+   end subroutine store_fields_p
+!----------------------------------------------------------------------------
+   subroutine store_fields_t(vr,vt,vp,br,bt,bp,sr,drSr, &
+                       dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt, &
+                         n_r,n_store_last,n_field_type, &
+                                 n_theta_const,n_theta)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to store movie frames for          |
+      !  |  surfaces r=const. into array frame(*,*)                          |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(kind=8), intent(in) :: cvr(nrp,*),cbt(nrp,*)
+      integer,      intent(in) :: n_r              ! No. of radial grid point
+      integer,      intent(in) :: n_store_last     ! Position in frame(*)-1
+      integer,      intent(in) :: n_field_type     ! Defines field
+      integer,      intent(in) :: n_theta_const    ! No. of theta to be stored
+      integer,      intent(in) :: n_theta          ! No. of theta in block
+    
+      !-- Local variables:
+      integer :: n_phi
+      integer :: n_o
+    
+      real(kind=8) ::  fac
+    
+    
+      n_o=n_store_last+(n_r-1)*n_phi_max
+    
+      if ( n_field_type == 1 ) then
+    
+         fac=or2(n_r)
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*br(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 2 ) then
+    
+         fac=or1(n_r)*O_sin_theta(n_theta_const)
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*bt(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 3 ) then
+    
+         fac=or1(n_r)*O_sin_theta(n_theta_const)
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*bp(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 4 ) then
+    
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*vr(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 5 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta_const)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*vt(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 6 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*O_sin_theta(n_theta_const)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*vp(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 7 ) then
+    
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=sr(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 13 ) then
+    
+         fac=-or1(n_r)*O_sin_theta(n_theta_const)
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*bt(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 14 ) then
+    
+         fac=-or1(n_r)*O_sin_theta(n_theta_const)
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*cbt(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 15 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac* (                                  &
+                 cosTheta(n_theta_const)*or1(n_r)*vr(n_phi,n_theta) - &
+                 vt(n_phi,n_theta) )
+         end do
+    
+      else if ( n_field_type == 16 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_phi+n_o)=fac * (                                  &
+                 cosTheta(n_theta_const)*or1(n_r)*cvr(n_phi,n_theta) - &
+                                       or2(n_r)*dvrdp(n_phi,n_theta) + &
+                                                dvpdr(n_phi,n_theta) - &
+                                      beta(n_r)*   vp(n_phi,n_theta) )
+         end do
+    
+      else if ( n_field_type == 17 ) then
+    
+         fac=-or2(n_r)*orho1(n_r)*vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=fac*vr(n_phi,n_theta)*drSr(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 91 ) then
+    
+         fac=vScale
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=drSr(n_phi,n_theta)
+         end do
+    
+      else if ( n_field_type == 18 ) then
+    
+         do n_phi=1,n_phi_max
+            frames(n_o+n_phi)=                                       &
+                             or4(n_r)*orho2(n_r)*vr(n_phi,n_theta) * &
+                                                cvr(n_phi,n_theta) + &
+                 or2(n_r)*orho2(n_r)*O_sin_theta_E2(n_theta_const)*( &
+                                                 vt(n_phi,n_theta) * &
+                                   ( or2(n_r)*dvrdp(n_phi,n_theta) - &
+                                              dvpdr(n_phi,n_theta) + &
+                                  beta(n_r)*   vp(n_phi,n_theta) ) + &
+                                                 vp(n_phi,n_theta) * &
+                                   (          dvtdr(n_phi,n_theta) - &
+                                    beta(n_r)*   vt(n_phi,n_theta) - &
+                                     or2(n_r)*dvrdt(n_phi,n_theta) ) )
+         end do
+    
+      end if
+ 
+   end subroutine store_fields_t
+!----------------------------------------------------------------------------
+   subroutine store_fields_3d(vr,vt,vp,br,bt,bp,sr,drSr, &
+                            dvrdp,dvpdr,dvtdr,dvrdt,cvr, &
+                  cbr,cbt,n_r,n_store_last,n_field_type, &
+                            n_theta_start,n_theta_block)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to store movie frames for          |
+      !  |  surfaces r=const. into array frame(*,*)                          |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(kind=8), intent(in) :: cvr(nrp,*)
+      real(kind=8), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+    
+      integer,      intent(in) :: n_r              ! No. of radial grid point
+      integer,      intent(in) :: n_store_last     ! Position in frame(*)-1
+      integer,      intent(in) :: n_field_type     ! Defines field
+      integer,      intent(in) :: n_theta_start    ! No. of first theta to block
+      integer,      intent(in) :: n_theta_block    ! Size of theta block
+    
+      !-- Local variables:
+      integer :: n_phi
+      integer :: n_theta,n_theta_b,n_theta_cal
+      integer :: n_o,n_or
+    
+      real(kind=8) ::  fac,fac_r
+    
+    
+      n_or=n_store_last+(n_r-1)*n_theta_max*n_phi_max
+    
+      if ( n_field_type == 1 ) then
+    
+         fac=or2(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*br(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 2 ) then
+    
+         fac_r=or1(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*bt(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 3 ) then
+    
+         fac_r=or1(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*bp(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 4 ) then
+    
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 5 ) then
+    
+         fac_r=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vt(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 6 ) then
+    
+         fac_r=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vp(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 7 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=sr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 15 ) then
+    
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac * (                                 &
+                    cosTheta(n_theta_cal)*or1(n_r)*vr(n_phi,n_theta_b) - &
+                    vt(n_phi,n_theta_b) )
+            end do
+         end do
+    
+      else if ( n_field_type == 16 ) then
+    
+         !--- Z-component of helicity
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac * (                                  &
+                    cosTheta(n_theta_cal)*or1(n_r)*cvr(n_phi,n_theta_b) - &
+                                        or2(n_r)*dvrdp(n_phi,n_theta_b) + &
+                                                 dvpdr(n_phi,n_theta_b) - &
+                                       beta(n_r)*   vp(n_phi,n_theta_b) )
+            end do
+         end do
+    
+      else if ( n_field_type == 17 ) then
+    
+         fac=-or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*vr(n_phi,n_theta_b)*drSr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 91 ) then
+    
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=drSr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 18 ) then
+    
+         !--- Helicity
+         fac=vScale*vScale*or2(n_r)*orho2(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac * (                 &
+                          or2(n_r)*vr(n_phi,n_theta_b) * &
+                                  cvr(n_phi,n_theta_b) + &
+                          O_sin_theta_E2(n_theta_cal)* ( &
+                                   vt(n_phi,n_theta_b) * &
+                     ( or2(n_r)*dvrdp(n_phi,n_theta_b) - &
+                                dvpdr(n_phi,n_theta_b) + &
+                    beta(n_r)*   vp(n_phi,n_theta_b) ) + &
+                                   vp(n_phi,n_theta_b) * &
+                     (          dvtdr(n_phi,n_theta_b) - &
+                      beta(n_r)*   vt(n_phi,n_theta_b) - &
+                       or2(n_r)*dvrdt(n_phi,n_theta_b) ) ) )
+            end do
+         end do
+    
+      else if ( n_field_type == 47 ) then
+    
+         !--- Phi component of vorticity
+         fac=or1(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac *                             &
+                    O_sin_theta(n_theta_cal)*vp(n_phi,n_theta_b) * &
+                               (          dvtdr(n_phi,n_theta_b) - &
+                                beta(n_r)*   vt(n_phi,n_theta_b) - &
+                                 or2(n_r)*dvrdt(n_phi,n_theta_b) )
+            end do
+         end do
+    
+      else if ( n_field_type == 48 ) then
+    
+         !--- Radial component of vorticity:
+         fac=or2(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=fac*cvr(n_phi,n_theta_b)
+            end do
+         end do
+    
+      else if ( n_field_type == 53 ) then
+    
+         !--- Omega effect: Br*dvp/dr
+         fac_r=or3(n_r)*orho1(n_r)*vScale
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)=         fac*br(n_phi,n_theta_b) * &
+                                         ( dvpdr(n_phi,n_theta_b) - &
+                    (beta(n_r)+2.d0*or1(n_r))*vp(n_phi,n_theta_b) )
+            end do
+         end do
+    
+      else if ( n_field_type == 54 ) then
+    
+         !--- Phi component of Lorentz-Force:
+    
+         fac_r=LFfac*or3(n_r)
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_or+(n_theta-1)*n_phi_max
+            fac=fac_r*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+               frames(n_phi+n_o)= fac *                          &
+                    ( cbr(n_phi,n_theta_b)*bt(n_phi,n_theta_b) - &
+                      cbt(n_phi,n_theta_b)*br(n_phi,n_theta_b) )
+            end do
+         end do
+    
+      end if
+
+   end subroutine store_fields_3d
+!----------------------------------------------------------------------------
+   subroutine get_sl(sl,n_r,n_theta_start,n_theta_block)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Return field sl whose contourlines are the stream lines          |
+      !  |  of the axisymmetric poloidal velocity field.                     |
+      !  |    sl(r,theta)=d_theta v(r,theta,m=0)/r                           |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input variables:
+      integer, intent(in) :: n_r             ! No. of radial grid point
+      integer, intent(in) :: n_theta_start   ! No. of theta to start with
+      integer, intent(in) :: n_theta_block   ! Size of theta block
+
+      !-- Output variables:
+      real(kind=8), intent(out) ::  sl(*)           ! Field for field lines
+
+      !-- Local variables:
+      integer :: n_theta         ! No. of theta
+      integer :: n_theta_nhs     ! Counter for thetas in north HS
+      integer :: l,lm            ! Degree, counter for degree/order combinations
+
+      real(kind=8) :: sign
+      real(kind=8) :: O_r              ! 1/r
+      real(kind=8) :: O_sint           ! 1/sin(theta)
+      real(kind=8) :: sl_s,sl_n,sl_1
+
+
+      !-- Calculate radial dependencies:
+      O_r=or1(n_r)
+
+      !----- Loop over colatitudes:
+      do n_theta=1,n_theta_block,2
+
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint=osn1(n_theta_nhs)
+
+         !------- Loop over degrees and orders:
+         sign=1.d0
+         sl_n=0.d0
+         sl_s=0.d0
+         lm=1
+         do l=1,l_max
+            lm=lm+1
+            sign=-sign
+            sl_1=O_r*real(w_Rloc(lm,n_r))*dPlm(lm,n_theta_nhs)
+             !-------- Northern hemisphere:
+            sl_n=sl_n+sl_1
+             !-------- Southern hemisphere:
+            sl_s=sl_s-sign*sl_1
+         end do  ! Loop over order
+
+         !-- Divide by sin(theta):
+         sl(n_theta)  =O_sint*sl_n
+         sl(n_theta+1)=O_sint*sl_s
+
+      end do        ! Loop over colatitudes
+     
+   end subroutine get_sl
+!----------------------------------------------------------------------------
+   subroutine get_fl(fl,n_r,n_theta_start,n_theta_block,l_ic)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Return field fl whose contourlines are the fields lines          |
+      !  |  of the axisymmetric poloidal mangetic field.                     |
+      !  |    fl(r,theta)=d_theta b(r,theta,m=0)/r                           |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !  This routine is called for l_ic=.true. only from rank 0 with full
+      !  field b_ic in standard lm ordering available.
+      !  The case l_ic=.false. is called from all ranks and uses b_Rloc.
+
+      !-- Input variables:
+      integer, intent(in) :: n_r             ! No. of radial grid point
+      integer, intent(in) :: n_theta_start   ! No. of theta to start with
+      integer, intent(in) :: n_theta_block   ! Size of theta block
+      logical, intent(in) :: l_ic            ! =true if inner core field
+    
+      !-- Output variables:
+      real(kind=8), intent(out) ::  fl(*)    ! Field for field lines
+    
+      !-- Local variables:
+      integer :: n_theta         ! No. of theta
+      integer :: n_theta_nhs     ! Counter for thetas in north HS
+      integer :: l,lm            ! Degree, counter for degree/order combinations
+    
+      real(kind=8) :: sign
+      real(kind=8) :: r_ratio          ! r/r_ICB
+      real(kind=8) :: O_r              ! 1/r
+      real(kind=8) :: O_sint           ! 1/sin(theta)
+      real(kind=8) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
+      real(kind=8) :: fl_s,fl_n,fl_1
+    
+      if ( l_ic ) then
+         r_ratio =r_ic(n_r)/r_ic(1)
+         r_dep(1)=r_ratio/r_ic(1)
+         do l=2,l_max
+            r_dep(l)=r_dep(l-1)*r_ratio
+         end do
+      else
+         O_r=or1(n_r)
+      end if
+
+      !----- Loop over colatitudes:
+      do n_theta=1,n_theta_block,2
+
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint=osn1(n_theta_nhs)
+
+         !------- Loop over degrees and orders:
+         sign=1.d0
+         fl_n=0.d0
+         fl_s=0.d0
+
+         lm=1
+         do l=1,l_max
+            lm=lm+1
+            sign=-sign
+
+            if ( l_ic ) then ! Inner Core
+               if ( l_cond_ic ) then
+                  fl_1=r_dep(l)*real(b_ic(lm,n_r))*dPlm(lm,n_theta_nhs)
+               else
+                  fl_1=r_dep(l)*dPlm(lm,n_theta_nhs)*real(b(lm,n_r_icb))
+               end if
+            else             ! Outer Core
+               fl_1=O_r*dPlm(lm,n_theta_nhs) * real(b_Rloc(lm,n_r))
+            end if
+            !-------- Northern hemisphere:
+            fl_n=fl_n+fl_1
+            !-------- Southern hemisphere:
+            fl_s=fl_s-sign*fl_1
+         end do  ! Loop over order
+
+         !-- Divide by sin(theta):
+         fl(n_theta)  =-O_sint*fl_n
+         fl(n_theta+1)=-O_sint*fl_s
+
+      end do        ! Loop over colatitudes
+
+   end subroutine get_fl
+!----------------------------------------------------------------------------
+   subroutine get_B_surface(b_r,b_t,b_p,bCMB,n_theta_start,n_theta_block)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Upward continuation of laplacian field to Earths surface.        |
+      !  |  Field is given by poloidal harmonic coefficients b at CMB.       |
+      !  |  Spherical harmonic transforms of upward continued field          |
+      !  |  to r/theta/phi vector components for all logitudes and           |
+      !  |  latitude are returned in br/bt/bp.                               |
+      !  |  Note that this routine given the real components of the magnetic |
+      !  |  fields while other transforms in the code provide only:          |
+      !  |   r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp                 |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Input of variables:
+      integer,         intent(in) :: n_theta_start   ! No. of theta to start with
+      integer,         intent(in) :: n_theta_block   ! Size of theta block
+      complex(kind=8), intent(in) :: bCMB(lm_max)
+
+      !-- Output:
+      real(kind=8), intent(out) :: b_r(nrp,*) !Radial magnetic field in (phi,theta)-space
+      real(kind=8), intent(out) :: b_t(nrp,*) !Latitudinal magnetic field
+      real(kind=8), intent(out) :: b_p(nrp,*) !Azimuthal magnetic field.
+
+      !-- Local variables:
+      integer :: n_theta         ! No. of theta
+      integer :: n_theta_nhs     ! Counter for theta in northern hemisphere
+      integer :: l,m,lm,mc       ! degree/order,counter
+
+      real(kind=8) :: r_ratio          ! r_cmb/r_surface
+      real(kind=8) :: sign             ! Sign for southern hemisphere
+      real(kind=8) :: r_dep(l_max)     ! Radial dependence
+      real(kind=8) :: O_sint           ! 1/sin(theta)
+      complex(kind=8) :: cs1(lm_max),cs2(lm_max) ! help arrays
+      complex(kind=8) :: b_r_1,b_t_1,b_p_1
+      complex(kind=8) :: b_r_n,b_t_n,b_p_n
+      complex(kind=8) :: b_r_s,b_t_s,b_p_s
+
+      !-- Radial dependence:
+      r_ratio=r_cmb/r_surface
+      r_dep(1)=r_ratio/(r_surface*r_surface)  ! l=1 term
+      do l=2,l_max
+         r_dep(l)=r_dep(l-1)*r_ratio
+      end do
+        
+      !-- Construct help arrays containing radial dependence
+      !   and l dependence: dLh=l*(l+1)
+      cs1(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+      cs2(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+      do lm=2,lm_max
+         cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(lm2l(lm))
+         cs2(lm)= -bCMB(lm)*D_l(lm)*r_dep(lm2l(lm))
+      end do
+        
+
+      !-- Build field components:
+      !----- Loop over colatitudes:
+
+      do n_theta=1,n_theta_block,2
+         n_theta_nhs=(n_theta_start+n_theta)/2
+         O_sint     =osn1(n_theta_nhs)
+
+         !------- Loop over degrees and orders:
+         do mc=1,n_m_max   ! Numbers ms
+            m=(mc-1)*minc
+            sign=-1.D0
+
+            b_r_n=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_t_n=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_p_n=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_r_s=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_t_s=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_p_s=cmplx(0.D0,0.D0,kind=kind(0d0))
+
+            do l=m,l_max
+               lm=lm2(l,m)
+               sign=-sign
+
+               b_r_1=         cs1(lm)*Plm(lm,n_theta_nhs)
+               b_t_1=         cs2(lm)*dPlm(lm,n_theta_nhs)
+               b_p_1=dPhi(lm)*cs2(lm)*Plm(lm,n_theta_nhs)
+
+               !-------- Northern hemisphere:
+               b_r_n=b_r_n+b_r_1
+               b_t_n=b_t_n+b_t_1
+               b_p_n=b_p_n+b_p_1
+
+               !-------- Southern hemisphere:
+               b_r_s=b_r_s+sign*b_r_1
+               b_t_s=b_t_s-sign*b_t_1
+               b_p_s=b_p_s+sign*b_p_1
+
+            end do  ! Loop over order
+
+            b_r(2*mc-1,n_theta)  =real(b_r_n)
+            b_r(2*mc,n_theta)    =aimag(b_r_n)
+            b_t(2*mc-1,n_theta)  =real(b_t_n)
+            b_t(2*mc,n_theta)    =aimag(b_t_n)
+            b_p(2*mc-1,n_theta)  =real(b_p_n)
+            b_p(2*mc,n_theta)    =aimag(b_p_n)
+            b_r(2*mc-1,n_theta+1)=real(b_r_s)
+            b_r(2*mc,n_theta+1)  =aimag(b_r_s)
+            b_t(2*mc-1,n_theta+1)=real(b_t_s)
+            b_t(2*mc,n_theta+1)  =aimag(b_t_s)
+            b_p(2*mc-1,n_theta+1)=real(b_p_s)
+            b_p(2*mc,n_theta+1)  =aimag(b_p_s)
+
+         end do     ! Loop over degree
+
+         do mc=1,2*n_m_max
+            b_t(mc,n_theta)  =O_sint*b_t(mc,n_theta)
+            b_p(mc,n_theta)  =O_sint*b_p(mc,n_theta)
+            b_t(mc,n_theta+1)=O_sint*b_t(mc,n_theta+1)
+            b_p(mc,n_theta+1)=O_sint*b_p(mc,n_theta+1)
+         end do
+         do mc=2*n_m_max+1,nrp
+            b_r(mc,n_theta)  =0.D0
+            b_t(mc,n_theta)  =0.D0
+            b_p(mc,n_theta)  =0.D0
+            b_r(mc,n_theta+1)=0.D0
+            b_t(mc,n_theta+1)=0.D0
+            b_p(mc,n_theta+1)=0.D0
+         end do
+
+      end do        ! Loop over colatitudes
+
+      !-- Transform m 2 phi:
+      call fft_thetab(b_r,1)
+      call fft_thetab(b_t,1)
+      call fft_thetab(b_p,1)
+
+   end subroutine get_B_surface
+!----------------------------------------------------------------------------
+end module out_movie

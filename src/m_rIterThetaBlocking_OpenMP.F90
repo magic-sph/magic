@@ -25,20 +25,22 @@ MODULE rIterThetaBlocking_OpenMP_mod
   use torsional_oscillations, only: getTO, getTOnext, getTOfinish
   use graphOut_mod, only: graphOut_mpi
   use dtB_mod, only: get_dtBLM, get_dH_dtBLM
+  use out_movie, only: store_movie_frame
+  use outRot, only: get_lorentz_torque
 
   implicit none
 
-  TYPE,PUBLIC,EXTENDS(rIterThetaBlocking_t) :: rIterThetaBlocking_OpenMP_t
+  type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_OpenMP_t
      integer :: nThreads
-     TYPE(grid_space_arrays_t), ALLOCATABLE :: gsa(:)
-     TYPE(nonlinear_lm_t), ALLOCATABLE :: nl_lm(:)
-     REAL(kind=8), ALLOCATABLE :: lorentz_torque_ic(:),lorentz_torque_ma(:)
-   CONTAINS
+     type(grid_space_arrays_t), allocatable :: gsa(:)
+     type(nonlinear_lm_t), allocatable :: nl_lm(:)
+     real(kind=8), allocatable :: lorentz_torque_ic(:),lorentz_torque_ma(:)
+  contains
      procedure :: initialize => initialize_rIterThetaBlocking_OpenMP
      procedure :: finalize => finalize_rIterThetaBlocking_OpenMP
      procedure :: do_iteration => do_iteration_ThetaBlocking_OpenMP
      procedure :: getType => getThisType
-  END TYPE rIterThetaBlocking_OpenMP_t
+  end type rIterThetaBlocking_OpenMP_t
 
 CONTAINS
   FUNCTION getThisType(this)

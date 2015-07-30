@@ -40,6 +40,7 @@ module updateZ_mod
    use LMLoop_data, only: llm,ulm,llm_real,ulm_real
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
+   use RMS_helpers, only: hInt2Pol, hInt2Tor
  
    implicit none
  

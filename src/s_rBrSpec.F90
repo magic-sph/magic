@@ -1,160 +1,132 @@
 !$Id$
 !********************************************************************
-SUBROUTINE rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
-  !********************************************************************
+subroutine rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
 
-  !    !------------ This is release 2 level 1  --------------!
-  !    !------------ Created on 1/17/02  by JW. --------------!
+   use truncation
+   use radial_functions
+   use physical_parameters
+   use num_param,only: eScale
+   use blocking
+   use horizontal_data
+   use logic
+   use output_data
+   use useful, only: cc2real
+   use LMmapping,only:mappings
 
-  !--------------------------------------------------------------------
+   implicit none
+ 
+   real(kind=8),     intent(in) :: time
+   complex(kind=8),  intent(in) :: Pol(lm_max,n_r_max)
+   complex(kind=8),  intent(in) :: PolIC(lm_max,n_r_ic_max)
+   character(len=*), intent(in) :: fileRoot
+   logical,          intent(in) :: lIC
+   type(mappings),   intent(in) :: map
+ 
+   !-- Output to file:
+   real(kind=8) :: e_p_AS(l_max,n_r_tot)
+   real(kind=8) :: e_p(l_max,n_r_tot)
+ 
+   !-- Local:
+   character(len=72) :: specFile
+   integer :: n_r,lm,l,m
+   real(kind=8) :: fac,O_r_icb_E_2,rRatio,amp
+   real(kind=8) :: e_p_temp
+   logical :: lAS
+ 
 
-  USE truncation
-  USE radial_functions
-  USE physical_parameters
-  USE num_param,only: eScale
-  USE blocking
-  USE horizontal_data
-  USE logic
-  USE output_data
-  USE usefull, ONLY: cc2real
-  USE LMmapping,only:mappings
-  IMPLICIT NONE
-
-  REAL(kind=8) :: time
-
-  COMPLEX(kind=8),INTENT(IN) :: Pol(lm_max,n_r_max)
-  COMPLEX(kind=8),INTENT(IN) :: PolIC(lm_max,n_r_ic_max)
-  CHARACTER(len=*),INTENT(IN) :: fileRoot
-  LOGICAL,INTENT(IN) :: lIC
-  TYPE(mappings),INTENT(IN) :: map
-
-  !-- Output to file:
-  REAL(kind=8) :: e_p_AS(l_max,n_r_tot)
-  REAL(kind=8) :: e_p(l_max,n_r_tot)
-
-  !-- Local:
-  CHARACTER(len=72) :: specFile
-  INTEGER :: n_r,lm,l,m
-
-  REAL(kind=8) :: fac,O_r_icb_E_2,rRatio,amp
-  REAL(kind=8) :: e_p_temp
-
-  !-- Local function:
-  LOGICAL :: lAS
-
-  !-- end of declaration
-  !---------------------------------------------------------------------
-
-  fac=0.5D0*eScale/(16.D0*DATAN(1.D0))
-
-  DO n_r=1,n_r_max
-     ! setting zero
-     e_p(1:6,n_r)=0.0D0
-     e_p_AS(1:6,n_r)=0.0D0
-
-     DO lm=2,lm_max
-        l=map%lm2l(lm)
-        IF ( l <= 6 ) THEN
-           m=map%lm2m(lm)
-           amp=REAL(Pol(lm,n_r))
-           e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
-           !IF (l == 4) WRITE(*,"(A,4I4,2ES20.12,I5,F22.18)") "e_p_temp: ",n_r,lm,l,m,Pol(lm,n_r),&
-           !     & EXPONENT(e_p_temp),FRACTION(e_p_temp)
-           IF ( m == 0 ) THEN
-              IF ( ABS(amp)/=0.d0 ) THEN
-                 e_p_AS(l,n_r)=fac*amp/ABS(amp)*e_p_temp
-              END IF
-           END IF
-           e_p(l,n_r)=e_p(l,n_r)+fac*e_p_temp
-        END IF
-     END DO    ! do loop over lms in block
-  END DO    ! radial grid points
-  
-  !WRITE(*,*) "e_p(1,:) = ",(e_p(1,n_r),n_r=1,n_r_max)
-  !WRITE(*,"(A,2ES22.14)") "e_p after OC: ",SUM(e_p(1,1:n_r_max)),SUM(e_p(2,1:n_r_max))
-
-  !WRITE(*,*) "e_p(4,:) = ",(e_p(4,n_r),n_r=1,n_r_max)
-  !WRITE(*,"(A,2ES22.14)") "e_p after OC: ",SUM(e_p(4,1:n_r_max)),SUM(e_p(2,1:n_r_max))
-  !-- Inner core:
-
-  IF ( lIC ) THEN
-
-     lAS=.TRUE.
-     IF ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .FALSE. 
-
-     O_r_icb_E_2=1.d0/r_icb**2
-
-     DO n_r=2,n_r_ic_max
-        rRatio=r_ic(n_r)/r_ic(1)
-        DO l=1,6
-           e_p(l,n_r_max-1+n_r)=0.D0
-           e_p_AS(l,n_r_max-1+n_r)=0.D0
-        END DO
-        DO lm=2,lm_max
-           l=map%lm2l(lm)
-           IF ( l <= 6 ) THEN
-              m=map%lm2m(lm)
-              IF ( m /= 0 .OR. lAS ) THEN
-                 IF( l_cond_ic ) THEN
-                    e_p_temp=                               &
-                         dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
-                         dLh(st_map%lm2(l,m))*O_r_icb_E_2*cc2real(PolIC(lm,n_r),m)
-                    amp=REAL(PolIC(lm,n_r))
-                 ELSE
-                    e_p_temp=                               &
-                         dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                         dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
-                    amp=REAL(Pol(lm,n_r_ICB))
-                 END IF
-                 IF ( m == 0 ) THEN
-                    IF ( ABS(amp) /= 0d0) THEN
-                       e_p_AS(l,n_r_max-1+n_r)= fac*amp/ABS(amp)*e_p_temp
-                    END IF
-                 END IF
-                 e_p(l,n_r_max-1+n_r)=e_p(l,n_r_max-1+n_r) + &
-                      fac*e_p_temp
-              END IF
-           END IF
-        END DO
-     END DO
-  ELSE
-     DO n_r=2,n_r_ic_max
-        DO l=1,6
-           e_p_AS(l,n_r_max-1+n_r)=0.d0
-           e_p(l,n_r_max-1+n_r)   =0.d0
-        END DO
-     END DO
-  END IF
-  
-  !-- Output into file:
-  !     writing l=0/1/2 magnetic energy
-  specFile=trim(adjustl(fileRoot))//'.'//tag
-  OPEN(91,FILE=specFile,FORM='UNFORMATTED',STATUS='UNKNOWN', &
-       POSITION='APPEND')
-
-  !IF ( nLines == 0 ) WRITE(91) FLOAT(n_r_tot-1),SNGL(radratio)
-  !IF ( nLines == 0 ) WRITE(91) &
-  !    (SNGL(r(n_r)),n_r=1,n_r_max),(SNGL(r_ic(n_r)),n_r=2,n_r_ic_max)
-  !WRITE(*,*) "e_p(4,:) = ",(REAL(e_p(4,n_r),kind=4),n_r=1,n_r_max)
-
-  WRITE(91) REAL(time,kind=4),                       &
-       (REAL(e_p(1,n_r),kind=4),n_r=1,n_r_tot-1),    &
-       (REAL(e_p(2,n_r),kind=4),n_r=1,n_r_tot-1),    &
-       (REAL(e_p(3,n_r),kind=4),n_r=1,n_r_tot-1),    &
-       (REAL(e_p(4,n_r),kind=4),n_r=1,n_r_tot-1),    &
-       (REAL(e_p(5,n_r),kind=4),n_r=1,n_r_tot-1),    &
-       (REAL(e_p(6,n_r),kind=4),n_r=1,n_r_tot-1)
-  WRITE(91) REAL(time,kind=4),                       &
-       (REAL(e_p_AS(1,n_r),kind=4),n_r=1,n_r_tot-1), &
-       (REAL(e_p_AS(2,n_r),kind=4),n_r=1,n_r_tot-1), &
-       (REAL(e_p_AS(3,n_r),kind=4),n_r=1,n_r_tot-1), &
-       (REAL(e_p_AS(4,n_r),kind=4),n_r=1,n_r_tot-1), &
-       (REAL(e_p_AS(5,n_r),kind=4),n_r=1,n_r_tot-1), &
-       (REAL(e_p_AS(6,n_r),kind=4),n_r=1,n_r_tot-1)
-
-  CLOSE(91)
-
-  RETURN
-END SUBROUTINE rBrSpec
-
+   fac=0.5D0*eScale/(16.D0*datan(1.D0))
+ 
+   do n_r=1,n_r_max
+      ! setting zero
+      e_p(1:6,n_r)=0.0D0
+      e_p_AS(1:6,n_r)=0.0D0
+ 
+      do lm=2,lm_max
+         l=map%lm2l(lm)
+         if ( l <= 6 ) then
+            m=map%lm2m(lm)
+            amp=real(Pol(lm,n_r))
+            e_p_temp=dLh(st_map%lm2(l,m))**2 *or2(n_r)*cc2real(Pol(lm,n_r),m)
+            if ( m == 0 ) then
+               if ( ABS(amp)/=0.d0 ) then
+                  e_p_AS(l,n_r)=fac*amp/ABS(amp)*e_p_temp
+               end if
+            end if
+            e_p(l,n_r)=e_p(l,n_r)+fac*e_p_temp
+         end if
+      end do    ! do loop over lms in block
+   end do    ! radial grid points
+   
+   !-- Inner core:
+   if ( lIC ) then
+ 
+      lAS=.true.
+      if ( trim(adjustl(fileRoot)) == 'rBrAdvSpec' ) lAS= .false. 
+ 
+      O_r_icb_E_2=1.d0/r_icb**2
+ 
+      do n_r=2,n_r_ic_max
+         rRatio=r_ic(n_r)/r_ic(1)
+         do l=1,6
+            e_p(l,n_r_max-1+n_r)=0.D0
+            e_p_AS(l,n_r_max-1+n_r)=0.D0
+         end do
+         do lm=2,lm_max
+            l=map%lm2l(lm)
+            if ( l <= 6 ) then
+               m=map%lm2m(lm)
+               if ( m /= 0 .or. lAS ) then
+                  IF( l_cond_ic ) then
+                     e_p_temp=dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
+                              dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
+                              cc2real(PolIC(lm,n_r),m)
+                     amp=real(PolIC(lm,n_r))
+                  else
+                     e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
+                              dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
+                     amp=real(Pol(lm,n_r_ICB))
+                  end if
+                  if ( m == 0 ) then
+                     if ( abs(amp) /= 0d0) then
+                        e_p_AS(l,n_r_max-1+n_r)= fac*amp/abs(amp)*e_p_temp
+                     end if
+                  end if
+                  e_p(l,n_r_max-1+n_r)=e_p(l,n_r_max-1+n_r) + fac*e_p_temp
+               end if
+            end if
+         end do
+      end do
+   else
+      do n_r=2,n_r_ic_max
+         do l=1,6
+            e_p_AS(l,n_r_max-1+n_r)=0.d0
+            e_p(l,n_r_max-1+n_r)   =0.d0
+         end do
+      end do
+   end if
+   
+   !-- Output into file:
+   !     writing l=0/1/2 magnetic energy
+   specFile=trim(adjustl(fileRoot))//'.'//tag
+   open(91, file=specFile, form='unformatted', status='unknown', &
+        position='append')
+ 
+   write(91) real(time,kind=4),                       &
+        (real(e_p(1,n_r),kind=4),n_r=1,n_r_tot-1),    &
+        (real(e_p(2,n_r),kind=4),n_r=1,n_r_tot-1),    &
+        (real(e_p(3,n_r),kind=4),n_r=1,n_r_tot-1),    &
+        (real(e_p(4,n_r),kind=4),n_r=1,n_r_tot-1),    &
+        (real(e_p(5,n_r),kind=4),n_r=1,n_r_tot-1),    &
+        (real(e_p(6,n_r),kind=4),n_r=1,n_r_tot-1)
+   write(91) real(time,kind=4),                       &
+        (real(e_p_AS(1,n_r),kind=4),n_r=1,n_r_tot-1), &
+        (real(e_p_AS(2,n_r),kind=4),n_r=1,n_r_tot-1), &
+        (real(e_p_AS(3,n_r),kind=4),n_r=1,n_r_tot-1), &
+        (real(e_p_AS(4,n_r),kind=4),n_r=1,n_r_tot-1), &
+        (real(e_p_AS(5,n_r),kind=4),n_r=1,n_r_tot-1), &
+        (real(e_p_AS(6,n_r),kind=4),n_r=1,n_r_tot-1)
+ 
+   close(91)
+ 
+end subroutine rBrSpec
 !----------------------------------------------------------------------------
