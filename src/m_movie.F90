@@ -271,6 +271,7 @@ contains
       !  |                     =111  : Vz and Vorz north/south correlation   |
       !  |                     =112  : axisymm dtB tersm for Br and Bp       |
       !  |                     =113  : axisymm dSdr                          |
+      !  |                     =114  : Cylindrically radial magnetic field   |
       !  |                                                                   |
       !  |     n_movie_surface(n_movie) = defines surface                    |
       !  |     n_movie_surface =  1  : r=constant                            |
@@ -353,6 +354,7 @@ contains
       !  |                        =105: AS toroidal Bp dynamo term           |
       !  |                        =106: AS toroidal Bp omega effect          |
       !  |                        =107: AS toroidal Bp diffusion             |
+      !  |                        =108: Bs                                   |
       !  |     n_movie_field_start(n_field,n_movie) = defines where first    |
       !  |         element of a field is stored in frames(*)                 |
       !  |     n_movie_field_stop(n_field,n_movie) = defines where last      |
@@ -508,6 +510,13 @@ contains
             n_type=4 ! Horizontal field
             file_name='Bh_'
             lIC=.true.
+         else if( index(string,'BS') /= 0) then
+           n_type=114
+           typeStr='cyl radial magnetic field'
+           file_name='Bs_'
+           lIC=.true.
+           n_fields=1
+           n_field_type(1)=108
          else if ( index(string,'BALL') /= 0 ) then
             n_type=5 ! Total field
             typeStr=' all magnetic field components '

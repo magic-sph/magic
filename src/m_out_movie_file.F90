@@ -17,7 +17,7 @@ module out_movie
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
    use blocking, only: nfs, lm2l, lm2
-   use horizontal_data, only: O_sin_theta, cosTheta, n_theta_cal2ord, &
+   use horizontal_data, only: O_sin_theta, sinTheta, cosTheta, n_theta_cal2ord, &
                               O_sin_theta_E2, Plm, dLh, dPlm, osn1,   &
                               D_l, dPhi, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b, b_ic
@@ -413,7 +413,7 @@ contains
       integer :: n_theta_cal
       integer :: n_phi
       integer :: n_o
-      real(kind=8) ::  fac,fac_r
+      real(kind=8) ::  fac,fac_r,fac_t
     
     
       !--- Store data for all output thetas in the current block
@@ -578,7 +578,23 @@ contains
                frames(n_phi+n_o)=fac*cvr(n_phi,n_theta_b)
             end do
          end do
-    
+   
+      else if (n_field_type == 108) then
+!------- Cylindrically radial component of magnetic field (Bs):
+
+        fac_r = or2(n_r)
+        do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_start+n_theta_b-1
+            n_theta=n_theta_cal2ord(n_theta_cal)
+            n_o=n_store_last+(n_theta-1)*n_phi_max
+            fac_t=or1(n_r)*O_sin_theta(n_theta_cal)
+            do n_phi=1,n_phi_max
+                frames(n_phi+n_o)=fac_r*br(n_phi,n_theta_b)*sinTheta(n_theta_cal)+ &
+                                  fac_t*bt(n_phi,n_theta_b)*cosTheta(n_theta_cal)
+            end do
+        end do
+
+ 
       end if
     
    end subroutine store_fields_r
