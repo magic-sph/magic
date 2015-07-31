@@ -3,6 +3,7 @@
 subroutine rBrSpec(time,Pol,PolIC,fileRoot,lIC,map)
 
    use truncation
+   use radial_data, only: n_r_icb
    use radial_functions
    use physical_parameters
    use num_param,only: eScale

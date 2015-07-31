@@ -21,8 +21,9 @@ SUBROUTINE get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,      &
   USE truncation
   USE const, ONLY: pi
   USE physical_parameters, ONLY: ek,ViscHeatFac
-  USE radial_functions, ONLY: orho2,or2,temp0,or1,orho1,beta,visc, &
-                              n_r_icb,n_r_cmb
+  use radial_data, only: n_r_cmb, n_r_icb
+  USE radial_functions, ONLY: orho2,or2,temp0,or1,orho1,beta,visc
+                             
   use logic, only: l_mag_nl
   USE blocking
   USE horizontal_data, ONLY: O_sin_theta_E2,osn2

@@ -38,7 +38,7 @@ module radialLoop
 
    public :: initialize_radialLoop,finalize_radialLoop,radialLoopG
 
-   CLASS(rIteration_t), pointer :: this_rIteration
+   class(rIteration_t), pointer :: this_rIteration
 
 contains
 

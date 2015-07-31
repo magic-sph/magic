@@ -41,7 +41,7 @@ contains
       use LMLoop_data, only: llm,ulm,llmMag,ulmMag
       use parallel_Mod, only: rank
 
-      if (rank == 0) then
+      if ( rank == 0 ) then
          allocate( dwdtLast(lm_max,n_r_max) )
          allocate( dpdtLast(lm_max,n_r_max) )
          allocate( dzdtLast(lm_max,n_r_max) )
@@ -71,5 +71,5 @@ contains
       allocate( djdt_icLast_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
     
    end subroutine initialize_fieldsLast
-
+!-------------------------------------------------------------------------------
 end module fieldsLast

@@ -1,50 +1,87 @@
 !$Id$
 module init_fields
 
+   use truncation
+   use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
+   use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
+                              phi, cosTheta
+   use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_anelastic_liquid, &
+                    l_cond_ic
+   use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
+                               cheb_norm, lambda, or2, d2cheb, dcheb,  &
+                               cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
+                               d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
+                               i_costf_init, d_costf_init, orho1,      &
+                               i_costf1_ic_init, d_costf1_ic_init,     &
+                               dtemp0, kappa, dLkappa, beta, otemp1,   &
+                               epscProf
+   use radial_data, only: n_r_icb, n_r_cmb
+   use const, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma
+   use useful, only: random
+   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+#if (FFTLIB==JW)
+   use fft_JW
+#elif (FFTLIB==MKL)
+   use fft_MKL
+#endif
+   use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
+                                  peakS, widthS, radratio, imagcon, opm,  &
+                                  sigma_ratio, O_sr, kbots, ktops, opr,   &
+                                  epsc
+#ifdef WITH_MKL_LU
+   use lapack95, only: getrf, getrs
+#else
+   use algebra, only: sgesl, sgefa, cgesl
+#endif
+   use horizontal_data, only: D_lP1, hdif_B, dLh
+   use matrices, only: jMat, jPivot, s0Mat, s0Pivot
+
    implicit none
 
+   private
+
    !-- Initialisation of fields:
-   integer :: init_s1,init_s2
-   integer :: init_b1,init_v1
+   integer, public :: init_s1,init_s2
+   integer, public :: init_b1,init_v1
 
    !----- Entropy amplitudes for initialisation:
-   real(kind=8) :: amp_s1,amp_s2,amp_v1,amp_b1
+   real(kind=8), public :: amp_s1,amp_s2,amp_v1,amp_b1
 
    !----- Entropy at CMB and ICB (input):
-   integer,parameter :: n_s_bounds=20
-   real(kind=8) :: s_bot(4*n_s_bounds)  ! input variables for tops,bots
-   real(kind=8) :: s_top(4*n_s_bounds)
-   complex(kind=8),allocatable :: tops(:,:)
-   complex(kind=8),allocatable :: bots(:,:)
+   integer, public, parameter :: n_s_bounds=20
+   real(kind=8), public :: s_bot(4*n_s_bounds)  ! input variables for tops,bots
+   real(kind=8), public :: s_top(4*n_s_bounds)
+   complex(kind=8), public, allocatable :: tops(:,:)
+   complex(kind=8), public, allocatable :: bots(:,:)
 
    !----- Peak values for magnetic field:
-   real(kind=8) :: bpeakbot,bpeaktop
+   real(kind=8), public :: bpeakbot,bpeaktop
 
    !----- Initialised IC and mantle rotation rates:
-   integer :: nRotMa,nRotIc
-   real(kind=8) :: omega_ma1,omegaOsz_ma1,tShift_ma1,tOmega_ma1
-   real(kind=8) :: omega_ma2,omegaOsz_ma2,tShift_ma2,tOmega_ma2
-   real(kind=8) :: omega_ic1,omegaOsz_ic1,tShift_ic1,tOmega_ic1
-   real(kind=8) :: omega_ic2,omegaOsz_ic2,tShift_ic2,tOmega_ic2
+   integer, public :: nRotMa,nRotIc
+   real(kind=8), public :: omega_ma1,omegaOsz_ma1,tShift_ma1,tOmega_ma1
+   real(kind=8), public :: omega_ma2,omegaOsz_ma2,tShift_ma2,tOmega_ma2
+   real(kind=8), public :: omega_ic1,omegaOsz_ic1,tShift_ic1,tOmega_ic1
+   real(kind=8), public :: omega_ic2,omegaOsz_ic2,tShift_ic2,tOmega_ic2
 
    !----- About start-file:
-   logical :: l_start_file     ! taking fields from startfile ?
-   logical :: l_reset_t        ! reset time from startfile ?
-   integer :: inform           ! format of start_file
-   integer :: n_start_file     ! I/O unit of start_file
-   character(len=72) :: start_file  ! name of start_file           
+   logical, public :: l_start_file     ! taking fields from startfile ?
+   logical, public :: l_reset_t        ! reset time from startfile ?
+   integer, public :: inform           ! format of start_file
+   integer, public :: n_start_file     ! I/O unit of start_file
+   character(len=72), public :: start_file  ! name of start_file           
 
    !-- Scales for input field:
-   real(kind=8) :: scale_s
-   real(kind=8) :: scale_v
-   real(kind=8) :: scale_b
-   real(kind=8) :: tipdipole       ! adding to symetric field
+   real(kind=8), public :: scale_s
+   real(kind=8), public :: scale_v
+   real(kind=8), public :: scale_b
+   real(kind=8), public :: tipdipole       ! adding to symetric field
+
+   public :: initialize_init_fields, initV, initS, initB, s_cond
 
 contains
 
    subroutine initialize_init_fields
-
-      use truncation, only: l_max, m_max
 
       n_start_file=8
       allocate( tops(0:l_max,0:m_max) )
@@ -60,20 +97,6 @@ contains
       !  |  Because s is needed for dwdt init_s has to be called before.     |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
-
-      use truncation
-      use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
-      use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l
-      use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA
-      use radial_functions, only: r_icb,r,n_r_icb,n_r_cmb
-      use const, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma
-      use useful, only: random
-      use LMLoop_data, only: llm,ulm
-#if (FFTLIB==JW)
-      use fft_JW
-#elif (FFTLIB==MKL)
-      use fft_MKL
-#endif
 
       !-- Input variables
       integer, intent(in) :: lmStart,lmStop
@@ -322,27 +345,6 @@ contains
       !  |              where ll: harmonic degree, mm: harmonic order.       |
       !  |                                                                   |
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-
-      use truncation
-      use radial_functions, only: r, r_cmb, r_icb
-      use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
-                                     peakS, widthS
-      use logic, only: l_anelastic_liquid
-      use blocking, only: nfs, sizeThetaB, nThetaBs, st_map
-      use horizontal_data, only: phi, D_l, cosTheta, sinTheta
-      use const, only: pi
-      use LMLoop_data, only: llm,ulm
-#if (FFTLIB==JW)
-      use fft_JW
-#elif (FFTLIB==MKL)
-      use fft_MKL
-#endif
-      use useful, only: random
-#ifdef WITH_MKL_LU
-      use lapack95, only: getrf,getrs
-#else
-      use algebra, only: sgesl,sgefa
-#endif
 
       !-- Input variables:
       integer, intent(in) :: lmStart,lmStop
@@ -644,17 +646,6 @@ contains
       !  |  magneto convection.                                              |
       !  |                                                                   |
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-     
-      use truncation
-      use radial_functions, only: r_icb, r_cmb, r, r_ic, or1, n_r_icb, &
-                                  jVarCon
-      use physical_parameters, only: radratio, imagcon
-      use blocking, only: st_map
-      use horizontal_data, only: D_l
-      use logic, only: l_cond_ic
-      use const, only: pi
-      use useful, only: random
-      use LMLoop_data, only: llmMag,ulmMag
 
       !-- Input variables:
       integer, intent(in) :: lmStart,lmStop
@@ -1118,22 +1109,6 @@ contains
       !  |                                                                   |
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
-      use truncation
-      use radial_functions, only: cheb_norm, lambda, or2, d2cheb, dcheb,  &
-                                  cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
-                                  d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
-                                  i_costf_init, d_costf_init,             &
-                                  i_costf1_ic_init, d_costf1_ic_init
-      use physical_parameters, only: opm, sigma_ratio, O_sr
-      use horizontal_data, only: D_lP1, hdif_B, dLh
-      use logic, only: l_cond_ic
-      use matrices, only: jMat, jPivot
-#ifdef WITH_MKL_LU
-      use lapack95, only: getrf,getrs
-#else
-      use algebra, only: cgesl,sgefa
-#endif
-
       !-- input:
       integer, intent(in) :: lm0
 
@@ -1303,19 +1278,6 @@ contains
    !  |  Output is the radial dependence of the solution in s0.           |
    !  |                                                                   |
    !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
-
-      use truncation
-      use radial_functions, only: orho1, dtemp0, kappa, dcheb, d2cheb, &
-                                  cheb, dLkappa, beta, cheb_norm,      &
-                                  epscProf,i_costf_init,d_costf_init,  &
-                                  otemp1, or1
-      use physical_parameters, only: kbots, ktops, opr, epsc
-      use matrices, only: s0Mat, s0Pivot
-#ifdef WITH_MKL_LU
-      use lapack95, only: getrs,getrf
-#else
-      use algebra, only: sgesl,sgefa
-#endif
 
       !-- output variables:
       real(kind=8), intent(out) :: s0(:)

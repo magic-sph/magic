@@ -1,8 +1,9 @@
 !$Id$
 module num_param
-!****************************************************************
-!  Module containing numerical and control parameters
-!****************************************************************
+   !--------------------------------------------------------------
+   !  Module containing numerical and control parameters
+   !--------------------------------------------------------------
+
    implicit none
  
    !-- Time step control:
@@ -38,6 +39,7 @@ module num_param
    integer :: runTimeLimit(4),runTime(4),runTimeStart(4)!,resetTime(4)
 
 contains
+
    subroutine initialize_num_param
 
       use truncation, only: n_r_max
@@ -45,4 +47,5 @@ contains
       allocate( delxr2(n_r_max),delxh2(n_r_max) )
 
    end subroutine initialize_num_param
+!-------------------------------------------------------------------------------
 end module num_param

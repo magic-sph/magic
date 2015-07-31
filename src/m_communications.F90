@@ -1,62 +1,69 @@
+!$Id$
 #include "perflib_preproc.cpp"
 MODULE communications
   use mpi
-  USE parallel_mod,ONLY: rank,n_procs,ierr,nr_per_rank,nr_on_last_rank
-  USE LMLoop_data,ONLY: llm,ulm
-  USE truncation,ONLY: l_max,lm_max,minc,n_r_max,n_r_ic_max
-  USE blocking,ONLY: st_map,lo_map,lmStartB,lmStopB
-  USE radial_data,ONLY: nRstart,nRstop
-  USE logic, ONLY: l_mag,l_conv,l_heat
+  USE parallel_mod, ONLY: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
+  USE LMLoop_data, ONLY: llm, ulm
+  USE truncation, ONLY: l_max, lm_max, minc, n_r_max, n_r_ic_max
+  USE blocking, ONLY: st_map, lo_map, lmStartB, lmStopB
+  USE radial_data, ONLY: nRstart, nRstop
+  USE logic, ONLY: l_mag, l_conv, l_heat
+
   implicit none
 
-  INTERFACE get_global_sum
-     MODULE PROCEDURE get_global_sum_cmplx_2d,get_global_sum_cmplx_1d,get_global_sum_real_2d
-  END INTERFACE
+  private 
 
-  TYPE,public :: lm2r_type
-     INTEGER,ALLOCATABLE,DIMENSION(:) :: final_wait_array,s_request,r_request
-     COMPLEX(kind=8),DIMENSION(:,:,:),POINTER :: temp_Rloc, arr_Rloc
+  interface get_global_sum
+     module procedure get_global_sum_cmplx_2d, get_global_sum_cmplx_1d, &
+                      get_global_sum_real_2d
+  end interface
+
+  type, public :: lm2r_type
+     INTEGER, ALLOCATABLE :: final_wait_array(:), s_request(:), r_request(:)
+     COMPLEX(kind=8), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
      INTEGER :: count
-  END TYPE lm2r_type
+  end type lm2r_type
 
-  TYPE,PUBLIC :: gather_type
-     INTEGER,ALLOCATABLE,dimension(:) :: gather_mpi_type
+  type, public :: gather_type
+     INTEGER, ALLOCATABLE :: gather_mpi_type(:)
      INTEGER :: dim2
-  END TYPE gather_type
+  end type gather_type
 
   ! MPI datatypes for the redistribution of the d?dt arrays
-  INTEGER,SAVE,ALLOCATABLE,DIMENSION(:) :: s_transfer_type,s_transfer_type_nr_end,&
-       &r_transfer_type,r_transfer_type_nr_end
-  INTEGER,SAVE,ALLOCATABLE,DIMENSION(:,:) :: &
-       &s_transfer_type_cont,s_transfer_type_nr_end_cont,&
-       &r_transfer_type_cont,r_transfer_type_nr_end_cont
-  INTEGER :: r_lm_gather_type,r_lm_gather_type_lm_end
-  INTEGER,ALLOCATABLE, DIMENSION(:) :: s_request,r_request,final_wait_array
-  INTEGER,ALLOCATABLE,DIMENSION(:,:) :: array_of_statuses
+  INTEGER, SAVE, ALLOCATABLE :: s_transfer_type(:),s_transfer_type_nr_end(:)
+  INTEGER, SAVE, ALLOCATABLE :: r_transfer_type(:), r_transfer_type_nr_end(:)
+  INTEGER, SAVE, ALLOCATABLE :: s_transfer_type_cont(:,:)
+  INTEGER, SAVE, ALLOCATABLE :: s_transfer_type_nr_end_cont(:,:)
+  INTEGER, SAVE, ALLOCATABLE :: r_transfer_type_cont(:,:)
+  INTEGER, SAVE, ALLOCATABLE :: r_transfer_type_nr_end_cont(:,:)
+  INTEGER :: r_lm_gather_type, r_lm_gather_type_lm_end
+  INTEGER, ALLOCATABLE :: s_request(:),r_request(:),final_wait_array(:)
+  INTEGER, ALLOCATABLE :: array_of_statuses(:,:)
 
   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo,&
-       & gather_all_from_lo_to_rank0
-  PUBLIC :: get_global_sum, myAllGather,&
-       & r2lm_redist,r2lo_redist,initialize_communications,&
-       & create_lm2r_type!,lo2r_redist,lm2r_redist
-  PUBLIC :: lo2r_redist_start,lo2r_redist_wait
+          & gather_all_from_lo_to_rank0
+  public :: get_global_sum, myAllGather,&
+          & r2lm_redist,r2lo_redist,initialize_communications,&
+          & create_lm2r_type!,lo2r_redist,lm2r_redist
+  public :: lo2r_redist_start,lo2r_redist_wait
 
   ! declaration of the types for the redistribution
   !TYPE(lm2r_type),PUBLIC :: lo2r_s, lo2r_ds, lo2r_z, lo2r_dz
   !TYPE(lm2r_type),public :: lo2r_p,lo2r_dp
   !TYPE(lm2r_type), PUBLIC :: lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
-  TYPE(lm2r_type),PUBLIC :: lo2r_w, lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj
+  TYPE(lm2r_type), public :: lo2r_w, lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj
 
-  TYPE(gather_type), PUBLIC :: gt_OC,gt_IC,gt_cheb
+  TYPE(gather_type), public :: gt_OC,gt_IC,gt_cheb
 
-  COMPLEX(kind=8),ALLOCATABLE,dimension(:) :: temp_gather_lo
-  COMPLEX(kind=8),ALLOCATABLE,DIMENSION(:,:) :: temp_r2lo
-  private 
-CONTAINS
+  COMPLEX(kind=8), ALLOCATABLE :: temp_gather_lo(:)
+  COMPLEX(kind=8), ALLOCATABLE :: temp_r2lo(:,:)
+
+contains
   
   SUBROUTINE initialize_communications
     INTEGER :: proc,my_lm_per_rank
-    INTEGER(KIND=MPI_ADDRESS_KIND) :: zerolb,extent,sizeof_double_complex,lb_marker,myextent,true_lb,true_extent
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
+    INTEGER(KIND=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
     INTEGER :: base_col_type,temptype
     INTEGER :: blocklengths(3),blocklengths_on_last(3),displs(3),displs_on_last(3)
     integer :: i
@@ -209,7 +216,7 @@ CONTAINS
 
 
   COMPLEX(kind=8) FUNCTION get_global_sum_cmplx_2d(dwdt_local) RESULT(global_sum)
-    COMPLEX(kind=8),DIMENSION(:,:),INTENT(IN) :: dwdt_local
+    COMPLEX(kind=8), INTENT(IN) :: dwdt_local(:,:)
     
     INTEGER :: ierr
     COMPLEX(kind=8) :: local_sum
@@ -219,7 +226,7 @@ CONTAINS
   END FUNCTION get_global_sum_cmplx_2d
 
   REAL(kind=8) FUNCTION get_global_sum_real_2d(dwdt_local) RESULT(global_sum)
-    real(kind=8),DIMENSION(:,:),INTENT(IN) :: dwdt_local
+    real(kind=8), INTENT(IN) :: dwdt_local(:,:)
     
     INTEGER :: ierr
     real(kind=8) :: local_sum
@@ -229,7 +236,7 @@ CONTAINS
   END FUNCTION get_global_sum_real_2d
 
   COMPLEX(kind=8) FUNCTION get_global_sum_cmplx_1d(arr_local) RESULT(global_sum)
-    COMPLEX(kind=8),DIMENSION(:),INTENT(IN) :: arr_local
+    COMPLEX(kind=8), INTENT(IN) :: arr_local(:)
     
     INTEGER :: lb,ub,ierr,i
     COMPLEX(kind=8) :: local_sum,c,y,t
@@ -266,12 +273,12 @@ CONTAINS
 
   SUBROUTINE gather_all_from_lo_to_rank0(self,arr_lo,arr_full)
     type(gather_type) :: self
-    COMPLEX(kind=8),DIMENSION(llm:ulm,self%dim2) :: arr_lo
-    COMPLEX(kind=8),dimension(1:lm_max,self%dim2) :: arr_full
+    COMPLEX(kind=8) :: arr_lo(llm:ulm,self%dim2)
+    COMPLEX(kind=8) :: arr_full(1:lm_max,self%dim2)
     
     INTEGER :: ierr,irank,l,m,nR
-    !COMPLEX(kind=8),DIMENSION(1:lm_max,self%dim2) :: temp_lo
-    COMPLEX(kind=8),DIMENSION(:,:),allocatable :: temp_lo
+    !COMPLEX(kind=8) :: temp_lo((1:lm_max,self%dim2)
+    COMPLEX(kind=8), allocatable :: temp_lo(:,:)
     INTEGER :: type_size,gather_tag,status(MPI_STATUS_SIZE)
 
     IF (rank == 0) ALLOCATE(temp_lo(1:lm_max,self%dim2))
@@ -359,12 +366,12 @@ CONTAINS
 
 
   SUBROUTINE gather_from_lo_to_rank0(arr_lo,arr_full)
-    COMPLEX(kind=8),DIMENSION(llm:ulm) :: arr_lo
-    COMPLEX(kind=8),dimension(1:lm_max) :: arr_full
+    COMPLEX(kind=8) :: arr_lo(llm:ulm)
+    COMPLEX(kind=8) :: arr_full(1:lm_max)
 
-    INTEGER,DIMENSION(0:n_procs-1) :: sendcounts,displs
+    INTEGER :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
     INTEGER :: irank,l,m
-    !COMPLEX(kind=8),DIMENSION(1:lm_max) :: temp_lo
+    !COMPLEX(kind=8) :: temp_lo(1:lm_max)
 
     DO irank=0,n_procs-1
        sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
@@ -387,12 +394,12 @@ CONTAINS
   END SUBROUTINE gather_from_lo_to_rank0
 
   subroutine scatter_from_rank0_to_lo(arr_full,arr_lo)
-    COMPLEX(kind=8),dimension(1:lm_max) :: arr_full
-    COMPLEX(kind=8),DIMENSION(llm:ulm) :: arr_lo
+    COMPLEX(kind=8) :: arr_full(1:lm_max)
+    COMPLEX(kind=8) :: arr_lo(llm:ulm)
 
-    INTEGER,DIMENSION(0:n_procs-1) :: sendcounts,displs
+    INTEGER :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
     INTEGER :: irank,l,m
-    !COMPLEX(kind=8),DIMENSION(1:lm_max) :: temp_lo
+    !COMPLEX(kind=8) :: temp_lo(1:lm_max)
 
     DO irank=0,n_procs-1
        sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
@@ -564,8 +571,8 @@ CONTAINS
 
   SUBROUTINE lo2r_redist_start(self,arr_lo,arr_Rloc)
     type(lm2r_type) :: self
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max,*), INTENT(IN) :: arr_lo
-    COMPLEX(kind=8),DIMENSION(1:lm_max,nRstart:nRstop,*), TARGET, INTENT(OUT) :: arr_Rloc
+    COMPLEX(kind=8), INTENT(IN) :: arr_lo(llm:ulm,1:n_r_max,*)
+    COMPLEX(kind=8), TARGET, INTENT(OUT) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
 
 
     PERFON('lo2r_st')
@@ -714,13 +721,13 @@ CONTAINS
 
 
   SUBROUTINE r2lo_redist(arr_Rloc,arr_lo)
-    COMPLEX(kind=8),DIMENSION(1:lm_max,nRstart:nRstop), INTENT(IN) :: arr_Rloc
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max), INTENT(OUT) :: arr_lo
+    COMPLEX(kind=8), INTENT(IN) :: arr_Rloc(1:lm_max,nRstart:nRstop)
+    COMPLEX(kind=8), INTENT(OUT) :: arr_lo(llm:ulm,1:n_r_max)
 
     ! Local variables
     INTEGER :: nR,l,m
     ! temporary reordered array
-    !COMPLEX(kind=8),DIMENSION(1:lm_max,nRstart:nRstop) :: temp_lo
+    !COMPLEX(kind=8) :: temp_lo(1:lm_max,nRstart:nRstop)
 
     ! Just copy the array with permutation
     !PERFON('r2lo_dst')
@@ -738,8 +745,8 @@ CONTAINS
 
 
   SUBROUTINE lm2lo_redist(arr_LMloc,arr_lo)
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max), INTENT(IN) :: arr_LMloc
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max), INTENT(OUT) :: arr_lo
+    COMPLEX(kind=8), INTENT(IN) :: arr_LMloc(llm:ulm,1:n_r_max)
+    COMPLEX(kind=8), INTENT(OUT) :: arr_lo(llm:ulm,1:n_r_max)
 
     ! Local variables
     INTEGER :: nR,l,m
@@ -760,8 +767,8 @@ CONTAINS
   END SUBROUTINE lm2lo_redist
 
   SUBROUTINE lo2lm_redist(arr_lo,arr_LMloc)
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max), INTENT(IN) :: arr_lo
-    COMPLEX(kind=8),DIMENSION(llm:ulm,1:n_r_max), INTENT(OUT) :: arr_LMloc
+    COMPLEX(kind=8), INTENT(IN) :: arr_lo(llm:ulm,1:n_r_max)
+    COMPLEX(kind=8), INTENT(OUT) :: arr_LMloc(llm:ulm,1:n_r_max)
 
     ! Local variables
     INTEGER :: nR,l,m
@@ -795,7 +802,7 @@ CONTAINS
     implicit none
 
     integer, intent(IN) :: dim1,dim2
-    complex(kind=8), dimension(dim1,dim2),intent(INOUT) :: arr
+    complex(kind=8), intent(INOUT) :: arr(dim1,dim2)
 
     integer :: lmStart_on_rank,lmStop_on_rank
     integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -839,7 +846,7 @@ CONTAINS
     implicit none
 
     integer, intent(IN) :: edim1,dim2
-    complex(kind=8), dimension(edim1,dim2),intent(INOUT) :: arr
+    complex(kind=8), intent(INOUT) :: arr(edim1, dim2)
 
     integer :: sendcount,recvcount
     integer :: irank,nR
@@ -860,7 +867,7 @@ CONTAINS
     implicit none
 
     integer, intent(IN) :: dim1,dim2
-    complex(kind=8), dimension(dim1,dim2),intent(INOUT) :: arr
+    complex(kind=8), intent(INOUT) :: arr(dim1,dim2)
 
     integer :: lmStart_on_rank,lmStop_on_rank
     integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)

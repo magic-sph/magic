@@ -1,101 +1,105 @@
 !$Id$
-!*****************************************************************
-!  Common block containing matricies for internal time step
-!*****************************************************************
+module matrices
+   !--------------------------------------------------------------
+   !  Common block containing matricies for internal time step
+   !--------------------------------------------------------------
 
-MODULE matrices
-  use truncation
-  IMPLICIT NONE
-
-  !-- the matrices, already LU-decomposed:
-  REAL(kind=8),ALLOCATABLE :: s0Mat(:,:)      ! for l=m=0  
-  REAL(kind=8),ALLOCATABLE :: sMat(:,:,:)
-  REAL(kind=8),ALLOCATABLE :: zMat(:,:,:) 
-  REAL(kind=8),ALLOCATABLE :: z10Mat(:,:)    ! for l=1,m=0 
-  REAL(kind=8),ALLOCATABLE :: wpMat(:,:,:) 
-  REAL(kind=8),ALLOCATABLE :: bMat(:,:,:)
-  REAL(kind=8),ALLOCATABLE :: jMat(:,:,:)
-
-  !-- respecitive pivoting information:
-  INTEGER, ALLOCATABLE :: s0Pivot(:)
-  INTEGER, ALLOCATABLE :: sPivot(:,:)
-  INTEGER, ALLOCATABLE :: z10Pivot(:)
-  INTEGER, ALLOCATABLE :: zPivot(:,:)
-  INTEGER, ALLOCATABLE :: wpPivot(:,:)
-  INTEGER, ALLOCATABLE :: bPivot(:,:)
-  INTEGER, ALLOCATABLE :: jPivot(:,:)
-
-  ! -- respective linesums of the matrices
-  REAL(kind=8),ALLOCATABLE :: wpMat_fac(:,:,:)
+   implicit none
+ 
+   !-- the matrices, already LU-decomposed:
+   real(kind=8),allocatable :: s0Mat(:,:)      ! for l=m=0  
+   real(kind=8),allocatable :: sMat(:,:,:)
+   real(kind=8),allocatable :: zMat(:,:,:) 
+   real(kind=8),allocatable :: z10Mat(:,:)    ! for l=1,m=0 
+   real(kind=8),allocatable :: wpMat(:,:,:) 
+   real(kind=8),allocatable :: bMat(:,:,:)
+   real(kind=8),allocatable :: jMat(:,:,:)
+ 
+   !-- respecitive pivoting information:
+   integer, allocatable :: s0Pivot(:)
+   integer, allocatable :: sPivot(:,:)
+   integer, allocatable :: z10Pivot(:)
+   integer, allocatable :: zPivot(:,:)
+   integer, allocatable :: wpPivot(:,:)
+   integer, allocatable :: bPivot(:,:)
+   integer, allocatable :: jPivot(:,:)
+ 
+   ! -- respective linesums of the matrices
+   real(kind=8), allocatable :: wpMat_fac(:,:,:)
 #ifdef WITH_PRECOND_Z
-  REAL(kind=8),ALLOCATABLE :: zMat_fac(:,:)
+   real(kind=8), allocatable :: zMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_Z10
-  REAL(kind=8),ALLOCATABLE :: z10Mat_fac(:)
+   real(kind=8), allocatable :: z10Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_S
-  REAL(kind=8),ALLOCATABLE :: sMat_fac(:,:)
+   real(kind=8), allocatable :: sMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_S0
-  REAL(kind=8),ALLOCATABLE :: s0Mat_fac(:)
+   real(kind=8), allocatable :: s0Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_BJ
-  REAL(kind=8),ALLOCATABLE :: bMat_fac(:,:)
-  REAL(kind=8),ALLOCATABLE :: jMat_fac(:,:)
+   real(kind=8), allocatable :: bMat_fac(:,:)
+   real(kind=8), allocatable :: jMat_fac(:,:)
 #endif
-  !--- Logicals that inform whether the respective matrix
-  !    has been updated:           
-  LOGICAL :: lZ10mat
-  LOGICAL,ALLOCATABLE :: lSmat(:)
-  LOGICAL,ALLOCATABLE :: lZmat(:)
-  LOGICAL,ALLOCATABLE :: lWPmat(:)
-  LOGICAL,ALLOCATABLE :: lBmat(:)
+   !--- Logicals that inform whether the respective matrix
+   !    has been updated:           
+   logical :: lZ10mat
+   logical,allocatable :: lSmat(:)
+   logical,allocatable :: lZmat(:)
+   logical,allocatable :: lWPmat(:)
+   logical,allocatable :: lBmat(:)
 
-CONTAINS
-  SUBROUTINE initialize_matrices
+contains
 
-    !-- the matrices, already LU-decomposed:
-    ALLOCATE( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
-    ALLOCATE( sMat(n_r_max,n_r_max,l_max) )
-    ALLOCATE( zMat(n_r_max,n_r_max,l_max) )
-    ALLOCATE( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0 
-    ALLOCATE( wpMat(2*n_r_max,2*n_r_max,l_max) )
-    ALLOCATE( bMat(n_r_totMag,n_r_totMag,l_maxMag) )
-    ALLOCATE( jMat(n_r_totMag,n_r_totMag,l_maxMag) )
+   subroutine initialize_matrices
 
-    !-- respecitive pivoting information:
-    ALLOCATE( s0Pivot(n_r_max) )
-    ALLOCATE( sPivot(n_r_max,l_max) )
-    ALLOCATE( z10Pivot(n_r_max) )
-    ALLOCATE( zPivot(n_r_max,l_max) )
-    ALLOCATE( wpPivot(2*n_r_max,l_max) )
-    ALLOCATE( bPivot(n_r_totMag,l_maxMag) )
-    ALLOCATE( jPivot(n_r_totMag,l_maxMag) )
+      use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
+                            n_r_tot
 
-    ALLOCATE(wpMat_fac(2*n_r_max,2,l_max))
+      !-- the matrices, already LU-decomposed:
+      allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
+      allocate( sMat(n_r_max,n_r_max,l_max) )
+      allocate( zMat(n_r_max,n_r_max,l_max) )
+      allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0 
+      allocate( wpMat(2*n_r_max,2*n_r_max,l_max) )
+      allocate( bMat(n_r_totMag,n_r_totMag,l_maxMag) )
+      allocate( jMat(n_r_totMag,n_r_totMag,l_maxMag) )
+
+      !-- respecitive pivoting information:
+      allocate( s0Pivot(n_r_max) )
+      allocate( sPivot(n_r_max,l_max) )
+      allocate( z10Pivot(n_r_max) )
+      allocate( zPivot(n_r_max,l_max) )
+      allocate( wpPivot(2*n_r_max,l_max) )
+      allocate( bPivot(n_r_totMag,l_maxMag) )
+      allocate( jPivot(n_r_totMag,l_maxMag) )
+
+      allocate(wpMat_fac(2*n_r_max,2,l_max))
 #ifdef WITH_PRECOND_Z10
-    ALLOCATE(z10Mat_fac(n_r_max))
+      allocate(z10Mat_fac(n_r_max))
 #endif
 #ifdef WITH_PRECOND_Z
-    ALLOCATE(zMat_fac(n_r_max,l_max))
+      allocate(zMat_fac(n_r_max,l_max))
 #endif
 #ifdef WITH_PRECOND_S
-    ALLOCATE(sMat_fac(n_r_max,l_max))
+      allocate(sMat_fac(n_r_max,l_max))
 #endif
 #ifdef WITH_PRECOND_S0
-    ALLOCATE(s0Mat_fac(n_r_max))
+      allocate(s0Mat_fac(n_r_max))
 #endif
 #ifdef WITH_PRECOND_BJ
-    ALLOCATE(bMat_fac(n_r_tot,l_max))
-    ALLOCATE(jMat_fac(n_r_tot,l_max))
+      allocate(bMat_fac(n_r_tot,l_max))
+      allocate(jMat_fac(n_r_tot,l_max))
 #endif
 
-    !--- Logicals that inform whether the respective matrix
-    !    has been updated:           
-    ALLOCATE( lSmat(0:l_max) )
-    ALLOCATE( lZmat(0:l_max) )
-    ALLOCATE( lWPmat(0:l_max) )
-    ALLOCATE( lBmat(0:l_max) )
+      !--- Logicals that inform whether the respective matrix
+      !    has been updated:           
+      allocate( lSmat(0:l_max) )
+      allocate( lZmat(0:l_max) )
+      allocate( lWPmat(0:l_max) )
+      allocate( lBmat(0:l_max) )
 
-  END SUBROUTINE initialize_matrices
-END MODULE matrices
+   end subroutine initialize_matrices
+!------------------------------------------------------------------------------
+end module matrices

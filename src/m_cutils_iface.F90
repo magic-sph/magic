@@ -1,34 +1,49 @@
-MODULE cutils
-  USE, intrinsic :: iso_c_binding
-  IMPLICIT NONE
+!$Id$
+module cutils
 
-  INTERFACE 
-     SUBROUTINE print_address(str,arr) BIND(c)
-       USE,intrinsic :: ISO_C_BINDING
-       CHARACTER,DIMENSION(*),INTENT(IN) :: str
-       COMPLEX(C_DOUBLE_COMPLEX),DIMENSION(*) :: arr
-     END SUBROUTINE print_address
-  END INTERFACE
+   use, intrinsic :: iso_c_binding
+ 
+   implicit none
+ 
+   interface 
+      !-------------------------------------------------------
+      subroutine print_address(str,arr) BIND(c)
+ 
+         use, intrinsic :: ISO_C_BINDING
+         character, intent(in) :: str(*)
+         complex(C_DOUBLE_COMPLEX) :: arr(*)
+ 
+      end subroutine print_address
+      !-------------------------------------------------------
+   end interface
+ 
+ 
+   interface 
+      !-------------------------------------------------------
+      subroutine print_cache_info_dcmplx(str,arr) BIND(c)
+ 
+         use, intrinsic :: ISO_C_BINDING
+         character, intent(in) :: str(*)
+         complex(C_DOUBLE_COMPLEX) :: arr(*)
+ 
+      end subroutine print_cache_info_dcmplx
+      !-------------------------------------------------------
+      subroutine print_cache_info_dreal(str,arr) BIND(c)
+ 
+         use, intrinsic :: ISO_C_BINDING
+         character, intent(in) :: str(*)
+         real(C_DOUBLE) :: arr(*)
+ 
+      end subroutine print_cache_info_dreal
+      !-------------------------------------------------------
+      subroutine print_cache_info_integer(str,ptr) BIND(c)
+ 
+        use, intrinsic :: ISO_C_BINDING
+        character, intent(in) :: str(*)
+        integer(C_INT) :: ptr
+ 
+      end subroutine print_cache_info_integer
+      !-------------------------------------------------------
+   end interface
 
-
-  INTERFACE 
-     !void print_cache_info_dcmplx(char *str, DOUBLE _Complex *arr) {
-     SUBROUTINE print_cache_info_dcmplx(str,arr) BIND(c)
-       USE,intrinsic :: ISO_C_BINDING
-       CHARACTER,DIMENSION(*),INTENT(IN) :: str
-       COMPLEX(C_DOUBLE_COMPLEX),DIMENSION(*) :: arr
-     END SUBROUTINE print_cache_info_dcmplx
-     !void print_cache_info_dreal(char *str, double *arr) {
-     SUBROUTINE print_cache_info_dreal(str,arr) BIND(c)
-       USE,intrinsic :: ISO_C_BINDING
-       CHARACTER,DIMENSION(*),INTENT(IN) :: str
-       real(C_DOUBLE),DIMENSION(*) :: arr
-     END SUBROUTINE print_cache_info_dreal
-     SUBROUTINE print_cache_info_integer(str,ptr) BIND(c)
-       USE,intrinsic :: ISO_C_BINDING
-       CHARACTER,DIMENSION(*),INTENT(IN) :: str
-       integer(C_INT) :: ptr
-     END SUBROUTINE print_cache_info_integer
-  END INTERFACE
-
-END MODULE cutils
+end module cutils

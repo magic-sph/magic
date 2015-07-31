@@ -19,11 +19,12 @@ contains
       !  +-------------------------------------------------------------------+
       use mpi
       use truncation
+      use radial_data, only: n_r_cmb, n_r_icb
       use radial_functions, only: dtemp0, topcond, botcond, i_costf_init,   &
                                   d_costf_init, drx, ddrx, dr_fac_ic,       &
                                   i_costf1_ic_init, d_costf1_ic_init,       &
                                   i_costf2_ic_init, d_costf2_ic_init,       &
-                                  n_r_cmb, n_r_icb, r, or1
+                                  r, or1
       use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
                                      ktopv, kbotv, LFfac, imagcon
       use num_param, only: dtMax, alpha

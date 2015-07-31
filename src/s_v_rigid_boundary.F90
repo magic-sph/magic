@@ -20,6 +20,7 @@
 !  +-------------------------------------------------------------------+
 
     USE truncation
+    use radial_data, only: n_r_cmb, n_r_icb
     USE radial_functions
     USE blocking
     USE horizontal_data

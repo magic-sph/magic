@@ -318,11 +318,11 @@ magic.o                 : truncation.o m_num_param.o m_parallel.o m_logic.o\
 			  m_Egeos.o m_spectra.o m_out_TO.o m_output_data.o\
                            m_outPV3.o m_Namelists.o m_blocking.o
 m_step_time.o           : truncation.o m_blocking.o m_phys_param.o\
-                          m_num_param.o m_init_fields.o m_const.o m_radial.o\
-                          m_horizontal.o m_logic.o m_output_data.o m_output.o m_movie.o\
+                          m_num_param.o m_radial_data.o\
+                          m_logic.o m_output_data.o m_output.o m_movie.o\
                           m_char_manip.o m_timing.o s_logWrite.o\
                           m_radialLoop.o s_get_b_nl_bcs.o\
-                          s_check_time_hits.o m_LMLoop.o m_dt_fieldsLast.o \
+                          m_step_time_helpers.o m_LMLoop.o m_dt_fieldsLast.o \
 			  c_utils.o m_useful.o
 m_outMisc.o             : truncation.o m_num_param.o m_phys_param.o m_logic.o\
                           m_output_data.o m_blocking.o m_const.o m_radial.o\
@@ -344,7 +344,7 @@ m_rIterThetaBlocking_OpenMP.o : m_rIterThetaBlocking.o m_TO.o m_dtB.o\
 m_rIterThetaBlocking_seq.o : m_rIterThetaBlocking.o m_TO.o m_dtB.o\
                           m_out_movie_file.o m_outRot.o
 m_LMLoop.o              : truncation.o m_blocking.o m_parallel.o\
-                          m_phys_param.o m_logic.o m_radial.o m_horizontal.o\
+                          m_logic.o m_radial_data.o\
                           m_output_data.o m_fields.o m_dt_fieldsLast.o m_mat.o\
 			  m_updateS.o m_updateB.o \
                           m_updateZ.o m_updateWP.o m_timing.o m_LMLoop_data.o\
@@ -352,7 +352,6 @@ m_LMLoop.o              : truncation.o m_blocking.o m_parallel.o\
 m_timing.o		: m_parallel.o
 m_LMLoop_data.o		: m_parallel.o m_blocking.o
 s_get_ddrNS_even.o      : s_costf1.o s_get_ddcheb_even.o s_costf2.o 
-s_dt_courant.o          : truncation.o m_output_data.o m_logic.o  m_radial_data.o
 m_legendre_trafo.o      : truncation.o m_blocking.o m_horizontal.o m_logic.o\
                           m_const.o m_leg_helper.o
 s_get_dddr.o            : s_costf1.o s_get_dddcheb.o 
@@ -411,7 +410,8 @@ s_rBrSpec.o             : truncation.o m_blocking.o m_horizontal.o m_radial.o\
                           m_num_param.o m_phys_param.o m_output_data.o m_logic.o\
                           m_char_manip.o
 s_get_ddr.o             : s_costf1.o s_get_ddcheb.o 
-s_check_time_hits.o     : truncation.o m_output_data.o m_num_param.o m_logic.o 
+m_step_time_helpers.o   : m_output_data.o m_num_param.o m_logic.o\
+                          m_radial_data.o
 s_getHelLM.o            : truncation.o m_blocking.o m_horizontal.o\
                           m_num_param.o m_phys_param.o m_radial.o m_logic.o\
                           m_output_data.o s_legtfAS2.o 
@@ -455,8 +455,8 @@ s_legTF1.o              : truncation.o m_horizontal.o m_blocking.o
 s_legTF.o		: truncation.o
 s_logWrite.o            : truncation.o m_output_data.o m_parallel.o m_logic.o 
 s_lmAS2pt.o             : truncation.o m_blocking.o m_horizontal.o m_radial.o 
-m_getDlm.o              : truncation.o m_blocking.o m_num_param.o\
-                          m_horizontal.o m_phys_param.o m_radial.o m_const.o\
+m_getDlm.o              : truncation.o m_blocking.o m_num_param.o m_const.o\
+                          m_horizontal.o m_radial.o m_const.o m_LMLoop_data.o\
                           m_useful.o m_integration.o
 s_costf1.o              : s_fft_fac.o truncation.o
 m_out_dtB_frame.o       : truncation.o m_blocking.o m_radial.o m_logic.o\
@@ -496,8 +496,7 @@ m_radial.o              : truncation.o m_radial_data.o m_mat.o m_algebra.o\
                           s_get_chebs_even.o s_init_costf2.o
 m_output_data.o         : m_logic.o m_parallel.o m_char_manip.o
 m_horizontal.o          : truncation.o m_phys_param.o m_num_param.o\
-                          m_radial.o m_logic.o m_output_data.o\
-                          m_blocking.o m_plms.o $(FFT_OBJS)
+                          m_radial.o m_logic.o m_blocking.o m_plms.o $(FFT_OBJS)
 m_RMS.o	                : truncation.o m_blocking.o
 m_Grenoble.o            : truncation.o
 m_init_fields.o         : truncation.o m_blocking.o m_radial.o m_horizontal.o\

@@ -19,7 +19,8 @@ SUBROUTINE legPrepG(nR,nBc,lDeriv,lRmsCalc,l_frame, &
   !  +-------------------------------------------------------------------+
 
   USE truncation,ONLY: lm_max,l_max
-  USE radial_functions,ONLY: n_r_icb,n_r_cmb,or2
+  USE radial_data,ONLY: n_r_icb, n_r_cmb
+  USE radial_functions,ONLY: or2
   USE torsional_oscillations,only:ddzASL
   USE Grenoble,ONLY: lGrenoble, b0,db0,ddb0
   USE blocking,ONLY: lm2l,lm2m,lm2

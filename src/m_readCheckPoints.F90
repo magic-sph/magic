@@ -13,7 +13,8 @@ module readCheckPoints
                           omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,        &
                           omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,         &
                           tShift_ma1,tShift_ma2,tipdipole
-   use radial_functions, only: n_r_icb,n_r_CMB,r
+   use radial_functions, only: r
+   use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
    use const, only: c_z10_omega_ic, c_z10_omega_ma, pi
 

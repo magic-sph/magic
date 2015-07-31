@@ -69,7 +69,7 @@ contains
       real(kind=8) :: Helna2Nr_global(n_r_max), Helna2Sr_global(n_r_max)
       real(kind=8) :: Hel2Nr_global(n_r_max), Hel2Sr_global(n_r_max)
       real(kind=8) :: HelEAr_global(n_r_max)
-      complex(kind=8),dimension(n_r_max) :: p44_local(n_r_max)
+      complex(kind=8) :: p44_local(n_r_max)
       real(kind=8) :: Hel(nfs), Hel2(nfs), Helna(nfs), Helna2(nfs), r2
       real(kind=8) :: HelN,HelS
       real(kind=8) :: HelnaN,HelnaS

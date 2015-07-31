@@ -396,92 +396,92 @@ contains
                version='Graphout_Version_9'
 
                !-------- Write parameters:
-               call MPI_FILE_write(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_write(graph_mpi_fh,version,LEN(version), &
+               call MPI_FILE_WRITE(graph_mpi_fh,version,LEN(version), &
                                    MPI_CHARACTER,status,ierr)
                !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-               call MPI_FILE_write(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               call MPI_FILE_write(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_write(graph_mpi_fh,runid,len(runid), &
+               call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
                                    MPI_CHARACTER,status,ierr)
                !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-               call MPI_FILE_write(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               call MPI_FILE_write(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_write(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(n_theta_max),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(n_phi_tot),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_phi_tot),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(n_r_ic_max-1),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_ic_max-1),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,float(nThetaBs),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,float(nThetaBs),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(radratio),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(radratio),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,sngl(sigma_ratio),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(sigma_ratio),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_write(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
                !-------- Write colatitudes:
-               call MPI_FILE_write(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
                                    MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
                do n_theta=1,n_theta_max
-                  call MPI_FILE_write(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
+                  call MPI_FILE_WRITE(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
                                       MPI_REAL,status,ierr)
                   !call mpi_get_count(status,MPI_REAL,count,ierr)
                   !bytes_written = bytes_written + count*SIZEOF_REAL
                end do
-               call MPI_FILE_write(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
                                    MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
@@ -506,22 +506,22 @@ contains
                  n_r-1, r(n_r)/r(1), n_theta_start, n_theta_stop
          else
 #endif
-            call MPI_FILE_write(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_write(graph_mpi_fh,float(n_r-1),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r-1),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(r(n_r)/r(1)),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(r(n_r)/r(1)),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_theta_start),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_start),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_theta_stop),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_stop),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
 #if 0
@@ -697,89 +697,89 @@ contains
             version='Graphout_Version_9'
 
             !-------- Write parameters:
-            call MPI_FILE_write(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_write(graph_mpi_fh,version,LEN(version), &
+            call MPI_FILE_WRITE(graph_mpi_fh,version,LEN(version), &
                                 MPI_CHARACTER,status,ierr)
             !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-            call MPI_FILE_write(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
 
-            call MPI_FILE_write(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_write(graph_mpi_fh,runid,len(runid), &
+            call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
                                 MPI_CHARACTER,status,ierr)
             !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-            call MPI_FILE_write(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-            call MPI_FILE_write(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_write(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_theta_max),1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
                                 MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_phi_tot),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_phi_tot),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(n_r_ic_max-1),1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_ic_max-1),1, &
                                 MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,float(nThetaBs),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,float(nThetaBs),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(radratio),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(radratio),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,sngl(sigma_ratio),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,sngl(sigma_ratio),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_write(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
             !-------- Write colatitudes:
-            call MPI_FILE_write(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
                                 MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
             do n_theta=1,n_theta_max
-               call MPI_FILE_write(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
             end do
-            call MPI_FILE_write(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
                                 MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
@@ -899,15 +899,15 @@ contains
             ! in process n_procs-1 the last oc fields have been written,
             ! Now just append on this process.
             if (rank == n_procs-1) then
-               call MPI_FILE_write(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
-               call MPI_FILE_write(graph_mpi_fh,float(n_r_max+nR-2),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max+nR-2),1, &
                                    MPI_REAL,status,ierr)
-               call MPI_FILE_write(graph_mpi_fh,sngl(r_ic(nR)/r_cmb),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,sngl(r_ic(nR)/r_cmb),1, &
                                    MPI_REAL,status,ierr)
-               call MPI_FILE_write(graph_mpi_fh,1.E0,1,MPI_REAL,status,ierr)
-               call MPI_FILE_write(graph_mpi_fh,float(n_theta_max),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,1.E0,1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
                                    MPI_REAL,status,ierr)
-               call MPI_FILE_write(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
             end if
 #else
             write(n_graph_file) float(n_r_max+nR-2),sngl(r_ic(nR)/r_cmb), &
@@ -1017,25 +1017,25 @@ contains
       integer :: status(MPI_STATUS_SIZE)!,count
 
 #ifdef ONE_LARGE_BLOCK
-      call MPI_FILE_write(graph_mpi_fh,n_phis*n_thetas*SIZEOF_REAL,1, &
+      call MPI_FILE_WRITE(graph_mpi_fh,n_phis*n_thetas*SIZEOF_REAL,1, &
                           MPI_INTEGER,status,ierr)
-      call MPI_FILE_write(graph_mpi_fh,dummy(:,1:n_thetas),n_phis*n_thetas, &
+      call MPI_FILE_WRITE(graph_mpi_fh,dummy(:,1:n_thetas),n_phis*n_thetas, &
                           MPI_REAL,status,ierr)
-      call MPI_FILE_write(graph_mpi_fh,n_phis*n_thetas*SIZEOF_REAL,1, &
+      call MPI_FILE_WRITE(graph_mpi_fh,n_phis*n_thetas*SIZEOF_REAL,1, &
                           MPI_INTEGER,status,ierr)
 #else
       !PERFON('gwrite_M')
       do n_theta=1,n_thetas
 
          if ( which_form == 0 ) then ! unformatted output
-            call MPI_FILE_write(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
                                 MPI_INTEGER,status,ierr)
-            call MPI_FILE_write(graph_mpi_fh,dummy(1,n_theta),n_phis, &
+            call MPI_FILE_WRITE(graph_mpi_fh,dummy(1,n_theta),n_phis, &
                                 MPI_REAL,status,ierr)
-            call MPI_FILE_write(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
                                 MPI_INTEGER,status,ierr)
 
-            !call MPI_FILE_write(n_graph_file) &
+            !call MPI_FILE_WRITE(n_graph_file) &
             !      (dummy(n_phi,n_theta),n_phi=1,n_phis)
          else                ! formatted output
 #if 0  

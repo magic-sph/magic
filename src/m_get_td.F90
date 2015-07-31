@@ -35,11 +35,11 @@ module nonlinear_lm_mod
  
    type :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space: 
-      complex(kind=8),DIMENSION(:),allocatable :: AdvrLM, AdvtLM, AdvpLM
-      complex(kind=8),DIMENSION(:),allocatable :: LFrLM,  LFtLM,  LFpLM
-      complex(kind=8),DIMENSION(:),allocatable :: VxBrLM, VxBtLM, VxBpLM
-      complex(kind=8),DIMENSION(:),allocatable :: VSrLM,  VStLM,  VSpLM
-      complex(kind=8),DIMENSION(:),allocatable :: ViscHeatLM, OhmLossLM
+      complex(kind=8), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
+      complex(kind=8), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
+      complex(kind=8), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
+      complex(kind=8), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
+      complex(kind=8), allocatable :: ViscHeatLM(:), OhmLossLM(:)
  
    contains
  

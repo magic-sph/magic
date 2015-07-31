@@ -1,10 +1,10 @@
 !$Id$
 module const
-!*********************************************************************
-!  module containing constants used for rotation of inner
-!  core and mantle.
-!  See subroutine s_get_new_constants for explanations.
-!*********************************************************************
+   !---------------------------------------------------------------
+   !  module containing constants used for rotation of inner
+   !  core and mantle.
+   !  See subroutine s_get_new_constants for explanations.
+   !---------------------------------------------------------------
 
    implicit none
  

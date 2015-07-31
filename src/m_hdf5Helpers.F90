@@ -1,6 +1,8 @@
 !$Id$
 module hdf5Helpers
 
+   use blocking, only: st_map, lo_map
+   use LMLoop_data, only: llm, ulm
    use hdf5
 
    implicit none
@@ -20,11 +22,9 @@ module hdf5Helpers
    public :: readHdf5_attribute, writeHdf5_attribute, write_dataset
 
 contains
-!---------------
+
    subroutine write_dataset(loc_id, dataset_name, dataset_type, dat, dim1, dims_full)
 
-      use blocking, only: st_map, lo_map
-      use LMLoop_data, only: llm, ulm
 
       !--- Input variables
       integer,          intent(in) :: dim1
@@ -67,16 +67,18 @@ contains
       call h5pclose_f(plist_id, error)
 
    end subroutine write_dataset
-!---------------
+!------------------------------------------------------------------------------
    subroutine readHdf5_attr_dble(loc_id,attr_name,attr_value)
 
       !--- Input variables
-      character(len=*),intent(in) :: attr_name
-      integer(HID_T),intent(in) :: loc_id
-      real(kind=8),intent(out) :: attr_value
+      character(len=*), intent(in) :: attr_name
+      integer(HID_T),   intent(in) :: loc_id
+
+      !--- Output variables
+      real(kind=8), intent(out) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T),dimension(1) :: adims = [1]  ! Attribute dimensions
+      integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
@@ -91,16 +93,18 @@ contains
       end if
 
    end subroutine readHdf5_attr_dble
-!---------------
+!------------------------------------------------------------------------------
    subroutine readHdf5_attr_int(loc_id,attr_name,attr_value)
 
       !--- Input variables
-      character(len=*),intent(in) :: attr_name
-      integer(HID_T),intent(in) :: loc_id
-      integer,intent(out) :: attr_value
+      character(len=*), intent(in) :: attr_name
+      integer(HID_T),   intent(in) :: loc_id
+
+      !--- Output variables
+      integer, intent(out) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T),dimension(1) :: adims = [1]  ! Attribute dimensions
+      integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
@@ -115,7 +119,7 @@ contains
       end if
 
    end subroutine readHdf5_attr_int
-!---------------
+!------------------------------------------------------------------------------
    subroutine writeHdf5_attr_dble(loc_id,aspace_id,attr_name,attr_value)
 
       !--- Input variables
@@ -125,7 +129,7 @@ contains
       real(kind=8),    intent(in) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T),DIMENSION(1) :: adims = [1]  ! Attribute dimensions
+      integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
@@ -135,7 +139,7 @@ contains
       call h5aclose_f(attr_id, error)
 
    end subroutine writeHdf5_attr_dble
-!---------------
+!------------------------------------------------------------------------------
    subroutine writeHdf5_attr_int(loc_id,aspace_id,attr_name,attr_value)
 
       !--- Input variables
@@ -145,7 +149,7 @@ contains
       integer,         intent(in) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T),DIMENSION(1) :: adims = [1]  ! Attribute dimensions
+      integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
@@ -155,5 +159,5 @@ contains
       call h5aclose_f(attr_id, error)
 
    end subroutine writeHdf5_attr_int
-!---------------
+!------------------------------------------------------------------------------
 end module hdf5Helpers

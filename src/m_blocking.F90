@@ -1,15 +1,19 @@
 !$Id$
 !#define OLD_THETA_BLOCKING 1
 module blocking
-!********************************************************************
-!  Common block containing blocking information
-!********************************************************************
-   use logic
-   use parallel_mod,only: nThreads,rank,n_procs,nLMBs_per_rank,rank_with_l1m0
-   use truncation
-   use output_data
-   use LMmapping,only: mappings,allocate_mappings,&
-        & allocate_subblocks_mappings,subblocks_mappings!,sizeLMB2max
+   !--------------------------------------------------
+   !  Common block containing blocking information
+   !--------------------------------------------------
+
+   use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
+                           rank_with_l1m0
+   use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
+                         minc, n_r_max
+   use logic, only: l_save_out
+   use output_data, only: nLF, log_file
+   use LMmapping, only: mappings, allocate_mappings, &
+                        allocate_subblocks_mappings,  &
+                        subblocks_mappings
  
    implicit none
  
