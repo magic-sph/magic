@@ -580,21 +580,20 @@ contains
          end do
    
       else if (n_field_type == 108) then
-!------- Cylindrically radial component of magnetic field (Bs):
 
-        fac_r = or2(n_r)
-        do n_theta_b=1,n_theta_block
+         !-- Cylindrically radial component of magnetic field (Bs):
+         fac_r = or2(n_r)
+         do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_start+n_theta_b-1
             n_theta=n_theta_cal2ord(n_theta_cal)
             n_o=n_store_last+(n_theta-1)*n_phi_max
             fac_t=or1(n_r)*O_sin_theta(n_theta_cal)
             do n_phi=1,n_phi_max
-                frames(n_phi+n_o)=fac_r*br(n_phi,n_theta_b)*sinTheta(n_theta_cal)+ &
-                                  fac_t*bt(n_phi,n_theta_b)*cosTheta(n_theta_cal)
+               frames(n_phi+n_o)=fac_r*br(n_phi,n_theta_b)*sinTheta(n_theta_cal)+ &
+                                 fac_t*bt(n_phi,n_theta_b)*cosTheta(n_theta_cal)
             end do
-        end do
+         end do
 
- 
       end if
     
    end subroutine store_fields_r
@@ -607,7 +606,7 @@ contains
       !  +-------------+----------------+------------------------------------+
       !  |                                                                   |
       !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces phi=const. into array frames(*,*)                          |
+      !  |  surfaces phi=const. into array frames(*,*)                       |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
 

@@ -1,15 +1,42 @@
 !$Id$
 module preCalculations
 
-   use truncation
+   use const
    use num_param
-   use logic
+   use output_data
+   use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
+                         n_cheb_ic_max, m_max, minc, n_cheb_max,   &
+                         lm_max, n_phi_max, n_theta_max
+   use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds, &
+                          l_reset_t
+   use parallel_mod, only: rank
+   use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_plotmap,  &
+                    l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
+                    l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
+                    l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
+                    l_LCR, l_dt_cmb_field, l_storePot
+   use radial_functions, only: i_costf_init, d_costf_init, temp0, r_CMB,   &
+                               r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
+                               otemp1, beta, rho0, rgrav, dbeta,           &
+                               dentropy0, sigma, lambda, dLkappa, kappa,   &
+                               dLvisc, dLlambda, divKtemp0, radial,        &
+                               transportProperties
+   use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
+                                  ekscaled, opr, opm, o_sr, radratio,      &
+                                  sigma_ratio, CorFac, LFfac, BuoFac,      &
+                                  PolInd, nVarCond, nVarDiff, nVarVisc,    &
+                                  rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
+                                  ktops, kbots, interior_model, r_LCR,     &
+                                  n_r_LCR, mode, tmagcon
+   use horizontal_data, only: horizontal
+   use integration, only: rInt_R
+   use useful, only: logWrite
 
    implicit none
 
    private
 
-   public :: preCalc, preCalcTimes
+   public :: preCalc, preCalcTimes, writeInfo
 
 contains
 
@@ -22,18 +49,6 @@ contains
       !  |  MPI: This is called by every processors.                         |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
-
-      use const
-      use radial_functions
-      use physical_parameters, only:nVarEps,pr,prmag,ra,rascaled,ek,ekscaled,&
-           & opr,opm,o_sr,radratio,sigma_ratio,CorFac,LFfac,BuoFac,PolInd,   &
-           & nVarCond,nVarDiff,nVarVisc,rho_ratio_ic,rho_ratio_ma,epsc,epsc0,&
-           & ktops,kbots,interior_model,r_LCR,n_r_LCR
-      use parallel_mod, only: rank
-      use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds
-      use horizontal_data, only: horizontal
-      use output_data, only: tag
-      use integration, only: rInt_R
     
       !---- Local variables:
       real(kind=8) :: sq4pi,c1,help,facIH
@@ -496,10 +511,6 @@ contains
       !  |                                                                   |
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
-      use init_fields, only: l_reset_t
-      use physical_parameters, only: tmagcon
-      use output_data
-
       !-- Output variables
       real(kind=8), intent(out) ::  time
       integer, intent(out) :: n_time_step
@@ -738,5 +749,89 @@ contains
             
    end subroutine get_hit_times
 !------------------------------------------------------------------------------
+   subroutine writeInfo(n_out)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Purpose of this subroutine is to write the namelist to           |
+      !  |  file unit n_out. This file has to be open before calling this    |
+      !  |  routine.                                                         |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
 
+      !-- Input variable:
+      integer, intent(in) :: n_out
+
+      if ( rank == 0 ) then
+         if ( l_save_out .and. n_out==n_log_file ) then
+            open(n_out, file=log_file, status='unknown', position='append')
+         end if
+
+         !-- Output of mode:
+         write(n_out,*)
+         if ( mode == 0 ) then
+            write(n_out,*) '! Self consistent dynamo integration.'
+         else if ( mode == 1 ) then
+            write(n_out,*) '! Convection integration.'
+         else if ( mode == 2 ) then
+            write(n_out,*) '! Kinematic dynamo integration.'
+         else if ( mode == 3 ) then
+            write(n_out,*) '! Magnetic decay modes.'
+         else if ( mode == 4 ) then
+            write(n_out,*) '! Magneto convection.'
+         else if ( mode == 5 ) then
+            write(n_out,*) '! Linear onset of convection.'
+         else if ( mode == 6 ) then
+            write(n_out,*) '! Self consistent dynamo integration without LF.'
+         else if ( mode == 7 ) then
+            write(n_out,*) '! Super-rotating IC, no convection, no dynamo.'
+         else if ( mode == 8 ) then
+            write(n_out,*) '! Super-rotating IC, no convection, dynamo.'
+         else if ( mode == 9 ) then
+            write(n_out,*) '! Super-rotating IC, no convection, dynamo, no LF.'
+         else if ( mode == 10 ) then
+            write(n_out,*) '! Super-rotating IC, no advection, no convection, no dynamo.'
+         else if ( mode == 11 ) then
+            write(n_out,*) '! Viscous flow, no inertia, no rotation, no dynamo.'
+         end if
+      end if
+      if ( mode > 11 ) then
+         if ( rank == 0 ) write(*,'(/," Mode > 11 not implemented ! ")')
+         stop
+      end if
+
+      if (rank == 0) then
+         !-- Output of name lists:
+         write(n_out, '(/,'' ! Normalized OC moment of inertia:'',d14.6)') c_moi_oc
+         write(n_out, '('' ! Normalized IC moment of inertia:'',d14.6)') c_moi_ic
+         write(n_out, '('' ! Normalized MA moment of inertia:'',d14.6)') c_moi_ma
+         write(n_out, '('' ! Normalized IC volume :'',d14.6)') vol_ic
+         write(n_out, '('' ! Normalized OC volume :'',d14.6)') vol_oc
+         write(n_out, '('' ! Normalized IC surface:'',d14.6)') surf_cmb*radratio**2
+         write(n_out, '('' ! Normalized OC surface:'',d14.6)') surf_cmb
+         write(n_out,*)
+         write(n_out,*) '! Grid parameters:'
+         write(n_out,'(''  n_r_max      ='',i6, &
+              &   '' = number of radial grid points'')') n_r_max
+         write(n_out,'(''  n_cheb_max   ='',i6)') n_cheb_max
+         write(n_out,'(''  max cheb deg.='',i6)') n_cheb_max-1
+         write(n_out,'(''  n_phi_max    ='',i6, &
+              &   '' = no of longitude grid points'')') n_phi_max
+         write(n_out,'(''  n_theta_max  ='',i6, &
+              &   '' = no of latitude grid points'')') n_theta_max
+         write(n_out,'(''  n_r_ic_max   ='',i6, &
+              &   '' = number of radial grid points in IC'')') n_r_ic_max
+         write(n_out,'(''  n_cheb_ic_max='',i6)') n_cheb_ic_max-1
+         write(n_out,'(''  max cheb deg ='',i6)') 2*(n_cheb_ic_max-1)
+         write(n_out,'(''  l_max        ='',i6, '' = max degree of Plm'')') l_max
+         write(n_out,'(''  m_max        ='',i6, '' = max oder of Plm'')') m_max
+         write(n_out,'(''  lm_max       ='',i6, '' = no of l/m combinations'')') lm_max
+         write(n_out,'(''  minc         ='',i6, '' = longitude symmetry wave no'')') minc
+         write(n_out,'(''  nalias       ='',i6, &
+              &   '' = spher. harm. deal. factor '')') nalias
+
+         if ( l_save_out .and. n_out == n_log_file ) close(n_out)
+      end if
+
+   end subroutine writeInfo
+!------------------------------------------------------------------------------
 end module preCalculations

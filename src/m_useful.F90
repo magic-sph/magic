@@ -4,6 +4,8 @@ module useful
    !  library with several useful shit
    !------------------------------------------------------------------------
 
+   use parallel_mod, only: rank
+   use output_data, only: n_log_file, log_file
    use logic, only: l_save_out
 
    implicit none
@@ -11,7 +13,7 @@ module useful
    private
 
    public :: l_correct_step, random, factorise, cc2real, cc22real, &
-             safeOpen, safeClose
+             safeOpen, safeClose, logWrite
 
 contains
 
@@ -235,5 +237,21 @@ contains
       if ( l_save_out ) close(nf)
 
    end subroutine safeClose
+!----------------------------------------------------------------------------
+   subroutine logWrite(message)
+
+      !-- Input variable:
+      character(len=*), intent(in) :: message
+
+       if ( rank == 0 ) then
+          if ( l_save_out ) then
+             open(n_log_file, file=log_file, status='unknown', position='append')
+          end if
+          write(n_log_file,*) trim(message)
+          write(*,*)          trim(message)
+          if ( l_save_out ) close(n_log_file)
+       end if
+
+   end subroutine logWrite
 !----------------------------------------------------------------------------
 end module useful

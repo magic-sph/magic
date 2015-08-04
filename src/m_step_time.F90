@@ -22,7 +22,7 @@ module step_time_mod
                     lVerbose, l_time_hits, l_b_nl_icb, l_b_nl_cmb,     &
                     l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
                     l_dtBmovie, lVerbose, l_heat, l_conv, l_movie,     &
-                    l_true_time, l_runTimeLimit
+                    l_true_time, l_runTimeLimit, l_save_out
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -41,16 +41,18 @@ module step_time_mod
                           n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
                           n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
                           n_t_TOZ, t_TOZ, l_graph_time, graph_file, ngform,&
-                          tag_wo_rank, nLF, log_file, graph_mpi_fh
+                          tag_wo_rank, nLF, log_file, graph_mpi_fh,        &
+                          n_log_file, n_time_hits
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
-   use useful, only: l_correct_step, safeOpen, safeClose
+   use useful, only: l_correct_step, safeOpen, safeClose, logWrite
    use communications, only: get_global_sum, r2lo_redist, lm2r_type, &
                              lo2r_redist_start, lo2r_redist_wait,    &
                              lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
                              lo2r_w
+   use courant_mod, only: dt_courant
+   use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
-   use step_time_helpers ! Everything is needed
 
    implicit none 
 
@@ -1205,5 +1207,81 @@ contains
 #endif
 
    end subroutine step_time
+!------------------------------------------------------------------------------
+   subroutine check_time_hits(l_new_dt,time,dt,dt_new)
+      !  +-------------+----------------+------------------------------------+
+      !  |                                                                   |
+      !  |  Checks whether a certain dt is required to hit a                 |
+      !  |  specific output-time.                                            |
+      !  |                                                                   |
+      !  +-------------------------------------------------------------------+
+
+      !-- Output: ev. modified dt
+      logical, intent(out) :: l_new_dt ! signfies change of dt !
+      real(kind=8), intent(inout) :: time,dt,dt_new
+       
+      !-- Local variables:
+      integer :: n_dt_hit
+      integer, parameter :: n_dt_hit_max=10
+      real(kind=8) ::  dt_hit(n_dt_hit_max) ! dt for different hit times
+      integer :: n                          ! counter
+      real(kind=8) ::  time_new             ! Next time step
+
+      time_new=time+dt
+      l_new_dt=.false.
+
+      n_dt_hit=7
+
+      do n=1,n_dt_hit
+         dt_hit(n)=0.D0
+      end do
+
+      do n=1,n_time_hits
+         if ( t_rst(n) > time .and. t_rst(n) < time_new ) &
+              dt_hit(1)=t_rst(n)-time
+         if ( t_graph(n) > time .and. t_graph(n) < time_new ) &
+              dt_hit(2)=t_graph(n)-time
+         if ( t_log(n) > time .and. t_log(n) < time_new ) &
+              dt_hit(3)=t_log(n)-time
+         if ( t_spec(n) > time .and. t_spec(n) < time_new ) &
+              dt_hit(4)=t_spec(n)-time
+         if ( t_cmb(n) > time .and. t_cmb(n) < time_new ) &
+              dt_hit(5)=t_cmb(n)-time
+         if ( t_movie(n) > time .and. t_movie(n) < time_new ) &
+              dt_hit(6)=t_movie(n)-time
+         if ( t_TO(n) > time .and. t_TO(n) < time_new ) &
+              dt_hit(7)=t_TO(n)-time
+         if ( t_TOmovie(n) > time .and. t_TOmovie(n) < time_new ) &
+              dt_hit(7)=t_TOmovie(n)-time
+      end do
+
+      do n=1,n_dt_hit
+         if ( dt_hit(n) /= 0.D0 .and. dt_hit(n) < dt_new ) then
+            l_new_dt=.true.
+            dt_new=dt_hit(n)
+         end if
+      end do
+
+      if ( l_new_dt ) then
+         if ( dt_new < dtMin ) dt_new=dtMin
+         time_new=time+dt_new
+         write(*, '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+         &     time_new*tScale,time*tScale
+         if ( rank == 0 ) then
+            if ( l_save_out ) then
+               open(n_log_file, file=log_file, status='unknown', position='append')
+               write(n_log_file, &
+                    &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+                    &     time_new*tScale,time*tScale
+               close(n_log_file)
+            else
+               write(n_log_file, &
+                    &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+                    &    time_new*tScale,time*tScale
+            end if
+         end if
+      end if
+
+   end subroutine check_time_hits
 !------------------------------------------------------------------------------
 end module step_time_mod

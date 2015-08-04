@@ -17,7 +17,7 @@ module radial_functions
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
                     l_isothermal, l_anel, l_newmap
-   use chebyshev_polynoms_mod, only: get_chebs
+   use chebyshev_polynoms_mod, only: get_chebs, cheb_grid
  
    implicit none
 
@@ -196,13 +196,12 @@ contains
       end if
 
       !-- Start with outer core:
-      !   cheb_x_map_e calculates the n_r_max gridpoints, these
+      !   cheb_grid calculates the n_r_max gridpoints, these
       !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
       !   r_cheb are the grid_points in the Cheb intervall [-1,1]
       !   and r are these points mapped to the intervall [r_icb,r_cmb]:
-      call cheb_x_map_e_xr(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
-           !                         alpha1,alpha2,paraK,paraX0,lambd)
-           alpha1,alpha2,paraX0,lambd)
+      call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
+                           alpha1,alpha2,paraX0,lambd)
 #if 0
       do n_r=1,n_r_max
          write(*,"(I3,2ES20.12)") n_r,r_cheb(n_r),r(n_r)
@@ -211,14 +210,14 @@ contains
 
       if ( l_newmap ) then
          do n_r=1,n_r_max
-            drx(n_r) =                          (2*alpha1) / &
+            drx(n_r) =                          (2*alpha1) /      &
                  ((1+alpha1**2*(2*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
                  lambd)
             ddrx(n_r) = -(8*alpha1**3*(2*r(n_r)-r_icb-r_cmb-alpha2)) / &
-                 ((1+alpha1**2*(-2*r(n_r)+r_icb+r_cmb+alpha2)**2)**2* &
+                 ((1+alpha1**2*(-2*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
                  lambd)
-            dddrx(n_r) =          (16*alpha1**3*(-1+3*alpha1**2* &
-                 (-2*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
+            dddrx(n_r) =               (16*alpha1**3*(-1+3*alpha1**2* &
+                                (-2*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
                  ((1+alpha1**2*(-2*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
                  lambd)
          end do
@@ -576,10 +575,10 @@ contains
 
          n_r_ic_tot=2*n_r_ic_max-1
 
-         !----- cheb_x_map_e calculates the n_r_ic_tot gridpoints,
+         !----- cheb_grid calculates the n_r_ic_tot gridpoints,
          !      these are the extrema of a Cheb of degree n_r_ic_tot-1.
-         call cheb_x_map_e(-r_icb,r_icb,n_r_ic_tot-1, &
-                           r_ic_2,r_cheb_ic)
+         call cheb_grid(-r_icb,r_icb,n_r_ic_tot-1, &
+                           r_ic_2,r_cheb_ic,0.D0,0.D0,0.D0,0.D0)
 
          !----- Store first n_r_ic_max points of r_ic_2 to r_ic:
          do n_r=1,n_r_ic_max-1

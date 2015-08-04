@@ -67,7 +67,8 @@ module output_mod
    use RMS, only: zeroRms
    use out_RMS, only: dtVrms, dtBrms
    use store_pot_mod, only: storePot
-   use useful, only: safeOpen, safeClose
+   use useful, only: safeOpen, safeClose, logWrite
+   use radial_spectra  ! rBrSpec, rBpSpec
    use storeCheckPoints
 
    implicit none

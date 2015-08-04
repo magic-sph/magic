@@ -11,9 +11,10 @@ module blocking
                          minc, n_r_max
    use logic, only: l_save_out
    use output_data, only: nLF, log_file
-   use LMmapping, only: mappings, allocate_mappings, &
+   use LMmapping, only: mappings, allocate_mappings,  &
                         allocate_subblocks_mappings,  &
                         subblocks_mappings
+   use useful, only: logWrite
  
    implicit none
  

@@ -276,10 +276,10 @@ contains
 
          if ( rank /= 0 ) then
             ! send data to rank 0
-            call MPI_Send(z10ICB,1,MPI_DOUBLE_complex,0,sr_tag,MPI_COMM_WORLD,ierr)
-            call MPI_Send(drz10ICB,1,MPI_DOUBLE_complex,0,sr_tag+1,MPI_COMM_WORLD,ierr)
-            call MPI_Send(z10CMB,1,MPI_DOUBLE_complex,0,sr_tag+2,MPI_COMM_WORLD,ierr)
-            call MPI_Send(drz10CMB,1,MPI_DOUBLE_complex,0,sr_tag+3,MPI_COMM_WORLD,ierr)
+            call MPI_Send(z10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+            call MPI_Send(drz10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+            call MPI_Send(z10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+2,MPI_COMM_WORLD,ierr)
+            call MPI_Send(drz10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+3,MPI_COMM_WORLD,ierr)
          end if
          rank_has_l1m0=.true.
       end if
@@ -287,13 +287,13 @@ contains
       if ( rank == 0 ) then
          if ( .not. rank_has_l1m0 ) then
             ! receive data from the source ranks
-            call MPI_Recv(z10ICB,1,MPI_DOUBLE_complex,&
+            call MPI_Recv(z10ICB,1,MPI_DOUBLE_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(drz10ICB,1,MPI_DOUBLE_complex,&
+            call MPI_Recv(drz10ICB,1,MPI_DOUBLE_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(z10CMB,1,MPI_DOUBLE_complex,&
+            call MPI_Recv(z10CMB,1,MPI_DOUBLE_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+2,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(drz10CMB,1,MPI_DOUBLE_complex,&
+            call MPI_Recv(drz10CMB,1,MPI_DOUBLE_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+3,MPI_COMM_WORLD,status,ierr)
          end if
 

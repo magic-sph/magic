@@ -84,12 +84,12 @@ contains
       n_cmb_sets=n_cmb_sets+1
 
       !--- Open output file name:
-      if ( l_save_out .or. n_cmb_sets == 1 ) then
+      if ( l_save_out .or. n_cmb_sets == 0 ) then
          open(n_cmb_file, file=cmb_file, position='append', form='unformatted')
       end if
 
       !--- If this is the first set write l_max_cmb and minc into file:
-      if ( n_cmb_sets == 1 ) write(n_cmb_file) l_max_cmb,minc,n_data
+      if ( n_cmb_sets <= 1 ) write(n_cmb_file) l_max_cmb,minc,n_data
 
       !--- Write b(*) into output array out(*):
       n_out=0
@@ -123,7 +123,7 @@ contains
       write(n_cmb_file) time,(out(n),n=1,n_out)
 
       !--- Close cmb_file
-      if ( l_save_out .or. n_cmb_sets == 1 ) then
+      if ( l_save_out .or. n_cmb_sets == 0 ) then
          close(n_cmb_file)
       end if
 
@@ -221,7 +221,7 @@ contains
       n_sets=n_sets+1
 
       !--- Open output file with name $file:
-      if ( l_save_out .or. n_sets==1 ) then
+      if ( l_save_out ) then
          open(n_file, file=file, form='unformatted', status='unknown', &
               position='append')
       end if
@@ -340,7 +340,7 @@ contains
       write(n_file) time,(out(n),n=1,n_out)
 
       !--- Close file
-      if ( l_save_out .or. n_sets==1 ) then
+      if ( l_save_out ) then
          close(n_file)
       end if
 

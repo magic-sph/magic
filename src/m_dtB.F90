@@ -14,13 +14,14 @@ module dtB_mod
                                d_costf_init, drx, or1, orho1
    use radial_data,only: nRstart,nRstop
    use parallel_mod,only: nr_per_rank, nr_on_last_rank, MPI_COMM_WORLD, n_procs, &
-                          MPI_DOUBLE_complex, rank
+                          MPI_DOUBLE_COMPLEX, rank
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
                               dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm, llm_real, ulm_real
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP
+   use radial_spectra ! rBrSpec, rBpSpec
 #if (FFTLIB==JW)
    use fft_JW
 #elif (FFTLIB==MKL)
@@ -130,24 +131,24 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank*lm_max_dtB
          end do
-         call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TstrRLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TadvRLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TomeRLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TstrRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TadvRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TomeRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TstrLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TadvLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & PstrLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & PadvLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TstrLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TadvLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & PstrLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & PadvLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DOUBLE_complex,&
-              & TomeLM,recvcounts,displs,MPI_DOUBLE_complex,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
+              & TomeLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
       end if
 
    end subroutine dtb_gather_Rloc_on_rank0

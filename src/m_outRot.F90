@@ -227,7 +227,7 @@ contains
             end do
             rank_has_l1m0=.true.
             if (rank /= 0) then
-               call MPI_Send(z10,n_r_max,MPI_DOUBLE_complex,0,sr_tag, & 
+               call MPI_Send(z10,n_r_max,MPI_DOUBLE_COMPLEX,0,sr_tag, & 
                              MPI_COMM_WORLD,ierr)
             end if
          end if
@@ -239,7 +239,7 @@ contains
                end do
                rank_has_l1m1=.true.
                if ( rank /= 0 ) then
-                  call MPI_Send(z11,n_r_max,MPI_DOUBLE_complex,0, &
+                  call MPI_Send(z11,n_r_max,MPI_DOUBLE_COMPLEX,0, &
                               & sr_tag+1,MPI_COMM_WORLD,ierr)
                end if
             end if
@@ -252,12 +252,12 @@ contains
          ! ranks, which are also different from rank 0
          if ( rank == 0 ) then
             if ( .not. rank_has_l1m0 ) then
-               call MPI_Recv(z10,n_r_max,MPI_DOUBLE_complex,&
+               call MPI_Recv(z10,n_r_max,MPI_DOUBLE_COMPLEX,&
                     &        MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
             end if
             if ( l1m1 > 0 ) then
                if ( .not. rank_has_l1m1 ) then
-                  call MPI_Recv(z11,n_r_max,MPI_DOUBLE_complex,&
+                  call MPI_Recv(z11,n_r_max,MPI_DOUBLE_COMPLEX,&
                        &        MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
                end if
             end if
@@ -549,11 +549,11 @@ contains
             tag=876+ilm
             ! on which process is the lm value?
             if (lmStartB(rank+1) <= lm .and. lm <= lmStopB(rank+1)) then
-               call MPI_Send(field(lm,n_r),1,MPI_DOUBLE_complex,&
+               call MPI_Send(field(lm,n_r),1,MPI_DOUBLE_COMPLEX,&
                     & 0,tag,MPI_COMM_WORLD,ierr)
             end if
             if (rank == 0) then
-               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DOUBLE_complex,&
+               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DOUBLE_COMPLEX,&
                     & MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
             end if
          end if

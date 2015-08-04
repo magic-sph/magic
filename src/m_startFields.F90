@@ -1,7 +1,54 @@
 !$Id$
 #include "perflib_preproc.cpp"
 module start_fields
-   
+
+   use mpi
+   use truncation
+   use radial_data, only: n_r_cmb, n_r_icb
+   use radial_functions, only: dtemp0, topcond, botcond, i_costf_init,   &
+                               d_costf_init, drx, ddrx, dr_fac_ic,       &
+                               i_costf1_ic_init, d_costf1_ic_init,       &
+                               i_costf2_ic_init, d_costf2_ic_init,       &
+                               r, or1
+   use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
+                                  ktopv, kbotv, LFfac, imagcon
+   use num_param, only: dtMax, alpha
+   use Grenoble, only: lGrenoble
+   use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
+   use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
+                    l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
+                    l_rot_ma
+   use init_fields, only: l_start_file, init_s1, init_b1, tops,          &
+                          initV, initS, initB, s_cond, start_file
+   use fields, only: w,dw,ddw,z,dz,s,ds,p,dp,b,db,ddb,aj,dj,ddj,b_ic,    &
+                    db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,omega_ic,omega_ma,   &
+                    w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc, &
+                    aj_ic_LMloc,ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,    &
+                    db_LMloc,dj_LMloc,ddb_LMloc,ddj_LMloc,db_ic_LMloc,   &
+                    dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,       &
+                    dz_LMloc,s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,       &
+                    dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,b_Rloc,db_Rloc,      &
+                    ddb_Rloc,aj_Rloc,dj_Rloc,w_LMloc_container,          &
+                    w_Rloc_container,s_LMloc_container,s_Rloc_container, &
+                    z_LMloc_container,z_Rloc_container,p_LMloc_container,&
+                    p_Rloc_container,b_LMloc_container,b_Rloc_container, &
+                    aj_LMloc_container,aj_Rloc_container
+   use fieldsLast ! The entire module is required
+   use const, only: zero, c_lorentz_ma, c_lorentz_ic, pi
+   use useful, only: cc2real, logWrite
+   use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
+                          ulm_realMag,llm_real,ulm_real,llm,ulm,   &
+                          ulmMag,llmMag
+   use parallel_mod, only: rank, n_procs, nLMBs_per_rank
+   use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
+                             lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
+                             get_global_sum, lo2r_w
+#ifdef WITH_HDF5
+   use readCheckPoints, only: readHdf5_serial,readStartFields
+#else
+   use readCheckPoints, only: readStartFields
+#endif
+    
    implicit none
 
    private
@@ -17,54 +64,6 @@ contains
       !  |  other auxiliary parameters.                                      |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
-      use mpi
-      use truncation
-      use radial_data, only: n_r_cmb, n_r_icb
-      use radial_functions, only: dtemp0, topcond, botcond, i_costf_init,   &
-                                  d_costf_init, drx, ddrx, dr_fac_ic,       &
-                                  i_costf1_ic_init, d_costf1_ic_init,       &
-                                  i_costf2_ic_init, d_costf2_ic_init,       &
-                                  r, or1
-      use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
-                                     ktopv, kbotv, LFfac, imagcon
-      use num_param, only: dtMax, alpha
-      use Grenoble, only: lGrenoble
-      use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
-      use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
-                       l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
-                       l_rot_ma
-      use init_fields, only: l_start_file, init_s1, init_b1, tops,          &
-                             initV, initS, initB, s_cond, start_file
-      use fields, only: w,dw,ddw,z,dz,s,ds,p,dp,b,db,ddb,aj,dj,ddj,b_ic,    &
-                       db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic,omega_ic,omega_ma,   &
-                       w_LMloc,p_LMloc,s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc, &
-                       aj_ic_LMloc,ds_LMloc,dp_LMloc,dw_LMloc,ddw_LMloc,    &
-                       db_LMloc,dj_LMloc,ddb_LMloc,ddj_LMloc,db_ic_LMloc,   &
-                       dj_ic_LMloc,ddb_ic_LMloc,ddj_ic_LMloc,z_LMloc,       &
-                       dz_LMloc,s_Rloc,ds_Rloc,z_Rloc,dz_Rloc,w_Rloc,       &
-                       dw_Rloc,ddw_Rloc,p_Rloc,dp_Rloc,b_Rloc,db_Rloc,      &
-                       ddb_Rloc,aj_Rloc,dj_Rloc,w_LMloc_container,          &
-                       w_Rloc_container,s_LMloc_container,s_Rloc_container, &
-                       z_LMloc_container,z_Rloc_container,p_LMloc_container,&
-                       p_Rloc_container,b_LMloc_container,b_Rloc_container, &
-                       aj_LMloc_container,aj_Rloc_container
-      use fieldsLast ! The entire module is required
-      use const, only: zero, c_lorentz_ma, c_lorentz_ic, pi
-      use useful, only: cc2real
-      use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
-                             ulm_realMag,llm_real,ulm_real,llm,ulm,   &
-                             ulmMag,llmMag
-      use parallel_mod, only: rank, n_procs, nLMBs_per_rank
-      use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
-                                lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
-                                get_global_sum, lo2r_w
-#ifdef WITH_HDF5
-      use readCheckPoints, only: readHdf5_serial,readStartFields
-#else
-      use readCheckPoints, only: readStartFields
-#endif
-    
-      implicit none
     
       !---- Output variables:
       real(kind=8), intent(out) :: time,dt,dtNew

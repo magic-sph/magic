@@ -885,7 +885,7 @@ contains
       call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
-      if ( rank == 0 ) then
+      if ( rank == 0 .and. l_heat ) then
          !-- Radial Integrals:
          surf_ICB=4.D0*pi*r_icb*r_icb
          fac      =1.D0/vol_oc

@@ -18,42 +18,53 @@ MODULE rIterThetaBlocking_seq_mod
   use dtB_mod, only: get_dtBLM, get_dH_dtBLM
   use out_movie, only: store_movie_frame
   use outRot, only: get_lorentz_torque
+  use courant_mod, only: courant 
+  use nonlinear_bcs, only: get_br_v_bcs
 
-  IMPLICIT NONE
+  implicit none
 
-  TYPE,PUBLIC,EXTENDS(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
+  type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
      type(grid_space_arrays_t) :: gsa
-     TYPE(nonlinear_lm_t) :: nl_lm
-   CONTAINS
+     type(nonlinear_lm_t) :: nl_lm
+  contains
      procedure :: initialize => initialize_rIterThetaBlocking_seq
      procedure :: finalize => finalize_rIterThetaBlocking_seq
      procedure :: do_iteration => do_iteration_ThetaBlocking_seq
      procedure :: getType => getThisType
-  END TYPE rIterThetaBlocking_seq_t
-CONTAINS
-  FUNCTION getThisType(this)
+  end type rIterThetaBlocking_seq_t
+
+contains
+
+  function getThisType(this)
+
     class(rIterThetaBlocking_seq_t) :: this
     character(len=100) :: getThisType
-    getThisType="rIterThetaBlocking_seq_t"
-  END FUNCTION getThisType
 
-  SUBROUTINE initialize_rIterThetaBlocking_seq(this)
+    getThisType="rIterThetaBlocking_seq_t"
+
+  end function getThisType
+!------------------------------------------------------------------------------
+  subroutine initialize_rIterThetaBlocking_seq(this)
+
     class(rIterThetaBlocking_seq_t) :: this
 
-    CALL this%allocate_common_arrays()
+    call this%allocate_common_arrays()
     call this%gsa%initialize()
     call this%nl_lm%initialize(lmP_max)
-  END SUBROUTINE initialize_rIterThetaBlocking_seq
 
-  SUBROUTINE finalize_rIterThetaBlocking_seq(this)
+  end subroutine initialize_rIterThetaBlocking_seq
+!------------------------------------------------------------------------------
+  subroutine finalize_rIterThetaBlocking_seq(this)
+
     class(rIterThetaBlocking_seq_t) :: this
 
-    CALL this%deallocate_common_arrays()
+    call this%deallocate_common_arrays()
     call this%gsa%finalize()
     call this%nl_lm%finalize()
-  END SUBROUTINE finalize_rIterThetaBlocking_seq
 
-  SUBROUTINE do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
+  end subroutine finalize_rIterThetaBlocking_seq
+!------------------------------------------------------------------------------
+  subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
        &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM, &
        &                 br_vt_lm_cmb,br_vp_lm_cmb,                    &
        &                 br_vt_lm_icb,br_vp_lm_icb,                    &
@@ -62,10 +73,14 @@ CONTAINS
        &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
        &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,&
        &                 EparaxiLmr)
-    CLASS(rIterThetaBlocking_seq_t) :: this
+
+    class(rIterThetaBlocking_seq_t) :: this
+
+    !-- Input variables
     INTEGER,      INTENT(IN) :: nR,nBc
     REAL(kind=8), INTENT(IN) :: time,dt,dtLast
 
+    !-- Output variables
     COMPLEX(kind=8), INTENT(OUT) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
     COMPLEX(kind=8), INTENT(OUT) :: dbdt(:),djdt(:),dVxBhLM(:)
     !---- Output of nonlinear products for nonlinear
@@ -81,15 +96,14 @@ CONTAINS
     REAL(kind=8),    INTENT(OUT) :: fpoynLMr(:),fresLMr(:)
     REAL(kind=8),    INTENT(OUT) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
-
-    INTEGER :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
-
+    !-- Local variables
+    integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
     logical :: lGraphHeader=.false.
-    LOGICAL :: DEBUG_OUTPUT=.false.
+    logical :: DEBUG_OUTPUT=.false.
 
     this%nR=nR
     this%nBc=nBc
-    this%isRadialBoundaryPoint=(nR == n_r_cmb).OR.(nR == n_r_icb)
+    this%isRadialBoundaryPoint = (nR == n_r_cmb) .OR. (nR == n_r_icb)
 
     IF ( this%l_cour ) THEN
        this%dtrkc=1.D10
@@ -109,9 +123,9 @@ CONTAINS
     !      legPrepG collects all the different modes necessary 
     !      to calculate the non-linear terms at a radial grid point nR
     PERFON('legPrepG')
-    IF (DEBUG_OUTPUT) THEN
-       WRITE(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ",this%nBc,", lDeriv = ",this%lDeriv,&
-            &", l_mag = ",l_mag
+    IF ( DEBUG_OUTPUT ) THEN
+       WRITE(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ",this%nBc,", lDeriv = ", &
+            & this%lDeriv,", l_mag = ",l_mag
     END IF
     CALL legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc,this%l_frame, &
          &        this%lTOnext,this%lTOnext2,this%lTOcalc,                 &
@@ -133,7 +147,8 @@ CONTAINS
        nThetaLast =(nThetaB-1) * this%sizeThetaB
        nThetaStart=nThetaLast+1
        nThetaStop =nThetaLast + this%sizeThetaB
-       !WRITE(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ",nThetaStop
+       !WRITE(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ", &
+       !      & nThetaStop
 
        CALL this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
 
@@ -162,13 +177,15 @@ CONTAINS
        !     These products are used in get_b_nl_bcs.
        PERFON('nl_cmb')
        IF ( this%nR == n_r_cmb .AND. l_b_nl_cmb ) THEN
-          CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc,this%leg_helper%omegaMA,              &
-               &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
-               &            br_vt_lm_cmb,br_vp_lm_cmb)
+          CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
+               &            this%leg_helper%omegaMA,or2(this%nR),   &
+               &            orho1(this%nR),nThetaStart,             &
+               &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
        ELSE IF ( this%nR == n_r_icb .AND. l_b_nl_icb ) THEN
-          CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc,this%leg_helper%omegaIC,              &
-               &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
-               &            br_vt_lm_icb,br_vp_lm_icb)
+          CALL get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
+               &            this%leg_helper%omegaIC,or2(this%nR),   &
+               &            orho1(this%nR),nThetaStart,             &
+               &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
        END IF
        PERFOFF
        !--------- Calculate Lorentz torque on inner core:
@@ -192,9 +209,10 @@ CONTAINS
        !--------- Calculate courant condition parameters:
        IF ( this%l_cour ) THEN
           !PRINT*,"Calling courant with this%nR=",this%nR
-          CALL courant(this%nR,this%dtrkc,this%dthkc,   &
-               &       this%gsa%vrc,this%gsa%vtc,this%gsa%vpc,this%gsa%brc,this%gsa%btc,this%gsa%bpc,  &
-               &       nThetaStart,this%sizeThetaB)
+          CALL courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
+               &       this%gsa%vtc,this%gsa%vpc,this%gsa%brc,     &
+               &       this%gsa%btc,this%gsa%bpc,nThetaStart,      &
+               &       this%sizeThetaB)
        END IF
 
        !--------- Since the fields are given at gridpoints here, this is a good
@@ -315,7 +333,8 @@ CONTAINS
     !WRITE(*,"(A,I4,4ES20.13)") "after_td: dwdt ",this%nR, SUM(dwdt)
     !-- Finish calculation of TO variables:
     IF ( this%lTOcalc ) THEN                                   
-       CALL getTOfinish(this%nR,dtLast,this%leg_helper%zAS,this%leg_helper%dzAS,this%leg_helper%ddzAS, &
+       CALL getTOfinish(this%nR,dtLast,this%leg_helper%zAS,             &
+            &           this%leg_helper%dzAS,this%leg_helper%ddzAS,     &
             &           this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,&
             &           this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM)
     END IF
@@ -331,6 +350,7 @@ CONTAINS
             &            this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,   &
             &            this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
     END IF
-  END SUBROUTINE do_iteration_ThetaBlocking_seq
 
-END MODULE rIterThetaBlocking_seq_mod
+  end subroutine do_iteration_ThetaBlocking_seq
+!------------------------------------------------------------------------------
+end module rIterThetaBlocking_seq_mod

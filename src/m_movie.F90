@@ -13,6 +13,7 @@ module movie_data
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
+   use useful, only: logWrite
     
    implicit none
    
@@ -511,12 +512,12 @@ contains
             file_name='Bh_'
             lIC=.true.
          else if( index(string,'BS') /= 0) then
-           n_type=114
-           typeStr='cyl radial magnetic field'
-           file_name='Bs_'
-           lIC=.true.
-           n_fields=1
-           n_field_type(1)=108
+            n_type=114
+            typeStr='cyl radial magnetic field'
+            file_name='Bs_'
+            lIC=.true.
+            n_fields=1
+            n_field_type(1)=108
          else if ( index(string,'BALL') /= 0 ) then
             n_type=5 ! Total field
             typeStr=' all magnetic field components '

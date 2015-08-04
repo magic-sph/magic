@@ -572,7 +572,7 @@ contains
       if ( (l1m0 >= lmStartB(rank+1)) .and. (l1m0 <= lmStopB(rank+1)) ) then
          b10=b(l1m0,n_r_cmb)
          if (rank /= 0) then
-            call MPI_Send(b10,1,MPI_DOUBLE_complex,0,sr_tag,MPI_COMM_WORLD,ierr)
+            call MPI_Send(b10,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
          end if
          rank_has_l1m0=.true.
       end if
@@ -580,7 +580,7 @@ contains
          if ( (l1m1 >= lmStartB(rank+1)) .and. (l1m1 <= lmStopB(rank+1)) ) then
             b11=b(l1m1,n_r_cmb)
             if (rank /= 0) then
-               call MPI_Send(b11,1,MPI_DOUBLE_complex,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+               call MPI_Send(b11,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
             end if
             rank_has_l1m1=.true.
          end if
@@ -594,11 +594,11 @@ contains
          !-- Calculate pole position:
          rad =45.D0/datan(1.D0)   ! 180/pi
          if (.not.rank_has_l1m0) then
-            call MPI_IRecv(b10,1,MPI_DOUBLE_complex,MPI_ANY_SOURCE,&
+            call MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
                  &sr_tag,MPI_COMM_WORLD,request1, ierr)
          end if
          if ( .not. rank_has_l1m1 ) then
-            call MPI_IRecv(b11,1,MPI_DOUBLE_complex,MPI_ANY_SOURCE,&
+            call MPI_IRecv(b11,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
                  &sr_tag+1,MPI_COMM_WORLD,request2,ierr)
          end if
          if ( .not. rank_has_l1m0 ) then

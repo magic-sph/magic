@@ -27,6 +27,8 @@ MODULE rIterThetaBlocking_OpenMP_mod
   use dtB_mod, only: get_dtBLM, get_dH_dtBLM
   use out_movie, only: store_movie_frame
   use outRot, only: get_lorentz_torque
+  use courant_mod, only: courant
+  use nonlinear_bcs, only: get_br_v_bcs
 
   implicit none
 
@@ -277,15 +279,15 @@ CONTAINS
        !     These products are used in get_b_nl_bcs.
        !PERFON('nl_cmb')
        IF ( this%nR == n_r_cmb .AND. l_b_nl_cmb ) THEN
-          CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,&
-               &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,              &
-               &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
-               &            br_vt_lm_cmb,br_vp_lm_cmb)
+          CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
+               &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,    &
+               &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+               &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
        ELSE IF ( this%nR == n_r_icb .AND. l_b_nl_icb ) THEN
-          CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,&
-               &this%gsa(threadid)%vpc,this%leg_helper%omegaIC,              &
-               &            or2(this%nR),orho1(this%nR),nThetaStart,this%sizeThetaB,    &
-               &            br_vt_lm_icb,br_vp_lm_icb)
+          CALL get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
+               &            this%gsa(threadid)%vpc,this%leg_helper%omegaIC,    &
+               &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+               &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
        END IF
        !PERFOFF
        !--------- Calculate Lorentz torque on inner core:

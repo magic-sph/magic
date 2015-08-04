@@ -3,6 +3,8 @@
     SUBROUTINE chebIntInit(zMin,zMax,zNorm,nNorm,nGridPointsMax, &
                            z,nGridPoints,i_costf_init,d_costf_init)
 !**********************************************************************
+    use chebyshev_polynoms_mod, only: cheb_grid
+
     IMPLICIT NONE
 
 !-- Input:
@@ -111,7 +113,7 @@
 !-- Calculate nGridPoints grid points z(*) in interval [zMin,zMax]
 !   zCheb are the grid points in the cheb interval [-1,1]
 !   These are not really needed for the integration.
-    CALL cheb_x_map_e(zMin,zMax,nGridPoints-1,z,zCheb)
+    CALL cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.d0,0.d0,0.d0,0.d0)
 
 !-- Initialize fast cos transform for chebs:
     CALL init_costf1(nGridPoints,i_costf_init,2*nGridPointsMax+2, &

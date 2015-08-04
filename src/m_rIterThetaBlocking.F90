@@ -24,6 +24,7 @@ module rIterThetaBlocking_mod
 #ifdef WITH_LIKWID
 #   include "likwid_f90.h"
 #endif
+  use nonlinear_bcs, only: v_rigid_boundary
 
   implicit none
 

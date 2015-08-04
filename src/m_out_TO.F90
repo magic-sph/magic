@@ -22,6 +22,7 @@ module outTO_mod
    use integration, only: rInt_R
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
+   use useful, only: logWrite
  
    implicit none 
 

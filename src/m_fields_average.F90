@@ -473,7 +473,7 @@ contains
             if ( l_mag) then
                outFile='B_coeff_cmb_ave.'//tag
                nOut   =93
-               n_cmb_sets=0
+               n_cmb_sets=-1
                !call write_Bcmb(time,b(1,n_r_cmb),lm_max,l_max,           &
                !     &           l_max_cmb,minc,lm2,n_cmb_sets,outFile,nOut)
                call write_Bcmb(time,b_ave_global(1,n_r_cmb),1,lm_max,l_max, &

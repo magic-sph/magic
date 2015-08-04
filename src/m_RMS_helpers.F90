@@ -10,6 +10,7 @@ module RMS_helpers
    use integration, only: rInt_R
    use LMmapping, only: mappings
    use const, only: vol_oc
+   use chebyshev_polynoms_mod, only: cheb_grid
 
    implicit none
 
@@ -360,7 +361,8 @@ contains
       end do
       r_icb2=r2(n_r_max2)
       r_cmb2=r2(1)
-      call cheb_x_map_e(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2)
+      call cheb_grid(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2, &
+                     0.D0,0.D0,0.D0,0.D0)
       call init_costf1(n_r_max2,i_costf_init2,nDi_costf1, &
                        d_costf_init2,nDd_costf1)
       dr_fac=1.D0

@@ -55,9 +55,9 @@ contains
       write(*,"(2A)") "Using rIteration type: ",trim(this_type)
       call this_rIteration%initialize()
       select type (this_rIteration)
-      CLASS is (rIterThetaBlocking_t)
+      class is (rIterThetaBlocking_t)
          call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
-      CLASS default
+      class default
          print*,"this_rIteration has no matching type in m_radialLoop.F90"
       end select
 
