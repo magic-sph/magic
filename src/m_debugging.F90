@@ -1,105 +1,118 @@
-MODULE debugging
-  implicit none
+!$Id$
+module debugging
 
-  INTERFACE debug_write
-     MODULE PROCEDURE debug_write_2D,debug_write_1D
-  END INTERFACE
+   implicit none
+ 
+   private
+ 
+   interface debug_write
+      module procedure debug_write_2D,debug_write_1D
+   end interface
+ 
+   public :: debug_write
+ 
+contains
 
-  PRIVATE
-  public :: debug_write
+   subroutine debug_write_2D(arr,dim1,dim2,label,timestep,form)
 
-CONTAINS
-SUBROUTINE debug_write_2D(arr,dim1,dim2,label,timestep,form)
-  implicit none
-  INTEGER :: dim1, dim2
-  COMPLEX(kind=8) :: arr(dim1,dim2)
-  CHARACTER(len=*) :: label
-  integer :: timestep
-  CHARACTER(len=1),optional :: form
+      !-- Input variables
+      integer,          intent(in) :: dim1, dim2
+      complex(kind=8),  intent(in) :: arr(dim1,dim2)
+      character(len=*), intent(in) :: label
+      integer,          intent(in) :: timestep
+      character(len=1), optional, intent(in) :: form
+ 
+      !-- Local variables
+      character(len=50) :: filename
+      logical :: write_unformatted,write_exponent
+      integer :: i,j
+ 
+      if (present(form)) then
+         if ((form == 'U').or.(form == 'u')) then
+            write_unformatted=.true.
+         elseif (form == 'E') then
+            write_unformatted=.false.
+            write_exponent=.true.
+         else
+            write_unformatted=.false.
+            write_exponent=.false.
+         end if
+      else
+         write_unformatted=.true.
+      end if
+ 
+      if (write_unformatted) then
+         write(filename,"(A,I4.4,A)") trim(label),timestep,".dat"
+         open(732,file=trim(filename),form="unformatted")
+         write(732) arr
+         close(732)
+      else
+         write(filename,"(A,I4.4,A)") trim(label),timestep,".txt"
+         open(732,file=trim(filename))
+         do j=1,dim2
+            do i=1,dim1
+               if (write_exponent) then
+                  write(732,"(2(I4,F21.18))") exponent(real(arr(i,j))),       &
+                       & fraction(real(arr(i,j))), exponent(aimag(arr(i,j))), &
+                       & fraction(aimag(arr(i,j)))
+               else
+                  write(732,"(2ES22.15)") arr(i,j)
+               end if
+            end do
+         end do
+         close(732)
+      end if
 
-  character(len=50) :: filename
-  LOGICAL :: write_unformatted,write_exponent
-  INTEGER :: i,j
+   end subroutine debug_write_2D
+!------------------------------------------------------------------------------
+   subroutine debug_write_1D(arr,dim1,label,timestep,form)
 
-  IF (PRESENT(form)) THEN
-     IF ((form == 'U').OR.(form == 'u')) THEN
-        write_unformatted=.true.
-     ELSEIF (form == 'E') THEN
-        write_unformatted=.false.
-        write_exponent=.true.
-     ELSE
-        write_unformatted=.false.
-        write_exponent=.false.
-     END IF
-  ELSE
-     write_unformatted=.true.
-  END IF
+      !-- Input variables:
+      integer,          intent(in) :: dim1
+      complex(kind=8),  intent(in) :: arr(dim1)
+      character(len=*), intent(in) :: label
+      integer,          intent(in) :: timestep
+      character(len=1), optional, intent(in) :: form
+ 
+      !-- Local variables
+      character(len=50) :: filename
+      logical :: write_unformatted,write_exponent
+      integer :: i
+ 
+      if (present(form)) then
+         if ((form == 'U').or.(form == 'u')) then
+            write_unformatted=.true.
+         elseif (form == 'E') then
+            write_unformatted=.false.
+            write_exponent=.true.
+         else
+            write_unformatted=.false.
+            write_exponent=.false.
+         end if
+      else
+         write_unformatted=.true.
+      end if
+ 
+      if (write_unformatted) then
+         write(filename,"(A,I4.4,A)") trim(label),timestep,".dat"
+         open(732,file=trim(filename),form="unformatted")
+         write(732) arr
+         close(732)
+      else
+         write(filename,"(A,I4.4,A)") trim(label),timestep,".txt"
+         open(732,file=trim(filename))
+         do i=1,dim1
+            if (write_exponent) then
+               write(732,"(2(I4,F21.18))") exponent(real(arr(i))),      &
+                    & fraction(real(arr(i))), exponent(aimag(arr(i))),  &
+                    & fraction(aimag(arr(i)))
+            else
+               write(732,"(2ES22.15)") arr(i)
+            end if
+         end do
+         close(732)
+      end if
 
-  IF (write_unformatted) THEN
-     WRITE(filename,"(A,I4.4,A)") TRIM(label),timestep,".dat"
-     OPEN(732,file=TRIM(filename),form="unformatted")
-     WRITE(732) arr
-     CLOSE(732)
-  ELSE
-     WRITE(filename,"(A,I4.4,A)") TRIM(label),timestep,".txt"
-     OPEN(732,file=TRIM(filename))
-     DO j=1,dim2
-        DO i=1,dim1
-           IF (write_exponent) THEN
-              WRITE(732,"(2(I4,F21.18))") EXPONENT(REAL(arr(i,j))),FRACTION(REAL(arr(i,j))),&
-                   &EXPONENT(aimag(arr(i,j))),FRACTION(aimag(arr(i,j)))
-           ELSE
-              WRITE(732,"(2ES22.15)") arr(i,j)
-           END IF
-        END DO
-     END DO
-     CLOSE(732)
-  END IF
-END SUBROUTINE debug_write_2D
-
-SUBROUTINE debug_write_1D(arr,dim1,label,timestep,form)
-  implicit none
-  INTEGER :: dim1
-  COMPLEX(kind=8) :: arr(dim1)
-  CHARACTER(len=*) :: label
-  integer :: timestep
-  CHARACTER(len=1),optional :: form
-
-  character(len=50) :: filename
-  LOGICAL :: write_unformatted,write_exponent
-  INTEGER :: i
-
-  IF (PRESENT(form)) THEN
-     IF ((form == 'U').OR.(form == 'u')) THEN
-        write_unformatted=.true.
-     ELSEIF (form == 'E') THEN
-        write_unformatted=.false.
-        write_exponent=.true.
-     ELSE
-        write_unformatted=.false.
-        write_exponent=.false.
-     END IF
-  ELSE
-     write_unformatted=.true.
-  END IF
-
-  IF (write_unformatted) THEN
-     WRITE(filename,"(A,I4.4,A)") TRIM(label),timestep,".dat"
-     OPEN(732,file=TRIM(filename),form="unformatted")
-     WRITE(732) arr
-     CLOSE(732)
-  ELSE
-     WRITE(filename,"(A,I4.4,A)") TRIM(label),timestep,".txt"
-     OPEN(732,file=TRIM(filename))
-     DO i=1,dim1
-        IF (write_exponent) THEN
-           WRITE(732,"(2(I4,F21.18))") EXPONENT(REAL(arr(i))),FRACTION(REAL(arr(i))),&
-                &EXPONENT(AIMAG(arr(i))),FRACTION(AIMAG(arr(i)))
-        ELSE
-           WRITE(732,"(2ES22.15)") arr(i)
-        END IF
-     END DO
-     CLOSE(732)
-  END IF
-END SUBROUTINE debug_write_1D
-END MODULE debugging
+   end subroutine debug_write_1D
+!------------------------------------------------------------------------------
+end module debugging

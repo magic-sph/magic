@@ -28,6 +28,7 @@ module fields_average_mod
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC
    use store_pot_mod, only: storePotW
+   use leg_helper_mod, only: legPrep
  
    implicit none
  

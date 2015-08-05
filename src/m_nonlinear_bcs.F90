@@ -14,6 +14,7 @@ module nonlinear_bcs
 #elif (FFTLIB==MKL)
    use fft_MKL, only: fft_thetab
 #endif
+   use legendre_grid_to_spec, only: legTF2
 
    implicit none
 

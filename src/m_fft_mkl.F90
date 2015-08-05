@@ -3,118 +3,131 @@
 #include "perflib_preproc.cpp"
 #include "mkl_dfti.f90"
 
-MODULE fft_mkl
-  use truncation
-  use blocking
-  use mkl_dfti
-  IMPLICIT NONE
+module fft_mkl
+   use truncation, only: nrp, ncp, n_phi_max
+   use blocking, only: nfs
+   use mkl_dfti
+ 
+   implicit none
+   
+   private
+ 
+   !----------- MKL specific variables -------------
+   integer :: status
+   type(DFTI_DESCRIPTOR), pointer :: c2r_handle, r2c_handle
+   !----------- END MKL specific variables
+ 
+   interface fft_thetab
+      module procedure fft_thetab_real
+      module procedure fft_thetab_cmplx
+   end interface
+ 
+   public :: fft_thetab, init_fft,fft_to_real
+
+contains
+
+   subroutine init_fft(number_of_points)
+
+      integer, intent(in) :: number_of_points
+      
+      ! Fourier transformation complex->REAL with MKL DFTI interface
+      ! init FFT
+      status = DftiCreateDescriptor( c2r_handle, DFTI_DOUBLE, DFTI_REAL, &
+                                     1, number_of_points )
+      status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
+      status = DftiSetValue( c2r_handle, DFTI_INPUT_DISTANCE, ncp )
+      status = DftiSetValue( c2r_handle, DFTI_OUTPUT_DISTANCE, nrp )
+      status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
+                             DFTI_COMPLEX_COMPLEX )
+      status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+      status = DftiCommitDescriptor( c2r_handle )
   
-  private
+      ! Fourier transformation REAL->complex with MKL DFTI interface
+      ! init FFT
+      status = DftiCreateDescriptor( r2c_handle, DFTI_DOUBLE, DFTI_REAL, &
+                                     1, number_of_points )
+      status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
+      status = DftiSetValue( r2c_handle, DFTI_INPUT_DISTANCE, nrp )
+      status = DftiSetValue( r2c_handle, DFTI_OUTPUT_DISTANCE, ncp )
+      status = DftiSetValue( r2c_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
+                             DFTI_COMPLEX_COMPLEX )
+      status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+      status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
+                             1.0/dble(number_of_points) )
+      status = DftiCommitDescriptor( r2c_handle )
 
-  !----------- MKL specific variables -------------
-  INTEGER :: status
-  TYPE(DFTI_DESCRIPTOR),POINTER :: c2r_handle, r2c_handle
-  !----------- END MKL specific variables
+   end subroutine init_fft
+!------------------------------------------------------------------------------
+   subroutine fft_thetab_cmplx(f,dir)
 
+      complex(kind=8), intent(inout) :: f(nrp/2,nfs)
+      integer,         intent(in) :: dir            ! back or forth transform
 
-  INTERFACE fft_thetab
-     module procedure fft_thetab_real
-     module procedure fft_thetab_cmplx
-  END INTERFACE
+      PERFON('fft_thc')
+      if (dir == 1) then
+         ! run FFT
+         status = DftiComputeBackward( c2r_handle, f(:,1) )
+      else if (dir == -1) then
+         ! run FFT
+         status = DftiComputeForward( r2c_handle, f(:,1) )
+         !PRINT*,"Calling fft_thetab with complex array and dir /= 1. &
+         !       Don't know what to do!"
+         !call TRACEBACKQQ
+         !stop
+      end if
+      PERFOFF
 
-  PUBLIC :: fft_thetab, init_fft,fft_to_real
+   end subroutine fft_thetab_cmplx
+!------------------------------------------------------------------------------
+   subroutine fft_thetab_real(f,dir)
 
-CONTAINS
+      real(kind=8), intent(inout) :: f(nrp,nfs)
+      integer,      intent(in) :: dir            ! back or forth transform
 
-  SUBROUTINE init_fft(number_of_points)
-    integer :: number_of_points
-    
-    ! Fourier transformation COMPLEX->REAL with MKL DFTI interface
-    ! init FFT
-    status = DftiCreateDescriptor( c2r_handle, DFTI_DOUBLE, DFTI_REAL, 1, number_of_points )
-    status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
-    status = DftiSetValue( c2r_handle, DFTI_INPUT_DISTANCE, ncp )
-    status = DftiSetValue( c2r_handle, DFTI_OUTPUT_DISTANCE, nrp )
-    status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX )
-    status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
-    status = DftiCommitDescriptor( c2r_handle )
+      PERFON('fft_thr')
+      if (dir == -1) then
+         ! run FFT
+         status = DftiComputeForward( r2c_handle, f(:,1) )
+      else if (dir == 1) then
+         ! we want a backward transform, and the real array f 
+         ! is to be interpreted as complex array
 
-    ! Fourier transformation REAL->COMPLEX with MKL DFTI interface
-    ! init FFT
-    status = DftiCreateDescriptor( r2c_handle, DFTI_DOUBLE, DFTI_REAL, 1, number_of_points )
-    status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
-    status = DftiSetValue( r2c_handle, DFTI_INPUT_DISTANCE, nrp )
-    status = DftiSetValue( r2c_handle, DFTI_OUTPUT_DISTANCE, ncp )
-    status = DftiSetValue( r2c_handle, DFTI_CONJUGATE_EVEN_STORAGE, DFTI_COMPLEX_COMPLEX )
-    status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
-    status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, 1.0/DBLE(number_of_points) )
-    status = DftiCommitDescriptor( r2c_handle )
-  END SUBROUTINE init_fft
+         ! run FFT
+         status = DftiComputeBackward( c2r_handle, f(:,1) )
 
-  SUBROUTINE fft_thetab_cmplx(f,dir)
-    COMPLEX(kind=8),intent(INOUT) :: f(nrp/2,nfs)
+         !PRINT*,"Calling fft_thetab with real array and dir /= -1. & 
+         !        Don't know what to do!"
+         !call TRACEBACKQQ
+         !stop
+      end if
+      PERFOFF
 
-    INTEGER,intent(IN) :: dir            ! back or forth transform
+   end subroutine fft_thetab_real
+!------------------------------------------------------------------------------
+   subroutine fft_to_real(f,ld_f,nrep)
 
-    PERFON('fft_thc')
-    if (dir == 1) then
-       ! run FFT
-       status = DftiComputeBackward( c2r_handle, f(:,1) )
-    ELSE IF (dir == -1) THEN
-       ! run FFT
-       status = DftiComputeForward( r2c_handle, f(:,1) )
-       !PRINT*,"Calling fft_thetab with complex array and dir /= 1. Don't know what to do!"
-       !CALL TRACEBACKQQ
-       !stop
-    END IF
-    PERFOFF
-  END SUBROUTINE fft_thetab_cmplx
+      integer,      intent(in) :: ld_f,nrep
+      real(kind=8), intent(inout) :: f(ld_f,nrep)
 
-  SUBROUTINE fft_thetab_real(f,dir)
-    REAL(kind=8),intent(INOUT) :: f(nrp,nfs)
-    INTEGER,intent(IN) :: dir            ! back or forth transform
+      type(DFTI_DESCRIPTOR), pointer :: local_c2r_handle
 
-    PERFON('fft_thr')
-    IF (dir == -1) then
-       ! run FFT
-       status = DftiComputeForward( r2c_handle, f(:,1) )
-    ELSE if (dir == 1) THEN
-       ! we want a backward transform, and the real array f is to be interpreted as complex array
+      PERFON('fft2r')
+      ! Fourier transformation complex->REAL with MKL DFTI interface
+      ! init FFT
+      status = DftiCreateDescriptor( local_c2r_handle, DFTI_DOUBLE, &
+                                     DFTI_REAL, 1, n_phi_max )
+      status = DftiSetValue( local_c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nrep )
+      status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f )
+      status = DftiSetValue( local_c2r_handle, DFTI_OUTPUT_DISTANCE, ld_f )
+      status = DftiSetValue( local_c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+      status = DftiCommitDescriptor( local_c2r_handle )
 
-       ! run FFT
-       status = DftiComputeBackward( c2r_handle, f(:,1) )
+      ! run FFT
+      status = DftiComputeBackward( local_c2r_handle, f(:,1) )
 
-       !PRINT*,"Calling fft_thetab with real array and dir /= -1. Don't know what to do!"
-       !CALL TRACEBACKQQ
-       !stop
-    END IF
-    PERFOFF
+      status = DftiFreeDescriptor( local_c2r_handle )
+      PERFOFF
 
-  END SUBROUTINE fft_thetab_real
-
-  SUBROUTINE fft_to_real(f,ld_f,nrep)
-
-    integer,      intent(in) :: ld_f,nrep
-    real(kind=8), intent(inout) :: f(ld_f,nrep)
-
-    type(DFTI_DESCRIPTOR), pointer :: local_c2r_handle
-
-    PERFON('fft2r')
-    ! Fourier transformation COMPLEX->REAL with MKL DFTI interface
-    ! init FFT
-    status = DftiCreateDescriptor( local_c2r_handle, DFTI_DOUBLE, DFTI_REAL, 1, n_phi_max )
-    status = DftiSetValue( local_c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nrep )
-    status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f )
-    status = DftiSetValue( local_c2r_handle, DFTI_OUTPUT_DISTANCE, ld_f )
-    status = DftiSetValue( local_c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
-    status = DftiCommitDescriptor( local_c2r_handle )
-
-    ! run FFT
-    status = DftiComputeBackward( local_c2r_handle, f(:,1) )
-
-    status = DftiFreeDescriptor( local_c2r_handle )
-    PERFOFF
-
-  END SUBROUTINE fft_to_real
-
-END MODULE fft_mkl
+   end subroutine fft_to_real
+!------------------------------------------------------------------------------
+end module fft_mkl

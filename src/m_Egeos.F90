@@ -23,6 +23,7 @@ module Egeos_mod
 #elif (FFTLIB==MKL)
    use fft_mkl, only: fft_to_real
 #endif
+   use chebInt_mod
 
    implicit none 
  
@@ -128,8 +129,6 @@ contains
       real(kind=8) :: dzEkInt(nZmaxA),dzEkIntS
       real(kind=8) :: dpEk_s(nSmaxA),dzEk_s(nSmaxA)
       real(kind=8) :: thetaZ
-
-      real(kind=8), external :: chebInt,chebIntD
 
       logical :: lStopRun
 

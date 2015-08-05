@@ -23,6 +23,9 @@ module outTO_mod
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
    use useful, only: logWrite
+   use legendre_grid_to_spec, only: legTFAS, legTFAS2
+   use chebInt_mod, only: chebInt, chebIntInit
+
  
    implicit none 
 
@@ -220,8 +223,6 @@ contains
       integer :: nFieldSize,nPos
 
       !integer :: nLines
-      real(kind=8),EXTERNAL :: chebInt
-
       real(kind=8) :: dumm(12)
 
       !-- Huge arrays for time average ....
@@ -264,18 +265,18 @@ contains
       do nR=1,n_r_max
          do n=1,nThetaBs
             nThetaStart=(n-1)*sizeThetaB+1
-            call legtfAS(V2LMr(1,nR),V2AS(nThetaStart,nR),            &
+            call legTFAS(V2LMr(1,nR),V2AS(nThetaStart,nR),            &
                  &               l_max+1,nThetaStart,sizeThetaB)
-            call legtfAS2(Bs2LMr(1,nR),BszLMr(1,nR),                            &
+            call legTFAS2(Bs2LMr(1,nR),BszLMr(1,nR),                            &
                  &               Bs2AS(nThetaStart,nR),BszAS(nThetaStart,nR),   &
                  &               l_max+1,nThetaStart,sizeThetaB)
-            call legtfAS2(BspLMr(1,nR),BpzLMr(1,nR),                            &
+            call legTFAS2(BspLMr(1,nR),BpzLMr(1,nR),                            &
                  &               BspAS(nThetaStart,nR),BpzAS(nThetaStart,nR),   &
                  &               l_max+1,nThetaStart,sizeThetaB)
-            call legtfAS2(BspdLMr(1,nR),BpsdLMr(1,nR),                          &
+            call legTFAS2(BspdLMr(1,nR),BpsdLMr(1,nR),                          &
                  &               BspdAS(nThetaStart,nR),BpsdAS(nThetaStart,nR), &
                  &               l_max+1,nThetaStart,sizeThetaB)
-            call legtfAS2(BzpdLMr(1,nR),BpzdLMr(1,nR),                          &
+            call legTFAS2(BzpdLMr(1,nR),BpzdLMr(1,nR),                          &
                  &               BzpdAS(nThetaStart,nR),BpzdAS(nThetaStart,nR), &
                  &               l_max+1,nThetaStart,sizeThetaB)
          end do

@@ -14,6 +14,7 @@ module torsional_oscillations
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, & 
                               dLh
    use logic, only: lVerbose, l_mag
+   use legendre_grid_to_spec, only: legTFAS2
 
    implicit none
 
@@ -278,9 +279,9 @@ contains
       !--- Transform and Add to LM-Space:
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
-      call legtfAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
+      call legTFAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
                     l_max+2,nThetaStart,nThetaBlockSize)
-      call legtfAS2(dzCorLM,dzLFLM,dzCorMean,dZLFmean, &
+      call legTFAS2(dzCorLM,dzLFLM,dzCorMean,dZLFmean, &
                     l_max+2,nThetaStart,nThetaBlockSize)
 
       if ( lVerbose ) write(*,*) '! End of getTO!'

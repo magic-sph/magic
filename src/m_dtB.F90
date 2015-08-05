@@ -27,6 +27,7 @@ module dtB_mod
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
+   use legendre_grid_to_spec, only: legTF2, legTF3
  
    implicit none
  

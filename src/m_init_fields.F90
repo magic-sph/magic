@@ -35,6 +35,7 @@ module init_fields
 #endif
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use matrices, only: jMat, jPivot, s0Mat, s0Pivot
+   use legendre_grid_to_spec, only: legTF1
 
    implicit none
 

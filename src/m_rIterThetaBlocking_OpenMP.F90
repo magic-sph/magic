@@ -29,6 +29,8 @@ MODULE rIterThetaBlocking_OpenMP_mod
   use outRot, only: get_lorentz_torque
   use courant_mod, only: courant
   use nonlinear_bcs, only: get_br_v_bcs
+  use nl_special_calc
+
 
   implicit none
 
@@ -159,9 +161,10 @@ CONTAINS
        WRITE(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ",this%nBc,", lDeriv = ",this%lDeriv,&
             &", l_mag = ",l_mag
     END IF
-    CALL legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc,this%l_frame, &
-         &        this%lTOnext,this%lTOnext2,this%lTOcalc,                 &
-         &        this%leg_helper)
+
+    call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
+         &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
+         &                        this%lTOcalc)
     !PERFOFF
 
     !IF (DEBUG_OUTPUT) THEN
@@ -340,7 +343,7 @@ CONTAINS
        !--------- Helicity output:
        IF ( this%lHelCalc ) THEN
           PERFON('hel_out')
-          CALL getHelLM(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,    &
+          CALL get_helicity(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,&
                &        this%gsa(threadid)%vpc,this%gsa(threadid)%cvrc,   &
                &        this%gsa(threadid)%dvrdtc,                        &
                &        this%gsa(threadid)%dvrdpc,                        &
