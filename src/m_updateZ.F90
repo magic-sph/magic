@@ -37,10 +37,12 @@ module updateZ_mod
 #else
    use algebra, only: cgeslML, cgesl, sgefa
 #endif
-   use LMLoop_data, only: llm,ulm,llm_real,ulm_real
+   use LMLoop_data, only: llm,ulm
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
    use RMS_helpers, only: hInt2Pol, hInt2Tor
+   use radial_der, only: get_ddr
+   use cosine_transform, only: costf1
  
    implicit none
  
@@ -113,8 +115,6 @@ contains
       real(kind=8) :: d_omega_ic_dt,d_omega_ma_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
-      integer :: lmStart_real       ! range of lm for real array
-      integer :: lmStop_real        !
       integer :: lmStart_00         ! excluding l=0,m=0
       integer :: lmStart,lmStop ! max and min number of orders m
       integer :: nLMB2
@@ -172,8 +172,6 @@ contains
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
       lmStart_00  =max(2,lmStart)
-      lmStart_real=2*lmStart_00-1
-      lmStop_real =2*lmStop
       l1m0        =lm2(1,0)
     
       w2  =1.D0-w1
@@ -399,7 +397,7 @@ contains
       end do
     
       !PERFON('upZ_drv')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < omp_get_max_threads()) then
          call omp_set_num_threads(all_lms)
@@ -412,9 +410,9 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,lmStart_real,lmStop_real,nThreads) &
+      !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
       !$OMP shared(z,dz,dzdtLast,i_costf_init,d_costf_init,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workC,llm_real,ulm_real)
+      !$OMP shared(n_r_max,n_cheb_max,workA,workC,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -425,15 +423,15 @@ contains
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm = lmStart_real+iThread*per_thread
+         start_lm = lmStart_00+iThread*per_thread
          stop_lm  = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
+         if (iThread == nThreads-1) stop_lm=lmStop
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
-         call costf1(z, ulm_real-llm_real+1, start_lm-llm_real+1, &
-                     stop_lm-llm_real+1,dzdtLast, i_costf_init, d_costf_init)
-         call get_ddr(z, dz, workA, ulm_real-llm_real+1, start_lm-llm_real+1, &
-                      stop_lm-llm_real+1,n_r_max, n_cheb_max, dzdtLast,       &
+         call costf1(z, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &      dzdtLast, i_costf_init, d_costf_init)
+         call get_ddr(z, dz, workA, ulm-llm+1, start_lm-llm+1,     &
+                      stop_lm-llm+1,n_r_max, n_cheb_max, dzdtLast, &
                       workC, i_costf_init,d_costf_init,drx,ddrx)
       end do
       !$OMP end do

@@ -20,6 +20,7 @@ module outMisc_mod
    use useful, only: cc2real
    use integration, only: rInt,rInt_R
    use LMLoop_data,only: llm,ulm
+   use legendre_spec_to_grid, only: lmAS2pt
 
    implicit none
 

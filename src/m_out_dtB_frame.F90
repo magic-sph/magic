@@ -20,6 +20,8 @@ module out_dtB_frame
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
+   use radial_der_even, only: get_drNS_even
+   use radial_der, only: get_drNS
 
    implicit none
 
@@ -190,26 +192,26 @@ contains
     
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
-               call get_drNS(PstrLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(PstrLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             else if ( n_field_type == 36 ) then
-               call get_drNS(PadvLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(PadvLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             else if ( n_field_type == 37 ) then
-               call get_drNS(PdifLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(PdifLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
     
             else if ( n_field_type == 38 ) then
-               call get_drNS(TstrLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(TstrLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             else if ( n_field_type == 39 ) then
-               call get_drNS(TomeLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(TomeLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             else if ( n_field_type == 40 ) then
-               call get_drNS(TadvLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(TadvLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             else if ( n_field_type == 41 ) then
-               call get_drNS(TdifLM,workA,lm_max_real,1,lm_max_real, &
+               call get_drNS(TdifLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
             end if
     
@@ -374,25 +376,25 @@ contains
                !------ Calculate needed radial derivatives:
                if ( n_field_type == 36 ) then
                   call get_drNS_even(       PadvLMIC,workA, &
-                       lm_max_real,1,lm_max_real, &
+                       lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
                        i_costf1_ic_init,d_costf1_ic_init, &
                        i_costf2_ic_init,d_costf2_ic_init)
                else if ( n_field_type == 37 ) then
                   call get_drNS_even(       PdifLMIC,workA, &
-                       lm_max_real,1,lm_max_real, &
+                       lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
                        i_costf1_ic_init,d_costf1_ic_init, &
                        i_costf2_ic_init,d_costf2_ic_init)
                else if ( n_field_type == 40 ) then
                   call get_drNS_even(       TadvLMIC,workA, &
-                       lm_max_real,1,lm_max_real, &
+                       lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
                        i_costf1_ic_init,d_costf1_ic_init, &
                        i_costf2_ic_init,d_costf2_ic_init)
                else if ( n_field_type == 41 ) then
                   call get_drNS_even(       TdifLMIC,workA, &
-                       lm_max_real,1,lm_max_real, &
+                       lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
                        i_costf1_ic_init,d_costf1_ic_init, &
                        i_costf2_ic_init,d_costf2_ic_init)

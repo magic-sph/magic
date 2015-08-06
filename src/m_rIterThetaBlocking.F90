@@ -16,7 +16,7 @@ module rIterThetaBlocking_mod
 #elif (FFTLIB==MKL)
   use fft_MKL
 #endif
-  use legendre_trafo, only: legTFG, legTFGnomag
+  use legendre_spec_to_grid, only: legTFG, legTFGnomag
   use leg_helper_mod, only: leg_helper_t
   use nonlinear_lm_mod, only:nonlinear_lm_t
   use grid_space_arrays_mod, only: grid_space_arrays_t

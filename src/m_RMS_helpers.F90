@@ -11,6 +11,8 @@ module RMS_helpers
    use LMmapping, only: mappings
    use const, only: vol_oc
    use chebyshev_polynoms_mod, only: cheb_grid
+   use init_costf, only: init_costf1
+   use radial_der, only: get_dr
 
    implicit none
 
@@ -369,7 +371,7 @@ contains
       do nR=1,n_r_max
          drx(nR)=1.D0
       end do
-      call get_dr(r2,dr2,1,1,1,n_r_max2,n_cheb_max2, &
+      call get_dr(r2,dr2,n_r_max2,n_cheb_max2, &
                   w1,w2,i_costf_init2,d_costf_init2,drx)
       do nR=1,n_r_max2
          dr_fac2(nR)=1.D0/dr2(nR)

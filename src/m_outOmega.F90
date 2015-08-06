@@ -7,6 +7,7 @@ module omega
    use logic, only: lVerbose
    use output_data, only: tag
    use plms_theta, only: plm_theta
+   use cosine_transform, only: costf1
  
    implicit none
 
@@ -38,7 +39,7 @@ contains
       real(kind=8) ::  sZ,zZ,dsZ
       real(kind=8) :: rZ,thetaZ
       real(kind=8) :: VpS,omega(2)
-      complex(kind=8) :: workA(lm_max,n_r_max) ! work array
+      real(kind=8) :: workA(lm_max,n_r_max) ! work array
 
       character(len=64) :: fileName
 
@@ -59,8 +60,7 @@ contains
       end do
 
       !---- Transform the contributions to cheb space for z-integral:
-      call costf1(dzVpLMr,l_max+1,1,l_max+1, &
-                  workA,i_costf_init,d_costf_init)
+      call costf1(dzVpLMr,l_max+1,1,l_max+1,workA,i_costf_init,d_costf_init)
 
       sZ=0.D0
       outer: do nS=1,nSmax

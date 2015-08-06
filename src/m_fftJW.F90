@@ -5,7 +5,8 @@
 module fft_JW
 
    use useful, only: factorise
-   use const, only: pi
+   use const, only: pi, sin36, sin60, sin72, cos36, cos72
+
    use truncation
    use blocking
    use parallel_mod
@@ -530,11 +531,6 @@ contains
       real(kind=8) :: c1(mdim),c2(mdim)
       real(kind=8) :: s1(mdim),s2(mdim)
   
-      real(kind=8) :: sin60
-  
-  
-      sin60=0.866025403784437D0
-  
       n=(nrp-2)/2
       m=n/3
       iink=m*2
@@ -745,13 +741,6 @@ contains
       integer :: iindex(mdim),jindex(mdim)
       real(kind=8) :: c1(mdim),c2(mdim),c3(mdim),c4(mdim)
       real(kind=8) :: s1(mdim),s2(mdim),s3(mdim),s4(mdim)
-  
-      real(kind=8) :: sin36,cos36,sin72,cos72
-  
-      sin36=0.587785252292473D0
-      cos36=0.809016994374947D0
-      sin72=0.951056516295154D0
-      cos72=0.309016994374947D0
   
       n=(nrp-2)/2
       m=n/5

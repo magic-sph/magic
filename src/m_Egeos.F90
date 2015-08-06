@@ -2,8 +2,7 @@
 module Egeos_mod
  
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
-                         n_r_maxGeos, lm_maxGeos, minc, l_max, m_max,  &
-                         lm_max_real
+                         n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
    use parallel_mod, only: rank
    use radial_functions, only: cheb_norm, r_ICB, r_CMB, i_costf_init, &
                                d_costf_init
@@ -15,7 +14,7 @@ module Egeos_mod
    use logic, only: lVerbose, l_corrMov, l_anel
    use output_data, only: sDens, zDens, tag, runid
    use const, only: pi
-   use LMLoop_data, only: llm,ulm,llm_real,ulm_real
+   use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
 #if (FFTLIB==JW)
@@ -23,6 +22,7 @@ module Egeos_mod
 #elif (FFTLIB==MKL)
    use fft_mkl, only: fft_to_real
 #endif
+   use cosine_transform, only: costf1
    use chebInt_mod
 
    implicit none 
@@ -198,11 +198,11 @@ contains
             end do
          end do
 
-         call costf1(wS,lm_max_real,1,lm_max_real,workA,i_costf_init,d_costf_init)
-         call costf1(dwS,lm_max_real,1,lm_max_real,workA,i_costf_init,d_costf_init)
-         call costf1(ddwS,lm_max_real,1,lm_max_real,workA,i_costf_init,d_costf_init)
-         call costf1(zS,lm_max_real,1,lm_max_real,workA,i_costf_init,d_costf_init)
-         call costf1(dzS,lm_max_real,1,lm_max_real,workA,i_costf_init,d_costf_init)
+         call costf1(wS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(dwS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(ddwS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(zS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(dzS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
 
          !---- Contributions are now in fully spectral space!
          !---- Do the z-integral:

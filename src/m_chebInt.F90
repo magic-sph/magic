@@ -2,6 +2,9 @@
 module chebInt_mod
 
    use chebyshev_polynoms_mod, only: cheb_grid
+   use init_costf, only: init_costf1
+   use cosine_transform, only: costf1
+   use radial_der, only: get_dcheb
 
    implicit none
 
@@ -154,7 +157,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call costf1(fr,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(fr,work,i_costf_init,d_costf_init)
       fr(1)          =0.5D0*fr(1)
       fr(nGridPoints)=0.5D0*fr(nGridPoints)
 
@@ -199,7 +202,7 @@ contains
       end if
 
       !-- Transform to cheb space:
-      call costf1(f,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(f,work,i_costf_init,d_costf_init)
 
       !----- Copy:
       if ( lDeriv ) then
@@ -221,9 +224,9 @@ contains
       !-- Get derivatives:
       if ( lDeriv ) then
          drFac=2.D0/(zMax-zMin)
-         call get_dcheb(work,f,1,1,1,nGridPointsMax,nGridPoints,drFac)
+         call get_dcheb(work,f,nGridPointsMax,nGridPoints,drFac)
          !-- Transform back to grid space:
-         call costf1(f,1,1,1,work,i_costf_init,d_costf_init)
+         call costf1(f,work,i_costf_init,d_costf_init)
       end if
 
    end function chebIntD

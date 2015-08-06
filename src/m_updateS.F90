@@ -11,6 +11,7 @@ module updateS_mod
                            & kappa, dLkappa, dtemp0, otemp1, temp0,     &
                            & cheb, dcheb, d2cheb
    use physical_parameters, only: opr, kbots, ktops
+   use num_param, only: alpha
    use init_fields, only: tops,bots
    use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh,hdif_S
@@ -24,13 +25,15 @@ module updateS_mod
 #endif
                        & sMat,sPivot
 
-   use LMLoop_data, only: llm,ulm,llm_real,ulm_real
+   use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf
 #else
    use algebra, only: cgeslML,sgesl, sgefa
 #endif
+   use cosine_transform, only: costf1
+   use radial_der, only: get_drNS, get_ddr
 
    implicit none
 
@@ -61,10 +64,8 @@ contains
   
    subroutine updateS(s,ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
       !-------------------------------------------------------------------------
-
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
-
       !-------------------------------------------------------------------------
 
       !-- Input of variables:
@@ -72,7 +73,7 @@ contains
       real(kind=8),    intent(in) :: coex      ! factor depending on alpha
       real(kind=8),    intent(in) :: dt        ! time step
       integer,         intent(in) :: nLMB
-      complex(kind=8), intent(in) :: dVSrLM(llm:ulm,n_r_max)
+      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Input/output of scalar fields:
       complex(kind=8), intent(inout) :: s(llm:ulm,n_r_max)
@@ -86,8 +87,6 @@ contains
       real(kind=8) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
-      integer :: lmStart_real       ! range of lm for real array
-      integer :: lmStop_real        !
       integer :: lmStart,lmStop
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
@@ -114,8 +113,6 @@ contains
 
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
-      lmStart_real=2*lmStart-1
-      lmStop_real =2*lmStop
       w2  =1.-w1
       O_dt=1.D0/dt
 
@@ -123,9 +120,9 @@ contains
       !PERFON('upS_fin')
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_real,lmStop_real) &
-      !$OMP shared(dVSrLM,i_costf_init,d_costf_init,drx,dsdt,orho1,or2,lmStart,lmStop) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm_real,ulm_real)
+      !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
+      !$OMP shared(dVSrLM,i_costf_init,d_costf_init,drx,dsdt,orho1,or2) &
+      !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -133,20 +130,19 @@ contains
       nThreads=1
 #endif
       !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
+         if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         call get_drNS( dVSrLM,workA, &
-              &         ulm_real-llm_real+1,start_lm-llm_real+1,stop_lm-llm_real+1, &
-              &         n_r_max,n_cheb_max,workB, &
+         call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
+              &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
               &         i_costf_init,d_costf_init,drx)
       end do
       !$OMP end do
@@ -314,7 +310,7 @@ contains
       end do
 
       !PERFON('upS_drv')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -327,20 +323,20 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,lmStart_real,lmStop_real,nThreads) &
+      !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
       !$OMP shared(s,ds,dsdtLast,i_costf_init,d_costf_init,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm_real,ulm_real) &
-      !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S) &
+      !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
+      !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2)
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
-         call costf1(s, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
+         if (iThread == nThreads-1) stop_lm=lmStop
+         call costf1(s, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &      dsdtLast, i_costf_init, d_costf_init)
-         call get_ddr(s, ds, workA, ulm_real-llm_real+1, start_lm-llm_real+1,  &
-              &       stop_lm-llm_real+1,n_r_max, n_cheb_max, workB, dsdtLast, &
+         call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max, n_cheb_max, workB, dsdtLast,                   &
               &       i_costf_init,d_costf_init,drx,ddrx)
       end do
       !$OMP end do
@@ -367,18 +363,12 @@ contains
       !-- workA=dds not needed further after this point, used as work array later
 
    end subroutine updateS
-   !*************************************************************************
+!------------------------------------------------------------------------------
    subroutine updateS_ala(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
-
       !-------------------------------------------------------------------------
-
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
-
       !-------------------------------------------------------------------------
-
-
-      use num_param, only: alpha
 
       !-- Input of variables:
       real(kind=8),    intent(in) :: w1        ! weight for time step !
@@ -386,7 +376,7 @@ contains
       real(kind=8),    intent(in) :: dt        ! time step
       integer,         intent(in) :: nLMB
       complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dVSrLM(llm:ulm,n_r_max)
+      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Input/output of scalar fields:
       complex(kind=8), intent(inout) :: s(llm:ulm,n_r_max)
@@ -400,8 +390,6 @@ contains
       real(kind=8) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
-      integer :: lmStart_real       ! range of lm for real array
-      integer :: lmStop_real        !
       integer :: lmStart,lmStop
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
@@ -429,8 +417,6 @@ contains
 
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
-      lmStart_real=2*lmStart-1
-      lmStop_real =2*lmStop
       w2  =1.-w1
       O_dt=1.D0/dt
 
@@ -438,10 +424,10 @@ contains
       !PERFON('upS_fin')
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_real,lmStop_real) &
+      !$OMP shared(all_lms,per_thread) &
       !$OMP shared(dVSrLM,i_costf_init,d_costf_init,drx,dsdt,orho1) &
       !$OMP shared(otemp1,dtemp0,or2,lmStart,lmStop) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm_real,ulm_real)
+      !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -449,20 +435,19 @@ contains
       nThreads=1
 #endif
       !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
+         if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         call get_drNS( dVSrLM,workA, &
-              &         ulm_real-llm_real+1,start_lm-llm_real+1,stop_lm-llm_real+1, &
-              &         n_r_max,n_cheb_max,workB, &
+         call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
+              &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
               &         i_costf_init,d_costf_init,drx)
       end do
       !$OMP end do
@@ -635,7 +620,7 @@ contains
       end do
 
       !PERFON('upS_drv')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -648,23 +633,21 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(per_thread,lmStart_real,lmStop_real,nThreads) &
+      !$OMP shared(per_thread,nThreads) &
       !$OMP shared(s,ds,w,dsdtLast,i_costf_init,d_costf_init,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm_real,ulm_real,temp0) &
+      !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm,temp0) &
       !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2) &
       !$OMP shared(orho1)
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
-         call costf1(s, ulm_real-llm_real+1, start_lm-llm_real+1, &
-              &      stop_lm-llm_real+1,dsdtLast, i_costf_init,   &
-              &      d_costf_init)
-         call get_ddr(s, ds, workA, ulm_real-llm_real+1,       &
-              &       start_lm-llm_real+1, stop_lm-llm_real+1, &
-              &       n_r_max, n_cheb_max, workB, dsdtLast,    &
+         if (iThread == nThreads-1) stop_lm=lmStop
+         call costf1(s, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &      dsdtLast, i_costf_init, d_costf_init)
+         call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max, n_cheb_max, workB, dsdtLast,                   &
               &       i_costf_init,d_costf_init,drx,ddrx)
       end do
       !$OMP end do
@@ -703,8 +686,6 @@ contains
       !  |  sMat0                                                            |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
-
-      use num_param, only: alpha
 
       !-- Input variables
       real(kind=8), intent(in) :: dt
@@ -809,8 +790,6 @@ contains
       !  |  sMat(i,j) and s0mat for the entropy equation.                    |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
-
-      use num_param, only: alpha
       
       !-- Input variables
       real(kind=8), intent(in) :: dt
@@ -949,4 +928,3 @@ contains
    end subroutine get_Smat
 !-----------------------------------------------------------------------------
 end module updateS_mod
-!-------------------------------------------------------------------------------

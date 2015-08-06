@@ -36,13 +36,14 @@ module start_fields
    use fieldsLast ! The entire module is required
    use const, only: zero, c_lorentz_ma, c_lorentz_ic, pi
    use useful, only: cc2real, logWrite
-   use LMLoop_data, only: lm_per_rank,lm_on_last_rank,llm_realMag, &
-                          ulm_realMag,llm_real,ulm_real,llm,ulm,   &
+   use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, &
                           ulmMag,llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
                              lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
                              get_global_sum, lo2r_w
+   use radial_der, only: get_dr, get_ddr
+   use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
    use readCheckPoints, only: readHdf5_serial,readStartFields
 #else
@@ -72,7 +73,7 @@ contains
       !-- Local variables:
       integer :: nR,l1m0,nLMB,l,m
       integer :: lm
-      integer :: lmStart,lmStop,lmStartReal,lmStopReal
+      integer :: lmStart,lmStop
       real(kind=8) :: coex
       real(kind=8) :: d_omega_ma_dt,d_omega_ic_dt
       character(len=76) :: message
@@ -99,7 +100,7 @@ contains
             botcond=-1.D0/epsS*dtemp0(n_r_max)
          else
             call s_cond(s0)
-            call get_dr(s0,ds0,1,1,1,n_r_max,n_cheb_max, &
+            call get_dr(s0,ds0,n_r_max,n_cheb_max, &
                    &    w1,w2,i_costf_init,d_costf_init,drx)
             topcond=-1.D0/dsqrt(4.D0*pi)*ds0(1)
             botcond=-1.D0/dsqrt(4.D0*pi)*ds0(n_r_max)
@@ -185,8 +186,6 @@ contains
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
-            lmStartReal=2*lmStart-1
-            lmStopReal =2*lmStop
     
             !----- Initialize/add magnetic field:
             if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
@@ -292,8 +291,6 @@ contains
       do nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs) ! Blocking of loop over all (l,m)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
-         lmStartReal=2*lmStart-1
-         lmStopReal =2*lmStop
     
          !if (DEBUG_OUTPUT) then
          !   write(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB,SUM(w_LMloc), SUM(z_LMloc), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
@@ -301,39 +298,37 @@ contains
     
     
          if ( l_conv .or. l_mag_kin ) then
-            call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm_real-llm_real+1, &
-                            lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
-                              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
-                                      i_costf_init,d_costf_init,drx,ddrx )
-            call get_dr(            z_LMloc,dz_LMloc,ulm_real-llm_real+1, &
-                            lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
-                              n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
-                                           i_costf_init,d_costf_init,drx )
+            call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
+                          lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
+                          workB_LMloc,i_costf_init,d_costf_init,drx,ddrx )
+            call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                         n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                         i_costf_init,d_costf_init,drx )
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
-            call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulm_realMag-llm_realMag+1, &
-                            lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
-                                    n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
-                                            i_costf_init,d_costf_init,drx,ddrx )
-            call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulm_realMag-llm_realMag+1, &
-                             lmStartReal-llm_realMag+1,lmStopReal-llm_realMag+1, &
-                                     n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
-                                             i_costf_init,d_costf_init,drx,ddrx )
+            call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
+                          lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
+                          n_cheb_max,workA_LMloc,workB_LMloc,         &
+                          i_costf_init,d_costf_init,drx,ddrx )
+            call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
+                          lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
+                          n_cheb_max,workA_LMloc,workB_LMloc,          &
+                          i_costf_init,d_costf_init,drx,ddrx )
          end if
          if ( l_cond_ic ) then
-            call get_ddr_even(             b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,    &
-                              ulm_realMag-llm_realMag+1,lmStartReal-llm_realMag+1, &
-                               lmStopReal-llm_realMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                                                dr_fac_ic,workA_LMloc,workB_LMloc, &
-                                                i_costf1_ic_init,d_costf1_ic_init, &
-                                                i_costf2_ic_init,d_costf2_ic_init )
-            call get_ddr_even(               aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc, &
-                              ulm_realMag-llm_realMag+1,lmStartReal-llm_realMag+1, &
-                               lmStopReal-llm_realMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                                                dr_fac_ic,workA_LMloc,workB_LMloc, &
-                                                i_costf1_ic_init,d_costf1_ic_init, &
-                                                i_costf2_ic_init,d_costf2_ic_init )
+            call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,       &
+                              ulmMag-llmMag+1,lmStart-llmMag+1,          &
+                              lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
+                              dr_fac_ic,workA_LMloc,workB_LMloc,         &
+                              i_costf1_ic_init,d_costf1_ic_init,         &
+                              i_costf2_ic_init,d_costf2_ic_init )
+            call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,      &
+                              ulmMag-llmMag+1,lmStart-llmMag+1,          &
+                              lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
+                              dr_fac_ic,workA_LMloc,workB_LMloc,         &
+                              i_costf1_ic_init,d_costf1_ic_init,         &
+                              i_costf2_ic_init,d_costf2_ic_init )
          end if
     
          if ( l_LCR ) then
@@ -368,10 +363,9 @@ contains
             !      end do
             !   end do
             !end if
-            call get_dr(             s_LMloc,ds_LMloc,ulm_real-llm_real+1, &
-                             lmStartReal-llm_real+1,lmStopReal-llm_real+1, &
-                               n_r_max,n_cheb_max,workA_LMloc,workB_LMloc, &
-                                            i_costf_init,d_costf_init,drx )
+            call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                         n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                         i_costf_init,d_costf_init,drx )
          end if
     
          if ( DEBUG_OUTPUT ) then

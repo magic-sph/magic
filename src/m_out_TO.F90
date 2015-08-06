@@ -25,8 +25,8 @@ module outTO_mod
    use useful, only: logWrite
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
    use chebInt_mod, only: chebInt, chebIntInit
+   use cosine_transform, only: costf1
 
- 
    implicit none 
 
    private
@@ -122,7 +122,7 @@ contains
       real(kind=8) :: BpzdLMr(lmMaxS,n_r_maxStr)
 
       !---- Work array:
-      complex(kind=8) :: workA(lmMaxS,n_r_maxStr)
+      real(kind=8) :: workA(lmMaxS,n_r_maxStr)
 
       integer :: lm,l ! counter for degree
 

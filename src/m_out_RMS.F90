@@ -2,8 +2,8 @@
 module out_RMS
 
    use truncation, only: lm_max, n_r_max, lm_max_dtB, n_r_max_dtB, &
-                         n_cheb_max, lm_max_real, lm_maxMag,       &
-                         n_r_maxMag, n_phi_max, n_theta_max, minc
+                         n_cheb_max, lm_maxMag, n_theta_max, minc, &
+                         n_r_maxMag, n_phi_max
    use parallel_mod, only: MPI_IN_PLACE, n_procs, MPI_SUM,     & 
                            MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, &
                            MPI_DOUBLE_PRECISION, ierr,         &
@@ -46,6 +46,7 @@ module out_RMS
    use communications, only: myallgather
    use RMS_helpers, only: init_rNB, hInt2dPol, get_PolTorRms, get_PASLM, &
                           get_RAS
+   use radial_der, only: get_drNS
 
    implicit none
 
@@ -234,9 +235,9 @@ contains
     
             !------ Coriolis force
             if ( l_corr ) then
-               call get_drNS_R( CorPolLMr(1,nRC),workA(1,nRC),                  &
-                    &           lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                    &           dr_facC,workB,i_costf_initC,d_costf_initC)
+               call get_drNS( CorPolLMr(1,nRC),workA(1,nRC),        &
+                    &           lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
+                    &           workB,i_costf_initC,d_costf_initC,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,CorPol2hInt(nR+nCut), &
                                  CorPolAs2hInt(nR+nCut),st_map)
@@ -261,9 +262,9 @@ contains
     
             !------ Advection:
             if ( l_conv_nl ) then
-               call get_drNS_R(AdvPolLMr(1,nRC),workA(1,nRC),                  &
-                    &          lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                    &          dr_facC,workB,i_costf_initC,d_costf_initC)
+               call get_drNS(AdvPolLMr(1,nRC),workA(1,nRC),          &
+                    &          lm_max,1,lm_max,n_r_maxC,n_cheb_maxC,   &
+                    &          workB,i_costf_initC,d_costf_initC,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,AdvPol2hInt(nR+nCut), &
                                  AdvPolAs2hInt(nR+nCut),st_map)
@@ -288,9 +289,9 @@ contains
     
             !------ Lorentz force:
             if ( l_mag_LF ) then
-               call get_drNS_R(LFPolLMr(1,nRC),workA(1,nRC),                   &
-                    &          lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                    &          dr_facC,workB,i_costf_initC,d_costf_initC)
+               call get_drNS(LFPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
+                    &        n_r_maxC,n_cheb_maxC,workB,i_costf_initC,    &
+                    &        d_costf_initC,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol( workA(1,nR+nCut),2,lm_max,LFPol2hInt(nR+nCut), &
                                   LFPolAs2hInt(nR+nCut),st_map)
@@ -320,9 +321,9 @@ contains
     
             !------ Buoyancy:
             if ( l_heat ) then
-               call get_drNS_R(BuoLMr(1,nRC),workA(1,nRC),                     &
-                    &          lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                    &          dr_facC,workB,i_costf_initC,d_costf_initC)
+               call get_drNS(BuoLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max, &
+                    &        n_r_maxC,n_cheb_maxC,workB,i_costf_initC,   &
+                    &        d_costf_initC,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max, Buo2hInt(nR+nCut), &
                                  BuoAs2hInt(nR+nCut),st_map)
@@ -343,9 +344,9 @@ contains
             end if
     
             !------ Pressure gradient:
-            call get_drNS_R(       PreLMr(1,nRC),workA(1,nRC),   &
-                 lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                 dr_facC,workB,i_costf_initC,d_costf_initC)
+            call get_drNS(PreLMr(1,nRC),workA(1,nRC),lm_max,1,  &
+                 &        lm_max,n_r_maxC,n_cheb_maxC,workB,    &
+                 &        i_costf_initC,d_costf_initC,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol(workA(1,nR+nCut),2,lm_max,Pre2hInt(nR+nCut), &
                              PreAs2hInt(nR+nCut),st_map)
@@ -360,9 +361,9 @@ contains
             PreAsRms=dsqrt(PreAsRms/volC)
     
             !------ Geostrophic balance:
-            call get_drNS_R(       GeoLMr(1,nRC),workA(1,nRC),   &
-                 lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                 dr_facC,workB,i_costf_initC,d_costf_initC)
+            call get_drNS(GeoLMr(1,nRC),workA(1,nRC),lm_max,1, &
+                 &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
+                 &        i_costf_initC,d_costf_initC,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol(workA(1,nR+nCut),2,lm_max,Geo2hInt(nR+nCut), &
                               GeoAs2hInt(nR+nCut),st_map)
@@ -378,9 +379,9 @@ contains
     
             !------ Magnetostrophic balance:
             if ( .not. l_RMStest ) then
-               call get_drNS_R(       MagLMr(1,nRC),workA(1,nRC),   &
-                    lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                    dr_facC,workB,i_costf_initC,d_costf_initC)
+               call get_drNS(MagLMr(1,nRC),workA(1,nRC),lm_max,1, &
+                    &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
+                    &        i_costf_initC,d_costf_initC,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,Mag2hInt(nR+nCut), &
                                  MagAs2hInt(nR+nCut),st_map)
@@ -396,9 +397,9 @@ contains
             MagAsRms=dsqrt(MagAsRms/volC)
     
             !------ Archemidian balance:
-            call get_drNS_R( ArcLMr(1,nRC),workA(1,nRC),                     &
-                 &           lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                 &           dr_facC,workB,i_costf_initC,d_costf_initC)
+            call get_drNS(ArcLMr(1,nRC),workA(1,nRC),           &
+                 &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
+                 &        workB,i_costf_initC,d_costf_initC,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,Arc2hInt(nR+nCut), &
                                ArcAs2hInt(nR+nCut),st_map)
@@ -418,9 +419,9 @@ contains
             end if
     
             !------ Diffusion:
-            call get_drNS_R(DifPolLMr(1,nRC),workA(1,nRC),                  &
-                 &          lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                 &          dr_facC,workB,i_costf_initC,d_costf_initC)
+            call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
+                 &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
+                 &        workB,i_costf_initC,d_costf_initC,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(nR+nCut,1), &
                                DifPolAs2hInt(nR+nCut,1),lo_map)
@@ -453,9 +454,9 @@ contains
             DifTorAsRms=SQRT(DifTorAsRms/volC)
     
             !------ Flow changes: Inertia - Advection
-            call get_drNS_R( dtVPolLMr(1,nRC),workA(1,nRC),                  &
-                 &           lm_max_real,1,lm_max_real,n_r_maxC,n_cheb_maxC, &
-                 &           dr_facC,workB,i_costf_initC,d_costf_initC)
+            call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
+                 &         n_r_maxC,n_cheb_maxC,workB,i_costf_initC,     &
+                 &         d_costf_initC,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(nR+nCut,1), &
                                dtVPolAs2hInt(nR+nCut,1),lo_map)
@@ -610,7 +611,7 @@ contains
          l1m0=lm2(1,0)
     
          !--- Stretching
-         call get_drNS(PstrLM,workA,lm_max_real,1,lm_max_real,n_r_max, &
+         call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          !--- Finalize rms poloidal and toroidal stretching:
          call get_PolTorRms(PstrLM,workA,TstrLM,PstrRms,TstrRms,PstrAsRms, &
@@ -631,7 +632,7 @@ contains
          call get_PolTorRms(PstrLM,workA,TstrLM,DstrRms,dummy1,dummy2,dummy3,st_map)
     
          !--- Finalize advection
-         call get_drNS(PadvLM,workA,lm_max_real,1,lm_max_real,n_r_max, &
+         call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          call get_PolTorRms(PadvLM,workA,TadvLM,PadvRms,TadvRms, &
               &             PadvAsRms,TadvAsRms,st_map)
@@ -666,7 +667,7 @@ contains
                             dummy1,dummy2,dummy3,st_map)
     
          !--- Diffusion:
-         call get_drNS(PdifLM,workA,lm_max_real,1,lm_max_real,n_r_max, &
+         call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          call get_PolTorRms(PdifLM,workA,TdifLM,PdifRms,TdifRms,&
                             PdifAsRms,TdifAsRms,st_map)
@@ -688,7 +689,7 @@ contains
     
     
          !--- B changes:
-         call get_drNS(dtBPolLMr,workA,lm_max_real,1,lm_max_real,n_r_max, &
+         call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          do nR=1,n_r_max
             call hInt2dPol(workA(1,nR),2,lm_max,dtBPol2hInt(nR,1), &

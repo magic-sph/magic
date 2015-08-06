@@ -21,6 +21,7 @@ module out_movie_IC
    use fft_MKL, only: fft_thetab
 #endif
    use out_movie, only: get_fl
+   use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
 
    implicit none

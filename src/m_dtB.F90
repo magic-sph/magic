@@ -7,7 +7,7 @@ module dtB_mod
    !--------------------------------------------------------------------------------
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
                          n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
-                         n_r_ic_max, l_max, n_phi_max, ldtBmem, lm_max_real
+                         n_r_ic_max, l_max, n_phi_max, ldtBmem
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, i_costf_init, &
@@ -18,7 +18,7 @@ module dtB_mod
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
                               dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec
-   use LMLoop_data, only: llmMag, ulmMag, llm, ulm, llm_real, ulm_real
+   use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP
    use radial_spectra ! rBrSpec, rBpSpec
@@ -28,6 +28,7 @@ module dtB_mod
    use fft_MKL
 #endif
    use legendre_grid_to_spec, only: legTF2, legTF3
+   use radial_der, only: get_drNS
  
    implicit none
  
@@ -373,7 +374,7 @@ contains
       end do
     
       if ( rank == 0 ) then
-         call get_drNS(TstrRLM,workA,lm_max_real,1,lm_max_real, &
+         call get_drNS(TstrRLM,workA,lm_max,1,lm_max, &
                        n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
     
          do nR=1,n_r_max
@@ -382,7 +383,7 @@ contains
             end do
          end do
          
-         call get_drNS(TomeRLM,workA,lm_max_real,1,lm_max_real, &
+         call get_drNS(TomeRLM,workA,lm_max,1,lm_max, &
                        n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          
          do nR=1,n_r_max
@@ -391,7 +392,7 @@ contains
             end do
          end do
          
-         call get_drNS(TadvRLM,workA,lm_max_real,1,lm_max_real, &
+         call get_drNS(TadvRLM,workA,lm_max,1,lm_max, &
                        n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
          
          do nR=1,n_r_max

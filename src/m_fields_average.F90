@@ -21,7 +21,7 @@ module fields_average_mod
    use fft_MKL
 #endif
    use const, only: zero, vol_oc, vol_ic
-   use LMLoop_data, only: llm,ulm,llm_real,ulm_real,llmMag,ulmMag
+   use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
                            & gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb
@@ -29,6 +29,9 @@ module fields_average_mod
    use graphOut_mod, only: graphOut, graphOut_IC
    use store_pot_mod, only: storePotW
    use leg_helper_mod, only: legPrep
+   use legendre_spec_to_grid, only: legTF
+   use radial_der_even, only: get_drNS_even, get_ddrNS_even
+   use radial_der, only: get_drNS
  
    implicit none
  
@@ -156,7 +159,7 @@ contains
       real(kind=8) :: dt_norm
 
       integer :: nBpotSets,nVpotSets,nTpotSets
-      integer :: lmStart,lmStop,lmStart_real, lmStop_real
+      integer :: lmStart,lmStop
 
       !-- Initialise average for first time step:
 
@@ -260,37 +263,35 @@ contains
          !----- Get the radial derivatives:
          lmStart=lmStartB(rank+1)
          lmStop = lmStopB(rank+1)
-         lmStart_real=2*lmStart-1
-         lmStop_real =2*lmStop
 
-         call get_drNS(w_ave,dw_ave,ulm_real-llm_real+1,              &
-              &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-              &        n_r_max,n_cheb_max,workA_LMloc,                &
+         call get_drNS(w_ave,dw_ave,ulm-llm+1,          &
+              &        lmStart-llm+1,lmStop-llm+1,      &
+              &        n_r_max,n_cheb_max,workA_LMloc,  &
               &        i_costf_init,d_costf_init,drx)
          if (l_mag) then
-            call get_drNS(b_ave,db_ave,ulm_real-llm_real+1,              &
-                 &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-                 &        n_r_max,n_cheb_max,workA_LMloc,                &
+            call get_drNS(b_ave,db_ave,ulm-llm+1,          &
+                 &        lmStart-llm+1,lmStop-llm+1,      &
+                 &        n_r_max,n_cheb_max,workA_LMloc,  &
                  &        i_costf_init,d_costf_init,drx)
          end if
          if ( l_heat ) then
-            call get_drNS(s_ave,ds_ave,ulm_real-llm_real+1,              &
-                 &        lmStart_real-llm_real+1,lmStop_real-llm_real+1,&
-                 &        n_r_max,n_cheb_max,workA_LMloc,                &
+            call get_drNS(s_ave,ds_ave,ulm-llm+1,            &
+                 &        lmStart-llm+1,lmStop-llm+1,        &
+                 &        n_r_max,n_cheb_max,workA_LMloc,    &
                  &        i_costf_init,d_costf_init,drx)
          end if
          if ( l_cond_ic ) then
-            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,               &
-                 &              ulm_real-llm_real+1,lmStart_real-llm_real+1, &
-                 &              lmStop_real-llm_real+1,n_r_ic_max,           &
-                 &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,         &
-                 &              i_costf1_ic_init,d_costf1_ic_init,           &
+            call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &
+                 &              ulm-llm+1,lmStart-llm+1,               &
+                 &              lmStop-llm+1,n_r_ic_max,               &
+                 &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,   &
+                 &              i_costf1_ic_init,d_costf1_ic_init,     &
                  &              i_costf2_ic_init,d_costf2_ic_init)
-            call get_drNS_even(aj_ic_ave,dj_ic_ave,                          &
-                 &             ulm_real-llm_real+1,lmStart_real-llm_real+1,  &
-                 &             lmStop_real-llm_real+1,n_r_ic_max,            &
-                 &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,          &
-                 &             i_costf1_ic_init,d_costf1_ic_init,            &
+            call get_drNS_even(aj_ic_ave,dj_ic_ave,                    &
+                 &             ulm-llm+1,lmStart-llm+1,                &
+                 &             lmStop-llm+1,n_r_ic_max,                &
+                 &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,    &
+                 &             i_costf1_ic_init,d_costf1_ic_init,      &
                  &             i_costf2_ic_init,d_costf2_ic_init)
          end if
 

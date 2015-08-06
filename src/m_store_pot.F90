@@ -7,9 +7,10 @@ module store_pot_mod
    use horizontal_data
    use logic
    use output_data
-   use LMLoop_data, only: llm, ulm, llm_real, ulm_real
+   use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank
    use communications, only: gather_from_lo_to_rank0
+   use cosine_transform, only: costf1
     
    implicit none
 
@@ -58,11 +59,9 @@ contains
       end do
     
       !--- Transform to Cheb-space:
-      call costf1(workA,lm_max_real,1,lm_max_real, &
-                  workC,i_costf_init,d_costf_init)
+      call costf1(workA,lm_max,1,lm_max,workC,i_costf_init,d_costf_init)
       if ( lVB ) &
-           call costf1(workB,lm_max_real,1,lm_max_real, &
-                       workC,i_costf_init,d_costf_init)
+           call costf1(workB,lm_max,1,lm_max,workC,i_costf_init,d_costf_init)
     
       !--- Correct amplitude:
       chebNorm=dsqrt(2.D0/(n_r_max-1))
@@ -122,10 +121,10 @@ contains
             end do
          end do
     
-         call costf1(workA,lm_max_real,1,lm_max_real, &
-                     workC,i_costf1_ic_init,d_costf1_ic_init)
-         call costf1(workB,lm_max_real,1,lm_max_real, &
-                     workC,i_costf1_ic_init,d_costf1_ic_init)
+         call costf1(workA,lm_max,1,lm_max,workC, &
+                             i_costf1_ic_init,d_costf1_ic_init)
+         call costf1(workB,lm_max,1,lm_max,workC, &
+                             i_costf1_ic_init,d_costf1_ic_init)
     
          chebNorm=dsqrt(2.D0/(n_r_ic_max-1))
          do n_cheb=1,n_cheb_ic_max
@@ -196,9 +195,9 @@ contains
       end do
 
       !--- Transform to Cheb-space:
-      call costf1(workA,ulm_real-llm_real+1,1,ulm_real-llm_real+1, &
+      call costf1(workA,ulm-llm+1,1,ulm-llm+1, &
                   workC,i_costf_init,d_costf_init)
-      if ( lVB ) call costf1(workB,ulm_real-llm_real+1,1,ulm_real-llm_real+1, &
+      if ( lVB ) call costf1(workB,ulm-llm+1,1,ulm-llm+1, &
            &                 workC,i_costf_init,d_costf_init)
 
       !--- Correct amplitude:
@@ -278,9 +277,9 @@ contains
             end do
          end do
 
-         call costf1(workA,ulm_real-llm_real+1,1,ulm_real-llm_real+1, &
+         call costf1(workA,ulm-llm+1,1,ulm-llm+1, &
                      workC,i_costf1_ic_init,d_costf1_ic_init)
-         call costf1(workB,ulm_real-llm_real+1,1,ulm_real-llm_real+1, &
+         call costf1(workB,ulm-llm+1,1,ulm-llm+1, &
                      workC,i_costf1_ic_init,d_costf1_ic_init)
 
          chebNorm=dsqrt(2.D0/(n_r_ic_max-1))

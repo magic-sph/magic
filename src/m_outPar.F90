@@ -20,6 +20,7 @@ module outPar_mod
    use output_data, only: tag, n_perpPar_file, perpPar_file
    use useful, only: cc2real
    use integration, only: rInt
+   use legendre_spec_to_grid, only: lmAS2pt
 
    implicit none
 
@@ -182,19 +183,19 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank
          end do
-         call MPI_GatherV(duhR,sendcount,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(duhR,sendcount,MPI_DOUBLE_PRECISION,              &
              &           duhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(uhR,sendcount,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(uhR,sendcount,MPI_DOUBLE_PRECISION,              &
              &           uhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(gradT2R,sendcount,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(gradT2R,sendcount,MPI_DOUBLE_PRECISION,              &
              &           gradT2R_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(sR,sendcount,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(sR,sendcount,MPI_DOUBLE_PRECISION,              &
              &           sR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,              &
              &           Svar_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
       end if

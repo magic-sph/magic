@@ -36,6 +36,7 @@ module init_fields
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use matrices, only: jMat, jPivot, s0Mat, s0Pivot
    use legendre_grid_to_spec, only: legTF1
+   use cosine_transform, only: costf1
 
    implicit none
 
@@ -1251,7 +1252,7 @@ contains
       end do
 
       !----- transform to radial space:
-      call costf1(aj0,1,1,1,work_l,i_costf_init,d_costf_init)
+      call costf1(aj0,work_l,i_costf_init,d_costf_init)
        
       if ( l_cond_ic ) then
            
@@ -1265,7 +1266,7 @@ contains
            
       !----- transform to radial space:
       !  Note: this is assuming that aj0_ic is an even function !
-         call costf1(aj0_ic,1,1,1,work_l_ic,i_costf1_ic_init,d_costf1_ic_init)
+         call costf1(aj0_ic,work_l_ic,i_costf1_ic_init,d_costf1_ic_init)
 
       end if
     
@@ -1370,7 +1371,7 @@ contains
       end if
        
       !-- Transform to radial space:
-      call costf1(s0,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(s0,work,i_costf_init,d_costf_init)
 
     end subroutine s_cond
 !--------------------------------------------------------------------------------

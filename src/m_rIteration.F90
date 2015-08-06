@@ -16,10 +16,10 @@ module rIteration_mod
  
    contains
  
-      procedure(empty_if), DEFERRED :: initialize
-      procedure(empty_if), DEFERRED :: finalize
+      procedure(empty_if), deferred :: initialize
+      procedure(empty_if), deferred :: finalize
       procedure :: set_steering_variables
-      procedure(do_iteration_if), DEFERRED :: do_iteration
+      procedure(do_iteration_if), deferred :: do_iteration
       procedure(getType_if), deferred :: getType
  
    end type rIteration_t

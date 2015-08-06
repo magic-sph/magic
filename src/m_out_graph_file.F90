@@ -23,6 +23,7 @@ module graphOut_mod
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
+   use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
 
    implicit none

@@ -12,11 +12,16 @@ module readCheckPoints
                           tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,         &
                           omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,        &
                           omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,         &
-                          tShift_ma1,tShift_ma2,tipdipole
-   use radial_functions, only: r
+                          tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,    &
+                          scale_s
+   use radial_functions, only: i_costf_init,d_costf_init,cheb_norm, &
+                               i_costf1_ic_init,d_costf1_ic_init,   &
+                               cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
    use const, only: c_z10_omega_ic, c_z10_omega_ma, pi
+   use init_costf, only: init_costf1
+   use cosine_transform, only: costf1
 
 
    implicit none
@@ -33,14 +38,11 @@ module readCheckPoints
 
 contains
 
-!***********************************************************************
    subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt, &
       &                       b,dbdt,aj,djdt,b_ic,dbdt_ic, &
       &                   aj_ic,djdt_ic,omega_ic,omega_ma, &
       &               lorentz_torque_ic,lorentz_torque_ma, &
       &                    time,dt_old,dt_new,n_time_step)
-!***********************************************************************
-
       !  +-------------+----------------+------------------------------------+
       !  |                                                                   |
       !  |   read initial condition from restart file                        |
@@ -86,9 +88,6 @@ contains
       real(kind=8) :: omega_ma2Old,omegaOsz_ma2Old
 
       complex(kind=8),allocatable :: wo(:),zo(:),po(:),so(:)
-
-      !-- end of declaration
-      !----------------------------------------------------------------------------
 
 
       inquire(file=start_file, exist=startfile_does_exist)
@@ -472,7 +471,7 @@ contains
       close(n_start_file)
  
    end subroutine readStartFields
-!***********************************************************************
+!------------------------------------------------------------------------------
 #ifdef WITH_HDF5
    subroutine readHdf5_serial(w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt, &
                               aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic, &
@@ -930,7 +929,7 @@ contains
 
    end subroutine readHdf5_serial
 #endif
-!***********************************************************************
+!------------------------------------------------------------------------------
    subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
                         m_max,minc,minc_old,inform,lm_max,   &
                         lm_max_old,n_data_oldP,lm2lmo)
@@ -1017,12 +1016,10 @@ contains
       end do
 
    end subroutine getLm2lmO
-!***********************************************************************
+!------------------------------------------------------------------------------
    subroutine mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo, &
                           n_r_max_old,lm_max_old,n_r_maxL, &
                           lbc1,lbc2,lbc3,lbc4,w,z,p,s )
-
-      use init_fields, only: scale_v,scale_s
 
       !--- Input variables
       integer,         intent(in) :: n_r_max_old,lm_max_old
@@ -1097,12 +1094,10 @@ contains
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
    end subroutine mapDataHydro
-!***********************************************************************
+!------------------------------------------------------------------------------
    subroutine mapDataMag( wo,zo,po,so,n_data_oldP,n_rad_tot,n_r_max_old, &
                           lm_max_old,n_r_maxL,lm2lmo,dim1,l_IC,          & 
                           w,z,p,s )
-
-      use init_fields, only: scale_b
 
       !--- Input variables
       integer,         intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
@@ -1170,22 +1165,17 @@ contains
       bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
 
    end subroutine mapDataMag
-!***************************************************************************
+!------------------------------------------------------------------------------
    subroutine mapDataR(dataR,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
-!***************************************************************************
-   !---------------------------------------------------------------------------
-   !
-   !  Copy (interpolate) data (read from disc file) from old grid structure 
-   !  to new grid. Linear interploation is used in r if the radial grid
-   !  structure differs
-   !
-   !  called in mapdata
-   !
-   !---------------------------------------------------------------------------
-
-      use radial_functions, only: i_costf_init,d_costf_init,cheb_norm, &
-                                  i_costf1_ic_init,d_costf1_ic_init,   &
-                                  cheb_norm_ic
+      !---------------------------------------------------------------------------
+      !
+      !  Copy (interpolate) data (read from disc file) from old grid structure 
+      !  to new grid. Linear interploation is used in r if the radial grid
+      !  structure differs
+      !
+      !  called in mapdata
+      !
+      !---------------------------------------------------------------------------
 
       !--- Input variables
       integer,         intent(in) :: n_r_max_old
@@ -1193,35 +1183,34 @@ contains
       logical,         intent(in) :: lBc,l_IC
 
       !--- Output variables
-      complex(kind=8),intent(out) :: dataR(:)  ! old data 
+      complex(kind=8), intent(out) :: dataR(:)  ! old data 
 
       !-- Local variables
       integer :: nR, n_r_index_start
-      integer,     allocatable :: i_costf_init_old(:)
-      real(kind=8),allocatable :: d_costf_init_old(:)
-      real(kind=8),allocatable :: work(:)
+      integer,      allocatable :: i_costf_init_old(:)
+      real(kind=8), allocatable :: d_costf_init_old(:)
+      complex(kind=8), allocatable :: work(:)
       real(kind=8) :: cheb_norm_old,scale
 
       !-- end of declaration
 
       allocate( i_costf_init_old(2*n_r_maxL+2) )
       allocate( d_costf_init_old(2*n_r_maxL+5) )
-      allocate( work(2*n_r_maxL) )
+      allocate( work(n_r_maxL) )
 
       !----- Initialize transform to cheb space:
       call init_costf1(n_r_max_old,i_costf_init_old,2*n_r_maxL+2,     &
-          &                               d_costf_init_old,2*n_r_maxL+5)
+          &            d_costf_init_old,2*n_r_maxL+5)
 
       !-- Guess the boundary values, since they have not been stored:
       if ( .not. l_IC .and. lBc ) then
          dataR(1)=2.D0*dataR(2)-dataR(3)
-         dataR(n_r_max_old)=2.D0*dataR(n_r_max_old-1) -               &
-              &                             dataR(n_r_max_old-2)
+         dataR(n_r_max_old)=2.D0*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
       end if
 
       !----- Transform old data to cheb space:
       !      Note: i_costf_init_old,d_costf_init_old used here!
-      call costf1(dataR,2,1,2,work,i_costf_init_old,d_costf_init_old)
+      call costf1(dataR,work,i_costf_init_old,d_costf_init_old)
 
       !----- Fill up cheb polynomial with zeros:
       if ( n_rad_tot>n_r_max_old ) then
@@ -1238,12 +1227,12 @@ contains
       !----- Now transform to new radial grid points:
       !      Note: i_costf_init,d_costf_init used here!
       if ( l_IC ) then
-         call costf1(dataR,2,1,2,work,i_costf1_ic_init,d_costf1_ic_init)
+         call costf1(dataR,work,i_costf1_ic_init,d_costf1_ic_init)
          !----- Rescale :
          cheb_norm_old=DSQRT(2.D0/DBLE(n_r_max_old-1))
          scale=cheb_norm_old/cheb_norm_ic
       else
-         call costf1(dataR,2,1,2,work,i_costf_init,d_costf_init)
+         call costf1(dataR,work,i_costf_init,d_costf_init)
          !----- Rescale :
          cheb_norm_old=DSQRT(2.D0/DBLE(n_r_max_old-1))
          scale=cheb_norm_old/cheb_norm

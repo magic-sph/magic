@@ -23,10 +23,12 @@ module updateWP_mod
 #else
    use algebra, only: cgeslML, sgefa
 #endif
-   use LMLoop_data, only:llm,ulm, llm_real,ulm_real
+   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize
    use RMS_helpers, only:  hInt2Pol
+   use cosine_transform, only: costf1
+   use radial_der, only: get_dddr, get_dr
 
    implicit none
 
@@ -105,8 +107,6 @@ contains
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
       integer :: lmStart,lmStop ! max and min number of orders m
-      integer :: lmStart_real      ! range of lm for real array
-      integer :: lmStop_real       !
       integer :: lmStart_00        ! excluding l=0,m=0
       integer :: nLMB2
       integer :: nR                ! counts radial grid points
@@ -136,8 +136,6 @@ contains
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
       lmStart_00  =max(2,lmStart)
-      lmStart_real=2*lmStart_00-1
-      lmStop_real =2*lmStop
 
       w2  =1.D0-w1
       O_dt=1.D0/dt
@@ -286,7 +284,7 @@ contains
 
 
       !PERFON('upWP_drv')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < omp_get_max_threads()) then
          call omp_set_num_threads(all_lms)
@@ -294,10 +292,10 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_real,lmStop_real) &
+      !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
       !$OMP shared(i_costf_init,d_costf_init,drx,ddrx,dddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,nThreads,llm_real,ulm_real,workA)
+      !$OMP shared(n_r_max,n_cheb_max,nThreads,workA,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -309,25 +307,26 @@ contains
       per_thread=all_lms/nThreads
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart_00+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
-         !write(*,"(2(A,I3),2(A,I5))") "iThread=",iThread," on thread ",omp_get_thread_num(),&
-         !     & " lm = ",start_lm,":",stop_lm
+         if (iThread == nThreads-1) stop_lm=lmStop
+         !write(*,"(2(A,I3),2(A,I5))") "iThread=",iThread," on thread ", &
+         !     & omp_get_thread_num()," lm = ",start_lm,":",stop_lm
 
          !-- Transform to radial space and get radial derivatives
          !   using dwdtLast, dpdtLast as work arrays:
-         call costf1( w, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
+
+         call costf1( w, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       dwdtLast,i_costf_init,d_costf_init)
-         call get_dddr( w, dw, ddw, workA, &
-              &         ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
-              &         n_r_max,n_cheb_max,dwdtLast,dpdtLast, &
-              &         i_costf_init,d_costf_init,drx,ddrx,dddrx)
-         call costf1( p, ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
+
+         call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
+              &         stop_lm-llm+1, n_r_max,n_cheb_max,dwdtLast,    &
+              &         dpdtLast, i_costf_init,d_costf_init,drx,ddrx,  &
+              &         dddrx)
+         call costf1( p, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       dwdtLast,i_costf_init,d_costf_init)
-         call get_dr( p, dp, &
-              &       ulm_real-llm_real+1, start_lm-llm_real+1, stop_lm-llm_real+1, &
-              &       n_r_max,n_cheb_max,dwdtLast,dpdtLast, &
+         call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max,n_cheb_max,dwdtLast,dpdtLast,            &
               &       i_costf_init,d_costf_init,drx)
       end do
       !$OMP end do

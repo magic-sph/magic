@@ -1,6 +1,8 @@
 !$Id$
 module integration
 
+   use cosine_transform, only: costf1
+
    implicit none
 
    private
@@ -38,7 +40,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call costf1(f2,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(f2,work,i_costf_init,d_costf_init)
       f2(1)    =0.5D0*f2(1)
       f2(nRmax)=0.5D0*f2(nRmax)
 
@@ -74,7 +76,7 @@ contains
       real(kind=8) :: weight
       real(kind=8) :: work(nRmax)
 
-      call costf1(f,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(f,work,i_costf_init,d_costf_init)
       f(1)    =0.5D0*f(1)
       f(nRmax)=0.5D0*f(nRmax)
 
@@ -116,7 +118,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call costf1(f2,1,1,1,work,i_costf_init,d_costf_init)
+      call costf1(f2,work,i_costf_init,d_costf_init)
       f2(1)      =0.5D0*f2(1)
       f2(n_r_max)=0.5D0*f2(n_r_max)
 

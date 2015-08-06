@@ -65,8 +65,8 @@ contains
       !--- Input from radialLoop:
       !    These fields are provided in the R-distributed space!
       ! for djdt in update_b
-      complex(kind=8), intent(in) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dVSrLM(llm:ulm,n_r_max)    ! for dsdt in update_s
+      complex(kind=8), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
       integer,         intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:

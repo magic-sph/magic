@@ -10,7 +10,6 @@ module LMLoop_data
    private
  
    integer, public :: llm,ulm,llmMag,ulmMag
-   integer, public :: llm_real,ulm_real,llm_realMag,ulm_realMag
    integer, public :: lm_per_rank,lm_on_last_rank
  
    public :: initialize_LMLoop_data
@@ -51,10 +50,6 @@ contains
       lm_on_last_rank=lm_max
 #endif
 
-      llm_real = 2*llm-1
-      ulm_real = 2*ulm
-      llm_realMag = 2*llmMag-1
-      ulm_realMag = 2*ulmMag
       if ( DEBUG_OUTPUT ) then
          write(*,"(4(A,I6))") "llm = ",llm,", ulm = ",ulm,", llmMag = ", &
                               llmMag,", ulmMag = ",ulmMag

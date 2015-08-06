@@ -1,6 +1,11 @@
 !$Id$
 #include "perflib_preproc.cpp"
 module updateB_mod
+
+#ifdef WITH_LIKWID
+#include "likwid_f90.h"
+#endif
+
    use omp_lib
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
                          n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
@@ -34,12 +39,12 @@ module updateB_mod
 #else
    use algebra, only: cgeslML, sgefa
 #endif
-   use LMLoop_data, only: llmMag,ulmMag,llm_realMag,ulm_realMag
+   use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize
    use RMS_helpers, only: hInt2Pol, hInt2Tor
-#ifdef WITH_LIKWID
-#include "likwid_f90.h"
-#endif
+   use cosine_transform, only: costf1
+   use radial_der_even, only: get_ddr_even
+   use radial_der, only: get_drNS, get_ddr
 
    implicit none
 
@@ -106,7 +111,7 @@ contains
       complex(kind=8), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
       complex(kind=8), intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
       complex(kind=8), intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      complex(kind=8), intent(in) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+      complex(kind=8), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(kind=8), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
       real(kind=8),    intent(in) :: omega_ic
       real(kind=8),    intent(in) :: w1    ! weight for time step !
@@ -145,8 +150,6 @@ contains
       integer :: l1,m1               ! degree and order
       integer :: lm1,lm,lmB          ! position of (l,m) in array
       integer :: lmStart,lmStop      ! max and min number of orders m
-      integer :: lmStart_real        ! range of lm for real array
-      integer :: lmStop_real
       integer :: lmStart_00          ! excluding l=0,m=0
       integer :: nLMB2
       integer :: n_cheb              ! No of cheb polynome (degree+1)
@@ -191,12 +194,10 @@ contains
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
       lmStart_00  =max(2,lmStart)
-      lmStart_real=2*lmStart_00-1
-      lmStop_real =2*lmStop
 
       ! output the input 
       !write(*,"(4(A,I4),I4,A,I4)") "nLMB=",nLMB,", from ",lmStart," to ",lmStop,&
-      !     &", reals: ",lmStart_real,lmStop_real,", nLMBs2 = ",nLMBs2(nLMB)
+      !     &", reals: ",lmStart_00,lmStop,", nLMBs2 = ",nLMBs2(nLMB)
 
       w2  =1.D0-w1
       O_dt=1.D0/dt
@@ -204,23 +205,23 @@ contains
       !--- Start with finishing djdt:
       !    dVxBhLM is still in the R-distributed space,
       !    the ouput workA is in the LM-distributed space.
-      !if (2*lmStart-1 - llm_realMag+1 /= 1) then
-      !   write(*,"(I4,2(A,I6))") rank,": lmStart = ",lmStart,", llm_realMag = ",llm_realMag
+      !if (2*lmStart-1 - llmMag+1 /= 1) then
+      !   write(*,"(I4,2(A,I6))") rank,": lmStart = ",lmStart,", llmMag = ",llmMag
       !   STOP
       !end if
-      !if (lmStop_real  /=  ulm_realMag) then
-      !   write(*,"(I4,A,2I6)") rank,": ",ulm_realMag,lmStop_real
+      !if (lmStop  /=  ulmMag) then
+      !   write(*,"(I4,A,2I6)") rank,": ",ulmMag,lmStop
       !   stop
       !end if
       !call get_drNS( dVxBhLM,workA, &
-      !     &         ulm_realMag-llm_realMag+1,(2*lmStart-1)-llm_realMag+1,lmStop_real-llm_realMag+1, &
+      !     &         ulmMag-llmMag+1,(2*lmStart-1)-llmMag+1,lmStop-llmMag+1, &
       !     &         n_r_max,n_cheb_max,workB, &
       !     &         i_costf_init,d_costf_init,drx)
       ! simplified interface
-      !PRINT*,rank,": computing for ",ulm_realMag-llm_realMag+1," rows, i_costf_init = ",i_costf_init
+      !PRINT*,rank,": computing for ",ulmMag-llmMag+1," rows, i_costf_init = ",i_costf_init
 
       !PERFON('upB_fin')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -228,10 +229,10 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_real,lmStop_real,lmStart_00,lmStop) &
+      !$OMP shared(all_lms,per_thread,lmStop,lmStart_00) &
       !$OMP shared(dVxBhLM,workA,workB,djdt,or2) &
       !$OMP shared(i_costf_init,d_costf_init,drx) &
-      !$OMP shared(n_r_max,n_cheb_max,nThreads,llm_realMag,ulm_realMag)
+      !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -244,13 +245,12 @@ contains
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart_00+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
+         if (iThread == nThreads-1) stop_lm=lmStop
 
-         call get_drNS( dVxBhLM,workA, &
-              &         ulm_realMag-llm_realMag+1,start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-              &         n_r_max,n_cheb_max,workB, &
+         call get_drNS( dVxBhLM,workA,ulmMag-llmMag+1,start_lm-llmMag+1, &
+              &         stop_lm-llmMag+1,n_r_max,n_cheb_max,workB,       &
               &         i_costf_init,d_costf_init,drx)
 
       end do
@@ -591,7 +591,7 @@ contains
       end if
 
       !PERFON('upB_drv')
-      all_lms=lmStop_real-lmStart_real+1
+      all_lms=lmStop-lmStart_00+1
 #ifdef WITHOMP
       if (all_lms < maxThreads) then
          call omp_set_num_threads(all_lms)
@@ -599,10 +599,10 @@ contains
 #endif
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
-      !$OMP shared(all_lms,per_thread,lmStart_real,lmStop_real) &
+      !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &
       !$OMP shared(i_costf_init,d_costf_init,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,nThreads,llm_realMag,ulm_realMag) &
+      !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag) &
       !$OMP shared(l_cond_ic,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic) &
       !$OMP shared(i_costf1_ic_init,d_costf1_ic_init,i_costf2_ic_init,d_costf2_ic_init) &
       !$OMP shared(n_r_ic_max,n_cheb_ic_max,dr_fac_ic)
@@ -619,46 +619,45 @@ contains
       !$OMP BARRIER
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_real+iThread*per_thread
+         start_lm=lmStart_00+iThread*per_thread
          stop_lm = start_lm+per_thread-1
-         if (iThread == nThreads-1) stop_lm=lmStop_real
+         if (iThread == nThreads-1) stop_lm=lmStop
 
          !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
          !PERFON('upB_cb')
-         call costf1(b,ulm_realMag-llm_realMag+1,&
-              &      start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-              &      dbdtLast,i_costf_init,d_costf_init)
+         call costf1(b, ulmMag-llmMag+1, start_lm-llmMag+1,   &
+              &      stop_lm-llmMag+1, dbdtLast,i_costf_init, &
+              &      d_costf_init)
          !PERFOFF
          !PERFON('upB_db')
-         call get_ddr(b,db,ddb,ulm_realMag-llm_realMag+1,&
-              &       start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-              &       n_r_max,n_cheb_max,dbdtLast,djdtLast, &
-              &       i_costf_init,d_costf_init,drx,ddrx)
+         call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
+              &       stop_lm-llmMag+1,n_r_max,n_cheb_max,        &
+              &       dbdtLast,djdtLast,i_costf_init,d_costf_init,&
+              &       drx,ddrx)
          !PERFOFF
-         call costf1(aj,ulm_realMag-llm_realMag+1,&
-              &      start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-              &      dbdtLast,i_costf_init,d_costf_init)
-         call get_ddr(aj,dj,ddj,ulm_realMag-llm_realMag+1,&
-              &       start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-              &       n_r_max,n_cheb_max,dbdtLast,djdtLast, &
-              &       i_costf_init,d_costf_init,drx,ddrx)
+         call costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
+              &      stop_lm-llmMag+1, dbdtLast, i_costf_init, &
+              &      d_costf_init)
+         call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
+              &       stop_lm-llmMag+1,n_r_max,n_cheb_max,dbdtLast,&
+              &       djdtLast,i_costf_init,d_costf_init,drx,ddrx)
          
          !-- Same for inner core:
          if ( l_cond_ic ) then
-            call costf1(b_ic,ulm_realMag-llm_realMag+1,&
-                 &      start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-                 &      dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
+            call costf1(b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &      stop_lm-llmMag+1, dbdtLast,               &
+                 &      i_costf1_ic_init, d_costf1_ic_init)
             call get_ddr_even( b_ic,db_ic,ddb_ic,                     &
-                 & ulm_realMag-llm_realMag+1,start_lm-llm_realMag+1,  &
-                 & stop_lm-llm_realMag+1, n_r_ic_max,n_cheb_ic_max,   &
+                 & ulmMag-llmMag+1,start_lm-llmMag+1,  &
+                 & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,   &
                  & dr_fac_ic,dbdtLast,djdtLast, i_costf1_ic_init,     &
                  & d_costf1_ic_init, i_costf2_ic_init,d_costf2_ic_init)
-            call costf1(aj_ic,ulm_realMag-llm_realMag+1,&
-                 & start_lm-llm_realMag+1,stop_lm-llm_realMag+1, &
-                 & dbdtLast,i_costf1_ic_init,d_costf1_ic_init)
+            call costf1(aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &      stop_lm-llmMag+1, dbdtLast,                &
+                 &      i_costf1_ic_init, d_costf1_ic_init)
             call get_ddr_even( aj_ic,dj_ic,ddj_ic,                   &
-                 & ulm_realMag-llm_realMag+1,start_lm-llm_realMag+1, &
-                 & stop_lm-llm_realMag+1, n_r_ic_max,n_cheb_ic_max,  &
+                 & ulmMag-llmMag+1,start_lm-llmMag+1, &
+                 & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,  &
                  & dr_fac_ic,dbdtLast,djdtLast, i_costf1_ic_init,    &
                  & d_costf1_ic_init, i_costf2_ic_init,d_costf2_ic_init)
          end if
