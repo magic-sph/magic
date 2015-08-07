@@ -206,7 +206,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard [ms]*.F90)
-RED_SOURCES = $(filter-out m_fft% m_hdf5Helpers% m_store_mpi% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out m_fft% m_hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += m_fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -216,10 +216,6 @@ endif
 ifeq ($(USE_FFTLIB),MKL)
 	RED_SOURCES += m_fft_mkl.F90
 	FFT_OBJS += m_fft_mkl.o
-endif
-
-ifeq ($(USE_MPI),yes)
-	RED_SOURCES += m_store_mpi.F90
 endif
 
 ifeq ($(USE_HDF5),yes)
@@ -366,9 +362,6 @@ m_output.o              : truncation.o m_blocking.o m_phys_param.o\
 			  m_communications.o m_out_coeff.o m_outPar.o m_dtB.o\
                           m_store_movie_IC.o m_RMS.o m_store_pot.o
 m_communications.o	: m_blocking.o m_parallel.o m_LMLoop_data.o truncation.o
-ifeq ($(USE_MPI),yes)
-m_output.o		: m_store_mpi.o
-endif
 m_outPar.o              : truncation.o m_blocking.o m_phys_param.o\
                           m_logic.o m_radial.o m_output_data.o m_radial_data.o\
                           m_horizontal.o m_fields.o m_legendre_spec_to_grid.o\
@@ -495,8 +488,6 @@ m_fft_mkl.o             : truncation.o m_blocking.o
 m_Namelists.o           : m_const.o truncation.o m_phys_param.o m_num_param.o m_logic.o \
 			  m_init_fields.o m_output_data.o m_parallel.o \
 			  m_TO.o m_Grenoble.o m_radial.o m_Bext.o m_char_manip.o
-m_store_mpi.o		: truncation.o m_output_data.o m_parallel.o m_logic.o\
-                          m_dt_fieldsLast.o m_init_fields.o
 
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.F90

@@ -8,7 +8,7 @@ module plms_theta
    public :: plm_theta, plm_thetaAS
 
 contains
-!*************************************************************************
+
    subroutine plm_theta(theta,max_degree,max_order,m0, &
                          plma,dtheta_plma,ndim_plma,norm)
       !------------------------------------------------------------------------

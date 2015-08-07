@@ -303,7 +303,7 @@ contains
    subroutine getPVptr(w,dw,ddw,z,dz,rMin,rMax,rS, &
                    nZmax,nZmaxA,PlmS,dPlmS,OsinTS, &
                           VrS,VpS,VtS,VorS,dpVorS)
-      !****************************************************************************
+      !-------------------------------------------------------------------------------
       !  This subroutine calculates the three flow conponents VrS,VtS,VpS at
       !  (r,theta,all phis) and (r,pi-theta, all phis). Here r=rS, PlmS=Plm(theta),
       !  dPlmS=sin(theta)*dTheta Plm(theta), and OsinTS=1/sin(theta).
@@ -315,7 +315,7 @@ contains
       !  These two quantities are used ot calculate z and phi scale of the flow in
       !  s_getEgeos.f
       !  NOTE: on input w=l*(l+1)*w
-      !---------------------------------------------------------------------------------
+      !-------------------------------------------------------------------------------
 
       !--- Input variables:
       complex(kind=8), intent(in) :: w(lm_max,n_r_max)

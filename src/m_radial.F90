@@ -1,9 +1,5 @@
 !$Id$
 module radial_functions
-   !*******************************************************************
-   !  Common block containing radial functions, all THREADPRIVATE
-   !  These arrays and numbers are calculated by routine s_radial.f.
-   !*******************************************************************
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
    use matrices, only: s0Mat,s0Pivot

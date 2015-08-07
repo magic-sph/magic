@@ -26,20 +26,15 @@ module storeCheckPoints
 
 contains
 
-!********************************************************************
    subroutine store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
                     dwdtLast,dzdtLast,dpdtLast,dsdtLast,   &
                     dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
-
       !--------------------------------------------------------------------
-
       ! *** store results on disc file (restart file)
       !   In addition to the magnetic field and velocity potentials
       !   we store the time derivative terms
       !     djdt(lm,nR),dbdt(lm,nR), ......
-
       !--------------------------------------------------------------------
-
 
       !-- Input of variables:
       real(kind=8),  intent(in) :: time,dt,dtNew
@@ -61,9 +56,6 @@ contains
       complex(kind=8),intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
       complex(kind=8),intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
       complex(kind=8),intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
-
-      !-- end of declaration
-      !---------------------------------------------------------------------
 
       !-- Write parameters:
       if ( .not. l_heat ) then

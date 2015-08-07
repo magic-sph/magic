@@ -1,5 +1,4 @@
 !$Id$
-!*************************************************************************
 #include "perflib_preproc.cpp"
 module updateS_mod
 

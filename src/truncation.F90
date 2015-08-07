@@ -1,8 +1,9 @@
 !$Id$
 module truncation
-   !***************************************************************************
+   !----------------------------------------------
    !  defines grid points and truncation 
-   !***************************************************************************
+   !----------------------------------------------
+
    implicit none
 
    integer :: n_r_max       ! number of radial grid points, 
@@ -12,8 +13,6 @@ module truncation
    integer :: n_cheb_ic_max ! number of chebs in inner core
    integer :: minc          ! basic wavenumber, longitude symmetry  
    integer :: nalias        ! controlls dealiasing in latitude and 
- 
- 
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points

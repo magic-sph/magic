@@ -1,8 +1,8 @@
 !$Id$
 module physical_parameters
-!************************************************************************
-!  Module containing the physical parameters
-!************************************************************************
+   !------------------------------------------------
+   !  Module containing the physical parameters
+   !------------------------------------------------
 
    implicit none
  
@@ -46,6 +46,5 @@ module physical_parameters
    !-- To avoid circular dependence
    integer :: imagcon
    real(kind=8) :: tmagcon
-
 
 end module physical_parameters
