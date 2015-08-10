@@ -210,9 +210,13 @@ program magic5_1
          open(n_log_file, file=log_file, status='unknown', position='append')
       end if
       write(n_log_file,*) '!------------------------------------------------------!'
-      write(n_log_file,*) '!--     Program MAGIC ', trim(codeVersion),  &
-           &              '                            --!'
-      write(n_log_file,*) '!--     Date:$Date$,     Revision:$Rev$,              --!'
+      write(n_log_file,*) '!                                                      !'
+      write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
+           &              '                              !'
+      write(n_log_file,*) '!                                                      !'
+      write(n_log_file,*) '! $Date$!'
+      write(n_log_file,*) '!                 $Rev$                          !'
+      write(n_log_file,*) '!                                                      !'
       write(n_log_file,*) '!------------------------------------------------------!'
       write(n_log_file,*)
       if ( l_save_out ) close(n_log_file)
