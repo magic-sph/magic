@@ -257,7 +257,7 @@ contains
                stop
             end if
             nOut   =93
-            open(nOut, file=outFile, status='UNKNOWN')
+            open(nOut, file=outFile, status='unknown')
             if ( BV == 'B' ) then
                do l=0,l_max
                   SDp_l = get_standard_deviation(dt_norm,e_p_l_ave(l),e_p2_l_ave(l))
@@ -695,7 +695,7 @@ contains
          if ( l_mag ) then
             write(string, *) n_spec
             mag_spec_file='mag_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_mag_spec_file, file=mag_spec_file, status='UNKNOWN')
+            open(n_mag_spec_file, file=mag_spec_file, status='unknown')
             if ( n_spec == 0 ) then
                write(n_mag_spec_file,'(1x, &
                     &      ''Magnetic energy spectra of time averaged field:'')')
@@ -720,8 +720,8 @@ contains
             close(n_mag_spec_file)
     
             mag_spec_file='2D_mag_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_mag_spec_file, file=mag_spec_file, status='UNKNOWN', &
-                 form='UNFORMATTED')
+            open(n_mag_spec_file, file=mag_spec_file, status='unknown', &
+                 form='unformatted')
     
             write(n_mag_spec_file) time*tScale,n_r_max,l_max,minc
             write(n_mag_spec_file) r
@@ -736,7 +736,7 @@ contains
          if ( l_anel ) then
             write(string, *) n_spec
             u2_spec_file='u2_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_u2_spec_file, file=u2_spec_file, status='UNKNOWN')
+            open(n_u2_spec_file, file=u2_spec_file, status='unknown')
             if ( n_spec == 0 ) then
                write(n_u2_spec_file,'(1x, &
                     &     ''Velocity square spectra of time averaged field:'')')
@@ -754,8 +754,8 @@ contains
             close(n_u2_spec_file)
     
             u2_spec_file='2D_u2_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_u2_spec_file, file=u2_spec_file, status='UNKNOWN', &
-                 form='UNFORMATTED')
+            open(n_u2_spec_file, file=u2_spec_file, status='unknown', &
+                 form='unformatted')
     
             write(n_u2_spec_file) time*tScale,n_r_max,l_max,minc
             write(n_u2_spec_file) r
@@ -770,7 +770,7 @@ contains
     
          write(string, *) n_spec
          kin_spec_file='kin_spec_'//trim(adjustl(string))//'.'//tag
-         open(n_kin_spec_file, file=kin_spec_file, status='UNKNOWN')
+         open(n_kin_spec_file, file=kin_spec_file, status='unknown')
          if ( n_spec == 0 ) then
             write(n_kin_spec_file,'(1x, &
                  &      ''Kinetic energy spectra of time averaged field:'')')
@@ -791,8 +791,8 @@ contains
          close(n_kin_spec_file)
     
          kin_spec_file='2D_kin_spec_'//trim(adjustl(string))//'.'//tag
-         open(n_kin_spec_file, file=kin_spec_file, status='UNKNOWN', &
-              form='UNFORMATTED')
+         open(n_kin_spec_file, file=kin_spec_file, status='unknown', &
+              form='unformatted')
     
          write(n_kin_spec_file) time*tScale,n_r_max,l_max,minc
          write(n_kin_spec_file) r
@@ -935,7 +935,7 @@ contains
             !------ Output:
             outFile='specAveC.'//TAG
             nOut   =93
-            open(nOut,file=outFile,status='UNKNOWN')
+            open(nOut,file=outFile,status='unknown')
             do l=1,l_max+1
                write(93,'(2X,1P,I4,6D12.4)') l,                    &
                     &              T_ave(l),T2_ave(l),             &
@@ -1067,7 +1067,7 @@ contains
          !-- Output into files:
          write(string, *) n_spec
          spec_file='TC_spec_'//trim(adjustl(string))//'.'//tag
-         open(98, file=spec_file, status='UNKNOWN')
+         open(98, file=spec_file, status='unknown')
          write(98,'(1x,''TC spectra at time:'', D20.12)') time*tScale
          do ml=1,l_max+1
             write(98,'(1P,I4,6D12.4)')    &

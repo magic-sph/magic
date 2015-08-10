@@ -15,7 +15,7 @@ module outMisc_mod
                     l_hel, l_heat
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
-   use const, only: pi, vol_oc
+   use const, only: pi, vol_oc, osq4pi
    use useful, only: cc2real
    use integration, only: rInt,rInt_R
    use LMLoop_data,only: llm,ulm
@@ -81,7 +81,6 @@ contains
       real(kind=8) :: topflux,botflux
     
       integer :: n_r,m,lm,mytag,status(MPI_STATUS_SIZE)
-      real(kind=8) :: osq4pi
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1),ierr
     
       character(len=76) :: filename2
@@ -249,7 +248,6 @@ contains
     
       if ( rank == 0 ) then
          !-- Evaluate nusselt numbers (boundary heat flux density):
-         osq4pi =1.D0/dsqrt(4.D0*pi)
          if ( topcond/=0.D0 .and. l_heat ) then
             if ( l_anelastic_liquid ) then
                botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale+1.D0
@@ -274,7 +272,7 @@ contains
          end if
     
          if ( l_save_out ) then
-            open(n_misc_file, file=misc_file, status='unknown', position='APPEND')
+            open(n_misc_file, file=misc_file, status='unknown', position='append')
          end if
 
          write(n_misc_file,'(1P,D20.12,21D16.8)')         &
@@ -320,7 +318,7 @@ contains
                p44_local=p(lm44,:)
             end if
             filename2='p.'//TAG
-            open(94, file=filename2, status='UNKNOWN')
+            open(94, file=filename2, status='unknown')
             do n_r=1,n_r_max
                pplot_global(n_r)=dsqrt(pplot_global(n_r)/lm_max)
                write(94,*) r(n_r),pplot_global(n_r),real(p44_local(n_r))

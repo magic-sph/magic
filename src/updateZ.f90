@@ -89,23 +89,23 @@ contains
       !--------------------------------------------------------------------
     
       !-- Input/output of scalar fields:
-      complex(kind=8),intent(INOUT) :: z(llm:ulm,n_r_max)
-      complex(kind=8),intent(OUT) :: dz(llm:ulm,n_r_max)
-      complex(kind=8),intent(IN)    :: dzdt(llm:ulm,n_r_max)
-      complex(kind=8),intent(INOUT) :: dzdtLast(llm:ulm,n_r_max)
-      real(kind=8),intent(INOUT) :: d_omega_ma_dtLast,d_omega_ic_dtLast
-      real(kind=8),intent(OUT) :: omega_ma,omega_ic
-      real(kind=8),intent(IN) :: lorentz_torque_ma,lorentz_torque_maLast
-      real(kind=8),intent(IN) :: lorentz_torque_ic,lorentz_torque_icLast
-      !-- Output:
-      !       Updated z,dz,dzdtLast,d_omega_maLast,d_omega_icLast,ddzAS
+      complex(kind=8), intent(inout) :: z(llm:ulm,n_r_max)
+      complex(kind=8), intent(in)    :: dzdt(llm:ulm,n_r_max)
+      complex(kind=8), intent(inout) :: dzdtLast(llm:ulm,n_r_max)
+      real(kind=8),    intent(inout) :: d_omega_ma_dtLast,d_omega_ic_dtLast
+      real(kind=8),    intent(in) :: lorentz_torque_ma,lorentz_torque_maLast
+      real(kind=8),    intent(in) :: lorentz_torque_ic,lorentz_torque_icLast
     
       !-- Input of other variables:
-      real(kind=8),intent(IN) :: time
-      real(kind=8),intent(IN) :: w1    ! weight for time step !
-      real(kind=8),intent(IN) :: coex  ! factor depending on alpha
-      real(kind=8),intent(IN) :: dt
-      logical,intent(IN) :: lRmsNext
+      real(kind=8),    intent(in) :: time
+      real(kind=8),    intent(in) :: w1    ! weight for time step !
+      real(kind=8),    intent(in) :: coex  ! factor depending on alpha
+      real(kind=8),    intent(in) :: dt
+      logical,         intent(in) :: lRmsNext
+
+      !-- Output variables
+      complex(kind=8), intent(out) :: dz(llm:ulm,n_r_max)
+      real(kind=8),    intent(out) :: omega_ma,omega_ic
     
     
       !-- local variables:
@@ -145,9 +145,6 @@ contains
       integer :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
       complex(kind=8) :: rhs_sum
-    
-      !-- end of declaration
-      !-----------------------------------------------------------------------
     
       !call mpi_barrier(MPI_COMM_WORLD,ierr)
       !write(*,"(3(A,2ES20.12))") "begin upZ: dzdt = ",get_global_sum( dzdt ),&

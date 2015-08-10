@@ -126,7 +126,7 @@ contains
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
 
       if ( ( rank == 0 ) .and. l_save_out ) then
-         open(nLF, file=log_file, status='UNKNOWN', position='APPEND')
+         open(nLF, file=log_file, status='unknown', position='append')
       end if
 
       if ( rank == 0 ) then

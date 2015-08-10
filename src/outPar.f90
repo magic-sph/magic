@@ -352,7 +352,7 @@ contains
 
             !----- Output into parrad file:
             filename='parR.'//tag
-            open(99, file=filename, status='UNKNOWN')
+            open(99, file=filename, status='unknown')
             do nR=1,n_r_max
                write(99,'(D20.10,8D12.4)')       &
                           &   r(nR),             &! 1) radius
@@ -368,7 +368,7 @@ contains
 
             if ( l_viscBcCalc ) then
                filename='bLayersR.'//tag
-               open(99, file=filename, status='UNKNOWN')
+               open(99, file=filename, status='unknown')
                do nR=1,n_r_max
                   write(99,'(D20.10,6D20.12)')           &
                           &   r(nR),                     &! 1) radius
@@ -383,7 +383,7 @@ contains
 
             if ( l_fluxProfs ) then
                filename='fluxesR.'//tag
-               open(99, file=filename, status='UNKNOWN')
+               open(99, file=filename, status='unknown')
                do nR=1,n_r_max
                   write(99,'(D20.10,7D20.12)')           &
                           &   r(nR),                     &! 1) radius
@@ -488,7 +488,7 @@ contains
 
          !-- Output
          if ( l_save_out ) then
-            open(n_perpPar_file, file=perpPar_file, status='UNKNOWN', position='APPEND')
+            open(n_perpPar_file, file=perpPar_file, status='unknown', position='append')
          end if
          write(n_perpPar_file,'(1P,D20.12,4D16.8)') &
               &  time*tScale,     & ! 1
@@ -506,7 +506,7 @@ contains
              EperpaxiMeanR  =EperpaxiMeanR/timeNorm
              EparaxiMeanR   =EparaxiMeanR/timeNorm
              filename='perpParR.'//tag
-             open(99, file=filename, status='UNKNOWN')
+             open(99, file=filename, status='unknown')
              do nR=1,n_r_max
                 write(99,'(D20.10,4D20.12)')      &
                            &   r(nR),             &! 1) radius

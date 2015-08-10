@@ -1,6 +1,8 @@
 !$Id$
 module plms_theta
 
+   use const, only: osq4pi
+
    implicit none
 
    private
@@ -48,7 +50,7 @@ contains
       integer :: l,m,j,pos
        
       dnorm=1.d0
-      if ( norm == 2 ) dnorm=1.d0/dsqrt(16.d0*datan(1.d0))
+      if ( norm == 2 ) dnorm=osq4pi
       sq2=dsqrt(2.d0)
 
       !-- calculate plms with recurrence relation, starting with
@@ -238,7 +240,7 @@ contains
       integer :: l,pos
        
       dnorm=1.d0
-      if ( norm == 2 ) dnorm=1.d0/dsqrt(16.d0*datan(1.d0))
+      if ( norm == 2 ) dnorm=osq4pi
       sq2=dsqrt(2.d0)
 
       !-- calculate plms with recurrence relation, starting with

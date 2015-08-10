@@ -119,8 +119,6 @@ contains
       real(kind=8) :: ss,ome(nrp,nfs)
       complex(kind=8) :: omeLM(lmP_max)
     
-      !-- end of declaration
-      !----------------------------------------------------------------------
       ! This routine is called from a rank-0 region and is operating
       ! on the full fields in standard order.
     

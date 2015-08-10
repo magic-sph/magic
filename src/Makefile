@@ -303,7 +303,7 @@ outPV3.o              : truncation.o horizontal.o cosine_transform.o\
                         const.o $(FFT_OBJS) 
 out_coeff.o           : logic.o
 magic.o               : truncation.o num_param.o parallel.o logic.o\
-                        output_data.o timing.o\
+                        output_data.o timing.o const.o\
                         useful.o startFields.o preCalculations.o\
                         step_time.o kinetic_energy.o \
 			magnetic_energy.o horizontal.o fields_average.o \
@@ -390,7 +390,7 @@ store_movie_IC.o      : truncation.o blocking.o logic.o radial_data.o\
                         $(FFT_OBJS) out_movie_file.o phys_param.o
 radial_spectra.o      : truncation.o blocking.o horizontal.o radial.o\
                         num_param.o output_data.o logic.o useful.o\
-                        char_manip.o radial_data.o LMmapping.o
+                        char_manip.o radial_data.o LMmapping.o const.o
 nl_special_calc.o     : truncation.o blocking.o horizontal.o\
                         radial.o legendre_grid_to_spec.o radial_data.o\
                         phys_param.o const.o
@@ -482,7 +482,7 @@ mat.o                 : truncation.o
 dt_fieldsLast.o       : truncation.o LMLoop_data.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o
 radial_data.o         : truncation.o parallel.o logic.o
-
+plms.o                : const.o 
 fftJW.o               : truncation.o blocking.o useful.o const.o
 fft_mkl.o             : truncation.o blocking.o
 Namelists.o           : const.o truncation.o phys_param.o num_param.o logic.o \

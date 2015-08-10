@@ -352,7 +352,7 @@ contains
             eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
             if ( l_save_out ) then
                open(n_power_file, file=power_file, status='unknown', &
-                    position='APPEND')
+                    position='append')
             end if
             write(n_power_file,'(1P,D20.12,9D16.8)')      &
                  time*tScale, buoy,-2.D0*z10ICB*drz10ICB, &

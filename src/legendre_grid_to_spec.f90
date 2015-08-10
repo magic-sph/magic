@@ -300,9 +300,6 @@ contains
       complex(kind=8) :: f3ES(n_m_max,nfs/2),f3ES1,f3ES2
       complex(kind=8) :: f3EA(n_m_max,nfs/2),f3EA1,f3EA2
 
-      !-- end of declaration
-      !---------------------------------------------------------------------
-
       !PERFON('legTF3')
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
       nThetaNHS=0

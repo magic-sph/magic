@@ -1192,7 +1192,7 @@ contains
       !-- Write output for variable conductivity test:
       !       if ( imagcon == -10 ) then
       !          message='testVarCond.'//tag
-      !          open(99,file=message,status='UNKNOWN')
+      !          open(99,file=message,status='unknown')
       !           do nR=n_r_max,1,-1             ! Diffusive toroidal field
       !             write(99,*) r(nR),real(aj(4,nR)),jVarCon(nR)
       !           end do

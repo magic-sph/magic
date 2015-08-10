@@ -14,6 +14,7 @@ module movie_data
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
    use useful, only: logWrite
+   use const, only: pi
     
    implicit none
    
@@ -400,7 +401,7 @@ contains
       n_field_start=1
     
       !--- Converts from radiant to degree:
-      rad=45.d0/datan(1.d0)
+      rad=180.d0/pi
     
       !--- Loop over max possible no of movies:
       l_movie_oc   =.false.

@@ -13,6 +13,8 @@ module const
    real(kind=8) :: c_lorentz_ic,c_lorentz_ma
    real(kind=8) :: vol_ic,vol_oc,surf_cmb
    real(kind=8), parameter :: pi=4.d0*datan(1.D0)
+   real(kind=8), parameter :: sq4pi=dsqrt(4.d0*pi)
+   real(kind=8), parameter :: osq4pi=1.d0/sq4pi
    real(kind=8) :: c_moi_ic,c_moi_ma,c_moi_oc
    real(kind=8) :: mass
    real(kind=8) :: y10_norm,y11_norm
@@ -23,5 +25,7 @@ module const
    real(kind=8), parameter :: sin72=dsin(72.d0*pi/180.d0)
    real(kind=8), parameter :: cos36=dcos(36.d0*pi/180.d0)
    real(kind=8), parameter :: cos72=dcos(72.d0*pi/180.d0)
+
+   character(len=4), parameter :: codeVersion='5.1'
 
 end module const

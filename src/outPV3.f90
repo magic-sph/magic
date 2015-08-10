@@ -194,7 +194,7 @@ contains
       !--- Open file for output:
       if ( l_stop_time ) then
          fileName='PVZ.'//TAG
-         open(95,file=fileName, form='UNFORMATTED', status='UNKNOWN')
+         open(95,file=fileName, form='unformatted', status='unknown')
          write(95) sngl(time), FLOAT(nSmax), FLOAT(nZmax), sngl(omega_IC),sngl(omega_ma)
          write(95) (sngl(sZ(nS)),nS=1,nSmax)
          write(95) (sngl(zZ(nZ)),nZ=1,nZmax)
@@ -202,7 +202,7 @@ contains
 
          !--- Open file for the three flow components:
          fileName='Vcy.'//TAG
-         open(96,file=fileName,form='UNFORMATTED', status='UNKNOWN')
+         open(96,file=fileName,form='unformatted', status='unknown')
          write(96) sngl(time),FLOAT(nSmax), FLOAT(nZmax),              &
               &      FLOAT(n_phi_max), sngl(omega_IC), sngl(omega_ma), &
               &      sngl(radratio),FLOAT(minc)

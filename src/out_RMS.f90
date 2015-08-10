@@ -103,8 +103,6 @@ contains
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(kind=8) :: global_sum(n_r_max)
       integer :: irank,sendcount
-      !-- end of declaration
-      !---------------------------------------------------------------------
     
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine

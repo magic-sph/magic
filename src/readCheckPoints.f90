@@ -93,7 +93,7 @@ contains
       inquire(file=start_file, exist=startfile_does_exist)
     
       if ( startfile_does_exist ) then
-         open(n_start_file,file=start_file,status='OLD',form='UNFORMATTED')
+         open(n_start_file,file=start_file,status='OLD',form='unformatted')
       else
          write(*,*)
          write(*,*) '! The restart file does not exist !'
@@ -1191,8 +1191,6 @@ contains
       real(kind=8), allocatable :: d_costf_init_old(:)
       complex(kind=8), allocatable :: work(:)
       real(kind=8) :: cheb_norm_old,scale
-
-      !-- end of declaration
 
       allocate( i_costf_init_old(2*n_r_maxL+2) )
       allocate( d_costf_init_old(2*n_r_maxL+5) )

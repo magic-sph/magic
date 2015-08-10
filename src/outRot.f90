@@ -126,7 +126,7 @@ contains
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
-            open(n_SRIC_file, file=SRIC_file, status="unknown", position='APPEND')
+            open(n_SRIC_file, file=SRIC_file, status="unknown", position='append')
             write(n_SRIC_file,'(1p,2x,d20.12,4d17.6)')     &
                  time*tScale,omega_ic/tScale,              &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
@@ -137,7 +137,7 @@ contains
          if ( l_SRMA ) then
             powerLor=lorentz_torque_ma*omega_ma
             powerVis=viscous_torque_ma*omega_ma
-            open(n_SRMA_file, file=SRMA_file, status="unknown", position='APPEND')
+            open(n_SRMA_file, file=SRMA_file, status="unknown", position='append')
             write(n_SRMA_file,'(1p,2x,d20.12,4d17.6)')     &
                  time*tScale, omega_ma/tScale,             &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
@@ -423,7 +423,7 @@ contains
       end if
 
       !lorentz_torque_local=0.D0
-      fac=8.D0*datan(1.D0)/dble(n_phi_max) ! 2 pi/n_phi_max
+      fac=2.D0*pi/dble(n_phi_max) ! 2 pi/n_phi_max
 
       nTheta=nThetaStart-1
       do nThetaB=1,sizeThetaB

@@ -527,8 +527,8 @@ contains
 
             nOutFile=93
             movFile ='CVorz_mov.'//tag
-            open(nOutFile, file=movFile, status='UNKNOWN',   &
-            &    form='UNFORMATTED', position='APPEND')
+            open(nOutFile, file=movFile, status='unknown',   &
+            &    form='unformatted', position='append')
 
             !--- Write header into output file:
             if ( nGeosSets == 1 ) then

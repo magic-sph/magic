@@ -200,7 +200,7 @@ contains
          end if
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_kin_file, file=e_kin_file, status='UNKNOWN', position='APPEND')
+               open(n_e_kin_file, file=e_kin_file, status='unknown', position='append')
             end if
             write(n_e_kin_file,'(1P,D20.12,8D16.8)')    &
                  & time*tScale, &  ! 1
@@ -238,7 +238,7 @@ contains
          if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=0.5D0*eScale
             filename='eKinR.'//tag
-            open(99, file=filename, status='UNKNOWN')
+            open(99, file=filename, status='unknown')
             if ( present(ekinRave) ) then
                ekinRave(1)      =fac*(e_pA(1)+e_tA(1))/timetot
                ekinRave(n_r_max)=fac*(e_pA(n_r_max)+e_tA(n_r_max))/timetot
@@ -499,8 +499,8 @@ contains
 
          !-- Output
          if ( l_save_out ) then
-            open(n_u_square_file, file=u_square_file, status='UNKNOWN', &
-                 position='APPEND')
+            open(n_u_square_file, file=u_square_file, status='unknown', &
+                 position='append')
          end if
          write(n_u_square_file,'(1P,D20.12,10D16.8)') &
               &  time*tScale,     & ! 1

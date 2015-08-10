@@ -502,7 +502,7 @@ contains
 
       !-- Heat boundary condition
       if ( impS /= 0 ) then
-         rad=4.D0*DATAN(1.D0)/180
+         rad=pi/180
          n_impS=0
          do n=1,4*n_impS_max,4
             if ( sCMB(n) /= 0.D0 ) then
@@ -572,7 +572,7 @@ contains
 
       !-- Local variables:
       integer :: l,m,n,i
-      real(kind=8) ::  rad,sq4pi
+      real(kind=8) ::  rad
       integer :: length
 
 
@@ -615,7 +615,6 @@ contains
       !write(n_out,'(''  nThreadsRun  ='',i4,'','')') nThreadsRun
       write(n_out,*) "/"
 
-      sq4pi=dsqrt(16.D0*DATAN(1.D0))
       write(n_out,*) "&phys_param"
       write(n_out,'(1p,''  ra          ='',d14.6,'','')') ra
       write(n_out,'(1p,''  pr          ='',d14.6,'','')') pr
@@ -656,7 +655,7 @@ contains
           end do
       end do
       write(n_out,'(''  impS        ='',i3,'','')') impS
-      rad=4.D0*DATAN(1.D0)/180.D0
+      rad=pi/180.D0
       do i=1,n_impS
          if ( i == 1 ) then
             write(n_out,'(A)',advance='NO') "  sCMB        ="

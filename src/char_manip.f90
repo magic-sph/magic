@@ -1,154 +1,156 @@
 !$Id$
 module charmanip
 
-  implicit none
+   implicit none
 
-  contains
-!------------------------------------------------------------------------
-    subroutine capitalize(string)
-!   Convert lower-case letters into capital letters
-!------------------------------------------------------------------------
+contains
 
-    implicit none
+   subroutine capitalize(string)
+      !------------------------------------------------------------------------
+      !   Convert lower-case letters into capital letters
+      !------------------------------------------------------------------------
 
-    character(len=*) :: string
+      !-- Input variables
+      character(len=*), intent(inout) :: string
+  
+      !-- Local variables
+      character(len=26), parameter :: LOWER_CASE='abcdefghijklmnopqrstuvwxyz'
+      character(len=26), parameter :: UPPER_CASE='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  
+      integer :: i, n
+  
+      do i = 1, len(string)
+      ! -- Find location of letter in lower case constant string
+         n = index( LOWER_CASE, string( i:i ) )
+      ! -- If current substring is a lower case letter,
+      !    make it upper case
+         if ( n /= 0 ) string( i:i ) = UPPER_CASE( n:n )
+      end do
+  
+   end subroutine capitalize
+!------------------------------------------------------------------------------
+   subroutine delete_string(string,string_del,length)
+      !------------------------------------------------------------------------
+      !   Deletes string_del from string and returns new length of string.
+      !------------------------------------------------------------------------
 
-    character(len=26),parameter :: LOWER_CASE='abcdefghijklmnopqrstuvwxyz'
-    character(len=26),parameter :: UPPER_CASE='ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+      !-- Input variables
+      character(len=*), intent(inout) :: string
+      character(len=*), intent(in) :: string_del
 
-    integer :: i, n
+      !-- Output variables
+      integer,          intent(out) :: length
 
-    DO i = 1, len(string)
-    ! -- Find location of letter in lower case constant string
-        n = index( LOWER_CASE, string( i:i ) )
-    ! -- If current substring is a lower case letter,
-    !    make it upper case
-        IF ( n /= 0 ) string( i:i ) = UPPER_CASE( n:n )
-    END DO
-
-    return
-    end subroutine capitalize
-!------------------------------------------------------------------------
-    subroutine delete_string(string,string_del,length)
-!   Deletes string_del from string and returns new length of string.
-!------------------------------------------------------------------------
-
-    implicit none
-
-    character(len=*) :: string
-    character(len=*) :: string_del
-    integer :: length,length_del
-
-    integer :: n,i
-
-    integer :: pos
-
-    length=len(trim(string))
-    length_del=len(string_del)
-
-    do n=1,length
-    
-        pos=index(trim(string),string_del)
-    
-        if ( pos == 0 ) return
-    
-        string(pos:length-length_del) = &
-        string(pos+length_del:length)
-        length=length-length_del
-                   
-        do i=length+1,length+length_del
+      !-- Local variables
+      integer :: length_del
+      integer :: n,i
+      integer :: pos
+  
+      length=len(trim(string))
+      length_del=len(string_del)
+  
+      do n=1,length
+      
+         pos=index(trim(string),string_del)
+     
+         if ( pos == 0 ) return
+     
+         string(pos:length-length_del) = string(pos+length_del:length)
+         length=length-length_del
+                    
+         do i=length+1,length+length_del
             string(i:i)=' '
-        end do
-    
-    end do
+         end do
+      
+      end do
+  
+   end subroutine delete_string
+!------------------------------------------------------------------------------
+   subroutine str2dble(string,num)
+      !------------------------------------------------------------------------
+      !   interprets next word in string as an dble real number
+      !   deletes leading blanks and next_word from string
+      !------------------------------------------------------------------------
 
-    return
-    end subroutine delete_string
-!------------------------------------------------------------------------
-    subroutine str2dble(string,num)
-!   interprets next word in string as an dble real number
-!   deletes leading blanks and next_word from string
-!------------------------------------------------------------------------
+      !-- Input variable:
+      character(len=*), intent(in) :: string  ! input
 
-    implicit none
+      !-- Output variable:
+      real(kind=8),     intent(out) :: num     ! output
+  
+      read(string,*) num
+  
+      open(99,file='.helpfile',status='unknown')
+      write(99,*) num
+      close(99)
 
-    character(len=*) :: string  ! input
-    real(kind=8) :: num            ! output
+   end subroutine str2dble
+!------------------------------------------------------------------------------
+   integer function length_to_blank(string)
+      !------------------------------------------------------------------------
+      !   determines number of characters before first blank in string
+      !------------------------------------------------------------------------
 
-    read(string,*) num
+      !-- Input variable
+      character(len=*), intent(in) :: string
+  
+      !-- Local variable
+      integer :: i
+  
+      length_to_blank=0
+      do i=1,len(string)
+         if( string(i:i) == ' ' ) then
+            length_to_blank=i-1
+            exit
+         end if
+      end do
 
-    open(99,file='.helpfile',status='unknown')
-    write(99,*) num
-    close(99)
+   end function length_to_blank
+!------------------------------------------------------------------------------
+   integer function length_to_char(string,char)
 
-    return
-    end subroutine str2dble
-!------------------------------------------------------------------------
-    integer function length_to_blank(string)
-!   determines number of characters before first blank in string
-!------------------------------------------------------------------------
+      !-- Input variables:
+      character(len=*), intent(in) :: string
+      character(len=1), intent(in) :: char
+  
+      !-- Local variables:
+      logical :: isDetected
+      integer :: i
+  
+      isDetected=.false.
+      length_to_char=0
+      do i=1,len(string)
+         if( string(i:i) == char ) then
+            length_to_char=i-1
+            isDetected=.true.
+            exit
+         end if
+      end do
+  
+      if ( .not. isDetected ) length_to_char=-1 ! char not found !
+  
+   end function length_to_char
+!------------------------------------------------------------------------------
+   subroutine dble2str(num, str)
+      !----------------------------------------------------------
+      !  converts a dble number num into a character str
+      !----------------------------------------------------------
 
-    implicit none
+      !-- Input variable
+      real(kind=8),     intent(in) :: num
 
-    character(len=*) :: string
+      !-- Output variable
+      character(len=*), intent(out) :: str
 
-    integer :: i
-
-    length_to_blank=0
-    do i=1,len(string)
-        if( string(i:i) == ' ' ) then
-           length_to_blank=i-1
-           exit
-        end if
-    end do
-
-    return
-    end function length_to_blank
-!------------------------------------------------------------------------
-    integer function length_to_char(string,char)
-!------------------------------------------------------------------------
-
-    implicit none
-
-    character(len=*), intent(in) :: string
-    character(len=1), intent(in) :: char
-
-    logical :: isDetected
-    integer :: i
-
-    isDetected=.FALSE.
-    length_to_char=0
-    do i=1,len(string)
-        if( string(i:i) == char ) then
-           length_to_char=i-1
-           isDetected=.TRUE.
-           exit
-        end if
-    end do
-
-    if ( .not. isDetected ) length_to_char=-1 ! char not found !
-
-    return
-
-    end function length_to_char
-!------------------------------------------------------------------------
-    subroutine dble2str(num, str)
-!  converts a dble number num into a character str
-
-    implicit none
-
-    real(kind=8) :: num
-    character(len=72) :: work
-    character(len=*) :: str
-    integer :: i
-
-    write(work, '(F20.12)') num
-    write(str, '(A8)') trim(adjustl(work))
-    i = index(str,'.')
-    str(i:i)='_'
-
-    return
-
-    end subroutine dble2str
+      !-- Local variables
+      character(len=72) :: work
+      integer :: i
+  
+      write(work, '(F20.12)') num
+      write(str, '(A8)') trim(adjustl(work))
+      i = index(str,'.')
+      str(i:i)='_'
+  
+   end subroutine dble2str
 !------------------------------------------------------------------------
 end module charmanip

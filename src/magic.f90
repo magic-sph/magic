@@ -1,6 +1,6 @@
 !$Id$
 #include "perflib_preproc.cpp"
-program magic5
+program magic5_1
 !--+-------------+----------------+------------------------------------+
 
 !     A dynamic dynamo model driven by thermal convection
@@ -120,6 +120,7 @@ program magic5
    use matrices
    use fields
    use fieldsLast
+   use const, only: codeVersion
    use movie_data, only: initialize_movie_data, finalize_movie_data
    use RMS, only: initialize_RMS
    use dtB_mod, only: initialize_dtB_mod
@@ -163,18 +164,15 @@ program magic5
 
    integer :: n_stop_signal       ! signal returned from step_time
 
-   character(len=76) :: message
-
    ! MPI specific variables
    integer :: required_level,provided_level
 
-!-- end of declaration
-!------------------------------------------------------------------------
 #ifdef WITHOMP
    required_level=MPI_THREAD_MULTIPLE
    call mpi_init_thread(required_level,provided_level,ierr)
    if (provided_level < required_level) then
-      print*,"We need at least thread level ",required_level,", but have ",provided_level
+      print*,"We need at least thread level ",required_level, &
+      &      ", but have ",provided_level
       stop
    end if
 #else
@@ -192,8 +190,7 @@ program magic5
       !call get_resetTime(resetTime)
       call wallTime(runTimeStart)
       write(*,*)
-      message='!--- PROGRAM MAGIC5 ---!'
-      write(*,*) message
+      write(*,*) '!--- Program MAGIC ', trim(codeVersion), ' ---!'
       call writeTime(6,'! Started at:',runTimeStart)
    end if
 
@@ -207,6 +204,19 @@ program magic5
 
    !--- Open output files:
    call openFiles
+
+   if ( rank == 0 ) then
+      if ( l_save_out ) then
+         open(n_log_file, file=log_file, status='unknown', position='append')
+      end if
+      write(n_log_file,*) '!------------------------------------------------------!'
+      write(n_log_file,*) '!--     Program MAGIC ', trim(codeVersion),  &
+           &              '                            --!'
+      write(n_log_file,*) '!--     Date:$Date$,     Revision:$Rev$,              --!'
+      write(n_log_file,*) '!------------------------------------------------------!'
+      write(n_log_file,*)
+      if ( l_save_out ) close(n_log_file)
+   end if
 
    call initialize_blocking
    call initialize_radial_data
@@ -243,7 +253,7 @@ program magic5
    call preCalc
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='UNKNOWN', position='APPEND')
+         open(n_log_file, file=log_file, status='unknown', position='append')
       end if
       call writeNamelists(6)
       call writeNamelists(n_log_file)
@@ -267,7 +277,7 @@ program magic5
    !--- Write starting time to SDTOUT and logfile:
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='UNKNOWN',  position='APPEND')
+         open(n_log_file, file=log_file, status='unknown',  position='append')
       end if
       do n=1,2
          if ( n == 1 ) nO=6
@@ -290,7 +300,7 @@ program magic5
    !--- Write stop time to SDTOUR and logfile:
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='UNKNOWN', position='APPEND')
+         open(n_log_file, file=log_file, status='unknown', position='append')
       end if
 
       do n=1,2
@@ -302,9 +312,9 @@ program magic5
          write(nO,'(''   steps gone='',i10)') (n_time_step-1)
          write(nO,*)
          if ( n_stop_signal > 0 ) then
-            write(nO,*) '!!! MAGIC TERMINATED BY STOP SIGNAL !!!'
+            write(nO,*) '!!! MAGIC terminated by STOP signal !!!'
          else
-            write(nO,*) '!!! REGULAR END OF PROGRAM MAGIC !!!'
+            write(nO,*) '!!! regular end of program MAGIC !!!'
          end if
          write(nO,*)
          !write(nO,'('' max. thread number in  R-loop='',i3)') &
@@ -341,4 +351,4 @@ program magic5
 #ifdef WITH_MPI
    call mpi_finalize(ierr)
 #endif
-end program
+end program magic5_1

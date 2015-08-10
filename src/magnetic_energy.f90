@@ -294,7 +294,7 @@ contains
          if ( l_stop_time ) then
             fac=0.5D0*LFfac*eScale
             filename='eMagR.'//tag
-            open(99, file=filename, status='UNKNOWN')
+            open(99, file=filename, status='unknown')
             do nR=1,n_r_max
                eTot=e_pA(nR)+e_tA(nR)
                if ( e_dipA(nR)  <  1.D-4*eTot ) then
@@ -526,8 +526,8 @@ contains
       if ( rank == 0 ) then
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_mag_oc_file, file=e_mag_oc_file, status='UNKNOWN', &
-                    &             position='APPEND')
+               open(n_e_mag_oc_file, file=e_mag_oc_file, status='unknown', &
+                    &             position='append')
             end if
             write(n_e_mag_oc_file,'(1P,D20.12,12D16.8)')                 &
                  &                             time*tScale,              &! 1
@@ -543,8 +543,8 @@ contains
          !-- Output of IC energies:
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_mag_ic_file, file=e_mag_ic_file, status='UNKNOWN', &
-                    &             position='APPEND')
+               open(n_e_mag_ic_file, file=e_mag_ic_file, status='unknown', &
+                    &             position='append')
             end if
             write(n_e_mag_ic_file,'(1P,D20.12,4D16.8)')               &
                  &                       time*tScale,                 &
@@ -592,14 +592,14 @@ contains
          
       if ( rank == 0 ) then
          !-- Calculate pole position:
-         rad =45.D0/datan(1.D0)   ! 180/pi
+         rad =180.D0/pi
          if (.not.rank_has_l1m0) then
             call MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
-                 &sr_tag,MPI_COMM_WORLD,request1, ierr)
+                 &         sr_tag,MPI_COMM_WORLD,request1, ierr)
          end if
          if ( .not. rank_has_l1m1 ) then
             call MPI_IRecv(b11,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
-                 &sr_tag+1,MPI_COMM_WORLD,request2,ierr)
+                 &         sr_tag+1,MPI_COMM_WORLD,request2,ierr)
          end if
          if ( .not. rank_has_l1m0 ) then
             call MPI_Wait(request1,status,ierr)
@@ -622,8 +622,8 @@ contains
          !-- Output of pole position:
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_dipole_file, file=dipole_file, status='UNKNOWN',   &
-                    &             position='APPEND')
+               open(n_dipole_file, file=dipole_file, status='unknown',   &
+                    &             position='append')
             end if
             if ( e_p_e == 0 ) then
                e_p_e_ratio=0.D0

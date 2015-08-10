@@ -306,7 +306,7 @@ contains
             call spectrum_temp(time,n_spec,s_ave,ds_ave)
          end if
          if ( l_save_out ) then
-            open(nLF,file=log_file, status='UNKNOWN', position='APPEND')
+            open(nLF,file=log_file, status='unknown', position='append')
          end if
 
          !----- Write averaged energies into log-file at end of run:
@@ -376,10 +376,10 @@ contains
          if ( rank == 0 ) then
             if ( ngform == 0 ) then
                graph_file='G_ave.'//tag
-               open(n_graph_file, file=graph_file, status='UNKNOWN', form='UNFORMATTED')
+               open(n_graph_file, file=graph_file, status='unknown', form='unformatted')
             else
                graph_file='g_ave.'//tag
-               open(n_graph_file, file=graph_file, status='UNKNOWN', form='FORMATTED')
+               open(n_graph_file, file=graph_file, status='unknown', form='FORMATTED')
             end if
 
             !----- Write header into graphic file:

@@ -264,57 +264,57 @@ contains
       if ( .not. l_save_out ) then
 
          if ( rank == 0 ) then
-            open(n_log_file, file=log_file, status='UNKNOWN')
-            open(n_e_kin_file, file=e_kin_file, status='NEW')
-            open(n_par_file, file=par_file, status='NEW')
+            open(n_log_file, file=log_file, status='unknown')
+            open(n_e_kin_file, file=e_kin_file, status='new')
+            open(n_par_file, file=par_file, status='new')
             if ( l_RMS .or. l_RMStest) then
-               open(n_dtvrms_file, file=dtvrms_file, status='NEW')
-               open(n_dtvasrms_file, file=dtvasrms_file, status='NEW')
+               open(n_dtvrms_file, file=dtvrms_file, status='new')
+               open(n_dtvasrms_file, file=dtvasrms_file, status='new')
             end if
             if ( l_anel ) then
-               open(n_u_square_file, file=u_square_file, status='NEW')
+               open(n_u_square_file, file=u_square_file, status='new')
             end if
             if ( l_perpPar ) then
-               open(n_perpPar_file, file=perpPar_file, status='NEW')
+               open(n_perpPar_file, file=perpPar_file, status='new')
             end if
             if ( l_AM ) then
-               open(n_angular_file, file=angular_file, status='NEW')
+               open(n_angular_file, file=angular_file, status='new')
             end if
             if ( l_r_field ) then
                do n=1,n_coeff_r_max
                   open(n_v_r_file(n), file=v_r_file(n), &
-                       status='NEW', form='UNFORMATTED')
+                       status='new', form='unformatted')
                end do
             end if
             if ( l_r_fieldT ) then
                do n=1,n_coeff_r_max
                   open(n_t_r_file(n), file=t_r_file(n), &
-                       status='NEW', form='UNFORMATTED')
+                       status='new', form='unformatted')
                end do
             end if
             if ( l_mag ) then
-               open(n_e_mag_oc_file, file=e_mag_oc_file, status='NEW')
-               open(n_e_mag_ic_file, file=e_mag_ic_file, status='NEW')
+               open(n_e_mag_oc_file, file=e_mag_oc_file, status='new')
+               open(n_e_mag_ic_file, file=e_mag_ic_file, status='new')
                open(n_dipole_file, file=dipole_file, status='new')
                if ( l_RMS .or. l_RMStest) then
-                  open(n_dtbrms_file, file=dtbrms_file, status='NEW')
-                  open(n_dtdrms_file, file=dtdrms_file, status='NEW')
+                  open(n_dtbrms_file, file=dtbrms_file, status='new')
+                  open(n_dtdrms_file, file=dtdrms_file, status='new')
                end if
                if ( l_cmb_field ) then
                   open(n_cmb_file, file=cmb_file, &
-                       status='NEW', form='UNFORMATTED')
+                       status='new', form='unformatted')
                   if ( l_movie ) then
                      open(n_cmbMov_file, file=cmbMov_file, &
-                          status='NEW', form='UNFORMATTED')
+                          status='new', form='unformatted')
                   end if
                end if
                if ( l_dt_cmb_field )                    &
                   open(n_dt_cmb_file, file=dt_cmb_file, &
-                       status='NEW', form='UNFORMATTED')
+                       status='new', form='unformatted')
                if ( l_r_field ) then
                   do n=1,n_coeff_r_max
                      open(n_b_r_file(n), file=b_r_file(n), &
-                          status='NEW', form='UNFORMATTED')
+                          status='new', form='unformatted')
                   end do
                end if
             end if

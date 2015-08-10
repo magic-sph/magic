@@ -51,7 +51,7 @@ contains
       !  +-------------------------------------------------------------------+
     
       !---- Local variables:
-      real(kind=8) :: sq4pi,c1,help,facIH
+      real(kind=8) :: c1,help,facIH
       real(kind=8) :: delmin,sr_top,si_top,sr_bot,si_bot
       integer :: n,n_r,l,m,l_bot,m_bot,l_top,m_top
       character(len=76) :: fileName
@@ -159,7 +159,7 @@ contains
 
       if ( ( l_plotmap ) .and. (rank == 0) ) then
          fileName='rNM.'//TAG
-         open(99, file=fileName, status='UNKNOWN')
+         open(99, file=fileName, status='unknown')
          do n_r=1,n_r_max
             write(99,'(I4,4D12.4)') n_r,r(n_r)-r_icb,drx(n_r),ddrx(n_r),dddrx(n_r)
          end do
@@ -171,7 +171,7 @@ contains
       if ( ( l_anel ) .and. ( rank == 0 ) ) then
          ! Write the equilibrium setup in anel.TAG
          fileName='anel.'//TAG
-         open(99, file=fileName, status='UNKNOWN')
+         open(99, file=fileName, status='unknown')
          write(99,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
              &       'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
          do n_r=1,n_r_max
@@ -186,7 +186,7 @@ contains
       !-- Write radial profiles
       if ( l_mag .and. nVarCond > 0 ) then
          fileName='varCond.'//TAG
-         open(99, file=fileName, status='UNKNOWN')
+         open(99, file=fileName, status='unknown')
          write(99,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
          do n_r=n_r_max,1,-1
             write(99,'(4e15.7)') r(n_r),sigma(n_r),lambda(n_r), &
@@ -197,7 +197,7 @@ contains
     
       if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
          fileName='varDiff.'//TAG
-         open(99, file=fileName, status='UNKNOWN')
+         open(99, file=fileName, status='unknown')
          write(99,'(5a15)') 'radius', 'conductivity', 'kappa', 'dLkappa', 'Prandtl'
          do n_r=n_r_max,1,-1
             write(99,'(5D15.7)') r(n_r),kappa(n_r)*rho0(n_r), &
@@ -208,7 +208,7 @@ contains
     
       if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
          fileName='varVisc.'//TAG
-         open(99, file=fileName, status='UNKNOWN')
+         open(99, file=fileName, status='unknown')
          write(99,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
               'dLvisc', 'Ekman', 'Prandtl', 'Pm'
          if ( l_mag ) then
@@ -326,7 +326,6 @@ contains
          !      In the code we use totally normalized spherical harmonic,
          !      i.e. the integral of Y*Y(c.c.) over a spherical surface
          !      of radius 1 is unity
-         sq4pi=dsqrt(16.D0*datan(1.D0))
          epsc=epsc0*sq4pi
     
          do m=0,m_max,minc

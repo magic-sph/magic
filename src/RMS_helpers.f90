@@ -171,8 +171,8 @@ contains
       !-- Input variables:
       integer,         intent(in) :: lb,ub
       complex(kind=8), intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
-      integer,         intent(IN) :: nR,lmStart,lmStop
-      type(mappings),  intent(IN) :: map
+      integer,         intent(in) :: nR,lmStart,lmStop
+      type(mappings),  intent(in) :: map
 
       !-- Output variables:
       complex(kind=8), intent(out) :: PolLMr(lm_max,n_r_max)

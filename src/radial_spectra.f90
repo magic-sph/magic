@@ -11,6 +11,7 @@ module radial_spectra
    use output_data, only: tag
    use useful, only: cc2real
    use LMmapping, only: mappings
+   use const, only: pi
 
    implicit none
 
@@ -42,7 +43,7 @@ contains
       logical :: lAS
     
 
-      fac=0.5D0*eScale/(16.D0*datan(1.D0))
+      fac=0.5D0*eScale/(4.d0*pi)
     
       do n_r=1,n_r_max
          ! setting zero
@@ -149,7 +150,7 @@ contains
       complex(kind=8),  intent(in) :: TorIC(lm_max,n_r_ic_max)
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
-      type(mappings),   intent(IN) :: map
+      type(mappings),   intent(in) :: map
     
       !-- Output:
       real(kind=8) :: e_t_AS(l_max,n_r_tot)

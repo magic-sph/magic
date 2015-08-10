@@ -8,9 +8,9 @@ module timing
 
    private
 
-   integer(kind=8), parameter :: msecSecond=1000
-   integer(kind=8), parameter :: msecMinute=60000
-   integer(kind=8), parameter :: msecHour  =3600000
+   integer, parameter :: msecSecond=1000
+   integer, parameter :: msecMinute=60000
+   integer, parameter :: msecHour  =3600000
 
    public :: wallTime, ms2time, time2ms, subTime, lTimeLimit, &
              addTime, lNegTime, writeTime, meanTime
@@ -27,7 +27,7 @@ contains
 
       !-- Local variables
       integer(kind=8) :: mSeconds
-      double precision :: dbl_seconds
+      real(kind=8) :: dbl_seconds
   
       !--- SYSTEM_CLOCK is a Fortran90 subroutine that
       !    returns the wallclock time with a precision
