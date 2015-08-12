@@ -7,10 +7,11 @@ module rIterThetaBlocking_mod
 #endif
 
    use rIteration_mod, only: rIteration_t
- 
+   use precision_mod, only: cp
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
         & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs
+   use const, only: zero
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
         & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
         & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
@@ -36,18 +37,18 @@ module rIterThetaBlocking_mod
 
    type, public :: dtB_arrays_t
       !----- Local dtB output stuff:
-      complex(kind=8), allocatable :: BtVrLM(:),BpVrLM(:),BrVtLM(:),BrVpLM(:), &
+      complex(cp), allocatable :: BtVrLM(:),BpVrLM(:),BrVtLM(:),BrVpLM(:), &
                                   &               BtVpLM(:), BpVtLM(:)
-      complex(kind=8), allocatable :: BtVpCotLM(:),BpVtCotLM(:),BtVpSn2LM(:), &
+      complex(cp), allocatable :: BtVpCotLM(:),BpVtCotLM(:),BtVpSn2LM(:), &
                                   &               BpVtSn2LM(:)
-      complex(kind=8), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
+      complex(cp), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
                                   &               BtVZsn2LM(:)
    end type dtB_arrays_t
   
    type, public :: TO_arrays_t
       !----- Local TO output stuff:
-      real(kind=8), allocatable :: dzRstrLM(:),dzAstrLM(:)
-      real(kind=8), allocatable :: dzCorLM(:),dzLFLM(:)
+      real(cp), allocatable :: dzRstrLM(:),dzAstrLM(:)
+      real(cp), allocatable :: dzCorLM(:),dzLFLM(:)
    end type TO_arrays_t
 
    type, public, abstract, extends(rIteration_t) :: rIterThetaBlocking_t
@@ -57,9 +58,9 @@ module rIterThetaBlocking_mod
       integer :: sizeThetaB, nThetaBs
  
       !type(nonlinear_lm_t) :: nl_lm
-      type(leg_helper_t)   :: leg_helper
-      type(dtB_arrays_t)   :: dtB_arrays
-      type(TO_arrays_t)    :: TO_arrays
+      type(leg_helper_t) :: leg_helper
+      type(dtB_arrays_t) :: dtB_arrays
+      type(TO_arrays_t)  :: TO_arrays
  
       !class(grid_space_arrays_t),private :: gsa
  
@@ -68,7 +69,7 @@ module rIterThetaBlocking_mod
       !      the variables calulated with this don't give any
       !      deep insight. TO should be changes in the future to
       !      eliminate this.
-      real(kind=8), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
+      real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
  
    contains
  
@@ -196,7 +197,7 @@ contains
          if (DEBUG_OUTPUT) then
             do nTheta=1,this%sizeThetaB
                write(*,"(2I3,A,6ES20.12)") this%nR,nTheta,": sum v = ",&
-                    &SUM(gsa%vrc(:,nTheta))!,SUM(vtc(:,nTheta)),SUM(vpc(:,nTheta))
+                    &sum(gsa%vrc(:,nTheta))!,sum(vtc(:,nTheta)),sum(vpc(:,nTheta))
             end do
          end if
       else
@@ -222,12 +223,12 @@ contains
                call fft_thetab(gsa%dsdtc,1)
                call fft_thetab(gsa%dsdpc,1)
                if (this%nR == n_r_cmb .and. ktops==1) then
-                  gsa%dsdtc=cmplx(0.0,0.0,kind=kind(gsa%dsdtc))
-                  gsa%dsdpc=cmplx(0.0,0.0,kind=kind(gsa%dsdpc))
+                  gsa%dsdtc=zero
+                  gsa%dsdpc=zero
                end if
                if (this%nR == n_r_icb .and. kbots==1) then
-                  gsa%dsdtc=cmplx(0.0,0.0,kind=kind(gsa%dsdtc))
-                  gsa%dsdpc=cmplx(0.0,0.0,kind=kind(gsa%dsdpc))
+                  gsa%dsdtc=zero
+                  gsa%dsdpc=zero
                end if
             end if
             if ( this%lFluxProfCalc ) then
@@ -250,12 +251,12 @@ contains
                call fft_thetab(gsa%dvpdpc,1)
             end if
          else if ( this%nBc == 1 ) then ! Stress free
-            gsa%vrc = cmplx(0.D0,0.D0,kind=kind(gsa%vrc))
+            gsa%vrc = zero
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
             if ( this%lDeriv ) then
-               gsa%dvrdtc = cmplx(0.D0,0.D0,kind=kind(gsa%dvrdtc))
-               gsa%dvrdpc = cmplx(0.D0,0.D0,kind=kind(gsa%dvrdpc))
+               gsa%dvrdtc = zero
+               gsa%dvrdpc = zero
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
@@ -329,9 +330,9 @@ contains
             else
                do nTheta=1,this%sizeThetaB
                   do nPhi=1,nrp
-                     gsa%Advr(nPhi,nTheta)=0.D0
-                     gsa%Advt(nPhi,nTheta)=0.D0
-                     gsa%Advp(nPhi,nTheta)=0.D0
+                     gsa%Advr(nPhi,nTheta)=0.0_cp
+                     gsa%Advt(nPhi,nTheta)=0.0_cp
+                     gsa%Advp(nPhi,nTheta)=0.0_cp
                   end do
                end do
             end if

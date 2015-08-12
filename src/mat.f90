@@ -4,58 +4,63 @@ module matrices
    !  Common block containing matricies for internal time step
    !--------------------------------------------------------------
 
+   use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
+                         n_r_tot
+   use precision_mod, only: cp
+
    implicit none
+
+   private
  
    !-- the matrices, already LU-decomposed:
-   real(kind=8),allocatable :: s0Mat(:,:)      ! for l=m=0  
-   real(kind=8),allocatable :: sMat(:,:,:)
-   real(kind=8),allocatable :: zMat(:,:,:) 
-   real(kind=8),allocatable :: z10Mat(:,:)    ! for l=1,m=0 
-   real(kind=8),allocatable :: wpMat(:,:,:) 
-   real(kind=8),allocatable :: bMat(:,:,:)
-   real(kind=8),allocatable :: jMat(:,:,:)
+   real(cp), public, allocatable :: s0Mat(:,:)      ! for l=m=0  
+   real(cp), public, allocatable :: sMat(:,:,:)
+   real(cp), public, allocatable :: zMat(:,:,:) 
+   real(cp), public, allocatable :: z10Mat(:,:)    ! for l=1,m=0 
+   real(cp), public, allocatable :: wpMat(:,:,:) 
+   real(cp), public, allocatable :: bMat(:,:,:)
+   real(cp), public, allocatable :: jMat(:,:,:)
  
    !-- respecitive pivoting information:
-   integer, allocatable :: s0Pivot(:)
-   integer, allocatable :: sPivot(:,:)
-   integer, allocatable :: z10Pivot(:)
-   integer, allocatable :: zPivot(:,:)
-   integer, allocatable :: wpPivot(:,:)
-   integer, allocatable :: bPivot(:,:)
-   integer, allocatable :: jPivot(:,:)
+   integer, public, allocatable :: s0Pivot(:)
+   integer, public, allocatable :: sPivot(:,:)
+   integer, public, allocatable :: z10Pivot(:)
+   integer, public, allocatable :: zPivot(:,:)
+   integer, public, allocatable :: wpPivot(:,:)
+   integer, public, allocatable :: bPivot(:,:)
+   integer, public, allocatable :: jPivot(:,:)
  
    ! -- respective linesums of the matrices
-   real(kind=8), allocatable :: wpMat_fac(:,:,:)
+   real(cp), public, allocatable :: wpMat_fac(:,:,:)
 #ifdef WITH_PRECOND_Z
-   real(kind=8), allocatable :: zMat_fac(:,:)
+   real(cp), public, allocatable :: zMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_Z10
-   real(kind=8), allocatable :: z10Mat_fac(:)
+   real(cp), public, allocatable :: z10Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_S
-   real(kind=8), allocatable :: sMat_fac(:,:)
+   real(cp), public, allocatable :: sMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_S0
-   real(kind=8), allocatable :: s0Mat_fac(:)
+   real(cp), public, allocatable :: s0Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_BJ
-   real(kind=8), allocatable :: bMat_fac(:,:)
-   real(kind=8), allocatable :: jMat_fac(:,:)
+   real(cp), public, allocatable :: bMat_fac(:,:)
+   real(cp), public, allocatable :: jMat_fac(:,:)
 #endif
    !--- Logicals that inform whether the respective matrix
    !    has been updated:           
-   logical :: lZ10mat
-   logical,allocatable :: lSmat(:)
-   logical,allocatable :: lZmat(:)
-   logical,allocatable :: lWPmat(:)
-   logical,allocatable :: lBmat(:)
+   logical, public :: lZ10mat
+   logical, public, allocatable :: lSmat(:)
+   logical, public, allocatable :: lZmat(:)
+   logical, public, allocatable :: lWPmat(:)
+   logical, public, allocatable :: lBmat(:)
+
+   public :: initialize_matrices
 
 contains
 
    subroutine initialize_matrices
-
-      use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
-                            n_r_tot
 
       !-- the matrices, already LU-decomposed:
       allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  

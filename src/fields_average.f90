@@ -2,6 +2,7 @@
 module fields_average_mod
 
    use truncation
+   use precision_mod, only: cp
    use radial_data, only: n_r_cmb
    use radial_functions, only: i_costf_init, d_costf_init, drx,    &
                                i_costf1_ic_init, d_costf1_ic_init, &
@@ -20,7 +21,7 @@ module fields_average_mod
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
-   use const, only: zero, vol_oc, vol_ic
+   use const, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
                            & gather_all_from_lo_to_rank0,gt_OC,gt_IC
@@ -37,18 +38,18 @@ module fields_average_mod
  
    private
  
-   complex(kind=8), allocatable :: w_ave(:,:)
-   complex(kind=8), allocatable :: z_ave(:,:)
-   complex(kind=8), allocatable :: s_ave(:,:)
-   complex(kind=8), allocatable :: b_ave(:,:)
-   complex(kind=8), allocatable :: aj_ave(:,:)
-   complex(kind=8), allocatable :: b_ic_ave(:,:)
-   complex(kind=8), allocatable :: aj_ic_ave(:,:)
+   complex(cp), allocatable :: w_ave(:,:)
+   complex(cp), allocatable :: z_ave(:,:)
+   complex(cp), allocatable :: s_ave(:,:)
+   complex(cp), allocatable :: b_ave(:,:)
+   complex(cp), allocatable :: aj_ave(:,:)
+   complex(cp), allocatable :: b_ic_ave(:,:)
+   complex(cp), allocatable :: aj_ic_ave(:,:)
  
    ! on rank 0 we also allocate the following fields
-   complex(kind=8), allocatable :: db_ave_global(:),aj_ave_global(:)
-   complex(kind=8), allocatable :: w_ave_global(:),dw_ave_global(:)
-   complex(kind=8), allocatable :: z_ave_global(:), s_ave_global(:)
+   complex(cp), allocatable :: db_ave_global(:),aj_ave_global(:)
+   complex(cp), allocatable :: w_ave_global(:),dw_ave_global(:)
+   complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
  
    public :: initialize_fields_average_mod, fields_average
 
@@ -94,58 +95,58 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input of variables:
-      integer,         intent(in) :: nAve         ! number for averaged time steps
-      logical,         intent(in) :: l_stop_time  ! true if this is the last time step
-      real(kind=8),    intent(in) :: time_passed  ! time passed since last log
-      real(kind=8),    intent(in) :: time_norm    ! time passed since start of time loop
-      real(kind=8),    intent(in) :: omega_ic,omega_ma
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,     intent(in) :: nAve         ! number for averaged time steps
+      logical,     intent(in) :: l_stop_time  ! true if this is the last time step
+      real(cp),    intent(in) :: time_passed  ! time passed since last log
+      real(cp),    intent(in) :: time_norm    ! time passed since start of time loop
+      real(cp),    intent(in) :: omega_ic,omega_ma
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local stuff:
       ! fields for the gathering
-      complex(kind=8) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
+      complex(cp) :: b_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(cp) :: db_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(cp) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(cp) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(cp) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
+      complex(cp) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
 
       !----- Time averaged fields:
-      complex(kind=8) :: dw_ave(llm:ulm,n_r_max)
-      complex(kind=8) :: ds_ave(llm:ulm,n_r_max)
-      complex(kind=8) :: db_ave(llm:ulm,n_r_max)
-      complex(kind=8) :: db_ic_ave(llm:ulm,n_r_ic_max)
-      complex(kind=8) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
-      complex(kind=8) :: dj_ic_ave(llm:ulm,n_r_ic_max)
+      complex(cp) :: dw_ave(llm:ulm,n_r_max)
+      complex(cp) :: ds_ave(llm:ulm,n_r_max)
+      complex(cp) :: db_ave(llm:ulm,n_r_max)
+      complex(cp) :: db_ic_ave(llm:ulm,n_r_ic_max)
+      complex(cp) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
+      complex(cp) :: dj_ic_ave(llm:ulm,n_r_ic_max)
 
       !----- Work array:
-      complex(kind=8) :: workA_LMloc(llm:ulm,n_r_max)
+      complex(cp) :: workA_LMloc(llm:ulm,n_r_max)
 
       !----- Fields in grid space:
-      real(kind=8) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
-      real(kind=8) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
-      real(kind=8) :: Sr(nrp,nfs)                         ! entropy
+      real(cp) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
+      real(cp) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
+      real(cp) :: Sr(nrp,nfs)                         ! entropy
 
       !----- Help arrays for fields:
-      complex(kind=8) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
-      complex(kind=8) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
+      complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
+      complex(cp) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
 
       !----- Energies of time average field:
-      real(kind=8) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(kind=8) :: e_kin_p_ave,e_kin_t_ave
-      real(kind=8) :: e_kin_p_as_ave,e_kin_t_as_ave
-      real(kind=8) :: e_mag_p_ave,e_mag_t_ave
-      real(kind=8) :: e_mag_p_as_ave,e_mag_t_as_ave
-      real(kind=8) :: e_mag_p_ic_ave,e_mag_t_ic_ave
-      real(kind=8) :: e_mag_p_as_ic_ave,e_mag_t_as_ic_ave
-      real(kind=8) :: e_mag_os_ave,e_mag_as_os_ave
-      real(kind=8) :: Dip,DipCMB,e_cmb,elsAnel
+      real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
+      real(cp) :: e_kin_p_ave,e_kin_t_ave
+      real(cp) :: e_kin_p_as_ave,e_kin_t_as_ave
+      real(cp) :: e_mag_p_ave,e_mag_t_ave
+      real(cp) :: e_mag_p_as_ave,e_mag_t_as_ave
+      real(cp) :: e_mag_p_ic_ave,e_mag_t_ic_ave
+      real(cp) :: e_mag_p_as_ic_ave,e_mag_t_as_ic_ave
+      real(cp) :: e_mag_os_ave,e_mag_as_os_ave
+      real(cp) :: Dip,DipCMB,e_cmb,elsAnel
 
       integer :: lm,nR,nThetaB,nThetaStart
       integer :: n_e_sets,n_spec
@@ -155,8 +156,8 @@ contains
 
       logical :: lGraphHeader
 
-      real(kind=8) :: time
-      real(kind=8) :: dt_norm
+      real(cp) :: time
+      real(cp) :: dt_norm
 
       integer :: nBpotSets,nVpotSets,nTpotSets
       integer :: lmStart,lmStop
@@ -165,7 +166,7 @@ contains
 
       if ( nAve == 1 ) then  
 
-         !zero=cmplx(0.D0,0.D0,kind=kind(0d0))
+         !zero=zero
          if ( n_graphs > 0 ) then
             if ( l_conv ) then
                w_ave=zero
@@ -225,8 +226,8 @@ contains
       if ( l_stop_time .or. mod(nAve,10) == 0 ) then
 
          !write(*,"(A,2ES22.15)") "w_ave = ",get_global_sum( w_ave )
-         time   =-1.D0  ! This signifies averaging in output files!
-         dt_norm=1.D0/time_norm
+         time   =-one  ! This signifies averaging in output files!
+         dt_norm=one/time_norm
 
          if ( l_conv ) then
             do nR=1,n_r_max
@@ -379,7 +380,7 @@ contains
                open(n_graph_file, file=graph_file, status='unknown', form='unformatted')
             else
                graph_file='g_ave.'//tag
-               open(n_graph_file, file=graph_file, status='unknown', form='FORMATTED')
+               open(n_graph_file, file=graph_file, status='unknown', form='formatted')
             end if
 
             !----- Write header into graphic file:

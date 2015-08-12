@@ -2,6 +2,7 @@
 module movie_data
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
                          ldtBMem, minc, n_r_ic_max, lMovieMem, &
                          n_r_tot
@@ -14,20 +15,20 @@ module movie_data
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
    use useful, only: logWrite
-   use const, only: pi
+   use const, only: pi, one
     
    implicit none
    
    private
  
-   real(kind=8), public :: movieDipColat,movieDipLon
-   real(kind=8), public :: movieDipStrength,movieDipStrengthGeo
-   real(kind=8), public :: t_movieS(10000)
+   real(cp), public :: movieDipColat,movieDipLon
+   real(cp), public :: movieDipStrength,movieDipStrengthGeo
+   real(cp), public :: t_movieS(10000)
  
    !-- Info in movie type and were the frames are stored:
    integer, public, parameter :: n_movies_max=30  ! Max no. of different movies
    integer, public, parameter :: n_movie_fields_max=6 ! Max no. of fields per movie
-   real(kind=8), public ::  movie_const(n_movies_max)
+   real(cp), public ::  movie_const(n_movies_max)
    character(len=80), public :: movie(n_movies_max)  ! Only for input !
    character(len=72), public :: movie_file(n_movies_max)
  
@@ -47,7 +48,7 @@ module movie_data
    !-- Work arrays for storing movie frame:
    integer, public :: n_frame_work  
    integer, public :: n_MD
-   real(kind=8), public, allocatable :: frames(:)
+   real(cp), public, allocatable :: frames(:)
 
    public :: initialize_movie_data, finalize_movie_data, &
              movie_gather_frames_to_rank0
@@ -69,7 +70,7 @@ contains
 
          ! Allocate the required memory
          n_MD=maxval(n_movie_field_stop)
-         n_frame_work=max0(n_MD,1)
+         n_frame_work=max(n_MD,1)
          allocate( frames(n_frame_work) )
 
          if ( rank == 0 ) then
@@ -379,10 +380,10 @@ contains
       character(len=80) :: file_name
       character(len=50) :: typeStr
       integer :: n_r,n_theta,n_phi
-      real(kind=8) :: r_movie,theta_movie,phi_movie
-      real(kind=8) :: phi_max
-      real(kind=8) :: rad
-      real(kind=8) :: const
+      real(cp) :: r_movie,theta_movie,phi_movie
+      real(cp) :: phi_max
+      real(cp) :: rad
+      real(cp) :: const
       integer :: i,n,n_ic
       integer :: ns
       integer :: n_type
@@ -401,7 +402,7 @@ contains
       n_field_start=1
     
       !--- Converts from radiant to degree:
-      rad=180.d0/pi
+      rad=180.0_cp/pi
     
       !--- Loop over max possible no of movies:
       l_movie_oc   =.false.
@@ -916,7 +917,7 @@ contains
             n_const=1
             n_field_size=n_r_max*n_theta_max
             n_field_size_ic=n_r_ic_max*n_theta_max
-            const=0.d0
+            const=0.0_cp
          else if ( index(string,'3D') /= 0 ) then
             n_surface=0  ! 3d
             n_const=0    ! Not needed
@@ -943,7 +944,7 @@ contains
             file_name=file_name(1:length_fn)//'SUR_'
             n_field_size=n_phi_max*n_theta_max
             n_field_size_ic=n_field_size
-            const=1.d0
+            const=one
          else if ( index(string,'R='     ) /= 0 .or. &
               index(string,'RAD='   ) /= 0 .or. index(string,'RADIUS=') /= 0 ) then
             n_surface=1  ! R=const.
@@ -1027,7 +1028,7 @@ contains
                word=string(index(string,'THETA=')+6:length)
             end if
             call str2dble(word,theta_movie)
-            theta_movie=dabs(theta_movie)
+            theta_movie=abs(theta_movie)
             theta_movie=theta_movie/rad
     
             !------ Choose closest colatitude grid point:
@@ -1047,7 +1048,7 @@ contains
             end do
             if ( .not. foundGridPoint ) then
                if ( theta_movie-theta(n_theta_max) <= &
-                    theta(1)+180.d0/rad-theta_movie ) then
+                    theta(1)+180.0_cp/rad-theta_movie ) then
                   n_const=n_theta_max
                else
                   n_const=1
@@ -1080,8 +1081,8 @@ contains
                word=string(index(string,'PHI=')+4:length)
             end if
             call str2dble(word,phi_movie)
-            if ( phi_movie < 0.d0 ) phi_movie=360.d0-phi_movie
-            phi_max=360.d0/minc
+            if ( phi_movie < 0.0_cp ) phi_movie=360.0_cp-phi_movie
+            phi_max=360.0_cp/minc
             if ( minc > 1 ) then
                do n=minc-1,1,-1
                   if ( phi_movie > n*phi_max ) then
@@ -1282,7 +1283,7 @@ contains
       integer :: myTag, status(MPI_STATUS_SIZE)
       integer :: local_start,local_end,irank,sendcount
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      real(kind=8), allocatable :: field_frames_global(:)
+      real(cp), allocatable :: field_frames_global(:)
       integer :: max_field_length,field_length
       
       max_field_length=0
@@ -1374,7 +1375,7 @@ contains
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
                end if
             end do  ! Do loop over field for one movie
-         else if ( iabs(n_surface) == 3 ) then  ! Surface phi=const.
+         else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
             ! all ranks have a part of the frames array for each movie
             ! we need to gather
 

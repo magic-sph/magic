@@ -6,11 +6,13 @@ module legendre_spec_to_grid
 #include "likwid_f90.h"
 #endif
 
+   use precision_mod, only: cp
    use truncation, only: lm_max, n_m_max, nrp, l_max
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
                               osn2
    use logic, only: l_heat, l_ht
+   use const, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
 
@@ -41,7 +43,7 @@ contains
       !
       !     nBc            : (input) accounts for special conditions on radial boundaries
       !        nBc=2       : we are dealing with a no slip boundary, v_r and v_theta are
-      !                      cmplx(0.D0,0.D0,kind=kind(0d0)) and v_phi=r sin(theta) 
+      !                      zero and v_phi=r sin(theta) 
       !                      omega, where omega is the rotation rate of the 
       !                      boundary (mantle of IC), only magn. field terms 
       !                      are calculated, v is set later.
@@ -69,37 +71,37 @@ contains
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
-      real(kind=8), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp,nfs)
-      real(kind=8), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
-      real(kind=8), intent(out) :: cvrc(nrp,nfs)
-      real(kind=8), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
-      real(kind=8), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
-      real(kind=8), intent(out) :: sc(nrp,nfs), drSc(nrp,nfs), pc(nrp,nfs)
-      real(kind=8), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
+      real(cp), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
+      real(cp), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
+      real(cp), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp,nfs)
+      real(cp), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
+      real(cp), intent(out) :: cvrc(nrp,nfs)
+      real(cp), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
+      real(cp), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
+      real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp,nfs), pc(nrp,nfs)
+      real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
     
       !------ Legendre Polynomials 
-      real(kind=8) :: PlmG(lm_max)
-      real(kind=8) :: PlmC(lm_max)
+      real(cp) :: PlmG(lm_max)
+      real(cp) :: PlmC(lm_max)
     
       !-- Local variables:
-      complex(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-      complex(kind=8) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
-      complex(kind=8) :: dsdtES,dsdtEA
+      complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
+      complex(cp) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
+      complex(cp) :: dsdtES,dsdtEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
-      real(kind=8) :: dm,dmT
+      real(cp) :: dm,dmT
     
-      complex(kind=8) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
-      complex(kind=8) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
-      complex(kind=8) :: dvhdrN1M(n_m_max),dvhdrN2M(n_m_max),dvhdrN
-      complex(kind=8) :: dvhdrS1M(n_m_max),dvhdrS2M(n_m_max),dvhdrS
-      complex(kind=8) :: dvhdrN1,dvhdrN2,dvhdrS1,dvhdrS2
-      complex(kind=8) :: bhN1M(n_m_max),bhN2M(n_m_max),bhN,bhN1,bhN2
-      complex(kind=8) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
-      complex(kind=8) :: cbhN1M(n_m_max),cbhN2M(n_m_max),cbhN,cbhN1,cbhN2
-      complex(kind=8) :: cbhS1M(n_m_max),cbhS2M(n_m_max),cbhS,cbhS1,cbhS2
+      complex(cp) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
+      complex(cp) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
+      complex(cp) :: dvhdrN1M(n_m_max),dvhdrN2M(n_m_max),dvhdrN
+      complex(cp) :: dvhdrS1M(n_m_max),dvhdrS2M(n_m_max),dvhdrS
+      complex(cp) :: dvhdrN1,dvhdrN2,dvhdrS1,dvhdrS2
+      complex(cp) :: bhN1M(n_m_max),bhN2M(n_m_max),bhN,bhN1,bhN2
+      complex(cp) :: bhS1M(n_m_max),bhS2M(n_m_max),bhS,bhS1,bhS2
+      complex(cp) :: cbhN1M(n_m_max),cbhN2M(n_m_max),cbhN,cbhN1,cbhN2
+      complex(cp) :: cbhS1M(n_m_max),cbhS2M(n_m_max),cbhS,cbhS1,cbhS2
     
       !call MPI_Barrier(MPI_COMM_WORLD,ierr)
     
@@ -118,8 +120,8 @@ contains
                ! putting 
                do mc=1,n_m_max
                   lmS=lStop(mc)
-                  sES=cmplx(0.D0,0.D0,kind=kind(0d0))  ! One equatorial symmetry
-                  sEA=cmplx(0.D0,0.D0,kind=kind(0d0))  ! The other equatorial symmetry
+                  sES=zero  ! One equatorial symmetry
+                  sEA=zero  ! The other equatorial symmetry
                   do lm=lStart(mc),lmS-1,2
                      sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
                      sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -134,8 +136,8 @@ contains
                if ( lFluxProfCalc ) then
                   do mc=1,n_m_max
                       lmS=lStop(mc)
-                      pES=cmplx(0.D0,0.D0,kind=kind(0d0)) ! One equatorial symmetry
-                      pEA=cmplx(0.D0,0.D0,kind=kind(0d0)) ! The other equatorial symmetry
+                      pES=zero ! One equatorial symmetry
+                      pEA=zero ! The other equatorial symmetry
                       do lm=lStart(mc),lmS-1,2
                          pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
                          pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -152,8 +154,8 @@ contains
                   do mc=1,n_m_max
                      dm =D_mc2m(mc)
                      lmS=lStop(mc)
-                     dsdtES=cmplx(0.D0,0.D0,kind=kind(0d0))
-                     dsdtEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+                     dsdtES=zero
+                     dsdtEA=zero
                      do lm=lStart(mc),lmS-1,2
                         dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
                         dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
@@ -183,12 +185,12 @@ contains
             PERFON_I('TFG_2')
             do mc=1,n_m_max
                lmS=lStop(mc)
-               cvrES  =cmplx(0.D0,0.D0,kind=kind(0d0))
-               cvrEA  =cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdrES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdrEA=cmplx(0.D0,0.D0,kind=kind(0d0))
-               brES   =cmplx(0.D0,0.D0,kind=kind(0d0))
-               brEA   =cmplx(0.D0,0.D0,kind=kind(0d0))
+               cvrES  =zero
+               cvrEA  =zero
+               dvrdrES=zero
+               dvrdrEA=zero
+               brES   =zero
+               brEA   =zero
                !--- 6 add/mult, 26 dble words
                do lm=lStart(mc),lmS-1,2
                   cvrES  =cvrES   +  leg_helper%dLhz(lm)  *Plm(lm,nThetaNHS)
@@ -221,12 +223,12 @@ contains
             do mc=1,n_m_max
                dm =D_mc2m(mc)
                lmS=lStop(mc)
-               vrES   =cmplx(0.D0,0.D0,kind=kind(0d0))
-               vrEA   =cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdtES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdtEA=cmplx(0.D0,0.D0,kind=kind(0d0))
-               cbrES  =cmplx(0.D0,0.D0,kind=kind(0d0))
-               cbrEA  =cmplx(0.D0,0.D0,kind=kind(0d0))
+               vrES   =zero
+               vrEA   =zero
+               dvrdtES=zero
+               dvrdtEA=zero
+               cbrES  =zero
+               cbrEA  =zero
                !--- 8 add/mult, 29 dble words
                do lm=lStart(mc),lmS-1,2
                   vrES    =vrES    + leg_helper%dLhw(lm)*   Plm(lm,nThetaNHS)
@@ -266,10 +268,10 @@ contains
             !--- Now the stuff using generalized harmonics:
             do mc=1,n_m_max
                lmS=lStop(mc)
-               vhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               vhN1=zero
+               vhS1=zero
+               vhN2=zero
+               vhS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   vhN1=vhN1+leg_helper%vhG(lm)*PlmG(lm)+leg_helper%vhG(lm+1)*PlmG(lm+1)
@@ -283,20 +285,20 @@ contains
                   vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                   vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
                end if
-               vhN1M(mc)=0.5D0*vhN1
-               vhS1M(mc)=0.5D0*vhS1
-               vhN2M(mc)=0.5D0*vhN2
-               vhS2M(mc)=0.5D0*vhS2
+               vhN1M(mc)=half*vhN1
+               vhS1M(mc)=half*vhS1
+               vhN2M(mc)=half*vhN2
+               vhS2M(mc)=half*vhS2
             end do
             PERFOFF_I
             PERFON_I('TFG_5')
     
             do mc=1,n_m_max
                lmS=lStop(mc)
-               dvhdrN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               dvhdrN1=zero
+               dvhdrS1=zero
+               dvhdrN2=zero
+               dvhdrS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   dvhdrN1=dvhdrN1+leg_helper%dvhdrG(lm)  *PlmG(lm) + &
@@ -314,20 +316,20 @@ contains
                   dvhdrN2=dvhdrN2+leg_helper%dvhdrC(lmS)*PlmC(lmS)
                   dvhdrS2=dvhdrS2-leg_helper%dvhdrC(lmS)*PlmG(lmS)
                end if
-               dvhdrN1M(mc)=0.5D0*dvhdrN1
-               dvhdrS1M(mc)=0.5D0*dvhdrS1
-               dvhdrN2M(mc)=0.5D0*dvhdrN2
-               dvhdrS2M(mc)=0.5D0*dvhdrS2
+               dvhdrN1M(mc)=half*dvhdrN1
+               dvhdrS1M(mc)=half*dvhdrS1
+               dvhdrN2M(mc)=half*dvhdrN2
+               dvhdrS2M(mc)=half*dvhdrS2
             end do
             PERFOFF_I
             PERFON_I('TFG_6')
     
             do mc=1,n_m_max
                lmS=lStop(mc)
-               bhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               bhN1=zero
+               bhS1=zero
+               bhN2=zero
+               bhS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   bhN1=bhN1+leg_helper%bhG(lm)*PlmG(lm)+leg_helper%bhG(lm+1)*PlmG(lm+1)
@@ -341,20 +343,20 @@ contains
                   bhN2=bhN2+leg_helper%bhC(lmS)*PlmC(lmS)
                   bhS2=bhS2-leg_helper%bhC(lmS)*PlmG(lmS)
                end if
-               bhN1M(mc)=0.5D0*bhN1
-               bhS1M(mc)=0.5D0*bhS1
-               bhN2M(mc)=0.5D0*bhN2
-               bhS2M(mc)=0.5D0*bhS2
+               bhN1M(mc)=half*bhN1
+               bhS1M(mc)=half*bhS1
+               bhN2M(mc)=half*bhN2
+               bhS2M(mc)=half*bhS2
             end do
             PERFOFF_I
             PERFON_I('TFG_7')
     
             do mc=1,n_m_max
                lmS=lStop(mc)
-               cbhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               cbhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               cbhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               cbhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               cbhN1=zero
+               cbhS1=zero
+               cbhN2=zero
+               cbhS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   cbhN1=cbhN1+leg_helper%cbhG(lm)  *PlmG(lm)+ &
@@ -372,10 +374,10 @@ contains
                   cbhN2=cbhN2+leg_helper%cbhC(lmS)*PlmC(lmS)
                   cbhS2=cbhS2-leg_helper%cbhC(lmS)*PlmG(lmS)
                end if
-               cbhN1M(mc)=0.5D0*cbhN1
-               cbhS1M(mc)=0.5D0*cbhS1
-               cbhN2M(mc)=0.5D0*cbhN2
-               cbhS2M(mc)=0.5D0*cbhS2
+               cbhN1M(mc)=half*cbhN1
+               cbhS1M(mc)=half*cbhS1
+               cbhN2M(mc)=half*cbhN2
+               cbhS2M(mc)=half*cbhS2
             end do
             PERFOFF_I
             PERFON_I('TFG_8')
@@ -464,33 +466,33 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.D0
+                  sc(mc,nThetaN)=0.0_cp
                   if ( lViscBcCalc) then
-                     dsdtc(mc,nThetaN)=0.D0
-                     dsdpc(mc,nThetaN)=0.D0
+                     dsdtc(mc,nThetaN)=0.0_cp
+                     dsdpc(mc,nThetaN)=0.0_cp
                   end if
                   if ( lFluxProfCalc ) then
-                     pc(mc,nThetaN)=0.D0
+                     pc(mc,nThetaN)=0.0_cp
                   end if
-                  vrc(mc,nThetaN)   =0.D0
-                  vtc(mc,nThetaN)   =0.D0
-                  vpc(mc,nThetaN)   =0.D0
-                  cvrc(mc,nThetaN)  =0.D0
-                  dvrdrc(mc,nThetaN)=0.D0
-                  dvtdrc(mc,nThetaN)=0.D0
-                  dvpdrc(mc,nThetaN)=0.D0
-                  dvrdtc(mc,nThetaN)=0.D0
-                  dvrdpc(mc,nThetaN)=0.D0
+                  vrc(mc,nThetaN)   =0.0_cp
+                  vtc(mc,nThetaN)   =0.0_cp
+                  vpc(mc,nThetaN)   =0.0_cp
+                  cvrc(mc,nThetaN)  =0.0_cp
+                  dvrdrc(mc,nThetaN)=0.0_cp
+                  dvtdrc(mc,nThetaN)=0.0_cp
+                  dvpdrc(mc,nThetaN)=0.0_cp
+                  dvrdtc(mc,nThetaN)=0.0_cp
+                  dvrdpc(mc,nThetaN)=0.0_cp
                end do
                do mc=2*n_m_max+1,nrp
-                  dvtdpc(mc,nThetaN)=0.D0
-                  dvpdpc(mc,nThetaN)=0.D0
-                  brc(mc,nThetaN)   =0.D0
-                  btc(mc,nThetaN)   =0.D0
-                  bpc(mc,nThetaN)   =0.D0
-                  cbrc(mc,nThetaN)  =0.D0
-                  cbtc(mc,nThetaN)  =0.D0
-                  cbpc(mc,nThetaN)  =0.D0
+                  dvtdpc(mc,nThetaN)=0.0_cp
+                  dvpdpc(mc,nThetaN)=0.0_cp
+                  brc(mc,nThetaN)   =0.0_cp
+                  btc(mc,nThetaN)   =0.0_cp
+                  bpc(mc,nThetaN)   =0.0_cp
+                  cbrc(mc,nThetaN)  =0.0_cp
+                  cbtc(mc,nThetaN)  =0.0_cp
+                  cbpc(mc,nThetaN)  =0.0_cp
                end do
             end do  ! loop over nThetaN (theta)
          end if
@@ -508,8 +510,8 @@ contains
             if ( l_heat ) then
                do mc=1,n_m_max
                   lmS=lStop(mc)
-                  sES=cmplx(0.D0,0.D0,kind=kind(0d0))    ! One equatorial symmetry
-                  sEA=cmplx(0.D0,0.D0,kind=kind(0d0))    ! The other equatorial symmetry
+                  sES=zero    ! One equatorial symmetry
+                  sEA=zero    ! The other equatorial symmetry
                   do lm=lStart(mc),lmS-1,2
                      sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
                      sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -527,8 +529,8 @@ contains
                lmS=lStop(mc)
     
                !------ br = r^2 B_r , bt = r sin(theta) B_theta , bp= r sin(theta) B_phi
-               brES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               brEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+               brES=zero
+               brEA=zero
                do lm=lStart(mc),lmS-1,2
                   brES=brES + leg_helper%dLhb(lm)  *Plm(lm,nThetaNHS)
                   brEA=brEA + leg_helper%dLhb(lm+1)*Plm(lm+1,nThetaNHS)
@@ -547,10 +549,10 @@ contains
                brc(2*mc-1,nThetaS)=real(brES-brEA)
                brc(2*mc  ,nThetaS)=aimag(brES-brEA)
     
-               bhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               bhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               bhN1=zero
+               bhS1=zero
+               bhN2=zero
+               bhS2=zero
                do lm=lStart(mc),lmS-1,2
                   bhN1=bhN1+leg_helper%bhG(lm)*PlmG(lm)+leg_helper%bhG(lm+1)*PlmG(lm+1)
                   bhS1=bhS1-leg_helper%bhG(lm)*PlmC(lm)+leg_helper%bhG(lm+1)*PlmC(lm+1)
@@ -563,12 +565,12 @@ contains
                   bhN2=bhN2+leg_helper%bhC(lmS)*PlmC(lmS)
                   bhS2=bhS2-leg_helper%bhC(lmS)*PlmG(lmS)
                end if
-               btc(2*mc-1,nThetaN)=real(0.5D0*bhN1+0.5D0*bhN2)
-               btc(2*mc  ,nThetaN)=aimag(0.5D0*bhN1+0.5D0*bhN2)
-               btc(2*mc-1,nThetaS)=real(0.5D0*bhS1+0.5D0*bhS2)
-               btc(2*mc  ,nThetaS)=aimag(0.5D0*bhS1+0.5D0*bhS2)
-               bhN            =0.5D0*bhN1-0.5D0*bhN2
-               bhS            =0.5D0*bhS1-0.5D0*bhS2
+               btc(2*mc-1,nThetaN)=real(half*bhN1+half*bhN2)
+               btc(2*mc  ,nThetaN)=aimag(half*bhN1+half*bhN2)
+               btc(2*mc-1,nThetaS)=real(half*bhS1+half*bhS2)
+               btc(2*mc  ,nThetaS)=aimag(half*bhS1+half*bhS2)
+               bhN                =half*bhN1-half*bhN2
+               bhS                =half*bhS1-half*bhS2
                bpc(2*mc-1,nThetaN)=aimag(bhN)
                bpc(2*mc  ,nThetaN)=-real(bhN)
                bpc(2*mc-1,nThetaS)=aimag(bhS)
@@ -581,10 +583,10 @@ contains
                !--- Horizontal velocity components for nBc=1
                do mc=1,n_m_max
                   lmS=lStop(mc)
-                  vhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  vhN1=zero
+                  vhS1=zero
+                  vhN2=zero
+                  vhS2=zero
                   do lm=lStart(mc),lmS-1,2
                      vhN1=vhN1+leg_helper%vhG(lm)  *PlmG(lm)+ &
                                leg_helper%vhG(lm+1)*PlmG(lm+1)
@@ -601,12 +603,12 @@ contains
                      vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                      vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
                   end if
-                  vtc(2*mc-1,nThetaN)=real(0.5D0*vhN1+0.5D0*vhN2)
-                  vtc(2*mc  ,nThetaN)=aimag(0.5D0*vhN1+0.5D0*vhN2)
-                  vtc(2*mc-1,nThetaS)=real(0.5D0*vhS1+0.5D0*vhS2)
-                  vtc(2*mc  ,nThetaS)=aimag(0.5D0*vhS1+0.5D0*vhS2)
-                  vhN            =0.5D0*vhN1-0.5D0*vhN2
-                  vhS            =0.5D0*vhS1-0.5D0*vhS2
+                  vtc(2*mc-1,nThetaN)=real(half*vhN1+half*vhN2)
+                  vtc(2*mc  ,nThetaN)=aimag(half*vhN1+half*vhN2)
+                  vtc(2*mc-1,nThetaS)=real(half*vhS1+half*vhS2)
+                  vtc(2*mc  ,nThetaS)=aimag(half*vhS1+half*vhS2)
+                  vhN            =half*vhN1-half*vhN2
+                  vhS            =half*vhS1-half*vhS2
                   vpc(2*mc-1,nThetaN)=aimag(vhN)
                   vpc(2*mc  ,nThetaN)=-real(vhN)
                   vpc(2*mc-1,nThetaS)=aimag(vhS)
@@ -621,17 +623,17 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN) =0.D0
-                  brc(mc,nThetaN)=0.D0
-                  btc(mc,nThetaN)=0.D0
-                  bpc(mc,nThetaN)=0.D0
+                  sc(mc,nThetaN) =0.0_cp
+                  brc(mc,nThetaN)=0.0_cp
+                  btc(mc,nThetaN)=0.0_cp
+                  bpc(mc,nThetaN)=0.0_cp
                end do
             end do
             if ( nBc == 1 ) then
                do nThetaN=1,sizeThetaB
                   do mc=2*n_m_max+1,nrp
-                     vtc(mc,nThetaN)=0.D0
-                     vpc(mc,nThetaN)=0.D0
+                     vtc(mc,nThetaN)=0.0_cp
+                     vpc(mc,nThetaN)=0.0_cp
                   end do
                end do
             end if
@@ -649,8 +651,8 @@ contains
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
             do mc=1,n_m_max
                lmS=lStop(mc)
-               drsES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               drsEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+               drsES=zero
+               drsEA=zero
                do lm=lStart(mc),lmS-1,2
                   drsES=drsES+leg_helper%dsR(lm)*Plm(lm,nThetaNHS)
                   drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -666,8 +668,8 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  drSc(mc,nThetaN)=0.D0
-                  drSc(mc,nThetaN)=0.D0
+                  drSc(mc,nThetaN)=0.0_cp
+                  drSc(mc,nThetaN)=0.0_cp
                end do
             end do  ! loop over nThetaN (theta)
          end if
@@ -683,41 +685,41 @@ contains
        &                 leg_helper)
 
       !-- Input:
-      integer,intent(in) :: nBc
-      logical,intent(in) :: lDeriv,lViscBcCalc,lFluxProfCalc
-      integer,intent(in) :: nThetaStart
+      integer, intent(in) :: nBc
+      logical, intent(in) :: lDeriv,lViscBcCalc,lFluxProfCalc
+      integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
       type(leg_helper_t) :: leg_helper
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
-      real(kind=8), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp, nfs)
-      real(kind=8), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
-      real(kind=8), intent(out) :: cvrc(nrp,nfs), pc(nrp,nfs)
-      real(kind=8), intent(out) :: sc(nrp,nfs), drSc(nrp, nfs)
-      real(kind=8), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
+      real(cp), intent(out) :: vrc(nrp,nfs), vtc(nrp,nfs), vpc(nrp,nfs)
+      real(cp), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
+      real(cp), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp, nfs)
+      real(cp), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
+      real(cp), intent(out) :: cvrc(nrp,nfs), pc(nrp,nfs)
+      real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp, nfs)
+      real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
     
       !------ Legendre Polynomials
-      real(kind=8) :: PlmG(lm_max)
-      real(kind=8) :: PlmC(lm_max)
+      real(cp) :: PlmG(lm_max)
+      real(cp) :: PlmC(lm_max)
     
       !-- Local:
-      complex(kind=8) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-      complex(kind=8) :: sES,sEA,drsES,drsEA,pES,pEA
-      complex(kind=8) :: dsdtES,dsdtEA
+      complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
+      complex(cp) :: sES,sEA,drsES,drsEA,pES,pEA
+      complex(cp) :: dsdtES,dsdtEA
     
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
-      real(kind=8) :: dm,dmT
+      real(cp) :: dm,dmT
     
-      complex(kind=8) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
-      complex(kind=8) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
-      complex(kind=8) :: dvhdrN1M(n_m_max),dvhdrN2M(n_m_max),dvhdrN
-      complex(kind=8) :: dvhdrS1M(n_m_max),dvhdrS2M(n_m_max),dvhdrS
-      complex(kind=8) :: dvhdrN1,dvhdrN2,dvhdrS1,dvhdrS2
+      complex(cp) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
+      complex(cp) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
+      complex(cp) :: dvhdrN1M(n_m_max),dvhdrN2M(n_m_max),dvhdrN
+      complex(cp) :: dvhdrS1M(n_m_max),dvhdrS2M(n_m_max),dvhdrS
+      complex(cp) :: dvhdrN1,dvhdrN2,dvhdrS1,dvhdrS2
     
     
       nThetaNHS=(nThetaStart-1)/2
@@ -731,8 +733,8 @@ contains
             if ( l_heat ) then
                do mc=1,n_m_max
                   lmS=lStop(mc)
-                  sES=cmplx(0.D0,0.D0,kind=kind(0d0))  ! One equatorial symmetry
-                  sEA=cmplx(0.D0,0.D0,kind=kind(0d0))  ! The other equatorial symmetry
+                  sES=zero  ! One equatorial symmetry
+                  sEA=zero  ! The other equatorial symmetry
                   do lm=lStart(mc),lmS-1,2
                      sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
                      sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -748,8 +750,8 @@ contains
                if ( lFluxProfCalc ) then
                   do mc=1,n_m_max
                      lmS=lStop(mc)
-                     pES=cmplx(0.D0,0.D0,kind=kind(0d0)) ! One equatorial symmetry
-                     pEA=cmplx(0.D0,0.D0,kind=kind(0d0)) ! The other equatorial symmetry
+                     pES=zero ! One equatorial symmetry
+                     pEA=zero ! The other equatorial symmetry
                      do lm=lStart(mc),lmS-1,2
                         pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
                         pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -766,8 +768,8 @@ contains
                   do mc=1,n_m_max
                      dm =D_mc2m(mc)
                      lmS=lStop(mc)
-                     dsdtES=cmplx(0.D0,0.D0,kind=kind(0d0))
-                     dsdtEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+                     dsdtES=zero
+                     dsdtEA=zero
                      do lm=lStart(mc),lmS-1,2
                         dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
                         dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
@@ -796,10 +798,10 @@ contains
             !--- Loop over all oders m: (numbered by mc)
             do mc=1,n_m_max
                lmS=lStop(mc)
-               cvrES  =cmplx(0.D0,0.D0,kind=kind(0d0))
-               cvrEA  =cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdrES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdrEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+               cvrES  =zero
+               cvrEA  =zero
+               dvrdrES=zero
+               dvrdrEA=zero
                !--- 4 add/mult
                do lm=lStart(mc),lmS-1,2
                   cvrES  =cvrES   +  leg_helper%dLhz(lm)  *Plm(lm,nThetaNHS)
@@ -824,10 +826,10 @@ contains
             do mc=1,n_m_max
                dm =D_mc2m(mc)
                lmS=lStop(mc)
-               vrES   =cmplx(0.D0,0.D0,kind=kind(0d0))
-               vrEA   =cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdtES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvrdtEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+               vrES   =zero
+               vrEA   =zero
+               dvrdtES=zero
+               dvrdtEA=zero
                !--- 8 add/mult, 29 dble words
                do lm=lStart(mc),lmS-1,2
                   vrES    =vrES    + leg_helper%dLhw(lm)*   Plm(lm,nThetaNHS)
@@ -858,10 +860,10 @@ contains
             !--- Now the stuff using generalized harmonics:
             do mc=1,n_m_max
                lmS=lStop(mc)
-               vhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               vhN1=zero
+               vhS1=zero
+               vhN2=zero
+               vhS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   vhN1=vhN1+leg_helper%vhG(lm)*PlmG(lm)+leg_helper%vhG(lm+1)*PlmG(lm+1)
@@ -875,18 +877,18 @@ contains
                   vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                   vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
                end if
-               vhN1M(mc)=0.5D0*vhN1
-               vhS1M(mc)=0.5D0*vhS1
-               vhN2M(mc)=0.5D0*vhN2
-               vhS2M(mc)=0.5D0*vhS2
+               vhN1M(mc)=half*vhN1
+               vhS1M(mc)=half*vhS1
+               vhN2M(mc)=half*vhN2
+               vhS2M(mc)=half*vhS2
             end do
     
             do mc=1,n_m_max
                lmS=lStop(mc)
-               dvhdrN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dvhdrS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               dvhdrN1=zero
+               dvhdrS1=zero
+               dvhdrN2=zero
+               dvhdrS2=zero
                !--- 8 add/mult, 20 dble words
                do lm=lStart(mc),lmS-1,2
                   dvhdrN1=dvhdrN1+leg_helper%dvhdrG(lm)  *PlmG(lm) + &
@@ -904,10 +906,10 @@ contains
                   dvhdrN2=dvhdrN2+leg_helper%dvhdrC(lmS)*PlmC(lmS)
                   dvhdrS2=dvhdrS2-leg_helper%dvhdrC(lmS)*PlmG(lmS)
                end if
-               dvhdrN1M(mc)=0.5D0*dvhdrN1
-               dvhdrS1M(mc)=0.5D0*dvhdrS1
-               dvhdrN2M(mc)=0.5D0*dvhdrN2
-               dvhdrS2M(mc)=0.5D0*dvhdrS2
+               dvhdrN1M(mc)=half*dvhdrN1
+               dvhdrS1M(mc)=half*dvhdrS1
+               dvhdrN2M(mc)=half*dvhdrN2
+               dvhdrS2M(mc)=half*dvhdrS2
             end do
     
             !--- Unscramble:
@@ -965,25 +967,25 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.D0
+                  sc(mc,nThetaN)=0.0_cp
                   if ( lFluxProfCalc ) then
-                     pc(mc,nThetaN)=0.D0
+                     pc(mc,nThetaN)=0.0_cp
                   end if
                   if ( lViscBcCalc) then
-                     dsdtc(mc,nThetaN)=0.D0
-                     dsdpc(mc,nThetaN)=0.D0
+                     dsdtc(mc,nThetaN)=0.0_cp
+                     dsdpc(mc,nThetaN)=0.0_cp
                   end if
-                  vrc(mc,nThetaN)   =0.D0
-                  vtc(mc,nThetaN)   =0.D0
-                  vpc(mc,nThetaN)   =0.D0
-                  cvrc(mc,nThetaN)  =0.D0
-                  dvrdrc(mc,nThetaN)=0.D0
-                  dvtdrc(mc,nThetaN)=0.D0
-                  dvpdrc(mc,nThetaN)=0.D0
-                  dvrdtc(mc,nThetaN)=0.D0
-                  dvrdpc(mc,nThetaN)=0.D0
-                  dvtdpc(mc,nThetaN)=0.D0
-                  dvpdpc(mc,nThetaN)=0.D0
+                  vrc(mc,nThetaN)   =0.0_cp
+                  vtc(mc,nThetaN)   =0.0_cp
+                  vpc(mc,nThetaN)   =0.0_cp
+                  cvrc(mc,nThetaN)  =0.0_cp
+                  dvrdrc(mc,nThetaN)=0.0_cp
+                  dvtdrc(mc,nThetaN)=0.0_cp
+                  dvpdrc(mc,nThetaN)=0.0_cp
+                  dvrdtc(mc,nThetaN)=0.0_cp
+                  dvrdpc(mc,nThetaN)=0.0_cp
+                  dvtdpc(mc,nThetaN)=0.0_cp
+                  dvpdpc(mc,nThetaN)=0.0_cp
                end do
             end do  ! loop over nThetaN (theta)
          end if
@@ -1001,8 +1003,8 @@ contains
             if ( l_heat ) then
                do mc=1,n_m_max
                   lmS=lStop(mc)
-                  sES=cmplx(0.D0,0.D0,kind=kind(0d0))    ! One equatorial symmetry
-                  sEA=cmplx(0.D0,0.D0,kind=kind(0d0))    ! The other equatorial symmetry
+                  sES=zero    ! One equatorial symmetry
+                  sEA=zero    ! The other equatorial symmetry
                   do lm=lStart(mc),lmS-1,2
                      sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
                      sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -1021,10 +1023,10 @@ contains
                do mc=1,n_m_max
                   dm =D_mc2m(mc)
                   lmS=lStop(mc)
-                  vhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  vhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  vhN1=zero
+                  vhS1=zero
+                  vhN2=zero
+                  vhS2=zero
                   do lm=lStart(mc),lmS-1,2
                      PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
                      PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
@@ -1047,12 +1049,12 @@ contains
                      vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)
                      vhS2=vhS2-leg_helper%vhC(lmS)*PlmG(lmS)
                   end if
-                  vtc(2*mc-1,nThetaN)=real(0.5D0*vhN1+0.5D0*vhN2)
-                  vtc(2*mc,nThetaN)  =aimag(0.5D0*vhN1+0.5D0*vhN2)
-                  vtc(2*mc-1,nThetaS)=real(0.5D0*vhS1+0.5D0*vhS2)
-                  vtc(2*mc,nThetaS)  =aimag(0.5D0*vhS1+0.5D0*vhS2)
-                  vhN            =0.5D0*vhN1-0.5D0*vhN2
-                  vhS            =0.5D0*vhS1-0.5D0*vhS2
+                  vtc(2*mc-1,nThetaN)=real(half*vhN1+half*vhN2)
+                  vtc(2*mc,nThetaN)  =aimag(half*vhN1+half*vhN2)
+                  vtc(2*mc-1,nThetaS)=real(half*vhS1+half*vhS2)
+                  vtc(2*mc,nThetaS)  =aimag(half*vhS1+half*vhS2)
+                  vhN            =half*vhN1-half*vhN2
+                  vhS            =half*vhS1-half*vhS2
                   vpc(2*mc-1,nThetaN)=aimag(vhN)
                   vpc(2*mc  ,nThetaN)=-real(vhN)
                   vpc(2*mc-1,nThetaS)=aimag(vhS)
@@ -1067,14 +1069,14 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.d0
+                  sc(mc,nThetaN)=0.0_cp
                end do
             end do
             if ( nBc == 1 ) then
                do nThetaN=1,sizeThetaB
                   do mc=2*n_m_max+1,nrp
-                     vtc(mc,nThetaN)=0.D0
-                     vpc(mc,nThetaN)=0.D0
+                     vtc(mc,nThetaN)=0.0_cp
+                     vpc(mc,nThetaN)=0.0_cp
                   end do
                end do
             end if
@@ -1092,8 +1094,8 @@ contains
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
             do mc=1,n_m_max
                lmS=lStop(mc)
-               drsES=cmplx(0.D0,0.D0,kind=kind(0d0))
-               drsEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+               drsES=zero
+               drsEA=zero
                do lm=lStart(mc),lmS-1,2
                   drsES=drsES+leg_helper%dsR(lm)*Plm(lm,nThetaNHS)
                   drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
@@ -1109,7 +1111,7 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  drSc(mc,nThetaN)=0.D0
+                  drSc(mc,nThetaN)=0.0_cp
                end do
             end do  ! loop over nThetaN (theta)
          end if
@@ -1159,42 +1161,42 @@ contains
     
       !-- Input:
       !----- Stuff precomputed in legPrep:
-      complex(kind=8), intent(in) :: dLhw(*),dLhz(*)
-      complex(kind=8), intent(in) :: vhG(*),vhC(*)
-      complex(kind=8), intent(in) :: cvhG(*),cvhC(*)
+      complex(cp), intent(in) :: dLhw(*),dLhz(*)
+      complex(cp), intent(in) :: vhG(*),vhC(*)
+      complex(cp), intent(in) :: cvhG(*),cvhC(*)
     
       !----- Defining theta block
-      integer,         intent(in) :: nThetaStart,sizeThetaB
+      integer,     intent(in) :: nThetaStart,sizeThetaB
     
       !------ Legendre Polynomials 
-      integer,         intent(in) :: l_max,minc
-      real(kind=8),    intent(in) :: Plm(lm_max,*)
-      real(kind=8),    intent(in) :: dPlm(lm_max,*)
+      integer,     intent(in) :: l_max,minc
+      real(cp),    intent(in) :: Plm(lm_max,*)
+      real(cp),    intent(in) :: dPlm(lm_max,*)
     
       !----- What should I calculate?
-      logical,         intent(in) :: lHor
-      logical,         intent(in) :: lDeriv
+      logical,     intent(in) :: lHor
+      logical,     intent(in) :: lDeriv
     
       !-- Output: field on grid (theta,m) for the radial grid point nR
       !           and equatorially symmetric and antisymmetric contribution
-      real(kind=8), intent(out) :: vrc(nrp,*)
-      real(kind=8), intent(out) :: vtc(nrp,*)
-      real(kind=8), intent(out) :: vpc(nrp,*)
-      real(kind=8), intent(out) :: cvrc(nrp,*)
-      real(kind=8), intent(out) :: cvtc(nrp,*)
-      real(kind=8), intent(out) :: cvpc(nrp,*)
+      real(cp), intent(out) :: vrc(nrp,*)
+      real(cp), intent(out) :: vtc(nrp,*)
+      real(cp), intent(out) :: vpc(nrp,*)
+      real(cp), intent(out) :: cvrc(nrp,*)
+      real(cp), intent(out) :: cvtc(nrp,*)
+      real(cp), intent(out) :: cvpc(nrp,*)
     
       !-- Local variables:
-      complex(kind=8) :: vrES,vrEA,cvrES,cvrEA
+      complex(cp) :: vrES,vrEA,cvrES,cvrEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: m,l,mc,lm
-      real(kind=8) :: PlmG(lm_max)
-      real(kind=8) :: PlmC(lm_max)
+      real(cp) :: PlmG(lm_max)
+      real(cp) :: PlmC(lm_max)
     
-      complex(kind=8) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
-      complex(kind=8) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
-      complex(kind=8) :: cvhN1M(n_m_max),cvhN2M(n_m_max)
-      complex(kind=8) :: cvhS1M(n_m_max),cvhS2M(n_m_max)
+      complex(cp) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
+      complex(cp) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
+      complex(cp) :: cvhN1M(n_m_max),cvhN2M(n_m_max)
+      complex(cp) :: cvhS1M(n_m_max),cvhS2M(n_m_max)
     
       !-- Theta blocking possible here.
       !   Note that the theta order mixed, i.e. each
@@ -1215,10 +1217,10 @@ contains
                write(*,*) 'Increase nrp in calling routine!'
                stop
             end if
-            vrES =cmplx(0.D0,0.D0,kind=kind(0d0))
-            vrEA =cmplx(0.D0,0.D0,kind=kind(0d0))
-            cvrES=cmplx(0.D0,0.D0,kind=kind(0d0))
-            cvrEA=cmplx(0.D0,0.D0,kind=kind(0d0))
+            vrES =zero
+            vrEA =zero
+            cvrES=zero
+            cvrEA=zero
             do l=m,l_max-1,2
                lm=lm+2
                vrES=vrES+dLhw(lm-1)*Plm(lm-1,nThetaNHS)
@@ -1262,10 +1264,10 @@ contains
             mc=0
             do m=0,l_max,minc
                mc=mc+1
-               vhN1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS1=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhN2=cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS2=cmplx(0.D0,0.D0,kind=kind(0d0))
+               vhN1=zero
+               vhS1=zero
+               vhN2=zero
+               vhS2=zero
                do l=m,l_max-1,2
                   lm=lm+2
                   vhN1=vhN1+vhG(lm-1)*PlmG(lm-1)+vhG(lm)*PlmG(lm)
@@ -1280,10 +1282,10 @@ contains
                   vhN2=vhN2+vhC(lm)*PlmC(lm)
                   vhS2=vhS2-vhC(lm)*PlmG(lm)
                end if
-               vhN1M(mc)=0.5D0*vhN1
-               vhS1M(mc)=0.5D0*vhS1
-               vhN2M(mc)=0.5D0*vhN2
-               vhS2M(mc)=0.5D0*vhS2
+               vhN1M(mc)=half*vhN1
+               vhS1M(mc)=half*vhS1
+               vhN2M(mc)=half*vhN2
+               vhS2M(mc)=half*vhS2
             end do
             !--- Unscramble:
             n_m_max=mc
@@ -1306,10 +1308,10 @@ contains
             mc=0
             do m=0,l_max,minc
                mc=mc+1
-               vhN1 =cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS1 =cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhN2 =cmplx(0.D0,0.D0,kind=kind(0d0))
-               vhS2 =cmplx(0.D0,0.D0,kind=kind(0d0))
+               vhN1 =zero
+               vhS1 =zero
+               vhN2 =zero
+               vhS2 =zero
                do l=m,l_max-1,2
                   lm=lm+2
                   vhN1=vhN1+cvhG(lm-1)*PlmG(lm-1)+cvhG(lm)*PlmG(lm)
@@ -1324,10 +1326,10 @@ contains
                   vhN2=vhN2+cvhC(lm)*PlmC(lm)
                   vhS2=vhS2-cvhC(lm)*PlmG(lm)
                end if
-               cvhN1M(mc)=0.5D0*vhN1
-               cvhS1M(mc)=0.5D0*vhS1
-               cvhN2M(mc)=0.5D0*vhN2
-               cvhS2M(mc)=0.5D0*vhS2
+               cvhN1M(mc)=half*vhN1
+               cvhS1M(mc)=half*vhS1
+               cvhN2M(mc)=half*vhN2
+               cvhS2M(mc)=half*vhS2
             end do
             n_m_max=mc
             do mc=1,n_m_max
@@ -1350,15 +1352,15 @@ contains
       if ( n_m_max < nrp/2 ) then
          do nThetaN=1,sizeThetaB
             do mc=2*n_m_max+1,nrp
-               vrc(mc,nThetaN) =0.d0
+               vrc(mc,nThetaN) =0.0_cp
                if ( lHor ) then
-                  vtc(mc,nThetaN) =0.d0
-                  vpc(mc,nThetaN) =0.d0
+                  vtc(mc,nThetaN) =0.0_cp
+                  vpc(mc,nThetaN) =0.0_cp
                end if
                if ( lDeriv ) then
-                  cvrc(mc,nThetaN)=0.d0
-                  cvtc(mc,nThetaN)=0.d0
-                  cvpc(mc,nThetaN)=0.d0
+                  cvrc(mc,nThetaN)=0.0_cp
+                  cvtc(mc,nThetaN)=0.0_cp
+                  cvpc(mc,nThetaN)=0.0_cp
                end if
             end do
          end do  ! loop over nThetaN (theta)
@@ -1377,13 +1379,12 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: nThetaStart     ! first theta to be treated
-      integer,      intent(in) :: nThetaBlockSize !
-            
-      real(kind=8), intent(in) :: alm(*)      ! field in (l,m)-space
+      integer,  intent(in) :: nThetaStart     ! first theta to be treated
+      integer,  intent(in) :: nThetaBlockSize !
+      real(cp), intent(in) :: alm(*)      ! field in (l,m)-space
 
       !-- Output variables:
-      real(kind=8), intent(out) :: aij(*)  ! field in (theta,phi)-space
+      real(cp), intent(out) :: aij(*)  ! field in (theta,phi)-space
 
       !-- Local variables:
       integer :: nTheta        ! last theta treated
@@ -1392,13 +1393,13 @@ contains
       integer :: nThetaS       ! counter for theta in SHS
       integer :: nThetaBlock   ! counter for theta in block
       integer :: l,lm          ! degree/order
-      real(kind=8) ::  sign
+      real(cp) ::  sign
 
       nTheta=nThetaStart-1  ! last theta
        
       !-- Zero output field:
       do nThetaBlock=1,nThetaBlockSize
-         aij(nThetaBlock)=0.D0
+         aij(nThetaBlock)=0.0_cp
       end do
 
       !-- Transform l 2 theta:
@@ -1408,7 +1409,7 @@ contains
          nThetaS  =nThetaN+1
          nThetaNHS=nThetaNHS+1
 
-         sign=-1.D0
+         sign=-one
          do l=0,l_max
             lm=lm2(l,0)
             sign=-sign
@@ -1429,19 +1430,19 @@ contains
       integer, parameter :: nFields=3
 
       ! Input variables:
-      integer,         intent(in) :: nThetaN,nThetaS
-      complex(kind=8), intent(in) :: infield(lm_max,nFields)
-      real(kind=8),    intent(in) :: Plm_slice(lm_max)
-      real(kind=8),    intent(inout) :: outfield(nrp,nfs,nFields
+      integer,     intent(in) :: nThetaN,nThetaS
+      complex(cp), intent(in) :: infield(lm_max,nFields)
+      real(cp),    intent(in) :: Plm_slice(lm_max)
+      real(cp),    intent(inout) :: outfield(nrp,nfs,nFields
 
       ! Local variables:
       integer :: mc,lmS,lm,nf
-      complex(kind=8) :: sum_sym(nFields),sum_asym(nFields)
+      complex(cp) :: sum_sym(nFields),sum_asym(nFields)
 
       do mc=1,n_m_max
          lmS=lStop(mc)
-         sum_sym  = cmplx(0.D0,0.D0)    ! One equatorial symmetry
-         sum_asym = cmplx(0.D0,0.D0)    ! The other equatorial symmetry
+         sum_sym  = zero    ! One equatorial symmetry
+         sum_asym = zero    ! The other equatorial symmetry
          do lm=lStart(mc),lmS-1,2
             do nf=1,nFields
                sum_sym(nf) = sum_sym(nf) + infield(lm,nf) * Plm_slice(lm)
@@ -1466,19 +1467,19 @@ contains
    subroutine compute_l_sum_NS_1(nThetaN,nThetaS,infield,Plm_slice,outfield)
 
       !-- Input variables:
-      integer,         intent(in) :: nThetaN,nThetaS
-      complex(kind=8), intent(in) :: infield(lm_max)
-      real(kind=8),    intent(in) :: Plm_slice(lm_max)
-      real(kind=8),    intent(inout) :: outfield(nrp,nfs)
+      integer,     intent(in) :: nThetaN,nThetaS
+      complex(cp), intent(in) :: infield(lm_max)
+      real(cp),    intent(in) :: Plm_slice(lm_max)
+      real(cp),    intent(inout) :: outfield(nrp,nfs)
 
       !-- Local variables:
       integer :: mc,lmS,lm,nf
-      complex(kind=8) :: sum_sym,sum_asym
+      complex(cp) :: sum_sym,sum_asym
 
       do mc=1,n_m_max
          lmS=lStop(mc)
-         sum_sym  = cmplx(0.D0,0.D0)    ! One equatorial symmetry
-         sum_asym = cmplx(0.D0,0.D0)    ! The other equatorial symmetry
+         sum_sym  = zero    ! One equatorial symmetry
+         sum_asym = zero    ! The other equatorial symmetry
          do lm=lStart(mc),lmS-1,2
             sum_sym = sum_sym + infield(lm) * Plm_slice(lm)
             sum_asym= sum_asym+ infield(lm+1)*Plm_slice(lm+1)
@@ -1498,15 +1499,15 @@ contains
    subroutine compute_l_sum_NS(infield,Plm_slice,outN,outS)
 
       !-- Input variables:
-      complex(kind=8), intent(in) :: infield(lm_max)
-      real(kind=8),    intent(in) :: Plm_slice(lm_max)
+      complex(cp), intent(in) :: infield(lm_max)
+      real(cp),    intent(in) :: Plm_slice(lm_max)
       
       !-- Output variables:
-      real(kind=8), intent(out) :: outN(nrp), outS(nrp)
+      real(cp), intent(out) :: outN(nrp), outS(nrp)
 
       !-- Local variables:
       integer :: mc,lmS,lm,mc_old
-      complex(kind=8) :: temp_field(lm_max)
+      complex(cp) :: temp_field(lm_max)
 
       temp_field=infield*Plm_slice
       do mc=1,n_m_max
@@ -1515,8 +1516,8 @@ contains
               & - sum(temp_field(lStart(mc)+1:lStop(mc):2))
       end do
 #if 0
-      sES=cmplx(0.D0,0.D0)    ! One equatorial symmetry
-      sEA=cmplx(0.D0,0.D0)    ! The other equatorial symmetry
+      sES=zero    ! One equatorial symmetry
+      sEA=zero    ! The other equatorial symmetry
       mc_old=1
       do lm=1,lm_max
          mc=lm2mc(lm)
@@ -1524,8 +1525,8 @@ contains
             ! next m
             outN(mc_old) = sES + sEA
             outS(mc_old) = sES - sEA
-            sES=cmplx(0.D0,0.D0)    ! One equatorial symmetry
-            sEA=cmplx(0.D0,0.D0)    ! The other equatorial symmetry
+            sES=zero    ! One equatorial symmetry
+            sEA=zero    ! The other equatorial symmetry
             mc_old = mc
          end if
          temp = infield(lm)*Plm_slice(lm)

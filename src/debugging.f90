@@ -1,6 +1,8 @@
 !$Id$
 module debugging
 
+   use precision_mod, only: cp
+
    implicit none
  
    private
@@ -17,7 +19,7 @@ contains
 
       !-- Input variables
       integer,          intent(in) :: dim1, dim2
-      complex(kind=8),  intent(in) :: arr(dim1,dim2)
+      complex(cp),      intent(in) :: arr(dim1,dim2)
       character(len=*), intent(in) :: label
       integer,          intent(in) :: timestep
       character(len=1), optional, intent(in) :: form
@@ -69,7 +71,7 @@ contains
 
       !-- Input variables:
       integer,          intent(in) :: dim1
-      complex(kind=8),  intent(in) :: arr(dim1)
+      complex(cp),      intent(in) :: arr(dim1)
       character(len=*), intent(in) :: label
       integer,          intent(in) :: timestep
       character(len=1), optional, intent(in) :: form

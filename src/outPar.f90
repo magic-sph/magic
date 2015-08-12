@@ -2,6 +2,7 @@
 module outPar_mod
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, &
                          l_maxMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
@@ -9,8 +10,8 @@ module outPar_mod
                     l_perpPar, l_save_out
    use horizontal_data, only: gauss
    use fields, only: s_Rloc, ds_Rloc
-   use physical_parameters, only: ek,prmag,OhmLossFac,ViscHeatFac,opr
-   use const, only: pi,mass
+   use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, opr
+   use const, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
                                dr_fac, i_costf_init, d_costf_init
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
@@ -26,17 +27,17 @@ module outPar_mod
 
    private
 
-   real(kind=8), allocatable :: dlVMeanR(:),dlVcMeanR(:)
-   real(kind=8), allocatable :: dlVu2MeanR(:),dlVu2cMeanR(:)
-   real(kind=8), allocatable :: RolMeanR(:),RolMeanRu2(:),RmMeanR(:)
-   real(kind=8), allocatable :: sMeanR(:),Svar(:),Mvar(:)
-   real(kind=8), allocatable :: uhMeanR(:),duhMeanR(:)
-   real(kind=8), allocatable :: gradT2MeanR(:)
-   real(kind=8), allocatable :: fcondMeanR(:),fconvMeanR(:),fkinMeanR(:)
-   real(kind=8), allocatable :: fviscMeanR(:)
-   real(kind=8), allocatable :: fresMeanR(:), fpoynMeanR(:)
-   real(kind=8), allocatable :: EperpMeanR(:),EparMeanR(:)
-   real(kind=8), allocatable :: EperpaxiMeanR(:),EparaxiMeanR(:)
+   real(cp), allocatable :: dlVMeanR(:),dlVcMeanR(:)
+   real(cp), allocatable :: dlVu2MeanR(:),dlVu2cMeanR(:)
+   real(cp), allocatable :: RolMeanR(:),RolMeanRu2(:),RmMeanR(:)
+   real(cp), allocatable :: sMeanR(:),Svar(:),Mvar(:)
+   real(cp), allocatable :: uhMeanR(:),duhMeanR(:)
+   real(cp), allocatable :: gradT2MeanR(:)
+   real(cp), allocatable :: fcondMeanR(:),fconvMeanR(:),fkinMeanR(:)
+   real(cp), allocatable :: fviscMeanR(:)
+   real(cp), allocatable :: fresMeanR(:), fpoynMeanR(:)
+   real(cp), allocatable :: EperpMeanR(:),EparMeanR(:)
+   real(cp), allocatable :: EperpaxiMeanR(:),EparaxiMeanR(:)
 
    public initialize_outPar_mod, outPar, outPerpPar
 
@@ -47,34 +48,34 @@ contains
       allocate( dlVu2MeanR(n_r_max),dlVu2cMeanR(n_r_max) )
       allocate( RolMeanR(n_r_max),RolMeanRu2(n_r_max),RmMeanR(n_r_max) )
 
-      dlVMeanR(:)     =0.D0
-      dlVcMeanR(:)    =0.D0
-      dlVu2MeanR(:)   =0.D0
-      dlVu2cMeanR(:)  =0.D0
-      RolMeanR(:)     =0.d0
-      RolMeanRu2(:)   =0.d0
-      RmMeanR(:)      =0.d0
+      dlVMeanR(:)     =0.0_cp
+      dlVcMeanR(:)    =0.0_cp
+      dlVu2MeanR(:)   =0.0_cp
+      dlVu2cMeanR(:)  =0.0_cp
+      RolMeanR(:)     =0.0_cp
+      RolMeanRu2(:)   =0.0_cp
+      RmMeanR(:)      =0.0_cp
 
       if ( l_viscBcCalc ) then
          allocate( sMeanR(n_r_max),Svar(nRstart:nRstop),Mvar(nRstart:nRstop) )
          allocate( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
-         sMeanR(:)       =0.d0
-         uhMeanR(:)      =0.d0
-         duhMeanR(:)     =0.d0
-         gradT2MeanR(:)  =0.d0
+         sMeanR(:)       =0.0_cp
+         uhMeanR(:)      =0.0_cp
+         duhMeanR(:)     =0.0_cp
+         gradT2MeanR(:)  =0.0_cp
       end if
 
       if ( l_fluxProfs ) then
          allocate( fcondMeanR(n_r_max),fconvMeanR(n_r_max),fkinMeanR(n_r_max) )
          allocate( fviscMeanR(n_r_max) )
-         fcondMeanR(:)   =0.d0
-         fconvMeanR(:)   =0.d0
-         fkinMeanR(:)    =0.d0
-         fviscMeanR(:)   =0.d0
+         fcondMeanR(:)   =0.0_cp
+         fconvMeanR(:)   =0.0_cp
+         fkinMeanR(:)    =0.0_cp
+         fviscMeanR(:)   =0.0_cp
          if ( l_mag_nl ) then
             allocate( fresMeanR(n_r_max),fpoynMeanR(n_r_max) )
-            fresMeanR(:)    =0.D0
-            fpoynMeanR(:)   =0.D0
+            fresMeanR(:)    =0.0_cp
+            fpoynMeanR(:)   =0.0_cp
          end if
       end if
 
@@ -82,10 +83,10 @@ contains
          allocate( EperpMeanR(n_r_max),EparMeanR(n_r_max) )
          allocate( EperpaxiMeanR(n_r_max),EparaxiMeanR(n_r_max) )
 
-         EperpMeanR(:)   =0.D0
-         EparMeanR(:)    =0.D0
-         EperpaxiMeanR(:)=0.D0
-         EparaxiMeanR(:) =0.D0
+         EperpMeanR(:)   =0.0_cp
+         EparMeanR(:)    =0.0_cp
+         EperpaxiMeanR(:)=0.0_cp
+         EparaxiMeanR(:) =0.0_cp
       end if
 
    end subroutine initialize_outPar_mod
@@ -96,42 +97,42 @@ contains
                      fviscLMr,fpoynLMr,fresLMr,RmR)
 
       !--- Input of variables
-      real(kind=8), intent(in) :: timePassed,timeNorm
-      logical,      intent(in) :: l_stop_time
-      integer,      intent(in) :: nLogs
-      real(kind=8), intent(in) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
-      real(kind=8), intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
-      real(kind=8), intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(kind=8), intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8), intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp), intent(in) :: timePassed,timeNorm
+      logical,  intent(in) :: l_stop_time
+      integer,  intent(in) :: nLogs
+      real(cp), intent(in) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
+      real(cp), intent(in) :: dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp), intent(in) :: ekinR(n_r_max)     ! kinetic energy w radius
+      real(cp), intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp), intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
 
       !--- Output of variables
-      real(kind=8), intent(out):: RmR(n_r_max)
+      real(cp), intent(out):: RmR(n_r_max)
 
       !-- Local variables
       integer :: nR,n,m,lm
-      real(kind=8) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
+      real(cp) :: ReR(n_r_max), RoR(n_r_max), RolR(n_r_max)
       character(len=76) :: filename
       integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS
-      real(kind=8) :: duhR(nRstart:nRstop), uhR(nRstart:nRstop)
-      real(kind=8) :: gradT2R(nRstart:nRstop), sR(nRstart:nRstop), sR2(nRstart:nRstop)
-      real(kind=8) :: fkinR(nRstart:nRstop), fcR(nRstart:nRstop)
-      real(kind=8) :: fconvR(nRstart:nRstop), fviscR(nRstart:nRstop)
-      real(kind=8) :: fresR(nRstartMag:nRstopMag),fpoynR(nRstartMag:nRstopMag)
-      real(kind=8) :: duhR_global(n_r_max), uhR_global(n_r_max)
-      real(kind=8) :: gradT2R_global(n_r_max), sR_global(n_r_max)
-      real(kind=8) :: Svar_global(n_r_max)
-      real(kind=8) :: fkinR_global(n_r_max), fcR_global(n_r_max)
-      real(kind=8) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
-      real(kind=8) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
-      real(kind=8) :: duh(nfs), uh(nfs), gradT2(nfs)
-      real(kind=8) :: fkin(nfs), fconv(nfs), fvisc(nfs), fres(nfs), fpoyn(nfs)
+      real(cp) :: duhR(nRstart:nRstop), uhR(nRstart:nRstop)
+      real(cp) :: gradT2R(nRstart:nRstop), sR(nRstart:nRstop), sR2(nRstart:nRstop)
+      real(cp) :: fkinR(nRstart:nRstop), fcR(nRstart:nRstop)
+      real(cp) :: fconvR(nRstart:nRstop), fviscR(nRstart:nRstop)
+      real(cp) :: fresR(nRstartMag:nRstopMag),fpoynR(nRstartMag:nRstopMag)
+      real(cp) :: duhR_global(n_r_max), uhR_global(n_r_max)
+      real(cp) :: gradT2R_global(n_r_max), sR_global(n_r_max)
+      real(cp) :: Svar_global(n_r_max)
+      real(cp) :: fkinR_global(n_r_max), fcR_global(n_r_max)
+      real(cp) :: fconvR_global(n_r_max), fviscR_global(n_r_max)
+      real(cp) :: fresR_global(n_r_maxMag), fpoynR_global(n_r_maxMag)
+      real(cp) :: duh(nfs), uh(nfs), gradT2(nfs)
+      real(cp) :: fkin(nfs), fconv(nfs), fvisc(nfs), fres(nfs), fpoyn(nfs)
 
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
@@ -140,7 +141,7 @@ contains
          do nR=nRstart,nRstop
             sR(nR) = real(s_Rloc(1,nR))
             ! calculate entropy/temperature variance:
-            sR2(nR)=0.D0
+            sR2(nR)=0.0_cp
             do lm=1,lm_max
               m=lm2m(lm)
               sR2(nR)=sR2(nR)+cc2real(s_Rloc(lm,nR),m)
@@ -155,9 +156,9 @@ contains
          end do
 
          do nR=nRstart,nRstop
-            uhR(nR) =0.d0
-            gradT2R(nR)=0.d0
-            duhR(nR)=0.d0
+            uhR(nR) =0.0_cp
+            gradT2R(nR)=0.0_cp
+            duhR(nR)=0.0_cp
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
                nThetaStart=nTheta+1
@@ -173,9 +174,9 @@ contains
                end do
             end do
          end do
-         duhR=0.5d0*duhR ! Normalisation for the theta integration
-         uhR =0.5d0* uhR ! Normalisation for the theta integration
-         gradT2R =0.5d0*gradT2R ! Normalisation for the theta integration
+         duhR=half*duhR ! Normalisation for the theta integration
+         uhR =half* uhR ! Normalisation for the theta integration
+         gradT2R =half*gradT2R ! Normalisation for the theta integration
 
          sendcount  = (nRstop-nRstart+1)
          recvcounts = nr_per_rank
@@ -203,12 +204,12 @@ contains
       if ( l_fluxProfs ) then
          do nR=nRstart,nRstop
             fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                     temp0(nR)*r(nR)*r(nR)*dsqrt(4.D0*pi)
+                     temp0(nR)*r(nR)*r(nR)*sq4pi
          end do
          do nR=nRstart,nRstop
-            fkinR(nR) =0.d0
-            fconvR(nR)=0.d0
-            fviscR(nR)=0.d0
+            fkinR(nR) =0.0_cp
+            fconvR(nR)=0.0_cp
+            fviscR(nR)=0.0_cp
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
                nThetaStart=nTheta+1
@@ -227,8 +228,8 @@ contains
 
          if ( l_mag_nl ) then
             do nR=nRstart,nRstop
-               fresR(nR) =0.d0
-               fpoynR(nR)=0.d0
+               fresR(nR) =0.0_cp
+               fpoynR(nR)=0.0_cp
                do n=1,nThetaBs ! Loop over theta blocks
                   nTheta=(n-1)*sizeThetaB
                   nThetaStart=nTheta+1
@@ -276,9 +277,9 @@ contains
 
       if ( rank == 0 ) then
          do nR=1,n_r_max
-            ReR(nR)=SQRT(2.D0*ekinR(nR)*or2(nR)/(4*pi*mass))
+            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass))
             RoR(nR)=ReR(nR)*ek
-            if ( dlVR(nR) /= 0d0 ) then
+            if ( dlVR(nR) /= 0.0_cp ) then
                RolR(nR)=RoR(nR)/dlVR(nR)
             else
                RolR(nR)=RoR(nR)
@@ -292,7 +293,7 @@ contains
          dlVu2cMeanR=dlVu2cMeanR+timePassed*dlVRu2c
          RolMeanR   =RolMeanR   +timePassed*RolR
          RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
-         RmMeanR    =RmMeanR    +timePassed*RmR*dsqrt(mass/rho0)*or2
+         RmMeanR    =RmMeanR    +timePassed*RmR*sqrt(mass/rho0)*or2
          !write(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
          ! this is to get u2 value for RmR(r) to plot in parrad.tag
          ! and also remove r**2, so it has to be volume-averaged 
@@ -370,13 +371,13 @@ contains
                filename='bLayersR.'//tag
                open(99, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(D20.10,6D20.12)')           &
-                          &   r(nR),                     &! 1) radius
-                          &   sMeanR(nR)/SQRT(4.D0*pi),  &! 2) entropy
-                          &   Svar_global(nR)/(4.D0*pi), &! 3) entropy variance
-                          &   uhMeanR(nR),               &! 4) uh
-                          &   duhMeanR(nR),              &! 5) duh/dr
-                          &   gradT2MeanR(nR)             ! 6) (grad T)**2
+                  write(99,'(D20.10,6D20.12)')             &
+                          &   r(nR),                       &! 1) radius
+                          &   sMeanR(nR)*osq4pi,           &! 2) entropy
+                          &   Svar_global(nR)/(four*pi),   &! 3) entropy variance
+                          &   uhMeanR(nR),                 &! 4) uh
+                          &   duhMeanR(nR),                &! 5) duh/dr
+                          &   gradT2MeanR(nR)               ! 6) (grad T)**2
                end do
                close(99)
             end if
@@ -408,31 +409,31 @@ contains
 
 
       !--- Input of variables
-      real(kind=8), intent(in) :: time,timePassed,timeNorm
-      logical,      intent(in) :: l_stop_time
-      real(kind=8), intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
-      real(kind=8), intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: time,timePassed,timeNorm
+      logical,  intent(in) :: l_stop_time
+      real(cp), intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp), intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
 
       !--- Local variables
       integer :: nR,n,nTheta,nThetaStart,nThetaBlock,nThetaNHS
       character(len=76) :: filename
 
-      real(kind=8) ::EperpaxiR(nRstart:nRstop), EparaxiR(nRstart:nRstop)
-      real(kind=8) :: EperpR(nRstart:nRstop), EparR(nRstart:nRstop)
-      real(kind=8) :: EperpR_global(n_r_max), EparR_global(n_r_max)
-      real(kind=8) :: EperpaxiR_global(n_r_max), EparaxiR_global(n_r_max)
-      real(kind=8) :: Eperp(nfs), Epar(nfs), Eperpaxi(nfs), Eparaxi(nfs)
-      real(kind=8) :: EperpT,EparT,EperpaxT,EparaxT
+      real(cp) ::EperpaxiR(nRstart:nRstop), EparaxiR(nRstart:nRstop)
+      real(cp) :: EperpR(nRstart:nRstop), EparR(nRstart:nRstop)
+      real(cp) :: EperpR_global(n_r_max), EparR_global(n_r_max)
+      real(cp) :: EperpaxiR_global(n_r_max), EparaxiR_global(n_r_max)
+      real(cp) :: Eperp(nfs), Epar(nfs), Eperpaxi(nfs), Eparaxi(nfs)
+      real(cp) :: EperpT,EparT,EperpaxT,EparaxT
 
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
       do nR=nRstart,nRstop
-         EperpR(nR)   =0.d0
-         EparR(nR)    =0.d0
-         EparaxiR(nR) =0.d0
-         EperpaxiR(nR)=0.d0
+         EperpR(nR)   =0.0_cp
+         EparR(nR)    =0.0_cp
+         EparaxiR(nR) =0.0_cp
+         EperpaxiR(nR)=0.0_cp
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
@@ -450,10 +451,10 @@ contains
             end do
          end do
       end do
-      EperpR   =0.5d0*EperpR    ! Normalisation for the theta integration
-      EparR    =0.5d0*EparR     ! Normalisation for the theta integration
-      EperpaxiR=0.5d0*EperpaxiR ! Normalisation for the theta integration
-      EparaxiR =0.5d0*EparaxiR  ! Normalisation for the theta integration
+      EperpR   =half*EperpR    ! Normalisation for the theta integration
+      EparR    =half*EparR     ! Normalisation for the theta integration
+      EperpaxiR=half*EperpaxiR ! Normalisation for the theta integration
+      EparaxiR =half*EparaxiR  ! Normalisation for the theta integration
 
       sendcount  = (nRstop-nRstart+1)
       recvcounts = nr_per_rank
@@ -477,13 +478,13 @@ contains
 
 
       if ( rank == 0 ) then
-         EperpT  =4.D0*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac, &
+         EperpT  =four*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac, &
                                i_costf_init,d_costf_init)
-         EparT   =4.D0*pi*rInt(EparR_global*r**2,n_r_max,dr_fac, &
+         EparT   =four*pi*rInt(EparR_global*r**2,n_r_max,dr_fac, &
                                i_costf_init,d_costf_init)
-         EperpaxT=4.D0*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac, &
+         EperpaxT=four*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac, &
                                i_costf_init,d_costf_init)
-         EparaxT =4.D0*pi*rInt(EparaxiR_global*r**2,n_r_max,dr_fac, &
+         EparaxT =four*pi*rInt(EparaxiR_global*r**2,n_r_max,dr_fac, &
                                i_costf_init,d_costf_init)
 
          !-- Output

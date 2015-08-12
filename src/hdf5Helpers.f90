@@ -1,6 +1,7 @@
 !$Id$
 module hdf5Helpers
 
+   use precision_mod, only: cp
    use blocking, only: st_map, lo_map
    use LMLoop_data, only: llm, ulm
    use hdf5
@@ -31,7 +32,7 @@ contains
       integer(HID_T),   intent(in) :: loc_id
       integer(HID_T),   intent(in) :: dataset_type
       character(len=*), intent(in) :: dataset_name
-      complex(kind=8),  intent(in) :: dat(llm:ulm,dim1)
+      complex(cp),  intent(in) :: dat(llm:ulm,dim1)
       integer(HSIZE_T), intent(in) :: dims_full(2)
 
       !--- Local variables
@@ -75,13 +76,15 @@ contains
       integer(HID_T),   intent(in) :: loc_id
 
       !--- Output variables
-      real(kind=8), intent(out) :: attr_value
+      real(cp), intent(out) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions
+      integer(HSIZE_T) :: adims = (1)  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
+
+      adims = [1]
 
       call h5aexists_f(loc_id, attr_name, attr_exists, error)
       if ( attr_exists ) then
@@ -89,7 +92,7 @@ contains
          call h5aread_f(attr_id, H5T_NATIVE_DOUBLE, attr_value, adims, error)
          call h5aclose_f(attr_id, error)
       else
-         attr_value=0.D0
+         attr_value=0.0_cp
       end if
 
    end subroutine readHdf5_attr_dble
@@ -126,7 +129,7 @@ contains
       character(len=*),intent(in) :: attr_name
       integer(HID_T),  intent(in) :: aspace_id
       integer(HID_T),  intent(in) :: loc_id
-      real(kind=8),    intent(in) :: attr_value
+      real(cp),    intent(in) :: attr_value
 
       !--- Local variables
       integer(HSIZE_T), dimension(1) :: adims = [1]  ! Attribute dimensions

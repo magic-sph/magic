@@ -1,6 +1,7 @@
 !$Id$
 module out_coeff
   
+   use precision_mod, only: cp
    use logic, only: l_save_out
 
    implicit none
@@ -43,8 +44,8 @@ contains
       integer,          intent(in) :: l_max               ! Max degree of b(*,*)
       integer,          intent(in) :: minc                ! Basic wave-number
       integer,          intent(in) :: lm2(0:l_max,0:l_max)! Gives position of (l,m) coeff
-      real(kind=8),     intent(in) ::  time               ! Time
-      complex(kind=8),  intent(in) :: b(llm:ulm)          ! Poloidal field potential
+      real(cp),         intent(in) ::  time               ! Time
+      complex(cp),      intent(in) :: b(llm:ulm)          ! Poloidal field potential
       character(len=*), intent(in):: cmb_file             ! Name of output file
       integer,          intent(in) :: n_cmb_file          ! Output unit for $cmb_file
 
@@ -62,7 +63,7 @@ contains
       integer :: n_data         ! No of output data
       integer :: n_r_cmb        ! Position of cmb-radius on grid
 
-      real(kind=8), allocatable ::  out(:) ! Output array
+      real(cp), allocatable ::  out(:) ! Output array
 
       !--- Definition of max degree for output
       if ( l_max < l_max_cmb ) l_max_cmb=l_max
@@ -173,12 +174,12 @@ contains
       integer,          intent(in) :: l_max        ! Max degree of b(*,*)
       integer,          intent(in) :: minc         ! Basic wave-number
       integer,          intent(in) :: lm2(0:l_max,0:l_max)
-      real(kind=8),     intent(in) ::  r           ! radius of coeffs
-      real(kind=8),     intent(in) ::  time        ! Time
-      complex(kind=8),  intent(in) :: w(llm:ulm)   ! Poloidal field potential
-      complex(kind=8),  intent(in) :: dw(llm:ulm)  ! dr of Poloidal field potential
-      complex(kind=8),  intent(in) :: ddw(llm:ulm) ! dr^2 of Poloidal field potential
-      complex(kind=8),  intent(in) :: z(llm:ulm)   ! Toroidal field potential
+      real(cp),         intent(in) ::  r           ! radius of coeffs
+      real(cp),         intent(in) ::  time        ! Time
+      complex(cp),      intent(in) :: w(llm:ulm)   ! Poloidal field potential
+      complex(cp),      intent(in) :: dw(llm:ulm)  ! dr of Poloidal field potential
+      complex(cp),      intent(in) :: ddw(llm:ulm) ! dr^2 of Poloidal field potential
+      complex(cp),      intent(in) :: z(llm:ulm)   ! Toroidal field potential
       character(len=*), intent(in) :: file         ! Name of output file
       integer,          intent(in) :: n_file       ! Output unit for $file
       integer,          intent(in) :: nVBS         ! True if output is flow
@@ -196,7 +197,7 @@ contains
       integer :: lm_max_r       ! Max no of combinations l,m for output
       integer :: n_data         ! No of output data
 
-      real(kind=8), allocatable ::  out(:)! Output array
+      real(cp), allocatable ::  out(:)! Output array
 
       !--- Definition of max degree for output
       if ( l_max < l_max_r ) l_max_r=l_max

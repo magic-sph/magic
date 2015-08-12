@@ -3,6 +3,7 @@
 module updateS_mod
 
    use omp_lib
+   use precision_mod, only: cp
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: i_costf_init,d_costf_init,orho1,or1,or2, &
@@ -33,14 +34,15 @@ module updateS_mod
 #endif
    use cosine_transform, only: costf1
    use radial_der, only: get_drNS, get_ddr
+   use const, only: zero, one, two, half
 
    implicit none
 
    private
 
    !-- Local variables
-   complex(kind=8), allocatable :: workA(:,:),workB(:,:)
-   complex(kind=8), allocatable :: rhs1(:,:,:)
+   complex(cp), allocatable :: workA(:,:),workB(:,:)
+   complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
 
    public :: initialize_updateS,updateS,updateS_ala
@@ -68,29 +70,29 @@ contains
       !-------------------------------------------------------------------------
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: w1        ! weight for time step !
-      real(kind=8),    intent(in) :: coex      ! factor depending on alpha
-      real(kind=8),    intent(in) :: dt        ! time step
-      integer,         intent(in) :: nLMB
-      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: w1        ! weight for time step !
+      real(cp),    intent(in) :: coex      ! factor depending on alpha
+      real(cp),    intent(in) :: dt        ! time step
+      integer,     intent(in) :: nLMB
+      complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Input/output of scalar fields:
-      complex(kind=8), intent(inout) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dsdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dsdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dsdtLast(llm:ulm,n_r_max)
       !-- Output: udpated s,ds,dsdtLast
-      complex(kind=8), intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
 
       !-- Local variables:
-      real(kind=8) :: w2            ! weight of second time step
-      real(kind=8) :: O_dt
+      real(cp) :: w2            ! weight of second time step
+      real(cp) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
       integer :: lmStart,lmStop
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_cheb             ! counts cheb modes
-      real(kind=8) ::  rhs(n_r_max) ! real RHS for l=m=0
+      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -112,8 +114,8 @@ contains
 
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
-      w2  =1.-w1
-      O_dt=1.D0/dt
+      w2  =one-w1
+      O_dt=one/dt
 
 
       !PERFON('upS_fin')
@@ -245,8 +247,8 @@ contains
 #endif
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt + &
-                          w1*dsdt(lm1,nR) + &
-                          w2*dsdtLast(lm1,nR)
+                                          w1*dsdt(lm1,nR) + &
+                                          w2*dsdtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
                      rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif
@@ -258,8 +260,8 @@ contains
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
 #ifdef WITH_MKL_LU
-               call getrs(cmplx(sMat(:,:,l1),0.D0,kind=kind(0.d0)), &
-                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+               call getrs(cmplx(sMat(:,:,l1),0.0_cp,kind=cp), &
+                    &     sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
 #else
                call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
                     &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
@@ -287,7 +289,7 @@ contains
                   else
                      do n_cheb=1,n_cheb_max
                         s(lm1,n_cheb)= cmplx(real(rhs1(n_cheb,lmB,threadid)), &
-                                             0.D0,kind=kind(0d0))
+                                       &     0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -304,7 +306,7 @@ contains
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
       do n_cheb=n_cheb_max+1,n_r_max
          do lm1=lmStart,lmStop
-            s(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+            s(lm1,n_cheb)=zero
          end do
       end do
 
@@ -348,7 +350,7 @@ contains
                  & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * kappa(nR) * &
                  &   ( workA(lm1,nR) &
                  &     + ( beta(nR) + otemp1(nR)*dtemp0(nR) + &
-                 &       2.D0*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
+                 &       two*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
                  &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) * or2(nR)   *  s(lm1,nR) &
                  &   )
          end do
@@ -370,30 +372,30 @@ contains
       !-------------------------------------------------------------------------
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: w1        ! weight for time step !
-      real(kind=8),    intent(in) :: coex      ! factor depending on alpha
-      real(kind=8),    intent(in) :: dt        ! time step
-      integer,         intent(in) :: nLMB
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: w1        ! weight for time step !
+      real(cp),    intent(in) :: coex      ! factor depending on alpha
+      real(cp),    intent(in) :: dt        ! time step
+      integer,     intent(in) :: nLMB
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Input/output of scalar fields:
-      complex(kind=8), intent(inout) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dsdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dsdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dsdtLast(llm:ulm,n_r_max)
       !-- Output: udpated s,ds,dsdtLast
-      complex(kind=8), intent(out) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: ds(llm:ulm,n_r_max)
 
       !-- Local variables:
-      real(kind=8) :: w2            ! weight of second time step
-      real(kind=8) :: O_dt
+      real(cp) :: w2            ! weight of second time step
+      real(cp) :: O_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lmB,lm         ! position of (l,m) in array
       integer :: lmStart,lmStop
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_cheb             ! counts cheb modes
-      real(kind=8) ::  rhs(n_r_max) ! real RHS for l=m=0
+      real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -416,8 +418,8 @@ contains
 
       lmStart     =lmStartB(nLMB)
       lmStop      =lmStopB(nLMB)
-      w2  =1.-w1
-      O_dt=1.D0/dt
+      w2  =one-w1
+      O_dt=one/dt
 
 
       !PERFON('upS_fin')
@@ -568,11 +570,11 @@ contains
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
 #ifdef WITH_MKL_LU
-               call getrs(cmplx(sMat(:,:,l1),0.D0,kind=kind(0.d0)), &
-                          sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
+               call getrs(cmplx(sMat(:,:,l1),0.0_cp,kind=cp), &
+                    &     sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
 #else
                call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
-                  &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
 #endif
             end if
             !PERFOFF
@@ -597,7 +599,7 @@ contains
                   else
                      do n_cheb=1,n_cheb_max
                         s(lm1,n_cheb)= cmplx(real(rhs1(n_cheb,lmB,threadid)), &
-                                             0.D0,kind=kind(0d0))
+                                             0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -614,7 +616,7 @@ contains
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
       do n_cheb=n_cheb_max+1,n_r_max
          do lm1=lmStart,lmStop
-            s(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+            s(lm1,n_cheb)=zero
          end do
       end do
 
@@ -658,7 +660,7 @@ contains
            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
                 &   (                                              workA(lm1,nR) &
-                &           + ( beta(nR)+2.D0*or1(nR)+dLkappa(nR) ) * ds(lm1,nR) &
+                &           + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) * ds(lm1,nR) &
                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) &
                 &   ) + coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)        &
                 &           *orho1(nR)*temp0(nR)*dentropy0(nR)*        w(lm1,nR)
@@ -687,20 +689,20 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables
-      real(kind=8), intent(in) :: dt
+      real(cp), intent(in) :: dt
 
       !-- Output variables
-      real(kind=8), intent(out) :: sMat(n_r_max,n_r_max)
-      integer,      intent(out) :: sPivot(n_r_max)
+      real(cp), intent(out) :: sMat(n_r_max,n_r_max)
+      integer,  intent(out) :: sPivot(n_r_max)
 #ifdef WITH_PRECOND_S0
-      real(kind=8), intent(out) :: sMat_fac(n_r_max)
+      real(cp), intent(out) :: sMat_fac(n_r_max)
 #endif
 
       !-- Local variables:
       integer :: info,nCheb,nR
-      real(kind=8) :: O_dt
+      real(cp) :: O_dt
 
-      O_dt=1.D0/dt
+      O_dt=one/dt
     
       !----- Boundary condition:
       do nCheb=1,n_cheb_max
@@ -722,8 +724,8 @@ contains
       end do
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
-            sMat(1,nCheb)      =0.D0
-            sMat(n_r_max,nCheb)=0.D0
+            sMat(1,nCheb)      =0.0_cp
+            sMat(n_r_max,nCheb)=0.0_cp
          end do
       end if
     
@@ -733,7 +735,7 @@ contains
                sMat(nR,nCheb)= cheb_norm * (                                &
               &                                       O_dt*cheb(nCheb,nR) - & 
               &                 alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-              &  (beta(nR)+2.D0*or1(nR)+dLkappa(nR))*     dcheb(nCheb,nR) ) )
+              &  (beta(nR)+two*or1(nR)+dLkappa(nR))*     dcheb(nCheb,nR) ) )
             end do
          end do
       else
@@ -742,7 +744,7 @@ contains
                sMat(nR,nCheb)= cheb_norm * (                                &
               &                                       O_dt*cheb(nCheb,nR) - & 
               &                 alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-              &  (beta(nR)+otemp1(nR)*dtemp0(nR)+2.D0*or1(nR)+dLkappa(nR))* &
+              &  (beta(nR)+otemp1(nR)*dtemp0(nR)+two*or1(nR)+dLkappa(nR))* &
               &  dcheb(nCheb,nR) ) )
             end do
          end do
@@ -750,14 +752,14 @@ contains
     
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
-         sMat(nR,1)      =0.5D0*sMat(nR,1)
-         sMat(nR,n_r_max)=0.5D0*sMat(nR,n_r_max)
+         sMat(nR,1)      =half*sMat(nR,1)
+         sMat(nR,n_r_max)=half*sMat(nR,n_r_max)
       end do
     
 #ifdef WITH_PRECOND_S0
       ! compute the linesum of each line
       do nR=1,n_r_max
-         sMat_fac(nR)=1.0D0/maxval(abs(sMat(nR,:)))
+         sMat_fac(nR)=one/maxval(abs(sMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,n_r_max
@@ -791,35 +793,35 @@ contains
       !  +-------------------------------------------------------------------+
       
       !-- Input variables
-      real(kind=8), intent(in) :: dt
-      real(kind=8), intent(in) :: hdif
-      integer,      intent(in) :: l
+      real(cp), intent(in) :: dt
+      real(cp), intent(in) :: hdif
+      integer,  intent(in) :: l
 
       !-- Output variables
-      real(kind=8),intent(out) :: sMat(n_r_max,n_r_max)
-      integer,     intent(out) :: sPivot(n_r_max)
+      real(cp), intent(out) :: sMat(n_r_max,n_r_max)
+      integer,  intent(out) :: sPivot(n_r_max)
 #ifdef WITH_PRECOND_S
-      real(kind=8),intent(out) :: sMat_fac(n_r_max)
+      real(cp),intent(out) :: sMat_fac(n_r_max)
 #endif
 
       !-- Local variables:
       integer :: info,nCheb,nR
-      real(kind=8) :: O_dt,dLh
+      real(cp) :: O_dt,dLh
 
 #ifdef MATRIX_CHECK
       integer :: i,j
-      real(kind=8) :: rcond
+      real(cp) :: rcond
       integer ::ipiv(n_r_max),iwork(n_r_max)
-      real(kind=8) :: work(4*n_r_max),anorm,linesum
-      real(kind=8) :: temp_Mat(n_r_max,n_r_max)
+      real(cp) :: work(4*n_r_max),anorm,linesum
+      real(cp) :: temp_Mat(n_r_max,n_r_max)
       integer,save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
 #endif
 
-      O_dt=1.D0/dt
+      O_dt=one/dt
 
-      dLh=dble(l*(l+1))
+      dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary coditions:
       do nCheb=1,n_cheb_max
@@ -836,8 +838,8 @@ contains
       end do
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
-            sMat(1,nCheb)      =0.D0
-            sMat(n_r_max,nCheb)=0.D0
+            sMat(1,nCheb)      =0.0_cp
+            sMat(n_r_max,nCheb)=0.0_cp
          end do
       end if
 
@@ -848,7 +850,7 @@ contains
                sMat(nR,nCheb)= cheb_norm * (                    &
           &                               O_dt*cheb(nCheb,nR) - &
           &      alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) + &
-          &     ( beta(nR)+2.d0*or1(nR)+dLkappa(nR) )*          &
+          &     ( beta(nR)+two*or1(nR)+dLkappa(nR) )*          &
           &                                   dcheb(nCheb,nR) - &
           &           dLh*or2(nR)*             cheb(nCheb,nR) ) )
             end do
@@ -860,7 +862,7 @@ contains
           &                               O_dt*cheb(nCheb,nR) - &
           &      alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) + &
           &      ( beta(nR)+otemp1(nR)*dtemp0(nR)+              &
-          &        2.d0*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) - &
+          &        two*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) - &
           &           dLh*or2(nR)*             cheb(nCheb,nR) ) )
             end do
          end do
@@ -868,14 +870,14 @@ contains
 
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         sMat(nR,1)      =0.5D0*sMat(nR,1)
-         sMat(nR,n_r_max)=0.5D0*sMat(nR,n_r_max)
+         sMat(nR,1)      =half*sMat(nR,1)
+         sMat(nR,n_r_max)=half*sMat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_S
       ! compute the linesum of each line
       do nR=1,n_r_max
-         sMat_fac(nR)=1.0D0/maxval(abs(sMat(nR,:)))
+         sMat_fac(nR)=one/maxval(abs(sMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,n_r_max
@@ -897,9 +899,9 @@ contains
       end do
       close(filehandle)
       temp_Mat=sMat
-      anorm = 0.0D0
+      anorm = 0.0_cp
       do i=1,n_r_max
-         linesum = 0.0D0
+         linesum = 0.0_cp
          do j=1,n_r_max
             linesum = linesum + abs(temp_Mat(i,j))
          end do

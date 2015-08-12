@@ -1,7 +1,9 @@
 !$Id$
 #include "perflib_preproc.cpp"
 module updateWP_mod
+   
    use omp_lib
+   use precision_mod, only: cp
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &
@@ -28,15 +30,16 @@ module updateWP_mod
    use RMS_helpers, only:  hInt2Pol
    use cosine_transform, only: costf1
    use radial_der, only: get_dddr, get_dr
+   use const, only: zero, one, two, three, four, third, half
 
    implicit none
 
    private
 
    !-- Input of recycled work arrays:
-   complex(kind=8), allocatable :: workA(:,:),workB(:,:)
-   complex(kind=8), allocatable :: Dif(:),Pre(:),Buo(:)
-   complex(kind=8), allocatable :: rhs1(:,:,:)
+   complex(cp), allocatable :: workA(:,:),workB(:,:)
+   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
+   complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
 
    public :: initialize_updateWP, updateWP
@@ -82,34 +85,34 @@ contains
       !-------------------------------------------------------------------------
 
       !-- Input/output of scalar fields:
-      real(kind=8),    intent(in) :: w1        ! weight for time step !
-      real(kind=8),    intent(in) :: coex      ! factor depending on alpha
-      real(kind=8),    intent(in) :: dt        ! time step
-      integer,         intent(in) :: nLMB     ! block number
-      logical,         intent(in) :: lRmsNext
-      complex(kind=8), intent(in) :: dwdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dpdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: w1       ! weight for time step !
+      real(cp),    intent(in) :: coex     ! factor depending on alpha
+      real(cp),    intent(in) :: dt       ! time step
+      integer,     intent(in) :: nLMB     ! block number
+      logical,     intent(in) :: lRmsNext
+      complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
 
-      complex(kind=8), intent(inout) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dw(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dwdtLast(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: p(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dpdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dwdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dpdtLast(llm:ulm,n_r_max)
 
-      complex(kind=8), intent(out) :: ddw(llm:ulm,n_r_max)
-      complex(kind=8), intent(out) :: dp(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dp(llm:ulm,n_r_max)
 
       !-- Local variables:
-      real(kind=8) :: w2                  ! weight of second time step
-      real(kind=8) :: O_dt
-      integer :: l1,m1              ! degree and order
-      integer :: lm1,lm,lmB         ! position of (l,m) in array
+      real(cp) :: w2            ! weight of second time step
+      real(cp) :: O_dt
+      integer :: l1,m1          ! degree and order
+      integer :: lm1,lm,lmB     ! position of (l,m) in array
       integer :: lmStart,lmStop ! max and min number of orders m
-      integer :: lmStart_00        ! excluding l=0,m=0
+      integer :: lmStart_00     ! excluding l=0,m=0
       integer :: nLMB2
-      integer :: nR                ! counts radial grid points
-      integer :: n_cheb             ! counts cheb modes
+      integer :: nR             ! counts radial grid points
+      integer :: n_cheb         ! counts cheb modes
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -136,8 +139,8 @@ contains
       lmStop      =lmStopB(nLMB)
       lmStart_00  =max(2,lmStart)
 
-      w2  =1.D0-w1
-      O_dt=1.D0/dt
+      w2  =one-w1
+      O_dt=one/dt
       !PERFON('upWP_ssol')
       !$OMP PARALLEL default(shared) &
       !$OMP private(nLMB2,lm,lm1,l1,m1,lmB)
@@ -188,10 +191,10 @@ contains
                   m1 =lm22m(lm,nLMB2,nLMB)
 
                   lmB=lmB+1
-                  rhs1(1,lmB,threadid)        =0.D0
-                  rhs1(n_r_max,lmB,threadid)  =0.D0
-                  rhs1(n_r_max+1,lmB,threadid)=0.D0
-                  rhs1(2*n_r_max,lmB,threadid)=0.D0
+                  rhs1(1,lmB,threadid)        =0.0_cp
+                  rhs1(n_r_max,lmB,threadid)  =0.0_cp
+                  rhs1(n_r_max+1,lmB,threadid)=0.0_cp
+                  rhs1(2*n_r_max,lmB,threadid)=0.0_cp
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=                         &
                           & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
@@ -215,7 +218,7 @@ contains
                   end do
                end do
 #ifdef WITH_MKL_LU
-               call getrs(cmplx(wpMat(:,:,l1),0.D0,kind=kind(0.D0)), &
+               call getrs(cmplx(wpMat(:,:,l1),0.0_cp,kind=cp), &
                     &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
 #else
                call cgeslML(wpMat(:,:,l1),2*n_r_max,2*n_r_max,    &
@@ -254,10 +257,10 @@ contains
                      end do
                   else
                      do n_cheb=1,n_cheb_max
-                        w(lm1,n_cheb)= cmplx(real(rhs1(n_cheb,lmB, &
-                                       threadid)),0.D0,kind=kind(0d0))
-                        p(lm1,n_cheb)= cmplx(real(rhs1(n_r_max+n_cheb, & 
-                                       lmB,threadid)),0.D0,kind=kind(0d0))
+                        w(lm1,n_cheb)= cmplx(real(rhs1(n_cheb,lmB,threadid)), &
+                                       &     0.0_cp,kind=cp)
+                        p(lm1,n_cheb)= cmplx(real(rhs1(n_r_max+n_cheb,lmB,threadid)), &
+                                       &     0.0_cp,kind=cp)
                      end do
                   end if
                end do
@@ -276,8 +279,8 @@ contains
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
       do n_cheb=n_cheb_max+1,n_r_max
          do lm1=lmStart_00,lmStop
-            w(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
-            p(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+            w(lm1,n_cheb)=zero
+            p(lm1,n_cheb)=zero
          end do
       end do
 
@@ -337,7 +340,7 @@ contains
 
       !PERFON('upWP_ex')
       !-- Calculate explicit time step part:
-      if ( ra /= 0.D0 ) then
+      if ( ra /= 0.0_cp ) then
          do nR=n_r_cmb+1,n_r_icb-1
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
@@ -345,10 +348,10 @@ contains
 
                Dif(lm1) = hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))* &
                           or2(nR)*visc(nR) *                  ( ddw(lm1,nR) &
-                    &   +(2.d0*dLvisc(nR)-beta(nR)/3.d0)*        dw(lm1,nR) &
-                    &   -( dLh(st_map%lm2(l1,m1))*or2(nR)+4.d0/3.d0* (      &
+                    &   +(two*dLvisc(nR)-third*beta(nR))*        dw(lm1,nR) &
+                    &   -( dLh(st_map%lm2(l1,m1))*or2(nR)+four*third* (     &
                     &        dbeta(nR)+dLvisc(nR)*beta(nR)                  &
-                    &        +(3.d0*dLvisc(nR)+beta(nR))*or1(nR) )   )*     &
+                    &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                            w(lm1,nR)  )
                Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
                Buo(lm1) = rho0(nR)*rgrav(nR)*s(lm1,nR)
@@ -361,10 +364,10 @@ contains
                     &                  + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
                     &          + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
                     &             + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
-                    &             + 2.d0*(dLvisc(nR)+beta(nR))*or1(nR)    &
+                    &             + two*(dLvisc(nR)+beta(nR))*or1(nR)     &
                     &                                      ) * dw(lm1,nR) &
                     &          - dLh(st_map%lm2(l1,m1))*or2(nR)           &
-                    &             * ( 2.d0*or1(nR)+2.d0/3.d0*beta(nR)     &
+                    &             * ( two*or1(nR)+two*third*beta(nR)      &
                                      +dLvisc(nR) )   *         w(lm1,nR)  &
                     &                                    ) )
                if ( lRmsNext ) then
@@ -389,13 +392,13 @@ contains
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
-               Dif(lm1)=hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))* &
-                                                        or2(nR)*visc(nR)* &
-                                 (                          ddw(lm1,nR) + &
-                             (2.d0*dLvisc(nR)-beta(nR)/3.d0)*dw(lm1,nR) - &
-                    (dLh(st_map%lm2(l1,m1))*or2(nR)+4.d0/3.d0*(dbeta(nR)+ &
-                                dLvisc(nR)*beta(nR)+                      &
-                    (3.d0*dLvisc(nR)+beta(nR))*or1(nR))) *                &
+               Dif(lm1)=hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))*  &
+                                                        or2(nR)*visc(nR)*  &
+                                 (                          ddw(lm1,nR) +  &
+                             (two*dLvisc(nR)-third*beta(nR))*dw(lm1,nR) -  &
+                    (dLh(st_map%lm2(l1,m1))*or2(nR)+four*third*(dbeta(nR)+ &
+                                dLvisc(nR)*beta(nR)+                       &
+                    (three*dLvisc(nR)+beta(nR))*or1(nR))) *                &
                                                               w(lm1,nR) )
                Pre(lm1)=-dp(lm1,nR)+beta(nR)*p(lm1,nR)
                dwdtLast(lm1,nR) = dwdt(lm1,nR) - coex*(Pre(lm1)+Dif(lm1))
@@ -407,10 +410,10 @@ contains
                     (beta(nR)-dLvisc(nR))*ddw(lm1,nR)        + &
                     ( dLh(st_map%lm2(l1,m1))*or2(nR)+          &
                       dLvisc(nR)*beta(nR) + dbeta(nR)+         &
-                     2.d0*(dLvisc(nR)+beta(nR))*or1(nR))    *  &
+                     two*(dLvisc(nR)+beta(nR))*or1(nR))    *   &
                                            dw(lm1,nR)        - &
                     dLh(st_map%lm2(l1,m1))*or2(nR)           * &
-                    (2.d0*or1(nR)+2.d0/3.d0*beta(nR)+          &
+                    (two*or1(nR)+two*third*beta(nR)+           &
                     dLvisc(nR))*            w(lm1,nR)          )  )
                if ( lRmsNext ) then
                   workB(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
@@ -444,24 +447,24 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: dt
-      real(kind=8), intent(in) :: hdif
-      integer,      intent(in) :: l
+      real(cp), intent(in) :: dt
+      real(cp), intent(in) :: hdif
+      integer,  intent(in) :: l
 
       !-- Output variables:
-      real(kind=8), intent(out) :: wpMat(2*n_r_max,2*n_r_max)
-      real(kind=8), intent(out) :: wpMat_fac(2*n_r_max,2)
-      integer,      intent(out) :: wpPivot(2*n_r_max)
+      real(cp), intent(out) :: wpMat(2*n_r_max,2*n_r_max)
+      real(cp), intent(out) :: wpMat_fac(2*n_r_max,2)
+      integer,  intent(out) :: wpPivot(2*n_r_max)
 
       !-- local variables:
       integer :: nR,nCheb,nR_p,nCheb_p
       integer :: info
-      real(kind=8) :: O_dt,dLh
+      real(cp) :: O_dt,dLh
 
 #ifdef MATRIX_CHECK
       integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
-      real(kind=8) :: work(8*n_r_max),anorm,linesum,rcond
-      real(kind=8) :: temp_wpMat(2*n_r_max,2*n_r_max)
+      real(cp) :: work(8*n_r_max),anorm,linesum,rcond
+      real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
       integer,save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
@@ -506,8 +509,8 @@ contains
       end if
 #endif
 
-      O_dt=1.D0/dt
-      dLh =dble(l*(l+1))
+      O_dt=one/dt
+      dLh =real(l*(l+1),kind=cp)
     
       !-- Now mode l>0
     
@@ -516,40 +519,40 @@ contains
          nCheb_p=nCheb+n_r_max
     
          wpMat(1,nCheb)        =cheb_norm*cheb(nCheb,1)
-         wpMat(1,nCheb_p)      =0.D0
+         wpMat(1,nCheb_p)      =0.0_cp
          wpMat(n_r_max,nCheb)  =cheb_norm*cheb(nCheb,n_r_max)
-         wpMat(n_r_max,nCheb_p)=0.D0
+         wpMat(n_r_max,nCheb_p)=0.0_cp
     
          if ( ktopv == 1 ) then  ! free slip !
             wpMat(n_r_max+1,nCheb)=   cheb_norm * ( &
-                 d2cheb(nCheb,1) - (2.d0*or1(1)+beta(1))*dcheb(nCheb,1) )
+                 d2cheb(nCheb,1) - (two*or1(1)+beta(1))*dcheb(nCheb,1) )
          else                    ! no slip, note exception for l=1,m=0
             wpMat(n_r_max+1,nCheb)=cheb_norm*dcheb(nCheb,1)
          end if
-         wpMat(n_r_max+1,nCheb_p)=0.D0
+         wpMat(n_r_max+1,nCheb_p)=0.0_cp
     
          if ( kbotv == 1 ) then  ! free slip !
             wpMat(2*n_r_max,nCheb)=        cheb_norm * ( &
                  d2cheb(nCheb,n_r_max) - &
-                 (2.d0*or1(n_r_max)+beta(n_r_max))*dcheb(nCheb,n_r_max))
+                 (two*or1(n_r_max)+beta(n_r_max))*dcheb(nCheb,n_r_max))
          else                 ! no slip, note exception for l=1,m=0
             wpMat(2*n_r_max,nCheb)=cheb_norm * dcheb(nCheb,n_r_max)
          end if
-         wpMat(2*n_r_max,nCheb_p)=0.D0
+         wpMat(2*n_r_max,nCheb_p)=0.0_cp
     
       end do   !  loop over nCheb
     
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
             nCheb_p=nCheb+n_r_max
-            wpMat(1,nCheb)          =0.D0
-            wpMat(n_r_max,nCheb)    =0.D0
-            wpMat(n_r_max+1,nCheb)  =0.D0
-            wpMat(2*n_r_max,nCheb)  =0.D0
-            wpMat(1,nCheb_p)        =0.D0
-            wpMat(n_r_max,nCheb_p)  =0.D0
-            wpMat(n_r_max+1,nCheb_p)=0.D0
-            wpMat(2*n_r_max,nCheb_p)=0.D0
+            wpMat(1,nCheb)          =0.0_cp
+            wpMat(n_r_max,nCheb)    =0.0_cp
+            wpMat(n_r_max+1,nCheb)  =0.0_cp
+            wpMat(2*n_r_max,nCheb)  =0.0_cp
+            wpMat(1,nCheb_p)        =0.0_cp
+            wpMat(n_r_max,nCheb_p)  =0.0_cp
+            wpMat(n_r_max+1,nCheb_p)=0.0_cp
+            wpMat(2*n_r_max,nCheb_p)=0.0_cp
          end do
       end if
     
@@ -561,25 +564,25 @@ contains
             !     & visc(nR),beta(nR),dLvisc(nR),dbeta(nR),hdif,alpha
             ! in the BM2 case: visc=1.0,beta=0.0,dLvisc=0.0,dbeta=0.0
             nR_p=nR+n_r_max
-            wpMat(nR,nCheb)= cheb_norm *  ( O_dt*dLh*or2(nR)*cheb(nCheb,nR) &
-                 &   - alpha*hdif*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR) &
-                 &          +(2.*dLvisc(nR)-beta(nR)/3.D0)*dcheb(nCheb,nR)  &
-                 &         -( dLh*or2(nR)+4.D0/3.D0*( dLvisc(nR)*beta(nR)   &
-                 &          +(3.d0*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) ) &
-                 &          )                               *cheb(nCheb,nR) &
+            wpMat(nR,nCheb)= cheb_norm *  ( O_dt*dLh*or2(nR)*cheb(nCheb,nR)     &
+                 &   - alpha*hdif*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR)     &
+                 &          +(two*dLvisc(nR)-third*beta(nR))*dcheb(nCheb,nR)    &
+                 &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)      &
+                 &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )    &
+                 &          )                               *cheb(nCheb,nR)     &
                  &                                       )  )
     
             wpMat(nR,nCheb_p)= cheb_norm*alpha*(dcheb(nCheb,nR) &
                                -beta(nR)* cheb(nCheb,nR))
             ! the following part gives sometimes very large 
             ! matrix entries
-            wpMat(nR_p,nCheb)= cheb_norm * ( -O_dt*dLh*or2(nR)*dcheb(nCheb,nR) &
-                 &  -alpha*hdif*visc(nR)*dLh*or2(nR) &    *(- d3cheb(nCheb,nR) &
-                 &                   +( beta(nR)-dLvisc(nR) )*d2cheb(nCheb,nR) &
-                 &      +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)           &
-                 &       +2.D0*(dLvisc(nR)+beta(nR))*or1(nR) )*dcheb(nCheb,nR) &
-                 &      -dLh*or2(nR)*( 2.d0*or1(nR)+dLvisc(nR)                 &
-                 &                     +2.d0/3.d0*beta(nR)   )* cheb(nCheb,nR) &
+            wpMat(nR_p,nCheb)= cheb_norm * ( -O_dt*dLh*or2(nR)*dcheb(nCheb,nR)  &
+                 &  -alpha*hdif*visc(nR)*dLh*or2(nR) &    *(- d3cheb(nCheb,nR)  &
+                 &                   +( beta(nR)-dLvisc(nR) )*d2cheb(nCheb,nR)  &
+                 &      +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)            &
+                 &       +two*(dLvisc(nR)+beta(nR))*or1(nR) )*dcheb(nCheb,nR)   &
+                 &      -dLh*or2(nR)*( two*or1(nR)+dLvisc(nR)                   &
+                 &                     +two*third*beta(nR)   )* cheb(nCheb,nR)  &
                  &                                        ) )
     
             wpMat(nR_p,nCheb_p)= -cheb_norm*alpha*dLh*or2(nR)*cheb(nCheb,nR)
@@ -589,19 +592,19 @@ contains
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
          nR_p=nR+n_r_max
-         wpMat(nR,1)          =0.5D0*wpMat(nR,1)
-         wpMat(nR,n_r_max)    =0.5D0*wpMat(nR,n_r_max)
-         wpMat(nR,n_r_max+1)  =0.5D0*wpMat(nR,n_r_max+1)
-         wpMat(nR,2*n_r_max)  =0.5D0*wpMat(nR,2*n_r_max)
-         wpMat(nR_p,1)        =0.5D0*wpMat(nR_p,1)
-         wpMat(nR_p,n_r_max)  =0.5D0*wpMat(nR_p,n_r_max)
-         wpMat(nR_p,n_r_max+1)=0.5D0*wpMat(nR_p,n_r_max+1)
-         wpMat(nR_p,2*n_r_max)=0.5D0*wpMat(nR_p,2*n_r_max)
+         wpMat(nR,1)          =half*wpMat(nR,1)
+         wpMat(nR,n_r_max)    =half*wpMat(nR,n_r_max)
+         wpMat(nR,n_r_max+1)  =half*wpMat(nR,n_r_max+1)
+         wpMat(nR,2*n_r_max)  =half*wpMat(nR,2*n_r_max)
+         wpMat(nR_p,1)        =half*wpMat(nR_p,1)
+         wpMat(nR_p,n_r_max)  =half*wpMat(nR_p,n_r_max)
+         wpMat(nR_p,n_r_max+1)=half*wpMat(nR_p,n_r_max+1)
+         wpMat(nR_p,2*n_r_max)=half*wpMat(nR_p,2*n_r_max)
       end do
     
       ! compute the linesum of each line
       do nR=1,2*n_r_max
-         wpMat_fac(nR,1)=1.0D0/maxval(abs(wpMat(nR,:)))
+         wpMat_fac(nR,1)=one/maxval(abs(wpMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,2*n_r_max
@@ -610,7 +613,7 @@ contains
     
       ! also compute the rowsum of each column
       do nR=1,2*n_r_max
-         wpMat_fac(nR,2)=1.0D0/maxval(abs(wpMat(:,nR)))
+         wpMat_fac(nR,2)=one/maxval(abs(wpMat(:,nR)))
       end do
       ! now divide each row by the rowsum
       do nR=1,2*n_r_max
@@ -631,9 +634,9 @@ contains
       end do
       close(filehandle)
       temp_wpMat=wpMat
-      anorm = 0.0D0
+      anorm = 0.0_cp
       do i=1,2*n_r_max
-         linesum = 0.0D0
+         linesum = 0.0_cp
          do j=1,2*n_r_max
             linesum = linesum + abs(temp_wpMat(i,j))
          end do

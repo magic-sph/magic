@@ -2,6 +2,7 @@
 #include "perflib_preproc.cpp"
 module legendre_grid_to_spec
 
+   use precision_mod, only: cp
    use truncation, only: n_m_max, nrp, lmP_max, n_theta_max
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP
@@ -27,11 +28,11 @@ contains
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
       !-- Input variables:
-      integer,      intent(in) :: nThetaStart ! First no of theta on block
-      real(kind=8), intent(in) :: f1TM(nrp,nfs)
+      integer,  intent(in) :: nThetaStart ! First no of theta on block
+      real(cp), intent(in) :: f1TM(nrp,nfs)
 
       !-- Output variable:
-      complex(kind=8), intent(inout) :: f1LM(lmP_max)
+      complex(cp), intent(inout) :: f1LM(lmP_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -46,8 +47,8 @@ contains
       integer :: mc          ! counter of spherical order
       integer :: lmS,lm      ! counter of spherical mode
 
-      complex(kind=8) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
-      complex(kind=8) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
+      complex(cp) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
+      complex(cp) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
 
       !PERFON('legTF1')
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
@@ -56,14 +57,10 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))                        
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))                       
+            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
          end do
       end do
 
@@ -106,8 +103,8 @@ contains
             f1EA1=f1EA(mc,nThetaB1)
             f1EA2=f1EA(mc,nThetaB2)
             do lm=lStartP(mc),lmS-1,2
-               f1LM(lm)  =f1LM(lm)   + f1ES1*wPlm(lm,nTheta1) + f1ES2*wPlm(lm,nTheta2)
-               f1LM(lm+1)=f1LM(lm+1) + f1EA1*wPlm(lm+1,nTheta1) + f1EA2*wPlm(lm+1,nTheta2)
+               f1LM(lm)  =f1LM(lm)  +f1ES1*wPlm(lm,nTheta1)+f1ES2*wPlm(lm,nTheta2)
+               f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,nTheta1)+f1EA2*wPlm(lm+1,nTheta2)
             end do
             if ( lmOddP(mc) ) then
                f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + f1ES2*wPlm(lmS,nTheta2)
@@ -133,11 +130,11 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: nThetaStart ! First no of theta on block
-      real(kind=8), intent(in) :: f1TM(nrp,nfs),f2TM(nrp,nfs)
+      integer,  intent(in) :: nThetaStart ! First no of theta on block
+      real(cp), intent(in) :: f1TM(nrp,nfs),f2TM(nrp,nfs)
 
       !-- Output variables:
-      complex(kind=8), intent(inout) :: f1LM(lmP_max),f2LM(lmP_max)
+      complex(cp), intent(inout) :: f1LM(lmP_max),f2LM(lmP_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -152,10 +149,10 @@ contains
       integer :: mc          ! counter of spherical order
       integer :: lmS,lm      ! counter of spherical mode
 
-      complex(kind=8) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
-      complex(kind=8) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
-      complex(kind=8) :: f2ES(n_m_max,nfs/2),f2ES1,f2ES2
-      complex(kind=8) :: f2EA(n_m_max,nfs/2),f2EA1,f2EA2
+      complex(cp) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
+      complex(cp) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
+      complex(cp) :: f2ES(n_m_max,nfs/2),f2ES1,f2ES2
+      complex(cp) :: f2EA(n_m_max,nfs/2),f2EA1,f2EA2
 
       !PERFON('legTF2')
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
@@ -164,22 +161,14 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
+            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
          end do
       end do
 
@@ -233,8 +222,8 @@ contains
             f1EA1=f1EA(mc,nThetaB1)
             f1EA2=f1EA(mc,nThetaB2)
             do lm=lStartP(mc),lmS-1,2
-               f1LM(lm)  =f1LM(lm)   + f1ES1*wPlm(lm,nTheta1) + f1ES2*wPlm(lm,nTheta2)
-               f1LM(lm+1)=f1LM(lm+1) + f1EA1*wPlm(lm+1,nTheta1) + f1EA2*wPlm(lm+1,nTheta2)
+               f1LM(lm)  =f1LM(lm)  +f1ES1*wPlm(lm,nTheta1)  +f1ES2*wPlm(lm,nTheta2)
+               f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,nTheta1)+f1EA2*wPlm(lm+1,nTheta2)
             end do
             if ( lmOddP(mc) ) then
                f1LM(lmS)=f1LM(lmS) + f1ES1*wPlm(lmS,nTheta1) + f1ES2*wPlm(lmS,nTheta2)
@@ -247,8 +236,8 @@ contains
             f2EA1=f2EA(mc,nThetaB1)
             f2EA2=f2EA(mc,nThetaB2)
             do lm=lStartP(mc),lmS-1,2
-               f2LM(lm)  =f2LM(lm)   + f2ES1*wPlm(lm,nTheta1) + f2ES2*wPlm(lm,nTheta2)
-               f2LM(lm+1)=f2LM(lm+1) + f2EA1*wPlm(lm+1,nTheta1) + f2EA2*wPlm(lm+1,nTheta2)
+               f2LM(lm)  =f2LM(lm)  +f2ES1*wPlm(lm,nTheta1)  +f2ES2*wPlm(lm,nTheta2)
+               f2LM(lm+1)=f2LM(lm+1)+f2EA1*wPlm(lm+1,nTheta1)+f2EA2*wPlm(lm+1,nTheta2)
             end do
             if ( lmOddP(mc) ) then
                f2LM(lmS)=f2LM(lmS) + f2ES1*wPlm(lmS,nTheta1) + f2ES2*wPlm(lmS,nTheta2)
@@ -266,7 +255,7 @@ contains
       !  |                                                                   |
       !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
       !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  ancl1/2/3 (input) to flm1/2/3 (output)                               |
+      !  |  ancl1/2/3 (input) to flm1/2/3 (output)                           |
       !  |  One call to this routine does part of the transform              |
       !  |  by summation over theta points in on theta block:                |
       !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
@@ -274,11 +263,11 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: nThetaStart ! First no of theta on block
-      real(kind=8), intent(in) :: f1TM(nrp,nfs),f2TM(nrp,nfs),f3TM(nrp,nfs)
+      integer,  intent(in) :: nThetaStart ! First no of theta on block
+      real(cp), intent(in) :: f1TM(nrp,nfs),f2TM(nrp,nfs),f3TM(nrp,nfs)
 
       !-- Output variables:
-      complex(kind=8), intent(inout) :: f1LM(lmP_max),f2LM(lmP_max),f3LM(lmP_max)
+      complex(cp), intent(inout) :: f1LM(lmP_max),f2LM(lmP_max),f3LM(lmP_max)
 
       !-- Local variables:
       integer :: nThetaN     ! No. of theta in NHS
@@ -293,12 +282,12 @@ contains
       integer :: mc          ! counter of spherical order
       integer :: lmS,lm      ! counter of spherical mode
 
-      complex(kind=8) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
-      complex(kind=8) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
-      complex(kind=8) :: f2ES(n_m_max,nfs/2),f2ES1,f2ES2
-      complex(kind=8) :: f2EA(n_m_max,nfs/2),f2EA1,f2EA2
-      complex(kind=8) :: f3ES(n_m_max,nfs/2),f3ES1,f3ES2
-      complex(kind=8) :: f3EA(n_m_max,nfs/2),f3EA1,f3EA2
+      complex(cp) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
+      complex(cp) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
+      complex(cp) :: f2ES(n_m_max,nfs/2),f2ES1,f2ES2
+      complex(cp) :: f2EA(n_m_max,nfs/2),f2EA1,f2EA2
+      complex(cp) :: f3ES(n_m_max,nfs/2),f3ES1,f3ES2
+      complex(cp) :: f3EA(n_m_max,nfs/2),f3EA1,f3EA2
 
       !PERFON('legTF3')
       !-- Unscrambles equatorially symmetric and antisymmetric contributions:
@@ -307,30 +296,18 @@ contains
          nThetaS=nThetaN+1      ! thetas in SHS
          nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
          do mc=1,n_m_max        ! counts spherical harmonic orders
-            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f3ES(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) +                      &
-                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
-            f3EA(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),&
-                                     kind=kind(0.d0)) -                      &
-                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),&
-                                     kind=kind(0.d0))
+            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            f3ES(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
+            f3EA(mc,nThetaNHS)=cmplx(f3TM(2*mc-1,nThetaN),f3TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f3TM(2*mc-1,nThetaS),f3TM(2*mc,nThetaS),kind=cp)
          end do
       end do
 
@@ -451,13 +428,13 @@ contains
       implicit none
 
       !-- Input variables:
-      integer,      intent(in) :: lmMax          ! Number of modes to be processed
-      integer,      intent(in) :: nThetaStart    ! First no of theta on block
-      integer,      intent(in) :: sizeThetaB     ! Size of theta block
-      real(kind=8), intent(in) :: ft1(*)
+      integer,  intent(in) :: lmMax          ! Number of modes to be processed
+      integer,  intent(in) :: nThetaStart    ! First no of theta on block
+      integer,  intent(in) :: sizeThetaB     ! Size of theta block
+      real(cp), intent(in) :: ft1(*)
 
       !-- Output: transformed arrays anlc1,anlc2
-      real(kind=8), intent(out) :: flm1(*)
+      real(cp), intent(out) :: flm1(*)
 
       !-- Local variables:
       integer :: nThetaN,nThetaS
@@ -467,7 +444,7 @@ contains
       integer :: nThetaMin
       integer :: lm1,lm2
 
-      real(kind=8) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
+      real(cp) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
 
       !-- Prepare arrays of sums and differences:
       nThetaHS=0
@@ -543,13 +520,13 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables
-      integer,      intent(in) :: lmMax          ! Number of modes to be processed
-      integer,      intent(in) :: nThetaStart    ! First no of theta on block
-      integer,      intent(in) :: sizeThetaB     ! Size of theta block
-      real(kind=8), intent(in) :: ft1(*),ft2(*)
+      integer,  intent(in) :: lmMax          ! Number of modes to be processed
+      integer,  intent(in) :: nThetaStart    ! First no of theta on block
+      integer,  intent(in) :: sizeThetaB     ! Size of theta block
+      real(cp), intent(in) :: ft1(*),ft2(*)
 
       !-- Output: transformed arrays anlc1,anlc2
-      real(kind=8), intent(out) :: flm1(*),flm2(*)
+      real(cp), intent(out) :: flm1(*),flm2(*)
 
       !-- Local variables:
       integer :: nThetaN,nThetaS
@@ -559,8 +536,8 @@ contains
       integer :: nThetaMin
       integer :: lm1,lm2
 
-      real(kind=8) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
-      real(kind=8) :: f2p(n_theta_max/2),f2m(n_theta_max/2)
+      real(cp) :: f1p(n_theta_max/2),f1m(n_theta_max/2)
+      real(cp) :: f2p(n_theta_max/2),f2m(n_theta_max/2)
 
       !-- Prepare arrays of sums and differences:
       nThetaHS=0

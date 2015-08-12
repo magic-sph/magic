@@ -2,6 +2,7 @@
 #include "perflib_preproc.cpp"
 module radialLoop
 
+   use precision_mod, only: cp
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
@@ -92,48 +93,48 @@ contains
       logical,      intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
       logical,      intent(in) :: lRmsCalc
-      real(kind=8), intent(in) :: time,dt,dtLast
+      real(cp),     intent(in) :: time,dt,dtLast
 
       !---- Output of explicit time step:
       !---- dVSrLM and dVxBhLM are output of contributions to explicit time step that
       !     need a further treatment (radial derivatives required):
-      complex(kind=8), intent(out) :: dwdt(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: dzdt(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: dpdt(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: dsdt(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
-      complex(kind=8), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
-      complex(kind=8), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
-      real(kind=8),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
+      complex(cp), intent(out) :: dwdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dzdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
       !---- Output for axisymmetric helicity:
-      real(kind=8),    intent(out) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8),    intent(out) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8),    intent(out) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(out) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: HelLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: Hel2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: HelnaLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: uhLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: duhLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: gradsLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: fviscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: EperpLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: EparLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(out) :: EparaxiLMr(l_max+1,nRstart:nRstop)
 
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
-      complex(kind=8), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
-      complex(kind=8), intent(out) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
-      complex(kind=8), intent(out) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
-      complex(kind=8), intent(out) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
+      complex(cp), intent(out) :: br_vt_lm_cmb(lmP_max) ! product br*vt at CMB
+      complex(cp), intent(out) :: br_vp_lm_cmb(lmP_max) ! product br*vp at CMB
+      complex(cp), intent(out) :: br_vt_lm_icb(lmP_max) ! product br*vt at ICB
+      complex(cp), intent(out) :: br_vp_lm_icb(lmP_max) ! product br*vp at ICB
 
       !---- Output for Courant criteria:
-      real(kind=8),intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
+      real(cp),intent(out) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
 
 
       !--- Local variables:
@@ -154,11 +155,11 @@ contains
 
       if ( l_cour ) then
          if ( rank == 0 ) then
-            dtrkc(n_r_cmb)=1.D10
-            dthkc(n_r_cmb)=1.D10
+            dtrkc(n_r_cmb)=1.e10_cp
+            dthkc(n_r_cmb)=1.e10_cp
          elseif (rank == n_procs-1) then
-            dtrkc(n_r_icb)=1.D10
-            dthkc(n_r_icb)=1.D10
+            dtrkc(n_r_icb)=1.e10_cp
+            dthkc(n_r_icb)=1.e10_cp
          end if
       end if
 

@@ -1,6 +1,7 @@
 !$Id$
 module out_movie_IC
 
+   use precision_mod, only: cp
    use truncation, only: minc, lm_maxMag, n_r_maxMag, n_r_ic_maxMag, &
                          n_phi_max, lm_max, n_r_ic_max, nrp, l_max,  &
                          n_theta_max
@@ -23,6 +24,7 @@ module out_movie_IC
    use out_movie, only: get_fl
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
+   use const, only: one
 
    implicit none
 
@@ -40,12 +42,12 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input of scalar fields:
-      complex(kind=8), intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
     
       !-- Local variables:
       integer :: n_movie        ! No. of movie
@@ -64,23 +66,23 @@ contains
       integer :: n_fields_ic
       integer :: n_o,n_o_r
     
-      complex(kind=8) :: dLhb(lm_maxMag)
-      complex(kind=8) :: bhG(lm_maxMag)
-      complex(kind=8) :: bhC(lm_maxMag)
-      complex(kind=8) :: dLhj(lm_maxMag)
-      complex(kind=8) :: cbhG(lm_maxMag)
-      complex(kind=8) :: cbhC(lm_maxMag)
-      real(kind=8) :: BrB(nrp,nfs)
-      real(kind=8) :: BtB(nrp,nfs)
-      real(kind=8) :: BpB(nrp,nfs)
-      real(kind=8) :: cBrB(nrp,nfs)
-      real(kind=8) :: cBtB(nrp,nfs)
-      real(kind=8) :: cBpB(nrp,nfs)
-      real(kind=8) :: fl(nfs),help
+      complex(cp) :: dLhb(lm_maxMag)
+      complex(cp) :: bhG(lm_maxMag)
+      complex(cp) :: bhC(lm_maxMag)
+      complex(cp) :: dLhj(lm_maxMag)
+      complex(cp) :: cbhG(lm_maxMag)
+      complex(cp) :: cbhC(lm_maxMag)
+      real(cp) :: BrB(nrp,nfs)
+      real(cp) :: BtB(nrp,nfs)
+      real(cp) :: BpB(nrp,nfs)
+      real(cp) :: cBrB(nrp,nfs)
+      real(cp) :: cBtB(nrp,nfs)
+      real(cp) :: cBpB(nrp,nfs)
+      real(cp) :: fl(nfs),help
     
-      real(kind=8) ::  phi_norm
+      real(cp) ::  phi_norm
     
-      phi_norm=1.D0/n_phi_max ! 2 pi /n_phi_max
+      phi_norm=one/n_phi_max ! 2 pi /n_phi_max
     
       do n_movie=1,n_movies
     
@@ -183,7 +185,7 @@ contains
     
          else if ( n_surface == 1 ) then
     
-            nR=iabs(n_const)
+            nR=abs(n_const)
     
             if ( l_cond_ic ) then
                call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
@@ -329,7 +331,7 @@ contains
             end do     ! Loop over radius
     
     
-         else if ( iabs(n_surface) == 3 ) then
+         else if ( abs(n_surface) == 3 ) then
     
             do nR=2,n_r_ic_max-1
     
@@ -424,7 +426,7 @@ contains
                               nThetaC=nThetaStart-1+nThetaR
                               nTheta=n_theta_cal2ord(nThetaC)
                               n_o=n_o_r+nTheta
-                              help=0.D0
+                              help=0.0_cp
                               do nPhi=1,n_phi_max
                                  help=help+BpB(nPhi,nThetaR)
                               end do
@@ -448,8 +450,8 @@ contains
                               nThetaC=nThetaStart-1+nThetaR
                               nTheta=n_theta_cal2ord(nThetaC)
                               n_o=n_o_r+nTheta
-                              frames(n_o)=0.D0
-                              frames(n_o+n_field_size)=0.D0
+                              frames(n_o)=0.0_cp
+                              frames(n_o+n_field_size)=0.0_cp
                            end do
                         end if
                      end if

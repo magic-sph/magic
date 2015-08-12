@@ -2,6 +2,7 @@
 module out_dtB_frame
 
    use truncation
+   use precision_mod, only: cp, outp
    use radial_functions, only: r, or1, i_costf1_ic_init, d_costf1_ic_init,  &
                                r_ic, drx, i_costf_init, d_costf_init, r_icb,&
                                i_costf2_ic_init, d_costf2_ic_init, dr_fac_ic
@@ -19,6 +20,7 @@ module out_dtB_frame
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
+   use const, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_drNS
 
@@ -36,15 +38,15 @@ contains
       !-------------------------------------------------------------------------
     
       !-- Input of variables:
-      integer,         intent(in) :: n_movie
-      complex(kind=8), intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: db(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dj(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+      integer,     intent(in) :: n_movie
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: db(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: dj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
     
       !-- Local variables:
       integer :: n_type
@@ -64,23 +66,23 @@ contains
       integer :: n_field_type
       integer :: n_field_size
     
-      real(kind=8) :: dtB(n_theta_max)
-      real(kind=8) :: dtBframe(n_r_tot*n_theta_max)
-      real(kind=8) :: dtBr(nrp,nfs)
-      real(kind=8) :: dtBt(nrp,nfs)
-      real(kind=8) :: dtBp(nrp,nfs)
-      real(kind=8) :: dtBrframe(n_r_tot*n_phi_max*n_theta_max)
-      real(kind=8) :: const,rMov
+      real(cp) :: dtB(n_theta_max)
+      real(cp) :: dtBframe(n_r_tot*n_theta_max)
+      real(cp) :: dtBr(nrp,nfs)
+      real(cp) :: dtBt(nrp,nfs)
+      real(cp) :: dtBp(nrp,nfs)
+      real(cp) :: dtBrframe(n_r_tot*n_phi_max*n_theta_max)
+      real(cp) :: const,rMov
     
-      complex(kind=8) :: workA(lm_max_dtB,n_r_max_dtB)
-      complex(kind=8) :: workB(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
     
       logical :: l_loop
     
       n_type      =n_movie_type(n_movie)
       n_fields_oc =n_movie_fields(n_movie)
       n_fields_ic =n_movie_fields_ic(n_movie)
-      n_fields    =max0(n_fields_ic,n_fields_oc)
+      n_fields    =max(n_fields_ic,n_fields_oc)
       n_out       =n_movie_file(n_movie)
       n_const     =n_movie_const(n_movie)
       n_surface   =n_movie_surface(n_movie)
@@ -136,7 +138,7 @@ contains
                   call get_dtB(dtB,TdifLMIC,lm_max,n_r_ic_max,n_r,1,n_theta_max,.true.)
                else
                   do n_theta=1,n_theta_max
-                     dtB(n_theta)=0.d0
+                     dtB(n_theta)=0.0_cp
                   end do
                end if
     
@@ -150,7 +152,7 @@ contains
             end do
     
             !--- Write frame field:
-            write(n_out) (real(dtBframe(n),4),n=1,n_field_size)
+            write(n_out) (real(dtBframe(n),kind=outp),n=1,n_field_size)
     
          end do
     
@@ -169,7 +171,7 @@ contains
                      if ( m == 0 ) then
                         workA(lm,n_r)=TomeLM(lm,n_r)
                      else
-                        workA(lm,n_r)=cmplx(0.d0,0.d0,kind=kind(0d0))
+                        workA(lm,n_r)=zero
                      end if
                   end do
                end do
@@ -181,7 +183,7 @@ contains
                      if ( l == 1 ) then
                         workA(lm,n_r)=b(lm,n_r)
                      else
-                        workA(lm,n_r)=cmplx(0.d0,0.d0,kind=kind(0d0))
+                        workA(lm,n_r)=zero
                      end if
                   end do
                end do
@@ -348,10 +350,10 @@ contains
                                 sinTheta(n_theta_cal)*dtBt(n_phi,n_theta_block)
                         else if ( n_field_type == 81 ) then
                            if ( dtBr(n_phi,n_theta_block) * &
-                                dtBt(n_phi,n_theta_block) < 0.D0 ) then
+                                dtBt(n_phi,n_theta_block) < 0.0_cp ) then
                               dtBrframe(n_pos)=dtBr(n_phi,n_theta_block)
                            else
-                              dtBrframe(n_pos)=0.D0
+                              dtBrframe(n_pos)=0.0_cp
                            end if
                         else
                            dtBrframe(n_pos)=dtBr(n_phi,n_theta_block)
@@ -420,9 +422,9 @@ contains
     
                         do n_theta=1,sizeThetaB ! no stretching !
                            do n_phi=1,n_phi_max
-                              dtBr(n_phi,n_theta)=0.d0
-                              dtBt(n_phi,n_theta)=0.d0
-                              dtBp(n_phi,n_theta)=0.d0
+                              dtBr(n_phi,n_theta)=0.0_cp
+                              dtBt(n_phi,n_theta)=0.0_cp
+                              dtBp(n_phi,n_theta)=0.0_cp
                            end do
                         end do
                         !--- Br:
@@ -511,7 +513,7 @@ contains
             end if ! l_loop ?
     
             !--- Write frame field:
-            write(n_out) (real(dtBrframe(n),4),n=1,n_field_size)
+            write(n_out) (real(dtBrframe(n),kind=outp),n=1,n_field_size)
     
          end do  ! LOOP over fields in movie file
     
@@ -522,26 +524,26 @@ contains
    subroutine get_dtB(dtB,dtBLM,DimB1,DimB2,n_r,n_theta_start,n_theta_block,l_ic)
 
       !-- Input variables:
-      integer,         intent(in) :: n_r             ! No. of radial grid point
-      integer,         intent(in) :: n_theta_start   ! No. of theta to start with
-      integer,         intent(in) :: n_theta_block   ! Size of theta block
-      logical,         intent(in) :: l_ic            ! =true if inner core field
-      integer,         intent(in) :: DimB1,DimB2
-      complex(kind=8), intent(in) :: dtBLM(DimB1,DimB2)
+      integer,     intent(in) :: n_r             ! No. of radial grid point
+      integer,     intent(in) :: n_theta_start   ! No. of theta to start with
+      integer,     intent(in) :: n_theta_block   ! Size of theta block
+      logical,     intent(in) :: l_ic            ! =true if inner core field
+      integer,     intent(in) :: DimB1,DimB2
+      complex(cp), intent(in) :: dtBLM(DimB1,DimB2)
     
       !-- Output variables:
-      real(kind=8),intent(out) ::  dtB(:)     ! Result Field with dim>=n_theta_block
+      real(cp),intent(out) ::  dtB(:)     ! Result Field with dim>=n_theta_block
     
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
-      real(kind=8) :: sign
-      real(kind=8) :: r_ratio          ! r/r_ICB
-      real(kind=8) :: O_r              ! 1/r
-      real(kind=8) :: O_sint           ! 1/sin(theta)
-      real(kind=8) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
-      real(kind=8) :: fl_s,fl_n,fl_1
+      real(cp) :: sign
+      real(cp) :: r_ratio          ! r/r_ICB
+      real(cp) :: O_r              ! 1/r
+      real(cp) :: O_sint           ! 1/sin(theta)
+      real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
+      real(cp) :: fl_s,fl_n,fl_1
     
       !-- Calculate radial dependencies:
       !     for IC: (r/r_ICB)**l / r_ICB
@@ -560,9 +562,9 @@ contains
       do n_theta=1,n_theta_block,2
          n_theta_nhs=(n_theta_start+n_theta)/2
          !------- Loop over degrees and orders:
-         sign=1.d0
-         fl_n=0.d0
-         fl_s=0.d0
+         sign=one
+         fl_n=0.0_cp
+         fl_s=0.0_cp
          lm=1
          do l=1,l_max
             lm=lm+1
@@ -599,39 +601,39 @@ contains
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
       !-- Input variables
-      integer,         intent(in) :: n_theta_start     ! first theta to be treated
-      integer,         intent(in) :: n_theta_block     ! last theta
-      real(kind=8),    intent(in) ::  rT                ! radius
-      logical,         intent(in) :: lIC            ! true for inner core, special rDep !
-      complex(kind=8), intent(in) :: PolLM(lm_max)  ! field in (l,m)-space for rT
-      complex(kind=8), intent(in) :: dPolLM(lm_max) ! dr field in (l,m)-space for rT
+      integer,     intent(in) :: n_theta_start     ! first theta to be treated
+      integer,     intent(in) :: n_theta_block     ! last theta
+      real(cp),    intent(in) ::  rT                ! radius
+      logical,     intent(in) :: lIC            ! true for inner core, special rDep !
+      complex(cp), intent(in) :: PolLM(lm_max)  ! field in (l,m)-space for rT
+      complex(cp), intent(in) :: dPolLM(lm_max) ! dr field in (l,m)-space for rT
 
       !-- Output variables
-      real(kind=8), intent(out) :: Br(nrp,*),Bt(nrp,*),Bp(nrp,*)
+      real(cp), intent(out) :: Br(nrp,*),Bt(nrp,*),Bp(nrp,*)
 
       !-- Local variables
       integer :: lm,mc,m,l
       integer :: n_theta,n_theta_nhs
-      real(kind=8) :: rRatio,rDep(0:l_max)
-      real(kind=8) :: O_sint,O_r_E_2
-      real(kind=8) :: sign
-      complex(kind=8) :: cs1(lm_max),cs2(lm_max)
-      complex(kind=8) :: Br_1,Bt_1,Bp_1
-      complex(kind=8) :: Br_n,Bt_n,Bp_n
-      complex(kind=8) :: Br_s,Bt_s,Bp_s
+      real(cp) :: rRatio,rDep(0:l_max)
+      real(cp) :: O_sint,O_r_E_2
+      real(cp) :: sign
+      complex(cp) :: cs1(lm_max),cs2(lm_max)
+      complex(cp) :: Br_1,Bt_1,Bp_1
+      complex(cp) :: Br_n,Bt_n,Bp_n
+      complex(cp) :: Br_s,Bt_s,Bp_s
 
       !-- Calculate radial dependencies: (r_ic(1)=r(n_r_max)=inner core boundary)
       !   Radial dependence = (r/r_ICB)**(l-1) / r_ICB**2
       if ( lIC ) then
          rRatio=rT/r_icb
-         rDep(0)=1.d0/(rT*r_icb)
+         rDep(0)=one/(rT*r_icb)
          do l=1,l_max
             rDep(l)=rDep(l-1)*rRatio
          end do
       !--- NOTE: field for insulating inner core has same rDep but uses poloidal
       !          field at r=r_icb
       else
-         O_r_E_2=1.d0/(rT*rT)
+         O_r_E_2=one/(rT*rT)
       end if
       !--- NOTE: mantle potential field may be included by adding special rDep
       !          and using poloidal field at r_cmb
@@ -640,9 +642,9 @@ contains
       !-- Zero output field:
       do n_theta=1,n_theta_block
          do mc=1,nrp
-            Br(mc,n_theta)=0.d0
-            Bt(mc,n_theta)=0.d0
-            Bp(mc,n_theta)=0.d0
+            Br(mc,n_theta)=0.0_cp
+            Bt(mc,n_theta)=0.0_cp
+            Bp(mc,n_theta)=0.0_cp
          end do
       end do
 
@@ -652,16 +654,16 @@ contains
             do m=0,m_max,minc
                do l=m,l_max
                   lm=lm2(l,m)
-                  cs1(lm)=rDep(l)*dble(l*(l+1))*PolLM(lm)
-                  cs2(lm)=rDep(l)*( dble(l+1)*PolLM(lm) + rT*dPolLM(lm) )
+                  cs1(lm)=rDep(l)*real(l*(l+1),cp)*PolLM(lm)
+                  cs2(lm)=rDep(l)*( real(l+1,cp)*PolLM(lm) + rT*dPolLM(lm) )
                end do
             end do
          else
             do m=0,m_max,minc
                do l=m,l_max
                   lm=lm2(l,m)
-                  cs1(lm)=rDep(l)*dble(l*(l+1))*PolLM(lm)
-                  cs2(lm)=cs1(lm)/dble(l)
+                  cs1(lm)=rDep(l)*real(l*(l+1),cp)*PolLM(lm)
+                  cs2(lm)=cs1(lm)/real(l,cp)
                end do
             end do
          end if
@@ -669,7 +671,7 @@ contains
          do m=0,m_max,minc
             do l=m,l_max
                lm=lm2(l,m)
-               cs1(lm)=O_r_E_2*dble(l*(l+1))*PolLM(lm)
+               cs1(lm)=O_r_E_2*real(l*(l+1),cp)*PolLM(lm)
                cs2(lm)=O_r_E_2*rT*dPolLM(lm)
             end do
          end do
@@ -684,14 +686,14 @@ contains
          mc=0
          do m=0,m_max,minc   ! Numbers ms
             mc=mc+1
-            sign=-1.d0
+            sign=-one
 
-            Br_n =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bt_n =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bp_n =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Br_s =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bt_s =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bp_s =cmplx(0.d0,0.d0,kind=kind(0d0))
+            Br_n =zero
+            Bt_n =zero
+            Bp_n =zero
+            Br_s =zero
+            Bt_s =zero
+            Bp_s =zero
 
             do l=m,l_max
                lm=lm2(l,m)
@@ -737,12 +739,12 @@ contains
 
          !-- Zero remaining elements in array:
          do mc=2*n_m_max+1,nrp
-            Br(mc,n_theta)  =0.d0
-            Bt(mc,n_theta)  =0.d0
-            Bp(mc,n_theta)  =0.d0
-            Br(mc,n_theta+1)=0.d0
-            Bt(mc,n_theta+1)=0.d0
-            Bp(mc,n_theta+1)=0.d0
+            Br(mc,n_theta)  =0.0_cp
+            Bt(mc,n_theta)  =0.0_cp
+            Bp(mc,n_theta)  =0.0_cp
+            Br(mc,n_theta+1)=0.0_cp
+            Bt(mc,n_theta+1)=0.0_cp
+            Bp(mc,n_theta+1)=0.0_cp
          end do
 
       end do        ! Loop over colatitudes
@@ -769,34 +771,31 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: n_theta_start ! first theta to be treated
-      integer,         intent(in) :: n_theta_block ! last theta
-      real(kind=8),    intent(in) :: rT            ! radius
-      logical,         intent(in) :: lIC           ! true for inner core, special rDep !
-      complex(kind=8), intent(in) :: Tlm(lm_max)   ! field in (l,m)-space for rT
+      integer,     intent(in) :: n_theta_start ! first theta to be treated
+      integer,     intent(in) :: n_theta_block ! last theta
+      real(cp),    intent(in) :: rT            ! radius
+      logical,     intent(in) :: lIC           ! true for inner core, special rDep !
+      complex(cp), intent(in) :: Tlm(lm_max)   ! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(kind=8), intent(out) :: Bt(nrp,*),Bp(nrp,*)
+      real(cp), intent(out) :: Bt(nrp,*),Bp(nrp,*)
 
       !-- Local variables:
       integer :: lm,mc,m,l
       integer :: n_theta,n_theta_nhs
-      real(kind=8) :: rRatio,rDep(0:l_max)
-      real(kind=8) :: O_sint
-      real(kind=8) :: sign
-      complex(kind=8) :: cs1(lm_max)
-      complex(kind=8) :: Bt_1,Bp_1
-      complex(kind=8) :: Bt_n,Bp_n
-      complex(kind=8) :: Bt_s,Bp_s
-      complex(kind=8) :: ci
-
-      ci=cmplx(0.D0,1.D0,kind=kind(0d0))
+      real(cp) :: rRatio,rDep(0:l_max)
+      real(cp) :: O_sint
+      real(cp) :: sign
+      complex(cp) :: cs1(lm_max)
+      complex(cp) :: Bt_1,Bp_1
+      complex(cp) :: Bt_n,Bp_n
+      complex(cp) :: Bt_s,Bp_s
 
       !-- Zero output field:
       do n_theta=1,n_theta_block
          do mc=1,nrp
-            Bt(mc,n_theta)=0.d0
-            Bp(mc,n_theta)=0.d0
+            Bt(mc,n_theta)=0.0_cp
+            Bp(mc,n_theta)=0.0_cp
          end do
       end do
 
@@ -806,13 +805,13 @@ contains
       !   Radial dependence = (r/r_ICB)**(l-1) / r_ICB**2
       if ( lIC ) then
          rRatio=rT/r_icb
-         rDep(0)=1.d0/r_icb
+         rDep(0)=one/r_icb
          do l=1,l_max
             rDep(l)=rDep(l-1)*rRatio
          end do
       else
          do l=0,l_max
-            rDep(l)=1.d0/rT
+            rDep(l)=one/rT
          end do
       end if
       !--- NOTE: mantle potential field may be included by adding special rDep
@@ -836,19 +835,19 @@ contains
          mc=0
          do m=0,m_max,minc   ! Numbers ms
             mc=mc+1
-            sign=-1.d0
+            sign=-one
 
-            Bt_n =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bp_n =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bt_s =cmplx(0.d0,0.d0,kind=kind(0d0))
-            Bp_s =cmplx(0.d0,0.d0,kind=kind(0d0))
+            Bt_n =zero
+            Bp_n =zero
+            Bt_s =zero
+            Bp_s =zero
 
             do l=m,l_max
                lm=lm2(l,m)
                sign=-sign
                                    
-               Bt_1=ci*dble(m)*cs1(lm)*Plm(lm,n_theta_nhs)
-               Bp_1=          -cs1(lm)*dPlm(lm,n_theta_nhs)
+               Bt_1=ci*real(m,cp)*cs1(lm)*Plm(lm,n_theta_nhs)
+               Bp_1=             -cs1(lm)*dPlm(lm,n_theta_nhs)
 
                !-- Northern hemisphere:
                Bt_n=Bt_n+Bt_1
@@ -880,10 +879,10 @@ contains
 
          !-- Zero remaining elements in array:
          do mc=2*n_m_max+1,nrp
-            Bt(mc,n_theta)  =0.d0
-            Bp(mc,n_theta)  =0.d0
-            Bt(mc,n_theta+1)=0.d0
-            Bp(mc,n_theta+1)=0.d0
+            Bt(mc,n_theta)  =0.0_cp
+            Bp(mc,n_theta)  =0.0_cp
+            Bt(mc,n_theta+1)=0.0_cp
+            Bp(mc,n_theta+1)=0.0_cp
          end do
 
       end do        ! Loop over colatitudes
@@ -905,36 +904,35 @@ contains
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
       !-- Input variables:
-      integer,         intent(in) :: nThetaStart ! first theta to be treated
-      real(kind=8),    intent(in) ::  rT
-      logical,         intent(in) :: lIC         ! true for inner core, extra factor !
-      logical,         intent(in) :: lrComp      ! true for radial field components
-            
-      complex(kind=8), intent(in) :: alm(*)      ! field in (l,m)-space
+      integer,     intent(in) :: nThetaStart ! first theta to be treated
+      real(cp),    intent(in) ::  rT
+      logical,     intent(in) :: lIC         ! true for inner core, extra factor !
+      logical,     intent(in) :: lrComp      ! true for radial field components
+      complex(cp), intent(in) :: alm(*)      ! field in (l,m)-space
 
       !-- Output variables:
-      real(kind=8), intent(out) :: aij(nrp,*)  ! field in (theta,phi)-space
+      real(cp), intent(out) :: aij(nrp,*)  ! field in (theta,phi)-space
 
       !-- Local variables:
       integer :: nThetaN,nThetaS,nThetaHS
       integer :: lm,mca,m,l     ! degree/order
-      real(kind=8) :: sign
-      complex(kind=8) :: cs1(lm_max) ! help array
-      complex(kind=8) :: a_n, a_s
-      real(kind=8) :: O_r_E_2,rRatio
+      real(cp) :: sign
+      complex(cp) :: cs1(lm_max) ! help array
+      complex(cp) :: a_n, a_s
+      real(cp) :: O_r_E_2,rRatio
 
-      O_r_E_2=1.d0/(rT*rT)
+      O_r_E_2=one/(rT*rT)
       rRatio=rT/r_icb
        
       !-- Zero output field:
       do nThetaN=1,sizeThetaB
          do mca=1,nrp
-            aij(mca,nThetaN)=0.D0
+            aij(mca,nThetaN)=0.0_cp
          end do
       end do
        
       !-- Multiplication with l(l+1)/r**2 for radial component:
-      cs1(1)=0.D0
+      cs1(1)=0.0_cp
       do lm=2,lm_max
          cs1(lm)=alm(lm)
          if ( lrComp ) cs1(lm)=cs1(lm)*O_r_E_2*dLh(lm)
@@ -950,7 +948,7 @@ contains
          mca=0
          do m=0,m_max,minc
             mca=mca+1
-            sign=-1.D0
+            sign=-one
             do l=m,l_max
                lm=lm+1
                sign=-sign

@@ -1,6 +1,7 @@
 #include "perflib_preproc.cpp"
 module rIterThetaBlocking_seq_mod
 
+   use precision_mod, only: cp
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
@@ -22,6 +23,7 @@ module rIterThetaBlocking_seq_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant 
    use nonlinear_bcs, only: get_br_v_bcs
+   use const, only: zero
    use nl_special_calc
  
    implicit none
@@ -82,24 +84,24 @@ contains
       class(rIterThetaBlocking_seq_t) :: this
   
       !-- Input variables
-      integer,      intent(in) :: nR,nBc
-      real(kind=8), intent(in) :: time,dt,dtLast
+      integer,  intent(in) :: nR,nBc
+      real(cp), intent(in) :: time,dt,dtLast
   
       !-- Output variables
-      complex(kind=8), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(kind=8), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
+      complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
+      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
-      complex(kind=8), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
-      complex(kind=8), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
-      complex(kind=8), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
-      complex(kind=8), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
-      real(kind=8),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
-      real(kind=8),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
-      real(kind=8),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
-      real(kind=8),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
-      real(kind=8),    intent(out) :: fpoynLMr(:),fresLMr(:)
-      real(kind=8),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
+      complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
+      complex(cp), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
+      complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
+      complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
+      real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
+      real(cp),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
+      real(cp),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
+      real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
+      real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
   
       !-- Local variables
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
@@ -111,16 +113,16 @@ contains
       this%isRadialBoundaryPoint = (nR == n_r_cmb) .or. (nR == n_r_icb)
   
       if ( this%l_cour ) then
-         this%dtrkc=1.D10
-         this%dthkc=1.D10
+         this%dtrkc=1.e10_cp
+         this%dthkc=1.e10_cp
       end if
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
          do l=0,l_max
-            this%TO_arrays%dzRstrLM(l+1)=0.D0
-            this%TO_arrays%dzAstrLM(l+1)=0.D0
-            this%TO_arrays%dzCorLM(l+1) =0.D0
-            this%TO_arrays%dzLFLM(l+1)  =0.D0
+            this%TO_arrays%dzRstrLM(l+1)=0.0_cp
+            this%TO_arrays%dzAstrLM(l+1)=0.0_cp
+            this%TO_arrays%dzCorLM(l+1) =0.0_cp
+            this%TO_arrays%dzLFLM(l+1)  =0.0_cp
          end do
       end if
   
@@ -137,7 +139,31 @@ contains
                &                    this%l_frame,this%lTOnext,this%lTOnext2,    &
                &                    this%lTOcalc)
       PERFOFF
-  
+
+      lorentz_torque_ma = 0.0_cp
+      lorentz_torque_ic = 0.0_cp
+      br_vt_lm_cmb=zero
+      br_vp_lm_cmb=zero
+      br_vt_lm_icb=zero
+      br_vp_lm_icb=zero
+      HelLMr=0.0_cp
+      Hel2LMr=0.0_cp
+      HelnaLMr=0.0_cp
+      Helna2LMr=0.0_cp
+      uhLMr = 0.0_cp
+      duhLMr = 0.0_cp
+      gradsLMr = 0.0_cp
+      fconvLMr=0.0_cp
+      fkinLMr=0.0_cp
+      fviscLMr=0.0_cp
+      fpoynLMr=0.0_cp
+      fresLMr=0.0_cp
+      EperpLMr=0.0_cp
+      EparLMr=0.0_cp
+      EperpaxiLMr=0.0_cp
+      EparaxiLMr=0.0_cp
+      call this%nl_lm%set_zero()
+
       !if (DEBUG_OUTPUT) then
       !   write(*,"(I3,A,44ES20.12)") this%nR,": legPrepG results = ",&
       !        & SUM(dLhw),SUM(dLhdw),SUM(dLhz),SUM(vhG),SUM(vhC),&
@@ -169,8 +195,8 @@ contains
   
          else if ( l_mag ) then
             do lm=1,lmP_max
-               this%nl_lm%VxBtLM(lm)=0.D0
-               this%nl_lm%VxBpLM(lm)=0.D0
+               this%nl_lm%VxBtLM(lm)=0.0_cp
+               this%nl_lm%VxBpLM(lm)=0.0_cp
             end do
          end if
   

@@ -1,6 +1,8 @@
 !$Id$
 module charmanip
 
+   use precision_mod, only: cp
+
    implicit none
 
 contains
@@ -76,7 +78,7 @@ contains
       character(len=*), intent(in) :: string  ! input
 
       !-- Output variable:
-      real(kind=8),     intent(out) :: num     ! output
+      real(cp), intent(out) :: num     ! output
   
       read(string,*) num
   
@@ -137,7 +139,7 @@ contains
       !----------------------------------------------------------
 
       !-- Input variable
-      real(kind=8),     intent(in) :: num
+      real(cp), intent(in) :: num
 
       !-- Output variable
       character(len=*), intent(out) :: str

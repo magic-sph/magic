@@ -3,9 +3,10 @@
 
 module fft_JW
 
+   use precision_mod, only: cp
    use useful, only: factorise
-   use const, only: pi, sin36, sin60, sin72, cos36, cos72
-
+   use const, only: pi, sin36, sin60, sin72, cos36, cos72, &
+                    one, two, half
    use truncation
    use blocking
    use parallel_mod
@@ -18,7 +19,7 @@ module fft_JW
    integer, parameter :: ni=100
    integer :: nd
    integer :: i_fft_init(ni)
-   real(kind=8), allocatable ::  d_fft_init(:)
+   real(cp), allocatable ::  d_fft_init(:)
  
    public :: fft_thetab, init_fft, fft_to_real
 
@@ -40,7 +41,7 @@ contains
       integer :: i,j,nFacs,nFactors,help
       integer, parameter :: nFacsA=100
       integer :: fac(nFacsA),factor(nFacsA)
-      real(kind=8) :: phi,dPhi
+      real(cp) :: phi,dPhi
 
       nd = 3*(n/2)
 
@@ -112,27 +113,27 @@ contains
          write(*,*) '! But is only       :',nd
          stop
       end if
-      dPhi=2.D0*pi/dble(n)
+      dPhi=two*pi/real(n,cp)
       do i=1,n,2
-         phi=dble(i-1)*dPhi
-         d_fft_init(i)  =dcos(phi)
-         d_fft_init(i+1)=dsin(phi)
+         phi=real(i-1,cp)*dPhi
+         d_fft_init(i)  =cos(phi)
+         d_fft_init(i+1)=sin(phi)
       end do
-      dPhi=0.5D0*dPhi
+      dPhi=half*dPhi
       do i=1,j,2
-         phi=dble(i-1)*dPhi
-         d_fft_init(n+i)  =dcos(phi)
-         d_fft_init(n+i+1)=dsin(phi)
+         phi=real(i-1,cp)*dPhi
+         d_fft_init(n+i)  =cos(phi)
+         d_fft_init(n+i+1)=sin(phi)
       end do
 
    end subroutine init_fft
 !------------------------------------------------------------------------------
    subroutine fft_to_real(f,ld_f,nrep)
 
-      integer,      intent(in) :: ld_f, nrep
-      real(kind=8), intent(inout) :: f(ld_f, nrep)
+      integer,  intent(in) :: ld_f, nrep
+      real(cp), intent(inout) :: f(ld_f, nrep)
 
-      real(kind=8) :: work(ld_f,nrep)
+      real(cp) :: work(ld_f,nrep)
 
       !PERFON('fft2r')
       call fftJW(f,ld_f,n_phi_max,1,nrep,work,ld_f,nrep,i_fft_init,d_fft_init)
@@ -142,10 +143,10 @@ contains
 !------------------------------------------------------------------------------
    subroutine fft_thetab(f,dir)
 
-      real(kind=8), intent(inout) :: f(nrp,nfs)
-      integer,      intent(in) :: dir            ! back or forth transform
+      real(cp), intent(inout) :: f(nrp,nfs)
+      integer,  intent(in) :: dir            ! back or forth transform
 
-      real(kind=8) :: work(nrp,nfs)
+      real(cp) :: work(nrp,nfs)
 
       !PERFON('fft_thr')
       call fftJW(f,nrp,n_phi_max,dir,sizeThetaB,work,nrp,nfs,i_fft_init,d_fft_init)
@@ -232,18 +233,18 @@ contains
       !-------------------------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: ld_a         ! leading dimension of a
-      real(kind=8), intent(inout) :: a(ld_a,*) ! fields to be transformed
-      integer,      intent(in) :: n            ! dimension of problem
-      integer,      intent(in) :: isign        ! back/forth transtorm for isign=1/-1
-      integer,      intent(in) :: nsize        ! number of fields for 
+      integer,  intent(in) :: ld_a         ! leading dimension of a
+      real(cp), intent(inout) :: a(ld_a,*) ! fields to be transformed
+      integer,  intent(in) :: n            ! dimension of problem
+      integer,  intent(in) :: isign        ! back/forth transtorm for isign=1/-1
+      integer,  intent(in) :: nsize        ! number of fields for 
                                                ! be transformed (second dim of a)
   
-      integer,      intent(in) :: wd1,wd2
-      real(kind=8), intent(inout) :: wrk(wd1,wd2)    ! work array
+      integer,  intent(in) :: wd1,wd2
+      real(cp), intent(inout) :: wrk(wd1,wd2)    ! work array
   
-      integer,      intent(in) :: i_fft_init(*) ! factorization information from init_fft
-      real(kind=8), intent(in) :: d_fft_init(*) ! trigonometric functions from init_fft
+      integer,  intent(in) :: i_fft_init(*) ! factorization information from init_fft
+      real(cp), intent(in) :: d_fft_init(*) ! trigonometric functions from init_fft
   
   
       !-- Local variables:
@@ -362,8 +363,8 @@ contains
          end if
          
          do ic=i1,i2  ! Fill zeros into 2 extra elements
-            a(njap1,ic)=0.D0
-            a(nrp,ic)  =0.D0
+            a(njap1,ic)=0.0_cp
+            a(nrp,ic)  =0.0_cp
          end do
       end if
   
@@ -372,14 +373,14 @@ contains
    subroutine fft99aJW(a,work,trigs,nrp,nsize)
 
       !-- Input/output:
-      integer,      intent(in) :: nrp,nsize
-      real(kind=8), intent(in) :: trigs(*)
-      real(kind=8), intent(inout) :: a(*),work(*)
+      integer,  intent(in) :: nrp,nsize
+      real(cp), intent(in) :: trigs(*)
+      real(cp), intent(inout) :: a(*),work(*)
   
       !-- Local variables:
       integer :: nja,njah,njap1
       integer :: ic,ia0,ib0,ia,ib,k,kk,kkmax
-      real(kind=8) :: c,s
+      real(cp) :: c,s
   
       nja=nrp-2
       njah=nja/2
@@ -406,8 +407,8 @@ contains
             work(ib+1)=(c*(a(ia)-a(ib))-s*(a(ia+1)+a(ib+1)))- (a(ia+1)-a(ib+1))
          enddo
          ia=ia0+njah+1
-         work(ia)=2.0*a(ia)
-         work(ia+1)=-2.0*a(ia+1)
+         work(ia)=two*a(ia)
+         work(ia+1)=-two*a(ia+1)
       enddo
 
    end subroutine fft99aJW
@@ -422,14 +423,14 @@ contains
       !-----------------------------------------------------------------------
   
       !-- input/output:
-      integer,      intent(in) :: nrp,nsize
-      real(kind=8), intent(in) :: trigsf(*)
-      real(kind=8), intent(inout) :: work(*),a(*)
+      integer,  intent(in) :: nrp,nsize
+      real(cp), intent(in) :: trigsf(*)
+      real(cp), intent(inout) :: work(*),a(*)
   
       !-- Local variables:
       integer :: nja,njah,kkmax,k,kk
       integer :: ia,ib,ic,ia0,ib0
-      real(kind=8) :: scal1,scal2,s,c
+      real(cp) :: scal1,scal2,s,c
   
       !     postprocessing step (isign=-1)
       !     (gridpoint to spectral transform)
@@ -439,8 +440,8 @@ contains
       nja=nrp-2
       njah=nja/2
       kkmax=njah/2
-      scal1=1.d0/dble(nja)
-      scal2=0.5d0*scal1
+      scal1=one/real(nja,cp)
+      scal2=half*scal1
   
       do ic=1,nsize
          ia0=(ic-1)*nrp
@@ -483,13 +484,13 @@ contains
       !-----------------------------------------------------------------------
   
       !-- input/ouput:
-      integer,      intent(in) :: nrp,nsize
-      real(kind=8), intent(in) :: a(*),b(*),trigs(*)
-      real(kind=8), intent(out) :: c(*),d(*)
+      integer,  intent(in) :: nrp,nsize
+      real(cp), intent(in) :: a(*),b(*),trigs(*)
+      real(cp), intent(out) :: c(*),d(*)
   
       !-- Local variables:
       integer :: i,j,ijk,iadd,in,n
-      real(kind=8) :: c1,s1,an,bn
+      real(cp) :: c1,s1,an,bn
   
       n=(nrp-2)/2
   
@@ -517,9 +518,9 @@ contains
       !-----------------------------------------------------------------------
   
       !-- input/output:
-      integer,      intent(in) :: nrp,la,nsize
-      real(kind=8), intent(in) :: a(*),b(*),trigs(*)
-      real(kind=8), intent(out) :: c(*),d(*)
+      integer,  intent(in) :: nrp,la,nsize
+      real(cp), intent(in) :: a(*),b(*),trigs(*)
+      real(cp), intent(out) :: c(*),d(*)
   
       !-- Local variables:
       integer :: n,m,iink,jink,jump,ib,jb,ic,jc
@@ -527,8 +528,8 @@ contains
   
       integer, parameter :: mdim=4*180
       integer :: iindex(mdim),jindex(mdim)
-      real(kind=8) :: c1(mdim),c2(mdim)
-      real(kind=8) :: s1(mdim),s2(mdim)
+      real(cp) :: c1(mdim),c2(mdim)
+      real(cp) :: s1(mdim),s2(mdim)
   
       n=(nrp-2)/2
       m=n/3
@@ -620,20 +621,20 @@ contains
       !-----------------------------------------------------------------------
   
       !-- input/output:
-      integer,      intent(in) :: nrp,la,nsize
-      real(kind=8), intent(in) :: a(*),b(*),trigs(*)
-      real(kind=8), intent(out) :: c(*),d(*)
+      integer,  intent(in) :: nrp,la,nsize
+      real(cp), intent(in) :: a(*),b(*),trigs(*)
+      real(cp), intent(out) :: c(*),d(*)
   
       !-- Local variables:
       integer :: n,m,iink,jink,jump,ib,jb,ic,jc,id,jd
       integer :: ims,ijk,iadd,l,kc,kk,i,j,im
-      real(kind=8) :: abdm,aacm,aac,abd
-      real(kind=8) :: bbdm,bacm,bbd,bac
+      real(cp) :: abdm,aacm,aac,abd
+      real(cp) :: bbdm,bacm,bbd,bac
   
       integer, parameter :: mdim=4*135
       integer :: jindex(mdim)
-      real(kind=8) :: c1(mdim),c2(mdim),c3(mdim)
-      real(kind=8) :: s1(mdim),s2(mdim),s3(mdim)
+      real(cp) :: c1(mdim),c2(mdim),c3(mdim)
+      real(cp) :: s1(mdim),s2(mdim),s3(mdim)
   
       n=(nrp-2)/2
       m=n/4
@@ -727,9 +728,9 @@ contains
       !-----------------------------------------------------------------------
   
       !-- input/output:
-      integer,      intent(in) :: nrp,la,nsize
-      real(kind=8), intent(in) :: a(*),b(*),trigs(*)
-      real(kind=8), intent(out) :: c(*),d(*)
+      integer,  intent(in) :: nrp,la,nsize
+      real(cp), intent(in) :: a(*),b(*),trigs(*)
+      real(cp), intent(out) :: c(*),d(*)
   
       !-- local:
       integer :: n,m,iink,jink,jump
@@ -738,8 +739,8 @@ contains
   
       integer, parameter :: mdim=4*108
       integer :: iindex(mdim),jindex(mdim)
-      real(kind=8) :: c1(mdim),c2(mdim),c3(mdim),c4(mdim)
-      real(kind=8) :: s1(mdim),s2(mdim),s3(mdim),s4(mdim)
+      real(cp) :: c1(mdim),c2(mdim),c3(mdim),c4(mdim)
+      real(cp) :: s1(mdim),s2(mdim),s3(mdim),s4(mdim)
   
       n=(nrp-2)/2
       m=n/5

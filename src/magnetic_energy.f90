@@ -2,6 +2,7 @@
 module magnetic_energy
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, i_costf_init,      &
@@ -17,7 +18,7 @@ module magnetic_energy
    use output_data, only: n_dipole_file, dipole_file, n_e_mag_ic_file,   &
                           e_mag_ic_file, n_e_mag_oc_file, e_mag_oc_file, &
                           tag
-   use const, only: pi
+   use const, only: pi, zero, one, two, half, four
    use Bext, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
@@ -27,9 +28,9 @@ module magnetic_energy
  
    private
  
-   real(kind=8),allocatable :: e_dipA(:)
-   real(kind=8),allocatable :: e_pA(:),e_p_asA(:)
-   real(kind=8),allocatable :: e_tA(:),e_t_asA(:)
+   real(cp), allocatable :: e_dipA(:)
+   real(cp), allocatable :: e_pA(:),e_p_asA(:)
+   real(cp), allocatable :: e_tA(:),e_t_asA(:)
  
    public :: initialize_magnetic_energy, get_e_mag
   
@@ -62,72 +63,72 @@ contains
       !--------------------------------------------------------------------
 
       !-- Input of variables:
-      integer,        intent(in) :: n_e_sets
-      real(kind=8),   intent(in) :: time
-      logical,        intent(in) :: l_write
-      logical,        intent(in) :: l_stop_time
-      complex(kind=8),intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,     intent(in) :: n_e_sets
+      real(cp),    intent(in) :: time
+      logical,     intent(in) :: l_write
+      logical,     intent(in) :: l_stop_time
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output variables:
-      real(kind=8), intent(out) :: e_p,e_t       ! poloidal, toroidal energy
-      real(kind=8), intent(out) :: e_p_as,e_t_as ! axisymmetric poloidal, toroidal energy
-      real(kind=8), intent(out) :: e_p_ic,e_t_ic   
-      real(kind=8), intent(out) :: e_p_as_ic,e_t_as_ic
-      real(kind=8), intent(out) :: e_p_os,e_p_as_os
-      real(kind=8), intent(out) :: e_cmb
-      real(kind=8), intent(out) :: Dip,DipCMB
-      real(kind=8), intent(out) :: elsAnel
+      real(cp), intent(out) :: e_p,e_t       ! poloidal, toroidal energy
+      real(cp), intent(out) :: e_p_as,e_t_as ! axisymmetric poloidal, toroidal energy
+      real(cp), intent(out) :: e_p_ic,e_t_ic   
+      real(cp), intent(out) :: e_p_as_ic,e_t_as_ic
+      real(cp), intent(out) :: e_p_os,e_p_as_os
+      real(cp), intent(out) :: e_cmb
+      real(cp), intent(out) :: Dip,DipCMB
+      real(cp), intent(out) :: elsAnel
 
       !-- local:
       integer :: nR,lm,l,m,l1m0,l1m1
       integer :: l_geo
 
-      real(kind=8) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
-      real(kind=8) :: e_t_r(n_r_max), e_t_r_global(n_r_max)
-      real(kind=8) :: els_r(n_r_max), els_r_global(n_r_max)
-      real(kind=8) :: e_p_as_r(n_r_max), e_p_as_r_global(n_r_max)
-      real(kind=8) :: e_t_as_r(n_r_max), e_t_as_r_global(n_r_max)
-      real(kind=8) :: e_p_es_r(n_r_max), e_p_es_r_global(n_r_max)
-      real(kind=8) :: e_t_es_r(n_r_max), e_t_es_r_global(n_r_max)
-      real(kind=8) :: e_p_eas_r(n_r_max), e_p_eas_r_global(n_r_max)
-      real(kind=8) :: e_t_eas_r(n_r_max), e_t_eas_r_global(n_r_max)
-      real(kind=8) :: e_dipole_r(n_r_max), e_dipole_r_global(n_r_max)
-      real(kind=8) :: e_dipole_ax_r(n_r_max), e_dipole_ax_r_global(n_r_max)
+      real(cp) :: e_p_r(n_r_max), e_p_r_global(n_r_max)
+      real(cp) :: e_t_r(n_r_max), e_t_r_global(n_r_max)
+      real(cp) :: els_r(n_r_max), els_r_global(n_r_max)
+      real(cp) :: e_p_as_r(n_r_max), e_p_as_r_global(n_r_max)
+      real(cp) :: e_t_as_r(n_r_max), e_t_as_r_global(n_r_max)
+      real(cp) :: e_p_es_r(n_r_max), e_p_es_r_global(n_r_max)
+      real(cp) :: e_t_es_r(n_r_max), e_t_es_r_global(n_r_max)
+      real(cp) :: e_p_eas_r(n_r_max), e_p_eas_r_global(n_r_max)
+      real(cp) :: e_t_eas_r(n_r_max), e_t_eas_r_global(n_r_max)
+      real(cp) :: e_dipole_r(n_r_max), e_dipole_r_global(n_r_max)
+      real(cp) :: e_dipole_ax_r(n_r_max), e_dipole_ax_r_global(n_r_max)
 
-      real(kind=8) :: e_p_ic_r(n_r_ic_max), e_p_ic_r_global(n_r_ic_max)
-      real(kind=8) :: e_t_ic_r(n_r_ic_max), e_t_ic_r_global(n_r_ic_max)   
-      real(kind=8) :: e_p_as_ic_r(n_r_ic_max), e_p_as_ic_r_global(n_r_ic_max)
-      real(kind=8) :: e_t_as_ic_r(n_r_ic_max), e_t_as_ic_r_global(n_r_ic_max)
+      real(cp) :: e_p_ic_r(n_r_ic_max), e_p_ic_r_global(n_r_ic_max)
+      real(cp) :: e_t_ic_r(n_r_ic_max), e_t_ic_r_global(n_r_ic_max)   
+      real(cp) :: e_p_as_ic_r(n_r_ic_max), e_p_as_ic_r_global(n_r_ic_max)
+      real(cp) :: e_t_as_ic_r(n_r_ic_max), e_t_as_ic_r_global(n_r_ic_max)
 
-      real(kind=8) :: e_geo,e_es_geo,e_as_geo,e_eas_geo
-      real(kind=8) :: e_geo_global,e_es_geo_global,e_as_geo_global,e_eas_geo_global
-      real(kind=8) :: e_p_ic_global, e_p_as_ic_global, e_p_os_global, e_p_as_os_global
-      real(kind=8) :: e_p_e,e_p_as_e
-      real(kind=8) :: e_p_e_global,e_p_as_e_global
+      real(cp) :: e_geo,e_es_geo,e_as_geo,e_eas_geo
+      real(cp) :: e_geo_global,e_es_geo_global,e_as_geo_global,e_eas_geo_global
+      real(cp) :: e_p_ic_global, e_p_as_ic_global, e_p_os_global, e_p_as_os_global
+      real(cp) :: e_p_e,e_p_as_e
+      real(cp) :: e_p_e_global,e_p_as_e_global
 
-      real(kind=8) :: r_ratio,fac
-      real(kind=8) :: e_p_temp,e_t_temp
-      real(kind=8) :: e_dipole, e_dipole_ax, e_dipole_ax_cmb
-      real(kind=8) :: e_dipole_e, e_dipole_e_global
-      real(kind=8) :: e_p_e_ratio
-      real(kind=8) :: O_r_icb_E_2,rad
-      real(kind=8) :: e_p_es,e_t_es,e_es_cmb,e_as_cmb
-      real(kind=8) :: e_p_eas,e_t_eas,e_eas_cmb
+      real(cp) :: r_ratio,fac
+      real(cp) :: e_p_temp,e_t_temp
+      real(cp) :: e_dipole, e_dipole_ax, e_dipole_ax_cmb
+      real(cp) :: e_dipole_e, e_dipole_e_global
+      real(cp) :: e_p_e_ratio
+      real(cp) :: O_r_icb_E_2,rad
+      real(cp) :: e_p_es,e_t_es,e_es_cmb,e_as_cmb
+      real(cp) :: e_p_eas,e_t_eas,e_eas_cmb
 
-      real(kind=8) :: e_dip_cmb,eTot,eDR
-      real(kind=8) :: theta_dip,phi_dip
+      real(cp) :: e_dip_cmb,eTot,eDR
+      real(cp) :: theta_dip,phi_dip
 
-      complex(kind=8) :: r_dr_b,b10,b11
+      complex(cp) :: r_dr_b,b10,b11
 
       !-- time averaging of e(r):
       character(len=80) :: filename
-      real(kind=8) :: dt,surf
-      real(kind=8), save :: timeLast,timeTot
+      real(cp) :: dt,surf
+      real(cp), save :: timeLast,timeTot
       logical :: rank_has_l1m0,rank_has_l1m1
       integer :: status(MPI_STATUS_SIZE),sr_tag,request1,request2
 
@@ -137,37 +138,37 @@ contains
       l_geo=11   ! max degree for geomagnetic field seen on Earth  
       ! surface
 
-      e_p      =0.D0
-      e_t      =0.D0
-      e_p_as   =0.D0
-      e_t_as   =0.D0
-      e_p_ic   =0.D0
-      e_t_ic   =0.D0
-      e_p_as_ic=0.D0
-      e_t_as_ic=0.D0
-      e_p_os   =0.D0
-      e_p_as_os=0.D0
-      e_geo    =0.D0
-      e_es_geo =0.D0
-      e_as_geo =0.D0
-      e_eas_geo=0.D0
-      Dip      =0.D0
-      DipCMB   =0.D0
+      e_p      =0.0_cp
+      e_t      =0.0_cp
+      e_p_as   =0.0_cp
+      e_t_as   =0.0_cp
+      e_p_ic   =0.0_cp
+      e_t_ic   =0.0_cp
+      e_p_as_ic=0.0_cp
+      e_t_as_ic=0.0_cp
+      e_p_os   =0.0_cp
+      e_p_as_os=0.0_cp
+      e_geo    =0.0_cp
+      e_es_geo =0.0_cp
+      e_as_geo =0.0_cp
+      e_eas_geo=0.0_cp
+      Dip      =0.0_cp
+      DipCMB   =0.0_cp
 
       if ( .not.( l_mag .or. l_mag_LF ) ) return
 
       do nR=1,n_r_max
 
-         e_p_r(nR)     =0.D0
-         e_t_r(nR)     =0.D0
-         e_p_as_r(nR)  =0.D0
-         e_t_as_r(nR)  =0.D0
-         e_p_es_r(nR)  =0.D0
-         e_t_es_r(nR)  =0.D0
-         e_p_eas_r(nR) =0.D0
-         e_t_eas_r(nR) =0.D0
-         e_dipole_r(nR)=0.D0
-         e_dipole_ax_r(nR)=0.D0
+         e_p_r(nR)     =0.0_cp
+         e_t_r(nR)     =0.0_cp
+         e_p_as_r(nR)  =0.0_cp
+         e_t_as_r(nR)  =0.0_cp
+         e_p_es_r(nR)  =0.0_cp
+         e_t_es_r(nR)  =0.0_cp
+         e_p_eas_r(nR) =0.0_cp
+         e_t_eas_r(nR) =0.0_cp
+         e_dipole_r(nR)=0.0_cp
+         e_dipole_ax_r(nR)=0.0_cp
 
          !do lm=2,lm_max
          do lm=max(2,llmMag),ulmMag
@@ -262,7 +263,7 @@ contains
 
          ! NOTE: n_e_sets=0 prevents averaging
          if ( n_e_sets == 1 ) then
-            timeTot=1.D0
+            timeTot=one
             do nR=1,n_r_max
                e_dipA(nR) =e_dipole_r_global(nR)
                e_pA(nR)   =e_p_r_global(nR)
@@ -272,7 +273,7 @@ contains
             end do
          else if ( n_e_sets == 2 ) then
             dt=time-timeLast
-            timeTot=2.D0*dt
+            timeTot=two*dt
             do nR=1,n_r_max
                e_dipA(nR) =dt*(e_dipA(nR) +e_dipole_r_global(nR))
                e_pA(nR)   =dt*(e_pA(nR)   +e_p_r_global(nR)     )
@@ -292,17 +293,17 @@ contains
             end do
          end if
          if ( l_stop_time ) then
-            fac=0.5D0*LFfac*eScale
+            fac=half*LFfac*eScale
             filename='eMagR.'//tag
             open(99, file=filename, status='unknown')
             do nR=1,n_r_max
                eTot=e_pA(nR)+e_tA(nR)
-               if ( e_dipA(nR)  <  1.D-4*eTot ) then
-                  eDR=0.D0
+               if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
+                  eDR=0.0_cp
                else
                   eDR=e_dipA(nR)/eTot
                end if
-               surf=4.D0*pi*r(nR)**2
+               surf=four*pi*r(nR)**2
                write(99,'(2x,10D12.4)') r(nR),                      &
                     &               fac*e_pA(nR)/timetot,           &
                     &               fac*e_p_asA(nR)/timetot,        &
@@ -372,16 +373,16 @@ contains
 
       if ( l_cond_ic ) then 
 
-         O_r_icb_E_2=1.d0/(r(n_r_max)*r(n_r_max))
+         O_r_icb_E_2=one/(r(n_r_max)*r(n_r_max))
 
          do nR=1,n_r_ic_max
 
             r_ratio=r_ic(nR)/r_ic(1)
 
-            e_p_ic_r(nR)   =0.D0
-            e_t_ic_r(nR)   =0.D0
-            e_p_as_ic_r(nR)=0.D0
-            e_t_as_ic_r(nR)=0.D0
+            e_p_ic_r(nR)   =0.0_cp
+            e_t_ic_r(nR)   =0.0_cp
+            e_p_as_ic_r(nR)=0.0_cp
+            e_t_as_ic_r(nR)=0.0_cp
 
             !do lm=2,lm_max
             do lm=max(2,llmMag),ulmMag
@@ -390,8 +391,8 @@ contains
                r_dr_b=r_ic(nR)*db_ic(lm,nR)
 
                e_p_temp=     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * (     &
-                    &           dble((l+1)*(2*l+1))*cc2real(b_ic(lm,nR),m)        +  &
-                    &                dble(2*(l+1))*cc22real(b_ic(lm,nR),r_dr_b,m) +  &
+                    &           real((l+1)*(2*l+1),cp)*cc2real(b_ic(lm,nR),m)     +  &
+                    &           real(2*(l+1),cp)*cc22real(b_ic(lm,nR),r_dr_b,m)   +  &
                     &                                 cc2real(r_dr_b,m)            )
                e_t_temp=  dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *                  &
                     &                             cc2real(aj_ic(lm,nR),m)
@@ -430,7 +431,7 @@ contains
                  &                      i_costf1_ic_init,d_costf1_ic_init)
             e_t_as_ic=rIntIC(e_t_as_ic_r_global,n_r_ic_max,dr_fac_ic,           &
                  &                      i_costf1_ic_init,d_costf1_ic_init)
-            fac=LFfac*eScale/2.D0
+            fac=half*LFfac*eScale
             e_p_ic   =fac*e_p_ic
             e_t_ic   =fac*e_t_ic
             e_p_as_ic=fac*e_p_as_ic
@@ -443,7 +444,7 @@ contains
          do lm=max(2,llmMag),ulmMag
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            fac=dble(l*(l+1)*(l+1))
+            fac=real(l*(l+1)*(l+1),cp)
             e_p_temp=fac*cc2real(b(lm,n_r_max),m)
             e_p_ic=e_p_ic + e_p_temp
             if ( m == 0 ) e_p_as_ic=e_p_as_ic+e_p_temp
@@ -455,11 +456,11 @@ contains
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
          if (rank == 0) then
-            fac      =0.5D0*LFfac/r_icb*eScale
+            fac      =half*LFfac/r_icb*eScale
             e_p_ic   =fac*e_p_ic_global
-            e_t_ic   =0.D0
+            e_t_ic   =0.0_cp
             e_p_as_ic=fac*e_p_as_ic_global
-            e_t_as_ic=0.D0
+            e_t_as_ic=0.0_cp
          end if
 
       end if  ! conducting inner core ?
@@ -467,13 +468,13 @@ contains
 
       !-- Outside energy:
       nR=n_r_cmb
-      e_p_os   =0.D0
-      e_p_as_os=0.D0
+      e_p_os   =0.0_cp
+      e_p_as_os=0.0_cp
       !do lm=2,lm_max
       do lm=max(2,llmMag),ulmMag
          l=lo_map%lm2l(lm)
          m=lo_map%lm2m(lm)
-         fac=dble( l*l*(l+1) )
+         fac=real( l*l*(l+1),cp)
          e_p_temp=fac*cc2real(b(lm,nR),m)
          e_p_os  =e_p_os + e_p_temp
          if ( m == 0 ) e_p_as_os=e_p_as_os + e_p_temp
@@ -485,21 +486,21 @@ contains
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
       if ( rank == 0 ) then
-         fac      =0.5D0*LFfac/r_cmb*eScale
+         fac      =half*LFfac/r_cmb*eScale
          e_p_os   =fac*e_p_os_global
          e_p_as_os=fac*e_p_as_os_global
       end if
 
       !-- External potential field energy in Uli case (n_imp=1)
-      e_p_e     =0.D0
-      e_p_as_e  =0.D0
-      e_dipole_e=0.D0
+      e_p_e     =0.0_cp
+      e_p_as_e  =0.0_cp
+      e_dipole_e=0.0_cp
       if ( n_imp == 1 ) then
          !do lm=2,lm_max
          do lm=max(2,llmMag),ulmMag
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
-            fac=dble(l*(l+1)**2*(2*l+1))*1.D0/(rrMP**(2*l+1)-1.D0)
+            fac=real(l*(l+1)**2*(2*l+1),cp)*one/(rrMP**(2*l+1)-one)
             e_p_temp=fac*cc2real(b(lm,nR),m)
             e_p_e   =e_p_e  + e_p_temp
             if ( m == 0 ) e_p_as_e =e_p_as_e  + e_p_temp
@@ -514,7 +515,7 @@ contains
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          
          if ( rank == 0 ) then
-            fac       =0.5D0*LFfac/r_cmb**2*eScale
+            fac       =half*LFfac/r_cmb**2*eScale
             e_p_e     =fac*e_p_e_global 
             e_p_as_e  =fac*e_p_as_e_global
             e_dipole_e=fac*e_dipole_e_global
@@ -585,14 +586,14 @@ contains
             rank_has_l1m1=.true.
          end if
       else
-         b11=cmplx(0.D0,0.D0,kind=kind(0d0))
+         b11=zero
          rank_has_l1m1=.true.
       end if
 
          
       if ( rank == 0 ) then
          !-- Calculate pole position:
-         rad =180.D0/pi
+         rad =180.0_cp/pi
          if (.not.rank_has_l1m0) then
             call MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
                  &         sr_tag,MPI_COMM_WORLD,request1, ierr)
@@ -609,12 +610,12 @@ contains
          end if
 
          !print*, "------------", b10, b11
-         theta_dip= rad*datan2(dsqrt(2.D0)*ABS(b11),real(b10))
-         if ( theta_dip < 0.D0 ) theta_dip=180.D0+theta_dip
-         if ( abs(b11) < 1.D-20 ) then
-            phi_dip=0.D0
+         theta_dip= rad*atan2(sqrt(two)*abs(b11),real(b10))
+         if ( theta_dip < 0.0_cp ) theta_dip=180.0_cp+theta_dip
+         if ( abs(b11) < 1.e-20_cp ) then
+            phi_dip=0.0_cp
          else
-            phi_dip=-rad*datan2(aimag(b11),real(b11))
+            phi_dip=-rad*atan2(aimag(b11),real(b11))
          end if
          Dip      =e_dipole_ax/(e_p+e_t)
          DipCMB   =e_dipole_ax_cmb/e_cmb
@@ -626,7 +627,7 @@ contains
                     &             position='append')
             end if
             if ( e_p_e == 0 ) then
-               e_p_e_ratio=0.D0
+               e_p_e_ratio=0.0_cp
             else
                e_p_e_ratio=e_dipole_e/e_p_e
             end if

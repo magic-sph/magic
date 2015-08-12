@@ -7,6 +7,7 @@ module updateB_mod
 #endif
 
    use omp_lib
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
                          n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_totMag, lm_max
@@ -32,7 +33,7 @@ module updateB_mod
                        lBmat
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBPolAs2hInt, dtBTorAs2hInt, &
                  dtBTor2hInt
-   use const, only: pi
+   use const, only: pi, zero, one, two, three, half
    use Bext, only: n_imp, l_imp, bmax_imp, expo_imp, amp_imp, rrMP
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf
@@ -51,8 +52,8 @@ module updateB_mod
    private
 
    !-- Local work arrays:
-   complex(kind=8), allocatable :: workA(:,:),workB(:,:)
-   complex(kind=8), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
+   complex(cp), allocatable :: workA(:,:),workB(:,:)
+   complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    integer :: maxThreads
 
    public :: initialize_updateB,updateB
@@ -108,44 +109,44 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input variables:
-      complex(kind=8), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
-      complex(kind=8), intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
-      complex(kind=8), intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
-      complex(kind=8), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
-      real(kind=8),    intent(in) :: omega_ic
-      real(kind=8),    intent(in) :: w1    ! weight for time step !
-      real(kind=8),    intent(in) :: coex  ! factor depending on alpha
-      real(kind=8),    intent(in) :: dt
-      real(kind=8),    intent(in) :: time
-      integer,         intent(in) :: nLMB
-      logical,         intent(in) :: lRmsNext
+      complex(cp), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
+      complex(cp), intent(in) :: aj_nl_cmb(:) ! nonlinear BC for aj at CMB
+      complex(cp), intent(in) :: aj_nl_icb(:) ! nonlinear BC for dr aj at ICB
+      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
+      real(cp),    intent(in) :: omega_ic
+      real(cp),    intent(in) :: w1    ! weight for time step !
+      real(cp),    intent(in) :: coex  ! factor depending on alpha
+      real(cp),    intent(in) :: dt
+      real(cp),    intent(in) :: time
+      integer,     intent(in) :: nLMB
+      logical,     intent(in) :: lRmsNext
 
       !-- Input/output of scalar potentials and time stepping arrays:
-      complex(kind=8), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(inout) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(inout) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(inout) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables:
-      real(kind=8) :: w2             ! weight of second time step
-      real(kind=8) :: O_dt
-      real(kind=8) :: yl0_norm,prefac!External magnetic field of general l
+      real(cp) :: w2             ! weight of second time step
+      real(cp) :: O_dt
+      real(cp) :: yl0_norm,prefac!External magnetic field of general l
 
       integer :: l1,m1               ! degree and order
       integer :: lm1,lm,lmB          ! position of (l,m) in array
@@ -156,17 +157,17 @@ contains
       integer :: nR                 ! No of radial grid point
       integer :: n_r_real            ! total number of used grid points
 
-      complex(kind=8) :: fac
-      complex(kind=8) :: dbdt_ic,djdt_ic  ! they are calculated here !
+      complex(cp) :: fac
+      complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
 
       !-- for feedback
-      real(kind=8) :: ff,cimp,aimp,b10max
+      real(cp) :: ff,cimp,aimp,b10max
 
-      real(kind=8), save :: direction
+      real(cp), save :: direction
 
       integer :: iThread,start_lm,stop_lm,all_lms,per_thread,nThreads,maxThreads
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
@@ -199,8 +200,8 @@ contains
       !write(*,"(4(A,I4),I4,A,I4)") "nLMB=",nLMB,", from ",lmStart," to ",lmStop,&
       !     &", reals: ",lmStart_00,lmStop,", nLMBs2 = ",nLMBs2(nLMB)
 
-      w2  =1.D0-w1
-      O_dt=1.D0/dt
+      w2  =one-w1
+      O_dt=one/dt
 
       !--- Start with finishing djdt:
       !    dVxBhLM is still in the R-distributed space,
@@ -328,14 +329,14 @@ contains
                      rhs1(1,lmB,threadid) =  b_nl_cmb(st_map%lm2(l1,m1))
                      rhs2(1,lmB,threadid) = aj_nl_cmb(st_map%lm2(l1,m1))
                   else
-                     rhs1(1,lmB,threadid) = 0.D0
-                     rhs2(1,lmB,threadid) = 0.D0
+                     rhs1(1,lmB,threadid) = 0.0_cp
+                     rhs2(1,lmB,threadid) = 0.0_cp
                   end if
 
-                  rhs1(n_r_max,lmB,threadid)=0.D0
-                  if ( kbotb == 2 ) rhs1(n_r_max-1,lmB,threadid)=0.D0
+                  rhs1(n_r_max,lmB,threadid)=0.0_cp
+                  if ( kbotb == 2 ) rhs1(n_r_max-1,lmB,threadid)=0.0_cp
 
-                  rhs2(n_r_max,lmB,threadid)=0.D0
+                  rhs2(n_r_max,lmB,threadid)=0.0_cp
                   if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                      if ( imagcon /= 0 .and. tmagcon <= time ) then
                         if ( l_LCR ) then
@@ -343,18 +344,18 @@ contains
                            stop
                         end if
                         if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
-                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.D0,kind=kind(0d0))
-                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.D0,kind=kind(0d0))
+                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.0_cp,kind=cp)
+                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.0_cp,kind=cp)
                         else if( l1 == 1 .and. imagcon == 12 ) then
-                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.D0,kind=kind(0d0))
-                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.D0,kind=kind(0d0))
+                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.0_cp,kind=cp)
+                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.0_cp,kind=cp)
                         else if( l1 == 1 .and. imagcon == -1) then
-                           rhs1(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.D0,kind=kind(0d0))
+                           rhs1(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.0_cp,kind=cp)
                         else if( l1 == 1 .and. imagcon == -2) then
-                           rhs1(1,lmB,threadid)      =cmplx(bpeaktop,0.D0,kind=kind(0d0))
+                           rhs1(1,lmB,threadid)      =cmplx(bpeaktop,0.0_cp,kind=cp)
                         else if( l1 == 3 .and. imagcon == -10 ) then
-                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.D0,kind=kind(0d0))
-                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.D0,kind=kind(0d0))
+                           rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.0_cp,kind=cp)
+                           rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.0_cp,kind=cp)
                         end if
                      end if
                      if ( n_imp > 1 .and. l1 == l_imp ) then
@@ -363,28 +364,26 @@ contains
                             stop
                          end if
                          ! General normalization for degree l and order 0
-                         yl0_norm = 0.5D0*dsqrt((2*l1+1)/pi)   
+                         yl0_norm = half*sqrt((2*l1+1)/pi)   
                          ! Prefactor for CMB matching condition
-                         prefac = dble(2*l1+1)/dble(l1*(l1+1)) 
+                         prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp) 
 
                         if ( n_imp == 2 ) then
                            !  Chose external field coefficient so that amp_imp is
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.D0,kind=kind(0d0))
+                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)
                         else if ( n_imp == 3 ) then
                            !  Chose external field coefficient so that amp_imp is
                            !  the amplitude of the external field:
                            bpeaktop=prefac*r_cmb/yl0_norm*amp_imp
-                           if ( real(b(2,1)) > 1.D-9 ) &
-                                direction=real(b(2,1))/DABS(real(b(2,1)))
-                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.D0, &
-                                                kind=kind(0d0))*direction
+                           if ( real(b(2,1)) > 1.0e-9_cp ) &
+                                direction=real(b(2,1))/abs(real(b(2,1)))
+                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)*direction
                         else if ( n_imp == 4 ) then
                            !  I have forgotten what this was supposed to do:
-                           bpeaktop=3.D0/r_cmb*amp_imp*real(b(2,1))**2
-                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.D0, &
-                                                kind=kind(0d0))/b(2,1)
+                           bpeaktop=three/r_cmb*amp_imp*real(b(2,1))**2
+                           rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.0_cp,kind=cp)/b(2,1)
 
                         else
 
@@ -408,7 +407,7 @@ contains
                            ! Here amp_imp provides the relative amplitude so that the maximum of
                            ! the external field is   max(b10_external/b10_internal)=amp_imp
 
-                           ff=0.D0
+                           ff=0.0_cp
                            if ( n_imp == 7 ) then
                               ! Using a feedback function of the form
                               !    ff= aimp * b10_internal**expo_imp / (cimp+b10_internal**expo_imp)
@@ -440,8 +439,8 @@ contains
                   
                   do nR=2,n_r_max-1
                      if ( nR<=n_r_LCR ) then
-                        rhs1(nR,lmB,threadid)=0.D0
-                        rhs2(nR,lmB,threadid)=0.D0
+                        rhs1(nR,lmB,threadid)=0.0_cp
+                        rhs2(nR,lmB,threadid)=0.0_cp
                      else
                         rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR)+w2*dbdtLast(lm1,nR) ) &
                           &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
@@ -453,18 +452,18 @@ contains
                   !-- Magnetic boundary conditions, inner core for radial derivatives
                   !         of poloidal and toroidal magnetic potentials:
                   if ( l_cond_ic ) then    ! inner core
-                     rhs1(n_r_max+1,lmB,threadid)=0.d0
+                     rhs1(n_r_max+1,lmB,threadid)=0.0_cp
                      if ( l_b_nl_icb ) then
                         rhs2(n_r_max+1,lmB,threadid)=aj_nl_icb(st_map%lm2(l1,m1))
                      else
-                        rhs2(n_r_max+1,lmB,threadid)=0.d0
+                        rhs2(n_r_max+1,lmB,threadid)=0.0_cp
                      end if
 
                      do nR=2,n_r_ic_max
-                        if ( omega_ic == 0.D0 .or. .not. l_rot_ic .or. &
+                        if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
                              .not. l_mag_nl ) then
-                           dbdt_ic=cmplx(0.D0,0.D0,kind=kind(0d0))
-                           djdt_ic=cmplx(0.D0,0.D0,kind=kind(0d0))
+                           dbdt_ic=zero
+                           djdt_ic=zero
                         else
                            fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
                                 dLh(st_map%lm2(l1,m1))
@@ -500,9 +499,9 @@ contains
 
                !LIKWID_ON('upB_sol')
 #ifdef WITH_MKL_LU
-               call getrs(cmplx(bMat(1:n_r_real,1:n_r_real,l1),0.D0,kind=kind(0.D0)), &
+               call getrs(cmplx(bMat(1:n_r_real,1:n_r_real,l1),0.0_cp,kind=cp), &
                     bPivot(1:n_r_real,l1),rhs1(1:n_r_real,lmB0+1:lmB,threadid))
-               call getrs(cmplx(jMat(1:n_r_real,1:n_r_real,l1),0.D0,kind=kind(0.D0)), &
+               call getrs(cmplx(jMat(1:n_r_real,1:n_r_real,l1),0.0_cp,kind=cp), &
                     jPivot(1:n_r_real,l1),rhs2(1:n_r_real,lmB0+1:lmB,threadid))
 #else
                call cgeslML(bMat(:,:,l1),n_r_tot,n_r_real, &
@@ -550,16 +549,16 @@ contains
                   else
                      do n_cheb=1,n_cheb_max   ! outer core
                         b(lm1,n_cheb) = &
-                             cmplx(real(rhs1(n_cheb,lmB,threadid)),0.D0,kind=kind(0d0))
+                             cmplx(real(rhs1(n_cheb,lmB,threadid)),0.0_cp,kind=cp)
                         aj(lm1,n_cheb)= &
-                             cmplx(real(rhs2(n_cheb,lmB,threadid)),0.D0,kind=kind(0d0))
+                             cmplx(real(rhs2(n_cheb,lmB,threadid)),0.0_cp,kind=cp)
                      end do
                      if ( l_cond_ic ) then    ! inner core
                         do n_cheb=1,n_cheb_ic_max
                            b_ic(lm1,n_cheb)= cmplx( &
-                             real(rhs1(n_r_max+n_cheb,lmB,threadid)),0.D0,kind=kind(0d0))
+                             real(rhs1(n_r_max+n_cheb,lmB,threadid)),0.0_cp,kind=cp)
                            aj_ic(lm1,n_cheb)= cmplx( &
-                             real(rhs2(n_r_max+n_cheb,lmB,threadid)),0.D0,kind=kind(0d0))
+                             real(rhs2(n_r_max+n_cheb,lmB,threadid)),0.0_cp,kind=cp)
                         end do
                      end if
                   end if
@@ -577,15 +576,15 @@ contains
       !   for inner core modes > 2*n_cheb_ic_max = 0
       do n_cheb=n_cheb_max+1,n_r_max
          do lm1=lmStart_00,lmStop
-            b(lm1,n_cheb) =cmplx(0.D0,0.D0,kind=kind(0d0))
-            aj(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b(lm1,n_cheb) =zero
+            aj(lm1,n_cheb)=zero
          end do
       end do
       if ( l_cond_ic ) then
          do n_cheb=n_cheb_ic_max+1,n_r_ic_max
             do lm1=lmStart_00,lmStop
-               b_ic(lm1,n_cheb) =cmplx(0.D0,0.D0,kind=kind(0d0))
-               aj_ic(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+               b_ic(lm1,n_cheb) =zero
+               aj_ic(lm1,n_cheb)=zero
             end do
          end do
       end if
@@ -679,16 +678,16 @@ contains
                   m1=lm2m(lm1)
 
                   b(lm1,nR)=(r(n_r_LCR)/r(nR))**D_l(st_map%lm2(l1,m1))*b(lm1,n_r_LCR)
-                  db(lm1,nR)=-dble(D_l(st_map%lm2(l1,m1)))*      &
-                           (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/ &
-                           (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
-                  ddb(lm1,nR)=dble(D_l(st_map%lm2(l1,m1)))*         &
-                             (dble(D_l(st_map%lm2(l1,m1)))+1)       &
-                           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
-                           (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
-                  aj(lm1,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  dj(lm1,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  ddj(lm1,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  db(lm1,nR)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*     &
+                             (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/      &
+                             (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
+                  ddb(lm1,nR)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
+                              (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
+                              *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
+                              (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
+                  aj(lm1,nR)=zero
+                  dj(lm1,nR)=zero
+                  ddj(lm1,nR)=zero
                end do
             end if
          end do
@@ -747,11 +746,11 @@ contains
                dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
                     coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
                     (                        ddb_ic(lm1,nR) +           &
-                    2.d0*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
+                    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
                djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
                     coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
                     (                        ddj_ic(lm1,nR) +           &
-                    2.d0*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
+                    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
             end do
          end do
          nR=n_r_ic_max
@@ -760,10 +759,10 @@ contains
             m1=lm2m(lm1)
             dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
                  coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                 (1.d0+2.d0*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
+                 (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
             djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
                  coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                 (1.d0+2.d0*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
+                 (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
          end do
          !PERFOFF
       end if
@@ -783,33 +782,33 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: dt
-      integer,      intent(in) :: l
-      real(kind=8), intent(in) :: hdif
+      real(cp), intent(in) :: dt
+      integer,  intent(in) :: l
+      real(cp), intent(in) :: hdif
     
       !-- Output variables:
-      real(kind=8), intent(out) :: bMat(n_r_totMag,n_r_totMag)
-      integer,      intent(out) :: bPivot(n_r_totMag)
-      real(kind=8), intent(out) :: jMat(n_r_totMag,n_r_totMag)
-      integer,      intent(out) :: jPivot(n_r_totMag)
+      real(cp), intent(out) :: bMat(n_r_totMag,n_r_totMag)
+      integer,  intent(out) :: bPivot(n_r_totMag)
+      real(cp), intent(out) :: jMat(n_r_totMag,n_r_totMag)
+      integer,  intent(out) :: jPivot(n_r_totMag)
 #ifdef WITH_PRECOND_BJ
-      real(kind=8), intent(out) :: bMat_fac(n_r_totMag),jMat_fac(n_r_totMag)
+      real(cp), intent(out) :: bMat_fac(n_r_totMag),jMat_fac(n_r_totMag)
 #endif
  
       !-- local variables:
       integer :: nR,nCheb,nRall
       integer :: info
-      real(kind=8) :: l_P_1
-      real(kind=8) :: O_dt,dLh
-      real(kind=8) :: rRatio
+      real(cp) :: l_P_1
+      real(cp) :: O_dt,dLh
+      real(cp) :: rRatio
  
 #undef MATRIX_CHECK
 #ifdef MATRIX_CHECK
       integer :: i,j
-      real(kind=8) :: rcond
+      real(cp) :: rcond
       integer ::ipiv(n_r_tot),iwork(n_r_tot)
-      real(kind=8) :: work(4*n_r_tot),anorm,linesum
-      real(kind=8) :: temp_Mat(n_r_tot,n_r_tot)
+      real(cp) :: work(4*n_r_tot),anorm,linesum
+      real(cp) :: temp_Mat(n_r_tot,n_r_tot)
       integer,save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
@@ -817,15 +816,15 @@ contains
 
       nRall=n_r_max
       if ( l_cond_ic ) nRall=nRall+n_r_ic_max
-      O_dt=1.D0/dt
-      dLh=dble(l*(l+1))
+      O_dt=one/dt
+      dLh=real(l*(l+1),kind=cp)
     
       !-- matricies depend on degree l but not on order m,
       !   we thus have to construct bmat and ajmat for each l:
     
       !-- do loop limits introduced to get rid of compiler warning !
     
-      l_P_1=dble(l+1)
+      l_P_1=real(l+1,kind=cp)
     
       do nR=2,n_r_max-1
          do nCheb=1,n_r_max
@@ -849,7 +848,7 @@ contains
             if ( nR<=n_r_LCR ) then
                do nCheb=1,n_r_max
                   bMat(nR,nCheb)= cheb_norm*(     dcheb(nCheb,nR) + &
-                                   dble(l)*or1(nR)*cheb(nCheb,nR) ) 
+                                   real(l,kind=cp)*or1(nR)*cheb(nCheb,nR) ) 
     
                   jMat(nR,nCheb)= cheb_norm*cheb(nCheb,nR)
                end do
@@ -867,7 +866,7 @@ contains
          !         vanish (matrix ajmat).
             bMat(1,nCheb)=            cheb_norm * ( &
                                    dcheb(nCheb,1) + &
-                     dble(l)*or1(1)*cheb(nCheb,1) + &
+                  real(l,cp)*or1(1)*cheb(nCheb,1) + &
                                   conductance_ma* ( &
                                   d2cheb(nCheb,1) - &
                          dLh*or2(1)*cheb(nCheb,1) ) )
@@ -933,11 +932,11 @@ contains
                write(*,*) 'Imposed field not compatible with weak conducting region!'
                stop
             end if
-            rRatio=rrMP**dble(2*l+1)
+            rRatio=rrMP**real(2*l+1,kind=cp)
             bMat(1,nCheb)=            cheb_norm * ( &
                                    dcheb(nCheb,1) + &
-                     dble(l)*or1(1)*cheb(nCheb,1) - &
-                    dble(2*l+1)*or1(1)/(1-rRatio) + &
+                  real(l,cp)*or1(1)*cheb(nCheb,1) - &
+                 real(2*l+1,cp)*or1(1)/(1-rRatio) + &
                                   conductance_ma* ( &
                                   d2cheb(nCheb,1) - &
                          dLh*or2(1)*cheb(nCheb,1) ) )
@@ -947,43 +946,43 @@ contains
     
       !----- fill up with zeros:
       do nCheb=n_cheb_max+1,n_r_max
-         bMat(1,nCheb)=0.D0
-         jMat(1,nCheb)=0.D0
+         bMat(1,nCheb)=0.0_cp
+         jMat(1,nCheb)=0.0_cp
          if ( l_LCR ) then
             do nR=2,n_r_LCR
-               bMat(nR,nCheb)=0.D0
-               jMat(nR,nCheb)=0.D0
+               bMat(nR,nCheb)=0.0_cp
+               jMat(nR,nCheb)=0.0_cp
             end do
          end if
          if ( kbotb == 1 ) then
-            bMat(n_r_max,nCheb)  =0.D0
-            jMat(n_r_max,nCheb)  =0.D0
+            bMat(n_r_max,nCheb)  =0.0_cp
+            jMat(n_r_max,nCheb)  =0.0_cp
          else if ( kbotb == 2 ) then
-            bMat(n_r_max-1,nCheb)=0.D0
-            jMat(n_r_max,nCheb)  =0.D0
+            bMat(n_r_max-1,nCheb)=0.0_cp
+            jMat(n_r_max,nCheb)  =0.0_cp
          else if ( kbotb == 3 ) then
-            bMat(n_r_max,nCheb)  =0.D0
-            bMat(n_r_max+1,nCheb)=0.D0
-            jMat(n_r_max,nCheb)  =0.D0
-            jMat(n_r_max+1,nCheb)=0.D0
+            bMat(n_r_max,nCheb)  =0.0_cp
+            bMat(n_r_max+1,nCheb)=0.0_cp
+            jMat(n_r_max,nCheb)  =0.0_cp
+            jMat(n_r_max+1,nCheb)=0.0_cp
          else if ( kbotb == 4 ) then
-            bMat(n_r_max,nCheb)  =0.D0
-            jMat(n_r_max,nCheb)  =0.D0
+            bMat(n_r_max,nCheb)  =0.0_cp
+            jMat(n_r_max,nCheb)  =0.0_cp
          end if
       end do
     
       !----- normalization for highest and lowest Cheb mode:
       do nR=1,n_r_max
-         bMat(nR,1)      =0.5D0*bMat(nR,1)
-         bMat(nR,n_r_max)=0.5D0*bMat(nR,n_r_max)
-         jMat(nR,1)      =0.5D0*jMat(nR,1)
-         jMat(nR,n_r_max)=0.5D0*jMat(nR,n_r_max)
+         bMat(nR,1)      =half*bMat(nR,1)
+         bMat(nR,n_r_max)=half*bMat(nR,n_r_max)
+         jMat(nR,1)      =half*jMat(nR,1)
+         jMat(nR,n_r_max)=half*jMat(nR,n_r_max)
       end do
       if ( kbotb == 3 ) then
-         bMat(n_r_max+1,1)=0.5D0*bMat(n_r_max+1,1)
-         bMat(n_r_max+1,n_r_max)=0.5D0*bMat(n_r_max+1,n_r_max)
-         jMat(n_r_max+1,1)=0.5D0*jMat(n_r_max+1,1)
-         jMat(n_r_max+1,n_r_max)=0.5D0*jMat(n_r_max+1,n_r_max)
+         bMat(n_r_max+1,1)=half*bMat(n_r_max+1,1)
+         bMat(n_r_max+1,n_r_max)=half*bMat(n_r_max+1,n_r_max)
+         jMat(n_r_max+1,1)=half*jMat(n_r_max+1,1)
+         jMat(n_r_max+1,n_r_max)=half*jMat(n_r_max+1,n_r_max)
       end if
     
       !----- Conducting inner core:
@@ -1003,7 +1002,7 @@ contains
                              O_dt*cheb_ic(nCheb,nR) - &
                                    alpha*opm*O_sr * ( &
                                 d2cheb_ic(nCheb,nR) + &
-                    2.d0*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
+                    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
     
                jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
             end do
@@ -1014,7 +1013,7 @@ contains
                  cheb_norm_ic*dLh*or2(n_r_max) * ( &
                           O_dt*cheb_ic(nCheb,nR) - &
                                   alpha*opm*O_sr * &
-                 (1.d0+2.d0*l_P_1)*d2cheb_ic(nCheb,nR) )
+                 (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
     
             jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
          end do
@@ -1031,31 +1030,31 @@ contains
     
          !-------- fill with zeros:
          do nCheb=n_cheb_ic_max+1,n_r_ic_max
-            bMat(n_r_max,n_r_max+nCheb)  =0.D0
-            bMat(n_r_max+1,n_r_max+nCheb)=0.D0
-            jMat(n_r_max,n_r_max+nCheb)  =0.D0
-            jMat(n_r_max+1,n_r_max+nCheb)=0.D0
+            bMat(n_r_max,n_r_max+nCheb)  =0.0_cp
+            bMat(n_r_max+1,n_r_max+nCheb)=0.0_cp
+            jMat(n_r_max,n_r_max+nCheb)  =0.0_cp
+            jMat(n_r_max+1,n_r_max+nCheb)=0.0_cp
          end do
     
          !-------- normalization for lowest Cheb mode:
          do nR=n_r_max,n_r_tot
-            bMat(nR,n_r_max+1)=0.5D0*bMat(nR,n_r_max+1)
-            jMat(nR,n_r_max+1)=0.5D0*jMat(nR,n_r_max+1)
-            bMat(nR,n_r_tot)  =0.5D0*bMat(nR,n_r_tot)
-            jMat(nR,n_r_tot)  =0.5D0*jMat(nR,n_r_tot)
+            bMat(nR,n_r_max+1)=half*bMat(nR,n_r_max+1)
+            jMat(nR,n_r_max+1)=half*jMat(nR,n_r_max+1)
+            bMat(nR,n_r_tot)  =half*bMat(nR,n_r_tot)
+            jMat(nR,n_r_tot)  =half*jMat(nR,n_r_tot)
          end do
     
          !-------- fill matricies up with zeros:
          do nCheb=n_r_max+1,n_r_tot
             do nR=1,n_r_max-1
-               bMat(nR,nCheb)=0.D0
-               jMat(nR,nCheb)=0.D0
+               bMat(nR,nCheb)=0.0_cp
+               jMat(nR,nCheb)=0.0_cp
             end do
          end do
          do nCheb=1,n_r_max
             do nR=n_r_max+2,n_r_tot
-               bMat(nR,nCheb)=0.D0
-               jMat(nR,nCheb)=0.D0
+               bMat(nR,nCheb)=0.0_cp
+               jMat(nR,nCheb)=0.0_cp
             end do
          end do
     
@@ -1064,11 +1063,11 @@ contains
 #ifdef WITH_PRECOND_BJ
       ! compute the linesum of each line
       do nR=1,n_r_tot
-         bMat_fac(nR)=1.0D0/maxval(abs(bMat(nR,:)))
+         bMat_fac(nR)=one/maxval(abs(bMat(nR,:)))
          bMat(nR,:) = bMat(nR,:)*bMat_fac(nR)
       end do
       do nR=1,n_r_tot
-         jMat_fac(nR)=1.0D0/maxval(abs(jMat(nR,:)))
+         jMat_fac(nR)=one/maxval(abs(jMat(nR,:)))
          jMat(nR,:) = jMat(nR,:)*jMat_fac(nR)
       end do
 #endif
@@ -1087,9 +1086,9 @@ contains
       end do
       close(filehandle)
       temp_Mat=bMat
-      anorm = 0.0D0
+      anorm = 0.0_cp
       do i=1,n_r_tot
-         linesum = 0.0D0
+         linesum = 0.0_cp
          do j=1,n_r_tot
             linesum = linesum + abs(temp_Mat(i,j))
          end do
@@ -1116,9 +1115,9 @@ contains
       end do
       close(filehandle)
       temp_Mat=jMat
-      anorm = 0.0D0
+      anorm = 0.0_cp
       do i=1,n_r_tot
-         linesum = 0.0D0
+         linesum = 0.0_cp
          do j=1,n_r_tot
             linesum = linesum + abs(temp_Mat(i,j))
          end do

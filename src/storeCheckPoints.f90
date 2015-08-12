@@ -1,6 +1,7 @@
 !$Id$
 module storeCheckPoints
 
+   use precision_mod, only: cp
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
                          lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
    use physical_parameters, only: ra,pr,prmag,radratio,ek,sigma_ratio
@@ -37,25 +38,25 @@ contains
       !--------------------------------------------------------------------
 
       !-- Input of variables:
-      real(kind=8),  intent(in) :: time,dt,dtNew
+      real(cp),    intent(in) :: time,dt,dtNew
 
       !-- Input of scalar fields to be stored:
-      complex(kind=8),intent(in) :: w(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: z(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: p(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: s(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: dwdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dzdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dpdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dsdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: w(lm_max,n_r_max)
+      complex(cp), intent(in) :: z(lm_max,n_r_max)
+      complex(cp), intent(in) :: p(lm_max,n_r_max)
+      complex(cp), intent(in) :: s(lm_max,n_r_max)
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dwdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dzdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dpdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dsdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
 
       !-- Write parameters:
       if ( .not. l_heat ) then
@@ -103,23 +104,23 @@ contains
       use hdf5Helpers, only: writeHdf5_attribute
 
       !--- Input variables
-      real(kind=8),   intent(in) :: time,dt,dtNew
-      complex(kind=8),intent(in) :: w(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: z(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: p(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: s(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: dwdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dzdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dpdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dsdtLast(lm_max,n_r_max)
-      complex(kind=8),intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      real(cp),    intent(in) :: time,dt,dtNew
+      complex(cp), intent(in) :: w(lm_max,n_r_max)
+      complex(cp), intent(in) :: z(lm_max,n_r_max)
+      complex(cp), intent(in) :: p(lm_max,n_r_max)
+      complex(cp), intent(in) :: s(lm_max,n_r_max)
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dwdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dzdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dpdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dsdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
 
       !--- HDF5 file identifier
       integer(HID_T) :: file_id  
@@ -334,23 +335,23 @@ contains
       use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 
       !--- Input variables
-      real(kind=8),   intent(in) :: time,dt,dtNew
-      complex(kind=8),intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: p(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: dwdtLast(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: dzdtLast(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: dpdtLast(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: dsdtLast(llm:ulm,n_r_max)
-      complex(kind=8),intent(in) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8),intent(in) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8),intent(in) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      real(cp),    intent(in) :: time,dt,dtNew
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dwdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dzdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dpdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dsdtLast(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dbdtLast(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: djdtLast(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
 
       integer :: l,m,lm
       !--- HDF5 file identifier

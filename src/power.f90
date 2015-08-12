@@ -2,6 +2,7 @@
 module power
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
                          n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -20,14 +21,15 @@ module power
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt_R,rIntIC
    use outRot, only: get_viscous_torque
+   use const, only: one, two, half
 
    implicit none
 
    private
 
-   real(kind=8), allocatable :: buoMeanR(:)
-   real(kind=8), allocatable :: curlU2MeanR(:)
-   real(kind=8), allocatable :: ohmDissR(:)
+   real(cp), allocatable :: buoMeanR(:)
+   real(cp), allocatable :: curlU2MeanR(:)
+   real(cp), allocatable :: ohmDissR(:)
 
    public :: initialize_output_power, get_power
 
@@ -39,9 +41,9 @@ contains
       allocate( ohmDissR(n_r_max) )
       allocate( curlU2MeanR(n_r_max) )
 
-      buoMeanR(:)    = 0.d0
-      ohmDissR(:)    = 0.d0
-      curlU2MeanR(:) = 0.d0
+      buoMeanR(:)    = 0.0_cp
+      ohmDissR(:)    = 0.0_cp
+      curlU2MeanR(:) = 0.0_cp
 
    end subroutine initialize_output_power
 !----------------------------------------------------------------------------
@@ -78,46 +80,46 @@ contains
       !    column 10: time integrated power gain
 
       !-- Input of variables:
-      logical,         intent(in) :: l_stop_time
-      real(kind=8),    intent(in) :: time,timePassed,timeNorm
-      real(kind=8),    intent(in) :: omega_IC,omega_MA
-      real(kind=8),    intent(in) :: lorentz_torque_IC,lorentz_torque_MA
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dz(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      logical,     intent(in) :: l_stop_time
+      real(cp),    intent(in) :: time,timePassed,timeNorm
+      real(cp),    intent(in) :: omega_IC,omega_MA
+      real(cp),    intent(in) :: lorentz_torque_IC,lorentz_torque_MA
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Output:
-      real(kind=8),    intent(out) :: viscDiss,ohmDiss
+      real(cp),    intent(out) :: viscDiss,ohmDiss
 
       !-- local:
       integer :: n_r,lm,l,m,l1m0
 
-      real(kind=8) :: r_ratio
-      real(kind=8) :: curlB2,curlU2,buoy,curlB2_IC
-      real(kind=8) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
-      real(kind=8) :: curlU2_r(n_r_max),curlU2_r_global(n_r_max)
-      real(kind=8) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
-      real(kind=8) :: curlB2_rIC(n_r_ic_max),curlB2_rIC_global(n_r_ic_max)
-      real(kind=8) :: viscous_torque_ic,viscous_torque_ma
+      real(cp) :: r_ratio
+      real(cp) :: curlB2,curlU2,buoy,curlB2_IC
+      real(cp) :: curlB2_r(n_r_max),curlB2_r_global(n_r_max)
+      real(cp) :: curlU2_r(n_r_max),curlU2_r_global(n_r_max)
+      real(cp) :: buoy_r(n_r_max),buoy_r_global(n_r_max)
+      real(cp) :: curlB2_rIC(n_r_ic_max),curlB2_rIC_global(n_r_ic_max)
+      real(cp) :: viscous_torque_ic,viscous_torque_ma
 
-      complex(kind=8) :: laplace,Bh
+      complex(cp) :: laplace,Bh
 
       character(len=76) :: fileName
       character(len=7) :: marker
-      real(kind=8) :: z10ICB,z10CMB,drz10ICB,drz10CMB
-      real(kind=8) :: powerIC,powerMA
-      real(kind=8) :: powerDiff,powerDiffOld,powerDiffT,eDiffInt
-      real(kind=8) :: tStart
+      real(cp) :: z10ICB,z10CMB,drz10ICB,drz10CMB
+      real(cp) :: powerIC,powerMA
+      real(cp) :: powerDiff,powerDiffOld,powerDiffT,eDiffInt
+      real(cp) :: tStart
       SAVE   powerDiff,eDiffInt,marker,tStart
 
       logical :: rank_has_l1m0
@@ -125,14 +127,14 @@ contains
 
       if ( marker /= 'started' ) then
          tStart   =time
-         powerDiff=0.D0
-         eDiffInt =0.D0
+         powerDiff=0.0_cp
+         eDiffInt =0.0_cp
       end if
 
       do n_r=1,n_r_max
 
          if ( l_conv ) then
-            curlU2_r(n_r)=0.d0
+            curlU2_r(n_r)=0.0_cp
             !do lm=2,lm_max
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
@@ -146,7 +148,7 @@ contains
          end if
 
          if ( l_mag ) then
-            curlB2_r(n_r)=0.d0
+            curlB2_r(n_r)=0.0_cp
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
@@ -159,7 +161,7 @@ contains
          end if
 
          if ( l_heat ) then
-            buoy_r(n_r)=0.d0
+            buoy_r(n_r)=0.0_cp
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
@@ -186,7 +188,7 @@ contains
                  i_costf_init,d_costf_init)
             curlU2=eScale*curlU2
          else
-            curlU2=0.D0
+            curlU2=0.0_cp
          end if
          if ( l_mag )  then
             ohmDissR=ohmDissR+timePassed*curlB2_r_global*LFfac*opm*eScale
@@ -194,7 +196,7 @@ contains
                  &        i_costf_init,d_costf_init)
             curlB2=LFfac*opm*eScale*curlB2
          else
-            curlB2=0.D0
+            curlB2=0.0_cp
          end if
          if ( l_heat ) then
             buoMeanR=buoMeanR+timePassed*buoy_r_global*eScale
@@ -202,7 +204,7 @@ contains
                  i_costf_init,d_costf_init)
             buoy=eScale*buoy
          else
-            buoy=0.D0
+            buoy=0.0_cp
          end if
       end if
 
@@ -212,13 +214,13 @@ contains
 
          do n_r=1,n_r_ic_max
             r_ratio=r_ic(n_r)/r_ic(1)
-            curlB2_rIC(n_r)=0.d0
+            curlB2_rIC(n_r)=0.0_cp
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               Bh=(l+1.D0)*O_r_ic(n_r)*aj_ic(lm,n_r)+dj_ic(lm,n_r)
+               Bh=(l+one)*O_r_ic(n_r)*aj_ic(lm,n_r)+dj_ic(lm,n_r)
                laplace=-ddb_ic(lm,n_r) - &
-                    2.D0*(l+1.D0)*O_r_ic(n_r)*db_ic(lm,n_r)
+                    two*(l+one)*O_r_ic(n_r)*db_ic(lm,n_r)
                curlB2_rIC(n_r)=curlB2_rIC(n_r) +                   &
                     dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *  ( &
                     dLh(st_map%lm2(l,m))*O_r_ic2(n_r)*cc2real(aj_ic(lm,n_r),m) + &
@@ -237,7 +239,7 @@ contains
          end if
       else
          if ( rank == 0 ) then
-            curlB2_IC=0.D0
+            curlB2_IC=0.0_cp
          end if
       end if  ! conducting inner core ?
 
@@ -263,15 +265,15 @@ contains
             z10ICB  =real(z(l1m0,n_r_ICB))
             drz10ICB=real(dz(l1m0,n_r_ICB))
          else
-            z10ICB  =0.D0
-            drz10ICB=0.D0
+            z10ICB  =0.0_cp
+            drz10ICB=0.0_cp
          end if
          if ( l_rot_MA ) then
             z10CMB  =real(z(l1m0,n_r_CMB))
             drz10CMB=real(dz(l1m0,n_r_CMB))
          else
-            z10CMB  =0.D0
-            drz10CMB=0.D0
+            z10CMB  =0.0_cp
+            drz10CMB=0.0_cp
          end if
 
          if ( rank /= 0 ) then
@@ -299,10 +301,10 @@ contains
 
          if ( l_conv ) then
             viscDiss= -curlU2
-            if ( l_rot_IC ) viscDiss=viscDiss - 2.D0*z10ICB*drz10ICB
-            if ( l_rot_MA ) viscDiss=viscDiss + 2.D0*z10CMB*drz10CMB
+            if ( l_rot_IC ) viscDiss=viscDiss - two*z10ICB*drz10ICB
+            if ( l_rot_MA ) viscDiss=viscDiss + two*z10CMB*drz10CMB
          else
-            viscDiss=0.D0
+            viscDiss=0.0_cp
          end if
 
          !--- If the inner core or mantle rotation rate is allowed to change due
@@ -312,33 +314,33 @@ contains
          if ( l_rot_ic .and. kbotv == 2 ) then
             call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
          else
-            viscous_torque_ic=0.d0
+            viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
             call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
          else
-            viscous_torque_ma=0.d0
+            viscous_torque_ma=0.0_cp
          end if
 
          if ( l_rot_IC .and. .not. l_SRIC ) then
             if ( kbotv == 2 ) then
                call get_viscous_torque(viscous_torque_ic,z10ICB,drz10ICB,r_icb)
             else
-               viscous_torque_ic=0.d0
+               viscous_torque_ic=0.0_cp
             end if
             powerIC=omega_IC*(viscous_torque_ic+lorentz_torque_ic)
          else
-            powerIC=0.D0
+            powerIC=0.0_cp
          end if
          if ( l_rot_MA ) then
             if ( ktopv == 2 ) then
                call get_viscous_torque(viscous_torque_ma,z10CMB,drz10CMB,r_cmb)
             else
-               viscous_torque_ma=0.d0
+               viscous_torque_ma=0.0_cp
             end if
             powerMA=omega_MA*(-viscous_torque_ma+lorentz_torque_ma)
          else
-            powerMA=0.D0
+            powerMA=0.0_cp
          end if
 
          !--- Because the two systems are coupled only the total ohmic dissipation in useful:
@@ -348,16 +350,16 @@ contains
          powerDiff   =(buoy+powerIC+powerMA+viscDiss+ohmDiss)
 
          if ( marker == 'started' ) then
-            powerDiffT  =1.5D0*powerDiff-0.5D0*powerDiffOld
+            powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
             eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
             if ( l_save_out ) then
                open(n_power_file, file=power_file, status='unknown', &
                     position='append')
             end if
-            write(n_power_file,'(1P,D20.12,9D16.8)')      &
-                 time*tScale, buoy,-2.D0*z10ICB*drz10ICB, &
-                 2.D0*z10CMB*drz10CMB, viscDiss,          &
-                 ohmDiss, powerMA, powerIC, powerDiff,    &
+            write(n_power_file,'(1P,D20.12,9D16.8)')        &
+                 time*tScale, buoy,-two*z10ICB*drz10ICB, &
+                 two*z10CMB*drz10CMB, viscDiss,          &
+                 ohmDiss, powerMA, powerIC, powerDiff,      &
                  eDiffInt/timeNorm
             if ( l_save_out ) close(n_power_file)
          else

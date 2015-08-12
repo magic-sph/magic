@@ -1,7 +1,9 @@
 module cosine_transform
 
+   use precision_mod, only: cp
    use truncation, only: lm_max
    use fft_fac_mod, only: fft_fac_complex, fft_fac_real
+   use const, only: half, one, two
 
    implicit none
 
@@ -32,14 +34,14 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: n_f_max            ! number of columns in f,f2
-      integer,      intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-      integer,      intent(in) :: i_costf_init(*)    ! prestored integers
-      real(kind=8), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: n_f_max            ! number of columns in f,f2
+      integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
+      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
     
       !-- Output variables:
-      complex(kind=8), intent(inout) :: f(n_f_max,*)   ! data/coeff input
-      complex(kind=8), intent(out) :: f2(n_f_max,*)  ! work array of the same size as f
+      complex(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
+      complex(cp), intent(out) :: f2(n_f_max,*)  ! work array of the same size as f
     
       !-- Local variables:
       integer :: n
@@ -56,14 +58,14 @@ contains
       integer :: n_O2_P2 ! n/2+2
     
     
-      complex(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
-      complex(kind=8) :: w_h1,w_h2
-      real(kind=8) :: fac_norm,facn
-      real(kind=8) :: wr_j,wi_j,wr_i,wi_i
+      complex(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+      complex(cp) :: w_h1,w_h2
+      real(cp) :: fac_norm,facn
+      real(cp) :: wr_j,wi_j,wr_i,wi_i
     
       integer :: n_factors,n_fac,fac,fac_tot
     
-      complex(kind=8) :: tot_sum(lm_max)
+      complex(cp) :: tot_sum(lm_max)
     
       if ( n_f_start < 1 ) then
          write(*,*) '! Message from costf1:'
@@ -91,7 +93,7 @@ contains
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).
-      fac_norm=1.d0/dsqrt(8.d0*dble(n))
+      fac_norm=one/sqrt(8.0_cp*real(n,cp))
     
     
       !-- Build auxiliary function for cos transform
@@ -101,7 +103,7 @@ contains
       do n_f=n_f_start,n_f_stop
          tot_sum(n_f)=f(n_f,1)-f(n_f,n_P1)
          f2(n_f,j1)=f(n_f,1)+f(n_f,n_P1)
-         f2(n_f,j2)=2.d0*f(n_f,n_O2_P1)
+         f2(n_f,j2)=two*f(n_f,n_O2_P1)
       end do
     
       do j=1,n/2-3,2    ! step 2 unrolling
@@ -186,7 +188,7 @@ contains
     
       !-- Postprocessing:
       !----- Unscramble two real transforms from the complex transform:
-      facn=2.d0*fac_norm
+      facn=two*fac_norm
       do n_f=n_f_start,n_f_stop
          f_h1=f(n_f,1)
          f(n_f,1)      =facn*(f(n_f,1)+f(n_f,2))
@@ -240,12 +242,12 @@ contains
    subroutine costf1_complex_1d(f,f2,i_costf_init,d_costf_init)
     
       !-- Input variables:
-      integer,      intent(in) :: i_costf_init(*)    ! prestored integers
-      real(kind=8), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
     
       !-- Output variables:
-      complex(kind=8), intent(inout) :: f(*)   ! data/coeff input
-      complex(kind=8), intent(out) :: f2(*)    ! work array of the same size as f
+      complex(cp), intent(inout) :: f(*)   ! data/coeff input
+      complex(cp), intent(out) :: f2(*)    ! work array of the same size as f
     
       !-- Local variables:
       integer :: n
@@ -260,11 +262,11 @@ contains
       integer :: n_O2_P1 ! n/2+1
       integer :: n_O2_P2 ! n/2+2
     
-      complex(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
-      complex(kind=8) :: w_h1,w_h2
-      complex(kind=8) :: tot_sum
-      real(kind=8) :: fac_norm,facn
-      real(kind=8) :: wr_j,wi_j,wr_i,wi_i
+      complex(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+      complex(cp) :: w_h1,w_h2
+      complex(cp) :: tot_sum
+      real(cp) :: fac_norm,facn
+      real(cp) :: wr_j,wi_j,wr_i,wi_i
       integer :: n_factors,n_fac,fac,fac_tot
     
       n=i_costf_init(1)-1
@@ -281,7 +283,7 @@ contains
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).
-      fac_norm=1.d0/dsqrt(8.d0*dble(n))
+      fac_norm=one/sqrt(8.0_cp*real(n,cp))
     
       !-- Build auxiliary function for cos transform
       !   and shuffle data according to k2k in the process:
@@ -290,7 +292,7 @@ contains
       j2=i_costf_init(n_O2_P2)
       tot_sum=f(1)-f(n_P1)
       f2(j1)=f(1)+f(n_P1)
-      f2(j2)=2.d0*f(n_O2_P1)
+      f2(j2)=two*f(n_O2_P1)
     
       do j=1,n/2-3,2    ! step 2 unrolling
          j1=i_costf_init(j+2)    ! first step
@@ -370,7 +372,7 @@ contains
     
       !-- Postprocessing:
       !----- Unscramble two real transforms from the complex transform:
-      facn=2.d0*fac_norm
+      facn=two*fac_norm
       f_h1=f(1)
       f(1)      =facn*(f(1)+f(2))
       f(2)      =facn*(f_h1-f(2))
@@ -420,14 +422,14 @@ contains
       implicit none
     
       !-- Input variables:
-      integer,      intent(in) :: n_f_max            ! number of columns in f,f2
-      integer,      intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-      integer,      intent(in) :: i_costf_init(*)    ! prestored integers
-      real(kind=8), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: n_f_max            ! number of columns in f,f2
+      integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
+      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
     
       !-- Output variables:
-      real(kind=8), intent(inout) :: f(n_f_max,*)   ! data/coeff input
-      real(kind=8), intent(out) :: f2(n_f_max,*)    ! work array of the same size as f
+      real(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
+      real(cp), intent(out) :: f2(n_f_max,*)    ! work array of the same size as f
     
       !-- Local variables:
       integer :: n
@@ -443,14 +445,14 @@ contains
       integer :: n_O2_P1 ! n/2+1
       integer :: n_O2_P2 ! n/2+2
     
-      real(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
-      real(kind=8) :: fac_norm,facn
-      real(kind=8) :: w_h1,w_h2
-      real(kind=8) :: wr_j,wi_j,wr_i,wi_i
+      real(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+      real(cp) :: fac_norm,facn
+      real(cp) :: w_h1,w_h2
+      real(cp) :: wr_j,wi_j,wr_i,wi_i
     
       integer :: n_factors,n_fac,fac,fac_tot
     
-      real(kind=8) :: tot_sum(lm_max_real)
+      real(cp) :: tot_sum(lm_max_real)
     
       if ( n_f_start < 1 ) then
          write(*,*) '! Message from costf1:'
@@ -478,7 +480,7 @@ contains
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).
-      fac_norm=1.d0/dsqrt(8.d0*dble(n))
+      fac_norm=one/sqrt(8.0_cp*real(n,cp))
     
       !-- Build auxiliary function for cos transform
       !   and shuffle data according to k2k in the process:
@@ -487,7 +489,7 @@ contains
       do n_f=n_f_start,n_f_stop
          tot_sum(n_f)=f(n_f,1)-f(n_f,n_P1)
          f2(n_f,j1)=f(n_f,1)+f(n_f,n_P1)
-         f2(n_f,j2)=2.d0*f(n_f,n_O2_P1)
+         f2(n_f,j2)=two*f(n_f,n_O2_P1)
       end do
     
       do j=1,n/2-3,2    ! step 2 unrolling
@@ -572,7 +574,7 @@ contains
     
       !-- Postprocessing:
       !----- Unscramble two real transforms from the complex transform:
-      facn=2.d0*fac_norm
+      facn=two*fac_norm
       do n_f=n_f_start,n_f_stop
          f_h1=f(n_f,1)
          f(n_f,1)      =facn*(f(n_f,1)+f(n_f,2))
@@ -624,12 +626,12 @@ contains
    subroutine costf1_real_1d(f,f2,i_costf_init,d_costf_init)
     
       !-- Input variables:
-      integer,      intent(in) :: i_costf_init(*)    ! prestored integers
-      real(kind=8), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
     
       !-- Output variables:
-      real(kind=8), intent(inout) :: f(*)   ! data/coeff input
-      real(kind=8), intent(out) :: f2(*)    ! work array of the same size as f
+      real(cp), intent(inout) :: f(*)   ! data/coeff input
+      real(cp), intent(out) :: f2(*)    ! work array of the same size as f
     
       !-- Local variables:
       integer :: n
@@ -644,11 +646,11 @@ contains
       integer :: n_O2_P1 ! n/2+1
       integer :: n_O2_P2 ! n/2+2
     
-      real(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
-      real(kind=8) :: fac_norm,facn
-      real(kind=8) :: w_h1,w_h2
-      real(kind=8) :: wr_j,wi_j,wr_i,wi_i
-      real(kind=8) :: tot_sum
+      real(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+      real(cp) :: fac_norm,facn
+      real(cp) :: w_h1,w_h2
+      real(cp) :: wr_j,wi_j,wr_i,wi_i
+      real(cp) :: tot_sum
       integer :: n_factors,n_fac,fac,fac_tot
     
       n=i_costf_init(1)-1
@@ -665,7 +667,7 @@ contains
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).
-      fac_norm=1.d0/dsqrt(8.d0*dble(n))
+      fac_norm=one/sqrt(8.0_cp*real(n,cp))
     
       !-- Build auxiliary function for cos transform
       !   and shuffle data according to k2k in the process:
@@ -674,7 +676,7 @@ contains
       j2=i_costf_init(n_O2_P2)
       tot_sum=f(1)-f(n_P1)
       f2(j1)=f(1)+f(n_P1)
-      f2(j2)=2.d0*f(n_O2_P1)
+      f2(j2)=two*f(n_O2_P1)
     
       do j=1,n/2-3,2    ! step 2 unrolling
          j1=i_costf_init(j+2)    ! first step
@@ -754,7 +756,7 @@ contains
     
       !-- Postprocessing:
       !----- Unscramble two real transforms from the complex transform:
-      facn=2.d0*fac_norm
+      facn=two*fac_norm
       f_h1=f(1)
       f(1)      =facn*(f(1)+f(2))
       f(2)      =facn*(f_h1-f(2))
@@ -810,15 +812,15 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: n_f_max            ! number of columns in y,y2
-      integer,      intent(in) :: n_f_start,n_f_stop ! columns to be transformed
-      integer,      intent(in) :: i_costf_init(*)    ! prestored integers
-      real(kind=8), intent(in) :: d_costf_init(*)    ! prestored dble numbers
-      integer,      intent(in) :: isign     !  = +1 (-1) for forward (backward) transform
+      integer,  intent(in) :: n_f_max            ! number of columns in y,y2
+      integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
+      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: isign     !  = +1 (-1) for forward (backward) transform
 
       !-- Output variables
-      complex(kind=8), intent(inout) :: f(n_f_max,*)   ! data/coeff input
-      complex(kind=8), intent(out) :: f2(n_f_max,*)    ! work array of the same size as y
+      complex(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
+      complex(cp), intent(out) :: f2(n_f_max,*)    ! work array of the same size as y
 
       !-- Local variables:
       logical :: l_f2_data
@@ -833,14 +835,14 @@ contains
       integer :: n_O2_P2 ! n/2+2
       integer :: n_O2_P3 ! n/2+3
 
-      complex(kind=8) :: f_h1,f_h2,f_h3,f_h4 ! help variables
-      complex(kind=8) :: w_h1,w_h2
-      real(kind=8) :: fac_norm,facn
-      real(kind=8) :: wr_j,wi_j,wr_i,wi_i
+      complex(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
+      complex(cp) :: w_h1,w_h2
+      real(cp) :: fac_norm,facn
+      real(cp) :: wr_j,wi_j,wr_i,wi_i
 
       integer :: n_fac,fac,fac_tot,n_factors
 
-      complex(kind=8) :: sum(lm_max)
+      complex(cp) :: sum(lm_max)
 
       n=i_costf_init(1)
 
@@ -857,7 +859,7 @@ contains
       !   usual sqrt(2/n). We have in addition a factor 1/2 from the
       !   pre-processing (sum over two f's) and another factor 1/2 from
       !   post-processing (again sum over two f2's).
-      fac_norm=1.d0/dsqrt(dble(8*n))
+      fac_norm=one/sqrt(real(8*n,cp))
 
       !-- Build auxiliary function for cos transform
       !   and shuffle data according to k2k in the process:
@@ -928,7 +930,7 @@ contains
 
          !----- Postprocessing:
          !----- Unscramble two real transforms from the complex transform:
-         facn=2.d0*fac_norm
+         facn=two*fac_norm
          do n_f=n_f_start,n_f_stop
             f_h1=f(n_f,1)
             f(n_f,1)      =facn*(f_h1+f(n_f,2))
@@ -980,7 +982,7 @@ contains
 
          !----- Initialize recurrence:
          do n_f=n_f_start,n_f_stop
-            sum(n_f)=0.5d0*f(n_f,2)
+            sum(n_f)=half*f(n_f,2)
          end do
 
          !----- Carry out recurrence for odd terms, even terms unchanged:
@@ -1008,7 +1010,7 @@ contains
          end do
 
          do n_f=n_f_start,n_f_stop
-            f(n_f,2)=2.d0*sum(n_f)      ! Write saved f(n) to f(2)
+            f(n_f,2)=two*sum(n_f)      ! Write saved f(n) to f(2)
          end do
 
          do j1=3,n,2
@@ -1032,7 +1034,7 @@ contains
          k2=i_costf_init(3)
          k3=i_costf_init(n_O2_P2)
          k4=i_costf_init(n_O2_P3)
-         facn=2.d0*fac_norm
+         facn=two*fac_norm
          do n_f=n_f_start,n_f_stop
             f_h1=f(n_f,1)
             f2(n_f,k1)=fac_norm*(f(n_f,1)+f(n_f,2))

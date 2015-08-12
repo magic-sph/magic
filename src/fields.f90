@@ -5,6 +5,7 @@ module fields
    !  Common blocks containing the potential fields and their radial
    !  derivatives
    !-----------------------------------------------------------------
+   use precision_mod, only: cp, lip
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
                          n_r_ic_maxMag
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -16,70 +17,70 @@ module fields
    private
  
    !-- Velocity potentials:
-   complex(kind=8), public, allocatable :: w(:,:)
-   complex(kind=8), public, allocatable :: dw(:,:)
-   complex(kind=8), public, allocatable :: ddw(:,:)
-   complex(kind=8), public, allocatable, target :: w_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: w_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
-   complex(kind=8), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
+   complex(cp), public, allocatable :: w(:,:)
+   complex(cp), public, allocatable :: dw(:,:)
+   complex(cp), public, allocatable :: ddw(:,:)
+   complex(cp), public, allocatable, target :: w_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: w_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
+   complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
  
-   complex(kind=8), public, allocatable :: z(:,:)
-   complex(kind=8), public, allocatable :: dz(:,:)
-   complex(kind=8), public, allocatable, target :: z_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: z_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
-   complex(kind=8), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
+   complex(cp), public, allocatable :: z(:,:)
+   complex(cp), public, allocatable :: dz(:,:)
+   complex(cp), public, allocatable, target :: z_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: z_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
+   complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
  
    !-- Pressure and entropy:
-   complex(kind=8), public, allocatable :: s(:,:)
-   complex(kind=8), public, allocatable :: ds(:,:)
-   complex(kind=8), public, allocatable, target :: s_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: s_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
-   complex(kind=8), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
+   complex(cp), public, allocatable :: s(:,:)
+   complex(cp), public, allocatable :: ds(:,:)
+   complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
+   complex(cp), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
  
-   complex(kind=8), public, allocatable :: p(:,:)
-   complex(kind=8), public, allocatable :: dp(:,:)
-   complex(kind=8), public, allocatable, target :: p_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: p_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
-   complex(kind=8), public, pointer :: p_Rloc(:,:), dp_Rloc(:,:)
+   complex(cp), public, allocatable :: p(:,:)
+   complex(cp), public, allocatable :: dp(:,:)
+   complex(cp), public, allocatable, target :: p_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: p_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
+   complex(cp), public, pointer :: p_Rloc(:,:), dp_Rloc(:,:)
  
    !-- Magnetic field potentials:
-   complex(kind=8), public, allocatable :: b(:,:)
-   complex(kind=8), public, allocatable :: db(:,:)
-   complex(kind=8), public, allocatable :: ddb(:,:)
-   complex(kind=8), public, allocatable :: aj(:,:)
-   complex(kind=8), public, allocatable :: dj(:,:)
-   complex(kind=8), public, allocatable :: ddj(:,:)
-   complex(kind=8), public, allocatable, target :: b_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: b_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
-   complex(kind=8), public, pointer :: b_Rloc(:,:), db_Rloc(:,:), ddb_Rloc(:,:)
-   complex(kind=8), public, allocatable, target :: aj_LMloc_container(:,:,:)
-   complex(kind=8), public, allocatable, target :: aj_Rloc_container(:,:,:)
-   complex(kind=8), public, pointer :: aj_LMloc(:,:), dj_LMloc(:,:), ddj_LMloc(:,:)
-   complex(kind=8), public, pointer :: aj_Rloc(:,:), dj_Rloc(:,:)
+   complex(cp), public, allocatable :: b(:,:)
+   complex(cp), public, allocatable :: db(:,:)
+   complex(cp), public, allocatable :: ddb(:,:)
+   complex(cp), public, allocatable :: aj(:,:)
+   complex(cp), public, allocatable :: dj(:,:)
+   complex(cp), public, allocatable :: ddj(:,:)
+   complex(cp), public, allocatable, target :: b_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: b_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
+   complex(cp), public, pointer :: b_Rloc(:,:), db_Rloc(:,:), ddb_Rloc(:,:)
+   complex(cp), public, allocatable, target :: aj_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: aj_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: aj_LMloc(:,:), dj_LMloc(:,:), ddj_LMloc(:,:)
+   complex(cp), public, pointer :: aj_Rloc(:,:), dj_Rloc(:,:)
  
    !-- Magnetic field potentials in inner core:
    !   NOTE: n_r-dimension may be smaller once CHEBFT is addopted
    !         for even chebs
-   complex(kind=8), public, allocatable :: b_ic(:,:)  
-   complex(kind=8), public, allocatable :: db_ic(:,:)
-   complex(kind=8), public, allocatable :: ddb_ic(:,:)
-   complex(kind=8), public, allocatable :: aj_ic(:,:) 
-   complex(kind=8), public, allocatable :: dj_ic(:,:)
-   complex(kind=8), public, allocatable :: ddj_ic(:,:)
-   complex(kind=8), public, allocatable :: b_ic_LMloc(:,:)  
-   complex(kind=8), public, allocatable :: db_ic_LMloc(:,:)
-   complex(kind=8), public, allocatable :: ddb_ic_LMloc(:,:)
-   complex(kind=8), public, allocatable :: aj_ic_LMloc(:,:) 
-   complex(kind=8), public, allocatable :: dj_ic_LMloc(:,:)
-   complex(kind=8), public, allocatable :: ddj_ic_LMloc(:,:)
+   complex(cp), public, allocatable :: b_ic(:,:)  
+   complex(cp), public, allocatable :: db_ic(:,:)
+   complex(cp), public, allocatable :: ddb_ic(:,:)
+   complex(cp), public, allocatable :: aj_ic(:,:) 
+   complex(cp), public, allocatable :: dj_ic(:,:)
+   complex(cp), public, allocatable :: ddj_ic(:,:)
+   complex(cp), public, allocatable :: b_ic_LMloc(:,:)  
+   complex(cp), public, allocatable :: db_ic_LMloc(:,:)
+   complex(cp), public, allocatable :: ddb_ic_LMloc(:,:)
+   complex(cp), public, allocatable :: aj_ic_LMloc(:,:) 
+   complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
+   complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
  
    !-- Rotation rates:
-   real(kind=8), public :: omega_ic,omega_ma
+   real(cp), public :: omega_ic,omega_ma
 
    public :: initialize_fields
 
@@ -87,7 +88,7 @@ contains
 
    subroutine initialize_fields
 
-      integer(kind=8) :: bytes_allocated
+      integer(lip) :: bytes_allocated
 
       bytes_allocated = 0
       !-- Velocity potentials:

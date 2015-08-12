@@ -1,5 +1,6 @@
 module leg_helper_mod
 
+   use precision_mod, only: cp
    use truncation, only: lm_max,l_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
@@ -12,7 +13,7 @@ module leg_helper_mod
    use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
-   use const, only: zero
+   use const, only: zero, one, two
 
    implicit none
 
@@ -22,14 +23,14 @@ module leg_helper_mod
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
-      complex(kind=8), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
-      complex(kind=8), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
-      complex(kind=8), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
+      complex(cp), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
+      complex(cp), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
+      complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
       !----- R-distributed versions of scalar fields (see c_fields.f):
-      complex(kind=8), allocatable :: sR(:), dsR(:), preR(:), dpR(:)
-      real(kind=8), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
-      real(kind=8) :: omegaIC,omegaMA
-      complex(kind=8), allocatable :: bCMB(:)
+      complex(cp), allocatable :: sR(:), dsR(:), preR(:), dpR(:)
+      real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
+      real(cp) :: omegaIC,omegaMA
+      complex(cp), allocatable :: bCMB(:)
  
    contains
  
@@ -104,7 +105,7 @@ contains
     
       !-- Local variables:
       integer :: lm,l,m
-      complex(kind=8) :: dbd
+      complex(cp) :: dbd
     
     
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
@@ -150,9 +151,9 @@ contains
             do lm=2,lm_max
                this%dLhw(lm)=dLh(lm)*w_Rloc(lm,nR)
                this%vhG(lm) =dw_Rloc(lm,nR) - &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=kind(0d0))
+                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
                this%vhC(lm) =dw_Rloc(lm,nR) + &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=kind(0d0))
+                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
             end do
          end if
     
@@ -165,9 +166,9 @@ contains
                this%dLhz(lm)  =dLh(lm)*z_Rloc(lm,nR)
                this%dLhdw(lm) =dLh(lm)*dw_Rloc(lm,nR)
                this%dvhdrG(lm)=ddw_Rloc(lm,nR) - &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=kind(0d0))
+                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
                this%dvhdrC(lm)=ddw_Rloc(lm,nR) + &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=kind(0d0))
+                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
             end do
          end if
     
@@ -183,9 +184,9 @@ contains
          do lm=2,lm_max
             this%dLhb(lm)=dLh(lm)*b_Rloc(lm,nR)
             this%bhG(lm) =db_Rloc(lm,nR) - &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=kind(0d0))
+                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
             this%bhC(lm) =db_Rloc(lm,nR) + &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=kind(0d0))
+                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
          end do
          if ( lGrenoble ) then ! Add dipole imposed by inner core
             lm=lm2(1,0)
@@ -200,17 +201,13 @@ contains
             do lm=2,lm_max
                this%dLhj(lm)=dLh(lm)*aj_Rloc(lm,nR)
                dbd     =or2(nR)*this%dLhb(lm)-ddb_Rloc(lm,nR)
-               this%cbhG(lm)=dj_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd), &
-                                                        kind=kind(0d0))
-               this%cbhC(lm)=dj_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd), &
-                                                        kind=kind(0d0))
+               this%cbhG(lm)=dj_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp)
+               this%cbhC(lm)=dj_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp)
             end do
             if ( lGrenoble ) then ! Add dipole imposed by inner core
                lm=lm2(1,0)
-               this%cbhG(lm)=this%cbhG(lm)+cmplx(0.D0,ddb0(nR), &
-                                                             kind=kind(0d0))
-               this%cbhC(lm)=this%cbhC(lm)-cmplx(0.D0,ddb0(nR), &
-                                                             kind=kind(0d0))
+               this%cbhG(lm)=this%cbhG(lm)+cmplx(0.0_cp,ddb0(nR),kind=cp)
+               this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
             end if
          end if
     
@@ -232,30 +229,28 @@ contains
       !  |   lDeriv=.true. field derivatives required  for curl of field     |
       !  +-------------------------------------------------------------------+
     
-      implicit none
-    
       !-- Input variables:
-      integer,         intent(in) :: lm_max
-      complex(kind=8), intent(in) :: w(lm_max)
-      complex(kind=8), intent(in) :: dw(lm_max)
-      complex(kind=8), intent(in) :: ddw(lm_max)
-      complex(kind=8), intent(in) :: z(lm_max)
-      complex(kind=8), intent(in) :: dz(lm_max)
-      real(kind=8),    intent(in) :: dLh(lm_max)
-      integer,         intent(in) :: l_max,minc
-      real(kind=8),    intent(in) :: r
-      logical,         intent(in) :: lHor
-      logical,         intent(in) :: lDeriv
+      integer,     intent(in) :: lm_max
+      complex(cp), intent(in) :: w(lm_max)
+      complex(cp), intent(in) :: dw(lm_max)
+      complex(cp), intent(in) :: ddw(lm_max)
+      complex(cp), intent(in) :: z(lm_max)
+      complex(cp), intent(in) :: dz(lm_max)
+      real(cp),    intent(in) :: dLh(lm_max)
+      integer,     intent(in) :: l_max,minc
+      real(cp),    intent(in) :: r
+      logical,     intent(in) :: lHor
+      logical,     intent(in) :: lDeriv
     
       !-- Output variable:
-      complex(kind=8), intent(out) :: dLhw(*),dLhz(*)
-      complex(kind=8), intent(out) :: vhG(*),vhC(*)
-      complex(kind=8), intent(out) :: cvhG(*),cvhC(*)
+      complex(cp), intent(out) :: dLhw(*),dLhz(*)
+      complex(cp), intent(out) :: vhG(*),vhC(*)
+      complex(cp), intent(out) :: cvhG(*),cvhC(*)
     
       !-- Local variables:
       integer :: lm,l,m
-      real(kind=8) :: Or_e2
-      complex(kind=8) :: help
+      real(cp) :: Or_e2
+      complex(cp) :: help
     
     
       lm=0
@@ -264,32 +259,32 @@ contains
             lm=lm+1
             dLhw(lm)=dLh(lm)*w(lm)
             if ( lHor ) then
-               vhG(lm) =dw(lm)-cmplx(-aimag(z(lm)),real(z(lm)),kind=kind(0d0))
-               vhC(lm) =dw(lm)+cmplx(-aimag(z(lm)),real(z(lm)),kind=kind(0d0))
+               vhG(lm) =dw(lm)-cmplx(-aimag(z(lm)),real(z(lm)),kind=cp)
+               vhC(lm) =dw(lm)+cmplx(-aimag(z(lm)),real(z(lm)),kind=cp)
             end if
          end do
       end do
-      dLhw(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+      dLhw(1)=zero
       if ( lHor ) then
-         vhG(1) =cmplx(0.D0,0.D0,kind=kind(0d0))
-         vhC(1) =cmplx(0.D0,0.D0,kind=kind(0d0))
+         vhG(1) =zero
+         vhC(1) =zero
       end if
     
       if ( lDeriv ) then
-         Or_e2=1.D0/r**2
+         Or_e2=one/r**2
          lm=0
          do m=0,l_max,minc
             do l=m,l_max
                lm=lm+1
                dLhz(lm)=dLh(lm)*z(lm)
                help=dLh(lm)*Or_e2*w(lm)-ddw(lm)
-               cvhG(lm)=dz(lm)-cmplx(-aimag(help),real(help),kind=kind(0d0))
-               cvhC(lm)=dz(lm)+cmplx(-aimag(help),real(help),kind=kind(0d0))
+               cvhG(lm)=dz(lm)-cmplx(-aimag(help),real(help),kind=cp)
+               cvhC(lm)=dz(lm)+cmplx(-aimag(help),real(help),kind=cp)
             end do
          end do
-         dLhz(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-         cvhG(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-         cvhc(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+         dLhz(1)=zero
+         cvhG(1)=zero
+         cvhc(1)=zero
       end if
     
    end subroutine legPrep
@@ -316,34 +311,34 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: lm_max
-      complex(kind=8), intent(in) :: w(lm_max)
-      complex(kind=8), intent(in) :: dw(lm_max)
-      complex(kind=8), intent(in) :: ddw(lm_max)
-      complex(kind=8), intent(in) :: z(lm_max)
-      complex(kind=8), intent(in) :: dz(lm_max)
-      real(kind=8),    intent(in) :: dLh(lm_max)
-      integer ,        intent(in) :: l_max,minc
-      real(kind=8),    intent(in) :: r,r_ICB
-      logical,         intent(in) :: lHor
-      logical,         intent(in) :: lDeriv
-      logical,         intent(in) :: lCondIC
+      integer,     intent(in) :: lm_max
+      complex(cp), intent(in) :: w(lm_max)
+      complex(cp), intent(in) :: dw(lm_max)
+      complex(cp), intent(in) :: ddw(lm_max)
+      complex(cp), intent(in) :: z(lm_max)
+      complex(cp), intent(in) :: dz(lm_max)
+      real(cp),    intent(in) :: dLh(lm_max)
+      integer ,    intent(in) :: l_max,minc
+      real(cp),    intent(in) :: r,r_ICB
+      logical,     intent(in) :: lHor
+      logical,     intent(in) :: lDeriv
+      logical,     intent(in) :: lCondIC
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: dLhw(lm_max),dLhz(lm_max)
-      complex(kind=8), intent(out) :: vhG(lm_max),vhC(lm_max)
-      complex(kind=8), intent(out) :: cvhG(lm_max),cvhC(lm_max)
+      complex(cp), intent(out) :: dLhw(lm_max),dLhz(lm_max)
+      complex(cp), intent(out) :: vhG(lm_max),vhC(lm_max)
+      complex(cp), intent(out) :: cvhG(lm_max),cvhC(lm_max)
        
       !-- Local variables:
       integer :: lm,l,m
-      complex(kind=8) :: help1,help2
+      complex(cp) :: help1,help2
               
-      real(kind=8) :: rRatio,rDep(0:l_max-1),rDep2(0:l_max-1)
+      real(cp) :: rRatio,rDep(0:l_max-1),rDep2(0:l_max-1)
 
 
       rRatio  =r/r_ICB
       rDep(0) =rRatio
-      rDep2(0)=1.D0/r_ICB ! rDep2=rDep/r
+      rDep2(0)=one/r_ICB ! rDep2=rDep/r
       do l=1,l_max
          rDep(l) =rDep(l-1)*rRatio
          rDep2(l)=rDep2(l-1)*rRatio
@@ -358,8 +353,8 @@ contains
                if ( lCondIC ) then
                   help1=rDep2(l)*((l+1)*w(lm)+r*dw(lm))
                   help2=rDep(l)*z(lm)
-                  vhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=kind(0d0) )
-                  vhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=kind(0d0) )
+                  vhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=cp )
+                  vhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=cp )
                else
                   vhG(lm)=rDep2(l)*(l+1)*w(lm) ! Only poloidal
                   vhC(lm)=vhG(lm)
@@ -367,10 +362,10 @@ contains
             end if
          end do
       end do
-      dLhw(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+      dLhw(1)=zero
       if ( lHor ) then
-         vhG(1) =cmplx(0.D0,0.D0,kind=kind(0d0))
-         vhC(1) =cmplx(0.D0,0.D0,kind=kind(0d0))
+         vhG(1) =zero
+         vhC(1) =zero
       end if
 
       if ( lDeriv ) then
@@ -381,19 +376,19 @@ contains
                if ( lCondIC ) then
                   dLhz(lm)=rDep(l)*dLh(lm)*z(lm)
                   help1=rDep(l)*( (l+1)*z(lm)/r+dz(lm) )
-                  help2=rDep(l)*(-2.D0*(l+1)/r*dw(lm)-ddw(lm))
-                  cvhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=kind(0d0))
-                  cvhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=kind(0d0))
+                  help2=rDep(l)*(-two*(l+1)/r*dw(lm)-ddw(lm))
+                  cvhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=cp)
+                  cvhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=cp)
                else
-                  dLhz(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  cvhG(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  cvhC(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  dLhz(lm)=zero
+                  cvhG(lm)=zero
+                  cvhC(lm)=zero
                end if
             end do
          end do
-         dLhz(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-         cvhG(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-         cvhc(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+         dLhz(1)=zero
+         cvhG(1)=zero
+         cvhc(1)=zero
       end if
 
    end subroutine legPrep_IC

@@ -2,6 +2,7 @@
 #include "intrinsic_sizes.h"
 module readCheckPoints
 
+   use precision_mod, only : cp, lip
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
                          n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
                          minc,lMagMem
@@ -19,7 +20,7 @@ module readCheckPoints
                                cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
-   use const, only: c_z10_omega_ic, c_z10_omega_ma, pi
+   use const, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use init_costf, only: init_costf1
    use cosine_transform, only: costf1
 
@@ -28,7 +29,7 @@ module readCheckPoints
 
    private
 
-   integer(kind=8) :: bytes_allocated=0
+   integer(lip) :: bytes_allocated=0
 
 #ifdef WITH_HDF5
    public :: readStartFields, readHdf5_serial
@@ -50,57 +51,57 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Output:
-      real(kind=8),   intent(out) :: time,dt_old,dt_new
-      integer,        intent(out) :: n_time_step
-      real(kind=8),   intent(out) :: omega_ic,omega_ma
-      real(kind=8),   intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-      complex(kind=8),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: djdt(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
+      real(cp),    intent(out) :: time,dt_old,dt_new
+      integer,     intent(out) :: n_time_step
+      real(cp),    intent(out) :: omega_ic,omega_ma
+      real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
+      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
+      complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
+      complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old
       integer :: n_r_ic_max_old
-      real(kind=8) :: pr_old,ra_old,pm_old
-      real(kind=8) :: ek_old,radratio_old
-      real(kind=8) :: sigma_ratio_old
+      real(cp) :: pr_old,ra_old,pm_old
+      real(cp) :: ek_old,radratio_old
+      real(cp) :: sigma_ratio_old
       integer :: nLMB,lm,lmStart,lmStop,nR,l1m0
       logical :: l_mag_old
       logical :: startfile_does_exist
       logical :: lreadS
       integer :: informOld,ioerr
       integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old,n_dataL
-      integer,allocatable :: lm2lmo(:)
+      integer, allocatable :: lm2lmo(:)
 
-      real(kind=8) :: fr
-      real(kind=8) :: omega_ic1Old,omegaOsz_ic1Old
-      real(kind=8) :: omega_ic2Old,omegaOsz_ic2Old
-      real(kind=8) :: omega_ma1Old,omegaOsz_ma1Old
-      real(kind=8) :: omega_ma2Old,omegaOsz_ma2Old
+      real(cp) :: fr
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
+      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
+      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
-      complex(kind=8),allocatable :: wo(:),zo(:),po(:),so(:)
+      complex(cp), allocatable :: wo(:),zo(:),po(:),so(:)
 
 
       inquire(file=start_file, exist=startfile_does_exist)
     
       if ( startfile_does_exist ) then
-         open(n_start_file,file=start_file,status='OLD',form='unformatted')
+         open(n_start_file, file=start_file, status='old', form='unformatted')
       else
          write(*,*)
          write(*,*) '! The restart file does not exist !'
          stop
       end if
     
-      sigma_ratio_old=0.D0  ! assume non conducting inner core !
+      sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
       if ( inform == -1 ) then ! This is default !
          read(n_start_file)                                         &
               time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
@@ -145,7 +146,7 @@ contains
     
       l_max_old=nalias_old*n_phi_tot_old/60
       l_mag_old=.false.
-      if ( pm_old /= 0.D0 ) l_mag_old= .TRUE. 
+      if ( pm_old /= 0.0_cp ) l_mag_old= .TRUE. 
     
       if ( n_phi_tot_old /= n_phi_tot) &
            write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
@@ -181,7 +182,8 @@ contains
          !     &             (zo(i),i=1,n_data_oldP),                  &
          !     &             (po(i),i=1,n_data_oldP),                  &
          !     &             (so(i),i=1,n_data_oldP)
-         !write(*,"(A,I10,A)") "Reading four fields, each with ",n_data_oldP," double complex entries."
+         !write(*,"(A,I10,A)") "Reading four fields, each with ", &
+         !     &               n_data_oldP," double complex entries."
          read(n_start_file) wo, zo, po, so
       else
          !read(n_start_file) (wo(i),i=1,n_data_oldP),                  &
@@ -191,7 +193,7 @@ contains
       end If
       !PERFOFF
     
-      n_r_maxL = MAX(n_r_max,n_r_max_old)
+      n_r_maxL = max(n_r_max,n_r_max_old)
     
       call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,  &
                         n_r_max_old,lm_max_old,n_r_maxL,  &
@@ -229,14 +231,14 @@ contains
     
       !-- If mapping towards reduced symmetry, add thermal perturbation in
       !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
-      if ( l_heat .and. minc<minc_old .and. tipdipole>0.D0 ) then
+      if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
             lm=l_max+2
             if ( lmStart<=lm .and. lmStop>=lm ) then
                do nR=1,n_r_max+1
-                  fr=dsin(pi*(r(nR)-r(n_r_max)))
+                  fr=sin(pi*(r(nR)-r(n_r_max)))
                   s(lm,nR)=tipdipole*fr
                end do
             end if
@@ -247,7 +249,7 @@ contains
       !   weak non-axisymmetric dipole component if tipdipole  /=  0
       if ( ( l_mag .or. l_mag_LF )                                    &
            &       .and. minc==1 .and. minc_old/=1 .and.                  &
-           &       tipdipole>0.d0 .and. l_mag_old ) then
+           &       tipdipole>0.0_cp .and. l_mag_old ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
@@ -270,7 +272,7 @@ contains
     
       !-- Inner core fields:
       if ( l_mag_old ) then
-         if ( inform >= 2 .and. sigma_ratio_old /= 0.D0 ) then
+         if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
             allocate( lm2lmo(lm_max) )
             call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
                      m_max,minc,minc_old,inform,lm_max,   &
@@ -316,18 +318,18 @@ contains
       !         In this case I set the lorentz torques to zero and
       !         calculate the rotation from the speed at the
       !         boundaries in the case of no slip conditions.
-      omega_ic1Old     =0.D0
-      omegaOsz_ic1Old  =0.D0
-      tOmega_ic1       =0.D0
-      omega_ic2Old     =0.D0
-      omegaOsz_ic2Old  =0.D0
-      tOmega_ic2       =0.D0
-      omega_ma1Old     =0.D0
-      omegaOsz_ma1Old  =0.D0
-      tOmega_ma1       =0.D0
-      omega_ma2Old     =0.D0
-      omegaOsz_ma2Old  =0.D0
-      tOmega_ma2       =0.D0
+      omega_ic1Old     =0.0_cp
+      omegaOsz_ic1Old  =0.0_cp
+      tOmega_ic1       =0.0_cp
+      omega_ic2Old     =0.0_cp
+      omegaOsz_ic2Old  =0.0_cp
+      tOmega_ic2       =0.0_cp
+      omega_ma1Old     =0.0_cp
+      omegaOsz_ma1Old  =0.0_cp
+      tOmega_ma1       =0.0_cp
+      omega_ma2Old     =0.0_cp
+      omegaOsz_ma2Old  =0.0_cp
+      tOmega_ma2       =0.0_cp
       dt_new           =dt_old
       if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
          read(n_start_file,IOSTAT=ioerr) lorentz_torque_ic, &
@@ -376,8 +378,8 @@ contains
          end if
       else
          !-- These could possibly be calcualted from the B-field
-         lorentz_torque_ic=0.D0
-         lorentz_torque_ma=0.D0
+         lorentz_torque_ic=0.0_cp
+         lorentz_torque_ma=0.0_cp
       end if
       if ( inform < 11 ) then
          lorentz_torque_ic=pm_old*lorentz_torque_ic
@@ -424,46 +426,46 @@ contains
       !       l_SRIC=.true. (spherical Couette case)
       l1m0=lm2(1,0)
       if ( l_rot_ic ) then
-         if ( l_SRIC .or. omega_ic1 /= 0.D0 ) then
-            if ( tShift_ic1 == 0.D0 ) tShift_ic1=tOmega_ic1-time
-            if ( tShift_ic2 == 0.D0 ) tShift_ic2=tOmega_ic2-time
+         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
             tOmega_ic1=time+tShift_ic1
             tOmega_ic2=time+tShift_ic2
-            omega_ic=omega_ic1*DCOS(omegaOsz_ic1*tOmega_ic1) + &
-                 omega_ic2*DCOS(omegaOsz_ic2*tOmega_ic2)
+            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                 omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
             write(*,*)
             write(*,*) '! I use prescribed inner core rotation rate:'
             write(*,*) '! omega_ic=',omega_ic
             if ( kbotv == 2 ) &
-                 z(l1m0,n_r_icb)=CMPLX(omega_ic/c_z10_omega_ic,0d0,KIND=KIND(0d0))
+                 z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
          else if ( inform >= 7 ) then
             omega_ic=omega_ic1Old
          end if
       else
-         omega_ic=0.D0
+         omega_ic=0.0_cp
       end if
     
       !----- Mantle rotation, same as for inner core (see above)
       !      exept the l_SRIC case.
       if ( l_rot_ma ) then
-         if ( l_SRMA .or. omega_ma1 /= 0.D0 ) then
-            if ( tShift_ma1 == 0.D0 ) tShift_ma1=tOmega_ma1-time
-            if ( tShift_ma2 == 0.D0 ) tShift_ma2=tOmega_ma2-time
+         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
-            omega_ma=omega_ma1*DCOS(omegaOsz_ma1*tOmega_ma1) + &
-                 omega_ma2*DCOS(omegaOsz_ma2*tOmega_ma2)
+            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                 omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
             write(*,*)
             write(*,*) '! I use prescribed mantle rotation rate:'
             write(*,*) '! omega_ma =',omega_ma
             write(*,*) '! omega_ma1=',omega_ma1
             if ( ktopv == 2 ) &
-                 z(l1m0,n_r_cmb)=CMPLX(omega_ma/c_z10_omega_ma,0d0,KIND=KIND(0d0))
+                 z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
          else if ( inform >= 7 ) then
             omega_ma=omega_ma1Old
          end if
       else
-         omega_ma=0.D0
+         omega_ma=0.0_cp
       end if
     
     
@@ -482,20 +484,20 @@ contains
       use hdf5Helpers, only: readHdf5_attribute
 
       !--- Output variables
-      real(kind=8),   intent(out) :: time,dt_old,dt_new
-      real(kind=8),   intent(out) :: omega_ic,omega_ma
-      real(kind=8),   intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-      complex(kind=8),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: djdt(lm_maxMag,n_r_maxMag)
-      complex(kind=8),intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8),intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
+      real(cp),    intent(out) :: time,dt_old,dt_new
+      real(cp),    intent(out) :: omega_ic,omega_ma
+      real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
+      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
+      complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
+      complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
 
       !--- Local variables
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
@@ -504,20 +506,20 @@ contains
       integer :: l1m0,nLMB,lm,lmStart,lmStop,nR,lm_max_old
       logical :: l_mag_old
 
-      real(kind=8) :: fr
-      real(kind=8) :: pr_old,ra_old,pm_old
-      real(kind=8) :: ek_old,radratio_old
-      real(kind=8) :: sigma_ratio_old
-      real(kind=8) :: omega_ic1Old,omegaOsz_ic1Old
-      real(kind=8) :: omega_ic2Old,omegaOsz_ic2Old
-      real(kind=8) :: omega_ma1Old,omegaOsz_ma1Old
-      real(kind=8) :: omega_ma2Old,omegaOsz_ma2Old
+      real(cp) :: fr
+      real(cp) :: pr_old,ra_old,pm_old
+      real(cp) :: ek_old,radratio_old
+      real(cp) :: sigma_ratio_old
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
+      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
+      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
-      complex(kind=8), allocatable, target :: so(:),wo(:),zo(:),po(:)
+      complex(cp), allocatable, target :: so(:),wo(:),zo(:),po(:)
 
       type(C_PTR) :: f_ptr
 
-      integer,allocatable :: lm2lmo(:)
+      integer, allocatable :: lm2lmo(:)
 
       !--- HDF5 file
       integer(HID_T) :: file_id
@@ -603,7 +605,7 @@ contains
 
       l_max_old=nalias_old*n_phi_tot_old/60
       l_mag_old=.false.
-      if ( pm_old /= 0.D0 ) l_mag_old= .TRUE.
+      if ( pm_old /= 0.0_cp ) l_mag_old= .TRUE.
 
       if ( n_phi_tot_old /= n_phi_tot) &
          write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
@@ -705,14 +707,14 @@ contains
 
       !-- If mapping towards reduced symmetry, add thermal perturbation in
       !   mode (l,m)=(minc,minc) if parameter tipdipole /= 0
-      if ( l_heat .and.  minc < minc_old .and. tipdipole > 0.D0 ) then
+      if ( l_heat .and.  minc < minc_old .and. tipdipole > 0.0_cp ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
             lm=l_max+2
             if ( lmStart <= lm .and. lmStop >= lm ) then
                do nR=1,n_r_max+1
-                  fr=dsin(pi*(r(nR)-r(n_r_max)))
+                  fr=sin(pi*(r(nR)-r(n_r_max)))
                   s(lm,nR)=tipdipole*fr
                end do
             end if
@@ -723,7 +725,7 @@ contains
       !   weak non-axisymmetric dipole component if tipdipole /= 0
       if ( ( l_mag .or. l_mag_LF )                                    &
           &       .and. minc==1 .and. minc_old/=1 .and.               &
-          &       tipdipole>0.d0 .and. l_mag_old ) then
+          &       tipdipole>0.0_cp .and. l_mag_old ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
@@ -742,7 +744,7 @@ contains
       !bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
 
       if ( l_mag_old ) then
-         if ( sigma_ratio_old /= 0.D0 ) then
+         if ( sigma_ratio_old /= 0.0_cp ) then
             allocate( lm2lmo(lm_max) )
             call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
                                  m_max,minc,minc_old,inform,lm_max,   &
@@ -810,18 +812,18 @@ contains
       !         In this case I set the lorentz torques to zero and
       !         calculate the rotation from the speed at the
       !         boundaries in the case of no slip conditions.
-      omega_ic1Old     =0.D0
-      omegaOsz_ic1Old  =0.D0
-      tOmega_ic1       =0.D0
-      omega_ic2Old     =0.D0
-      omegaOsz_ic2Old  =0.D0
-      tOmega_ic2       =0.D0
-      omega_ma1Old     =0.D0
-      omegaOsz_ma1Old  =0.D0
-      tOmega_ma1       =0.D0
-      omega_ma2Old     =0.D0
-      omegaOsz_ma2Old  =0.D0
-      tOmega_ma2       =0.D0
+      omega_ic1Old     =0.0_cp
+      omegaOsz_ic1Old  =0.0_cp
+      tOmega_ic1       =0.0_cp
+      omega_ic2Old     =0.0_cp
+      omegaOsz_ic2Old  =0.0_cp
+      tOmega_ic2       =0.0_cp
+      omega_ma1Old     =0.0_cp
+      omegaOsz_ma1Old  =0.0_cp
+      tOmega_ma1       =0.0_cp
+      omega_ma2Old     =0.0_cp
+      omegaOsz_ma2Old  =0.0_cp
+      tOmega_ma2       =0.0_cp
       dt_new           =dt_old
 
       ! Open group for control parameters and read attributes
@@ -885,46 +887,46 @@ contains
       !----- Set IC and mantle rotation rates:
       l1m0=lm2(1,0)
       if ( l_rot_ic ) then
-         if ( l_SRIC .or. omega_ic1 /= 0.D0 ) then
-            if ( tShift_ic1 == 0.D0 ) tShift_ic1=tOmega_ic1-time
-            if ( tShift_ic2 == 0.D0 ) tShift_ic2=tOmega_ic2-time
+         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
             tOmega_ic1=time+tShift_ic1
             tOmega_ic2=time+tShift_ic2
-            omega_ic=omega_ic1*DCOS(omegaOsz_ic1*tOmega_ic1) + &
-                     omega_ic2*DCOS(omegaOsz_ic2*tOmega_ic2)
+            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                     omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
             write(*,*)
             write(*,*) '! I use prescribed inner core rotation rate:'
             write(*,*) '! omega_ic=',omega_ic
             if ( kbotv == 2 ) &
-               z(l1m0,n_r_icb)=CMPLX(omega_ic/c_z10_omega_ic,0d0,KIND=KIND(0d0))
+               z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
          else if ( inform >= 7 ) then
             omega_ic=omega_ic1Old
          end if
       else
-         omega_ic=0.D0
+         omega_ic=0.0_cp
       end if
 
       !----- Mantle rotation, same as for inner core (see above)
       !      exept the l_SRIC case.
       if ( l_rot_ma ) then
-         if ( l_SRMA .or. omega_ma1 /= 0.D0 ) then
-            if ( tShift_ma1 == 0.D0 ) tShift_ma1=tOmega_ma1-time
-            if ( tShift_ma2 == 0.D0 ) tShift_ma2=tOmega_ma2-time
+         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
-            omega_ma=omega_ma1*DCOS(omegaOsz_ma1*tOmega_ma1) + &
-                     omega_ma2*DCOS(omegaOsz_ma2*tOmega_ma2)
+            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
             write(*,*)
             write(*,*) '! I use prescribed mantle rotation rate:'
             write(*,*) '! omega_ma =',omega_ma
             write(*,*) '! omega_ma1=',omega_ma1
             if ( ktopv == 2 ) &
-               z(l1m0,n_r_cmb)=CMPLX(omega_ma/c_z10_omega_ma,0d0,KIND=KIND(0d0))
+               z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
          else if ( inform >= 7 ) then
             omega_ma=omega_ma1Old
          end if
       else
-         omega_ma=0.D0
+         omega_ma=0.0_cp
       end if
 
    end subroutine readHdf5_serial
@@ -1026,17 +1028,17 @@ contains
       integer,         intent(in) :: n_r_maxL,n_data_oldP
       logical,         intent(in) :: lbc1,lbc2,lbc3,lbc4
       integer,         intent(in) :: lm2lmo(lm_max)
-      complex(kind=8), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
-      complex(kind=8), intent(in) :: po(n_data_oldP),so(n_data_oldP)
+      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
+      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
 
       !--- Output variables
-      complex(kind=8),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(kind=8),intent(out) :: p(lm_max,n_r_max),s(lm_max,n_r_max)
+      complex(cp),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
+      complex(cp),intent(out) :: p(lm_max,n_r_max),s(lm_max,n_r_max)
 
       !--- Local variables
       integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
-      complex(kind=8),allocatable :: woR(:),zoR(:)
-      complex(kind=8),allocatable :: poR(:),soR(:)
+      complex(cp),allocatable :: woR(:),zoR(:)
+      complex(cp),allocatable :: poR(:),soR(:)
 
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
@@ -1104,16 +1106,16 @@ contains
       integer,         intent(in) :: n_r_maxL,n_data_oldP,dim1
       integer,         intent(in) :: lm2lmo(lm_max)
       logical,         intent(in) :: l_IC
-      complex(kind=8), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
-      complex(kind=8), intent(in) :: po(n_data_oldP),so(n_data_oldP)
+      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
+      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
 
       !--- Output variables
-      complex(kind=8),intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
-      complex(kind=8),intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
+      complex(cp),intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
+      complex(cp),intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
       integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
-      complex(kind=8),allocatable :: woR(:),zoR(:),poR(:),soR(:)
+      complex(cp),allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
@@ -1183,14 +1185,14 @@ contains
       logical,         intent(in) :: lBc,l_IC
 
       !--- Output variables
-      complex(kind=8), intent(out) :: dataR(:)  ! old data 
+      complex(cp), intent(out) :: dataR(:)  ! old data 
 
       !-- Local variables
       integer :: nR, n_r_index_start
       integer,      allocatable :: i_costf_init_old(:)
-      real(kind=8), allocatable :: d_costf_init_old(:)
-      complex(kind=8), allocatable :: work(:)
-      real(kind=8) :: cheb_norm_old,scale
+      real(cp), allocatable :: d_costf_init_old(:)
+      complex(cp), allocatable :: work(:)
+      real(cp) :: cheb_norm_old,scale
 
       allocate( i_costf_init_old(2*n_r_maxL+2) )
       allocate( d_costf_init_old(2*n_r_maxL+5) )
@@ -1202,8 +1204,8 @@ contains
 
       !-- Guess the boundary values, since they have not been stored:
       if ( .not. l_IC .and. lBc ) then
-         dataR(1)=2.D0*dataR(2)-dataR(3)
-         dataR(n_r_max_old)=2.D0*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
+         dataR(1)=two*dataR(2)-dataR(3)
+         dataR(n_r_max_old)=two*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
       end if
 
       !----- Transform old data to cheb space:
@@ -1218,7 +1220,7 @@ contains
             n_r_index_start=n_r_max_old+1
          end if
          do nR=n_r_index_start,n_rad_tot
-            dataR(nR)=CMPLX(0.D0,0.D0,KIND=KIND(0d0))
+            dataR(nR)=zero
          end do
       end if
     
@@ -1227,12 +1229,12 @@ contains
       if ( l_IC ) then
          call costf1(dataR,work,i_costf1_ic_init,d_costf1_ic_init)
          !----- Rescale :
-         cheb_norm_old=DSQRT(2.D0/DBLE(n_r_max_old-1))
+         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
          scale=cheb_norm_old/cheb_norm_ic
       else
          call costf1(dataR,work,i_costf_init,d_costf_init)
          !----- Rescale :
-         cheb_norm_old=DSQRT(2.D0/DBLE(n_r_max_old-1))
+         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
          scale=cheb_norm_old/cheb_norm
       end if
       do nR=1,n_rad_tot

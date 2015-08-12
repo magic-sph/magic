@@ -1,6 +1,8 @@
 !$Id$
 module spectra
+
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_ic_max, l_max, minc
    use radial_data, only: n_r_cmb, n_r_icb
@@ -18,30 +20,30 @@ module spectra
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use useful, only: cc2real, cc22real, safeOpen, safeClose
    use integration, only: rInt_R, rIntIC, rInt
-   use const, only: pi, vol_oc
+   use const, only: pi, vol_oc, half, one, four
 
    implicit none
   
    private
  
-   real(kind=8),allocatable :: e_p_l_ave(:),e_p_m_ave(:)
-   real(kind=8),allocatable :: e_p2_l_ave(:),e_p2_m_ave(:)
-   real(kind=8),allocatable :: e_t_l_ave(:),e_t_m_ave(:)
-   real(kind=8),allocatable :: e_t2_l_ave(:),e_t2_m_ave(:)
-   real(kind=8),allocatable :: e_cmb_l_ave(:),e_cmb_m_ave(:)
-   real(kind=8),allocatable :: e_cmb2_l_ave(:),e_cmb2_m_ave(:)
+   real(cp), allocatable :: e_p_l_ave(:),e_p_m_ave(:)
+   real(cp), allocatable :: e_p2_l_ave(:),e_p2_m_ave(:)
+   real(cp), allocatable :: e_t_l_ave(:),e_t_m_ave(:)
+   real(cp), allocatable :: e_t2_l_ave(:),e_t2_m_ave(:)
+   real(cp), allocatable :: e_cmb_l_ave(:),e_cmb_m_ave(:)
+   real(cp), allocatable :: e_cmb2_l_ave(:),e_cmb2_m_ave(:)
  
-   real(kind=8),allocatable :: ek_p_l_ave(:),ek_p_m_ave(:)
-   real(kind=8),allocatable :: ek_p2_l_ave(:),ek_p2_m_ave(:)
-   real(kind=8),allocatable :: ek_t_l_ave(:),ek_t_m_ave(:)
-   real(kind=8),allocatable :: ek_t2_l_ave(:),ek_t2_m_ave(:)
+   real(cp), allocatable :: ek_p_l_ave(:),ek_p_m_ave(:)
+   real(cp), allocatable :: ek_p2_l_ave(:),ek_p2_m_ave(:)
+   real(cp), allocatable :: ek_t_l_ave(:),ek_t_m_ave(:)
+   real(cp), allocatable :: ek_t2_l_ave(:),ek_t2_m_ave(:)
 
-   real(kind=8),allocatable :: T_ave(:)
-   real(kind=8),allocatable :: T_ICB_ave(:)
-   real(kind=8),allocatable :: dT_ICB_ave(:)
-   real(kind=8),allocatable :: T2_ave(:)
-   real(kind=8),allocatable :: T_ICB2_ave(:)
-   real(kind=8),allocatable :: dT_ICB2_ave(:)
+   real(cp), allocatable :: T_ave(:)
+   real(cp), allocatable :: T_ICB_ave(:)
+   real(cp), allocatable :: dT_ICB_ave(:)
+   real(cp), allocatable :: T2_ave(:)
+   real(cp), allocatable :: T_ICB2_ave(:)
+   real(cp), allocatable :: dT_ICB2_ave(:)
  
    public :: initialize_spectra, spectrum, spectrum_average, &
              spectrum_temp, spectrum_temp_average
@@ -76,46 +78,45 @@ contains
    subroutine spectrum_average(n_time_ave,l_stop_time,             &
        &                      time_passed,time_norm,b,aj,db,BV)
 
-      !-- Direct input:
+      !-- Input variables:
       integer,          intent(in) :: n_time_ave
       logical,          intent(in) :: l_stop_time
-      real(kind=8),     intent(in) :: time_passed
-      real(kind=8),     intent(in) :: time_norm
-
-      complex(kind=8),  intent(in) :: b(llm:ulm,n_r_max)
-      complex(kind=8),  intent(in) :: aj(llm:ulm,n_r_max)
-      complex(kind=8),  intent(in) :: db(llm:ulm,n_r_max)
+      real(cp),         intent(in) :: time_passed
+      real(cp),         intent(in) :: time_norm
+      complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: db(llm:ulm,n_r_max)
       character(len=1), intent(in) :: BV
 
-      !-- output: 
-      real(kind=8) :: e_p_l(0:l_max),e_t_l(0:l_max)
-      real(kind=8) :: e_cmb_l(0:l_max)
-      real(kind=8) :: e_p_m(0:l_max),e_t_m(0:l_max)
-      real(kind=8) :: e_cmb_m(0:l_max)
+      !-- Output variables: 
+      real(cp) :: e_p_l(0:l_max),e_t_l(0:l_max)
+      real(cp) :: e_cmb_l(0:l_max)
+      real(cp) :: e_p_m(0:l_max),e_t_m(0:l_max)
+      real(cp) :: e_cmb_m(0:l_max)
 
-      !-- local:
+      !-- Local variables:
       character(len=85) :: outFile
       integer :: nOut
       integer :: nR,lm,l,m,ierr
 
-      real(kind=8) :: e_p_temp,e_t_temp
-      real(kind=8) :: fac
-      real(kind=8) :: dt_norm
-      real(kind=8) :: SDp_l,SDp_m,SDt_l,SDt_m,SDcmb_l,SDcmb_m
+      real(cp) :: e_p_temp,e_t_temp
+      real(cp) :: fac
+      real(cp) :: dt_norm
+      real(cp) :: SDp_l,SDp_m,SDt_l,SDt_m,SDcmb_l,SDcmb_m
 
-      real(kind=8) :: e_p_r_l(n_r_max,0:l_max),e_p_r_l_global(n_r_max,0:l_max)
-      real(kind=8) :: e_t_r_l(n_r_max,0:l_max),e_t_r_l_global(n_r_max,0:l_max)
-      real(kind=8) :: e_p_r_m(n_r_max,0:l_max),e_p_r_m_global(n_r_max,0:l_max)
-      real(kind=8) :: e_t_r_m(n_r_max,0:l_max),e_t_r_m_global(n_r_max,0:l_max)
+      real(cp) :: e_p_r_l(n_r_max,0:l_max),e_p_r_l_global(n_r_max,0:l_max)
+      real(cp) :: e_t_r_l(n_r_max,0:l_max),e_t_r_l_global(n_r_max,0:l_max)
+      real(cp) :: e_p_r_m(n_r_max,0:l_max),e_p_r_m_global(n_r_max,0:l_max)
+      real(cp) :: e_t_r_m(n_r_max,0:l_max),e_t_r_m_global(n_r_max,0:l_max)
 
       if ( BV == 'V' ) then ! kinetic spectrum (correction of density)
 
          do nR=1,n_r_max
             do l=0,l_max
-               e_p_r_l(nR,l)=0.D0
-               e_t_r_l(nR,l)=0.D0
-               e_p_r_m(nR,l)=0.D0
-               e_t_r_m(nR,l)=0.D0
+               e_p_r_l(nR,l)=0.0_cp
+               e_t_r_l(nR,l)=0.0_cp
+               e_p_r_m(nR,l)=0.0_cp
+               e_t_r_m(nR,l)=0.0_cp
             end do
             !do lm=2,lm_max
             do lm=max(llm,2),ulm
@@ -136,10 +137,10 @@ contains
 
          do nR=1,n_r_max
             do l=0,l_max
-               e_p_r_l(nR,l)=0.D0
-               e_t_r_l(nR,l)=0.D0
-               e_p_r_m(nR,l)=0.D0
-               e_t_r_m(nR,l)=0.D0
+               e_p_r_l(nR,l)=0.0_cp
+               e_t_r_l(nR,l)=0.0_cp
+               e_p_r_m(nR,l)=0.0_cp
+               e_t_r_m(nR,l)=0.0_cp
             end do
             do lm=max(2,llm),ulm
                l =lo_map%lm2l(lm)
@@ -169,7 +170,7 @@ contains
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
-         fac=0.5D0*eScale
+         fac=half*eScale
          if ( BV == 'B' ) fac=fac*LFfac
          do l=0,l_max
             e_p_l(l)  =fac*rInt_R(e_p_r_l_global(1,l),n_r_max,n_r_max,drx,   &
@@ -247,7 +248,7 @@ contains
          if ( l_stop_time .or. mod(n_time_ave,10) == 0 ) then
 
             !------ Output:
-            dt_norm=1.d0/time_norm
+            dt_norm=one/time_norm
             if ( BV == 'B' ) then
                outFile='mag_spec_ave.'//TAG
             else if ( BV == 'V' ) then
@@ -266,8 +267,9 @@ contains
                   SDt_m = get_standard_deviation(dt_norm,e_t_m_ave(l),e_t2_m_ave(l))
                   SDcmb_l=get_standard_deviation(dt_norm,e_cmb_l_ave(l),e_cmb2_l_ave(l))
                   SDcmb_m=get_standard_deviation(dt_norm,e_cmb_m_ave(l),e_cmb2_m_ave(l))
-                  !write(*,"(A,I4,5ES22.14)") "SDcmb_m = ",l,dt_norm,SDcmb_m,dt_norm*e_cmb2_m_ave(l),&
-                  !     & (dt_norm*e_cmb_m_ave(l))**2,&
+                  !write(*,"(A,I4,5ES22.14)") "SDcmb_m = ",l,dt_norm,SDcmb_m, &
+                  !     &  dt_norm*e_cmb2_m_ave(l),    &
+                  !     & (dt_norm*e_cmb_m_ave(l))**2, &
                   !     & dt_norm*e_cmb2_m_ave(l) - (dt_norm*e_cmb_m_ave(l))**2
                   write(93,'(2X,1P,I4,16D12.4)') l,                           &
                        &  dt_norm*e_p_l_ave(l),   dt_norm*e_p_m_ave(l),       &
@@ -309,18 +311,18 @@ contains
 
    end subroutine spectrum_average
 !----------------------------------------------------------------------------
-   real(kind=8) function get_standard_deviation(dt_norm,mean,sum_of_squares) result(stdev)
-      real(kind=8), intent(in) :: dt_norm,mean,sum_of_squares
+   real(cp) function get_standard_deviation(dt_norm,mean,sum_of_squares) result(stdev)
+      real(cp), intent(in) :: dt_norm,mean,sum_of_squares
 
-      real(kind=8) :: mean2,variance
-      real(kind=8), parameter :: tolerance = 5.0D0*epsilon(1.0D0)
+      real(cp) :: mean2,variance
+      real(cp), parameter :: tolerance = 5.0_cp*epsilon(one)
 
       mean2    = (dt_norm*mean)**2
-      variance = dabs(dt_norm*sum_of_squares - mean2 )
+      variance = abs(dt_norm*sum_of_squares - mean2 )
       if (variance/mean2 < tolerance) then
-         stdev = 0.0D0
+         stdev = 0.0_cp
       else
-         stdev = dsqrt(variance)
+         stdev = sqrt(variance)
       end if
    end function get_standard_deviation
 !----------------------------------------------------------------------------
@@ -338,102 +340,102 @@ contains
       !--------------------------------------------------------------------
     
       !-- Input of variables:
-      integer,         intent(in) :: n_spec     ! number of spectrum/call, file
-      real(kind=8),    intent(in) :: time
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,     intent(in) :: n_spec     ! number of spectrum/call, file
+      real(cp),    intent(in) :: time
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
     
       !-- Output:
-      real(kind=8) :: b_rms
-      real(kind=8) :: e_mag_p_l(l_max),e_mag_t_l(l_max)
-      real(kind=8) :: e_kin_p_l(l_max),e_kin_t_l(l_max)
-      real(kind=8) :: e_mag_p_ic_l(l_max),e_mag_t_ic_l(l_max)
-      real(kind=8) :: u2_p_l(l_max),u2_t_l(l_max)
+      real(cp) :: b_rms
+      real(cp) :: e_mag_p_l(l_max),e_mag_t_l(l_max)
+      real(cp) :: e_kin_p_l(l_max),e_kin_t_l(l_max)
+      real(cp) :: e_mag_p_ic_l(l_max),e_mag_t_ic_l(l_max)
+      real(cp) :: u2_p_l(l_max),u2_t_l(l_max)
     
-      real(kind=8) :: e_mag_p_m(l_max+1),e_mag_t_m(l_max+1)
-      real(kind=8) :: e_kin_p_m(l_max+1),e_kin_t_m(l_max+1)
-      real(kind=8) :: e_mag_p_ic_m(l_max+1),e_mag_t_ic_m(l_max+1)
-      real(kind=8) :: u2_p_m(l_max+1),u2_t_m(l_max+1)
+      real(cp) :: e_mag_p_m(l_max+1),e_mag_t_m(l_max+1)
+      real(cp) :: e_kin_p_m(l_max+1),e_kin_t_m(l_max+1)
+      real(cp) :: e_mag_p_ic_m(l_max+1),e_mag_t_ic_m(l_max+1)
+      real(cp) :: u2_p_m(l_max+1),u2_t_m(l_max+1)
     
-      real(kind=8) :: e_mag_cmb_l(l_max)
-      real(kind=8) :: e_mag_cmb_m(l_max+1)
-      real(kind=8) :: e_kin_nearSurf_l(l_max)
-      real(kind=8) :: e_kin_nearSurf_m(l_max+1)
+      real(cp) :: e_mag_cmb_l(l_max)
+      real(cp) :: e_mag_cmb_m(l_max+1)
+      real(cp) :: e_kin_nearSurf_l(l_max)
+      real(cp) :: e_kin_nearSurf_m(l_max+1)
     
-      real(kind=8) :: eCMB(l_max),eCMB_global(l_max)
+      real(cp) :: eCMB(l_max),eCMB_global(l_max)
     
       !-- local:
       character(len=14) :: string
       character(len=72) :: mag_spec_file,kin_spec_file,u2_spec_file
       integer :: n_r,lm,ml,l,mc,m,n_const
     
-      real(kind=8) :: r_ratio,O_r_icb_E_2
-      real(kind=8) :: e_mag_p_temp,e_mag_t_temp
-      real(kind=8) :: e_kin_p_temp,e_kin_t_temp
-      real(kind=8) :: u2_p_temp,u2_t_temp
-      real(kind=8) :: O_surface
-      real(kind=8) :: fac_mag,fac_kin
-      real(kind=8) :: nearSurfR
+      real(cp) :: r_ratio,O_r_icb_E_2
+      real(cp) :: e_mag_p_temp,e_mag_t_temp
+      real(cp) :: e_kin_p_temp,e_kin_t_temp
+      real(cp) :: u2_p_temp,u2_t_temp
+      real(cp) :: O_surface
+      real(cp) :: fac_mag,fac_kin
+      real(cp) :: nearSurfR
     
-      real(kind=8) :: e_mag_p_r_l(n_r_max,l_max),e_mag_p_r_l_global(n_r_max,l_max)
-      real(kind=8) :: e_mag_t_r_l(n_r_max,l_max),e_mag_t_r_l_global(n_r_max,l_max)
-      real(kind=8) :: e_kin_p_r_l(n_r_max,l_max),e_kin_p_r_l_global(n_r_max,l_max)
-      real(kind=8) :: e_kin_t_r_l(n_r_max,l_max),e_kin_t_r_l_global(n_r_max,l_max)
-      real(kind=8) :: u2_p_r_l(n_r_max,l_max),u2_p_r_l_global(n_r_max,l_max)
-      real(kind=8) :: u2_t_r_l(n_r_max,l_max),u2_t_r_l_global(n_r_max,l_max)
-      real(kind=8) :: e_mag_p_r_m(n_r_max,l_max+1),e_mag_p_r_m_global(n_r_max,l_max+1)
-      real(kind=8) :: e_mag_t_r_m(n_r_max,l_max+1),e_mag_t_r_m_global(n_r_max,l_max+1)
-      real(kind=8) :: e_kin_p_r_m(n_r_max,l_max+1),e_kin_p_r_m_global(n_r_max,l_max+1)
-      real(kind=8) :: e_kin_t_r_m(n_r_max,l_max+1),e_kin_t_r_m_global(n_r_max,l_max+1)
-      real(kind=8) :: u2_p_r_m(n_r_max,l_max+1),u2_p_r_m_global(n_r_max,l_max+1)
-      real(kind=8) :: u2_t_r_m(n_r_max,l_max+1),u2_t_r_m_global(n_r_max,l_max+1)
+      real(cp) :: e_mag_p_r_l(n_r_max,l_max),e_mag_p_r_l_global(n_r_max,l_max)
+      real(cp) :: e_mag_t_r_l(n_r_max,l_max),e_mag_t_r_l_global(n_r_max,l_max)
+      real(cp) :: e_kin_p_r_l(n_r_max,l_max),e_kin_p_r_l_global(n_r_max,l_max)
+      real(cp) :: e_kin_t_r_l(n_r_max,l_max),e_kin_t_r_l_global(n_r_max,l_max)
+      real(cp) :: u2_p_r_l(n_r_max,l_max),u2_p_r_l_global(n_r_max,l_max)
+      real(cp) :: u2_t_r_l(n_r_max,l_max),u2_t_r_l_global(n_r_max,l_max)
+      real(cp) :: e_mag_p_r_m(n_r_max,l_max+1),e_mag_p_r_m_global(n_r_max,l_max+1)
+      real(cp) :: e_mag_t_r_m(n_r_max,l_max+1),e_mag_t_r_m_global(n_r_max,l_max+1)
+      real(cp) :: e_kin_p_r_m(n_r_max,l_max+1),e_kin_p_r_m_global(n_r_max,l_max+1)
+      real(cp) :: e_kin_t_r_m(n_r_max,l_max+1),e_kin_t_r_m_global(n_r_max,l_max+1)
+      real(cp) :: u2_p_r_m(n_r_max,l_max+1),u2_p_r_m_global(n_r_max,l_max+1)
+      real(cp) :: u2_t_r_m(n_r_max,l_max+1),u2_t_r_m_global(n_r_max,l_max+1)
     
-      real(kind=8) :: e_mag_p_ic_r_l(n_r_ic_max,l_max)
-      real(kind=8) :: e_mag_p_ic_r_l_global(n_r_ic_max,l_max)
-      real(kind=8) :: e_mag_t_ic_r_l(n_r_ic_max,l_max)
-      real(kind=8) :: e_mag_t_ic_r_l_global(n_r_ic_max,l_max)
-      real(kind=8) :: e_mag_p_ic_r_m(n_r_ic_max,l_max+1)
-      real(kind=8) :: e_mag_p_ic_r_m_global(n_r_ic_max,l_max+1)
-      real(kind=8) :: e_mag_t_ic_r_m(n_r_ic_max,l_max+1)
-      real(kind=8) :: e_mag_t_ic_r_m_global(n_r_ic_max,l_max+1)
+      real(cp) :: e_mag_p_ic_r_l(n_r_ic_max,l_max)
+      real(cp) :: e_mag_p_ic_r_l_global(n_r_ic_max,l_max)
+      real(cp) :: e_mag_t_ic_r_l(n_r_ic_max,l_max)
+      real(cp) :: e_mag_t_ic_r_l_global(n_r_ic_max,l_max)
+      real(cp) :: e_mag_p_ic_r_m(n_r_ic_max,l_max+1)
+      real(cp) :: e_mag_p_ic_r_m_global(n_r_ic_max,l_max+1)
+      real(cp) :: e_mag_t_ic_r_m(n_r_ic_max,l_max+1)
+      real(cp) :: e_mag_t_ic_r_m_global(n_r_ic_max,l_max+1)
     
-      complex(kind=8) :: r_dr_b
+      complex(cp) :: r_dr_b
     
     
-      eCMB=0.0d0
+      eCMB=0.0_cp
     
       do n_r=1,n_r_max
     
          do l=1,l_max
             if ( l_mag ) then
-               e_mag_p_r_l(n_r,l)=0.d0
-               e_mag_t_r_l(n_r,l)=0.d0
+               e_mag_p_r_l(n_r,l)=0.0_cp
+               e_mag_t_r_l(n_r,l)=0.0_cp
             end if
             if ( l_anel ) then
-               u2_p_r_l(n_r,l)=0.d0
-               u2_t_r_l(n_r,l)=0.d0
+               u2_p_r_l(n_r,l)=0.0_cp
+               u2_t_r_l(n_r,l)=0.0_cp
             end if
-            e_kin_p_r_l(n_r,l)=0.d0
-            e_kin_t_r_l(n_r,l)=0.d0
+            e_kin_p_r_l(n_r,l)=0.0_cp
+            e_kin_t_r_l(n_r,l)=0.0_cp
          end do
          do mc=1,l_max+1
             if ( l_mag ) then
-               e_mag_p_r_m(n_r,mc)=0.d0
-               e_mag_t_r_m(n_r,mc)=0.d0
+               e_mag_p_r_m(n_r,mc)=0.0_cp
+               e_mag_t_r_m(n_r,mc)=0.0_cp
             end if
             if ( l_anel ) then
-               u2_p_r_m(n_r,mc)=0.d0
-               u2_t_r_m(n_r,mc)=0.d0
+               u2_p_r_m(n_r,mc)=0.0_cp
+               u2_t_r_m(n_r,mc)=0.0_cp
             end if
-            e_kin_p_r_m(n_r,mc)=0.d0
-            e_kin_t_r_m(n_r,mc)=0.d0
+            e_kin_p_r_m(n_r,mc)=0.0_cp
+            e_kin_t_r_m(n_r,mc)=0.0_cp
          end do
     
          !do lm=2,lm_max
@@ -545,15 +547,15 @@ contains
     
       if ( rank == 0 ) then
          !-- Save CMB energy spectra:
-         O_surface=1.d0/(4.d0*pi*r(1)*r(1))
+         O_surface=one/(four*pi*r(1)*r(1))
     
          if ( l_mag ) then
-            b_rms=0.d0
+            b_rms=0.0_cp
             do l=1,l_max
                e_mag_cmb_l(l)=e_mag_p_r_l_global(1,l)
                b_rms=b_rms + e_mag_cmb_l(l)
             end do
-            b_rms=dsqrt(b_rms*O_surface)
+            b_rms=sqrt(b_rms*O_surface)
             do mc=1,l_max+1
                e_mag_cmb_m(mc)=e_mag_p_r_m_global(1,mc)
             end do
@@ -616,16 +618,16 @@ contains
     
       if ( l_cond_ic ) then
     
-         O_r_icb_E_2=1.d0/(r_ic(1)*r_ic(1))
+         O_r_icb_E_2=one/(r_ic(1)*r_ic(1))
          do n_r=1,n_r_ic_max
             r_ratio=r_ic(n_r)/r_ic(1)
             do mc=1,l_max+1
-               e_mag_p_ic_r_m(n_r,mc)=0.d0
-               e_mag_t_ic_r_m(n_r,mc)=0.d0
+               e_mag_p_ic_r_m(n_r,mc)=0.0_cp
+               e_mag_t_ic_r_m(n_r,mc)=0.0_cp
             end do
             do l=1,l_max
-               e_mag_p_ic_r_l(n_r,l)=0.d0
-               e_mag_t_ic_r_l(n_r,l)=0.d0
+               e_mag_p_ic_r_l(n_r,l)=0.0_cp
+               e_mag_t_ic_r_l(n_r,l)=0.0_cp
             end do
             !do lm=2,lm_max
             do lm=max(llm,2),ulm
@@ -636,8 +638,8 @@ contains
     
                e_mag_p_temp=                                        &
                     dLh(st_map%lm2(l,m))*O_r_icb_E_2*r_ratio**(2*l) * ( &
-                    dble((2*l+1)*(l+1))*cc2real(b_ic(lm,n_r),m)        + &
-                    dble(2*(l+1))*cc22real(b_ic(lm,n_r),r_dr_b,m) + &
+                    real((2*l+1)*(l+1),cp)*cc2real(b_ic(lm,n_r),m)   + &
+                    real(2*(l+1),cp)*cc22real(b_ic(lm,n_r),r_dr_b,m) + &
                     cc2real(r_dr_b,m) )
                e_mag_t_temp= dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) * &
                     cc2real(aj_ic(lm,n_r),m)
@@ -665,7 +667,7 @@ contains
     
          if ( rank == 0 ) then
             !----- Radial Integrals:
-            fac_mag=LFfac*eScale/2.D0
+            fac_mag=LFfac*half*eScale
             do l=1,l_max
                e_mag_p_ic_l(l)=fac_mag*rIntIC(e_mag_p_ic_r_l_global(1,l), &
                     n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
@@ -681,12 +683,12 @@ contains
          end if
       else
          do l=1,l_max
-            e_mag_p_ic_l(l)=0.d0
-            e_mag_t_ic_l(l)=0.d0
+            e_mag_p_ic_l(l)=0.0_cp
+            e_mag_t_ic_l(l)=0.0_cp
          end do
          do mc=1,l_max+1
-            e_mag_p_ic_m(mc)=0.d0
-            e_mag_t_ic_m(mc)=0.d0
+            e_mag_p_ic_m(mc)=0.0_cp
+            e_mag_t_ic_m(mc)=0.0_cp
          end do
       end if  ! conducting inner core ?
     
@@ -705,9 +707,9 @@ contains
                     &      d20.12)') time*tScale
             end if
             write(n_mag_spec_file,'(1p,i4,11d12.4)')       &
-                 0,0.d0,e_mag_p_m(1)   ,0.d0,e_mag_t_m(1), &
-                 0.d0,e_mag_p_ic_m(1),0.d0,e_mag_t_ic_m(1),&
-                 0.d0,e_mag_cmb_m(1),0.d0
+                 0,0.0_cp,e_mag_p_m(1)   ,0.0_cp,e_mag_t_m(1), &
+                 0.0_cp,e_mag_p_ic_m(1),0.0_cp,e_mag_t_ic_m(1),&
+                 0.0_cp,e_mag_cmb_m(1),0.0_cp
             do ml=1,l_max
                write(n_mag_spec_file,'(1p,i4,11d12.4)')  &
                     ml,e_mag_p_l(ml),   e_mag_p_m(ml+1), &
@@ -746,7 +748,7 @@ contains
                     &     d20.12)') time*tScale
             end if
             write(n_u2_spec_file,'(1p,i4,4d12.4)') &
-                 &   0,0.d0,u2_p_m(1),0.d0,u2_t_m(1)
+                 &   0,0.0_cp,u2_p_m(1),0.0_cp,u2_t_m(1)
             do ml=1,l_max
                write(n_u2_spec_file,'(1p,i4,4d12.4)') &
                     &       ml,u2_p_l(ml),u2_p_m(ml+1),u2_t_l(ml),u2_t_m(ml+1)
@@ -780,8 +782,8 @@ contains
                  &      d20.12)') time*tScale
          end if
          write(n_kin_spec_file,'(1p,i4,6d12.4)')        &
-              0,0.d0,e_kin_p_m(1),0.d0,e_kin_t_m(1),    &
-              0.d0, e_kin_nearSurf_m(1)
+              0,0.0_cp,e_kin_p_m(1),0.0_cp,e_kin_t_m(1),    &
+              0.0_cp, e_kin_nearSurf_m(1)
          do ml=1,l_max
             write(n_kin_spec_file,'(1p,i4,6d12.4)')    &
                  ml,e_kin_p_l(ml),e_kin_p_m(ml+1),     &
@@ -811,48 +813,48 @@ contains
        &                       time_passed,time_norm,s,ds)
 
       !-- Direct input:
-      integer,         intent(in) :: n_time_ave
-      logical,         intent(in) :: l_stop_time
-      real(kind=8),    intent(in) :: time_passed
-      real(kind=8),    intent(in) :: time_norm
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ds(llm:ulm,n_r_max)
+      integer,     intent(in) :: n_time_ave
+      logical,     intent(in) :: l_stop_time
+      real(cp),    intent(in) :: time_passed
+      real(cp),    intent(in) :: time_norm
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
 
       !-- Local:
       character(len=72) :: outFile
       integer :: n_r,lm,l,m,lc
-      real(kind=8) :: T_temp
-      real(kind=8) :: dT_temp
-      real(kind=8) :: surf_ICB
-      real(kind=8) :: fac,facICB
-      real(kind=8) :: dt_norm
+      real(cp) :: T_temp
+      real(cp) :: dT_temp
+      real(cp) :: surf_ICB
+      real(cp) :: fac,facICB
+      real(cp) :: dt_norm
 
-      real(kind=8) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
-      real(kind=8) :: T_l(l_max+1)
-      real(kind=8) :: T_ICB_l(l_max+1), T_ICB_l_global(l_max+1)
-      real(kind=8) :: dT_ICB_l(l_max+1), dT_ICB_l_global(l_max+1)
+      real(cp) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
+      real(cp) :: T_l(l_max+1)
+      real(cp) :: T_ICB_l(l_max+1), T_ICB_l_global(l_max+1)
+      real(cp) :: dT_ICB_l(l_max+1), dT_ICB_l_global(l_max+1)
 
-      real(kind=8) :: comp(l_max+1)
-      !real(kind=8) :: y,t
+      real(cp) :: comp(l_max+1)
+      !real(cp) :: y,t
       integer :: nOut,ierr
 
-      T_ICB_l =0.0D0
-      dT_ICB_l=0.0D0
+      T_ICB_l =0.0_cp
+      dT_ICB_l=0.0_cp
 
       do n_r=1,n_r_max
          do l=1,l_max+1
-            T_r_l(n_r,l)=0.D0
-            comp(l) = 0.0D0
+            T_r_l(n_r,l)=0.0_cp
+            comp(l) = 0.0_cp
          end do
          do lm=llm,ulm
             l =lo_map%lm2l(lm)
             m =lo_map%lm2m(lm)
             lc=l+1
 
-            T_temp=dsqrt(cc2real(s(lm,n_r),m))/or2(n_r)
+            T_temp=sqrt(cc2real(s(lm,n_r),m))/or2(n_r)
 
-            !local_sum = 0.0D0
-            !c = 0.0D0          !A running compensation for lost low-order bits.
+            !local_sum = 0.0_cp
+            !c = 0.0_cp          !A running compensation for lost low-order bits.
             !do i=lb,ub
             !   y = arr_local(i) - c    !So far, so good: c is zero.
             !   t = local_sum + y       !Alas, sum is big, y small, so low-order digits of y are lost.
@@ -870,7 +872,7 @@ contains
 #endif
 
             if ( n_r == n_r_icb ) then
-               dT_temp=dsqrt(cc2real(ds(lm,n_r),m))/or2(n_r)
+               dT_temp=sqrt(cc2real(ds(lm,n_r),m))/or2(n_r)
                T_ICB_l(lc) =  T_ICB_l(lc) +  T_temp
                dT_ICB_l(lc)= dT_ICB_l(lc) + dT_temp
             end if
@@ -879,17 +881,17 @@ contains
 
       ! Reduction over all ranks
       call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_ICB_l,T_ICB_l_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
       if ( rank == 0 .and. l_heat ) then
          !-- Radial Integrals:
-         surf_ICB=4.D0*pi*r_icb*r_icb
-         fac      =1.D0/vol_oc
-         facICB   =1.D0/surf_ICB
+         surf_ICB=four*pi*r_icb*r_icb
+         fac      =one/vol_oc
+         facICB   =one/surf_ICB
          do l=1,l_max+1
             T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac, &
                  &          i_costf_init,d_costf_init)
@@ -922,14 +924,14 @@ contains
          if ( l_stop_time ) then
 
             !------ Normalize:
-            dt_norm=1.d0/time_norm
+            dt_norm=one/time_norm
             do l=1,l_max+1
                T_ave(l)     =dt_norm*T_ave(l)
                T_ICB_ave(l) =dt_norm*T_ICB_ave(l)
                dT_ICB_ave(l)=dt_norm*dT_ICB_ave(l)
-               T2_ave(l)    =dsqrt( dt_norm*T2_ave(l) - T_ave(l)**2 ) 
-               T_ICB2_ave(l)=dsqrt( dt_norm*T_ICB2_ave(l) - T_ICB_ave(l)**2 )
-               dT_ICB2_ave(l)=dsqrt( dt_norm*dT_ICB2_ave(l) - dT_ICB_ave(l)**2 )
+               T2_ave(l)    =sqrt( dt_norm*T2_ave(l) - T_ave(l)**2 ) 
+               T_ICB2_ave(l)=sqrt( dt_norm*T_ICB2_ave(l) - T_ICB_ave(l)**2 )
+               dT_ICB2_ave(l)=sqrt( dt_norm*dT_ICB2_ave(l) - dT_ICB_ave(l)**2 )
             end do
 
             !------ Output:
@@ -963,49 +965,49 @@ contains
 
       !-- Input variables:
       integer,         intent(in) :: n_spec     ! number of spectrum/call, file
-      real(kind=8),    intent(in) :: time
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ds(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: time
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
 
       !-- Output variables
-      real(kind=8) :: T_l(l_max+1)
-      real(kind=8) :: T_m(l_max+1)
-      real(kind=8) :: T_ICB_l(l_max+1),T_ICB_l_global(l_max+1)
-      real(kind=8) :: T_ICB_m(l_max+1),T_ICB_m_global(l_max+1)
-      real(kind=8) :: dT_ICB_l(l_max+1),dT_ICB_l_global(l_max+1)
-      real(kind=8) :: dT_ICB_m(l_max+1),dT_ICB_m_global(l_max+1)
+      real(cp) :: T_l(l_max+1)
+      real(cp) :: T_m(l_max+1)
+      real(cp) :: T_ICB_l(l_max+1),T_ICB_l_global(l_max+1)
+      real(cp) :: T_ICB_m(l_max+1),T_ICB_m_global(l_max+1)
+      real(cp) :: dT_ICB_l(l_max+1),dT_ICB_l_global(l_max+1)
+      real(cp) :: dT_ICB_m(l_max+1),dT_ICB_m_global(l_max+1)
 
       !-- Local variables
       character(len=14) :: string
       character(len=72) :: spec_file
       integer :: n_r,lm,ml,l,mc,m,lc
-      real(kind=8) :: T_temp
-      real(kind=8) :: dT_temp
-      real(kind=8) :: surf_ICB
-      real(kind=8) :: fac,facICB
+      real(cp) :: T_temp
+      real(cp) :: dT_temp
+      real(cp) :: surf_ICB
+      real(cp) :: fac,facICB
 
-      real(kind=8) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
-      real(kind=8) :: T_r_m(n_r_max,l_max+1),T_r_m_global(n_r_max,l_max+1)
+      real(cp) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
+      real(cp) :: T_r_m(n_r_max,l_max+1),T_r_m_global(n_r_max,l_max+1)
 
 
       do l=1,l_max+1
-         T_l(l)=0.D0
-         T_ICB_l(l)=0.D0
-         dT_ICB_l(l)=0.D0
-         T_m(l)=0.D0
-         T_ICB_m(l)=0.D0
-         dT_ICB_m(l)=0.D0
+         T_l(l)=0.0_cp
+         T_ICB_l(l)=0.0_cp
+         dT_ICB_l(l)=0.0_cp
+         T_m(l)=0.0_cp
+         T_ICB_m(l)=0.0_cp
+         dT_ICB_m(l)=0.0_cp
       end do
 
       do n_r=1,n_r_max
 
          do l=1,l_max+1
-            T_r_l(n_r,l)=0.D0
-            T_ICB_l(l)  =0.D0
-            dT_ICB_l(l) =0.D0
-            T_r_m(n_r,l)=0.D0
-            T_ICB_m(l)  =0.D0
-            dT_ICB_m(l) =0.D0
+            T_r_l(n_r,l)=0.0_cp
+            T_ICB_l(l)  =0.0_cp
+            dT_ICB_l(l) =0.0_cp
+            T_r_m(n_r,l)=0.0_cp
+            T_ICB_m(l)  =0.0_cp
+            dT_ICB_m(l) =0.0_cp
          end do
 
          do lm=llm,ulm
@@ -1014,8 +1016,8 @@ contains
             lc=l+1
             mc=m+1
 
-            T_temp=dsqrt(cc2real(s(lm,n_r),m))/or2(n_r)
-            dT_temp=dsqrt(cc2real(ds(lm,n_r),m))/or2(n_r)
+            T_temp=sqrt(cc2real(s(lm,n_r),m))/or2(n_r)
+            dT_temp=sqrt(cc2real(ds(lm,n_r),m))/or2(n_r)
             !----- l-spectra:
             T_r_l(n_r,lc) =T_r_l(n_r,lc) +  T_temp
             !----- m-spectra:
@@ -1034,23 +1036,23 @@ contains
 
       ! reduction over all ranks
       call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_r_m,T_r_m_global,n_r_max*(l_max+1),&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_ICB_l,T_ICB_l_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_ICB_m,T_ICB_m_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(dT_ICB_m,dT_ICB_m_global,l_max+1,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
-         surf_ICB =4.D0*pi*r_icb*r_icb
-         fac      =1.D0/vol_oc
-         facICB   =1.D0/surf_ICB
+         surf_ICB =four*pi*r_icb*r_icb
+         fac      =one/vol_oc
+         facICB   =one/surf_ICB
          do l=1,l_max+1
             T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac, &
                             i_costf_init,d_costf_init)

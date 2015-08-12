@@ -7,6 +7,7 @@
 module nonlinear_lm_mod
 
    use, intrinsic :: iso_c_binding
+   use precision_mod, only: cp
    use truncation, only: lm_max, l_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
                      l_mag_nl, l_mag_kin, l_mag_LF, l_RMStest, l_conv,      &
@@ -27,6 +28,7 @@ module nonlinear_lm_mod
                   Mag2hInt, MagAs2hInt, MagLMr, ArcLMr, Arc2hInt,     &
                   ArcAs2hInt
    use leg_helper_mod, only:leg_helper_t
+   use const, only: zero, two
    use fields, only: w_Rloc,dw_Rloc,z_Rloc
    use RMS_helpers, only: hInt2Pol, hInt2Tor
     
@@ -35,11 +37,11 @@ module nonlinear_lm_mod
  
    type :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space: 
-      complex(kind=8), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
-      complex(kind=8), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
-      complex(kind=8), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
-      complex(kind=8), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
-      complex(kind=8), allocatable :: ViscHeatLM(:), OhmLossLM(:)
+      complex(cp), allocatable :: AdvrLM(:), AdvtLM(:), AdvpLM(:)
+      complex(cp), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
+      complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
+      complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
+      complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
  
    contains
  
@@ -77,8 +79,8 @@ contains
       !write(*,"(A,I15,A)") "nonlinear_lm: allocated ",size_in_bytes,"B."
       !call this%set_zero()
 
-      !write(*,"(A,I5,A,I10,A)") "cache info for first element, size is lmP_max=",lmP_max,&
-      !     &" = ",lmP_max*16,"B"
+      !write(*,"(A,I5,A,I10,A)") "cache info for first element,  &
+      !     &       size is lmP_max=",lmP_max," = ",lmP_max*16,"B"
       !call print_cache_info_dcmplx("this%AdvrLM"//C_NULL_CHAR,this%AdvrLM(1))
       !call print_cache_info_dcmplx("this%AdvtLM"//C_NULL_CHAR,this%AdvtLM(1))
       !call print_cache_info_dcmplx("this%AdvpLM"//C_NULL_CHAR,this%AdvpLM(1))
@@ -106,26 +108,27 @@ contains
       deallocate( this%VSpLM )    
       deallocate( this%ViscHeatLM )
       deallocate( this%OhmLossLM )
+
    end subroutine finalize
 !----------------------------------------------------------------------------
    subroutine set_zero(this)
 
       class(nonlinear_lm_t) :: this
       
-      this%AdvrLM=cmplx(0.0,0.0,kind=8)   
-      this%AdvtLM=cmplx(0.0,0.0,kind=8)   
-      this%AdvpLM=cmplx(0.0,0.0,kind=8)   
-      this%LFrLM=cmplx(0.0,0.0,kind=8)    
-      this%LFtLM=cmplx(0.0,0.0,kind=8)    
-      this%LFpLM=cmplx(0.0,0.0,kind=8)    
-      this%VxBrLM=cmplx(0.0,0.0,kind=8)   
-      this%VxBtLM=cmplx(0.0,0.0,kind=8)   
-      this%VxBpLM=cmplx(0.0,0.0,kind=8)   
-      this%VSrLM=cmplx(0.0,0.0,kind=8)    
-      this%VStLM=cmplx(0.0,0.0,kind=8)    
-      this%VSpLM=cmplx(0.0,0.0,kind=8)    
-      this%ViscHeatLM=cmplx(0.0,0.0,kind=8)
-      this%OhmLossLM=cmplx(0.0,0.0,kind=8)
+      this%AdvrLM=zero
+      this%AdvtLM=zero
+      this%AdvpLM=zero
+      this%LFrLM=zero
+      this%LFtLM=zero
+      this%LFpLM=zero
+      this%VxBrLM=zero
+      this%VxBtLM=zero
+      this%VxBpLM=zero
+      this%VSrLM=zero
+      this%VStLM=zero
+      this%VSpLM=zero
+      this%ViscHeatLM=zero
+      this%OhmLossLM=zero
 
    end subroutine set_zero
 !----------------------------------------------------------------------------
@@ -160,21 +163,21 @@ contains
       type(leg_helper_t), intent(in) :: leg_helper
     
       !-- Output of variables:
-      complex(kind=8), intent(out) :: dwdt(lm_max),dzdt(lm_max)
-      complex(kind=8), intent(out) :: dpdt(lm_max),dsdt(lm_max)
-      complex(kind=8), intent(out) :: dbdt(lm_maxMag),djdt(lm_maxMag)
-      complex(kind=8), intent(out) :: dVxBhLM(lm_maxMag)
-      complex(kind=8), intent(out) :: dVSrLM(lm_max)
+      complex(cp), intent(out) :: dwdt(lm_max),dzdt(lm_max)
+      complex(cp), intent(out) :: dpdt(lm_max),dsdt(lm_max)
+      complex(cp), intent(out) :: dbdt(lm_maxMag),djdt(lm_maxMag)
+      complex(cp), intent(out) :: dVxBhLM(lm_maxMag)
+      complex(cp), intent(out) :: dVSrLM(lm_max)
     
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
-      complex(kind=8) :: CorPol(lm_max),CorTor(lm_max)
-      complex(kind=8) :: AdvPol(lm_max),AdvTor(lm_max)
-      complex(kind=8) :: LFPol(lm_max),LFTor(lm_max)
-      complex(kind=8) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
-      complex(kind=8) :: dsdt_loc
+      complex(cp) :: CorPol(lm_max),CorTor(lm_max)
+      complex(cp) :: AdvPol(lm_max),AdvTor(lm_max)
+      complex(cp) :: LFPol(lm_max),LFTor(lm_max)
+      complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
+      complex(cp) :: dsdt_loc
     
-      integer,parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
+      integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
     
     
       !write(*,"(I3,A,4ES20.12)") nR,": get_td start: ",SUM(this%AdvrLM), &
@@ -192,8 +195,8 @@ contains
             !----- Stress free boundary, only nl mag. term for poloidal field needed.
             !      Because the radial derivative will be taken, this will contribute to
             !      the other radial grid points.
-            dVxBhLM(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-            dVSrLM(1) =cmplx(0.D0,0.D0,kind=kind(0d0))
+            dVxBhLM(1)=zero
+            dVSrLM(1) =zero
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -210,18 +213,18 @@ contains
                        - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
                        dPhi(lm)*this%VxBpLM(lmP)  )
                end if
-               dVSrLM(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
+               dVSrLM(lm)=zero
             end do
     
          else
             do lm=1,lm_max
-               if ( l_mag ) dVxBhLM(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
-               dVSrLM(lm) =cmplx(0.D0,0.D0,kind=kind(0d0))
+               if ( l_mag ) dVxBhLM(lm)=zero
+               dVSrLM(lm) =zero
             end do
          end if
          if ( l_heat ) then
             do lm=1,lm_max
-               dVSrLM(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
+               dVSrLM(lm)=zero
             end do
          end if
          !PERFOFF
@@ -237,17 +240,17 @@ contains
                AdvPol_loc=      or2(nR)*this%AdvrLM(lm)
                AdvTor_loc=-dTheta1A(lm)*this%AdvpLM(lmPA)
             else
-               AdvPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
-               AdvTor_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+               AdvPol_loc=zero
+               AdvTor_loc=zero
             end if
             if ( l_corr ) then
-               CorPol_loc=2.D0*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
-               CorTor_loc= 2.d0*CorFac*or2(nR) * ( &
+               CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
+               CorTor_loc= two*CorFac*or2(nR) * ( &
                     dTheta3A(lm)*dw_Rloc(lmA,nR) + &
                     or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
             else
-               CorPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
-               CorTor_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+               CorPol_loc=zero
+               CorTor_loc=zero
             end if
             dwdt(lm)=AdvPol_loc+CorPol_loc
             dzdt(lm)=AdvTor_loc+CorTor_loc
@@ -312,34 +315,34 @@ contains
 #endif
                if ( l_corr ) then
                   if ( l < l_max .and. l > m ) then
-                     CorPol_loc =2.D0*CorFac*or1(nR) * ( &
+                     CorPol_loc =two*CorFac*or1(nR) * ( &
                              dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
                           dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
                           dTheta2S(lm)*z_Rloc(lmS,nR) )
     
-                     CorTor_loc=          2.d0*CorFac*or2(nR) * ( &
+                     CorTor_loc=          two*CorFac*or2(nR) * ( &
                                       dPhi0(lm)*z_Rloc(lm,nR)   + &
                                   dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
                           or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
                                   dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
                           or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
                   else if ( l == l_max ) then
-                     CorPol_loc= 2.D0*CorFac*or1(nR) * ( &
+                     CorPol_loc= two*CorFac*or1(nR) * ( &
                                   dPhi0(lm)*dw_Rloc(lm,nR)  )
-                     CorTor_loc=2.d0*CorFac*or2(nR) * ( &
+                     CorTor_loc=two*CorFac*or2(nR) * ( &
                                   dPhi0(lm)*z_Rloc(lm,nR)   )
                   else if ( l == m ) then
-                     CorPol_loc = 2.D0*CorFac*or1(nR) * ( &
+                     CorPol_loc = two*CorFac*or1(nR) * ( &
                               dPhi0(lm)*dw_Rloc(lm,nR)  + &
                            dTheta2A(lm)*z_Rloc(lmA,nR) )
-                     CorTor_loc=  2.d0*CorFac*or2(nR) * ( &
+                     CorTor_loc=  two*CorFac*or2(nR) * ( &
                               dPhi0(lm)*z_Rloc(lm,nR)   + &
                           dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
                           or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  )
                   end if
                else
-                  CorPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  CorTor_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  CorPol_loc=zero
+                  CorTor_loc=zero
                end if
     
                if ( l_conv_nl ) then
@@ -354,8 +357,8 @@ contains
                                 dTheta1A(lm)*this%AdvpLM(lmPA)
                   end if
                else
-                  AdvPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  AdvTor_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  AdvPol_loc=zero
+                  AdvTor_loc=zero
                end if
     
                ! Here false sharing is still possible
@@ -402,7 +405,7 @@ contains
                call hInt2Pol(leg_helper%dpR-beta(nR)*leg_helper%preR,1, &
                              lm_max,nR,2,lm_max,PreLMr, &
                     Pre2hInt(nR),PreAs2hInt(nR),st_map)
-               if ( ra /= 0.D0 ) &
+               if ( ra /= 0.0_cp ) &
                     call hInt2Pol(leg_helper%sR,1,lm_max,nR,2,lm_max,BuoLMr, &
                                   Buo2hInt(nR),BuoAs2hInt(nR),st_map)
                if ( l_corr ) then
@@ -471,7 +474,7 @@ contains
                if ( l_corr ) then
                   !PERFON('td_cv2c')
                   if ( l < l_max .and. l > m ) then
-                     CorPol_loc=                    2.d0*CorFac*or2(nR) * &
+                     CorPol_loc=                    two*CorFac*or2(nR) * &
                           &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
                           &                  +or1(nR)*leg_helper%dLhw(lm) &
                           &                                             ) &
@@ -480,11 +483,11 @@ contains
                           &               )
     
                   else if ( l == l_max ) then
-                     CorPol_loc=  2.d0*CorFac*or2(nR) * ( -dPhi0(lm) *  &
+                     CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
                                  ( dw_Rloc(lm,nR) + or1(nR)*leg_helper%dLhw(lm) ) )
     
                   else if ( l == m ) then
-                     CorPol_loc=                    2.d0*CorFac*or2(nR) * &
+                     CorPol_loc=                    two*CorFac*or2(nR) * &
                           &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
                           &                  +or1(nR)*leg_helper%dLhw(lm) &
                           &                                              )&
@@ -494,7 +497,7 @@ contains
                   end if
                   !PERFOFF
                else
-                  CorPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  CorPol_loc=zero
                end if
                if ( l_conv_nl ) then
                   !PERFON('td_cv2nl')
@@ -508,7 +511,7 @@ contains
                   end if
                   !PERFOFF
                else
-                  AdvPol_loc=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  AdvPol_loc=zero
                end if
                dpdt(lm)=AdvPol_loc+CorPol_loc
     
@@ -519,9 +522,9 @@ contains
             !PERFOFF
          else
             do lm=2,lm_max
-               dwdt(lm) =0.D0
-               dzdt(lm) =0.D0
-               dpdt(lm) =0.D0
+               dwdt(lm) =0.0_cp
+               dzdt(lm) =0.0_cp
+               dpdt(lm) =0.0_cp
             end do
          end if ! l_conv ?
     
@@ -608,8 +611,8 @@ contains
             !PERFOFF
          else
             do lm=2,lm_max
-               dsdt(lm)  =0.D0
-               dVSrLM(lm)=0.D0
+               dsdt(lm)  =0.0_cp
+               dVSrLM(lm)=0.0_cp
             end do
          end if
     
@@ -627,7 +630,7 @@ contains
                   lmPA=lmP2lmPA(lmP)
                   dVxBhLM(lm)= -r(nR)*r(nR)* dTheta1A(lm)*this%VxBtLM(lmPA)
                   dbdt(lm)   = -dTheta1A(lm)*this%VxBpLM(lmPA)
-                  djdt(lm)   = cmplx(0.D0,0.D0,kind=kind(0d0))
+                  djdt(lm)   = zero
                   CYCLE
                end if
                l   =lm2l(lm)
@@ -674,9 +677,9 @@ contains
          else
             if ( l_mag ) then
                do lm=1,lm_max
-                  dbdt(lm)   =cmplx(0.D0,0.D0,kind=kind(0d0))
-                  djdt(lm)   =cmplx(0.D0,0.D0,kind=kind(0d0))
-                  dVxBhLM(lm)=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  dbdt(lm)   =zero
+                  djdt(lm)   =zero
+                  dVxBhLM(lm)=zero
                end do
             end if
          end if

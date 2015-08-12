@@ -1,6 +1,8 @@
 !$Id$
 module rIteration_mod
 
+   use precision_mod, only: cp
+
    implicit none
 
    private
@@ -12,7 +14,7 @@ module rIteration_mod
       logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
       logical :: l_graph,lPerpParCalc,lViscBcCalc,lFluxProfCalc
       logical :: isRadialBoundaryPoint
-      real(kind=8) :: dtrkc,dthkc
+      real(cp) :: dtrkc,dthkc
  
    contains
  
@@ -39,30 +41,30 @@ module rIteration_mod
         &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr,&
         &                 fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,             &
         &                 EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
-        import
-        class(rIteration_t) :: this
+         import
+         class(rIteration_t) :: this
  
-        !-- Input variables
-        integer,      intent(in) :: nR,nBc
-        real(kind=8), intent(in) :: time,dt,dtLast
+         !-- Input variables
+         integer,  intent(in) :: nR,nBc
+         real(cp), intent(in) :: time,dt,dtLast
      
-        !-- Output variables
-        complex(kind=8), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
-        complex(kind=8), intent(out) :: dbdt(:), djdt(:), dVxBhLM(:)
-        !---- Output of nonlinear products for nonlinear
-        !     magnetic boundary conditions (needed in s_updateB.f):
-        complex(kind=8), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
-        complex(kind=8), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
-        complex(kind=8), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
-        complex(kind=8), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
-        real(kind=8),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-        real(kind=8),    intent(out) :: HelLMr(:), Hel2LMr(:)
-        real(kind=8),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
-        real(kind=8),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
-        real(kind=8),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
-        real(kind=8),    intent(out) :: fpoynLMr(:),fresLMr(:)
-        real(kind=8),    intent(out) :: EperpLMr(:), EparLMr(:)
-        real(kind=8),    intent(out) :: EperpaxiLMr(:), EparaxiLMr(:)
+         !-- Output variables
+         complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
+         complex(cp), intent(out) :: dbdt(:), djdt(:), dVxBhLM(:)
+         !---- Output of nonlinear products for nonlinear
+         !     magnetic boundary conditions (needed in s_updateB.f):
+         complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
+         complex(cp), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
+         complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
+         complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
+         real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
+         real(cp),    intent(out) :: HelLMr(:), Hel2LMr(:)
+         real(cp),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
+         real(cp),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
+         real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
+         real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
+         real(cp),    intent(out) :: EperpLMr(:), EparLMr(:)
+         real(cp),    intent(out) :: EperpaxiLMr(:), EparaxiLMr(:)
  
       end subroutine do_iteration_if
    !-----------------------------------------------------------------------------

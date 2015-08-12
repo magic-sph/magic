@@ -2,6 +2,7 @@
 module outRot
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, drx, i_costf_init, &
@@ -15,7 +16,7 @@ module outRot
                           n_SRIC_file, n_rot_file, n_SRMA_file, &
                           SRMA_file, SRIC_file, rot_file
    use const, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
-                    y10_norm
+                    y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R
    use horizontal_data, only: cosTheta, gauss
@@ -39,39 +40,39 @@ contains
                       & omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
     
       !-- Input of variables:
-      real(kind=8),    intent(in) :: omega_ic,omega_ma
-      real(kind=8),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-      real(kind=8),    intent(in) :: time,dt
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dz(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      real(cp),    intent(in) :: omega_ic,omega_ma
+      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp),    intent(in) :: time,dt
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
     
       !-- Output into rot_file
-      real(kind=8), intent(out) :: eKinIC,eKinMA
+      real(cp), intent(out) :: eKinIC,eKinMA
     
       !-- Local variables:
-      real(kind=8), parameter :: tolerance=1e-16
-      real(kind=8) :: eKinOC
+      real(cp), parameter :: tolerance=1e-16
+      real(cp) :: eKinOC
       integer :: n_r1,n_r2,n_r3,nR
       integer :: l1m0,l1m1
-      real(kind=8) :: viscous_torque_ic,viscous_torque_ma
-      real(kind=8) :: AMz,eKinAMz
-      real(kind=8) :: angular_moment_oc(3)
-      real(kind=8) :: angular_moment_ic(3)
-      real(kind=8) :: angular_moment_ma(3)
-      complex(kind=8) :: z10(n_r_max),z11(n_r_max)
+      real(cp) :: viscous_torque_ic,viscous_torque_ma
+      real(cp) :: AMz,eKinAMz
+      real(cp) :: angular_moment_oc(3)
+      real(cp) :: angular_moment_ic(3)
+      real(cp) :: angular_moment_ma(3)
+      complex(cp) :: z10(n_r_max),z11(n_r_max)
       character(len=80) :: filename
     
-      real(kind=8) :: powerLor,powerVis
+      real(cp) :: powerLor,powerVis
     
-      real(kind=8) :: AMzLast,eKinAMzLast
+      real(cp) :: AMzLast,eKinAMzLast
       SAVE AMzLast,eKinAMzLast
     
       integer, pointer :: lm2(:,:)
       integer :: i,l,m,ilm,lm_vals(21),n_lm_vals
-      complex(kind=8) :: zvals_on_rank0(8,3),bvals_on_rank0(8,3)
-      complex(kind=8) :: vals_on_rank0_1d(21)
+      complex(cp) :: zvals_on_rank0(8,3),bvals_on_rank0(8,3)
+      complex(cp) :: vals_on_rank0_1d(21)
     
       integer :: sr_tag,status(MPI_STATUS_SIZE),ierr
       logical :: rank_has_l1m0,rank_has_l1m1
@@ -96,12 +97,12 @@ contains
             call get_viscous_torque(viscous_torque_ic, &
                  &                  z(l1m0,n_r_max),dz(l1m0,n_r_max),r_icb)
          else
-            viscous_torque_ic=0.d0
+            viscous_torque_ic=0.0_cp
          end if
          if ( l_rot_ma .and. ktopv == 2 ) then
             call get_viscous_torque(viscous_torque_ma,z(l1m0,1),dz(l1m0,1),r_cmb)
          else
-            viscous_torque_ma=0.d0
+            viscous_torque_ma=0.0_cp
          end if
          rank_has_l1m0=.true.
          if ( rank /= 0 ) then
@@ -152,8 +153,8 @@ contains
             lm_vals(i)=lm2(i*minc,i*minc)
             lm_vals(4+i)=lm2(i*minc+1,i*minc)
          end do
-         n_r1=int(1.D0/3.D0*(n_r_max-1))
-         n_r2=int(2.D0/3.D0*(n_r_max-1))
+         n_r1=int(third*(n_r_max-1))
+         n_r2=int(two*third*(n_r_max-1))
          n_r3=n_r_max-1
          call sendvals_to_rank0(z,n_r1,lm_vals(1:8),zvals_on_rank0(:,1))
          call sendvals_to_rank0(z,n_r2,lm_vals(1:8),zvals_on_rank0(:,2))
@@ -244,7 +245,7 @@ contains
             end if
          else
             do nR=1,n_r_max
-               z11(nR)=cmplx(0d0,0d0,kind=kind(0d0))
+               z11(nR)=zero
             end do
          end if
          ! now we have z10 and z11 in the worst case on two different
@@ -268,21 +269,22 @@ contains
                     position='append')
             end if
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
-            if ( abs(AMz) < tolerance ) AMz=0.0D0
-            eKinAMz=0.5d0*(angular_moment_oc(3)**2/c_moi_oc + &
+            if ( abs(AMz) < tolerance ) AMz=0.0_cp
+            eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
                            angular_moment_ic(3)**2/c_moi_ic + &
                            angular_moment_ma(3)**2/c_moi_ma )
-            if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0D0
-            eKinIC=0.5d0*angular_moment_ic(3)**2/c_moi_ic
-            eKinOC=0.5d0*angular_moment_oc(3)**2/c_moi_oc
-            eKinMA=0.5d0*angular_moment_ma(3)**2/c_moi_ma
-            if ( AMzLast /= 0.0D0 ) then
-               !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast,dt,(eKinAMz-eKinAMzLast)
+            if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0_cp
+            eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
+            eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
+            eKinMA=half*angular_moment_ma(3)**2/c_moi_ma
+            if ( AMzLast /= 0.0_cp ) then
+               !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
+               !     &                  dt,(eKinAMz-eKinAMzLast)
                write(n_angular_file,'(1p,2x,d20.12,5d14.6,3d20.12)', advance='no') &
                     & time*tScale, angular_moment_oc,             &
                     & angular_moment_ic(3), angular_moment_ma(3), &
                     & AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz
-               if (eKinAMzLast /= 0.0d0) then
+               if (eKinAMzLast /= 0.0_cp) then
                   write(n_angular_file,'(1d20.12)', advance='no') &
                     & (eKinAMz-eKinAMzLast)/eKinAMzLast/dt
                else
@@ -305,7 +307,7 @@ contains
                lm_vals(n_lm_vals)=lm2(l,m)
             end do
          end do
-         n_r1=int(1.D0/2.D0*(n_r_max-1))
+         n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
     
          if ( rank == 0 ) then
@@ -316,7 +318,7 @@ contains
             close(n_SRIC_file)
          end if
     
-         n_r1=int(1.D0/2.D0*(n_r_max-1))
+         n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
     
          if ( rank == 0 ) then
@@ -341,16 +343,16 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input:
-      real(kind=8), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(kind=8), intent(in) :: r               ! radius (ICB or CMB)
+      real(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
+      real(cp), intent(in) :: r               ! radius (ICB or CMB)
 
       !-- Output:
-      real(kind=8), intent(out) :: viscous_torque
+      real(cp), intent(out) :: viscous_torque
 
       !-- Local:
-      real(kind=8) :: pi
+      real(cp) :: pi
 
-      viscous_torque=-4.D0*dsqrt(pi/3.D0)*r *( 2.D0*real(z10) - r*real(dz10) )
+      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
 
    end subroutine get_viscous_torque_real
 !-----------------------------------------------------------------------
@@ -364,16 +366,16 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input:
-      complex(kind=8), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
-      real(kind=8),    intent(in) :: r               ! radius (ICB or CMB)
+      complex(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
+      real(cp),    intent(in) :: r               ! radius (ICB or CMB)
 
       !-- Output:
-      real(kind=8), intent(out) :: viscous_torque
+      real(cp), intent(out) :: viscous_torque
 
       !-- Local:
-      real(kind=8) :: pi
+      real(cp) :: pi
 
-      viscous_torque=-4.D0*dsqrt(pi/3.D0)*r *( 2.D0*real(z10) - r*real(dz10) )
+      viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
 
    end subroutine get_viscous_torque_complex
 !-----------------------------------------------------------------------
@@ -400,30 +402,30 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: nThetaStart    ! first number of theta in block
-      integer,      intent(in) :: sizeThetaB     ! size of theta bloching
-      real(kind=8), intent(in) :: br(nrp,*)      ! array containing
-      real(kind=8), intent(in) :: bp(nrp,*)      ! array containing
-      integer,      intent(in) :: nR
+      integer,  intent(in) :: nThetaStart    ! first number of theta in block
+      integer,  intent(in) :: sizeThetaB     ! size of theta bloching
+      real(cp), intent(in) :: br(nrp,*)      ! array containing
+      real(cp), intent(in) :: bp(nrp,*)      ! array containing
+      integer,  intent(in) :: nR
 
-      real(kind=8), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
+      real(cp), intent(inout) :: lorentz_torque ! lorentz_torque for theta(1:n_theta)
 
 
       !-- local variables:
       integer :: nTheta,nPhi,nThetaNHS
       integer :: nThetaB
-      real(kind=8) :: fac,b0r
+      real(cp) :: fac,b0r
 
       ! to avoid rounding errors for different theta blocking, we do not
       ! calculate sub sums with lorentz_torque_local, but keep on adding
       ! the contributions to the total lorentz_torque given as argument.
 
       if ( nThetaStart == 1 ) then
-         lorentz_torque=0.D0
+         lorentz_torque=0.0_cp
       end if
 
-      !lorentz_torque_local=0.D0
-      fac=2.D0*pi/dble(n_phi_max) ! 2 pi/n_phi_max
+      !lorentz_torque_local=0.0_cp
+      fac=two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       nTheta=nThetaStart-1
       do nThetaB=1,sizeThetaB
@@ -431,12 +433,12 @@ contains
          nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
          if ( lGrenoble ) then
             if ( r(nR) == r_icb ) then
-               b0r=2.D0*BIC*r_icb**2*cosTheta(nTheta)
+               b0r=two*BIC*r_icb**2*cosTheta(nTheta)
             else if ( r(nR) == r_cmb ) then
-               b0r=2.D0*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
+               b0r=two*BIC*r_icb**2*cosTheta(nTheta)*(r_icb/r_cmb)
             end if
          else
-            b0r=0.D0
+            b0r=0.0_cp
          end if
 
          do nPhi=1,n_phi_max
@@ -466,20 +468,20 @@ contains
       !  +-------------------------------------------------------------------+
     
       !-- Input of scalar fields:
-      complex(kind=8), intent(in) :: z10(n_r_max),z11(n_r_max)
-      real(kind=8),    intent(in) :: omega_ic,omega_ma
+      complex(cp), intent(in) :: z10(n_r_max),z11(n_r_max)
+      real(cp),    intent(in) :: omega_ic,omega_ma
     
       !-- output:
-      real(kind=8), intent(out) :: angular_moment_oc(:)
-      real(kind=8), intent(out) :: angular_moment_ic(:)
-      real(kind=8), intent(out) :: angular_moment_ma(:)
+      real(cp), intent(out) :: angular_moment_oc(:)
+      real(cp), intent(out) :: angular_moment_ic(:)
+      real(cp), intent(out) :: angular_moment_ma(:)
     
       !-- local variables:
       integer :: n_r,n
       integer :: l1m0,l1m1
-      real(kind=8) :: f(n_r_max,3)
-      real(kind=8) :: r_E_2             ! r**2
-      real(kind=8) :: fac
+      real(cp) :: f(n_r_max,3)
+      real(cp) :: r_E_2             ! r**2
+      real(cp) :: fac
     
       !----- Construct radial function:
       l1m0=lm2(1,0)
@@ -490,8 +492,8 @@ contains
             f(n_r,1)=r_E_2* real(z11(n_r))
             f(n_r,2)=r_E_2*aimag(z11(n_r))
          else
-            f(n_r,1)=0.D0
-            f(n_r,2)=0.D0
+            f(n_r,1)=0.0_cp
+            f(n_r,2)=0.0_cp
          end if
          f(n_r,3)=r_E_2*real(z10(n_r))
       end do
@@ -504,17 +506,17 @@ contains
     
       !----- Apply normalisation factors of chebs and other factors
       !      plus the sign correction for y-component:
-      fac=8.d0/3.d0*pi
-      angular_moment_oc(1)= 2.d0*fac*y11_norm * angular_moment_oc(1)
-      angular_moment_oc(2)=-2.d0*fac*y11_norm * angular_moment_oc(2)
+      fac=8.0_cp*third*pi
+      angular_moment_oc(1)= two*fac*y11_norm * angular_moment_oc(1)
+      angular_moment_oc(2)=-two*fac*y11_norm * angular_moment_oc(2)
       angular_moment_oc(3)=      fac*y10_norm * angular_moment_oc(3)
     
       !----- Now inner core and mantle:
-      angular_moment_ic(1)=0.d0
-      angular_moment_ic(2)=0.d0
+      angular_moment_ic(1)=0.0_cp
+      angular_moment_ic(2)=0.0_cp
       angular_moment_ic(3)=c_moi_ic*omega_ic
-      angular_moment_ma(1)=0.d0
-      angular_moment_ma(2)=0.d0
+      angular_moment_ma(1)=0.0_cp
+      angular_moment_ma(2)=0.0_cp
       angular_moment_ma(3)=c_moi_ma*omega_ma
 
    end subroutine get_angular_moment
@@ -522,12 +524,12 @@ contains
    subroutine sendvals_to_rank0(field,n_r,lm_vals,vals_on_rank0)
 
       !-- Input variables:
-      complex(kind=8), intent(in) :: field(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: field(llm:ulm,n_r_max)
       integer,         intent(in) :: n_r
       integer,         intent(in) :: lm_vals(:)
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: vals_on_rank0(:)
+      complex(cp), intent(out) :: vals_on_rank0(:)
 
       !-- Local variables:
       integer :: ilm,lm,ierr,status(MPI_STATUS_SIZE),tag,n_lm_vals

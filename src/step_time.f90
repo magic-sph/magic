@@ -6,9 +6,12 @@ module step_time_mod
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif
+
    use fields
    use fieldsLast
    use parallel_mod
+   use precision_mod, only: cp, lip
+   use const, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
                          lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &
@@ -59,17 +62,17 @@ module step_time_mod
    private
 
    !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc
-   complex(kind=8), allocatable :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
-   complex(kind=8), allocatable :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
+   complex(cp), allocatable :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
+   complex(cp), allocatable :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
 
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
-   complex(kind=8), allocatable :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
-   complex(kind=8), allocatable, target :: dbdt_Rloc(:,:)
+   complex(cp), allocatable :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
+   complex(cp), allocatable, target :: dbdt_Rloc(:,:)
 
    ! The same arrays, but now the LM local part
-   complex(kind=8), allocatable :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
-   complex(kind=8), allocatable :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
-   complex(kind=8), allocatable :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
+   complex(cp), allocatable :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
+   complex(cp), allocatable :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
+   complex(cp), allocatable :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
    public :: initialize_step_time,step_time
 
@@ -96,15 +99,15 @@ contains
          !$OMP PARALLEL do 
          do lm=1,lm_max
             if ( l_mag ) then
-               dbdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-               djdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-               dVxBhLM_Rloc(lm,nR)=cmplx(0.0,0.0)
+               dbdt_Rloc(lm,nR)=zero
+               djdt_Rloc(lm,nR)=zero
+               dVxBhLM_Rloc(lm,nR)=zero
             end if
-            dwdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-            dzdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-            dsdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-            dpdt_Rloc(lm,nR)=cmplx(0.0,0.0)
-            dVSrLM_Rloc(lm,nR)=cmplx(0.0,0.0)
+            dwdt_Rloc(lm,nR)=zero
+            dzdt_Rloc(lm,nR)=zero
+            dsdt_Rloc(lm,nR)=zero
+            dpdt_Rloc(lm,nR)=zero
+            dVSrLM_Rloc(lm,nR)=zero
          end do
          !$OMP END PARALLEL DO
       end do
@@ -142,9 +145,9 @@ contains
 
       !-- Input from initialization:
       !   time and n_time_step updated and returned to magic.f
-      real(kind=8), intent(inout) :: time
-      real(kind=8), intent(inout) :: dt,dtNew
-      integer,      intent(inout) :: n_time_step
+      real(cp), intent(inout) :: time
+      real(cp), intent(inout) :: dt,dtNew
+      integer,  intent(inout) :: n_time_step
 
       !--- Local variables:
 
@@ -187,9 +190,9 @@ contains
       character(len=76) :: SIG    
 
       !--- Courant criteria/diagnosis:
-      real(kind=8) :: dtr,dth
+      real(cp) :: dtr,dth
       !-- Saves values for time step
-      real(kind=8) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop) 
+      real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop) 
 
       !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
       !    passed to s_LMLoop.f where the time step is preformed.
@@ -198,48 +201,48 @@ contains
       !    needed there.
 
       !--- Lorentz torques:
-      real(kind=8) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp) :: lorentz_torque_ma,lorentz_torque_ic
 
       !-- Arrays for m_outMisc.F90 and m_outPar.F90
-      real(kind=8) :: HelLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: fconvLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: fkinLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: fviscLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: fpoynLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8) :: fresLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8) :: EperpLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: EparLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: EperpaxiLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(kind=8) :: EparaxiLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: HelLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: fconvLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: fkinLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: fviscLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: fpoynLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp) :: fresLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp) :: EperpLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: EparLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: EperpaxiLMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: EparaxiLMr_Rloc(l_max+1,nRstart:nRstop)
 
       !--- Nonlinear magnetic boundary conditions needed in s_updateB.f :
-      complex(kind=8) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
-      complex(kind=8) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
-      complex(kind=8) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
-      complex(kind=8) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
-      complex(kind=8) :: b_nl_cmb(lm_max)         ! nonlinear bc for b at CMB
-      complex(kind=8) :: aj_nl_cmb(lm_max)        ! nonlinear bc for aj at CMB
-      complex(kind=8) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
+      complex(cp) :: br_vt_lm_cmb(lmP_max)    ! product br*vt at CMB
+      complex(cp) :: br_vp_lm_cmb(lmP_max)    ! product br*vp at CMB
+      complex(cp) :: br_vt_lm_icb(lmP_max)    ! product br*vt at ICB
+      complex(cp) :: br_vp_lm_icb(lmP_max)    ! product br*vp at ICB
+      complex(cp) :: b_nl_cmb(lm_max)         ! nonlinear bc for b at CMB
+      complex(cp) :: aj_nl_cmb(lm_max)        ! nonlinear bc for aj at CMB
+      complex(cp) :: aj_nl_icb(lm_max)        ! nonlinear bc for dr aj at ICB
 
       !--- Various stuff for time control:
-      real(kind=8) :: timeLast
-      real(kind=8) :: dtLast
-      real(kind=8) :: w1,w2,w2New,coex
+      real(cp) :: timeLast
+      real(cp) :: dtLast
+      real(cp) :: w1,w2,w2New,coex
       integer :: n_time_steps_go,n_time_cour
       logical :: l_new_dt        ! causes call of matbuild !
       logical :: l_new_dtNext    ! causes call of matbuild !
       logical :: l_new_dtHit     ! causes call of matbuild !
       integer :: n_dt_changed    
       integer :: n_dt_check        
-      real(kind=8) :: timeScaled        ! Scaled time for output.
+      real(cp) :: timeScaled        ! Scaled time for output.
       integer :: nPercent         ! percentage of finished time stepping
-      real(kind=8) :: tenth_n_time_steps
+      real(cp) :: tenth_n_time_steps
 
       !-- Interupt procedure:
       integer :: signals(4)
@@ -268,11 +271,11 @@ contains
       integer :: nLMB
       !integer :: nR,length_of_error
 
-      complex(kind=8), pointer :: ptr_dbdt_CMB(:)
-      !real(kind=8) :: start_time, end_time
+      complex(cp), pointer :: ptr_dbdt_CMB(:)
+      !real(cp) :: start_time, end_time
 
       !integer :: signal_window
-      integer(kind=8)  :: time_in_ms
+      integer(lip) :: time_in_ms
 
 
       if ( lVerbose ) write(*,'(/,'' ! STARTING STEP_TIME !'')')
@@ -287,21 +290,21 @@ contains
       l_stop_time =.false. 
       l_new_dt    =.true.   ! Invokes calculation of t-step matricies
       l_new_dtNext=.true.  
-      w2New       =-0.5D0*dtNew/dt
+      w2New       =-half*dtNew/dt
       n_dt_changed=0        ! No of time steps since dt changed
       n_dt_check  =4        ! No of courant checks after dt changed
 
-      tenth_n_time_steps=dble(n_time_steps)/10.D0
+      tenth_n_time_steps=real(n_time_steps,kind=cp)/10.0_cp
       nPercent=9
 
       !---- Set Lorentz torques to zero:
-      lorentz_torque_ic=0.D0
-      lorentz_torque_ma=0.D0
+      lorentz_torque_ic=0.0_cp
+      lorentz_torque_ma=0.0_cp
 
       !---- Counter for output files/sets:
-      n_graph         =0    ! No. of graphic file
-      n_frame         =0    ! No. of movie frames
-      n_cmb_sets      =0    ! No. of store dt_b sets at CMB
+      n_graph   =0    ! No. of graphic file
+      n_frame   =0    ! No. of movie frames
+      n_cmb_sets=0    ! No. of store dt_b sets at CMB
 
       !---- Prepare signalling via file signal
       signals=0
@@ -528,7 +531,7 @@ contains
          end if
 
          !--- Another reasons to stop the time integration:
-         if ( time >= tEND .and. tEND /= 0.D0 ) l_stop_time=.true.
+         if ( time >= tEND .and. tEND /= 0.0_cp ) l_stop_time=.true.
          PERFOFF
          !PERFON('logics')
          !-- Checking logic for output: 
@@ -924,13 +927,13 @@ contains
          !       For stressfree conducting boundaries
          PERFON('nl_m_bnd')
          if ( l_b_nl_cmb ) then
-            b_nl_cmb(1) =cmplx(1.D0,1.D0,kind=kind(b_nl_cmb))
-            aj_nl_cmb(1)=cmplx(1.D0,1.D0,kind=kind(aj_nl_cmb))
+            b_nl_cmb(1) =(1.0_cp,1.0_cp)
+            aj_nl_cmb(1)=(1.0_cp,1.0_cp)
             call get_b_nl_bcs('CMB', br_vt_lm_cmb,br_vp_lm_cmb,              &
                  &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_cmb(2:lm_max))
          end if
          if ( l_b_nl_icb ) then
-            aj_nl_icb(1)=cmplx(1.D0,1.D0,kind=kind(aj_nl_icb))
+            aj_nl_icb(1)=(1.0_cp,1.0_cp)
             call get_b_nl_bcs('ICB', br_vt_lm_icb,br_vp_lm_icb,              &
                  &            2,lm_max,b_nl_cmb(2:lm_max),aj_nl_icb(2:lm_max))
          end if
@@ -943,7 +946,7 @@ contains
          dtLast=dt
          dt=dtNew        ! Update to new time step
          w2=w2New        ! Weight for time-derivatives of last time step
-         w1=1.D0-w2      ! Weight for currect time step
+         w1=one-w2      ! Weight for currect time step
          l_new_dt    =l_new_dtNext
          l_new_dtNext=.false.
 
@@ -977,7 +980,7 @@ contains
          end if
          if ( l_new_dtNext ) then
             !------ Writing info and getting new weights:
-            w2New=-0.5D0*dtNew/dt ! Weight I will be using for next update !
+            w2New=-half*dtNew/dt ! Weight I will be using for next update !
             n_dt_changed=0
             lCourChecking=.true.
             if ( rank == 0 ) then
@@ -995,7 +998,7 @@ contains
                call safeClose(nLF)
             end if
          else
-            w2New=-0.5D0 ! Normal weight if timestep is not changed !
+            w2New=-half ! Normal weight if timestep is not changed !
             n_dt_changed=n_dt_changed+1
             if ( n_dt_changed <= n_dt_check  ) then
                lCourChecking=.true.
@@ -1010,7 +1013,7 @@ contains
          !      This is the second parallel part. Here we parallize over lm.
 
          !----- Advancing time:
-         coex  =(alpha-1.D0)/w2New
+         coex  =(alpha-one)/w2New
          timeLast        =time               ! Time of last time step
          time            =time+dt            ! Update time
          timeScaled      =time*tScale
@@ -1104,12 +1107,12 @@ contains
             end if
             call addTime(runTime,runTimePassed)
          end if
-         if ( dble(n_time_step)+tenth_n_time_steps*dble(nPercent) >=  &
-            & dble(n_time_steps)  .or. n_time_steps < 31 ) then
+         if ( real(n_time_step,cp)+tenth_n_time_steps*real(nPercent,cp) >=  &
+            & real(n_time_steps,cp)  .or. n_time_steps < 31 ) then
             write(message,'(" ! Time step finished:",i6)') n_time_step
             call logWrite(message)
-            if ( dble(n_time_step)+tenth_n_time_steps*dble(nPercent) >= &
-               & dble(n_time_steps) .and. n_time_steps >= 10 ) then
+            if ( real(n_time_step,cp)+tenth_n_time_steps*real(nPercent,cp) >= &
+               & real(n_time_steps,cp) .and. n_time_steps >= 10 ) then
                write(message,'(" ! This is           :",i3,"%")') (10-nPercent)*10
                call logWrite(message)
                nPercent=nPercent-1
@@ -1151,15 +1154,15 @@ contains
             else
                write(*,'(1p,/,/,A,i10,3(/,A,d16.6))')          &
                     &" !  No of stored movie frames: ",n_frame,&
-                    &" !     starting at time: ",0.0D0,        &
-                    &" !       ending at time: ",0.0D0,        &
-                    &" !      with step width: ",0.0D0
+                    &" !     starting at time: ",0.0_cp,        &
+                    &" !       ending at time: ",0.0_cp,        &
+                    &" !      with step width: ",0.0_cp
                call safeOpen(nLF,log_file)
                write(nLF,'(1p,/,/,A,i10,3(/,A,d16.6))')        &
                     &" !  No of stored movie frames: ",n_frame,&
-                    &" !     starting at time: ",0.0D0,        &
-                    &" !       ending at time: ",0.0D0,        &
-                    &" !      with step width: ",0.0D0
+                    &" !     starting at time: ",0.0_cp,        &
+                    &" !       ending at time: ",0.0_cp,        &
+                    &" !      with step width: ",0.0_cp
                call safeClose(nLF)
             end if
          end if
@@ -1217,15 +1220,15 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Output: ev. modified dt
-      logical, intent(out) :: l_new_dt ! signfies change of dt !
-      real(kind=8), intent(inout) :: time,dt,dt_new
+      logical,  intent(out) :: l_new_dt ! signfies change of dt !
+      real(cp), intent(inout) :: time,dt,dt_new
        
       !-- Local variables:
       integer :: n_dt_hit
       integer, parameter :: n_dt_hit_max=10
-      real(kind=8) ::  dt_hit(n_dt_hit_max) ! dt for different hit times
+      real(cp) ::  dt_hit(n_dt_hit_max) ! dt for different hit times
       integer :: n                          ! counter
-      real(kind=8) ::  time_new             ! Next time step
+      real(cp) ::  time_new             ! Next time step
 
       time_new=time+dt
       l_new_dt=.false.
@@ -1233,7 +1236,7 @@ contains
       n_dt_hit=7
 
       do n=1,n_dt_hit
-         dt_hit(n)=0.D0
+         dt_hit(n)=0.0_cp
       end do
 
       do n=1,n_time_hits
@@ -1256,7 +1259,7 @@ contains
       end do
 
       do n=1,n_dt_hit
-         if ( dt_hit(n) /= 0.D0 .and. dt_hit(n) < dt_new ) then
+         if ( dt_hit(n) /= 0.0_cp .and. dt_hit(n) < dt_new ) then
             l_new_dt=.true.
             dt_new=dt_hit(n)
          end if

@@ -2,6 +2,7 @@
 module outMisc_mod
 
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: botcond, r_icb, dr_fac, i_costf_init, &
@@ -15,7 +16,7 @@ module outMisc_mod
                     l_hel, l_heat
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
-   use const, only: pi, vol_oc, osq4pi
+   use const, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use useful, only: cc2real
    use integration, only: rInt,rInt_R
    use LMLoop_data,only: llm,ulm
@@ -33,52 +34,52 @@ contains
      &             nLogs,w,dw,ddw,z,dz,s,ds,p,Geos,dpFlow,dzFlow)
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: timeScaled
-      real(kind=8),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      integer,         intent(in) :: nLogs
+      real(cp),    intent(in) :: timeScaled
+      real(cp),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      integer,     intent(in) :: nLogs
     
       !-- Input of scalar fields:
-      complex(kind=8), intent(in) :: s(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
       !---- Fields transfered to getEgeos:
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dz(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: p(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
     
       !-- Output: (and stuff written in misc.TAG files)
-      real(kind=8),    intent(out) :: Geos
-      real(kind=8),    intent(out) :: dpFlow,dzFlow
+      real(cp),    intent(out) :: Geos
+      real(cp),    intent(out) :: dpFlow,dzFlow
     
       !-- Local stuff:
       integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n,lm44
       logical :: lm44_is_local
-      real(kind=8) :: pplot_global(n_r_max), pplot(n_r_max)
-      real(kind=8) :: HelNr(nRstart:nRstop), HelSr(nRstart:nRstop)
-      real(kind=8) :: HelnaNr(nRstart:nRstop), HelnaSr(nRstart:nRstop)
-      real(kind=8) :: Hel2Nr(nRstart:nRstop), Hel2Sr(nRstart:nRstop)
-      real(kind=8) :: Helna2Nr(nRstart:nRstop), Helna2Sr(nRstart:nRstop)
-      real(kind=8) :: HelEAr(nRstart:nRstop)
-      real(kind=8) :: HelNr_global(n_r_max), HelSr_global(n_r_max)
-      real(kind=8) :: HelnaNr_global(n_r_max), HelnaSr_global(n_r_max)
-      real(kind=8) :: Helna2Nr_global(n_r_max), Helna2Sr_global(n_r_max)
-      real(kind=8) :: Hel2Nr_global(n_r_max), Hel2Sr_global(n_r_max)
-      real(kind=8) :: HelEAr_global(n_r_max)
-      complex(kind=8) :: p44_local(n_r_max)
-      real(kind=8) :: Hel(nfs), Hel2(nfs), Helna(nfs), Helna2(nfs), r2
-      real(kind=8) :: HelN,HelS
-      real(kind=8) :: HelnaN,HelnaS
-      real(kind=8) :: HelnaRMSN,HelnaRMSS
-      real(kind=8) :: HelRMSN,HelRMSS,HelEA,HelRMS,HelnaRMS
-      real(kind=8) :: Egeos,EkNTC,EkSTC,Ekin
-      real(kind=8) :: CVzOTC,CVorOTC,CHelOTC
-      real(kind=8) :: topnuss,botnuss
-      real(kind=8) :: topflux,botflux
+      real(cp) :: pplot_global(n_r_max), pplot(n_r_max)
+      real(cp) :: HelNr(nRstart:nRstop), HelSr(nRstart:nRstop)
+      real(cp) :: HelnaNr(nRstart:nRstop), HelnaSr(nRstart:nRstop)
+      real(cp) :: Hel2Nr(nRstart:nRstop), Hel2Sr(nRstart:nRstop)
+      real(cp) :: Helna2Nr(nRstart:nRstop), Helna2Sr(nRstart:nRstop)
+      real(cp) :: HelEAr(nRstart:nRstop)
+      real(cp) :: HelNr_global(n_r_max), HelSr_global(n_r_max)
+      real(cp) :: HelnaNr_global(n_r_max), HelnaSr_global(n_r_max)
+      real(cp) :: Helna2Nr_global(n_r_max), Helna2Sr_global(n_r_max)
+      real(cp) :: Hel2Nr_global(n_r_max), Hel2Sr_global(n_r_max)
+      real(cp) :: HelEAr_global(n_r_max)
+      complex(cp) :: p44_local(n_r_max)
+      real(cp) :: Hel(nfs), Hel2(nfs), Helna(nfs), Helna2(nfs), r2
+      real(cp) :: HelN,HelS
+      real(cp) :: HelnaN,HelnaS
+      real(cp) :: HelnaRMSN,HelnaRMSS
+      real(cp) :: HelRMSN,HelRMSS,HelEA,HelRMS,HelnaRMS
+      real(cp) :: Egeos,EkNTC,EkSTC,Ekin
+      real(cp) :: CVzOTC,CVorOTC,CHelOTC
+      real(cp) :: topnuss,botnuss
+      real(cp) :: topflux,botflux
     
       integer :: n_r,m,lm,mytag,status(MPI_STATUS_SIZE)
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1),ierr
@@ -92,15 +93,15 @@ contains
          !       already axisymmetric !
          do n_r=nRstart,nRstop
             r2=r(n_r)*r(n_r)
-            HelNr(n_r) =0.D0
-            HelSr(n_r) =0.D0
-            HelnaNr(n_r) =0.D0
-            HelnaSr(n_r) =0.D0
-            HelEAr(n_r)=0.D0
-            Hel2Nr(n_r) =0.D0
-            Hel2Sr(n_r) =0.D0
-            Helna2Nr(n_r) =0.D0
-            Helna2Sr(n_r) =0.D0
+            HelNr(n_r) =0.0_cp
+            HelSr(n_r) =0.0_cp
+            HelnaNr(n_r) =0.0_cp
+            HelnaSr(n_r) =0.0_cp
+            HelEAr(n_r)=0.0_cp
+            Hel2Nr(n_r) =0.0_cp
+            Hel2Sr(n_r) =0.0_cp
+            Helna2Nr(n_r) =0.0_cp
+            Helna2Sr(n_r) =0.0_cp
     
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
@@ -182,15 +183,15 @@ contains
             HelnaRMSN=rInt(Helna2Nr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
             HelnaRMSS=rInt(Helna2Sr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
     
-            HelN  =2.D0*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
-            HelS  =2.D0*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration
-            HelnaN  =2.D0*pi*HelnaN/(vol_oc/2) ! Note integrated over half spheres only !
-            HelnaS  =2.D0*pi*HelnaS/(vol_oc/2) ! Factor 2*pi is from phi integration
-            HelEA =2.D0*pi*HelEA/vol_oc
-            HelRMSN=dsqrt(2.D0*pi*HelRMSN/(vol_oc/2))
-            HelRMSS=dsqrt(2.D0*pi*HelRMSS/(vol_oc/2))
-            HelnaRMSN=dsqrt(2.D0*pi*HelnaRMSN/(vol_oc/2))
-            HelnaRMSS=dsqrt(2.D0*pi*HelnaRMSS/(vol_oc/2))
+            HelN  =two*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
+            HelS  =two*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration
+            HelnaN=two*pi*HelnaN/(vol_oc/2) ! Note integrated over half spheres only !
+            HelnaS=two*pi*HelnaS/(vol_oc/2) ! Factor 2*pi is from phi integration
+            HelEA =two*pi*HelEA/vol_oc
+            HelRMSN=sqrt(two*pi*HelRMSN/(vol_oc/2))
+            HelRMSS=sqrt(two*pi*HelRMSS/(vol_oc/2))
+            HelnaRMSN=sqrt(two*pi*HelnaRMSN/(vol_oc/2))
+            HelnaRMSS=sqrt(two*pi*HelnaRMSS/(vol_oc/2))
             HelRMS=HelRMSN+HelRMSS
             HelnaRMS=HelnaRMSN+HelnaRMSS
     
@@ -198,77 +199,77 @@ contains
                HelnaN =HelnaN/HelnaRMSN
                HelnaS =HelnaS/HelnaRMSS
             else
-               HelnaN =0.D0
-               HelnaS =0.D0
+               HelnaN =0.0_cp
+               HelnaS =0.0_cp
             end if
             if ( HelRMS /= 0 ) then
                HelN =HelN/HelRMSN
                HelS =HelS/HelRMSS
                HelEA=HelEA/HelRMS
             else
-               HelN =0.D0
-               HelS =0.D0
-               HelEA=0.D0
+               HelN =0.0_cp
+               HelS =0.0_cp
+               HelEA=0.0_cp
             end if
          end if
       else
-         HelN     =0.D0
-         HelS     =0.D0
-         HelEA    =0.D0
-         HelRMSN  =0.D0
-         HelRMSS  =0.D0
-         HelnaN   =0.D0
-         HelnaS   =0.D0
-         HelnaRMSN=0.D0
-         HelnaRMSS=0.D0
+         HelN     =0.0_cp
+         HelS     =0.0_cp
+         HelEA    =0.0_cp
+         HelRMSN  =0.0_cp
+         HelRMSS  =0.0_cp
+         HelnaN   =0.0_cp
+         HelnaS   =0.0_cp
+         HelnaRMSN=0.0_cp
+         HelnaRMSS=0.0_cp
       end if
     
       if ( l_par ) then
          call getEgeos(timeScaled,nLogs,w,dw,ddw,z,dz, &
               &        Egeos,EkNTC,EkSTC,Ekin,         &
               &        dpFlow,dzFlow,CVzOTC,CVorOTC,CHelOTC)
-         if ( Ekin > 0.d0 ) then
+         if ( Ekin > 0.0_cp ) then
             Geos=Egeos/Ekin ! Output, relative geostrophic kinetic Energy
          else
-            Geos=0.d0
-            Ekin=-1.D0 ! Only used for ratio, must thus be non-zero
+            Geos=0.0_cp
+            Ekin=-one ! Only used for ratio, must thus be non-zero
          end if
       else
-         Egeos  =0.D0
-         EkNTC  =0.D0
-         EkSTC  =0.D0
-         Ekin   =-1.D0 ! Only used for ratio, must thus be non-zero
-         dpFlow =0.D0
-         dzFlow =0.D0
-         Geos   =0.D0
-         CVzOTC =0.D0
-         CVorOTC=0.D0
-         CHelOTC=0.D0
+         Egeos  =0.0_cp
+         EkNTC  =0.0_cp
+         EkSTC  =0.0_cp
+         Ekin   =-one ! Only used for ratio, must thus be non-zero
+         dpFlow =0.0_cp
+         dzFlow =0.0_cp
+         Geos   =0.0_cp
+         CVzOTC =0.0_cp
+         CVorOTC=0.0_cp
+         CHelOTC=0.0_cp
       end if
     
       if ( rank == 0 ) then
          !-- Evaluate nusselt numbers (boundary heat flux density):
-         if ( topcond/=0.D0 .and. l_heat ) then
+         if ( topcond/=0.0_cp .and. l_heat ) then
             if ( l_anelastic_liquid ) then
-               botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale+1.D0
-               topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale+1.D0
+               botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale+one
+               topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale+one
                botflux=-rho0(n_r_max)*(real(ds(1,n_r_max))*osq4pi+ &
-                        1.D0/epsS*dtemp0(n_r_max))*r_icb**2*4.D0*pi*kappa(n_r_max)
-               topflux=-rho0(1)*(real(ds(1,1))*osq4pi+1.D0/epsS*dtemp0(1))*r_cmb**2* &
-                        4.D0*pi*kappa(1)
+                        one/epsS*dtemp0(n_r_max))*r_icb**2*four*pi*kappa(n_r_max)
+               topflux=-rho0(1)*(real(ds(1,1))*osq4pi+one/epsS*dtemp0(1))*r_cmb**2* &
+                        four*pi*kappa(1)
             else
                botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
                topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
                botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))/lScale* &
-                        r_icb**2*dsqrt(4.D0*pi)*kappa(n_r_max)
+                        r_icb**2*sq4pi*kappa(n_r_max)
                topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
-                        dsqrt(4.D0*pi)*kappa(1)
+                        sq4pi*kappa(1)
             end if
          else
-            botnuss=0.D0
-            topnuss=0.D0
-            botflux=0.D0
-            topflux=0.D0
+            botnuss=0.0_cp
+            topnuss=0.0_cp
+            botflux=0.0_cp
+            topflux=0.0_cp
          end if
     
          if ( l_save_out ) then
@@ -291,7 +292,7 @@ contains
     
       if ( l_prms ) then
          do n_r=1,n_r_max
-            pplot(n_r)=0.D0
+            pplot(n_r)=0.0_cp
             do lm=llm,ulm
                m=lo_map%lm2m(lm)
                pplot(n_r)=pplot(n_r)+cc2real(p(lm,n_r),m)
@@ -320,7 +321,7 @@ contains
             filename2='p.'//TAG
             open(94, file=filename2, status='unknown')
             do n_r=1,n_r_max
-               pplot_global(n_r)=dsqrt(pplot_global(n_r)/lm_max)
+               pplot_global(n_r)=sqrt(pplot_global(n_r)/lm_max)
                write(94,*) r(n_r),pplot_global(n_r),real(p44_local(n_r))
             end do
             close(94)

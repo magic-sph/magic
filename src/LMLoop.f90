@@ -9,6 +9,7 @@ module LMLoop_mod
    use fields
    use fieldsLast
    use omp_lib
+   use precision_mod, only: cp
    use parallel_mod, only: rank
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -56,29 +57,29 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: w1,coex
-      real(kind=8),    intent(in) :: dt,time
-      logical,         intent(in) :: lMat
-      logical,         intent(in) :: lRmsNext
+      real(cp),    intent(in) :: w1,coex
+      real(cp),    intent(in) :: dt,time
+      logical,     intent(in) :: lMat
+      logical,     intent(in) :: lRmsNext
 
       !--- Input from radialLoop:
       !    These fields are provided in the R-distributed space!
       ! for djdt in update_b
-      complex(kind=8), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
-      integer,         intent(in) :: n_time_step
+      complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
+      integer,     intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:
-      complex(kind=8), intent(inout) :: dsdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dwdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dzdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dpdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
-      real(kind=8),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-      complex(kind=8), intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
-      complex(kind=8), intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
-      complex(kind=8), intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
+      complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dzdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: djdt(llmMag:ulmMag,n_r_maxMag)
+      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      complex(cp), intent(in) :: b_nl_cmb(lm_max)   ! nonlinear bc for b at CMB
+      complex(cp), intent(in)  :: aj_nl_cmb(lm_max)  ! nonlinear bc for aj at CMB
+      complex(cp), intent(in)  :: aj_nl_icb(lm_max)  ! nonlinear bc for dr aj at ICB
 
       !--- Local counter
       integer :: nLMB
@@ -88,8 +89,8 @@ contains
 
       logical,parameter :: DEBUG_OUTPUT=.false.
       !--- Inner core rotation from last time step
-      real(kind=8), save :: omega_icLast
-      complex(kind=8) :: sum_dwdt
+      real(cp), save :: omega_icLast
+      complex(cp) :: sum_dwdt
 
       PERFON('LMloop')
       !LIKWID_ON('LMloop')

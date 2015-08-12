@@ -1,6 +1,7 @@
 !$Id$
 module Namelists
 
+   use precision_mod
    use const
    use truncation
    use radial_functions
@@ -37,7 +38,7 @@ contains
       !-- Local stuff
       integer :: n
       integer :: nCounts
-      real(kind=8) :: sCMB(4*n_impS_max),rad ! cmb heat boundary condition
+      real(cp) :: sCMB(4*n_impS_max),rad ! cmb heat boundary condition
       logical :: log_does_exist
       integer :: length
       integer :: argument_count
@@ -124,7 +125,7 @@ contains
 
 
       do n=1,4*n_impS_max
-         sCMB(n)=0.D0
+         sCMB(n)=0.0_cp
       end do
 
       runHours  =0
@@ -313,17 +314,17 @@ contains
          l_SRMA  =.true.
       end if
 
-      if ( ek < 0.D0 ) l_non_rot= .true. 
+      if ( ek < 0.0_cp ) l_non_rot= .true. 
       if ( l_non_rot ) then
          l_corr=.false.
-         ek=-1.D0 ! used as a flag, not used for the calculation
+         ek=-one ! used as a flag, not used for the calculation
       else
          l_corr=.true.
       end if
 
       call capitalize(interior_model)
 
-      if ( strat > 0.D0 ) l_anel= .true. 
+      if ( strat > 0.0_cp ) l_anel= .true. 
 
       if ( index(interior_model,'EARTH') /= 0 ) then
          l_anel=.true.
@@ -341,7 +342,7 @@ contains
          l_anelastic_liquid=.false.
       end if
 
-      if ( prmag == 0.D0 ) then
+      if ( prmag == 0.0_cp ) then
          l_mag   =.false.
          l_mag_nl=.false.
          l_mag_LF=.false.
@@ -356,7 +357,7 @@ contains
          write(*,*) '! Only outer boundary conditions kbotb<=4 implemented!'
          stop
       end if
-      if ( sigma_ratio == 0.D0 ) then
+      if ( sigma_ratio == 0.0_cp ) then
          l_cond_ic=.false.
          if ( kbotb == 3 ) then
             write(*,*) '! For an insulating  IC with sigma_ratio=0   !'
@@ -376,7 +377,7 @@ contains
          write(*,*) '! Only outer boundary conditions ktopb<=4 implemented!'
          stop
       end if
-      if ( conductance_ma == 0.D0 ) then
+      if ( conductance_ma == 0.0_cp ) then
          l_cond_ma=.false.
          if ( ktopb == 3 ) then
             write(*,*) '! For an insulating mantle with conductance_ma=0 !'
@@ -393,7 +394,7 @@ contains
       end if
 
       if ( .not. l_mag ) then
-         prmag    =0.D0
+         prmag    =0.0_cp
          l_mag_nl =.false.
          l_cond_ic=.false.
          lMagMem  =0
@@ -404,19 +405,19 @@ contains
       !--- Stuff for the radial non-linear mapping
       !     alph1 can be any positive number, above 0
       !     alph2 has to be a value between -1 and 1 (interval in Chebyshev space)
-      if ( (alph1 == 0.D0) .or. (alph2 < -1.D0) .or. (alph2 > 1.D0) ) then
+      if ( (alph1 == 0.0_cp) .or. (alph2 < -one) .or. (alph2 > one) ) then
          l_newmap=.false.
-      elseif ( l_newmap .and. (alph1 < 0.D0) ) then
-         alph1=dabs(alph1)
+      elseif ( l_newmap .and. (alph1 < 0.0_cp) ) then
+         alph1=abs(alph1)
       end if
 
       !--- Stuff for spherical magnetosphere boundary: rrMP=r(magnetosphere)/r_core
       if ( n_imp /= 0 ) imagcon=0
-      if ( n_imp == 1 .and. rrMP <= 1.D0 ) then
+      if ( n_imp == 1 .and. rrMP <= one ) then
          write(*,*) '! For runs with n_imp=1!'
          write(*,*) '! please provide rrMP>1!'
          stop
-      else if ( n_imp >= 2 .and. amp_imp == 0.D0 ) then
+      else if ( n_imp >= 2 .and. amp_imp == 0.0_cp ) then
          write(*,*) '! For runs with n_imp>=2!'
          write(*,*) '! please provide amp_imp!'
          stop
@@ -505,7 +506,7 @@ contains
          rad=pi/180
          n_impS=0
          do n=1,4*n_impS_max,4
-            if ( sCMB(n) /= 0.D0 ) then
+            if ( sCMB(n) /= 0.0_cp ) then
                n_impS=n_impS+1
                peakS(n_impS) =sCMB(n)
                thetaS(n_impS)=rad*sCMB(n+1)
@@ -517,7 +518,7 @@ contains
 
       !-- Grenoble stuff:
       lGrenoble=.false.
-      if ( BIC /= 0.D0 .and. l_mag ) then
+      if ( BIC /= 0.0_cp .and. l_mag ) then
          lGrenoble=.true.
          write(*,*)
          write(*,*) '! Running the Grenoble case !'
@@ -572,7 +573,7 @@ contains
 
       !-- Local variables:
       integer :: l,m,n,i
-      real(kind=8) ::  rad
+      real(cp) ::  rad
       integer :: length
 
 
@@ -643,19 +644,19 @@ contains
       write(n_out,'(''  kbots       ='',i3,'','')') kbots
       do m=0,m_max,minc
           do l=m,l_max
-              if ( bots(l,m) /= 0.D0 ) write(n_out,'(1p,4x,2i4,2d14.6)') &
+              if ( bots(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2d14.6)') &
                    l,m,real(bots(l,m))/sq4pi,aimag(bots(l,m))/sq4pi
           end do
       end do
       write(n_out,'("  Top boundary l,m,S:")')
       do m=0,m_max,minc
           do l=m,l_max
-              if ( tops(l,m) /= 0.D0 ) write(n_out,'(1p,4x,2i4,2d14.6)') &
+              if ( tops(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2d14.6)') &
                    l,m,real(tops(l,m))/sq4pi,aimag(tops(l,m))/sq4pi
           end do
       end do
       write(n_out,'(''  impS        ='',i3,'','')') impS
-      rad=pi/180.D0
+      rad=pi/180.0_cp
       do i=1,n_impS
          if ( i == 1 ) then
             write(n_out,'(A)',advance='NO') "  sCMB        ="
@@ -876,13 +877,13 @@ contains
       n_time_steps  =100
       n_tScale      =0
       n_lScale      =0
-      alpha         =0.5D0
-      enscale       =1.0D0
-      dtstart       =0.0D0
-      dtMax         =1.0D-4
-      courfac       =2.5D0
-      alffac        =1.0D0
-      intfac        =0.15D0
+      alpha         =half
+      enscale       =one
+      dtstart       =0.0_cp
+      dtMax         =1.0e-4_cp
+      courfac       =2.5_cp
+      alffac        =one
+      intfac        =0.15_cp
       n_cour_step   =10
 
       cacheblock_size_in_B=4096
@@ -904,34 +905,34 @@ contains
       end do
 
       !nThreadsRun   =1
-      tEND          =0.D0    ! numerical time where run should end
+      tEND          =0.0_cp    ! numerical time where run should end
 
       !----- Hyperdiffusion:
-      difnu         =0.D0
-      difeta        =0.D0
-      difkap        =0.D0
+      difnu         =0.0_cp
+      difeta        =0.0_cp
+      difkap        =0.0_cp
       ldif          =1
       ldifexp       =-1
 
       !----- Namelist phys_param:
-      ra         =1.1D5
-      ek         =1.D-3
-      pr         =1.D0
-      prmag      =5.D0
-      epsc0      =0.D0
-      radratio   =0.35D0
+      ra         =1.1e5_cp
+      ek         =1.0e-3_cp
+      pr         =one
+      prmag      =5.0_cp
+      epsc0      =0.0_cp
+      radratio   =0.35_cp
       !----- Anelatic stuff
-      strat      =0.D0
-      polind     =1.5D0
-      r_cut_model=0.98D0 ! outer radius when using interior model
+      strat      =0.0_cp
+      polind     =1.5_cp
+      r_cut_model=0.98_cp ! outer radius when using interior model
       !----- Stably  stratified layer
-      epsS       =0.D0
-      cmbHflux   =0.D0
-      slopeStrat =20.D0
+      epsS       =0.0_cp
+      cmbHflux   =0.0_cp
+      slopeStrat =20.0_cp
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
-      g0         =0.D0
-      g1         =1.D0
-      g2         =0.D0        
+      g0         =0.0_cp
+      g1         =one
+      g2         =0.0_cp        
       !----- Boundary conditions        
       ktops      =1
       kbots      =1
@@ -940,28 +941,28 @@ contains
       ktopb      =1
       kbotb      =1
       do n=1,4*n_s_bounds
-         s_top(n)=0.D0
-         s_bot(n)=0.D0
+         s_top(n)=0.0_cp
+         s_bot(n)=0.0_cp
       end do
       impS=0
       do n=1,n_impS_max
-         peakS(n) =0.D0
-         thetaS(n)=0.D0
-         phiS(n)  =0.D0
-         widthS(n)=0.D0
+         peakS(n) =0.0_cp
+         thetaS(n)=0.0_cp
+         phiS(n)  =0.0_cp
+         widthS(n)=0.0_cp
       end do
 
       !----- Conductivity variation:
       nVarCond       =0
       con_DecRate    =9
-      con_RadRatio   =0.75D0
-      con_LambdaMatch=0.6D0
+      con_RadRatio   =0.75_cp
+      con_LambdaMatch=0.6_cp
       con_LambdaOut  =0.1
-      con_FuncWidth  =0.25D0
-      r_LCR          =2.D0
+      con_FuncWidth  =0.25_cp
+      r_LCR          =two
 
       !----- Thermal diffusivity variation:
-      difExp         =-0.5D0
+      difExp         =-half
       nVarDiff       =0
 
       !----- Variable kinematic viscosity:
@@ -973,15 +974,15 @@ contains
       !----- Non-linear mapping parameters (Bayliss, 1992):
       l_newmap       =.false.
       l_plotmap      =.false.
-      alph1          =2.D0
-      alph2          =0.D0
+      alph1          =two
+      alph2          =0.0_cp
 
       !----- External field
       n_imp          =0    ! No external field
-      rrMP           =0.D0 ! r(Magnetopause)/r_cmb, used for n_imp=1
-      amp_imp        =0.D0 ! amplitude of external field
-      expo_imp       =0.D0 ! oscillation frequency of external field
-      bmax_imp       =0.D0
+      rrMP           =0.0_cp ! r(Magnetopause)/r_cmb, used for n_imp=1
+      amp_imp        =0.0_cp ! amplitude of external field
+      expo_imp       =0.0_cp ! oscillation frequency of external field
+      bmax_imp       =0.0_cp
       l_imp          =1    ! Default external field is axial dipole
 
       !----- Namelist start_field:
@@ -990,20 +991,20 @@ contains
       inform        =-1   
       runid         ="MAGIC default run"
       l_reset_t     =.false.
-      scale_s       =1.D0
-      scale_b       =1.D0
-      scale_v       =1.D0
-      tipdipole     =0.D0
+      scale_s       =one
+      scale_b       =one
+      scale_v       =one
+      tipdipole     =0.0_cp
       init_s1       =0
       init_s2       =0
       init_b1       =0
       init_v1       =0
       imagcon       =0
-      tmagcon       =0.D0
-      amp_s1        =1.D0
-      amp_s2        =0.D0
-      amp_v1        =0.D0
-      amp_b1        =1.D0
+      tmagcon       =0.0_cp
+      amp_s1        =one
+      amp_s2        =0.0_cp
+      amp_v1        =0.0_cp
+      amp_b1        =one
 
       !----- Namelist output_control:
       l_save_out    =.false.  ! Save output
@@ -1014,33 +1015,33 @@ contains
       !----- Restart files:
       n_rst_step    =0
       n_rsts        =1
-      t_rst_start   =0.D0
-      t_rst_stop    =0.D0
-      dt_rst        =0.D0
+      t_rst_start   =0.0_cp
+      t_rst_stop    =0.0_cp
+      dt_rst        =0.0_cp
       n_stores      =0
 
       !----- Log output:
       n_log_step    =50
       n_logs        =0
-      t_log_start   =0.D0
-      t_log_stop    =0.D0
-      dt_log        =0.D0
+      t_log_start   =0.0_cp
+      t_log_stop    =0.0_cp
+      dt_log        =0.0_cp
 
       !----- Graphic output:
       n_graph_step  =0
       n_graphs      =1
-      t_graph_start =0.D0
-      t_graph_stop  =0.D0
-      dt_graph      =0.D0
+      t_graph_start =0.0_cp
+      t_graph_stop  =0.0_cp
+      dt_graph      =0.0_cp
       ngform        =0
       l_graph_time  =.false.
 
       !----- Spectrum files:
       n_spec_step   =0
       n_specs       =0
-      t_spec_start  =0.D0
-      t_spec_stop   =0.D0
-      dt_spec       =0.D0
+      t_spec_start  =0.0_cp
+      t_spec_stop   =0.0_cp
+      dt_spec       =0.0_cp
 
       !----- Output of poloidal magnetic field potential at CMB:
       !      also stored at times of movie frames
@@ -1049,9 +1050,9 @@ contains
       l_max_cmb     =14
       n_cmb_step    =0
       n_cmbs        =0
-      t_cmb_start   =0.D0
-      t_cmb_stop    =0.D0
-      dt_cmb        =0.D0
+      t_cmb_start   =0.0_cp
+      t_cmb_stop    =0.0_cp
+      dt_cmb        =0.0_cp
 
       !----- Output of magnetic and flow potential af five different radial levels:
       l_r_field     =.false.
@@ -1061,20 +1062,20 @@ contains
       do n=1,n_coeff_r_max
          n_r_array(n)=0
       end do
-      n_r_field_step=0
-      n_r_fields    =0
-      t_r_field_start=0.D0
-      t_r_field_stop =0.D0
-      dt_r_field    =0.D0
+      n_r_field_step =0
+      n_r_fields     =0
+      t_r_field_start=0.0_cp
+      t_r_field_stop =0.0_cp
+      dt_r_field     =0.0_cp
 
       !----- Movie output:
       l_movie       =.false.
       n_movies      =0
       n_movie_step  =0
       n_movie_frames=0
-      t_movie_start =0.D0
-      t_movie_stop  =0.D0
-      dt_movie      =0.D0
+      t_movie_start =0.0_cp
+      t_movie_stop  =0.0_cp
+      dt_movie      =0.0_cp
       do n=1,n_movies_max
          movie(n)=' '
       end do
@@ -1083,57 +1084,57 @@ contains
       l_storeBpot   =.false.
       n_Bpot_step   =0
       n_Bpots       =0
-      t_Bpot_start  =0.D0
-      t_Bpot_stop   =0.D0
-      dt_Bpot       =0.D0
+      t_Bpot_start  =0.0_cp
+      t_Bpot_stop   =0.0_cp
+      dt_Bpot       =0.0_cp
 
       !----- Output of flow potentials:
       l_storeVpot   =.false.
       n_Vpot_step   =0
       n_Vpots       =0
-      t_Vpot_start  =0.D0
-      t_Vpot_stop   =0.D0
-      dt_Vpot       =0.D0
+      t_Vpot_start  =0.0_cp
+      t_Vpot_stop   =0.0_cp
+      dt_Vpot       =0.0_cp
 
       !----- Output of T potential:
       l_storeTpot   =.false.
       n_Tpot_step   =0
       n_Tpots       =0
-      t_Tpot_start  =0.D0
-      t_Tpot_stop   =0.D0
-      dt_Tpot       =0.D0
+      t_Tpot_start  =0.0_cp
+      t_Tpot_stop   =0.0_cp
+      dt_Tpot       =0.0_cp
 
       !----- Output of all potential:
       l_storePot    =.false.
       n_pot_step    =0
       n_pots        =0
-      t_pot_start   =0.D0
-      t_pot_stop    =0.D0
-      dt_pot        =0.D0
+      t_pot_start   =0.0_cp
+      t_pot_stop    =0.0_cp
+      dt_pot        =0.0_cp
 
       !----- Output TOZ:
       n_TOZ_step    =0
       n_TOZs        =0
-      t_TOZ_start   =0.D0
-      t_TOZ_stop    =0.D0
-      dt_TOZ        =0.D0
+      t_TOZ_start   =0.0_cp
+      t_TOZ_stop    =0.0_cp
+      dt_TOZ        =0.0_cp
 
       !----- Times for different output:
       do n=1,n_time_hits
-         t_graph(n)  =-1.D0
-         t_rst(n)    =-1.D0
-         t_log(n)    =-1.D0
-         t_p(n)      =-1.D0
-         t_spec(n)   =-1.D0
-         t_cmb(n)    =-1.D0
-         t_r_field(n)=-1.D0
-         t_movie(n)  =-1.D0
-         t_Vpot(n)   =-1.D0
-         t_Bpot(n)   =-1.D0
-         t_Tpot(n)   =-1.D0
-         t_TO(n)     =-1.D0
-         t_TOZ(n)    =-1.D0
-         t_TOmovie(n)=-1.D0
+         t_graph(n)  =-one
+         t_rst(n)    =-one
+         t_log(n)    =-one
+         t_p(n)      =-one
+         t_spec(n)   =-one
+         t_cmb(n)    =-one
+         t_r_field(n)=-one
+         t_movie(n)  =-one
+         t_Vpot(n)   =-one
+         t_Bpot(n)   =-one
+         t_Tpot(n)   =-one
+         t_TO(n)     =-one
+         t_TOZ(n)    =-one
+         t_TOmovie(n)=-one
       end do
 
       !----- Magnetic spectra for different depths
@@ -1144,8 +1145,8 @@ contains
       !----- TO output, output times same as for log outout:
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
       l_TOmovie     =.false. ! TO movies 
-      sDens         =1.D0    ! relative s-grid point density 
-      zDens         =1.D0    ! relative z-grid point dendity 
+      sDens         =one    ! relative s-grid point density 
+      zDens         =one    ! relative z-grid point dendity 
 
       !----- Potential vortivity:
       l_PV          =.false.
@@ -1166,34 +1167,34 @@ contains
       l_prms        =.false. ! radial plot of the rms pressure (snapshot)
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
-      rCut          =0.075D0 ! Thickness of layer to be left out at both
+      rCut          =0.075_cp ! Thickness of layer to be left out at both
       ! boundaries for RMS calculation.
       ! rCut=0.075 means that 7.5% at the CMB and ICB are disregarded.
-      rDea          =0.00D0  ! Controls dealiazing in  RMS calculation
+      rDea          =0.00_cp  ! Controls dealiazing in  RMS calculation
       ! rDea=0.1 means that highest 10% of cheb modes are set to zero
 
       !----- Mantle name list:
-      conductance_ma=0.D0    ! insulation mantle is default
+      conductance_ma=0.0_cp    ! insulation mantle is default
       nRotMa        =0       ! non rotating mantle is default
-      rho_ratio_ma  =1.D0    ! same density as outer core
-      omega_ma1     =0.D0    ! prescribed rotation rate
-      omegaOsz_ma1  =0.D0    ! oszillation frequency of mantle rotation rate
-      tShift_ma1    =0.D0    ! time shift
-      omega_ma2     =0.D0    ! second mantle rotation rate 
-      omegaOsz_ma2  =0.D0    ! oscillation frequency of second mantle rotation
-      tShift_ma2    =0.D0    ! time shift for second rotation
+      rho_ratio_ma  =one    ! same density as outer core
+      omega_ma1     =0.0_cp    ! prescribed rotation rate
+      omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
+      tShift_ma1    =0.0_cp    ! time shift
+      omega_ma2     =0.0_cp    ! second mantle rotation rate 
+      omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
+      tShift_ma2    =0.0_cp    ! time shift for second rotation
 
       !----- Inner core name list:
-      sigma_ratio   =0.D0    ! no conducting inner core is default 
+      sigma_ratio   =0.0_cp    ! no conducting inner core is default 
       nRotIc        =0       ! non rotating inner core is default
-      rho_ratio_ic  =1.D0    ! same density as outer core
-      omega_ic1     =0.D0    ! prescribed rotation rate, added to first one
-      omegaOsz_ic1  =0.D0    ! oszillation frequency of IC rotation rate
-      tShift_ic1    =0.D0    ! time shift
-      omega_ic2     =0.D0    ! second prescribed rotation rate 
-      omegaOsz_ic2  =0.D0    ! oszillation frequency of second IC rotation rate
-      tShift_ic2    =0.D0    ! tims shift for second IC rotation
-      BIC           =0.D0    ! Imposed dipole field strength at ICB
+      rho_ratio_ic  =one    ! same density as outer core
+      omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
+      omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
+      tShift_ic1    =0.0_cp    ! time shift
+      omega_ic2     =0.0_cp    ! second prescribed rotation rate 
+      omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
+      tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
+      BIC           =0.0_cp    ! Imposed dipole field strength at ICB
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

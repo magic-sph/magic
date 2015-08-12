@@ -1,6 +1,8 @@
 !$Id$
 module radial_der_even
 
+   use const, only: zero
+   use precision_mod, only: cp
    use cosine_transform, only: costf1, costf2
 
    implicit none
@@ -29,23 +31,23 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: n_f_max          ! first dim of f
-      complex(kind=8), intent(in) :: f(n_f_max,*)
-      integer,         intent(in) :: n_f_start        ! first function to be treated
-      integer,         intent(in) :: n_f_stop         ! last function to be treated
-      integer,         intent(in) :: n_r_max          ! number of radial grid points
-      integer,         intent(in) :: n_cheb_max       ! number of cheb modes
-      real(kind=8),    intent(in) :: dr_fac           ! mapping factor
-      integer,         intent(in) :: i_costf1_init(*)
-      integer,         intent(in) :: i_costf2_init(*)
-      real(kind=8),    intent(in) :: d_costf1_init(*)
-      real(kind=8),    intent(in) :: d_costf2_init(*)
+      integer,     intent(in) :: n_f_max          ! first dim of f
+      complex(cp), intent(in) :: f(n_f_max,*)
+      integer,     intent(in) :: n_f_start        ! first function to be treated
+      integer,     intent(in) :: n_f_stop         ! last function to be treated
+      integer,     intent(in) :: n_r_max          ! number of radial grid points
+      integer,     intent(in) :: n_cheb_max       ! number of cheb modes
+      real(cp),    intent(in) :: dr_fac           ! mapping factor
+      integer,     intent(in) :: i_costf1_init(*)
+      integer,     intent(in) :: i_costf2_init(*)
+      real(cp),    intent(in) :: d_costf1_init(*)
+      real(cp),    intent(in) :: d_costf2_init(*)
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
-      complex(kind=8), intent(out) :: work2(n_f_max,*)  ! work array needed for costf
-      complex(kind=8), intent(out) :: df(n_f_max,*)  ! first derivative of f
-      complex(kind=8), intent(out) :: ddf(n_f_max,*) ! second derivative of f
+      complex(cp), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
+      complex(cp), intent(out) :: work2(n_f_max,*)  ! work array needed for costf
+      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
+      complex(cp), intent(out) :: ddf(n_f_max,*) ! second derivative of f
 
       !-- Local variables:
       integer :: n_r,n_f
@@ -92,24 +94,22 @@ contains
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
 
-      implicit none
-
       !-- Input variables:
-      integer,      intent(in) :: n_f_max           ! first dim of f
-      integer,      intent(in) :: n_f_start         ! first function to be treated
-      integer,      intent(in) :: n_f_stop          ! last function to be treated
-      integer,      intent(in) :: n_r_max           ! number of radial grid points
-      integer,      intent(in) :: n_cheb_max        ! number of cheb modes
-      real(kind=8), intent(in) :: dr_fac            ! mapping factor
-      integer,      intent(in) :: i_costf1_init(*)
-      integer,      intent(in) :: i_costf2_init(*)
-      real(kind=8), intent(in) :: d_costf1_init(*)
-      real(kind=8), intent(in) :: d_costf2_init(*)
+      integer,  intent(in) :: n_f_max           ! first dim of f
+      integer,  intent(in) :: n_f_start         ! first function to be treated
+      integer,  intent(in) :: n_f_stop          ! last function to be treated
+      integer,  intent(in) :: n_r_max           ! number of radial grid points
+      integer,  intent(in) :: n_cheb_max        ! number of cheb modes
+      real(cp), intent(in) :: dr_fac            ! mapping factor
+      integer,  intent(in) :: i_costf1_init(*)
+      integer,  intent(in) :: i_costf2_init(*)
+      real(cp), intent(in) :: d_costf1_init(*)
+      real(cp), intent(in) :: d_costf2_init(*)
 
       !-- Output variables:
-      complex(kind=8), intent(inout) :: f(n_f_max,*)
-      complex(kind=8), intent(out) :: work1(n_f_max,*)   ! work array needed for costf
-      complex(kind=8), intent(out) :: df(n_f_max,*)  ! first derivative of f
+      complex(cp), intent(inout) :: f(n_f_max,*)
+      complex(cp), intent(out) :: work1(n_f_max,*)   ! work array needed for costf
+      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
 
 
       !-- Transform f to cheb space:
@@ -148,23 +148,23 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: n_f_max          ! first dim of f
-      integer,      intent(in) :: n_f_start        ! first function to be treated
-      integer,      intent(in) :: n_f_stop         ! last function to be treated
-      integer,      intent(in) :: n_r_max          ! number of radial grid points
-      integer,      intent(in) :: n_cheb_max       ! number of cheb modes
-      real(kind=8), intent(in) :: dr_fac            ! mapping factor
-      integer,      intent(in) :: i_costf1_init(*)
-      integer,      intent(in) :: i_costf2_init(*)
-      real(kind=8), intent(in) :: d_costf1_init(*)
-      real(kind=8), intent(in) :: d_costf2_init(*)
+      integer,  intent(in) :: n_f_max          ! first dim of f
+      integer,  intent(in) :: n_f_start        ! first function to be treated
+      integer,  intent(in) :: n_f_stop         ! last function to be treated
+      integer,  intent(in) :: n_r_max          ! number of radial grid points
+      integer,  intent(in) :: n_cheb_max       ! number of cheb modes
+      real(cp), intent(in) :: dr_fac            ! mapping factor
+      integer,  intent(in) :: i_costf1_init(*)
+      integer,  intent(in) :: i_costf2_init(*)
+      real(cp), intent(in) :: d_costf1_init(*)
+      real(cp), intent(in) :: d_costf2_init(*)
 
-      complex(kind=8), intent(inout) :: f(n_f_max,*)
+      complex(cp), intent(inout) :: f(n_f_max,*)
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
-      complex(kind=8), intent(out) :: df(n_f_max,*)  ! first derivative of f
-      complex(kind=8), intent(out) :: ddf(n_f_max,*) ! second derivative of f
+      complex(cp), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
+      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
+      complex(cp), intent(out) :: ddf(n_f_max,*) ! second derivative of f
 
 
       !-- Transform f to cheb space:
@@ -197,31 +197,31 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: n_f_start  ! No of function to start with
-      integer,         intent(in) :: n_f_stop   ! No of function to stop with
-      integer,         intent(in) :: n_f_max    ! First dimension of f,df
-      integer,         intent(in) :: n_r_max    ! second dimension of f,df
-      integer,         intent(in) :: n_cheb_max ! Number of cheb modes
-      complex(kind=8), intent(in) :: f(n_f_max,*)
-      real(kind=8),    intent(in) :: d_fac      ! factor for intervall mapping
+      integer,     intent(in) :: n_f_start  ! No of function to start with
+      integer,     intent(in) :: n_f_stop   ! No of function to stop with
+      integer,     intent(in) :: n_f_max    ! First dimension of f,df
+      integer,     intent(in) :: n_r_max    ! second dimension of f,df
+      integer,     intent(in) :: n_cheb_max ! Number of cheb modes
+      complex(cp), intent(in) :: f(n_f_max,*)
+      real(cp),    intent(in) :: d_fac      ! factor for intervall mapping
 
       !-- Output variables:
-      complex(kind=8), intent(out) ::  df(n_f_max,*)
+      complex(cp), intent(out) ::  df(n_f_max,*)
 
       !-- Local variables:
       integer :: n_f,n_cheb
-      real(kind=8) :: fac_cheb_odd
+      real(cp) :: fac_cheb_odd
 
       !-- initialize inner core derivatives:
       do n_cheb=n_cheb_max,n_r_max
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=0.d0
+            df(n_f,n_cheb)=zero
          end do
       end do
 
       !----- Recursion
       do n_cheb=n_cheb_max-1,1,-1
-         fac_cheb_odd=d_fac*dble(4*n_cheb)
+         fac_cheb_odd=d_fac*real(4*n_cheb,kind=cp)
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)=df(n_f,n_cheb+1) + fac_cheb_odd*f(n_f,n_cheb+1)
          end do
@@ -240,35 +240,35 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: n_f_start  ! No of function to start with
-      integer,         intent(in) :: n_f_stop   ! No of function to stop with
-      integer,         intent(in) :: n_f_max    ! First dimension of f,df,ddf
-      integer,         intent(in) :: n_r_max    ! second dimension of f,df,ddf
-      integer,         intent(in) :: n_cheb_max ! Number of cheb modes
-      complex(kind=8), intent(in) :: f(n_f_max,*)
-      real(kind=8),    intent(in) :: d_fac      ! factor for interval mapping
+      integer,     intent(in) :: n_f_start  ! No of function to start with
+      integer,     intent(in) :: n_f_stop   ! No of function to stop with
+      integer,     intent(in) :: n_f_max    ! First dimension of f,df,ddf
+      integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
+      integer,     intent(in) :: n_cheb_max ! Number of cheb modes
+      complex(cp), intent(in) :: f(n_f_max,*)
+      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
-      complex(kind=8), intent(out) ::  df(n_f_max,*)
-      complex(kind=8), intent(out) ::  ddf(n_f_max,*)
+      complex(cp), intent(out) ::  df(n_f_max,*)
+      complex(cp), intent(out) ::  ddf(n_f_max,*)
 
       !-- Local variables:
       integer :: n_f,n_cheb
-      real(kind=8) :: fac_cheb_even
-      real(kind=8) :: fac_cheb_odd
+      real(cp) :: fac_cheb_even
+      real(cp) :: fac_cheb_odd
 
       !----- initialize inner core derivatives:
       do n_cheb=n_cheb_max,n_r_max
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=0.d0
-            ddf(n_f,n_cheb)=0.d0
+            df(n_f,n_cheb)=zero
+            ddf(n_f,n_cheb)=zero
          end do
       end do
 
       !----- Recursion
       do n_cheb=n_cheb_max-1,1,-1
-         fac_cheb_odd=d_fac*dble(4*n_cheb)
-         fac_cheb_even=d_fac*dble(4*n_cheb-2)
+         fac_cheb_odd=d_fac*real(4*n_cheb,kind=cp)
+         fac_cheb_even=d_fac*real(4*n_cheb-2,kind=cp)
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)=df(n_f,n_cheb+1) + fac_cheb_odd*f(n_f,n_cheb+1)
             ddf(n_f,n_cheb)=ddf(n_f,n_cheb+1) + fac_cheb_even*df(n_f,n_cheb)

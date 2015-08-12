@@ -1,6 +1,7 @@
 !$Id$
 module Egeos_mod
  
+   use precision_mod, only: cp, outp
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
                          n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
    use parallel_mod, only: rank
@@ -13,7 +14,7 @@ module Egeos_mod
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel
    use output_data, only: sDens, zDens, tag, runid
-   use const, only: pi
+   use const, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
@@ -32,16 +33,16 @@ module Egeos_mod
    integer, parameter :: nSmaxA=97
    integer, parameter :: nZmaxA=2*nSmaxA
  
-   real(kind=8), allocatable :: PlmS(:,:,:)  ! This is huge !
-   real(kind=8), allocatable :: dPlmS(:,:,:) ! This is huge !
-   real(kind=8), allocatable :: OsinTS(:,:)
+   real(cp), allocatable :: PlmS(:,:,:)  ! This is huge !
+   real(cp), allocatable :: dPlmS(:,:,:) ! This is huge !
+   real(cp), allocatable :: OsinTS(:,:)
 
    integer, allocatable :: i_costf_initZ(:,:)
    integer, allocatable :: nZmaxS(:)
-   real(kind=8), allocatable :: d_costf_initZ(:,:)
-   real(kind=8), allocatable :: zZ(:,:), rZ(:,:)
-   real(kind=8), allocatable :: rhoZ(:,:)   ! density (anelastic version)
-   real(kind=8), allocatable :: orhoZ(:,:)  ! 1/rho   (anelastic version)
+   real(cp), allocatable :: d_costf_initZ(:,:)
+   real(cp), allocatable :: zZ(:,:), rZ(:,:)
+   real(cp), allocatable :: rhoZ(:,:)   ! density (anelastic version)
+   real(cp), allocatable :: orhoZ(:,:)  ! 1/rho   (anelastic version)
  
    public :: initialize_Egeos_mod, getEgeos
 
@@ -77,76 +78,76 @@ contains
 
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: time
-      integer,         intent(in) :: nGeosSets 
-      complex(kind=8), intent(in) :: w(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: ddw(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in) :: dz(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: time
+      integer,     intent(in) :: nGeosSets 
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
 
       !-- Output variables:
-      real(kind=8), intent(out) :: Egeos,EkNTC,EkSTC,Ekin
-      real(kind=8), intent(out) :: dpFlow,dzFlow ! RMS length scales
-      real(kind=8), intent(out) :: CVzOTC,CVorOTC,CHelOTC
+      real(cp), intent(out) :: Egeos,EkNTC,EkSTC,Ekin
+      real(cp), intent(out) :: dpFlow,dzFlow ! RMS length scales
+      real(cp), intent(out) :: CVzOTC,CVorOTC,CHelOTC
 
       !-- Local variables:
       logical :: lDeriv
       integer :: nSmax,nS,nS_ICB
-      real(kind=8) :: ofr ! inverse Froude number (anelastic)
-      real(kind=8) :: zNorm  ! Norm z intervall
+      real(cp) :: ofr ! inverse Froude number (anelastic)
+      real(cp) :: zNorm  ! Norm z intervall
       integer :: nNorm  ! No. of grid points for norm intervall
-      real(kind=8) :: zMin,zMax,help ! integration boundarie, help variable
+      real(cp) :: zMin,zMax,help ! integration boundarie, help variable
       logical :: lAS    ! .true. if axisymmetric (m=0) functions
-      real(kind=8) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
+      real(cp) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
       integer :: nPhi,nI
-      real(kind=8) :: phiNorm
+      real(cp) :: phiNorm
       logical :: lTC
 
       !-- Local field copies to avoid changes by back and forth transform:
-      complex(kind=8) :: wS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8) :: dwS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8) :: ddwS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8) :: zS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8) :: dzS(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: wS(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: dwS(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: ddwS(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: zS(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: dzS(lm_maxGeos,n_r_maxGeos)
       !---- Additional work array
-      complex(kind=8) :: workA(lm_maxGeos,n_r_maxGeos)
+      complex(cp) :: workA(lm_maxGeos,n_r_maxGeos)
 
       !-- Representation in (phi,z):
-      real(kind=8) :: VrS(nrpGeos,nZmaxA),VrInt(nZmaxA),VrIntS
-      real(kind=8) :: VtS(nrpGeos,nZmaxA),VtInt(nZmaxA),VtIntS
-      real(kind=8) :: VpS(nrpGeos,nZmaxA),VpInt(nZmaxA),VpIntS
-      real(kind=8) :: VozS(nrpGeos,nZmaxA)
-      real(kind=8) :: sinT,cosT
+      real(cp) :: VrS(nrpGeos,nZmaxA),VrInt(nZmaxA),VrIntS
+      real(cp) :: VtS(nrpGeos,nZmaxA),VtInt(nZmaxA),VtIntS
+      real(cp) :: VpS(nrpGeos,nZmaxA),VpInt(nZmaxA),VpIntS
+      real(cp) :: VozS(nrpGeos,nZmaxA)
+      real(cp) :: sinT,cosT
       integer :: nInt,nInts   ! index for NHS and SHS integral
       integer :: nZ,nZmax,nZS,nZN
       integer :: lm,nR
-      real(kind=8) :: EkInt(nZmaxA),EkIntS
-      real(kind=8) :: EkSTC_s(nSmaxA),EkNTC_s(nSmaxA),EkOTC_s(nSmaxA)
-      real(kind=8) :: Egeos_s(nSmaxA)
-      real(kind=8) :: EkOTC
-      real(kind=8) :: dpEkInt(nZmaxA),dpEkIntS
-      real(kind=8) :: dzEkInt(nZmaxA),dzEkIntS
-      real(kind=8) :: dpEk_s(nSmaxA),dzEk_s(nSmaxA)
-      real(kind=8) :: thetaZ
+      real(cp) :: EkInt(nZmaxA),EkIntS
+      real(cp) :: EkSTC_s(nSmaxA),EkNTC_s(nSmaxA),EkOTC_s(nSmaxA)
+      real(cp) :: Egeos_s(nSmaxA)
+      real(cp) :: EkOTC
+      real(cp) :: dpEkInt(nZmaxA),dpEkIntS
+      real(cp) :: dzEkInt(nZmaxA),dzEkIntS
+      real(cp) :: dpEk_s(nSmaxA),dzEk_s(nSmaxA)
+      real(cp) :: thetaZ
 
       logical :: lStopRun
 
       !-- Correlation (new Oct. 4 2007)
       logical :: lCorrel
-      real(kind=8) :: VzS,VzN,VorS,VorN,surf,delz
-      real(kind=8) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
-      real(kind=8) :: CVz_I,CVor_I,CHel_I
-      real(kind=8) :: CVz_s(nSmaxA),CVor_s(nSmaxA),CHel_S(nSmaxA)
+      real(cp) :: VzS,VzN,VorS,VorN,surf,delz
+      real(cp) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
+      real(cp) :: CVz_I,CVor_I,CHel_I
+      real(cp) :: CVz_s(nSmaxA),CVor_s(nSmaxA),CHel_S(nSmaxA)
 
       !-- Movie output
       integer :: nOutFile,n
       character(len=66) :: version,movFile
       integer :: nFields,nFieldSize
-      real(kind=8) :: dumm(40)
-      real(kind=4) :: CVz(nrpGeos,nZmaxA)
-      real(kind=4) :: CVor(nrpGeos,nZmaxA)
-      real(kind=4) :: CHel(nrpGeos,nZmaxA)
+      real(cp) :: dumm(40)
+      real(outp) :: CVz(nrpGeos,nZmaxA)
+      real(outp) :: CVor(nrpGeos,nZmaxA)
+      real(outp) :: CHel(nrpGeos,nZmaxA)
 
 
       if ( lVerbose ) write(*,*) '! Starting outGeos!'
@@ -160,16 +161,16 @@ contains
       if ( rank == 0 ) then
          lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
 
-         phiNorm=2.D0*pi/n_phi_max
+         phiNorm=two*pi/n_phi_max
          lStopRun=.false.
          lDeriv=.true.
 
          !---- Get resolution in s and z for z-integral:
-         zNorm=1.D0               ! This is r_CMB-r_ICB
+         zNorm=one               ! This is r_CMB-r_ICB
          nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
-         nSmax=n_r_max+int(r_ICB*dble(n_r_max)) 
+         nSmax=n_r_max+int(r_ICB*real(n_r_max,cp)) 
          nSmax=int(sDens*nSmax)
-         dsZ  =r_CMB/dble(nSmax)  ! Step in s controlled by nSmax
+         dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
          if ( nSmax > nSmaxA ) then
             write(*,*) 'Increase nSmaxA in getGeos!'
             write(*,*) 'Should be at least nSmax=',nSmax
@@ -178,15 +179,15 @@ contains
          lAS=.false.
 
          do nS=1,nSmax
-            EkSTC_s(nS)=0.D0
-            EkNTC_s(nS)=0.D0
-            EkOTC_s(nS)=0.D0
-            Egeos_s(nS)=0.D0
-            dpEk_s(nS) =0.D0
-            dzEk_s(nS) =0.D0
-            CVz_s(nS)  =0.D0
-            CVor_s(nS) =0.D0
-            CHel_s(nS) =0.D0
+            EkSTC_s(nS)=0.0_cp
+            EkNTC_s(nS)=0.0_cp
+            EkOTC_s(nS)=0.0_cp
+            Egeos_s(nS)=0.0_cp
+            dpEk_s(nS) =0.0_cp
+            dzEk_s(nS) =0.0_cp
+            CVz_s(nS)  =0.0_cp
+            CVor_s(nS) =0.0_cp
+            CHel_s(nS) =0.0_cp
          end do
 
          !---- Copy for following costf so that no      
@@ -209,7 +210,7 @@ contains
          nI=0
 
          do nS=1,nSmax
-            sZ(nS)=(nS-0.5D0)*dsZ
+            sZ(nS)=(nS-half)*dsZ
             if ( sZ(nS) < r_ICB ) then
                lTC=.true.
             else
@@ -220,9 +221,9 @@ contains
             end if
 
             !------ Get integral boundaries for this s:
-            zMin=-dsqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
+            zMin=-sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
             if ( lTC ) then
-               zMax=-dsqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
+               zMax=-sqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
             else
                zMax=-zMin
             end if
@@ -252,25 +253,25 @@ contains
                   lStopRun=.true.
                end if
                do nZ=1,nZmax
-                  rZ(nZ,nS)    =dsqrt(zZ(nZ,nS)**2+sZ(nS)**2)
-                  thetaZ       =DATAN2(sZ(nS),zZ(nZ,nS))
-                  OsinTS(nZ,nS)=1.D0/DSIN(thetaZ)
+                  rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
+                  thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
+                  OsinTS(nZ,nS)=one/sin(thetaZ)
                   call plm_theta(thetaZ,l_max,m_max,minc,                &
                        &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lm_max,2)
                end do
                if ( l_anel) then
-                  ofr=( DEXP(strat/polind)-1.D0 )/                       &
-                       &      ( g0+0.5D0*g1*(1.D0+radratio) +g2/radratio )
+                  ofr=( exp(strat/polind)-one )/                       &
+                       &      ( g0+half*g1*(one+radratio) +g2/radratio )
                   do nZ=1,nZmax
-                     rhoZ(nZ,nS)=DEXP(-ofr*(g0*(rZ(nZ,nS)-r_cmb) +          &
-                          &        g1/(2.d0*r_cmb)*(rZ(nZ,nS)**2-r_cmb**2) -&
+                     rhoZ(nZ,nS)=exp(-ofr*(g0*(rZ(nZ,nS)-r_cmb) +          &
+                          &        g1/(two*r_cmb)*(rZ(nZ,nS)**2-r_cmb**2) -&
                           &        g2*(r_cmb**2/rZ(nZ,nS)-r_cmb)))
-                     orhoZ(nZ,ns)=1.d0/rhoZ(nZ,nS)
+                     orhoZ(nZ,ns)=one/rhoZ(nZ,nS)
                   end do
                else
                   do nZ=1,nZmax
-                     rhoZ(nZ,nS)=1.d0
-                     orhoZ(nZ,ns)=1.d0
+                     rhoZ(nZ,nS)=one
+                     orhoZ(nZ,ns)=one
                   end do
                end if
             end if
@@ -332,19 +333,19 @@ contains
 
                   !-------- Get volume integral of energies:
                   Egeos_s(nS)=Egeos_s(nS) +                              &
-                       &      0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
+                       &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
                        &      (VrIntS**2+VtIntS**2+VpIntS**2)
                   if ( lTC ) then
                      if ( nInt == 1 ) then
                         EkSTC_s(nS)=EkSTC_s(nS) +                        &
-                             &      0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                             &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                      else if ( nInt == 2 ) then
                         EkNTC_s(nS)=EkNTC_s(nS) +                        &
-                             &      0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                             &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                      end if
                   else
                      EkOTC_s(nS)=EkOTC_s(nS) +                           &
-                          &      0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                          &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                   end if
 
                   !-------- Note: chebIntD returns the z derivative
@@ -356,7 +357,7 @@ contains
                      dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,    &
                           &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
                      dzEk_s(nS)=dzEk_s(nS) +                             &
-                          &     0.5D0*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
+                          &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
                   end if
 
                end do ! Loop over north/south integral
@@ -367,20 +368,20 @@ contains
                !     Here only integrals over one hemisphere are required. I thus
                !     copy the southern points to the northern hermisphere.
                if ( lCorrel .and. .not.lTC ) then
-                  VzSN =0.D0
-                  VzSS =0.D0
-                  VzNN =0.D0
-                  VorSN=0.D0
-                  VorSS=0.D0
-                  VorNN=0.D0
-                  HelZZ=0.D0
-                  VZZ  =0.D0
-                  VorZZ=0.D0
+                  VzSN =0.0_cp
+                  VzSS =0.0_cp
+                  VzNN =0.0_cp
+                  VorSN=0.0_cp
+                  VorSS=0.0_cp
+                  VorNN=0.0_cp
+                  HelZZ=0.0_cp
+                  VZZ  =0.0_cp
+                  VorZZ=0.0_cp
                   do nZN=1,nZmax/2 ! Dont use equatorial point
                      nZS  =nZmax-nZN+1
                      delz =zZ(nZN,nS)-zZ(nZN+1,nS)
-                     sinT =1.D0/OsinTS(nZN,nS)
-                     cosT =dsqrt(1.D0-sinT**2)
+                     sinT =one/OsinTS(nZN,nS)
+                     cosT =sqrt(one-sinT**2)
                      VzN  = cosT*VrS(nPhi,nZN)-sinT*VtS(nPhi,nZN)
                      VzS  =-cosT*VrS(nPhi,nZS)-sinT*VtS(nPhi,nZS)
                      VorN =VozS(nPhi,nZN)
@@ -397,24 +398,24 @@ contains
                   end do
 
                   !------------ Calculate the integrals from zMin+0.1 to zMax-0.1:
-                  if ( VzSS /= 0.D0 .and. VzNN /= 0.d0 ) then
-                     CVz_I = VzSN/dsqrt(VzSS*VzNN)
+                  if ( VzSS /= 0.0_cp .and. VzNN /= 0.0_cp ) then
+                     CVz_I = VzSN/sqrt(VzSS*VzNN)
                   else
-                     CVz_I = 0.d0
+                     CVz_I = 0.0_cp
                   end if
-                  if ( VorSS /= 0.D0 .and. VorNN /= 0.d0 ) then
-                     CVor_I=VorSN/dsqrt(VorSS*VorNN)
+                  if ( VorSS /= 0.0_cp .and. VorNN /= 0.0_cp ) then
+                     CVor_I=VorSN/sqrt(VorSS*VorNN)
                   else
-                     CVor_I=0.d0
+                     CVor_I=0.0_cp
                   end if
-                  if ( VZZ /= 0.d0 .and. VorZZ /= 0.d0 ) then
-                     CHel_I=dsqrt(HelZZ/(VZZ*VorZZ))
+                  if ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp ) then
+                     CHel_I=sqrt(HelZZ/(VZZ*VorZZ))
                   else
-                     CHel_I=0.d0
+                     CHel_I=0.0_cp
                   end if
-                  CVz(nPhi,nSmax-nS+1) =sngl(CVz_I)
-                  CVor(nPhi,nSmax-nS+1)=sngl(CVor_I)   
-                  CHel(nPhi,nSmax-nS+1)=sngl(CHel_I)   
+                  CVz(nPhi,nSmax-nS+1) =real(CVz_I,kind=outp)
+                  CVor(nPhi,nSmax-nS+1)=real(CVor_I,kind=outp)
+                  CHel(nPhi,nSmax-nS+1)=real(CHel_I,kind=outp)
                   CVz_s(nS) =CVz_s(nS) +phiNorm*sZ(nS)*dsZ*CVz_I  
                   CVor_s(nS)=CVor_s(nS)+phiNorm*sZ(nS)*dsZ*CVor_I
                   CHel_s(nS)=CHel_s(nS)+phiNorm*sZ(nS)*dsZ*CHel_I
@@ -443,7 +444,7 @@ contains
                   dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,       &
                        &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
                   dpEk_s(nS)=dpEk_s(nS) +                                &
-                       &     0.5D0*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
+                       &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
                        &     (sZ(nS)**2) ! Convert angle to length
                end do
             end if
@@ -451,13 +452,13 @@ contains
          end do ! big loop over S
 
          !--- Collect:
-         EkSTC  =0.D0
-         EkNTC  =0.D0
-         EkOTC  =0.D0
-         Egeos  =0.D0
-         CVzOTC =0.D0
-         CVorOTC=0.D0
-         CHelOTC=0.D0
+         EkSTC  =0.0_cp
+         EkNTC  =0.0_cp
+         EkOTC  =0.0_cp
+         Egeos  =0.0_cp
+         CVzOTC =0.0_cp
+         CVorOTC=0.0_cp
+         CHelOTC=0.0_cp
          do nS=1,nSmax
             Egeos=Egeos+Egeos_s(nS)
             if ( sZ(ns) < r_ICB ) then
@@ -473,33 +474,33 @@ contains
             end if
          end do
          if ( lCorrel ) then
-            surf=0.D0
+            surf=0.0_cp
             do nS=1,nSmax
                if ( sZ(nS) >= r_ICB ) surf=surf+sZ(nS)*dsZ
             end do
-            surf   =2.D0*pi*surf
+            surf   =two*pi*surf
             CVzOTC =CVzOTC/surf
             CVorOTC=CVorOTC/surf
             CHelOTC=CHelOTC/surf
          end if
          Ekin=EkSTC+EkNTC+EKOTC ! Can be used for testing 
 
-         dpFlow=0.D0
-         dzFlow=0.D0
+         dpFlow=0.0_cp
+         dzFlow=0.0_cp
          if ( lDeriv ) then
             do nS=1,nSmax
                dpFlow=dpFlow+dpEk_s(nS)
                dzFlow=dzFlow+dzEk_s(nS)
             end do
-            if ( dpFlow /= 0.d0 ) then
-               dpFlow = dsqrt(Ekin/dpFlow)
+            if ( dpFlow /= 0.0_cp ) then
+               dpFlow = sqrt(Ekin/dpFlow)
             else
-               dpFlow = 0.d0
+               dpFlow = 0.0_cp
             end if
-            if ( dzFlow /= 0.d0 ) then
-               dzFlow = dsqrt(Ekin/dzFlow)
+            if ( dzFlow /= 0.0_cp ) then
+               dzFlow = sqrt(Ekin/dzFlow)
             else
-               dzFlow = 0.d0
+               dzFlow = 0.0_cp
             end if
          end if
 
@@ -539,14 +540,14 @@ contains
                write(nOutFile) version
                dumm(1)=111           ! type of input
                dumm(2)=2             ! marker for constant theta plane
-               dumm(3)=90.D0         ! surface constant
+               dumm(3)=90.0_cp         ! surface constant
                dumm(4)=nFields       ! no of fields
-               write(nOutFile) (real(dumm(n),4),n=1,4)
+               write(nOutFile) (real(dumm(n),kind=outp),n=1,4)
 
                dumm(1)=92.0          ! Field marker for AS vPhi
                dumm(2)=93.0          ! Field marker for Reynolds Force
                dumm(3)=94.0          ! Field marker for Reynolds Force
-               write(nOutFile) (sngl(dumm(n)),n=1,nFields)
+               write(nOutFile) (real(dumm(n),kind=outp),n=1,nFields)
 
                !------ Now other info about grid and parameters:
                write(nOutFile) runid     ! run identifier
@@ -561,22 +562,22 @@ contains
                dumm( 9)=prmag            !      -"-
                dumm(10)=radratio         ! ratio of inner / outer core
                dumm(11)=tScale           ! timescale
-               write(nOutFile) (sngl(dumm(n)),   n=1,11)
-               write(nOutFile) (sngl(sZ(nSmax-n+1)/r_CMB),n=1,nSmax)
-               write(nOutFile)  sngl(90.D0)
-               write(nOutFile) (sngl(phi(n)), n=1,n_phi_max)
+               write(nOutFile) (real(dumm(n),kind=outp),   n=1,11)
+               write(nOutFile) (real(sZ(nSmax-n+1)/r_CMB,kind=outp),n=1,nSmax)
+               write(nOutFile)  90.0_outp
+               write(nOutFile) (real(phi(n),kind=outp), n=1,n_phi_max)
 
             end if ! Write Header ?
 
             dumm(1)=nGeosSets          ! time frame number for movie
             dumm(2)=time              ! time
-            dumm(3)=0.D0
-            dumm(4)=0.D0
-            dumm(5)=0.D0
-            dumm(6)=0.D0
-            dumm(7)=0.D0
-            dumm(8)=0.D0
-            write(nOutFile) (sngl(dumm(n)),n=1,8)
+            dumm(3)=0.0_cp
+            dumm(4)=0.0_cp
+            dumm(5)=0.0_cp
+            dumm(6)=0.0_cp
+            dumm(7)=0.0_cp
+            dumm(8)=0.0_cp
+            write(nOutFile) (real(dumm(n),kind=outp),n=1,8)
 
             write(nOutFile) ((CVz(nPhi,nS) ,nPhi=1,n_phi_max), nS=1,nSmax)
             write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
@@ -607,48 +608,48 @@ contains
       !---------------------------------------------------------------------------------
 
       !--- Input variables:
-      complex(kind=8), intent(in) :: wS(lm_max,n_r_max)
-      complex(kind=8), intent(in) :: dwS(lm_max,n_r_max)
-      complex(kind=8), intent(in) :: ddwS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8), intent(in) :: zS(lm_maxGeos,n_r_maxGeos)
-      complex(kind=8), intent(in) :: dzS(lm_maxGeos,n_r_maxGeos)
-      real(kind=8),    intent(in) :: rMin,rMax  ! radial bounds
-      integer,         intent(in) :: nZmax,nZmaxA ! number of (r,theta) points
-      real(kind=8),    intent(in) :: rS(nZmaxA)
-      real(kind=8),    intent(in) :: PlmS(lm_maxGeos,nZmaxA/2+1)
-      real(kind=8),    intent(in) :: dPlmS(lm_maxGeos,nZmaxA/2+1)
-      real(kind=8),    intent(in) :: OsinTS(nZmaxA/2+1)
-      logical,         intent(in) ::  lDeriv
+      complex(cp), intent(in) :: wS(lm_max,n_r_max)
+      complex(cp), intent(in) :: dwS(lm_max,n_r_max)
+      complex(cp), intent(in) :: ddwS(lm_maxGeos,n_r_maxGeos)
+      complex(cp), intent(in) :: zS(lm_maxGeos,n_r_maxGeos)
+      complex(cp), intent(in) :: dzS(lm_maxGeos,n_r_maxGeos)
+      real(cp),    intent(in) :: rMin,rMax  ! radial bounds
+      integer,     intent(in) :: nZmax,nZmaxA ! number of (r,theta) points
+      real(cp),    intent(in) :: rS(nZmaxA)
+      real(cp),    intent(in) :: PlmS(lm_maxGeos,nZmaxA/2+1)
+      real(cp),    intent(in) :: dPlmS(lm_maxGeos,nZmaxA/2+1)
+      real(cp),    intent(in) :: OsinTS(nZmaxA/2+1)
+      logical,     intent(in) ::  lDeriv
     
       !--- Output: function on azimuthal grid points defined by FT!
-      real(kind=8), intent(out) :: VrS(nrpGeos,nZmaxA)
-      real(kind=8), intent(out) :: VtS(nrpGeos,nZmaxA)
-      real(kind=8), intent(out) :: VpS(nrpGeos,nZmaxA)
-      real(kind=8), intent(out) :: VorS(nrpGeos,nZmaxA)
-      real(kind=8), intent(out) :: dpEk(nZmaxA)
+      real(cp), intent(out) :: VrS(nrpGeos,nZmaxA)
+      real(cp), intent(out) :: VtS(nrpGeos,nZmaxA)
+      real(cp), intent(out) :: VpS(nrpGeos,nZmaxA)
+      real(cp), intent(out) :: VorS(nrpGeos,nZmaxA)
+      real(cp), intent(out) :: dpEk(nZmaxA)
     
       !--- Local variables:
-      real(kind=8) :: chebS(n_r_max)
+      real(cp) :: chebS(n_r_max)
       integer :: nS,nN,mc,lm,l,m,nCheb,nPhi,n
-      real(kind=8) :: x,phiNorm,mapFac,OS,cosT,sinT,Or_e1,Or_e2
-      complex(kind=8) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
-      complex(kind=8) :: VotS(nrpGeos,nZmaxA)
-      complex(kind=8) :: wSr,dwSr,ddwSr,zSr,dzSr
+      real(cp) :: x,phiNorm,mapFac,OS,cosT,sinT,Or_e1,Or_e2
+      complex(cp) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
+      complex(cp) :: VotS(nrpGeos,nZmaxA)
+      complex(cp) :: wSr,dwSr,ddwSr,zSr,dzSr
     
-      real(kind=8) :: dV(nrpGeos,2*nZmax)
-      complex(kind=8) :: dp
+      real(cp) :: dV(nrpGeos,2*nZmax)
+      complex(cp) :: dp
     
     
-      mapFac=2.D0/(rMax-rMin)
-      phiNorm=2.D0*pi/n_phi_max
+      mapFac=two/(rMax-rMin)
+      phiNorm=two*pi/n_phi_max
     
       do nS=1,nZmax
          do mc=1,nrpGeos
-            VrS(mc,nS) =0.D0
-            VtS(mc,nS) =0.D0
-            VpS(mc,nS) =0.D0
-            VorS(mc,nS)=0.D0
-            VotS(mc,nS)=0.D0
+            VrS(mc,nS) =0.0_cp
+            VtS(mc,nS) =0.0_cp
+            VpS(mc,nS) =0.0_cp
+            VorS(mc,nS)=0.0_cp
+            VotS(mc,nS)=0.0_cp
          end do
       end do
     
@@ -661,25 +662,25 @@ contains
          !       Note: the factor cheb_norm is needed
          !       for renormalisation. Its not needed if one used
          !       costf1 for the back transform.
-         x=2.D0*(rS(nN)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         chebS(1) =1.D0*cheb_norm ! Extra cheb_norm cheap here
+         x=two*(rS(nN)-half*(rMin+rMax))/(rMax-rMin)
+         chebS(1) =one*cheb_norm ! Extra cheb_norm cheap here
          chebS(2) =x*cheb_norm
          do nCheb=3,n_r_max
-            chebS(nCheb)=2.D0*x*chebS(nCheb-1)-chebS(nCheb-2)
+            chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do
-         chebS(1)      =0.5D0*chebS(1)
-         chebS(n_r_max)=0.5D0*chebS(n_r_max)
-         Or_e2=1.D0/rS(nN)**2
+         chebS(1)      =half*chebS(1)
+         chebS(n_r_max)=half*chebS(n_r_max)
+         Or_e2=one/rS(nN)**2
     
          do lm=1,lm_max     ! Sum over lms
             l =lm2l(lm)
             m =lm2m(lm)
             mc=lm2mc(lm)
-            wSr  =cmplx(0.D0,0.D0,kind=kind(0d0))
-            dwSr =cmplx(0.D0,0.D0,kind=kind(0d0))
-            ddwSr=cmplx(0.D0,0.D0,kind=kind(0d0))
-            zSr  =cmplx(0.D0,0.D0,kind=kind(0d0))
-            dzSr =cmplx(0.D0,0.D0,kind=kind(0d0))
+            wSr  =zero
+            dwSr =zero
+            ddwSr=zero
+            zSr  =zero
+            dzSr =zero
             do nCheb=1,n_r_max
                wSr  =  wSr+  wS(lm,nCheb)*chebS(nCheb)
                dwSr = dwSr+ dwS(lm,nCheb)*chebS(nCheb)
@@ -736,25 +737,25 @@ contains
       if ( mod(nZmax,2) == 1 ) then ! Remaining equatorial point
          nS=(nZmax+1)/2
     
-         x=2.D0*(rS(nS)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         chebS(1)=1.D0*cheb_norm ! Extra cheb_norm cheap here
+         x=two*(rS(nS)-half*(rMin+rMax))/(rMax-rMin)
+         chebS(1)=one*cheb_norm ! Extra cheb_norm cheap here
          chebS(2)=x*cheb_norm
          do nCheb=3,n_r_max
-            chebS(nCheb)=2.D0*x*chebS(nCheb-1)-chebS(nCheb-2)
+            chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do
-         chebS(1)      =0.5D0*chebS(1)
-         chebS(n_r_max)=0.5D0*chebS(n_r_max)
-         Or_e2=1.D0/rS(nS)**2
+         chebS(1)      =half*chebS(1)
+         chebS(n_r_max)=half*chebS(n_r_max)
+         Or_e2=one/rS(nS)**2
     
          do lm=1,lm_max     ! Sum over lms
             l =lm2l(lm)
             m =lm2m(lm)
             mc=lm2mc(lm)
-            wSr  =cmplx(0.D0,0.D0,kind=kind(0d0))
-            dwSr =cmplx(0.D0,0.D0,kind=kind(0d0))
-            ddwSr=cmplx(0.D0,0.D0,kind=kind(0d0))
-            zSr  =cmplx(0.D0,0.D0,kind=kind(0d0))
-            dzSr =cmplx(0.D0,0.D0,kind=kind(0d0))
+            wSr  =zero
+            dwSr =zero
+            ddwSr=zero
+            zSr  =zero
+            dzSr =zero
             do nCheb=1,n_r_max
                wSr  =  wSr+  wS(lm,nCheb)*chebS(nCheb)
                dwSr = dwSr+ dwS(lm,nCheb)*chebS(nCheb)
@@ -788,9 +789,9 @@ contains
       !--- Extra factors, contructing z-vorticity:
       do nS=1,(nZmax+1)/2 ! North HS
          OS   =OsinTS(nS)
-         sinT =1.D0/OS
-         cosT =SQRT(1.D0-sinT**2)
-         Or_e1=1.D0/rS(nS)
+         sinT =one/OS
+         cosT =sqrt(one-sinT**2)
+         Or_e1=one/rS(nS)
          Or_e2=Or_e1*Or_e1
          do mc=1,n_m_max
             VrS(2*mc-1,nS) =Or_e2*VrS(2*mc-1,nS)
@@ -806,9 +807,9 @@ contains
     
       do nS=(nZmax+1)/2+1,nZmax ! South HS
          OS   =OsinTS(nZmax-nS+1)
-         sinT =1.D0/OS
-         cosT =-SQRT(1.D0-sinT**2)
-         Or_e1=1.D0/rS(nZmax-nS+1)
+         sinT =one/OS
+         cosT =-sqrt(one-sinT**2)
+         Or_e1=one/rS(nZmax-nS+1)
          Or_e2=Or_e1*Or_e1
          do mc=1,n_m_max
             VrS(2*mc-1,nS) =Or_e2*VrS(2*mc-1,nS)
@@ -828,21 +829,21 @@ contains
     
             do nS=1,nZmax
                if ( n == 1 ) then
-                  dpEk(nS)=0.D0
+                  dpEk(nS)=0.0_cp
                   do mc=1,nrpGeos
-                     dp=cmplx(0.D0,1.D0,kind=kind(0d0))*dble((mc-1)*minc)  ! - i m
+                     dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VrS(2*mc-1,nS)-aimag(dp)*VrS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VrS(2*mc-1,nS)+ real(dp)*VrS(2*mc,nS)
                   end do
                else if ( n == 2 ) then
                   do mc=1,nrpGeos
-                     dp=cmplx(0.D0,1.D0,kind=kind(0d0))*dble((mc-1)*minc)  ! - i m
+                     dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VtS(2*mc-1,nS)-aimag(dp)*VtS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VtS(2*mc-1,nS)+ real(dp)*VtS(2*mc,nS)
                   end do
                else if ( n == 3 ) then
                   do mc=1,nrpGeos
-                     dp=cmplx(0.D0,1.D0,kind=kind(0d0))*dble((mc-1)*minc)  ! - i m
+                     dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VpS(2*mc-1,nS)-aimag(dp)*VpS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VpS(2*mc-1,nS)+ real(dp)*VpS(2*mc,nS)
                   end do

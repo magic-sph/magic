@@ -1,6 +1,7 @@
 !$Id$
 module out_movie
 
+   use precision_mod, only: cp, outp
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
                          n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
                          n_r_ic_max, n_r_max
@@ -27,10 +28,10 @@ module out_movie
    use fft_MKL, only: fft_thetab
 #endif
    use logic, only: l_save_out, l_cond_ic
+   use const, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
 
- 
    implicit none
 
    private
@@ -48,17 +49,17 @@ contains
       !-------------------------------------------------------------------------
 
       !-- Input variables:
-      integer,         intent(in) :: n_r                ! radial grid point no.
-      integer,         intent(in) :: n_theta_start      ! start theta no.
-      integer,         intent(in) :: n_theta_block      ! size of theta block
-      real(kind=8),    intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8),    intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8),    intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(kind=8),    intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(kind=8),    intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(kind=8),    intent(in) :: cvr(nrp,*)
-      real(kind=8),    intent(in) :: cbr(nrp,*),cbt(nrp,*)
-      complex(kind=8), intent(in) :: bCMB(lm_max)
+      integer,     intent(in) :: n_r                ! radial grid point no.
+      integer,     intent(in) :: n_theta_start      ! start theta no.
+      integer,     intent(in) :: n_theta_block      ! size of theta block
+      real(cp),    intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp),    intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp),    intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(cp),    intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(cp),    intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(cp),    intent(in) :: cvr(nrp,*)
+      real(cp),    intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      complex(cp), intent(in) :: bCMB(lm_max)
     
       !-- Local variables:
       integer :: n_movie        ! No. of movie
@@ -73,7 +74,6 @@ contains
       integer :: n_field_size
       integer :: n_fields
       logical :: lThetaFound
-    
     
     
       do n_movie=1,n_movies
@@ -149,7 +149,7 @@ contains
                  end if
             end do
     
-         else if ( IABS(n_surface) == 3 ) then  ! Surface phi=const.
+         else if ( abs(n_surface) == 3 ) then  ! Surface phi=const.
     
             do n_field=1,n_fields
                n_field_type=n_movie_field_type(n_field,n_movie)
@@ -180,17 +180,17 @@ contains
       !-------------------------------------------------------------------------
     
       !-- Input of variables:
-      real(kind=8),    intent(in) :: time
-      integer,         intent(in) :: n_frame
-      real(kind=8),    intent(in) :: omega_ic,omega_ma
-      complex(kind=8), intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: db(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dj(lm_maxMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+      real(cp),    intent(in) :: time
+      integer,     intent(in) :: n_frame
+      real(cp),    intent(in) :: omega_ic,omega_ma
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: db(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: dj(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
     
       !-- Local variables:
       integer :: n_fields
@@ -206,9 +206,9 @@ contains
     
       character(len=64) :: version
     
-      real(kind=8) :: const
-      real(kind=8) :: r_mov_tot(n_r_max+n_r_ic_max)
-      real(kind=4) :: dumm(n_theta_max)
+      real(cp) :: const
+      real(cp) :: r_mov_tot(n_r_max+n_r_ic_max)
+      real(outp) :: dumm(n_theta_max)
     
     
       t_movieS(n_frame)=time
@@ -219,7 +219,7 @@ contains
          n_surface   =n_movie_surface(n_movie)
          n_fields_oc =n_movie_fields(n_movie)
          n_fields_ic =n_movie_fields_ic(n_movie)
-         n_fields    =max0(n_fields_ic,n_fields_oc)
+         n_fields    =max(n_fields_ic,n_fields_oc)
          n_out       =n_movie_file(n_movie)
          const       =movie_const(n_movie)
          if ( n_surface == 1 ) const=const/r_cmb
@@ -237,8 +237,9 @@ contains
             !------ Start with info about movie type:
             version='JW_Movie_Version_2'
             write(n_out) version
-            write(n_out) float(n_type),float(n_surface),sngl(const),float(n_fields)
-            write(n_out) (float(n_movie_field_type(n,n_movie)),n=1,n_fields)
+            write(n_out) real(n_type,kind=outp), real(n_surface,kind=outp), &
+                 &       real(const,kind=outp), real(n_fields,kind=outp)
+            write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
     
     
             !------ Combine OC and IC radial grid points:
@@ -255,35 +256,35 @@ contains
     
             !------ Now other info about grid and parameters:
             write(n_out) runid          ! run identifyer (as set in namelist contrl)
-            dumm( 1)=float(n_r_mov_tot)
-            dumm( 2)=float(n_r_max)
-            dumm( 3)=float(n_theta_max) ! no. of theta points
-            dumm( 4)=float(n_phi_max)   ! no. of phi points
-            dumm( 5)=float(minc)        ! imposed symmetry
-            dumm( 6)=sngl(ra)           ! control parameters
-            dumm( 7)=sngl(ek)           ! (for information only)
-            dumm( 8)=sngl(pr)           !      -"-
-            dumm( 9)=sngl(prmag)        !      -"-
-            dumm(10)=sngl(radratio)     ! ratio of inner / outer core
-            dumm(11)=sngl(tScale)       ! timescale
+            dumm( 1)=real(n_r_mov_tot,kind=outp)
+            dumm( 2)=real(n_r_max,kind=outp)
+            dumm( 3)=real(n_theta_max,kind=outp) ! no. of theta points
+            dumm( 4)=real(n_phi_max,kind=outp)   ! no. of phi points
+            dumm( 5)=real(minc,kind=outp)        ! imposed symmetry
+            dumm( 6)=real(ra,kind=outp)          ! control parameters
+            dumm( 7)=real(ek,kind=outp)          ! (for information only)
+            dumm( 8)=real(pr,kind=outp)          !      -"-
+            dumm( 9)=real(prmag,kind=outp)       !      -"-
+            dumm(10)=real(radratio,kind=outp)    ! ratio of inner / outer core
+            dumm(11)=real(tScale,kind=outp)      ! timescale
             write(n_out) (dumm(n),n=1,11)
     
             !------ Write grid:
-            write(n_out) (sngl(r_mov_tot(n_r)/r_cmb), n_r=1,n_r_mov_tot)
-            write(n_out) (sngl(theta_ord(n_theta)), n_theta=1,n_theta_max)
-            write(n_out) (sngl(phi(n_phi)), n_phi=1,n_phi_max)
+            write(n_out) (real(r_mov_tot(n_r)/r_cmb,kind=outp), n_r=1,n_r_mov_tot)
+            write(n_out) (real(theta_ord(n_theta),kind=outp), n_theta=1,n_theta_max)
+            write(n_out) (real(phi(n_phi),kind=outp), n_phi=1,n_phi_max)
     
          end if  ! Write header ?
     
          !------ Write frame number, time and IC and MA rotation rates::
-         dumm(1)=float(n_frame)
-         dumm(2)=sngl(t_movieS(n_frame))
-         dumm(3)=sngl(omega_ic)
-         dumm(4)=sngl(omega_ma)
-         dumm(5)=sngl(movieDipColat)
-         dumm(6)=sngl(movieDipLon)
-         dumm(7)=sngl(movieDipStrength)
-         dumm(8)=sngl(movieDipStrengthGeo)
+         dumm(1)=real(n_frame,kind=outp)
+         dumm(2)=real(t_movieS(n_frame),kind=outp)
+         dumm(3)=real(omega_ic,kind=outp)
+         dumm(4)=real(omega_ma,kind=outp)
+         dumm(5)=real(movieDipColat,kind=outp)
+         dumm(6)=real(movieDipLon,kind=outp)
+         dumm(7)=real(movieDipStrength,kind=outp)
+         dumm(8)=real(movieDipStrengthGeo,kind=outp)
          write(n_out) (dumm(n),n=1,8)
     
          !------ Write frames:
@@ -303,7 +304,7 @@ contains
                if ( n_fields_ic > 0 ) then
                   n_stop=n_movie_field_stop(n_fields_oc + n_field,n_movie)
                end if
-               write(n_out) (sngl(frames(n)),n=n_start,n_stop)
+               write(n_out) (real(frames(n),kind=outp),n=n_start,n_stop)
             end do
          end if
     
@@ -325,11 +326,11 @@ contains
       !  +-------------------------------------------------------------------+
 
       !--- Input variables:
-      integer,         intent(in) :: n_store_last     ! Start position for storing -1
-      integer,         intent(in) :: n_field_type     ! Defines field type
-      integer,         intent(in) :: n_theta_start    ! Beginning of theta block
-      integer,         intent(in) :: n_theta_block    ! Size of theta block
-      complex(kind=8), intent(in) :: bCMB(lm_max)
+      integer,     intent(in) :: n_store_last     ! Start position for storing -1
+      integer,     intent(in) :: n_field_type     ! Defines field type
+      integer,     intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,     intent(in) :: n_theta_block    ! Size of theta block
+      complex(cp), intent(in) :: bCMB(lm_max)
     
       !--- Local variables:
       integer :: n_theta
@@ -339,9 +340,9 @@ contains
       integer :: n_o
     
       !----- Magnetic field at surface (theta-blocks):
-      real(kind=8) :: br_sur(nrp,nfs) ! Radial magnetic field in (phi,theta)-space
-      real(kind=8) :: bt_sur(nrp,nfs) ! Latitudinal magnetic field
-      real(kind=8) :: bp_sur(nrp,nfs) ! Azimuthal magnetic field.
+      real(cp) :: br_sur(nrp,nfs) ! Radial magnetic field in (phi,theta)-space
+      real(cp) :: bt_sur(nrp,nfs) ! Latitudinal magnetic field
+      real(cp) :: bp_sur(nrp,nfs) ! Azimuthal magnetic field.
     
       call get_B_surface(br_sur,bt_sur,bp_sur,bCMB,n_theta_start,n_theta_block)
     
@@ -394,18 +395,18 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(kind=8), intent(in) :: cvr(nrp,*)
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(cp), intent(in) :: cvr(nrp,*)
     
-      integer,      intent(in) :: n_r
-      integer,      intent(in) :: n_store_last     ! Start position in frame(*)-1
-      integer,      intent(in) :: n_field_type     ! Defines field type
-      integer,      intent(in) :: n_theta_start    ! Beginning of theta block
-      integer,      intent(in) :: n_theta_block    ! Size of theta block
+      integer,  intent(in) :: n_r
+      integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field type
+      integer,  intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,  intent(in) :: n_theta_block    ! Size of theta block
     
       !-- Local variables:
       integer :: n_theta
@@ -413,7 +414,7 @@ contains
       integer :: n_theta_cal
       integer :: n_phi
       integer :: n_o
-      real(kind=8) ::  fac,fac_r,fac_t
+      real(cp) ::  fac,fac_r,fac_t
     
     
       !--- Store data for all output thetas in the current block
@@ -611,20 +612,20 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(kind=8), intent(in) :: cvr(nrp,*)
-      real(kind=8), intent(in) :: cbr(nrp,*),cbt(nrp,*)
-      integer,      intent(in) :: n_r              ! No. of radial point
-      integer,      intent(in) :: n_store_last     ! Start position in frame(*)-1
-      integer,      intent(in) :: n_field_type     ! Defines field type
-      integer,      intent(in) :: n_phi_const      ! No. of surface phi
-      integer,      intent(in) :: n_field_size     ! Size of field
-      integer,      intent(in) :: n_theta_start    ! Beginning of theta block
-      integer,      intent(in) :: n_theta_block    ! Size of theta block
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(cp), intent(in) :: cvr(nrp,*)
+      real(cp), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      integer,  intent(in) :: n_r              ! No. of radial point
+      integer,  intent(in) :: n_store_last     ! Start position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field type
+      integer,  intent(in) :: n_phi_const      ! No. of surface phi
+      integer,  intent(in) :: n_field_size     ! Size of field
+      integer,  intent(in) :: n_theta_start    ! Beginning of theta block
+      integer,  intent(in) :: n_theta_block    ! Size of theta block
     
       !-- Local variables:
       integer :: n_phi_0
@@ -634,10 +635,10 @@ contains
       integer :: n_theta_cal
       integer :: n_phi
       integer :: n_0,n_180
-      real(kind=8) ::  phi_norm
-      real(kind=8) ::  fac,fac_r
+      real(cp) ::  phi_norm
+      real(cp) ::  fac,fac_r
     
-      real(kind=8) ::  fl(2)        ! Field for poloidal field lines
+      real(cp) ::  fl(2)        ! Field for poloidal field lines
     
     
       !--- Get phi no. for left and right halfspheres:
@@ -649,7 +650,7 @@ contains
       end if
       n_0=n_store_last+(n_r-1)*n_theta_max
       n_180=n_0+n_field_size
-      phi_norm=1.d0/n_phi_max
+      phi_norm=one/n_phi_max
     
       if ( n_field_type == 1 ) then
     
@@ -738,7 +739,7 @@ contains
          do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta=n_theta_cal2ord(n_theta_cal)
-            fl(1)=0.d0
+            fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
                fl(1)=fl(1)+bp(n_phi,n_theta_b)
             end do
@@ -763,7 +764,7 @@ contains
          do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta =n_theta_cal2ord(n_theta_cal)
-            fl(1)=0.d0
+            fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
                fl(1)=fl(1)+orho1(n_r)*vp(n_phi,n_theta_b)
             end do
@@ -776,7 +777,7 @@ contains
          do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta=n_theta_cal2ord(n_theta_cal)
-            fl(1)=0.d0
+            fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
                fl(1)=fl(1)+sr(n_phi,n_theta_b)
             end do
@@ -789,7 +790,7 @@ contains
          do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta=n_theta_cal2ord(n_theta_cal)
-            fl(1)=0.d0
+            fl(1)=0.0_cp
             do n_phi=1,n_phi_max   ! Average over phis
                fl(1)=fl(1)+drSr(n_phi,n_theta_b)
             end do
@@ -871,7 +872,7 @@ contains
          do n_theta_b=1,n_theta_block
             n_theta_cal=n_theta_b+n_theta_start-1
             n_theta=n_theta_cal2ord(n_theta_cal)
-            fl(1)=0.d0
+            fl(1)=0.0_cp
             do n_phi=1,n_phi_max
                fl(1)=fl(1) +                                          &
                             or4(n_r)*orho2(n_r)*vr(n_phi,n_theta_b) * &
@@ -942,23 +943,23 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(kind=8), intent(in) :: cvr(nrp,*),cbt(nrp,*)
-      integer,      intent(in) :: n_r              ! No. of radial grid point
-      integer,      intent(in) :: n_store_last     ! Position in frame(*)-1
-      integer,      intent(in) :: n_field_type     ! Defines field
-      integer,      intent(in) :: n_theta_const    ! No. of theta to be stored
-      integer,      intent(in) :: n_theta          ! No. of theta in block
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(cp), intent(in) :: cvr(nrp,*),cbt(nrp,*)
+      integer,  intent(in) :: n_r              ! No. of radial grid point
+      integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field
+      integer,  intent(in) :: n_theta_const    ! No. of theta to be stored
+      integer,  intent(in) :: n_theta          ! No. of theta in block
     
       !-- Local variables:
       integer :: n_phi
       integer :: n_o
     
-      real(kind=8) ::  fac
+      real(cp) ::  fac
     
     
       n_o=n_store_last+(n_r-1)*n_phi_max
@@ -1092,26 +1093,26 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*),drSr(nrp,*)
-      real(kind=8), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
-      real(kind=8), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
-      real(kind=8), intent(in) :: cvr(nrp,*)
-      real(kind=8), intent(in) :: cbr(nrp,*),cbt(nrp,*)
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),drSr(nrp,*)
+      real(cp), intent(in) :: dvrdp(nrp,*),dvpdr(nrp,*)
+      real(cp), intent(in) :: dvtdr(nrp,*),dvrdt(nrp,*)
+      real(cp), intent(in) :: cvr(nrp,*)
+      real(cp), intent(in) :: cbr(nrp,*),cbt(nrp,*)
     
-      integer,      intent(in) :: n_r              ! No. of radial grid point
-      integer,      intent(in) :: n_store_last     ! Position in frame(*)-1
-      integer,      intent(in) :: n_field_type     ! Defines field
-      integer,      intent(in) :: n_theta_start    ! No. of first theta to block
-      integer,      intent(in) :: n_theta_block    ! Size of theta block
+      integer,  intent(in) :: n_r              ! No. of radial grid point
+      integer,  intent(in) :: n_store_last     ! Position in frame(*)-1
+      integer,  intent(in) :: n_field_type     ! Defines field
+      integer,  intent(in) :: n_theta_start    ! No. of first theta to block
+      integer,  intent(in) :: n_theta_block    ! Size of theta block
     
       !-- Local variables:
       integer :: n_phi
       integer :: n_theta,n_theta_b,n_theta_cal
       integer :: n_o,n_or
     
-      real(kind=8) ::  fac,fac_r
+      real(cp) ::  fac,fac_r
     
     
       n_or=n_store_last+(n_r-1)*n_theta_max*n_phi_max
@@ -1323,7 +1324,7 @@ contains
             do n_phi=1,n_phi_max
                frames(n_phi+n_o)=         fac*br(n_phi,n_theta_b) * &
                                          ( dvpdr(n_phi,n_theta_b) - &
-                    (beta(n_r)+2.d0*or1(n_r))*vp(n_phi,n_theta_b) )
+                    (beta(n_r)+two*or1(n_r))*vp(n_phi,n_theta_b) )
             end do
          end do
     
@@ -1363,17 +1364,17 @@ contains
       integer, intent(in) :: n_theta_block   ! Size of theta block
 
       !-- Output variables:
-      real(kind=8), intent(out) ::  sl(*)           ! Field for field lines
+      real(cp), intent(out) ::  sl(*)           ! Field for field lines
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
 
-      real(kind=8) :: sign
-      real(kind=8) :: O_r              ! 1/r
-      real(kind=8) :: O_sint           ! 1/sin(theta)
-      real(kind=8) :: sl_s,sl_n,sl_1
+      real(cp) :: sign
+      real(cp) :: O_r              ! 1/r
+      real(cp) :: O_sint           ! 1/sin(theta)
+      real(cp) :: sl_s,sl_n,sl_1
 
 
       !-- Calculate radial dependencies:
@@ -1386,9 +1387,9 @@ contains
          O_sint=osn1(n_theta_nhs)
 
          !------- Loop over degrees and orders:
-         sign=1.d0
-         sl_n=0.d0
-         sl_s=0.d0
+         sign=one
+         sl_n=0.0_cp
+         sl_s=0.0_cp
          lm=1
          do l=1,l_max
             lm=lm+1
@@ -1428,19 +1429,19 @@ contains
       logical, intent(in) :: l_ic            ! =true if inner core field
     
       !-- Output variables:
-      real(kind=8), intent(out) ::  fl(*)    ! Field for field lines
+      real(cp), intent(out) ::  fl(*)    ! Field for field lines
     
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for thetas in north HS
       integer :: l,lm            ! Degree, counter for degree/order combinations
     
-      real(kind=8) :: sign
-      real(kind=8) :: r_ratio          ! r/r_ICB
-      real(kind=8) :: O_r              ! 1/r
-      real(kind=8) :: O_sint           ! 1/sin(theta)
-      real(kind=8) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
-      real(kind=8) :: fl_s,fl_n,fl_1
+      real(cp) :: sign
+      real(cp) :: r_ratio          ! r/r_ICB
+      real(cp) :: O_r              ! 1/r
+      real(cp) :: O_sint           ! 1/sin(theta)
+      real(cp) :: r_dep(l_max)     ! (r/r_ICB)**l / r_ICB
+      real(cp) :: fl_s,fl_n,fl_1
     
       if ( l_ic ) then
          r_ratio =r_ic(n_r)/r_ic(1)
@@ -1459,9 +1460,9 @@ contains
          O_sint=osn1(n_theta_nhs)
 
          !------- Loop over degrees and orders:
-         sign=1.d0
-         fl_n=0.d0
-         fl_s=0.d0
+         sign=one
+         fl_n=0.0_cp
+         fl_s=0.0_cp
 
          lm=1
          do l=1,l_max
@@ -1506,28 +1507,28 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input of variables:
-      integer,         intent(in) :: n_theta_start   ! No. of theta to start with
-      integer,         intent(in) :: n_theta_block   ! Size of theta block
-      complex(kind=8), intent(in) :: bCMB(lm_max)
+      integer,     intent(in) :: n_theta_start   ! No. of theta to start with
+      integer,     intent(in) :: n_theta_block   ! Size of theta block
+      complex(cp), intent(in) :: bCMB(lm_max)
 
       !-- Output:
-      real(kind=8), intent(out) :: b_r(nrp,*) !Radial magnetic field in (phi,theta)-space
-      real(kind=8), intent(out) :: b_t(nrp,*) !Latitudinal magnetic field
-      real(kind=8), intent(out) :: b_p(nrp,*) !Azimuthal magnetic field.
+      real(cp), intent(out) :: b_r(nrp,*) !Radial magnetic field in (phi,theta)-space
+      real(cp), intent(out) :: b_t(nrp,*) !Latitudinal magnetic field
+      real(cp), intent(out) :: b_p(nrp,*) !Azimuthal magnetic field.
 
       !-- Local variables:
       integer :: n_theta         ! No. of theta
       integer :: n_theta_nhs     ! Counter for theta in northern hemisphere
       integer :: l,m,lm,mc       ! degree/order,counter
 
-      real(kind=8) :: r_ratio          ! r_cmb/r_surface
-      real(kind=8) :: sign             ! Sign for southern hemisphere
-      real(kind=8) :: r_dep(l_max)     ! Radial dependence
-      real(kind=8) :: O_sint           ! 1/sin(theta)
-      complex(kind=8) :: cs1(lm_max),cs2(lm_max) ! help arrays
-      complex(kind=8) :: b_r_1,b_t_1,b_p_1
-      complex(kind=8) :: b_r_n,b_t_n,b_p_n
-      complex(kind=8) :: b_r_s,b_t_s,b_p_s
+      real(cp) :: r_ratio          ! r_cmb/r_surface
+      real(cp) :: sign             ! Sign for southern hemisphere
+      real(cp) :: r_dep(l_max)     ! Radial dependence
+      real(cp) :: O_sint           ! 1/sin(theta)
+      complex(cp) :: cs1(lm_max),cs2(lm_max) ! help arrays
+      complex(cp) :: b_r_1,b_t_1,b_p_1
+      complex(cp) :: b_r_n,b_t_n,b_p_n
+      complex(cp) :: b_r_s,b_t_s,b_p_s
 
       !-- Radial dependence:
       r_ratio=r_cmb/r_surface
@@ -1538,8 +1539,8 @@ contains
         
       !-- Construct help arrays containing radial dependence
       !   and l dependence: dLh=l*(l+1)
-      cs1(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
-      cs2(1)=cmplx(0.D0,0.D0,kind=kind(0d0))
+      cs1(1)=zero
+      cs2(1)=zero
       do lm=2,lm_max
          cs1(lm) = bCMB(lm)*dLh(lm)*r_dep(lm2l(lm))
          cs2(lm)= -bCMB(lm)*D_l(lm)*r_dep(lm2l(lm))
@@ -1556,14 +1557,14 @@ contains
          !------- Loop over degrees and orders:
          do mc=1,n_m_max   ! Numbers ms
             m=(mc-1)*minc
-            sign=-1.D0
+            sign=-one
 
-            b_r_n=cmplx(0.D0,0.D0,kind=kind(0d0))
-            b_t_n=cmplx(0.D0,0.D0,kind=kind(0d0))
-            b_p_n=cmplx(0.D0,0.D0,kind=kind(0d0))
-            b_r_s=cmplx(0.D0,0.D0,kind=kind(0d0))
-            b_t_s=cmplx(0.D0,0.D0,kind=kind(0d0))
-            b_p_s=cmplx(0.D0,0.D0,kind=kind(0d0))
+            b_r_n=zero
+            b_t_n=zero
+            b_p_n=zero
+            b_r_s=zero
+            b_t_s=zero
+            b_p_s=zero
 
             do l=m,l_max
                lm=lm2(l,m)
@@ -1607,12 +1608,12 @@ contains
             b_p(mc,n_theta+1)=O_sint*b_p(mc,n_theta+1)
          end do
          do mc=2*n_m_max+1,nrp
-            b_r(mc,n_theta)  =0.D0
-            b_t(mc,n_theta)  =0.D0
-            b_p(mc,n_theta)  =0.D0
-            b_r(mc,n_theta+1)=0.D0
-            b_t(mc,n_theta+1)=0.D0
-            b_p(mc,n_theta+1)=0.D0
+            b_r(mc,n_theta)  =0.0_cp
+            b_t(mc,n_theta)  =0.0_cp
+            b_p(mc,n_theta)  =0.0_cp
+            b_r(mc,n_theta+1)=0.0_cp
+            b_t(mc,n_theta+1)=0.0_cp
+            b_p(mc,n_theta+1)=0.0_cp
          end do
 
       end do        ! Loop over colatitudes

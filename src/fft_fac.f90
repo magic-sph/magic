@@ -1,6 +1,7 @@
 !$Id$
 module fft_fac_mod
 
+   use precision_mod, only: cp
    use const, only: sin36, sin60, sin72, cos36, cos72
 
    implicit none
@@ -18,12 +19,12 @@ contains
       !---------------------------------------------------------------------------
     
       !-- Input variables:
-      integer,      intent(in) :: nv,l1,l2,n,ifac,la
-      real(kind=8), intent(in) :: a(*),b(*)
-      real(kind=8), intent(in) :: trigs(2*n)
+      integer,  intent(in) :: nv,l1,l2,n,ifac,la
+      real(cp), intent(in) :: a(*),b(*)
+      real(cp), intent(in) :: trigs(2*n)
     
       !-- Output variables
-      real(kind=8), intent(out) :: c(*),d(*)
+      real(cp), intent(out) :: c(*),d(*)
     
       !-- Local variables:
       integer :: i,ia,ib,ic,id,ie
@@ -34,8 +35,8 @@ contains
       integer :: nv2
       integer :: l,m,lm1,lm2,ll,la1
     
-      real(kind=8) :: c1,c2,c3,c4
-      real(kind=8) :: s1,s2,s3,s4
+      real(cp) :: c1,c2,c3,c4
+      real(cp) :: s1,s2,s3,s4
     
       m    =n/ifac
       iink =m*2*nv
@@ -368,12 +369,12 @@ contains
       !---------------------------------------------------------------------------
     
       !-- Input variables:
-      integer,         intent(in) :: nv,l1,l2,n,ifac,la
-      complex(kind=8), intent(in) :: a(*),b(*)
-      real(kind=8),    intent(in) :: trigs(2*n)
+      integer,     intent(in) :: nv,l1,l2,n,ifac,la
+      complex(cp), intent(in) :: a(*),b(*)
+      real(cp),    intent(in) :: trigs(2*n)
     
       !-- Output variables
-      complex(kind=8), intent(out) :: c(*),d(*)
+      complex(cp), intent(out) :: c(*),d(*)
     
       !-- Local variables:
       integer :: i,ia,ib,ic,id,ie
@@ -384,8 +385,8 @@ contains
       integer :: nv2
       integer :: l,m,lm1,lm2,ll,la1
     
-      real(kind=8) :: c1,c2,c3,c4
-      real(kind=8) :: s1,s2,s3,s4
+      real(cp) :: c1,c2,c3,c4
+      real(cp) :: s1,s2,s3,s4
     
       m    =n/ifac
       iink =m*2*nv

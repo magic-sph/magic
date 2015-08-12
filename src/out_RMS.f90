@@ -1,6 +1,7 @@
 !$Id$
 module out_RMS
 
+   use precision_mod, only: cp, outp
    use truncation, only: lm_max, n_r_max, lm_max_dtB, n_r_max_dtB, &
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max
@@ -41,7 +42,7 @@ module out_RMS
                           n_dtvasrms_file, dtvasrms_file, n_dtvrms_file, &
                           dtvrms_file, rCut, rDea, n_dtbrms_file,        &
                           dtbrms_file
-   use const, only: pi, vol_oc
+   use const, only: pi, vol_oc, zero, half, four, third
    use integration, only: rInt_R
    use communications, only: myallgather
    use RMS_helpers, only: init_rNB, hInt2dPol, get_PolTorRms, get_PASLM, &
@@ -73,35 +74,35 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variable:
-      real(kind=8), intent(in) :: time
-      integer,      intent(inout) :: nRMS_sets
+      real(cp), intent(in) :: time
+      integer, intent(inout) :: nRMS_sets
     
       !-- Output:
-      real(kind=8) :: dtVPolRms,dtVPolAsRms
-      real(kind=8) :: dtVTorRms,dtVTorAsRms
-      real(kind=8) :: CorPolRms,CorPolAsRms
-      real(kind=8) :: CorTorRms,CorTorAsRms
-      real(kind=8) :: AdvPolRms,AdvPolAsRms
-      real(kind=8) :: AdvTorRms,AdvTorAsRms
-      real(kind=8) :: LFPolRms, LFPolAsRms
-      real(kind=8) :: LFTorRms, LFTorAsRms
-      real(kind=8) :: DifPolRms,DifPolAsRms
-      real(kind=8) :: DifTorRms,DifTorAsRms
-      real(kind=8) :: BuoRms,   BuoAsRms
-      real(kind=8) :: PreRms,   PreAsRms
-      real(kind=8) :: GeoRms,   GeoAsRms
-      real(kind=8) :: MagRms,   MagAsRms
-      real(kind=8) :: ArcRms,   ArcAsRms
+      real(cp) :: dtVPolRms,dtVPolAsRms
+      real(cp) :: dtVTorRms,dtVTorAsRms
+      real(cp) :: CorPolRms,CorPolAsRms
+      real(cp) :: CorTorRms,CorTorAsRms
+      real(cp) :: AdvPolRms,AdvPolAsRms
+      real(cp) :: AdvTorRms,AdvTorAsRms
+      real(cp) :: LFPolRms, LFPolAsRms
+      real(cp) :: LFTorRms, LFTorAsRms
+      real(cp) :: DifPolRms,DifPolAsRms
+      real(cp) :: DifTorRms,DifTorAsRms
+      real(cp) :: BuoRms,   BuoAsRms
+      real(cp) :: PreRms,   PreAsRms
+      real(cp) :: GeoRms,   GeoAsRms
+      real(cp) :: MagRms,   MagAsRms
+      real(cp) :: ArcRms,   ArcAsRms
     
       !-- Local:
       integer :: nR,nRC
       !integer :: n
-      real(kind=8) :: volC
-      real(kind=8) :: bal1,bal2,bal3
+      real(cp) :: volC
+      real(cp) :: bal1,bal2,bal3
     
-      complex(kind=8) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
+      complex(cp) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      real(kind=8) :: global_sum(n_r_max)
+      real(cp) :: global_sum(n_r_max)
       integer :: irank,sendcount
     
       ! First gather all needed arrays on rank 0
@@ -227,7 +228,7 @@ contains
                                 d_costf_initC,nDd_costf1)
          end if
          nRC=nCut+1
-         volC=4.D0/3.D0*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
+         volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
     
          if ( l_conv ) then
     
@@ -252,10 +253,10 @@ contains
                CorTorAsRms=rInt_R(CorTorAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
                                   i_costf_initC,d_costf_initC)
-               CorPolRms  =dsqrt(CorPolRms  /volC)
-               CorPolAsRms=dsqrt(CorPolAsRms/volC)
-               CorTorRms  =dsqrt(CorTorRms  /volC)
-               CorTorAsRms=dsqrt(CorTorAsRms/volC)
+               CorPolRms  =sqrt(CorPolRms  /volC)
+               CorPolAsRms=sqrt(CorPolAsRms/volC)
+               CorTorRms  =sqrt(CorTorRms  /volC)
+               CorTorAsRms=sqrt(CorTorAsRms/volC)
             end if
     
             !------ Advection:
@@ -279,10 +280,10 @@ contains
                AdvTorAsRms=rInt_R(AdvTorAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
                                   i_costf_initC,d_costf_initC)
-               AdvPolRms  =dsqrt(AdvPolRms  /volC)
-               AdvPolAsRms=dsqrt(AdvPolAsRms/volC)
-               AdvTorRms  =dsqrt(AdvTorRms  /volC)
-               AdvTorAsRms=dsqrt(AdvTorAsRms/volC)
+               AdvPolRms  =sqrt(AdvPolRms  /volC)
+               AdvPolAsRms=sqrt(AdvPolAsRms/volC)
+               AdvTorRms  =sqrt(AdvTorRms  /volC)
+               AdvTorAsRms=sqrt(AdvTorAsRms/volC)
             end if
     
             !------ Lorentz force:
@@ -306,15 +307,15 @@ contains
                LFTorAsRms=rInt_R(LFTorAs2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
                                 i_costf_initC,d_costf_initC)
-               LFPolRms  =dsqrt(LFPolRms  /volC)
-               LFPolAsRms=dsqrt(LFPolAsRms/volC)
-               LFTorRms  =dsqrt(LFTorRms  /volC)
-               LFTorAsRms=dsqrt(LFTorAsRms/volC)
+               LFPolRms  =sqrt(LFPolRms  /volC)
+               LFPolAsRms=sqrt(LFPolAsRms/volC)
+               LFTorRms  =sqrt(LFTorRms  /volC)
+               LFTorAsRms=sqrt(LFTorAsRms/volC)
             else
-               LFPolRms  =0.D0
-               LFPolAsRms=0.D0
-               LFTorRms  =0.D0
-               LFTorAsRms=0.D0
+               LFPolRms  =0.0_cp
+               LFPolAsRms=0.0_cp
+               LFTorRms  =0.0_cp
+               LFTorAsRms=0.0_cp
             end if
     
             !------ Buoyancy:
@@ -334,11 +335,11 @@ contains
                BuoAsRms=rInt_R(BuoAs2hInt(nRC),n_r_maxC, &
                                     n_cheb_maxC,dr_facC, &
                             i_costf_initC,d_costf_initC)
-               BuoRms  =dsqrt(BuoRms  /volC)
-               BuoAsRms=dsqrt(BuoAsRms/volC)
+               BuoRms  =sqrt(BuoRms  /volC)
+               BuoAsRms=sqrt(BuoAsRms/volC)
             else
-               BuoRms=0.D0
-               BuoAsRms=0.D0
+               BuoRms=0.0_cp
+               BuoAsRms=0.0_cp
             end if
     
             !------ Pressure gradient:
@@ -355,8 +356,8 @@ contains
             PreAsRms=rInt_R(PreAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
                          i_costf_initC,d_costf_initC)
-            PreRms  =dsqrt(PreRms  /volC)
-            PreAsRms=dsqrt(PreAsRms/volC)
+            PreRms  =sqrt(PreRms  /volC)
+            PreAsRms=sqrt(PreAsRms/volC)
     
             !------ Geostrophic balance:
             call get_drNS(GeoLMr(1,nRC),workA(1,nRC),lm_max,1, &
@@ -372,8 +373,8 @@ contains
             GeoAsRms=rInt_R(GeoAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
                          i_costf_initC,d_costf_initC)
-            GeoRms  =dsqrt(GeoRms  /volC)
-            GeoAsRms=dsqrt(GeoAsRms/volC)
+            GeoRms  =sqrt(GeoRms  /volC)
+            GeoAsRms=sqrt(GeoAsRms/volC)
     
             !------ Magnetostrophic balance:
             if ( .not. l_RMStest ) then
@@ -391,8 +392,8 @@ contains
             MagAsRms=rInt_R(MagAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
                          i_costf_initC,d_costf_initC)
-            MagRms  =dsqrt(MagRms  /volC)
-            MagAsRms=dsqrt(MagAsRms/volC)
+            MagRms  =sqrt(MagRms  /volC)
+            MagAsRms=sqrt(MagAsRms/volC)
     
             !------ Archemidian balance:
             call get_drNS(ArcLMr(1,nRC),workA(1,nRC),           &
@@ -409,11 +410,11 @@ contains
                                  n_cheb_maxC,dr_facC, &
                          i_costf_initC,d_costf_initC)
             if ( l_RMStest ) then
-               ArcRms  =ArcRms/2.D0
-               ArcAsRms=ArcAsRms/2.D0
+               ArcRms  =half*ArcRms
+               ArcAsRms=half*ArcAsRms
             else
-               ArcRms  =dsqrt(ArcRms  /volC)
-               ArcAsRms=dsqrt(ArcAsRms/volC)
+               ArcRms  =sqrt(ArcRms  /volC)
+               ArcAsRms=sqrt(ArcAsRms/volC)
             end if
     
             !------ Diffusion:
@@ -446,10 +447,10 @@ contains
             DifTorAsRms=rInt_R(DifTorAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
                                  i_costf_initC,d_costf_initC)
-            DifPolRms  =SQRT(DifPolRms  /volC)
-            DifPolAsRms=SQRT(DifPolAsRms/volC)
-            DifTorRms  =SQRT(DifTorRms  /volC)
-            DifTorAsRms=SQRT(DifTorAsRms/volC)
+            DifPolRms  =sqrt(DifPolRms  /volC)
+            DifPolAsRms=sqrt(DifPolAsRms/volC)
+            DifTorRms  =sqrt(DifTorRms  /volC)
+            DifTorAsRms=sqrt(DifTorAsRms/volC)
     
             !------ Flow changes: Inertia - Advection
             call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
@@ -484,10 +485,10 @@ contains
             dtVTorAsRms=rInt_R(dtVTorAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
                                 i_costf_initC,d_costf_initC)
-            dtVPolRms  =SQRT(dtVPolRms  /volC)
-            dtVPolAsRms=SQRT(dtVPolAsRms/volC)
-            dtVTorRms  =SQRT(dtVTorRms  /volC)
-            dtVTorAsRms=SQRT(dtVTorAsRms/volC)
+            dtVPolRms  =sqrt(dtVPolRms  /volC)
+            dtVPolAsRms=sqrt(dtVPolAsRms/volC)
+            dtVTorRms  =sqrt(dtVTorRms  /volC)
+            dtVTorAsRms=sqrt(dtVTorAsRms/volC)
     
             !----- Output:
             if ( l_save_out) then
@@ -525,14 +526,14 @@ contains
                     DifTorAsRms, BuoAsRms, PreAsRms, GeoAsRms,   &
                     MagAsRms, ArcAsRms
             else
-               if ( PreAsRms/= 0d0 ) then
+               if ( PreAsRms/= 0.0_cp ) then
                   bal1=GeoAsRms/(CorPolAsRms+PreAsRms)
                   bal2=MagAsRms/(CorPolAsRms+PreAsRms+LFPolAsRms)
                   bal3=ArcAsRms/(CorPolAsRms+PreAsRms+LFPolAsRms+BuoAsRms)
                else
-                  bal1=0d0
-                  bal2=0d0
-                  bal3=0d0
+                  bal1=0.0_cp
+                  bal2=0.0_cp
+                  bal3=0.0_cp
                end if
                write(n_dtvasrms_file,'(1P,D20.12,15D16.8)')      &
                     time, dtVPolAsRms, dtVTorAsRms, CorPolAsRms, &
@@ -554,41 +555,41 @@ contains
    subroutine dtBrms(time)
 
       !-- Input of variables:
-      real(kind=8), intent(in) :: time
+      real(cp), intent(in) :: time
     
       !-- Local
       integer :: nR,n,l1m0,lm
       character(len=80) :: fileName
     
-      real(kind=8) :: dtBPolRms,dtBPolAsRms
-      real(kind=8) :: dtBTorRms,dtBTorAsRms
-      real(kind=8) :: DstrRms
-      real(kind=8) :: DadvRms
-      real(kind=8) :: DdifRms
-      real(kind=8) :: DdynRms
-      real(kind=8) :: PdynRms,PdynAsRms
-      real(kind=8) :: TdynRms,TdynAsRms
-      real(kind=8) :: dummy1,dummy2,dummy3
+      real(cp) :: dtBPolRms,dtBPolAsRms
+      real(cp) :: dtBTorRms,dtBTorAsRms
+      real(cp) :: DstrRms
+      real(cp) :: DadvRms
+      real(cp) :: DdifRms
+      real(cp) :: DdynRms
+      real(cp) :: PdynRms,PdynAsRms
+      real(cp) :: TdynRms,TdynAsRms
+      real(cp) :: dummy1,dummy2,dummy3
     
       !----- Note: five full additional fields needed here!
       !      This may cause memory problems.
-      complex(kind=8) :: PdynLM(lm_max_dtB,n_r_max_dtB)
-      complex(kind=8) :: drPdynLM(lm_max_dtB,n_r_max_dtB)
-      complex(kind=8) :: TdynLM(lm_max_dtB,n_r_max_dtB)
-      complex(kind=8) :: workA(lm_max_dtB,n_r_max_dtB)
-      complex(kind=8) :: workB(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: PdynLM(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: drPdynLM(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: TdynLM(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
     
       !-- For new movie output
       integer :: nField,nFields,nFieldSize
       integer :: nTheta,nThetaN,nThetaS,nThetaStart
       integer :: nPos
-      real(kind=8) :: dumm(12),rS
-      real(kind=8) :: fOut(n_theta_max*n_r_max)
-      real(kind=8) :: outBlock(nfs)
+      real(cp) :: dumm(12),rS
+      real(cp) :: fOut(n_theta_max*n_r_max)
+      real(cp) :: outBlock(nfs)
       character(len=80) :: version
       logical :: lRmsMov
     
-      real(kind=8) :: global_sum(n_r_max)
+      real(cp) :: global_sum(n_r_max)
     
       call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
       call mpi_reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
@@ -621,8 +622,8 @@ contains
                PdynLM(lm,nR)  =PstrLM(lm,nR)
                drPdynLM(lm,nR)=workA(lm,nR)
                if ( lm /= l1m0 ) then
-                  PstrLM(lm,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  workA(lm,nR) =cmplx(0.D0,0.D0,kind=kind(0d0))
+                  PstrLM(lm,nR)=zero
+                  workA(lm,nR) =zero
                end if
             end do
          end do
@@ -641,8 +642,8 @@ contains
                drPdynLM(lm,nR)=drPdynLM(lm,nR)+workA(lm,nR)
                TdynLM(lm,nR)  =TstrLM(lm,nR)-TadvLM(lm,nR)
                if ( lm /= l1m0 ) then
-                  PadvLM(lm,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  workA(lm,nR) =cmplx(0.D0,0.D0,kind=kind(0d0))
+                  PadvLM(lm,nR)=zero
+                  workA(lm,nR) =zero
                end if
             end do
          end do
@@ -655,8 +656,8 @@ contains
             do lm=1,lm_max
                PadvLM(lm,nR)=PdynLM(lm,nR)
                if ( lm /= l1m0 ) then
-                  PdynLM(lm,nR)  =cmplx(0.D0,0.D0,kind=kind(0d0))
-                  drPdynLM(lm,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
+                  PdynLM(lm,nR)  =zero
+                  drPdynLM(lm,nR)=zero
                end if
             end do
          end do
@@ -674,8 +675,8 @@ contains
             do lm=1,lm_max
                PdynLM(lm,nR)=PdifLM(lm,nR)
                if ( lm /= st_map%lm2(1,0) ) then
-                  PdifLM(lm,nR)=cmplx(0.D0,0.D0,kind=kind(0d0))
-                  workA(lm,nR) =cmplx(0.D0,0.D0,kind=kind(0d0))
+                  PdifLM(lm,nR)=zero
+                  workA(lm,nR) =zero
                end if
             end do
          end do
@@ -744,9 +745,9 @@ contains
             write(90) version
             dumm(1)=112           ! type of input
             dumm(2)=3             ! marker for constant phi plane
-            dumm(3)=0.D0          ! surface constant
+            dumm(3)=0.0_cp          ! surface constant
             dumm(4)=nFields       ! no of fields
-            write(90) (real(dumm(n),4),n=1,4)
+            write(90) (real(dumm(n),kind=outp),n=1,4)
     
             !------ Define marker for output fields stored in movie field
             dumm(1)=101           ! Field marker for AS Br stretching
@@ -756,7 +757,7 @@ contains
             dumm(5)=105           ! Field marker for AS Bp dynamo term
             dumm(6)=106           ! Field marker for AS Bp omega effect
             dumm(7)=107           ! Field marker for AS Bp diffusion
-            write(90) (sngl(dumm(n)),n=1,nFields)
+            write(90) (real(dumm(n),kind=outp),n=1,nFields)
     
             !------ Now other info about grid and parameters:
             write(90) runid        ! run identifier
@@ -771,20 +772,20 @@ contains
             dumm( 9)=prmag            !      -"-
             dumm(10)=radratio         ! ratio of inner / outer core
             dumm(11)=tScale           ! timescale
-            write(90) (sngl(dumm(n)),     n=1,11)
-            write(90) (sngl(r(n)/r_CMB),  n=1,n_r_max)
-            write(90) (sngl(theta_ord(n)),n=1,n_theta_max)
-            write(90) (sngl(phi(n)),      n=1,n_phi_max)
+            write(90) (real(dumm(n),kind=outp),     n=1,11)
+            write(90) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
+            write(90) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
+            write(90) (real(phi(n),kind=outp),      n=1,n_phi_max)
     
             dumm(1)=1    ! time frame number for movie
-            dumm(2)=0.D0 ! time
-            dumm(3)=0.D0
-            dumm(4)=0.D0
-            dumm(5)=0.D0
-            dumm(6)=0.D0
-            dumm(7)=0.D0
-            dumm(8)=0.D0
-            write(90) (sngl(dumm(n)),n=1,8)
+            dumm(2)=0.0_cp ! time
+            dumm(3)=0.0_cp
+            dumm(4)=0.0_cp
+            dumm(5)=0.0_cp
+            dumm(6)=0.0_cp
+            dumm(7)=0.0_cp
+            dumm(8)=0.0_cp
+            write(90) (real(dumm(n),kind=outp),n=1,8)
     
             !------ Loop over different output field:
             do nField=1,nFields
@@ -831,7 +832,7 @@ contains
                end do ! Loop over R
     
                !------ Output of field:
-               write(90) (sngl(fOut(nPos)),nPos=1,nFieldSize)
+               write(90) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
     
             end do ! Loop over different fields
     

@@ -1,6 +1,7 @@
 !$Id$
 module outTO_mod
 
+   use precision_mod, only: cp, outp
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
                          n_theta_max, n_phi_max, minc, lStressMem
    use radial_functions, only: r_ICB, i_costf_init, d_costf_init, r, &
@@ -16,7 +17,7 @@ module outTO_mod
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file
-   use const, only: pi, vol_oc
+   use const, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
    use charmanip, only: dble2str
    use integration, only: rInt_R
@@ -36,12 +37,12 @@ module outTO_mod
    integer :: nSmaxA,nSmaxL
  
    !-- Plms: Plm,sin
-   real(kind=8), allocatable :: PlmS(:,:,:)
-   real(kind=8), allocatable :: dPlmS(:,:,:)
-   real(kind=8), allocatable :: OsinTS(:,:)
-   real(kind=4), allocatable :: VpM(:,:), LFM(:,:), dVpM(:,:), AstrM(:,:)
-   real(kind=4), allocatable :: RstrM(:,:), CorM(:,:), StrM(:,:), CLM(:,:)
-   real(kind=8), allocatable :: d_costf_initZ(:,:), zZ(:,:), rZ(:,:)
+   real(cp), allocatable :: PlmS(:,:,:)
+   real(cp), allocatable :: dPlmS(:,:,:)
+   real(cp), allocatable :: OsinTS(:,:)
+   real(outp), allocatable :: VpM(:,:), LFM(:,:), dVpM(:,:), AstrM(:,:)
+   real(outp), allocatable :: RstrM(:,:), CorM(:,:), StrM(:,:), CLM(:,:)
+   real(cp), allocatable :: d_costf_initZ(:,:), zZ(:,:), rZ(:,:)
    integer, allocatable :: i_costf_initZ(:,:), nZmaxS(:)
 
    public :: initialize_outTO_mod, outTO
@@ -51,9 +52,9 @@ contains
    subroutine initialize_outTO_mod
 
       nZmaxL=lStressMem*722
-      nZmaxA=max0(2,nZmaxL)
+      nZmaxA=max(2,nZmaxL)
       nSmaxL=lStressMem*625
-      nSmaxA=max0(3,nSmaxL)
+      nSmaxA=max(3,nSmaxL)
       lmMaxS = l_max+1
 
       allocate( PlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )
@@ -92,48 +93,48 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input of variables:
-      real(kind=8),     intent(in) :: time
+      real(cp),         intent(in) :: time
       integer,          intent(in) :: n_time_step
-      real(kind=8),     intent(in) :: eKin, eKinTAS
+      real(cp),         intent(in) :: eKin, eKinTAS
       integer,          intent(in) :: nOutFile, nOutFile2
       character(len=*), intent(in) :: TOfileNhs, TOfileShs, movFile, tayFile
       logical,          intent(in) :: lTOmov
-      complex(kind=8),  intent(in) :: z(llm:ulm,n_r_max)
-      real(kind=8),     intent(in) :: omega_ic, omega_ma
+      complex(cp),      intent(in) :: z(llm:ulm,n_r_max)
+      real(cp),         intent(in) :: omega_ic, omega_ma
       integer,          intent(inout) :: nTOsets, nTOmovSets, nTOrmsSets
       logical,          intent(inout) :: lTOrms, lTOZwrite
 
       !-- Output field:
-      real(kind=8) :: fOut(n_theta_maxStr*n_r_maxStr)
+      real(cp) :: fOut(n_theta_maxStr*n_r_maxStr)
 
       !-- Local variables:
       logical :: lTC,lStopRun
 
       !-- (l,r) Representation of the different contributions
-      real(kind=8) :: dzVpLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: V2LMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: Bs2LMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BszLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BspLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BpzLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BspdLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BpsdLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BzpdLMr(lmMaxS,n_r_maxStr)
-      real(kind=8) :: BpzdLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: dzVpLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: V2LMr(lmMaxS,n_r_maxStr)
+      real(cp) :: Bs2LMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BszLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BspLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BpzLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BspdLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BpsdLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BzpdLMr(lmMaxS,n_r_maxStr)
+      real(cp) :: BpzdLMr(lmMaxS,n_r_maxStr)
 
       !---- Work array:
-      real(kind=8) :: workA(lmMaxS,n_r_maxStr)
+      real(cp) :: workA(lmMaxS,n_r_maxStr)
 
       integer :: lm,l ! counter for degree
 
       integer :: nSmax,nS,nSI
-      real(kind=8) :: zNorm  ! Norm z intervall
+      real(cp) :: zNorm  ! Norm z intervall
       integer :: nNorm  ! No. of grid points for norm intervall
-      real(kind=8) :: zMin,zMax!,help ! integration boundarie, help variable
+      real(cp) :: zMin,zMax!,help ! integration boundarie, help variable
       logical :: lAS    ! .true. if axisymmetric (m=0) functions
-      real(kind=8) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
-      real(kind=8) :: h(nSmaxA),Oh(nSmaxA)
-      real(kind=8) :: Os2(nSmaxA)
+      real(cp) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
+      real(cp) :: h(nSmaxA),Oh(nSmaxA)
+      real(cp) :: Os2(nSmaxA)
 
       integer :: nR     ! counter for radial grid point
       integer :: n      ! counter for theta blocks
@@ -145,91 +146,91 @@ contains
       integer :: nThetaStart
 
       integer :: nZ,nZmax,nZmaxNS,nZmaxH!,nZP
-      real(kind=8) :: VpS(nZmaxA)      
-      real(kind=8) :: dVpS(nZmaxA)      
-      real(kind=8) :: ddVpS(nZmaxA)      
-      real(kind=8) :: V2S(nZmaxA)
-      real(kind=8) :: LFS(nZmaxA)
-      real(kind=8) :: CorS(nZmaxA)
-      real(kind=8) :: RstrS(nZmaxA)
-      real(kind=8) :: AstrS(nZmaxA)
-      real(kind=8) :: StrS(nZmaxA)
-      real(kind=8) :: Bs2S(nZmaxA)
-      real(kind=8) :: BspS(nZmaxA)
-      real(kind=8) :: BspdS(nZmaxA)
-      real(kind=8) :: BpsdS(nZmaxA)
-      real(kind=8) :: TayS(nZmaxA)
-      real(kind=8) :: TayRS(nZmaxA)
-      real(kind=8) :: TayVS(nZmaxA)
+      real(cp) :: VpS(nZmaxA)      
+      real(cp) :: dVpS(nZmaxA)      
+      real(cp) :: ddVpS(nZmaxA)      
+      real(cp) :: V2S(nZmaxA)
+      real(cp) :: LFS(nZmaxA)
+      real(cp) :: CorS(nZmaxA)
+      real(cp) :: RstrS(nZmaxA)
+      real(cp) :: AstrS(nZmaxA)
+      real(cp) :: StrS(nZmaxA)
+      real(cp) :: Bs2S(nZmaxA)
+      real(cp) :: BspS(nZmaxA)
+      real(cp) :: BspdS(nZmaxA)
+      real(cp) :: BpsdS(nZmaxA)
+      real(cp) :: TayS(nZmaxA)
+      real(cp) :: TayRS(nZmaxA)
+      real(cp) :: TayVS(nZmaxA)
 
-      real(kind=8) :: VpIntN(nSmaxA)  ,VpIntS(nSmaxA)    ! integration results
-      real(kind=8) :: dVpIntN(nSmaxA) ,dVpIntS(nSmaxA)   ! integration results
-      real(kind=8) :: ddVpIntN(nSmaxA),ddVpIntS(nSmaxA)  ! integration results
-      real(kind=8) :: VpRIntN(nSmaxA) ,VpRIntS(nSmaxA)   ! for different s and 
-      real(kind=8) :: V2IntS(nSmaxA)  ,V2IntN(nSmaxA)
-      real(kind=8) :: LFIntN(nSmaxA)  ,LFIntS(nSmaxA)   
-      real(kind=8) :: RstrIntN(nSmaxA),RstrIntS(nSmaxA) 
-      real(kind=8) :: AstrIntN(nSmaxA),AstrIntS(nSmaxA) 
-      real(kind=8) :: StrIntN(nSmaxA) ,StrIntS(nSmaxA) 
-      real(kind=8) :: Bs2IntN(nSmaxA) ,Bs2IntS(nSmaxA)
-      real(kind=8) :: BspIntN(nSmaxA) ,BspIntS(nSmaxA)
-      real(kind=8) :: BspdIntN(nSmaxA),BspdIntS(nSmaxA)
-      real(kind=8) :: BpsdIntN(nSmaxA),BpsdIntS(nSmaxA)
-      real(kind=8) :: TayIntN(nSmaxA) ,TayIntS(nSmaxA) 
-      real(kind=8) :: TayRIntN(nSmaxA),TayRIntS(nSmaxA) 
-      real(kind=8) :: TayVIntN(nSmaxA),TayVIntS(nSmaxA) 
-      real(kind=8) :: SVpIntN(nSmaxA) ,SVpIntS(nSmaxA)   ! help arrays and values for 
-      real(kind=8) :: SBs2IntN(nSmaxA),SBs2IntS(nSmaxA)  ! differentiation in s   
-      real(kind=8) :: SBspIntN(nSmaxA),SBspIntS(nSmaxA)
-      real(kind=8) :: dSVpIntN, dSVpIntS
-      real(kind=8) :: d2SVpIntN,d2SVpIntS
-      real(kind=8) :: dSBspIntN,dSBspIntS
-      real(kind=8) :: dSBs2IntN,dSBs2IntS
-      real(kind=8) :: TauN(nSmaxA),TauS(nSmaxA)          ! Taylor integral
-      real(kind=8) :: TauBN(nSmaxA),TauBS(nSmaxA)       
-      real(kind=8) :: dTauBN(nSmaxA),dTauBS(nSmaxA)    
-      real(kind=8) :: dTTauN(nSmaxA),dTTauS(nSmaxA)      ! time change of Tau...
-      real(kind=8) :: dTTauBN(nSmaxA),dTTauBS(nSmaxA)   
+      real(cp) :: VpIntN(nSmaxA)  ,VpIntS(nSmaxA)    ! integration results
+      real(cp) :: dVpIntN(nSmaxA) ,dVpIntS(nSmaxA)   ! integration results
+      real(cp) :: ddVpIntN(nSmaxA),ddVpIntS(nSmaxA)  ! integration results
+      real(cp) :: VpRIntN(nSmaxA) ,VpRIntS(nSmaxA)   ! for different s and 
+      real(cp) :: V2IntS(nSmaxA)  ,V2IntN(nSmaxA)
+      real(cp) :: LFIntN(nSmaxA)  ,LFIntS(nSmaxA)   
+      real(cp) :: RstrIntN(nSmaxA),RstrIntS(nSmaxA) 
+      real(cp) :: AstrIntN(nSmaxA),AstrIntS(nSmaxA) 
+      real(cp) :: StrIntN(nSmaxA) ,StrIntS(nSmaxA) 
+      real(cp) :: Bs2IntN(nSmaxA) ,Bs2IntS(nSmaxA)
+      real(cp) :: BspIntN(nSmaxA) ,BspIntS(nSmaxA)
+      real(cp) :: BspdIntN(nSmaxA),BspdIntS(nSmaxA)
+      real(cp) :: BpsdIntN(nSmaxA),BpsdIntS(nSmaxA)
+      real(cp) :: TayIntN(nSmaxA) ,TayIntS(nSmaxA) 
+      real(cp) :: TayRIntN(nSmaxA),TayRIntS(nSmaxA) 
+      real(cp) :: TayVIntN(nSmaxA),TayVIntS(nSmaxA) 
+      real(cp) :: SVpIntN(nSmaxA) ,SVpIntS(nSmaxA)   ! help arrays and values for 
+      real(cp) :: SBs2IntN(nSmaxA),SBs2IntS(nSmaxA)  ! differentiation in s   
+      real(cp) :: SBspIntN(nSmaxA),SBspIntS(nSmaxA)
+      real(cp) :: dSVpIntN, dSVpIntS
+      real(cp) :: d2SVpIntN,d2SVpIntS
+      real(cp) :: dSBspIntN,dSBspIntS
+      real(cp) :: dSBs2IntN,dSBs2IntS
+      real(cp) :: TauN(nSmaxA),TauS(nSmaxA)          ! Taylor integral
+      real(cp) :: TauBN(nSmaxA),TauBS(nSmaxA)       
+      real(cp) :: dTauBN(nSmaxA),dTauBS(nSmaxA)    
+      real(cp) :: dTTauN(nSmaxA),dTTauS(nSmaxA)      ! time change of Tau...
+      real(cp) :: dTTauBN(nSmaxA),dTTauBS(nSmaxA)   
 
       !-- For integration along z:
-      real(kind=8) :: zALL(2*nZmaxA)
-      real(kind=8) :: thetaZ
-      real(kind=8) :: fac
-      real(kind=8) :: vSF,fSF,f1,f2
+      real(cp) :: zALL(2*nZmaxA)
+      real(cp) :: thetaZ
+      real(cp) :: fac
+      real(cp) :: vSF,fSF,f1,f2
 
       !-- For boundaries:
-      real(kind=8) :: rB(2),BspB(2),BspdB(2),BpsdB(2)
-      real(kind=8) :: Bs2B(2),BszB(2),BpzB(2),BzpdB(2),BpzdB(2)
+      real(cp) :: rB(2),BspB(2),BspdB(2),BpsdB(2)
+      real(cp) :: Bs2B(2),BszB(2),BpzB(2),BzpdB(2),BpzdB(2)
 
       !-- For sphere integration:
-      real(kind=8) :: CorR(n_r_max)
-      real(kind=8) :: RstrR(n_r_max)
-      real(kind=8) :: AstrR(n_r_max)
-      real(kind=8) :: StrR(n_r_max)
-      real(kind=8) :: VpR(n_r_max),dVpR(n_r_max)
-      real(kind=8) :: LFR(n_r_max),LFABSR(n_r_max)
-      real(kind=8) :: TayR(n_r_max),TayRMSR(n_r_max)
-      real(kind=8) :: TayRMS,TaySRMS
-      real(kind=8) :: TayRRMS,TayVRMS
-      real(kind=8) :: VpRMS,VRMS,VgRMS
-      real(kind=8) :: rS,sS
-      real(kind=8) :: outBlock(nfs)
-      real(kind=8) :: timeLast!,tNorm
-      real(kind=4) :: timeAve,dt
-      SAVE timeLast,timeAve
+      real(cp) :: CorR(n_r_max)
+      real(cp) :: RstrR(n_r_max)
+      real(cp) :: AstrR(n_r_max)
+      real(cp) :: StrR(n_r_max)
+      real(cp) :: VpR(n_r_max),dVpR(n_r_max)
+      real(cp) :: LFR(n_r_max),LFABSR(n_r_max)
+      real(cp) :: TayR(n_r_max),TayRMSR(n_r_max)
+      real(cp) :: TayRMS,TaySRMS
+      real(cp) :: TayRRMS,TayVRMS
+      real(cp) :: VpRMS,VRMS,VgRMS
+      real(cp) :: rS,sS
+      real(cp) :: outBlock(nfs)
+      real(cp), save :: timeLast!,tNorm
+      real(outp), save :: timeAve
+      real(outp) :: dt
 
       character(len=255) :: message
       character(len=64) :: version,fileName
       integer :: nFieldSize,nPos
 
       !integer :: nLines
-      real(kind=8) :: dumm(12)
+      real(cp) :: dumm(12)
 
       !-- Huge arrays for time average ....
       logical :: l_TOZave
 
       !-- For TOZ output files:
-      integer,SAVE :: nTOZfile!,length
+      integer, save :: nTOZfile!,length
       character(len=10) :: string
 
       if ( lVerbose ) write(*,*) '! Starting outTO!'
@@ -241,17 +242,17 @@ contains
       !--- Rescaling for rotation time scale and planetary radius
       !    length scale, for the velocity I use the Rossby number
       !       vSF=ek/r_CMB                   
-      !       fSF=ek*ek/(4.D0*pi**2*r_CMB)  
-      vSF=1.D0
-      fSF=1.D0
+      !       fSF=ek*ek/(four*pi**2*r_CMB)  
+      vSF=one
+      fSF=one
 
       nFieldSize=n_theta_maxStr*n_r_maxStr
 
       !-- Start with calculating advection due to axisymmetric flows:
 
-      zNorm=1.D0               ! This is r_CMB-r_ICB
+      zNorm=one               ! This is r_CMB-r_ICB
       nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
-      nSmax=n_r_max+int(r_ICB*dble(n_r_max))
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
       nSmax=int(sDens*nSmax)
       if ( nSmax > nSmaxA ) then
          write(*,*) 'Increase nSmaxA in ouTO!'
@@ -308,43 +309,45 @@ contains
       call costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
       call costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
 
-      dsZ   =r_CMB/dble(nSmax)  ! Step in s controlled by nSmax
+      dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
       nSI   =0
       do nS=1,nSmax
-         sZ(nS)=(nS-0.5D0)*dsZ
+         sZ(nS)=(nS-half)*dsZ
          if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
       end do
 
       if ( nTOsets == 1 ) nTOZfile=0
       if ( lTOZwrite ) then
          nTOZfile=nTOZfile+1
-         call dble2str(dble(nTOZfile),string)
+         call dble2str(real(nTOZfile,cp),string)
          fileName='TOZ_'//trim(adjustl(string))//'.'//TAG
          open(95, file=fileName, form='unformatted', status='unknown')
-         write(95) sngl(time), float(nSmax), sngl(omega_ic), sngl(omega_ma)
-         write(95) (sngl(sZ(nS)),nS=1,nSmax)
+         write(95) real(time,kind=outp), real(nSmax,kind=outp), &
+                 & real(omega_ic,kind=outp), real(omega_ma,kind=outp)
+         write(95) (real(sZ(nS),kind=outp),nS=1,nSmax)
       end if
       if ( nTOsets > 1 .and. l_TOZave ) then
          fileName='TOZM.'//TAG
          open(96,file=fileName, form='unformatted', status='unknown')
-         write(96) float(nSmax), sngl(omega_ic), sngl(omega_ma)
-         write(96) (sngl(sZ(nS)),nS=1,nSmax)
+         write(96) real(nSmax,kind=outp), real(omega_ic,kind=outp), &
+                 & real(omega_ma,kind=outp)
+         write(96) (real(sZ(nS),kind=outp),nS=1,nSmax)
       end if
 
       lStopRun=.false.
       do nS=1,nSmax
 
          !------ Get integral boundaries for this s:
-         zMax=dsqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
+         zMax=sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
          if ( sZ(nS) < r_ICB ) then
             lTC=.true.
-            zMin=dsqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
+            zMin=sqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
          else
             lTC=.false.
             zMin=-zMax
          end if
          h(nS) =zMax-zMin
-         Oh(nS)=1.D0/h(nS)
+         Oh(nS)=one/h(nS)
 
          if ( nTOsets == 1 ) then
             !------ Initialize integration for NHS:
@@ -379,11 +382,11 @@ contains
             end if
             if ( lStopRun ) GOTO 99
             do nZ=1,nZmax
-               rZ(nZ,nS)    =dsqrt(zZ(nZ,nS)**2+sZ(nS)**2)
-               thetaZ       =DATAN2(sZ(nS),zZ(nZ,nS))
-               OsinTS(nZ,nS)=1.D0/DSIN(thetaZ)
+               rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
+               thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
+               OsinTS(nZ,nS)=one/sin(thetaZ)
                call plm_theta(thetaZ,l_max,0,minc,                    &
-                    &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lmMaxS,2)
+                    &         PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lmMaxS,2)
             end do
          end if
 
@@ -431,9 +434,9 @@ contains
               &                        l_max,r_ICB,r_CMB,n_r_max,     &
               &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
          do nZ=1,nZmaxNS
-            TayS(nZ) =dabs(LFS(nZ))
-            TayRS(nZ)=dabs(RstrS(nZ))
-            TayVS(nZ)=dabs(StrS(nZ))
+            TayS(nZ) =abs(LFS(nZ))
+            TayRS(nZ)=abs(RstrS(nZ))
+            TayVS(nZ)=abs(StrS(nZ))
          end do
 
          call getAStr(V2S,V2LMr,nZmaxNS,nZmaxA,lmMaxS,                &
@@ -454,68 +457,68 @@ contains
 
          if ( l_TOZave ) then
             if ( nTOsets == 1 ) then
-               timeAve=1.E0
+               timeAve=1.e0_outp
                do nZ=1,nZmaxNS
-                  VpM(nZ,nS)  =sngl(VpS(nZ))
-                  dVpM(nZ,nS) =sngl(dVpS(nZ))
-                  LFM(nZ,nS)  =sngl(LFfac*LFS(nZ))
-                  RstrM(nZ,nS)=sngl(RstrS(nZ))
-                  AstrM(nZ,nS)=sngl(AstrS(nZ))
-                  StrM(nZ,nS) =sngl(StrS(nZ))
-                  CorM(nZ,nS) =sngl(CorS(nZ))
-                  CLM(nZ,nS)  =sngl(CorS(nZ)+LFfac*LFS(nZ))
+                  VpM(nZ,nS)  =real(VpS(nZ),kind=outp)
+                  dVpM(nZ,nS) =real(dVpS(nZ),kind=outp)
+                  LFM(nZ,nS)  =real(LFfac*LFS(nZ),kind=outp)
+                  RstrM(nZ,nS)=real(RstrS(nZ),kind=outp)
+                  AstrM(nZ,nS)=real(AstrS(nZ),kind=outp)
+                  StrM(nZ,nS) =real(StrS(nZ),kind=outp)
+                  CorM(nZ,nS) =real(CorS(nZ),kind=outp)
+                  CLM(nZ,nS)  =real(CorS(nZ)+LFfac*LFS(nZ),kind=outp)
                end do
             else if ( nTOsets == 2 ) then
-               dt=sngl(time-timeLast)
+               dt=real(time-timeLast,kind=outp)
                timeAve=dt
                do nZ=1,nZmaxNS
-                  VpM(nZ,nS)  =dt*(VpM(nZ,nS)  +sngl(VpS(nZ)))
-                  dVpM(nZ,nS) =dt*(dVpM(nZ,nS) +sngl(dVpS(nZ)))
-                  LFM(nZ,nS)  =dt*(LFM(nZ,nS)  +sngl(LFfac*LFS(nZ)))
-                  RstrM(nZ,nS)=dt*(RstrM(nZ,nS)+sngl(RstrS(nZ)))
-                  AstrM(nZ,nS)=dt*(AstrM(nZ,nS)+sngl(AstrS(nZ)))
-                  StrM(nZ,nS) =dt*(StrM(nZ,nS) +sngl(StrS(nZ)))
-                  CorM(nZ,nS) =dt*(CorM(nZ,nS) +sngl(CorS(nZ)))
-                  CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +sngl(CorS(nZ)+LFfac*LFS(nZ)))
+                  VpM(nZ,nS)  =dt*(VpM(nZ,nS)  +real(VpS(nZ),kind=outp))
+                  dVpM(nZ,nS) =dt*(dVpM(nZ,nS) +real(dVpS(nZ),kind=outp))
+                  LFM(nZ,nS)  =dt*(LFM(nZ,nS)  +real(LFfac*LFS(nZ),kind=outp))
+                  RstrM(nZ,nS)=dt*(RstrM(nZ,nS)+real(RstrS(nZ),kind=outp))
+                  AstrM(nZ,nS)=dt*(AstrM(nZ,nS)+real(AstrS(nZ),kind=outp))
+                  StrM(nZ,nS) =dt*(StrM(nZ,nS) +real(StrS(nZ),kind=outp))
+                  CorM(nZ,nS) =dt*(CorM(nZ,nS) +real(CorS(nZ),kind=outp))
+                  CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +real(CorS(nZ)+LFfac*LFS(nZ),kind=outp))
                end do
             else
-               dt=sngl(time-timeLast)
+               dt=real(time-timeLast,kind=outp)
                timeAve=timeAve+dt
                do nZ=1,nZmaxNS
-                  VpM(nZ,nS)  =VpM(nZ,nS)  +dt*sngl(VpS(nZ))
-                  dVpM(nZ,nS) =dVpM(nZ,nS) +dt*sngl(dVpS(nZ))
-                  LFM(nZ,nS)  =LFM(nZ,nS)  +dt*sngl(LFfac*LFS(nZ))
-                  RstrM(nZ,nS)=RstrM(nZ,nS)+dt*sngl(RstrS(nZ))
-                  AstrM(nZ,nS)=AstrM(nZ,nS)+dt*sngl(AstrS(nZ))
-                  StrM(nZ,nS) =StrM(nZ,nS) +dt*sngl(StrS(nZ))
-                  CorM(nZ,nS) =CorM(nZ,nS) +dt*sngl(CorS(nZ))
-                  CLM(nZ,nS)  =CLM(nZ,nS)  +dt*sngl(CorS(nZ)+LFfac*LFS(nZ))
+                  VpM(nZ,nS)  =VpM(nZ,nS)  +dt*real(VpS(nZ),kind=outp)
+                  dVpM(nZ,nS) =dVpM(nZ,nS) +dt*real(dVpS(nZ),kind=outp)
+                  LFM(nZ,nS)  =LFM(nZ,nS)  +dt*real(LFfac*LFS(nZ),kind=outp)
+                  RstrM(nZ,nS)=RstrM(nZ,nS)+dt*real(RstrS(nZ),kind=outp)
+                  AstrM(nZ,nS)=AstrM(nZ,nS)+dt*real(AstrS(nZ),kind=outp)
+                  StrM(nZ,nS) =StrM(nZ,nS) +dt*real(StrS(nZ),kind=outp)
+                  CorM(nZ,nS) =CorM(nZ,nS) +dt*real(CorS(nZ),kind=outp)
+                  CLM(nZ,nS)  =CLM(nZ,nS)  +dt*real(CorS(nZ)+LFfac*LFS(nZ),kind=outp)
                end do
             end if
          end if
 
          if ( l_TOZave .and. nTOsets > 1 ) then
-            write(96) float(nZmaxNS)
-            write(96) (sngl(zALL(nZ))      ,nZ=1,nZmaxNS), &
-                 &    (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS), &
-                 &    (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
-                 &    (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS), &
-                 &    (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS), &
-                 &    (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS), &
-                 &    (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
-                 &    (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS), &
+            write(96) real(nZmaxNS,kind=outp)
+            write(96) (real(zALL(nZ),kind=outp),nZ=1,nZmaxNS), &
+                 &    (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+                 &    (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+                 &    (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+                 &    (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+                 &    (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+                 &    (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+                 &    (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
                  &    (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
          end if
          if ( lTOZwrite ) then
-            write(95) float(nZmaxNS)
-            write(95) (sngl(zALL(nZ)) ,nZ=1,nZmaxNS),      &
-                 &    (sngl(VpS(nZ))  ,nZ=1,nZmaxNS),      &
-                 &    (sngl(dVpS(nZ)) ,nZ=1,nZmaxNS),      &
-                 &    (sngl(RstrS(nZ)),nZ=1,nZmaxNS),      &
-                 &    (sngl(AstrS(nZ)),nZ=1,nZmaxNS),      &
-                 &    (sngl(LFfac*LFS(nZ)),nZ=1,nZmaxNS),  &
-                 &    (sngl(StrS(nZ)) ,nZ=1,nZmaxNS),      &
-                 &    (sngl(CorS(nZ)) ,nZ=1,nZmaxNS)
+            write(95) real(nZmaxNS)
+            write(95) (real(zALL(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
+                 &    (real(VpS(nZ),kind=outp)  ,nZ=1,nZmaxNS),      &
+                 &    (real(dVpS(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
+                 &    (real(RstrS(nZ),kind=outp),nZ=1,nZmaxNS),      &
+                 &    (real(AstrS(nZ),kind=outp),nZ=1,nZmaxNS),      &
+                 &    (real(LFfac*LFS(nZ),kind=outp),nZ=1,nZmaxNS),  &
+                 &    (real(StrS(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
+                 &    (real(CorS(nZ),kind=outp) ,nZ=1,nZmaxNS)
          end if
 
          !--- Z-integrals:
@@ -550,12 +553,12 @@ contains
          BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,           &
               &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
 
-         if ( V2IntN(nS) < 0.D0 ) then
-            VpRIntN(nS)=1.D0
+         if ( V2IntN(nS) < 0.0_cp ) then
+            VpRIntN(nS)=one
          else
-            VpRIntN(nS)=dabs(VpIntN(nS))/dsqrt(V2IntN(nS))
+            VpRIntN(nS)=abs(VpIntN(nS))/sqrt(V2IntN(nS))
          end if
-         VpRIntN(nS) =Dmin1(1.D0,VpRIntN(nS))
+         VpRIntN(nS) =min(one,VpRIntN(nS))
          TayIntN(nS) =LFIntN(nS)/TayIntN(nS)
          TayRIntN(nS)=RstrIntN(nS)/TayRIntN(nS)
          TayVIntN(nS)=StrIntN(nS)/TayVIntN(nS)
@@ -592,12 +595,12 @@ contains
                  &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
             BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,      &
                  &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            if ( V2IntS(nS) < 0.D0 ) then
-               VpRIntS(nS)=1.D0
+            if ( V2IntS(nS) < 0.0_cp ) then
+               VpRIntS(nS)=one
             else
-               VpRIntS(nS)=dabs(VpIntS(nS))/dsqrt(V2IntS(nS))
+               VpRIntS(nS)=abs(VpIntS(nS))/sqrt(V2IntS(nS))
             end if
-            VpRIntS(nS) =dmin1(1.D0,VpRIntS(nS))
+            VpRIntS(nS) =min(one,VpRIntS(nS))
             TayIntS(nS) =LFIntS(nS)/TayIntS(nS)
             TayRIntS(nS)=RstrIntS(nS)/TayRIntS(nS)
             TayVIntS(nS)=StrIntS(nS)/TayVIntS(nS)
@@ -623,7 +626,7 @@ contains
          !------ Boundary Values:
          if ( lTC ) then ! inside TC
             rB(1)=r_CMB
-            zMax = dsqrt(r_CMB**2-sZ(nS)**2)
+            zMax = sqrt(r_CMB**2-sZ(nS)**2)
             zMin =-Zmax
             BspB(1) =BspS(1)
             BspB(2) =BspS(nZmaxNS)
@@ -650,7 +653,7 @@ contains
             dTTauBN(nS)=  BszB(1)+sZ(nS)/zMax*Bs2B(1)
 
             rB(1)=r_ICB 
-            zMax = dsqrt(r_ICB**2-sZ(nS)**2)
+            zMax = sqrt(r_ICB**2-sZ(nS)**2)
             zMin =-zMax
             BspB(1) =BspS(nZmax)
             BspB(2) =BspS(nZmax+1)
@@ -681,7 +684,7 @@ contains
          else ! outside TC
 
             rB(1)=r_CMB
-            zMax = dsqrt(r_CMB**2-sZ(nS)**2)
+            zMax = sqrt(r_CMB**2-sZ(nS)**2)
             zMin =-Zmax
             BspB(1)=BspS(1)
             BspB(2)=BspS(nZmaxNS)
@@ -720,31 +723,31 @@ contains
       if ( lStopRun ) stop
 
       !--- Integrate Geostrophic azumithal flow energy and Taylor measure:
-      VgRMS  =0.D0
-      TayRMS =0.D0
-      TayRRMS=0.D0
-      TayVRMS=0.D0
+      VgRMS  =0.0_cp
+      TayRMS =0.0_cp
+      TayRRMS=0.0_cp
+      TayVRMS=0.0_cp
       !--- Integrals changed to not represent the different volumes
       !    represented by each cylinder on Nov. 2 2007:
       do nS=1,nSmax
          ! Old form used again for VgRMS for make is comparable with
          ! VpRMS below.
-         VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ * VpIntN(nS)*VpIntN(nS)
-         TayRMS =TayRMS +dsZ*dabs(TayIntN(nS))
-         TayRRMS=TayRRMS+dsZ*dabs(TayRIntN(nS))
-         TayVRMS=TayVRMS+dsZ*dabs(TayVIntN(nS))
+         VgRMS=VgRMS + two*pi*h(nS)*sZ(nS)*dsZ * VpIntN(nS)*VpIntN(nS)
+         TayRMS =TayRMS +dsZ*abs(TayIntN(nS))
+         TayRRMS=TayRRMS+dsZ*abs(TayRIntN(nS))
+         TayVRMS=TayVRMS+dsZ*abs(TayVIntN(nS))
          if ( nS <= nSI ) then
-            VgRMS=VgRMS + 2.D0*pi*h(nS)*sZ(nS)*dsZ * VpIntS(nS)*VpIntS(nS)
-            TayRMS =TayRMS +dsZ*dabs(TayIntS(nS))
-            TayRRMS=TayRRMS+dsZ*dabs(TayRIntS(nS))
-            TayVRMS=TayVRMS+dsZ*dabs(TayVIntS(nS))
+            VgRMS=VgRMS + two*pi*h(nS)*sZ(nS)*dsZ * VpIntS(nS)*VpIntS(nS)
+            TayRMS =TayRMS +dsZ*abs(TayIntS(nS))
+            TayRRMS=TayRRMS+dsZ*abs(TayRIntS(nS))
+            TayVRMS=TayVRMS+dsZ*abs(TayVIntS(nS))
          end if
       end do
 
       !--- s-derivatives:
       !------ Create arrays to be differentiated:
       do nS=1,nSmax
-         Os2(nS)=1.D0/(sZ(nS)*sZ(nS))
+         Os2(nS)=one/(sZ(nS)*sZ(nS))
          SVpIntN(nS) =VpIntN(nS)/sZ(nS)
          SBspIntN(nS)=h(nS)*sZ(nS)*sZ(nS)*BspIntN(nS)
          SBs2IntN(nS)=h(nS)*sZ(nS)**3*Bs2IntN(nS)
@@ -755,17 +758,17 @@ contains
          end if
       end do
       !------ Create Derivatives:
-      f1=1.D0/(12.D0*dsZ)
+      f1=one/(12.0_cp*dsZ)
       f2=f1/dsZ
       do nS=3,nSmax-2
-         dSVpIntN =f1*(     SVpIntN(nS-2)-8.D0*SVpIntN(nS-1) +        &
-              &                   8.D0*SVpIntN(nS+1)-     SVpIntN(nS+2) )
-         d2SVpIntN=f2*(    -SVpIntN(nS-2)+16.D0*SVpIntN(nS-1) -       &
-              &       30.D0*SVpIntN(nS)+16.D0*SVpIntN(nS+1)-SVpIntN(nS+2))
-         dSBspIntN=f1*(     SBspIntN(nS-2)-8.D0*SBspIntN(nS-1) +      &
-              &                   8.D0*SBspIntN(nS+1)-     SBspIntN(nS+2) )
-         dSBs2IntN=f1*(     SBs2IntN(nS-2)-8.D0*SBs2IntN(nS-1) +      &
-              &                   8.D0*SBs2IntN(nS+1)-     SBs2IntN(nS+2) )
+         dSVpIntN =f1*(     SVpIntN(nS-2)-8.0_cp*SVpIntN(nS-1) +        &
+              &                   8.0_cp*SVpIntN(nS+1)-     SVpIntN(nS+2) )
+         d2SVpIntN=f2*(    -SVpIntN(nS-2)+16.0_cp*SVpIntN(nS-1) -       &
+              &       30.0_cp*SVpIntN(nS)+16.0_cp*SVpIntN(nS+1)-SVpIntN(nS+2))
+         dSBspIntN=f1*(     SBspIntN(nS-2)-8.0_cp*SBspIntN(nS-1) +      &
+              &                   8.0_cp*SBspIntN(nS+1)-     SBspIntN(nS+2) )
+         dSBs2IntN=f1*(     SBs2IntN(nS-2)-8.0_cp*SBs2IntN(nS-1) +      &
+              &                   8.0_cp*SBs2IntN(nS+1)-     SBs2IntN(nS+2) )
          TauN(nS)  =Oh(nS)*(Os2(nS)*dSBspIntN+TauBN(nS))
          dTTauN(nS)=sZ(nS)*d2SVpIntN*Bs2IntN(nS) +                    &
               &               Oh(nS)*(Os2(nS)*dSVpIntN*dSBs2IntN +    &
@@ -783,14 +786,14 @@ contains
       !------ South hemisphere:
       do nS=1,nSmax
          if ( sZ(nS) < r_ICB .and. nS > 2 ) then
-            dSVpIntS =f1*(SVpIntS(nS-2)-8.D0*SVpIntS(nS-1) +          &
-                 &                          8.D0*SVpIntS(nS+1)-SVpIntS(nS+2) )
-            d2SVpIntS=f2*(-SVpIntS(nS-2)+16.D0*SVpIntS(nS-1) -        &
-                 &          30.D0*SVpIntS(nS)+16.D0*SVpIntS(nS+1)-SVpIntS(nS+2))
-            dSBspIntS=f1*(SBspIntS(nS-2)-8.D0*SBspIntS(nS-1) +        &
-                 &                      8.D0*SBspIntS(nS+1)-SBspIntS(nS+2) )
-            dSBs2IntS=f1*(SBs2IntS(nS-2)-8.D0*SBs2IntS(nS-1) +        &
-                 &                      8.D0*SBs2IntS(nS+1)-SBs2IntS(nS+2) )
+            dSVpIntS =f1*(SVpIntS(nS-2)-8.0_cp*SVpIntS(nS-1) +          &
+                 &                          8.0_cp*SVpIntS(nS+1)-SVpIntS(nS+2) )
+            d2SVpIntS=f2*(-SVpIntS(nS-2)+16.0_cp*SVpIntS(nS-1) -        &
+                 &          30.0_cp*SVpIntS(nS)+16.0_cp*SVpIntS(nS+1)-SVpIntS(nS+2))
+            dSBspIntS=f1*(SBspIntS(nS-2)-8.0_cp*SBspIntS(nS-1) +        &
+                 &                      8.0_cp*SBspIntS(nS+1)-SBspIntS(nS+2) )
+            dSBs2IntS=f1*(SBs2IntS(nS-2)-8.0_cp*SBs2IntS(nS-1) +        &
+                 &                      8.0_cp*SBs2IntS(nS+1)-SBs2IntS(nS+2) )
             TauS(nS) =Oh(nS)*(Os2(nS)*dSBspIntS+TauBS(nS))
             dTTauS(nS)=sZ(nS)*d2SVpIntS*Bs2IntS(nS) +                 &
                  &               Oh(nS)*(Os2(nS)*dSVpIntS*dSBs2IntS + &
@@ -811,58 +814,58 @@ contains
          write(message,'(" ! TO: No. of z-values:",i4)') nNorm
          call logWrite(message)
 
-         write(nOutFile) float(nSmax)                     ! 1
-         write(nOutFile) (sngl(sZ(nS)),nS=1,nSmax)        ! 2
+         write(nOutFile) real(nSmax,kind=outp)                        ! 1
+         write(nOutFile) (real(sZ(nS),kind=outp),nS=1,nSmax)          ! 2
       end if
-      write(nOutFile)  sngl(time),                                 &! 3
-           &          (sngl(VpIntN(nS))             ,nS=1,nSmax),  &! 4
-           &          (sngl(dVpIntN(nS))            ,nS=1,nSmax),  &! 5
-           &          (sngl(ddVpIntN(nS))           ,nS=1,nSmax),  &! 6
-           &          (sngl(VpRIntN(nS))            ,nS=1,nSmax),  &! 7
-           &          (sngl(RstrIntN(nS))           ,nS=1,nSmax),  &! 8
-           &          (sngl(AstrIntN(nS))           ,nS=1,nSmax),  &! 9
-           &          (sngl(LFfac*LFIntN(nS))       ,nS=1,nSmax),  &! 10
-           &          (sngl(StrIntN(nS))            ,nS=1,nSmax),  &! 11
-           &          (sngl(TayIntN(nS))            ,nS=1,nSmax),  &! 12
-           &          (sngl(LFfac*TauN(nS))         ,nS=1,nSmax),  &! 13
-           &          (sngl(LFfac*TauBN(nS)/h(nS))  ,nS=1,nSmax),  &! 14
-           &          (sngl(LFfac*BspdIntN(nS))     ,nS=1,nSmax),  &! 15 For first part of dTau
-           &          (sngl(LFfac*BpsdIntN(nS))     ,nS=1,nSmax),  &! 16 For second part of dTau
-           &          (sngl(LFfac*dTauBN(nS)/h(nS)) ,nS=1,nSmax),  &! 17 Boundary contribution !
-           &          (sngl(LFfac*dTTauN(nS))       ,nS=1,nSmax),  &! 18
-           &          (sngl(LFfac*dTTauBN(nS)/h(nS)),nS=1,nSmax),  &! 19
-           &          (sngl(LFfac*Bs2IntN(nS))      ,nS=1,nSmax)       ! 20 
+      write(nOutFile)  real(time,kind=outp),                         &! 3
+           &  (real(VpIntN(nS),kind=outp)             ,nS=1,nSmax),  &! 4
+           &  (real(dVpIntN(nS),kind=outp)            ,nS=1,nSmax),  &! 5
+           &  (real(ddVpIntN(nS),kind=outp)           ,nS=1,nSmax),  &! 6
+           &  (real(VpRIntN(nS),kind=outp)            ,nS=1,nSmax),  &! 7
+           &  (real(RstrIntN(nS),kind=outp)           ,nS=1,nSmax),  &! 8
+           &  (real(AstrIntN(nS),kind=outp)           ,nS=1,nSmax),  &! 9
+           &  (real(LFfac*LFIntN(nS),kind=outp)       ,nS=1,nSmax),  &! 10
+           &  (real(StrIntN(nS),kind=outp)            ,nS=1,nSmax),  &! 11
+           &  (real(TayIntN(nS),kind=outp)            ,nS=1,nSmax),  &! 12
+           &  (real(LFfac*TauN(nS),kind=outp)         ,nS=1,nSmax),  &! 13
+           &  (real(LFfac*TauBN(nS)/h(nS),kind=outp)  ,nS=1,nSmax),  &! 14
+           &  (real(LFfac*BspdIntN(nS),kind=outp)     ,nS=1,nSmax),  &! 15 For first part of dTau
+           &  (real(LFfac*BpsdIntN(nS),kind=outp)     ,nS=1,nSmax),  &! 16 For second part of dTau
+           &  (real(LFfac*dTauBN(nS)/h(nS),kind=outp) ,nS=1,nSmax),  &! 17 Boundary contribution !
+           &  (real(LFfac*dTTauN(nS),kind=outp)       ,nS=1,nSmax),  &! 18
+           &  (real(LFfac*dTTauBN(nS)/h(nS),kind=outp),nS=1,nSmax),  &! 19
+           &  (real(LFfac*Bs2IntN(nS),kind=outp)      ,nS=1,nSmax)    ! 20 
       close(nOutFile)
 
       open(nOutFile, file=TOfileShs, status='unknown',       &
            &       form='unformatted', position='append')
       IF( nTOsets == 1 ) then
-         write(nOutFile) float(nSmax)
-         write(nOutFile) (sngl(sZ(nS)),nS=1,nSmax)
+         write(nOutFile) real(nSmax,kind=outp)
+         write(nOutFile) (real(sZ(nS),kind=outp),nS=1,nSmax)
       end if
-      write(nOutFile)  sngl(time),                                 &
-           &          (sngl(VpIntS(nS))             ,nS=1,nSmax),  &
-           &          (sngl(dVpIntS(nS))            ,nS=1,nSmax),  &
-           &          (sngl(ddVpIntS(nS))           ,nS=1,nSmax),  &
-           &          (sngl(VpRIntS(nS))            ,nS=1,nSmax),  &
-           &          (sngl(RstrIntS(nS))           ,nS=1,nSmax),  &
-           &          (sngl(AstrIntS(nS))           ,nS=1,nSmax),  &
-           &          (sngl(LFfac*LFIntS(nS))       ,nS=1,nSmax),  &
-           &          (sngl(StrIntS(nS))            ,nS=1,nSmax),  &
-           &          (sngl(TayIntS(nS))            ,nS=1,nSmax),  &
-           &          (sngl(LFfac*TauS(nS))         ,nS=1,nSmax),  &
-           &          (sngl(LFfac*TauBS(nS)/h(nS))  ,nS=1,nSmax),  &
-           &          (sngl(LFfac*BspdIntS(nS))     ,nS=1,nSmax),  &! For first part of dTau
-           &          (sngl(LFfac*BpsdIntS(nS))     ,nS=1,nSmax),  &! For second part of dTau
-           &          (sngl(LFfac*dTauBS(nS)/h(nS)) ,nS=1,nSmax),  &! Boundary contribution !
-           &          (sngl(LFfac*dTTauS(nS))       ,nS=1,nSmax),  &
-           &          (sngl(LFfac*dTTauBS(nS)/h(nS)),nS=1,nSmax),  &
-           &          (sngl(LFfac*Bs2IntS(nS))      ,nS=1,nSmax)
+      write(nOutFile)  real(time,kind=outp),                         &
+           &  (real(VpIntS(nS),kind=outp)             ,nS=1,nSmax),  &
+           &  (real(dVpIntS(nS),kind=outp)            ,nS=1,nSmax),  &
+           &  (real(ddVpIntS(nS),kind=outp)           ,nS=1,nSmax),  &
+           &  (real(VpRIntS(nS),kind=outp)            ,nS=1,nSmax),  &
+           &  (real(RstrIntS(nS),kind=outp)           ,nS=1,nSmax),  &
+           &  (real(AstrIntS(nS),kind=outp)           ,nS=1,nSmax),  &
+           &  (real(LFfac*LFIntS(nS),kind=outp)       ,nS=1,nSmax),  &
+           &  (real(StrIntS(nS),kind=outp)            ,nS=1,nSmax),  &
+           &  (real(TayIntS(nS),kind=outp)            ,nS=1,nSmax),  &
+           &  (real(LFfac*TauS(nS),kind=outp)         ,nS=1,nSmax),  &
+           &  (real(LFfac*TauBS(nS)/h(nS),kind=outp)  ,nS=1,nSmax),  &
+           &  (real(LFfac*BspdIntS(nS),kind=outp)     ,nS=1,nSmax),  &
+           &  (real(LFfac*BpsdIntS(nS),kind=outp)     ,nS=1,nSmax),  &
+           &  (real(LFfac*dTauBS(nS)/h(nS),kind=outp) ,nS=1,nSmax),  &
+           &  (real(LFfac*dTTauS(nS),kind=outp)       ,nS=1,nSmax),  &
+           &  (real(LFfac*dTTauBS(nS)/h(nS),kind=outp),nS=1,nSmax),  &
+           &  (real(LFfac*Bs2IntS(nS),kind=outp)      ,nS=1,nSmax)
       close(nOutFile)
 
       ! Note: integral changed on Nov. 2 2007 (see above)
-      fac=1.D0/sZ(nSmax) ! I integrate (roughly) from s=0 to s=r_cmb.
-      VgRMS  =vSF*dsqrt(VgRMS/vol_oc)
+      fac=one/sZ(nSmax) ! I integrate (roughly) from s=0 to s=r_cmb.
+      VgRMS  =vSF*sqrt(VgRMS/vol_oc)
       TayRMS =fac*TayRMS
       TayRRMS=fac*TayRRMS
       TayVRMS=fac*TayVRMS
@@ -901,9 +904,9 @@ contains
                write(nOutFile) version
                dumm(1)=102           ! type of input
                dumm(2)=3             ! marker for constant phi plane
-               dumm(3)=0.D0          ! surface constant
+               dumm(3)=0.0_cp          ! surface constant
                dumm(4)=nFields       ! no of fields 
-               write(nOutFile) (real(dumm(n),4),n=1,4)
+               write(nOutFile) (real(dumm(n),kind=outp),n=1,4)
 
                dumm(1)=11.0          ! Field marker for AS vPhi 
                dumm(2)=61.0          ! Field marker for Reynolds Force 
@@ -912,7 +915,7 @@ contains
                dumm(5)=64.0          ! Field marker for Lorentz Force
                dumm(6)=65.0          ! Field marker for Coriolis force
                dumm(7)=66.0          ! Field marker for dtVp
-               write(nOutFile) (sngl(dumm(n)),n=1,nFields)
+               write(nOutFile) (real(dumm(n),kind=outp),n=1,nFields)
 
                !------ Now other info about grid and parameters:
                write(nOutFile) runid        ! run identifier 
@@ -927,10 +930,10 @@ contains
                dumm( 9)=prmag            !      -"-
                dumm(10)=radratio         ! ratio of inner / outer core
                dumm(11)=tScale           ! timescale
-               write(nOutFile) (sngl(dumm(n)),     n=1,11)  
-               write(nOutFile) (sngl(r(n)/r_CMB),  n=1,n_r_max)
-               write(nOutFile) (sngl(theta_ord(n)),n=1,n_theta_max)
-               write(nOutFile) (sngl(phi(n)),      n=1,n_phi_max)
+               write(nOutFile) (real(dumm(n),kind=outp),     n=1,11)  
+               write(nOutFile) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
+               write(nOutFile) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
+               write(nOutFile) (real(phi(n),kind=outp),      n=1,n_phi_max)
 
             end if ! Write Header ?
 
@@ -938,35 +941,35 @@ contains
 
             dumm(1)=nTOmovSets        ! time frame number for movie
             dumm(2)=time              ! time      
-            dumm(3)=0.D0      
-            dumm(4)=0.D0     
-            dumm(5)=0.D0          
-            dumm(6)=0.D0          
-            dumm(7)=0.D0         
-            dumm(8)=0.D0        
-            write(nOutFile) (sngl(dumm(n)),n=1,8)
+            dumm(3)=0.0_cp      
+            dumm(4)=0.0_cp     
+            dumm(5)=0.0_cp          
+            dumm(6)=0.0_cp          
+            dumm(7)=0.0_cp         
+            dumm(8)=0.0_cp        
+            write(nOutFile) (real(dumm(n),kind=outp),n=1,8)
 
          end if ! Produce movie output ?
 
          if ( lTOrms ) then
 
             do nR=1,n_r_max
-               VpR(nR)   =0.D0
-               dVpR(nR)  =0.D0
-               RstrR(nR) =0.D0
-               AstrR(nR) =0.D0
-               LFR(nR)   =0.D0
-               LFABSR(nR)=0.D0
-               StrR(nR)  =0.D0
-               CorR(nR)  =0.D0
+               VpR(nR)   =0.0_cp
+               dVpR(nR)  =0.0_cp
+               RstrR(nR) =0.0_cp
+               AstrR(nR) =0.0_cp
+               LFR(nR)   =0.0_cp
+               LFABSR(nR)=0.0_cp
+               StrR(nR)  =0.0_cp
+               CorR(nR)  =0.0_cp
             end do
 
             nTOrmsSets=nTOrmsSets+1
             open(nOutFile2, file=tayFile, form='unformatted',           &
                  &             status='unknown', position='append')
             if ( nTOrmsSets == 1 ) then
-               write(nOutFile2) float(n_r_max)
-               write(nOutFile2) (sngl(r(nR)),nR=1,n_r_max)
+               write(nOutFile2) real(n_r_max,kind=outp)
+               write(nOutFile2) (real(r(nR),kind=outp),nR=1,n_r_max)
             end if
 
          end if
@@ -1031,7 +1034,7 @@ contains
                         !--------------- Lorentz force:
                         fOut(nPos)=fSF*LFfac*outBlock(nThetaBlock)
                         LFR(nR)=LFR(nR) + gauss(nThetaNHS)*fOut(nPos)/sS
-                        LFABSR(nR)=LFABSR(nR) + gauss(nThetaNHS)*dabs(fOut(nPos))/sS
+                        LFABSR(nR)=LFABSR(nR) + gauss(nThetaNHS)*abs(fOut(nPos))/sS
                      else if ( nOut == 6 ) then
                         !--------------- Corriolis force:
                         fOut(nPos)=fSF*outBlock(nThetaBlock)
@@ -1049,7 +1052,7 @@ contains
 
             !------ Output of stress contributions for one radial grid point:
             !       Write all fields into movie style file
-            if ( lTOmov ) write(nOutFile) (sngl(fOut(nPos)),nPos=1,nFieldSize)
+            if ( lTOmov ) write(nOutFile) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
 
          end do ! Loop over output functions
 
@@ -1064,16 +1067,16 @@ contains
          end if
 
          !--- Realtive importance of azimuthal and geostrophic flow
-         VRMS   =dsqrt(2.D0*eKin/vol_oc)
-         VpRMS  =dsqrt(2.D0*eKinTAS/vol_oc)
+         VRMS   =sqrt(two*eKin/vol_oc)
+         VpRMS  =sqrt(two*eKinTAS/vol_oc)
 
-         if ( VRMS /= 0d0) then
+         if ( VRMS /= 0.0_cp) then
             VpRMS  =VpRMS/VRMS
             VgRMS  =VgRMS/VRMS
          end if
 
          do nR=1,n_r_max
-            fac=1.D0/2.D0 ! Cancel factor 2 from theta integral
+            fac=half ! Cancel factor 2 from theta integral
             VpR(nR)    =fac*VpR(nR)
             dVpR(nR)   =fac*dVpR(nR)
             RstrR(nR)  =fac*RstrR(nR)
@@ -1081,10 +1084,10 @@ contains
             StrR(nR)   =fac*StrR(nR)
             LFR(nR)    =fac*LFR(nR)
             CorR(nR)   =fac*CorR(nR)
-            if ( LFABSR(nR) /= 0d0 ) then
-               TayR(nR)   =dabs(LFR(nR))/(fac*LFABSR(nR))
+            if ( LFABSR(nR) /= 0.0_cp ) then
+               TayR(nR)   =abs(LFR(nR))/(fac*LFABSR(nR))
             else
-               TayR(nR)   =0d0
+               TayR(nR)   =0.0_cp
             end if
             !              TayRMSR(nR)=rS*rS*TayR(nR)
             TayRMSR(nR)=TayR(nR)
@@ -1096,22 +1099,23 @@ contains
          !    the fact that the surface integral has already been cared for
          !    NOTE: Integral for RMS Taylorisation changed to not respect the 
          !    different volumes represented by each shell on 2 Nov 2007.
-         !          fac    =4.D0*pi/vol_oc
-         fac    =1.D0/(r_cmb-r_icb) ! =1
+         !          fac    =four*pi/vol_oc
+         fac    =one/(r_cmb-r_icb) ! =1
          TaySRMS=fac*TaySRMS
 
-         write(nOutFile2)                                             &
-              &          sngl(time),sngl(VpRMS**2),sngl(VgRMS**2),    &
-              &          sngl(TayRMS),sngl(TaySRMS),sngl(TayRRMS),    &
-              &          sngl(TayVRMS),sngl(eKin),                    &! 3
-              &          (sngl(VpR(nR))  ,nR=1,n_r_max),              &! 4
-              &          (sngl(dVpR(nR)) ,nR=1,n_r_max),              &! 5
-              &          (sngl(RstrR(nR)),nR=1,n_r_max),              &! 6
-              &          (sngl(AstrR(nR)),nR=1,n_r_max),              &! 7
-              &          (sngl(LFR(nR))  ,nR=1,n_r_max),              &! 8
-              &          (sngl(StrR(nR)) ,nR=1,n_r_max),              &! 9
-              &          (sngl(CorR(nR)) ,nR=1,n_r_max),              &! 10
-              &          (sngl(TayR(nR)) ,nR=1,n_r_max)  ! 11
+         write(nOutFile2)                                                       &
+              &          real(time,kind=outp),real(VpRMS**2,kind=outp),         &
+              &          real(VgRMS**2,kind=outp),real(TayRMS,kind=outp),       &
+              &          real(TaySRMS,kind=outp),real(TayRRMS,kind=outp),       &
+              &          real(TayVRMS,kind=outp),real(eKin,kind=outp),          &! 3
+              &          (real(VpR(nR),kind=outp)  ,nR=1,n_r_max),              &! 4
+              &          (real(dVpR(nR),kind=outp) ,nR=1,n_r_max),              &! 5
+              &          (real(RstrR(nR),kind=outp),nR=1,n_r_max),              &! 6
+              &          (real(AstrR(nR),kind=outp),nR=1,n_r_max),              &! 7
+              &          (real(LFR(nR),kind=outp)  ,nR=1,n_r_max),              &! 8
+              &          (real(StrR(nR),kind=outp) ,nR=1,n_r_max),              &! 9
+              &          (real(CorR(nR),kind=outp) ,nR=1,n_r_max),              &! 10
+              &          (real(TayR(nR),kind=outp) ,nR=1,n_r_max)                ! 11
          close(nOutFile2)
 
       end if

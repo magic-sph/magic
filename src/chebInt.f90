@@ -1,10 +1,12 @@
 !$Id$
 module chebInt_mod
 
+   use precision_mod, only: cp
    use chebyshev_polynoms_mod, only: cheb_grid
    use init_costf, only: init_costf1
    use cosine_transform, only: costf1
    use radial_der, only: get_dcheb
+   use const, only: two, four, half
 
    implicit none
 
@@ -18,31 +20,31 @@ contains
                           z,nGridPoints,i_costf_init,d_costf_init)
 
       !-- Input variables:
-      real(kind=8), intent(in) ::  zMin,zMax  ! integration interval !
-      real(kind=8), intent(in) ::  zNorm      ! norm interval length
-      integer,      intent(in) :: nNorm       ! suggested number of grid points
+      real(cp), intent(in) ::  zMin,zMax  ! integration interval !
+      real(cp), intent(in) ::  zNorm      ! norm interval length
+      integer,  intent(in) :: nNorm       ! suggested number of grid points
                                               ! for norm length
                                               ! will be adjusted to nGridPoints
       integer :: nGridPointsMax ! dimension of z on input
 
       !-- Output variables:
       ! grid points, dimension at >= nGridPointsMax
-      real(kind=8), intent(out) ::  z(nGridPointsMax) 
+      real(cp), intent(out) ::  z(nGridPointsMax) 
       !  number of used grid points
-      integer,      intent(out) :: nGridPoints
+      integer,  intent(out) :: nGridPoints
       ! array needed for cheb transforms, dimension >= 2*nGridPointsMax+2
-      integer,      intent(out) :: i_costf_init(2*nGridPointsMax+2) 
+      integer,  intent(out) :: i_costf_init(2*nGridPointsMax+2) 
       ! array needed for cheb transforms, dimension >= 2*nGridPointsMax
-      real(kind=8), intent(out) ::  d_costf_init(2*nGridPointsMax+5)
+      real(cp), intent(out) ::  d_costf_init(2*nGridPointsMax+5)
 
       !-- Local variables:
       integer, parameter :: nChebMax=722
       integer :: n
-      real(kind=8) :: zCheb(nChebMax)
+      real(cp) :: zCheb(nChebMax)
       integer, parameter :: nGridMin=4*6+1
 
       !-- Adjust number of z points:
-      n=idint(dble(nNorm-1)/4.D0*((zMax-zMin)/zNorm))
+      n=int(real(nNorm-1,kind=cp)/four*((zMax-zMin)/zNorm))
       if ( n < 2 )  then
          n=2
       else if ( n == 7 )  then
@@ -116,7 +118,7 @@ contains
       !-- Calculate nGridPoints grid points z(*) in interval [zMin,zMax]
       !   zCheb are the grid points in the cheb interval [-1,1]
       !   These are not really needed for the integration.
-      call cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.d0,0.d0,0.d0,0.d0)
+      call cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.0_cp,0.0_cp,0.0_cp,0.0_cp)
 
       !-- Initialize fast cos transform for chebs:
       call init_costf1(nGridPoints,i_costf_init,2*nGridPointsMax+2, &
@@ -124,26 +126,26 @@ contains
 
    end subroutine chebIntInit
 !------------------------------------------------------------------------------
-   real(kind=8) function chebInt(f,zMin,zMax,nGridPoints,nGridPointsMax, &
+   real(cp) function chebInt(f,zMin,zMax,nGridPoints,nGridPointsMax, &
                                  i_costf_init,d_costf_init)
 
       !-- Input variables:
-      real(kind=8), intent(in) ::  f(*)            ! function on grid points
-      real(kind=8), intent(in) ::  zMin,zMax       ! integration boundaries
-      integer,      intent(in) :: nGridPoints      ! No of grid points
-      integer,      intent(in) :: nGridPointsMax   ! No of max grid points
-      integer,      intent(in) :: i_costf_init(2*nGridPointsMax+2) ! help array
-      real(kind=8), intent(in) :: d_costf_init(2*nGridPointsMax+5) ! help array
+      real(cp), intent(in) ::  f(*)            ! function on grid points
+      real(cp), intent(in) ::  zMin,zMax       ! integration boundaries
+      integer,  intent(in) :: nGridPoints      ! No of grid points
+      integer,  intent(in) :: nGridPointsMax   ! No of max grid points
+      integer,  intent(in) :: i_costf_init(2*nGridPointsMax+2) ! help array
+      real(cp), intent(in) :: d_costf_init(2*nGridPointsMax+5) ! help array
 
       !-- Local variables:
       integer, parameter :: nWorkMax=722  ! dimension for work array
-      real(kind=8) :: work(nWorkMax)      ! work array
-      real(kind=8) :: fr(nWorkMax)        ! function in cheb space
-      real(kind=8) :: chebNorm
+      real(cp) :: work(nWorkMax)      ! work array
+      real(cp) :: fr(nWorkMax)        ! function in cheb space
+      real(cp) :: chebNorm
       integer :: nCheb              ! counter for chebs
       integer :: nGrid              ! counter for grid points
 
-      chebNorm=dsqrt(2.D0/dble(nGridPoints-1))
+      chebNorm=sqrt(two/real(nGridPoints-1,cp))
 
       if ( nWorkMax < nGridPoints ) then
          write(*,*) '! Increase nWorkMax in chebInt!'
@@ -158,13 +160,13 @@ contains
 
       !-- Transform to cheb space:
       call costf1(fr,work,i_costf_init,d_costf_init)
-      fr(1)          =0.5D0*fr(1)
-      fr(nGridPoints)=0.5D0*fr(nGridPoints)
+      fr(1)          =half*fr(1)
+      fr(nGridPoints)=half*fr(nGridPoints)
 
       !-- Integration:
-      chebInt=0.D0
+      chebInt=0.0_cp
       do nCheb=1,nGridPoints,2  ! only even chebs contribute
-         chebInt=chebInt - (zMax-zMin)/dble(nCheb*(nCheb-2))*fr(nCheb)
+         chebInt=chebInt - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*fr(nCheb)
       end do
 
       !-- Normalize with interval:
@@ -172,28 +174,28 @@ contains
 
    end function chebInt
 !------------------------------------------------------------------------------
-   real(kind=8) function chebIntD(f,lDeriv,zMin,zMax,nGridPoints, &
+   real(cp) function chebIntD(f,lDeriv,zMin,zMax,nGridPoints, &
                                   nGridPointsMax,i_costf_init,    &
                                   d_costf_init)
 
       !-- Input variables:
-      real(kind=8), intent(inout) ::  f(*)           ! function on grid points
-      logical,      intent(in) :: lDeriv            
-      real(kind=8), intent(in) ::  zMin,zMax         ! integration boundaries
-      integer,      intent(in) :: nGridPoints        ! No of grid points
-      integer,      intent(in) :: nGridPointsMax     ! No of max grid points
+      real(cp), intent(inout) ::  f(*)           ! function on grid points
+      logical,  intent(in) :: lDeriv            
+      real(cp), intent(in) ::  zMin,zMax         ! integration boundaries
+      integer,  intent(in) :: nGridPoints        ! No of grid points
+      integer,  intent(in) :: nGridPointsMax     ! No of max grid points
 
-      integer,      intent(in) :: i_costf_init(2*nGridPointsMax+2) ! help array
-      real(kind=8), intent(in) :: d_costf_init(2*nGridPointsMax+5) ! help array
+      integer,  intent(in) :: i_costf_init(2*nGridPointsMax+2) ! help array
+      real(cp), intent(in) :: d_costf_init(2*nGridPointsMax+5) ! help array
 
       !-- Local variables:
       integer, parameter :: nWorkMax=722  ! dimension for work array
-      real(kind=8) :: work(nWorkMax)      ! work array
-      real(kind=8) :: chebNorm
-      real(kind=8) :: drFac               ! transform fac from cheb space
+      real(cp) :: work(nWorkMax)      ! work array
+      real(cp) :: chebNorm
+      real(cp) :: drFac               ! transform fac from cheb space
       integer :: nCheb              ! counter for chebs
 
-      chebNorm=dsqrt(2.D0/dble(nGridPoints-1))
+      chebNorm=sqrt(two/real(nGridPoints-1,cp))
 
       if ( nWorkMax < nGridPoints ) then
          write(*,*) '! Increase nWorkMax in chebIntD!'
@@ -212,18 +214,18 @@ contains
       end if
 
       !-- Integration:
-      f(1)          =0.5D0*f(1)
-      f(nGridPoints)=0.5D0*f(nGridPoints)
-      chebIntD=0.D0
+      f(1)          =half*f(1)
+      f(nGridPoints)=half*f(nGridPoints)
+      chebIntD=0.0_cp
       do nCheb=1,nGridPoints,2  ! only even chebs contribute
-         chebIntD=chebIntD - (zMax-zMin)/dble(nCheb*(nCheb-2))*f(nCheb)
+         chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*f(nCheb)
       end do
       !-- Normalize with intervall:
       chebIntD=chebNorm*chebIntD/(zMax-zMin)
 
       !-- Get derivatives:
       if ( lDeriv ) then
-         drFac=2.D0/(zMax-zMin)
+         drFac=two/(zMax-zMin)
          call get_dcheb(work,f,nGridPointsMax,nGridPoints,drFac)
          !-- Transform back to grid space:
          call costf1(f,work,i_costf_init,d_costf_init)

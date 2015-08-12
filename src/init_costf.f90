@@ -1,7 +1,9 @@
 !$Id$
 module init_costf
  
-   use const, only: pi
+   use const, only: pi, sin36, cos36, sin60, sin72, cos72, one, two, &
+                    half
+   use precision_mod, only: cp
    use useful, only: factorise
 
    implicit none
@@ -16,7 +18,7 @@ contains
       !  +-------------+----------------+------------------------------------+
       !  |  Purpose of this subroutine is to calculate and store several     |
       !  |  values that will be needed for a fast cosine transform of the    |
-      !  |  frist kind. The actual transform is performed by the             |
+      !  |  first kind. The actual transform is performed by the             |
       !  |  subroutine costf1.                                               |
       !  +-------------------------------------------------------------------+
 
@@ -26,17 +28,14 @@ contains
       integer, intent(in) :: nd         ! dimension of d_costf_init
 
       !-- Output variables:
-      integer,      intent(out) :: i_costf_init(ni) ! array for integers
-      real(kind=8), intent(out) :: d_costf_init(nd) ! array for integers
+      integer,  intent(out) :: i_costf_init(ni) ! array for integers
+      real(cp), intent(out) :: d_costf_init(nd) ! array for integers
 
       !-- Local variables:
       integer :: j,k
-      real(kind=8) :: theta
-      real(kind=8) :: wr,wi,wpr,wpi,wtemp
+      real(cp) :: theta
+      real(cp) :: wr,wi,wpr,wpi,wtemp
       integer :: n_facs,fac(20),n_factors,factor(40)
-
-      real(kind=8) :: rad
-
 
       !-- Checking number of datapoints:
       if ( n <= 3 ) then
@@ -106,28 +105,28 @@ contains
       end do
 
       !-- Recurrence to get trigonometric auxiliary functions for cos TF
-      theta=pi/dble(n-1)
-      wr=1.d0
-      wi=0.d0
-      wpr=-2.d0*dsin(0.5d0*theta)**2  ! = cos(theta)-1
-      wpi=dsin(theta)
+      theta=pi/real(n-1,cp)
+      wr=one
+      wi=0.0_cp
+      wpr=-two*sin(half*theta)**2  ! = cos(theta)-1
+      wpi=sin(theta)
       do j=2,n/2
          wtemp=wr
          wr=wr*wpr-wi*wpi+wr
          wi=wi*wpr+wtemp*wpi+wi
          !-- Normal way of using these:
-         !           wr_costf(j-1)=2.d0*wr  ! = 2*cos((j-1)*theta), factor 2 is special !
-         !           wi_costf(j-1)=2.d0*wi  ! = 2*sin((j-1)*theta)
+         !           wr_costf(j-1)=two*wr  ! = 2*cos((j-1)*theta), factor 2 is special !
+         !           wi_costf(j-1)=two*wi  ! = 2*sin((j-1)*theta)
          !-- Storage in one array to make subroutine calls simpler:
-         d_costf_init(j-1)=2.d0*wr
+         d_costf_init(j-1)=two*wr
       end do
 
       !-- Recurrence to get trigonometric auxiliary functions for real TF
-      theta=pi/dble((n-1)/2)
-      wr=1.d0
-      wi=0.d0
-      wpr=-2.d0*dsin(0.5d0*theta)**2  ! = cos(theta)-1
-      wpi=dsin(theta)
+      theta=pi/real((n-1)/2,cp)
+      wr=one
+      wi=0.0_cp
+      wpr=-two*sin(half*theta)**2  ! = cos(theta)-1
+      wpi=sin(theta)
       do j=2,n/4
          wtemp=wr
          wr=wr*wpr-wi*wpi+wr
@@ -137,11 +136,11 @@ contains
       end do
 
       !-- And this is the way they are needed in fft_fac:
-      theta=2.d0*pi/dble((n-1)/2)
-      wr=1.d0
-      wi=0.d0
-      wpr=-2.d0*dsin(0.5d0*theta)**2  ! = cos(theta)-1
-      wpi=dsin(theta)
+      theta=two*pi/real((n-1)/2,cp)
+      wr=one
+      wi=0.0_cp
+      wpr=-two*sin(half*theta)**2  ! = cos(theta)-1
+      wpi=sin(theta)
       d_costf_init(n+1)=wr           ! = cos(0)
       d_costf_init(n+2)=wi           ! = sin(0)
       do j=2,n/2
@@ -152,12 +151,11 @@ contains
          d_costf_init(n+2*j  )=wi    ! = sin((j-1)*theta)
       end do
 
-      rad=pi/180.D0
-      d_costf_init(2*n+1)=dsin(36.D0*rad)
-      d_costf_init(2*n+2)=dcos(36.D0*rad)
-      d_costf_init(2*n+3)=dsin(72.D0*rad)
-      d_costf_init(2*n+4)=dcos(72.D0*rad)
-      d_costf_init(2*n+5)=dsin(60.D0*rad)
+      d_costf_init(2*n+1)=sin36
+      d_costf_init(2*n+2)=cos36
+      d_costf_init(2*n+3)=sin72
+      d_costf_init(2*n+4)=cos72
+      d_costf_init(2*n+5)=sin60
 
    end subroutine init_costf1
 !------------------------------------------------------------------------------
@@ -174,17 +172,14 @@ contains
       integer, intent(in) :: nd          ! dimension of i_costf_init
 
       !-- Output variables:
-      integer,      intent(out) :: i_costf_init(ni) ! array for integers
-      real(kind=8), intent(out) :: d_costf_init(nd) ! array for integers
+      integer,  intent(out) :: i_costf_init(ni) ! array for integers
+      real(cp), intent(out) :: d_costf_init(nd) ! array for integers
 
       !-- Local variables:
       integer :: j,k
-      real(kind=8) :: theta
-      real(kind=8) :: wr,wi,wpr,wpi,wtemp
+      real(cp) :: theta
+      real(cp) :: wr,wi,wpr,wpi,wtemp
       integer :: n_facs,fac(20),n_factors,factor(40)
-
-      real(kind=8) :: rad
-
 
       !-- Checking number of datapoints:
       if ( n <= 3 ) then
@@ -254,24 +249,24 @@ contains
 
       !-- Recurrencies to get trigonometric auxiliary functions for second cos TF
       !   only needed if IC included
-      theta=0.5d0*pi/dble(n)
-      wr=dcos(theta)
-      wi=dsin(theta)
-      wpr=-2.d0*wi**2              ! = cos(2*theta)-1
-      wpi=dsin(2.d0*theta)
-      !wi_costf_2(1)=2.d0*wi        ! = 2*sin(theta)
-      !w_save(n+1)=2.d0*wi
-      d_costf_init(2*n+1)=2.d0*wi
+      theta=half*pi/real(n,cp)
+      wr=cos(theta)
+      wi=sin(theta)
+      wpr=-two*wi**2              ! = cos(2*theta)-1
+      wpi=sin(two*theta)
+      !wi_costf_2(1)=two*wi        ! = 2*sin(theta)
+      !w_save(n+1)=two*wi
+      d_costf_init(2*n+1)=two*wi
       do j=2,n/2
          wtemp=wr
          wr=wr*wpr-wi*wpi+wr
          wi=wi*wpr+wtemp*wpi+wi
-         !wi_costf_2(j)=2.d0*wi     ! = 2*sin((2*j+1)*theta)
-         !w_save(n+j)=2.d0*wi
-         d_costf_init(2*n+j)=2.d0*wi
+         !wi_costf_2(j)=two*wi     ! = 2*sin((2*j+1)*theta)
+         !w_save(n+j)=two*wi
+         d_costf_init(2*n+j)=two*wi
       end do
 
-      wr=wpr+1.d0
+      wr=wpr+one
       wi=wpi
       !wr_costf(1)=wr             ! = cos(2*theta)
       !wi_costf(1)=wi             ! = sin(2*theta)
@@ -288,11 +283,11 @@ contains
       end do
 
       !-- Recurrence to get trigonometric auxiliary functions for real TF
-      theta=pi/dble(n/2)
-      wr=1.d0
-      wi=0.d0
-      wpr=-2.d0*dsin(0.5d0*theta)**2  ! Thats cos(theta)-1
-      wpi=dsin(theta)
+      theta=pi/real(n/2,cp)
+      wr=one
+      wi=0.0_cp
+      wpr=-two*sin(half*theta)**2  ! Thats cos(theta)-1
+      wpi=sin(theta)
       do j=2,n/4
          wtemp=wr
          wr=wr*wpr-wi*wpi+wr
@@ -307,11 +302,11 @@ contains
 
 
       !-- And this is the way they are needed in fft_fac:
-      theta=2.d0*pi/dble(n/2)
-      wr=1.d0
-      wi=0.d0
-      wpr=-2.d0*dsin(0.5d0*theta)**2  ! Thats cos(theta)-1
-      wpi=dsin(theta)
+      theta=two*pi/real(n/2,cp)
+      wr=one
+      wi=0.0_cp
+      wpr=-two*sin(half*theta)**2  ! Thats cos(theta)-1
+      wpi=sin(theta)
       d_costf_init(n+1)=wr           ! = cos(0)
       d_costf_init(n+2)=wi           ! = sin(0)
       do j=2,n/2
@@ -323,12 +318,11 @@ contains
       end do
 
       !-- JW addition to NumRes routine:
-      rad=pi/180.D0
-      d_costf_init(2*n+n/2+1)=dsin(36.D0*rad)
-      d_costf_init(2*n+n/2+2)=dcos(36.D0*rad)
-      d_costf_init(2*n+n/2+3)=dsin(72.D0*rad)
-      d_costf_init(2*n+n/2+4)=dcos(72.D0*rad)
-      d_costf_init(2*n+n/2+5)=dsin(60.D0*rad)
+      d_costf_init(2*n+n/2+1)=sin36
+      d_costf_init(2*n+n/2+2)=cos36
+      d_costf_init(2*n+n/2+3)=sin72
+      d_costf_init(2*n+n/2+4)=cos72
+      d_costf_init(2*n+n/2+5)=sin60
 
    end subroutine init_costf2
 !------------------------------------------------------------------------------

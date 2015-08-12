@@ -3,6 +3,7 @@ module rIterThetaBlocking_OpenMP_mod
 #ifdef WITHOMP
    use omp_lib
 #endif
+   use precision_mod, only: cp
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
 
    use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&
@@ -20,6 +21,7 @@ module rIterThetaBlocking_OpenMP_mod
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
+   use const, only: zero
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
@@ -40,7 +42,7 @@ module rIterThetaBlocking_OpenMP_mod
       integer :: nThreads
       type(grid_space_arrays_t), allocatable :: gsa(:)
       type(nonlinear_lm_t), allocatable :: nl_lm(:)
-      real(kind=8), allocatable :: lorentz_torque_ic(:),lorentz_torque_ma(:)
+      real(cp), allocatable :: lorentz_torque_ic(:),lorentz_torque_ma(:)
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_OpenMP
       procedure :: finalize => finalize_rIterThetaBlocking_OpenMP
@@ -118,45 +120,45 @@ contains
         &                 EparaxiLMr)
 
       class(rIterThetaBlocking_OpenMP_t) :: this
-      integer,      intent(in) :: nR,nBc
-      real(kind=8), intent(in) :: time,dt,dtLast
+      integer,  intent(in) :: nR,nBc
+      real(cp), intent(in) :: time,dt,dtLast
   
-      complex(kind=8), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(kind=8), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
+      complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
+      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
-      complex(kind=8), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
-      complex(kind=8), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
-      complex(kind=8), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
-      complex(kind=8), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
-      real(kind=8),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
-      real(kind=8),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
-      real(kind=8),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
-      real(kind=8),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
-      real(kind=8),    intent(out) :: fpoynLMr(:),fresLMr(:)
-      real(kind=8),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
+      complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
+      complex(cp), intent(out) :: br_vp_lm_cmb(:) ! product br*vp at CMB
+      complex(cp), intent(out) :: br_vt_lm_icb(:) ! product br*vt at ICB
+      complex(cp), intent(out) :: br_vp_lm_icb(:) ! product br*vp at ICB
+      real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
+      real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
+      real(cp),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
+      real(cp),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
+      real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
+      real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
   
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
-      real(kind=8) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
+      real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
   
       this%nR=nR
       this%nBc=nBc
       this%isRadialBoundaryPoint=(nR == n_r_cmb).or.(nR == n_r_icb)
   
       if ( this%l_cour ) then
-         this%dtrkc=1.D10
-         this%dthkc=1.D10
+         this%dtrkc=1.e10_cp
+         this%dthkc=1.e10_cp
       end if
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
          do l=0,l_max
-            this%TO_arrays%dzRstrLM(l+1)=0.D0
-            this%TO_arrays%dzAstrLM(l+1)=0.D0
-            this%TO_arrays%dzCorLM(l+1) =0.D0
-            this%TO_arrays%dzLFLM(l+1)  =0.D0
+            this%TO_arrays%dzRstrLM(l+1)=0.0_cp
+            this%TO_arrays%dzAstrLM(l+1)=0.0_cp
+            this%TO_arrays%dzCorLM(l+1) =0.0_cp
+            this%TO_arrays%dzLFLM(l+1)  =0.0_cp
          end do
       end if
   
@@ -203,30 +205,30 @@ contains
 #else
       threadid = 0
 #endif
-      this%lorentz_torque_ma(threadid) = 0.0D0
-      this%lorentz_torque_ic(threadid) = 0.0D0
-      c = 0.0D0
+      this%lorentz_torque_ma(threadid) = 0.0_cp
+      this%lorentz_torque_ic(threadid) = 0.0_cp
+      c = 0.0_cp
       !$OMP SINGLE
-      br_vt_lm_cmb=cmplx(0.0,0.0,kind=kind(br_vt_lm_cmb))
-      br_vp_lm_cmb=cmplx(0.0,0.0,kind=kind(br_vp_lm_cmb))
-      br_vt_lm_icb=cmplx(0.0,0.0,kind=kind(br_vt_lm_icb))
-      br_vp_lm_icb=cmplx(0.0,0.0,kind=kind(br_vp_lm_icb))
-      HelLMr=0.0D0
-      Hel2LMr=0.0D0
-      HelnaLMr=0.0D0
-      Helna2LMr=0.0D0
-      uhLMr = 0.0D0
-      duhLMr = 0.0D0
-      gradsLMr = 0.0D0
-      fconvLMr=0.D0
-      fkinLMr=0.D0
-      fviscLMr=0.D0
-      fpoynLMr=0.D0
-      fresLMr=0.D0
-      EperpLMr=0.D0
-      EparLMr=0.D0
-      EperpaxiLMr=0.D0
-      EparaxiLMr=0.D0
+      br_vt_lm_cmb=zero
+      br_vp_lm_cmb=zero
+      br_vt_lm_icb=zero
+      br_vp_lm_icb=zero
+      HelLMr=0.0_cp
+      Hel2LMr=0.0_cp
+      HelnaLMr=0.0_cp
+      Helna2LMr=0.0_cp
+      uhLMr = 0.0_cp
+      duhLMr = 0.0_cp
+      gradsLMr = 0.0_cp
+      fconvLMr=0.0_cp
+      fkinLMr=0.0_cp
+      fviscLMr=0.0_cp
+      fpoynLMr=0.0_cp
+      fresLMr=0.0_cp
+      EperpLMr=0.0_cp
+      EparLMr=0.0_cp
+      EperpaxiLMr=0.0_cp
+      EparaxiLMr=0.0_cp
       !$OMP END SINGLE
       !$OMP BARRIER
       call this%nl_lm(threadid)%set_zero()
@@ -281,8 +283,8 @@ contains
   
          else if ( l_mag ) then
             do lm=1,lmP_max
-               this%nl_lm(threadid)%VxBtLM(lm)=0.D0
-               this%nl_lm(threadid)%VxBpLM(lm)=0.D0
+               this%nl_lm(threadid)%VxBtLM(lm)=0.0_cp
+               this%nl_lm(threadid)%VxBpLM(lm)=0.0_cp
             end do
          end if
   
@@ -311,7 +313,7 @@ contains
          !          lorentz_torque_ic
          !PERFON('lorentz')
          if ( this%nR == n_r_icb .and. l_mag_LF .and. l_rot_ic .and. l_cond_ic  ) then
-            lorentz_torques_ic(nThetaB)=0.0D0
+            lorentz_torques_ic(nThetaB)=0.0_cp
             call get_lorentz_torque(lorentz_torques_ic(nThetaB),     &
                  &                  nThetaStart,this%sizeThetaB,     &
                  &                  this%gsa(threadid)%brc,          &
@@ -526,8 +528,8 @@ contains
                                      this%lorentz_torque_ma(iThread)
       end do
   
-!!$    lorentz_torque_ic=0.0D0
-!!$    c=0.0D0
+!!$    lorentz_torque_ic=0.0_cp
+!!$    c=0.0_cp
 !!$    do iThread=0,this%nThreads-1
 !!$       y=this%lorentz_torque_ic(iThread)-c
 !!$       t=lorentz_torque_ic+y

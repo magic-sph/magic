@@ -2,7 +2,8 @@
 module timing
 
    use MPI
-   use parallel_mod,only: rank
+   use precision_mod, only: cp, lip
+   use parallel_mod, only: rank
  
    implicit none
 
@@ -26,8 +27,8 @@ contains
       integer, intent(out) :: time(4)
 
       !-- Local variables
-      integer(kind=8) :: mSeconds
-      real(kind=8) :: dbl_seconds
+      integer(lip) :: mSeconds
+      real(cp) :: dbl_seconds
   
       !--- SYSTEM_CLOCK is a Fortran90 subroutine that
       !    returns the wallclock time with a precision
@@ -44,8 +45,7 @@ contains
       !write(*,"(A,ES20.12)") "MPI_Wtime = ",dbl_seconds
       !call SYSTEM_CLOCK(count,countRate,countMax)
   
-      !mSeconds=IDint(1.D3*dble(count)/dble(countRate))
-      mSeconds = int(1000.0*dbl_seconds,8)
+      mSeconds = int(1000.0_cp*dbl_seconds,kind=lip)
       call ms2time(mSeconds,time)
  
    end subroutine wallTime
@@ -59,30 +59,30 @@ contains
       !------------------------------------------------------------------
   
       !-- Input variables:
-      integer(kind=8), intent(in) :: ms
+      integer(lip), intent(in) :: ms
  
       !-- Output variables:
       integer, intent(out) :: time(4)
  
       !-- Local variables:
-      integer(kind=8) :: mSeconds
+      integer(lip) :: mSeconds
       integer :: seconds,minutes,hours
   
       mSeconds=ms
-      hours   =int(mSeconds/msecHour,4)
+      hours   =int(mSeconds/msecHour)
       mSeconds=mSeconds-hours*msecHour
-      minutes =int(mSeconds/msecMinute,4)
+      minutes =int(mSeconds/msecMinute)
       mSeconds=mSeconds-minutes*msecMinute
-      seconds =int(mSeconds/msecSecond,4)
+      seconds =int(mSeconds/msecSecond)
       mSeconds=mSeconds-seconds*msecSecond
       time(1) =hours
       time(2) =minutes
       time(3) =seconds
-      time(4) =int(mSeconds,4)
+      time(4) =int(mSeconds)
  
    end subroutine ms2time
 !----------------------------------------------------------------------------
-   integer(kind=8) function time2ms(time)
+   integer(lip) function time2ms(time)
       !------------------------------------------------------------------
       !  Transforms a four-element integer arrays time(4) containing the
       !  time in hours=time(1), minutes=time(2), seconds=time(3),
@@ -111,7 +111,7 @@ contains
       integer, intent(out) :: timeD(4)
   
       !-- Local variables:
-      integer(kind=8) :: msDiff,msStart,msStop
+      integer(lip) :: msDiff,msStart,msStop
   
       msStart=time2ms(timeStart)
       msStop =time2ms(timeStop)
@@ -152,7 +152,7 @@ contains
       integer :: time1(4),time2(4)
  
       !-- Local variables:
-      integer(kind=8) :: t1ms,t2ms
+      integer(lip) :: t1ms,t2ms
   
       t1ms=time2ms(time1)
       t2ms=time2ms(time2)
@@ -168,7 +168,7 @@ contains
       integer, intent(in) :: n
  
       !-- Local variables
-      integer(kind=8) :: tms
+      integer(lip) :: tms
   
       tms=time2ms(time)
       if ( n==0 ) then
@@ -195,7 +195,7 @@ contains
       integer, intent(in) :: time1(4),time2(4)
  
       !-- Local variables
-      integer(kind=8) :: tms1,tms2
+      integer(lip) :: tms1,tms2
   
       tms1=time2ms(time1)
       tms2=time2ms(time2)

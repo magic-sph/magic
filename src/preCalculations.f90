@@ -4,6 +4,7 @@ module preCalculations
    use const
    use num_param
    use output_data
+   use precision_mod, only: cp
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
                          n_cheb_ic_max, m_max, minc, n_cheb_max,   &
                          lm_max, n_phi_max, n_theta_max
@@ -51,30 +52,30 @@ contains
       !  +-------------------------------------------------------------------+
     
       !---- Local variables:
-      real(kind=8) :: c1,help,facIH
-      real(kind=8) :: delmin,sr_top,si_top,sr_bot,si_bot
+      real(cp) :: c1,help,facIH
+      real(cp) :: delmin,sr_top,si_top,sr_bot,si_bot
       integer :: n,n_r,l,m,l_bot,m_bot,l_top,m_top
       character(len=76) :: fileName
       character(len=80) :: message
-      real(kind=8) :: mom(n_r_max)
+      real(cp) :: mom(n_r_max)
     
       !-- Determine scales depending on n_tScale,n_lScale :
       if ( n_tScale == 0 ) then
          !----- Viscous time scale:
-         tScale=1.D0
+         tScale=one
       else if ( n_tScale == 1 ) then
          !----- Magnetic time scale:
-         tScale=1.D0/prmag
+         tScale=one/prmag
       else if ( n_tScale == 2 ) then
          !----- Thermal time scale:
-         tScale=1.D0/pr
+         tScale=one/pr
       end if
       if ( n_lScale == 0 ) then
          !----- Outer Core:
-         lScale=1.D0
+         lScale=one
       else if ( n_lScale == 1 ) then
          !----- Total Core:
-         lScale=(1.D0-radratio)
+         lScale=(one-radratio)
       end if
     
       !---- Scale according to scdIFf:
@@ -84,13 +85,13 @@ contains
       raScaled=ra/lScale**3
       ekScaled=ek*lScale**2
     
-      if ( l_cond_ic ) O_sr=1.D0/sigma_ratio
+      if ( l_cond_ic ) O_sr=one/sigma_ratio
     
-      opr=1.D0/pr
+      opr=one/pr
       if ( l_mag ) then
-         opm=1.D0/prmag
+         opm=one/prmag
       else
-         opm=0.D0
+         opm=0.0_cp
       end if
     
       ! Note: CorFac is the factor in front of the Coriolis force. In the scaling
@@ -117,18 +118,18 @@ contains
       !       is arbitrary. We nevertheless still use the same LFfac.
     
       if ( l_non_rot ) then
-         CorFac=0.d0
+         CorFac=0.0_cp
          if ( l_mag .or. l_mag_LF ) then
-            LFfac=1D0
+            LFfac=one
          else
-            LFfac=0d0
+            LFfac=0.0_cp
          end if
       else
-         CorFac=1.D0/ekScaled
+         CorFac=one/ekScaled
          if ( l_mag .or. l_mag_LF ) then
-            LFfac=1.D0/(ekScaled*prmag)
+            LFfac=one/(ekScaled*prmag)
          else
-            LFfac=0d0
+            LFfac=0.0_cp
          end if
       end if
     
@@ -141,17 +142,17 @@ contains
       !       diffusivity
       BuoFac=raScaled/pr
       if ( index(interior_model,'JUP') /= 0 ) then
-         polind=1.d0/0.45d0
+         polind=one/0.45_cp
       else if ( index(interior_model,'SAT') /= 0 ) then
-         polind=1.d0/0.5d0
+         polind=one/0.5_cp
       else if ( index(interior_model,'SUN') /= 0 ) then
-         polind=1.d0/0.6d0
+         polind=one/0.6_cp
       end if
     
       dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
       if ( .not. l_non_rot ) dtMax=min(dtMax,intfac*ekScaled)
-      dtMin  =dtMax/1.0D6
+      dtMin  =dtMax/1.0e6_cp
     
       !-- Calculate radial functions for all threads (chebs,r,.....):
 
@@ -241,9 +242,9 @@ contains
       end if
     
       !-- Compute some constants:
-      vol_ic=4.D0*pi/3.D0*r_icb**3             ! Inner core volume
-      vol_oc=4.D0*pi/3.D0*(r_cmb**3-r_icb**3)  ! Outer core volume
-      surf_cmb=4.D0*pi*r_cmb**2                ! Surface of CMB
+      vol_ic=four*third*pi*r_icb**3             ! Inner core volume
+      vol_oc=four*third*pi*(r_cmb**3-r_icb**3)  ! Outer core volume
+      surf_cmb=four*pi*r_cmb**2                ! Surface of CMB
     
       !-- Initialize everything that has to do with the horizontal representation
       !   on all threads:
@@ -254,14 +255,14 @@ contains
          do n_r=1,n_r_max
             mom(n_r)=r(n_r)**2 * rho0(n_r)
          end do
-         mass=4.D0*pi/vol_oc* &
+         mass=four*pi/vol_oc* &
               rInt_R(mom,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
       else
-         mass=1.D0
+         mass=one
       end if
     
       !-- Calculate auxiliary arrays containing effective Courant grid intervals:
-      c1=1.D0/dble(l_max*(l_max+1))
+      c1=one/real(l_max*(l_max+1),kind=cp)
       delxh2(1)      =c1*r_cmb**2
       delxh2(n_r_max)=c1*r_icb**2
       delxr2(1)      =(r(1)-r(2))**2
@@ -273,8 +274,8 @@ contains
       end do
     
       !-- Constants used for rotating core or mantle:
-      y10_norm=0.5D0*dsqrt(3.D0/pi)  ! y10=y10_norm * cos(theta)
-      y11_norm=0.5D0*dsqrt(1.5D0/pi) ! y11=y11_norm * sin(theta)
+      y10_norm=half*sqrt(three/pi)  ! y10=y10_norm * cos(theta)
+      y11_norm=half*sqrt(1.5_cp/pi) ! y11=y11_norm * sin(theta)
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and inner core rotation rate:
@@ -285,31 +286,31 @@ contains
       c_z10_omega_ma=y10_norm/(r(1)*r(1))
     
       !----- Inner-core normalized moment of inertia:
-      c_moi_ic=8.D0*pi/15.D0*r_icb**5*rho_ratio_ic*rho0(n_r_max)
+      c_moi_ic=8.0_cp*pi/15.0_cp*r_icb**5*rho_ratio_ic*rho0(n_r_max)
     
       !----- Outer-core normalized moment of inertia:
-      ! _moi_oc=8.D0*pi/15.D0*(r_cmb**5-r_icb**5) ! rho=cst
+      ! _moi_oc=8.0_cp*pi/15.0_cp*(r_cmb**5-r_icb**5) ! rho=cst
       do n_r=1,n_r_max
          mom(n_r)=r(n_r)**4 * rho0(n_r)
       end do
-      c_moi_oc=8.D0*pi/3.D0*rInt_R(mom,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
     
       !----- Mantle normalized moment of inertia:
-      c_moi_ma=8.D0*pi/15.D0*(r_surface**5-r_cmb**5)*rho_ratio_ma
+      c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma
     
       !----- IC normalised moment of inertia / r_icb**4 * 3/(8 pi)
-      c_dt_z10_ic=0.2D0*r_icb*rho_ratio_ic*rho0(n_r_max)
+      c_dt_z10_ic=0.2_cp*r_icb*rho_ratio_ic*rho0(n_r_max)
     
       !----- Mantle normalised moment of inertia / r_cmb**4 * 3/(8 pi)
-      c_dt_z10_ma=0.2D0*r_cmb*rho_ratio_ma * ( (r_surface/r_cmb)**5 - 1.D0 )
+      c_dt_z10_ma=0.2_cp*r_cmb*rho_ratio_ma * ( (r_surface/r_cmb)**5 - one )
     
       !----- Proportionality factor for ic lorentz_torque as used in
       !      ic torque-equation (z10):
-      c_lorentz_ic=0.25D0*dsqrt(3.D0/pi)/(r(n_r_max)*r(n_r_max))
+      c_lorentz_ic=0.25_cp*sqrt(three/pi)/(r(n_r_max)*r(n_r_max))
     
       !----- Proportionality factor for mantle lorentz_torque as used in
       !      mantle torque-equation (z10):
-      c_lorentz_ma=0.25D0*dsqrt(3.D0/pi)/(r(1)*r(1))
+      c_lorentz_ma=0.25_cp*sqrt(three/pi)/(r(1)*r(1))
     
       !-- Set thermal boundary conditions for fixed temp. on both boundaries:
       !----- Extract tops and bots
@@ -330,8 +331,8 @@ contains
     
          do m=0,m_max,minc
             do l=m,l_max
-               bots(l,m)=cmplx(0.D0,0.D0,kind=kind(0d0))
-               tops(l,m)=cmplx(0.D0,0.D0,kind=kind(0d0))
+               bots(l,m)=zero
+               tops(l,m)=zero
                do n=1,n_s_bounds
                   l_bot =int(s_bot(4*n-3))
                   m_bot =int(s_bot(4*n-2))
@@ -342,17 +343,15 @@ contains
                   sr_top=s_top(4*n-1)
                   si_top=s_top(4*n)
                   if ( l_bot == l .and. m_bot == m .and. &
-                       cmplx(sr_bot,si_bot,kind=kind(0d0)) /= (0.D0,0.D0) &
-                       ) then
-                     if ( m == 0 ) si_bot=0.D0
-                     bots(l,m)=sq4pi*cmplx(sr_bot,si_bot,kind=kind(0d0))
+                       cmplx(sr_bot,si_bot,kind=cp) /= zero ) then
+                     if ( m == 0 ) si_bot=0.0_cp
+                     bots(l,m)=sq4pi*cmplx(sr_bot,si_bot,kind=cp)
                      if ( kbots == 2 ) bots(l,m)=bots(l,m)*lScale
                   end if
                   if ( l_top == l .and. m_top == m .and. &
-                       cmplx(sr_top,si_top,kind=kind(0d0)) /= (0.D0,0.D0) &
-                       ) then
-                     if ( m == 0 ) si_top=0.D0
-                     tops(l,m)=sq4pi*cmplx(sr_top,si_top,kind=kind(0d0))
+                       cmplx(sr_top,si_top,kind=cp) /= zero ) then
+                     if ( m == 0 ) si_top=0.0_cp
+                     tops(l,m)=sq4pi*cmplx(sr_top,si_top,kind=cp)
                      if ( ktops == 2 ) tops(l,m)=tops(l,m)*lScale
                   end if
                end do
@@ -372,7 +371,7 @@ contains
     
          else if ( ktops == 2 .and. kbots == 2 ) then
     
-            if ( real(bots(0,0)) > 0.D0 ) then
+            if ( real(bots(0,0)) > 0.0_cp ) then
                write(*,*)
                write(*,*) '! NOTE: you have supplied'
                write(*,*) '! s_bot(l=0,m=0)>0 which '
@@ -386,10 +385,10 @@ contains
             !--- |epsc0|=1 signifies that the heat production rate is used as
             !    temperature scale! I make sure here that the heat flux through
             !    inner and outer boundary, bots and tops, balance the sources.
-            if ( dabs(epsc0) == 1.D0 ) then
+            if ( abs(epsc0) == one ) then
     
                !--- Make sure that all the heat comes out at CMB
-               if ( tops(0,0) == 0.D0 ) then
+               if ( tops(0,0) == 0.0_cp ) then
     
                   !--- Compensate by flux from ICB:
                   !    all over the core :
@@ -401,39 +400,39 @@ contains
                      write(*,*) '! need epsc<0 !                   '
                      stop
                   end if
-                  bots(0,0)=epsc*pr*facIH/(4.d0*pi*r_icb**2 * &
+                  bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * &
                        rho0(n_r_max)*temp0(n_r_max))
                   call logWrite( &
                        '! CMB heat flux set to balance volume sources!')
     
-               else if ( tops(0,0) /= 0.D0 .and. bots(0,0) == 0.D0 ) then
+               else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) == 0.0_cp ) then
     
                   !--- Correct tops to balance inner sources/sinks:
-                  if ( epsc0 <= 0 .and. bots(0,0) == 0.D0  ) then
+                  if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
                      write(*,*) '! NOTE: when the flux through the '
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epsc0>0.                        '
                      stop
                   end if
-                  if ( dabs(real(tops(0,0))) == sq4pi ) &
+                  if ( abs(real(tops(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
-                  tops(0,0)=-facIH*epsc*pr/(4.D0*pi*r_cmb**2) + &
+                  tops(0,0)=-facIH*epsc*pr/(four*pi*r_cmb**2) + &
                        radratio**2*rho0(n_r_max)*temp0(n_r_max)*bots(0,0)
                   if ( tops(0,0) /= help ) call logWrite( &
                        '!!!! WARNING: CMB heat flux corrected !!!!')
     
-               else if ( tops(0,0) /= 0.D0 .and. bots(0,0) /= 0.D0 ) then
+               else if ( tops(0,0) /= 0.0_cp .and. bots(0,0) /= 0.0_cp ) then
     
                   !--- Correct tops to balance inner sources/sinks:
-                  if ( epsc0 <= 0 .and. bots(0,0) == 0.D0  ) then
+                  if ( epsc0 <= 0 .and. bots(0,0) == 0.0_cp  ) then
                      write(*,*) '! NOTE: when the flux through the '
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epsc0>0.                        '
                      stop
                   end if
-                  help=4.D0*pi/pr/facIH *            &
+                  help=four*pi/pr/facIH *            &
                        (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
                        r_cmb**2*real(tops(0,0)))
                   if ( help /= epsc ) then
@@ -445,20 +444,20 @@ contains
     
                end if
     
-            else if ( epsc0 == 0.D0 .and. ( tops(0,0) /= 0.D0 .or. &
-                                            bots(0,0) /= 0.D0 ) ) then
+            else if ( epsc0 == 0.0_cp .and. ( tops(0,0) /= 0.0_cp .or. &
+                                            bots(0,0) /= 0.0_cp ) ) then
                !--- Correct epsc0 to balance the difference between
                !    flux through the inner and outer boundary:
-               epsc=4.D0*pi/pr/facIH *          &
+               epsc=four*pi/pr/facIH *          &
                     (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
                     r_cmb**2*real(tops(0,0)))
                call logWrite( &
                     '! Sources introduced to balance surface heat flux!')
                write(message,'(''!      epsc0='',D16.6)') epsc/sq4pi
                call logWrite(message)
-            else if ( epsc0 /= 0.D0 .and. tops(0,0) /= 0.D0 .and. &
-                                          bots(0,0) /= 0.D0 ) then
-               help=4.D0*pi/pr/facIH *          &
+            else if ( epsc0 /= 0.0_cp .and. tops(0,0) /= 0.0_cp .and. &
+                                          bots(0,0) /= 0.0_cp ) then
+               help=four*pi/pr/facIH *          &
                     (r_icb**2*REAL(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
                     r_cmb**2*REAL(tops(0,0)))
                if ( help /= epsc ) then
@@ -472,10 +471,10 @@ contains
          end if
     
          if ( l_anelastic_liquid ) then
-            bots(0,0)=0.D0
-            tops(0,0)=0.D0
-            epsc=0.D0
-            !epsc=4.D0*pi/pr/epsS/vol_oc *          &
+            bots(0,0)=0.0_cp
+            tops(0,0)=0.0_cp
+            epsc=0.0_cp
+            !epsc=four*pi/pr/epsS/vol_oc *          &
             !     (r_icb**2*dtemp0(n_r_max)*rho0(n_r_max)*kappa(n_r_max) - &
             !      r_cmb**2*dtemp0(1)*rho0(1)*kappa(1))*sq4pi
          end if
@@ -511,8 +510,8 @@ contains
       !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
 
       !-- Output variables
-      real(kind=8), intent(out) ::  time
-      integer, intent(out) :: n_time_step
+      real(cp), intent(out) ::  time
+      integer,  intent(out) :: n_time_step
 
       !-- Local variables:
       logical :: l_time
@@ -520,7 +519,7 @@ contains
 
       !----- Set time step:
       if ( l_reset_t ) then
-         time=0.D0
+         time=0.0_cp
          n_time_step=0
       end if
 
@@ -657,15 +656,15 @@ contains
 
       !-- Input variables:
       integer,          intent(in) :: n_t_max    ! Dimension of t(*)
-      real(kind=8),     intent(in) ::  time       ! Time of start file
-      real(kind=8),     intent(in) ::  tScale
+      real(cp),         intent(in) :: time       ! Time of start file
+      real(cp),         intent(in) :: tScale
       character(len=*), intent(in) :: string
-      integer,      intent(inout) :: n_tot      ! No. of output (times) if no times defined
-      integer,      intent(inout) :: n_step     ! Ouput step in no. of time steps
-      real(kind=8), intent(inout) ::  t(n_t_max) ! Times for output
-      real(kind=8), intent(inout) ::  t_start    ! Starting time for output
-      real(kind=8), intent(inout) ::  t_stop     ! Stop time for output
-      real(kind=8), intent(inout) ::  dt         ! Time step for output
+      integer,  intent(inout) :: n_tot       ! No. of output (times) if no times defined
+      integer,  intent(inout) :: n_step      ! Ouput step in no. of time steps
+      real(cp), intent(inout) :: t(n_t_max)  ! Times for output
+      real(cp), intent(inout) :: t_start     ! Starting time for output
+      real(cp), intent(inout) :: t_stop      ! Stop time for output
+      real(cp), intent(inout) :: dt          ! Time step for output
 
       !-- Output variables
       integer, intent(out) :: n_t        ! No. of output times
@@ -683,7 +682,7 @@ contains
       l_t=.false.
       n_t=0
       do n=1,n_t_max
-         if ( t(n) >= 0.d0 ) then
+         if ( t(n) >= 0.0_cp ) then
             t(n)=t(n)/tScale
             l_t=.true.
             n_t=n_t+1
@@ -692,22 +691,22 @@ contains
 
       !-- Check times should be constructed:
       if ( t_start < time ) t_start=time
-      if ( .not. l_t .and. ( dt > 0.d0 .or. &
+      if ( .not. l_t .and. ( dt > 0.0_cp .or. &
          ( n_tot > 0 .and. t_stop > t_start ) ) ) then
 
-         if ( n_tot > 0 .AND. dt > 0.d0 ) then
+         if ( n_tot > 0 .AND. dt > 0.0_cp ) then
             n_t  =n_tot
             n_tot=0
-         else if ( dt > 0.d0 ) then
+         else if ( dt > 0.0_cp ) then
             if ( t_stop > t_start ) then
-               n_t=idint((t_stop-t_start)/dt)+1
+               n_t=int((t_stop-t_start)/dt)+1
             else
                n_t=n_t_max
             end if
          else if ( n_tot > 0 ) then
             n_t=n_tot
             n_tot=0
-            dt=(t_stop-t_start)/dble(n_t-1)
+            dt=(t_stop-t_start)/real(n_t-1,kind=kind(0_cp))
          end if
          if ( n_t > n_t_max ) then
             write(*,*) '! Sorry, maximum no. of times for'

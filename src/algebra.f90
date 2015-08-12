@@ -3,6 +3,8 @@
 module algebra
 
    use omp_lib
+   use precision_mod, only: cp
+   use const, only: one
 
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
@@ -12,7 +14,7 @@ module algebra
 
    private
 
-   real(8), parameter :: zero_tolerance=1.0d-15
+   real(cp), parameter :: zero_tolerance=1.0e-15_cp
 
    public :: sgefa, sgesl, cgesl, cgeslML
 
@@ -28,18 +30,18 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,      intent(in) :: n         ! dimension of problem
-      integer,      intent(in) :: ia        ! first dim of a
-      integer,      intent(in) :: ip(*)     ! pivot pointer of legth n
-      real(kind=8), intent(in) :: a(ia,*)    ! real n X n matrix
+      integer,  intent(in) :: n         ! dimension of problem
+      integer,  intent(in) :: ia        ! first dim of a
+      integer,  intent(in) :: ip(*)     ! pivot pointer of legth n
+      real(cp), intent(in) :: a(ia,*)    ! real n X n matrix
 
       !-- Output: solution stored in bc1(*)
-      complex(kind=8), intent(inout) :: bc1(*) ! on input RHS of problem
+      complex(cp), intent(inout) :: bc1(*) ! on input RHS of problem
 
       !-- Local variables:
       integer :: nm1,nodd,i,m
       integer :: k,k1
-      complex(kind=8) :: c1
+      complex(cp) :: c1
 
       nm1=n-1
       nodd=mod(n,2)
@@ -96,19 +98,19 @@ contains
       !---------------------------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: n           ! dimension of problem
-      integer,      intent(in) :: ia          ! leading dimension of a
-      integer,      intent(in) :: ip(n)       ! pivot pointer of length n
-      integer,      intent(in) :: ldBc        ! leading dimension of bc
-      real(kind=8), intent(in) :: a(ia,n)     ! real n X n matrix
-      integer,      intent(in) :: nRHSs       ! number of right-hand sides
+      integer,  intent(in) :: n           ! dimension of problem
+      integer,  intent(in) :: ia          ! leading dimension of a
+      integer,  intent(in) :: ip(n)       ! pivot pointer of length n
+      integer,  intent(in) :: ldBc        ! leading dimension of bc
+      real(cp), intent(in) :: a(ia,n)     ! real n X n matrix
+      integer,  intent(in) :: nRHSs       ! number of right-hand sides
 
-      complex(kind=8), intent(inout) :: bc(ldBc,nRHSs) ! on input RHS of problem
+      complex(cp), intent(inout) :: bc(ldBc,nRHSs) ! on input RHS of problem
 
       !-- Local variables:
       integer :: nm1,nodd,i,m
       integer :: k,k1,nRHS,nRHS2,noddRHS
-      complex(kind=8) :: help
+      complex(cp) :: help
 
       nm1    = n-1
       nodd   = mod(n,2)
@@ -225,18 +227,18 @@ contains
       !---------------------------------------------------------------------------
 
       !-- Input variables:
-      integer, intent(in) :: n      ! dim of problem
-      integer, intent(in) :: ia     ! first dim of a
-      integer, intent(in) :: ip(*)  ! pivot information
-      real(kind=8), intent(in) :: a(ia,*)
+      integer,  intent(in) :: n      ! dim of problem
+      integer,  intent(in) :: ia     ! first dim of a
+      integer,  intent(in) :: ip(*)  ! pivot information
+      real(cp), intent(in) :: a(ia,*)
 
       !-- Output: solution stored in b(n)
-      real(kind=8), intent(inout) :: b(*)
+      real(cp), intent(inout) :: b(*)
 
       !-- Local variables:
       integer :: nm1,i
       integer :: k,k1,m,nodd
-      real(kind=8) :: help
+      real(cp) :: help
 
 
       nm1 =n-1
@@ -293,8 +295,8 @@ contains
       !-------------------------------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: ia,n
-      real(kind=8), intent(inout) :: a(ia,*)
+      integer,  intent(in) :: ia,n
+      real(cp), intent(inout) :: a(ia,*)
 
       !-- Output variables:
       integer, intent(out) :: ip(*)   ! pivoting information
@@ -302,7 +304,7 @@ contains
 
       !-- Local variables:
       integer :: nm1,k,kp1,l,i,j
-      real(kind=8) :: help
+      real(cp) :: help
 
       if ( n <= 1 ) stop '45'
 
@@ -314,12 +316,12 @@ contains
          l  =k
 
          do i=kp1,n
-            if ( dabs(a(i,k)) > dabs(a(l,k)) ) l=i
+            if ( abs(a(i,k)) > abs(a(l,k)) ) l=i
          end do
 
          ip(k)=l
 
-         !IF( a(l,k) /= 0.D0 ) then
+         !IF( a(l,k) /= 0.0_cp ) then
          if ( abs(a(l,k))  >  zero_tolerance ) then
 
             if ( l /= k ) then
@@ -330,7 +332,7 @@ contains
                end do
             end if
 
-            help=1.D0/a(k,k)
+            help=one/a(k,k)
             do i=kp1,n
                a(i,k)=help*a(i,k)
             end do
@@ -348,12 +350,12 @@ contains
       end do
 
       ip(n)=n
-      !IF( a(n,n) == 0.D0 ) info=n
+      !IF( a(n,n) == 0.0_cp ) info=n
       if ( abs(a(n,n))  <=  zero_tolerance ) info=n
-      if ( info > 0 ) RETURN
+      if ( info > 0 ) return
 
       do i=1,n
-         a(i,i)=1.D0/a(i,i)
+         a(i,i)=one/a(i,i)
       end do
 
    end subroutine sgefa

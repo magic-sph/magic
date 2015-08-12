@@ -5,6 +5,7 @@ module dtB_mod
    !  plus a separate omega-effect.
    !  It is used for movie output.
    !--------------------------------------------------------------------------------
+   use precision_mod, only: cp
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
                          n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
                          n_r_ic_max, l_max, n_phi_max, ldtBmem
@@ -28,35 +29,36 @@ module dtB_mod
    use fft_MKL
 #endif
    use legendre_grid_to_spec, only: legTF2, legTF3
+   use const, only: two
    use radial_der, only: get_drNS
  
    implicit none
  
    private 
  
-   complex(kind=8), public, allocatable :: PstrLM(:,:), TstrLM(:,:), PadvLM(:,:)
-   complex(kind=8), public, allocatable :: TadvLM(:,:), TomeLM(:,:)
-   complex(kind=8), public, allocatable :: PstrLM_Rloc(:,:),TstrLM_Rloc(:,:)
-   complex(kind=8), public, allocatable :: PadvLM_Rloc(:,:), TadvLM_Rloc(:,:)
-   complex(kind=8), public, allocatable :: TomeLM_Rloc(:,:)
+   complex(cp), public, allocatable :: PstrLM(:,:), TstrLM(:,:), PadvLM(:,:)
+   complex(cp), public, allocatable :: TadvLM(:,:), TomeLM(:,:)
+   complex(cp), public, allocatable :: PstrLM_Rloc(:,:),TstrLM_Rloc(:,:)
+   complex(cp), public, allocatable :: PadvLM_Rloc(:,:), TadvLM_Rloc(:,:)
+   complex(cp), public, allocatable :: TomeLM_Rloc(:,:)
  
-   complex(kind=8), public, allocatable :: PdifLM(:,:), TdifLM(:,:), PadvLMIC(:,:)
-   complex(kind=8), public, allocatable :: PdifLMIC(:,:), TadvLMIC(:,:), TdifLMIC(:,:)
-   complex(kind=8), public, allocatable :: PdifLM_LMloc(:,:), TdifLM_LMloc(:,:)
-   complex(kind=8), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
-   complex(kind=8), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
+   complex(cp), public, allocatable :: PdifLM(:,:), TdifLM(:,:), PadvLMIC(:,:)
+   complex(cp), public, allocatable :: PdifLMIC(:,:), TadvLMIC(:,:), TdifLMIC(:,:)
+   complex(cp), public, allocatable :: PdifLM_LMloc(:,:), TdifLM_LMloc(:,:)
+   complex(cp), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
+   complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
  
-   complex(kind=8), public, allocatable :: TstrRLM(:,:), TadvRLM(:,:), TomeRLM(:,:)
-   complex(kind=8), public, allocatable :: TstrRLM_Rloc(:,:), TadvRLM_Rloc(:,:)
-   complex(kind=8), public, allocatable :: TomeRLM_Rloc(:,:)
+   complex(cp), public, allocatable :: TstrRLM(:,:), TadvRLM(:,:), TomeRLM(:,:)
+   complex(cp), public, allocatable :: TstrRLM_Rloc(:,:), TadvRLM_Rloc(:,:)
+   complex(cp), public, allocatable :: TomeRLM_Rloc(:,:)
  
-   real(kind=8), public :: PstrRms, PstrAsRms
-   real(kind=8), public :: PadvRms, PadvAsRms
-   real(kind=8), public :: PdifRms, PdifAsRms
-   real(kind=8), public :: TstrRms, TstrAsRms
-   real(kind=8), public :: TadvRms, TadvAsRms
-   real(kind=8), public :: TdifRms, TdifAsRms
-   real(kind=8), public :: TomeRms, TomeAsRms
+   real(cp), public :: PstrRms, PstrAsRms
+   real(cp), public :: PadvRms, PadvAsRms
+   real(cp), public :: PdifRms, PdifAsRms
+   real(cp), public :: TstrRms, TstrAsRms
+   real(cp), public :: TadvRms, TadvAsRms
+   real(cp), public :: TdifRms, TdifAsRms
+   real(cp), public :: TomeRms, TomeAsRms
 
    public :: initialize_dtB_mod, dtb_gather_Rloc_on_rank0, get_dtBLMfinish, &
              get_dtBLM, get_dH_dtBLM
@@ -174,30 +176,30 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: n_theta_start,n_theta_block,nR
-      real(kind=8), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
-      real(kind=8), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
+      integer,  intent(in) :: n_theta_start,n_theta_block,nR
+      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
+      real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
     
       !-- Output variables:
-      complex(kind=8), intent(out) :: BtVrLM(*),BpVrLM(*)
-      complex(kind=8), intent(out) :: BrVtLM(*),BrVpLM(*)
-      complex(kind=8), intent(out) :: BtVpLM(*),BpVtLM(*)
-      complex(kind=8), intent(out) :: BrVZLM(*),BtVZLM(*)
-      complex(kind=8), intent(out) :: BpVtCotLM(*),BtVpCotLM(*),BtVZcotLM(*)
-      complex(kind=8), intent(out) :: BtVpSn2LM(*),BpVtSn2LM(*)
-      complex(kind=8), intent(out) :: BtVZsn2LM(*)
+      complex(cp), intent(out) :: BtVrLM(*),BpVrLM(*)
+      complex(cp), intent(out) :: BrVtLM(*),BrVpLM(*)
+      complex(cp), intent(out) :: BtVpLM(*),BpVtLM(*)
+      complex(cp), intent(out) :: BrVZLM(*),BtVZLM(*)
+      complex(cp), intent(out) :: BpVtCotLM(*),BtVpCotLM(*),BtVZcotLM(*)
+      complex(cp), intent(out) :: BtVpSn2LM(*),BpVtSn2LM(*)
+      complex(cp), intent(out) :: BtVZsn2LM(*)
     
       !-- Local variables:
       integer :: n_theta,n_phi,n_theta_nhs
-      real(kind=8) :: fac,facCot
-      real(kind=8) :: BtVr(nrp,nfs),BpVr(nrp,nfs)
-      real(kind=8) :: BrVt(nrp,nfs),BrVp(nrp,nfs)
-      real(kind=8) :: BtVp(nrp,nfs),BpVt(nrp,nfs)
-      real(kind=8) :: BrVZ(nrp,nfs),BtVZ(nrp,nfs)
-      real(kind=8) :: BpVtCot(nrp,nfs),BtVpCot(nrp,nfs)
-      real(kind=8) :: BpVtSn2(nrp,nfs),BtVpSn2(nrp,nfs)
-      real(kind=8) :: BtVZcot(nrp,nfs),BtVZsn2(nrp,nfs)
-      real(kind=8) :: vpAS
+      real(cp) :: fac,facCot
+      real(cp) :: BtVr(nrp,nfs),BpVr(nrp,nfs)
+      real(cp) :: BrVt(nrp,nfs),BrVp(nrp,nfs)
+      real(cp) :: BtVp(nrp,nfs),BpVt(nrp,nfs)
+      real(cp) :: BrVZ(nrp,nfs),BtVZ(nrp,nfs)
+      real(cp) :: BpVtCot(nrp,nfs),BtVpCot(nrp,nfs)
+      real(cp) :: BpVtSn2(nrp,nfs),BtVpSn2(nrp,nfs)
+      real(cp) :: BtVZcot(nrp,nfs),BtVZsn2(nrp,nfs)
+      real(cp) :: vpAS
     
       integer :: lm,l
     
@@ -212,30 +214,30 @@ contains
             BtVr(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vr(n_phi,n_theta)
             BpVr(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vr(n_phi,n_theta)
          end do
-         BtVr(n_phi_max+1,n_theta)=0.d0
-         BtVr(n_phi_max+2,n_theta)=0.d0
-         BpVr(n_phi_max+1,n_theta)=0.d0
-         BpVr(n_phi_max+2,n_theta)=0.d0
+         BtVr(n_phi_max+1,n_theta)=0.0_cp
+         BtVr(n_phi_max+2,n_theta)=0.0_cp
+         BpVr(n_phi_max+1,n_theta)=0.0_cp
+         BpVr(n_phi_max+2,n_theta)=0.0_cp
     
          do n_phi=1,n_phi_max
             BrVt(n_phi,n_theta)= fac*orho1(nR)*vt(n_phi,n_theta)*br(n_phi,n_theta)
             BrVp(n_phi,n_theta)= fac*orho1(nR)*vp(n_phi,n_theta)*br(n_phi,n_theta)
          end do
-         BrVt(n_phi_max+1,n_theta)=0.d0
-         BrVt(n_phi_max+2,n_theta)=0.d0
-         BrVp(n_phi_max+1,n_theta)=0.d0
-         BrVp(n_phi_max+2,n_theta)=0.d0
+         BrVt(n_phi_max+1,n_theta)=0.0_cp
+         BrVt(n_phi_max+2,n_theta)=0.0_cp
+         BrVp(n_phi_max+1,n_theta)=0.0_cp
+         BrVp(n_phi_max+2,n_theta)=0.0_cp
     
-         vpAS=0.d0
+         vpAS=0.0_cp
          do n_phi=1,n_phi_max
             BtVp(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
             BpVt(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
             vpAS=vpAS+orho1(nR)*vp(n_phi,n_theta)
          end do
-         BtVp(n_phi_max+1,n_theta)=0.d0
-         BtVp(n_phi_max+2,n_theta)=0.d0
-         BpVt(n_phi_max+1,n_theta)=0.d0
-         BpVt(n_phi_max+2,n_theta)=0.d0
+         BtVp(n_phi_max+1,n_theta)=0.0_cp
+         BtVp(n_phi_max+2,n_theta)=0.0_cp
+         BpVt(n_phi_max+1,n_theta)=0.0_cp
+         BpVt(n_phi_max+2,n_theta)=0.0_cp
          vpAS=vpAS/dble(n_phi_max)
     
          !---- For toroidal terms that cancel:
@@ -245,14 +247,14 @@ contains
             BpVtSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
             BtVpSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
          end do
-         BpVtCot(n_phi_max+1,n_theta)=0.d0
-         BpVtCot(n_phi_max+2,n_theta)=0.d0
-         BtVpCot(n_phi_max+1,n_theta)=0.d0
-         BtVpCot(n_phi_max+2,n_theta)=0.d0
-         BpVtSn2(n_phi_max+1,n_theta)=0.d0
-         BpVtSn2(n_phi_max+2,n_theta)=0.d0
-         BtVpSn2(n_phi_max+1,n_theta)=0.d0
-         BtVpSn2(n_phi_max+2,n_theta)=0.d0
+         BpVtCot(n_phi_max+1,n_theta)=0.0_cp
+         BpVtCot(n_phi_max+2,n_theta)=0.0_cp
+         BtVpCot(n_phi_max+1,n_theta)=0.0_cp
+         BtVpCot(n_phi_max+2,n_theta)=0.0_cp
+         BpVtSn2(n_phi_max+1,n_theta)=0.0_cp
+         BpVtSn2(n_phi_max+2,n_theta)=0.0_cp
+         BtVpSn2(n_phi_max+1,n_theta)=0.0_cp
+         BtVpSn2(n_phi_max+2,n_theta)=0.0_cp
     
          !---- For omega effect:
          do n_phi=1,n_phi_max
@@ -261,14 +263,14 @@ contains
             BtVZcot(n_phi,n_theta)=facCot*bt(n_phi,n_theta)*vpAS
             BtVZsn2(n_phi,n_theta)=fac*fac*bt(n_phi,n_theta)*vpAS
          end do
-         BrVZ(n_phi_max+1,n_theta)=0.d0
-         BrVZ(n_phi_max+2,n_theta)=0.d0
-         BtVZ(n_phi_max+1,n_theta)=0.d0
-         BtVZ(n_phi_max+2,n_theta)=0.d0
-         BtVZCot(n_phi_max+1,n_theta)=0.d0
-         BtVZCot(n_phi_max+2,n_theta)=0.d0
-         BtVZsn2(n_phi_max+1,n_theta)=0.d0
-         BtVZsn2(n_phi_max+2,n_theta)=0.d0
+         BrVZ(n_phi_max+1,n_theta)=0.0_cp
+         BrVZ(n_phi_max+2,n_theta)=0.0_cp
+         BtVZ(n_phi_max+1,n_theta)=0.0_cp
+         BtVZ(n_phi_max+2,n_theta)=0.0_cp
+         BtVZCot(n_phi_max+1,n_theta)=0.0_cp
+         BtVZCot(n_phi_max+2,n_theta)=0.0_cp
+         BtVZsn2(n_phi_max+1,n_theta)=0.0_cp
+         BtVZsn2(n_phi_max+2,n_theta)=0.0_cp
     
       end do
     
@@ -297,20 +299,20 @@ contains
     
       do l=0,l_max
          lm=l2lmAS(l)
-         BtVrLM(lm)   =cmplx(real(BtVrLM(lm)),   0.D0,kind=kind(0.d0))
-         BpVrLM(lm)   =cmplx(real(BpVrLM(lm)),   0.D0,kind=kind(0.d0))
-         BrVtLM(lm)   =cmplx(real(BrVtLM(lm)),   0.D0,kind=kind(0.d0))
-         BrVpLM(lm)   =cmplx(real(BrVpLM(lm)),   0.D0,kind=kind(0.d0))
-         BtVpLM(lm)   =cmplx(real(BtVpLM(lm)),   0.D0,kind=kind(0.d0))
-         BpVtLM(lm)   =cmplx(real(BpVtLM(lm)),   0.D0,kind=kind(0.d0))
-         BtVpCotLM(lm)=cmplx(real(BtVpCotLM(lm)),0.D0,kind=kind(0.d0))
-         BpVtCotLM(lm)=cmplx(real(BpVtCotLM(lm)),0.D0,kind=kind(0.d0))
-         BtVZCotLM(lm)=cmplx(real(BtVZCotLM(lm)),0.D0,kind=kind(0.d0))
-         BrVZLM(lm)   =cmplx(real(BrVZLM(lm))   ,0.D0,kind=kind(0.d0))
-         BtVZLM(lm)   =cmplx(real(BtVZLM(lm))   ,0.D0,kind=kind(0.d0))
-         BtVZSn2LM(lm)=cmplx(real(BtVZSn2LM(lm)),0.D0,kind=kind(0.d0))
-         BtVpSn2LM(lm)=cmplx(real(BtVpSn2LM(lm)),0.D0,kind=kind(0.d0))
-         BpVtSn2LM(lm)=cmplx(real(BpVtSn2LM(lm)),0.D0,kind=kind(0.d0))
+         BtVrLM(lm)   =cmplx(real(BtVrLM(lm)),   0.0_cp, kind=cp)
+         BpVrLM(lm)   =cmplx(real(BpVrLM(lm)),   0.0_cp, kind=cp)
+         BrVtLM(lm)   =cmplx(real(BrVtLM(lm)),   0.0_cp, kind=cp)
+         BrVpLM(lm)   =cmplx(real(BrVpLM(lm)),   0.0_cp, kind=cp)
+         BtVpLM(lm)   =cmplx(real(BtVpLM(lm)),   0.0_cp, kind=cp)
+         BpVtLM(lm)   =cmplx(real(BpVtLM(lm)),   0.0_cp, kind=cp)
+         BtVpCotLM(lm)=cmplx(real(BtVpCotLM(lm)),0.0_cp, kind=cp)
+         BpVtCotLM(lm)=cmplx(real(BpVtCotLM(lm)),0.0_cp, kind=cp)
+         BtVZCotLM(lm)=cmplx(real(BtVZCotLM(lm)),0.0_cp, kind=cp)
+         BrVZLM(lm)   =cmplx(real(BrVZLM(lm))   ,0.0_cp, kind=cp)
+         BtVZLM(lm)   =cmplx(real(BtVZLM(lm))   ,0.0_cp, kind=cp)
+         BtVZSn2LM(lm)=cmplx(real(BtVZSn2LM(lm)),0.0_cp, kind=cp)
+         BtVpSn2LM(lm)=cmplx(real(BtVpSn2LM(lm)),0.0_cp, kind=cp)
+         BpVtSn2LM(lm)=cmplx(real(BpVtSn2LM(lm)),0.0_cp, kind=cp)
       end do
     
    end subroutine get_dtBLM
@@ -320,25 +322,25 @@ contains
      &                     aj_ic,dj_ic,ddj_ic)
 
       !-- Input of variables:
-      real(kind=8),    intent(in) :: time
-      integer,         intent(in) :: n_time_step
-      real(kind=8),    intent(in) :: omega_ic
-      complex(kind=8), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: dj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: ddj(llmMag:ulmMag,n_r_maxMag)
-      complex(kind=8), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      real(cp),    intent(in) :: time
+      integer,     intent(in) :: n_time_step
+      real(cp),    intent(in) :: omega_ic
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: dj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: ddj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: ddb_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
     
       !-- Local variables:
       integer :: nR
     
-      complex(kind=8) :: workA(lm_max,n_r_max), workB(lm_max,n_r_max)
+      complex(cp) :: workA(lm_max,n_r_max), workB(lm_max,n_r_max)
     
       integer :: l,m,lm
       
@@ -354,9 +356,9 @@ contains
                PadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*b_ic(lm,nR)
                TadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*aj_ic(lm,nR)
                PdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddb_ic(lm,nR) + &
-                    2.D0*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*db_ic(lm,nR) )
+                    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*db_ic(lm,nR) )
                TdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddj_ic(lm,nR) + &
-                    2.D0*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*dj_ic(lm,nR) )
+                    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*dj_ic(lm,nR) )
             end do
          end do
       end if
@@ -453,21 +455,21 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: nR
-      complex(kind=8), intent(in) :: BtVrLM(*),BpVrLM(*)
-      complex(kind=8), intent(in) :: BrVtLM(*),BrVpLM(*)
-      complex(kind=8), intent(in) :: BtVpLM(*),BpVtLM(*)
-      complex(kind=8), intent(in) :: BtVpCotLM(*),BpVtCotLM(*)
-      complex(kind=8), intent(in) :: BtVpSn2LM(*),BpVtSn2LM(*)
-      complex(kind=8), intent(in) :: BtVZcotLM(*),BtVZsn2LM(*)
-      complex(kind=8), intent(in) :: BrVZLM(*),BtVZLM(*)
+      integer,     intent(in) :: nR
+      complex(cp), intent(in) :: BtVrLM(*),BpVrLM(*)
+      complex(cp), intent(in) :: BrVtLM(*),BrVpLM(*)
+      complex(cp), intent(in) :: BtVpLM(*),BpVtLM(*)
+      complex(cp), intent(in) :: BtVpCotLM(*),BpVtCotLM(*)
+      complex(cp), intent(in) :: BtVpSn2LM(*),BpVtSn2LM(*)
+      complex(cp), intent(in) :: BtVZcotLM(*),BtVZsn2LM(*)
+      complex(cp), intent(in) :: BrVZLM(*),BtVZLM(*)
     
       !-- Local variables:
       integer :: l,m,lm,lmP,lmPS,lmPA
-      real(kind=8) :: fac
+      real(cp) :: fac
     
-      PstrLM_Rloc(1,nR)=0.d0
-      PadvLM_Rloc(1,nR)=0.D0
+      PstrLM_Rloc(1,nR)=0.0_cp
+      PadvLM_Rloc(1,nR)=0.0_cp
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -491,8 +493,8 @@ contains
     
       !--- Poloidal advection and stretching term finished for radial level nR !
     
-      TstrLM_Rloc(1,nR) =0.D0
-      TstrRLM_Rloc(1,nR)=0.D0
+      TstrLM_Rloc(1,nR) =0.0_cp
+      TstrRLM_Rloc(1,nR)=0.0_cp
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -531,8 +533,8 @@ contains
          end if
       end do
     
-      TadvLM_Rloc(1,nR)=0.D0
-      TadvRLM_Rloc(1,nR)  =0.D0
+      TadvLM_Rloc(1,nR) =0.0_cp
+      TadvRLM_Rloc(1,nR)=0.0_cp
       do lm=2,lm_max
          l   =lm2l(lm)
          m   =lm2m(lm)
@@ -573,8 +575,8 @@ contains
     
       !--- TomeLM same as TstrLM but where ever Vp appeared
       !    it is replaced by its axisymmetric contribution VZ:
-      TomeLM_Rloc(1,nR) =0.D0
-      TomeRLM_Rloc(1,nR)=0.D0
+      TomeLM_Rloc(1,nR) =0.0_cp
+      TomeRLM_Rloc(1,nR)=0.0_cp
       do lm=2,lm_max
          l  =lm2l(lm)
          m  =lm2m(lm)

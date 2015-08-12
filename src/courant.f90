@@ -2,6 +2,7 @@
 module courant_mod
  
    use parallel_mod
+   use precision_mod, only: cp
    use truncation, only: nrp, n_phi_max
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: orho1, orho2, or4, or2
@@ -11,6 +12,7 @@ module courant_mod
    use horizontal_data, only: osn2
    use logic, only: l_mag, l_mag_LF, l_mag_kin
    use useful, only: logWrite
+   use const, only: half, one, two
 
    implicit none
 
@@ -41,20 +43,20 @@ contains
       !  +-------------------------------------------------------------------+
     
       !-- Input variable:
-      integer,      intent(in) :: n_r           ! radial level
-      integer,      intent(in) :: n_theta_min   ! first theta in block stored in fields
-      integer,      intent(in) :: n_theta_block ! size of theta block
-      real(kind=8), intent(in) :: vr(nrp,nfs)   ! radial velocity
-      real(kind=8), intent(in) :: vt(nrp,nfs)   ! longitudinal velocity
-      real(kind=8), intent(in) :: vp(nrp,nfs)   ! azimuthal velocity
-      real(kind=8), intent(in) :: br(nrp,nfs)   ! radial magnetic field
-      real(kind=8), intent(in) :: bt(nrp,nfs)   ! longitudinal magnetic field
-      real(kind=8), intent(in) :: bp(nrp,nfs)   ! azimuthal magnetic field
+      integer,  intent(in) :: n_r           ! radial level
+      integer,  intent(in) :: n_theta_min   ! first theta in block stored in fields
+      integer,  intent(in) :: n_theta_block ! size of theta block
+      real(cp), intent(in) :: vr(nrp,nfs)   ! radial velocity
+      real(cp), intent(in) :: vt(nrp,nfs)   ! longitudinal velocity
+      real(cp), intent(in) :: vp(nrp,nfs)   ! azimuthal velocity
+      real(cp), intent(in) :: br(nrp,nfs)   ! radial magnetic field
+      real(cp), intent(in) :: bt(nrp,nfs)   ! longitudinal magnetic field
+      real(cp), intent(in) :: bp(nrp,nfs)   ! azimuthal magnetic field
     
       !-- Output:
-      real(kind=8), intent(inout) :: dtrkc    ! Courant step (based on radial advection)
-                                              ! for the range of points covered
-      real(kind=8),intent(inout) :: dthkc     ! Courant step based on horizontal advection
+      real(cp), intent(inout) :: dtrkc    ! Courant step (based on radial advection)
+                                          ! for the range of points covered
+      real(cp), intent(inout) :: dthkc    ! Courant step based on horizontal advection
     
       !-- Local  variables:
       integer :: n_theta       ! absolut no of theta
@@ -62,18 +64,18 @@ contains
       integer :: n_theta_nhs   ! no of theta in NHS
       integer :: n_phi         ! no of longitude
     
-      real(kind=8) :: valri2,valhi2,valh2,valh2m
-      real(kind=8) :: vr2max,vh2max
-      real(kind=8) :: valr,valr2,vflr2,vflh2
-      real(kind=8) :: O_r_E_2,O_r_E_4
-      real(kind=8) :: cf2,af2
+      real(cp) :: valri2,valhi2,valh2,valh2m
+      real(cp) :: vr2max,vh2max
+      real(cp) :: valr,valr2,vflr2,vflh2
+      real(cp) :: O_r_E_2,O_r_E_4
+      real(cp) :: cf2,af2
     
     
-      valri2=(0.5d0*(1.d0+opm))**2/delxr2(n_r)
-      valhi2=(0.5d0*(1.d0+opm))**2/delxh2(n_r)
+      valri2=(half*(one+opm))**2/delxr2(n_r)
+      valhi2=(half*(one+opm))**2/delxh2(n_r)
     
-      vr2max=0.d0
-      vh2max=0.d0
+      vr2max=0.0_cp
+      vh2max=0.0_cp
       cf2=courfac*courfac
       O_r_E_4=or4(n_r)
       O_r_E_2=or2(n_r)
@@ -135,8 +137,8 @@ contains
     
     
       !$OMP CRITICAL
-      if ( vr2max /= 0.d0 ) dtrkc=min(dtrkc,dsqrt(delxr2(n_r)/vr2max))
-      if ( vh2max /= 0.d0 ) dthkc=min(dthkc,dsqrt(delxh2(n_r)/vh2max))
+      if ( vr2max /= 0.0_cp ) dtrkc=min(dtrkc,sqrt(delxr2(n_r)/vr2max))
+      if ( vh2max /= 0.0_cp ) dthkc=min(dthkc,sqrt(delxh2(n_r)/vh2max))
       !$OMP END CRITICAL
     
    end subroutine courant
@@ -161,25 +163,25 @@ contains
       !---------------------------------------------------------------------------
 
       !-- Input variables:
-      real(kind=8), intent(in) :: dt
-      real(kind=8), intent(in) :: dtMax
-      real(kind=8), intent(in) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
+      real(cp), intent(in) :: dt
+      real(cp), intent(in) :: dtMax
+      real(cp), intent(in) :: dtrkc(nRstart:nRstop),dthkc(nRstart:nRstop)
     
       !-- Output variables:
-      logical,      intent(out) :: l_new_dt
-      real(kind=8), intent(out) :: dt_new
-      real(kind=8), intent(out) :: dt_r,dt_h
+      logical,  intent(out) :: l_new_dt
+      real(cp), intent(out) :: dt_new
+      real(cp), intent(out) :: dt_r,dt_h
     
       !-- Local:
       integer :: n_r
-      real(kind=8) :: dt_rh,dt_2
-      real(kind=8) :: dt_fac
+      real(cp) :: dt_rh,dt_2
+      real(cp) :: dt_fac
     
       character(len=200) :: message
     
     
-      dt_fac=2.D0
-      dt_r  =1000.D0*dtMax
+      dt_fac=two
+      dt_r  =1000.0_cp*dtMax
       dt_h  =dt_r
       do n_r=nRstart,nRstop
          dt_r=min(dtrkc(n_r),dt_r)
@@ -191,7 +193,7 @@ contains
                          MPI_min,MPI_COMM_WORLD,ierr)
     
       dt_rh=min(dt_r,dt_h)
-      dt_2 =min(0.5D0*(1.D0/dt_fac+1.D0)*dt_rh,dtMax)
+      dt_2 =min(half*(one/dt_fac+one)*dt_rh,dtMax)
 
       if ( dt > dtMax ) then
     

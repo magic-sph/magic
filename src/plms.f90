@@ -1,7 +1,8 @@
 !$Id$
 module plms_theta
 
-   use const, only: osq4pi
+   use precision_mod, only: cp
+   use const, only: osq4pi, one, two
 
    implicit none
 
@@ -33,47 +34,47 @@ contains
       !------------------------------------------------------------------------
         
       !-- input variables:
-      real(kind=8), intent(in) :: theta ! angle in degrees
-      integer,      intent(in) :: max_degree ! required max degree of plm
-      integer,      intent(in) :: max_order  ! required max order of plm
-      integer,      intent(in) :: m0         ! basic wave number
-      integer,      intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
-      integer,      intent(in) :: norm       ! =0 fully normalised
+      real(cp), intent(in) :: theta ! angle in degrees
+      integer,  intent(in) :: max_degree ! required max degree of plm
+      integer,  intent(in) :: max_order  ! required max order of plm
+      integer,  intent(in) :: m0         ! basic wave number
+      integer,  intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
+      integer,  intent(in) :: norm       ! =0 fully normalised
                                              ! =1 Schmidt normalised
 
       !-- Output variables:
-      real(kind=8), intent(out) :: plma(ndim_plma) ! ass. legendres at theta
-      real(kind=8), intent(out) :: dtheta_plma(ndim_plma) ! their theta derivative
+      real(cp), intent(out) :: plma(ndim_plma) ! ass. legendres at theta
+      real(cp), intent(out) :: dtheta_plma(ndim_plma) ! their theta derivative
 
       !-- Local variables:
-      real(kind=8) :: sq2,dnorm,fac,plm,plm1,plm2
+      real(cp) :: sq2,dnorm,fac,plm,plm1,plm2
       integer :: l,m,j,pos
        
-      dnorm=1.d0
+      dnorm=one
       if ( norm == 2 ) dnorm=osq4pi
-      sq2=dsqrt(2.d0)
+      sq2=sqrt(two)
 
       !-- calculate plms with recurrence relation, starting with
       !   the known plm(l=m):
       pos=0
       do m=0,max_order,m0
            
-         fac=1.d0
+         fac=one
          do j=3,2*m+1,2
-            fac=fac*dble(j)/dble(j-1)
+            fac=fac*real(j,cp)/real(j-1,cp)
          end do
 
-         plm=dsqrt(fac)
-         if( dsin(theta) /= 0.d0 ) then
-            plm=plm*dsin(theta)**m
+         plm=sqrt(fac)
+         if( sin(theta) /= 0.0_cp ) then
+            plm=plm*sin(theta)**m
          else if( m /= 0 ) then
-            plm=0.d0
+            plm=0.0_cp
          end if
            
       !-- plm for l=m:
          l=m
          if ( norm == 1 ) then
-            dnorm=1.d0/dsqrt(dble(2*l+1))
+            dnorm=one/sqrt(real(2*l+1,cp))
             if ( m /= 0 ) dnorm=sq2*dnorm
          end if
 
@@ -81,18 +82,18 @@ contains
          pos=pos+1
          plma(pos) = dnorm*plm
            
-         plm1=0.d0
+         plm1=0.0_cp
            
       !-- plm for l>m:
          do l=m+1,max_degree
             plm2=plm1
             plm1=plm
-            plm= dcos(theta)* dsqrt( dble( (2*l-1)*(2*l+1) ) / &
-                               dble( (l-m)*(l+m) )  ) * plm1 - &
-                      dsqrt( (dble(2*l+1)*dble(l+m-1)*dble(l-m-1))  / &
-                         (dble(2*l-3)*dble(l-m)*dble(l+m))  ) * plm2
+            plm= cos(theta)* sqrt( real( (2*l-1)*(2*l+1), cp ) / &
+                               real( (l-m)*(l+m), cp )  ) * plm1 - &
+                      sqrt( (real(2*l+1,cp)*real(l+m-1,cp)*real(l-m-1,cp))  / &
+                         (real(2*l-3,cp)*real(l-m,cp)*real(l+m,cp))  ) * plm2
             if ( norm == 1 ) then
-               dnorm=1.d0/dsqrt(dble(2*l+1))
+               dnorm=one/sqrt(real(2*l+1,cp))
                if ( m /= 0 ) dnorm=sq2*dnorm
             end if
                
@@ -113,12 +114,12 @@ contains
          l=max_degree+1
          plm2=plm1
          plm1=plm
-         plm= dcos(theta)* dsqrt( dble( (2*l-1)*(2*l+1) ) / &
-                            dble( (l-m)*(l+m) )  ) * plm1 - &
-                   dsqrt( dble( (2*l+1)*(l+m-1)*(l-m-1) ) / &
-                     dble( (2*l-3)*(l-m)*(l+m) ) ) * plm2
+         plm= cos(theta)* sqrt( real( (2*l-1)*(2*l+1), cp ) / &
+                            real( (l-m)*(l+m), cp )  ) * plm1 - &
+                   sqrt( real( (2*l+1)*(l+m-1)*(l-m-1), cp ) / &
+                     real( (2*l-3)*(l-m)*(l+m),cp ) ) * plm2
          if ( norm == 1 ) then
-            dnorm=1.d0/dsqrt(dble(2*l+1))
+            dnorm=one/sqrt(real(2*l+1,cp))
             if ( m /= 0 ) dnorm=sq2*dnorm
          end if
          dtheta_plma(pos)=dnorm*plm
@@ -142,15 +143,15 @@ contains
          end if
          if ( m < max_degree ) then
             if( norm == 0 .OR. norm == 2 ) then
-               dtheta_plma(pos)= l/dsqrt(dble(2*l+3)) * plma(pos+1)
+               dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * plma(pos+1)
             else if ( norm == 1 ) then
-               dtheta_plma(pos)= l/dsqrt(dble(2*l+1)) * plma(pos+1)
+               dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * plma(pos+1)
             end if
          else
             if( norm == 0 .OR. norm == 2 ) then
-               dtheta_plma(pos)= l/dsqrt(dble(2*l+3)) * dtheta_plma(pos)
+               dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * dtheta_plma(pos)
             else if ( norm == 1 ) then
-               dtheta_plma(pos)= l/dsqrt(dble(2*l+1)) * dtheta_plma(pos)
+               dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * dtheta_plma(pos)
             end if
          end if
                
@@ -165,19 +166,19 @@ contains
             end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                   &
-                  l*dsqrt( dble((l+m+1)*(l-m+1)) / &
-                             dble((2*l+1)*(2*l+3)) &
+                  l*sqrt( real((l+m+1)*(l-m+1),cp) / &
+                             real((2*l+1)*(2*l+3),cp) &
                                 ) * plma(pos+1)  - &
-                  (l+1)*dsqrt( dble((l+m)*(l-m)) / &
-                             dble((2*l-1)*(2*l+1)) &
+                  (l+1)*sqrt( real((l+m)*(l-m),cp) / &
+                             real((2*l-1)*(2*l+1),cp) &
                              ) * plma(pos-1)
             else if ( norm == 1 ) then
                dtheta_plma(pos)=                   &
-                    l*dsqrt( dble((l+m+1)*(l-m+1)) &
+                    l*sqrt( real((l+m+1)*(l-m+1),cp) &
                                 ) * plma(pos+1)  - &
-                    (l+1)*dsqrt( dble((l+m)*(l-m)) &
+                    (l+1)*sqrt( real((l+m)*(l-m),cp) &
                                ) * plma(pos-1)
-               dtheta_plma(pos)=dtheta_plma(pos)/dble(2*l+1)
+               dtheta_plma(pos)=dtheta_plma(pos)/real(2*l+1,cp)
             end if
                       
          end do ! loop over degree
@@ -194,19 +195,19 @@ contains
             end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                   &
-                  l*dsqrt( dble((l+m+1)*(l-m+1)) / &
-                             dble((2*l+1)*(2*l+3)) &
+                  l*sqrt( real((l+m+1)*(l-m+1),cp) / &
+                             real((2*l+1)*(2*l+3),cp) &
                            ) * dtheta_plma(pos)  - &
-                  (l+1)*dsqrt( dble((l+m)*(l-m)) / &
-                             dble((2*l-1)*(2*l+1)) &
+                  (l+1)*sqrt( real((l+m)*(l-m),cp) / &
+                             real((2*l-1)*(2*l+1),cp) &
                              ) * plma(pos-1)
             else if ( norm == 1 ) then
                dtheta_plma(pos)=                   &
-                    l*dsqrt( dble((l+m+1)*(l-m+1)) &
+                    l*sqrt( real((l+m+1)*(l-m+1),cp) &
                            ) * dtheta_plma(pos)  - &
-                    (l+1)*dsqrt( dble((l+m)*(l-m)) &
+                    (l+1)*sqrt( real((l+m)*(l-m),cp) &
                                ) * plma(pos-1)
-               dtheta_plma(pos)=dtheta_plma(pos)/dble(2*l+1)
+               dtheta_plma(pos)=dtheta_plma(pos)/real(2*l+1,cp)
             end if
          end if
 
@@ -225,50 +226,50 @@ contains
       !------------------------------------------------------------------------
        
       !-- Input variables:
-      real(kind=8), intent(in) :: theta ! angle in degrees
-      integer,      intent(in) :: max_degree ! required max degree of plm
-      integer,      intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
-      integer,      intent(in) :: norm       ! =0 fully normalised
+      real(cp), intent(in) :: theta ! angle in degrees
+      integer,  intent(in) :: max_degree ! required max degree of plm
+      integer,  intent(in) :: ndim_plma  ! dimension of plma and dtheta_plma
+      integer,  intent(in) :: norm       ! =0 fully normalised
                             ! =1 Schmidt normalised
 
       !-- Output variables:
-      real(kind=8), intent(out) :: plma(ndim_plma) ! ass. legendres at theta
-      real(kind=8), intent(out) :: dtheta_plma(ndim_plma) ! their theta derivative
+      real(cp), intent(out) :: plma(ndim_plma) ! ass. legendres at theta
+      real(cp), intent(out) :: dtheta_plma(ndim_plma) ! their theta derivative
 
       !-- Local variables
-      real(kind=8) :: sq2,dnorm,fac,plm,plm1,plm2
+      real(cp) :: sq2,dnorm,fac,plm,plm1,plm2
       integer :: l,pos
        
-      dnorm=1.d0
+      dnorm=one
       if ( norm == 2 ) dnorm=osq4pi
-      sq2=dsqrt(2.d0)
+      sq2=sqrt(two)
 
       !-- calculate plms with recurrence relation, starting with
       !   the known plm(l=m):
       pos=0
-      fac=1.d0
-      plm=dsqrt(fac)
+      fac=one
+      plm=sqrt(fac)
            
       !-- plm for l=m:
       l=0
-      if ( norm == 1 ) dnorm=1.d0/dsqrt(dble(2*l+1))
+      if ( norm == 1 ) dnorm=one/sqrt(real(2*l+1,cp))
 
       !-- Now store it:
       pos=pos+1
       plma(pos) = dnorm*plm
            
-      plm1=0.d0
+      plm1=0.0_cp
            
       !-- plm for l>m:
       do l=1,max_degree
          plm2=plm1
          plm1=plm
-         plm= dcos(theta)* dsqrt( dble( (2*l-1)*(2*l+1) ) / &
-                             dble( (l)*(l) )  ) * plm1 - &
-                    dsqrt( dble( (2*l+1)*(l-1)*(l-1) ) / &
-                    dble( (2*l-3)*(l)*(l) ) ) * plm2
+         plm= cos(theta)* sqrt( real( (2*l-1)*(2*l+1),cp ) / &
+                             real( (l)*(l), cp )  ) * plm1 - &
+                    sqrt( real( (2*l+1)*(l-1)*(l-1),cp ) / &
+                    real( (2*l-3)*(l)*(l),cp ) ) * plm2
 
-         if( norm == 1 ) dnorm=1.d0/dsqrt(dble(2*l+1))
+         if( norm == 1 ) dnorm=one/sqrt(real(2*l+1,cp))
                
          !----- Now store it:
          pos=pos+1
@@ -287,12 +288,12 @@ contains
       l=max_degree+1
       plm2=plm1
       plm1=plm
-      plm= dcos(theta)* dsqrt( dble( (2*l-1)*(2*l+1) ) / &
-                         dble( (l)*(l) )  ) * plm1 - &
-                dsqrt( dble( (2*l+1)*(l-1)*(l-1) ) / &
-                  dble( (2*l-3)*(l)*(l) ) ) * plm2
+      plm= cos(theta)* sqrt( real( (2*l-1)*(2*l+1),cp ) / &
+                         real( (l)*(l),cp )  ) * plm1 - &
+                sqrt( real( (2*l+1)*(l-1)*(l-1),cp ) / &
+                  real( (2*l-3)*(l)*(l),cp ) ) * plm2
 
-      if( norm == 1 ) dnorm=1.d0/dsqrt(dble(2*l+1))
+      if( norm == 1 ) dnorm=one/sqrt(real(2*l+1,cp))
 
       dtheta_plma(pos)=dnorm*plm
            
@@ -309,10 +310,10 @@ contains
          stop
       end if
       if( norm == 0 .OR. norm == 2 ) then
-         dtheta_plma(pos)= l/dsqrt(dble(2*l+3)) * &
+         dtheta_plma(pos)= l/sqrt(real(2*l+3,cp)) * &
                            plma(pos+1)
       else if ( norm == 1 ) then
-         dtheta_plma(pos)= l/dsqrt(dble(2*l+1)) * &
+         dtheta_plma(pos)= l/sqrt(real(2*l+1,cp)) * &
                            plma(pos+1)
       end if
                
@@ -326,18 +327,18 @@ contains
             stop
          end if
          if( norm == 0 .OR. norm == 2 ) then
-            dtheta_plma(pos)=  l*dsqrt( dble((l+1)*(l+1)) / &
-                            dble((2*l+1)*(2*l+3)) &
+            dtheta_plma(pos)=  l*sqrt( real((l+1)*(l+1),cp) / &
+                            real((2*l+1)*(2*l+3),cp) &
                                ) * plma(pos+1)  - &
-                 (l+1)*dsqrt( dble((l)*(l)) / &
-                            dble((2*l-1)*(2*l+1)) &
+                 (l+1)*sqrt( real((l)*(l),cp) / &
+                            real((2*l-1)*(2*l+1),cp) &
                             ) * plma(pos-1)
          else if ( norm == 1 ) then
-            dtheta_plma(pos)= l*dsqrt( dble((l+1)*(l+1)) &
+            dtheta_plma(pos)= l*sqrt( real((l+1)*(l+1),cp) &
                                ) * plma(pos+1)  - &
-                   (l+1)*dsqrt( dble((l)*(l)) &
+                   (l+1)*sqrt( real((l)*(l),cp) &
                               ) * plma(pos-1)
-            dtheta_plma(pos)=dtheta_plma(pos)/dble(2*l+1)
+            dtheta_plma(pos)=dtheta_plma(pos)/real(2*l+1,cp)
          end if
               
       end do ! loop over degree
@@ -352,16 +353,16 @@ contains
          stop
       end if
       if( norm == 0 .or. norm == 2 ) then
-         dtheta_plma(pos)= l*dsqrt( dble((l+1)*(l+1)) / &
-                      dble((2*l+1)*(2*l+3)) &
+         dtheta_plma(pos)= l*sqrt( real((l+1)*(l+1),cp) / &
+                      real((2*l+1)*(2*l+3),cp) &
                      ) * dtheta_plma(pos)  - &
-          (l+1)*dsqrt( dble((l)*(l)) / &
-                       dble((2*l-1)*(2*l+1)) &
+          (l+1)*sqrt( real((l)*(l),cp) / &
+                       real((2*l-1)*(2*l+1),cp) &
                      ) * plma(pos-1)
       else if ( norm == 1 ) then
-         dtheta_plma(pos)= l*dsqrt( dble((l+1)*(l+1)) ) * dtheta_plma(pos)  - &
-                           (l+1)*dsqrt( dble((l)*(l)) ) * plma(pos-1)
-         dtheta_plma(pos)=dtheta_plma(pos)/dble(2*l+1)
+         dtheta_plma(pos)= l*sqrt( real((l+1)*(l+1),cp) ) * dtheta_plma(pos)  - &
+                           (l+1)*sqrt( real((l)*(l),cp) ) * plma(pos-1)
+         dtheta_plma(pos)=dtheta_plma(pos)/real(2*l+1,cp)
       end if
 
    end subroutine plm_thetaAS

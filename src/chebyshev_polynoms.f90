@@ -1,8 +1,9 @@
 !$Id$
 module chebyshev_polynoms_mod
 
+   use precision_mod, only: cp
    use logic, only: l_newmap
-   use const, only: pi
+   use const, only: pi, half, one, two, four
  
    implicit none
  
@@ -30,64 +31,64 @@ contains
       !----------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: n_r       ! number of grid points
+      integer,  intent(in) :: n_r       ! number of grid points
       ! n_r grid points suffice for a cheb
       ! transform up to degree n_r-1
-      real(kind=8), intent(in) :: a,b       ! interval boundaries [a,b]
-      integer,      intent(in) :: n_r_max   ! leading dimension of
+      real(cp), intent(in) :: a,b       ! interval boundaries [a,b]
+      integer,  intent(in) :: n_r_max   ! leading dimension of
       ! cheb(i,j) and der. in calling routine
-      real(kind=8), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
-      integer,      intent(in) :: dim1,dim2 ! dimensions of cheb,dcheb,....
-      real(kind=8), intent(in) :: map_fac1(n_r_max)
-      real(kind=8), intent(in) :: map_fac2(n_r_max)
-      real(kind=8), intent(in) :: map_fac3(n_r_max)
+      real(cp), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
+      integer,  intent(in) :: dim1,dim2 ! dimensions of cheb,dcheb,....
+      real(cp), intent(in) :: map_fac1(n_r_max)
+      real(cp), intent(in) :: map_fac2(n_r_max)
+      real(cp), intent(in) :: map_fac3(n_r_max)
 
       !-- Output variables:
-      real(kind=8), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
+      real(cp), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
       ! of degree i at grid point j
-      real(kind=8), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
-      real(kind=8), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
-      real(kind=8), intent(out) :: d3cheb(dim1,dim2) ! third derivative of cheb
+      real(cp), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
+      real(cp), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
+      real(cp), intent(out) :: d3cheb(dim1,dim2) ! third derivative of cheb
 
       !-- Local variables:
       integer :: n,k   ! counter
       integer :: stop_signal
-      real(kind=8) :: map_fac ! maping factor to transfrom y-derivatives
+      real(cp) :: map_fac ! maping factor to transfrom y-derivatives
       ! in [-1,1] to x-derivatives in [a,b]
 
       !-- definition of map_fac:
       !   d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
       !                   = map_fac * d Cheb(y) / d y
-      map_fac=2.d0/(b-a)
+      map_fac=two/(b-a)
 
       !-- construction of chebs and derivatives with recursion:
       do k=1,n_r  ! do loop over the n_r grid points !
 
          !----- set first two chebs:
-         cheb(1,k)=1.d0
+         cheb(1,k)=one
          cheb(2,k)=y(k)
-         dcheb(1,k)=0.d0
+         dcheb(1,k)=0.0_cp
          dcheb(2,k)=map_fac1(k)
-         d2cheb(1,k)=0.d0
+         d2cheb(1,k)=0.0_cp
          d2cheb(2,k)=map_fac2(k)
-         d3cheb(1,k)=0.d0
+         d3cheb(1,k)=0.0_cp
          d3cheb(2,k)=map_fac3(k)
 
          !----- now construct the rest with a recursion:
          do n=3,n_r ! do loop over the (n-1) order of the chebs
 
-            cheb(n,k)=    2.d0*y(k)*cheb(n-1,k)-cheb(n-2,k)
-            dcheb(n,k)=        2.d0*map_fac1(k)*cheb(n-1,k) + &
-                                     2.d0*y(k)*dcheb(n-1,k) - &
+            cheb(n,k)=    two*y(k)*cheb(n-1,k)-cheb(n-2,k)
+            dcheb(n,k)=        two*map_fac1(k)*cheb(n-1,k) + &
+                                     two*y(k)*dcheb(n-1,k) - &
                                                dcheb(n-2,k)
-            d2cheb(n,k)=       2.d0*map_fac2(k)*cheb(n-1,k) + &
-                              4.d0*map_fac1(k)*dcheb(n-1,k) + &
-                                    2.d0*y(k)*d2cheb(n-1,k) - &
+            d2cheb(n,k)=       two*map_fac2(k)*cheb(n-1,k) + &
+                             four*map_fac1(k)*dcheb(n-1,k) + &
+                                    two*y(k)*d2cheb(n-1,k) - &
                                               d2cheb(n-2,k)
-            d3cheb(n,k)=       2.d0*map_fac3(k)*cheb(n-1,k) + &
-                              6.d0*map_fac2(k)*dcheb(n-1,k) + &
-                             6.d0*map_fac1(k)*d2cheb(n-1,k) + &
-                                    2.d0*y(k)*d3cheb(n-1,k) - &
+            d3cheb(n,k)=       two*map_fac3(k)*cheb(n-1,k) + &
+                           6.0_cp*map_fac2(k)*dcheb(n-1,k) + &
+                          6.0_cp*map_fac1(k)*d2cheb(n-1,k) + &
+                                    two*y(k)*d3cheb(n-1,k) - &
                                               d3cheb(n-2,k)
 
          end do
@@ -114,56 +115,56 @@ contains
       !------------------------------------------------------------------
        
       !-- Input variables:
-      integer,      intent(in) :: n_r ! number of grid points
+      integer,  intent(in) :: n_r ! number of grid points
                                       ! n_r grid points suffice for a cheb
                                       ! transform up to degree n_r-1
-      integer ,     intent(in):: n_r_max     ! max number of radial points, dims of y
-      real(kind=8), intent(in) :: a,b        ! interval boundaries [a,b]
-      real(kind=8), intent(in) :: y(n_r_max) ! n_r grid points in interval [a,b]
-      integer,      intent(in) :: dim1,dim2  ! dimensions of cheb,dcheb,......
+      integer,  intent(in):: n_r_max     ! max number of radial points, dims of y
+      real(cp), intent(in) :: a,b        ! interval boundaries [a,b]
+      real(cp), intent(in) :: y(n_r_max) ! n_r grid points in interval [a,b]
+      integer,  intent(in) :: dim1,dim2  ! dimensions of cheb,dcheb,......
        
       !-- Output variables:
-      real(kind=8), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
+      real(cp), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
                                                      ! of degree i at grid point j
-      real(kind=8), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
-      real(kind=8), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
+      real(cp), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
+      real(cp), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
        
       !-- Internal variables:
       integer :: n,k   ! counter
-      real(kind=8) :: map_fac ! maping factor to transfrom y-derivatives
+      real(cp) :: map_fac ! maping factor to transfrom y-derivatives
                               ! in [-1,1] to x-derivatives in [a,b]
-      real(kind=8) :: last_cheb,last_dcheb,last_d2cheb
+      real(cp) :: last_cheb,last_dcheb,last_d2cheb
 
       !-- d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
       !                   = map_fac * d Cheb(y) / d y
-      map_fac=2.d0/(b-a)
+      map_fac=two/(b-a)
        
       !-- construction of chebs with recursion:
       do k=1,n_r
-         cheb(1,k)=1.d0
+         cheb(1,k)=one
          last_cheb=y(k)
-         dcheb(1,k)=0.d0
+         dcheb(1,k)=0.0_cp
          last_dcheb=map_fac
-         d2cheb(1,k)=0.d0
-         last_d2cheb=0.d0
+         d2cheb(1,k)=0.0_cp
+         last_d2cheb=0.0_cp
          do n=2,n_r ! only even chebs stored !
             !-- even chebs:
-            cheb(n,k)=2.d0*y(k)*last_cheb-cheb(n-1,k)
-            dcheb(n,k)=2.d0*map_fac*last_cheb + &
-                         2.d0*y(k)*last_dcheb - &
+            cheb(n,k)=two*y(k)*last_cheb-cheb(n-1,k)
+            dcheb(n,k)=two*map_fac*last_cheb + &
+                         two*y(k)*last_dcheb - &
                                    dcheb(n-1,k)
-            d2cheb(n,k)=4.d0*map_fac*last_dcheb + &
-                          2.d0*y(k)*last_d2cheb - &
-                                    d2cheb(n-1,k)
+            d2cheb(n,k)=four*map_fac*last_dcheb + &
+                           two*y(k)*last_d2cheb - &
+                                      d2cheb(n-1,k)
              
             !-- odd chebs: not stored but necessary for recursion
-            last_cheb=2.d0*y(k)*cheb(n,k)-last_cheb
-            last_dcheb=2.d0*map_fac*cheb(n,k) + &
-                         2.d0*y(k)*dcheb(n,k) - &
+            last_cheb=two*y(k)*cheb(n,k)-last_cheb
+            last_dcheb=two*map_fac*cheb(n,k) + &
+                         two*y(k)*dcheb(n,k) - &
                                      last_dcheb
-            last_d2cheb=4.d0*map_fac*dcheb(n,k) + &
-                          2.d0*y(k)*d2cheb(n,k) - &
-                                    last_d2cheb
+            last_d2cheb=four*map_fac*dcheb(n,k) + &
+                           two*y(k)*d2cheb(n,k) - &
+                                     last_d2cheb
          end do
       end do
 
@@ -183,37 +184,37 @@ contains
       !----------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: n_r       ! number of grid points
+      integer,  intent(in) :: n_r       ! number of grid points
       ! n_r grid points suffice for a cheb
       ! transform up to degree n_r-1
-      real(kind=8), intent(in) :: a,b       ! interval boundaries [a,b]
-      integer,      intent(in) :: n_r_max   ! leading dimension of
+      real(cp), intent(in) :: a,b       ! interval boundaries [a,b]
+      integer,  intent(in) :: n_r_max   ! leading dimension of
       ! cheb(i,j) and der. in calling routine
-      real(kind=8), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
-      integer,      intent(in):: dim1,dim2  ! dimensions of cheb,dcheb,....
-      real(kind=8), intent(in) :: map_fac1(n_r_max)
-      real(kind=8), intent(in) :: map_fac2(n_r_max)
-      real(kind=8), intent(in) :: map_fac3(n_r_max)
+      real(cp), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
+      integer,  intent(in):: dim1,dim2  ! dimensions of cheb,dcheb,....
+      real(cp), intent(in) :: map_fac1(n_r_max)
+      real(cp), intent(in) :: map_fac2(n_r_max)
+      real(cp), intent(in) :: map_fac3(n_r_max)
 
       !-- Output variables:
-      real(kind=8), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
+      real(cp), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
       ! of degree i at grid point j
-      real(kind=8), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
-      real(kind=8), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
-      real(kind=8), intent(out) :: d3cheb(dim1,dim2) ! third derivative of cheb
+      real(cp), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
+      real(cp), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
+      real(cp), intent(out) :: d3cheb(dim1,dim2) ! third derivative of cheb
 
       !-- Local variables:
       integer :: n,k   ! counter
       integer :: stop_signal
-      real(kind=8) :: map_fac ! maping factor to transfrom y-derivatives
-      real(kind=8) :: local_cheb,local_dcheb,local_d2cheb,pos
-      !real(kind=8) :: spos,local_d3cheb,yk
+      real(cp) :: map_fac ! maping factor to transfrom y-derivatives
+      real(cp) :: local_cheb,local_dcheb,local_d2cheb,pos
+      !real(cp) :: spos,local_d3cheb,yk
       ! in [-1,1] to x-derivatives in [a,b]
 
       !-- definition of map_fac:
       !   d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
       !                   = map_fac * d Cheb(y) / d y
-      map_fac=2.d0/(b-a)
+      map_fac=two/(b-a)
 
       !-- construction of chebs and derivatives with recursion:
       do k=1,n_r  ! do loop over the n_r grid points !
@@ -223,14 +224,14 @@ contains
       !end do
 
          !----- set first two chebs:
-         cheb(1,k)=1.d0
+         cheb(1,k)=one
          ! cheb(2,k)=cos(pi*(k-1)/(n_r-1)) !y(k)
          cheb(2,k)=y(k)
-         dcheb(1,k)=0.d0
+         dcheb(1,k)=0.0_cp
          dcheb(2,k)=map_fac1(k)
-         d2cheb(1,k)=0.d0
+         d2cheb(1,k)=0.0_cp
          d2cheb(2,k)=map_fac2(k)
-         d3cheb(1,k)=0.d0
+         d3cheb(1,k)=0.0_cp
          d3cheb(2,k)=map_fac3(k)
 
          !----- now construct the rest with an recursion:
@@ -238,29 +239,29 @@ contains
 
             local_cheb = cos(pi*(n-1)*(k-1)/(n_r-1))
             cheb(n,k)=local_cheb
-            !cheb(n,k)=    2.d0*y(k)*cheb(n-1,k)-cheb(n-2,k)
-            !if (ABS(local_cheb) > 0.0D0) then
+            !cheb(n,k)=    two*y(k)*cheb(n-1,k)-cheb(n-2,k)
+            !if (ABS(local_cheb) > 0.0_cp) then
             !   write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in cheb calculation: ",n,k,&
             !        & cheb(n,k),local_cheb,cheb(n,k)-local_cheb,                    & 
             !        & (cheb(n,k)-local_cheb)/local_cheb
             !end if
             if ((k > 1) .and. modulo((n-1)*(k-1),(n_r-1)) == 0) then
-               local_dcheb=0.0D0
-               !dcheb(n,k) = 0.0D0
+               local_dcheb=0.0_cp
+               !dcheb(n,k) = 0.0_cp
             elseif (k == 1) then
                local_dcheb = map_fac1(k)*(n-1)**2
             else
                local_dcheb = map_fac1(k)*(n-1)*sin((n-1)*pi*(k-1)/(n_r-1))/ &
                                                sin(pi*(k-1)/(n_r-1))
-               !dcheb(n,k)=        2.d0*map_fac1(k)*cheb(n-1,k) + &
-               !     2.d0*y(k)*dcheb(n-1,k) - &
+               !dcheb(n,k)=        two*map_fac1(k)*cheb(n-1,k) + &
+               !     two*y(k)*dcheb(n-1,k) - &
                !     dcheb(n-2,k)
             end if
-            dcheb(n,k)=  2.d0*map_fac1(k)*cheb(n-1,k) + &
-                               2.d0*y(k)*dcheb(n-1,k) - &
+            dcheb(n,k)=  two*map_fac1(k)*cheb(n-1,k) + &
+                               two*y(k)*dcheb(n-1,k) - &
                                          dcheb(n-2,k)
 
-            !if (ABS(local_dcheb) > 0.0D0) then
+            !if (ABS(local_dcheb) > 0.0_cp) then
             !write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in dcheb calculation: ",n,k,&
             !        & dcheb(n,k),local_dcheb,dcheb(n,k)-local_dcheb,&
             !        &(dcheb(n,k)-local_dcheb)/local_dcheb
@@ -280,36 +281,36 @@ contains
                   local_d2cheb = -(n-1)*map_fac2(k)
                end if
             elseif (k == n_r) then
-               local_d2cheb=0.0D0
-               d2cheb(n,k) = 0.0D0
+               local_d2cheb=0.0_cp
+               d2cheb(n,k) = 0.0_cp
             else
-               pos=pi*real(k-1,kind=8)/(n_r-1)
+               pos=pi*real(k-1,cp)/(n_r-1)
                local_d2cheb = map_fac1(k)**2*(n-1)*( cos(pos)*sin((n-1)*pos)     &
                     &                             -(n-1)*cos((n-1)*pos)*sin(pos) &
                     &                           )/sin(pos)**3                    &
                     &         +map_fac2(k)*(n-1)*sin((n-1)*pos)/sin(pos)
             end if
 
-            d2cheb(n,k)=       2.d0*map_fac2(k)*cheb(n-1,k) + &
-                              4.d0*map_fac1(k)*dcheb(n-1,k) + &
-                                    2.d0*y(k)*d2cheb(n-1,k) - &
+            d2cheb(n,k)=       two*map_fac2(k)*cheb(n-1,k) + &
+                             four*map_fac1(k)*dcheb(n-1,k) + &
+                                    two*y(k)*d2cheb(n-1,k) - &
                                               d2cheb(n-2,k)
-            !if (ABS(local_d2cheb) > 0.0D0) then
+            !if (ABS(local_d2cheb) > 0.0_cp) then
                write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in d2cheb calculation: ",n,k,&
                     & d2cheb(n,k),local_d2cheb,d2cheb(n,k)-local_d2cheb,&
                     &(d2cheb(n,k)-local_d2cheb)/local_d2cheb
             !end if
             d2cheb(n,k) = local_d2cheb
 
-            !pos = pi*real(k-1,kind=8)/(n_r-1)
+            !pos = pi*real(k-1,cp)/(n_r-1)
             !spos = sin((n-1)*pos)
             !yk= cos(pos)
             !write(*,"(2I3,4ES11.3)") n,k,pos,spos,yk,sin(pos)
             !if (k == 1) then
-            !   local_d3cheb=0.0D0
+            !   local_d3cheb=0.0_cp
             !else
             !   if (n == 3) then
-            !      local_d3cheb=0.0D0
+            !      local_d3cheb=0.0_cp
             !   else
             !      local_d3cheb =( ( 3*(n-1)*spos*yk**2* map_fac1(k)**3) &
             !           &          -( 3*(n-1)**2*cos((n-1)*pos)*sin(pos)*yk* map_fac1(k)**3) &
@@ -323,12 +324,12 @@ contains
             !   end if
             !end if
 
-            d3cheb(n,k)=       2.d0*map_fac3(k)*cheb(n-1,k) + &
-                              6.d0*map_fac2(k)*dcheb(n-1,k) + &
-                             6.d0*map_fac1(k)*d2cheb(n-1,k) + &
-                                    2.d0*y(k)*d3cheb(n-1,k) - &
+            d3cheb(n,k)=       two*map_fac3(k)*cheb(n-1,k) + &
+                              6.0_cp*map_fac2(k)*dcheb(n-1,k) + &
+                             6.0_cp*map_fac1(k)*d2cheb(n-1,k) + &
+                                    two*y(k)*d3cheb(n-1,k) - &
                                               d3cheb(n-2,k)
-            !if (ABS(local_d3cheb) > 0.0D0) then
+            !if (ABS(local_d3cheb) > 0.0_cp) then
             !write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in d3cheb calculation: ",n,k,&
             !        & d3cheb(n,k),local_d3cheb,d3cheb(n,k)-local_d3cheb,&
             !        &(d3cheb(n,k)-local_d3cheb)/local_d3cheb
@@ -354,26 +355,26 @@ contains
       !---------------------------------------------------------
        
       !-- Input variables
-      real(kind=8), intent(in) :: a,b   ! interval boundaries
+      real(cp), intent(in) :: a,b   ! interval boundaries
       integer,      intent(in) :: n     ! degree of Cheb polynomial to
                                         ! be represented by the grid points
-      real(kind=8), intent(in) :: a1,a2,x0,lbd
+      real(cp), intent(in) :: a1,a2,x0,lbd
 
       !-- Output variables
-      real(kind=8), intent(out) :: x(*) ! grid points in interval [a,b]
-      real(kind=8), intent(out) :: y(*) ! grid points in interval [-1,1]
+      real(cp), intent(out) :: x(*) ! grid points in interval [a,b]
+      real(cp), intent(out) :: y(*) ! grid points in interval [-1,1]
        
       !-- Local variables:
-      real(kind=8) :: bpa,bma
+      real(cp) :: bpa,bma
       integer :: k
        
-      bma=0.5d0*(b-a)
-      bpa=0.5d0*(a+b)
+      bma=half*(b-a)
+      bpa=half*(a+b)
        
       do k=1,n+1
-         y(k)=dcos( pi*dble(k-1)/dble(n) )
+         y(k)=cos( pi*real(k-1,cp)/real(n,cp) )
          if ( l_newmap ) then
-            x(k)=(a2+dtan(lbd*(y(k)-x0))/a1)/2 + bpa
+            x(k)=(a2+tan(lbd*(y(k)-x0))/a1)/2 + bpa
          else
             x(k)=bma * y(k) + bpa
          end if

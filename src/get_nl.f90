@@ -15,12 +15,14 @@ end module general_arrays_mod
 module grid_space_arrays_mod
 
    use general_arrays_mod
+   use precision_mod, only: cp
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
                                lambda, or4, or1
    use physical_parameters, only: LFfac, n_r_LCR
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2
+   use const, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF
 
    implicit none
@@ -29,22 +31,22 @@ module grid_space_arrays_mod
 
    type, public, extends(general_arrays_t) :: grid_space_arrays_t
       !----- Nonlinear terms in phi/theta space: 
-      real(kind=8), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
-      real(kind=8), allocatable :: LFr(:,:),  LFt(:,:),  LFp(:,:)
-      real(kind=8), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
-      real(kind=8), allocatable :: VSr(:,:),  VSt(:,:),  VSp(:,:)
-      real(kind=8), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
+      real(cp), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
+      real(cp), allocatable :: LFr(:,:),  LFt(:,:),  LFp(:,:)
+      real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
+      real(cp), allocatable :: VSr(:,:),  VSt(:,:),  VSp(:,:)
+      real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
-      real(kind=8), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
-      real(kind=8), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
-      real(kind=8), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
-      real(kind=8), allocatable :: dvrdtc(:,:), dvrdpc(:,:)
-      real(kind=8), allocatable :: dvtdpc(:,:), dvpdpc(:,:)
-      real(kind=8), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
-      real(kind=8), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
-      real(kind=8), allocatable :: pc(:,:)
-      real(kind=8), allocatable :: dsdtc(:,:), dsdpc(:,:)
+      real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
+      real(cp), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
+      real(cp), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
+      real(cp), allocatable :: dvrdtc(:,:), dvrdpc(:,:)
+      real(cp), allocatable :: dvtdpc(:,:), dvpdpc(:,:)
+      real(cp), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
+      real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
+      real(cp), allocatable :: pc(:,:)
+      real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:)
 
    contains
 
@@ -86,8 +88,8 @@ contains
       allocate( this%dvrdtc(nrp,nfs),this%dvrdpc(nrp,nfs) )
       allocate( this%dvtdpc(nrp,nfs),this%dvpdpc(nrp,nfs) )
       allocate( this%brc(nrp,nfs),this%btc(nrp,nfs),this%bpc(nrp,nfs) )
-      this%btc=1.0d50
-      this%bpc=1.0d50
+      this%btc=1.0e50_cp
+      this%bpc=1.0e50_cp
       allocate( this%cbrc(nrp,nfs),this%cbtc(nrp,nfs),this%cbpc(nrp,nfs) )
       allocate( this%sc(nrp,nfs),this%drSc(nrp,nfs) )
       allocate( this%pc(nrp,nfs) )
@@ -179,7 +181,7 @@ contains
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(kind=8) :: or2sn2,or4sn2,csn2
+      real(cp) :: or2sn2,or4sn2,csn2
 
 
       nThetaLast=nThetaStart-1
@@ -199,8 +201,8 @@ contains
                         this%cbtc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) - &
                         this%cbpc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) )
             end do
-            this%LFr(n_phi_max+1,nThetaB)=0.D0
-            this%LFr(n_phi_max+2,nThetaB)=0.D0
+            this%LFr(n_phi_max+1,nThetaB)=0.0_cp
+            this%LFr(n_phi_max+2,nThetaB)=0.0_cp
 
             !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
             do nPhi=1,n_phi_max
@@ -208,8 +210,8 @@ contains
                         this%cbpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) - &
                         this%cbrc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) )
             end do
-            this%LFt(n_phi_max+1,nThetaB)=0.D0
-            this%LFt(n_phi_max+2,nThetaB)=0.D0
+            this%LFt(n_phi_max+1,nThetaB)=0.0_cp
+            this%LFt(n_phi_max+2,nThetaB)=0.0_cp
 
             !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
             do nPhi=1,n_phi_max
@@ -217,8 +219,8 @@ contains
                         this%cbrc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) - &
                         this%cbtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) )
             end do
-            this%LFp(n_phi_max+1,nThetaB)=0.D0
-            this%LFp(n_phi_max+2,nThetaB)=0.D0
+            this%LFp(n_phi_max+1,nThetaB)=0.0_cp
+            this%LFp(n_phi_max+2,nThetaB)=0.0_cp
 
          end do   ! theta loop
       end if      ! Lorentz force required ?
@@ -238,7 +240,7 @@ contains
                this%Advr(nPhi,nThetaB)=          -or2(nR)*orho1(nR) * (  &
                                                 this%vrc(nPhi,nThetaB) * &
                                      (       this%dvrdrc(nPhi,nThetaB) - &
-                    ( 2.D0*or1(nR)+beta(nR) )*this%vrc(nPhi,nThetaB) ) + &
+                    ( two*or1(nR)+beta(nR) )*this%vrc(nPhi,nThetaB) ) +  &
                                                osn2(nThetaNHS) * (       &
                                                 this%vtc(nPhi,nThetaB) * &
                                      (       this%dvrdtc(nPhi,nThetaB) - &
@@ -247,8 +249,8 @@ contains
                                      (       this%dvrdpc(nPhi,nThetaB) - &
                                     r(nR)*      this%vpc(nPhi,nThetaB) ) ) )
             end do
-            this%Advr(n_phi_max+1,nThetaB)=0.D0
-            this%Advr(n_phi_max+2,nThetaB)=0.D0
+            this%Advr(n_phi_max+1,nThetaB)=0.0_cp
+            this%Advr(n_phi_max+2,nThetaB)=0.0_cp
             do nPhi=1,n_phi_max
                this%Advt(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
                                             -this%vrc(nPhi,nThetaB) * &
@@ -262,8 +264,8 @@ contains
                                       ( csn2*this%vpc(nPhi,nThetaB) - &
                                           this%dvtdpc(nPhi,nThetaB) )  )
             end do
-            this%Advt(n_phi_max+1,nThetaB)=0.D0
-            this%Advt(n_phi_max+2,nThetaB)=0.D0
+            this%Advt(n_phi_max+1,nThetaB)=0.0_cp
+            this%Advt(n_phi_max+2,nThetaB)=0.0_cp
             do nPhi=1,n_phi_max
                this%Advp(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
                                             -this%vrc(nPhi,nThetaB) * &
@@ -274,8 +276,8 @@ contains
                                         this%cvrc(nPhi,nThetaB) )   - &
                        this%vpc(nPhi,nThetaB) * this%dvpdpc(nPhi,nThetaB) )
             end do
-            this%Advp(n_phi_max+1,nThetaB)=0.D0
-            this%Advp(n_phi_max+2,nThetaB)=0.D0
+            this%Advp(n_phi_max+1,nThetaB)=0.0_cp
+            this%Advp(n_phi_max+2,nThetaB)=0.0_cp
          end do ! theta loop
 
       end if  ! Navier-Stokes nonlinear advection term ?
@@ -295,12 +297,12 @@ contains
                this%VSp(nPhi,nThetaB)= &
                     or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
             end do
-            this%VSr(n_phi_max+1,nThetaB)=0.D0
-            this%VSr(n_phi_max+2,nThetaB)=0.D0
-            this%VSt(n_phi_max+1,nThetaB)=0.D0
-            this%VSt(n_phi_max+2,nThetaB)=0.D0
-            this%VSp(n_phi_max+1,nThetaB)=0.D0
-            this%VSp(n_phi_max+2,nThetaB)=0.D0
+            this%VSr(n_phi_max+1,nThetaB)=0.0_cp
+            this%VSr(n_phi_max+2,nThetaB)=0.0_cp
+            this%VSt(n_phi_max+1,nThetaB)=0.0_cp
+            this%VSt(n_phi_max+2,nThetaB)=0.0_cp
+            this%VSp(n_phi_max+1,nThetaB)=0.0_cp
+            this%VSp(n_phi_max+2,nThetaB)=0.0_cp
          end do  ! theta loop
       end if     ! heat equation required ?
 
@@ -320,24 +322,24 @@ contains
                                  this%vtc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) - &
                                  this%vpc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) )
                end do
-               this%VxBr(n_phi_max+1,nThetaB)=0.D0
-               this%VxBr(n_phi_max+2,nThetaB)=0.D0
+               this%VxBr(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBr(n_phi_max+2,nThetaB)=0.0_cp
 
                do nPhi=1,n_phi_max
                   this%VxBt(nPhi,nThetaB)=  orho1(nR)*or4sn2 * (        &
                         this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) - &
                         this%vrc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) )
                end do
-               this%VxBt(n_phi_max+1,nThetaB)=0.D0
-               this%VxBt(n_phi_max+2,nThetaB)=0.D0
+               this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
 
                do nPhi=1,n_phi_max
                   this%VxBp(nPhi,nThetaB)=   orho1(nR)*or4sn2 * (        &
                          this%vrc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) - &
                          this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) )
                end do
-               this%VxBp(n_phi_max+1,nThetaB)=0.D0
-               this%VxBp(n_phi_max+2,nThetaB)=0.D0
+               this%VxBp(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBp(n_phi_max+2,nThetaB)=0.0_cp
             end do   ! theta loop
 
          else if ( nBc == 1 .or. nR<=n_r_LCR ) then ! stress free boundary
@@ -353,10 +355,10 @@ contains
                   this%VxBp(nPhi,nThetaB)= -or4sn2 * orho1(nR) * &
                        this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                end do
-               this%VxBt(n_phi_max+1,nThetaB)=0.D0
-               this%VxBt(n_phi_max+2,nThetaB)=0.D0
-               this%VxBp(n_phi_max+1,nThetaB)=0.D0
-               this%VxBp(n_phi_max+2,nThetaB)=0.D0
+               this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
+               this%VxBp(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBp(n_phi_max+2,nThetaB)=0.0_cp
             end do
 
          else if ( nBc == 2 ) then  ! rigid boundary :
@@ -370,12 +372,12 @@ contains
                do nPhi=1,n_phi_max
                   this%VxBt(nPhi,nThetaB)= or4sn2 * orho1(nR) * &
                        this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
-                  this%VxBp(nPhi,nThetaB)= 0.D0
+                  this%VxBp(nPhi,nThetaB)= 0.0_cp
                end do
-               this%VxBt(n_phi_max+1,nThetaB)=0.D0
-               this%VxBt(n_phi_max+2,nThetaB)=0.D0
-               this%VxBp(n_phi_max+1,nThetaB)=0.D0
-               this%VxBp(n_phi_max+2,nThetaB)=0.D0
+               this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
+               this%VxBp(n_phi_max+1,nThetaB)=0.0_cp
+               this%VxBp(n_phi_max+2,nThetaB)=0.0_cp
             end do
 
          end if  ! boundary ?
@@ -394,29 +396,29 @@ contains
             do nPhi=1,n_phi_max
                this%ViscHeat(nPhi,nThetaB)=      or4(nR)*                  &
                                      orho1(nR)*otemp1(nR)*visc(nR)*(       &
-                    2.D0*(                     this%dvrdrc(nPhi,nThetaB) - & ! (1)
-                    (2.D0*or1(nR)+beta(nR))*this%vrc(nphi,nThetaB) )**2  + &
-                    2.D0*( csn2*                  this%vtc(nPhi,nThetaB) + &
+                     two*(                     this%dvrdrc(nPhi,nThetaB) - & ! (1)
+                     (two*or1(nR)+beta(nR))*this%vrc(nphi,nThetaB) )**2  + &
+                     two*( csn2*                  this%vtc(nPhi,nThetaB) + &
                                                this%dvpdpc(nphi,nThetaB) + &
                                                this%dvrdrc(nPhi,nThetaB) - & ! (2)
                      or1(nR)*               this%vrc(nPhi,nThetaB) )**2  + &
-                    2.D0*(                     this%dvpdpc(nphi,nThetaB) + &
+                     two*(                     this%dvpdpc(nphi,nThetaB) + &
                            csn2*                  this%vtc(nPhi,nThetaB) + & ! (3)
                      or1(nR)*               this%vrc(nPhi,nThetaB) )**2  + &
-                         ( 2.D0*               this%dvtdpc(nPhi,nThetaB) + &
+                          ( two*               this%dvtdpc(nPhi,nThetaB) + &
                                                  this%cvrc(nPhi,nThetaB) - & ! (6)
-                     2.D0*csn2*             this%vpc(nPhi,nThetaB) )**2  + &
+                      two*csn2*             this%vpc(nPhi,nThetaB) )**2  + &
                                                  osn2(nThetaNHS) * (       &
                          ( r(nR)*              this%dvtdrc(nPhi,nThetaB) - &
-                          (2.D0+beta(nR)*r(nR))*  this%vtc(nPhi,nThetaB) + & ! (4)
+                           (two+beta(nR)*r(nR))*  this%vtc(nPhi,nThetaB) + & ! (4)
                      or1(nR)*            this%dvrdtc(nPhi,nThetaB) )**2  + &
                          ( r(nR)*              this%dvpdrc(nPhi,nThetaB) - &
-                          (2.D0+beta(nR)*r(nR))*  this%vpc(nPhi,nThetaB) + & ! (5)
+                           (two+beta(nR)*r(nR))*  this%vpc(nPhi,nThetaB) + & ! (5)
                      or1(nR)*            this%dvrdpc(nPhi,nThetaB) )**2 )- &
-                    2.D0/3.D0*(  beta(nR)*        this%vrc(nPhi,nThetaB) )**2 )
+                    two*third*(  beta(nR)*        this%vrc(nPhi,nThetaB) )**2 )
             end do
-            this%ViscHeat(n_phi_max+1,nThetaB)=0.D0
-            this%ViscHeat(n_phi_max+2,nThetaB)=0.D0
+            this%ViscHeat(n_phi_max+1,nThetaB)=0.0_cp
+            this%ViscHeat(n_phi_max+2,nThetaB)=0.0_cp
          end do ! theta loop
 
          if ( l_mag_nl .and. nR>n_r_LCR ) then
@@ -431,8 +433,8 @@ contains
                          osn2(nThetaNHS)*        this%cbtc(nPhi,nThetaB)**2 + &
                          osn2(nThetaNHS)*        this%cbpc(nPhi,nThetaB)**2  )
                end do
-               this%OhmLoss(n_phi_max+1,nThetaB)=0.D0
-               this%OhmLoss(n_phi_max+2,nThetaB)=0.D0
+               this%OhmLoss(n_phi_max+1,nThetaB)=0.0_cp
+               this%OhmLoss(n_phi_max+2,nThetaB)=0.0_cp
             end do ! theta loop
 
          end if ! if l_mag_nl ?

@@ -1,6 +1,7 @@
 !$Id$
 module nonlinear_bcs
 
+   use precision_mod, only: cp
    use truncation, only: nrp, lmP_max, n_phi_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
@@ -15,6 +16,7 @@ module nonlinear_bcs
    use fft_MKL, only: fft_thetab
 #endif
    use legendre_grid_to_spec, only: legTF2
+   use const, only: two
 
    implicit none
 
@@ -43,28 +45,28 @@ contains
       !  +-------------------------------------------------------------------+
     
       !-- input:
-      real(kind=8), intent(in) :: br(nrp,*)      ! r**2 * B_r
-      real(kind=8), intent(in) :: vt(nrp,*)      ! r*sin(theta) U_theta
-      real(kind=8), intent(in) :: vp(nrp,*)      ! r*sin(theta) U_phi
-      real(kind=8), intent(in) :: omega          ! rotation rate of mantle or IC
-      real(kind=8), intent(in) :: O_r_E_2        ! 1/r**2
-      real(kind=8), intent(in) :: O_rho          ! 1/rho0 (anelastic)
-      integer,      intent(in) :: n_theta_min    ! start of theta block
-      integer,      intent(in) :: n_theta_block  ! size of theta_block
+      real(cp), intent(in) :: br(nrp,*)      ! r**2 * B_r
+      real(cp), intent(in) :: vt(nrp,*)      ! r*sin(theta) U_theta
+      real(cp), intent(in) :: vp(nrp,*)      ! r*sin(theta) U_phi
+      real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
+      real(cp), intent(in) :: O_r_E_2        ! 1/r**2
+      real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
+      integer,  intent(in) :: n_theta_min    ! start of theta block
+      integer,  intent(in) :: n_theta_block  ! size of theta_block
     
       !-- Output variables:
       ! br*vt/(sin(theta)**2*r**2)
-      complex(kind=8), intent(inout) :: br_vt_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vt_lm(lmP_max)
       ! br*(vp/(sin(theta)**2*r**2)-omega_ma)
-      complex(kind=8), intent(inout) :: br_vp_lm(lmP_max)
+      complex(cp), intent(inout) :: br_vp_lm(lmP_max)
     
       !-- Local variables:
       integer :: n_theta     ! number of theta position
       integer :: n_theta_rel ! number of theta position in block
       integer :: n_phi       ! number of longitude
-      real(kind=8) :: br_vt(nrp,n_theta_block)
-      real(kind=8) :: br_vp(nrp,n_theta_block)
-      real(kind=8) :: fac          ! 1/( r**2 sin(theta)**2 )
+      real(cp) :: br_vt(nrp,n_theta_block)
+      real(cp) :: br_vp(nrp,n_theta_block)
+      real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
     
       n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
     
@@ -106,19 +108,19 @@ contains
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
       integer,          intent(in) :: lm_min_b,lm_max_b  ! limits of lm-block
-      complex(kind=8),  intent(in) :: br_vt_lm(lmP_max)  ! [br*vt/(r**2*sin(theta)**2)]
-      complex(kind=8),  intent(in) :: br_vp_lm(lmP_max)  ! [br*vp/(r**2*sin(theta)**2)
+      complex(cp),      intent(in) :: br_vt_lm(lmP_max)  ! [br*vt/(r**2*sin(theta)**2)]
+      complex(cp),      intent(in) :: br_vp_lm(lmP_max)  ! [br*vp/(r**2*sin(theta)**2)
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
-      complex(kind=8), intent(out) :: aj_nl_bc(lm_min_b:lm_max_b) ! nonlinear bc for aj
+      complex(cp), intent(out) :: b_nl_bc(lm_min_b:lm_max_b)  ! nonlinear bc for b
+      complex(cp), intent(out) :: aj_nl_bc(lm_min_b:lm_max_b) ! nonlinear bc for aj
 
       !-- Local variables:
       integer :: l,m       ! degree and order
       integer :: lm        ! position of degree and order
       integer :: lmP       ! same as lm but for l running to l_max+1
       integer :: lmPS,lmPA ! lmP for l-1 and l+1
-      real(kind=8) :: fac
+      real(cp) :: fac
 
       write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
 
@@ -189,25 +191,25 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input of variables:
-      integer,      intent(in) :: nR            ! no of radial grid point
-      logical,      intent(in) :: lDeriv         ! derivatives required ?
-      integer,      intent(in) :: nThetaStart    ! no of theta to start with
+      integer,  intent(in) :: nR            ! no of radial grid point
+      logical,  intent(in) :: lDeriv        ! derivatives required ?
+      integer,  intent(in) :: nThetaStart   ! no of theta to start with
               
       !-- Input of boundary rotation rate
-      real(kind=8), intent(in) :: omega
+      real(cp), intent(in) :: omega
 
       !-- output:
-      real(kind=8), intent(out) :: vrr(nrp,nfs)
-      real(kind=8), intent(out) :: vpr(nrp,nfs)
-      real(kind=8), intent(out) :: vtr(nrp,nfs)
-      real(kind=8), intent(out) :: cvrr(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdtr(nrp,nfs)
-      real(kind=8), intent(out) :: dvrdpr(nrp,nfs)
-      real(kind=8), intent(out) :: dvtdpr(nrp,nfs)
-      real(kind=8), intent(out) :: dvpdpr(nrp,nfs)
+      real(cp), intent(out) :: vrr(nrp,nfs)
+      real(cp), intent(out) :: vpr(nrp,nfs)
+      real(cp), intent(out) :: vtr(nrp,nfs)
+      real(cp), intent(out) :: cvrr(nrp,nfs)
+      real(cp), intent(out) :: dvrdtr(nrp,nfs)
+      real(cp), intent(out) :: dvrdpr(nrp,nfs)
+      real(cp), intent(out) :: dvtdpr(nrp,nfs)
+      real(cp), intent(out) :: dvpdpr(nrp,nfs)
 
       !-- Local variables:
-      real(kind=8) :: r2
+      real(cp) :: r2
       integer :: nThetaCalc,nTheta,nThetaNHS
       integer :: nPhi
 
@@ -227,15 +229,15 @@ contains
          nThetaCalc=nThetaCalc+1
          nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere=odd n_theta
          do nPhi=1,n_phi_max
-            vrr(nPhi,nTheta)=0.D0
-            vtr(nPhi,nTheta)=0.D0
+            vrr(nPhi,nTheta)=0.0_cp
+            vtr(nPhi,nTheta)=0.0_cp
             vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*2.D0*cosTheta(nThetaCalc)*omega
-               dvrdtr(nPhi,nTheta)=0.D0
-               dvrdpr(nPhi,nTheta)=0.D0
-               dvtdpr(nPhi,nTheta)=0.D0
-               dvpdpr(nPhi,nTheta)=0.D0
+               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
+               dvrdtr(nPhi,nTheta)=0.0_cp
+               dvrdpr(nPhi,nTheta)=0.0_cp
+               dvtdpr(nPhi,nTheta)=0.0_cp
+               dvpdpr(nPhi,nTheta)=0.0_cp
             end if
          end do
       end do

@@ -4,45 +4,50 @@ module num_param
    !  Module containing numerical and control parameters
    !--------------------------------------------------------------
 
+   use truncation, only: n_r_max
+   use precision_mod, only: cp
+
    implicit none
+
+   private
  
    !-- Time step control:
-   integer :: n_time_steps
-   real(kind=8) :: alpha
-   real(kind=8) :: dtstart,dtMin,dtMax
-   real(kind=8) :: timeStart,tEND
+   integer, public :: n_time_steps
+   real(cp), public :: alpha
+   real(cp), public :: dtstart,dtMin,dtMax
+   real(cp), public :: timeStart,tEND
  
    !-- Z-angular momentum at start of integration:
-   real(kind=8) :: AMstart
+   real(cp), public :: AMstart
  
    !-- Courant criteria:
-   integer :: n_cour_step ! step for controlling  Courant criteria
-   real(kind=8) :: courfac   ! input 
-   real(kind=8) :: alffac    ! input 
-   real(kind=8) :: intfac    ! input
-   real(kind=8), allocatable :: delxr2(:),delxh2(:) ! ??
+   integer, public :: n_cour_step ! step for controlling  Courant criteria
+   real(cp), public :: courfac   ! input 
+   real(cp), public :: alffac    ! input 
+   real(cp), public :: intfac    ! input
+   real(cp), public, allocatable :: delxr2(:),delxh2(:) ! ??
  
    !-- Hyperdiffusivity:
-   integer :: ldif,ldifexp
-   real(kind=8) :: difeta,difnu,difkap
+   integer, public :: ldif,ldifexp
+   real(cp), public :: difeta,difnu,difkap
  
    !-- Scalings:
-   real(kind=8) :: tScale,lScale,vScale,pScale,eScale  ! scales
-   real(kind=8) :: enscale         ! (input) scale for energies !
-   integer :: n_tScale       ! controlls time scale
-   integer :: n_lScale       ! controlls length scale
+   real(cp), public :: tScale,lScale,vScale,pScale,eScale  ! scales
+   real(cp), public :: enscale         ! (input) scale for energies !
+   integer, public :: n_tScale       ! controlls time scale
+   integer, public :: n_lScale       ! controlls length scale
  
    !-- Stop signal:
-   integer :: istop
+   integer, public :: istop
  
    !-- Controlling run time:
-   integer :: runTimeLimit(4),runTime(4),runTimeStart(4)!,resetTime(4)
+   integer, public :: runTimeLimit(4),runTime(4),runTimeStart(4)!,resetTime(4)
+
+   public :: initialize_num_param
 
 contains
 
    subroutine initialize_num_param
-
-      use truncation, only: n_r_max
 
       allocate( delxr2(n_r_max),delxh2(n_r_max) )
 

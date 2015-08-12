@@ -3,6 +3,7 @@
 module communications
 
    use mpi
+   use precision_mod, only: cp
    use parallel_mod, only: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
    use LMLoop_data, only: llm, ulm
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max
@@ -21,7 +22,7 @@ module communications
  
    type, public :: lm2r_type
       integer, allocatable :: final_wait_array(:), s_request(:), r_request(:)
-      complex(kind=8), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
+      complex(cp), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
       integer :: count
    end type lm2r_type
  
@@ -56,16 +57,16 @@ module communications
  
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
  
-   complex(kind=8), allocatable :: temp_gather_lo(:)
-   complex(kind=8), allocatable :: temp_r2lo(:,:)
+   complex(cp), allocatable :: temp_gather_lo(:)
+   complex(cp), allocatable :: temp_r2lo(:,:)
 
 contains
   
    subroutine initialize_communications
 
       integer :: proc,my_lm_per_rank
-      integer(kind=MPI_ADDRESS_kind) :: zerolb, extent, sizeof_double_complex
-      integer(kind=MPI_ADDRESS_kind) :: lb_marker, myextent, true_lb, true_extent
+      integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
+      integer(kind=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
       integer :: base_col_type,temptype
       integer :: blocklengths(3),blocklengths_on_last(3),displs(3),displs_on_last(3)
       integer :: i
@@ -232,12 +233,12 @@ contains
 
    end subroutine initialize_communications
 !-------------------------------------------------------------------------------
-   complex(kind=8) function get_global_sum_cmplx_2d(dwdt_local) result(global_sum)
+   complex(cp) function get_global_sum_cmplx_2d(dwdt_local) result(global_sum)
 
-      complex(kind=8), intent(in) :: dwdt_local(:,:)
+      complex(cp), intent(in) :: dwdt_local(:,:)
       
       integer :: ierr
-      complex(kind=8) :: local_sum
+      complex(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX, &
@@ -245,24 +246,24 @@ contains
 
    end function get_global_sum_cmplx_2d
 !-------------------------------------------------------------------------------
-   real(kind=8) function get_global_sum_real_2d(dwdt_local) result(global_sum)
+   real(cp) function get_global_sum_real_2d(dwdt_local) result(global_sum)
 
-      real(kind=8), intent(in) :: dwdt_local(:,:)
+      real(cp), intent(in) :: dwdt_local(:,:)
       
       integer :: ierr
-      real(kind=8) :: local_sum
+      real(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
 
    end function get_global_sum_real_2d
 !-------------------------------------------------------------------------------
-   complex(kind=8) function get_global_sum_cmplx_1d(arr_local) result(global_sum)
+   complex(cp) function get_global_sum_cmplx_1d(arr_local) result(global_sum)
 
-      complex(kind=8), intent(in) :: arr_local(:)
+      complex(cp), intent(in) :: arr_local(:)
       
       integer :: lb,ub,ierr,i
-      complex(kind=8) :: local_sum,c,y,t
+      complex(cp) :: local_sum,c,y,t
 
       lb = lbound(arr_local,1)
       ub = ubound(arr_local,1)
@@ -282,8 +283,8 @@ contains
       !    //Next time around, the lost low part will be added to y in a fresh attempt.
       !return sum
       
-      local_sum = 0.0D0
-      c = 0.0D0          !A running compensation for lost low-order bits.
+      local_sum = 0.0_cp
+      c = 0.0_cp          !A running compensation for lost low-order bits.
       do i=lb,ub
          y = arr_local(i) - c ! So far, so good: c is zero.
          t = local_sum + y    ! Alas, sum is big, y small, 
@@ -303,12 +304,12 @@ contains
    subroutine gather_all_from_lo_to_rank0(self,arr_lo,arr_full)
 
       type(gather_type) :: self
-      complex(kind=8) :: arr_lo(llm:ulm,self%dim2)
-      complex(kind=8) :: arr_full(1:lm_max,self%dim2)
+      complex(cp) :: arr_lo(llm:ulm,self%dim2)
+      complex(cp) :: arr_full(1:lm_max,self%dim2)
       
       integer :: ierr,irank,l,m,nR
-      !complex(kind=8) :: temp_lo((1:lm_max,self%dim2)
-      complex(kind=8), allocatable :: temp_lo(:,:)
+      !complex(cp) :: temp_lo((1:lm_max,self%dim2)
+      complex(cp), allocatable :: temp_lo(:,:)
       integer :: type_size,gather_tag,status(MPI_STATUS_SIZE)
 
       if ( rank == 0 ) allocate(temp_lo(1:lm_max,self%dim2))
@@ -402,12 +403,12 @@ contains
 !-------------------------------------------------------------------------------
    subroutine gather_from_lo_to_rank0(arr_lo,arr_full)
 
-      complex(kind=8) :: arr_lo(llm:ulm)
-      complex(kind=8) :: arr_full(1:lm_max)
+      complex(cp) :: arr_lo(llm:ulm)
+      complex(cp) :: arr_full(1:lm_max)
 
       integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,l,m
-      !complex(kind=8) :: temp_lo(1:lm_max)
+      !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
          sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
@@ -432,12 +433,12 @@ contains
 !-------------------------------------------------------------------------------
    subroutine scatter_from_rank0_to_lo(arr_full,arr_lo)
 
-      complex(kind=8) :: arr_full(1:lm_max)
-      complex(kind=8) :: arr_lo(llm:ulm)
+      complex(cp) :: arr_full(1:lm_max)
+      complex(cp) :: arr_lo(llm:ulm)
 
       integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,l,m
-      !complex(kind=8) :: temp_lo(1:lm_max)
+      !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
          sendcounts(irank) = lmStopB(irank+1)-lmStartB(irank+1)+1
@@ -492,8 +493,8 @@ contains
    subroutine lm2r_redist_start(self,arr_LMloc,arr_Rloc)
 
       type(lm2r_type) :: self
-      complex(kind=8),intent(in)  :: arr_LMloc(llm:ulm,n_r_max,*)
-      complex(kind=8),intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in)  :: arr_LMloc(llm:ulm,n_r_max,*)
+      complex(cp), intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,*)
 
       ! Local variables
       integer :: send_pe, recv_pe,i,irank
@@ -626,8 +627,8 @@ contains
    subroutine lo2r_redist_start(self,arr_lo,arr_Rloc)
 
       type(lm2r_type) :: self
-      complex(kind=8), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
-      complex(kind=8), target, intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max,*)
+      complex(cp), target, intent(out) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
   
   
       PERFON('lo2r_st')
@@ -666,8 +667,8 @@ contains
 !-------------------------------------------------------------------------------
    subroutine r2lm_redist(arr_rloc,arr_LMloc)
 
-      complex(kind=8), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: arr_LMloc(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max)
   
       ! Local variables
       integer :: send_pe, recv_pe,i,irank
@@ -788,13 +789,13 @@ contains
 !-------------------------------------------------------------------------------
    subroutine r2lo_redist(arr_Rloc,arr_lo)
 
-      complex(kind=8), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop)
-      complex(kind=8), intent(out) :: arr_lo(llm:ulm,1:n_r_max)
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max)
   
       ! Local variables
       integer :: nR,l,m
       ! temporary reordered array
-      !complex(kind=8) :: temp_lo(1:lm_max,nRstart:nRstop)
+      !complex(cp) :: temp_lo(1:lm_max,nRstart:nRstop)
   
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
@@ -813,8 +814,8 @@ contains
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 
-      complex(kind=8), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max)
-      complex(kind=8), intent(out) :: arr_lo(llm:ulm,1:n_r_max)
+      complex(cp), intent(in) :: arr_LMloc(llm:ulm,1:n_r_max)
+      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max)
   
       ! Local variables
       integer :: nR,l,m
@@ -836,8 +837,8 @@ contains
 !-------------------------------------------------------------------------------
    subroutine lo2lm_redist(arr_lo,arr_LMloc)
 
-      complex(kind=8), intent(in) :: arr_lo(llm:ulm,1:n_r_max)
-      complex(kind=8), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max)
+      complex(cp), intent(in) :: arr_lo(llm:ulm,1:n_r_max)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,1:n_r_max)
   
       ! Local variables
       integer :: nR,l,m
@@ -872,8 +873,8 @@ contains
   
       implicit none
   
-      integer,         intent(in) :: dim1,dim2
-      complex(kind=8), intent(inout) :: arr(dim1,dim2)
+      integer,     intent(in) :: dim1,dim2
+      complex(cp), intent(inout) :: arr(dim1,dim2)
   
       integer :: lmStart_on_rank,lmStop_on_rank
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
@@ -926,8 +927,8 @@ contains
 
       implicit none
 
-      integer,         intent(in) :: edim1,dim2
-      complex(kind=8), intent(inout) :: arr(edim1, dim2)
+      integer,     intent(in) :: edim1,dim2
+      complex(cp), intent(inout) :: arr(edim1, dim2)
 
       integer :: sendcount,recvcount
       integer :: irank,nR
@@ -950,14 +951,14 @@ contains
 
       implicit none
 
-      integer,         intent(in) :: dim1,dim2
-      complex(kind=8), intent(inout) :: arr(dim1,dim2)
+      integer,     intent(in) :: dim1,dim2
+      complex(cp), intent(inout) :: arr(dim1,dim2)
 
       integer :: lmStart_on_rank,lmStop_on_rank
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: irank,nR
       integer :: sendtype, new_sendtype
-      integer(kind=MPI_ADDRESS_kind) :: lb,extent,extent_dcmplx
+      integer(kind=MPI_ADDRESS_KIND) :: lb,extent,extent_dcmplx
 
       PERFON('mk_dt')
       ! definition of the datatype (will later be pulled out of here)

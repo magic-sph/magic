@@ -6,25 +6,35 @@ module const
    !  See subroutine s_get_new_constants for explanations.
    !---------------------------------------------------------------
 
+   use precision_mod
+
    implicit none
  
-   real(kind=8) :: c_z10_omega_ic,c_z10_omega_ma
-   real(kind=8) :: c_dt_z10_ic,c_dt_z10_ma
-   real(kind=8) :: c_lorentz_ic,c_lorentz_ma
-   real(kind=8) :: vol_ic,vol_oc,surf_cmb
-   real(kind=8), parameter :: pi=4.d0*datan(1.D0)
-   real(kind=8), parameter :: sq4pi=dsqrt(4.d0*pi)
-   real(kind=8), parameter :: osq4pi=1.d0/sq4pi
-   real(kind=8) :: c_moi_ic,c_moi_ma,c_moi_oc
-   real(kind=8) :: mass
-   real(kind=8) :: y10_norm,y11_norm
-   complex(kind=8), parameter :: zero=(0.0D0,0.0D0)
+   real(cp) :: c_z10_omega_ic,c_z10_omega_ma
+   real(cp) :: c_dt_z10_ic,c_dt_z10_ma
+   real(cp) :: c_lorentz_ic,c_lorentz_ma
+   real(cp) :: vol_ic,vol_oc,surf_cmb
+   real(cp), parameter :: pi=4.0_cp*atan(1.0_cp)
+   real(cp), parameter :: sq4pi=sqrt(4.0_cp*pi)
+   real(cp), parameter :: osq4pi=1.0_cp/sq4pi
+   real(cp) :: c_moi_ic,c_moi_ma,c_moi_oc
+   real(cp) :: mass
+   real(cp) :: y10_norm,y11_norm
 
-   real(kind=8), parameter :: sin36=dsin(36.d0*pi/180.d0)
-   real(kind=8), parameter :: sin60=0.5d0*dsqrt(3.d0)
-   real(kind=8), parameter :: sin72=dsin(72.d0*pi/180.d0)
-   real(kind=8), parameter :: cos36=dcos(36.d0*pi/180.d0)
-   real(kind=8), parameter :: cos72=dcos(72.d0*pi/180.d0)
+   real(cp), parameter :: one  =1.0_cp
+   real(cp), parameter :: two  =2.0_cp
+   real(cp), parameter :: three=3.0_cp
+   real(cp), parameter :: four =4.0_cp
+   real(cp), parameter :: half =0.5_cp
+   real(cp), parameter :: third=one/three
+   complex(cp), parameter :: zero=(0.0_cp,0.0_cp)
+   complex(cp), parameter :: ci=(0.0_cp,1.0_cp)
+
+   real(cp), parameter :: sin36=sin(36.0_cp*pi/180.0_cp)
+   real(cp), parameter :: sin60=0.5_cp*sqrt(3.0_cp)
+   real(cp), parameter :: sin72=sin(72.0_cp*pi/180.0_cp)
+   real(cp), parameter :: cos36=cos(36.0_cp*pi/180.0_cp)
+   real(cp), parameter :: cos72=cos(72.0_cp*pi/180.0_cp)
 
    character(len=4), parameter :: codeVersion='5.1'
 

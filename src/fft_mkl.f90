@@ -3,6 +3,8 @@
 #include "mkl_dfti.f90"
 
 module fft_mkl
+
+   use precision_mod, only: cp
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
    use mkl_dfti
@@ -52,15 +54,15 @@ contains
                              DFTI_COMPLEX_COMPLEX )
       status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
-                             1.0/dble(number_of_points) )
+                             1.0/real(number_of_points,cp) )
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft
 !------------------------------------------------------------------------------
    subroutine fft_thetab_cmplx(f,dir)
 
-      complex(kind=8), intent(inout) :: f(nrp/2,nfs)
-      integer,         intent(in) :: dir            ! back or forth transform
+      complex(cp), intent(inout) :: f(nrp/2,nfs)
+      integer,     intent(in) :: dir            ! back or forth transform
 
       PERFON('fft_thc')
       if (dir == 1) then
@@ -80,8 +82,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine fft_thetab_real(f,dir)
 
-      real(kind=8), intent(inout) :: f(nrp,nfs)
-      integer,      intent(in) :: dir            ! back or forth transform
+      real(cp), intent(inout) :: f(nrp,nfs)
+      integer,  intent(in) :: dir            ! back or forth transform
 
       PERFON('fft_thr')
       if (dir == -1) then
@@ -105,8 +107,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine fft_to_real(f,ld_f,nrep)
 
-      integer,      intent(in) :: ld_f,nrep
-      real(kind=8), intent(inout) :: f(ld_f,nrep)
+      integer,  intent(in) :: ld_f,nrep
+      real(cp), intent(inout) :: f(ld_f,nrep)
 
       type(DFTI_DESCRIPTOR), pointer :: local_c2r_handle
 

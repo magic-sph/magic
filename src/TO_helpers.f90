@@ -1,9 +1,11 @@
 !$Id$
 module TO_helpers
 
+   use precision_mod, only: cp
    use truncation, only: l_max
    use blocking, only: lm2
    use horizontal_data, only: dPlm, osn1
+   use const, only: one, two, half
 
    implicit none
 
@@ -25,28 +27,28 @@ contains
       !----------------------------------------------------------------------------
 
       !--- Input variables:
-      integer,      intent(in) ::   lmMax,lMax
-      real(kind=8), intent(in) ::    flmn(lmMax,*)
-      integer,      intent(in) ::   nZmax,nZmaxA
-      real(kind=8), intent(in) ::    rMin,rMax
-      integer,      intent(in) ::   nChebMax
-      real(kind=8), intent(in) ::    rZ(nZmaxA/2+1)
-      real(kind=8), intent(in) ::    dPlm(lmMax,nZmaxA/2+1)
-      real(kind=8), intent(in) ::    OsinTS(nZmaxA/2+1)
+      integer,  intent(in) :: lmMax, lMax
+      real(cp), intent(in) :: flmn(lmMax,*)
+      integer,  intent(in) :: nZmax, nZmaxA
+      real(cp), intent(in) :: rMin, rMax
+      integer,  intent(in) :: nChebMax
+      real(cp), intent(in) :: rZ(nZmaxA/2+1)
+      real(cp), intent(in) :: dPlm(lmMax,nZmaxA/2+1)
+      real(cp), intent(in) :: OsinTS(nZmaxA/2+1)
 
       !--- Output variables:
-      real(kind=8), intent(out) ::    fZ(*)
+      real(cp), intent(out) ::    fZ(*)
 
       !--- Local variables:
-      integer ::   nCheb
-      real(kind=8) ::    cheb(nChebMax)
-      integer ::   l,nZS,nZN!,nZ
-      real(kind=8) ::    x,chebNorm,fac,flmr
+      integer :: nCheb
+      real(cp) :: cheb(nChebMax)
+      integer :: l,nZS,nZN!,nZ
+      real(cp) :: x,chebNorm,fac,flmr
 
-      chebNorm=dsqrt(2.D0/dble(nChebMax-1))
+      chebNorm=sqrt(two/real(nChebMax-1, kind=cp))
               
       do nZN=1,nZmax
-         fZ(nZN)=0.D0
+         fZ(nZN)=0.0_cp
       end do
 
       do nZN=1,nZmax/2 ! Loop over all z-points in northern HS
@@ -58,18 +60,18 @@ contains
          !    Note: the factor chebNorm is needed
          !    for renormalisation. Its not needed if one used
          !    costf1 for the back transform.
-         x=2.D0*(rZ(nZN)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         cheb(1)=1.D0*chebNorm*fac
+         x=two*(rZ(nZN)-half*(rMin+rMax))/(rMax-rMin)
+         cheb(1)=one*chebNorm*fac
          cheb(2)=x*chebNorm*fac
          do nCheb=3,nChebMax
-            cheb(nCheb)=2.D0*x*cheb(nCheb-1)-cheb(nCheb-2)
+            cheb(nCheb)=two*x*cheb(nCheb-1)-cheb(nCheb-2)
          end do
-         cheb(1)       =0.5D0*cheb(1)
-         cheb(nChebMax)=0.5D0*cheb(nChebMax)
+         cheb(1)       =half*cheb(1)
+         cheb(nChebMax)=half*cheb(nChebMax)
 
          !--- Loop to add all contribution functions:
          do l=0,lMax
-            flmr=0.D0
+            flmr=0.0_cp
             do nCheb=1,nChebMax
                flmr=flmr+flmn(l+1,nCheb)*cheb(nCheb)
             end do
@@ -87,17 +89,17 @@ contains
          nZS=(nZmax-1)/2+1
          fac=-OsinTS(nZS)/rZ(nZS)
 
-         x=2.D0*(rZ(nZS)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         cheb(1)=1.D0*chebNorm*fac
+         x=two*(rZ(nZS)-half*(rMin+rMax))/(rMax-rMin)
+         cheb(1)=one*chebNorm*fac
          cheb(2)=x*chebNorm*fac
          do nCheb=3,nChebMax
-            cheb(nCheb)=2.D0*x*cheb(nCheb-1)-cheb(nCheb-2)
+            cheb(nCheb)=two*x*cheb(nCheb-1)-cheb(nCheb-2)
          end do
-         cheb(1)       =0.5D0*cheb(1)
-         cheb(nChebMax)=0.5D0*cheb(nChebMax)
+         cheb(1)       =half*cheb(1)
+         cheb(nChebMax)=half*cheb(nChebMax)
 
          do l=0,lMax
-            flmr=0.D0
+            flmr=0.0_cp
             do nCheb=1,nChebMax
                flmr=flmr+flmn(l+1,nCheb)*cheb(nCheb)
             end do
@@ -118,29 +120,29 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables
-      integer,      intent(in) :: nThetaStart    ! first theta to be treated
-      integer,      intent(in) :: sizeThetaBlock ! size of theta block
-      real(kind=8), intent(in) :: rT             ! radius
-      real(kind=8), intent(in) :: Tlm(*)         ! field in (l,m)-space for rT
+      integer,  intent(in) :: nThetaStart    ! first theta to be treated
+      integer,  intent(in) :: sizeThetaBlock ! size of theta block
+      real(cp), intent(in) :: rT             ! radius
+      real(cp), intent(in) :: Tlm(*)         ! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(kind=8), intent(out) :: Bp(*)
+      real(cp), intent(out) :: Bp(*)
 
       !-- Local variables:
       integer :: lm,l
       integer :: nTheta,nThetaN
-      real(kind=8) :: fac
-      real(kind=8) :: sign
-      real(kind=8) :: Bp_1,Bp_n,Bp_s
+      real(cp) :: fac
+      real(cp) :: sign
+      real(cp) :: Bp_1,Bp_n,Bp_s
 
       do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
 
          nThetaN=(nThetaStart+nTheta)/2
          fac=osn1(nThetaN)/rT
 
-         sign=-1.d0
-         Bp_n=0.D0
-         Bp_s=0.D0
+         sign=-one
+         Bp_n=0.0_cp
+         Bp_s=0.0_cp
          do l=0,l_max
             lm=lm2(l,0)
             sign=-sign
@@ -164,28 +166,28 @@ contains
       !----------------------------------------------------------------------------
 
       !--- Input variables:
-      integer,      intent(in) :: lmMax,lMax
-      real(kind=8), intent(in) :: flmn(lmMax,*)
-      integer,      intent(in) :: nZmax,nZmaxA
-      real(kind=8), intent(in) :: rMin,rMax
-      integer,      intent(in) :: nChebMax
-      real(kind=8), intent(in) :: rZ(nZmaxA/2+1)
-      real(kind=8), intent(in) :: Plm(lmMax,nZmaxA/2+1)
+      integer,  intent(in) :: lmMax, lMax
+      real(cp), intent(in) :: flmn(lmMax,*)
+      integer,  intent(in) :: nZmax, nZmaxA
+      real(cp), intent(in) :: rMin, rMax
+      integer,  intent(in) :: nChebMax
+      real(cp), intent(in) :: rZ(nZmaxA/2+1)
+      real(cp), intent(in) :: Plm(lmMax,nZmaxA/2+1)
 
       !--- Output variables :
-      real(kind=8), intent(out) :: fZ(*)
+      real(cp), intent(out) :: fZ(*)
 
 
       !--- Local variables:
       integer :: nCheb
-      real(kind=8) :: cheb(nChebMax)
+      real(cp) :: cheb(nChebMax)
       integer :: l,nZS,nZN
-      real(kind=8) :: x,chebNorm,flmr
+      real(cp) :: x,chebNorm,flmr
 
-      chebNorm=dsqrt(2.D0/dble(nChebMax-1))
+      chebNorm=sqrt(two/real(nChebMax-1, kind=cp))
 
       do nZN=1,nZmax
-         fZ(nZN)=0.D0
+         fZ(nZN)=0.0_cp
       end do
 
       do nZN=1,nZmax/2 ! Loop over all z-points in south HS
@@ -196,18 +198,18 @@ contains
          !    Note: the factor chebNorm is needed
          !    for renormalisation. Its not needed if one used
          !    costf1 for the back transform.
-         x=2.D0*(rZ(nZN)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         cheb(1)=1.D0*chebNorm
+         x=two*(rZ(nZN)-half*(rMin+rMax))/(rMax-rMin)
+         cheb(1)=one*chebNorm
          cheb(2)=x*chebNorm
          do nCheb=3,nChebMax
-            cheb(nCheb)=2.D0*x*cheb(nCheb-1)-cheb(nCheb-2)
+            cheb(nCheb)=two*x*cheb(nCheb-1)-cheb(nCheb-2)
          end do
-         cheb(1)       =0.5D0*cheb(1)
-         cheb(nChebMax)=0.5D0*cheb(nChebMax)
+         cheb(1)       =half*cheb(1)
+         cheb(nChebMax)=half*cheb(nChebMax)
 
          !--- Loop to add all contribution functions:
          do l=0,lMax
-            flmr=0.D0
+            flmr=0.0_cp
             do nCheb=1,nChebMax
                flmr=flmr+flmn(l+1,nCheb)*cheb(nCheb)
             end do
@@ -224,17 +226,17 @@ contains
       if ( mod(nZmax,2) == 1 ) then ! Remaining equatorial point
          nZS=(nZmax-1)/2+1
 
-         x=2.D0*(rZ(nZS)-0.5D0*(rMin+rMax))/(rMax-rMin)
-         cheb(1)=1.D0*chebNorm
+         x=two*(rZ(nZS)-half*(rMin+rMax))/(rMax-rMin)
+         cheb(1)=one*chebNorm
          cheb(2)=x*chebNorm
          do nCheb=3,nChebMax
-            cheb(nCheb)=2.D0*x*cheb(nCheb-1)-cheb(nCheb-2)
+            cheb(nCheb)=two*x*cheb(nCheb-1)-cheb(nCheb-2)
          end do
-         cheb(1)       =0.5D0*cheb(1)
-         cheb(nChebMax)=0.5D0*cheb(nChebMax)
+         cheb(1)       =half*cheb(1)
+         cheb(nChebMax)=half*cheb(nChebMax)
 
          do l=0,lMax
-            flmr=0.D0
+            flmr=0.0_cp
             do nCheb=1,nChebMax
                flmr=flmr+flmn(l+1,nCheb)*cheb(nCheb)
             end do

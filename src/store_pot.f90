@@ -1,15 +1,19 @@
 !$Id$
 module store_pot_mod
 
-   use truncation
-   use radial_functions
-   use physical_parameters
-   use horizontal_data
-   use logic
-   use output_data
+   use precision_mod, only: cp, outp
+   use truncation, only: n_r_max, n_r_ic_max, lm_max, n_cheb_max, &
+                         n_cheb_ic_max, minc, l_max
+   use radial_functions, only: i_costf_init, d_costf_init,     &
+                               i_costf1_ic_init,d_costf1_ic_init
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, &
+                                  sigma_ratio
+   use logic, only: l_cond_ic
+   use output_data, only: tag
    use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank
    use communications, only: gather_from_lo_to_rank0
+   use const, only: two, half
    use cosine_transform, only: costf1
     
    implicit none
@@ -23,27 +27,27 @@ contains
    subroutine storePot(time,b,aj,b_ic,aj_ic,nPotSets,root,omega_ma,omega_ic)
 
       !-- Input of variables:
-      real(kind=8),     intent(in) :: time
-      complex(kind=8),  intent(in) :: b(lm_max,n_r_max)
-      complex(kind=8),  intent(in) :: aj(lm_max,n_r_max)
-      complex(kind=8),  intent(in) :: b_ic(lm_max,n_r_ic_max)
-      complex(kind=8),  intent(in) :: aj_ic(lm_max,n_r_ic_max)
+      real(cp),         intent(in) :: time
+      complex(cp),      intent(in) :: b(lm_max,n_r_max)
+      complex(cp),      intent(in) :: aj(lm_max,n_r_max)
+      complex(cp),      intent(in) :: b_ic(lm_max,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(lm_max,n_r_ic_max)
       character(len=*), intent(in) :: root
-      real(kind=8),     intent(in) :: omega_ma,omega_ic
+      real(cp),         intent(in) :: omega_ma,omega_ic
 
-      integer,         intent(inout) :: nPotSets
+      integer,          intent(inout) :: nPotSets
     
       !-- Work arrays:
-      complex(kind=8) :: workA(lm_max,n_r_max)
-      complex(kind=8) :: workB(lm_max,n_r_max)
-      complex(kind=8) :: workC(lm_max,n_r_max)
+      complex(cp) :: workA(lm_max,n_r_max)
+      complex(cp) :: workB(lm_max,n_r_max)
+      complex(cp) :: workC(lm_max,n_r_max)
     
       character(80) :: string
       character(:), allocatable :: head
       integer :: n_r,lm,n_cheb
       character(80) :: fileName
       logical :: lVB
-      real(kind=8) :: chebNorm
+      real(cp) :: chebNorm
     
       head = trim(adjustl(root))
       nPotSets=nPotSets+1
@@ -64,12 +68,12 @@ contains
            call costf1(workB,lm_max,1,lm_max,workC,i_costf_init,d_costf_init)
     
       !--- Correct amplitude:
-      chebNorm=dsqrt(2.D0/(n_r_max-1))
+      chebNorm=sqrt(two/(n_r_max-1))
       do n_cheb=1,n_cheb_max
          do lm=1,lm_max
             if ( n_cheb == 1 .or. n_cheb == n_r_max ) then
-               workA(lm,n_cheb)=chebNorm*0.5D0*workA(lm,n_cheb)
-               if ( lVB ) workB(lm,n_cheb)=chebNorm*0.5D0*workB(lm,n_cheb)
+               workA(lm,n_cheb)=chebNorm*half*workA(lm,n_cheb)
+               if ( lVB ) workB(lm,n_cheb)=chebNorm*half*workB(lm,n_cheb)
             else
                workA(lm,n_cheb)=chebNorm*workA(lm,n_cheb)
                if ( lVB ) workB(lm,n_cheb)=chebNorm*workB(lm,n_cheb)
@@ -95,18 +99,17 @@ contains
       open(99, file=fileName, form='unformatted', status='unknown')
     
       write(99) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
-      write(99) sngl(ra),sngl(ek),sngl(pr),sngl(prmag), &
-                      sngl(radratio),sngl(sigma_ratio), &
-                         sngl(omega_ma),sngl(omega_ic)
-      write(99) sngl(time), ( (cmplx(   real(workA(lm,n_cheb)), &
-                                       aimag(workA(lm,n_cheb)), &
-                                       kind=kind(0.D0) ),       &
-                              lm=1,lm_max),n_cheb=1,n_cheb_max )
+      write(99) real(ra,kind=outp), real(ek,kind=outp), real(pr,kind=outp), &
+              & real(prmag,kind=outp), real(radratio,kind=outp),            &
+              & real(sigma_ratio,kind=outp), real(omega_ma,kind=outp),      &
+              & real(omega_ic,kind=outp)
+      write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)),   &
+                                         aimag(workA(lm,n_cheb)),           &
+                                         kind=cp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
       if ( lVB ) then
-         write(99) sngl(time), ( (cmplx(   real(workB(lm,n_cheb)), &
-                                          aimag(workB(lm,n_cheb)), &
-                                          kind=kind(0.D0) ),       &
-                                 lm=1,lm_max),n_cheb=1,n_cheb_max )
+         write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)),   &
+                                            aimag(workB(lm,n_cheb)),           &
+                                            kind=cp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
       end if
     
       !-- Now inner core field
@@ -126,26 +129,26 @@ contains
          call costf1(workB,lm_max,1,lm_max,workC, &
                              i_costf1_ic_init,d_costf1_ic_init)
     
-         chebNorm=dsqrt(2.D0/(n_r_ic_max-1))
+         chebNorm=sqrt(two/(n_r_ic_max-1))
          do n_cheb=1,n_cheb_ic_max
             do lm=1,lm_max
                if ( n_cheb == 1 .or. n_cheb == n_r_ic_max ) then
-                  workA(lm,n_cheb)=chebNorm*0.5D0*workA(lm,n_cheb)
-                  workB(lm,n_cheb)=chebNorm*0.5D0*workB(lm,n_cheb)
+                  workA(lm,n_cheb)=chebNorm*half*workA(lm,n_cheb)
+                  workB(lm,n_cheb)=chebNorm*half*workB(lm,n_cheb)
                else
                   workA(lm,n_cheb)=chebNorm*workA(lm,n_cheb)
                   workB(lm,n_cheb)=chebNorm*workB(lm,n_cheb)
                end if
             end do
          end do
-         write(99) sngl(time), ( (cmplx(   real(workA(lm,n_cheb)), &
-                                          aimag(workA(lm,n_cheb)), &
-                                          kind=kind(0d0)),         &
-                                lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
-         write(99) sngl(time), ( (cmplx(   real(workB(lm,n_cheb)), &
-                                          aimag(workB(lm,n_cheb)), &
-                                          kind=kind(0d0)),         &
-                                lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
+         write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)), &
+                                            aimag(workA(lm,n_cheb)),         &
+                                            kind=cp),                        &
+                                            lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
+         write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)), &
+                                            aimag(workB(lm,n_cheb)),         &
+                                            kind=cp),                        &
+                                            lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
     
       end if
     
@@ -157,29 +160,29 @@ contains
                         nPotSets,root,omega_ma,omega_ic)
 
       !-- Input of variables:
-      real(kind=8),     intent(in) :: time
-      complex(kind=8),  intent(in) :: b(llm:ulm,n_r_max)
-      complex(kind=8),  intent(in) :: aj(llm:ulm,n_r_max)
-      complex(kind=8),  intent(in) :: b_ic(llm:ulm,n_r_ic_max)
-      complex(kind=8),  intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
+      real(cp),         intent(in) :: time
+      complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
       character(len=9), intent(in) :: root
-      real(kind=8),     intent(in) :: omega_ma,omega_ic
+      real(cp),         intent(in) :: omega_ma,omega_ic
 
       integer,          intent(inout) :: nPotSets
 
       !-- Work arrays:
-      complex(kind=8) :: workA(llm:ulm,n_r_max)
-      complex(kind=8) :: workB(llm:ulm,n_r_max)
-      complex(kind=8) :: workC(llm:ulm,n_r_max)
+      complex(cp) :: workA(llm:ulm,n_r_max)
+      complex(cp) :: workB(llm:ulm,n_r_max)
+      complex(cp) :: workC(llm:ulm,n_r_max)
 
       !-- Local variables
-      complex(kind=8), allocatable :: workA_global(:,:),workB_global(:,:)
+      complex(cp), allocatable :: workA_global(:,:),workB_global(:,:)
       character(len=80) :: string
       character(:), allocatable :: head
       integer :: n_r,lm,n_cheb
       character(len=80) :: fileName
       logical :: lVB
-      real(kind=8) :: chebNorm
+      real(cp) :: chebNorm
        
       head = trim(adjustl(root))
       nPotSets=nPotSets+1
@@ -201,12 +204,12 @@ contains
            &                 workC,i_costf_init,d_costf_init)
 
       !--- Correct amplitude:
-      chebNorm=dsqrt(2.D0/(n_r_max-1))
+      chebNorm=sqrt(two/(n_r_max-1))
       do n_cheb=1,n_cheb_max
          do lm=llm,ulm
             if ( n_cheb == 1 .or. n_cheb == n_r_max ) then
-               workA(lm,n_cheb)=chebNorm*0.5D0*workA(lm,n_cheb)
-               if ( lVB) workB(lm,n_cheb)=chebNorm*0.5D0*workB(lm,n_cheb)
+               workA(lm,n_cheb)=chebNorm*half*workA(lm,n_cheb)
+               if ( lVB) workB(lm,n_cheb)=chebNorm*half*workB(lm,n_cheb)
             else
                workA(lm,n_cheb)=chebNorm*workA(lm,n_cheb)
                if ( lVB) workB(lm,n_cheb)=chebNorm*workB(lm,n_cheb)
@@ -252,18 +255,19 @@ contains
          open(99, file=fileName, form='unformatted', status='unknown')
 
          write(99) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
-         write(99) sngl(ra),sngl(ek),sngl(pr),sngl(prmag), &
-                   sngl(radratio),sngl(sigma_ratio),       &
-                   sngl(omega_ma),sngl(omega_ic)
-         write(99) sngl(time), ( (cmplx(  real(workA_global(lm,n_cheb)), &
-                                         aimag(workA_global(lm,n_cheb)), &
-                                         kind=kind(0d0) ),               &
-                                 lm=1,lm_max),n_cheb=1,n_cheb_max )
+         write(99) real(ra,kind=outp), real(ek,kind=outp), real(pr,kind=outp), &
+              &    real(prmag,kind=outp), real(radratio,kind=outp),            &
+              &    real(sigma_ratio,kind=outp), real(omega_ma,kind=outp),      &
+              &    real(omega_ic,kind=outp)
+         write(99) real(time,kind=outp), ( (cmplx( real(workA_global(lm,n_cheb)),  &
+                                                   aimag(workA_global(lm,n_cheb)), &
+                                                   kind=cp ),                      &
+                                                   lm=1,lm_max),n_cheb=1,n_cheb_max )
          if ( lVB ) then
-            write(99) sngl(time), ( (cmplx(  real(workB_global(lm,n_cheb)), &
-                                            aimag(workB_global(lm,n_cheb)), &
-                                            kind=kind(0d0) ),               &
-                                   lm=1,lm_max),n_cheb=1,n_cheb_max)
+            write(99) real(time,kind=outp), ( (cmplx( real(workB_global(lm,n_cheb)),  &
+                                                      aimag(workB_global(lm,n_cheb)), &
+                                                      kind=cp ),                      &
+                                                      lm=1,lm_max),n_cheb=1,n_cheb_max)
          end if
       end if
       
@@ -282,12 +286,12 @@ contains
          call costf1(workB,ulm-llm+1,1,ulm-llm+1, &
                      workC,i_costf1_ic_init,d_costf1_ic_init)
 
-         chebNorm=dsqrt(2.D0/(n_r_ic_max-1))
+         chebNorm=sqrt(two/(n_r_ic_max-1))
          do n_cheb=1,n_cheb_ic_max
             do lm=llm,ulm
                if ( n_cheb == 1 .or. n_cheb == n_r_ic_max ) then
-                  workA(lm,n_cheb)=chebNorm*0.5D0*workA(lm,n_cheb)
-                  workB(lm,n_cheb)=chebNorm*0.5D0*workB(lm,n_cheb)
+                  workA(lm,n_cheb)=chebNorm*half*workA(lm,n_cheb)
+                  workB(lm,n_cheb)=chebNorm*half*workB(lm,n_cheb)
                else
                   workA(lm,n_cheb)=chebNorm*workA(lm,n_cheb)
                   workB(lm,n_cheb)=chebNorm*workB(lm,n_cheb)
@@ -303,14 +307,14 @@ contains
          if ( rank == 0 ) then
             write(*,*) 'WRITING IC DATA INTO FILE:',fileName
 
-            write(99) sngl(time), ( (cmplx(   real(workA_global(lm,n_cheb)), &
-                                             aimag(workA_global(lm,n_cheb)), &
-                                             kind=kind(0d0) ),               &
-                                    lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
-            write(99) sngl(time), ( (cmplx(   real(workB_global(lm,n_cheb)), &
-                                             aimag(workB_global(lm,n_cheb)), &
-                                             kind=kind(0d0)),                &
-                                    lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
+            write(99) real(time,kind=outp),                               &
+                 &   ( (cmplx( real(workA_global(lm,n_cheb)),             &
+                 &            aimag(workA_global(lm,n_cheb)), kind=cp ),  &
+                 &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
+            write(99) real(time,kind=outp),                               &
+                 &   ( (cmplx( real(workB_global(lm,n_cheb)),             &
+                 &            aimag(workB_global(lm,n_cheb)), kind=cp),   &
+                 &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
          end if
 
       end if

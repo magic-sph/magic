@@ -4,9 +4,11 @@ module useful
    !  library with several useful shit
    !------------------------------------------------------------------------
 
+   use precision_mod, only: cp
    use parallel_mod, only: rank
    use output_data, only: n_log_file, log_file
    use logic, only: l_save_out
+   use const, only: half, one, two
 
    implicit none
 
@@ -34,15 +36,15 @@ contains
       !------------------------------------------------------------------------
 
       !-- Input variables:
-      integer     , intent(in) :: n            ! current step
-      real(kind=8), intent(in) :: t            ! time at current step
-      real(kind=8), intent(in) :: t_last       ! last time at current step
-      integer     , intent(in) :: n_max        ! max number of steps
-      integer     , intent(in) :: n_step       ! action intervall
-      integer     , intent(in) :: n_intervalls ! number of actions
-      integer     , intent(in) :: n_ts         ! number of times t
-      real(kind=8), intent(in) :: times(*)     ! times where l_correct_step == true
-      integer     , intent(in) :: n_eo         ! even/odd controller
+      integer,  intent(in) :: n            ! current step
+      real(cp), intent(in) :: t            ! time at current step
+      real(cp), intent(in) :: t_last       ! last time at current step
+      integer,  intent(in) :: n_max        ! max number of steps
+      integer,  intent(in) :: n_step       ! action intervall
+      integer,  intent(in) :: n_intervalls ! number of actions
+      integer,  intent(in) :: n_ts         ! number of times t
+      real(cp), intent(in) :: times(*)     ! times where l_correct_step == true
+      integer,  intent(in) :: n_eo         ! even/odd controller
   
       !-- Local variables:
       integer :: n_delta      ! corrector for even/odd n
@@ -90,7 +92,7 @@ contains
                
    end function l_correct_step
 !----------------------------------------------------------------------------
-   real(kind=8) function random(r)
+   real(cp) function random(r)
       !----------------------------------------------------------------------
       !     random number generator
       !
@@ -107,7 +109,7 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input variables:
-      real(kind=8), intent(in) :: r
+      real(cp), intent(in) :: r
   
       !-- Local variables:
       integer :: ia1, ia0, ia1ma0, ic, ix1, ix0
@@ -120,7 +122,7 @@ contains
       ia1ma0=507
       ic    =1731
   
-      if ( r == 0.d0 ) then
+      if ( r == 0.0_cp ) then
          iy0 = ia0*ix0
          iy1 = ia1*ix1 + ia1ma0*(ix0-ix1) + iy0
          iy0 = iy0 + ic
@@ -128,14 +130,14 @@ contains
          ix0 = mod(iy0,2048)
          iy1 = iy1 + (iy0-ix0)/2048
          ix1 = mod(iy1,2048)
-      else if ( r > 0.d0 ) then
-         ix1 = IDint(Dmod(r,1.D0)*4194304.D0 + 0.5D0)
+      else if ( r > 0.0_cp ) then
+         ix1 = int(mod(r,one)*4194304.0_cp + half)
          ix0 = mod(ix1,2048)
          ix1 = (ix1-ix0)/2048
       end if
        
       random = ix1*2048 + ix0
-      random = random / 4194304.d0
+      random = random / 4194304.0_cp
   
    end function random
 !----------------------------------------------------------------------------
@@ -191,30 +193,30 @@ contains
 
    end subroutine factorise
 !----------------------------------------------------------------------------
-   real(kind=8)  function cc2real(c,m)
+   real(cp)  function cc2real(c,m)
 
       !-- Input variables:
-      complex(kind=8), intent(in) :: c
-      integer,         intent(in) :: m
+      complex(cp), intent(in) :: c
+      integer,     intent(in) :: m
   
       if ( m == 0 ) then
          cc2real=real(c)*real(c)
       else
-         cc2real=2.D0*(real(c)*real(c)+aimag(c)*aimag(c))
+         cc2real=two*(real(c)*real(c)+aimag(c)*aimag(c))
       end if
 
    end function cc2real
 !----------------------------------------------------------------------------
-   real(kind=8) function cc22real(c1,c2,m)
+   real(cp) function cc22real(c1,c2,m)
 
       !-- Input variables:
-      complex(kind=8), intent(in) :: c1,c2
+      complex(cp), intent(in) :: c1,c2
       integer,         intent(in) :: m
   
       if ( m == 0 ) then
          cc22real=real(c1)*real(c2)
       else
-         cc22real=2.D0*(real(c1)*real(c2)+aimag(c1)*aimag(c2))
+         cc22real=two*(real(c1)*real(c2)+aimag(c1)*aimag(c2))
       end if
 
    end function cc22real

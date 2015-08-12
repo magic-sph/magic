@@ -3,6 +3,7 @@
 #include "perflib_preproc.cpp"
 module output_mod
 
+   use precision_mod, only: cp
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
                        & n_r_maxMag, lm_max
    use parallel_mod, only: rank
@@ -45,7 +46,7 @@ module output_mod
                         & t_r_file, b_r_file, n_r_array, n_r_step,  &
                         & par_file, n_par_file, nLF, log_file,      &
                         & n_coeff_r_max, rst_file, n_rst_file
-   use const, only: vol_oc,vol_ic,mass,surf_cmb
+   use const, only: vol_oc, vol_ic, mass, surf_cmb, two
    use outMisc_mod, only: outMisc
    use outRot, only: write_rot
    use charmanip, only: dble2str
@@ -84,18 +85,18 @@ module output_mod
    integer :: nTOsets,nTOmovSets,nTOrmsSets
  
    !--- For averaging:
-   real(kind=8) :: timePassedLog, timeNormLog
+   real(cp) :: timePassedLog, timeNormLog
    integer :: nLogs  
  
-   real(kind=8), save :: dlBMean,dmBMean
-   real(kind=8), save :: lvDissMean,lbDissMean
-   real(kind=8), save :: RmMean,ElMean,ElCmbMean,RolMean,GeosMean
-   real(kind=8), save :: DipMean,DipCMBMean
-   real(kind=8), save :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
+   real(cp), save :: dlBMean,dmBMean
+   real(cp), save :: lvDissMean,lbDissMean
+   real(cp), save :: RmMean,ElMean,ElCmbMean,RolMean,GeosMean
+   real(cp), save :: DipMean,DipCMBMean
+   real(cp), save :: dlVMean,dlVcMean,dmVMean,dpVMean,dzVMean
  
-   real(kind=8) :: eTot,eTotOld,dtEint
-   real(kind=8) :: e_kin_pMean, e_kin_tMean
-   real(kind=8) :: e_mag_pMean, e_mag_tMean
+   real(cp) :: eTot,eTotOld,dtEint
+   real(cp) :: e_kin_pMean, e_kin_tMean
+   real(cp) :: e_mag_pMean, e_mag_tMean
    integer :: n_e_sets, nRMS_sets
  
    public :: output, initialize_output
@@ -148,28 +149,28 @@ contains
       nLogs        =0
       nRMS_sets    =0
       
-      timeNormLog  =0.D0
-      timePassedLog=0.D0
-      RmMean       =0.D0
-      ElMean       =0.D0
-      ElCmbMean    =0.D0
-      RolMean      =0.D0
-      GeosMean     =0.D0
-      DipMean      =0.D0
-      DipCMBMean   =0.D0
-      e_kin_pMean  =0.D0
-      e_kin_tMean  =0.D0
-      e_mag_pMean  =0.D0
-      e_mag_tMean  =0.D0
-      dlVMean      =0.D0
-      dlVcMean     =0.D0
-      dmVMean      =0.D0
-      dpVMean      =0.D0
-      dzVMean      =0.D0
-      dlBMean      =0.D0
-      dmBMean      =0.D0
-      lvDissmean   =0.D0
-      lbDissmean   =0.D0
+      timeNormLog  =0.0_cp
+      timePassedLog=0.0_cp
+      RmMean       =0.0_cp
+      ElMean       =0.0_cp
+      ElCmbMean    =0.0_cp
+      RolMean      =0.0_cp
+      GeosMean     =0.0_cp
+      DipMean      =0.0_cp
+      DipCMBMean   =0.0_cp
+      e_kin_pMean  =0.0_cp
+      e_kin_tMean  =0.0_cp
+      e_mag_pMean  =0.0_cp
+      e_mag_tMean  =0.0_cp
+      dlVMean      =0.0_cp
+      dlVcMean     =0.0_cp
+      dmVMean      =0.0_cp
+      dpVMean      =0.0_cp
+      dzVMean      =0.0_cp
+      dlBMean      =0.0_cp
+      dmBMean      =0.0_cp
+      lvDissmean   =0.0_cp
+      lbDissmean   =0.0_cp
 
    end subroutine initialize_output
 !----------------------------------------------------------------------------
@@ -189,24 +190,24 @@ contains
       !  +-------------------------------------------------------------------+
   
       !--- Input of variables
-      real(kind=8),    intent(in) :: time,dt,dtNew
-      integer,         intent(in) :: n_time_step
-      logical,         intent(in) :: l_stop_time
-      logical,         intent(in) :: l_Bpot,l_Vpot,l_Tpot
-      logical,         intent(in) :: l_log, l_graph, lRmsCalc, l_store
-      logical,         intent(in) :: l_new_rst_file, l_spectrum
-      logical,         intent(in) :: lTOCalc,lTOframe
-      logical,         intent(in) :: l_frame, l_cmb, l_r
-      logical,         intent(inout) :: lTOZwrite
-      integer,         intent(inout) :: n_frame
-      integer,         intent(inout) :: n_cmb_sets
+      real(cp),    intent(in) :: time,dt,dtNew
+      integer,     intent(in) :: n_time_step
+      logical,     intent(in) :: l_stop_time
+      logical,     intent(in) :: l_Bpot,l_Vpot,l_Tpot
+      logical,     intent(in) :: l_log, l_graph, lRmsCalc, l_store
+      logical,     intent(in) :: l_new_rst_file, l_spectrum
+      logical,     intent(in) :: lTOCalc,lTOframe
+      logical,     intent(in) :: l_frame, l_cmb, l_r
+      logical,     intent(inout) :: lTOZwrite
+      integer,     intent(inout) :: n_frame
+      integer,     intent(inout) :: n_cmb_sets
   
       !--- Input of Lorentz torques and dbdt calculated in radialLoopG
       !    Parallelization note: Only the contribution at the CMB must be 
       !    collected and is (likely) stored on the processor (#0) that performs 
       !    this routine anyway.
-      real(kind=8),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-      complex(kind=8), intent(in), pointer :: dbdt_at_CMB(:)
+      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
+      complex(cp), intent(in), pointer :: dbdt_at_CMB(:)
   
       !--- Input of scales fields via common block in c_fields.f:
       !    Parallelization note: these fields are LM-distributed.
@@ -231,39 +232,39 @@ contains
       !    for calculating axisymmetric helicity.
       !    Parallelization note: These fields are R-distribute on input 
       !    and must also be collected on the processor performing this routine.
-      real(kind=8),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8),    intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
-      real(kind=8),    intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
-      real(kind=8),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: HelLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: fconvLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: fkinLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: fviscLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp),    intent(in) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp),    intent(in) :: EperpLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
   
       !--- Local stuff:
       !--- Energies:
-      real(kind=8) :: ekinR(n_r_max)     ! kinetic energy w radius
-      real(kind=8) :: e_mag,e_mag_ic,e_mag_cmb       
-      real(kind=8) :: e_mag_p,e_mag_t      
-      real(kind=8) :: e_mag_p_as,e_mag_t_as   
-      real(kind=8) :: e_mag_p_ic,e_mag_t_ic   
-      real(kind=8) :: e_mag_p_as_ic,e_mag_t_as_ic
-      real(kind=8) :: e_mag_os,e_mag_as_os    
-      real(kind=8) :: e_kin,e_kin_p,e_kin_t  
-      real(kind=8) :: e_kin_p_as,e_kin_t_as 
-      real(kind=8) :: eKinIC,eKinMA        
-      real(kind=8) :: dtE
+      real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
+      real(cp) :: e_mag,e_mag_ic,e_mag_cmb       
+      real(cp) :: e_mag_p,e_mag_t      
+      real(cp) :: e_mag_p_as,e_mag_t_as   
+      real(cp) :: e_mag_p_ic,e_mag_t_ic   
+      real(cp) :: e_mag_p_as_ic,e_mag_t_as_ic
+      real(cp) :: e_mag_os,e_mag_as_os    
+      real(cp) :: e_kin,e_kin_p,e_kin_t  
+      real(cp) :: e_kin_p_as,e_kin_t_as 
+      real(cp) :: eKinIC,eKinMA        
+      real(cp) :: dtE
   
       !--- Help arrays:
-      complex(kind=8) :: dbdtCMB(lm_max)        ! SV at CMB !
+      complex(cp) :: dbdtCMB(lm_max)        ! SV at CMB !
   
       integer :: nR,lm,n
   
@@ -274,21 +275,21 @@ contains
       integer :: nF1,nF2
   
       !--- Property parameters:
-      real(kind=8) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
-      real(kind=8) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
-      real(kind=8) :: RmR(n_r_max)
-      real(kind=8) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,Dip,DipCMB
-      real(kind=8) :: ReConv,RoConv,e_kin_nas,RolC
-      real(kind=8) :: elsAnel
-      real(kind=8) :: dlB,dlBc,dmB
-      real(kind=8) :: dlV,dlVc,dmV,dpV,dzV
-      real(kind=8) :: visDiss,ohmDiss,lvDiss,lbDiss
+      real(cp) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
+      real(cp) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
+      real(cp) :: RmR(n_r_max)
+      real(cp) :: Re,Ro,Rm,El,ElCmb,Rol,Geos,Dip,DipCMB
+      real(cp) :: ReConv,RoConv,e_kin_nas,RolC
+      real(cp) :: elsAnel
+      real(cp) :: dlB,dlBc,dmB
+      real(cp) :: dlV,dlVc,dmV,dpV,dzV
+      real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
       integer :: l,lm0
-      real(kind=8) :: ReEquat
+      real(cp) :: ReEquat
   
       logical :: l_PVout
   
-      real(kind=8) :: timeScaled
+      real(cp) :: timeScaled
   
       character(len=76) :: filename
       character(len=96) :: message
@@ -320,7 +321,8 @@ contains
          e_kin=e_kin_p+e_kin_t
          !write(*,"(A,3(I4,F20.17))") "e_kin, e_kin_p_as,e_kin_t_as = ",&
          !     &EXPONENT(e_kin),FRACTION(e_kin),&
-         !     &EXPONENT(e_kin_p_as),FRACTION(e_kin_p_as),EXPONENT(e_kin_t_as),FRACTION(e_kin_t_as)
+         !     &EXPONENT(e_kin_p_as),FRACTION(e_kin_p_as),&
+         !     &EXPONENT(e_kin_t_as),FRACTION(e_kin_t_as)
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
   
@@ -370,9 +372,10 @@ contains
                   close(99)
                else
                   eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
-                  dtEint=0.D0
+                  dtEint=0.0_cp
                end if
-               !write(*,"(A,7ES22.14)") "eTot = ",eTot,e_kin,e_mag,e_mag_ic,e_mag_os,eKinIC,eKinMA
+               !write(*,"(A,7ES22.14)") "eTot = ",eTot,e_kin,e_mag,e_mag_ic, &
+               !     &                            e_mag_os,eKinIC,eKinMA
             end if
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
@@ -389,8 +392,8 @@ contains
             call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2,dlVRu2,dlVRu2c)
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
          else
-            dlVRu2  = 0.0D0
-            dlVRu2c = 0.0D0
+            dlVRu2  = 0.0_cp
+            dlVRu2c = 0.0_cp
          end if
   
          if ( l_perpPar ) then
@@ -422,8 +425,8 @@ contains
          if ( l_mag .or. l_mag_LF ) then 
             call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlBR,dmB,dlBc,dlBRc,'B')
          else
-            dlB=0.D0
-            dmB=0.D0
+            dlB=0.0_cp
+            dmB=0.0_cp
          end if
       end if
   
@@ -728,12 +731,12 @@ contains
             !    performed for l_log=.true.
   
             !----- Getting the property parameters:
-            Re     = SQRT(2.D0*e_kin/vol_oc)/SQRT(mass)
-            ReConv = SQRT(2.D0*e_kin_nas/vol_oc)/SQRT(mass)
+            Re     = sqrt(two*e_kin/vol_oc)/sqrt(mass)
+            ReConv = sqrt(two*e_kin_nas/vol_oc)/sqrt(mass)
   
             if ( l_non_rot ) then
-               Ro=0.D0
-               RoConv=0.D0
+               Ro=0.0_cp
+               RoConv=0.0_cp
             else
                Ro=Re*ek
                RoConv=ReConv*ek
@@ -741,21 +744,21 @@ contains
   
             !---- Surface zonal velocity at the equator
             if ( ktopv==1 ) then
-               ReEquat=0.d0
+               ReEquat=0.0_cp
                do l=1,l_max
                   lm0=lm2(l,0)
                   ReEquat=ReEquat-real(z(lm0,n_r_cmb))*dPl0Eq(l+1)*or1(n_r_cmb)
                end do
             else
-               ReEquat=0.d0
+               ReEquat=0.0_cp
             end if
   
-            if ( dlV /= 0d0 ) then
+            if ( dlV /= 0.0_cp ) then
                Rol=Ro/dlV   ! See Christensen&Aubert 2006, eqn.(27)
             else
                Rol=Ro
             end if
-            if ( dlVc /= 0d0 ) then
+            if ( dlVc /= 0.0_cp ) then
                RolC=RoConv/dlVc
             else
                RolC=RoConv
@@ -763,7 +766,7 @@ contains
             !write(*,"(A,3ES20.12)") "dlVc,RoConv,RolC = ",dlVc,RoConv,RolC
   
             if ( prmag /= 0 .and. nVarCond > 0 ) then
-               Rm=0.d0
+               Rm=0.0_cp
                Rm=rInt_R(RmR,n_r_max,n_r_max,drx, &
                     &    i_costf_init,d_costf_init)
                Rm=Rm*3/(r_cmb**3-r_icb**3)
@@ -772,33 +775,33 @@ contains
             else
                Rm=Re
             end if
-            !El   =2.D0*e_mag/vol_oc/LFfac
+            !El   =two*e_mag/vol_oc/LFfac
             ! Elsasser number is computed from the averaged profile
             if ( l_mag .or. l_mag_LF ) then
                El   =elsAnel/vol_oc
-               ElCmb=2.D0*e_mag_cmb/surf_cmb/LFfac
+               ElCmb=two*e_mag_cmb/surf_cmb/LFfac
             else
-               El   =0d0
-               ElCmb=0d0
+               El   =0.0_cp
+               ElCmb=0.0_cp
             end if
             if ( l_power ) then
-               if ( visDiss /= 0d0 ) then
-                  lvDiss=dsqrt(e_kin/DABS(visDiss))            ! Viscous diffusion
+               if ( visDiss /= 0.0_cp ) then
+                  lvDiss=sqrt(e_kin/abs(visDiss))            ! Viscous diffusion
                else
-                  lvDiss=0d0
+                  lvDiss=0.0_cp
                end if
                if ( l_mag .or. l_mag_LF ) then
-                  if ( ohmDiss /= 0d0 ) then
+                  if ( ohmDiss /= 0.0_cp ) then
                      lbDiss=SQRT((e_mag+e_mag_ic)/ABS(ohmDiss)) ! Ohmic diffusion 
                   else
-                     lbDiss=0d0
+                     lbDiss=0.0_cp
                   end if
                else
-                  lbDiss=0.D0
+                  lbDiss=0.0_cp
                end if
             else
-               lvDiss=0.D0
-               lbDiss=0.D0
+               lvDiss=0.0_cp
+               lbDiss=0.0_cp
             end if
   
             !----- Ouput into par file:
@@ -989,7 +992,7 @@ contains
       end if
   
       if ( l_log ) then
-         timePassedLog=0.0D0
+         timePassedLog=0.0_cp
       end if
   
       if ( lRmsCalc ) then

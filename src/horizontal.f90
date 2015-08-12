@@ -18,7 +18,8 @@ module horizontal_data
 #elif (FFTLIB==MKL)
    use fft_MKL, only: init_fft
 #endif
-   use const, only: pi
+   use const, only: pi, zero, one, two, half
+   use precision_mod, only: cp
  
    implicit none
 
@@ -26,39 +27,39 @@ module horizontal_data
  
    !-- Arrays depending on theta (colatitude):
    integer, public, allocatable :: n_theta_cal2ord(:)
-   real(kind=8), public, allocatable :: theta(:)
-   real(kind=8), public, allocatable :: theta_ord(:)
-   real(kind=8), public, allocatable :: sn2(:)
-   real(kind=8), public, allocatable :: osn2(:)
-   real(kind=8), public, allocatable :: cosn2(:)
-   real(kind=8), public, allocatable :: osn1(:)
-   real(kind=8), public, allocatable :: O_sin_theta(:)
-   real(kind=8), public, allocatable :: O_sin_theta_E2(:)
-   real(kind=8), public, allocatable :: sinTheta(:)
-   real(kind=8), public, allocatable :: cosTheta(:)
+   real(cp), public, allocatable :: theta(:)
+   real(cp), public, allocatable :: theta_ord(:)
+   real(cp), public, allocatable :: sn2(:)
+   real(cp), public, allocatable :: osn2(:)
+   real(cp), public, allocatable :: cosn2(:)
+   real(cp), public, allocatable :: osn1(:)
+   real(cp), public, allocatable :: O_sin_theta(:)
+   real(cp), public, allocatable :: O_sin_theta_E2(:)
+   real(cp), public, allocatable :: sinTheta(:)
+   real(cp), public, allocatable :: cosTheta(:)
  
    !-- Phi (longitude)
-   real(kind=8), public, allocatable :: phi(:)
+   real(cp), public, allocatable :: phi(:)
  
    !-- Legendres:
-   real(kind=8), public, allocatable :: Plm(:,:)
-   real(kind=8), public, allocatable :: wPlm(:,:)
-   real(kind=8), public, allocatable :: dPlm(:,:)
-   real(kind=8), public, allocatable :: gauss(:)
-   real(kind=8), public, allocatable :: dPl0Eq(:)
+   real(cp), public, allocatable :: Plm(:,:)
+   real(cp), public, allocatable :: wPlm(:,:)
+   real(cp), public, allocatable :: dPlm(:,:)
+   real(cp), public, allocatable :: gauss(:)
+   real(cp), public, allocatable :: dPl0Eq(:)
  
    !-- Arrays depending on l and m:
-   complex(kind=8), public, allocatable :: dPhi(:)
-   complex(kind=8), public, allocatable :: dPhi0(:)
-   complex(kind=8), public, allocatable :: dPhi02(:)
-   real(kind=8), public, allocatable :: dLh(:)
-   real(kind=8), public, allocatable :: dTheta1S(:),dTheta1A(:)
-   real(kind=8), public, allocatable :: dTheta2S(:),dTheta2A(:)
-   real(kind=8), public, allocatable :: dTheta3S(:),dTheta3A(:)
-   real(kind=8), public, allocatable :: dTheta4S(:),dTheta4A(:)
-   real(kind=8), public, allocatable :: D_m(:),D_l(:),D_lP1(:)
-   real(kind=8), public, allocatable :: D_mc2m(:)
-   real(kind=8), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:)
+   complex(cp), public, allocatable :: dPhi(:)
+   complex(cp), public, allocatable :: dPhi0(:)
+   complex(cp), public, allocatable :: dPhi02(:)
+   real(cp), public, allocatable :: dLh(:)
+   real(cp), public, allocatable :: dTheta1S(:),dTheta1A(:)
+   real(cp), public, allocatable :: dTheta2S(:),dTheta2A(:)
+   real(cp), public, allocatable :: dTheta3S(:),dTheta3A(:)
+   real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
+   real(cp), public, allocatable :: D_m(:),D_l(:),D_lP1(:)
+   real(cp), public, allocatable :: D_mc2m(:)
+   real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:)
  
    !-- Limiting l for a given m, used in legtf
    integer, public, allocatable :: lStart(:),lStop(:)
@@ -123,20 +124,20 @@ contains
       !-- Local variables:
       integer :: norm,n_theta,n_phi
       integer :: l,m,lm,lmP,mc
-      real(kind=8) :: ampnu!,q0
-      real(kind=8) :: clm(0:l_max+1,0:l_max+1)
-      real(kind=8) :: plma(lmP_max)
-      real(kind=8) :: dtheta_plma(lmP_max)
-      real(kind=8) :: colat
-      real(kind=8) :: fac
-      real(kind=8) :: Pl0Eq(l_max+1)
+      real(cp) :: ampnu!,q0
+      real(cp) :: clm(0:l_max+1,0:l_max+1)
+      real(cp) :: plma(lmP_max)
+      real(cp) :: dtheta_plma(lmP_max)
+      real(cp) :: colat
+      real(cp) :: fac
+      real(cp) :: Pl0Eq(l_max+1)
 
       norm=2 ! norm chosen so that a surface integral over
              ! any ylm**2 is 1.
 
       !-- Calculate grid points and weights for the
       !   Gauss-Legendre integration of the plms:
-      call gauleg(-1.d0,1.d0,theta_ord,gauss,n_theta_max)
+      call gauleg(-one,one,theta_ord,gauss,n_theta_max)
 
       !-- Legendre polynomials and cos(theta) derivative:
       !   Note: the following functions are only stored for the northern hemisphere
@@ -159,26 +160,26 @@ contains
                   Plm(lm,n_theta) =plma(lmP)
                   dPlm(lm,n_theta)=dtheta_plma(lmP)
               end if
-              wPlm(lmP,n_theta)=2.d0*pi*gauss(n_theta)*plma(lmP)
+              wPlm(lmP,n_theta)=two*pi*gauss(n_theta)*plma(lmP)
           end do
 
           ! Get dP for all degrees and order m=0 at the equator only
           ! Usefull to estimate the flow velocity at the equator
-          call plm_thetaAS(pi/2.d0,l_max,Pl0Eq,dPl0Eq,l_max+1,norm)
+          call plm_thetaAS(half*pi,l_max,Pl0Eq,dPl0Eq,l_max+1,norm)
 
           !-- More functions stored to obscure the code:
-          sn2(n_theta)               =dsin(colat)**2
-          osn1(n_theta)              =1.D0/dsin(colat)
+          sn2(n_theta)               =sin(colat)**2
+          osn1(n_theta)              =one/sin(colat)
           osn2(n_theta)              =osn1(n_theta)*osn1(n_theta)
-          cosn2(n_theta)             =dcos(colat)*osn2(n_theta)
-          O_sin_theta(2*n_theta-1)   =1.D0/dsin(colat)
-          O_sin_theta(2*n_theta  )   =1.D0/dsin(colat)
-          O_sin_theta_E2(2*n_theta-1)=1.D0/(dsin(colat)*dsin(colat))
-          O_sin_theta_E2(2*n_theta  )=1.D0/(dsin(colat)*dsin(colat))
-          sinTheta(2*n_theta-1)      =dsin(colat)
-          sinTheta(2*n_theta  )      =dsin(colat)
-          cosTheta(2*n_theta-1)      =dcos(colat)
-          cosTheta(2*n_theta  )      =-dcos(colat)
+          cosn2(n_theta)             =cos(colat)*osn2(n_theta)
+          O_sin_theta(2*n_theta-1)   =one/sin(colat)
+          O_sin_theta(2*n_theta  )   =one/sin(colat)
+          O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
+          O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
+          sinTheta(2*n_theta-1)      =sin(colat)
+          sinTheta(2*n_theta  )      =sin(colat)
+          cosTheta(2*n_theta-1)      =cos(colat)
+          cosTheta(2*n_theta  )      =-cos(colat)
                     
       end do
 
@@ -194,9 +195,9 @@ contains
          
 
       !----- Same for longitude output grid:
-      fac=2.d0*pi/dble(n_phi_max*minc)
+      fac=two*pi/real(n_phi_max*minc,cp)
       do n_phi=1,n_phi_max
-          phi(n_phi)=fac*dble(n_phi-1)
+          phi(n_phi)=fac*real(n_phi-1,cp)
       end do
 
 
@@ -207,7 +208,7 @@ contains
       !   and hyperdiffusion factors:
       do m=0,m_max,minc  ! Build auxiliary array clm
           do l=m,l_max+1
-              clm(l,m)=dsqrt( dble((l+m)*(l-m)) / dble((2*l-1)*(2*l+1)) )
+              clm(l,m)=sqrt( real((l+m)*(l-m),cp) / real((2*l-1)*(2*l+1),cp) )
           end do
       end do
 
@@ -216,69 +217,69 @@ contains
           m=lm2m(lm)
 
           !-- Help arrays:
-          D_l(lm)  =dble(l)
-          D_lP1(lm)=dble(l+1)
-          D_m(lm)  =dble(m)
+          D_l(lm)  =real(l,cp)
+          D_lP1(lm)=real(l+1,cp)
+          D_m(lm)  =real(m,cp)
 
           !---- Operators for derivatives:
 
           !-- Phi derivate:
-          dPhi(lm)=cmplx(0.D0,dble(m),kind=kind(0d0))
+          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
           if ( l < l_max ) then
-              dPhi0(lm)    =cmplx(0.D0,dble(m),kind=kind(0d0))
+              dPhi0(lm)    =cmplx(0.0_cp,real(m,cp),cp)
               dPhi02(lm)   =dPhi0(lm)*dPhi0(lm)
           else
-              dPhi0(lm)    =cmplx(0.D0,0.D0,kind=kind(0d0))
-              dPhi02(lm)   =cmplx(0.D0,0.D0,kind=kind(0d0))
+              dPhi0(lm)    =zero
+              dPhi02(lm)   =zero
           end if
           !-- Negative horizontal Laplacian *r^2
-          dLh(lm)     =dble(l*(l+1))                 ! = qll1
+          dLh(lm)     =real(l*(l+1),cp)                 ! = qll1
           !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
-          dTheta1S(lm)=dble(l+1)        *clm(l,m)    ! = qcl1
-          dTheta1A(lm)=dble(l)          *clm(l+1,m)  ! = qcl
+          dTheta1S(lm)=real(l+1,cp)        *clm(l,m)    ! = qcl1
+          dTheta1A(lm)=real(l,cp)          *clm(l+1,m)  ! = qcl
           !-- Operator ( sin(thetaR) * d/d theta )
-          dTheta2S(lm)=dble(l-1)        *clm(l,m)    ! = qclm1
-          dTheta2A(lm)=dble(l+2)        *clm(l+1,m)  ! = qcl2
+          dTheta2S(lm)=real(l-1,cp)        *clm(l,m)    ! = qclm1
+          dTheta2A(lm)=real(l+2,cp)        *clm(l+1,m)  ! = qcl2
           !-- Operator ( sin(theta) * d/d theta + cos(theta) dLh )
-          dTheta3S(lm)=dble((l-1)*(l+1))*clm(l,m)    ! = q0l1lm1(lm)
-          dTheta3A(lm)=dble(l*(l+2))    *clm(l+1,m)  ! = q0cll2(lm)
+          dTheta3S(lm)=real((l-1)*(l+1),cp)*clm(l,m)    ! = q0l1lm1(lm)
+          dTheta3A(lm)=real(l*(l+2),cp)    *clm(l+1,m)  ! = q0cll2(lm)
           !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
-          dTheta4S(lm)=dTheta1S(lm)*dble((l-1)*l)
-          dTheta4A(lm)=dTheta1A(lm)*dble((l+1)*(l+2))
+          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
+          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
 
           !-- Hyperdiffusion
-          hdif_B(lm)=1.D0
-          hdif_V(lm)=1.D0
-          hdif_S(lm)=1.D0
+          hdif_B(lm)=one
+          hdif_V(lm)=one
+          hdif_S(lm)=one
           if ( ldifexp > 0 ) then
 
               if ( ldif >= 0 .and. l > ldif ) then
 
               !-- Kuang and Bloxham type:
               !                 hdif_B(lm)=
-              !     *                   1.D0+difeta*dble(l+1-ldif)**ldifexp
+              !     *                   one+difeta*real(l+1-ldif,cp)**ldifexp
               !                 hdif_V(lm)=
-              !     *                   1.D0+ difnu*dble(l+1-ldif)**ldifexp
+              !     *                   one+ difnu*real(l+1-ldif,cp)**ldifexp
               !                 hdif_S(lm)=
-              !     &                   1.D0+difkap*dble(l+1-ldif)**ldifexp
+              !     &                   one+difkap*real(l+1-ldif,cp)**ldifexp
 
               !-- Old type:
-                  hdif_B(lm)= 1.D0 + difeta * ( dble(l+1-ldif) / &
-                                                dble(l_max+1-ldif) )**ldifexp
-                  hdif_V(lm)= 1.D0 + difnu * ( dble(l+1-ldif) / &
-                                               dble(l_max+1-ldif) )**ldifexp
-                  hdif_S(lm)= 1.D0 + difkap * ( dble(l+1-ldif) / &
-                                                dble(l_max+1-ldif) )**ldifexp
+                  hdif_B(lm)= one + difeta * ( real(l+1-ldif,cp) / &
+                                                real(l_max+1-ldif,cp) )**ldifexp
+                  hdif_V(lm)= one + difnu * ( real(l+1-ldif,cp) / &
+                                               real(l_max+1-ldif,cp) )**ldifexp
+                  hdif_S(lm)= one + difkap * ( real(l+1-ldif,cp) / &
+                                                real(l_max+1-ldif,cp) )**ldifexp
 
               else if ( ldif < 0 ) then
 
               !-- Grote and Busse type:
-                  hdif_B(lm)= (1.D0+difeta*dble(l)**ldifexp ) / &
-                              (1.D0+difeta*dble(-ldif)**ldifexp )
-                  hdif_V(lm)= (1.D0+difnu*dble(l)**ldifexp ) / &
-                              (1.D0+difnu*dble(-ldif)**ldifexp )
-                  hdif_S(lm)= (1.D0+difkap*dble(l)**ldifexp ) / &
-                              (1.D0+difkap*dble(-ldif)**ldifexp )
+                  hdif_B(lm)= (one+difeta*real(l,cp)**ldifexp ) / &
+                              (one+difeta*real(-ldif,cp)**ldifexp )
+                  hdif_V(lm)= (one+difnu*real(l,cp)**ldifexp ) / &
+                              (one+difnu*real(-ldif,cp)**ldifexp )
+                  hdif_S(lm)= (one+difkap*real(l,cp)**ldifexp ) / &
+                              (one+difkap*real(-ldif,cp)**ldifexp )
                                
               end if
 
@@ -289,8 +290,8 @@ contains
               !  strong as the viscous force for l=l_max:
               !  We can turn this argument around and state that
               !  for example for Ek=1e-4 l_max should be 221.
-                  ampnu=(r_cmb**2/dble(l_max*(l_max+1)))*(2.D0/ek)
-                  ampnu=Dmax1(1.D0,ampnu)
+                  ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
+                  ampnu=max(one,ampnu)
                   hdif_V(lm)=ampnu*hdif_V(lm)
               end if
 
@@ -316,7 +317,7 @@ contains
       end if
       do mc=2,n_m_max
           m=(mc-1)*minc
-          D_mc2m(mc) =dble(m)
+          D_mc2m(mc) =real(m,cp)
           lStartP(mc)=lStopP(mc-1)+1
           lStopP(mc) =lStartP(mc) +l_max-m+1
           lStart(mc) =lStop(mc-1) +1
@@ -358,49 +359,49 @@ contains
       !----------------------------------------------------------------------
 
       !-- Input variables:
-      real(kind=8), intent(in) :: sinThMin,sinThMax ! lower/upper bound in radiants
-      integer,      intent(in) :: n_theta_max  ! desired maximum degree
+      real(cp), intent(in) :: sinThMin,sinThMax ! lower/upper bound in radiants
+      integer,  intent(in) :: n_theta_max  ! desired maximum degree
     
       !-- Output variables:
-      real(kind=8), intent(out) :: theta_ord(n_theta_max) ! zeros cos(theta)
-      real(kind=8), intent(out) :: gauss(n_theta_max) ! associated Gauss-Legendre weights
+      real(cp), intent(out) :: theta_ord(n_theta_max) ! zeros cos(theta)
+      real(cp), intent(out) :: gauss(n_theta_max) ! associated Gauss-Legendre weights
     
       !-- Local variables:
       integer                :: m,i,j
-      real(kind=8)           :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
-      real(kind=8), parameter :: eps = 10.0D0*EPSILON(1.0D0)
+      real(cp)           :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
+      real(cp), parameter :: eps = 10.0_cp*epsilon(one)
     
       m=(n_theta_max+1)/2  ! use symmetry
     
       !-- Map on symmetric interval:
-      sinThMean=0.5D0*(sinThMax+sinThMin)
-      sinThDiff=0.5D0*(sinThMax-sinThMin)
+      sinThMean=half*(sinThMax+sinThMin)
+      sinThDiff=half*(sinThMax-sinThMin)
     
       do i=1,m
          !----- Initial guess for zeros:
-         z  = dcos( pi*( (dble(i)-0.25D0)/(dble(n_theta_max)+0.5D0)) )
+         z  = cos( pi*( (real(i,cp)-0.25_cp)/(real(n_theta_max,cp)+half)) )
          z1 = z+10*eps
      
-         do while( dabs(z-z1) > eps)
+         do while( abs(z-z1) > eps)
             !----- Use recurrence to calulate P(l=n_theta_max,z=cos(theta))
-            p1=1.D0
-            p2=0.D0
+            p1=one
+            p2=0.0_cp
             do j=1,n_theta_max   ! do loop over degree !
                p3=p2
                p2=p1
-               p1=( dble(2*j-1)*z*p2-dbLe(j-1)*p3 )/dble(j)
+               p1=( real(2*j-1,cp)*z*p2-real(j-1,cp)*p3 )/real(j,cp)
             end do
       
             !----- Newton method to refine zero: pp is derivative !
-            pp=dble(n_theta_max)*(z*p1-p2)/(z*z-1.D0)
+            pp=real(n_theta_max,cp)*(z*p1-p2)/(z*z-one)
             z1=z
             z=z1-p1/pp
          end do
      
          !----- Another zero found
-         theta_ord(i)              =dacos(sinThMean+sinThDiff*z)
-         theta_ord(n_theta_max+1-i)=dacos(sinThMean-sinThDiff*z)
-         gauss(i)                  =2.D0*sinThDiff/((1.D0-z*z)*pp*pp)
+         theta_ord(i)              =acos(sinThMean+sinThDiff*z)
+         theta_ord(n_theta_max+1-i)=acos(sinThMean-sinThDiff*z)
+         gauss(i)                  =two*sinThDiff/((one-z*z)*pp*pp)
          gauss(n_theta_max+1-i)    =gauss(i)
     
       end do

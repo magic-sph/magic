@@ -1,8 +1,10 @@
 !$Id$
 #include "perflib_preproc.cpp"
 module updateZ_mod
+
    use init_fields
    use omp_lib
+   use precision_mod, only: cp
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
@@ -29,7 +31,8 @@ module updateZ_mod
    use RMS, only: DifTor2hInt, DifTorAs2hInt, dtVTor2hInt, dtVTorAs2hInt
    use const, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
                     c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
-                    c_moi_oc, y10_norm, y11_norm
+                    c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
+                    half
    use parallel_mod, only: rank, chunksize
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf
@@ -48,8 +51,8 @@ module updateZ_mod
    private
  
    !-- Input of recycled work arrays:
-   complex(kind=8), allocatable :: workA(:,:),workB(:,:),workC(:,:)
-   complex(kind=8), allocatable :: rhs1(:,:,:) ! RHS for other modes
+   complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
+   complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    integer :: maxThreads
    
    public :: updateZ,initialize_updateZ
@@ -77,41 +80,37 @@ contains
      &             lorentz_torque_ma,lorentz_torque_maLast, &
      &             lorentz_torque_ic,lorentz_torque_icLast, &
      &             w1,coex,dt,lRmsNext)
-      !  its radial derivatives
-      !  adds explicit part to time derivatives of z
-    
+      !--------------------------------------------------------------------
       !  Input:  w1 - weight for dbdt-contribution from current time step
       !               (w2=1-w1: weight for contrib. from previous step)
       !          coex - factor depending on weighting alpha of implicit contribution
       !          m1,m2- range of mca-indices in which field is updated
       !                 (harmonic order m=(mca-1)*minc)
-    
       !--------------------------------------------------------------------
     
       !-- Input/output of scalar fields:
-      complex(kind=8), intent(inout) :: z(llm:ulm,n_r_max)
-      complex(kind=8), intent(in)    :: dzdt(llm:ulm,n_r_max)
-      complex(kind=8), intent(inout) :: dzdtLast(llm:ulm,n_r_max)
-      real(kind=8),    intent(inout) :: d_omega_ma_dtLast,d_omega_ic_dtLast
-      real(kind=8),    intent(in) :: lorentz_torque_ma,lorentz_torque_maLast
-      real(kind=8),    intent(in) :: lorentz_torque_ic,lorentz_torque_icLast
+      complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in)    :: dzdt(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dzdtLast(llm:ulm,n_r_max)
+      real(cp),    intent(inout) :: d_omega_ma_dtLast,d_omega_ic_dtLast
+      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_maLast
+      real(cp),    intent(in) :: lorentz_torque_ic,lorentz_torque_icLast
     
       !-- Input of other variables:
-      real(kind=8),    intent(in) :: time
-      real(kind=8),    intent(in) :: w1    ! weight for time step !
-      real(kind=8),    intent(in) :: coex  ! factor depending on alpha
-      real(kind=8),    intent(in) :: dt
-      logical,         intent(in) :: lRmsNext
+      real(cp),    intent(in) :: time
+      real(cp),    intent(in) :: w1    ! weight for time step !
+      real(cp),    intent(in) :: coex  ! factor depending on alpha
+      real(cp),    intent(in) :: dt
+      logical,     intent(in) :: lRmsNext
 
       !-- Output variables
-      complex(kind=8), intent(out) :: dz(llm:ulm,n_r_max)
-      real(kind=8),    intent(out) :: omega_ma,omega_ic
-    
+      complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
+      real(cp),    intent(out) :: omega_ma,omega_ic
     
       !-- local variables:
-      real(kind=8) :: w2                  ! weight of second time step
-      real(kind=8) :: O_dt
-      real(kind=8) :: d_omega_ic_dt,d_omega_ma_dt
+      real(cp) :: w2                  ! weight of second time step
+      real(cp) :: O_dt
+      real(cp) :: d_omega_ic_dt,d_omega_ma_dt
       integer :: l1,m1              ! degree and order
       integer :: lm1,lm,lmB         ! position of (l,m) in array
       integer :: lmStart_00         ! excluding l=0,m=0
@@ -119,23 +118,23 @@ contains
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
       integer :: n_cheb             ! counts cheb modes
-      complex(kind=8) :: rhs(n_r_max)   ! RHS of matrix multiplication
-      !complex(kind=8) :: rhs1(n_r_max,lo_sub_map%sizeLMB2max) ! RHS for other modes
-      complex(kind=8) :: z10(n_r_max),z11(n_r_max) ! toroidal flow scalar components
-      real(kind=8) :: angular_moment(3)   ! total angular momentum
-      real(kind=8) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
-      real(kind=8) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
-      real(kind=8) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
-      complex(kind=8) :: corr_l1m0       ! correction factor for z(l=1,m=0)
-      complex(kind=8) :: corr_l1m1       ! correction factor for z(l=1,m=1)
-      real(kind=8) :: r_E_2               ! =r**2
-      real(kind=8) :: nomi                ! nominator for Z10 AM correction
+      complex(cp) :: rhs(n_r_max)   ! RHS of matrix multiplication
+      !complex(cp) :: rhs1(n_r_max,lo_sub_map%sizeLMB2max) ! RHS for other modes
+      complex(cp) :: z10(n_r_max),z11(n_r_max) ! toroidal flow scalar components
+      real(cp) :: angular_moment(3)   ! total angular momentum
+      real(cp) :: angular_moment_oc(3)! x,y,z component of outer core angular mom.
+      real(cp) :: angular_moment_ic(3)! x,y,z component of inner core angular mom.
+      real(cp) :: angular_moment_ma(3)! x,y,z component of mantle angular mom.
+      complex(cp) :: corr_l1m0      ! correction factor for z(l=1,m=0)
+      complex(cp) :: corr_l1m1      ! correction factor for z(l=1,m=1)
+      real(cp) :: r_E_2             ! =r**2
+      real(cp) :: nomi              ! nominator for Z10 AM correction
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: i                  ! counter
       logical :: l10
       integer :: nLMB
     
-      complex(kind=8) :: Dif(lm_max)
+      complex(cp) :: Dif(lm_max)
     
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -144,7 +143,7 @@ contains
       logical :: DEBUG_OUTPUT=.false.
       integer :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
-      complex(kind=8) :: rhs_sum
+      complex(cp) :: rhs_sum
     
       !call mpi_barrier(MPI_COMM_WORLD,ierr)
       !write(*,"(3(A,2ES20.12))") "begin upZ: dzdt = ",get_global_sum( dzdt ),&
@@ -170,8 +169,8 @@ contains
       lmStart_00  =max(2,lmStart)
       l1m0        =lm2(1,0)
     
-      w2  =1.D0-w1
-      O_dt=1.D0/dt
+      w2  =one-w1
+      O_dt=one/dt
     
       l10=.false.
       !$OMP PARALLEL default(shared)
@@ -188,7 +187,8 @@ contains
     
          ! This task treats one l given by l1
          l1=lm22l(1,nLMB2,nLMB)
-         !write(*,"(3(A,I3),A)") "Launching task for nLMB2=",nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
+         !write(*,"(3(A,I3),A)") "Launching task for nLMB2=", &
+         !     &   nLMB2," (l=",l1,") and scheduling ",nChunks," subtasks."
     
          if ( l1 /= 0 ) then
             if ( .not. lZmat(l1) ) then
@@ -250,29 +250,29 @@ contains
                   if ( l_SRMA ) then
                      tOmega_ma1=time+tShift_ma1
                      tOmega_ma2=time+tShift_ma2
-                     omega_ma= omega_ma1*dcos(omegaOsz_ma1*tOmega_ma1) + &
-                          &    omega_ma2*dcos(omegaOsz_ma2*tOmega_ma2)
+                     omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                          &    omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
                      rhs(1)=omega_ma
                   else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                      d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
                      rhs(1)=O_dt*c_dt_z10_ma*z(lm1,1) + &
                             w1*d_omega_ma_dt + w2*d_omega_ma_dtLast
                   else
-                     rhs(1)=0.d0
+                     rhs(1)=0.0_cp
                   end if
     
                   if ( l_SRIC ) then
                      tOmega_ic1=time+tShift_ic1
                      tOmega_ic2=time+tShift_ic2
-                     omega_ic= omega_ic1*dcos(omegaOsz_ic1*tOmega_ic1) + &
-                          &    omega_ic2*dcos(omegaOsz_ic2*tOmega_ic2)
+                     omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                          &    omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
                      rhs(n_r_max)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                      d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
                      rhs(n_r_max)=O_dt*c_dt_z10_ic*z(lm1,n_r_max) + &
                                   w1*d_omega_ic_dt + w2*d_omega_ic_dtLast
                   else
-                     rhs(n_r_max)=0.d0
+                     rhs(n_r_max)=0.0_cp
                   end if
     
                   !----- This is the normal RHS for the other radial grid points:
@@ -288,28 +288,32 @@ contains
 #endif
                   if ( DEBUG_OUTPUT ) then
                      rhs_sum=sum(rhs)
-                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) before = ",&
+                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
+                          & ":rhs_sum (z10) before = ",                     &
                           & exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
                           & exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
                      !do nR=1,n_r_max
-                     !   write(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) before = ",&
+                     !   write(*,"(3I4,A,2(I4,F20.16))")                        &
+                     !        &nLMB2,lm1,nR,":rhs (z10) before = ",             &
                      !        & EXPONENT(real(rhs(nR))),FRACTION(real(rhs(nR))),&
                      !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                      !end do
                   end if
 #ifdef WITH_MKL_LU
-                  call getrs(cmplx(z10Mat,0.D0,kind=kind(0.D0)),z10Pivot,rhs)
+                  call getrs(cmplx(z10Mat,0.0_cp,kind=cp),z10Pivot,rhs)
 #else
                   call cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
 #endif
                   if ( DEBUG_OUTPUT ) then
                      !do nR=1,n_r_max
-                     !   write(*,"(3I4,A,2(I4,F20.16))") nLMB2,lm1,nR,":rhs (z10) after = ",&
+                     !   write(*,"(3I4,A,2(I4,F20.16))")                        &
+                     !        & nLMB2,lm1,nR,":rhs (z10) after = ",             &
                      !        & EXPONENT(real(rhs(nR))),FRACTION(real(rhs(nR))),&
                      !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                      !end do
                      rhs_sum=sum(rhs)
-                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,":rhs_sum (z10) after = ",&
+                     write(*,"(2I3,A,2(I4,F20.16))") nLMB2,lm1,             &
+                          & ":rhs_sum (z10) after = ",                      &
                           & exponent(real(rhs_sum)),fraction(real(rhs_sum)),&
                           & exponent(aimag(rhs_sum)),fraction(aimag(rhs_sum))
                   end if
@@ -318,8 +322,8 @@ contains
                else if ( l1 /= 0 ) then
                   !PERFON('upZ_ln0')
                   lmB=lmB+1
-                  rhs1(1,lmB,threadid)      =0.D0
-                  rhs1(n_r_max,lmB,threadid)=0.D0
+                  rhs1(1,lmB,threadid)      =0.0_cp
+                  rhs1(n_r_max,lmB,threadid)=0.0_cp
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
                           & or2(nR)*z(lm1,nR) + w1*dzdt(lm1,nR) + w2*dzdtLast(lm1,nR)
@@ -334,7 +338,7 @@ contains
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
 #ifdef WITH_MKL_LU
-               call getrs(cmplx(zMat(:,:,l1),0.D0,kind=kind(0.D0)), &
+               call getrs(cmplx(zMat(:,:,l1),0.0_cp,kind=cp), &
                     &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
 #else
                call cgeslML(zMat(:,:,l1),n_r_max,n_r_max, &
@@ -371,7 +375,7 @@ contains
                   else
                      do n_cheb=1,n_cheb_max
                         z(lm1,n_cheb)= &
-                             cmplx(real(rhs1(n_cheb,lmB,threadid)),0.D0,kind=kind(0d0))
+                             cmplx(real(rhs1(n_cheb,lmB,threadid)),0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -388,7 +392,7 @@ contains
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
       do n_cheb=n_cheb_max+1,n_r_max
          do lm1=lmStart,lmStop
-            z(lm1,n_cheb)=cmplx(0.D0,0.D0,kind=kind(0d0))
+            z(lm1,n_cheb)=zero
          end do
       end do
     
@@ -492,7 +496,7 @@ contains
          else
             nomi=c_moi_oc*y10_norm
          end if
-         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.d0,kind=kind(0d0))/nomi
+         corr_l1m0=cmplx(angular_moment(3)-AMstart,0.0_cp,kind=cp)/nomi
     
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
@@ -502,9 +506,9 @@ contains
             r_E_2=r(nR)*r(nR)
             z(l1m0,nR)  =z(l1m0,nR)  - rho0(nR)*r_E_2*corr_l1m0
             dz(l1m0,nR) =dz(l1m0,nR) - rho0(nR)*( &
-                 2.d0*r(nR)+r_E_2*beta(nR))*corr_l1m0
+                 two*r(nR)+r_E_2*beta(nR))*corr_l1m0
             workA(l1m0,nR)=workA(l1m0,nR)-rho0(nR)*( &
-                 2.d0+4.d0*beta(nR)*r(nR) + &
+                 two+four*beta(nR)*r(nR) + &
                  dbeta(nR)*r_E_2 + &
                  beta(nR)*beta(nR)*r_E_2 )*corr_l1m0
          end do
@@ -531,8 +535,8 @@ contains
             angular_moment(i)=angular_moment_oc(i) + angular_moment_ic(i) + &
                               angular_moment_ma(i)
          end do
-         corr_l1m1=cmplx(angular_moment(1),-angular_moment(2),kind=kind(0d0)) / &
-              (2.d0*y11_norm*c_moi_oc)
+         corr_l1m1=cmplx(angular_moment(1),-angular_moment(2),kind=cp) / &
+              (two*y11_norm*c_moi_oc)
     
          !-------- Correct z(2,nR) and z(l_max+2,nR) plus the respective
          !         derivatives:
@@ -542,11 +546,11 @@ contains
             r_E_2=r(nR)*r(nR)
             z(l1m1,nR)  =z(l1m1,nR)  -  rho0(nR)*r_E_2*corr_l1m1
             dz(l1m1,nR) =dz(l1m1,nR) -  rho0(nR)*( &
-                         2.d0*r(nR)+r_E_2*beta(nR))*corr_l1m1
+                         two*r(nR)+r_E_2*beta(nR))*corr_l1m1
             workA(l1m1,nR)=workA(l1m1,nR)-rho0(nR)*( &
-                          2.d0+4.d0*beta(nR)*r(nR) + &
-                                   dbeta(nR)*r_E_2 + &
-                           beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
+                          two+four*beta(nR)*r(nR) + &
+                                     dbeta(nR)*r_E_2 + &
+                             beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
          end do
          !$OMP END PARALLEL DO
       end if ! l=1,m=1 contained in lm-block ?
@@ -571,9 +575,9 @@ contains
             Dif(lm1)=hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1)))*                &
                      dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*visc(nR)*  &
                  & ( workA(lm1,nR)   +(dLvisc(nR)-beta(nR))  *dz(lm1,nR)     &
-                 &   -( dLvisc(nR)*beta(nR)+2.d0*dLvisc(nR)*or1(nR)          &
+                 &   -( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)           &
                  &      + dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)       &
-                 &      + dbeta(nR)+ 2.d0*beta(nR)*or1(nR) ) * z(lm1,nR) )
+                 &      + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
     
     !        if (nR == 2) then
     !           write(*,"(2I4,8ES20.12)") nR,lm1,workA(lm1,nR),Dif(lm1),z(lm1,nR),dz(lm1,nR)
@@ -617,11 +621,11 @@ contains
          !----- NOTE opposite sign of visouse torque on ICB and CMB:
          if ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ) then
             d_omega_ma_dtLast=d_omega_ma_dt -            &
-                 coex * ( 2.D0*or1(1)*real(z(lm1,1))-real(dz(lm1,1)) )
+                 coex * ( two*or1(1)*real(z(lm1,1))-real(dz(lm1,1)) )
          end if
          if ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ) THEn
             d_omega_ic_dtLast=d_omega_ic_dt +                     &
-                 coex * ( 2.D0*or1(n_r_max)*real(z(lm1,n_r_max))- &
+                 coex * ( two*or1(n_r_max)*real(z(lm1,n_r_max))- &
                  real(dz(lm1,n_r_max)) )
          end if
       end if
@@ -644,23 +648,23 @@ contains
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
       
-      real(kind=8), intent(in) :: dt
-      real(kind=8), intent(in) :: hdif
-      integer,      intent(in) :: l
+      real(cp), intent(in) :: dt
+      real(cp), intent(in) :: hdif
+      integer,  intent(in) :: l
 
       !-- Output: z10Mat and pivot_z10
-      real(kind=8), intent(out) :: zMat(n_r_max,n_r_max)
-      integer,      intent(out) :: zPivot(n_r_max)
+      real(cp), intent(out) :: zMat(n_r_max,n_r_max)
+      integer,  intent(out) :: zPivot(n_r_max)
 #ifdef WITH_PRECOND_Z10
-      real(kind=8),   intent(out) :: zMat_fac(n_r_max)
+      real(cp), intent(out) :: zMat_fac(n_r_max)
 #endif
 
       !-- local variables:
       integer :: nR,nCheb,info
-      real(kind=8) :: O_dt,dLh
+      real(cp) :: O_dt,dLh
 
-      O_dt=1.D0/dt
-      dLh=dble(l*(l+1))
+      O_dt=one/dt
+      dLh=real(l*(l+1),kind=cp)
 
       !-- Boundary conditions:
       do nCheb=1,n_cheb_max
@@ -670,7 +674,7 @@ contains
 
          if ( ktopv == 1 ) then  ! free slip
             zMat(1,nCheb)=                   cheb_norm * &
-                ( (2.D0*or1(1)+beta(1))*cheb(nCheb,1) - &
+                ( (two*or1(1)+beta(1))*cheb(nCheb,1) - &
                                        dcheb(nCheb,1) )
          else if ( ktopv == 2 ) then ! no slip
             if ( l_SRMA ) then
@@ -678,7 +682,7 @@ contains
             else if ( l_rot_ma ) then
                zMat(1,nCheb)= cheb_norm *               ( &
                          c_dt_z10_ma*O_dt*cheb(nCheb,1) - &
-                      alpha*( 2.d0*or1(1)*cheb(nCheb,1) - &
+                      alpha*( two*or1(1)*cheb(nCheb,1) - &
                                          dcheb(nCheb,1) ) )
             else
                zMat(1,nCheb)= cheb_norm*cheb(nCheb,1)
@@ -688,7 +692,7 @@ contains
          !----- ICB condition:
          if ( kbotv == 1 ) then  ! free slip
             zMat(n_r_max,nCheb)=                          cheb_norm * &
-            ( (2.D0*or1(n_r_max)+beta(n_r_max))*cheb(nCheb,n_r_max) - &
+            ( (two*or1(n_r_max)+beta(n_r_max))*cheb(nCheb,n_r_max) - &
                                                dcheb(nCheb,n_r_max) )
          else if ( kbotv == 2 ) then ! no slip
             if ( l_SRIC ) then
@@ -697,7 +701,7 @@ contains
             else if ( l_rot_ic ) then     !  time integration of z10
                zMat(n_r_max,nCheb)= cheb_norm *             (     &
                            c_dt_z10_ic*O_dt*cheb(nCheb,n_r_max) + &
-                  alpha*( 2.D0*or1(n_r_max)*cheb(nCheb,n_r_max) - &
+                  alpha*( two*or1(n_r_max)*cheb(nCheb,n_r_max) - &
                                            dcheb(nCheb,n_r_max) ) )
             else
                zMat(n_r_max,nCheb)= cheb_norm * cheb(nCheb,n_r_max)
@@ -714,8 +718,8 @@ contains
                         alpha*hdif*dLh*visc(nR)*or2(nR) * ( &
                                          d2cheb(nCheb,nR) + &
              (dLvisc(nR)- beta(nR))*      dcheb(nCheb,nR) - &
-            (dLvisc(nR)*beta(nR)+2.d0*dLvisc(nR)*or1(nR)  + &
-              dLh*or2(nR)+dbeta(nR)+2.D0*beta(nR)*or1(nR))* &
+            (dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)  + &
+              dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))* &
                                            cheb(nCheb,nR) ) )
 
          end do
@@ -723,20 +727,20 @@ contains
 
       !-- Normalisation
       do nR=1,n_r_max
-         zMat(nR,1)      =0.5D0*zMat(nR,1)
-         zMat(nR,n_r_max)=0.5D0*zMat(nR,n_r_max)
+         zMat(nR,1)      =half*zMat(nR,1)
+         zMat(nR,n_r_max)=half*zMat(nR,n_r_max)
       end do
 
       !-- Fill up with zeros:
       do nCheb=n_cheb_max+1,n_r_max
-         zMat(1,nCheb)      =0.D0
-         zMat(n_r_max,nCheb)=0.D0
+         zMat(1,nCheb)      =0.0_cp
+         zMat(n_r_max,nCheb)=0.0_cp
       end do
 
 #ifdef WITH_PRECOND_Z10
       ! compute the linesum of each line
       do nR=1,n_r_max
-         zMat_fac(nR)=1.0D0/maxval(abs(zMat(nR,:)))
+         zMat_fac(nR)=one/maxval(abs(zMat(nR,:)))
          zMat(nR,:) = zMat(nR,:)*zMat_fac(nR)
       end do
 #endif
@@ -768,41 +772,41 @@ contains
       !  +-------------------------------------------------------------------+
     
       !-- Input variables:
-      real(kind=8), intent(in) :: dt
-      integer,      intent(in) :: l
-      real(kind=8), intent(in) :: hdif
+      real(cp), intent(in) :: dt
+      integer,  intent(in) :: l
+      real(cp), intent(in) :: hdif
     
       !-- Output variables:
-      real(kind=8), intent(out) :: zMat(n_r_max,n_r_max)
-      integer,      intent(out) :: zPivot(n_r_max)
+      real(cp), intent(out) :: zMat(n_r_max,n_r_max)
+      integer,  intent(out) :: zPivot(n_r_max)
 #ifdef WITH_PRECOND_Z
-      real(kind=8), intent(out) :: zMat_fac(n_r_max)
+      real(cp), intent(out) :: zMat_fac(n_r_max)
 #endif
 
       !-- local variables:
       integer :: nR,nCheb
       integer :: info
-      real(kind=8) :: O_dt,dLh
+      real(cp) :: O_dt,dLh
 
 #ifdef MATRIX_CHECK
       integer :: i,j
-      real(kind=8) :: rcond
+      real(cp) :: rcond
       integer ::ipiv(n_r_max),iwork(n_r_max)
-      real(kind=8) :: work(4*n_r_max),anorm,linesum
-      real(kind=8) :: temp_Mat(n_r_max,n_r_max)
+      real(cp) :: work(4*n_r_max),anorm,linesum
+      real(cp) :: temp_Mat(n_r_max,n_r_max)
       integer,save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
 #endif
 
-      O_dt=1.D0/dt
-      dLh=dble(l*(l+1))
+      O_dt=one/dt
+      dLh=real(l*(l+1),kind=cp)
     
       !----- Boundary conditions, see above:
       do nCheb=1,n_cheb_max
          if ( ktopv == 1 ) then  ! free slip !
             zMat(1,nCheb)=cheb_norm *             ( &
-                 dcheb(nCheb,1) - (2.d0*or1(1)+beta(1))*cheb(nCheb,1) )
+                 dcheb(nCheb,1) - (two*or1(1)+beta(1))*cheb(nCheb,1) )
          else                    ! no slip, note exception for l=1,m=0
             zMat(1,nCheb)=cheb_norm*cheb(nCheb,1)
          end if
@@ -810,7 +814,7 @@ contains
          if ( kbotv == 1 ) then  ! free slip !
             zMat(n_r_max,nCheb)= cheb_norm *            ( &
                  dcheb(nCheb,n_r_max) - &
-                 (2.d0*or1(n_r_max)+beta(n_r_max))*cheb(nCheb,n_r_max) )
+                 (two*or1(n_r_max)+beta(n_r_max))*cheb(nCheb,n_r_max) )
          else                    ! no slip, note exception for l=1,m=0
             zMat(n_r_max,nCheb)= cheb_norm * cheb(nCheb,n_r_max)
          end if
@@ -819,8 +823,8 @@ contains
     
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
-            zMat(1,nCheb)      =0.D0
-            zMat(n_r_max,nCheb)=0.D0
+            zMat(1,nCheb)      =0.0_cp
+            zMat(n_r_max,nCheb)=0.0_cp
          end do
       end if
     
@@ -830,22 +834,22 @@ contains
             zMat(nR,nCheb)= cheb_norm * ( O_dt*dLh*or2(nR)* cheb(nCheb,nR) &
                  &   -alpha*hdif*dLh*visc(nR)*or2(nR) * ( d2cheb(nCheb,nR) &
                  &      + (dLvisc(nR)- beta(nR)) *         dcheb(nCheb,nR) &
-                 &      - ( dLvisc(nR)*beta(nR)+2.d0*dLvisc(nR)*or1(nR)    &
-                 &          +dLh*or2(nR)+dbeta(nR)+2.D0*beta(nR)*or1(nR)   &
+                 &      - ( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)    &
+                 &          +dLh*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR)   &
                  &                                      ) * cheb(nCheb,nR) ) )
          end do
       end do
     
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         zMat(nR,1)      =0.5D0*zMat(nR,1)
-         zMat(nR,n_r_max)=0.5D0*zMat(nR,n_r_max)
+         zMat(nR,1)      =half*zMat(nR,1)
+         zMat(nR,n_r_max)=half*zMat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_Z
       ! compute the linesum of each line
       do nR=1,n_r_max
-         zMat_fac(nR)=1.0D0/maxval(abs(zMat(nR,:)))
+         zMat_fac(nR)=one/maxval(abs(zMat(nR,:)))
          zMat(nR,:) = zMat(nR,:)*zMat_fac(nR)
       end do
 #endif
@@ -864,9 +868,9 @@ contains
       end do
       close(filehandle)
       temp_Mat=zMat
-      anorm = 0.0D0
+      anorm = 0.0_cp
       do i=1,n_r_max
-         linesum = 0.0D0
+         linesum = 0.0_cp
          do j=1,n_r_max
             linesum = linesum + abs(temp_Mat(i,j))
          end do

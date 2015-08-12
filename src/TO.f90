@@ -4,6 +4,7 @@ module torsional_oscillations
 !  This module contains information for TO calculation and output
 !----------------------------------------------------------------------
 
+   use precision_mod, only: cp
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
                          n_theta_maxStr
    use radial_data, only: n_r_cmb
@@ -13,6 +14,7 @@ module torsional_oscillations
    use blocking, only: nfs, lm2
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, & 
                               dLh
+   use const, only: one, two
    use logic, only: lVerbose, l_mag
    use legendre_grid_to_spec, only: legTFAS2
 
@@ -20,23 +22,23 @@ module torsional_oscillations
 
    private
  
-   real(kind=8), public, allocatable :: dzStrLMr(:,:)
-   real(kind=8), public, allocatable :: dzRstrLMr(:,:)
-   real(kind=8), public, allocatable :: dzAstrLMr(:,:)
-   real(kind=8), public, allocatable :: dzCorLMr(:,:)
-   real(kind=8), public, allocatable :: dzLFLMr(:,:)
-   real(kind=8), public, allocatable :: dzdVpLMr(:,:)
-   real(kind=8), public, allocatable :: dzddVpLMr(:,:)
-   real(kind=8), public, allocatable :: V2AS(:,:)
-   real(kind=8), public, allocatable :: Bs2AS(:,:)
-   real(kind=8), public, allocatable :: BszAS(:,:)
-   real(kind=8), public, allocatable :: BspAS(:,:)
-   real(kind=8), public, allocatable :: BpzAS(:,:)
-   real(kind=8), public, allocatable :: BspdAS(:,:)
-   real(kind=8), public, allocatable :: BpsdAS(:,:)
-   real(kind=8), public, allocatable :: BzpdAS(:,:)
-   real(kind=8), public, allocatable :: BpzdAS(:,:)
-   real(kind=8), public, allocatable :: ddzASL(:,:)
+   real(cp), public, allocatable :: dzStrLMr(:,:)
+   real(cp), public, allocatable :: dzRstrLMr(:,:)
+   real(cp), public, allocatable :: dzAstrLMr(:,:)
+   real(cp), public, allocatable :: dzCorLMr(:,:)
+   real(cp), public, allocatable :: dzLFLMr(:,:)
+   real(cp), public, allocatable :: dzdVpLMr(:,:)
+   real(cp), public, allocatable :: dzddVpLMr(:,:)
+   real(cp), public, allocatable :: V2AS(:,:)
+   real(cp), public, allocatable :: Bs2AS(:,:)
+   real(cp), public, allocatable :: BszAS(:,:)
+   real(cp), public, allocatable :: BspAS(:,:)
+   real(cp), public, allocatable :: BpzAS(:,:)
+   real(cp), public, allocatable :: BspdAS(:,:)
+   real(cp), public, allocatable :: BpsdAS(:,:)
+   real(cp), public, allocatable :: BzpdAS(:,:)
+   real(cp), public, allocatable :: BpzdAS(:,:)
+   real(cp), public, allocatable :: ddzASL(:,:)
 
    public :: initialize_TO, getTO, getTOnext, getTOfinish
 
@@ -89,47 +91,47 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input of variables
-      real(kind=8), intent(in) :: dtLast              ! last time step
-      integer,      intent(in) :: nR                 ! radial grid point
-      integer,      intent(in) :: nThetaStart        ! theta block
-      integer,      intent(in) :: nThetaBlockSize
-      real(kind=8), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
-      real(kind=8), intent(in) :: cvr(nrp,nfs),dvpdr(nrp,nfs)
-      real(kind=8), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
-      real(kind=8), intent(in) :: cbr(nrp,nfs),cbt(nrp,nfs)
-      real(kind=8), intent(in) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(kind=8), intent(in) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(kind=8), intent(in) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(in) :: dtLast              ! last time step
+      integer,  intent(in) :: nR                 ! radial grid point
+      integer,  intent(in) :: nThetaStart        ! theta block
+      integer,  intent(in) :: nThetaBlockSize
+      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs)
+      real(cp), intent(in) :: cvr(nrp,nfs),dvpdr(nrp,nfs)
+      real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
+      real(cp), intent(in) :: cbr(nrp,nfs),cbt(nrp,nfs)
+      real(cp), intent(in) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(in) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(in) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
 
       !-- Output of arrays needing further treatment in s_getTOfinish.f:
-      real(kind=8), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
-      real(kind=8), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
+      real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
+      real(cp), intent(out) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
       !-- Local variables:
       integer :: nTheta,nThetaBlock
       integer :: nPhi
-      real(kind=8) :: VrMean,VtMean,VpMean
-      real(kind=8) :: Vr2Mean,Vt2Mean,Vp2Mean
-      real(kind=8) :: LFmean
-      real(kind=8) :: cvrMean,dvpdrMean
-      real(kind=8) :: VrdVpdrMean,VtcVrMean
-      real(kind=8) :: Bs2Mean,BszMean
-      real(kind=8) :: BspMean,BpzMean
-      real(kind=8) :: BspdMean,BpsdMean
-      real(kind=8) :: BzpdMean,BpzdMean
-      real(kind=8) :: Rmean(nfs),Amean(nfs)
-      real(kind=8) :: dzCorMean(nfs),dzLFmean(nfs)
-      real(kind=8) :: sinT,Osin,Osin2,cosT,cosOsin2
-      real(kind=8) :: phiNorm
+      real(cp) :: VrMean,VtMean,VpMean
+      real(cp) :: Vr2Mean,Vt2Mean,Vp2Mean
+      real(cp) :: LFmean
+      real(cp) :: cvrMean,dvpdrMean
+      real(cp) :: VrdVpdrMean,VtcVrMean
+      real(cp) :: Bs2Mean,BszMean
+      real(cp) :: BspMean,BpzMean
+      real(cp) :: BspdMean,BpsdMean
+      real(cp) :: BzpdMean,BpzdMean
+      real(cp) :: Rmean(nfs),Amean(nfs)
+      real(cp) :: dzCorMean(nfs),dzLFmean(nfs)
+      real(cp) :: sinT,Osin,Osin2,cosT,cosOsin2
+      real(cp) :: phiNorm
 
-      real(kind=8) :: BsL,BzL,BpL
-      real(kind=8) :: Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
-      real(kind=8) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
-      real(kind=8) :: BsF1,BsF2,BpF1,BzF1,BzF2
+      real(cp) :: BsL,BzL,BpL
+      real(cp) :: Bs2F1,Bs2F2,Bs2F3,BspF1,BspF2
+      real(cp) :: BpzF1,BpzF2,BszF1,BszF2,BszF3
+      real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
 
       if ( lVerbose ) write(*,*) '! Starting getTO!'
 
-      phiNorm=1.D0/dble(n_phi_maxStr)
+      phiNorm=one/real(n_phi_maxStr, kind=cp)
 
       !-- Big loop over thetas in block:
       nTheta=nThetaStart-1
@@ -137,18 +139,18 @@ contains
          nTheta=nTheta+1
          sinT =sinTheta(nTheta)
          cosT =cosTheta(nTheta)
-         Osin =1.D0/sinT
+         Osin =one/sinT
          Osin2=Osin*Osin
          cosOsin2=cosT*Osin2
          Bs2F1=sinT*sinT*or4(nR)
          Bs2F2=cosT*cosT*Osin2*or2(nR)
-         Bs2F3=2.D0*cosT*or3(nR)
+         Bs2F3=two*cosT*or3(nR)
          BspF1=or3(nR)
          BspF2=cosT*Osin2*or2(nR)
          BpzF1=cosT*Osin*or3(nR)
          BpzF2=or2(nR)*Osin
          BszF1=sinT*cosT*or4(nR)
-         BszF2=(2*cosT*cosT-1.D0)*Osin*or3(nR)
+         BszF2=(two*cosT*cosT-one)*Osin*or3(nR)
          BszF3=cosT*Osin*or2(nR)
          BsF1 =sinT*or2(nR)
          BsF2 =cosT*Osin*or1(nR)
@@ -157,25 +159,25 @@ contains
          BzF2 =or1(nR)
 
          !--- Get zonal means of velocity and derivatives:
-         VrMean     =0.D0
-         VtMean     =0.D0
-         VpMean     =0.D0
-         Vr2Mean    =0.D0
-         Vt2Mean    =0.D0
-         Vp2Mean    =0.D0
-         dVpdrMean  =0.D0
-         cVrMean    =0.D0
-         VrdVpdrMean=0.D0
-         VtcVrMean  =0.D0
-         LFmean     =0.D0
-         Bs2Mean    =0.D0
-         BspMean    =0.D0
-         BpzMean    =0.D0
-         BszMean    =0.D0
-         BspdMean   =0.D0
-         BpsdMean   =0.D0
-         BzpdMean   =0.D0
-         BpzdMean   =0.D0
+         VrMean     =0.0_cp
+         VtMean     =0.0_cp
+         VpMean     =0.0_cp
+         Vr2Mean    =0.0_cp
+         Vt2Mean    =0.0_cp
+         Vp2Mean    =0.0_cp
+         dVpdrMean  =0.0_cp
+         cVrMean    =0.0_cp
+         VrdVpdrMean=0.0_cp
+         VtcVrMean  =0.0_cp
+         LFmean     =0.0_cp
+         Bs2Mean    =0.0_cp
+         BspMean    =0.0_cp
+         BpzMean    =0.0_cp
+         BszMean    =0.0_cp
+         BspdMean   =0.0_cp
+         BpsdMean   =0.0_cp
+         BzpdMean   =0.0_cp
+         BpzdMean   =0.0_cp
          do nPhi=1,n_phi_maxStr
             VrMean =VrMean +vr(nPhi,nThetaBlock)
             VtMean =VtMean +vt(nPhi,nThetaBlock)
@@ -227,29 +229,29 @@ contains
          Vt2Mean=phiNorm*or2(nR)*Osin2*Vt2Mean
          Vp2Mean=phiNorm*or2(nR)*Osin2*Vp2Mean
          if ( nR == n_r_CMB ) then
-            VrMean=0.D0
-            Vr2Mean=0.D0
+            VrMean =0.0_cp
+            Vr2Mean=0.0_cp
             if ( ktopv == 2 ) then
-               VtMean=0.D0
-               Vt2Mean=0.D0
-               VpMean=0.D0
-               Vp2Mean=0.D0
+               VtMean =0.0_cp
+               Vt2Mean=0.0_cp
+               VpMean =0.0_cp
+               Vp2Mean=0.0_cp
             end if
          end if
          if ( nR == n_r_CMB ) then
-            VrMean=0.D0
-            Vr2Mean=0.D0
+            VrMean =0.0_cp
+            Vr2Mean=0.0_cp
             if ( kbotv == 2 ) then
-               VtMean=0.D0
-               Vt2Mean=0.D0
-               VpMean=0.D0
-               Vp2Mean=0.D0
+               VtMean =0.0_cp
+               Vt2Mean=0.0_cp
+               VpMean =0.0_cp
+               Vp2Mean=0.0_cp
             end if
          end if
          V2AS(nTheta,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          !--- This is Coriolis force / r*sin(theta)
-         dzCorMean(nThetaBlock)= phiNorm*2.D0*CorFac * &
+         dzCorMean(nThetaBlock)= phiNorm*two*CorFac * &
                (or3(nR)*VrMean+or2(nR)*cosOsin2*VtMean)
          if ( l_mag ) then
             !--- This is Lorentz force/ r*sin(theta)
@@ -297,26 +299,26 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input of variables:
-      real(kind=8), intent(in) :: dt,dtLast
-      integer,      intent(in) :: nR
-      integer,      intent(in) :: nThetaStart
-      integer,      intent(in) :: nThetaBlockSize
-      logical,      intent(in) :: lTONext,lTONext2
-      real(kind=8), intent(in) :: zAS(l_max+1)
-      real(kind=8), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
+      real(cp), intent(in) :: dt,dtLast
+      integer,  intent(in) :: nR
+      integer,  intent(in) :: nThetaStart
+      integer,  intent(in) :: nThetaBlockSize
+      logical,  intent(in) :: lTONext,lTONext2
+      real(cp), intent(in) :: zAS(l_max+1)
+      real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
 
       !-- Output variables:
-      real(kind=8), intent(out) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(kind=8), intent(out) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(kind=8), intent(out) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(out) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(out) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(out) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
 
       !-- Local variables:
       integer :: l,lm
       integer :: nTheta,nThetaBlock
       integer :: nPhi
 
-      real(kind=8) :: sinT,cosT
-      real(kind=8) :: BsF1,BsF2,BpF1,BzF1,BzF2
+      real(cp) :: sinT,cosT
+      real(cp) :: BsF1,BsF2,BpF1,BzF1,BzF2
 
       if ( lVerbose ) write(*,*) '! Starting getTOnext!',dtLast
 
@@ -324,7 +326,7 @@ contains
 
       if ( lTONext2 .and. nThetaStart == 1 ) then
 
-         dzddVpLMr(1,nR)=0.D0
+         dzddVpLMr(1,nR)=0.0_cp
          do l=1,l_max
             lm=lm2(l,0)
             dzddVpLMr(l+1,nR)=zAS(l+1)
@@ -354,8 +356,8 @@ contains
          end do ! Loop over thetas in block !
                   
          if ( nThetaStart == 1 ) then
-            dzdVpLMr(1,nR) =0.D0
-            dzddVpLMr(1,nR)=0.D0
+            dzdVpLMr(1,nR) =0.0_cp
+            dzddVpLMr(1,nR)=0.0_cp
             do l=1,l_max
                lm=lm2(l,0)
                dzdVpLMr(l+1,nR) = zAS(l+1)
@@ -378,25 +380,25 @@ contains
       !-----------------------------------------------------------------------
 
       !-- Input of variables:
-      integer,      intent(in) :: nR
-      real(kind=8), intent(in) :: dtLast
-      real(kind=8), intent(in) :: zAS(l_max+1)
-      real(kind=8), intent(in) :: dzAS(l_max+1) ! anelastic
-      real(kind=8), intent(in) :: ddzAS(l_max+1)
-      real(kind=8), intent(in) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
-      real(kind=8), intent(in) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
+      integer,  intent(in) :: nR
+      real(cp), intent(in) :: dtLast
+      real(cp), intent(in) :: zAS(l_max+1)
+      real(cp), intent(in) :: dzAS(l_max+1) ! anelastic
+      real(cp), intent(in) :: ddzAS(l_max+1)
+      real(cp), intent(in) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
+      real(cp), intent(in) :: dzCorLM(l_max+2),dzLFLM(l_max+2)
 
       !-- Local variables:
       integer :: l,lS,lA,lm
 
       !------ When all thetas are done calculate viscous stress in LM space:
-      dzStrLMr(1,nR) =0.D0
-      dzRstrLMr(1,nR)=0.D0
-      dzAstrLMr(1,nR)=0.D0
-      dzCorLMr(1,nR) =0.D0
-      dzLFLMr(1,nR)  =0.D0
-      dzdVpLMr(1,nR) =0.D0
-      dzddVpLMr(1,nR)=0.D0
+      dzStrLMr(1,nR) =0.0_cp
+      dzRstrLMr(1,nR)=0.0_cp
+      dzAstrLMr(1,nR)=0.0_cp
+      dzCorLMr(1,nR) =0.0_cp
+      dzLFLMr(1,nR)  =0.0_cp
+      dzdVpLMr(1,nR) =0.0_cp
+      dzddVpLMr(1,nR)=0.0_cp
       do l=1,l_max
          lS=(l-1)+1
          lA=(l+1)+1
@@ -404,7 +406,7 @@ contains
          dzStrLMr(l+1,nR)= hdif_V(lm) * (                      &
                                                   ddzAS(l+1) - &
                                          beta(nR)* dzAS(l+1) - &
-            (dLh(lm)*or2(nR)+dbeta(nR)+2.d0*beta(nR)*or1(nR))* &
+            (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))* &
                                 zAS(l+1) )
       !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
       !     minus sign to bring stuff on the RHS of NS equation !

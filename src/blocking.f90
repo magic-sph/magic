@@ -5,6 +5,7 @@ module blocking
    !  Common block containing blocking information
    !--------------------------------------------------
 
+   use precision_mod, only: cp
    use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
                            rank_with_l1m0
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
@@ -110,7 +111,7 @@ contains
 
    subroutine initialize_blocking
 
-      real(kind=8) :: load
+      real(cp) :: load
       integer :: iLoad
       integer :: n
       integer :: LMB_with_l1m0,l1m0,irank
@@ -144,10 +145,10 @@ contains
       if ( nLMBs*sizeLMB > lm_max ) then
          write(message,*) '! Uneven load balancing in LM blocks!'
          call logWrite(message)
-         load=dble(lm_max-(nLMBs-1)*sizeLMB)/sizeLMB
-         write(message,*) '! Load percentage of last block:',load*100.D0
+         load=real(lm_max-(nLMBs-1)*sizeLMB,cp)/sizeLMB
+         write(message,*) '! Load percentage of last block:',load*100.0_cp
          call logWrite(message)
-         iLoad=int(load,4)
+         iLoad=int(load)
          if ( iLoad >= 1 ) then
             write(*,*) '! No. of redundant blocks:',iLoad
             nLMBs=nLMBs-iLoad
@@ -862,7 +863,8 @@ contains
             ! candidate found
             if (min_s == 0) min_s=s
             nThetaBs=n_theta_max/s
-            !write(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", nThetaBs = ",nThetaBs
+            !write(*,"(3(A,I3))") "Testing s=",s,", nThreads=",nThreads,", &
+            !     &              nThetaBs = ",nThetaBs
     
             if ( modulo(nThetaBs,nThreads) == 0 ) then
                best_s=s

@@ -6,6 +6,7 @@
 module graphOut_mod
 
    use parallel_mod
+   use precision_mod, only: cp, outp
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
                          n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
                          n_phi_max, nrp, n_r_ic_max
@@ -64,16 +65,16 @@ contains
       !-------------------------------------------------------------------------
     
       !-- Input variables
-      real(kind=8), intent(in) :: time
-      integer,      intent(in) :: n_r                    ! radial grod point no.
-      integer,      intent(in) :: format                 ! determines format
-      integer,      intent(in) :: n_theta_start          ! start theta no.
-      integer,      intent(in) :: n_theta_block_size     ! size of theta block
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*)
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: n_r                    ! radial grod point no.
+      integer,  intent(in) :: format                 ! determines format
+      integer,  intent(in) :: n_theta_start          ! start theta no.
+      integer,  intent(in) :: n_theta_block_size     ! size of theta block
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*)
 
-      logical,      intent(inout) :: lGraphHeader
+      logical,  intent(inout) :: lGraphHeader
     
       !-- Local variables:
       integer :: n_theta_stop           ! end theta no.
@@ -83,8 +84,8 @@ contains
     
       integer :: prec
     
-      real(kind=8) :: fac,fac_r
-      real(kind=4) :: dummy(n_phi_max,nfs)
+      real(cp) :: fac,fac_r
+      real(outp) :: dummy(n_phi_max,nfs)
     
       character(len=20) :: version
     
@@ -102,28 +103,22 @@ contains
             !-------- Write parameters:
             write(n_graph_file,'(a)')  version ! identifying header
             write(n_graph_file,'(A64)') runid
-            if ( format < 0 ) write(n_graph_file,'(/ &
-                 &  "Time,truncation,outputgrid:")')
+            if ( format < 0 ) write(n_graph_file,'(/"Time,truncation,outputgrid:")')
             write(n_graph_file,'(e12.5,1x,10i6)') &
-                 time,n_r_max,n_theta_max,n_phi_tot, &
-                 n_r_ic_max-1,minc,nThetaBs
+                 time,n_r_max,n_theta_max,n_phi_tot,n_r_ic_max-1,minc,nThetaBs
             if ( format < 0 ) write(n_graph_file, &
                  & '(/"Ra, Ek, Pr, Pm, radratio, sigma_ratio:")')
-            write(n_graph_file,'(6e14.6)') &
-                 ra,ek,pr,prmag,radratio,sigma_ratio
+            write(n_graph_file,'(6e14.6)') ra,ek,pr,prmag,radratio,sigma_ratio
     
             !-------- Write colatitudes:
             if ( format < 0 ) then
-               write(n_graph_file, &
-                    &   '(/"Colatitudes:", /"point#, theta")')
+               write(n_graph_file, '(/"Colatitudes:", /"point#, theta")')
                do n_theta=1,n_theta_max/2   ! NHS
-                  write(n_graph_file,'(i4, f9.4)') &
-                       n_theta,theta_ord(n_theta)
+                  write(n_graph_file,'(i4, f9.4)') n_theta,theta_ord(n_theta)
                end do
                write(n_graph_file,'("--- equator ---")')
                do n_theta=n_theta_max/2+1,n_theta_max   ! SHS
-                  write(n_graph_file,'(i4, f9.4)') &
-                       n_theta,theta_ord(n_theta)
+                  write(n_graph_file,'(i4, f9.4)') n_theta,theta_ord(n_theta)
                end do
             else if ( format >= 0 ) then
                write(n_graph_file,'(129(1x,f8.5))') &
@@ -139,16 +134,16 @@ contains
             !-------- Write parameters:
             write(n_graph_file) version
             write(n_graph_file) runid
-            write(n_graph_file)              sngl(time), &
-                      float(n_r_max),float(n_theta_max), &
-                   float(n_phi_tot),float(n_r_ic_max-1), &
-                            float(minc),float(nThetaBs), &
-                 sngl(ra),sngl(ek),sngl(pr),sngl(prmag), &
-                 sngl(radratio),sngl(sigma_ratio)
+            write(n_graph_file) real(time,outp), real(n_r_max,outp),          &
+                                real(n_theta_max,outp), real(n_phi_tot,outp), &
+                                real(n_r_ic_max-1,outp), real(minc,outp),     &
+                                real(nThetaBs,outp), real(ra,outp),           &
+                                real(ek,outp), real(pr,outp),                 &
+                                real(prmag,outp), real(radratio,outp),        &
+                                real(sigma_ratio,outp)
     
             !-------- Write colatitudes:
-            write(n_graph_file) (sngl(theta_ord(n_theta)), &
-                                 n_theta=1,n_theta_max)
+            write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
     
          end if
     
@@ -170,8 +165,8 @@ contains
             write(n_graph_file,'(I4, F9.5, 2I4)') &
                  n_r-1,r(n_r)/r(1),n_theta_start,n_theta_stop
          else
-            write(n_graph_file) float(n_r-1),sngl(r(n_r)/r(1)), &
-                                float(n_theta_start),float(n_theta_stop)
+            write(n_graph_file) real(n_r-1,outp),real(r(n_r)/r(1),outp), &
+                                real(n_theta_start,outp),real(n_theta_stop,outp)
          end if
     
     
@@ -180,8 +175,8 @@ contains
          if ( format < 0 ) write(n_graph_file,'(/" S: ")')
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max ! do loop over phis
-               dummy(n_phi,n_theta)  =sngl(sr(n_phi,n_theta))   ! NHS
-               dummy(n_phi,n_theta+1)=sngl(sr(n_phi,n_theta+1)) ! SHS
+               dummy(n_phi,n_theta)  =real(sr(n_phi,n_theta),kind=outp)   ! NHS
+               dummy(n_phi,n_theta+1)=real(sr(n_phi,n_theta+1),kind=outp) ! SHS
             end do
          end do
          call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -194,8 +189,8 @@ contains
          fac=or2(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vr(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vr(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vr(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vr(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -209,8 +204,8 @@ contains
             n_theta_cal=n_theta_start+n_theta-1
             fac=fac_r*O_sin_theta(n_theta_cal)
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vt(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vt(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vt(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vt(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -223,8 +218,8 @@ contains
             n_theta_cal=n_theta_start+n_theta-1
             fac=fac_r*O_sin_theta(n_theta_cal)
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vp(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vp(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vp(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vp(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -237,8 +232,8 @@ contains
             fac=or2(n_r)
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*br(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*br(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*br(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*br(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -250,8 +245,8 @@ contains
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*bt(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*bt(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*bt(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*bt(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -263,8 +258,8 @@ contains
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*bp(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*bp(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*bp(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*bp(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write(n_phi_max,n_theta_block_size,dummy, &
@@ -283,14 +278,14 @@ contains
             &              n_theta_start,n_theta_block_size,lGraphHeader)
 
       !-- Input variables:
-      real(kind=8), intent(in) :: time
-      integer,      intent(in) :: n_r                      ! radial grod point no.
-      integer,      intent(in) :: which_form               ! determins format
-      integer,      intent(in) :: n_theta_start            ! start theta no.
-      integer,      intent(in) :: n_theta_block_size       ! size of theta block
-      real(kind=8), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
-      real(kind=8), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(kind=8), intent(in) :: sr(nrp,*)
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: n_r                      ! radial grod point no.
+      integer,  intent(in) :: which_form               ! determins format
+      integer,  intent(in) :: n_theta_start            ! start theta no.
+      integer,  intent(in) :: n_theta_block_size       ! size of theta block
+      real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
+      real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*)
 
       logical, intent(inout) :: lGraphHeader
 
@@ -302,8 +297,8 @@ contains
 
       integer :: prec
 
-      real(kind=8) :: fac,fac_r
-      real(kind=4) :: dummy(n_phi_max,nfs)
+      real(cp) :: fac,fac_r
+      real(outp) :: dummy(n_phi_max,nfs)
 
       character(len=20) :: version
 
@@ -322,7 +317,7 @@ contains
 
       !$OMP CRITICAL
       if ( lGraphHeader ) then
-         size_of_header = 8+LEN(version)+8+LEN(runid)+8+ &
+         size_of_header = 8+len(version)+8+len(runid)+8+ &
                           13*SIZEOF_INTEGER+8+n_theta_max*SIZEOF_REAL
 
 #ifdef ONE_LARGE_BLOCK
@@ -401,7 +396,7 @@ contains
                call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_WRITE(graph_mpi_fh,version,LEN(version), &
+               call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
                                    MPI_CHARACTER,status,ierr)
                !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_CHARACTER
@@ -409,7 +404,7 @@ contains
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               call MPI_FILE_WRITE(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
                call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
@@ -423,48 +418,49 @@ contains
                call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_phi_tot),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_ic_max-1),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,float(nThetaBs),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(radratio),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(sigma_ratio),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
+               !call mpi_get_count(status,MPI_REAL,count,ierr)
+               !bytes_written = bytes_written + count*SIZEOF_REAL
+               call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
+               !call mpi_get_count(status,MPI_REAL,count,ierr)
+               !bytes_written = bytes_written + count*SIZEOF_REAL
+               call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
+               !call mpi_get_count(status,MPI_REAL,count,ierr)
+               !bytes_written = bytes_written + count*SIZEOF_REAL
+               call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
+               !call mpi_get_count(status,MPI_REAL,count,ierr)
+               !bytes_written = bytes_written + count*SIZEOF_REAL
+               call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1, &
+                                   MPI_REAL,status,ierr)
+               !call mpi_get_count(status,MPI_REAL,count,ierr)
+               !bytes_written = bytes_written + count*SIZEOF_REAL
+               call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
@@ -478,7 +474,7 @@ contains
                !call mpi_get_count(status,MPI_INTEGER,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_INTEGER
                do n_theta=1,n_theta_max
-                  call MPI_FILE_WRITE(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
+                  call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
                                       MPI_REAL,status,ierr)
                   !call mpi_get_count(status,MPI_REAL,count,ierr)
                   !bytes_written = bytes_written + count*SIZEOF_REAL
@@ -511,16 +507,19 @@ contains
             call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r-1),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r-1,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(r(n_r)/r(1)),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(r(n_r)/r(1),outp),1, &
+                 &              MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_start),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_start,outp),1, &
+                 &              MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_stop),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_stop,outp),1, &
+                 &              MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
             call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
@@ -535,8 +534,8 @@ contains
          !if ( which_form < 0 ) write(n_graph_file,'(/" S: ")')
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max ! do loop over phis
-               dummy(n_phi,n_theta)  =sngl(sr(n_phi,n_theta))   ! NHS
-               dummy(n_phi,n_theta+1)=sngl(sr(n_phi,n_theta+1)) ! SHS
+               dummy(n_phi,n_theta)  =real(sr(n_phi,n_theta),kind=outp)   ! NHS
+               dummy(n_phi,n_theta+1)=real(sr(n_phi,n_theta+1),kind=outp) ! SHS
             end do
          end do
          call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -549,8 +548,8 @@ contains
          fac=or2(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vr(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vr(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vr(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vr(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -564,8 +563,8 @@ contains
             n_theta_cal=n_theta_start+n_theta-1
             fac=fac_r*O_sin_theta(n_theta_cal)
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vt(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vt(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vt(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vt(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -578,8 +577,8 @@ contains
             n_theta_cal=n_theta_start+n_theta-1
             fac=fac_r*O_sin_theta(n_theta_cal)
             do n_phi=1,n_phi_max
-               dummy(n_phi,n_theta)  =sngl(fac*vp(n_phi,n_theta))
-               dummy(n_phi,n_theta+1)=sngl(fac*vp(n_phi,n_theta+1))
+               dummy(n_phi,n_theta)  =real(fac*vp(n_phi,n_theta),kind=outp)
+               dummy(n_phi,n_theta+1)=real(fac*vp(n_phi,n_theta+1),kind=outp)
             end do
          end do
          call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -592,8 +591,8 @@ contains
             fac=or2(n_r)
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*br(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*br(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*br(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*br(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -605,8 +604,8 @@ contains
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*bt(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*bt(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*bt(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*bt(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -618,8 +617,8 @@ contains
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
                do n_phi=1,n_phi_max
-                  dummy(n_phi,n_theta)  =sngl(fac*bp(n_phi,n_theta))
-                  dummy(n_phi,n_theta+1)=sngl(fac*bp(n_phi,n_theta+1))
+                  dummy(n_phi,n_theta)  =real(fac*bp(n_phi,n_theta),kind=outp)
+                  dummy(n_phi,n_theta+1)=real(fac*bp(n_phi,n_theta+1),kind=outp)
                end do
             end do
             call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
@@ -638,12 +637,11 @@ contains
         &              n_theta_start,n_theta_block_size)
 
       !-- Input variables:
-      real(kind=8), intent(in) :: time
-
-      integer,      intent(in) :: n_r                    ! radial grod point no.
-      integer,      intent(in) :: which_form             ! determines format
-      integer,      intent(in) :: n_theta_start          ! start theta no.
-      integer,      intent(in) :: n_theta_block_size     ! size of theta block
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: n_r                    ! radial grod point no.
+      integer,  intent(in) :: which_form             ! determines format
+      integer,  intent(in) :: n_theta_start          ! start theta no.
+      integer,  intent(in) :: n_theta_block_size     ! size of theta block
 
       !-- Local variables:
       integer :: n_theta       ! counter for colatitude
@@ -659,7 +657,7 @@ contains
       character(len=MPI_MAX_DATAREP_STRING) :: datarep
       ! end of MPI related variables
 
-      size_of_header = 8+LEN(version)+8+LEN(runid)+8+13*SIZEOF_INTEGER+8+ &
+      size_of_header = 8+len(version)+8+len(runid)+8+13*SIZEOF_INTEGER+8+ &
                        n_theta_max*SIZEOF_REAL
 
 #ifdef ONE_LARGE_BLOCK
@@ -702,7 +700,7 @@ contains
             call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,version,LEN(version), &
+            call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
                                 MPI_CHARACTER,status,ierr)
             !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_CHARACTER
@@ -711,7 +709,7 @@ contains
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
 
-            call MPI_FILE_WRITE(graph_mpi_fh,LEN(runid),1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
             call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
@@ -725,45 +723,46 @@ contains
             call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(time),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
                                 MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_phi_tot),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_ic_max-1),1, &
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
                                 MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(minc),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,float(nThetaBs),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(ra),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(ek),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(pr),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(prmag),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(radratio),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1,MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,sngl(sigma_ratio),1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
+                 &              MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
             call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
@@ -776,7 +775,7 @@ contains
             !call mpi_get_count(status,MPI_INTEGER,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_INTEGER
             do n_theta=1,n_theta_max
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(theta_ord(n_theta)),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
@@ -805,31 +804,31 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: format    ! controls output format
-      complex(kind=8), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(kind=8), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      integer,     intent(in) :: format    ! controls output format
+      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
     
       !-- Local variables:
       integer :: nR
       integer :: nThetaB,nTheta,nThetaStart,nThetaC
       integer :: nPhi
     
-      complex(kind=8) :: dLhb(lm_max)
-      complex(kind=8) :: bhG(lm_max)
-      complex(kind=8) :: bhC(lm_max)
-      complex(kind=8) :: dLhj(lm_max)
-      complex(kind=8) :: cbhG(lm_max)
-      complex(kind=8) :: cbhC(lm_max)
-      real(kind=8) :: BrB(nrp,nfs)
-      real(kind=8) :: BtB(nrp,nfs)
-      real(kind=8) :: BpB(nrp,nfs)
-      real(kind=4) :: Br(n_phi_max,n_theta_max)
-      real(kind=4) :: Bt(n_phi_max,n_theta_max)
-      real(kind=4) :: Bp(n_phi_max,n_theta_max)
+      complex(cp) :: dLhb(lm_max)
+      complex(cp) :: bhG(lm_max)
+      complex(cp) :: bhC(lm_max)
+      complex(cp) :: dLhj(lm_max)
+      complex(cp) :: cbhG(lm_max)
+      complex(cp) :: cbhC(lm_max)
+      real(cp) :: BrB(nrp,nfs)
+      real(cp) :: BtB(nrp,nfs)
+      real(cp) :: BpB(nrp,nfs)
+      real(outp) :: Br(n_phi_max,n_theta_max)
+      real(outp) :: Bt(n_phi_max,n_theta_max)
+      real(outp) :: Bp(n_phi_max,n_theta_max)
     
     
       integer :: prec  ! controls output precision in graph_write
@@ -877,11 +876,11 @@ contains
             do nTheta=1,sizeThetaB
                nThetaC=nThetaStart-1+nTheta
                do nPhi=1,n_phi_max
-                  Br(nPhi,nThetaC)=sngl(BrB(nPhi,nTheta)*O_r_ic2(nR))
-                  Bt(nPhi,nThetaC)=sngl(BtB(nPhi,nTheta)*O_r_ic(nR) * &
-                       O_sin_theta(nThetaC))
-                  Bp(nPhi,nThetaC)=sngl(BpB(nPhi,nTheta)*O_r_ic(nR) * &
-                       O_sin_theta(nThetaC))
+                  Br(nPhi,nThetaC)=real(BrB(nPhi,nTheta)*O_r_ic2(nR),kind=outp)
+                  Bt(nPhi,nThetaC)=real(BtB(nPhi,nTheta)*O_r_ic(nR) * &
+                       O_sin_theta(nThetaC),kind=outp)
+                  Bp(nPhi,nThetaC)=real(BpB(nPhi,nTheta)*O_r_ic(nR) * &
+                       O_sin_theta(nThetaC),kind=outp)
                end do
             end do
     
@@ -902,18 +901,18 @@ contains
             ! Now just append on this process.
             if (rank == n_procs-1) then
                call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_r_max+nR-2),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
                                    MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,sngl(r_ic(nR)/r_cmb),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
                                    MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,1.E0,1,MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,float(n_theta_max),1, &
+               call MPI_FILE_WRITE(graph_mpi_fh,1.e0_outp,1,MPI_REAL,status,ierr)
+               call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
                                    MPI_REAL,status,ierr)
                call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
             end if
 #else
-            write(n_graph_file) float(n_r_max+nR-2),sngl(r_ic(nR)/r_cmb), &
-                 &              1.E0,float(n_theta_max)
+            write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp), &
+                 &              1.e0_outp,real(n_theta_max,outp)
 #endif
          end if
 
@@ -966,12 +965,12 @@ contains
       !------------------------------------------------------------------------------
 
       !-- Input variables:
-      integer,      intent(in) :: n_thetas            ! number of first colatitude value
-      integer,      intent(in) :: n_phis              ! number of logitudes to be printed
-      real(kind=4), intent(in) :: dummy(n_phi_max,*)  ! data
-      integer,      intent(in) :: prec                ! determines precision if output
-      integer,      intent(in) :: format              ! formatted/unformatted output
-      integer,      intent(in) :: n_graph_file        ! output unit
+      integer,    intent(in) :: n_thetas            ! number of first colatitude value
+      integer,    intent(in) :: n_phis              ! number of logitudes to be printed
+      real(outp), intent(in) :: dummy(n_phi_max,*)  ! data
+      integer,    intent(in) :: prec                ! determines precision if output
+      integer,    intent(in) :: format              ! formatted/unformatted output
+      integer,    intent(in) :: n_graph_file        ! output unit
 
       !-- Local variables:
       integer :: n_phi,n_theta
@@ -1005,12 +1004,12 @@ contains
    subroutine graph_write_mpi(n_phis,n_thetas,dummy,prec,which_form,graph_mpi_fh)
 
       !-- Input variables
-      integer,      intent(in) :: n_thetas          ! number of first colatitude value
-      integer,      intent(in) :: n_phis            ! number of logitudes to be printed
-      real(kind=4), intent(in) :: dummy(n_phi_max,*)! data
-      integer,      intent(in) :: prec              ! determines precision if output
-      integer,      intent(in) :: which_form        ! formatted/unformatted output
-      integer,      intent(in) :: graph_mpi_fh      ! mpi handle of the mpi file
+      integer,    intent(in) :: n_thetas          ! number of first colatitude value
+      integer,    intent(in) :: n_phis            ! number of logitudes to be printed
+      real(outp), intent(in) :: dummy(n_phi_max,*)! data
+      integer,    intent(in) :: prec              ! determines precision if output
+      integer,    intent(in) :: which_form        ! formatted/unformatted output
+      integer,    intent(in) :: graph_mpi_fh      ! mpi handle of the mpi file
 
       !-- Local variables:
       integer :: n_phi,n_theta

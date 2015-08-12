@@ -1,6 +1,6 @@
 !$Id$
 #include "perflib_preproc.cpp"
-program magic5_1
+program magic
 !--+-------------+----------------+------------------------------------+
 
 !     A dynamic dynamo model driven by thermal convection
@@ -108,6 +108,7 @@ program magic5_1
 !--+-------------------------------------------------------------------+
 
    use truncation
+   use precision_mod
    use physical_parameters
    use radial_functions
    use num_param
@@ -158,9 +159,9 @@ program magic5_1
    integer :: n_time_step_start   ! storing initial time step no
    integer :: n                   ! counter
    integer :: nO                  ! output unit
-   real(kind=8) :: time
-   real(kind=8) :: dt
-   real(kind=8) :: dtNew
+   real(cp) :: time
+   real(cp) :: dt
+   real(cp) :: dtNew
 
    integer :: n_stop_signal       ! signal returned from step_time
 
@@ -355,4 +356,4 @@ program magic5_1
 #ifdef WITH_MPI
    call mpi_finalize(ierr)
 #endif
-end program magic5_1
+end program magic

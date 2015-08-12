@@ -1,6 +1,7 @@
 !$Id$
 module RMS_helpers
 
+   use precision_mod, only: cp
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, drx, i_costf_init, d_costf_init, &
@@ -9,7 +10,7 @@ module RMS_helpers
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMmapping, only: mappings
-   use const, only: vol_oc
+   use const, only: vol_oc, one
    use chebyshev_polynoms_mod, only: cheb_grid
    use init_costf, only: init_costf1
    use radial_der, only: get_dr
@@ -33,29 +34,29 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,         intent(in) :: nThetaStart    ! first theta to be treated
-      integer,         intent(in) :: sizeThetaBlock ! size of theta block
-      real(kind=8),    intent(in) :: rT             ! radius
-      complex(kind=8), intent(in) :: Tlm(lm_max_dtB) ! field in (l,m)-space for rT
+      integer,     intent(in) :: nThetaStart    ! first theta to be treated
+      integer,     intent(in) :: sizeThetaBlock ! size of theta block
+      real(cp),    intent(in) :: rT             ! radius
+      complex(cp), intent(in) :: Tlm(lm_max_dtB) ! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(kind=8), intent(out) :: Bp(*)
+      real(cp), intent(out) :: Bp(*)
 
       !-- Local variables:
       integer :: lm,l
       integer :: nTheta,nThetaN
-      real(kind=8) :: fac
-      real(kind=8) :: sign
-      real(kind=8) :: Bp_1,Bp_n,Bp_s
+      real(cp) :: fac
+      real(cp) :: sign
+      real(cp) :: Bp_1,Bp_n,Bp_s
 
       do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
 
          nThetaN=(nThetaStart+nTheta)/2
          fac=osn1(nThetaN)/rT
 
-         sign=-1.d0
-         Bp_n=0.D0
-         Bp_s=0.D0
+         sign=-one
+         Bp_n=0.0_cp
+         Bp_s=0.0_cp
          do l=0,l_max
             lm=lm2(l,0)
             sign=-sign
@@ -83,31 +84,31 @@ contains
       !--------------------------------------------------------------------
     
       !-- Input variables:
-      complex(kind=8), intent(in) :: Pol(lm_max,n_r_max)   ! Poloidal field Potential
-      complex(kind=8), intent(in) :: drPol(lm_max,n_r_max) ! Radial derivative of Pol
-      complex(kind=8), intent(in) :: Tor(lm_max,n_r_max)   ! Toroidal field Potential
+      complex(cp),     intent(in) :: Pol(lm_max,n_r_max)   ! Poloidal field Potential
+      complex(cp),     intent(in) :: drPol(lm_max,n_r_max) ! Radial derivative of Pol
+      complex(cp),     intent(in) :: Tor(lm_max,n_r_max)   ! Toroidal field Potential
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
-      real(kind=8), intent(out) :: PolRms,PolAsRms
-      real(kind=8), intent(out) :: TorRms,TorAsRms
+      real(cp), intent(out) :: PolRms,PolAsRms
+      real(cp), intent(out) :: TorRms,TorAsRms
     
       !-- Local variables:
-      real(kind=8) :: PolRmsTemp,TorRmsTemp
-      real(kind=8) :: PolRms_r(n_r_max)
-      real(kind=8) :: TorRms_r(n_r_max)
-      real(kind=8) :: PolAsRms_r(n_r_max)
-      real(kind=8) :: TorAsRms_r(n_r_max)
+      real(cp) :: PolRmsTemp,TorRmsTemp
+      real(cp) :: PolRms_r(n_r_max)
+      real(cp) :: TorRms_r(n_r_max)
+      real(cp) :: PolAsRms_r(n_r_max)
+      real(cp) :: TorAsRms_r(n_r_max)
     
       integer :: n_r,lm,l,m
-      real(kind=8) :: fac
+      real(cp) :: fac
     
       do n_r=1,n_r_max
     
-         PolRms_r(n_r)  =0.D0
-         TorRms_r(n_r)  =0.D0
-         PolAsRms_r(n_r)=0.D0
-         TorAsRms_r(n_r)=0.D0
+         PolRms_r(n_r)  =0.0_cp
+         TorRms_r(n_r)  =0.0_cp
+         PolAsRms_r(n_r)=0.0_cp
+         TorAsRms_r(n_r)=0.0_cp
     
          do lm=2,lm_max
             l=map%lm2l(lm)
@@ -133,7 +134,7 @@ contains
       TorRms  =rInt_R(TorRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
       PolAsRms=rInt_R(PolAsRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
       TorAsRms=rInt_R(TorAsRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
-      fac=1.D0/vol_oc
+      fac=one/vol_oc
       PolRms  =sqrt(fac*PolRms)
       TorRms  =sqrt(fac*TorRms)
       PolAsRms=sqrt(fac*PolAsRms)
@@ -144,15 +145,15 @@ contains
    subroutine hInt2dPol(dPol,lmStart,lmStop,Pol2hInt,PolAs2hInt,map)
     
       !-- Input variables:
-      complex(kind=8), intent(in) :: dPol(lm_max)   ! Toroidal field Potential
+      complex(cp),     intent(in) :: dPol(lm_max)   ! Toroidal field Potential
       integer,         intent(in) :: lmStart,lmStop
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
-      real(kind=8), intent(inout) :: Pol2hInt,PolAs2hInt
+      real(cp), intent(inout) :: Pol2hInt,PolAs2hInt
     
       !-- Local variables:
-      real(kind=8) :: help
+      real(cp) :: help
       integer :: lm,l,m
     
       do lm=lmStart,lmStop
@@ -170,16 +171,16 @@ contains
 
       !-- Input variables:
       integer,         intent(in) :: lb,ub
-      complex(kind=8), intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
+      complex(cp),     intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
       integer,         intent(in) :: nR,lmStart,lmStop
       type(mappings),  intent(in) :: map
 
       !-- Output variables:
-      complex(kind=8), intent(out) :: PolLMr(lm_max,n_r_max)
-      real(kind=8),    intent(inout) :: Pol2hInt,PolAs2hInt
+      complex(cp), intent(out) :: PolLMr(lm_max,n_r_max)
+      real(cp),    intent(inout) :: Pol2hInt,PolAs2hInt
 
       !-- Local variables:
-      real(kind=8) :: help,rE2
+      real(cp) :: help,rE2
       integer :: lm,l,m
 
       rE2=r(nR)*r(nR)
@@ -198,16 +199,16 @@ contains
 
       !-- Input variables:
       integer,         intent(in) :: lb,ub
-      complex(kind=8), intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
+      complex(cp),     intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
       integer,         intent(in) :: nR
       integer,         intent(in) :: lmStart,lmStop
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
-      real(kind=8),    intent(inout) :: Tor2hInt,TorAs2hInt
+      real(cp),        intent(inout) :: Tor2hInt,TorAs2hInt
     
       !-- Local variables:
-      real(kind=8) :: help,rE4
+      real(cp) :: help,rE4
       integer :: lm,l,m
     
       rE4=r(nR)**4
@@ -233,31 +234,31 @@ contains
       !-- Input variables:
       integer,         intent(in) :: nThetaStart    ! first theta to be treated
       integer,         intent(in) :: sizeThetaBlock ! last theta
-      real(kind=8),    intent(in) :: rT             ! radius
-      complex(kind=8), intent(in) :: Blm(lm_max_dtB)! field in (l,m)-space for rT
+      real(cp),        intent(in) :: rT             ! radius
+      complex(cp),     intent(in) :: Blm(lm_max_dtB)! field in (l,m)-space for rT
 
       !-- Output variables:
-      real(kind=8), intent(out) :: Br(*)
+      real(cp), intent(out) :: Br(*)
 
       !-- Local variables:
       integer :: lm,l
       integer :: nTheta,nThetaN
-      real(kind=8) :: fac
-      real(kind=8) :: sign
-      real(kind=8) :: Br_1,Br_n,Br_s
+      real(cp) :: fac
+      real(cp) :: sign
+      real(cp) :: Br_1,Br_n,Br_s
 
-      fac=1.D0/(rT*rT)
+      fac=one/(rT*rT)
 
       do nTheta=1,sizeThetaBlock,2 ! loop over thetas in northers HS
          nThetaN=(nThetaStart+nTheta)/2
 
-         sign=-1.d0
-         Br_n=0.D0
-         Br_s=0.D0
+         sign=-one
+         Br_n=0.0_cp
+         Br_s=0.0_cp
          do l=0,l_max
             lm=lm2(l,0)
             sign=-sign
-            Br_1=real(Blm(l+1))*dble(l*(l+1))*Plm(lm,nThetaN)
+            Br_1=real(Blm(l+1))*real(l*(l+1),kind=cp)*Plm(lm,nThetaN)
             Br_n=Br_n+Br_1
             Br_s=Br_s+sign*Br_1
          end do  ! Loop over degree
@@ -284,26 +285,24 @@ contains
       ! thrown away, which may make sense anyway.
       !-------------------------------------------------------------------------
     
-      implicit none
-    
       !--- Input variables:
-      real(kind=8), intent(in) :: r(*),rCut,rDea
-      integer,      intent(in) :: n_r_max,n_cheb_max
-      integer,      intent(in) :: nDi_costf1,nDd_costf1
+      real(cp), intent(in) :: r(*),rCut,rDea
+      integer,  intent(in) :: n_r_max,n_cheb_max
+      integer,  intent(in) :: nDi_costf1,nDd_costf1
     
       !--- Output variables:
-      integer,      intent(out) :: nS,n_r_max2,n_cheb_max2
-      real(kind=8), intent(out) :: r2(*),dr_fac2(*)
-      integer,      intent(out) :: i_costf_init2(nDi_costf1)   ! info for transform
-      real(kind=8), intent(out) ::  d_costf_init2(nDd_costf1)   ! info for tranfor
+      integer,  intent(out) :: nS,n_r_max2,n_cheb_max2
+      real(cp), intent(out) :: r2(*),dr_fac2(*)
+      integer,  intent(out) :: i_costf_init2(nDi_costf1)   ! info for transform
+      real(cp), intent(out) :: d_costf_init2(nDd_costf1)   ! info for tranfor
     
       ! Local stuff
-      real(kind=8) :: drx(n_r_max)      ! first derivatives of x(r)
-      real(kind=8) :: r2C(n_r_max)
-      real(kind=8) :: r_cheb2(n_r_max)
-      real(kind=8) :: dr2(n_r_max)
-      real(kind=8) :: w1(n_r_max), w2(n_r_max)
-      real(kind=8) :: r_icb2, r_cmb2, dr_fac
+      real(cp) :: drx(n_r_max)      ! first derivatives of x(r)
+      real(cp) :: r2C(n_r_max)
+      real(cp) :: r_cheb2(n_r_max)
+      real(cp) :: dr2(n_r_max)
+      real(cp) :: w1(n_r_max), w2(n_r_max)
+      real(cp) :: r_icb2, r_cmb2, dr_fac
       integer :: nRs(16)
     
       logical :: lStop
@@ -356,7 +355,7 @@ contains
     
       n_r_max2=nRs(n)
       nS=(n_r_max-n_r_max2)/2
-      n_cheb_max2=min0(int((1.D0-rDea)*n_r_max2),n_cheb_max)
+      n_cheb_max2=min(int((one-rDea)*n_r_max2),n_cheb_max)
     
       do nR=1,n_r_max2
          r2(nR)=r(nR+nS)
@@ -364,17 +363,17 @@ contains
       r_icb2=r2(n_r_max2)
       r_cmb2=r2(1)
       call cheb_grid(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2, &
-                     0.D0,0.D0,0.D0,0.D0)
+                     0.0_cp,0.0_cp,0.0_cp,0.0_cp)
       call init_costf1(n_r_max2,i_costf_init2,nDi_costf1, &
                        d_costf_init2,nDd_costf1)
-      dr_fac=1.D0
+      dr_fac=one
       do nR=1,n_r_max
-         drx(nR)=1.D0
+         drx(nR)=one
       end do
       call get_dr(r2,dr2,n_r_max2,n_cheb_max2, &
                   w1,w2,i_costf_init2,d_costf_init2,drx)
       do nR=1,n_r_max2
-         dr_fac2(nR)=1.D0/dr2(nR)
+         dr_fac2(nR)=one/dr2(nR)
       end do
 
    end subroutine init_rNB
