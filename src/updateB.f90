@@ -25,7 +25,7 @@ module updateB_mod
    use blocking, only: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-                   l_b_nl_cmb, l_update_b
+                    l_b_nl_cmb, l_update_b 
    use matrices, only: bPivot, jPivot, bMat, jMat, &
 #ifdef WITH_PRECOND_BJ
                        bMat_fac, jMat_fac,         &
@@ -34,7 +34,7 @@ module updateB_mod
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBPolAs2hInt, dtBTorAs2hInt, &
                  dtBTor2hInt
    use const, only: pi, zero, one, two, three, half
-   use Bext, only: n_imp, l_imp, bmax_imp, expo_imp, amp_imp, rrMP
+   use Bext
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf
 #else
@@ -46,7 +46,7 @@ module updateB_mod
    use cosine_transform, only: costf1
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_drNS, get_ddr
-
+   
    implicit none
 
    private
@@ -358,6 +358,29 @@ contains
                            rhs2(n_r_max,lmB,threadid)=cmplx(bpeakbot,0.0_cp,kind=cp)
                         end if
                      end if
+
+                    if (l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
+                        
+                        if ( l_LCR ) then
+                            write(*,*) 'LCR not compatible with imposed field!'
+                            stop
+                        end if                          
+
+                        !General normalization for spherical harmonics of degree l and order 0
+                        yl0_norm=half*sqrt((2*l1+1)/pi)
+
+                        !Prefactor for CMB matching condition
+                        prefac = real(2*l1+1,kind=cp)/real(l1*(l1+1),kind=cp)     
+                        
+
+                        bpeaktop=prefac*fac_loop(l1)*amp_curr*8.0d-1/yl0_norm
+
+                        rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+
+                     end if
+ 
+
+
                      if ( n_imp > 1 .and. l1 == l_imp ) then
                          if ( l_LCR ) then
                             write(*,*) 'LCR not compatible with imposed field!'

@@ -74,7 +74,8 @@ contains
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model
 
       namelist/B_external/                                    &
-         & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp
+         & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
+         & l_curr,amp_curr
 
       namelist/start_field/                                   &
          & l_start_file,start_file,inform,                    &
@@ -411,6 +412,14 @@ contains
          alph1=abs(alph1)
       end if
 
+      !--- Stuff for current carrying loop at equator
+
+      if (l_curr .and. amp_curr == 0.0_cp) then
+         write(*,*) '! For runs with l_curr !'
+         write(*,*) '! please provide amp_curr !'
+         stop
+      end if
+
       !--- Stuff for spherical magnetosphere boundary: rrMP=r(magnetosphere)/r_core
       if ( n_imp /= 0 ) imagcon=0
       if ( n_imp == 1 .and. rrMP <= one ) then
@@ -698,6 +707,9 @@ contains
       write(n_out,'(1p,''  expo_imp       ='',d14.6,'','')') expo_imp
       write(n_out,'(1p,''  bmax_imp       ='',d14.6,'','')') bmax_imp
 
+      write(n_out,'(''  l_curr='',l3,'','')') l_curr
+      write(n_out,'(1p,''  amp_curr        ='',d14.6,'','')') amp_curr
+
       write(n_out,*) "/"
 
 
@@ -984,6 +996,9 @@ contains
       expo_imp       =0.0_cp ! oscillation frequency of external field
       bmax_imp       =0.0_cp
       l_imp          =1    ! Default external field is axial dipole
+
+      l_curr         =.false. !No current loop
+      amp_curr       =0.0_cp  !Current loop switched off
 
       !----- Namelist start_field:
       l_start_file  =.false.

@@ -32,6 +32,7 @@ module preCalculations
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite
+   use Bext, only: l_curr, fac_loop
 
    implicit none
 
@@ -58,7 +59,7 @@ contains
       character(len=76) :: fileName
       character(len=80) :: message
       real(cp) :: mom(n_r_max)
-    
+       
       !-- Determine scales depending on n_tScale,n_lScale :
       if ( n_tScale == 0 ) then
          !----- Viscous time scale:
@@ -499,6 +500,28 @@ contains
          call logWrite(message)
     
       end if
+
+
+      !--- Compute fac_loop for current carrying loop
+
+      if(l_curr) then
+
+              allocate(fac_loop(l_max))
+              
+              do l=1,l_max
+                 fac_loop(l)=0.0_cp
+
+                 if (mod(l,2)/=0) then
+
+                        if(l==1) then
+                                fac_loop(l)= half
+                        else
+                                fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/real(l-1,kind=cp)
+                        end if
+                 end if
+              end do
+       end if
+       
 
    end subroutine preCalc
 !--------------------------------------------------------

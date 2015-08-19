@@ -16,4 +16,8 @@ module Bext
    real(cp) :: expo_imp     ! Exponent for decay
    real(cp) :: bmax_imp     ! Location of maximum in g_ext/g_int
 
+   logical :: l_curr        ! Switch for current loop at the equator
+   real(cp) :: amp_curr     ! Amplitude of magnetic field of current loop
+   real(cp),allocatable :: fac_loop(:)  ! Array of factors for computing magnetic field for loop
+
 end module Bext
