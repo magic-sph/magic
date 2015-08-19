@@ -450,7 +450,7 @@ Egeos.o               : truncation.o phys_param.o num_param.o\
 preCalculations.o     : truncation.o phys_param.o num_param.o const.o\
                         radial.o horizontal.o init_fields.o\
                         blocking.o logic.o output_data.o\
-                        useful.o integration.o parallel.o
+                        useful.o integration.o parallel.o Bext.o
 RMS_helpers.o         : truncation.o blocking.o radial.o const.o\
                         horizontal.o  useful.o integration.o\
                         LMmapping.o chebyshev_polynoms.o\
