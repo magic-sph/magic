@@ -506,21 +506,23 @@ contains
 
       if(l_curr) then
 
-              allocate(fac_loop(l_max))
+         allocate(fac_loop(l_max))
               
-              do l=1,l_max
-                 fac_loop(l)=0.0_cp
+         do l=1,l_max
+               
+            fac_loop(l)=0.0_cp
 
-                 if (mod(l,2)/=0) then
-
-                        if(l==1) then
-                                fac_loop(l)= half
-                        else
-                                fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/real(l-1,kind=cp)
-                        end if
-                 end if
-              end do
-       end if
+            if (mod(l,2)/=0) then
+               if(l==1) then
+                  fac_loop(l)= half
+               else
+                  fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/real(l-1,kind=cp)
+               end if
+            end if
+               
+         end do
+          
+      end if
        
 
    end subroutine preCalc

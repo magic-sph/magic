@@ -362,8 +362,8 @@ contains
                     if (l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
                         
                         if ( l_LCR ) then
-                            write(*,*) 'LCR not compatible with imposed field!'
-                            stop
+                           write(*,*) 'LCR not compatible with imposed field!'
+                           stop
                         end if                          
 
                         !General normalization for spherical harmonics of degree l and order 0
@@ -375,7 +375,7 @@ contains
 
                         bpeaktop=prefac*fac_loop(l1)*amp_curr*8.0d-1/yl0_norm
 
-                        rhs1(1,lmB,threadid)=CMPLX(bpeaktop,0.D0,KIND=KIND(0d0))
+                        rhs1(1,lmB,threadid)=cmplx(bpeaktop,0.D0,KIND=KIND(0d0))
 
                      end if
  
