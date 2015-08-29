@@ -240,7 +240,6 @@ program magic
    call initialize_matrices
    call initialize_fields
    call initialize_fieldsLast
-   if ( l_movie ) call initialize_movie_data
    if ( l_RMS ) call initialize_RMS
    if ( ldtBmem == 1 ) call initialize_dtB_mod
    call initialize_kinetic_energy
@@ -256,6 +255,9 @@ program magic
 
    !--- Do pre-calculations:
    call preCalc
+
+   if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
+
    if ( rank == 0 ) then
       if ( l_save_out ) then
          open(n_log_file, file=log_file, status='unknown', position='append')
