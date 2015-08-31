@@ -44,9 +44,7 @@ contains
       integer :: argument_count
       character(len=100) :: input_filename
       integer :: nThreadsRun
-#ifdef WITH_MPI
-      character(len=100) :: new_tag
-#endif
+
       !-- Name lists:
       integer :: runHours,runMinutes,runSeconds
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot, &
@@ -187,8 +185,6 @@ contains
 
 #ifdef WITH_MPI
       tag_wo_rank=tag
-      !write(new_tag,"(I4.4,A,A)") rank,".",trim(tag)
-      !tag=new_tag
 #endif
       !-- Does log-file already exist?
       log_file='log.'//tag

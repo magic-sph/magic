@@ -52,7 +52,6 @@ contains
 
       !-- Local variables:
       integer :: n,k   ! counter
-      integer :: stop_signal
       real(cp) :: map_fac ! maping factor to transfrom y-derivatives
       ! in [-1,1] to x-derivatives in [a,b]
 
@@ -205,7 +204,6 @@ contains
 
       !-- Local variables:
       integer :: n,k   ! counter
-      integer :: stop_signal
       real(cp) :: map_fac ! maping factor to transfrom y-derivatives
       real(cp) :: local_cheb,local_dcheb,local_d2cheb,pos
       !real(cp) :: spos,local_d3cheb,yk

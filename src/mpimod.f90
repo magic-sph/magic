@@ -1,3 +1,3 @@
 module mpi
-#include "mpif.h"
+   include "mpif.h"
 end module mpi

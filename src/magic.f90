@@ -166,7 +166,9 @@ program magic
    integer :: n_stop_signal       ! signal returned from step_time
 
    ! MPI specific variables
+#ifdef WITHOMP
    integer :: required_level,provided_level
+#endif
 
 #ifdef WITHOMP
    required_level=MPI_THREAD_MULTIPLE

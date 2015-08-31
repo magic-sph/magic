@@ -170,8 +170,9 @@ contains
       real(cp) :: gravFit(n_r_max),rhoFit(n_r_max) ! normalised to rcmb
       real(cp) :: w1(n_r_max),w2(n_r_max)
 
-      integer :: stop_signal
-      integer :: filehandle,nCheb
+#if 0
+      integer :: filehandle
+#endif
 
       !-- Radial grid point:
       !   radratio is aspect ratio
@@ -235,7 +236,7 @@ contains
                      drx,ddrx,dddrx)
 
 #if 0
-      open(NEWUNIT=filehandle,file="r_cheb.dat")
+      open(newuniT=filehandle,file="r_cheb.dat")
       do n_r=1,n_r_max
          write(filehandle,"(2ES20.12)") r_cheb(n_r),r(n_r)
       end do
@@ -634,8 +635,9 @@ contains
       real(cp) :: a,b,c,s1,s2,r0
       real(cp) :: dsigma0
       real(cp) :: dvisc(n_r_max), dkappa(n_r_max), dsigma(n_r_max)
-      real(cp) :: condBot(n_r_max), condTop(n_r_max)
-      real(cp) :: func(n_r_max), kcond(n_r_max)
+      !real(cp) :: condBot(n_r_max), condTop(n_r_max)
+      !real(cp) :: func(n_r_max)
+      real(cp) :: kcond(n_r_max)
       real(cp) :: a0,a1,a2,a3,a4,a5
       real(cp) :: kappatop,rrOcmb
       real(cp) :: w1(n_r_max),w2(n_r_max)

@@ -98,7 +98,7 @@ contains
       real(cp), intent(out) :: work2(n_r_max) ! work array for f transfer
     
       !-- Local:
-      integer :: n_r,n_f
+      integer :: n_r
     
     
       !-- Copy input functions:
@@ -371,7 +371,7 @@ contains
       real(cp), intent(out) ::  df(*)
 
       !-- Local variables:
-      integer :: n_f,n_cheb
+      integer :: n_cheb
       real(cp) :: fac_cheb
 
       !-- initialize derivatives:

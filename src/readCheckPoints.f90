@@ -79,7 +79,7 @@ contains
       logical :: startfile_does_exist
       logical :: lreadS
       integer :: informOld,ioerr
-      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old,n_dataL
+      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
       integer, allocatable :: lm2lmo(:)
 
       real(cp) :: fr
@@ -171,7 +171,6 @@ contains
       ! allocation of local arrays.
       ! if this becomes a performance bottleneck, one can make a module
       ! and allocate the array only once in the initialization
-      !allocate( wo(n_dataL),zo(n_dataL),po(n_dataL),so(n_dataL) )
       allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
       bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
       ! end of allocation

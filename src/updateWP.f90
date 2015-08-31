@@ -577,7 +577,7 @@ contains
             ! the following part gives sometimes very large 
             ! matrix entries
             wpMat(nR_p,nCheb)= cheb_norm * ( -O_dt*dLh*or2(nR)*dcheb(nCheb,nR)  &
-                 &  -alpha*hdif*visc(nR)*dLh*or2(nR) &    *(- d3cheb(nCheb,nR)  &
+                 &  -alpha*hdif*visc(nR)*dLh*or2(nR)      *(- d3cheb(nCheb,nR)  &
                  &                   +( beta(nR)-dLvisc(nR) )*d2cheb(nCheb,nR)  &
                  &      +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)            &
                  &       +two*(dLvisc(nR)+beta(nR))*or1(nR) )*dcheb(nCheb,nR)   &

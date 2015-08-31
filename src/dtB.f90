@@ -21,7 +21,7 @@ module dtB_mod
    use logic, only: l_cond_ic, l_DTrMagSpec
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
-                       lm2lmP
+                       lm2lmP, nfs
    use radial_spectra ! rBrSpec, rBpSpec
 #if (FFTLIB==JW)
    use fft_JW

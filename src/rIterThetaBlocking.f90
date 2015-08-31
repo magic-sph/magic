@@ -11,7 +11,6 @@ module rIterThetaBlocking_mod
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
         & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs
-   use const, only: zero
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
         & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
         & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
@@ -223,12 +222,12 @@ contains
                call fft_thetab(gsa%dsdtc,1)
                call fft_thetab(gsa%dsdpc,1)
                if (this%nR == n_r_cmb .and. ktops==1) then
-                  gsa%dsdtc=zero
-                  gsa%dsdpc=zero
+                  gsa%dsdtc=0.0_cp
+                  gsa%dsdpc=0.0_cp
                end if
                if (this%nR == n_r_icb .and. kbots==1) then
-                  gsa%dsdtc=zero
-                  gsa%dsdpc=zero
+                  gsa%dsdtc=0.0_cp
+                  gsa%dsdpc=0.0_cp
                end if
             end if
             if ( this%lFluxProfCalc ) then
@@ -251,12 +250,12 @@ contains
                call fft_thetab(gsa%dvpdpc,1)
             end if
          else if ( this%nBc == 1 ) then ! Stress free
-            gsa%vrc = zero
+            gsa%vrc = 0.0_cp
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
             if ( this%lDeriv ) then
-               gsa%dvrdtc = zero
-               gsa%dvrdpc = zero
+               gsa%dvrdtc = 0.0_cp
+               gsa%dvrdpc = 0.0_cp
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)

@@ -15,7 +15,7 @@ module graphOut_mod
                                O_r_ic, O_r_ic2
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use num_param, only: vScale
-   use blocking, only: nThetaBs, sizeThetaB
+   use blocking, only: nThetaBs, sizeThetaB, nfs
    use horizontal_data, only: theta_ord, dLh, Plm, dPlm, O_sin_theta
    use logic, only: l_mag, l_cond_ic
    use output_data, only: n_graph_file, runid, graph_mpi_fh

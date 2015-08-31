@@ -633,7 +633,7 @@ contains
       integer :: nS,nN,mc,lm,l,m,nCheb,nPhi,n
       real(cp) :: x,phiNorm,mapFac,OS,cosT,sinT,Or_e1,Or_e2
       complex(cp) :: Vr,Vt1,Vt2,Vp1,Vp2,Vor,Vot1,Vot2
-      complex(cp) :: VotS(nrpGeos,nZmaxA)
+      real(cp) :: VotS(nrpGeos,nZmaxA)
       complex(cp) :: wSr,dwSr,ddwSr,zSr,dzSr
     
       real(cp) :: dV(nrpGeos,2*nZmax)
