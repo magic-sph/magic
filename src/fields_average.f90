@@ -8,7 +8,7 @@ module fields_average_mod
                                i_costf1_ic_init, d_costf1_ic_init, &
                                i_costf2_ic_init, d_costf2_ic_init, &
                                r, dr_fac_ic
-   use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2
+   use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
    use horizontal_data, only: Plm, dPlm, dLh
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic
    use kinetic_energy, only: get_e_kin
