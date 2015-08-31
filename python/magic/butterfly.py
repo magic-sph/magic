@@ -4,12 +4,12 @@ import re
 import os
 import copy
 import numpy as N
-import pylab as P
+import matplotlib.pyplot as P
 import scipy.interpolate as S
 from magic.libmagic import cut, hammer2cart
 from magic.setup import labTex
 from scipy.integrate import simps
-from npfile import *
+from .npfile import *
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -19,14 +19,14 @@ __version__ = "$Revision$"
 class Butterfly:
 
     def __init__(self, file=None, avg=False, step=1, iplot=True, rad=0.8,
-                 lastvar=None, nvar='all', levels=20, cmap='RdYlBu_r'):
+                 lastvar=None, nvar='all', levels=20, cm='RdYlBu_r'):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
         :param lastvar: the rank of the last line to be read
         :param step: the stepping between two lines             
         :param levels: the number of contour levels
-        :param cmap: the name of the color map
+        :param cm: the name of the color map
         :param png: if png=True, write the png outputs
         """
         if file == None:
@@ -38,7 +38,7 @@ class Butterfly:
             try:
                 filename = dat[index-1]
             except IndexError:
-                print 'Non valid index: %s has been chosen instead' % dat[0] 
+                print('Non valid index: %s has been chosen instead' % dat[0])
                 filename = dat[0]
 
         else:
@@ -108,7 +108,7 @@ class Butterfly:
                 shape = (self.n_r_max, self.n_theta_max)
             self.data = N.zeros((self.n_theta_max, self.nvar), 'f')
 
-        self.cmap = P.get_cmap(cmap)
+        self.cmap = P.get_cmap(cm)
         self.time = N.zeros(self.nvar, 'f')
 
         for i in range(self.var2-self.nvar):
@@ -122,7 +122,7 @@ class Butterfly:
                  movieDipStrengthGeo = infile.fort_read('f')
             if k % step == 0:
                 self.time[k] = t_movieS
-                #print k+self.var2-self.nvar
+                #print(k+self.var2-self.nvar)
                 if self.surftype == 'r_constant':
                     data = infile.fort_read('f', shape=shape)
                     #self.data[:, k] = data.mean(axis=1)
@@ -131,7 +131,7 @@ class Butterfly:
                     data = infile.fort_read('f', shape=shape)
                     self.data[:, k] = data[self.indPlot, :]
 
-            else: # On lit quand meme
+            else: # Nevertheless read
                 data = infile.fort_read('f', shape=shape)
 
 
@@ -208,9 +208,9 @@ class Butterfly:
                 data[i, :] = S.splev(x, tckp)
             self.data = data
             self.time = x
-            print "####################"
-            print "Warning time and data have been replaced by the extrapolated values !!!"
-            print "####################"
+            print("####################")
+            print("Warning time and data have been replaced by the extrapolated values !!!")
+            print("####################")
         nt = self.time.shape[0]
         w1 = N.fft.fft(self.data, axis=1)
         self.amp = N.abs(w1[:, 1:nt/2+1])
@@ -233,7 +233,7 @@ class Butterfly:
         ax.set_xlabel('Frequency')
         ax.set_ylabel('Spectrum')
         ax.set_xlim(self.omega.min(), self.omega.max())
-        print 'Fourier frequency:%.2f' % (self.omega[self.amp1D==self.amp1D.max()])
+        print('Fourier frequency:%.2f' % (self.omega[self.amp1D==self.amp1D.max()]))
 
 
 if __name__ == '__main__':

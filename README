@@ -1,30 +1,87 @@
 -----------------------------------------------------------------------
-	Running MAGIC3.*
+Steps for running MAGIC
 -----------------------------------------------------------------------
 
-	Steps for running MAGIC3
+1) Check out the code:
 
-	1) a) Download the highest avialable version MAGIC3*.tar.gz
-	   b) Get it from the svn trunk or a tagged version.
-	2) In the case of 1a, Gunzip and un-tar, this will leave a directory MAGIC3*.
-        3) Change src/Makefile by setting parameter FC=ifort to your 
-	   prefered compiler (F90 required). Change compiler options 
-           FFLAGS = ...  
-        5) cd to src and run make 
-	   This will produce the executable magic.exe.
-        6) Download testBM.tar.gz, gunzip and un-tar.
-	   This will create a directory BM2.
-        7) Directory BM2 contains input-files, run-scripts, and 
-	   results for Benchmark II tests. 
-           BM2 is a run that starts with a small disturbance and 
-           integrates until the solutions is quasi stationary. 
-	   All output files from thus run have the tag *.BM2.
-	   BM2a takes the restart file rst_end.BM2 and integrates 
-           for 50 time steps. The solution is not changing further. 
-	   Run BM2b and see whether the results are identical to
-	   those of BM2a. Small changes (order 1e-5 or so) due to 
-	   different computer precisions are OK. 
-           The runs are setup to run on 8 cores. If you have fewer
-	   cores available change nThreadsRun to the respective number.
+    -> git clone ...
 
-	Contact Wicht@mps.mpg.de in case of any problems.
+2) Go to the root directory and source the environnement variables (useful
+for python and auto-tests)
+
+    -> cd MAGIC_mpi
+
+    If you are using sh, bash or zsh as default shell (echo $SHELL), just
+
+    -> source sourceme.sh
+
+    If you are using csh or tcsh
+
+    -> source sourceme.csh
+
+3) Set up your compiler and compile the code
+
+    -> cd $MAGIC_HOME/src
+
+    Edit the Makefile and specify your compiler (intel or gnu) and additional 
+    compiler options (production run or not, debug mode, MKL library, HDF5, ...)
+
+    -> make -j
+
+    The executable magic.exe has been produced!
+
+4) Go to the samples directory and check that everything is fine
+
+    -> cd $MAGIC_HOME/samples
+    -> ./magic_checks.pl --all --clean --no-recompile
+
+    If everything is correctly set, all auto-tests should pass!
+
+5) You're ready for a production run
+
+    -> cd $SCRATCHDIR/run
+    -> cp $MAGIC_HOME/src/magic.exe .
+    -> cp $MAGIC_HOME/samples/hydro_bench_anel/input.nml .
+    
+    Then change the input namelist to the setup you want and run the code:
+
+    -> mpiexec -n 4 ./magic.exe input.nml
+
+6) Data visualisation and postprocessing
+
+    a) Set-up your PYTHON environnement (ipython, scipy and matplotlib are needed)
+
+    b) Modify magic.cfg according to your machine
+
+	-> vi $MAGIC_HOME/python/magic/magic.cfg
+
+    c) You can now import the python class:
+
+	python> from magic import *
+
+	and use them to read time series, graphic files, movies, ...
+
+	python> ts = MagicTs(field='e_kin', all=True)
+	python> s = Surf()
+        python> s.equat(field='vr')
+        python> ...
+
+7) Modify the code and submit your modifications
+
+    a) Before commiting your modifications ALWAYS make sure that the auto-tests
+    pass correctly.
+
+    b) Try to follow the same coding style rules as in the rest of the code:
+	1) Never use TABS but alwyas SPACES instead
+	2) Use 3 spaces for indentation
+	3) Never use capital letters for variable declaration
+	4) Never use 'dimension(len)' for declaring array but rather 
+           real(cp) :: data(len)
+        5) Always use the default precisions when introducing new variables (cp)
+
+
+    More on that topic on this webpage:
+
+	http://www.fortran90.org/src/best-practices.html
+
+Contact  gastine [at] mps.mpg.de or wicht [at] mpps.mpg.de in case of any problems.

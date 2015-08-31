@@ -19,14 +19,14 @@ make_src_dir()
 link_src_files()
 {
 #
-#  LINK all *.f90, *.f, *.cpp, *.F90, *.c and the Makefile to local src directory
+#  LINK all *.f90, *.f, *.cpp, *.f90, *.c and the Makefile to local src directory
 #
   echo "Linking files in 'src'."
   old_dir="`pwd`"
   cd src
   n=0
   to_link=
-  for file in $srcdir/Makefile $srcdir/*.cpp $srcdir/*.F90 $srcdir/*.h $srcdir/*.c
+  for file in $srcdir/Makefile $srcdir/*.cpp $srcdir/*.f90 $srcdir/*.h $srcdir/*.c
   do
     if [ -f $file ] || [ -d $file ]; then
       if [ -h "`basename $file`" ]; then

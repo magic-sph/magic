@@ -36,7 +36,7 @@ my %tests = (
              0 => [qw(
                          dynamo_benchmark
                          varProps
-			 boussBenchSat
+                         boussBenchSat
                     )],
              1 => [qw(
                          testRestart
@@ -49,10 +49,10 @@ my %tests = (
                          hydro_bench_anel
                     )],
              3 => [qw(
-			 fluxPerturbation
+                         fluxPerturbation
                          isothermal_nrho3
                          dynamo_benchmark_condICrotIC
-			 varCond
+                         varCond
                     )],
             );
 
@@ -79,7 +79,6 @@ Options:
        --level=LEV         \tRun only tests from level LEV
        --max-level=LEV     \tRun all tests below with level <= LEV (default: 0)
        --no-recompile      \tCompile only once
-  -m,  --mpi               \tRun with MPI, without OpenMP threading
        --hybrid            \tRun the hybrid version
 
 Example:
@@ -96,11 +95,10 @@ eval {
 GetOptions(\%opts,
            qw( -h   --help
                -c   --clean
-	       -a   --all
+               -a   --all
                     --level=s
                     --max-level=s
-		    --no-recompile
-               -m   --mpi
+                    --no-recompile
                     --hybrid
                     )
           ) or $help=1, die "Aborting.\n";
@@ -111,7 +109,6 @@ my $all=($opts{'a'} || $opts{'all'} || 0 );
 my $recomp=($opts{'no-recompile'} || 0 );
 my $level=($opts{'level'});
 my $max_level=($opts{'max-level'});
-my $mpi=($opts{'m'} || $opts{'mpi'} || 0 );
 my $hybrid=($opts{'hybrid'} || 0 );
 my $MAGIC_HOME = "";
 my $OMP_NUM_THREADS = 1;
@@ -127,8 +124,6 @@ if ((!exists($ENV{OMP_NUM_THREADS})) && $hybrid) {
 } else {
     $OMP_NUM_THREADS = "$ENV{OMP_NUM_THREADS}";
 }
-
-if ( $hybrid ) {$mpi=1;}
 
 # Make sure we are in the top directory and have the right PATH
 die "Need to set environment variable MAGIC_HOME\n"
@@ -174,8 +169,7 @@ if ($recomp) {
     print "\n";
     chdir $topdir;
     for my $d (@testdirs) {
-        #test_rundir_no_recomp("$d");
-	test_rundir("$d");
+        test_rundir("$d");
     }
     chdir "$topdir/src";
     print "Clean.. ";
@@ -237,55 +231,45 @@ sub test_rundir {
     print "\n";
     $itest++;
     if ( ! $recomp ) {
-	# Make sure we have everything we need
-	if (! defined(-e 'src/truncation.F90')) { # has `magic_setup' been run yet?
-	    my $res = `magic_setup`;
-	    if ($?) {
-		print "    Problems running magic_setup:\n", $res;
-	    }
-	}
+        # Make sure we have everything we need
+        if (! defined(-e 'src/truncation.F90')) { # has `magic_setup' been run yet?
+            my $res = `magic_setup`;
+            if ($?) {
+            print "    Problems running magic_setup:\n", $res;
+            }
+        }
     }
 
     #0. Make sure nothing is here yet
     `magic_clean`;
     if ( ! $recomp ) {
-	#1. Compilation
-	`magic_setup`;
+        #1. Compilation
+        `magic_setup`;
 #    `magic_build &> /dev/null`;
-	`magic_build`;
-	$t1 = get_time();
-	$t_global{'compile'} += ($t1-$t0);
+        `magic_build`;
+        $t1 = get_time();
+        $t_global{'compile'} += ($t1-$t0);
     } else {
-	#1. Link
-	`ln -s $topdir/src/magic.exe .`;
+        #1. Link
+        `ln -s $topdir/src/magic.exe .`;
     }
-    if ( $mpi ) {
-	`cp $MAGIC_HOME/bin/run_magic_mpi.sh .`;
-    } else {
-	`cp $MAGIC_HOME/bin/run_magic.sh .`;
-    }
+
+    `cp $MAGIC_HOME/bin/run_magic.sh .`;
 
     #2. Run
     my $t2 = get_time();
-    if ( $mpi ) {
-	if ( -e 'runMe_mpi.sh' ) {
-	    if ( $hybrid ) {
-		`./runMe_mpi.sh hybrid $OMP_NUM_THREADS &> /dev/null`;
-	    } else {
-		`./runMe_mpi.sh &> /dev/null`;
-	    }
-	} else { 
-	    if ( $hybrid ) {
-		#`./run_magic_mpi.sh hybrid &> /dev/null`; 
-		`./run_magic_mpi.sh hybrid $OMP_NUM_THREADS`; 
-	    } else {
-		`./run_magic_mpi.sh &> /dev/null`; 
-	    }
-	}
-    } else {
-	if ( -e 'runMe.sh' ) {
-	    `./runMe.sh &> /dev/null`;
-	} else { `./run_magic.sh &> /dev/null`; }
+    if ( -e 'runMe.sh' ) {
+        if ( $hybrid ) {
+            `bash runMe.sh hybrid $OMP_NUM_THREADS &> /dev/null`;
+        } else {
+            `bash runMe.sh &> /dev/null`;
+        }
+    } else { 
+        if ( $hybrid ) {
+            `./run_magic.sh hybrid $OMP_NUM_THREADS`; 
+        } else {
+            `./run_magic.sh &> /dev/null`; 
+        }
     }
     my $exitcode=$?;
     print "exitcode = $exitcode";
@@ -293,23 +277,23 @@ sub test_rundir {
 
     my $t3 = get_time();
     if ( ! $recomp ) {
-	$t_global{'start+run'} += ($t3-$t1);
+        $t_global{'start+run'} += ($t3-$t1);
     } else {
-	$t_global{'run'} += ($t3-$t2);
+        $t_global{'run'} += ($t3-$t2);
     }
 
     # Summarize timings in human-readable form
     my $t4 = get_time();
     if (! $recomp) {
-	print "    Time used: ",
-	s_to_hms(time_diff($t0,$t3), 44),
-	" = ", s_to_hms(time_diff($t0,$t1)),
-	" + ", s_to_hms(time_diff($t1,$t3)),
-	"\n";
+        print "    Time used: ",
+        s_to_hms(time_diff($t0,$t3), 44),
+        " = ", s_to_hms(time_diff($t0,$t1)),
+        " + ", s_to_hms(time_diff($t1,$t3)),
+        "\n";
     } else {
-	print "    Time used: ",
-	s_to_hms(time_diff($t0,$t3), 44),
-	"\n";
+        print "    Time used: ",
+        s_to_hms(time_diff($t0,$t3), 44),
+        "\n";
     }
 
     if ($clean && $exitcode==0) {
@@ -339,23 +323,13 @@ sub test_rundir_no_recomp {
     `magic_clean`;
     #1. Link
     `ln -s $topdir/src/magic.exe .`;
-    if ( $mpi ) {
-	`cp $MAGIC_HOME/bin/run_magic_mpi.sh .`;
-    } else {
-	`cp $MAGIC_HOME/bin/run_magic.sh .`;
-    }
+    `cp $MAGIC_HOME/bin/run_magic.sh .`;
 
     #2. Run
     my $t2 = get_time();
-    if ( $mpi ) {
-	if ( -e 'runMe_mpi.sh' ) {
-	    `./runMe_mpi.sh &> /dev/null`;
-	} else { `./run_magic_mpi.sh &> /dev/null`; }
-    } else {
-	if ( -e 'runMe.sh' ) {
-	    `./runMe.sh &> /dev/null`;
-	} else { `./run_magic.sh`; }
-    }
+    if ( -e 'runMe.sh' ) {
+        `bash runMe.sh &> /dev/null`;
+    } else { `./run_magic.sh &> /dev/null`; }
     test_results($dir);
 
     my $t3 = get_time();
@@ -433,11 +407,7 @@ sub test_results {
 
     my @output;
 
-    #if ( $mpi ) {
-#	@output = read_lines('e_kin.0000.test', $rdmsg);
-#    } else {
-	@output = read_lines('e_kin.test', $rdmsg);
-#    }
+    @output = read_lines('e_kin.test', $rdmsg);
     if ($rdmsg) {
         my_ok(0,1,"[$rdmsg]",$dir,"results");
         return;
@@ -558,10 +528,10 @@ sub compare_numbers_fuzzily {
     #$y1 =~ s/[dD]/e/;
     $y2 =~ s/[dD]/e/;
 
-    # If too small (1e-40), don't test:
-    return 1 if (abs("$x1$x2") < 1e-20 and "$x1$x2" != 0.);
-    # If diff too small (1e-20), don't test:
-    return 1 if (abs("$x1$x2"-"$y1$y2") < 1e-15);
+    # If too small (1e-20), don't test:
+    return 1 if (abs("$x1$x2") < 1e-18 and "$x1$x2" != 0.);
+    # If diff too small (1e-15), don't test:
+    return 1 if (abs("$x1$x2"-"$y1$y2") < 1e-14);
 
     # Are $x, $y really numeric?
     unless(defined($x1) && defined($y1)) {

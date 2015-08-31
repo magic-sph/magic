@@ -4,8 +4,13 @@ import re,os
 import numpy as N
 from magic.libmagic import symmetrize
 from magic import ExtraPot
-from npfile import *
-from vtklib import *
+from .npfile import *
+import sys
+if sys.version_info.major == 3:
+    from vtklib3 import *
+elif  sys.version_info.major == 2:
+    from vtklib2 import *
+
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -31,11 +36,11 @@ class Movie3D:
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
                 str1 += ' %i) %s\n' % (k+1, movie)
-            index = input(str1)
+            index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print 'Non valid index: %s has been chosen instead' % dat[0] 
+                print('Non valid index: %s has been chosen instead' % dat[0])
                 filename = dat[0]
 
         else:
@@ -111,7 +116,7 @@ class Movie3D:
                  movieDipStrengthGeo = infile.fort_read('f')
             self.time[k] = t_movieS
             if k % step == 0:
-                #print k+self.var2-self.nvar
+                #print(k+self.var2-self.nvar)
                 vecr = infile.fort_read('f', shape=shape)
                 vect = infile.fort_read('f', shape=shape)
                 vecp = infile.fort_read('f', shape=shape)
@@ -141,7 +146,7 @@ class Movie3D:
                 else:
                     radii = self.radius
                 vts(filename, radii, br, bt, bp)
-                print 'write %s.vts' % filename
+                print('write %s.vts' % filename)
             else: # Otherwise we read
                 vecr = infile.fort_read('f', shape=shape)
                 vect = infile.fort_read('f', shape=shape)

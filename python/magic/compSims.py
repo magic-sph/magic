@@ -2,7 +2,7 @@
 from magic import *
 from scipy.integrate import trapz
 from matplotlib.ticker import ScalarFormatter
-import pylab as P
+import matplotlib.pyplot as P
 import numpy as N
 import os
 
@@ -79,7 +79,7 @@ class CompSims:
         #myyfmt.set_powerlimits((1,1))
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             ts = MagicTs(field='e_kin', iplot=False, all=True)
 
             ax = P.subplot(self.nrow, self.ncol, iplot)
@@ -105,7 +105,7 @@ class CompSims:
         #myyfmt.set_powerlimits((1,1))
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             ts = MagicTs(field='e_mag_oc', iplot=False, all=True)
 
             ax = P.subplot(self.nrow, self.ncol, iplot)
@@ -129,7 +129,7 @@ class CompSims:
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             ts = MagicTs(field='misc', iplot=False, all=True)
 
             ax = P.subplot(self.nrow, self.ncol, iplot)
@@ -160,7 +160,7 @@ class CompSims:
             ax.plot(vpm[:, 1], theta)
 
             roequat = vpm[gr.ntheta/2, 0]*gr.ek*(1.-gr.radratio)
-            print '%7.3e %7.3e' % (gr.ra, roequat)
+            print('%7.3e %7.3e' % (gr.ra, roequat))
             for tick in ax.xaxis.get_major_ticks():
                 tick.label1.set_fontsize(10)
             for tick in ax.yaxis.get_major_ticks():
@@ -180,7 +180,7 @@ class CompSims:
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             try:
                 if self.ave:
                     gr = MagicGraph(ivar=1, ave=True)
@@ -254,7 +254,7 @@ class CompSims:
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             try:
                 if self.ave:
                     gr = MagicGraph(ivar=1, ave=True)
@@ -283,7 +283,7 @@ class CompSims:
                     rrloc, pphiloc = N.meshgrid(gr.radius, philoc)
                     dr = rderavg(rrloc*gr.vphi[:,gr.ntheta/2,:], spectral=False,
                                  eta=gr.radratio, exclude=True)
-                    equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta/2, :]))
+                    equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta/2, :], gr.minc))
                     if labTex:
                         label = r'$\omega_z$'
                     else:
@@ -331,15 +331,16 @@ class CompSims:
                     radi = gr.con_radratio * gr.radius[0]
                     ax.plot(radi*N.cos(phi), radi*N.sin(phi), 'k--')
 
-            if hasattr(gr, 'strat'):
-                if gr.strat >= 1:
-                    tit1 = r"$N_\rho = %.0f$"  % gr.strat
-                else:
-                    tit1 = r"$N_\rho = 10^{-2}$"
+            if hasattr(gr, 'cmbHflux'):
+                tit1 = r"${\cal Q}_{cmb} = %.1f$" % gr.cmbHflux
+                #if gr.strat >= 1:
+                    #tit1 = r"$N_\rho = %.0f$"  % gr.strat
+                #else:
+                    #tit1 = r"$N_\rho = 10^{-2}$"
             else:
                 tit1 = datadir
 
-            ax.text(0.5, 0.5, tit1, fontsize=18,
+            ax.text(0.5, 0.5, tit1, fontsize=14,
                               horizontalalignment='center',
                               verticalalignment='center',
                               transform = ax.transAxes)
@@ -363,7 +364,7 @@ class CompSims:
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             try:
                 if self.ave:
                     gr = MagicGraph(ivar=1, ave=True)
@@ -529,7 +530,7 @@ class CompSims:
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
-            print datadir
+            print(datadir)
             try:
                 if self.ave:
                     gr = MagicGraph(ivar=1, ave=True)

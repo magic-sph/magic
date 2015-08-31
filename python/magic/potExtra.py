@@ -1,13 +1,18 @@
 # -*- coding: utf-8 -*-
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
-from magic import MagicGraph
+from magic import MagicGraph, BLayers
 from magic.setup import labTex
 from magic.libmagic import symmetrize, thetaderavg, rderavg, phideravg
-import pylab as P
+import matplotlib.pyplot as P
 import numpy as N
-from potential import *
-from vtklib import *
+import sys
+if sys.version_info.major == 3:
+    from potential3 import *
+    from vtklib3 import *
+elif  sys.version_info.major == 2:
+    from potential2 import *
+    from vtklib2 import *
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -29,7 +34,7 @@ def sph2cart(br, bt, bp, radius, nx=96, ny=96, nz=96, hydro=False):
     theta = N.linspace(0., N.pi, nt)
     # Cube: take care of the sqrt(3.) !!!
     if hydro:
-        gridMax = radius.max()
+        gridMax = radius.max()/N.sqrt(3.)
     else:
         gridMax = radius.max()/N.sqrt(3.)
     spacing = 2.*gridMax/(nx-1)
@@ -207,10 +212,19 @@ class ExtraPot:
 
 class TotalField:
 
-    def __init__(self, g, ratio_out=2, nrout=64, hydro=False, vortOut=False,
-                 fluct=False):
+    def __init__(self, g, ratio_out=2, nrout=0, hydro=False, vortOut=False,
+                 ttOut=False, fluct=False, deminc=True):
         """
         For hydro run, specify  hydro=True
+
+        :param ratio_out: for potential extrapolation (rout/rcmb)
+        :param nrout: number of radial grid points in the outer spherical shell
+                      (potential extrapolation)
+        :param hydro: a logical to indicate if this is a non-magnetic setup
+        :param vortOut: a logical to compute z-vorticity instead of vr
+        :param ttOut: a logical to compute entropy instead of vr
+        :param fluct: a logical to substract the axisymmetric part
+        :param deminc: a logical to indicate if one wants do "de-minc"
         """
         self.hydro = hydro
         self.vortOut = vortOut
@@ -221,9 +235,14 @@ class TotalField:
                 pot = ExtraPot(rcmb, brCMB, g.minc, ratio_out=ratio_out, 
                                nrout=nrout, cutCMB=True)
 
-            self.br = symmetrize(g.Br[..., ::-1], g.minc)
-            self.bt = symmetrize(g.Btheta[..., ::-1], g.minc)
-            self.bp = symmetrize(g.Bphi[..., ::-1], g.minc)
+            if deminc:
+                self.br = symmetrize(g.Br[..., ::-1], g.minc)
+                self.bt = symmetrize(g.Btheta[..., ::-1], g.minc)
+                self.bp = symmetrize(g.Bphi[..., ::-1], g.minc)
+            else:
+                self.br = g.Br[..., ::-1]
+                self.bt = g.Btheta[..., ::-1]
+                self.bp = g.Bphi[..., ::-1]
 
             if fluct:
                 self.br = self.br-self.br.mean(axis=0)
@@ -239,9 +258,32 @@ class TotalField:
                 self.radius = g.radius[::-1]
         else:
             self.radius = g.radius[::-1]
-            self.br = symmetrize(g.vr[..., ::-1], g.minc)
-            self.bt = symmetrize(g.vtheta[..., ::-1], g.minc)
-            self.bp = symmetrize(g.vphi[..., ::-1], g.minc)
+
+
+            if deminc:
+                self.br = symmetrize(g.vr[..., ::-1], g.minc)
+                self.bt = symmetrize(g.vtheta[..., ::-1], g.minc)
+                self.bp = symmetrize(g.vphi[..., ::-1], g.minc)
+            else:
+                self.br = g.vr[..., ::-1]
+                self.bt = g.vtheta[..., ::-1]
+                self.bp = g.vphi[..., ::-1]
+
+            if fluct:
+                self.br = self.br-self.br.mean(axis=0)
+                self.bt = self.bt-self.bt.mean(axis=0)
+                self.bp = self.bp-self.bp.mean(axis=0)
+
+            if ttOut:
+                if deminc:
+                    self.entropy = symmetrize(g.entropy[..., ::-1], g.minc)
+                else:
+                    self.entropy = g.entropy[..., ::-1]
+                if fluct:
+                    self.entropy = self.entropy-self.entropy.mean(axis=0)
+                #bl = BLayers(iplot=False)
+                #self.entropy = self.entropy-bl.ss[::-1]
+
             if self.vortOut:
                 th3D = N.zeros_like(g.vphi)
                 rr3D = N.zeros_like(th3D)
@@ -250,15 +292,31 @@ class TotalField:
                 for i in range(g.nr):
                     rr3D[:, :, i] = g.radius[i]
                 s3D = rr3D * N.sin(th3D)
-                dtheta = thetaderavg(g.vphi*s3D)
-                dr = rderavg(g.vphi*s3D, eta=g.radratio, spectral=True,
-                             exclude=False)
+                if fluct:
+                    dtheta = thetaderavg((g.vphi-g.vphi.mean(axis=0))*s3D)
+                    dr = rderavg((g.vphi-g.vphi.mean(axis=0))*s3D,
+                                 eta=g.radratio, spectral=True, exclude=False)
+                    vs = (g.vr-g.vr.mean(axis=0))*N.sin(th3D) + \
+                         (g.vtheta-g.vtheta.mean(axis=0))*N.cos(th3D) # 'vs'
+                else:
+                    dtheta = thetaderavg(g.vphi*s3D)
+                    dr = rderavg(g.vphi*s3D, eta=g.radratio, spectral=True,
+                                 exclude=False)
+                    vs = g.vr * N.sin(th3D) + g.vtheta * N.cos(th3D) # 'vs'
+
                 ds = N.sin(th3D)*dr + N.cos(th3D)/rr3D*dtheta
-                vs = g.vr * N.sin(th3D) + g.vtheta * N.cos(th3D) # 'vs'
                 self.vortz = -1./s3D*phideravg(vs)+ds/s3D
+
+                self.vortr = 1./s3D*(thetaderavg(N.sin(th3D)*g.vphi)-phideravg(g.vtheta))
+
                 del dr, dtheta, ds, rr3D, th3D, s3D
 
-                self.vortz = symmetrize(self.vortz[..., ::-1], g.minc)
+                if deminc:
+                    self.vortz = symmetrize(self.vortz[..., ::-1], g.minc)
+                    self.vortr = symmetrize(self.vortr[..., ::-1], g.minc)
+                else:
+                    self.vortz = self.vortz[..., ::-1]
+                    self.vortr = self.vortr[..., ::-1]
 
 
     def writeVTI(self, filename, nx=96, ny=96, nz=96, nscals=3, nvecs=1):
@@ -296,18 +354,23 @@ class TotalField:
             vecs[0, ...] = field
         writevtr(filename, scals, vecs, gridMax, spacing, nx, ny, nz)
 
-    def writeVTS(self, filename):
+    def writeVTS(self, filename, minc=1):
         """
         In this case, the output is directly written on the spherical
         grid, i.e. a vts file.
 
         :param filename: the file name of the output (without extension)
+        :param minc: azymuthal symmetry (default 1)
         """
         filename += '_tot'
         if self.vortOut:
-            vts(filename, self.radius, self.vortz, self.bt, self.bp)
+            #vts(filename, self.radius, self.vortz, self.bt, self.bp, minc)
+            vts(filename, self.radius, self.br, self.bt, self.bp, abs(self.br),
+                self.entropy, minc)
+            #pvts(filename, self.radius, self.vortz, 16, minc)
         else:
-            vts(filename, self.radius, self.br, self.bt, self.bp)
+            #vts(filename, self.radius, self.br, self.bt, self.bp, minc)
+            pvts(filename, self.radius, self.entropy, 8, minc)
 
 
 if __name__ == '__main__':

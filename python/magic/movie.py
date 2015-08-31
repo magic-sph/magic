@@ -4,8 +4,8 @@ import re
 import os
 import copy
 import numpy as N
-import pylab as P
-from npfile import *
+import matplotlib.pyplot as P
+from .npfile import *
 from magic.libmagic import symmetrize, hammer2cart
 
 __author__  = "$Author$"
@@ -17,9 +17,9 @@ __version__ = "$Revision$"
 class Movie:
 
     def __init__(self, file=None, iplot=True, step=1, png=False,
-                 lastvar=None, nvar='all', levels=12, cmap='RdYlBu_r', cut=0.5,
+                 lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False, 
-                 std=False, dpi=80):
+                 std=False, dpi=80, normRad=False):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
@@ -28,7 +28,7 @@ class Movie:
         :param lastvar: the rank of the last line to be read
         :param step: the stepping between two lines             
         :param levels: the number of contour levels
-        :param cmap: the name of the color map
+        :param cm: the name of the color map
         :param png: if png=True, write the png outputs
         :param fluct: if fluct=True, substract the axisymmetric part
         :param normed: if normed=True, the colormap is rescaled every timestep,
@@ -36,6 +36,7 @@ class Movie:
         :param avg: if avg=True, time-average is displayed
         :param avg: if std=True, standard deviation is displayed
         :param dpi: dot per inch when saving PNGs
+        :param normRad: if normRad=True, then we normalise for each radial level
         """
 
         if avg or std:
@@ -45,11 +46,11 @@ class Movie:
             str1 = 'Which movie do you want ?\n'
             for k, movie in enumerate(dat):
                 str1 += ' %i) %s\n' % (k+1, movie)
-            index = input(str1)
+            index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print 'Non valid index: %s has been chosen instead' % dat[0] 
+                print('Non valid index: %s has been chosen instead' % dat[0])
                 filename = dat[0]
 
         else:
@@ -85,12 +86,11 @@ class Movie:
         movtype = infile.fort_read('f')
         n_fields = int(n_fields)
         if n_fields > 1:
-            print '!!! Warning: several fields in the movie file !!!'
-            print '!!! Only the last one will be displayed       !!!'
-            print '!!! For TO_mov.TAG, use TOMovie(...) instead  !!!'
+            print('!!! Warning: several fields in the movie file !!!')
+            print('!!! Only the last one will be displayed       !!!')
+            print('!!! For TO_mov.TAG, use TOMovie(...) instead  !!!')
         self.movtype = int(movtype[0])
         n_surface = int(n_surface)
-        print 'movtype, nsurf', self.movtype, n_surface
 
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
@@ -128,9 +128,9 @@ class Movie:
                 shape = (n_r_mov_tot+2, 2*self.n_theta_max)
             elif self.movtype in [8, 9]:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
-            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
+            elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54]:
                 shape = (self.n_r_max, 2*self.n_theta_max)
-            elif self.movtype in [10, 11, 12, 19]:
+            elif self.movtype in [10, 11, 12, 19, 92]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
             self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), 'f')
@@ -172,18 +172,25 @@ class Movie:
                         dat = dat[:, :self.n_theta_max].T
                         self.data[k, :, ::2] = dat[:, :n_r_max/2+1]
                         self.data[k, :, 1::2] = dat[:, n_r_max/2+1:]
-                    elif self.movtype in [10, 11, 12, 19]:
+                    elif self.movtype in [10, 11, 12, 19, 92]:
                         self.data[k, ...] = dat.T
                 else:
                     self.data[k, ...] = dat.T
             if fluct:
                 self.data[k, ...] = self.data[k, ...]-self.data[k, ...].mean(axis=0)
 
+        infile.close()
+
+        if normRad:
+            norm = N.sqrt(N.mean(self.data**2, axis=1))
+            norm = norm.mean(axis=0)
+            self.data[:, :, norm!=0.] /= norm[norm!=0.]
+
         if iplot:
-            cmap = P.get_cmap(cmap)
+            cmap = P.get_cmap(cm)
             self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor)
         if avg or std:
-            cmap = P.get_cmap(cmap)
+            cmap = P.get_cmap(cm)
             self.avgStd(std, cut, levels, cmap)
 
     def __add__(self, new):
@@ -195,7 +202,7 @@ class Movie:
         out = copy.deepcopy(new)
         out.time = N.concatenate((self.time, new.time), axis=0)
         out.data = N.concatenate((self.data, new.data), axis=0)
-        out.nvar = out.nvar+new.nvar
+        out.nvar = self.nvar+new.nvar
         out.var2 = out.nvar
         return out
 
@@ -276,6 +283,7 @@ class Movie:
             vmin = - max(abs(self.data.max()), abs(self.data.min()))
             vmin = cut * vmin
             vmax = -vmin
+            #vmin, vmax = self.data.min(), self.data.max()
             cs = N.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
@@ -341,7 +349,7 @@ class Movie:
                 man.canvas.draw()
             if k !=0 and k % step == 0:
                 if not png:
-                    print k+self.var2-self.nvar
+                    print(k+self.var2-self.nvar)
                 P.cla()
                 if normed:
                     vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
@@ -359,7 +367,7 @@ class Movie:
                 man.canvas.draw()
             if png:
                 filename = 'movie/img%05d.png' % k
-                print 'write %s' % filename
+                print('write %s' % filename)
                 #st = 'echo %i' % ivar + ' > movie/imgmax'
                 if bgcolor is not None:
                     fig.savefig(filename, facecolor=bgcolor, dpi=dpi)

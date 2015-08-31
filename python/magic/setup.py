@@ -1,14 +1,20 @@
 # -*- coding: utf-8 -*-
 import os
-import pylab as P
-import ConfigParser as CoPa
+import sys
+import matplotlib.pyplot as P
+try:
+    import configparser as CoPa
+except ImportError:
+    import ConfigParser as CoPa
 
 __author__  = "$Author$"
 __date__   = "$Date$"
 __version__ = "$Revision$"
 
 
-if os.environ.has_key('MAGIC_HOME'):
+pythonVersion = sys.version_info.major
+
+if 'MAGIC_HOME' in os.environ:
     path = os.environ['MAGIC_HOME']
     magicdir = path+'/python/magic'
 
@@ -35,6 +41,7 @@ P.rc('xtick.minor', size=3.5)
 P.rc('ytick.major', size=7)
 P.rc('ytick.minor', size=3.5)
 P.rc('axes.formatter', limits=(-5,5))
+#P.rc('axes', color_cycle=('30a2da', 'fc4f30', 'e5ae38', '6d904f', '8b8b8b'))
 
 if labTex:
     P.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
@@ -61,32 +68,41 @@ if buildSo:
     os.chdir(magicdir)
 
     # For reading G files
-    if not os.path.exists('greader.so'):
+    if not os.path.exists('greader%i.so' % pythonVersion):
         os.chdir('fortranLib')
-        print "Please wait: building greader..."
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader readG.f90 &> /dev/null' % (f2pycmd, compiler)
+        print("Please wait: building greader...")
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader%i readG.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
         os.system(cmd)
-        cmd = 'mv greader.so %s' % magicdir
+        if pythonVersion == 3:
+            cmd = 'mv greader3.cpython-33m.so %s/greader3.so' % magicdir
+        elif pythonVersion == 2:
+            cmd = 'mv greader2.so %s' % magicdir
         os.system(cmd)
         os.chdir(magicdir)
 
     # For the potential field extrapolation
-    if not os.path.exists('potential.so'):
+    if not os.path.exists('potential%i.so' % pythonVersion):
         os.chdir('fortranLib')
-        print "Please wait: building potential extrapolation..."
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 potential spec.f90 &> /dev/null' % (f2pycmd, compiler)
+        print("Please wait: building potential extrapolation...")
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 potential%i spec.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
         os.system(cmd)
-        cmd = 'mv potential.so %s' % magicdir
+        if pythonVersion == 3:
+            cmd = 'mv potential3.cpython-33m.so %s/potential3.so' % magicdir
+        elif pythonVersion == 2:
+            cmd = 'mv potential2.so %s' % magicdir
         os.system(cmd)
         os.chdir(magicdir)
 
     # For the vtk file format convertion
-    if not os.path.exists('vtklib.so'):
+    if not os.path.exists('vtklib%i.so' % pythonVersion):
         os.chdir('fortranLib')
-        print "Please wait: building vtklib..."
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 vtklib vtkLib.f90 &> /dev/null' % (f2pycmd, compiler)
+        print("Please wait: building vtklib...")
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 vtklib%i vtkLib.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
         os.system(cmd)
-        cmd = 'mv vtklib.so %s' % magicdir
+        if pythonVersion == 3:
+            cmd = 'mv vtklib3.cpython-33m.so %s/vtklib3.so' % magicdir
+        elif pythonVersion == 2:
+            cmd = 'mv vtklib2.so %s' % magicdir
         os.system(cmd)
         os.chdir(magicdir)
 

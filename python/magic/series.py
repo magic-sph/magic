@@ -1,11 +1,10 @@
-# -*- coding: utf-8 -*-
+#-*- coding: utf-8 -*-
 import os, re
-import pylab as P
+import matplotlib.pyplot as P
 import numpy as N
-from log import MagicSetup
-import string
+from .log import MagicSetup
 import glob
-from libmagic import fast_read, scanDir
+from .libmagic import fast_read, scanDir
 from scipy.integrate import trapz
 
 __author__  = "$Author$"
@@ -219,6 +218,13 @@ class MagicTs(MagicSetup):
             self.rm = data[:, 6]
             self.rossby_l = data[:, 7]
             self.dl = data[:, 8]
+        elif self.field == 'perpPar':
+            self.time = data[:, 0]
+            self.eperp = data[:, 1]
+            self.epar = data[:, 2]
+            self.eperp_axi = data[:, 3]
+            self.epar_axi = data[:, 4]
+            self.ekin_tot = self.eperp+self.epar
         elif self.field in ('dtVrms', 'dtVAsRms'):
             self.time = data[:, 0]
             self.dtVPolRms = data[:, 1]
@@ -420,6 +426,21 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal RMS forces')
 
+        elif self.field == 'perpPar':
+            fig = P.figure()
+            ax= fig.add_subplot(111)
+
+            ax.plot(self.time, self.eperp, 'b-', label='Ekin perp.')
+            ax.plot(self.time, self.epar, 'r-', label='Ekin par.')
+            ax.plot(self.time, self.eperp_axi, 'b--', label='Ekin perp. axi.')
+            ax.plot(self.time, self.epar_axi, 'r--', label='Ekin par. axi.')
+            ax.plot(self.time, self.ekin_tot, 'k-')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Ekin')
+
+            ax.set_xlim(self.time[0], self.time[-1])
+
         elif self.field in ('power'):
             fig = P.figure()
             ax = fig.add_subplot(111)
@@ -462,7 +483,7 @@ class MagicTs(MagicSetup):
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
             fig = P.figure()
             ax = fig.add_subplot(111)
-            print self.coeffs.shape
+            print(self.coeffs.shape)
             for k in range(self.coeffs.shape[1]):
                 ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
             ax.set_xlabel('Time')  
@@ -521,8 +542,8 @@ class AvgField:
         self.mode = ts.mode
 
         ts2 = MagicTs(field='par', all=True, iplot=False, tag=tag)
-        #mask = N.where(abs(ts2.time-tstart) == min(abs(ts2.time-tstart)), 1, 0)
-        #ind = N.nonzero(mask)[0][0]
+        mask = N.where(abs(ts2.time-tstart) == min(abs(ts2.time-tstart)), 1, 0)
+        ind = N.nonzero(mask)[0][0]
         fac = 1./(ts2.time.max()-ts2.time[ind])
         self.dip = fac * trapz(ts2.dipolarity[ind:], ts2.time[ind:])
         self.dipCMB = fac * trapz(ts2.dip_cmb[ind:], ts2.time[ind:])
@@ -533,19 +554,23 @@ class AvgField:
         self.dlB = fac * trapz(ts2.dlB[ind:], ts2.time[ind:])
         self.dmB = fac * trapz(ts2.dmB[ind:], ts2.time[ind:])
         self.dlV = fac * trapz(ts2.dlV[ind:], ts2.time[ind:])
+        self.dmV = fac * trapz(ts2.dmV[ind:], ts2.time[ind:])
 
         ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
-        #mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
-        #ind = N.nonzero(mask)[0][0]
+        mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
+        ind = N.nonzero(mask)[0][0]
         fac = 1./(ts3.time.max()-ts3.time[ind])
-        self.nuss = fac * trapz(ts3.botnuss[ind:], ts3.time[ind:])
+        nussb = fac * trapz(ts3.botnuss[ind:], ts3.time[ind:])
+        nusst = fac * trapz(ts3.topnuss[ind:], ts3.time[ind:])
+        print(nussb, nusst)
+        self.nuss = 0.5*(nussb+nusst)
 
         if self.mode == 0:
             ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False, 
                           tag=tag)
-            #mask = N.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
-                           #1, 0)
-            #ind = N.nonzero(mask)[0][0]
+            mask = N.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
+                           1, 0)
+            ind = N.nonzero(mask)[0][0]
             fac = 1./(ts4.time.max()-ts4.time[ind])
             self.emag_pol_avg = fac * trapz(ts4.emagoc_pol[ind:], ts4.time[ind:])
             self.emag_tor_avg = fac * trapz(ts4.emagoc_tor[ind:], ts4.time[ind:])
@@ -638,7 +663,7 @@ class AvgField:
                 self.ureynolds = self.reynolds
             st += '%12.5e%12.5e%12.5e%12.5e' % \
                   (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
-            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e\n' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e\n' % \
               (self.reynolds, self.ureynolds, self.rol, self.urol, \
-               self.nuss, self.dlV, self.udlV)
+               self.nuss, self.dlV, self.dmV, self.udlV)
         return st

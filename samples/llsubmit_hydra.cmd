@@ -42,6 +42,6 @@ export KMP_AFFINITY=verbose,granularity=core,compact,1
 
 ### start program
 
-./magic_checks.pl --all --clean --mpi --no-recompile
+./magic_checks.pl --all --clean --no-recompile
 
 

@@ -356,10 +356,10 @@ contains
                open(n_power_file, file=power_file, status='unknown', &
                     position='append')
             end if
-            write(n_power_file,'(1P,D20.12,9D16.8)')        &
-                 time*tScale, buoy,-two*z10ICB*drz10ICB, &
-                 two*z10CMB*drz10CMB, viscDiss,          &
-                 ohmDiss, powerMA, powerIC, powerDiff,      &
+            write(n_power_file,'(1P,D20.12,9D16.8)')       &
+                 time*tScale, buoy,-two*z10ICB*drz10ICB,   &
+                 two*z10CMB*drz10CMB, viscDiss,            &
+                 ohmDiss, powerMA, powerIC, powerDiff,     &
                  eDiffInt/timeNorm
             if ( l_save_out ) close(n_power_file)
          else
@@ -373,7 +373,7 @@ contains
             fileName='powerR.'//tag
             open(99, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(99,'(4D20.10)')        &
+               write(99,'(4D16.8)')         &
                     &   r(n_r),             &! 1) radius
                     &   buoMeanR(n_r),      &! 2) Buo power
                     &   curlU2MeanR(n_r),   &! 3) Viscous heating

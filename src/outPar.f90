@@ -59,6 +59,8 @@ contains
       if ( l_viscBcCalc ) then
          allocate( sMeanR(n_r_max),Svar(nRstart:nRstop),Mvar(nRstart:nRstop) )
          allocate( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
+         Svar(:)         =0.0_cp
+         Mvar(:)         =0.0_cp
          sMeanR(:)       =0.0_cp
          uhMeanR(:)      =0.0_cp
          duhMeanR(:)     =0.0_cp
@@ -156,9 +158,9 @@ contains
          end do
 
          do nR=nRstart,nRstop
-            uhR(nR) =0.0_cp
+            uhR(nR)    =0.0_cp
             gradT2R(nR)=0.0_cp
-            duhR(nR)=0.0_cp
+            duhR(nR)   =0.0_cp
             do n=1,nThetaBs ! Loop over theta blocks
                nTheta=(n-1)*sizeThetaB
                nThetaStart=nTheta+1
@@ -371,7 +373,7 @@ contains
                filename='bLayersR.'//tag
                open(99, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(D20.10,6D20.12)')             &
+                  write(99,'(D20.10,6D16.8)')              &
                           &   r(nR),                       &! 1) radius
                           &   sMeanR(nR)*osq4pi,           &! 2) entropy
                           &   Svar_global(nR)/(four*pi),   &! 3) entropy variance
@@ -386,14 +388,14 @@ contains
                filename='fluxesR.'//tag
                open(99, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(D20.10,7D20.12)')           &
-                          &   r(nR),                     &! 1) radius
-                          &   fcondMeanR(nR),            &! 2) Fcond
-                          &   fconvMeanR(nR),            &! 3) Fconv
-                          &   fkinMeanR(nR),             &! 4) Fkin
-                          &   fviscMeanR(nR),            &! 5) Fvisc
-                          &   fpoynMeanR(nR),            &! 6) Fpoyn
-                          &   fresMeanR(nR)               ! 7) Fres
+                  write(99,'(D20.10,7D16.8)')        &
+                          &   r(nR),                 &! 1) radius
+                          &   fcondMeanR(nR),        &! 2) Fcond
+                          &   fconvMeanR(nR),        &! 3) Fconv
+                          &   fkinMeanR(nR),         &! 4) Fkin
+                          &   fviscMeanR(nR),        &! 5) Fvisc
+                          &   fpoynMeanR(nR),        &! 6) Fpoyn
+                          &   fresMeanR(nR)           ! 7) Fres
                end do
                close(99)
             end if
@@ -509,7 +511,7 @@ contains
              filename='perpParR.'//tag
              open(99, file=filename, status='unknown')
              do nR=1,n_r_max
-                write(99,'(D20.10,4D20.12)')      &
+                write(99,'(D20.10,4D16.8)')       &
                            &   r(nR),             &! 1) radius
                            &   EperpMeanR(nR),    &! 2) E perpendicular
                            &   EparMeanR(nR),     &! 3) E parallel

@@ -10,7 +10,7 @@ if (! $?MAGIC_HOME) then
   # Try to identify position of the code's home directory:
   #
   foreach _dir ( . .. ../.. ../../.. ../../../.. \
-		MAGIC3 MAGIC)
+		MAGIC_mpi)
     if ( (-e $_dir/sourceme.csh) && \
          (-d $_dir/src)          && \
 	 (-d $_dir/bin)          && \

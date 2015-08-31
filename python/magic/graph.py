@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as N
 import os, re
-from log import MagicSetup
-from libmagic import scanDir
+from .log import MagicSetup
+from .libmagic import scanDir
 from magic.setup import buildSo
 import glob
 
@@ -12,13 +12,18 @@ __version__ = "$Revision$"
 
 if buildSo:
     try:
-        import greader as G
+        import sys
+        if sys.version_info.major == 3:
+            import greader3 as G
+        elif sys.version_info.major == 2:
+            import greader2 as G
         os.environ['F_UFMTENDIAN'] = 'big'
         os.system('export GFORTRAN_CONVERT_UNIT=big_endian')
         lect = 'f2py'
     except ImportError:
         from npfile import *
         lect = 'python'
+    #print('read with %s' % lect)
 else:
     from npfile import *
     lect = 'python'
@@ -49,7 +54,7 @@ class MagicGraph(MagicSetup):
                 if len(files) != 0:
                     filename = os.path.join(datadir, files[-1])
                 else:
-                    print 'No such tag... try again'
+                    print('No such tag... try again')
                     return
 
             if os.path.exists('log.%s' % tag):
@@ -70,7 +75,7 @@ class MagicGraph(MagicSetup):
                                     nml='log.%s' % ending)
 
         if not os.path.exists(filename):
-            print 'No such file'
+            print('No such file')
             return
 
         if lect != 'python':
@@ -78,7 +83,7 @@ class MagicGraph(MagicSetup):
             self.nr = G.greader.nr
             self.ntheta = G.greader.nt
             self.npI = G.greader.np
-            self.minc = G.greader.minc
+            self.minc = int(G.greader.minc)
             self.time = G.greader.time
             self.ra = G.greader.ra
             self.ek = G.greader.ek
@@ -120,10 +125,10 @@ class MagicGraph(MagicSetup):
             self.nThetaBs = int(nThetaBs)
 
             if not quiet:
-                print 'Rayleigh = %.1e, Ekman = %.1e, Prandtl = %.1e' % (self.ra, 
-                              self.ek, self.pr)
-                print 'nr = %i, nth = %i, nphi = %i' % (self.nr, self.ntheta, 
-                              self.npI)
+                print('Rayleigh = %.1e, Ekman = %.1e, Prandtl = %.1e' % (self.ra, 
+                              self.ek, self.pr))
+                print('nr = %i, nth = %i, nphi = %i' % (self.nr, self.ntheta, 
+                              self.npI))
 
             self.colatitude = inline.fort_read('f')
             self.radius = N.zeros((self.nr), self.precision)

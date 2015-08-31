@@ -3,12 +3,12 @@ import glob
 import re
 import os
 import numpy as N
-import pylab as P
-from npfile import *
+import matplotlib.pyplot as P
+from .npfile import *
 
-__author__  = "$Author: gastine $"
-__date__   = "$Date: 2013-11-05 13:27:50 +0100 (mar. 05 nov. 2013) $"
-__version__ = "$Revision: 540 $"
+__author__  = "$Author$"
+__date__   = "$Date$"
+__version__ = "$Revision$"
 
 
 class TOMovie:
@@ -30,11 +30,11 @@ class TOMovie:
             str1 = 'Which TO movie do you want ?\n'
             for k, movie in enumerate(dat):
                 str1 += ' %i) %s\n' % (k+1, movie)
-            index = input(str1)
+            index = int(input(str1))
             try:
                 filename = dat[index-1]
             except IndexError:
-                print 'Non valid index: %s has been chosen instead' % dat[0]
+                print('Non valid index: %s has been chosen instead' % dat[0])
                 filename = dat[0]
 
         else:
@@ -93,7 +93,7 @@ class TOMovie:
 
         # READ the data
         for k in range(self.nvar):
-            print k
+            print(k)
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
                            movieDipStrengthGeo = infile.fort_read('f')

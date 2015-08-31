@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 import os, re
-import pylab as P
+import matplotlib.pyplot as P
 import numpy as N
-from log import MagicSetup
-from libmagic import fast_read,scanDir
+from .log import MagicSetup
+from .libmagic import fast_read,scanDir
 
 
 __author__  = "$Author$"
@@ -48,8 +48,10 @@ class MagicRadial(MagicSetup):
             self.name = 'parR'
         elif field in ('fluxesR'):
             self.name = 'fluxesR'
+        elif field in ('perpParR'):
+            self.name = 'perpParR'
         else:
-            print 'No corresponding radial profiles... Try again'
+            print('No corresponding radial profiles... Try again')
 
         if tags is None:
             if tag is not None:
@@ -65,11 +67,14 @@ class MagicRadial(MagicSetup):
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]
                 if os.path.exists('log.%s' % ending):
-                    MagicSetup.__init__(self, datadir=datadir, quiet=True, 
+                    try:
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True, 
                                         nml='log.%s' % ending)
+                    except AttributeError:
+                        pass
 
             if not os.path.exists(filename):
-                print 'No such file'
+                print('No such file')
                 return
 
             if self.name == 'varCond' or self.name == 'varVisc' or self.name == 'varDiff' \
@@ -100,7 +105,7 @@ class MagicRadial(MagicSetup):
                 else:
                     if self.name == 'bLayersR':
                         if os.path.exists(filename):
-			    dat = fast_read(filename, skiplines=0)
+                            dat = fast_read(filename, skiplines=0)
                             for i in [0, 1, 3, 4]:
                                 data[:, i] += dat[:, i]*(nml.stop_time-nml.start_time)
                             data[:, 2] = data[:, 2] + dat[:, 2]*(int(nml.steps_gone)-1)
@@ -161,6 +166,10 @@ class MagicRadial(MagicSetup):
             self.beta = data[:, 3]
             self.dbeta = data[:, 4]
             self.grav = data[:, 5]
+            try:
+                self.dsdr = data[:, 6]
+            except IndexError:
+                self.dsdr = N.zeros_like(self.radius)
         elif self.name == 'varDiff':
             self.radius = data[:, 0]
             self.conduc = data[:, 1]
@@ -225,6 +234,12 @@ class MagicRadial(MagicSetup):
             self.fres = data[:, 6]
             self.ftot = self.fcond+self.fconv+self.fkin+self.fvisc+\
                         self.fpoyn+self.fres
+        elif self.name == 'perpParR':
+            self.radius = data[:, 0]
+            self.Eperp = data[:, 1]
+            self.Epar = data[:, 2]
+            self.Eperp_axi = data[:, 3]
+            self.Epar_axi = data[:, 4]
 
         if iplot:
             self.plot()
@@ -330,11 +345,12 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'varCond':
-            P.figure()
-            P.semilogy(self.radius, self.conduc, 'b-', label='conductivity')
-            P.ylabel('Electrical conductivity')
-            P.xlabel('Radius')
-            P.xlim(self.radius.min(), self.radius.max())
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.radius, self.conduc, 'b-', label='conductivity')
+            ax.set_ylabel('Electrical conductivity')
+            ax.set_xlabel('Radius')
+            ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'powerR':
             fig = P.figure()
@@ -378,7 +394,6 @@ class MagicRadial(MagicSetup):
             ax.set_ylabel('Rol')
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
-
         elif self.name == 'fluxesR':
             fig = P.figure()
             ax = fig.add_subplot(111)
@@ -395,8 +410,19 @@ class MagicRadial(MagicSetup):
             ax.plot(self.radius, self.ftot/self.fcond[0])
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.radius[-1], self.radius[0])
+        elif self.name == 'perpParR':
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.radius, self.Eperp, 'b-', label='E perp.')
+            ax.plot(self.radius, self.Epar, 'r-', label='E par.')
+            ax.plot(self.radius, self.Eperp_axi, 'b--', label='E eperp. ax.')
+            ax.plot(self.radius, self.Epar_axi, 'r--', label='E par. ax.')
+            ax.set_xlabel('Radius')
+            ax.set_ylabel('Kinetic energy')
+            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.legend(loc='best', frameon=False)
 
-            if hasattr(self, 'con_radratio'):
-                if self.nVarCond == 2:
-                    ax.axvline(self.con_radratio*self.radius[0], color='k',
-                              linestyle='--')
+        if hasattr(self, 'con_radratio'):
+            if self.nVarCond == 2:
+                ax.axvline(self.con_radratio*self.radius[0], color='k',
+                          linestyle='--')

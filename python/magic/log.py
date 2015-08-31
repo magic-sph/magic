@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 import re
 import os
-import string
 
-__author__  = "$Author: gastine $"
-__date__   = "$Date: 2013-12-02 16:36:18 +0100 (Mon, 02 Dec 2013) $"
-__version__ = "$Revision: 553 $"
+__author__  = "$Author$"
+__date__   = "$Date$"
+__version__ = "$Revision$"
 
 
 class MagicSetup:
@@ -24,20 +23,20 @@ class MagicSetup:
         tab2 = []
         for i in tab:
             if re.search('=', i) is not None:
-                st = string.replace(i, ',', ' ')
+                st = i.replace(',', ' ')
                 st = st.rstrip('\n')
                 if not st.startswith(' !'):
                     tab2.append(st)
 
         for i in tab2:
-            val = string.split(i, '=')
+            val = i.split('=')
             lhs = val[0].strip()
             lhs = lhs.replace(' ', '_')
             rhs = val[1].strip()
             rhs = rhs.strip('"')
             if valueReal.match(rhs):
-                rhs = string.replace(rhs, 'D', 'e')
-                rhs = string.replace(rhs, 'd', 'e')
+                rhs = rhs.replace('D', 'e')
+                rhs = rhs.replace('d', 'e')
                 try:
                     rhs = float(rhs)
                 except ValueError:
@@ -54,7 +53,7 @@ class MagicSetup:
             
         self.ra = float(self.ra)
         if not quiet:
-            print self
+            print(self)
 
         # Overwrite self.tag to be sure that nothing is messed up
         if logFile.match(nml):

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 import scipy.interpolate as S
 import numpy as N
-import glob, os
-from npfile import *
+import glob, os, re, sys
+from .npfile import *
 
 __author__  = "$Author$"
 __date__   = "$Date$"
@@ -183,14 +183,34 @@ def writeVpEq(par, tstart):
                                                  par.ra, roEq, avgRolC)
     return st
 
-def scanDir(pattern):
+def progressbar(it, prefix = "", size = 60):
+    count = len(it)
+    def _show(_i):
+        x = int(size*_i/count)
+        sys.stdout.write("%s[%s%s] %i/%i\r" % (prefix, "#"*x, "."*(size-x), _i, count))
+        sys.stdout.flush()
+    
+    _show(0)
+    for i, item in enumerate(it):
+        yield item
+        _show(i+1)
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+def scanDir(pattern, tfix=None):
     """
     in a directory, order the files corresponding to a given
     pattern by date
     """
     dat = [(os.stat(i).st_mtime, i) for i in glob.glob(pattern)]
     dat.sort()
-    out = [i[1] for i in dat]
+    if tfix is not None:
+        out = []
+        for i in dat:
+            if i[0] > tfix:
+                out.append(i[1])
+    else:
+        out = [i[1] for i in dat]
     return out
 
 def hammer2cart(ttheta, pphi, colat=False):
@@ -382,9 +402,9 @@ def den(k, j, nr):
 
 
 
-def phideravg(data):
+def phideravg(data, minc=1):
     nphi = data.shape[0]
-    dphi = 2.*N.pi/(nphi-1.)
+    dphi = 2.*N.pi/minc/(nphi-1.)
     der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
     der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
     der[-1, ...] = der[0, ...]
@@ -520,3 +540,41 @@ def cylZder(z, data):
     der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dz
     der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dz
     return der
+
+def getCpuTime(file):
+    """
+    This function calculates the CPU time from one given log file
+    """
+    threads = re.compile(r'[\s]*\![\s]*nThreads\:[\s]*(.*)')
+    ranks = re.compile(r'[\s]*\![\s\w]*ranks[\s\w]*\:[\s]*(.*)')
+    runTime = re.compile(r'[\s\!\w]*time:[\s]*([0-9]*)d[\s\:]*([0-9]*)h[\s\:]*([0-9]*)m[\s\:]*([0-9]*)s[\s\:]*([0-9]*)ms.*')
+    f = open(file, 'r')
+    tab = f.readlines()
+    nThreads = 1 # In case a pure MPI version is used
+    nRanks = 1 # In case the old OpenMP version is used
+    realTime = 0.
+    for line in tab:
+        if threads.match(line):
+            nThreads = int(threads.search(line).groups()[0])
+        elif ranks.match(line):
+            nRanks = int(ranks.search(line).groups()[0])
+        elif runTime.match(line):
+            days = int(runTime.search(line).groups()[0])
+            hours = int(runTime.search(line).groups()[1])
+            min = int(runTime.search(line).groups()[2])
+            sec = int(runTime.search(line).groups()[3])
+            ms = int(runTime.search(line).groups()[4])
+            realTime = 24*days+hours+1./60*min+1./3600*sec+1./3.6e6*ms
+    f.close()
+    cpuTime = nThreads*nRanks*realTime
+    return cpuTime
+
+def getTotalRunTime():
+    """
+    This function calculates the toal CPU time of one run directory
+    """
+    logFiles = glob.glob('log.*')
+    totCpuTime = 0
+    for file in logFiles:
+        totCpuTime += getCpuTime(file)
+    return totCpuTime

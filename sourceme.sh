@@ -10,7 +10,7 @@ if [ -z $MAGIC_HOME ]; then
   # Try to identify position of the code's home directory:
   #
   for _dir in   . .. ../.. ../../.. ../../../.. \
-	        MAGIC3 MAGIC ; do
+	        MAGIC_mpi ; do
     if ( [ -e $_dir/sourceme.sh ] && \
          [ -d $_dir/src ]         && \
          [ -d $_dir/samples ]     && \
@@ -25,7 +25,7 @@ if [ -z $MAGIC_HOME ]; then
   unset _dir
 
   if [ -z $MAGIC_HOME ]; then # no success
-    echo "sourceme.sh: Cannot locate home directory of Magic 3."
+    echo "sourceme.sh: Cannot locate home directory of MAGIC"
     echo " Try sourcing me from the home directory itself, or set MAGIC_HOME"
   fi
 fi

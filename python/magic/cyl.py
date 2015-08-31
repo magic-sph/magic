@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import numpy as N
-import pylab as P
-from libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
+import matplotlib.pyplot as P
+from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
 from magic import MagicGraph, MagicSetup
 from magic.setup import labTex
 from scipy.ndimage import map_coordinates
@@ -15,7 +15,17 @@ __version__ = "$Revision$"
 
 
 def sph2cyl_plane(data, rad, ns, nz):
-    ntheta, nr = data.shape
+    """
+    Subroutine that extrapolates a phi-slice of a spherical shell on 
+    a cylindrical grid
+
+    :param data: a list of 2-D arrays [(ntheta, nr), (ntheta, nr), ...]
+    :param rad: radius
+    :param ns: number of grid points in s direction
+    :param nz: number of grid points in z direction
+    """
+    ntheta, nr = data[0].shape
+
     radius = rad[::-1]
 
     theta = N.linspace(0., N.pi, ntheta)
@@ -34,13 +44,87 @@ def sph2cyl_plane(data, rad, ns, nz):
 
     coords = N.array([new_it, new_ir])
 
-    dat_cyl = map_coordinates(data[:, ::-1], coords, order=3)
-    #dat_cyl[new_r > radius.max()] = 0.
-    #dat_cyl[new_r < radius.min()] = 0.
-    dat_cyl = dat_cyl.reshape((nz, ns))
+    output = []
+    for dat in data:
+        dat_cyl = map_coordinates(dat[:, ::-1], coords, order=3)
+        dat_cyl[new_r > radius.max()] = 0.
+        dat_cyl[new_r < radius.min()] = 0.
+        dat_cyl = dat_cyl.reshape((nz, ns))
+        output.append(dat_cyl)
 
-    return dat_cyl
+    return Z, S, output
 
+
+def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
+    """
+    A routine that computes a z-integration of a list of input arrays (on the spherical
+    grid). List works well for 2-D (phi-slice) arrays, only one single in 3-D (too
+    demanding otherwise).
+
+    :param input: a list of 2-D or 3-D arrays 
+    :param radius: spherical radius
+    :param ns: radial resolution of the cylindrical grid (nz=2*ns)
+    :param minc: symmetry
+    :param save: a boolean to specify if one wants to save the outputs into 
+                 a pickle (default is True)
+    :param filename: name of the output pickle
+    :param normed: a boolean to specify if ones wants to simply integrate over
+                   z or compute an average (default is True: average)
+    """
+    nz = 2*ns
+    ro = radius[0]
+    ri = radius[-1]
+    z = N.linspace(-ro, ro, nz)
+    cylRad = N.linspace(0., ro, ns)
+    cylRad = cylRad[1:-1]
+    
+    height = N.zeros_like(cylRad)
+    height[cylRad>=ri] = 2.*N.sqrt(ro**2-cylRad[cylRad>=ri]**2)
+    height[cylRad<ri] = 2.*(N.sqrt(ro**2-cylRad[cylRad<ri]**2)\
+                                 -N.sqrt(ri**2-cylRad[cylRad<ri]**2))
+
+    if len(input[0].shape) == 3:
+        nphi = input[0].shape[0]
+        phi = N.linspace(0., 2.*N.pi/minc, nphi)
+        output = N.zeros((nphi, ns-2), 'f')
+        for iphi in range(nphi):
+            print(iphi)
+            Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
+            S = S[:, 1:-1]
+            Z = Z[:, 1:-1]
+            output[iphi, :] = N.trapz(out2D[0][:, 1:-1], z, axis=0)
+            if normed:
+                output[iphi, :] /= height
+
+        if save:
+            nphi, ntheta, nr = input[0].shape
+            file = open(filename, 'wb')
+            pickle.dump([cylRad, phi, output], file) # cylindrical average
+            pickle.dump([radius, phi, input[0][:, ntheta/2, :]], file) # equatorial cut
+            file.close()
+        return height, cylRad, phi, output
+    elif len(input[0].shape) == 2:
+        Z, S, out2D = sph2cyl_plane(input, radius, ns, nz)
+        S = S[:, 1:-1]
+        Z = Z[:, 1:-1]
+        output = []
+        outIntZ = N.zeros((ns-2), 'f')
+        for k,out in enumerate(out2D):
+            outIntZ = N.trapz(out[:, 1:-1], z, axis=0)
+            if normed:
+                outIntZ /= height
+            output.append(outIntZ)
+
+        if save:
+            file = open(filename, 'wb')
+            pickle.dump([radius,  cylRad, height], file) # cylindrical average
+            for k,out in enumerate(output):
+                pickle.dump(out, file) # cylindrical average
+                ntheta, nr = input[k].shape
+                pickle.dump(input[k][ntheta/2, :], file) # equatorial cut
+            file.close()
+
+        return height, cylRad, output
 
 
 def sph2cyl(g, ns=None, nz=None):
@@ -68,7 +152,7 @@ def sph2cyl(g, ns=None, nz=None):
     vp_cyl = N.zeros_like(vr_cyl)
     vt_cyl = N.zeros_like(vr_cyl)
     for k in range(g.npI):
-        print k
+        print(k)
         dat = map_coordinates(g.vphi[k, :, ::-1], coords, order=3)
         dat[new_r > radius.max()] = 0.
         dat[new_r < radius.min()] = 0.
@@ -100,7 +184,7 @@ class Cyl(MagicSetup):
 
         filename = '%sG_%i.%s' % ('cyl', lastvar, self.tag)
         if not os.path.exists(filename):
-            print "sph2cyl..."
+            print("sph2cyl...")
             gr = MagicGraph(ivar=lastvar, datadir=self.datadir)
             if ns is None:
                 self.ns = gr.nr
@@ -122,7 +206,7 @@ class Cyl(MagicSetup):
                         file)
             file.close()
         else:
-            print "read cyl file"
+            print("read cyl file")
             file = open(filename, 'r')
             self.ns, self.nz, self.nphi, self.npI, self.minc = pickle.load(file)
             self.ro, self.ri = pickle.load(file)
@@ -137,9 +221,8 @@ class Cyl(MagicSetup):
         for i in range(self.nphi/2):
             rho[i, :] = rho0
             beta[i, :] = beta0
-        rho = sph2cyl_plane(rho, N.linspace(self.ro, self.ri, self.ns), 
-                                 self.ns, self.nz)
-        beta = sph2cyl_plane(beta, N.linspace(self.ro, self.ri, self.ns), 
+        Z, S, [rho, beta] = sph2cyl_plane([rho,beta], 
+                                 N.linspace(self.ro, self.ri, self.ns), 
                                  self.ns, self.nz)
         self.rho = N.zeros_like(self.vs)
         self.beta = N.zeros_like(self.vs)
@@ -319,9 +402,9 @@ class Cyl(MagicSetup):
             m2 = N.sqrt(self.S**2+self.Z**2) <= self.ro
             m3 = self.S <= self.ri
             m4 = self.S >= self.ri
-            print 'Correlation', phiavg[m1*m2].mean()
-            print 'Correlation out TC', phiavg[m1*m2*m4].mean()
-            print 'Correlation in TC', phiavg[m1*m2*m3].mean()
+            print('Correlation', phiavg[m1*m2].mean())
+            print('Correlation out TC', phiavg[m1*m2*m4].mean())
+            print('Correlation in TC', phiavg[m1*m2*m3].mean())
 
         phiavg = cut(phiavg, vmax, vmin)
 
@@ -380,7 +463,7 @@ class Cyl(MagicSetup):
             betas = cylSder(self.radius, N.log(self.rho))
             betaz = cylZder(self.z, N.log(self.rho))
             data = self.vs * betas + self.vz * betaz
-            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
             mask = N.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
@@ -389,7 +472,7 @@ class Cyl(MagicSetup):
             else:
                 label = 'beta ur'
         elif field in ('vortz'):
-            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
             mask = N.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
             if labTex:
@@ -397,7 +480,7 @@ class Cyl(MagicSetup):
             else:
                 label = 'omegaz'
         elif field in ('vopot'):
-            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
             mask = N.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
             data = data-2./self.ek*N.log(self.rho)
@@ -462,7 +545,7 @@ class Cyl(MagicSetup):
                 label = 'rho vs vr'
         elif field in ('dvz'):
             data =  cylZder(self.z, self.vz)
-            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
             mask = N.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
@@ -480,7 +563,7 @@ class Cyl(MagicSetup):
             betaz = cylZder(self.z, N.log(self.rho))
             data1 = self.vs * betas + self.vz * betaz
             data += data1
-            data2 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs)
+            data2 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
             mask = N.where(self.S == 0, 1, 0)
             data2 = data2/(self.S+mask)
             data *= data2
