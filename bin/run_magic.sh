@@ -25,15 +25,10 @@ else
 fi
 export OMP_NUM_THREADS=$nomp
 
-# switch off the threading in the input file
-sed "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml >input_omp1.nml
-
 which_poe=`which poe 2>/dev/null`
 if [ -x "$which_poe" ]; then
-    poe ./magic.exe input_omp1.nml -procs $nmpi >stdout.out
+    poe ./magic.exe input.nml -procs $nmpi >stdout.out
 else
-    mpiexec -n $nmpi ./magic.exe input_omp1.nml >stdout.out
+    mpiexec -n $nmpi ./magic.exe input.nml >stdout.out
 fi
 
-
-rm input_omp1.nml

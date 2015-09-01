@@ -25,8 +25,6 @@ fi
 export OMP_NUM_THREADS=$nomp
 
 keep=no
-# switch off the threading in the input file
-sed -i "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml
 
 exitcode=0
 # nphi=96 (default)
@@ -481,7 +479,6 @@ tag='test96'
 sed -i 's/n_phi_tot.*/n_phi_tot   =96,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 sed -i 's/minc.*/minc        =1,/g' input.nml
-sed -i "s/nThreadsRun *= *[0-9]*/nThreadsRun = 16/" input.nml
 
 exit $exitcode
 # Build the equivalent output

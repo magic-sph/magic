@@ -17,9 +17,8 @@ n_cheb_ic_max=15,
  alpha       =0.6D0,
  runHours    =0,
  runMinutes  =50,
- nThreadsRun =8,
-l_correct_AMe =.TRUE.,
-l_correct_AMz =.TRUE.,
+l_correct_AMe=.TRUE.,
+l_correct_AMz=.TRUE.,
 /
 &phys_param
  ra          =1.5D7,

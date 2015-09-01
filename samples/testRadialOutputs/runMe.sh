@@ -24,14 +24,11 @@ else
 fi
 export OMP_NUM_THREADS=$nomp
 
-sed "s/nThreadsRun *= *[0-9]*/nThreadsRun = 1/" input.nml >input_omp1.nml
-
 # Run
-mpiexec -n $nmpi ./magic.exe input_omp1.nml
+mpiexec -n $nmpi ./magic.exe input.nml
 
 # Concatenate the different output file in one single e_kin.test file
 cat eKinR.start eMagR.start parR.start powerR.start bLayersR.start fluxesR.start perpParR.start > e_kin.test
 
 # Clean
 rm *.start
-rm input_omp1.nml

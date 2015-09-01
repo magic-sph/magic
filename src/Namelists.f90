@@ -43,7 +43,6 @@ contains
       integer :: length
       integer :: argument_count
       character(len=100) :: input_filename
-      integer :: nThreadsRun
 
       !-- Name lists:
       integer :: runHours,runMinutes,runSeconds
@@ -58,7 +57,7 @@ contains
          & difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe,  &
          & l_correct_AMz,tEND,l_non_rot,l_isothermal,       &
          & l_newmap,alph1,alph2,                            &
-         & runHours,runMinutes,runSeconds,nThreadsRun,      &
+         & runHours,runMinutes,runSeconds,                  &
          & cacheblock_size_in_B
       
       namelist/phys_param/                                    &
@@ -618,7 +617,6 @@ contains
       write(n_out,'(''  runMinutes   ='',i4,'','')') runTimeLimit(2)
       write(n_out,'(''  runSeconds   ='',i4,'','')') runTimeLimit(3)
       write(n_out,'(1p,''  tEND        ='',d14.6,'','')') tEND
-      !write(n_out,'(''  nThreadsRun  ='',i4,'','')') nThreadsRun
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -912,7 +910,6 @@ contains
          runTimeLimit(n)=0
       end do
 
-      !nThreadsRun   =1
       tEND          =0.0_cp    ! numerical time where run should end
 
       !----- Hyperdiffusion:

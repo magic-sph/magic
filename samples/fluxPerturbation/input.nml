@@ -18,7 +18,6 @@ n_cheb_ic_max=11,
  n_cour_step =4,
  runHours    =0,
  runMinutes  =50,
- nThreadsRun =8,
 /
 &phys_param
  ra          =1.D6,

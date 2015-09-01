@@ -18,7 +18,6 @@ n_cheb_ic_max=14,
  alpha       =0.6D0,
  runHours    =10,
  runMinutes  =10,
- nThreadsRun =8,
 /
 &phys_param
  ra          =3.38D4,
