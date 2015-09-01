@@ -14,7 +14,7 @@ module rIterThetaBlocking_mod
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
         & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
         & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
-   use radial_data,only: n_r_cmb, n_r_icb
+   use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use output_data, only: ngform
 #if (FFTLIB==JW)
@@ -119,9 +119,9 @@ contains
         allocate( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
       end if
   
-      allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
-      allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
-      allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr) )
+      allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+      allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+      allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------

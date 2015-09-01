@@ -302,7 +302,7 @@ contains
   
       ! We start with the computation of the energies
       ! in parallel.
-      if (l_log) then
+      if ( l_log ) then
          nLogs=nLogs+1
          timeNormLog=timeNormLog+timePassedLog
   
@@ -324,7 +324,7 @@ contains
          !     &EXPONENT(e_kin_p_as),FRACTION(e_kin_p_as),&
          !     &EXPONENT(e_kin_t_as),FRACTION(e_kin_t_as)
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
   
          call get_e_mag(time,.true.,l_stop_time,n_e_sets,b_LMloc,db_LMloc, &
               &         aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc,       &
@@ -334,9 +334,9 @@ contains
          e_mag   =e_mag_p+e_mag_t
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
          PERFOFF
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
+         if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
   
-         if (l_average) then
+         if ( l_average ) then
             PERFON('out_aver')
             call spectrum_average(nLogs,l_stop_time,timePassedLog,  &
                  &                timeNormLog,w_LMloc,z_LMloc,      &
@@ -452,6 +452,7 @@ contains
             call get_e_kin(time,.false.,l_stop_time,0,w_LMloc,dw_LMloc,  &
                  &         z_LMloc,e_kin_p,e_kin_t,e_kin_p_as,e_kin_t_as,&
                  &         ekinR)
+            e_kin=e_kin_p+e_kin_t
          end if
          call outTO(time,n_time_step,e_kin,e_kin_t_as,                      &
               &     nF1,nF2,TOfileNhs,TOfileShs,movFile,tayFile,            &
@@ -981,15 +982,16 @@ contains
          
          if ( l_SRIC .and. l_stop_time ) call outOmega(z,omega_ic)
          
-         !----- Output of axisymm. rotation rate for potential vorticity analysis:
-         !  NOTE: For l_stop_time=.true. outPV transforms the fields without 
-         !        transforming them back. This must thus be the very last 
-         !        thing done with them. 
-         if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,             &
-              &                     w,dw,ddw,z,dz,omega_ic,omega_ma)
-         
          PERFOFF
       end if
+
+      !----- Output of axisymm. rotation rate for potential vorticity analysis:
+      !  NOTE: For l_stop_time=.true. outPV transforms the fields without 
+      !        transforming them back. This must thus be the very last 
+      !        thing done with them. 
+      if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,             &
+           &                    w,dw,ddw,z,dz,omega_ic,omega_ma)
+         
   
       if ( l_log ) then
          timePassedLog=0.0_cp

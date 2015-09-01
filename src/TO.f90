@@ -4,10 +4,12 @@ module torsional_oscillations
 !  This module contains information for TO calculation and output
 !----------------------------------------------------------------------
 
+   use parallel_mod
    use precision_mod, only: cp
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
                          n_theta_maxStr
-   use radial_data, only: n_r_cmb
+   use radial_data, only: n_r_cmb, nRstart, nRstop
+   use LMLoop_data, only: llmMag, ulmMag
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, &
                                dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
@@ -40,28 +42,82 @@ module torsional_oscillations
    real(cp), public, allocatable :: BpzdAS(:,:)
    real(cp), public, allocatable :: ddzASL(:,:)
 
-   public :: initialize_TO, getTO, getTOnext, getTOfinish
+   real(cp), public, allocatable :: dzStrLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzRstrLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzAStrLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzCorLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzLFLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzdVpLMr_Rloc(:,:)
+   real(cp), public, allocatable :: dzddVpLMr_Rloc(:,:)
+   real(cp), public, allocatable :: V2AS_Rloc(:,:)
+   real(cp), public, allocatable :: Bs2AS_Rloc(:,:)
+   real(cp), public, allocatable :: BszAS_Rloc(:,:)
+   real(cp), public, allocatable :: BspAS_Rloc(:,:)
+   real(cp), public, allocatable :: BpzAS_Rloc(:,:)
+   real(cp), public, allocatable :: BspdAS_Rloc(:,:)
+   real(cp), public, allocatable :: BpsdAS_Rloc(:,:)
+   real(cp), public, allocatable :: BzpdAS_Rloc(:,:)
+   real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
+
+   public :: initialize_TO, getTO, getTOnext, getTOfinish, &
+             TO_gather_Rloc_on_rank0
 
 contains
 
    subroutine initialize_TO
 
-      allocate( dzStrLMr(l_max+1,n_r_maxStr) )
-      allocate( dzRstrLMr(l_max+1,n_r_maxStr) )
-      allocate( dzAstrLMr(l_max+1,n_r_maxStr) )
-      allocate( dzCorLMr(l_max+1,n_r_maxStr) )
-      allocate( dzLFLMr(l_max+1,n_r_maxStr) )
-      allocate( dzdVpLMr(l_max+1,n_r_maxStr) )
-      allocate( dzddVpLMr(l_max+1,n_r_maxStr) )
-      allocate( V2AS(n_theta_maxStr,n_r_maxStr) )
-      allocate( Bs2AS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BszAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BspAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BpzAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BspdAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BpsdAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BzpdAS(n_theta_maxStr,n_r_maxStr) )
-      allocate( BpzdAS(n_theta_maxStr,n_r_maxStr) )
+      if ( rank == 0 ) then
+         allocate( dzStrLMr(l_max+1,n_r_maxStr) )
+         allocate( dzRstrLMr(l_max+1,n_r_maxStr) )
+         allocate( dzAstrLMr(l_max+1,n_r_maxStr) )
+         allocate( dzCorLMr(l_max+1,n_r_maxStr) )
+         allocate( dzLFLMr(l_max+1,n_r_maxStr) )
+         allocate( dzdVpLMr(l_max+1,n_r_maxStr) )
+         allocate( dzddVpLMr(l_max+1,n_r_maxStr) )
+         allocate( V2AS(n_theta_maxstr,n_r_maxStr) )
+         allocate( Bs2AS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BszAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BspAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BpzAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BspdAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BpsdAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BzpdAS(n_theta_maxstr,n_r_maxStr) )
+         allocate( BpzdAS(n_theta_maxstr,n_r_maxStr) )
+      else
+         allocate( dzStrLMr(1,1) )
+         allocate( dzRstrLMr(1,1) )
+         allocate( dzAstrLMr(1,1) )
+         allocate( dzCorLMr(1,1) )
+         allocate( dzLFLMr(1,1) )
+         allocate( dzdVpLMr(1,1) )
+         allocate( dzddVpLMr(1,1) )
+         allocate( V2AS(1,1) )
+         allocate( Bs2AS(1,1) )
+         allocate( BszAS(1,1) )
+         allocate( BspAS(1,1) )
+         allocate( BpzAS(1,1) )
+         allocate( BspdAS(1,1) )
+         allocate( BpsdAS(1,1) )
+         allocate( BzpdAS(1,1) )
+         allocate( BpzdAS(1,1) )
+      end if
+
+      allocate( dzStrLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzRstrLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzAStrLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzCorLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzLFLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzdVpLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( dzddVpLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( V2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( Bs2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BszAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BspAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BpzAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BspdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BpsdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BzpdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      allocate( BpzdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( ddzASL(l_max+1,n_r_maxStr) ) 
 
    end subroutine initialize_TO
@@ -99,9 +155,9 @@ contains
       real(cp), intent(in) :: cvr(nrp,nfs),dvpdr(nrp,nfs)
       real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
       real(cp), intent(in) :: cbr(nrp,nfs),cbt(nrp,nfs)
-      real(cp), intent(in) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(cp), intent(in) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(cp), intent(in) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(in) :: BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
+      real(cp), intent(in) :: BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
+      real(cp), intent(in) :: BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
 
       !-- Output of arrays needing further treatment in s_getTOfinish.f:
       real(cp), intent(out) :: dzRstrLM(l_max+2),dzAstrLM(l_max+2)
@@ -248,7 +304,7 @@ contains
                Vp2Mean=0.0_cp
             end if
          end if
-         V2AS(nTheta,nR)=Vr2Mean+Vt2Mean+Vp2Mean
+         V2AS_Rloc(nTheta,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          !--- This is Coriolis force / r*sin(theta)
          dzCorMean(nThetaBlock)= phiNorm*two*CorFac * &
@@ -256,14 +312,14 @@ contains
          if ( l_mag ) then
             !--- This is Lorentz force/ r*sin(theta)
             dzLFmean(nThetaBlock)=phiNorm*or4(nR)*Osin2*LFmean
-            Bs2AS(nTheta,nR) =phiNorm*Bs2Mean
-            BspAS(nTheta,nR) =phiNorm*BspMean
-            BpzAS(nTheta,nR) =phiNorm*BpzMean
-            BszAS(nTheta,nR) =phiNorm*BszMean
-            BspdAS(nTheta,nR)=phiNorm*(BspdMean/dtLast)
-            BpsdAS(nTheta,nR)=phiNorm*(BpsdMean/dtLast)
-            BzpdAS(nTheta,nR)=phiNorm*(BzpdMean/dtLast)
-            BpzdAS(nTheta,nR)=phiNorm*(BpzdMean/dtLast)
+            Bs2AS_Rloc(nTheta,nR) =phiNorm*Bs2Mean
+            BspAS_Rloc(nTheta,nR) =phiNorm*BspMean
+            BpzAS_Rloc(nTheta,nR) =phiNorm*BpzMean
+            BszAS_Rloc(nTheta,nR) =phiNorm*BszMean
+            BspdAS_Rloc(nTheta,nR)=phiNorm*(BspdMean/dtLast)
+            BpsdAS_Rloc(nTheta,nR)=phiNorm*(BpsdMean/dtLast)
+            BzpdAS_Rloc(nTheta,nR)=phiNorm*(BzpdMean/dtLast)
+            BpzdAS_Rloc(nTheta,nR)=phiNorm*(BpzdMean/dtLast)
          end if
 
          ! dVpdrMean, VtcVrMean and VrdVpdrMean are already divided by rho
@@ -308,9 +364,9 @@ contains
       real(cp), intent(in) :: br(nrp,nfs),bt(nrp,nfs),bp(nrp,nfs)
 
       !-- Output variables:
-      real(cp), intent(out) :: BsLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(cp), intent(out) :: BpLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
-      real(cp), intent(out) :: BzLast(n_phi_maxStr,n_theta_maxStr,n_r_maxStr)
+      real(cp), intent(out) :: BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
+      real(cp), intent(out) :: BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
+      real(cp), intent(out) :: BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop)
 
       !-- Local variables:
       integer :: l,lm
@@ -326,10 +382,10 @@ contains
 
       if ( lTONext2 .and. nThetaStart == 1 ) then
 
-         dzddVpLMr(1,nR)=0.0_cp
+         dzddVpLMr_Rloc(1,nR)=0.0_cp
          do l=1,l_max
             lm=lm2(l,0)
-            dzddVpLMr(l+1,nR)=zAS(l+1)
+            dzddVpLMr_Rloc(l+1,nR)=zAS(l+1)
          end do
 
       else if ( lTOnext ) then
@@ -356,12 +412,12 @@ contains
          end do ! Loop over thetas in block !
                   
          if ( nThetaStart == 1 ) then
-            dzdVpLMr(1,nR) =0.0_cp
-            dzddVpLMr(1,nR)=0.0_cp
+            dzdVpLMr_Rloc(1,nR) =0.0_cp
+            dzddVpLMr_Rloc(1,nR)=0.0_cp
             do l=1,l_max
                lm=lm2(l,0)
-               dzdVpLMr(l+1,nR) = zAS(l+1)
-               dzddVpLMr(l+1,nR)= ( dzddVpLMr(l+1,nR) - &
+               dzdVpLMr_Rloc(l+1,nR) = zAS(l+1)
+               dzddVpLMr_Rloc(l+1,nR)= ( dzddVpLMr_Rloc(l+1,nR) - &
                                   ((dtLast+dt)/dt)*zAS(l+1) )/dtLast
             end do
          end if
@@ -375,7 +431,7 @@ contains
    subroutine getTOfinish(nR,dtLast,zAS,dzAS,ddzAS,dzRstrLM, &
                           dzAstrLM,dzCorLM,dzLFLM)
       !-----------------------------------------------------------------------
-      !  This program was previously part of s_getTO.f.
+      !  This program was previously part of getTO(...)
       !  It has now been seperated to get it out of the theta-block loop.
       !-----------------------------------------------------------------------
 
@@ -392,40 +448,93 @@ contains
       integer :: l,lS,lA,lm
 
       !------ When all thetas are done calculate viscous stress in LM space:
-      dzStrLMr(1,nR) =0.0_cp
-      dzRstrLMr(1,nR)=0.0_cp
-      dzAstrLMr(1,nR)=0.0_cp
-      dzCorLMr(1,nR) =0.0_cp
-      dzLFLMr(1,nR)  =0.0_cp
-      dzdVpLMr(1,nR) =0.0_cp
-      dzddVpLMr(1,nR)=0.0_cp
+      dzStrLMr_Rloc(1,nR) =0.0_cp
+      dzRstrLMr_Rloc(1,nR)=0.0_cp
+      dzAstrLMr_Rloc(1,nR)=0.0_cp
+      dzCorLMr_Rloc(1,nR) =0.0_cp
+      dzLFLMr_Rloc(1,nR)  =0.0_cp
+      dzdVpLMr_Rloc(1,nR) =0.0_cp
+      dzddVpLMr_Rloc(1,nR)=0.0_cp
       do l=1,l_max
          lS=(l-1)+1
          lA=(l+1)+1
          lm=lm2(l,0)
-         dzStrLMr(l+1,nR)= hdif_V(lm) * (                      &
+         dzStrLMr_Rloc(l+1,nR)= hdif_V(lm) * (                 &
                                                   ddzAS(l+1) - &
                                          beta(nR)* dzAS(l+1) - &
-            (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))* &
-                                zAS(l+1) )
+            (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
+                                                    zAS(l+1) )
       !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
       !     minus sign to bring stuff on the RHS of NS equation !
-         dzRstrLMr(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
-                        dTheta1S(lm)*dzRstrLM(lS) - &
-                        dTheta1A(lm)*dzRstrLM(lA) )
-         dzAstrLMr(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
-                        dTheta1S(lm)*dzAstrLM(lS) - &
-                        dTheta1A(lm)*dzAstrLM(lA) )
-         dzCorLMr(l+1,nR) =-r(nR)*r(nR)/dLh(lm) * ( &
-                         dTheta1S(lm)*dzCorLM(lS) - &
-                         dTheta1A(lm)*dzCorLM(lA) )
-         dzLFLMr(l+1,nR)  = r(nR)*r(nR)/dLh(lm) * ( &
-                          dTheta1S(lm)*dzLFLM(lS) - &
-                          dTheta1A(lm)*dzLFLM(lA) )
-         dzdVpLMr(l+1,nR) =(zAS(l+1)-dzdVpLMr(l+1,nR))/dtLast
-         dzddVpLMr(l+1,nR)=(zAS(l+1)/dtLast+dzddVpLMr(l+1,nR))/dtLast
+         dzRstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
+                             dTheta1S(lm)*dzRstrLM(lS) - &
+                             dTheta1A(lm)*dzRstrLM(lA) )
+         dzAstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
+                             dTheta1S(lm)*dzAstrLM(lS) - &
+                             dTheta1A(lm)*dzAstrLM(lA) )
+         dzCorLMr_Rloc(l+1,nR) =-r(nR)*r(nR)/dLh(lm) * ( &
+                              dTheta1S(lm)*dzCorLM(lS) - &
+                              dTheta1A(lm)*dzCorLM(lA) )
+         dzLFLMr_Rloc(l+1,nR)  = r(nR)*r(nR)/dLh(lm) * ( &
+                               dTheta1S(lm)*dzLFLM(lS) - &
+                               dTheta1A(lm)*dzLFLM(lA) )
+         dzdVpLMr_Rloc(l+1,nR) =(zAS(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast
+         dzddVpLMr_Rloc(l+1,nR)=(zAS(l+1)/dtLast+dzddVpLMr_Rloc(l+1,nR))/dtLast
       end do
-
+      
    end subroutine getTOfinish
+!-----------------------------------------------------------------------------
+   subroutine TO_gather_Rloc_on_rank0
+
+      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: i,ierr
+
+      sendcount  = (nRstop-nRstart+1)*(l_max+1)
+      recvcounts = nr_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = nr_on_last_rank*(l_max+1)
+      do i=0,n_procs-1
+         displs(i) = i*nr_per_rank*(l_max+1)
+      end do
+      call MPI_GatherV(dzStrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzStrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzRstrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzRstrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzAstrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzAstrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzCorLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzCorLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzLFLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzLFLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzdVpLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzdVpLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzddVpLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & dzddVpLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+      sendcount  = (nRstop-nRstart+1)*n_theta_maxStr
+      recvcounts = nr_per_rank*n_theta_maxStr
+      recvcounts(n_procs-1) = nr_on_last_rank*n_theta_maxStr
+      do i=0,n_procs-1
+         displs(i) = i*nr_per_rank*n_theta_maxStr
+      end do
+      call MPI_GatherV(V2AS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & V2AS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(Bs2AS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & Bs2AS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BszAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BszAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BspAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BspAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpzAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BpzAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BspdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BspdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpsdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BpsdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BzpdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BzpdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpzdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
+           & BpzdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+
+   end subroutine TO_gather_Rloc_on_rank0
 !-----------------------------------------------------------------------------
 end module torsional_oscillations

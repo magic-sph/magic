@@ -34,7 +34,7 @@ module out_RMS
                       TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
                       PadvRms, TadvRms, PadvAsRms, TadvAsRms, PdifRms, &
                       TdifRms, PdifAsRms, TdifAsRms, TomeRms,          &
-                      TomeAsRms, dtB_gather_Rloc_on_rank0
+                      TomeAsRms
                                                                   
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord

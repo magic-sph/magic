@@ -125,7 +125,7 @@ contains
                if ( l <= l_max .and. m == 0 ) then
                   this%zAS(l+1)  =real(z_Rloc(lm,nR))   ! used in TO
                   this%dzAS(l+1) =real(dz_Rloc(lm,nR))  ! used in TO (anelastic)
-                  this%ddzAS(l+1)=ddzASL(l+1,nR)    ! used in TO
+                  this%ddzAS(l+1)=ddzASL(l+1,nR)        ! used in TO
                end if
             end do
          end if
@@ -333,7 +333,7 @@ contains
       integer :: lm,l,m
       complex(cp) :: help1,help2
               
-      real(cp) :: rRatio,rDep(0:l_max-1),rDep2(0:l_max-1)
+      real(cp) :: rRatio,rDep(0:l_max),rDep2(0:l_max)
 
 
       rRatio  =r/r_ICB

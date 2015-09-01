@@ -321,7 +321,6 @@ contains
 
          ip(k)=l
 
-         !IF( a(l,k) /= 0.0_cp ) then
          if ( abs(a(l,k))  >  zero_tolerance ) then
 
             if ( l /= k ) then
@@ -350,7 +349,6 @@ contains
       end do
 
       ip(n)=n
-      !IF( a(n,n) == 0.0_cp ) info=n
       if ( abs(a(n,n))  <=  zero_tolerance ) info=n
       if ( info > 0 ) return
 

@@ -60,8 +60,7 @@ module dtB_mod
    real(cp), public :: TdifRms, TdifAsRms
    real(cp), public :: TomeRms, TomeAsRms
 
-   public :: initialize_dtB_mod, dtb_gather_Rloc_on_rank0, get_dtBLMfinish, &
-             get_dtBLM, get_dH_dtBLM
+   public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM
 
 contains
 

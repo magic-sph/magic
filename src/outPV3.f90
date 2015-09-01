@@ -2,15 +2,18 @@
 module outPV3
 
    use precision_mod, only: cp, outp
+   use parallel_mod, only: rank
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
                          l_max, minc, m_max
    use radial_functions, only: cheb_norm, r_ICB, i_costf_init, &
                                d_costf_init, r_CMB
    use physical_parameters, only: radratio
+   use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use blocking, only: lm2, lm2m, lm2l, lm2mc
    use horizontal_data, only: dLh, dPhi
    use logic, only: lVerbose, l_SRIC
    use output_data, only: tag, sDens
+   use LMLoop_data, only: llm, ulm
    use plms_theta, only: plm_theta
    use const, only: pi, zero, one, two, half, ci
 #if (FFTLIB==JW)
@@ -61,11 +64,11 @@ contains
       real(cp),    intent(in) :: time
       real(cp),    intent(in) :: omega_IC,omega_MA
       logical,     intent(in) :: l_stop_time
-      complex(cp), intent(in) :: w(lm_max,n_r_max)
-      complex(cp), intent(in) :: dw(lm_max,n_r_max)
-      complex(cp), intent(in) :: ddw(lm_max,n_r_max)
-      complex(cp), intent(in) :: z(lm_max,n_r_max)
-      complex(cp), intent(in) :: dz(lm_max,n_r_max)
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
 
       integer, intent(inout) :: nPVsets
 
@@ -76,7 +79,7 @@ contains
       complex(cp) :: workA(lm_max,n_r_max)
       real(cp) :: workAr(lm_max,n_r_max)
 
-      integer :: lm,l,m ! counter for degree and order
+      integer :: lm,l
 
       real(cp) :: fac
 
@@ -120,188 +123,185 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
 
-      nPVsets=nPVsets+1
+      call gather_all_from_lo_to_rank0(gt_OC,w,wP)
+      call gather_all_from_lo_to_rank0(gt_OC,dw,dwP)
+      call gather_all_from_lo_to_rank0(gt_OC,ddw,ddwP)
+      call gather_all_from_lo_to_rank0(gt_OC,z,zP)
+      call gather_all_from_lo_to_rank0(gt_OC,dz,dzP)
 
-      !-- Start with calculating advection due to axisymmetric flows:
+      if ( rank == 0 ) then
 
-      nSmax=n_r_max+int(r_ICB*real(n_r_max,kind=cp))
-      nSmax=int(sDens*nSmax)
-      if ( nSmax > nSmaxA ) then
-         write(*,*) 'Increase nSmaxA in outPV!'
-         write(*,*) 'Should be at least nSmax=',nSmax
-         write(*,*) 'But is only=',nSmaxA
-         stop
-      end if
-      nZmax=2*nSmax
+         nPVsets=nPVsets+1
 
-      if ( l_stop_time ) then
-         if ( l_SRIC  .and. omega_IC /= 0 ) then
-            fac=one/omega_IC
-         else
-            fac=one
+         !-- Start with calculating advection due to axisymmetric flows:
+
+         nSmax=n_r_max+int(r_ICB*real(n_r_max,kind=cp))
+         nSmax=int(sDens*nSmax)
+         if ( nSmax > nSmaxA ) then
+            write(*,*) 'Increase nSmaxA in outPV!'
+            write(*,*) 'Should be at least nSmax=',nSmax
+            write(*,*) 'But is only=',nSmaxA
+            stop
          end if
+         nZmax=2*nSmax
+
+         if ( l_stop_time ) then
+            if ( l_SRIC  .and. omega_IC /= 0 ) then
+               fac=one/omega_IC
+            else
+               fac=one
+            end if
+            do nR=1,n_r_max
+               do l=1,l_max
+                  lm=lm2(l,0)
+                  dzVpLMr(l+1,nR)=fac*real(z(lm,nR))
+               end do
+            end do
+
+            !---- Transform the contributions to cheb space:
+            call costf1(dzVpLMr,l_max+1,1,l_max+1,workAr,i_costf_init,d_costf_init)
+         end if
+
+         !--- Transforming of field without the backtransform
+         !    Thus this must be the last thing done with the 
+         !    fields in a run. See output.f90 and step_time.f90.
+         !    NOTE: output is only non-axisymmetric part!
          do nR=1,n_r_max
-            do l=1,l_max
-               lm=lm2(l,0)
-               dzVpLMr(l+1,nR)=fac*real(z(lm,nR))
+            do lm=1,lm_max
+               wP(lm,nR)  =wP(lm,nR)*dLh(lm)
             end do
          end do
 
-         !---- Transform the contributions to cheb space:
-         call costf1(dzVpLMr,l_max+1,1,l_max+1,workAr,i_costf_init,d_costf_init)
-      end if
+         !---- Transform the contributions to cheb space for z-integral:
+         call costf1(wP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(dwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(ddwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(zP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call costf1(dzP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
 
-      !--- Transforming of field without the backtransform
-      !    Thus this must be the last thing done with the 
-      !    fields in a run. See m_output.F90 and m_step_time.F90.
-      !    NOTE: output is only non-axisymmetric part!
-      do nR=1,n_r_max
-         do lm=1,lm_max
-            m=lm2m(lm)
-            !           if ( m == 0 ) then
-            !             wP(lm,nR)  =0.0_cp
-            !              dwP(lm,nR) =0.0_cp
-            !              ddwP(lm,nR)=0.0_cp
-            !              zP(lm,nR)  =0.0_cp
-            !              dzP(lm,nR) =0.0_cp
-            !          else
-            wP(lm,nR)  =w(lm,nR)*dLh(lm)
-            dwP(lm,nR) =dw(lm,nR)
-            ddwP(lm,nR)=ddw(lm,nR)
-            zP(lm,nR)  =z(lm,nR)
-            dzP(lm,nR) =dz(lm,nR)
-            !          end if
+         dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
+         nSI=0                  ! Inner core position
+         do nS=1,nSmax
+            sZ(nS)=(nS-half)*dsZ
+            if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
          end do
-      end do
+         zstep=2*r_CMB/real(nZmax-1,kind=cp)
+         do nZ=1,nZmax
+            zZ(nZ)=r_CMB-(nZ-1)*zstep
+         end do
 
-      !---- Transform the contributions to cheb space for z-integral:
-      call costf1(wP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-      call costf1(dwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-      call costf1(ddwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-      call costf1(zP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-      call costf1(dzP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-
-      dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
-      nSI=0                  ! Inner core position
-      do nS=1,nSmax
-         sZ(nS)=(nS-half)*dsZ
-         if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
-      end do
-      zstep=2*r_CMB/real(nZmax-1,kind=cp)
-      do nZ=1,nZmax
-         zZ(nZ)=r_CMB-(nZ-1)*zstep
-      end do
-
-      !--- Open file for output:
-      if ( l_stop_time ) then
-         fileName='PVZ.'//TAG
-         open(95,file=fileName, form='unformatted', status='unknown')
-         write(95) real(time,kind=outp), real(nSmax,kind=outp),     &
-                 & real(nZmax,kind=outp), real(omega_IC,kind=outp), &
-                 & real(omega_ma,kind=outp)
-         write(95) (real(sZ(nS),kind=outp),nS=1,nSmax)
-         write(95) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
+         !--- Open file for output:
+         if ( l_stop_time ) then
+            fileName='PVZ.'//TAG
+            open(95,file=fileName, form='unformatted', status='unknown')
+            write(95) real(time,kind=outp), real(nSmax,kind=outp),     &
+                    & real(nZmax,kind=outp), real(omega_IC,kind=outp), &
+                    & real(omega_ma,kind=outp)
+            write(95) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            write(95) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
 
 
-         !--- Open file for the three flow components:
-         fileName='Vcy.'//TAG
-         open(96,file=fileName,form='unformatted', status='unknown')
-         write(96) real(time,kind=outp), real(nSmax,kind=outp),        &
-              &    real(nZmax,kind=outp), real(n_phi_max,kind=outp),   &
-              &    real(omega_IC,kind=outp), real(omega_ma,kind=outp), &
-              &    real(radratio,kind=outp), real(minc,kind=outp)
-         write(96) (real(sZ(nS),kind=outp),nS=1,nSmax)
-         write(96) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
-      end if
-
-
-
-      do nS=1,nSmax
-
-         !------ Get r,theta,Plm,dPlm for northern hemishere:
-         if ( nPVsets == 1 ) then ! do this only for the first call !
-            nZC(nS)=0 ! Points within shell
-            do nZ=1,nZmax
-               rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
-               if ( rZS >= r_ICB .and. rZS <= r_CMB ) then
-                  nZC(nS)=nZC(nS)+1  ! Counts all z within shell
-                  nZ2(nZ,nS)=nZC(nS) ! No of point within shell
-                  if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
-                     rZ(nZC(nS),nS)=rZS
-                     thetaZ=atan2(sZ(nS),zZ(nZ))
-                     OsinTS(nZC(nS),nS)=one/sin(thetaZ)
-                     call plm_theta(thetaZ,l_max,0,minc,              &
-                          &    PlmS(1,nZC(nS),nS),dPlmS(1,nZC(nS),nS),l_max+1,2)
-                     call plm_theta(thetaZ,l_max,m_max,minc,          &
-                          &        PlmZ(1,nZC(nS),nS),dPlmZ(1,nZC(nS),nS),lm_max,2)
-                  end if
-               else
-                  nZ2(nZ,nS)=-1 ! No z found within shell !
-               end if
-            end do
+            !--- Open file for the three flow components:
+            fileName='Vcy.'//TAG
+            open(96,file=fileName,form='unformatted', status='unknown')
+            write(96) real(time,kind=outp), real(nSmax,kind=outp),        &
+                 &    real(nZmax,kind=outp), real(n_phi_max,kind=outp),   &
+                 &    real(omega_IC,kind=outp), real(omega_ma,kind=outp), &
+                 &    real(radratio,kind=outp), real(minc,kind=outp)
+            write(96) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            write(96) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
          end if
 
-         !-- Get azimuthal flow component in the shell
-         nZmaxNS=nZC(nS) ! all z points within shell
-         if ( l_stop_time ) then
-            call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max+1,      &
-                 &        l_max,r_ICB,r_CMB,n_r_max,                &
-                 &        rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
 
-            !-- Copy to array with all z-points
-            do nZ=1,nZmax
-               rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
-               nZS=nZ2(nZ,nS)
-               if ( nZS > 0 ) then
-                  omS(nZ)=VpAS(nZS)/sZ(nS)
-               else
-                  if ( rZS <= r_ICB ) then
-                     omS(nZ)=one
+
+         do nS=1,nSmax
+
+            !------ Get r,theta,Plm,dPlm for northern hemishere:
+            if ( nPVsets == 1 ) then ! do this only for the first call !
+               nZC(nS)=0 ! Points within shell
+               do nZ=1,nZmax
+                  rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
+                  if ( rZS >= r_ICB .and. rZS <= r_CMB ) then
+                     nZC(nS)=nZC(nS)+1  ! Counts all z within shell
+                     nZ2(nZ,nS)=nZC(nS) ! No of point within shell
+                     if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
+                        rZ(nZC(nS),nS)=rZS
+                        thetaZ=atan2(sZ(nS),zZ(nZ))
+                        OsinTS(nZC(nS),nS)=one/sin(thetaZ)
+                        call plm_theta(thetaZ,l_max,0,minc,              &
+                             &    PlmS(1,nZC(nS),nS),dPlmS(1,nZC(nS),nS),l_max+1,2)
+                        call plm_theta(thetaZ,l_max,m_max,minc,          &
+                             &        PlmZ(1,nZC(nS),nS),dPlmZ(1,nZC(nS),nS),lm_max,2)
+                     end if
                   else
-                     omS(nZ)=fac*omega_MA
+                     nZ2(nZ,nS)=-1 ! No z found within shell !
                   end if
-               end if
-            end do
-         end if
-
-         !-- Get all three components in the shell
-         call getPVptr(wP,dwP,ddwP,zP,dzP,r_ICB,r_CMB,rZ(1,nS),                 &
-              &        nZmaxNS,nZmaxA,PlmZ(1,1,nS),dPlmZ(1,1,nS),OsinTS(1,nS),  &
-              &        VsS,VpS,VzS,VorS,dpVorS)
-
-         if ( l_stop_time ) then
-            write(95) (real(omS(nZ),kind=outp),nZ=1,nZmax)
-            write(96) real(nZmaxNS,kind=outp)
-            nC=0
-            do nZ=1,nZmaxNS
-               do nPhi=1,n_phi_max
-                  nC=nC+1
-                  out1(nC)=real(VsS(nPhi,nZ),kind=outp) ! Vs
-                  out2(nC)=real(VpS(nPhi,nZ),kind=outp) ! Vphi
-                  out3(nC)=real(VzS(nPhi,nZ),kind=outp) ! Vz
-                  out4(nC)=real(VorS(nPhi,nZ),kind=outp)
-                  out5(nC)=(real(VorS(nPhi,nZ)-VorOld(nPhi,nZ,nS),kind=outp))/ &
-                           (real(time-timeOld,kind=outp))
                end do
-            end do
-            write(96) (out1(nZ),nZ=1,nC)
-            write(96) (out2(nZ),nZ=1,nC)
-            write(96) (out3(nZ),nZ=1,nC)
-            write(96) (out4(nZ),nZ=1,nC)
-            write(96) (out5(nZ),nZ=1,nC)
-         else
-            timeOld=time
-            do nZ=1,nZmaxNS
-               do nPhi=1,n_phi_max
-                  VorOld(nPhi,nZ,nS)=VorS(nPhi,nZ)
+            end if
+
+            !-- Get azimuthal flow component in the shell
+            nZmaxNS=nZC(nS) ! all z points within shell
+            if ( l_stop_time ) then
+               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max+1,      &
+                    &        l_max,r_ICB,r_CMB,n_r_max,                &
+                    &        rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
+
+               !-- Copy to array with all z-points
+               do nZ=1,nZmax
+                  rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
+                  nZS=nZ2(nZ,nS)
+                  if ( nZS > 0 ) then
+                     omS(nZ)=VpAS(nZS)/sZ(nS)
+                  else
+                     if ( rZS <= r_ICB ) then
+                        omS(nZ)=one
+                     else
+                        omS(nZ)=fac*omega_MA
+                     end if
+                  end if
                end do
-            end do
-         end if
+            end if
 
-      end do  ! Loop over s 
+            !-- Get all three components in the shell
+            call getPVptr(wP,dwP,ddwP,zP,dzP,r_ICB,r_CMB,rZ(1,nS),                 &
+                 &        nZmaxNS,nZmaxA,PlmZ(1,1,nS),dPlmZ(1,1,nS),OsinTS(1,nS),  &
+                 &        VsS,VpS,VzS,VorS,dpVorS)
 
-      if ( l_stop_time ) CLOSE (95)
-      if ( l_stop_time ) close(96)
+            if ( l_stop_time ) then
+               write(95) (real(omS(nZ),kind=outp),nZ=1,nZmax)
+               write(96) real(nZmaxNS,kind=outp)
+               nC=0
+               do nZ=1,nZmaxNS
+                  do nPhi=1,n_phi_max
+                     nC=nC+1
+                     out1(nC)=real(VsS(nPhi,nZ),kind=outp) ! Vs
+                     out2(nC)=real(VpS(nPhi,nZ),kind=outp) ! Vphi
+                     out3(nC)=real(VzS(nPhi,nZ),kind=outp) ! Vz
+                     out4(nC)=real(VorS(nPhi,nZ),kind=outp)
+                     out5(nC)=(real(VorS(nPhi,nZ)-VorOld(nPhi,nZ,nS),kind=outp))/ &
+                              (real(time-timeOld,kind=outp))
+                  end do
+               end do
+               write(96) (out1(nZ),nZ=1,nC)
+               write(96) (out2(nZ),nZ=1,nC)
+               write(96) (out3(nZ),nZ=1,nC)
+               write(96) (out4(nZ),nZ=1,nC)
+               write(96) (out5(nZ),nZ=1,nC)
+            else
+               timeOld=time
+               do nZ=1,nZmaxNS
+                  do nPhi=1,n_phi_max
+                     VorOld(nPhi,nZ,nS)=VorS(nPhi,nZ)
+                  end do
+               end do
+            end if
+
+         end do  ! Loop over s 
+
+         if ( l_stop_time ) close(95)
+         if ( l_stop_time ) close(96)
+
+      end if ! Rank 0
 
    end subroutine outPV
 !---------------------------------------------------------------------------------
@@ -548,7 +548,7 @@ contains
       end do
 
       do nS=1,nZmax
-         do mc=1,nrp
+         do mc=1,n_m_max
             dp=ci*real((mc-1)*minc,kind=cp)  ! - i m
             dpVorS(2*mc-1,nS)= real(dp)*VorS(2*mc-1,nS)-aimag(dp)*VorS(2*mc,nS)
             dpVorS(2*mc  ,nS)=aimag(dp)*VorS(2*mc-1,nS)+ real(dp)*VorS(2*mc,nS)

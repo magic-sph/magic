@@ -84,4 +84,14 @@ for python and auto-tests)
 
 	http://www.fortran90.org/src/best-practices.html
 
+8) Make sure you cite the following papers if you intend to publish scientific results
+   using Magic
+    - Boussinesq equations: Wicht (2002, PEPI, 132, 281-302)
+    - Anelastic equations: Gastine & Wicht (2012, Icarus, 219, 428-442)
+
+    Magic has been tested and validated against several international dynamo
+    benchmarks:
+        - Christensen et al. (2001, PEPI, 128, 25-34)
+        - Jones et al. (2011, Icarus, 216, 120-135)
+
 Contact  gastine [at] mps.mpg.de or wicht [at] mpps.mpg.de in case of any problems.

@@ -5,7 +5,7 @@ module updateZ_mod
    use init_fields
    use omp_lib
    use precision_mod, only: cp
-   use truncation, only: n_r_max, lm_max, n_cheb_max
+   use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
                                cheb_norm, dLvisc, beta, rho0, r_icb,&
@@ -33,7 +33,7 @@ module updateZ_mod
                     c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
                     c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
                     half
-   use parallel_mod, only: rank, chunksize
+   use parallel_mod
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf
 #else
@@ -133,6 +133,7 @@ contains
       integer :: i                  ! counter
       logical :: l10
       integer :: nLMB
+      real(cp) :: ddzASL_loc(l_max+1)
     
       complex(cp) :: Dif(lm_max)
     
@@ -604,11 +605,14 @@ contains
       if ( l_TO ) then
          !$OMP do private(nR,lm1,l1,m1)
          do nR=1,n_r_max
+            ddzASL_loc(:)=0.0_cp
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
-               if ( m1 == 0 ) ddzASL(l1+1,nR)=real(workA(lm1,nR))
+               if ( m1 == 0 ) ddzASL_loc(l1+1)=real(workA(lm1,nR))
             end do
+            call MPI_Allreduce(ddzASL_loc, ddzASL(:,nR), l_max+1, MPI_DOUBLE_PRECISION, &
+                 &             MPI_SUM, MPI_COMM_WORLD, ierr)
          end do
          !$OMP end do
       end if

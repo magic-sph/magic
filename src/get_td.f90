@@ -75,7 +75,7 @@ contains
       allocate( this%VSpLM(lmP_max) )    
       allocate( this%ViscHeatLM(lmP_max) )
       allocate( this%OhmLossLM(lmP_max) )
-      !size_in_bytes=14*lmP_max*SIZEOF_DOUBLE_complex
+      !size_in_bytes=14*lmP_max*SIZEOF_DOUBLE_COMPLEX
       !write(*,"(A,I15,A)") "nonlinear_lm: allocated ",size_in_bytes,"B."
       !call this%set_zero()
 

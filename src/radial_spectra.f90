@@ -86,7 +86,7 @@ contains
                if ( l <= 6 ) then
                   m=map%lm2m(lm)
                   if ( m /= 0 .or. lAS ) then
-                     IF( l_cond_ic ) then
+                     if ( l_cond_ic ) then
                         e_p_temp=dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
                                  dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
                                  cc2real(PolIC(lm,n_r),m)

@@ -312,6 +312,7 @@ contains
    end subroutine spectrum_average
 !----------------------------------------------------------------------------
    real(cp) function get_standard_deviation(dt_norm,mean,sum_of_squares) result(stdev)
+
       real(cp), intent(in) :: dt_norm,mean,sum_of_squares
 
       real(cp) :: mean2,variance
@@ -319,11 +320,16 @@ contains
 
       mean2    = (dt_norm*mean)**2
       variance = abs(dt_norm*sum_of_squares - mean2 )
-      if (variance/mean2 < tolerance) then
-         stdev = 0.0_cp
+      if ( mean2 /= 0.0_cp ) then
+         if ( variance/mean2 < tolerance ) then
+            stdev = 0.0_cp
+         else
+            stdev = sqrt(variance)
+         end if
       else
-         stdev = sqrt(variance)
+         stdev = 0.0_cp
       end if
+
    end function get_standard_deviation
 !----------------------------------------------------------------------------
    subroutine spectrum(time,n_spec,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
@@ -915,7 +921,7 @@ contains
                T_ICB_ave(l) =T_ICB_ave(l)   +time_passed*T_ICB_l(l)
                dT_ICB_ave(l)=dT_ICB_ave(l)  +time_passed*dT_ICB_l(l)
                T2_ave(l)    =T2_ave(l)      +time_passed*T_l(l)*T_l(l)
-               T_ICB2_ave(l)=T_ICB2_ave(l)  + time_passed*T_ICB_l(l)*T_ICB_l(l)
+               T_ICB2_ave(l)=T_ICB2_ave(l)  +time_passed*T_ICB_l(l)*T_ICB_l(l)
                dT_ICB2_ave(l)=dT_ICB2_ave(l)+time_passed*dT_ICB_l(l)*dT_ICB_l(l)
             end do
          end if
@@ -926,12 +932,12 @@ contains
             !------ Normalize:
             dt_norm=one/time_norm
             do l=1,l_max+1
-               T_ave(l)     =dt_norm*T_ave(l)
-               T_ICB_ave(l) =dt_norm*T_ICB_ave(l)
-               dT_ICB_ave(l)=dt_norm*dT_ICB_ave(l)
-               T2_ave(l)    =sqrt( dt_norm*T2_ave(l) - T_ave(l)**2 ) 
-               T_ICB2_ave(l)=sqrt( dt_norm*T_ICB2_ave(l) - T_ICB_ave(l)**2 )
-               dT_ICB2_ave(l)=sqrt( dt_norm*dT_ICB2_ave(l) - dT_ICB_ave(l)**2 )
+               T2_ave(l)     =get_standard_deviation(dt_norm,T_ave(l),T2_ave(l))
+               T_ICB2_ave(l) =get_standard_deviation(dt_norm,T_ICB_ave(l),T_ICB2_ave(l))
+               dT_ICB2_ave(l)=get_standard_deviation(dt_norm,dT_ICB_ave(l),dT_ICB2_ave(l))
+               T_ave(l)      =dt_norm*T_ave(l)
+               T_ICB_ave(l)  =dt_norm*T_ICB_ave(l)
+               dT_ICB_ave(l) =dt_norm*dT_ICB_ave(l)
             end do
 
             !------ Output:

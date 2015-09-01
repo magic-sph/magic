@@ -308,12 +308,12 @@ contains
             ! copy one row of p into a vector to send
             ! it to rank 0
             p44_local=p(lm44,:)
-            call MPI_Send(p44_local,n_r_max,MPI_DOUBLE_complex,0,mytag, &
+            call MPI_Send(p44_local,n_r_max,MPI_DOUBLE_COMPLEX,0,mytag, &
                        &  MPI_COMM_WORLD,ierr)
          end if
          if ( rank == 0 ) then
             if ( .not. lm44_is_local ) then
-               call MPI_Recv(p44_local,n_r_max,MPI_DOUBLE_complex, &
+               call MPI_Recv(p44_local,n_r_max,MPI_DOUBLE_COMPLEX, &
                     & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
             else
                p44_local=p(lm44,:)
