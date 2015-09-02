@@ -11,13 +11,13 @@ or via SSH (it requires a public key):
 git clone ssh://git@github.com/tgastine/magic.git
 ```
 
-### 2) Go to the root directory and source the environnement variables (useful for python and auto-tests)
+### 2) Go to the root directory and source the environment variables (useful for python and auto-tests)
 
 ```sh
 cd MAGIC_mpi
 ```
 
-If you are using sh, bash or zsh as default shell (echo $SHELL), just use the command
+If you are using sh, bash or zsh as default shell (`echo $SHELL`), just use the command
 
 ```sh
 source sourceme.sh
@@ -41,7 +41,7 @@ compiler options (production run or not, debug mode, MKL library, HDF5, ...)
 ```sh
 make -j
 ```
-The executable magic.exe has been produced!
+The executable `magic.exe` has been produced!
 
 ### 4) Go to the samples directory and check that everything is fine
 
@@ -68,21 +68,21 @@ Then change the input namelist to the setup you want and run the code:
 
 ### 6) Data visualisation and postprocessing
 
-    a) Set-up your PYTHON environnement ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
+a) Set-up your PYTHON environnement ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
 
-    b) Modify `magic.cfg` according to your machine
+b) Modify `magic.cfg` according to your machine
 
 ```sh
 -> vi $MAGIC_HOME/python/magic/magic.cfg
 ```
 
-    c) You can now import the python class:
+c) You can now import the python class:
 
 ```python
 python> from magic import *
 ```
 
-	and use them to read time series, graphic files, movies, ...
+and use them to read time series, graphic files, movies, ...
 
 ```python
 python> ts = MagicTs(field='e_kin', all=True)
@@ -93,25 +93,25 @@ python> ...
 
 ### 7) Modify the code and submit your modifications
 
-a) Before commiting your modifications ALWAYS make sure that the auto-tests
+a) Before commiting your modifications **always** make sure that the auto-tests
 pass correctly.
 
 b) Try to follow the same coding style rules as in the rest of the code:
 
-1. **Never** use TABS but alwyas SPACES instead
+1. **Never** use TABS but always SPACES instead
 2. Use 3 spaces for indentation
 3. Never use capital letters for variable declaration
-4. Never use 'dimension(len)' for declaring array but rather real(cp) :: data(len)
-5. Always use the default precisions when introducing new variables (cp)
+4. Never use `dimension(len)` for declaring array but rather `real(cp) :: data(len)`
+5. Always use the default precisions when introducing new variables `(cp)`
 
 
 More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
 ### 8) Make sure you cite the following papers if you intend to publish scientific results using Magic:
 
-* Boussinesq equations: Wicht (2002, PEPI, 132, 281-302)
-* Anelastic equations: Gastine & Wicht (2012, Icarus, 219, 428-442)
+* Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](http://dx.doi.org/10.1016/S0031-9201(02)00078-X)
+* Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](http://dx.doi.org/10.1016/j.icarus.2012.03.018)
 
 Magic has been tested and validated against several international dynamo benchmarks:
-* Christensen et al. (2001, PEPI, 128, 25-34)
-* Jones et al. (2011, Icarus, 216, 120-135)
+* [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)
+* [Jones et al. (2011, Icarus, 216, 120-135)](http://dx.doi.org/10.1016/j.icarus.2011.08.014)
