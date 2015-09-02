@@ -24,7 +24,7 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 
 ### 3. Architecture (Intel compilers only)
 
-If you're using intel compilers and if your computer is capable of following specific intel instruction sets (sse3 or AVX). Then set `FFLAG_ARCH_OPT = -xsse3` or `FFLAG_ARCH_OPT = -xAVX` under intel compiler options.
+If you're using intel compilers and if your computer is capable of following specific intel instruction sets (sse3 or AVX), then set `FFLAG_ARCH_OPT = -xsse3` or `FFLAG_ARCH_OPT = -xAVX` under intel compiler options.
 
 ### 4. MPI_INCPATH
 
