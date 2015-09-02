@@ -1,5 +1,4 @@
 # Quickly start using MagIC
------------------------------------------------------------------------
 
 ### 1) In order to check out the code, use the command
 
@@ -73,19 +72,19 @@ Then change the input namelist to the setup you want and run the code:
 
     b) Modify `magic.cfg` according to your machine
 
-	```sh
-	-> vi $MAGIC_HOME/python/magic/magic.cfg
-	```
+```sh
+-> vi $MAGIC_HOME/python/magic/magic.cfg
+```
 
     c) You can now import the python class:
 
-	```python
-	from magic import *
-	```
+```python
+python> from magic import *
+```
 
 	and use them to read time series, graphic files, movies, ...
 
-```sh
+```python
 python> ts = MagicTs(field='e_kin', all=True)
 python> s = Surf()
 python> s.equat(field='vr')
@@ -94,24 +93,25 @@ python> ...
 
 ### 7) Modify the code and submit your modifications
 
-    a) Before commiting your modifications ALWAYS make sure that the auto-tests
-    pass correctly.
+a) Before commiting your modifications ALWAYS make sure that the auto-tests
+pass correctly.
 
-    b) Try to follow the same coding style rules as in the rest of the code:
-    1. *Never* use TABS but alwyas SPACES instead
-    2. Use 3 spaces for indentation
-    3. Never use capital letters for variable declaration
-    4. Never use 'dimension(len)' for declaring array but rather real(cp) :: data(len)
-    5. Always use the default precisions when introducing new variables (cp)
+b) Try to follow the same coding style rules as in the rest of the code:
+
+1. **Never** use TABS but alwyas SPACES instead
+2. Use 3 spaces for indentation
+3. Never use capital letters for variable declaration
+4. Never use 'dimension(len)' for declaring array but rather real(cp) :: data(len)
+5. Always use the default precisions when introducing new variables (cp)
 
 
-    More on that topic [here](http://www.fortran90.org/src/best-practices.html)
+More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
 ### 8) Make sure you cite the following papers if you intend to publish scientific results using Magic:
 
-    * Boussinesq equations: Wicht (2002, PEPI, 132, 281-302)
-    * Anelastic equations: Gastine & Wicht (2012, Icarus, 219, 428-442)
+* Boussinesq equations: Wicht (2002, PEPI, 132, 281-302)
+* Anelastic equations: Gastine & Wicht (2012, Icarus, 219, 428-442)
 
-    Magic has been tested and validated against several international dynamo benchmarks:
-    * Christensen et al. (2001, PEPI, 128, 25-34)
-    * Jones et al. (2011, Icarus, 216, 120-135)
+Magic has been tested and validated against several international dynamo benchmarks:
+* Christensen et al. (2001, PEPI, 128, 25-34)
+* Jones et al. (2011, Icarus, 216, 120-135)
