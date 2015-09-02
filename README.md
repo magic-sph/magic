@@ -3,18 +3,18 @@
 ### 1) In order to check out the code, use the command
 
 ```sh
-git clone https://github.com/tgastine/magic.git
+git clone https://github.com/magic-sph/magic.git
 ```
 or via SSH (it requires a public key):
 
 ```sh
-git clone ssh://git@github.com/tgastine/magic.git
+git clone ssh://git@github.com/magic-sph/magic.git
 ```
 
 ### 2) Go to the root directory and source the environment variables (useful for python and auto-tests)
 
 ```sh
-cd MAGIC_mpi
+cd magic
 ```
 
 If you are using sh, bash or zsh as default shell (`echo $SHELL`), just use the command
