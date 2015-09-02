@@ -3,7 +3,7 @@
 ### 1) In order to check out the code, use the command
 
 ```sh
-git clone https://github.com/tgastin/magic.git
+git clone https://github.com/tgastine/magic.git
 ```
 or via SSH (it requires a public key):
 
