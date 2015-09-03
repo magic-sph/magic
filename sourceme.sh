@@ -9,8 +9,7 @@ if [ -z $MAGIC_HOME ]; then
   #
   # Try to identify position of the code's home directory:
   #
-  for _dir in   . .. ../.. ../../.. ../../../.. \
-	        MAGIC_mpi ; do
+  for _dir in   . .. ../.. ../../.. ../../../.. magic ; do
     if ( [ -e $_dir/sourceme.sh ] && \
          [ -d $_dir/src ]         && \
          [ -d $_dir/samples ]     && \
@@ -49,7 +48,7 @@ if [ -z $_sourceme ]; then	# called for the first time?
     # Remember that sourceme has been successfully run
     _sourceme="set"
 
-    export PATH
+    export PATH PYTHONPATH
     
   else
     if [ -n $MAGIC_HOME ]; then

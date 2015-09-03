@@ -9,8 +9,7 @@ if (! $?MAGIC_HOME) then
   #
   # Try to identify position of the code's home directory:
   #
-  foreach _dir ( . .. ../.. ../../.. ../../../.. \
-		MAGIC_mpi)
+  foreach _dir ( . .. ../.. ../../.. ../../../.. magic)
     if ( (-e $_dir/sourceme.csh) && \
          (-d $_dir/src)          && \
 	 (-d $_dir/bin)          && \
@@ -34,7 +33,7 @@ if (! $?_sourceme) then		# called for the fist time?
   if (-d $MAGIC_HOME/bin) then
 
     #  Set shell path
-    if (! $?_sourceme_quiet) echo "Adding $MAGIC_HOME/{bin,utils{,/axel}} to PATH"
+    if (! $?_sourceme_quiet) echo "Adding $MAGIC_HOME to PATH"
     set path = ( $path $MAGIC_HOME/bin $MAGIC_HOME/src)
 
     #  Set PYTHON path
