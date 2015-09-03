@@ -68,7 +68,7 @@ Then change the input namelist to the setup you want and run the code:
 
 ### 6) Data visualisation and postprocessing
 
-a) Set-up your PYTHON environnement ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
+a) Set-up your PYTHON environment ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
 
 b) Modify `magic.cfg` according to your machine
 
