@@ -1,14 +1,11 @@
 !$Id$
 module out_RMS
 
+   use parallel_mod
    use precision_mod, only: cp, outp
    use truncation, only: lm_max, n_r_max, lm_max_dtB, n_r_max_dtB, &
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max
-   use parallel_mod, only: MPI_IN_PLACE, n_procs, MPI_SUM,     & 
-                           MPI_DOUBLE_COMPLEX, MPI_COMM_WORLD, &
-                           MPI_DOUBLE_PRECISION, ierr,         &
-                           nr_per_rank, rank
    use radial_data, only: nRstop, nRstart
    use radial_functions, only: n_r_maxC, i_costf_init, d_costf_init,  &
                                drx, r, r_CMB, i_costf_initC, rgrav,   &
@@ -44,7 +41,9 @@ module out_RMS
                           dtbrms_file
    use const, only: pi, vol_oc, zero, half, four, third
    use integration, only: rInt_R
-   use communications, only: myallgather
+#ifdef WITH_MPI
+   use communications, only: myAllGather
+#endif
    use RMS_helpers, only: init_rNB, hInt2dPol, get_PolTorRms, get_PASLM, &
                           get_RAS
    use radial_der, only: get_drNS
@@ -108,6 +107,7 @@ contains
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
+#ifdef WITH_MPI
       sendcount  = (nRstop-nRstart+1)*lm_max
       recvcounts = nr_per_rank*lm_max
       recvcounts(n_procs-1) = (nr_per_rank+1)*lm_max
@@ -191,30 +191,31 @@ contains
       call myAllGather(dtVPolLMr,lm_max,n_r_max)
       call myAllGather(DifPolLMr,lm_max,n_r_max)
     
-      call mpi_reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVPol2hInt(:,1)=global_sum
-      call mpi_reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVPolAs2hInt(:,1)=global_sum
-      call mpi_reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTor2hInt(:,1)=global_sum
-      call mpi_reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTorAs2hInt(:,1)=global_sum
-      call mpi_reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifPol2hInt(:,1)=global_sum
-      call mpi_reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifPolAs2hInt(:,1)=global_sum
-      call mpi_reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTor2hInt(:,1)=global_sum
-      call mpi_reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTorAs2hInt(:,1)=global_sum
+#endif
     
       if ( rank == 0 ) then
     
@@ -591,19 +592,21 @@ contains
     
       real(cp) :: global_sum(n_r_max)
     
+#ifdef WITH_MPI
       call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
-      call mpi_reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBPol2hInt(:,1)=global_sum
-      call mpi_reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBPolAs2hInt(:,1)=global_sum
     
-      call mpi_reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) then
          dtBTor2hInt(:,1)=global_sum
       end if
+#endif
     
     
       if ( rank == 0 ) then

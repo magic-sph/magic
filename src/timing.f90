@@ -1,7 +1,9 @@
 !$Id$
 module timing
 
-   use MPI
+#ifdef WITH_MPI
+   use mpi
+#endif
    use precision_mod, only: cp, lip
    use parallel_mod, only: rank
  
@@ -29,6 +31,9 @@ contains
       !-- Local variables
       integer(lip) :: mSeconds
       real(cp) :: dbl_seconds
+#ifndef WITH_MPI
+      integer :: count, countRate, countMax
+#endif
   
       !--- SYSTEM_CLOCK is a Fortran90 subroutine that
       !    returns the wallclock time with a precision
@@ -41,9 +46,12 @@ contains
       !    is performed at midnight. Thus, the count
       !    can be used to get the real wallclock time.
   
+#ifdef WITH_MPI
       dbl_seconds = MPI_Wtime()
-      !write(*,"(A,ES20.12)") "MPI_Wtime = ",dbl_seconds
-      !call SYSTEM_CLOCK(count,countRate,countMax)
+#else
+      call SYSTEM_CLOCK(count,countRate,countMax)
+      dbl_seconds=real(count,kind=cp)/real(countRate,kind=cp)
+#endif
   
       mSeconds = int(1000.0_cp*dbl_seconds,kind=lip)
       call ms2time(mSeconds,time)

@@ -44,8 +44,12 @@ module step_time_mod
                           n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
                           n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
                           n_t_TOZ, t_TOZ, l_graph_time, graph_file, ngform,&
-                          tag_wo_rank, nLF, log_file, graph_mpi_fh,        &
-                          n_log_file, n_time_hits
+#ifdef WITH_MPI
+                          nLF, log_file, graph_mpi_fh, n_log_file,         &
+#else
+                          nLF, log_file, n_graph_file, n_log_file,         &
+#endif
+                          n_time_hits
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
    use useful, only: l_correct_step, safeOpen, safeClose, logWrite
@@ -350,7 +354,9 @@ contains
          n_time_steps_go=n_time_steps+1  ! Last time step for output only !
       end if
 
+#ifdef WITH_MPI
       call mpi_barrier(MPI_COMM_WORLD,ierr)
+#endif
 
       PERFON('tloop')
       !LIKWID_ON('tloop')
@@ -383,40 +389,34 @@ contains
          PERFON('lo2r_wt')
          if (l_heat) then
             call lo2r_redist_wait(lo2r_s)
-            !call lo2r_redist_wait(lo2r_ds)
          end if
          if (l_conv) then
             call lo2r_redist_wait(lo2r_z)
-            !call lo2r_redist_wait(lo2r_dz)
             call lo2r_redist_wait(lo2r_w)
-            !call lo2r_redist_wait(lo2r_w)
-            !call lo2r_redist_wait(lo2r_dw)
-            !call lo2r_redist_wait(lo2r_ddw)
             call lo2r_redist_wait(lo2r_p)
-            !call lo2r_redist_wait(lo2r_dp)
          end if
 
          if ( l_mag ) then
             call lo2r_redist_wait(lo2r_b)
-            !call lo2r_redist_wait(lo2r_db)
-            !call lo2r_redist_wait(lo2r_ddb)
-
             call lo2r_redist_wait(lo2r_aj)
-            !call lo2r_redist_wait(lo2r_dj)
          end if
 
+#ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
          call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,rank_with_l1m0, &
                         MPI_COMM_WORLD,ierr)
          call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,rank_with_l1m0, &
                         MPI_COMM_WORLD,ierr)
+#endif
          PERFOFF
 
+#ifdef WITH_MPI
          ! =================================== BARRIER ======================
          PERFON('barr_1')
          call MPI_Barrier(MPI_COMM_WORLD,ierr)
          PERFOFF
          ! ==================================================================
+#endif
 
          PERFON('signals')
          !This dealing with a signal file is quite expensive
@@ -493,11 +493,13 @@ contains
             end if
          end if
 #endif
+#ifdef WITH_MPI
          call MPI_Bcast(signals,4,MPI_integer,0,MPI_COMM_WORLD,ierr)
          !call MPI_Bcast(n_stop_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
          !call MPI_Bcast(n_graph_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
          !call MPI_Bcast(n_spec_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
          !call MPI_Bcast(n_rst_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
+#endif
          !write(*,"(A)") "Win_fence 2 start"
          !PERFON('fence2')
          !call MPI_Win_fence(0,signal_window,ierr)
@@ -509,17 +511,21 @@ contains
          n_spec_signal=signals(4)
          PERFOFF
 
+#ifdef WITH_MPI
          PERFON('barr_2')
          call MPI_Barrier(MPI_COMM_WORLD,ierr)
          PERFOFF
+#endif
 
          PERFON('chk_stop')
          !--- Various reasons to stop the time integration:
          if ( l_runTimeLimit ) then
+#ifdef WITH_MPI
             time_in_ms=time2ms(runTime)
             call MPI_Allreduce(MPI_IN_PLACE,time_in_ms,1,MPI_integer8, &
                  &             MPI_MAX,MPI_COMM_WORLD,ierr)
             call ms2time(time_in_ms,runTime)
+#endif
             if ( lTimeLimit(runTime,runTimeLimit) ) then
                write(message,'("! Run time limit exeeded !")')
                call logWrite(message)
@@ -661,16 +667,16 @@ contains
             if ( l_graph_time ) then 
                call dble2str(time,string)
                if ( ngform /= 0 ) then
-                  graph_file='g_t='//trim(string)//'.'//tag_wo_rank
+                  graph_file='g_t='//trim(string)//'.'//tag
                else
-                  graph_file='G_t='//trim(string)//'.'//tag_wo_rank
+                  graph_file='G_t='//trim(string)//'.'//tag
                end if
             else
                write(string, *) n_graph
                if ( ngform /= 0 ) then
-                  graph_file='g_'//trim(adjustl(string))//'.'//tag_wo_rank
+                  graph_file='g_'//trim(adjustl(string))//'.'//tag
                else
-                  graph_file='G_'//trim(adjustl(string))//'.'//tag_wo_rank
+                  graph_file='G_'//trim(adjustl(string))//'.'//tag
                end if
             end if
             if ( rank == 0 ) then
@@ -687,9 +693,17 @@ contains
                     &"           into file=",graph_file
                call safeClose(nLF)
             end if
+#ifdef WITH_MPI
             call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
                  &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
                  &             MPI_INFO_NULL,graph_mpi_fh,ierr)
+#else
+            if ( ngform /= 0 ) then
+               open(n_graph_file,file=graph_file,status='new',form='formatted')
+            else
+               open(n_graph_file,file=graph_file,status='new',form='unformatted')
+            end if
+#endif
             !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
             !PRINT*,"MPI_FILE_OPEN returned: ",trim(error_string)
             PERFOFF
@@ -814,15 +828,10 @@ contains
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
          PERFON('r2lo_dst')
-         !call r2lm_redist(dsdt_Rloc,dsdt_LMloc)
          call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
-         !call r2lm_redist(dwdt_Rloc,dwdt_LMloc)
          call r2lo_redist(dwdt_Rloc,dwdt_LMloc)
-         !call r2lm_redist(dzdt_Rloc,dzdt_LMloc)
          call r2lo_redist(dzdt_Rloc,dzdt_LMloc)
-         !call r2lm_redist(dpdt_Rloc,dpdt_LMloc)
          call r2lo_redist(dpdt_Rloc,dpdt_LMloc)
-         !call r2lm_redist(dVSrLM_Rloc,dVSrLM_LMloc)
          call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
          if ( l_mag ) then
             call r2lo_redist(dbdt_Rloc,dbdt_LMloc)
@@ -830,6 +839,7 @@ contains
             call r2lo_redist(dVxBhLM_Rloc,dVxBhLM_LMloc)
          end if
 
+#ifdef WITH_MPI
          ! ------------------
          ! also exchange the lorentz_torques which are only set at the boundary points
          ! but are needed on all processes.
@@ -837,6 +847,7 @@ contains
               &         n_procs-1,MPI_COMM_WORLD,ierr)
          call MPI_Bcast(lorentz_torque_ma,1,MPI_DOUBLE_PRECISION, &
               &         0,MPI_COMM_WORLD,ierr)
+#endif
          PERFOFF
          if ( lVerbose ) write(*,*) "! r2lo redistribution finished"
 
@@ -908,11 +919,15 @@ contains
          if ( lVerbose ) write(*,*) "! output finished"
 
          if ( l_graph ) then
+#ifdef WITH_MPI
             PERFON('graph')
             call MPI_File_close(graph_mpi_fh,ierr)
             !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
             !PRINT*,"MPI_FILE_CLOSE returned: ",trim(error_string)
             PERFOFF
+#else
+            close(n_graph_file)
+#endif
          end if
          ! =================================== BARRIER ======================
          !PERFON('barr_5')

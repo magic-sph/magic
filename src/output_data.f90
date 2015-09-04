@@ -110,9 +110,6 @@ module output_data
    integer, public :: n_signal_file
  
    character(len=55), public :: tag
-#ifdef WITH_MPI
-   character(len=55), public :: tag_wo_rank
-#endif
    character(len=72), public :: log_file
    character(len=72), public :: graph_file
    character(len=72), public :: lp_file

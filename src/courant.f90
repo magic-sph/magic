@@ -187,10 +187,12 @@ contains
          dt_r=min(dtrkc(n_r),dt_r)
          dt_h=min(dthkc(n_r),dt_h)
       end do
+#ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DOUBLE_PRECISION, &
-                         MPI_min,MPI_COMM_WORLD,ierr)
+                         MPI_MIN,MPI_COMM_WORLD,ierr)
       call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DOUBLE_PRECISION, &
-                         MPI_min,MPI_COMM_WORLD,ierr)
+                         MPI_MIN,MPI_COMM_WORLD,ierr)
+#endif
     
       dt_rh=min(dt_r,dt_h)
       dt_2 =min(half*(one/dt_fac+one)*dt_rh,dtMax)

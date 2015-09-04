@@ -26,7 +26,11 @@ module rIterThetaBlocking_OpenMP_mod
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
+#ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
+#else
+   use graphOut_mod, only: graphOut
+#endif
    use dtB_mod, only: get_dtBLM, get_dH_dtBLM
    use out_movie, only: store_movie_frame
    use outRot, only: get_lorentz_torque
@@ -347,6 +351,7 @@ contains
          !--------- Since the fields are given at gridpoints here, this is a good
          !          point for graphical output:
          if ( this%l_graph ) then
+#ifdef WITH_MPI
             PERFON('graphout')
             call graphOut_mpi(time,this%nR,ngform,this%gsa(threadid)%vrc,    &
                  &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
@@ -354,6 +359,13 @@ contains
                  &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
                  &            nThetaStart,this%sizeThetaB,lGraphHeader)
             PERFOFF
+#else
+            call graphOut(time,this%nR,ngform,this%gsa(threadid)%vrc,    &
+                 &        this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
+                 &        this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
+                 &        this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
+                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
+#endif
          end if
   
          !--------- Helicity output:

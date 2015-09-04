@@ -25,7 +25,11 @@ module radialLoop
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
    use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
+#ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header
+#else
+   use graphOut_mod, only: graphOut
+#endif
 
    implicit none
 
@@ -150,7 +154,12 @@ contains
       !LIKWID_ON('rloop')
       lGraphHeader=l_graph
       if ( lGraphHeader ) then
+#ifdef WITH_MPI
          call graphOut_mpi_header(time,nR,ngform,nThetaStart,sizeThetaB)
+#else
+         !call graphOut(time,nR,ngform,vrc,vtc,vpc,brc,btc,bpc,sc, &
+         !              nThetaStart,sizeThetaB,lGraphHeader)
+#endif
       end if
 
       if ( l_cour ) then

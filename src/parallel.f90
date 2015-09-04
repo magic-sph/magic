@@ -18,10 +18,7 @@ module parallel_mod
   integer :: nLMBs_per_rank
   integer :: rank_with_l1m0
   integer :: chunksize
-#ifdef WITH_MPI
-  ! a common declaration of the MPI error variable
   integer :: ierr
-#endif
 
 contains
 
@@ -35,6 +32,7 @@ contains
 #else
       rank    = 0
       n_procs = 1
+      ierr    = 0
 #endif
 
 #ifdef WITHOMP

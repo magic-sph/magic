@@ -64,8 +64,7 @@ contains
       !----- R-distributed versions of scalar fields (see c_fields.f):
       allocate( this%sR(lm_max),this%dsR(lm_max) )
       allocate( this%preR(lm_max),this%dpR(lm_max) )
-      allocate( this%zAS(l_max+1),this%dzAS(l_max+1),&
-           & this%ddzAS(l_max+1) ) ! used in TO
+      allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
 
       allocate( this%bCMB(lm_maxMag) )
 

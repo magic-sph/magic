@@ -1126,7 +1126,7 @@ contains
       do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
-         lmStart=MAX(2,lmStart)
+         lmStart=max(2,lmStart)
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then

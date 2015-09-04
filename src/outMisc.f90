@@ -81,7 +81,10 @@ contains
       real(cp) :: topnuss,botnuss
       real(cp) :: topflux,botflux
     
-      integer :: n_r,m,lm,mytag,status(MPI_STATUS_SIZE)
+      integer :: n_r,m,lm
+#ifdef WITH_MPI
+      integer :: mytag,status(MPI_STATUS_SIZE)
+#endif
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1),ierr
     
       character(len=76) :: filename2
@@ -143,6 +146,7 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank
          end do
+#ifdef WITH_MPI
          call MPI_GatherV(Hel2Nr,sendcount,MPI_DOUBLE_PRECISION,&
               &           Hel2Nr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
               &           0,MPI_COMM_WORLD,ierr)
@@ -170,6 +174,17 @@ contains
          call MPI_GatherV(HelnaSr,sendcount,MPI_DOUBLE_PRECISION,&
               &           HelnaSr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
               &           0,MPI_COMM_WORLD,ierr)
+#else
+         Hel2Nr_global=Hel2Nr
+         Helna2Nr_global=Helna2Nr
+         HelEAr_global=HelEAr
+         HelNr_global=HelNr
+         HelnaNr_global=HelnaNr
+         HelSr_global=HelSr
+         Helna2Sr_global=Helna2Sr
+         Hel2Sr_global=Hel2Sr
+         HelnaSr_global=HelnaSr
+#endif
     
          if ( rank == 0 ) then
             !------ Integration over r without the boundaries and normalization:
@@ -298,10 +313,15 @@ contains
                pplot(n_r)=pplot(n_r)+cc2real(p(lm,n_r),m)
             end do
          end do
+#ifdef WITH_MPI
          call MPI_Reduce(pplot,pplot_global,n_r_max,MPI_DOUBLE_PRECISION,&
               & MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         pplot_global=pplot
+#endif
          ! Send the p(4,4) value to rank 0
          lm44=lo_map%lm2(4,4)
+#ifdef WITH_MPI
          lm44_is_local=(llm <= lm44).and.(lm44 <= ulm)
          mytag=120
          if ( lm44_is_local .and. ( rank /= 0 )) then
@@ -311,13 +331,19 @@ contains
             call MPI_Send(p44_local,n_r_max,MPI_DOUBLE_COMPLEX,0,mytag, &
                        &  MPI_COMM_WORLD,ierr)
          end if
+#else
+         p44_local=p(lm44,:)
+#endif
          if ( rank == 0 ) then
+#ifdef WITH_MPI
             if ( .not. lm44_is_local ) then
                call MPI_Recv(p44_local,n_r_max,MPI_DOUBLE_COMPLEX, &
                     & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
             else
                p44_local=p(lm44,:)
             end if
+#endif
+
             filename2='p.'//TAG
             open(94, file=filename2, status='unknown')
             do n_r=1,n_r_max

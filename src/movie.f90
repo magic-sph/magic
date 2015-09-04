@@ -1278,6 +1278,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine movie_gather_frames_to_rank0
 
+#ifdef WITH_MPI
       integer :: n_fields,n_surface,n_movie,n_const
       integer :: n_start,n_stop,n_field
       integer :: myTag, status(MPI_STATUS_SIZE)
@@ -1410,6 +1411,7 @@ contains
       end do
 
       if (rank == 0) deallocate(field_frames_global)
+#endif
 
    end subroutine movie_gather_frames_to_rank0
 !----------------------------------------------------------------------------

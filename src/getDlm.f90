@@ -119,12 +119,18 @@ contains
       end if
 
       ! reduce to rank 0
+#ifdef WITH_MPI
       call MPI_Reduce(e_lr,e_lr_global,n_r_max*l_max,MPI_DOUBLE_PRECISION,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_mr,e_mr_global,n_r_max*(l_max+1),MPI_DOUBLE_PRECISION,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_lr_c,e_lr_c_global,n_r_max*l_max,MPI_DOUBLE_PRECISION,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_lr_global  =e_lr
+      e_mr_global  =e_mr
+      e_lr_c_global=e_lr_c
+#endif
          
       if ( rank == 0 ) then
          !-- Radial Integrals:

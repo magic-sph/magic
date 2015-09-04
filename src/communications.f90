@@ -2,7 +2,9 @@
 #include "perflib_preproc.cpp"
 module communications
 
+#ifdef WITH_MPI
    use mpi
+#endif
    use precision_mod, only: cp
    use parallel_mod, only: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
    use LMLoop_data, only: llm, ulm
@@ -44,10 +46,13 @@ module communications
  
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo,&
            & gather_all_from_lo_to_rank0
-   public :: get_global_sum, myAllGather,&
+   public :: get_global_sum, &
            & r2lm_redist,r2lo_redist,initialize_communications,&
            & create_lm2r_type!,lo2r_redist,lm2r_redist
    public :: lo2r_redist_start,lo2r_redist_wait
+#ifdef WITH_MPI
+   public :: myAllGather
+#endif
  
    ! declaration of the types for the redistribution
    !type(lm2r_type),PUBLIC :: lo2r_s, lo2r_ds, lo2r_z, lo2r_dz
@@ -65,6 +70,7 @@ contains
    subroutine initialize_communications
 
       integer :: proc,my_lm_per_rank
+#ifdef WITH_MPI
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer(kind=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
       integer :: base_col_type,temptype
@@ -190,14 +196,17 @@ contains
 #endif
          end do
       end do
+#endif
 
 
       call create_gather_type(gt_OC,n_r_max)
       call create_gather_type(gt_IC,n_r_ic_max)
 
+#ifdef WITH_MPI
       allocate(s_request(n_procs-1),r_request(n_procs-1))
       allocate(array_of_statuses(MPI_STATUS_SIZE,2*(n_procs-1)))
       allocate(final_wait_array(2*(n_procs-1)))
+#endif
 
       if ( l_heat ) then
          call create_lm2r_type(lo2r_s,2)
@@ -237,12 +246,16 @@ contains
 
       complex(cp), intent(in) :: dwdt_local(:,:)
       
+#ifdef WITH_MPI
       integer :: ierr
       complex(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX, &
                          MPI_SUM,MPI_COMM_WORLD,ierr)
+#else
+      global_sum= SUM(dwdt_local)
+#endif
 
    end function get_global_sum_cmplx_2d
 !-------------------------------------------------------------------------------
@@ -250,11 +263,15 @@ contains
 
       real(cp), intent(in) :: dwdt_local(:,:)
       
+#ifdef WITH_MPI
       integer :: ierr
       real(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+#else
+      global_sum= SUM(dwdt_local)
+#endif
 
    end function get_global_sum_real_2d
 !-------------------------------------------------------------------------------
@@ -262,6 +279,7 @@ contains
 
       complex(cp), intent(in) :: arr_local(:)
       
+#ifdef WITH_MPI
       integer :: lb,ub,ierr,i
       complex(cp) :: local_sum,c,y,t
 
@@ -299,6 +317,10 @@ contains
       !local_sum = SUM( arr_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX, &
                           MPI_SUM,MPI_COMM_WORLD,ierr)
+#else
+      global_sum = SUM( arr_local )
+#endif
+
    end function get_global_sum_cmplx_1d
 !-------------------------------------------------------------------------------
    subroutine gather_all_from_lo_to_rank0(self,arr_lo,arr_full)
@@ -307,7 +329,9 @@ contains
       complex(cp) :: arr_lo(llm:ulm,self%dim2)
       complex(cp) :: arr_full(1:lm_max,self%dim2)
       
-      integer :: ierr,irank,l,m,nR
+      integer :: l,m,nR
+#ifdef WITH_MPI
+      integer :: ierr,irank
       !complex(cp) :: temp_lo((1:lm_max,self%dim2)
       complex(cp), allocatable :: temp_lo(:,:)
       integer :: type_size,gather_tag,status(MPI_STATUS_SIZE)
@@ -357,6 +381,15 @@ contains
          end do
          deallocate(temp_lo)
       end if
+#else
+      do nR=1,self%dim2
+         do l=0,l_max
+            do m=0,l,minc
+               arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+            end do
+         end do
+      end do
+#endif
 
    end subroutine gather_all_from_lo_to_rank0
 !-------------------------------------------------------------------------------
@@ -371,6 +404,7 @@ contains
       ! the sending array has dimension (llm:ulm,1:dim2)
       ! receiving array has dimension (1:lm_max,1:dim2)
 
+#ifdef WITH_MPI
       allocate(self%gather_mpi_type(0:n_procs-1))
       ! 1. Datatype for the data on one rank 
       do proc=0,n_procs-1
@@ -379,6 +413,7 @@ contains
               &               self%gather_mpi_type(proc),ierr)
          call MPI_Type_commit(self%gather_mpi_type(proc),ierr)
       end do
+#endif
       ! 2. Datatype for the data on the last rank
       !call MPI_Type_vector(dim2,lmStopB(n_procs)-lmStartB(n_procs)+1,&
       !     &lm_max,MPI_DOUBLE_COMPLEX,&
@@ -394,9 +429,11 @@ contains
 
       integer :: proc
 
+#ifdef WITH_MPI
       do proc=0,n_procs-1
          call MPI_Type_free(self%gather_mpi_type(proc),ierr)
       end do
+#endif
       deallocate(self%gather_mpi_type)
 
    end subroutine destroy_gather_type
@@ -406,8 +443,10 @@ contains
       complex(cp) :: arr_lo(llm:ulm)
       complex(cp) :: arr_full(1:lm_max)
 
+      integer :: l,m
+#ifdef WITH_MPI
       integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
-      integer :: irank,l,m
+      integer :: irank
       !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
@@ -428,6 +467,13 @@ contains
             end do
          end do
       end if
+#else
+      do l=0,l_max
+         do m=0,l,minc
+            arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
+         end do
+      end do
+#endif
     
    end subroutine gather_from_lo_to_rank0
 !-------------------------------------------------------------------------------
@@ -436,8 +482,10 @@ contains
       complex(cp) :: arr_full(1:lm_max)
       complex(cp) :: arr_lo(llm:ulm)
 
+      integer :: l,m
+#ifdef WITH_MPI
       integer :: sendcounts(0:n_procs-1),displs(0:n_procs-1)
-      integer :: irank,l,m
+      integer :: irank
       !complex(cp) :: temp_lo(1:lm_max)
 
       do irank=0,n_procs-1
@@ -457,6 +505,13 @@ contains
       call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DOUBLE_COMPLEX,&
            &            arr_lo,sendcounts(rank),MPI_DOUBLE_COMPLEX,0,       &
            &            MPI_COMM_WORLD,ierr)
+#else
+      do l=0,l_max
+         do m=0,l,minc
+            arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
+         end do
+      end do
+#endif
 
    end subroutine scatter_from_rank0_to_lo
 !-------------------------------------------------------------------------------
@@ -496,8 +551,10 @@ contains
       complex(cp), intent(in)  :: arr_LMloc(llm:ulm,n_r_max,*)
       complex(cp), intent(out) :: arr_Rloc(lm_max,nRstart:nRstop,*)
 
+      integer :: i
+#ifdef WITH_MPI
       ! Local variables
-      integer :: send_pe, recv_pe,i,irank
+      integer :: send_pe,recv_pe,irank
       integer :: transfer_tag=1111
 
       !PERFON('lm2r_st')
@@ -606,21 +663,30 @@ contains
       end if
       !write(*,"(A,I3)") "lm2r_redist_start on n_procs=",n_procs
       !PERFOFF
+
+
+#else
+      do i=1,self%count
+         arr_Rloc(llm:ulm,nRstart:nRstop,i)= arr_LMloc(llm:ulm,nRstart:nRstop,i)
+      end do
+#endif
+
    end subroutine lm2r_redist_start
 !-------------------------------------------------------------------------------
    subroutine lm2r_redist_wait(self)
 
       type(lm2r_type) :: self
+#ifdef WITH_MPI
       integer :: ierr
-
       integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_procs)
 
       !PERFON('lm2r_wt')
       !write(*,"(A,I3)") "n_procs = ",n_procs
       !write(*,"(2(A,I3))") "Waiting for ",2*(n_procs-1)," requests,", &
       !   &             size(self%final_wait_array)
-      call mpi_waitall(2*(n_procs-1),self%final_wait_array,array_of_statuses,ierr)
+      call MPI_Waitall(2*(n_procs-1),self%final_wait_array,array_of_statuses,ierr)
       !PERFOFF
+#endif
 
    end subroutine lm2r_redist_wait
 !-------------------------------------------------------------------------------
@@ -670,6 +736,7 @@ contains
       complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max)
   
+#ifdef WITH_MPI
       ! Local variables
       integer :: send_pe, recv_pe,i,irank
       integer :: transfer_tag=1111
@@ -784,6 +851,9 @@ contains
   
       !PERFOFF
       !write(*,"(A)") "----------- end   r2lm_redist -------------"
+#else
+      arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+#endif
 
    end subroutine r2lm_redist
 !-------------------------------------------------------------------------------

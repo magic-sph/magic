@@ -130,7 +130,10 @@ contains
       real(cp) :: dt,surf
       real(cp), save :: timeLast,timeTot
       logical :: rank_has_l1m0,rank_has_l1m1
-      integer :: status(MPI_STATUS_SIZE),sr_tag,request1,request2
+#ifdef WITH_MPI
+      integer :: status(MPI_STATUS_SIZE)
+#endif
+      integer :: sr_tag,request1,request2
 
       ! some arbitrary send recv tag
       sr_tag=18654
@@ -218,6 +221,7 @@ contains
 
       end do    ! radial grid points 
 
+#ifdef WITH_MPI
       ! reduce over the ranks
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
@@ -251,6 +255,23 @@ contains
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_eas_geo, e_eas_geo_global,1, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_p_r_global        =e_p_r
+      e_t_r_global        =e_t_r
+      e_p_as_r_global     =e_p_as_r
+      e_t_as_r_global     =e_t_as_r
+      e_p_es_r_global     =e_p_es_r
+      e_t_es_r_global     =e_t_es_r
+      e_p_eas_r_global    =e_p_eas_r
+      e_t_eas_r_global    =e_t_eas_r
+      e_dipole_ax_r_global=e_dipole_ax_r
+      e_dipole_r_global   =e_dipole_r
+      els_r_global        =els_r
+      e_geo_global        =e_geo
+      e_es_geo_global     =e_es_geo
+      e_as_geo_global     =e_as_geo
+      e_eas_geo_global    =e_eas_geo
+#endif
 
       if ( rank == 0 ) then
          !-- Get Values at CMB:
@@ -413,6 +434,7 @@ contains
          end do    ! radial grid points
 
          ! reduce over the ranks
+#ifdef WITH_MPI
          call MPI_Reduce(e_p_ic_r,    e_p_ic_r_global,    n_r_ic_max, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_t_ic_r,    e_t_ic_r_global,    n_r_ic_max, &
@@ -421,6 +443,12 @@ contains
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_t_as_ic_r, e_t_as_ic_r_global, n_r_ic_max, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         e_p_ic_r_global   =e_p_ic_r
+         e_t_ic_r_global   =e_t_ic_r
+         e_p_as_ic_r_global=e_p_as_ic_r
+         e_t_as_ic_r_global=e_t_as_ic_r
+#endif
 
          if ( rank == 0 ) then
             e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,              &
@@ -450,10 +478,15 @@ contains
             if ( m == 0 ) e_p_as_ic=e_p_as_ic+e_p_temp
          end do    ! do loop over lms in block
 
+#ifdef WITH_MPI
          call MPI_Reduce(e_p_ic,    e_p_ic_global,   1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_p_as_ic, e_p_as_ic_global,1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         e_p_ic_global   =e_p_ic
+         e_p_as_ic_global=e_p_as_ic
+#endif
 
          if (rank == 0) then
             fac      =half*LFfac/r_icb*eScale
@@ -480,10 +513,15 @@ contains
          if ( m == 0 ) e_p_as_os=e_p_as_os + e_p_temp
       end do
 
+#ifdef WITH_MPI
       call MPI_Reduce(e_p_os,    e_p_os_global,   1, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_as_os, e_p_as_os_global,1, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_p_os_global   =e_p_os
+      e_p_as_os_global=e_p_as_os
+#endif
 
       if ( rank == 0 ) then
          fac      =half*LFfac/r_cmb*eScale
@@ -507,12 +545,18 @@ contains
             if ( l == 1 ) e_dipole_e=e_dipole_e+e_p_temp
          end do
 
+#ifdef WITH_MPI
          call MPI_Reduce(e_p_e,    e_p_e_global,   1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_p_as_e, e_p_as_e_global,1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_dipole_e, e_dipole_e_global,1, &
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         e_p_e_global     =e_p_e
+         e_p_as_e_global  =e_p_as_e
+         e_dipole_e_global=e_dipole_e
+#endif
          
          if ( rank == 0 ) then
             fac       =half*LFfac/r_cmb**2*eScale
@@ -572,17 +616,21 @@ contains
       !     & ", lm block: ",lmStartB(rank+1),lmStopB(rank+1)
       if ( (l1m0 >= lmStartB(rank+1)) .and. (l1m0 <= lmStopB(rank+1)) ) then
          b10=b(l1m0,n_r_cmb)
+#ifdef WITH_MPI
          if (rank /= 0) then
             call MPI_Send(b10,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
          end if
+#endif
          rank_has_l1m0=.true.
       end if
       if ( l1m1 > 0 ) then
          if ( (l1m1 >= lmStartB(rank+1)) .and. (l1m1 <= lmStopB(rank+1)) ) then
             b11=b(l1m1,n_r_cmb)
+#ifdef WITH_MPI
             if (rank /= 0) then
                call MPI_Send(b11,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
             end if
+#endif
             rank_has_l1m1=.true.
          end if
       else
@@ -594,6 +642,7 @@ contains
       if ( rank == 0 ) then
          !-- Calculate pole position:
          rad =180.0_cp/pi
+#ifdef WITH_MPI
          if (.not.rank_has_l1m0) then
             call MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
                  &         sr_tag,MPI_COMM_WORLD,request1, ierr)
@@ -608,6 +657,7 @@ contains
          if ( .not. rank_has_l1m1 ) then
             call MPI_Wait(request2,status,ierr)
          end if
+#endif
 
          !print*, "------------", b10, b11
          theta_dip= rad*atan2(sqrt(two)*abs(b11),real(b10))

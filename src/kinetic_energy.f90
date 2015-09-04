@@ -151,6 +151,7 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
+#ifdef WITH_MPI
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
@@ -167,7 +168,16 @@ contains
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-
+#else
+      e_p_r_global    =e_p_r
+      e_t_r_global    =e_t_r
+      e_p_as_r_global =e_p_as_r
+      e_t_as_r_global =e_t_as_r
+      e_p_es_r_global =e_p_es_r
+      e_t_es_r_global =e_t_es_r
+      e_p_eas_r_global=e_p_eas_r
+      e_t_eas_r_global=e_t_eas_r
+#endif
 
       if ( rank == 0 ) then
          !do nR=1,n_r_max
@@ -277,6 +287,7 @@ contains
 
       ! broadcast the output arguments of the function to have them on all ranks
       ! e_p,e_t,e_p_as,e_t_as
+#ifdef WITH_MPI
       call MPI_Bcast(e_p,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(e_t,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(e_p_as,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
@@ -288,6 +299,7 @@ contains
       if ( present(ekinRave) ) then
          call MPI_Bcast(ekinRave,n_r_max,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       end if
+#endif
 
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
@@ -379,6 +391,7 @@ contains
       end do    ! radial grid points
 
       ! reduce over the ranks
+#ifdef WITH_MPI
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
@@ -391,6 +404,14 @@ contains
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_lr, e_lr_global,  n_r_max*l_max, &
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_p_r_global   =e_p_r
+      e_t_r_global   =e_t_r
+      e_p_as_r_global=e_p_as_r
+      e_t_as_r_global=e_t_as_r
+      e_lr_c_global  =e_lr_c
+      e_lr_global    =e_lr
+#endif
 
       if ( rank == 0 ) then
          !-- Radial Integrals:

@@ -170,6 +170,7 @@ program magic
    integer :: required_level,provided_level
 #endif
 
+#ifdef WITH_MPI
 #ifdef WITHOMP
    required_level=MPI_THREAD_MULTIPLE
    call mpi_init_thread(required_level,provided_level,ierr)
@@ -180,6 +181,7 @@ program magic
    end if
 #else
    call mpi_init(ierr)
+#endif
 #endif
 
    PERFINIT
@@ -217,8 +219,6 @@ program magic
       write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
            &              '                              !'
       write(n_log_file,*) '!                                                      !'
-      write(n_log_file,*) '! $Date$!'
-      write(n_log_file,*) '!                 $Rev$                          !'
       write(n_log_file,*) '!                                                      !'
       write(n_log_file,*) '!------------------------------------------------------!'
       write(n_log_file,*)

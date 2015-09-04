@@ -229,8 +229,10 @@ OBJS += c_utils.o
 .SUFFIXES: 
 
 ifeq ($(COMPILER),gnu)
+ifeq ($(USE_MPI),yes)
 all: mpi.mod
 	make $(OUT)
+endif
 endif
 
 $(OUT): $(OBJS)
@@ -339,7 +341,7 @@ rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
                         legendre_helpers.o get_td.o nonlinear_bcs.o\
                         legendre_grid_to_spec.o 
 rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
-                        out_movie_file.o outRot.o nl_special_calc.o
+                        out_movie_file.o outRot.o nl_special_calc.o courant.o
 rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o
 LMLoop.o              : truncation.o blocking.o parallel.o\
@@ -502,8 +504,10 @@ Namelists.o           : const.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
 			TO.o Grenoble.o radial.o Bext.o char_manip.o
 
+ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.f90
+endif
 
 
 ifeq ($(USE_MKL),yes)

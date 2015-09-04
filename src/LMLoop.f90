@@ -20,7 +20,7 @@ module LMLoop_mod
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
-   use communications, only: get_global_sum, lo2r_redist_start, &
+   use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, &
                             lo2r_s, lo2r_z, lo2r_p, lo2r_b,     &
                             lo2r_aj, lo2r_w
    use updateS_mod, only: initialize_updateS,updateS,updateS_ala
@@ -220,7 +220,6 @@ contains
          !call MPI_Barrier(MPI_COMM_WORLD,ierr)
          !PERFON('rdstWPst')
          call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-
          call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
          !PERFOFF
 
@@ -258,7 +257,6 @@ contains
          PERFOFF
          !LIKWID_OFF('up_B')
          call lo2r_redist_start(lo2r_b, b_LMloc_container, b_Rloc_container)
-         
          call lo2r_redist_start(lo2r_aj, aj_LMloc_container, aj_Rloc_container)
 
          if ( DEBUG_OUTPUT ) then

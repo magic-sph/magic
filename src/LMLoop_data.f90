@@ -4,6 +4,9 @@ module LMLoop_data
    use parallel_mod, only: rank, nLMBs_per_rank, n_procs
    use blocking, only: nLMBs, sizeLMB, lmStartB, lmStopB
    use logic, only: l_mag
+#ifndef WITH_MPI
+   use truncation, only: lm_max, lm_maxMag 
+#endif
  
    implicit none
  

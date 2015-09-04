@@ -186,6 +186,7 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank
          end do
+#ifdef WITH_MPI
          call MPI_GatherV(duhR,sendcount,MPI_DOUBLE_PRECISION,              &
              &           duhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
@@ -201,6 +202,13 @@ contains
          call MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,              &
              &           Svar_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
+#else
+         duhR_global   =duhR
+         uhR_global    =uhR
+         gradT2R_global=gradT2R
+         sR_global     =sR
+         Svar_global   =Svar
+#endif
       end if
 
       if ( l_fluxProfs ) then
@@ -253,6 +261,7 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank
          end do
+#ifdef WITH_MPI
          call MPI_GatherV(fkinR,sendcount,MPI_DOUBLE_PRECISION,&
              &           fkinR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
              &           0,MPI_COMM_WORLD,ierr)
@@ -274,6 +283,16 @@ contains
                 &           fresR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
                 &           0,MPI_COMM_WORLD,ierr)
          end if
+#else
+         fkinR_global =fkinR
+         fconvR_global=fconvR
+         fviscR_global=fviscR
+         fcR_global   =fcR
+         if ( l_mag_nl ) then
+            fpoynR_global=fpoynR
+            fresR_global =fresR
+         end if
+#endif
       end if
 
 
@@ -465,6 +484,7 @@ contains
          displs(i) = i*nr_per_rank
       end do
 
+#ifdef WITH_MPI
       call MPI_GatherV(EperpR,sendcount,MPI_DOUBLE_PRECISION,&
           &           EperpR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
           &           0,MPI_COMM_WORLD,ierr)
@@ -477,6 +497,12 @@ contains
       call MPI_GatherV(EparaxiR,sendcount,MPI_DOUBLE_PRECISION,&
           &           EparaxiR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
           &           0,MPI_COMM_WORLD,ierr)
+#else
+      EperpR_global   =EperpR
+      EparR_global    =EparR
+      EperpaxiR_global=EperpaxiR
+      EparaxiR_global =EparaxiR
+#endif
 
 
       if ( rank == 0 ) then

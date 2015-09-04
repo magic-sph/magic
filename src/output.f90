@@ -38,7 +38,7 @@ module output_mod
                     & spectrum_temp_average
    use outTO_mod, only: outTO
    use outPV3, only: outPV
-   use output_data, only: tag, tag_wo_rank, ngform, l_max_cmb,      &
+   use output_data, only: tag, ngform, l_max_cmb,                   &
                         & cmbMov_file, n_cmbMov_file, cmb_file,     &
                         & n_cmb_file, dt_cmb_file, n_dt_cmb_file,   & 
                         & n_coeff_r, l_max_r, n_v_r_file,           &
@@ -57,8 +57,7 @@ module output_mod
    use power, only: get_power
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, llmMag, &
                         & ulmMag
-   use communications, only: myAllGather, gather_all_from_lo_to_rank0,   &
-                           & gt_OC, gt_IC
+   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use out_coeff, only: write_Bcmb, write_coeff_r
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
@@ -489,10 +488,10 @@ contains
       if ( l_store ) then
   
          if ( l_stop_time .or. .not.l_new_rst_file ) then
-            rst_file='h5_rst_end.'//tag_wo_rank
+            rst_file='h5_rst_end.'//tag
          else if ( l_new_rst_file ) then
             call dble2str(time,string)
-            rst_file='h5_rst_t='//trim(string)//'.'//tag_wo_rank
+            rst_file='h5_rst_t='//trim(string)//'.'//tag
          end if
          call storeHdf5_parallel(time,dt,dtNew,w_LMloc,z_LMloc,p_LMloc,s_LMloc, &
                                  b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,       &
@@ -938,10 +937,10 @@ contains
          if ( l_store ) then
 !#ifdef WITH_HDF5
   !          if ( l_stop_time .or. .not.l_new_rst_file ) then
-  !             rst_file='ser_h5_rst_end.'//tag_wo_rank
+  !             rst_file='ser_h5_rst_end.'//tag
   !          else if ( l_new_rst_file ) then
   !             call dble2str(time,string)
-  !             rst_file='h5_rst_t='//trim(string)//'.'//tag_wo_rank
+  !             rst_file='h5_rst_t='//trim(string)//'.'//tag
   !          end if
   !          call storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
   !                                  dwdtLast,dzdtLast,dpdtLast,          &
@@ -950,10 +949,10 @@ contains
 !#else
             PERFON('out_rst')
             if ( l_stop_time .or. .not.l_new_rst_file ) then
-               rst_file="rst_end."//tag_wo_rank
+               rst_file="rst_end."//tag
             else if ( l_new_rst_file ) then
                call dble2str(time,string)
-               rst_file='rst_t='//trim(string)//'.'//tag_wo_rank
+               rst_file='rst_t='//trim(string)//'.'//tag
             end if
   
             open(n_rst_file, file=rst_file, status='unknown', form='uNformatted')

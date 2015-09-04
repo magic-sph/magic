@@ -18,7 +18,11 @@ module graphOut_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs
    use horizontal_data, only: theta_ord, dLh, Plm, dPlm, O_sin_theta
    use logic, only: l_mag, l_cond_ic
+#ifdef WITH_MPI
    use output_data, only: n_graph_file, runid, graph_mpi_fh
+#else
+   use output_data, only: n_graph_file, runid
+#endif
 #if (FFTLIB==JW)
    use fft_JW
 #elif (FFTLIB==MKL)

@@ -669,7 +669,6 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   drSc(mc,nThetaN)=0.0_cp
-                  drSc(mc,nThetaN)=0.0_cp
                end do
             end do  ! loop over nThetaN (theta)
          end if

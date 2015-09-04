@@ -74,7 +74,10 @@ contains
       complex(cp) :: zvals_on_rank0(8,3),bvals_on_rank0(8,3)
       complex(cp) :: vals_on_rank0_1d(21)
     
-      integer :: sr_tag,status(MPI_STATUS_SIZE),ierr
+      integer :: sr_tag
+#ifdef WITH_MPI
+      integer :: status(MPI_STATUS_SIZE),ierr
+#endif
       logical :: rank_has_l1m0,rank_has_l1m1
       logical :: DEBUG_OUTPUT=.false.
 
@@ -105,6 +108,7 @@ contains
             viscous_torque_ma=0.0_cp
          end if
          rank_has_l1m0=.true.
+#ifdef WITH_MPI
          if ( rank /= 0 ) then
             ! send viscous_torque_ic and viscous_torque_ma to rank 0 for 
             ! output
@@ -113,17 +117,20 @@ contains
             call MPI_Send(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,0, &
                  &        sr_tag+1,MPI_COMM_WORLD,ierr)
          end if
+#endif
       else
          rank_has_l1m0=.false.
       end if
     
       if ( rank == 0 ) then
+#ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             call MPI_Recv(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
                  &        sr_tag,MPI_COMM_WORLD,status,ierr)
             call MPI_Recv(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
                  &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
          end if
+#endif
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
@@ -226,10 +233,12 @@ contains
                z10(nR)=z(l1m0,nR)
             end do
             rank_has_l1m0=.true.
+#ifdef WITH_MPI
             if (rank /= 0) then
                call MPI_Send(z10,n_r_max,MPI_DOUBLE_COMPLEX,0,sr_tag, & 
                              MPI_COMM_WORLD,ierr)
             end if
+#endif
          end if
     
          if ( l1m1 > 0 ) then
@@ -238,10 +247,12 @@ contains
                   z11(nR)=z(l1m1,nR)
                end do
                rank_has_l1m1=.true.
+#ifdef WITH_MPI
                if ( rank /= 0 ) then
                   call MPI_Send(z11,n_r_max,MPI_DOUBLE_COMPLEX,0, &
                               & sr_tag+1,MPI_COMM_WORLD,ierr)
                end if
+#endif
             end if
          else
             do nR=1,n_r_max
@@ -251,6 +262,7 @@ contains
          ! now we have z10 and z11 in the worst case on two different
          ! ranks, which are also different from rank 0
          if ( rank == 0 ) then
+#ifdef WITH_MPI
             if ( .not. rank_has_l1m0 ) then
                call MPI_Recv(z10,n_r_max,MPI_DOUBLE_COMPLEX,&
                     &        MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
@@ -261,6 +273,7 @@ contains
                        &        MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
                end if
             end if
+#endif
     
             call get_angular_moment(z10,z11,omega_ic,omega_ma, &
                  angular_moment_oc, angular_moment_ic,angular_moment_ma)
@@ -349,9 +362,6 @@ contains
       !-- Output:
       real(cp), intent(out) :: viscous_torque
 
-      !-- Local:
-      real(cp) :: pi
-
       viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
 
    end subroutine get_viscous_torque_real
@@ -371,9 +381,6 @@ contains
 
       !-- Output:
       real(cp), intent(out) :: viscous_torque
-
-      !-- Local:
-      real(cp) :: pi
 
       viscous_torque=-four*sqrt(third*pi)*r *( two*real(z10) - r*real(dz10) )
 
@@ -525,20 +532,25 @@ contains
 
       !-- Input variables:
       complex(cp), intent(in) :: field(llm:ulm,n_r_max)
-      integer,         intent(in) :: n_r
-      integer,         intent(in) :: lm_vals(:)
+      integer,     intent(in) :: n_r
+      integer,     intent(in) :: lm_vals(:)
 
       !-- Output variables:
       complex(cp), intent(out) :: vals_on_rank0(:)
 
       !-- Local variables:
-      integer :: ilm,lm,ierr,status(MPI_STATUS_SIZE),tag,n_lm_vals
+      integer :: ilm,lm,tag,n_lm_vals
+#ifdef WITH_MPI
+      integer :: ierr,status(MPI_STATUS_SIZE)
+#endif
     
       n_lm_vals=size(lm_vals)
       if ( size(vals_on_rank0) < n_lm_vals ) then
          write(*,"(2(A,I4))") "write_rot: length of vals_on_rank0=",size(vals_on_rank0),&
               &" must be >= size(lm_vals)=",n_lm_vals
+#ifdef WITH_MPI
          call mpi_abort(MPI_COMM_WORLD,43,ierr)
+#endif
       end if
 
       do ilm=1,n_lm_vals
@@ -549,6 +561,7 @@ contains
          else
             tag=876+ilm
             ! on which process is the lm value?
+#ifdef WITH_MPI
             if (lmStartB(rank+1) <= lm .and. lm <= lmStopB(rank+1)) then
                call MPI_Send(field(lm,n_r),1,MPI_DOUBLE_COMPLEX,&
                     & 0,tag,MPI_COMM_WORLD,ierr)
@@ -557,6 +570,7 @@ contains
                call MPI_Recv(vals_on_rank0(ilm),1,MPI_DOUBLE_COMPLEX,&
                     & MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
             end if
+#endif
          end if
       end do
    end subroutine sendvals_to_rank0

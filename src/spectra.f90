@@ -158,6 +158,7 @@ contains
 
       end if
 
+#ifdef WITH_MPI
       call MPI_Reduce(e_p_r_l,e_p_r_l_global,n_r_max*(l_max+1),&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r_l,e_t_r_l_global,n_r_max*(l_max+1),&
@@ -166,7 +167,12 @@ contains
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r_m,e_t_r_m_global,n_r_max*(l_max+1),&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-
+#else
+      e_p_r_l_global=e_p_r_l
+      e_t_r_l_global=e_t_r_l
+      e_p_r_m_global=e_p_r_m
+      e_t_r_m_global=e_t_r_m
+#endif
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
@@ -499,6 +505,7 @@ contains
     
       ! ----------- We need a reduction here ----------------
       ! first the l-spectra
+#ifdef WITH_MPI
       if ( l_mag ) then
          call MPI_Reduce(e_mag_p_r_l, e_mag_p_r_l_global, n_r_max*l_max,&
               &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
@@ -535,6 +542,25 @@ contains
            &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_kin_t_r_m, e_kin_t_r_m_global, n_r_max*(l_max+1),&
            &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      if ( l_mag ) then
+         e_mag_p_r_l_global=e_mag_p_r_l
+         e_mag_t_r_l_global=e_mag_t_r_l
+         e_mag_p_r_m_global=e_mag_p_r_m
+         e_mag_t_r_m_global=e_mag_t_r_m
+         eCMB_global       =eCMB
+      end if
+      if ( l_anel ) then
+         u2_p_r_l_global=u2_p_r_l
+         u2_t_r_l_global=u2_t_r_l
+         u2_p_r_m_global=u2_p_r_m
+         u2_t_r_m_global=u2_t_r_m
+      end if
+      e_kin_p_r_l_global=e_kin_p_r_l
+      e_kin_t_r_l_global=e_kin_t_r_l
+      e_kin_p_r_m_global=e_kin_p_r_m
+      e_kin_t_r_m_global=e_kin_t_r_m
+#endif
     
       ! now switch to rank 0 for the postprocess
       
@@ -661,6 +687,7 @@ contains
             end do  ! loop over lm's
          end do ! loop over radial levels
     
+#ifdef WITH_MPI
          call MPI_Reduce(e_mag_p_ic_r_l, e_mag_p_ic_r_l_global, n_r_ic_max*l_max,&
               &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_mag_t_ic_r_l, e_mag_t_ic_r_l_global, n_r_ic_max*l_max,&
@@ -669,6 +696,12 @@ contains
               &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_mag_t_ic_r_m, e_mag_t_ic_r_m_global, n_r_ic_max*(l_max+1),&
               &MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         e_mag_p_ic_r_l_global=e_mag_p_ic_r_l
+         e_mag_t_ic_r_l_global=e_mag_t_ic_r_l
+         e_mag_p_ic_r_m_global=e_mag_p_ic_r_m
+         e_mag_t_ic_r_m_global=e_mag_t_ic_r_m
+#endif
     
     
          if ( rank == 0 ) then
@@ -886,12 +919,18 @@ contains
       end do    ! radial grid points 
 
       ! Reduction over all ranks
+#ifdef WITH_MPI
       call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),&
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_ICB_l,T_ICB_l_global,l_max+1,&
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,&
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      T_r_l_global   =T_r_l
+      T_ICB_l_global =T_ICB_l
+      dT_ICB_l_global=dT_ICB_l
+#endif
 
       if ( rank == 0 .and. l_heat ) then
          !-- Radial Integrals:
@@ -1041,6 +1080,7 @@ contains
       end do
 
       ! reduction over all ranks
+#ifdef WITH_MPI
       call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),&
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(T_r_m,T_r_m_global,n_r_max*(l_max+1),&
@@ -1053,6 +1093,14 @@ contains
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(dT_ICB_m,dT_ICB_m_global,l_max+1,&
            &          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      T_r_l_global   =T_r_l
+      T_r_m_global   =T_r_m
+      T_ICB_l_global =T_ICB_l
+      T_ICB_m_global =T_ICB_m
+      dT_ICB_l_global=dT_ICB_l
+      dT_ICB_m_global=dT_ICB_m
+#endif
 
       if ( rank == 0 ) then
          !-- Radial Integrals:

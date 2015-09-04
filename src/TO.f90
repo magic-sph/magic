@@ -489,6 +489,7 @@ contains
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: i,ierr
 
+#ifdef WITH_MPI
       sendcount  = (nRstop-nRstart+1)*(l_max+1)
       recvcounts = nr_per_rank*(l_max+1)
       recvcounts(n_procs-1) = nr_on_last_rank*(l_max+1)
@@ -534,6 +535,24 @@ contains
            & BzpdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_GatherV(BpzdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
            & BpzdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+#else
+     dzStrLMr=dzStrLMr_Rloc
+     dzRstrLMr=dzRstrLMr_Rloc
+     dzAstrLMr=dzAstrLMr_Rloc
+     dzCorLMr=dzCorLMr_Rloc
+     dzLFLMr=dzLFLMr_Rloc
+     dzdVpLMr=dzdVpLMr_Rloc
+     dzddVpLMr=dzddVpLMr_Rloc
+     V2AS=V2AS_Rloc
+     Bs2AS=Bs2AS_Rloc
+     BszAS=BszAS_Rloc
+     BspAS=BspAS_Rloc
+     BpzAS=BpzAS_Rloc
+     BspdAS=BspdAS_Rloc
+     BpsdAS=BpsdAS_Rloc
+     BzpdAS=BzpdAS_Rloc
+     BpzdAS=BpzdAS_Rloc
+#endif
 
    end subroutine TO_gather_Rloc_on_rank0
 !-----------------------------------------------------------------------------

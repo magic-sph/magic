@@ -611,8 +611,12 @@ contains
                m1=lm2m(lm1)
                if ( m1 == 0 ) ddzASL_loc(l1+1)=real(workA(lm1,nR))
             end do
+#ifdef WITH_MPI
             call MPI_Allreduce(ddzASL_loc, ddzASL(:,nR), l_max+1, MPI_DOUBLE_PRECISION, &
                  &             MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+            ddzASL(:,nR)=ddzASL_loc(:)
+#endif
          end do
          !$OMP end do
       end if

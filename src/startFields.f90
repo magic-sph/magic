@@ -2,7 +2,9 @@
 #include "perflib_preproc.cpp"
 module start_fields
 
+#ifdef WITH_MPI
    use mpi
+#endif
    use truncation
    use precision_mod, only: cp
    use radial_data, only: n_r_cmb, n_r_icb
@@ -206,6 +208,7 @@ contains
     
       ! ========== Redistribution of the fields ============
       ! 1. Broadcast the scalars
+#ifdef WITH_MPI
       call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(lorentz_torque_icLast,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
@@ -214,6 +217,7 @@ contains
       call MPI_Bcast(dt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(dtNew,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+#endif
     
       ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
       !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
@@ -446,44 +450,19 @@ contains
       ! start the redistribution
       if (l_heat) then
          call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-         !call lo2r_redist_start(lo2r_s,s_LMloc,s_Rloc)
-         !call lo2r_redist_start(lo2r_ds,ds_LMloc,ds_Rloc)
       end if
       if (l_conv) then
          call lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
-         !call lo2r_redist_start(lo2r_z,z_LMloc,z_Rloc)
-         !call lo2r_redist_start(lo2r_dz,dz_LMloc,dz_Rloc)
-    
-         !do nR=1,n_r_max
-         !   write(*,"(A,I2,A,2ES20.12)") "before: dw_LMloc for nR=",nR," is ", &
-         !        &                       SUM( dw_LMloc(llm:ulm,nR) )
-         !end do
-    
          call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-         !call lo2r_redist_start(lo2r_w,w_LMloc,w_Rloc)
-         !call lo2r_redist_start(lo2r_dw,dw_LMloc,dw_Rloc)
-         !call lo2r_redist_start(lo2r_ddw,ddw_LMloc,ddw_Rloc)
          call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
-         !call lo2r_redist_start(lo2r_p,p_LMloc,p_Rloc)
-         !call lo2r_redist_start(lo2r_dp,dp_LMloc,dp_Rloc)
       end if
     
       if (l_mag) then
-         call lo2r_redist_start(lo2r_b,  b_LMloc_container,b_Rloc_container)
-         !call lo2r_redist_start(lo2r_b,  b_LMloc,b_Rloc)
-         !call lo2r_redist_start(lo2r_db, db_LMloc,db_Rloc)
-         !call lo2r_redist_start(lo2r_ddb,ddb_LMloc,ddb_Rloc)
-         
-         call lo2r_redist_start(lo2r_aj, aj_LMloc_container,aj_Rloc_container)
-         !call lo2r_redist_start(lo2r_aj, aj_LMloc,aj_Rloc)
-         !call lo2r_redist_start(lo2r_dj, dj_LMloc,dj_Rloc)
+         call lo2r_redist_start(lo2r_b,b_LMloc_container,b_Rloc_container)
+         call lo2r_redist_start(lo2r_aj,aj_LMloc_container,aj_Rloc_container)
       end if
-    
-      !write(*,"(A,10ES22.15)") "end of getStartFields: w,z,s,b,aj ", &
-      !     & GET_GLOBAL_SUM(w_LMloc), GET_GLOBAL_SUM(z_LMloc),       &
-      !     & GET_GLOBAL_SUM(s_LMloc),GET_GLOBAL_SUM(b_LMloc),GET_GLOBAL_SUM(aj_LMloc)
     
       !print*,"End of getStartFields"
       !PERFOFF
-    end subroutine getStartFields
+   end subroutine getStartFields
 end module start_fields

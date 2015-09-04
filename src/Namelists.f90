@@ -182,15 +182,14 @@ contains
          !-- Correcting some parameters:
       end if
 
-#ifdef WITH_MPI
-      tag_wo_rank=tag
-#endif
       !-- Does log-file already exist?
       log_file='log.'//tag
       if ( rank == 0 ) then
-         INQUIRE(file=trim(log_file),exist=log_does_exist)
+         inquire(file=trim(log_file),exist=log_does_exist)
       end if
+#ifdef WITH_MPI
       call MPI_Bcast(log_does_exist,1,MPI_logical,0,MPI_COMM_WORLD,ierr)
+#endif
       if (log_does_exist) then
          if ( rank == 0 ) then 
             write(*,*)

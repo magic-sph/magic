@@ -123,7 +123,10 @@ contains
       SAVE   powerDiff,eDiffInt,marker,tStart
 
       logical :: rank_has_l1m0
-      integer :: sr_tag, status(MPI_STATUS_SIZE)
+      integer :: sr_tag
+#ifdef WITH_MPI
+      integer :: status(MPI_STATUS_SIZE)
+#endif
 
       if ( marker /= 'started' ) then
          tStart   =time
@@ -173,12 +176,18 @@ contains
 
       end do    ! radial grid points
 
+#ifdef WITH_MPI
       if ( l_conv ) call MPI_Reduce(curlU2_r,curlU2_r_global,n_r_max,&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( l_mag ) call MPI_Reduce(curlB2_r,curlB2_r_global,n_r_max,&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( l_heat ) call MPI_Reduce(buoy_r,buoy_r_global,n_r_max,&
            & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+     if ( l_conv ) curlU2_r_global=curlU2_r
+     if ( l_mag )  curlB2_r_global=curlB2_r
+     if ( l_heat ) buoy_r_global  =buoy_r
+#endif
 
       if ( rank == 0 ) then
          !-- Transform to cheb space:
@@ -229,8 +238,12 @@ contains
             end do
          end do    ! radial grid points
 
+#ifdef WITH_MPI
          call MPI_Reduce(curlB2_rIC,curlB2_rIC_global,n_r_ic_max,&
               & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+         curlB2_rIC_global=curlB2_rIC
+#endif
 
          if ( rank == 0 ) then
             curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic, &
@@ -276,6 +289,7 @@ contains
             drz10CMB=0.0_cp
          end if
 
+#ifdef WITH_MPI
          if ( rank /= 0 ) then
             ! send data to rank 0
             call MPI_Send(z10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
@@ -283,10 +297,12 @@ contains
             call MPI_Send(z10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+2,MPI_COMM_WORLD,ierr)
             call MPI_Send(drz10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+3,MPI_COMM_WORLD,ierr)
          end if
+#endif
          rank_has_l1m0=.true.
       end if
 
       if ( rank == 0 ) then
+#ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             ! receive data from the source ranks
             call MPI_Recv(z10ICB,1,MPI_DOUBLE_COMPLEX,&
@@ -298,6 +314,7 @@ contains
             call MPI_Recv(drz10CMB,1,MPI_DOUBLE_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+3,MPI_COMM_WORLD,status,ierr)
          end if
+#endif
 
          if ( l_conv ) then
             viscDiss= -curlU2

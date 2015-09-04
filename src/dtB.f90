@@ -6,6 +6,7 @@ module dtB_mod
    !  It is used for movie output.
    !--------------------------------------------------------------------------------
    use precision_mod, only: cp
+   use parallel_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
                          n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
                          n_r_ic_max, l_max, n_phi_max, ldtBmem
@@ -14,8 +15,6 @@ module dtB_mod
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, i_costf_init, &
                                d_costf_init, drx, or1, orho1
    use radial_data,only: nRstart,nRstop
-   use parallel_mod,only: nr_per_rank, nr_on_last_rank, MPI_COMM_WORLD, n_procs, &
-                          MPI_DOUBLE_COMPLEX, rank
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
                               dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec
@@ -124,6 +123,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine dtb_gather_Rloc_on_rank0
 
+#ifdef WITH_MPI
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: i,ierr
     
@@ -153,6 +153,16 @@ contains
          call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
               & TomeLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
       end if
+#else
+      TstrRLM=TstrRLM_Rloc
+      TadvRLM=TadvRLM_Rloc
+      TomeRLM=TomeRLM_Rloc
+      TstrLM=TstrLM_Rloc
+      TadvLM=TadvLM_Rloc
+      PstrLM=PstrLM_Rloc
+      PadvLM=PadvLM_Rloc
+      TomeLM=TomeLM_Rloc
+#endif
 
    end subroutine dtb_gather_Rloc_on_rank0
 !----------------------------------------------------------------------------
