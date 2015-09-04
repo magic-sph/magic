@@ -25,7 +25,11 @@ fi
 export OMP_NUM_THREADS=$nomp
 
 # Run
-mpiexec -n $nmpi ./magic.exe input.nml
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml
+else
+    ./magic.exe input.nml
+fi
 
 # Concatenate the different output file in one single e_kin.test file
 cat eKinR.start eMagR.start parR.start powerR.start bLayersR.start fluxesR.start perpParR.start > e_kin.test

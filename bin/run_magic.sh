@@ -25,10 +25,14 @@ else
 fi
 export OMP_NUM_THREADS=$nomp
 
-which_poe=`which poe 2>/dev/null`
-if [ -x "$which_poe" ]; then
-    poe ./magic.exe input.nml -procs $nmpi >stdout.out
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    which_poe=`which poe 2>/dev/null`
+    if [ -x "$which_poe" ]; then
+        poe ./magic.exe input.nml -procs $nmpi >stdout.out
+    else
+        mpiexec -n $nmpi ./magic.exe input.nml >stdout.out
+    fi
 else
-    mpiexec -n $nmpi ./magic.exe input.nml >stdout.out
+    ./magic.exe input.nml >stdout.out
 fi
 

@@ -29,11 +29,16 @@ if grep -Fxq "USE_HDF5=yes" $MAGIC_HOME/src/Makefile; then
 fi
 
 
-# First run
-mpiexec -n $nmpi ./magic.exe  inputStart.nml
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    # First run
+    mpiexec -n $nmpi ./magic.exe  inputStart.nml
 
-# Restart
-mpiexec -n $nmpi ./magic.exe  input_tmp.nml
+    # Restart
+    mpiexec -n $nmpi ./magic.exe  input_tmp.nml
+else
+    ./magic.exe inputStart.nml
+    ./magic.exe input_tmp.nml
+fi
 
 # Clean
 rm *.start

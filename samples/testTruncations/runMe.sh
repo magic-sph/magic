@@ -35,7 +35,11 @@ sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 sed -i 's/minc.*/minc        =1,/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -52,7 +56,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -70,7 +78,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =128,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -86,7 +98,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -104,7 +120,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =192,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -120,7 +140,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -138,7 +162,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =256,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -154,7 +182,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -172,7 +204,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =288,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -188,7 +224,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -206,7 +246,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =320,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -222,7 +266,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -240,7 +288,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =384,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -256,7 +308,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -274,7 +330,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =400,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -290,7 +350,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -308,7 +372,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =512,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -324,7 +392,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -342,7 +414,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =640,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -358,7 +434,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -376,7 +456,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =768,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -392,7 +476,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -410,7 +498,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =800,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -426,7 +518,11 @@ sed -i 's/minc.*/minc        =4,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -444,7 +540,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =864,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
@@ -462,7 +562,11 @@ sed -i 's/n_phi_tot.*/n_phi_tot   =1024,/g' input.nml
 sed -i 's/tag.*/tag         =\"'"$tag"'\",/g' input.nml
 echo "Running $tag"
 rm -f *.$tag
-mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+if grep -Fxq "USE_MPI=yes" $MAGIC_HOME/src/Makefile; then
+    mpiexec -n $nmpi ./magic.exe input.nml >output.$tag
+else
+    ./magic.exe input.nml >output.$tag
+fi
 if [ $? -eq 0 ]; then
     # successful run
     cat e_kin.$tag >>e_kin.test
