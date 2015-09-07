@@ -1,7 +1,7 @@
 !$Id$
 module RMS_helpers
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, drx, i_costf_init, d_costf_init, &

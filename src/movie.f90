@@ -2,7 +2,7 @@
 module movie_data
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, n_theta_max, n_phi_max,      &
                          ldtBMem, minc, n_r_ic_max, lMovieMem, &
                          n_r_tot
@@ -1337,14 +1337,14 @@ contains
                   ! relevant frames already set on rank 0
                   ! do nothing
                else
-                  call MPI_Recv(frames(n_start),n_stop-n_start+1,MPI_DOUBLE_PRECISION,&
+                  call MPI_Recv(frames(n_start),n_stop-n_start+1,MPI_DEF_REAL,&
                        & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
                end if
             else
                if ((nRstart <= n_const) .and. (n_const <= nRstop)) then
                   ! relevant frames are all on this rank  /= 0
                   ! send to rank 0
-                  call MPI_Send(frames(n_start),n_stop-n_start+1,MPI_DOUBLE_PRECISION,&
+                  call MPI_Send(frames(n_start),n_stop-n_start+1,MPI_DEF_REAL,&
                        & 0,mytag,MPI_COMM_WORLD,ierr)
                end if
             end if
@@ -1369,8 +1369,8 @@ contains
                recvcounts(n_procs-1) = nr_on_last_rank*n_phi_max
                sendcount=local_end-local_start+1
 
-               call mpi_gatherv(frames(local_start),sendcount,MPI_DOUBLE_PRECISION,&
-                    & field_frames_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+               call mpi_gatherv(frames(local_start),sendcount,MPI_DEF_REAL,&
+                    & field_frames_global,recvcounts,displs,MPI_DEF_REAL,&
                     & 0,MPI_COMM_WORLD,ierr)
                if (rank == 0) then
                   frames(n_start:n_stop)=field_frames_global(1:field_length)
@@ -1399,8 +1399,8 @@ contains
                end do
                recvcounts(n_procs-1) = nr_on_last_rank*n_theta_max
                sendcount=local_end-local_start+1
-               call mpi_gatherv(frames(local_start),sendcount,MPI_DOUBLE_PRECISION,&
-                    & field_frames_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+               call mpi_gatherv(frames(local_start),sendcount,MPI_DEF_REAL,&
+                    & field_frames_global,recvcounts,displs,MPI_DEF_REAL,&
                     & 0,MPI_COMM_WORLD,ierr)
                if (rank == 0) then
                   frames(n_start:n_stop)=field_frames_global(1:field_length)

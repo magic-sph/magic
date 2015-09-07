@@ -1,7 +1,7 @@
 !$Id$
 module TO_helpers
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: l_max
    use blocking, only: lm2
    use horizontal_data, only: dPlm, osn1

@@ -1,7 +1,7 @@
 !$Id$
 module plms_theta
 
-   use precision_mod, only: cp
+   use precision_mod
    use const, only: osq4pi, one, two
 
    implicit none

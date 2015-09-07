@@ -3,7 +3,7 @@
 module updateWP_mod
    
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &

@@ -5,7 +5,7 @@ module Grenoble
 !--------------------------------------------------------------------
 
   use truncation, only: n_r_maxMag
-  use precision_mod, only: cp
+  use precision_mod
 
   implicit none
 

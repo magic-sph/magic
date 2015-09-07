@@ -1,5 +1,4 @@
 !$Id$
-#include "intrinsic_sizes.h"
 module general_arrays_mod
  
    implicit none
@@ -15,7 +14,7 @@ end module general_arrays_mod
 module grid_space_arrays_mod
 
    use general_arrays_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
                                lambda, or4, or1
@@ -79,7 +78,7 @@ contains
       allocate( this%VSp(nrp,nfs) )
       allocate( this%ViscHeat(nrp,nfs) )
       allocate( this%OhmLoss(nrp,nfs) )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DOUBLE_PRECISION
+      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nrp,nfs),this%vtc(nrp,nfs),this%vpc(nrp,nfs) )
@@ -94,7 +93,7 @@ contains
       allocate( this%sc(nrp,nfs),this%drSc(nrp,nfs) )
       allocate( this%pc(nrp,nfs) )
       allocate( this%dsdtc(nrp,nfs),this%dsdpc(nrp,nfs) )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DOUBLE_PRECISION
+      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",size_in_bytes,"B."
 
    end subroutine initialize
@@ -118,7 +117,7 @@ contains
       deallocate( this%VSp )
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DOUBLE_PRECISION
+      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
@@ -131,7 +130,7 @@ contains
       deallocate( this%sc,this%drSc )
       deallocate( this%pc )
       deallocate( this%dsdtc, this%dsdpc )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DOUBLE_PRECISION
+      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
       write(*,"(A,I15,A)") "grid_space_arrays: deallocated ",size_in_bytes,"B."
 
    end subroutine finalize

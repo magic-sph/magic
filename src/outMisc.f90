@@ -2,7 +2,7 @@
 module outMisc_mod
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: botcond, r_icb, dr_fac, i_costf_init, &
@@ -147,32 +147,32 @@ contains
             displs(i) = i*nr_per_rank
          end do
 #ifdef WITH_MPI
-         call MPI_GatherV(Hel2Nr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           Hel2Nr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Hel2Nr,sendcount,MPI_DEF_REAL,&
+              &           Hel2Nr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Helna2Nr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           Helna2Nr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Helna2Nr,sendcount,MPI_DEF_REAL,&
+              &           Helna2Nr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(HelEAr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           HelEAr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(HelEAr,sendcount,MPI_DEF_REAL,&
+              &           HelEAr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(HelNr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           HelNr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(HelNr,sendcount,MPI_DEF_REAL,&
+              &           HelNr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(HelnaNr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           HelnaNr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(HelnaNr,sendcount,MPI_DEF_REAL,&
+              &           HelnaNr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(HelSr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           HelSr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(HelSr,sendcount,MPI_DEF_REAL,&
+              &           HelSr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Helna2Sr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           Helna2Sr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Helna2Sr,sendcount,MPI_DEF_REAL,&
+              &           Helna2Sr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Hel2Sr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           Hel2Sr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Hel2Sr,sendcount,MPI_DEF_REAL,&
+              &           Hel2Sr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(HelnaSr,sendcount,MPI_DOUBLE_PRECISION,&
-              &           HelnaSr_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(HelnaSr,sendcount,MPI_DEF_REAL,&
+              &           HelnaSr_global,recvcounts,displs,MPI_DEF_REAL,&
               &           0,MPI_COMM_WORLD,ierr)
 #else
          Hel2Nr_global=Hel2Nr
@@ -314,7 +314,7 @@ contains
             end do
          end do
 #ifdef WITH_MPI
-         call MPI_Reduce(pplot,pplot_global,n_r_max,MPI_DOUBLE_PRECISION,&
+         call MPI_Reduce(pplot,pplot_global,n_r_max,MPI_DEF_REAL,&
               & MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
          pplot_global=pplot
@@ -328,7 +328,7 @@ contains
             ! copy one row of p into a vector to send
             ! it to rank 0
             p44_local=p(lm44,:)
-            call MPI_Send(p44_local,n_r_max,MPI_DOUBLE_COMPLEX,0,mytag, &
+            call MPI_Send(p44_local,n_r_max,MPI_DEF_COMPLEX,0,mytag, &
                        &  MPI_COMM_WORLD,ierr)
          end if
 #else
@@ -337,7 +337,7 @@ contains
          if ( rank == 0 ) then
 #ifdef WITH_MPI
             if ( .not. lm44_is_local ) then
-               call MPI_Recv(p44_local,n_r_max,MPI_DOUBLE_COMPLEX, &
+               call MPI_Recv(p44_local,n_r_max,MPI_DEF_COMPLEX, &
                     & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
             else
                p44_local=p(lm44,:)

@@ -4,7 +4,7 @@
 
 module fft_mkl
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
    use mkl_dfti

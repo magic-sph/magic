@@ -1,7 +1,7 @@
 !$Id$
 module chebInt_mod
 
-   use precision_mod, only: cp
+   use precision_mod
    use chebyshev_polynoms_mod, only: cheb_grid
    use init_costf, only: init_costf1
    use cosine_transform, only: costf1

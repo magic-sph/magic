@@ -1,8 +1,7 @@
 !$Id$
-#include "intrinsic_sizes.h"
 module readCheckPoints
 
-   use precision_mod, only : cp, lip
+   use precision_mod
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
                          n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
                          minc,lMagMem
@@ -90,7 +89,6 @@ contains
 
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:)
 
-
       inquire(file=start_file, exist=startfile_does_exist)
     
       if ( startfile_does_exist ) then
@@ -172,7 +170,7 @@ contains
       ! if this becomes a performance bottleneck, one can make a module
       ! and allocate the array only once in the initialization
       allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
       ! end of allocation
     
       !PERFON('mD_rd')
@@ -264,7 +262,7 @@ contains
       ! deallocation of the local arrays
       deallocate( lm2lmo )
       deallocate( wo,zo,po,so )
-      bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
     
       !call mapData(n_r_max_old,l_max_old,minc_old,l_mag_old, &
       !     w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)
@@ -621,7 +619,7 @@ contains
       n_data_oldP=lm_max*(n_r_max+1)
 
       allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
 
       call h5oexists_by_name_f(file_id, '/Fields/entropy', link_exists, error)
       if ( link_exists ) then
@@ -740,7 +738,7 @@ contains
       ! deallocation of the local arrays
       deallocate( lm2lmo )
       deallocate( wo,zo,po,so )
-      !bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DOUBLE_COMPLEX
+      !bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
 
       if ( l_mag_old ) then
          if ( sigma_ratio_old /= 0.0_cp ) then
@@ -1042,7 +1040,7 @@ contains
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
-      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
       write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
 
       !PERFON('mD_map')
@@ -1092,7 +1090,7 @@ contains
       !PERFOFF
       !PRINT*,omp_get_thread_num(),": After nLMB loop"
       deallocate(woR,zoR,poR,soR)
-      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 
    end subroutine mapDataHydro
 !------------------------------------------------------------------------------
@@ -1119,7 +1117,7 @@ contains
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
       allocate( poR(n_r_maxL),soR(n_r_maxL) )
-      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
       write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
 
       !PERFON('mD_map')
@@ -1163,7 +1161,7 @@ contains
       !PERFOFF
       !PRINT*,omp_get_thread_num(),": After nLMB loop"
       deallocate(woR,zoR,poR,soR)
-      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DOUBLE_COMPLEX
+      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
 
    end subroutine mapDataMag
 !------------------------------------------------------------------------------

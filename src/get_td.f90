@@ -1,4 +1,3 @@
-#include "intrinsic_sizes.h"
 #include "perflib_preproc.cpp"
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
@@ -7,7 +6,7 @@
 module nonlinear_lm_mod
 
    use, intrinsic :: iso_c_binding
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max, l_max, lm_maxMag
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
                      l_mag_nl, l_mag_kin, l_mag_LF, l_RMStest, l_conv,      &
@@ -75,7 +74,7 @@ contains
       allocate( this%VSpLM(lmP_max) )    
       allocate( this%ViscHeatLM(lmP_max) )
       allocate( this%OhmLossLM(lmP_max) )
-      !size_in_bytes=14*lmP_max*SIZEOF_DOUBLE_COMPLEX
+      !size_in_bytes=14*lmP_max*SIZEOF_DEF_COMPLEX
       !write(*,"(A,I15,A)") "nonlinear_lm: allocated ",size_in_bytes,"B."
       !call this%set_zero()
 

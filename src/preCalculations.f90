@@ -4,7 +4,7 @@ module preCalculations
    use const
    use num_param
    use output_data
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
                          n_cheb_ic_max, m_max, minc, n_cheb_max,   &
                          lm_max, n_phi_max, n_theta_max
@@ -731,7 +731,7 @@ contains
          else if ( n_tot > 0 ) then
             n_t=n_tot
             n_tot=0
-            dt=(t_stop-t_start)/real(n_t-1,kind=kind(0_cp))
+            dt=(t_stop-t_start)/real(n_t-1,kind=cp)
          end if
          if ( n_t > n_t_max ) then
             write(*,*) '! Sorry, maximum no. of times for'

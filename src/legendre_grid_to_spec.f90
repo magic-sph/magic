@@ -2,7 +2,7 @@
 #include "perflib_preproc.cpp"
 module legendre_grid_to_spec
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_m_max, nrp, lmP_max, n_theta_max
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP

@@ -1,7 +1,7 @@
 !$Id$
 module omega
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
    use radial_functions, only: r_CMB, r_ICB, i_costf_init, d_costf_init
    use blocking, only: lm2

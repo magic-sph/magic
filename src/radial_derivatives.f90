@@ -2,7 +2,7 @@
 module radial_der
 
    use const, only: zero, one, three
-   use precision_mod, only: cp
+   use precision_mod
    use cosine_transform, only: costf1
 
    implicit none

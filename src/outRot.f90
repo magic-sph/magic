@@ -2,7 +2,7 @@
 module outRot
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
    use radial_functions, only: r_icb, r_cmb, r, drx, i_costf_init, &
@@ -112,9 +112,9 @@ contains
          if ( rank /= 0 ) then
             ! send viscous_torque_ic and viscous_torque_ma to rank 0 for 
             ! output
-            call MPI_Send(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,0, &
+            call MPI_Send(viscous_torque_ic,1,MPI_DEF_REAL,0, &
                  &        sr_tag,MPI_COMM_WORLD,ierr)
-            call MPI_Send(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,0, &
+            call MPI_Send(viscous_torque_ma,1,MPI_DEF_REAL,0, &
                  &        sr_tag+1,MPI_COMM_WORLD,ierr)
          end if
 #endif
@@ -125,9 +125,9 @@ contains
       if ( rank == 0 ) then
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
-            call MPI_Recv(viscous_torque_ic,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
+            call MPI_Recv(viscous_torque_ic,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
                  &        sr_tag,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(viscous_torque_ma,1,MPI_DOUBLE_PRECISION,MPI_ANY_SOURCE,&
+            call MPI_Recv(viscous_torque_ma,1,MPI_DEF_REAL,MPI_ANY_SOURCE,&
                  &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
          end if
 #endif
@@ -235,7 +235,7 @@ contains
             rank_has_l1m0=.true.
 #ifdef WITH_MPI
             if (rank /= 0) then
-               call MPI_Send(z10,n_r_max,MPI_DOUBLE_COMPLEX,0,sr_tag, & 
+               call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, & 
                              MPI_COMM_WORLD,ierr)
             end if
 #endif
@@ -249,7 +249,7 @@ contains
                rank_has_l1m1=.true.
 #ifdef WITH_MPI
                if ( rank /= 0 ) then
-                  call MPI_Send(z11,n_r_max,MPI_DOUBLE_COMPLEX,0, &
+                  call MPI_Send(z11,n_r_max,MPI_DEF_COMPLEX,0, &
                               & sr_tag+1,MPI_COMM_WORLD,ierr)
                end if
 #endif
@@ -264,12 +264,12 @@ contains
          if ( rank == 0 ) then
 #ifdef WITH_MPI
             if ( .not. rank_has_l1m0 ) then
-               call MPI_Recv(z10,n_r_max,MPI_DOUBLE_COMPLEX,&
+               call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,&
                     &        MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
             end if
             if ( l1m1 > 0 ) then
                if ( .not. rank_has_l1m1 ) then
-                  call MPI_Recv(z11,n_r_max,MPI_DOUBLE_COMPLEX,&
+                  call MPI_Recv(z11,n_r_max,MPI_DEF_COMPLEX,&
                        &        MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
                end if
             end if
@@ -563,11 +563,11 @@ contains
             ! on which process is the lm value?
 #ifdef WITH_MPI
             if (lmStartB(rank+1) <= lm .and. lm <= lmStopB(rank+1)) then
-               call MPI_Send(field(lm,n_r),1,MPI_DOUBLE_COMPLEX,&
+               call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,&
                     & 0,tag,MPI_COMM_WORLD,ierr)
             end if
             if (rank == 0) then
-               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DOUBLE_COMPLEX,&
+               call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,&
                     & MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
             end if
 #endif

@@ -1,7 +1,7 @@
 !$Id$
 module hdf5Helpers
 
-   use precision_mod, only: cp
+   use precision_mod
    use blocking, only: st_map, lo_map
    use LMLoop_data, only: llm, ulm
    use hdf5

@@ -1,6 +1,6 @@
 module leg_helper_mod
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max,l_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2

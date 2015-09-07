@@ -1,7 +1,7 @@
 !$Id$
 module store_pot_mod
 
-   use precision_mod, only: cp, outp
+   use precision_mod
    use truncation, only: n_r_max, n_r_ic_max, lm_max, n_cheb_max, &
                          n_cheb_ic_max, minc, l_max
    use radial_functions, only: i_costf_init, d_costf_init,     &

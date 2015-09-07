@@ -5,7 +5,7 @@ module dtB_mod
    !  plus a separate omega-effect.
    !  It is used for movie output.
    !--------------------------------------------------------------------------------
-   use precision_mod, only: cp
+   use precision_mod
    use parallel_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
                          n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
@@ -134,24 +134,24 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nr_per_rank*lm_max_dtB
          end do
-         call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TstrRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TadvRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TomeRLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TstrRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TadvRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TomeRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TstrLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TadvLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & PstrLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & PadvLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & PstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & PadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DOUBLE_COMPLEX,&
-              & TomeLM,recvcounts,displs,MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              & TomeLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
       end if
 #else
       TstrRLM=TstrRLM_Rloc
@@ -247,7 +247,7 @@ contains
          BtVp(n_phi_max+2,n_theta)=0.0_cp
          BpVt(n_phi_max+1,n_theta)=0.0_cp
          BpVt(n_phi_max+2,n_theta)=0.0_cp
-         vpAS=vpAS/dble(n_phi_max)
+         vpAS=vpAS/real(n_phi_max,kind=cp)
     
          !---- For toroidal terms that cancel:
          do n_phi=1,n_phi_max

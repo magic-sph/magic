@@ -2,7 +2,7 @@
 module out_RMS
 
    use parallel_mod
-   use precision_mod, only: cp, outp
+   use precision_mod
    use truncation, only: lm_max, n_r_max, lm_max_dtB, n_r_max_dtB, &
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max
@@ -116,22 +116,22 @@ contains
       end do
       ! CorPolLMr,dtVPolLMr,AdvPolLMr,LFPolLMr,DifPolLMr,BuoLMr
       ! PreLMr,GeoLMr,MagLMr,ArcLMr
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & CorPolLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & AdvPolLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & LFPolLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & BuoLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & PreLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & GeoLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & MagLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-           & ArcLMr,recvcounts,displs,MPI_DOUBLE_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & CorPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & AdvPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & LFPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & BuoLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & PreLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & GeoLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & MagLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+           & ArcLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
     
       ! The following fields are only 1D and R distributed.
       sendcount  = (nRstop-nRstart+1)
@@ -140,50 +140,50 @@ contains
       do irank=0,n_procs-1
          displs(irank) = irank*nr_per_rank
       end do
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & CorPol2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & CorPolAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & CorTor2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & CorTorAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & AdvPol2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & AdvPolAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & AdvTor2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & AdvTorAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & LFPol2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & LFPolAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & LFTor2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & LFTorAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & Buo2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & BuoAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & Pre2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & PreAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & Geo2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & GeoAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & Mag2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & MagAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & Arc2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_PRECISION,&
-           & ArcAs2hInt,recvcounts,displs,MPI_DOUBLE_PRECISION,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & CorPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & CorPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & CorTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & CorTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & AdvPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & AdvPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & AdvTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & AdvTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & LFPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & LFPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & LFTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & LFTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & Buo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & BuoAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & Pre2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & PreAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & Geo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & GeoAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & Mag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & MagAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & Arc2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & ArcAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
     
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
@@ -191,28 +191,28 @@ contains
       call myAllGather(dtVPolLMr,lm_max,n_r_max)
       call myAllGather(DifPolLMr,lm_max,n_r_max)
     
-      call MPI_Reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVPol2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVPolAs2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTor2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTorAs2hInt(:,1)=global_sum
-      call MPI_Reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifPol2hInt(:,1)=global_sum
-      call MPI_Reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifPolAs2hInt(:,1)=global_sum
-      call MPI_Reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTor2hInt(:,1)=global_sum
-      call MPI_Reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTorAs2hInt(:,1)=global_sum
 #endif
@@ -594,14 +594,14 @@ contains
     
 #ifdef WITH_MPI
       call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
-      call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBPol2hInt(:,1)=global_sum
-      call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBPolAs2hInt(:,1)=global_sum
     
-      call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DOUBLE_PRECISION, &
+      call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
                       MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) then
          dtBTor2hInt(:,1)=global_sum

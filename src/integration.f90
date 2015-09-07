@@ -1,7 +1,7 @@
 !$Id$
 module integration
 
-   use precision_mod, only: cp
+   use precision_mod
    use const, only: half, one, two
    use cosine_transform, only: costf1
 

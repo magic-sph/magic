@@ -5,7 +5,7 @@ module communications
 #ifdef WITH_MPI
    use mpi
 #endif
-   use precision_mod, only: cp
+   use precision_mod
    use parallel_mod, only: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
    use LMLoop_data, only: llm, ulm
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max
@@ -109,22 +109,22 @@ contains
          my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
          !write(*,"(2(A,I4))") "lm_per_rank on rank ", proc," is ",my_lm_per_rank
          call MPI_Type_vector(nr_per_rank,my_lm_per_rank,&
-              &lm_max,MPI_DOUBLE_COMPLEX,s_transfer_type(proc+1),ierr)
+              &lm_max,MPI_DEF_COMPLEX,s_transfer_type(proc+1),ierr)
          call MPI_Type_commit(s_transfer_type(proc+1),ierr)
 
          ! The same for the last rank for nR
          call MPI_Type_vector(nr_on_last_rank,my_lm_per_rank,&
-              &lm_max,MPI_DOUBLE_COMPLEX,s_transfer_type_nr_end(proc+1),ierr)
+              &lm_max,MPI_DEF_COMPLEX,s_transfer_type_nr_end(proc+1),ierr)
          call MPI_Type_commit(s_transfer_type_nr_end(proc+1),ierr)
 
          ! we do not need special receive datatypes, as the buffers are 
          ! contiguous in memory but for ease of reading, we define the 
          ! receive datatypes explicitly
          call MPI_Type_contiguous(my_lm_per_rank*nr_per_rank,&
-              & MPI_DOUBLE_COMPLEX,r_transfer_type(proc+1),ierr)
+              & MPI_DEF_COMPLEX,r_transfer_type(proc+1),ierr)
          call MPI_Type_commit(r_transfer_type(proc+1),ierr)
          call MPI_Type_contiguous(my_lm_per_rank*nr_on_last_rank,&
-              &MPI_DOUBLE_COMPLEX,r_transfer_type_nr_end(proc+1),ierr)
+              &MPI_DEF_COMPLEX,r_transfer_type_nr_end(proc+1),ierr)
          call MPI_Type_commit(r_transfer_type_nr_end(proc+1),ierr)
 
 
@@ -132,8 +132,8 @@ contains
          ! same schema as for the other types
          ! some temporary datatypes, not needed for communication
          ! but only for constructing the final datatypes
-         call MPI_Type_get_extent(MPI_DOUBLE_COMPLEX,zerolb,sizeof_double_complex,ierr)
-         call MPI_Type_contiguous(my_lm_per_rank,MPI_DOUBLE_COMPLEX,temptype,ierr)
+         call MPI_Type_get_extent(MPI_DEF_COMPLEX,zerolb,sizeof_double_complex,ierr)
+         call MPI_Type_contiguous(my_lm_per_rank,MPI_DEF_COMPLEX,temptype,ierr)
          zerolb=0
          extent=lm_max*sizeof_double_complex
          call MPI_Type_create_resized(temptype,zerolb,extent,base_col_type,ierr)
@@ -145,10 +145,10 @@ contains
          displs_on_last       = (/ 0,             nr_on_last_rank, 2*nr_on_last_rank /)
          do i=1,3
             call MPI_Type_vector(i,nr_per_rank*my_lm_per_rank,n_r_max*my_lm_per_rank,&
-                 & MPI_DOUBLE_COMPLEX,r_transfer_type_cont(proc+1,i),ierr)
+                 & MPI_DEF_COMPLEX,r_transfer_type_cont(proc+1,i),ierr)
             call MPI_Type_commit(r_transfer_type_cont(proc+1,i),ierr)
             call MPI_Type_vector(i,nr_on_last_rank*my_lm_per_rank, &
-                 & n_r_max*my_lm_per_rank,MPI_DOUBLE_COMPLEX,      &
+                 & n_r_max*my_lm_per_rank,MPI_DEF_COMPLEX,      &
                  & r_transfer_type_nr_end_cont(proc+1,i),ierr)
             call MPI_Type_commit(r_transfer_type_nr_end_cont(proc+1,i),ierr)
 
@@ -251,7 +251,7 @@ contains
       complex(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
-      call MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX, &
+      call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
                          MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
       global_sum= SUM(dwdt_local)
@@ -268,7 +268,7 @@ contains
       real(cp) :: local_sum
       
       local_sum = SUM( dwdt_local )
-      call MPI_Allreduce(local_sum,global_sum,1,MPI_REAL8,MPI_SUM,MPI_COMM_WORLD,ierr)
+      call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_REAL,MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
       global_sum= SUM(dwdt_local)
 #endif
@@ -315,7 +315,7 @@ contains
       end do
 
       !local_sum = SUM( arr_local )
-      call MPI_Allreduce(local_sum,global_sum,1,MPI_DOUBLE_COMPLEX, &
+      call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
                           MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
       global_sum = SUM( arr_local )
@@ -364,7 +364,7 @@ contains
             !write(*,"(A,I5,A,I2)") "Sending ",(ulm-llm+1)*self%dim2," &
             !   &    dc from rank ",rank
             !write(*,"(A,2ES22.14)") "sending arr_lo = ", SUM(arr_lo)
-            call MPI_Send(arr_lo,self%dim2*(ulm-llm+1),MPI_DOUBLE_COMPLEX, &
+            call MPI_Send(arr_lo,self%dim2*(ulm-llm+1),MPI_DEF_COMPLEX, &
                           0,gather_tag,MPI_COMM_WORLD,ierr)
          end if
          !call MPI_Barrier(MPI_COMM_WORLD,ierr)
@@ -409,14 +409,14 @@ contains
       ! 1. Datatype for the data on one rank 
       do proc=0,n_procs-1
          call MPI_type_vector(dim2,lmStopB(proc+1)-lmStartB(proc+1)+1,&
-              &               lm_max,MPI_DOUBLE_COMPLEX,              &
+              &               lm_max,MPI_DEF_COMPLEX,              &
               &               self%gather_mpi_type(proc),ierr)
          call MPI_Type_commit(self%gather_mpi_type(proc),ierr)
       end do
 #endif
       ! 2. Datatype for the data on the last rank
       !call MPI_Type_vector(dim2,lmStopB(n_procs)-lmStartB(n_procs)+1,&
-      !     &lm_max,MPI_DOUBLE_COMPLEX,&
+      !     &lm_max,MPI_DEF_COMPLEX,&
       !     & self%gather_mpi_type_end,ierr)
       !call MPI_Type_commit(self%gather_mpi_type_end,ierr)
       self%dim2=dim2
@@ -455,9 +455,9 @@ contains
       end do
       !sendcounts(n_procs-1) = lm_on_last_rank
       
-      call MPI_GatherV(arr_lo,sendcounts(rank),MPI_DOUBLE_COMPLEX,&
+      call MPI_GatherV(arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,&
            &           temp_gather_lo,sendcounts,displs,          &
-           &           MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ierr)
+           &           MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
 
       if ( rank == 0 ) then
          ! reorder
@@ -502,8 +502,8 @@ contains
          end do
       end if
 
-      call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DOUBLE_COMPLEX,&
-           &            arr_lo,sendcounts(rank),MPI_DOUBLE_COMPLEX,0,       &
+      call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DEF_COMPLEX,&
+           &            arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,0,       &
            &            MPI_COMM_WORLD,ierr)
 #else
       do l=0,l_max
@@ -972,8 +972,8 @@ contains
       do nR=1,dim2
          !local_sum = sum( real( conjg(arr(lmStart_on_rank:lmStop_on_rank,nR))*&
          !     &           arr(lmStart_on_rank:lmStop_on_rank,nR) ) )
-         call MPI_AllGatherV(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,     &
-              &              arr(1,nR),recvcounts,displs,MPI_DOUBLE_COMPLEX,&
+         call MPI_AllGatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,     &
+              &              arr(1,nR),recvcounts,displs,MPI_DEF_COMPLEX,&
               &              MPI_COMM_WORLD,ierr)
          !recvd_sum = sum( real( &
          !     & conjg(arr( lmStartB(1+&
@@ -1005,8 +1005,8 @@ contains
 
       recvcount = edim1/n_procs
       do nR=1,dim2
-         call MPI_AllGather(MPI_IN_PLACE,sendcount,MPI_DOUBLE_COMPLEX,&
-              &             arr(1,nR),recvcount,MPI_DOUBLE_COMPLEX,   &
+         call MPI_AllGather(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
+              &             arr(1,nR),recvcount,MPI_DEF_COMPLEX,   &
               &             MPI_COMM_WORLD,ierr)
       end do
 
@@ -1033,8 +1033,8 @@ contains
       PERFON('mk_dt')
       ! definition of the datatype (will later be pulled out of here)
       ! we assume dim1=lm_max and dim2=n_r_max
-      call mpi_type_get_extent(MPI_DOUBLE_COMPLEX,lb,extent_dcmplx,ierr)
-      call mpi_type_vector(dim2,1,dim1,MPI_DOUBLE_COMPLEX,sendtype,ierr)
+      call mpi_type_get_extent(MPI_DEF_COMPLEX,lb,extent_dcmplx,ierr)
+      call mpi_type_vector(dim2,1,dim1,MPI_DEF_COMPLEX,sendtype,ierr)
       lb=0
       extent=extent_dcmplx
       call mpi_type_create_resized(sendtype,lb,extent,new_sendtype,ierr)

@@ -2,7 +2,7 @@
 module getDlm_mod
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: minc, m_max, l_max, n_r_max
    use radial_functions, only: or2, drx, i_costf_init, d_costf_init, &
                                orho1
@@ -120,11 +120,11 @@ contains
 
       ! reduce to rank 0
 #ifdef WITH_MPI
-      call MPI_Reduce(e_lr,e_lr_global,n_r_max*l_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(e_lr,e_lr_global,n_r_max*l_max,MPI_DEF_REAL,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_mr,e_mr_global,n_r_max*(l_max+1),MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(e_mr,e_mr_global,n_r_max*(l_max+1),MPI_DEF_REAL,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(e_lr_c,e_lr_c_global,n_r_max*l_max,MPI_DOUBLE_PRECISION,&
+      call MPI_Reduce(e_lr_c,e_lr_c_global,n_r_max*l_max,MPI_DEF_REAL,&
            &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
       e_lr_global  =e_lr

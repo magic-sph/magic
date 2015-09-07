@@ -1,7 +1,7 @@
 !$Id$
 module out_movie_IC
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: minc, lm_maxMag, n_r_maxMag, n_r_ic_maxMag, &
                          n_phi_max, lm_max, n_r_ic_max, nrp, l_max,  &
                          n_theta_max

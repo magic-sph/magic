@@ -2,7 +2,7 @@
 module kinetic_energy
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, l_max
    use radial_functions, only: r, or1, drx, i_costf_init, d_costf_init, &
                                or2, r_cmb, r_icb, orho1, orho2, sigma
@@ -153,21 +153,21 @@ contains
       ! reduce over the ranks
 #ifdef WITH_MPI
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_es_r, e_p_es_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_es_r, e_t_es_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_eas_r,e_p_eas_r_global, n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
       e_p_r_global    =e_p_r
       e_t_r_global    =e_t_r
@@ -288,16 +288,16 @@ contains
       ! broadcast the output arguments of the function to have them on all ranks
       ! e_p,e_t,e_p_as,e_t_as
 #ifdef WITH_MPI
-      call MPI_Bcast(e_p,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_t,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_p_as,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(e_t_as,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 
       if ( present(ekinR) ) then
-         call MPI_Bcast(ekinR,n_r_max,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       end if
       if ( present(ekinRave) ) then
-         call MPI_Bcast(ekinRave,n_r_max,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(ekinRave,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       end if
 #endif
 
@@ -393,17 +393,17 @@ contains
       ! reduce over the ranks
 #ifdef WITH_MPI
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_lr_c, e_lr_c_global,  n_r_max*l_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_lr, e_lr_global,  n_r_max*l_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
       e_p_r_global   =e_p_r
       e_t_r_global   =e_t_r

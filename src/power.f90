@@ -2,7 +2,7 @@
 module power
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
                          n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -178,11 +178,11 @@ contains
 
 #ifdef WITH_MPI
       if ( l_conv ) call MPI_Reduce(curlU2_r,curlU2_r_global,n_r_max,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( l_mag ) call MPI_Reduce(curlB2_r,curlB2_r_global,n_r_max,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( l_heat ) call MPI_Reduce(buoy_r,buoy_r_global,n_r_max,&
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
      if ( l_conv ) curlU2_r_global=curlU2_r
      if ( l_mag )  curlB2_r_global=curlB2_r
@@ -240,7 +240,7 @@ contains
 
 #ifdef WITH_MPI
          call MPI_Reduce(curlB2_rIC,curlB2_rIC_global,n_r_ic_max,&
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
          curlB2_rIC_global=curlB2_rIC
 #endif
@@ -292,10 +292,10 @@ contains
 #ifdef WITH_MPI
          if ( rank /= 0 ) then
             ! send data to rank 0
-            call MPI_Send(z10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
-            call MPI_Send(drz10ICB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
-            call MPI_Send(z10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+2,MPI_COMM_WORLD,ierr)
-            call MPI_Send(drz10CMB,1,MPI_DOUBLE_COMPLEX,0,sr_tag+3,MPI_COMM_WORLD,ierr)
+            call MPI_Send(z10ICB,1,MPI_DEF_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+            call MPI_Send(drz10ICB,1,MPI_DEF_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+            call MPI_Send(z10CMB,1,MPI_DEF_COMPLEX,0,sr_tag+2,MPI_COMM_WORLD,ierr)
+            call MPI_Send(drz10CMB,1,MPI_DEF_COMPLEX,0,sr_tag+3,MPI_COMM_WORLD,ierr)
          end if
 #endif
          rank_has_l1m0=.true.
@@ -305,13 +305,13 @@ contains
 #ifdef WITH_MPI
          if ( .not. rank_has_l1m0 ) then
             ! receive data from the source ranks
-            call MPI_Recv(z10ICB,1,MPI_DOUBLE_COMPLEX,&
+            call MPI_Recv(z10ICB,1,MPI_DEF_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(drz10ICB,1,MPI_DOUBLE_COMPLEX,&
+            call MPI_Recv(drz10ICB,1,MPI_DEF_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(z10CMB,1,MPI_DOUBLE_COMPLEX,&
+            call MPI_Recv(z10CMB,1,MPI_DEF_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+2,MPI_COMM_WORLD,status,ierr)
-            call MPI_Recv(drz10CMB,1,MPI_DOUBLE_COMPLEX,&
+            call MPI_Recv(drz10CMB,1,MPI_DEF_COMPLEX,&
                  & MPI_ANY_SOURCE,sr_tag+3,MPI_COMM_WORLD,status,ierr)
          end if
 #endif

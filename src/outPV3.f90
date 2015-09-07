@@ -1,7 +1,7 @@
 !$Id$
 module outPV3
 
-   use precision_mod, only: cp, outp
+   use precision_mod
    use parallel_mod, only: rank
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
                          l_max, minc, m_max

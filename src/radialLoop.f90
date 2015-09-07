@@ -2,7 +2,7 @@
 #include "perflib_preproc.cpp"
 module radialLoop
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB

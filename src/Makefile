@@ -1,19 +1,24 @@
-# COMPILER can be intel, gnu or amd
-COMPILER=intel
+# COMPILER: intel, gnu or amd
+COMPILER   =intel
+# precision of the calculations: sngl/dble/quad
+PRECISION  =dble
+# precision for binary outputs: sngl/dble
+OUT_PREC   =sngl
+# production run: yes/no (no= -O0, yes = -03)
+PRODRUN    =yes
+#USE_MPI: yes/no
+USE_MPI    =yes
+OPENMP     =yes
+# DEBUG: no/noopt/check/all/marmot
+DEBUG      =no
+# USE_FFTLIB can be MKL or JW
+USE_FFTLIB =JW
+#USE_MKL: yes/no
+USE_MKL    =no
+#Use hdf5 for input/output of the restart files: yes/no
+USE_HDF5   =no
 
 USE_PERFLIB=none
-PRODRUN=yes
-OPENMP=yes
-# DEBUG = no noopt check all marmot
-DEBUG=no
-USE_MPI=yes
-
-# USE_FFTLIB can be MKL or JW
-USE_FFTLIB=JW
-USE_MKL=no
-
-#Use hdf5 for input/output of the restart files
-USE_HDF5=no
 
 ifdef HDF5_HOME
 	HDF5LIB=$(HDF5_HOME)/lib 
@@ -109,7 +114,7 @@ endif
 MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 MPI_INCPATH=/usr/include
 
-PREPROC += -DJW=1 -DMKL=2
+PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4 -Dquad=5
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)
@@ -146,8 +151,7 @@ endif
 
 ifeq ($(USE_FFTLIB),JW)
 	PREPROC += -DFFTLIB=JW
-endif
-ifeq ($(USE_FFTLIB),MKL)
+else ifeq ($(USE_FFTLIB),MKL)
 	PREPROC += -DFFTLIB=MKL
 	INCPATHS += -I$(MKLROOT)/include
 	LIBS +=  $(FFLAG_MKL_LIBS)
@@ -163,6 +167,20 @@ ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
 	INCPATHS += -I$(HDF5ICL)
 	LIBS += $(FFLAG_HDF5_LIBS)
+endif
+
+ifeq ($(PRECISION),sngl)
+	PREPROC += -DDEFAULT_PRECISION=sngl
+else ifeq ($(PRECISION),dble)
+	PREPROC += -DDEFAULT_PRECISION=dble
+else ifeq ($(PRECISION),quad)
+	PREPROC += -DDEFAULT_PRECISION=quad
+endif
+
+ifeq ($(OUT_PREC),sngl)
+	PREPROC += -DDEFAULT_OUTPUT_PRECISION=sngl
+else ifeq ($(OUT_PREC),dble)
+	PREPROC += -DDEFAULT_OUTPUT_PRECISION=dble
 endif
 
 #FFLAGS += -heap-arrays 1024
@@ -212,8 +230,7 @@ RED_SOURCES += fft_fac.o
 ifeq ($(USE_FFTLIB),JW)
 	RED_SOURCES += fftJW.f90
 	FFT_OBJS += fftJW.o
-endif
-ifeq ($(USE_FFTLIB),MKL)
+else ifeq ($(USE_FFTLIB),MKL)
 	RED_SOURCES += fft_mkl.f90
 	FFT_OBJS += fft_mkl.o
 endif

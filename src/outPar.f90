@@ -2,7 +2,7 @@
 module outPar_mod
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, &
                          l_maxMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
@@ -187,20 +187,20 @@ contains
             displs(i) = i*nr_per_rank
          end do
 #ifdef WITH_MPI
-         call MPI_GatherV(duhR,sendcount,MPI_DOUBLE_PRECISION,              &
-             &           duhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(duhR,sendcount,MPI_DEF_REAL,              &
+             &           duhR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(uhR,sendcount,MPI_DOUBLE_PRECISION,              &
-             &           uhR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(uhR,sendcount,MPI_DEF_REAL,              &
+             &           uhR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(gradT2R,sendcount,MPI_DOUBLE_PRECISION,              &
-             &           gradT2R_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(gradT2R,sendcount,MPI_DEF_REAL,              &
+             &           gradT2R_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(sR,sendcount,MPI_DOUBLE_PRECISION,              &
-             &           sR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(sR,sendcount,MPI_DEF_REAL,              &
+             &           sR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(Svar,sendcount,MPI_DOUBLE_PRECISION,              &
-             &           Svar_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(Svar,sendcount,MPI_DEF_REAL,              &
+             &           Svar_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
 #else
          duhR_global   =duhR
@@ -262,25 +262,25 @@ contains
             displs(i) = i*nr_per_rank
          end do
 #ifdef WITH_MPI
-         call MPI_GatherV(fkinR,sendcount,MPI_DOUBLE_PRECISION,&
-             &           fkinR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(fkinR,sendcount,MPI_DEF_REAL,&
+             &           fkinR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fconvR,sendcount,MPI_DOUBLE_PRECISION,&
-             &           fconvR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(fconvR,sendcount,MPI_DEF_REAL,&
+             &           fconvR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fviscR,sendcount,MPI_DOUBLE_PRECISION,&
-             &           fviscR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(fviscR,sendcount,MPI_DEF_REAL,&
+             &           fviscR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(fcR,sendcount,MPI_DOUBLE_PRECISION,&
-             &           fcR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+         call MPI_GatherV(fcR,sendcount,MPI_DEF_REAL,&
+             &           fcR_global,recvcounts,displs,MPI_DEF_REAL,&
              &           0,MPI_COMM_WORLD,ierr)
 
          if ( l_mag_nl ) then
-            call MPI_GatherV(fpoynR,sendcount,MPI_DOUBLE_PRECISION,&
-                &           fpoynR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            call MPI_GatherV(fpoynR,sendcount,MPI_DEF_REAL,&
+                &           fpoynR_global,recvcounts,displs,MPI_DEF_REAL,&
                 &           0,MPI_COMM_WORLD,ierr)
-            call MPI_GatherV(fresR,sendcount,MPI_DOUBLE_PRECISION,&
-                &           fresR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+            call MPI_GatherV(fresR,sendcount,MPI_DEF_REAL,&
+                &           fresR_global,recvcounts,displs,MPI_DEF_REAL,&
                 &           0,MPI_COMM_WORLD,ierr)
          end if
 #else
@@ -485,17 +485,17 @@ contains
       end do
 
 #ifdef WITH_MPI
-      call MPI_GatherV(EperpR,sendcount,MPI_DOUBLE_PRECISION,&
-          &           EperpR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+      call MPI_GatherV(EperpR,sendcount,MPI_DEF_REAL,&
+          &           EperpR_global,recvcounts,displs,MPI_DEF_REAL,&
           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EparR,sendcount,MPI_DOUBLE_PRECISION,&
-          &           EparR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+      call MPI_GatherV(EparR,sendcount,MPI_DEF_REAL,&
+          &           EparR_global,recvcounts,displs,MPI_DEF_REAL,&
           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EperpaxiR,sendcount,MPI_DOUBLE_PRECISION,&
-          &           EperpaxiR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+      call MPI_GatherV(EperpaxiR,sendcount,MPI_DEF_REAL,&
+          &           EperpaxiR_global,recvcounts,displs,MPI_DEF_REAL,&
           &           0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(EparaxiR,sendcount,MPI_DOUBLE_PRECISION,&
-          &           EparaxiR_global,recvcounts,displs,MPI_DOUBLE_PRECISION,&
+      call MPI_GatherV(EparaxiR,sendcount,MPI_DEF_REAL,&
+          &           EparaxiR_global,recvcounts,displs,MPI_DEF_REAL,&
           &           0,MPI_COMM_WORLD,ierr)
 #else
       EperpR_global   =EperpR

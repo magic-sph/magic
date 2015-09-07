@@ -4,7 +4,7 @@ module timing
 #ifdef WITH_MPI
    use mpi
 #endif
-   use precision_mod, only: cp, lip
+   use precision_mod
    use parallel_mod, only: rank
  
    implicit none

@@ -7,7 +7,7 @@ module rIterThetaBlocking_mod
 #endif
 
    use rIteration_mod, only: rIteration_t
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
         & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs

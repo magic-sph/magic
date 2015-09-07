@@ -2,7 +2,7 @@
 module RMS
 
   use const, only: zero
-  use precision_mod, only: cp
+  use precision_mod
   use truncation, only: n_r_max, n_r_maxMag, lm_max, lm_maxMag
 
   implicit none

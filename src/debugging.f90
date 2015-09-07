@@ -1,7 +1,7 @@
 !$Id$
 module debugging
 
-   use precision_mod, only: cp
+   use precision_mod
 
    implicit none
  

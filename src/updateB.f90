@@ -7,7 +7,7 @@ module updateB_mod
 #endif
 
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
                          n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_totMag, lm_max

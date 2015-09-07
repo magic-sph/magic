@@ -4,7 +4,7 @@ module updateZ_mod
 
    use init_fields
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
@@ -612,7 +612,7 @@ contains
                if ( m1 == 0 ) ddzASL_loc(l1+1)=real(workA(lm1,nR))
             end do
 #ifdef WITH_MPI
-            call MPI_Allreduce(ddzASL_loc, ddzASL(:,nR), l_max+1, MPI_DOUBLE_PRECISION, &
+            call MPI_Allreduce(ddzASL_loc, ddzASL(:,nR), l_max+1, MPI_DEF_REAL, &
                  &             MPI_SUM, MPI_COMM_WORLD, ierr)
 #else
             ddzASL(:,nR)=ddzASL_loc(:)

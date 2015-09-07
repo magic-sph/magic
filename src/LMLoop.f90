@@ -9,7 +9,7 @@ module LMLoop_mod
    use fields
    use fieldsLast
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use parallel_mod, only: rank
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb

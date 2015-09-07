@@ -3,7 +3,7 @@ module rIterThetaBlocking_OpenMP_mod
 #ifdef WITHOMP
    use omp_lib
 #endif
-   use precision_mod, only: cp
+   use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
 
    use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&

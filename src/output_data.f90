@@ -4,7 +4,7 @@ module output_data
    !  Parameters for output control
    !-------------------------------------------------------
 
-   use precision_mod, only: cp
+   use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
                     l_RMS, l_RMStest, l_save_out, l_cmb_field,       &
                     l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &

@@ -3,7 +3,7 @@
 module updateS_mod
 
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: i_costf_init,d_costf_init,orho1,or1,or2, &

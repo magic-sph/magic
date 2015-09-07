@@ -2,7 +2,7 @@
 module out_dtB_frame
 
    use truncation
-   use precision_mod, only: cp, outp
+   use precision_mod
    use radial_functions, only: r, or1, i_costf1_ic_init, d_costf1_ic_init,  &
                                r_ic, drx, i_costf_init, d_costf_init, r_icb,&
                                i_costf2_ic_init, d_costf2_ic_init, dr_fac_ic

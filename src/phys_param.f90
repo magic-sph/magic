@@ -4,7 +4,7 @@ module physical_parameters
    !  Module containing the physical parameters
    !------------------------------------------------
 
-   use precision_mod, only: cp
+   use precision_mod
 
    implicit none
  

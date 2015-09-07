@@ -2,7 +2,7 @@
 module fields_average_mod
 
    use truncation
-   use precision_mod, only: cp
+   use precision_mod
    use radial_data, only: n_r_cmb
    use radial_functions, only: i_costf_init, d_costf_init, drx,    &
                                i_costf1_ic_init, d_costf1_ic_init, &

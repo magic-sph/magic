@@ -5,7 +5,7 @@ module blocking
    !  Common block containing blocking information
    !--------------------------------------------------
 
-   use precision_mod, only: cp
+   use precision_mod
    use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
                            rank_with_l1m0
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &

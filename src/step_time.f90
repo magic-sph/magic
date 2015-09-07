@@ -1,6 +1,5 @@
 !$Id$
 #include "perflib_preproc.cpp"
-#include "intrinsic_sizes.h"
 module step_time_mod
 
 #ifdef WITH_LIKWID
@@ -10,7 +9,7 @@ module step_time_mod
    use fields
    use fieldsLast
    use parallel_mod
-   use precision_mod, only: cp, lip
+   use precision_mod
    use const, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
                          lm_max, lmP_max, lm_maxMag
@@ -403,9 +402,9 @@ contains
 
 #ifdef WITH_MPI
          ! Broadcast omega_ic and omega_ma
-         call MPI_Bcast(omega_ic,1,MPI_DOUBLE_PRECISION,rank_with_l1m0, &
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0, &
                         MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DOUBLE_PRECISION,rank_with_l1m0, &
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0, &
                         MPI_COMM_WORLD,ierr)
 #endif
          PERFOFF
@@ -831,9 +830,9 @@ contains
          ! ------------------
          ! also exchange the lorentz_torques which are only set at the boundary points
          ! but are needed on all processes.
-         call MPI_Bcast(lorentz_torque_ic,1,MPI_DOUBLE_PRECISION, &
+         call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL, &
               &         n_procs-1,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(lorentz_torque_ma,1,MPI_DOUBLE_PRECISION, &
+         call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL, &
               &         0,MPI_COMM_WORLD,ierr)
 #endif
          PERFOFF

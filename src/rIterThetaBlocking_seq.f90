@@ -1,7 +1,7 @@
 #include "perflib_preproc.cpp"
 module rIterThetaBlocking_seq_mod
 
-   use precision_mod, only: cp
+   use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t

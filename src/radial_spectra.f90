@@ -1,7 +1,7 @@
 !$Id$
 module radial_spectra
 
-   use precision_mod, only: cp, outp
+   use precision_mod
    use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
    use radial_data, only: n_r_icb
    use radial_functions, only: or2, r_icb, r_ic
@@ -97,7 +97,7 @@ contains
                         amp=real(Pol(lm,n_r_ICB))
                      end if
                      if ( m == 0 ) then
-                        if ( abs(amp) /= 0_cp) then
+                        if ( abs(amp) /= 0.0_cp) then
                            e_p_AS(l,n_r_max-1+n_r)= fac*amp/abs(amp)*e_p_temp
                         end if
                      end if
@@ -177,7 +177,7 @@ contains
                m=map%lm2m(lm)
                amp=real(Tor(lm,n_r))
                e_t_temp=dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
-               if ( abs(amp)/=0_cp ) then
+               if ( abs(amp)/=0.0_cp ) then
                   if ( m == 0 ) e_t_AS(l,n_r)=fac*amp/abs(amp)*e_t_temp
                end if
                e_t(l,n_r)=e_t(l,n_r)+fac*e_t_temp
@@ -207,7 +207,7 @@ contains
                      e_t_temp= dLh(st_map%lm2(l,m))*rRatio**(2*l+2) &
                           &    * cc2real(TorIC(lm,n_r),m)
                      amp=real(TorIC(lm,n_r))
-                     if ( abs(amp)/=0_cp ) then
+                     if ( abs(amp)/=0.0_cp ) then
                         if ( m == 0 ) e_t_AS(l,n_r_max-1+n_r)= &
                              fac*amp/abs(amp)*e_t_temp
                      end if

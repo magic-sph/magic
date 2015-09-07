@@ -2,7 +2,7 @@
 module magnetic_energy
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, i_costf_init,      &
@@ -224,37 +224,37 @@ contains
 #ifdef WITH_MPI
       ! reduce over the ranks
       call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_es_r, e_p_es_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_es_r, e_t_es_r_global,  n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_eas_r,e_p_eas_r_global, n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_dipole_ax_r,e_dipole_ax_r_global, n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_dipole_r,   e_dipole_r_global,    n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(els_r,   els_r_global,    n_r_max, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
       ! reduce some scalars
       call MPI_Reduce(e_geo,     e_geo_global,    1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_es_geo,  e_es_geo_global, 1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_as_geo,  e_as_geo_global, 1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_eas_geo, e_eas_geo_global,1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
       e_p_r_global        =e_p_r
       e_t_r_global        =e_t_r
@@ -436,13 +436,13 @@ contains
          ! reduce over the ranks
 #ifdef WITH_MPI
          call MPI_Reduce(e_p_ic_r,    e_p_ic_r_global,    n_r_ic_max, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_t_ic_r,    e_t_ic_r_global,    n_r_ic_max, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_p_as_ic_r, e_p_as_ic_r_global, n_r_ic_max, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_t_as_ic_r, e_t_as_ic_r_global, n_r_ic_max, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
          e_p_ic_r_global   =e_p_ic_r
          e_t_ic_r_global   =e_t_ic_r
@@ -480,9 +480,9 @@ contains
 
 #ifdef WITH_MPI
          call MPI_Reduce(e_p_ic,    e_p_ic_global,   1, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_p_as_ic, e_p_as_ic_global,1, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
          e_p_ic_global   =e_p_ic
          e_p_as_ic_global=e_p_as_ic
@@ -515,9 +515,9 @@ contains
 
 #ifdef WITH_MPI
       call MPI_Reduce(e_p_os,    e_p_os_global,   1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_p_as_os, e_p_as_os_global,1, &
-           & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
       e_p_os_global   =e_p_os
       e_p_as_os_global=e_p_as_os
@@ -547,11 +547,11 @@ contains
 
 #ifdef WITH_MPI
          call MPI_Reduce(e_p_e,    e_p_e_global,   1, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_p_as_e, e_p_as_e_global,1, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
          call MPI_Reduce(e_dipole_e, e_dipole_e_global,1, &
-              & MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 #else
          e_p_e_global     =e_p_e
          e_p_as_e_global  =e_p_as_e
@@ -618,7 +618,7 @@ contains
          b10=b(l1m0,n_r_cmb)
 #ifdef WITH_MPI
          if (rank /= 0) then
-            call MPI_Send(b10,1,MPI_DOUBLE_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
+            call MPI_Send(b10,1,MPI_DEF_COMPLEX,0,sr_tag,MPI_COMM_WORLD,ierr)
          end if
 #endif
          rank_has_l1m0=.true.
@@ -628,7 +628,7 @@ contains
             b11=b(l1m1,n_r_cmb)
 #ifdef WITH_MPI
             if (rank /= 0) then
-               call MPI_Send(b11,1,MPI_DOUBLE_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
+               call MPI_Send(b11,1,MPI_DEF_COMPLEX,0,sr_tag+1,MPI_COMM_WORLD,ierr)
             end if
 #endif
             rank_has_l1m1=.true.
@@ -644,11 +644,11 @@ contains
          rad =180.0_cp/pi
 #ifdef WITH_MPI
          if (.not.rank_has_l1m0) then
-            call MPI_IRecv(b10,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
+            call MPI_IRecv(b10,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
                  &         sr_tag,MPI_COMM_WORLD,request1, ierr)
          end if
          if ( .not. rank_has_l1m1 ) then
-            call MPI_IRecv(b11,1,MPI_DOUBLE_COMPLEX,MPI_ANY_SOURCE,&
+            call MPI_IRecv(b11,1,MPI_DEF_COMPLEX,MPI_ANY_SOURCE,&
                  &         sr_tag+1,MPI_COMM_WORLD,request2,ierr)
          end if
          if ( .not. rank_has_l1m0 ) then

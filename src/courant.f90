@@ -2,7 +2,7 @@
 module courant_mod
  
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: nrp, n_phi_max
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: orho1, orho2, or4, or2
@@ -188,9 +188,9 @@ contains
          dt_h=min(dthkc(n_r),dt_h)
       end do
 #ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DOUBLE_PRECISION, &
+      call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL, &
                          MPI_MIN,MPI_COMM_WORLD,ierr)
-      call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DOUBLE_PRECISION, &
+      call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL, &
                          MPI_MIN,MPI_COMM_WORLD,ierr)
 #endif
     

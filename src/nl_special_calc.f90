@@ -1,7 +1,7 @@
 !$Id$
 module nl_special_calc
  
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag
    use const, only: pi, one, two, third, half
    use logic, only: l_mag_nl

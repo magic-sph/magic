@@ -19,7 +19,7 @@ module horizontal_data
    use fft_MKL, only: init_fft
 #endif
    use const, only: pi, zero, one, two, half
-   use precision_mod, only: cp
+   use precision_mod
  
    implicit none
 

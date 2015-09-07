@@ -1,6 +1,6 @@
 module cosine_transform
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: lm_max
    use fft_fac_mod, only: fft_fac_complex, fft_fac_real
    use const, only: half, one, two

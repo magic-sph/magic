@@ -5,7 +5,7 @@ module torsional_oscillations
 !----------------------------------------------------------------------
 
    use parallel_mod
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
                          n_theta_maxStr
    use radial_data, only: n_r_cmb, nRstart, nRstop
@@ -496,20 +496,20 @@ contains
       do i=0,n_procs-1
          displs(i) = i*nr_per_rank*(l_max+1)
       end do
-      call MPI_GatherV(dzStrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzStrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzRstrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzRstrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzAstrLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzAstrLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzCorLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzCorLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzLFLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzLFLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzdVpLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzdVpLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzddVpLMr_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & dzddVpLMr,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzStrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzRstrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzAstrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzCorLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzLFLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzdVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,&
+           & dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 
       sendcount  = (nRstop-nRstart+1)*n_theta_maxStr
       recvcounts = nr_per_rank*n_theta_maxStr
@@ -517,24 +517,24 @@ contains
       do i=0,n_procs-1
          displs(i) = i*nr_per_rank*n_theta_maxStr
       end do
-      call MPI_GatherV(V2AS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & V2AS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(Bs2AS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & Bs2AS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BszAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BszAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BspAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BspAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpzAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BpzAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BspdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BspdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpsdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BpsdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BzpdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BzpdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpzdAS_Rloc,sendcount,MPI_DOUBLE_PRECISION,&
-           & BpzdAS,recvcounts,displs,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(V2AS_Rloc,sendcount,MPI_DEF_REAL,&
+           & V2AS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(Bs2AS_Rloc,sendcount,MPI_DEF_REAL,&
+           & Bs2AS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BszAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BszAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BspAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BspAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpzAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BpzAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BspdAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BspdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpsdAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BpsdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BzpdAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BzpdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_GatherV(BpzdAS_Rloc,sendcount,MPI_DEF_REAL,&
+           & BpzdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #else
      dzStrLMr=dzStrLMr_Rloc
      dzRstrLMr=dzRstrLMr_Rloc

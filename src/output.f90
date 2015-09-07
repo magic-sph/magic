@@ -1,9 +1,8 @@
 !$Id$
-#include "intrinsic_sizes.h"
 #include "perflib_preproc.cpp"
 module output_mod
 
-   use precision_mod, only: cp
+   use precision_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
                        & n_r_maxMag, lm_max
    use parallel_mod, only: rank

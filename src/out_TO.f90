@@ -2,7 +2,7 @@
 module outTO_mod
 
    use parallel_mod, only: rank
-   use precision_mod, only: cp, outp
+   use precision_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
                          n_theta_max, n_phi_max, minc, lStressMem,   &
                          lm_max

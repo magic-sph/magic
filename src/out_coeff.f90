@@ -1,7 +1,7 @@
 !$Id$
 module out_coeff
   
-   use precision_mod, only: cp
+   use precision_mod
    use logic, only: l_save_out
 
    implicit none

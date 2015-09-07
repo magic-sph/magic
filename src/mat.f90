@@ -6,7 +6,7 @@ module matrices
 
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
                          n_r_tot
-   use precision_mod, only: cp
+   use precision_mod
 
    implicit none
 

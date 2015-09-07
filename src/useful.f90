@@ -4,7 +4,7 @@ module useful
    !  library with several useful shit
    !------------------------------------------------------------------------
 
-   use precision_mod, only: cp
+   use precision_mod
    use parallel_mod, only: rank
    use output_data, only: n_log_file, log_file
    use logic, only: l_save_out

@@ -2,7 +2,7 @@
 module radial_der_even
 
    use const, only: zero
-   use precision_mod, only: cp
+   use precision_mod
    use cosine_transform, only: costf1, costf2
 
    implicit none

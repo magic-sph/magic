@@ -3,7 +3,7 @@
 module algebra
 
    use omp_lib
-   use precision_mod, only: cp
+   use precision_mod
    use const, only: one
 
 #ifdef WITH_LIKWID

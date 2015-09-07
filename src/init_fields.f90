@@ -2,7 +2,7 @@
 module init_fields
 
    use truncation
-   use precision_mod, only: cp
+   use precision_mod
    use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
                               phi, cosTheta

@@ -4,7 +4,7 @@ module Bext
    ! Common block containing the external field parameters
    !----------------------------------------------------------
 
-   use precision_mod, only: cp
+   use precision_mod
 
    implicit none
  

@@ -1,7 +1,7 @@
 !$Id$
 module charmanip
 
-   use precision_mod, only: cp
+   use precision_mod
 
    implicit none
 
