@@ -97,7 +97,7 @@ contains
          & t_Vpot_start,t_Vpot_stop,dt_Vpot,n_Tpot_step,      &
          & n_Tpots,t_Tpot,t_Tpot_start,t_Tpot_stop,dt_Tpot,   &
          & n_pot_step,n_pots,t_pot,t_pot_start,t_pot_stop,    &
-         & dt_pot,ngform,runid,movie,n_movie_step,            &
+         & dt_pot,runid,movie,n_movie_step,                   &
          & n_movie_frames,t_movie,t_movie_start,t_movie_stop, &
          & dt_movie,n_TO_step,n_TOs,t_TO,t_TO_start,t_TO_stop,&
          & dt_TO,n_TOZ_step,n_TOZs,t_TOZ,t_TOZ_start,         &
@@ -776,7 +776,6 @@ contains
             write(n_out,'(''  movie         = '',a,'','')') movie(n)(1:length)
          end if
       end do
-      write(n_out,'(''  ngform        ='',i3,'','')') ngform
       write(n_out,'(''  l_average     ='',l3,'','')') l_average
       write(n_out,'(''  l_cmb_field   ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field='',l3,'','')') l_dt_cmb_field
@@ -1040,7 +1039,6 @@ contains
       t_graph_start =0.0_cp
       t_graph_stop  =0.0_cp
       dt_graph      =0.0_cp
-      ngform        =0
       l_graph_time  =.false.
 
       !----- Spectrum files:

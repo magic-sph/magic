@@ -20,7 +20,6 @@ module output_data
    character(len=64), public :: runid
  
    !----- Information for graphic output grid:
-   integer, public :: ngform
    logical, public :: l_graph_time
  
    !----- Output time control:

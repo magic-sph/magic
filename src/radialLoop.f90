@@ -8,7 +8,6 @@ module radialLoop
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
                     l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl
-   use output_data, only: ngform
    use const, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -155,9 +154,9 @@ contains
       lGraphHeader=l_graph
       if ( lGraphHeader ) then
 #ifdef WITH_MPI
-         call graphOut_mpi_header(time,nR,ngform,nThetaStart,sizeThetaB)
+         call graphOut_mpi_header(time,nR,nThetaStart,sizeThetaB)
 #else
-         !call graphOut(time,nR,ngform,vrc,vtc,vpc,brc,btc,bpc,sc, &
+         !call graphOut(time,nR,vrc,vtc,vpc,brc,btc,bpc,sc, &
          !              nThetaStart,sizeThetaB,lGraphHeader)
 #endif
       end if

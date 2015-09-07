@@ -16,7 +16,6 @@ module rIterThetaBlocking_mod
         & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
-   use output_data, only: ngform
 #if (FFTLIB==JW)
    use fft_JW
 #elif (FFTLIB==MKL)

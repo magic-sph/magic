@@ -43,7 +43,7 @@ module graphOut_mod
 
 contains
 
-   subroutine graphOut(time,n_r,format,vr,vt,vp,br,bt,bp,sr, &
+   subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,            &
      &              n_theta_start,n_theta_block_size,lGraphHeader)
       !-------------------------------------------------------------------------
     
@@ -55,12 +55,6 @@ contains
       !  n_r: (input) for n_r = 0 a header is written
       !               for n_r > 0 values at radial level n_r are written
     
-      !  format : (input) = 0: unformatted
-      !                   = 1: formatted writing
-      !                   =-1: comment lines are included into file for
-      !                        easier reading (cannot be used for graphics
-      !                        processing in this form)
-    
       !  vr...sr: (input) arrays with grid-point values
     
       !  n_theta_start : (input) values are written for theta-points :
@@ -71,7 +65,6 @@ contains
       !-- Input variables
       real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                    ! radial grod point no.
-      integer,  intent(in) :: format                 ! determines format
       integer,  intent(in) :: n_theta_start          ! start theta no.
       integer,  intent(in) :: n_theta_block_size     ! size of theta block
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -86,8 +79,6 @@ contains
       integer :: n_theta ! counter for colatitude
       integer :: n_theta_cal                  ! position of block colat in all colats
     
-      integer :: prec
-    
       real(cp) :: fac,fac_r
       real(outp) :: dummy(n_phi_max,nfs)
     
@@ -98,58 +89,23 @@ contains
     
       if ( lGraphHeader ) then
     
-         if ( format /= 0 ) then
-    
-            !----- Formatted output:
-    
-            version='Graphout_Version_6'
-    
-            !-------- Write parameters:
-            write(n_graph_file,'(a)')  version ! identifying header
-            write(n_graph_file,'(A64)') runid
-            if ( format < 0 ) write(n_graph_file,'(/"Time,truncation,outputgrid:")')
-            write(n_graph_file,'(e12.5,1x,10i6)') &
-                 time,n_r_max,n_theta_max,n_phi_tot,n_r_ic_max-1,minc,nThetaBs
-            if ( format < 0 ) write(n_graph_file, &
-                 & '(/"Ra, Ek, Pr, Pm, radratio, sigma_ratio:")')
-            write(n_graph_file,'(6e14.6)') ra,ek,pr,prmag,radratio,sigma_ratio
-    
-            !-------- Write colatitudes:
-            if ( format < 0 ) then
-               write(n_graph_file, '(/"Colatitudes:", /"point#, theta")')
-               do n_theta=1,n_theta_max/2   ! NHS
-                  write(n_graph_file,'(i4, f9.4)') n_theta,theta_ord(n_theta)
-               end do
-               write(n_graph_file,'("--- equator ---")')
-               do n_theta=n_theta_max/2+1,n_theta_max   ! SHS
-                  write(n_graph_file,'(i4, f9.4)') n_theta,theta_ord(n_theta)
-               end do
-            else if ( format >= 0 ) then
-               write(n_graph_file,'(129(1x,f8.5))') &
-                    (theta_ord(n_theta),n_theta=1,n_theta_max)
-            end if
-    
-         else
-    
-            !----- Unformatted output:
-    
-            version='Graphout_Version_7'
-    
-            !-------- Write parameters:
-            write(n_graph_file) version
-            write(n_graph_file) runid
-            write(n_graph_file) real(time,outp), real(n_r_max,outp),          &
-                                real(n_theta_max,outp), real(n_phi_tot,outp), &
-                                real(n_r_ic_max-1,outp), real(minc,outp),     &
-                                real(nThetaBs,outp), real(ra,outp),           &
-                                real(ek,outp), real(pr,outp),                 &
-                                real(prmag,outp), real(radratio,outp),        &
-                                real(sigma_ratio,outp)
-    
-            !-------- Write colatitudes:
-            write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
-    
-         end if
+         !----- Unformatted output:
+ 
+         version='Graphout_Version_7'
+ 
+         !-------- Write parameters:
+         write(n_graph_file) version
+         write(n_graph_file) runid
+         write(n_graph_file) real(time,outp), real(n_r_max,outp),          &
+                             real(n_theta_max,outp), real(n_phi_tot,outp), &
+                             real(n_r_ic_max-1,outp), real(minc,outp),     &
+                             real(nThetaBs,outp), real(ra,outp),           &
+                             real(ek,outp), real(pr,outp),                 &
+                             real(prmag,outp), real(radratio,outp),        &
+                             real(sigma_ratio,outp)
+ 
+         !-------- Write colatitudes:
+         write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
     
          lGraphHeader=.false.
     
@@ -162,34 +118,20 @@ contains
     
          !-- Determine radius and thetas in this block:
          n_theta_stop=n_theta_start+n_theta_block_size-1
-         if ( format < 0 ) write(n_graph_file, &
-              &   '(/"--- Radial level, radius, i1, i2 ---")')
     
-         if ( format /= 0 ) then
-            write(n_graph_file,'(I4, F9.5, 2I4)') &
-                 n_r-1,r(n_r)/r(1),n_theta_start,n_theta_stop
-         else
-            write(n_graph_file) real(n_r-1,outp),real(r(n_r)/r(1),outp), &
-                                real(n_theta_start,outp),real(n_theta_stop,outp)
-         end if
-    
+         write(n_graph_file) real(n_r-1,outp),real(r(n_r)/r(1),outp), &
+                             real(n_theta_start,outp),real(n_theta_stop,outp)
     
          !-- Write entropy:
-         prec=1
-         if ( format < 0 ) write(n_graph_file,'(/" S: ")')
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max ! do loop over phis
                dummy(n_phi,n_theta)  =real(sr(n_phi,n_theta),kind=outp)   ! NHS
                dummy(n_phi,n_theta+1)=real(sr(n_phi,n_theta+1),kind=outp) ! SHS
             end do
          end do
-         call graph_write(n_phi_max,n_theta_block_size,dummy, &
-              prec,format,n_graph_file)
-    
-         prec=0
+         call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
          !-- Calculate and write radial velocity:
-         if ( format < 0 ) write(n_graph_file,'(/" Vr: ")')
          fac=or2(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max
@@ -197,12 +139,10 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vr(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write(n_phi_max,n_theta_block_size,dummy, &
-              prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
     
          !-- Calculate and write latitudinal velocity:
-         if ( format < 0 ) write(n_graph_file,'(/" Vt: ")')
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             n_theta_cal=n_theta_start+n_theta-1
@@ -212,11 +152,9 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vt(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write(n_phi_max,n_theta_block_size,dummy, &
-              prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
          !-- Calculate and write longitudinal velocity:
-         if ( format < 0 ) write(n_graph_file,'(/" Vp: ")')
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             n_theta_cal=n_theta_start+n_theta-1
@@ -226,13 +164,11 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vp(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write(n_phi_max,n_theta_block_size,dummy, &
-              prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
          if ( l_mag ) then
     
             !-- Calculate and write radial magnetic field:
-            if ( format < 0 ) write(n_graph_file,'(/'' Br: '')')
             fac=or2(n_r)
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max
@@ -240,11 +176,9 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*br(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write(n_phi_max,n_theta_block_size,dummy, &
-                 prec,format,n_graph_file)
+            call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
             !-- Calculate and write latitudinal magnetic field:
-            if ( format < 0 ) write(n_graph_file,'(/'' Bt: '')')
             do n_theta=1,n_theta_block_size,2
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
@@ -253,11 +187,9 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*bt(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write(n_phi_max,n_theta_block_size,dummy, &
-                 prec,format,n_graph_file)
+            call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
             !-- Calculate and write longitudinal magnetic field:
-            if ( format < 0 ) write(n_graph_file,'(/'' Bp: '')')
             do n_theta=1,n_theta_block_size,2
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
@@ -266,8 +198,7 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*bp(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write(n_phi_max,n_theta_block_size,dummy, &
-                 prec,format,n_graph_file)
+            call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
     
          end if ! l_mag ?
     
@@ -278,13 +209,12 @@ contains
    end subroutine graphOut
 !-----------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine graphOut_mpi(time,n_r,which_form,vr,vt,vp,br,bt,bp,sr, &
+   subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr, &
             &              n_theta_start,n_theta_block_size,lGraphHeader)
 
       !-- Input variables:
       real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                      ! radial grod point no.
-      integer,  intent(in) :: which_form               ! determins format
       integer,  intent(in) :: n_theta_start            ! start theta no.
       integer,  intent(in) :: n_theta_block_size       ! size of theta block
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -298,8 +228,6 @@ contains
       integer :: n_theta       ! counter for colatitude
       integer :: n_theta_cal   ! position of block colat in all colats
       integer :: n_theta_stop  ! end theta no.
-
-      integer :: prec
 
       real(cp) :: fac,fac_r
       real(outp) :: dummy(n_phi_max,nfs)
@@ -349,146 +277,106 @@ contains
                  & MPI_CHARACTER,MPI_CHARACTER,"external32",MPI_INFO_NULL,ierr)
          end if
 
-         call mpi_file_get_view(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
+         call MPI_FILE_GET_VIEW(graph_mpi_fh,disp,etype,filetype,datarep,ierr)
 
          bytes_written = 0
          !-- Write header & colatitudes for n_r=0:
          if ( rank == 0 ) then
-            if ( which_form /= 0 ) then
-#if 0
-               !----- Formatted output:
-               version='Graphout_Version_6'
+            !----- Unformatted output:
+            version='Graphout_Version_9'
 
-               !-------- Write parameters:
-               write(n_graph_file,'(a)')  version ! identifying header
-               ! for IDL magsym5 routine
-               write(n_graph_file,'(A64)') runid
-               if ( which_form < 0 ) write(n_graph_file,'(/ &
-                    &  "Time,truncation,outputgrid:")')
-               write(n_graph_file,'(e12.5,1x,10i6)') &
-                    time,n_r_max,n_theta_max,n_phi_tot, &
-                    n_r_ic_max-1,minc,nThetaBs
-               if ( which_form < 0 ) write(n_graph_file, &
-                    & '(/"Ra, Ek, Pr, Pm, radratio, sigma_ratio:")')
-               write(n_graph_file,'(6e14.6)') &
-                    ra,ek,pr,prmag,radratio,sigma_ratio
+            !-------- Write parameters:
+            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+            call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
+                                MPI_CHARACTER,status,ierr)
+            !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               !-------- Write colatitudes:
-               if ( which_form < 0 ) then
-                  write(n_graph_file, &
-                       &   '(/"Colatitudes:", /"point#, theta")')
-                  do n_theta=1,n_theta_max/2   ! NHS
-                     write(n_graph_file,'(i4, f9.4)') &
-                          n_theta,theta_ord(n_theta)
-                  end do
-                  write(n_graph_file,'("--- equator ---")')
-                  do n_theta=n_theta_max/2+1,n_theta_max   ! SHS
-                     write(n_graph_file,'(i4, f9.4)') &
-                          n_theta,theta_ord(n_theta)
-                  end do
-               else if ( which_form >= 0 ) then
-                  write(n_graph_file,'(129(1x,f8.5))') &
-                       (theta_ord(n_theta),n_theta=1,n_theta_max)
-               end if
-#endif
-            else
+            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+            call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
+                                MPI_CHARACTER,status,ierr)
+            !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               !----- Unformatted output:
-               version='Graphout_Version_9'
+            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+            call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
+                                MPI_REAL,status,ierr)
+            !call mpi_get_count(status,MPI_REAL,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_REAL
+            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               !-------- Write parameters:
-               call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
-                                   MPI_CHARACTER,status,ierr)
-               !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-               call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-
-               call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
-                                   MPI_CHARACTER,status,ierr)
-               !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-               call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-
-               call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1, &
+            !-------- Write colatitudes:
+            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+                                MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+            do n_theta=1,n_theta_max
+               call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
                                    MPI_REAL,status,ierr)
                !call mpi_get_count(status,MPI_REAL,count,ierr)
                !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-               call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
+            end do
+            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+                                MPI_INTEGER,status,ierr)
+            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+            !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-               !-------- Write colatitudes:
-               call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
-                                   MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-               do n_theta=1,n_theta_max
-                  call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
-                                      MPI_REAL,status,ierr)
-                  !call mpi_get_count(status,MPI_REAL,count,ierr)
-                  !bytes_written = bytes_written + count*SIZEOF_REAL
-               end do
-               call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
-                                   MPI_INTEGER,status,ierr)
-               !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_INTEGER
-
-            end if
          end if
          lGraphHeader=.false.
          !PRINT*,"For the header, we wrote ",bytes_written," bytes."
@@ -499,56 +387,38 @@ contains
 
          !-- Determine radius and thetas in this block:
          n_theta_stop=n_theta_start+n_theta_block_size-1
-#if 0
-         if ( which_form < 0 ) write(n_graph_file, &
-              &   '(/"--- Radial level, radius, i1, i2 ---")')
-
-         if ( which_form /= 0 ) then
-            write(n_graph_file,'(I4, F9.5, 2I4)') &
-                 n_r-1, r(n_r)/r(1), n_theta_start, n_theta_stop
-         else
-#endif
-            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r-1,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(r(n_r)/r(1),outp),1, &
-                 &              MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_start,outp),1, &
-                 &              MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_stop,outp),1, &
-                 &              MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-#if 0
-         end if
-#endif
+         call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_r-1,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(r(n_r)/r(1),outp),1, &
+              &              MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_start,outp),1, &
+              &              MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_stop,outp),1, &
+              &              MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,4*SIZEOF_REAL,1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
          !-- Write entropy:
-         prec=1
-         !if ( which_form < 0 ) write(n_graph_file,'(/" S: ")')
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max ! do loop over phis
                dummy(n_phi,n_theta)  =real(sr(n_phi,n_theta),kind=outp)   ! NHS
                dummy(n_phi,n_theta+1)=real(sr(n_phi,n_theta+1),kind=outp) ! SHS
             end do
          end do
-         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-              prec,which_form,graph_mpi_fh)
-
-         prec=0
+         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
          !-- Calculate and write radial velocity:
-         !if ( which_form < 0 ) write(n_graph_file,'(/" Vr: ")')
          fac=or2(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             do n_phi=1,n_phi_max
@@ -556,12 +426,10 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vr(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-              prec,which_form,graph_mpi_fh)
+         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
 
          !-- Calculate and write latitudinal velocity:
-         !if ( which_form < 0 ) write(n_graph_file,'(/" Vt: ")')
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             n_theta_cal=n_theta_start+n_theta-1
@@ -571,11 +439,9 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vt(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-              prec,which_form,graph_mpi_fh)
+         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
          !-- Calculate and write longitudinal velocity:
-         !if ( which_form < 0 ) write(n_graph_file,'(/" Vp: ")')
          fac_r=or1(n_r)*vScale*orho1(n_r)
          do n_theta=1,n_theta_block_size,2
             n_theta_cal=n_theta_start+n_theta-1
@@ -585,13 +451,11 @@ contains
                dummy(n_phi,n_theta+1)=real(fac*vp(n_phi,n_theta+1),kind=outp)
             end do
          end do
-         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-              prec,which_form,graph_mpi_fh)
+         call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
          if ( l_mag ) then
 
             !-- Calculate and write radial magnetic field:
-            !if ( which_form < 0 ) write(n_graph_file,'(/'' Br: '')')
             fac=or2(n_r)
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max
@@ -599,11 +463,9 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*br(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-                 prec,which_form,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
             !-- Calculate and write latitudinal magnetic field:
-            !if ( which_form < 0 ) write(n_graph_file,'(/'' Bt: '')')
             do n_theta=1,n_theta_block_size,2
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
@@ -612,11 +474,9 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*bt(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-                 prec,which_form,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
             !-- Calculate and write longitudinal magnetic field:
-            !if ( which_form < 0 ) write(n_graph_file,'(/'' Bp: '')')
             do n_theta=1,n_theta_block_size,2
                n_theta_cal=n_theta_start+n_theta-1
                fac=or1(n_r)*O_sin_theta(n_theta_cal)
@@ -625,8 +485,7 @@ contains
                   dummy(n_phi,n_theta+1)=real(fac*bp(n_phi,n_theta+1),kind=outp)
                end do
             end do
-            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy, &
-                 prec,which_form,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
          end if ! l_mag ?
 
@@ -637,13 +496,12 @@ contains
       !$OMP END CRITICAL
    end subroutine graphOut_mpi
 !----------------------------------------------------------------------------
-   subroutine graphOut_mpi_header(time,n_r,which_form, &
+   subroutine graphOut_mpi_header(time,n_r, &
         &              n_theta_start,n_theta_block_size)
 
       !-- Input variables:
       real(cp), intent(in) :: time
       integer,  intent(in) :: n_r                    ! radial grod point no.
-      integer,  intent(in) :: which_form             ! determines format
       integer,  intent(in) :: n_theta_start          ! start theta no.
       integer,  intent(in) :: n_theta_block_size     ! size of theta block
 
@@ -693,109 +551,105 @@ contains
 
       bytes_written = 0
       !-- Write header & colatitudes for n_r=0:
-      if (rank == 0) then
-         if ( which_form /= 0 ) then
-         else
+      if ( rank == 0 ) then
+         !----- Unformatted output:
+         version='Graphout_Version_9'
 
-            !----- Unformatted output:
-            version='Graphout_Version_9'
-
-            !-------- Write parameters:
-            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
-                                MPI_CHARACTER,status,ierr)
-            !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-            call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         !-------- Write parameters:
+         call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         call MPI_FILE_WRITE(graph_mpi_fh,version,len(version), &
+                             MPI_CHARACTER,status,ierr)
+         !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+         call MPI_FILE_WRITE(graph_mpi_fh,len(version),1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
 
-            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
-                                MPI_CHARACTER,status,ierr)
-            !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_CHARACTER
-            call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         call MPI_FILE_WRITE(graph_mpi_fh,runid,len(runid), &
+                             MPI_CHARACTER,status,ierr)
+         !call mpi_get_count(status,MPI_CHARACTER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_CHARACTER
+         call MPI_FILE_WRITE(graph_mpi_fh,len(runid),1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
+         call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         call MPI_FILE_WRITE(graph_mpi_fh,real(time,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
+                             MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
+                             MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1,MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
+              &              MPI_REAL,status,ierr)
+         !call mpi_get_count(status,MPI_REAL,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_REAL
+         call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+
+         !-------- Write colatitudes:
+         call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+                             MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         do n_theta=1,n_theta_max
+            call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
                                 MPI_REAL,status,ierr)
             !call mpi_get_count(status,MPI_REAL,count,ierr)
             !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_phi_tot,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_ic_max-1,outp),1, &
-                                MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(minc,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(nThetaBs,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(ra,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(ek,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(pr,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(prmag,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(radratio,outp),1,MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,real(sigma_ratio,outp),1, &
-                 &              MPI_REAL,status,ierr)
-            !call mpi_get_count(status,MPI_REAL,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_REAL
-            call MPI_FILE_WRITE(graph_mpi_fh,13*4,1,MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
+         end do
+         call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
+                             MPI_INTEGER,status,ierr)
+         !call mpi_get_count(status,MPI_INTEGER,count,ierr)
+         !bytes_written = bytes_written + count*SIZEOF_INTEGER
 
-            !-------- Write colatitudes:
-            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
-                                MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-            do n_theta=1,n_theta_max
-               call MPI_FILE_WRITE(graph_mpi_fh,real(theta_ord(n_theta),outp),1, &
-                                   MPI_REAL,status,ierr)
-               !call mpi_get_count(status,MPI_REAL,count,ierr)
-               !bytes_written = bytes_written + count*SIZEOF_REAL
-            end do
-            call MPI_FILE_WRITE(graph_mpi_fh,n_theta_max*SIZEOF_REAL,1, &
-                                MPI_INTEGER,status,ierr)
-            !call mpi_get_count(status,MPI_INTEGER,count,ierr)
-            !bytes_written = bytes_written + count*SIZEOF_INTEGER
-
-         end if
       end if
 
    end subroutine graphOut_mpi_header
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(format,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
+   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
       !  +-------------------------------------------------------------------+
       !  |                                                                   |
       !  |  Purpose of this subroutine is to write inner core magnetic       |
@@ -808,7 +662,6 @@ contains
       !  +-------------------------------------------------------------------+
 
       !-- Input variables:
-      integer,     intent(in) :: format    ! controls output format
       complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
@@ -834,17 +687,12 @@ contains
       real(outp) :: Bt(n_phi_max,n_theta_max)
       real(outp) :: Bp(n_phi_max,n_theta_max)
     
-    
-      integer :: prec  ! controls output precision in graph_write
-    
 #ifdef WITH_MPI
       ! MPI specific variables
       integer :: status(MPI_STATUS_SIZE)
       ! end MPI variables
 #endif
 
-      prec=1
-    
       !-- Loop over all radial levels:
     
       do nR=2,n_r_ic_max  ! nR=1 is ICB
@@ -891,70 +739,51 @@ contains
          end do
     
     
-         !-- Write radius and theta information (all thetas at one go)
-         if ( format == -1 ) write(n_graph_file, &
-              &   '(/"--- Radial level IC, radius, i1, i2 ---")')
-    
-         if ( format /= 0 ) then
-            write(n_graph_file,'(I4, F9.5, 2I4)') &
-                 n_r_max+nR-2,r_ic(nR)/r_cmb, &
-                 1,n_theta_max
-         else if ( format == 0 ) then
 #ifdef WITH_MPI
-            ! in process n_procs-1 the last oc fields have been written,
-            ! Now just append on this process.
-            if (rank == n_procs-1) then
-               call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
-                                   MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
-                                   MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,1.e0_outp,1,MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
-                                   MPI_REAL,status,ierr)
-               call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
-            end if
-#else
-            write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp), &
-                 &              1.e0_outp,real(n_theta_max,outp)
-#endif
+         ! in process n_procs-1 the last oc fields have been written,
+         ! Now just append on this process.
+         if ( rank == n_procs-1 ) then
+            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_r_max+nR-2,outp),1, &
+                                MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(r_ic(nR)/r_cmb,outp),1, &
+                                MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,1.e0_outp,1,MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,real(n_theta_max,outp),1, &
+                                MPI_REAL,status,ierr)
+            call MPI_FILE_WRITE(graph_mpi_fh,4*4,1,MPI_INTEGER,status,ierr)
          end if
+#else
+         write(n_graph_file) real(n_r_max+nR-2,outp),real(r_ic(nR)/r_cmb,outp), &
+              &              1.e0_outp,real(n_theta_max,outp)
+#endif
 
 
          !-- Write radial magnetic field:
-         if ( format == -1 ) write(n_graph_file,'(/'' Br IC: '')')
 #ifdef WITH_MPI
          if (rank == n_procs-1) then
-            call graph_write_mpi(n_phi_max,n_theta_max,Br, &
-                 prec,FORMAT,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_max,Br,graph_mpi_fh)
          end if
 #else
-         call graph_write(n_phi_max,n_theta_max,Br, &
-              prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_max,Br,n_graph_file)
 #endif
 
          !-- Write latitudinal magnetic field:
-         if ( format == -1 ) write(n_graph_file,'(/'' Bt IC: '')')
 #ifdef WITH_MPI
          if (rank == n_procs-1) then
-            call graph_write_mpi(n_phi_max,n_theta_max,Bt, &
-                 prec,format,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_max,Bt,graph_mpi_fh)
          end if
 #else
-         call graph_write(n_phi_max,n_theta_max,Bt, &
-              prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_max,Bt,n_graph_file)
 #endif
   
          !-- Write longitudinal magnetic field:
-         if ( format == -1 ) write(n_graph_file,'(/'' Bp IC: '')')
 #ifdef WITH_MPI
          if (rank == n_procs-1) then
-            call graph_write_mpi(n_phi_max,n_theta_max,Bp, &
-                 prec,format,graph_mpi_fh)
+            call graph_write_mpi(n_phi_max,n_theta_max,Bp,graph_mpi_fh)
          end if
 #else
-         call graph_write(n_phi_max,n_theta_max,Bp, &
-                          prec,format,n_graph_file)
+         call graph_write(n_phi_max,n_theta_max,Bp,n_graph_file)
 #endif
 
       end do  ! Do loop over radial levels nR
@@ -962,7 +791,7 @@ contains
 
    end subroutine graphOut_IC
 !-----------------------------------------------------------------------
-   subroutine graph_write(n_phis,n_thetas,dummy,prec,FORMAT,n_graph_file)
+   subroutine graph_write(n_phis,n_thetas,dummy,n_graph_file)
       !------------------------------------------------------------------------------
       !  This subroutine writes the data for one theta-band
       !  (stored in 'dummy'). Version May, 5, 2000.
@@ -972,8 +801,6 @@ contains
       integer,    intent(in) :: n_thetas            ! number of first colatitude value
       integer,    intent(in) :: n_phis              ! number of logitudes to be printed
       real(outp), intent(in) :: dummy(n_phi_max,*)  ! data
-      integer,    intent(in) :: prec                ! determines precision if output
-      integer,    intent(in) :: format              ! formatted/unformatted output
       integer,    intent(in) :: n_graph_file        ! output unit
 
       !-- Local variables:
@@ -982,37 +809,19 @@ contains
 
       !PERFON('gwrite')
       do n_theta=1,n_thetas
-           
-         if ( format == 0 ) then ! unformatted output
-            write(n_graph_file) (dummy(n_phi,n_theta),n_phi=1,n_phis)
-         else                ! formatted output
-            if ( prec == 0 ) then
-               write(n_graph_file,900) &
-                    (dummy(n_phi,n_theta),n_phi=1,n_phis)
-            else if ( prec == 1 ) then
-               write(n_graph_file,901) &
-                    (dummy(n_phi,n_theta),n_phi=1,n_phis)
-            end if
-         end if
-
+         write(n_graph_file) (dummy(n_phi,n_theta),n_phi=1,n_phis)
       end do
-
-      900 FORMAT(512(1X,F7.2))
-      901 FORMAT(512(1X,F7.3))
-
       !PERFOFF
 
    end subroutine graph_write
 !------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine graph_write_mpi(n_phis,n_thetas,dummy,prec,which_form,graph_mpi_fh)
+   subroutine graph_write_mpi(n_phis,n_thetas,dummy,graph_mpi_fh)
 
       !-- Input variables
       integer,    intent(in) :: n_thetas          ! number of first colatitude value
       integer,    intent(in) :: n_phis            ! number of logitudes to be printed
       real(outp), intent(in) :: dummy(n_phi_max,*)! data
-      integer,    intent(in) :: prec              ! determines precision if output
-      integer,    intent(in) :: which_form        ! formatted/unformatted output
       integer,    intent(in) :: graph_mpi_fh      ! mpi handle of the mpi file
 
       !-- Local variables:
@@ -1032,34 +841,19 @@ contains
       !PERFON('gwrite_M')
       do n_theta=1,n_thetas
 
-         if ( which_form == 0 ) then ! unformatted output
-            call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
-                                MPI_INTEGER,status,ierr)
-            call MPI_FILE_WRITE(graph_mpi_fh,dummy(1,n_theta),n_phis, &
-                                MPI_REAL,status,ierr)
-            call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
-                                MPI_INTEGER,status,ierr)
+         call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
+                             MPI_INTEGER,status,ierr)
+         call MPI_FILE_WRITE(graph_mpi_fh,dummy(1,n_theta),n_phis, &
+                             MPI_REAL,status,ierr)
+         call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_REAL,1, &
+                             MPI_INTEGER,status,ierr)
 
             !call MPI_FILE_WRITE(n_graph_file) &
             !      (dummy(n_phi,n_theta),n_phi=1,n_phis)
-         else                ! formatted output
-#if 0  
-            if ( prec == 0 ) then
-               write(n_graph_file,900) &
-                    (dummy(n_phi,n_theta),n_phi=1,n_phis)
-            else if ( prec == 1 ) then
-               write(n_graph_file,901) &
-                    (dummy(n_phi,n_theta),n_phi=1,n_phis)
-            end if
-#endif
-         end if
 
       end do
+      !PERFOFF
 
-      900 FORMAT(512(1X,F7.2))
-      901 FORMAT(512(1X,F7.3))
-
-    !PERFOFF
 #endif
    end subroutine graph_write_mpi
 #endif

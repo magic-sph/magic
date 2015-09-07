@@ -15,7 +15,6 @@ module rIterThetaBlocking_seq_mod
                     l_movie_oc
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
-   use output_data, only: ngform
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -257,15 +256,15 @@ contains
          if ( this%l_graph ) then
 #ifdef WITH_MPI
             PERFON('graphout')
-            call graphOut_mpi(time,this%nR,ngform,this%gsa%vrc,this%gsa%vtc, &
-                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,        &
-                 &            this%gsa%bpc,this%gsa%sc,nThetaStart,          &
+            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
+                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
+                 &            this%gsa%bpc,this%gsa%sc,nThetaStart,   &
                  &            this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
-            call graphOut(time,this%nR,ngform,this%gsa%vrc,this%gsa%vtc, &
-                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,        &
-                 &        this%gsa%bpc,this%gsa%sc,nThetaStart,          &
+            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
+                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
+                 &        this%gsa%bpc,this%gsa%sc,nThetaStart,   &
                  &        this%sizeThetaB,lGraphHeader)
 #endif
          end if

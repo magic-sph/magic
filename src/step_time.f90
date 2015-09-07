@@ -43,7 +43,7 @@ module step_time_mod
                           n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
                           n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
                           n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
-                          n_t_TOZ, t_TOZ, l_graph_time, graph_file, ngform,&
+                          n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
 #ifdef WITH_MPI
                           nLF, log_file, graph_mpi_fh, n_log_file,         &
 #else
@@ -666,18 +666,10 @@ contains
             n_graph=n_graph+1     ! increase counter for graphic file
             if ( l_graph_time ) then 
                call dble2str(time,string)
-               if ( ngform /= 0 ) then
-                  graph_file='g_t='//trim(string)//'.'//tag
-               else
-                  graph_file='G_t='//trim(string)//'.'//tag
-               end if
+               graph_file='G_t='//trim(string)//'.'//tag
             else
                write(string, *) n_graph
-               if ( ngform /= 0 ) then
-                  graph_file='g_'//trim(adjustl(string))//'.'//tag
-               else
-                  graph_file='G_'//trim(adjustl(string))//'.'//tag
-               end if
+               graph_file='G_'//trim(adjustl(string))//'.'//tag
             end if
             if ( rank == 0 ) then
                write(*,'(1p,/,A,/,A,D20.10,/,A,i15,/,A,A)')&
@@ -698,11 +690,7 @@ contains
                  &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
                  &             MPI_INFO_NULL,graph_mpi_fh,ierr)
 #else
-            if ( ngform /= 0 ) then
-               open(n_graph_file,file=graph_file,status='new',form='formatted')
-            else
-               open(n_graph_file,file=graph_file,status='new',form='unformatted')
-            end if
+            open(n_graph_file,file=graph_file,status='new',form='unformatted')
 #endif
             !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
             !PRINT*,"MPI_FILE_OPEN returned: ",trim(error_string)

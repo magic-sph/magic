@@ -15,7 +15,6 @@ module rIterThetaBlocking_OpenMP_mod
                     l_movie_oc
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
-   use output_data, only: ngform
 #if (FFTLIB==JW)
    use fft_JW
 #elif (FFTLIB==MKL)
@@ -197,7 +196,7 @@ contains
       !$OMP SHARED(this,l_mag,l_b_nl_cmb,l_b_nl_icb,l_mag_LF,l_rot_ic,l_cond_ic) &
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
-      !$OMP SHARED(or2,orho1,time,ngform,dt,dtLast,DEBUG_OUTPUT) &
+      !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
       !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
@@ -353,14 +352,14 @@ contains
          if ( this%l_graph ) then
 #ifdef WITH_MPI
             PERFON('graphout')
-            call graphOut_mpi(time,this%nR,ngform,this%gsa(threadid)%vrc,    &
+            call graphOut_mpi(time,this%nR,this%gsa(threadid)%vrc,           &
                  &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &            this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
                  &            nThetaStart,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
-            call graphOut(time,this%nR,ngform,this%gsa(threadid)%vrc,    &
+            call graphOut(time,this%nR,this%gsa(threadid)%vrc,           &
                  &        this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &        this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &        this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &

@@ -38,7 +38,7 @@ module output_mod
                     & spectrum_temp_average
    use outTO_mod, only: outTO
    use outPV3, only: outPV
-   use output_data, only: tag, ngform, l_max_cmb,                   &
+   use output_data, only: tag, l_max_cmb,                           &
                         & cmbMov_file, n_cmbMov_file, cmb_file,     &
                         & n_cmb_file, dt_cmb_file, n_dt_cmb_file,   & 
                         & n_coeff_r, l_max_r, n_v_r_file,           &
@@ -641,8 +641,8 @@ contains
   
          !----- Plot out inner core magnetic field, outer core
          !      field has been written in radialLoop !
-         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )                &
-              &     call graphOut_IC(ngform,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
+         if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )          &
+              &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
   
          !--- Write spectra output that has partially been calculated in LMLoop
          if ( l_rMagSpec .and. n_time_step > 1 ) then

@@ -13,7 +13,7 @@ module fields_average_mod
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
-   use output_data, only: tag, graph_file, nLF, n_graph_file, ngform, &
+   use output_data, only: tag, graph_file, nLF, n_graph_file, &
                           log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
 #if (FFTLIB==JW)
@@ -375,17 +375,12 @@ contains
          ! on rank 0 and use the old serial output routine.
 
          if ( rank == 0 ) then
-            if ( ngform == 0 ) then
-               graph_file='G_ave.'//tag
-               open(n_graph_file, file=graph_file, status='unknown', form='unformatted')
-            else
-               graph_file='g_ave.'//tag
-               open(n_graph_file, file=graph_file, status='unknown', form='formatted')
-            end if
+            graph_file='G_ave.'//tag
+            open(n_graph_file, file=graph_file, status='unknown', form='unformatted')
 
             !----- Write header into graphic file:
             lGraphHeader=.true.
-            call graphOut(time,0,ngform,Vr,Vt,Vp,Br,Bt,Bp,Sr,0,sizeThetaB,lGraphHeader)
+            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,0,sizeThetaB,lGraphHeader)
          end if
 
          !----- Transform and output of data:
@@ -443,7 +438,7 @@ contains
                   call fft_thetab(Sr,1)
 
                   !-------- Graphic output:
-                  call graphOut(time,nR,ngform,Vr,Vt,Vp,Br,Bt,Bp,Sr, &
+                  call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr, &
                        &        nThetaStart,sizeThetaB,lGraphHeader)
                end do
             end if
@@ -458,8 +453,8 @@ contains
             call gather_all_from_lo_to_rank0(gt_IC,dj_ic_ave,dj_ic_ave_global)
 
             if ( rank == 0 ) then
-               call graphOut_IC(ngform,b_ic_ave_global,db_ic_ave_global,&
-                    &           ddb_ic_ave_global,aj_ic_ave_global,     &
+               call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
+                    &           ddb_ic_ave_global,aj_ic_ave_global, &
                     &           dj_ic_ave_global,b_ave_global)
             end if
          end if

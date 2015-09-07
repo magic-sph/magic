@@ -336,10 +336,10 @@ radialLoop.o          : truncation.o blocking.o parallel.o\
 			rIterThetaBlocking.o rIterThetaBlocking_OpenMP.o \
 			rIterThetaBlocking_seq.o
 rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
-			logic.o radial.o radial_data.o output_data.o \
+			logic.o radial.o radial_data.o\
 			$(FFT_OBJS) legendre_spec_to_grid.o get_nl.o\
                         legendre_helpers.o get_td.o nonlinear_bcs.o\
-                        legendre_grid_to_spec.o 
+                        legendre_grid_to_spec.o  out_graph_file.o
 rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o
 rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
