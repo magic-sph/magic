@@ -1,9 +1,9 @@
 # COMPILER: intel, gnu or amd
 COMPILER   =intel
-# precision of the calculations: sngl/dble/quad
+# precision of the calculations: sngl/dble
 PRECISION  =dble
 # precision for binary outputs: sngl/dble
-OUT_PREC   =sngl
+OUT_PREC   =dble
 # production run: yes/no (no= -O0, yes = -03)
 PRODRUN    =yes
 #USE_MPI: yes/no
@@ -114,7 +114,7 @@ endif
 MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 MPI_INCPATH=/usr/include
 
-PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4 -Dquad=5
+PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)
@@ -173,8 +173,6 @@ ifeq ($(PRECISION),sngl)
 	PREPROC += -DDEFAULT_PRECISION=sngl
 else ifeq ($(PRECISION),dble)
 	PREPROC += -DDEFAULT_PRECISION=dble
-else ifeq ($(PRECISION),quad)
-	PREPROC += -DDEFAULT_PRECISION=quad
 endif
 
 ifeq ($(OUT_PREC),sngl)

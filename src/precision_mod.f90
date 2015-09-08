@@ -18,8 +18,8 @@ module precision_mod
    integer, public, parameter :: cp=selected_real_kind(6)
 #elif (DEFAULT_PRECISION==dble)
    integer, public, parameter :: cp=selected_real_kind(15)
-#elif (DEFAULT_PRECISION==quad)
-   integer, public, parameter :: cp=selected_real_kind(20)
+!#elif (DEFAULT_PRECISION==quad)
+!   integer, public, parameter :: cp=selected_real_kind(20)
 #endif
    !-- Precision for outputs in unformatted files (G files, movie files)
 #if (DEFAULT_OUTPUT_PRECISION==sngl)
@@ -48,16 +48,16 @@ module precision_mod
 #elif (DEFAULT_PRECISION==dble)
    integer, public, parameter :: MPI_DEF_REAL=MPI_REAL8
    integer, public, parameter :: MPI_DEF_COMPLEX=MPI_COMPLEX16
-#elif (DEFAULT_PRECISION==quad)
-   integer, public, parameter :: MPI_DEF_REAL=MPI_REAL16
-   integer, public, parameter :: MPI_DEF_COMPLEX=MPI_COMPLEX32
+!#elif (DEFAULT_PRECISION==quad)
+!   integer, public, parameter :: MPI_DEF_REAL=MPI_REAL16
+!   integer, public, parameter :: MPI_DEF_COMPLEX=MPI_COMPLEX32
 #endif
 
    !-- Output
 #if (DEFAULT_OUTPUT_PRECISION==sngl)
    integer, public, parameter :: MPI_OUT_REAL=MPI_REAL4
 #elif (DEFAULT_OUTPUT_PRECISION==dble)
-   integer, public, parameter :: MPI_DEF_REAL=MPI_REAL8
+   integer, public, parameter :: MPI_OUT_REAL=MPI_REAL8
 #endif
 #endif
 

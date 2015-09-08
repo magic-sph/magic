@@ -68,15 +68,27 @@ if buildSo:
     os.chdir(magicdir)
 
     # For reading G files
-    if not os.path.exists('greader%i.so' % pythonVersion):
+    if not os.path.exists('greader_single%i.so' % pythonVersion):
         os.chdir('fortranLib')
-        print("Please wait: building greader...")
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader%i readG.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
+        print("Please wait: building greader_single...")
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader_single%i readG_single.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
         os.system(cmd)
         if pythonVersion == 3:
-            cmd = 'mv greader3.cpython-33m.so %s/greader3.so' % magicdir
+            cmd = 'mv greader_single3.cpython-33m.so %s/greader_single3.so' % magicdir
         elif pythonVersion == 2:
-            cmd = 'mv greader2.so %s' % magicdir
+            cmd = 'mv greader_single2.so %s' % magicdir
+        os.system(cmd)
+        os.chdir(magicdir)
+
+    if not os.path.exists('greader_double%i.so' % pythonVersion):
+        os.chdir('fortranLib')
+        print("Please wait: building greader_double...")
+        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader_double%i readG_double.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
+        os.system(cmd)
+        if pythonVersion == 3:
+            cmd = 'mv greader_double3.cpython-33m.so %s/greader_double3.so' % magicdir
+        elif pythonVersion == 2:
+            cmd = 'mv greader_double2.so %s' % magicdir
         os.system(cmd)
         os.chdir(magicdir)
 

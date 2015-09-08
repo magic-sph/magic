@@ -3,7 +3,7 @@ import os, re
 import matplotlib.pyplot as P
 import numpy as N
 from .log import MagicSetup
-from .libmagic import scanDir
+from .libmagic import scanDir, fast_read
 from .npfile import *
 from magic.setup import labTex
 
@@ -73,15 +73,10 @@ class MagicSpectrum(MagicSetup):
             print('No such file')
             return
 
-        file = open(filename, 'r')
         if ave is False:
-            header = file.readline()
-        data = []
-        for line in file.readlines():
-            st = line.replace('D', 'E')
-            data.append(st.split())
-        data = N.array(data, dtype='Float64')
-        file.close()
+            data = fast_read(filename, skiplines=1)
+        else:
+            data = fast_read(filename)
 
         self.index = data[:, 0]
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
@@ -222,7 +217,7 @@ class MagicSpectrum(MagicSetup):
 class MagicSpectrum2D(MagicSetup):
 
     def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None, 
-                 tag=None, cm='jet', levels=33):
+                 tag=None, cm='jet', levels=33, precision='Float64'):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -231,6 +226,7 @@ class MagicSpectrum2D(MagicSetup):
         :param tag: tag, if not specified the most recent one is chosen
         :param cm: name of the colormap, default='jet'
         :param levels: number of contour levels
+        :param precision: single or double precision
         """
 
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):
@@ -275,14 +271,14 @@ class MagicSpectrum2D(MagicSetup):
 
         file = npfile(filename, endian='B')
 
-        out = file.fort_read('Float64,3i4')[0]
+        out = file.fort_read('%s,3i4' % precision)[0]
         self.time = out[0]
         self.n_r_max, self.l_max, self.minc = out[1]
-        self.rad = file.fort_read('Float64', shape=(self.n_r_max))
-        self.e_pol_l = file.fort_read('Float64', shape=(self.l_max, self.n_r_max))
-        self.e_pol_m = file.fort_read('Float64', shape=(self.l_max+1, self.n_r_max))
-        self.e_tor_l = file.fort_read('Float64', shape=(self.l_max, self.n_r_max))
-        self.e_tor_m = file.fort_read('Float64', shape=(self.l_max+1, self.n_r_max))
+        self.rad = file.fort_read(precision, shape=(self.n_r_max))
+        self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
+        self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
+        self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
+        self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
 
         self.ell = N.arange(self.l_max+1)
         file.close()

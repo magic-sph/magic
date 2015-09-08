@@ -120,7 +120,7 @@ class ExtraPot:
             self.rout = self.rout[1:]
             self.nrout = self.nrout -1
 
-        self.brout = N.zeros((self.np, self.nt, self.nrout), 'f')
+        self.brout = N.zeros((self.np, self.nt, self.nrout), dtype=self.brcmb.dtype)
         self.btout = N.zeros_like(self.brout)
         self.bpout = N.zeros_like(self.brout)
 
@@ -201,8 +201,8 @@ class ExtraPot:
         bx, by, bz, br_cart, bp_cart, new_r, gridMax, spacing = \
           sph2cart(self.brout, self.btout, self.bpout, self.rout, nx, ny, nz)
         field = N.vstack((bx, by, bz))
-        scals = N.zeros((nscals, by.shape[0]), 'f')
-        vecs = N.zeros((nvecs, 3, by.shape[0]), 'f')
+        scals = N.zeros((nscals, by.shape[0]), dtype=self.brcmb.dtype)
+        vecs = N.zeros((nvecs, 3, by.shape[0]), dtype=self.brcmb.dtype)
         scals[0, :] = new_r
         scals[1, :] = br_cart
         scals[2, :] = bx**2+by**2+bz**2
@@ -337,8 +337,8 @@ class TotalField:
                              nx, ny, nz, self.hydro)
         if not self.hydro:
             field = N.vstack((bx, by, bz))
-            scals = N.zeros((nscals, by.shape[0]), 'f')
-            vecs = N.zeros((nvecs, 3, by.shape[0]), 'f')
+            scals = N.zeros((nscals, by.shape[0]), dtype=self.brcmb.dtype)
+            vecs = N.zeros((nvecs, 3, by.shape[0]), dtype=self.brcmb.dtype)
             scals[0, :] = new_r
             scals[1, :] = br_cart
             scals[2, :] = bx**2+by**2+bz**2
@@ -346,8 +346,8 @@ class TotalField:
 
         else:
             field = N.vstack((bx, by, bz))
-            scals = N.zeros((nscals, by.shape[0]), 'f')
-            vecs = N.zeros((1, 3, by.shape[0]), 'f')
+            scals = N.zeros((nscals, by.shape[0]), dtype=self.brcmb.dtype)
+            vecs = N.zeros((1, 3, by.shape[0]), dtype=self.brcmb.dtype)
             scals[0, :] = new_r
             scals[1, :] = br_cart
             scals[2, :] = bp_cart

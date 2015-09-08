@@ -15,9 +15,24 @@ __version__ = "$Revision$"
 
 class Surf:
 
-    def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None):
+    def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None,
+                 precision='Float32'):
+        """
+        Read the graphic file, and possibly calculate vorticity if requested
+
+        :param ivar: number of the graphic file
+        :param ave: ave=True for a time-averaged graphic file
+        :param tag: TAG extension of the graphic file
+        :param vort: a boolean to specify whether, one wants to compute the 3-D
+                     vorticiy components (take care of the memory imprint)
+        :param datadir: the working directory
+        :param precision: the storage precision of the graphic file (single or
+                          double precision)
+        """
+        self.precision = precision
         self.datadir = datadir
-        self.gr = MagicGraph(ivar=ivar, datadir=self.datadir, ave=ave, tag=tag)
+        self.gr = MagicGraph(ivar=ivar, datadir=self.datadir, ave=ave, tag=tag,
+                             precision=self.precision)
 
         if vort:
             thlin = self.gr.colatitude
@@ -67,7 +82,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -79,7 +95,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -579,7 +596,7 @@ class Surf:
         :param polLevels: number of levels to display poloidal field lines
         """
         if pol:
-            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = N.zeros_like(rr2D)
             data = N.zeros_like(rr2D)
             brm = self.gr.Br.mean(axis=0)
@@ -600,7 +617,7 @@ class Surf:
             poloLines = 0.5*data/N.cos(th2D)
 
         if mer:
-            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = N.zeros_like(rr2D)
             data = N.zeros_like(rr2D)
             if hasattr(self.gr, 'strat'):
@@ -630,7 +647,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), 
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -639,7 +657,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), 
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -649,7 +668,7 @@ class Surf:
                 label = r'$\Omega$'
             else:
                 label = 'omega'
-            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             rr2D = N.zeros_like(th2D)
             for i in range(self.gr.ntheta):
                 th2D[i, :] = self.gr.colatitude[i]
@@ -661,7 +680,7 @@ class Surf:
                 label = r'$j_\phi$'
             else:
                 label = 'jphi'
-            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             rr2D = N.zeros_like(th2D)
             for i in range(self.gr.ntheta):
                 th2D[i, :] = self.gr.colatitude[i]
@@ -713,7 +732,7 @@ class Surf:
                 label = r'$\Omega$-effect'
             else:
                 label = r'omega-effect'
-            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = N.zeros_like(rr2D)
             for i in range(self.gr.ntheta):
                 th2D[i, :] = self.gr.colatitude[i]
@@ -798,7 +817,8 @@ class Surf:
                 label = 'Hz'
             vr = self.gr.vr
             vt = self.gr.vtheta
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = self.gr.colatitude[i]
             vz = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -844,7 +864,7 @@ class Surf:
             self.hel = data.mean(axis=0)
         elif field in ('poloidal'):
             label = 'poloidal field lines'
-            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = N.zeros_like(rr2D)
             data = N.zeros_like(rr2D)
             brm = self.gr.Br.mean(axis=0)
@@ -865,7 +885,7 @@ class Surf:
             data = 0.5*data/N.cos(th2D)
         elif field in ('meridional'):
             label = "meridional circulation"
-            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = N.zeros_like(rr2D)
             data = N.zeros_like(rr2D)
             temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
@@ -905,7 +925,7 @@ class Surf:
             data = beta * N.ones_like(self.gr.vr)#* self.gr.vr
         elif field in ('angular'):
             label = 'Angular momentum'
-            th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+            th2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             rr2D = N.zeros_like(th2D)
             rho2D = N.zeros_like(th2D)
             if hasattr(self.gr, 'strat'):
@@ -933,7 +953,8 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vs = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -962,7 +983,8 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vs = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -978,7 +1000,8 @@ class Surf:
             vp = self.gr.vphi.copy()
             vp = self.gr.vphi- self.gr.vphi.mean(axis=0) # convective vp
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             vz = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -996,7 +1019,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = (vr * N.cos(th3D) - vt * N.sin(th3D))
@@ -1029,13 +1053,13 @@ class Surf:
             #mask = N.where(denom == 0, 1, 0)
             phiavg = data.mean(axis=0)
 
-            TC = N.array([], dtype='f')
-            outTC = N.array([], dtype='f')
-            inTC = N.array([], dtype='f')
-            denomTC = N.array([], dtype='f')
-            denomoutTC = N.array([], dtype='f')
-            denominTC = N.array([], dtype='f')
-            integ = N.array([], dtype='f')
+            TC = N.array([], dtype=self.precision)
+            outTC = N.array([], dtype=self.precision)
+            inTC = N.array([], dtype=self.precision)
+            denomTC = N.array([], dtype=self.precision)
+            denomoutTC = N.array([], dtype=self.precision)
+            denominTC = N.array([], dtype=self.precision)
+            integ = N.array([], dtype=self.precision)
             for k, th in enumerate(self.gr.colatitude):
                 rr = self.gr.radius[::-1]
                 dat = phiavg[k, ::-1] * rr
@@ -1186,7 +1210,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -1198,7 +1223,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -1219,7 +1245,8 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = N.linspace(0., N.pi, self.gr.ntheta)
-            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), dtype='f')
+            th3D = N.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
+                           dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
             data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -1429,7 +1456,7 @@ class Surf:
                 phislice1 = data1[indPlot, ...]
                 phislice = phislice + phislice1
             elif field == 'vs':
-                th2D = N.zeros((self.gr.ntheta, self.gr.nr), 'f')
+                th2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
                 rr2D = N.zeros_like(th2D)
                 for i in range(self.gr.ntheta):
                     th2D[i, :] = self.gr.colatitude[i]
@@ -1498,6 +1525,13 @@ class Surf:
 
 
 def report(nvar=1, levels=16, lclean=True):
+    """
+    This subroutine prepares a pdf document that gather some important diagnostics
+
+    :param lclean: clean or not the LaTeX files
+    :param levels: number of contour levels
+    :param nvar: number of graphic files
+    """
     file = open('report.tex', 'w')
     file.write("\documentclass[a4paper,10pt]{article}\n")
     file.write("\\usepackage[utf8]{inputenc}\n")

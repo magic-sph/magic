@@ -11,8 +11,7 @@ __version__ = "$Revision$"
 
 def selectField(obj, field, labTex=True):
     """
-    A subroutine to select which field you want to display.
-    Usual fields only.
+    This function selects for you which field you want to display.
     """
     if field in ('Bp', 'bp', 'bphi', 'Bphi'):
         data = obj.Bphi
@@ -154,7 +153,7 @@ def selectField(obj, field, labTex=True):
 
 def avgField(time, field, tstart):
     """
-    subroutine to compute the time-averaged of a time series
+    This subroutine computes the time-average of a time series
 
     :param time: time
     :param field: the time series of a given field
@@ -168,7 +167,7 @@ def avgField(time, field, tstart):
 
 def writeVpEq(par, tstart):
     """
-    subroutine to compute the time-averaged surface zonal flow (and Rolc)
+    This function computes the time-averaged surface zonal flow (and Rolc)
 
     :param par: a MagicTs object containing the par file
     :param tstart: the starting time of the averaging
@@ -199,8 +198,15 @@ def progressbar(it, prefix = "", size = 60):
 
 def scanDir(pattern, tfix=None):
     """
-    in a directory, order the files corresponding to a given
-    pattern by date
+    This function sorts the files which match a given input pattern from the oldest
+    to the most recent one (in the current working directory)
+
+    >>> dat = scanDir('log.*')
+    >>> print(log)
+
+    :param pattern: a classical regexp pattern
+    :param tfix: in case you want to add only the files that are more recent than
+                 a certain date, use tfix
     """
     dat = [(os.stat(i).st_mtime, i) for i in glob.glob(pattern)]
     dat.sort()
@@ -243,20 +249,32 @@ def cut(dat, vmax=None, vmin=None):
 
 def symmetrize(data, ms):
     """
-    Do the symmetries in the array
+    Symmetrise an array which is defined only on minc=ms
+
+    :param data: the input array
+    :param ms: the initial symmetry
     """
     np = data.shape[0]*ms +1
     size = [np]
     size.append(data.shape[1])
     if len(data.shape) == 3:
         size.append(data.shape[2])
-    out = N.zeros(size, 'f')
+    out = N.zeros(size, dtype=data.dtype)
     for i in range(ms):
         out[i*data.shape[0]:(i+1)*data.shape[0], ...] = data
     out[-1, ...] = out[0, ...]
     return out
 
-def fast_read(file, skiplines=0, binary=False):
+def fast_read(file, skiplines=0, binary=False, precision='Float64'):
+    """
+    This function reads an input ascii table 
+    (can read both formatted or unformatted fortran)
+
+    :param file: name of the input file
+    :param skiplines: number of header lines to be skept
+    :param binary: is it a formatted or unformatted file?
+    :param precision: single ('Float32') or double precision ('Float64')
+    """
     if not binary:
         f = open(file, 'r')
         X = []
@@ -264,17 +282,17 @@ def fast_read(file, skiplines=0, binary=False):
             st = line.replace('D', 'E')
             if k >= skiplines:
                 X.append(st.split())
-        X = N.array(X, dtype='Float64')
+        X = N.array(X, dtype=precision)
         f.close()
     else:
         f = npfile(file, endian='B')
         X = []
         while 1:
             try:
-                X.append(f.fort_read('Float64'))
+                X.append(f.fort_read(precision))
             except TypeError:
                 break
-        X = N.array(X, dtype='Float64')
+        X = N.array(X, dtype=precision)
         f.close()
     return X
 
@@ -284,6 +302,18 @@ def varmax(tag):
 
 
 def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
+    """
+    This functions calculates the reference temperature and density profiles
+    of an anelastic model.
+
+    :param radius: the radial gridpoints
+    :param polind: the polytropic index
+    :param strat: the number of the density scale heights between the inner
+                  and the outer boundary
+    :param g0: gravity profile: g=g0
+    :param g1: gravity profile: g=g1*r/r_o
+    :param g2: gravity profile: g=g2*(r_o/r)**2
+    """
     if radius[-1] < radius[0]:
         ro = radius[0]
         radratio = radius[-1]/radius[0]
@@ -301,7 +331,11 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
 
 def chebgrid(nr, a, b):
     """
-    Definition of the Chebyshev grid
+    This function defines a Gauss-Lobatto grid from a to b.
+
+    :param nr: number of radial grid points
+    :param a: lower limit of the Gauss-Lobatto grid
+    :param b: upper limit of the Gauss-Lobatto grid
     """
     rst = (a+b)/(b-a)
     rr = 0.5*(rst+N.cos(N.pi*(1.-N.arange(nr+1.)/nr)))*(b-a)
@@ -309,9 +343,15 @@ def chebgrid(nr, a, b):
 
 def matder(nr, z1, z2):
     """ 
-    Derivative in Cheb space.
-    """
+    This function calculates the derivative in Chebyshev space.
 
+    >>> r_icb = 0.5 ; r_cmb = 1.5
+    >>> d1 = matder(65, r_icb, r_cmb)
+
+    :param nr: number of radial grid points
+    :param z1: lower limit of the Gauss-Lobatto grid
+    :param z2: upper limit of the Gauss-Lobatto grid
+    """
     nrp = nr+1
     w1 = N.zeros((nrp, nrp), dtype='Float64')
     zl = z2-z1
@@ -324,7 +364,12 @@ def matder(nr, z1, z2):
 
 def intcheb(f, nr, z1, z2):
     """ 
-    Integration of f defined on the Gauss-Lobatto grid.
+    This function integrates an input function f defined on the Gauss-Lobatto grid.
+
+    :param f: an input array
+    :param nr: number of radial grid points
+    :param z1: lower limit of the Gauss-Lobatto grid
+    :param z2: upper limit of the Gauss-Lobatto grid
     """
     func = lambda i, j: 2.*N.cos(N.pi*i*j/nr)/nr
     w1 = N.fromfunction(func, (nr+1, nr+1))
@@ -400,9 +445,13 @@ def den(k, j, nr):
     return den
 
 
-
-
 def phideravg(data, minc=1):
+    """
+    phi-derivative of an array
+
+    :param data: input array
+    :param minc: azimuthal symmetry
+    """
     nphi = data.shape[0]
     dphi = 2.*N.pi/minc/(nphi-1.)
     der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
@@ -463,7 +512,8 @@ def thetaderavg(data, order=4):
             der[0, :] = (data[1, :]-data[0, :])/dtheta
             der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
         elif order == 4:
-            der = (-N.roll(data,-2,axis=0)+8.*N.roll(data,-1,axis=0)-8.*N.roll(data,1,axis=0)+N.roll(data,2,axis=0))/(12.*dtheta)
+            der = (-N.roll(data,-2,axis=0)+8.*N.roll(data,-1,axis=0)-\
+                  8.*N.roll(data,1,axis=0)+N.roll(data,2,axis=0))/(12.*dtheta)
             der[1, :] = (data[2, :]-data[0, :])/(2.*dtheta)
             der[-2, :] = (data[-1, :]-data[-3, :])/(2.*dtheta)
             der[0, :] = (data[1, :]-data[0, :])/dtheta
@@ -544,6 +594,8 @@ def cylZder(z, data):
 def getCpuTime(file):
     """
     This function calculates the CPU time from one given log file
+
+    :param file: the log file you want to analyze
     """
     threads = re.compile(r'[\s]*\![\s]*nThreads\:[\s]*(.*)')
     ranks = re.compile(r'[\s]*\![\s\w]*ranks[\s\w]*\:[\s]*(.*)')

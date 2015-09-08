@@ -14,9 +14,11 @@ if buildSo:
     try:
         import sys
         if sys.version_info.major == 3:
-            import greader3 as G
+            import greader_single3 as Gsngl
+            import greader_double3 as Gdble
         elif sys.version_info.major == 2:
-            import greader2 as G
+            import greader_single2 as Gsngl
+            import greader_double2 as Gdble
         os.environ['F_UFMTENDIAN'] = 'big'
         os.system('export GFORTRAN_CONVERT_UNIT=big_endian')
         lect = 'f2py'
@@ -31,14 +33,24 @@ else:
 class MagicGraph(MagicSetup):
 
     def __init__(self, ivar=None, datadir='.', format='B', quiet=True, 
-                 ave=False, tag=None):
+                 ave=False, tag=None, precision='Float32'):
         """
         :param format: format of bynary output: 'n' (native), 'B' (big endian)
                        or 'l' (little endian)
         :param ave: in case of the average G file G_ave.tag
         :param ivar: the number of the G file
+        :param tag: extension TAG of the G file
+        :param quiet: verbose or not verbose
+        :param format: big or little endian
+        :param datadir: directory of the G file (default is . )
+        :param precision: single or double precision
         """
-        self.precision = 'f'
+        self.precision = precision
+
+        if self.precision == 'Float32':
+            G = Gsngl.greader_single
+        elif self.precision == 'Float64':
+            G = Gdble.greader_double
 
         if ave:
             self.name = 'G_ave'
@@ -79,31 +91,31 @@ class MagicGraph(MagicSetup):
             return
 
         if lect != 'python':
-            G.greader.readg(filename)
-            self.nr = G.greader.nr
-            self.ntheta = G.greader.nt
-            self.npI = G.greader.np
-            self.minc = int(G.greader.minc)
-            self.time = G.greader.time
-            self.ra = G.greader.ra
-            self.ek = G.greader.ek
-            self.pr = G.greader.pr
-            self.prmag = G.greader.prmag
-            self.radratio = G.greader.radratio
-            self.sigma = G.greader.sigma
+            G.readg(filename)
+            self.nr = G.nr
+            self.ntheta = G.nt
+            self.npI = G.np
+            self.minc = int(G.minc)
+            self.time = G.time
+            self.ra = G.ra
+            self.ek = G.ek
+            self.pr = G.pr
+            self.prmag = G.prmag
+            self.radratio = G.radratio
+            self.sigma = G.sigma
             if self.npI == self.ntheta*2:
                 self.npI = self.npI/self.minc
             self.nphi = self.npI*self.minc +1
-            self.radius = G.greader.radius
-            self.colatitude = G.greader.colat
-            self.entropy = G.greader.entropy
-            self.vr = G.greader.vr
-            self.vtheta = G.greader.vt
-            self.vphi = G.greader.vp
+            self.radius = G.radius
+            self.colatitude = G.colat
+            self.entropy = G.entropy
+            self.vr = G.vr
+            self.vtheta = G.vt
+            self.vphi = G.vp
             if self.prmag != 0:
-                self.Br = G.greader.br
-                self.Btheta = G.greader.bt
-                self.Bphi = G.greader.bp
+                self.Br = G.br
+                self.Btheta = G.bt
+                self.Bphi = G.bp
         else:
             #read data
             inline = npfile(filename, endian=format)
@@ -130,7 +142,7 @@ class MagicGraph(MagicSetup):
                 print('nr = %i, nth = %i, nphi = %i' % (self.nr, self.ntheta, 
                               self.npI))
 
-            self.colatitude = inline.fort_read('f')
+            self.colatitude = inline.fort_read(self.precision)
             self.radius = N.zeros((self.nr), self.precision)
 
             entropy = N.zeros((self.npI, self.ntheta, self.nr), self.precision)
@@ -169,7 +181,7 @@ class MagicGraph(MagicSetup):
                         Bphi[:,ilat1:ilat2+1,ir] = data.T
                     else:
                         # vectorize
-                        #data = inline.fort_read('f',shape=(4*(nth_loc*self.npI+2)-2)) 
+                        #data = inline.fort_read(self.precision,shape=(4*(nth_loc*self.npI+2)-2)) 
                         #entropy[:, ilat1:ilat2+1,ir] = data[:nth_loc*self.npI].reshape(nth_loc,self.npI).T
                         #vr[:, ilat1:ilat2+1,ir] = data[nth_loc*self.npI+2:2*nth_loc*self.npI+2].T.reshape(nth_loc,self.npI).T
                         #vtheta[:, ilat1:ilat2+1,ir] = data[2*nth_loc*self.npI+4:3*nth_loc*self.npI+4].reshape(nth_loc,self.npI).T

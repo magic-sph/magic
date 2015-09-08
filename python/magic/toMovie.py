@@ -23,6 +23,8 @@ class TOMovie:
         :param iplot: a boolean to specify if one wants to plot or not the
                       results
         :param avg: time average of the different forces
+        :param precision: precision of the input file, Float32 for single precision,
+                          Float64 for double precision
         """
                  
         if file == None:
@@ -57,8 +59,8 @@ class TOMovie:
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
-        n_type, n_surface, const, n_fields = infile.fort_read('f')
-        movtype = infile.fort_read('f')
+        n_type, n_surface, const, n_fields = infile.fort_read(precision)
+        movtype = infile.fort_read(precision)
         n_fields = int(n_fields)
         self.movtype = N.asarray(movtype)
         n_surface = int(n_surface)
@@ -67,23 +69,23 @@ class TOMovie:
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
              self.ek, self.pr, self.prmag, \
-             self.radratio, self.tScale = infile.fort_read('f')
+             self.radratio, self.tScale = infile.fort_read(precision)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
         self.n_phi_tot = int(n_phi_tot)
 
         # GRID
-        self.radius = infile.fort_read('f')
+        self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max] # remove inner core
-        self.theta = infile.fort_read('f')
-        self.phi = infile.fort_read('f')
+        self.theta = infile.fort_read(precision)
+        self.phi = infile.fort_read(precision)
 
         surftype = 'phi_constant'
         shape = (self.n_r_max, self.n_theta_max)
 
-        self.time = N.zeros(self.nvar, 'f')
-        self.asVphi = N.zeros((self.nvar, self.n_theta_max,self.n_r_max), 'f')
+        self.time = N.zeros(self.nvar, precision)
+        self.asVphi = N.zeros((self.nvar, self.n_theta_max,self.n_r_max), precision)
         self.rey = N.zeros_like(self.asVphi)
         self.adv = N.zeros_like(self.asVphi)
         self.visc = N.zeros_like(self.asVphi)
@@ -96,15 +98,15 @@ class TOMovie:
             print(k)
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
-                           movieDipStrengthGeo = infile.fort_read('f')
+                           movieDipStrengthGeo = infile.fort_read(precision)
             self.time[k] = t_movieS
-            self.asVphi[k, ...] = infile.fort_read('f', shape=shape).T
-            self.rey[k, ...] = infile.fort_read('f', shape=shape).T
-            self.adv[k, ...] = infile.fort_read('f', shape=shape).T
-            self.visc[k, ...] = infile.fort_read('f', shape=shape).T
-            self.lorentz[k, ...] = infile.fort_read('f', shape=shape).T
-            self.coriolis[k, ...] = infile.fort_read('f', shape=shape).T
-            self.dtVp[k, ...] = infile.fort_read('f', shape=shape).T
+            self.asVphi[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.rey[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.adv[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.visc[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.lorentz[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.coriolis[k, ...] = infile.fort_read(precision, shape=shape).T
+            self.dtVp[k, ...] = infile.fort_read(precision, shape=shape).T
 
         if iplot:
             cmap = P.get_cmap(cm)

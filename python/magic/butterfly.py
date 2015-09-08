@@ -19,7 +19,8 @@ __version__ = "$Revision$"
 class Butterfly:
 
     def __init__(self, file=None, avg=False, step=1, iplot=True, rad=0.8,
-                 lastvar=None, nvar='all', levels=20, cm='RdYlBu_r'):
+                 lastvar=None, nvar='all', levels=20, cm='RdYlBu_r',
+                 precision='Float32'):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
@@ -28,7 +29,12 @@ class Butterfly:
         :param levels: the number of contour levels
         :param cm: the name of the color map
         :param png: if png=True, write the png outputs
+        :param precision: precision of the input file, Float32 for single precision,
+                          Float64 for double precision
         """
+
+        self.precision = precision
+
         if file == None:
             dat = glob.glob('*_mov.*')
             str1 = 'Which movie do you want ?\n'
@@ -67,27 +73,27 @@ class Butterfly:
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
-        n_type, n_surface, const, n_fields = infile.fort_read('f')
-        movtype = infile.fort_read('f')
+        n_type, n_surface, const, n_fields = infile.fort_read(self.precision)
+        movtype = infile.fort_read(self.precision)
         self.movtype = int(movtype)
         n_surface = int(n_surface)
 
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, minc, self.ra, \
-             self.ek, self.pr, self.prmag, self.radratio, tScale = infile.fort_read('f')
+             self.ek, self.pr, self.prmag, self.radratio, tScale = infile.fort_read(self.precision)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
         self.n_phi_tot = int(n_phi_tot)
 
         # GRID
         self.rad = rad
-        self.radius = infile.fort_read('f')
+        self.radius = infile.fort_read(self.precision)
         ind = N.nonzero(N.where(abs(self.radius-self.rad) \
                         == min(abs(self.radius-self.rad)), 1, 0))
         self.indPlot = ind[0][0]
-        self.theta = infile.fort_read('f')
-        self.phi = infile.fort_read('f')
+        self.theta = infile.fort_read(self.precision)
+        self.phi = infile.fort_read(self.precision)
 
         if n_surface == 0:
             self.surftype = '3d volume'
@@ -95,7 +101,7 @@ class Butterfly:
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
-            self.data = N.zeros((self.n_theta_max, self.nvar), 'f')
+            self.data = N.zeros((self.n_theta_max, self.nvar), self.precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             shape = (self.n_r_max, self.n_phi_tot)
@@ -106,33 +112,33 @@ class Butterfly:
                 shape = (int(n_r_mov_tot)+2, self.n_theta_max)
             else:
                 shape = (self.n_r_max, self.n_theta_max)
-            self.data = N.zeros((self.n_theta_max, self.nvar), 'f')
+            self.data = N.zeros((self.n_theta_max, self.nvar), self.precision)
 
         self.cmap = P.get_cmap(cm)
-        self.time = N.zeros(self.nvar, 'f')
+        self.time = N.zeros(self.nvar, self.precision)
 
         for i in range(self.var2-self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                  movieDipLon, movieDipStrength, \
-                 movieDipStrengthGeo = infile.fort_read('f')
-            data = infile.fort_read('f', shape=shape)
+                 movieDipStrengthGeo = infile.fort_read(self.precision)
+            data = infile.fort_read(self.precision, shape=shape)
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                  movieDipLon, movieDipStrength, \
-                 movieDipStrengthGeo = infile.fort_read('f')
+                 movieDipStrengthGeo = infile.fort_read(self.precision)
             if k % step == 0:
                 self.time[k] = t_movieS
                 #print(k+self.var2-self.nvar)
                 if self.surftype == 'r_constant':
-                    data = infile.fort_read('f', shape=shape)
+                    data = infile.fort_read(self.precision, shape=shape)
                     #self.data[:, k] = data.mean(axis=1)
                     self.data[:, k] = data[:, self.n_phi_tot/2.]
                 elif self.surftype == 'phi_constant':
-                    data = infile.fort_read('f', shape=shape)
+                    data = infile.fort_read(self.precision, shape=shape)
                     self.data[:, k] = data[self.indPlot, :]
 
             else: # Nevertheless read
-                data = infile.fort_read('f', shape=shape)
+                data = infile.fort_read(self.precision, shape=shape)
 
 
         if step != 1:
@@ -166,7 +172,7 @@ class Butterfly:
             if renorm:
                 nx = mesh*len(self.time)
                 x = N.linspace(self.time.min(), self.time.max(), nx)
-                data = N.zeros((len(self.theta), nx), 'f')
+                data = N.zeros((len(self.theta), nx), self.precision)
                 for i in range(self.data.shape[0]):
                     tckp = S.splrep(self.time, self.data[i, :])
                     data[i, :] = S.splev(x, tckp)
@@ -202,7 +208,7 @@ class Butterfly:
         if renorm:
             nx = 3*len(self.time)
             x = N.linspace(self.time.min(), self.time.max(), nx)
-            data = N.zeros((len(self.theta), nx), 'f')
+            data = N.zeros((len(self.theta), nx), self.precision)
             for i in range(self.data.shape[0]):
                 tckp = S.splrep(self.time, self.data[i, :])
                 data[i, :] = S.splev(x, tckp)

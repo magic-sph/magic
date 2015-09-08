@@ -86,7 +86,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     if len(input[0].shape) == 3:
         nphi = input[0].shape[0]
         phi = N.linspace(0., 2.*N.pi/minc, nphi)
-        output = N.zeros((nphi, ns-2), 'f')
+        output = N.zeros((nphi, ns-2), dtype=input.dtype)
         for iphi in range(nphi):
             print(iphi)
             Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
@@ -108,7 +108,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
         S = S[:, 1:-1]
         Z = Z[:, 1:-1]
         output = []
-        outIntZ = N.zeros((ns-2), 'f')
+        outIntZ = N.zeros((ns-2), dtype=input.dtype)
         for k,out in enumerate(out2D):
             outIntZ = N.trapz(out[:, 1:-1], z, axis=0)
             if normed:
@@ -148,7 +148,7 @@ def sph2cyl(g, ns=None, nz=None):
 
     coords = N.array([new_it, new_ir])
 
-    vr_cyl = N.zeros((g.npI, nz, ns), dtype='f')
+    vr_cyl = N.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
     vp_cyl = N.zeros_like(vr_cyl)
     vt_cyl = N.zeros_like(vr_cyl)
     for k in range(g.npI):
@@ -166,7 +166,7 @@ def sph2cyl(g, ns=None, nz=None):
         dat[new_r < radius.min()] = 0.
         vr_cyl[k, ...] = dat.reshape((nz, ns))
 
-    th3D = N.zeros((g.npI, nz, ns), dtype='f')
+    th3D = N.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
     for i in range(g.npI):
         th3D[i, ...] = N.arctan2(S, Z)
     vs = vr_cyl * N.sin(th3D) + vt_cyl * N.cos(th3D)
@@ -216,7 +216,7 @@ class Cyl(MagicSetup):
         self.radius = N.linspace(0., self.ro, self.ns)
         temp0, rho0, beta0 = anelprof(N.linspace(self.ro, self.ri, self.ns), 
                                      self.strat, self.polind)
-        rho = N.zeros((self.nphi/2, self.ns), dtype='f')
+        rho = N.zeros((self.nphi/2, self.ns), dtype=self.vr.dtype)
         beta = N.zeros_like(rho)
         for i in range(self.nphi/2):
             rho[i, :] = rho0
@@ -512,7 +512,7 @@ class Cyl(MagicSetup):
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.rho * self.vs * vp
-            denom = N.zeros((self.npI, self.ns), dtype='f')
+            denom = N.zeros((self.npI, self.ns), dtype=vp.dtype)
             if labTex:
                 label = r'$\langle \rho v_s v_\phi\rangle$'
             else:
@@ -538,7 +538,7 @@ class Cyl(MagicSetup):
             vr = self.vs * N.sin(th2D) + self.vz * N.cos(th2D)
             phi = N.linspace(0., 2.*N.pi, self.npI)
             data =  self.vs * vr
-            denom = N.zeros((self.npI, self.ns), dtype='f')
+            denom = N.zeros((self.npI, self.ns), dtype=vr.dtype)
             if labTex:
                 label = r'$\rho v_s v_r$'
             else:
@@ -568,7 +568,7 @@ class Cyl(MagicSetup):
             data2 = data2/(self.S+mask)
             data *= data2
 
-        equator = N.zeros((self.npI, self.ns), dtype='f')
+        equator = N.zeros((self.npI, self.ns), dtype=self.vs.dtype)
         for i, rad in enumerate(self.radius):
             if rad <= self.ri:
                 zo = N.sqrt(self.ro**2-rad**2) 

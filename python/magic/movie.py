@@ -19,7 +19,7 @@ class Movie:
     def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False, 
-                 std=False, dpi=80, normRad=False):
+                 std=False, dpi=80, normRad=False, precision='Float32'):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
@@ -37,6 +37,8 @@ class Movie:
         :param avg: if std=True, standard deviation is displayed
         :param dpi: dot per inch when saving PNGs
         :param normRad: if normRad=True, then we normalise for each radial level
+        :param precision: precision of the input file, Float32 for single precision,
+                          Float64 for double precision
         """
 
         if avg or std:
@@ -82,8 +84,8 @@ class Movie:
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
-        n_type, n_surface, const, n_fields = infile.fort_read('f')
-        movtype = infile.fort_read('f')
+        n_type, n_surface, const, n_fields = infile.fort_read(precision)
+        movtype = infile.fort_read(precision)
         n_fields = int(n_fields)
         if n_fields > 1:
             print('!!! Warning: several fields in the movie file !!!')
@@ -95,7 +97,7 @@ class Movie:
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
-             self.ek, self.pr, self.prmag, self.radratio, self.tScale = infile.fort_read('f')
+             self.ek, self.pr, self.prmag, self.radratio, self.tScale = infile.fort_read(precision)
         self.minc = int(self.minc)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
@@ -103,10 +105,10 @@ class Movie:
         self.n_phi_tot = int(n_phi_tot)
 
         # GRID
-        self.radius = infile.fort_read('f')
+        self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max] # remove inner core
-        self.theta = infile.fort_read('f')
-        self.phi = infile.fort_read('f')
+        self.theta = infile.fort_read(precision)
+        self.phi = infile.fort_read(precision)
 
         if n_surface == 0:
             self.surftype = '3d volume'
@@ -114,14 +116,14 @@ class Movie:
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
-            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), 'f')
+            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             if self.movtype in [1, 2, 3]: # read inner core
                 shape = (n_r_mov_tot+2, self.n_phi_tot)
             else:
                 shape = (self.n_r_max, self.n_phi_tot)
-            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_r_max), 'f')
+            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_r_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3]: # read inner core
@@ -133,9 +135,9 @@ class Movie:
             elif self.movtype in [10, 11, 12, 19, 92]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
-            self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), 'f')
+            self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), precision)
 
-        self.time = N.zeros(self.nvar, 'f')
+        self.time = N.zeros(self.nvar, precision)
 
         # READ the data
 
@@ -143,17 +145,17 @@ class Movie:
         for i in range(self.var2-self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
-                            movieDipStrengthGeo = infile.fort_read('f')
+                            movieDipStrengthGeo = infile.fort_read(precision)
             for ll in range(n_fields):
-                dat = infile.fort_read('f', shape=shape)
+                dat = infile.fort_read(precision, shape=shape)
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
-                            movieDipStrengthGeo = infile.fort_read('f')
+                            movieDipStrengthGeo = infile.fort_read(precision)
             self.time[k] = t_movieS
             for ll in range(n_fields):
-                dat = infile.fort_read('f', shape=shape)
+                dat = infile.fort_read(precision, shape=shape)
                 if n_surface == 2:
                     if self.movtype in [1, 2, 3]:
                         dat = dat[:self.n_r_max, :].T

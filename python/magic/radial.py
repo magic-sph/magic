@@ -128,7 +128,7 @@ class MagicRadial(MagicSetup):
 
                 if hasattr(self, 'gradT2'):
                     self.gradT2 = self.gradT2/(gradT2finish-gradT2init)
-                    dat = N.zeros((data.shape[0], 6), 'f')
+                    dat = N.zeros((data.shape[0], 6), dtype=self.gradT2.dtype)
                     dat[:, 0:5] = data[:, 0:5]
                     dat[:, 5] = self.gradT2
                     data = dat

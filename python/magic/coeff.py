@@ -38,7 +38,8 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
 
 class BcoeffCmb(MagicSetup):
     
-    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True):
+    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
+                 precision='Float64'):
         """
         A class to read the B_coeff_cmb files
 
@@ -46,6 +47,7 @@ class BcoeffCmb(MagicSetup):
         :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
         :param scale_b: magnetic field unit (default is 1)
         :param iplot: a logical to toggle the plot (default is True)
+        :param precision: single or double precision
         """
 
         logFiles = scanDir('log.*')
@@ -70,23 +72,23 @@ class BcoeffCmb(MagicSetup):
 
             while 1:
                 try:
-                    data.append(f.fort_read('Float64'))
+                    data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        data = N.array(data, dtype='Float64')
+        data = N.array(data, dtype=precision)
 
         self.ell = N.arange(self.l_max_cmb+1)
         self.nstep = data.shape[0]
 
         # Get time
-        self.time = N.zeros(self.nstep, 'Float64')
+        self.time = N.zeros(self.nstep, precision)
         self.time = data[:, 0]
 
         # Rearange and get Gauss coefficients
-        self.alm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Float64')
-        self.blm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Float64')
-        self.glm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Float64')
-        self.hlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Float64')
+        self.alm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
+        self.blm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
+        self.glm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
+        self.hlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
 
         # Axisymmetric coefficients (m=0)
         self.alm[:, 1:, 0] = data[:, 1:self.l_max_cmb+1]
@@ -118,7 +120,7 @@ class BcoeffCmb(MagicSetup):
 
         # Magnetic energy (Lowes)
         self.El = (self.ell+1)*(self.glm**2+self.hlm**2).sum(axis=2)
-        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), 'Float64')
+        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), precision)
         # For m, we need to unfold the loop in case of minc != 1
         for m in range(0, self.m_max_cmb+1, self.minc):
             self.Em[:,m] = ((self.ell+1)*(self.glm[:, :, m]**2+self.hlm[:, :, m]**2)).sum(axis=1)
@@ -179,7 +181,7 @@ class BcoeffCmb(MagicSetup):
 class Bcoeff_r(MagicSetup):
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1):
+                 field='B', r=1, precision='Float64'):
         """
         A class to read the B_coeff_cmb files
 
@@ -189,6 +191,7 @@ class Bcoeff_r(MagicSetup):
         :param iplot: a logical to toggle the plot (default is True)
         :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
         :param r: an integer to characterise which file we want to plot
+        :param precision: single or double precision
         """
 
         logFiles = scanDir('log.*')
@@ -208,23 +211,23 @@ class Bcoeff_r(MagicSetup):
         for k, file in enumerate(files):
             print('Reading %s' % file)
             f = npfile(file, endian='B')
-            out = f.fort_read('3i4,Float64')[0]
+            out = f.fort_read('3i4,%s' % precision)[0]
             self.l_max_cmb, self.minc, n_data = out[0]
             self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
             self.radius = out[1]
 
             while 1:
                 try:
-                    data.append(f.fort_read('Float64'))
+                    data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        data = N.array(data, dtype='Float64')
+        data = N.array(data, dtype=precision)
 
         self.ell = N.arange(self.l_max_cmb+1)
         self.nstep = data.shape[0]
 
         # Get time
-        self.time = N.zeros(self.nstep, 'Float64')
+        self.time = N.zeros(self.nstep, dtype=precision)
         self.time = data[:, 0]
 
         # Rearange and get Gauss coefficients
@@ -300,7 +303,7 @@ class Bcoeff_r(MagicSetup):
 
         # Magnetic energy (Lowes)
         self.El = (self.ell+1)*(self.glm**2+self.hlm**2).sum(axis=2)
-        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), 'Float64')
+        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), dtype=precision)
         # For m, we need to unfold the loop in case of minc != 1
         for m in range(0, self.m_max_cmb+1, self.minc):
             self.Em[:,m] = ((self.ell+1)*(self.glm[:, :, m]**2+self.hlm[:, :, m]**2)).sum(axis=1)

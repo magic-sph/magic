@@ -24,12 +24,14 @@ class Movie3D:
     """
 
     def __init__(self, file=None, step=1, lastvar=None, nvar='all', nrout=48,
-                 ratio_out=2., extrapot=False):
+                 ratio_out=2., extrapot=False, precision='Float32'):
         """
         :param nvar: the number of lines of the movie file we want to plot
                      starting from the last line
         :param lastvar: the rank of the last line to be read
         :param step: the stepping between two lines             
+        :param precision: precision of the input file, Float32 for single precision,
+                          Float64 for double precision
         """
         if file == None:
             dat = glob.glob('*_mov.*')
@@ -69,19 +71,19 @@ class Movie3D:
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
-        n_type, n_surface, const, n_fields = infile.fort_read('f')
+        n_type, n_surface, const, n_fields = infile.fort_read(precision)
         n_fields = int(n_fields)
         n_surface = int(n_surface)
         if n_fields == 1:
-            movtype = infile.fort_read('f')
+            movtype = infile.fort_read(precision)
             self.movtype = int(movtype)
         else:
-            movtype = infile.fort_read('f')
+            movtype = infile.fort_read(precision)
 
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, minc, ra, \
-             ek, pr, prmag, radratio, tScale = infile.fort_read('f')
+             ek, pr, prmag, radratio, tScale = infile.fort_read(precision)
         minc = int(minc)
         self.n_r_max = int(n_r_max)
         self.n_theta_max = int(n_theta_max)
@@ -89,15 +91,15 @@ class Movie3D:
         n_r_mov_tot = int(n_r_mov_tot)
 
         # GRID
-        self.radius = infile.fort_read('f')
+        self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max] # remove inner core
         self.radius = self.radius[::-1]/(1.-radratio)
-        self.theta = infile.fort_read('f')
-        self.phi = infile.fort_read('f')
+        self.theta = infile.fort_read(precision)
+        self.phi = infile.fort_read(precision)
 
         shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
 
-        self.time = N.zeros(self.nvar, 'f')
+        self.time = N.zeros(self.nvar, precision)
 
         if not os.path.exists('vtsFiles'):
             startdir = os.getcwd()
@@ -106,20 +108,20 @@ class Movie3D:
         for i in range(self.var2-self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                  movieDipLon, movieDipStrength, \
-                 movieDipStrengthGeo = infile.fort_read('f')
-            vecr = infile.fort_read('f', shape=shape)
-            vect = infile.fort_read('f', shape=shape)
-            vecp = infile.fort_read('f', shape=shape)
+                 movieDipStrengthGeo = infile.fort_read(precision)
+            vecr = infile.fort_read(precision, shape=shape)
+            vect = infile.fort_read(precision, shape=shape)
+            vecp = infile.fort_read(precision, shape=shape)
         for k in range(self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                  movieDipLon, movieDipStrength, \
-                 movieDipStrengthGeo = infile.fort_read('f')
+                 movieDipStrengthGeo = infile.fort_read(precision)
             self.time[k] = t_movieS
             if k % step == 0:
                 #print(k+self.var2-self.nvar)
-                vecr = infile.fort_read('f', shape=shape)
-                vect = infile.fort_read('f', shape=shape)
-                vecp = infile.fort_read('f', shape=shape)
+                vecr = infile.fort_read(precision, shape=shape)
+                vect = infile.fort_read(precision, shape=shape)
+                vecp = infile.fort_read(precision, shape=shape)
                 filename = 'B3D_%05d' % k
                 vecr = vecr[:self.n_r_max, ...] # remove inner core 
                 vecr = vecr[::-1, ...]
@@ -148,9 +150,9 @@ class Movie3D:
                 vts(filename, radii, br, bt, bp)
                 print('write %s.vts' % filename)
             else: # Otherwise we read
-                vecr = infile.fort_read('f', shape=shape)
-                vect = infile.fort_read('f', shape=shape)
-                vecp = infile.fort_read('f', shape=shape)
+                vecr = infile.fort_read(precision, shape=shape)
+                vect = infile.fort_read(precision, shape=shape)
+                vecp = infile.fort_read(precision, shape=shape)
 
         os.chdir(startdir)
 

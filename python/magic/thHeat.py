@@ -97,7 +97,7 @@ class ThetaHeat(MagicSetup):
 
         self.ntheta, self.nr = self.tempmean.shape
         self.radius = chebgrid(self.nr-1, self.ro, self.ri)
-        th2D = N.zeros((self.ntheta, self.nr), 'f')
+        th2D = N.zeros((self.ntheta, self.nr), dtype=self.radius.dtype)
         #self.colat = N.linspace(0., N.pi, self.ntheta)
 
         for i in range(self.ntheta):

@@ -196,7 +196,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.nphi, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -205,7 +205,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.nphi, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -264,7 +264,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -273,7 +273,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -374,7 +374,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -383,7 +383,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.cos(th3D) - vt * N.sin(th3D)
@@ -394,7 +394,7 @@ class CompSims:
                     vp = gr.vphi.copy()
                     vp = gr.vphi- gr.vphi.mean(axis=0) # convective vp
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     vs = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -424,10 +424,10 @@ class CompSims:
                 facITC = 1./facITC
                 phiavg = data.mean(axis=0)
 
-                TC = N.array([], dtype='f')
-                outTC = N.array([], dtype='f')
-                inTC = N.array([], dtype='f')
-                integ = N.array([], dtype='f')
+                TC = N.array([], dtype=data.dtype)
+                outTC = N.array([], dtype=data.dtype)
+                inTC = N.array([], dtype=data.dtype)
+                integ = N.array([], dtype=data.dtype)
                 for k, th in enumerate(gr.colatitude):
                     rr = gr.radius[::-1]
                     dat = phiavg[k, ::-1] * rr
@@ -540,7 +540,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.sin(th3D) + vt * N.cos(th3D)
@@ -549,7 +549,7 @@ class CompSims:
                     vr = gr.vr
                     vt = gr.vtheta
                     thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype='f')
+                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
                     data = vr * N.cos(th3D) - vt * N.sin(th3D)
