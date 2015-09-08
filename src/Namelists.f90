@@ -429,7 +429,7 @@ contains
          write(*,*) '! l_imp must be >=0'
          stop
       end if
-      if ( imagcon /= 0 .and. tmagcon == 0 ) tmagcon=1.D18
+      if ( imagcon /= 0 .and. tmagcon == 0 ) tmagcon=1.0e18_cp
 
       if ( imagcon == -10 ) then
          !----- This is used to test variable conductivity
@@ -582,82 +582,94 @@ contains
 
       !-- Output of name lists:
 
+      write(n_out,*) " "
+      write(n_out,*) "&grid"
+      write(n_out,'(''  n_r_max         ='',i5,'','')') n_r_max
+      write(n_out,'(''  n_cheb_max      ='',i5,'','')') n_cheb_max
+      write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
+      write(n_out,'(''  n_r_ic_max      ='',i5,'','')') n_r_ic_max
+      write(n_out,'(''  n_cheb_ic_max   ='',i5,'','')') n_cheb_ic_max
+      write(n_out,'(''  minc            ='',i5,'','')') minc
+      write(n_out,'(''  nalias          ='',i5,'','')') nalias
+      write(n_out,*) "/"
+
       write(n_out,*) "&control"
-      write(n_out,'(''  mode        ='',i3,'','')') mode
+      write(n_out,'(''  mode            ='',i3,'','')') mode
       length=length_to_blank(tag)
-      write(n_out,*) " tag         = """,tag(1:length),""","
-      write(n_out,'(''  n_time_steps='',i8,'','')') n_time_steps
-      write(n_out,'(''  n_tScale    ='',i3,'','')') n_tScale
-      write(n_out,'(''  n_lScale    ='',i3,'','')') n_lScale
-      write(n_out,'(1p,''  alpha       ='',d14.6,'','')')   alpha
-      write(n_out,'(1p,''  enscale     ='',d14.6,'','')') enscale
-      write(n_out,'(''  l_update_v  ='',l3,'','')') l_update_v
-      write(n_out,'(''  l_update_b  ='',l3,'','')') l_update_b
-      write(n_out,'(''  l_update_s  ='',l3,'','')') l_update_s
-      write(n_out,'(''  l_newmap    ='',l3,'','')') l_newmap
-      write(n_out,'(1p,''  alph1       ='',d14.6,'','')') alpha1
-      write(n_out,'(1p,''  alph2       ='',d14.6,'','')') alpha2
-      write(n_out,'(1p,''  dtstart     ='',d14.6,'','')') dtstart*tScale
-      write(n_out,'(1p,''  dtMax       ='',d14.6,'','')') tScale*dtMax
-      write(n_out,'(1p,''  courfac     ='',d14.6,'','')') courfac
-      write(n_out,'(1p,''  alffac      ='',d14.6,'','')')  alffac
-      write(n_out,'(1p,''  intfac      ='',d14.6,'','')')  intfac
-      write(n_out,'(''  n_cour_step ='',i5,'','')') n_cour_step
-      write(n_out,'(1p,''  difnu       ='',d14.6,'','')') difnu
-      write(n_out,'(1p,''  difeta      ='',d14.6,'','')') difeta
-      write(n_out,'(1p,''  difkap      ='',d14.6,'','')') difkap
-      write(n_out,'(''  ldif           ='',i3,'','')') ldif
-      write(n_out,'(''  ldifexp        ='',i3,'','')') ldifexp
-      write(n_out,'(''  l_correct_AMe  ='',l3,'','')') l_correct_AMe
-      write(n_out,'(''  l_correct_AMz  ='',l3,'','')') l_correct_AMz
-      write(n_out,'(''  l_non_rot      ='',l3,'','')') l_non_rot
-      write(n_out,'('' l_runTimeLimit='',l3,'','')') l_runTimeLimit
-      write(n_out,'(''  runHours     ='',i6,'','')') runTimeLimit(1)
-      write(n_out,'(''  runMinutes   ='',i4,'','')') runTimeLimit(2)
-      write(n_out,'(''  runSeconds   ='',i4,'','')') runTimeLimit(3)
-      write(n_out,'(1p,''  tEND        ='',d14.6,'','')') tEND
+      write(n_out,*) " tag             = """,tag(1:length),""","
+      write(n_out,'(''  n_time_steps    ='',i8,'','')') n_time_steps
+      write(n_out,'(''  n_tScale        ='',i3,'','')') n_tScale
+      write(n_out,'(''  n_lScale        ='',i3,'','')') n_lScale
+      write(n_out,'(''  alpha           ='',ES14.6,'','')')   alpha
+      write(n_out,'(''  enscale         ='',ES14.6,'','')') enscale
+      write(n_out,'(''  l_update_v      ='',l3,'','')') l_update_v
+      write(n_out,'(''  l_update_b      ='',l3,'','')') l_update_b
+      write(n_out,'(''  l_update_s      ='',l3,'','')') l_update_s
+      write(n_out,'(''  l_newmap        ='',l3,'','')') l_newmap
+      write(n_out,'(''  alph1           ='',ES14.6,'','')') alpha1
+      write(n_out,'(''  alph2           ='',ES14.6,'','')') alpha2
+      write(n_out,'(''  dtstart         ='',ES14.6,'','')') dtstart*tScale
+      write(n_out,'(''  dtMax           ='',ES14.6,'','')') tScale*dtMax
+      write(n_out,'(''  courfac         ='',ES14.6,'','')') courfac
+      write(n_out,'(''  alffac          ='',ES14.6,'','')')  alffac
+      write(n_out,'(''  intfac          ='',ES14.6,'','')')  intfac
+      write(n_out,'(''  n_cour_step     ='',i5,'','')') n_cour_step
+      write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
+      write(n_out,'(''  difeta          ='',ES14.6,'','')') difeta
+      write(n_out,'(''  difkap          ='',ES14.6,'','')') difkap
+      write(n_out,'(''  ldif            ='',i3,'','')') ldif
+      write(n_out,'(''  ldifexp         ='',i3,'','')') ldifexp
+      write(n_out,'(''  l_correct_AMe   ='',l3,'','')') l_correct_AMe
+      write(n_out,'(''  l_correct_AMz   ='',l3,'','')') l_correct_AMz
+      write(n_out,'(''  l_non_rot       ='',l3,'','')') l_non_rot
+      write(n_out,'(''  l_runTimeLimit  ='',l3,'','')') l_runTimeLimit
+      write(n_out,'(''  runHours        ='',i6,'','')') runTimeLimit(1)
+      write(n_out,'(''  runMinutes      ='',i4,'','')') runTimeLimit(2)
+      write(n_out,'(''  runSeconds      ='',i4,'','')') runTimeLimit(3)
+      write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
-      write(n_out,'(1p,''  ra          ='',d14.6,'','')') ra
-      write(n_out,'(1p,''  pr          ='',d14.6,'','')') pr
-      write(n_out,'(1p,''  prmag       ='',d14.6,'','')') prmag
-      write(n_out,'(1p,''  ek          ='',d14.6,'','')') ek
-      write(n_out,'(1p,''  epsc0       ='',d14.6,'','')') epsc/sq4pi
-      write(n_out,'(1p,''  strat       ='',d14.6,'','')') strat
-      write(n_out,'(1p,''  polind      ='',d14.6,'','')') polind
-      write(n_out,'(1p,''  epsS        ='',d14.6,'','')') epsS
-      write(n_out,'(1p,''  cmbHflux    ='',d14.6,'','')') cmbHflux
-      write(n_out,'(1p,''  slopeStrat  ='',d14.6,'','')') slopeStrat
-      write(n_out,'(1p,''  radratio    ='',d14.6,'','')') radratio
+      write(n_out,'(''  ra              ='',ES14.6,'','')') ra
+      write(n_out,'(''  pr              ='',ES14.6,'','')') pr
+      write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
+      write(n_out,'(''  ek              ='',ES14.6,'','')') ek
+      write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc/sq4pi
+      write(n_out,'(''  strat           ='',ES14.6,'','')') strat
+      write(n_out,'(''  polind          ='',ES14.6,'','')') polind
+      write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
+      write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
+      write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
+      write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       length=length_to_blank(interior_model)
-      write(n_out,*) "interior_model = """,interior_model(1:length),""","
-      write(n_out,'(''  g0          ='',d14.6,'','')') g0
-      write(n_out,'(''  g1          ='',d14.6,'','')') g1
-      write(n_out,'(''  g2          ='',d14.6,'','')') g2
-      write(n_out,'(''  ktopv       ='',i3,'','')') ktopv
-      write(n_out,'(''  kbotv       ='',i3,'','')') kbotv
-      write(n_out,'(''  ktopb       ='',i3,'','')') ktopb
-      write(n_out,'(''  kbotb       ='',i3,'','')') kbotb
+      write(n_out,*) " interior_model  = """,interior_model(1:length),""","
+      write(n_out,'(''  g0              ='',ES14.6,'','')') g0
+      write(n_out,'(''  g1              ='',ES14.6,'','')') g1
+      write(n_out,'(''  g2              ='',ES14.6,'','')') g2
+      write(n_out,'(''  ktopv           ='',i3,'','')') ktopv
+      write(n_out,'(''  kbotv           ='',i3,'','')') kbotv
+      write(n_out,'(''  ktopb           ='',i3,'','')') ktopb
+      write(n_out,'(''  kbotb           ='',i3,'','')') kbotb
       write(n_out,'("  Bottom boundary l,m,S:")')
 
       !--- Heat boundary condition:
-      write(n_out,'(''  ktops       ='',i3,'','')') ktops
-      write(n_out,'(''  kbots       ='',i3,'','')') kbots
+      write(n_out,'(''  ktops           ='',i3,'','')') ktops
+      write(n_out,'(''  kbots           ='',i3,'','')') kbots
+      write(n_out,'("  Bottom boundary l,m,S:")')
       do m=0,m_max,minc
           do l=m,l_max
-              if ( bots(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2d14.6)') &
+              if ( bots(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
                    l,m,real(bots(l,m))/sq4pi,aimag(bots(l,m))/sq4pi
           end do
       end do
       write(n_out,'("  Top boundary l,m,S:")')
       do m=0,m_max,minc
           do l=m,l_max
-              if ( tops(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2d14.6)') &
+              if ( tops(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
                    l,m,real(tops(l,m))/sq4pi,aimag(tops(l,m))/sq4pi
           end do
       end do
-      write(n_out,'(''  impS        ='',i3,'','')') impS
+      write(n_out,'(''  impS            ='',i3,'','')') impS
       rad=pi/180.0_cp
       do i=1,n_impS
          if ( i == 1 ) then
@@ -665,179 +677,180 @@ contains
          else
             write(n_out,'(A)',advance='NO') "               "
          end if
-         write(n_out,'(1p,4(D14.6,A))') peakS(i)/rad,",", &
-              & thetaS(i)/rad,",", phiS(i)/rad,",",       &
+         write(n_out,'(1p,4(ES14.6,A))') peakS(i)/rad,",", &
+              & thetaS(i)/rad,",", phiS(i)/rad,",",        &
               & widthS(i)/rad,","
       end do
 
       !----- Conductivity variation:
-      write(n_out,'(''  nVarCond    ='',i3,'','')') nVarCond
-      write(n_out,'(1p,''  con_DecRate    ='',d14.6,'','')') con_DecRate
-      write(n_out,'(1p,''  con_RadRatio   ='',d14.6,'','')') con_RadRatio
-      write(n_out,'(1p,''  con_LambdaMatch='',d14.6,'','')') con_LambdaMatch
-      write(n_out,'(1p,''  con_LambdaOut  ='',d14.6,'','')') con_LambdaOut
-      write(n_out,'(1p,''  con_FuncWidth  ='',d14.6,'','')') con_FuncWidth
-      write(n_out,'(1p,''  r_LCR          ='',d14.6,'','')') r_LCR
+      write(n_out,'(''  nVarCond        ='',i3,'','')') nVarCond
+      write(n_out,'(''  con_DecRate     ='',ES14.6,'','')') con_DecRate
+      write(n_out,'(''  con_RadRatio    ='',ES14.6,'','')') con_RadRatio
+      write(n_out,'(''  con_LambdaMatch ='',ES14.6,'','')') con_LambdaMatch
+      write(n_out,'(''  con_LambdaOut   ='',ES14.6,'','')') con_LambdaOut
+      write(n_out,'(''  con_FuncWidth   ='',ES14.6,'','')') con_FuncWidth
+      write(n_out,'(''  r_LCR           ='',ES14.6,'','')') r_LCR
 
       !----- Thermal diffusivity variation:
-      write(n_out,'(1p,''  difExp    ='',d14.6,'','')') difExp
-      write(n_out,'(''  nVarDiff    ='',i3,'','')') nVarDiff
+      write(n_out,'(''  difExp          ='',ES14.6,'','')') difExp
+      write(n_out,'(''  nVarDiff        ='',i3,'','')') nVarDiff
 
       !----- Variable kinematic viscosity:
-      write(n_out,'(''  nVarVisc    ='',i3,'','')') nVarVisc
+      write(n_out,'(''  nVarVisc        ='',i3,'','')') nVarVisc
 
       !----- Internal heating form:
-      write(n_out,'(''  nVarEps     ='',i3,'','')') nVarEps
+      write(n_out,'(''  nVarEps         ='',i3,'','')') nVarEps
 
       write(n_out,*) "/"
 
       !----- External field
       write(n_out,*) "&B_external"
-      write(n_out,'(''  n_imp       ='',i3,'','')') n_imp
-      write(n_out,'(''  l_imp       ='',i3,'','')') l_imp
-      write(n_out,'(1p,''  rrMP           ='',d14.6,'','')') rrMP
-      write(n_out,'(1p,''  amp_imp        ='',d14.6,'','')') amp_imp
-      write(n_out,'(1p,''  expo_imp       ='',d14.6,'','')') expo_imp
-      write(n_out,'(1p,''  bmax_imp       ='',d14.6,'','')') bmax_imp
+      write(n_out,'(''  n_imp           ='',i3,'','')') n_imp
+      write(n_out,'(''  l_imp           ='',i3,'','')') l_imp
+      write(n_out,'(''  rrMP            ='',ES14.6,'','')') rrMP
+      write(n_out,'(''  amp_imp         ='',ES14.6,'','')') amp_imp
+      write(n_out,'(''  expo_imp        ='',ES14.6,'','')') expo_imp
+      write(n_out,'(''  bmax_imp        ='',ES14.6,'','')') bmax_imp
 
-      write(n_out,'(''  l_curr='',l3,'','')') l_curr
-      write(n_out,'(1p,''  amp_curr        ='',d14.6,'','')') amp_curr
+      write(n_out,'(''  l_curr          ='',l3,'','')') l_curr
+      write(n_out,'(''  amp_curr        ='',ES14.6,'','')') amp_curr
 
       write(n_out,*) "/"
 
 
       write(n_out,*) "&start_field"
-      write(n_out,'(''  l_start_file='',l3,'','')') l_start_file
+      write(n_out,'(''  l_start_file    ='',l3,'','')') l_start_file
       length=length_to_blank(start_file)
-      write(n_out,*) " start_file  = """,start_file(1:length),""","
-      write(n_out,'(''  inform      ='',i3,'','')') inform
-      write(n_out,'(''  l_reset_t   ='',l3,'','')') l_reset_t
-      write(n_out,'(1p,''  scale_s     ='',d14.6,'','')') scale_s
-      write(n_out,'(1p,''  scale_b     ='',d14.6,'','')') scale_b
-      write(n_out,'(1p,''  scale_v     ='',d14.6,'','')') scale_v
-      write(n_out,'(1p,''  tipdipole   ='',d14.6,'','')') tipdipole
-      write(n_out,'(''  init_s1     ='',i7,'','')') init_s1
-      write(n_out,'(''  init_s2     ='',i3,'','')') init_s2
-      write(n_out,'(''  init_v1     ='',i3,'','')') init_v1
-      write(n_out,'(''  init_b1     ='',i3,'','')') init_b1
-      write(n_out,'(''  imagcon     ='',i3,'','')') imagcon
-      write(n_out,'(1p,''  amp_s1      ='',d14.6,'','')') amp_s1
-      write(n_out,'(1p,''  amp_s2      ='',d14.6,'','')') amp_s2
-      write(n_out,'(1p,''  amp_v1      ='',d14.6,'','')') amp_v1
-      write(n_out,'(1p,''  amp_b1      ='',d14.6,'','')') amp_b1
+      write(n_out,*) " start_file      = """,start_file(1:length),""","
+      write(n_out,'(''  inform          ='',i3,'','')') inform
+      write(n_out,'(''  l_reset_t       ='',l3,'','')') l_reset_t
+      write(n_out,'(''  scale_s         ='',ES14.6,'','')') scale_s
+      write(n_out,'(''  scale_b         ='',ES14.6,'','')') scale_b
+      write(n_out,'(''  scale_v         ='',ES14.6,'','')') scale_v
+      write(n_out,'(''  tipdipole       ='',ES14.6,'','')') tipdipole
+      write(n_out,'(''  init_s1         ='',i7,'','')') init_s1
+      write(n_out,'(''  init_s2         ='',i3,'','')') init_s2
+      write(n_out,'(''  init_v1         ='',i3,'','')') init_v1
+      write(n_out,'(''  init_b1         ='',i3,'','')') init_b1
+      write(n_out,'(''  imagcon         ='',i3,'','')') imagcon
+      write(n_out,'(''  amp_s1          ='',ES14.6,'','')') amp_s1
+      write(n_out,'(''  amp_s2          ='',ES14.6,'','')') amp_s2
+      write(n_out,'(''  amp_v1          ='',ES14.6,'','')') amp_v1
+      write(n_out,'(''  amp_b1          ='',ES14.6,'','')') amp_b1
       write(n_out,*) "/"
 
       write(n_out,*) "&output_control"
-      write(n_out,'(''  n_graph_step  ='',i5,'','')') n_graph_step
-      write(n_out,'(''  n_graphs      ='',i5,'','')') n_graphs
-      write(n_out,'(1p,''  t_graph_start ='',d14.6,'','')') t_graph_start
-      write(n_out,'(1p,''  t_graph_stop  ='',d14.6,'','')') t_graph_stop
-      write(n_out,'(1p,''  dt_graph      ='',d14.6,'','')') dt_graph
-      write(n_out,'(''  n_rst_step    ='',i5,'','')') n_rst_step
-      write(n_out,'(''  n_rsts        ='',i5,'','')') n_rsts
-      write(n_out,'(1p,''  t_rst_start   ='',d14.6,'','')') t_rst_start
-      write(n_out,'(1p,''  t_rst_stop    ='',d14.6,'','')') t_rst_stop
-      write(n_out,'(1p,''  dt_rst        ='',d14.6,'','')') dt_rst
-      write(n_out,'(''  n_stores      ='',i5,'','')') n_stores
-      write(n_out,'(''  n_log_step    ='',i5,'','')') n_log_step
-      write(n_out,'(''  n_logs        ='',i5,'','')') n_logs
-      write(n_out,'(1p,''  t_log_start   ='',d14.6,'','')') t_log_start
-      write(n_out,'(1p,''  t_log_stop    ='',d14.6,'','')') t_log_stop
-      write(n_out,'(1p,''  dt_log        ='',d14.6,'','')') dt_log
-      write(n_out,'(''  n_p_step      ='',i5,'','')') n_p_step
-      write(n_out,'(''  n_ps          ='',i5,'','')') n_ps
-      write(n_out,'(1p,''  t_p_start     ='',d14.6,'','')') t_p_start
-      write(n_out,'(1p,''  t_p_stop      ='',d14.6,'','')') t_p_stop
-      write(n_out,'(1p,''  dt_p          ='',d14.6,'','')') dt_p
-      write(n_out,'(''  n_spec_step   ='',i5,'','')') n_spec_step
-      write(n_out,'(''  n_specs       ='',i5,'','')') n_specs
-      write(n_out,'(1p,''  t_spec_start  ='',d14.6,'','')') t_spec_start
-      write(n_out,'(1p,''  t_spec_stop   ='',d14.6,'','')') t_spec_stop
-      write(n_out,'(1p,''  dt_spec       ='',d14.6,'','')') dt_spec
-      write(n_out,'(''  n_cmb_step    ='',i5,'','')') n_cmb_step
-      write(n_out,'(''  n_cmbs        ='',i5,'','')') n_cmbs
-      write(n_out,'(1p,''  t_cmb_start   ='',d14.6,'','')') t_cmb_start
-      write(n_out,'(1p,''  t_cmb_stop    ='',d14.6,'','')') t_cmb_stop
-      write(n_out,'(1p,''  dt_cmb        ='',d14.6,'','')') dt_cmb
-      write(n_out,'(''  n_r_field_step   ='',i5,'','')') n_r_field_step
-      write(n_out,'(''  n_r_fields       ='',i5,'','')') n_r_fields
-      write(n_out,'(1p,''  t_r_field_start='',d14.6,'','')') t_r_field_start
-      write(n_out,'(1p,''  t_r_field_stop ='',d14.6,'','')') t_r_field_stop
-      write(n_out,'(1p,''  dt_r_field    ='',d14.6,'','')') dt_r_field
-      write(n_out,'(''  l_movie       ='',l3,'','')') l_movie
-      write(n_out,'(''  n_movie_step  ='',i5,'','')') n_movie_step
-      write(n_out,'(''  n_movie_frames='',i5,'','')') n_movie_frames
-      write(n_out,'(1p,''  t_movie_start ='',d14.6,'','')') t_movie_start
-      write(n_out,'(1p,''  t_movie_stop  ='',d14.6,'','')') t_movie_stop
-      write(n_out,'(1p,''  dt_movie      ='',d14.6,'','')') dt_movie
+      write(n_out,'(''  n_graph_step    ='',i5,'','')') n_graph_step
+      write(n_out,'(''  n_graphs        ='',i5,'','')') n_graphs
+      write(n_out,'(''  t_graph_start   ='',ES14.6,'','')') t_graph_start
+      write(n_out,'(''  t_graph_stop    ='',ES14.6,'','')') t_graph_stop
+      write(n_out,'(''  dt_graph        ='',ES14.6,'','')') dt_graph
+      write(n_out,'(''  n_rst_step      ='',i5,'','')') n_rst_step
+      write(n_out,'(''  n_rsts          ='',i5,'','')') n_rsts
+      write(n_out,'(''  t_rst_start     ='',ES14.6,'','')') t_rst_start
+      write(n_out,'(''  t_rst_stop      ='',ES14.6,'','')') t_rst_stop
+      write(n_out,'(''  dt_rst          ='',ES14.6,'','')') dt_rst
+      write(n_out,'(''  n_stores        ='',i5,'','')') n_stores
+      write(n_out,'(''  n_log_step      ='',i5,'','')') n_log_step
+      write(n_out,'(''  n_logs          ='',i5,'','')') n_logs
+      write(n_out,'(''  t_log_start     ='',ES14.6,'','')') t_log_start
+      write(n_out,'(''  t_log_stop      ='',ES14.6,'','')') t_log_stop
+      write(n_out,'(''  dt_log          ='',ES14.6,'','')') dt_log
+      write(n_out,'(''  n_p_step        ='',i5,'','')') n_p_step
+      write(n_out,'(''  n_ps            ='',i5,'','')') n_ps
+      write(n_out,'(''  t_p_start       ='',ES14.6,'','')') t_p_start
+      write(n_out,'(''  t_p_stop        ='',ES14.6,'','')') t_p_stop
+      write(n_out,'(''  dt_p            ='',ES14.6,'','')') dt_p
+      write(n_out,'(''  n_spec_step     ='',i5,'','')') n_spec_step
+      write(n_out,'(''  n_specs         ='',i5,'','')') n_specs
+      write(n_out,'(''  t_spec_start    ='',ES14.6,'','')') t_spec_start
+      write(n_out,'(''  t_spec_stop     ='',ES14.6,'','')') t_spec_stop
+      write(n_out,'(''  dt_spec         ='',ES14.6,'','')') dt_spec
+      write(n_out,'(''  n_cmb_step      ='',i5,'','')') n_cmb_step
+      write(n_out,'(''  n_cmbs          ='',i5,'','')') n_cmbs
+      write(n_out,'(''  t_cmb_start     ='',ES14.6,'','')') t_cmb_start
+      write(n_out,'(''  t_cmb_stop      ='',ES14.6,'','')') t_cmb_stop
+      write(n_out,'(''  dt_cmb          ='',ES14.6,'','')') dt_cmb
+      write(n_out,'(''  n_r_field_step  ='',i5,'','')') n_r_field_step
+      write(n_out,'(''  n_r_fields      ='',i5,'','')') n_r_fields
+      write(n_out,'(''  t_r_field_start ='',ES14.6,'','')') t_r_field_start
+      write(n_out,'(''  t_r_field_stop  ='',ES14.6,'','')') t_r_field_stop
+      write(n_out,'(''  dt_r_field      ='',ES14.6,'','')') dt_r_field
+      write(n_out,'(''  l_movie         ='',l3,'','')') l_movie
+      write(n_out,'(''  n_movie_step    ='',i5,'','')') n_movie_step
+      write(n_out,'(''  n_movie_frames  ='',i5,'','')') n_movie_frames
+      write(n_out,'(''  t_movie_start   ='',ES14.6,'','')') t_movie_start
+      write(n_out,'(''  t_movie_stop    ='',ES14.6,'','')') t_movie_stop
+      write(n_out,'(''  dt_movie        ='',ES14.6,'','')') dt_movie
       do n=1,n_movies_max
          length=len(trim(movie(n)))
          if ( length > 0 ) then
-            write(n_out,'(''  movie         = '',a,'','')') movie(n)(1:length)
+            write(n_out,'(''  movie           = '',a,'','')') movie(n)(1:length)
          end if
       end do
-      write(n_out,'(''  l_average     ='',l3,'','')') l_average
-      write(n_out,'(''  l_cmb_field   ='',l3,'','')') l_cmb_field
-      write(n_out,'(''  l_dt_cmb_field='',l3,'','')') l_dt_cmb_field
-      write(n_out,'(''  l_save_out    ='',l3,'','')') l_save_out
-      write(n_out,'(''  l_true_time   ='',l3,'','')') l_true_time
-      write(n_out,'(''  lVerbose      ='',l3,'','')') lVerbose
-      write(n_out,'(''  l_rMagSpec    ='',l3,'','')') l_rMagSpec
-      write(n_out,'(''  l_DTrMagSpec  ='',l3,'','')') l_DTrMagSpec
-      write(n_out,'(''  l_max_cmb     ='',i3,'','')') l_max_cmb
-      write(n_out,'(''  l_r_field     ='',l3,'','')') l_r_field
-      write(n_out,'(''  l_r_fieldT    ='',l3,'','')') l_r_fieldT
-      write(n_out,'(''  l_max_r       ='',i3,'','')') l_max_r
-      write(n_out,'(''  n_r_step      ='',i3,'','')') n_r_step
+      write(n_out,'(''  l_average       ='',l3,'','')') l_average
+      write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
+      write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field
+      write(n_out,'(''  l_save_out      ='',l3,'','')') l_save_out
+      write(n_out,'(''  l_true_time     ='',l3,'','')') l_true_time
+      write(n_out,'(''  lVerbose        ='',l3,'','')') lVerbose
+      write(n_out,'(''  l_rMagSpec      ='',l3,'','')') l_rMagSpec
+      write(n_out,'(''  l_DTrMagSpec    ='',l3,'','')') l_DTrMagSpec
+      write(n_out,'(''  l_max_cmb       ='',i3,'','')') l_max_cmb
+      write(n_out,'(''  l_r_field       ='',l3,'','')') l_r_field
+      write(n_out,'(''  l_r_fieldT      ='',l3,'','')') l_r_fieldT
+      write(n_out,'(''  l_max_r         ='',i3,'','')') l_max_r
+      write(n_out,'(''  n_r_step        ='',i3,'','')') n_r_step
       do n=1,n_coeff_r_max
-         write(n_out,'(''    n_coeff_r   ='',i3,'','')') n_coeff_r(n)
+         write(n_out,'(''  n_coeff_r       ='',i3,'','')') n_coeff_r(n)
       end do
-      write(n_out,'(''  l_hel         ='',l3,'','')') l_hel
-      write(n_out,'(''  l_AM          ='',l3,'','')') l_AM
-      write(n_out,'(''  l_power       ='',l3,'','')') l_power
-      write(n_out,'(''  l_viscBcCalc  ='',l3,'','')') l_viscBcCalc
-      write(n_out,'(''  l_fluxProfs   ='',l3,'','')') l_fluxProfs
-      write(n_out,'(''  l_perpPar     ='',l3,'','')') l_perpPar
-      write(n_out,'(''  l_drift       ='',l3,'','')') l_drift
-      write(n_out,'(''  l_iner        ='',l3,'','')') l_iner
-      write(n_out,'(''  l_TO          ='',l3,'','')') l_TO
-      write(n_out,'(''  l_TOmovie     ='',l3,'','')') l_TOmovie
-      write(n_out,'(''  l_PV          ='',l3,'','')') l_PV
-      write(n_out,'(''  l_storeBpot   ='',l3,'','')') l_storeBpot
-      write(n_out,'(''  l_storeVpot   ='',l3,'','')') l_storeVpot
-      write(n_out,'(''  l_RMS         ='',l3,'','')') l_RMS
-      write(n_out,'(''  l_RMStest     ='',l3,'','')') l_RMStest
-      write(n_out,'(''  l_prms        ='',l3,'','')') l_prms
-      write(n_out,'(''  l_par         ='',l3,'','')') l_par
-      write(n_out,'(''  l_corrMov     ='',l3,'','')') l_corrMov
-      write(n_out,'(1p,''  rCut          ='',d14.6,'','')') rCut
-      write(n_out,'(1p,''  rDea          ='',d14.6,'','')') rDea
+      write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
+      write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
+      write(n_out,'(''  l_power         ='',l3,'','')') l_power
+      write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
+      write(n_out,'(''  l_fluxProfs     ='',l3,'','')') l_fluxProfs
+      write(n_out,'(''  l_perpPar       ='',l3,'','')') l_perpPar
+      write(n_out,'(''  l_drift         ='',l3,'','')') l_drift
+      write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
+      write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
+      write(n_out,'(''  l_TOmovie       ='',l3,'','')') l_TOmovie
+      write(n_out,'(''  l_PV            ='',l3,'','')') l_PV
+      write(n_out,'(''  l_storeBpot     ='',l3,'','')') l_storeBpot
+      write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
+      write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
+      write(n_out,'(''  l_RMStest       ='',l3,'','')') l_RMStest
+      write(n_out,'(''  l_prms          ='',l3,'','')') l_prms
+      write(n_out,'(''  l_par           ='',l3,'','')') l_par
+      write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
+      write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
+      write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
       write(n_out,*) "/"
 
       write(n_out,*) "&mantle"
-      write(n_out,'(1p,''  conductance_ma='',d14.6,'','')') conductance_ma
-      write(n_out,'(1p,''  rho_ratio_ma  ='',d14.6,'','')') rho_ratio_ma
-      write(n_out,'(1p,''  nRotMa        ='',i4,'','')') nRotMa
-      write(n_out,'(1p,''  omega_ma1     ='',d14.6,'','')') omega_ma1
-      write(n_out,'(1p,''  omegaOsz_ma1  ='',d14.6,'','')') omegaOsz_ma1
-      write(n_out,'(1p,''  tShift_ma1    ='',d14.6,'','')') tShift_ma1
-      write(n_out,'(1p,''  omega_ma2     ='',d14.6,'','')') omega_ma2
-      write(n_out,'(1p,''  omegaOsz_ma2  ='',d14.6,'','')') omegaOsz_ma2
-      write(n_out,'(1p,''  tShift_ma2    ='',d14.6,'','')') tShift_ma2
+      write(n_out,'(''  conductance_ma  ='',ES14.6,'','')') conductance_ma
+      write(n_out,'(''  rho_ratio_ma    ='',ES14.6,'','')') rho_ratio_ma
+      write(n_out,'(''  nRotMa          ='',i4,'','')') nRotMa
+      write(n_out,'(''  omega_ma1       ='',ES14.6,'','')') omega_ma1
+      write(n_out,'(''  omegaOsz_ma1    ='',ES14.6,'','')') omegaOsz_ma1
+      write(n_out,'(''  tShift_ma1      ='',ES14.6,'','')') tShift_ma1
+      write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
+      write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
+      write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
-      write(n_out,'(1p,''  sigma_ratio   ='',d14.6,'','')') sigma_ratio
-      write(n_out,'(1p,''  rho_ratio_ic  ='',d14.6,'','')') rho_ratio_ic
-      write(n_out,'(1p,''  nRotIc        ='',i4,'','')') nRotIc
-      write(n_out,'(1p,''  omega_ic1     ='',d14.6,'','')') omega_ic1
-      write(n_out,'(1p,''  omegaOsz_ic1  ='',d14.6,'','')') omegaOsz_ic1
-      write(n_out,'(1p,''  tShift_ic1    ='',d14.6,'','')') tShift_ic1
-      write(n_out,'(1p,''  omega_ic2     ='',d14.6,'','')') omega_ic2
-      write(n_out,'(1p,''  omegaOsz_ic2  ='',d14.6,'','')') omegaOsz_ic2
-      write(n_out,'(1p,''  tShift_ic2    ='',d14.6,'','')') tShift_ic2
-      write(n_out,'(1p,''  BIC           ='',d14.6,'','')') BIC
+      write(n_out,'(''  sigma_ratio     ='',ES14.6,'','')') sigma_ratio
+      write(n_out,'(''  rho_ratio_ic    ='',ES14.6,'','')') rho_ratio_ic
+      write(n_out,'(''  nRotIc          ='',i4,'','')') nRotIc
+      write(n_out,'(''  omega_ic1       ='',ES14.6,'','')') omega_ic1
+      write(n_out,'(''  omegaOsz_ic1    ='',ES14.6,'','')') omegaOsz_ic1
+      write(n_out,'(''  tShift_ic1      ='',ES14.6,'','')') tShift_ic1
+      write(n_out,'(''  omega_ic2       ='',ES14.6,'','')') omega_ic2
+      write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
+      write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
+      write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
       write(n_out,*) "/"
+      write(n_out,*) " "
 
    end subroutine writeNamelists
 !------------------------------------------------------------------------------

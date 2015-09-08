@@ -122,8 +122,8 @@ contains
       real(cp),    intent(out) :: fkinLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: fconvLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: fviscLMr(l_max+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fresLMr(l_maxMag+1,nRstart:nRstop)
-      real(cp),    intent(out) :: fpoynLMr(l_maxMag+1,nRstart:nRstop)
+      real(cp),    intent(out) :: fresLMr(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp),    intent(out) :: fpoynLMr(l_maxMag+1,nRstartMag:nRstopMag)
       real(cp),    intent(out) :: EperpLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: EparLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(out) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
@@ -259,8 +259,8 @@ contains
               & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,          &
               & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),       &
               & Helna2LMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),           &
-              & fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),fpoynLMr(:,nR),        &
-              & fresLMr(:,nR),EperpLMr(:,nR),EparLMr(:,nR),EperpaxiLMr(:,nR),      &
+              & fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),fpoynLMr(:,nR_Mag),    &
+              & fresLMr(:,nR_Mag),EperpLMr(:,nR),EparLMr(:,nR),EperpaxiLMr(:,nR),  &
               & EparaxiLMr(:,nR))
 
          dtrkc(nR)=this_rIteration%dtrkc      

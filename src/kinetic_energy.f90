@@ -213,7 +213,7 @@ contains
             if ( l_save_out ) then
                open(n_e_kin_file, file=e_kin_file, status='unknown', position='append')
             end if
-            write(n_e_kin_file,'(1P,D20.12,8D16.8)')    &
+            write(n_e_kin_file,'(1P,ES20.12,8ES16.8)')    &
                  & time*tScale, &  ! 1
                  & e_p,e_t,       &! 2,3
                  & e_p_as,e_t_as, &! 4,5
@@ -259,23 +259,23 @@ contains
             end if
             do nR=1,n_r_max
                surf=four*pi*r(nR)**2
-               write(99,'(2x,9D12.4)',advance='no') r(nR),        &
-                    &               fac*e_pA(nR)/timetot,         &
-                    &               fac*e_p_asA(nR)/timetot,      &
-                    &               fac*e_tA(nR)/timetot,         &
-                    &               fac*e_t_asA(nR)/timetot,      &
-                    &               fac*e_pA(nR)/timetot/surf,    &
-                    &               fac*e_p_asA(nR)/timetot/surf, &
-                    &               fac*e_tA(nR)/timetot/surf,    &
+               write(99,'(ES20.10,8ES15.7)',advance='no') r(nR),    &
+                    &               fac*e_pA(nR)/timetot,           &
+                    &               fac*e_p_asA(nR)/timetot,        &
+                    &               fac*e_tA(nR)/timetot,           &
+                    &               fac*e_t_asA(nR)/timetot,        &
+                    &               fac*e_pA(nR)/timetot/surf,      &
+                    &               fac*e_p_asA(nR)/timetot/surf,   &
+                    &               fac*e_tA(nR)/timetot/surf,      &
                     &               fac*e_t_asA(nR)/timetot/surf
 
                if ( present(ekinR) ) then
-                  write(99,'(D12.4)',advance='no') ekinR(nR)
+                  write(99,'(ES16.8)',advance='no') ekinR(nR)
                else
                   write(99,'(A)') ""
                end if
                if ( present(ekinRave) ) then
-                  write(99,'(D12.4)') ekinRave(nR)
+                  write(99,'(ES16.8)') ekinRave(nR)
                else
                   write(99,'(A)') ""
                end if
@@ -524,7 +524,7 @@ contains
             open(n_u_square_file, file=u_square_file, status='unknown', &
                  position='append')
          end if
-         write(n_u_square_file,'(1P,D20.12,10D16.8)') &
+         write(n_u_square_file,'(1P,ES20.12,10ES16.8)') &
               &  time*tScale,     & ! 1
               &      e_p,e_t,     & ! 2,3
               &e_p_as,e_t_as,     & ! 4,5

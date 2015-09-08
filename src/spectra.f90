@@ -277,7 +277,7 @@ contains
                   !     &  dt_norm*e_cmb2_m_ave(l),    &
                   !     & (dt_norm*e_cmb_m_ave(l))**2, &
                   !     & dt_norm*e_cmb2_m_ave(l) - (dt_norm*e_cmb_m_ave(l))**2
-                  write(93,'(2X,1P,I4,16D12.4)') l,                           &
+                  write(93,'(2X,1P,I4,16ES16.8)') l,                          &
                        &  dt_norm*e_p_l_ave(l),   dt_norm*e_p_m_ave(l),       &
                        &  dt_norm*e_t_l_ave(l),   dt_norm*e_t_m_ave(l),       &
                        &  dt_norm*e_cmb_l_ave(l), dt_norm*e_cmb_m_ave(l),     &
@@ -294,7 +294,7 @@ contains
                end do
             else
                do l=0,l_max
-                  write(93,'(2X,1P,I4,8D12.4)') l,                            &
+                  write(93,'(2X,1P,I4,8ES16.8)') l,                           &
                        &  dt_norm*ek_p_l_ave(l), dt_norm*ek_p_m_ave(l),       &
                        &  dt_norm*ek_t_l_ave(l), dt_norm*ek_t_m_ave(l),       &
                        &  dt_norm*ek_p2_l_ave(l),dt_norm*ek_p2_m_ave(l),      &
@@ -743,14 +743,14 @@ contains
             else
                write(n_mag_spec_file,'(1x, &
                     &      ''Magnetic energy spectra at time:'', &
-                    &      d20.12)') time*tScale
+                    &      ES20.12)') time*tScale
             end if
-            write(n_mag_spec_file,'(1p,i4,11d12.4)')       &
+            write(n_mag_spec_file,'(1p,i4,11ES16.8)')          &
                  0,0.0_cp,e_mag_p_m(1)   ,0.0_cp,e_mag_t_m(1), &
                  0.0_cp,e_mag_p_ic_m(1),0.0_cp,e_mag_t_ic_m(1),&
                  0.0_cp,e_mag_cmb_m(1),0.0_cp
             do ml=1,l_max
-               write(n_mag_spec_file,'(1p,i4,11d12.4)')  &
+               write(n_mag_spec_file,'(1p,i4,11ES16.8)') &
                     ml,e_mag_p_l(ml),   e_mag_p_m(ml+1), &
                     e_mag_t_l(ml),   e_mag_t_m(ml+1),    &
                     e_mag_p_ic_l(ml),e_mag_p_ic_m(ml+1), &
@@ -784,12 +784,12 @@ contains
             else
                write(n_u2_spec_file,'(1x,                &
                     &     ''Velocity square spectra at time:'', &
-                    &     d20.12)') time*tScale
+                    &     ES20.12)') time*tScale
             end if
-            write(n_u2_spec_file,'(1p,i4,4d12.4)') &
+            write(n_u2_spec_file,'(1p,i4,4ES16.8)') &
                  &   0,0.0_cp,u2_p_m(1),0.0_cp,u2_t_m(1)
             do ml=1,l_max
-               write(n_u2_spec_file,'(1p,i4,4d12.4)') &
+               write(n_u2_spec_file,'(1p,i4,4ES16.8)') &
                     &       ml,u2_p_l(ml),u2_p_m(ml+1),u2_t_l(ml),u2_t_m(ml+1)
             end do
             close(n_u2_spec_file)
@@ -818,13 +818,13 @@ contains
          else
             write(n_kin_spec_file,'(1x,                      &
                  &      ''Kinetic energy spectra at time:'', &
-                 &      d20.12)') time*tScale
+                 &      ES20.12)') time*tScale
          end if
-         write(n_kin_spec_file,'(1p,i4,6d12.4)')        &
+         write(n_kin_spec_file,'(1p,i4,6ES16.8)')        &
               0,0.0_cp,e_kin_p_m(1),0.0_cp,e_kin_t_m(1),    &
               0.0_cp, e_kin_nearSurf_m(1)
          do ml=1,l_max
-            write(n_kin_spec_file,'(1p,i4,6d12.4)')    &
+            write(n_kin_spec_file,'(1p,i4,6ES16.8)')    &
                  ml,e_kin_p_l(ml),e_kin_p_m(ml+1),     &
                  e_kin_t_l(ml),e_kin_t_m(ml+1),        &
                  e_kin_nearSurf_l(ml), e_kin_nearSurf_m(ml+1)
@@ -984,7 +984,7 @@ contains
             nOut   =93
             open(nOut,file=outFile,status='unknown')
             do l=1,l_max+1
-               write(93,'(2X,1P,I4,6D12.4)') l,                    &
+               write(93,'(2X,1P,I4,6ES16.8)') l,                   &
                     &              T_ave(l),T2_ave(l),             &
                     &              T_ICB_ave(l),T_ICB2_ave(l),     &
                     &              dT_ICB_ave(l),dT_ICB2_ave(l) 
@@ -1124,9 +1124,9 @@ contains
          write(string, *) n_spec
          spec_file='TC_spec_'//trim(adjustl(string))//'.'//tag
          open(98, file=spec_file, status='unknown')
-         write(98,'(1x,''TC spectra at time:'', D20.12)') time*tScale
+         write(98,'(1x,''TC spectra at time:'', ES20.12)') time*tScale
          do ml=1,l_max+1
-            write(98,'(1P,I4,6D12.4)')    &
+            write(98,'(1P,I4,6ES12.4)')   &
                  ml-1,T_l(ml),T_m(ml),    &
                  T_ICB_l(ml),T_ICB_m(ml), &
                  dT_ICB_l(ml),dT_ICB_m(ml)

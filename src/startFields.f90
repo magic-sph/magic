@@ -132,10 +132,10 @@ contains
                  &                time,dt,dtNew,n_time_step)
 #endif
             if ( dt > 0.0_cp ) then
-               write(message,'(''! Using old time step:'',D16.6)') dt
+               write(message,'(''! Using old time step:'',ES16.6)') dt
             else
                dt=dtMax
-               write(message,'(''! Using dtMax time step:'',D16.6)') dtMax
+               write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
             end if
             !PERFOFF
          else
@@ -169,7 +169,7 @@ contains
             dt   =dtMax
             dtNew=dtMax
             n_time_step=0
-            write(message,'(''! Using dtMax time step:'',D16.6)') dtMax
+            write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
          call logWrite(message)
     
@@ -410,9 +410,9 @@ contains
       else
          sEA=sqrt(sEA/(sEA+sES))
          sAA=sqrt(sAA/(sEA+sES))
-         write(message,'(''! Rel. RMS equ. asym. tops:'',D16.6)') sEA
+         write(message,'(''! Rel. RMS equ. asym. tops:'',ES16.6)') sEA
          call logWrite(message)
-         write(message,'(''! Rel. RMS axi. asym. tops:'',D16.6)') sAA
+         write(message,'(''! Rel. RMS axi. asym. tops:'',ES16.6)') sAA
          call logWrite(message)
       end if
     

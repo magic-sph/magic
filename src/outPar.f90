@@ -10,7 +10,8 @@ module outPar_mod
                     l_perpPar, l_save_out
    use horizontal_data, only: gauss
    use fields, only: s_Rloc, ds_Rloc
-   use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, opr
+   use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
+                                  opr, kbots, ktops
    use const, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
                                dr_fac, i_costf_init, d_costf_init
@@ -356,6 +357,8 @@ contains
             if ( l_viscBcCalc ) then
                sMeanR     =sMeanR/timeNorm
                Svar_global=Svar_global/(nLogs)
+               if ( ktops == 1 ) Svar_global(1) = 0.0_cp
+               if ( kbots == 1 ) Svar_global(n_r_max) = 0.0_cp
                duhMeanR   =duhMeanR/timeNorm
                uhMeanR    =uhMeanR/timeNorm
                gradT2MeanR=gradT2MeanR/timeNorm
@@ -376,7 +379,7 @@ contains
             filename='parR.'//tag
             open(99, file=filename, status='unknown')
             do nR=1,n_r_max
-               write(99,'(D20.10,8D12.4)')       &
+               write(99,'(ES20.10,8ES15.7)')     &
                           &   r(nR),             &! 1) radius
                           &   RmMeanR(nR),       &! 2) magnetic Reynolds number
                           &   RolMeanR(nR),      &! 3) local Rossby number
@@ -392,7 +395,7 @@ contains
                filename='bLayersR.'//tag
                open(99, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(D20.10,6D16.8)')              &
+                  write(99,'(ES20.10,6ES15.7)')            &
                           &   r(nR),                       &! 1) radius
                           &   sMeanR(nR)*osq4pi,           &! 2) entropy
                           &   Svar_global(nR)/(four*pi),   &! 3) entropy variance
@@ -407,7 +410,7 @@ contains
                filename='fluxesR.'//tag
                open(99, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(D20.10,7D16.8)')        &
+                  write(99,'(ES20.10,7ES15.7)')      &
                           &   r(nR),                 &! 1) radius
                           &   fcondMeanR(nR),        &! 2) Fcond
                           &   fconvMeanR(nR),        &! 3) Fconv
@@ -519,7 +522,7 @@ contains
          if ( l_save_out ) then
             open(n_perpPar_file, file=perpPar_file, status='unknown', position='append')
          end if
-         write(n_perpPar_file,'(1P,D20.12,4D16.8)') &
+         write(n_perpPar_file,'(1P,ES20.12,4ES16.8)') &
               &  time*tScale,     & ! 1
               &  EperpT,EparT,    & ! 2,3
               &  EperpaxT,EparaxT   ! 4,5
@@ -537,7 +540,7 @@ contains
              filename='perpParR.'//tag
              open(99, file=filename, status='unknown')
              do nR=1,n_r_max
-                write(99,'(D20.10,4D16.8)')       &
+                write(99,'(ES20.10,4ES15.7)')     &
                            &   r(nR),             &! 1) radius
                            &   EperpMeanR(nR),    &! 2) E perpendicular
                            &   EparMeanR(nR),     &! 3) E parallel

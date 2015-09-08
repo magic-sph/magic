@@ -127,19 +127,19 @@ contains
     
       !---- Compare parameters:
       if ( ra /= ra_old ) &
-           write(*,'(/,'' ! New Rayleigh number (old/new):'',2d16.6)') ra_old,ra
+           write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
       if ( ek /= ek_old ) &
-           write(*,'(/,'' ! New Ekman number (old/new):'',2d16.6)') ek_old,ek
+           write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
       if ( pr /= pr_old ) &
-           write(*,'(/,'' ! New Prandtl number (old/new):'',2d16.6)') pr_old,pr
-      if ( prmag /= pm_old )                                         &
-           write(*,'(/,'' ! New mag Pr.number (old/new):'',2d16.6)') &
+           write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+      if ( prmag /= pm_old )                                          &
+           write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
            pm_old,prmag
-      if ( radratio /= radratio_old )                                   &
-           write(*,'(/,'' ! New mag aspect ratio (old/new):'',2d16.6)') &
+      if ( radratio /= radratio_old )                                    &
+           write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
            radratio_old,radratio
-      if ( sigma_ratio /= sigma_ratio_old )                            &
-           write(*,'(/,'' ! New mag cond. ratio (old/new):'',2d16.6)') &
+      if ( sigma_ratio /= sigma_ratio_old )                             &
+           write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
            sigma_ratio_old,sigma_ratio
     
       l_max_old=nalias_old*n_phi_tot_old/60
@@ -562,19 +562,19 @@ contains
 
       !---- Compare parameters:
       if ( ra /= ra_old ) &
-         write(*,'(/,'' ! New Rayleigh number (old/new):'',2d16.6)') ra_old,ra
+         write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
       if ( ek /= ek_old ) &
-         write(*,'(/,'' ! New Ekman number (old/new):'',2d16.6)') ek_old,ek
+         write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
       if ( pr /= pr_old ) &
-         write(*,'(/,'' ! New Prandtl number (old/new):'',2d16.6)') pr_old,pr
-      if ( prmag /= pm_old )                                       &
-         write(*,'(/,'' ! New mag Pr.number (old/new):'',2d16.6)') &
+         write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+      if ( prmag /= pm_old )                                        &
+         write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
          pm_old,prmag
-      if ( radratio /= radratio_old )                                 &
-         write(*,'(/,'' ! New mag aspect ratio (old/new):'',2d16.6)') &
+      if ( radratio /= radratio_old )                                  &
+         write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
          radratio_old,radratio
-      if ( sigma_ratio /= sigma_ratio_old )                          &
-         write(*,'(/,'' ! New mag cond. ratio (old/new):'',2d16.6)') &
+      if ( sigma_ratio /= sigma_ratio_old )                           &
+         write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
          sigma_ratio_old,sigma_ratio
 
       ! Create a HF compound type  to store Fortran complex

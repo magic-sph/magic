@@ -135,7 +135,7 @@ contains
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
             open(n_SRIC_file, file=SRIC_file, status="unknown", position='append')
-            write(n_SRIC_file,'(1p,2x,d20.12,4d17.6)')     &
+            write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')   &
                  time*tScale,omega_ic/tScale,              &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
                  powerVis*vScale*vScale/tScale,            &
@@ -146,7 +146,7 @@ contains
             powerLor=lorentz_torque_ma*omega_ma
             powerVis=viscous_torque_ma*omega_ma
             open(n_SRMA_file, file=SRMA_file, status="unknown", position='append')
-            write(n_SRMA_file,'(1p,2x,d20.12,4d17.6)')     &
+            write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')   &
                  time*tScale, omega_ma/tScale,             &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
                  powerVis*vScale*vScale/tScale,            &
@@ -170,16 +170,16 @@ contains
          if ( rank == 0 ) then
             filename='driftVD.'//tag
             open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,D20.12,24D12.4)') &
-                 time, (zvals_on_rank0(ilm,1),ilm=1,4), &
-                 (zvals_on_rank0(ilm,2),ilm=1,4),       &
+            write(n_SRIC_file,'(1P,2X,ES20.12,24ES12.4)') &
+                 time, (zvals_on_rank0(ilm,1),ilm=1,4),   &
+                 (zvals_on_rank0(ilm,2),ilm=1,4),         &
                  (zvals_on_rank0(ilm,3),ilm=1,4)
             close(n_SRIC_file)
             filename='driftVQ.'//tag
             open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,D20.12,24D12.4)') &
-                 time, (zvals_on_rank0(ilm,1),ilm=5,8), &
-                 (zvals_on_rank0(ilm,2),ilm=5,8),       &
+            write(n_SRIC_file,'(1P,2X,ES20.12,24ES12.4)') &
+                 time, (zvals_on_rank0(ilm,1),ilm=5,8),   &
+                 (zvals_on_rank0(ilm,2),ilm=5,8),         &
                  (zvals_on_rank0(ilm,3),ilm=5,8)
             close(n_SRIC_file)
          end if
@@ -193,14 +193,14 @@ contains
             if ( rank == 0 ) then
                filename='driftBD.'//tag
                open(n_SRIC_file, file=filename, status='unknown', position='append')
-               write(n_SRIC_file,'(1P,2X,D20.12,16D12.4)') &
-                    time, (bvals_on_rank0(ilm,1),ilm=5,8), &
+               write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
+                    time, (bvals_on_rank0(ilm,1),ilm=5,8),   &
                     (bvals_on_rank0(ilm,2),ilm=5,8)
                close(n_SRIC_file)
                filename='driftBQ.'//tag
                open(n_SRIC_file, file=filename, status='unknown', position='append')
-               write(n_SRIC_file,'(1P,2X,D20.12,16D12.4)') &
-                    time, (bvals_on_rank0(ilm,1),ilm=1,4), &
+               write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
+                    time, (bvals_on_rank0(ilm,1),ilm=1,4),   &
                     (bvals_on_rank0(ilm,2),ilm=1,4)
                close(n_SRIC_file)
             end if
@@ -212,12 +212,12 @@ contains
             if ( l_save_out ) then
                open(n_rot_file, file=rot_file, status='unknown', position='append')
             end if
-            write(n_rot_file,'(1P,2X,D20.12,6D14.6)') &
-                 time*tScale, omega_ic/tScale,        &
-                 lScale**2*vScale*lorentz_torque_ic,  &
-                 lScale**2*vScale*viscous_torque_ic,  &
-                 omega_ma/tScale,                     &
-                 lScale**2*vScale*lorentz_torque_ma,  &
+            write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)') &
+                 time*tScale, omega_ic/tScale,          &
+                 lScale**2*vScale*lorentz_torque_ic,    &
+                 lScale**2*vScale*viscous_torque_ic,    &
+                 omega_ma/tScale,                       &
+                 lScale**2*vScale*lorentz_torque_ma,    &
                  -lScale**2*vScale*viscous_torque_ma
             if ( l_save_out ) close(n_rot_file)
          end if
@@ -293,17 +293,17 @@ contains
             if ( AMzLast /= 0.0_cp ) then
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
                !     &                  dt,(eKinAMz-eKinAMzLast)
-               write(n_angular_file,'(1p,2x,d20.12,5d14.6,3d20.12)', advance='no') &
-                    & time*tScale, angular_moment_oc,             &
-                    & angular_moment_ic(3), angular_moment_ma(3), &
+               write(n_angular_file,'(1p,2x,ES20.12,5ES14.6,3ES20.12)', advance='no') &
+                    & time*tScale, angular_moment_oc,                                 &
+                    & angular_moment_ic(3), angular_moment_ma(3),                     &
                     & AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz
                if (eKinAMzLast /= 0.0_cp) then
-                  write(n_angular_file,'(1d20.12)', advance='no') &
+                  write(n_angular_file,'(1ES20.12)', advance='no') &
                     & (eKinAMz-eKinAMzLast)/eKinAMzLast/dt
                else
-                  write(n_angular_file,'(1d20.12)', advance='no') 0.0
+                  write(n_angular_file,'(1ES20.12)', advance='no') 0.0
                end if
-               write(n_angular_file,'(3d20.12)') eKinIC,eKinOC,eKinMA
+               write(n_angular_file,'(3ES20.12)') eKinIC,eKinOC,eKinMA
             end if
             if ( l_save_out ) close(n_angular_file)
             AMzLast=AMz
@@ -326,7 +326,7 @@ contains
          if ( rank == 0 ) then
             filename='inerP.'//tag
             open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,D20.12,21D12.4)') &
+            write(n_SRIC_file,'(1P,2X,ES20.12,21ES12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             close(n_SRIC_file)
          end if
@@ -337,7 +337,7 @@ contains
          if ( rank == 0 ) then
             filename='inerT.'//tag
             open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,D20.12,21D12.4)') &
+            write(n_SRIC_file,'(1P,2X,ES20.12,21ES12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
             close(n_SRIC_file)
          end if

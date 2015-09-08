@@ -336,36 +336,36 @@ contains
                     &           ' ! ENERGIES OF TIME AVERAGED FIELD'
                write(nLF,                                                &
                     &        '('' !  (total,poloidal,toroidal,total density)'')')
-               write(nLF,'(1P,'' !  Kinetic energies:'',4D16.6)')                  &
+               write(nLF,'(1P,'' !  Kinetic energies:'',4ES16.6)')                 &
                     &           (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave, &
                     &           (e_kin_p_ave+e_kin_t_ave)/vol_oc
-               write(nLF,'(1P,'' !  OC Mag  energies:'',4D16.6)')                  &
+               write(nLF,'(1P,'' !  OC Mag  energies:'',4ES16.6)')                 &
                     &           (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave, &
                     &           (e_mag_p_ave+e_mag_t_ave)/vol_oc
-               write(nLF,'(1P,'' !  IC Mag  energies:'',4D16.6)')        &
+               write(nLF,'(1P,'' !  IC Mag  energies:'',4ES16.6)')       &
                     &           (e_mag_p_ic_ave+e_mag_t_ic_ave),         &
                     &           e_mag_p_ic_ave,e_mag_t_ic_ave,           &
                     &           (e_mag_p_ic_ave+e_mag_t_ic_ave)/vol_ic
-               write(nLF,'(1P,'' !  OS Mag  energies:'',D16.6)')         &
+               write(nLF,'(1P,'' !  OS Mag  energies:'',ES16.6)')        &
                     &           e_mag_os_ave
                write(nLF,'(/,'' !  AXISYMMETRIC PARTS:'')')
                write(nLF,                                                &
                     &        '('' !  (total,poloidal,toroidal,total density)'')')
-               write(nLF,'(1P,'' !  Kinetic AS energies:'',4D16.6)')     &
+               write(nLF,'(1P,'' !  Kinetic AS energies:'',4ES16.6)')    &
                     &           (e_kin_p_as_ave+e_kin_t_as_ave),         &
                     &           e_kin_p_as_ave,e_kin_t_as_ave,           &
                     &           (e_kin_p_as_ave+e_kin_t_as_ave)/vol_oc
-               write(nLF,'(1P,'' !  OC Mag  AS energies:'',4D16.6)')     &
+               write(nLF,'(1P,'' !  OC Mag  AS energies:'',4ES16.6)')    &
                     &           (e_mag_p_as_ave+e_mag_t_as_ave),         &
                     &           e_mag_p_as_ave,e_mag_t_as_ave,           &
                     &           (e_mag_p_as_ave+e_mag_t_as_ave)/vol_oc
-               write(nLF,'(1P,'' !  IC Mag  AS energies:'',4D16.6)')     &
+               write(nLF,'(1P,'' !  IC Mag  AS energies:'',4ES16.6)')    &
                     &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave),   &
                     &           e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,     &
                     &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave)/vol_ic
-               write(nLF,'(1P,'' !  OS Mag  AS energies:'',D16.6)')      &
+               write(nLF,'(1P,'' !  OS Mag  AS energies:'',ES16.6)')     &
                     &           e_mag_os_ave
-               write(nLF,'(1P,'' !  Relative ax. dip. E:'',D16.6)')      &
+               write(nLF,'(1P,'' !  Relative ax. dip. E:'',ES16.6)')     &
                     &           Dip           
             end if
          end if ! End of run ?

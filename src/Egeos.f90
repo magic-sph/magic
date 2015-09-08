@@ -518,8 +518,8 @@ contains
                   n=n+1
                else 
                   do nPhi=1,n_phi_max
-                     CVz(nPhi,nSmax-nS+1)=0.E0
-                     CVor(nPhi,nSmax-nS+1)=0.E0
+                     CVz(nPhi,nSmax-nS+1)=0.0_cp
+                     CVor(nPhi,nSmax-nS+1)=0.0_cp
                   end do
                end if
             end do

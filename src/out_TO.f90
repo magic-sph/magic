@@ -1071,7 +1071,7 @@ contains
             if ( lTOmov ) then 
                close(nOutFile)
                call logWrite(' ')
-               write(message,'(1p,A,I8,A,D16.6,I8)')               &
+               write(message,'(1p,A,I8,A,ES16.6,I8)')              &
                     & "! WRITING TO MOVIE FRAME NO ",nTOmovSets,   &
                     & "       at time/step",time*tScale,n_time_step
                call logWrite(message)

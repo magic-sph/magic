@@ -163,7 +163,7 @@ contains
          fileName='rNM.'//TAG
          open(99, file=fileName, status='unknown')
          do n_r=1,n_r_max
-            write(99,'(I4,4D12.4)') n_r,r(n_r)-r_icb,drx(n_r),ddrx(n_r),dddrx(n_r)
+            write(99,'(I4,4ES16.8)') n_r,r(n_r)-r_icb,drx(n_r),ddrx(n_r),dddrx(n_r)
          end do
          close(99)
       end if
@@ -177,7 +177,7 @@ contains
          write(99,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
              &       'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
          do n_r=1,n_r_max
-            write(99,'(8e15.7)') r(n_r),1./otemp1(n_r),        &
+            write(99,'(8ES16.8)') r(n_r),1./otemp1(n_r),       &
              &   rho0(n_r),beta(n_r),dbeta(n_r),               &
              &   rgrav(n_r)/BuoFac,dentropy0(n_r),             &
              &   divKtemp0(n_r)
@@ -191,7 +191,7 @@ contains
          open(99, file=fileName, status='unknown')
          write(99,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
          do n_r=n_r_max,1,-1
-            write(99,'(4e15.7)') r(n_r),sigma(n_r),lambda(n_r), &
+            write(99,'(4ES16.8)') r(n_r),sigma(n_r),lambda(n_r), &
                  dLlambda(n_r)
          end do
          close(99)
@@ -202,7 +202,7 @@ contains
          open(99, file=fileName, status='unknown')
          write(99,'(5a15)') 'radius', 'conductivity', 'kappa', 'dLkappa', 'Prandtl'
          do n_r=n_r_max,1,-1
-            write(99,'(5D15.7)') r(n_r),kappa(n_r)*rho0(n_r), &
+            write(99,'(5ES16.8)') r(n_r),kappa(n_r)*rho0(n_r), &
                  kappa(n_r),dLkappa(n_r),pr*visc(n_r)/kappa(n_r)
          end do
          close(99)
@@ -215,14 +215,14 @@ contains
               'dLvisc', 'Ekman', 'Prandtl', 'Pm'
          if ( l_mag ) then
             do n_r=n_r_max,1,-1
-               write(99,'(7D15.7)') r(n_r),visc(n_r)*rho0(n_r), &
-                    visc(n_r),dLvisc(n_r),ek*visc(n_r), &
+               write(99,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
+                    visc(n_r),dLvisc(n_r),ek*visc(n_r),          &
                     pr*visc(n_r)/kappa(n_r),prmag*visc(n_r)/lambda(n_r)
             end do
          else
             do n_r=n_r_max,1,-1
-               write(99,'(7D15.7)') r(n_r),visc(n_r)*rho0(n_r), &
-                    visc(n_r),dLvisc(n_r),ek*visc(n_r), &
+               write(99,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
+                    visc(n_r),dLvisc(n_r),ek*visc(n_r),          &
                     pr*visc(n_r)/kappa(n_r),prmag
             end do
          end if
@@ -454,13 +454,13 @@ contains
                     r_cmb**2*real(tops(0,0)))
                call logWrite( &
                     '! Sources introduced to balance surface heat flux!')
-               write(message,'(''!      epsc0='',D16.6)') epsc/sq4pi
+               write(message,'(''!      epsc0='',ES16.6)') epsc/sq4pi
                call logWrite(message)
             else if ( epsc0 /= 0.0_cp .and. tops(0,0) /= 0.0_cp .and. &
                                           bots(0,0) /= 0.0_cp ) then
                help=four*pi/pr/facIH *          &
-                    (r_icb**2*REAL(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
-                    r_cmb**2*REAL(tops(0,0)))
+                    (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
+                    r_cmb**2*real(tops(0,0)))
                if ( help /= epsc ) then
                   write(*,*) '! NOTE: when flux BC through the '
                   write(*,*) '! ICB and/or CMB is used the sources '
@@ -480,23 +480,24 @@ contains
             !      r_cmb**2*dtemp0(1)*rho0(1)*kappa(1))*sq4pi
          end if
          if ( ktops == 1 ) then
-            write(message,'(''! Constant temp. at CMB T='',D16.6)') real(tops(0,0))/sq4pi
+            write(message,'(''! Constant temp. at CMB T ='',ES16.6)') &
+                  real(tops(0,0))/sq4pi
             call logWrite(message)
          else if ( ktops == 2 ) then
             help=surf_cmb*REAL(tops(0,0))/sq4pi
-            write(message,'(''! Const. total CMB buoy. flux    ='',D16.6)') help
+            write(message,'(''! Const. total CMB buoy. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
          if ( kbots == 1 ) then
-            write(message,'(''! Constant temp. at ICB T='',D16.6)') real(bots(0,0))/sq4pi
+            write(message,'(''! Constant temp. at ICB T ='',ES16.6)') real(bots(0,0))/sq4pi
             call logWrite(message)
          else if ( kbots == 2 ) then
             help=surf_cmb*radratio**2*rho0(n_r_max)*temp0(n_r_max)*real(bots(0,0))/sq4pi
-            write(message, '(''! Const. total ICB buoy. flux    ='',D16.6)') help
+            write(message, '(''! Const. total ICB buoy. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
          help=facIH*pr*epsc/sq4pi
-         write(message,'(''! Total vol. buoy. source ='',D16.6)') help
+         write(message,'(''! Total vol. buoy. source ='',ES16.6)') help
          call logWrite(message)
     
       end if
@@ -824,13 +825,14 @@ contains
 
       if (rank == 0) then
          !-- Output of name lists:
-         write(n_out, '(/,'' ! Normalized OC moment of inertia:'',d14.6)') c_moi_oc
-         write(n_out, '('' ! Normalized IC moment of inertia:'',d14.6)') c_moi_ic
-         write(n_out, '('' ! Normalized MA moment of inertia:'',d14.6)') c_moi_ma
-         write(n_out, '('' ! Normalized IC volume :'',d14.6)') vol_ic
-         write(n_out, '('' ! Normalized OC volume :'',d14.6)') vol_oc
-         write(n_out, '('' ! Normalized IC surface:'',d14.6)') surf_cmb*radratio**2
-         write(n_out, '('' ! Normalized OC surface:'',d14.6)') surf_cmb
+         write(n_out, '('' ! Normalized OC moment of inertia:'',ES14.6)') c_moi_oc
+         write(n_out, '('' ! Normalized IC moment of inertia:'',ES14.6)') c_moi_ic
+         write(n_out, '('' ! Normalized MA moment of inertia:'',ES14.6)') c_moi_ma
+         write(n_out, '('' ! Normalized IC volume           :'',ES14.6)') vol_ic
+         write(n_out, '('' ! Normalized OC volume           :'',ES14.6)') vol_oc
+         write(n_out, '('' ! Normalized IC surface          :'',ES14.6)')  &
+                       surf_cmb*radratio**2
+         write(n_out, '('' ! Normalized OC surface          :'',ES14.6)') surf_cmb
          write(n_out,*)
          write(n_out,*) '! Grid parameters:'
          write(n_out,'(''  n_r_max      ='',i6, &

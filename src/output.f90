@@ -365,7 +365,7 @@ contains
                   eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtE    =(eTot-eTotOld)/timePassedLog
                   dtEint =dtEint+timePassedLog*(eTot-eTotOld)
-                  write(99,'(D20.10,3D16.6)') time,dtE,                  &
+                  write(99,'(ES20.10,3ES16.6)') time,dtE,                  &
                        &                    dtEint/timeNormLog,dtE/eTot
                   close(99)
                else
@@ -499,18 +499,17 @@ contains
                                  dbdt_icLast_LMloc,djdt_icLast_LMloc)
   
          if ( rank == 0 ) then
-            write(*,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)')&
-                 & " ! Storing restart file:",          &
-                 & "             at time=",time,        &
-                 & "            step no.=",n_time_step, &
+            write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
+                 & " ! Storing restart file:",           &
+                 & "             at time=",time,         &
+                 & "            step no.=",n_time_step,  &
                  & "           into file=",rst_file
             call safeOpen(nLF,log_file)
             
-            write(nLF,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)') &
-                 & " ! Storing restart file:",             &
-  
-                 & "             at time=",time,           &
-                 & "            step no.=",n_time_step,    &
+            write(nLF,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
+                 & " ! Storing restart file:",              &
+                 & "             at time=",time,            &
+                 & "            step no.=",n_time_step,     &
                  & "           into file=",rst_file
             call safeClose(nLF)
          end if
@@ -665,7 +664,7 @@ contains
   
             n_frame=n_frame+1
             call logWrite(' ')
-            write(message,'(1p,A,I8,A,D16.6,I8)')             &
+            write(message,'(1p,A,I8,A,ES16.6,I8)')            &
                  & " ! WRITING MOVIE FRAME NO ",n_frame,      &
                  & "       at time/step",timeScaled,n_time_step
             call logWrite(message)
@@ -807,7 +806,7 @@ contains
             if ( l_save_out ) then
                open(n_par_file, file=par_file, status='unknown', position='append')
             end if
-            write(n_par_file,'(D20.10,18D12.4)')    &
+            write(n_par_file,'(ES20.12,18ES16.8)')  &
                  &                   time,          &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number 
                  &                     El,          &! 3) Elsasser number
@@ -875,21 +874,21 @@ contains
   
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
-               write(*,'(1p,/,A,/,A,/,A,4D16.6,/,A,4D16.6,/,A,4D16.6)')           &
+               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
                  & " ! Energies at end of time integration:",                     &
                  & " !  (total,poloidal,toroidal,total density)",                 &
                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,    &
                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,    &
                  & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,e_mag_ic/vol_ic
   
-               write(nLF,'(1p,/,A,/,A,/,A,4D16.6,/,A,4D16.6,/,A,4D16.6)')        &
+               write(nLF,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')     &
                  & " ! Energies at end of time integration:",                    &
                  & " !  (total,poloidal,toroidal,total density)",                &
                  & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,   &
                  & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,   &
                  & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,e_mag_ic/vol_ic
   
-               write(nLF,'(1p,/,A,/,A,/,A,4D16.6,/,A,4D16.6)')                   &
+               write(nLF,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')                 &
                  & " ! Time averaged energies :",                                &
                  & " !  (total,poloidal,toroidal,total density)",                &
                  & " !  Kinetic energies:",e_kin_pMean+e_kin_tMean,e_kin_pMean,  &
@@ -899,17 +898,17 @@ contains
                  &                         e_mag_tMean,(e_mag_pMean+e_mag_tMean)/&
                  &                         vol_oc
   
-               write(nLF,'(1p,/,A,7(/,A,D12.4),/,A,4D12.4,/,A,2D12.4,/,A,2D12.4)') &
-                 & " ! Time averaged property parameters :",                       &
-                 & " !  Rm (Re)         :",RmMean,                                 &
-                 & " !  Elsass          :",ElMean,                                 &
-                 & " !  Elsass at CMB   :",ElCmbMean,                              &
-                 & " !  Rol             :",RolMean,                                &
-                 & " !  Geos            :",GeosMean,                               &
-                 & " !  Dip             :",DipMean,                                &
-                 &  " !  DipCMB          :",DipCMBMean,                            &
-                 & " !  l,m,p,z V scales:",dlVMean,dmVMean,dpVMean,dzVmean,        &
-                 & " !  l,m, B scales   :",dlBMean,dmBMean,                        &
+               write(nLF,'(1p,/,A,7(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
+                 & " ! Time averaged property parameters :",                           &
+                 & " !  Rm (Re)         :",RmMean,                                     &
+                 & " !  Elsass          :",ElMean,                                     &
+                 & " !  Elsass at CMB   :",ElCmbMean,                                  &
+                 & " !  Rol             :",RolMean,                                    &
+                 & " !  Geos            :",GeosMean,                                   &
+                 & " !  Dip             :",DipMean,                                    &
+                 & " !  DipCMB          :",DipCMBMean,                                 &
+                 & " !  l,m,p,z V scales:",dlVMean,dmVMean,dpVMean,dzVmean,            &
+                 & " !  l,m, B scales   :",dlBMean,dmBMean,                            &
                  & " !  vis, Ohm scale  :",lvDissMean,lbDissMean
   
                call safeClose(nLF)
@@ -960,18 +959,17 @@ contains
             close(n_rst_file)
 !#endif
   
-            write(*,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)')&
-                 & " ! Storing restart file:",          &
-                 & "             at time=",time,        &
-                 & "            step no.=",n_time_step, &
+            write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
+                 & " ! Storing restart file:",           &
+                 & "             at time=",time,         &
+                 & "            step no.=",n_time_step,  &
                  & "           into file=",rst_file
             call safeOpen(nLF,log_file)
             
-            write(nLF,'(/,1P,A,/,A,D20.10,/,A,I15,/,A,A)') &
-                 & " ! Storing restart file:",             &
-  
-                 & "             at time=",time,           &
-                 & "            step no.=",n_time_step,    &
+            write(nLF,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
+                 & " ! Storing restart file:",              &
+                 & "             at time=",time,            &
+                 & "            step no.=",n_time_step,     &
                  & "           into file=",rst_file
             call safeClose(nLF)
             PERFOFF

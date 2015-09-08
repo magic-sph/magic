@@ -325,7 +325,7 @@ contains
                   eDR=e_dipA(nR)/eTot
                end if
                surf=four*pi*r(nR)**2
-               write(99,'(2x,10D12.4)') r(nR),                      &
+               write(99,'(ES20.10,9ES15.7)') r(nR),                 &
                     &               fac*e_pA(nR)/timetot,           &
                     &               fac*e_p_asA(nR)/timetot,        &
                     &               fac*e_tA(nR)/timetot,           &
@@ -574,7 +574,7 @@ contains
                open(n_e_mag_oc_file, file=e_mag_oc_file, status='unknown', &
                     &             position='append')
             end if
-            write(n_e_mag_oc_file,'(1P,D20.12,12D16.8)')                 &
+            write(n_e_mag_oc_file,'(1P,ES20.12,12ES16.8)')               &
                  &                             time*tScale,              &! 1
                  &                             e_p,e_t,                  &! 2,3
                  &                             e_p_as,e_t_as,            &! 4,5
@@ -591,7 +591,7 @@ contains
                open(n_e_mag_ic_file, file=e_mag_ic_file, status='unknown', &
                     &             position='append')
             end if
-            write(n_e_mag_ic_file,'(1P,D20.12,4D16.8)')               &
+            write(n_e_mag_ic_file,'(1P,ES20.12,4ES16.8)')             &
                  &                       time*tScale,                 &
                  &                       e_p_ic,e_t_ic,               &
                  &                       e_p_as_ic,e_t_as_ic
@@ -685,7 +685,7 @@ contains
             ! There are still differences in field 17 of the dipole file. These
             ! differences are due to the summation for e_es_cmb and are only of the order
             ! of machine accuracy.
-            write(n_dipole_file,'(1P,D20.12,19D12.4)')     &
+            write(n_dipole_file,'(1P,ES20.12,19ES16.8)')   &
                  &       time*tScale,                      &! 1
                  &       theta_dip,phi_dip,                &! 2,3
                  &       Dip,                              &! 4  

@@ -497,14 +497,14 @@ contains
                     status='unknown', position='append')
             end if
             if ( l_RMStest ) then
-               write(n_dtvrms_file,'(1P,D20.12,15D16.8)')  &
-                    time, dtVPolRms, dtVTorRms, CorPolRms, &
-                    CorTorRms, LFPolRms, LFTorRms,         &
-                    AdvPolRms, AdvTorRms, DifPolRms,       &
-                    DifTorRms, BuoRms,PreRms, GeoRms,      &
+               write(n_dtvrms_file,'(1P,ES20.12,15ES16.8)')  &
+                    time, dtVPolRms, dtVTorRms, CorPolRms,   &
+                    CorTorRms, LFPolRms, LFTorRms,           &
+                    AdvPolRms, AdvTorRms, DifPolRms,         &
+                    DifTorRms, BuoRms,PreRms, GeoRms,        &
                     MagRms, ArcRms
             else
-               write(n_dtvrms_file,'(1P,D20.12,15D16.8)')    &
+               write(n_dtvrms_file,'(1P,ES20.12,15ES16.8)')  &
                     time, dtVPolRms, dtVTorRms, CorPolRms,   &
                     CorTorRms, LFPolRms,LFTorRms, AdvPolRms, &
                     AdvTorRms, DifPolRms, DifTorRms, BuoRms, &
@@ -520,7 +520,7 @@ contains
                     status='unknown', position='append')
             end if
             if ( l_RMStest ) then
-               write(n_dtvasrms_file,'(1P,D20.12,15D16.8)')      &
+               write(n_dtvasrms_file,'(1P,ES20.12,15ES16.8)')    &
                     time, dtVPolAsRms, dtVTorAsRms, CorPolAsRms, &
                     CorTorAsRms, LFPolAsRms, LFTorAsRms,         &
                     AdvPolAsRms, AdvTorAsRms, DifPolAsRms,       &
@@ -536,7 +536,7 @@ contains
                   bal2=0.0_cp
                   bal3=0.0_cp
                end if
-               write(n_dtvasrms_file,'(1P,D20.12,15D16.8)')      &
+               write(n_dtvasrms_file,'(1P,ES20.12,15ES16.8)')    &
                     time, dtVPolAsRms, dtVTorAsRms, CorPolAsRms, &
                     CorTorAsRms, LFPolAsRms, LFTorAsRms,         &
                     AdvPolAsRms,AdvTorAsRms, DifPolAsRms,        &
@@ -715,7 +715,7 @@ contains
             open(n_dtbrms_file, file=dtbrms_file, form='formatted', &
                  status='unknown', position='append')
          end if
-         write(n_dtbrms_file,'(1P,D20.12,12D16.8)')              &
+         write(n_dtbrms_file,'(1P,ES20.12,12ES16.8)')            &
               time, dtBPolRms, dtBTorRms, PstrRms, TstrRms,      &     
               PadvRms,TadvRms, PdifRms,TdifRms, TomeRms/TstrRms, &
               TomeRms,  PdynRms,TdynRms 
@@ -727,7 +727,7 @@ contains
             open(n_dtdrms_file, file=dtdrms_file, form='formatted', &
                  status='unknown', position='append')
          end if
-         write(n_dtdrms_file,'(1P,D20.12,3D16.8)') &
+         write(n_dtdrms_file,'(1P,ES20.12,3ES16.8)') &
               time, DstrRms, DadvRms, DdifRms
          if ( l_save_out) then
             close(n_dtdrms_file)

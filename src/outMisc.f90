@@ -291,7 +291,7 @@ contains
             open(n_misc_file, file=misc_file, status='unknown', position='append')
          end if
 
-         write(n_misc_file,'(1P,D20.12,21D16.8)')         &
+         write(n_misc_file,'(1P,ES20.12,21ES16.8)')       &
               & timeScaled, botnuss, topnuss,             &
               & real(s(1,n_r_icb)), real(s(1,n_r_cmb)),   &
               & HelN, HelS, HelRMSN, HelRMSS,             &

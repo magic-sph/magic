@@ -201,7 +201,7 @@ contains
     
          l_new_dt=.true.
          dt_new=dtMax
-         write(message,'(1P," ! COURANT: dt=dtMax =",d12.4,A)') dtMax,&
+         write(message,'(1P," ! COURANT: dt=dtMax =",ES12.4,A)') dtMax,&
               &" ! Think about changing dtMax !"
          call logWrite(message)
     
@@ -209,16 +209,16 @@ contains
     
          l_new_dt=.true.
          dt_new  =dt_2
-         write(message,'(1P," ! COURANT: dt=",D11.4," > dt_r=",D12.4, &
-              &       " and dt_h=",D12.4)') dt,dt_r,dt_h
+         write(message,'(1P," ! COURANT: dt=",ES11.4," > dt_r=",ES12.4, &
+              &       " and dt_h=",ES12.4)') dt,dt_r,dt_h
          call logWrite(message)
     
       else if ( dt_fac*dt < dt_rh .and. dt < dtMax ) then
     
          l_new_dt=.true.
          dt_new=dt_2
-         write(message,'(" ! COURANT: ",F4.1,1P,"*dt=",D11.4, &
-              &     " < dt_r=",D12.4," and dt_h=",D12.4)') &
+         write(message,'(" ! COURANT: ",F4.1,1P,"*dt=",ES11.4, &
+              &     " < dt_r=",ES12.4," and dt_h=",ES12.4)') &
               &     dt_fac,dt_fac*dt,dt_r,dt_h
          call logWrite(message)
     

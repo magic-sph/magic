@@ -292,10 +292,10 @@ program magic
          if ( n == 1 ) nO=6
          if ( n == 2 ) nO=n_log_file
          write(nO,'(/,'' ! STARTING TIME INTEGRATION AT:'')')
-         write(nO,'(''   start_time ='',1p,d18.10)') tScale*time
+         write(nO,'(''   start_time ='',1p,ES18.10)') tScale*time
          write(nO,'(''   step no    ='',i10)') n_time_step
-         write(nO,'(''   start dt   ='',1p,d16.4)') dt
-         write(nO,'(''   start dtNew='',1p,d16.4)') dtNew
+         write(nO,'(''   start dt   ='',1p,ES16.4)') dt
+         write(nO,'(''   start dtNew='',1p,ES16.4)') dtNew
       end do
       if ( l_save_out ) close(n_log_file)
    end if
@@ -316,7 +316,7 @@ program magic
          if ( n == 1 ) nO=6
          if ( n == 2 ) nO=n_log_file
          write(nO,'(/,'' ! STOPPING TIME INTEGRATION AT:'')')
-         write(nO,'(''   stop time ='',1p,d18.10)') tScale*time
+         write(nO,'(''   stop time ='',1p,ES18.10)') tScale*time
          write(nO,'(''   stop step ='',i10)') n_time_step+n_time_step_start
          write(nO,'(''   steps gone='',i10)') (n_time_step-1)
          write(nO,*)

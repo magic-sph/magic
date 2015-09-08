@@ -217,8 +217,8 @@ contains
       real(cp) :: fconvLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: fkinLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: fviscLMr_Rloc(l_max+1,nRstart:nRstop)
-      real(cp) :: fpoynLMr_Rloc(l_maxMag+1,nRstart:nRstop)
-      real(cp) :: fresLMr_Rloc(l_maxMag+1,nRstart:nRstop)
+      real(cp) :: fpoynLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
+      real(cp) :: fresLMr_Rloc(l_maxMag+1,nRstartMag:nRstopMag)
       real(cp) :: EperpLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: EparLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: EperpaxiLMr_Rloc(l_max+1,nRstart:nRstop)
@@ -671,16 +671,16 @@ contains
                graph_file='G_'//trim(adjustl(string))//'.'//tag
             end if
             if ( rank == 0 ) then
-               write(*,'(1p,/,A,/,A,D20.10,/,A,i15,/,A,A)')&
-                    &" ! Storing graphic file:",           &
-                    &"             at time=",timeScaled,   &
-                    &"            step no.=",n_time_step,  &
+               write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
+                    &" ! Storing graphic file:",            &
+                    &"             at time=",timeScaled,    &
+                    &"            step no.=",n_time_step,   &
                     &"           into file=",graph_file
                call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,/,A,d20.10,/,A,i15,/,A,A)') &
-                    &" ! Storing graphic file:",              &
-                    &"             at time=",timeScaled,      &
-                    &"            step no.=",n_time_step,     &
+               write(nLF,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
+                    &" ! Storing graphic file:",               &
+                    &"             at time=",timeScaled,       &
+                    &"            step no.=",n_time_step,      &
                     &"           into file=",graph_file
                call safeClose(nLF)
             end if
@@ -969,11 +969,11 @@ contains
          !----- Stop if time step has become too small:
          if ( dtNew < dtMin ) then
             if ( rank == 0 ) then
-               write(*,'(1p,/,A,d14.4,/,A)')             &
+               write(*,'(1p,/,A,ES14.4,/,A)')            &
                     &" ! TIME STEP TOO SMALL, dt=",dtNew,&
                     &" ! I THUS stop THE RUN !"
                call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,d14.4,/,A)')           &
+               write(nLF,'(1p,/,A,ES14.4,/,A)')          &
                     &" ! TIME STEP TOO SMALL, dt=",dtNew,&
                     &" ! I THUS stop THE RUN !"
                call safeClose(nLF)
@@ -986,16 +986,16 @@ contains
             n_dt_changed=0
             lCourChecking=.true.
             if ( rank == 0 ) then
-               write(*,'(1p,/,A,d18.10,/,A,i9,/,A,d15.8,/,A,d15.8)')   &
-                    &" ! Changing time step at time=",(time+dt)*tScale,&
-                    &"                 time step no=",n_time_step+1,   &
-                    &"                      last dt=",dt*tScale,       &
+               write(*,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')  &
+                    &" ! Changing time step at time=",(time+dt)*tScale,  &
+                    &"                 time step no=",n_time_step+1,     &
+                    &"                      last dt=",dt*tScale,         &
                     &"                       new dt=",dtNew*tScale
                call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,d18.10,/,A,i9,/,A,d15.8,/,A,d15.8)') &
-                    &" ! Changing time step at time=",(time+dt)*tScale,&
-                    &"                 time step no=",n_time_step+1,   &
-                    &"                      last dt=",dt*tScale,       &
+               write(nLF,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)') &
+                    &" ! Changing time step at time=",(time+dt)*tScale,   &
+                    &"                 time step no=",n_time_step+1,      &
+                    &"                      last dt=",dt*tScale,          &
                     &"                       new dt=",dtNew*tScale
                call safeClose(nLF)
             end if
@@ -1026,7 +1026,7 @@ contains
             lMat=.true.
             if ( rank == 0 ) then
                write(*,'(1p,/,'' ! BUILDING MATRICIES AT STEP/TIME:'',   &
-                    &              i8,d16.6)') n_time_step,timeScaled
+                    &              i8,ES16.6)') n_time_step,timeScaled
             end if
          end if
 
@@ -1141,27 +1141,27 @@ contains
       if ( l_movie ) then
          if ( rank == 0 ) then
             if (n_frame > 0) then
-               write(*,'(1p,/,/,A,i10,3(/,A,d16.6))')                     &
+               write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')                    &
                     &" !  No of stored movie frames: ",n_frame,           &
                     &" !     starting at time: ",t_movieS(1)*tScale,      &
                     &" !       ending at time: ",t_movieS(n_frame)*tScale,&
                     &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
                call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,/,A,i10,3(/,A,d16.6))')                   &
+               write(nLF,'(1p,/,/,A,i10,3(/,A,ES16.6))')                  &
                     &" !  No of stored movie frames: ",n_frame,           &
                     &" !     starting at time: ",t_movieS(1)*tScale,      &
                     &" !       ending at time: ",t_movieS(n_frame)*tScale,&
                     &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
                call safeClose(nLF)
             else
-               write(*,'(1p,/,/,A,i10,3(/,A,d16.6))')          &
-                    &" !  No of stored movie frames: ",n_frame,&
+               write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
+                    &" !  No of stored movie frames: ",n_frame, &
                     &" !     starting at time: ",0.0_cp,        &
                     &" !       ending at time: ",0.0_cp,        &
                     &" !      with step width: ",0.0_cp
                call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,/,A,i10,3(/,A,d16.6))')        &
-                    &" !  No of stored movie frames: ",n_frame,&
+               write(nLF,'(1p,/,/,A,i10,3(/,A,ES16.6))')        &
+                    &" !  No of stored movie frames: ",n_frame, &
                     &" !     starting at time: ",0.0_cp,        &
                     &" !       ending at time: ",0.0_cp,        &
                     &" !      with step width: ",0.0_cp
@@ -1270,18 +1270,18 @@ contains
       if ( l_new_dt ) then
          if ( dt_new < dtMin ) dt_new=dtMin
          time_new=time+dt_new
-         write(*, '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+         write(*, '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
          &     time_new*tScale,time*tScale
          if ( rank == 0 ) then
             if ( l_save_out ) then
                open(n_log_file, file=log_file, status='unknown', position='append')
-               write(n_log_file, &
-                    &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+               write(n_log_file,                                                &
+                    &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
                     &     time_new*tScale,time*tScale
                close(n_log_file)
             else
-               write(n_log_file, &
-                    &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2d16.6)') &
+               write(n_log_file,                                               &
+                    &    '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
                     &    time_new*tScale,time*tScale
             end if
          end if
