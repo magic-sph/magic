@@ -138,7 +138,6 @@ contains
       complex(cp) :: dLhw(lm_max),vhG(lm_max),vhC(lm_max)
 
       !----- Energies of time average field:
-      real(cp) :: ekinR(n_r_max)     ! kinetic energy w radius
       real(cp) :: e_kin_p_ave,e_kin_t_ave
       real(cp) :: e_kin_p_as_ave,e_kin_t_as_ave
       real(cp) :: e_mag_p_ave,e_mag_t_ave
@@ -317,8 +316,7 @@ contains
             call get_e_kin(time,.false.,.true.,n_e_sets, &
                  &         w_ave,dw_ave,z_ave,           &
                  &         e_kin_p_ave,e_kin_t_ave,      &
-                 &         e_kin_p_as_ave,e_kin_t_as_ave,&
-                 &         eKinR)
+                 &         e_kin_p_as_ave,e_kin_t_as_ave)
 
             call get_e_mag(time,.false.,.true.,n_e_sets,                  &
                  &         b_ave,db_ave,aj_ave,                           &

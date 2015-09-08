@@ -39,8 +39,7 @@ contains
    end subroutine initialize_kinetic_energy
 !-----------------------------------------------------------------------------
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
-       &               w,dw,z,e_p,e_t,e_p_as,e_t_as,       &
-       &               ekinR,ekinRave)
+       &               w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
 
       !--------------------------------------------------------------------
       !
@@ -65,7 +64,6 @@ contains
 
       !-- Output variables:
       real(cp), intent(out), optional :: ekinR(n_r_max)   
-      real(cp), intent(out), optional :: ekinRave(n_r_max) 
       real(cp), intent(out) :: e_p     ! poloidal energy
       real(cp), intent(out) :: e_t     ! toroidal energy
       real(cp), intent(out) :: e_p_as  ! axisymmetric poloidal energy
@@ -250,16 +248,9 @@ contains
             fac=half*eScale
             filename='eKinR.'//tag
             open(99, file=filename, status='unknown')
-            if ( present(ekinRave) ) then
-               ekinRave(1)      =fac*(e_pA(1)+e_tA(1))/timetot
-               ekinRave(n_r_max)=fac*(e_pA(n_r_max)+e_tA(n_r_max))/timetot
-               do nR=1,n_r_max
-                  ekinRave(nR)  =fac*e_pA(nR)/timetot+fac*e_tA(nR)/timetot
-               end do
-            end if
             do nR=1,n_r_max
                surf=four*pi*r(nR)**2
-               write(99,'(ES20.10,8ES15.7)',advance='no') r(nR),    &
+               write(99,'(ES20.10,8ES15.7)') r(nR),                 &
                     &               fac*e_pA(nR)/timetot,           &
                     &               fac*e_p_asA(nR)/timetot,        &
                     &               fac*e_tA(nR)/timetot,           &
@@ -268,17 +259,6 @@ contains
                     &               fac*e_p_asA(nR)/timetot/surf,   &
                     &               fac*e_tA(nR)/timetot/surf,      &
                     &               fac*e_t_asA(nR)/timetot/surf
-
-               if ( present(ekinR) ) then
-                  write(99,'(ES16.8)',advance='no') ekinR(nR)
-               else
-                  write(99,'(A)') ""
-               end if
-               if ( present(ekinRave) ) then
-                  write(99,'(ES16.8)') ekinRave(nR)
-               else
-                  write(99,'(A)') ""
-               end if
             end do
             close(99)
          end if
@@ -295,9 +275,6 @@ contains
 
       if ( present(ekinR) ) then
          call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      end if
-      if ( present(ekinRave) ) then
-         call MPI_Bcast(ekinRave,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       end if
 #endif
 

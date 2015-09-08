@@ -8,7 +8,7 @@ module magnetic_energy
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, i_costf_init,      &
                                d_costf_init, i_costf1_ic_init, d_costf1_ic_init, &
                                sigma, orho1, r, or2, drx
-   use physical_parameters, only: LFfac
+   use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use horizontal_data, only: dLh
@@ -313,6 +313,14 @@ contains
                e_t_asA(nR)=e_t_asA(nR)+dt*e_t_as_r_global(nR)
             end do
          end if
+         if ( ktopb == 1) then
+            e_tA(1)   =0.0_cp
+            e_t_asA(1)=0.0_cp
+         endif
+         if ( kbotb == 1 ) then
+            e_tA(n_r_max)   =0.0_cp
+            e_t_asA(n_r_max)=0.0_cp
+         endif
          if ( l_stop_time ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag

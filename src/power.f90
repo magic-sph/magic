@@ -385,6 +385,8 @@ contains
 
          if ( l_stop_time ) then
             buoMeanR=buoMeanR/timeNorm
+            buoMeanR(1)      =0.0_cp ! Ensure this is really zero on the boundaries
+            buoMeanR(n_r_max)=0.0_cp
             ohmDissR=ohmDissR/timeNorm
             curlU2MeanR=curlU2MeanR/timeNorm
             fileName='powerR.'//tag
