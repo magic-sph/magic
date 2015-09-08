@@ -1,22 +1,22 @@
 # COMPILER: intel, gnu or amd
-COMPILER   =intel
+COMPILER=intel
 # precision of the calculations: sngl/dble
-PRECISION  =dble
+PRECISION=dble
 # precision for binary outputs: sngl/dble
-OUT_PREC   =dble
+OUT_PREC=sngl
 # production run: yes/no (no= -O0, yes = -03)
-PRODRUN    =yes
+PRODRUN=yes
 #USE_MPI: yes/no
-USE_MPI    =yes
-OPENMP     =yes
+USE_MPI=yes
+OPENMP=yes
 # DEBUG: no/noopt/check/all/marmot
-DEBUG      =no
+DEBUG=no
 # USE_FFTLIB can be MKL or JW
-USE_FFTLIB =JW
+USE_FFTLIB=JW
 #USE_MKL: yes/no
-USE_MKL    =no
+USE_MKL=no
 #Use hdf5 for input/output of the restart files: yes/no
-USE_HDF5   =no
+USE_HDF5=no
 
 USE_PERFLIB=none
 
