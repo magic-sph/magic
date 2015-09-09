@@ -386,7 +386,8 @@ output.o              : truncation.o blocking.o phys_param.o\
                         integration.o outPV3.o outOmega.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o store_pot.o
-communications.o      : blocking.o parallel.o LMLoop_data.o truncation.o
+communications.o      : blocking.o parallel.o LMLoop_data.o truncation.o\
+						radial_data.o
 outPar.o              : truncation.o blocking.o phys_param.o\
                         logic.o radial.o output_data.o radial_data.o\
                         horizontal.o fields.o legendre_spec_to_grid.o\
