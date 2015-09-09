@@ -2,8 +2,7 @@ Control namelist
 ================
 
 This namelist defines the numerical parameters of the problem plus the
-variables that control and organize the run. An exception are the grid-size and
-truncation parameters, that have to be set before compiling the code.
+variables that control and organize the run.
 
 * **mode** (``mode=0``) is an integer which controls the type of calculation performed.
 
