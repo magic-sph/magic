@@ -127,9 +127,9 @@ Thermal boundary conditions
 
   2. Spherical harmonic order :math:`m`
 
-  3. Real amplitude (:math:`cos` contribution)
+  3. Real amplitude (:math:`\cos` contribution)
 
-  4. Imaginary amplitude (:math:`sin` contribution)
+  4. Imaginary amplitude (:math:`\sin` contribution)
 
   For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read: 
   

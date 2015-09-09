@@ -11,7 +11,11 @@ Contents:
 .. toctree::
    :maxdepth: 2
 
+   install
+   autoTests
    namelists
+   outFiles
+   postProc
 
 
 Indices and tables
