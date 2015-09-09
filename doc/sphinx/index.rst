@@ -9,7 +9,9 @@ Welcome to Magic's documentation!
 Contents:
 
 .. toctree::
-   namelist
+   :maxdepth: 2
+
+   namelists
 
 
 Indices and tables

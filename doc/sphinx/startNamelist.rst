@@ -1,0 +1,169 @@
+Start field namelist
+====================
+
+This namelist controls whether a start field from a previous solution should be used, or a specific field should be initialized.
+
+Reading an input file of start fields
+-------------------------------------
+
+* **l_start_file** (``l_start_file=.false.``) is a logical that controls whether the code should to read a file named ``start_file`` or not.
+
+* **start_file** (``start_file=no_start_file``) is a character string. This is the name of the restart file.
+
+  +---------------+--------------------------------------+
+  | ``inform=0``  | Oldest format used by U. Christensen |
+  +---------------+--------------------------------------+
+  | ``inform=1``  | Newer format used by U. Christensen  |
+  +---------------+--------------------------------------+
+  | ``inform=2``  | Inner core introduced by J. Wicht    |
+  +---------------+--------------------------------------+
+  | ``inform=-1`` | Default format                       |
+  +---------------+--------------------------------------+
+
+* **inform** (``inform=-1``) is an integer that can be used to specify the format of ``start_file``. This ensures possible backward compatibility with previous versions of the code.
+
+* **scale_s** (``scale_s=1.0``) is a real. It can be possibly used to multiply the input entropy field from  ``start_file`` by a constant factor ``scale_s``.
+
+* **scale_v** (``scale_v=1.0``) is a real. It can be possibly used to multiply the input velocity field from ``start_file`` by a constant factor ``scale_v``.
+
+* **scale_b** (``scale_b=1.0``) is a real. It can be possibly used to multiply the input magnetic field from ``start_file`` by a constant factor ``scale_b``.
+
+* **tipdipole** (``tipdipole=0.0``) is a real that can be used to add non-axisymmetric disturbances to a start solution if non-axisymmetric parts have been lost due to mapping to a different symmetry. A :math:`(\ell=1,m=1)` entropy term is added with:
+
+  .. math::
+     s_{10}(r) = \hbox{tipdipole}\,\sin [\pi (r-r_i) ]
+
+  .. 
+
+  If a magnetic field without an :math:`m=1` term is mapped into a field that permits this term, the code adds the respective poloidal field using the :math:`(\ell=1,m=0)` poloidal magnetic field and scaling it with ``tipdipole``.
+
+* **l_reset_t** (``l_reset_t=.false.``) is a logical that can be set to ``.true.`` in case one wants to reset the time of start file to zero.
+
+Defining the starting conditions
+--------------------------------
+
+Initialisation of entropy
++++++++++++++++++++++++++
+
+The heat equation with possible heat sources and sinks given by ``epsc0`` is solved for the spherically-symmetric term :math:`(\ell=0,m=0)` to get its radial dependence. In addition to this initial state, two other laterally varying terms can be initialized. Their radial dependence are assumed to follow:
+
+.. math::
+   s(r) = 1-2\,x^2+3\,x^4-x^6,
+
+where
+
+.. math::
+   x = 2\,r-r_o-r_i\, .
+
+The initial perturbation is thus set to zero at both boundaries :math:`r_i` and :math:`r_o`, and reaches its maximum amplitude of ``amp_s1`` or ``amp_s2`` at the mid-shell radius :math:`r_i+1/2`.
+
+* **init_s1** (``init_s1=0``) is an integer that controls the initial entropy. The following values are possible:
+
+  - ``init_s1=0``: nothing is initialized
+
+  - ``init_s1<100``: a random-noise of amplitude ``amp_s1`` is initialised. The subroutine ``initS`` in ``init_fields.f90`` gives the detail of this implementation.
+
+  - ``init_s1>100``: initialisation of mode with  the spherical harmonic order :math:`m` given by the last two (or three) digits of ``init_s1`` and the spherical harmonic degree :math:`\ell` given by the first two (or three) digits. Here are two examples:
+
+     .. code:: fortran
+
+        init_s1  = 0707,
+        amp_s1   = 0.05,
+     ..
+
+     will introduce a perturbation on the mode :math:`(\ell=7,m=7)` with an amplitude of 0.05.
+
+     .. code:: fortran
+
+        init_s1  = 121121,
+        amp_s1   = 0.01,
+     ..
+
+     will introduce a perturbation on the mode :math:`(\ell=121,m=121)` with an amplitude of 0.01.
+
+
+* **amp_s1** (``amp_s1=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s1``.
+
+* **init_s2** (``init_s2=0``) is an integer that controls a second spherical harmonic degee. It follows the same specifications as ``init_s1``.
+
+* **amp_s2** (``amp_s2=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s2``.
+
+Initialisation of magnetic field
+++++++++++++++++++++++++++++++++
+
+* **init_b1** (``init_b1=0``) is an integer that controls the initial magnetic field. The following values are possible:
+
+  - ``init_b1<0``: random noise initialization of all :math:`(\ell,m)` modes, except for :math:`(\ell=0,m=0)`. The subroutine ``initB`` in the file ``init_fields.f90`` contains the details of the implementation.
+
+  - ``init_b1=0``: nothing is initialized
+
+  - ``init_b1=1``: diffusive toroidal field initialized. Mode determined by ``imagcon``.
+
+  - ``init_b1=2``: :math:`(\ell=1,m=0)` toroidal field with a maximum field strength of ``amp_b1``. The radial dependence is defined, such that the field vanishes at both the inner and outer boundaries. In case of an insulating inner core: :math:`t(r)\approx r\,\sin[\phi(r-r_o)]`. In case of a conducting inner core: :math:`t(r)\approx r\,\sin[\pi(r/r_o)]`.
+
+  - ``init_b1=3``: :math:`(\ell=1,m=0)` poloidal field whose field strength is ``amp_b1`` at :math:`r=r_i`. The radial dependence is chosen such that the current density :math:`j` is independent of :math:`r`:, i.e. :math:`\partial j /\partial r = 0`. :math:`(\ell=2,m=0)` toroidal field with maximum strength ``amp_b1``.
+
+  - ``init_b1=4``: :math:`(\ell=1,m=0)` poloidal field as if the core were an insulator (potential field). Field strength at :math:`r=r_i` is again given by ``amp_b1``.
+
+  - ``init_b1=5``: :math:`(\ell=1,m=0)` poloidal field with field strength ``amp_b1`` at :math:`r = r_i`. The radial dependence is again defined by :math:`\partial j/\partial r= 0`.
+
+  - ``init_b1=6``: :math:`(\ell=1,m=0)` poloidal field independend of :math:`r`.
+
+  - ``init_b1=7``: :math:`(\ell=1,m=0)` poloidal field which fulfills symmetry condition in inner core: :math:`b(r)\approx \left(\frac{r}{r_i}\right)^2\left[1-\frac{3}{5}\left(\frac{r}{r_o}\right)^2\right]`. The field strength is given by ``amp_b1`` at :math:`r = r_o`.
+
+  - ``init_b1=8``: same poloidal field as for ``init_b1=7``. The toroidal field fulfills symmetry conditions in inner core and has a field strength of ``amp_b1`` at :math:`r = r_i`: :math:`t(r)\approx \left(\frac{r}{r_i}\right)^3\left[1-\left(\frac{r}{r_o}\right)^2\right]`.
+
+  - ``init_b1=9``: :math:`(\ell=2,m=0)`  poloidal field, which is a potential field at the outer boundary.
+
+  - ``init_b1=10``: equatorial dipole only.
+
+  - ``init_b1=11``: axial and equatorial dipoles.
+
+  - ``init_b1=21``: toroidal field created by inner core rotation, equatorially symmetric :math:`(\ell=1,m=0)`: :math:`t(r)= \hbox{ampb1}\, \left(\frac{r_i}{r}\right)^6`. The field strength is given by ``amp_b1`` at :math:`r=r_i`.
+
+  - ``init_b1=22``: toroidal field created by inner core rotation, equatorially antisymmetric :math:`(\ell=2,m=0)`. Same radial function as for ``init_b1=21``.
+
+* **amp_b1** (``amp_b1=0.0``) is a real used to contol the amplitude of the function defined by ``init_b1``.
+
+
+* **imagcon** (``imagcon=0``) is an integer, which determines the imposed magnetic field for magnetoconvection. The magnetic field is imposed at boundaries.
+
+  - ``imagcon=0``: no magneto-convection
+
+  - ``imagcon<0``: axial poloidal dipole imposed at ICB with a maximum magnetic field strength ``amp_b1``.
+
+  - ``imagcon=10``: :math:`(\ell=2,m=0)` toroidal field imposed at ICB and CMB with a maximum amplitude ``amp_b1`` at both boundaries.
+
+  - ``imagcon=10``: :math:`(\ell=2,m=0)` toroidal field imposed at ICB and CMB with a maximum amplitude ``amp_b1`` at both boundaries.
+
+  - ``imagcon=11``: same as ``imagcon=10`` but the maximum amplitude is now ``amp_b1`` at the ICB and ``-amp_b1`` at the CMB.
+
+  - ``imagcon=12``: :math:`(\ell=1,m=0)` toroidal field with a maximum amplitude of ``amp_b1`` at the ICB and the CMB.
+
+* **tmagcon** (``tmagcon=0.0``) is a real.
+
+
+Initialisation of velocity field
+++++++++++++++++++++++++++++++++
+
+
+* **init_v1** (``init_v1=0``) is an integer that controls the initial velocity. The following values are possible:
+
+  - ``init_v1=0``: nothing is initialized
+
+  - ``init_v1=1``: a differential rotation profile of the form 
+
+    .. math::
+       \Omega = \Omega_{ma}+0.5\Omega_{ic} \quad\hbox{for}\quad s\leq r_i \\
+       \Omega = \Omega_{ma} \quad\hbox{for}\quad s> r_i
+
+    ..
+
+    where :math:`s=r\sin\theta` is the cylindrical radius. This profile only makes sense when one studies spherical Couette flows.
+
+  - ``init_v1=2``: a differential rotation profile of the form :math:`\Omega= \frac{\hbox{ampv1}}{\sqrt{1+s^4}}` is introduced.
+
+  - ``init_v1>2``: a random-noise of amplitude ``amp_v1`` is initialised. The subroutine ``initV`` in ``init_fields.f90`` gives the detail of this implementation.
+
+
+* **amp_v1** (``amp_v1=0.0``) is a real used to contol the amplitude of the function defined by ``init_v1``.
