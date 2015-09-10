@@ -6,9 +6,9 @@ This namelist controls whether a start field from a previous solution should be 
 Reading an input file of start fields
 -------------------------------------
 
-* **l_start_file** (``l_start_file=.false.``) is a logical that controls whether the code should to read a file named ``start_file`` or not.
+* **l_start_file** (default ``l_start_file=.false.``) is a logical that controls whether the code should to read a file named ``start_file`` or not.
 
-* **start_file** (``start_file=no_start_file``) is a character string. This is the name of the restart file.
+* **start_file** (default ``start_file=no_start_file``) is a character string. This is the name of the restart file.
 
   +---------------+--------------------------------------+
   | ``inform=0``  | Oldest format used by U. Christensen |
@@ -20,13 +20,13 @@ Reading an input file of start fields
   | ``inform=-1`` | Default format                       |
   +---------------+--------------------------------------+
 
-* **inform** (``inform=-1``) is an integer that can be used to specify the format of ``start_file``. This ensures possible backward compatibility with previous versions of the code.
+* **inform** (default ``inform=-1``) is an integer that can be used to specify the format of ``start_file``. This ensures possible backward compatibility with previous versions of the code.
 
-* **scale_s** (``scale_s=1.0``) is a real. It can be possibly used to multiply the input entropy field from  ``start_file`` by a constant factor ``scale_s``.
+* **scale_s** (default ``scale_s=1.0``) is a real. It can be possibly used to multiply the input entropy field from  ``start_file`` by a constant factor ``scale_s``.
 
-* **scale_v** (``scale_v=1.0``) is a real. It can be possibly used to multiply the input velocity field from ``start_file`` by a constant factor ``scale_v``.
+* **scale_v** (default ``scale_v=1.0``) is a real. It can be possibly used to multiply the input velocity field from ``start_file`` by a constant factor ``scale_v``.
 
-* **scale_b** (``scale_b=1.0``) is a real. It can be possibly used to multiply the input magnetic field from ``start_file`` by a constant factor ``scale_b``.
+* **scale_b** (default ``scale_b=1.0``) is a real. It can be possibly used to multiply the input magnetic field from ``start_file`` by a constant factor ``scale_b``.
 
 * **tipdipole** (``tipdipole=0.0``) is a real that can be used to add non-axisymmetric disturbances to a start solution if non-axisymmetric parts have been lost due to mapping to a different symmetry. A :math:`(\ell=1,m=1)` entropy term is added with:
 
@@ -37,7 +37,7 @@ Reading an input file of start fields
 
   If a magnetic field without an :math:`m=1` term is mapped into a field that permits this term, the code adds the respective poloidal field using the :math:`(\ell=1,m=0)` poloidal magnetic field and scaling it with ``tipdipole``.
 
-* **l_reset_t** (``l_reset_t=.false.``) is a logical that can be set to ``.true.`` in case one wants to reset the time of start file to zero.
+* **l_reset_t** (default ``l_reset_t=.false.``) is a logical that can be set to ``.true.`` in case one wants to reset the time of start file to zero.
 
 Defining the starting conditions
 --------------------------------
@@ -57,7 +57,7 @@ where
 
 The initial perturbation is thus set to zero at both boundaries :math:`r_i` and :math:`r_o`, and reaches its maximum amplitude of ``amp_s1`` or ``amp_s2`` at the mid-shell radius :math:`r_i+1/2`.
 
-* **init_s1** (``init_s1=0``) is an integer that controls the initial entropy. The following values are possible:
+* **init_s1** (default ``init_s1=0``) is an integer that controls the initial entropy. The following values are possible:
 
   - ``init_s1=0``: nothing is initialized
 
@@ -82,16 +82,16 @@ The initial perturbation is thus set to zero at both boundaries :math:`r_i` and 
      will introduce a perturbation on the mode :math:`(\ell=121,m=121)` with an amplitude of 0.01.
 
 
-* **amp_s1** (``amp_s1=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s1``.
+* **amp_s1** (default ``amp_s1=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s1``.
 
-* **init_s2** (``init_s2=0``) is an integer that controls a second spherical harmonic degee. It follows the same specifications as ``init_s1``.
+* **init_s2** (default ``init_s2=0``) is an integer that controls a second spherical harmonic degee. It follows the same specifications as ``init_s1``.
 
-* **amp_s2** (``amp_s2=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s2``.
+* **amp_s2** (default ``amp_s2=0.0``) is a real used to contol the amplitude of the perturbation defined by ``init_s2``.
 
 Initialisation of magnetic field
 ++++++++++++++++++++++++++++++++
 
-* **init_b1** (``init_b1=0``) is an integer that controls the initial magnetic field. The following values are possible:
+* **init_b1** (default ``init_b1=0``) is an integer that controls the initial magnetic field. The following values are possible:
 
   - ``init_b1<0``: random noise initialization of all :math:`(\ell,m)` modes, except for :math:`(\ell=0,m=0)`. The subroutine ``initB`` in the file ``init_fields.f90`` contains the details of the implementation.
 
@@ -123,10 +123,10 @@ Initialisation of magnetic field
 
   - ``init_b1=22``: toroidal field created by inner core rotation, equatorially antisymmetric :math:`(\ell=2,m=0)`. Same radial function as for ``init_b1=21``.
 
-* **amp_b1** (``amp_b1=0.0``) is a real used to contol the amplitude of the function defined by ``init_b1``.
+* **amp_b1** (default ``amp_b1=0.0``) is a real used to contol the amplitude of the function defined by ``init_b1``.
 
 
-* **imagcon** (``imagcon=0``) is an integer, which determines the imposed magnetic field for magnetoconvection. The magnetic field is imposed at boundaries.
+* **imagcon** (default ``imagcon=0``) is an integer, which determines the imposed magnetic field for magnetoconvection. The magnetic field is imposed at boundaries.
 
   - ``imagcon=0``: no magneto-convection
 
@@ -147,7 +147,7 @@ Initialisation of velocity field
 ++++++++++++++++++++++++++++++++
 
 
-* **init_v1** (``init_v1=0``) is an integer that controls the initial velocity. The following values are possible:
+* **init_v1** (default ``init_v1=0``) is an integer that controls the initial velocity. The following values are possible:
 
   - ``init_v1=0``: nothing is initialized
 
@@ -166,4 +166,4 @@ Initialisation of velocity field
   - ``init_v1>2``: a random-noise of amplitude ``amp_v1`` is initialised. The subroutine ``initV`` in ``init_fields.f90`` gives the detail of this implementation.
 
 
-* **amp_v1** (``amp_v1=0.0``) is a real used to contol the amplitude of the function defined by ``init_v1``.
+* **amp_v1** (default ``amp_v1=0.0``) is a real used to contol the amplitude of the function defined by ``init_v1``.

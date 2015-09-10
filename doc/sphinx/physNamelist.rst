@@ -41,22 +41,64 @@ Dimensionless control parameters
   .. math::
      \tilde{\rho} = \tilde{T}^m
 
+  ..
+
+  .. warning:: Be careful: in its current version the code only handles **adiabatic** backgrounds, therefore changing ``polind`` physically means that the nature of the fluid (in particular its Grüneisen parameter) will change. For an ideal gas, it actually always follows :math:`m+1=\frac{\gamma -1}{\gamma}`
+
+
+Heat sources and sinks
+----------------------
+
+* **epsc0** (default ``epsc0=0.0``) is a real. This is the volumetric heat source :math:`\epsilon_0` that enters the thermal equilibrium relation:
+
+  .. math::
+     -\nabla\cdot\left(\tilde{\rho}\tilde{T}\nabla s\right) + \epsilon_0\,f(r)=0
+     :label: heatEq
+
+  ..
+
+  The radial function :math:`f(r)` can be modified with the variable ``nVarEps`` that enters the same input namelist.
+
+* **nVarEps** (default ``nVarEps=0``) is an integer. This is used to modify the radial-dependence ofthe volumetric heat source, i.e. :math:`f(r)` that enters equation :eq:`heatEq`.
+
+  +---------------+-------------------------------------------------------------+
+  | ``nVarEps=0`` | Constant, i.e. :math:`f(r)=\hbox{cst.}`.                    |
+  +---------------+-------------------------------------------------------------+
+  | ``nVarEps=1`` | Proportional to density, i.e. :math:`f(r)=\tilde{\rho}(r)`. |
+  +---------------+-------------------------------------------------------------+
+
+Realistic interior models
+-------------------------
+
+* **interior_model** (default ``interior_model="None"``) is a character string. This defines a polynomial fit of the density profile of the interior structure of several astrophysical objects. Possible options are ``"earth"``, ``"jupiter"``, ``"saturn"`` and ``"sun"``. 
+
+  .. warning:: When ``interior_model`` is defined the variables ``strat``, ``polind``, ``g0``, ``g1`` and ``g2`` are not used.
+
+  ..
+
+  The subroutine ``radial`` in the file ``radial.f90`` gives the exact details of the implementation.
+
+* **r_cut_model** (default ``r_cut_model=0.98``) is a real. This defines the cut-off radius of the reference model, i.e. the fluid domain is restricted to radii with :math:`r\leq r_{cut}`.
+
+
 Gravity
 -------
 
 The radial dependence of the gravity profile can be adjusted following
 
 .. math::
-   g(r)=g_0+g1\,\frac{r}{r_o}+g2\,\left(\frac{r_o}{r}\right)^2
+   g(r)=g_0+g_1\,\frac{r}{r_o}+g_2\,\left(\frac{r_o}{r}\right)^2
+   :label: eqGravity
 
 The three following parameters are used to set this profile
 
-* **g0** (default ``g0=0``) is the pre-factor of the constant part of the gravity profile.
+* **g0** (default ``g0=0``) is the pre-factor of the constant part of the gravity profile, i.e. :math:`g_0` in equation :eq:`eqGravity`.
 
-* **g1** (default ``g1=1``) is the pre-factor of the linear part of the gravity profile.
+* **g1** (default ``g1=1``) is the pre-factor of the linear part of the gravity profile, i.e. :math:`g_1` in equation :eq:`eqGravity`.
 
-* **g2** (default ``g2=0``) is the pre-factor of the :math:`1/r^2` part of the gravity profile.
+* **g2** (default ``g2=0``) is the pre-factor of the :math:`1/r^2` part of the gravity profile, i.e. :math:`g_2` in equation :eq:`eqGravity`.
      
+
 Transport properties
 --------------------
 
@@ -66,7 +108,45 @@ Transport properties
 Electrical conductivity
 +++++++++++++++++++++++
 
+There are several electrical conductivity profiles implemented in the code that can be chosen with the ``nVarCond`` input variable. The following one corresponds to a constant electrical conductivity in the deep interior (:math:`r<r_m`) and an exponential decay in the outer layer.
+
+.. math::
+  \sigma(r)=1+ (\sigma_m-1)\left(\frac{r-r_i}{r_m-r_i}\right)^a \quad \hbox{for}\quad r<r_m, \\
+  \sigma(r)=\sigma_m \exp \left[a \left(\frac{r-r_m}{r_m-r_i}\right)\frac{\sigma_m-1}{\sigma_m}\right] 
+  \quad\hbox{for}\quad r\geq r_m.
+  :label: eqElecCond
+
 * **nVarCond** (default ``nVarCond=0``) is an integer. This is used to modify the radial-dependence of the electrical conductivity.
+
+  +----------------+-----------------------------------------------------------------------+
+  | ``nVarCond=0`` | Constant electrical conductivity, i.e. :math:`\sigma=\hbox{cst.}`     |
+  +----------------+-----------------------------------------------------------------------+
+  | ``nVarCond=1`` | :math:`\sigma\propto\tanh[a(r-r_m)]`                                  |
+  +----------------+-----------------------------------------------------------------------+
+  | ``nVarCond=2`` | See equation :eq:`eqElecCond`.                                        |
+  +----------------+-----------------------------------------------------------------------+
+  | ``nVarCond=3`` | Magnetic diffusivity proportional to :math:`1/\tilde{\rho}`, i.e.     |
+  |                |   .. math::                                                           |
+  |		   |      \lambda=\frac{\tilde{\rho}_i}{\tilde{\rho}}                      |
+  +----------------+-----------------------------------------------------------------------+
+  | ``nVarCond=2`` | Radial profile of the form:                                           |
+  |                |   .. math::                                                           |
+  |                |      \lambda=\left(\frac{\tilde{\rho}(r)}                             |
+  |                |       {\tilde{\rho}_i}\right)^{\alpha}                                |
+  +----------------+-----------------------------------------------------------------------+
+
+* **con_RadRatio**  (default ``cond_RadRatio=0.75``) is a real. This defines the transition radius :math:`r_m` that enters equation :eq:`eqElecCond`.
+
+* **con_DecRate** (default ``con_DecRate=9``) is an integer. This defines the decay rate :math:`a` that enters equation :eq:`eqElecCond`.
+
+* **con_LambdaMatch** (default ``con_LambdaMatch=0.6``) is a real. This is the value of the conductivity at the transition point :math:`\sigma_m` that enters equation :eq:`eqElecCond`.
+
+* **con_LambdaOut** (default ``con_LambdaOut=0.1``) is a real. This is the value of the conduvity at the outer boundary. This parameter is only used when ``nVarCond=1``.
+
+* **con_FuncWidth** (default ``con_FuncWidth=0.25``) is a real. This parameter is only used when ``nVarCond=1``.
+
+
+* **r_LCR** (default ``r_LCR=2.0``) is a real. ``r_LCR`` possibly defines a low-conductivity region for :math:`r\geq r_{LCR}`, in which the electrical conductivity vanishes, i.e. :math:`\lambda=0`.
 
 Thermal diffusivity
 +++++++++++++++++++
@@ -77,10 +157,11 @@ Thermal diffusivity
   | ``nVarDiff=0`` | Constant thermal diffusivity :math:`\kappa`                                |
   +----------------+----------------------------------------------------------------------------+
   | ``nVarDiff=1`` | Constant thermal conductivity, i.e.                                        |
-  |                | :math:`\kappa =\frac{\tilde{\rho}_i}{\tilde{\rho}(r)}`                     |
+  |                |    .. math:: \kappa =\frac{\tilde{\rho}_i}{\tilde{\rho}(r)}                |
   +----------------+----------------------------------------------------------------------------+
-  | ``nVarDiff=2`` | Radial profile of the form                                                 |
-  |                | :math:`\kappa=\left(\frac{\tilde{\rho}(r)}{\tilde{\rho}_i}\right)^{\alpha}`|
+  | ``nVarDiff=2`` | Radial profile of the form:                                                |
+  |                |    .. math:: \kappa=\left(\frac{\tilde{\rho}(r)}                           |
+  |                |              {\tilde{\rho}_i}\right)^{\alpha}                              |
   +----------------+----------------------------------------------------------------------------+
   | ``nVarDiff=3`` | polynomial-fit to an interior model of Jupiter                             |
   +----------------+----------------------------------------------------------------------------+
@@ -96,13 +177,29 @@ Viscosity
   | ``nVarVisc=0`` | Constant kinematic viscosity :math:`\nu`                                |
   +----------------+-------------------------------------------------------------------------+
   | ``nVarVisc=1`` | Constant dynamic viscosity, i.e.                                        |
-  |                | :math:`\nu =\frac{\tilde{\rho}_o}{\tilde{\rho}(r)}`                     |
+  |                |    .. math:: \nu =\frac{\tilde{\rho}_o}{\tilde{\rho}(r)}                |
   +----------------+-------------------------------------------------------------------------+
-  | ``nVarVisc=2`` | Radial profile of the form                                              |
-  |                | :math:`\nu=\left(\frac{\tilde{\rho}(r)}{\tilde{\rho}_i}\right)^{\alpha}`|
+  | ``nVarVisc=2`` | Radial profile of the form:                                             |
+  |                |    .. math:: \nu=\left(\frac{\tilde{\rho}(r)}                           |
+  |                |              {\tilde{\rho}_i}\right)^{\alpha}                           |
   +----------------+-------------------------------------------------------------------------+
 
   where :math:`alpha` is an exponent set by the namelist input variable ``difExp``.
+
+
+Anelastic liquid equations
+--------------------------
+
+.. warning:: This part is still work in progress. The input parameters here are likely to 
+             be changed in the future.
+
+* **epsS** (default ``epsS=0.0``) is a real. It controls the deviation to the adiabat. It can be related to the small parameter :math:`epsilon`:
+   
+  .. math:: \epsilon \simeq \frac{\Delta T}{T} \simeq \frac{\Delta s}{c_p}
+
+* **cmbHflux** (default ``cmbHflux=0.0``) is a real. This is the CMB heat flux that enters the calculation of the reference state of the liquid core of the Earth, when the anelastic liquid approximation is employed.
+
+* **slopeStrat** (default ``slopeStrat=20.0``) is a real. This parameter controls the transition between the convective layer and the stably-stratified layer below the CMB.
 
 
 Boundary conditions
