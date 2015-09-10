@@ -7,7 +7,7 @@ variables that control and organize the run.
 * **mode** (default ``mode=0``) is an integer which controls the type of calculation performed.
 
   +---------+--------------------------------------------------------+
-  | mode=0  | Selfconsistent dynamo                                  |
+  | mode=0  | Self-consistent dynamo                                 |
   +---------+--------------------------------------------------------+
   | mode=1  | Convection                                             |
   +---------+--------------------------------------------------------+
@@ -19,7 +19,7 @@ variables that control and organize the run.
   +---------+--------------------------------------------------------+
   | mode=5  | Linear onset of convection                             |
   +---------+--------------------------------------------------------+
-  | mode=6  | Selfconsistent dynamo, but with no Lorentz force       |
+  | mode=6  | Self-consistent dynamo, but with no Lorentz force      |
   +---------+--------------------------------------------------------+
   | mode=7  | Super-rotating inner core or mantle, no convection and |
   |         | no magnetic field                                      |
