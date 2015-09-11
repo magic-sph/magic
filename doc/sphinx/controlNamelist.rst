@@ -1,3 +1,5 @@
+.. _secControlNml:
+
 Control namelist
 ================
 
@@ -32,6 +34,8 @@ variables that control and organize the run.
   | mode=10 | Super-rotating inner core or mantle, no convection,    |
   |         | no magnetic field, no Lorentz force and no advection   |
   +---------+--------------------------------------------------------+
+
+.. _varTAG:
 
 * **tag** (default ``tag=default``) is a character string, used as an extension for all output files.
 

@@ -1,3 +1,5 @@
+.. _secPhysNml:
+
 Physical parameters namelist
 ============================
 

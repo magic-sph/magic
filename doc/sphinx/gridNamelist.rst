@@ -1,3 +1,5 @@
+.. _secGridNml:
+
 Grid namelist
 =============
 

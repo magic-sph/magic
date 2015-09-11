@@ -1,3 +1,5 @@
+.. _secOutputNml:
+
 Output control namelist
 =======================
 
@@ -25,7 +27,7 @@ There are four different ways to control at which time step a specific output sh
 
    3. **Defined time interval between two outputs**.
 
-   .. note:: These input variables are usually named with a pattern that follows ``dt_outputName``, for instance, ``dt_graph``, ``dt_rst``, ``dt_spec``, ``dt_log``, ``dt_movie``, etc.
+   .. note:: These input variables are usually named with a pattern that follows ``dt_outputName``, for instance, :ref:`dt_graph <dtGraphVar>`, ``dt_rst``, ``dt_spec``, ``dt_log``, ``dt_movie``, etc.
 
    ..
 
@@ -57,7 +59,7 @@ file: kinetic and magnetic energies (:ref:`e_kin.TAG <secEkinFile>`,
 :ref:`e_mag_oc.TAG <secEmagocFile>` and :ref:`e_mag_ic.TAG <secEmagicFile>`
 files), dipole information (:ref:`dipole.TAG <secDipoleFile>` file), rotation
 (:ref:`rot.TAG <secRotFile>`) parameters (:ref:`par.TAG <secParFile>`) and
-various additional diagnostics (:ref:`misc.TAG <secMiscFile`):
+various additional diagnostics (:ref:`misc.TAG <secMiscFile>`):
 
 * **n_log_step** (default ``n_log_step=50``) is an integer. This is the number of timesteps between two log outputs.
 
@@ -106,6 +108,8 @@ The **graph** outputs controls the output of graphic files (``G_#.TAG`` and ``G_
 * **n_graphs** (default ``n_graphss=1``) is an integer. This is the number of graphic files to be written.
 
 * **t_graph**  (default  ``t_graph=-1.0 -1.0 ...``) is real array, which contains the times when graphic files are requested.
+
+.. _dtGraphVar:
 
 * **dt_graph** (default ``dt_graph=0.0``) is a real, which defines the time interval between graphic files.
 
@@ -234,6 +238,8 @@ Field Averages
 --------------
 
 The code can perform on-the-fly time-averaging of entropy, velocity field and magnetic field. Respective graphic output and spectra are written into the corresponding files (with ``G_ave.TAG``, ``kin_spec_avec.TAG``). The time-averaged energies are written into the log file.
+
+.. _varl_average:
 
 * **l_average** (default ``l_average=.false.``) is a logical, which enables the time-averaging of fields when set to ``.true.``.
 

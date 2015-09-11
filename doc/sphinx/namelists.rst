@@ -21,20 +21,21 @@ Comas can be used to seperate namelist entries since they are not interpreted by
 
 Magic uses eight namelists:
 
-1. ``&grid`` for resolution
-2. ``&control`` for control parameters and numerical parameters.
-3. ``&phys_param`` for the physical parameters.
-4. ``&start_field`` to define the starting fields.
-5. ``&output_control`` for defining the output.
+1. :ref:`&grid <secGridNml>` for resolution
+2. :ref:`&control <secControlNml>` for control parameters and numerical parameters.
+3. :ref:`&phys_param <secPhysNml>` for the physical parameters.
+4. :ref:`&start_field <secStartNml>` to define the starting fields.
+5. :ref:`&output_control <secOutputNml>` for defining the output.
 6. ``&mantle`` for setting mantle parameters.
 7. ``&inner_core`` for setting inner core parameters.
 8. ``&B_external`` for setting up an external field contribution
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
 
    gridNamelist.rst
-   physNamelist.rst
    controlNamelist.rst
+   physNamelist.rst
    startNamelist.rst
    outputNamelist.rst

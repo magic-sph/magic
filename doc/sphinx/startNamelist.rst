@@ -1,3 +1,5 @@
+.. _secStartNml:
+
 Start field namelist
 ====================
 
