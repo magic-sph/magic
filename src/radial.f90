@@ -672,7 +672,7 @@ contains
              do n_r=1,n_r_max
                 if ( r(n_r) < r0 )then
                    r0=r(n_r)
-                   EXIT
+                   exit
                 end if
              end do
              dsigma0=(con_LambdaMatch-1)*con_DecRate /(r0-r_icb)

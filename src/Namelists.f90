@@ -31,7 +31,7 @@ contains
       !  |                                                                   |
       !  |  Purpose of this subroutine is to read the input namelists.       |
       !  |  This program also determins logical parameters that are stored   |
-      !  |  in c_logic.f.                                                    |
+      !  |  in logic.f90.                                                    |
       !  |                                                                   |
       !  +-------------------------------------------------------------------+
 
@@ -86,8 +86,7 @@ contains
          & n_stores,n_rst_step,n_rsts,t_rst,                  &
          & t_rst_start,t_rst_stop,dt_rst,                     &
          & n_log_step,n_logs,t_log,t_log_start,t_log_stop,    &
-         & dt_log,n_p_step,n_ps,t_p,t_p_start,t_p_stop,dt_p,  &
-         & n_spec_step,n_specs,t_spec,t_spec_start,           &
+         & dt_log,n_spec_step,n_specs,t_spec,t_spec_start,    &
          & t_spec_stop,dt_spec,n_cmb_step,n_cmbs,t_cmb,       &
          & t_cmb_start,t_cmb_stop,dt_cmb,                     &
          & n_r_field_step,n_r_fields,t_r_field,               &
@@ -756,11 +755,6 @@ contains
       write(n_out,'(''  t_log_start     ='',ES14.6,'','')') t_log_start
       write(n_out,'(''  t_log_stop      ='',ES14.6,'','')') t_log_stop
       write(n_out,'(''  dt_log          ='',ES14.6,'','')') dt_log
-      write(n_out,'(''  n_p_step        ='',i5,'','')') n_p_step
-      write(n_out,'(''  n_ps            ='',i5,'','')') n_ps
-      write(n_out,'(''  t_p_start       ='',ES14.6,'','')') t_p_start
-      write(n_out,'(''  t_p_stop        ='',ES14.6,'','')') t_p_stop
-      write(n_out,'(''  dt_p            ='',ES14.6,'','')') dt_p
       write(n_out,'(''  n_spec_step     ='',i5,'','')') n_spec_step
       write(n_out,'(''  n_specs         ='',i5,'','')') n_specs
       write(n_out,'(''  t_spec_start    ='',ES14.6,'','')') t_spec_start
@@ -1142,7 +1136,6 @@ contains
          t_graph(n)  =-one
          t_rst(n)    =-one
          t_log(n)    =-one
-         t_p(n)      =-one
          t_spec(n)   =-one
          t_cmb(n)    =-one
          t_r_field(n)=-one

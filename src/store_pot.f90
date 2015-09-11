@@ -105,11 +105,11 @@ contains
               & real(omega_ic,kind=outp)
       write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)),   &
                                          aimag(workA(lm,n_cheb)),           &
-                                         kind=cp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
+                                         kind=outp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
       if ( lVB ) then
          write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)),   &
                                             aimag(workB(lm,n_cheb)),           &
-                                            kind=cp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
+                                            kind=outp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
       end if
     
       !-- Now inner core field
@@ -143,11 +143,11 @@ contains
          end do
          write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)), &
                                             aimag(workA(lm,n_cheb)),         &
-                                            kind=cp),                        &
+                                            kind=outp),                      &
                                             lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
          write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)), &
                                             aimag(workB(lm,n_cheb)),         &
-                                            kind=cp),                        &
+                                            kind=outp),                      &
                                             lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
     
       end if
@@ -261,12 +261,12 @@ contains
               &    real(omega_ic,kind=outp)
          write(99) real(time,kind=outp), ( (cmplx( real(workA_global(lm,n_cheb)),  &
                                                    aimag(workA_global(lm,n_cheb)), &
-                                                   kind=cp ),                      &
+                                                   kind=outp ),                    &
                                                    lm=1,lm_max),n_cheb=1,n_cheb_max )
          if ( lVB ) then
             write(99) real(time,kind=outp), ( (cmplx( real(workB_global(lm,n_cheb)),  &
                                                       aimag(workB_global(lm,n_cheb)), &
-                                                      kind=cp ),                      &
+                                                      kind=outp ),                    &
                                                       lm=1,lm_max),n_cheb=1,n_cheb_max)
          end if
       end if
@@ -309,11 +309,11 @@ contains
 
             write(99) real(time,kind=outp),                               &
                  &   ( (cmplx( real(workA_global(lm,n_cheb)),             &
-                 &            aimag(workA_global(lm,n_cheb)), kind=cp ),  &
+                 &            aimag(workA_global(lm,n_cheb)), kind=outp ),&
                  &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
             write(99) real(time,kind=outp),                               &
                  &   ( (cmplx( real(workB_global(lm,n_cheb)),             &
-                 &            aimag(workB_global(lm,n_cheb)), kind=cp),   &
+                 &            aimag(workB_global(lm,n_cheb)), kind=outp), &
                  &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
          end if
 

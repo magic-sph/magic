@@ -26,9 +26,7 @@ module output_data
    real(cp), public :: t_graph_start,t_graph_stop,dt_graph
    real(cp), public :: t_rst_start,t_rst_stop,dt_rst
    real(cp), public :: t_log_start,t_log_stop,dt_log
-   real(cp), public :: t_p_start,t_p_stop,dt_p
    real(cp), public :: t_spec_start,t_spec_stop,dt_spec
-   real(cp), public :: t_diag_start,t_diag_stop,dt_diag
    real(cp), public :: t_cmb_start,t_cmb_stop,dt_cmb
    real(cp), public :: t_r_field_start,t_r_field_stop,dt_r_field
    real(cp), public :: t_TO_start,t_TO_stop,dt_TO
@@ -42,9 +40,7 @@ module output_data
    integer, public :: n_graph_step,n_graphs,n_t_graph
    integer, public :: n_rst_step,n_rsts,n_t_rst,n_stores
    integer, public :: n_log_step,n_logs,n_t_log
-   integer, public :: n_p_step,n_ps,n_t_p
    integer, public :: n_spec_step,n_specs,n_t_spec
-   integer, public :: n_diag_step,n_diags,n_t_diag
    integer, public :: n_cmb_step,n_cmbs,n_t_cmb
    integer, public :: n_r_field_step,n_r_fields,n_t_r_field
    integer, public :: n_movie_step,n_movie_frames,n_t_movie
@@ -59,9 +55,7 @@ module output_data
    real(cp), public ::  t_graph(n_time_hits)
    real(cp), public ::  t_rst(n_time_hits)
    real(cp), public ::  t_log(n_time_hits)
-   real(cp), public ::  t_p(n_time_hits)
    real(cp), public ::  t_spec(n_time_hits)
-   real(cp), public ::  t_diag(n_time_hits)
    real(cp), public ::  t_cmb(n_time_hits)
    real(cp), public ::  t_r_field(n_time_hits)
    real(cp), public ::  t_movie(n_time_hits)
