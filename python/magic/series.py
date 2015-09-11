@@ -7,23 +7,39 @@ import glob
 from .libmagic import fast_read, scanDir
 from scipy.integrate import trapz
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 class MagicTs(MagicSetup):
+    """
+    This python class is used to read and plot the different time series 
+    written by the code: 
 
-    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False,
-                 tag=None):
+       * Kinetic energy: :ref:`e_kin.TAG <secEkinFile>`
+       * Magnetic energy of the outer core: :ref:`e_mag_oc.TAG <secEmagocFile>`
+       * Magnetic energy of the inner core: :ref:`e_mag_ic.TAG <secEmagicFile>`
+       * Dipole information: :ref:`dipole.TAG <secDipoleFile>`
+       * Rotation: :ref:`rot.TAG <secRotFile>`
+       * Diagnostic parameters: :ref:`par.TAG <secParFile>`
+       * Miscellaneous: :ref:`misc.TAG <secMiscFile>`
+
+    Here are a couple of examples of how to use this function.
+
+    >>> # plot the most recent e_kin.TAG file found in the directoy
+    >>> MagicTs(field='e_kin')
+    >>>
+    >>> # stack **all** the power.TAG file found in the directory
+    >>> ts = MagicTs(field='power', all=True)
+    >>> print(ts.time, ts.buoPower) # print time and buoyancy power 
+    >>>
+    >>> # If you only want to read the file ``misc.N0m2z``
+    >>> ts = MagicTs(field='misc', tag='N0m2z', iplot=False)
+    """
+
+    def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
         """
-        A class to plot time series of the MagIC code
-
         :param field: the file you want to plot
         :param iplot: display/hide the plot
-        :param all: a boolean if you want to get the complete time series
-        :param tag: if you specify a tag, it tries to build the
-                        corresponding time series
+        :param all: a boolean if you want to get the complete time series from the present working directory
+        :param tag: read the time series that exactly corresponds to the specified tag
         """
         self.field = field
         logFiles = scanDir('log.*')
@@ -503,16 +519,29 @@ class MagicTs(MagicSetup):
 
 
 class AvgField:
+    """
+    This class calculates the time-average properties from time series. It will
+    store the input starting file in a small file named ``tInitAvg``, such that
+    the next time you use it you don't need to give ``tstart`` again.
+
+    >>> # Average from t=2.11 and also store the additional dipole.TAG informations
+    >>> a = AvgField(tstart=2.11, dipExtra=True)
+    >>> # Average only the files that match the pattern N0m2[a-c]
+    >>> a = AvgField(tstart=2.11, tag='N0m2[a-c]')
+    >>> # Average only the files that match the pattern N0m2Z*
+    >>> a = AvgField(tstart=2.11, tag='N0m2Z*')
+    >>> print(a) # print the formatted output
+    """
 
     def __init__(self, tstart=None, tag=None, dipExtra=False):
         """
-        A class to get average properties from time series
-
         :param tstart: the starting time for averaging
-        :param tag: if you specify a tag, it tries to build the
-                        corresponding time series, starting from your pattern
-        :param dipExtra: if this parameter is set to true, then additional
-                         values extracted from dipole.tag are computed
+        :param tag: if you specify an input tag (generic regExp pattern), 
+                    the averaging process will only happen on the time series 
+                    that match this input pattern
+        :param dipExtra: if this parameter is set to ``True``, then additional 
+                         values extracted from :ref:`dipole.TAG <secDipoleFile>` 
+                         are also computed
         """
 
         if os.path.exists('tInitAvg') and tstart is None:
@@ -562,7 +591,6 @@ class AvgField:
         fac = 1./(ts3.time.max()-ts3.time[ind])
         nussb = fac * trapz(ts3.botnuss[ind:], ts3.time[ind:])
         nusst = fac * trapz(ts3.topnuss[ind:], ts3.time[ind:])
-        print(nussb, nusst)
         self.nuss = 0.5*(nussb+nusst)
 
         if self.mode == 0:
@@ -590,7 +618,8 @@ class AvgField:
             if len(glob.glob('power.*')) > 0:
                 tspow = MagicTs(field='power', all=True, iplot=False,
                                 tag=tag)
-                mask = N.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 1, 0)
+                mask = N.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
+                               1, 0)
                 ind = N.nonzero(mask)[0][0]
                 fac = 1./(tspow.time.max()-tspow.time[ind])
                 self.ohmDiss = fac*trapz(tspow.ohmDiss[ind:], tspow.time[ind:])
@@ -624,6 +653,9 @@ class AvgField:
             self.u2_tora = self.ekin_tora_avg
 
     def __str__(self):
+        """
+        Formatted output
+        """
         if self.ek == -1:
             ek = 0. # to avoid the -1 for the non-rotating cases
         else:

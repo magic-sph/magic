@@ -6,15 +6,20 @@ from .log import MagicSetup
 from .libmagic import fast_read,scanDir
 
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
-
 class MagicRadial(MagicSetup):
     """
-    Read the radial files of the Magic Code: eKinR.TAG, eMagR.TAG,
-    anel.TAG, varDiff.TAG
+    This class can be used to read and display the the time and 
+    horizontally averaged files:
+
+        * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>` 
+        * Magnetic energy: :ref:`eMagR.TAG <secEmagRfile>`
+        * Anelastic reference state: :ref:`anel.TAG <secAnelFile>`
+        * Variable electrical conductivity: :ref:`varCond.TAG <secVarCondFile>`
+        * Variable thermal diffusivity: :ref:`varDiff.TAG <secVarDiffFile>`
+        * Variable kinematic viscosity: :ref:`varVisc.TAG <secVarViscFile>`
+
+    >>> rad = MagicRadial(field='eKinR') # display the content of eKinR.tag
+    >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
     """
 
     def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None):
@@ -245,6 +250,9 @@ class MagicRadial(MagicSetup):
             self.plot()
 
     def plot(self):
+        """
+        Display the result when ``iplot=True``
+        """
         if self.name == 'eKinR':
             fig = P.figure()
             ax = fig.add_subplot(111)
