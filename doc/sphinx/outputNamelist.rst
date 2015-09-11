@@ -52,7 +52,12 @@ An important parameter in this context is ``l_true_time``. If this is set to ``.
 Standard time-series outputs
 ----------------------------
 
-The **log** outputs controls the output of all the default time series of the file: kinetic and magnetic energies (``e_kin.TAG``, ``e_mag_oc.TAG`` and ``e_mag_ic.TAG`` files), dipole information (``dipole.TAG`` file), parameters (``par.TAG``) and various additional diagnostics (``misc.TAG``):
+The **log** outputs controls the output of all the default time series of the
+file: kinetic and magnetic energies (:ref:`e_kin.TAG <secEkinFile>`,
+:ref:`e_mag_oc.TAG <secEmagocFile>` and :ref:`e_mag_ic.TAG <secEmagicFile>`
+files), dipole information (:ref:`dipole.TAG <secDipoleFile>` file), rotation
+(:ref:`rot.TAG <secRotFile>`) parameters (:ref:`par.TAG <secParFile>`) and
+various additional diagnostics (:ref:`misc.TAG <secMiscFile`):
 
 * **n_log_step** (default ``n_log_step=50``) is an integer. This is the number of timesteps between two log outputs.
 
@@ -248,4 +253,4 @@ The code can compute the RMS of the force balance and the induction equation.
 Helicity
 --------
 
-* **l_hel** (default ``l_hel=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the ``misc.TAG`` file.
+* **l_hel** (default ``l_hel=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the :ref:`misc.TAG <secMiscFile>` file.
