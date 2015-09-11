@@ -44,6 +44,10 @@ The detailed calculations are done in the subroutine ``get_e_kin`` in the file `
    | 9             | equatorial symmetric and axisymmetric toroidal energy|
    +---------------+------------------------------------------------------+
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='e_kin', all=True) # To stack all the e_kin.TAG files of the current directory
+   >>> ts = MagicTs(field='e_kin', tag='N0m2') # To only read e_kin.N0m2
+
 .. _secEmagocFile:
 
 ``e_mag_oc.TAG``
@@ -94,6 +98,10 @@ The detailed calculations are done in the subroutine ``get_e_mag`` in the file `
    | 13            | outside potential field axisymmetric energy          |
    +---------------+------------------------------------------------------+
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='e_mag_oc', all=True) # To stack all the e_mag_oc.TAG files of the current directory
+   >>> ts = MagicTs(field='e_mag_oc', tag='N0m2') # To only read e_mag_oc.N0m2
+
 .. _secEmagicFile:
 
 ``e_mag_ic.TAG``
@@ -114,6 +122,11 @@ This file contains the magnetic energy of the inner core. The detailed calculati
    +---------------+------------------------------------------+
    | 5             | inner core axisymmetric toroidal energy  |
    +---------------+------------------------------------------+
+
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='e_mag_ic', all=True) # To stack all the e_mag_ic.TAG files of the current directory
+   >>> ts = MagicTs(field='e_mag_ic', tag='N0m2') # To only read e_mag_ic.N0m2
+
 
 .. _secRotFile:
 
@@ -139,6 +152,10 @@ This files contains the rotation of the inner core and the mantle. Output concer
    +---------------+--------------------------------+
    | 7             | viscous torque on mantle       |
    +---------------+--------------------------------+
+
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='rot', iplot=False, all=True) # To stack all the rot.TAG files of the current directory
+
 
 .. _secDipoleFile:
 
@@ -198,13 +215,25 @@ This file contains several informations about the magnetic dipole. This file is 
    |               | total energy, normalized by the total energy                              |
    +---------------+---------------------------------------------------------------------------+
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='dipole', all=True) # To stack all the dipole.TAG files of the current directory
+
+
 
 .. _secParFile:
 
 ``par.TAG``
 -----------
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='par', all=True) # To stack all the par.TAG files of the current directory
+
+
 .. _secMiscFile:
 
 ``misc.TAG``
 ------------
+
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> ts = MagicTs(field='misc', all=True) # To stack all the misc.TAG files of the current directory
+

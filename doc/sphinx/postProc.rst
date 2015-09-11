@@ -1,4 +1,4 @@
-Data visualisation adn postprocessing
+Data visualisation and postprocessing
 #####################################
 
 Requirements
@@ -7,7 +7,44 @@ Requirements
 matplotlib, scipy, numpy, ipython
 
 
-PYTHON environment
-==================
+Configuration
+=============
 
 ``magic.cfg`` file
+
+
+Python functions and class
+==========================
+
+
+Time series
+-----------
+
+.. autoclass:: magic.MagicTs
+   :members:
+   :private-members:
+   :special-members:
+
+Averaging time series
+---------------------
+
+.. autoclass:: magic.AvgField
+   :members:
+   :private-members:
+   :special-members:
+
+
+Radial profiles
+---------------
+
+.. autoclass:: magic.MagicRadial
+   :members:
+   :private-members:
+   :special-members:
+
+
+Various useful functions
+------------------------
+
+.. automodule:: magic.libmagic
+   :members:

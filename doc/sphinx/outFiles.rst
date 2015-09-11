@@ -28,8 +28,8 @@ unformatted files described below.
 
 
 .. toctree::
-   :hidden:
 
    logFile.rst
    outTimeSeries.rst
+   outRadialFiles.rst
    outTransportProp.rst

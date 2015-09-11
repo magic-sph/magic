@@ -107,6 +107,8 @@ Transport properties
 * **difExp** (default ``difExp=-0.5``) is a real. This is the exponent that is used when ``nVarVisc=2``, ``nVarDiff=2`` or ``nVarCond=4``.
 
 
+.. _varnVarCond:
+
 Electrical conductivity
 +++++++++++++++++++++++
 
@@ -150,6 +152,8 @@ There are several electrical conductivity profiles implemented in the code that 
 
 * **r_LCR** (default ``r_LCR=2.0``) is a real. ``r_LCR`` possibly defines a low-conductivity region for :math:`r\geq r_{LCR}`, in which the electrical conductivity vanishes, i.e. :math:`\lambda=0`.
 
+.. _varnVarDiff:
+
 Thermal diffusivity
 +++++++++++++++++++
 
@@ -169,6 +173,8 @@ Thermal diffusivity
   +----------------+----------------------------------------------------------------------------+
   | ``nVarDiff=4`` | polynomial-fit to an interior model of the Earth liquid core               |
   +----------------+----------------------------------------------------------------------------+
+
+.. _varnVarVisc:
 
 Viscosity
 +++++++++
