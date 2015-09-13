@@ -104,7 +104,7 @@ Once the executable is built, you are now ready to run your first production run
 Preparing a production run
 ==========================
 
-After building the executable, use one of the namelists from the ``samples`` folder (called ``input.nml``) and invoke run **MagIC** as follows:
+After building the executable, use one of the namelists from the ``samples`` folder (called ``input.nml``) and run **MagIC** as follows:
 
 Running the code without OpenMP::
   
