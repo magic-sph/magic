@@ -10,29 +10,31 @@ Externally imposed magnetic field
 
 * **n_imp** (default ``n_imp = 0``) is an integer controling the type of external field applied.
 
- +----------+-------------------------------------------------------+
- | n_imp=0  | No external magnetic field                            |
- +----------+-------------------------------------------------------+
- | n_imp=1  | Follows idea of Uli Christensen of external field     |
- |          | compensating internal field such that radial component| 
- |          | of magnetic field vanishes at :math:`r/r_{cmb}=rrMP`  |
- |          | where ``rrMP`` is the 'magnetopause radius' input by  |
- |          | the user (see below)                                  |
- +----------+-------------------------------------------------------+
- | n_imp=2  | Uniform axisymmetric magnetic field of geometry given |
- |          | by ``l_imp`` (see below)                              |
- +----------+-------------------------------------------------------+
- | n_imp=3  | Uniform axisymmetric magnetic field which changes     |
- |          | direction according to the direction of the axial     |
- |          | dipole of the internal magnetic field                 |
- +----------+-------------------------------------------------------+
- | n_imp=4  | Same as ``n_imp=3`` but the amplitude of the external |
- |          | field is scaled to the amplitude of the axial dipole  |
- |          | of the internal field                                 |
- +----------+-------------------------------------------------------+
- | n_imp=7  | External field depends on internal axial dipole       |
- |          | through Special Heyner feedback functions             |
- +----------+-------------------------------------------------------+
+  .. tabularcolumns:: |c|p{12cm}|
+  
+  +---------+-------------------------------------------------------+
+  | n_imp=0 | No external magnetic field                            |
+  +---------+-------------------------------------------------------+
+  | n_imp=1 | Follows idea of Uli Christensen of external field     |
+  |         | compensating internal field such that radial component| 
+  |         | of magnetic field vanishes at :math:`r/r_{cmb}=rrMP`  |
+  |         | where ``rrMP`` is the 'magnetopause radius' input by  |
+  |         | the user (see below)                                  |
+  +---------+-------------------------------------------------------+
+  | n_imp=2 | Uniform axisymmetric magnetic field of geometry given |
+  |         | by ``l_imp`` (see below)                              |
+  +---------+-------------------------------------------------------+
+  | n_imp=3 | Uniform axisymmetric magnetic field which changes     |
+  |         | direction according to the direction of the axial     |
+  |         | dipole of the internal magnetic field                 |
+  +---------+-------------------------------------------------------+
+  | n_imp=4 | Same as ``n_imp=3`` but the amplitude of the external |
+  |         | field is scaled to the amplitude of the axial dipole  |
+  |         | of the internal field                                 |
+  +---------+-------------------------------------------------------+
+  | n_imp=7 | External field depends on internal axial dipole       |
+  |         | through Special Heyner feedback functions             |
+  +---------+-------------------------------------------------------+
 
 * **rrMP** (default ``rrMP = 0.0``) is a real which gives the value of 'magnetopause radius'. In other words, it gives the radius (as a fraction of ``r_cmb``) at which the radial component of the magnetic field vanishes due to cancelling out of external and internal magnetic field components. Used only when ``n_imp = 1``.
 
