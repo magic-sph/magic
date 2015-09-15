@@ -48,4 +48,9 @@ if (! $?_sourceme) then		# called for the fist time?
   else
     echo "Not adding $MAGIC_HOME/bin to PATH: not a directory"
   endif
+
+  # For reading binary outputs
+  setenv F_UFMTENDIAN "big"
+  setenv GFORTRAN_CONVERT_UNIT "big_endian"
+
 endif

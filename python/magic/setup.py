@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import subprocess as sp
 import os
 import sys
 import matplotlib.pyplot as P
@@ -24,7 +25,8 @@ if 'MAGIC_HOME' in os.environ:
     labTex = parser.getboolean('plots', 'labTex')
     # Do you want to build so libraries -> need f2py + ifort or gfortran (> 4.1)
     buildSo = parser.getboolean('libraries', 'buildLib')
-    compiler = parser.get('libraries', 'compiler')
+    fcompiler = parser.get('libraries', 'fcompiler')
+    ccompiler = parser.get('libraries', 'ccompiler')
     f2pycmd = parser.get('libraries', 'f2pyexec')
 else: # Default if the PATH is messed up
     backend = 'GTKAgg'
@@ -71,51 +73,67 @@ if buildSo:
     if not os.path.exists('greader_single%i.so' % pythonVersion):
         os.chdir('fortranLib')
         print("Please wait: building greader_single...")
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader_single%i readG_single.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
-        os.system(cmd)
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'greader_single%i' % pythonVersion,
+                 'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = 'mv greader_single3.cpython-33m.so %s/greader_single3.so' % magicdir
+            sp.call(['mv', 'greader_single3.cpython-33m.so', 
+                     '%s/greader_single3.so' % magicdir])
         elif pythonVersion == 2:
-            cmd = 'mv greader_single2.so %s' % magicdir
-        os.system(cmd)
+            sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
     if not os.path.exists('greader_double%i.so' % pythonVersion):
         os.chdir('fortranLib')
         print("Please wait: building greader_double...")
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 greader_double%i readG_double.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
-        os.system(cmd)
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'greader_double%i' % pythonVersion,
+                 'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = 'mv greader_double3.cpython-33m.so %s/greader_double3.so' % magicdir
+            sp.call(['mv', 'greader_double3.cpython-33m.so', 
+                     '%s/greader_double3.so' % magicdir])
         elif pythonVersion == 2:
-            cmd = 'mv greader_double2.so %s' % magicdir
-        os.system(cmd)
+            sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
     # For the potential field extrapolation
     if not os.path.exists('potential%i.so' % pythonVersion):
         os.chdir('fortranLib')
         print("Please wait: building potential extrapolation...")
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 potential%i spec.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
-        os.system(cmd)
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'potential%i' % pythonVersion,
+                 'spec.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = 'mv potential3.cpython-33m.so %s/potential3.so' % magicdir
+            sp.call(['mv', 'potential3.cpython-33m.so', 
+                     '%s/potential3.so' % magicdir])
         elif pythonVersion == 2:
-            cmd = 'mv potential2.so %s' % magicdir
-        os.system(cmd)
+            sp.call(['mv', 'potential2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
     # For the vtk file format convertion
     if not os.path.exists('vtklib%i.so' % pythonVersion):
         os.chdir('fortranLib')
         print("Please wait: building vtklib...")
-        cmd = '%s --fcompiler=%s -c -m --opt=-O3 vtklib%i vtkLib.f90 &> /dev/null' % (f2pycmd, compiler, pythonVersion)
-        os.system(cmd)
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'vtklib%i' % pythonVersion,
+                 'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            cmd = 'mv vtklib3.cpython-33m.so %s/vtklib3.so' % magicdir
+            sp.call(['mv', 'vtklib3.cpython-33m.so', 
+                     '%s/vtklib3.so' % magicdir])
         elif pythonVersion == 2:
-            cmd = 'mv vtklib2.so %s' % magicdir
-        os.system(cmd)
+            sp.call(['mv', 'vtklib2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
     os.chdir(startdir)
