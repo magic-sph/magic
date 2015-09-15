@@ -9,7 +9,6 @@ Welcome to Magic's documentation!
 Contents:
 
 .. toctree::
-
    :includehidden:
    :maxdepth: 2
 
