@@ -47,11 +47,6 @@ class MagicGraph(MagicSetup):
         """
         self.precision = precision
 
-        if self.precision == 'Float32':
-            G = Gsngl.greader_single
-        elif self.precision == 'Float64':
-            G = Gdble.greader_double
-
         if ave:
             self.name = 'G_ave'
         else:
@@ -91,6 +86,12 @@ class MagicGraph(MagicSetup):
             return
 
         if lect != 'python':
+
+            if self.precision == 'Float32':
+                G = Gsngl.greader_single
+            elif self.precision == 'Float64':
+                G = Gdble.greader_double
+
             G.readg(filename)
             self.nr = G.nr
             self.ntheta = G.nt
