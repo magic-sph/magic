@@ -41,10 +41,21 @@ PREPROC += 	-DWITH_PRECOND_S \
 		-DWITH_PRECOND_S0 \
 		-DWITH_PRECOND_Z10
 
+HAVE_AVX = $(shell grep "flags\b.*\bavx" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
+
+HAVE_SSE3=$(shell grep "flags\b.*sse3*" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
+
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-	FFLAG_ARCH_OPT = #-xsse3
-	#FFLAG_ARCH_OPT = -xAVX
+	ifeq ($(HAVE_AVX),1)
+		FFLAG_ARCH_OPT = -xAVX
+	else
+		ifeq ($(HAVE_SSE3),1)
+			FFLAG_ARCH_OPT = -xsse3
+		else
+			FFLAG_ARCH_OPT =
+		endif
+	endif
 	FFLAG_OPENMP = -openmp
 	FFLAG_OPENMP_STUBS = -openmp-stubs
 	FFLAG_CHECK_ALL = -check all
@@ -111,8 +122,8 @@ endif
 # the following path is only used, if the mpi.mod file is
 # not found in the standard location. It is used for example
 # on hydra, if one compiles with the gnu compilers.
-MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
-MPI_INCPATH=/usr/include
+#MPI_INCPATH=/usr/lib64/mpi/gcc/openmpi/include
+MPI_INCPATH=$(shell mpif90 --showme:incdirs)
 
 PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4
 ifeq ($(USE_MPI),yes)
@@ -387,7 +398,7 @@ output.o              : truncation.o blocking.o phys_param.o\
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o store_pot.o
 communications.o      : blocking.o parallel.o LMLoop_data.o truncation.o\
-						radial_data.o
+			radial_data.o
 outPar.o              : truncation.o blocking.o phys_param.o\
                         logic.o radial.o output_data.o radial_data.o\
                         horizontal.o fields.o legendre_spec_to_grid.o\
