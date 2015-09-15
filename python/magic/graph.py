@@ -19,8 +19,6 @@ if buildSo:
         elif sys.version_info.major == 2:
             import greader_single2 as Gsngl
             import greader_double2 as Gdble
-        os.environ['F_UFMTENDIAN'] = 'big'
-        os.system('export GFORTRAN_CONVERT_UNIT=big_endian')
         lect = 'f2py'
     except ImportError:
         from npfile import *

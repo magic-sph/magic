@@ -55,4 +55,8 @@ if [ -z $_sourceme ]; then	# called for the first time?
       echo "Not adding $MAGIC_HOME/bin to PATH: not a directory"
     fi
   fi
+
+  # For reading binary outputs
+  export F_UFMTENDIAN='big'
+  export GFORTRAN_CONVERT_UNIT='big_endian'
 fi
