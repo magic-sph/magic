@@ -7,25 +7,35 @@ from .libmagic import scanDir, fast_read
 from .npfile import *
 from magic.setup import labTex
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 class MagicSpectrum(MagicSetup):
+    """
+    This class can be used to read and display the spectra:
+
+        * Kinetic energy spectra: :ref:`kin_spec_#.TAG <secKinSpecFile>` 
+        * Magnetic energy spectra: :ref:`mag_spec_#.TAG <secMagSpecFile>`
+    
+    >>> # display the content of kin_spec_1.tag
+    >>> # where tag is the most recent file in the current directory
+    >>> sp = MagicSpectrum(field='e_kin', ispec=1)
+    >>> # display the content of mag_spec_ave.test on one single figure
+    >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True, gather=True)
+    """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None, 
                  ave=False, gather=False, tag=None):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
-        :param iplot: output plot, default is True
-        :param ispec: the index of the spectrum you want to plot
-        :param tag: tag, if not specified the most recent one is chosen
-        :param ave: in case you want to plot an average spectrum, 
-                    then use ave=True
-        :param gather: if you want to gather the spectra on the same figure,
-                       then use gather=True, default is False
+        :param iplot: display the output plot when set to True (default is True)
+        :param ispec: the number of the spectrum you want to plot
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :param ave: plot a time-averaged spectrum when set to True
+        :param gather: gather the spectra on the same figure when set to True,
+                       display one figure per spectrum when set to False, 
+                       (default is False)
+        :param datadir: current working directory
         """
         self.gather = gather
 
@@ -101,6 +111,9 @@ class MagicSpectrum(MagicSetup):
             self.plot()
 
     def plot(self):
+        """
+        Plotting function
+        """
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
             if self.gather:
                 fig = P.figure()
@@ -200,12 +213,15 @@ class MagicSpectrum(MagicSetup):
 
                 fig = P.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, self.emag_polm[::self.minc]/self.emag_polm.max(),
-                         'k-', label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.emag_torm[::self.minc]/self.emag_torm.max(),
-                         'b-', label='toroidal')
-                ax.loglog(self.index[::self.minc]+1, self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
-                         'g-', label='cmb')
+                ax.loglog(self.index[::self.minc]+1, 
+                          self.emag_polm[::self.minc]/self.emag_polm.max(),
+                          'k-', label='poloidal')
+                ax.loglog(self.index[::self.minc]+1, 
+                          self.emag_torm[::self.minc]/self.emag_torm.max(),
+                          'b-', label='toroidal')
+                ax.loglog(self.index[::self.minc]+1,
+                          self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
+                          'g-', label='cmb')
                 if labTex:
                     ax.set_xlabel('$m$+1')
                 else:
@@ -214,18 +230,34 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
 
+
 class MagicSpectrum2D(MagicSetup):
+    """
+    This class can be used to read and display 2-D spectra in the :math:`(r,\ell)`
+    or in the :math:`(r,m)` planes
+
+        * Kinetic energy spectra: 2D_kin_spec_#.TAG 
+        * Velocity square spectra: 2D_u2_spec_#.TAG 
+        * Magnetic energy spectra: 2D_mag_spec_#.TAG
+    
+    >>> # display the content of 2D_kin_spec_1.tag
+    >>> # where tag is the most recent file in the current directory
+    >>> sp = MagicSpectrum2D(field='e_kin', ispec=1, levels=17, cm='seismic')
+    >>> # display the content of 2D_mag_spec_3.test
+    >>> sp = MagicSpectrum2D(field='e_mag', tag='test', ispec=3)
+    """
 
     def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None, 
                  tag=None, cm='jet', levels=33, precision='Float64'):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
-        :param iplot: output plot, default is True
-        :param ispec: the index of the spectrum you want to plot
-        :param tag: tag, if not specified the most recent one is chosen
-        :param cm: name of the colormap, default='jet'
-        :param levels: number of contour levels
+        :param iplot: display the output when set to True (default is True)
+        :param ispec: the number of the spectrum you want to plot
+        :param tag: file suffix (tag=, if not specified the most recent one 
+                    in the current directory is chosen
+        :param cm: name of the colormap (default='jet')
+        :param levels: number of contour levels (default 33)
         :param precision: single or double precision
         """
 
@@ -288,6 +320,12 @@ class MagicSpectrum2D(MagicSetup):
 
 
     def plot(self, levels, cm):
+        """
+        Plotting function
+
+        :param levels: number of contour levels
+        :param cm: name of the colormap
+        """
         fig0 = P.figure()
         ax0 = fig0.add_subplot(111)
         vmax = N.log10(self.e_pol_l).max()

@@ -26,19 +26,22 @@ class Movie:
         :param png: if png=True, write the png files instead of display
         :param iplot: if iplot=True, display otherwise just read
         :param lastvar: the rank of the last line to be read
-        :param step: the stepping between two lines             
+        :param step: the stepping between two snapshots
         :param levels: the number of contour levels
         :param cm: the name of the color map
-        :param png: if png=True, write the png outputs
+        :param png: save the movie as a series of PNG files when
+                    set to True
         :param fluct: if fluct=True, substract the axisymmetric part
-        :param normed: if normed=True, the colormap is rescaled every timestep,
-                       otherwise it is computed from the first line
+        :param normed: the colormap is rescaled every timestep when set to True,
+                       otherwise it is calculated from the global extrema
         :param avg: if avg=True, time-average is displayed
         :param avg: if std=True, standard deviation is displayed
         :param dpi: dot per inch when saving PNGs
         :param normRad: if normRad=True, then we normalise for each radial level
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
+        :param cut: cutoff the contour maxima
+        :param bgcolor: background color of the figure
         """
 
         if avg or std:
@@ -198,8 +201,10 @@ class Movie:
     def __add__(self, new):
         """
         Built-in function to sum two movies
-        So far only works for same grid sizes: at some point we should introduce
-        extrapolation to allow any summation
+
+        ..note: So far this function only works for two movies with the same 
+                grid sizes. At some point, we might introduce grid extrapolation 
+                to allow any summation/
         """
         out = copy.deepcopy(new)
         out.time = N.concatenate((self.time, new.time), axis=0)
@@ -212,7 +217,11 @@ class Movie:
         """
         plot time-average or standard deviation
 
-        :param std: if std=True standard deviation is computed instead avg
+        :param std: the standard deviation is computed instead the average
+                    when std is True
+        :param levels: number of contour levels
+        :param cmap: name of the colormap
+        :param cut: cutoff the contour maxima
         """
         if std:
             avg = self.data.std(axis=0)
@@ -271,7 +280,18 @@ class Movie:
     def plot(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
              normed=False, dpi=80, bgcolor=None):
         """
-        plotting subroutine (can also write the png files)
+        Plotting function (it can also write the png files)
+
+        :param levels: number of contour levels
+        :param cmap: name of the colormap
+        :param cut: cutoff the contour maxima
+        :param png: save the movie as a series of png files when
+                    set to True
+        :param dpi: dot per inch when saving PNGs
+        :param bgcolor: background color of the figure
+        :param normed: the colormap is rescaled every timestep when set to True,
+                       otherwise it is calculated from the global extrema
+        :param step: the stepping between two snapshots
         """
 
         if png:

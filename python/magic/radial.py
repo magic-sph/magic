@@ -8,7 +8,7 @@ from .libmagic import fast_read,scanDir
 
 class MagicRadial(MagicSetup):
     """
-    This class can be used to read and display the the time and 
+    This class can be used to read and display the time and 
     horizontally averaged files:
 
         * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>` 
@@ -17,6 +17,8 @@ class MagicRadial(MagicSetup):
         * Variable electrical conductivity: :ref:`varCond.TAG <secVarCondFile>`
         * Variable thermal diffusivity: :ref:`varDiff.TAG <secVarDiffFile>`
         * Variable kinematic viscosity: :ref:`varVisc.TAG <secVarViscFile>`
+        * Power budget: :ref:`powerR.TAG <secPowerRfile>`
+        * Diagnostic parameters: :ref:`parR.TAG <secPaRfile>`
 
     >>> rad = MagicRadial(field='eKinR') # display the content of eKinR.tag
     >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
