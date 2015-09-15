@@ -55,4 +55,4 @@ To simulate experiments, an external current carrying loop, concentric to the sp
 
 .. warning::
 
-  Note that an external magnetic field is incompatible with ``l_LCR = .true.``
+ Note that an external magnetic field is incompatible with a region of low conductivity inside the spherical shell (i.e, if ``r_LCR < r_cmb``). Thus, while imposing an external magnetic field, make sure ``r_LCR > r_cmb`` (which is the default case). For details on ``r_LCR``, have a look at the section on :ref:`electrical conductivity <varnVarCond>` in the namelist for :ref:`physical parameters <secPhysNml>`.
