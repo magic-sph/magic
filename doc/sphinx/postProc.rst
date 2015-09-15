@@ -42,6 +42,22 @@ Radial profiles
    :private-members:
    :special-members:
 
+Average spectra over all radial levels
+--------------------------------------
+
+.. autoclass:: magic.MagicSpectrum
+   :members:
+   :private-members:
+   :special-members:
+
+2-D spectra
+-----------
+
+.. autoclass:: magic.MagicSpectrum2D
+   :members:
+   :private-members:
+   :special-members:
+
 
 Various useful functions
 ------------------------

@@ -33,3 +33,4 @@ unformatted files described below.
    outTimeSeries.rst
    outRadialFiles.rst
    outTransportProp.rst
+   outSpecFiles.rst

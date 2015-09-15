@@ -256,7 +256,21 @@ The code can compute the RMS of the force balance and the induction equation.
 
 * **l_RMStest** (default ``l_RMStest=.false.``) is a logical. This is a debug flag to check the consistency of the RMS calculation.
 
+Torsional oscillations
+----------------------
+
+
+Miscellaneous
+-------------
+
 Helicity
---------
+++++++++
 
 * **l_hel** (default ``l_hel=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the :ref:`misc.TAG <secMiscFile>` file.
+
+.. _varl_power:
+
+Power budget
+++++++++++++
+
+* **l_power** (default ``l_power.false.``) is a logical. When set to ``.true.``, this logical enables the calculation if input and output power (buoyancy, viscous and ohmic dissipations, torques). The time series are stored in ``power.TAG`` and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
