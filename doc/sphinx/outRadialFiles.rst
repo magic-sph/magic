@@ -1,5 +1,5 @@
-Time and horizontally averaged files
-====================================
+Time-averaged radial profiles
+=============================
 
 .. _secEkinRFile:
 
@@ -120,17 +120,17 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
 
 This file contains the time and horizontally averaged power input (Buoyancy power) and outputs (viscous and Ohmic heating). This file is calculated by the subroutine ``get_power`` in ``power.f90``.
 
-   +---------------+--------------------------------------------------------------------+
-   | No. of column | Contents                                                           |
-   +===============+====================================================================+
-   | 1             | radial level                                                       |
-   +---------------+--------------------------------------------------------------------+
-   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_\phi`       |
-   +---------------+--------------------------------------------------------------------+
-   | 3             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_\phi`|
-   +---------------+--------------------------------------------------------------------+
-   | 4             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_\phi`  |
-   +---------------+--------------------------------------------------------------------+
+   +---------------+------------------------------------------------------------------+
+   | No. of column | Contents                                                         |
+   +===============+==================================================================+
+   | 1             | radial level                                                     |
+   +---------------+------------------------------------------------------------------+
+   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
+   +---------------+------------------------------------------------------------------+
+   | 3             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   +---------------+------------------------------------------------------------------+
+   | 4             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
+   +---------------+------------------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicRadial` with the following options::
    >>> ts = MagicRadial(field='powerR')
@@ -152,31 +152,31 @@ This file contains the time and horizontally averaged heat flux carried out by s
    +---------------+-----------------------------------------------------------------+
    | 2             | conductive flux:                                                |
    |               |    .. math:: {\cal F}_{cond} = -\frac{1}{Pr}\kappa\tilde{\rho}  |
-   |               |              \tilde{T}\frac{\partial \langle s \rangle_\phi}    |
+   |               |              \tilde{T}\frac{\partial \langle s \rangle_s}       |
    |               |              {\partial r}                                       |
    +---------------+-----------------------------------------------------------------+
    | 3             | convective flux:                                                |
    |               |    .. math:: {\cal F}_{conv}= \tilde{\rho}\tilde{T} \langle     |
-   |               |              s\,u_r \rangle_\phi+\frac{Pr\,Di}{E\,Ra}\langle    |
-   |               |              p\,u_r \rangle_\phi                                |
+   |               |              s\,u_r \rangle_s+\frac{Pr\,Di}{E\,Ra}\langle       |
+   |               |              p\,u_r \rangle_s                                   |
    +---------------+-----------------------------------------------------------------+
    | 4             | kinetic flux:                                                   |
    |               |    .. math:: {\cal F}_{kin}= \frac{1}{2}\frac{Pr\,Di}{Ra}       |
-   |               |              \langle u_r (\tilde{\rho}u^2) \rangle_\phi         | 
+   |               |              \langle u_r (\tilde{\rho}u^2) \rangle_s            | 
    +---------------+-----------------------------------------------------------------+
    | 5             | viscous flux:                                                   |
    |               |    .. math:: {\cal F}_{visc}= -\frac{Pr\,Di}{Ra}                |
-   |               |              \langle \vec{u}\cdot S \rangle_\phi                | 
+   |               |              \langle \vec{u}\cdot S \rangle_s                   | 
    +---------------+-----------------------------------------------------------------+
    | 6             | Poynting flux:                                                  |
    |               |    .. math:: {\cal F}_{poyn}= -\frac{Pr\,Di}{Ra\,E\,Pm}         |
    |               |              \langle (\vec{u}\times\vec{B})\times\vec{B}        |
-   |               |              \rangle_\phi                                       | 
+   |               |              \rangle_s                                          | 
    +---------------+-----------------------------------------------------------------+
    | 7             | resistive flux:                                                 |
    |               |    .. math:: {\cal F}_{poyn}= \frac{Pr\,Di}{Ra\,E\,Pm^2}        |
    |               |              \langle (\vec{\nabla}\times\vec{B})\times\vec{B}   |
-   |               |              \rangle_\phi                                       | 
+   |               |              \rangle_s                                          | 
    +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicRadial` with the following options::
@@ -196,21 +196,21 @@ This file contains several time and horizontally averaged profiles that can be f
    +===============+=================================================================+
    | 1             | radial level                                                    |
    +---------------+-----------------------------------------------------------------+
-   | 2             | entropy: :math:`\langle s \rangle_\phi`                         |
+   | 2             | entropy: :math:`\langle s \rangle_s`                            |
    +---------------+-----------------------------------------------------------------+
    | 3             | entropy variance:                                               |
-   |               |    .. math:: \sqrt{\left\langle (s-\langle s\rangle_\phi)^2     |
-   |               |              \right\rangle_\phi}                                |
+   |               |    .. math:: \sqrt{\left\langle (s-\langle s\rangle_s)^2        |
+   |               |              \right\rangle_s}                                   |
    +---------------+-----------------------------------------------------------------+
    | 4             | horizontal velocity:                                            |
    |               |    .. math:: u_h=\left\langle\sqrt{u_\theta^2+u_\phi^2}         |
-   |               |              \right\rangle_\phi                                 |
+   |               |              \right\rangle_s                                    |
    +---------------+-----------------------------------------------------------------+
    | 5             | radial derivative of the horizontal velocity:                   |
    |               |    .. math:: \partial u_h/\partial r                            |
    +---------------+-----------------------------------------------------------------+
    | 6             | thermal dissipation rate:                                       |
-   |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_\phi       |
+   |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_s          |
    +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicRadial` with the following options::
@@ -218,3 +218,32 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
 
 Additional analyses of the boundary layers can then be carried out using :py:class:`magic.bLayers.BLayers`::
    >>> bl = BLayers(iplot=True)
+
+.. _secPerpParRfile:
+
+``perpParR.TAG``
+----------------
+
+.. note:: This file is **only** written when :ref:`l_perpPar=.true. <varl_perpPar>`
+
+This file contains several time and horizontally averaged profiles that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine ``outPerpPar`` in ``outPar.f90``.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Total kinetic energy perpendicular to the rotation axis:        |
+   |               |    .. math:: \frac{1}{2}\langle u_s^2+u_\phi^2 \rangle_s        |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | Total kinetic energy parallel to the rotation axis:             |
+   |               |    .. math:: \frac{1}{2}\langle u_z^2\rangle_s                  |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | Axisymmetric kinetic energy perpendicular to the rotation axis  |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | Axisymmetric kinetic energy parallel to the rotation axis       |
+   +---------------+-----------------------------------------------------------------+
+
+
+This file can be read using :py:class:`magic.MagicRadial` with the following options::
+   >>> ts = MagicRadial(field='perpParR')

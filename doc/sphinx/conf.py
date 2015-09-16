@@ -33,6 +33,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.viewcode'
 ]
 
 #autoclass_content='both'
@@ -98,6 +99,7 @@ exclude_patterns = ['.build']
 #show_authors = False
 
 # The name of the Pygments (syntax highlighting) style to use.
+# 'sphinx', 'trac'
 pygments_style = 'sphinx'
 
 # A list of ignored prefixes for module index sorting.
@@ -114,7 +116,7 @@ todo_include_todos = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'classic'
+html_theme = 'classic' # 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the

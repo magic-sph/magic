@@ -45,8 +45,10 @@ The detailed calculations are done in the subroutine ``get_e_kin`` in the file `
    +---------------+------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='e_kin', all=True) # To stack all the e_kin.TAG files of the current directory
-   >>> ts = MagicTs(field='e_kin', tag='N0m2') # To only read e_kin.N0m2
+   >>> # To stack all the e_kin.TAG files of the current directory
+   >>> ts = MagicTs(field='e_kin', all=True)
+   >>> # To only read e_kin.N0m2
+   >>> ts = MagicTs(field='e_kin', tag='N0m2')
 
 .. _secEmagocFile:
 
@@ -99,8 +101,10 @@ The detailed calculations are done in the subroutine ``get_e_mag`` in the file `
    +---------------+------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='e_mag_oc', all=True) # To stack all the e_mag_oc.TAG files of the current directory
-   >>> ts = MagicTs(field='e_mag_oc', tag='N0m2') # To only read e_mag_oc.N0m2
+   >>> # To stack all the e_mag_oc.TAG files of the current directory
+   >>> ts = MagicTs(field='e_mag_oc', all=True)
+   >>> # To only read e_mag_oc.N0m2
+   >>> ts = MagicTs(field='e_mag_oc', tag='N0m2')
 
 .. _secEmagicFile:
 
@@ -124,8 +128,10 @@ This file contains the magnetic energy of the inner core. The detailed calculati
    +---------------+------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='e_mag_ic', all=True) # To stack all the e_mag_ic.TAG files of the current directory
-   >>> ts = MagicTs(field='e_mag_ic', tag='N0m2') # To only read e_mag_ic.N0m2
+   >>> # To stack all the e_mag_ic.TAG files of the current directory
+   >>> ts = MagicTs(field='e_mag_ic', all=True)
+   >>> # To only read e_mag_ic.N0m2
+   >>> ts = MagicTs(field='e_mag_ic', tag='N0m2')
 
 
 .. _secRotFile:
@@ -154,7 +160,8 @@ This files contains the rotation of the inner core and the mantle. Output concer
    +---------------+--------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='rot', iplot=False, all=True) # To stack all the rot.TAG files of the current directory
+   >>> # To stack all the rot.TAG files of the current directory
+   >>> ts = MagicTs(field='rot', iplot=False, all=True)
 
 
 .. _secDipoleFile:
@@ -216,7 +223,8 @@ This file contains several informations about the magnetic dipole. This file is 
    +---------------+---------------------------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='dipole', all=True) # To stack all the dipole.TAG files of the current directory
+   >>> # To stack all the dipole.TAG files of the current directory
+   >>> ts = MagicTs(field='dipole', all=True)
 
 
 
@@ -270,7 +278,8 @@ This files contains the outputs of several parameters that describe flow and mag
    +---------------+-----------------------------------------+ 
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='par', all=True) # To stack all the par.TAG files of the current directory
+   >>> # To stack all the par.TAG files of the current directory
+   >>> ts = MagicTs(field='par', all=True)
 
 
 .. _secMiscFile:
@@ -278,60 +287,67 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``misc.TAG``
 ------------
 
-This files contains the rotation of the inner core and the mantle. Output concerning the rotation of inner core and mantle. This file is written by the subroutine ``write_rot`` in the file ``out_Rot.f90``.
-(columns 6-9 and 17-20 are calculated if l_hel=.TRUE.)
-(columns 10-16 are calculated if l_par=.TRUE.)
+This files contains the rotation of the inner core and the mantle. Output
+concerning the rotation of inner core and mantle. This file is written by the
+subroutine ``write_rot`` in the file ``outRot.f90``.  
 
-   +---------------+-------------------------------------------------------------------+
-   | No. of column | Contents                                                          |
-   +===============+===================================================================+
-   | 1             | time                                                              |
-   +---------------+-------------------------------------------------------------------+
-   | 2             | Nusselt number at the inner core                                  |
-   +---------------+-------------------------------------------------------------------+
-   | 3             | CMB Nusselt number at the CMB                                     |
-   +---------------+-------------------------------------------------------------------+
-   | 4             | Entropy at the inner core                                         |
-   +---------------+-------------------------------------------------------------------+
-   | 5             | Entropy at the CMB                                                |
-   +---------------+-------------------------------------------------------------------+
-   | 6             | Helicity (northern hemisphere)                                    |
-   +---------------+-------------------------------------------------------------------+
-   | 7             | Helicity (southern hemisphere)                                    |
-   +---------------+-------------------------------------------------------------------+
-   | 8             | RMS helicity (northern hemisphere)                                |
-   +---------------+-------------------------------------------------------------------+
-   | 9             | RMS helicity (southern hemisphere)                                |
-   +---------------+-------------------------------------------------------------------+
-   | 10            | Relative geostrophic kinetic energy                               |
-   +---------------+-------------------------------------------------------------------+
-   | 11            | Relative kinetic energy in the northern part of the TC            |
-   +---------------+-------------------------------------------------------------------+
-   | 12            | Relative kinetic energy in the southern part of the TC            |
-   +---------------+-------------------------------------------------------------------+
-   | 13            | Kinetic energy                                                    |
-   +---------------+-------------------------------------------------------------------+
-   | 14            | North/South correlation of Vz, outside the TC                     |
-   +---------------+-------------------------------------------------------------------+
-   | 15            | North/South correlation of vorticity outside the TC               |
-   +---------------+-------------------------------------------------------------------+
-   | 16            | North/South correlation of helicity outside the TC                |
-   +---------------+-------------------------------------------------------------------+
-   | 17            | Non-axisymmetric helicity (northern hemisphere)                   | 
-   +---------------+-------------------------------------------------------------------+
-   | 18            | Non-axisymmetric helicity (southern hemisphere)                   |
-   +---------------+-------------------------------------------------------------------+
-   | 19            | RMS helicity non-axisymmetric helicity (northern hemisphere)      |
-   +---------------+-------------------------------------------------------------------+
-   | 20            | RMS helicity non-axisymmetric helicity (southern hemisphere)      |
-   +---------------+-------------------------------------------------------------------+
-   | 21            | Heat flux at the inner-core boundary                              |
-   +---------------+-------------------------------------------------------------------+
-   | 22            | Heat flux at the CMB                                              |
-   +---------------+-------------------------------------------------------------------+
+.. note:: The columns 6-9 and 17-20 are **only** calculated when 
+          :ref:`l_hel=.true. <varl_hel>`. The columns 10-16 are only calculated
+          when :ref:`l_par=.true. <varl_par>`.
+
+..
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | time                                                            |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Nusselt number at the inner core                                |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | CMB Nusselt number at the CMB                                   |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | Entropy at the inner core                                       |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | Entropy at the CMB                                              |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Helicity (northern hemisphere)                                  |
+   +---------------+-----------------------------------------------------------------+
+   | 7             | Helicity (southern hemisphere)                                  |
+   +---------------+-----------------------------------------------------------------+
+   | 8             | RMS helicity (northern hemisphere)                              |
+   +---------------+-----------------------------------------------------------------+
+   | 9             | RMS helicity (southern hemisphere)                              |
+   +---------------+-----------------------------------------------------------------+
+   | 10            | Relative geostrophic kinetic energy                             |
+   +---------------+-----------------------------------------------------------------+
+   | 11            | Relative kinetic energy in the northern part of the TC          |
+   +---------------+-----------------------------------------------------------------+
+   | 12            | Relative kinetic energy in the southern part of the TC          |
+   +---------------+-----------------------------------------------------------------+
+   | 13            | Kinetic energy                                                  |
+   +---------------+-----------------------------------------------------------------+
+   | 14            | North/South correlation of Vz, outside the TC                   |
+   +---------------+-----------------------------------------------------------------+
+   | 15            | North/South correlation of vorticity outside the TC             |
+   +---------------+-----------------------------------------------------------------+
+   | 16            | North/South correlation of helicity outside the TC              |
+   +---------------+-----------------------------------------------------------------+
+   | 17            | Non-axisymmetric helicity (northern hemisphere)                 | 
+   +---------------+-----------------------------------------------------------------+
+   | 18            | Non-axisymmetric helicity (southern hemisphere)                 |
+   +---------------+-----------------------------------------------------------------+
+   | 19            | RMS helicity non-axisymmetric helicity (northern hemisphere)    |
+   +---------------+-----------------------------------------------------------------+
+   | 20            | RMS helicity non-axisymmetric helicity (southern hemisphere)    |
+   +---------------+-----------------------------------------------------------------+
+   | 21            | Heat flux at the inner-core boundary                            |
+   +---------------+-----------------------------------------------------------------+
+   | 22            | Heat flux at the CMB                                            |
+   +---------------+-----------------------------------------------------------------+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> ts = MagicTs(field='misc', all=True) # To stack all the misc.TAG files of the current directory
+   >>> # To stack all the misc.TAG files of the current directory
+   >>> ts = MagicTs(field='misc', all=True)
 
 
 .. _secdtVrmsFile:
@@ -339,7 +355,15 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``dtVrms.TAG``
 --------------
 
-This files contains the RMS forces of the Navier Stokes equation. This file is written by the subroutine ``dtVrms`` in the file ``s_dtVrms.f90``.
+.. warning:: The RMS calculation is actually wrong in the current version. This 
+             needs again to be ported from MagIC 3.44. This issue only affects 
+             ``dtVrms.TAG``, though. A ticket has been opened on github regarding
+	     this issue: https://github.com/magic-sph/magic/issues/1
+
+.. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
+
+This files contains the RMS force balance of the Navier Stokes equation. This file is
+written by the subroutine ``dtVrms`` in the file ``outRMS.f90``.
 
    +---------------+--------------------------------------------------+
    | No. of column | Contents                                         |
@@ -383,7 +407,10 @@ This files contains the RMS forces of the Navier Stokes equation. This file is w
 ``dtBrms.TAG``
 --------------
 
-This files contains the RMS forces of the induction equation. This file is written by the subroutine ``dtBrms`` in the file ``s_dtBrms.f90``.
+.. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
+
+This files contains the RMS terms that enter the induction equation. This file is
+written by the subroutine ``dtBrms`` in the file ``out_RMS.f90``.
 
    +---------------+-------------------------------------------------------+
    | No. of column | Contents                                              |
@@ -421,17 +448,19 @@ This files contains the RMS forces of the induction equation. This file is writt
 ``dtDrms.TAG``
 --------------
 
-This files contains the RMS forces of the induction equation. This file is written by the subroutine ``dtBrms`` in the file ``s_dtBrms.f90``.
+This files contains the RMS terms that enter the induction equation of the
+dipole. This file is written by the subroutine ``dtBrms`` in the file
+``out_RMS.f90``.
 
    +---------------+-------------------------------------------------------+
    | No. of column | Contents                                              |
    +===============+=======================================================+
    | 1             | time                                                  |
    +---------------+-------------------------------------------------------+
-   | 2             |                                                       |
+   | 2             | Dipole stretching                                     |
    +---------------+-------------------------------------------------------+
-   | 3             |                                                       |
+   | 3             | Dipole advection term                                 |
    +---------------+-------------------------------------------------------+
-   | 4             |                                                       |
+   | 4             | Dipole diffusion term                                 |
    +---------------+-------------------------------------------------------+
 

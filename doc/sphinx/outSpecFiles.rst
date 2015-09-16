@@ -63,3 +63,7 @@ This files contains the magnetic spectra. This file is written by the subroutine
 This file can be read using :py:class:`magic.MagicSpectrum` with the following options::
    >>> sp = MagicSpectrum(field='emag')
                                              
+.. _secTSpecFile:
+
+T_spec_#.TAG
+------------
