@@ -101,7 +101,7 @@ The **graph** outputs controls the output of graphic files (:ref:`G_#.TAG <secGr
 Spectra
 -------
 
-The **spec** outputs controls the output of spectra: kinetic energy spectra (:ref:`kin_spec_#.TAG <secKinSpecFile`), magnetic energy spectra (:ref:`mag_spec_#.TAG <secMagSpecFile>`) and thermal spectra (:ref:`T_spec_#.TAG <secTSpecFile>`):
+The **spec** outputs controls the output of spectra: kinetic energy spectra (:ref:`kin_spec_#.TAG <secKinSpecFile>`), magnetic energy spectra (:ref:`mag_spec_#.TAG <secMagSpecFile>`) and thermal spectra (:ref:`T_spec_#.TAG <secTSpecFile>`):
 
 .. _varn_spec_step:
 

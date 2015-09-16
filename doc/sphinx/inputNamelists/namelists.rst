@@ -40,5 +40,5 @@ Magic uses eight namelists:
    controlNamelist.rst
    physNamelist.rst
    startNamelist.rst
-   outputNamelist.rst
+   outNamelist.rst
    mantle_icNamelist.rst

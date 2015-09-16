@@ -77,15 +77,16 @@ suffices for most applications.
 
 The different possible outputs control parameters are then extensively described in the following pages:
 
-  1. :ref:`ControlStandard/common outputs <secOutNmlStd>`
-  2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
-  3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
-  4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
-  5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
+  .. note::
+        1. :ref:`Control standard/common outputs <secOutNmlStd>`
+        2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
+        3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
+        4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
+        5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
 
 
-Additional specific options
----------------------------
+Generic options
+---------------
 
 * **l_save_out** (default ``l_save_out=.false.``) is a logical. When set to ``.true.``, the diagnostic files will be safely opened and closed before and after any outputs. When set to ``.false.``, the diagnostic files will be opened before the first iteration timestep and close at the end of the run. This may cost some computing time, but guarantees that only minimal information is lost in case of a crash.
 
@@ -99,9 +100,9 @@ Additional specific options
 .. toctree::
    :hidden:
 
-   outputNmlStd.rst
-   outputNmlCoeff.rst
-   outputNmlPot.rst
-   outputNmlTO.rst
-   outputNmlMisc.rst
+   outputNamelist/outputNmlStd.rst
+   outputNamelist/outputNmlCoeff.rst
+   outputNamelist/outputNmlPot.rst
+   outputNamelist/outputNmlTO.rst
+   outputNamelist/outputNmlMisc.rst
 

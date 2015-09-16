@@ -14,8 +14,8 @@ Contents:
 
    install
    autoTests
-   namelists
-   outFiles
+   inputNamelists/namelists
+   outputFiles/outFiles
    postProc
 
 
