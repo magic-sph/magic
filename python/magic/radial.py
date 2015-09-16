@@ -21,6 +21,7 @@ class MagicRadial(MagicSetup):
         * Power budget: :ref:`powerR.TAG <secPowerRfile>`
         * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`
         * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
+        * Parallel/perpendicular decomposition: :ref:`perpParR.TAG <secPerpParRfile>`
 
     >>> rad = MagicRadial(field='eKinR') # display the content of eKinR.tag
     >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
