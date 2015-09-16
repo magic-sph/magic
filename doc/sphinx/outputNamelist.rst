@@ -260,8 +260,8 @@ Torsional oscillations
 ----------------------
 
 
-Miscellaneous
--------------
+Additional possible diagnostics
+--------------------------------
 
 Helicity
 ++++++++
@@ -273,4 +273,19 @@ Helicity
 Power budget
 ++++++++++++
 
-* **l_power** (default ``l_power.false.``) is a logical. When set to ``.true.``, this logical enables the calculation if input and output power (buoyancy, viscous and ohmic dissipations, torques). The time series are stored in ``power.TAG`` and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
+* **l_power** (default ``l_power.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of input and output power (buoyancy, viscous and ohmic dissipations, torques). The time series are stored in ``power.TAG`` and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
+
+.. _varl_fluxProfs:
+
+Heat transport
+++++++++++++++
+
+
+* **l_fluxProfs** (default ``l_fluxProfs=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of time-averaged radial heat flux profiles (conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux). The time-averaged radial profiles are stored in the :ref:`fluxesR.TAG <secFluxesRfile>` file.
+
+.. _varl_viscBcCalc:
+
+Boundary layer analysis
++++++++++++++++++++++++
+
+* **l_viscBcCalc** (default ``l_viscBcCalc=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of time-averaged radial profiles that can be further use to determine the viscous and thermal boundary layer thicknesses: temperature, temperature variance, horizontal velocity, etc. The time-averaged radial profiles are stored in the :ref:`bLayersR.TAG <secBLayersRfile>` file.

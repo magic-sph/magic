@@ -134,3 +134,87 @@ This file contains the time and horizontally averaged power input (Buoyancy powe
 
 This file can be read using :py:class:`magic.MagicRadial` with the following options::
    >>> ts = MagicRadial(field='powerR')
+
+.. _secFluxesRfile:
+
+``fluxesR.TAG``
+---------------
+
+.. note:: This file is **only** written when :ref:`l_fluxProfs=.true. <varl_fluxProfs>`
+
+This file contains the time and horizontally averaged heat flux carried out by several physical processes: conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux. This file is calculated by the subroutine ``outPar`` in ``outPar.f90``.
+
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | conductive flux:                                                |
+   |               |    .. math:: {\cal F}_{cond} = -\frac{1}{Pr}\kappa\tilde{\rho}  |
+   |               |              \tilde{T}\frac{\partial \langle s \rangle_\phi}    |
+   |               |              {\partial r}                                       |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | convective flux:                                                |
+   |               |    .. math:: {\cal F}_{conv}= \tilde{\rho}\tilde{T} \langle     |
+   |               |              s\,u_r \rangle_\phi+\frac{Pr\,Di}{E\,Ra}\langle    |
+   |               |              p\,u_r \rangle_\phi                                |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | kinetic flux:                                                   |
+   |               |    .. math:: {\cal F}_{kin}= \frac{1}{2}\frac{Pr\,Di}{Ra}       |
+   |               |              \langle u_r (\tilde{\rho}u^2) \rangle_\phi         | 
+   +---------------+-----------------------------------------------------------------+
+   | 5             | viscous flux:                                                   |
+   |               |    .. math:: {\cal F}_{visc}= -\frac{Pr\,Di}{Ra}                |
+   |               |              \langle \vec{u}\cdot S \rangle_\phi                | 
+   +---------------+-----------------------------------------------------------------+
+   | 6             | Poynting flux:                                                  |
+   |               |    .. math:: {\cal F}_{poyn}= -\frac{Pr\,Di}{Ra\,E\,Pm}         |
+   |               |              \langle (\vec{u}\times\vec{B})\times\vec{B}        |
+   |               |              \rangle_\phi                                       | 
+   +---------------+-----------------------------------------------------------------+
+   | 7             | resistive flux:                                                 |
+   |               |    .. math:: {\cal F}_{poyn}= \frac{Pr\,Di}{Ra\,E\,Pm^2}        |
+   |               |              \langle (\vec{\nabla}\times\vec{B})\times\vec{B}   |
+   |               |              \rangle_\phi                                       | 
+   +---------------+-----------------------------------------------------------------+
+
+This file can be read using :py:class:`magic.MagicRadial` with the following options::
+   >>> ts = MagicRadial(field='fluxesR')
+
+.. _secBLayersRfile:
+
+``bLayersR.TAG``
+----------------
+
+.. note:: This file is **only** written when :ref:`l_viscBcCalc=.true. <varl_viscBcCalc>`
+
+This file contains several time and horizontally averaged profiles that can be further used to determine thermal and viscous boundary layers: entropy (or temperature), entropy variance, horizontal velocity, radial derivative of the horizontal velocity, thermal dissipation rate. This file is calculated by the subroutine ``outPar`` in ``outPar.f90``.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | entropy: :math:`\langle s \rangle_\phi`                         |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | entropy variance:                                               |
+   |               |    .. math:: \sqrt{\left\langle (s-\langle s\rangle_\phi)^2     |
+   |               |              \right\rangle_\phi}                                |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | horizontal velocity:                                            |
+   |               |    .. math:: u_h=\left\langle\sqrt{u_\theta^2+u_\phi^2}         |
+   |               |              \right\rangle_\phi                                 |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | radial derivative of the horizontal velocity:                   |
+   |               |    .. math:: \partial u_h/\partial r                            |
+   +---------------+-----------------------------------------------------------------+
+   | 6             | thermal dissipation rate:                                       |
+   |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_\phi       |
+   +---------------+-----------------------------------------------------------------+
+
+This file can be read using :py:class:`magic.MagicRadial` with the following options::
+   >>> ts = MagicRadial(field='bLayersR')
+
+Additional analyses of the boundary layers can then be carried out using :py:class:`magic.bLayers.BLayers`::
+   >>> bl = BLayers(iplot=True)

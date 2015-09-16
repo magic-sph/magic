@@ -7,6 +7,13 @@ Requirements
 matplotlib, scipy, numpy, ipython
 
 
+.. automodule:: magic
+   :members:
+   :private-members:
+   :special-members:
+
+
+
 Configuration
 =============
 
@@ -33,7 +40,6 @@ Averaging time series
    :private-members:
    :special-members:
 
-
 Radial profiles
 ---------------
 
@@ -54,6 +60,22 @@ Average spectra over all radial levels
 -----------
 
 .. autoclass:: magic.MagicSpectrum2D
+   :members:
+   :private-members:
+   :special-members:
+
+Support for ``G_#.TAG`` files
+-----------------------------
+
+.. automodule:: magic.graph
+   :members:
+   :private-members:
+   :special-members:
+
+Boundary layer analysis
+-----------------------
+
+.. automodule:: magic.bLayers
    :members:
    :private-members:
    :special-members:
