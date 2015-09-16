@@ -37,9 +37,15 @@ class MagicTs(MagicSetup):
     def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
         """
         :param field: the file you want to plot
-        :param iplot: display/hide the plot
-        :param all: a boolean if you want to get the complete time series from the present working directory
+        :type field: str
+        :param iplot: when set to True, display the plots (default True)
+        :type iplot: bool
+        :param all: when set to True, the complete time series is reconstructed by
+                    stacking all the corresponding files from the working directory
+                    (default False)
+        :type all: bool
         :param tag: read the time series that exactly corresponds to the specified tag
+        :type tag: str
         """
         self.field = field
         logFiles = scanDir('log.*')
@@ -521,7 +527,7 @@ class MagicTs(MagicSetup):
 class AvgField:
     """
     This class calculates the time-average properties from time series. It will
-    store the input starting file in a small file named ``tInitAvg``, such that
+    store the input starting time in a small file named ``tInitAvg``, such that
     the next time you use it you don't need to give ``tstart`` again.
 
     >>> # Average from t=2.11 and also store the additional dipole.TAG informations
@@ -536,12 +542,15 @@ class AvgField:
     def __init__(self, tstart=None, tag=None, dipExtra=False):
         """
         :param tstart: the starting time for averaging
+        :type tstart: float
         :param tag: if you specify an input tag (generic regExp pattern), 
                     the averaging process will only happen on the time series 
                     that match this input pattern
+        :type tag: str
         :param dipExtra: if this parameter is set to ``True``, then additional 
                          values extracted from :ref:`dipole.TAG <secDipoleFile>` 
                          are also computed
+        :type dipExtra: bool
         """
 
         if os.path.exists('tInitAvg') and tstart is None:

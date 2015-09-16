@@ -17,8 +17,10 @@ class MagicRadial(MagicSetup):
         * Variable electrical conductivity: :ref:`varCond.TAG <secVarCondFile>`
         * Variable thermal diffusivity: :ref:`varDiff.TAG <secVarDiffFile>`
         * Variable kinematic viscosity: :ref:`varVisc.TAG <secVarViscFile>`
-        * Power budget: :ref:`powerR.TAG <secPowerRfile>`
         * Diagnostic parameters: :ref:`parR.TAG <secPaRfile>`
+        * Power budget: :ref:`powerR.TAG <secPowerRfile>`
+        * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`
+        * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
 
     >>> rad = MagicRadial(field='eKinR') # display the content of eKinR.tag
     >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
@@ -27,10 +29,14 @@ class MagicRadial(MagicSetup):
     def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None):
         """
         :param field: the field you want to plot
+        :type field: str
         :param iplot: to plot the output, default is True
+        :type iplot: bool
         :param tag: a specific tag, default is None
+        :type tag: str
         :param tags: a list that contains multiple tags: useful to sum
                      several radial files
+        :type tags: list
         """
 
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):

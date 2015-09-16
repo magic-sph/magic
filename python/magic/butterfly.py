@@ -11,10 +11,6 @@ from magic.setup import labTex
 from scipy.integrate import simps
 from .npfile import *
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 class Butterfly:
 
@@ -199,7 +195,6 @@ class Butterfly:
                                 '$45^\circ$', '$90^\circ$'])
         else:
             ax.set_yticklabels(['-90', '-45', '0', '45', '90'])
-
 
     def fourier2D(self, renorm=False):
         """

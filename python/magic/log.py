@@ -2,14 +2,27 @@
 import re
 import os
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 class MagicSetup:
+    """
+    This class allows to read the input namelist or the log file of a current job
+    and creates an object that contains all the parameters found in the
+    namelist/log file.
+
+    >>> stp = MagicSetup(nml='log.test', quiet=True)
+    >>> print(stp.ra) # print the Rayleigh number
+    >>> print(stp.n_r_max) # print n_r_max
+    """
 
     def __init__(self, datadir='.', nml='input.nml', quiet=False):
+        """
+        :param datadir: the working directory
+        :type datadir: str
+        :param nml: name of the input namelist/ log file
+        :type nml: str
+        :param quiet: when set to True, makes the output silent (default False)
+        :type quiet: bool
+        """
         logFile = re.compile(r'log\.(.*)')
         valueInt  = re.compile(r'^[0-9]$')
         valueReal = re.compile(r'[+-]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)')

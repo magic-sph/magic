@@ -369,7 +369,7 @@ class Movie:
                 ax.axis('off')
                 man = P.get_current_fig_manager()
                 man.canvas.draw()
-            if k !=0 and k % step == 0:
+            if k != 0 and k % step == 0:
                 if not png:
                     print(k+self.var2-self.nvar)
                 P.cla()

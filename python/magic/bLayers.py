@@ -8,11 +8,30 @@ from scipy.signal import argrelextrema
 from scipy.integrate import simps
 from scipy.interpolate import splrep, splev
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
+    """
+    This functions performs a spline extrapolation around the maxima
+    of the input array uh to define a more accurate location of the
+    boundary layer.
+
+    :param rad: radius
+    :type rad: numpy.ndarray
+    :param uh: the horizontal velocity profile
+    :type uh: numpy.ndarray
+    :param uhTop: first peak value of uh close to the outer boundary
+    :type uhTop: float
+    :param uhBot: first peak value of uh close to the inner boundary
+    :type uhBot: float
+    :param ri: the inner core radius
+    :type ri: float
+    :param ro: the outer core radius
+    :type ro: float
+    :returns: four floats: thickness of the bottom boundary layer,
+              thickness of the top boundary layer, extrapolated value of uh 
+              at the bottom boundary layer, extrapolated value of uh at the
+              top boundary layer
+    :rtype: list
+    """
     idxT = N.nonzero(N.where(uh==uhTop, 1, 0))[0][0]
     x = rad[idxT-3:idxT+4]
     y =  uh[idxT-3:idxT+4]
@@ -37,6 +56,30 @@ def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
 
 
 def integBulkBc(rad, field, ri, ro, lambdai, lambdao, normed=False):
+    """
+    This function evaluates the radial integral of the input array field
+    in the boundary layer and in the bulk separately.
+
+    :param rad: radius
+    :type rad: numpy.ndarray
+    :param field: the input radial profile
+    :type field: numpy.ndarray
+    :param ri: the inner core radius
+    :type ri: float
+    :param ro: the outer core radius
+    :type ro: float
+    :param lambdai: thickness of the inner boundary layer
+    :type lambdai: float
+    :param lambdao: thickness of the outer boundary layer
+    :type lambdao: float
+    :param normed: when set to True, the outputs are normalised by the volumes
+                   of the boundary layers and the fluid bulk, respectively. In
+                   that case, the outputs are volume-averaged quantities.
+    :type normed: bool
+    :returns: two floats that contains the boundary layer and the bulk
+              integrations (integBc, integBulk)
+    :rtype: list
+    """
     # Dissipation in the boundary layers
     field2 = field.copy()
     mask = (rad<=ro-lambdao) * (rad>=ri+lambdai)
@@ -64,6 +107,30 @@ def integBulkBc(rad, field, ri, ro, lambdai, lambdao, normed=False):
     return integBc, integBulk
 
 def integBotTop(rad, field, ri, ro, lambdai, lambdao, normed=False):
+    """
+    This function evaluates the radial integral of the input array field
+    in the bottom and top boundary layers separately.
+
+    :param rad: radius
+    :type rad: numpy.ndarray
+    :param field: the input radial profile
+    :type field: numpy.ndarray
+    :param ri: the inner core radius
+    :type ri: float
+    :param ro: the outer core radius
+    :type ro: float
+    :param lambdai: thickness of the inner boundary layer
+    :type lambdai: float
+    :param lambdao: thickness of the outer boundary layer
+    :type lambdao: float
+    :param normed: when set to True, the outputs are normalised by the volumes
+                   of the boundary layers. In that case, the outputs are 
+                   volume-averaged quantities.
+    :type normed: bool
+    :returns: two floats that contains the bottom and top boundary layers
+              integrations (integBot, integTop)
+    :rtype: list
+    """
     field2 = field.copy()
     mask = (rad<=ro-lambdao)
     field2[mask] = 0.
@@ -82,6 +149,14 @@ def integBotTop(rad, field, ri, ro, lambdai, lambdao, normed=False):
     return integBot, integTop
 
 def getMaxima(field):
+    """
+    This function determines the local maxima of the input array field
+
+    :param field: the input array
+    :type field: numpy.ndarray
+    :returns:  a list containing the indices of the local maxima
+    :rtype: list
+    """
     maxS = []
     for k in range(len(field)):
         if k > 3 and k < len(field)-3:
@@ -90,11 +165,45 @@ def getMaxima(field):
     return maxS
 
 class BLayers(MagicSetup):
+    """
+    This class allows to determine the viscous and thermal boundary layers
+    using several classical methods (slope method, peak values, dissipation
+    rates, etc.). It uses the following files:
+
+       * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>` 
+       * Power budget: :ref:`powerR.TAG <secPowerRfile>`
+       * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
+
+    This function can thus **only** be used when both 
+    :ref:`powerR.TAG <secPowerRfile>` and :ref:`bLayersR.TAG <secBLayersRfile>`
+    exist in the working directory.
+
+    .. warning:: This function works well as long as rigid boundaries and
+                 fixed temperature boundary conditions are employed. Other
+                 combination of boundary conditions (fixed fluxes and/or
+                 stress-free) might give wrong results, since boundary layers
+                 become awkward to define in that case.
+
+    Since this function is supposed to use time-averaged quantities, the usual
+    procedure is first to define the initial averaging time using
+    :py:class:`magic.AvgField`: (this needs to be done only once)
+
+    >>> a = AvgField(tstart=2.58)
+
+    Once the ``tInitAvg`` file exists, the boundary layer calculation can be
+    done:
+
+    >>> bl = BLayers(iplot=True)
+    >>> # print the formatted output
+    >>> print(bl)
+    """
 
     def __init__(self, iplot=False, quiet=False):
         """
-        :param iplot: a boolean to toggle plotting
-        :param quiet: a boolean to (not) display the output
+        :param iplot: display the result when set to True (default False)
+        :type iplot: bool
+        :param quiet: less verbose when set to True (default is False)
+        :type quiet: bool
         """
         if os.path.exists('tInitAvg'):
             file = open('tInitAvg', 'r')
@@ -128,6 +237,7 @@ class BLayers(MagicSetup):
 
         if os.path.exists('tInitAvg'):
             logFiles = scanDir('log.*', tfix=1409827718.0)
+            # Workaround for code mistake before this time
             tfix = 1409827718.0
             tagsFix = []
             for lg in logFiles:
@@ -365,6 +475,9 @@ class BLayers(MagicSetup):
             print(self)
 
     def plot(self):
+        """
+        Plotting function
+        """
         #P.rcdefaults()
         fig = P.figure()
         ax = fig.add_subplot(211)
@@ -434,6 +547,9 @@ class BLayers(MagicSetup):
             ax.set_ylabel('Thermal Dissipation')
 
     def __str__(self):
+        """
+        Formatted output
+        """
         if self.ek == -1:
             ek = 0. # to avoid the -1 for the non-rotating cases
         else:

@@ -6,10 +6,6 @@ from .libmagic import scanDir
 from magic.setup import buildSo
 import glob
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 if buildSo:
     try:
         import sys
@@ -19,29 +15,55 @@ if buildSo:
         elif sys.version_info.major == 2:
             import greader_single2 as Gsngl
             import greader_double2 as Gdble
-        lect = 'f2py'
+        readingMode = 'f2py'
     except ImportError:
         from npfile import *
-        lect = 'python'
-    #print('read with %s' % lect)
+        readingMode = 'python'
+    #print('read with %s' % readingMode)
 else:
     from npfile import *
-    lect = 'python'
+    readingMode = 'python'
 
 class MagicGraph(MagicSetup):
+    """
+    This class allows to read the 3-D graphic outputs of the MagIC code
+    (G_#.TAG and G_ave.TAG) files. Those are binary unformatted outputs,
+    there are therefore two ways to load them:
+
+       * If buildLib=True in magic.cfg and the fortran libraries were correctly
+         built, then the reader uses a fortran program that is expected to be
+         much faster than the pure python routine.
+       * If buildLib=False, then a pure python program is used to read the G
+         files.
+
+    >>> # Regular G files
+    >>> gr = MagicGraph(ivar=1, tag='N0m2a')
+    >>> print(gr.vr.shape) # shape of vr
+    >>> print(gr.ek) # print ekman number
+    >>> print(gr.minc) # azimuthal symmetry
+    >>> # Averaged G file with double precision
+    >>> gr = MagicGraph(ave=True, tag='N0m2', precision='Float64')
+    """
 
     def __init__(self, ivar=None, datadir='.', format='B', quiet=True, 
                  ave=False, tag=None, precision='Float32'):
         """
-        :param format: format of bynary output: 'n' (native), 'B' (big endian)
-                       or 'l' (little endian)
-        :param ave: in case of the average G file G_ave.tag
+        :param format: format of binary output: 'n' (native), 'B' (big endian)
+                       or 'l' (little endian), (default 'B')
+        :type format: str
+        :param ave: when set to True, it tries to find an average G file (G_ave.TAG)
+        :type ave: bool
         :param ivar: the number of the G file
-        :param tag: extension TAG of the G file
-        :param quiet: verbose or not verbose
-        :param format: big or little endian
+        :type ivar: int
+        :param tag: extension TAG of the G file. If not specified, the most recent
+                    G_#.TAG file found in the directory will be selected.
+        :type tag: str
+        :param quiet: when set to True, makes the output silent
+        :type quiet: bool
         :param datadir: directory of the G file (default is . )
-        :param precision: single or double precision
+        :type datadir: str
+        :param precision: single or double precision (default 'Float32')
+        :type precision: str
         """
         self.precision = precision
 
@@ -83,7 +105,7 @@ class MagicGraph(MagicSetup):
             print('No such file')
             return
 
-        if lect != 'python':
+        if readingMode != 'python':
 
             if self.precision == 'Float32':
                 G = Gsngl.greader_single
@@ -180,12 +202,6 @@ class MagicGraph(MagicSetup):
                         Bphi[:,ilat1:ilat2+1,ir] = data.T
                     else:
                         # vectorize
-                        #data = inline.fort_read(self.precision,shape=(4*(nth_loc*self.npI+2)-2)) 
-                        #entropy[:, ilat1:ilat2+1,ir] = data[:nth_loc*self.npI].reshape(nth_loc,self.npI).T
-                        #vr[:, ilat1:ilat2+1,ir] = data[nth_loc*self.npI+2:2*nth_loc*self.npI+2].T.reshape(nth_loc,self.npI).T
-                        #vtheta[:, ilat1:ilat2+1,ir] = data[2*nth_loc*self.npI+4:3*nth_loc*self.npI+4].reshape(nth_loc,self.npI).T
-                        #vphi[:, ilat1:ilat2+1,ir] = data[3*nth_loc*self.npI+6:4*nth_loc*self.npI+6].reshape(nth_loc,self.npI).T
-#
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         entropy[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
@@ -254,47 +270,17 @@ class MagicGraph(MagicSetup):
                 self.Btheta = Btheta
                 self.Bphi = Bphi
 
-            """
-            for i in range(self.minc):
-                self.entropy[i*self.npI:(i+1)*self.npI, ...] = entropy
-                self.vr[i*self.npI:(i+1)*self.npI, ...] = vr
-                self.vtheta[i*self.npI:(i+1)*self.npI, ...] = vtheta
-                self.vphi[i*self.npI:(i+1)*self.npI, ...] = vphi
-                if self.mode == 0:
-                    self.Br[i*self.npI:(i+1)*self.npI, ...] = Br
-                    self.Btheta[i*self.npI:(i+1)*self.npI, ...] = Btheta
-                    self.Bphi[i*self.npI:(i+1)*self.npI, ...] = Bphi
-
-            self.entropy[-1, ...] = self.entropy[0, ...]
-            self.vr[-1, ...] = self.vr[0, ...]
-            self.vtheta[-1, ...] = self.vtheta[0, ...]
-            self.vphi[-1, ...] = self.vphi[0, ...]
-            if self.mode == 0:
-                self.Br[-1, ...] = self.Br[0, ...]
-                self.Btheta[-1, ...] = self.Btheta[0, ...]
-                self.Bphi[-1, ...] = self.Bphi[0, ...]
-            """
-
-    def readOneField(self, inline, lat1, lat2):
-        """
-        Parse a longitude line...
-        Useless now...
-        """
-        nth_loc = lat2 - lat1 + 1
-        # To vectorize, one must also read the end-of-line symbol that
-        # accounts for 2 additionnal floats
-        # For the last line of the chunk, we should not read the last symbol
-        data = inline.fort_read(self.precision, shape=((self.npI+2)*nth_loc-2))
-        # Add 2 zeros for the last lines
-        data = N.append(data, 0.)
-        data = N.append(data, 0.)
-        # reshape 
-        data = data.reshape((nth_loc, self.npI+2))
-        # remove the end-of-line...
-        return data[:,:-2:].T
-
     def rearangeLat(self, field):
+        """
+        This function is used to unfold the colatitudes
+
+        :param field: input array with MagIC ordering of colatitudes (i.e.
+                      successively Northern Hemisphere and Southern 
+                      Hemisphere)
+        :type field: numpy.ndarray
+        :return: an array with the regular ordering of the colatitudes
+        :rtype: numpy.ndarray
+        """
         even = field[:, ::2, :] 
         odd = field[:, 1::2, :]
         return N.concatenate((even, odd[:, ::-1, :]), axis=1)
-

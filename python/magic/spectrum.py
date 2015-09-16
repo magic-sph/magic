@@ -27,15 +27,22 @@ class MagicSpectrum(MagicSetup):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
+        :type field: str
         :param iplot: display the output plot when set to True (default is True)
+        :type iplot: bool
         :param ispec: the number of the spectrum you want to plot
+        :type ispec: int
         :param tag: file suffix (tag), if not specified the most recent one in
                     the current directory is chosen
+        :type tag: str
         :param ave: plot a time-averaged spectrum when set to True
+        :type ave: bool
         :param gather: gather the spectra on the same figure when set to True,
                        display one figure per spectrum when set to False, 
                        (default is False)
+        :type gather: bool
         :param datadir: current working directory
+        :type datadir: str
         """
         self.gather = gather
 
@@ -252,13 +259,22 @@ class MagicSpectrum2D(MagicSetup):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
+        :type field: str
         :param iplot: display the output when set to True (default is True)
+        :type iplot: bool
         :param ispec: the number of the spectrum you want to plot
+        :type ispec: int
         :param tag: file suffix (tag=, if not specified the most recent one 
                     in the current directory is chosen
+        :type tag: str
         :param cm: name of the colormap (default='jet')
+        :type cm: str
         :param levels: number of contour levels (default 33)
+        :type levels: int
         :param precision: single or double precision
+        :type precision: str
+        :param datadir: current working directory
+        :type datadir: str
         """
 
         if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):
@@ -324,7 +340,9 @@ class MagicSpectrum2D(MagicSetup):
         Plotting function
 
         :param levels: number of contour levels
+        :type levels: int
         :param cm: name of the colormap
+        :type cm: str
         """
         fig0 = P.figure()
         ax0 = fig0.add_subplot(111)
