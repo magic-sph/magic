@@ -225,6 +225,50 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``par.TAG``
 -----------
 
+This files contains the outputs of several parameters that describe flow and magnetic fields. This file is written by the subroutine ``output`` in the file ``m_output.f90``.
+
+   +---------------+-----------------------------------------+
+   | No. of column | Contents                                |
+   +===============+=========================================+
+   | 1             | time                                    |
+   +---------------+-----------------------------------------+
+   | 2             | (magnetic) Reynolds number              |
+   +---------------+-----------------------------------------+
+   | 3             | Elsasser number                         |
+   +---------------+-----------------------------------------+
+   | 4             | Local Rossby number Rol                 |
+   +---------------+-----------------------------------------+
+   | 5             | Realtive geostrophic kinetic energy     |
+   +---------------+-----------------------------------------+
+   | 6             | Total dipolarity                        |
+   +---------------+-----------------------------------------+
+   | 7             | CMB dipolarity                          |
+   +---------------+-----------------------------------------+
+   | 8             | Axial flow length scale dlV             |
+   +---------------+-----------------------------------------+
+   | 9             | Flow length scale dmV                   |
+   +---------------+-----------------------------------------+
+   | 10            | Flow length scale dpV                   |
+   +---------------+-----------------------------------------+
+   | 11            | Flow length scale dzV                   |
+   +---------------+-----------------------------------------+ 
+   | 12            | Dissipation length scale lvDiss         |
+   +---------------+-----------------------------------------+ 
+   | 13            | Dissipation length scale lbDiss         |
+   +---------------+-----------------------------------------+ 
+   | 14            | Magnetic length scale dlB               |
+   +---------------+-----------------------------------------+ 
+   | 15            | Magnetic length scale dlB               |
+   +---------------+-----------------------------------------+ 
+   | 16            | Elsasser number at CMB                  |
+   +---------------+-----------------------------------------+ 
+   | 17            | Local Rol based on non-ax. flow         |
+   +---------------+-----------------------------------------+ 
+   | 18            | Convective flow length scale dlVc       |
+   +---------------+-----------------------------------------+ 
+   | 19            | CMB zonal flow at the equator           |
+   +---------------+-----------------------------------------+ 
+
 This file can be read using :py:class:`magic.MagicTs` with the following options::
    >>> ts = MagicTs(field='par', all=True) # To stack all the par.TAG files of the current directory
 
@@ -234,6 +278,160 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``misc.TAG``
 ------------
 
+This files contains the rotation of the inner core and the mantle. Output concerning the rotation of inner core and mantle. This file is written by the subroutine ``write_rot`` in the file ``out_Rot.f90``.
+(columns 6-9 and 17-20 are calculated if l_hel=.TRUE.)
+(columns 10-16 are calculated if l_par=.TRUE.)
+
+   +---------------+-------------------------------------------------------------------+
+   | No. of column | Contents                                                          |
+   +===============+===================================================================+
+   | 1             | time                                                              |
+   +---------------+-------------------------------------------------------------------+
+   | 2             | Nusselt number at the inner core                                  |
+   +---------------+-------------------------------------------------------------------+
+   | 3             | CMB Nusselt number at the CMB                                     |
+   +---------------+-------------------------------------------------------------------+
+   | 4             | Entropy at the inner core                                         |
+   +---------------+-------------------------------------------------------------------+
+   | 5             | Entropy at the CMB                                                |
+   +---------------+-------------------------------------------------------------------+
+   | 6             | Helicity (northern hemisphere)                                    |
+   +---------------+-------------------------------------------------------------------+
+   | 7             | Helicity (southern hemisphere)                                    |
+   +---------------+-------------------------------------------------------------------+
+   | 8             | RMS helicity (northern hemisphere)                                |
+   +---------------+-------------------------------------------------------------------+
+   | 9             | RMS helicity (southern hemisphere)                                |
+   +---------------+-------------------------------------------------------------------+
+   | 10            | Relative geostrophic kinetic energy                               |
+   +---------------+-------------------------------------------------------------------+
+   | 11            | Relative kinetic energy in the northern part of the TC            |
+   +---------------+-------------------------------------------------------------------+
+   | 12            | Relative kinetic energy in the southern part of the TC            |
+   +---------------+-------------------------------------------------------------------+
+   | 13            | Kinetic energy                                                    |
+   +---------------+-------------------------------------------------------------------+
+   | 14            | North/South correlation of Vz, outside the TC                     |
+   +---------------+-------------------------------------------------------------------+
+   | 15            | North/South correlation of vorticity outside the TC               |
+   +---------------+-------------------------------------------------------------------+
+   | 16            | North/South correlation of helicity outside the TC                |
+   +---------------+-------------------------------------------------------------------+
+   | 17            | Non-axisymmetric helicity (northern hemisphere)                   | 
+   +---------------+-------------------------------------------------------------------+
+   | 18            | Non-axisymmetric helicity (southern hemisphere)                   |
+   +---------------+-------------------------------------------------------------------+
+   | 19            | RMS helicity non-axisymmetric helicity (northern hemisphere)      |
+   +---------------+-------------------------------------------------------------------+
+   | 20            | RMS helicity non-axisymmetric helicity (southern hemisphere)      |
+   +---------------+-------------------------------------------------------------------+
+   | 21            | Heat flux at the inner-core boundary                              |
+   +---------------+-------------------------------------------------------------------+
+   | 22            | Heat flux at the CMB                                              |
+   +---------------+-------------------------------------------------------------------+
+
 This file can be read using :py:class:`magic.MagicTs` with the following options::
    >>> ts = MagicTs(field='misc', all=True) # To stack all the misc.TAG files of the current directory
+
+
+.. _secdtVrmsFile:
+
+``dtVrms.TAG``
+--------------
+
+This files contains the RMS forces of the Navier Stokes equation. This file is written by the subroutine ``dtVrms`` in the file ``s_dtVrms.f90``.
+
+   +---------------+--------------------------------------------------+
+   | No. of column | Contents                                         |
+   +===============+==================================================+
+   | 1             | time                                             |
+   +---------------+--------------------------------------------------+
+   | 2             | Poloidal flow changes: inertia--advection        |
+   +---------------+--------------------------------------------------+
+   | 3             | Toroidal flow changes: inertia--advection        |
+   +---------------+--------------------------------------------------+
+   | 4             | Poloidal Coriolis force                          |
+   +---------------+--------------------------------------------------+
+   | 5             | Toroidal Coriolis force                          |
+   +---------------+--------------------------------------------------+
+   | 6             | Poloidal Lorentz force                           |
+   +---------------+--------------------------------------------------+
+   | 7             | Toroidal Lorentz force                           |
+   +---------------+--------------------------------------------------+
+   | 8             | Poloidal advection term                          |
+   +---------------+--------------------------------------------------+
+   | 9             | Toroidal advection term                          |
+   +---------------+--------------------------------------------------+
+   | 10            | Poloidal diffusion term                          |
+   +---------------+--------------------------------------------------+
+   | 11            | Toroidal diffusion term                          |
+   +---------------+--------------------------------------------------+
+   | 12            | Buoyancy term                                    |
+   +---------------+--------------------------------------------------+
+   | 13            | Pressure gradient term                           |
+   +---------------+--------------------------------------------------+
+   | 14            | Sum of force terms: geostrophic balance          |
+   +---------------+--------------------------------------------------+
+   | 15            | Sum of force terms: magnetostrophic balance      |
+   +---------------+--------------------------------------------------+
+   | 16            | Sum of force terms: Archemidian balance          |
+   +---------------+--------------------------------------------------+
+
+
+.. _secdtBrmsFile:
+
+``dtBrms.TAG``
+--------------
+
+This files contains the RMS forces of the induction equation. This file is written by the subroutine ``dtBrms`` in the file ``s_dtBrms.f90``.
+
+   +---------------+-------------------------------------------------------+
+   | No. of column | Contents                                              |
+   +===============+=======================================================+
+   | 1             | time                                                  |
+   +---------------+-------------------------------------------------------+
+   | 2             | Changes in magnetic field (poloidal)                  |
+   +---------------+-------------------------------------------------------+
+   | 3             | Changes in magnetic field (toroidal)                  |
+   +---------------+-------------------------------------------------------+
+   | 4             | Poloidal strecthing term                              |
+   +---------------+-------------------------------------------------------+
+   | 5             | Toroidal strecthing term                              |
+   +---------------+-------------------------------------------------------+
+   | 6             | Poloidal field advection term                         |
+   +---------------+-------------------------------------------------------+
+   | 7             | Toroidal field advection term                         |
+   +---------------+-------------------------------------------------------+
+   | 8             | Poloidal diffusion term                               |
+   +---------------+-------------------------------------------------------+
+   | 9             | Toroidal diffusion term                               |
+   +---------------+-------------------------------------------------------+
+   | 10            | Omega effect / toroidal strecthing term               |
+   +---------------+-------------------------------------------------------+
+   | 11            | Omega effect                                          |
+   +---------------+-------------------------------------------------------+
+   | 12            | Poloidal field production (stretching+advection)      |
+   +---------------+-------------------------------------------------------+
+   | 13            | Toroidal field production (stretching+advection)      |
+   +---------------+-------------------------------------------------------+
+
+
+.. _secdtDrmsFile:
+
+``dtDrms.TAG``
+--------------
+
+This files contains the RMS forces of the induction equation. This file is written by the subroutine ``dtBrms`` in the file ``s_dtBrms.f90``.
+
+   +---------------+-------------------------------------------------------+
+   | No. of column | Contents                                              |
+   +===============+=======================================================+
+   | 1             | time                                                  |
+   +---------------+-------------------------------------------------------+
+   | 2             |                                                       |
+   +---------------+-------------------------------------------------------+
+   | 3             |                                                       |
+   +---------------+-------------------------------------------------------+
+   | 4             |                                                       |
+   +---------------+-------------------------------------------------------+
 
