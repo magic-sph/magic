@@ -12,7 +12,7 @@ and a stop time ``t_stop``. If no ``t_start`` is provided, the start time of
 the calculation is used. If no ``t_stop`` is provided or ``t_stop>t_start`` the
 total calculation interval is assumed
 
-   1. **Prescribed number of outputs**. The outputs are distributed evenly over the total calculation interval so that the number of timesteps between two outputs is always the same, with the possible exception of the first interval. Last output is written for the last time step, and to compensate the interval before the first output may be longer. However, if ``t_stop`` is provided, the outputs are distributed evenly over the interval [``t_stop``,``t_start``] with equal times intervals between them. 
+   1. **Prescribed number of outputs**. The outputs are distributed evenly over the total calculation interval so that the number of timesteps between two outputs is always the same, with the possible exception of the first interval. Last output is written for the last time step, and to compensate the interval before the first output may be longer. However, if ``t_stop`` is provided, the outputs are distributed evenly over the interval [``t_stop``, ``t_start``] with equal times intervals between them. 
 
    .. note:: These input variables are usually named with a pattern that follows 
              ``n_outputName``, for instance, :ref:`n_graphs <varn_graphs>`, 
