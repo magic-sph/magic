@@ -34,7 +34,8 @@ unformatted files described below.
    :hidden:
 
    logFile.rst
-   outTimeSeries.rst
+   outTimeSeriesStd.rst
+   outTimeSeriesSupp.rst
    outRadialFiles.rst
    outTransportProp.rst
    outSpecFiles.rst

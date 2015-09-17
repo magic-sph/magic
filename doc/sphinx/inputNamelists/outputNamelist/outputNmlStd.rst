@@ -156,7 +156,7 @@ Specific inputs
 
     .. code-block:: fortran
 
-        movie(1)= Br CMB,
+        movie(1)="Br CMB",
 
   in the :ref:`&output <secOutputNml>` namelist. Here, ``Br`` is the keyword for 
   the radial component of the magnetic field and ``CMB`` is the expression that
@@ -166,8 +166,8 @@ Specific inputs
 
      .. code-block:: fortran
 
-        movie(2)= Temp phi=0,
-        movie(3)= Vortz eq,
+        movie(2)="Temp phi=0",
+        movie(3)="Vortz eq",
 
   Note that the code does **not interpret spaces and ignores additional characters**
   that do not form a keyword or a surface definition. Thus, for example ``Br`` or ``B r``
