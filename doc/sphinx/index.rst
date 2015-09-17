@@ -3,10 +3,10 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to Magic's documentation!
-=================================
+.. _contents:
 
-Contents:
+MagIC documentation contents
+=================================
 
 .. toctree::
    :includehidden:
@@ -15,6 +15,7 @@ Contents:
    install
    autoTests
    inputNamelists/namelists
+   signalFile
    outputFiles/outFiles
    postProc
 

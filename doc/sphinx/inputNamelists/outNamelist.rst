@@ -25,7 +25,7 @@ total calculation interval is assumed
 	     :ref:`t_graph_start <vart_graph_start>`, 
 	     :ref:`t_graph_stop <vart_graph_stop>`, :ref:`t_log_start <vart_log_start>`,
 	     :ref:`t_log_stop <vart_log_stop>`, :ref:`t_spec_start <vart_spec_start>`,
-	     ``t_spec_stop``, etc.
+	     :ref:`t_spec_stop <vart_spec_stop>`, etc.
 
    ..
 
@@ -74,12 +74,12 @@ suffices for most applications.
 The different possible outputs control parameters are then extensively described in the following pages:
 
   .. seealso::
+
         1. :ref:`Control standard/common outputs <secOutNmlStd>`
         2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
         3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
         4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
         5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
-
 
 
 .. toctree::

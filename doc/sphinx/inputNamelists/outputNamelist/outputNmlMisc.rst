@@ -65,6 +65,15 @@ Inertial modes
 
 * **l_iner** (default ``l_iner=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected :math:`w(\ell, m)` at mid-shell (stored in :ref:`inerP.TAG <secinerFile>`) and :math:`z(\ell, m)` at mid-shell (stored in :ref:`inerT.TAG <secinerFile>`). Those files can be further used to identify inertial modes.
 
+.. _varl_rMagSpec:
+
+Radial spectra
+++++++++++++++
+
+* **l_rMagSpec** (default ``l_rMagSpec=.false``) is a logical. When set to ``.true.``, the magnetic spectra for the first 6 spherical harmonic degree :math:`\ell` for all radii are stored at times of log ouputs. This produces the unformatted fortran files :ref:`rBrSpec.TAG <secrBspecFiles>` and :ref:`rBpSpec.TAG <secrBspecFiles>`.
+
+* **l_DTrMagSpec** (default ``l_DTrMagSpec=.false``) is a logical. When set to ``.true.``, the magnetic spectra of the magnetic field production terms for the first 6 spherical harmonic degree :math:`\ell` for all radii are stored at times of log ouputs. This produces the unformatted fortran files ``rBrProSpec.TAG``, ``rBrAdvSpec.TAG``, ``rBrDifSpec.TAG``, ``rBrDynSpec.TAG``, ``rBpProSpec.TAG``, ``rBpAdvSpec.TAG``, ``rBpDifSpec.TAG`` and ``rBpDynSpec.TAG``. All those files have exactly the same format as the :ref:`rBrSpec.TAG <secrBspecFiles>`.
+
 .. _varl_fluxProfs:
 
 Heat transport

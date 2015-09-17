@@ -49,6 +49,10 @@ Dimensionless control parameters
 
   .. warning:: Be careful: in its current version the code only handles **adiabatic** backgrounds, therefore changing ``polind`` physically means that the nature of the fluid (in particular its Grüneisen parameter) will change. For an ideal gas, it actually always follows :math:`m+1=\frac{\gamma -1}{\gamma}`
 
+  ..
+
+* **l_isothermal** (default ``l_isothermal=.false.``) is a logical. When set to ``.true.``, makes the temperature background isothermal (i.e. :math:`\tilde{T}=cst.`). In that case, the dissipation number :math:`Di` vanishes and there is no viscous and Ohmic heating left. The only difference with the Boussinesq set of equations are thus restricted to the density background :math:`\tilde{\rho}` and its radial derivatives that enters the viscous stress. This approximation is also called the **zero Grüneisen parameter** and was extensively explored by Denise Tortorella during her `PhD <http://www.mps.mpg.de/3183008/Dissertation_2005_Tortorella__Denise_Aida1.pdf>`_. 
+
 
 Heat sources and sinks
 ----------------------

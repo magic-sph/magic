@@ -188,3 +188,12 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
    >>> # To stack all the perpPar.TAG files of the current directory
    >>> ts = MagicTs(field='perpPar', all=True)
 
+
+.. _secrBspecFiles:
+
+``rB[r|p]Spec.TAG``
+-------------------
+
+.. note:: This file is **only** written when :ref:`l_rMagSpec=.true. <varl_rMagSpec>`
+
+The calculations for done in the ``radial_spectra.f90`` files.
