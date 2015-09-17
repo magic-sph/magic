@@ -12,7 +12,7 @@ module outMisc_mod
    use num_param, only: lScale
    use blocking, only: lo_map, nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
-   use logic, only: l_save_out, l_anelastic_liquid, l_prms, l_par, &
+   use logic, only: l_save_out, l_anelastic_liquid, l_par, &
                     l_hel, l_heat
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
@@ -31,7 +31,7 @@ module outMisc_mod
 contains
 
    subroutine outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
-     &             nLogs,w,dw,ddw,z,dz,s,ds,p,Geos,dpFlow,dzFlow)
+     &             nLogs,w,dw,ddw,z,dz,s,ds,Geos,dpFlow,dzFlow)
 
       !-- Input of variables:
       real(cp),    intent(in) :: timeScaled
@@ -50,16 +50,13 @@ contains
       complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
     
       !-- Output: (and stuff written in misc.TAG files)
       real(cp),    intent(out) :: Geos
       real(cp),    intent(out) :: dpFlow,dzFlow
     
       !-- Local stuff:
-      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n,lm44
-      logical :: lm44_is_local
-      real(cp) :: pplot_global(n_r_max), pplot(n_r_max)
+      integer :: nTheta,nThetaStart,nThetaBlock,nThetaNHS,n
       real(cp) :: HelNr(nRstart:nRstop), HelSr(nRstart:nRstop)
       real(cp) :: HelnaNr(nRstart:nRstop), HelnaSr(nRstart:nRstop)
       real(cp) :: Hel2Nr(nRstart:nRstop), Hel2Sr(nRstart:nRstop)
@@ -70,7 +67,6 @@ contains
       real(cp) :: Helna2Nr_global(n_r_max), Helna2Sr_global(n_r_max)
       real(cp) :: Hel2Nr_global(n_r_max), Hel2Sr_global(n_r_max)
       real(cp) :: HelEAr_global(n_r_max)
-      complex(cp) :: p44_local(n_r_max)
       real(cp) :: Hel(nfs), Hel2(nfs), Helna(nfs), Helna2(nfs), r2
       real(cp) :: HelN,HelS
       real(cp) :: HelnaN,HelnaS
@@ -81,13 +77,8 @@ contains
       real(cp) :: topnuss,botnuss
       real(cp) :: topflux,botflux
     
-      integer :: n_r,m,lm
-#ifdef WITH_MPI
-      integer :: mytag,status(MPI_STATUS_SIZE)
-#endif
+      integer :: n_r
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1),ierr
-    
-      character(len=76) :: filename2
     
     
       if ( l_hel )  then
@@ -303,55 +294,6 @@ contains
          if ( l_save_out ) close(n_misc_file)
          !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
          !    get an idea of the precision of cylindrical integration in getEgeos.
-      end if
-    
-      if ( l_prms ) then
-         do n_r=1,n_r_max
-            pplot(n_r)=0.0_cp
-            do lm=llm,ulm
-               m=lo_map%lm2m(lm)
-               pplot(n_r)=pplot(n_r)+cc2real(p(lm,n_r),m)
-            end do
-         end do
-#ifdef WITH_MPI
-         call MPI_Reduce(pplot,pplot_global,n_r_max,MPI_DEF_REAL,&
-              & MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         pplot_global=pplot
-#endif
-         ! Send the p(4,4) value to rank 0
-         lm44=lo_map%lm2(4,4)
-#ifdef WITH_MPI
-         lm44_is_local=(llm <= lm44).and.(lm44 <= ulm)
-         mytag=120
-         if ( lm44_is_local .and. ( rank /= 0 )) then
-            ! copy one row of p into a vector to send
-            ! it to rank 0
-            p44_local=p(lm44,:)
-            call MPI_Send(p44_local,n_r_max,MPI_DEF_COMPLEX,0,mytag, &
-                       &  MPI_COMM_WORLD,ierr)
-         end if
-#else
-         p44_local=p(lm44,:)
-#endif
-         if ( rank == 0 ) then
-#ifdef WITH_MPI
-            if ( .not. lm44_is_local ) then
-               call MPI_Recv(p44_local,n_r_max,MPI_DEF_COMPLEX, &
-                    & MPI_ANY_SOURCE,mytag,MPI_COMM_WORLD,status,ierr)
-            else
-               p44_local=p(lm44,:)
-            end if
-#endif
-
-            filename2='p.'//TAG
-            open(94, file=filename2, status='unknown')
-            do n_r=1,n_r_max
-               pplot_global(n_r)=sqrt(pplot_global(n_r)/lm_max)
-               write(94,*) r(n_r),pplot_global(n_r),real(p44_local(n_r))
-            end do
-            close(94)
-         end if
       end if
     
    end subroutine outMisc

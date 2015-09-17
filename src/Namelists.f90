@@ -108,7 +108,7 @@ contains
          & n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
          & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
-         & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,l_prms,  &
+         & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,         &
          & l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs,    &
          & l_perpPar
 
@@ -535,7 +535,7 @@ contains
       if ( l_r_field ) then
          if ( n_r_step == 0 ) n_r_step=2
          if ( l_max_r == 0 .or. l_max_r > l_max ) l_max_r=l_max
-         nCounts = COUNT(n_r_array>0)
+         nCounts = count(n_r_array>0)
 
          if ( nCounts > 0 ) then
              n_coeff_r_max=nCounts
@@ -813,7 +813,6 @@ contains
       write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
       write(n_out,'(''  l_RMStest       ='',l3,'','')') l_RMStest
-      write(n_out,'(''  l_prms          ='',l3,'','')') l_prms
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
@@ -1143,6 +1142,7 @@ contains
          t_Vpot(n)   =-one
          t_Bpot(n)   =-one
          t_Tpot(n)   =-one
+         t_pot(n)    =-one
          t_TO(n)     =-one
          t_TOZ(n)    =-one
          t_TOmovie(n)=-one
@@ -1175,7 +1175,6 @@ contains
       l_RMS         =.false. ! RMS force ballance and dynamo term 
       ! ballance in dtVrms.TAG and dtBrms.TAG
       l_RMStest     =.false. ! special test for RMS balance
-      l_prms        =.false. ! radial plot of the rms pressure (snapshot)
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
       rCut          =0.075_cp ! Thickness of layer to be left out at both

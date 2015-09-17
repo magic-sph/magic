@@ -417,7 +417,7 @@ contains
          !----- Write misc. output:
          call outMisc( timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,      &
               &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc, &
-              &        s_LMloc,ds_LMloc,p_LMloc,Geos,dpV,dzV)
+              &        s_LMloc,ds_LMloc,Geos,dpV,dzV)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outMisc  on rank ",rank
   
          if ( l_mag .or. l_mag_LF ) then 

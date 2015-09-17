@@ -47,7 +47,6 @@ module logic
    logical :: l_PV
    logical :: l_newmap
    logical :: l_plotmap
-   logical :: l_prms
    logical :: l_viscBcCalc 
    logical :: l_fluxProfs
    logical :: l_perpPar
