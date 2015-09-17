@@ -67,9 +67,9 @@ These files contain time series of spherical harmonic coefficients upto degree, 
  +--------------+-------------+
  |             ...            |
  +--------------+-------------+
- | 35           | w(6,5)      |
+ | 20           | w(6,5)      |
  +--------------+-------------+
- | 36           | w(6,6)      |
+ | 21           | w(6,6)      |
  +--------------+-------------+
 
 where ``w(l,m)`` is the spherical harmonic coefficient with degree :math:`l` and order :math:`m`, of the poloidal potential.
