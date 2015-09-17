@@ -832,7 +832,7 @@ contains
       integer ::ipiv(n_r_tot),iwork(n_r_tot)
       real(cp) :: work(4*n_r_tot),anorm,linesum
       real(cp) :: temp_Mat(n_r_tot,n_r_tot)
-      integer,save :: counter=0
+      integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
 #endif

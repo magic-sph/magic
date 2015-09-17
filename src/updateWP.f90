@@ -465,7 +465,7 @@ contains
       integer ::ipiv(2*n_r_max),iwork(2*n_r_max),i,j
       real(cp) :: work(8*n_r_max),anorm,linesum,rcond
       real(cp) :: temp_wpMat(2*n_r_max,2*n_r_max)
-      integer,save :: counter=0
+      integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
       logical :: first_run=.true.

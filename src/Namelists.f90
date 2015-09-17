@@ -109,8 +109,7 @@ contains
          & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
          & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,         &
-         & l_plotmap,l_PV,l_iner,l_viscBcCalc,l_fluxProfs,    &
-         & l_perpPar
+         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -982,7 +981,6 @@ contains
 
       !----- Non-linear mapping parameters (Bayliss, 1992):
       l_newmap       =.false.
-      l_plotmap      =.false.
       alph1          =two
       alph2          =0.0_cp
 

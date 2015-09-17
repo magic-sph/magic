@@ -1,7 +1,7 @@
 !$Id$
 module logic
    !-------------------------------------------------------
-   !  Module containing logicals that control the run
+   !  Module containing the logicals that control the run
    !-------------------------------------------------------
 
    implicit none
@@ -46,7 +46,6 @@ module logic
    logical :: l_corrMov
    logical :: l_PV
    logical :: l_newmap
-   logical :: l_plotmap
    logical :: l_viscBcCalc 
    logical :: l_fluxProfs
    logical :: l_perpPar

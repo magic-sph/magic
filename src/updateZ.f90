@@ -802,7 +802,7 @@ contains
       integer ::ipiv(n_r_max),iwork(n_r_max)
       real(cp) :: work(4*n_r_max),anorm,linesum
       real(cp) :: temp_Mat(n_r_max,n_r_max)
-      integer,save :: counter=0
+      integer, save :: counter=0
       integer :: filehandle
       character(len=100) :: filename
 #endif

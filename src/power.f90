@@ -1,4 +1,4 @@
-!$Id$
+
 module power
 
    use parallel_mod
@@ -115,12 +115,11 @@ contains
       complex(cp) :: laplace,Bh
 
       character(len=76) :: fileName
-      character(len=7) :: marker
+      character(len=7), save :: marker
       real(cp) :: z10ICB,z10CMB,drz10ICB,drz10CMB
       real(cp) :: powerIC,powerMA
-      real(cp) :: powerDiff,powerDiffOld,powerDiffT,eDiffInt
-      real(cp) :: tStart
-      SAVE   powerDiff,eDiffInt,marker,tStart
+      real(cp) :: powerDiffOld,powerDiffT
+      real(cp), save :: powerDiff, eDiffInt,tStart
 
       logical :: rank_has_l1m0
       integer :: sr_tag

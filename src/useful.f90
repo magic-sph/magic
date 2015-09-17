@@ -112,10 +112,9 @@ contains
       real(cp), intent(in) :: r
   
       !-- Local variables:
-      integer :: ia1, ia0, ia1ma0, ic, ix1, ix0
+      integer :: ia1, ia0, ia1ma0, ic
       integer :: iy0, iy1
-  
-      save ix1, ix0
+      integer, save :: ix1, ix0
   
       ia1   =1536
       ia0   =1029

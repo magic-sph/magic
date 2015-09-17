@@ -11,7 +11,7 @@ module preCalculations
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds, &
                           l_reset_t
    use parallel_mod, only: rank
-   use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_plotmap,  &
+   use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,   &
                     l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
                     l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
                     l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
@@ -159,7 +159,7 @@ contains
 
       call radial
 
-      if ( ( l_plotmap ) .and. (rank == 0) ) then
+      if ( ( l_newmap ) .and. (rank == 0) ) then
          fileName='rNM.'//TAG
          open(99, file=fileName, status='unknown')
          do n_r=1,n_r_max
