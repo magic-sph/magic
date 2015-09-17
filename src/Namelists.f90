@@ -55,7 +55,7 @@ contains
          & l_update_v,l_update_b,l_update_s,                &
          & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
          & difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe,  &
-         & l_correct_AMz,tEND,l_non_rot,l_isothermal,       &
+         & l_correct_AMz,tEND,l_non_rot,                    &
          & l_newmap,alph1,alph2,                            &
          & runHours,runMinutes,runSeconds,                  &
          & cacheblock_size_in_B
@@ -68,7 +68,8 @@ contains
          & con_LambdaOut,con_FuncWidth,                       &
          & strat,polind,g0,g1,g2,r_cut_model,                 &
          & epsS,slopeStrat,cmbHflux,r_LCR,                    &
-         & nVarDiff,nVarVisc,difExp,nVarEps,interior_model
+         & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
+         & l_isothermal
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -639,6 +640,7 @@ contains
       write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
+      write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
       length=length_to_blank(interior_model)
       write(n_out,*) " interior_model  = """,interior_model(1:length),""","
       write(n_out,'(''  g0              ='',ES14.6,'','')') g0
