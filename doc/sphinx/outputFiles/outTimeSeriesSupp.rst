@@ -54,26 +54,46 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 
 These files contain time series of spherical harmonic coefficients upto degree, :math:`l=6` at a radius :math:`r = (r_{cmb} - r_{icb})/2`. The ``inerP.TAG`` contains coefficients of the poloidal potential while the ``inerT.TAG`` contains coefficients of the toroidal potential. The oscillations of these coefficients can be analysed to look for inertial modes. As an example, the columns of the ``inerP.TAG`` look like follows:
 
- +--------------+-------------+
- |Column        | Coefficient |
- +==============+=============+
- | 1            | w(1,1)      |
- +--------------+-------------+
- | 2            | w(2,1)      |
- +--------------+-------------+
- | 3            | w(2,2)      |
- +--------------+-------------+
- | 4            | w(3,1)      |
- +--------------+-------------+
- |             ...            |
- +--------------+-------------+
- | 20           | w(6,5)      |
- +--------------+-------------+
- | 21           | w(6,6)      |
- +--------------+-------------+
+  +--------------+-------------+
+  | No. of column| Coefficient |
+  +==============+=============+
+  | 1            | w(1,1)      |
+  +--------------+-------------+
+  | 2            | w(2,1)      |
+  +--------------+-------------+
+  | 3            | w(2,2)      |
+  +--------------+-------------+
+  | 4            | w(3,1)      |
+  +--------------+-------------+
+  |             ...            |
+  +--------------+-------------+
+  | 20           | w(6,5)      |
+  +--------------+-------------+
+  | 21           | w(6,6)      |
+  +--------------+-------------+
 
 where ``w(l,m)`` is the spherical harmonic coefficient with degree :math:`l` and order :math:`m`, of the poloidal potential.
 
+``SR[IC|MA].TAG``
+-------------------
+
+.. note:: These files are **only** written for :ref:`mode=7 <varmode>` or :ref:`mode=8 <varmode>`, i.e, for spherical couette flows.
+
+These files contain information about power due to torque from viscous and Lorentz forces at the inner core boundary (``SRIC.TAG``) or core mantle boundary (``SRMA.TAG``).The columns look like follows:
+
+  +--------------+----------------------------------+
+  | No. of column| Contents                         |
+  +==============+==================================+
+  | 1            | Time                             |
+  +--------------+----------------------------------+
+  | 2            | :math:`\Omega_{IC} | \Omega_{MA}`|
+  +--------------+----------------------------------+
+  | 3            | Total power = Lorentz + Viscous  |
+  +--------------+----------------------------------+
+  | 4            | Viscous power                    |
+  +--------------+----------------------------------+
+  | 5            | Lorentz force power              |
+  +--------------+----------------------------------+
 
 .. _secdtVrmsFile:
 
