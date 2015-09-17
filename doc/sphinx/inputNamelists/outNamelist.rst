@@ -5,10 +5,6 @@ Output control namelist
 
 This namelist contains all the parameters that can be adjusted to control the outputs and diagnostics calculated by the code.
 
-
-Determining times for output
-----------------------------
-
 There are four different ways to control at which time step a specific output
 should be written. Outputs are generally distributed over the total calculation
 intervall unless an output time interval is defined by a start time ``t_start``
@@ -77,12 +73,23 @@ suffices for most applications.
 
 The different possible outputs control parameters are then extensively described in the following pages:
 
-  .. note::
+  .. seealso::
         1. :ref:`Control standard/common outputs <secOutNmlStd>`
         2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
         3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
         4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
         5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
+
+
+
+.. toctree::
+   :hidden:
+
+   outputNamelist/outputNmlStd.rst
+   outputNamelist/outputNmlCoeff.rst
+   outputNamelist/outputNmlPot.rst
+   outputNamelist/outputNmlTO.rst
+   outputNamelist/outputNmlMisc.rst
 
 
 Generic options
@@ -95,14 +102,3 @@ Generic options
   .. warning:: Never set ``lVerbose`` to ``.true.`` for a production run!
 
 * **runid** (default, ``runid="MAGIC default run"``) is a character string. This can be used to briefly describe your run. This information is then for instance stored in the header of the graphic files.
-
-
-.. toctree::
-   :hidden:
-
-   outputNamelist/outputNmlStd.rst
-   outputNamelist/outputNmlCoeff.rst
-   outputNamelist/outputNmlPot.rst
-   outputNamelist/outputNmlTO.rst
-   outputNamelist/outputNmlMisc.rst
-

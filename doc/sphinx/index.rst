@@ -10,7 +10,7 @@ Contents:
 
 .. toctree::
    :includehidden:
-   :maxdepth: 2
+   :maxdepth: 3
 
    install
    autoTests

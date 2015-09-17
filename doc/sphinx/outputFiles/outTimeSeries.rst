@@ -448,6 +448,8 @@ written by the subroutine ``dtBrms`` in the file ``out_RMS.f90``.
 ``dtDrms.TAG``
 --------------
 
+.. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
+
 This files contains the RMS terms that enter the induction equation of the
 dipole. This file is written by the subroutine ``dtBrms`` in the file
 ``out_RMS.f90``.

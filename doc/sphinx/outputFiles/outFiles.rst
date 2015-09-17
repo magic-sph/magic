@@ -39,3 +39,4 @@ unformatted files described below.
    outTransportProp.rst
    outSpecFiles.rst
    outGraphMovieRst.rst
+   outCoeffFiles.rst
