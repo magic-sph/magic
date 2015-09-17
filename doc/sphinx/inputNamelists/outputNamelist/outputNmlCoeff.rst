@@ -19,7 +19,7 @@ Specific inputs
 
 * **l_max_cmb** (default ``l_max_cmb=14``) is an integer. This is the maximum spherical harmonic degree :math:`\ell` stored in :ref:`B_coeff_cmb.TAG <secCmbFile>`, i.e. only :math:`\ell \leq \ell_{maxcmb}` are stored. For example, the following input parameter means that the :ref:`B_coeff_cmb.TAG <secCmbFile>` file is stored up to a spherical harmonic degree of :math:`\ell`:
 
-  .. code:: fortran
+  .. code-block:: fortran
   
      l_cmb_field = .true.,
      l_max_cmb   = 20,
@@ -73,7 +73,7 @@ the ``[B|V|T]_coeff_r#.TAG`` files. You can specify a stepping ``n_r_step``: in 
 case **5** ``coeff_r#.TAG`` files will be stored at 5 different radial levels every
 ``n_r_step`` grid point:
 
-  .. code:: fortran
+  .. code-block:: fortran
   
      l_r_field = .true.,
      n_r_step  = 6,
@@ -92,7 +92,7 @@ case **5** ``coeff_r#.TAG`` files will be stored at 5 different radial levels ev
 
 Alternatively, the input array ``n_r_array`` can be used to specify the radial grid points you exactly want to store:
 
-  .. code:: fortran
+  .. code-block:: fortran
   
      l_r_field = .true.,
      n_r_array = 8, 24, 47,

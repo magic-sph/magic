@@ -11,7 +11,7 @@ its default have to be stated in the namelist.
 
 An example for the short namelist defining inner core parameters is
 
-.. code:: fortran
+.. code-block:: fortran
 
    &inner_core
      sigma_ratio = 1.0,

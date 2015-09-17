@@ -38,7 +38,7 @@ This namelist defines mantle properties
 
 The resultant prescribed mantle rotation rate is computed as:
 
-.. code:: fortran
+.. code-block:: fortran
 
   omega_ma = omega_ma1*cos(omegaOsz_ma1*(time+tShift_ma1)) + &
              omega_ma2*cos(omegaOsz_ma2*(time+tShift_ma2))
@@ -69,7 +69,7 @@ This namelist defines properties of the inner core
 
 As with the mantle, the resultant prescribed rotation rate for the inner core is computed as:
 
-.. code:: fortran
+.. code-block:: fortran
 
   omega_ic = omega_ic1*cos(omegaOsz_ic1*(time+tShift_ic1)) + &
              omega_ic2*cos(omegaOsz_ic2*(time+tShift_ic2))

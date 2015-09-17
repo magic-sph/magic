@@ -6,6 +6,8 @@ Control namelist
 This namelist defines the numerical parameters of the problem plus the
 variables that control and organize the run.
 
+.. _varmode:
+
 * **mode** (default ``mode=0``) is an integer which controls the type of calculation performed.
 
   +---------+--------------------------------------------------------+
@@ -110,7 +112,7 @@ The total desired runtime (in human units and not in CPU units) can be specified
 
 Here is an example for a run of 23h30:
 
-.. code:: fortran
+.. code-block:: fortran
 
    runHours   = 23,
    runMinutes = 30,

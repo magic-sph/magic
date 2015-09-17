@@ -239,7 +239,7 @@ Thermal boundary conditions
   For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read: 
   
   
-  .. code:: fortran
+  .. code-block:: fortran
    
      s_top = 1, 0, 1.0, 0.0, 2, 1, 0.5, 0.5, !The comas could be left away.
 

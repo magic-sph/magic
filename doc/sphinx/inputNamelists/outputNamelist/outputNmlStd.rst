@@ -131,10 +131,8 @@ The **spec** outputs controls the output of spectra: kinetic energy spectra (:re
 Movie files
 -----------
 
-
 The **movie** outputs controls the output of movie files (:ref:`*_mov.TAG <secMovieFile>`). 
 
-.. note:: This calculation is **only** enabled when ``l_movie=.true.``.
 
 Specific inputs
 +++++++++++++++
@@ -156,7 +154,7 @@ Specific inputs
   For example, to invoke a movie(file) that shows (stores) the radial magnetic
   component of the magnetic field at the CMB, you have to provide the line
 
-    .. code:: fortran
+    .. code-block:: fortran
 
         movie(1)= Br CMB,
 
@@ -166,7 +164,7 @@ Specific inputs
   at the meridional slice ``phi=0`` and a movie of the :math:`z`-vorticity in 
   the equatorial plane are desired, the following line have to be added:
 
-     .. code:: fortran
+     .. code-block:: fortran
 
         movie(2)= Temp phi=0,
         movie(3)= Vortz eq,
@@ -323,7 +321,7 @@ Specific inputs
   Here is an additional example of the possible combinations to build your
   desired ``movie`` files.
 
-  .. code:: fortran
+  .. code-block:: fortran
 
      l_movie  = .true.,
      movie(1) = "Br CMB", 

@@ -67,7 +67,7 @@ The initial perturbation is thus set to zero at both boundaries :math:`r_i` and 
 
   - ``init_s1>100``: initialisation of mode with  the spherical harmonic order :math:`m` given by the last two (or three) digits of ``init_s1`` and the spherical harmonic degree :math:`\ell` given by the first two (or three) digits. Here are two examples:
 
-     .. code:: fortran
+     .. code-block:: fortran
 
         init_s1  = 0707,
         amp_s1   = 0.05,
@@ -75,7 +75,7 @@ The initial perturbation is thus set to zero at both boundaries :math:`r_i` and 
 
      will introduce a perturbation on the mode :math:`(\ell=7,m=7)` with an amplitude of 0.05.
 
-     .. code:: fortran
+     .. code-block:: fortran
 
         init_s1  = 121121,
         amp_s1   = 0.01,

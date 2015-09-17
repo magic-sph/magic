@@ -8,6 +8,8 @@ This namelist defines the resolution of the computations. Keep in mind that **Ma
 Outer Core
 ----------
 
+.. _varn_r_max:
+
 * **n_r_max** (default ``n_r_max=33``) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). It must be of the form ``4*n+1``, where ``n`` is an integer.
 
 * **n_cheb_max** (default ``n_cheb_max=31``) is an integer which is the number of terms in the Chebyshev polynomial expansion to be used in the radial direction - the highest degree of Chebyshev polynomial used being ``n_cheb_max-1``. Note that ``n_cheb_max <= n_r_max``.
