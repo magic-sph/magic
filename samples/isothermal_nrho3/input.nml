@@ -15,7 +15,6 @@
  alpha       =0.6D0,
  runHours    =12,
  runMinutes  =00,
- l_isothermal=.TRUE.,
 /
 &phys_param
  ra          =1.285D5,
@@ -25,6 +24,7 @@
  strat       =3.D0,
  polind      =1.5D0,
  radratio    =0.35D0,
+ l_isothermal=.TRUE.,
  g0          =1.D0,
  g1          =0.D0,
  g2          =0.D0,
