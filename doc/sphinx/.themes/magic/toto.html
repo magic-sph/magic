@@ -1,0 +1,22 @@
+{%- extends "basic/layout.html" %}
+
+{% if theme_collapsiblesidebar|tobool %}
+{% set script_files = script_files + ['_static/sidebar.js'] %}
+{% endif %}
+
+{% block rootrellink %}
+        <li><a href="{{ pathto('index') }}">Home</a>&nbsp;|</li>
+        <li><a href="{{ pathto('index') }}">Documentation</a> &raquo;</li>
+{% endblock %}
+
+
+{% block header %}
+<div class="pageheader">
+  <ul>
+    <li><a href="{{ pathto('index') }}">Home</a></li>
+    <li><a href="{{ pathto('index') }}">Get it</a></li>
+    <li><a href="{{ pathto('index') }}">Docs</a></li>
+    <li><a href="{{ pathto('index') }}">Extend/Develop</a></li>
+  </ul>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{#
+    sphinxdoc/layout.html
+    ~~~~~~~~~~~~~~~~~~~~~
+
+    Sphinx layout template for the sphinxdoc theme.
+
+    :copyright: Copyright 2007-2015 by the Sphinx team, see AUTHORS.
+    :license: BSD, see LICENSE for details.
+#}
+{%- extends "classic/layout.html" %}
+
+{% block extrahead %}
+    <link href='http://fonts.googleapis.com/css?family=Open+Sans:300,400,700'
+          rel='stylesheet' type='text/css' />
+{{ super() }}
+{%- if not embedded %}
+    <style type="text/css">
+      table.right { float: right; margin-left: 20px; }
+      table.right td { border: 1px solid #ccc; }
+      {% if pagename == 'home' %}
+      .related { display: none; }
+      {% endif %}
+    </style>
+{%- endif %}
+{% endblock %}
+
+
+
+
+{% block header %}
+<div class="pageheader">
+  <ul>
+    <li><a href="{{ pathto('home') }}">Home</a></li>
+    <li><a href="{{ pathto('download') }}">Download it</a></li>
+    <li><a href="{{ pathto('index') }}">Docs</a></li>
+  </ul>
+  <div>
+    <a href="{{ pathto('home') }}">
+      <img src="{{ pathto('_static/magic.png', 1) }}" alt="magic" />
+    </a>
+  </div>
+</div>
+{% endblock %}
