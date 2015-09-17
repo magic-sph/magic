@@ -26,8 +26,7 @@ every 1000 time steps:
      l_storePot = .true.,
      n_pot_step = 1000, 
 
-* **l_storePot** (default ``l_storePot=.false.``) is a logical. It needs to be turned on to store all the potentials in three different files: ``Vpot_#.TAG``, ``Bpot_#.TAG`` and
-``Tpot_#.TAG``.
+* **l_storePot** (default ``l_storePot=.false.``) is a logical. It needs to be turned on to store all the potentials in three different files: ``Vpot_#.TAG``, ``Bpot_#.TAG`` and ``Tpot_#.TAG``.
 
 The second option is control separately the writing of the three files using
 the three logicals ``l_storeVpot``, ``l_storeBpot`` and ``l_storeTpot`` and their
