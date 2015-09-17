@@ -51,6 +51,20 @@ Angular momentum
 
 * **l_AM** (default ``l_AM=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of angular momentum. The time series are stored in :ref:`AM.TAG <secAMFile>`.
 
+.. _varl_drift:
+
+Drift rates
+-----------
+
+* **l_drift** (default ``l_drift=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected coefficients to allow the calculation of the drift rate. The time series are stored in :ref:`drift[V|B][DQ].TAG <secdriftFile>`.
+
+.. _varl_iner:
+
+Drift rates
+-----------
+
+* **l_iner** (default ``l_iner=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected :math:`w(\ell, m)` at mid-shell (stored in :ref:`inerP.TAG <secinerFile>`) and :math:`z(\ell, m)` at mid-shell (stored in :ref:`inerT.TAG <secinerFile>`). Those files can be further used to identify inertial waves.
+
 .. _varl_fluxProfs:
 
 Heat transport

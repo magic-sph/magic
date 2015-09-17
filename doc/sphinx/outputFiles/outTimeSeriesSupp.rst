@@ -26,6 +26,20 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
    >>> ts = MagicTs(field='power', all=True)
 
 
+.. _secdriftFile:
+
+``drift[V|B][D|Q].TAG``
+-----------------------
+
+.. note:: These files are **only** written when :ref:`l_drift=.true. <varl_drift>`
+
+.. _secinerFile:
+
+``iner[P|T].TAG``
+-----------------------
+
+.. note:: These files are **only** written when :ref:`l_iner=.true. <varl_iner>`
+
 .. _secdtVrmsFile:
 
 ``dtVrms.TAG``
