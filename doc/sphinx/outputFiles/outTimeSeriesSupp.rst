@@ -26,6 +26,18 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
    >>> ts = MagicTs(field='power', all=True)
 
 
+.. _secu_squareFile:
+
+``u_square.TAG``
+----------------
+
+.. note:: This file is **only** written in anelastic models, i.e. either when
+          :ref:`strat/=0 <varstrat>` or when :ref:`interior_model/="None" <varinterior_model>`
+
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> # To stack all the u_square.TAG files of the current directory
+   >>> ts = MagicTs(field='u_square', all=True)
+
 .. _secdriftFile:
 
 ``drift[V|B][D|Q].TAG``
@@ -91,6 +103,10 @@ written by the subroutine ``dtVrms`` in the file ``outRMS.f90``.
    | 16            | Sum of force terms: Archemidian balance          |
    +---------------+--------------------------------------------------+
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> # To stack all the dtVrms.TAG files of the current directory
+   >>> ts = MagicTs(field='dtVrms', all=True)
+
 
 .. _secdtBrmsFile:
 
@@ -132,6 +148,10 @@ written by the subroutine ``dtBrms`` in the file ``out_RMS.f90``.
    | 13            | Toroidal field production (stretching+advection)      |
    +---------------+-------------------------------------------------------+
 
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> # To stack all the dtBrms.TAG files of the current directory
+   >>> ts = MagicTs(field='dtBrms', all=True)
+
 
 .. _secdtDrmsFile:
 
@@ -155,4 +175,16 @@ dipole. This file is written by the subroutine ``dtBrms`` in the file
    +---------------+-------------------------------------------------------+
    | 4             | Dipole diffusion term                                 |
    +---------------+-------------------------------------------------------+
+
+
+.. _secperpParFile:
+
+``perpPar.TAG``
+---------------
+
+.. note:: This file is **only** written when :ref:`l_perpPar=.true. <varl_perpPar>`
+
+This file can be read using :py:class:`magic.MagicTs` with the following options::
+   >>> # To stack all the perpPar.TAG files of the current directory
+   >>> ts = MagicTs(field='perpPar', all=True)
 

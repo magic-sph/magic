@@ -9,7 +9,6 @@ Graphic files ``G_#.TAG``
 Movie files ``*_mov.TAG``
 =========================
 
-
 .. _secRestartFile:
 
 Restart files ``rst_*.TAG``

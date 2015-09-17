@@ -54,22 +54,21 @@ Angular momentum
 .. _varl_drift:
 
 Drift rates
------------
++++++++++++
 
 * **l_drift** (default ``l_drift=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected coefficients to allow the calculation of the drift rate. The time series are stored in :ref:`drift[V|B][DQ].TAG <secdriftFile>`.
 
 .. _varl_iner:
 
-Drift rates
------------
+Inertial modes
+++++++++++++++
 
-* **l_iner** (default ``l_iner=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected :math:`w(\ell, m)` at mid-shell (stored in :ref:`inerP.TAG <secinerFile>`) and :math:`z(\ell, m)` at mid-shell (stored in :ref:`inerT.TAG <secinerFile>`). Those files can be further used to identify inertial waves.
+* **l_iner** (default ``l_iner=.false.``) is a logical. When set to ``.true.``, this logical enables the storage of some selected :math:`w(\ell, m)` at mid-shell (stored in :ref:`inerP.TAG <secinerFile>`) and :math:`z(\ell, m)` at mid-shell (stored in :ref:`inerT.TAG <secinerFile>`). Those files can be further used to identify inertial modes.
 
 .. _varl_fluxProfs:
 
 Heat transport
 ++++++++++++++
-
 
 * **l_fluxProfs** (default ``l_fluxProfs=.false.``) is a logical. When set to ``.true.``, this logical enables the calculation of time-averaged radial heat flux profiles (conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux). The time-averaged radial profiles are stored in the :ref:`fluxesR.TAG <secFluxesRfile>` file.
 
@@ -85,5 +84,9 @@ Boundary layer analysis
 Parallel/perpendicular decomposition
 ++++++++++++++++++++++++++++++++++++
 
-* **l_perpPar** (default ``l_perpPar=.false.``) is a logical. When set to ``.true.``, this logical enables the decomposition of kinetic energy into components parallel and perpendicular to the rotation axis. The time series are stored in ``perpPar.TAG`` and the time-averaged radial profiles in :ref:`perpParR.TAG <secPerpParRfile>`.
+* **l_perpPar** (default ``l_perpPar=.false.``) is a logical. When set to ``.true.``, this logical enables the decomposition of kinetic energy into components parallel and perpendicular to the rotation axis. The time series are stored in :ref:`perpPar.TAG <secperpParFile>` and the time-averaged radial profiles in :ref:`perpParR.TAG <secPerpParRfile>`.
 
+Potential vorticity
++++++++++++++++++++
+
+* **l_PV** (default ``l_PV=.false.``) is a logical. When set to ``.true.``, this logical enables some potential vorticity diagnostics. At the end of the run, the results are stored in the the files ``PVZ.TAG`` and ``Vcy.TAG``.

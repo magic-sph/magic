@@ -33,6 +33,8 @@ Dimensionless control parameters
   .. math::
      \eta = \frac{r_i}{r_o}
 
+.. _varstrat:
+
 * **strat** (default ``strat=0.0``) is a real. This is the number of density scale heights of the reference state:
 
   .. math::
@@ -68,6 +70,8 @@ Heat sources and sinks
   +---------------+-------------------------------------------------------------+
   | ``nVarEps=1`` | Proportional to density, i.e. :math:`f(r)=\tilde{\rho}(r)`. |
   +---------------+-------------------------------------------------------------+
+
+.. _varinterior_model:
 
 Realistic interior models
 -------------------------

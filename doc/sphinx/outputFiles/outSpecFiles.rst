@@ -5,8 +5,8 @@ Spectra
 
 .. _secKinSpecFile:
 
-kin_spec_#.TAG
---------------
+``kin_spec_#.TAG``
+------------------
 
 This files contains the magnetic spectra. This file is written by the subroutine ``spectrum`` in the file ``s_spectrum.f90``.
 
@@ -29,8 +29,8 @@ This file can be read using :py:class:`magic.MagicSpectrum` with the following o
 
 .. _secMagSpecFile:
 
-mag_spec_#.TAG
---------------
+``mag_spec_#.TAG``
+------------------
 
 This files contains the magnetic spectra. This file is written by the subroutine ``spectrum`` in the file ``s_spectrum.f90``.
 
@@ -67,5 +67,5 @@ This file can be read using :py:class:`magic.MagicSpectrum` with the following o
                                              
 .. _secTSpecFile:
 
-T_spec_#.TAG
-------------
+``T_spec_#.TAG``
+----------------
