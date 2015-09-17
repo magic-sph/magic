@@ -77,7 +77,7 @@ where ``w(l,m)`` is the spherical harmonic coefficient with degree :math:`l` and
 ``SR[IC|MA].TAG``
 -------------------
 
-.. note:: These files are **only** written for :ref:`mode=7 <varmode>` or :ref:`mode=8 <varmode>`, i.e, for spherical couette flows.
+.. note:: These files are **only** written for :ref:`nRotIc=-1 <varnRotIc>` (for ``SRIC.TAG``) or :ref:`nRotMa=-1 <varnRotMa>` (for ``SRMA.TAG``). In other words, these outputs are produced **only** when one of the boundaries is made to rotate at a prescribed rotation rate.
 
 These files contain information about power due to torque from viscous and Lorentz forces at the inner core boundary (``SRIC.TAG``) or core mantle boundary (``SRMA.TAG``).The columns look like follows:
 

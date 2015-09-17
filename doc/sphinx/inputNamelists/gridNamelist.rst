@@ -32,6 +32,8 @@ Inner Core
 Symmetry and aliasing
 ---------------------
 
+.. _varMinc:
+
 * **minc** (default ``minc=1``) is an integer which gives the longitudinal symmetry. e.g: ``minc=n`` would give an n-fold rotational symmetry in the azimuthal direction. One can use this to reduce computational costs when the symmetry of the solution is known. The orders of the spherical harmonic expansion (``m``) are multiples of ``minc``.
 
 * **nalias** (default ``nalias=20``) is an integer which determines antialiasing used in the spherical harmonic representation. Note that ``20 <= nalias <= 30``.

@@ -11,6 +11,8 @@ This namelist defines mantle properties
 
 * **conductance_ma** (default ``conductance_ma=0.0``) is a real that defines the conductance (dimensionless) of the mantle.
 
+.. _varnRotMa:
+
 * **nRotMa** (default ``nRotMa=0``) is an integer that defines the rotation of the mantle:
 
  +-----------+----------------------------------------------------------------------------------+
@@ -51,6 +53,8 @@ Inner Core Namelist
 This namelist defines properties of the inner core
 
 * **sigma_ratio** (default ``sigma_ratio=0.0``) is a real that defines the conductivity of the inner core in terms of the outer core. ``sigma_ratio=0`` refers to a non-conducting inner core.
+
+.. _varnRotIc:
 
 * **nRotIc** (default ``nRotIc=0``) is an integer that defines the rotation of the inner core. Behaves the same way as ``nRotMa`` (above).
 
