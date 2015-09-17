@@ -20,6 +20,12 @@ class MagicTs(MagicSetup):
        * Rotation: :ref:`rot.TAG <secRotFile>`
        * Diagnostic parameters: :ref:`par.TAG <secParFile>`
        * Miscellaneous: :ref:`misc.TAG <secMiscFile>`
+       * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
+       * Angular momentum: :ref:`AM.TAG <secAMFile>`
+       * Power budget: :ref:`power.TAG <secpowerFile>`
+       * Parallel and perpendicular decomposition: :ref:`perpPar.TAG <secperpParFile>`
+       * RMS force balance: :ref:`dtVrms.TAG <secdtVrmsFile>`
+       * RMS induction terms: :ref:`dtBrms.TAG <secdtBrmsFile>`
 
     Here are a couple of examples of how to use this function.
 
