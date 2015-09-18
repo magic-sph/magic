@@ -4,7 +4,7 @@ To properly set up the python post-processing routines, you have to edit the fil
 
 ### 1) Matplotlib setup
 
-You can modify the default matploblib rendering backend (among the possible options: TKAgg GTKAgg, Qt4Agg). Default is
+You can modify the default matplotlib rendering backend (among the possible options: TkAgg GTKAgg, Qt4Agg). Default is
 
 ```python
 backend = TkAgg
@@ -16,7 +16,7 @@ labTex = False
 ```
 ### 2) Fortran libs setup
 
-If you want to enable all the features of the python suboutines (reading the G files with fortran, support for VTK files, ...), the fortran libraries in `$MAGIC_HOME/python/magic/fortranLib`  need to be built using `f2py`.
+If you want to enable all the features of the python functions (reading the G files with fortran, support for VTK files, ...), the fortran libraries in `$MAGIC_HOME/python/magic/fortranLib`  need to be built using `f2py`.
 This can be set with the following variable
 
 ```python
@@ -36,7 +36,13 @@ f2py2 -c --help-fcompiler
 The option is then set via
 
 ```python
-compiler = intelem
+fcompiler = intelem
+````
+
+A similar procedure can be applied to the C compilers. On most of the machines, the default (`unix` that corresponds to gcc) is enough, but in case of problem, it can also be possibly changed to `intelem` using the option
+
+```python
+ccompiler = intelem
 ````
 
 Once this is done you should be able to use the python class:
