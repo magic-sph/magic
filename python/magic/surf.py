@@ -7,27 +7,26 @@ import os
 import numpy as N
 from scipy.integrate import trapz
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
-
 
 class Surf:
 
     def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None,
                  precision='Float32'):
         """
-        Read the graphic file, and possibly calculate vorticity if requested
-
-        :param ivar: number of the graphic file
-        :param ave: ave=True for a time-averaged graphic file
-        :param tag: TAG extension of the graphic file
-        :param vort: a boolean to specify whether, one wants to compute the 3-D
+        :param ivar: index of the graphic file
+        :type ivar: int
+        :param ave: when set to True, it tries to read a time-averaged graphic file
+        :type ave: bool
+        :param tag: TAG suffix extension of the graphic file
+        :type tag: str
+        :param vort: a boolean to specify whether one wants to compute the 3-D
                      vorticiy components (take care of the memory imprint)
+        :type vort: bool
         :param datadir: the working directory
+        :type datadir: str
         :param precision: the storage precision of the graphic file (single or
-                          double precision)
+                          double precision). Default is 'Float32' (single)
+        :type precision: str
         """
         self.precision = precision
         self.datadir = datadir
@@ -56,18 +55,48 @@ class Surf:
              vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', 
              normed=True, cbar=True, tit=True, lines=False):
         """
-        Plot the surface distribution of a field at a given
-        normalised radius.
+        Plot the surface distribution of an input field at a given
+        input radius (normalised by the outer boundary radius).
+
+           >>> s = Surf()
+           >>> # Radial flow component at ``r=0.95 r_o``, 65 contour levels
+           >>> s.surf(field='vr', r=0.95, levels=65, cm='seismic')
+
+           >>> # Minimal plot (no cbar, not title)
+           >>> s.surf(field='entropyfluct', r=0.6, tit=False, cbar=False)
+
+           >>> # Control the limit of the colormap from -1e3 to 1e3
+           >>> s.surf(field='vp', r=1., vmin=-1e3, vmax=1e3, levels=33)
+
+           >>> # If basemap is installed, additional projections are available
+           >>> s.surf(field='Br', r=0.95, proj='ortho', lat_0=45, lon_0=45)
 
         :param field: the name of the field you want to display
+        :type field: str
         :param proj: the type of projection. Default is Hammer, in case
                      you want to use 'ortho' or 'moll', then Basemap is
                      required.
-        :param r: the radius you want to display (in normalised values)
+        :type proj: str
+        :param r: the radius at which you want to display the input
+                  data (in normalised units with the radius of the outer boundary)
+        :type r: float
         :param levels: the number of levels in the contour
-        :param cm: the colormap name
-        :param tit: display/hide the title of the figure
-        :param cbar: display/hide the colorbar
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param lines: when set to True, over-plot solid lines to highlight
+                      the limits between two adjacent contour levels
+        :type lines: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
         """
         r /= (1-self.gr.radratio) # as we give a normalised radius
         ind = N.nonzero(N.where(abs(self.gr.radius-r) \
@@ -412,14 +441,44 @@ class Surf:
         """
         Plot the equatorial cut of a given field
 
-        :param field: the name of the field
-        :param levels: the number of contour levels
-        :param cm: the name of the colormap
-        :param cbar: display/hide the colorbar
-        :param tit: display/hide the title
-        :param avg: display also the radial profile of the quantity
-                    (average in azimuth)
-        :pram normRad: normalise each radius
+           >>> s = Surf()
+           >>> # Equatorial cut of the z-vorticity, 65 contour levels
+           >>> s.equat(field='vortz', levels=65, cm='seismic')
+
+           >>> # Minimal plot (no cbar, not title)
+           >>> s.equat(field='bphi', tit=False, cbar=False)
+
+           >>> # Control the limit of the colormap from -1e3 to 1e3
+           >>> s.equat(field='vr', vmin=-1e3, vmax=1e3, levels=33)
+
+           >>> # Normalise the contour levels radius by radius
+           >>> s.equat(field='jphi', normRad=True)
+
+
+        :param field: the name of the input physical quantity you want to
+                      display
+        :type field: str
+        :param avg: when set to True, an additional figure which shows
+                    the radial profile of the input physical quantity
+                    (azimuthal average) is also displayed
+        :param normRad: when set to True, the contour levels are normalised
+                        radius by radius (default is False)
+        :type normRad: bool
+        :param levels: the number of levels in the contour
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
+        :type normed: bool
         """
         phi = N.linspace(0., 2.*N.pi, self.gr.nphi)
         rr, pphi = N.meshgrid(self.gr.radius, phi)
@@ -586,14 +645,25 @@ class Surf:
         Plot the azimutal average of a given field.
 
         :param field: the field you want to display
-        :param levels: the number of levels of the colormap
-        :param cm: the name of the colormap
-        :param cbar: display/hide the colorbar
-        :param tit: display/hide the title
         :param pol: poloidal field lines
         :param mer: meridional circulation
         :param merLevels: number of levels to display meridional circulation
         :param polLevels: number of levels to display poloidal field lines
+        :param levels: the number of levels in the contour
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
+        :type normed: bool
         """
         if pol:
             rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)

@@ -14,6 +14,7 @@ class MagicSpectrum(MagicSetup):
 
         * Kinetic energy spectra: :ref:`kin_spec_#.TAG <secKinSpecFile>` 
         * Magnetic energy spectra: :ref:`mag_spec_#.TAG <secMagSpecFile>`
+        * Spectra of the velocity square: :ref:`u2_spec_#.TAG <secu2SpecFile>` 
     
     >>> # display the content of kin_spec_1.tag
     >>> # where tag is the most recent file in the current directory
@@ -51,6 +52,11 @@ class MagicSpectrum(MagicSetup):
                 self.name = 'kin_spec_ave'
             else:
                 self.name = 'kin_spec_'
+        elif field in ('u2', 'usquare', 'u_square', 'uSquare', 'U2'):
+            if ave:
+                self.name = 'u2_spec_ave'
+            else:
+                self.name = 'u2_spec_'
         elif field in('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR'):
             if ave:
                 self.name = 'mag_spec_ave'
@@ -97,6 +103,11 @@ class MagicSpectrum(MagicSetup):
 
         self.index = data[:, 0]
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
             self.ekin_poll = data[:, 1]
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
@@ -170,6 +181,61 @@ class MagicSpectrum(MagicSetup):
                 else:
                     ax.set_xlabel('m + 1')
                 ax.set_ylabel('Kinetic energy')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+        elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
+            if self.gather:
+                fig = P.figure()
+                ax = fig.add_subplot(211)
+                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                    ax.set_ylabel(r'${\cal U}^2$')
+                else:
+                    ax.set_xlabel('Degree l')
+                    ax.set_ylabel('Velocity square')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+                ax = fig.add_subplot(212)
+                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                         'k-', label='poloidal')
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
+                         'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel('Order $m+1$')
+                    ax.set_ylabel(r'${\cal U}^2$')
+                else:
+                    ax.set_xlabel('m+1')
+                    ax.set_ylabel('Velocity square')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+            else:
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel('Degree $\ell$')
+                    ax.set_ylabel(r'${\cal U}^2$')
+                else:
+                    ax.set_xlabel('Degree l')
+                    ax.set_ylabel('Velocity square')
+                ax.set_xlim(self.index.min(), self.index.max())
+                ax.legend(loc='upper right', frameon=False)
+
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
+                         'k-', label='poloidal')
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
+                         'b-', label='toroidal')
+                if labTex:
+                    ax.set_xlabel(r'$m + 1$')
+                    ax.set_ylabel(r'${\cal U}^2$')
+                else:
+                    ax.set_xlabel('m + 1')
+                    ax.set_ylabel('Velocity square')
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
         elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
