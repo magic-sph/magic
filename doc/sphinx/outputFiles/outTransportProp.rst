@@ -136,3 +136,32 @@ viscosity and its radial derivative.
 This file can be read using :py:class:`magic.MagicRadial` with the following options::
    >>> ts = MagicRadial(field='varVisc')
 
+
+.. _secMappingFiles:
+
+Nonlinear mapping of the Chebyshev grid
+=======================================
+
+``rNM.TAG``
+-----------
+
+.. note::
+   This file is only written when :ref:`l_newmap=.true. <varl_newmap`.
+
+This file contains the profile of the radial mapping and its derivatives:
+
+
+  +----------------+-------------------------------------------------------+
+  | No. of column  | Contents                                              |
+  +================+=======================================================+
+  | 1              | Grid point index                                      |
+  +----------------+-------------------------------------------------------+
+  | 2              | Radius of a grid point                                |
+  +----------------+-------------------------------------------------------+
+  | 3              | First derivative of the mapping at a grid point       |
+  +----------------+-------------------------------------------------------+
+  | 4              | Second derivative of the mapping at a grid point      |
+  +----------------+-------------------------------------------------------+
+  | 5              | Third derivative of the mapping at a grid point       |
+  +----------------+-------------------------------------------------------+
+

@@ -9,6 +9,37 @@ Additional optional time-series outputs
 
 .. note:: This file is **only** written when :ref:`l_AM=.true. <varl_AM>`
 
+This file contains the time series of the angular momentum of the inner core, the outer
+core and the mantle. This file is written by the subroutine ``write_rot`` in the file
+``outRot.f90``.
+
+  +---------------+-----------------------------------------------------+
+  | No. of column | Contents                                            |
+  +===============+=====================================================+
+  | 1             | time                                                |
+  +---------------+-----------------------------------------------------+
+  | 2             | angular momentum of the outer core                  |
+  +---------------+-----------------------------------------------------+
+  | 3             | angular momentum of the inner core                  |
+  +---------------+-----------------------------------------------------+
+  | 4             | angular momentum of the mantle                      |
+  +---------------+-----------------------------------------------------+
+  | 5             | total angular momentum                              |
+  +---------------+-----------------------------------------------------+
+  | 6             | relative in angular momentum, per time step         |
+  +---------------+-----------------------------------------------------+
+  | 7             | total kinetic angular momentum                      |
+  +---------------+-----------------------------------------------------+
+  | 8             | relative change in kinetic energy, per time step    |
+  +---------------+-----------------------------------------------------+
+  | 9             | kinetic angular momentum of the inner core          |
+  +---------------+-----------------------------------------------------+
+  | 10            | kinetic angular momentum of the outer core          |
+  +---------------+-----------------------------------------------------+
+  | 11            | kinetic angular momentum of the mantle              |
+  +---------------+-----------------------------------------------------+
+
+
 This file can be read using :py:class:`magic.MagicTs` with the following options::
    >>> # To stack all the AM.TAG files of the current directory
    >>> ts = MagicTs(field='AM', all=True)
@@ -21,9 +52,36 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 
 .. note:: This file is **only** written when :ref:`l_power=.true. <varl_power>`
 
+This file contains the power budget diagnostic. This file is computed by the subroutine
+``get_power`` in the file ``power.f90``.
+
+   +---------------+------------------------------------------------------------------+
+   | No. of column | Contents                                                         |
+   +===============+==================================================================+
+   | 1             | time                                                             |
+   +---------------+------------------------------------------------------------------+
+   | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
+   +---------------+------------------------------------------------------------------+
+   | 3             | Viscous power at the inner boundary (ICB)                        |
+   +---------------+------------------------------------------------------------------+
+   | 4             | Viscous power at the outer boundary (CMB)                        |
+   +---------------+------------------------------------------------------------------+
+   | 5             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   +---------------+------------------------------------------------------------------+
+   | 6             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
+   +---------------+------------------------------------------------------------------+
+   | 7             | Total power at the CMB (viscous + Lorentz)                       |
+   +---------------+------------------------------------------------------------------+
+   | 8             | Total power at the ICB (viscous + Lorentz)                       |
+   +---------------+------------------------------------------------------------------+
+   | 9             | Total power                                                      |
+   +---------------+------------------------------------------------------------------+
+   | 10            | Time variation of total power                                    |
+   +---------------+------------------------------------------------------------------+
+
 This file can be read using :py:class:`magic.MagicTs` with the following options::
-   >>> # To stack all the power.TAG files of the current directory
-   >>> ts = MagicTs(field='power', all=True)
+   >>> # To stack the files that match the pattern  ``power.N0m2*``
+   >>> ts = MagicTs(field='power', tags='N0m2*')
 
 
 .. _secu_squareFile:
@@ -33,6 +91,51 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 
 .. note:: This file is **only** written in anelastic models, i.e. either when
           :ref:`strat/=0 <varstrat>` or when :ref:`interior_model/="None" <varinterior_model>`
+
+This file contains the square velocity of the outer core. It is actually very similar
+to the :ref:`e_kin.TAG <secEkinFile>` file, except that the density background
+:math:`\tilde{\rho}` is removed:
+
+.. math::
+   \begin{aligned}
+   {\cal U} = \frac{1}{2}\int_V u^2\,{\rm d}V & = {\cal U}_{pol}+{\cal U}_{tor} \\
+   & = \frac{1}{2}\sum_{\ell, m} \ell(\ell+1)\int_{r_i}^{r_o}\frac{1}{\tilde{\rho}^2}\left[
+   \frac{\ell(\ell+1)}{r^2}|W_{\ell m}|^2+\left|\frac{{\rm d} W_{\ell m}}{{\rm d} r}\right|^2
+   \right]\, {\rm d}r \\ 
+   & +\frac{1}{2}\sum_{\ell, m} \ell(\ell+1)
+   \int_{r_i}^{r_o}\frac{1}{\tilde{\rho}^2}|Z_{\ell m}|^2\,{\rm d} r
+   \end{aligned}
+
+The detailed calculations are done in the subroutine ``get_u_square`` in the file ``kinetic_energy.f90``.  This file contains the following informations:
+
+  +----------------+--------------------------------------------------------------------+
+  | No. of columns | Contents                                                           |
+  +================+====================================================================+
+  | 1	           | time                                                               |
+  +----------------+--------------------------------------------------------------------+
+  | 2              | poloidal part :math:`{\cal U}_{pol}`                               |
+  +----------------+--------------------------------------------------------------------+
+  | 3              | toroidal part :math:`{\cal U}_{pol}`                               |
+  +----------------+--------------------------------------------------------------------+
+  | 4              | axisymmetric contribution to the poloidal part                     |
+  +----------------+--------------------------------------------------------------------+
+  | 5              | axisymmetric contribution to the toroidal part                     |
+  +----------------+--------------------------------------------------------------------+
+  | 6              | Rossby number: :math:`Ro=E\,\sqrt{\frac{2{\cal U}}{V}}`            |
+  +----------------+--------------------------------------------------------------------+
+  | 7              | Magnetic Reynolds number: :math:`Rm=Pm\,\sqrt{\frac{2{\cal U}}{V}}`|
+  +----------------+--------------------------------------------------------------------+
+  | 8              | local Rossby number: :math:`Ro_l=Ro\frac{d}{l}`                    |
+  +----------------+--------------------------------------------------------------------+
+  | 9              | average flow length scale: :math:`l`                               |
+  +----------------+--------------------------------------------------------------------+
+  | 10             | local Rossby number based on the non-axisymmetric components       |
+  |                | of the flow                                                        |
+  +----------------+--------------------------------------------------------------------+
+  | 11             | average flow length scale based on the non-axisymmetric            |
+  |                | components of the flow                                             |
+  +----------------+--------------------------------------------------------------------+
+
 
 This file can be read using :py:class:`magic.MagicTs` with the following options::
    >>> # To stack all the u_square.TAG files of the current directory
@@ -52,27 +155,56 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 
 .. note:: These files are **only** written when :ref:`l_iner=.true. <varl_iner>` and :ref:`minc = 1 <varMinc>`.
 
-These files contain time series of spherical harmonic coefficients upto degree, :math:`l=6` at a radius :math:`r = (r_{cmb} - r_{icb})/2`. The ``inerP.TAG`` contains coefficients of the poloidal potential while the ``inerT.TAG`` contains coefficients of the toroidal potential. The oscillations of these coefficients can be analysed to look for inertial modes. As an example, the columns of the ``inerP.TAG`` look like follows:
+These files contain time series of spherical harmonic coefficients upto degree,
+:math:`\ell=6` at a radius :math:`r = (r_{cmb} - r_{icb})/2`. The ``inerP.TAG``
+contains coefficients of the poloidal potential while the ``inerT.TAG``
+contains coefficients of the toroidal potential.These files are written by 
+the subroutine ``write_rot`` in the file ``outRot.f90``. The oscillations of these
+coefficients can be analysed to look for inertial modes. The
+columns of the ``inerP.TAG`` look like follows:
 
-  +--------------+-------------+
-  | No. of column| Coefficient |
-  +==============+=============+
-  | 1            | w(1,1)      |
-  +--------------+-------------+
-  | 2            | w(2,1)      |
-  +--------------+-------------+
-  | 3            | w(2,2)      |
-  +--------------+-------------+
-  | 4            | w(3,1)      |
-  +--------------+-------------+
-  |             ...            |
-  +--------------+-------------+
-  | 20           | w(6,5)      |
-  +--------------+-------------+
-  | 21           | w(6,6)      |
-  +--------------+-------------+
+  +--------------+------------------------+
+  | No. of column| Coefficient            |
+  +==============+========================+
+  | 1            | :math:`w(\ell=1,m=1)`  |
+  +--------------+------------------------+
+  | 2            | :math:`w(\ell=2,m=1)`  |
+  +--------------+------------------------+
+  | 3            | :math:`w(\ell=2,m=2)`  |
+  +--------------+------------------------+
+  | 4            | :math:`w(\ell=3,m=1)`  |
+  +--------------+------------------------+
+  |                 ...                   |
+  +--------------+------------------------+
+  | 20           | :math:`w(\ell=6,m=5)`  |
+  +--------------+------------------------+
+  | 21           | :math:`w(\ell=6,m=6)`  |
+  +--------------+------------------------+
 
-where ``w(l,m)`` is the spherical harmonic coefficient with degree :math:`l` and order :math:`m`, of the poloidal potential.
+where :math:`w(\ell,m)` is the poloidal potential with degree :math:`\ell` and order :math:`m`.
+
+The columns of the ``inerT.TAG`` follow the following structure:
+
+  +--------------+------------------------+
+  | No. of column| Coefficient            |
+  +==============+========================+
+  | 1            | :math:`z(\ell=1,m=1)`  |
+  +--------------+------------------------+
+  | 2            | :math:`z(\ell=2,m=1)`  |
+  +--------------+------------------------+
+  | 3            | :math:`z(\ell=2,m=2)`  |
+  +--------------+------------------------+
+  | 4            | :math:`z(\ell=3,m=1)`  |
+  +--------------+------------------------+
+  |                 ...                   |
+  +--------------+------------------------+
+  | 20           | :math:`z(\ell=6,m=5)`  |
+  +--------------+------------------------+
+  | 21           | :math:`z(\ell=6,m=6)`  |
+  +--------------+------------------------+
+
+where :math:`z(\ell,m)` is the toroidal potential with degree :math:`\ell` and order :math:`m`.
+
 
 ``SR[IC|MA].TAG``
 -------------------
