@@ -7,7 +7,7 @@ labTex  = False
 # adapt this value if you don't want libraries
 buildLib = False
 # f2py executable, can be f2py, f2py2 or f2py3 (python 3)
-f2pyexec = f2py2
+f2pyexec = f2py
 # fortran compiler: f2py -c --help-fcompiler, frequently 'intelem' or 'gnu95'
 fcompiler = intelem
 # c compiler: f2py -c --help-compiler

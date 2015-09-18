@@ -1,46 +1,59 @@
-#!/bin/env python
+#!/usr/bin/env python
 #
 # This script tries to find your matplotlib backend 
 # and check whether you can make use of the LaTeX fonts
 #
+import sys
 
-try:
-    import matplotlib as mpl
-    import matplotlib.pyplot as P
-    import sys
-
-
-    fontNames = [f.name for f in mpl.font_manager.fontManager.afmlist]
-    cmIsFound = False
-    for font in fontNames:
-        if 'Computer' in font:
-            print(font)
-            cmIsFound = True
-
-    if cmIsFound:
-        print('LaTex fonts are available')
-
+def getMyMatplotlibEnv():
     try:
-        P.switch_backend('GTKAgg')
-        sys.exit('GTKAgg has been selected')
+        import numpy as N
+        N.seterr('raise')
+        import matplotlib.pyplot as P
+        import warnings
+
+        backend = ''
+        warnings.filterwarnings('error')
+
+        try:
+            try:
+                P.switch_backend('GTKAgg')
+                return 'GTKAgg'
+            except Warning:
+                pass
+        except ImportError:
+            pass
+
+        try:
+            try:
+                P.switch_backend('Qt5Agg')
+                return 'Qt5Agg'
+            except Warning:
+                pass
+        except ImportError:
+            pass
+
+        try:
+            try:
+                P.switch_backend('Qt4Agg')
+                return 'Qt4Agg'
+            except Warning:
+                pass
+        except ImportError:
+            pass
+
+        try:
+            try:
+                P.switch_backend('TkAgg')
+                return 'TkAgg'
+            except Warning:
+                pass
+        except ImportError:
+            pass
+
+        return ''
+
     except ImportError:
-        pass
+        return ''
 
-    try:
-        P.switch_backend('Qt4Agg')
-        sys.exit('Qt4Agg has been selected')
-    except ImportError:
-        pass
-
-    try:
-        P.switch_backend('TkAgg')
-        sys.exit('TkAgg has been selected')
-    except ImportError:
-        pass
-
-    sys.exit('No backend found')
-
-
-except ImportError:
-    import sys
-    sys.exit('Bye bye')
+print(getMyMatplotlibEnv())

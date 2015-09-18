@@ -4,6 +4,7 @@
 # do a source sourceme.sh to initialize the correct PATHS for magic
 #
 
+
 if [ -z $MAGIC_HOME ]; then
   unset _sourceme               # tabula rasa without MAGIC_HOME
   #
@@ -59,4 +60,8 @@ if [ -z $_sourceme ]; then	# called for the first time?
   # For reading binary outputs
   export F_UFMTENDIAN='big'
   export GFORTRAN_CONVERT_UNIT='big_endian'
+fi
+
+if [ -n $MAGIC_HOME ]; then
+  `./bin/autoConfigPython.sh`
 fi
