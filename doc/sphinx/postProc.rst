@@ -1,3 +1,5 @@
+.. _secPythonPostProc:
+
 Data visualisation and postprocessing
 #####################################
 

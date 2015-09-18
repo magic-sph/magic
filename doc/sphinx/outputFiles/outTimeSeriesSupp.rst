@@ -359,6 +359,25 @@ dipole. This file is written by the subroutine ``dtBrms`` in the file
 
 .. note:: This file is **only** written when :ref:`l_perpPar=.true. <varl_perpPar>`
 
+
+This file contains several time series that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine ``outPerpPar`` in ``outPar.f90``.
+
+   +---------------+-----------------------------------------------------------------+
+   | No. of column | Contents                                                        |
+   +===============+=================================================================+
+   | 1             | radial level                                                    |
+   +---------------+-----------------------------------------------------------------+
+   | 2             | Total kinetic energy perpendicular to the rotation axis:        |
+   |               | :math:`\frac{1}{2}\langle u_s^2+u_\phi^2 \rangle_V`             |
+   +---------------+-----------------------------------------------------------------+
+   | 3             | Total kinetic energy parallel to the rotation axis:             |
+   |               | :math:`\frac{1}{2}\langle u_z^2\rangle_V`                       |
+   +---------------+-----------------------------------------------------------------+
+   | 4             | Axisymmetric kinetic energy perpendicular to the rotation axis  |
+   +---------------+-----------------------------------------------------------------+
+   | 5             | Axisymmetric kinetic energy parallel to the rotation axis       |
+   +---------------+-----------------------------------------------------------------+
+
 This file can be read using :py:class:`magic.MagicTs` with the following options::
    >>> # To stack all the perpPar.TAG files of the current directory
    >>> ts = MagicTs(field='perpPar', all=True)

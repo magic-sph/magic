@@ -151,10 +151,12 @@ input variables:
 * **l_correct_AMz** (default ``l_correct_AMz=.false.``) is a logical. This is used to correct the axial angular momentum.
 
 
+.. _varl_newmap:
+
 Mapping of the Gauss-Lobatto grid
 ---------------------------------
 
-* **l_newmap** (default ``l_newmap=.false.``) is a logical. A radial mapping can be applied to the Chebyshev grid.
+* **l_newmap** (default ``l_newmap=.false.``) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
 
 * **alph1** (default ``alph1=2.0``) is a real. This is a control parameter of the mapping function.
 

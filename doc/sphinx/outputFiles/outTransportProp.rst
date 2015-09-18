@@ -137,7 +137,7 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
    >>> ts = MagicRadial(field='varVisc')
 
 
-.. _secMappingFiles:
+.. _secMappingFile:
 
 Nonlinear mapping of the Chebyshev grid
 =======================================
@@ -146,7 +146,7 @@ Nonlinear mapping of the Chebyshev grid
 -----------
 
 .. note::
-   This file is only written when :ref:`l_newmap=.true. <varl_newmap`.
+   This file is only written when :ref:`l_newmap=.true. <varl_newmap>`.
 
 This file contains the profile of the radial mapping and its derivatives:
 

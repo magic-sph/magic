@@ -1,3 +1,5 @@
+.. _secNamelists:
+
 Input parameters
 ################
 

@@ -1,5 +1,8 @@
+
 Contributing to the code
 ########################
+
+.. _secAutoTest:
 
 Checking the consistency of the code
 ====================================

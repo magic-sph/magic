@@ -9,7 +9,7 @@ The code can compute the RMS of the force balance and the induction equation.
 
 .. _varl_RMS:
 
-* **l_RMS** (default ``l_RMS=.false.``) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``.
+* **l_RMS** (default ``l_RMS=.false.``) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in the :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtDrms.TAG <secdtDrmsFile>` files.
 
 * **l_RMStest** (default ``l_RMStest=.false.``) is a logical. This is a debug flag to check the consistency of the RMS calculation.
 
