@@ -18,7 +18,7 @@ module leg_helper_mod
    implicit none
 
    private
-   
+
    type, public :: leg_helper_t
       ! Help arrays for Legendre transform calculated in legPrepG:
       ! Parallelizatio note: these are the R-distributed versions
@@ -31,12 +31,43 @@ module leg_helper_mod
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
- 
+#ifdef WITH_SHTNS
+      real(kind=8), allocatable :: shtns_s(:)
+      real(kind=8), allocatable :: shtns_p(:)
+      real(kind=8), allocatable :: shtns_drs(:)
+
+      real(kind=8), allocatable :: shtns_dsdt(:)
+      real(kind=8), allocatable :: shtns_dsdp(:)
+
+      real(kind=8), allocatable :: shtns_dpdt(:)
+      real(kind=8), allocatable :: shtns_dpdp(:)
+
+      real(kind=8), allocatable :: shtns_vr(:)
+      real(kind=8), allocatable :: shtns_vt(:)
+      real(kind=8), allocatable :: shtns_vp(:)
+
+      real(kind=8), allocatable :: shtns_dvrdr(:)
+      real(kind=8), allocatable :: shtns_dvtdr(:)
+      real(kind=8), allocatable :: shtns_dvpdr(:)
+
+      real(kind=8), allocatable :: shtns_dvrdt(:)
+      real(kind=8), allocatable :: shtns_dvrdp(:)
+
+      real(kind=8), allocatable :: shtns_cvr(:)
+
+      real(kind=8), allocatable :: shtns_br(:)
+      real(kind=8), allocatable :: shtns_bt(:)
+      real(kind=8), allocatable :: shtns_bp(:)
+
+      real(kind=8), allocatable :: shtns_cbr(:)
+      real(kind=8), allocatable :: shtns_cbt(:)
+      real(kind=8), allocatable :: shtns_cbp(:)
+#endif
    contains
- 
+
       procedure :: initialize
       procedure :: legPrepG
- 
+
    end type leg_helper_t
 
    public :: legPrep, legPrep_IC
@@ -44,6 +75,9 @@ module leg_helper_mod
 contains
 
    subroutine initialize(this,lm_max,lm_maxMag,l_max)
+#ifdef WITH_SHTNS
+      use truncation, only : n_phi_max, n_theta_max
+#endif
 
       class(leg_helper_t) :: this
       integer,intent(in) :: lm_max,lm_maxMag,l_max
@@ -68,10 +102,45 @@ contains
 
       allocate( this%bCMB(lm_maxMag) )
 
+#ifdef WITH_SHTNS
+      allocate(this%shtns_s(n_phi_max * n_theta_max))
+      allocate(this%shtns_drs(n_phi_max * n_theta_max))
+      allocate(this%shtns_p(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_dsdt(n_phi_max * n_theta_max))
+      allocate(this%shtns_dsdp(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_dpdt(n_phi_max * n_theta_max))
+      allocate(this%shtns_dpdp(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_vr(n_phi_max * n_theta_max))
+      allocate(this%shtns_vt(n_phi_max * n_theta_max))
+      allocate(this%shtns_vp(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_dvrdr(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvtdr(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvpdr(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_dvrdt(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvrdp(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_cvr(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_br(n_phi_max * n_theta_max))
+      allocate(this%shtns_bt(n_phi_max * n_theta_max))
+      allocate(this%shtns_bp(n_phi_max * n_theta_max))
+
+      allocate(this%shtns_cbr(n_phi_max * n_theta_max))
+      allocate(this%shtns_cbt(n_phi_max * n_theta_max))
+      allocate(this%shtns_cbp(n_phi_max * n_theta_max))
+
+      this%shtns_bt=1.0d50
+      this%shtns_bp=1.0d50
+#endif
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame, &
-        &              lTOnext,lTOnext2,lTOcalc)
+        &              lTOnext,lTOnext2,lTOcalc, lFluxProfCalc)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
       !  from (r,l,m) space to (r,theta,m) space by calculating           
@@ -86,7 +155,7 @@ contains
       !  lDeriv=.true. field derivatives required                        
 
       class(leg_helper_t) :: this
-    
+
       !-- Input of variables
       integer, intent(in) :: nR          ! radial level
       integer, intent(in) :: nBc         ! boundary condition
@@ -96,25 +165,41 @@ contains
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
       logical, intent(in) :: lTOcalc
-    
+      logical, intent(in) :: lFluxProfCalc
+
       !-- Input of scalar fields in LM-distributed space
       !   These have to be collected and stored in the
       !   R-distributed output variables
-    
+
       !-- Local variables:
       integer :: lm,l,m
       complex(cp) :: dbd
-    
-    
+
+
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma
       if ( l_conv .or. l_mag_kin ) then
-    
+
          if ( l_heat ) then
+#ifdef WITH_SHTNS
+            call scal_to_spat(s_Rloc(:, nR), this%shtns_s)
+            if (lFluxProfCalc) then
+               call scal_to_spat(p_Rloc(:, nR), this%shtns_p)
+           end if
+           call scal_to_grad_spat(s_Rloc(:, nR), this%shtns_dsdt, &
+                                  this%shtns_dsdp)
+           ! if (lViscBcCalc .or. l_HT) then
+           call scal_to_spat(ds_Rloc(:, nR), this%shtns_drs)
+           ! endif
+#else
             do lm=1,lm_max
                this%sR(lm) =s_Rloc(lm,nR)   ! used for plotting and Rms
                this%dsR(lm)=ds_Rloc(lm,nR)  ! used for plotting and Rms
             end do
+#endif
+#ifdef WITH_SHTNS
+            call scal_to_spat(s_Rloc(:, nR), this%shtns_s)
+#endif
          end if
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             do lm=1,lm_max
@@ -141,8 +226,12 @@ contains
                this%bCMB(lm)=b_Rloc(lm,nR)  ! used for movie output of surface field
             end do
          end if
-    
+
          if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
+#ifdef WITH_SHTNS
+            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), nR, &
+                this%shtns_vr, this%shtns_vt, this%shtns_vp)
+#endif
             this%dLhw(1)=zero
             this%vhG(1) =zero
             this%vhC(1) =zero
@@ -154,8 +243,15 @@ contains
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
             end do
          end if
-    
+
          if ( lDeriv ) then
+#ifdef WITH_SHTNS
+           call pol_to_curlr_spat(z_Rloc(:, nR), this%shtns_cvr)
+           call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), nR, &
+               this%shtns_dvrdr, this%shtns_dvtdr, this%shtns_dvpdr)
+           call pol_to_grad_spat(w_Rloc(:, nR), &
+               this%shtns_dvrdt, this%shtns_dvrdp)
+#else
             this%dLhdw(1) =zero
             this%dLhz(1)  =zero
             this%dvhdrG(1)=zero
@@ -168,14 +264,19 @@ contains
                this%dvhdrC(lm)=ddw_Rloc(lm,nR) + &
                     cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
             end do
+#endif
          end if
-    
+
       end if
-    
+
       if ( l_mag .or. l_mag_LF ) then
-    
+
          !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
          !PRINT*,"dj: ",SUM(ABS(dj(:,nR)))
+#ifdef WITH_SHTNS
+         call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR), nR, &
+             this%shtns_br, this%shtns_bt, this%shtns_bp)
+#else
          this%dLhb(1)=zero
          this%bhG(1) =zero
          this%bhC(1) =zero
@@ -186,13 +287,21 @@ contains
             this%bhC(lm) =db_Rloc(lm,nR) + &
                  cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
          end do
+#endif
+#ifndef WITH_SHTNS
          if ( lGrenoble ) then ! Add dipole imposed by inner core
             lm=lm2(1,0)
             this%dLhb(lm)=this%dLhb(lm)+dLh(lm)*b0(nR)
             this%bhG(lm) =this%bhG(lm)+db0(nR)
             this%bhC(lm) =this%bhC(lm)+db0(nR)
          end if
+#endif
          if ( lDeriv ) then
+#ifdef WITH_SHTNS
+            call torpol_to_curl_spat(b_Rloc(:, nR), db_Rloc(:, nR),     &
+                ddb_Rloc(:, nR), aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
+                this%shtns_cbr, this%shtns_cbt, this%shtns_cbp)
+#else
             this%dLhj(1)=zero
             this%cbhG(1)=zero
             this%cbhC(1)=zero
@@ -207,10 +316,11 @@ contains
                this%cbhG(lm)=this%cbhG(lm)+cmplx(0.0_cp,ddb0(nR),kind=cp)
                this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
             end if
+#endif
          end if
-    
+
       end if   ! magnetic terms required ?
-    
+
    end subroutine legPrepG
 !------------------------------------------------------------------------------
    subroutine legPrep(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
@@ -238,18 +348,18 @@ contains
       real(cp),    intent(in) :: r
       logical,     intent(in) :: lHor
       logical,     intent(in) :: lDeriv
-    
+
       !-- Output variable:
       complex(cp), intent(out) :: dLhw(*),dLhz(*)
       complex(cp), intent(out) :: vhG(*),vhC(*)
       complex(cp), intent(out) :: cvhG(*),cvhC(*)
-    
+
       !-- Local variables:
       integer :: lm,l,m
       real(cp) :: Or_e2
       complex(cp) :: help
-    
-    
+
+
       lm=0
       do m=0,l_max,minc
          do l=m,l_max
@@ -266,7 +376,7 @@ contains
          vhG(1) =zero
          vhC(1) =zero
       end if
-    
+
       if ( lDeriv ) then
          Or_e2=one/r**2
          lm=0
@@ -283,7 +393,7 @@ contains
          cvhG(1)=zero
          cvhc(1)=zero
       end if
-    
+
    end subroutine legPrep
 !------------------------------------------------------------------------------
    subroutine legPrep_IC(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
@@ -325,11 +435,11 @@ contains
       complex(cp), intent(out) :: dLhw(lm_max),dLhz(lm_max)
       complex(cp), intent(out) :: vhG(lm_max),vhC(lm_max)
       complex(cp), intent(out) :: cvhG(lm_max),cvhC(lm_max)
-       
+
       !-- Local variables:
       integer :: lm,l,m
       complex(cp) :: help1,help2
-              
+
       real(cp) :: rRatio,rDep(0:l_max),rDep2(0:l_max)
 
 

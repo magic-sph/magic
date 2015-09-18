@@ -36,15 +36,15 @@ module grid_space_arrays_mod
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
-      real(cp), allocatable :: vrc(:,:), vtc(:,:), vpc(:,:)
-      real(cp), allocatable :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
-      real(cp), allocatable :: cvrc(:,:), sc(:,:), drSc(:,:)
-      real(cp), allocatable :: dvrdtc(:,:), dvrdpc(:,:)
-      real(cp), allocatable :: dvtdpc(:,:), dvpdpc(:,:)
-      real(cp), allocatable :: brc(:,:), btc(:,:), bpc(:,:)
-      real(cp), allocatable :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
-      real(cp), allocatable :: pc(:,:)
-      real(cp), allocatable :: dsdtc(:,:), dsdpc(:,:)
+      real(cp), pointer :: vrc(:,:), vtc(:,:), vpc(:,:)
+      real(cp), pointer :: dvrdrc(:,:), dvtdrc(:,:), dvpdrc(:,:)
+      real(cp), pointer :: cvrc(:,:), sc(:,:), drSc(:,:)
+      real(cp), pointer :: dvrdtc(:,:), dvrdpc(:,:)
+      real(cp), pointer :: dvtdpc(:,:), dvpdpc(:,:)
+      real(cp), pointer :: brc(:,:), btc(:,:), bpc(:,:)
+      real(cp), pointer :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
+      real(cp), pointer :: pc(:,:)
+      real(cp), pointer :: dsdtc(:,:), dsdpc(:,:)
 
    contains
 

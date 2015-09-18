@@ -19,6 +19,8 @@ USE_FFTLIB=MKL
 USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
+# use shtns library
+USE_SHTNS=yes
 
 USE_PERFLIB=none
 
@@ -190,6 +192,12 @@ ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
 	INCPATHS += -I$(HDF5ICL)
 	LIBS += $(FFLAG_HDF5_LIBS)
+endif
+
+ifeq ($(USE_SHTNS), yes)
+	PREPROC += -DWITH_SHTNS
+	INCPATHS += -I$(SHTNS_INC)
+	LIBS += $(FFLAG_SHTNS)
 endif
 
 ifeq ($(PRECISION),sngl)
@@ -406,8 +414,13 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
                          constants.o legendre_helpers.o
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
+<<<<<<< HEAD
                         logic.o constants.o blocking.o Grenoble.o\
                         fields.o TO.o
+=======
+                        logic.o const.o blocking.o Grenoble.o\
+                        fields.o TO.o shtns.o
+>>>>>>> Use shtns library for spectral -> grid transformations
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
@@ -554,6 +567,7 @@ $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
 			TO.o Grenoble.o radial.o Bext.o char_manip.o
+shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
