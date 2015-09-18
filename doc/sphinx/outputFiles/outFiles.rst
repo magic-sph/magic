@@ -1,3 +1,5 @@
+.. _secOutputFiles:
+
 Output files
 ############
 

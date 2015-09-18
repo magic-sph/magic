@@ -1,5 +1,5 @@
-Running the code
-################
+Get MagIC and run it
+####################
 
 Download the code
 =================
