@@ -41,7 +41,7 @@ Makefile options
 
 **Select compiler**
 
-Set a suitable compiler in the first line of the Makefile: ``COMPILER = <compiler_phrase>``. The options are ``intel``, ``gnu`` or ``amd`` - depending on your available compilers.
+Set a suitable compiler in the first line of the ``Makefile``: ``COMPILER = <compiler_phrase>``. The options are ``intel``, ``gnu`` or ``amd`` - depending on your available compilers.
 
 *List of default compilers*
 
@@ -69,15 +69,15 @@ Set a suitable compiler in the first line of the Makefile: ``COMPILER = <compile
 
 **Architecture (Intel compilers only)**
 
-If you're using intel compilers and if your computer is capable of following specific intel instruction sets (sse3 or AVX), then set ``FFLAG_ARCH_OPT = -xsse3`` or ``FFLAG_ARCH_OPT = -xAVX`` under intel compiler options.
+If you're using intel compilers and if your computer is capable of following specific intel instruction sets (sse3 or AVX), then the ``Makefile`` automatically detects and sets ``FFLAG_ARCH_OPT = -xsse3`` or ``FFLAG_ARCH_OPT = -xAVX`` under intel compiler options.
 
 **MPI_INCPATH**
 
-Make sure you set the path for your mpi header file ``mpif.h`` in ``MPI_INCPATH``. The path depends on the computer. For PCs, this is commonly ``/usr/include`` or ``/usr/include/mpi``. Use `Open MPI <http://www.open-mpi.de/>`_ for running MagIC on a PC.
+This sets the path for your mpi header file ``mpif.h`` . The path depends on the computer. For PCs, this is commonly ``/usr/include`` or ``/usr/include/mpi`` and is found by the ``Makefile`` automatically. In case your path is different from the common paths - you need to set it explicitly in the ``Makefile``. This is especially the case in supercomputing clusters with different flavours of MPI implementations. Use `Open MPI <http://www.open-mpi.de/>`_ for running MagIC on a PC.
 
 **Other compilers**
 
-If your available compilers are different from the options provided in the Makefile, then change them suitably using the options ``COMP_FC`` and ``COMP_CC`` for serial fortran and C compilers and ``COMP_MPFC`` and ``COMP_MPCC`` for compilers with mpi implementation.
+If your available compilers are different from the options provided in the ``Makefile``, then change them suitably using the options ``COMP_FC`` and ``COMP_CC`` for serial fortran and C compilers and ``COMP_MPFC`` and ``COMP_MPCC`` for compilers with mpi implementation.
 
 
 Compiling the code
