@@ -57,7 +57,5 @@ if (! $?_sourceme) then		# called for the fist time?
 endif
 
 if ( $?MAGIC_HOME ) then
-
-./bin/autoConfigPython.sh
-
+  $MAGIC_HOME/bin/autoConfigPython.sh
 endif
