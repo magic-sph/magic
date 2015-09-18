@@ -4,6 +4,10 @@ module rIterThetaBlocking_mod
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif
+#ifdef WITH_SHTNS
+  use truncation, only: n_phi_max, n_theta_max
+  use shtns
+#endif
 
    use rIteration_mod, only: rIteration_t
    use precision_mod
@@ -27,7 +31,7 @@ module rIterThetaBlocking_mod
    use physical_parameters, only: kbots,ktops,n_r_LCR
    use nonlinear_bcs, only: v_rigid_boundary
    use legendre_grid_to_spec
- 
+
    implicit none
 
    private
@@ -41,7 +45,7 @@ module rIterThetaBlocking_mod
       complex(cp), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
                                   &               BtVZsn2LM(:)
    end type dtB_arrays_t
-  
+
    type, public :: TO_arrays_t
       !----- Local TO output stuff:
       real(cp), allocatable :: dzRstrLM(:),dzAstrLM(:)
@@ -53,23 +57,23 @@ module rIterThetaBlocking_mod
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
       !integer,len :: sizeThetaB,nThetaBs
       integer :: sizeThetaB, nThetaBs
- 
+
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
       type(dtB_arrays_t) :: dtB_arrays
       type(TO_arrays_t)  :: TO_arrays
- 
+
       !class(grid_space_arrays_t),private :: gsa
- 
+
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
       !      the variables calulated with this don't give any
       !      deep insight. TO should be changes in the future to
       !      eliminate this.
       real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
- 
+
    contains
- 
+
       !procedure :: initialize => initialize_rIterThetaBlocking
       procedure :: allocate_common_arrays
       procedure :: deallocate_common_arrays
@@ -77,7 +81,7 @@ module rIterThetaBlocking_mod
       !procedure,deferred :: do_iteration
       procedure :: transform_to_grid_space
       procedure :: transform_to_lm_space
- 
+
    end type rIterThetaBlocking_t
 
 contains
@@ -85,16 +89,16 @@ contains
    subroutine allocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-  
-      !----- Nonlinear terms in lm-space: 
+
+      !----- Nonlinear terms in lm-space:
       !call this%nl_lm%initialize(lmP_max)
-  
-  
+
+
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
-  
+
       !----- Local dtB output stuff:
       allocate( this%dtB_arrays%BtVrLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BpVrLM(lmP_max_dtB) )
@@ -110,13 +114,13 @@ contains
       allocate( this%dtB_arrays%BtVZLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BtVZcotLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
-  
+
       !----- Local TO output stuff:
       if ( l_TO ) then
         allocate( this%TO_arrays%dzRstrLM(l_max+2),this%TO_arrays%dzAstrLM(l_max+2) )
         allocate( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
       end if
-  
+
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
@@ -126,7 +130,7 @@ contains
    subroutine deallocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-  
+
       deallocate( this%dtB_arrays%BtVrLM )
       deallocate( this%dtB_arrays%BpVrLM )
       deallocate( this%dtB_arrays%BrVtLM )
@@ -141,13 +145,13 @@ contains
       deallocate( this%dtB_arrays%BtVZLM )
       deallocate( this%dtB_arrays%BtVZcotLM )
       deallocate( this%dtB_arrays%BtVZsn2LM )
-  
+
       !----- Local TO output stuff:
       if ( l_TO ) then
         deallocate( this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM )
         deallocate( this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM )
       end if
-  
+
       deallocate( this%BsLast)
       deallocate( this%BpLast)
       deallocate( this%BzLast)
@@ -158,25 +162,36 @@ contains
 
       class(rIterThetaBlocking_t) :: this
       integer,intent(in) :: nThetaBs, sizeThetaB
-      
+
       this%nThetaBs = nThetaBs
-  
+
       this%sizeThetaB = sizeThetaB
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa)
 
-      class(rIterThetaBlocking_t) :: this
+#ifdef WITH_SHTNS
+      use blocking, only: sizeThetaB
+      use truncation, only: n_m_max
+      use horizontal_data, only: D_mc2m, osn2
+#endif
+
+      class(rIterThetaBlocking_t), target :: this
       integer, intent(in) :: nThetaStart,nThetaStop
       type(grid_space_arrays_t) :: gsa
-  
+
       ! Local variables
       integer :: nTheta
       logical :: DEBUG_OUTPUT=.false.
+#ifdef WITH_SHTNS
+      integer :: nThetaNHS, nThetaN, nThetaS, mc
+      real(cp) :: dmT, swap
+#endif
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
-      !      First version with PlmTF needed for first-touch policy  
+      !      First version with PlmTF needed for first-touch policy
+#ifndef WITH_SHTNS
       if ( l_mag ) then
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
@@ -211,14 +226,27 @@ contains
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
       end if
-  
+#endif
+
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
+#ifdef WITH_SHTNS
+            gsa%sc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_s((nThetaStart-1)*n_phi_max+1:)
+#else
             call fft_thetab(gsa%sc,1)
+#endif
             if ( this%lViscBcCalc ) then
+#ifdef WITH_SHTNS
+               gsa%dsdtc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dsdt((nThetaStart-1)*n_phi_max+1:)
+               gsa%dsdpc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dsdp((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%dsdtc,1)
                call fft_thetab(gsa%dsdpc,1)
+#endif
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -229,35 +257,130 @@ contains
                end if
             end if
             if ( this%lFluxProfCalc ) then
+#ifdef WITH_SHTNS
+               gsa%pc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_p((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%pc,1)
+#endif
             end if
          end if
-         if ( l_HT .or. this%lViscBcCalc ) call fft_thetab(gsa%drSc,1)
+         if ( l_HT .or. this%lViscBcCalc ) then
+#ifdef WITH_SHTNS
+            gsa%drSc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_drs((nThetaStart-1)*n_phi_max+1:)
+#else
+            call fft_thetab(gsa%drSc,1)
+#endif
+         endif
          if ( this%nBc == 0 ) then
+#ifdef WITH_SHTNS
+            gsa%vrc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_vr((nThetaStart-1)*n_phi_max+1:)
+            gsa%vtc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_vt((nThetaStart-1)*n_phi_max+1:)
+            gsa%vpc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_vp((nThetaStart-1)*n_phi_max+1:)
+#else
             call fft_thetab(gsa%vrc,1)
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
+#endif
             if ( this%lDeriv ) then
+#ifdef WITH_SHTNS
+               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
+#endif
+#ifdef WITH_SHTNS
+               gsa%cvrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_cvr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvrdtc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvrdt((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvrdpc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvrdp((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%cvrc,1)
                call fft_thetab(gsa%dvrdtc,1)
                call fft_thetab(gsa%dvrdpc,1)
+#endif
+
+#ifdef WITH_SHTNS
+               gsa%dvtdpc = gsa%vtc
+               call fft_thetab(gsa%dvtdpc, -1)
+               gsa%dvpdpc(:, :) = gsa%vpc(:, :)
+               call fft_thetab(gsa%dvpdpc, -1)
+
+               nThetaNHS = (nThetaStart-1)/2
+               do nThetaN=1, sizeThetaB, 2   ! Loop over thetas for north HS
+                  nThetaS   = nThetaN+1       ! same theta but for southern HS
+                  nThetaNHS = nThetaNHS+1     ! theta-index of northern hemisph. point
+                  do mc=1, n_m_max
+                     dmT = D_mc2m(mc) * osn2(nThetaNHS)
+                     swap = -dmT*gsa%dvtdpc(2*mc, nThetaN)
+                     gsa%dvtdpc(2*mc  , nThetaN) =  dmT*gsa%dvtdpc(2*mc-1, nThetaN)
+                     gsa%dvtdpc(2*mc-1, nThetaN) = swap
+                     swap = -dmT*gsa%dvtdpc(2*mc, nThetaS)
+                     gsa%dvtdpc(2*mc  , nThetaS) =  dmT*gsa%dvtdpc(2*mc-1, nThetaS)
+                     gsa%dvtdpc(2*mc-1, nThetaS) = swap
+
+                     swap = -dmT*gsa%dvpdpc(2*mc, nThetaN)
+                     gsa%dvpdpc(2*mc  , nThetaN) =  dmT*gsa%dvpdpc(2*mc-1, nThetaN)
+                     gsa%dvpdpc(2*mc-1, nThetaN) = swap
+                     swap = -dmT*gsa%dvpdpc(2*mc, nThetaS)
+                     gsa%dvpdpc(2*mc  , nThetaS) =  dmT*gsa%dvpdpc(2*mc-1, nThetaS)
+                     gsa%dvpdpc(2*mc-1, nThetaS) = swap
+                  end do
+               end do
+               !-- Zero out terms with index mc > n_m_max:
+               if ( n_m_max < nrp/2 ) then
+                  do nThetaN=1, sizeThetaB
+                     do mc=2*n_m_max+1, nrp
+                        gsa%dvtdpc(mc, nThetaN) = 0.0_cp
+                        gsa%dvpdpc(mc, nThetaN) = 0.0_cp
+                     end do
+                  end do  ! loop over nThetaN (theta)
+               end if
+#endif
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
+#ifdef WITH_SHTNS
+            gsa%vtc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_vt((nThetaStart-1)*n_phi_max+1:)
+            gsa%vpc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_vp((nThetaStart-1)*n_phi_max+1:)
+#else
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
+#endif
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
+#ifdef WITH_SHTNS
+               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%cvrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_cvr((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
                call fft_thetab(gsa%cvrc,1)
+#endif
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
             end if
@@ -274,20 +397,47 @@ contains
                     &                nThetaStart)
             end if
             if ( this%lDeriv ) then
+#ifdef WITH_SHTNS
+               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
+                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
+#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
+#endif
             end if
          end if
       end if
       if ( l_mag .or. l_mag_LF ) then
+#ifdef WITH_SHTNS
+         gsa%brc(1:n_phi_max, 1:nfs) => &
+             this%leg_helper%shtns_br((nThetaStart-1)*n_phi_max+1:)
+         gsa%btc(1:n_phi_max, 1:nfs) => &
+             this%leg_helper%shtns_bt((nThetaStart-1)*n_phi_max+1:)
+         gsa%bpc(1:n_phi_max, 1:nfs) => &
+             this%leg_helper%shtns_bp((nThetaStart-1)*n_phi_max+1:)
+#else
          call fft_thetab(gsa%brc,1)
          call fft_thetab(gsa%btc,1)
          call fft_thetab(gsa%bpc,1)
+#endif
          if ( this%lDeriv ) then
+#ifdef WITH_SHTNS
+            gsa%cbrc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_cbr((nThetaStart-1)*n_phi_max+1:)
+            gsa%cbtc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_cbt((nThetaStart-1)*n_phi_max+1:)
+            gsa%cbpc(1:n_phi_max, 1:nfs) => &
+                this%leg_helper%shtns_cbp((nThetaStart-1)*n_phi_max+1:)
+#else
             call fft_thetab(gsa%cbrc,1)
             call fft_thetab(gsa%cbtc,1)
             call fft_thetab(gsa%cbpc,1)
+#endif
          end if
       end if
 

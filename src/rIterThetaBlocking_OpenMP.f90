@@ -176,7 +176,7 @@ contains
   
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
            &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                        this%lTOcalc)
+           &                        this%lTOcalc, this%lFluxProfCalc)
       !PERFOFF
   
       !if (DEBUG_OUTPUT) then

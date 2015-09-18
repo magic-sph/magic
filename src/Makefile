@@ -17,6 +17,8 @@ USE_FFTLIB=JW
 USE_MKL=no
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
+# use shtns library
+USE_SHTNS=yes
 
 USE_PERFLIB=none
 
@@ -28,6 +30,9 @@ ifdef HDF5DIR
 	HDF5LIB=$(HDF5DIR) 
 	HDF5ICL=$(HDF5INCLUDE)
 endif
+
+SHTNS_INC = -I$(HOME)/local/include
+FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -Wl,--end-group -lrt -lm
 
 # preconditioning of the matrices
 # switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
@@ -178,6 +183,12 @@ ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
 	INCPATHS += -I$(HDF5ICL)
 	LIBS += $(FFLAG_HDF5_LIBS)
+endif
+
+ifeq ($(USE_SHTNS), yes)
+	PREPROC += -DWITH_SHTNS
+	INCPATHS += -I$(SHTNS_INC)
+	LIBS += $(FFLAG_SHTNS)
 endif
 
 ifeq ($(PRECISION),sngl)
@@ -385,7 +396,7 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
 radial_derivatives.o  : cosine_transform.o const.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
                         logic.o const.o blocking.o Grenoble.o\
-                        fields.o TO.o
+                        fields.o TO.o shtns.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o const.o fields.o radial_spectra.o\
@@ -530,6 +541,7 @@ fft_mkl.o             : truncation.o blocking.o
 Namelists.o           : const.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
 			TO.o Grenoble.o radial.o Bext.o char_manip.o
+shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
