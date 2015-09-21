@@ -4,6 +4,46 @@
 # This script tries to fill the magic.cfg for you
 #
 
+# Spinner (in case of long loop)
+sp="/-\|"
+sc=0
+spin() {
+   printf "\b${sp:sc++:1}"
+   ((sc==${#sp})) && sc=0
+}
+endspin() {
+   printf "\r%s\n" "$@"
+}
+
+# Determines where matplotlib is installed
+hasPython2Mpl() {
+  if hash python2 2>/dev/null; then
+    local cmd=`python2 $MAGIC_HOME/bin/testBackend.py 2>&1`
+    if [ -n "$cmd" ]; then
+      local backendValue=$cmd;
+    else
+      local backendValue="NotFound";
+    fi
+  else
+    local backendValue="NotFound";
+  fi
+  echo $backendValue
+}
+
+hasPython3Mpl() {
+  if hash python3 2>/dev/null; then
+    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2>&1`
+    if [ -n "$cmd" ]; then
+      local backendValue=$cmd;
+    else
+      local backendValue="NotFound";
+    fi
+  else
+    local backendValue="NotFound";
+  fi
+  echo $backendValue
+}
+
 # Figure out which f2py executable is available on your machine
 whichf2py () {
   if hash f2py3 2>/dev/null; then
@@ -23,10 +63,10 @@ whichf2pycompiler () {
   local pattern=`$1 -c --help-fcompiler | awk '/Compilers available/{flag=0}flag;/compilers found/{flag=1}' | awk -F'[=| ]' '{print $4}'`
 
   if  [ -z "$pattern" ]; then
-    selectedCompiler="NotFound";
+    local selectedCompiler="NotFound";
     echo $selectedCompiler
   else
-    arr=($pattern)
+    local arr=($pattern)
     for compiler in "${arr[@]}"; do
       if [ $compiler == "intelem" ]; then
         sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
@@ -62,7 +102,7 @@ whichf2pycompiler () {
 # Check whether you can build the fortran libraries
 buildLibs () {
 
-  f2pyExec=$(whichf2py)
+  local f2pyExec=$(whichf2py)
   if [ $f2pyExec != "NotFound" ]; then
     sed -i "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
 
@@ -75,12 +115,31 @@ buildLibs () {
   fi
 }
 
+# Get matplotlib backend
 getBackend () {
-  local backendValue=`python $MAGIC_HOME/bin/testBackend.py 2>&1`
-  if  [ -n "$backendValue" ]; then
-      sed -i "s/backend.*/backend = $backendValue/g" $MAGIC_HOME/python/magic/magic.cfg
+  
+  local backend2=$(hasPython2Mpl);
+  local backend3=$(hasPython3Mpl);
+
+  if [ $backend2 != "NotFound" ]; then
+    if [ $backend3 != "NotFound" ]; then
+      echo "matplotlib is installed for both python2 and python3"
+      echo "python2 is selected"
+    fi
+    local backendValue=$backend2
+  else
+    if [ $backend3 == "NotFound" ]; then
+      echo "matplotlib was not found"
+      echo "the backend can't be set in $MAGIC_HOME/python/magic/magic.cfg"
+      local backendValue="NotFound"
+    else
+      local backendValue=$backend3
+    fi
   fi
 
+  if [ $backendValue != "NotFound" ]; then
+      sed -i "s/backend.*/backend = $backendValue/g" $MAGIC_HOME/python/magic/magic.cfg
+  fi
 }
 
 
@@ -89,6 +148,8 @@ getBackend () {
 if [ ! -f $MAGIC_HOME/python/magic/magic.cfg ]; then
   if [ -w $MAGIC_HOME/python/magic/magic.cfg.default ]; then
     cp $MAGIC_HOME/python/magic/magic.cfg.default $MAGIC_HOME/python/magic/magic.cfg
+    echo "Trying to setup your PATH in $MAGIC_HOME/python/magic/magic.cfg..."
+    echo "It might take some seconds, but it's gonna happen only once."
     buildLibs
     getBackend
   fi

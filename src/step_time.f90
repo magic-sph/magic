@@ -647,7 +647,7 @@ contains
 
          if ( l_stop_time ) then                  ! Programm stopped by kill -30
             l_new_rst_file=.true.                 ! Write rst-file and some
-            if ( n_stores > 0 ) l_store=.true.   ! diagnostics before dying ! 
+            if ( n_stores > 0 ) l_store=.true.    ! diagnostics before dying ! 
             l_log=.true.
             lRmsNext=.false.
          end if

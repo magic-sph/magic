@@ -18,7 +18,7 @@ module preCalculations
                     l_LCR, l_dt_cmb_field, l_storePot
    use radial_functions, only: i_costf_init, d_costf_init, temp0, r_CMB,   &
                                r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
-                               otemp1, beta, rho0, rgrav, dbeta,           &
+                               beta, rho0, rgrav, dbeta,                   &
                                dentropy0, sigma, lambda, dLkappa, kappa,   &
                                dLvisc, dLlambda, divKtemp0, radial,        &
                                transportProperties
@@ -177,9 +177,9 @@ contains
          write(99,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
              &       'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
          do n_r=1,n_r_max
-            write(99,'(8ES16.8)') r(n_r),1./otemp1(n_r),       &
-             &   rho0(n_r),beta(n_r),dbeta(n_r),               &
-             &   rgrav(n_r)/BuoFac,dentropy0(n_r),             &
+            write(99,'(8ES16.8)') r(n_r),temp0(n_r),         &
+             &   rho0(n_r),beta(n_r),dbeta(n_r),             &
+             &   rgrav(n_r)/BuoFac,dentropy0(n_r),           &
              &   divKtemp0(n_r)
          end do
          close(99)

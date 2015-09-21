@@ -63,5 +63,5 @@ if [ -z $_sourceme ]; then	# called for the first time?
 fi
 
 if [ -n $MAGIC_HOME ]; then
-  `$MAGIC_HOME/bin/autoConfigPython.sh`
+  $MAGIC_HOME/bin/autoConfigPython.sh
 fi

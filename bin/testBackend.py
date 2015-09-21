@@ -15,6 +15,7 @@ def getMyMatplotlibEnv():
         backend = ''
         warnings.filterwarnings('error')
 
+        # GTKAgg is the default one
         try:
             try:
                 P.switch_backend('GTKAgg')
@@ -24,15 +25,7 @@ def getMyMatplotlibEnv():
         except ImportError:
             pass
 
-        try:
-            try:
-                P.switch_backend('Qt5Agg')
-                return 'Qt5Agg'
-            except Warning:
-                pass
-        except ImportError:
-            pass
-
+        # Qt4
         try:
             try:
                 P.switch_backend('Qt4Agg')
@@ -42,6 +35,7 @@ def getMyMatplotlibEnv():
         except ImportError:
             pass
 
+        # TkAgg is the fallback value
         try:
             try:
                 P.switch_backend('TkAgg')
