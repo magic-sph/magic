@@ -8,12 +8,10 @@ try:
 except ImportError:
     import ConfigParser as CoPa
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
-
 pythonVersion = sys.version_info.major
+
+if pythonVersion == 3:
+    pythonSuffix = '%i%i' % (pythonVersion, sys.version_info.minor)
 
 if 'MAGIC_HOME' in os.environ:
     path = os.environ['MAGIC_HOME']
@@ -80,7 +78,7 @@ if buildSo:
                  'greader_single%i' % pythonVersion,
                  'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'greader_single3.cpython-33m.so', 
+            sp.call(['mv', 'greader_single3.cpython-%sm.so' % pythonSuffix, 
                      '%s/greader_single3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
@@ -96,7 +94,7 @@ if buildSo:
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'greader_double3.cpython-33m.so', 
+            sp.call(['mv', 'greader_double3.cpython-%sm.so' % pythonSuffix, 
                      '%s/greader_double3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
@@ -113,7 +111,7 @@ if buildSo:
                  'potential%i' % pythonVersion,
                  'spec.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'potential3.cpython-33m.so', 
+            sp.call(['mv', 'potential3.cpython-%sm.so' % pythonSuffix, 
                      '%s/potential3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'potential2.so', '%s' % magicdir])
@@ -130,7 +128,7 @@ if buildSo:
                  'vtklib%i' % pythonVersion,
                  'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'vtklib3.cpython-33m.so', 
+            sp.call(['mv', 'vtklib3.cpython-%sm.so' % pythonSuffix, 
                      '%s/vtklib3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'vtklib2.so', '%s' % magicdir])

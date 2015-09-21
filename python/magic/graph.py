@@ -10,18 +10,18 @@ if buildSo:
     try:
         import sys
         if sys.version_info.major == 3:
-            import greader_single3 as Gsngl
-            import greader_double3 as Gdble
+            import magic.greader_single3 as Gsngl
+            import magic.greader_double3 as Gdble
         elif sys.version_info.major == 2:
-            import greader_single2 as Gsngl
-            import greader_double2 as Gdble
+            import magic.greader_single2 as Gsngl
+            import magic.greader_double2 as Gdble
         readingMode = 'f2py'
     except ImportError:
-        from npfile import *
+        from .npfile import *
         readingMode = 'python'
     #print('read with %s' % readingMode)
 else:
-    from npfile import *
+    from .npfile import *
     readingMode = 'python'
 
 class MagicGraph(MagicSetup):
