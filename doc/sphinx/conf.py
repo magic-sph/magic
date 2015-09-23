@@ -12,6 +12,7 @@
 # All configuration values have a default; values that are commented out
 # serve to show the default.
 
+import sphinxfortran
 import sys
 import os
 import shlex
@@ -33,7 +34,9 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.intersphinx',
-    'sphinx.ext.viewcode'
+    'sphinx.ext.viewcode',
+    'sphinxext.fortran_domain',
+    'sphinxext.fortran_autodoc'
 ]
 
 #autoclass_content='both'
@@ -291,5 +294,5 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
-#fortran_src = "../src/*.f90"
-#fortran_indent = 3
+fortran_src = "../../src/*.f90"
+fortran_indent = 3

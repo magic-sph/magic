@@ -18,6 +18,7 @@ MagIC documentation contents
    signalFile
    outputFiles/outFiles
    postProc
+   api
 
 
 Indices and tables
