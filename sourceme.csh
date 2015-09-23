@@ -3,32 +3,25 @@
 #
 # do a source sourceme.csh to initialize the correct PATHS for magic
 #
+set _sourcecmd = ( $_ )
 
-
-if (! $?MAGIC_HOME) then
-  unset _sourceme		# tabula rasa without MAGIC_HOME
+if ( ! $?MAGIC_HOME ) then
+  unset _sourceme               # tabula rasa without MAGIC_HOME
   #
   # Try to identify position of the code's home directory:
   #
-  foreach _dir ( . .. ../.. ../../.. ../../../.. magic)
-    if ( (-e $_dir/sourceme.csh) && \
-         (-d $_dir/src)          && \
-	 (-d $_dir/bin)          && \
-	 (-d $_dir/samples)         \
-       ) then
-      set back_again = `pwd`     
-      cd $_dir; setenv MAGIC_HOME `pwd`; cd $back_again
-      goto found
-    endif
-  end
-
-  echo "sourceme.csh: Cannot locate home directory of MAGIC"
-  echo "  Try sourcing me from the home directory itself, or set MAGIC_HOME"
-  goto eof
+  set _dir = `dirname $_sourcecmd[2]`
+  
+  if ( (-e $_dir/sourceme.csh) && \
+       (-d $_dir/src)          && \
+       (-d $_dir/bin)          && \
+       (-d $_dir/samples)         \
+     ) then
+    setenv MAGIC_HOME "$_dir"
+    echo $MAGIC_HOME
+    unset _dir
+  endif
 endif
-    
-found:
-if (! $?_sourceme_quiet) echo "MAGIC_HOME = <$MAGIC_HOME>"
 
 if (! $?_sourceme) then		# called for the fist time?
   if (-d $MAGIC_HOME/bin) then

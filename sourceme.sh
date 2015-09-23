@@ -1,27 +1,32 @@
-#
+# 
 # If you use bash/zsh/ksh:
 #
 # do a source sourceme.sh to initialize the correct PATHS for magic
 #
-
 
 if [ -z $MAGIC_HOME ]; then
   unset _sourceme               # tabula rasa without MAGIC_HOME
   #
   # Try to identify position of the code's home directory:
   #
-  for _dir in   . .. ../.. ../../.. ../../../.. magic ; do
-    if ( [ -e $_dir/sourceme.sh ] && \
-         [ -d $_dir/src ]         && \
-         [ -d $_dir/samples ]     && \
-         [ -d $_dir/bin ]            \
-       ); then
-      unset cd   # some people are crazy enough to overload cd
-      MAGIC_HOME=`cd $_dir; echo $PWD`
-      export MAGIC_HOME
-      break
-    fi
+  _sourcecmd="${BASH_SOURCE[0]}"
+  while [ -h "$_sourcecmd" ]; do # resolve $_sourcecmd until the file is no longer a symlink
+    _dir="$( cd -P "$( dirname "$_sourcecmd" )" && pwd )"
+    _sourcecmd="$(readlink "$_sourcecmd")"
+    [[ $_sourcecmd != /* ]] && _sourcecmd="$_dir/$_sourcecmd" # if $_sourcecmd was a relative symlink, we need to resolve it relative to the path where the symlink file was located
   done
+  _dir="$( cd -P "$( dirname "$_sourcecmd" )" && pwd )" 
+
+  if ( [ -e $_dir/sourceme.sh ] && \
+       [ -d $_dir/src ]         && \
+       [ -d $_dir/samples ]     && \
+       [ -d $_dir/bin ]            \
+     ); then
+    unset cd   # some people are crazy enough to overload cd
+    MAGIC_HOME=$_dir
+    echo $MAGIC_HOME
+    export MAGIC_HOME
+  fi
   unset _dir
 
   if [ -z $MAGIC_HOME ]; then # no success

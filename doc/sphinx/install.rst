@@ -53,7 +53,7 @@ into your ``.bash_profile`` (or ``.profile`` or ``.zprofile`` or ``.cshrc``):
 
 .. code-block:: bash
 
-   $ cd whereverYouCheckedOut/magic ; source sourceme.sh ; cd $HOME
+   $ source whereverYouCheckedOut/magic/sourceme.sh
 
 To get started, you then need to compile the code
 
