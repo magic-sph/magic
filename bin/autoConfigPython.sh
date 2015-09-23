@@ -142,6 +142,16 @@ getBackend () {
   fi
 }
 
+ifGWDG() {
+
+  local host_name=$HOSTNAME
+ 
+  if [[ $host_name == *"gwd"* ]]
+  then
+      sed -i "s/ccompiler.*/ccompiler = intelem/g" $MAGIC_HOME/python/magic/magic.cfg
+  fi
+
+}
 
 # Check if magic.cfg exists: if yes don't do anything, else create it from default
 # and fill it with the estimated values
@@ -152,5 +162,6 @@ if [ ! -f $MAGIC_HOME/python/magic/magic.cfg ]; then
     echo "It might take some seconds, but it's gonna happen only once."
     buildLibs
     getBackend
+    ifGWDG
   fi
 fi
