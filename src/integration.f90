@@ -1,4 +1,7 @@
 module integration
+   !
+   ! Radial integration functions
+   !
 
    use precision_mod
    use const, only: half, one, two
@@ -20,7 +23,7 @@ contains
       !  The arrays i_costf_init,d_costf_init are
       !  defined by calling init_costf1.
       !
-      !  .. Note:: drFac maps radius to cheb space [-1,1]
+      !  .. note:: drFac maps radius to cheb space [-1,1]
       !            drFac=two/(rMax-rMin)
       !
 

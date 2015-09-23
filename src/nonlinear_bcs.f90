@@ -33,7 +33,11 @@ contains
       !  of the magnetic boundary condition for a conducting mantle or    
       !  inner core in space (r,lm).                                      
       !  Calculation is performed for the theta block:                    
-      !         n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
+      !
+      !  .. code-block:: fortran
+      !
+      !     n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
+      !
       !  On input br, vt and vp are given on all phi points and           
       !  thetas in the specific block.                                    
       !  On output the contribution of these grid points to all           
@@ -97,7 +101,10 @@ contains
       !  physical space (phi,theta), assuming that the conductance        
       !  of the mantle is much smaller than that of the core.             
       !  Calculation is performed for the theta block:                    
-      !          n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
+      !
+      !  .. code-block:: fortran
+      !
+      !      n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
       !
          
       !-- Input variables:
@@ -180,7 +187,7 @@ contains
       !  While vt is zero, since we only allow for rotation about the     
       !  z-axix, vp= r sin(theta) v_phi = r**2 sin(theta)**2 omega        
       !  cvr= r**2 * radial component of (\curl v) =                      
-      !       r**2  2 cos(theta) omega                                    
+      !  r**2  2 cos(theta) omega                                    
       !
 
       !-- Input of variables:

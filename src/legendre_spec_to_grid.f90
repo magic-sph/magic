@@ -42,14 +42,18 @@ contains
       !    in northern (southern) hemisphere.
       !
       !      * nBc            : (input) accounts for special conditions on radial boundaries
+      !
       !         -nBc=2       : we are dealing with a no slip boundary, v_r and v_theta are
       !          zero and v_phi=r sin(theta) omega, where omega is the rotation rate of the 
       !          boundary (mantle of IC), only magn. field terms are calculated, v is 
       !          set later.
+      !
       !         -nBc=1       : a free slip bounday: v_r is zero, derivatives of v and B 
       !                      are not needed, only components of v,B and entropy 
       !                      are calculated
+      !
       !         -nBc=0       : normal case, interior grid point
+      !
       !      * lDeriv=.true.  : (input) calculate derivatives
       !      * nThetaStart    : (input) transformation is done for the range of
       !        points nThetaStart <= nTheta <= nThetaStart-1+sizeThetaB

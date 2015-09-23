@@ -1,4 +1,8 @@
 module readCheckPoints
+   !
+   ! This module contains the functions that can help reading and 
+   ! mapping of the restart files
+   !
 
    use precision_mod
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &

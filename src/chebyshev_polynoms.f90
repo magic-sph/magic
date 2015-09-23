@@ -347,8 +347,9 @@ contains
       !   interval [-1,1].
       !   The respective points mapped into the interval of
       !   question [a,b] are the x(i).
-      !   NOTE: x(i) and y(i) are stored in the reversed order:
-      !    x(1)=b, x(n+1)=a, y(1)=1, y(n+1)=-1
+      !
+      !   .. note:: x(i) and y(i) are stored in the reversed order:
+      !             x(1)=b, x(n+1)=a, y(1)=1, y(n+1)=-1
       !
        
       !-- Input variables

@@ -1,4 +1,8 @@
 module storeCheckPoints
+   !
+   ! This module contains several subroutines that can be used to store the
+   ! rst_#.TAG files
+   !
 
    use precision_mod
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &

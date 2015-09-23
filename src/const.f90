@@ -1,7 +1,7 @@
 module const
    !
-   !  module containing constants used for rotation of inner
-   !  core and mantle.
+   ! module containing constants and parameters
+   ! used in the code.
    !
 
    use precision_mod

@@ -1,4 +1,7 @@
 module radial_der
+   !
+   ! Radial derivatives functions
+   !
 
    use const, only: zero, one, three
    use precision_mod

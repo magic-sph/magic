@@ -387,11 +387,14 @@ contains
       !  Blocking in theta can be used to increased performance.          
       !  If no blocking required set n_theta_block=n_theta_max,           
       !  where n_theta_max is the absolut number of thetas used.          
-      !  Note: lorentz_torque must be set to zero before loop over        
-      !        theta blocks is started.                                   
-      !  WARNING: subroutine returns -lorentz_torque if used at CMB       
-      !        to calculate torque on mantle because if the inward        
-      !        surface normal vector.
+      !
+      !  .. note:: Lorentz_torque must be set to zero before loop over        
+      !            theta blocks is started.                                   
+      !
+      !  .. warning:: subroutine returns -lorentz_torque if used at CMB       
+      !               to calculate torque on mantle because if the inward        
+      !               surface normal vector.
+      !
       !  The Prandtl number is always the Prandtl number of the outer     
       !  core. This comes in via scaling of the magnetic field.           
       !  Theta alternates between northern and southern hemisphere in     

@@ -221,7 +221,6 @@ contains
       !    Note that many of these only have to be collected when
       !    certain output is required. This is controlled by the 
       !    input logicals.
-      ! include 'c_fields.f'
   
       !--- Input help arrays for magnetic field stretching and advection and
       !    for calculating axisymmetric helicity.

@@ -24,7 +24,7 @@ contains
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
       !  to a Chebychev representation using n_r_max radial grid points.  
       !  The cheb transforms have to be initialized by calling            
-      !   init_costf1 and init_costf2.                                    
+      !  init_costf1 and init_costf2.                                    
       !
 
       !-- Input variables:
@@ -86,7 +86,7 @@ contains
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
       !  to a Chebychev representation using n_r_max radial grid points.  
       !  The cheb transforms have to be initialized by calling            
-      !   init_costf1 and init_costf2.                                    
+      !  init_costf1 and init_costf2.                                    
       !
 
       !-- Input variables:
@@ -137,7 +137,7 @@ contains
       !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
       !  to a Chebychev representation using n_r_max radial grid points.  
       !  The cheb transforms have to be initialized by calling            
-      !   init_costf1 and init_costf2.                                    
+      !  init_costf1 and init_costf2.                                    
       !
 
       !-- Input variables:

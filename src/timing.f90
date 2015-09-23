@@ -1,4 +1,7 @@
 module timing
+   !
+   ! Useful functions for time-stepping
+   !
 
 #ifdef WITH_MPI
    use mpi
@@ -58,12 +61,12 @@ contains
    end subroutine wallTime
 !----------------------------------------------------------------------------
    subroutine ms2time(ms,time)
-      !------------------------------------------------------------------
+      !
       !  Transforms accumulated milliseconds ms into an four-element
       !  integer arrays time(4) containing the time in
       !  hours=time(1), minutes=time(2), seconds=time(3),
       !  and milliseconds=time(4).
-      !------------------------------------------------------------------
+      !
   
       !-- Input variables:
       integer(lip), intent(in) :: ms
