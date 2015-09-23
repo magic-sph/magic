@@ -29,14 +29,22 @@ It supports the following options:
 
 The ``level=LEV`` defines the priority level of check and validation of the code. It has the following levels of checking:
 
-  .. tabularcolumns:: |c|p{12cm}|  
+  .. tabularcolumns:: |c|p{14cm}|  
 
   +---------+--------------------------------------------------------+
   | Level   |  Cases to check (subdirectories)                       |
   +=========+========================================================+
-  | 0       | * The dynamo benchmark (``dynamo_benchmark``)          |
-  |         | *           (``varProps``)                             |
-  |         | *           (``boussBenchSat``)                        |
+  | 0       | * Boussinesq dynamo benchmark                          |
+  |         |   (`Christensen et al., 2001                           |
+  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_) |
+  |         |   - start from zero (``dynamo_benchmark``)             |
+  |         | * Variable transport properties (viscosity,            |
+  |         |   thermal diffusivity and electrical diffusivity)      | 
+  |         |   in an anelastic convective model (``varProps``)      |
+  |         | * Boussinesq dynamo benchmark                          |
+  |         |   (`Christensen et al., 2001                           |
+  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_) |
+  |         |   - start from a saturated state (``boussBenchSat``)   |
   +---------+--------------------------------------------------------+
   | 1       | * Test reading and writing of                          |
   |         |   restart files (``testRestart``)                      |
@@ -46,14 +54,17 @@ The ``level=LEV`` defines the priority level of check and validation of the code
   |         | * Test different radial outputs -                      |
   |         |   ``*R.TAG`` (``testRadialOutputs``)                   |
   +---------+--------------------------------------------------------+
-  | 2       | * Hydrodynamic Anelastic Benchmark                     |
+  | 2       | * Hydrodynamic anelastic benchmark                     |
+  |         |   (`Jones et al., 2011                                 |
+  |         |   <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_)  |
   |         |   (``hydro_bench_anel``)                               |
   +---------+--------------------------------------------------------+
   | 3       | * Heat flux perturbation (``fluxPerturbation``)        |
   |         | * Isothermal model with :math:`N_{\rho}=3`             |
   |         |   (``isothermal_nrho3``)                               |
-  |         | * Dynamo benchmark for conducting and rotating         |
-  |         |   inner core (``dynamo_benchmark_condICrotIC``)        |
+  |         | * Boussinesq Dynamo benchmark for conducting and       |
+  |         |   rotating inner core                                  |
+  |         |   (``dynamo_benchmark_condICrotIC``)                   |
   |         | * Anelastic dynamo with variable conductivity          |
   |         |   (``varCond``)                                        |
   +---------+--------------------------------------------------------+
