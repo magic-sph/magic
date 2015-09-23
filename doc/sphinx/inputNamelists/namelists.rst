@@ -37,10 +37,9 @@ Magic uses eight namelists:
    :maxdepth: 1
 
    gridNamelist.rst
-   physNamelist.rst
-   BextNamelist.rst
    controlNamelist.rst
    physNamelist.rst
+   BextNamelist.rst
    startNamelist.rst
    outNamelist.rst
    mantle_icNamelist.rst
