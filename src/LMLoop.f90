@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module LMLoop_mod
 
@@ -50,11 +49,10 @@ contains
        &            dVxBhLM,dVSrLM,dsdt,dwdt,dzdt,dpdt,dbdt,djdt, &
        &            lorentz_torque_ma,lorentz_torque_ic,          &
        &            b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine performs the actual time-stepping.               |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  This subroutine performs the actual time-stepping.
+      !
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: w1,coex

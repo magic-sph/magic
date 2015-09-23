@@ -1,4 +1,3 @@
-!$Id$
 module preCalculations
 
    use const
@@ -43,14 +42,12 @@ module preCalculations
 contains
 
    subroutine preCalc
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to initialize the calc values,     |
-      !  |  arrays, constants that are used all over the code.               |
-      !  |  The stuff is stored in the common blocks.                        |
-      !  |  MPI: This is called by every processors.                         |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to initialize the calc values,     
+      !  arrays, constants that are used all over the code.               
+      !  The stuff is stored in the common blocks.                        
+      !  MPI: This is called by every processors.                         
+      !
     
       !---- Local variables:
       real(cp) :: c1,help,facIH
@@ -529,11 +526,9 @@ contains
    end subroutine preCalc
 !--------------------------------------------------------
    subroutine preCalcTimes(time,n_time_step)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Precalc. after time, time and dthas been read from startfile.    |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      !  Precalc. after time, time and dthas been read from startfile.
+      !
 
       !-- Output variables
       real(cp), intent(out) ::  time
@@ -671,14 +666,12 @@ contains
 !-------------------------------------------------------------------------------
    subroutine get_hit_times(t,n_t_max,n_t,l_t,t_start,t_stop,dt, &
                              n_tot,n_step,string,time,tScale)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine checks whether any specific times t(*) are given |
-      !  |  on input. If so, it returns their number n_r and sets l_t        |
-      !  |  to true. If not, t(*) may also be defined by giving a time step  |
-      !  |  dt or a number n_tot of desired output times and t_stop>t_start. |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! This subroutine checks whether any specific times t(*) are given
+      ! on input. If so, it returns their number n_r and sets l_t        
+      ! to true. If not, t(*) may also be defined by giving a time step  
+      ! dt or a number n_tot of desired output times and t_stop>t_start. 
+      !
 
       !-- Input variables:
       integer,          intent(in) :: n_t_max    ! Dimension of t(*)
@@ -774,13 +767,11 @@ contains
    end subroutine get_hit_times
 !------------------------------------------------------------------------------
    subroutine writeInfo(n_out)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to write the namelist to           |
-      !  |  file unit n_out. This file has to be open before calling this    |
-      !  |  routine.                                                         |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to write the namelist to           
+      !  file unit n_out. This file has to be open before calling this    
+      !  routine.                                                         
+      !
 
       !-- Input variable:
       integer, intent(in) :: n_out

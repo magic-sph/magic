@@ -1,4 +1,3 @@
-!$Id$
 module RMS_helpers
 
    use precision_mod
@@ -25,13 +24,11 @@ module RMS_helpers
 contains
 
    subroutine get_PASLM(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculated the axisymmetric     |
-      !  |  phi component Bp of an axisymmetric toroidal field Tlm           |
-      !  |  given in spherical harmonic space (l,m=0).                       |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculated the axisymmetric     
+      !  phi component Bp of an axisymmetric toroidal field Tlm           
+      !  given in spherical harmonic space (l,m=0).                       
+      !
 
       !-- Input variables:
       integer,     intent(in) :: nThetaStart    ! first theta to be treated
@@ -72,7 +69,7 @@ contains
    end subroutine get_PASLM
 !---------------------------------------------------------------------------
    subroutine get_PolTorRms(Pol,drPol,Tor,PolRms,TorRms,PolAsRms,TorAsRms,map)
-      !--------------------------------------------------------------------
+      !
       !  calculates integral PolRms=sqrt( Integral (pol^2 dV) )
       !  calculates integral TorRms=sqrt( Integral (tor^2 dV) )
       !  plus axisymmetric parts.
@@ -81,7 +78,7 @@ contains
       !  The mapping map gives the mapping lm to l,m for the input
       !  arrays Pol,drPol and Tor
       !  Output: PolRms,TorRms,PolAsRms,TorAsRms
-      !--------------------------------------------------------------------
+      !
     
       !-- Input variables:
       complex(cp),     intent(in) :: Pol(lm_max,n_r_max)   ! Poloidal field Potential
@@ -223,13 +220,11 @@ contains
    end subroutine hInt2Tor
 !-----------------------------------------------------------------------------
    subroutine get_RAS(Blm,Br,rT,nThetaStart,sizeThetaBlock)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the axisymmetric      |
-      !  |  radial component Br of an axisymmetric ploidal field Blm         |
-      !  |  given in spherical harmonic space (l,m=0).                       |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the axisymmetric      
+      !  radial component Br of an axisymmetric ploidal field Blm         
+      !  given in spherical harmonic space (l,m=0).                       
+      !
 
       !-- Input variables:
       integer,         intent(in) :: nThetaStart    ! first theta to be treated
@@ -273,7 +268,7 @@ contains
         &              r2,n_r_max2,n_cheb_max2,             &
         &              nS,dr_fac2,i_costf_init2,nDi_costf1, &
         &              d_costf_init2,nDd_costf1)
-      !-------------------------------------------------------------------------
+      !
       ! Prepares the usage of a cut back radial grid where nS points
       ! on both boundaries are discarded.
       ! The aim actually is to discard boundary effects, but just
@@ -283,7 +278,7 @@ contains
       ! of grid points so that the fast cosine transform can be
       ! applied. Therefor more than just 2 points have to be
       ! thrown away, which may make sense anyway.
-      !-------------------------------------------------------------------------
+      !
     
       !--- Input variables:
       real(cp), intent(in) :: r(*),rCut,rDea

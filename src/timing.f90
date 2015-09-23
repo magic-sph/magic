@@ -1,4 +1,3 @@
-!$Id$
 module timing
 
 #ifdef WITH_MPI
@@ -20,10 +19,10 @@ module timing
 
 contains
    subroutine wallTime(time)
-      !------------------------------------------------------------------
+      !
       !   This routine returns the wallclock time in four
       !   integer arguments.
-      !------------------------------------------------------------------
+      !
   
       !-- Output variables
       integer, intent(out) :: time(4)
@@ -91,11 +90,11 @@ contains
    end subroutine ms2time
 !----------------------------------------------------------------------------
    integer(lip) function time2ms(time)
-      !------------------------------------------------------------------
+      !
       !  Transforms a four-element integer arrays time(4) containing the
       !  time in hours=time(1), minutes=time(2), seconds=time(3),
       !  and milliseconds=time(4) into accumulated milliseconds.
-      !------------------------------------------------------------------
+      !
   
       !-- Input variable:
       integer, intent(in) :: time(4)
@@ -105,12 +104,12 @@ contains
    end function time2ms
 !----------------------------------------------------------------------------
    subroutine subTime(timeStart,timeStop,timeD)
-      !------------------------------------------------------------------
+      !
       !  Returns time passed between timeStop and timeStart.
       !  Note timeStop has to be younger than timeStart, otherwise
       !  24 hours are added. This is necessary on systems like the IBM
       !  where the time counter as reset every day at midnight.
-      !------------------------------------------------------------------
+      !
   
       !-- Input variables:
       integer, intent(in) :: timeStart(4), timeStop(4)
@@ -130,9 +129,9 @@ contains
    end subroutine subTime
 !----------------------------------------------------------------------------
    logical function lTimeLimit(time,timeMax)
-      !------------------------------------------------------------------
+      !
       !  True when time exeeds timeMax
-      !------------------------------------------------------------------
+      !
   
       !-- Input variables
       integer, intent(in) :: time(4),timeMax(4)
@@ -193,11 +192,11 @@ contains
    end subroutine meanTime
 !----------------------------------------------------------------------------
    logical function lNegTime(time1,time2)
-      !------------------------------------------------------------------
+      !
       !  Negative passed time? Means we have passed midnight.
       !  The wallclock time is reset to zero on some
       !  computers at midnight.
-      !------------------------------------------------------------------
+      !
   
       !-- Input variables
       integer, intent(in) :: time1(4),time2(4)
@@ -216,12 +215,12 @@ contains
    end function lNegTime
 !----------------------------------------------------------------------------
    subroutine writeTime(nOut,text,time)
-      !------------------------------------------------------------------
+      !
       !  Returns time passed between timeStop and timeStart.
       !  Note timeStop has to be younger than timeStart, otherwise
       !  24 hours are added. This is necessary on systems like the IBM
       !  where the time counter are reset every day at midnight.
-      !------------------------------------------------------------------
+      !
   
       !-- Input variables:
       integer,          intent(in) :: nOut

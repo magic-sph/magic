@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module updateWP_mod
    
@@ -76,13 +75,11 @@ contains
 
    subroutine updateWP(w,dw,ddw,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
         &              w1,coex,dt,nLMB,lRmsNext)
-      !-----------------------------------------------------------------------
-
+      !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
       !  adds explicit part to time derivatives of w and p
-
-      !-------------------------------------------------------------------------
+      !
 
       !-- Input/output of scalar fields:
       real(cp),    intent(in) :: w1       ! weight for time step !
@@ -439,12 +436,10 @@ contains
    end subroutine updateWP
    !------------------------------------------------------------------------------
    subroutine get_wpMat(dt,l,hdif,wpMat,wpPivot,wpMat_fac)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to contruct the time step matrix   | 
-      !  |  wpmat  for the NS equation.                                      |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to contruct the time step matrix  
+      !  wpmat  for the NS equation.                                    
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: dt

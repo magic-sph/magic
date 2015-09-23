@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module updateB_mod
 
@@ -81,12 +80,12 @@ contains
        &             dbdt_icLast,djdt_icLast, &
        &             b_nl_cmb,aj_nl_cmb,aj_nl_icb,omega_ic, &
        &             w1,coex,dt,time,nLMB,lRmsNext)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Calculated update of magnetic field potential and the time       |
-      !  |  stepping arrays dbdtLast, ...                                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !                                                                   
+      !  Calculated update of magnetic field potential and the time       
+      !  stepping arrays dbdtLast, ...                                    
+      !                                                                   
+      !
       !  updates the magnetic field potentials b, aj and
       !  their derivatives,
       !  adds explicit part to time derivatives of b and j
@@ -105,8 +104,7 @@ contains
       !          aj_nl_icb = RHS of nonlinear BC for radial derivative of
       !                      toroidal magnetic field
       !                      potential in the case of stress free ICB
-
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input variables:
       complex(cp), intent(in) :: b_nl_cmb(:)  ! nonlinear BC for b at CMB
@@ -797,12 +795,10 @@ contains
 #else
    subroutine get_bMat(dt,l,hdif,bMat,bPivot,jMat,jPivot)
 #endif
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to contruct the time step matrices |
-      !  |  bmat(i,j) and ajmat for the dynamo equations.                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to contruct the time step matrices 
+      !  bmat(i,j) and ajmat for the dynamo equations.                    
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: dt

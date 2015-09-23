@@ -1,4 +1,3 @@
-!$Id$
 module nl_special_calc
  
    use precision_mod
@@ -23,7 +22,7 @@ contains
 
    subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,&
               &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
-      !-----------------------------------------------------------------------
+      !
       !   Calculates axisymmetric contributions of the horizontal velocity
       !       uh = sqrt(utheta^2+uphi^2)
       !   its radial derivative
@@ -33,7 +32,7 @@ contains
       !
       !   This subroutine is used when one wants to evaluate viscous and thermal
       !   dissipation layers
-      !-----------------------------------------------------------------------
+      !
     
       !-- Input of variables
       integer,  intent(in) :: nR
@@ -95,14 +94,12 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_perpPar(vr,vt,vp,EperpLMr,EparLMr,  &
               &           EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
-      !-----------------------------------------------------------------------
       !
       !   Calculates the energies parallel and perpendicular to the rotation axis
       !
       !       Eperp = 0.5*(vs**2+vphi**2) with vs= vr*sin(theta)+vt*cos(theta)
       !       Epar  = 0.5*vz**2           with vz= vr*cos(theta)-vt*sin(theta)
       !
-      !-----------------------------------------------------------------------
     
       !-- Input of variables
       integer,  intent(in) :: nR
@@ -193,12 +190,12 @@ contains
                     &  dvrdt,dvrdp,sr,pr,br,bt,bp,cbt,cbp,&
                     &  fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
                     &  fresLMR,nR,nThetaStart)
-      !-----------------------------------------------------------------------
+      !
       !   Calculates the fluxes
       !       Fconv= rho * temp* (u_r s)
       !       Fkin = 1/2 * rho * u_r (u_r^2+u_theta^2+u_phi^2)
       !       Fvisc= -(u *\tensor(S) )_r
-      !-----------------------------------------------------------------------
+      !
     
       !-- Input of variables
       integer,  intent(in) :: nR
@@ -307,10 +304,10 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_helicity(vr,vt,vp,cvr,dvrdt,dvrdp,dvtdr,dvpdr,HelLMr, &
               &        Hel2LMr,HelnaLMr,Helna2LMr,nR,nThetaStart)
-      !-----------------------------------------------------------------------
+      !
       !   Calculates axisymmetric contributions of helicity HelLMr and
       !   helicity**2  Hel2LMr in (l,m=0,r) space.
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input of variables
       integer,  intent(in) :: nR

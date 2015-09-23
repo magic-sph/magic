@@ -1,4 +1,3 @@
-!$Id$
 module general_arrays_mod
  
    implicit none
@@ -154,20 +153,18 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
    subroutine get_nl(this,nR,nBc,nThetaStart)
-      !-----------------------------------------------------------------------
-
+      !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
-
+      !
       !  if nBc >0 velocities are zero only the (vxB)
       !  contributions to bnlr2-3 need to be calculated
-
+      !
       !  vr...sr: (input) velocity, magnetic field comp. and derivs, entropy
       !                   on grid points
       !  nR: (input) radial level
       !  i1: (input) range of points in theta for which calculation is done
-
-      !-----------------------------------------------------------------------
+      !
 
       class(grid_space_arrays_t) :: this
 

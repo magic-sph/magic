@@ -1,4 +1,3 @@
-!$Id$
 module magnetic_energy
 
    use parallel_mod
@@ -50,17 +49,11 @@ contains
         &               e_p_ic,e_t_ic,e_p_as_ic,e_t_as_ic,        &
         &               e_p_os,e_p_as_os,e_cmb,Dip,DipCMB,        &
         &               elsAnel)
-      !--------------------------------------------------------------------
       !
       !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
       !  integration in r by Chebycheff integrals
       !
-      !  Output:
-      !  enbp: Total poloidal        enbt: Total toroidal
-      !  apome: Axisym. poloidal     atome: Axisym. toroidal
-      !
-      !--------------------------------------------------------------------
 
       !-- Input of variables:
       integer,     intent(in) :: n_e_sets

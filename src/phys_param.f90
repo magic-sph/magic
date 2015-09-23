@@ -1,8 +1,7 @@
-!$Id$
 module physical_parameters
-   !------------------------------------------------
+   !
    !  Module containing the physical parameters
-   !------------------------------------------------
+   !
 
    use precision_mod
 
@@ -23,7 +22,8 @@ module physical_parameters
    real(cp) :: radratio
    real(cp) :: ra,ek,pr,prmag,epsc0,epsc
    real(cp) :: strat,polind,ViscHeatFac,OhmLossFac
-   real(cp) :: DissNb,epsS ! Dissipation number, deviation from the adiabat
+   real(cp) :: DissNb  ! Dissipation number
+   real(cp) :: epsS    ! deviation from the adiabat
    real(cp) :: cmbHflux
    real(cp) :: slopeStrat ! stratified Layer
    character(len=72) :: interior_model ! name of the interior model

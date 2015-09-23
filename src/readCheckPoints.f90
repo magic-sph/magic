@@ -1,4 +1,3 @@
-!$Id$
 module readCheckPoints
 
    use precision_mod
@@ -43,11 +42,9 @@ contains
       &                   aj_ic,djdt_ic,omega_ic,omega_ma, &
       &               lorentz_torque_ic,lorentz_torque_ma, &
       &                    time,dt_old,dt_new,n_time_step)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |   read initial condition from restart file                        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !   read initial condition from restart file 
+      !
 
       !-- Output:
       real(cp),    intent(out) :: time,dt_old,dt_new
@@ -1166,7 +1163,7 @@ contains
    end subroutine mapDataMag
 !------------------------------------------------------------------------------
    subroutine mapDataR(dataR,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
-      !---------------------------------------------------------------------------
+      !
       !
       !  Copy (interpolate) data (read from disc file) from old grid structure 
       !  to new grid. Linear interploation is used in r if the radial grid
@@ -1174,7 +1171,7 @@ contains
       !
       !  called in mapdata
       !
-      !---------------------------------------------------------------------------
+      !
 
       !--- Input variables
       integer,         intent(in) :: n_r_max_old

@@ -1,4 +1,3 @@
-!$Id$
 module kinetic_energy
 
    use parallel_mod
@@ -41,7 +40,6 @@ contains
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
        &               w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
 
-      !--------------------------------------------------------------------
       !
       !  calculates kinetic energy  = 1/2 Integral (v^2 dV)
       !  integration in theta,phi by summation of spherical harmonics
@@ -51,7 +49,6 @@ contains
       !  e_p: Total poloidal     e_p_as: Total toroidal
       !  e_t: Axisym. poloidal   e_t_as: Axisym. toroidal
       !
-      !--------------------------------------------------------------------
 
       !-- Input variables:
       integer,     intent(in) :: n_e_sets
@@ -281,15 +278,13 @@ contains
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
    subroutine get_u_square(time,w,dw,z,RolR,dlR,dlRc)
-      !--------------------------------------------------------------------
-
+      !
       !  calculates square velocity  = 1/2 Integral (v^2 dV)
       !  integration in theta,phi by summation of spherical harmonics
       !  integration in r by using Chebychef integrals
-
+      !
       !  Write the different contributions in u_square.TAG file
-
-      !--------------------------------------------------------------------
+      !
 
       !-- Input of scalar fields:
       real(cp),    intent(in) :: time

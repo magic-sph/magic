@@ -1,4 +1,3 @@
-!$Id$
 module out_movie_IC
 
    use precision_mod
@@ -35,11 +34,9 @@ module out_movie_IC
 contains
 
    subroutine store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Controls storage of IC magnetic field in movie frame.            |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Controls storage of IC magnetic field in movie frame.
+      !
 
       !-- Input of scalar fields:
       complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)

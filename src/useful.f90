@@ -1,8 +1,7 @@
-!$Id$
 module useful
-   !------------------------------------------------------------------------
-   !  library with several useful shit
-   !------------------------------------------------------------------------
+   !
+   !  library with several useful subroutines
+   !
 
    use precision_mod
    use parallel_mod, only: rank
@@ -19,29 +18,29 @@ module useful
 
 contains
 
-   logical function l_correct_step(n,t,t_last,n_max,n_step,n_intervalls, &
+   logical function l_correct_step(n,t,t_last,n_max,n_step,n_intervals, &
                                    n_ts,times,n_eo)
-      !------------------------------------------------------------------------
+      !
       ! Suppose we have a (loop) maximum of n_max steps!
-      ! If n_intervalls times in these steps a certain action should be carried out
-      ! this can be invoked by l_correct_step=true if on input n_intervalls>0
+      ! If n_intervals times in these steps a certain action should be carried out
+      ! this can be invoked by l_correct_step=true if on input n_intervals>0
       ! and n_step=0.
       ! Alternatively the action can be invoked every n_step steps if
-      ! on input n_intervalls=0 and n_step>0.
+      ! on input n_intervals=0 and n_step>0.
       ! In both cases l_correct_step=true for n=n_max.
-
+      !
       ! The argument controlls whether in addition n should be
       !       even: n_eo=2
       !    or  odd: n_eo=1
-      !------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n            ! current step
       real(cp), intent(in) :: t            ! time at current step
       real(cp), intent(in) :: t_last       ! last time at current step
       integer,  intent(in) :: n_max        ! max number of steps
-      integer,  intent(in) :: n_step       ! action intervall
-      integer,  intent(in) :: n_intervalls ! number of actions
+      integer,  intent(in) :: n_step       ! action interval
+      integer,  intent(in) :: n_intervals ! number of actions
       integer,  intent(in) :: n_ts         ! number of times t
       real(cp), intent(in) :: times(*)     ! times where l_correct_step == true
       integer,  intent(in) :: n_eo         ! even/odd controller
@@ -53,22 +52,22 @@ contains
       integer :: n_steps      ! local step width
   
   
-      if ( n_step /= 0 .and. n_intervalls /= 0 ) then
+      if ( n_step /= 0 .and. n_intervals /= 0 ) then
          write(*,*) '! ERROR MESSAGE FROM FUNCTION L_CORRECT_STEP:'
-         write(*,*) '! EITHER N_STEP OR N_INTERVALL HAVE TO BE ZERO!'
+         write(*,*) '! EITHER N_STEP OR N_INTERVAL HAVE TO BE ZERO!'
          stop
       end if
   
       l_correct_step=.false.
   
-      if ( n_intervalls /= 0 ) then
-         n_steps=n_max/n_intervalls
+      if ( n_intervals /= 0 ) then
+         n_steps=n_max/n_intervals
          if ( ( n_eo == 2 .and. mod(n_step,2) /= 0 ) .or. &
               ( n_eo == 1 .and. mod(n_step,2) /= 1 ) ) then
             n_steps=n_steps+1
          end if
   
-         n_offset=n_max-n_steps*n_intervalls
+         n_offset=n_max-n_steps*n_intervals
   
          if ( n > n_offset .and. mod(n-n_offset,n_steps) == 0 ) l_correct_step= .true. 
       else if ( n_step /= 0 ) then
@@ -93,7 +92,7 @@ contains
    end function l_correct_step
 !----------------------------------------------------------------------------
    real(cp) function random(r)
-      !----------------------------------------------------------------------
+      !
       !     random number generator
       !
       !     if ( r == 0 ) then
@@ -106,7 +105,7 @@ contains
       !                  note: r must be a non-integer to get a different seq
       !
       !     called in sinit
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: r
@@ -141,10 +140,10 @@ contains
    end function random
 !----------------------------------------------------------------------------
    subroutine factorise(n,n_facs,fac,n_factors,factor)
-      !  +-------------+----------------+------------------------------------+
-      !  |  Purpose of this subroutine is factorize n into a number of       |
-      !  |  given factors fac(i).                                            |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is factorize n into a number of      
+      !  given factors fac(i).                                           
+      !
       
 
       !-- Input variables:

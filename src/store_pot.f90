@@ -1,4 +1,3 @@
-!$Id$
 module store_pot_mod
 
    use precision_mod

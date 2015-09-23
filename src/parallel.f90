@@ -1,24 +1,22 @@
-!$Id$
 module parallel_mod
-   !----------------------------------------------------
-   !  Module containing blocking information
-   !----------------------------------------------------
+   !
+   !  This module contains the blocking information
+   !
 
 #ifdef WITH_MPI
-  use MPI
+   use MPI
 #endif
-  use omp_lib
+   use omp_lib
 
-  implicit none
+   implicit none
 
-  integer :: nThreads
-
-  integer :: rank,n_procs
-  integer :: nr_per_rank,nr_on_last_rank
-  integer :: nLMBs_per_rank
-  integer :: rank_with_l1m0
-  integer :: chunksize
-  integer :: ierr
+   integer :: nThreads
+   integer :: rank,n_procs
+   integer :: nr_per_rank,nr_on_last_rank
+   integer :: nLMBs_per_rank
+   integer :: rank_with_l1m0
+   integer :: chunksize
+   integer :: ierr
 
 contains
 

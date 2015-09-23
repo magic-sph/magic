@@ -1,4 +1,3 @@
-!$Id$
 module Namelists
 
    use precision_mod
@@ -27,13 +26,12 @@ module Namelists
 contains
 
    subroutine readNamelists
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to read the input namelists.       |
-      !  |  This program also determins logical parameters that are stored   |
-      !  |  in logic.f90.                                                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !                                                                   
+      !  Purpose of this subroutine is to read the input namelists.       
+      !  This program also determins logical parameters that are stored   
+      !  in logic.f90.                                                    
+      !
 
       !-- Local stuff
       integer :: n
@@ -562,13 +560,11 @@ contains
    end subroutine readNamelists
 !------------------------------------------------------------------------------
    subroutine writeNamelists(n_out)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to write the namelist to           |
-      !  |  file unit n_out. This file has to be open before calling this    |
-      !  |  routine.                                                         |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to write the namelist to           
+      !  file unit n_out. This file has to be open before calling this    
+      !  routine.                                                         
+      !
 
       !-- Input variable:
       integer, intent(in) :: n_out
@@ -849,12 +845,10 @@ contains
    end subroutine writeNamelists
 !------------------------------------------------------------------------------
    subroutine defaultNamelists
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to set default parameters          |
-      !  |  for the namelists.                                               |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to set default parameters          
+      !  for the namelists.                                               
+      !
 
       !-- Local variable:
       integer :: n

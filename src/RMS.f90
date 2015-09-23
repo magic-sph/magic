@@ -1,4 +1,3 @@
-!$Id$
 module RMS
 
   use const, only: zero
@@ -132,10 +131,10 @@ contains
    end subroutine initialize_RMS
 !----------------------------------------------------------------------------
    subroutine zeroRms
-      !--------------------------------------------------------------------
-      !  Zeros integrals that are set in s_get_td, s_update_z,
-      !  s_update_wp, s_update_b, s_dtVrms and s_dtBrms
-      !--------------------------------------------------------------------
+      !
+      !  Zeros integrals that are set in get_td, update_z,
+      !  update_wp, update_b, dtVrms and dtBrms
+      !
 
       !-- Local variables
       integer :: n,nR,lm

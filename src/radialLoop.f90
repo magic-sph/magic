@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module radialLoop
 
@@ -85,11 +84,9 @@ contains
        &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
        &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,             &
        &                 EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine performs the actual time-stepping.               |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  This subroutine performs the actual time-stepping.
+      !
 
       !--- Input of variables:
       logical,      intent(in) :: l_graph,l_cour,l_frame

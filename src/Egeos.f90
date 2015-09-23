@@ -1,4 +1,3 @@
-!$Id$
 module Egeos_mod
  
    use precision_mod
@@ -66,7 +65,7 @@ contains
    subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,         &
         &              Egeos,EkNTC,EkSTC,Ekin,               &
         &              dpFlow,dzFlow,CVzOTC,CVorOTC,CHelOTC)
-      !-----------------------------------------------------------------------
+      !
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
       !   The slowest part in the TO process is the repitions calculation
@@ -74,8 +73,7 @@ contains
       !   when I transform on the cylindrical grid. 
       !   The necessary plms could simply be calculated one and then 
       !   be stored for later use! See s_outTOnew.f.
-      !-----------------------------------------------------------------------
-
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: time
@@ -94,11 +92,11 @@ contains
       !-- Local variables:
       logical :: lDeriv
       integer :: nSmax,nS,nS_ICB
-      real(cp) :: ofr ! inverse Froude number (anelastic)
-      real(cp) :: zNorm  ! Norm z intervall
-      integer :: nNorm  ! No. of grid points for norm intervall
+      real(cp) :: ofr            ! inverse Froude number (anelastic)
+      real(cp) :: zNorm          ! Norm z interval
+      integer :: nNorm           ! No. of grid points for norm interval
       real(cp) :: zMin,zMax,help ! integration boundarie, help variable
-      logical :: lAS    ! .true. if axisymmetric (m=0) functions
+      logical :: lAS             ! .true. if axisymmetric (m=0) functions
       real(cp) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
       integer :: nPhi,nI
       real(cp) :: phiNorm
@@ -593,7 +591,7 @@ contains
    subroutine getDVptr(wS,dwS,ddwS,zS,dzS,rMin,rMax,rS,       &
         &              nZmax,nZmaxA,PlmS,dPlmS,OsinTS,lDeriv, &
         &              VrS,VtS,VpS,VorS,dpEk)
-      !---------------------------------------------------------------------------------
+      !
       !  This subroutine calculates the three flow components VrS,VtS,VpS at
       !  a (r,theta,all phis) and (t,pi=theta, all phis). Here r=rS, PlmS=Plm(theta),
       !  dPlmS=sin(theta)*dTheta Plm(theta), and OsinTS=1/sin(theta).
@@ -604,8 +602,9 @@ contains
       !  and (d Vr/d z)**2 + (d Vtheta/ d z)**2 + (d Vphi/ d z)**2, respectively.
       !  These two quantities are used to calculate z and phi scale of the flow in
       !  s_getEgeos.f
-      !  NOTE: on input wS=w/r^2, dwS=dw/r, ddwS=ddw/r, zS=z/r
-      !---------------------------------------------------------------------------------
+      !  
+      !  .. note:: on input wS=w/r^2, dwS=dw/r, ddwS=ddw/r, zS=z/r
+      !
 
       !--- Input variables:
       complex(cp), intent(in) :: wS(lm_max,n_r_max)
@@ -657,7 +656,7 @@ contains
          nS=nZmax-nN+1   ! Southern counterpart !
     
          !------ Calculate Chebs:
-         !------ Map r to cheb intervall [-1,1]:
+         !------ Map r to cheb interval [-1,1]:
          !       and calculate the cheb polynomia:
          !       Note: the factor cheb_norm is needed
          !       for renormalisation. Its not needed if one used

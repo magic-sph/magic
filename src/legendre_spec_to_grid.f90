@@ -29,7 +29,7 @@ contains
      &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
      &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
      &               drSc,dsdtc,dsdpc,pc,leg_helper)
-      !-------------------------------------------------------------------------
+      !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
       !    where nTheta numbers the colatitudes and l is the degree of
       !    the spherical harmonic representation.
@@ -41,25 +41,24 @@ contains
       !    added to (subracted from ) the equatorially symmetric (ES) contribution
       !    in northern (southern) hemisphere.
       !
-      !     nBc            : (input) accounts for special conditions on radial boundaries
-      !        nBc=2       : we are dealing with a no slip boundary, v_r and v_theta are
-      !                      zero and v_phi=r sin(theta) 
-      !                      omega, where omega is the rotation rate of the 
-      !                      boundary (mantle of IC), only magn. field terms 
-      !                      are calculated, v is set later.
-      !        nBc=1       : a free slip bounday: v_r is zero, derivatives of v and B 
+      !      * nBc            : (input) accounts for special conditions on radial boundaries
+      !         -nBc=2       : we are dealing with a no slip boundary, v_r and v_theta are
+      !          zero and v_phi=r sin(theta) omega, where omega is the rotation rate of the 
+      !          boundary (mantle of IC), only magn. field terms are calculated, v is 
+      !          set later.
+      !         -nBc=1       : a free slip bounday: v_r is zero, derivatives of v and B 
       !                      are not needed, only components of v,B and entropy 
       !                      are calculated
-      !        nBc=0       : normal case, interior grid point
-      !     lDeric=.true.  : (input) calculate derivatives
-      !     nThetaStart    : (input) transformation is done for the range of
-      !                      points nThetaStart <= nTheta <= nThetaStart-1+sizeThetaB
-      !     Plm            : associated Legendre polynomials
-      !     dPlm           : sin(theta) d Plm / d theta
-      !     osn2           : 1/sin(theta)^2
-      !     vrc, ...., drSc: (output) components in (nTheta,m)-space
-      !     dLhw,....,cbhC : (input) help arrays calculated in s_legPrep.f
-      !------------------------------------------------------------------------
+      !         -nBc=0       : normal case, interior grid point
+      !      * lDeriv=.true.  : (input) calculate derivatives
+      !      * nThetaStart    : (input) transformation is done for the range of
+      !        points nThetaStart <= nTheta <= nThetaStart-1+sizeThetaB
+      !      * Plm            : associated Legendre polynomials
+      !      * dPlm           : sin(theta) d Plm / d theta
+      !      * osn2           : 1/sin(theta)^2
+      !      * vrc, ...., drSc: (output) components in (nTheta,m)-space
+      !      * dLhw,....,cbhC : (input) help arrays calculated in s_legPrep.f
+      !
       
       !-- Input variables:
       integer, intent(in) :: nBc
@@ -682,6 +681,9 @@ contains
        &                 dvpdrc,cvrc,dvrdtc,dvrdpc,dvtdpc,      & 
        &                 dvpdpc,sc,drSc,dsdtc,dsdpc,pc,         &
        &                 leg_helper)
+      !
+      ! Same as legTFG for non-magnetic cases
+      !
 
       !-- Input:
       integer, intent(in) :: nBc
@@ -1122,12 +1124,11 @@ contains
    subroutine legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC,l_max,minc, &
               &     nThetaStart,sizeThetaB,Plm,dPlm,lHor,   &
               &     lDeriv,vrc,vtc,vpc,cvrc,cvtc,cvpc)
-      !----------------------------------------------------------------------------
-    
+      !
       !    'Legendre transform' from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
       !    where nTheta numbers the colatitudes and l and m are degree and
       !    order of the spherical harmonic representation.
-    
+      !
       !    Calculates all three spherical components vrc,vtc,vpc of a field as
       !    well as its curl (cvrc,cvtc,cvpc) that is given a spherical harmonis poloidal
       !    toroidal decomposition. s_legPrep.f has to be called first and
@@ -1136,27 +1137,27 @@ contains
       !    are used. The equatorially anti-symmetric (EA) contribution is
       !    added to (subracted from ) the equatorially symmetric (ES) contribution
       !    in northern (southern) hemisphere.
-    
+      !
       !    Output is given for all sizeThetaB colatitudes in a colatitude block
       !    that starts with colatitude nThetaStart. At output, each component
       !    in the northern hemisphere is followed by the component in the
       !    southern hemisphere.
       !    The Plms and dPlms=sin(theta) d Plm / d theta are only given
       !    for the colatitudes in the northern hemisphere.
+      !
+      !      * dLhw,....,cvhC : (input) arrays provided by s_legPrep.f
+      !      * l_max          : (input) maximum spherical harmonic degree
+      !      * minc           : (input) azimuthal symmetry
+      !      * nThetaStart    : (input) transformation is done for the range of
+      !        points nThetaStart <= nTheta <= nThetaStart-1+sizeThetaB
+      !      * sizeThetaB     : (input) size theta block
+      !      * Plm            : (input) associated Legendre polynomials
+      !      * dPlm           : (input) sin(theta) d Plm / d theta
+      !      * lHor=.true.    : (input) calculate horizontal componenst
+      !      * lDeriv=.true.  : (input) calculate curl of field
+      !      * vrc, ....,cvpc : (output) components in (nTheta,m)-space
+      !
     
-      !     dLhw,....,cvhC : (input) arrays provided by s_legPrep.f
-      !     l_max          : (input) maximum spherical harmonic degree
-      !     minc           : (input) azimuthal symmetry
-      !     nThetaStart    : (input) transformation is done for the range of
-      !                      points nThetaStart <= nTheta <= nThetaStart-1+sizeThetaB
-      !     sizeThetaB     : (input) size theta block
-      !     Plm            : (input) associated Legendre polynomials
-      !     dPlm           : (input) sin(theta) d Plm / d theta
-      !     lHor=.true.    : (input) calculate horizontal componenst
-      !     lDeric=.true.  : (input) calculate curl of field
-      !     vrc, ....,cvpc : (output) components in (nTheta,m)-space
-    
-      !---------------------------------------------------------------------------
     
       !-- Input:
       !----- Stuff precomputed in legPrep:
@@ -1368,14 +1369,12 @@ contains
    end subroutine legTF
 !------------------------------------------------------------------------------
    subroutine lmAS2pt(alm,aij,nThetaStart,nThetaBlockSize)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  | Spherical harmonic transform from alm(l) to aij(theta)            |
-      !  | Done within the range [nThetaStart,n_thetaStart+nThetaBlockSize-1]|
-      !  | only considering axisymmetric contributions.                      |
-      !  | alm contains only m=0 coefficients                                |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! Spherical harmonic transform from alm(l) to aij(theta)            
+      ! Done within the range [nThetaStart,n_thetaStart+nThetaBlockSize-1]
+      ! only considering axisymmetric contributions.                      
+      ! alm contains only m=0 coefficients                                
+      !
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart     ! first theta to be treated
@@ -1432,7 +1431,7 @@ contains
       integer,     intent(in) :: nThetaN,nThetaS
       complex(cp), intent(in) :: infield(lm_max,nFields)
       real(cp),    intent(in) :: Plm_slice(lm_max)
-      real(cp),    intent(inout) :: outfield(nrp,nfs,nFields
+      real(cp),    intent(inout) :: outfield(nrp,nfs,nFields)
 
       ! Local variables:
       integer :: mc,lmS,lm,nf

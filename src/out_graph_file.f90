@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 #define ONE_LARGE_BLOCK
 
@@ -44,22 +43,20 @@ contains
 
    subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,            &
      &              n_theta_start,n_theta_block_size,lGraphHeader)
-      !-------------------------------------------------------------------------
-    
+      !
       !  called in amhd
-    
+      !
       !  output of components of velocity, magnetic field vector and
       !  entropy for graphics. Version May, 23, 2000.
-    
+      !
       !  n_r: (input) for n_r = 0 a header is written
       !               for n_r > 0 values at radial level n_r are written
-    
+      !
       !  vr...sr: (input) arrays with grid-point values
-    
+      !
       !  n_theta_start : (input) values are written for theta-points :
       !                  n_theta_start <= n_theta <= n_theta_start-1+n_theta_block
-    
-      !-------------------------------------------------------------------------
+      !
     
       !-- Input variables
       real(cp), intent(in) :: time
@@ -73,10 +70,10 @@ contains
       logical,  intent(inout) :: lGraphHeader
     
       !-- Local variables:
-      integer :: n_theta_stop           ! end theta no.
-      integer :: n_phi   ! counter for longitude
-      integer :: n_theta ! counter for colatitude
-      integer :: n_theta_cal                  ! position of block colat in all colats
+      integer :: n_theta_stop  ! end theta no.
+      integer :: n_phi         ! counter for longitude
+      integer :: n_theta       ! counter for colatitude
+      integer :: n_theta_cal   ! position of block colat in all colats
     
       real(cp) :: fac,fac_r
       real(outp) :: dummy(n_phi_max,nfs)
@@ -649,16 +646,14 @@ contains
 #endif
 !----------------------------------------------------------------------------
    subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to write inner core magnetic       |
-      !  |  field onto graphic output file. If the inner core is             |
-      !  |  insulating (l_cond_ic=false) the potential field is calculated   |
-      !  |  from the outer core field at r=r_cmb.                            |
-      !  |  This version assumes that the fields are fully local on the rank |
-      !  |  which is calling this routine (usually rank 0).                  |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to write inner core magnetic       
+      !  field onto graphic output file. If the inner core is             
+      !  insulating (l_cond_ic=false) the potential field is calculated   
+      !  from the outer core field at r=r_cmb.                            
+      !  This version assumes that the fields are fully local on the rank 
+      !  which is calling this routine (usually rank 0).                  
+      !
 
       !-- Input variables:
       complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
@@ -791,10 +786,10 @@ contains
    end subroutine graphOut_IC
 !-----------------------------------------------------------------------
    subroutine graph_write(n_phis,n_thetas,dummy,n_graph_file)
-      !------------------------------------------------------------------------------
+      !
       !  This subroutine writes the data for one theta-band
       !  (stored in 'dummy'). Version May, 5, 2000.
-      !------------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,    intent(in) :: n_thetas            ! number of first colatitude value

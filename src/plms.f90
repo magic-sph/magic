@@ -1,4 +1,3 @@
-!$Id$
 module plms_theta
 
    use precision_mod
@@ -14,7 +13,7 @@ contains
 
    subroutine plm_theta(theta,max_degree,max_order,m0, &
                          plma,dtheta_plma,ndim_plma,norm)
-      !------------------------------------------------------------------------
+      !
       !  The produces the plm for all degrees and orders for a given theta
       !  plus dtheta_plma=sin(theta)* (d plm)/(d theta)
       !  ndim_plma is the dimension of plma and dtheta_plma in the calling routine.
@@ -31,7 +30,7 @@ contains
       !  Norm determins the normalisation: n=0 -- surface normalised,
       !                                    n=1 -- Schmidt normalised,
       !                                    n=2 -- fully normalised.
-      !------------------------------------------------------------------------
+      !
         
       !-- input variables:
       real(cp), intent(in) :: theta ! angle in degrees
@@ -216,14 +215,14 @@ contains
    end subroutine plm_theta
 !------------------------------------------------------------------------
    subroutine plm_thetaAS(theta,max_degree,plma,dtheta_plma,ndim_plma,norm)
-      !------------------------------------------------------------------------
+      !
       !  The produces the plm for all degrees and order=0 for a given theta
       !  plus dtheta_plma=sin(theta)* (d plm)/(d theta)
       !
       !  Norm determins the normalisation: n=0 -- surface normalised,
       !                                    n=1 -- Schmidt normalised,
       !                                    n=2 -- fully normalised.
-      !------------------------------------------------------------------------
+      !
        
       !-- Input variables:
       real(cp), intent(in) :: theta ! angle in degrees

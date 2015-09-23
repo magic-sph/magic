@@ -1,9 +1,8 @@
-!$Id$
 module fields
-   !-----------------------------------------------------------------
-   !  Common blocks containing the potential fields and their radial
+   !
+   !  This module contains the potential fields and their radial
    !  derivatives
-   !-----------------------------------------------------------------
+   !
    use precision_mod
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
                          n_r_ic_maxMag

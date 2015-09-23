@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module updateZ_mod
 
@@ -80,13 +79,13 @@ contains
      &             lorentz_torque_ma,lorentz_torque_maLast, &
      &             lorentz_torque_ic,lorentz_torque_icLast, &
      &             w1,coex,dt,lRmsNext)
-      !--------------------------------------------------------------------
+      !
       !  Input:  w1 - weight for dbdt-contribution from current time step
       !               (w2=1-w1: weight for contrib. from previous step)
       !          coex - factor depending on weighting alpha of implicit contribution
       !          m1,m2- range of mca-indices in which field is updated
       !                 (harmonic order m=(mca-1)*minc)
-      !--------------------------------------------------------------------
+      !
     
       !-- Input/output of scalar fields:
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
@@ -645,16 +644,14 @@ contains
 #else
    subroutine get_z10Mat(dt,l,hdif,zMat,zPivot)
 #endif
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to construct and LU-decompose the  |
-      !  |  inversion matrix z10mat for the implicit time step of the       |
-      !  |  toroidal velocity potential z of degree l=1 and order m=0.       |
-      !  |  This differs from the the normal zmat only if either the ICB or  |
-      !  |  CMB have no-slip boundary condition and inner core or mantle are |
-      !  |  chosen to rotate freely (either kbotv=1 and/or ktopv=1).         |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to construct and LU-decompose the  
+      !  inversion matrix z10mat for the implicit time step of the       
+      !  toroidal velocity potential z of degree l=1 and order m=0.       
+      !  This differs from the the normal zmat only if either the ICB or  
+      !  CMB have no-slip boundary condition and inner core or mantle are 
+      !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).         
+      !
       
       real(cp), intent(in) :: dt
       real(cp), intent(in) :: hdif
@@ -772,12 +769,10 @@ contains
 #else
    subroutine get_zMat(dt,l,hdif,zMat,zPivot)
 #endif
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to contruct the time step matricies|
-      !  |  zmat(i,j) for the NS equation.                                   |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to contruct the time step matricies
+      !  zmat(i,j) for the NS equation.                                   
+      !
     
       !-- Input variables:
       real(cp), intent(in) :: dt

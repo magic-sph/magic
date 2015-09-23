@@ -1,4 +1,3 @@
-!$Id$
 module rIteration_mod
 
    use precision_mod

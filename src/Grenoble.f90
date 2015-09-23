@@ -1,26 +1,25 @@
-!$Id$
 module Grenoble
-!--------------------------------------------------------------------
-!  Contains all variables for the case of an imposed IC dipole
-!--------------------------------------------------------------------
+   !
+   ! This module contains all variables for the case of an imposed IC dipole
+   !
 
-  use truncation, only: n_r_maxMag
-  use precision_mod
+   use truncation, only: n_r_maxMag
+   use precision_mod
 
-  implicit none
+   implicit none
 
-  private
+   private
 
-  logical, public :: lGrenoble
-  real(cp), public :: BIC
+   logical, public :: lGrenoble
+   real(cp), public :: BIC
 
-  !-- Magnetic field potentials of imposed inner core field:
-  !   This is calculated only once and is constant in time.
-  real(cp), public, allocatable :: b0(:)
-  real(cp), public, allocatable :: db0(:)
-  real(cp), public, allocatable :: ddb0(:)
+   !-- Magnetic field potentials of imposed inner core field:
+   !   This is calculated only once and is constant in time.
+   real(cp), public, allocatable :: b0(:)
+   real(cp), public, allocatable :: db0(:)
+   real(cp), public, allocatable :: ddb0(:)
 
-  public :: initialize_Grenoble
+   public :: initialize_Grenoble
 
 contains
 

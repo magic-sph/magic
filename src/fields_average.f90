@@ -1,4 +1,3 @@
-!$Id$
 module fields_average_mod
 
    use truncation
@@ -88,11 +87,9 @@ contains
    subroutine fields_average(nAve,l_stop_time,                        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
       &                      w,z,s,b,aj,b_ic,aj_ic)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine averages fields b and v over time.               |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! This subroutine averages fields b and v over time.
+      !
 
       !-- Input of variables:
       integer,     intent(in) :: nAve         ! number for averaged time steps

@@ -1,4 +1,3 @@
-!$Id$
 module radial_der
 
    use const, only: zero, one, three
@@ -27,15 +26,13 @@ contains
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
         &            n_r_max,n_cheb_max,work1,work2,          &
         &            i_costf_init,d_costf_init,drx)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns first radial derivative df of the input function f.      |
-      !  |  Array f(n_f_max,*) may contain several functions numbered by     |
-      !  |  the first index. The subroutine calculates the derivaties of     |
-      !  |  the functions f(n_f_start,*) to f(n_f_stop) by transforming      |
-      !  |  to a Chebychev representation using n_r_max radial grid points . |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns first radial derivative df of the input function f.      
+      !  Array f(n_f_max,*) may contain several functions numbered by     
+      !  the first index. The subroutine calculates the derivaties of     
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
+      !  to a Chebychev representation using n_r_max radial grid points . 
+      !
     
       !-- Input variables:
       integer,     intent(in) :: n_f_max          ! first dim of f
@@ -125,18 +122,16 @@ contains
    subroutine get_drNS(f,df,n_f_max,n_f_start,n_f_stop, &
         &              n_r_max,n_cheb_max,work1,        &
         &              i_costf_init,d_costf_init,drx)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns first radial derivative df of the input function f.      |
-      !  |  Array f(n_f_max,*) may contain several functions numbered by     |
-      !  |  the first index. The subroutine calculates the derivatives of    |
-      !  |  the functions f(n_f_start,*) to f(n_f_stop,*) by transforming    |
-      !  |  to a Chebychev representation using n_r_max radial grid points . |
-      !  |  Note: when using this function the input field f is slightly     |
-      !  |  changed by the back and forth transform. Use s_get_dr.f to       |
-      !  |  avoid this.                                                      |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns first radial derivative df of the input function f.      
+      !  Array f(n_f_max,*) may contain several functions numbered by     
+      !  the first index. The subroutine calculates the derivatives of    
+      !  the functions f(n_f_start,*) to f(n_f_stop,*) by transforming    
+      !  to a Chebychev representation using n_r_max radial grid points . 
+      !  Note: when using this function the input field f is slightly     
+      !  changed by the back and forth transform. Use s_get_dr.f to       
+      !  avoid this.                                                      
+      !
     
       !-- Input variables:
       integer,     intent(in) :: n_f_max          ! first dim of f
@@ -179,16 +174,14 @@ contains
    subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
         &             n_r_max,n_cheb_max,work1,work2,      &
         &             i_costf_init,d_costf_init,drx,ddrx)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns first radial derivative df and second radial             |
-      !  |  derivative ddf of the input function f.                          |
-      !  |  Array f(n_f_max,*) may contain several functions numbered by     |
-      !  |  the first index. The subroutine calculates the derivatives of    |
-      !  |  the functions f(n_f_start,*) to f(n_f_stop) by transforming      |
-      !  |  to a Chebychev representation using n_r_max radial grid points.  |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns first radial derivative df and second radial             
+      !  derivative ddf of the input function f.                          
+      !  Array f(n_f_max,*) may contain several functions numbered by     
+      !  the first index. The subroutine calculates the derivatives of    
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
+      !  to a Chebychev representation using n_r_max radial grid points.  
+      !
     
       !-- Input variables:
       integer,     intent(in) :: n_f_max         ! first dim of f
@@ -242,16 +235,14 @@ contains
    subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
                        n_r_max,n_cheb_max,work1,work2,           &
                        i_costf_init,d_costf_init,drx,ddrx,dddrx)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns first radial derivative df, the second radial deriv. ddf,|
-      !  |  and the third radial derivative dddf of the input function f.    |
-      !  |  Array f(n_f_max,*) may contain several functions numbered by     |
-      !  |  the first index. The subroutine calculates the derivaties of     |
-      !  |  the functions f(n_f_start,*) to f(n_f_stop) by transforming      |
-      !  |  to a Chebychev representation using n_r_max radial grid points.  |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns first radial derivative df, the second radial deriv. ddf,
+      !  and the third radial derivative dddf of the input function f.    
+      !  Array f(n_f_max,*) may contain several functions numbered by     
+      !  the first index. The subroutine calculates the derivaties of     
+      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
+      !  to a Chebychev representation using n_r_max radial grid points.  
+      !
 
       !-- Input variables:
       integer,     intent(in) :: n_f_max         ! first dim of f
@@ -312,13 +303,11 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
                                 n_r_max,n_cheb_max,d_fac)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns chebychev coeffitiens of first derivative df and second  |
-      !  |  derivative ddf for a function whose cheb-coeff. are given as     |
-      !  |  columns in array f(n_f_max,n_r_max).                             |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns chebychev coeffitiens of first derivative df and second  
+      !  derivative ddf for a function whose cheb-coeff. are given as     
+      !  columns in array f(n_f_max,n_r_max).                             
+      !
 
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of function to start with
@@ -392,13 +381,11 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
         &                n_r_max,n_cheb_max,d_fac)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns chebychev coefficents of first derivative df and second  |
-      !  |  derivative ddf for a function whose cheb-coeff. are given as     |
-      !  |  columns in array f(n_c_tot,n_r_max).                             |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns chebychev coefficents of first derivative df and second  
+      !  derivative ddf for a function whose cheb-coeff. are given as     
+      !  columns in array f(n_c_tot,n_r_max).                             
+      !
     
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
@@ -444,13 +431,11 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_dddcheb(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
                           n_r_max,n_cheb_max,d_fac)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Returns chebychev coeffitiens of first derivative df and second  |
-      !  |  derivative ddf for a function whose cheb-coeff. are given as     |
-      !  |  columns in array f(n_c_tot,n_r_max).                             |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Returns chebychev coeffitiens of first derivative df and second  
+      !  derivative ddf for a function whose cheb-coeff. are given as     
+      !  columns in array f(n_c_tot,n_r_max).                             
+      !
          
       !-- Input variables:
       integer,     intent(in) :: n_f_start  ! No of column to start with
@@ -459,7 +444,7 @@ contains
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
       complex(cp), intent(in) :: f(n_f_max,*)
-      real(cp),    intent(in) :: d_fac      ! factor for intervall mapping
+      real(cp),    intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,*)

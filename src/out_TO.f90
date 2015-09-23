@@ -1,4 +1,3 @@
-!$Id$
 module outTO_mod
 
    use parallel_mod, only: rank
@@ -86,7 +85,7 @@ contains
         &           nTOsets,nTOmovSets,nTOrmsSets,      &
         &           lTOmov,lTOrms,lTOZwrite,            &
         &           z,omega_ic,omega_ma)
-      !-----------------------------------------------------------------------
+      !
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
       !   The slowest part in the TO process is the repetitious calculation
@@ -94,7 +93,7 @@ contains
       !   getPAStr when I transform on the cylindrical grid. 
       !   The necessary plms could simply be calculated one and then 
       !   be stored for later use! See s_outTOnew.f.
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input of variables:
       real(cp),         intent(in) :: time

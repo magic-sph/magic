@@ -1,4 +1,3 @@
-!$Id$
 module courant_mod
  
    use parallel_mod
@@ -24,23 +23,22 @@ contains
 
    subroutine courant(n_r,dtrkc,dthkc,vr,vt,vp,br,bt,bp, &
                       n_theta_min,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  courant condition check: calculates Courant                      |
-      !  |  advection lengths in radial direction dtrkc                      |
-      !  |  and in horizontal direction dthkc                                |
-      !  |  on the local radial level n_r                                    |
-      !  |                                                                   |
-      !  |  for the effective velocity, the abs. sum of fluid                |
-      !  |  velocity and Alfven velocity is taken                            |
-      !  |                                                                   |
-      !  |  instead of the full Alfven velocity                              |
-      !  |  a modified Alfven velocity is employed that takes                |
-      !  |  viscous and Joule damping into account. Different                |
-      !  |  Courant factors are used for the fluid velocity and              |
-      !  |  the such modified Alfven velocity                                |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  courant condition check: calculates Courant                      
+      !  advection lengths in radial direction dtrkc                      
+      !  and in horizontal direction dthkc                                
+      !  on the local radial level n_r                                   
+      !                                                                   
+      !  for the effective velocity, the abs. sum of fluid                
+      !  velocity and Alfven velocity is taken                            
+      !                                                                   
+      !  instead of the full Alfven velocity                              
+      !  a modified Alfven velocity is employed that takes                
+      !  viscous and Joule damping into account. Different               
+      !  Courant factors are used for the fluid velocity and              
+      !  the such modified Alfven velocity                                
+      !                                                                   
+      !
     
       !-- Input variable:
       integer,  intent(in) :: n_r           ! radial level
@@ -144,12 +142,11 @@ contains
    end subroutine courant
 !------------------------------------------------------------------------------
    subroutine dt_courant(dt_r,dt_h,l_new_dt,dt,dt_new,dtMax,dtrkc,dthkc)
-      !---------------------------------------------------------------------------
-
-      ! *** Check if Courant criterion based on combined
-      ! *** fluid and Alfven velocity is satisfied
-      ! *** Returns new value of time step dtnew
-
+      !
+      !     Check if Courant criterion based on combined
+      !     fluid and Alfven velocity is satisfied
+      !     Returns new value of time step dtnew
+      !
       !     dtr,dth: (output) radial/horizontal Courant time step
       !     n_time_step: (input) time step number
       !     l_new_dt: (output) flag indicating that time step is changed (=1) or not (=0)
@@ -159,8 +156,7 @@ contains
       !     dtMax: (input) upper limit for time step
       !     dtrkc: (input) radial Courant time step as function of radial level
       !     dthkc: (input) horizontal Courant time step as function of radial level
-
-      !---------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: dt

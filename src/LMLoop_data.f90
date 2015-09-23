@@ -1,4 +1,3 @@
-!$Id$
 module LMLoop_data
 
    use parallel_mod, only: rank, nLMBs_per_rank, n_procs

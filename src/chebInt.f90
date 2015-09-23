@@ -1,4 +1,3 @@
-!$Id$
 module chebInt_mod
 
    use precision_mod
@@ -22,20 +21,16 @@ contains
       !-- Input variables:
       real(cp), intent(in) ::  zMin,zMax  ! integration interval !
       real(cp), intent(in) ::  zNorm      ! norm interval length
-      integer,  intent(in) :: nNorm       ! suggested number of grid points
-                                              ! for norm length
-                                              ! will be adjusted to nGridPoints
+      integer,  intent(in) :: nNorm ! suggested number of grid points for norm length
+                                    ! will be adjusted to nGridPoints
       integer :: nGridPointsMax ! dimension of z on input
 
       !-- Output variables:
-      ! grid points, dimension at >= nGridPointsMax
-      real(cp), intent(out) ::  z(nGridPointsMax) 
-      !  number of used grid points
-      integer,  intent(out) :: nGridPoints
-      ! array needed for cheb transforms, dimension >= 2*nGridPointsMax+2
-      integer,  intent(out) :: i_costf_init(2*nGridPointsMax+2) 
-      ! array needed for cheb transforms, dimension >= 2*nGridPointsMax
-      real(cp), intent(out) ::  d_costf_init(2*nGridPointsMax+5)
+      real(cp), intent(out) ::  z(nGridPointsMax)! grid points, dimension at >= nGridPointsMax
+      integer,  intent(out) :: nGridPoints ! number of used grid points
+      integer,  intent(out) :: i_costf_init(2*nGridPointsMax+2)! array needed for cheb transforms, dimension >= 2*nGridPointsMax+2
+      real(cp), intent(out) ::  d_costf_init(2*nGridPointsMax+5)! array needed for cheb transforms, dimension >= 2*nGridPointsMax
+
 
       !-- Local variables:
       integer, parameter :: nChebMax=722
@@ -220,7 +215,7 @@ contains
       do nCheb=1,nGridPoints,2  ! only even chebs contribute
          chebIntD=chebIntD - (zMax-zMin)/real(nCheb*(nCheb-2),cp)*f(nCheb)
       end do
-      !-- Normalize with intervall:
+      !-- Normalize with interval:
       chebIntD=chebNorm*chebIntD/(zMax-zMin)
 
       !-- Get derivatives:

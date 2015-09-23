@@ -1,4 +1,3 @@
-!$Id$
 module movie_data
 
    use parallel_mod
@@ -111,267 +110,265 @@ contains
    end subroutine finalize_movie_data
 !----------------------------------------------------------------------------
    subroutine get_movie_type
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to identify the different movie    |
-      !  |  types from the input string movies(*).                           |
-      !  |  Note that generally blanks are not interpreted and that the      |
-      !  |  interpretation is not case sensitive.                            |
-      !  |  In general two informations are needed:                          |
-      !  |    1) A word FIELDINFO that identifies the field to be plotted    |
-      !  |         (e.g. Br for radial magnetic field, see list below)       |
-      !  |      Possible keywords are [optional text in brackets             |
-      !  |           B r[adial]     : radial magnetic field                  |
-      !  |           B t[heta]      : theta component                        |
-      !  |           B p[hi]        : azimuthal component                    |
-      !  |           B h[orizontal] : the two horizontal components          |
-      !  |           B a[ll]        : all three components                   |
-      !  |           FIELDLINE[S]   : field lines of axisymmetric            |
-      !  |           or FL            poloidal field for phi=constant        |
-      !  |           AX[ISYMMETRIC] B                                        |
-      !  |           or AB          : axisymmetric phi component of the      |
-      !  |                            magnetic field for phi=constant        |
-      !  |           V r[adial]     : radial velocity field                  |
-      !  |           V t[heta]      : theta component                        |
-      !  |           V p[hi]        : azimuthal component                    |
-      !  |           V h[orizontal] : the two horizontal components          |
-      !  |           V a[ll]        : all three components                   |
-      !  |           STREAMLINE[S]  : field lines of axisymmetric            |
-      !  |           or SL          : poloidal field for phi=constant        |
-      !  |           AX[ISYMMETRIC] V                                        |
-      !  |           or AV          : axisymmetric phi component of the      |
-      !  |                            velocity field for phi=constant        |
-      !  |           V z            : z component of velocity at equator     |
-      !  |                            + z component of the vorticity at      |
-      !  |                            the equator (closest point to equator) |
-      !  |           Vo z          : z-component of vorticity                |
-      !  |           Vo r          : r-component of vorticity                |
-      !  |           Vo p          : phi-component of vorticity              |
-      !  |           T[emperature]  : sic                                    |
-      !  |           AX[ISYMMETRIC] T                                        |
-      !  |           or AT          : axisymmetric T field for phi=constant  |
-      !  |           Heat t[ransport]: radial derivative of T                |
-      !  |                                                                   |
-      !  |           FL Pro         : axisymmetric field line stretching     |
-      !  |           FL Adv         : axisymmetric field line advection      |
-      !  |           FL Dif         : axisymmetric field line diffusion      |
-      !  |           AB Pro         : axisymmetric (tor.) Bphi production    |
-      !  |           AB Dif         : axisymmetric (tor.) Bphi diffusion     |
-      !  |           Br Pro         : Br production                          |
-      !  |           Br Adv         : Br advection                           |
-      !  |           Br Dif         : Br diffusion                           |
-      !  |           Jr             : Jr production                          |
-      !  |           Jr Pro         : Jr production +  omega effects         |
-      !  |           Jr Adv         : Jr advection                           |
-      !  |           Jr Dif         : Jr diffusion                           |
-      !  |           Bz Pol         : poloidal Bz                            |
-      !  |           Bz Pol Pro     : poloidal Bz production                 |
-      !  |           Bz Pol Adv     : poloidal Bz advection                  |
-      !  |           Bz Pol Dif     : poloidal Bz diffusion                  |
-      !  |           Jz Tor         : poloidal Jz                            |
-      !  |           Jz Tor Pro     : poloidal Jz production                 |
-      !  |           Jz Tor Adv     : poloidal Jz advection                  |
-      !  |           Jz Tor Dif     : poloidal Jz diffusion                  |
-      !  |           Bp Tor         : toriodal Bphi                          |
-      !  |           Bp Tor Pro     : toriodal Bphi production               |
-      !  |           Bp Tor Adv     : toriodal Bphi advection                |
-      !  |           Bp Tor Dif     : toriodal Bphi diffusion                |
-      !  |           HEL[ICITY]     : sic                                    |
-      !  |           AX[ISYMMETRIC HELICITY]  or                             |
-      !  |           AHEL           : axisymmetric helicity                  |
-      !  |           Bt Tor         : toroidal Btheta                        |
-      !  |           Pot Tor        : toroidal Potential                     |
-      !  |           Pol Fieldlines : toroidal Potential                     |
-      !  |           Br Shear       : azimuthal Shear of Br                  |
-      !  |           Lorentz[force] : Lorentz force (only phi component)     |
-      !  |           Br Inv         : Inverse field apperance at CMB         |
-      !  |                                                                   |
-      !  |    2) A second information that identifies the coordinate         |
-      !  |       to be kept constant (surface).                              |
-      !  |       (e.g. r=number for surface r=constant with number given     |
-      !  |        in units of the total core radius or                       |
-      !  |        theta/phi=number with number given in degrees              |
-      !  |       Three keyword are also possible:                            |
-      !  |           CMB       : core mantle boundary                        |
-      !  |           SUR[FACE] : Earth surface (only magnetic field)         |
-      !  |           3[D]      : 3D field throughout the OC [and IC for B]   |
-      !  |                                                                   |
-      !  |  On output the necessary information is coded into integers       |
-      !  |  and is used in this form by further subroutines:                 |
-      !  |     n_movies = total number of movies                             |
-      !  |     n_type(n_movie) =  movie type                                 |
-      !  |                     =  1  : Radial magnetic field                 |
-      !  |                     =  2  : Theta component of magnetic field     |
-      !  |                     =  3  : Azimuthal magnetic field              |
-      !  |                     =  4  : Horizontal magnetic field             |
-      !  |                     =  5  : Total magnetic field (all compnents)  |
-      !  |                     =  8  : Axisymmetric azimuthal                |
-      !  |                             magnetic field (phi=constant)         |
-      !  |                     =  9  : 3d magnetic field                     |
-      !  |                     = 11  : Radial velocity field                 |
-      !  |                     = 12  : Theta component of velocity field     |
-      !  |                     = 13  : Azimuthal velocity field              |
-      !  |                     = 14  : Horizontal velocity field             |
-      !  |                     = 15  : Total velocity field (all compnents)  |
-      !  |                     = 17  : Scalar field whose contours are the   |
-      !  |                             stream lines of the axisymm. poloidal |
-      !  |                             velocity field (phi=constant)         |
-      !  |                     = 18  : Axisymmetric azimuthal                |
-      !  |                             velocity field (phi=constant)         |
-      !  |                     = 19  : 3d velocity field                     |
-      !  |                     = 20  : z component of vorticity              |
-      !  |                     = 21  : Temperature field                     |
-      !  |                     = 22  : radial conv. heat transport           |
-      !  |                     = 23  : helicity                              |
-      !  |                     = 24  : axisymmetric helicity                 |
-      !  |                     = 25  : phi component of vorticity            |
-      !  |                     = 26  : radial component of vorticity         |
-      !  |                     = 28  : axisymmetric Temperature field        |
-      !  |                             for phi=const.                        |
-      !  |                     = 29  : 3d temperature field                  |
-      !  |
-      !  |                     = 30  : Scalar field whose contours are the   |
-      !  |                             fieldlines of the axisymm. poloidal   |
-      !  |                             magnetic field (phi=constant)         |
-      !  |                     = 31  : field line production                 |
-      !  |                     = 32  : field line advection                  |
-      !  |                     = 33  : field line diffusion                  |
-      !  |                     = 40  : Axisymmetric azimuthal                |
-      !  |                             magnetic field (phi=constant)         |
-      !  |                     = 41  : Axis. Bphi production +  omega eff.   |
-      !  |                     = 42  : Axis. Bphi advection                  |
-      !  |                     = 43  : Axis. Bphi diffusion                  |
-      !  |                     = 44  : Axis. Bphi str.,dyn.,omega,diff.      |
-      !  |                     = 50  : Bz                                    |
-      !  |                     = 51  : Bz production                         |
-      !  |                     = 52  : Bz advection                          |
-      !  |                     = 53  : Bz diffusion                          |
-      !  |                     = 60  : toroidal Bphi                         |
-      !  |                     = 61  : toroidal Bphi production + omega eff. |
-      !  |                     = 62  : toroidal Bphi advection               |
-      !  |                     = 63  : toroidal Bphi diffusion               |
-      !  |                     = 71  : Br production                         |
-      !  |                     = 72  : Br advection                          |
-      !  |                     = 73  : Br diffusion                          |
-      !  |                     = 80  : Jr                                    |
-      !  |                     = 81  : Jr production                         |
-      !  |                     = 82  : Jr advection                          |
-      !  |                     = 83  : Jr diffusion                          |
-      !  |                     = 90  : poloidal Jz pol.                      |
-      !  |                     = 91  : poloidal Jz pol. production           |
-      !  |                     = 92  : poloidal Jz advection                 |
-      !  |                     = 93  : poloidal Jz diffusion                 |
-      !  |                     = 94  : z component of velovity               |
-      !  |                     = 95  : toroidal Btheta                       |
-      !  |                     = 96  : toroidal Potential                    |
-      !  |                     = 97  : Function for Poloidal Fieldlines      |
-      !  |                     = 98  : azimuthal shear of Br                 |
-      !  |                     = 99  : phi component of Lorentz force        |
-      !  |                     =101  : Stress fields                         |
-      !  |                     =102  : Force fields                          |
-      !  |                     =103  : Br Inverse appearence at CMB          |
-      !  |                     =110  : radial heat flow                      |
-      !  |                     =111  : Vz and Vorz north/south correlation   |
-      !  |                     =112  : axisymm dtB tersm for Br and Bp       |
-      !  |                     =113  : axisymm dSdr                          |
-      !  |                     =114  : Cylindrically radial magnetic field   |
-      !  |                                                                   |
-      !  |     n_movie_surface(n_movie) = defines surface                    |
-      !  |     n_movie_surface =  1  : r=constant                            |
-      !  |                        2  : theta=constant                        |
-      !  |                        3  : phi=constant                          |
-      !  |                       -1  : r=constant, Earth surface             |
-      !  |                        0  : 3d volume                             |
-      !  |     n_movie_fields(n_movie) = no. of fields for outer core        |
-      !  |     n_movie_fields_ic(n_movie) = no. of fields for inner core     |
-      !  |     n_movie_field_type(n_field,n_movie) = defines field           |
-      !  |     n_movie_field_type = 1 : radial magnetic field                |
-      !  |                        = 2 : theta comp. of the magnetic field    |
-      !  |                        = 3 : azimuthal magnetic field             |
-      !  |                        = 4 : radial velocity field                |
-      !  |                        = 5 : theta comp. of the velocity field    |
-      !  |                        = 6 : azimuthal velocity field             |
-      !  |                        = 7 : temperature field                    |
-      !  |                        = 8 : scalar field for field lines         |
-      !  |                        = 9 : axisymm. toroidal mag. field         |
-      !  |                        =10 : scalar field for stream lines        |
-      !  |                        =11 : axisymm. v_phi                       |
-      !  |                        =12 : axisymm. T                           |
-      !  |                        =13 : z-comp. of poloidal Bz               |
-      !  |                        =14 : z-comp. of poloidal Jz               |
-      !  |                        =15 : z-comp. of velocity                  |
-      !  |                        =16 : z-comp. of vorticity                 |
-      !  |                        =17 : radial derivative of T * vr          |
-      !  |                        =18 : helicity                             |
-      !  |                        =19 : axisymmetric helicity                |
-      !  |                        =20 : axisymm field-line production        |
-      !  |                        =21 : axisymm field-line advection         |
-      !  |                        =22 : axisymm field-line diffusion         |
-      !  |                        =23 : axisymm Bphi production              |
-      !  |                        =24 : axisymm Bphi omega effect            |
-      !  |                        =25 : axisymm Bphi advection               |
-      !  |                        =26 : axisymm Bphi diffusion               |
-      !  |                        =27 : Br production                        |
-      !  |                        =28 : Br advection                         |
-      !  |                        =29 : Br diffusion                         |
-      !  |                        =30 : Jr                                   |
-      !  |                        =31 : Jr production                        |
-      !  |                        =32 : Jr omega effect                      |
-      !  |                        =33 : Jr advection                         |
-      !  |                        =34 : Jr diffusion                         |
-      !  |                        =35 : poloidal Bz production               |
-      !  |                        =36 : poloidal Bz advection                |
-      !  |                        =37 : poloidal Bz diffusion                |
-      !  |                        =38 : poloidal Jz production               |
-      !  |                        =39 : poloidal Jz omega effect             |
-      !  |                        =40 : poloidal Jz advection                |
-      !  |                        =41 : poloidal Jz diffusion                |
-      !  |                        =42 : toroidal Bp                          |
-      !  |                        =43 : toroidal Bp production               |
-      !  |                        =44 : toroidal Bp omega effect             |
-      !  |                        =45 : toroidal Bp advection                |
-      !  |                        =46 : toroidal Bp diffusion                |
-      !  |                        =47 : phi-comp. of vorticity               |
-      !  |                        =48 : r-comp. of vorticity                 |
-      !  |                        =49 : toroidal Bp omega effect             |
-      !  |                        =50 : toroidal Bt                          |
-      !  |                        =51 : toroidal Potential                   |
-      !  |                        =52 : poloidal Fieldlines in theta=const   |
-      !  |                        =53 : Br dr ( vp/(r sin(theta))            |
-      !  |                        =54 : phi Lorentz force                    |
-      !  |                        =61 : AS phi reynolds stress force         |
-      !  |                        =62 : AS phi advective stress force        |
-      !  |                        =63 : AS phi viscous stress force          |
-      !  |                        =64 : AS phi Lorentz force                 |
-      !  |                        =66 : time derivative of axisym. v phi     |
-      !  |                        =67 : relative strength of axisym. v phi   |
-      !  |                        =81 : Br inverse appearence at CMB         |
-      !  |                        =91 : radial derivative of T               |
-      !  |                        =92 : Vz north/south correlation           |
-      !  |                        =93 : Vorz north/south correlation         |
-      !  |                        =94 : Hel north/south correlation          |
-      !  |                        =101: AS poloidal Br production            |
-      !  |                        =102: AS poloidal Br dynamo term           |
-      !  |                        =103: AS poloidal Br diffusion             |
-      !  |                        =104: AS toroidal Bp production            |
-      !  |                        =105: AS toroidal Bp dynamo term           |
-      !  |                        =106: AS toroidal Bp omega effect          |
-      !  |                        =107: AS toroidal Bp diffusion             |
-      !  |                        =108: Bs                                   |
-      !  |     n_movie_field_start(n_field,n_movie) = defines where first    |
-      !  |         element of a field is stored in frames(*)                 |
-      !  |     n_movie_field_stop(n_field,n_movie) = defines where last      |
-      !  |         element of a field is stored in frames(*)                 |
-      !  |                 l_movie_oc : field for OC stored ?                |
-      !  |                 l_movie_ic : fields for IC stored (only B-field)  |
-      !  |                                                                   |
-      !  |     The subroutine also defines appropriate file names for        |
-      !  |     the movie files. These generally have the form:               |
-      !  |                 TYPE_mov.TAG                                      |
-      !  |     The TYPE corresponts to the input movie type,                 |
-      !  |     for TOROIDAL AXISYMMETRIC fields we use TYPE=TAS.             |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to identify the different movie    
+      !  types from the input string movies(*).                           
+      !  Note that generally blanks are not interpreted and that the      
+      !  interpretation is not case sensitive.                            
+      !  In general two informations are needed:                          
+      !    1) A word FIELDINFO that identifies the field to be plotted    
+      !         (e.g. Br for radial magnetic field, see list below)       
+      !      Possible keywords are [optional text in brackets             
+      !           B r[adial]     : radial magnetic field                  
+      !           B t[heta]      : theta component                        
+      !           B p[hi]        : azimuthal component                    
+      !           B h[orizontal] : the two horizontal components          
+      !           B a[ll]        : all three components                   
+      !           FIELDLINE[S]   : field lines of axisymmetric            
+      !           or FL            poloidal field for phi=constant        
+      !           AX[ISYMMETRIC] B                                        
+      !           or AB          : axisymmetric phi component of the      
+      !                            magnetic field for phi=constant        
+      !           V r[adial]     : radial velocity field                  
+      !           V t[heta]      : theta component                        
+      !           V p[hi]        : azimuthal component                    
+      !           V h[orizontal] : the two horizontal components          
+      !           V a[ll]        : all three components                   
+      !           STREAMLINE[S]  : field lines of axisymmetric            
+      !           or SL          : poloidal field for phi=constant        
+      !           AX[ISYMMETRIC] V                                        
+      !           or AV          : axisymmetric phi component of the      
+      !                            velocity field for phi=constant        
+      !           V z            : z component of velocity at equator     
+      !                            + z component of the vorticity at      
+      !                            the equator (closest point to equator) 
+      !           Vo z          : z-component of vorticity                
+      !           Vo r          : r-component of vorticity                
+      !           Vo p          : phi-component of vorticity              
+      !           T[emperature]  : sic                                    
+      !           AX[ISYMMETRIC] T                                        
+      !           or AT          : axisymmetric T field for phi=constant  
+      !           Heat t[ransport]: radial derivative of T                
+      !                                                                   
+      !           FL Pro         : axisymmetric field line stretching     
+      !           FL Adv         : axisymmetric field line advection      
+      !           FL Dif         : axisymmetric field line diffusion      
+      !           AB Pro         : axisymmetric (tor.) Bphi production    
+      !           AB Dif         : axisymmetric (tor.) Bphi diffusion     
+      !           Br Pro         : Br production                          
+      !           Br Adv         : Br advection                           
+      !           Br Dif         : Br diffusion                           
+      !           Jr             : Jr production                          
+      !           Jr Pro         : Jr production +  omega effects         
+      !           Jr Adv         : Jr advection                           
+      !           Jr Dif         : Jr diffusion                           
+      !           Bz Pol         : poloidal Bz                            
+      !           Bz Pol Pro     : poloidal Bz production                 
+      !           Bz Pol Adv     : poloidal Bz advection                  
+      !           Bz Pol Dif     : poloidal Bz diffusion                  
+      !           Jz Tor         : poloidal Jz                            
+      !           Jz Tor Pro     : poloidal Jz production                 
+      !           Jz Tor Adv     : poloidal Jz advection                  
+      !           Jz Tor Dif     : poloidal Jz diffusion                  
+      !           Bp Tor         : toriodal Bphi                          
+      !           Bp Tor Pro     : toriodal Bphi production               
+      !           Bp Tor Adv     : toriodal Bphi advection                
+      !           Bp Tor Dif     : toriodal Bphi diffusion                
+      !           HEL[ICITY]     : sic                                    
+      !           AX[ISYMMETRIC HELICITY]  or                             
+      !           AHEL           : axisymmetric helicity                  
+      !           Bt Tor         : toroidal Btheta                        
+      !           Pot Tor        : toroidal Potential                     
+      !           Pol Fieldlines : toroidal Potential                     
+      !           Br Shear       : azimuthal Shear of Br                  
+      !           Lorentz[force] : Lorentz force (only phi component)     
+      !           Br Inv         : Inverse field apperance at CMB         
+      !                                                                   
+      !    2) A second information that identifies the coordinate         
+      !       to be kept constant (surface).                              
+      !       (e.g. r=number for surface r=constant with number given     
+      !        in units of the total core radius or                       
+      !        theta/phi=number with number given in degrees              
+      !       Three keyword are also possible:                            
+      !           CMB       : core mantle boundary                        
+      !           SUR[FACE] : Earth surface (only magnetic field)         
+      !           3[D]      : 3D field throughout the OC [and IC for B]   
+      !                                                                   
+      !  On output the necessary information is coded into integers       
+      !  and is used in this form by further subroutines:                 
+      !     n_movies = total number of movies                             
+      !     n_type(n_movie) =  movie type                                 
+      !                     =  1  : Radial magnetic field                 
+      !                     =  2  : Theta component of magnetic field     
+      !                     =  3  : Azimuthal magnetic field              
+      !                     =  4  : Horizontal magnetic field             
+      !                     =  5  : Total magnetic field (all compnents)  
+      !                     =  8  : Axisymmetric azimuthal                
+      !                             magnetic field (phi=constant)         
+      !                     =  9  : 3d magnetic field                     
+      !                     = 11  : Radial velocity field                 
+      !                     = 12  : Theta component of velocity field     
+      !                     = 13  : Azimuthal velocity field              
+      !                     = 14  : Horizontal velocity field             
+      !                     = 15  : Total velocity field (all compnents)  
+      !                     = 17  : Scalar field whose contours are the   
+      !                             stream lines of the axisymm. poloidal 
+      !                             velocity field (phi=constant)         
+      !                     = 18  : Axisymmetric azimuthal                
+      !                             velocity field (phi=constant)         
+      !                     = 19  : 3d velocity field                     
+      !                     = 20  : z component of vorticity              
+      !                     = 21  : Temperature field                     
+      !                     = 22  : radial conv. heat transport           
+      !                     = 23  : helicity                              
+      !                     = 24  : axisymmetric helicity                 
+      !                     = 25  : phi component of vorticity            
+      !                     = 26  : radial component of vorticity         
+      !                     = 28  : axisymmetric Temperature field        
+      !                             for phi=const.                        
+      !                     = 29  : 3d temperature field                  
+      !
+      !                     = 30  : Scalar field whose contours are the   
+      !                             fieldlines of the axisymm. poloidal   
+      !                             magnetic field (phi=constant)         
+      !                     = 31  : field line production                 
+      !                     = 32  : field line advection                  
+      !                     = 33  : field line diffusion                  
+      !                     = 40  : Axisymmetric azimuthal                
+      !                             magnetic field (phi=constant)         
+      !                     = 41  : Axis. Bphi production +  omega eff.   
+      !                     = 42  : Axis. Bphi advection                  
+      !                     = 43  : Axis. Bphi diffusion                  
+      !                     = 44  : Axis. Bphi str.,dyn.,omega,diff.      
+      !                     = 50  : Bz                                    
+      !                     = 51  : Bz production                         
+      !                     = 52  : Bz advection                          
+      !                     = 53  : Bz diffusion                          
+      !                     = 60  : toroidal Bphi                         
+      !                     = 61  : toroidal Bphi production + omega eff. 
+      !                     = 62  : toroidal Bphi advection               
+      !                     = 63  : toroidal Bphi diffusion               
+      !                     = 71  : Br production                         
+      !                     = 72  : Br advection                          
+      !                     = 73  : Br diffusion                          
+      !                     = 80  : Jr                                    
+      !                     = 81  : Jr production                         
+      !                     = 82  : Jr advection                          
+      !                     = 83  : Jr diffusion                          
+      !                     = 90  : poloidal Jz pol.                      
+      !                     = 91  : poloidal Jz pol. production           
+      !                     = 92  : poloidal Jz advection                 
+      !                     = 93  : poloidal Jz diffusion                 
+      !                     = 94  : z component of velovity               
+      !                     = 95  : toroidal Btheta                       
+      !                     = 96  : toroidal Potential                    
+      !                     = 97  : Function for Poloidal Fieldlines      
+      !                     = 98  : azimuthal shear of Br                 
+      !                     = 99  : phi component of Lorentz force        
+      !                     =101  : Stress fields                         
+      !                     =102  : Force fields                          
+      !                     =103  : Br Inverse appearence at CMB          
+      !                     =110  : radial heat flow                      
+      !                     =111  : Vz and Vorz north/south correlation   
+      !                     =112  : axisymm dtB tersm for Br and Bp       
+      !                     =113  : axisymm dSdr                          
+      !                     =114  : Cylindrically radial magnetic field   
+      !                                                                   
+      !     n_movie_surface(n_movie) = defines surface                    
+      !     n_movie_surface =  1  : r=constant                            
+      !                        2  : theta=constant                        
+      !                        3  : phi=constant                          
+      !                       -1  : r=constant, Earth surface             
+      !                        0  : 3d volume                             
+      !     n_movie_fields(n_movie) = no. of fields for outer core        
+      !     n_movie_fields_ic(n_movie) = no. of fields for inner core     
+      !     n_movie_field_type(n_field,n_movie) = defines field           
+      !     n_movie_field_type = 1 : radial magnetic field                
+      !                        = 2 : theta comp. of the magnetic field    
+      !                        = 3 : azimuthal magnetic field             
+      !                        = 4 : radial velocity field                
+      !                        = 5 : theta comp. of the velocity field    
+      !                        = 6 : azimuthal velocity field             
+      !                        = 7 : temperature field                    
+      !                        = 8 : scalar field for field lines         
+      !                        = 9 : axisymm. toroidal mag. field         
+      !                        =10 : scalar field for stream lines        
+      !                        =11 : axisymm. v_phi                       
+      !                        =12 : axisymm. T                           
+      !                        =13 : z-comp. of poloidal Bz               
+      !                        =14 : z-comp. of poloidal Jz               
+      !                        =15 : z-comp. of velocity                  
+      !                        =16 : z-comp. of vorticity                 
+      !                        =17 : radial derivative of T * vr          
+      !                        =18 : helicity                             
+      !                        =19 : axisymmetric helicity                
+      !                        =20 : axisymm field-line production        
+      !                        =21 : axisymm field-line advection         
+      !                        =22 : axisymm field-line diffusion         
+      !                        =23 : axisymm Bphi production              
+      !                        =24 : axisymm Bphi omega effect            
+      !                        =25 : axisymm Bphi advection               
+      !                        =26 : axisymm Bphi diffusion               
+      !                        =27 : Br production                        
+      !                        =28 : Br advection                         
+      !                        =29 : Br diffusion                         
+      !                        =30 : Jr                                   
+      !                        =31 : Jr production                        
+      !                        =32 : Jr omega effect                      
+      !                        =33 : Jr advection                         
+      !                        =34 : Jr diffusion                         
+      !                        =35 : poloidal Bz production               
+      !                        =36 : poloidal Bz advection                
+      !                        =37 : poloidal Bz diffusion                
+      !                        =38 : poloidal Jz production               
+      !                        =39 : poloidal Jz omega effect             
+      !                        =40 : poloidal Jz advection                
+      !                        =41 : poloidal Jz diffusion                
+      !                        =42 : toroidal Bp                          
+      !                        =43 : toroidal Bp production               
+      !                        =44 : toroidal Bp omega effect             
+      !                        =45 : toroidal Bp advection                
+      !                        =46 : toroidal Bp diffusion                
+      !                        =47 : phi-comp. of vorticity               
+      !                        =48 : r-comp. of vorticity                 
+      !                        =49 : toroidal Bp omega effect             
+      !                        =50 : toroidal Bt                          
+      !                        =51 : toroidal Potential                   
+      !                        =52 : poloidal Fieldlines in theta=const   
+      !                        =53 : Br dr ( vp/(r sin(theta))            
+      !                        =54 : phi Lorentz force                    
+      !                        =61 : AS phi reynolds stress force         
+      !                        =62 : AS phi advective stress force        
+      !                        =63 : AS phi viscous stress force          
+      !                        =64 : AS phi Lorentz force                 
+      !                        =66 : time derivative of axisym. v phi     
+      !                        =67 : relative strength of axisym. v phi   
+      !                        =81 : Br inverse appearence at CMB         
+      !                        =91 : radial derivative of T               
+      !                        =92 : Vz north/south correlation           
+      !                        =93 : Vorz north/south correlation         
+      !                        =94 : Hel north/south correlation          
+      !                        =101: AS poloidal Br production            
+      !                        =102: AS poloidal Br dynamo term           
+      !                        =103: AS poloidal Br diffusion             
+      !                        =104: AS toroidal Bp production            
+      !                        =105: AS toroidal Bp dynamo term           
+      !                        =106: AS toroidal Bp omega effect          
+      !                        =107: AS toroidal Bp diffusion             
+      !                        =108: Bs                                   
+      !     n_movie_field_start(n_field,n_movie) = defines where first    
+      !         element of a field is stored in frames(*)                 
+      !     n_movie_field_stop(n_field,n_movie) = defines where last      
+      !         element of a field is stored in frames(*)                 
+      !                 l_movie_oc : field for OC stored ?                
+      !                 l_movie_ic : fields for IC stored (only B-field)  
+      !                                                                   
+      !     The subroutine also defines appropriate file names for        
+      !     the movie files. These generally have the form:               
+      !                 TYPE_mov.TAG                                      
+      !     The TYPE corresponts to the input movie type,                 
+      !     for TOROIDAL AXISYMMETRIC fields we use TYPE=TAS.             
+      !                                                                   
 
       !--- Local variables:
       logical :: lEquator

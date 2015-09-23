@@ -1,8 +1,7 @@
-!$Id$
 module truncation
-   !----------------------------------------------
-   !  defines grid points and truncation 
-   !----------------------------------------------
+   !
+   ! This module defines the grid points and the truncation 
+   !
 
    implicit none
 
@@ -12,12 +11,13 @@ module truncation
    integer :: n_r_ic_max    ! number of grid points in inner core
    integer :: n_cheb_ic_max ! number of chebs in inner core
    integer :: minc          ! basic wavenumber, longitude symmetry  
-   integer :: nalias        ! controlls dealiasing in latitude and 
+   integer :: nalias        ! controls dealiasing in latitude and 
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points
    integer :: n_theta_max ! number of theta grid-points
-   integer :: l_max,m_max ! max degree and order of Plms
+   integer :: l_max       ! max degree of Plms
+   integer :: m_max       ! max order of Plms
    integer :: n_m_max     ! max number of ms (different oders)
    integer :: lm_max      ! number of l/m combinations
    integer :: lmP_max     ! number of l/m combination if l runs to l_max+1
@@ -140,13 +140,9 @@ contains
    end subroutine initialize_truncation
 !--------------------------------------------------------------------------------
    subroutine checkTruncation
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  | Checks truncations defined in truncation.f and writes then        |
-      !  | into STDOUT and the log-file.                                     |
-      !  | MPI: called only by the processor responsible for output !        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !  This function checks truncations and writes it
+      !  into STDOUT and the log-file.                                 
+      !  MPI: called only by the processor responsible for output !  
 
       if ( minc < 1 ) then
          write(*,*)

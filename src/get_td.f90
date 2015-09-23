@@ -143,15 +143,13 @@ contains
 !----------------------------------------------------------------------------
    subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
         &            dwdt,dzdt,dpdt,dsdt,dbdt,djdt,leg_helper)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this to calculate time derivatives                    |
-      !  |  dwdt,dzdt,dpdt,dsdt,dbdt,djdt                                    |
-      !  |  and auxiliary arrays dVSrLM and dVxBhLM                          |
-      !  |  from non-linear terms in spectral form,                          |
-      !  |  contained in flmw1-3,flms1-3, flmb1-3 (input)                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this to calculate time derivatives                    
+      !  dwdt,dzdt,dpdt,dsdt,dbdt,djdt                                    
+      !  and auxiliary arrays dVSrLM and dVxBhLM                          
+      !  from non-linear terms in spectral form,                          
+      !  contained in flmw1-3,flms1-3, flmb1-3 (input)                    
+      !
     
       !-- Input of variables:
       class(nonlinear_lm_t) :: this

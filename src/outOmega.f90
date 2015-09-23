@@ -1,4 +1,3 @@
-!$Id$
 module omega
 
    use precision_mod
@@ -20,11 +19,11 @@ module omega
 contains
 
    subroutine outOmega(z,omega_IC)
-      !-----------------------------------------------------------------------
+      !
       !   Output of axisymmetric zonal flow omega(s) into field omega.TAG,
       !   where s is the cylindrical radius. This is done for the southern
       !   and norther hemispheres at z=+-(r_icb+0.5)
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input variables:
       complex(cp), intent(in) :: z(lm_max,n_r_max)
@@ -116,7 +115,7 @@ contains
       integer :: l
       real(cp) :: x,chebNorm
 
-      !--- Map r to cheb intervall [-1,1]:
+      !--- Map r to cheb interval [-1,1]:
       !    and calculate the cheb polynomia:
       !    Note: the factor chebNorm is needed
       !    for renormalisation. Its not needed if one used

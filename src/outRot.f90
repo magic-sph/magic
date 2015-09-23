@@ -1,4 +1,3 @@
-!$Id$
 module outRot
 
    use parallel_mod
@@ -273,8 +272,8 @@ contains
             end if
 #endif
     
-            call get_angular_moment(z10,z11,omega_ic,omega_ma, &
-                 angular_moment_oc, angular_moment_ic,angular_moment_ma)
+            call get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
+                                    angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
                open(n_angular_file, file=angular_file, status='unknown', &
                     position='append')
@@ -282,8 +281,8 @@ contains
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0_cp
             eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
-                           angular_moment_ic(3)**2/c_moi_ic + &
-                           angular_moment_ma(3)**2/c_moi_ma )
+                          angular_moment_ic(3)**2/c_moi_ic + &
+                          angular_moment_ma(3)**2/c_moi_ma )
             if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0_cp
             eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
             eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
@@ -345,13 +344,11 @@ contains
    end subroutine write_rot
 !-----------------------------------------------------------------------
    subroutine get_viscous_torque_real(viscous_torque,z10,dz10,r)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the viscous torque    |
-      !  |  on mantle or inner core respectively.                            |
-      !  |  NOTE: sign is wrong for torque on mantle!                        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the viscous torque    
+      !  on mantle or inner core respectively.                            
+      !  NOTE: sign is wrong for torque on mantle!                        
+      !
 
       !-- Input:
       real(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
@@ -365,13 +362,11 @@ contains
    end subroutine get_viscous_torque_real
 !-----------------------------------------------------------------------
    subroutine get_viscous_torque_complex(viscous_torque,z10,dz10,r)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the viscous torque    |
-      !  |  on mantle or inner core respectively.                            |
-      !  |  NOTE: sign is wrong for torque on mantle!                        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the viscous torque    
+      !  on mantle or inner core respectively.                            
+      !  NOTE: sign is wrong for torque on mantle!                        
+      !
 
       !-- Input:
       complex(cp), intent(in) :: z10,dz10    ! z10 coefficient and its radial deriv.
@@ -386,25 +381,23 @@ contains
 !-----------------------------------------------------------------------
    subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
                                  sizeThetaB,br,bp,nR)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the lorentz torque    |
-      !  |  on mantle or inner core respectively.                            |
-      !  |  Blocking in theta can be used to increased performance.          |
-      !  |  If no blocking required set n_theta_block=n_theta_max,           |
-      !  |  where n_theta_max is the absolut number of thetas used.          |
-      !  |  Note: lorentz_torque must be set to zero before loop over        |
-      !  |        theta blocks is started.                                   |
-      !  |  WARNING: subroutine returns -lorentz_torque if used at CMB       |
-      !  |        to calculate torque on mantle because if the inward        |
-      !  |        surface normal vector.
-      !  |  The Prandtl number is always the Prandtl number of the outer     |
-      !  |  core. This comes in via scaling of the magnetic field.           |
-      !  |  Theta alternates between northern and southern hemisphere in     |
-      !  |  br and bp but not in gauss. This has to be cared for, and we     |
-      !  |  use: gauss(latitude)=gauss(-latitude) here.                      |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the lorentz torque    
+      !  on mantle or inner core respectively.                            
+      !  Blocking in theta can be used to increased performance.          
+      !  If no blocking required set n_theta_block=n_theta_max,           
+      !  where n_theta_max is the absolut number of thetas used.          
+      !  Note: lorentz_torque must be set to zero before loop over        
+      !        theta blocks is started.                                   
+      !  WARNING: subroutine returns -lorentz_torque if used at CMB       
+      !        to calculate torque on mantle because if the inward        
+      !        surface normal vector.
+      !  The Prandtl number is always the Prandtl number of the outer     
+      !  core. This comes in via scaling of the magnetic field.           
+      !  Theta alternates between northern and southern hemisphere in     
+      !  br and bp but not in gauss. This has to be cared for, and we     
+      !  use: gauss(latitude)=gauss(-latitude) here.                      
+      !
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart    ! first number of theta in block
@@ -464,13 +457,11 @@ contains
 
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
                                  angular_moment_ic,angular_moment_ma)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |    Calculates angular momentum of outer core, inner core and      |
-      !  |    mantle. For outer core we need z(l=1|m=0,1|r), for             |
-      !  |    inner core and mantle the respective rotation rates are needed.|
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !    Calculates angular momentum of outer core, inner core and      
+      !    mantle. For outer core we need z(l=1|m=0,1|r), for             
+      !    inner core and mantle the respective rotation rates are needed.
+      !
     
       !-- Input of scalar fields:
       complex(cp), intent(in) :: z10(n_r_max),z11(n_r_max)

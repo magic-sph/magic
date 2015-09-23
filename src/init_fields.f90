@@ -1,4 +1,3 @@
-!$Id$
 module init_fields
 
    use truncation
@@ -94,13 +93,11 @@ contains
    end subroutine initialize_init_fields
 !-----------------------------------------------------------------------
    subroutine initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to initialize the velocity field   |
-      !  |  So far it is only rudimentary and will be expanded later.        |
-      !  |  Because s is needed for dwdt init_s has to be called before.     |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! Purpose of this subroutine is to initialize the velocity field   
+      ! So far it is only rudimentary and will be expanded later.        
+      ! Because s is needed for dwdt init_s has to be called before.     
+      !                                                                   
 
       !-- Input variables
       integer, intent(in) :: lmStart,lmStop
@@ -124,7 +121,7 @@ contains
       ! This routine is called from a rank-0 region and is operating
       ! on the full fields in standard order.
     
-      lmStart00=MAX(lmStart,1)
+      lmStart00=max(lmStart,1)
       l1m0=st_map%lm2(1,0)
     
       !-- Initialize rotation according to
@@ -330,23 +327,30 @@ contains
    end subroutine initV
 !--------------------------------------------------------------------
    subroutine initS(s,lmStart,lmStop)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to initialize the entropy field    |
-      !  |  according to the input control parameters.                       |
-      !  |  For init_s1 < 100: random noise initialized                      |
-      !  |                  the noise spectrum decays as l ^ (init_s1-1)     |
-      !  |                  with peak amplitude amp_s1  for l=1              |
-      !  |      init_s1 >=100: a specific harmonic mode initialized          |
-      !  |              with amplitude amp_s1.                               |
-      !  |              init_s1 is interpreted as number llmm                |
-      !  |              where ll: harmonic degree, mm: harmonic order.       |
-      !  |      init_s2 >100 : a second harmonic mode initialized            |
-      !  |              with amplitude amp_s2.                               |
-      !  |              init_s2 is again interpreted as number llmm          |
-      !  |              where ll: harmonic degree, mm: harmonic order.       |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      ! Purpose of this subroutine is to initialize the entropy field    
+      ! according to the input control parameters.                       
+      !
+      ! +-----------------+---------------------------------------------+
+      ! | Input           | value                                       |
+      ! +=================+=============================================+
+      ! | init_s1 < 100:  | random noise initialized                    | 
+      ! |                 | the noise spectrum decays as l ^ (init_s1-1)|    
+      ! |                 | with peak amplitude amp_s1  for l=1         |    
+      ! +-----------------+---------------------------------------------+
+      ! | init_s1 >=100:  | a specific harmonic mode initialized        |  
+      ! |                 | with amplitude amp_s1.                      |        
+      ! |                 | init_s1 is interpreted as number llmm       |         
+      ! |                 | where ll: harmonic degree,                  | 
+      ! |                 | mm: harmonic order.                         | 
+      ! +-----------------+---------------------------------------------+
+      ! | init_s2 >100 :  | a second harmonic mode initialized          |  
+      ! |                 | with amplitude amp_s2.                      |         
+      ! |                 | init_s2 is again interpreted as number llmm |         
+      ! |                 | where ll: harmonic degree,                  |
+      ! |                 | mm: harmonic order.                         |
+      ! +-----------------+---------------------------------------------+
+      !                                                                   
 
       !-- Input variables:
       integer, intent(in) :: lmStart,lmStop
@@ -640,14 +644,12 @@ contains
 !---------------------------------------------------------------------------
    subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma, &
                     lmStart,lmStop)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to initialize the magnetic field   |
-      !  |  according to the control parameters imagcon and init_b1/2.       |
-      !  |  In addition CMB and ICB peak values are calculated for           |
-      !  |  magneto convection.                                              |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      ! Purpose of this subroutine is to initialize the magnetic field  
+      ! according to the control parameters imagcon and init_b1/2.     
+      ! In addition CMB and ICB peak values are calculated for        
+      ! magneto convection.                                          
+      !
 
       !-- Input variables:
       integer, intent(in) :: lmStart,lmStop
@@ -1103,19 +1105,17 @@ contains
    end subroutine initB
 !-----------------------------------------------------------------------
    subroutine j_cond(lm0, aj0, aj0_ic)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to solve the diffusion equation    |
-      !  |  for an initial toroidal magnetic field.                          |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      ! Purpose of this subroutine is to solve the diffusion equation    
+      ! for an initial toroidal magnetic field.                          
+      !                                                                   
 
-      !-- input:
+      !-- Input variable:
       integer, intent(in) :: lm0
 
       !-- Output variables:
-      complex(cp), intent(out) :: aj0(:)
-      complex(cp), intent(out) :: aj0_ic(:)
+      complex(cp), intent(out) :: aj0(:)    ! aj(l=0,m=0) in the outer core
+      complex(cp), intent(out) :: aj0_ic(:) ! aj(l=0,m=0) in the inner core
 
       !-- Local variables
       integer :: n_cheb,n_r,info,n_r_real
@@ -1272,16 +1272,13 @@ contains
    end subroutine j_cond
 !--------------------------------------------------------------------------------
    subroutine s_cond(s0)
-   !  +-------------+----------------+------------------------------------+
-   !  |                                                                   |
-   !  |  Purpose of this subroutine is to solve the entropy equation      |
-   !  |  for an the conductive (l=0,m=0)-mode.                            |
-   !  |  Output is the radial dependence of the solution in s0.           |
-   !  |                                                                   |
-   !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      ! Purpose of this subroutine is to solve the entropy equation      
+      ! for an the conductive (l=0,m=0)-mode.                            
+      ! Output is the radial dependence of the solution in s0.           
+      !
 
-      !-- output variables:
-      real(cp), intent(out) :: s0(:)
+      real(cp), intent(out) :: s0(:) ! spherically-symmetric part
 
       !-- local variables:
       integer :: n_cheb,n_r,info

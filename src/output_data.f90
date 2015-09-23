@@ -1,8 +1,7 @@
-!$Id$
 module output_data
-   !-------------------------------------------------------
-   !  Parameters for output control
-   !-------------------------------------------------------
+   !
+   !  This module contains the parameters for output control
+   !
 
    use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
@@ -137,11 +136,9 @@ module output_data
 contains
 
    subroutine openFiles
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  | Defines names and unit for output files and opens then.           |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! Defines names and unit for output files and opens then.
+      !
 
       character(len=72) :: string
       integer ::  length
@@ -321,12 +318,10 @@ contains
    end subroutine openFiles
 !-------------------------------------------------------------------
    subroutine closeFiles
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  | Defines names and unit for output files and opens then.           |
-      !  | MPI: called only by the processor responsible for output !        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      ! Defines names and unit for output files and opens then.   
+      ! MPI: called only by the processor responsible for output. 
+      !
 
       integer :: n
     

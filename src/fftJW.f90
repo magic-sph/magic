@@ -1,7 +1,9 @@
-!$Id$
 #include "perflib_preproc.cpp"
-
 module fft_JW
+   !
+   ! This file contains the subroutines called by fftJW:
+   ! fft99a, fft99b, wpass2, wpass3, wpass4 and wpass5
+   !
 
    use precision_mod
    use useful, only: factorise
@@ -26,16 +28,14 @@ module fft_JW
 contains
   
    subroutine init_fft(n)
-      !  +-------------+----------------+------------------------------------+
-      !  |  Purpose of this subroutine is to calculate and store several     |
-      !  |  values that will be needed for a fast fft transform.             |
-      !  |  The actual transform is performed by the subroutine fftJW.       |
-      !  +-------------------------------------------------------------------+
-
+      !
+      ! Purpose of this subroutine is to calculate and store several
+      ! values that will be needed for a fast fft transform.
+      ! The actual transform is performed by the subroutine fftJW.
+      !
 
       !-- Input variable:
       integer, intent(in) :: n     ! Dimension of problem, number of grid points
-
 
       !-- Local variables:
       integer :: i,j,nFacs,nFactors,help
@@ -155,74 +155,72 @@ contains
    end subroutine fft_thetab
 !------------------------------------------------------------------------------
    subroutine fftJW(a,ld_a,n,isign,nsize,wrk,wd1,wd2,i_fft_init,d_fft_init)
-      !-------------------------------------------------------------------------
-      !  This file contains also the subroutines called by fftJW:
-      !             fft99a, fft99b, wpass2, wpass3, wpass4 and wpass5
-      !  The routines has been adopted by Gary Glatzmaier and has
-      !  subsequently been modified by Uli Christensen and Johannes Wicht
-  
-      ! purpose      perform a number of simultaneous real/half-complex
-      !              periodic fast fourier transforms or corresponding inverse
-      !              transforms, using ordinary spatial order of
-      !              gridpoint values.  given a set
-      !              of real data vectors, the package returns a set of
-      !              "half-complex" fourier coefficient vectors, or vice
-      !              versa.  the length of the transforms must be an even
-      !              number that has no other factors except possibly powers
-      !              of 2, 3, and 5.  this version of fft991 is
-      !              optimized for use on the cray-1.
-  
+      !
+      ! The routines has been adopted by Gary Glatzmaier and has
+      ! subsequently been modified by Uli Christensen and Johannes Wicht
+      !
+      ! It performs a number of simultaneous real/half-complex
+      ! periodic fast fourier transforms or corresponding inverse
+      ! transforms, using ordinary spatial order of
+      ! gridpoint values.  given a set
+      ! of real data vectors, the package returns a set of
+      ! "half-complex" fourier coefficient vectors, or vice
+      ! versa.  the length of the transforms must be an even
+      ! number that has no other factors except possibly powers
+      ! of 2, 3, and 5.  this version of fft991 is
+      ! optimized for use on the cray-1.
+      !
       ! on input     a(ld_a,*)
       !               an array of length (ld_a,nsize) containing the input data
       !               or coefficient vectors.  This array is overwritten by
       !               the results.
-  
+      !
       !              n
       !               the length of each transform (see definition of
       !               transforms, below).
-  
+      !
       !              nsize
       !               the number of transforms to be done simultaneously.
-  
+      !
       !              isign
       !               = +1 for a transform from fourier coefficients to
       !                    gridpoint values.
       !               = -1 for a transform from gridpoint values to fourier
       !                    coefficients.
-  
+      !
       ! on output    a
       !               if isign = +1, and n_theta_max coefficient vectors are supplied
       !               each containing the sequence
-  
+      !
       !               a(0),b(0),a(1),b(1),...,a(n/2),b(n/2)  (n+2 values)
-  
+      !
       !               then the result consists of n_theta_max data vectors each
       !               containing the corresponding n+2 gridpoint values
-  
+      !
       !               for fft991, x(0), x(1), x(2),...,x(n-1),0,0.
       !                    (n+2) real values with x(n)=x(n+1)=0
-  
+      !
       !               when isign = +1, the transform is defined by
       !                 x(j)=sum(k=0,...,n-1)(c(k)*exp(2*i*j*k*pi/n))
       !                 where c(k)=a(k)+i*b(k) and c(n-k)=a(k)-i*b(k)
       !                 and i=sqrt (-1)
-      !                    for k=0,...,n/2    i.e., (n/2+1) complex values
-      !                    with c(0) = c(n) = a(0) and c(n/2)=a(n/2)=0
-  
+      !                 for k=0,...,n/2    i.e., (n/2+1) complex values
+      !                 with c(0) = c(n) = a(0) and c(n/2)=a(n/2)=0
+      !
       !               if isign = -1, and n_theta_max data vectors are supplied each
       !               containing a sequence of gridpoint values x(j) as
       !               defined above, then the result consists of n_theta_max vectors
       !               each containing the corresponding fourier cofficients
       !               a(k), b(k), 0  <=  k .le n/2.
-  
+      !
       !               when isign = -1, the inverse transform is defined by
       !                 c(k)=(1/n)*sum(j=0,...,n-1)(x(j)*exp(-2*i*j*k*pi/n))
       !                 where c(k)=a(k)+i*b(k) and i=sqrt(-1)
       !                 for k=0,...,n/2
-  
+      !
       !               a call with isign=+1 followed by a call with isign=-1
       !               (or vice versa) returns the original data.
-  
+      !
       !               note the fact that the gridpoint values x(j) are real
       !               implies that b(0)=b(n/2)=0.  for a call with isign=+1,
       !               it is not actually necessary to supply these zeros.
@@ -230,7 +228,7 @@ contains
       !               then transforming to spectral (sign=-1)
       !               then c(n/2)=a(n/2) is not necessarily 0
       !               unless there is no aliasing.
-      !-------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: ld_a         ! leading dimension of a
@@ -238,7 +236,7 @@ contains
       integer,  intent(in) :: n            ! dimension of problem
       integer,  intent(in) :: isign        ! back/forth transtorm for isign=1/-1
       integer,  intent(in) :: nsize        ! number of fields for 
-                                               ! be transformed (second dim of a)
+                                           ! be transformed (second dim of a)
   
       integer,  intent(in) :: wd1,wd2
       real(cp), intent(inout) :: wrk(wd1,wd2)    ! work array
@@ -257,7 +255,7 @@ contains
       if ( ld_a /= wd1 ) then
          write(*,*) 'ERROR IN fftJW'
          write(*,*) 'NOTE: first dim of work array has to be'
-         write(*,*) '      indentical to first dim of a!'
+         write(*,*) '      identical to first dim of a!'
          stop
       end if
       if ( nsize > wd2 ) then
@@ -414,13 +412,10 @@ contains
    end subroutine fft99aJW
 !------------------------------------------------------------------------------
    subroutine fft99bJW(work,a,trigsf,nrp,nsize)
-      !-----------------------------------------------------------------------
+      !
       !     postprocessing step (isign=-1)
       !     (gridpoint to spectral transform)
       !
-      !     called in fftJW
-      !
-      !-----------------------------------------------------------------------
   
       !-- input/output:
       integer,  intent(in) :: nrp,nsize
@@ -474,14 +469,11 @@ contains
    end subroutine fft99bJW
 !------------------------------------------------------------------------------
    subroutine wpass2JW(a,b,c,d,trigs,nrp,nsize)
-      !-----------------------------------------------------------------------
-  
-      !     called in fftJW
+      !
       !     reduction for factor 2
-  
+      !
       !     if(la /= 1) stop 'call to wpass2 with la  /=  1'
-  
-      !-----------------------------------------------------------------------
+      !
   
       !-- input/ouput:
       integer,  intent(in) :: nrp,nsize
@@ -513,9 +505,9 @@ contains
    end subroutine wpass2JW
 !------------------------------------------------------------------------------
    subroutine wpass3JW(a,b,c,d,trigs,nrp,la,nsize)
-      !-----------------------------------------------------------------------
+      !
       !     called in fftJW
-      !-----------------------------------------------------------------------
+      !
   
       !-- input/output:
       integer,  intent(in) :: nrp,la,nsize
@@ -615,10 +607,10 @@ contains
    end subroutine wpass3JW
 !------------------------------------------------------------------------------
    subroutine wpass4JW(a,b,c,d,trigs,nrp,la,nsize)
-      !-----------------------------------------------------------------------
+      !
       !     called in fftJW
       !     reduction for factor 4
-      !-----------------------------------------------------------------------
+      !
   
       !-- input/output:
       integer,  intent(in) :: nrp,la,nsize
@@ -722,10 +714,10 @@ contains
    end subroutine wpass4JW
 !------------------------------------------------------------------------------
    subroutine wpass5JW(a,b,c,d,trigs,nrp,la,nsize)
-      !-----------------------------------------------------------------------
+      !
       !     called in fftJW
       !     reduction for factor 5
-      !-----------------------------------------------------------------------
+      !
   
       !-- input/output:
       integer,  intent(in) :: nrp,la,nsize

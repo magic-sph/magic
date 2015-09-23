@@ -1,8 +1,7 @@
-!$Id$
 module matrices
-   !--------------------------------------------------------------
-   !  Common block containing matricies for internal time step
-   !--------------------------------------------------------------
+   !
+   !  This module contains matricies for internal time step
+   !
 
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
                          n_r_tot
@@ -13,7 +12,7 @@ module matrices
    private
  
    !-- the matrices, already LU-decomposed:
-   real(cp), public, allocatable :: s0Mat(:,:)      ! for l=m=0  
+   real(cp), public, allocatable :: s0Mat(:,:)     ! for l=m=0  
    real(cp), public, allocatable :: sMat(:,:,:)
    real(cp), public, allocatable :: zMat(:,:,:) 
    real(cp), public, allocatable :: z10Mat(:,:)    ! for l=1,m=0 

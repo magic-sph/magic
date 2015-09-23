@@ -1,4 +1,3 @@
-!$Id$
 module getDlm_mod
 
    use parallel_mod
@@ -23,7 +22,7 @@ module getDlm_mod
 contains
 
    subroutine getDlm(w,dw,z,dl,dlR,dm,dlc,dlRc,switch)
-      !--------------------------------------------------------------------
+      !
       !  calculates energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
       !  integration in r by Chebycheff integrals
@@ -31,7 +30,7 @@ contains
       !  Output:
       !  enbp: Total poloidal        enbt: Total toroidal
       !  apome: Axisym. poloidal     atome: Axisym. toroidal
-      !--------------------------------------------------------------------
+      !
 
       !-- Input variables:
       complex(cp),      intent(in) :: w(llm:ulm,n_r_max)

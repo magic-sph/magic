@@ -1,4 +1,3 @@
-!$Id$
 module outPar_mod
 
    use parallel_mod

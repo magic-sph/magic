@@ -1,4 +1,3 @@
-
 module power
 
    use parallel_mod
@@ -53,8 +52,7 @@ contains
        &               w,ddw,z,dz,s,b,ddb,aj,dj,              &
        &               db_ic,ddb_ic,aj_ic,dj_ic,              &
        &               viscDiss,ohmDiss)
-      !--------------------------------------------------------------------
-
+      !
       !  This subroutine calculates power and dissipation of
       !  the core/mantle system.
       !  Energy input into the outer core is by buoyancy and
@@ -65,7 +63,7 @@ contains
       !  If inner core and mantel are allowed to change their
       !  rotation rates due to viscous forces this power is not
       !  lost from the system and has to be respected.
-
+      !
       !  The output is written into a file  power.TAG.
       !  This file contains 10 columns:
       !    column  1: time
@@ -78,6 +76,7 @@ contains
       !    column  8: inner core power
       !    column  9: power gain (power-diffusion) of core/mantel system
       !    column 10: time integrated power gain
+      !
 
       !-- Input of variables:
       logical,     intent(in) :: l_stop_time

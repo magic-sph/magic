@@ -1,9 +1,8 @@
-!$Id$
 !#define OLD_THETA_BLOCKING 1
 module blocking
-   !--------------------------------------------------
-   !  Common block containing blocking information
-   !--------------------------------------------------
+   !
+   !  Module containing blocking information
+   !
 
    use precision_mod
    use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
@@ -30,7 +29,7 @@ module blocking
    !  considerably smaller than the chosen nChunk,
    !  since nLMBs must be a multiple of nThreadsUse!
  
-   !integer,PARAMETER :: nChunk=512
+   !integer, parameter :: nChunk=512
    !integer :: nThreadsMax
    ! nthreads > 1
    integer, public, pointer :: lm2(:,:),lm2l(:),lm2m(:)

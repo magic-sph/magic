@@ -1,4 +1,3 @@
-!$Id$
 module chebyshev_polynoms_mod
 
    use precision_mod
@@ -20,15 +19,15 @@ contains
    subroutine get_chebs_recurr(n_r,a,b,y,n_r_max,                  &
         &                      cheb,dcheb,d2cheb,d3cheb,dim1,dim2, &
         &                      map_fac1,map_fac2,map_fac3)
-      !----------------------------------------------------------
+      !
       !  Construct Chebychev polynomials and their first, second,
       !  and third derivative up to degree n_r at n_r points x
-      !  in the intervall [a,b]. Since the Chebs are only defined
+      !  in the interval [a,b]. Since the Chebs are only defined
       !  in [-1,1] we have to use a map, mapping the points x
-      !  points y in the intervall [-1,1]. This map is executed
+      !  points y in the interval [-1,1]. This map is executed
       !  by the subroutine cheb_grid and has to be done
       !  before calling this program.
-      !----------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n_r       ! number of grid points
@@ -37,7 +36,7 @@ contains
       real(cp), intent(in) :: a,b       ! interval boundaries [a,b]
       integer,  intent(in) :: n_r_max   ! leading dimension of
       ! cheb(i,j) and der. in calling routine
-      real(cp), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
+      real(cp), intent(in) :: y(n_r_max)! n_r grid points in interval [a,b]
       integer,  intent(in) :: dim1,dim2 ! dimensions of cheb,dcheb,....
       real(cp), intent(in) :: map_fac1(n_r_max)
       real(cp), intent(in) :: map_fac2(n_r_max)
@@ -98,20 +97,20 @@ contains
 !------------------------------------------------------------------------------
    subroutine get_chebs_even(n_r,a,b,y,n_r_max, &
                              cheb,dcheb,d2cheb,dim1,dim2)
-      !------------------------------------------------------------------
+      !
       !  Construct even Chebychev polynomials and their first,
       !  second and third derivative up to degree 2*(n_r/2) at
-      !  (n_r/2) points x in the intervall [a,b].
+      !  (n_r/2) points x in the interval [a,b].
       !  Since the Chebs are only defined in [-1,1] we have to
       !  map the points x in [a,b] onto points y in the
-      !  intervall [-1,1]. This map is contructed by
+      !  interval [-1,1]. This map is contructed by
       !  the subroutine cheb_x_map_e.f which must be called
       !  before entering this subroutine.
       !  For even Chebs we need only half the point of the map,
-      !  these (n_r/2) points are in the intervall [1,0[ .
+      !  these (n_r/2) points are in the interval [1,0[ .
       !  NOTE the reversed order in the points: y(1)=-1, y(n_r)=1.
       !  y=0 is not used, which helps to avoid singularities.
-      !------------------------------------------------------------------
+      !
        
       !-- Input variables:
       integer,  intent(in) :: n_r ! number of grid points
@@ -172,15 +171,15 @@ contains
    subroutine get_chebs_direct(n_r,a,b,y,n_r_max,                 &
        &                      cheb,dcheb,d2cheb,d3cheb,dim1,dim2, &
        &                      map_fac1,map_fac2,map_fac3)
-      !----------------------------------------------------------
+      !
       !  Construct Chebychev polynomials and their first, second,
       !  and third derivative up to degree n_r at n_r points x
-      !  in the intervall [a,b]. Since the Chebs are only defined
+      !  in the interval [a,b]. Since the Chebs are only defined
       !  in [-1,1] we have to use a map, mapping the points x
-      !  points y in the intervall [-1,1]. This map is executed
+      !  points y in the interval [-1,1]. This map is executed
       !  by the subroutine cheb_grid and has to be done
       !  before calling this program.
-      !----------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n_r       ! number of grid points
@@ -189,7 +188,7 @@ contains
       real(cp), intent(in) :: a,b       ! interval boundaries [a,b]
       integer,  intent(in) :: n_r_max   ! leading dimension of
       ! cheb(i,j) and der. in calling routine
-      real(cp), intent(in) :: y(n_r_max)! n_r grid points in intervall [a,b]
+      real(cp), intent(in) :: y(n_r_max)! n_r grid points in interval [a,b]
       integer,  intent(in):: dim1,dim2  ! dimensions of cheb,dcheb,....
       real(cp), intent(in) :: map_fac1(n_r_max)
       real(cp), intent(in) :: map_fac2(n_r_max)
@@ -340,22 +339,21 @@ contains
    end subroutine get_chebs_direct
 !------------------------------------------------------------------------------
    subroutine cheb_grid(a,b,n,x,y,a1,a2,x0,lbd)
-      !---------------------------------------------------------
-      !   Given the intervall [a,b] the routine returns the
+      !
+      !   Given the interval [a,b] the routine returns the
       !   n+1 points that should be used to support a
       !   Chebychev expansion. These are the n+1 extrema y(i) of
       !   the Chebychev polynomial of degree n in the
-      !   intervall [-1,1].
+      !   interval [-1,1].
       !   The respective points mapped into the interval of
       !   question [a,b] are the x(i).
       !   NOTE: x(i) and y(i) are stored in the reversed order:
       !    x(1)=b, x(n+1)=a, y(1)=1, y(n+1)=-1
-      !---------------------------------------------------------
+      !
        
       !-- Input variables
       real(cp), intent(in) :: a,b   ! interval boundaries
-      integer,      intent(in) :: n     ! degree of Cheb polynomial to
-                                        ! be represented by the grid points
+      integer,  intent(in) :: n ! degree of Cheb polynomial to be represented by the grid points
       real(cp), intent(in) :: a1,a2,x0,lbd
 
       !-- Output variables

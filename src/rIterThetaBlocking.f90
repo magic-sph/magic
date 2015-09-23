@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module rIterThetaBlocking_mod
 

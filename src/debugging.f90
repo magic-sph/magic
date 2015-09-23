@@ -1,4 +1,3 @@
-!$Id$
 module debugging
 
    use precision_mod

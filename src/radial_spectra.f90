@@ -1,4 +1,3 @@
-!$Id$
 module radial_spectra
 
    use precision_mod
@@ -141,9 +140,9 @@ contains
    end subroutine rBrSpec
 !----------------------------------------------------------------------------
    subroutine rBpSpec(time,Tor,TorIC,fileRoot,lIC,map)
-      !--------------------------------------------------------------------
+      !
       !  Called from rank0, map gives the lm order of Tor and TorIC
-      !--------------------------------------------------------------------
+      !
 
       !-- Input variables:
       real(cp),         intent(in) :: time

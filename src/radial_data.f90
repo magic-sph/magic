@@ -1,4 +1,3 @@
-!$Id$
 module radial_data
 
    use truncation, only: n_r_max

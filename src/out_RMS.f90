@@ -1,4 +1,3 @@
-!$Id$
 module out_RMS
 
    use parallel_mod
@@ -57,20 +56,20 @@ module out_RMS
 contains
  
    subroutine dtVrms(time,nRMS_sets)
-      !  +-------------+----------------+------------------------------------+
-      !  |  For testing RMS balance and determining the necessary values of  |
-      !  |  rDea and rCut one can use the l_RMStest=true options.            |
-      !  |  In this case the poloidal and toroidal RMS dtV which also        |
-      !  |  include the diffusion effects should be identical (as close as   |
-      !  |  desired) to the RMS sum of forces stored in the Geo value and    |
-      !  |  the Mag value, respectively.                                     |
-      !  |  An additional tests is the Arc value which should be identical   |
-      !  |  to the poloidal kinetic energy.                                  |
-      !  |                                                                   |
-      !  |  N.B. The second test with the Arc value cannot work so easily in |
-      !  |       the anelastic version as the density enters now in the      |
-      !  |       force balance. The first test should work, though.          |
-      !  +-------------------------------------------------------------------+
+      !
+      !  For testing RMS balance and determining the necessary values of  
+      !  rDea and rCut one can use the l_RMStest=true options.            
+      !  In this case the poloidal and toroidal RMS dtV which also        
+      !  include the diffusion effects should be identical (as close as   
+      !  desired) to the RMS sum of forces stored in the Geo value and    
+      !  the Mag value, respectively.                                     
+      !  An additional tests is the Arc value which should be identical   
+      !  to the poloidal kinetic energy.                                  
+      !                                                                   
+      !  N.B. The second test with the Arc value cannot work so easily in 
+      !       the anelastic version as the density enters now in the      
+      !       force balance. The first test should work, though.         
+      !
 
       !-- Input variable:
       real(cp), intent(in) :: time

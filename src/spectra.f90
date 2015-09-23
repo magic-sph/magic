@@ -1,4 +1,3 @@
-!$Id$
 module spectra
 
    use parallel_mod
@@ -339,17 +338,15 @@ contains
    end function get_standard_deviation
 !----------------------------------------------------------------------------
    subroutine spectrum(time,n_spec,w,dw,z,b,db,aj,b_ic,db_ic,aj_ic)
-      !--------------------------------------------------------------------
-    
+      !
       !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
       !  integration in r by Chebycheff integrals
-    
+      !
       !  Output:
       !  enbp: Total poloidal        enbt: Total toroidal
       !  apome: Axisym. poloidal     atome: Axisym. toroidal
-    
-      !--------------------------------------------------------------------
+      !
     
       !-- Input of variables:
       integer,     intent(in) :: n_spec     ! number of spectrum/call, file
@@ -1002,11 +999,9 @@ contains
    end subroutine spectrum_temp_average
 !----------------------------------------------------------------------------
    subroutine spectrum_temp(time,n_spec,s,ds)
-      !--------------------------------------------------------------------
-
+      !
       !  calculates spectra of temperature and composition
-
-      !--------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,         intent(in) :: n_spec     ! number of spectrum/call, file

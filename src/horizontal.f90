@@ -1,9 +1,8 @@
-!$Id$
 module horizontal_data
-   !------------------------------------------------------------------
+   !
    !  Module containing functions depending on longitude 
    !  and latitude plus help arrays depending on degree and order
-   !------------------------------------------------------------------
+   !
 
    use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, &
                          lm_max, n_m_max, minc, m_max
@@ -115,11 +114,11 @@ contains
    end subroutine initialize_horizontal_data
 !------------------------------------------------------------------------------
    subroutine horizontal
-      !----------------------------------------------------------------
+      !
       !  Calculates functions of theta and phi, for exmample the
       !  Legendre functions, and functions of degree l and order m
       !  of the legendres.
-      !----------------------------------------------------------------
+      !
 
       !-- Local variables:
       integer :: norm,n_theta,n_phi
@@ -349,29 +348,31 @@ contains
 
    end subroutine horizontal
 !------------------------------------------------------------------------------
-   subroutine gauleg(sinThMin,sinThMax,theta_ord,gauss,n_theta_max)
-      !----------------------------------------------------------------------
+   subroutine gauleg(sinThMin,sinThMax,theta_ord,gauss,n_th_max)
+      !
       ! Subroutine is based on a NR code.
       ! Calculates N zeros of legendre polynomial P(l=N) in
       ! the interval [sinThMin,sinThMax].
       ! Zeros are returned in radiants theta_ord(i)
       ! The respective weights for Gauss-integration are given in gauss(i).
-      !----------------------------------------------------------------------
+      !
 
       !-- Input variables:
-      real(cp), intent(in) :: sinThMin,sinThMax ! lower/upper bound in radiants
-      integer,  intent(in) :: n_theta_max  ! desired maximum degree
+      real(cp), intent(in) :: sinThMin ! lower bound in radiants
+      real(cp), intent(in) :: sinThMax ! upper bound in radiants
+      integer,  intent(in) :: n_th_max ! desired maximum degree
     
       !-- Output variables:
-      real(cp), intent(out) :: theta_ord(n_theta_max) ! zeros cos(theta)
-      real(cp), intent(out) :: gauss(n_theta_max) ! associated Gauss-Legendre weights
+      real(cp), intent(out) :: theta_ord(n_th_max) ! zeros cos(theta)
+      real(cp), intent(out) :: gauss(n_th_max)     ! associated Gauss-Legendre weights
     
       !-- Local variables:
-      integer                :: m,i,j
-      real(cp)           :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
+      integer :: m,i,j
+      real(cp) :: sinThMean,sinThDiff,p1,p2,p3,pp,z,z1
       real(cp), parameter :: eps = 10.0_cp*epsilon(one)
     
-      m=(n_theta_max+1)/2  ! use symmetry
+      ! use symmetry
+      m=(n_th_max+1)/2
     
       !-- Map on symmetric interval:
       sinThMean=half*(sinThMax+sinThMin)
@@ -379,30 +380,31 @@ contains
     
       do i=1,m
          !----- Initial guess for zeros:
-         z  = cos( pi*( (real(i,cp)-0.25_cp)/(real(n_theta_max,cp)+half)) )
+         z  = cos( pi*( (real(i,cp)-0.25_cp)/(real(n_th_max,cp)+half)) )
          z1 = z+10*eps
      
          do while( abs(z-z1) > eps)
-            !----- Use recurrence to calulate P(l=n_theta_max,z=cos(theta))
+            !----- Use recurrence to calulate P(l=n_th_max,z=cos(theta))
             p1=one
             p2=0.0_cp
-            do j=1,n_theta_max   ! do loop over degree !
+            ! do loop over degree !
+            do j=1,n_th_max
                p3=p2
                p2=p1
                p1=( real(2*j-1,cp)*z*p2-real(j-1,cp)*p3 )/real(j,cp)
             end do
       
             !----- Newton method to refine zero: pp is derivative !
-            pp=real(n_theta_max,cp)*(z*p1-p2)/(z*z-one)
+            pp=real(n_th_max,cp)*(z*p1-p2)/(z*z-one)
             z1=z
             z=z1-p1/pp
          end do
      
          !----- Another zero found
          theta_ord(i)              =acos(sinThMean+sinThDiff*z)
-         theta_ord(n_theta_max+1-i)=acos(sinThMean-sinThDiff*z)
+         theta_ord(n_th_max+1-i)=acos(sinThMean-sinThDiff*z)
          gauss(i)                  =two*sinThDiff/((one-z*z)*pp*pp)
-         gauss(n_theta_max+1-i)    =gauss(i)
+         gauss(n_th_max+1-i)    =gauss(i)
     
       end do
      

@@ -1,4 +1,3 @@
-!$Id$
 module cutils
 
    use, intrinsic :: iso_c_binding

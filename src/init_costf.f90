@@ -1,4 +1,3 @@
-!$Id$
 module init_costf
  
    use const, only: pi, sin36, cos36, sin60, sin72, cos72, one, two, &
@@ -15,12 +14,12 @@ module init_costf
 contains
 
    subroutine init_costf1(n,i_costf_init,ni,d_costf_init,nd)
-      !  +-------------+----------------+------------------------------------+
-      !  |  Purpose of this subroutine is to calculate and store several     |
-      !  |  values that will be needed for a fast cosine transform of the    |
-      !  |  first kind. The actual transform is performed by the             |
-      !  |  subroutine costf1.                                               |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate and store several     
+      !  values that will be needed for a fast cosine transform of the    
+      !  first kind. The actual transform is performed by the             
+      !  subroutine costf1.                                               
+      !
 
       !-- Input variables:
       integer, intent(in) :: n          ! No of grid points !
@@ -160,11 +159,11 @@ contains
    end subroutine init_costf1
 !------------------------------------------------------------------------------
    subroutine init_costf2(n,i_costf_init,ni,d_costf_init,nd)
-      !  +-------------+----------------+------------------------------------+
-      !  |  Purpose of this subroutine is to calculate several things        |
-      !  |  needed for the cheb transform.                                   |
-      !  |  Prepares costf2 for even number of grid points.                  |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate several things        
+      !  needed for the cheb transform.                                   
+      !  Prepares costf2 for even number of grid points.                  
+      !
 
       !-- Input variables:
       integer, intent(in) :: n           ! No of grid points !

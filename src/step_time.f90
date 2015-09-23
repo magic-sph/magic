@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module step_time_mod
 
@@ -140,11 +139,9 @@ contains
    end subroutine initialize_step_time
 !-------------------------------------------------------------------------------
    subroutine step_time(time,dt,dtNew,n_time_step)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine performs the actual time-stepping.               |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  This subroutine performs the actual time-stepping.
+      !
 
       !-- Input from initialization:
       !   time and n_time_step updated and returned to magic.f
@@ -1214,12 +1211,10 @@ contains
    end subroutine step_time
 !------------------------------------------------------------------------------
    subroutine check_time_hits(l_new_dt,time,dt,dt_new)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Checks whether a certain dt is required to hit a                 |
-      !  |  specific output-time.                                            |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Checks whether a certain dt is required to hit a                 
+      !  specific output-time.                                            
+      !
 
       !-- Output: ev. modified dt
       logical,  intent(out) :: l_new_dt ! signfies change of dt !

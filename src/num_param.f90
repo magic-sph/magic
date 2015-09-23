@@ -1,8 +1,7 @@
-!$Id$
 module num_param
-   !--------------------------------------------------------------
+   !
    !  Module containing numerical and control parameters
-   !--------------------------------------------------------------
+   !
 
    use truncation, only: n_r_max
    use precision_mod
@@ -34,8 +33,8 @@ module num_param
    !-- Scalings:
    real(cp), public :: tScale,lScale,vScale,pScale,eScale  ! scales
    real(cp), public :: enscale         ! (input) scale for energies !
-   integer, public :: n_tScale       ! controlls time scale
-   integer, public :: n_lScale       ! controlls length scale
+   integer, public :: n_tScale       ! controls time scale
+   integer, public :: n_lScale       ! controls length scale
  
    !-- Stop signal:
    integer, public :: istop

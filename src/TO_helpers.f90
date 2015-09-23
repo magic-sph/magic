@@ -1,4 +1,3 @@
-!$Id$
 module TO_helpers
 
    use precision_mod
@@ -17,14 +16,14 @@ contains
 
    subroutine getPAStr(fZ,flmn,nZmax,nZmaxA,lmMax,lMax, &
                               rMin,rMax,nChebMax,rZ,dPlm,OsinTS)
-      !----------------------------------------------------------------------------
+      !
       !  Calculates axisymmetric phi component for a given toroidal
       !  potential flmn in spherical harmonic/Cheb space.
       !  This is calculated at radii rZ(nZmax) and matching
       !  colatitutes theta(nZmax) for which dPlm(theta) and OsinTS(theta)
       !  are provided for the south hemisphere.
       !  Points in the northern hemipshere use Plm symmetries.
-      !----------------------------------------------------------------------------
+      !
 
       !--- Input variables:
       integer,  intent(in) :: lmMax, lMax
@@ -55,7 +54,7 @@ contains
          nZS=nZmax+1-nZN  ! point in southern HS
          fac=-OsinTS(nZN)/rZ(nZN)
 
-         !--- Map r to cheb intervall [-1,1]:
+         !--- Map r to cheb interval [-1,1]:
          !    and calculate the cheb polynomia:
          !    Note: the factor chebNorm is needed
          !    for renormalisation. Its not needed if one used
@@ -111,13 +110,11 @@ contains
    end subroutine getPAStr
 !---------------------------------------------------------------------------
    subroutine get_PAS(Tlm,Bp,rT,nThetaStart,sizeThetaBlock)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the axisymmetric      |
-      !  |  phi component Bp of an axisymmetric toroidal field Tlm           |
-      !  |  given in spherical harmonic space (l,m=0).                       |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the axisymmetric      
+      !  phi component Bp of an axisymmetric toroidal field Tlm           
+      !  given in spherical harmonic space (l,m=0).                       
+      !
 
       !-- Input variables
       integer,  intent(in) :: nThetaStart    ! first theta to be treated
@@ -158,12 +155,12 @@ contains
    end subroutine get_PAS
 !----------------------------------------------------------------------------
    subroutine getAStr(fZ,flmn,nZmax,nZmaxA,lmMax,lMax,rMin,rMax,nChebMax,rZ,Plm)
-      !----------------------------------------------------------------------------
+      !
       !  Calculates function value at radii rZ(nZmax) and
       !  colatitudes for which Plm(theta) is given from
       !  the spherical harmonic/Chebychev coefficients of an
       !  axisymmetric function (order=0).
-      !----------------------------------------------------------------------------
+      !
 
       !--- Input variables:
       integer,  intent(in) :: lmMax, lMax
@@ -193,7 +190,7 @@ contains
       do nZN=1,nZmax/2 ! Loop over all z-points in south HS
          nZS=nZmax+1-nZN
 
-         !--- Map r to cheb intervall [-1,1]:
+         !--- Map r to cheb interval [-1,1]:
          !    and calculate the cheb polynomia:
          !    Note: the factor chebNorm is needed
          !    for renormalisation. Its not needed if one used

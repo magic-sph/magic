@@ -1,4 +1,3 @@
-!$Id$
 module hdf5Helpers
 
    use precision_mod

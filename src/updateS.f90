@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module updateS_mod
 
@@ -64,10 +63,10 @@ contains
    end subroutine initialize_updateS
   
    subroutine updateS(s,ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
-      !-------------------------------------------------------------------------
+      !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
-      !-------------------------------------------------------------------------
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: w1        ! weight for time step !
@@ -366,10 +365,10 @@ contains
    end subroutine updateS
 !------------------------------------------------------------------------------
    subroutine updateS_ala(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
-      !-------------------------------------------------------------------------
+      !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
-      !-------------------------------------------------------------------------
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: w1        ! weight for time step !
@@ -681,12 +680,10 @@ contains
 #else
    subroutine get_s0Mat(dt,sMat,sPivot)
 #endif
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to contruct the time step matrix   |
-      !  |  sMat0                                                            |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to contruct the time step matrix   
+      !  sMat0                                                            
+      !
 
       !-- Input variables
       real(cp), intent(in) :: dt
@@ -785,12 +782,10 @@ contains
 #else
    subroutine get_Smat(dt,l,hdif,sMat,sPivot)
 #endif
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to contruct the time step matricies|
-      !  |  sMat(i,j) and s0mat for the entropy equation.                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to contruct the time step matricies
+      !  sMat(i,j) and s0mat for the entropy equation.                    
+      !
       
       !-- Input variables
       real(cp), intent(in) :: dt

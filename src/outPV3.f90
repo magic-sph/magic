@@ -1,4 +1,3 @@
-!$Id$
 module outPV3
 
    use precision_mod
@@ -55,10 +54,10 @@ contains
    end subroutine initialize_outPV3
 !---------------------------------------------------------------------------------
    subroutine outPV(time,l_stop_time,nPVsets,w,dw,ddw,z,dz,omega_IC,omega_MA)
-      !-----------------------------------------------------------------------
+      !
       !   Output of z-integrated axisymmetric rotation rate Vp/s 
       !   and s derivatives
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: time
@@ -308,7 +307,7 @@ contains
    subroutine getPVptr(w,dw,ddw,z,dz,rMin,rMax,rS, &
                    nZmax,nZmaxA,PlmS,dPlmS,OsinTS, &
                           VrS,VpS,VtS,VorS,dpVorS)
-      !-------------------------------------------------------------------------------
+      !
       !  This subroutine calculates the three flow conponents VrS,VtS,VpS at
       !  (r,theta,all phis) and (r,pi-theta, all phis). Here r=rS, PlmS=Plm(theta),
       !  dPlmS=sin(theta)*dTheta Plm(theta), and OsinTS=1/sin(theta).
@@ -320,7 +319,7 @@ contains
       !  These two quantities are used ot calculate z and phi scale of the flow in
       !  s_getEgeos.f
       !  NOTE: on input w=l*(l+1)*w
-      !-------------------------------------------------------------------------------
+      !
 
       !--- Input variables:
       complex(cp), intent(in) :: w(lm_max,n_r_max)
@@ -368,7 +367,7 @@ contains
          nS=nZmax-nN+1   ! Southern counterpart !
 
          !------ Calculate Chebs:
-         !------ Map r to cheb intervall [-1,1]:
+         !------ Map r to cheb interval [-1,1]:
          !       and calculate the cheb polynomia:
          !       Note: the factor cheb_norm is needed
          !       for renormalisation. Its not needed if one used

@@ -1,111 +1,107 @@
-!$Id$
 #include "perflib_preproc.cpp"
 program magic
-!--+-------------+----------------+------------------------------------+
-
+!
 !     A dynamic dynamo model driven by thermal convection
 !     in a rotating spherical fluid shell.
 !     This version is restricted to anelastic fluids and
 !     non-dimensional variables are used throughout.
-
+!
 !     In the Boussinesq limit,
 !     the following set of equations is solved:
-
+!
 !     E {dv/dt + v.grad(v)} = -grad(p) - 2e_z x v
 !         +1/Pm rot(B) x B + RaE/Pr g/g_o T
-
+!
 !     dB/dt = rot(v x B) + 1/Pm Lapl(B)
-
+!
 !     dT/dt + v.grad(T) = 1/Pr Lapl(T) + epsc0
-
+!
 !     div(v)=0          div(B)=0
-
+!
 !       subject to the following boundary conditions
 !       at the inner and outer radii:
-
+!
 !       v_r=0, and either no slip or stress free
 !       T=0 / T=1  or fixed heat flux (the latter not tested!)
 !       B fitted to exterior potential fields, or parts of B
 !       specified on the boundaries
-
+!
 !     List of symbols:
-
+!
 !     v: velocity          p: pressure        B: magnetic field
 !     g: gravity           g_o: reference value at outer radius
 !     T: temperature       epsc0: rate of internal heating
 !     e_z: unit vector parallel to the rotation axis
 !     d/dt: partial time derivative  Lapl: Laplace operator
-
+!
 !     Scaling properties:
-
+!
 !     nu: kinematic viscosity         d: shell width
 !     omega: angular frequency        alpha: thermal expansion coeff
 !     delta_T: temperature contrast   kappa: thermal diffusivity
 !     eta: magnetic diffusivity       rho: density
 !     mu_o: magnetic permeability
-
+!
 !     Scaling:
-
+!
 !     Length:   d              time:      d^2/nu
 !     Velocity: nu/d           pressure:  rho*nu*omega
 !     Temperature: delta_T     mag.field: sqrt(rho*mu_o*eta*omega)
-
-
+!
 !     Non-dimensional numbers:
-
+!
 !     E: Ekman number     E= nu*d^2/omega
 !     Ra: Rayleigh number Ra = alpha*g_o*delta_T*d^3/(kappa*nu)
 !     Pr: Prandtl number  Pr = nu/kappa
 !     Pm: Magnetic Prandtl number    Pm=nu/eta
 
-
 !     Numerical simulations via a nonlinear, multimode,
 !     initial-boundary value problem.
-
-! *** entropy boundary conditions (tops and bots on input)
-!     if ktops = 1, entropy specified on outer boundary
-!     if ktops = 2, radial heat flux specified on outer boundary
-!     if kbots = 1, entropy specified on inner boundary
-!     if kbots = 2, radial heat flux specified on inner boundary
-!     for example: ktops=1,
-!           the spherically-symmetric temperature
-!           on the outer boundary relative to the reference state
-
-! *** velocity boundary condtions
-!     if ktopv = 1, stress-free outer boundary
-!     if ktopv = 2, non-slip outer boundary
-!     if kbotv = 1, stress-free inner boundary
-!     if kbotv = 2, non-slip inner boundary
-
-! *** magnetic boundary condtions
-!     if ktopb = 1, insulating outer boundary (mantle)
-!     if kbotb = 1, insulating inner boundary (core)
-!     if ktopb = 2, not implemented
-!     if kbotb = 2, perfectly conducting inner boundary
-!     if ktopb = 3, finitely conducting mantle
-!     if kbotb = 3, finitely conducting inner core
-!     if ktopb = 4, pseudo vacuum outer boundary (B=Br)
-!     if kbotb = 4, pseudo vacuum inner boundary (B=Br)
-
-! *** magneto-convection
-!     amp_b1 = max amplitude of imposed magnetic field
-!     if imagcon  ==  1, imposed toroidal field via inner bc on J(l=2,m=0)
-!     if imagcon  == 10, imposed tor. field on both icb and cmb J(l=2,m=0)
-!     if imagcon  == 11, imposed tor. field on both icb and cmb J(l=2,m=0)
-!                        opposite sign
-!     if imagcon  == 12, imposed tor. field on both icb and cmb J(l=1,m=0)
-!     if imagcon  <  0, imposed poloidal field via inner bc on B(l=1,m=0)
-
-
+!
+! * entropy boundary conditions (tops and bots on input)
+!   if ktops = 1, entropy specified on outer boundary
+!   if ktops = 2, radial heat flux specified on outer boundary
+!   if kbots = 1, entropy specified on inner boundary
+!   if kbots = 2, radial heat flux specified on inner boundary
+!   for example: ktops=1,
+!         the spherically-symmetric temperature
+!         on the outer boundary relative to the reference state
+!
+! * velocity boundary condtions
+!   if ktopv = 1, stress-free outer boundary
+!   if ktopv = 2, non-slip outer boundary
+!   if kbotv = 1, stress-free inner boundary
+!   if kbotv = 2, non-slip inner boundary
+!
+! * magnetic boundary condtions
+!   if ktopb = 1, insulating outer boundary (mantle)
+!   if kbotb = 1, insulating inner boundary (core)
+!   if ktopb = 2, not implemented
+!   if kbotb = 2, perfectly conducting inner boundary
+!   if ktopb = 3, finitely conducting mantle
+!   if kbotb = 3, finitely conducting inner core
+!   if ktopb = 4, pseudo vacuum outer boundary (B=Br)
+!   if kbotb = 4, pseudo vacuum inner boundary (B=Br)
+!
+! * magneto-convection
+!   amp_b1 = max amplitude of imposed magnetic field
+!   if imagcon  ==  1, imposed toroidal field via inner bc on J(l=2,m=0)
+!   if imagcon  == 10, imposed tor. field on both icb and cmb J(l=2,m=0)
+!   if imagcon  == 11, imposed tor. field on both icb and cmb J(l=2,m=0)
+!                      opposite sign
+!   if imagcon  == 12, imposed tor. field on both icb and cmb J(l=1,m=0)
+!   if imagcon  <  0, imposed poloidal field via inner bc on B(l=1,m=0)
+!
+!
 !     if l_start_file=.true. initial fields are read from file $start_file$
 !     if l_start_file=.false. start fields are initialised
 !     according to init_s1,init_s2,init_b1,init_v1.
 !     (see subroutines init_s, init_b and init_v.
-
+!
 !     Resolution is defined in truncation !
-
+!
 !     Subroutine step_time performes n_time_steps time steps.
-!--+-------------------------------------------------------------------+
+!
 
    use truncation
    use precision_mod

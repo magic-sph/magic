@@ -22,16 +22,14 @@ contains
 
    subroutine costf1_complex(f,n_f_max,n_f_start,n_f_stop,f2, &
         &                    i_costf_init,d_costf_init)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to perform a multiple              |
-      !  |  cosine transforms for n+1 datapoints                             |
-      !  |  on the columns numbered n_f_start to n_f_stop in the array       |
-      !  |   f(n_f_max,n+1)                                                  |
-      !  |  Depending whether the input f contains data or coeff arrays      |
-      !  |  coeffs or data are returned in f.                                |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to perform a multiple
+      !  cosine transforms for n+1 datapoints
+      !  on the columns numbered n_f_start to n_f_stop in the array
+      !  f(n_f_max,n+1)
+      !  Depending whether the input f contains data or coeff arrays
+      !  coeffs or data are returned in f.
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in f,f2
@@ -40,7 +38,7 @@ contains
       real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
     
       !-- Output variables:
-      complex(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
+      complex(cp), intent(inout) :: f(n_f_max,*) ! data/coeff input
       complex(cp), intent(out) :: f2(n_f_max,*)  ! work array of the same size as f
     
       !-- Local variables:
@@ -242,8 +240,8 @@ contains
    subroutine costf1_complex_1d(f,f2,i_costf_init,d_costf_init)
     
       !-- Input variables:
-      integer,  intent(in) :: i_costf_init(*)    ! prestored integers
-      real(cp), intent(in) :: d_costf_init(*)    ! prestored dble numbers
+      integer,  intent(in) :: i_costf_init(*)  ! prestored integers
+      real(cp), intent(in) :: d_costf_init(*)  ! prestored dble numbers
     
       !-- Output variables:
       complex(cp), intent(inout) :: f(*)   ! data/coeff input
@@ -800,16 +798,14 @@ contains
 !------------------------------------------------------------------------------
    subroutine costf2(f,n_f_max,n_f_start,n_f_stop,f2, &
                      i_costf_init,d_costf_init,isign)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to perform a multiple              |
-      !  |  cosine transforms for n+1 datapoints                             |
-      !  |  on the columns numbered n_f_start to n_f_stop in the array       |
-      !  |   y(n_f_max,n+1)                                                  |
-      !  |  Depending whether the input y contains data or coeff arrays      |
-      !  |  coeffs or data are returned in y.                                |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to perform a multiple              
+      !  cosine transforms for n+1 datapoints                             
+      !  on the columns numbered n_f_start to n_f_stop in the array       
+      !   y(n_f_max,n+1)                                                  
+      !  Depending whether the input y contains data or coeff arrays      
+      !  coeffs or data are returned in y.                                
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n_f_max            ! number of columns in y,y2

@@ -1,4 +1,3 @@
-!$Id$
 module out_movie
 
    use precision_mod
@@ -43,10 +42,10 @@ contains
    subroutine store_movie_frame(n_r,vr,vt,vp,br,bt,bp,sr,drSr,    &
      &                       dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbr,cbt, &
      &                       n_theta_start,n_theta_block,bCMB)
-      !-------------------------------------------------------------------------
+      !
       !  Controls output of movie frames.
       !  Usually called from radialLoop.
-      !-------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,     intent(in) :: n_r                ! radial grid point no.
@@ -174,10 +173,10 @@ contains
    subroutine write_movie_frame(n_frame,time,b,db,aj,dj,b_ic, &
                                 db_ic,aj_ic,dj_ic,omega_ic,   &
                                 omega_ma)
-      !-------------------------------------------------------------------------
+      !
       !  Writes different movie frames into respective output files.
       !  Called from rank 0 with full arrays in standard LM order.
-      !-------------------------------------------------------------------------
+      !
     
       !-- Input of variables:
       real(cp),    intent(in) :: time
@@ -318,12 +317,10 @@ contains
 !----------------------------------------------------------------------------
    subroutine store_fields_sur(n_store_last,n_field_type, &
      &                      n_theta_start,n_theta_block,bCMB)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces r=const. into array frame(*,*)                          |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to store movie frames for          
+      !  surfaces r=const. into array frame(*,*)                          
+      !
 
       !--- Input variables:
       integer,     intent(in) :: n_store_last     ! Start position for storing -1
@@ -387,12 +384,10 @@ contains
                            dvrdp,dvpdr,dvtdr,dvrdt,cvr, &
                          n_r,n_store_last,n_field_type, &
                             n_theta_start,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces r=const. into array frame(*,*)                          |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to store movie frames for
+      !  surfaces r=const. into array frame(*,*)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -604,12 +599,10 @@ contains
      &                    n_r,n_store_last,n_field_type,       &
      &                    n_phi_const,n_field_size,            &
      &                    n_theta_start,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces phi=const. into array frames(*,*)                       |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to store movie frames for
+      !  surfaces phi=const. into array frames(*,*)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -935,12 +928,10 @@ contains
                        dvrdp,dvpdr,dvtdr,dvrdt,cvr,cbt, &
                          n_r,n_store_last,n_field_type, &
                                  n_theta_const,n_theta)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces r=const. into array frame(*,*)                          |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to store movie frames for
+      !  surfaces r=const. into array frame(*,*)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -1085,12 +1076,10 @@ contains
                             dvrdp,dvpdr,dvtdr,dvrdt,cvr, &
                   cbr,cbt,n_r,n_store_last,n_field_type, &
                             n_theta_start,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to store movie frames for          |
-      !  |  surfaces r=const. into array frame(*,*)                          |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to store movie frames for
+      !  surfaces r=const. into array frame(*,*)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
@@ -1350,13 +1339,11 @@ contains
    end subroutine store_fields_3d
 !----------------------------------------------------------------------------
    subroutine get_sl(sl,n_r,n_theta_start,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Return field sl whose contourlines are the stream lines          |
-      !  |  of the axisymmetric poloidal velocity field.                     |
-      !  |    sl(r,theta)=d_theta v(r,theta,m=0)/r                           |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Return field sl whose contourlines are the stream lines          
+      !  of the axisymmetric poloidal velocity field.                     
+      !  sl(r,theta)=d_theta v(r,theta,m=0)/r                           
+      !
 
       !-- Input variables:
       integer, intent(in) :: n_r             ! No. of radial grid point
@@ -1410,13 +1397,11 @@ contains
    end subroutine get_sl
 !----------------------------------------------------------------------------
    subroutine get_fl(fl,n_r,n_theta_start,n_theta_block,l_ic)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Return field fl whose contourlines are the fields lines          |
-      !  |  of the axisymmetric poloidal mangetic field.                     |
-      !  |    fl(r,theta)=d_theta b(r,theta,m=0)/r                           |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Return field fl whose contourlines are the fields lines          
+      !  of the axisymmetric poloidal mangetic field.                     
+      !    fl(r,theta)=d_theta b(r,theta,m=0)/r                           
+      !
 
       !  This routine is called for l_ic=.true. only from rank 0 with full
       !  field b_ic in standard lm ordering available.
@@ -1493,18 +1478,16 @@ contains
    end subroutine get_fl
 !----------------------------------------------------------------------------
    subroutine get_B_surface(b_r,b_t,b_p,bCMB,n_theta_start,n_theta_block)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Upward continuation of laplacian field to Earths surface.        |
-      !  |  Field is given by poloidal harmonic coefficients b at CMB.       |
-      !  |  Spherical harmonic transforms of upward continued field          |
-      !  |  to r/theta/phi vector components for all logitudes and           |
-      !  |  latitude are returned in br/bt/bp.                               |
-      !  |  Note that this routine given the real components of the magnetic |
-      !  |  fields while other transforms in the code provide only:          |
-      !  |   r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp                 |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Upward continuation of laplacian field to Earths surface.        
+      !  Field is given by poloidal harmonic coefficients b at CMB.       
+      !  Spherical harmonic transforms of upward continued field          
+      !  to r/theta/phi vector components for all logitudes and           
+      !  latitude are returned in br/bt/bp.                               
+      !  Note that this routine given the real components of the magnetic 
+      !  fields while other transforms in the code provide only:          
+      !   r**2 br, r**2 sin(theta) bt, r**2 sin(theta) bp                 
+      !
 
       !-- Input of variables:
       integer,     intent(in) :: n_theta_start   ! No. of theta to start with

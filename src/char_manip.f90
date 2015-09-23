@@ -1,5 +1,7 @@
-!$Id$
 module charmanip
+   !
+   ! This module contains several useful routines to manipule character strings
+   !
 
    use precision_mod
 
@@ -8,9 +10,9 @@ module charmanip
 contains
 
    subroutine capitalize(string)
-      !------------------------------------------------------------------------
+      !
       !   Convert lower-case letters into capital letters
-      !------------------------------------------------------------------------
+      !
 
       !-- Input variables
       character(len=*), intent(inout) :: string
@@ -32,9 +34,9 @@ contains
    end subroutine capitalize
 !------------------------------------------------------------------------------
    subroutine delete_string(string,string_del,length)
-      !------------------------------------------------------------------------
+      !
       !   Deletes string_del from string and returns new length of string.
-      !------------------------------------------------------------------------
+      !
 
       !-- Input variables
       character(len=*), intent(inout) :: string
@@ -69,10 +71,10 @@ contains
    end subroutine delete_string
 !------------------------------------------------------------------------------
    subroutine str2dble(string,num)
-      !------------------------------------------------------------------------
+      !
       !   interprets next word in string as an dble real number
       !   deletes leading blanks and next_word from string
-      !------------------------------------------------------------------------
+      !
 
       !-- Input variable:
       character(len=*), intent(in) :: string  ! input
@@ -89,9 +91,9 @@ contains
    end subroutine str2dble
 !------------------------------------------------------------------------------
    integer function length_to_blank(string)
-      !------------------------------------------------------------------------
+      !
       !   determines number of characters before first blank in string
-      !------------------------------------------------------------------------
+      !
 
       !-- Input variable
       character(len=*), intent(in) :: string
@@ -134,9 +136,9 @@ contains
    end function length_to_char
 !------------------------------------------------------------------------------
    subroutine dble2str(num, str)
-      !----------------------------------------------------------
+      !
       !  converts a dble number num into a character str
-      !----------------------------------------------------------
+      !
 
       !-- Input variable
       real(cp), intent(in) :: num

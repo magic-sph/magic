@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 #include "mkl_dfti.f90"
 
@@ -28,8 +27,11 @@ module fft_mkl
 contains
 
    subroutine init_fft(number_of_points)
+      """
+      MKL equivalent of init_fft
+      """
 
-      integer, intent(in) :: number_of_points
+      integer, intent(in) :: number_of_points ! number of points
       
       ! Fourier transformation complex->REAL with MKL DFTI interface
       ! init FFT

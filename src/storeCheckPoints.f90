@@ -1,4 +1,3 @@
-!$Id$
 module storeCheckPoints
 
    use precision_mod
@@ -30,12 +29,12 @@ contains
    subroutine store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
                     dwdtLast,dzdtLast,dpdtLast,dsdtLast,   &
                     dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
-      !--------------------------------------------------------------------
-      ! *** store results on disc file (restart file)
-      !   In addition to the magnetic field and velocity potentials
-      !   we store the time derivative terms
-      !     djdt(lm,nR),dbdt(lm,nR), ......
-      !--------------------------------------------------------------------
+      !
+      ! store results on disc file (restart file)
+      ! In addition to the magnetic field and velocity potentials
+      ! we store the time derivative terms
+      ! djdt(lm,nR),dbdt(lm,nR), ......
+      !
 
       !-- Input of variables:
       real(cp),    intent(in) :: time,dt,dtNew

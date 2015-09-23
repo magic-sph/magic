@@ -1,8 +1,7 @@
-!$Id$
 module torsional_oscillations
-!----------------------------------------------------------------------
-!  This module contains information for TO calculation and output
-!----------------------------------------------------------------------
+   !
+   !  This module contains information for TO calculation and output
+   !
 
    use parallel_mod
    use precision_mod
@@ -126,7 +125,7 @@ contains
                                     BsLast,BpLast,BzLast, &
                         dzRstrLM,dzAstrLM,dzCorLM,dzLFLM, &
                    dtLast,nR,nThetaStart,nThetaBlockSize)
-      !-----------------------------------------------------------------------
+      !
       !  This program calculates various axisymmetric linear
       !  and nonlinear variables for a radial grid point nR and
       !  a theta-block.
@@ -144,7 +143,7 @@ contains
       !  advection and viscous stress later. Their calculation
       !  retraces the calculations done in the time-stepping part
       !  of the code.
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input of variables
       real(cp), intent(in) :: dtLast              ! last time step
@@ -349,10 +348,10 @@ contains
    subroutine getTOnext(zAS,br,bt,bp,lTONext,lTONext2,    &
                 dt,dtLast,nR,nThetaStart,nThetaBlockSize, &
                                     BsLast,BpLast,BzLast)
-      !-----------------------------------------------------------------------
+      !
       !  Preparing TO calculation by storing flow and magnetic field
       !  contribution to build time derivative.
-      !-----------------------------------------------------------------------
+      !
 
       !-- Input of variables:
       real(cp), intent(in) :: dt,dtLast
@@ -430,10 +429,10 @@ contains
 !-----------------------------------------------------------------------------
    subroutine getTOfinish(nR,dtLast,zAS,dzAS,ddzAS,dzRstrLM, &
                           dzAstrLM,dzCorLM,dzLFLM)
-      !-----------------------------------------------------------------------
+      !
       !  This program was previously part of getTO(...)
-      !  It has now been seperated to get it out of the theta-block loop.
-      !-----------------------------------------------------------------------
+      !  It has now been separated to get it out of the theta-block loop.
+      !
 
       !-- Input of variables:
       integer,  intent(in) :: nR

@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module legendre_grid_to_spec
 
@@ -16,16 +15,14 @@ module legendre_grid_to_spec
 contains
 
    subroutine legTF1(nThetaStart,f1LM,f1TM)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-      !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  f1TM (input) to f1LM (output)                                    |
-      !  |  One call to this routine does part of the transform              |
-      !  |  by summation over theta points in one theta block:               |
-      !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
+      !  [grid to spectral] for 2 arrays                                  
+      !  f1TM (input) to f1LM (output)                                    
+      !  One call to this routine does part of the transform              
+      !  by summation over theta points in one theta block:               
+      !  nThetaStart,..,nThetaStart+n_theta_block-1                   
+      !                                                                   
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart ! First no of theta on block
@@ -118,16 +115,14 @@ contains
    end subroutine legTF1
 !------------------------------------------------------------------------
    subroutine legTF2(nThetaStart,f1LM,f2LM,f1TM,f2TM)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-      !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  f1TM,f2TM (input) to f1LM,f2LM (output)                          |
-      !  |  One call to this routine does part of the transform              |
-      !  |  by summation over theta points in on theta block:                |
-      !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
+      !  [grid to spectral] for 2 arrays                                  
+      !  f1TM,f2TM (input) to f1LM,f2LM (output)                          
+      !  One call to this routine does part of the transform              
+      !  by summation over theta points in on theta block:                
+      !  nThetaStart,..,nThetaStart+n_theta_block-1                  
+      !
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart ! First no of theta on block
@@ -251,16 +246,14 @@ contains
    end subroutine legTF2
 !------------------------------------------------------------------------
    subroutine legTF3(nThetaStart,f1LM,f2LM,f3LM,f1TM,f2TM,f3TM)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-      !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  ancl1/2/3 (input) to flm1/2/3 (output)                           |
-      !  |  One call to this routine does part of the transform              |
-      !  |  by summation over theta points in on theta block:                |
-      !  |      nThetaStart,..,nThetaStart+n_theta_block-1                   |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
+      !  [grid to spectral] for 2 arrays                                  
+      !  ancl1/2/3 (input) to flm1/2/3 (output)                           
+      !  One call to this routine does part of the transform              
+      !  by summation over theta points in on theta block:                
+      !  nThetaStart,..,nThetaStart+n_theta_block-1                   
+      !
 
       !-- Input variables:
       integer,  intent(in) :: nThetaStart ! First no of theta on block
@@ -414,16 +407,14 @@ contains
    end subroutine legTF3
 !------------------------------------------------------------------------
    subroutine legTFAS(flm1,ft1,lmMax,nThetaStart,sizeThetaB)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-      !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  ancl1/2 (input) to flm1/2 (output)                               |
-      !  |  One call to this routine does part of the transform              |
-      !  |  by summation over theta points in on theta block:                |
-      !  |      n_theta_min,..,n_theta_min+n_theta_block-1                   |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
+      !  [grid to spectral] for 2 arrays                                  
+      !  ancl1/2 (input) to flm1/2 (output)                               
+      !  One call to this routine does part of the transform              
+      !  by summation over theta points in on theta block:                
+      !  n_theta_min,..,n_theta_min+n_theta_block-1                   
+      !
 
       implicit none
 
@@ -508,16 +499,14 @@ contains
    end subroutine legTFAS
 !------------------------------------------------------------------------
    subroutine legTFAS2(flm1,flm2,ft1,ft2,lmMax,nThetaStart,sizeThetaB)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  |
-      !  |  [grid to spectral] for 2 arrays                                  |
-      !  |  ancl1/2 (input) to flm1/2 (output)                               |
-      !  |  One call to this routine does part of the transform              |
-      !  |  by summation over theta points in on theta block:                |
-      !  |      n_theta_min,..,n_theta_min+n_theta_block-1                   |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
+      !  [grid to spectral] for 2 arrays                                  
+      !  ancl1/2 (input) to flm1/2 (output)                               
+      !  One call to this routine does part of the transform              
+      !  by summation over theta points in on theta block:                
+      !  n_theta_min,..,n_theta_min+n_theta_block-1                   
+      !
 
       !-- Input variables
       integer,  intent(in) :: lmMax          ! Number of modes to be processed

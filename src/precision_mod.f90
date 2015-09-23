@@ -1,8 +1,7 @@
-!$Id$
 module precision_mod
-   !--------------------------------------------------
+   !
    ! This module controls the precision used in MagIC
-   !--------------------------------------------------
+   !
 
 #ifdef WITH_MPI
    use mpi

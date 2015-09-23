@@ -1,4 +1,3 @@
-!$Id$
 module fieldsLast
 
    use precision_mod

@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module output_mod
 
@@ -181,11 +180,9 @@ contains
         &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
         &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,      &
         &            fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  This subroutine controls most of the output.                     |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  This subroutine controls most of the output.                     
+      !
   
       !--- Input of variables
       real(cp),    intent(in) :: time,dt,dtNew

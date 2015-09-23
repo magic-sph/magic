@@ -1,4 +1,3 @@
-!$Id$
 module out_dtB_frame
 
    use truncation
@@ -33,9 +32,9 @@ module out_dtB_frame
 contains
 
    subroutine write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
-      !-------------------------------------------------------------------------
+      !
       !  Controls output of movie frames.
-      !-------------------------------------------------------------------------
+      !
     
       !-- Input of variables:
       integer,     intent(in) :: n_movie
@@ -587,18 +586,17 @@ contains
    end subroutine get_dtB
 !-------------------------------------------------------------------------
    subroutine get_Bpol(PolLM,dPolLM,Br,Bt,Bp,rT,n_theta_start,n_theta_block,lIC)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the components        |
-      !  |  Br, Bt, and Bp of the poloidal magnetic field PolLM (l,m space)  |
-      !  |  at the radial grid point r=rT and the block of theta grid points |
-      !  |  from n_theta=n_theta_start to                                    |
-      !  |       n_theta=n_theta_start+n_theta_block-1                       |
-      !  |  and for all phis.                                                |
-      !  |  For lIC=.true. the inner core field is calculated,               |
-      !  |  to get the IC field for a conducting inner core PolLM has to be  |
-      !  |  the poloidal field at the ICB.                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      !  Purpose of this subroutine is to calculate the components        
+      !  Br, Bt, and Bp of the poloidal magnetic field PolLM (l,m space)  
+      !  at the radial grid point r=rT and the block of theta grid points 
+      !  from n_theta=n_theta_start to                                    
+      !       n_theta=n_theta_start+n_theta_block-1                       
+      !  and for all phis.                                                
+      !  For lIC=.true. the inner core field is calculated,               
+      !  to get the IC field for a conducting inner core PolLM has to be  
+      !  the poloidal field at the ICB.                                   
+      !
 
       !-- Input variables
       integer,     intent(in) :: n_theta_start     ! first theta to be treated
@@ -757,18 +755,17 @@ contains
    end subroutine get_Bpol
 !-------------------------------------------------------------------------------------
    subroutine get_Btor(Tlm,Bt,Bp,rT,n_theta_start,n_theta_block,lIC)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the components        |
-      !  |  Bt and Bp of the toroidal magnetic field  Tlm (in l,m space)     |
-      !  |  at the radial grid point r=rT and the block of theta grid points |
-      !  |  from n_theta=n_theta_start to                                    |
-      !  |       n_theta=n_theta_start+n_theta_block-1                       |
-      !  |  and for all phis.                                                |
-      !  |  For lIC=.true. the inner core field is calculated,               |
-      !  |  to get the IC field for a conducting inner core Plm has to be    |
-      !  |  the toroidal field at the ICB.                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the components        
+      !  Bt and Bp of the toroidal magnetic field  Tlm (in l,m space)     
+      !  at the radial grid point r=rT and the block of theta grid points 
+      !  from n_theta=n_theta_start to                                    
+      !       n_theta=n_theta_start+n_theta_block-1                       
+      !  and for all phis.                                                
+      !  For lIC=.true. the inner core field is calculated,               
+      !  to get the IC field for a conducting inner core Plm has to be    
+      !  the toroidal field at the ICB.                                   
+      !
 
       !-- Input variables:
       integer,     intent(in) :: n_theta_start ! first theta to be treated
@@ -894,14 +891,12 @@ contains
    end subroutine get_Btor
 !-------------------------------------------------------------------------------------
    subroutine lm2pt(alm,aij,rT,nThetaStart,lIC,lrComp)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  | Spherical harmonic transform from alm(l,m) to aij(phi,theta)      |
-      !  | Radial field components are calculated for lrComp=.true.          |
-      !  | Done within the range [n_theta_min,n_theta_min+n_theta_block-1]   |
-      !  | Used only for graphic output.                                     |
-      !  |                                                                   |
-      !--++-+--+----+----+----+----+----+----+----+----+----+----+----+----+-+
+      !
+      ! Spherical harmonic transform from alm(l,m) to aij(phi,theta)   
+      ! Radial field components are calculated for lrComp=.true.          
+      ! Done within the range [n_theta_min,n_theta_min+n_theta_block-1]   
+      ! Used only for graphic output.                                     
+      !
 
       !-- Input variables:
       integer,     intent(in) :: nThetaStart ! first theta to be treated

@@ -1,4 +1,3 @@
-!$Id$
 module fft_fac_mod
 
    use precision_mod
@@ -13,10 +12,10 @@ module fft_fac_mod
 contains
 
    subroutine fft_fac_real(a,b,c,d,trigs,nv,l1,l2,n,ifac,la)
-      !---------------------------------------------------------------------------
+      !
       !     main part of Fourier / Chebychev transform
       !     called in costf1, costf2
-      !---------------------------------------------------------------------------
+      !
     
       !-- Input variables:
       integer,  intent(in) :: nv,l1,l2,n,ifac,la
@@ -363,10 +362,10 @@ contains
    end subroutine fft_fac_real
 !-----------------------------------------------------------------------------------
    subroutine fft_fac_complex(a,b,c,d,trigs,nv,l1,l2,n,ifac,la)
-      !---------------------------------------------------------------------------
+      !
       !     main part of Fourier / Chebychev transform
       !     called in costf1, costf2
-      !---------------------------------------------------------------------------
+      !
     
       !-- Input variables:
       integer,     intent(in) :: nv,l1,l2,n,ifac,la

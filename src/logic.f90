@@ -1,8 +1,7 @@
-!$Id$
 module logic
-   !-------------------------------------------------------
-   !  Module containing the logicals that control the run
-   !-------------------------------------------------------
+   !
+   ! Module containing the logicals that control the run
+   !
 
    implicit none
  

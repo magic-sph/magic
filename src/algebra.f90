@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module algebra
 
@@ -21,13 +20,11 @@ module algebra
 contains
 
    subroutine cgesl(a,ia,n,ip,bc1)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  does the backward substitution into a lu-decomposed real         |
-      !  |  matrix a (to solve a * x = bc1) were bc1 is the right hand side  |
-      !  |  vector. On return x is stored in bc1.                            |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  This routine does the backward substitution into a lu-decomposed real 
+      !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
+      !  vector. On return x is stored in bc1.                            
+      !                                                                     
 
       !-- Input variables:
       integer,  intent(in) :: n         ! dimension of problem
@@ -87,15 +84,11 @@ contains
    end subroutine cgesl
 !-----------------------------------------------------------------------------
    subroutine cgeslML(a,ia,n,ip,bc,ldBc,nRHSs)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  does the backward substitution into a lu-decomposed real         |
-      !  |  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex |
-      !  |  vectors bc. On return the results are stored in                  |
-      !  |  the bc.                                                          |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
-      !---------------------------------------------------------------------------
+      !
+      !  This routine does the backward substitution into a lu-decomposed real
+      !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex 
+      !  vectors bc. On return the results are stored in the bc.                  
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n           ! dimension of problem
@@ -209,22 +202,18 @@ contains
    end subroutine cgeslML
 !-----------------------------------------------------------------------------
    subroutine sgesl(a,ia,n,ip,b)
-      !---------------------------------------------------------------------------
-
+      !
       !     like the linpack routine
       !     backward substitution of vector b into lu-decomposed matrix a
       !     to solve  a * x = b for a single real vector b
-
+      !
       !     sub sgefa must be called once first to initialize a and ip
-
+      !
       !     a: (input)  nxn real matrix
       !     n: (input)  size of a and b
       !     ip: (input) pivot pointer array of length n
       !     b: (in/output) rhs-vector on input, solution on output
-
-      !     called in supdate, wpupdate, tcond, jcond
-
-      !---------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n      ! dim of problem
@@ -281,18 +270,17 @@ contains
    end subroutine sgesl
 !-----------------------------------------------------------------------------
    subroutine sgefa(a,ia,n,ip,info)
-      !-------------------------------------------------------------------------------
+      !
       !     like the linpack routine
-
+      !
       !     lu decomposes the real matrix a(n,n) via gaussian elimination
-
+      !
       !     a: (in/output) real nxn matrix on input, lu-decomposed matrix on output
       !     ia: (input) first dimension of a (must be >= n)
       !     n: (input) 2nd dimension and rank of a
       !     ip: (output) pivot pointer array
       !     info: (output) error message when  /=  0
-
-      !-------------------------------------------------------------------------------
+      !
 
       !-- Input variables:
       integer,  intent(in) :: ia,n

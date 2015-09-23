@@ -1,4 +1,3 @@
-!$Id$
 module LMmapping
 
    implicit none

@@ -1,10 +1,9 @@
-!$Id$
 module dtB_mod
-   !---------------------------------------------------------------------------------
+   !
    !  This module contains magnetic field stretching and advection terms 
    !  plus a separate omega-effect.
    !  It is used for movie output.
-   !--------------------------------------------------------------------------------
+   !
    use precision_mod
    use parallel_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
@@ -170,19 +169,19 @@ contains
      &                   BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
      &                   BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpSn2LM,   &
      &                   BpVtSn2LM,BtVZsn2LM)
-      !-----------------------------------------------------------------------
 
-      !  calculates non-linear products in grid-space for radial
+      !
+      !  This subroutine calculates non-linear products in grid-space for radial
       !  level n_r and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
-
+      !
       !  if lvelo >0 velocities are zero only the (vxB)
       !  contributions to bnlr2-3 need to be calculated
-
+      !
       !  vr...sr: (input) velocity, magnetic field comp. and derivs, entropy
       !                   on grid points
       !  i1: (input) range of points in theta for which calculation is done
-
-      !-----------------------------------------------------------------------
+      !
+      !
 
       !-- Input variables:
       integer,  intent(in) :: n_theta_start,n_theta_block,nR
@@ -455,13 +454,11 @@ contains
                            BtVpLM,BpVtLM,BrVZLM,BtVZLM,    &
                            BtVpCotLM,BpVtCotLM,BtVZcotLM,  &
                            BtVpSn2LM,BpVtSn2LM,BtVZsn2LM)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this routine is to calculate theta and phi            |
-      !  |  derivative related terms of the magnetic production and          |
-      !  |  advection terms and store them.                                  |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this routine is to calculate theta and phi          
+      !  derivative related terms of the magnetic production and         
+      !  advection terms and store them.                                  
+      !
 
       !-- Input variables:
       integer,     intent(in) :: nR

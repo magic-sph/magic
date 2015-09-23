@@ -1,4 +1,3 @@
-!$Id$
 module nonlinear_bcs
 
    use precision_mod
@@ -29,20 +28,18 @@ contains
    subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,O_rho, &
         &                  n_theta_min,n_theta_block, &
         &                  br_vt_lm,br_vp_lm)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the nonlinear term    |
-      !  |  of the magnetic boundary condition for a conducting mantle or    |
-      !  |  inner core in space (r,lm).                                      |
-      !  |  Calculation is performed for the theta block:                    |
-      !  |          n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        |
-      !  |  On input br, vt and vp are given on all phi points and           |
-      !  |  thetas in the specific block.                                    |
-      !  |  On output the contribution of these grid points to all           |
-      !  |  degree and orders is stored in br_vt_lm and br_vp_lm.            |
-      !  |  Output is [r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]            |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the nonlinear term    
+      !  of the magnetic boundary condition for a conducting mantle or    
+      !  inner core in space (r,lm).                                      
+      !  Calculation is performed for the theta block:                    
+      !         n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
+      !  On input br, vt and vp are given on all phi points and           
+      !  thetas in the specific block.                                    
+      !  On output the contribution of these grid points to all           
+      !  degree and orders is stored in br_vt_lm and br_vp_lm.            
+      !  Output is [r/sin(theta)*Br*U]=[(0,br_vt_lm,br_vp_lm)]           
+      !
     
       !-- input:
       real(cp), intent(in) :: br(nrp,*)      ! r**2 * B_r
@@ -94,16 +91,14 @@ contains
 !----------------------------------------------------------------------------
    subroutine get_b_nl_bcs(bc,br_vt_lm,br_vp_lm, &
                            lm_min_b,lm_max_b,b_nl_bc,aj_nl_bc)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to calculate the nonlinear term    |
-      !  |  of the magnetic boundary condition for a conducting mantle in    |
-      !  |  physical space (phi,theta), assuming that the conductance        |
-      !  |  of the mantle is much smaller than that of the core.             |
-      !  |  Calculation is performed for the theta block:                    |
-      !  |          n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to calculate the nonlinear term    
+      !  of the magnetic boundary condition for a conducting mantle in    
+      !  physical space (phi,theta), assuming that the conductance        
+      !  of the mantle is much smaller than that of the core.             
+      !  Calculation is performed for the theta block:                    
+      !          n_theta_min<=n_theta<=n_theta_min+n_theta_block-1        
+      !
          
       !-- Input variables:
       character(len=3), intent(in) :: bc                 ! Distinguishes 'CMB' and 'ICB'
@@ -179,16 +174,14 @@ contains
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,      &
             &                  cvrr,dvrdtr,dvrdpr,dvtdpr,dvpdpr, &
             &                  nThetaStart)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to set the velocities and their    |
-      !  |  derivatives at a fixed boundary.                                 |
-      !  |  While vt is zero, since we only allow for rotation about the     |
-      !  |  z-axix, vp= r sin(theta) v_phi = r**2 sin(theta)**2 omega        |
-      !  |  cvr= r**2 * radial component of (\curl v) =                      |
-      !  |       r**2  2 cos(theta) omega                                    |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to set the velocities and their    
+      !  derivatives at a fixed boundary.                                 
+      !  While vt is zero, since we only allow for rotation about the     
+      !  z-axix, vp= r sin(theta) v_phi = r**2 sin(theta)**2 omega        
+      !  cvr= r**2 * radial component of (\curl v) =                      
+      !       r**2  2 cos(theta) omega                                    
+      !
 
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point

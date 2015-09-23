@@ -1,4 +1,3 @@
-!$Id$
 module radial_functions
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
@@ -144,9 +143,9 @@ contains
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
    subroutine radial
-      !--------------------------------------------------------------------
+      !
       !  Calculates everything needed for radial functions, transfroms etc.
-      !--------------------------------------------------------------------
+      !
 
       !-- Local variables:
       integer :: n_r,n_cheb,n_cheb_int
@@ -198,8 +197,8 @@ contains
       !-- Start with outer core:
       !   cheb_grid calculates the n_r_max gridpoints, these
       !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
-      !   r_cheb are the grid_points in the Cheb intervall [-1,1]
-      !   and r are these points mapped to the intervall [r_icb,r_cmb]:
+      !   r_cheb are the grid_points in the Cheb interval [-1,1]
+      !   and r are these points mapped to the interval [r_icb,r_cmb]:
       call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
                            alpha1,alpha2,paraX0,lambd)
 #if 0
@@ -629,6 +628,10 @@ contains
    end subroutine radial
 !------------------------------------------------------------------------------
    subroutine transportProperties
+      !
+      ! Calculates the transport properties: electrical conductivity,
+      ! kinematic viscosity and thermal conductivity.
+      !
 
       integer :: n_r
 
@@ -813,6 +816,9 @@ contains
    end subroutine transportProperties
 !------------------------------------------------------------------------------
    subroutine getBackground(input,boundaryVal,output)
+      !
+      ! Linear solver of the form: df/dx = input with f(1)=boundaryVal
+      ! 
 
       !-- Input variables:
       real(cp), intent(in) :: input(n_r_max)

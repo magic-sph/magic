@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module start_fields
 
@@ -51,12 +50,10 @@ module start_fields
 contains
 
    subroutine getStartFields(time,dt,dtNew,n_time_step)
-      !  +-------------+----------------+------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to initialize the fields and       |
-      !  |  other auxiliary parameters.                                      |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to initialize the fields and       
+      !  other auxiliary parameters.                                      
+      !
     
       !---- Output variables:
       real(cp), intent(out) :: time,dt,dtNew

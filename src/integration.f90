@@ -1,4 +1,3 @@
-!$Id$
 module integration
 
    use precision_mod
@@ -14,15 +13,16 @@ module integration
 contains
 
    real(cp) function rInt(f,nRmax,drFac,i_costf_init,d_costf_init)
-      !-------------------------------------------------------------
+      !
       !  This function performs the radial integral over a
       !  function f that is given on the appropriate nRmax
       !  radial Chebychev grid points.
       !  The arrays i_costf_init,d_costf_init are
       !  defined by calling init_costf1.
-      !  Note: drFac maps radius to cheb space [-1,1]
-      !        drFac=two/(rMax-rMin)
-      !-------------------------------------------------------------
+      !
+      !  .. Note:: drFac maps radius to cheb space [-1,1]
+      !            drFac=two/(rMax-rMin)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: f(*)
@@ -58,13 +58,13 @@ contains
    end function rInt
 !------------------------------------------------------------------------------
    real(cp) function rIntIC(f,nRmax,drFac,i_costf_init,d_costf_init)
-      !----------------------------------------------------------------
+      !
       !  This function performs the radial integral over a
       !  function f that is given on the appropriate nRmax
       !  radial Chebychev grid points.
       !  The arrays i_costf_init,d_costf_init are
       !  defined by calling init_costf1.
-      !----------------------------------------------------------------
+      !
 
       !-- Input variables:
       real(cp), intent(inout) :: f(*)
@@ -97,10 +97,10 @@ contains
 !------------------------------------------------------------------------------
    real(cp) function rInt_R(f,n_r_max,n_cheb_max,dr_fac, &
                                     i_costf_init,d_costf_init)
-      !----------------------------------------------------------------------
+      !
       !   Same as function rInt but for a radial dependent mapping function
       !   dr_fac2.
-      !----------------------------------------------------------------------
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: f(*)

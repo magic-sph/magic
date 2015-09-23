@@ -1,4 +1,3 @@
-!$Id$
 module outMisc_mod
 
    use parallel_mod

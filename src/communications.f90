@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module communications
 
@@ -276,7 +275,28 @@ contains
    end function get_global_sum_real_2d
 !-------------------------------------------------------------------------------
    complex(cp) function get_global_sum_cmplx_1d(arr_local) result(global_sum)
-
+      !
+      ! Kahan summation algorithm
+      !
+      ! .. code-block:: c
+      !
+      !    function KahanSum(input)
+      !    var sum = 0.0
+      !    var c = 0.0             //A running compensation for lost low-order bits.
+      !    for i = 1 to input.length do
+      !       y = input[i] - c    //So far, so good: c is zero.
+      !       t = sum + y         //Alas, sum is big, y small, 
+      !                           //so low-order digits of y are lost.
+      !       c = (t - sum) - y   //(t - sum) recovers the high-order part of y; 
+      !                           //subtracting y recovers -(low part of y)
+      !       sum = t             //Algebraically, c should always be zero. 
+      !                           //Beware eagerly optimising compilers!
+      !       //Next time around, the lost low part will be added to y in a fresh attempt.
+      !    return sum
+      !
+      ! ..
+      !
+      
       complex(cp), intent(in) :: arr_local(:)
       
 #ifdef WITH_MPI
@@ -285,22 +305,6 @@ contains
 
       lb = lbound(arr_local,1)
       ub = ubound(arr_local,1)
-      
-      ! Kahan summation algorithm
-      !function KahanSum(input)
-      !var sum = 0.0
-      !var c = 0.0          //A running compensation for lost low-order bits.
-      !for i = 1 to input.length do
-      !    y = input[i] - c    //So far, so good: c is zero.
-      !    t = sum + y         //Alas, sum is big, y small, 
-      !                        //so low-order digits of y are lost.
-      !    c = (t - sum) - y   //(t - sum) recovers the high-order part of y; 
-      !                        //subtracting y recovers -(low part of y)
-      !    sum = t             //Algebraically, c should always be zero. 
-      !                        //Beware eagerly optimising compilers!
-      !    //Next time around, the lost low part will be added to y in a fresh attempt.
-      !return sum
-      
       local_sum = 0.0_cp
       c = 0.0_cp          !A running compensation for lost low-order bits.
       do i=lb,ub
@@ -394,15 +398,16 @@ contains
    end subroutine gather_all_from_lo_to_rank0
 !-------------------------------------------------------------------------------
    subroutine create_gather_type(self,dim2)
+      !
+      ! Define the datatypes for gather_all_from_lo_to_rank0
+      ! the sending array has dimension (llm:ulm,1:dim2)
+      ! receiving array has dimension (1:lm_max,1:dim2)
+      !
 
       type(gather_type) :: self
       integer :: dim2
 
       integer :: proc
-
-      ! Define the datatypes for gather_all_from_lo_to_rank0
-      ! the sending array has dimension (llm:ulm,1:dim2)
-      ! receiving array has dimension (1:lm_max,1:dim2)
 
 #ifdef WITH_MPI
       allocate(self%gather_mpi_type(0:n_procs-1))

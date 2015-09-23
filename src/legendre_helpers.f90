@@ -20,9 +20,9 @@ module leg_helper_mod
    private
    
    type, public :: leg_helper_t
-      !----- Help arrays for Legendre transform calculated in legPrepG:
-      !      Parallelizatio note: these are the R-distributed versions
-      !      of the field scalars.
+      ! Help arrays for Legendre transform calculated in legPrepG:
+      ! Parallelizatio note: these are the R-distributed versions
+      ! of the field scalars.
       complex(cp), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
       complex(cp), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
       complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
@@ -72,29 +72,28 @@ contains
 !------------------------------------------------------------------------------
    subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame, &
         &              lTOnext,lTOnext2,lTOcalc)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to prepare Legendre transforms     |
-      !  |  from (r,l,m) space to (r,theta,m) space by calculating           |
-      !  |  auxiliary arrays dpdw,dpddw, ....... dLhj which contain          |
-      !  |  combinations of harmonic coeffs multiplied with (l,m)-dependend  |
-      !  |  factors as well as the radial dependence.                        |
-      !  |    nBc  =0 standard inner radial grid point                       |
-      !  |    nBc  =1 radial velocity zero, spatial derivs not needed        |
-      !  |    nBc  =2 all velocity comp. zero, spatial derivs not needed     |
-      !  |   lDeriv=.true. field derivatives required                        |
-      !  |                                                                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to prepare Legendre transforms     
+      !  from (r,l,m) space to (r,theta,m) space by calculating           
+      !  auxiliary arrays dpdw,dpddw, ....... dLhj which contain          
+      !  combinations of harmonic coeffs multiplied with (l,m)-dependend  
+      !  factors as well as the radial dependence:
+      !
+      !     * nBc  =0 standard inner radial grid point                       
+      !     * nBc  =1 radial velocity zero, spatial derivs not needed        
+      !     * nBc  =2 all velocity comp. zero, spatial derivs not needed     
+      !
+      !  lDeriv=.true. field derivatives required                        
 
       class(leg_helper_t) :: this
     
       !-- Input of variables
-      integer, intent(in) :: nR              ! radial level
-      integer, intent(in) :: nBc             ! boundary condition
-      logical, intent(in) :: lDeriv          ! get also field derivatives !
-      logical, intent(in) :: lRmsCalc        ! Rms force balance ?
-      logical, intent(in) :: l_frame         ! Calculate movie frame?
-      logical, intent(in) :: lTOnext         ! for TO output
+      integer, intent(in) :: nR          ! radial level
+      integer, intent(in) :: nBc         ! boundary condition
+      logical, intent(in) :: lDeriv      ! get also field derivatives !
+      logical, intent(in) :: lRmsCalc    ! Rms force balance ?
+      logical, intent(in) :: l_frame     ! Calculate movie frame?
+      logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
       logical, intent(in) :: lTOcalc
     
@@ -217,16 +216,15 @@ contains
    subroutine legPrep(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
                       r,lDeriv,lHor,dLhw,vhG,vhC,dLhz,cvhG,&
                       cvhC)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to prepare Legendre transforms     |
-      !  |  from (r,l,m) space to (r,theta,m) space by calculating           |
-      !  |  auxiliary arrays w, dw, ddw, ....... which contain               |
-      !  |  combinations of harmonic coeffs multiplied with (l,m)-dependend  |
-      !  |  factors as well as possible the radial dependencies.             |
-      !  |   lHor=.true. horizontal components required                      |
-      !  |   lDeriv=.true. field derivatives required  for curl of field     |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to prepare Legendre transforms     
+      !  from (r,l,m) space to (r,theta,m) space by calculating           
+      !  auxiliary arrays w, dw, ddw, ....... which contain               
+      !  combinations of harmonic coeffs multiplied with (l,m)-dependend  
+      !  factors as well as possible the radial dependencies.
+      !
+      !  lDeriv=.true. field derivatives required  for curl of field     
+      !
     
       !-- Input variables:
       integer,     intent(in) :: lm_max
@@ -291,23 +289,23 @@ contains
    subroutine legPrep_IC(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
                          r,r_ICB,lDeriv,lHor,lCondIC,dLhw,vhG,&
                          vhC,dLhz,cvhG,cvhC)
-      !  +-------------------------------------------------------------------+
-      !  |                                                                   |
-      !  |  Purpose of this subroutine is to prepare Legendre transforms     |
-      !  |  from (r,l,m) space to (r,theta,m) space by calculating           |
-      !  |  auxiliary arrays dLhw,vhG, ......... which contain               |
-      !  |  combinations of harmonic coeffs multiplied with (l,m)-dependend  |
-      !  |  factors as well as possible the radial dependencies.             |
-      !  |   lHor=.true. horizontal components required                      |
-      !  |   lDeriv=.true. field derivatives required  for curl of field     |
-      !  |  Note: This routine is used for the inner core magnetic field     |
-      !  |  which has a special radial function ansatz. It can also be       |
-      !  |  used to prepare the calculation of a field in an insulating      |
-      !  |  inner core for lCondIC=.false.. For this the w has to be the     |
-      !  |  outer core poloidal field and nR is the grid point for the ICB.  |
-      !  |  In any case legTF can be used for the following Legendre         |
-      !  |  transform and fftJW for the Fourier transform.                   |
-      !  +-------------------------------------------------------------------+
+      !
+      !  Purpose of this subroutine is to prepare Legendre transforms     
+      !  from (r,l,m) space to (r,theta,m) space by calculating           
+      !  auxiliary arrays dLhw,vhG, ......... which contain               
+      !  combinations of harmonic coeffs multiplied with (l,m)-dependend  
+      !  factors as well as possible the radial dependencies.             
+      !
+      !  lDeriv=.true. field derivatives required  for curl of field     
+      !
+      !  Note: This routine is used for the inner core magnetic field     
+      !  which has a special radial function ansatz. It can also be       
+      !  used to prepare the calculation of a field in an insulating      
+      !  inner core for lCondIC=.false.. For this the w has to be the     
+      !  outer core poloidal field and nR is the grid point for the ICB.  
+      !  In any case legTF can be used for the following Legendre         
+      !  transform and fftJW for the Fourier transform.                   
+      !
 
       !-- Input variables:
       integer,     intent(in) :: lm_max
