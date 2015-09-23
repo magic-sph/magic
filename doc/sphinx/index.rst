@@ -10,7 +10,7 @@ MagIC documentation contents
 
 .. toctree::
    :includehidden:
-   :maxdepth: 3
+   :maxdepth: 2
 
    install
    autoTests

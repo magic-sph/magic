@@ -1,6 +1,7 @@
-Fortran modules
-###############
+Description of the Fortran modules
+##################################
 
+The following pages contain the description of the fortran modules used in MagIC.
 
 .. toctree::
    :hidden:
@@ -9,4 +10,10 @@ Fortran modules
    apiFortran/parallelModules.rst
    apiFortran/initModules.rst
    apiFortran/precalcModules.rst
-   apiFortran/legFourier.rst
+   apiFortran/timeAdvance
+   apiFortran/timeAdvLinear
+   apiFortran/timeAdvNonLinear
+   apiFortran/legFourierChebAlgebra.rst
+   apiFortran/derInt.rst
+   apiFortran/checkPoints.rst
+   apiFortran/misc.rst
