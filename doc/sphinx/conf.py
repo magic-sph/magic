@@ -293,5 +293,6 @@ texinfo_documents = [
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
 
-fortran_src = "../../src/*.f90"
+os.system('./cleanPreProc.sh')
+fortran_src = ".fortranCleanSrc/*.f90"
 fortran_indent = 3

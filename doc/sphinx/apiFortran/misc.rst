@@ -4,6 +4,7 @@ Useful additional libraries
 ``useful.f90``
 --------------
 
+.. f:automodule:: useful
 
 ``char_manip.f90``
 ------------------
