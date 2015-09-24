@@ -4,14 +4,17 @@ import numpy as N
 import matplotlib.pyplot as P
 from magic.setup import labTex
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 def deriv(x, y, axis=0):
     """
-    2nd order derivative
+    This function is a simple second order derivative
+
+    :param x: input x-axis
+    :type x: numpy.ndarray
+    :param y: input array 
+    :type y: numpy.ndarray
+    :returns: an array that contains the derivatives
+    :rtype: numpy.ndarray
     """
     if len(x) < 3:
         exit("Paramaters must have at least three points")
@@ -25,7 +28,21 @@ def deriv(x, y, axis=0):
 
 def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     """
-    Get the Gauss coefficients from poloidal and toroidal potentials
+    Get the Gauss coefficients from the real and imaginary parts
+    of the poloidal potential
+
+    :param alm: real part of the poloidal potential
+    :type alm: numpy.ndarray
+    :param blm: imaginary part of the poloidal potential
+    :type blm: numpy.ndarray
+    :param ell: spherical harmonic degree \ell
+    :type ell: numpy.ndarray
+    :param scale_b: magnetic field unit (default is 1)
+    :type scale_b: float
+    :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
+    :type ratio_cmb_surface: float
+    :param rcmb: radius of the outer boundary
+    :type rcmb: float
     """
     fac = (-1)**m*ell*N.sqrt((2*ell+1.)/(4.*N.pi))
     if m > 0:
@@ -37,17 +54,35 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
 
 
 class BcoeffCmb(MagicSetup):
+    """
+    This class allows to read the :ref:`B_coeff_cmb.TAG <secCoeffFiles>` files.
+    It first read the poloidal potential at the CMB and then transform
+    it to the Gauss coefficients :math:`g_{\ell m}` and :math:`h_{\ell m}`
+    using the getGauss function.
+
+    >>> # Reads the files B_coeff_cmb.testa, B_coeff_cmb.testb
+    >>> # and B_coeff_cmb.testc and stack them in one single time series
+    >>> cmb = BcoeffCmb(tag='test[a-c]')
+    >>> print(cmb.ell, cmb.glm) # print \ell and g_{\ell m}
+    >>> print(cmb.glm[:, 1, 0]) # time-series of the axisymmetric dipole
+    >>> plot(cmb.time, cmb.dglmdt[:, 1, 0]) # Secular variation of the dipole
+    """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
                  precision='Float64'):
         """
         A class to read the B_coeff_cmb files
 
-        :param tag: if you specify a pattern, it tires to read the corresponding files
+        :param tag: if you specify a pattern, it tries to read the corresponding files
+        :type tag: str
         :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
+        :type ratio_cmb_surface: float
         :param scale_b: magnetic field unit (default is 1)
+        :type scale_b: float
         :param iplot: a logical to toggle the plot (default is True)
+        :type iplot: int
         :param precision: single or double precision
+        :type precision: char
         """
 
         logFiles = scanDir('log.*')
@@ -140,6 +175,9 @@ class BcoeffCmb(MagicSetup):
 
 
     def plot(self):
+        """
+        Display some results when iplot is set to True
+        """
         fig = P.figure()
         ax = fig.add_subplot(211)
         ax.semilogy(self.ell[1:], self.ElM[1:], 'b-o')
@@ -179,19 +217,36 @@ class BcoeffCmb(MagicSetup):
 
 
 class Bcoeff_r(MagicSetup):
+    """
+    This class allows to read the :ref:`B_coeff_r#.TAG <secBcoeffrFile>`
+    and :ref:`V_coeff_r#.TAG <secVcoeffrFile>` files.
+    It reads the poloidal and toroidal potentials and reconstruct the time
+    series (or the energy) contained in any given mode.
+
+    >>> # Reads the files V_coeff_r2.test*
+    >>> cr = Bcoeff_r(tag='test*', field='V', r=2)
+    >>> print(cr.ell, cr.wlm) # print \ell and w_{\ell m}
+    >>> # Time-evolution of the poloidal energy in the (\ell=10, m=10) mode
+    >>> plot(cr.time, cr.epolLM[:, 10, 10]) 
+    """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
                  field='B', r=1, precision='Float64'):
         """
-        A class to read the B_coeff_cmb files
-
         :param tag: if you specify a pattern, it tires to read the corresponding files
+        :type tag: str
         :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
+        :type ratio_cmb_surface: float
         :param scale_b: magnetic field unit (default is 1)
+        :type scale_b: float
         :param iplot: a logical to toggle the plot (default is True)
+        :type iplot: bool
         :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
+        :type field: str
         :param r: an integer to characterise which file we want to plot
+        :type r: int
         :param precision: single or double precision
+        :type precision: str
         """
 
         logFiles = scanDir('log.*')

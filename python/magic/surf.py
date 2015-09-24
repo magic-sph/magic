@@ -9,6 +9,23 @@ from scipy.integrate import trapz
 
 
 class Surf:
+    """
+    This class allows to display the content of a graphic file
+    (:ref:`G_#.TAG <secGraphFile>` or G_ave.TAG). It allows to plot
+    radial, azimuthal and equatorial cuts as well as phi-averages.
+
+    >>> # To read G_1.test
+    >>> s = Surf(ivar=1, ave=False, tag='test')
+    >>> # To read the latest G file in the working directory (double precision)
+    >>> s = Surf(precision='Float64')
+
+    >>> # Possible plots
+    >>> s.equat(field='vr')
+    >>> s.avg(field='vp')
+    >>> s.surf(field='entropy', r=0.8)
+    >>> s.slice(field='Br', lon_0=[0, 30])
+
+    """
 
     def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None,
                  precision='Float32'):
@@ -454,13 +471,13 @@ class Surf:
            >>> # Normalise the contour levels radius by radius
            >>> s.equat(field='jphi', normRad=True)
 
-
         :param field: the name of the input physical quantity you want to
                       display
         :type field: str
         :param avg: when set to True, an additional figure which shows
                     the radial profile of the input physical quantity
                     (azimuthal average) is also displayed
+        :type avg: bool
         :param normRad: when set to True, the contour levels are normalised
                         radius by radius (default is False)
         :type normRad: bool
@@ -644,12 +661,22 @@ class Surf:
         """
         Plot the azimutal average of a given field.
 
+           >>> s = Surf()
+           >>> # Axisymmetric zonal flows, 65 contour levels
+           >>> s.avg(field='vp', levels=65, cm='seismic')
+
+           >>> # Minimal plot (no cbar, not title)
+           >>> s.avg(field='Br', tit=False, cbar=False)
+
+           >>> # Axisymmetric Bphi + poloidal field lines
+           >>> s.avg(field='Bp', pol=True, polLevels=8)
+
+           >>> # Omega-effect, contours truncated from -1e3 to 1e3
+           >>> s.avg(field='omeffect', vmax=1e3, vmin=-1e3)
+
         :param field: the field you want to display
-        :param pol: poloidal field lines
-        :param mer: meridional circulation
-        :param merLevels: number of levels to display meridional circulation
-        :param polLevels: number of levels to display poloidal field lines
-        :param levels: the number of levels in the contour
+        :type field: str
+        :param levels: the number of levels in the contourf plot
         :type levels: int
         :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
         :type cm: str
@@ -664,6 +691,14 @@ class Surf:
         :param normed: when set to True, the colormap is centered around zero.
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
+        :param pol: diplay the poloidal field lines contours when set to Tru
+        :type pol: bool
+        :param mer: display the meridional circulation contours when set to True
+        :type mer: bool
+        :param merLevels: number of contour levels to display meridional circulation
+        :type merLevels: int
+        :param polLevels: number of contour levels to display poloidal field lines
+        :type polLevels: int
         """
         if pol:
             rr2D = N.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
@@ -1263,14 +1298,40 @@ class Surf:
         """
         Plot an azimuthal slice of a given field.
 
-        :param field: the field to display
-        :param lon_0: the longitude of the slice, or an array of longitudes
-        :param levels: the number of contour levels
-        :param cm: the name of the colormap
-        :param cbar: display/hide the colorbar
-        :param tit: display/hide the title
-        :param grid: display/hide the grid
+           >>> s = Surf()
+           >>> # vphi at 0, 30, 60 degrees in longitude
+           >>> s.slice(field='vp', lon_0=[0, 30, 60], levels=65, cm='seismic')
+
+           >>> # Minimal plot (no cbar, not title)
+           >>> s.avg(field='vp', lon_0=32, tit=False, cbar=False)
+
+           >>> # Axisymmetric Bphi + poloidal field lines
+           >>> s.avg(field='Bp', pol=True, polLevels=8)
+
+           >>> # Omega-effect, contours truncated from -1e3 to 1e3
+           >>> s.avg(field='omeffect', vmax=1e3, vmin=-1e3)
+
+
+        :param field: the field you want to display
+        :type field: str
+        :param lon_0: the longitude of the slice in degrees, or an array of longitudes
+        :type lon_0: float or list
+        :param levels: the number of levels in the contourf plot
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param grid: display or hide the grid
+        :type grid: bool
         :param nGridLevs: number of grid levels
+        :type nGridLevs: int
         """
         if field in ('Vs', 'vs'):
             if labTex:
@@ -1599,8 +1660,11 @@ def report(nvar=1, levels=16, lclean=True):
     This subroutine prepares a pdf document that gather some important diagnostics
 
     :param lclean: clean or not the LaTeX files
+    :type lclean: bool
     :param levels: number of contour levels
+    :param levels: int
     :param nvar: number of graphic files
+    :param nvar: int
     """
     file = open('report.tex', 'w')
     file.write("\documentclass[a4paper,10pt]{article}\n")

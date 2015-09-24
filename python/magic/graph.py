@@ -27,8 +27,8 @@ else:
 class MagicGraph(MagicSetup):
     """
     This class allows to read the 3-D graphic outputs of the MagIC code
-    (G_#.TAG and G_ave.TAG) files. Those are binary unformatted outputs,
-    there are therefore two ways to load them:
+    (:ref:`G_#.TAG <secGraphFile>` and G_ave.TAG) files. Those are 
+    binary unformatted outputs, there are therefore two ways to load them:
 
        * If buildLib=True in magic.cfg and the fortran libraries were correctly
          built, then the reader uses a fortran program that is expected to be
