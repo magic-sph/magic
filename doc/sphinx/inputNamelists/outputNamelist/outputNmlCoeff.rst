@@ -92,6 +92,8 @@ case **5** ``coeff_r#.TAG`` files will be stored at 5 different radial levels ev
      - ``[B|V|T]_coeff_r4.TAG`` to ``nR=24``.
      - ``[B|V|T]_coeff_r5.TAG`` to ``nR=30``.
 
+.. _varn_r_step:
+
 * **n_r_step** (default ``n_r_step=2``) is an integer. This specifies the stepping between two consecutive ``[B|V|T]_coeff_r#.TAG`` files.
 
 Alternatively, the input array ``n_r_array`` can be used to specify the radial grid points you exactly want to store:
@@ -108,6 +110,8 @@ Alternatively, the input array ``n_r_array`` can be used to specify the radial g
      - ``[B|V|T]_coeff_r1.TAG`` corresponds to the radial grid point with the index ``nR=8``.
      - ``[B|V|T]_coeff_r2.TAG`` to ``nR=24``.
      - ``[B|V|T]_coeff_r3.TAG`` to ``nR=47``.
+
+.. _varn_r_array:
 
 * **n_r_array** (default ``n_r_array=0 0 0 ...``) a an integer array. You can specify the radial grid points (starting from ``n_r_cmb=1``) where you want to store the coefficients.
 
