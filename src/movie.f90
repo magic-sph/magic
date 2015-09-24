@@ -127,7 +127,7 @@ contains
       !  Note that generally blanks are not interpreted and that the      
       !  interpretation is not case sensitive.                            
       !  In general two informations are needed:                          
-
+      !
       !    1. A word FIELDINFO that identifies the field to be plotted    
       !       (e.g. Br for radial magnetic field, see list below)       
       !       Possible keywords are (optional text in brackets):
@@ -153,7 +153,7 @@ contains
       !           or AV          : axisymmetric phi component of the      
       !           velocity field for phi=constant        
       !         - V z            : z component of velocity at equator     
-      !           + z component of the vorticity at      
+      !           and z component of the vorticity at      
       !           the equator (closest point to equator) 
       !         - Vo z          : z-component of vorticity                
       !         - Vo r          : r-component of vorticity                
@@ -203,10 +203,10 @@ contains
       !       theta/phi=number with number given in degrees              
       !       Four keywords are also possible:                            
       !
-      !          - CMB       : core mantle boundary                        
-      !          - EQ[UATOR] : equatorial plane
-      !          - SUR[FACE] : Earth surface (only magnetic field)         
-      !          - 3[D]      : 3D field throughout the OC [and IC for B]   
+      !         - CMB       : core mantle boundary                        
+      !         - EQ[UATOR] : equatorial plane
+      !         - SUR[FACE] : Earth surface (only magnetic field)         
+      !         - 3[D]      : 3D field throughout the OC [and IC for B]   
       !                                                                   
       !  On output the necessary information is coded into integers       
       !  and is used in this form by further subroutines:                 

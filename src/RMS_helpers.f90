@@ -1,4 +1,8 @@
 module RMS_helpers
+   !
+   ! This module contains several useful subroutines required to compute RMS
+   ! diagnostics
+   !
 
    use precision_mod
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max

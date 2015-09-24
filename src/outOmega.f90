@@ -1,4 +1,8 @@
 module omega
+   !
+   ! This module allows to compute the axisymmetric zonal flow versus the cylindrical
+   ! radius s. By 
+   !
 
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
@@ -13,6 +17,8 @@ module omega
    implicit none
 
    private
+
+   integer, parameter :: nSmax=300 ! Number of cylindrical radial grid points
 
    public :: outOmega
 
@@ -35,7 +41,6 @@ contains
       integer :: nR,lm,l ! counter
       integer :: nNS     ! index for NHS and SHS
 
-      integer, parameter :: nSmax=300
       integer :: nS
       real(cp) ::  sZ,zZ,dsZ
       real(cp) :: rZ,thetaZ

@@ -3,6 +3,8 @@ Description of the Fortran modules
 
 The following pages contain the description of the fortran modules used in MagIC. 
 
+.. f:autoprogram:: magic
+
 .. toctree::
    :hidden:
 

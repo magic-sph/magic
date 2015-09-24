@@ -1,4 +1,7 @@
 module fields_average_mod
+   !
+   ! This module is used when one wants to store time-averaged quantities
+   !
 
    use truncation
    use precision_mod

@@ -80,11 +80,8 @@ contains
      &             lorentz_torque_ic,lorentz_torque_icLast, &
      &             w1,coex,dt,lRmsNext)
       !
-      !  Input:  w1 - weight for dbdt-contribution from current time step
-      !               (w2=1-w1: weight for contrib. from previous step)
-      !          coex - factor depending on weighting alpha of implicit contribution
-      !          m1,m2- range of mca-indices in which field is updated
-      !                 (harmonic order m=(mca-1)*minc)
+      !  updates the toroidal potential z and its radial derivatives
+      !  adds explicit part to time derivatives of z
       !
     
       !-- Input/output of scalar fields:

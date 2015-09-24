@@ -1,4 +1,8 @@
 module nl_special_calc
+   !
+   ! This module allows to calculcate several diagnostics that need to be
+   ! computed in the physical space (non-linear quantities)
+   !
  
    use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag
@@ -23,12 +27,11 @@ contains
    subroutine get_nlBLayers(vt,vp,dvtdr,dvpdr,dsdr,dsdt,dsdp,&
               &             uhLMr,duhLMr,gradsLMr,nR,nThetaStart)
       !
-      !   Calculates axisymmetric contributions of the horizontal velocity
-      !       uh = sqrt(utheta^2+uphi^2)
-      !   its radial derivative
-      !       abs(duh/dr)
-      !   and the thermal dissipation rate
-      !       (grad T)**2
+      !   Calculates axisymmetric contributions of:
+      !
+      !     * the horizontal velocity :math:`u_h = \sqrt{u_\theta^2+u_\phi^2}`
+      !     * its radial derivative :math:`|\partial u_h/\partial r|`
+      !     * The thermal dissipation rate :math:`(\nabla T)^2`
       !
       !   This subroutine is used when one wants to evaluate viscous and thermal
       !   dissipation layers
@@ -97,8 +100,10 @@ contains
       !
       !   Calculates the energies parallel and perpendicular to the rotation axis
       !
-      !       Eperp = 0.5*(vs**2+vphi**2) with vs= vr*sin(theta)+vt*cos(theta)
-      !       Epar  = 0.5*vz**2           with vz= vr*cos(theta)-vt*sin(theta)
+      !     * :math:`E_\perp = 0.5 (v_s^2+v_\phi^2)` with 
+      !       :math:`v_s= v_r\sin\theta+v_\theta\cos\theta`
+      !     * :math:`E_\parallel  = 0.5v_z^2` with
+      !       :math:`v_z= v_r\cos\theta-v_\theta*\sin\theta`
       !
     
       !-- Input of variables
@@ -191,10 +196,16 @@ contains
                     &  fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
                     &  fresLMR,nR,nThetaStart)
       !
-      !   Calculates the fluxes
-      !       Fconv= rho * temp* (u_r s)
-      !       Fkin = 1/2 * rho * u_r (u_r^2+u_theta^2+u_phi^2)
-      !       Fvisc= -(u *\tensor(S) )_r
+      !   Calculates the fluxes:
+      !
+      !     * Convective flux: :math:`F_c= \rho T (u_r s)`
+      !     * Kinetic flux: :math:`F_k = 1/2\,\rho u_r (u_r^2+u_\theta^2+u_\phi^2)`
+      !     * Viscous flux: :math:`F_= -(u \cdot S )_r`)
+      !
+      !   If the run is magnetic, then this routine also computes:
+      !
+      !     * Poynting flux
+      !     * resistive flux
       !
     
       !-- Input of variables

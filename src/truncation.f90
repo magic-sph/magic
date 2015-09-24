@@ -5,7 +5,7 @@ module truncation
 
    implicit none
 
-   integer :: n_r_max       ! number of radial grid points, 
+   integer :: n_r_max       ! number of radial grid points
    integer :: n_cheb_max    ! max degree-1 of cheb polynomia
    integer :: n_phi_tot     ! number of longitude grid points
    integer :: n_r_ic_max    ! number of grid points in inner core

@@ -1,10 +1,15 @@
-IO: RMS force balance, torsional oscillations
-=============================================
+IO: RMS force balance, torsional oscillations, misc
+===================================================
 
 ``RMS.f90``
 -----------
 
 .. f:automodule:: rms
+
+``RMS_helpers.f90``
+-------------------
+
+.. f:automodule:: rms_helpers
 
 ``out_RMS.f90``
 ---------------
@@ -36,3 +41,28 @@ IO: RMS force balance, torsional oscillations
 --------------
 
 .. f:automodule:: outto_mod
+
+``Egeos.f90``
+-------------
+
+.. f:automodule:: egeos_mod
+
+``outPV3.f90``
+--------------
+
+.. f:automodule:: outpv3
+
+``chebInt.f90``
+---------------
+
+.. f:automodule:: chebint_mod
+
+``outOmega.f90``
+----------------
+
+.. f:automodule:: omega
+
+``nl_special_calc.f90``
+-----------------------
+
+.. f:automodule:: nl_special_calc

@@ -30,3 +30,8 @@ IO: graphic files, movie files, coeff files and potential files
 -----------------
 
 .. f:automodule:: store_pot_mod
+
+``field_average.f90``
+---------------------
+
+.. f:automodule:: fields_average_mod
