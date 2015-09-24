@@ -32,7 +32,7 @@ ifdef HDF5DIR
 endif
 
 SHTNS_INC = -I$(HOME)/local/include
-FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -Wl,--start-group -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -Wl,--end-group -lrt -lm
+FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -lfftw3_omp -lfftw3 -lrt -lm
 
 # preconditioning of the matrices
 # switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
