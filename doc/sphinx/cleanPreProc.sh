@@ -13,7 +13,7 @@ if [ ! -d "$dir" ]; then
   for filepath in $MAGIC_HOME/src/*.f90; do
     filename=`basename $filepath`
     targetFile="$dir/$filename"
-    fpp -free -P -DWITH_PRECOND_BJ -DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10 -DJW -DFFTLIB=JW -Ddble -DDEFAULT_PRECISION=dble $filepath $targetFile
+    cpp -free -P -traditional-cpp -DWITH_MPI -DWITH_PRECOND_BJ -DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10 -DJW -DFFTLIB=JW -Ddble -DDEFAULT_PRECISION=dble $filepath $targetFile
   done
 
   rm $dir/fft_mkl.f90

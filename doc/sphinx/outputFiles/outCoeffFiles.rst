@@ -18,12 +18,47 @@ These are fortran unformatted files which store time series of poloidal and toro
 
 .. note:: This file is **only** written when :ref:`l_cmb_field=.true. <varl_cmb_field>` 
 
-This file contains time series of spherical harmonic coefficients for the poloidal part of the magnetic field at the outer boundary (CMB) upto a degree given by :ref:`l_max_cmb <varl_max_cmb>`. The contents of the file look as follows:
+This file contains time series of spherical harmonic coefficients for the
+poloidal part of the magnetic field at the outer boundary (CMB) upto a degree
+given by :ref:`l_max_cmb <varl_max_cmb>`. The contents of the file look as
+follows:
 
  * **Header** The file header consists of the information: :ref:`l_max_cmb <varl_max_cmb>`, :ref:`minc <varMinc>` and the number of data points - ``n_data``.
  * **Data** Each chunk of data after the header has the same pattern of ``time`` followed by a list of real and imaginary values of coefficients.
 
 Thus, on a whole, the structure of the file looks like follows:
+
+   .. code-block:: fortran
+   
+   	    !------------
+   	    !-- Line 1
+   	    !------------
+            l_max_cmb, minc, n_data
+            ...
+   	    !------------
+   	    !-- Line n
+   	    !------------
+            time(n), 
+            real(w(l=1,m=0)),imag(w(l=1,m=0)),                  
+            real(w(l=2,m=0)),imag(w(l=2,m=0)),                  
+            ...
+            real(w(l=l_max_cmb,m=l_max_cmb)),imag(w(l=l_max_cmb,m=l_max_cmb)),                  
+            real(dw(l=1,m=0)),imag(dw(l=1,m=0)),                  
+            real(dw(l=2,m=0)),imag(dw(l=2,m=0)),                  
+            ...
+            real(dw(l=l_max_cmb,m=l_max_cmb)),imag(dw(l=l_max_cmb,m=l_max_cmb)),                  
+            real(z(l=1,m=0)),imag(z(l=1,m=0)),                  
+            real(z(l=2,m=0)),imag(z(l=2,m=0)),                  
+            ...
+            real(z(l=l_max_cmb,m=l_max_cmb)),imag(z(l=l_max_cmb,m=l_max_cmb)),                  
+   	    !------------
+   	    !-- Line n+1
+   	    !------------
+            ...
+
+
+The detailed calculations are done in the subroutine :f:subr:`write_Bcmb <out_coeff/write_bcmb()>`.
+
 
  +-----------------------------------------------------------------------------------------------------------+
  | Header: ``l_max_cmb, minc, n_data``                                                                       |
