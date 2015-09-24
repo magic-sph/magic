@@ -17,6 +17,8 @@ Specific inputs
 
 * **l_dt_cmb_field** (default ``l_dt_cmb_field=.false.``) is a logical. When set to ``.true.``, it allows the calculation of the secular variation of the magnetic field at the CMB.
 
+.. _varl_max_cmb:
+
 * **l_max_cmb** (default ``l_max_cmb=14``) is an integer. This is the maximum spherical harmonic degree :math:`\ell` stored in :ref:`B_coeff_cmb.TAG <secCmbFile>`, i.e. only :math:`\ell \leq \ell_{maxcmb}` are stored. For example, the following input parameter means that the :ref:`B_coeff_cmb.TAG <secCmbFile>` file is stored up to a spherical harmonic degree of :math:`\ell`:
 
   .. code-block:: fortran
@@ -65,6 +67,8 @@ Specific inputs
 .. _varl_r_fieldT:
 
 * **l_r_fieldT** (default ``l_r_fieldT=.false.``) is a logical. When set to ``.true.``, the thermal field is also stored in a file named :ref:`T_coeff_r*.TAG <secTcoeffrFile>`.
+
+.. _varl_max_r:
 
 * **l_max_r** (default ``l_max_r=l_max``) is an integer. This is the maximum spherical harmonic degree :math:`\ell` stored in the ``r_field`` file, i.e. only :math:`\ell \leq \ell_{maxcmb}` are stored.
 
