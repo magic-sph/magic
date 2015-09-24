@@ -24,24 +24,36 @@ Base modules
 ``logic.f90``
 -------------
 
-.. f:automodule :: logic
+.. f:automodule:: logic
+
+``fields.f90``
+--------------
+
+.. f:automodule:: fields
+
+``dt_fieldsLast.f90``
+---------------------
+
+.. f:automodule:: fieldslast
 
 ``mat.f90``
 -----------
 
-.. f:automodule :: matrices 
+.. f:automodule:: matrices 
 
 ``output_data.f90``
 -------------------
 
-.. f:automodule :: output_data
+.. f:automodule:: output_data
 
 
 ``Bext.f90``
 ------------
 
-.. f:automodule :: bext
+.. f:automodule:: bext
 
 
 ``const.f90``
 -------------
+
+.. f:automodule:: const_bn

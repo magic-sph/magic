@@ -1,6 +1,10 @@
 Code initialization
 ===================
 
+``Namelists.f90``
+-----------------
+
+.. f:automodule:: namelists
 
 ``startFiels.f90``
 ------------------

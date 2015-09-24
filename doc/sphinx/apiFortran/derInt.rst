@@ -1,5 +1,5 @@
-Radial derivatives
-==================
+Radial derivatives and integration
+==================================
 
 ``radial_derivatives.f90``
 --------------------------
@@ -10,10 +10,6 @@ Radial derivatives
 -------------------------------
 
 .. f:automodule:: radial_der_even
-
-
-Integration
-===========
 
 ``integration.f90``
 -------------------
