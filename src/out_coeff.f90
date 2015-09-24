@@ -1,4 +1,8 @@
 module out_coeff
+   !
+   ! This module contains the subroutines that calculate the Bcmb files
+   ! and the [B|V|T]_coeff_r files
+   !
   
    use precision_mod
    use logic, only: l_save_out
@@ -20,19 +24,15 @@ contains
       ! The parameters l_max_cmb, minc and the number of stored coeffs.  
       ! are written into the first line of $cmb_file.                     
       ! Each further set contains:                                        
-      !          time,real(b(l=0,m=0)),imag(b(l=0,m=0)),                  
-      !               real(b(l=1,m=0)),imag(b(l=1,m=0)),    
+      !    
+      !     .. code-block:: fortran
+      !
+      !                    time,
+      !                    real(b(l=0,m=0)),imag(b(l=0,m=0)),                  
+      !                    real(b(l=1,m=0)),imag(b(l=1,m=0)),    
       !                                                                   
       ! Real and imaginary part of b(*) for all orders m<=l are written   
       ! for a specific degree l, then for the degrees l+1, l+2, l_max_cmb.
-      ! Logical l_save_cmb can be used to control save output:            
-      !     l_save_cmb=.true. : Outputfile $cmb_file is opened and closed 
-      !                         at each call in this subroutine.          
-      !     l_save_cmb=.false.: Outputfile must be open before this       
-      !                         subroutine is called.                    
-      !                         Normally, the $cmb_file is opened at the  
-      !                         beginning of the run and closed after the 
-      !                         run is finished.                          
       !
 
       !-- Input variables:
@@ -139,28 +139,24 @@ contains
       ! The parameters l_max_r, minc, the number of stored coeffs and     
       ! radius in the outer core are written into the first line of $file.
       ! Each further set contains:                                        
-      !          time,real(w(l=0,m=0)),imag(w(l=0,m=0)),                  
+      !
+      !     .. code-block :: fortran
+      !
+      !               time,
+      !               real(w(l=0,m=0)),imag(w(l=0,m=0)),                  
       !               real(w(l=1,m=0)),imag(w(l=1,m=0)),                  
-      !                    ...................                            
+      !               ...
       !               real(dw(l=0,m=0)),imag(dw(l=0,m=0)),                
       !               real(dw(l=1,m=0)),imag(dw(l=1,m=0)),                
-      !                    ...................                            
+      !               ...
       !               real(z(l=0,m=0)),imag(z(l=0,m=0)),                  
       !               real(z(l=1,m=0)),imag(z(l=1,m=0)),                  
-      !                    ...................                            
+      !               ...
       !               real(ddw(l=0,m=0)),imag(ddw(l=0,m=0)),              
       !               real(ddw(l=1,m=0)),imag(ddw(l=1,m=0)),              
       !                                                                   
       ! Real and imaginary part of w(*) for all orders m<=l are written   
       ! for a specific degree l, then for the degrees l+1, l+2, l_max_r.  
-      ! Logical l_save_r can be used to control save output:              
-      !     l_save_out=.true. : Outputfile $file is opened and closed     
-      !                         at each call in this subroutine.          
-      !     l_save_out=.false.: Outputfile must be open before this       
-      !                         subroutine is called.                     
-      !                         Normally, the $file is opened at the      
-      !                         beginning of the run and closed after the 
-      !                         run is finished.                          
       !                                                                   
 
       !-- Input variables:

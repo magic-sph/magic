@@ -1,4 +1,7 @@
 module hdf5Helpers
+   !
+   ! This module contains several useful tools to manipulate HDF5 files
+   !
 
    use precision_mod
    use blocking, only: st_map, lo_map

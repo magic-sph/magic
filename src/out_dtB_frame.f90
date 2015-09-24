@@ -33,7 +33,8 @@ contains
 
    subroutine write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
       !
-      !  Controls output of movie frames.
+      !  Controls output of specific movie frames related to magnetic field
+      !  production and diffusion.
       !
     
       !-- Input of variables:
@@ -590,8 +591,7 @@ contains
       !  Purpose of this subroutine is to calculate the components        
       !  Br, Bt, and Bp of the poloidal magnetic field PolLM (l,m space)  
       !  at the radial grid point r=rT and the block of theta grid points 
-      !  from n_theta=n_theta_start to                                    
-      !       n_theta=n_theta_start+n_theta_block-1                       
+      !  from n_theta=n_theta_start to n_theta=n_theta_start+n_theta_block-1 
       !  and for all phis.                                                
       !  For lIC=.true. the inner core field is calculated,               
       !  to get the IC field for a conducting inner core PolLM has to be  
@@ -599,9 +599,9 @@ contains
       !
 
       !-- Input variables
-      integer,     intent(in) :: n_theta_start     ! first theta to be treated
-      integer,     intent(in) :: n_theta_block     ! last theta
-      real(cp),    intent(in) ::  rT                ! radius
+      integer,     intent(in) :: n_theta_start  ! first theta to be treated
+      integer,     intent(in) :: n_theta_block  ! last theta
+      real(cp),    intent(in) :: rT             ! radius
       logical,     intent(in) :: lIC            ! true for inner core, special rDep !
       complex(cp), intent(in) :: PolLM(lm_max)  ! field in (l,m)-space for rT
       complex(cp), intent(in) :: dPolLM(lm_max) ! dr field in (l,m)-space for rT
@@ -759,8 +759,7 @@ contains
       !  Purpose of this subroutine is to calculate the components        
       !  Bt and Bp of the toroidal magnetic field  Tlm (in l,m space)     
       !  at the radial grid point r=rT and the block of theta grid points 
-      !  from n_theta=n_theta_start to                                    
-      !       n_theta=n_theta_start+n_theta_block-1                       
+      !  from n_theta=n_theta_start to n_theta=n_theta_start+n_theta_block-1
       !  and for all phis.                                                
       !  For lIC=.true. the inner core field is calculated,               
       !  to get the IC field for a conducting inner core Plm has to be    

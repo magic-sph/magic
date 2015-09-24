@@ -92,7 +92,7 @@ contains
       !   of plms by subroutine plm_theta. They are needed in getAStr and 
       !   getPAStr when I transform on the cylindrical grid. 
       !   The necessary plms could simply be calculated one and then 
-      !   be stored for later use! See s_outTOnew.f.
+      !   be stored for later use!
       !
 
       !-- Input of variables:

@@ -1,4 +1,7 @@
 module Namelists
+   !
+   ! Read and print the input namelist
+   !
 
    use precision_mod
    use const

@@ -1,74 +1,81 @@
 module RMS
+   !
+   ! This module contains the global array used when RMS force balance
+   ! is requested
+   !
 
-  use const, only: zero
-  use precision_mod
-  use truncation, only: n_r_max, n_r_maxMag, lm_max, lm_maxMag
-
-  implicit none
-
-  private
-
-  real(cp), public, allocatable :: dtBPol2hInt(:,:)
-  real(cp), public, allocatable :: dtBTor2hInt(:,:)
-  real(cp), public, allocatable :: dtBPolAs2hInt(:,:)
-  real(cp), public, allocatable :: dtBTorAs2hInt(:,:)
-  complex(cp), public, allocatable :: dtBPolLMr(:,:)
-
-  real(cp), public, allocatable :: dtVPol2hInt(:,:)
-  real(cp), public, allocatable :: dtVTor2hInt(:,:)
-  real(cp), public, allocatable :: dtVPolAs2hInt(:,:)
-  real(cp), public, allocatable :: dtVTorAs2hInt(:,:)
-  complex(cp), public, allocatable :: dtVPolLMr(:,:)
-
-  real(cp), public, allocatable :: AdvPol2hInt(:)
-  real(cp), public, allocatable :: AdvTor2hInt(:)
-  real(cp), public, allocatable :: AdvPolAs2hInt(:)
-  real(cp), public, allocatable :: AdvTorAs2hInt(:)
-  complex(cp), public, allocatable :: AdvPolLMr(:,:)
-
-  real(cp), public, allocatable :: CorPol2hInt(:)
-  real(cp), public, allocatable :: CorTor2hInt(:)
-  real(cp), public, allocatable :: CorPolAs2hInt(:)
-  real(cp), public, allocatable :: CorTorAs2hInt(:)
-  complex(cp), public, allocatable :: CorPolLMr(:,:)
-
-  real(cp), public, allocatable :: LFPol2hInt(:)
-  real(cp), public, allocatable :: LFTor2hInt(:)
-  real(cp), public, allocatable :: LFPolAs2hInt(:)
-  real(cp), public, allocatable :: LFTorAs2hInt(:)
-  complex(cp), public, allocatable :: LFPolLMr(:,:)
-
-  real(cp), public, allocatable :: DifPol2hInt(:,:)
-  real(cp), public, allocatable :: DifTor2hInt(:,:)
-  real(cp), public, allocatable :: DifPolAs2hInt(:,:)
-  real(cp), public, allocatable :: DifTorAs2hInt(:,:)
-  complex(cp), public, allocatable :: DifPolLMr(:,:)
-
-  real(cp), public, allocatable :: Buo2hInt(:)
-  real(cp), public, allocatable :: BuoAs2hInt(:)
-  complex(cp), public, allocatable :: BuoLMr(:,:)
-
-  real(cp), public, allocatable :: Pre2hInt(:)
-  real(cp), public, allocatable :: PreAs2hInt(:)
-  complex(cp), public, allocatable :: PreLMr(:,:)
-
-  real(cp), public, allocatable :: Geo2hInt(:)
-  real(cp), public, allocatable :: GeoAs2hInt(:)
-  complex(cp), public, allocatable :: GeoLMr(:,:)
-
-  real(cp), public, allocatable :: Mag2hInt(:)
-  real(cp), public, allocatable :: MagAs2hInt(:)
-  complex(cp), public, allocatable :: MagLMr(:,:)
-
-  real(cp), public, allocatable :: Arc2hInt(:)
-  real(cp), public, allocatable :: ArcAs2hInt(:)
-  complex(cp), public, allocatable :: ArcLMr(:,:)
-
-  public :: initialize_RMS, zeroRms
+   use const, only: zero
+   use precision_mod
+   use truncation, only: n_r_max, n_r_maxMag, lm_max, lm_maxMag
+ 
+   implicit none
+ 
+   private
+ 
+   real(cp), public, allocatable :: dtBPol2hInt(:,:)
+   real(cp), public, allocatable :: dtBTor2hInt(:,:)
+   real(cp), public, allocatable :: dtBPolAs2hInt(:,:)
+   real(cp), public, allocatable :: dtBTorAs2hInt(:,:)
+   complex(cp), public, allocatable :: dtBPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: dtVPol2hInt(:,:)
+   real(cp), public, allocatable :: dtVTor2hInt(:,:)
+   real(cp), public, allocatable :: dtVPolAs2hInt(:,:)
+   real(cp), public, allocatable :: dtVTorAs2hInt(:,:)
+   complex(cp), public, allocatable :: dtVPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: AdvPol2hInt(:)
+   real(cp), public, allocatable :: AdvTor2hInt(:)
+   real(cp), public, allocatable :: AdvPolAs2hInt(:)
+   real(cp), public, allocatable :: AdvTorAs2hInt(:)
+   complex(cp), public, allocatable :: AdvPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: CorPol2hInt(:)
+   real(cp), public, allocatable :: CorTor2hInt(:)
+   real(cp), public, allocatable :: CorPolAs2hInt(:)
+   real(cp), public, allocatable :: CorTorAs2hInt(:)
+   complex(cp), public, allocatable :: CorPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: LFPol2hInt(:)
+   real(cp), public, allocatable :: LFTor2hInt(:)
+   real(cp), public, allocatable :: LFPolAs2hInt(:)
+   real(cp), public, allocatable :: LFTorAs2hInt(:)
+   complex(cp), public, allocatable :: LFPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: DifPol2hInt(:,:)
+   real(cp), public, allocatable :: DifTor2hInt(:,:)
+   real(cp), public, allocatable :: DifPolAs2hInt(:,:)
+   real(cp), public, allocatable :: DifTorAs2hInt(:,:)
+   complex(cp), public, allocatable :: DifPolLMr(:,:)
+ 
+   real(cp), public, allocatable :: Buo2hInt(:)
+   real(cp), public, allocatable :: BuoAs2hInt(:)
+   complex(cp), public, allocatable :: BuoLMr(:,:)
+ 
+   real(cp), public, allocatable :: Pre2hInt(:)
+   real(cp), public, allocatable :: PreAs2hInt(:)
+   complex(cp), public, allocatable :: PreLMr(:,:)
+ 
+   real(cp), public, allocatable :: Geo2hInt(:)
+   real(cp), public, allocatable :: GeoAs2hInt(:)
+   complex(cp), public, allocatable :: GeoLMr(:,:)
+ 
+   real(cp), public, allocatable :: Mag2hInt(:)
+   real(cp), public, allocatable :: MagAs2hInt(:)
+   complex(cp), public, allocatable :: MagLMr(:,:)
+ 
+   real(cp), public, allocatable :: Arc2hInt(:)
+   real(cp), public, allocatable :: ArcAs2hInt(:)
+   complex(cp), public, allocatable :: ArcLMr(:,:)
+ 
+   public :: initialize_RMS, zeroRms
 
 contains
 
    subroutine initialize_RMS
+      !
+      ! Memory allocation
+      !
 
       integer, parameter :: nThreadsMax=1
 

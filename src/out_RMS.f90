@@ -66,9 +66,9 @@ contains
       !  An additional tests is the Arc value which should be identical   
       !  to the poloidal kinetic energy.                                  
       !                                                                   
-      !  N.B. The second test with the Arc value cannot work so easily in 
-      !       the anelastic version as the density enters now in the      
-      !       force balance. The first test should work, though.         
+      !  .. note:: The second test with the Arc value cannot work so easily in 
+      !            the anelastic version as the density enters now in the      
+      !            force balance. The first test should work, though.         
       !
 
       !-- Input variable:

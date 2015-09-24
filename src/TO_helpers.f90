@@ -1,4 +1,7 @@
 module TO_helpers
+   !
+   ! This module contains several helpful subroutines used in the TO calculations
+   !
 
    use precision_mod
    use truncation, only: l_max

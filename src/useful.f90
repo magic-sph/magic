@@ -29,7 +29,7 @@ contains
       ! on input n_intervals=0 and n_step>0.
       ! In both cases l_correct_step=true for n=n_max.
       !
-      ! The argument controlls whether in addition n should be
+      ! The argument controls whether in addition n should be
       !       even: n_eo=2
       !    or  odd: n_eo=1
       !

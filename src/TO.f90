@@ -64,6 +64,9 @@ module torsional_oscillations
 contains
 
    subroutine initialize_TO
+      !
+      ! Allocate the memory needed
+      !
 
       if ( rank == 0 ) then
          allocate( dzStrLMr(l_max+1,n_r_maxStr) )
@@ -138,7 +141,8 @@ contains
       !  Vsp=Vs*Vp,Vzp,Vsz,VspC,VzpC,VszC. These are used to calulcate
       !  the respective correlations and Reynolds stress.
       !  In addition three output field are given in (lm,r) space:
-      !    dzRstrLMr,dzAstrLMr,dzCorLM,dzLFLM.
+      !  dzRstrLMr,dzAstrLMr,dzCorLM,dzLFLM.
+      !
       !  These are used to calculate the total Reynolds stress,
       !  advection and viscous stress later. Their calculation
       !  retraces the calculations done in the time-stepping part
@@ -484,7 +488,11 @@ contains
    end subroutine getTOfinish
 !-----------------------------------------------------------------------------
    subroutine TO_gather_Rloc_on_rank0
+      !
+      ! MPI communicators for TO outputs
+      !
 
+      !-- Local variables:
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: i,ierr
 

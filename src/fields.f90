@@ -85,6 +85,9 @@ module fields
 contains
 
    subroutine initialize_fields
+      !
+      ! Memory allocation
+      !
 
       integer(lip) :: bytes_allocated
 

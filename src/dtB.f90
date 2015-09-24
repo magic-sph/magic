@@ -63,6 +63,9 @@ module dtB_mod
 contains
 
    subroutine initialize_dtB_mod
+      !
+      ! Memory allocation
+      !
 
       if ( rank == 0 ) then
          allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
@@ -121,6 +124,9 @@ contains
    end subroutine initialize_dtB_mod
 !----------------------------------------------------------------------------
    subroutine dtb_gather_Rloc_on_rank0
+      !
+      ! MPI communicators for dtB outputs
+      !
 
 #ifdef WITH_MPI
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)

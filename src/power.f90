@@ -65,17 +65,6 @@ contains
       !  lost from the system and has to be respected.
       !
       !  The output is written into a file  power.TAG.
-      !  This file contains 10 columns:
-      !    column  1: time
-      !    column  2: buoyancy
-      !    column  3: power due to inner core rotation
-      !    column  4: power due to mantle rotation
-      !    column  5: viscous dissipation
-      !    column  6: Ohmic dissipation in inner and outer core
-      !    column  7: mantle power
-      !    column  8: inner core power
-      !    column  9: power gain (power-diffusion) of core/mantel system
-      !    column 10: time integrated power gain
       !
 
       !-- Input of variables:

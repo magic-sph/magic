@@ -44,18 +44,17 @@ contains
    subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,            &
      &              n_theta_start,n_theta_block_size,lGraphHeader)
       !
-      !  called in amhd
       !
-      !  output of components of velocity, magnetic field vector and
-      !  entropy for graphics. Version May, 23, 2000.
+      !  Output of components of velocity, magnetic field vector and
+      !  entropy for graphics.
       !
-      !  n_r: (input) for n_r = 0 a header is written
-      !               for n_r > 0 values at radial level n_r are written
+      !  * n_r: (input) for n_r = 0 a header is written.
+      !    for n_r > 0 values at radial level n_r are written
       !
-      !  vr...sr: (input) arrays with grid-point values
+      !  * vr...sr: (input) arrays with grid-point values
       !
-      !  n_theta_start : (input) values are written for theta-points :
-      !                  n_theta_start <= n_theta <= n_theta_start-1+n_theta_block
+      !  * n_theta_start : (input) values are written for theta-points :
+      !    ``n_theta_start <= n_theta <= n_theta_start-1+n_theta_block``
       !
     
       !-- Input variables
@@ -207,6 +206,9 @@ contains
 #ifdef WITH_MPI
    subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr, &
             &              n_theta_start,n_theta_block_size,lGraphHeader)
+      !
+      ! MPI version of the graphOut subroutine (use of MPI_IO)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: time
@@ -494,6 +496,9 @@ contains
 !----------------------------------------------------------------------------
    subroutine graphOut_mpi_header(time,n_r, &
         &              n_theta_start,n_theta_block_size)
+      !
+      ! Writes the header (MPI version)
+      !
 
       !-- Input variables:
       real(cp), intent(in) :: time

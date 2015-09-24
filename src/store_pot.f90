@@ -1,4 +1,9 @@
 module store_pot_mod
+   !
+   ! This module contains the subroutines that can be used to write unformatted
+   ! fortran files that contain the flow/magnetic field potentials (in both
+   ! Chebyshev and spectral space)
+   !
 
    use precision_mod
    use truncation, only: n_r_max, n_r_ic_max, lm_max, n_cheb_max, &

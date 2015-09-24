@@ -1,4 +1,14 @@
 module fieldsLast
+   !
+   ! This module contains time-derivaties array of the previous time-step
+   ! They are needed in the time-stepping scheme.
+   !
+   ! The variables labeled with a suffix 'Last' are provided
+   ! by the restart file for the first time step or
+   ! calculated here or by the update routines for the
+   ! following time step.
+   ! These fields remain in the LM-distributed space 
+ 
 
    use precision_mod
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
@@ -11,12 +21,6 @@ module fieldsLast
 
    private
 
-   !--- The following variables labeled Last are provided
-   !    by the restart file for the first time step or
-   !    calculated here or by the update routines for the
-   !    following time step.
-   !    These fields remain in the LM-distributed space 
- 
    complex(cp), public, allocatable :: dwdtLast(:,:)
    complex(cp), public, allocatable :: dpdtLast(:,:)
    complex(cp), public, allocatable :: dwdtLast_LMloc(:,:)
@@ -44,7 +48,10 @@ module fieldsLast
 
 contains
 
-  subroutine initialize_fieldsLast
+   subroutine initialize_fieldsLast
+      !
+      ! Memory allocation
+      !
 
       if ( rank == 0 ) then
          allocate( dwdtLast(lm_max,n_r_max) )
