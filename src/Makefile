@@ -55,7 +55,6 @@ ifeq ($(USE_PRECOND),yes)
 			-DWITH_PRECOND_Z10
 endif
 
-
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
 	FFLAG_ARCH_OPT = -xHost
@@ -414,13 +413,8 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
                          constants.o legendre_helpers.o
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
-<<<<<<< HEAD
                         logic.o constants.o blocking.o Grenoble.o\
                         fields.o TO.o
-=======
-                        logic.o const.o blocking.o Grenoble.o\
-                        fields.o TO.o shtns.o
->>>>>>> Use shtns library for spectral -> grid transformations
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
