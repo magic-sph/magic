@@ -12,7 +12,7 @@ module omega
    use output_data, only: tag
    use plms_theta, only: plm_theta
    use cosine_transform, only: costf1
-   use const, only: one, two, half
+   use constants, only: one, two, half
  
    implicit none
 

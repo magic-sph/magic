@@ -32,7 +32,7 @@ module updateB_mod
                        lBmat
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBPolAs2hInt, dtBTorAs2hInt, &
                  dtBTor2hInt
-   use const, only: pi, zero, one, two, three, half
+   use constants, only: pi, zero, one, two, three, half
    use Bext
 #ifdef WITH_MKL_LU
    use lapack95, only: getrs, getrf

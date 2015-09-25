@@ -13,7 +13,7 @@ module leg_helper_mod
    use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
-   use const, only: zero, one, two
+   use constants, only: zero, one, two
 
    implicit none
 

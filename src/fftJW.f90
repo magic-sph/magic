@@ -7,7 +7,7 @@ module fft_JW
 
    use precision_mod
    use useful, only: factorise
-   use const, only: pi, sin36, sin60, sin72, cos36, cos72, &
+   use constants, only: pi, sin36, sin60, sin72, cos36, cos72, &
                     one, two, half
    use truncation
    use blocking

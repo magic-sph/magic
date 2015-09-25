@@ -6,7 +6,7 @@ module nl_special_calc
  
    use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag
-   use const, only: pi, one, two, third, half
+   use constants, only: pi, one, two, third, half
    use logic, only: l_mag_nl
    use physical_parameters, only: ek, ViscHeatFac
    use radial_data, only: n_r_icb, n_r_cmb

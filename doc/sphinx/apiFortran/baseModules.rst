@@ -53,7 +53,12 @@ Base modules
 .. f:automodule:: bext
 
 
-``const.f90``
--------------
+``constants.f90``
+-----------------
 
-.. f:automodule:: const_bn
+.. f:automodule:: constants
+
+``Grenoble.f90``
+----------------
+
+.. f:automodule :: grenoble

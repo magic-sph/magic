@@ -4,7 +4,7 @@ module integration
    !
 
    use precision_mod
-   use const, only: half, one, two
+   use constants, only: half, one, two
    use cosine_transform, only: costf1
 
    implicit none

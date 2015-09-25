@@ -19,7 +19,7 @@ module outTO_mod
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file
-   use const, only: pi, vol_oc, one, two, half, four
+   use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
    use charmanip, only: dble2str
    use integration, only: rInt_R

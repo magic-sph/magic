@@ -12,29 +12,29 @@ various additional diagnostics (:ref:`misc.TAG <secMiscFile>`):
 
 .. _varn_log_step:
 
-* **n_log_step** (default ``n_log_step=50``) is an integer. This is the number of timesteps between two log outputs.
+* **n_log_step** (default :f:var:`n_log_step=50 <n_log_step>`) is an integer. This is the number of timesteps between two log outputs.
 
-  .. warning:: Be careful: when using too small ``n_log_step``, the disk access will dramatically increases, thus decreasing the code performance.
+  .. warning:: Be careful: when using too small :f:var:`n_log_step`, the disk access will dramatically increases, thus decreasing the code performance.
 
 .. _varn_logs:
 
-* **n_logs** (default ``n_logs=0``) is an integer. This is the number of log-information sets to be written.
+* **n_logs** (default :f:var:`n_logs=0 <n_logs>`) is an integer. This is the number of log-information sets to be written.
 
 .. _vart_log:
 
-* **t_log**  (default  ``t_log=-1.0 -1.0 ...``) is real array, which contains the times when log outputs are requested.
+* **t_log**  (default  :f:var:`t_log=-1.0 -1.0 ... <t_log>`) is real array, which contains the times when log outputs are requested.
 
 .. _vardt_log:
 
-* **dt_log** (default ``dt_log=0.0``) is a real, which defines the time interval between log outputs.
+* **dt_log** (default :f:var:`dt_log=0.0 <dt_log>`) is a real, which defines the time interval between log outputs.
 
 .. _vart_log_start:
 
-* **t_log_start** (default ``t_log_start=0.0``) is a real, which defines the time to start writing log outputs.
+* **t_log_start** (default :f:var:`t_log_start=0.0 <t_log_start>`) is a real, which defines the time to start writing log outputs.
 
 .. _vart_log_stop:
 
-* **t_log_stop** (default ``t_log_stop=0.0``) is a real, which defines the time to stop writing log outputs.
+* **t_log_stop** (default :f:var:`t_log_stop=0.0 <t_log_stop>`) is a real, which defines the time to stop writing log outputs.
 
 
 Restart files
@@ -44,25 +44,28 @@ The **rst** outputs controls the output of restart files (:ref:`rst_t_#.TAG <sec
 
 .. _varn_rst_step:
 
-* **n_rst_step** (default ``n_rst_step=0``) is an integer. This is the number of timesteps between two restart files.
+* **n_rst_step** (default :f:var:`n_rst_step=0 <n_rst_step>`) is an integer. This is the number of timesteps between two restart files.
 
 .. _varn_rsts:
 
-* **n_rsts** (default ``n_rsts=1``) is an integer. This is the number of restart files to be written.
+* **n_rsts** (default :f:var:`n_rsts=1 <n_rsts>`) is an integer. This is the number of restart files to be written.
 
 .. _vart_rst:
 
-* **t_rst**  (default  ``t_rst=-1.0 -1.0 ...``) is real array, which contains the times when restart files are requested.
+* **t_rst**  (default  :f:var:`t_rst=-1.0 -1.0 ... <t_rst>`) is real array, which contains the times when restart files are requested.
 
 .. _vardt_rst:
 
-* **dt_rst** (default ``dt_rst=0.0``) is a real, which defines the time interval between restart files.
+* **dt_rst** (default :f:var:`dt_rst=0.0 <dt_rst>`) is a real, which defines the time interval between restart files.
 
-* **t_rst_start** (default ``t_rst_start=0.0``) is a real, which defines the time to start writing restart files.
 
-* **t_rst_stop** (default ``t_rst_stop=0.0``) is a real, which defines the time to stop writing restart files.
+* **t_rst_start** (default :f:var:`t_rst_start=0.0 <t_rst_start>`) is a real, which defines the time to start writing restart files.
 
-* **n_stores** (default ``n_stores=0``) is an integer. This is another way of requesting a certain number of restart files. However, instead of creating each time a new restart file, if ``n_stores > n_rsts``  the restart file is overwritten, which can possibly help saving some disk space.
+
+* **t_rst_stop** (default :f:var:`t_rst_stop=0.0 <t_rst_stop>`) is a real, which defines the time to stop writing restart files.
+
+
+* **n_stores** (default :f:var:`n_stores=0 <n_stores>`) is an integer. This is another way of requesting a certain number of restart files. However, instead of creating each time a new restart file, if ``n_stores > n_rsts``  the restart file is overwritten, which can possibly help saving some disk space.
 
 .. warning:: The ``rst`` files can become quite big and writting them too frequently will slow down the code. Except for very special use, the default set up should be sufficient.
 
@@ -74,27 +77,27 @@ The **graph** outputs controls the output of graphic files (:ref:`G_#.TAG <secGr
 
 .. _varn_graph_step:
 
-* **n_graph_step** (default ``n_graph_step=0``) is an integer. This is the number of timesteps between two graphic files.
+* **n_graph_step** (default :f:var:`n_graph_step=0 <n_graph_step>`) is an integer. This is the number of timesteps between two graphic files.
 
 .. _varn_graphs:
 
-* **n_graphs** (default ``n_graphss=1``) is an integer. This is the number of graphic files to be written.
+* **n_graphs** (default :f:var:`n_graphs=1 <n_graphs>`) is an integer. This is the number of graphic files to be written.
 
 .. _vart_graph:
 
-* **t_graph**  (default  ``t_graph=-1.0 -1.0 ...``) is real array, which contains the times when graphic files are requested.
+* **t_graph**  (default  :f:var:`t_graph=-1.0 -1.0 ... <t_graph>`) is real array, which contains the times when graphic files are requested.
 
 .. _vardt_graph:
 
-* **dt_graph** (default ``dt_graph=0.0``) is a real, which defines the time interval between graphic files.
+* **dt_graph** (default :f:var:`dt_graph=0.0 <dt_graph>`) is a real, which defines the time interval between graphic files.
 
 .. _vart_graph_start:
 
-* **t_graph_start** (default ``t_graph_start=0.0``) is a real, which defines the time to start writing graphic files.
+* **t_graph_start** (default :f:var:`t_graph_start=0.0 <t_graph_start>`) is a real, which defines the time to start writing graphic files.
 
 .. _vart_graph_stop:
 
-* **t_graph_stop** (default ``t_graph_stop=0.0``) is a real, which defines the time to stop writing graphic files.
+* **t_graph_stop** (default :f:var:`t_graph_stop=0.0 <t_graph_stop>`) is a real, which defines the time to stop writing graphic files.
 
 
 
@@ -105,27 +108,27 @@ The **spec** outputs controls the output of spectra: kinetic energy spectra (:re
 
 .. _varn_spec_step:
 
-* **n_spec_step** (default ``n_spec_step=0``) is an integer. This is the number of timesteps between two spectra.
+* **n_spec_step** (default :f:var:`n_spec_step=0 <n_spec_step>`) is an integer. This is the number of timesteps between two spectra.
 
 .. _varn_specs:
 
-* **n_specs** (default ``n_specs=0``) is an integer. This is the number of spectra to be written.
+* **n_specs** (default :f:var:`n_specs=0 <n_specs>`) is an integer. This is the number of spectra to be written.
 
 .. _vart_spec:
 
-* **t_spec**  (default  ``t_spec=-1.0 -1.0 ...``) is real array, which contains the times when spectra are requested.
+* **t_spec**  (default  :f:var:`t_spec=-1.0 -1.0 ... <t_spec>`) is real array, which contains the times when spectra are requested.
 
 .. _vardt_spec:
 
-* **dt_spec** (default ``dt_spec=0.0``) is a real, which defines the time interval between spectra.
+* **dt_spec** (default :f:var:`dt_spec=0.0 <dt_spec>`) is a real, which defines the time interval between spectra.
 
 .. _vart_spec_start:
 
-* **t_spec_start** (default ``t_spec_start=0.0``) is a real, which defines the time to start writing spectra.
+* **t_spec_start** (default :f:var:`t_spec_start=0.0 <t_spec_start>`) is a real, which defines the time to start writing spectra.
 
 .. _vart_spec_stop:
 
-* **t_spec_stop** (default ``t_spec_stop=0.0``) is a real, which defines the time to stop writing spectra.
+* **t_spec_stop** (default :f:var:`t_spec_stop=0.0 <t_spec_stop>`) is a real, which defines the time to stop writing spectra.
 
 
 Movie files
@@ -137,10 +140,10 @@ The **movie** outputs controls the output of movie files (:ref:`*_mov.TAG <secMo
 Specific inputs
 +++++++++++++++
 
-* **l_movie** (default ``l_movie=.false.``) is a logical. It needs to be turned on to get movie computed.
+* **l_movie** (default :f:var:`l_movie=.false. <l_movie>`) is a logical. It needs to be turned on to get movie computed.
 
   Several movie-files can be produced during a run (it is now limited to 30 by
-  the variable``n_movies_max`` in the file ``movie.f90``). The movies are
+  the variable``n_movies_max`` in the module :f:mod:`movie`). The movies are
   defined by a keyword determining the fields to be plotted and an expression
   that determines the nature of movie (:math:`r`-slice, :math:`\theta`-slice,
   :math:`\phi`-slice, etc.). The code searches this information in a
@@ -149,7 +152,7 @@ Specific inputs
 
 .. _varmovie:
 
-* **movie** (default ``movie=' ', ' ', ...``) is a character string array. It contains the description of the movies one wants to compute.
+* **movie** (default :f:var:`movie=' ', ' ', ... <movie>`) is a character string array. It contains the description of the movies one wants to compute.
 
   For example, to invoke a movie(file) that shows (stores) the radial magnetic
   component of the magnetic field at the CMB, you have to provide the line
@@ -338,31 +341,34 @@ Standard inputs
 
 .. _varn_movie_step:
 
-* **n_movie_step** (default ``n_movie_step=0``) is an integer. This is the number of timesteps between two movie outputs.
+* **n_movie_step** (default :f:var:`n_movie_step=0 <n_movie_step>`) is an integer. This is the number of timesteps between two movie outputs.
 
-* **n_movies** (default ``n_moviess=1``) is an integer. This is the number of movie outputs to be written.
+* **n_movies** (default :f:var:`n_movies=1 <n_movies>`) is an integer. This is the number of movie outputs to be written.
 
 .. _vart_movie:
 
-* **t_movie**  (default  ``t_movie=-1.0 -1.0 ...``) is real array, which contains the times when movie outputs are requested.
+* **t_movie**  (default  :f:var:`t_movie=-1.0 -1.0 ... <t_movie>`) is real array, which contains the times when movie outputs are requested.
 
 .. _vardt_movie:
 
-* **dt_movie** (default ``dt_movie=0.0``) is a real, which defines the time interval between movie outputs.
+* **dt_movie** (default :f:var:`dt_movie=0.0 <dt_movie>`) is a real, which defines the time interval between movie outputs.
 
-* **t_movie_start** (default ``t_movie_start=0.0``) is a real, which defines the time to start writing movie outputs.
 
-* **t_movie_stop** (default ``t_movie_stop=0.0``) is a real, which defines the time to stop writing movie outputs.
+* **t_movie_start** (default :f:var:`t_movie_start=0.0 <t_movie_start>`) is a real, which defines the time to start writing movie outputs.
 
+
+* **t_movie_stop** (default :f:var:`t_movie_stop=0.0 <t_movie_stop>`) is a real, which defines the time to stop writing movie outputs.
+
+
+.. _varl_average:
 
 Field Averages
 --------------
 
-The code can perform on-the-fly time-averaging of entropy, velocity field and magnetic field. Respective graphic output and spectra are written into the corresponding files (with :ref:`G_ave.TAG <secGraphFile>`, :ref:`kin_spec_avec.TAG <secKinSpecFile>`). The time-averaged energies are written into the :ref:`log.TAG <secLogFile>` file.
+The code can perform on-the-fly time-averaging of entropy, velocity field and magnetic field. Respective graphic output and spectra are written into the corresponding files (with :ref:`G_ave.TAG <secGraphFile>`, :ref:`kin_spec_ave.TAG <secKinSpecAveFile>`,  :ref:`mag_spec_ave.TAG <secMagSpecAveFile>`). The time-averaged energies are written into the :ref:`log.TAG <secLogFile>` file.
 
-.. _varl_average:
 
-* **l_average** (default ``l_average=.false.``) is a logical, which enables the time-averaging of fields when set to ``.true.``.
+* **l_average** (default :f:var:`l_average=.false. <l_average>`) is a logical, which enables the time-averaging of fields when set to ``.true.``.
 
   .. warning:: Time-averaging has a large memory imprint as it requires the storage of 3-D arrays. Be careful, when using large truncations.
 

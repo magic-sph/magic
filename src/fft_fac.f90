@@ -1,7 +1,7 @@
 module fft_fac_mod
 
    use precision_mod
-   use const, only: sin36, sin60, sin72, cos36, cos72
+   use constants, only: sin36, sin60, sin72, cos36, cos72
 
    implicit none
 

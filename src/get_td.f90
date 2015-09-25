@@ -27,7 +27,7 @@ module nonlinear_lm_mod
                   Mag2hInt, MagAs2hInt, MagLMr, ArcLMr, Arc2hInt,     &
                   ArcAs2hInt
    use leg_helper_mod, only:leg_helper_t
-   use const, only: zero, two
+   use constants, only: zero, two
    use fields, only: w_Rloc,dw_Rloc,z_Rloc
    use RMS_helpers, only: hInt2Pol, hInt2Tor
     

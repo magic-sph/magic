@@ -9,7 +9,7 @@ module step_time_mod
    use fieldsLast
    use parallel_mod
    use precision_mod
-   use const, only: zero, one, half
+   use constants, only: zero, one, half
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
                          lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &

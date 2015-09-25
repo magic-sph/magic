@@ -12,7 +12,7 @@ module kinetic_energy
    use logic, only: l_save_out, l_non_rot
    use output_data, only: n_e_kin_file, e_kin_file, tag, n_u_square_file, &
                           u_square_file
-   use const, only: pi, vol_oc, one, two, half, four
+   use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm,ulm
    use communications, only: get_global_sum
  

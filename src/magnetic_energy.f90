@@ -17,7 +17,7 @@ module magnetic_energy
    use output_data, only: n_dipole_file, dipole_file, n_e_mag_ic_file,   &
                           e_mag_ic_file, n_e_mag_oc_file, e_mag_oc_file, &
                           tag
-   use const, only: pi, zero, one, two, half, four
+   use constants, only: pi, zero, one, two, half, four
    use Bext, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC

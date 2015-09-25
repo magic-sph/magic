@@ -11,7 +11,7 @@ module outPar_mod
    use fields, only: s_Rloc, ds_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
                                   opr, kbots, ktops
-   use const, only: pi, mass, osq4pi, sq4pi, half, two, four
+   use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
                                dr_fac, i_costf_init, d_costf_init
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &

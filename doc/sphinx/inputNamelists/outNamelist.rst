@@ -69,7 +69,7 @@ suffices for most applications.
 
 .. _varl_true_time:
 
-* **l_true_time** (default ``l_true_time=.false.``) is a logical. It causes the code to change time steps to exactly meet the requested output times.
+* **l_true_time** (default :f:var:`l_true_time=.false. <l_true_time>`) is a logical. It causes the code to change time steps to exactly meet the requested output times.
 
 The different possible outputs control parameters are then extensively described in the following pages:
 
@@ -95,10 +95,10 @@ The different possible outputs control parameters are then extensively described
 Generic options
 ---------------
 
-* **l_save_out** (default ``l_save_out=.false.``) is a logical. When set to ``.true.``, the diagnostic files will be safely opened and closed before and after any outputs. When set to ``.false.``, the diagnostic files will be opened before the first iteration timestep and close at the end of the run. This may cost some computing time, but guarantees that only minimal information is lost in case of a crash.
+* **l_save_out** (default :f:var:`l_save_out=.false. <l_save_out>`) is a logical. When set to ``.true.``, the diagnostic files will be safely opened and closed before and after any outputs. When set to ``.false.``, the diagnostic files will be opened before the first iteration timestep and close at the end of the run. This may cost some computing time, but guarantees that only minimal information is lost in case of a crash.
 
-* **lVerbose** (default ``lVerbose=.false.``) is a logical. When set to ``.true.``, the code displays a lot of debugging informations.
+* **lVerbose** (default :f:var:`lVerbose=.false. <lverbose>`) is a logical. When set to ``.true.``, the code displays a lot of debugging informations.
 
-  .. warning:: Never set ``lVerbose`` to ``.true.`` for a production run!
+  .. warning:: Never set :f:var:`lVerbose` to ``.true.`` for a production run!
 
-* **runid** (default, ``runid="MAGIC default run"``) is a character string. This can be used to briefly describe your run. This information is then for instance stored in the header of the graphic files.
+* **runid** (default, :f:var:`runid="MAGIC default run" <runid>`) is a character string. This can be used to briefly describe your run. This information is then for instance stored in the header of the graphic files.

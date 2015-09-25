@@ -7,7 +7,7 @@ module radial_functions
 #else
    use algebra, only: sgesl,sgefa
 #endif
-   use const, only: sq4pi, one, two, three, four, half
+   use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &

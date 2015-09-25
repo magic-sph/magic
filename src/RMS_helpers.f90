@@ -13,7 +13,7 @@ module RMS_helpers
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMmapping, only: mappings
-   use const, only: vol_oc, one
+   use constants, only: vol_oc, one
    use chebyshev_polynoms_mod, only: cheb_grid
    use init_costf, only: init_costf1
    use radial_der, only: get_dr

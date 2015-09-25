@@ -5,7 +5,7 @@ module chebInt_mod
    use init_costf, only: init_costf1
    use cosine_transform, only: costf1
    use radial_der, only: get_dcheb
-   use const, only: two, four, half
+   use constants, only: two, four, half
 
    implicit none
 

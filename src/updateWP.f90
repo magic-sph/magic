@@ -29,7 +29,7 @@ module updateWP_mod
    use RMS_helpers, only:  hInt2Pol
    use cosine_transform, only: costf1
    use radial_der, only: get_dddr, get_dr
-   use const, only: zero, one, two, three, four, third, half
+   use constants, only: zero, one, two, three, four, third, half
 
    implicit none
 

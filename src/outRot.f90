@@ -14,7 +14,7 @@ module outRot
    use output_data, only: tag, angular_file, n_angular_file,    &
                           n_SRIC_file, n_rot_file, n_SRMA_file, &
                           SRMA_file, SRIC_file, rot_file
-   use const, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
+   use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
                     y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R

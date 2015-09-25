@@ -11,7 +11,7 @@ module courant_mod
    use horizontal_data, only: osn2
    use logic, only: l_mag, l_mag_LF, l_mag_kin
    use useful, only: logWrite
-   use const, only: half, one, two
+   use constants, only: half, one, two
 
    implicit none
 

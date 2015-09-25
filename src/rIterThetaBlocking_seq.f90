@@ -26,7 +26,7 @@ module rIterThetaBlocking_seq_mod
    use outRot, only: get_lorentz_torque
    use courant_mod, only: courant 
    use nonlinear_bcs, only: get_br_v_bcs
-   use const, only: zero
+   use constants, only: zero
    use nl_special_calc
  
    implicit none

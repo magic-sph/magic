@@ -27,7 +27,7 @@ module out_movie
    use fft_MKL, only: fft_thetab
 #endif
    use logic, only: l_save_out, l_cond_ic
-   use const, only: zero, one, two
+   use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
 

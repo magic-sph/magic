@@ -15,7 +15,7 @@ module outMisc_mod
                     l_hel, l_heat
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
-   use const, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
+   use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use useful, only: cc2real
    use integration, only: rInt,rInt_R
    use LMLoop_data,only: llm,ulm

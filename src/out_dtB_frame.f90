@@ -19,7 +19,7 @@ module out_dtB_frame
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
-   use const, only: zero, one, ci
+   use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_drNS
 

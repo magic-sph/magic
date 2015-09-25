@@ -33,7 +33,7 @@ module updateS_mod
 #endif
    use cosine_transform, only: costf1
    use radial_der, only: get_drNS, get_ddr
-   use const, only: zero, one, two, half
+   use constants, only: zero, one, two, half
 
    implicit none
 

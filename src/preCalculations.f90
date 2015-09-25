@@ -1,6 +1,6 @@
 module preCalculations
 
-   use const
+   use constants
    use num_param
    use output_data
    use precision_mod

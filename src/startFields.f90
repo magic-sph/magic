@@ -24,7 +24,7 @@ module start_fields
                           initV, initS, initB, s_cond, start_file
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
-   use const, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
+   use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
                     one, two
    use useful, only: cc2real, logWrite
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, &

@@ -4,7 +4,7 @@ module RMS
    ! is requested
    !
 
-   use const, only: zero
+   use constants, only: zero
    use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, lm_max, lm_maxMag
  

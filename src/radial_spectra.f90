@@ -11,7 +11,7 @@ module radial_spectra
    use output_data, only: tag
    use useful, only: cc2real
    use LMmapping, only: mappings
-   use const, only: pi, one, four, half
+   use constants, only: pi, one, four, half
 
    implicit none
 

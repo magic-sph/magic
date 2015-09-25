@@ -8,7 +8,7 @@ variables that control and organize the run.
 
 .. _varmode:
 
-* **mode** (default ``mode=0``) is an integer which controls the type of calculation performed.
+* **mode** (default :f:var:`mode=0 <mode>`) is an integer which controls the type of calculation performed.
 
   +---------+--------------------------------------------------------+
   | mode=0  | Self-consistent dynamo                                 |
@@ -39,18 +39,18 @@ variables that control and organize the run.
 
 .. _varTAG:
 
-* **tag** (default ``tag=default``) is a character string, used as an extension for all output files.
+* **tag** (default :f:var:`tag="default" <tag>`) is a character string, used as an extension for all output files.
 
-* **n_time_steps** (default ``n_time_steps=100``) is an integer, the number of time steps to be performed.
+* **n_time_steps** (default :f:var:`n_time_steps=100 <n_time_steps>`) is an integer, the number of time steps to be performed.
 
-* **tEND** (default ``tEND=0.0``) is a real, which can be used to force the code to stop when :math:``t=tEND``. This is only used when ``t/=tEND``.
+* **tEND** (default :f:var:`tEND=0.0 <tend>`) is a real, which can be used to force the code to stop when :math:``t=tEND``. This is only used when ``t/=tEND``.
 
-* **alpha** (default ``alpha=0.5``) is a real. This is the weight used for current time step in implicit time step.
+* **alpha** (default :f:var:`alpha=0.5 <alpha>`) is a real. This is the weight used for current time step in implicit time step.
 
 Default scales
 --------------
 
-* **n_tScale** (default ``n_tScale=0``) is an integer, which determines the time scaling
+* **n_tScale** (default :f:var:`n_tScale=0 <n_tscale>`) is an integer, which determines the time scaling
 
   +-------------+---------------------------+
   | n_tScale=0  | Use viscous time scale.   |
@@ -60,7 +60,7 @@ Default scales
   | n_tScale=2  | Use thermal time scale.   |
   +-------------+---------------------------+
 
-* **n_lScale** (default ``n_lScale=0``) is an integer which determines the reference length scale.
+* **n_lScale** (default :f:var:`n_lScale=0 <n_lscale>`) is an integer which determines the reference length scale.
 
   +-------------+------------------------------------------+
   | n_lScale=0  | Use outer core.                          |
@@ -69,16 +69,16 @@ Default scales
   +-------------+------------------------------------------+
 
 
-* **enscale** (default ``enscale=1.0``) is a real. This is the scaling for energies.
+* **enscale** (default :f:var:`enscale=1.0 <enscale>`) is a real. This is the scaling for energies.
 
 Update control
 --------------
 
-* **l_update_v** (default ``l_update_v=.true.``) is a logical that specifies whether the velocity field should be time-stepped or not.
+* **l_update_v** (default :f:var:`l_update_v=.true. <l_update_v>`) is a logical that specifies whether the velocity field should be time-stepped or not.
 
-* **l_update_b** (default ``l_update_b=.true.``) is a logical that specifies whether the magnetic field should be time-stepped or not.
+* **l_update_b** (default :f:var:`l_update_b=.true. <l_update_b>`) is a logical that specifies whether the magnetic field should be time-stepped or not.
 
-* **l_update_s** (default ``l_update_s=.true.``) is a logical that specifies whether the entropy/temperature should be time-stepped or not.
+* **l_update_s** (default :f:var:`l_update_s=.true. <l_update_s>`) is a logical that specifies whether the entropy/temperature should be time-stepped or not.
 
 Time step control
 -----------------
@@ -87,15 +87,15 @@ A modified courant criteria including a modified Alfven-velocity is used to
 account for the magnetic field. The relative and absolute importance of flow
 and Alfven-velocity can be controled by **courfac** and **alffac** respectively.
 
-* **dtstart** (default ``dtstart=0.0``) is a real, which is used as the initial time step if the starting solution is initialized (see below) and :math:`\hbox{dtstart}>0`.
+* **dtstart** (default :f:var:`dtstart=0.0 <dtstart>`) is a real, which is used as the initial time step if the starting solution is initialized (see below) and :math:`\hbox{dtstart}>0`.
 
-* **dtMax** (default ``dtMax=1e-4``) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtmax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
+* **dtMax** (default :f:var:`dtMax=1e-4 <dtmax>`) is a  real. This is the maximum allowed time step :math:`\delta t`. If :math:`\delta t > \hbox{dtmax}`, the time step is decreased to at least dtmax (See routine `dt_courant`). Run is stopped if :math:`\delta t < \hbox{dtmin}` and :math:`\hbox{dtmin}=10^{-6}\,\hbox{dtmax}`.
 
-* **courfac** (default ``courfac=2.5``) is a real used to scale velocity in courant criteria.
+* **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in courant criteria.
 
-* **alffac** (default ``alffac=1.0``) is a  real, used to scale Alfven-velocity in courant criteria.
+* **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in courant criteria.
 
-* **n_cour_step** (default ``n_cour_step=10``) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step}>0``.
+* **n_cour_step** (default :f:var:`n_cour_step=10 <n_cour_step>`) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step>0``.
 
 
 Run time
@@ -103,11 +103,11 @@ Run time
 
 The total desired runtime (in human units and not in CPU units) can be specified with the three variables **runHours**, **runMinutes** and **runSeconds**.
 
-* **runHours** (default ``runHours=0``) is an integer that controls the number of run hours. 
+* **runHours** (default :f:var:`runHours=0 <runhours>`) is an integer that controls the number of run hours. 
 
-* **runMinutes** (default ``runMinutes=0``) is an integer that controls the .
+* **runMinutes** (default :f:var:`runMinutes=0 <runminutes>`) is an integer that controls the .
 
-* **runSeconds** (default ``runSeconds=0``) is an integer that controls the number of run hours.
+* **runSeconds** (default :f:var:`runSeconds=0 <runseconds>`) is an integer that controls the number of run hours.
 
 
 Here is an example for a run of 23h30:
@@ -128,15 +128,15 @@ Hyperdiffusion can be applied by multiplying the diffusion operators by a factor
 
 for the spherical harmonic degrees :math:`\ell \geq \ell_{hd}`.
 
-* **difnu** (default ``difnu=0.0``) is a real. This is the amplitude :math:`D` of the viscous hyperdiffusion.
+* **difnu** (default :f:var:`difnu=0.0 <difnu>`) is a real. This is the amplitude :math:`D` of the viscous hyperdiffusion.
 
-* **difkappa** (default ``difkappa=0.0``) is a real. This is the amplitude :math:`D` of the thermal hyperdiffusion.
+* **difkappa** (default :f:var:`difkappa=0.0 <difkappa>`) is a real. This is the amplitude :math:`D` of the thermal hyperdiffusion.
 
-* **difeta** (default ``difeta=0.0``) is a real. This is the amplitude :math:`D` of the magnetic hyperdiffusion.
+* **difeta** (default :f:var:`difeta=0.0 <difeta>`) is a real. This is the amplitude :math:`D` of the magnetic hyperdiffusion.
 
-* **ldif** (default ``ldif=1``) is an integer. This is the degree :math:`\ell_{hd}` where hyperdiffusion starts to act.
+* **ldif** (default :f:var:`ldif=1 <ldif>`) is an integer. This is the degree :math:`\ell_{hd}` where hyperdiffusion starts to act.
 
-* **ldifexp** (default ``ldifexp=-1``) is an integer. This is the exponent :math:`\beta` of hyperdiffusion.
+* **ldifexp** (default :f:var:`ldifexp=-1 <ldifexp>`) is an integer. This is the exponent :math:`\beta` of hyperdiffusion.
 
 
 Angular momentum correction
@@ -146,9 +146,9 @@ In case of the use of stress-free boundary conditions at both boundaries, it is 
 that the angular momentum is correctly conserved. This can be enforced through the following
 input variables:
 
-* **l_correct_AMe** (default ``l_correct_AMe=.false.``) is a logical. This is used to correct the equatorial angular momentum.
+* **l_correct_AMe** (default :f:var:`l_correct_AMe=.false. <l_correct_ame>`) is a logical. This is used to correct the equatorial angular momentum.
 
-* **l_correct_AMz** (default ``l_correct_AMz=.false.``) is a logical. This is used to correct the axial angular momentum.
+* **l_correct_AMz** (default :f:var:`l_correct_AMz=.false. <l_correct_amz>`) is a logical. This is used to correct the axial angular momentum.
 
 
 .. _varl_newmap:
@@ -156,15 +156,15 @@ input variables:
 Mapping of the Gauss-Lobatto grid
 ---------------------------------
 
-* **l_newmap** (default ``l_newmap=.false.``) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
+* **l_newmap** (default :f:var:`l_newmap=.false. <l_newmap>`) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
 
-* **alph1** (default ``alph1=2.0``) is a real. This is a control parameter of the mapping function.
+* **alph1** (default :f:var:`alph1=2.0 <alph1>`) is a real. This is a control parameter of the mapping function.
 
-* **alph2** (default ``alph2=0.0``) is a real. This is a control parameter of the mapping function.
+* **alph2** (default :f:var:`alph2=0.0 <alph2>`) is a real. This is a control parameter of the mapping function.
 
 
 Miscellaneous
 -------------
 
-* **l_non_rot** (default ``l_non_rot=.false.``) is a logical. Use it when you want to do non-rotating numerical simulations.
+* **l_non_rot** (default :f:var:`l_non_rot=.false. <l_non_rot>`) is a logical. Use it when you want to do non-rotating numerical simulations.
 

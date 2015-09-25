@@ -27,7 +27,7 @@ module dtB_mod
    use fft_MKL
 #endif
    use legendre_grid_to_spec, only: legTF2, legTF3
-   use const, only: two
+   use constants, only: two
    use radial_der, only: get_drNS
  
    implicit none

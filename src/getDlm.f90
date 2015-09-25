@@ -8,7 +8,7 @@ module getDlm_mod
    use num_param, only: eScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
-   use const, only: pi, half
+   use constants, only: pi, half
    use LMLoop_data,only: llm, ulm
    use useful, only: cc2real, cc22real
    use integration, only: rInt_R
