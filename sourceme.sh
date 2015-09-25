@@ -9,7 +9,14 @@ if [ -z $MAGIC_HOME ]; then
   #
   # Try to identify position of the code's home directory:
   #
-  _sourcecmd="${BASH_SOURCE[0]}"
+  
+  if [ zsh=="`echo $0`" ]
+  then
+     _sourcecmd="${(%):-%N}"
+  else
+     _sourcecmd="${BASH_SOURCE[0]}"
+  fi
+
   while [ -h "$_sourcecmd" ]; do # resolve $_sourcecmd until the file is no longer a symlink
     _dir="$( cd -P "$( dirname "$_sourcecmd" )" && pwd )"
     _sourcecmd="$(readlink "$_sourcecmd")"
