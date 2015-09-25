@@ -13,7 +13,12 @@ if ( ! $?MAGIC_HOME ) then
   # Try to identify position of the code's home directory:
   #
   
-  set _dir = `readlink -f $_sourcecmd[2]`
+  if ( $_sourcecmd != "") then
+    set _dir = `readlink -f $_sourcecmd[2]`
+  else
+    set _dir = `readlink -f $0`
+  endif
+    
   set _dir = `dirname $_dir` 
   
   if ( (-e $_dir/sourceme.csh) && \
