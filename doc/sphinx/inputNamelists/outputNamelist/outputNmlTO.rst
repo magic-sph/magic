@@ -6,11 +6,19 @@ Torsional oscillations (``TO``)
 Specific inputs
 +++++++++++++++
 
+.. _varl_TO:
+
 * **l_TO** (default :f:var:`l_TO=.false. <l_to>`) is a logical. It needs to be turned on to compute the torsional oscillations diagnostics (``TO``) computed.
+
+.. _varl_TOmovie:
 
 * **l_TOmovie** (default :f:var:`l_TOmovie=.false <l_tomovie>`) is a logical. It needs to be turned on to store the :ref:`TO_movie.TAG <secTO_movieFile>` files.
 
+.. _varsDens:
+
 * **sDens** (default :f:var:`sDens=1.0 <sdens>`) is a float. It gives the relative point density of the cylindrical grid (in the radial direction).
+
+.. _varzDens:
 
 * **zDens** (default :f:var:`zDens=1.0 <zdens>`) is a float. It gives the relative point density of the cylindrical grid (in the vertical direction).
 
