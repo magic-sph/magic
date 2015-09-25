@@ -53,7 +53,7 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     return glm, hlm
 
 
-class BcoeffCmb(MagicSetup):
+class MagicCoeffCmb(MagicSetup):
     """
     This class allows to read the :ref:`B_coeff_cmb.TAG <secCoeffFiles>` files.
     It first read the poloidal potential at the CMB and then transform
@@ -62,7 +62,7 @@ class BcoeffCmb(MagicSetup):
 
     >>> # Reads the files B_coeff_cmb.testa, B_coeff_cmb.testb
     >>> # and B_coeff_cmb.testc and stack them in one single time series
-    >>> cmb = BcoeffCmb(tag='test[a-c]')
+    >>> cmb = MagicCoeffCmb(tag='test[a-c]')
     >>> print(cmb.ell, cmb.glm) # print \ell and g_{\ell m}
     >>> print(cmb.glm[:, 1, 0]) # time-series of the axisymmetric dipole
     >>> plot(cmb.time, cmb.dglmdt[:, 1, 0]) # Secular variation of the dipole
@@ -216,7 +216,7 @@ class BcoeffCmb(MagicSetup):
         ax.set_ylabel('Gauss coefficients')
 
 
-class Bcoeff_r(MagicSetup):
+class MagicCoeffR(MagicSetup):
     """
     This class allows to read the :ref:`B_coeff_r#.TAG <secBcoeffrFile>`
     and :ref:`V_coeff_r#.TAG <secVcoeffrFile>` files.
@@ -224,7 +224,7 @@ class Bcoeff_r(MagicSetup):
     series (or the energy) contained in any given mode.
 
     >>> # Reads the files V_coeff_r2.test*
-    >>> cr = Bcoeff_r(tag='test*', field='V', r=2)
+    >>> cr = MagicCoeffR(tag='test*', field='V', r=2)
     >>> print(cr.ell, cr.wlm) # print \ell and w_{\ell m}
     >>> # Time-evolution of the poloidal energy in the (\ell=10, m=10) mode
     >>> plot(cr.time, cr.epolLM[:, 10, 10]) 
