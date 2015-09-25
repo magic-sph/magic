@@ -338,11 +338,13 @@ class Bcoeff_r(MagicSetup):
         etorTot = self.etorLM.sum(axis=1).sum(axis=1)
         etorAxiTot = self.etorAxiL.sum(axis=1)
         epolAxiTot = self.epolAxiL.sum(axis=1)
-
-        P.plot(self.time, epolTot)
-        P.plot(self.time, etorTot)
-        P.plot(self.time, epolAxiTot)
-        P.plot(self.time, etorAxiTot)
+        
+        if iplot:
+            P.plot(self.time, epolTot)
+            P.plot(self.time, etorTot)
+            P.plot(self.time, epolAxiTot)
+            P.plot(self.time, etorAxiTot)
+        
         """
         self.dglmdt = deriv(self.time, self.glm.T, axis=2)
         self.dhlmdt = deriv(self.time, self.hlm.T, axis=2)
