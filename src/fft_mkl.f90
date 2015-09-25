@@ -27,9 +27,9 @@ module fft_mkl
 contains
 
    subroutine init_fft(number_of_points)
-      """
-      MKL equivalent of init_fft
-      """
+      
+!     MKL equivalent of init_fft
+      
 
       integer, intent(in) :: number_of_points ! number of points
       
