@@ -3,7 +3,12 @@
 Poloidal and toroidal potentials at given depths
 ================================================
 
-These are fortran unformatted files which store time series of poloidal and toroidal coefficients of different fields (magnetic field, velocity and temeperature) at specific depths. Unformatted files are not directly human readable, and are used to store binary data and move it around without changing the internal representation. In fortran, the open, read and write operations for these files are performed as follows:
+These are fortran unformatted files which store time series of poloidal and
+toroidal coefficients of different fields (magnetic field, velocity and
+temeperature) at specific depths. Unformatted files are not directly human
+readable, and are used to store binary data and move it around without changing
+the internal representation. In fortran, the open, read and write operations
+for these files are performed as follows:
 
 .. code-block:: fortran
 
@@ -11,7 +16,12 @@ These are fortran unformatted files which store time series of poloidal and toro
   read(unit=4) readVar
   write(unit=n_out, iostat=ios) writeVar !Unformatted write
 
-In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time step, :code:`time(N)` being the last step. :code:`real` and :code:`imag` denote real and imaginary parts, respectively, of spherical harmonic coefficients. Also, the following notations will be used for the coefficients of potentials (note that scalar fields like temperature do not have a poloidal/toroidal decomposition):
+In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time
+step, :code:`time(N)` being the last step. :code:`real` and :code:`imag` denote
+real and imaginary parts, respectively, of spherical harmonic coefficients.
+Also, the following notations will be used for the coefficients of potentials
+(note that scalar fields like temperature do not have a poloidal/toroidal
+decomposition):
 
     +----------------+-----------+------------+
     | Field          | Poloidal  | Toroidal   |
@@ -24,7 +34,8 @@ In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time st
     +----------------+-----------+------------+
      
 
-First and second derivatives are denoted with a differential notation. e.g: `dw` is first derivative of `w`, while `ddb` is second derivative of `b`.
+First and second derivatives are denoted with a differential notation. e.g:
+`dw` is first derivative of `w`, while `ddb` is second derivative of `b`.
 
 .. _secCmbFile:
 
@@ -33,7 +44,11 @@ First and second derivatives are denoted with a differential notation. e.g: `dw`
 
 .. note:: This file is **only** written when :ref:`l_cmb_field=.true. <varl_cmb_field>` 
 
-This file contains time series of spherical harmonic coefficients for the poloidal potential of the magnetic field at the outer boundary (CMB) upto a degree given by :ref:`l_max_cmb <varl_max_cmb>`. The contents of the file look as follows:
+This file contains time series of spherical harmonic coefficients for the
+poloidal potential of the magnetic field at the outer boundary (CMB) up to a
+spherical harmonic degree given by :ref:`l_max_cmb <varl_max_cmb>`.
+The detailed calculations are done in the subroutine :f:subr:`write_Bcmb
+<out_coeff/write_bcmb()>`. The contents of the file look as follows:
 
  * **Header** The file header consists of the information: :ref:`l_max_cmb <varl_max_cmb>`, :ref:`minc <varMinc>` and the number of data points - ``n_data``.
  * **Data** Each chunk of data after the header has the same pattern of ``time`` followed by a list of real and imaginary values of coefficients.
@@ -73,15 +88,29 @@ Thus, on a whole, the structure of the file looks like follows:
           ...
           real(b(l=l_max_cmb,m=l_max_cmb)), imag(b(l=l_max_cmb,m=l_max_cmb))                  
 
+This file can be read using :py:class:`MagicCoeffCmb <magic.coeff.MagicCoeffCmb>` with the following options:
 
-The detailed calculations are done in the subroutine :f:subr:`write_Bcmb <out_coeff/write_bcmb()>`.
+   >>> # To stack the files B_cmb_coeff.testc to B_cmb_coeff.testf
+   >>> cmb = MagicCoeffCmb(tag='test[c-f]')
+   >>> # print Gauss coefficient for (\ell=10, m=3)
+   >>> print(cmb.glm[:, 10, 3])
+
+
 
 .. _secCoeffrFiles:
 
 Coefficients at desired radii
 ------------------------------
 
-The following files - ``[B|V|T]_coeff_r#.TAG`` - save coefficients at specified depths and are written by the subroutine :f:subr:`write_coeff_r <out_coeff/write_coeff_r>`. See the section on :ref:`CMB and radial coefficients <secOutNmlCoeff>` in the :ref:`ouput control namelist <secOutputNml>` for details of specifying depth, using :ref:`n_r_step <varn_r_step>` or :ref:`n_r_array <varn_r_array>` and desired maximum degree of output - :ref:`l_max_r <varl_max_r>`. A separate file for each desired radius is written, numbered suitably as ``[B|V|T]_coeff_r1.TAG``, ``[B|V|T]_coeff_r2.TAG`` etc.
+The following files - ``[B|V|T]_coeff_r#.TAG`` - save coefficients at specified
+depths and are written by the subroutine :f:subr:`write_coeff_r
+<out_coeff/write_coeff_r>`. See the section on :ref:`CMB and radial
+coefficients <secOutNmlCoeff>` in the :ref:`ouput control namelist
+<secOutputNml>` for details of specifying depth, using :ref:`n_r_step
+<varn_r_step>` or :ref:`n_r_array <varn_r_array>` and desired maximum degree of
+output :ref:`l_max_r <varl_max_r>`. A separate file for each desired radius
+is written, numbered suitably as ``[B|V|T]_coeff_r1.TAG``,
+``[B|V|T]_coeff_r2.TAG`` etc.
 
 
 .. _secBcoeffrFile:
@@ -157,6 +186,13 @@ The complete structure of the file looks like follows:
           real(ddb(l=l_max_cmb,m=l_max_cmb)), imag(ddb(l=l_max_cmb,m=l_max_cmb))
 	     
 
+This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` with the following options:
+
+   >>> # To stack the files B_coeff_r3.test* from the working directory
+   >>> cr = MagicCoeffR(tag='test*', field='B', r=3)
+   >>> # print the time and the poloidal potential for (\ell=3, m=3)
+   >>> print(cr.time, cr.wlm[:, 3, 3])
+
  
 
 .. _secVcoeffrFile:
@@ -222,6 +258,12 @@ The complete structure of the file looks like follows:
         ...
         real(z(l=l_max_cmb,m=l_max_cmb)), imag(z(l=l_max_cmb,m=l_max_cmb))
 
+This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` with the following options:
+
+   >>> # To stack the files V_coeff_r3.test* from the working directory
+   >>> cr = MagicCoeffR(tag='test*', field='V', r=3)
+   >>> # print the poloidal and toroidal potentials for (\ell=6, m=0)
+   >>> print(cr.wlm[:, 6, 0], cr.zlm[:, 6, 0])
 
 
 .. _secTcoeffrFile:
@@ -231,7 +273,7 @@ The complete structure of the file looks like follows:
 
 .. note:: This file is **only** written when :ref:`l_r_fieldT=.true. <varl_r_fieldT>`
 
-This file contains output of time series of the spherical harmonic coefficients of the temperature field the it's first derivatives in the order - :code:`s, ds`. The output is for a specific radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
+This file contains output of time series of the spherical harmonic coefficients of the temperature (or entropy) field. The output is for a specific radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
 
  * **Header** The file header consists of the information: :ref:`l_max_r <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points - ``n_data`` and the radius, ``r``.
  * **Data** Each chunk of data after the header contains the ``time`` at which the coefficients are stored, followed by the real and imaginary parts of the potential coefficient - ``s`` and it's first derivative - ``ds``.
@@ -260,10 +302,6 @@ The complete structure of the file looks like follows:
         real(s(l=2,m=0)), imag(s(l=2,m=0)),                  
         ...
         real(s(l=l_max_cmb,m=l_max_cmb)), imag(s(l=l_max_cmb,m=l_max_cmb)),                  
-        real(ds(l=1,m=0)), imag(ds(l=1,m=0)),                  
-        real(ds(l=2,m=0)), imag(ds(l=2,m=0)),                  
-        ...
-        real(ds(l=l_max_cmb,m=l_max_cmb)), imag(ds(l=l_max_cmb,m=l_max_cmb)),                  
 
         !------------
         !-- Line N
@@ -275,7 +313,3 @@ The complete structure of the file looks like follows:
         real(s(l=2,m=0)), imag(s(l=2,m=0)),                  
         ...
         real(s(l=l_max_cmb,m=l_max_cmb)), imag(s(l=l_max_cmb,m=l_max_cmb)),                  
-        real(ds(l=1,m=0)), imag(ds(l=1,m=0)),                  
-        real(ds(l=2,m=0)), imag(ds(l=2,m=0)),                  
-        ...
-        real(ds(l=l_max_cmb,m=l_max_cmb)), imag(ds(l=l_max_cmb,m=l_max_cmb))

@@ -20,7 +20,7 @@ This file contains the kinetic energy of the outer core, defined by
    \end{aligned}
    :label: eqEkin
 
-The detailed calculations are done in the subroutine ``get_e_kin`` in the file ``kinetic_energy.f90``.  This file contains the following informations:
+The detailed calculations are done in the subroutine :f:subr:`get_e_kin <kinetic_energy/get_e_kin()>`.  This file contains the following informations:
 
    +---------------+------------------------------------------------------+
    | No. of column | Contents                                             |
@@ -44,7 +44,8 @@ The detailed calculations are done in the subroutine ``get_e_kin`` in the file `
    | 9             | equatorial symmetric and axisymmetric toroidal energy|
    +---------------+------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the e_kin.TAG files of the current directory
    >>> ts = MagicTs(field='e_kin', all=True)
    >>> # To only read e_kin.N0m2
@@ -68,7 +69,7 @@ This file contains the magnetic energy of the outer core, defined by
    \end{aligned}
    :label: eqEmag
 
-The detailed calculations are done in the subroutine ``get_e_mag`` in the file ``magnetic_energy.f90``.  This file contains the following informations:
+The detailed calculations are done in the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.  This file contains the following informations:
 
    +---------------+------------------------------------------------------+
    | No. of column | Contents                                             |
@@ -100,7 +101,8 @@ The detailed calculations are done in the subroutine ``get_e_mag`` in the file `
    | 13            | outside potential field axisymmetric energy          |
    +---------------+------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the e_mag_oc.TAG files of the current directory
    >>> ts = MagicTs(field='e_mag_oc', all=True)
    >>> # To only read e_mag_oc.N0m2
@@ -111,7 +113,9 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``e_mag_ic.TAG``
 ----------------
 
-This file contains the magnetic energy of the inner core. The detailed calculations are done in the subroutine ``get_e_mag`` in the file ``magnetic_energy.f90``.  This file contains the following informations:
+This file contains the magnetic energy of the inner core. The detailed
+calculations are done in the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.
+This file contains the following informations:
 
    +---------------+------------------------------------------+
    | No. of column | Contents                                 |
@@ -127,7 +131,8 @@ This file contains the magnetic energy of the inner core. The detailed calculati
    | 5             | inner core axisymmetric toroidal energy  |
    +---------------+------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the e_mag_ic.TAG files of the current directory
    >>> ts = MagicTs(field='e_mag_ic', all=True)
    >>> # To only read e_mag_ic.N0m2
@@ -139,7 +144,9 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``rot.TAG``
 -----------
 
-This files contains the rotation of the inner core and the mantle. Output concerning the rotation of inner core and mantle. This file is written by the subroutine ``write_rot`` in the file ``out_Rot.f90``.
+This files contains the rotation of the inner core and the mantle. Output
+concerning the rotation of inner core and mantle. This file is written by the
+subroutine :f:subr:`write_rot <outrot/write_rot()>`.
 
    +---------------+--------------------------------+
    | No. of column | Contents                       |
@@ -159,7 +166,8 @@ This files contains the rotation of the inner core and the mantle. Output concer
    | 7             | viscous torque on mantle       |
    +---------------+--------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the rot.TAG files of the current directory
    >>> ts = MagicTs(field='rot', iplot=False, all=True)
 
@@ -169,7 +177,7 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``dipole.TAG``
 --------------
 
-This file contains several informations about the magnetic dipole. This file is written by the subroutine ``get_e_mag`` in the file ``magnetic_energy.f90``.
+This file contains several informations about the magnetic dipole. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.
 
    +---------------+---------------------------------------------------------------------------+
    | No. of column | Contents                                                                  |
@@ -222,7 +230,8 @@ This file contains several informations about the magnetic dipole. This file is 
    |               | total energy, normalized by the total energy                              |
    +---------------+---------------------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the dipole.TAG files of the current directory
    >>> ts = MagicTs(field='dipole', all=True)
 
@@ -233,7 +242,9 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``par.TAG``
 -----------
 
-This files contains the outputs of several parameters that describe flow and magnetic fields. This file is written by the subroutine ``output`` in the file ``m_output.f90``.
+This files contains the outputs of several parameters that describe flow and
+magnetic fields (Reynolds number, Elsasser number, flow lengthscales, etc.).
+This file is written by the subroutine :f:subr:`output <output_mod/output()>`.
 
    +---------------+-----------------------------------------+
    | No. of column | Contents                                |
@@ -277,7 +288,8 @@ This files contains the outputs of several parameters that describe flow and mag
    | 19            | CMB zonal flow at the equator           |
    +---------------+-----------------------------------------+ 
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the par.TAG files of the current directory
    >>> ts = MagicTs(field='par', all=True)
 
@@ -286,9 +298,10 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 ``misc.TAG``
 ------------
 
-This files contains the rotation of the inner core and the mantle. Output
-concerning the rotation of inner core and mantle. This file is written by the
-subroutine ``write_rot`` in the file ``outRot.f90``.  
+This files contains informations about heat transfer (Nusselt number and
+temperature at both boundaries), as well as various additional informations
+(helicity, geostrophy, etc.). This file is written by the
+subroutine :f:subr:`outMisc <outmisc_mod/outmisc()>`.  
 
 .. note:: The columns 6-9 and 17-20 are **only** calculated when 
           :ref:`l_hel=.true. <varl_hel>`. The columns 10-16 are only calculated
@@ -332,6 +345,7 @@ subroutine ``write_rot`` in the file ``outRot.f90``.
    | 16            | North/South correlation of helicity outside the TC              |
    +---------------+-----------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the misc.TAG files of the current directory
    >>> ts = MagicTs(field='misc', all=True)

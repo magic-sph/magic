@@ -212,6 +212,14 @@ Support for ``G_#.TAG`` files
    :private-members:
    :special-members:
 
+``B_cmb_coeff.TAG`` and ``(V|B)_coeff_r#.TAG`` files
+----------------------------------------------------
+
+.. automodule:: magic.coeff
+   :members:
+   :private-members:
+   :special-members:
+
 Boundary layer analysis
 -----------------------
 

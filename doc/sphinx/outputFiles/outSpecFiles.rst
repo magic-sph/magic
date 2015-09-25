@@ -8,8 +8,8 @@ Spectra
 ``kin_spec_#.TAG``
 ------------------
 
-This files contains the magnetic spectra. This file is written by the
-subroutine ``spectrum`` in the file ``spectra.f90``.
+This file contains the magnetic spectra. This file is written by the
+subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
@@ -25,7 +25,8 @@ subroutine ``spectrum`` in the file ``spectra.f90``.
    | 5             | Toroidal kinetic energy per order in the outer core       |
    +---------------+-----------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicSpectrum` with the following options::
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
    >>> sp = MagicSpectrum(field='ekin')
 
 .. _secMagSpecFile:
@@ -33,8 +34,8 @@ This file can be read using :py:class:`magic.MagicSpectrum` with the following o
 ``mag_spec_#.TAG``
 ------------------
 
-This files contains the magnetic spectra. This file is written by the
-subroutine ``spectrum`` in the file ``spectra.f90``.
+This file contains the magnetic spectra. This file is written by the
+subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
@@ -64,7 +65,8 @@ subroutine ``spectrum`` in the file ``spectra.f90``.
    | 12            | Poloidal magnetic energy at the CMB                       |
    +---------------+-----------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicSpectrum` with the following options::
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
    >>> sp = MagicSpectrum(field='emag')
 
 .. _secu2SpecFile:
@@ -76,7 +78,7 @@ This file can be read using :py:class:`magic.MagicSpectrum` with the following o
           :ref:`strat/=0 <varstrat>` or when :ref:`interior_model/="None" <varinterior_model>`
 
 This file contains the spectra of the square velocity. This file is written by the
-subroutine ``spectrum`` in the file ``spectra.f90``.
+subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
@@ -92,7 +94,8 @@ subroutine ``spectrum`` in the file ``spectra.f90``.
    | 5             | Toroidal contribution per order in the outer core         |
    +---------------+-----------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicSpectrum` with the following options::
+This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
+
    >>> # To read the file ``u2_spec_1.test``:
    >>> sp = MagicSpectrum(field='u2', ispec=1, tag='test')
 
@@ -103,7 +106,7 @@ This file can be read using :py:class:`magic.MagicSpectrum` with the following o
 ----------------
 
 This file contains the temperature/entropy spectra. It is written by the subroutine
-``spectrum_temp`` in the file ``spectra.f90``.
+:f:subr:`spectrum_temp <spectra/spectrum_temp()>`.
 
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |

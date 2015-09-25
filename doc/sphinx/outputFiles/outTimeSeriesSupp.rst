@@ -10,8 +10,7 @@ Additional optional time-series outputs
 .. note:: This file is **only** written when :ref:`l_AM=.true. <varl_AM>`
 
 This file contains the time series of the angular momentum of the inner core, the outer
-core and the mantle. This file is written by the subroutine ``write_rot`` in the file
-``outRot.f90``.
+core and the mantle. This file is written by the subroutine :f:subr:`write_rot <outrot/write_rot()>`.
 
   +---------------+-----------------------------------------------------+
   | No. of column | Contents                                            |
@@ -40,7 +39,8 @@ core and the mantle. This file is written by the subroutine ``write_rot`` in the
   +---------------+-----------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the AM.TAG files of the current directory
    >>> ts = MagicTs(field='AM', all=True)
 
@@ -53,7 +53,7 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 .. note:: This file is **only** written when :ref:`l_power=.true. <varl_power>`
 
 This file contains the power budget diagnostic. This file is computed by the subroutine
-``get_power`` in the file ``power.f90``.
+:f:subr:`get_power <power/get_power()>`.
 
    +---------------+------------------------------------------------------------------+
    | No. of column | Contents                                                         |
@@ -79,7 +79,8 @@ This file contains the power budget diagnostic. This file is computed by the sub
    | 10            | Time variation of total power                                    |
    +---------------+------------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack the files that match the pattern  ``power.N0m2*``
    >>> ts = MagicTs(field='power', tags='N0m2*')
 
@@ -106,7 +107,7 @@ to the :ref:`e_kin.TAG <secEkinFile>` file, except that the density background
    \int_{r_i}^{r_o}\frac{1}{\tilde{\rho}^2}|Z_{\ell m}|^2\,{\rm d} r
    \end{aligned}
 
-The detailed calculations are done in the subroutine ``get_u_square`` in the file ``kinetic_energy.f90``.  This file contains the following informations:
+The detailed calculations are done in the subroutine :f:subr:`get_u_square <kinetic_energy/get_u_square()>`.  This file contains the following informations:
 
   +----------------+--------------------------------------------------------------------+
   | No. of columns | Contents                                                           |
@@ -137,7 +138,8 @@ The detailed calculations are done in the subroutine ``get_u_square`` in the fil
   +----------------+--------------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the u_square.TAG files of the current directory
    >>> ts = MagicTs(field='u_square', all=True)
 
@@ -159,7 +161,7 @@ These files contain time series of spherical harmonic coefficients upto degree,
 :math:`\ell=6` at a radius :math:`r = (r_{cmb} - r_{icb})/2`. The ``inerP.TAG``
 contains coefficients of the poloidal potential while the ``inerT.TAG``
 contains coefficients of the toroidal potential.These files are written by 
-the subroutine ``write_rot`` in the file ``outRot.f90``. The oscillations of these
+the subroutine :f:subr:`write_rot <outrot/write_rot()>`. The oscillations of these
 coefficients can be analysed to look for inertial modes. The
 columns of the ``inerP.TAG`` look like follows:
 
@@ -240,7 +242,7 @@ These files contain information about power due to torque from viscous and Loren
 .. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
 
 This files contains the RMS force balance of the Navier Stokes equation. This file is
-written by the subroutine ``dtVrms`` in the file ``outRMS.f90``.
+written by the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
 
    +---------------+--------------------------------------------------+
    | No. of column | Contents                                         |
@@ -278,7 +280,8 @@ written by the subroutine ``dtVrms`` in the file ``outRMS.f90``.
    | 16            | Sum of force terms: Archemidian balance          |
    +---------------+--------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the dtVrms.TAG files of the current directory
    >>> ts = MagicTs(field='dtVrms', all=True)
 
@@ -291,7 +294,7 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 .. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
 
 This files contains the RMS terms that enter the induction equation. This file is
-written by the subroutine ``dtBrms`` in the file ``out_RMS.f90``.
+written by the subroutine :f:subr:`dtBrms <out_rms/dtbrms()>`.
 
    +---------------+-------------------------------------------------------+
    | No. of column | Contents                                              |
@@ -323,7 +326,8 @@ written by the subroutine ``dtBrms`` in the file ``out_RMS.f90``.
    | 13            | Toroidal field production (stretching+advection)      |
    +---------------+-------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the dtBrms.TAG files of the current directory
    >>> ts = MagicTs(field='dtBrms', all=True)
 
@@ -336,8 +340,7 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 .. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
 
 This files contains the RMS terms that enter the induction equation of the
-dipole. This file is written by the subroutine ``dtBrms`` in the file
-``out_RMS.f90``.
+dipole. This file is written by the subroutine :f:subr:`dtBrms <out_rms/dtbrms()>`.
 
    +---------------+-------------------------------------------------------+
    | No. of column | Contents                                              |
@@ -360,7 +363,9 @@ dipole. This file is written by the subroutine ``dtBrms`` in the file
 .. note:: This file is **only** written when :ref:`l_perpPar=.true. <varl_perpPar>`
 
 
-This file contains several time series that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine ``outPerpPar`` in ``outPar.f90``.
+This file contains several time series that decompose the kinetic energy into
+components parallel and perpendicular to the rotation axis. This file is
+calculated by the subroutine :f:subr:`outPerpPar <outpar_mod/outperppar()>`.
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
@@ -378,7 +383,8 @@ This file contains several time series that decompose the kinetic energy into co
    | 5             | Axisymmetric kinetic energy parallel to the rotation axis       |
    +---------------+-----------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicTs` with the following options::
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
    >>> # To stack all the perpPar.TAG files of the current directory
    >>> ts = MagicTs(field='perpPar', all=True)
 
@@ -390,4 +396,4 @@ This file can be read using :py:class:`magic.MagicTs` with the following options
 
 .. note:: This file is **only** written when :ref:`l_rMagSpec=.true. <varl_rMagSpec>`
 
-The calculations for done in the ``radial_spectra.f90`` files.
+The calculations are done in the ``radial_spectra.f90`` files.

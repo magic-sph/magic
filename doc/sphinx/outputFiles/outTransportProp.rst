@@ -1,10 +1,11 @@
 Transport properties of the reference state
 ===========================================
 
-These files define the radial transport properties of the reference state. These
-arrays are calculated in the subroutines ``radial`` and ``transportProperties``
-in the file ``radial.f90``. The output files are written in the subroutine
-``preCalc`` in the file ``preCalculations.f90``.
+These files define the radial transport properties of the reference state.
+These arrays are calculated in the subroutines :f:subr:`radial
+<radial_functions/radial()>` and :f:subr:`transportProperties
+<radial_functions/transportproperties()>`.  The output files are written in the
+subroutine :f:subr:`preCalc <precalculations/precalc()>`.
 
 
 .. _secAnelFile:
@@ -15,8 +16,6 @@ in the file ``radial.f90``. The output files are written in the subroutine
 .. note::
    This output is only calculated when an anelastic model is run, that is when ``l_anel=.true.`` or ``l_anelastic_liquid=.true.``.
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='anel')
 
 This file contains the radial profiles of the reference state (density, temperature, gravity, etc.).
 
@@ -43,8 +42,11 @@ This file contains the radial profiles of the reference state (density, temperat
    |                | :math:`\nabla \cdot (K(r)\tilde{T}(r)\nabla s_0)`       |
    +----------------+---------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='anel')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='anel')
+   >>> # print radius and density
+   >>> print(rad.radius, rad.rho0)
 
 .. _secVarCondFile:
 
@@ -71,8 +73,10 @@ diffusivity and its radial derivative.
    |                | :math:`{\rm d} \ln\lambda/{\rm d} r`                    |
    +----------------+---------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='varCond')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='varCond')
+   >>> print(rad.conduc) # Electrical conductivity
 
 .. _secVarDiffFile:
 
@@ -101,8 +105,10 @@ diffusivity and its radial derivative.
    +----------------+--------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='varDiff')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='varDiff')
+   >>> print(rad.kappa) # Thermal diffusivity
 
 .. _secVarViscFile:
 
@@ -133,8 +139,11 @@ viscosity and its radial derivative.
    +----------------+--------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='varVisc')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='varVisc')
+   >>> # print kinematic viscosity and Ekman
+   >>> print(rad.kinVisc, rad.ekman)
 
 
 .. _secMappingFile:

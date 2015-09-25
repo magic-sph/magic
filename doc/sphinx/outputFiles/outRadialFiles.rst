@@ -6,7 +6,7 @@ Time-averaged radial profiles
 ``eKinR.TAG``
 -------------
 
-This file contains the time and horizontally averaged outer core kinetic energy along the radius. This file is calculated by the subroutine ``get_e_kin`` in ``kinetic_energy.f90``.
+This file contains the time and horizontally averaged outer core kinetic energy along the radius. This file is calculated by the subroutine :f:subr:`get_e_kin <kinetic_energy/get_e_kin()>`.
 
    +---------------+----------------------------------------------------------------+
    | No. of column | Contents                                                       |
@@ -35,15 +35,16 @@ This file contains the time and horizontally averaged outer core kinetic energy 
    +---------------+----------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='eKinR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='eKinR')
 
 .. _secEmagRfile:
 
 ``eMagR.TAG``
 -------------
 
-This file contains the time and horizontally averaged outer core magnetic energy along the radius. This file is calculated by the subroutine ``get_e_mag`` in ``magnetic_energy.f90``.
+This file contains the time and horizontally averaged outer core magnetic energy along the radius. This file is calculated by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.
 
    +---------------+----------------------------------------------------------------+
    | No. of column | Contents                                                       |
@@ -75,15 +76,16 @@ This file contains the time and horizontally averaged outer core magnetic energy
    +---------------+----------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='eMagR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='eMagR')
 
 .. _secParRfile:
 
 ``parR.TAG``
 ------------
 
-This file contains several time and horizontally averaged flow properties (magnetic Reynolds number, Rossby number, etc.). This file is calculated by the subroutine ``outPar`` in ``outPar.f90``.
+This file contains several time and horizontally averaged flow properties (magnetic Reynolds number, Rossby number, etc.). This file is calculated by the subroutine :f:var:`outPar <outpar_mod/outpar()>`.
 
    +---------------+----------------------------------------------------------------+
    | No. of column | Contents                                                       |
@@ -107,8 +109,9 @@ This file contains several time and horizontally averaged flow properties (magne
    |               | components (based on the RMS velocity)                         |
    +---------------+----------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='parR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='parR')
 
 
 .. _secPowerRfile:
@@ -118,7 +121,7 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
 
 .. note:: This file is **only** written when :ref:`l_power=.true. <varl_power>`
 
-This file contains the time and horizontally averaged power input (Buoyancy power) and outputs (viscous and Ohmic heating). This file is calculated by the subroutine ``get_power`` in ``power.f90``.
+This file contains the time and horizontally averaged power input (Buoyancy power) and outputs (viscous and Ohmic heating). This file is calculated by the subroutine :f:subr:`get_power <power/get_power()>`.
 
    +---------------+------------------------------------------------------------------+
    | No. of column | Contents                                                         |
@@ -132,8 +135,9 @@ This file contains the time and horizontally averaged power input (Buoyancy powe
    | 4             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
    +---------------+------------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='powerR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='powerR')
 
 .. _secFluxesRfile:
 
@@ -142,7 +146,7 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
 
 .. note:: This file is **only** written when :ref:`l_fluxProfs=.true. <varl_fluxProfs>`
 
-This file contains the time and horizontally averaged heat flux carried out by several physical processes: conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux. This file is calculated by the subroutine ``outPar`` in ``outPar.f90``.
+This file contains the time and horizontally averaged heat flux carried out by several physical processes: conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux. This file is calculated by the subroutine :f:subr:`outPar <outpar_mod/outpar()>`.
 
 
    +---------------+-----------------------------------------------------------------+
@@ -179,8 +183,9 @@ This file contains the time and horizontally averaged heat flux carried out by s
    |               |              \rangle_s                                          | 
    +---------------+-----------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='fluxesR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='fluxesR')
 
 .. _secBLayersRfile:
 
@@ -189,7 +194,7 @@ This file can be read using :py:class:`magic.MagicRadial` with the following opt
 
 .. note:: This file is **only** written when :ref:`l_viscBcCalc=.true. <varl_viscBcCalc>`
 
-This file contains several time and horizontally averaged profiles that can be further used to determine thermal and viscous boundary layers: entropy (or temperature), entropy variance, horizontal velocity, radial derivative of the horizontal velocity, thermal dissipation rate. This file is calculated by the subroutine ``outPar`` in ``outPar.f90``.
+This file contains several time and horizontally averaged profiles that can be further used to determine thermal and viscous boundary layers: entropy (or temperature), entropy variance, horizontal velocity, radial derivative of the horizontal velocity, thermal dissipation rate. This file is calculated by the subroutine :f:subr:`outPar <outpar_mod/outpar()>`.
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
@@ -213,10 +218,12 @@ This file contains several time and horizontally averaged profiles that can be f
    |               |    .. math:: \epsilon_T=\langle (\nabla T)^2 \rangle_s          |
    +---------------+-----------------------------------------------------------------+
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='bLayersR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
 
-Additional analyses of the boundary layers can then be carried out using :py:class:`magic.bLayers.BLayers`::
+   >>> rad = MagicRadial(field='bLayersR')
+
+Additional analyses of the boundary layers can then be carried out using :py:class:`BLayers <magic.bLayers.BLayers>`:
+
    >>> bl = BLayers(iplot=True)
 
 .. _secPerpParRfile:
@@ -226,7 +233,7 @@ Additional analyses of the boundary layers can then be carried out using :py:cla
 
 .. note:: This file is **only** written when :ref:`l_perpPar=.true. <varl_perpPar>`
 
-This file contains several time and horizontally averaged profiles that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine ``outPerpPar`` in ``outPar.f90``.
+This file contains several time and horizontally averaged profiles that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine :f:subr:`outPerpPar <outpar_mod/outperppar()>`.
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
@@ -245,5 +252,6 @@ This file contains several time and horizontally averaged profiles that decompos
    +---------------+-----------------------------------------------------------------+
 
 
-This file can be read using :py:class:`magic.MagicRadial` with the following options::
-   >>> ts = MagicRadial(field='perpParR')
+This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
+
+   >>> rad = MagicRadial(field='perpParR')
