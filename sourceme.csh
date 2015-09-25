@@ -6,11 +6,15 @@
 set _sourcecmd = ( $_ )
 
 if ( ! $?MAGIC_HOME ) then
+  
   unset _sourceme               # tabula rasa without MAGIC_HOME
+  
   #
   # Try to identify position of the code's home directory:
   #
-  set _dir = `dirname $_sourcecmd[2]`
+  
+  set _dir = `readlink -f $_sourcecmd[2]`
+  set _dir = `dirname $_dir` 
   
   if ( (-e $_dir/sourceme.csh) && \
        (-d $_dir/src)          && \
