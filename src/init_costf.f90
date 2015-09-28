@@ -1,6 +1,6 @@
 module init_costf
  
-   use const, only: pi, sin36, cos36, sin60, sin72, cos72, one, two, &
+   use constants, only: pi, sin36, cos36, sin60, sin72, cos72, one, two, &
                     half
    use precision_mod
    use useful, only: factorise

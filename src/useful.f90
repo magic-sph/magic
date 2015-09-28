@@ -7,7 +7,7 @@ module useful
    use parallel_mod, only: rank
    use output_data, only: n_log_file, log_file
    use logic, only: l_save_out
-   use const, only: half, one, two
+   use constants, only: half, one, two
 
    implicit none
 

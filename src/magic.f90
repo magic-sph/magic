@@ -100,7 +100,7 @@ program magic
    use matrices
    use fields
    use fieldsLast
-   use const, only: codeVersion
+   use constants, only: codeVersion
    use movie_data, only: initialize_movie_data, finalize_movie_data
    use RMS, only: initialize_RMS
    use dtB_mod, only: initialize_dtB_mod

@@ -23,7 +23,7 @@ module out_movie_IC
    use out_movie, only: get_fl
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
-   use const, only: one
+   use constants, only: one
 
    implicit none
 

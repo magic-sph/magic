@@ -4,7 +4,7 @@ module Namelists
    !
 
    use precision_mod
-   use const
+   use constants
    use truncation
    use radial_functions
    use physical_parameters

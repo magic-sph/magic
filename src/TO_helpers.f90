@@ -7,7 +7,7 @@ module TO_helpers
    use truncation, only: l_max
    use blocking, only: lm2
    use horizontal_data, only: dPlm, osn1
-   use const, only: one, two, half
+   use constants, only: one, two, half
 
    implicit none
 

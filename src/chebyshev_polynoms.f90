@@ -2,7 +2,7 @@ module chebyshev_polynoms_mod
 
    use precision_mod
    use logic, only: l_newmap
-   use const, only: pi, half, one, two, four
+   use constants, only: pi, half, one, two, four
  
    implicit none
  

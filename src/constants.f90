@@ -1,4 +1,4 @@
-module const
+module constants
    !
    ! module containing constants and parameters
    ! used in the code.
@@ -40,4 +40,4 @@ module const
 
    character(len=4), parameter :: codeVersion='5.1'
 
-end module const
+end module constants

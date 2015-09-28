@@ -23,7 +23,7 @@ module fields_average_mod
 #elif (FFTLIB==MKL)
    use fft_MKL
 #endif
-   use const, only: zero, vol_oc, vol_ic, one
+   use constants, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
                            & gather_all_from_lo_to_rank0,gt_OC,gt_IC

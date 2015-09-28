@@ -44,7 +44,7 @@ module output_mod
                         & t_r_file, b_r_file, n_r_array, n_r_step,  &
                         & par_file, n_par_file, nLF, log_file,      &
                         & n_coeff_r_max, rst_file, n_rst_file
-   use const, only: vol_oc, vol_ic, mass, surf_cmb, two
+   use constants, only: vol_oc, vol_ic, mass, surf_cmb, two
    use outMisc_mod, only: outMisc
    use outRot, only: write_rot
    use charmanip, only: dble2str

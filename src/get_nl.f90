@@ -20,7 +20,7 @@ module grid_space_arrays_mod
    use physical_parameters, only: LFfac, n_r_LCR
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2
-   use const, only: two, third
+   use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF
 
    implicit none

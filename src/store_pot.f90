@@ -17,7 +17,7 @@ module store_pot_mod
    use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank
    use communications, only: gather_from_lo_to_rank0
-   use const, only: two, half
+   use constants, only: two, half
    use cosine_transform, only: costf1
     
    implicit none

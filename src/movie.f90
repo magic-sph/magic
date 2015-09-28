@@ -14,7 +14,7 @@ module movie_data
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
    use useful, only: logWrite
-   use const, only: pi, one
+   use constants, only: pi, one
     
    implicit none
    

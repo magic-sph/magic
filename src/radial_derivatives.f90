@@ -3,7 +3,7 @@ module radial_der
    ! Radial derivatives functions
    !
 
-   use const, only: zero, one, three
+   use constants, only: zero, one, three
    use precision_mod
    use cosine_transform, only: costf1
 

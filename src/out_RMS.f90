@@ -38,7 +38,7 @@ module out_RMS
                           n_dtvasrms_file, dtvasrms_file, n_dtvrms_file, &
                           dtvrms_file, rCut, rDea, n_dtbrms_file,        &
                           dtbrms_file
-   use const, only: pi, vol_oc, zero, half, four, third
+   use constants, only: pi, vol_oc, zero, half, four, third
    use integration, only: rInt_R
 #ifdef WITH_MPI
    use communications, only: myAllGather

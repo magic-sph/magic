@@ -3,7 +3,7 @@ module algebra
 
    use omp_lib
    use precision_mod
-   use const, only: one
+   use constants, only: one
 
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"

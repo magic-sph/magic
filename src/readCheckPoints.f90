@@ -22,7 +22,7 @@ module readCheckPoints
                                cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
-   use const, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
+   use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use init_costf, only: init_costf1
    use cosine_transform, only: costf1
 

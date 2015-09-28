@@ -20,7 +20,7 @@ module power
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt_R,rIntIC
    use outRot, only: get_viscous_torque
-   use const, only: one, two, half
+   use constants, only: one, two, half
 
    implicit none
 

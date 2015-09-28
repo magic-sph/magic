@@ -15,7 +15,7 @@ module nonlinear_bcs
    use fft_MKL, only: fft_thetab
 #endif
    use legendre_grid_to_spec, only: legTF2
-   use const, only: two
+   use constants, only: two
 
    implicit none
 

@@ -19,7 +19,7 @@ module spectra
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use useful, only: cc2real, cc22real, safeOpen, safeClose
    use integration, only: rInt_R, rIntIC, rInt
-   use const, only: pi, vol_oc, half, one, four
+   use constants, only: pi, vol_oc, half, one, four
 
    implicit none
   
@@ -977,7 +977,7 @@ contains
             end do
 
             !------ Output:
-            outFile='specAveC.'//TAG
+            outFile='T_spec_ave.'//TAG
             nOut   =93
             open(nOut,file=outFile,status='unknown')
             do l=1,l_max+1
@@ -1117,7 +1117,7 @@ contains
 
          !-- Output into files:
          write(string, *) n_spec
-         spec_file='TC_spec_'//trim(adjustl(string))//'.'//tag
+         spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
          open(98, file=spec_file, status='unknown')
          write(98,'(1x,''TC spectra at time:'', ES20.12)') time*tScale
          do ml=1,l_max+1

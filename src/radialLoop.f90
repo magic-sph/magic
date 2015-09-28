@@ -7,7 +7,7 @@ module radialLoop
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
                     l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl
-   use const, only: zero
+   use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
                          n_r_icb

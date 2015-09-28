@@ -12,7 +12,7 @@ module legendre_spec_to_grid
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
                               osn2
    use logic, only: l_heat, l_ht
-   use const, only: zero, half, one
+   use constants, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
 

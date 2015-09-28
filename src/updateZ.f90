@@ -28,7 +28,7 @@ module updateZ_mod
 #endif
                      & zMat, zPivot
    use RMS, only: DifTor2hInt, DifTorAs2hInt, dtVTor2hInt, dtVTorAs2hInt
-   use const, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
+   use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
                     c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
                     c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
                     half

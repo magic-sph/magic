@@ -14,7 +14,7 @@ module outPV3
    use output_data, only: tag, sDens
    use LMLoop_data, only: llm, ulm
    use plms_theta, only: plm_theta
-   use const, only: pi, zero, one, two, half, ci
+   use constants, only: pi, zero, one, two, half, ci
 #if (FFTLIB==JW)
    use fft_JW, only: fft_to_real
 #elif (FFTLIB==MKL)

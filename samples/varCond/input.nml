@@ -70,7 +70,6 @@ l_correct_AMz=.TRUE.,
  l_DTrMagSpec=.TRUE.,
  l_PV        =.TRUE.,
  l_hel       =.TRUE.,
- l_prms      =.TRUE.,
 /
 &mantle 
  nRotMa      =0,

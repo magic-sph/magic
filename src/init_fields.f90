@@ -16,7 +16,7 @@ module init_fields
                                dtemp0, kappa, dLkappa, beta, otemp1,   &
                                epscProf
    use radial_data, only: n_r_icb, n_r_cmb
-   use const, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
+   use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
                     zero, one, two, three, four, third, half
    use useful, only: random
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag

@@ -13,7 +13,7 @@ module Egeos_mod
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel
    use output_data, only: sDens, zDens, tag, runid
-   use const, only: pi, zero, ci, one, two, half
+   use constants, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
