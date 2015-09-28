@@ -1,22 +1,24 @@
 # 
+# 
 # If you use bash/zsh/ksh:
 #
 # do a source sourceme.sh to initialize the correct PATHS for magic
 #
+
 
 if [ -z $MAGIC_HOME ]; then
   unset _sourceme               # tabula rasa without MAGIC_HOME
   #
   # Try to identify position of the code's home directory:
   #
-  
-  if [ zsh=="`echo $0`" ]
-  then
-     _sourcecmd="${(%):-%N}"
+
+  if [ `echo $SHELL | grep 'ksh'` ]; then
+    _sourcecmd="${.sh.file}"
   else
-     _sourcecmd="${BASH_SOURCE[0]}"
+    _sourcecmd="${BASH_SOURCE:-$0}"
   fi
 
+  
   while [ -h "$_sourcecmd" ]; do # resolve $_sourcecmd until the file is no longer a symlink
     _dir="$( cd -P "$( dirname "$_sourcecmd" )" && pwd )"
     _sourcecmd="$(readlink "$_sourcecmd")"
