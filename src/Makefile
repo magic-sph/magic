@@ -1,5 +1,5 @@
 # COMPILER: intel, gnu or amd
-COMPILER=gnu
+COMPILER=intel
 # precision of the calculations: sngl/dble
 PRECISION=dble
 # precision for binary outputs: sngl/dble
@@ -7,8 +7,8 @@ OUT_PREC=sngl
 # production run: yes/no (no= -O0, yes = -03)
 PRODRUN=yes
 #USE_MPI: yes/no
-USE_MPI=no
-OPENMP=no
+USE_MPI=yes
+OPENMP=yes
 # DEBUG: no/noopt/check/all/marmot
 DEBUG=no
 # USE_FFTLIB can be MKL or JW
