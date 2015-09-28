@@ -6,25 +6,38 @@ import numpy as N
 import matplotlib.pyplot as P
 from .npfile import *
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 class TOMovie:
+    """
+    This class allows to read and display the :ref:`TO_mov.TAG <secTO_movieFile>` 
+    generated when :ref:`l_TOmovie=.true. <varl_TOmovie>` is True.
+
+    >>> # This will allow you to pick up one TO_mov files among the existing ones
+    >>> t = TOMovie()
+
+    >>> # Read TO_mov.N0m2, time-averaged it and display it with 65 contour levels
+    >>> t = TOMovie(file='TO_mov.N0m2', avg=True, levels=65, cm='seismic')
+    """
 
     def __init__(self, file=None, iplot=True, cm='RdYlBu_r',
-                 cut=0.8, levels=16, avg=True):
+                 cut=0.8, levels=16, avg=True, precision='Float32'):
         """
         :param file: the filename of the TO_mov file
+        :type file: str
         :param cmap: the name of the color map
+        :type cmap: str
         :param levels: the number of contour levels
+        :type levels: int
         :param cut: a parameter to change the maxima of the contour levels
+        :type cut: float
         :param iplot: a boolean to specify if one wants to plot or not the
                       results
+        :type iplot: bool
         :param avg: time average of the different forces
+        :type avg: bool
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
+        :type precision: str
         """
                  
         if file == None:
@@ -112,7 +125,19 @@ class TOMovie:
             cmap = P.get_cmap(cm)
             self.plot(cut, levels, avg, cmap)
 
-    def plot(self, cut, levs, avg, cmap):
+    def plot(self, cut=0.8, levs=16, avg=True, cmap='RdYlBu_r'):
+        """
+        Plotting function
+
+        :param cut: cutoff the extrema of the contour levels
+        :type cut: float
+        :param levs: number of contour levels
+        :type levs: int
+        :param avg: when set to True, quantities are time-averaged
+        :type avg: bool
+        :param cmap: name of the colormap
+        :type cmap: str
+        """
         th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
         rr, tth = N.meshgrid(self.radius, th)
         xx = rr * N.cos(tth)
@@ -310,8 +335,6 @@ class TOMovie:
             #P.ioff()
 
             
-
-
 
 if __name__ == '__main__':
     file ='TO_mov.test'

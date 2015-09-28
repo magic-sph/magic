@@ -13,20 +13,46 @@ from .npfile import *
 
 
 class Butterfly:
+    """
+    This class can be used to display the time evolution of the magnetic field for
+    various latitudes (i.e. the well-known butterfly diagrams). These diagrams are
+    usually constructed using MagIC's :ref:`movie files <secMovieFile>`: either
+    radial cuts (like Br_CMB_mov.TAG) or azimuthal-average (like AB_mov.TAG).
 
-    def __init__(self, file=None, avg=False, step=1, iplot=True, rad=0.8,
+    >>> # Read Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg
+    >>> t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1, 
+                       iplot=False)
+    >>> # Plot it
+    >>> t1.plot(levels=33, cm='seismic', cut=0.6)
+    """
+
+    def __init__(self, file=None, step=1, iplot=True, rad=0.8,
                  lastvar=None, nvar='all', levels=20, cm='RdYlBu_r',
-                 precision='Float32'):
+                 precision='Float32',cut=0.8):
         """
-        :param nvar: the number of lines of the movie file we want to plot
+        :param file: when specified, the constructor reads this file, otherwise
+                     a list with the possible options is displayed
+        :type file: str
+        :param rad: radial level (normalised to the outer boundary radius)
+        :type rad: float
+        :param iplot: display/hide the plots (default is True)
+        :type iplot: bool
+        :param nvar: the number of time steps (lines) of the movie file we want to plot
                      starting from the last line
-        :param lastvar: the rank of the last line to be read
+        :type nvar: int
+        :param lastvar: the number of the last time step to be read
+        :type lastvar: int
         :param step: the stepping between two lines             
+        :type step: int
         :param levels: the number of contour levels
+        :type levels: int
         :param cm: the name of the color map
-        :param png: if png=True, write the png outputs
+        :type cm: str
+        :param cut: truncate the extrema of the contour levels
+        :type cut: float
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
+        :type precision: bool
         """
 
         self.precision = precision
@@ -142,27 +168,51 @@ class Butterfly:
             self.data = self.data[:, ::step]
 
         if iplot:
-            self.plot()
+            self.plot(levels=levels,cm=self.cmap,cut=cut)
 
     def __add__(self, new):
+        """
+        Overload of the addition operator
+
+        >>> # Read 2 files
+        >>> b1 = Butterfly(file='AB_mov.test1', iplot=False)
+        >>> b2 = Butterfly(file='AB_mov.test2', iplot=False)
+        >>> # Stack them and display the whole thing
+        >>> b = b1+b2
+        >>> b.plot(levels=33, contour=True, cut=0.8, cm='seismic')
+        """
         out = copy.deepcopy(new)
         out.time = N.concatenate((self.time, new.time), axis=0)
         out.data = N.concatenate((self.data, new.data), axis=1)
         return out
 
-    def plot(self, levels=12, contour=False, renorm=False, cut=0.5, mesh=3):
+    def plot(self, levels=12, contour=False, renorm=False, cut=0.5, mesh=3,
+             cm='RdYlBu_R'):
         """
-        :param levels: the number of contour levels (only used in contour=True)
-        :param contour: contour levels instead of image
-        :param renorm: rebin the time series in case of irregularly spaced data
-        :param cut: levels cutting
+        Plotting function
+
+        :param cm: name of the colormap
+        :type cm: str
+        :param levels: the number of contour levels (only used when iplot=True and
+                       contour=True)
+        :type levels: int
+        :param contour: when set to True, display contour levels (pylab.contourf),
+                        when set to False, display an image (pylab.imshow)
+        :type contour: bool
+        :param renorm: when set to True, it re-bins the time series in case of 
+                       irregularly time-spaced data
+        :type renorm: bool
+        :param mesh: when renorm=True, factor of regriding: NewTime = mesh*OldTime
+        :type mesh: int
+        :param cut: truncate the extrema of the contour levels
+        :type cut: float
         """
         fig = P.figure()
         ax = fig.add_subplot(111)
         vmax = max(abs(self.data.max()), abs(self.data.min()))
         if contour:
             im = ax.contourf(self.time, self.theta*180/N.pi, self.data[::-1,:], 
-                            levels, cmap=self.cmap, aa=True)
+                            levels, cmap=cm, aa=True)
         else:
             extent = self.time.min(), self.time.max(), -90, 90
             if renorm:
@@ -173,12 +223,12 @@ class Butterfly:
                     tckp = S.splrep(self.time, self.data[i, :])
                     data[i, :] = S.splev(x, tckp)
                 im = ax.imshow(data, origin='upper', aspect='auto', 
-                           cmap=self.cmap, extent=extent, interpolation='bicubic')
-                #im = ax.contourf(zi[:-1, :],  cmap=self.cmap)
+                           cmap=cm, extent=extent, interpolation='bicubic')
+                #im = ax.contourf(zi[:-1, :],  cmap=cm)
                 #vmax = max(abs(zi.max()), abs(zi.min()))
             else:
                 im = ax.imshow(self.data, origin='upper', aspect='auto', 
-                           cmap=self.cmap, extent=extent, interpolation='bicubic')
+                           cmap=cm, extent=extent, interpolation='bicubic')
         im.set_clim(-cut*vmax, cut*vmax)
         ax.set_xlabel('Time')
         ax.set_ylabel('Latitude')
@@ -198,7 +248,19 @@ class Butterfly:
 
     def fourier2D(self, renorm=False):
         """
-        :param renorm: rebin the time series in case of irregularly spaced data
+        This function allows to conduct some basic Fourier analysis on the
+        data. It displays two figures: the first one is a contour levels
+        in the (Frequency, Latitude) plane, the second one is integrated over
+        latitudes (thus a simple, power vs Frequency plot)
+
+        >>> # Load the data without plotting
+        >>> b1 = Butterfly(file='AB_mov.test1', iplot=False)
+        >>> # Fourier analysis
+        >>> b1.fourier2D()
+
+        :param renorm: when set to True, it rebins the time series in case of 
+                       irregularly spaced data
+        :type renorm: bool
         """
         if renorm:
             nx = 3*len(self.time)

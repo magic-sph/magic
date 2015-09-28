@@ -8,40 +8,75 @@ import matplotlib.pyplot as P
 from .npfile import *
 from magic.libmagic import symmetrize, hammer2cart
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 
 class Movie:
+    """
+    This class allows to read the :ref:`movie files <secMovieFile>` generated
+    by the MagIC code.
+
+    >>> m = Movie()
+    >>> # This returns a list of the available movies in the directory
+    >>> # and lets you decide which one you want to read
+
+    >>> # Reads and display AV_mov.test
+    >>> m = Movie(filed='AV_mov.test') 
+    >>> print(m.data) # access to the data
+
+    >>> # Read three movie files (no display)
+    >>> m1 = Movie(file='AV_mov.testa', iplot=True)
+    >>> m2 = Movie(file='AV_mov.testb', iplot=True)
+    >>> m3 = Movie(file='AV_mov.testc', iplot=True)
+    >>> # Stack them together
+    >>> m = m1+m2+m3
+    >>> # Display
+    >>> m.plot(levels=33, cm='seismic', cut=0.5)
+
+    >>> # Store the outputs in movie/img_#.png
+    >>> # Only from the timesteps 280 to 380
+    >>> m = Movie(file='AB_mov.test', png=True, nvar=100, lastvar=380)
+    """
 
     def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False, 
                  std=False, dpi=80, normRad=False, precision='Float32'):
         """
-        :param nvar: the number of lines of the movie file we want to plot
+        :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
+        :type nvar: int
         :param png: if png=True, write the png files instead of display
+        :type png: bool
         :param iplot: if iplot=True, display otherwise just read
-        :param lastvar: the rank of the last line to be read
-        :param step: the stepping between two snapshots
+        :type iplot: bool
+        :param lastvar: the number of the last timesteps to be read
+        :type lastvar: int
+        :param step: the stepping between two timesteps
+        :type step: int
         :param levels: the number of contour levels
+        :type levels: int
         :param cm: the name of the color map
-        :param png: save the movie as a series of PNG files when
-                    set to True
+        :type cm: str
         :param fluct: if fluct=True, substract the axisymmetric part
+        :type fluct: bool
         :param normed: the colormap is rescaled every timestep when set to True,
                        otherwise it is calculated from the global extrema
+        :type normed: bool
         :param avg: if avg=True, time-average is displayed
-        :param avg: if std=True, standard deviation is displayed
+        :type avg: bool
+        :param std: if std=True, standard deviation is displayed
+        :type std: bool
         :param dpi: dot per inch when saving PNGs
+        :type dpi: int
         :param normRad: if normRad=True, then we normalise for each radial level
+        :type normRad: bool
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
+        :type precision: str
         :param cut: cutoff the contour maxima
+        :type cut: float
         :param bgcolor: background color of the figure
+        :type bgcolor: str
         """
 
         if avg or std:
@@ -202,9 +237,9 @@ class Movie:
         """
         Built-in function to sum two movies
 
-        ..note: So far this function only works for two movies with the same 
-                grid sizes. At some point, we might introduce grid extrapolation 
-                to allow any summation/
+        .. note:: So far this function only works for two movies with the same 
+                  grid sizes. At some point, we might introduce grid extrapolation 
+                  to allow any summation/
         """
         out = copy.deepcopy(new)
         out.time = N.concatenate((self.time, new.time), axis=0)
@@ -219,9 +254,13 @@ class Movie:
 
         :param std: the standard deviation is computed instead the average
                     when std is True
+        :type std: bool
         :param levels: number of contour levels
+        :type levels: int
         :param cmap: name of the colormap
+        :type cmap: str
         :param cut: cutoff the contour maxima
+        :type cut: float
         """
         if std:
             avg = self.data.std(axis=0)
@@ -283,15 +322,23 @@ class Movie:
         Plotting function (it can also write the png files)
 
         :param levels: number of contour levels
+        :type levels: int
         :param cmap: name of the colormap
+        :type cmap: str
         :param cut: cutoff the contour maxima
+        :type cut: float
         :param png: save the movie as a series of png files when
                     set to True
+        :type png: bool
         :param dpi: dot per inch when saving PNGs
+        :type dpi: int
         :param bgcolor: background color of the figure
+        :type bgcolor: str
         :param normed: the colormap is rescaled every timestep when set to True,
                        otherwise it is calculated from the global extrema
-        :param step: the stepping between two snapshots
+        :type normed: bool
+        :param step: the stepping between two timesteps
+        :type step: int
         """
 
         if png:

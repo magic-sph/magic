@@ -4,14 +4,10 @@ import numpy as N
 import glob, os, re, sys
 from .npfile import *
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 def selectField(obj, field, labTex=True):
     """
-    This function selects for you which field you want to display.
+    This function selects for you which field you want to display. 
     """
     if field in ('Bp', 'bp', 'bphi', 'Bphi'):
         data = obj.Bphi
@@ -156,8 +152,13 @@ def avgField(time, field, tstart):
     This subroutine computes the time-average of a time series
 
     :param time: time
+    :type time: numpy.ndarray
     :param field: the time series of a given field
+    :type field: numpy.ndarray
     :param tstart: the starting time of the averaging
+    :type tstart: float
+    :returns: the time-averaged quantity
+    :rtype: float
     """
     mask = N.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
     ind = N.nonzero(mask)[0][0]
@@ -167,10 +168,21 @@ def avgField(time, field, tstart):
 
 def writeVpEq(par, tstart):
     """
-    This function computes the time-averaged surface zonal flow (and Rolc)
+    This function computes the time-averaged surface zonal flow (and Rolc) and
+    format the output
 
-    :param par: a MagicTs object containing the par file
+    >>> # Reads all the par.* files from the current directory
+    >>> par = MagicTs(field='par', iplot=False, all=True)
+    >>> # Time-average
+    >>> st = writeVpEq(par, tstart=2.1)
+    >>> print(st)
+
+    :param par: a :py:class:`MagicTs <magic.MagicTs>` object containing the par file
+    :type par: :py:class:`magic.MagicTs`
     :param tstart: the starting time of the averaging
+    :type tstart: float
+    :returns: a formatted string
+    :rtype: str
     """
     mask = N.where(abs(par.time-tstart) == min(abs(par.time-tstart)), 1, 0)
     ind = N.nonzero(mask)[0][0]
@@ -182,7 +194,22 @@ def writeVpEq(par, tstart):
                                                  par.ra, roEq, avgRolC)
     return st
 
-def progressbar(it, prefix = "", size = 60):
+def progressbar(it, prefix="", size=60):
+    """
+    Fancy progress-bar for loops
+
+    .. code-block:: python
+
+           for i in progressbar(range(1000000)):
+               x = i
+
+    :type it: iterator
+    :param prefix: prefix string before progress bar
+    :type prefix: str
+    :param size: width of the progress bar (in points of xterm width)
+    :type size: int
+    :type size: int
+    """
     count = len(it)
     def _show(_i):
         x = int(size*_i/count)
@@ -205,8 +232,12 @@ def scanDir(pattern, tfix=None):
     >>> print(log)
 
     :param pattern: a classical regexp pattern
+    :type pattern: str
     :param tfix: in case you want to add only the files that are more recent than
-                 a certain date, use tfix
+                 a certain date, use tfix (computer 1970 format!!)
+    :type tfix: float
+    :returns: a list of files that match the input pattern
+    :rtype: list
     """
     dat = [(os.stat(i).st_mtime, i) for i in glob.glob(pattern)]
     dat.sort()
@@ -234,8 +265,21 @@ def hammer2cart(ttheta, pphi, colat=False):
 
 def cut(dat, vmax=None, vmin=None):
     """
-    Replace data by vmax if data > vmax
-    or by vmin if data < vmin
+    This functions truncates the values of an input array that are beyond 
+    vmax or below vmin and replace them by vmax and vmin, respectively.
+
+    >>> # Keep only values between -1e3 and 1e3
+    >>> datNew = cut(dat, vmin=-1e3, vmax=1e3)
+
+    :param dat: an input array
+    :type dat: numpy.ndarray
+    :param vmax: maximum upper bound
+    :type vmax: float
+    :param vmin: minimum lower bound
+    :type vmin: float
+    :returns: an array where the values >=vmax have been replaced by vmax
+              and the values <=vmin have been replaced by vmin
+    :rtype: numpy.ndarray
     """
     if vmax is not None:
         mask = N.where(dat>=vmax, 1, 0)
@@ -249,10 +293,14 @@ def cut(dat, vmax=None, vmin=None):
 
 def symmetrize(data, ms):
     """
-    Symmetrise an array which is defined only on minc=ms
+    Symmetrise an array which is defined only with an azimuthal symmetry minc=ms
 
     :param data: the input array
-    :param ms: the initial symmetry
+    :type data: numpy.ndarray
+    :param ms: the azimuthal symmetry
+    :type ms: int
+    :returns: an output array of dimension (data.shape[0]*ms+1)
+    :rtype: numpy.ndarray
     """
     np = data.shape[0]*ms +1
     size = [np]
@@ -270,10 +318,20 @@ def fast_read(file, skiplines=0, binary=False, precision='Float64'):
     This function reads an input ascii table 
     (can read both formatted or unformatted fortran)
 
+    >>> # Read 'e_kin.test', skip the first 10 lines
+    >>> data = fast_read('e_kin.test', skiplines=10)
+
     :param file: name of the input file
-    :param skiplines: number of header lines to be skept
-    :param binary: is it a formatted or unformatted file?
+    :type file: str
+    :param skiplines: number of header lines to be skept during reading
+    :type skiplines: int
+    :param binary: when set to True, try to read an unformatted binray Fortran file
+                   (default is False)
+    :type binary: bool
     :param precision: single ('Float32') or double precision ('Float64')
+    :type precision: str
+    :returns: an array[nlines, ncols] that contains the data of the ascii file
+    :rtype: numpy.ndarray
     """
     if not binary:
         f = open(file, 'r')
@@ -297,9 +355,6 @@ def fast_read(file, skiplines=0, binary=False, precision='Float64'):
     return X
 
 
-def varmax(tag):
-    return len(glob.glob('G_[0-9]*.%s' % tag))
-
 
 def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
     """
@@ -307,12 +362,18 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
     of an anelastic model.
 
     :param radius: the radial gridpoints
+    :type radius: numpy.ndarray
     :param polind: the polytropic index
+    :type polind: float
     :param strat: the number of the density scale heights between the inner
                   and the outer boundary
+    :type strat: float
     :param g0: gravity profile: g=g0
+    :type g0: float
     :param g1: gravity profile: g=g1*r/r_o
+    :type g1: float
     :param g2: gravity profile: g=g2*(r_o/r)**2
+    :type g2: float
     """
     if radius[-1] < radius[0]:
         ro = radius[0]

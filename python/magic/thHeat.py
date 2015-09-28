@@ -5,20 +5,40 @@ from magic import scanDir, MagicSetup, Movie, matder, chebgrid, rderavg, AvgFiel
 import os, pickle
 from scipy.integrate import simps, trapz
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
 
 class ThetaHeat(MagicSetup):
     """
-    This routines allows to conduct some analysis of the latitudinal
-    variation of the heat transfer
+    This class allows to conduct some analysis of the latitudinal
+    variation of the heat transfer. It relies on the movie files 
+    :ref:`ATmov.TAG <secMovieFile>` and :ref:`AHF_mov.TAG <secMovieFile>`.
+    As it's a bit time-consuming, the calculations are stored in a 
+    python.pickle file to quicken future usage of the data.
+    
+    This function can **only** be used when
+    `bLayersR.TAG <secBLayersRfile>` exist in the working directory.
+
+    Since this function is supposed to use time-averaged quantities, the usual
+    procedure is first to define the initial averaging time using
+    :py:class:`AvgField <magic.AvgField>`: (this needs to be done only once)
+
+    >>> a = AvgField(tstart=2.58)
+
+    Once the ``tInitAvg`` file exists, the latitudinal heat transfer analysis
+    can be done using:
+
+    >>> # For chunk-averages over 10^\degree in the polar and equatorial regions.
+    >>> th = ThetaHeat(angle=10)
+    >>> # Formatted output
+    >>> print(th)
     """
 
     def __init__(self, iplot=False, angle=10, pickleName='thHeat.pickle'):
         """
         :param iplot: a boolean to toggle the plots on/off
-        :param angle: the integration angle
+        :type iplot: bool
+        :param angle: the integration angle in degrees
+        :type angle: float
+        :pickleName: calculations a
         """
 
         angle = angle * N.pi / 180
@@ -200,6 +220,12 @@ class ThetaHeat(MagicSetup):
 
 
     def __str__(self):
+        """
+        Formatted outputs
+
+        >>> th = ThetaHeat()
+        >>> print(th)
+        """
         if self.ek == -1:
             ek = 0. # to avoid the -1 for the non-rotating cases
         else:
@@ -219,8 +245,10 @@ class ThetaHeat(MagicSetup):
         return st
 
 
-
     def plot(self):
+        """
+        Plotting function
+        """
         fig = P.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.tcond-self.tcond[0], 'k--', label='Cond. temp.')

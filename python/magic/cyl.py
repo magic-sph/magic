@@ -8,21 +8,36 @@ from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import os, pickle
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
 
 
 def sph2cyl_plane(data, rad, ns, nz):
     """
-    Subroutine that extrapolates a phi-slice of a spherical shell on 
+    This function extrapolates a phi-slice of a spherical shell on 
     a cylindrical grid
 
+    >>> # Read G_1.test
+    >>> gr = MagicGraph(ivar=1, tag='test')
+    >>> # phi-average v_\phi and s
+    >>> vpm = gr.vphi.mean(axis=0)
+    >>> sm = gr.entropy.mean(axis=0)
+    >>> # Interpolate on a cylindrical grid
+    >>> S, Z, outputs = sph2cyl_plane([vpm, sm], gr.radius, 512, 1024)
+    >>> vpm_cyl, sm_cyl = outputs
+
     :param data: a list of 2-D arrays [(ntheta, nr), (ntheta, nr), ...]
+    :type data: list(numpy.ndarray)
     :param rad: radius
+    :type rad: numpy.ndarray
     :param ns: number of grid points in s direction
+    :type ns: int
     :param nz: number of grid points in z direction
+    :type nz: int
+    :returns: a python tuple that contains two numpy.ndarray and a list (S,Z,output).
+              S[nz,ns] is a meshgrid that contains the radial coordinate.
+              Z[nz,ns] is a meshgrid that contains the vertical coordinate.
+              output=[arr1[nz,ns], ..., arrN[nz,ns]] is a list of the interpolated
+              array on the cylindrical grid.
+    :rtype: tuple
     """
     ntheta, nr = data[0].shape
 
@@ -57,19 +72,31 @@ def sph2cyl_plane(data, rad, ns, nz):
 
 def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     """
-    A routine that computes a z-integration of a list of input arrays (on the spherical
-    grid). List works well for 2-D (phi-slice) arrays, only one single in 3-D (too
-    demanding otherwise).
+    This function computes a z-integration of a list of input arrays (on the spherical
+    grid). This works well for 2-D (phi-slice) arrays. In case of 3-D arrays, only
+    one element is allowed (too demanding otherwise).
 
     :param input: a list of 2-D or 3-D arrays 
+    :type input: list(numpy.ndarray)
     :param radius: spherical radius
+    :type radius: numpy.ndarray
     :param ns: radial resolution of the cylindrical grid (nz=2*ns)
-    :param minc: symmetry
+    :type ns: int
+    :param minc: azimuthal symmetry
+    :type minc: int
     :param save: a boolean to specify if one wants to save the outputs into 
                  a pickle (default is True)
-    :param filename: name of the output pickle
+    :type save: bool
+    :param filename: name of the output pickle when save=True
+    :type filename: str
     :param normed: a boolean to specify if ones wants to simply integrate over
-                   z or compute an average (default is True: average)
+                   z or compute a z-average (default is True: average)
+    :type normed: bool
+    :returns: a python tuple that contains two numpy.ndarray and a list (height,cylRad,output)
+              height[ns] is the height of the spherical shell for all radii.
+              cylRad[ns] is the cylindrical radius. output=[arr1[ns], ..., arrN[ns]] contains
+              the z-integrated output arrays.
+    :rtype: tuple
     """
     nz = 2*ns
     ro = radius[0]
@@ -128,6 +155,27 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
 
 
 def sph2cyl(g, ns=None, nz=None):
+    """
+    This function interpolates the three flow (or magnetic field)
+    component of a :ref:`G_#.TAG <secGraphFile>` file
+    on a cylindrical grid of size (ns, nz).
+
+    .. warning:: This might be really slow!
+
+    :param g: input graphic output file
+    :type g: :py:class:`magic.MagicGraph`
+    :param ns: number of grid points in the radial direction
+    :type ns: int
+    :param nz: number of grid points in the vertical direction
+    :type nz: int
+    :returns: a python tuple of five numpy.ndarray (S,Z,vs,vp_cyl,vz).
+              S[nz,ns] is a meshgrid that contains the radial coordinate.
+              Z[nz,ns] is a meshgrid that contains the vertical coordinate.
+              vs[nz,ns] is the radial component of the velocity (or magnetic
+              field), vp_cyl[nz,ns] the azimuthal component and vz[nz,ns] the
+              vertical component.
+    :rtype: tuple
+    """
     if ns is None or nz is None:
         ns = g.nr ; nz = 2*ns
 
@@ -176,16 +224,45 @@ def sph2cyl(g, ns=None, nz=None):
 
 
 class Cyl(MagicSetup):
+    """
+    This class allows to extrapolate a given :ref:`graphic file <secGraphFile>`
+    on a cylindrical grid. Once done, the extrapolated file is stored in 
+    a python.pickle file. It is then possible to display 2-D cuts of the extrapolated
+    arrays (radial cuts, phi-averages, equatorial cuts, z-averages and phi-slices)
 
-    def __init__(self, lastvar=1, avg=False, datadir='.', ns=None):
+    .. warning:: This process is actually **very demanding** and it might take a lot
+                 of time to extrapolate the G_#.TAG file. Be careful when choosing the
+                 input value of ns!
+
+    >>> # Extrapolate the G file to the cylindrical grid (ns=128, nz=2*ns)
+    >>> c = Cyl(ivar=1, ns=128)
+    >>> # Radial cut of v_r
+    >>> c.surf(field='vr', r=0.8)
+    >>> # Vertical average of B_\phi
+    >>> c.avgz(field='Bphi', cm='seismic', levels=33)
+    >>> # Azimuthal average of v_\phi
+    >>> c.avg(field='Bphi')
+    >>> # Equatorial cut of of v_theta
+    >>> c.equat(field='vtheta')
+    """
+
+    def __init__(self, ivar=1, datadir='.', ns=None):
+        """
+        :param ivar: the number of the Graphic file
+        :type ivar: int
+        :param datadir: working directory
+        :type datadir: str
+        :param ns: number of grid points in the radial direction
+        :type ns: int
+        """
         MagicSetup.__init__(self, datadir)
          
         self.datadir = datadir
 
-        filename = '%sG_%i.%s' % ('cyl', lastvar, self.tag)
+        filename = '%sG_%i.%s' % ('cyl', ivar, self.tag)
         if not os.path.exists(filename):
             print("sph2cyl...")
-            gr = MagicGraph(ivar=lastvar, datadir=self.datadir)
+            gr = MagicGraph(ivar=ivar, datadir=self.datadir)
             if ns is None:
                 self.ns = gr.nr
                 self.nz = 2*self.ns
@@ -233,6 +310,30 @@ class Cyl(MagicSetup):
 
     def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None, 
              levels=16, cm='RdYlBu_r', normed=True, figsize=None):
+        """
+        Plot the surface distribution of an input field at a given
+        input radius (normalised by the outer boundary radius).
+
+            >>> c = Cyl(ns=65)
+            >>> # Surface plot of B_\phi from -10 to 10
+            >>> c.surf(field='Bphi', r=0.6, vmin=-10, vmax=10, levels=65)
+
+        :param field:  name of the input field
+        :type field: str
+        :param r: radial level (normalised to the outer boundary radius)
+        :type r: float
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the color map
+        :type cm: str
+        :param normed: when set to True, the contours are normalised fro
+                       -max(field), max(field)
+        :type normed: bool
+        :param vmin: truncate the contour levels to values > vmin
+        :type vmin: float
+        :param vmax: truncate the contour levels to values < vmax
+        :type vmax: float
+        """
         r /= (1-self.ri/self.ro) # as we give a normalised radius
         ind = N.nonzero(N.where(abs(self.radius-r) \
                         == min(abs(self.radius-r)), 1, 0))
@@ -285,7 +386,25 @@ class Cyl(MagicSetup):
     def equat(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmax=None,
               vmin=None):
         """
-        Plot the equatorial plane of a given field
+        Plot an input field in the equatorial plane.
+
+            >>> c = Cyl(ns=65)
+            >>> # Equatorial cut of v_\phi
+            >>> c.equat(field='vphi', cm='seismic', levels=33)
+
+        :param field:  name of the input field
+        :type field: str
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the color map
+        :type cm: str
+        :param normed: when set to True, the contours are normalised fro
+                       -max(field), max(field)
+        :type normed: bool
+        :param vmin: truncate the contour levels to values > vmin
+        :type vmin: float
+        :param vmax: truncate the contour levels to values < vmax
+        :type vmax: float
         """
         if field in ('Vr', 'vr', 'Ur', 'ur'):
             data = self.vp
@@ -360,6 +479,24 @@ class Cyl(MagicSetup):
             vmax=None, vmin=None):
         """
         Plot the azimutal average of a given field.
+
+            >>> c = Cyl(ns=65)
+            >>> # Azimuthal average of B_r
+            >>> c.avg(field='Br', cm='seismic', levels=33)
+
+        :param field: name of the input field
+        :type field: str
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the color map
+        :type cm: str
+        :param normed: when set to True, the contours are normalised fro
+                       -max(field), max(field)
+        :type normed: bool
+        :param vmin: truncate the contour levels to values > vmin
+        :type vmin: float
+        :param vmax: truncate the contour levels to values < vmax
+        :type vmax: float
         """
         if field in ('Vr', 'vr', 'Ur', 'ur'):
             data = self.vp
@@ -427,7 +564,28 @@ class Cyl(MagicSetup):
     def avgz(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmin=None,
              vmax=None, avg=False):
         """
-        Plot the z-average of a given field
+        Plot the vertical average of a given field.
+
+            >>> c = Cyl(ns=65)
+            >>> # Vertical average of v_s
+            >>> c.avg(field='vs', cm='seismic', levels=33)
+
+        :param field: name of the input field
+        :type field: str
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the color map
+        :type cm: str
+        :param normed: when set to True, the contours are normalised fro
+                       -max(field), max(field)
+        :type normed: bool
+        :param vmin: truncate the contour levels to values > vmin
+        :type vmin: float
+        :param vmax: truncate the contour levels to values < vmax
+        :type vmax: float
+        :param avg: when set to True, an additional figure with the phi-average
+                    profile is also displayed
+        :type avg: bool
         """
         phi = N.linspace(0., 2.*N.pi, self.nphi)
         rr, pphi = N.meshgrid(self.radius, phi)
@@ -634,6 +792,22 @@ class Cyl(MagicSetup):
               normed=True):
         """
         Plot an azimuthal slice of a given field.
+
+            >>> c = Cyl(ns=65)
+            >>> # Slices of v_r at 30 and 60 degrees
+            >>> c.slice(field='vr', lon_0=[30, 60])
+
+        :param field: name of the input field
+        :type field: str
+        :param lon_0: the longitude of the slice in degrees, or a list of longitudes
+        :type lon_0: float or list
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the color map
+        :type cm: str
+        :param normed: when set to True, the contours are normalised fro
+                       -max(field), max(field)
+        :type normed: bool
         """
         if field in ('Vr', 'vr', 'Ur', 'ur'):
             data = self.vp
@@ -709,6 +883,6 @@ class Cyl(MagicSetup):
 
 
 if __name__ == '__main__':
-    c = Cyl(lastvar=1)
+    c = Cyl(ivar=1)
     c.equat(field='vs', normed=False)
     P.show()

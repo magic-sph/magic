@@ -12,13 +12,7 @@ if ( ! $?MAGIC_HOME ) then
   #
   # Try to identify position of the code's home directory:
   #
-  
-  if ( $_sourcecmd != "") then
-    set _dir = `readlink -f $_sourcecmd[2]`
-  else
-    set _dir = `readlink -f $0`
-  endif
-    
+  set _dir = `readlink -f $_sourcecmd[2]`
   set _dir = `dirname $_dir` 
   
   if ( (-e $_dir/sourceme.csh) && \
@@ -57,6 +51,8 @@ if (! $?_sourceme) then		# called for the fist time?
   setenv GFORTRAN_CONVERT_UNIT "big_endian"
 
 endif
+
+if ( ! $?_sourceme_quiet ) echo "MAGIC_HOME = <$MAGIC_HOME>"
 
 if ( $?MAGIC_HOME ) then
   $MAGIC_HOME/bin/autoConfigPython.sh

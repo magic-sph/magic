@@ -12,26 +12,39 @@ elif  sys.version_info.major == 2:
     from vtklib2 import *
 
 
-__author__  = "$Author$"
-__date__   = "$Date$"
-__version__ = "$Revision$"
-
-
 class Movie3D:
     """
-    This class allows to transform a B_3D.TAG file into a series of
-    vts files
+    This class allows to read the 3D movie files :ref:`(B|V)_3D_.TAG<secMovieFile>`  and 
+    transform them into a series of VTS files ``./vtsFiles/B3D_#.TAG`` that can be further 
+    read using paraview.
+
+    >>> Movie3D(file='B_3D.TAG')
     """
 
     def __init__(self, file=None, step=1, lastvar=None, nvar='all', nrout=48,
                  ratio_out=2., extrapot=False, precision='Float32'):
         """
-        :param nvar: the number of lines of the movie file we want to plot
+        :param file: file name
+        :type file: str
+        :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
-        :param lastvar: the rank of the last line to be read
-        :param step: the stepping between two lines             
+        :type nvar: int
+        :param lastvar: the number of the last timestep to be read
+        :type lastvar: int
+        :param step: the stepping between two timesteps
+        :type step: int
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
+        :type precision: str
+        :param extrapot: when set to True, potential extrapolation of the magnetic field
+                         outside the fluid domain is also computed
+        :type extrapot: bool
+        :param ratio_out: ratio of desired external radius to the CMB radius. This is
+                          is only used when extrapot=True
+        :type ratio_out: float
+        :param nrout: number of additional radial grid points to compute the potential
+                      extrapolation. This is only used when extrapot=True
+        :type nrout: int
         """
         if file == None:
             dat = glob.glob('*_mov.*')

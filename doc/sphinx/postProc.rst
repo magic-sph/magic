@@ -158,6 +158,14 @@ again, except if you remove the ``*.so`` files that are now present in the
 Python functions and class
 ==========================
 
+Reading the ``log.TAG`` files
+-----------------------------
+
+.. autoclass:: magic.MagicSetup
+   :members:
+   :private-members:
+   :special-members:
+
 
 Time series
 -----------
@@ -202,12 +210,26 @@ Average spectra over all radial levels
 Support for ``G_#.TAG`` files
 -----------------------------
 
-.. automodule:: magic.graph
+.. autoclass:: magic.MagicGraph
    :members:
    :private-members:
    :special-members:
 
 .. autoclass:: magic.Surf
+   :members:
+   :private-members:
+   :special-members:
+
+
+Support for movie files ``*_mov.TAG``
+-------------------------------------
+
+.. autoclass:: magic.Movie
+   :members:
+   :private-members:
+   :special-members:
+
+.. autoclass:: magic.Movie3D
    :members:
    :private-members:
    :special-members:
@@ -220,8 +242,17 @@ Support for ``G_#.TAG`` files
    :private-members:
    :special-members:
 
-Boundary layer analysis
------------------------
+Support for ``TO`` outputs
+--------------------------
+
+.. autoclass:: magic.TOMovie
+   :members:
+   :private-members:
+   :special-members:
+
+
+Additional possible analyses
+----------------------------
 
 .. automodule:: magic.bLayers
    :members:
@@ -229,8 +260,24 @@ Boundary layer analysis
    :special-members:
 
 
+.. autoclass:: magic.ThetaHeat
+   :members:
+   :private-members:
+   :special-members:
+
+.. automodule:: magic.cyl
+   :members:
+   :private-members:
+   :special-members:
+
+.. autoclass:: magic.Butterfly
+   :members:
+   :private-members:
+   :special-members:
+
 Various useful functions
 ------------------------
 
 .. automodule:: magic.libmagic
    :members:
+

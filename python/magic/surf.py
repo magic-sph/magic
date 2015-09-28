@@ -1314,7 +1314,7 @@ class Surf:
 
         :param field: the field you want to display
         :type field: str
-        :param lon_0: the longitude of the slice in degrees, or an array of longitudes
+        :param lon_0: the longitude of the slice in degrees, or a list of longitudes
         :type lon_0: float or list
         :param levels: the number of levels in the contourf plot
         :type levels: int

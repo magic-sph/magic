@@ -186,7 +186,7 @@ class BLayers(MagicSetup):
 
     Since this function is supposed to use time-averaged quantities, the usual
     procedure is first to define the initial averaging time using
-    :py:class:`magic.AvgField`: (this needs to be done only once)
+    :py:class:`AvgField <magic.AvgField>`: (this needs to be done only once)
 
     >>> a = AvgField(tstart=2.58)
 
