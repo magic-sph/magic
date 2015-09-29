@@ -1,4 +1,6 @@
 
+.. _secTOoutputFiles:
+
 ``TO`` outputs
 ==============
 
@@ -109,4 +111,10 @@ On a whole, the structure of the file looks like follows:
       dtVphi(t=t_movie(N),phi=1,theta=2), 
       ..., 
       dtVphi(t=t_movie(N),phi=n_phi_max,theta=n_theta_max)
+
+
+This file can be read using :py:class:`TOMovie <magic.TOMovie>` with the following options:
+
+    >>> # To load 'TO_mov.test' and time-average it:
+    >>> to = TOMOvie(file='TO_mov.test', avg=True, levels=65, cm='seismic')
 

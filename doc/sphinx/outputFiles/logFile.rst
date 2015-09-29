@@ -45,6 +45,8 @@ of appearance:
    
    * **Wall times**: this is the last part of the log file and it provides
      information about the mean wall time for running different parts of the code.
+     These values can be used to judge the speed and scaling capabilities of
+     your computer.
 
 
 Most of these informations can be parsed and stored into a python class using

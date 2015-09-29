@@ -4,9 +4,10 @@ Poloidal and toroidal potentials in spectral and Chebyshev space
 ----------------------------------------------------------------
 
 The **[V|B|T]pot** outputs controls the output of potential files
-(``Vpot_#.TAG``, ``Bpot_#.TAG`` and ``Tpot_#.TAG``). These are files that contain
+(:ref:`Vpot_#.TAG <secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` and 
+:ref:`Tpot_#.TAG <secTpotFile>`). These are files that contain
 the poloidal and toroidal flow and magnetic field potentials (and entropy/temperature)
-written in spectral and Chebyshev spaces (for instance ``w(lm_max, n_cheb_max)``).
+written in spectral and Chebyshev spaces (for instance :code:`w(lm_max, n_cheb_max)`).
 These files can be pretty useful since they can be possibly used to reconstruct any
 quantity in the spectral space or in the physical space you may be interested in.
 
@@ -14,25 +15,33 @@ Specific inputs
 +++++++++++++++
 
 They are two ways to store those files. The first option is to use
-:f:var:`l_storePot=.true. <l_storepot>` and the corresponding time control parameters (
-:ref:`n_pot_step <varn_pot_step>`, :ref:`t_pot <vart_pot>`, :ref:`n_pots
-<varn_pots>`, etc.). In that case the three files ``Vpot_#.TAG``,
-``Bpot_#.TAG`` and ``Tpot_#.TAG`` will be stored. The following example
-will create new ``Vpot_#.TAG``, ``Bpot_#.TAG`` and ``Tpot_#.TAG`` files
-every 1000 time steps:
+:f:var:`l_storePot=.true. <l_storepot>` and the corresponding time control
+parameters ( :ref:`n_pot_step <varn_pot_step>`, :ref:`t_pot <vart_pot>`,
+:ref:`n_pots <varn_pots>`, etc.). In that case the three files :ref:`Vpot_#.TAG
+<secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` and :ref:`Tpot_#.TAG
+<secTpotFile>` will be stored. The following example will create new
+:ref:`Vpot_#.TAG <secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` and
+:ref:`Tpot_#.TAG <secTpotFile>` files every 1000 time steps:
 
   .. code-block :: fortran
 
      l_storePot = .true.,
      n_pot_step = 1000, 
 
-* **l_storePot** (default :f:var:`l_storePot=.false. <l_storepot>`) is a logical. It needs to be turned on to store all the potentials in three different files: ``Vpot_#.TAG``, ``Bpot_#.TAG`` and ``Tpot_#.TAG``.
+.. _varl_storePot:
+
+* **l_storePot** (default :f:var:`l_storePot=.false. <l_storepot>`) is a
+  logical. It needs to be turned on to store all the potentials in three
+  different files: :ref:`Vpot_#.TAG <secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` 
+  and :ref:`Tpot_#.TAG <secTpotFile>`.
 
 The second option is control separately the writing of the three files using
-the three logicals :f:var:`l_storeVpot <l_storevpot>`, :f:var:`l_storeBpot <l_storebpot>` and :f:var:`l_storeTpot <l_storetpot>` and their
-corresponding time control parameters. The following example wrill create a new
-``Vpot_#.TAG`` file every 1000 time steps and a new ``Bpot_#.TAG`` file every
-3000 time steps (no ``Tpot_#.TAG`` files are stored in that case):
+the three logicals :f:var:`l_storeVpot <l_storevpot>`, :f:var:`l_storeBpot
+<l_storebpot>` and :f:var:`l_storeTpot <l_storetpot>` and their corresponding
+time control parameters. The following example wrill create a new
+:ref:`Vpot_#.TAG <secVpotFile>` file every 1000 time steps and a new
+:ref:`Bpot_#.TAG <secBpotFile>` file every 3000 time steps (no :ref:`Tpot_#.TAG
+<secTpotFile>` files are stored in that case):
 
   .. code-block:: fortran
 
@@ -42,11 +51,24 @@ corresponding time control parameters. The following example wrill create a new
      n_Bpot_step = 3000, 
      l_storeTpot = .false.,
 
-* **l_storeVpot** (default :f:var:`l_storeVpot=.false. <l_storevpot>`) is a logical. It needs to be turned on to store the flow poloidal and toroidal potentials. It then writes the ``Vpot_#.TAG`` file.
+.. _varl_storeVpot:
 
-* **l_storeBpot** (default :f:var:`l_storeBpot=.false. <l_storebpot>`) is a logical. It needs to be turned on to store the magnetic field poloidal and toroidal potentials. It then writes the  ``Bpot_#.TAG`` file.
 
-* **l_storeTpot** (default :f:var:`l_storeTpot=.false. <l_storetpot>`) is a logical. It needs to be turned on to store the entropy. It then writes the ``Tpot_#.TAG`` file.
+* **l_storeVpot** (default :f:var:`l_storeVpot=.false. <l_storevpot>`) is a
+  logical. It needs to be turned on to store the flow poloidal and toroidal
+  potentials. It then writes the :ref:`Vpot_#.TAG <secVpotFile>` file.
+
+.. _varl_storeBpot:
+
+* **l_storeBpot** (default :f:var:`l_storeBpot=.false. <l_storebpot>`) is a
+  logical. It needs to be turned on to store the magnetic field poloidal and
+  toroidal potentials. It then writes the :ref:`Bpot_#.TAG <secBpotFile>` file.
+
+.. _varl_storeTpot:
+
+* **l_storeTpot** (default :f:var:`l_storeTpot=.false. <l_storetpot>`) is a
+  logical. It needs to be turned on to store the entropy. It then writes the
+  :ref:`Tpot_#.TAG <secTpotFile>` file.
 
 Standard inputs
 +++++++++++++++

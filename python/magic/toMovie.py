@@ -28,7 +28,7 @@ class TOMovie:
         :type cmap: str
         :param levels: the number of contour levels
         :type levels: int
-        :param cut: a parameter to change the maxima of the contour levels
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param iplot: a boolean to specify if one wants to plot or not the
                       results
@@ -129,7 +129,7 @@ class TOMovie:
         """
         Plotting function
 
-        :param cut: cutoff the extrema of the contour levels
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param levs: number of contour levels
         :type levs: int

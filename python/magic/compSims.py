@@ -8,10 +8,73 @@ import os
 
 
 class CompSims:
+    """
+    This class allows to compare an analyse several DNS simultaneously. It is possible
+    to compare time-series or :ref:`graphic files <secGraphFile>`. To set it up, you
+    first need to create a file that contains the list of directories you want to analyse:
+ 
+    .. code-block:: bash
+
+       $ cat inputList
+       E3e4Eps5e3Q05
+       E3e4Eps2e3Q07
+       E3e4Eps2e3Q08
+       E3e4Eps2e3Q09
+
+    This list thus contains four directories (one run per directory) that can be further
+    analysed:
+
+    >>> # Display the time-series of kinetic energy on 2 columns
+    >>> CompSims(file='inputList', field='ts', ncol=2)
+    >>> # Display the equatorial cuts of v_r
+    >>> CompSims(file='inputList', field='vr', type='equat', levels=65, cm='seismic')
+    >>> # Display the radial cuts of B_r at r=0.8 r_o
+    >>> CompSims(file='inputList', field='br', type='surf', r=0.8)
+    >>> # Display the average zonal flow
+    >>> CompSims(file='inputList', field='vp', type='avg')
+    """
 
     def __init__(self, file='liste', field='ts', ncol=4, cm='RdYlBu_r', dpi=96,
                  normed=True, levels=16, type=None,
                  r=0.9, bw=False, ave=False, cut=1):
+        """
+        :param file: the input file that contains the list of directories that one
+                     wants to analyse
+        :type file: str
+        :param field: name of the input field. Possible options are:
+                      'ts': displaye the time-series of kinetic energy;
+                      'e_mag': display the time-series of magnetic energy;
+                      'flux': display the time-series of the Nusselt numbers;
+                      'zonal': display the surface zonal flow;
+                      'Anything else': try to interpret the field
+        :type field: str
+        :param type: nature of the plot. Possible values are:
+                     'avg' or 'slice': phi-average or phi-slice;
+                     'equat': equatorial cut;
+                     'surf': radial cut;
+                     'ts*: time series
+        :type type: str
+        :param ncol: number of columns of the figure
+        :type ncol: int
+        :param ave: when set to True, it tries to read a time-averaged graphic file
+        :type ave: bool
+        :param r: the radius at which you want to display the input
+                  data (in normalised units with the radius of the outer boundary)
+        :type r: float
+        :param levels: the number of levels in the contour
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
+        :type normed: bool
+        :param dpi: dot per inch when saving PNGs
+        :type dpi: int
+        :param bw: when set to True, display grey-scaled contour levels
+        :type bw: bool
+        :param cut: adjust the contour extrema to max(abs(data))*cut
+        :type cut: float
+        """
         self.dataliste = []
         self.workdir = os.getcwd()
         self.field = field
@@ -74,6 +137,9 @@ class CompSims:
         P.ion()
 
     def plotTs(self):
+        """
+        Plot time-series of the kinetic energy
+        """
         iplot = 1
         #myyfmt = ScalarFormatter(useOffset=True)
         #myyfmt.set_powerlimits((1,1))
@@ -100,6 +166,9 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotEmag(self):
+        """
+        Plot time-series of the magnetic energy
+        """
         iplot = 1
         #myyfmt = ScalarFormatter(useOffset=True)
         #myyfmt.set_powerlimits((1,1))
@@ -126,6 +195,9 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotFlux(self):
+        """
+        Plot time-series of the top and bottom Nusselt numbers
+        """
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
@@ -146,6 +218,9 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotZonal(self):
+        """
+        Plot surface zonal flow profiles.
+        """
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
@@ -175,6 +250,9 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotSurf(self):
+        """
+        Plot radial cuts in (phi, theta)  planes using the Hammer projection.
+        """
         cmap = P.get_cmap(self.cm)
 
         iplot = 1
@@ -250,6 +328,9 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotEquat(self):
+        """
+        Plot equatorial cuts in (phi, r)  planes.
+        """
         cmap = P.get_cmap(self.cm)
         iplot = 1
         for datadir in self.dataliste:
@@ -357,7 +438,7 @@ class CompSims:
 
     def plotAvg(self):
         """
-        Plot the azimutal average of a given field.
+        Plot azimutal averages in (theta, r) planes.
         """
         cmap = P.get_cmap(self.cm)
 

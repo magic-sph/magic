@@ -1,3 +1,4 @@
+.. _secTimeSeriesStd:
 
 Default time-series outputs
 ===========================

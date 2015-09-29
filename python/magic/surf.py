@@ -114,6 +114,7 @@ class Surf:
         :type vmin: float
         :param normed: when set to True, the colormap is centered around zero.
                        Default is True, except for entropy/temperature plots.
+        :type normed: bool
         """
         r /= (1-self.gr.radratio) # as we give a normalised radius
         ind = N.nonzero(N.where(abs(self.gr.radius-r) \

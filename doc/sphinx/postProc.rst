@@ -41,18 +41,27 @@ Optional dependencies
 Configuration: ``magic.cfg`` file
 =================================
 
+A file name **magic.cfg** located in ``$MAGIC_HOME/python/magic/magic.cfg`` should have
+been created when you used the ``source path/sourceme.sh`` command for the first time on
+your machine. At that stage, it tried to **automatically fill the best options** that
+correspond to your setup. Although tested on several various machine configurations, the
+auto-configuration script might however fail on your setup. The paragraph below details
+the possible options that you may want to adjust in the ``magic.cfg`` file.
+
+
 Detailed options
 ----------------
 
-Once the required libraries are installed, you have to edit the configuration file
-named ``magic.cfg``:
+In case, the file ``magic.cfg`` doesn't exist in the directory ``$MAGIC_HOME/python/magic``,
+you can easily copy it from the default configuration ``magic.cfg.default`` and then adjust
+the options manually:
 
 .. code-block:: bash
 
-   $ vim $MAGIC_HOME/python/magic/magic.cfg
+   $ cp $MAGIC_HOME/python/magic/magic.cfg.default $MAGIC_HOME/python/magic/magic.cfg
 
 In that file, you can set up the default `matplotlib  <http://matplotlib.org>`_  
-rendering backend (among the possible options: ``TkAgg``, ``GTKAgg``, ``Qt4Agg``).
+rendering backend (among the possible options: ``TkAgg``, ``GTKAgg``, ``Qt4Agg``, ...).
 The default configuration is
 
 .. code-block:: python
@@ -155,129 +164,50 @@ again, except if you remove the ``*.so`` files that are now present in the
 ``$MAGIC_HOME/python/magic/`` directory.
 
 
-Python functions and class
-==========================
+.. _secPythonClasses:
 
-Reading the ``log.TAG`` files
------------------------------
+Python functions and classes
+============================
 
-.. autoclass:: magic.MagicSetup
-   :members:
-   :private-members:
-   :special-members:
+Once the python environment is correctly configured you can use the available functions and
+classes to analyse and post-process your data. The following pages will give you the detailed
+API of the available classes, as well as some practical examples:
 
+.. topic:: Python classes
+   
+     1. To read the **log.TAG** files , :ref:`see here <secPythonLogFile>`.
 
-Time series
------------
+     2. To read and analyse the time series, :ref:`see here <secPythonTimeSeries>`.
 
-.. autoclass:: magic.MagicTs
-   :members:
-   :private-members:
-   :special-members:
+     3. To read and analyse the radial profiles, :ref:`see here <secPythonRadial>`.
 
-Averaging time series
----------------------
+     4. To read and analyse spectra **_spec_#.TAG**, :ref:`see here <secPythonSpectra>`.
 
-.. autoclass:: magic.AvgField
-   :members:
-   :private-members:
-   :special-members:
+     5. To read and analyse the **G_#.TAG** files, :ref:`see here <secPythonGraphFile>`.
 
-Radial profiles
----------------
+     6. To read and analyse movie files **_mov.TAG**, :ref:`see here <secPythonMovieFiles>`.
 
-.. autoclass:: magic.MagicRadial
-   :members:
-   :private-members:
-   :special-members:
+     7. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
 
-Average spectra over all radial levels
---------------------------------------
+     8. To read and analyse torsional oscillations outputs, :ref:`see here <secPythonTO>`.
 
-.. autoclass:: magic.MagicSpectrum
-   :members:
-   :private-members:
-   :special-members:
+     9. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
 
-2-D spectra
------------
+     10. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
 
-.. autoclass:: magic.MagicSpectrum2D
-   :members:
-   :private-members:
-   :special-members:
-
-Support for ``G_#.TAG`` files
------------------------------
-
-.. autoclass:: magic.MagicGraph
-   :members:
-   :private-members:
-   :special-members:
-
-.. autoclass:: magic.Surf
-   :members:
-   :private-members:
-   :special-members:
+     11. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
 
 
-Support for movie files ``*_mov.TAG``
--------------------------------------
+.. toctree::
+   :hidden:
 
-.. autoclass:: magic.Movie
-   :members:
-   :private-members:
-   :special-members:
+   apiPython/timeSeries.rst
+   apiPython/radial.rst
+   apiPython/spectra.rst
+   apiPython/graphMovCoeff.rst
+   apiPython/outTO.rst
+   apiPython/runComparison.rst
+   apiPython/misc.rst
+   apiPython/libs.rst
 
-.. autoclass:: magic.Movie3D
-   :members:
-   :private-members:
-   :special-members:
-
-``B_cmb_coeff.TAG`` and ``(V|B)_coeff_r#.TAG`` files
-----------------------------------------------------
-
-.. automodule:: magic.coeff
-   :members:
-   :private-members:
-   :special-members:
-
-Support for ``TO`` outputs
---------------------------
-
-.. autoclass:: magic.TOMovie
-   :members:
-   :private-members:
-   :special-members:
-
-
-Additional possible analyses
-----------------------------
-
-.. automodule:: magic.bLayers
-   :members:
-   :private-members:
-   :special-members:
-
-
-.. autoclass:: magic.ThetaHeat
-   :members:
-   :private-members:
-   :special-members:
-
-.. automodule:: magic.cyl
-   :members:
-   :private-members:
-   :special-members:
-
-.. autoclass:: magic.Butterfly
-   :members:
-   :private-members:
-   :special-members:
-
-Various useful functions
-------------------------
-
-.. automodule:: magic.libmagic
-   :members:
 
