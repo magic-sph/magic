@@ -4,32 +4,93 @@ Output files
 ############
 
 While some information of a run is written into ``STDOUT`` to monitor its
-progress, most outputs are printed into dedicated files identified by the
-:ref:`TAG <varTag>` extension. Most of the information found in ``STDOUT`` is
-also written to the log-file called :ref:`log.TAG <secLogFile>`. In addition,
-this file contains all input parameters, truncation, information on other
-output files, and some results like the time averaged energies (for
-:ref:`l_average=.true. <varl_average>`). The python functions that can be used
-to process the results can extract the informations concerning the run from
-:ref:`log.TAG <secLogFile>`.  Other output files are organised in columns or
-lines (datasets). Their meaning is explained below. The number of graphic files
-(:ref:`G_#.TAG <secGraphFile>`), restart files (:ref:`rst_*.TAG
-<secRestartFile>`), and spectrum files (:ref:`kin_spec_#.TAG <secKinSpecFile>`
-and :ref:`mag_spec_#.TAG <secMagSpecFile>`) are
-determined by the input parameters in the namelist :ref:`&output
-<secOutputNml>`. A new file is produced for each output time. If time averaging
-has been chosen the time-averaged graphic, potential and spectra files will
-have the number 0 and a prefix of the form ``_ave``. All other files are
-numbered consecutively starting with 1. Times at which these files have been
-written can be found in :ref:`log.tag <secLogFile>`. Other files (except the
-log-file) contain time series. The frequency of storage for the kinetic and
-magnetic energy files, the :ref:`rot.TAG <secRotFile>` file, the
-:ref:`dipole.TAG <secDipoleFile>` file, the :ref:`par.TAG <secParFile>` file
-and the :ref:`misc.TAG <secMiscFile>` file are determined by the log-times.
-Output times for cmb files (``B_coeff_cmb.TAG``), coeff files
-(``(T|V|B)_coeff_r.TAG``), potential files, torsional oscillations files and
-movie frames are chosen independently (see above). Those files are stored as
-unformatted files described below.
+progress, most outputs are printed into dedicated files identified by the chosen
+:ref:`TAG <varTag>` extension. These files can be parsed and analysed using the
+:ref:`python classes <secPythonPostProc>`. The following pages describe the content
+and the structure of the different type of output files:
+
+   1. Most of the information found in ``STDOUT`` is
+      also written to the **log-file** called :ref:`log.TAG <secLogFile>`. In addition,
+      this file contains all input parameters, truncation, information on other
+      output files, and some results like the time averaged energies (when
+      :ref:`l_average=.true. <varl_average>`). 
+
+   2. There are several ascii files that contain the **time-evolution of
+      integrated quantities** (energies, heat fluxes, rotation rate, Reynolds
+      numbers, etc.) that are systematically produced: 
+
+         * Kinetic energies: :ref:`e_kin.TAG <secEkinFile>`, 
+	 * Magnetic energies: :ref:`e_mag_oc.TAG <secEmagocFile>` and :ref:`e_mag_ic.TAG <secEmagicFile>`,
+         * Rotation rates: :ref:`rot.TAG <secRotFile>`, 
+	 * Informations about the dipolar component of the magnetic field: :ref:`dipole.TAG <secDipoleFile>`,
+	 * Diagnostic parameters (Reynolds, Elsasser, etc.): :ref:`par.TAG <secParFile>`,
+	 * Additional diagnostics (heat fluxes, Nusselt numbers, etc.): :ref:`misc.TAG <secMiscFile>`.
+      
+   3. There are **additional conditional time series** that contain the time-evolution of 
+      other physical quantities that depend on the chosen 
+      :ref:`input parameters <secOutputNml>`:
+
+         * Angular momentum balance: :ref:`AM.TAG <secAMFile>`,
+	 * Power budget: :ref:`power.TAG <secpowerFile>`,
+	 * Square velocities: :ref:`u_square.TAG <secu_squareFile>`,
+	 * Drift rates: :ref:`drift[V|B][D|Q].TAG <secdriftFile>` and :ref:`iner[P|T].TAG <secinerFile>`,
+	 * Torques: :ref:`SR[IC|MA].TAG <secSRFile>`,
+	 * RMS calculations of the force balances: :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtDrms.TAG <secdtDrmsFile>`,
+	 * Kinetic energies perpendicular and parallel to the rotation axis: :ref:`perpPar.TAG <secperpParFile>`.
+
+   4. **Time-averaged radial profiles**:
+
+         * Kinetic energies: :ref:`eKinR.TAG <secEkinRFile>`,
+         * Magnetic energies: :ref:`eMagR.TAG <secEmagRFile>`,
+         * Diagnostic quantities: :ref:`parR.TAG <secParRfile>`,
+         * Power budget: :ref:`powerR.TAG <secPowerRfile>`,
+	 * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`,
+	 * Temperature and horizontal velocities: :ref:`bLayersR.TAG <secBLayersRfile>`,
+	 * Kinetic energies perpendicular and parallel to the rotation axis: :ref:`perpParR.TAG <secPerpParRfile>`.
+
+   5. **Radial profiles of the transport properties** of the reference state (those files will
+      only be produced when the appropriate input option is chosen):
+
+         * Temperature, density and gravity: :ref:`anel.TAG <secAnelFile>`,
+	 * Electrical conductivity: :ref:`varCond.TAG <secVarCondFile>`,
+	 * Thermal conductivity: :ref:`varDiff.TAG <secVarDiffFile>`,
+	 * Kinematic viscosity: :ref:`varVisc.TAG <secVarViscFile>`,
+	 * Mapping of the Chebyshev grid: :ref:`rNM.TAG <secMappingFile>`.
+
+   6. Kinetic energy, magnetic energy and temperature/entropy **spectra**:
+
+         * Kinetic energy: :ref:`kin_spec_#.TAG <secKinSpecFile>`,
+         * Magnetic energy: :ref:`kin_spec_#.TAG <secMagSpecFile>`,
+         * Velocity square: :ref:`u2_spec_#.TAG <secu2SpecFile>`,
+         * Temperature/entropy: :ref:`T_spec_#.TAG <secMagSpecFile>`,
+         * Time-averaged kinetic energy: :ref:`kin_spec_ave.TAG <secKinSpecAveFile>`,
+         * Time-averaged magnetic energy: :ref:`mag_spec_ave.TAG <secMagSpecAveFile>`,
+         * Time-averaged temperature/entropy: :ref:`T_spec_ave.TAG <secTempSpecAveFile>`,
+	 * 2-D ([r,\ell] and [r,m]) spectra: :ref:`2D_[mag|kin|u2]_spec_#.TAG <sec2DSpectra>`.
+
+   7. Output snapshot that contains the 3-D components of the velocity field, the magnetic
+      field and the temperature/entropy. Those files are named **graphic files**
+      :ref:`G_#.TAG <secGraphFile>` (or :ref:`G_ave.TAG <secGraphFile>` for its time-averaged
+      counterpart). 
+
+   8. Time evolution of some chosen fields. Those files are named **movie files**:
+      :ref:`*_mov.TAG <secMovieFile>`.
+
+   9. Checkpoints outputs that will allow the code to restart. Those files are named
+      **restart files**: :ref:`rst_end.TAG <secRestartFile>`.
+
+   10. **Time-evolution of the poloidal and toroidal coefficients** at diffent depths:
+
+         * Time evolution of the poloidal magnetic field at the CMB: :ref:`B_coeff_cmb.TAG <secCmbFile>`,
+	 * Time evolution of the potentials at several depths: :ref:`[V|T|B]_coeff_r#.TAG <secCoeffrFiles>`
+
+   11. **Additional specific outputs**:
+
+         * Torsional oscillations (see :ref:`here <secTOoutputFiles>`),
+	 * Potential files: :ref:`Vpot_#.TAG <secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` and :ref:`Tpot_#.TAG <secTpotFile>`,
+	 * Potential vorticity files: ``PVZ.TAG`` and ``Vcy.TAG``,
+	 * Magnetic spectra for various radii: :ref:`rB[r|p]Spec.TAG <secrBspecFiles>`.
+
 
 
 .. toctree::
@@ -44,3 +105,4 @@ unformatted files described below.
    outGraphMovieRst.rst
    outCoeffFiles.rst
    outTOFiles.rst
+   outPotFiles.rst

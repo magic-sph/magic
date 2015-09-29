@@ -1,7 +1,7 @@
 .. _secGraphFile:
 
-Graphic files ``G_#.TAG``
-=========================
+Graphic files ``G_#.TAG`` and ``G_ave.TAG``
+===========================================
 
 
 .. _secMovieFile:

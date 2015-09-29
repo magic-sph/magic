@@ -208,6 +208,8 @@ The columns of the ``inerT.TAG`` follow the following structure:
 where :math:`z(\ell,m)` is the toroidal potential with degree :math:`\ell` and order :math:`m`.
 
 
+.. _secSRFile:
+
 ``SR[IC|MA].TAG``
 -------------------
 
@@ -394,6 +396,6 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 ``rB[r|p]Spec.TAG``
 -------------------
 
-.. note:: This file is **only** written when :ref:`l_rMagSpec=.true. <varl_rMagSpec>`
+.. note:: This files are **only** written when :ref:`l_rMagSpec=.true. <varl_rMagSpec>`
 
 The calculations are done in the ``radial_spectra.f90`` files.

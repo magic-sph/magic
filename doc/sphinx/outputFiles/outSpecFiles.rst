@@ -267,3 +267,8 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    |               | at the ICB  versus degree                                 |
    +---------------+-----------------------------------------------------------+
 
+
+.. _sec2DSpectra:
+
+2D spectra
+----------
