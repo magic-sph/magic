@@ -41,6 +41,8 @@ unformatted files described below.
    outRadialFiles.rst
    outTransportProp.rst
    outSpecFiles.rst
-   outGraphMovieRst.rst
+   outGraph.rst
+   outMovie.rst
+   outRst.rst
    outCoeffFiles.rst
    outTOFiles.rst
