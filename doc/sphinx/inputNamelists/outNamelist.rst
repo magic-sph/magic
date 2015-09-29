@@ -73,13 +73,17 @@ suffices for most applications.
 
 The different possible outputs control parameters are then extensively described in the following pages:
 
-  .. seealso::
+.. topic:: Possible outputs
 
-        1. :ref:`Control standard/common outputs <secOutNmlStd>`
-        2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
-        3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
-        4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
-        5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
+      1. :ref:`Control standard/common outputs <secOutNmlStd>`
+
+      2. :ref:`CMB and radial coefficients <secOutNmlCoeff>` 
+
+      3. :ref:`Storage of potentials in spectral space <secOutNmlPot>`
+
+      4. :ref:`Torsional oscillations diagnostics <secOutNmlTO>`
+
+      5. :ref:`Additional possible diagnostics <secOutNmlMisc>`
 
 
 .. toctree::

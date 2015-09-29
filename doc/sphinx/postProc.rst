@@ -166,36 +166,36 @@ again, except if you remove the ``*.so`` files that are now present in the
 
 .. _secPythonClasses:
 
-Python functions and class
-==========================
+Python functions and classes
+============================
 
 Once the python environment is correctly configured you can use the available functions and
 classes to analyse and post-process your data. The following pages will give you the detailed
 API of the available classes, as well as some practical examples:
 
-   .. seealso ::
-      
-        1. To read the **log.TAG** files , :ref:`see here <secPythonLogFile>`.
+.. topic:: Python classes
+   
+     1. To read the **log.TAG** files , :ref:`see here <secPythonLogFile>`.
 
-	2. To read and analyse the time series, :ref:`see here <secPythonTimeSeries>`.
+     2. To read and analyse the time series, :ref:`see here <secPythonTimeSeries>`.
 
-	3. To read and analyse the radial profiles, :ref:`see here <secPythonRadial>`.
+     3. To read and analyse the radial profiles, :ref:`see here <secPythonRadial>`.
 
-	4. To read and analyse spectra **_spec_#.TAG**, :ref:`see here <secPythonSpectra>`.
+     4. To read and analyse spectra **_spec_#.TAG**, :ref:`see here <secPythonSpectra>`.
 
-	5. To read and analyse the **G_#.TAG** files, :ref:`see here <secPythonGraphFile>`.
+     5. To read and analyse the **G_#.TAG** files, :ref:`see here <secPythonGraphFile>`.
 
-	6. To read and analyse movie files **_mov.TAG**, :ref:`see here <secPythonMovieFiles>`.
+     6. To read and analyse movie files **_mov.TAG**, :ref:`see here <secPythonMovieFiles>`.
 
-	7. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
+     7. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
 
-	8. To read and analyse torsional oscillations outputs, :ref:`see here <secPythonTO>`.
+     8. To read and analyse torsional oscillations outputs, :ref:`see here <secPythonTO>`.
 
-	9. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
+     9. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
 
-	10. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
+     10. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
 
-	11. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
+     11. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
 
 
 .. toctree::

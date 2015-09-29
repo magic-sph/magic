@@ -41,3 +41,10 @@
     color: #0a507a;
     text-shadow: none;
 }
+
+div.topic {
+    background-color: #ffe4e4;
+    font-size: 120%;
+    border: 1px solid #f66;
+}
+

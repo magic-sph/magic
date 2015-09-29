@@ -151,10 +151,10 @@ Once the executable is built, you are now ready to run your first production run
 Preparing a production run
 ==========================
 
-After building the executable, use one of the namelists provided in th
+After building the executable, use one of the namelists provided in the
 ``$MAGIC_HOME/samples`` directory (called ``input.nml``), adapt it to your
-physical problem (see :ref:`here <secNamelists>` for the possible options)
-and run **MagIC** as follows:
+physical problem (see :ref:`here <secNamelists>` for an exhaustive
+description of the possible options) and run **MagIC** as follows:
 
 * Running a serial version of the code (``USE_MPI=no`` and ``OPENMP=no``):
 
@@ -162,17 +162,21 @@ and run **MagIC** as follows:
 
      $ ./magic.exe input.nml
 
-* Running the code without OpenMP (``USE_MPI=yes`` and ``OPENMP=no``) with ``<n_mpi>`` MPI ranks:
+* Running the code without OpenMP (``USE_MPI=yes`` and ``OPENMP=no``) with ``<n_mpi>`` 
+  MPI ranks:
   
   .. code-block:: bash
 
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
 
-* Running the hybrid code (``USE_MPI=yes`` and ``OPENMP=yes``) with ``<n_mpi>`` MPI ranksand ``<n_omp>`` OpenMP threads:
+* Running the hybrid code (``USE_MPI=yes`` and ``OPENMP=yes``) with ``<n_mpi>`` MPI ranks 
+  and ``<n_omp>`` OpenMP threads:
   
   .. code-block:: bash
 
      $ export OMP_NUM_THREAD = <n_omp>
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
 
-Note that the :ref:`n_r_max <varn_r_max>` must be a multiple of ``<n_mpi>``, where :ref:`n_r_max <varn_r_max>` is the number of radial grid points (see :ref:`here <secGridNml>`). 
+Note that the :ref:`n_r_max <varn_r_max>` must be a multiple of ``<n_mpi>``,
+where :ref:`n_r_max <varn_r_max>` is the number of radial grid points (see
+:ref:`here <secGridNml>`). 

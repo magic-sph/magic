@@ -13,7 +13,7 @@ MagIC documentation contents
    :maxdepth: 2
 
    install
-   autoTests
+   contribute
    inputNamelists/namelists
    signalFile
    outputFiles/outFiles
