@@ -1,0 +1,41 @@
+
+.. _secPythonGraphFile:
+
+Support for ``G_#.TAG`` files
+-----------------------------
+
+.. autoclass:: magic.MagicGraph
+   :members:
+   :private-members:
+   :special-members:
+
+.. autoclass:: magic.Surf
+   :members:
+   :private-members:
+   :special-members:
+
+.. _secPythonMovieFiles:
+
+Support for movie files ``*_mov.TAG``
+-------------------------------------
+
+.. autoclass:: magic.Movie
+   :members:
+   :private-members:
+   :special-members:
+
+.. autoclass:: magic.Movie3D
+   :members:
+   :private-members:
+   :special-members:
+
+.. _secPythonCoeffs:
+
+Support for ``B_cmb_coeff.TAG`` and ``(V|B)_coeff_r#.TAG`` files
+----------------------------------------------------------------
+
+.. automodule:: magic.coeff
+   :members:
+   :private-members:
+   :special-members:
+

@@ -7,7 +7,17 @@ from .npfile import *
 
 def selectField(obj, field, labTex=True):
     """
-    This function selects for you which field you want to display. 
+    This function selects for you which field you want to display. It actually
+    allows to avoid possible variables miss-spelling: i.e. 'Bphi'='bp'='Bp'='bphi'
+
+    :param obj: a graphic output file 
+    :type obj: :py:class:`magic.MagicGraph`
+    :param field: the name of the field one wants to select
+    :type field: str
+    :param labTex: when set to True, format the labels using LaTeX fonts
+    :type labTex: bool
+    :returns: a tuple that contains the selected physical field and its label
+    :rtype: (numpy.ndarray, str)
     """
     if field in ('Bp', 'bp', 'bphi', 'Bphi'):
         data = obj.Bphi
@@ -151,6 +161,10 @@ def avgField(time, field, tstart):
     """
     This subroutine computes the time-average of a time series
 
+    >>> ts = MagicTs(field='misc', iplot=False, all=True)
+    >>> nuavg = avgField(ts.time, ts.topnuss, 0.35)
+    >>> print(nuavg)
+
     :param time: time
     :type time: numpy.ndarray
     :param field: the time series of a given field
@@ -251,6 +265,28 @@ def scanDir(pattern, tfix=None):
     return out
 
 def hammer2cart(ttheta, pphi, colat=False):
+    """
+    This function is used to define the Hammer projection used when
+    plotting surface contours in :py:class:`magic.Surf`
+
+    >>> # Load Graphic file
+    >>> gr = MagicGraph()
+    >>> # Meshgrid
+    >>> pphi, ttheta = mgrid[-N.pi:N.pi:gr.nphi*1j, N.pi/2.:-N.pi/2.:gr.ntheta*1j]
+    >>> x,y = hammer2cart(ttheta, pphi)
+    >>> # Contour plots
+    >>> contourf(x, y, gr.vphi)
+
+    :param ttheta: meshgrid [nphi, ntheta] for the latitudinal direction
+    :type ttheta: numpy.ndarray
+    :param pphi: meshgrid [nphi, ntheta] for the azimuthal direction
+    :param colat: colatitudes (when not specified a regular grid is assumed)
+    :type colat: numpy.ndarray
+    :returns: a tuple that contains two [nphi, ntheta] arrays: the x, y meshgrid
+              used in contour plots
+    :rtype: (numpy.ndarray, numpy.ndarray)
+    """
+
     if not colat: # for lat and phi \in [-pi, pi]
         xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\
              /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
@@ -361,6 +397,9 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
     This functions calculates the reference temperature and density profiles
     of an anelastic model.
 
+    >>> rad = chebgrid(65, 1.5, 2.5)
+    >>> temp, rho, beta = anelprof(rad, strat=5., polind=2.)
+
     :param radius: the radial gridpoints
     :type radius: numpy.ndarray
     :param polind: the polytropic index
@@ -374,6 +413,9 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
     :type g1: float
     :param g2: gravity profile: g=g2*(r_o/r)**2
     :type g2: float
+    :returns: a tuple that contains the temperature profile, the density profile
+              and the log-derivative of the density profile versus radius
+    :rtype: (numpy.ndarray, numpy.ndarray, numpy.ndarray)
     """
     if radius[-1] < radius[0]:
         ro = radius[0]
@@ -394,9 +436,17 @@ def chebgrid(nr, a, b):
     """
     This function defines a Gauss-Lobatto grid from a to b.
 
+    >>> r_icb = 0.5 ; r_cmb = 1.5; n_r_max=65
+    >>> rr = chebgrid(n_r_max, r_icb, r_cmb)
+
     :param nr: number of radial grid points
+    :type nr: int
     :param a: lower limit of the Gauss-Lobatto grid
+    :type a: float
     :param b: upper limit of the Gauss-Lobatto grid
+    :type b: float
+    :returns: the Gauss-Lobatto grid
+    :rtype: numpy.ndarray
     """
     rst = (a+b)/(b-a)
     rr = 0.5*(rst+N.cos(N.pi*(1.-N.arange(nr+1.)/nr)))*(b-a)
@@ -406,12 +456,22 @@ def matder(nr, z1, z2):
     """ 
     This function calculates the derivative in Chebyshev space.
 
-    >>> r_icb = 0.5 ; r_cmb = 1.5
-    >>> d1 = matder(65, r_icb, r_cmb)
+    >>> r_icb = 0.5 ; r_cmb = 1.5; n_r_max=65
+    >>> d1 = matder(n_r_max, r_icb, r_cmb)
+    >>> # Chebyshev grid and data
+    >>> rr = chebgrid(n_r_max, r_icb, r_cmb)
+    >>> f = sin(rr)
+    >>> # Radial derivative
+    >>> df = dot(d1, f)
 
     :param nr: number of radial grid points
+    :type nr: int
     :param z1: lower limit of the Gauss-Lobatto grid
+    :type z1: float
     :param z2: upper limit of the Gauss-Lobatto grid
+    :type z2: float
+    :returns: a matrix of dimension (nr,nr) to calculate the derivatives
+    :rtype: numpy.ndarray
     """
     nrp = nr+1
     w1 = N.zeros((nrp, nrp), dtype='Float64')
@@ -427,10 +487,18 @@ def intcheb(f, nr, z1, z2):
     """ 
     This function integrates an input function f defined on the Gauss-Lobatto grid.
 
+    >>> print(intcheb(f, 65, 0.5, 1.5))
+
     :param f: an input array
+    :type: numpy.ndarray
     :param nr: number of radial grid points
+    :type nr: int
     :param z1: lower limit of the Gauss-Lobatto grid
+    :type z1: float
     :param z2: upper limit of the Gauss-Lobatto grid
+    :type z2: float
+    :returns: the integrated quantity
+    :rtype: float
     """
     func = lambda i, j: 2.*N.cos(N.pi*i*j/nr)/nr
     w1 = N.fromfunction(func, (nr+1, nr+1))
@@ -508,10 +576,17 @@ def den(k, j, nr):
 
 def phideravg(data, minc=1):
     """
-    phi-derivative of an array
+    phi-derivative of an input array
+
+    >>> gr = MagicGraph()
+    >>> dvphidp = phideravg(gr.vphi, minc=gr.minc)
 
     :param data: input array
+    :type data: numpy.ndarray
     :param minc: azimuthal symmetry
+    :type minc: int
+    :returns: the phi-derivative of the input array
+    :rtype: numpy.ndarray
     """
     nphi = data.shape[0]
     dphi = 2.*N.pi/minc/(nphi-1.)
@@ -521,6 +596,25 @@ def phideravg(data, minc=1):
     return der
 
 def rderavg(data, eta=0.35, spectral=True, exclude=False):
+    """
+    Radial derivative of an input array
+
+    >>> gr = MagiGraph()
+    >>> dvrdr = rderavg(gr.vr, eta=gr.radratio)
+
+    :param data: input array
+    :type data: numpy.ndarray
+    :param eta: aspect ratio of the spherical shell
+    :type eta: float
+    :param spectral: when set to True use Chebyshev derivatives, otherwise use
+                     finite differences (default is True)
+    :type spectral: bool
+    :param exclude: when set to True, exclude the first and last radial grid points
+                    and replace them by a spline extrapolation (default is False)
+    :type exclude: bool
+    :returns: the radial derivative of the input array
+    :rtype: numpy.ndarray
+    """
     r1 = 1./(1.-eta)
     r2 = eta/(1.-eta)
     nr = data.shape[-1]
@@ -548,6 +642,19 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
     return der
 
 def thetaderavg(data, order=4):
+    """
+    Theta-derivative of an input array (finite differences)
+
+    >>> gr = MagiGraph()
+    >>> dvtdt = thetaderavg(gr.vtheta)
+
+    :param data: input array
+    :type data: numpy.ndarray
+    :param order: order of the finite-difference scheme (possible values are 2 or 4)
+    :type order: int
+    :returns: the theta-derivative of the input array
+    :rtype: numpy.ndarray
+    """
     if len(data.shape) == 3: # 3-D
         ntheta = data.shape[1]
         dtheta = N.pi/(ntheta-1.)
@@ -584,6 +691,27 @@ def thetaderavg(data, order=4):
 
 
 def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+    """
+    z derivative of an input array
+
+    >>> gr = MagiGraph()
+    >>> dvrdz = zderavg(gr.vr, eta=gr.radratio, colat=gr.colatitude)
+
+    :param data: input array
+    :type data: numpy.ndarray
+    :param eta: aspect ratio of the spherical shell
+    :type eta: float
+    :param spectral: when set to True use Chebyshev derivatives, otherwise use
+                     finite differences (default is True)
+    :type spectral: bool
+    :param exclude: when set to True, exclude the first and last radial grid points
+                    and replace them by a spline extrapolation (default is False)
+    :type exclude: bool
+    :param colat: colatitudes (when not specified a regular grid is assumed)
+    :type colat: numpy.ndarray
+    :returns: the z derivative of the input array
+    :rtype: numpy.ndarray
+    """
     ntheta = data.shape[0]
     nr = data.shape[-1]
     r1 = 1./(1.-eta)
@@ -600,6 +728,27 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     return dz
 
 def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
+    """
+    s derivative of an input array
+
+    >>> gr = MagiGraph()
+    >>> dvpds = sderavg(gr.vphi, eta=gr.radratio, colat=gr.colatitude)
+
+    :param data: input array
+    :type data: numpy.ndarray
+    :param eta: aspect ratio of the spherical shell
+    :type eta: float
+    :param spectral: when set to True use Chebyshev derivatives, otherwise use
+                     finite differences (default is True)
+    :type spectral: bool
+    :param exclude: when set to True, exclude the first and last radial grid points
+                    and replace them by a spline extrapolation (default is False)
+    :type exclude: bool
+    :param colat: colatitudes (when not specified a regular grid is assumed)
+    :type colat: numpy.ndarray
+    :returns: the s derivative of the input array
+    :rtype: numpy.ndarray
+    """
     ntheta = data.shape[0]
     nr = data.shape[-1]
     r1 = 1./(1.-eta)
@@ -615,28 +764,22 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     ds = N.sin(th2D)*dr + N.cos(th2D)/rr2D*dtheta
     return ds
 
-def sder3D(data, eta=0.35, spectral=True, colat=None, exclude=False):
-    ntheta = data.shape[1]
-    nr = data.shape[-1]
-    r1 = 1./(1.-eta)
-    r2 = eta/(1.-eta)
-    if colat is not None:
-        th = colat
-    else:
-        th = N.linspace(0., N.pi, ntheta)
-    rr = chebgrid(nr-1, r1, r2)
-    th3D = N.zeros_like(data)
-    rr3D = N.zeros_like(data)
-    for i in range(ntheta):
-        th3D[:, i, :] = th[i]
-    for i in range(nr):
-        rr3D[:, :, i] = rr[i]
-    dtheta = thetaderavg(data)
-    dr = rderavg(data, eta, spectral, exclude)
-    ds = N.sin(th3D)*dr + N.cos(th3D)/rr3D*dtheta
-    return ds
 
 def cylSder(radius, data):
+    """
+    This function computes the s derivative of an input array defined on
+    a regularly-spaced cylindrical grid.
+
+    >>> s = linspace(0., 1., 129 ; dat = cos(s)
+    >>> ddatds = cylSder(s, dat)
+
+    :param radius: cylindrical radius
+    :type radius: numpy.ndarray
+    :param data: input data
+    :type data: numpy.ndarray
+    :returns: s derivative
+    :rtype: numpy.ndarray
+    """
     ns = data.shape[-1]
     ds = radius.max()/(ns-1.)
     der = (N.roll(data, -1,  axis=-1)-N.roll(data, 1, axis=-1))/(2.*ds)
@@ -645,6 +788,20 @@ def cylSder(radius, data):
     return der
 
 def cylZder(z, data):
+    """
+    This function computes the z derivative of an input array defined on
+    a regularly-spaced cylindrical grid.
+
+    >>> z = linspace(-1., 1., 129 ; dat = cos(z)
+    >>> ddatdz = cylZder(z, dat)
+
+    :param z: height of the cylinder
+    :type z: numpy.ndarray
+    :param data: input data
+    :type data: numpy.ndarray
+    :returns: z derivative
+    :rtype: numpy.ndarray
+    """
     nz = data.shape[1]
     dz = (z.max()-z.min())/(nz-1.)
     der = (N.roll(data, -1,  axis=1)-N.roll(data, 1, axis=1))/(2.*dz)
@@ -657,6 +814,9 @@ def getCpuTime(file):
     This function calculates the CPU time from one given log file
 
     :param file: the log file you want to analyze
+    :type file: file
+    :returns: the total CPU time
+    :rtype: float
     """
     threads = re.compile(r'[\s]*\![\s]*nThreads\:[\s]*(.*)')
     ranks = re.compile(r'[\s]*\![\s\w]*ranks[\s\w]*\:[\s]*(.*)')
@@ -684,7 +844,10 @@ def getCpuTime(file):
 
 def getTotalRunTime():
     """
-    This function calculates the toal CPU time of one run directory
+    This function calculates the total CPU time of one run directory
+
+    :returns: the total RUN time
+    :rtype: float
     """
     logFiles = glob.glob('log.*')
     totCpuTime = 0

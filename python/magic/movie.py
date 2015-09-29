@@ -73,7 +73,7 @@ class Movie:
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
         :type precision: str
-        :param cut: cutoff the contour maxima
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param bgcolor: background color of the figure
         :type bgcolor: str
@@ -259,7 +259,7 @@ class Movie:
         :type levels: int
         :param cmap: name of the colormap
         :type cmap: str
-        :param cut: cutoff the contour maxima
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         """
         if std:
@@ -325,7 +325,7 @@ class Movie:
         :type levels: int
         :param cmap: name of the colormap
         :type cmap: str
-        :param cut: cutoff the contour maxima
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param png: save the movie as a series of png files when
                     set to True

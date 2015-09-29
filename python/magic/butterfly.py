@@ -48,7 +48,7 @@ class Butterfly:
         :type levels: int
         :param cm: the name of the color map
         :type cm: str
-        :param cut: truncate the extrema of the contour levels
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param precision: precision of the input file, Float32 for single precision,
                           Float64 for double precision
@@ -204,7 +204,7 @@ class Butterfly:
         :type renorm: bool
         :param mesh: when renorm=True, factor of regriding: NewTime = mesh*OldTime
         :type mesh: int
-        :param cut: truncate the extrema of the contour levels
+        :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         """
         fig = P.figure()
