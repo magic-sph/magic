@@ -69,6 +69,7 @@ The **rst** outputs controls the output of restart files (:ref:`rst_t_#.TAG <sec
 
 .. warning:: The ``rst`` files can become quite big and writting them too frequently will slow down the code. Except for very special use, the default set up should be sufficient.
 
+.. _secOutGraphFile:
 
 Graphic files
 -------------
