@@ -10,7 +10,7 @@ module legendre_spec_to_grid
    use truncation, only: lm_max, n_m_max, nrp, l_max
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
-                              osn2
+                              osn2, dPlmt, osn1
    use logic, only: l_heat, l_ht
    use const, only: zero, half, one
    use parallel_mod, only: rank
@@ -94,7 +94,7 @@ contains
       complex(cp) :: dsdtES,dsdtEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
-      real(cp) :: dm,dmT
+      real(cp) :: dm
     
       complex(cp) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
       complex(cp) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
@@ -155,16 +155,16 @@ contains
     
                if ( lViscBcCalc ) then
                   do mc=1,n_m_max
-                     dm =D_mc2m(mc)
+                     dm =D_mc2m(mc)*osn1(nThetaNHS)
                      lmS=lStop(mc)
                      dsdtES=zero
                      dsdtEA=zero
                      do lm=lStart(mc),lmS-1,2
-                        dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
-                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                        dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlmt(lm,nThetaNHS)
+                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlmt(lm+1,nThetaNHS)
                      end do
                      if ( lmOdd(mc) ) then
-                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
+                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlmt(lmS,nThetaNHS)
                      end if
                      dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
                      dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
@@ -224,7 +224,7 @@ contains
             PERFOFF_I
             PERFON_I('TFG_3')
             do mc=1,n_m_max
-               dm =D_mc2m(mc)
+               dm =D_mc2m(mc)*osn1(nThetaNHS)
                lmS=lStop(mc)
                vrES   =zero
                vrEA   =zero
@@ -235,22 +235,22 @@ contains
                !--- 8 add/mult, 29 dble words
                do lm=lStart(mc),lmS-1,2
                   vrES    =vrES    + leg_helper%dLhw(lm)*   Plm(lm,nThetaNHS)
-                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lm)*  dPlm(lm,nThetaNHS)
+                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lm)*  dPlmt(lm,nThetaNHS)
                   cbrES   =cbrES   + leg_helper%dLhj(lm)*   Plm(lm,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+                  PlmG(lm)=dPlmt(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+                  PlmC(lm)=dPlmt(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
                   vrEA    =vrEA    + leg_helper%dLhw(lm+1)* Plm(lm+1,nThetaNHS)
-                  dvrdtES =dvrdtES + leg_helper%dLhw(lm+1)*dPlm(lm+1,nThetaNHS)
+                  dvrdtES =dvrdtES + leg_helper%dLhw(lm+1)*dPlmt(lm+1,nThetaNHS)
                   cbrEA   =cbrEA   + leg_helper%dLhj(lm+1)* Plm(lm+1,nThetaNHS)
-                  PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                  PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+                  PlmG(lm+1)=dPlmt(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+                  PlmC(lm+1)=dPlmt(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
                end do
                if ( lmOdd(mc) ) then
                   vrES    =vrES    + leg_helper%dLhw(lmS)* Plm(lmS,nThetaNHS)
-                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lmS)*dPlm(lmS,nThetaNHS)
+                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lmS)*dPlmt(lmS,nThetaNHS)
                   cbrES   =cbrES   + leg_helper%dLhj(lmS)* Plm(lmS,nThetaNHS)
-                  PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
-                  PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
+                  PlmG(lmS)=dPlmt(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
+                  PlmC(lmS)=dPlmt(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
                end if
                vrc(2*mc-1,nThetaN)   = real(vrES+vrEA)
                vrc(2*mc  ,nThetaN)   =aimag(vrES+vrEA)
@@ -450,15 +450,15 @@ contains
                dvrdpc(2*mc  ,nThetaS)= dm*vrc(2*mc-1,nThetaS)
             end do
             do mc=1,n_m_max
-               dmT=D_mc2m(mc)*osn2(nThetaNHS)
-               dvtdpc(2*mc-1,nThetaN)=-dmT*vtc(2*mc  ,nThetaN)
-               dvtdpc(2*mc  ,nThetaN)= dmT*vtc(2*mc-1,nThetaN)
-               dvtdpc(2*mc-1,nThetaS)=-dmT*vtc(2*mc  ,nThetaS)
-               dvtdpc(2*mc  ,nThetaS)= dmT*vtc(2*mc-1,nThetaS)
-               dvpdpc(2*mc-1,nThetaN)=-dmT*vpc(2*mc  ,nThetaN)
-               dvpdpc(2*mc  ,nThetaN)= dmT*vpc(2*mc-1,nThetaN)
-               dvpdpc(2*mc-1,nThetaS)=-dmT*vpc(2*mc  ,nThetaS)
-               dvpdpc(2*mc  ,nThetaS)= dmT*vpc(2*mc-1,nThetaS)
+               dm=D_mc2m(mc)
+               dvtdpc(2*mc-1,nThetaN)=-dm*vtc(2*mc  ,nThetaN)
+               dvtdpc(2*mc  ,nThetaN)= dm*vtc(2*mc-1,nThetaN)
+               dvtdpc(2*mc-1,nThetaS)=-dm*vtc(2*mc  ,nThetaS)
+               dvtdpc(2*mc  ,nThetaS)= dm*vtc(2*mc-1,nThetaS)
+               dvpdpc(2*mc-1,nThetaN)=-dm*vpc(2*mc  ,nThetaN)
+               dvpdpc(2*mc  ,nThetaN)= dm*vpc(2*mc-1,nThetaN)
+               dvpdpc(2*mc-1,nThetaS)=-dm*vpc(2*mc  ,nThetaS)
+               dvpdpc(2*mc  ,nThetaS)= dm*vpc(2*mc-1,nThetaS)
             end do   ! End of loop over oder m numbered by mc
             PERFOFF_I
          end do      ! End global loop over nTheta
@@ -528,7 +528,7 @@ contains
             end if
     
             do mc=1,n_m_max
-               dm =D_mc2m(mc)
+               dm =D_mc2m(mc)*osn1(nThetaNHS)
                lmS=lStop(mc)
     
                !------ br = r^2 B_r , bt = r sin(theta) B_theta , bp= r sin(theta) B_phi
@@ -537,15 +537,15 @@ contains
                do lm=lStart(mc),lmS-1,2
                   brES=brES + leg_helper%dLhb(lm)  *Plm(lm,nThetaNHS)
                   brEA=brEA + leg_helper%dLhb(lm+1)*Plm(lm+1,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-                  PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                  PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+                  PlmG(lm)=dPlmt(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+                  PlmC(lm)=dPlmt(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+                  PlmG(lm+1)=dPlmt(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+                  PlmC(lm+1)=dPlmt(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
                end do
                if ( lmOdd(mc) ) then
                   brES=brES+leg_helper%dLhb(lm)*Plm(lm,nThetaNHS)
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+                  PlmG(lm)=dPlmt(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+                  PlmC(lm)=dPlmt(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
                end if
                brc(2*mc-1,nThetaN)=real(brES+brEA)
                brc(2*mc  ,nThetaN)=aimag(brES+brEA)
@@ -718,7 +718,7 @@ contains
     
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
-      real(cp) :: dm,dmT
+      real(cp) :: dm
     
       complex(cp) :: vhN1M(n_m_max),vhN2M(n_m_max),vhN1,vhN2,vhN
       complex(cp) :: vhS1M(n_m_max),vhS2M(n_m_max),vhS1,vhS2,vhS
@@ -771,16 +771,16 @@ contains
     
                if ( lViscBcCalc ) then
                   do mc=1,n_m_max
-                     dm =D_mc2m(mc)
+                     dm =D_mc2m(mc)*osn1(nThetaNHS)
                      lmS=lStop(mc)
                      dsdtES=zero
                      dsdtEA=zero
                      do lm=lStart(mc),lmS-1,2
                         dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
-                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
+                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlmt(lm+1,nThetaNHS)
                      end do
                      if ( lmOdd(mc) ) then
-                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
+                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlmt(lmS,nThetaNHS)
                      end if
                      dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
                      dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
@@ -829,7 +829,7 @@ contains
             end do
     
             do mc=1,n_m_max
-               dm =D_mc2m(mc)
+               dm =D_mc2m(mc)*osn1(nThetaNHS)
                lmS=lStop(mc)
                vrES   =zero
                vrEA   =zero
@@ -838,19 +838,19 @@ contains
                !--- 8 add/mult, 29 dble words
                do lm=lStart(mc),lmS-1,2
                   vrES    =vrES    + leg_helper%dLhw(lm)*   Plm(lm,nThetaNHS)
-                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lm)*  dPlm(lm,nThetaNHS)
+                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lm)*  dPlmt(lm,nThetaNHS)
                   PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
                   PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
                   vrEA    =vrEA    + leg_helper%dLhw(lm+1)* Plm(lm+1,nThetaNHS)
-                  dvrdtES =dvrdtES + leg_helper%dLhw(lm+1)*dPlm(lm+1,nThetaNHS)
-                  PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                  PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+                  dvrdtES =dvrdtES + leg_helper%dLhw(lm+1)*dPlmt(lm+1,nThetaNHS)
+                  PlmG(lm+1)=dPlmt(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+                  PlmC(lm+1)=dPlmt(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
                end do
                if ( lmOdd(mc) ) then
                   vrES    =vrES    + leg_helper%dLhw(lmS)* Plm(lmS,nThetaNHS)
-                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lmS)*dPlm(lmS,nThetaNHS)
-                  PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
-                  PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
+                  dvrdtEA =dvrdtEA + leg_helper%dLhw(lmS)*dPlmt(lmS,nThetaNHS)
+                  PlmG(lmS)=dPlmt(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
+                  PlmC(lmS)=dPlmt(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
                end if
                vrc(2*mc-1,nThetaN)   = real(vrES+vrEA)
                vrc(2*mc  ,nThetaN)   =aimag(vrES+vrEA)
@@ -954,15 +954,15 @@ contains
                dvrdpc(2*mc  ,nThetaS)= dm*vrc(2*mc-1,nThetaS)
             end do
             do mc=1,n_m_max
-               dmT=D_mc2m(mc)*osn2(nThetaNHS)
-               dvtdpc(2*mc-1,nThetaN)=-dmT*vtc(2*mc  ,nThetaN)
-               dvtdpc(2*mc  ,nThetaN)= dmT*vtc(2*mc-1,nThetaN)
-               dvtdpc(2*mc-1,nThetaS)=-dmT*vtc(2*mc  ,nThetaS)
-               dvtdpc(2*mc  ,nThetaS)= dmT*vtc(2*mc-1,nThetaS)
-               dvpdpc(2*mc-1,nThetaN)=-dmT*vpc(2*mc  ,nThetaN)
-               dvpdpc(2*mc  ,nThetaN)= dmT*vpc(2*mc-1,nThetaN)
-               dvpdpc(2*mc-1,nThetaS)=-dmT*vpc(2*mc  ,nThetaS)
-               dvpdpc(2*mc  ,nThetaS)= dmT*vpc(2*mc-1,nThetaS)
+               dm=D_mc2m(mc)
+               dvtdpc(2*mc-1,nThetaN)=-dm*vtc(2*mc  ,nThetaN)
+               dvtdpc(2*mc  ,nThetaN)= dm*vtc(2*mc-1,nThetaN)
+               dvtdpc(2*mc-1,nThetaS)=-dm*vtc(2*mc  ,nThetaS)
+               dvtdpc(2*mc  ,nThetaS)= dm*vtc(2*mc-1,nThetaS)
+               dvpdpc(2*mc-1,nThetaN)=-dm*vpc(2*mc  ,nThetaN)
+               dvpdpc(2*mc  ,nThetaN)= dm*vpc(2*mc-1,nThetaN)
+               dvpdpc(2*mc-1,nThetaS)=-dm*vpc(2*mc  ,nThetaS)
+               dvpdpc(2*mc  ,nThetaS)= dm*vpc(2*mc-1,nThetaS)
             end do   ! End of loop over oder m numbered by mc
     
          end do      ! End global loop over nTheta
@@ -1026,17 +1026,17 @@ contains
     
                !--- Horizontal velocity components for nBc=1
                do mc=1,n_m_max
-                  dm =D_mc2m(mc)
+                  dm =D_mc2m(mc)*osn1(nThetaNHS)
                   lmS=lStop(mc)
                   vhN1=zero
                   vhS1=zero
                   vhN2=zero
                   vhS2=zero
                   do lm=lStart(mc),lmS-1,2
-                     PlmG(lm)=dPlm(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
-                     PlmC(lm)=dPlm(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
-                     PlmG(lm+1)=dPlm(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
-                     PlmC(lm+1)=dPlm(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
+                     PlmG(lm)=dPlmt(lm,nThetaNHS)-dm*Plm(lm,nThetaNHS)
+                     PlmC(lm)=dPlmt(lm,nThetaNHS)+dm*Plm(lm,nThetaNHS)
+                     PlmG(lm+1)=dPlmt(lm+1,nThetaNHS)-dm*Plm(lm+1,nThetaNHS)
+                     PlmC(lm+1)=dPlmt(lm+1,nThetaNHS)+dm*Plm(lm+1,nThetaNHS)
                      vhN1=vhN1+leg_helper%vhG(lm)*  PlmG(lm)+    &
                            &   leg_helper%vhG(lm+1)*PlmG(lm+1)
                      vhS1=vhS1-leg_helper%vhG(lm)*  PlmC(lm)+    &
@@ -1047,8 +1047,8 @@ contains
                            &   leg_helper%vhC(lm+1)*PlmG(lm+1)
                   end do
                   if ( lmOdd(mc) ) then
-                     PlmG(lmS)=dPlm(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
-                     PlmC(lmS)=dPlm(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
+                     PlmG(lmS)=dPlmt(lmS,nThetaNHS)-dm*Plm(lmS,nThetaNHS)
+                     PlmC(lmS)=dPlmt(lmS,nThetaNHS)+dm*Plm(lmS,nThetaNHS)
                      vhN1=vhN1+leg_helper%vhG(lmS)*PlmG(lmS)
                      vhS1=vhS1-leg_helper%vhG(lmS)*PlmC(lmS)
                      vhN2=vhN2+leg_helper%vhC(lmS)*PlmC(lmS)

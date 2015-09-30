@@ -3,7 +3,7 @@ module leg_helper_mod
    use precision_mod
    use truncation, only: lm_max,l_max
    use radial_data, only: n_r_icb, n_r_cmb
-   use radial_functions, only: or2
+   use radial_functions, only: or2, or1
    use torsional_oscillations, only: ddzASL
    use Grenoble, only: lGrenoble, b0, db0, ddb0
    use blocking, only: lm2l, lm2m, lm2
@@ -239,11 +239,11 @@ contains
             this%vhG(1) =zero
             this%vhC(1) =zero
             do lm=2,lm_max
-               this%dLhw(lm)=dLh(lm)*w_Rloc(lm,nR)
-               this%vhG(lm) =dw_Rloc(lm,nR) - &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
-               this%vhC(lm) =dw_Rloc(lm,nR) + &
-                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
+               this%dLhw(lm)=dLh(lm)*w_Rloc(lm,nR)*or2(nR)
+               this%vhG(lm) =or1(nR)*(dw_Rloc(lm,nR) - &
+                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp))
+               this%vhC(lm) =or1(nR)*(dw_Rloc(lm,nR) + &
+                    cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp))
             end do
          end if
 
@@ -260,12 +260,14 @@ contains
             this%dvhdrG(1)=zero
             this%dvhdrC(1)=zero
             do lm=2,lm_max
-               this%dLhz(lm)  =dLh(lm)*z_Rloc(lm,nR)
-               this%dLhdw(lm) =dLh(lm)*dw_Rloc(lm,nR)
-               this%dvhdrG(lm)=ddw_Rloc(lm,nR) - &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
-               this%dvhdrC(lm)=ddw_Rloc(lm,nR) + &
-                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
+               this%dLhz(lm)  =dLh(lm)*z_Rloc(lm,nR)*or2(nR)
+               this%dLhdw(lm) =dLh(lm)*dw_Rloc(lm,nR)*or2(nR)-two*or1(nR)*this%dLhw(lm)
+               this%dvhdrG(lm)=or1(nR)*(ddw_Rloc(lm,nR) - &
+                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)) - &
+                               or1(nR)*this%vhG(lm)
+               this%dvhdrC(lm)=or1(nR)*(ddw_Rloc(lm,nR) + &
+                    cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)) - &
+                               or1(nR)*this%vhC(lm)
             end do
 #endif
          end if
@@ -284,11 +286,11 @@ contains
          this%bhG(1) =zero
          this%bhC(1) =zero
          do lm=2,lm_max
-            this%dLhb(lm)=dLh(lm)*b_Rloc(lm,nR)
-            this%bhG(lm) =db_Rloc(lm,nR) - &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
-            this%bhC(lm) =db_Rloc(lm,nR) + &
-                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
+            this%dLhb(lm)=dLh(lm)*b_Rloc(lm,nR)*or2(nR)
+            this%bhG(lm) =or1(nR)*(db_Rloc(lm,nR) - &
+                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp))
+            this%bhC(lm) =or1(nR)*(db_Rloc(lm,nR) + &
+                 cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp))
          end do
 #endif
 #ifndef WITH_SHTNS
@@ -309,10 +311,10 @@ contains
             this%cbhG(1)=zero
             this%cbhC(1)=zero
             do lm=2,lm_max
-               this%dLhj(lm)=dLh(lm)*aj_Rloc(lm,nR)
-               dbd     =or2(nR)*this%dLhb(lm)-ddb_Rloc(lm,nR)
-               this%cbhG(lm)=dj_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp)
-               this%cbhC(lm)=dj_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp)
+               this%dLhj(lm)=dLh(lm)*aj_Rloc(lm,nR)*or2(nR)
+               dbd     =this%dLhb(lm)-ddb_Rloc(lm,nR)
+               this%cbhG(lm)=or1(nR)*(dj_Rloc(lm,nR)-cmplx(-aimag(dbd),real(dbd),kind=cp))
+               this%cbhC(lm)=or1(nR)*(dj_Rloc(lm,nR)+cmplx(-aimag(dbd),real(dbd),kind=cp))
             end do
             if ( lGrenoble ) then ! Add dipole imposed by inner core
                lm=lm2(1,0)

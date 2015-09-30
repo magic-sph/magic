@@ -14,7 +14,7 @@ module rIterThetaBlocking_seq_mod
                     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
                     l_movie_oc
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: or2, orho1
+   use radial_functions, only: or2
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -214,12 +214,12 @@ contains
          if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
             call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%leg_helper%omegaMA,or2(this%nR),   &
-                 &            orho1(this%nR),nThetaStart,             &
+                 &            nThetaStart,                            &
                  &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
          else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
             call get_br_v_bcs(this%gsa%brc,this%gsa%vtc,this%gsa%vpc, &
                  &            this%leg_helper%omegaIC,or2(this%nR),   &
-                 &            orho1(this%nR),nThetaStart,             &
+                 &            nThetaStart,                            &
                  &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
          end if
          PERFOFF

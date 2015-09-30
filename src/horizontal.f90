@@ -11,7 +11,7 @@ module horizontal_data
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
    use logic, only: l_non_rot
-   use plms_theta, only: plm_theta, plm_thetaAS
+   use plms_theta, only: plm_theta_test, plm_thetaAS
 #if (FFTLIB==JW)
    use fft_JW, only: init_fft
 #elif (FFTLIB==MKL)
@@ -44,6 +44,7 @@ module horizontal_data
    real(cp), public, allocatable :: Plm(:,:)
    real(cp), public, allocatable :: wPlm(:,:)
    real(cp), public, allocatable :: dPlm(:,:)
+   real(cp), public, allocatable :: dPlmt(:,:)
    real(cp), public, allocatable :: gauss(:)
    real(cp), public, allocatable :: dPl0Eq(:)
  
@@ -90,6 +91,7 @@ contains
       allocate( Plm(lm_max,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
+      allocate( dPlmt(lm_max,n_theta_max/2) )
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
 
@@ -127,6 +129,7 @@ contains
       real(cp) :: clm(0:l_max+1,0:l_max+1)
       real(cp) :: plma(lmP_max)
       real(cp) :: dtheta_plma(lmP_max)
+      real(cp) :: dplma(lmP_max)
       real(cp) :: colat
       real(cp) :: fac
       real(cp) :: Pl0Eq(l_max+1)
@@ -150,14 +153,15 @@ contains
           !----- plmtheta calculates plms and their derivatives
           !      up to degree and order l_max+1 and m_max at
           !      the points cos(theta_ord(n_theta)):
-          call plm_theta(colat,l_max+1,m_max,minc, &
-                         plma,dtheta_plma,lmP_max,norm)
+          call plm_theta_test(colat,l_max+1,m_max,minc, &
+                         plma,dtheta_plma,dplma,lmP_max,norm)
           do lmP=1,lmP_max
               l=lmP2l(lmP)
               if ( l <= l_max ) then
                   lm=lmP2lm(lmP)
                   Plm(lm,n_theta) =plma(lmP)
                   dPlm(lm,n_theta)=dtheta_plma(lmP)
+                  dPlmt(lm,n_theta)=dplma(lmP)
               end if
               wPlm(lmP,n_theta)=two*pi*gauss(n_theta)*plma(lmP)
           end do

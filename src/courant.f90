@@ -4,11 +4,10 @@ module courant_mod
    use precision_mod
    use truncation, only: nrp, n_phi_max
    use radial_data, only: nRstart, nRstop
-   use radial_functions, only: orho1, orho2, or4, or2
+   use radial_functions, only: orho1, orho2
    use physical_parameters, only: LFfac, opm
    use num_param, only: courfac, delxr2, delxh2, alffac
    use blocking, only: nfs
-   use horizontal_data, only: osn2
    use logic, only: l_mag, l_mag_LF, l_mag_kin
    use useful, only: logWrite
    use const, only: half, one, two
@@ -65,7 +64,6 @@ contains
       real(cp) :: valri2,valhi2,valh2,valh2m
       real(cp) :: vr2max,vh2max
       real(cp) :: valr,valr2,vflr2,vflh2
-      real(cp) :: O_r_E_2,O_r_E_4
       real(cp) :: cf2,af2
     
     
@@ -75,8 +73,6 @@ contains
       vr2max=0.0_cp
       vh2max=0.0_cp
       cf2=courfac*courfac
-      O_r_E_4=or4(n_r)
-      O_r_E_2=or2(n_r)
     
       n_theta=n_theta_min-1
     
@@ -95,16 +91,16 @@ contains
                valr =br(n_phi,n_theta_rel)*br(n_phi,n_theta_rel) * &
                      LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
-               vr2max=max(vr2max,O_r_e_4*(cf2*vflr2+af2*valr2))
+               vr2max=max(vr2max,(cf2*vflr2+af2*valr2))
     
                vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
                         vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-                        osn2(n_theta_nhs)*orho2(n_r)
+                        orho2(n_r)
                valh2= ( bt(n_phi,n_theta_rel)*bt(n_phi,n_theta_rel) +  &
                         bp(n_phi,n_theta_rel)*bp(n_phi,n_theta_rel) )* &
-                        LFfac*osn2(n_theta_nhs)*orho1(n_r)
+                        LFfac*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
-               vh2max=max(vh2max,O_r_E_2*(cf2*vflh2+af2*valh2m))
+               vh2max=max(vh2max,(cf2*vflh2+af2*valh2m))
     
             end do
     
@@ -120,12 +116,12 @@ contains
             do n_phi=1,n_phi_max
     
                vflr2=orho2(n_r)*vr(n_phi,n_theta_rel)*vr(n_phi,n_theta_rel)
-               vr2max=max(vr2max,cf2*O_r_E_4*vflr2)
+               vr2max=max(vr2max,cf2*vflr2)
     
-               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) + &
+               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
                         vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-                        osn2(n_theta_nhs)*orho2(n_r)
-               vh2max=max(vh2max,cf2*O_r_E_2*vflh2)
+                        orho2(n_r)
+               vh2max=max(vh2max,cf2*vflh2)
     
             end do
     

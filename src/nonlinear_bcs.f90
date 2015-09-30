@@ -8,7 +8,7 @@ module nonlinear_bcs
                        sizeThetaB
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
-                              dLh, sn2, cosTheta
+                              dLh, cosTheta, sinTheta
 #if (FFTLIB==JW)
    use fft_JW, only: fft_thetab
 #elif (FFTLIB==MKL)
@@ -25,7 +25,7 @@ module nonlinear_bcs
 
 contains
 
-   subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,O_rho, &
+   subroutine get_br_v_bcs(br,vt,vp,omega,O_r_E_2,    &
         &                  n_theta_min,n_theta_block, &
         &                  br_vt_lm,br_vp_lm)
       !
@@ -51,7 +51,6 @@ contains
       real(cp), intent(in) :: vp(nrp,*)      ! r*sin(theta) U_phi
       real(cp), intent(in) :: omega          ! rotation rate of mantle or IC
       real(cp), intent(in) :: O_r_E_2        ! 1/r**2
-      real(cp), intent(in) :: O_rho          ! 1/rho0 (anelastic)
       integer,  intent(in) :: n_theta_min    ! start of theta block
       integer,  intent(in) :: n_theta_block  ! size of theta_block
     
@@ -67,20 +66,17 @@ contains
       integer :: n_phi       ! number of longitude
       real(cp) :: br_vt(nrp,n_theta_block)
       real(cp) :: br_vp(nrp,n_theta_block)
-      real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
     
       n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
     
       do n_theta_rel=1,n_theta_block
          n_theta=n_theta+1           ! absolute number of theta
     
-         fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
-    
          do n_phi=1,n_phi_max
-            br_vt(n_phi,n_theta_rel)= fac*br(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel)
+            br_vt(n_phi,n_theta_rel)= br(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel)
     
             br_vp(n_phi,n_theta_rel)= br(n_phi,n_theta_rel) * &
-                                     ( fac*vp(n_phi,n_theta_rel) - omega )
+                                     ( vp(n_phi,n_theta_rel) - omega )
          end do
       end do
     
@@ -209,14 +205,14 @@ contains
       real(cp), intent(out) :: dvpdpr(nrp,nfs)
 
       !-- Local variables:
-      real(cp) :: r2
+      real(cp) :: r1
       integer :: nThetaCalc,nTheta,nThetaNHS
       integer :: nPhi
 
       if ( nR == n_r_cmb ) then
-         r2=r_cmb*r_cmb
+         r1=r_cmb
       else if ( nR == n_r_icb ) then
-         r2=r_icb*r_icb
+         r1=r_icb
       else
          write(*,*)
          write(*,*) '! v_rigid boundary called for a grid'
@@ -231,9 +227,9 @@ contains
          do nPhi=1,n_phi_max
             vrr(nPhi,nTheta)=0.0_cp
             vtr(nPhi,nTheta)=0.0_cp
-            vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
+            vpr(nPhi,nTheta)=r1*sinTheta(nThetaCalc)*omega
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
+               cvrr(nPhi,nTheta)  =two*cosTheta(nThetaCalc)*omega
                dvrdtr(nPhi,nTheta)=0.0_cp
                dvrdpr(nPhi,nTheta)=0.0_cp
                dvtdpr(nPhi,nTheta)=0.0_cp

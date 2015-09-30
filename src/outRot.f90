@@ -18,7 +18,7 @@ module outRot
                     y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R
-   use horizontal_data, only: cosTheta, gauss
+   use horizontal_data, only: cosTheta, gauss, sinTheta
    use Grenoble, only: BIC, lGrenoble
 
    implicit none
@@ -447,7 +447,7 @@ contains
             !                          gauss(nThetaNHS) * &
             !       (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-                   (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
+                   (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)*r(nR)**3*sinTheta(nTheta)
          end do
          !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
       end do
@@ -508,7 +508,7 @@ contains
       fac=8.0_cp*third*pi
       angular_moment_oc(1)= two*fac*y11_norm * angular_moment_oc(1)
       angular_moment_oc(2)=-two*fac*y11_norm * angular_moment_oc(2)
-      angular_moment_oc(3)=      fac*y10_norm * angular_moment_oc(3)
+      angular_moment_oc(3)=     fac*y10_norm * angular_moment_oc(3)
     
       !----- Now inner core and mantle:
       angular_moment_ic(1)=0.0_cp

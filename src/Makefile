@@ -18,7 +18,7 @@ USE_MKL=no
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
 # use shtns library
-USE_SHTNS=yes
+USE_SHTNS=no
 
 USE_PERFLIB=none
 
@@ -31,8 +31,10 @@ ifdef HDF5DIR
 	HDF5ICL=$(HDF5INCLUDE)
 endif
 
-SHTNS_INC = -I$(HOME)/local/include
-FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -lfftw3_omp -lfftw3 -lrt -lm
+SHTNS_INC = $(HOME)/local/include
+#FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+
 
 # preconditioning of the matrices
 # switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
@@ -128,7 +130,7 @@ endif
 # not found in the standard location. It is used for example
 # on hydra, if one compiles with the gnu compilers.
 #MPI_INCPATH=/usr/lib64/mpi/gcc/openmpi/include
-MPI_INCPATH=$(shell mpif90 --showme:incdirs)
+#MPI_INCPATH=$(shell mpif90 --showme:incdirs)
 
 PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4
 ifeq ($(USE_MPI),yes)

@@ -14,7 +14,7 @@ module rIterThetaBlocking_OpenMP_mod
                     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
                     l_movie_oc
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: or2, orho1
+   use radial_functions, only: or2
 #if (FFTLIB==JW)
    use fft_JW
 #elif (FFTLIB==MKL)
@@ -196,7 +196,7 @@ contains
       !$OMP SHARED(this,l_mag,l_b_nl_cmb,l_b_nl_icb,l_mag_LF,l_rot_ic,l_cond_ic) &
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
-      !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
+      !$OMP SHARED(or2,time,dt,dtLast,DEBUG_OUTPUT) &
       !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
@@ -302,12 +302,12 @@ contains
          if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
             call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
                  &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,    &
-                 &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+                 &            or2(this%nR),nThetaStart,                          &
                  &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
          else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
             call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
                  &            this%gsa(threadid)%vpc,this%leg_helper%omegaIC,    &
-                 &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+                 &            or2(this%nR),nThetaStart,                          &
                  &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
          end if
          !PERFOFF

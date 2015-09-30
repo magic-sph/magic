@@ -16,10 +16,10 @@ module grid_space_arrays_mod
    use precision_mod
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
-                               lambda, or4, or1
+                               lambda, or4, or1, r2
    use physical_parameters, only: LFfac, n_r_LCR
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: osn2, cosn2
+   use horizontal_data, only: osn2, cosn2, osn1, cosTheta
    use const, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF
 
@@ -177,7 +177,7 @@ contains
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2
+      real(cp) :: or2sn2,or4sn2,csn2,or1sn1,os1,cs1
 
 
       nThetaLast=nThetaStart-1
@@ -189,11 +189,11 @@ contains
 
             nTheta   =nTheta+1
             nThetaNHS=(nTheta+1)/2
-            or4sn2   =or4(nR)*osn2(nThetaNHS)
+            or1sn1   =or1(nR)*osn1(nThetaNHS)
 
             do nPhi=1,n_phi_max
                !---- LFr= r**2/(E*Pm) * ( curl(B)_t*B_p - curl(B)_p*B_t )
-               this%LFr(nPhi,nThetaB)=  LFfac*osn2(nThetaNHS) * (        &
+               this%LFr(nPhi,nThetaB)=  LFfac* r2(nR)* (                 &
                         this%cbtc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) - &
                         this%cbpc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) )
             end do
@@ -202,7 +202,7 @@ contains
 
             !---- LFt= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_p*B_r - curl(B)_r*B_p )
             do nPhi=1,n_phi_max
-               this%LFt(nPhi,nThetaB)=           LFfac*or4sn2 * (        &
+               this%LFt(nPhi,nThetaB)=   LFfac*or1sn1* (                 &
                         this%cbpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) - &
                         this%cbrc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) )
             end do
@@ -211,7 +211,7 @@ contains
 
             !---- LFp= 1/(E*Pm) * 1/(r*sin(theta)) * ( curl(B)_r*B_t - curl(B)_t*B_r )
             do nPhi=1,n_phi_max
-               this%LFp(nPhi,nThetaB)=           LFfac*or4sn2 * (        &
+               this%LFp(nPhi,nThetaB)=       LFfac*or1sn1* (             &
                         this%cbrc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) - &
                         this%cbtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) )
             end do
@@ -228,49 +228,46 @@ contains
          do nThetaB=1,sizeThetaB ! loop over theta points in block
             nTheta   =nTheta+1
             nThetaNHS=(nTheta+1)/2
-            or4sn2   =or4(nR)*osn2(nThetaNHS)
-            csn2     =cosn2(nThetaNHS)
-            if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+            or1sn1   =or1(nR)*osn1(nThetaNHS)
+            cs1      =cosTheta(nTheta)
+            os1      =osn1(nThetaNHS)
 
             do nPhi=1,n_phi_max
-               this%Advr(nPhi,nThetaB)=          -or2(nR)*orho1(nR) * (  &
+               this%Advr(nPhi,nThetaB)=          -orho1(nR) * r2(nR)*(   &
                                                 this%vrc(nPhi,nThetaB) * &
-                                     (       this%dvrdrc(nPhi,nThetaB) - &
-                    ( two*or1(nR)+beta(nR) )*this%vrc(nPhi,nThetaB) ) +  &
-                                               osn2(nThetaNHS) * (       &
-                                                this%vtc(nPhi,nThetaB) * &
+                                             this%dvrdrc(nPhi,nThetaB) + &
+                                        or1(nR)*this%vtc(nPhi,nThetaB) * &
                                      (       this%dvrdtc(nPhi,nThetaB) - &
-                                  r(nR)*      this%vtc(nPhi,nThetaB) ) + &
-                                                this%vpc(nPhi,nThetaB) * &
-                                     (       this%dvrdpc(nPhi,nThetaB) - &
-                                    r(nR)*      this%vpc(nPhi,nThetaB) ) ) )
+                                              this%vtc(nPhi,nThetaB) ) + &
+                                        or1(nR)*this%vpc(nPhi,nThetaB) * &
+                                     (   os1*this%dvrdpc(nPhi,nThetaB) - &
+                                                this%vpc(nPhi,nThetaB) ) ) 
             end do
             this%Advr(n_phi_max+1,nThetaB)=0.0_cp
             this%Advr(n_phi_max+2,nThetaB)=0.0_cp
             do nPhi=1,n_phi_max
-               this%Advt(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
-                                            -this%vrc(nPhi,nThetaB) * &
+               this%Advt(nPhi,nThetaB)=        -or1sn1*orho1(nR) * (  &
+                                             this%vrc(nPhi,nThetaB) * &
                                       (   this%dvtdrc(nPhi,nThetaB) - &
-                                beta(nR)*this%vtc(nPhi,nThetaB) )   + &
-                                             this%vtc(nPhi,nThetaB) * &
-                                      ( csn2*this%vtc(nPhi,nThetaB) + &
-                                          this%dvpdpc(nPhi,nThetaB) + &
-                                      this%dvrdrc(nPhi,nThetaB) )   + &
-                                             this%vpc(nPhi,nThetaB) * &
-                                      ( csn2*this%vpc(nPhi,nThetaB) - &
-                                          this%dvtdpc(nPhi,nThetaB) )  )
+                      (beta(nR)+or1(nR))*this%vtc(nPhi,nThetaB) )   + &
+                                                           or1sn1* (  &
+                   this%vpc(nPhi,nThetaB)*this%dvtdpc(nPhi,nThetaB) - &
+                   this%vtc(nPhi,nThetaB)*this%dvpdpc(nPhi,nThetaB) - &
+             cs1*( this%vtc(nPhi,nThetaB)*this%vtc(nPhi,nThetaB) +    &
+                   this%vpc(nPhi,nThetaB)*this%vpc(nPhi,nThetaB) ) )- &
+                   this%vtc(nPhi,nThetaB)*this%dvrdrc(nPhi,nThetaB) )
             end do
             this%Advt(n_phi_max+1,nThetaB)=0.0_cp
             this%Advt(n_phi_max+2,nThetaB)=0.0_cp
             do nPhi=1,n_phi_max
-               this%Advp(nPhi,nThetaB)=         or4sn2*orho1(nR) * (  &
-                                            -this%vrc(nPhi,nThetaB) * &
-                                        ( this%dvpdrc(nPhi,nThetaB) - &
-                                beta(nR)*this%vpc(nPhi,nThetaB) )   - &
+               this%Advp(nPhi,nThetaB)=        -or1sn1*orho1(nR) * (  &
+                                             this%vrc(nPhi,nThetaB) * &
+                                        ( this%dvpdrc(nPhi,nThetaB) + &
+                                 or1(nR)*this%vpc(nPhi,nThetaB) )   + &
                                              this%vtc(nPhi,nThetaB) * &
-                                        ( this%dvtdpc(nPhi,nThetaB) + &
-                                        this%cvrc(nPhi,nThetaB) )   - &
-                       this%vpc(nPhi,nThetaB) * this%dvpdpc(nPhi,nThetaB) )
+                                 ( or1sn1*this%dvtdpc(nPhi,nThetaB) + &
+                                        this%cvrc(nPhi,nThetaB) )   + &
+                 or1sn1*this%vpc(nPhi,nThetaB)*this%dvpdpc(nPhi,nThetaB) )
             end do
             this%Advp(n_phi_max+1,nThetaB)=0.0_cp
             this%Advp(n_phi_max+2,nThetaB)=0.0_cp
@@ -284,14 +281,15 @@ contains
          do nThetaB=1,sizeThetaB
             nTheta   =nTheta+1
             nThetaNHS=(nTheta+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
+            or1sn1=or1(nR)*osn1(nThetaNHS)
+
             do nPhi=1,n_phi_max     ! calculate v*s components
-               this%VSr(nPhi,nThetaB)= &
+               this%VSr(nPhi,nThetaB)= r2(nR)* &
                     this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
                this%VSt(nPhi,nThetaB)= &
-                    or2sn2*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                    or1sn1*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
                this%VSp(nPhi,nThetaB)= &
-                    or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                    or1sn1*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
             end do
             this%VSr(n_phi_max+1,nThetaB)=0.0_cp
             this%VSr(n_phi_max+2,nThetaB)=0.0_cp
@@ -311,10 +309,10 @@ contains
             do nThetaB=1,sizeThetaB
                nTheta   =nTheta+1
                nThetaNHS=(nTheta+1)/2
-               or4sn2=or4(nR)*osn2(nThetaNHS)
+               or1sn1=or1(nR)*osn1(nThetaNHS)
 
                do nPhi=1,n_phi_max
-                  this%VxBr(nPhi,nThetaB)=  orho1(nR)*osn2(nThetaNHS) * (        &
+                  this%VxBr(nPhi,nThetaB)=  orho1(nR) * r2(nR)* (                &
                                  this%vtc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) - &
                                  this%vpc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) )
                end do
@@ -322,7 +320,7 @@ contains
                this%VxBr(n_phi_max+2,nThetaB)=0.0_cp
 
                do nPhi=1,n_phi_max
-                  this%VxBt(nPhi,nThetaB)=  orho1(nR)*or4sn2 * (        &
+                  this%VxBt(nPhi,nThetaB)=  orho1(nR)*or1sn1 * (        &
                         this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) - &
                         this%vrc(nPhi,nThetaB)*this%bpc(nPhi,nThetaB) )
                end do
@@ -330,7 +328,7 @@ contains
                this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
 
                do nPhi=1,n_phi_max
-                  this%VxBp(nPhi,nThetaB)=   orho1(nR)*or4sn2 * (        &
+                  this%VxBp(nPhi,nThetaB)=   orho1(nR)*or1sn1 * (        &
                          this%vrc(nPhi,nThetaB)*this%btc(nPhi,nThetaB) - &
                          this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB) )
                end do
@@ -344,11 +342,12 @@ contains
             do nThetaB=1,sizeThetaB
                nTheta   =nTheta+1
                nThetaNHS=(nTheta+1)/2
-               or4sn2   =or4(nR)*osn2(nThetaNHS)
+               or1sn1=or1(nR)*osn1(nThetaNHS)
+
                do nPhi=1,n_phi_max
-                  this%VxBt(nPhi,nThetaB)=  or4sn2 * orho1(nR) * &
+                  this%VxBt(nPhi,nThetaB)=  or1sn1 * orho1(nR) * &
                        this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
-                  this%VxBp(nPhi,nThetaB)= -or4sn2 * orho1(nR) * &
+                  this%VxBp(nPhi,nThetaB)= -or1sn1 * orho1(nR) * &
                        this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                end do
                this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
@@ -364,9 +363,10 @@ contains
             do nThetaB=1,sizeThetaB
                nTheta   =nTheta+1
                nThetaNHS=(nTheta+1)/2
-               or4sn2   =or4(nR)*osn2(nThetaNHS)
+               or1sn1   =or1(nR)*osn1(nThetaNHS)
+
                do nPhi=1,n_phi_max
-                  this%VxBt(nPhi,nThetaB)= or4sn2 * orho1(nR) * &
+                  this%VxBt(nPhi,nThetaB)= or1sn1 * orho1(nR) * &
                        this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                   this%VxBp(nPhi,nThetaB)= 0.0_cp
                end do

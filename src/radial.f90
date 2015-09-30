@@ -26,7 +26,7 @@ module radial_functions
    real(cp), public, allocatable :: r_ic(:)
    real(cp), public, allocatable :: O_r_ic(:)
    real(cp), public, allocatable :: O_r_ic2(:)
-   real(cp), public, allocatable :: or1(:),or2(:),or3(:),or4(:)
+   real(cp), public, allocatable :: or1(:),or2(:),or3(:),or4(:),r2(:)
    real(cp), public, allocatable :: otemp1(:),rho0(:),temp0(:)
    real(cp), public, allocatable :: dtemp0(:),d2temp0(:)
    real(cp), public, allocatable :: dentropy0(:)
@@ -105,7 +105,7 @@ contains
       allocate( r_ic(n_r_ic_max) )
       allocate( O_r_ic(n_r_ic_max) )
       allocate( O_r_ic2(n_r_ic_max) )
-      allocate( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max) )
+      allocate( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max), r2(n_r_max) )
       allocate( otemp1(n_r_max),rho0(n_r_max),temp0(n_r_max) )
       allocate( dtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
       allocate( orho1(n_r_max),orho2(n_r_max) )
@@ -247,9 +247,10 @@ contains
                        d_costf_init,nDd_costf1)
 
       or1=one/r        ! 1/r
-      or2=or1*or1       ! 1/r**2
-      or3=or1*or2       ! 1/r**3
-      or4=or2*or2       ! 1/r**4
+      or2=or1*or1      ! 1/r**2
+      r2 =r*r          ! Square of the radius
+      or3=or1*or2      ! 1/r**3
+      or4=or2*or2      ! 1/r**4
 
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then

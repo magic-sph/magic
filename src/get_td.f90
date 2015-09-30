@@ -425,7 +425,7 @@ contains
                           leg_helper%dpR(lm)+beta(nR)*leg_helper%preR(lm)+ &
                           rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
                      AdvTor(lm)=AdvTor(lm)+CorTor(lm)+LFTor(lm)
-                     CorPol(lm)=or2(nR)*leg_helper%dLhw(lm)
+                     CorPol(lm)=leg_helper%dLhw(lm)
                   else
                      AdvPol(lm)=CorPol(lm)-leg_helper%dpR(lm)+ &
                                 beta(nR)*leg_helper%preR(lm)
@@ -453,7 +453,7 @@ contains
             !$OMP private(AdvPol_loc,CorPol_loc) &
             !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmpS,lmP2lmPA) &
             !$OMP shared(lm_max,l_max,nR,l_corr,l_conv_nl) &
-            !$OMP shared(CorFac,or1,or2,dPhi0,dTheta3A,dTheta3S,dTheta1S,dTheta1A) &
+            !$OMP shared(CorFac,r,or2,dPhi0,dTheta3A,dTheta3S,dTheta1S,dTheta1A) &
             !$OMP shared(z_Rloc,dPhi,leg_helper,dw_Rloc) &
             !$OMP shared(CorPol,AdvPol,dpdt,this)
             !LIKWID_ON('td_cv2')
@@ -473,7 +473,7 @@ contains
                   if ( l < l_max .and. l > m ) then
                      CorPol_loc=                    two*CorFac*or2(nR) * &
                           &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                          &                  +or1(nR)*leg_helper%dLhw(lm) &
+                          &                  +r(nR)*leg_helper%dLhw(lm) &
                           &                                             ) &
                           &                  +dTheta3A(lm)*z_Rloc(lmA,nR) &
                           &                  +dTheta3S(lm)*z_Rloc(lmS,nR) &
@@ -481,12 +481,12 @@ contains
     
                   else if ( l == l_max ) then
                      CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
-                                 ( dw_Rloc(lm,nR) + or1(nR)*leg_helper%dLhw(lm) ) )
+                                 ( dw_Rloc(lm,nR) + r(nR)*leg_helper%dLhw(lm) ) )
     
                   else if ( l == m ) then
-                     CorPol_loc=                    two*CorFac*or2(nR) * &
+                     CorPol_loc=                    two*CorFac*or2(nR) *  &
                           &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                          &                  +or1(nR)*leg_helper%dLhw(lm) &
+                          &                  +r(nR)*leg_helper%dLhw(lm)   &
                           &                                              )&
                           &                 +dTheta3A(lm)*z_Rloc(lmA,nR)  &
                           &               )
