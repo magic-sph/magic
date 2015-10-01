@@ -8,10 +8,6 @@
 
 /* -- page layout ----------------------------------------------------------- */
 
-img {
-     background-color: rgba(255,255,255,0.4);
-}
-
 body {
     min-width: 780px;
 }
@@ -26,12 +22,11 @@ body {
     float: right;
     display: inline-block;
     background-color: rgba(189,216,236,0.4);
-    /*opacity: 0.6;*/
-    /*color: #000;*/
     list-style-type: none;
     padding: 8px 12px;
     margin-top: 50px;
     margin-right: 30px;
+    /*color: #000;*/
 }
 
 .pageheader li {
@@ -43,7 +38,7 @@ body {
     border-radius: 1px;
     padding: 8px 12px;
     font-size:120%;
-    color: #000;/*#f9f9f0;*/
+    color: #000;	/*#f9f9f0;*/
     /*text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);*/
 }
 
