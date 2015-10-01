@@ -11,7 +11,7 @@ module outPV3
    use blocking, only: lm2, lm2m, lm2l, lm2mc
    use horizontal_data, only: dLh, dPhi
    use logic, only: lVerbose, l_SRIC
-   use output_data, only: tag, sDens
+   use output_data, only: tag, sDens, nSmaxA, nZmaxA
    use LMLoop_data, only: llm, ulm
    use plms_theta, only: plm_theta
    use constants, only: pi, zero, one, two, half, ci
@@ -27,8 +27,6 @@ module outPV3
  
    private
  
-   integer, parameter :: nSmaxA=97
-   integer, parameter :: nZmaxA=2*nSmaxA
    real(cp), allocatable :: rZ(:,:)
    real(cp), allocatable :: PlmS(:,:,:)
    real(cp), allocatable :: dPlmS(:,:,:)

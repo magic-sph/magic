@@ -12,7 +12,7 @@ module Egeos_mod
    use blocking, only: lm2l, lm2m, lm2mc
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel
-   use output_data, only: sDens, zDens, tag, runid
+   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA
    use constants, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
@@ -28,9 +28,6 @@ module Egeos_mod
    implicit none 
  
    private
- 
-   integer, parameter :: nSmaxA=97
-   integer, parameter :: nZmaxA=2*nSmaxA
  
    real(cp), allocatable :: PlmS(:,:,:)  ! This is huge !
    real(cp), allocatable :: dPlmS(:,:,:) ! This is huge !

@@ -18,7 +18,8 @@ module outTO_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs, st_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
-   use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file
+   use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file, &
+                          nSmaxA, nZmaxA
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
    use charmanip, only: dble2str
@@ -36,8 +37,6 @@ module outTO_mod
    private
    
    integer :: lmMaxS
-   integer :: nZmaxA,nZmaxL
-   integer :: nSmaxA,nSmaxL
  
    !-- Plms: Plm,sin
    real(cp), allocatable :: PlmS(:,:,:)
@@ -54,10 +53,6 @@ contains
 
    subroutine initialize_outTO_mod
 
-      nZmaxL=lStressMem*722
-      nZmaxA=max(2,nZmaxL)
-      nSmaxL=lStressMem*625
-      nSmaxA=max(3,nSmaxL)
       lmMaxS = l_max+1
 
       allocate( PlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )

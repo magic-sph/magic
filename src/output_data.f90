@@ -127,6 +127,9 @@ module output_data
    character(len=72), public :: power_file
    !----- Z-integrated output:
    real(cp), public :: zDens,sDens
+
+   integer, public, parameter :: nSmaxA=97
+   integer, public, parameter :: nZmaxA=2*nSmaxA
  
    !----- RMS cut radius and dealiasing:
    real(cp), public :: rCut,rDea

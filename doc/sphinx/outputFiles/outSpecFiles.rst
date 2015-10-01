@@ -128,6 +128,76 @@ This file contains the temperature/entropy spectra. It is written by the subrout
    |               | versus order                                              |
    +---------------+-----------------------------------------------------------+
 
+.. _sec2DSpectra:
+
+2D spectra `[2D_kin|mag|u2_spec]_#.TAG`
+--------------------------------------
+
+Those files contain 2-D spectra in the :math:`(r,\ell)` and in the
+:math:`(r,m)` planes.  In other words, the poloidal and toroidal energies
+versus degree :math:`\ell` or versus order :math:`m` are computed for all
+radii. There are three kinds of those files that correspond to the
+aforementioned spectra, namely **2D_kin_spec_#.TAG**, **2D_mag_spec_#.TAG**
+and **2D_u2_spec_#.TAG**. The calculations are done in the subroutine
+:f:subr:`spectrum <spectra/spectrum()>`. The structure of the output files 
+are same for these three outputs. They are stored as fortran unformatted files,
+which can be described as follows:
+
+
+   .. code-block:: fortran
+
+       !-------------
+       ! Line 1
+       !-------------
+
+       time, n_r_max, l_max, minc ! Time, resolution, max(\ell), azimuthal symmetry
+
+       !-------------
+       ! Line 2
+       !-------------
+
+       r(1), r(2), r(3), ..., r(n_r_max)                  ! Radius
+
+       !-------------
+       ! Line 3
+       !-------------
+
+       e_p_l(l=1,r=1), e_p_l(l=1,r=2), ..., e_p_l(l=1,r=n_r_max),        ! Poloidal energy
+       ...                                                               ! versus degree
+       e_p_l(l=l_max,r=1), e_p_l(l=l_max,r=2), ..., e_p_l(l=l_max,r=n_r_max),
+
+       !-------------
+       ! Line 4
+       !-------------
+
+       e_p_m(m=0,r=1), e_p_l(m=0,r=2), ..., e_p_l(m=1,r=n_r_max),        ! Poloidal energy
+       ...                                                               ! versus order
+       e_p_l(m=l_max,r=1), e_p_l(m=l_max,r=2), ..., e_p_l(m=l_max,r=n_r_max),
+
+       !-------------
+       ! Line 3
+       !-------------
+
+       e_t_l(l=1,r=1), e_t_l(l=1,r=2), ..., e_t_l(l=1,r=n_r_max),        ! Toroidal energy
+       ...                                                               ! versus degree
+       e_t_l(l=l_max,r=1), e_t_l(l=l_max,r=2), ..., e_t_l(l=l_max,r=n_r_max),
+
+       !-------------
+       ! Line 4
+       !-------------
+
+       e_t_m(m=0,r=1), e_t_l(m=0,r=2), ..., e_t_l(m=1,r=n_r_max),        ! Toroidal energy
+       ...                                                               ! versus order
+       e_t_l(m=l_max,r=1), e_t_l(m=l_max,r=2), ..., e_t_l(m=l_max,r=n_r_max),
+
+Those files can be read using the python class :py:class:`MagicSpectrum2D <magic.MagicSpectrum2D>` with
+the following options:
+
+   >>> # Read the file 2D_mag_spec_3.ext
+   >>> sp = MagicRSpec(tag='ext', field=e_mag', ispec=3)
+   >>> # Print e_pol_l and e_tor_m
+   >>> print(sp.e_pol_l, sp.e_tor_m)
+
 
 .. _secKinSpecAveFile:
 
@@ -267,8 +337,3 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    |               | at the ICB  versus degree                                 |
    +---------------+-----------------------------------------------------------+
 
-
-.. _sec2DSpectra:
-
-2D spectra
-----------

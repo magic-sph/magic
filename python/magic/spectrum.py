@@ -307,7 +307,7 @@ class MagicSpectrum(MagicSetup):
 class MagicSpectrum2D(MagicSetup):
     """
     This class can be used to read and display 2-D spectra in the :math:`(r,\ell)`
-    or in the :math:`(r,m)` planes
+    and in the :math:`(r,m)` planes
 
         * Kinetic energy spectra: :ref:`2D_kin_spec_#.TAG <sec2DSpectra>`
         * Velocity square spectra: :ref:`2D_u2_spec_#.TAG <sec2DSpectra>`
