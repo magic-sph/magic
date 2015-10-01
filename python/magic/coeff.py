@@ -233,7 +233,7 @@ class MagicCoeffR(MagicSetup):
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
                  field='B', r=1, precision='Float64'):
         """
-        :param tag: if you specify a pattern, it tires to read the corresponding files
+        :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
         :param ratio_cmb_surface: ratio of surface ratio to CMB radius (default is 1)
         :type ratio_cmb_surface: float

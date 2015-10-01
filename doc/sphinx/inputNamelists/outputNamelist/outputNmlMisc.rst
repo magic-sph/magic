@@ -42,7 +42,11 @@ Helicity
 Power budget
 ++++++++++++
 
-* **l_power** (default :f:var:`l_power.false. <l_power>`) is a logical. When set to ``.true.``, this logical enables the calculation of input and output power (buoyancy, viscous and ohmic dissipations, torques). The time series are stored in :ref:`power.TAG <secPowerFile>` and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
+* **l_power** (default :f:var:`l_power.false. <l_power>`) is a logical. When
+  set to ``.true.``, this logical enables the calculation of input and output
+  power (buoyancy, viscous and ohmic dissipations, torques). The time series
+  are stored in :ref:`power.TAG <secPowerFile>` and :ref:`dtE.TAG <secdtEFile>` 
+  and the time-averaged radial profiles in :ref:`powerR.TAG <secPowerRfile>`.
 
 .. _varl_AM:
 

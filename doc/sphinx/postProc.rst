@@ -189,13 +189,15 @@ API of the available classes, as well as some practical examples:
 
      7. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
 
-     8. To read and analyse torsional oscillations outputs, :ref:`see here <secPythonTO>`.
+     8. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
 
-     9. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
+     9. To read and analyse radial spectra **B[r|p]Spec.TAG**, :ref:`see here <secPythonRSpec>`.
 
-     10. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
+     10. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
 
-     11. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
+     11. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
+
+     12. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
 
 
 .. toctree::

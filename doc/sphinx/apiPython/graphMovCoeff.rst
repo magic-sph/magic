@@ -39,3 +39,13 @@ Support for ``B_cmb_coeff.TAG`` and ``(V|B)_coeff_r#.TAG`` files
    :private-members:
    :special-members:
 
+.. _secPythonRSpec:
+
+Support for ``B[rp]Spec.TAG``
+-----------------------------
+
+.. autoclass:: magic.MagicRSpec
+   :members:
+   :private-members:
+   :special-members:
+

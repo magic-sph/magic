@@ -84,6 +84,28 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
    >>> # To stack the files that match the pattern  ``power.N0m2*``
    >>> ts = MagicTs(field='power', tags='N0m2*')
 
+.. _secdtEFile:
+
+``dtE.TAG``
+-----------
+
+.. note:: This file is **only** written when :ref:`l_power=.true. <varl_power>`
+
+This file contains the time-derivatives of the total energy. It allows to accurately
+monitor how the total energy varies with time. This file is generated
+by the subroutine :f:subr:`output <output_mod/output()>`.
+
+   +---------------+------------------------------------------------------------------+
+   | No. of column | Contents                                                         |
+   +===============+==================================================================+
+   | 1             | time                                                             |
+   +---------------+------------------------------------------------------------------+
+   | 2             | time-derivative of the total energy :math:`\partial E/\partial t`|
+   +---------------+------------------------------------------------------------------+
+   | 3             | integrated time variation of the total energy                    |
+   +---------------+------------------------------------------------------------------+
+   | 4             | relative time variation of the total energy                      |
+   +---------------+------------------------------------------------------------------+
 
 .. _secu_squareFile:
 
@@ -483,13 +505,3 @@ This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the followi
 
    >>> # To stack all the perpPar.TAG files of the current directory
    >>> ts = MagicTs(field='perpPar', all=True)
-
-
-.. _secrBspecFiles:
-
-``rB[r|p]Spec.TAG``
--------------------
-
-.. note:: This files are **only** written when :ref:`l_rMagSpec=.true. <varl_rMagSpec>`
-
-The calculations are done in the ``radial_spectra.f90`` files.

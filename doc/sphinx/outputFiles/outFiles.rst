@@ -31,7 +31,7 @@ and the structure of the different type of output files:
       :ref:`input parameters <secOutputNml>`:
 
          * Angular momentum balance: :ref:`AM.TAG <secAMFile>`,
-	 * Power budget: :ref:`power.TAG <secpowerFile>`,
+	 * Power budget: :ref:`power.TAG <secpowerFile>` and `dtE.TAG <secdtEFile>`,
 	 * Square velocities: :ref:`u_square.TAG <secu_squareFile>`,
 	 * Drift rates: :ref:`drift[V|B][D|Q].TAG <secdriftFile>` and :ref:`iner[P|T].TAG <secinerFile>`,
 	 * Torques: :ref:`SR[IC|MA].TAG <secSRFile>`,
@@ -107,4 +107,5 @@ and the structure of the different type of output files:
    outRst.rst
    outCoeffFiles.rst
    outTOFiles.rst
+   outRSpecFiles.rst
    outPotFiles.rst

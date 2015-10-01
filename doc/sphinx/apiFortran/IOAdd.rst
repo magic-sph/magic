@@ -42,6 +42,11 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: outto_mod
 
+``radial_spectra.f90``
+----------------------
+
+.. f:automodule:: radial_spectra
+
 ``Egeos.f90``
 -------------
 

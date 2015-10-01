@@ -13,6 +13,7 @@ from .butterfly import *
 from .bLayers import *
 from .thHeat import *
 from .coeff import *
+from .radialSpectra import *
 if buildSo:
     try:
         from .potExtra import *
