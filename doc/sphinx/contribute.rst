@@ -11,12 +11,12 @@ several ways to directly contribute to the code:
    * **Do you want to contribute to the code?** Just clone the code and start modyfing it.
      Make sure that your modifications :ref:`don't alter the code <secAutoTest>`, try
      to :ref:`document your changes <secDocSphinx>` as much as you can and follow
-     the recommanded :ref:`Fortran coding style <secModernFortran>`.
+     the recommended :ref:`Fortran coding style <secModernFortran>`.
 
    * **Do you want to improve the documentation?** Feel free to document some missing
      features. The documentation is stored in the directory :code:`$MAGIC_HOME/doc/sphinx`
      and relies on the documenting tool `Sphinx <http://sphinx-doc.org/>`_. Some 
-     recommandations regarding documentation can be found :ref:`below <secDocSphinx>`.
+     recommendations regarding documentation can be found :ref:`below <secDocSphinx>`.
 
    * **Did you find a bug?** Issues and feature requests should be raised in the
      `github tracker <https://github.com/magic-sph/magic/issues>`_.
@@ -129,7 +129,7 @@ Advices when contributing to the code
   5. Always use the default precisions when introducing new variables :code:`(cp)`
 
 
-These rules try to follow the general recommandations on modern fortran programming
+These rules try to follow the general recommendations on modern fortran programming
 that can be found on `www.fortran90.org <http://www.fortran90.org/src/best-practices.html>`_ or in the book
 `Modern Fortran - style and usage <http://www.cambridge.org/us/academic/subjects/computer-science/scientific-computing-scientific-software/modern-fortran-style-and-usage>`_ by N. S. Clerman and W. Spector.
 
@@ -169,5 +169,5 @@ The resulting pdf is then generated in a local directory named
 :code:`$MAGIC_HOME/doc/sphinx/.build/latex`. 
 
 It is pretty straightforward to contribute to the documentation by simply adding some
-contents to the different :code:`rst` files. Informations about `reStructuredText <http://docutils.sourceforge.net/rst.html>`_ syntax can be found ont `www.sphinx-doc.org <http://sphinx-doc.org/rest.html>`_,
+contents to the different :code:`rst` files. Informations about `reStructuredText <http://docutils.sourceforge.net/rst.html>`_ syntax can be found on `www.sphinx-doc.org <http://sphinx-doc.org/rest.html>`_,
 while helpful CheatSheet are accessible `here <http://openalea.gforge.inria.fr/doc/openalea/doc/_build/html/source/sphinx/rest_syntax.html>`_ or `there <http://thomas-cokelaer.info/tutorials/sphinx/rest_syntax.html>`_.

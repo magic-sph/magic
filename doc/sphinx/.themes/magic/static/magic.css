@@ -9,30 +9,38 @@
 /* -- page layout ----------------------------------------------------------- */
 
 
+body {
+    min-width: 780px;
+}
+
 .pageheader {
-    background-image: url(footerbg.png);
+    background-image: url(back02.png);
     text-align: left;
-    padding: 10px 15px;
+    padding: 0px 0px 0px 15px;
 }
 
 .pageheader ul {
     float: right;
-    color: white;
+    display: inline-block;
+    background-color:#bdd8ec;
+    opacity: 0.6;
+    /*color: #000;*/
     list-style-type: none;
-    padding-left: 0;
-    margin-top: 30px;
-    margin-right: 10px;
+    padding: 8px 12px;
+    margin-top: 50px;
+    margin-right: 30px;
 }
 
 .pageheader li {
     float: left;
-    margin: 0 0 0 10px;
+    margin: 0 0 0 0px;
 }
 
 .pageheader li a {
     border-radius: 1px;
     padding: 8px 12px;
-    color: #f9f9f0;
+    font-size:120%;
+    color: #000;/*#f9f9f0;*/
     text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
 }
 
@@ -43,8 +51,23 @@
 }
 
 div.topic {
-    background-color: #ffe4e4;
-    font-size: 120%;
-    border: 1px solid #f66;
+    background-color: #D2E2EC;
+    font-family: Arial,sans-serif;
+    font-size: 110%;
+    border: 1px solid #000;
 }
 
+div.sphinxsidebar {
+	margin-top: 10px;
+	padding-left: 5px;
+	width:210px;
+	background-color: #696969;
+	font-size: 90%;
+	font-family: Arial, sans-serif;
+}
+
+div.sphinxsidebarwrapper {
+        position: relative;
+        top: 0px;
+        padding: 0;
+}
