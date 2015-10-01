@@ -1,3 +1,5 @@
+![alt tag](https://raw.github.com/magic-sph/magic/master/doc/sphinx/.themes/magic/static/logo.png)
+
 # Quickly start using MagIC
 
 ### 1) In order to check out the code, use the command
