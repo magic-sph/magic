@@ -8,6 +8,9 @@
 
 /* -- page layout ----------------------------------------------------------- */
 
+img {
+     background-color: rgba(255,255,255,0.4);
+}
 
 body {
     min-width: 780px;
@@ -22,8 +25,8 @@ body {
 .pageheader ul {
     float: right;
     display: inline-block;
-    background-color:#bdd8ec;
-    opacity: 0.6;
+    background-color: rgba(189,216,236,0.4);
+    /*opacity: 0.6;*/
     /*color: #000;*/
     list-style-type: none;
     padding: 8px 12px;
@@ -41,13 +44,14 @@ body {
     padding: 8px 12px;
     font-size:120%;
     color: #000;/*#f9f9f0;*/
-    text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+    /*text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);*/
 }
 
 .pageheader li a:hover {
     background-color: #f9f9f0;
     color: #0a507a;
     text-shadow: none;
+    text-decoration: none;
 }
 
 div.topic {
