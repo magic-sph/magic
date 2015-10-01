@@ -36,6 +36,22 @@ endif
 ifeq ($(USE_MPI),no)
 	USE_OMP=no
 endif
+SHTNS_INC = $(HOME)/local/include
+FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+#FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+
+
+# preconditioning of the matrices
+# switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
+# WITH_PRECOND_Z
+# PRECOND_WP is always set
+# to switch the preconditioner off and get the old ill-conditioned matrices
+# just comment the following statement
+PREPROC += 	-DWITH_PRECOND_S \
+		-DWITH_PRECOND_Z \
+		-DWITH_PRECOND_BJ \
+		-DWITH_PRECOND_S0 \
+		-DWITH_PRECOND_Z10
 
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT
@@ -252,7 +268,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% shtns% hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -272,6 +288,9 @@ else ifeq ($(USE_LAPACKLIB),LAPACK)
 else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
+
+ifeq ($(USE_SHTNS),yes)
+	RED_SOURCES += shtns.f90
 endif
 
 ifeq ($(USE_HDF5),yes)
@@ -414,6 +433,8 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
                         logic.o constants.o blocking.o Grenoble.o\
+                        fields.o TO.o
+                        logic.o const.o blocking.o Grenoble.o\
                         fields.o TO.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
@@ -561,14 +582,19 @@ $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
 			TO.o Grenoble.o radial.o Bext.o char_manip.o
-shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.f90
 endif
 
-ifeq ($(USE_LAPACKLIB),MKL)
+ifeq ($(USE_SHTNS),yes)
+shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
+                        precision_mod.o
+legendre_helpers.o    : shtns.o
+endif
+
+ifeq ($(USE_MKL),yes)
 $(LAPACK_OBJS)        : lapack95.mod
 lapack95.mod          : $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<

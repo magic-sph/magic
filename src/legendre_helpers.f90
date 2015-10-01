@@ -32,36 +32,36 @@ module leg_helper_mod
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
 #ifdef WITH_SHTNS
-      real(kind=8), allocatable :: shtns_s(:)
-      real(kind=8), allocatable :: shtns_p(:)
-      real(kind=8), allocatable :: shtns_drs(:)
+      real(cp), allocatable :: shtns_s(:)
+      real(cp), allocatable :: shtns_p(:)
+      real(cp), allocatable :: shtns_drs(:)
 
-      real(kind=8), allocatable :: shtns_dsdt(:)
-      real(kind=8), allocatable :: shtns_dsdp(:)
+      real(cp), allocatable :: shtns_dsdt(:)
+      real(cp), allocatable :: shtns_dsdp(:)
 
-      real(kind=8), allocatable :: shtns_dpdt(:)
-      real(kind=8), allocatable :: shtns_dpdp(:)
+      real(cp), allocatable :: shtns_dpdt(:)
+      real(cp), allocatable :: shtns_dpdp(:)
 
-      real(kind=8), allocatable :: shtns_vr(:)
-      real(kind=8), allocatable :: shtns_vt(:)
-      real(kind=8), allocatable :: shtns_vp(:)
+      real(cp), allocatable :: shtns_vr(:)
+      real(cp), allocatable :: shtns_vt(:)
+      real(cp), allocatable :: shtns_vp(:)
 
-      real(kind=8), allocatable :: shtns_dvrdr(:)
-      real(kind=8), allocatable :: shtns_dvtdr(:)
-      real(kind=8), allocatable :: shtns_dvpdr(:)
+      real(cp), allocatable :: shtns_dvrdr(:)
+      real(cp), allocatable :: shtns_dvtdr(:)
+      real(cp), allocatable :: shtns_dvpdr(:)
 
-      real(kind=8), allocatable :: shtns_dvrdt(:)
-      real(kind=8), allocatable :: shtns_dvrdp(:)
+      real(cp), allocatable :: shtns_dvrdt(:)
+      real(cp), allocatable :: shtns_dvrdp(:)
 
-      real(kind=8), allocatable :: shtns_cvr(:)
+      real(cp), allocatable :: shtns_cvr(:)
 
-      real(kind=8), allocatable :: shtns_br(:)
-      real(kind=8), allocatable :: shtns_bt(:)
-      real(kind=8), allocatable :: shtns_bp(:)
+      real(cp), allocatable :: shtns_br(:)
+      real(cp), allocatable :: shtns_bt(:)
+      real(cp), allocatable :: shtns_bp(:)
 
-      real(kind=8), allocatable :: shtns_cbr(:)
-      real(kind=8), allocatable :: shtns_cbt(:)
-      real(kind=8), allocatable :: shtns_cbp(:)
+      real(cp), allocatable :: shtns_cbr(:)
+      real(cp), allocatable :: shtns_cbt(:)
+      real(cp), allocatable :: shtns_cbp(:)
 #endif
    contains
 
