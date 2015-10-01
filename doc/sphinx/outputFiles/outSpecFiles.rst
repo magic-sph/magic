@@ -131,7 +131,7 @@ This file contains the temperature/entropy spectra. It is written by the subrout
 .. _sec2DSpectra:
 
 2D spectra `[2D_kin|mag|u2_spec]_#.TAG`
---------------------------------------
+---------------------------------------
 
 Those files contain 2-D spectra in the :math:`(r,\ell)` and in the
 :math:`(r,m)` planes.  In other words, the poloidal and toroidal energies
