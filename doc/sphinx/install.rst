@@ -1,3 +1,5 @@
+.. _secQuickStart:
+
 Get MagIC and run it
 ####################
 

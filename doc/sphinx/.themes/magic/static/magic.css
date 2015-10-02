@@ -57,16 +57,21 @@ div.topic {
 }
 
 div.sphinxsidebar {
-	margin-top: 10px;
-	padding-left: 5px;
-	width:210px;
-	background-color: #696969;
-	font-size: 90%;
-	font-family: Arial, sans-serif;
+    margin-top: 10px;
+    padding-left: 5px;
+    width:210px;
+    background-color: #696969;
+    font-size: 90%;
+    font-family: Arial, sans-serif;
 }
 
 div.sphinxsidebarwrapper {
-        position: relative;
-        top: 0px;
-        padding: 0;
+    position: relative;
+    top: 0px;
+    padding: 0;
 }
+
+.mybox {
+    font-size: 110%;
+}
+

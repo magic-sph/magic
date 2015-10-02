@@ -1,3 +1,5 @@
+.. _secFortranAPI:
+
 Description of the Fortran modules
 ##################################
 

@@ -5,8 +5,8 @@
 
 .. _contents:
 
-MagIC documentation contents
-=================================
+Contents
+========
 
 .. toctree::
    :includehidden:

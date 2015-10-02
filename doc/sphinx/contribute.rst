@@ -1,3 +1,4 @@
+.. _secContribute:
 
 Contributing to the code
 #########################
