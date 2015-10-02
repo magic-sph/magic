@@ -17,7 +17,7 @@
     <style type="text/css">
       table.right { float: right; margin-left: 20px; }
       table.right td { border: 1px solid #ccc; }
-      {% if pagename == 'home' %}
+      {% if pagename == 'index' %}
       .related { display: none; }
       {% endif %}
   </style>
@@ -58,13 +58,13 @@
 {% block header %}
 <div class="pageheader">
   <ul>
-    <li><a href="{{ pathto('home') }}">Home</a></li>
+    <li><a href="{{ pathto('index') }}">Home</a></li>
     <li><a href="{{ pathto('install') }}">Get it/Run it</a></li>
     <li><a href="{{ pathto('contribute') }}">Contribute!</a></li>
-    <li><a href="{{ pathto('index') }}">Contents</a></li>
+    <li><a href="{{ pathto('contents') }}">Contents</a></li>
   </ul>
   <div>
-    <a href="{{ pathto('home') }}">
+    <a href="{{ pathto('index') }}">
       <img src="{{ pathto('_static/logo.png', 1) }}" alt="magic" height="120px" width="192px"/>
     </a>
   </div>
