@@ -1,3 +1,5 @@
+.. _secFortranBase:
+
 Base modules
 ============
 

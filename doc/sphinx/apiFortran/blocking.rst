@@ -1,3 +1,5 @@
+.. _secFortranBlocking:
+
 Blocking and LM mapping
 =======================
 

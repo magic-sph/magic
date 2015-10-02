@@ -1,3 +1,5 @@
+.. _secFortranRestart:
+
 Reading and storing check points (restart files)
 ================================================
 

@@ -1,3 +1,6 @@
+.. _secFortranMPI:
+
+
 MPI related modules
 ===================
 

@@ -1,3 +1,5 @@
+.. _secFortranIOBinary:
+
 IO: graphic files, movie files, coeff files and potential files
 ===============================================================
 

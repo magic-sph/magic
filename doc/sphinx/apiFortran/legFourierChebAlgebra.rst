@@ -1,3 +1,5 @@
+.. _secFortranLibs:
+
 Chebyshev polynomials and cosine transforms
 ===========================================
 

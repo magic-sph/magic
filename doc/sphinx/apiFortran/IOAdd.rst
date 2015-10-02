@@ -1,3 +1,5 @@
+.. _secFortranIOAdd:
+
 IO: RMS force balance, torsional oscillations, misc
 ===================================================
 

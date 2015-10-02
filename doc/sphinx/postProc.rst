@@ -175,29 +175,29 @@ API of the available classes, as well as some practical examples:
 
 .. topic:: Python classes
    
-     1. To read the **log.TAG** files , :ref:`see here <secPythonLogFile>`.
+     1. To read the **log.TAG** files , see :ref:`here <secPythonLogFile>`.
 
-     2. To read and analyse the time series, :ref:`see here <secPythonTimeSeries>`.
+     2. To read and analyse the time series, see :ref:`here <secPythonTimeSeries>`.
 
-     3. To read and analyse the radial profiles, :ref:`see here <secPythonRadial>`.
+     3. To read and analyse the radial profiles, see :ref:`here <secPythonRadial>`.
 
-     4. To read and analyse spectra **_spec_#.TAG**, :ref:`see here <secPythonSpectra>`.
+     4. To read and analyse spectra **_spec_#.TAG**, see :ref:`here <secPythonSpectra>`.
 
-     5. To read and analyse the **G_#.TAG** files, :ref:`see here <secPythonGraphFile>`.
+     5. To read and analyse the **G_#.TAG** files, see :ref:`here <secPythonGraphFile>`.
 
-     6. To read and analyse movie files **_mov.TAG**, :ref:`see here <secPythonMovieFiles>`.
+     6. To read and analyse movie files **_mov.TAG**, see :ref:`here <secPythonMovieFiles>`.
 
-     7. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
+     7. To read and analyse coeff files **_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
 
-     8. To read and analyse coeff files **_coeff.TAG**, :ref:`see here <secPythonCoeffs>`.
+     8. To read and analyse coeff files **_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
 
-     9. To read and analyse radial spectra **B[r|p]Spec.TAG**, :ref:`see here <secPythonRSpec>`.
+     9. To read and analyse radial spectra **B[r|p]Spec.TAG**, see :ref:`here <secPythonRSpec>`.
 
-     10. To compare several runs simultaneously, :ref:`see here <secPythonComp>`.
+     10. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
 
-     11. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), :ref:`see here <secPythonMisc>`.
+     11. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
 
-     12. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), :ref:`see here <secPythonLibs>`.
+     12. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
 
 
 .. toctree::
@@ -211,5 +211,3 @@ API of the available classes, as well as some practical examples:
    apiPython/runComparison.rst
    apiPython/misc.rst
    apiPython/libs.rst
-
-

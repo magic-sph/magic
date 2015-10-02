@@ -52,7 +52,7 @@ energy by its toroidal counterpart).
              points (thus including the inner core).
 
 
-Those files can be read by the python class :py:class:`MagicRSpec <magic.MagicRSpec>` with
+Those files can be read using the python class :py:class:`MagicRSpec <magic.MagicRSpec>` with
 the following options:
 
    >>> # Read the files BrSpec.testa, BrSpec.testb and BrSpec.testc and stack them

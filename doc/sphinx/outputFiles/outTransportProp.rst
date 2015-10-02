@@ -14,10 +14,13 @@ subroutine :f:subr:`preCalc <precalculations/precalc()>`.
 ------------
 
 .. note::
-   This output is only calculated when an anelastic model is run, that is when ``l_anel=.true.`` or ``l_anelastic_liquid=.true.``.
+   This output is only calculated when an anelastic model is run, that is when
+   :f:var:`l_anel=.true. <l_anel>` or :f:var:`l_anelastic_liquid=.true.
+   <l_anelastic_liquid>`.
 
 
-This file contains the radial profiles of the reference state (density, temperature, gravity, etc.).
+This file contains the radial profiles of the reference state (density,
+temperature, gravity, etc.).
 
    +----------------+---------------------------------------------------------+
    | No. of column  |  Contents                                               |
@@ -55,7 +58,7 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 ---------------
 
 .. note::
-   This output is only calculated when the electrical conductivity varies with radius, i.e. when ``nVarCond /= 0`` (see :ref:`nVarCond <varnVarCond>`)
+   This output is only calculated when the electrical conductivity varies with radius, i.e. when :ref:`nVarCond /= 0 <varnVarCond>`
 
 This file contains the radial profiles of the electrical conductivity, the electrical
 diffusivity and its radial derivative.
@@ -84,7 +87,8 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 ---------------
 
 .. note::
-   This output is only calculated when the thermal diffusivity varies with radius, i.e. when ``nVarDiff /= 0`` (see :ref:`nVarDiff <varnVarDiff>`)
+   This output is only calculated when the thermal diffusivity varies with
+   radius, i.e. when :ref:`nVarDiff /= 0 <varnVarDiff>`
 
 This file contains the radial profiles of the thermal conductivity, the thermal
 diffusivity and its radial derivative.
@@ -116,7 +120,8 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 ----------------
 
 .. note::
-   This output is only calculated when the kinematic viscosity varies with radius, i.e. when ``nVarVisc /= 0`` (see :ref:`nVarVisc <varnVarVisc>`)
+   This output is only calculated when the kinematic viscosity varies with
+   radius, i.e. when :ref:`nVarVisc /= 0 <varnVarVisc>`
 
 This file contains the radial profiles of the dynamic viscosity, the kinematic
 viscosity and its radial derivative.

@@ -1,3 +1,5 @@
+.. _secFortranLin:
+
 Linear calculation part of the time stepping (LMLoop)
 =====================================================
 

@@ -1,3 +1,5 @@
+.. _secFortranDerInt:
+
 Radial derivatives and integration
 ==================================
 

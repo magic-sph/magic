@@ -26,16 +26,17 @@ decomposition):
     +----------------+-----------+------------+
     | Field          | Poloidal  | Toroidal   |
     +================+===========+============+
-    | Magnetic       |    b      |      aj    |
+    | Magnetic       | :f:var:`b`| :f:var:`aj`|
     +----------------+-----------+------------+
-    | Velocity       |    w      |      z     |
+    | Velocity       | :f:var:`w`| :f:var:`z` |
     +----------------+-----------+------------+
-    | Temperature    |           s            |
+    | Temperature    |      :f:var:`s`        |
     +----------------+-----------+------------+
      
 
 First and second derivatives are denoted with a differential notation. e.g:
-`dw` is first derivative of `w`, while `ddb` is second derivative of `b`.
+:f:var:`dw` is the first derivative of :f:var:`w`, while :f:var:`ddb` is the second
+derivative of :f:var:`b`.
 
 .. _secCmbFile:
 
@@ -102,7 +103,7 @@ This file can be read using :py:class:`MagicCoeffCmb <magic.coeff.MagicCoeffCmb>
 Coefficients at desired radii
 ------------------------------
 
-The following files - ``[B|V|T]_coeff_r#.TAG`` - save coefficients at specified
+The following files **[B|V|T]_coeff_r#.TAG** save coefficients at specified
 depths and are written by the subroutine :f:subr:`write_coeff_r
 <out_coeff/write_coeff_r>`. See the section on :ref:`CMB and radial
 coefficients <secOutNmlCoeff>` in the :ref:`ouput control namelist
@@ -120,10 +121,20 @@ is written, numbered suitably as ``[B|V|T]_coeff_r1.TAG``,
 
 .. note:: This file is **only** written when :ref:`l_r_field=.true. <varl_r_field>`.
 
-This file contains output of time series of the spherical harmonic coefficients of the poloidal and toroidal magnetic field potentials and the first and second derivatives of the poloidal potential coefficients in the order - :code:`b, db, aj, ddb`. The output is for a specific radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
+This file contains output of time series of the spherical harmonic coefficients
+of the poloidal and toroidal magnetic field potentials and the first and second
+derivatives of the poloidal potential coefficients in the order :f:var:`b`,
+:f:var:`db`, :f:var:`aj` and :f:var:`ddb`.  The output is for a specific
+radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
 
- * **Header** The file header consists of the information: :ref:`l_max_r <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data`` and the radius, ``r``.
- * **Data** Each chunk of data after the header contains the ``time`` at which the coefficients are stored, followed by the real and imaginary parts of: the poloidal coefficient ``b``, it's first derivative ``db``, the toroidal coefficient ``aj`` and the second derivative of the poloidal coefficient ``ddb``.
+ * **Header** The file header consists of the information: :ref:`l_max_r
+   <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data``
+   and the radius, :f:var:`r`.
+ * **Data** Each chunk of data after the header contains the ``time`` at which
+   the coefficients are stored, followed by the real and imaginary parts of:
+   the poloidal coefficient ``b``, it's first derivative :f:var:`db`, the toroidal
+   coefficient :f:var:`aj` and the second derivative of the poloidal coefficient
+   :f:var:`ddb`.
 
 
 The complete structure of the file looks like follows:
@@ -202,10 +213,20 @@ This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` wi
 
 .. note:: This file is **only** written when :ref:`l_r_field=.true. <varl_r_field>`
 
-This file contains output of time series of the spherical harmonic coefficients of the poloidal and toroidal velocity field potentials and the first derivatives of the poloidal potential coefficients in the order - :code:`w, dw, z`. The output is for a specific radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
+This file contains output of time series of the spherical harmonic coefficients
+of the poloidal and toroidal velocity field potentials and the first
+derivatives of the poloidal potential coefficients in the order :f:var:`w`,
+:f:var:`dw`, and :f:var:`z`.  The output is for a specific radius, :math:`r` up
+to degree :ref:`l_max_r <varl_max_cmb>`.
 
- * **Header** The file header consists of the information: :ref:`l_max_r <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data`` and the radius, ``r``.
- * **Data** Each chunk of data after the header contains the ``time`` at which the coefficients are stored, followed by the real and imaginary parts of: the poloidal coefficient ``w``, it's first derivative ``dw`` and the toroidal coefficient ``z``.
+ * **Header** The file header consists of the information: :ref:`l_max_r
+   <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data``
+   and the radius, :f:var:`r`.
+
+ * **Data** Each chunk of data after the header contains the ``time`` at which
+   the coefficients are stored, followed by the real and imaginary parts of:
+   the poloidal coefficient :f:var:`w`, it's first derivative :f:var:`dw` and the
+   toroidal coefficient :f:var:`z`.
  
 The complete structure of the file looks like follows:
 
@@ -273,10 +294,17 @@ This file can be read using :py:class:`MagicCoeffR <magic.coeff.MagicCoeffR>` wi
 
 .. note:: This file is **only** written when :ref:`l_r_fieldT=.true. <varl_r_fieldT>`
 
-This file contains output of time series of the spherical harmonic coefficients of the temperature (or entropy) field. The output is for a specific radius, :math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
+This file contains output of time series of the spherical harmonic coefficients
+of the temperature (or entropy) field. The output is for a specific radius,
+:math:`r` up to degree :ref:`l_max_r <varl_max_cmb>`.
 
- * **Header** The file header consists of the information: :ref:`l_max_r <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data`` and the radius, ``r``.
- * **Data** Each chunk of data after the header contains the ``time`` at which the coefficients are stored, followed by the real and imaginary parts of the coefficient ``s``.
+ * **Header** The file header consists of the information: :ref:`l_max_r
+   <varl_max_r>`, :ref:`minc <varMinc>`,  the number of data points ``n_data``
+   and the radius, :f:var:`r`.
+
+ * **Data** Each chunk of data after the header contains the ``time`` at which
+   the coefficients are stored, followed by the real and imaginary parts of the
+   coefficient :f:var:`s`.
  
 The complete structure of the file looks like follows:
 
