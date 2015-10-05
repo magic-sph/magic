@@ -13,6 +13,7 @@ Contents
    :maxdepth: 2
 
    install
+   equations
    contribute
    inputNamelists/namelists
    signalFile
