@@ -156,6 +156,25 @@ input variables:
 Mapping of the Gauss-Lobatto grid
 ---------------------------------
 
+Non-linear mapping function to concentrate/diperse grid points around a point inside the domain. For full description, see Bayliss and Turkel (1990). The function that re-distributes the collocation points is
+
+.. math::
+   r=\alpha_2+\left[ \frac{\textrm{tan}^{-1}\left(\lambda(r_{cheb}-x_0)\right)}{\alpha_1} \right] \textrm{ ,}
+
+where the Gauss-Lobatto collocation points are
+
+.. math::
+   r_{cheb}&=\textrm{cos}\left( \frac{\pi(k-1)}{n_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
+
+and :math:`r\!\in\![r_i,r_o]`, :math:`r_{cheb}\!\in\![-1.0,1.0]`. The parameters to calculate :math:`r` are
+
+.. math::
+   \lambda&=\frac{\textrm{tan}^{-1}\left(\alpha_1(1-\alpha_2)\right)}{1-x_0} \\
+   x_0&=\frac{K-1}{K+1} \\
+   K&=\frac{\textrm{tan}^{-1}\left(\alpha_1(1+\alpha_2)\right)}{\textrm{tan}^{-1}\left(\alpha_1(1-\alpha_2)\right)} \textrm{ .}
+
+The coefficient :math:`\alpha_1` determines the degree of concentration/dispersion of the grid points around :math:`r_{cheb}\!=\!\alpha_2`. If :math:`\alpha_1` is too high, the :math:`r` function becomes nearly discontinuous. To avoid numerical problems, :math:`\alpha_1` should remain close to unity.
+
 * **l_newmap** (default :f:var:`l_newmap=.false. <l_newmap>`) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
 
 * **alph1** (default :f:var:`alph1=2.0 <alph1>`) is a real. This is a control parameter of the mapping function.
