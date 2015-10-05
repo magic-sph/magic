@@ -5,16 +5,7 @@ Poloidal and toroidal potentials at given depths
 
 These are fortran unformatted files which store time series of poloidal and
 toroidal coefficients of different fields (magnetic field, velocity and
-temeperature) at specific depths. Unformatted files are not directly human
-readable, and are used to store binary data and move it around without changing
-the internal representation. In fortran, the open, read and write operations
-for these files are performed as follows:
-
-.. code-block:: fortran
-
-  open(unit=4, file='test', form='unformatted')
-  read(unit=4) readVar
-  write(unit=n_out, iostat=ios) writeVar !Unformatted write
+temeperature) at specific depths. 
 
 In the following, :code:`time(j)`  is the time during the :math:`j^{th}` time
 step, :code:`time(N)` being the last step. :code:`real` and :code:`imag` denote

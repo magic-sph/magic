@@ -140,9 +140,19 @@ radii. There are three kinds of those files that correspond to the
 aforementioned spectra, namely **2D_kin_spec_#.TAG**, **2D_mag_spec_#.TAG**
 and **2D_u2_spec_#.TAG**. The calculations are done in the subroutine
 :f:subr:`spectrum <spectra/spectrum()>`. The structure of the output files 
-are same for these three outputs. They are stored as fortran unformatted files,
-which can be described as follows:
+are same for these three outputs. They are stored as fortran unformatted files.
 
+Unformatted files are not directly human readable, and are used to store binary
+data and move it around without changing the internal representation. In
+fortran, the open, read and write operations for these files are performed as follows:
+
+.. code-block:: fortran
+
+  open(unit=4, file='test', form='unformatted')
+  read(unit=4) readVar
+  write(unit=n_out, iostat=ios) writeVar !Unformatted write
+
+The structure of the 2D spectra files are as follows:
 
    .. code-block:: fortran
 

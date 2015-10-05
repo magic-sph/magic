@@ -36,6 +36,7 @@ various additional diagnostics (:ref:`misc.TAG <secMiscFile>`):
 
 * **t_log_stop** (default :f:var:`t_log_stop=0.0 <t_log_stop>`) is a real, which defines the time to stop writing log outputs.
 
+.. _secRstIn:
 
 Restart files
 -------------
@@ -140,6 +141,8 @@ The **movie** outputs controls the output of movie files (:ref:`*_mov.TAG <secMo
 
 Specific inputs
 +++++++++++++++
+
+.. _varl_movie:
 
 * **l_movie** (default :f:var:`l_movie=.false. <l_movie>`) is a logical. It needs to be turned on to get movie computed.
 
@@ -336,6 +339,7 @@ Specific inputs
      movie(6) = "entropy AX",
      movie(7) = "vr 3D",
 
+.. _secMovieStdin:
   
 Standard inputs
 +++++++++++++++

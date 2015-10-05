@@ -8,7 +8,11 @@ This namelist controls whether a start field from a previous solution should be 
 Reading an input file of start fields
 -------------------------------------
 
+.. _varl_start:
+
 * **l_start_file** (default :f:var:`l_start_file=.false. <l_start_file>`) is a logical that controls whether the code should to read a file named ``start_file`` or not.
+
+.. _varstart_file:
 
 * **start_file** (default :f:var:`start_file="no_start_file" <start_file>`) is a character string. This is the name of the :ref:`restart file <secRestartFile>`.
 
