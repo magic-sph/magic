@@ -50,7 +50,7 @@ Thus, on a whole, the structure of the file looks like follows:
     .. code-block:: fortran
    
           !------------
-          !-- Header
+          ! Line 1 
           !------------
 
           l_max_cmb, minc, n_data
@@ -59,7 +59,7 @@ Thus, on a whole, the structure of the file looks like follows:
           ...
 
           !------------
-          !-- Line j
+          ! Line j + 1
           !------------
 
           time(j), 
@@ -71,7 +71,7 @@ Thus, on a whole, the structure of the file looks like follows:
           ...                  
    	    
           !-------------
-          !-- Line N
+          ! Line N + 1
           !-------------
 
           time(N), 
@@ -133,7 +133,7 @@ The complete structure of the file looks like follows:
     .. code-block:: fortran
 
           !------------
-          !-- Header
+          ! Line 1
           !------------
 
           l_max_r, minc, n_data, r
@@ -142,7 +142,7 @@ The complete structure of the file looks like follows:
           ...
 
           !------------
-          !-- Line j
+          ! Line j + 1
           !------------
 
           time(j), 
@@ -166,7 +166,7 @@ The complete structure of the file looks like follows:
           ...
 
           !------------
-          !-- Line N
+          ! Line N + 1
           !------------
 
           time(N), 
@@ -224,7 +224,7 @@ The complete structure of the file looks like follows:
     .. code-block:: fortran
 
         !------------
-        !-- Header
+        ! Line 1
         !------------
 
         l_max_r, minc, n_data, r
@@ -233,7 +233,7 @@ The complete structure of the file looks like follows:
         ...
 
         !------------
-        !-- Line j
+        ! Line j + 1
         !------------
 
         time(j), 
@@ -253,7 +253,7 @@ The complete structure of the file looks like follows:
         ...
 
         !--------------
-        !-- Line N
+        ! Line N + 1
         !--------------
 
         time(N), 
@@ -302,7 +302,7 @@ The complete structure of the file looks like follows:
     .. code-block:: fortran
 
         !------------
-        !-- Header
+        ! Line 1
         !------------
 
         l_max_r, minc, n_data, r
@@ -312,7 +312,7 @@ The complete structure of the file looks like follows:
         ...
 
         !------------
-        !-- Line j
+        ! Line j + 1
         !------------
 
         time(j), 
@@ -323,7 +323,7 @@ The complete structure of the file looks like follows:
         real(s(l=l_max_cmb,m=l_max_cmb)), imag(s(l=l_max_cmb,m=l_max_cmb)),                  
 
         !------------
-        !-- Line N
+        ! Line N + 1
         !------------
 
         time(N), 
