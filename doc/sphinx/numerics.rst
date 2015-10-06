@@ -70,42 +70,42 @@ where the operator :math:`\Delta_H` denotes the horizontal part of the Laplacian
 Spherical harmonic representation
 =================================
 
-Spherical harmonic functions :math:`Y_{\ell m}` are a natural choice for the
+Spherical harmonic functions :math:`Y_\ell^m` are a natural choice for the
 horizontal expansion in colatitude :math:`\theta` and longitude :math:`\phi`:
 
 .. math::
-  Y_{\ell m}(\theta,\phi) = P_{\ell m}(\cos{\theta})\,e^{i m \phi},
+  Y_\ell^m(\theta,\phi) = P_{\ell}^m(\cos{\theta})\,e^{i m \phi},
 
 where :math:`\ell` and :math:`m` denote spherical harmonic degree and order, respectively,
-:math:`P_{\ell m}` is an associated Legendre function.  Different normalization are in
+:math:`P_\ell^m` is an associated Legendre function.  Different normalization are in
 use. Here we adopt a complete normalization so that the orthogonality relation
 reads 
 
 .. math::
    \int_{0}^{2\pi} d\,\phi \int_{0}^{\pi}
-   \sin{\theta}\, d\theta\; Y_{\ell m}(\theta,\phi)\,Y_{\ell^\prime
-   m^\prime}(\theta,\phi) \; =  \; \delta_{\ell \ell^\prime}\delta_{m m^\prime}.
+   \sin{\theta}\, d\theta\; Y_\ell^m(\theta,\phi)\,Y_{\ell^\prime}^{m^\prime}
+   (\theta,\phi) \; =  \; \delta_{\ell \ell^\prime}\delta^{m m^\prime}.
    :label: eqOrthoYlm
 
 This means that
 
 .. math::
-  Y_{\ell m}(\theta,\phi) = \sqrt{\dfrac{1}{2\pi}}\dfrac{(2\ell+1)(\ell-|m|)!}{2(\ell+|m|)!}
-  P_{\ell m}(\cos{\theta})\,e^{i m \phi}\,(-1)^m,
+  Y_{\ell}^{m}(\theta,\phi) = \sqrt{\dfrac{1}{2\pi}}\dfrac{(2\ell+1)(\ell-|m|)!}{2(\ell+|m|)!}
+  P_\ell^m(\cos{\theta})\,e^{i m \phi}\,(-1)^m,
 
 For example, the spherical harmonic representation of the
 magnetic poloidal potential :math:`g(r,\theta,\phi)`, truncated at degree and order
 :math:`\ell_{max}`, then reads
 
 .. math::
-  g(r,\theta,\phi) = \sum_{\ell=0}^{\ell_{max}}\sum_{m=-\ell}^{\ell} g_{\ell m}(r)\,Y_{\ell m}(\theta,\phi),
+  g(r,\theta,\phi) = \sum_{\ell=0}^{\ell_{max}}\sum_{m=-\ell}^{\ell} g_{\ell m}(r)\,Y_{\ell}^{m}(\theta,\phi),
   :label: eqSpatSpec
 
 with
 
 .. math::
   g_{\ell m}(r) = \frac{1}{\pi}\,\int_{0}^{\pi} d \theta \sin{\theta}\; g_m(r,\theta)\;
-  P_{\ell m}(\cos{\theta}),
+  P_\ell^m(\cos{\theta}),
   :label: eqLegTF1
 
 .. math:: 
@@ -131,7 +131,7 @@ MagIC relies on the Gauss-Legendre quadrature for evaluating the integral
 
 .. math::
    g_{\ell m}(r) = \frac{1}{N_{\theta}}
-  \sum_{j=1}^{N_{\theta}}\,w_j\,g_m(r,\theta_j)\; P_{\ell m}(\cos{\theta_j}),
+  \sum_{j=1}^{N_{\theta}}\,w_j\,g_m(r,\theta_j)\; P_\ell^m(\cos{\theta_j}),
 
 where :math:`\theta_j` are the :math:`N_{\theta}` Gaussian quadrature points
 defining the latitudinal grid, and :math:`w_j` are the respective weights.  Pre-stored
@@ -148,8 +148,30 @@ The action of a horizontal Laplacian :eq:`eqLaplaceH` on spherical harmonics can
 analytically expressed by
 
 .. math::
-   \Delta_H Y_{\ell m} = -\dfrac{\ell(\ell+1)}{r^2}\,Y_{\ell m}
+   \Delta_H Y_{\ell}^{m} = -\dfrac{\ell(\ell+1)}{r^2}\,Y_{\ell}^{m}\,.
    :label: eqHorizLaplYlm
+
+They are several useful recurrence relations for the Legendre polynomials that will
+be further employed to compute Coriolis forces and the :math:`\theta` and :math:`\phi`
+derivatives of advection and Lorentz forces:
+
+.. math::
+   \cos\theta\,\partial P_\ell^m = c_{\ell+1}^m\,P_{\ell+1}^m
+   +c_{\ell}^m\,P_{\ell-1}^m\,,
+   :label: eqCosPlm
+
+and
+
+.. math::
+   \sin\theta\,\dfrac{\partial P_\ell^m}{\partial \theta} = (\ell-1)\,c_{\ell+1}^m\,P_{\ell+1}^m
+   -(\ell+2)\,c_{\ell}^m\,P_{\ell-1}^m \,,
+   :label: eqSindPlm
+
+where :math:`c_\ell^m` is defined by
+
+.. math::
+   c_\ell^m = \sqrt{\dfrac{(\ell+m)(\ell-m)}{(2\ell-1)(2\ell+1)}}\,.
+   :label: eqClmOp
 
 
 
@@ -224,7 +246,7 @@ is required. It is obtained by taking the
 **horizontal divergence** of the Navier-Stokes equation :eq:`eqNSNd`.
 
 Expanding all potentials in spherical harmonics and Chebyshev polynomials,
-multiplying with :math:`Y_{\ell m}^\star`, and integrating over spherical surfaces
+multiplying with :math:`{Y_{\ell}^{m}}^\star`, and integrating over spherical surfaces
 (while making use of
 the orthogonality relation :eq:`eqOrthoYlm` results in equations for the
 coefficients :math:`W_{\ell mn}`, :math:`Z_{\ell mn}`, :math:`g_{\ell mn}`, 
@@ -283,7 +305,7 @@ for the poloidal potential :math:`W_{\ell m n}`:
    -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
    + \left[{\cal C}'_n -\dfrac{d\ln\tilde{\rho}}{dr}{\cal C}_n\right] & & P_{\ell m n} \\
    - \left[\dfrac{Ra\,E}{Pr}\,\tilde{\rho}\,g(r)\right] & \,{\cal C}_n & s_{\ell m n} \\
-   = {\cal N}^W = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \vec{F} & &
+   = {\cal N}^W = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{F} & &
    \end{aligned}}
    :label: eqSpecW
 
@@ -347,7 +369,7 @@ for the poloidal potential :math:`Z_{\ell m n}`:
    \dfrac{d\ln\tilde{\rho}}{dr}\right)\right\rbrace\right. & \,{\cal C}_n  & \\
    -\nu\,\left(\dfrac{d\ln\nu}{dr}-\dfrac{d\ln\tilde{\rho}}{dr}\right) &\,{\cal C}'_n & \\
    -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& Z_{\ell m n} \\
-   = {\cal N}^Z = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
+   = {\cal N}^Z = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
    \end{aligned}}
    :label: eqSpecZ
 
@@ -437,7 +459,7 @@ Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the equation for the
    \right) &\,{\cal C}''_n & \\
    -\nu & \,{\cal C}'''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
    + \left[\dfrac{\ell(\ell+1)}{r^2}\right] & \,{\cal C}_n & P_{\ell m n} \\
-   = {\cal N}^P = -\int d\Omega\,Y_{\ell m}^\star\,\vec{\nabla}_H\cdot\vec{F} & &
+   = {\cal N}^P = -\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{\nabla}_H\cdot\vec{F} & &
    \end{aligned}}
    :label: eqSpecP
 
@@ -477,7 +499,7 @@ The equation for the entropy (or temperature in the Boussinesq limit) is given b
    +\dfrac{dln\tilde{T}}{dr}+\dfrac{2}{r}\right) 
    &\,{\cal C}'_n & \\
    -\kappa & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& s_{\ell m n} \\
-   = {\cal N}^S = -\int d\Omega\,Y_{\ell m}^\star\,\left[\vec{u}\cdot\vec{\nabla}s+
+   = {\cal N}^S = -\int d\Omega\,{Y_{\ell}^{m}}^\star\,\left[\vec{u}\cdot\vec{\nabla}s+
    \dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}\left(\Phi_\nu+
    \dfrac{\lambda}{Pm^2\,E}\,j^2\right) \right] & &
    \end{aligned}}
@@ -501,7 +523,7 @@ The equation for the poloidal magnetic field coefficient reads
    \dfrac{1}{Pm}\lambda\,\dfrac{\ell(\ell+1)}{r^2} 
    \right)\right. & \,{\cal C}_n  & \\
    -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& g_{\ell m n} \\
-   = {\cal N}^g = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \vec{D} & &
+   = {\cal N}^g = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{D} & &
    \end{aligned}}
    :label: eqSpecG
 
@@ -520,7 +542,7 @@ The equation for the toroidal magnetic field coefficient reads
    \right)\right. & \,{\cal C}_n  & \\
    -\dfrac{1}{Pm}\,\dfrac{d\lambda}{dr} &\,{\cal C}'_n & \\
    -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& h_{\ell m n} \\
-   = {\cal N}^h = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
+   = {\cal N}^h = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
    \end{aligned}}
    :label: eqSpecH
 
@@ -540,13 +562,124 @@ Excluded are the points :math:`r=r_i` and :math:`r=r_o`, where the
 additional constraints on the set of Chebyshev coefficients.
 
 
+Time-stepping schemes
+=====================
+
+Implicit time stepping schemes theoretically offer increased stability and
+allow for larger time steps.
+However, fully implicit approaches have the disadvantage that
+the nonlinear-terms couple all spherical harmonic modes.
+The potential gain in computational speed is therefore lost at
+higher resolution, where one very large matrix has to be dealt with
+rather than a set of much smaller ones.
+Similar considerations hold for the Coriolis force, one of
+the dominating forces in the system and therefore a prime candidate for
+implicit treatment. However, the Coriolis term couples modes :math:`(\ell,m,n)` with
+:math:`(\ell+1,m,n)` and :math:`(\ell-1,m,n)` and also couples poloidal and
+toroidal flow potentials. An implicit treatment of the Coriolis term therefore
+also results in a much larger (albeit sparse) inversion matrix.
+
+W consequently adopt in **MagIC** a mixed implicit/explicit algorithm.
+Nonlinear and Coriolis terms, collected on the right hand side of equations
+:eq:`eqSpecW`, :eq:`eqSpecZ`, :eq:`eqSpecP`, :eq:`eqSpecS`, :eq:`eqSpecG`
+and :eq:`eqSpecH` are treated explicitly with a second order
+`Adams-Bashforth <https://en.wikipedia.org/wiki/Linear_multistep_method>`_ . 
+Terms collected on the left hand side are
+time-stepped with an implicit modified `Crank-Nicolson
+<https://en.wikipedia.org/wiki/Crank–Nicolson_method>`_ algorithm.
+While the equations are coupled radially, they decouple for all spherical
+harmonic modes. 
+
+.. note::  The poloidal flow potential :eq:`eqSpecW` and the pressure :eq:`eqSpecP`
+           are nevertheless coupled for a given spherical harmonic mode.
+
+As an example, we derive the time stepping equation for the poloidal
+magnetic potential of degree :math:`\ell` and order :math:`m`,
+denoting the explicit nonlinear term at radial grid point :math:`r_k` with
+
+.. math::
+  D_{k\ell m}(t)= \int d\Omega\; {Y_{\ell}^{m}}^\star\; \vec{e_r} \cdot \vec{D}(t,r_k,\theta,\phi)\;\; .
+
+After discretization of the partial time derivative,
+:math:`\partial g_{\ell mn}/\partial t = [g_{\ell mn}(t+\delta t) - g_{\ell mn}(t)]/\delta t`
+where :math:`\delta t` is the time step, we can formulate the left hand side
+of :eq:`eqSpecG` as a matrix multiplication. The matrices :math:`\mathsf{A}`  and 
+:math:`\mathsf{G}` are defined by
+
+.. math::
+    {A}_{kn} = \dfrac{\ell (\ell+1)}{r_k^2}\,\dfrac{1}{\delta t} {\cal C}_{nk}\;\;
+
+and
+
+.. math::
+    {G}_{kn}=\dfrac{\ell(\ell+1)}{r_k^2}\,\dfrac{1}{Pm}\left( \dfrac{\ell(\ell+1}{r_k^2} 
+    {\cal C}_{nk}-{\cal C}''_{nk} \right)\;\;,
+
+where :math:`{\cal C}_{nk}={\cal C}_n(r_k)`. The matrices depend on :math:`\ell` 
+but not on :math:`m`.  Advancing time from :math:`t` to :math:`t+\delta t` is 
+then a matter of solving
+
+.. math::
+      \left( {A}_{kn} + \alpha {G}_{kn}\right)\;g_{\ell mn}(t+\delta t) =
+      \left( {A}_{kn} - (1 - \alpha) {G}_{kn} \right)\;g_{\ell mn}(t) +
+      \frac{3}{2} D_{k\ell m}(t) - \frac{1}{2} D_{k\ell m}(t-\delta t)\;\;.
+
+The classical Crank-Nicholson scheme is recovered for :math:`\alpha=0.5`, but
+it seems that a slightly larger weight of :math:`\alpha=0.6` helps to stabilize
+the time integration.  Since the stability requirements limiting :math:`\delta
+t` will usually change during a computational run, the time step should be
+adjusted accordingly.  The matrix :math:`\mathsf{G}` remains unchanged, but
+:math:`\mathsf{A}` has to be updated whenever :math:`\delta t` is changed.
+This, in turn, requires a new triangulation of matrix :math:`A_{kn}+\alpha G_{kn}`,
+which is then stored for subsequent time steps until the next adjustment of
+:math:`\delta t` is in order. 
+
+**Courant's condition** offers a guideline
+concerning the value of :math:`\delta t`, demanding that :math:`\delta t` should be smaller
+than the advection time between two grid points.  Strong Lorentz forces require
+an additional stability criterion that is obtained by replacing the flow speed
+by Alfvén's velocity in a modified Courant criterion.
+The explicit treatment of the Coriolis force requires that the time step is
+limited to a fraction of the rotation period, which may be the relevant
+criterion at low Ekman number when flow and magnetic field remain weak.
+Non-homogeneous grids and other numerical effects generally require an
+additional safety factor in the choice of :math:`\delta t`.
+
+
 .. _secNonlinearEqs:
 
 Coriolis force and non-linear terms
 ===================================
 
-Time-stepping schemes
-=====================
+.. math::
+   {\cal A}_r=
+   -\tilde{\rho}\left(
+   u_r\dfrac{\partial u_r}{\partial r}+
+   \dfrac{u_\theta}{r}\dfrac{\partial u_r}{\partial \theta}+
+   \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_r}{\partial \phi}
+  -\dfrac{u_\theta^2+u_\phi^2}{r}\right)+
+   \dfrac{1}{Pm}\left(j_\theta\,B_\phi-j_\phi\,B_\theta\right)\, ,
+   :label: eqAdvTheta
+
+.. math::
+   {\cal A}_\theta=
+   -\tilde{\rho}\left(
+   u_r\dfrac{\partial u_\theta}{\partial r}+
+   \dfrac{u_\theta}{r}\dfrac{\partial u_\theta}{\partial \theta} +
+   \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_\theta}{\partial \phi}+
+   \dfrac{u_r u_\theta}{r}-\dfrac{\cos\theta}{r\sin\theta}u_\phi^2\right)+
+   \dfrac{1}{Pm}\left(j_\phi\,B_r-j_r\,B_\phi\right)\, ,
+   :label: eqAdvTheta
+
+.. math::
+   {\cal A}_\phi=
+   -\tilde{\rho}\left(
+   u_r\dfrac{\partial u_\phi}{\partial r}+
+   \dfrac{u_\theta}{r}\dfrac{\partial u_\phi}{\partial \theta} +
+   \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_\phi}{\partial \phi}+
+   \dfrac{u_r u_\phi}{r} +\dfrac{\cos\theta}{r\sin\theta}u_\theta u_\phi\right)+
+   \dfrac{1}{Pm}\left(j_r\,B_\theta-j_\theta\,B_r\right)\, ,
+   :label: eqAdvPhi
 
 .. _secBoundaryConditions:
 
@@ -640,13 +773,13 @@ spherical harmonic expansion, where the superscript :math:`I` denotes values in 
 inner core and :math:`\omega_I` its differential rotation rate:
 
 .. math::
-   \int d\Omega\; {Y_{\ell m}^\star}\;\vec{e_r}\cdot\left[\vec{\nabla}\times
+   \int d\Omega\; {Y_{\ell}^{m}}^\star\;\vec{e_r}\cdot\left[\vec{\nabla}\times
    \left(\vec{u^I}\times\vec{B^I}\right)\right] =
    - i\,\omega_I\,m\,\dfrac{\ell(\ell+1)}{r^2}\;g_{\ell m}^I(r)\; ,
    :label: glmnI
 
 .. math::
-   \int d\Omega\; {Y_{\ell m}^\star}\;\vec{e_r}\cdot\left[\vec{\nabla}\times
+   \int d\Omega\; {Y_{\ell}^{m}}^\star\;\vec{e_r}\cdot\left[\vec{\nabla}\times
    \vec{\nabla}\times\left(\vec{u^I}\times\vec{B^I}\right)\right] =
    - i\,\omega_I\,m\,\dfrac{\ell(\ell+1)}{r^2} \;h_{\ell m}^I(r)\;
    :label: hlmnI
