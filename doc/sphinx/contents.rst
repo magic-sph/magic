@@ -14,9 +14,8 @@ Contents
 
    install
    equations
-   contribute
-   equations
    numerics
+   contribute
    inputNamelists/namelists
    signalFile
    outputFiles/outFiles

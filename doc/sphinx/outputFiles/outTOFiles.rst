@@ -78,13 +78,13 @@ On a whole, the structure of the file looks like follows:
       ...
 
       !----------
-      ! Line N
+      ! Line 7+N
       !----------
 
       n_frame, t_movie(N), omega_ic, omega_ma, dipLat, dipLon, dipStr, dipStrGeo
 
       !----------
-      ! Line N+1
+      ! Line 7+(N+1)
       !----------
 
       vphi(t=t_movie(N),phi=1,theta=1), 
@@ -93,7 +93,7 @@ On a whole, the structure of the file looks like follows:
       vphi(t=t_movie(N),phi=n_phi_max,theta=n_theta_max)
 
       !----------
-      ! Line N+2
+      ! Line 7+(N+2)
       !----------
 
       rey(t=t_movie(N),phi=1,theta=1), 
@@ -104,7 +104,7 @@ On a whole, the structure of the file looks like follows:
       ...
 
       !----------
-      ! Line N+7
+      ! Line 7+(N+7)
       !----------
 
       dtVphi(t=t_movie(N),phi=1,theta=1), 

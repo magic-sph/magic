@@ -199,7 +199,7 @@ independent control parameters.
 
 We use here the viscous diffusion time :math:`d^2/\nu_o` (where :math:`\nu_o` is the kinematic
 viscosity at the outer boundary as a time unit and :math:`\nu_o/d` as the reference velocity.
-Magnetic field is expressed in units of :math:`\sqrt{\rho_o\mu_0\lambda_i\Omega}^{1/2}`, where
+Magnetic field is expressed in units of :math:`\sqrt{\rho_o\mu_0\lambda_i\Omega}`, where
 :math:`\rho_o` is the density at the outer boundary and :math:`\lambda_i` is the magnetic
 diffusivity at the **inner** boundary.
 

@@ -51,10 +51,11 @@ from its radial component and the radial component of its curl:
 
 
 .. math::
- \begin{aligned}
+  \begin{aligned}
   \vec{e_r}\cdot \vec{v} &=  - \Delta_H W, \\
   \vec{e_r}\cdot\left(\vec{\nabla}\times\vec{B}\right) & = - \Delta_H Z,
- \end{aligned}
+  \end{aligned}
+  :label: eqDeltaH
 
 where the operator :math:`\Delta_H` denotes the horizontal part of the Laplacian:
 
@@ -62,6 +63,7 @@ where the operator :math:`\Delta_H` denotes the horizontal part of the Laplacian
   \Delta_H= \frac{1}{r^{2}\sin{\theta}}
   \frac{\partial}{\partial\theta}\left(\sin{\theta}\frac{\partial}{\partial\theta}\right)
   + \frac{1}{r^{2}\sin^2{\theta}} \frac{\partial^{2}}{\partial^{2}\phi}.
+  :label: eqLaplaceH
 
 
 
@@ -81,8 +83,9 @@ reads
 
 .. math::
    \int_{0}^{2\pi} d\,\phi \int_{0}^{\pi}
-  \sin{\theta}\, d\theta\; Y_{\ell m}(\theta,\phi)\,Y_{\ell^\prime
-  m^\prime}(\theta,\phi) \; =  \; \delta_{\ell \ell^\prime}\delta_{m m^\prime}.
+   \sin{\theta}\, d\theta\; Y_{\ell m}(\theta,\phi)\,Y_{\ell^\prime
+   m^\prime}(\theta,\phi) \; =  \; \delta_{\ell \ell^\prime}\delta_{m m^\prime}.
+   :label: eqOrthoYlm
 
 This means that
 
@@ -138,6 +141,18 @@ Generally, :math:`N_\phi=  2 N_\theta` is chosen, which provides
 isotropic resolution in the equatorial region.  Choosing
 :math:`\ell_{max}= [ \min(2 N_\theta,N_\phi)-1]/3` prevents aliasing errors.
 
+Special relations
+-----------------
+
+The action of a horizontal Laplacian :eq:`eqLaplaceH` on spherical harmonics can be
+analytically expressed by
+
+.. math::
+   \Delta_H Y_{\ell m} = -\dfrac{\ell(\ell+1)}{r^2}\,Y_{\ell m}
+   :label: eqHorizLaplYlm
+
+
+
 Radial representation
 =====================
 
@@ -167,6 +182,7 @@ onto a radius range :math:`(r_i\leq r \leq r_o)` by
 
 .. math::
    x(r)=  2 \frac{r-r_i}{r_o-r_i} - 1 .
+   :label: eqChebMap
 
 In addition, nonlinear mapping can be defined to modify the radial dependence of the
 grid-point density.
@@ -174,7 +190,8 @@ grid-point density.
 When choosing the :math:`N_r` extrema of :math:`{\cal C}_{N_r-1}`  as radial grid points,
 
 .. math::
-  x_k=\cos{\left(\pi \frac{(k-1)}{N_r-1}\right)}\;\;\;,\;\;\; k=1,2,\ldots,N_r ,
+   x_k=\cos{\left(\pi \frac{(k-1)}{N_r-1}\right)}\;\;\;,\;\;\; k=1,2,\ldots,N_r ,
+   :label: eqChebGrid
 
 the values of the Chebyshev polynomials at these points are simply given by
 the cosine functions:
@@ -189,3 +206,494 @@ In addition, FFTs can be employed to switch between
 grid representation :eq:`eqGridCheb` and Chebyshev representations :eq:`eqSpecCheb`,
 rendering this procedure a fast-Chebyshev transform.
 Choosing :math:`N_r>N` provides radial dealiasing.
+
+Spectral equations
+==================
+
+We have now introduced the necessary tools for deriving the
+spectral equations.
+Taking the **radial components** of the Navier-Stokes equation :eq:`eqNSNd`
+and the induction equation :eq:`eqIndNd` provides the equations
+for the poloidal potentials :math:`W(r,\theta,\phi)` and :math:`g(r,\theta,\phi)`.
+The **radial component of the curl** of these equations provides
+the equations for the toroidal counterparts
+:math:`Z(r,\theta,\phi)` and :math:`h(r,\theta,\phi)`.
+The pressure remains an additional unknown. Hence one more equation 
+involving :math:`W_{\ell mn}` and :math:`p_{\ell mn}`
+is required. It is obtained by taking the
+**horizontal divergence** of the Navier-Stokes equation :eq:`eqNSNd`.
+
+Expanding all potentials in spherical harmonics and Chebyshev polynomials,
+multiplying with :math:`Y_{\ell m}^\star`, and integrating over spherical surfaces
+(while making use of
+the orthogonality relation :eq:`eqOrthoYlm` results in equations for the
+coefficients :math:`W_{\ell mn}`, :math:`Z_{\ell mn}`, :math:`g_{\ell mn}`, 
+:math:`h_{\ell mn}`, :math:`p_{\ell mn}` and :math:`T_{\ell mn}`,
+respectively.
+
+
+Equation for the poloidal potential :math:`W`
+---------------------------------------------
+
+The temporal evolution of :math:`W` is obtained by taking :math:`\vec{e_r}\cdot` of each
+term entering the Navier-Stokes equation :eq:`eqNSNd`. For the
+time-derivative, one gets using :eq:`eqDeltaH`:
+
+.. math::
+   \tilde{\rho}\vec{e_r}\cdot\left(\dfrac{\partial \vec{u}}{\partial t}\right) =
+   \dfrac{\partial}{\partial t}(\vec{e_r}\cdot\tilde{\rho}\vec{u})=-\Delta_H\dfrac{\partial
+   W}{\partial t}.
+
+For the viscosity term, one gets
+
+.. math::
+   \begin{aligned}
+   \vec{e_r}\cdot\vec{\nabla}\cdot \mathsf{S} = & -\nu\,\Delta_H\left[\dfrac{\partial^2 W}
+   {\partial r^2}
+   +\left\lbrace 2\dfrac{d\ln\nu}{dr}-\dfrac{1}{3}\dfrac{d\ln\tilde{\rho}}{dr}\right\rbrace
+   \dfrac{\partial W}{\partial r} \right. \\
+   & -\left. \left\lbrace -\Delta_H + \dfrac{4}{3}\left(\dfrac{d^2\ln\tilde{\rho}}{dr^2}
+   +\dfrac{d\ln\nu}{dr} \dfrac{d\ln\tilde{\rho}}{dr}  +
+   \dfrac{1}{r}\left[3\dfrac{d\ln\nu}{dr}+
+   \dfrac{d\ln\tilde{\rho}}{dr}\right] \right) \right\rbrace W\right],
+   \end{aligned}
+
+.. note:: In case of a constant kinematic viscosity, the :math:`d\ln\nu/dr`
+          terms vanish. If in addition,the background density is constant, the
+          :math:`d\ln\tilde{\rho}/dr` terms also vanish. In that Boussinesq limit, this
+          viscosity term would then be simplified as
+
+          .. math::
+            \vec{e_r}\cdot\Delta \vec{u} = -\Delta_H\left[\dfrac{\partial^2 W}{\partial r^2}
+            +\Delta_H\,W\right]
+
+Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the time-evolution equation
+for the poloidal potential :math:`W_{\ell m n}`:
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   E\,\dfrac{\ell(\ell+1)}{r^2}\left[\left\lbrace\dfrac{\partial}{\partial t} + 
+   \nu\,\dfrac{\ell(\ell+1)}{r^2} + \dfrac{4}{3}\,\nu\,\left(\dfrac{d^2\ln\tilde{\rho}}{dr^2}
+   +\dfrac{d\ln\nu}{dr} \dfrac{d\ln\tilde{\rho}}{dr}  +
+   \dfrac{1}{r}\left[3\dfrac{d\ln\nu}{dr}+
+   \dfrac{d\ln\tilde{\rho}}{dr}\right] \right)\right\rbrace\right. & \,{\cal C}_n  & \\
+   -\nu\,\left\lbrace 2\dfrac{d\ln\nu}{dr}-\dfrac{1}{3}\dfrac{d\ln\tilde{\rho}}{dr}\right\rbrace
+   &\,{\cal C}'_n & \\
+   -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
+   + \left[{\cal C}'_n -\dfrac{d\ln\tilde{\rho}}{dr}{\cal C}_n\right] & & P_{\ell m n} \\
+   - \left[\dfrac{Ra\,E}{Pr}\,\tilde{\rho}\,g(r)\right] & \,{\cal C}_n & s_{\ell m n} \\
+   = {\cal N}^W = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \vec{F} & &
+   \end{aligned}}
+   :label: eqSpecW
+
+Here, :math:`d\Omega` is the spherical surface element. We use the summation convention
+for the Chebyshev index :math:`n`. The radial derivatives of Chebyshev
+polynomials are denoted by primes.
+   
+
+Equation for the toroidal potential :math:`Z`
+---------------------------------------------
+
+The temporal evolution of :math:`Z` is obtained by taking the radial component of the
+curl of the Navier-Stokes equation (i.e.  :math:`\vec{e_r}\cdot\vec{\nabla}\times`). For 
+the time derivative, one gets using :eq:`eqDeltaH`:
+
+.. math::
+   \vec{e_r}\cdot\vec\nabla\times\left(\dfrac{\partial\tilde{\rho}\vec{u}}{\partial t}\right)=
+   \dfrac{\partial}{\partial t}(\vec{e_r}\cdot\vec{\nabla}\times\tilde{\rho}
+   \vec{u})=-\dfrac{\partial}{\partial t}(\Delta_H Z) = -\Delta_H\dfrac{\partial Z}{\partial t}
+
+The pressure gradient, one has
+
+.. math::
+   \vec{\nabla}\times \left[\tilde{\rho}\vec{\nabla}\left(\dfrac{p'}{\tilde{\rho}}\right)\right] = 
+   \vec{\nabla} \tilde{\rho} \times \vec{\nabla}\left(\dfrac{p'}{\tilde{\rho}}\right) + 
+   \underbrace{\tilde{\rho} \vec{\nabla} \times \left[\vec{\nabla}\left( \dfrac{p'}{\tilde{\rho}}
+   \right)\right]}_{=0}.
+
+This expression has no component along :math:`\vec{e_r}`, as a consequence, there is
+no pressure gradient contribution here. The
+gravity term also vanishes as :math:`\vec{\nabla}\times(\tilde{\rho}g(r)\vec{e_r})` has no
+radial component. 
+
+.. math::
+   \begin{aligned}
+   \vec{e_r}\cdot\vec{\nabla}\times\left[\vec{\nabla}\cdot\mathsf{S}\right] = &
+   -\nu\,\Delta_H\left[\dfrac{\partial^2 Z}{\partial r^2}
+   +\left(\dfrac{d\ln\nu}{dr}-\dfrac{d\ln\tilde{\rho}}{dr}\right)\,\dfrac{\partial Z}{\partial r}  \right.\\
+   & \left. - \left(\dfrac{d\ln\nu}{dr}\dfrac{d\ln\tilde{\rho}}{dr}+
+     \dfrac{2}{r}\dfrac{d\ln\nu}{dr}+
+     \dfrac{d^2\ln\tilde{\rho}}{dr^2}+\dfrac{2}{r}
+   \dfrac{d\ln\tilde{\rho}}{dr}-\Delta_H\right) Z \right].
+   \end{aligned}
+
+.. note:: Once again, this viscous term can be greatly simplified in the Boussinesq limit:
+
+          .. math::
+            \vec{e_r}\cdot\vec{\nabla}\times\left(\Delta \vec{u}\right) = 
+            -\Delta_H\left[\dfrac{\partial^2 Z}{\partial r^2}
+            +\Delta_H\,Z\right]
+
+Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the time-evolution equation
+for the poloidal potential :math:`Z_{\ell m n}`:
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   E\,\dfrac{\ell(\ell+1)}{r^2}\left[\left\lbrace\dfrac{\partial}{\partial t} + 
+   \nu\,\dfrac{\ell(\ell+1)}{r^2} + \nu\,\left(\dfrac{d\ln\nu}{dr}\dfrac{d\ln\tilde{\rho}}{dr}+
+   \dfrac{2}{r}\dfrac{d\ln\nu}{dr}+ \dfrac{d^2\ln\tilde{\rho}}{dr^2}+\dfrac{2}{r}
+   \dfrac{d\ln\tilde{\rho}}{dr}\right)\right\rbrace\right. & \,{\cal C}_n  & \\
+   -\nu\,\left(\dfrac{d\ln\nu}{dr}-\dfrac{d\ln\tilde{\rho}}{dr}\right) &\,{\cal C}'_n & \\
+   -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& Z_{\ell m n} \\
+   = {\cal N}^Z = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
+   \end{aligned}}
+   :label: eqSpecZ
+
+
+Equation for pressure :math:`P`
+-------------------------------
+
+The evolution of equation for pressure is obtained by taking the horizontal
+divergence (i.e. :math:`\vec{\nabla}_H\cdot`)
+of the Navier-Stokes equation. This operator is defined such
+that
+
+.. math::
+   \vec{\nabla}_H\cdot\vec{a} = r\sin \dfrac{\partial (\sin\theta\,a_\theta)}{\partial \theta}
+   +r\sin \dfrac{\partial a_\phi}{\partial \phi}.
+
+This relates to the total divergence via:
+
+.. math::
+   \vec{\nabla}\cdot\vec{a}= \dfrac{1}{r^2}\dfrac{\partial(r^2 a_r)}{\partial r}+ 
+   \vec{\nabla}_H\cdot\vec{a}.
+
+The time-derivative term is thus expressed by
+
+.. math::
+   \begin{aligned} 
+   \vec{\nabla}_H\cdot\left(\tilde{\rho}\dfrac{\partial \vec{u}}{\partial t}\right) 
+   &= \dfrac{\partial}{\partial t}\left[\vec{\nabla}_H\cdot(\tilde{\rho}\vec{u}
+   )\right] \\
+   & =  \dfrac{\partial}{\partial t}\left[\vec{\nabla}\cdot(\tilde{\rho}\vec{u})
+   -\dfrac{1}{r^2}\dfrac{\partial(r^2\tilde{\rho} u_r)}{\partial r}\right] \\
+   & = -\dfrac{\partial}{\partial t}\left[\dfrac{\partial (\tilde{\rho} u_r)}{\partial r}
+   +\dfrac{2\tilde{\rho} u_r}{r}\right] \\
+   & = \dfrac{\partial}{\partial t}\left[\dfrac{\partial (\Delta_H W)}{\partial r}
+   +\dfrac{2}{r}\Delta_H W\right] \\
+   & = \Delta_H\dfrac{\partial}{\partial t}\left(\dfrac{\partial W}{\partial r}\right)
+   \end{aligned}
+
+We note that the gravity term vanishes since :math:`\vec{\nabla}_H\cdot(\tilde{\rho}
+g(r)\vec{e_r}) = 0`. Concerning the pressure gradient, one has
+
+.. math::
+   -\vec{\nabla}_H\cdot\left[\tilde{\rho} \vec{\nabla}\left(\dfrac{p'}{\tilde{\rho}}
+   \right)\right] = -\left\lbrace\vec{\nabla}\cdot\left[\tilde{\rho} \vec{\nabla}
+   \left(\dfrac{p'}{\tilde{\rho}}\right)\right]-
+   \dfrac{1}{r^2}\dfrac{\partial}{\partial r}\left[ r^2 \tilde{\rho} 
+   \dfrac{\partial}{\partial r}\left(\dfrac{p'}{\tilde{\rho}}\right)\right] \right\rbrace = 
+   -\Delta_H \, p'.
+
+The viscosity term then reads
+
+.. math::
+  \begin{aligned}
+  \vec{\nabla}_H\cdot \left( \vec{\nabla}\cdot\mathsf{S} \right) = & \nu\,\Delta_H\left[
+  \dfrac{\partial^3 W}{\partial r^3} + \left(\dfrac{d\ln\nu}{dr}-
+  \dfrac{d\ln\tilde{\rho}}{dr}\right) \dfrac{\partial^2 W}{\partial r^2} \right. \\
+  & - \left[\dfrac{d^2\ln\tilde{\rho}}{dr^2} + \dfrac{d\ln\nu}{dr}\dfrac{d\ln\tilde{\rho}}{dr}+
+  \dfrac{2}{r}\left(\dfrac{d\ln\nu}{dr}+\dfrac{d\ln\tilde{\rho}}{dr}\right)
+  -\Delta_H \right]\dfrac{\partial W}{\partial r} \\
+  & \left. -\left( \dfrac{2}{3}\dfrac{d\ln\tilde{\rho}}{dr}+\dfrac{2}{r}+\dfrac{d\ln\nu}{dr}
+  \right)\Delta_H\,W \right].
+  \end{aligned}
+
+.. note:: Once again, this viscous term can be greatly simplified in the Boussinesq limit:
+
+          .. math::
+            \vec{\nabla}_H\cdot\left(\Delta \vec{u}\right) = 
+            -\Delta_H\left[\dfrac{\partial^3 W}{\partial r^3}
+            +\Delta_H\,\dfrac{\partial W}{\partial r}-\dfrac{2}{r}\Delta_H\,W\right]
+
+Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the equation for the pressure
+:math:`P_{\ell m n}`:
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   E\,\dfrac{\ell(\ell+1)}{r^2}\left[
+   -\nu\,\left( \dfrac{2}{3}\dfrac{d\ln\tilde{\rho}}{dr}+\dfrac{2}{r}+\dfrac{d\ln\nu}{dr}
+   \right)\dfrac{\ell(\ell+1)}{r^2} \right.
+   & \,{\cal C}_n  & \\
+   \left\lbrace\dfrac{\partial}{\partial t} + 
+   \nu\,\dfrac{\ell(\ell+1)}{r^2} + \nu\,\left[\dfrac{d^2\ln\tilde{\rho}}{dr^2}+
+    \dfrac{d\ln\nu}{dr}\dfrac{d\ln\tilde{\rho}}{dr}+
+   \dfrac{2}{r}\left(\dfrac{d\ln\nu}{dr}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\right]\right\rbrace
+   & \,{\cal C}'_n  & \\
+   -\nu\,\left(  \dfrac{d\ln\nu}{dr}-\dfrac{d\ln\tilde{\rho}}{dr}
+   \right) &\,{\cal C}''_n & \\
+   -\nu & \,{\cal C}'''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
+   + \left[\dfrac{\ell(\ell+1)}{r^2}\right] & \,{\cal C}_n & P_{\ell m n} \\
+   = {\cal N}^P = -\int d\Omega\,Y_{\ell m}^\star\,\vec{\nabla}_H\cdot\vec{F} & &
+   \end{aligned}}
+   :label: eqSpecP
+
+
+.. note:: We note that the terms on the left hand side of :eq:`eqSpecW`, :eq:`eqSpecZ` and
+          :eq:`eqSpecP` resulting from the viscous term, the pressure gradient,
+          the buoyancy term, and the explicit time derivative completely decouple 
+          in spherical harmonic degree and order.
+          
+          The terms that do not decouple, namely Coriolis force, Lorentz force and 
+          advection of momentum, are collected on the right-hand side
+          of :eq:`eqSpecW`, :eq:`eqSpecZ` and :eq:`eqSpecP` into the forcing term
+          :math:`\vec{F}`:
+
+          .. math::
+             \vec{F}=-2\,\tilde{\rho}\,\vec{e_z}\times\vec{u} - E\,\tilde{\rho}\,
+             \vec{u}\cdot\vec{\nabla}\,\vec{u} 
+             +\frac{1}{Pm}\left(\vec{\nabla}\times\vec{B}\right)\times\vec{B}
+             :label: eqForcing
+
+Resolving :math:`\vec{F}` into potential functions is not required. Its
+numerical evaluation is discussed :ref:`below <secNonlinearEqs>`.
+
+
+Equation for entropy :math:`s`
+------------------------------
+
+The equation for the entropy (or temperature in the Boussinesq limit) is given by
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   \dfrac{1}{Pr}\left[\left(Pr\dfrac{\partial}{\partial t} + 
+   \kappa\,\dfrac{\ell(\ell+1)}{r^2} 
+   \right)\right. & \,{\cal C}_n  & \\
+   -\kappa\,\left(\dfrac{d\ln\kappa}{dr}+\dfrac{d\ln\tilde{\rho}}{dr}+
+   +\dfrac{dln\tilde{T}}{dr}+\dfrac{2}{r}\right) 
+   &\,{\cal C}'_n & \\
+   -\kappa & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& s_{\ell m n} \\
+   = {\cal N}^S = -\int d\Omega\,Y_{\ell m}^\star\,\left[\vec{u}\cdot\vec{\nabla}s+
+   \dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}\left(\Phi_\nu+
+   \dfrac{\lambda}{Pm^2\,E}\,j^2\right) \right] & &
+   \end{aligned}}
+   :label: eqSpecS
+
+In this expression, :math:`j=\vec{\nabla}\times\vec{B}` is the current. Once again,
+the numerical evaluation of the right-hand-side (i.e. the non-linear terms) is
+discussed :ref:`below <secNonlinearEqs>`.
+
+
+Equation for the poloidal magnetic potential :math:`g`
+------------------------------------------------------
+
+The equation for the poloidal magnetic field coefficient reads
+
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   \dfrac{\ell(\ell+1)}{r^2}\left[\left(\dfrac{\partial}{\partial t} + 
+   \dfrac{1}{Pm}\lambda\,\dfrac{\ell(\ell+1)}{r^2} 
+   \right)\right. & \,{\cal C}_n  & \\
+   -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& g_{\ell m n} \\
+   = {\cal N}^g = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \vec{D} & &
+   \end{aligned}}
+   :label: eqSpecG
+
+
+
+Equation for the toroidal magnetic potential :math:`h`
+------------------------------------------------------
+
+The equation for the toroidal magnetic field coefficient reads
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   \dfrac{\ell(\ell+1)}{r^2}\left[\left(\dfrac{\partial}{\partial t} + 
+   \dfrac{1}{Pm}\lambda\,\dfrac{\ell(\ell+1)}{r^2} 
+   \right)\right. & \,{\cal C}_n  & \\
+   -\dfrac{1}{Pm}\,\dfrac{d\lambda}{dr} &\,{\cal C}'_n & \\
+   -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& h_{\ell m n} \\
+   = {\cal N}^h = \int d\Omega\,Y_{\ell m}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
+   \end{aligned}}
+   :label: eqSpecH
+
+
+We have now derived a full set of equations
+:eq:`eqSpecW`, :eq:`eqSpecZ`, :eq:`eqSpecP`, :eq:`eqSpecS`, :eq:`eqSpecG` and
+:eq:`eqSpecH`,
+each describing the evolution of a single spherical harmonic mode of the
+six unknown fields (assuming that the terms on the right hand side
+are given). Each equation couples :math:`N+1` Chebyshev coefficients
+for a given spherical harmonic mode :math:`(\ell,m)`.
+Typically, a collocation method is employed to solve for the Chebyshev coefficients.
+This means that the equations are required to be exactly satisfied at :math:`N-1`
+grid points defined by the equations :eq:`eqChebMap` and :eq:`eqChebGrid`.
+Excluded are the points :math:`r=r_i` and :math:`r=r_o`, where the 
+:ref:`boundary conditions <secBoundaryConditions>` provide
+additional constraints on the set of Chebyshev coefficients.
+
+
+.. _secNonlinearEqs:
+
+Coriolis force and non-linear terms
+===================================
+
+Time-stepping schemes
+=====================
+
+.. _secBoundaryConditions:
+
+Boundary conditions and inner core
+==================================
+
+Mechanical boundary conditions
+------------------------------
+
+Since the system of equations is formulated on a radial grid, boundary
+conditions can simply be satisfied by replacing the collocation equation
+at grid points :math:`r_i` and :math:`r_o` with appropriate expressions.
+The condition of zero radial flow on the boundaries implies
+
+.. math::
+  {\cal C}_n(r) W_{\ell mn} = 0 \;\;\mbox{at}\;\; r=r_i,r_o\;\;.
+  :label: eqBcRigid1
+
+Note that the summation convention with respect to
+radial modes :math:`n` is used again.
+**The no-slip** condition further requires that the
+horizontal flow components also have to vanish, provided
+the two boundaries are at rest. This condition is fulfilled when
+
+.. math::
+   {\cal C}'_n(r) W_{\ell mn} = 0\;\;\mbox{at}\;\; r=r_i,r_o
+  :label: eqBcRigid2
+
+and
+
+.. math::
+   {\cal C}_n(r) Z_{\ell mn} = 0\;\;\mbox{at}\;\; r=r_i,r_o
+  :label: eqBcRigid3
+
+for all spherical harmonic modes :math:`(\ell,m)`.
+The conditions :eq:`eqBcRigid1`-:eq:`eqBcRigid3`
+replace the poloidal flow potential equations :eq:`eqSpecW`
+and the pressure equation :eq:`eqSpecP`, respectively, at
+the collocation points :math:`r_i` and :math:`r_o`.
+
+If the inner-core and/or the mantle are allowed to react to torques,
+a condition based on the conservation of
+angular momentum replaces condition :eq:`eqBcRigid3` for the mode
+:math:`(\ell =1,m=0)`:
+
+.. math::
+  \mathsf{I} \dfrac{\partial\vec{\omega}}{\partial t}= \vec{\Gamma}\;\;.
+
+The tensor :math:`\mathsf{I}` denotes the moment of inertia of inner core or mantle,
+respectively, :math:`\vec{\omega}` is the mantle or inner-core rotation rate relative
+to that of the reference frame, and :math:`\vec{\Gamma}` is the respective torque.
+
+**Free-slip boundary conditions** require that the viscous stress vanishes, which
+in turn implies that the non-diagonal components :math:`\mathsf{Sr}_{r\phi}` and
+:math:`\mathsf{S}_{r\theta}` of the rate-of-strain tensor vanish.
+Translated to the spectral representation this requires
+
+.. math::
+  \left[{\cal C}''_n(r) -\left(\frac{2}{r}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\,{\cal C}'_n(r)
+  \right] W_{\ell mn} = 0 \;\;\mbox{and}\;\;
+  \left[{\cal C}'_n(r) -\left(\frac{2}{r}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\,{\cal C}_n(r)
+  \right] z_{\ell mn} = 0\;.
+
+
+Magnetic boundary conditions and inner core
+-------------------------------------------
+
+Magnetic boundary conditions at the interface with an insulating mantle
+or insulating inner core are similarly implemented.
+The toroidal magnetic field cannot enter any
+insulator and therefore has to vanish at the boundary
+
+.. math::
+  {\cal C}_n(r) h_{\ell mn} = 0\;\;\mbox{at}\;\; r=r_i\;\;\mbox{and/or}\;\; r=r_o\;\;.
+
+Matching conditions for the poloidal magnetic field with a source-free
+external potential field require that the following equations are satisfied at
+the boundary grid points:
+
+.. math::
+  {\cal C}_n^\prime(r) g_{\ell mn} - {\cal C}_n(r)\frac{\ell+1}{r} g_{\ell mn} = 0 \;\;\;\mbox{at}\;\;\; r=r_i,
+
+.. math::
+  {\cal C}_n^\prime(r) g_{\ell mn} + {\cal C}_n(r)\frac{\ell}{r} g_{\ell mn} = 0 \;\;\;\mbox{at}\;\;\; r=r_o.
+
+If the inner core is modeled as an electrical conductor, a simplified dynamo
+equation has to be solved in which the fluid flow is replaced by the
+solid-body rotation of the inner core. The latter is described by a single toroidal
+flow mode :math:`(\ell=1,m=0)`. The resulting nonlinear terms can be expressed by a simple
+spherical harmonic expansion, where the superscript :math:`I` denotes values in the
+inner core and :math:`\omega_I` its differential rotation rate:
+
+.. math::
+   \int d\Omega\; {Y_{\ell m}^\star}\;\vec{e_r}\cdot\left[\vec{\nabla}\times
+   \left(\vec{u^I}\times\vec{B^I}\right)\right] =
+   - i\,\omega_I\,m\,\dfrac{\ell(\ell+1)}{r^2}\;g_{\ell m}^I(r)\; ,
+   :label: glmnI
+
+.. math::
+   \int d\Omega\; {Y_{\ell m}^\star}\;\vec{e_r}\cdot\left[\vec{\nabla}\times
+   \vec{\nabla}\times\left(\vec{u^I}\times\vec{B^I}\right)\right] =
+   - i\,\omega_I\,m\,\dfrac{\ell(\ell+1)}{r^2} \;h_{\ell m}^I(r)\;
+   :label: hlmnI
+
+The expensive back and forth transformations between spherical
+harmonic and grid representations are therefore not required for advancing the
+inner-core magnetic field in time.
+
+In the inner core the magnetic potentials are again conveniently 
+expanded into Chebyshev polynomials. The Chebyshev variable :math:`x`
+spans the whole diameter of the inner core, so that grid points are dense 
+near the inner-core boundary but sparse in the center. The mapping is given by:
+
+.. math::
+   x(r)=  \dfrac{r}{r_i}\;\;,\;\;-r_i\le r\le r_i\;\;.
+   :label: mapRIC
+
+Each point in the inner core is thus represented twice, by
+grid points :math:`({r,\theta,\phi})` and :math:`({-r,\pi-\theta,\phi+\pi})`.
+Since both representations must be identical, this imposes a symmetry
+constraint that can be fulfilled when the radial expansion
+comprises only polynomials of even order:
+
+.. math::
+  g_{\ell m}^I(r) = \left(\dfrac{r}{r_i}\right)^{\ell+1}
+                    \,\sum_{i=0}^{M-1} g_{\ell m\,2i}^I\;{\cal C}_{2i}(r)\;\;.
+  :label: radI
+
+An equivalent expression holds for the toroidal potential in the inner core.
+FFTs can again by employed efficiently
+for the radial transformation, using the :math:`M` extrema of
+:math:`{\cal C}_{2 M-1}(r)` with :math:`x>0` as grid points.
+
+The sets of spectral magnetic field equations for the inner and the outer core
+are coupled via continuity equations for the magnetic field and the
+horizontal electric field.
+Continuity of the magnetic field is assured by (**i**) continuity of the
+toroidal potential, (**ii**) continuity of the poloidal potential, and
+(**iii**) continuity of the radial derivative of
+the latter. Continuity of the horizontal electric field demands (**iv**) that
+the radial derivative of the toroidal potential is continuous, provided
+that the horizontal flow and the electrical conductivity are continuous
+at the interface.
+These four conditions replace the spectral equations
+:eq:`eqSpecG`, :eq:`eqSpecH` on the outer-core side and
+equations :eq:`glmnI`, :eq:`hlmnI` on the inner-core side.
+Employing free-slip conditions or allowing for electrical conductivity differences
+between inner and outer core leads to more complicated and even non-linear matching
+conditions.
+

@@ -101,7 +101,7 @@ stored as a fortran unformatted file which follows the following structure:
        !**************************************************************************!
 
        !------------
-       ! Line 3
+       ! Line 5
        !-------------
  
        time,                                              ! Time and poloidal potential
@@ -110,7 +110,7 @@ stored as a fortran unformatted file which follows the following structure:
        b_ic(lm=1,n_cheb=n_cheb_max, ..., b_ic(lm=lm_max,n_cheb=n_cheb_max)
 
        !------------
-       ! Line 4
+       ! Line 6
        !-------------
  
        time,                                              ! Time and toroidal potential
