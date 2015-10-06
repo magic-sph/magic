@@ -61,10 +61,6 @@ The structure of a generic movie file is as follows:
 
     .. code-block:: fortran
 
-     !-------                                                               
-     ! Header
-     !-------
-
      !-------
      ! Line 1
      !-------
@@ -117,7 +113,7 @@ The structure of a generic movie file is as follows:
  
      phi(1:n_phi_max)               !All phi points
 
-     !------------------------ End of Header ----------------------------- 
+     !------------------------------------------------------------------- 
      
      !---------
      ! Frame N

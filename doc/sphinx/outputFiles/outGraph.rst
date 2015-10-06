@@ -21,18 +21,29 @@ file looks like below:
   .. code-block:: fortran
 
       !-------------
-      ! Header
+      ! Line 1
       !-------------
 
       version               !Graphout_version_9 (using MPI) or
                             !Graphout_version_7 (without MPI)
+      !----------
+      ! Line 2
+      !----------
 
       runid
+      
+      !----------
+      ! Line 3
+      !----------
 
       time, n_r_max, n_theta_max, n_phi_tot,          !time = Time of writing
       n_r_ic_max-1, minc, nThetasBs,                  !(Simulation time),
       ra, ek, pr, prmag,                              !nThetasBs = no. of
       radratio, sigma_ratio                           !theta blocks
+      
+      !----------
+      ! Line 4
+      !----------
 
       theta(1:n_theta_max)
 
@@ -53,26 +64,59 @@ file looks like below:
       !-------------
       ! Block N
       !-------------
+      
+      !------------
+      ! Line 4 + N
+      !------------
+
 
       n_r-1, r(n_r)/r(1), n_theta_start, n_theta_stop   !Radial index, radius in terms 
                                                         !of r_cmb, start and stop of 
                                                         !the theta block
 
+      !---------------
+      ! Line 4 + (N+1)
+      !---------------
+
       sr(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Entropy
+
+      !---------------
+      ! Line 4 + (N+2)
+      !---------------
 
       vr(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Radial velocity
 
+      !---------------
+      ! Line 4 + (N+3)
+      !---------------
+
       vt(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Theta component of velocity
+
+      !---------------
+      ! Line 4 + (N+4)
+      !---------------
 
       vp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) of 
                                                         !velocity
 
       if (l_mag):                                         !For a magnetic run
+      
+        !---------------
+        ! Line 4 + (N+5)
+        !---------------
 
         br(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Radial magnetic field
 
+        !---------------
+        ! Line 4 + (N+6)
+        !---------------
+
         bt(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Theta component of 
                                                           !magnetic field
+
+        !---------------
+        ! Line 4 + (N+7)
+        !---------------
 
         bp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) 
                                                           !of magnetic field
@@ -93,7 +137,15 @@ file looks like below:
       ! Block N
       !-------------
 
+      !---------------
+      ! Line 4 + (N+1)
+      !---------------
+
       n_r-1, r(n_r)/r(1), n_theta_start, n_theta_stop
+
+      !----------------------------------------------------------
+      ! Each of the following data point is written in a new line
+      !----------------------------------------------------------
 
       !-----------------
       ! Entropy
