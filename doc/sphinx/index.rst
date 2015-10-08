@@ -73,6 +73,12 @@ Documentation
 
    * The :ref:`table of contents <contents>` gives an overview of the complete documentation.
    
+   * The :ref:`formulation of the (M)HD problem <secEquations>` contains an exhaustive
+     description of the equations solved by the MagIC code.
+
+   * The :ref:`numerical methods section <secNumerics>` contains the description of the
+     numerical technique.
+
    * The :ref:`search page <search>` allows to search the documentation.
    
    * The :ref:`fortran API <secFortranAPI>` contains a generic description of all
