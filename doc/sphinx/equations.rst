@@ -56,7 +56,7 @@ is the magnetic diffusivity, :math:`\mu_0` the magnetic permeability, :math:`\nu
 viscosity and :math:`K` the thermal conductivity.
 
 .. figure:: figs/shell.png
-   :width: 500px
+   :scale: 50%
    :align: center
    :alt: caption
 
