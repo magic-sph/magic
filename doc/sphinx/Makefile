@@ -54,6 +54,7 @@ clean:
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	@cp figs/snapshots/* .build/html/_images/
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 

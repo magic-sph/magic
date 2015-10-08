@@ -34,21 +34,21 @@ Welcome
      **MagIC** is a free software. It can be used, modified and redistributed under the 
      terms of the `GNU GPL v3 licence <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.
 
+    .. only:: html
 
-.. figure:: figs/snapshots.png
-   :width: 700px
-   :align: center
-   :alt: caption
+      .. raw:: html
 
-   **Upper left panel**: dynamo benchmark `(Christensen et al., PEPI, 2001)
-   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_. **Upper right panel**:
-   dynamo model of the Jovian dynamo `(Gastine, T. et al., GRL, 2014)
-   <http://dx.doi.org/10.1002/2014GL060814>`_. **Lower left panel**: inertial
-   mode in a spherical Couette flow `(Wicht, J., JFM, 2014)
-   <http://dx.doi.org/10.1017/jfm.2013.545>`_. **Lower right panel**:
-   Rayleigh-Bénard convection in non-rotating spherical shell `(Gastine, T. et
-   al., JFM, 2015) <http://dx.doi.org/10.1017/jfm.2015.401>`_.
-    
+        <div class="galleria">
+           <img src=_images/benchmark.png data-title="Dynamo Benchmark" data-description="<a href='http://dx.doi.org/10.1016/S0031-9201(01)00275-8'>Christensen et al., PEPI, 2001</a>" >
+           <img src=_images/3DBr.png data-title="The Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
+           <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
+        </div>
+
+        <script>
+           Galleria.loadTheme('galleria/themes/classic/galleria.classic.min.js');
+           Galleria.run('.galleria', {responsive:true,height:0.4})
+        </script>
+
 
 
 Quickly starting using MagIC
@@ -75,12 +75,6 @@ Documentation
    
    * The :ref:`search page <search>` allows to search the documentation.
    
-   * The :ref:`formulation of the (M)HD problem <secEquations` contains an exhaustive
-     description of the equations solved by the MagIC code.
-
-   * The :ref:`numerical methods section <secNumerics>` contains the description of the
-     numerical technique.
-
    * The :ref:`fortran API <secFortranAPI>` contains a generic description of all
      Fortran variables, subroutines and modules used in **MagIC**.
    

@@ -296,3 +296,5 @@ texinfo_documents = [
 os.system('./cleanPreProc.sh')
 fortran_src = ".fortranCleanSrc/*.f90"
 fortran_indent = 3
+
+os.system('cp -r galleria .build/html/')
