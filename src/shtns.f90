@@ -23,11 +23,22 @@ contains
       integer :: it, ip
       integer :: nlm
       integer :: norm
+      integer :: nThreads
 
-      if (rank == 0) then
+      if ( rank == 0 ) then
          call shtns_verbose(1)
       end if
-      call shtns_use_threads(omp_get_num_threads())
+
+      !$OMP PARALLEL
+      !$OMP MASTER
+#ifdef WITHOMP
+      nThreads=omp_get_num_threads()
+#else 
+      nThreads=1
+#endif
+      call shtns_use_threads(nThreads)
+      !$OMP END MASTER
+      !$OMP END PARALLEL
 
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 

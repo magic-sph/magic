@@ -134,8 +134,8 @@ contains
       allocate(this%shtns_cbt(n_phi_max * n_theta_max))
       allocate(this%shtns_cbp(n_phi_max * n_theta_max))
 
-      this%shtns_bt=1.0d50
-      this%shtns_bp=1.0d50
+      this%shtns_bt=1.0e50_cp
+      this%shtns_bp=1.0e50_cp
 #endif
    end subroutine initialize
 !------------------------------------------------------------------------------
