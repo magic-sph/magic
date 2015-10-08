@@ -1,3 +1,5 @@
+.. _secEquations:
+
 Formulation of the (magneto)-hydrodynamics problem
 ##################################################
 
@@ -42,6 +44,7 @@ where :math:`\Phi_\nu` corresponds to the viscous heating expressed by
 .. math::
    \Phi_\nu = 2\rho\left[e_{ij}e_{ji}-\dfrac{1}{3}\left(\vec{\nabla}\cdot\vec{u}\right)^2\right].
 
+Note that we use here the summation convention over the indices :math:`i` and :math:`j`.
 The induction equation is obtained from the Maxwell equations (ignoring displacement current)
 and Ohm's law (neglecting Hall effect):
 

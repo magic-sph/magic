@@ -1,3 +1,5 @@
+.. _secNumerics:
+
 Numerical technique
 ###################
 
@@ -229,13 +231,17 @@ grid representation :eq:`eqGridCheb` and Chebyshev representations :eq:`eqSpecCh
 rendering this procedure a fast-Chebyshev transform.
 Choosing :math:`N_r>N` provides radial dealiasing.
 
+.. seealso:: The Chebyshev (Gauss-Lobatto) grid is defined in the module
+             :f:mod:`chebyshev_polynoms_mod`. The cosine transforms are computed in the
+             modules :f:mod:`cosine_transform` and :f:mod:`fft_fac_mod`.
+
 Spectral equations
 ==================
 
 We have now introduced the necessary tools for deriving the
 spectral equations.
-Taking the **radial components** of the Navier-Stokes equation :eq:`eqNSNd`
-and the induction equation :eq:`eqIndNd` provides the equations
+Taking the **radial components** of the Navier-Stokes equation
+and the induction equation provides the equations
 for the poloidal potentials :math:`W(r,\theta,\phi)` and :math:`g(r,\theta,\phi)`.
 The **radial component of the curl** of these equations provides
 the equations for the toroidal counterparts
@@ -243,14 +249,14 @@ the equations for the toroidal counterparts
 The pressure remains an additional unknown. Hence one more equation 
 involving :math:`W_{\ell mn}` and :math:`p_{\ell mn}`
 is required. It is obtained by taking the
-**horizontal divergence** of the Navier-Stokes equation :eq:`eqNSNd`.
+**horizontal divergence** of the Navier-Stokes equation.
 
 Expanding all potentials in spherical harmonics and Chebyshev polynomials,
 multiplying with :math:`{Y_{\ell}^{m}}^\star`, and integrating over spherical surfaces
 (while making use of
 the orthogonality relation :eq:`eqOrthoYlm` results in equations for the
 coefficients :math:`W_{\ell mn}`, :math:`Z_{\ell mn}`, :math:`g_{\ell mn}`, 
-:math:`h_{\ell mn}`, :math:`p_{\ell mn}` and :math:`T_{\ell mn}`,
+:math:`h_{\ell mn}`, :math:`P_{\ell mn}` and :math:`s_{\ell mn}`,
 respectively.
 
 
@@ -258,7 +264,7 @@ Equation for the poloidal potential :math:`W`
 ---------------------------------------------
 
 The temporal evolution of :math:`W` is obtained by taking :math:`\vec{e_r}\cdot` of each
-term entering the Navier-Stokes equation :eq:`eqNSNd`. For the
+term entering the Navier-Stokes equation. For the
 time-derivative, one gets using :eq:`eqDeltaH`:
 
 .. math::
@@ -312,6 +318,9 @@ for the poloidal potential :math:`W_{\ell m n}`:
 Here, :math:`d\Omega` is the spherical surface element. We use the summation convention
 for the Chebyshev index :math:`n`. The radial derivatives of Chebyshev
 polynomials are denoted by primes.
+
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecW` are coded in
+             the subroutines :f:subr:`get_wpMat <updatewp_mod/get_wpmat()>`
    
 
 Equation for the toroidal potential :math:`Z`
@@ -372,6 +381,9 @@ for the poloidal potential :math:`Z_{\ell m n}`:
    = {\cal N}^Z = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
    \end{aligned}}
    :label: eqSpecZ
+
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecZ` are coded in
+             the subroutines :f:subr:`get_zMat <updatez_mod/get_zmat()>`
 
 
 Equation for pressure :math:`P`
@@ -463,6 +475,9 @@ Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the equation for the
    \end{aligned}}
    :label: eqSpecP
 
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecP` are coded in
+             the subroutines :f:subr:`get_wpMat <updatez_mod/get_wpmat()>`
+
 
 .. note:: We note that the terms on the left hand side of :eq:`eqSpecW`, :eq:`eqSpecZ` and
           :eq:`eqSpecP` resulting from the viscous term, the pressure gradient,
@@ -482,6 +497,7 @@ Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the equation for the
 
 Resolving :math:`\vec{F}` into potential functions is not required. Its
 numerical evaluation is discussed :ref:`below <secNonlinearEqs>`.
+
 
 
 Equation for entropy :math:`s`
@@ -509,6 +525,9 @@ In this expression, :math:`j=\vec{\nabla}\times\vec{B}` is the current. Once aga
 the numerical evaluation of the right-hand-side (i.e. the non-linear terms) is
 discussed :ref:`below <secNonlinearEqs>`.
 
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecS` are coded in
+             the subroutines :f:subr:`get_sMat <updatez_mod/get_smat()>`
+
 
 Equation for the poloidal magnetic potential :math:`g`
 ------------------------------------------------------
@@ -526,6 +545,9 @@ The equation for the poloidal magnetic field coefficient reads
    = {\cal N}^g = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{D} & &
    \end{aligned}}
    :label: eqSpecG
+
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecG` are coded in
+             the subroutines :f:subr:`get_bMat <updateb_mod/get_bmat()>`
 
 
 
@@ -545,6 +567,9 @@ The equation for the toroidal magnetic field coefficient reads
    = {\cal N}^h = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
    \end{aligned}}
    :label: eqSpecH
+
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecH` are coded in
+             the subroutines :f:subr:`get_bMat <updateb_mod/get_bmat()>`
 
 
 We have now derived a full set of equations
@@ -657,9 +682,9 @@ Coriolis force and non-linear terms
    u_r\dfrac{\partial u_r}{\partial r}+
    \dfrac{u_\theta}{r}\dfrac{\partial u_r}{\partial \theta}+
    \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_r}{\partial \phi}
-  -\dfrac{u_\theta^2+u_\phi^2}{r}\right)+
+   -\dfrac{u_\theta^2+u_\phi^2}{r}\right)+
    \dfrac{1}{Pm}\left(j_\theta\,B_\phi-j_\phi\,B_\theta\right)\, ,
-   :label: eqAdvTheta
+   :label: eqAdvRadial
 
 .. math::
    {\cal A}_\theta=
