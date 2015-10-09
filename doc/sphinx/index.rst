@@ -42,11 +42,12 @@ Welcome
            <img src=_images/benchmark.png data-title="Dynamo Benchmark" data-description="<a href='http://dx.doi.org/10.1016/S0031-9201(01)00275-8'>Christensen et al., PEPI, 2001</a>" >
            <img src=_images/3DBr.png data-title="The Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
            <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
+           <img src=_images/Conv.png data-title="Rayleigh-Bénard convection in non-rotating spherical shell" data-description="<a href='http://dx.doi.org/10.1017/jfm.2015.401'>Gastine, T. et al., JFM, 2015</a>">
         </div>
 
         <script>
            Galleria.loadTheme('galleria/themes/classic/galleria.classic.min.js');
-           Galleria.run('.galleria', {responsive:true,height:0.4})
+           Galleria.run('.galleria', {responsive:true, height:0.4, autoplay: 2000, transition:'fadeslide', pauseOnInteraction: false});
         </script>
 
 
