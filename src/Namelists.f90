@@ -333,6 +333,15 @@ contains
       else if ( index(interior_model, 'SUN') /= 0 ) then
          l_anel=.true.
          l_anelastic_liquid=.false.
+      else if ( index(interior_model, 'GLIESE229B') /= 0 ) then
+         l_anel=.true.
+         l_anelastic_liquid=.false.
+      else if ( index(interior_model, 'COROT3B') /= 0 ) then
+         l_anel=.true.
+         l_anelastic_liquid=.false.
+      else if ( index(interior_model, 'KOI889B') /= 0 ) then
+         l_anel=.true.
+         l_anelastic_liquid=.false.
       else
          l_anelastic_liquid=.false.
       end if

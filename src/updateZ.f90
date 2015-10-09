@@ -50,7 +50,9 @@ module updateZ_mod
    private
  
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
+   complex(cp), allocatable :: workA(:,:)  ! Work array
+   complex(cp), allocatable :: workB(:,:)  ! Work array
+   complex(cp), allocatable :: workC(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    integer :: maxThreads
    
@@ -85,23 +87,27 @@ contains
       !
     
       !-- Input/output of scalar fields:
-      complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
-      complex(cp), intent(in)    :: dzdt(llm:ulm,n_r_max)
-      complex(cp), intent(inout) :: dzdtLast(llm:ulm,n_r_max)
-      real(cp),    intent(inout) :: d_omega_ma_dtLast,d_omega_ic_dtLast
-      real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_maLast
-      real(cp),    intent(in) :: lorentz_torque_ic,lorentz_torque_icLast
+      complex(cp), intent(inout) :: z(llm:ulm,n_r_max)        ! Toroidal velocity potential z
+      complex(cp), intent(in)    :: dzdt(llm:ulm,n_r_max)     ! Time derivative of z
+      complex(cp), intent(inout) :: dzdtLast(llm:ulm,n_r_max) ! Time derivative of z of previous step
+      real(cp),    intent(inout) :: d_omega_ma_dtLast         ! Time derivative of OC rotation of previous step
+      real(cp),    intent(inout) :: d_omega_ic_dtLast         ! Time derivative of IC rotation of previous step
+      real(cp),    intent(in) :: lorentz_torque_ma            ! Lorentz torque (for OC rotation)
+      real(cp),    intent(in) :: lorentz_torque_maLast        ! Lorentz torque (for OC rotation) of previous step
+      real(cp),    intent(in) :: lorentz_torque_ic            ! Lorentz torque (for IC rotation)
+      real(cp),    intent(in) :: lorentz_torque_icLast        ! Lorentz torque (for IC rotation) of previous step
     
       !-- Input of other variables:
-      real(cp),    intent(in) :: time
-      real(cp),    intent(in) :: w1    ! weight for time step !
-      real(cp),    intent(in) :: coex  ! factor depending on alpha
-      real(cp),    intent(in) :: dt
-      logical,     intent(in) :: lRmsNext
+      real(cp),    intent(in) :: time       ! Current time
+      real(cp),    intent(in) :: w1         ! Weight for time step
+      real(cp),    intent(in) :: coex       ! Factor depending on alpha
+      real(cp),    intent(in) :: dt         ! Time step interval
+      logical,     intent(in) :: lRmsNext   ! Logical for storing update if (l_RMS.and.l_logNext)
 
       !-- Output variables
-      complex(cp), intent(out) :: dz(llm:ulm,n_r_max)
-      real(cp),    intent(out) :: omega_ma,omega_ic
+      complex(cp), intent(out) :: dz(llm:ulm,n_r_max)   ! Radial derivative of z
+      real(cp),    intent(out) :: omega_ma              ! Calculated OC rotation
+      real(cp),    intent(out) :: omega_ic              ! Calculated IC rotation
     
       !-- local variables:
       real(cp) :: w2                  ! weight of second time step
@@ -650,15 +656,15 @@ contains
       !  chosen to rotate freely (either kbotv=1 and/or ktopv=1).         
       !
       
-      real(cp), intent(in) :: dt
-      real(cp), intent(in) :: hdif
-      integer,  intent(in) :: l
+      real(cp), intent(in) :: dt      ! Time step internal
+      real(cp), intent(in) :: hdif    ! Value of hyperdiffusivity in zMat terms
+      integer,  intent(in) :: l       ! Variable to loop over l's
 
       !-- Output: z10Mat and pivot_z10
-      real(cp), intent(out) :: zMat(n_r_max,n_r_max)
-      integer,  intent(out) :: zPivot(n_r_max)
+      real(cp), intent(out) :: zMat(n_r_max,n_r_max) ! LHS matrix to calculate z
+      integer,  intent(out) :: zPivot(n_r_max)       ! Pivot to invert zMat
 #ifdef WITH_PRECOND_Z10
-      real(cp), intent(out) :: zMat_fac(n_r_max)
+      real(cp), intent(out) :: zMat_fac(n_r_max)     ! Inverse of max(zMat) for inversion
 #endif
 
       !-- local variables:
@@ -772,15 +778,15 @@ contains
       !
     
       !-- Input variables:
-      real(cp), intent(in) :: dt
-      integer,  intent(in) :: l
-      real(cp), intent(in) :: hdif
+      real(cp), intent(in) :: dt                     ! Time interval
+      integer,  intent(in) :: l                      ! Variable to loop over degrees
+      real(cp), intent(in) :: hdif                   ! Hyperdiffusivity
     
       !-- Output variables:
-      real(cp), intent(out) :: zMat(n_r_max,n_r_max)
-      integer,  intent(out) :: zPivot(n_r_max)
+      real(cp), intent(out) :: zMat(n_r_max,n_r_max) ! Matrix with LHS of z equation
+      integer,  intent(out) :: zPivot(n_r_max)       ! Pivot for zMat inversion
 #ifdef WITH_PRECOND_Z
-      real(cp), intent(out) :: zMat_fac(n_r_max)
+      real(cp), intent(out) :: zMat_fac(n_r_max)     !  Inverse of max(zMat) for the inversion
 #endif
 
       !-- local variables:

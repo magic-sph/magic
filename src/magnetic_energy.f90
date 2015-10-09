@@ -27,9 +27,11 @@ module magnetic_energy
  
    private
  
-   real(cp), allocatable :: e_dipA(:)
-   real(cp), allocatable :: e_pA(:),e_p_asA(:)
-   real(cp), allocatable :: e_tA(:),e_t_asA(:)
+   real(cp), allocatable :: e_dipA(:)    ! Time-averaged dipole (l=1) energy
+   real(cp), allocatable :: e_pA(:)      ! Time-averaged poloidal energy
+   real(cp), allocatable :: e_p_asA(:)   ! Time-averaged axisymmetric poloidal energy
+   real(cp), allocatable :: e_tA(:)      ! Time-averaged toroidal energy
+   real(cp), allocatable :: e_t_asA(:)   ! Time-averaged axisymmetric toroidal energy
  
    public :: initialize_magnetic_energy, get_e_mag
   
@@ -56,26 +58,32 @@ contains
       !
 
       !-- Input of variables:
-      integer,     intent(in) :: n_e_sets
-      real(cp),    intent(in) :: time
-      logical,     intent(in) :: l_write
-      logical,     intent(in) :: l_stop_time
-      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      integer,     intent(in) :: n_e_sets                           ! Switch for time-average and to determine first time step
+      real(cp),    intent(in) :: time                               ! Current time
+      logical,     intent(in) :: l_write                            ! Switch to write output
+      logical,     intent(in) :: l_stop_time                        ! Indicates when last time step of the run is reached for radial output
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)        ! Array containing magnetic field poloidal potential
+      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)       ! Array containing radial derivative of b
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)       ! Array containing magnetic field toroidal potential
+      complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)  ! Array containing IC magnetic field poloidal potential
+      complex(cp), intent(in) :: db_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Array containing radial derivative of IC b
+      complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag) ! Array containing IC magnetic field toroidal potential
 
       !-- Output variables:
-      real(cp), intent(out) :: e_p,e_t       ! poloidal, toroidal energy
-      real(cp), intent(out) :: e_p_as,e_t_as ! axisymmetric poloidal, toroidal energy
-      real(cp), intent(out) :: e_p_ic,e_t_ic   
-      real(cp), intent(out) :: e_p_as_ic,e_t_as_ic
-      real(cp), intent(out) :: e_p_os,e_p_as_os
-      real(cp), intent(out) :: e_cmb
-      real(cp), intent(out) :: Dip,DipCMB
-      real(cp), intent(out) :: elsAnel
+      real(cp), intent(out) :: e_p          ! Volume averaged poloidal magnetic energy
+      real(cp), intent(out) :: e_t          ! Volume averaged toroidal magnetic energy
+      real(cp), intent(out) :: e_p_as       ! Volume averaged axisymmetric poloidal magnetic energy
+      real(cp), intent(out) :: e_t_as       ! Volume averaged axisymmetric toroidal magnetic energy
+      real(cp), intent(out) :: e_p_ic       ! IC poloidal magnetic energy
+      real(cp), intent(out) :: e_t_ic       ! IC toroidal magnetic energy
+      real(cp), intent(out) :: e_p_as_ic    ! IC axisymmetric poloidal magnetic energy
+      real(cp), intent(out) :: e_t_as_ic    ! IC axisymmetric toroidal magnetic energy
+      real(cp), intent(out) :: e_p_os       ! Outside poloidal magnetic energy
+      real(cp), intent(out) :: e_p_as_os    ! Outside axisymmetric poloidal magnetic energy
+      real(cp), intent(out) :: e_cmb        ! Magnetic energy at the CMB
+      real(cp), intent(out) :: Dip          ! Relative magnetic energy of axial dipole
+      real(cp), intent(out) :: DipCMB       ! Relative magnetic energy of axial dipole at the CMB
+      real(cp), intent(out) :: elsAnel      ! Radially averaged Elsasser number
 
       !-- local:
       integer :: nR,lm,l,m,l1m0,l1m1

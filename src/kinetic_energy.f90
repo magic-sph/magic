@@ -51,16 +51,16 @@ contains
       !
 
       !-- Input variables:
-      integer,     intent(in) :: n_e_sets
-      real(cp),    intent(in) :: time
-      logical,     intent(in) :: l_write
-      logical,     intent(in) :: l_stop_time
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      integer,     intent(in) :: n_e_sets              ! Switch for time-average and to determine first time step
+      real(cp),    intent(in) :: time                  ! Current time
+      logical,     intent(in) :: l_write               ! Switch to write output
+      logical,     intent(in) :: l_stop_time           ! Indicates when last time step of the run is reached for radial output
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)    ! Array containing kinetic field poloidal potential
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)   ! Array containing radial derivative of w
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)    ! Array containing kinetic field toroidal potential
 
       !-- Output variables:
-      real(cp), intent(out), optional :: ekinR(n_r_max)   
+      real(cp), intent(out), optional :: ekinR(n_r_max)  ! Radial profile of kinetic energy
       real(cp), intent(out) :: e_p     ! poloidal energy
       real(cp), intent(out) :: e_t     ! toroidal energy
       real(cp), intent(out) :: e_p_as  ! axisymmetric poloidal energy
@@ -287,15 +287,15 @@ contains
       !
 
       !-- Input of scalar fields:
-      real(cp),    intent(in) :: time
-      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: time                 ! Current time
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)   ! Array containing kinetic field poloidal potential
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)  ! Array containing radial derivative of w
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)   ! Array containing kinetic field toroidal potential
 
       !-- Output variables:
-      real(cp), intent(out) :: dlR(n_r_max)
-      real(cp), intent(out) :: dlRc(n_r_max)
-      real(cp), intent(out) :: RolR(n_r_max)
+      real(cp), intent(out) :: dlR(n_r_max)     ! Length scale
+      real(cp), intent(out) :: dlRc(n_r_max)    ! Convective length scale
+      real(cp), intent(out) :: RolR(n_r_max)    ! local Rossby number
 
       !-- Local variables:
       real(cp) :: e_p     ! poloidal u**2

@@ -11,38 +11,51 @@ module num_param
    private
  
    !-- Time step control:
-   integer, public :: n_time_steps
-   real(cp), public :: alpha
-   real(cp), public :: dtstart,dtMin,dtMax
-   real(cp), public :: timeStart,tEND
+   integer, public :: n_time_steps     ! Total number of time steps requested in the name list
+   real(cp), public :: alpha           ! Weight for implicit time step
+   real(cp), public :: dtstart         ! Initial time step if start solution is initialized
+   real(cp), public :: dtMin           ! Minimum allowed time step
+   real(cp), public :: dtMax           ! Maximum allowed time step
+   real(cp), public :: timeStart       ! Numerical time where run should start
+   real(cp), public :: tEND            ! Numerical time where run should end
  
    !-- Z-angular momentum at start of integration:
    real(cp), public :: AMstart
  
    !-- Courant criteria:
-   integer, public :: n_cour_step ! step for controlling  Courant criteria
-   real(cp), public :: courfac   ! input 
-   real(cp), public :: alffac    ! input 
-   real(cp), public :: intfac    ! input
-   real(cp), public, allocatable :: delxr2(:),delxh2(:) ! ??
+   integer, public :: n_cour_step      ! Step for controlling  Courant criteria
+   real(cp), public :: courfac         ! Value to scale velocity in courant criteria
+   real(cp), public :: alffac          ! Value to scale Alfen-velocity in courant criteria
+   real(cp), public :: intfac          ! Value to re-scale dtMax during simulation
+   real(cp), public, allocatable :: delxr2(:) ! Auxiliary arrays containing effective Courant grid intervals
+   real(cp), public, allocatable :: delxh2(:) ! Auxiliary arrays containing effective Courant grid intervals
  
    !-- Hyperdiffusivity:
-   integer, public :: ldif,ldifexp
-   real(cp), public :: difeta,difnu,difkap
+   integer, public :: ldif             ! Degree where hyperdiffusion starts to act
+   integer, public :: ldifexp          ! Exponent for hyperdiffusion function
+   real(cp), public :: difeta          ! Amplitude of magnetic hyperdiffusion
+   real(cp), public :: difnu           ! Amplitude of viscous hyperdiffusion
+   real(cp), public :: difkap          ! Amplitude of thermal hyperdiffusion
  
    !-- Scalings:
-   real(cp), public :: tScale,lScale,vScale,pScale,eScale  ! scales
-   real(cp), public :: enscale         ! (input) scale for energies !
-   integer, public :: n_tScale       ! controls time scale
-   integer, public :: n_lScale       ! controls length scale
+   real(cp), public :: tScale          ! Time scale
+   real(cp), public :: lScale          ! Length scale
+   real(cp), public :: vScale          ! Velocity scale
+   real(cp), public :: pScale
+   real(cp), public :: eScale          ! Energy scale
+   real(cp), public :: enscale         ! Energies scale
+   integer, public :: n_tScale         ! Control time scale
+   integer, public :: n_lScale         ! Control length scale
  
    !-- Stop signal:
-   integer, public :: istop
+   integer, public :: istop            ! Variable used in FFT soubroutine
  
    !-- Controlling run time:
-   integer, public :: runTimeLimit(4),runTime(4),runTimeStart(4)!,resetTime(4)
+   integer, public :: runTimeLimit(4)  ! Maximum running time
+   integer, public :: runTime(4)       ! Running time
+   integer, public :: runTimeStart(4)  ! Wall clock time of start of the run
 
-   public :: initialize_num_param
+   public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
 
 contains
 

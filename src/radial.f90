@@ -22,69 +22,94 @@ module radial_functions
    private
  
    !-- arrays depending on r:
-   real(cp), public, allocatable :: r(:)
-   real(cp), public, allocatable :: r_ic(:)
-   real(cp), public, allocatable :: O_r_ic(:)
-   real(cp), public, allocatable :: O_r_ic2(:)
-   real(cp), public, allocatable :: or1(:),or2(:),or3(:),or4(:)
-   real(cp), public, allocatable :: otemp1(:),rho0(:),temp0(:)
-   real(cp), public, allocatable :: dtemp0(:),d2temp0(:)
-   real(cp), public, allocatable :: dentropy0(:)
-   real(cp), public, allocatable :: orho1(:),orho2(:)
-   real(cp), public, allocatable :: beta(:), dbeta(:)
-   real(cp), public, allocatable :: drx(:),ddrx(:),dddrx(:)
-   real(cp), public :: dr_fac,dr_fac_ic,alpha1,alpha2
-   real(cp), public :: topcond, botcond
-   real(cp), public :: r_cmb,r_icb,r_surface
+   real(cp), public, allocatable :: r(:)         ! radii
+   real(cp), public, allocatable :: r_ic(:)      ! IC radii
+   real(cp), public, allocatable :: O_r_ic(:)    ! Inverse of IC radii
+   real(cp), public, allocatable :: O_r_ic2(:)   ! Inverse of square of IC radii
+   real(cp), public, allocatable :: or1(:)       ! 1/r
+   real(cp), public, allocatable :: or2(:)       ! 1/r**2
+   real(cp), public, allocatable :: or3(:)       ! 1/r**3
+   real(cp), public, allocatable :: or4(:)       ! 1/r**4
+   real(cp), public, allocatable :: otemp1(:)    ! Inverse of background temperature
+   real(cp), public, allocatable :: rho0(:)      ! Inverse of background density
+   real(cp), public, allocatable :: temp0(:)     ! Background temperature
+   real(cp), public, allocatable :: dtemp0(:)    ! Radial gradient of background temperature
+   real(cp), public, allocatable :: d2temp0(:)   ! Second rad. derivative of background temperature
+   real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
+   real(cp), public, allocatable :: orho1(:)     ! 1/rho0
+   real(cp), public, allocatable :: orho2(:)     ! 1/rho0**2
+   real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
+   real(cp), public, allocatable :: dbeta(:)     ! Radial gradient of beta
+   real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
+   real(cp), public, allocatable :: ddrx(:)      ! Second derivative of non-linear mapping
+   real(cp), public, allocatable :: dddrx(:)     ! Third derivative of non-linear mapping
+   real(cp), public :: dr_fac                    ! 2./d, where d=r_cmb-r_icb
+   real(cp), public :: dr_fac_ic                 ! For IC: two/(two*r_icb)
+   real(cp), public :: alpha1                    ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
+   real(cp), public :: alpha2                    ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
+   real(cp), public :: topcond                   ! Heat flux at OC boundary
+   real(cp), public :: botcond                   ! Heat flux at IC boundary
+   real(cp), public :: r_cmb                     ! OC radius
+   real(cp), public :: r_icb                     ! IC radius
+   real(cp), public :: r_surface                 ! Surface radius for extrapolation
  
    !-- arrays for buoyancy, depend on Ra and Pr:
-   real(cp), public, allocatable :: rgrav(:),agrav(:)
+   real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term dtemp0/Di
+   real(cp), public, allocatable :: agrav(:)     ! Buoyancy term dtemp0/Di*alpha
  
    !-- chebychev polynomials, derivatives and integral:
-   real(cp), public :: cheb_norm                   ! cheb normalisation 
-   real(cp), public, allocatable :: cheb(:,:)       ! Chebychev polynomials
-   real(cp), public, allocatable :: dcheb(:,:)      ! first radial derivative
-   real(cp), public, allocatable :: d2cheb(:,:)     ! second radial derivative
-   real(cp), public, allocatable :: d3cheb(:,:)     ! third radial derivative
-   real(cp), public, allocatable :: cheb_int(:)     ! array for cheb integrals !
-   integer, public :: nDi_costf1
-   integer, public, allocatable :: i_costf_init(:)   ! info for transform
-   integer, public :: nDd_costf1
-   real(cp), public, allocatable ::  d_costf_init(:)   ! info for tranform
+   real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
+   real(cp), public, allocatable :: cheb(:,:)       ! Chebyshev polynomials
+   real(cp), public, allocatable :: dcheb(:,:)      ! First radial derivative
+   real(cp), public, allocatable :: d2cheb(:,:)     ! Second radial derivative
+   real(cp), public, allocatable :: d3cheb(:,:)     ! Third radial derivative
+   real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
+   integer, public :: nDi_costf1                     ! Radii for transform
+   integer, public, allocatable :: i_costf_init(:)   ! Info for transform
+   integer, public :: nDd_costf1                     ! Radii for transform
+   real(cp), public, allocatable ::  d_costf_init(:) ! Info for tranform
  
    !-- same for inner core:
-   real(cp), public :: cheb_norm_ic
-   real(cp), public, allocatable :: cheb_ic(:,:)   
-   real(cp), public, allocatable :: dcheb_ic(:,:)  
-   real(cp), public, allocatable :: d2cheb_ic(:,:) 
-   real(cp), public, allocatable :: cheb_int_ic(:)        
-   integer, public :: nDi_costf1_ic
+   real(cp), public :: cheb_norm_ic                      ! Chebyshev normalisation for IC
+   real(cp), public, allocatable :: cheb_ic(:,:)         ! Chebyshev polynomials for IC
+   real(cp), public, allocatable :: dcheb_ic(:,:)        ! First radial derivative of cheb_ic
+   real(cp), public, allocatable :: d2cheb_ic(:,:)       ! Second radial derivative cheb_ic
+   real(cp), public, allocatable :: cheb_int_ic(:)       ! Array for integrals of cheb for IC
+   integer, public :: nDi_costf1_ic                      ! Radii for transform
  
-   integer, public, allocatable :: i_costf1_ic_init(:)
-   integer, public :: nDd_costf1_ic
+   integer, public, allocatable :: i_costf1_ic_init(:)   ! Info for transform
+   integer, public :: nDd_costf1_ic                      ! Radii for transform
  
-   real(cp), public, allocatable ::  d_costf1_ic_init(:)
-   integer, public :: nDi_costf2_ic
+   real(cp), public, allocatable ::  d_costf1_ic_init(:) ! Info for transform
+   integer, public :: nDi_costf2_ic                      ! Radii for transform
  
-   integer, public, allocatable :: i_costf2_ic_init(:)
-   integer, public :: nDd_costf2_ic
+   integer, public, allocatable :: i_costf2_ic_init(:)   ! Info for transform
+   integer, public :: nDd_costf2_ic                      ! Radii for transform
  
-   real(cp), public, allocatable ::  d_costf2_ic_init(:)
+   real(cp), public, allocatable ::  d_costf2_ic_init(:) ! Info for transform
  
    !-- Radius functions for cut-back grid without boundaries:
    !-- (and for the nonlinear mapping)
-   integer, public, allocatable :: i_costf_initC(:)   ! info for transform
-   real(cp), public, allocatable ::  d_costf_initC(:)   ! info for tranform
-   real(cp), public, allocatable ::  rC(:),dr_facC(:)
-   real(cp), public :: alph1,alph2
-   integer, public :: n_r_maxC,n_cheb_maxC,nCut
+   integer, public, allocatable :: i_costf_initC(:)   ! Info for transform
+   real(cp), public, allocatable :: d_costf_initC(:)  ! Info for tranform
+   real(cp), public, allocatable :: rC(:)             ! Radii
+   real(cp), public, allocatable :: dr_facC(:)        ! 2./d, where d=r_cmb-r_icb
+   real(cp), public :: alph1       ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
+   real(cp), public :: alph2       ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
+   integer, public :: n_r_maxC     ! Number of radial points
+   integer, public :: n_cheb_maxC  ! Number of Chebyshevs
+   integer, public :: nCut         ! Truncation
  
-   real(cp), public, allocatable :: lambda(:),dLlambda(:),jVarCon(:)
-   real(cp), public, allocatable :: sigma(:)
-   real(cp), public, allocatable :: kappa(:),dLkappa(:)
-   real(cp), public, allocatable :: visc(:),dLvisc(:)
-   real(cp), public, allocatable :: divKtemp0(:)
-   real(cp), public, allocatable :: epscProf(:)
+   real(cp), public, allocatable :: lambda(:)     ! Array of magnetic diffusivity
+   real(cp), public, allocatable :: dLlambda(:)   ! Derivative of magnetic diffusivity
+   real(cp), public, allocatable :: jVarCon(:)    ! Analytical solution for toroidal field potential aj (see init_fields.f90)
+   real(cp), public, allocatable :: sigma(:)      ! Electrical conductivity
+   real(cp), public, allocatable :: kappa(:)      ! Thermal diffusivity
+   real(cp), public, allocatable :: dLkappa(:)    ! Derivative of thermal diffusivity
+   real(cp), public, allocatable :: visc(:)       ! Kinematic viscosity
+   real(cp), public, allocatable :: dLvisc(:)     ! Derivative of kinematic viscosity
+   real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
+   real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
    public :: initialize_radial_functions, radial, transportProperties
 
@@ -389,6 +414,207 @@ contains
                              + a0*rrOcmb**7
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
             temp0(n_r)=rhoFit(n_r)**(one/polind)
+         end do
+
+         ! To normalise to the outer radius
+         temptop=temp0(1)
+         rhotop=rhoFit(1)
+         gravtop=gravFit(1)
+
+         temp0  =temp0/temptop
+         gravFit=gravFit/gravtop
+
+         ! Derivative of the temperature needed to get alpha_T
+         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+
+         alphaT=-dtemp0/(gravFit*temp0)
+
+         ! Dissipation number needed in the dissipation numbers
+         DissNb=alphaT(1)
+         ViscHeatFac=DissNb*pr/raScaled
+         if (l_mag) then
+            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+         end if
+         ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+         !       dT
+         !      ---- =  -Di * alpha_T * T * grav
+         !       dr
+         rgrav=-BuoFac*dtemp0/DissNb
+         rho0=rhoFit/rhotop
+
+         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+         beta=drho0/rho0
+         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                     w2,i_costf_init,d_costf_init,drx)
+         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                  w2,i_costf_init,d_costf_init,drx)
+         dentropy0=0.0_cp
+
+      else if ( index(interior_model,'GLIESE229B') /= 0 ) then
+         ! Use also nVarDiff=2 with difExp=0.52
+
+         a4= 0.99458795_cp
+         a3= 0.34418147_cp
+         a2=-4.99235635_cp
+         a1= 5.25440365_cp
+         a0=-1.60099551_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            rhoFit(n_r) = a4 + a3*rrOcmb   + a2*rrOcmb**2 + a1*rrOcmb**3 &
+                             + a0*rrOcmb**4
+            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
+         end do
+
+         a4= 0.99784506_cp
+         a3= 0.16540448_cp
+         a2=-3.44594354_cp
+         a1= 3.68189750_cp
+         a0=-1.39046384_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r)= a4 + a3*rrOcmb   + a2*rrOcmb**2 + a1*rrOcmb**3 &
+                           + a0*rrOcmb**4
+         end do
+
+         ! To normalise to the outer radius
+         temptop=temp0(1)
+         rhotop=rhoFit(1)
+         gravtop=gravFit(1)
+
+         temp0  =temp0/temptop
+         gravFit=gravFit/gravtop
+
+         ! Derivative of the temperature needed to get alpha_T
+         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+
+         alphaT=-dtemp0/(gravFit*temp0)
+
+         ! Dissipation number needed in the dissipation numbers
+         DissNb=alphaT(1)
+         ViscHeatFac=DissNb*pr/raScaled
+         if (l_mag) then
+            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+         end if
+         ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+         !       dT
+         !      ---- =  -Di * alpha_T * T * grav
+         !       dr
+         rgrav=-BuoFac*dtemp0/DissNb
+         rho0=rhoFit/rhotop
+
+         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+         beta=drho0/rho0
+         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                     w2,i_costf_init,d_costf_init,drx)
+         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                  w2,i_costf_init,d_costf_init,drx)
+         dentropy0=0.0_cp
+
+      else if ( index(interior_model,'COROT3B') /= 0 ) then
+         ! Use also nVarDiff=2 with difExp=0.62
+
+         a6= 1.00035987_cp
+         a5=-0.01294658_cp
+         a4=-2.78586315_cp
+         a3= 0.70289860_cp
+         a2= 2.59463562_cp
+         a1=-1.65868190_cp
+         a0= 0.15984718_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            rhoFit(n_r) = a6 + a5*rrOcmb   + a4*rrOcmb**2 + a3*rrOcmb**3 &
+                             + a2*rrOcmb**4+ a1*rrOcmb**5 + a0*rrOcmb**6
+            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
+         end do
+
+         a6=  1.00299303_cp
+         a5= -0.33722671_cp
+         a4=  1.71340063_cp
+         a3=-12.50287121_cp
+         a2= 21.52708693_cp
+         a1=-14.91959338_cp
+         a0=  3.52970611_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r)= a6 + a5*rrOcmb   + a4*rrOcmb**2 + a3*rrOcmb**3 &
+                           + a2*rrOcmb**4+ a1*rrOcmb**5 + a0*rrOcmb**6
+         end do
+
+         ! To normalise to the outer radius
+         temptop=temp0(1)
+         rhotop=rhoFit(1)
+         gravtop=gravFit(1)
+
+         temp0  =temp0/temptop
+         gravFit=gravFit/gravtop
+
+         ! Derivative of the temperature needed to get alpha_T
+         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+
+         alphaT=-dtemp0/(gravFit*temp0)
+
+         ! Dissipation number needed in the dissipation numbers
+         DissNb=alphaT(1)
+         ViscHeatFac=DissNb*pr/raScaled
+         if (l_mag) then
+            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+         end if
+         ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+         !       dT
+         !      ---- =  -Di * alpha_T * T * grav
+         !       dr
+         rgrav=-BuoFac*dtemp0/DissNb
+         rho0=rhoFit/rhotop
+
+         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
+                     w2,i_costf_init,d_costf_init,drx)
+         beta=drho0/rho0
+         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                     w2,i_costf_init,d_costf_init,drx)
+         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                  w2,i_costf_init,d_costf_init,drx)
+         dentropy0=0.0_cp
+
+      else if ( index(interior_model,'KOI889B') /= 0 ) then
+         ! Use also nVarDiff=2 with difExp=0.68
+
+         a5= 1.01038678_cp
+         a4=-0.17615484_cp
+         a3=-1.50567127_cp
+         a2=-1.65738032_cp
+         a1= 4.20394427_cp
+         a0=-1.87394994_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            rhoFit(n_r) = a5 + a4*rrOcmb   + a3*rrOcmb**2 + a2*rrOcmb**3 &
+                             + a1*rrOcmb**4+ a0*rrOcmb**5
+            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
+         end do
+
+         a5=  1.02100249_cp
+         a4= -0.60750867_cp
+         a3=  3.23371939_cp
+         a2=-12.80774142_cp
+         a1= 15.37629271_cp
+         a0= -6.19288785_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r)= a5 + a4*rrOcmb   + a3*rrOcmb**2 + a2*rrOcmb**3 &
+                           + a1*rrOcmb**4+ a0*rrOcmb**5
          end do
 
          ! To normalise to the outer radius

@@ -5,50 +5,73 @@ module logic
 
    implicit none
  
-   logical :: l_update_v,l_update_b,l_update_s
-   logical :: l_mag,l_conv,l_mag_kin,l_SRIC,l_SRMA
-   logical :: l_heat,l_heat_nl
-   logical :: l_mag_nl,l_conv_nl,l_mag_LF,l_corr
-   logical :: l_rot_ic,l_rot_ma
-   logical :: l_z10mat,l_cond_ic,l_cond_ma
-   logical :: l_time_hits 
-   logical :: l_average
-   logical :: l_movie,l_movie_oc,l_movie_ic
-   logical :: l_save_out
-   logical :: l_true_time
-   logical :: l_cmb_field
-   logical :: l_dt_cmb_field
-   logical :: l_storeBpot
-   logical :: l_storeVpot
-   logical :: l_storeTpot
-   logical :: l_storePot
-   logical :: l_r_field
-   logical :: l_r_fieldT
-   logical :: l_b_nl_cmb,l_b_nl_icb
-   logical :: l_correct_AMe,l_correct_AMz
-   logical :: l_HTmovie,l_HT
-   logical :: l_dtBmovie,l_dtB
-   logical :: l_store_frame
-   logical :: l_non_rot
-   logical :: l_rMagSpec,l_DTrMagSpec
-   logical :: l_TO,l_TOmovie 
-   logical :: l_hel
-   logical :: l_anel,l_isothermal
-   logical :: l_anelastic_liquid
-   logical :: l_AM
-   logical :: l_power
-   logical :: l_drift
-   logical :: l_iner
-   logical :: l_runTimeLimit
-   logical :: l_RMS,l_RMStest
-   logical :: l_par
-   logical :: l_corrMov
-   logical :: l_PV
-   logical :: l_newmap
-   logical :: l_viscBcCalc 
-   logical :: l_fluxProfs
-   logical :: l_perpPar
-   logical :: l_LCR
-   logical :: lVerbose
+   logical :: l_update_v     ! Switch off velocity field update
+   logical :: l_update_b     ! Switch off magnetic field update
+   logical :: l_update_s     ! Switch off entropy update
+   logical :: l_mag          ! Switch off magnetic terms calculation
+   logical :: l_conv         ! Switch off convection
+   logical :: l_mag_kin      ! Switch related for kinematic dynamo
+   logical :: l_SRIC         ! Switch to rotating IC with prescribed rot. rate
+   logical :: l_SRMA         ! Switch to rotating OC with prescribed rot. rate
+   logical :: l_heat         ! Switch off heat terms calculation
+   logical :: l_heat_nl      ! Switch off non-linear heat terms calculation
+   logical :: l_mag_nl       ! Switch off non-linear magnetic terms calculation
+   logical :: l_conv_nl      ! Switch off non-linear convection terms
+   logical :: l_mag_LF       ! Switch off Lorentz force term
+   logical :: l_corr         ! Switch off rotation
+   logical :: l_rot_ic       ! Switch off IC rotation
+   logical :: l_rot_ma       ! Switch off OC rotation
+   logical :: l_z10mat       ! Switch for solid body rotation
+   logical :: l_cond_ic      ! Switch for conducting IC
+   logical :: l_cond_ma      ! Switch for conducting OC
+   logical :: l_time_hits    ! Switch for time for outputs
+   logical :: l_average      ! Switch for calculation of time-averages
+   logical :: l_movie        ! Switch for recording of movie files
+   logical :: l_movie_oc     ! Switch for recording of movie files for OC
+   logical :: l_movie_ic     ! Switch for recording of movie files for IC
+   logical :: l_save_out     ! Switch off outputs
+   logical :: l_true_time    ! Switch for times of outputs
+   logical :: l_cmb_field    ! Switch for Bcoef files for gauss coefficients
+   logical :: l_dt_cmb_field ! Switch for Bcoef files for secular variation of gauss coefs.
+   logical :: l_storeBpot    ! Switch for storing magnetic field potentials
+   logical :: l_storeVpot    ! Switch for storing velocity field potentials
+   logical :: l_storeTpot    ! Switch for storing entropy field potentials
+   logical :: l_storePot     ! Switch for storing all field potentials
+   logical :: l_r_field      ! Switch for radial coefficients
+   logical :: l_r_fieldT     ! Switch for radial T coefficients
+   logical :: l_b_nl_cmb     ! Switch for non-linear magnetic field at OC
+   logical :: l_b_nl_icb     ! Switch for non-linear magnetic field at IC
+   logical :: l_correct_AMe  ! Switch for correction of equatorial angular mom.
+   logical :: l_correct_AMz  ! Switch for correction of axial angular momentum
+   logical :: l_HTmovie      ! Switch for heat flux movie output
+   logical :: l_HT           ! Switch for heat flux movie frame output
+   logical :: l_dtBmovie     ! Switch for dtB movie
+   logical :: l_dtB          ! Switch to reserve memory for dtB movie
+   logical :: l_store_frame  ! Switch for storing movie frames
+   logical :: l_non_rot      ! Switch to non-rotating
+   logical :: l_rMagSpec     ! Switch for magnetic spectra at different depths at log times
+   logical :: l_DTrMagSpec   ! Switch for magnetic spectra at different depths at movie output times
+   logical :: l_TO           ! Switch for TO output in TOnhs.TAG, TOshs.TAG
+   logical :: l_TOmovie      ! Switch for TO movie output 
+   logical :: l_hel          ! Switch for helicity calculation, output in misc.TAG
+   logical :: l_anel         ! Switch for anelastic calculation
+   logical :: l_isothermal   ! Switch for isothermal calculation
+   logical :: l_anelastic_liquid ! Switch for anelastic liquid calculation
+   logical :: l_AM           ! Switch for angular momentum calculation
+   logical :: l_power        ! Switch for power budget terms calculation
+   logical :: l_drift        ! Switch for drift rates calculation
+   logical :: l_iner         ! Switch for inertial modes calculation
+   logical :: l_runTimeLimit ! Switch for absolute time limit of the run
+   logical :: l_RMS          ! Switch for RMS force balances calculation
+   logical :: l_RMStest      ! Switch for test of RMS balances (geostrophic, magnetostrophic, archimedean)
+   logical :: l_par          ! Switch for additional parameters calculation in s_getEgeos.f
+   logical :: l_corrMov      ! Switch for North/south correlation movie (see s_getEgeos.f)
+   logical :: l_PV           ! Switch for potential vorticity calculation
+   logical :: l_newmap       ! Switch for non-linear mapping (see Bayliss and Turkel, 1990)
+   logical :: l_viscBcCalc   ! Switch for dissipation layer for stress-free BCs plots
+   logical :: l_fluxProfs    ! Switch for calculation of radial profiles of flux contributions
+   logical :: l_perpPar      ! Switch for calculation of rad. profiles and time series of kinetic energy perpendicular+parallel to the rotation axis
+   logical :: l_LCR          ! Switch for zero electrical conductivity beyond r_LCR
+   logical :: lVerbose       ! Switch for detailed information about run progress
 
 end module logic

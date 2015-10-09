@@ -27,27 +27,40 @@ module truncation
  
    !--- Now quantities for magnetic fields:
    !    Set lMag=0 if you want to save this memory (see c_fields)!
-   integer :: lMagMem
-   integer :: n_r_maxMag,n_r_ic_maxMag,n_r_totMag,l_maxMag,lm_maxMag
+   integer :: lMagMem       ! Memory for magnetic field calculation
+   integer :: n_r_maxMag    ! Number of radial points to calculate magnetic field
+   integer :: n_r_ic_maxMag ! Number of radial points to calculate IC magnetic field
+   integer :: n_r_totMag    ! n_r_maxMag + n_r_ic_maxMag
+   integer :: l_maxMag      ! Max. degree for magnetic field calculation
+   integer :: lm_maxMag     ! Max. number of l/m combinations for magnetic field calculation
  
    !-- Values for averaged fields, only necessary 
    !   if average is desirev (lAveMem=0).
-   integer :: lAveMem
-   integer :: n_r_max_ave,n_r_ic_max_ave,lm_max_ave
+   integer :: lAveMem        ! Memory for calculating time averages
+   integer :: n_r_max_ave    ! Number of radial points for time average
+   integer :: n_r_ic_max_ave ! Number of IC radial points for time average
+   integer :: lm_max_ave     ! Number of l/m combinations for time average
  
    !-- Movie memory control:
-   integer :: lMovieMem
-   integer :: ldtBMem
-   integer :: lm_max_dtB,n_r_max_dtB,n_r_ic_max_dtB
-   integer :: lmP_max_dtB
+   integer :: lMovieMem      ! Memory for movies
+   integer :: ldtBMem        ! Memory for movie output
+   integer :: lm_max_dtB     ! Number of l/m combinations for movie output
+   integer :: n_r_max_dtB    ! Number of radial points for movie output
+   integer :: n_r_ic_max_dtB ! Number of IC radial points for movie output
+   integer :: lmP_max_dtB    ! Number of l/m combinations for movie output if l runs to l_max+1
  
    !--- Memory control for stress output:
-   integer :: lStressMem
-   integer :: n_r_maxStr,n_theta_maxStr,n_phi_maxStr
+   integer :: lStressMem     ! Memory for stress output
+   integer :: n_r_maxStr     ! Number of radial points for stress output
+   integer :: n_theta_maxStr ! Number of theta points for stress output
+   integer :: n_phi_maxStr   ! Number of phi points for stress output
  
    !--- Memory control for Geotrophys output:
-   integer :: lGeos
-   integer :: n_r_maxGeos,lm_maxGeos,nrpGeos,ncpGeos
+   integer :: lGeos          ! Memory for Geostrophic output
+   integer :: n_r_maxGeos    ! Number of radial points for Geostrophic output
+   integer :: lm_maxGeos     ! Number of l/m combinations for Geostrophic output
+   integer :: nrpGeos        ! Number of cyl. radial points for Geostrophic output
+   integer :: ncpGeos
  
 contains
 
