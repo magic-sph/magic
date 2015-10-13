@@ -31,8 +31,8 @@ module physical_parameters
    real(cp) :: epsc           ! Renormalisation of epsc0
    real(cp) :: strat          ! number of density scale heights
    real(cp) :: polind         ! polytropic index
-   real(cp) :: ViscHeatFac    ! Dissipation number *Pr/raScaled
-   real(cp) :: OhmLossFac     ! Dissipation number ViscHeatFac/(ekScaled*prmag**2)
+   real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
+   real(cp) :: OhmLossFac     ! Prefactor for Ohmic heating: :math:`Di\,Pr/(Ra\,E\,Pm^2)`
    real(cp) :: DissNb         ! Dissipation number
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
@@ -41,7 +41,7 @@ module physical_parameters
    real(cp) :: r_cut_model    ! Percentage on the inner part of the interior model to be used
    real(cp) :: g0             ! Set to 1.0 for constant gravity
    real(cp) :: g1             ! Set to 1.0 for linear gravity
-   real(cp) :: g2             ! Set to 1.0 for 1/r**2 gravity
+   real(cp) :: g2             ! Set to 1.0 for :math:`1/r^2` gravity
    real(cp) :: sigma_ratio    ! Value of IC rotation
    real(cp) :: conductance_ma ! OC conductivity
    real(cp) :: rho_ratio_ic   ! Same density as outer core
@@ -52,8 +52,8 @@ module physical_parameters
    real(cp) :: LFfac          ! Inverse of Pr*Ekman
    real(cp) :: BuoFac         ! Ratio of Rayleigh number over Prandtl number
    real(cp) :: O_sr           ! Inverse of sigma_ratio
-   real(cp) :: raScaled       ! Ra*lscale**3
-   real(cp) :: ekScaled       ! Ekman*lscale**2
+   real(cp) :: raScaled       ! :math:`Ra\,l^3`
+   real(cp) :: ekScaled       ! :math:`E\,l^2`
  
    !-- Variable properties:
    integer :: nVarCond        ! Selection of variable conductivity profile

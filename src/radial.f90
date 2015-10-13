@@ -1,4 +1,8 @@
 module radial_functions
+   !
+   !  This module initiates all the radial functions (transport properties, density,
+   !  temperature, cheb transforms, etc.)
+   !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
    use matrices, only: s0Mat,s0Pivot
@@ -26,25 +30,25 @@ module radial_functions
    real(cp), public, allocatable :: r_ic(:)      ! IC radii
    real(cp), public, allocatable :: O_r_ic(:)    ! Inverse of IC radii
    real(cp), public, allocatable :: O_r_ic2(:)   ! Inverse of square of IC radii
-   real(cp), public, allocatable :: or1(:)       ! 1/r
-   real(cp), public, allocatable :: or2(:)       ! 1/r**2
-   real(cp), public, allocatable :: or3(:)       ! 1/r**3
-   real(cp), public, allocatable :: or4(:)       ! 1/r**4
+   real(cp), public, allocatable :: or1(:)       ! :math:`1/r`
+   real(cp), public, allocatable :: or2(:)       ! :math:`1/r^2`
+   real(cp), public, allocatable :: or3(:)       ! :math:`1/r^3`
+   real(cp), public, allocatable :: or4(:)       ! :math:`1/r^4`
    real(cp), public, allocatable :: otemp1(:)    ! Inverse of background temperature
    real(cp), public, allocatable :: rho0(:)      ! Inverse of background density
    real(cp), public, allocatable :: temp0(:)     ! Background temperature
    real(cp), public, allocatable :: dtemp0(:)    ! Radial gradient of background temperature
    real(cp), public, allocatable :: d2temp0(:)   ! Second rad. derivative of background temperature
    real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
-   real(cp), public, allocatable :: orho1(:)     ! 1/rho0
-   real(cp), public, allocatable :: orho2(:)     ! 1/rho0**2
+   real(cp), public, allocatable :: orho1(:)     ! :math:`1/\tilde{\rho}`
+   real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
    real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
    real(cp), public, allocatable :: dbeta(:)     ! Radial gradient of beta
    real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
    real(cp), public, allocatable :: ddrx(:)      ! Second derivative of non-linear mapping
    real(cp), public, allocatable :: dddrx(:)     ! Third derivative of non-linear mapping
-   real(cp), public :: dr_fac                    ! 2./d, where d=r_cmb-r_icb
-   real(cp), public :: dr_fac_ic                 ! For IC: two/(two*r_icb)
+   real(cp), public :: dr_fac                    ! :math:`2/d`, where :math:`d=r_o-r_i`
+   real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1                    ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2                    ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
    real(cp), public :: topcond                   ! Heat flux at OC boundary
@@ -54,8 +58,8 @@ module radial_functions
    real(cp), public :: r_surface                 ! Surface radius for extrapolation
  
    !-- arrays for buoyancy, depend on Ra and Pr:
-   real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term dtemp0/Di
-   real(cp), public, allocatable :: agrav(:)     ! Buoyancy term dtemp0/Di*alpha
+   real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
+   real(cp), public, allocatable :: agrav(:)     ! Buoyancy term `dtemp0/Di*alpha`
  
    !-- chebychev polynomials, derivatives and integral:
    real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
@@ -93,7 +97,7 @@ module radial_functions
    integer, public, allocatable :: i_costf_initC(:)   ! Info for transform
    real(cp), public, allocatable :: d_costf_initC(:)  ! Info for tranform
    real(cp), public, allocatable :: rC(:)             ! Radii
-   real(cp), public, allocatable :: dr_facC(:)        ! 2./d, where d=r_cmb-r_icb
+   real(cp), public, allocatable :: dr_facC(:)        ! :math:`2/d`, where :math:`d=r_o-r_i`
    real(cp), public :: alph1       ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alph2       ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
    integer, public :: n_r_maxC     ! Number of radial points
@@ -116,6 +120,9 @@ module radial_functions
 contains
 
    subroutine initialize_radial_functions
+      !
+      ! Initial memory allocation
+      !
 
       nDi_costf1=2*n_r_max+2
       nDd_costf1=2*n_r_max+5
@@ -169,7 +176,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine radial
       !
-      !  Calculates everything needed for radial functions, transfroms etc.
+      !  Calculates everything needed for radial functions, transforms etc.
       !
 
       !-- Local variables:
