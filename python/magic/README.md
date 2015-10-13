@@ -17,7 +17,7 @@ that can be usually found in most of the Linux distributions.
 
 * Although entirely optional, the installation of [ipython](http://ipython.org/)  makes the interactive use of the post-processing python functions much more pleasant. Installing it is therefore recommanded for a smoother interactive usage of the python functions.
 
-* The installation of the [basemap toolkit](http://matplotlib.org/basemap/) is optional. If installed, additional projections will be available for visualisations ([Aitoff](https://en.wikipedia.org/wiki/Aitoff_projection), [orthographic](https://en.wikipedia.org/wiki/Orthographic_projection), [Mollweide](https://en.wikipedia.org/wiki/Mollweide_projection), etc.). Otherwise, the display of surfaces will be restricted to the [Hammer projection](https://en.wikipedia.org/wiki/Hammer_projection)_.
+* The installation of the [basemap toolkit](http://matplotlib.org/basemap/) is optional. If installed, additional projections will be available for visualisations ([Aitoff](https://en.wikipedia.org/wiki/Aitoff_projection), [orthographic](https://en.wikipedia.org/wiki/Orthographic_projection), [Mollweide](https://en.wikipedia.org/wiki/Mollweide_projection), etc.). Otherwise, the display of surfaces will be restricted to the [Hammer projection](https://en.wikipedia.org/wiki/Hammer_projection).
 
 
 # Setting up the python environment

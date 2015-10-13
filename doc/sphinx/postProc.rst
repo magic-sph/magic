@@ -41,7 +41,7 @@ Optional dependencies
 Configuration: ``magic.cfg`` file
 =================================
 
-A file name **magic.cfg** located in ``$MAGIC_HOME/python/magic/magic.cfg`` should have
+A file named **magic.cfg** located in ``$MAGIC_HOME/python/magic/magic.cfg`` should have
 been created when you used the ``source path/sourceme.sh`` command for the first time on
 your machine. At that stage, it tried to **automatically fill the best options** that
 correspond to your setup. Although tested on several various machine configurations, the

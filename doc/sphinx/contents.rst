@@ -12,6 +12,7 @@ Contents
    :includehidden:
    :maxdepth: 2
 
+   foreword
    install
    equations
    numerics
