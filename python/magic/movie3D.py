@@ -7,9 +7,9 @@ from magic import ExtraPot
 from .npfile import *
 import sys
 if sys.version_info.major == 3:
-    from vtklib3 import *
+    from .vtklib3 import *
 elif  sys.version_info.major == 2:
-    from vtklib2 import *
+    from .vtklib2 import *
 
 
 class Movie3D:

@@ -8,11 +8,11 @@ import matplotlib.pyplot as P
 import numpy as N
 import sys
 if sys.version_info.major == 3:
-    from magic.potential3 import *
-    from magic.vtklib3 import *
+    from .potential3 import *
+    from .vtklib3 import *
 elif  sys.version_info.major == 2:
-    from magic.potential2 import *
-    from magic.vtklib2 import *
+    from .potential2 import *
+    from .vtklib2 import *
 
 def sph2cart(br, bt, bp, radius, nx=96, ny=96, nz=96, hydro=False):
     """
