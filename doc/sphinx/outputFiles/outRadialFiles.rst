@@ -148,7 +148,7 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 
 This file contains the time and horizontally averaged heat flux carried out by several physical processes: conductive flux, convective flux, kinetic flux, viscous flux, Poynting flux and resistive flux. This file is calculated by the subroutine :f:subr:`outPar <outpar_mod/outpar()>`.
 
-   .. tabularcolumns:: |c|p{14cm}|
+   .. tabularcolumns:: |l|p{12cm}|
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
@@ -197,7 +197,7 @@ This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the
 
 This file contains several time and horizontally averaged profiles that can be further used to determine thermal and viscous boundary layers: entropy (or temperature), entropy variance, horizontal velocity, radial derivative of the horizontal velocity, thermal dissipation rate. This file is calculated by the subroutine :f:subr:`outPar <outpar_mod/outpar()>`.
 
-   .. tabularcolumns:: |c|p{14cm}|
+   .. tabularcolumns:: |l|p{12cm}|
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
@@ -238,7 +238,7 @@ Additional analyses of the boundary layers can then be carried out using :py:cla
 
 This file contains several time and horizontally averaged profiles that decompose the kinetic energy into components parallel and perpendicular to the rotation axis. This file is calculated by the subroutine :f:subr:`outPerpPar <outpar_mod/outperppar()>`.
 
-   .. tabularcolumns:: |c|p{14cm}|
+   .. tabularcolumns:: |l|p{12cm}|
 
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |

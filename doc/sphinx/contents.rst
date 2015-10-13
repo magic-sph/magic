@@ -8,26 +8,42 @@
 Contents
 ========
 
-.. toctree::
-   :includehidden:
-   :maxdepth: 2
+.. only:: latex
 
-   foreword
-   install
-   equations
-   numerics
-   contribute
-   inputNamelists/namelists
-   signalFile
-   outputFiles/outFiles
-   postProc
-   api
+   .. toctree::
+      :includehidden:
+      :maxdepth: 2
 
+      foreword
+      install
+      equations
+      numerics
+      contribute
+      inputNamelists/namelists
+      signalFile
+      outputFiles/outFiles
+      postProc
+      api
 
-Indices and tables
-==================
+.. only:: html
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   .. toctree::
+      :includehidden:
+      :maxdepth: 2
 
+      install
+      equations
+      numerics
+      contribute
+      inputNamelists/namelists
+      signalFile
+      outputFiles/outFiles
+      postProc
+      api
+
+   Indices and tables
+   ==================
+
+   * :ref:`genindex`
+   * :ref:`modindex`
+   * :ref:`search`

@@ -99,21 +99,23 @@ Contributing to the code
 Giving credit
 =============
 
-In case you intend to publish scientific results obtained with the MagIC code 
-or present them in a conference, we (the developers of MagIC) kindly
-ask to be acknowledged with a reference to the website 
-https://magic-sph.github.io/ or https://github.com/magic-sph/magic.
+.. container:: mybox
 
-We also suggest to give appropriate reference to one or several of the following
-papers:
-
-* Boussinesq equations: `Wicht (2002, PEPI, 132, 281-302) <http://dx.doi.org/10.1016/S0031-9201(02)00078-X>`_
-
-* Anelastic equations: `Gastine & Wicht (2012, Icarus, 219, 28-442) <http://dx.doi.org/10.1016/j.icarus.2012.03.018>`_
-
-* Boussinesq benchmark: `Christensen et al. (2001, PEPI, 128, 25-34) <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_
-
-* Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
+   In case you intend to publish scientific results obtained with the MagIC code 
+   or present them in a conference, we (the developers of MagIC) kindly
+   ask to be acknowledged with a reference to the website 
+   https://magic-sph.github.io/ or https://github.com/magic-sph/magic.
+   
+   We also suggest to give appropriate reference to one or several of the following
+   papers:
+   
+   * Boussinesq equations: `Wicht (2002, PEPI, 132, 281-302) <http://dx.doi.org/10.1016/S0031-9201(02)00078-X>`_
+   
+   * Anelastic equations: `Gastine & Wicht (2012, Icarus, 219, 28-442) <http://dx.doi.org/10.1016/j.icarus.2012.03.018>`_
+   
+   * Boussinesq benchmark: `Christensen et al. (2001, PEPI, 128, 25-34) <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_
+   
+   * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
 
 
 

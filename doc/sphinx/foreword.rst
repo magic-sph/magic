@@ -27,7 +27,7 @@ and `scipy <http://www.scipy.org/>`_) are also provided to allow a useful data
 analysis.
 
 .. figure:: figs/Magic_stampede_scaling.png
-   :scale: 40%
+   :scale: 90%
    :align: center
    :alt: caption
 

@@ -222,11 +222,17 @@ latex_elements = {
 #'pointsize': '10pt',
 
 # Additional stuff for the LaTeX preamble.
-#'preamble': '',
+'preamble': '\usepackage{amsmath}\n\usepackage{amssymb}\n',
 
 # Latex figure (float) alignment
 #'figure_align': 'htbp',
 }
+
+
+f = open('latex_macros.sty', 'r')
+for macro in f.readlines():
+    # used when building latex and pdf versions
+    latex_elements['preamble'] += macro + '\n'
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
