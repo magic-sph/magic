@@ -16,43 +16,43 @@
 ### 1) In order to check out the code, use the command
 
 ```sh
-git clone https://github.com/magic-sph/magic.git
+$ git clone https://github.com/magic-sph/magic.git
 ```
 or via SSH (it requires a public key):
 
 ```sh
-git clone ssh://git@github.com/magic-sph/magic.git
+$ git clone ssh://git@github.com/magic-sph/magic.git
 ```
 
 ### 2) Go to the root directory and source the environment variables (useful for python and auto-tests)
 
 ```sh
-cd magic
+$ cd magic
 ```
 
 If you are using sh, bash or zsh as default shell (`echo $SHELL`), just use the command
 
 ```sh
-source sourceme.sh
+$ source sourceme.sh
 ```
 
 If you are using csh or tcsh, then use the following command
 
 ```sh
-source sourceme.csh
+$ source sourceme.csh
 ```
 
 ### 3) Set up your compiler and compile the code
 
 ```sh
-cd $MAGIC_HOME/src
+$ cd $MAGIC_HOME/src
 ```
 
 Edit the Makefile and specify your compiler (intel or gnu) and additional 
 compiler options (production run or not, debug mode, MKL library, HDF5, ...)
 
 ```sh
-make -j
+$ make -j
 ```
 The executable `magic.exe` has been produced!
 
