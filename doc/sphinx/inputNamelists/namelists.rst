@@ -53,58 +53,58 @@ to initiate and quickly run one of the anelastic benchmarks by (`Jones et al., 2
 .. code-block:: fortran
 
      &grid
-      n_r_max     =97, ! 97 radial grid points
+      n_r_max     =97,           ! 97 radial grid points
       n_cheb_max  =95,
-      n_phi_tot   =288, ! 288 points in the azimuthal direction
+      n_phi_tot   =288,          ! 288 points in the azimuthal direction
       n_r_ic_max  =17,
      n_cheb_ic_max=15,
-      minc        =1,
+      minc        =1,            ! No azimuthal symmetry
      /
      &control
-      mode        =1, ! This is a non-magnetic case
+      mode        =1,            ! This is a non-magnetic case
       tag         ="test",
-      n_time_steps=50000, ! Number of time steps
+      n_time_steps=50000,        ! Number of time steps
       courfac     =2.5D0,
       alffac      =1.0D0,
-      dtmax       =1.0D-4, ! Maximum allowed time-step
+      dtmax       =1.0D-4,       ! Maximum allowed time-step
       n_cour_step =5,
       alpha       =0.6D0,
-      runHours    =23, ! Run time (hours)
-      runMinutes  =30, ! Run time (minutes)
+      runHours    =23,           ! Run time (hours)
+      runMinutes  =30,           ! Run time (minutes)
      /
      &phys_param
       ra          =1.48638035D5, ! Rayleigh number
-      ek          =1.0D-3, ! Ekman number
-      pr          =1.0D0, ! Prandtl number
-      strat       =5.D0, ! Density contrast
-      polind      =2.0D0, ! Polytropic index
-      radratio    =0.35D0, ! Aspect ratio of the spherical shell
-      g0          =0.D0, ! Gravity profile
+      ek          =1.0D-3,       ! Ekman number
+      pr          =1.0D0,        ! Prandtl number
+      strat       =5.D0,         ! Density contrast
+      polind      =2.0D0,        ! Polytropic index
+      radratio    =0.35D0,       ! Aspect ratio of the spherical shell
+      g0          =0.D0,         ! Gravity profile
       g1          =0.D0,
       g2          =1.D0,
-      ktops       =1, ! Entropy boundary condition
+      ktops       =1,            ! Entropy boundary condition
       kbots       =1,
-      ktopv       =1, ! Mechanical boundary condition
+      ktopv       =1,            ! Mechanical boundary condition
       kbotv       =1,
      /
      &start_field
       l_start_file=.FALSE.,
       start_file  ="rst_end.CJ3",
-      init_s1     =1919, ! Initial entropy perturbation pattern
-      amp_s1      =0.01, ! Amplitude of the initial perturbation
+      init_s1     =1919,         ! Initial entropy perturbation pattern
+      amp_s1      =0.01,         ! Amplitude of the initial perturbation
      /
      &output_control
-      n_log_step  =50, ! Store time series every 50 time steps
-      n_graphs    =1, ! 1 G_#.TAG file produced at the end of the run
-      n_specs     =5, ! 5 spectra produced during the run
-      n_rsts      =1, ! 1 rst_end.TAG file produced at the end of the run
+      n_log_step  =50,           ! Store time series every 50 time steps
+      n_graphs    =1,            ! 1 G_#.TAG file produced at the end of the run
+      n_specs     =5,            ! 5 spectra produced during the run
+      n_rsts      =1,            ! 1 rst_end.TAG file produced at the end of the run
       runid       ="C.Jones bench", 
      /
      &mantle
       nRotMa      =0
      /
      &inner_core
-      sigma_ratio =0.d0, 
+      sigma_ratio =0.d0,         ! Non-conducting inner core
       nRotIC      =0,
      /
 
