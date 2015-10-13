@@ -1,5 +1,16 @@
 ![alt tag](https://raw.github.com/magic-sph/magic/master/doc/sphinx/.themes/magic/static/logo.png)
 
+# Foreword
+
+* **MagIC** is a numerical code that can simulate fluid dynamics in a spherical shell. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD) and a temperature (or entropy) equation under both the anelastic and the Boussinesq approximations.  
+
+* **MagIC** uses Chebyshev polynomials in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions. The time-stepping scheme relies on a semi-implicit [Crank-Nicolson]( https://en.wikipedia.org/wiki/Crank–Nicolson_method) for the linear terms of the MHD equations and a [Adams-Bashforth](<https://en.wikipedia.org/wiki/Linear_multistep_method) scheme for the non-linear terms and the Coriolis force.  
+
+* **MagIC** is written in Fortran and designed to be used on supercomputing clusters.  It thus relies on a hybrid parallelisation scheme using both [OpenMP](http://openmp.org/wp/) and [MPI](http://www.open-mpi.org/). Postprocessing functions written in python (requiring [matplotlib](http://matplotlib.org/) and [scipy](http://www.scipy.org/) are also provided to allow a useful data analysis.  
+
+* **MagIC** is a free software. It can be used, modified and redistributed under the terms of the [GNU GPL v3 licence](http://www.gnu.org/licenses/gpl-3.0.en.html).
+
+
 # Quickly start using MagIC
 
 ### 1) In order to check out the code, use the command
@@ -48,8 +59,8 @@ The executable `magic.exe` has been produced!
 ### 4) Go to the samples directory and check that everything is fine
 
 ```sh
--> cd $MAGIC_HOME/samples
--> ./magic_checks.pl --all --clean --no-recompile
+$ cd $MAGIC_HOME/samples
+$ ./magic_checks.pl --all --clean --no-recompile
 ```
 
 If everything is correctly set, all auto-tests should pass!
@@ -57,15 +68,15 @@ If everything is correctly set, all auto-tests should pass!
 ### 5) You're ready for a production run
 
 ```sh
--> cd $SCRATCHDIR/run
--> cp $MAGIC_HOME/src/magic.exe .
--> cp $MAGIC_HOME/samples/hydro_bench_anel/input.nml .
+$ cd $SCRATCHDIR/run
+$ cp $MAGIC_HOME/src/magic.exe .
+$ cp $MAGIC_HOME/samples/hydro_bench_anel/input.nml .
 ```
     
 Then change the input namelist to the setup you want and run the code:
 
 ```sh
--> mpiexec -n 4 ./magic.exe input.nml
+$ mpiexec -n 4 ./magic.exe input.nml
 ```
 
 ### 6) Data visualisation and postprocessing
@@ -75,7 +86,7 @@ a) Set-up your PYTHON environment ([ipython](http://ipython.org/), [scipy](http:
 b) Modify `magic.cfg` according to your machine
 
 ```sh
--> vi $MAGIC_HOME/python/magic/magic.cfg
+$ vi $MAGIC_HOME/python/magic/magic.cfg
 ```
 
 c) You can now import the python class:

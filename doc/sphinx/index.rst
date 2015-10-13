@@ -40,7 +40,7 @@ Welcome
 
         <div class="galleria">
            <img src=_images/benchmark.png data-title="Dynamo Benchmark" data-description="<a href='http://dx.doi.org/10.1016/S0031-9201(01)00275-8'>Christensen et al., PEPI, 2001</a>" >
-           <img src=_images/3DBr.png data-title="The Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
+           <img src=_images/3DBr.png data-title="A numerical model of the Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
            <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
            <img src=_images/Conv.png data-title="Rayleigh-Bénard convection in non-rotating spherical shell" data-description="<a href='http://dx.doi.org/10.1017/jfm.2015.401'>Gastine, T. et al., JFM, 2015</a>">
         </div>

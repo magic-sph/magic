@@ -172,32 +172,32 @@ The structure of the 2D spectra files are as follows:
        ! Line 3
        !-------------
 
-       e_p_l(l=1,r=1), e_p_l(l=1,r=2), ..., e_p_l(l=1,r=n_r_max),        ! Poloidal energy
-       ...                                                               ! versus degree
+       e_p_l(l=1,r=1), e_p_l(l=1,r=2), ..., e_p_l(l=1,r=n_r_max),      ! Poloidal energy
+       ...                                                             ! versus degree
        e_p_l(l=l_max,r=1), e_p_l(l=l_max,r=2), ..., e_p_l(l=l_max,r=n_r_max),
 
        !-------------
        ! Line 4
        !-------------
 
-       e_p_m(m=0,r=1), e_p_l(m=0,r=2), ..., e_p_l(m=1,r=n_r_max),        ! Poloidal energy
-       ...                                                               ! versus order
+       e_p_m(m=0,r=1), e_p_l(m=0,r=2), ..., e_p_l(m=1,r=n_r_max),      ! Poloidal energy
+       ...                                                             ! versus order
        e_p_l(m=l_max,r=1), e_p_l(m=l_max,r=2), ..., e_p_l(m=l_max,r=n_r_max),
 
        !-------------
        ! Line 3
        !-------------
 
-       e_t_l(l=1,r=1), e_t_l(l=1,r=2), ..., e_t_l(l=1,r=n_r_max),        ! Toroidal energy
-       ...                                                               ! versus degree
+       e_t_l(l=1,r=1), e_t_l(l=1,r=2), ..., e_t_l(l=1,r=n_r_max),      ! Toroidal energy
+       ...                                                             ! versus degree
        e_t_l(l=l_max,r=1), e_t_l(l=l_max,r=2), ..., e_t_l(l=l_max,r=n_r_max),
 
        !-------------
        ! Line 4
        !-------------
 
-       e_t_m(m=0,r=1), e_t_l(m=0,r=2), ..., e_t_l(m=1,r=n_r_max),        ! Toroidal energy
-       ...                                                               ! versus order
+       e_t_m(m=0,r=1), e_t_l(m=0,r=2), ..., e_t_l(m=1,r=n_r_max),      ! Toroidal energy
+       ...                                                             ! versus order
        e_t_l(m=l_max,r=1), e_t_l(m=l_max,r=2), ..., e_t_l(m=l_max,r=n_r_max),
 
 Those files can be read using the python class :py:class:`MagicSpectrum2D <magic.MagicSpectrum2D>` with

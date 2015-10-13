@@ -232,6 +232,8 @@ Anelastic liquid equations
 Boundary conditions
 -------------------
 
+.. _secThermalBcs:
+
 Thermal boundary conditions
 +++++++++++++++++++++++++++
 
@@ -277,6 +279,8 @@ Thermal boundary conditions
   4. Angular width (input has to be given in degrees), stored in array :f:var:`widthS(20) <widths>`.
 
 
+.. _secMechanicalBcs:
+
 Mechanical boundary conditions
 ++++++++++++++++++++++++++++++
 
@@ -300,6 +304,8 @@ Mechanical boundary conditions
 
 
 * **kbotv** (default :f:var:`kbotv=2 <kbotv>`) is an integer, which corresponds to the mechanical boundary condition for :math:`r=r_i`.
+
+.. _secMagneticBcs:
 
 Magnetic boundary conditions
 ++++++++++++++++++++++++++++

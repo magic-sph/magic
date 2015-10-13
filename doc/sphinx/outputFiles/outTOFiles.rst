@@ -55,7 +55,8 @@ On a whole, the structure of the file looks like follows:
       ! Line 4
       !----------
 
-      n_r_movie_max, n_r_max, n_theta_max, n_phi_tot, minc, ra, ek, pr, prmag, radratio, tScale
+      n_r_movie_max, n_r_max, n_theta_max, n_phi_tot, minc, ra, ek, pr, 
+      prmag, radratio, tScale
 
       !----------
       ! Line 5

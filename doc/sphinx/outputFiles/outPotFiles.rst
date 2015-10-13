@@ -23,13 +23,13 @@ stored as a fortran unformatted file which follows the following structure:
        ! Line 1
        !-------------
 
-       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation informations)
+       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation)
 
        !-------------
        ! Line 2
        !-------------
 
-       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (informations about phyics)
+       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (physics)
 
        !------------
        ! Line 3
@@ -69,13 +69,13 @@ stored as a fortran unformatted file which follows the following structure:
        ! Line 1
        !-------------
 
-       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation informations)
+       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation)
 
        !-------------
        ! Line 2
        !-------------
 
-       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (informations about phyics)
+       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (physics)
 
        !------------
        ! Line 3
@@ -140,13 +140,13 @@ stored as a fortran unformatted file which follows the following structure:
        ! Line 1
        !-------------
 
-       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation informations)
+       l_max, n_cheb_max, n_cheb_ic_max, minc, lm_max     ! Header (truncation)
 
        !-------------
        ! Line 2
        !-------------
 
-       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (informations about phyics)
+       ra, ek, pr, prmag, sigma_ratio, omega_ma, omega_ic ! Header (physics)
 
        !------------
        ! Line 3

@@ -110,21 +110,21 @@ An adiabatic reference state
 
 In a vigorously convecting astrophysical of geophysical system (like the convecting interior
 of a planet or a star), the super-adiabaticity  of the fluid is extremely small, since the
-transport of heat by convective motions is highly efficient. Therefore, the reference background state can be assumed to be perfectly adiabatic and obey to the following equations
+transport of heat by convective motions is highly efficient. Therefore, **the reference background state can be assumed to be perfectly adiabatic** and obey to the following equations
 
 .. math::
    \dfrac{d \tilde{T}}{dr} = -\dfrac{\alpha g \tilde{T}}{c_p},
    :label: eqAdiabatRef
    
 
-where :math:`c_p` is the heat capacity and :math:`\alpha` expressed by
+where :math:`c_p` is the heat capacity and :math:`\alpha` is expressed by
 
 .. math::
    c_p = T\left(\dfrac{\partial s}{\partial T}\right)_p, \quad\text{and}\quad
   \alpha = -\dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial T}\right)_p.
 
 
-At this stage, it becomes convenient to start introducing non-dimensionalised quantities.
+At this stage, it becomes convenient to start introducing **non-dimensionalised quantities**.
 The background quantities (density temperature and transport properties) are non-dimensionalised using their values at the spherical shell outer boundary :math:`r_o`. The shell thickness
 :math:`d=r_o-r_i` is used as the reference lenghtscale. The dimensionless form of Eq. :eq:`eqAdiabatRef` then reads:
 
@@ -201,7 +201,7 @@ non-dimensional numbers are employed. For convection-driven dynamos, there is fo
 independent control parameters.
 
 We use here the viscous diffusion time :math:`d^2/\nu_o` (where :math:`\nu_o` is the kinematic
-viscosity at the outer boundary as a time unit and :math:`\nu_o/d` as the reference velocity.
+viscosity at the outer boundary) as a time unit and :math:`\nu_o/d` as the reference velocity.
 Magnetic field is expressed in units of :math:`\sqrt{\rho_o\mu_0\lambda_i\Omega}`, where
 :math:`\rho_o` is the density at the outer boundary and :math:`\lambda_i` is the magnetic
 diffusivity at the **inner** boundary.
@@ -210,8 +210,8 @@ diffusivity at the **inner** boundary.
           values at the outer boundary. The motivation to rather base the reference magnetic
           diffusivity to the **inner** boundary is twofold: (i) it allows an easier control
           of the possible continuous conductivity value in the inner core; (ii) it is a more
-          natural choice when modelling gas giants planets which exhibit strong electrical 
-          conductivity decays in the outer layer.
+          natural choice when modelling gas giants planets which exhibit a strong electrical 
+          conductivity decay in the outer layer.
 
 This leads to the following sets of dimensionless equations:
 
@@ -249,7 +249,7 @@ to be a :math:`1/\epsilon` factor between the first term and the second one,
 which would suggest to keep only the second term in this expansion. However,
 for astrophysical objects which exhibit strong convective driving (and hence
 large Rayleigh numbers), the diffusion of the adiabatic background is actually
-very small and may be comparable or even smaller in magnitude as the :math:`\epsilon`
+very small and may be comparable or even smaller in magnitude than the :math:`\epsilon`
 terms representing the usual convective perturbations. For the Earth core for instance,
 if one assumes that the typical temperature fluctuations are of the order of 1 mK and
 the temperature contrast between the inner and outer core is of the order of 1000 K, then
@@ -270,8 +270,8 @@ that will drive or hinder convection. This is one of the physical motivation to 
 
 .. math:: \kappa \tilde{\rho}\tilde{T} \vec{\nabla} s,
 
-where :math:`\kappa` is the turbulent diffusivity. Entropy diffusion is assumed to dominate
-over temperature diffusion in turbulent flows.
+where :math:`\kappa` is the turbulent diffusivity. **Entropy diffusion is assumed to dominate
+over temperature diffusion in turbulent flows**.
 
 The choice of the entropy scale to non-dimensionalise Eq. :eq:`eqEntropy` also depends on
 the nature of the boundary conditions: it can be simply the entropy contrast over the layer
@@ -370,6 +370,9 @@ the spherical shell given by its radius ratio
 and the background density and temperature profiles, either controlled by :math:`Di` or
 by :math:`N_\rho` and :math:`m`.
 
+.. seealso:: In MagIC, those control parameters can be adjusted in the 
+             :ref:`&phys_param <secPhysNml>` section of the input namelist.
+
 Variants of the non-dimensional equations and control parameters result from
 different choices for the fundamental scales. For the length scale often
 :math:`r_o` is chosen instead of :math:`d`. Other natural scales for time are the
@@ -378,6 +381,10 @@ There are also different options for scaling the magnetic field strength.
 The prefactor of two, which is retained in the
 Coriolis term in :eq:`eqNSNd`, is often incorporated into the definition of the
 Ekman number.
+
+.. seealso:: Those references timescales and lengthscales can be adjusted by
+             several input parameters in the :ref:`&control <secControlNml>` section
+	     of the input namelist.
 
 
 Usual diagnostic quantities
@@ -418,6 +425,10 @@ equivalent to the square of the non-dimensional magnetic field strength
 in the scaling chosen here.
 
 
+.. seealso:: The time-evolution of these diagnostic quantities are stored in 
+             the :ref:`par.TAG <secParFile>` file produced during the run of MagIC.
+
+
 
 Boundary conditions and treatment of inner core
 ===============================================
@@ -441,6 +452,10 @@ change of rotation rate is determined from the net torque. Viscous,
 electromagnetic, and torques due to gravitational coupling between density
 heterogeneities in the mantle and in the inner core contribute.
 
+.. seealso:: The mechanical boundary conditions can be adjusted with the parameters
+             :ref:`ktopv <secMechanicalBcs>` and :ref:`kbotv <secMechanicalBcs>`
+	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+
 Magnetic boundary conditions and inner core conductivity
 --------------------------------------------------------
 
@@ -460,6 +475,10 @@ describes the solid body rotation of the inner core with respect to the referenc
 At the inner core boundary a continuity condition for the magnetic field and the
 horizontal component of the electrical field apply.
 
+.. seealso:: The magnetic boundary conditions can be adjusted with the parameters
+             :ref:`ktopb <secMagneticBcs>` and :ref:`kbotb <secMagneticBcs>`
+	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+
 Thermal boundary conditions and distribution of buoyancy sources
 ----------------------------------------------------------------
 
@@ -473,3 +492,7 @@ inner core, which can effectively be treated like a heat source.  The heat loss
 from the core is controlled by the convecting mantle, which effectively imposes
 a condition of fixed heat flux at the core-mantle boundary on the dynamo. The
 heat flux is in that case spatially and temporally variable. 
+
+.. seealso:: The thermal boundary conditions can be adjusted with the parameters
+             :ref:`ktops <secThermalBcs>` and :ref:`kbots <secThermalBcs>`
+	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.

@@ -32,7 +32,7 @@ follows the following structure for ``rBrSpec.TAG``:
        !-------------
 
        time[N], 
-       (real(e_p_ax(l=1,n_r),kind=outp),n_r=1,n_r_tot-1), ! Poloidal energy for \ell=0 and m=0
+       (real(e_p_ax(l=1,n_r),kind=outp),n_r=1,n_r_tot-1), ! Pol. energy for \ell=0, m=0
        (real(e_p_ax(l=2,n_r),kind=outp),n_r=1,n_r_tot-1),
        ...
        (real(e_p_ax(l=6,n_r),kind=outp),n_r=1,n_r_tot-1)
