@@ -250,7 +250,9 @@ so that
 The third combined operator is defined by:
 
 .. math::
-   \vartheta_3 = \sin\theta\dfrac{\partial}{\partial\theta}+\cos\theta\,\Delta_H
+   \vartheta_3 = \sin\theta\dfrac{\partial}{\partial\theta}+\cos\theta\,L_H,
+
+where :math:`-L_H/r^2=\Delta_H`.
 
 Acting with :math:`\vartheta_3` on a Legendre function gives:
 
@@ -275,8 +277,8 @@ which results into:
 The fourth (and last) combined operator is defined by:
 
 .. math::
-   \vartheta_4 = \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}\sin^2\theta\,\Delta_H
-   =\vartheta1\,\Delta_H
+   \vartheta_4 = \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}\sin^2\theta\,L_H
+   =\vartheta1\,L_H
 
 Acting with :math:`\vartheta_3` on a Legendre function gives:
 
@@ -931,7 +933,7 @@ strategy is to follow the following steps:
       \dfrac{\partial (\sin\theta{\cal A}_\phi)}{\partial \theta} -
       \dfrac{\partial {\cal A}_\theta}{
       \partial\phi}\right]=
-      \vartheta_1\,{{\cal A}p}_{\ell}^m-\dfrac{\partial {{\cal A}t}_{\ell}^m}{\partial \phi}
+      \vartheta_2\,{{\cal A}p}_{\ell}^m-\dfrac{\partial {{\cal A}t}_{\ell}^m}{\partial \phi}
       :label: eqAdvZNL
 
 Using :eq:`eqCorZNL` and :eq:`eqAdvZNL`, one thus finally gets
@@ -959,6 +961,83 @@ Using :eq:`eqCorZNL` and :eq:`eqAdvZNL`, one thus finally gets
 
 Nonlinear terms entering the equation for :math:`P`
 ---------------------------------------------------
+
+The nonlinear term :math:`{\cal N}^P` that enters the equation for the pressure
+:eq:`eqSpecP` contains the horizontal divergence of the advection and Coriolis force.
+The Coriolis force can be rewritten as a function of :math:`W` and :math:`Z`:
+
+.. math::
+    \begin{aligned}
+    \vec{\nabla}_H\cdot\left[(2\tilde{\rho}\vec{u})\times
+    \vec{e_z}\right] & =2\vec{e_z}\cdot\left[\vec{\nabla}\times(\tilde{\rho}
+    \vec{u})\right] -\left(\dfrac{\partial}{\partial r}+\dfrac{2}{r}\right)
+    \left[\vec{e_r}\cdot(2\tilde{\rho}\vec{u}\times\vec{e_z})\right]\\
+    & = -2\cos\theta\,\Delta_H Z-2\sin\theta\left[-\dfrac{1}{r\sin\theta}
+    \dfrac{\partial}{\partial\phi}\left(
+    \dfrac{\partial^2}{\partial r^2}+\Delta_H \right) W +
+    \dfrac{1}{r}\dfrac{\partial^2 Z}{\partial r\partial\theta}\right]
+    \\
+    & \phantom{=\cos\theta} -\left(\dfrac{\partial}{\partial r}+\dfrac{2}{r}\right)
+    \left[2\sin\theta\tilde{\rho}u_\phi\right] \\
+    & = 2\left[\dfrac{1}{r}\left(\Delta_H+\dfrac{\partial^2}{\partial r^2}\right)
+    \dfrac{\partial W}{\partial \phi}-\cos\theta\Delta_H Z -\dfrac{\sin\theta}{r}
+    \dfrac{\partial^2 Z}{\partial r \partial \theta}\right] \\
+    & \phantom{=\cos\theta} -\left(\dfrac{\partial}{\partial r}+\dfrac{2}{r}\right)
+    \left[\dfrac{2}{r}\left(\dfrac{\partial^2 W}{\partial r\partial\phi}-\sin\theta
+    \dfrac{\partial Z}{\partial \theta}\right)\right] \\
+    & = 2\left(\dfrac{\Delta_H}{r}\dfrac{\partial W}{\partial \phi}-\dfrac{1}{r^2}
+    \dfrac{\partial^2 W}{\partial\phi\partial r} -\cos\theta\Delta_H\,Z
+    +\dfrac{\sin\theta}{r^2}\dfrac{\partial Z}{\partial \theta}\right)
+    \end{aligned}
+
+Using the :math:`\vartheta` operators defined in :eq:`eqOpTheta3`-:eq:`eqOpTheta4` then
+allows to rewrite the Coriolis force in the following way:
+
+.. math::
+   \vec{\nabla}_H\cdot\left[(2\tilde{\rho}\vec{u})\times
+   \vec{e_z}\right]=\dfrac{2}{r^2}\left(-\dfrac{L_H}{r}\,\dfrac{\partial W}{\partial \phi}
+   -\dfrac{\partial^2 W}{\partial\phi\partial r}+\vartheta_3\, Z
+   \right)
+   :label: eqCorPNL
+
+The contributions of nonlinear advection and Lorentz forces that enter the equation
+for pressure are written this way:
+
+.. math::
+   \dfrac{1}{r\sin\theta}\left[
+   \dfrac{\partial (\sin\theta{\cal A}_\theta)}{\partial \theta} +
+   \dfrac{\partial {\cal A}_\phi}{
+   \partial\phi}\right]
+
+To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, we then follow
+the same steps as for the advection term entering the equation for :math:`Z`.
+
+.. math::
+   \dfrac{1}{r\sin\theta}\left[
+   \dfrac{\partial (\sin\theta{\cal A}_\theta)}{\partial \theta} +
+   \dfrac{\partial {\cal A}_\phi}{
+   \partial\phi}\right]=
+   \vartheta_2\,{{\cal A}t}_{\ell}^m+\dfrac{\partial {{\cal A}p}_{\ell}^m}{\partial \phi}
+   :label: eqAdvPNL
+
+Using :eq:`eqCorPNL` and :eq:`eqAdvPNL`, one thus finally gets
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   {\cal N}^Z_{\ell m}  = & \dfrac{2}{r^2}\left[-im\,\dfrac{\ell(\ell+1)}{r}\,W_\ell^m
+   -im\,\dfrac{\partial W_\ell^m}{\partial r}+(\ell-1)(\ell+1)\,c_\ell^m\,
+   Z_{\ell-1}^m+\ell(\ell+2)\,c_{\ell+1}^m\,
+   Z_{\ell+1}^m \right] \\
+   & + (\ell-1)\,c_\ell^m\,{{\cal A}t}_{\ell-1}^m-
+   (\ell+2)\,c_{\ell+1}^m\,{{\cal A}t}_{\ell+1}^m
+   +im\,{{\cal A}p}_{\ell}^m
+   \end{aligned}
+   }
+   :label: eqNLP
+
+.. seealso:: The final calculations of :eq:`eqNLP` are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`.
 
 .. _secNonLinearS:
 
