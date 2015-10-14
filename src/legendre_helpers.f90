@@ -1,7 +1,7 @@
 module leg_helper_mod
 
    use precision_mod
-   use truncation, only: lm_max,l_max
+   use truncation, only: lm_max, l_max, n_m_max, n_phi_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
@@ -32,36 +32,39 @@ module leg_helper_mod
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
 #ifdef WITH_SHTNS
-      real(cp), allocatable :: shtns_s(:)
-      real(cp), allocatable :: shtns_p(:)
-      real(cp), allocatable :: shtns_drs(:)
+      real(cp), allocatable :: shtns_s(:, :)
+      real(cp), allocatable :: shtns_p(:, :)
+      real(cp), allocatable :: shtns_drs(:, :)
 
-      real(cp), allocatable :: shtns_dsdt(:)
-      real(cp), allocatable :: shtns_dsdp(:)
+      real(cp), allocatable :: shtns_dsdt(:, :)
+      real(cp), allocatable :: shtns_dsdp(:, :)
 
-      real(cp), allocatable :: shtns_dpdt(:)
-      real(cp), allocatable :: shtns_dpdp(:)
+      real(cp), allocatable :: shtns_dpdt(:, :)
+      real(cp), allocatable :: shtns_dpdp(:, :)
 
-      real(cp), allocatable :: shtns_vr(:)
-      real(cp), allocatable :: shtns_vt(:)
-      real(cp), allocatable :: shtns_vp(:)
+      real(cp), allocatable :: shtns_vr(:, :)
+      real(cp), allocatable :: shtns_vt(:, :)
+      real(cp), allocatable :: shtns_vp(:, :)
 
-      real(cp), allocatable :: shtns_dvrdr(:)
-      real(cp), allocatable :: shtns_dvtdr(:)
-      real(cp), allocatable :: shtns_dvpdr(:)
+      real(cp), allocatable :: shtns_dvrdr(:, :)
+      real(cp), allocatable :: shtns_dvtdr(:, :)
+      real(cp), allocatable :: shtns_dvpdr(:, :)
 
-      real(cp), allocatable :: shtns_dvrdt(:)
-      real(cp), allocatable :: shtns_dvrdp(:)
+      real(cp), allocatable :: shtns_dvrdt(:, :)
+      real(cp), allocatable :: shtns_dvrdp(:, :)
 
-      real(cp), allocatable :: shtns_cvr(:)
+      real(cp), allocatable :: shtns_dvtdp(:, :)
+      real(cp), allocatable :: shtns_dvpdp(:, :)
 
-      real(cp), allocatable :: shtns_br(:)
-      real(cp), allocatable :: shtns_bt(:)
-      real(cp), allocatable :: shtns_bp(:)
+      real(cp), allocatable :: shtns_cvr(:, :)
 
-      real(cp), allocatable :: shtns_cbr(:)
-      real(cp), allocatable :: shtns_cbt(:)
-      real(cp), allocatable :: shtns_cbp(:)
+      real(cp), allocatable :: shtns_br(:, :)
+      real(cp), allocatable :: shtns_bt(:, :)
+      real(cp), allocatable :: shtns_bp(:, :)
+
+      real(cp), allocatable :: shtns_cbr(:, :)
+      real(cp), allocatable :: shtns_cbt(:, :)
+      real(cp), allocatable :: shtns_cbp(:, :)
 #endif
    contains
 
@@ -103,36 +106,39 @@ contains
       allocate( this%bCMB(lm_maxMag) )
 
 #ifdef WITH_SHTNS
-      allocate(this%shtns_s(n_phi_max * n_theta_max))
-      allocate(this%shtns_drs(n_phi_max * n_theta_max))
-      allocate(this%shtns_p(n_phi_max * n_theta_max))
+      allocate(this%shtns_s(n_phi_max, n_theta_max))
+      allocate(this%shtns_drs(n_phi_max, n_theta_max))
+      allocate(this%shtns_p(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_dsdt(n_phi_max * n_theta_max))
-      allocate(this%shtns_dsdp(n_phi_max * n_theta_max))
+      allocate(this%shtns_dsdt(n_phi_max, n_theta_max))
+      allocate(this%shtns_dsdp(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_dpdt(n_phi_max * n_theta_max))
-      allocate(this%shtns_dpdp(n_phi_max * n_theta_max))
+      allocate(this%shtns_dpdt(n_phi_max, n_theta_max))
+      allocate(this%shtns_dpdp(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_vr(n_phi_max * n_theta_max))
-      allocate(this%shtns_vt(n_phi_max * n_theta_max))
-      allocate(this%shtns_vp(n_phi_max * n_theta_max))
+      allocate(this%shtns_vr(n_phi_max, n_theta_max))
+      allocate(this%shtns_vt(n_phi_max, n_theta_max))
+      allocate(this%shtns_vp(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_dvrdr(n_phi_max * n_theta_max))
-      allocate(this%shtns_dvtdr(n_phi_max * n_theta_max))
-      allocate(this%shtns_dvpdr(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvrdr(n_phi_max, n_theta_max))
+      allocate(this%shtns_dvtdr(n_phi_max, n_theta_max))
+      allocate(this%shtns_dvpdr(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_dvrdt(n_phi_max * n_theta_max))
-      allocate(this%shtns_dvrdp(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvrdt(n_phi_max, n_theta_max))
+      allocate(this%shtns_dvrdp(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_cvr(n_phi_max * n_theta_max))
+      allocate(this%shtns_dvtdp(n_phi_max, n_theta_max))
+      allocate(this%shtns_dvpdp(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_br(n_phi_max * n_theta_max))
-      allocate(this%shtns_bt(n_phi_max * n_theta_max))
-      allocate(this%shtns_bp(n_phi_max * n_theta_max))
+      allocate(this%shtns_cvr(n_phi_max, n_theta_max))
 
-      allocate(this%shtns_cbr(n_phi_max * n_theta_max))
-      allocate(this%shtns_cbt(n_phi_max * n_theta_max))
-      allocate(this%shtns_cbp(n_phi_max * n_theta_max))
+      allocate(this%shtns_br(n_phi_max, n_theta_max))
+      allocate(this%shtns_bt(n_phi_max, n_theta_max))
+      allocate(this%shtns_bp(n_phi_max, n_theta_max))
+
+      allocate(this%shtns_cbr(n_phi_max, n_theta_max))
+      allocate(this%shtns_cbt(n_phi_max, n_theta_max))
+      allocate(this%shtns_cbp(n_phi_max, n_theta_max))
 
       this%shtns_bt=1.0e50_cp
       this%shtns_bp=1.0e50_cp
@@ -174,7 +180,6 @@ contains
       !-- Local variables:
       integer :: lm,l,m
       complex(cp) :: dbd
-
 
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma
@@ -229,8 +234,10 @@ contains
 
          if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
 #ifdef WITH_SHTNS
-            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), nR, &
-                this%shtns_vr, this%shtns_vt, this%shtns_vp)
+            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
+               this%shtns_vr, &
+               this%shtns_vt, &
+               this%shtns_vp)
 #endif
             this%dLhw(1)=zero
             this%vhG(1) =zero
@@ -246,11 +253,17 @@ contains
 
          if ( lDeriv ) then
 #ifdef WITH_SHTNS
-           call pol_to_curlr_spat(z_Rloc(:, nR), this%shtns_cvr)
-           call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), nR, &
-               this%shtns_dvrdr, this%shtns_dvtdr, this%shtns_dvpdr)
-           call pol_to_grad_spat(w_Rloc(:, nR), &
-               this%shtns_dvrdt, this%shtns_dvrdp)
+            call pol_to_curlr_spat(z_Rloc(:, nR), this%shtns_cvr)
+            call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
+                this%shtns_dvrdr, &
+                this%shtns_dvtdr, &
+                this%shtns_dvpdr)
+            call pol_to_grad_spat(w_Rloc(:, nR), &
+                this%shtns_dvrdt, &
+                this%shtns_dvrdp)
+            call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
+                this%shtns_dvtdp, &
+                this%shtns_dvpdp)
 #else
             this%dLhdw(1) =zero
             this%dLhz(1)  =zero
@@ -274,7 +287,7 @@ contains
          !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
          !PRINT*,"dj: ",SUM(ABS(dj(:,nR)))
 #ifdef WITH_SHTNS
-         call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR), nR, &
+         call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR), &
              this%shtns_br, this%shtns_bt, this%shtns_bp)
 #else
          this%dLhb(1)=zero
@@ -300,7 +313,9 @@ contains
 #ifdef WITH_SHTNS
             call torpol_to_curl_spat(b_Rloc(:, nR), db_Rloc(:, nR),     &
                 ddb_Rloc(:, nR), aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
-                this%shtns_cbr, this%shtns_cbt, this%shtns_cbp)
+                this%shtns_cbr, &
+                this%shtns_cbt, &
+                this%shtns_cbp)
 #else
             this%dLhj(1)=zero
             this%cbhG(1)=zero

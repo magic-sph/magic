@@ -19,8 +19,6 @@ USE_FFTLIB=MKL
 USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
-# use shtns library
-USE_SHTNS=yes
 
 USE_PERFLIB=none
 
@@ -209,12 +207,6 @@ ifeq ($(USE_HDF5), yes)
 	LIBS += $(FFLAG_HDF5_LIBS)
 endif
 
-ifeq ($(USE_SHTNS), yes)
-	PREPROC += -DWITH_SHTNS
-	INCPATHS += -I$(SHTNS_INC)
-	LIBS += $(FFLAG_SHTNS)
-endif
-
 ifeq ($(PRECISION),sngl)
 	PREPROC += -DDEFAULT_PRECISION=sngl
 else ifeq ($(PRECISION),dble)
@@ -268,7 +260,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% shtns% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% shtns% hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -288,13 +280,14 @@ else ifeq ($(USE_LAPACKLIB),LAPACK)
 else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
-
-ifeq ($(USE_SHTNS),yes)
-	RED_SOURCES += shtns.f90
 endif
 
 ifeq ($(USE_HDF5),yes)
 	RED_SOURCES += hdf5Helpers.f90
+endif
+
+ifeq ($(USE_SHTNS),yes)
+	RED_SOURCES += shtns.f90
 endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
@@ -433,7 +426,6 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
                         logic.o constants.o blocking.o Grenoble.o\
-                        fields.o TO.o
                         logic.o const.o blocking.o Grenoble.o\
                         fields.o TO.o
 output.o              : truncation.o blocking.o phys_param.o\

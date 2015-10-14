@@ -182,7 +182,9 @@ contains
       logical :: DEBUG_OUTPUT=.false.
 #ifdef WITH_SHTNS
       integer :: nThetaNHS, nThetaN, nThetaS, mc
-      real(cp) :: dmT, swap
+      real(cp) :: dmT, swap, err
+      integer :: it, ip
+      logical :: halt
 #endif
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
@@ -228,17 +230,17 @@ contains
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
 #ifdef WITH_SHTNS
-            gsa%sc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_s((nThetaStart-1)*n_phi_max+1:)
+            gsa%sc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_s(:, nThetaStart:)
 #else
             call fft_thetab(gsa%sc,1)
 #endif
             if ( this%lViscBcCalc ) then
 #ifdef WITH_SHTNS
-               gsa%dsdtc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dsdt((nThetaStart-1)*n_phi_max+1:)
-               gsa%dsdpc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dsdp((nThetaStart-1)*n_phi_max+1:)
+               gsa%dsdtc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dsdt(:, nThetaStart:)
+               gsa%dsdpc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dsdp(:, nThetaStart:)
 #else
                call fft_thetab(gsa%dsdtc,1)
                call fft_thetab(gsa%dsdpc,1)
@@ -254,8 +256,8 @@ contains
             end if
             if ( this%lFluxProfCalc ) then
 #ifdef WITH_SHTNS
-               gsa%pc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_p((nThetaStart-1)*n_phi_max+1:)
+               gsa%pc(1:n_phi_max, :) = &
+               this%leg_helper%shtns_p(:, nThetaStart:)
 #else
                call fft_thetab(gsa%pc,1)
 #endif
@@ -263,20 +265,20 @@ contains
          end if
          if ( l_HT .or. this%lViscBcCalc ) then
 #ifdef WITH_SHTNS
-            gsa%drSc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_drs((nThetaStart-1)*n_phi_max+1:)
+            gsa%drSc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_drs(:, nThetaStart:)
 #else
             call fft_thetab(gsa%drSc,1)
 #endif
          endif
          if ( this%nBc == 0 ) then
 #ifdef WITH_SHTNS
-            gsa%vrc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_vr((nThetaStart-1)*n_phi_max+1:)
-            gsa%vtc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_vt((nThetaStart-1)*n_phi_max+1:)
-            gsa%vpc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_vp((nThetaStart-1)*n_phi_max+1:)
+            gsa%vrc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_vr(:, nThetaStart:)
+            gsa%vtc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_vt(:, nThetaStart:)
+            gsa%vpc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_vp(:, nThetaStart:)
 #else
             call fft_thetab(gsa%vrc,1)
             call fft_thetab(gsa%vtc,1)
@@ -284,24 +286,24 @@ contains
 #endif
             if ( this%lDeriv ) then
 #ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvrdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
+               gsa%dvtdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
+               gsa%dvpdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
 #else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
 #endif
 #ifdef WITH_SHTNS
-               gsa%cvrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_cvr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvrdtc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvrdt((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvrdpc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvrdp((nThetaStart-1)*n_phi_max+1:)
+               gsa%cvrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_cvr(:, nThetaStart:)
+               gsa%dvrdtc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvrdt(:, nThetaStart:)
+               gsa%dvrdpc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvrdp(:, nThetaStart:)
 #else
                call fft_thetab(gsa%cvrc,1)
                call fft_thetab(gsa%dvrdtc,1)
@@ -309,52 +311,22 @@ contains
 #endif
 
 #ifdef WITH_SHTNS
-               gsa%dvtdpc = gsa%vtc
-               call fft_thetab(gsa%dvtdpc, -1)
-               gsa%dvpdpc(:, :) = gsa%vpc(:, :)
-               call fft_thetab(gsa%dvpdpc, -1)
-
-               nThetaNHS = (nThetaStart-1)/2
-               do nThetaN=1, sizeThetaB, 2   ! Loop over thetas for north HS
-                  nThetaS   = nThetaN+1       ! same theta but for southern HS
-                  nThetaNHS = nThetaNHS+1     ! theta-index of northern hemisph. point
-                  do mc=1, n_m_max
-                     dmT = D_mc2m(mc) * osn2(nThetaNHS)
-                     swap = -dmT*gsa%dvtdpc(2*mc, nThetaN)
-                     gsa%dvtdpc(2*mc  , nThetaN) =  dmT*gsa%dvtdpc(2*mc-1, nThetaN)
-                     gsa%dvtdpc(2*mc-1, nThetaN) = swap
-                     swap = -dmT*gsa%dvtdpc(2*mc, nThetaS)
-                     gsa%dvtdpc(2*mc  , nThetaS) =  dmT*gsa%dvtdpc(2*mc-1, nThetaS)
-                     gsa%dvtdpc(2*mc-1, nThetaS) = swap
-
-                     swap = -dmT*gsa%dvpdpc(2*mc, nThetaN)
-                     gsa%dvpdpc(2*mc  , nThetaN) =  dmT*gsa%dvpdpc(2*mc-1, nThetaN)
-                     gsa%dvpdpc(2*mc-1, nThetaN) = swap
-                     swap = -dmT*gsa%dvpdpc(2*mc, nThetaS)
-                     gsa%dvpdpc(2*mc  , nThetaS) =  dmT*gsa%dvpdpc(2*mc-1, nThetaS)
-                     gsa%dvpdpc(2*mc-1, nThetaS) = swap
-                  end do
-               end do
-               !-- Zero out terms with index mc > n_m_max:
-               if ( n_m_max < nrp/2 ) then
-                  do nThetaN=1, sizeThetaB
-                     do mc=2*n_m_max+1, nrp
-                        gsa%dvtdpc(mc, nThetaN) = 0.0_cp
-                        gsa%dvpdpc(mc, nThetaN) = 0.0_cp
-                     end do
-                  end do  ! loop over nThetaN (theta)
-               end if
-#endif
+               gsa%dvtdpc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvtdp(:, nThetaStart:)
+               gsa%dvpdpc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvpdp(:, nThetaStart:)
+#else
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
+#endif
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
 #ifdef WITH_SHTNS
-            gsa%vtc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_vt((nThetaStart-1)*n_phi_max+1:)
-            gsa%vpc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_vp((nThetaStart-1)*n_phi_max+1:)
+            gsa%vtc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_vt(:, nThetaStart:)
+            gsa%vpc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_vp(:, nThetaStart:)
 #else
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
@@ -363,14 +335,14 @@ contains
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
 #ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%cvrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_cvr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvrdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
+               gsa%dvtdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
+               gsa%dvpdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
+               gsa%cvrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_cvr(:, nThetaStart:)
 #else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
@@ -394,12 +366,12 @@ contains
             end if
             if ( this%lDeriv ) then
 #ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvrdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvtdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvtdr((nThetaStart-1)*n_phi_max+1:)
-               gsa%dvpdrc(1:n_phi_max, 1:nfs) => &
-                   this%leg_helper%shtns_dvpdr((nThetaStart-1)*n_phi_max+1:)
+               gsa%dvrdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
+               gsa%dvtdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
+               gsa%dvpdrc(1:n_phi_max, :) = &
+                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
 #else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
@@ -410,12 +382,12 @@ contains
       end if
       if ( l_mag .or. l_mag_LF ) then
 #ifdef WITH_SHTNS
-         gsa%brc(1:n_phi_max, 1:nfs) => &
-             this%leg_helper%shtns_br((nThetaStart-1)*n_phi_max+1:)
-         gsa%btc(1:n_phi_max, 1:nfs) => &
-             this%leg_helper%shtns_bt((nThetaStart-1)*n_phi_max+1:)
-         gsa%bpc(1:n_phi_max, 1:nfs) => &
-             this%leg_helper%shtns_bp((nThetaStart-1)*n_phi_max+1:)
+         gsa%brc(1:n_phi_max, :) = &
+             this%leg_helper%shtns_br(:, nThetaStart:)
+         gsa%btc(1:n_phi_max, :) = &
+             this%leg_helper%shtns_bt(:, nThetaStart:)
+         gsa%bpc(1:n_phi_max, :) = &
+             this%leg_helper%shtns_bp(:, nThetaStart:)
 #else
          call fft_thetab(gsa%brc,1)
          call fft_thetab(gsa%btc,1)
@@ -423,12 +395,12 @@ contains
 #endif
          if ( this%lDeriv ) then
 #ifdef WITH_SHTNS
-            gsa%cbrc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_cbr((nThetaStart-1)*n_phi_max+1:)
-            gsa%cbtc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_cbt((nThetaStart-1)*n_phi_max+1:)
-            gsa%cbpc(1:n_phi_max, 1:nfs) => &
-                this%leg_helper%shtns_cbp((nThetaStart-1)*n_phi_max+1:)
+            gsa%cbrc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_cbr(:, nThetaStart:)
+            gsa%cbtc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_cbt(:, nThetaStart:)
+            gsa%cbpc(1:n_phi_max, :) = &
+                this%leg_helper%shtns_cbp(:, nThetaStart:)
 #else
             call fft_thetab(gsa%cbrc,1)
             call fft_thetab(gsa%cbtc,1)
