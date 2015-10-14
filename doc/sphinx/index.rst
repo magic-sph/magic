@@ -101,7 +101,7 @@ Giving credit
 
 .. container:: mybox
 
-   In case you intend to publish scientific results obtained with the MagIC code 
+   In case you intend to publish scientific results obtained with **MagIC**
    or present them in a conference, we (the developers of MagIC) kindly
    ask to be acknowledged with a reference to the website 
    https://magic-sph.github.io/ or https://github.com/magic-sph/magic.

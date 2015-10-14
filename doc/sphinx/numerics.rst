@@ -54,7 +54,7 @@ from its radial component and the radial component of its curl:
 
 .. math::
   \begin{aligned}
-  \vec{e_r}\cdot \vec{v} &=  - \Delta_H W, \\
+  \vec{e_r}\cdot \tilde{\rho}\vec{u} &=  - \Delta_H W, \\
   \vec{e_r}\cdot\left(\vec{\nabla}\times\vec{B}\right) & = - \Delta_H Z,
   \end{aligned}
   :label: eqDeltaH
@@ -67,6 +67,16 @@ where the operator :math:`\Delta_H` denotes the horizontal part of the Laplacian
   + \frac{1}{r^{2}\sin^2{\theta}} \frac{\partial^{2}}{\partial^{2}\phi}.
   :label: eqLaplaceH
 
+To summarize, in spherical coordinates, the three components of :math:`\tilde{\rho}\vec{u}`
+are given by
+
+.. math::
+   \tilde{\rho}\vec{u} = -(\Delta_H W)\,\vec{e_r} + \left( \dfrac{1}{r}
+   \dfrac{\partial W}{\partial \theta} + 
+   \dfrac{1}{r\sin\theta}\dfrac{\partial Z}{\partial \phi}\right)\,\vec{e_\theta} 
+   +\left(\dfrac{1}{r\sin\theta}\dfrac{\partial W}{\partial \phi}-
+   \dfrac{1}{r}\dfrac{\partial Z}{\partial\theta} \right)\,\vec{e_\phi},
+   :label: eqToroPolo1
 
 
 Spherical harmonic representation
@@ -155,25 +165,137 @@ analytically expressed by
 
 They are several useful recurrence relations for the Legendre polynomials that will
 be further employed to compute Coriolis forces and the :math:`\theta` and :math:`\phi`
-derivatives of advection and Lorentz forces:
+derivatives of advection and Lorentz forces.
+
+Four different operators are used in **MagIC**. The first one is defined by
 
 .. math::
-   \cos\theta\,\partial P_\ell^m = c_{\ell+1}^m\,P_{\ell+1}^m
-   +c_{\ell}^m\,P_{\ell-1}^m\,,
-   :label: eqCosPlm
+   \vartheta_1 = \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}\sin^2\theta
+   =\sin\theta\dfrac{\partial}{\partial\theta}+2\cos\theta
 
-and
+The action of this operator on a Legendre polynomials is given by
 
 .. math::
-   \sin\theta\,\dfrac{\partial P_\ell^m}{\partial \theta} = (\ell-1)\,c_{\ell+1}^m\,P_{\ell+1}^m
-   -(\ell+2)\,c_{\ell}^m\,P_{\ell-1}^m \,,
-   :label: eqSindPlm
+   \vartheta_1 = (\ell+2)\,c_{\ell+1}^m\,P_{\ell+1}^m(\cos\theta)
+   -(\ell-1)\,c_\ell^m\,P_{\ell-1}^m(\cos\theta)
 
 where :math:`c_\ell^m` is defined by
 
 .. math::
    c_\ell^m = \sqrt{\dfrac{(\ell+m)(\ell-m)}{(2\ell-1)(2\ell+1)}}\,.
    :label: eqClmOp
+
+How is it then used in the code? Let's assume we want the spherical harmonic contribution
+of degree :math:`\ell` and order `m` for the expression
+
+.. math::
+   \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}(\sin\theta\,f(\theta))
+
+In order to employ the operator :math:`\vartheta_1` for the derivative, we thus define a
+new function
+
+.. math::
+   F(\theta)=f(\theta)/\sin\theta
+
+so that
+
+.. math::
+   \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}[\sin\theta\,f(\theta)]
+   =\vartheta_1 F(\theta)
+
+Expanding :math:`F(\theta)` in Legendre polynomials and using the respective
+orthogonality relation we can then map out the required contribution in the following way:
+
+.. math::
+  \boxed{
+  \int_0^\pi d\theta\,\sin\theta\,P_\ell^m\vartheta_1\sum_{\ell'}F_{\ell'}^m P_{\ell'}^m
+  =(\ell+1)\,c_{\ell}^m\,F_{\ell-1}^m-\ell\,c_{\ell+1}^m\,F_{\ell+1}^m}
+  :label: eqOpTheta1
+
+Here, we have assumed that the Legendre functions are completely normalised such that
+
+.. math::
+   \int_0^\pi d\theta\,\sin\theta\,P_\ell^m P_{\ell'}^m = \delta_{\ell \ell'}
+
+.. seealso:: This operator is defined in the module :f:mod:`horizontal_data` by the variables
+   :f:var:`dTheta1S <dtheta1s>` for the first part of the right-hand 
+   side of :eq:`eqOpTheta1` and :f:var:`dTheta1A <dtheta1a>` for the 
+   second part.
+
+The second operator used to formulate colatitude derivatives is
+
+.. math::
+   \vartheta_2 = \sin\theta\dfrac{\partial}{\partial\theta}
+
+The action of this operator on the Legendre polynomials reads
+
+.. math::
+   \vartheta_2 P_\ell^m(\cos\theta)=\ell\,c_{\ell+1}^m\,P_{\ell+1}^m(\cos\theta)
+   -(\ell+1)\,c_\ell^m\,P_{\ell-1}^m(\cos\theta)
+
+so that
+
+.. math::
+   \boxed{
+   \int_0^\pi d\theta\,\sin\theta \,P_\ell^m\vartheta_2\sum_{\ell'}f_{\ell'}^m P_{\ell'}^m
+   =(\ell-1)\,c_{\ell}^m\,f_{\ell-1}^m-(\ell+2)\,c_{\ell+1}^m\,f_{\ell+1}^m}
+  :label: eqOpTheta2
+
+.. seealso:: This operator is defined in the module :f:mod:`horizontal_data` by the variables
+   :f:var:`dTheta2S <dtheta2s>` for the first part of the right-hand 
+   side of :eq:`eqOpTheta2` and :f:var:`dTheta2A <dtheta2a>` for the 
+   second part.
+
+
+The third combined operator is defined by:
+
+.. math::
+   \vartheta_3 = \sin\theta\dfrac{\partial}{\partial\theta}+\cos\theta\,\Delta_H
+
+Acting with :math:`\vartheta_3` on a Legendre function gives:
+
+.. math::
+   \vartheta_3 P_\ell^m(\cos\theta)=\ell(\ell+1)\,c_{\ell+1}^m\,P_{\ell+1}^m(\cos\theta)
+   +(\ell-1)(\ell+1)\,c_\ell^m\,P_{\ell-1}^m(\cos\theta)
+
+which results into:
+
+.. math::
+  \boxed{
+  \int_0^\pi d\theta\,\sin\theta\,P_\ell^m\vartheta_3\sum_{\ell'}f_{\ell'}^m P_{\ell'}^m
+  =(\ell-1)(\ell+1)\,c_{\ell}^m\,f_{\ell-1}^m+\ell(\ell+2)\,c_{\ell+1}^m\,f_{\ell+1}^m}
+  :label: eqOpTheta3
+
+.. seealso:: This operator is defined in the module :f:mod:`horizontal_data` by the variables
+   :f:var:`dTheta3S <dtheta3s>` for the first part of the right-hand 
+   side of :eq:`eqOpTheta3` and :f:var:`dTheta3A <dtheta3a>` for the 
+   second part.
+
+
+The fourth (and last) combined operator is defined by:
+
+.. math::
+   \vartheta_4 = \dfrac{1}{\sin\theta}\dfrac{\partial}{\partial\theta}\sin^2\theta\,\Delta_H
+   =\vartheta1\,\Delta_H
+
+Acting with :math:`\vartheta_3` on a Legendre function gives:
+
+.. math::
+   \vartheta_4 P_\ell^m(\cos\theta)=\ell(\ell+1)(\ell+2)\,c_{\ell+1}^m\,P_{\ell+1}^m(\cos\theta)
+   -\ell(\ell-1)(\ell+1)\,c_\ell^m\,P_{\ell-1}^m(\cos\theta)
+
+which results into:
+
+.. math::
+  \boxed{
+  \int_0^\pi d\theta\,\sin\theta\,P_\ell^m\vartheta_4\sum_{\ell'}f_{\ell'}^m P_{\ell'}^m
+  =\ell(\ell-1)(\ell+1)\,c_{\ell}^m\,f_{\ell-1}^m-\ell(\ell+1)(\ell+2)\,c_{\ell+1}^m\,f_{\ell+1}^m}
+  :label: eqOpTheta4
+
+.. seealso:: This operator is defined in the module :f:mod:`horizontal_data` by the variables
+   :f:var:`dTheta4S <dtheta4s>` for the first part of the right-hand 
+   side of :eq:`eqOpTheta4` and :f:var:`dTheta4A <dtheta4a>` for the 
+   second part.
 
 
 
@@ -311,7 +433,7 @@ for the poloidal potential :math:`W_{\ell m n}`:
    -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
    + \left[{\cal C}'_n -\dfrac{d\ln\tilde{\rho}}{dr}{\cal C}_n\right] & & P_{\ell m n} \\
    - \left[\dfrac{Ra\,E}{Pr}\,\tilde{\rho}\,g(r)\right] & \,{\cal C}_n & s_{\ell m n} \\
-   = {\cal N}^W = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{F} & &
+   = {\cal N}^W_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^W =\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{F} & &
    \end{aligned}}
    :label: eqSpecW
 
@@ -378,7 +500,7 @@ for the poloidal potential :math:`Z_{\ell m n}`:
    \dfrac{d\ln\tilde{\rho}}{dr}\right)\right\rbrace\right. & \,{\cal C}_n  & \\
    -\nu\,\left(\dfrac{d\ln\nu}{dr}-\dfrac{d\ln\tilde{\rho}}{dr}\right) &\,{\cal C}'_n & \\
    -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& Z_{\ell m n} \\
-   = {\cal N}^Z = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
+   = {\cal N}^Z_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^Z = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times\vec{F}\right) & &
    \end{aligned}}
    :label: eqSpecZ
 
@@ -471,7 +593,7 @@ Using Eq. :eq:`eqHorizLaplYlm` then allows to finally write the equation for the
    \right) &\,{\cal C}''_n & \\
    -\nu & \,{\cal C}'''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
    + \left[\dfrac{\ell(\ell+1)}{r^2}\right] & \,{\cal C}_n & P_{\ell m n} \\
-   = {\cal N}^P = -\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{\nabla}_H\cdot\vec{F} & &
+   = {\cal N}^P_{\ell m} = -\int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^P=-\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{\nabla}_H\cdot\vec{F} & &
    \end{aligned}}
    :label: eqSpecP
 
@@ -515,7 +637,7 @@ The equation for the entropy (or temperature in the Boussinesq limit) is given b
    +\dfrac{dln\tilde{T}}{dr}+\dfrac{2}{r}\right) 
    &\,{\cal C}'_n & \\
    -\kappa & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& s_{\ell m n} \\
-   = {\cal N}^S = -\int d\Omega\,{Y_{\ell}^{m}}^\star\,\left[\vec{u}\cdot\vec{\nabla}s+
+   = {\cal N}^S_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^S = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\left[-\vec{u}\cdot\vec{\nabla}s+
    \dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}\left(\Phi_\nu+
    \dfrac{\lambda}{Pm^2\,E}\,j^2\right) \right] & &
    \end{aligned}}
@@ -523,7 +645,7 @@ The equation for the entropy (or temperature in the Boussinesq limit) is given b
 
 In this expression, :math:`j=\vec{\nabla}\times\vec{B}` is the current. Once again,
 the numerical evaluation of the right-hand-side (i.e. the non-linear terms) is
-discussed :ref:`below <secNonlinearEqs>`.
+discussed :ref:`below <secNonLinearS>`.
 
 .. seealso:: The exact computation of the linear terms of :eq:`eqSpecS` are coded in
              the subroutines :f:subr:`get_sMat <updatez_mod/get_smat()>`
@@ -542,7 +664,7 @@ The equation for the poloidal magnetic field coefficient reads
    \dfrac{1}{Pm}\lambda\,\dfrac{\ell(\ell+1)}{r^2} 
    \right)\right. & \,{\cal C}_n  & \\
    -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& g_{\ell m n} \\
-   = {\cal N}^g = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{D} & &
+   = {\cal N}^g_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^g=\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{D} & &
    \end{aligned}}
    :label: eqSpecG
 
@@ -564,7 +686,7 @@ The equation for the toroidal magnetic field coefficient reads
    \right)\right. & \,{\cal C}_n  & \\
    -\dfrac{1}{Pm}\,\dfrac{d\lambda}{dr} &\,{\cal C}'_n & \\
    -\dfrac{1}{Pm}\,\lambda & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& h_{\ell m n} \\
-   = {\cal N}^h = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
+   = {\cal N}^h_{\ell m}= \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^h = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \left(\vec{\nabla}\times \vec{D}\right) & &
    \end{aligned}}
    :label: eqSpecH
 
@@ -673,38 +795,176 @@ additional safety factor in the choice of :math:`\delta t`.
 
 .. _secNonlinearEqs:
 
-Coriolis force and non-linear terms
-===================================
+Coriolis force and nonlinear terms
+==================================
+
+We first define the three components of the nonlinear advection terms and Lorentz force that
+will enter the nonlinear terms:
 
 .. math::
-   {\cal A}_r=
-   -\tilde{\rho}\left(
+   \tilde{\rho}\left(\vec{u}\cdot\vec{\nabla}\vec{u}\right)=
+   \left\lbrace
+   \begin{aligned}
+   {\cal A}_r \\
+   {\cal A}_\theta \\
+   {\cal A}_\phi
+   \end{aligned}
+   \right\rbrace
+   =
+   \left\lbrace
+   \begin{aligned}
+   -\tilde{\rho}\,E\,\left(
    u_r\dfrac{\partial u_r}{\partial r}+
    \dfrac{u_\theta}{r}\dfrac{\partial u_r}{\partial \theta}+
    \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_r}{\partial \phi}
    -\dfrac{u_\theta^2+u_\phi^2}{r}\right)+
-   \dfrac{1}{Pm}\left(j_\theta\,B_\phi-j_\phi\,B_\theta\right)\, ,
-   :label: eqAdvRadial
-
-.. math::
-   {\cal A}_\theta=
-   -\tilde{\rho}\left(
+   \dfrac{1}{Pm}\left(j_\theta\,B_\phi-j_\phi\,B_\theta\right)\, , \\
+   -\tilde{\rho}\,E\,\left(
    u_r\dfrac{\partial u_\theta}{\partial r}+
    \dfrac{u_\theta}{r}\dfrac{\partial u_\theta}{\partial \theta} +
    \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_\theta}{\partial \phi}+
    \dfrac{u_r u_\theta}{r}-\dfrac{\cos\theta}{r\sin\theta}u_\phi^2\right)+
-   \dfrac{1}{Pm}\left(j_\phi\,B_r-j_r\,B_\phi\right)\, ,
-   :label: eqAdvTheta
-
-.. math::
-   {\cal A}_\phi=
-   -\tilde{\rho}\left(
+   \dfrac{1}{Pm}\left(j_\phi\,B_r-j_r\,B_\phi\right)\, ,\\
+   -\tilde{\rho}\,E\,\left(
    u_r\dfrac{\partial u_\phi}{\partial r}+
    \dfrac{u_\theta}{r}\dfrac{\partial u_\phi}{\partial \theta} +
    \dfrac{u_\phi}{r\sin\theta}\dfrac{\partial u_\phi}{\partial \phi}+
    \dfrac{u_r u_\phi}{r} +\dfrac{\cos\theta}{r\sin\theta}u_\theta u_\phi\right)+
    \dfrac{1}{Pm}\left(j_r\,B_\theta-j_\theta\,B_r\right)\, ,
-   :label: eqAdvPhi
+   \end{aligned}
+   \right\rbrace
+   :label: eqAdvection
+
+
+.. _secNonLinearW:
+
+Nonlinear terms entering the equation for :math:`W`
+---------------------------------------------------
+
+The nonlinear term :math:`{\cal N}^W` that enters the equation for the poloidal potential
+:eq:`eqSpecW` contains the radial component of advection and Coriolis force.
+
+It thus reads:
+
+.. math::
+   {\cal N}^W = \dfrac{2}{r}\left(\dfrac{\partial^2 W}{\partial r\partial \phi}-\sin\theta
+   \dfrac{\partial Z}{\partial \theta}\right)+{\cal A}_r\,.
+
+The :math:`\theta`-derivative entering the radial component of the Coriolis force is thus the
+operator :math:`\vartheta_2` defined in :eq:`eqOpTheta1`. Using the recurrence
+relation, one thus finally gets in spherical harmonic space:
+
+.. math::
+   \boxed{
+   {\cal N}^W_{\ell m}  = \dfrac{2}{r}\left[i m \dfrac{\partial W_\ell^m}{\partial r}-(\ell-1)c_\ell^m
+   Z_{\ell-1}^m+(\ell+2)c_{\ell+1}^m Z_{\ell+1}^m\right]
+   +{\cal A}_r^{\ell m}\, ,
+   }
+   :label: eqNLW
+
+To get this expression, we need to first compute :math:`{\cal A}_r` in the physical space. This
+term is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in
+the module :f:mod:`grid_space_arrays_mod`. :math:`{\cal A}_r` is then transformed to the
+spectral space by using a Legendre and a Fourier transform.
+
+.. seealso:: The final calculations of :eq:`eqNLW` are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`.
+
+.. _secNonLinearZ:
+
+Nonlinear terms entering the equation for :math:`Z`
+---------------------------------------------------
+
+The nonlinear term :math:`{\cal N}^Z` that enters the equation for the toroidal potential
+:eq:`eqSpecZ` contains the radial component of the curl of the advection and Coriolis force.
+The Coriolis force can be rewritten as a function of :math:`W` and :math:`Z`:
+
+.. math::
+    \begin{aligned}
+    \vec{e_r}\cdot\vec{\nabla}\times\left[(2\tilde{\rho}\vec{u})\times
+    \vec{e_z}\right] & =2\vec{e_r}\cdot\left[(\vec{e_z}\cdot\vec{\nabla})(\tilde{\rho}
+    \vec{u})\right] \\
+    & = 2\left[\cos\theta\dfrac{\partial (\tilde{\rho} u_r)}{\partial r}
+    -\dfrac{\sin\theta}{r}\dfrac{\partial (\tilde{\rho}
+    u_r)}{\partial \theta}+\dfrac{\tilde{\rho} u_\theta\sin\theta}{r}\right] \\
+    & = 2\left[-\cos\theta\dfrac{\partial}{\partial r}(\Delta_H W)+
+    \dfrac{\sin\theta}{r}\dfrac{\partial}{\partial \theta}(\Delta_H
+    W)+\dfrac{\sin\theta}{r^2}\dfrac{\partial^2 W}{\partial r\partial \theta}+
+    \dfrac{1}{r^2}\dfrac{\partial Z}{\partial \phi}\right]
+    \end{aligned}
+
+Using the :math:`\vartheta` operators defined in :eq:`eqOpTheta1`-:eq:`eqOpTheta4` then
+allows to rewrite the Coriolis force in the following way:
+
+.. math::
+   \vec{e_r}\cdot\vec{\nabla}\times\left[(2\tilde{\rho}\vec{u})\times
+   \vec{e_z}\right]=\dfrac{2}{r^2}\left(\vartheta_3\,\dfrac{\partial W}{\partial r}
+   -\dfrac{1}{r}\,\vartheta_4\,W+ \dfrac{\partial Z}{\partial \phi} \right)
+   :label: eqCorZNL
+
+The contributions of nonlinear advection and Lorentz forces that enter the equation
+for the toroidal potential are written this way:
+
+.. math::
+   \dfrac{1}{r\sin\theta}\left[
+   \dfrac{\partial (\sin\theta{\cal A}_\phi)}{\partial \theta} -
+   \dfrac{\partial {\cal A}_\theta}{
+   \partial\phi}\right]
+
+To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, the actual
+strategy is to follow the following steps:
+
+1. Compute the quantities :math:`r\sin\theta{\cal A}_\phi`
+   and :math:`r\sin\theta{\cal A}_\theta` in the physical space. In the code, this step
+   is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
+   the module :f:mod:`grid_space_arrays_mod`. 
+
+2. Transform :math:`r\sin\theta{\cal A}_\phi` and :math:`r\sin\theta{\cal A}_\theta` to
+   the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
+   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft_jw`. After
+   this step :math:`{{\cal A}t}_{\ell}^m` and :math:`{{\cal A}p}_{\ell}^m` are defined.
+
+3. Calculate the colatitude and theta derivatives using the recurrence relations:
+
+   .. math::
+      \dfrac{1}{r\sin\theta}\left[
+      \dfrac{\partial (\sin\theta{\cal A}_\phi)}{\partial \theta} -
+      \dfrac{\partial {\cal A}_\theta}{
+      \partial\phi}\right]=
+      \vartheta_1\,{{\cal A}p}_{\ell}^m-\dfrac{\partial {{\cal A}t}_{\ell}^m}{\partial \phi}
+      :label: eqAdvZNL
+
+Using :eq:`eqCorZNL` and :eq:`eqAdvZNL`, one thus finally gets
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   {\cal N}^Z_{\ell m}  = & \dfrac{2}{r^2}\left[(\ell-1)(\ell+1)\,c_\ell^m\,
+   \dfrac{\partial W_{\ell-1}^m}{\partial r}+\ell(\ell+2)\,c_{\ell+1}^m\,
+   \dfrac{\partial W_{\ell+1}^m}{\partial r} \right. \\
+   & \left. -\dfrac{\ell(\ell-1)(\ell+1)}{r}\,c_\ell^m\,W_{\ell-1}^m+
+   \dfrac{\ell(\ell+1)(\ell+2)}{r}\,c_{\ell+1}^m\,W_{\ell+1}^m+
+   im\,Z_\ell^m\right] \\
+   & + (\ell-1)\,c_\ell^m\,{{\cal A}p}_{\ell-1}^m-
+   (\ell+2)\,c_{\ell+1}^m\,{{\cal A}p}_{\ell+1}^m
+   -im\,{{\cal A}t}_{\ell}^m
+   \end{aligned}
+   }
+   :label: eqNLZ
+
+.. seealso:: The final calculations of :eq:`eqNLZ` are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`.
+
+.. _secNonLinearP:
+
+Nonlinear terms entering the equation for :math:`P`
+---------------------------------------------------
+
+.. _secNonLinearS:
+
+Nonlinear terms entering the equation for :math:`s`
+---------------------------------------------------
+
 
 .. _secBoundaryConditions:
 

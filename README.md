@@ -120,11 +120,11 @@ b) Try to follow the same coding style rules as in the rest of the code:
 
 More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
-### 8) Make sure you cite the following papers if you intend to publish scientific results using Magic:
+### 8) Make sure you cite the following papers if you intend to publish scientific results using MagIC:
 
 * Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](http://dx.doi.org/10.1016/S0031-9201(02)00078-X)
 * Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](http://dx.doi.org/10.1016/j.icarus.2012.03.018)
 
-Magic has been tested and validated against several international dynamo benchmarks:
+MagIC has been tested and validated against several international dynamo benchmarks:
 * [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)
 * [Jones et al. (2011, Icarus, 216, 120-135)](http://dx.doi.org/10.1016/j.icarus.2011.08.014)
