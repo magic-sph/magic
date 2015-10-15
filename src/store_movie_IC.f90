@@ -15,11 +15,7 @@ module out_movie_IC
                          n_movie_type, n_movie_const, n_movie_fields_ic,  &
                          n_movie_surface, n_movies, n_movie_field_type,   &
                          n_movie_fields
-#if (FFTLIB==JW)
-   use fft_JW, only: fft_thetab
-#elif (FFTLIB==MKL)
-   use fft_MKL, only: fft_thetab
-#endif
+   use fft, only: fft_thetab
    use out_movie, only: get_fl
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC

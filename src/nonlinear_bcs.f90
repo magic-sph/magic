@@ -9,11 +9,7 @@ module nonlinear_bcs
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
                               dLh, sn2, cosTheta
-#if (FFTLIB==JW)
-   use fft_JW, only: fft_thetab
-#elif (FFTLIB==MKL)
-   use fft_MKL, only: fft_thetab
-#endif
+   use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
    use constants, only: two
 

@@ -34,11 +34,7 @@ module updateB_mod
                  dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use Bext
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrs, getrf
-#else
    use algebra, only: cgeslML, sgefa
-#endif
    use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize
    use RMS_helpers, only: hInt2Pol, hInt2Tor
@@ -519,17 +515,10 @@ contains
 #endif
 
                !LIKWID_ON('upB_sol')
-#ifdef WITH_MKL_LU
-               call getrs(cmplx(bMat(1:n_r_real,1:n_r_real,l1),0.0_cp,kind=cp), &
-                    bPivot(1:n_r_real,l1),rhs1(1:n_r_real,lmB0+1:lmB,threadid))
-               call getrs(cmplx(jMat(1:n_r_real,1:n_r_real,l1),0.0_cp,kind=cp), &
-                    jPivot(1:n_r_real,l1),rhs2(1:n_r_real,lmB0+1:lmB,threadid))
-#else
                call cgeslML(bMat(:,:,l1),n_r_tot,n_r_real, &
                     bPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
                call cgeslML(jMat(:,:,l1),n_r_tot,n_r_real, &
                     jPivot(:,l1),rhs2(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
-#endif
                !LIKWID_OFF('upB_sol')
             end if
 
@@ -1151,11 +1140,7 @@ contains
 #endif
 
       !----- LU decomposition:
-#ifdef WITH_MKL_LU
-      call getrf(bMat(1:nRall,1:nRall),bPivot(1:nRall),info)
-#else
       call sgefa(bMat,n_r_tot,nRall,bPivot,info)
-#endif
 
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix bmat in get_bmat.'
@@ -1163,11 +1148,7 @@ contains
       end if
 
       !----- LU decomposition:
-#ifdef WITH_MKL_LU
-      call getrf(jMat(1:nRall,1:nRall),jPivot(1:nRall),info)
-#else
       call sgefa(jMat,n_r_tot,nRall,jPivot,info)
-#endif
       if ( info /= 0 ) then
          write(*,*) '! Singular matrix ajmat in get_bmat!'
          stop '33'

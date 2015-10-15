@@ -6,11 +6,7 @@ module radial_functions
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
    use matrices, only: s0Mat,s0Pivot
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrf,getrs
-#else
    use algebra, only: sgesl,sgefa
-#endif
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use num_param, only: alpha
@@ -49,8 +45,8 @@ module radial_functions
    real(cp), public, allocatable :: dddrx(:)     ! Third derivative of non-linear mapping
    real(cp), public :: dr_fac                    ! :math:`2/d`, where :math:`d=r_o-r_i`
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
-   real(cp), public :: alpha1                    ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
-   real(cp), public :: alpha2                    ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
+   real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
+   real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
    real(cp), public :: topcond                   ! Heat flux at OC boundary
    real(cp), public :: botcond                   ! Heat flux at IC boundary
    real(cp), public :: r_cmb                     ! OC radius
@@ -1091,11 +1087,8 @@ contains
          s0Mat(n_r,n_r_max)=half*s0Mat(n_r,n_r_max)
       end do
 
-#ifdef WITH_MKL_LU
-      call getrf(s0Mat,s0Pivot,info)
-#else
       call sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
-#endif
+
       if ( info /= 0 ) then
          write(*,*) '! Singular Matrix in getBackground!'
          stop '20'
@@ -1107,11 +1100,7 @@ contains
       rhs(1)=boundaryVal
 
       !-- Solve for s0:
-#ifdef WITH_MKL_LU
-      call getrs(s0Mat,s0Pivot,rhs)
-#else
       call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
-#endif
 
       !-- Copy result to s0:
       do n_r=1,n_r_max

@@ -12,11 +12,7 @@ module horizontal_data
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
    use logic, only: l_non_rot
    use plms_theta, only: plm_theta, plm_thetaAS
-#if (FFTLIB==JW)
-   use fft_JW, only: init_fft
-#elif (FFTLIB==MKL)
-   use fft_MKL, only: init_fft
-#endif
+   use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
  

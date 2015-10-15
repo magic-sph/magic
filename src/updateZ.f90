@@ -33,11 +33,7 @@ module updateZ_mod
                     c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
                     half
    use parallel_mod
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrs, getrf
-#else
    use algebra, only: cgeslML, cgesl, sgefa
-#endif
    use LMLoop_data, only: llm,ulm
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
@@ -302,11 +298,7 @@ contains
                      !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                      !end do
                   end if
-#ifdef WITH_MKL_LU
-                  call getrs(cmplx(z10Mat,0.0_cp,kind=cp),z10Pivot,rhs)
-#else
                   call cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
-#endif
                   if ( DEBUG_OUTPUT ) then
                      !do nR=1,n_r_max
                      !   write(*,"(3I4,A,2(I4,F20.16))")                        &
@@ -340,13 +332,8 @@ contains
 
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
-#ifdef WITH_MKL_LU
-               call getrs(cmplx(zMat(:,:,l1),0.0_cp,kind=cp), &
-                    &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
-#else
                call cgeslML(zMat(:,:,l1),n_r_max,n_r_max, &
                     &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
-#endif
             end if
             !PERFOFF
             if ( lRmsNext ) then ! Store old z
@@ -754,11 +741,8 @@ contains
 #endif
 
 !-- LU-decomposition of z10mat:
-#ifdef WITH_MKL_LU
-      call getrf(zMat,zPivot,info)
-#else
       call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
-#endif
+
       if ( info /= 0 ) then
          write(*,*) 'ERROR MESSAGE FROM subroutine GET_z10MAT:'
          write(*,*) 'singular matrix z10Mat!'
@@ -891,11 +875,7 @@ contains
 #endif
 
   !----- LU decomposition:
-#ifdef WITH_MKL_LU
-      call getrf(zMat,zPivot,info)
-#else
       call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
-#endif
 
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix zmat for l=',l,", info = ",info

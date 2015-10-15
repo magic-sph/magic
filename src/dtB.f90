@@ -21,11 +21,7 @@ module dtB_mod
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, nfs
    use radial_spectra ! rBrSpec, rBpSpec
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
    use constants, only: two
    use radial_der, only: get_drNS

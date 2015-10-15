@@ -70,7 +70,7 @@ module logic
    logical :: l_newmap       ! Switch for non-linear mapping (see Bayliss and Turkel, 1990)
    logical :: l_viscBcCalc   ! Switch for dissipation layer for stress-free BCs plots
    logical :: l_fluxProfs    ! Switch for calculation of radial profiles of flux contributions
-   logical :: l_perpPar      ! Switch for calculation of rad. profiles and time series of kinetic energy perpendicular+parallel to the rotation axis
+   logical :: l_perpPar      ! Switch for calculation of of kinetic energy perpendicular+parallel to the rotation axis
    logical :: l_LCR          ! Switch for zero electrical conductivity beyond r_LCR
    logical :: lVerbose       ! Switch for detailed information about run progress
 

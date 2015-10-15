@@ -17,11 +17,7 @@ module Egeos_mod
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
-#if (FFTLIB==JW)
-   use fft_JW, only: fft_to_real
-#elif (FFTLIB==MKL)
-   use fft_mkl, only: fft_to_real
-#endif
+   use fft, only: fft_to_real
    use cosine_transform, only: costf1
    use chebInt_mod
 

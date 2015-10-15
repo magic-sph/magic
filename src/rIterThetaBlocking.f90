@@ -15,11 +15,7 @@ module rIterThetaBlocking_mod
         & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
    use legendre_spec_to_grid, only: legTFG, legTFGnomag
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t

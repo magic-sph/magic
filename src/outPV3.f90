@@ -15,11 +15,7 @@ module outPV3
    use LMLoop_data, only: llm, ulm
    use plms_theta, only: plm_theta
    use constants, only: pi, zero, one, two, half, ci
-#if (FFTLIB==JW)
-   use fft_JW, only: fft_to_real
-#elif (FFTLIB==MKL)
-   use fft_MKL, only: fft_to_real
-#endif
+   use fft, only: fft_to_real
    use TO_helpers, only: getPAStr
    use cosine_transform, only: costf1
  

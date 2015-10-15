@@ -160,16 +160,12 @@ ifeq ($(USE_PERFLIB),likwid)
 	LIBS += -L$(LIKWID_HOME)/lib -llikwid
 endif
 
-ifeq ($(USE_FFTLIB),JW)
-	PREPROC += -DFFTLIB=JW
-else ifeq ($(USE_FFTLIB),MKL)
-	PREPROC += -DFFTLIB=MKL
+ifeq ($(USE_FFTLIB),MKL)
 	INCPATHS += -I$(MKLROOT)/include
 	LIBS +=  $(FFLAG_MKL_LIBS)
 endif
 
 ifeq ($(USE_MKL),yes)
-	PREPROC += -DWITH_MKL_LU
 	INCPATHS += -I$(MKLROOT)/include
 	LIBS += $(FFLAG_MKL_LIBS)
 endif
@@ -233,15 +229,23 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
-	RED_SOURCES += fftJW.f90
-	FFT_OBJS += fftJW.o
+	RED_SOURCES += fft.f90
+	FFT_OBJS += fft.o
 else ifeq ($(USE_FFTLIB),MKL)
 	RED_SOURCES += fft_mkl.f90
 	FFT_OBJS += fft_mkl.o
+endif
+
+ifeq ($(USE_MKL),yes)
+	RED_SOURCES += algebra_mkl.f90
+	LAPACK_OBJS += algebra_mkl.o
+else
+	RED_SOURCES += algebra.f90
+	LAPACK_OBJS += algebra.o
 endif
 
 ifeq ($(USE_HDF5),yes)
@@ -320,7 +324,7 @@ endif
 updateS.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mat.o \
-                        algebra.o cosine_transform.o\
+                        $(LAPACK_OBJS) cosine_transform.o\
                         radial_derivatives.o LMLoop_data.o
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
@@ -447,7 +451,7 @@ radial_derivatives_even.o : cosine_transform.o precision_mod.o constants.o
 updateZ.o             : truncation.o blocking.o phys_param.o\
                         num_param.o constants.o radial.o horizontal.o\
                         logic.o init_fields.o mat.o RMS.o TO.o\
-                        algebra.o cosine_transform.o\
+                        $(LAPACK_OBJS) cosine_transform.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
                         LMLoop_data.o communications.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
@@ -469,7 +473,7 @@ out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
 updateB.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o init_fields.o\
                         logic.o radial.o Bext.o constants.o mat.o\
-                        RMS.o algebra.o radial_derivatives.o\
+                        RMS.o $(LAPACK_OBJS) radial_derivatives.o\
                         cosine_transform.o radial_derivatives_even.o\
                         RMS_helpers.o LMLoop_data.o
 Egeos.o               : truncation.o phys_param.o num_param.o\
@@ -494,7 +498,7 @@ outRot.o              : truncation.o blocking.o num_param.o\
 blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         output_data.o useful.o precision_mod.o
 num_param.o           : truncation.o precision_mod.o
-radial.o              : truncation.o radial_data.o mat.o algebra.o\
+radial.o              : truncation.o radial_data.o mat.o $(LAPACK_OBJS)\
                         num_param.o phys_param.o logic.o precision_mod.o\
                         output_data.o init_costf.o cosine_transform.o\
                         chebyshev_polynoms.o radial_derivatives.o
@@ -517,7 +521,7 @@ dtB.o                 : truncation.o radial_data.o parallel.o \
 TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
                         legendre_grid_to_spec.o
-algebra.o             : precision_mod.o  constants.o
+$(LAPACK_OBJS)        : precision_mod.o constants.o
 mat.o                 : truncation.o precision_mod.o
 dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o\
@@ -525,8 +529,7 @@ fields.o              : truncation.o LMLoop_data.o radial_data.o\
 Grenoble.o            : precision_mod.o
 radial_data.o         : truncation.o parallel.o logic.o
 plms.o                : constants.o precision_mod.o
-fftJW.o               : truncation.o blocking.o useful.o constants.o
-fft_mkl.o             : truncation.o blocking.o
+$(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
 			TO.o Grenoble.o radial.o Bext.o char_manip.o
@@ -536,14 +539,8 @@ mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.f90
 endif
 
-
 ifeq ($(USE_MKL),yes)
-init_fields.o         : lapack95.mod
-radial.o              : lapack95.mod
-updateB.o             : lapack95.mod
-updateZ.o             : lapack95.mod
-updateWP.o            : lapack95.mod
-updateS.o             : lapack95.mod
+$(LAPACK_OBJS)        : lapack95.mod
 lapack95.mod          : $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<
 endif

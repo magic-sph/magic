@@ -20,20 +20,12 @@ module init_fields
                     zero, one, two, three, four, third, half
    use useful, only: random
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
                                   peakS, widthS, radratio, imagcon, opm,  &
                                   sigma_ratio, O_sr, kbots, ktops, opr,   &
                                   epsc
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrf, getrs
-#else
    use algebra, only: sgesl, sgefa, cgesl
-#endif
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use matrices, only: jMat, jPivot, s0Mat, s0Pivot
    use legendre_grid_to_spec, only: legTF1
@@ -584,13 +576,8 @@ contains
                end if
             end do
          end do
-#ifdef WITH_MKL_LU
-        call getrf(mata,pivot,info)
-        call getrs(mata,pivot,amp)
-#else
         call sgefa(mata,n_impS_max,n_impS,pivot,info)
         call sgesl(mata,n_impS_max,n_impS,pivot,amp)
-#endif
       end if
       s00=0.0_cp
       do nS=1,n_impS
@@ -1218,11 +1205,7 @@ contains
       end if ! conducting inner core ?
 
       !----- invert matrix:
-#ifdef WITH_MKL_LU
-      call getrf(jMat(:,:,1),jPivot(:,1),info)
-#else
       call sgefa(jMat(:,:,1),n_r_tot,n_r_real,jPivot(:,1),info)
-#endif
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix jMat in j_cond.'
          stop
@@ -1236,11 +1219,7 @@ contains
       if ( .not. l_cond_ic ) rhs(n_r_max)=bpeakbot  ! Inner boundary
        
       !----- solve linear system:
-#ifdef WITH_MKL_LU
-      call getrs(cmplx(jMat(:,:,1),0.0_cp,kind=cp),jPivot(:,1),rhs)
-#else
       call cgesl(jMat(1,1,1),n_r_tot,n_r_real,jPivot(1,1),rhs)
-#endif
 
       !----- copy result for OC:
       do n_cheb=1,n_cheb_max
@@ -1324,11 +1303,7 @@ contains
       end do
        
       !-- Invert matrix:
-#ifdef WITH_MKL_LU
-      call getrf(s0Mat,s0Pivot,info)
-#else
       call sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
-#endif
       if ( info /= 0 ) then
          write(*,*) '! Singular Matrix s0Mat in init_s!'
          stop
@@ -1348,11 +1323,7 @@ contains
       rhs(n_r_max)=real(bots(0,0))
        
       !-- Solve for s0:
-#ifdef WITH_MKL_LU
-      call getrs(s0Mat,s0Pivot,rhs)
-#else
       call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
-#endif
        
       !-- Copy result to s0:
       do n_r=1,n_r_max

@@ -14,11 +14,7 @@ module out_dtB_frame
                         n_movie_file, n_movie_const, n_movie_surface,    &
                         movie_const, n_movie_field_type
    use logic, only: l_cond_ic
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
    use radial_der, only: get_drNS

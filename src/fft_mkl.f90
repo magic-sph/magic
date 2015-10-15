@@ -1,7 +1,7 @@
 #include "perflib_preproc.cpp"
 #include "mkl_dfti.f90"
 
-module fft_mkl
+module fft
 
    use precision_mod
    use truncation, only: nrp, ncp, n_phi_max
@@ -22,7 +22,7 @@ module fft_mkl
       module procedure fft_thetab_cmplx
    end interface
  
-   public :: fft_thetab, init_fft,fft_to_real
+   public :: fft_thetab, init_fft, fft_to_real
 
 contains
 
@@ -133,4 +133,4 @@ contains
 
    end subroutine fft_to_real
 !------------------------------------------------------------------------------
-end module fft_mkl
+end module fft

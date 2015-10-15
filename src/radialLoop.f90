@@ -11,11 +11,7 @@ module radialLoop
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
                          n_r_icb
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif

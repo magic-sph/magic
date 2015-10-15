@@ -18,11 +18,7 @@ module updateWP_mod
    use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac
    use RMS, only: DifPol2hInt, DifPolAs2hInt, dtVPolLMr, dtVPol2hInt, &
                   dtVPolAs2hInt, DifPolLMr
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrs, getrf
-#else
    use algebra, only: cgeslML, sgefa
-#endif
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize
@@ -214,13 +210,8 @@ contains
                      rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,1,l1)
                   end do
                end do
-#ifdef WITH_MKL_LU
-               call getrs(cmplx(wpMat(:,:,l1),0.0_cp,kind=cp), &
-                    &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
-#else
                call cgeslML(wpMat(:,:,l1),2*n_r_max,2*n_r_max,    &
                     &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
-#endif
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,2*n_r_max
@@ -645,11 +636,7 @@ contains
       write(*,"(A,I3,A,ES11.3)") "inverse condition number of wpMat for l=",l," is ",rcond
 #endif
 
-#ifdef WITH_MKL_LU
-      call getrf(wpMat,wpPivot,info)
-#else
       call sgefa(wpMat,2*n_r_max,2*n_r_max,wpPivot,info)
-#endif
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix wpmat!'
          stop '35'

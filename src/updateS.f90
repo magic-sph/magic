@@ -26,11 +26,7 @@ module updateS_mod
 
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
-#ifdef WITH_MKL_LU
-   use lapack95, only: getrs, getrf
-#else
    use algebra, only: cgeslML,sgesl, sgefa
-#endif
    use cosine_transform, only: costf1
    use radial_der, only: get_drNS, get_ddr
    use constants, only: zero, one, two, half
@@ -229,11 +225,7 @@ contains
                   rhs = s0Mat_fac*rhs
 #endif
 
-#ifdef WITH_MKL_LU
-                  call getrs(s0Mat,s0Pivot,rhs)
-#else
                   call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
-#endif
 
                else ! l1  /=  0
                   lmB=lmB+1
@@ -258,13 +250,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-#ifdef WITH_MKL_LU
-               call getrs(cmplx(sMat(:,:,l1),0.0_cp,kind=cp), &
-                    &     sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
-#else
                call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
                     &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
-#endif
             end if
             !PERFOFF
 
@@ -536,11 +523,7 @@ contains
                   rhs = s0Mat_fac*rhs
 #endif
 
-#ifdef WITH_MKL_LU
-                  call getrs(s0Mat,s0Pivot,rhs)
-#else
                   call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
-#endif
 
                else ! l1  /=  0
                   lmB=lmB+1
@@ -568,13 +551,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-#ifdef WITH_MKL_LU
-               call getrs(cmplx(sMat(:,:,l1),0.0_cp,kind=cp), &
-                    &     sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid))
-#else
                call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
                     &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
-#endif
             end if
             !PERFOFF
 
@@ -765,11 +743,7 @@ contains
 #endif
     
       !---- LU decomposition:
-#ifdef WITH_MKL_LU
-      call getrf(sMat,sPivot,info)
-#else
       call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
-#endif
       if ( info /= 0 ) then
          write(*,*) '! Singular matrix sMat0!'
          STOP '28'
@@ -911,11 +885,7 @@ contains
 #endif
 
 !----- LU decomposition:
-#ifdef WITH_MKL_LU
-      call getrf(sMat,sPivot,info)
-#else
       call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
-#endif
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix sMat!'
          stop

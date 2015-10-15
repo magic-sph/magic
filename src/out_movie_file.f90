@@ -21,11 +21,7 @@ module out_movie
                               O_sin_theta_E2, Plm, dLh, dPlm, osn1,   &
                               D_l, dPhi, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b, b_ic
-#if (FFTLIB==JW)
-   use fft_JW, only: fft_thetab
-#elif (FFTLIB==MKL)
-   use fft_MKL, only: fft_thetab
-#endif
+   use fft, only: fft_thetab
    use logic, only: l_save_out, l_cond_ic
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame

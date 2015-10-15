@@ -21,11 +21,7 @@ module graphOut_mod
 #else
    use output_data, only: n_graph_file, runid
 #endif
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
+   use fft
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
 

@@ -1,5 +1,5 @@
 #include "perflib_preproc.cpp"
-module fft_JW
+module fft
    !
    ! This file contains the subroutines called by fftJW:
    ! fft99a, fft99b, wpass2, wpass3, wpass4 and wpass5
@@ -8,7 +8,7 @@ module fft_JW
    use precision_mod
    use useful, only: factorise
    use constants, only: pi, sin36, sin60, sin72, cos36, cos72, &
-                    one, two, half
+                        one, two, half
    use truncation
    use blocking
    use parallel_mod
@@ -544,13 +544,13 @@ contains
             i=l*2+iadd
             c(  i)=a(  i)+(a(ib+i)+a(ic+i))
             d(  i)=b(  i)+(b(ib+i)+b(ic+i))
-            c(jb+i)=(a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+            c(jb+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
                  -(sin60*(b(ib+i)-b(ic+i)))
-            c(jc+i)=(a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+            c(jc+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
                  +(sin60*(b(ib+i)-b(ic+i)))
-            d(jb+i)=(b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+            d(jb+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
                  +(sin60*(a(ib+i)-a(ic+i)))
-            d(jc+i)=(b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+            d(jc+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
                  -(sin60*(a(ib+i)-a(ic+i)))
          enddo
       enddo
@@ -582,24 +582,24 @@ contains
             c(  j)=a(  i)+(a(ib+i)+a(ic+i))
             d(  j)=b(  i)+(b(ib+i)+b(ic+i))
             c(jb+j)= &
-                 c1(im)*((a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+                 c1(im)*((a(  i)-half*(a(ib+i)+a(ic+i))) &
                  -(sin60*(b(ib+i)-b(ic+i)))) &
-                 -s1(im)*((b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+                 -s1(im)*((b(  i)-half*(b(ib+i)+b(ic+i))) &
                  +(sin60*(a(ib+i)-a(ic+i))))
             d(jb+j)= &
-                 s1(im)*((a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+                 s1(im)*((a(  i)-half*(a(ib+i)+a(ic+i))) &
                  -(sin60*(b(ib+i)-b(ic+i)))) &
-                 +c1(im)*((b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+                 +c1(im)*((b(  i)-half*(b(ib+i)+b(ic+i))) &
                  +(sin60*(a(ib+i)-a(ic+i))))
             c(jc+j)= &
-                 c2(im)*((a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+                 c2(im)*((a(  i)-half*(a(ib+i)+a(ic+i))) &
                  +(sin60*(b(ib+i)-b(ic+i)))) &
-                 -s2(im)*((b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+                 -s2(im)*((b(  i)-half*(b(ib+i)+b(ic+i))) &
                  -(sin60*(a(ib+i)-a(ic+i))))
             d(jc+j)= &
-                 s2(im)*((a(  i)-0.5*(a(ib+i)+a(ic+i))) &
+                 s2(im)*((a(  i)-half*(a(ib+i)+a(ic+i))) &
                  +(sin60*(b(ib+i)-b(ic+i)))) &
-                 +c2(im)*((b(  i)-0.5*(b(ib+i)+b(ic+i))) &
+                 +c2(im)*((b(  i)-half*(b(ib+i)+b(ic+i))) &
                  -(sin60*(a(ib+i)-a(ic+i))))
          enddo
       enddo
@@ -875,4 +875,4 @@ contains
 
    end subroutine wpass5JW
 !------------------------------------------------------------------------------
-end module fft_JW
+end module fft

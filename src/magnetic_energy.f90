@@ -58,10 +58,10 @@ contains
       !
 
       !-- Input of variables:
-      integer,     intent(in) :: n_e_sets                           ! Switch for time-average and to determine first time step
-      real(cp),    intent(in) :: time                               ! Current time
-      logical,     intent(in) :: l_write                            ! Switch to write output
-      logical,     intent(in) :: l_stop_time                        ! Indicates when last time step of the run is reached for radial output
+      integer,     intent(in) :: n_e_sets  ! Switch for time-average and to determine first time step
+      real(cp),    intent(in) :: time      ! Current time
+      logical,     intent(in) :: l_write   ! Switch to write output
+      logical,     intent(in) :: l_stop_time ! Indicates when last time step of the run is reached for radial output
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)        ! Array containing magnetic field poloidal potential
       complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)       ! Array containing radial derivative of b
       complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)       ! Array containing magnetic field toroidal potential

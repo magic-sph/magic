@@ -15,11 +15,6 @@ module rIterThetaBlocking_OpenMP_mod
                     l_movie_oc
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
-#if (FFTLIB==JW)
-   use fft_JW
-#elif (FFTLIB==MKL)
-   use fft_MKL
-#endif
    use constants, only: zero
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
