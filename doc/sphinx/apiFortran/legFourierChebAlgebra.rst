@@ -52,10 +52,10 @@ Legendre transforms
 Fourier transforms
 ==================
 
-``fftJW.f90``
--------------
+``fft.f90``
+-----------
 
-.. f:automodule:: fft_jw
+.. f:automodule:: fft
 
 Linear algebra
 ==============

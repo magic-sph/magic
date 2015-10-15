@@ -923,7 +923,7 @@ strategy is to follow the following steps:
 
 2. Transform :math:`r\sin\theta{\cal A}_\phi` and :math:`r\sin\theta{\cal A}_\theta` to
    the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
-   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft_jw`. After
+   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
    this step :math:`{{\cal A}t}_{\ell}^m` and :math:`{{\cal A}p}_{\ell}^m` are defined.
 
 3. Calculate the colatitude and theta derivatives using the recurrence relations:
