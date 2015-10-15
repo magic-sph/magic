@@ -121,7 +121,7 @@ The three following parameters are used to set this profile
 Transport properties
 --------------------
 
-* :**difExp** (default :f:var:`difExp=-0.5 <difexp>`) is a real. This is the exponent that is used when :f:var:`nVarVisc=2 <nvarvisc>`, :f:var:`nVarDiff=2 <nvardiff>` or :f:var:`nVarCond=4 <nvarcond>`.
+* **difExp** (default :f:var:`difExp=-0.5 <difexp>`) is a real. This is the exponent that is used when :f:var:`nVarVisc=2 <nvarvisc>`, :f:var:`nVarDiff=2 <nvardiff>` or :f:var:`nVarCond=4 <nvarcond>`.
 
 
 .. _varnVarCond:
