@@ -44,9 +44,10 @@ Welcome
            <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
            <img src=_images/Conv.png data-title="Rayleigh-Bénard convection in non-rotating spherical shell" data-description="<a href='http://dx.doi.org/10.1017/jfm.2015.401'>Gastine, T. et al., JFM, 2015</a>">
            <img src=_images/MRI_sphere.png data-title="Magneto-rotational instability in spherical shell" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201425240'>Jouve, L. et al., A&amp;A, 2015</a>">
-           <img src=_images/caoIcarus.png data-title="Dynamo action in a spherical Couette system" data-description="<a href='10.1016/j.icarus.2012.08.007'>Cao, H. et al., Icarus, 2012</a>">
-           <img src=_images/yadav2015.png data-title="Formation of polar spots in a fully-convective star model" data-description="<a href='10.1051/0004-6361/201424589'>Yadav, R. et al., A&amp;A, 2015</a>">
-           <img src=_images/heimpel05.png data-title="Numerical model of the Jovian zonal jets" data-description="<a href='10.1038/nature04208'>Heimpel, M. et al., A&amp;A, 2005</a>">
+           <img src=_images/AubertNature.png data-title="Numerical model of the geodynamo" data-description="<a href='http://dx.doi.org/10.1038/nature07109'>Aubert, J. et al., Nature, 2008</a>">
+           <img src=_images/caoIcarus.png data-title="Dynamo action in a spherical Couette system" data-description="<a href='http://dx.doi.org/10.1016/j.icarus.2012.08.007'>Cao, H. et al., Icarus, 2012</a>">
+           <img src=_images/yadav2015.png data-title="Formation of polar spots in a fully-convective star model" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201424589'>Yadav, R. et al., A&amp;A, 2015</a>">
+           <img src=_images/heimpel05.png data-title="Numerical model of the Jovian zonal jets" data-description="<a href='http://dx.doi.org/10.1038/nature04208'>Heimpel, M. et al., Nature, 2005</a>">
         </div>
 
         <script>

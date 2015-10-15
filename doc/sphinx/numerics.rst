@@ -695,6 +695,17 @@ The equation for the toroidal magnetic field coefficient reads
 .. seealso:: The exact computation of the linear terms of :eq:`eqSpecH` are coded in
              the subroutines :f:subr:`get_bMat <updateb_mod/get_bmat()>`
 
+.. note:: We note that the terms on the left hand side of :eq:`eqSpecG` and :eq:`eqSpecH`
+          resulting from the magnetic diffusion term
+          and the explicit time derivative completely decouple 
+          in spherical harmonic degree and order.
+          
+          The dynamo term does not decouple:
+
+          .. math::
+             \vec{D}=\vec{\nabla}\times\left(\vec{u}\times\vec{B}\right)
+             :label: eqDynamoTerm
+
 
 We have now derived a full set of equations
 :eq:`eqSpecW`, :eq:`eqSpecZ`, :eq:`eqSpecP`, :eq:`eqSpecS`, :eq:`eqSpecG` and
@@ -860,14 +871,14 @@ relation, one thus finally gets in spherical harmonic space:
    \boxed{
    {\cal N}^W_{\ell m}  = \dfrac{2}{r}\left[i m \dfrac{\partial W_\ell^m}{\partial r}-(\ell-1)c_\ell^m
    Z_{\ell-1}^m+(\ell+2)c_{\ell+1}^m Z_{\ell+1}^m\right]
-   +{\cal A}_r^{\ell m}\, ,
+   +{{\cal A}_r}_\ell^m\, ,
    }
    :label: eqNLW
 
 To get this expression, we need to first compute :math:`{\cal A}_r` in the physical space. This
 term is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in
 the module :f:mod:`grid_space_arrays_mod`. :math:`{\cal A}_r` is then transformed to the
-spectral space by using a Legendre and a Fourier transform.
+spectral space by using a Legendre and a Fourier transform to produce :math:`{{\cal A}_r}_\ell^m`.
 
 .. seealso:: The final calculations of :eq:`eqNLW` are done in the subroutine 
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`.
@@ -916,12 +927,12 @@ for the toroidal potential are written this way:
 To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, the actual
 strategy is to follow the following steps:
 
-1. Compute the quantities :math:`r\sin\theta{\cal A}_\phi`
-   and :math:`r\sin\theta{\cal A}_\theta` in the physical space. In the code, this step
+1. Compute the quantities :math:`{\cal A}_\phi/r\sin\theta`
+   and :math:`{\cal A}_\theta/r\sin\theta` in the physical space. In the code, this step
    is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
    the module :f:mod:`grid_space_arrays_mod`. 
 
-2. Transform :math:`r\sin\theta{\cal A}_\phi` and :math:`r\sin\theta{\cal A}_\theta` to
+2. Transform :math:`{\cal A}_\phi/r\sin\theta` and :math:`{\cal A}_\theta/r\sin\theta` to
    the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
    is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
    this step :math:`{{\cal A}t}_{\ell}^m` and :math:`{{\cal A}p}_{\ell}^m` are defined.
@@ -929,10 +940,6 @@ strategy is to follow the following steps:
 3. Calculate the colatitude and theta derivatives using the recurrence relations:
 
    .. math::
-      \dfrac{1}{r\sin\theta}\left[
-      \dfrac{\partial (\sin\theta{\cal A}_\phi)}{\partial \theta} -
-      \dfrac{\partial {\cal A}_\theta}{
-      \partial\phi}\right]=
       \vartheta_2\,{{\cal A}p}_{\ell}^m-\dfrac{\partial {{\cal A}t}_{\ell}^m}{\partial \phi}
       :label: eqAdvZNL
 
@@ -1010,13 +1017,9 @@ for pressure are written this way:
    \partial\phi}\right]
 
 To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, we then follow
-the same steps as for the advection term entering the equation for :math:`Z`.
+the same three steps as for the advection term entering the equation for :math:`Z`.
 
 .. math::
-   \dfrac{1}{r\sin\theta}\left[
-   \dfrac{\partial (\sin\theta{\cal A}_\theta)}{\partial \theta} +
-   \dfrac{\partial {\cal A}_\phi}{
-   \partial\phi}\right]=
    \vartheta_2\,{{\cal A}t}_{\ell}^m+\dfrac{\partial {{\cal A}p}_{\ell}^m}{\partial \phi}
    :label: eqAdvPNL
 
@@ -1025,7 +1028,7 @@ Using :eq:`eqCorPNL` and :eq:`eqAdvPNL`, one thus finally gets
 .. math::
    \boxed{
    \begin{aligned}
-   {\cal N}^Z_{\ell m}  = & \dfrac{2}{r^2}\left[-im\,\dfrac{\ell(\ell+1)}{r}\,W_\ell^m
+   {\cal N}^P_{\ell m}  = & \dfrac{2}{r^2}\left[-im\,\dfrac{\ell(\ell+1)}{r}\,W_\ell^m
    -im\,\dfrac{\partial W_\ell^m}{\partial r}+(\ell-1)(\ell+1)\,c_\ell^m\,
    Z_{\ell-1}^m+\ell(\ell+2)\,c_{\ell+1}^m\,
    Z_{\ell+1}^m \right] \\
@@ -1043,6 +1046,184 @@ Using :eq:`eqCorPNL` and :eq:`eqAdvPNL`, one thus finally gets
 
 Nonlinear terms entering the equation for :math:`s`
 ---------------------------------------------------
+
+The nonlinear terms that enter the equation for entropy/temperature
+:eq:`eqSpecS` are twofolds: (i) the advection term, (ii) the viscous and Ohmic
+heating terms (that vanish in the Boussinesq limit of the Navier Stokes equations).
+
+Viscous and Ohmic heating are directly calculated in the physical space by the
+subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in
+the module :f:mod:`grid_space_arrays_mod`. Let's introduce :math:`{\cal H}`, the sum
+of the viscous and Ohmic heating terms.
+
+.. math::
+   {\cal H} = \dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}\left(\Phi_\nu+
+   \dfrac{\lambda}{Pm^2\,E}\,j^2\right)
+
+Expanding this term leads to:
+
+.. math::
+   \begin{aligned}
+   {\cal H}=& \dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}\left[
+   \tilde{\rho}\nu\left\lbrace 2\left(\dfrac{\partial u_r}{ \partial r}\right)^2
+   +2\left(\dfrac{1}{r}\dfrac{\partial u_\theta}{\partial\theta}+\dfrac{u_r}{r}
+   \right)^2+2\left( \dfrac{1}{r\sin\theta}\dfrac{\partial u_\phi}{\partial\phi}
+   + \dfrac{u_r}{r}+\dfrac{\cos\theta}{r\sin\theta}u_\theta \right)^2\right.\right. \\
+   & \phantom{\dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}}
+   +\left(r\dfrac{\partial}{\partial r}\left(\dfrac{u_\theta}{r}
+   \right)+\dfrac{1}{r}\dfrac{\partial u_r}{\partial\theta}\right)^2+
+   \left(r\dfrac{\partial}{\partial r}\left(\dfrac{u_\phi}{r}\right)+
+   \dfrac{1}{r\sin\theta}\dfrac{\partial u_r}{\partial\phi}  \right)^2 \\
+   & \phantom{\dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}}\left.
+   + \left(\dfrac{\sin\theta}{r}\dfrac{\partial}{\partial\theta}\left(
+   \dfrac{u_\phi}{\sin\theta}\right)+\dfrac{1}{r\sin\theta}
+   \dfrac{\partial u_\theta}{\partial\phi}\right)^2 
+   -\dfrac{2}{3}\,\left(\dfrac{d\ln\tilde{\rho}}{dr}\,u_r\right)^2 \right\rbrace \\
+   & \phantom{\dfrac{Pr\,Di}{Ra}\dfrac{1}{\tilde{\rho}\tilde{T}}}\left.
+   +  \dfrac{\lambda}{Pm^2\,E}\,\left\lbrace 
+   j_r^2+j_\theta^2+j_\phi^2\right\rbrace\right]
+   \end{aligned}
+   :label: eqHeatingEntropy
+
+This term is then transformed to the spectral space with a Legendre and a Fourier
+transform to produce :math:`{\cal H}_\ell^m`.
+
+The treatment of the advection term :math:`-\vec{u}\cdot\vec{\nabla}s` is a bit different.
+It is in a first step rearranged as follows
+
+.. math::
+   -\vec{u}\cdot\vec{\nabla}s = -\dfrac{1}{\tilde{\rho}}\left[
+   \vec{\nabla}\cdot\left(\tilde{\rho}s\vec{u} \right)-
+   \underbrace{\vec{\nabla}\cdot\left(\tilde{\rho}\vec{u} \right)}_{=0}\right]\,.
+
+The quantities that are calculated in the physical space are thus simply the product of
+entropy/temperature :math:`s` by the velocity components. This defines three variables
+defined in the grid space that are computed in the subroutine :f:subr:`get_nl 
+<grid_space_arrays_mod/get_nl()>`:
+
+.. math::
+   \mathcal{US}_r = \tilde{\rho}s u_r,\quad  \mathcal{US}_\theta = \tilde{\rho}s u_\theta,
+   \quad \mathcal{US}_\phi = \tilde{\rho}s u_\phi,
+
+To get the actual advection term, one must then apply the divergence operator to get:
+
+.. math::
+   -\vec{u}\cdot\vec{\nabla}s = -\dfrac{1}{\tilde{\rho}}\left[
+   \dfrac{1}{r^2}\dfrac{\partial}{\partial r}\left(r^2\,\mathcal{US}_r\right)+
+   \dfrac{1}{r\sin\theta}\dfrac{\partial}{\partial\theta}\left(\sin\theta\,\mathcal{US}_\theta
+   \right)+\dfrac{1}{r\sin\theta}\dfrac{\partial\,\mathcal{US}_\phi}{\partial\phi}\right]
+
+To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, the actual
+strategy is then to follow the following steps:
+
+1. Compute the quantities :math:`r^2\,\mathcal{US}_r`, :math:`\mathcal{US}_\phi/r\sin\theta`
+   and :math:`\mathcal{US}_\theta/r\sin\theta` in the physical space. In the code, this step
+   is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
+   the module :f:mod:`grid_space_arrays_mod`. 
+
+2. Transform :math:`r^2\,\mathcal{US}_r`, :math:`\mathcal{US}_\phi/r\sin\theta` 
+   and :math:`\mathcal{US}_\theta/r\sin\theta` to
+   the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
+   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
+   this step :math:`{\mathcal{US}r}_{\ell}^m`, :math:`{\mathcal{US}t}_{\ell}^m` 
+   and :math:`{\mathcal{US}p}_{\ell}^m` are defined.
+
+3. Calculate the colatitude and theta derivatives using the recurrence relations:
+
+   .. math::
+      -\dfrac{1}{\tilde{\rho}}\left[
+      \dfrac{1}{r^2}\dfrac{\partial\, {\mathcal{US}r}_\ell^m}{\partial r}+
+      \vartheta_2\,{\mathcal{US}t}_\ell^m+
+      \dfrac{\partial\,{\mathcal{US}p}_\ell^m}{\partial \phi}\right]
+      :label: eqAdvSNL
+
+Using :eq:`eqHeatingEntropy` and :eq:`eqAdvSNL`, one thus finally gets
+
+.. math::
+   \boxed{
+   {\cal N}^S_{\ell m}  = -\dfrac{1}{\tilde{\rho}}\left[
+   \dfrac{1}{r^2}\dfrac{\partial\, {\mathcal{US}r}_\ell^m}{\partial r}
+   + (\ell-1)\,c_\ell^m\,{\mathcal{US}t}_{\ell-1}^m-
+   (\ell+2)\,c_{\ell+1}^m\,{\mathcal{US}t}_{\ell+1}^m
+   +im\,{\mathcal{US}p}_\ell^m\right]+{\cal H}_\ell^m
+   }
+   :label: eqNLS
+
+.. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLS` 
+             are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The radial derivative
+	     is computed afterwards at the very beginning of
+	     :f:subr:`updateS <updates_mod/updates()>`.
+
+.. _secNonLinearG:
+
+Nonlinear terms entering the equation for :math:`g`
+---------------------------------------------------
+
+The nonlinear term that enters the equation for the poloidal potential of the magnetic
+field :eq:`eqSpecG` is the radial component of the induction term :eq:`eqDynamoTerm`.
+In the following we introduce :math:`{\cal E}_r`, :math:`{\cal E}_\theta` and
+:math:`{\cal E}_\phi`, the three components of the electromotive force 
+:math:`\vec{u}\times\vec{B}`:
+
+.. math::
+   {\cal E}_r=u_\theta B_\phi-u_\phi B_\theta,\quad
+   {\cal E}_\theta=u_\phi B_r-u_r B_\phi,\quad
+   {\cal E}_\phi=u_r B_\theta-u_\theta B_r\,.
+
+The radial component of the induction term then reads:
+
+.. math::
+   \vec{e_r}\cdot\left[\vec{\nabla}\times\left(\vec{u}\times\vec{B}\right)\right]
+   =\dfrac{1}{r\sin\theta}\left[\dfrac{\partial\,\sin\theta {\cal E}_\phi}{\partial\theta}
+   -\dfrac{\partial {\cal E}_\theta}{\partial \phi}\right]\,.
+
+To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, we then
+follow the usual following steps:
+
+1. Compute the quantities :math:`r^2\,\mathcal{E}_r`, :math:`\mathcal{E}_\phi/r\sin\theta`
+   and :math:`\mathcal{E}_\theta/r\sin\theta` in the physical space. In the code, this step
+   is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
+   the module :f:mod:`grid_space_arrays_mod`. 
+
+2. Transform :math:`r^2\,\mathcal{E}_r`, :math:`\mathcal{E}_\phi/r\sin\theta` 
+   and :math:`\mathcal{E}_\theta/r\sin\theta` to
+   the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
+   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
+   this step :math:`{\mathcal{E}r}_{\ell}^m`, :math:`{\mathcal{E}t}_{\ell}^m` 
+   and :math:`{\mathcal{E}p}_{\ell}^m` are defined.
+
+3. Calculate the colatitude and theta derivatives using the recurrence relations:
+
+   .. math::
+      \vartheta_2\,{\mathcal{E}p}_\ell^m-
+      \dfrac{\partial\,{\mathcal{E}t}_\ell^m}{\partial \phi}
+
+.. math::
+   \boxed{
+   {\cal N}^g_{\ell m}  = 
+   (\ell-1)\,c_\ell^m\,{\mathcal{E}p}_{\ell-1}^m-(\ell+2)\,c_{\ell+1}^m\,
+   {\mathcal{E}p}_{\ell+1}^m -im\,{\mathcal{E}t}_{\ell}^m
+   }
+   :label: eqNLG
+
+.. seealso:: The final calculations of :eq:`eqNLG` are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`.
+
+.. _secNonLinearH:
+
+Nonlinear terms entering the equation for :math:`h`
+---------------------------------------------------
+
+The nonlinear term that enters the equation for the toroidal potential of the magnetic
+field :eq:`eqSpecH` is the radial component of the curl of the 
+induction term :eq:`eqDynamoTerm`:
+
+.. math::
+   \vec{e_r}\cdot\left[\vec{\nabla}\times\vec{\nabla}\times\left(\vec{u}\times\vec{B}\right)
+   \right]
+   =\dfrac{1}{r\sin\theta}\left[\dfrac{\partial\,\sin\theta {\cal E}_\phi}{\partial\theta}
+   -\dfrac{\partial {\cal E}_\theta}{\partial \phi}\right]\,.
 
 
 .. _secBoundaryConditions:
