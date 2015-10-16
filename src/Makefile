@@ -43,7 +43,7 @@ PREPROC += 	-DWITH_PRECOND_S \
 
 HAVE_AVX = $(shell grep "flags\b.*\bavx" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
 
-HAVE_SSE3=$(shell grep "flags\b.*sse3*" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
+HAVE_SSE3=$(shell grep "flags\b.*\bssse3" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
