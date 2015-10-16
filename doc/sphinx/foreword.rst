@@ -75,7 +75,7 @@ papers:
              `Nature <http://www.nature.com/nature>`_ (2), etc.
 
 .. figure:: figs/magic_pubs.png
-   :scale: 90%
+   :scale: 50%
    :align: center
    :alt: caption
 
