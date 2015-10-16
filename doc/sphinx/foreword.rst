@@ -59,3 +59,26 @@ papers:
 
 * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
 
+
+.. seealso:: A (tentative) comprehensive list of the publications that have 
+             been produced to date (october 2015) using **MagIC**
+             is accessible `here <http://cdsads.u-strasbg.fr/cgi-bin/nph-abs_connect?library&libname=MagIC&libid=561d52db33>`_.
+             To date, more than **70 publications** have been-accepted in
+             more than 10 different peer-reviewed journals: `PEPI
+             <http://www.journals.elsevier.com/physics-of-the-earth-and-planetary-interiors/>`_
+             (19), `Icarus <www.journals.elsevier.com/icarus/>`_ (10), `E&PSL
+             <www.journals.elsevier.com/earth-and-planetary-science-letters/>`_ (6), `GJI
+             <http://gji.oxfordjournals.org/>`_ (6), `A&A <http://www.aanda.org/>`_ (4), 
+             `GRL <http://agupubs.onlinelibrary.wiley.com/agu/journal/10.1002/(ISSN)1944-8007/>`_ (4), 
+             `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (3), 
+             `GAFD <http://www.tandfonline.com/toc/ggaf20/current>`_ (3),
+             `Nature <http://www.nature.com/nature>`_ (2), etc.
+
+.. figure:: figs/magic_pubs.png
+   :scale: 90%
+   :align: center
+   :alt: caption
+
+   Number of peer-reviewed publications produced using **MagIC**
+
+

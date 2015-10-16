@@ -7,12 +7,34 @@ Welcome
 
 .. container:: mybox
 
+    .. only:: html
+
+      .. raw:: html
+
+        <div class="galleria">
+           <img src=_images/benchmark.png data-title="Dynamo benchmark" data-description="<a href='http://dx.doi.org/10.1016/S0031-9201(01)00275-8'>Christensen et al., PEPI, 2001</a>" >
+           <img src=_images/3DBr.png data-title="A numerical model of the Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
+           <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
+           <img src=_images/Conv.png data-title="Rayleigh-Bénard convection in non-rotating spherical shell" data-description="<a href='http://dx.doi.org/10.1017/jfm.2015.401'>Gastine, T. et al., JFM, 2015</a>">
+           <img src=_images/wielandMars.png data-title="A hemispherical dynamo model to explain the Martian crustal magnetization" data-description="<a href='http://dx.doi.org/10.1016/j.pepi.2013.01.001'>Dietrich, W. et al., PEPI, 2013</a>">
+           <img src=_images/MRI_sphere.png data-title="Magneto-rotational instability in spherical shell" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201425240'>Jouve, L. et al., A&amp;A, 2015</a>">
+           <img src=_images/kristaEuropa.jpg data-title="Ocean-driven heating of Europa's icy shell at low latitudes" data-description="<a href='http://dx.doi.org/10.1038/ngeo2021'>Soderlund, K. et al., Nature Geoscience, 2014</a>">
+           <img src=_images/AubertNature.png data-title="Numerical model of the geodynamo" data-description="<a href='http://dx.doi.org/10.1038/nature07109'>Aubert, J. et al., Nature, 2008</a>">
+           <img src=_images/caoIcarus.png data-title="Spherical Couette dynamo to explain the Saturnian magnetic field" data-description="<a href='http://dx.doi.org/10.1016/j.icarus.2012.08.007'>Cao, H. et al., Icarus, 2012</a>">
+           <img src=_images/yadav2015.png data-title="Formation of polar spots in a fully-convective star model" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201424589'>Yadav, R. et al., A&amp;A, 2015</a>">
+           <img src=_images/heimpel05.png data-title="Numerical model of the Jovian zonal jets" data-description="<a href='http://dx.doi.org/10.1038/nature04208'>Heimpel, M. et al., Nature, 2005</a>">
+        </div>
+
+        <script>
+           Galleria.loadTheme('galleria/themes/classic/galleria.classic.min.js');
+           Galleria.run('.galleria', {responsive:true, height:0.4, autoplay: 3000, transition:'fadeslide', pauseOnInteraction: false});
+        </script>
+
      **MagIC** is a numerical code that can simulate fluid dynamics in a spherical
      shell. MagIC solves for the Navier-Stokes equation including Coriolis force,
      optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD)
      and a temperature (or entropy) equation under both the anelastic and the Boussinesq 
      approximations.
-  
 
      **MagIC** uses Chebyshev polynomials in the radial direction and spherical
      harmonic decomposition in the azimuthal and latitudinal directions. The
@@ -29,31 +51,21 @@ Welcome
      functions written in python (requiring `matplotlib <http://matplotlib.org/>`_
      and `scipy <http://www.scipy.org/>`_) are also provided to allow a useful data
      analysis.
+
+     .. figure:: figs/Magic_stampede_scaling.png
+        :width: 450px
+        :align: center
+        :alt: caption
+
+        Walltime of MagIC on `stampede
+        <https://www.tacc.utexas.edu/stampede/>`_ versus number of CPUs 
+        for a dynamo model computed at three different numerical resolutions
+        :math:`(N_\phi,N_\theta,N_r)`.
+
      
      
      **MagIC** is a free software. It can be used, modified and redistributed under the 
      terms of the `GNU GPL v3 licence <http://www.gnu.org/licenses/gpl-3.0.en.html>`_.
-
-    .. only:: html
-
-      .. raw:: html
-
-        <div class="galleria">
-           <img src=_images/benchmark.png data-title="Dynamo Benchmark" data-description="<a href='http://dx.doi.org/10.1016/S0031-9201(01)00275-8'>Christensen et al., PEPI, 2001</a>" >
-           <img src=_images/3DBr.png data-title="A numerical model of the Jovian dynamo" data-description="<a href='http://dx.doi.org/10.1002/2014GL060814'>Gastine, T. et al., GRL, 2014</a>">
-           <img src=_images/VsNS_E-4oIC-20000.jpg data-title="Inertial mode in a spherical Couette flow" data-description="<a href='http://dx.doi.org/10.1017/jfm.2013.545'>Wicht, J., JFM, 2014</a>">
-           <img src=_images/Conv.png data-title="Rayleigh-Bénard convection in non-rotating spherical shell" data-description="<a href='http://dx.doi.org/10.1017/jfm.2015.401'>Gastine, T. et al., JFM, 2015</a>">
-           <img src=_images/MRI_sphere.png data-title="Magneto-rotational instability in spherical shell" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201425240'>Jouve, L. et al., A&amp;A, 2015</a>">
-           <img src=_images/AubertNature.png data-title="Numerical model of the geodynamo" data-description="<a href='http://dx.doi.org/10.1038/nature07109'>Aubert, J. et al., Nature, 2008</a>">
-           <img src=_images/caoIcarus.png data-title="Dynamo action in a spherical Couette system" data-description="<a href='http://dx.doi.org/10.1016/j.icarus.2012.08.007'>Cao, H. et al., Icarus, 2012</a>">
-           <img src=_images/yadav2015.png data-title="Formation of polar spots in a fully-convective star model" data-description="<a href='http://dx.doi.org/10.1051/0004-6361/201424589'>Yadav, R. et al., A&amp;A, 2015</a>">
-           <img src=_images/heimpel05.png data-title="Numerical model of the Jovian zonal jets" data-description="<a href='http://dx.doi.org/10.1038/nature04208'>Heimpel, M. et al., Nature, 2005</a>">
-        </div>
-
-        <script>
-           Galleria.loadTheme('galleria/themes/classic/galleria.classic.min.js');
-           Galleria.run('.galleria', {responsive:true, height:0.4, autoplay: 3000, transition:'fadeslide', pauseOnInteraction: false});
-        </script>
 
 
 
@@ -122,6 +134,27 @@ Giving credit
    
    * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
 
+  
+   .. seealso:: A (tentative) comprehensive list of the publications that have 
+                been produced to date (october 2015) using **MagIC**
+                is accessible `here <http://cdsads.u-strasbg.fr/cgi-bin/nph-abs_connect?library&libname=MagIC&libid=561d52db33>`_.
+                To date, more than **70 publications** have been-accepted in
+                more than 10 different peer-reviewed journals: `PEPI
+                <http://www.journals.elsevier.com/physics-of-the-earth-and-planetary-interiors/>`_
+                (19), `Icarus <www.journals.elsevier.com/icarus/>`_ (10), `E&PSL
+                <www.journals.elsevier.com/earth-and-planetary-science-letters/>`_ (6), `GJI
+                <http://gji.oxfordjournals.org/>`_ (6), `A&A <http://www.aanda.org/>`_ (4), 
+                `GRL <http://agupubs.onlinelibrary.wiley.com/agu/journal/10.1002/(ISSN)1944-8007/>`_ (4), 
+                `JFM <http://journals.cambridge.org/action/displayJournal?jid=FLM>`_ (3), 
+                `GAFD <http://www.tandfonline.com/toc/ggaf20/current>`_ (3),
+                `Nature <http://www.nature.com/nature>`_ (2), etc.
+
+   .. figure:: figs/magic_pubs.png
+      :width: 450px
+      :align: center
+      :alt: caption
+
+      Number of peer-reviewed publications produced using **MagIC**
 
 
 
