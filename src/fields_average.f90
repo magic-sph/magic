@@ -18,7 +18,7 @@ module fields_average_mod
    use output_data, only: tag, graph_file, nLF, n_graph_file, &
                           log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
-   use fft
+   use fft, only: fft_thetab
    use constants, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&

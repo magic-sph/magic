@@ -1,4 +1,4 @@
-# COMPILER: intel, gnu or amd
+# COMPILER: intel, gnu
 COMPILER=intel
 # precision of the calculations: sngl/dble
 PRECISION=dble
@@ -11,6 +11,8 @@ USE_MPI=yes
 OPENMP=yes
 # DEBUG: no/noopt/check/all/marmot
 DEBUG=no
+# Pre-conditioning of the matrices: yes/no
+PRECOND=yes
 # USE_FFTLIB can be MKL or JW
 USE_FFTLIB=JW
 #USE_MKL: yes/no
@@ -29,17 +31,13 @@ ifdef HDF5DIR
 	HDF5ICL=$(HDF5INCLUDE)
 endif
 
-# preconditioning of the matrices
-# switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
-# WITH_PRECOND_Z
-# PRECOND_WP is always set
-# to switch the preconditioner off and get the old ill-conditioned matrices
-# just comment the following statement
-PREPROC += 	-DWITH_PRECOND_S \
-		-DWITH_PRECOND_Z \
-		-DWITH_PRECOND_BJ \
-		-DWITH_PRECOND_S0 \
-		-DWITH_PRECOND_Z10
+ifeq ($(PRECOND),yes)
+	PREPROC +=	-DWITH_PRECOND_S \
+			-DWITH_PRECOND_Z \
+			-DWITH_PRECOND_BJ \
+			-DWITH_PRECOND_S0 \
+			-DWITH_PRECOND_Z10
+endif
 
 HAVE_AVX = $(shell grep "flags\b.*\bavx" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
 
@@ -102,27 +100,17 @@ ifeq ($(COMPILER),gnu)
 	COMP_MPFC = mpif90
 	COMP_MPCC = mpicc
 
-	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
-		-Wl,-rpath,$(MKLROOT)/lib/intel64
-endif
-ifeq ($(COMPILER),amd)
-	FFLAGS = -m64
-	FFLAG_TRACEBACK = 
-	FFLAG_ARCH_OPT = -march=barcelona
-	FFLAG_OPENMP = -mp
-	FFLAG_CONVERT = -convert big_endian
-	FFLAG_PREPROCESSOR = -cpp
-	FFLAG_WARN_ALL = -Wall
-	FC = openf95
-
-	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core -lpthread -lm \
-		-Wl,-rpath,$(MKLROOT)/lib/intel64
+	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64\
+                         -lmkl_lapack95_lp64\
+			 -lmkl_sequential -lmkl_core -lpthread -lm \
+			 -Wl,-rpath,$(MKLROOT)/lib/intel64
 endif
 
 # the following path is only used, if the mpi.mod file is
 # not found in the standard location. It is used for example
 # on hydra, if one compiles with the gnu compilers.
 #MPI_INCPATH=/usr/lib64/mpi/gcc/openmpi/include
+#MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 MPI_INCPATH=$(shell mpif90 --showme:incdirs)
 
 PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4

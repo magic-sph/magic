@@ -10,7 +10,6 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 |:---------------:|:-------------:|:----------------:|
 |      intel      |   ifort, icc  | mpiifort, mpiicc |
 |       gnu       | gfortran, gcc |   mpif90, mpicc  |
-|       amd       |    openf95    |                  |
 
 ### 2. Select compiling options
 
@@ -20,6 +19,7 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 * `OUT_PREC` Set it to 'dble' for double-precision in binary outputs or to 'sngl' for single precision
 * `DEBUG`   Set to `yes` to run in debugging mode. *While running in debugging mode, set* `PRODRUN` *to* `no`. The debug mode with intel compilers uses `marmot90`. 
 * `USE_MPI` Set to `yes` to use MPI
+* `PRECOND` Set to `yes` to perform some pre-conditioning  of the matrices
 * `USE_FFTLIB` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to 'JW' or 'MKL'. 'JW' refers to the inbuilt library by **J**ohannes **W**icht, while 'MKL' refers to the [Intel **M**ath **K**ernel **L**ibrary](https://software.intel.com/en-us/intel-mkl). Use 'JW' if you don't have Intel MKL installed.
 * `USE_MKL` Set to `yes` if you have Intel MKL installed and want to use it for matrix operations.
 * `USE_HDF5` Set to `yes` if you want the restart file to be written in HDF5 format

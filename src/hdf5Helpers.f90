@@ -81,12 +81,10 @@ contains
       real(cp), intent(out) :: attr_value
 
       !--- Local variables
-      integer(HSIZE_T) :: adims = (1)  ! Attribute dimensions
+      integer(HSIZE_T),dimension(1) :: adims = [1]  ! Attribute dimensions
       integer(HID_T) :: attr_id
       integer :: error
       logical :: attr_exists
-
-      adims = [1]
 
       call h5aexists_f(loc_id, attr_name, attr_exists, error)
       if ( attr_exists ) then
