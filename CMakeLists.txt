@@ -19,6 +19,7 @@ set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_HDF5    "no"   CACHE STRING "Use HDF5 to store check points")
+set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
 
 # Specific compiler options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -183,6 +184,25 @@ if(USE_HDF5 MATCHES yes)
    endif()
 endif()
 message(STATUS "HDF5 for check points: '${USE_HDF5}'")
+
+# Detect SHTNS
+if(USE_SHTNS MATCHES yes)
+   if(OPENMP MATCHES yes)
+      find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
+   else()
+      find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
+   endif()
+   if(SHTNS)
+      add_definitions(-DWITH_SHTNS)
+      message(STATUS "SHTNS: ${SHTNS}")
+   else()
+      message(STATUS "Failed to find SHTNS")
+   endif()
+   include_directories($ENV{HOME}/local/include)
+else()
+   message(STATUS "Use SHTNS: no")
+endif()
+
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")

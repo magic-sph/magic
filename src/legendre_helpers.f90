@@ -14,6 +14,9 @@ module leg_helper_mod
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
    use constants, only: zero, one, two
+#ifdef WITH_SHTNS
+   use shtns
+#endif
 
    implicit none
 

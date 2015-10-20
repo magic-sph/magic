@@ -34,6 +34,11 @@ if(USE_FFTLIB MATCHES MKL)
    set(fft fft_mkl.f90)
 endif()
 
+if(USE_SHTNS MATCHES yes)
+else()
+   list(REMOVE_ITEM srcfiles "${SRC}/shtns.f90")
+endif()
+
 add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${lapack} c_utils.c)
 set_property(TARGET ${EXEC} PROPERTY LINKER_LANGUAGE Fortran)
 
@@ -76,3 +81,11 @@ if(USE_HDF5 MATCHES yes)
       target_link_libraries(${EXEC} hdf5Helpers)
    endif()
 endif()
+
+# Link SHTNS
+if(USE_SHTNS MATCHES yes)
+   if (SHTNS)
+      target_link_libraries(${EXEC} ${SHTNS})
+   endif()
+endif()
+
