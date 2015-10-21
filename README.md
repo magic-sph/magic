@@ -60,7 +60,7 @@ The executable `magic.exe` has been produced!
 
 ```sh
 $ cd $MAGIC_HOME/samples
-$ ./magic_checks.pl --all --clean --no-recompile
+$ ./magic_checks.pl --all --clean
 ```
 
 If everything is correctly set, all auto-tests should pass!

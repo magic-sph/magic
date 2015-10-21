@@ -311,7 +311,7 @@ contains
             !   else
             !      local_d3cheb =( ( 3*(n-1)*spos*yk**2* map_fac1(k)**3) &
             !           &          -( 3*(n-1)**2*cos((n-1)*pos)*sin(pos)*yk* map_fac1(k)**3) &
-            !           &          +(n-1)*spos*map_fac1(k)*(1.0-yk**2)&
+            !           &          +(n-1)*spos*map_fac1(k)*(one-yk**2)&
             !           &            *( map_fac1(k)**2*(1-(n-1)**2) &
             !           &               +3*yk*map_fac2(k)&
             !           &             )&

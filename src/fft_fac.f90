@@ -1,7 +1,7 @@
 module fft_fac_mod
 
    use precision_mod
-   use constants, only: sin36, sin60, sin72, cos36, cos72
+   use constants, only: sin36, sin60, sin72, cos36, cos72, half
 
    implicit none
 
@@ -100,10 +100,10 @@ contains
             do i=istart,istop
                c(ja+i)=a(ia+i)+(a(ib+i)+a(ic+i))
                d(ja+i)=b(ia+i)+(b(ib+i)+b(ic+i))
-               c(jb+i)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i)))
-               c(jc+i)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i)))
-               d(jb+i)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i)))
-               d(jc+i)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
+               c(jb+i)=(a(ia+i)-half*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i)))
+               c(jc+i)=(a(ia+i)-half*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i)))
+               d(jb+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i)))
+               d(jc+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
             end do
          end do
     
@@ -126,21 +126,21 @@ contains
                   j=i+jadd
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
-                  c(jb+j)= c1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  c(jb+j)= c1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     +(sin60*(a(ib+i)-a(ic+i))) )
-                  d(jb+j)= s1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  d(jb+j)= s1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     +(sin60*(a(ib+i)-a(ic+i))) )
-                  c(jc+j)= c2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  c(jc+j)= c2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     -(sin60*(a(ib+i)-a(ic+i))) )
-                  d(jc+j)= s2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  d(jc+j)= s2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     -(sin60*(a(ib+i)-a(ic+i))) )
                end do
             end do
@@ -450,10 +450,10 @@ contains
             do i=istart,istop
                c(ja+i)=a(ia+i)+(a(ib+i)+a(ic+i))
                d(ja+i)=b(ia+i)+(b(ib+i)+b(ic+i))
-               c(jb+i)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i)))
-               c(jc+i)=(a(ia+i)-0.5*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i)))
-               d(jb+i)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i)))
-               d(jc+i)=(b(ia+i)-0.5*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
+               c(jb+i)=(a(ia+i)-half*(a(ib+i)+a(ic+i)))-(sin60*(b(ib+i)-b(ic+i)))
+               c(jc+i)=(a(ia+i)-half*(a(ib+i)+a(ic+i)))+(sin60*(b(ib+i)-b(ic+i)))
+               d(jb+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))+(sin60*(a(ib+i)-a(ic+i)))
+               d(jc+i)=(b(ia+i)-half*(b(ib+i)+b(ic+i)))-(sin60*(a(ib+i)-a(ic+i)))
             end do
          end do
     
@@ -476,21 +476,21 @@ contains
                   j=i+jadd
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
-                  c(jb+j)= c1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  c(jb+j)= c1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     +(sin60*(a(ib+i)-a(ic+i))) )
-                  d(jb+j)= s1*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  d(jb+j)= s1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c1*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     +(sin60*(a(ib+i)-a(ic+i))) )
-                  c(jc+j)= c2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  c(jc+j)= c2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     -(sin60*(a(ib+i)-a(ic+i))) )
-                  d(jc+j)= s2*((a(ia+i)-0.5*(a(ib+i)+a(ic+i)))   &
+                  d(jc+j)= s2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
                                     +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c2*((b(ia+i)-0.5*(b(ib+i)+b(ic+i)))   &
+                          +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
                                     -(sin60*(a(ib+i)-a(ic+i))) )
                end do
             end do

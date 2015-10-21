@@ -15,6 +15,7 @@ module blocking
                         allocate_subblocks_mappings,  &
                         subblocks_mappings
    use useful, only: logWrite
+   use constants, only: one
  
    implicit none
  
@@ -827,7 +828,7 @@ contains
             if (min_s == 0) min_s=s
             nThetaBs=n_theta_max/s
             memory_size=s*nrp*8
-            if ( cacheblock_size_in_b/real(memory_size)  >=  1.0 ) then
+            if ( cacheblock_size_in_b/real(memory_size)  >= one ) then
                best_s=s
             else if ( cacheblock_size_in_B/memory_size  ==  0 ) then
                exit

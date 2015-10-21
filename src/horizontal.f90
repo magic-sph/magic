@@ -377,7 +377,7 @@ contains
       do i=1,m
          !----- Initial guess for zeros:
          z  = cos( pi*( (real(i,cp)-0.25_cp)/(real(n_th_max,cp)+half)) )
-         z1 = z+10*eps
+         z1 = z+10.0_cp*eps
      
          do while( abs(z-z1) > eps)
             !----- Use recurrence to calulate P(l=n_th_max,z=cos(theta))

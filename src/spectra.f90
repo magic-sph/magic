@@ -599,8 +599,8 @@ contains
          end do
     
          !-- Radial Integrals:
-         fac_mag=0.5*LFfac*eScale
-         fac_kin=0.5*eScale
+         fac_mag=half*LFfac*eScale
+         fac_kin=half*eScale
          do l=1,l_max
             if ( l_mag ) then
                e_mag_p_l(l)=fac_mag*rInt_R(e_mag_p_r_l_global(1,l), &

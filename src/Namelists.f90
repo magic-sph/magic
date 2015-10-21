@@ -458,7 +458,7 @@ contains
          ktopb    =1
          nRotMa   =0
          nRotIc   =0
-         radratio =0.5
+         radratio =half
       end if
 
       if ( l_rot_ma ) then
@@ -970,7 +970,7 @@ contains
 
       !----- Conductivity variation:
       nVarCond       =0
-      con_DecRate    =9
+      con_DecRate    =9.0_cp
       con_RadRatio   =0.75_cp
       con_LambdaMatch=0.6_cp
       con_LambdaOut  =0.1

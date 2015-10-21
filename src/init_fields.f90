@@ -1157,8 +1157,8 @@ contains
       end if
        
       do n_r=1,n_r_max
-         jMat(n_r,1,1)      =0.5*jMat(n_r,1,1)
-         jMat(n_r,n_r_max,1)=0.5*jMat(n_r,n_r_max,1)
+         jMat(n_r,1,1)      =half*jMat(n_r,1,1)
+         jMat(n_r,n_r_max,1)=half*jMat(n_r,n_r_max,1)
       end do
 
       !----- Inner core:
@@ -1187,7 +1187,7 @@ contains
 
       !-------- normalization for lowest Cheb mode:
          do n_r=n_r_max+1,n_r_tot
-            jMat(n_r,n_r_max+1,1)=0.5*jMat(n_r,n_r_max+1,1)
+            jMat(n_r,n_r_max+1,1)=half*jMat(n_r,n_r_max+1,1)
          end do
 
       !-------- fill matrix up with zeros:
@@ -1298,8 +1298,8 @@ contains
        
       !-- Renormalize:
       do n_r=1,n_r_max
-         s0Mat(n_r,1)=0.5*s0Mat(n_r,1)
-         s0Mat(n_r,n_r_max)=0.5*s0Mat(n_r,n_r_max)
+         s0Mat(n_r,1)=half*s0Mat(n_r,1)
+         s0Mat(n_r,n_r_max)=half*s0Mat(n_r,n_r_max)
       end do
        
       !-- Invert matrix:

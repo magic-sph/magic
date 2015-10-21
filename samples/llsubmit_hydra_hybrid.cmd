@@ -22,6 +22,9 @@
 
 export MACHINE=hydra
 
+export FC=mpiifort
+export CC=mpiicc
+
 source ../sourceme.sh
 
 module load intel gcc mkl perflib/3.0
@@ -42,6 +45,6 @@ export OMP_NUM_THREADS=10
 
 ### start program
 
-./magic_checks.pl --all --clean --hybrid --no-recompile
+./magic_checks.pl --all --clean --hybrid --use-cmake --use-mkl
 
 

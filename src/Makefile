@@ -14,9 +14,9 @@ DEBUG=no
 # Pre-conditioning of the matrices: yes/no
 PRECOND=yes
 # USE_FFTLIB can be MKL or JW
-USE_FFTLIB=JW
+USE_FFTLIB=MKL
 #USE_MKL: yes/no
-USE_MKL=no
+USE_MKL=yes
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
 
@@ -31,6 +31,16 @@ ifdef HDF5DIR
 	HDF5ICL=$(HDF5INCLUDE)
 endif
 
+ifeq ($(USE_MPI),no)
+	OPENMP=no
+endif
+
+# In case MKL is not found, switch back to built-in libraries
+ifndef MKLROOT
+        USE_FFTLIB=JW
+        USE_MKL=no
+endif
+
 ifeq ($(PRECOND),yes)
 	PREPROC +=	-DWITH_PRECOND_S \
 			-DWITH_PRECOND_Z \
@@ -39,21 +49,10 @@ ifeq ($(PRECOND),yes)
 			-DWITH_PRECOND_Z10
 endif
 
-HAVE_AVX = $(shell grep "flags\b.*\bavx" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
-
-HAVE_SSE3=$(shell grep "flags\b.*\bssse3" /proc/cpuinfo 2> /dev/null | tail -1 | wc -l | tr -d ' \t')
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
-	ifeq ($(HAVE_AVX),1)
-		FFLAG_ARCH_OPT = -xAVX
-	else
-		ifeq ($(HAVE_SSE3),1)
-			FFLAG_ARCH_OPT = -xsse3
-		else
-			FFLAG_ARCH_OPT =
-		endif
-	endif
+	FFLAG_ARCH_OPT = -xHost
 	FFLAG_OPENMP = -openmp
 	FFLAG_OPENMP_STUBS = -openmp-stubs
 	FFLAG_CHECK_ALL = -check all
@@ -87,6 +86,7 @@ ifeq ($(COMPILER),intel)
 endif
 ifeq ($(COMPILER),gnu)
 	FFLAGS = -m64
+	FFLAG_ARCH_OPT = -march=native
 	FFLAG_TRACEBACK = -fbacktrace
 	FFLAG_OPENMP = -fopenmp
 	FFLAG_CONVERT = -fconvert=big-endian
@@ -484,7 +484,7 @@ outRot.o              : truncation.o blocking.o num_param.o\
                         phys_param.o logic.o radial.o output_data.o\
                         constants.o integration.o Grenoble.o horizontal.o
 blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
-                        output_data.o useful.o precision_mod.o
+                        output_data.o useful.o precision_mod.o constants.o
 num_param.o           : truncation.o precision_mod.o
 radial.o              : truncation.o radial_data.o mat.o $(LAPACK_OBJS)\
                         num_param.o phys_param.o logic.o precision_mod.o\

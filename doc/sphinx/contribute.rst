@@ -51,8 +51,13 @@ It supports the following options:
   -a,  --all               All auto-tests are computed
        --level=LEV         Run only tests from level LEV
        --max-level=LEV     Run all tests below with level <= LEV (default: 0)
-       --no-recompile      Compile only once
        --hybrid            Run the hybrid version
+       --use-cmake         Use Cmake to build the code instead of make
+       --use-mkl           Use the Math Kernel Library for FFTs and Lapack calls
+
+.. note::
+   When using the ``--cmake`` option, make sure that your environment variables
+   ``FC`` and ``CC`` are correctly defined
 
 The ``level=LEV`` defines the priority level of check and validation of the
 code. It has the following levels of checking:

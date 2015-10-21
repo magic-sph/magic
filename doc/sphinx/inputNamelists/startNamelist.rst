@@ -106,7 +106,7 @@ Initialisation of magnetic field
 
   - ``init_b1=1``: diffusive toroidal field initialized. Mode determined by ``imagcon``.
 
-  - ``init_b1=2``: :math:`(\ell=1,m=0)` toroidal field with a maximum field strength of ``amp_b1``. The radial dependence is defined, such that the field vanishes at both the inner and outer boundaries. In case of an insulating inner core: :math:`t(r)\approx r\,\sin[\phi(r-r_o)]`. In case of a conducting inner core: :math:`t(r)\approx r\,\sin[\pi(r/r_o)]`.
+  - ``init_b1=2``: :math:`(\ell=1,m=0)` toroidal field with a maximum field strength of ``amp_b1``. The radial dependence is defined, such that the field vanishes at both the inner and outer boundaries. In case of an insulating inner core: :math:`h(r)\approx r\,\sin[\phi(r-r_o)]`. In case of a conducting inner core: :math:`h(r)\approx r\,\sin[\pi(r/r_o)]`.
 
   - ``init_b1=3``: :math:`(\ell=1,m=0)` poloidal field whose field strength is ``amp_b1`` at :math:`r=r_i`. The radial dependence is chosen such that the current density :math:`j` is independent of :math:`r`:, i.e. :math:`\partial j /\partial r = 0`. :math:`(\ell=2,m=0)` toroidal field with maximum strength ``amp_b1``.
 
@@ -116,9 +116,9 @@ Initialisation of magnetic field
 
   - ``init_b1=6``: :math:`(\ell=1,m=0)` poloidal field independend of :math:`r`.
 
-  - ``init_b1=7``: :math:`(\ell=1,m=0)` poloidal field which fulfills symmetry condition in inner core: :math:`b(r)\approx \left(\frac{r}{r_i}\right)^2\left[1-\frac{3}{5}\left(\frac{r}{r_o}\right)^2\right]`. The field strength is given by ``amp_b1`` at :math:`r = r_o`.
+  - ``init_b1=7``: :math:`(\ell=1,m=0)` poloidal field which fulfills symmetry condition in inner core: :math:`g(r)\approx \left(\frac{r}{r_i}\right)^2\left[1-\frac{3}{5}\left(\frac{r}{r_o}\right)^2\right]`. The field strength is given by ``amp_b1`` at :math:`r = r_o`.
 
-  - ``init_b1=8``: same poloidal field as for ``init_b1=7``. The toroidal field fulfills symmetry conditions in inner core and has a field strength of ``amp_b1`` at :math:`r = r_i`: :math:`t(r)\approx \left(\frac{r}{r_i}\right)^3\left[1-\left(\frac{r}{r_o}\right)^2\right]`.
+  - ``init_b1=8``: same poloidal field as for ``init_b1=7``. The toroidal field fulfills symmetry conditions in inner core and has a field strength of ``amp_b1`` at :math:`r = r_i`: :math:`h(r)\approx \left(\frac{r}{r_i}\right)^3\left[1-\left(\frac{r}{r_o}\right)^2\right]`.
 
   - ``init_b1=9``: :math:`(\ell=2,m=0)`  poloidal field, which is a potential field at the outer boundary.
 
@@ -126,7 +126,7 @@ Initialisation of magnetic field
 
   - ``init_b1=11``: axial and equatorial dipoles.
 
-  - ``init_b1=21``: toroidal field created by inner core rotation, equatorially symmetric :math:`(\ell=1,m=0)`: :math:`t(r)= \hbox{ampb1}\, \left(\frac{r_i}{r}\right)^6`. The field strength is given by ``amp_b1`` at :math:`r=r_i`.
+  - ``init_b1=21``: toroidal field created by inner core rotation, equatorially symmetric :math:`(\ell=1,m=0)`: :math:`h(r)= \hbox{ampb1}\, \left(\frac{r_i}{r}\right)^6`. The field strength is given by ``amp_b1`` at :math:`r=r_i`.
 
   - ``init_b1=22``: toroidal field created by inner core rotation, equatorially antisymmetric :math:`(\ell=2,m=0)`. Same radial function as for ``init_b1=21``.
 
@@ -138,8 +138,6 @@ Initialisation of magnetic field
   - ``imagcon=0``: no magneto-convection
 
   - ``imagcon<0``: axial poloidal dipole imposed at ICB with a maximum magnetic field strength ``amp_b1``.
-
-  - ``imagcon=10``: :math:`(\ell=2,m=0)` toroidal field imposed at ICB and CMB with a maximum amplitude ``amp_b1`` at both boundaries.
 
   - ``imagcon=10``: :math:`(\ell=2,m=0)` toroidal field imposed at ICB and CMB with a maximum amplitude ``amp_b1`` at both boundaries.
 

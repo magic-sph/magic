@@ -22,9 +22,12 @@
 
 export MACHINE=hydra
 
+export FC=mpiifort
+export CC=mpiicc
+
 source ../sourceme.sh
 
-module load intel gcc mkl
+module load intel gcc mkl cmake
 #module load perflib/2.2
 #export PERFLIB_OUTPUT_FORMAT=xml
 #export I_MPI_PIN_PROCESSOR_LIST=allcores
@@ -42,6 +45,6 @@ export KMP_AFFINITY=verbose,granularity=core,compact,1
 
 ### start program
 
-./magic_checks.pl --all --clean --no-recompile
+./magic_checks.pl --all --clean --use-cmake --use-mkl
 
 

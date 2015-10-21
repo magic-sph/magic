@@ -374,7 +374,7 @@ contains
          elsAnel    =rInt_R(els_r_global,n_r_max,n_r_max,drx, &
                             i_costf_init,d_costf_init)
 
-         fac=0.5*LFfac*eScale
+         fac=half*LFfac*eScale
          e_p        =fac*e_p
          e_t        =fac*e_t
          e_p_as     =fac*e_p_as

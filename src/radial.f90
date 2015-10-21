@@ -237,15 +237,15 @@ contains
 
       if ( l_newmap ) then
          do n_r=1,n_r_max
-            drx(n_r) =                          (2*alpha1) /      &
-                 ((1+alpha1**2*(2*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
+            drx(n_r) =                          (two*alpha1) /      &
+                 ((one+alpha1**2*(two*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
                  lambd)
-            ddrx(n_r) = -(8*alpha1**3*(2*r(n_r)-r_icb-r_cmb-alpha2)) / &
-                 ((1+alpha1**2*(-2*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
+            ddrx(n_r) = -(8.0_cp*alpha1**3*(two*r(n_r)-r_icb-r_cmb-alpha2)) / &
+                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
                  lambd)
-            dddrx(n_r) =               (16*alpha1**3*(-1+3*alpha1**2* &
-                                (-2*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
-                 ((1+alpha1**2*(-2*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
+            dddrx(n_r) =        (16.0_cp*alpha1**3*(-one+three*alpha1**2* &
+                                  (-two*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
+                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
                  lambd)
          end do
       else

@@ -78,14 +78,15 @@ Options:
   -a,  --all               \tAll auto-tests are computed
        --level=LEV         \tRun only tests from level LEV
        --max-level=LEV     \tRun all tests below with level <= LEV (default: 0)
-       --no-recompile      \tCompile only once
        --hybrid            \tRun the hybrid version
+       --use-mkl           \tUse the MKL for FFTs and Lapack calls
+       --use-cmake         \tUse Cmake instead of make
 
 Example:
   magic_checks.pl --clean
   magic_checks.pl --level=1
   magic_checks.pl --clean --all
-  magic_checks.pl --clean --all --no-recompile
+  magic_checks.pl --clean --all --hybrid --use-cmake --use-mkl
 ";
 
 
@@ -98,20 +99,23 @@ GetOptions(\%opts,
                -a   --all
                     --level=s
                     --max-level=s
-                    --no-recompile
                     --hybrid
+		    --use-mkl
+		    --use-cmake
                     )
           ) or $help=1, die "Aborting.\n";
 
 if ($opts{'h'} || $opts{'help'}) { $help=1; die "$usage\n"; }
 my $clean=($opts{'C'} || $opts{'clean'} || 0 );
 my $all=($opts{'a'} || $opts{'all'} || 0 );
-my $recomp=($opts{'no-recompile'} || 0 );
 my $level=($opts{'level'});
 my $max_level=($opts{'max-level'});
 my $hybrid=($opts{'hybrid'} || 0 );
+my $cmake=($opts{'use-cmake'} || 0 );
+my $mkl=($opts{'use-mkl'} || 0 );
 my $MAGIC_HOME = "";
 my $OMP_NUM_THREADS = 1;
+my $execdir = "$MAGIC_HOME/tmp";
 
 if (!exists($ENV{MAGIC_HOME})) {
     die "MAGIC_HOME is not set!\n\tRun one of the sourceme scripts in the MAGIC base directory.!";
@@ -135,9 +139,11 @@ $ENV{PATH} .= ":$MAGIC_HOME/bin";
 # Timing 
 my %t_global = (
                 'compile'   => 0,
-                'start+run' => 0,
+                'run' => 0,
                );
 my $t0_global = get_time();         # remember start time
+my $t1;
+
 
 
 # Define sample dirs
@@ -160,26 +166,56 @@ else {
 
 $ntests = @testdirs;
 
-# Run tests consecutively
-if ($recomp) {
-    chdir "$topdir/src";
-    `make clean`; # clean directory
-    print "Compilation.. ";
-    `make -j`;
-    print "\n";
-    chdir $topdir;
-    for my $d (@testdirs) {
-        test_rundir("$d");
+# Compile
+print "Compilation.. ";
+print "\n";
+if ( $cmake ) {
+    $execdir = "$MAGIC_HOME/tmp";
+    mkdir "$topdir/tmp";
+    chdir "$topdir/tmp";
+    if ($hybrid) {
+        if ($mkl){
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DOPENMP=yes`;
+        }
+        else {
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DOPENMP=yes`;
+        }
     }
-    chdir "$topdir/src";
-    print "Clean.. ";
-    `make clean`;
-    
+    else {
+        if ($mkl){
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DOPENMP=no`;
+        }
+        else {
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DOPENMP=no`;
+        }
+    }
+    `make -j`;
+    $t1 = get_time();
+    $t_global{'compile'} += ($t1-$t0_global);
+    chdir $topdir;
 }
 else {
-    for my $d (@testdirs) {
-        test_rundir("$d");
-    }
+    $execdir = "$MAGIC_HOME/src";
+    chdir "$topdir/src";
+    `make clean`; # clean directory
+    `make -j`;
+    $t1 = get_time();
+    $t_global{'compile'} += ($t1-$t0_global);
+}
+ 
+# Run tests consecutively
+for my $d (@testdirs) {
+    test_rundir("$d");
+}
+
+# Cleaning
+print "Clean.. ";
+if ( $cmake ) {
+    `rm -fr $topdir/tmp`;
+}
+else {
+    chdir "$topdir/src";
+    `make clean`;
 }
 
 
@@ -230,29 +266,10 @@ sub test_rundir {
     print " ($itest/$ntests)" if ($ntests>1);
     print "\n";
     $itest++;
-    if ( ! $recomp ) {
-        # Make sure we have everything we need
-        if (! defined(-e 'src/truncation.F90')) { # has `magic_setup' been run yet?
-            my $res = `magic_setup`;
-            if ($?) {
-            print "    Problems running magic_setup:\n", $res;
-            }
-        }
-    }
 
     #0. Make sure nothing is here yet
     `magic_clean`;
-    if ( ! $recomp ) {
-        #1. Compilation
-        `magic_setup`;
-#    `magic_build &> /dev/null`;
-        `magic_build`;
-        $t1 = get_time();
-        $t_global{'compile'} += ($t1-$t0);
-    } else {
-        #1. Link
-        `ln -s $topdir/src/magic.exe .`;
-    }
+    `ln -s $execdir/magic.exe .`;
 
     `cp $MAGIC_HOME/bin/run_magic.sh .`;
 
@@ -276,75 +293,17 @@ sub test_rundir {
     test_results($dir);
 
     my $t3 = get_time();
-    if ( ! $recomp ) {
-        $t_global{'start+run'} += ($t3-$t1);
-    } else {
-        $t_global{'run'} += ($t3-$t2);
-    }
-
-    # Summarize timings in human-readable form
-    my $t4 = get_time();
-    if (! $recomp) {
-        print "    Time used: ",
-        s_to_hms(time_diff($t0,$t3), 44),
-        " = ", s_to_hms(time_diff($t0,$t1)),
-        " + ", s_to_hms(time_diff($t1,$t3)),
-        "\n";
-    } else {
-        print "    Time used: ",
-        s_to_hms(time_diff($t0,$t3), 44),
-        "\n";
-    }
-
-    if ($clean && $exitcode==0) {
-        `magic_clean`;
-    };
-}
-# ---------------------------------------------------------------------- #
-sub test_rundir_no_recomp {
-    my $dir = shift;
-    my $t0  = get_time();
-
-    $test_status = 0;           #  so far, everything is OK
-
-    # Go to directory and identify it
-    if (! -d $dir) {
-        print STDERR "No such directory: $dir\n";
-        return;
-    }
-    chdir $dir;
-    my $cwd = cwd();
-    print "\n$cwd:";
-    print " ($itest/$ntests)" if ($ntests>1);
-    print "\n";
-    $itest++;
-
-    #0. Make sure nothing is here yet
-    `magic_clean`;
-    #1. Link
-    `ln -s $topdir/src/magic.exe .`;
-    `cp $MAGIC_HOME/bin/run_magic.sh .`;
-
-    #2. Run
-    my $t2 = get_time();
-    if ( -e 'runMe.sh' ) {
-        `bash runMe.sh &> /dev/null`;
-    } else { `./run_magic.sh &> /dev/null`; }
-    test_results($dir);
-
-    my $t3 = get_time();
     $t_global{'run'} += ($t3-$t2);
 
     # Summarize timings in human-readable form
     my $t4 = get_time();
     print "    Time used: ",
-      s_to_hms(time_diff($t0,$t3), 44),
-      "\n";
+    s_to_hms(time_diff($t0,$t3), 44),
+    "\n";
 
-    if ($clean) {
+    if ($clean && $exitcode==0) {
         `magic_clean`;
     };
-
 }
 # ---------------------------------------------------------------------- #
 sub get_time {
@@ -658,7 +617,7 @@ END {
         print "Total wall-clock time:            ",
                  s_to_hms(time_diff($t0_global,$t1_global), 7),
           " = ", s_to_hms($t_global{'compile'}),
-          " + ", s_to_hms($t_global{'start+run'}),
+          " + ", s_to_hms($t_global{'run'}),
           "\n";
 
     }
