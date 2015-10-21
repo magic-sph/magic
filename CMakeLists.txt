@@ -15,9 +15,9 @@ set(PRECISION   "dble" CACHE STRING "Precision of the calculations")
 set(OUT_PREC    "sngl" CACHE STRING "Precision of the binary outputs")
 set(USE_FFTLIB  "MKL"  CACHE STRING "Library for the FFTs")
 set(USE_MPI     "yes"  CACHE STRING "Use MPI parallelization")
-set(OPENMP      "yes"  CACHE STRING "Use OpenMP")
+set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_MKL     "yes"  CACHE STRING "Use the Math Kernel Library for lapack calls")
-set(PRECOND     "yes"  CACHE STRING "Use matrix preconditioning")
+set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_HDF5    "no"   CACHE STRING "Use HDF5 to store check points")
 
 # Architecture check
@@ -63,7 +63,7 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
 endif()
 
 # Matrix preconditioning
-if (PRECOND MATCHES yes)
+if (USE_PRECOND MATCHES yes)
    add_definitions(-DWITH_PRECOND_S -DWITH_PRECOND_Z -DWITH_PRECOND_BJ
                    -DWITH_PRECOND_S0 -DWITH_PRECOND_Z10)
 endif()
@@ -94,7 +94,7 @@ else()
 endif()
 
 # Check whether openMP can be used
-if(OPENMP MATCHES yes AND USE_MPI MATCHES yes)
+if(USE_OMP MATCHES yes AND USE_MPI MATCHES yes)
    find_package(OpenMP_Fortran)
    message(STATUS "Use OpenMP")
    add_definitions(-DWITHOMP)

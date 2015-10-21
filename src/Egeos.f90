@@ -505,7 +505,7 @@ contains
             !--- Determine s used for correl
             n=0
             do nS=1,nSmax
-               if ( sZ(nS) >= r_ICB+0.1 .and. sZ(nS) <= r_CMB-0.1 ) then
+               if ( sZ(nS) >= r_ICB+0.1_cp .and. sZ(nS) <= r_CMB-0.1_cp ) then
                   n=n+1
                else 
                   do nPhi=1,n_phi_max

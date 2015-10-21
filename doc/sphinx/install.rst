@@ -94,20 +94,23 @@ on your available compilers.
 * ``PRECISION`` Set it to 'dble' for double-precision calculations or to 'sngl' for single-precision calculations
 * ``OUT_PREC`` Set it to 'dble' for double-precision in binary outputs or to 'sngl' for single precision
 * ``PRODRUN`` Set it to ``yes`` for production run, ``no`` for debugging.
-* ``USE_MPI`` Set to ``yes`` to use MPI, set it to ``no`` if you want a serial version of the code .
-* ``OPENMP``  Set it to ``yes`` to use the hybrid version of the code, or to ``no`` for a pure MPI (or serial) version.
 * ``DEBUG``   Set to ``all`` to enable the full debug flags. *While running in debugging mode, set* ``PRODRUN`` *to* ``no``. 
-* ``PRECOND`` Set to ``yes`` to preform some pre-conditioning of the matrices.
+* ``USE_MPI`` Set to ``yes`` to use MPI, set it to ``no`` if you want a serial version of the code .
+* ``USE_OMP``  Set it to ``yes`` to use the hybrid version of the code, or to ``no`` for a pure MPI (or serial) version.
+* ``USE_PRECOND`` Set to ``yes`` to perform some pre-conditioning of the matrices.
 * ``USE_FFTLIB`` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to 'JW' or 'MKL'. 'JW' refers to the inbuilt library by **J** ohannes **W** icht, while 'MKL' refers to the `Intel Math Kernel Library <https://software.intel.com/en-us/intel-mkl>`_. Use 'JW' if you don't have Intel MKL installed.
 * ``USE_MKL`` Set to ``yes`` if you have Intel MKL installed and want to use it for matrix operations.
 * ``USE_HDF5`` Set to ``yes`` if you want the restart file to be written in the  `HDF5 <http://www.hdfgroup.org/>`_ format
 
+.. note:: MagIC cannot run with openMP alone, therefore a configuration of the form
+          ``USE_MPI=no``, ``USE_OMP=yes`` will be overwritten to force ``USE_OMP=no``
+
 **Architecture (Intel compilers only)**
 
-If you're using intel compilers and if your computer is capable of following
-specific intel instruction sets (sse3 or AVX), then the ``Makefile``
-automatically should automatically detects and sets ``FFLAG_ARCH_OPT = -xsse3``
-or ``FFLAG_ARCH_OPT = -xAVX`` under intel compiler options.
+By default, MagIC tries to automatically make use of the best available current architecture
+optimisation via the flag ``FFLAG_ARCH_OPT = -xHost`` for the Intel compiler or 
+``FFLAG_ARCH_OPT = -march=native`` for GNU compiler. In case you want to include additional
+(or more aggressive) optimisations just modify this variable in the Makefile.
 
 **MPI_INCPATH**
 
@@ -157,20 +160,20 @@ After building the executable, use one of the namelists provided in the
 physical problem (see :ref:`here <secNamelists>` for an exhaustive
 description of the possible options) and run **MagIC** as follows:
 
-* Running a serial version of the code (``USE_MPI=no`` and ``OPENMP=no``):
+* Running a serial version of the code (``USE_MPI=no`` and ``USE_OMP=no``):
 
   .. code-block:: bash
 
      $ ./magic.exe input.nml
 
-* Running the code without OpenMP (``USE_MPI=yes`` and ``OPENMP=no``) with ``<n_mpi>`` 
+* Running the code without OpenMP (``USE_MPI=yes`` and ``USE_OMP=no``) with ``<n_mpi>`` 
   MPI ranks:
   
   .. code-block:: bash
 
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
 
-* Running the hybrid code (``USE_MPI=yes`` and ``OPENMP=yes``) with ``<n_mpi>`` MPI ranks 
+* Running the hybrid code (``USE_MPI=yes`` and ``USE_OMP=yes``) with ``<n_mpi>`` MPI ranks 
   and ``<n_omp>`` OpenMP threads:
   
   .. code-block:: bash

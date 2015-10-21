@@ -8,11 +8,11 @@ OUT_PREC=sngl
 PRODRUN=yes
 #USE_MPI: yes/no
 USE_MPI=yes
-OPENMP=yes
+USE_OMP=yes
 # DEBUG: no/noopt/check/all/marmot
 DEBUG=no
 # Pre-conditioning of the matrices: yes/no
-PRECOND=yes
+USE_PRECOND=yes
 # USE_FFTLIB can be MKL or JW
 USE_FFTLIB=MKL
 #USE_MKL: yes/no
@@ -32,7 +32,7 @@ ifdef HDF5DIR
 endif
 
 ifeq ($(USE_MPI),no)
-	OPENMP=no
+	USE_OMP=no
 endif
 
 # In case MKL is not found, switch back to built-in libraries
@@ -41,7 +41,7 @@ ifndef MKLROOT
         USE_MKL=no
 endif
 
-ifeq ($(PRECOND),yes)
+ifeq ($(USE_PRECOND),yes)
 	PREPROC +=	-DWITH_PRECOND_S \
 			-DWITH_PRECOND_Z \
 			-DWITH_PRECOND_BJ \
@@ -185,11 +185,11 @@ ifeq ($(PRODRUN),yes)
 else
 	OPT += -O 
 endif
-ifeq ($(OPENMP),yes)
+ifeq ($(USE_OMP),yes)
 	FFLAGS += $(FFLAG_OPENMP)
 	PREPROC += -DWITHOMP
 endif
-ifeq ($(OPENMP),stubs)
+ifeq ($(USE_OMP),stubs)
 	FFLAGS += $(FFLAG_OPENMP_STUBS)
 endif
 

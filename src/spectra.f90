@@ -563,7 +563,7 @@ contains
       
     
       ! Getting appropriate radius index for e_kin_nearSurf spectra
-      nearSurfR = r_icb+0.99
+      nearSurfR = r_icb+0.99_cp
       do n_r=2,n_r_max
          if ( r(n_r-1) > nearSurfR .and. r(n_r)  <= nearSurfR ) then
             if ( r(n_r-1)-nearSurfR < nearSurfR-r(n_r) ) then

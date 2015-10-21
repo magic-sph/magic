@@ -955,7 +955,7 @@ contains
                         w1,w2,i_costf_init,d_costf_init,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
-            if ( radratio < 0.19 ) then
+            if ( radratio < 0.19_cp ) then
                write(*,*) '! NOTE: with this polynomial fit     '
                write(*,*) '! for variable thermal conductivity  '
                write(*,*) '! considering radratio < 0.2 may lead'
