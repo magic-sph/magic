@@ -175,18 +175,18 @@ if ( $cmake ) {
     chdir "$topdir/tmp";
     if ($hybrid) {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DOPENMP=yes`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=yes`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DOPENMP=yes`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=yes`;
         }
     }
     else {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DOPENMP=no`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=no`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DOPENMP=no`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=no`;
         }
     }
     `make -j`;
