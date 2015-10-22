@@ -1,9 +1,8 @@
 module shtns
 
    use precision_mod, only: cp
-   use truncation, only: ncp, m_max, l_max, n_theta_max, n_phi_max, &
-                         minc, lm_max, n_m_max
-   use blocking, only: nfs
+   use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
+                         minc, lm_max, n_m_max, nrp
    use horizontal_data, only: dLh, gauss, theta_ord, D_m, O_sin_theta_E2
    use radial_functions, only: r
    use parallel_mod
@@ -14,18 +13,16 @@ module shtns
 
    private
 
-   public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, & 
+   public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
              torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
-             torpol_to_dphspat
+             torpol_to_dphspat, spat_to_SH
 
 contains
 
    subroutine init_shtns()
 
-      integer :: it, ip
       integer :: nlm
       integer :: norm
-      integer :: nThreads
 
       if ( rank == 0 ) then
          call shtns_verbose(1)
@@ -37,8 +34,20 @@ contains
 
       call shtns_set_size(l_max, m_max/minc, minc, norm)
       call shtns_calc_nlm(nlm, l_max, m_max/minc, minc)
-      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, 1.e-12_cp, &
-                            n_theta_max, n_phi_max)
+      call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
+                            1.e-10_cp, n_theta_max, n_phi_max)
+      call shtns_save_cfg(0)
+
+      if ( rank == 0 ) then
+         call shtns_verbose(0)
+      end if
+
+      call shtns_set_size(l_max+1, m_max/minc, minc, norm)
+      call shtns_calc_nlm(nlm, l_max, m_max/minc, minc)
+      call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
+                            1.e-14_cp, n_theta_max, n_phi_max)
+      call shtns_save_cfg(1)
+
       if (lm_max /= nlm) then
          print*, "error: nlm /= lm_max", nlm, lm_max
 #ifdef WITH_MPI
@@ -47,13 +56,14 @@ contains
          stop "error: nlm /= lm_max"
 #endif
       end if
+      call shtns_load_cfg(0)
 
    end subroutine
 !------------------------------------------------------------------------------
    subroutine scal_to_spat(Slm, fieldc)
       ! transform a spherical harmonic field into grid space
-      complex(cp), intent(in) :: Slm(:)
-      real(cp), intent(out) :: fieldc(:, :)
+      complex(cp), intent(in) :: Slm(lm_max)
+      real(cp), intent(out) :: fieldc(n_phi_max, n_theta_max)
 
       call shtns_SH_to_spat(Slm, fieldc)
 
@@ -62,8 +72,9 @@ contains
    subroutine scal_to_grad_spat(Slm, gradtc, gradpc)
       ! transform a scalar spherical harmonic field into it's gradient
       ! on the grid
-      complex(cp), intent(in) :: Slm(:)
-      real(cp), intent(out) :: gradtc(:, :), gradpc(:, :)
+      complex(cp), intent(in) :: Slm(lm_max)
+      real(cp), intent(out) :: gradtc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: gradpc(n_phi_max, n_theta_max)
 
       call shtns_sph_to_spat(Slm, gradtc, gradpc)
 
@@ -71,34 +82,31 @@ contains
 !------------------------------------------------------------------------------
    subroutine pol_to_grad_spat(Slm, gradtc, gradpc)
 
-      complex(cp), intent(in) :: Slm(:)
-      real(cp), intent(out) :: gradtc(:, :), gradpc(:, :)
+      complex(cp), intent(in) :: Slm(lm_max)
+      real(cp), intent(out) :: gradtc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: gradpc(n_phi_max, n_theta_max)
 
       ! local
-      complex(cp), allocatable :: Qlm(:)
-      integer :: ip, it, lm
-
-      allocate(Qlm(lm_max))
+      complex(cp) :: Qlm(lm_max)
+      integer :: lm
 
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Slm(lm)
       end do
 
       call shtns_sph_to_spat(Qlm, gradtc, gradpc)
-      
-      deallocate(Qlm)
 
    end subroutine pol_to_grad_spat
 !------------------------------------------------------------------------------
    subroutine torpol_to_spat(Wlm, dWlm, Zlm, vrc, vtc, vpc)
-      complex(cp), intent(in) :: Wlm(:), dWlm(:), Zlm(:)
-      real(cp), intent(out) :: vrc(:, :), vtc(:, :), vpc(:, :)
+      complex(cp), intent(in) :: Wlm(lm_max), dWlm(lm_max), Zlm(lm_max)
+      real(cp), intent(out) :: vrc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: vtc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: vpc(n_phi_max, n_theta_max)
 
       ! local
-      complex(cp), allocatable :: Qlm(:)
+      complex(cp) :: Qlm(lm_max)
       integer :: lm
-
-      allocate(Qlm(lm_max))
 
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Wlm(lm)
@@ -106,23 +114,22 @@ contains
 
       call shtns_qst_to_spat(Qlm, dWlm, Zlm, vrc, vtc, vpc)
 
-      deallocate(Qlm)
    end subroutine torpol_to_spat
 !------------------------------------------------------------------------------
    subroutine torpol_to_dphspat(dWlm, Zlm, dvtdp, dvpdp)
       !
       ! Computes horizontal phi derivative of a toroidal/poloidal field
       !
-      complex(cp), intent(in) :: dWlm(:), Zlm(:)
-      real(cp), intent(out) :: dvtdp(:, :), dvpdp(:, :)
+      complex(cp), intent(in) :: dWlm(lm_max), Zlm(lm_max)
+      real(cp), intent(out) :: dvtdp(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: dvpdp(n_phi_max, n_theta_max)
 
       ! local
-      complex(cp), allocatable :: Slm(:), Tlm(:)
+      complex(cp) :: Slm(lm_max), Tlm(lm_max)
       complex(cp) :: i = cmplx(0.0, 1.0)
       integer :: lm, it, ip
       real(cp) :: m
 
-      allocate(Slm(lm_max), Tlm(lm_max))
       do lm = 1, lm_max
          m = D_m(lm)
          Slm(lm) = i*m*dWlm(lm)
@@ -138,18 +145,16 @@ contains
          end do
       end do
 
-      deallocate(Slm, Tlm)
    end subroutine torpol_to_dphspat
 !------------------------------------------------------------------------------
    subroutine pol_to_curlr_spat(Qlm, cvrc)
-      complex(cp), intent(in) :: Qlm(:)
-      real(cp), intent(out) :: cvrc(:, :)
+      complex(cp), intent(in) :: Qlm(lm_max)
+      real(cp), intent(out) :: cvrc(n_phi_max, n_theta_max)
 
       ! local
-      complex(cp), allocatable :: dQlm(:)
+      complex(cp) :: dQlm(lm_max)
       integer :: lm
 
-      allocate(dQlm(lm_max))
 
       do lm = 1, lm_max
          dQlm(lm) = dLh(lm) * Qlm(lm)
@@ -157,21 +162,20 @@ contains
 
       call shtns_SH_to_spat(dQlm, cvrc)
 
-      deallocate(dQlm)
    end subroutine pol_to_curlr_spat
 !------------------------------------------------------------------------------
-   subroutine torpol_to_curl_spat(Blm, dBlm, ddBlm, Jlm, dJlm, nR, &
+   subroutine torpol_to_curl_spat(Blm, ddBlm, Jlm, dJlm, nR, &
                                  cvrc, cvtc, cvpc)
-      complex(cp), intent(in) :: Blm(:), dBlm(:), ddBlm(:)
-      complex(cp), intent(in) :: Jlm(:), dJlm(:)
+      complex(cp), intent(in) :: Blm(lm_max), ddBlm(lm_max)
+      complex(cp), intent(in) :: Jlm(lm_max), dJlm(lm_max)
       integer, intent(in) :: nR
-      real(cp), intent(out) :: cvrc(:, :), cvtc(:, :), cvpc(:, :)
+      real(cp), intent(out) :: cvrc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: cvtc(n_phi_max, n_theta_max)
+      real(cp), intent(out) :: cvpc(n_phi_max, n_theta_max)
 
       ! local
-      complex(cp), allocatable :: Qlm(:), Tlm(:)
-      integer :: it, ip, lm
-
-      allocate(Qlm(lm_max), Tlm(lm_max))
+      complex(cp) :: Qlm(lm_max), Tlm(lm_max)
+      integer :: lm
 
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Jlm(lm)
@@ -180,7 +184,15 @@ contains
 
       call shtns_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc)
 
-      deallocate(Qlm, Tlm)
    end subroutine torpol_to_curl_spat
+!------------------------------------------------------------------------------
+   subroutine spat_to_SH(f, fLM)
+
+      real(cp), intent(in) :: f(n_phi_max, n_theta_max)
+      complex(cp), intent(out) :: fLM(lm_max)
+
+      call shtns_spat_to_sh(f, fLM)
+
+   end subroutine spat_to_SH
 !------------------------------------------------------------------------------
 end module shtns

@@ -14,9 +14,6 @@ module leg_helper_mod
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
    use constants, only: zero, one, two
-#ifdef WITH_SHTNS
-   use shtns
-#endif
 
    implicit none
 
@@ -34,41 +31,6 @@ module leg_helper_mod
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
-#ifdef WITH_SHTNS
-      real(cp), allocatable :: shtns_s(:, :)
-      real(cp), allocatable :: shtns_p(:, :)
-      real(cp), allocatable :: shtns_drs(:, :)
-
-      real(cp), allocatable :: shtns_dsdt(:, :)
-      real(cp), allocatable :: shtns_dsdp(:, :)
-
-      real(cp), allocatable :: shtns_dpdt(:, :)
-      real(cp), allocatable :: shtns_dpdp(:, :)
-
-      real(cp), allocatable :: shtns_vr(:, :)
-      real(cp), allocatable :: shtns_vt(:, :)
-      real(cp), allocatable :: shtns_vp(:, :)
-
-      real(cp), allocatable :: shtns_dvrdr(:, :)
-      real(cp), allocatable :: shtns_dvtdr(:, :)
-      real(cp), allocatable :: shtns_dvpdr(:, :)
-
-      real(cp), allocatable :: shtns_dvrdt(:, :)
-      real(cp), allocatable :: shtns_dvrdp(:, :)
-
-      real(cp), allocatable :: shtns_dvtdp(:, :)
-      real(cp), allocatable :: shtns_dvpdp(:, :)
-
-      real(cp), allocatable :: shtns_cvr(:, :)
-
-      real(cp), allocatable :: shtns_br(:, :)
-      real(cp), allocatable :: shtns_bt(:, :)
-      real(cp), allocatable :: shtns_bp(:, :)
-
-      real(cp), allocatable :: shtns_cbr(:, :)
-      real(cp), allocatable :: shtns_cbt(:, :)
-      real(cp), allocatable :: shtns_cbp(:, :)
-#endif
    contains
 
       procedure :: initialize
@@ -108,48 +70,10 @@ contains
 
       allocate( this%bCMB(lm_maxMag) )
 
-#ifdef WITH_SHTNS
-      allocate(this%shtns_s(n_phi_max, n_theta_max))
-      allocate(this%shtns_drs(n_phi_max, n_theta_max))
-      allocate(this%shtns_p(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_dsdt(n_phi_max, n_theta_max))
-      allocate(this%shtns_dsdp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_dpdt(n_phi_max, n_theta_max))
-      allocate(this%shtns_dpdp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_vr(n_phi_max, n_theta_max))
-      allocate(this%shtns_vt(n_phi_max, n_theta_max))
-      allocate(this%shtns_vp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_dvrdr(n_phi_max, n_theta_max))
-      allocate(this%shtns_dvtdr(n_phi_max, n_theta_max))
-      allocate(this%shtns_dvpdr(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_dvrdt(n_phi_max, n_theta_max))
-      allocate(this%shtns_dvrdp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_dvtdp(n_phi_max, n_theta_max))
-      allocate(this%shtns_dvpdp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_cvr(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_br(n_phi_max, n_theta_max))
-      allocate(this%shtns_bt(n_phi_max, n_theta_max))
-      allocate(this%shtns_bp(n_phi_max, n_theta_max))
-
-      allocate(this%shtns_cbr(n_phi_max, n_theta_max))
-      allocate(this%shtns_cbt(n_phi_max, n_theta_max))
-      allocate(this%shtns_cbp(n_phi_max, n_theta_max))
-
-      this%shtns_bt=1.0e50_cp
-      this%shtns_bp=1.0e50_cp
-#endif
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame, &
-        &              lTOnext,lTOnext2,lTOcalc, lFluxProfCalc)
+        &              lTOnext,lTOnext2,lTOcalc)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
       !  from (r,l,m) space to (r,theta,m) space by calculating           
@@ -174,7 +98,6 @@ contains
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
       logical, intent(in) :: lTOcalc
-      logical, intent(in) :: lFluxProfCalc
 
       !-- Input of scalar fields in LM-distributed space
       !   These have to be collected and stored in the
@@ -189,25 +112,10 @@ contains
       if ( l_conv .or. l_mag_kin ) then
 
          if ( l_heat ) then
-#ifdef WITH_SHTNS
-            call scal_to_spat(s_Rloc(:, nR), this%shtns_s)
-            if (lFluxProfCalc) then
-               call scal_to_spat(p_Rloc(:, nR), this%shtns_p)
-           end if
-           call scal_to_grad_spat(s_Rloc(:, nR), this%shtns_dsdt, &
-                                  this%shtns_dsdp)
-           ! if (lViscBcCalc .or. l_HT) then
-           call scal_to_spat(ds_Rloc(:, nR), this%shtns_drs)
-           ! endif
-#else
             do lm=1,lm_max
                this%sR(lm) =s_Rloc(lm,nR)   ! used for plotting and Rms
                this%dsR(lm)=ds_Rloc(lm,nR)  ! used for plotting and Rms
             end do
-#endif
-#ifdef WITH_SHTNS
-            call scal_to_spat(s_Rloc(:, nR), this%shtns_s)
-#endif
          end if
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             do lm=1,lm_max
@@ -236,12 +144,6 @@ contains
          end if
 
          if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
-#ifdef WITH_SHTNS
-            call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
-               this%shtns_vr, &
-               this%shtns_vt, &
-               this%shtns_vp)
-#endif
             this%dLhw(1)=zero
             this%vhG(1) =zero
             this%vhC(1) =zero
@@ -255,19 +157,6 @@ contains
          end if
 
          if ( lDeriv ) then
-#ifdef WITH_SHTNS
-            call pol_to_curlr_spat(z_Rloc(:, nR), this%shtns_cvr)
-            call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
-                this%shtns_dvrdr, &
-                this%shtns_dvtdr, &
-                this%shtns_dvpdr)
-            call pol_to_grad_spat(w_Rloc(:, nR), &
-                this%shtns_dvrdt, &
-                this%shtns_dvrdp)
-            call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
-                this%shtns_dvtdp, &
-                this%shtns_dvpdp)
-#else
             this%dLhdw(1) =zero
             this%dLhz(1)  =zero
             this%dvhdrG(1)=zero
@@ -280,7 +169,6 @@ contains
                this%dvhdrC(lm)=ddw_Rloc(lm,nR) + &
                     cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
             end do
-#endif
          end if
 
       end if
@@ -289,10 +177,6 @@ contains
 
          !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
          !PRINT*,"dj: ",SUM(ABS(dj(:,nR)))
-#ifdef WITH_SHTNS
-         call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR), &
-             this%shtns_br, this%shtns_bt, this%shtns_bp)
-#else
          this%dLhb(1)=zero
          this%bhG(1) =zero
          this%bhC(1) =zero
@@ -303,23 +187,13 @@ contains
             this%bhC(lm) =db_Rloc(lm,nR) + &
                  cmplx(-aimag(aj_Rloc(lm,nR)),real(aj_Rloc(lm,nR)),kind=cp)
          end do
-#endif
-#ifndef WITH_SHTNS
          if ( lGrenoble ) then ! Add dipole imposed by inner core
             lm=lm2(1,0)
             this%dLhb(lm)=this%dLhb(lm)+dLh(lm)*b0(nR)
             this%bhG(lm) =this%bhG(lm)+db0(nR)
             this%bhC(lm) =this%bhC(lm)+db0(nR)
          end if
-#endif
          if ( lDeriv ) then
-#ifdef WITH_SHTNS
-            call torpol_to_curl_spat(b_Rloc(:, nR), db_Rloc(:, nR),     &
-                ddb_Rloc(:, nR), aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
-                this%shtns_cbr, &
-                this%shtns_cbt, &
-                this%shtns_cbp)
-#else
             this%dLhj(1)=zero
             this%cbhG(1)=zero
             this%cbhC(1)=zero
@@ -334,7 +208,6 @@ contains
                this%cbhG(lm)=this%cbhG(lm)+cmplx(0.0_cp,ddb0(nR),kind=cp)
                this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
             end if
-#endif
          end if
 
       end if   ! magnetic terms required ?

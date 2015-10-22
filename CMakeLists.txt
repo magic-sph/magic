@@ -141,7 +141,11 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
       message(STATUS "MKL was found: ${MKLROOT}")
       find_library(MKLCORE mkl_core HINTS ${MKLROOT}/lib/intel64)
       find_library(MKLLAPACK mkl_lapack95_lp64 HINTS ${MKLROOT}/lib/intel64)
-      find_library(MKLSEQ mkl_sequential HINTS ${MKLROOT}/lib/intel64)
+      if (USE_SHTNS MATCHES yes AND USE_OMP MATCHES yes)
+         find_library(MKLSEQ mkl_gnu_thread HINTS ${MKLROOT}/lib/intel64)
+      else()
+         find_library(MKLSEQ mkl_sequential HINTS ${MKLROOT}/lib/intel64)
+      endif()
       if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
          find_library(MKL64 mkl_intel_lp64 HINTS ${MKLROOT}/lib/intel64)
       endif()
@@ -185,9 +189,25 @@ if(USE_HDF5 MATCHES yes)
 endif()
 message(STATUS "HDF5 for check points: '${USE_HDF5}'")
 
+
+find_library(LIBFFTW_OMP fftw3_omp)
+find_library(LIBFFTW fftw3)
+
+if(LIBFFTW_OMP_FOUND)
+   message(STATUS "Threaded fftw: ${LIBFFTW_OMP}")
+else()
+   message(STATUS "Threaded fftw: no")
+endif()
+
+if(LIBFFTW_FOUND)
+   message(STATUS "Sequential fftw: ${LIBFFTW}")
+else()
+   message(STATUS "Sequential fftw: no")
+endif()
+
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)
-   if(OPENMP MATCHES yes)
+   if(USE_OMP MATCHES yes)
       find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
    else()
       find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
@@ -202,7 +222,6 @@ if(USE_SHTNS MATCHES yes)
 else()
    message(STATUS "Use SHTNS: no")
 endif()
-
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")

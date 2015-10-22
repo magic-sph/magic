@@ -19,6 +19,9 @@ module radialLoop
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
    use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
+#ifdef WITH_SHTNS
+   use rIterThetaBlocking_shtns_mod, only: rIterThetaBlocking_shtns_t
+#endif
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header
 #else
@@ -45,10 +48,14 @@ contains
 
       character(len=100) :: this_type
 
+#ifdef WITH_SHTNS
+      allocate( rIterThetaBlocking_shtns_t :: this_rIteration )
+#else
 #ifdef WITHOMP
       allocate( rIterThetaBlocking_OpenMP_t :: this_rIteration )
 #else
       allocate( rIterThetaBlocking_seq_t :: this_rIteration )
+#endif
 #endif
       this_type = this_rIteration%getType()
       write(*,"(2A)") "Using rIteration type: ",trim(this_type)

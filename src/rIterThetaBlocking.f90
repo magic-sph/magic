@@ -4,10 +4,6 @@ module rIterThetaBlocking_mod
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif
-#ifdef WITH_SHTNS
-  use truncation, only: n_phi_max, n_theta_max
-  use shtns
-#endif
 
    use rIteration_mod, only: rIteration_t
    use precision_mod
@@ -167,12 +163,6 @@ contains
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa)
 
-#ifdef WITH_SHTNS
-      use blocking, only: sizeThetaB
-      use truncation, only: n_m_max
-      use horizontal_data, only: D_mc2m, osn2
-#endif
-
       class(rIterThetaBlocking_t), target :: this
       integer, intent(in) :: nThetaStart,nThetaStop
       type(grid_space_arrays_t) :: gsa
@@ -180,16 +170,9 @@ contains
       ! Local variables
       integer :: nTheta
       logical :: DEBUG_OUTPUT=.false.
-#ifdef WITH_SHTNS
-      integer :: nThetaNHS, nThetaN, nThetaS, mc
-      real(cp) :: dmT, swap, err
-      integer :: it, ip
-      logical :: halt
-#endif
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
       !      First version with PlmTF needed for first-touch policy
-#ifndef WITH_SHTNS
       if ( l_mag ) then
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
@@ -224,27 +207,14 @@ contains
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
       end if
-#endif
 
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-#ifdef WITH_SHTNS
-            gsa%sc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_s(:, nThetaStart:)
-#else
             call fft_thetab(gsa%sc,1)
-#endif
             if ( this%lViscBcCalc ) then
-#ifdef WITH_SHTNS
-               gsa%dsdtc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dsdt(:, nThetaStart:)
-               gsa%dsdpc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dsdp(:, nThetaStart:)
-#else
                call fft_thetab(gsa%dsdtc,1)
                call fft_thetab(gsa%dsdpc,1)
-#endif
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -255,100 +225,38 @@ contains
                end if
             end if
             if ( this%lFluxProfCalc ) then
-#ifdef WITH_SHTNS
-               gsa%pc(1:n_phi_max, :) = &
-               this%leg_helper%shtns_p(:, nThetaStart:)
-#else
                call fft_thetab(gsa%pc,1)
-#endif
             end if
          end if
          if ( l_HT .or. this%lViscBcCalc ) then
-#ifdef WITH_SHTNS
-            gsa%drSc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_drs(:, nThetaStart:)
-#else
             call fft_thetab(gsa%drSc,1)
-#endif
          endif
          if ( this%nBc == 0 ) then
-#ifdef WITH_SHTNS
-            gsa%vrc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_vr(:, nThetaStart:)
-            gsa%vtc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_vt(:, nThetaStart:)
-            gsa%vpc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_vp(:, nThetaStart:)
-#else
             call fft_thetab(gsa%vrc,1)
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
-#endif
             if ( this%lDeriv ) then
-#ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
-               gsa%dvtdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
-               gsa%dvpdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
-#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
-#endif
-#ifdef WITH_SHTNS
-               gsa%cvrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_cvr(:, nThetaStart:)
-               gsa%dvrdtc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvrdt(:, nThetaStart:)
-               gsa%dvrdpc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvrdp(:, nThetaStart:)
-#else
                call fft_thetab(gsa%cvrc,1)
                call fft_thetab(gsa%dvrdtc,1)
                call fft_thetab(gsa%dvrdpc,1)
-#endif
 
-#ifdef WITH_SHTNS
-               gsa%dvtdpc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvtdp(:, nThetaStart:)
-               gsa%dvpdpc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvpdp(:, nThetaStart:)
-#else
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
-#endif
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
-#ifdef WITH_SHTNS
-            gsa%vtc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_vt(:, nThetaStart:)
-            gsa%vpc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_vp(:, nThetaStart:)
-#else
             call fft_thetab(gsa%vtc,1)
             call fft_thetab(gsa%vpc,1)
-#endif
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-#ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
-               gsa%dvtdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
-               gsa%dvpdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
-               gsa%cvrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_cvr(:, nThetaStart:)
-#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
                call fft_thetab(gsa%cvrc,1)
-#endif
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
             end if
@@ -365,47 +273,20 @@ contains
                     &                nThetaStart)
             end if
             if ( this%lDeriv ) then
-#ifdef WITH_SHTNS
-               gsa%dvrdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvrdr(:, nThetaStart:)
-               gsa%dvtdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvtdr(:, nThetaStart:)
-               gsa%dvpdrc(1:n_phi_max, :) = &
-                   this%leg_helper%shtns_dvpdr(:, nThetaStart:)
-#else
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
-#endif
             end if
          end if
       end if
       if ( l_mag .or. l_mag_LF ) then
-#ifdef WITH_SHTNS
-         gsa%brc(1:n_phi_max, :) = &
-             this%leg_helper%shtns_br(:, nThetaStart:)
-         gsa%btc(1:n_phi_max, :) = &
-             this%leg_helper%shtns_bt(:, nThetaStart:)
-         gsa%bpc(1:n_phi_max, :) = &
-             this%leg_helper%shtns_bp(:, nThetaStart:)
-#else
          call fft_thetab(gsa%brc,1)
          call fft_thetab(gsa%btc,1)
          call fft_thetab(gsa%bpc,1)
-#endif
          if ( this%lDeriv ) then
-#ifdef WITH_SHTNS
-            gsa%cbrc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_cbr(:, nThetaStart:)
-            gsa%cbtc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_cbt(:, nThetaStart:)
-            gsa%cbpc(1:n_phi_max, :) = &
-                this%leg_helper%shtns_cbp(:, nThetaStart:)
-#else
             call fft_thetab(gsa%cbrc,1)
             call fft_thetab(gsa%cbtc,1)
             call fft_thetab(gsa%cbpc,1)
-#endif
          end if
       end if
 
@@ -414,7 +295,7 @@ contains
    subroutine transform_to_lm_space(this,nThetaStart,nThetaStop,gsa,nl_lm)
 
       class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaStart,nThetaStop
+      integer,intent(in) :: nThetaStart, nThetaStop
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
       
@@ -452,6 +333,7 @@ contains
                end do
             end if
          end if
+
          call fft_thetab(gsa%Advr,-1)
          call fft_thetab(gsa%Advt,-1)
          call fft_thetab(gsa%Advp,-1)

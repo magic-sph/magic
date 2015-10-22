@@ -94,7 +94,11 @@ contains
       ! for real representation (cos/sin)
       lm_max_real=2*lm_max
 
+#if WITH_SHTNS
+      nrp=n_phi_max
+#else
       nrp=n_phi_max+2
+#endif
       ncp=nrp/2
 
       ! total number of radial grid points
