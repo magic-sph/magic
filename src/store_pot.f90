@@ -8,8 +8,7 @@ module store_pot_mod
    use precision_mod
    use truncation, only: n_r_max, n_r_ic_max, lm_max, n_cheb_max, &
                          n_cheb_ic_max, minc, l_max
-   use radial_functions, only: i_costf_init, d_costf_init,     &
-                               i_costf1_ic_init,d_costf1_ic_init
+   use radial_functions, only: chebt_oc, chebt_ic
    use physical_parameters, only: ra, ek, pr, prmag, radratio, &
                                   sigma_ratio
    use logic, only: l_cond_ic
@@ -18,7 +17,7 @@ module store_pot_mod
    use parallel_mod, only: rank
    use communications, only: gather_from_lo_to_rank0
    use constants, only: two, half
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
     
    implicit none
 
@@ -67,9 +66,9 @@ contains
       end do
     
       !--- Transform to Cheb-space:
-      call costf1(workA,lm_max,1,lm_max,workC,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(workA,lm_max,1,lm_max,workC)
       if ( lVB ) &
-           call costf1(workB,lm_max,1,lm_max,workC,i_costf_init,d_costf_init)
+           call chebt_oc%costf1(workB,lm_max,1,lm_max,workC)
     
       !--- Correct amplitude:
       chebNorm=sqrt(two/(n_r_max-1))
@@ -128,10 +127,8 @@ contains
             end do
          end do
     
-         call costf1(workA,lm_max,1,lm_max,workC, &
-                             i_costf1_ic_init,d_costf1_ic_init)
-         call costf1(workB,lm_max,1,lm_max,workC, &
-                             i_costf1_ic_init,d_costf1_ic_init)
+         call chebt_ic%costf1(workA,lm_max,1,lm_max,workC)
+         call chebt_ic%costf1(workB,lm_max,1,lm_max,workC)
     
          chebNorm=sqrt(two/(n_r_ic_max-1))
          do n_cheb=1,n_cheb_ic_max
@@ -202,10 +199,8 @@ contains
       end do
 
       !--- Transform to Cheb-space:
-      call costf1(workA,ulm-llm+1,1,ulm-llm+1, &
-                  workC,i_costf_init,d_costf_init)
-      if ( lVB ) call costf1(workB,ulm-llm+1,1,ulm-llm+1, &
-           &                 workC,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(workA,ulm-llm+1,1,ulm-llm+1, workC)
+      if ( lVB ) call chebt_oc%costf1(workB,ulm-llm+1,1,ulm-llm+1,workC)
 
       !--- Correct amplitude:
       chebNorm=sqrt(two/(n_r_max-1))
@@ -285,10 +280,8 @@ contains
             end do
          end do
 
-         call costf1(workA,ulm-llm+1,1,ulm-llm+1, &
-                     workC,i_costf1_ic_init,d_costf1_ic_init)
-         call costf1(workB,ulm-llm+1,1,ulm-llm+1, &
-                     workC,i_costf1_ic_init,d_costf1_ic_init)
+         call chebt_ic%costf1(workA,ulm-llm+1,1,ulm-llm+1,workC)
+         call chebt_ic%costf1(workB,ulm-llm+1,1,ulm-llm+1,workC)
 
          chebNorm=sqrt(two/(n_r_ic_max-1))
          do n_cheb=1,n_cheb_ic_max

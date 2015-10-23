@@ -3,8 +3,7 @@ module getDlm_mod
    use parallel_mod
    use precision_mod
    use truncation, only: minc, m_max, l_max, n_r_max
-   use radial_functions, only: or2, drx, i_costf_init, d_costf_init, &
-                               orho1
+   use radial_functions, only: or2, drx, chebt_oc, orho1
    use num_param, only: eScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
@@ -141,14 +140,12 @@ contains
 
          do l=lFirst,l_max
             e_l=0.0_cp
-            e_l=fac*rInt_R(e_lr_global(1,l),n_r_max,n_r_max,drx, &
-                 &         i_costf_init,d_costf_init)
+            e_l=fac*rInt_R(e_lr_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
             !write(*,"(A,I5,ES20.12)") "getDlm: l,e_l = ",l,e_l
             E =E+e_l
             EL=EL+real(l,cp)*e_l
             e_l=0.0_cp
-            e_l=fac*rInt_R(e_lr_c_global(1,l),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
+            e_l=fac*rInt_R(e_lr_c_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
             Ec =Ec+e_l
             ELc=ELc+real(l,cp)*e_l
          end do
@@ -202,8 +199,7 @@ contains
          E =0.0_cp
          EM=0.0_cp
          do m=minc,m_max,minc
-            e_m=fac*rInt_R(e_mr_global(1,m),n_r_max,n_r_max,drx, &
-                           i_costf_init,d_costf_init)
+            e_m=fac*rInt_R(e_mr_global(1,m),n_r_max,n_r_max,drx,chebt_oc)
             E =E +e_m
             EM=EM+real(m,cp)*e_m
          end do

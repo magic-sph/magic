@@ -11,8 +11,7 @@ module init_fields
                                cheb_norm, lambda, or2, d2cheb, dcheb,  &
                                cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
                                d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
-                               i_costf_init, d_costf_init, orho1,      &
-                               i_costf1_ic_init, d_costf1_ic_init,     &
+                               orho1, chebt_oc, chebt_ic,              &
                                dtemp0, kappa, dLkappa, beta, otemp1,   &
                                epscProf
    use radial_data, only: n_r_icb, n_r_cmb
@@ -29,7 +28,7 @@ module init_fields
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use matrices, only: jMat, jPivot, s0Mat, s0Pivot
    use legendre_grid_to_spec, only: legTF1
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
 
    implicit none
 
@@ -1230,7 +1229,7 @@ contains
       end do
 
       !----- transform to radial space:
-      call costf1(aj0,work_l,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(aj0,work_l)
        
       if ( l_cond_ic ) then
            
@@ -1244,7 +1243,7 @@ contains
            
       !----- transform to radial space:
       !  Note: this is assuming that aj0_ic is an even function !
-         call costf1(aj0_ic,work_l_ic,i_costf1_ic_init,d_costf1_ic_init)
+         call chebt_ic%costf1(aj0_ic,work_l_ic)
 
       end if
     
@@ -1338,7 +1337,7 @@ contains
       end if
        
       !-- Transform to radial space:
-      call costf1(s0,work,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(s0,work)
 
    end subroutine s_cond
 !--------------------------------------------------------------------------------

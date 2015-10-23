@@ -13,7 +13,7 @@ module outPar_mod
                                   opr, kbots, ktops
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
-                               dr_fac, i_costf_init, d_costf_init
+                               dr_fac, chebt_oc
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
                           nRstopMag
 
@@ -508,14 +508,10 @@ contains
 
 
       if ( rank == 0 ) then
-         EperpT  =four*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac, &
-                               i_costf_init,d_costf_init)
-         EparT   =four*pi*rInt(EparR_global*r**2,n_r_max,dr_fac, &
-                               i_costf_init,d_costf_init)
-         EperpaxT=four*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac, &
-                               i_costf_init,d_costf_init)
-         EparaxT =four*pi*rInt(EparaxiR_global*r**2,n_r_max,dr_fac, &
-                               i_costf_init,d_costf_init)
+         EperpT  =four*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac,chebt_oc)
+         EparT   =four*pi*rInt(EparR_global*r**2,n_r_max,dr_fac,chebt_oc)
+         EperpaxT=four*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac,chebt_oc)
+         EparaxT =four*pi*rInt(EparaxiR_global*r**2,n_r_max,dr_fac,chebt_oc)
 
          !-- Output
          if ( l_save_out ) then

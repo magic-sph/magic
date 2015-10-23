@@ -6,10 +6,8 @@ module out_RMS
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: n_r_maxC, i_costf_init, d_costf_init,  &
-                               drx, r, r_CMB, i_costf_initC, rgrav,   &
-                               rC, n_cheb_maxC, d_costf_initC,        &
-                               nDi_costf1, nDd_costf1, dr_facC, nCut
+   use radial_functions, only: n_r_maxC, chebt_oc, drx, r, r_CMB, rgrav,   &
+                               rC, n_cheb_maxC, nDi_costf1, nDd_costf1, dr_facC, nCut
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2
    use logic, only: l_save_out, l_RMStest, l_heat, l_conv_nl, l_mag_LF, &
@@ -46,6 +44,7 @@ module out_RMS
    use RMS_helpers, only: init_rNB, hInt2dPol, get_PolTorRms, get_PASLM, &
                           get_RAS
    use radial_der, only: get_drNS
+   use cosine_transform_odd, only: costf_odd_t
 
    implicit none
 
@@ -93,6 +92,7 @@ contains
       real(cp) :: ArcRms,   ArcAsRms
     
       !-- Local:
+      type(costf_odd_t) :: chebt_RMS
       integer :: nR,nRC
       !integer :: n
       real(cp) :: volC
@@ -224,8 +224,7 @@ contains
             !--- Initialize new cut-back grid:
             call init_rNB(r,n_r_max,n_cheb_max,rCut,rDea, &
                             rC,n_r_maxC,n_cheb_maxC,nCut, &
-                        dr_facC,i_costf_initC,nDi_costf1, &
-                                d_costf_initC,nDd_costf1)
+                        dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
          end if
          nRC=nCut+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
@@ -236,23 +235,23 @@ contains
             if ( l_corr ) then
                call get_drNS( CorPolLMr(1,nRC),workA(1,nRC),        &
                     &           lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                    &           workB,i_costf_initC,d_costf_initC,dr_facC)
+                    &           workB,chebt_RMS,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,CorPol2hInt(nR+nCut), &
                                  CorPolAs2hInt(nR+nCut),st_map)
                end do
                CorPolRms=rInt_R(CorPol2hInt(nRC),n_r_maxC, &
                                       n_cheb_maxC,dr_facC, &
-                              i_costf_initC,d_costf_initC)
+                              chebt_RMS)
                CorPolAsRms=rInt_R(CorPolAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
-                                  i_costf_initC,d_costf_initC)
+                                  chebt_RMS)
                CorTorRms  =rInt_R(CorTor2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
                CorTorAsRms=rInt_R(CorTorAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
-                                  i_costf_initC,d_costf_initC)
+                                  chebt_RMS)
                CorPolRms  =sqrt(CorPolRms  /volC)
                CorPolAsRms=sqrt(CorPolAsRms/volC)
                CorTorRms  =sqrt(CorTorRms  /volC)
@@ -263,23 +262,23 @@ contains
             if ( l_conv_nl ) then
                call get_drNS(AdvPolLMr(1,nRC),workA(1,nRC),          &
                     &          lm_max,1,lm_max,n_r_maxC,n_cheb_maxC,   &
-                    &          workB,i_costf_initC,d_costf_initC,dr_facC)
+                    &          workB,chebt_RMS,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,AdvPol2hInt(nR+nCut), &
                                  AdvPolAs2hInt(nR+nCut),st_map)
                end do
                AdvPolRms  =rInt_R(AdvPol2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
                AdvPolAsRms=rInt_R(AdvPolAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
-                                  i_costf_initC,d_costf_initC)
+                                  chebt_RMS)
                AdvTorRms  =rInt_R(AdvTor2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
                AdvTorAsRms=rInt_R(AdvTorAs2hInt(nRC),n_r_maxC, &
                                           n_cheb_maxC,dr_facC, &
-                                  i_costf_initC,d_costf_initC)
+                                  chebt_RMS)
                AdvPolRms  =sqrt(AdvPolRms  /volC)
                AdvPolAsRms=sqrt(AdvPolAsRms/volC)
                AdvTorRms  =sqrt(AdvTorRms  /volC)
@@ -289,24 +288,23 @@ contains
             !------ Lorentz force:
             if ( l_mag_LF ) then
                call get_drNS(LFPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-                    &        n_r_maxC,n_cheb_maxC,workB,i_costf_initC,    &
-                    &        d_costf_initC,dr_facC)
+                    &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol( workA(1,nR+nCut),2,lm_max,LFPol2hInt(nR+nCut), &
                                   LFPolAs2hInt(nR+nCut),st_map)
                end do
                LFPolRms  =rInt_R(LFPol2hInt(nRC),n_r_maxC, &
                                       n_cheb_maxC,dr_facC, &
-                              i_costf_initC,d_costf_initC)
+                              chebt_RMS)
                LFPolAsRms=rInt_R(LFPolAs2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
                LFTorRms  =rInt_R(LFTor2hInt(nRC),n_r_maxC, &
                                       n_cheb_maxC,dr_facC, &
-                              i_costf_initC,d_costf_initC)
+                              chebt_RMS)
                LFTorAsRms=rInt_R(LFTorAs2hInt(nRC),n_r_maxC, &
                                         n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
                LFPolRms  =sqrt(LFPolRms  /volC)
                LFPolAsRms=sqrt(LFPolAsRms/volC)
                LFTorRms  =sqrt(LFTorRms  /volC)
@@ -321,8 +319,7 @@ contains
             !------ Buoyancy:
             if ( l_heat ) then
                call get_drNS(BuoLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max, &
-                    &        n_r_maxC,n_cheb_maxC,workB,i_costf_initC,   &
-                    &        d_costf_initC,dr_facC)
+                    &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max, Buo2hInt(nR+nCut), &
                                  BuoAs2hInt(nR+nCut),st_map)
@@ -331,10 +328,10 @@ contains
                end do
                BuoRms  =rInt_R(Buo2hInt(nRC),n_r_maxC, &
                                   n_cheb_maxC,dr_facC, &
-                          i_costf_initC,d_costf_initC)
+                          chebt_RMS)
                BuoAsRms=rInt_R(BuoAs2hInt(nRC),n_r_maxC, &
                                     n_cheb_maxC,dr_facC, &
-                            i_costf_initC,d_costf_initC)
+                            chebt_RMS)
                BuoRms  =sqrt(BuoRms  /volC)
                BuoAsRms=sqrt(BuoAsRms/volC)
             else
@@ -345,34 +342,34 @@ contains
             !------ Pressure gradient:
             call get_drNS(PreLMr(1,nRC),workA(1,nRC),lm_max,1,  &
                  &        lm_max,n_r_maxC,n_cheb_maxC,workB,    &
-                 &        i_costf_initC,d_costf_initC,dr_facC)
+                 &        chebt_RMS,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol(workA(1,nR+nCut),2,lm_max,Pre2hInt(nR+nCut), &
                              PreAs2hInt(nR+nCut),st_map)
             end do
             PreRms  =rInt_R(Pre2hInt(nRC),n_r_maxC, &
                                n_cheb_maxC,dr_facC, &
-                       i_costf_initC,d_costf_initC)
+                       chebt_RMS)
             PreAsRms=rInt_R(PreAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
-                         i_costf_initC,d_costf_initC)
+                         chebt_RMS)
             PreRms  =sqrt(PreRms  /volC)
             PreAsRms=sqrt(PreAsRms/volC)
     
             !------ Geostrophic balance:
             call get_drNS(GeoLMr(1,nRC),workA(1,nRC),lm_max,1, &
                  &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
-                 &        i_costf_initC,d_costf_initC,dr_facC)
+                 &        chebt_RMS,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol(workA(1,nR+nCut),2,lm_max,Geo2hInt(nR+nCut), &
                               GeoAs2hInt(nR+nCut),st_map)
             end do
             GeoRms  =rInt_R(Geo2hInt(nRC),n_r_maxC, &
                                n_cheb_maxC,dr_facC, &
-                       i_costf_initC,d_costf_initC)
+                       chebt_RMS)
             GeoAsRms=rInt_R(GeoAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
-                         i_costf_initC,d_costf_initC)
+                         chebt_RMS)
             GeoRms  =sqrt(GeoRms  /volC)
             GeoAsRms=sqrt(GeoAsRms/volC)
     
@@ -380,7 +377,7 @@ contains
             if ( .not. l_RMStest ) then
                call get_drNS(MagLMr(1,nRC),workA(1,nRC),lm_max,1, &
                     &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
-                    &        i_costf_initC,d_costf_initC,dr_facC)
+                    &        chebt_RMS,dr_facC)
                do nR=1,n_r_maxC
                   call hInt2dPol(workA(1,nR+nCut),2,lm_max,Mag2hInt(nR+nCut), &
                                  MagAs2hInt(nR+nCut),st_map)
@@ -388,27 +385,27 @@ contains
             end if
             MagRms  =rInt_R(Mag2hInt(nRC),n_r_maxC, &
                                n_cheb_maxC,dr_facC, &
-                       i_costf_initC,d_costf_initC)
+                       chebt_RMS)
             MagAsRms=rInt_R(MagAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
-                         i_costf_initC,d_costf_initC)
+                         chebt_RMS)
             MagRms  =sqrt(MagRms  /volC)
             MagAsRms=sqrt(MagAsRms/volC)
     
             !------ Archemidian balance:
             call get_drNS(ArcLMr(1,nRC),workA(1,nRC),           &
                  &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                 &        workB,i_costf_initC,d_costf_initC,dr_facC)
+                 &        workB,chebt_RMS,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,Arc2hInt(nR+nCut), &
                                ArcAs2hInt(nR+nCut),st_map)
             end do
             ArcRms  =rInt_R(Arc2hInt(nRC),n_r_maxC, &
                                n_cheb_maxC,dr_facC, &
-                       i_costf_initC,d_costf_initC)
+                       chebt_RMS)
             ArcAsRms=rInt_R(ArcAs2hInt(nRC),n_r_maxC, &
                                  n_cheb_maxC,dr_facC, &
-                         i_costf_initC,d_costf_initC)
+                         chebt_RMS)
             if ( l_RMStest ) then
                ArcRms  =half*ArcRms
                ArcAsRms=half*ArcAsRms
@@ -420,7 +417,7 @@ contains
             !------ Diffusion:
             call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
                  &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                 &        workB,i_costf_initC,d_costf_initC,dr_facC)
+                 &        workB,chebt_RMS,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(nR+nCut,1), &
                                DifPolAs2hInt(nR+nCut,1),lo_map)
@@ -437,16 +434,16 @@ contains
             end do
             DifPolRms  =rInt_R(DifPol2hInt(nRC,1),n_r_maxC, &
                                        n_cheb_maxC,dr_facC, &
-                               i_costf_initC,d_costf_initC)
+                               chebt_RMS)
             DifPolAsRms=rInt_R(DifPolAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
-                                 i_costf_initC,d_costf_initC)
+                                 chebt_RMS)
             DifTorRms  =rInt_R(DifTor2hInt(nRC,1),n_r_maxC, &
                                        n_cheb_maxC,dr_facC, &
-                               i_costf_initC,d_costf_initC)
+                               chebt_RMS)
             DifTorAsRms=rInt_R(DifTorAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
-                                 i_costf_initC,d_costf_initC)
+                                 chebt_RMS)
             DifPolRms  =sqrt(DifPolRms  /volC)
             DifPolAsRms=sqrt(DifPolAsRms/volC)
             DifTorRms  =sqrt(DifTorRms  /volC)
@@ -454,8 +451,7 @@ contains
     
             !------ Flow changes: Inertia - Advection
             call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-                 &         n_r_maxC,n_cheb_maxC,workB,i_costf_initC,     &
-                 &         d_costf_initC,dr_facC)
+                 &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
             do nR=1,n_r_maxC
                call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(nR+nCut,1), &
                                dtVPolAs2hInt(nR+nCut,1),lo_map)
@@ -474,17 +470,17 @@ contains
             !write(*,"(A,I3,ES22.14)") "dtVPol2hInt(nRC,1) = ",nRC,dtVPol2hInt(nRC,1)
             dtVPolRms  =rInt_R(dtVPol2hInt(nRC,1),n_r_maxC, &
                                        n_cheb_maxC,dr_facC, &
-                               i_costf_initC,d_costf_initC)
+                               chebt_RMS)
             !write(*,"(A,ES22.14)") "dtVPolRms = ",dtVPolRms
             dtVPolAsRms=rInt_R(dtVPolAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
-                                 i_costf_initC,d_costf_initC)
+                                 chebt_RMS)
             dtVTorRms  =rInt_R(dtVTor2hInt(nRC,1),n_r_maxC, &
                                        n_cheb_maxC,dr_facC, &
-                               i_costf_initC,d_costf_initC)
+                               chebt_RMS)
             dtVTorAsRms=rInt_R(dtVTorAs2hInt(nRC,1),n_r_maxC, &
                                          n_cheb_maxC,dr_facC, &
-                                i_costf_initC,d_costf_initC)
+                                chebt_RMS)
             dtVPolRms  =sqrt(dtVPolRms  /volC)
             dtVPolAsRms=sqrt(dtVPolAsRms/volC)
             dtVTorRms  =sqrt(dtVTorRms  /volC)
@@ -613,7 +609,7 @@ contains
     
          !--- Stretching
          call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+              &        n_cheb_max,workB,chebt_oc,drx)
          !--- Finalize rms poloidal and toroidal stretching:
          call get_PolTorRms(PstrLM,workA,TstrLM,PstrRms,TstrRms,PstrAsRms, &
               &             TstrAsRms,st_map)
@@ -634,7 +630,7 @@ contains
     
          !--- Finalize advection
          call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+              &        n_cheb_max,workB,chebt_oc,drx)
          call get_PolTorRms(PadvLM,workA,TadvLM,PadvRms,TadvRms, &
               &             PadvAsRms,TadvAsRms,st_map)
          do nR=1,n_r_max
@@ -669,7 +665,7 @@ contains
     
          !--- Diffusion:
          call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+              &        n_cheb_max,workB,chebt_oc,drx)
          call get_PolTorRms(PdifLM,workA,TdifLM,PdifRms,TdifRms,&
                             PdifAsRms,TdifAsRms,st_map)
     
@@ -691,19 +687,19 @@ contains
     
          !--- B changes:
          call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+              &        n_cheb_max,workB,chebt_oc,drx)
          do nR=1,n_r_max
             call hInt2dPol(workA(1,nR),2,lm_max,dtBPol2hInt(nR,1), &
                            dtBPolAs2hInt(nR,1),lo_map)
          end do
          dtBPolRms  =rInt_R(dtBPol2hInt(1,1),n_r_max,   &
-              &             n_r_max,drx,i_costf_init,d_costf_init)
+              &             n_r_max,drx,chebt_oc)
          dtBPolAsRms=rInt_R(dtBPolAs2hInt(1,1),n_r_max, &
-              &             n_r_max,drx,i_costf_init,d_costf_init)
+              &             n_r_max,drx,chebt_oc)
          dtBTorRms  =rInt_R(dtBTor2hInt(1,1),n_r_max,   &
-              &             n_r_max,drx,i_costf_init,d_costf_init)
+              &             n_r_max,drx,chebt_oc)
          dtBTorAsRms=rInt_R(dtBTorAs2hInt(1,1),n_r_max, &
-              &             n_r_max,drx,i_costf_init,d_costf_init)
+              &             n_r_max,drx,chebt_oc)
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)

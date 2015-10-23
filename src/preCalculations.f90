@@ -15,7 +15,7 @@ module preCalculations
                     l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
                     l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
                     l_LCR, l_dt_cmb_field, l_storePot
-   use radial_functions, only: i_costf_init, d_costf_init, temp0, r_CMB,   &
+   use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
                                r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
                                beta, rho0, rgrav, dbeta,                   &
                                dentropy0, sigma, lambda, dLkappa, kappa,   &
@@ -253,8 +253,7 @@ contains
          do n_r=1,n_r_max
             mom(n_r)=r(n_r)**2 * rho0(n_r)
          end do
-         mass=four*pi/vol_oc* &
-              rInt_R(mom,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+         mass=four*pi/vol_oc*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
       else
          mass=one
       end if
@@ -291,7 +290,7 @@ contains
       do n_r=1,n_r_max
          mom(n_r)=r(n_r)**4 * rho0(n_r)
       end do
-      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
     
       !----- Mantle normalized moment of inertia:
       c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma

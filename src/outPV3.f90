@@ -4,8 +4,7 @@ module outPV3
    use parallel_mod, only: rank
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
                          l_max, minc, m_max
-   use radial_functions, only: cheb_norm, r_ICB, i_costf_init, &
-                               d_costf_init, r_CMB
+   use radial_functions, only: cheb_norm, r_ICB, chebt_oc, r_CMB
    use physical_parameters, only: radratio
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use blocking, only: lm2, lm2m, lm2l, lm2mc
@@ -17,7 +16,7 @@ module outPV3
    use constants, only: pi, zero, one, two, half, ci
    use fft, only: fft_to_real
    use TO_helpers, only: getPAStr
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
  
    implicit none 
  
@@ -152,7 +151,7 @@ contains
             end do
 
             !---- Transform the contributions to cheb space:
-            call costf1(dzVpLMr,l_max+1,1,l_max+1,workAr,i_costf_init,d_costf_init)
+            call chebt_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
          end if
 
          !--- Transforming of field without the backtransform
@@ -166,11 +165,11 @@ contains
          end do
 
          !---- Transform the contributions to cheb space for z-integral:
-         call costf1(wP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(dwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(ddwP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(zP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(dzP,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call chebt_oc%costf1(wP,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(dwP,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(ddwP,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(zP,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(dzP,lm_max,1,lm_max,workA)
 
          dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
          nSI=0                  ! Inner core position

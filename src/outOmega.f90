@@ -6,12 +6,12 @@ module omega
 
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
-   use radial_functions, only: r_CMB, r_ICB, i_costf_init, d_costf_init
+   use radial_functions, only: r_CMB, r_ICB, chebt_oc
    use blocking, only: lm2
    use logic, only: lVerbose
    use output_data, only: tag
    use plms_theta, only: plm_theta
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use constants, only: one, two, half
  
    implicit none
@@ -66,7 +66,7 @@ contains
       end do
 
       !---- Transform the contributions to cheb space for z-integral:
-      call costf1(dzVpLMr,l_max+1,1,l_max+1,workA,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
 
       sZ=0.0_cp
       outer: do nS=1,nSmax

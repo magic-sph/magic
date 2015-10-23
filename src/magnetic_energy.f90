@@ -4,8 +4,7 @@ module magnetic_energy
    use precision_mod
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
-   use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, i_costf_init,      &
-                               d_costf_init, i_costf1_ic_init, d_costf1_ic_init, &
+   use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, chebt_oc, &
                                sigma, orho1, r, or2, drx
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
@@ -351,28 +350,17 @@ contains
 
 
          !-- Radial integrals:
-         e_p        =rInt_R(e_p_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_t        =rInt_R(e_t_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_p_as     =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_t_as     =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_p_es     =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_t_es     =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_p_eas    =rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_t_eas    =rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_dipole   =rInt_R(e_dipole_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         e_dipole_ax=rInt_R(e_dipole_ax_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
-         elsAnel    =rInt_R(els_r_global,n_r_max,n_r_max,drx, &
-                            i_costf_init,d_costf_init)
+         e_p        =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t        =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_as     =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_as     =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_es     =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_es     =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_eas    =rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_eas    =rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_dipole   =rInt_R(e_dipole_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_dipole_ax=rInt_R(e_dipole_ax_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         elsAnel    =rInt_R(els_r_global,n_r_max,n_r_max,drx,chebt_oc)
 
          fac=half*LFfac*eScale
          e_p        =fac*e_p
@@ -460,14 +448,10 @@ contains
 #endif
 
          if ( rank == 0 ) then
-            e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,              &
-                 &                      i_costf1_ic_init,d_costf1_ic_init)
-            e_t_ic   =rIntIC(e_t_ic_r_global,n_r_ic_max,dr_fac_ic,              &
-                 &                      i_costf1_ic_init,d_costf1_ic_init)
-            e_p_as_ic=rIntIC(e_p_as_ic_r_global,n_r_ic_max,dr_fac_ic,           &
-                 &                      i_costf1_ic_init,d_costf1_ic_init)
-            e_t_as_ic=rIntIC(e_t_as_ic_r_global,n_r_ic_max,dr_fac_ic,           &
-                 &                      i_costf1_ic_init,d_costf1_ic_init)
+            e_p_ic   =rIntIC(e_p_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
+            e_t_ic   =rIntIC(e_t_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
+            e_p_as_ic=rIntIC(e_p_as_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
+            e_t_as_ic=rIntIC(e_t_as_ic_r_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             fac=half*LFfac*eScale
             e_p_ic   =fac*e_p_ic
             e_t_ic   =fac*e_t_ic

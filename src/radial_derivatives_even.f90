@@ -2,7 +2,8 @@ module radial_der_even
 
    use constants, only: zero
    use precision_mod
-   use cosine_transform, only: costf1, costf2
+   use cosine_transform_odd
+   use cosine_transform_even
 
    implicit none
 
@@ -14,8 +15,7 @@ contains
 
    subroutine get_ddr_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
                            n_r_max,n_cheb_max,dr_fac,work1,work2, &
-                                     i_costf1_init,d_costf1_init, &
-                                      i_costf2_init,d_costf2_init)
+                           chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -28,23 +28,21 @@ contains
       !
 
       !-- Input variables:
-      integer,     intent(in) :: n_f_max          ! first dim of f
-      complex(cp), intent(in) :: f(n_f_max,*)
-      integer,     intent(in) :: n_f_start        ! first function to be treated
-      integer,     intent(in) :: n_f_stop         ! last function to be treated
-      integer,     intent(in) :: n_r_max          ! number of radial grid points
-      integer,     intent(in) :: n_cheb_max       ! number of cheb modes
-      real(cp),    intent(in) :: dr_fac           ! mapping factor
-      integer,     intent(in) :: i_costf1_init(*)
-      integer,     intent(in) :: i_costf2_init(*)
-      real(cp),    intent(in) :: d_costf1_init(*)
-      real(cp),    intent(in) :: d_costf2_init(*)
+      integer,            intent(in) :: n_f_max       ! first dim of f
+      complex(cp),        intent(in) :: f(n_f_max,*)
+      integer,            intent(in) :: n_f_start     ! first function to be treated
+      integer,            intent(in) :: n_f_stop      ! last function to be treated
+      integer,            intent(in) :: n_r_max       ! number of radial grid points
+      integer,            intent(in) :: n_cheb_max    ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac        ! mapping factor
+      type(costf_odd_t),  intent(in) :: chebt_odd
+      type(costf_even_t), intent(in) :: chebt_even
 
       !-- Output variables:
-      complex(cp), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
-      complex(cp), intent(out) :: work2(n_f_max,*)  ! work array needed for costf
-      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
-      complex(cp), intent(out) :: ddf(n_f_max,*) ! second derivative of f
+      complex(cp),       intent(out) :: work1(n_f_max,*)  ! work array needed for costf
+      complex(cp),       intent(out) :: work2(n_f_max,*)  ! work array needed for costf
+      complex(cp),       intent(out) :: df(n_f_max,*)  ! first derivative of f
+      complex(cp),       intent(out) :: ddf(n_f_max,*) ! second derivative of f
 
       !-- Local variables:
       integer :: n_r,n_f
@@ -58,8 +56,7 @@ contains
       end do
 
       !-- Transform f to cheb space:
-      call costf1(work2,n_f_max,n_f_start,n_f_stop,work1, &
-                  i_costf1_init,d_costf1_init)
+      call chebt_odd%costf1_complex(work2,n_f_max,n_f_start,n_f_stop,work1)
 
       !-- Get derivatives:
       call get_ddcheb_even(work2,df,ddf,n_f_max,n_f_start,n_f_stop, &
@@ -67,17 +64,14 @@ contains
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
-      call costf2(df,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf2_init,d_costf2_init,1)
-      call costf1(ddf,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf1_init,d_costf1_init)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
+      call chebt_odd%costf1_complex(ddf,n_f_max,n_f_start,n_f_stop,work1)
 
    end subroutine get_ddr_even
 !------------------------------------------------------------------------------
    subroutine get_drNS_even(f,df,n_f_max,n_f_start,n_f_stop, &
                             n_r_max,n_cheb_max,dr_fac,work1, &
-                                i_costf1_init,d_costf1_init, &
-                                i_costf2_init,d_costf2_init)
+                            chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -90,26 +84,23 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: n_f_max           ! first dim of f
-      integer,  intent(in) :: n_f_start         ! first function to be treated
-      integer,  intent(in) :: n_f_stop          ! last function to be treated
-      integer,  intent(in) :: n_r_max           ! number of radial grid points
-      integer,  intent(in) :: n_cheb_max        ! number of cheb modes
-      real(cp), intent(in) :: dr_fac            ! mapping factor
-      integer,  intent(in) :: i_costf1_init(*)
-      integer,  intent(in) :: i_costf2_init(*)
-      real(cp), intent(in) :: d_costf1_init(*)
-      real(cp), intent(in) :: d_costf2_init(*)
+      integer,            intent(in) :: n_f_max         ! first dim of f
+      integer,            intent(in) :: n_f_start       ! first function to be treated
+      integer,            intent(in) :: n_f_stop        ! last function to be treated
+      integer,            intent(in) :: n_r_max         ! number of radial grid points
+      integer,            intent(in) :: n_cheb_max      ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac          ! mapping factor
+      type(costf_odd_t),  intent(in) :: chebt_odd
+      type(costf_even_t), intent(in) :: chebt_even
 
       !-- Output variables:
-      complex(cp), intent(inout) :: f(n_f_max,*)
-      complex(cp), intent(out) :: work1(n_f_max,*)   ! work array needed for costf
-      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
+      complex(cp),       intent(inout) :: f(n_f_max,*)
+      complex(cp),       intent(out) :: work1(n_f_max,*)   ! work array needed for costf
+      complex(cp),       intent(out) :: df(n_f_max,*)  ! first derivative of f
 
 
       !-- Transform f to cheb space:
-      call costf1(f,n_f_max,n_f_start,n_f_stop,work1, &
-                  i_costf1_init,d_costf1_init)
+      call chebt_odd%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
 
       !-- Get derivatives:
       call get_dcheb_even(f,df,n_f_max,n_f_start,n_f_stop, &
@@ -117,18 +108,15 @@ contains
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
-      call costf1(f,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf1_init,d_costf1_init)
-      call costf2(df,n_f_max,n_f_start,n_f_stop,work1,&
-                  i_costf2_init,d_costf2_init,1)
+      call chebt_odd%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
 
 
    end subroutine get_drNS_even
 !------------------------------------------------------------------------------
    subroutine get_ddrNS_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                                 n_r_max,n_cheb_max,dr_fac,work1, &
-                                     i_costf1_init,d_costf1_init, &
-                                     i_costf2_init,d_costf2_init)
+                             n_r_max,n_cheb_max,dr_fac,work1,     &
+                             chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -141,16 +129,14 @@ contains
       !
 
       !-- Input variables:
-      integer,  intent(in) :: n_f_max          ! first dim of f
-      integer,  intent(in) :: n_f_start        ! first function to be treated
-      integer,  intent(in) :: n_f_stop         ! last function to be treated
-      integer,  intent(in) :: n_r_max          ! number of radial grid points
-      integer,  intent(in) :: n_cheb_max       ! number of cheb modes
-      real(cp), intent(in) :: dr_fac            ! mapping factor
-      integer,  intent(in) :: i_costf1_init(*)
-      integer,  intent(in) :: i_costf2_init(*)
-      real(cp), intent(in) :: d_costf1_init(*)
-      real(cp), intent(in) :: d_costf2_init(*)
+      integer,            intent(in) :: n_f_max        ! first dim of f
+      integer,            intent(in) :: n_f_start      ! first function to be treated
+      integer,            intent(in) :: n_f_stop       ! last function to be treated
+      integer,            intent(in) :: n_r_max        ! number of radial grid points
+      integer,            intent(in) :: n_cheb_max     ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac         ! mapping factor
+      type(costf_odd_t),  intent(in) :: chebt_odd
+      type(costf_even_t), intent(in) :: chebt_even
 
       complex(cp), intent(inout) :: f(n_f_max,*)
 
@@ -161,8 +147,7 @@ contains
 
 
       !-- Transform f to cheb space:
-      call costf1(f,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf1_init,d_costf1_init)
+      call chebt_odd%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
 
       !-- Get derivatives:
       call get_ddcheb_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
@@ -170,12 +155,9 @@ contains
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
-      call costf1(f,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf1_init,d_costf1_init)
-      call costf2(df,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf2_init,d_costf2_init,1)
-      call costf1(ddf,n_f_max,n_f_start,n_f_stop, &
-                  work1,i_costf1_init,d_costf1_init)
+      call chebt_odd%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt_even%costf2(df,n_f_max,n_f_start,n_f_stop,work1,1)
+      call chebt_odd%costf1_complex(ddf,n_f_max,n_f_start,n_f_stop,work1)
 
    end subroutine get_ddrNS_even
 !------------------------------------------------------------------------------

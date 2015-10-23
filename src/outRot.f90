@@ -4,8 +4,7 @@ module outRot
    use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
-   use radial_functions, only: r_icb, r_cmb, r, drx, i_costf_init, &
-                               d_costf_init
+   use radial_functions, only: r_icb, r_cmb, r, drx, chebt_oc
    use physical_parameters, only: kbotv, ktopv
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map,st_map,lmStartB,lmStopB, lm2
@@ -499,8 +498,7 @@ contains
     
       !----- Perform radial integral:
       do n=1,3
-         angular_moment_oc(n)=rInt_R(f(1,n),n_r_max,n_r_max,drx, &
-                                     i_costf_init,d_costf_init)
+         angular_moment_oc(n)=rInt_R(f(1,n),n_r_max,n_r_max,drx,chebt_oc)
       end do
     
       !----- Apply normalisation factors of chebs and other factors

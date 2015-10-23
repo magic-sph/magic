@@ -9,7 +9,7 @@ module updateZ_mod
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
                                cheb_norm, dLvisc, beta, rho0, r_icb,&
                                r_cmb,  drx, ddrx, r, beta, dbeta,   &
-                               i_costf_init, d_costf_init
+                               chebt_oc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: alpha, AMstart
    use torsional_oscillations, only: ddzASL
@@ -39,7 +39,7 @@ module updateZ_mod
    use outRot, only: get_angular_moment
    use RMS_helpers, only: hInt2Pol, hInt2Tor
    use radial_der, only: get_ddr
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
  
    implicit none
  
@@ -401,7 +401,7 @@ contains
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
-      !$OMP shared(z,dz,dzdtLast,i_costf_init,d_costf_init,drx,ddrx) &
+      !$OMP shared(z,dz,dzdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workC,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -418,11 +418,10 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
-         call costf1(z, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &      dzdtLast, i_costf_init, d_costf_init)
+         call chebt_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dzdtLast)
          call get_ddr(z, dz, workA, ulm-llm+1, start_lm-llm+1,     &
                       stop_lm-llm+1,n_r_max, n_cheb_max, dzdtLast, &
-                      workC, i_costf_init,d_costf_init,drx,ddrx)
+                      workC,chebt_oc,drx,ddrx)
       end do
       !$OMP end do
       !$OMP END PARALLEL

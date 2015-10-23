@@ -4,8 +4,7 @@ module Egeos_mod
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
                          n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
    use parallel_mod, only: rank
-   use radial_functions, only: cheb_norm, r_ICB, r_CMB, i_costf_init, &
-                               d_costf_init
+   use radial_functions, only: cheb_norm, r_ICB, r_CMB, chebt_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
                                   radratio, polind, strat
    use num_param, only: tScale
@@ -18,7 +17,7 @@ module Egeos_mod
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
    use fft, only: fft_to_real
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use chebInt_mod
 
    implicit none 
@@ -29,9 +28,8 @@ module Egeos_mod
    real(cp), allocatable :: dPlmS(:,:,:) ! This is huge !
    real(cp), allocatable :: OsinTS(:,:)
 
-   integer, allocatable :: i_costf_initZ(:,:)
+   type(costf_odd_t), allocatable :: chebt_Z(:)
    integer, allocatable :: nZmaxS(:)
-   real(cp), allocatable :: d_costf_initZ(:,:)
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    real(cp), allocatable :: rhoZ(:,:)   ! density (anelastic version)
    real(cp), allocatable :: orhoZ(:,:)  ! 1/rho   (anelastic version)
@@ -45,9 +43,8 @@ contains
       allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
       allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSmaxA) )  ! This is huge !
       allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSmaxA) ) ! This is huge !
-      allocate( i_costf_initZ(2*nZmaxA+2,nSmaxA) )
+      allocate( chebt_Z(nSmaxA) )
       allocate( nZmaxS(nSmaxA) )
-      allocate( d_costf_initZ(2*nZmaxA+5,nSmaxA) )
       allocate( zZ(nZmaxA,nSmaxA) )
       allocate( rZ(nZmaxA,nSmaxA) )
       allocate( rhoZ(nZmaxA,nSmaxA) )   ! density (anelastic version)
@@ -190,11 +187,11 @@ contains
             end do
          end do
 
-         call costf1(wS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(dwS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(ddwS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(zS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
-         call costf1(dzS,lm_max,1,lm_max,workA,i_costf_init,d_costf_init)
+         call chebt_oc%costf1(wS,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(dwS,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(ddwS,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(zS,lm_max,1,lm_max,workA)
+         call chebt_oc%costf1(dzS,lm_max,1,lm_max,workA)
 
          !---- Contributions are now in fully spectral space!
          !---- Do the z-integral:
@@ -223,11 +220,9 @@ contains
                !------ Initialize integration for NHS:
                !       Each processor calculates Cheb transform data 
                !       for HIS nS and the Plms along the Cylinder
-               !       chebIntInit returns zZ,nZmaxS,i_costf_initZ and 
-               !       d_costfInitZ:
+               !       chebIntInit returns zZ,nZmaxS,chebt_Z
                call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-                    &           nZmaxA,zZ(1,nS),nZmaxS(nS),              &
-                    &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+                    &           nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
                !------ Calculate and store 1/sin(theta) and Plms,dPlms for 
                !       southern HS:
 
@@ -313,14 +308,10 @@ contains
 
                   !-------- NOTE: chebIntD replaces VrInt with z-derivative
                   !               for lDeriv=.true.
-                  VrIntS=chebIntD(VrInt,lDeriv,zMin,zMax,nZmax,nZmaxA,   &
-                       &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-                  VtIntS=chebIntD(VtInt,lDeriv,zMin,zMax,nZmax,nZmaxA,   &
-                       &          i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-                  VpIntS=chebIntD(VpInt,lDeriv,zMin,zMax,nZmax,nZmaxA,   &
-                       &          i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-                  EkIntS=chebIntD(EkInt,.false.,zMin,zMax,nZmax,nZmaxA,  &
-                       &          i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+                  VrIntS=chebIntD(VrInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+                  VtIntS=chebIntD(VtInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+                  VpIntS=chebIntD(VpInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+                  EkIntS=chebIntD(EkInt,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
 
                   !-------- Get volume integral of energies:
                   Egeos_s(nS)=Egeos_s(nS) +                              &
@@ -345,8 +336,7 @@ contains
                         dzEkInt(nZ)=VrInt(nZ)*VrInt(nZ) +                &
                              &      VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
                      end do
-                     dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,    &
-                          &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+                     dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                      dzEk_s(nS)=dzEk_s(nS) +                             &
                           &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
                   end if
@@ -432,8 +422,7 @@ contains
                         dpEkInt(nZ)=dpEkInt(nZ+nZmax)
                      end do
                   end if
-                  dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,       &
-                       &           i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+                  dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                   dpEk_s(nS)=dpEk_s(nS) +                                &
                        &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
                        &     (sZ(nS)**2) ! Convert angle to length

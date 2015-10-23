@@ -12,9 +12,9 @@ module radial_functions
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
                     l_isothermal, l_anel, l_newmap
-   use init_costf ! Everything is needed
    use chebyshev_polynoms_mod ! Everything is needed
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
+   use cosine_transform_even
    use radial_der, only: get_dr
  
    implicit none
@@ -65,9 +65,10 @@ module radial_functions
    real(cp), public, allocatable :: d3cheb(:,:)     ! Third radial derivative
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
    integer, public :: nDi_costf1                     ! Radii for transform
-   integer, public, allocatable :: i_costf_init(:)   ! Info for transform
    integer, public :: nDd_costf1                     ! Radii for transform
-   real(cp), public, allocatable ::  d_costf_init(:) ! Info for tranform
+   type(costf_odd_t), public :: chebt_oc
+   type(costf_odd_t), public :: chebt_ic
+   type(costf_even_t), public :: chebt_ic_even
  
    !-- same for inner core:
    real(cp), public :: cheb_norm_ic                      ! Chebyshev normalisation for IC
@@ -77,21 +78,14 @@ module radial_functions
    real(cp), public, allocatable :: cheb_int_ic(:)       ! Array for integrals of cheb for IC
    integer, public :: nDi_costf1_ic                      ! Radii for transform
  
-   integer, public, allocatable :: i_costf1_ic_init(:)   ! Info for transform
    integer, public :: nDd_costf1_ic                      ! Radii for transform
  
-   real(cp), public, allocatable ::  d_costf1_ic_init(:) ! Info for transform
    integer, public :: nDi_costf2_ic                      ! Radii for transform
  
-   integer, public, allocatable :: i_costf2_ic_init(:)   ! Info for transform
    integer, public :: nDd_costf2_ic                      ! Radii for transform
- 
-   real(cp), public, allocatable ::  d_costf2_ic_init(:) ! Info for transform
  
    !-- Radius functions for cut-back grid without boundaries:
    !-- (and for the nonlinear mapping)
-   integer, public, allocatable :: i_costf_initC(:)   ! Info for transform
-   real(cp), public, allocatable :: d_costf_initC(:)  ! Info for tranform
    real(cp), public, allocatable :: rC(:)             ! Radii
    real(cp), public, allocatable :: dr_facC(:)        ! :math:`2/d`, where :math:`d=r_o-r_i`
    real(cp), public :: alph1       ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
@@ -146,17 +140,15 @@ contains
       allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
       allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
       allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
-      allocate( i_costf_init(nDi_costf1) )  ! info for transform
-      allocate( d_costf_init(nDd_costf1) ) ! info for tranform
+
+      call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
 
       allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( cheb_int_ic(n_r_ic_max) )
-      allocate( i_costf1_ic_init(nDi_costf1_ic) )
-      allocate( d_costf1_ic_init(nDd_costf1_ic) )
-      allocate( i_costf2_ic_init(nDi_costf2_ic) )
-      allocate( d_costf2_ic_init(nDd_costf2_ic) )
+
+      call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
       allocate( sigma(n_r_max) )
@@ -164,8 +156,6 @@ contains
       allocate( visc(n_r_max),dLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
 
-      allocate( i_costf_initC(nDi_costf1) )   ! info for transform
-      allocate( d_costf_initC(nDd_costf1) )   ! info for tranform
       allocate( rC(n_r_max),dr_facC(n_r_max) )
 
    end subroutine initialize_radial_functions
@@ -270,11 +260,7 @@ contains
       close(filehandle)
 #endif
 
-      !-- Initialize fast cos transform for chebs:
-      call init_costf1(n_r_max,i_costf_init,nDi_costf1, &
-                       d_costf_init,nDd_costf1)
-
-      or1=one/r        ! 1/r
+      or1=one/r         ! 1/r
       or2=or1*or1       ! 1/r**2
       or3=or1*or2       ! 1/r**3
       or4=or2*or2       ! 1/r**4
@@ -309,7 +295,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -328,12 +314,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
          
       else if ( index(interior_model,'SAT') /= 0 ) then
@@ -370,7 +356,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -391,12 +377,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'SUN') /= 0 ) then
@@ -429,7 +415,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -448,12 +434,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'GLIESE229B') /= 0 ) then
@@ -494,7 +480,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -513,12 +499,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'COROT3B') /= 0 ) then
@@ -563,7 +549,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -582,12 +568,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'KOI889B') /= 0 ) then
@@ -630,7 +616,7 @@ contains
 
          ! Derivative of the temperature needed to get alpha_T
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
 
          alphaT=-dtemp0/(gravFit*temp0)
 
@@ -649,12 +635,12 @@ contains
          rho0=rhoFit/rhotop
 
          call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          beta=drho0/rho0
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,i_costf_init,d_costf_init,drx)
+                     w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,i_costf_init,d_costf_init,drx)
+                  w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'EARTH') /= 0 ) then
@@ -710,9 +696,9 @@ contains
 
          ! The final stuff is always required
          call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                &    w2,i_costf_init,d_costf_init,drx)
+                &    w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                &    w2,i_costf_init,d_costf_init,drx)
+                &    w2,chebt_oc,drx)
 
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
@@ -838,11 +824,7 @@ contains
                                 d2cheb_ic,n_r_ic_max,n_r_ic_max)
 
          !----- Initialize transforms:
-         call init_costf1(n_r_ic_max,i_costf1_ic_init,nDi_costf1_ic, &
-                          d_costf1_ic_init,nDd_costf1_ic)
-         call init_costf2(n_r_ic_max-1,i_costf2_ic_init,nDi_costf2_ic, &
-                          d_costf2_ic_init,nDd_costf2_ic)
-
+         call chebt_ic_even%initialize(n_r_ic_max-1,nDi_costf2_ic,nDd_costf2_ic)
 
          !----- Factors for cheb integrals, only even contribution:
          fac_int=one/dr_fac_ic   ! thats 1 for the outer core
@@ -927,13 +909,13 @@ contains
              lambda=rho0(n_r_max)/rho0
              sigma=one/lambda
              call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,i_costf_init,d_costf_init,drx)
+                         w1,w2,chebt_oc,drx)
              dLlambda=dsigma/lambda
           else if ( nVarCond == 4 ) then ! Profile
              lambda=(rho0/rho0(n_r_max))**difExp
              sigma=one/lambda
              call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,i_costf_init,d_costf_init,drx)
+                         w1,w2,chebt_oc,drx)
              dLlambda=dsigma/lambda
           end if
       end if
@@ -947,12 +929,12 @@ contains
             ! kappa(n_r)=one/rho0(n_r) Denise's version
             kappa=rho0(n_r_max)/rho0
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,i_costf_init,d_costf_init,drx)
+                        w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 2 ) then ! Profile
             kappa=(rho0/rho0(n_r_max))**difExp
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,i_costf_init,d_costf_init,drx)
+                        w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
@@ -974,11 +956,11 @@ contains
                               + a2*rrOcmb**3 + a1*rrOcmb**4 &
                                              + a0*rrOcmb**5
 
-            ENDDO
+            end do
             kappatop=kappa(1) ! normalise by the value at the top
             kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,i_costf_init,d_costf_init,drx)
+                        w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 4) then ! Earth case
             !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
@@ -997,7 +979,7 @@ contains
             !kcond=kcond/kcond(n_r_max)
             !kappa=kcond/rho0
             !call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-            !            w1,w2,i_costf_init,d_costf_init,drx)
+            !            w1,w2,chebt_oc,drx)
             !dLkappa=dkappa/kappa
 
             ! Alternative scenario
@@ -1005,7 +987,7 @@ contains
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,i_costf_init,d_costf_init,drx)
+                        w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          end if
       end if
@@ -1027,12 +1009,12 @@ contains
       else if ( nVarVisc == 1 ) then ! Constant dynamic viscosity
          visc=rho0(n_r_max)/rho0
          call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,i_costf_init,d_costf_init,drx)
+                     w1,w2,chebt_oc,drx)
          dLvisc=dvisc/visc
       else if ( nVarVisc == 2 ) then ! Profile
          visc=(rho0/rho0(n_r_max))**difExp
          call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,i_costf_init,d_costf_init,drx)
+                     w1,w2,chebt_oc,drx)
          dLvisc=dvisc/visc
       end if
 
@@ -1115,7 +1097,7 @@ contains
       end if
 
       !-- Transform to radial space:
-      call costf1(output,tmp,i_costf_init,d_costf_init)
+      call chebt_oc%costf1(output,tmp)
 
    end subroutine getBackground
 !------------------------------------------------------------------------------

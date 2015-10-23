@@ -7,16 +7,15 @@ module RMS_helpers
    use precision_mod
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
-   use radial_functions, only: or2, drx, i_costf_init, d_costf_init, &
-                               r
+   use radial_functions, only: or2, drx, chebt_oc, r
    use horizontal_data, only: osn1, Plm, dPlm, dLh
    use useful, only: cc2real
    use integration, only: rInt_R
    use LMmapping, only: mappings
    use constants, only: vol_oc, one
    use chebyshev_polynoms_mod, only: cheb_grid
-   use init_costf, only: init_costf1
    use radial_der, only: get_dr
+   use cosine_transform_odd
 
    implicit none
 
@@ -131,10 +130,10 @@ contains
       end do    ! radial grid points
     
       !-- Radial Integrals:
-      PolRms  =rInt_R(PolRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
-      TorRms  =rInt_R(TorRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
-      PolAsRms=rInt_R(PolAsRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
-      TorAsRms=rInt_R(TorAsRms_r,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+      PolRms  =rInt_R(PolRms_r,n_r_max,n_r_max,drx,chebt_oc)
+      TorRms  =rInt_R(TorRms_r,n_r_max,n_r_max,drx,chebt_oc)
+      PolAsRms=rInt_R(PolAsRms_r,n_r_max,n_r_max,drx,chebt_oc)
+      TorAsRms=rInt_R(TorAsRms_r,n_r_max,n_r_max,drx,chebt_oc)
       fac=one/vol_oc
       PolRms  =sqrt(fac*PolRms)
       TorRms  =sqrt(fac*TorRms)
@@ -270,8 +269,8 @@ contains
 !-----------------------------------------------------------------------------
    subroutine init_rNB(r,n_r_max,n_cheb_max,rCut,rDea,      &
         &              r2,n_r_max2,n_cheb_max2,             &
-        &              nS,dr_fac2,i_costf_init2,nDi_costf1, &
-        &              d_costf_init2,nDd_costf1)
+        &              nS,dr_fac2,chebt_RMS,nDi_costf1,     &
+        &              nDd_costf1)
       !
       ! Prepares the usage of a cut back radial grid where nS points
       ! on both boundaries are discarded.
@@ -285,15 +284,14 @@ contains
       !
     
       !--- Input variables:
-      real(cp), intent(in) :: r(*),rCut,rDea
-      integer,  intent(in) :: n_r_max,n_cheb_max
-      integer,  intent(in) :: nDi_costf1,nDd_costf1
+      real(cp),          intent(in) :: r(*),rCut,rDea
+      integer,           intent(in) :: n_r_max,n_cheb_max
+      integer,           intent(in) :: nDi_costf1,nDd_costf1
     
       !--- Output variables:
-      integer,  intent(out) :: nS,n_r_max2,n_cheb_max2
-      real(cp), intent(out) :: r2(*),dr_fac2(*)
-      integer,  intent(out) :: i_costf_init2(nDi_costf1)   ! info for transform
-      real(cp), intent(out) :: d_costf_init2(nDd_costf1)   ! info for tranfor
+      integer,           intent(out) :: nS,n_r_max2,n_cheb_max2
+      real(cp),          intent(out) :: r2(*),dr_fac2(*)
+      type(costf_odd_t), intent(out) :: chebt_RMS
     
       ! Local stuff
       real(cp) :: drx(n_r_max)      ! first derivatives of x(r)
@@ -363,14 +361,14 @@ contains
       r_cmb2=r2(1)
       call cheb_grid(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2, &
                      0.0_cp,0.0_cp,0.0_cp,0.0_cp)
-      call init_costf1(n_r_max2,i_costf_init2,nDi_costf1, &
-                       d_costf_init2,nDd_costf1)
+      call chebt_RMS%initialize(n_r_max2, nDi_costf1, nDd_costf1)
+
       dr_fac=one
       do nR=1,n_r_max
          drx(nR)=one
       end do
       call get_dr(r2,dr2,n_r_max2,n_cheb_max2, &
-                  w1,w2,i_costf_init2,d_costf_init2,drx)
+                  w1,w2,chebt_RMS,drx)
       do nR=1,n_r_max2
          dr_fac2(nR)=one/dr2(nR)
       end do

@@ -5,10 +5,9 @@ module spectra
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_ic_max, l_max, minc
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: orho1, orho2, r_ic, i_costf1_ic_init, &
-                               d_costf1_ic_init, r, i_costf_init,    &
-                               d_costf_init, or2, r_icb, dr_fac_ic,  &
-                               drx, dr_fac
+   use radial_functions, only: orho1, orho2, r_ic, chebt_ic,    &
+                               chebt_oc, or2, r_icb, dr_fac_ic, &
+                               drx, dr_fac, r
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, st_map
@@ -178,14 +177,10 @@ contains
          fac=half*eScale
          if ( BV == 'B' ) fac=fac*LFfac
          do l=0,l_max
-            e_p_l(l)  =fac*rInt_R(e_p_r_l_global(1,l),n_r_max,n_r_max,drx,   &
-                 &                           i_costf_init,d_costf_init)
-            e_t_l(l)  =fac*rInt_R(e_t_r_l_global(1,l),n_r_max,n_r_max,drx,   &
-                 &                           i_costf_init,d_costf_init)
-            e_p_m(l)  =fac*rInt_R(e_p_r_m_global(1,l),n_r_max,n_r_max,drx,   &
-                 &                           i_costf_init,d_costf_init)
-            e_t_m(l)  =fac*rInt_R(e_t_r_m_global(1,l),n_r_max,n_r_max,drx,   &
-                 &                           i_costf_init,d_costf_init)
+            e_p_l(l)  =fac*rInt_R(e_p_r_l_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
+            e_t_l(l)  =fac*rInt_R(e_t_r_l_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
+            e_p_m(l)  =fac*rInt_R(e_p_r_m_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
+            e_t_m(l)  =fac*rInt_R(e_t_r_m_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
             if ( BV == 'B' ) then 
                e_cmb_l(l)=fac*e_p_r_l_global(1,l)
                e_cmb_m(l)=fac*e_p_r_m_global(1,l)
@@ -604,41 +599,41 @@ contains
          do l=1,l_max
             if ( l_mag ) then
                e_mag_p_l(l)=fac_mag*rInt_R(e_mag_p_r_l_global(1,l), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
                e_mag_t_l(l)=fac_mag*rInt_R(e_mag_t_r_l_global(1,l), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
                e_mag_cmb_l(l)=fac_mag*e_mag_cmb_l(l)
             end if
             if ( l_anel ) then
                u2_p_l(l)  =fac_kin*rInt_R(u2_p_r_l_global(1,l),     &
-                           n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                           n_r_max,n_r_max,drx,chebt_oc)
                u2_t_l(l)  =fac_kin*rInt_R(u2_t_r_l_global(1,l),     &
-                           n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                           n_r_max,n_r_max,drx,chebt_oc)
             end if
             e_kin_p_l(l)  =fac_kin*rInt_R(e_kin_p_r_l_global(1,l),  &
-                           n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                           n_r_max,n_r_max,drx,chebt_oc)
             e_kin_t_l(l)  =fac_kin*rInt_R(e_kin_t_r_l_global(1,l),  &
-                           n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                           n_r_max,n_r_max,drx,chebt_oc)
             e_kin_nearSurf_l(l)=fac_kin*e_kin_nearSurf_l(l)
          end do
          do m=1,l_max+1 ! Note: counter m is actual order+1
             if ( l_mag )  then
                e_mag_p_m(m)=fac_mag*rInt_R(e_mag_p_r_m_global(1,m), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
                e_mag_t_m(m)=fac_mag*rInt_R(e_mag_t_r_m_global(1,m), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
                e_mag_cmb_m(m)=fac_mag*e_mag_cmb_m(m)
             end if
             if ( l_anel ) then
                u2_p_m(m)   =fac_kin*rInt_R(u2_p_r_m_global(1,m),    &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
                u2_t_m(m)   =fac_kin*rInt_R(u2_t_r_m_global(1,m),    &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
             end if
             e_kin_p_m(m)   =fac_kin*rInt_R(e_kin_p_r_m_global(1,m), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
             e_kin_t_m(m)   =fac_kin*rInt_R(e_kin_t_r_m_global(1,m), &
-                            n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+                            n_r_max,n_r_max,drx,chebt_oc)
             e_kin_nearSurf_m(m)=fac_kin*e_kin_nearSurf_m(m)
          end do
       end if
@@ -706,15 +701,15 @@ contains
             fac_mag=LFfac*half*eScale
             do l=1,l_max
                e_mag_p_ic_l(l)=fac_mag*rIntIC(e_mag_p_ic_r_l_global(1,l), &
-                    n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
+                    n_r_ic_max,dr_fac_ic,chebt_ic)
                e_mag_t_ic_l(l)=fac_mag*rIntIC(e_mag_t_ic_r_l_global(1,l), &
-                    n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
+                    n_r_ic_max,dr_fac_ic,chebt_ic)
             end do
             do m=1,l_max+1
                e_mag_p_ic_m(m)=fac_mag*rIntIC(e_mag_p_ic_r_m_global(1,m), &
-                    n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
+                    n_r_ic_max,dr_fac_ic,chebt_ic)
                e_mag_t_ic_m(m)=fac_mag*rIntIC(e_mag_t_ic_r_m_global(1,m), &
-                    n_r_ic_max,dr_fac_ic,i_costf1_ic_init,d_costf1_ic_init)
+                    n_r_ic_max,dr_fac_ic,chebt_ic)
             end do
          end if
       else
@@ -935,8 +930,7 @@ contains
          fac      =one/vol_oc
          facICB   =one/surf_ICB
          do l=1,l_max+1
-            T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac, &
-                 &          i_costf_init,d_costf_init)
+            T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac,chebt_oc)
             T_ICB_l(l)=facICB*T_ICB_l_global(l)
             dT_ICB_l(l)=facICB*dT_ICB_l_global(l)
          end do
@@ -1103,14 +1097,12 @@ contains
          fac      =one/vol_oc
          facICB   =one/surf_ICB
          do l=1,l_max+1
-            T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac, &
-                            i_costf_init,d_costf_init)
+            T_l(l)=fac*rInt(T_r_l_global(1,l),n_r_max,dr_fac,chebt_oc)
             T_ICB_l(l)=facICB*T_ICB_l_global(l)
             dT_ICB_l(l)=facICB*dT_ICB_l_global(l)
          end do
          do m=1,l_max+1 ! Note: counter m is actual order+1
-            T_m(m)=fac*rInt(T_r_m_global(1,m),n_r_max,dr_fac, &
-                            i_costf_init,d_costf_init)
+            T_m(m)=fac*rInt(T_r_m_global(1,m),n_r_max,dr_fac,chebt_oc)
             T_ICB_m(m)=facICB*T_ICB_m_global(m)
             dT_ICB_m(m)=facICB*dT_ICB_m_global(m)
          end do

@@ -4,8 +4,8 @@ module outMisc_mod
    use precision_mod
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: botcond, r_icb, dr_fac, i_costf_init, &
-                               d_costf_init, topcond, kappa, r_cmb,  &
+   use radial_functions, only: botcond, r_icb, dr_fac, chebt_oc, &
+                               topcond, kappa, r_cmb,  &
                                temp0, r, rho0, dtemp0
    use physical_parameters, only: epsS
    use num_param, only: lScale
@@ -178,15 +178,15 @@ contains
     
          if ( rank == 0 ) then
             !------ Integration over r without the boundaries and normalization:
-            HelN  =rInt(HelNr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelS  =rInt(HelSr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelnaN=rInt(HelnaNr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelnaS=rInt(HelnaSr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelEA =rInt(HelEAr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelRMSN=rInt(Hel2Nr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelRMSS=rInt(Hel2Sr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelnaRMSN=rInt(Helna2Nr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
-            HelnaRMSS=rInt(Helna2Sr_global,n_r_max,dr_fac,i_costf_init,d_costf_init)
+            HelN  =rInt(HelNr_global,n_r_max,dr_fac,chebt_oc)
+            HelS  =rInt(HelSr_global,n_r_max,dr_fac,chebt_oc)
+            HelnaN=rInt(HelnaNr_global,n_r_max,dr_fac,chebt_oc)
+            HelnaS=rInt(HelnaSr_global,n_r_max,dr_fac,chebt_oc)
+            HelEA =rInt(HelEAr_global,n_r_max,dr_fac,chebt_oc)
+            HelRMSN=rInt(Hel2Nr_global,n_r_max,dr_fac,chebt_oc)
+            HelRMSS=rInt(Hel2Sr_global,n_r_max,dr_fac,chebt_oc)
+            HelnaRMSN=rInt(Helna2Nr_global,n_r_max,dr_fac,chebt_oc)
+            HelnaRMSS=rInt(Helna2Sr_global,n_r_max,dr_fac,chebt_oc)
     
             HelN  =two*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
             HelS  =two*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration

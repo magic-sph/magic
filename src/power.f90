@@ -5,9 +5,8 @@ module power
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
                          n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
-   use radial_functions, only: r_cmb, r_icb, i_costf1_ic_init, r,   &
-                               d_costf1_ic_init, i_costf_init, or2, &
-                               d_costf_init, O_r_ic2, drx, lambda,  &
+   use radial_functions, only: r_cmb, r_icb, r, chebt_oc, chebt_ic, &
+                               or2, O_r_ic2, drx, lambda,           &
                                O_r_ic, rgrav, r_ic, dr_fac_ic
    use physical_parameters, only: kbotv, ktopv, opm, LFfac
    use num_param, only: tScale, eScale
@@ -180,24 +179,21 @@ contains
          !-- Transform to cheb space:
          if ( l_conv ) then
             curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
-            curlU2=rInt_R(curlU2_r_global,n_r_max,n_r_max,drx, &
-                 i_costf_init,d_costf_init)
+            curlU2=rInt_R(curlU2_r_global,n_r_max,n_r_max,drx,chebt_oc)
             curlU2=eScale*curlU2
          else
             curlU2=0.0_cp
          end if
          if ( l_mag )  then
             ohmDissR=ohmDissR+timePassed*curlB2_r_global*LFfac*opm*eScale
-            curlB2=rInt_R(curlB2_r_global,n_r_max,n_r_max,drx, &
-                 &        i_costf_init,d_costf_init)
+            curlB2=rInt_R(curlB2_r_global,n_r_max,n_r_max,drx,chebt_oc)
             curlB2=LFfac*opm*eScale*curlB2
          else
             curlB2=0.0_cp
          end if
          if ( l_heat ) then
             buoMeanR=buoMeanR+timePassed*buoy_r_global*eScale
-            buoy=rInt_R(buoy_r_global,n_r_max,n_r_max,drx, &
-                 i_costf_init,d_costf_init)
+            buoy=rInt_R(buoy_r_global,n_r_max,n_r_max,drx,chebt_oc)
             buoy=eScale*buoy
          else
             buoy=0.0_cp
@@ -233,8 +229,7 @@ contains
 #endif
 
          if ( rank == 0 ) then
-            curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic, &
-                 i_costf1_ic_init,d_costf1_ic_init)
+            curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic,chebt_ic)
             curlB2_IC=LFfac*opm*eScale*curlB2_IC
          end if
       else

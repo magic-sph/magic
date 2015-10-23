@@ -10,12 +10,10 @@ module updateB_mod
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
                          n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_totMag, lm_max
-   use radial_functions, only: i_costf_init,d_costf_init,drx,ddrx,or2,r_cmb,&
-                            & i_costf1_ic_init,d_costf1_ic_init,            &
-                            & i_costf2_ic_init,d_costf2_ic_init,            &
+   use radial_functions, only: chebt_ic,drx,ddrx,or2,r_cmb, chebt_oc,       &
+                            & chebt_ic_even, d2cheb_ic, cheb_norm_ic,       &
                             & dr_fac_ic,lambda,dLlambda,o_r_ic,r,cheb_norm, &
-                            & cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic,  &
-                            & d2cheb_ic, cheb_norm_ic
+                            & cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic
    use radial_data, only: n_r_cmb,n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
                                  sigma_ratio, conductance_ma, ktopb, kbotb
@@ -38,7 +36,7 @@ module updateB_mod
    use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize
    use RMS_helpers, only: hInt2Pol, hInt2Tor
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_drNS, get_ddr
    
@@ -211,9 +209,9 @@ contains
       !call get_drNS( dVxBhLM,workA, &
       !     &         ulmMag-llmMag+1,(2*lmStart-1)-llmMag+1,lmStop-llmMag+1, &
       !     &         n_r_max,n_cheb_max,workB, &
-      !     &         i_costf_init,d_costf_init,drx)
+      !     &         chebt_oc,drx)
       ! simplified interface
-      !PRINT*,rank,": computing for ",ulmMag-llmMag+1," rows, i_costf_init = ",i_costf_init
+      !PRINT*,rank,": computing for ",ulmMag-llmMag+1," rows, chebt_oc = ",chebt_oc
 
       !PERFON('upB_fin')
       all_lms=lmStop-lmStart_00+1
@@ -226,7 +224,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStop,lmStart_00) &
       !$OMP shared(dVxBhLM,workA,workB,djdt,or2) &
-      !$OMP shared(i_costf_init,d_costf_init,drx) &
+      !$OMP shared(chebt_oc,drx) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -246,7 +244,7 @@ contains
 
          call get_drNS( dVxBhLM,workA,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &         stop_lm-llmMag+1,n_r_max,n_cheb_max,workB,       &
-              &         i_costf_init,d_costf_init,drx)
+              &         chebt_oc,drx)
 
       end do
       !$OMP end do
@@ -610,10 +608,10 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &
-      !$OMP shared(i_costf_init,d_costf_init,drx,ddrx) &
+      !$OMP shared(chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag) &
       !$OMP shared(l_cond_ic,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic) &
-      !$OMP shared(i_costf1_ic_init,d_costf1_ic_init,i_costf2_ic_init,d_costf2_ic_init) &
+      !$OMP shared(chebt_ic,chebt_ic_even) &
       !$OMP shared(n_r_ic_max,n_cheb_ic_max,dr_fac_ic)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -634,41 +632,34 @@ contains
 
          !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
          !PERFON('upB_cb')
-         call costf1(b, ulmMag-llmMag+1, start_lm-llmMag+1,   &
-              &      stop_lm-llmMag+1, dbdtLast,i_costf_init, &
-              &      d_costf_init)
+         call chebt_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1,   &
+              &      stop_lm-llmMag+1, dbdtLast)
          !PERFOFF
          !PERFON('upB_db')
          call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &       stop_lm-llmMag+1,n_r_max,n_cheb_max,        &
-              &       dbdtLast,djdtLast,i_costf_init,d_costf_init,&
-              &       drx,ddrx)
+              &       dbdtLast,djdtLast,chebt_oc,drx,ddrx)
          !PERFOFF
-         call costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
-              &      stop_lm-llmMag+1, dbdtLast, i_costf_init, &
-              &      d_costf_init)
+         call chebt_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
+              &      stop_lm-llmMag+1, dbdtLast)
          call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &       stop_lm-llmMag+1,n_r_max,n_cheb_max,dbdtLast,&
-              &       djdtLast,i_costf_init,d_costf_init,drx,ddrx)
+              &       djdtLast,chebt_oc,drx,ddrx)
          
          !-- Same for inner core:
          if ( l_cond_ic ) then
-            call costf1(b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &      stop_lm-llmMag+1, dbdtLast,               &
-                 &      i_costf1_ic_init, d_costf1_ic_init)
+            call chebt_ic%costf1(b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &      stop_lm-llmMag+1, dbdtLast)
             call get_ddr_even( b_ic,db_ic,ddb_ic,                     &
                  & ulmMag-llmMag+1,start_lm-llmMag+1,  &
                  & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,   &
-                 & dr_fac_ic,dbdtLast,djdtLast, i_costf1_ic_init,     &
-                 & d_costf1_ic_init, i_costf2_ic_init,d_costf2_ic_init)
-            call costf1(aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &      stop_lm-llmMag+1, dbdtLast,                &
-                 &      i_costf1_ic_init, d_costf1_ic_init)
+                 & dr_fac_ic,dbdtLast,djdtLast, chebt_ic, chebt_ic_even)
+            call chebt_ic%costf1(aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &      stop_lm-llmMag+1, dbdtLast)
             call get_ddr_even( aj_ic,dj_ic,ddj_ic,                   &
                  & ulmMag-llmMag+1,start_lm-llmMag+1, &
                  & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,  &
-                 & dr_fac_ic,dbdtLast,djdtLast, i_costf1_ic_init,    &
-                 & d_costf1_ic_init, i_costf2_ic_init,d_costf2_ic_init)
+                 & dr_fac_ic,dbdtLast,djdtLast, chebt_ic, chebt_ic_even)
          end if
       end do
       !$OMP end do

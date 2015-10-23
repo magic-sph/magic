@@ -5,8 +5,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
                          n_theta_max, n_phi_max, minc, lStressMem,   &
                          lm_max
-   use radial_functions, only: r_ICB, i_costf_init, d_costf_init, r, &
-                               r_CMB, orho1, drx
+   use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, drx
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
                                      BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
@@ -29,7 +28,7 @@ module outTO_mod
    use useful, only: logWrite
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
    use chebInt_mod, only: chebInt, chebIntInit
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
 
    implicit none 
@@ -44,8 +43,9 @@ module outTO_mod
    real(cp), allocatable :: OsinTS(:,:)
    real(outp), allocatable :: VpM(:,:), LFM(:,:), dVpM(:,:), AstrM(:,:)
    real(outp), allocatable :: RstrM(:,:), CorM(:,:), StrM(:,:), CLM(:,:)
-   real(cp), allocatable :: d_costf_initZ(:,:), zZ(:,:), rZ(:,:)
-   integer, allocatable :: i_costf_initZ(:,:), nZmaxS(:)
+   real(cp), allocatable :: zZ(:,:), rZ(:,:)
+   integer, allocatable :: nZmaxS(:)
+   type(costf_odd_t), allocatable :: chebt_Z(:)
 
    public :: initialize_outTO_mod, outTO
 
@@ -66,8 +66,7 @@ contains
       allocate( CorM(nZmaxA/2,nSmaxA) )
       allocate( StrM(nZmaxA/2,nSmaxA) )
       allocate( CLM(nZmaxA/2,nSmaxA) )
-      allocate( i_costf_initZ(2*nZmaxA+2,nSmaxA) )
-      allocate( d_costf_initZ(2*nZmaxA+5,nSmaxA) )
+      allocate( chebt_Z(nSmaxA) )
       allocate( zZ(nZmaxA,nSmaxA) )
       allocate( rZ(nZmaxA/2+1,nSmaxA) )
       allocate( nZmaxS(nSmaxA) )
@@ -296,23 +295,23 @@ contains
          end do
 
          !---- Transform the contributions to cheb space for z-integral:
-         call costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(V2LMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BszLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BspLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BpzLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BspdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-         call costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+         call chebt_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
+         call chebt_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
 
          dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
          nSI   =0
@@ -358,14 +357,12 @@ contains
                !------ Initialize integration for NHS:
                !       Each processor calculates Cheb transform data
                !       for HIS nS and the Plms along the Cylinder
-               !       chebIntInit returns zZ,nZmaxS,i_costf_initZ and
-               !       d_costfInitZ:
+               !       chebIntInit returns zZ,nZmaxS,chebt_Z
                !       Note that this returns z in the MAGIC way, 
                !       starting with zMax, ending with zMin
                !       z(1,nS)=zMin, z(nZmax,nS)=zMax
                call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-                    &                    nZmaxA,zZ(1,nS),nZmaxS(nS),     &
-                    &       i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+                    &            nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
 
                !--- Points in nothers halfsphere
                if ( lTC ) then
@@ -527,36 +524,21 @@ contains
             end if
 
             !--- Z-integrals:
-            VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,nZmaxA,             &
-                 &             i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            dVpIntN(nS) =chebInt(dVpS,zMin,zMax,nZmax,nZmaxA,            &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            ddVpIntN(nS)=chebInt(ddVpS,zMin,zMax,nZmax,nZmaxA,           &
-                 &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            LFIntN(nS)  =chebInt(LFS,zMin,zMax,nZmax,nZmaxA,             &
-                 &             i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            TayIntN(nS) =chebInt(TayS,zMin,zMax,nZmax,nZmaxA,            &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            TayRIntN(nS)=chebInt(TayRS,zMin,zMax,nZmax,nZmaxA,           &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            TayVIntN(nS)=chebInt(TayVS,zMin,zMax,nZmax,nZmaxA,           &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            RstrIntN(nS)=chebInt(RstrS,zMin,zMax,nZmax,nZmaxA,           &
-                 &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            AstrIntN(nS)=chebInt(AstrS,zMin,zMax,nZmax,nZmaxA,           &
-                 &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            StrIntN(nS) =chebInt(StrS,zMin,zMax,nZmax,nZmaxA,            &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            V2IntN(nS)  =chebInt(V2S,zMin,zMax,nZmax,nZmaxA,             &
-                 &             i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            Bs2IntN(nS) =chebInt(Bs2S,zMin,zMax,nZmax,nZmaxA,            &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,            &
-                 &              i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            BspdIntN(nS)=chebInt(BspdS,zMin,zMax,nZmax,nZmaxA,           &
-                 &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-            BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,           &
-                 &               i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+            VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            dVpIntN(nS) =chebInt(dVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            ddVpIntN(nS)=chebInt(ddVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            LFIntN(nS)  =chebInt(LFS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayIntN(nS) =chebInt(TayS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayRIntN(nS)=chebInt(TayRS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayVIntN(nS)=chebInt(TayVS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            RstrIntN(nS)=chebInt(RstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            AstrIntN(nS)=chebInt(AstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            StrIntN(nS) =chebInt(StrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            V2IntN(nS)  =chebInt(V2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            Bs2IntN(nS) =chebInt(Bs2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BspdIntN(nS)=chebInt(BspdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
 
             if ( V2IntN(nS) < 0.0_cp ) then
                VpRIntN(nS)=one
@@ -570,36 +552,21 @@ contains
 
             !--- Z-integration inside northern TC:
             if ( lTC ) then
-               VpIntS(nS)  =chebInt(VpS(nZmax+1),zMin,zMax,nZmax,        &
-                    &           nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               dVpIntS(nS) =chebInt(dVpS(nZmax+1),zMin,zMax,nZmax,       &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               ddVpIntS(nS)=chebInt(ddVpS(nZmax+1),zMin,zMax,nZmax,      &
-                    &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               LFIntS(nS)  =chebInt(LFS(nZmax+1),zMin,zMax,nZmax,        &
-                    &           nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               TayIntS(nS) =chebInt(TayS(nZmax+1),zMin,zMax,nZmax,       &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               TayRIntS(nS)=chebInt(TayRS(nZmax+1),zMin,zMax,nZmax,      &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               TayVIntS(nS)=chebInt(TayVS(nZmax+1),zMin,zMax,nZmax,      &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               RstrIntS(nS)=chebInt(RstrS(nZmax+1),zMin,zMax,nZmax,      &
-                    &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               AstrIntS(nS)=chebInt(AstrS(nZmax+1),zMin,zMax,nZmax,      &
-                    &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               StrIntS(nS) =chebInt(StrS(nZmax+1),zMin,zMax,nZmax,       &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               V2IntS(nS)  =chebInt(V2S(nZmax+1),zMin,zMax,nZmax,        &
-                    &           nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               Bs2IntS(nS) =chebInt(Bs2S(nZmax+1),zMin,zMax,nZmax,       &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               BspIntS(nS) =chebInt(BspS(nZmax+1),zMin,zMax,nZmax,       &
-                    &            nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               BspdIntS(nS)=chebInt(BspdS(nZmax+1),zMin,zMax,nZmax,      &
-                    &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
-               BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,      &
-                    &             nZmaxA,i_costf_initZ(1,nS),d_costf_initZ(1,nS))
+               VpIntS(nS)  =chebInt(VpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               dVpIntS(nS) =chebInt(dVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               ddVpIntS(nS)=chebInt(ddVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               LFIntS(nS)  =chebInt(LFS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayIntS(nS) =chebInt(TayS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayRIntS(nS)=chebInt(TayRS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayVIntS(nS)=chebInt(TayVS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               RstrIntS(nS)=chebInt(RstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               AstrIntS(nS)=chebInt(AstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               StrIntS(nS) =chebInt(StrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               V2IntS(nS)  =chebInt(V2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               Bs2IntS(nS) =chebInt(Bs2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BspIntS(nS) =chebInt(BspS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BspdIntS(nS)=chebInt(BspdS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                if ( V2IntS(nS) < 0.0_cp ) then
                   VpRIntS(nS)=one
                else
@@ -887,12 +854,12 @@ contains
                end do
             end do
 
-            call costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-            call costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-            call costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-            call costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-            call costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
-            call costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA,i_costf_init,d_costf_init)
+            call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+            call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+            call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+            call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+            call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+            call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
 
             !--- Open output file
             nFields=7
@@ -1099,7 +1066,7 @@ contains
             end do
 
             !--- Now perform the radial integral: ( not tested )
-            TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,i_costf_init,d_costf_init)
+            TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,chebt_oc)
             !--- And finally calculate the mean value, the factor 4*pi comes from
             !    the fact that the surface integral has already been cared for
             !    NOTE: Integral for RMS Taylorisation changed to not respect the 

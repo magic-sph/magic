@@ -6,7 +6,7 @@ module updateWP_mod
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &
-                             & i_costf_init,d_costf_init,visc,dlvisc,   &
+                             & chebt_oc,visc,dlvisc,                    &
                              & beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
                              & cheb_norm
    use physical_parameters, only: kbotv, ktopv, ra
@@ -23,7 +23,7 @@ module updateWP_mod
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize
    use RMS_helpers, only:  hInt2Pol
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use radial_der, only: get_dddr, get_dr
    use constants, only: zero, one, two, three, four, third, half
 
@@ -284,7 +284,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
-      !$OMP shared(i_costf_init,d_costf_init,drx,ddrx,dddrx) &
+      !$OMP shared(chebt_oc,drx,ddrx,dddrx) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,workA,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -306,18 +306,15 @@ contains
          !-- Transform to radial space and get radial derivatives
          !   using dwdtLast, dpdtLast as work arrays:
 
-         call costf1( w, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       dwdtLast,i_costf_init,d_costf_init)
+         call chebt_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
 
          call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
               &         stop_lm-llm+1, n_r_max,n_cheb_max,dwdtLast,    &
-              &         dpdtLast, i_costf_init,d_costf_init,drx,ddrx,  &
-              &         dddrx)
-         call costf1( p, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       dwdtLast,i_costf_init,d_costf_init)
+              &         dpdtLast,chebt_oc,drx,ddrx,dddrx)
+         call chebt_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max,n_cheb_max,dwdtLast,dpdtLast,            &
-              &       i_costf_init,d_costf_init,drx)
+              &       chebt_oc,drx)
       end do
       !$OMP end do
       !$OMP END PARALLEL

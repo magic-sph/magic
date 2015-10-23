@@ -17,14 +17,11 @@ module readCheckPoints
                           omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,         &
                           tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,    &
                           scale_s
-   use radial_functions, only: i_costf_init,d_costf_init,cheb_norm, &
-                               i_costf1_ic_init,d_costf1_ic_init,   &
-                               cheb_norm_ic, r
+   use radial_functions, only: chebt_oc, cheb_norm, chebt_ic, cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
-   use init_costf, only: init_costf1
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
 
 
    implicit none
@@ -1187,18 +1184,14 @@ contains
 
       !-- Local variables
       integer :: nR, n_r_index_start
-      integer,      allocatable :: i_costf_init_old(:)
-      real(cp), allocatable :: d_costf_init_old(:)
+      type(costf_odd_t) :: chebt_oc_old
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
 
-      allocate( i_costf_init_old(2*n_r_maxL+2) )
-      allocate( d_costf_init_old(2*n_r_maxL+5) )
       allocate( work(n_r_maxL) )
 
       !----- Initialize transform to cheb space:
-      call init_costf1(n_r_max_old,i_costf_init_old,2*n_r_maxL+2,     &
-          &            d_costf_init_old,2*n_r_maxL+5)
+      call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2,2*n_r_maxL+5)
 
       !-- Guess the boundary values, since they have not been stored:
       if ( .not. l_IC .and. lBc ) then
@@ -1207,8 +1200,7 @@ contains
       end if
 
       !----- Transform old data to cheb space:
-      !      Note: i_costf_init_old,d_costf_init_old used here!
-      call costf1(dataR,work,i_costf_init_old,d_costf_init_old)
+      call chebt_oc_old%costf1(dataR,work)
 
       !----- Fill up cheb polynomial with zeros:
       if ( n_rad_tot>n_r_max_old ) then
@@ -1223,14 +1215,13 @@ contains
       end if
     
       !----- Now transform to new radial grid points:
-      !      Note: i_costf_init,d_costf_init used here!
       if ( l_IC ) then
-         call costf1(dataR,work,i_costf1_ic_init,d_costf1_ic_init)
+         call chebt_ic%costf1(dataR,work)
          !----- Rescale :
          cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
          scale=cheb_norm_old/cheb_norm_ic
       else
-         call costf1(dataR,work,i_costf_init,d_costf_init)
+         call chebt_oc%costf1(dataR,work)
          !----- Rescale :
          cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
          scale=cheb_norm_old/cheb_norm
@@ -1239,8 +1230,7 @@ contains
          dataR(nR)=scale*dataR(nR)
       end do
 
-      deallocate( i_costf_init_old )
-      deallocate( d_costf_init_old )
+      call chebt_oc_old%finalize()
       deallocate( work )
 
    end subroutine mapDataR

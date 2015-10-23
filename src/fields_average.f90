@@ -6,9 +6,7 @@ module fields_average_mod
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb
-   use radial_functions, only: i_costf_init, d_costf_init, drx,    &
-                               i_costf1_ic_init, d_costf1_ic_init, &
-                               i_costf2_ic_init, d_costf2_ic_init, &
+   use radial_functions, only: chebt_ic, chebt_oc, drx, chebt_ic_even,   &
                                r, dr_fac_ic
    use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
    use horizontal_data, only: Plm, dPlm, dLh
@@ -263,32 +261,30 @@ contains
          call get_drNS(w_ave,dw_ave,ulm-llm+1,          &
               &        lmStart-llm+1,lmStop-llm+1,      &
               &        n_r_max,n_cheb_max,workA_LMloc,  &
-              &        i_costf_init,d_costf_init,drx)
+              &        chebt_oc,drx)
          if (l_mag) then
             call get_drNS(b_ave,db_ave,ulm-llm+1,          &
                  &        lmStart-llm+1,lmStop-llm+1,      &
                  &        n_r_max,n_cheb_max,workA_LMloc,  &
-                 &        i_costf_init,d_costf_init,drx)
+                 &        chebt_oc,drx)
          end if
          if ( l_heat ) then
             call get_drNS(s_ave,ds_ave,ulm-llm+1,            &
                  &        lmStart-llm+1,lmStop-llm+1,        &
                  &        n_r_max,n_cheb_max,workA_LMloc,    &
-                 &        i_costf_init,d_costf_init,drx)
+                 &        chebt_oc,drx)
          end if
          if ( l_cond_ic ) then
             call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &
                  &              ulm-llm+1,lmStart-llm+1,               &
                  &              lmStop-llm+1,n_r_ic_max,               &
                  &              n_cheb_ic_max,dr_fac_ic,workA_LMloc,   &
-                 &              i_costf1_ic_init,d_costf1_ic_init,     &
-                 &              i_costf2_ic_init,d_costf2_ic_init)
+                 &              chebt_ic, chebt_ic_even)
             call get_drNS_even(aj_ic_ave,dj_ic_ave,                    &
                  &             ulm-llm+1,lmStart-llm+1,                &
                  &             lmStop-llm+1,n_r_ic_max,                &
                  &             n_cheb_ic_max,dr_fac_ic,workA_LMloc,    &
-                 &             i_costf1_ic_init,d_costf1_ic_init,      &
-                 &             i_costf2_ic_init,d_costf2_ic_init)
+                 &             chebt_ic,chebt_ic_even)
          end if
 
          !----- Get averaged spectra:

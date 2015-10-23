@@ -5,7 +5,7 @@ module updateS_mod
    use precision_mod
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: i_costf_init,d_costf_init,orho1,or1,or2, &
+   use radial_functions, only: chebt_oc,orho1,or1,or2, &
                            & beta, drx, ddrx, cheb_norm, dentropy0,     &
                            & kappa, dLkappa, dtemp0, otemp1, temp0,     &
                            & cheb, dcheb, d2cheb
@@ -27,7 +27,7 @@ module updateS_mod
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
-   use cosine_transform, only: costf1
+   use cosine_transform_odd
    use radial_der, only: get_drNS, get_ddr
    use constants, only: zero, one, two, half
 
@@ -117,7 +117,7 @@ contains
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVSrLM,i_costf_init,d_costf_init,drx,dsdt,orho1,or2) &
+      !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1,or2) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -139,7 +139,7 @@ contains
          !--- Finish calculation of dsdt:
          call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
               &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
-              &         i_costf_init,d_costf_init,drx)
+              &         chebt_oc,drx)
       end do
       !$OMP end do
 
@@ -311,7 +311,7 @@ contains
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
-      !$OMP shared(s,ds,dsdtLast,i_costf_init,d_costf_init,drx,ddrx) &
+      !$OMP shared(s,ds,dsdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2)
@@ -320,11 +320,10 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
-         call costf1(s, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &      dsdtLast, i_costf_init, d_costf_init)
+         call chebt_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dsdtLast)
          call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, n_cheb_max, workB, dsdtLast,                   &
-              &       i_costf_init,d_costf_init,drx,ddrx)
+              &       chebt_oc,drx,ddrx)
       end do
       !$OMP end do
 
@@ -412,7 +411,7 @@ contains
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread) &
-      !$OMP shared(dVSrLM,i_costf_init,d_costf_init,drx,dsdt,orho1) &
+      !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1) &
       !$OMP shared(otemp1,dtemp0,or2,lmStart,lmStop) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
@@ -435,7 +434,7 @@ contains
          !--- Finish calculation of dsdt:
          call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
               &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
-              &         i_costf_init,d_costf_init,drx)
+              &         chebt_oc,drx)
       end do
       !$OMP end do
 
@@ -612,7 +611,7 @@ contains
       !$OMP PARALLEL default(none) &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,nThreads) &
-      !$OMP shared(s,ds,w,dsdtLast,i_costf_init,d_costf_init,drx,ddrx) &
+      !$OMP shared(s,ds,w,dsdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm,temp0) &
       !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2) &
@@ -622,11 +621,10 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
-         call costf1(s, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &      dsdtLast, i_costf_init, d_costf_init)
+         call chebt_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dsdtLast)
          call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, n_cheb_max, workB, dsdtLast,                   &
-              &       i_costf_init,d_costf_init,drx,ddrx)
+              &       chebt_oc,drx,ddrx)
       end do
       !$OMP end do
 

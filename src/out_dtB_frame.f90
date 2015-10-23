@@ -2,9 +2,8 @@ module out_dtB_frame
 
    use truncation
    use precision_mod
-   use radial_functions, only: r, or1, i_costf1_ic_init, d_costf1_ic_init,  &
-                               r_ic, drx, i_costf_init, d_costf_init, r_icb,&
-                               i_costf2_ic_init, d_costf2_ic_init, dr_fac_ic
+   use radial_functions, only: r, or1, chebt_ic, r_ic, drx, chebt_oc, r_icb, &
+                               dr_fac_ic, chebt_ic_even
    use blocking, only: nThetaBs, sizeThetaB, lm2m, lm2l, nfs, lm2
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
                               dPlm, Plm, dPhi, dLh, D_lP1
@@ -190,26 +189,26 @@ contains
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
                call get_drNS(PstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             else if ( n_field_type == 36 ) then
                call get_drNS(PadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             else if ( n_field_type == 37 ) then
                call get_drNS(PdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
     
             else if ( n_field_type == 38 ) then
                call get_drNS(TstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             else if ( n_field_type == 39 ) then
                call get_drNS(TomeLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             else if ( n_field_type == 40 ) then
                call get_drNS(TadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             else if ( n_field_type == 41 ) then
                call get_drNS(TdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,i_costf_init,d_costf_init,drx)
+                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
             end if
     
             if ( n_surface == 0 ) then
@@ -375,26 +374,22 @@ contains
                   call get_drNS_even(       PadvLMIC,workA, &
                        lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
-                       i_costf1_ic_init,d_costf1_ic_init, &
-                       i_costf2_ic_init,d_costf2_ic_init)
+                       chebt_ic, chebt_ic_even)
                else if ( n_field_type == 37 ) then
                   call get_drNS_even(       PdifLMIC,workA, &
                        lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
-                       i_costf1_ic_init,d_costf1_ic_init, &
-                       i_costf2_ic_init,d_costf2_ic_init)
+                       chebt_ic, chebt_ic_even)
                else if ( n_field_type == 40 ) then
                   call get_drNS_even(       TadvLMIC,workA, &
                        lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
-                       i_costf1_ic_init,d_costf1_ic_init, &
-                       i_costf2_ic_init,d_costf2_ic_init)
+                       chebt_ic, chebt_ic_even)
                else if ( n_field_type == 41 ) then
                   call get_drNS_even(       TdifLMIC,workA, &
                        lm_max,1,lm_max, &
                        n_r_ic_max,n_cheb_ic_max,dr_fac_ic,workB, &
-                       i_costf1_ic_init,d_costf1_ic_init, &
-                       i_costf2_ic_init,d_costf2_ic_init)
+                       chebt_ic, chebt_ic_even)
                end if
     
                do n_rC=2,n_r_loop_max

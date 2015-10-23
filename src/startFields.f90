@@ -7,11 +7,9 @@ module start_fields
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: dtemp0, topcond, botcond, i_costf_init,   &
-                               d_costf_init, drx, ddrx, dr_fac_ic,       &
-                               i_costf1_ic_init, d_costf1_ic_init,       &
-                               i_costf2_ic_init, d_costf2_ic_init,       &
-                               r, or1
+   use radial_functions, only: dtemp0, topcond, botcond, chebt_oc,   &
+                               drx, ddrx, dr_fac_ic, chebt_ic,       &
+                               chebt_ic_even, r, or1
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
                                   ktopv, kbotv, LFfac, imagcon
    use num_param, only: dtMax, alpha
@@ -89,8 +87,7 @@ contains
             botcond=-one/epsS*dtemp0(n_r_max)
          else
             call s_cond(s0)
-            call get_dr(s0,ds0,n_r_max,n_cheb_max, &
-                   &    w1,w2,i_costf_init,d_costf_init,drx)
+            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
             topcond=-osq4pi*ds0(1)
             botcond=-osq4pi*ds0(n_r_max)
          end if
@@ -297,35 +294,33 @@ contains
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
                           lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
-                          workB_LMloc,i_costf_init,d_costf_init,drx,ddrx )
+                          workB_LMloc,chebt_oc,drx,ddrx )
             call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
                          n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                         i_costf_init,d_costf_init,drx )
+                         chebt_oc,drx )
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
             call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
                           lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
                           n_cheb_max,workA_LMloc,workB_LMloc,         &
-                          i_costf_init,d_costf_init,drx,ddrx )
+                          chebt_oc,drx,ddrx )
             call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
                           lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
                           n_cheb_max,workA_LMloc,workB_LMloc,          &
-                          i_costf_init,d_costf_init,drx,ddrx )
+                          chebt_oc,drx,ddrx )
          end if
          if ( l_cond_ic ) then
             call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,       &
                               ulmMag-llmMag+1,lmStart-llmMag+1,          &
                               lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
                               dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                              i_costf1_ic_init,d_costf1_ic_init,         &
-                              i_costf2_ic_init,d_costf2_ic_init )
+                              chebt_ic, chebt_ic_even)
             call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,      &
                               ulmMag-llmMag+1,lmStart-llmMag+1,          &
                               lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
                               dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                              i_costf1_ic_init,d_costf1_ic_init,         &
-                              i_costf2_ic_init,d_costf2_ic_init )
+                              chebt_ic, chebt_ic_even)
          end if
     
          if ( l_LCR ) then
@@ -364,7 +359,7 @@ contains
             !end if
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
                          n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                         i_costf_init,d_costf_init,drx )
+                         chebt_oc,drx )
          end if
     
          if ( DEBUG_OUTPUT ) then
