@@ -403,7 +403,9 @@ out_RMS.o             : truncation.o parallel.o blocking.o num_param.o\
                         output_data.o RMS.o radial_derivatives.o\
                         RMS_helpers.o integration.o communications.o\
                         horizontal.o dtB.o
-RMS.o                 : truncation.o constants.o precision_mod.o
+RMS.o                 : truncation.o constants.o precision_mod.o\
+                        chebyshev_polynoms.o cosine_transform_odd.o\
+                        output_data.o radial_derivatives.o radial.o
 updateWP.o            : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         mat.o RMS.o cosine_transform_odd.o radial_derivatives.o\
@@ -474,8 +476,7 @@ preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
                         useful.o integration.o parallel.o Bext.o
 RMS_helpers.o         : truncation.o blocking.o radial.o constants.o\
                         horizontal.o  useful.o integration.o\
-                        LMmapping.o chebyshev_polynoms.o\
-                        cosine_transform_odd.o radial_derivatives.o
+                        LMmapping.o 
 kinetic_energy.o      : truncation.o blocking.o num_param.o radial.o\
                         horizontal.o output_data.o logic.o constants.o\
                         phys_param.o useful.o integration.o\

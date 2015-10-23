@@ -4,6 +4,7 @@
 module fft
 
    use precision_mod
+   use constants, only: one
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
    use mkl_dfti
@@ -56,7 +57,7 @@ contains
                              DFTI_COMPLEX_COMPLEX )
       status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
-                             1.0/real(number_of_points,cp) )
+                             one/real(number_of_points,cp) )
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft

@@ -11,7 +11,6 @@ module cosine_transform_odd
    private
 
    type, public :: costf_odd_t
-      complex(cp), allocatable :: work_array(:,:)
       integer, allocatable  :: i_costf_init(:)
       real(cp), allocatable :: d_costf_init(:)
    contains
