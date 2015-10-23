@@ -11,6 +11,7 @@ module cosine_transform_odd
    private
 
    type, public :: costf_odd_t
+      complex(cp), allocatable :: work_array(:,:)
       integer, allocatable  :: i_costf_init(:)
       real(cp), allocatable :: d_costf_init(:)
    contains
@@ -778,7 +779,7 @@ contains
 
       !-- Output variables:
       real(cp), intent(inout) :: f(*)   ! data/coeff input
-      real(cp), intent(out) :: f2(*)    ! work array of the same size as f
+      real(cp), intent(out) :: f2(*)  ! work array
     
       !-- Local variables:
       integer :: n
@@ -799,7 +800,7 @@ contains
       real(cp) :: wr_j,wi_j,wr_i,wi_i
       real(cp) :: tot_sum
       integer :: n_factors,n_fac,fac,fac_tot
-    
+
       n=this%i_costf_init(1)-1
     
       n_P1=n+1

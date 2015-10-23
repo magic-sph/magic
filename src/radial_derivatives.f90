@@ -27,8 +27,7 @@ contains
 
 !------------------------------------------------------------------------------
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-        &            n_r_max,n_cheb_max,work1,work2,          &
-        &            chebt,drx)
+        &            n_r_max,n_cheb_max,work1,work2,chebt,drx)
       !
       !  Returns first radial derivative df of the input function f.      
       !  Array f(n_f_max,*) may contain several functions numbered by     

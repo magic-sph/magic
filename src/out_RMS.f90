@@ -6,23 +6,13 @@ module out_RMS
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: n_r_maxC, chebt_oc, drx, r, r_CMB, rgrav,   &
-                               rC, n_cheb_maxC, nDi_costf1, nDd_costf1, dr_facC, nCut
+   use radial_functions, only: chebt_oc, drx, r, r_CMB, rgrav
+                               
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2
    use logic, only: l_save_out, l_RMStest, l_heat, l_conv_nl, l_mag_LF, &
                     l_conv, l_corr
-   use RMS, only: CorPolLMr, CorPol2hInt, CorPolAs2hInt, CorTor2hInt,   &
-                  CorTorAs2hInt, AdvPolLMr, AdvPol2hInt, AdvPolAs2hInt, &
-                  AdvTor2hInt, AdvTorAs2hInt, LFPolLMr, LFPol2hInt,     &
-                  LFPolAs2hInt, LFTor2hInt, LFTorAs2hInt, BuoLMr,       &
-                  Buo2hInt, BuoAs2hInt, PreLMr, Pre2hInt, PreAs2hInt,   &
-                  GeoLMr, Geo2hInt, GeoAs2hInt, MagLMr, Mag2hInt,       &
-                  MagAs2hInt, ArcLMr, Arc2hInt, ArcAs2hInt, DifPolLMr,  &
-                  DifPol2hInt, DifPolAs2hInt, DifTor2hInt,              &
-                  DifTorAs2hInt, dtVPolLMr, dtVPol2hInt, dtVPolAs2hInt, &
-                  dtVTor2hInt, dtVTorAs2hInt, dtBPolLMr, dtBPol2hInt,   &
-                  dtBPolAs2hInt, dtBTor2hInt, dtBTorAs2hInt
+   use RMS
 
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
                       TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
@@ -34,15 +24,13 @@ module out_RMS
    use horizontal_data, only: phi, theta_ord
    use output_data, only: TAG, runid, n_dtdrms_file, dtdrms_file,        &
                           n_dtvasrms_file, dtvasrms_file, n_dtvrms_file, &
-                          dtvrms_file, rCut, rDea, n_dtbrms_file,        &
-                          dtbrms_file
+                          dtvrms_file, n_dtbrms_file, dtbrms_file
    use constants, only: pi, vol_oc, zero, half, four, third
    use integration, only: rInt_R
 #ifdef WITH_MPI
    use communications, only: myAllGather
 #endif
-   use RMS_helpers, only: init_rNB, hInt2dPol, get_PolTorRms, get_PASLM, &
-                          get_RAS
+   use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS
    use radial_der, only: get_drNS
    use cosine_transform_odd, only: costf_odd_t
 
@@ -92,7 +80,6 @@ contains
       real(cp) :: ArcRms,   ArcAsRms
     
       !-- Local:
-      type(costf_odd_t) :: chebt_RMS
       integer :: nR,nRC
       !integer :: n
       real(cp) :: volC
@@ -221,10 +208,6 @@ contains
          !write(*,"(A,ES22.14)") "dtVPol2hInt = ",SUM(dtVPol2hInt)
          if ( nRMS_sets == 0 ) then
             nRMS_sets=nRMS_sets+1
-            !--- Initialize new cut-back grid:
-            call init_rNB(r,n_r_max,n_cheb_max,rCut,rDea, &
-                            rC,n_r_maxC,n_cheb_maxC,nCut, &
-                        dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
          end if
          nRC=nCut+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)

@@ -13,16 +13,13 @@ module RMS_helpers
    use integration, only: rInt_R
    use LMmapping, only: mappings
    use constants, only: vol_oc, one
-   use chebyshev_polynoms_mod, only: cheb_grid
-   use radial_der, only: get_dr
-   use cosine_transform_odd
 
    implicit none
 
    private
 
    public :: get_PASLM, get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-             init_rNB, get_RAS
+             get_RAS
 
 contains
 
@@ -266,113 +263,5 @@ contains
       end do        ! Loop over colatitudes
 
     end subroutine get_RAS
-!-----------------------------------------------------------------------------
-   subroutine init_rNB(r,n_r_max,n_cheb_max,rCut,rDea,      &
-        &              r2,n_r_max2,n_cheb_max2,             &
-        &              nS,dr_fac2,chebt_RMS,nDi_costf1,     &
-        &              nDd_costf1)
-      !
-      ! Prepares the usage of a cut back radial grid where nS points
-      ! on both boundaries are discarded.
-      ! The aim actually is to discard boundary effects, but just
-      ! not considering the boundary grid points does not work when
-      ! you also want radial derivatives and integrals. For these
-      ! we use the Chebychev transform which needs are particular number
-      ! of grid points so that the fast cosine transform can be
-      ! applied. Therefor more than just 2 points have to be
-      ! thrown away, which may make sense anyway.
-      !
-    
-      !--- Input variables:
-      real(cp),          intent(in) :: r(*),rCut,rDea
-      integer,           intent(in) :: n_r_max,n_cheb_max
-      integer,           intent(in) :: nDi_costf1,nDd_costf1
-    
-      !--- Output variables:
-      integer,           intent(out) :: nS,n_r_max2,n_cheb_max2
-      real(cp),          intent(out) :: r2(*),dr_fac2(*)
-      type(costf_odd_t), intent(out) :: chebt_RMS
-    
-      ! Local stuff
-      real(cp) :: drx(n_r_max)      ! first derivatives of x(r)
-      real(cp) :: r2C(n_r_max)
-      real(cp) :: r_cheb2(n_r_max)
-      real(cp) :: dr2(n_r_max)
-      real(cp) :: w1(n_r_max), w2(n_r_max)
-      real(cp) :: r_icb2, r_cmb2, dr_fac
-      integer :: nRs(16)
-    
-      logical :: lStop
-      integer :: nR,n
-    
-      !--- New radial grid:
-    
-      !--- Find number of points to be cut away at either side:
-      lStop=.true.
-      do nS=1,(n_r_max-1)/2
-         if ( r(1)-r(nS) > rCut ) then
-            lStop=.false.
-            exit
-         end if
-      end do
-      if ( lStop ) then
-         write(*,*) 'No nS found in init_rNB!'
-         stop
-      end if
-      n_r_max2=n_r_max-2*nS
-    
-      ! Allowed number of radial grid points:
-      nRs(1) =25
-      nRs(2) =33
-      nRs(3) =37
-      nRs(4) =41
-      nRs(5) =49
-      nRs(6) =61
-      nRs(7) =65
-      nRs(8) =73
-      nRs(9) =81
-      nRs(10)=97
-      nRs(11)=101
-      nRs(12)=109
-      nRs(13)=121
-      nRs(14)=161
-      nRs(15)=193
-      nRs(16)=257
-      lStop=.true.
-      do n=14,1,-1
-         if ( nRs(n) <= n_r_max2 ) then
-            lStop=.false.
-            exit
-         end if
-      end do
-      if ( lStop ) then
-         write(*,*) 'No n_r_max2 found in init_rNB!'
-         stop
-      end if
-    
-      n_r_max2=nRs(n)
-      nS=(n_r_max-n_r_max2)/2
-      n_cheb_max2=min(int((one-rDea)*n_r_max2),n_cheb_max)
-    
-      do nR=1,n_r_max2
-         r2(nR)=r(nR+nS)
-      end do
-      r_icb2=r2(n_r_max2)
-      r_cmb2=r2(1)
-      call cheb_grid(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2, &
-                     0.0_cp,0.0_cp,0.0_cp,0.0_cp)
-      call chebt_RMS%initialize(n_r_max2, nDi_costf1, nDd_costf1)
-
-      dr_fac=one
-      do nR=1,n_r_max
-         drx(nR)=one
-      end do
-      call get_dr(r2,dr2,n_r_max2,n_cheb_max2, &
-                  w1,w2,chebt_RMS,drx)
-      do nR=1,n_r_max2
-         dr_fac2(nR)=one/dr2(nR)
-      end do
-
-   end subroutine init_rNB
 !-----------------------------------------------------------------------------
 end module RMS_helpers

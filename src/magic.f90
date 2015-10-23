@@ -221,7 +221,6 @@ program magic
    call initialize_matrices
    call initialize_fields
    call initialize_fieldsLast
-   if ( l_RMS ) call initialize_RMS
    if ( ldtBmem == 1 ) call initialize_dtB_mod
    call initialize_kinetic_energy
    call initialize_magnetic_energy
@@ -238,6 +237,8 @@ program magic
    call preCalc
 
    if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
+
+   if ( l_RMS ) call initialize_RMS
 
    if ( rank == 0 ) then
       if ( l_save_out ) then

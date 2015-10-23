@@ -86,13 +86,8 @@ module radial_functions
  
    !-- Radius functions for cut-back grid without boundaries:
    !-- (and for the nonlinear mapping)
-   real(cp), public, allocatable :: rC(:)             ! Radii
-   real(cp), public, allocatable :: dr_facC(:)        ! :math:`2/d`, where :math:`d=r_o-r_i`
    real(cp), public :: alph1       ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alph2       ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
-   integer, public :: n_r_maxC     ! Number of radial points
-   integer, public :: n_cheb_maxC  ! Number of Chebyshevs
-   integer, public :: nCut         ! Truncation
  
    real(cp), public, allocatable :: lambda(:)     ! Array of magnetic diffusivity
    real(cp), public, allocatable :: dLlambda(:)   ! Derivative of magnetic diffusivity
@@ -155,8 +150,6 @@ contains
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
-
-      allocate( rC(n_r_max),dr_facC(n_r_max) )
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------

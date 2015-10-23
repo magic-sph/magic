@@ -1186,7 +1186,7 @@ contains
       rCut          =0.075_cp ! Thickness of layer to be left out at both
       ! boundaries for RMS calculation.
       ! rCut=0.075 means that 7.5% at the CMB and ICB are disregarded.
-      rDea          =0.00_cp  ! Controls dealiazing in  RMS calculation
+      rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
       ! rDea=0.1 means that highest 10% of cheb modes are set to zero
 
       !----- Mantle name list:
