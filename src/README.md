@@ -24,14 +24,10 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 * `USE_MKL` Set to `yes` if you have Intel MKL installed and want to use it for matrix operations.
 * `USE_HDF5` Set to `yes` if you want the restart file to be written in HDF5 format
 
-### 3. Architecture (Intel compilers only)
-
-If you're using intel compilers and if your computer is capable of following specific intel instruction sets (sse3 or AVX), then set `FFLAG_ARCH_OPT = -xsse3` or `FFLAG_ARCH_OPT = -xAVX` under intel compiler options.
-
-### 4. MPI_INCPATH
+### 3. MPI_INCPATH
 
 Make sure you set the path for your mpi header file `mpif.h` in `MPI_INCPATH`. The path depends on the computer. For PCs, this is commonly `/usr/include` or `/usr/include/mpi`. Use [Open MPI](http://www.open-mpi.de/) for running MagIC on a PC. For computing clusters, please look through the documentation of the respective cluster for their MPI implementation.
 
-### 5. Other compilers
+### 4. Other compilers
 
 If your available compilers are different from the options provided in the Makefile, then change them suitably using the options `COMP_FC` and `COMP_CC` for serial fortran and C compilers and `COMP_MPFC` and `COMP_MPCC` for compilers with mpi implementation.

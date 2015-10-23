@@ -8,15 +8,15 @@ Chebyshev polynomials and cosine transforms
 
 .. f:automodule:: chebyshev_polynoms_mod
 
-``init_costf.f90``
-------------------
+``cosine_transform_odd.f90``
+----------------------------
 
-.. f:automodule:: init_costf
+.. f:automodule:: cosine_transform_odd
 
-``cosine_transform.f90``
-------------------------
+``cosine_transform_even.f90``
+-----------------------------
 
-.. f:automodule:: cosine_transform
+.. f:automodule:: cosine_transform_even
 
 ``fft_fac.f90``
 ---------------

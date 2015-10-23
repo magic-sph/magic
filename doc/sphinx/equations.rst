@@ -290,7 +290,7 @@ the following, but keep in mind that depending on your setup, the entropy refere
   \times\vec{B}\right)^2,
   :label: eqEntropyNd
 
-The Boussinesq limits of the equation :math:`Di \rightarrow 0`
+The Boussinesq limit of the equations :math:`Di \rightarrow 0`
 --------------------------------------------------------------
 
 When the dissipation number :math:`Di\rightarrow 0` then :math:`\tilde{T}=\text{cst.}`.

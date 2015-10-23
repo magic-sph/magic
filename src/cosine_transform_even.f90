@@ -203,7 +203,7 @@ contains
       !  Purpose of this subroutine is to perform a multiple              
       !  cosine transforms for n+1 datapoints                             
       !  on the columns numbered n_f_start to n_f_stop in the array       
-      !   y(n_f_max,n+1)                                                  
+      !  y(n_f_max,n+1)                                                  
       !  Depending whether the input y contains data or coeff arrays      
       !  coeffs or data are returned in y.                                
       !

@@ -289,17 +289,17 @@ Mechanical boundary conditions
   +-------------+--------------------------------------------------------------------+
   | ``ktopv=1`` | Stress-free outer boundary for :math:`r=r_o`:                      |
   |             |   .. math::                                                        |
-  |             |      w_{\ell m}(r=r_o)=0, \quad                                    |
+  |             |      W_{\ell m}(r=r_o)=0, \quad                                    |
   |             |      \frac{\partial}{\partial r}\left(\frac{1}{r^2\tilde{\rho}}    |
-  |             |      \frac{\partial w_{\ell m}}{\partial r}\right)=0 \\            |
+  |             |      \frac{\partial W_{\ell m}}{\partial r}\right)=0 \\            |
   |             |      \frac{\partial}{\partial r}\left(\frac{1}{r^2\tilde{\rho}}    |
-  |             |       z_{\ell m}\right)=0                                          |
+  |             |       Z_{\ell m}\right)=0                                          |
   +-------------+--------------------------------------------------------------------+
   | ``ktopv=2`` | Rigid outer boundary for :math:`r=r_o`:                            |
   |             |    .. math::                                                       |
-  |             |       w_{\ell m}=0,\quad                                           |
-  |             |       \frac{\partial w_{\ell m}}{\partial r}=0, \\                 |
-  |             |       z_{\ell m}=0                                                 |
+  |             |       W_{\ell m}=0,\quad                                           |
+  |             |       \frac{\partial W_{\ell m}}{\partial r}=0, \\                 |
+  |             |       Z_{\ell m}=0                                                 |
   +-------------+--------------------------------------------------------------------+
 
 
@@ -316,14 +316,14 @@ Magnetic boundary conditions
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=1`` | Insulating outer boundary:                                                      |
   |             |    .. math::                                                                    |
-  |             |       \frac{\partial b_{\ell m}}{\partial r}+\frac{\ell}{r}\,b_{\ell m}=0,\quad |
-  |             |       \frac{\partial j_{\ell m}}{\partial r}=0                                  |
+  |             |       \frac{\partial g_{\ell m}}{\partial r}+\frac{\ell}{r}\,g_{\ell m}=0,\quad |
+  |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=3`` | Finitely conducting mantle                                                      |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=4`` | Pseudo-vacuum outer boundary:                                                   |
   |             |    .. math::                                                                    |
-  |             |       \frac{\partial b_{\ell m}}{\partial r}=0,\quad  j_{\ell m}=0              |
+  |             |       \frac{\partial g_{\ell m}}{\partial r}=0,\quad  h_{\ell m}=0              |
   +-------------+---------------------------------------------------------------------------------+
 
 * **kbotb** (default :f:var:`kbotb=1 <kbotb>`) is an integer, which corresponds to the magnetic boundary condition for :math:`r=r_i`.
@@ -331,17 +331,17 @@ Magnetic boundary conditions
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=1`` | Insulating inner boundary:                                                      |
   |             |    .. math::                                                                    |
-  |             |     \frac{\partial b_{\ell m}}{\partial r}-\frac{\ell+1}{r}\,b_{\ell m}=0,\quad |
-  |             |       \frac{\partial j_{\ell m}}{\partial r}=0                                  |
+  |             |     \frac{\partial g_{\ell m}}{\partial r}-\frac{\ell+1}{r}\,g_{\ell m}=0,\quad |
+  |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=2`` | Perfectly-conducting innner core:                                               |
   |             |    .. math::                                                                    |
-  |             |       b_{\ell m} = \frac{\partial b_{\ell m}}{\partial r}=0,\quad               |
-  |             |       \frac{\partial j_{\ell m}}{\partial r}=0                                  |
+  |             |       g_{\ell m} = \frac{\partial g_{\ell m}}{\partial r}=0,\quad               |
+  |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=3`` | Finitely conducting innner core                                                 |
   +-------------+---------------------------------------------------------------------------------+
   | ``ktopb=4`` | Pseudo-vacuum outer boundary:                                                   |
   |             |    .. math::                                                                    |
-  |             |       \frac{\partial b_{\ell m}}{\partial r}=0,\quad  j_{\ell m}=0              |
+  |             |       \frac{\partial g_{\ell m}}{\partial r}=0,\quad  h_{\ell m}=0              |
   +-------------+---------------------------------------------------------------------------------+

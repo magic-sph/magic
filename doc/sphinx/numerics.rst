@@ -385,7 +385,7 @@ Choosing :math:`N_r>N` provides radial dealiasing.
 
 .. seealso:: The Chebyshev (Gauss-Lobatto) grid is defined in the module
              :f:mod:`chebyshev_polynoms_mod`. The cosine transforms are computed in the
-             modules :f:mod:`cosine_transform` and :f:mod:`fft_fac_mod`.
+             modules :f:mod:`cosine_transform_even` and :f:mod:`fft_fac_mod`.
 
 Spectral equations
 ==================
@@ -1365,7 +1365,7 @@ Translated to the spectral representation this requires
   \left[{\cal C}''_n(r) -\left(\frac{2}{r}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\,{\cal C}'_n(r)
   \right] W_{\ell mn} = 0 \;\;\mbox{and}\;\;
   \left[{\cal C}'_n(r) -\left(\frac{2}{r}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\,{\cal C}_n(r)
-  \right] z_{\ell mn} = 0\;.
+  \right] Z_{\ell mn} = 0\;.
 
 
 Magnetic boundary conditions and inner core
