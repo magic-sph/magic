@@ -26,14 +26,14 @@ contains
       !
 
       !-- Input variables:
-      real(cp),          intent(in) :: f(*)
       integer,           intent(in) :: nRmax
+      real(cp),          intent(in) :: f(nRmax)
       real(cp),          intent(in) :: drFac
       type(costf_odd_t), intent(in) :: chebt
 
       !-- Local variables:
       integer :: nCheb,nR
-      real(cp) :: WORK(nRmax)
+      real(cp) :: work(nRmax)
       real(cp) :: f2(nRmax)
 
       !-- Save input:
@@ -42,7 +42,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call chebt%costf1_real_1d(f2,work)
+      call chebt%costf1(f2,work)
       f2(1)    =half*f2(1)
       f2(nRmax)=half*f2(nRmax)
 
@@ -65,8 +65,8 @@ contains
       !
 
       !-- Input variables:
-      real(cp),          intent(inout) :: f(*)
       integer,           intent(in) :: nRmax
+      real(cp),          intent(inout) :: f(nRmax)
       real(cp),          intent(in) :: drFac
       type(costf_odd_t), intent(in) :: chebt
 
@@ -75,7 +75,7 @@ contains
       real(cp) :: weight
       real(cp) :: work(nRmax)
 
-      call chebt%costf1_real_1d(f,work)
+      call chebt%costf1(f,work)
       f(1)    =half*f(1)
       f(nRmax)=half*f(nRmax)
 
@@ -99,9 +99,9 @@ contains
       !
 
       !-- Input variables:
-      real(cp),          intent(in) :: f(*)
       integer,           intent(in) :: n_r_max,n_cheb_max
-      real(cp),          intent(in) :: dr_fac(*)
+      real(cp),          intent(in) :: f(n_r_max)
+      real(cp),          intent(in) :: dr_fac(n_r_max)
       type(costf_odd_t), intent(in) :: chebt
               
       !-- Local variables
@@ -115,7 +115,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call chebt%costf1_real_1d(f2,work)
+      call chebt%costf1(f2,work)
       f2(1)      =half*f2(1)
       f2(n_r_max)=half*f2(n_r_max)
 

@@ -336,7 +336,7 @@ contains
                         dzEkInt(nZ)=VrInt(nZ)*VrInt(nZ) +                &
                              &      VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
                      end do
-                     dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,chebt_Z(nS))
+                     dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                      dzEk_s(nS)=dzEk_s(nS) +                             &
                           &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
                   end if
@@ -422,7 +422,7 @@ contains
                         dpEkInt(nZ)=dpEkInt(nZ+nZmax)
                      end do
                   end if
-                  dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,chebt_Z(nS))
+                  dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                   dpEk_s(nS)=dpEk_s(nS) +                                &
                        &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
                        &     (sZ(nS)**2) ! Convert angle to length

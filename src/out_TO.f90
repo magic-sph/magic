@@ -524,21 +524,21 @@ contains
             end if
 
             !--- Z-integrals:
-            VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,chebt_Z(nS))
-            dVpIntN(nS) =chebInt(dVpS,zMin,zMax,nZmax,chebt_Z(nS))
-            ddVpIntN(nS)=chebInt(ddVpS,zMin,zMax,nZmax,chebt_Z(nS))
-            LFIntN(nS)  =chebInt(LFS,zMin,zMax,nZmax,chebt_Z(nS))
-            TayIntN(nS) =chebInt(TayS,zMin,zMax,nZmax,chebt_Z(nS))
-            TayRIntN(nS)=chebInt(TayRS,zMin,zMax,nZmax,chebt_Z(nS))
-            TayVIntN(nS)=chebInt(TayVS,zMin,zMax,nZmax,chebt_Z(nS))
-            RstrIntN(nS)=chebInt(RstrS,zMin,zMax,nZmax,chebt_Z(nS))
-            AstrIntN(nS)=chebInt(AstrS,zMin,zMax,nZmax,chebt_Z(nS))
-            StrIntN(nS) =chebInt(StrS,zMin,zMax,nZmax,chebt_Z(nS))
-            V2IntN(nS)  =chebInt(V2S,zMin,zMax,nZmax,chebt_Z(nS))
-            Bs2IntN(nS) =chebInt(Bs2S,zMin,zMax,nZmax,chebt_Z(nS))
-            BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,chebt_Z(nS))
-            BspdIntN(nS)=chebInt(BspdS,zMin,zMax,nZmax,chebt_Z(nS))
-            BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,chebt_Z(nS))
+            VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            dVpIntN(nS) =chebInt(dVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            ddVpIntN(nS)=chebInt(ddVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            LFIntN(nS)  =chebInt(LFS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayIntN(nS) =chebInt(TayS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayRIntN(nS)=chebInt(TayRS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            TayVIntN(nS)=chebInt(TayVS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            RstrIntN(nS)=chebInt(RstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            AstrIntN(nS)=chebInt(AstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            StrIntN(nS) =chebInt(StrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            V2IntN(nS)  =chebInt(V2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            Bs2IntN(nS) =chebInt(Bs2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BspdIntN(nS)=chebInt(BspdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            BpsdIntN(nS)=chebInt(BpsdS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
 
             if ( V2IntN(nS) < 0.0_cp ) then
                VpRIntN(nS)=one
@@ -552,21 +552,21 @@ contains
 
             !--- Z-integration inside northern TC:
             if ( lTC ) then
-               VpIntS(nS)  =chebInt(VpS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               dVpIntS(nS) =chebInt(dVpS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               ddVpIntS(nS)=chebInt(ddVpS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               LFIntS(nS)  =chebInt(LFS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               TayIntS(nS) =chebInt(TayS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               TayRIntS(nS)=chebInt(TayRS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               TayVIntS(nS)=chebInt(TayVS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               RstrIntS(nS)=chebInt(RstrS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               AstrIntS(nS)=chebInt(AstrS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               StrIntS(nS) =chebInt(StrS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               V2IntS(nS)  =chebInt(V2S(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               Bs2IntS(nS) =chebInt(Bs2S(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               BspIntS(nS) =chebInt(BspS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               BspdIntS(nS)=chebInt(BspdS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
-               BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,chebt_Z(nS))
+               VpIntS(nS)  =chebInt(VpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               dVpIntS(nS) =chebInt(dVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               ddVpIntS(nS)=chebInt(ddVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               LFIntS(nS)  =chebInt(LFS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayIntS(nS) =chebInt(TayS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayRIntS(nS)=chebInt(TayRS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               TayVIntS(nS)=chebInt(TayVS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               RstrIntS(nS)=chebInt(RstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               AstrIntS(nS)=chebInt(AstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               StrIntS(nS) =chebInt(StrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               V2IntS(nS)  =chebInt(V2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               Bs2IntS(nS) =chebInt(Bs2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BspIntS(nS) =chebInt(BspS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BspdIntS(nS)=chebInt(BspdS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               BpsdIntS(nS)=chebInt(BpsdS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                if ( V2IntS(nS) < 0.0_cp ) then
                   VpRIntS(nS)=one
                else

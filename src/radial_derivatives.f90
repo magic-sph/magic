@@ -37,19 +37,19 @@ contains
       !
     
       !-- Input variables:
+      integer,           intent(in) :: n_r_max          ! number of radial grid points
       integer,           intent(in) :: n_f_max          ! first dim of f
-      complex(cp),       intent(in) :: f(n_f_max,*)
+      complex(cp),       intent(in) :: f(n_f_max,n_r_max)
       integer,           intent(in) :: n_f_start        ! first function to be treated
       integer,           intent(in) :: n_f_stop         ! last function to be treated
-      integer,           intent(in) :: n_r_max          ! number of radial grid points
       integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
-      real(cp),          intent(in) :: drx(*)           ! first derivatives of x(r)
+      real(cp),          intent(in) :: drx(n_r_max)     ! first derivatives of x(r)
       type(costf_odd_t), intent(in) :: chebt
     
       !-- Output variables:
-      complex(cp), intent(out) :: df(n_f_max,*)       ! first derivative of f
-      complex(cp), intent(out) :: work1(n_f_max,*)    ! work array needed for costf
-      complex(cp), intent(out) :: work2(n_f_max,*)    ! work array for f transfer
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
+      complex(cp), intent(out) :: work1(n_f_max,n_r_max)! work array needed for costf
+      complex(cp), intent(out) :: work2(n_f_max,n_r_max)! work array for f transfer
     
       !-- Local:
       integer :: n_r,n_f
@@ -62,13 +62,13 @@ contains
       end do
     
       !-- Transform f to cheb space:
-      call chebt%costf1_complex(work2,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(work2,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- Get derivatives:
       call get_dcheb(work2,df,n_f_max,n_f_start,n_f_stop, n_r_max,n_cheb_max,one)
     
       !-- Transform back:
-      call chebt%costf1_complex(df,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- New map:
       do n_r=1,n_r_max
@@ -83,16 +83,16 @@ contains
               &              chebt,drx)
  
       !-- Input variables:
-      real(cp),          intent(in) :: f(*)
       integer,           intent(in) :: n_r_max          ! number of radial grid points
+      real(cp),          intent(in) :: f(n_r_max)
       integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
-      real(cp),          intent(in) :: drx(*)           ! first derivatives of x(r)
+      real(cp),          intent(in) :: drx(n_r_max)     ! first derivatives of x(r)
       type(costf_odd_t), intent(in) :: chebt
     
       !-- Output variables:
-      real(cp), intent(out) :: df(*)         ! first derivative of f
-      real(cp), intent(out) :: work1(*)      ! work array needed for costf
-      real(cp), intent(out) :: work2(*)      ! work array for f transfer
+      real(cp), intent(out) :: df(n_r_max)   ! first derivative of f
+      real(cp), intent(out) :: work1(n_r_max)! work array needed for costf
+      real(cp), intent(out) :: work2(n_r_max)! work array for f transfer
     
       !-- Local:
       integer :: n_r
@@ -104,13 +104,13 @@ contains
       end do
     
       !-- Transform f to cheb space:
-      call chebt%costf1_real_1d(work2,work1)
+      call chebt%costf1(work2,work1)
     
       !-- Get derivatives:
       call get_dcheb(work2,df,n_r_max,n_cheb_max,one)
     
       !-- Transform back:
-      call chebt%costf1_real_1d(df,work1)
+      call chebt%costf1(df,work1)
     
       !-- New map:
       do n_r=1,n_r_max
@@ -134,31 +134,31 @@ contains
       !
     
       !-- Input variables:
+      integer,           intent(in) :: n_r_max          ! number of radial grid points
       integer,           intent(in) :: n_f_max          ! first dim of f
-      complex(cp),       intent(inout) :: f(n_f_max,*)
+      complex(cp),       intent(inout) :: f(n_f_max,n_r_max)
       integer,           intent(in) :: n_f_start        ! first function to be treated
       integer,           intent(in) :: n_f_stop         ! last function to be treated
-      integer,           intent(in) :: n_r_max          ! number of radial grid points
       integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
       real(cp),          intent(in) :: drx(*)           ! first derivatives of x(r)
       type(costf_odd_t), intent(in) :: chebt
     
       !-- Output variables:
-      complex(cp), intent(out) :: work1(n_f_max,*) ! work array needed for costf
-      complex(cp), intent(out) :: df(n_f_max,*)    ! first derivative of f
+      complex(cp), intent(out) :: work1(n_f_max,n_r_max) ! work array needed for costf
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
     
       !-- Local variables:
       integer :: n_r,n_f
     
       !-- Transform f to cheb space:
-      call chebt%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- Get derivatives:
       call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,n_cheb_max,one)
     
       !-- Transform back:
-      call chebt%costf1_complex(f,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt%costf1_complex(df,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- New map:
       do n_r=1,n_r_max
@@ -182,21 +182,21 @@ contains
       !
     
       !-- Input variables:
+      integer,           intent(in) :: n_r_max         ! number of radial grid points
       integer,           intent(in) :: n_f_max         ! first dim of f
-      complex(cp),       intent(in) :: f(n_f_max,*)
+      complex(cp),       intent(in) :: f(n_f_max,n_r_max)
       integer,           intent(in) :: n_f_start       ! first function to be treated
       integer,           intent(in) :: n_f_stop        ! last function to be treated
-      integer,           intent(in) :: n_r_max         ! number of radial grid points
       integer,           intent(in) :: n_cheb_max      ! number of cheb modes
-      real(cp),          intent(in) :: drx(*)          ! first derivatives of x(r)
-      real(cp),          intent(in) :: ddrx(*)         ! second derivatives of x(r)
+      real(cp),          intent(in) :: drx(n_r_max)    ! first derivatives of x(r)
+      real(cp),          intent(in) :: ddrx(n_r_max)   ! second derivatives of x(r)
       type(costf_odd_t), intent(in) :: chebt
     
       !-- Output variables:
-      complex(cp), intent(out) :: work1(n_f_max,*)  ! work array needed for costf
-      complex(cp), intent(out) :: work2(n_f_max,*)  ! work array for f transfer
-      complex(cp), intent(out) :: df(n_f_max,*)  ! first derivative of f
-      complex(cp), intent(out) :: ddf(n_f_max,*) ! second derivative of f
+      complex(cp), intent(out) :: work1(n_f_max,n_r_max)! work array needed for costf
+      complex(cp), intent(out) :: work2(n_f_max,n_r_max)! work array for f transfer
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
+      complex(cp), intent(out) :: ddf(n_f_max,n_r_max)  ! second derivative of f
     
       !-- Local variables:
       integer :: n_r,n_f
@@ -209,15 +209,15 @@ contains
       end do
     
       !-- Transform f to cheb space:
-      call chebt%costf1_complex(work2,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(work2,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- Get derivatives:
       call get_ddcheb(work2,df,ddf,n_f_max,n_f_start,n_f_stop, &
                       n_r_max,n_cheb_max,one)
     
       !-- Transform back:
-      call chebt%costf1_complex(df,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt%costf1_complex(ddf,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(ddf,n_f_max,n_f_start,n_f_stop,work1)
     
       !-- New map:
       do n_r=1,n_r_max
@@ -242,26 +242,26 @@ contains
       !
 
       !-- Input variables:
+      integer,           intent(in) :: n_r_max         ! number of radial grid points
       integer,           intent(in) :: n_f_max         ! first dim of f
-      complex(cp),       intent(in) :: f(n_f_max,*)
+      complex(cp),       intent(in) :: f(n_f_max,n_r_max)
       integer,           intent(in) :: n_f_start       ! first function to be treated
       integer,           intent(in) :: n_f_stop        ! last function to be treated
-      integer,           intent(in) :: n_r_max         ! number of radial grid points
       integer,           intent(in) :: n_cheb_max      ! number of cheb_modes
-      real(cp),          intent(in) :: drx(*)          ! first derivatives of x(r)
-      real(cp),          intent(in) :: ddrx(*)         ! second derivatives of x(r)
-      real(cp),          intent(in) :: dddrx(*)        ! third derivatives of x(r)
+      real(cp),          intent(in) :: drx(n_r_max)    ! first derivatives of x(r)
+      real(cp),          intent(in) :: ddrx(n_r_max)   ! second derivatives of x(r)
+      real(cp),          intent(in) :: dddrx(n_r_max)  ! third derivatives of x(r)
       type(costf_odd_t), intent(in) :: chebt
     
 
       !-- Work arrays:
-      complex(cp), intent(out) :: work1(n_f_max,*) ! work array needed for costf
-      complex(cp), intent(out):: work2(n_f_max,*)  ! work array needed for costf
+      complex(cp), intent(out) :: work1(n_f_max,n_r_max) ! work array needed for costf
+      complex(cp), intent(out):: work2(n_f_max,n_r_max)  ! work array needed for costf
 
       !-- Output variables:
-      complex(cp), intent(out) :: df(n_f_max,*)    ! first derivative of f
-      complex(cp), intent(out) :: ddf(n_f_max,*)   ! second derivative of f
-      complex(cp), intent(out) :: dddf(n_f_max,*)  ! third derivative of f
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
+      complex(cp), intent(out) :: ddf(n_f_max,n_r_max)   ! second derivative of f
+      complex(cp), intent(out) :: dddf(n_f_max,n_r_max)  ! third derivative of f
 
       !-- Local variables
       integer :: n_r,n_f
@@ -274,16 +274,16 @@ contains
       end do
 
       !-- Transform f to cheb space:
-      call chebt%costf1_complex(work2,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(work2,n_f_max,n_f_start,n_f_stop,work1)
 
       !-- Get derivatives:
       call get_dddcheb(work2,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,  &
                        n_r_max,n_cheb_max,one)
 
       !-- Transform back:
-      call chebt%costf1_complex(df,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt%costf1_complex(ddf,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt%costf1_complex(dddf,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(ddf,n_f_max,n_f_start,n_f_stop,work1)
+      call chebt%costf1(dddf,n_f_max,n_f_start,n_f_stop,work1)
 
       !-- New map:
       do n_r=1,n_r_max
@@ -312,11 +312,11 @@ contains
       integer,     intent(in) :: n_f_max    ! Max no of functions
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
-      complex(cp), intent(in) :: f(n_f_max,*)
+      complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
-      complex(cp), intent(out) ::  df(n_f_max,*)
+      complex(cp), intent(out) ::  df(n_f_max,n_r_max)
 
       !-- Local variables:
       integer :: n_f,n_cheb
@@ -348,13 +348,13 @@ contains
    subroutine get_dcheb_real_1d(f,df, n_r_max,n_cheb_max,d_fac)
 
       !-- Input variables:
-      integer,  intent(in) :: n_r_max    ! second dimension of f,df,ddf
+      integer,  intent(in) :: n_r_max    ! Dimension of f,df,ddf
       integer,  intent(in) :: n_cheb_max ! Number of cheb modes
-      real(cp), intent(in) :: f(*)
+      real(cp), intent(in) :: f(n_r_max)
       real(cp), intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
-      real(cp), intent(out) ::  df(*)
+      real(cp), intent(out) ::  df(n_r_max)
 
       !-- Local variables:
       integer :: n_cheb
@@ -390,12 +390,12 @@ contains
       integer,     intent(in) :: n_f_max    ! First dimension of f,df,ddf
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
-      complex(cp), intent(in) :: f(n_f_max,*)
+      complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
     
       !-- Output variables:
-      complex(cp), intent(out) ::  df(n_f_max,*)
-      complex(cp), intent(out) ::  ddf(n_f_max,*)
+      complex(cp), intent(out) ::  df(n_f_max,n_r_max)
+      complex(cp), intent(out) ::  ddf(n_f_max,n_r_max)
     
       !-- local variables:
       integer :: n_f,n_cheb
@@ -440,13 +440,13 @@ contains
       integer,     intent(in) :: n_f_max    ! First dimension of f,df,ddf
       integer,     intent(in) :: n_r_max    ! second dimension of f,df,ddf
       integer,     intent(in) :: n_cheb_max ! Number of cheb modes
-      complex(cp), intent(in) :: f(n_f_max,*)
+      complex(cp), intent(in) :: f(n_f_max,n_r_max)
       real(cp),    intent(in) :: d_fac      ! factor for interval mapping
 
       !-- Output variables:
-      complex(cp), intent(out) :: df(n_f_max,*)
-      complex(cp), intent(out) :: ddf(n_f_max,*)
-      complex(cp), intent(out) :: dddf(n_f_max,*)
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)
+      complex(cp), intent(out) :: ddf(n_f_max,n_r_max)
+      complex(cp), intent(out) :: dddf(n_f_max,n_r_max)
 
       !-- Local variables:
       integer :: n_f,n_cheb
@@ -472,9 +472,9 @@ contains
       do n_cheb=n_cheb_max-2,1,-1
          fac_cheb=d_fac*real(2*n_cheb,kind=cp)
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
-            ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
-            dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
+            df(n_f,n_cheb)=df(n_f,n_cheb+2)    + fac_cheb*f(n_f,n_cheb+1)
+            ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2)  + fac_cheb*df(n_f,n_cheb+1)
+            dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2)+ fac_cheb*ddf(n_f,n_cheb+1)
          end do
       end do
 

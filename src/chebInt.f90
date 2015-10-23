@@ -113,12 +113,13 @@ contains
 
    end subroutine chebIntInit
 !------------------------------------------------------------------------------
-   real(cp) function chebInt(f,zMin,zMax,nGridPoints,chebt)
+   real(cp) function chebInt(f,zMin,zMax,nGridPoints,nGridPointsMax,chebt)
 
       !-- Input variables:
-      real(cp),          intent(in) ::  f(*)            ! function on grid points
-      real(cp),          intent(in) ::  zMin,zMax       ! integration boundaries
-      integer,           intent(in) :: nGridPoints      ! No of grid points
+      integer,           intent(in) :: nGridPointsMax   ! No of max grid points
+      real(cp),          intent(in) :: f(nGridPointsMax) ! function on grid points
+      real(cp),          intent(in) :: zMin,zMax         ! integration boundaries
+      integer,           intent(in) :: nGridPoints       ! No of grid points
       type(costf_odd_t), intent(in) :: chebt
 
       !-- Local variables:
@@ -136,7 +137,7 @@ contains
       end do
 
       !-- Transform to cheb space:
-      call chebt%costf1_real_1d(fr,work)
+      call chebt%costf1(fr,work)
       fr(1)          =half*fr(1)
       fr(nGridPoints)=half*fr(nGridPoints)
 
@@ -154,11 +155,11 @@ contains
    real(cp) function chebIntD(f,lDeriv,zMin,zMax,nGridPoints,nGridPointsMax,chebt)
 
       !-- Input variables:
-      real(cp),          intent(inout) ::  f(*)           ! function on grid points
+      integer,           intent(in) :: nGridPointsMax       ! No of max grid points
+      real(cp),          intent(inout) :: f(nGridPointsMax) ! function on grid points
       logical,           intent(in) :: lDeriv            
-      real(cp),          intent(in) ::  zMin,zMax         ! integration boundaries
-      integer,           intent(in) :: nGridPoints        ! No of grid points
-      integer,           intent(in) :: nGridPointsMax     ! No of max grid points
+      real(cp),          intent(in) :: zMin,zMax            ! integration boundaries
+      integer,           intent(in) :: nGridPoints          ! No of grid points
       type(costf_odd_t), intent(in) :: chebt
 
       !-- Local variables:
@@ -170,7 +171,7 @@ contains
       chebNorm=sqrt(two/real(nGridPoints-1,cp))
 
       !-- Transform to cheb space:
-      call chebt%costf1_real_1d(f,work)
+      call chebt%costf1(f,work)
 
       !----- Copy:
       if ( lDeriv ) then
@@ -194,7 +195,7 @@ contains
          drFac=two/(zMax-zMin)
          call get_dcheb(work,f,nGridPointsMax,nGridPoints,drFac)
          !-- Transform back to grid space:
-         call chebt%costf1_real_1d(f,work)
+         call chebt%costf1(f,work)
       end if
 
    end function chebIntD

@@ -15,10 +15,10 @@ module cosine_transform_odd
       integer, allocatable  :: i_costf_init(:)
       real(cp), allocatable :: d_costf_init(:)
    contains
-      procedure :: costf1_complex
-      procedure :: costf1_complex_1d
-      procedure :: costf1_real
-      procedure :: costf1_real_1d
+      procedure, private :: costf1_complex
+      procedure, private :: costf1_complex_1d
+      procedure, private :: costf1_real
+      procedure, private :: costf1_real_1d
       procedure :: initialize
       procedure :: finalize
       generic :: costf1 => costf1_complex,costf1_real,costf1_real_1d,costf1_complex_1d
