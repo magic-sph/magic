@@ -94,13 +94,15 @@ else()
 endif()
 
 # Check whether openMP can be used
-if(USE_OMP MATCHES yes AND USE_MPI MATCHES yes)
-   find_package(OpenMP_Fortran)
-   message(STATUS "Use OpenMP")
-   add_definitions(-DWITHOMP)
-   set(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS})
-else()
-   message(STATUS "No OpenMP")
+if (USE_MPI MATCHES yes AND MPI_Fortran_FOUND)
+   if(USE_OMP MATCHES yes)
+      find_package(OpenMP_Fortran)
+      message(STATUS "Use OpenMP")
+      add_definitions(-DWITHOMP)
+      set(CMAKE_Fortran_FLAGS ${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS})
+   else()
+      message(STATUS "No OpenMP")
+   endif()
 endif()
 
 # Detect the MKL library and find the libraries
