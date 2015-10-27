@@ -220,7 +220,7 @@ contains
          call omp_set_num_threads(all_lms)
       end if
 #endif
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStop,lmStart_00) &
       !$OMP shared(dVxBhLM,workA,workB,djdt,or2) &
@@ -604,7 +604,7 @@ contains
          call omp_set_num_threads(all_lms)
       end if
 #endif
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &

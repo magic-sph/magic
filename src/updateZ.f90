@@ -398,7 +398,7 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
       !$OMP shared(z,dz,dzdtLast,chebt_oc,drx,ddrx) &

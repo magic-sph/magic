@@ -114,7 +114,7 @@ contains
 
 
       !PERFON('upS_fin')
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
       !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1,or2) &
@@ -308,7 +308,7 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
       !$OMP shared(s,ds,dsdtLast,chebt_oc,drx,ddrx) &
@@ -408,7 +408,7 @@ contains
 
 
       !PERFON('upS_fin')
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread) &
       !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1) &
@@ -608,7 +608,7 @@ contains
 #else
       per_thread=all_lms
 #endif
-      !$OMP PARALLEL default(none) &
+      !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,nThreads) &
       !$OMP shared(s,ds,w,dsdtLast,chebt_oc,drx,ddrx) &
