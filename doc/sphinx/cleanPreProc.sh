@@ -17,6 +17,7 @@ if [ ! -d "$dir" ]; then
   done
 
   rm $dir/*_mkl.f90
+  rm $dir/*_lapack.f90
 
 fi
 
