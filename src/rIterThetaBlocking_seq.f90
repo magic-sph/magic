@@ -108,7 +108,11 @@ contains
   
       !-- Local variables
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
+#else
+      logical :: lGraphHeader=.true.
+#endif
       logical :: DEBUG_OUTPUT=.false.
   
       this%nR=nR

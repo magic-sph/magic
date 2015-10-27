@@ -138,7 +138,11 @@ contains
   
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
+#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
+#else
+      logical :: lGraphHeader=.true.
+#endif
       logical :: DEBUG_OUTPUT=.false.
       real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
   
