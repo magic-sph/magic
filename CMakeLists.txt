@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 2.8)
 project (magic)
 enable_language (Fortran C)
 
@@ -86,20 +86,53 @@ add_definitions(-DDEFAULT_OUTPUT_PRECISION=${OUT_PREC})
 message(STATUS "Set precision to '${PRECISION}'")
 message(STATUS "Set output precision to '${OUT_PREC}'")
 
+#find_package(MKL)
+
+# Start with the list of MPI wrappers. Acknowledgement to http://www.openflipper.org/svnrepo/CoMISo/trunk/CoMISo/cmake/FindMPI.cmake
+# Generic MPI compilers
+set(_MPI_C_COMPILER_NAMES                  "mpicc|mpcc|mpicc_r|mpcc_r")
+set(_MPI_Fortran_COMPILER_NAMES            "mpif90|mpf90|mpif90_r|mpf90_r")
+# GNU compiler names
+set(_MPI_GNU_C_COMPILER_NAMES              "mpigcc|mpgcc|mpigcc_r|mpgcc_r")
+set(_MPI_GNU_Fortran_COMPILER_NAMES        "mpigfortran|mpgfortran|mpigfortran_r|mpgfortran_r")
+# Intel MPI compiler names
+set(_MPI_Intel_C_COMPILER_NAMES            "mpiicc")
+set(_MPI_Intel_Fortran_COMPILER_NAMES      "mpiifort")
+# PGI compiler names
+set(_MPI_PGI_C_COMPILER_NAMES              "mpipgcc|mppgcc")
+set(_MPI_PGI_Fortran_COMPILER_NAMES        "mpipgf|mppgf")
+# XLC MPI Compiler names
+set(_MPI_XL_C_COMPILER_NAMES               "mpxlc|mpxlc_r|mpixlc|mpixlc_r")
+set(_MPI_XL_Fortran_COMPILER_NAMES         "mpxlf|mpixlf")
+
+# Find CC, CXX and Fortran MPI wrappers
+string(REGEX MATCH "${_MPI_C_COMPILER_NAMES}|${_MPI_GNU_C_COMPILER_NAMES}|${_MPI_Intel_C_COMPILER_NAMES}|${_MPI_PGI_C_COMPILER_NAMES}|${_MPI_XL_C_COMPILER_NAMES}" MPICC_COMPILER "${CMAKE_C_COMPILER}")
+string(REGEX MATCH "${_MPI_Fortran_COMPILER_NAMES}|${_MPI_GNU_Fortran_COMPILER_NAMES}|${_MPI_Intel_Fortran_COMPILER_NAMES}|${_MPI_PGI_Fortran_COMPILER_NAMES}|${_MPI_XL_Fortran_COMPILER_NAMES}" MPIFORTRAN_COMPILER "${CMAKE_Fortran_COMPILER}")
+
 # Look for MPI and add the required flags if found
 if(USE_MPI MATCHES yes)
-   #if(NOT CMAKE_Fortran_COMPILER_ID MATCHES Intel)
-   find_package(MPI)
-   if(MPI_Fortran_FOUND)
-      message(STATUS "Use MPI")
-      add_definitions(-DWITH_MPI)
-      add_definitions(${MPI_Fortran_COMPILE_FLAGS})
-      link_directories(${MPI_LIBRARY_DIRS})
-      include_directories(${MPI_Fortran_INCLUDE_PATH})
+   if("${MPICC_COMPILER}" STREQUAL "" AND "${MPIFORTRAN_COMPILER}" STREQUAL "")
+      message(STATUS "Could not find MPI wrappers in CMAKE_C_COMPILER or CMAKE_Fortran_COMPILER. Trying to find MPI libs by default")
+      set(MPI_WRAPPER_FOUND FALSE CACHE BOOL "Did not find the MPI Wrappers")
+
+      find_package(MPI)
+
+      if(MPI_Fortran_FOUND)
+         message(STATUS "Use MPI")
+         add_definitions(-DWITH_MPI)
+         add_definitions(${MPI_Fortran_COMPILE_FLAGS})
+         link_directories(${MPI_LIBRARY_DIRS})
+         include_directories(${MPI_Fortran_INCLUDE_PATH})
+      else()
+         message(STATUS "MPI was not found: serial job")
+      endif()
    else()
-      message(STATUS "MPI was not found: serial job")
+      # Setting wrappers and mpi found to true
+      set(MPI_WRAPPER_FOUND TRUE CACHE BOOL "found the MPI Wrappers")
+      set(MPI_FOUND TRUE CACHE BOOL "Found the MPI library")
+      message(STATUS "Use MPI")
+         add_definitions(-DWITH_MPI)
    endif()
-   #endif()
 else()
       message(STATUS "No MPI: serial job")
 endif()

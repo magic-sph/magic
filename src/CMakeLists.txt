@@ -38,7 +38,7 @@ set_property(TARGET ${EXEC} PROPERTY LINKER_LANGUAGE Fortran)
 
 # Link MPI
 if(USE_MPI MATCHES yes)
-   if(MPI_Fortran_FOUND)
+   if(MPI_Fortran_FOUND AND NOT MPI_WRAPPER_FOUND)
       target_link_libraries(${EXEC} ${MPI_Fortran_LIBRARIES})
    endif()
 endif()
