@@ -2,7 +2,7 @@
 
 ### 1. Select compiler
 
-Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler_phrase>`. The options are `intel`, `gnu` or `amd` - depending on your available compilers.
+Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler_phrase>`. The options are `intel`, `gnu` or `portland` - depending on your available compilers.
 
 **Table** : List of default compilers
  
@@ -10,6 +10,7 @@ Set a suitable compiler in the first line of the Makefile: `COMPILER = <compiler
 |:---------------:|:-------------:|:----------------:|
 |      intel      |   ifort, icc  | mpiifort, mpiicc |
 |       gnu       | gfortran, gcc |   mpif90, mpicc  |
+|     portland    |  pgf95, pgcc  |   mpif90, mpicc  |
 
 ### 2. Select compiling options
 

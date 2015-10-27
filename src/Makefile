@@ -1,4 +1,4 @@
-# COMPILER: intel, gnu
+# COMPILER: intel, gnu, portland
 COMPILER=intel
 # precision of the calculations: sngl/dble
 PRECISION=dble
@@ -105,6 +105,26 @@ ifeq ($(COMPILER),gnu)
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64
 endif
+ifeq ($(COMPILER),portland)
+	FFLAGS = -m64
+	FFLAG_ARCH_OPT = -fastsse
+	FFLAG_TRACEBACK = -traceback
+	FFLAG_OPENMP = -mp
+	FFLAG_CONVERT = -Mbyteswapio
+	FFLAG_PREPROCESSOR = -Mpreprocess
+	FFLAG_WARN_ALL = -Wall -Wno-maybe-uninitialized
+	FFLAG_CHECK_ALL = -fcheck=all
+	FFLAG_FPE = -Ktrap=divz,inv,ovf
+	COMP_FC = pgf95
+	COMP_CC = pgcc
+	COMP_MPFC = mpif90
+	COMP_MPCC = mpicc
+	FFLAG_MKL_LIBS = -L$(MKLROOT)/lib/intel64 -lmkl_gf_lp64\
+                         -lmkl_lapack95_lp64\
+			 -lmkl_sequential -lmkl_core -lpthread -lm \
+			 -Wl,-rpath,$(MKLROOT)/lib/intel64
+endif
+
 
 # the following path is only used, if the mpi.mod file is
 # not found in the standard location. It is used for example
