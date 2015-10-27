@@ -15,8 +15,8 @@ DEBUG=no
 USE_PRECOND=yes
 # USE_FFTLIB can be MKL or JW
 USE_FFTLIB=MKL
-#USE_MKL: yes/no
-USE_MKL=yes
+#USE_LAPACKLIB can be MKL, LAPACK or JW
+USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
 
@@ -37,8 +37,12 @@ endif
 
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT
-        USE_FFTLIB=JW
-        USE_MKL=no
+	USE_FFTLIB=JW
+endif
+ifeq ($(USE_LAPACKLIB),MKL)
+ifndef MKLROOT
+	USE_LAPACKLIB=JW
+endif
 endif
 
 ifeq ($(USE_PRECOND),yes)
@@ -133,7 +137,7 @@ endif
 #MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
 MPI_INCPATH=$(shell mpif90 --showme:incdirs)
 
-PREPROC += -DJW=1 -DMKL=2 -Dsngl=3 -Ddble=4
+PREPROC += -Dsngl=1 -Ddble=2
 ifeq ($(USE_MPI),yes)
 	PREPROC += -DWITH_MPI
 	FC = $(COMP_MPFC)
@@ -173,9 +177,13 @@ ifeq ($(USE_FFTLIB),MKL)
 	LIBS +=  $(FFLAG_MKL_LIBS)
 endif
 
-ifeq ($(USE_MKL),yes)
+ifeq ($(USE_LAPACKLIB),MKL)
 	INCPATHS += -I$(MKLROOT)/include
 	LIBS += $(FFLAG_MKL_LIBS)
+endif
+
+ifeq ($(USE_LAPACKLIB),LAPACK)
+	LIBS += -llapack
 endif
 
 ifeq ($(USE_HDF5), yes)
@@ -248,10 +256,13 @@ else ifeq ($(USE_FFTLIB),MKL)
 	FFT_OBJS += fft_mkl.o
 endif
 
-ifeq ($(USE_MKL),yes)
+ifeq ($(USE_LAPACKLIB),MKL)
 	RED_SOURCES += algebra_mkl.f90
 	LAPACK_OBJS += algebra_mkl.o
-else
+else ifeq ($(USE_LAPACKLIB),LAPACK)
+	RED_SOURCES += algebra_lapack.f90
+	LAPACK_OBJS += algebra_lapack.o
+else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
 endif
@@ -549,7 +560,7 @@ mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.f90
 endif
 
-ifeq ($(USE_MKL),yes)
+ifeq ($(USE_LAPACKLIB),MKL)
 $(LAPACK_OBJS)        : lapack95.mod
 lapack95.mod          : $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<

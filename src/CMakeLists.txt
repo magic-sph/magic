@@ -1,6 +1,7 @@
 file(GLOB srcfiles "*.f90")
 #set(red_sources ${srcfiles})
 list(REMOVE_ITEM srcfiles "${SRC}/algebra_mkl.f90")
+list(REMOVE_ITEM srcfiles "${SRC}/algebra_lapack.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/algebra.f90")
 #set(red_sources ${srcfiles})
 list(REMOVE_ITEM srcfiles "${SRC}/fft_mkl.f90")
@@ -15,10 +16,14 @@ set_source_files_properties(mpimod.f90 PROPERTIES COMPILE_FLAGS ${FFLAG_NO_STD})
 ##################
 
 # Lapack
-if(USE_MKL MATCHES yes)
-   set(lapack algebra_mkl.f90)
-else()
+if(USE_LAPACKLIB MATCHES JW)
    set(lapack algebra.f90)
+endif()
+if(USE_LAPACKLIB MATCHES MKL)
+   set(lapack algebra_mkl.f90)
+endif()
+if(USE_LAPACKLIB MATCHES LAPACK)
+   set(lapack algebra_lapack.f90)
 endif()
 
 # FFT
@@ -44,18 +49,23 @@ if(USE_MPI MATCHES yes)
 endif()
 
 # Link MKL
-if(USE_MKL MATCHES yes AND USE_FFTLIB MATCHES MKL)
+if(USE_LAPACKLIB MATCHES yes AND USE_FFTLIB MATCHES MKL)
    add_library(lapack95 ${MKLROOT}/include/lapack.f90)
    target_link_libraries(lapack95 ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
    target_link_libraries(${EXEC} lapack95)
-elseif(USE_MKL MATCHES yes AND USE_FFTLIB MATCHES JW)
+elseif(USE_LAPACKLIB MATCHES yes AND USE_FFTLIB MATCHES JW)
    add_library(lapack95 ${MKLROOT}/include/lapack.f90)
    target_link_libraries(lapack95 ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
    target_link_libraries(${EXEC} lapack95)
-elseif(USE_MKL MATCHES no AND USE_FFTLIB MATCHES MKL)
+elseif(USE_LAPACKLIB MATCHES no AND USE_FFTLIB MATCHES MKL)
    add_library(mkl_fft ${MKLROOT}/include/mkl_dfti.f90)
    target_link_libraries(mkl_fft ${MKLCORE} ${MKLLAPACK} ${MKLSEQ} ${MKL64})
    target_link_libraries(${EXEC} mkl_fft)
+endif()
+
+# Link LAPACK
+if(USE_LAPACKLIB MATCHES LAPACK)
+   target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
 endif()
 
 # Link HDF5
