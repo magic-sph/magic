@@ -153,8 +153,7 @@ class Butterfly:
                 #print(k+self.var2-self.nvar)
                 if self.surftype == 'r_constant':
                     data = infile.fort_read(self.precision, shape=shape)
-                    #self.data[:, k] = data.mean(axis=1)
-                    self.data[:, k] = data[:, self.n_phi_tot/2.]
+                    self.data[:, k] = data.mean(axis=1)
                 elif self.surftype == 'phi_constant':
                     data = infile.fort_read(self.precision, shape=shape)
                     self.data[:, k] = data[self.indPlot, :]
