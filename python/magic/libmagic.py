@@ -327,7 +327,7 @@ def cut(dat, vmax=None, vmin=None):
         normed = False
     return dat
 
-def symmetrize(data, ms):
+def symmetrize(data, ms, reversed=False):
     """
     Symmetrise an array which is defined only with an azimuthal symmetry minc=ms
 
@@ -335,18 +335,31 @@ def symmetrize(data, ms):
     :type data: numpy.ndarray
     :param ms: the azimuthal symmetry
     :type ms: int
+    :param reversed: set to True, in case the array is reversed (i.e. n_phi is the last column)
+    :type reversed: bool
     :returns: an output array of dimension (data.shape[0]*ms+1)
     :rtype: numpy.ndarray
     """
-    np = data.shape[0]*ms +1
-    size = [np]
-    size.append(data.shape[1])
-    if len(data.shape) == 3:
-        size.append(data.shape[2])
-    out = N.zeros(size, dtype=data.dtype)
-    for i in range(ms):
-        out[i*data.shape[0]:(i+1)*data.shape[0], ...] = data
-    out[-1, ...] = out[0, ...]
+    if reversed:
+        np = data.shape[-1]*ms +1
+        size = [np]
+        size.insert(0,data.shape[-2])
+        if len(data.shape) == 3:
+            size.insert(0,data.shape[-3])
+        out = N.zeros(size, dtype=data.dtype)
+        for i in range(ms):
+            out[..., i*data.shape[-1]:(i+1)*data.shape[-1]] = data
+        out[..., -1] = out[..., 0]
+    else:
+        np = data.shape[0]*ms +1
+        size = [np]
+        size.append(data.shape[1])
+        if len(data.shape) == 3:
+            size.append(data.shape[2])
+        out = N.zeros(size, dtype=data.dtype)
+        for i in range(ms):
+            out[i*data.shape[0]:(i+1)*data.shape[0], ...] = data
+        out[-1, ...] = out[0, ...]
     return out
 
 def fast_read(file, skiplines=0, binary=False, precision='Float64'):
