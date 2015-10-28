@@ -58,8 +58,13 @@ contains
     
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(uhAS, duhAS, gradsAS, uh, duh, grads)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          uhAS(nThetaB) =0.0_cp
          duhAS(nThetaB)=0.0_cp
          gradsAS(nThetaB)=0.0_cp
@@ -88,6 +93,9 @@ contains
          duhAS(nThetaB)=phiNorm*duhAS(nThetaB)
          gradsAS(nThetaB)=phiNorm*gradsAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       !------ Add contribution from thetas in block:
       call legTFAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,sizeThetaB)
@@ -125,8 +133,14 @@ contains
       phiNorm=one/real(n_phi_max,cp)
     
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                 &
+      !$OMP& private(nThetaB, nTheta, nPhi)             &
+      !$OMP& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$OMP& private(vras, vtas, vpas)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2
     
          EperpAS(nThetaB)   =0.0_cp
@@ -183,6 +197,9 @@ contains
          EperpaxiAS(nThetaB)=phiNorm*EperpaxiAS(nThetaB)
          EparaxiAS(nThetaB) =phiNorm* EparaxiAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       !-- Add contribution from thetas in block:
       call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,sizeThetaB)
@@ -234,8 +251,13 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
     
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)         &
+      !$OMP& private(nThetaB, nTheta, nPhi)     &
+      !$OMP& private(fkin, fconv, fvisc)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2
          fkinAS(nThetaB) =0.0_cp
          fconvAS(nThetaB)=0.0_cp
@@ -277,11 +299,19 @@ contains
          fconvAS(nThetaB)=phiNorm*fconvAS(nThetaB)
          fviscAS(nThetaB)=phiNorm*fviscAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       if ( l_mag_nl) then
          nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+         !$OMP PARALLEL DO default(shared)         &
+         !$OMP& private(nThetaB, nTheta, nPhi)     &
+         !$OMP& private(fkin, fconv, fvisc)
+#endif
          do nThetaB=1,sizeThetaB
-            nTheta=nTheta+1
+            nTheta=nThetaStart+nThetaB-1
             nThetaNHS=(nTheta+1)/2
             fresAS(nThetaB) =0.0_cp
             fpoynAS(nThetaB)=0.0_cp
@@ -304,6 +334,9 @@ contains
             fresAS(nThetaB) =phiNorm* fresAS(nThetaB)
             fpoynAS(nThetaB)=phiNorm*fpoynAS(nThetaB)
          end do
+#ifdef WITH_SHTNS
+         !$OMP END PARALLEL DO
+#endif
          call legTFAS2(fresLMr,fpoynLMr,fresAS,fpoynAS,l_max+1,nThetaStart,sizeThetaB)
       end if
     
@@ -356,6 +389,15 @@ contains
 
       !--- Helicity:
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP& private(nThetaB, nTheta, nPhi) &
+      !$OMP& private(vras, cvras, vtas, vpas) &
+      !$OMP& private(dvrdpas, dvpdras, dvtdras, dvrdtas) &
+      !$OMP& private(vrna, cvrna, vtna) &
+      !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna, Hel, Helna) &
+      !$OMP& private(Hel2AS, HelAS, dvtdr, vpna, or2, HelnaAS, Helna2AS)
+#endif
       do nThetaB=1,sizeThetaB
          nTheta=nTheta+1
          HelAS(nThetaB) =0.0_cp
@@ -422,6 +464,9 @@ contains
          HelnaAS(nThetaB) =phiNorm*HelnaAS(nThetaB)
          Helna2AS(nThetaB)=phiNorm*Helna2AS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
 
       !-- Add contribution from thetas in block:
       call legTFAS2(HelLMr,Hel2LMr,HelAS,Hel2AS,l_max+1,nThetaStart,sizeThetaB)

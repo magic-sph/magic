@@ -428,8 +428,16 @@ contains
       fac=two*pi/real(n_phi_max,cp) ! 2 pi/n_phi_max
 
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(none) &
+      !$OMP& private(nThetaB, nTheta, nPhi, nThetaNHS, b0r) &
+      !$OMP& shared(n_phi_max, sizeThetaB, r_icb, r, nR) &
+      !$OMP& shared(lGrenoble, nThetaStart, BIC, cosTheta, r_cmb) &
+      !$OMP& shared(fac, gauss) &
+      !$OMP& reduction(+: lorentz_torque)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2 ! northern hemisphere=odd n_theta
          if ( lGrenoble ) then
             if ( r(nR) == r_icb ) then
@@ -450,6 +458,9 @@ contains
          end do
          !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
 
       !-- normalisation of phi-integration and division by Pm:
       !lorentz_torque=lorentz_torque+fac*lorentz_torque_local
