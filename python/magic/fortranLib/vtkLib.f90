@@ -1,23 +1,23 @@
-subroutine pvts(filename,radius,scalin,np,nt,nr,nfiles,minc)
+subroutine pvts_scal(filename,radius,scalars,scalcodes,nfiles,minc,np,nt,nr,nscals)
 
    implicit none
 
    ! input variables
-   integer :: nr,nt,np,nscals,nvecs,h,i,j,k,l,m,jinit,jend
-
+   integer :: nr,nt,np,nscals
    integer,           intent(in) :: minc
    character(len=64), intent(in) :: filename
    real(kind=4),      intent(in) :: radius(nr)
-   real(kind=4),      intent(in) :: scalin(np,nt,nr)
+   real(kind=4),      intent(in) :: scalars(nscals,np,nt,nr)
+   integer,           intent(in) :: scalcodes(nscals)
    integer,           intent(in) :: nfiles
 
    ! local variables
-   character(len=20) :: scalnames(2)
+   character(len=20) :: scalnames(nscals)
    character(len=20) :: vecnames(0)
+   integer :: veccodes(0)
    real(kind=4) :: xyz(3,np*(nt/nfiles+1)*nr)
-   real(kind=4) :: scals(2,np*(nt/nfiles+1)*nr)
+   real(kind=4) :: scals(nscals,np*(nt/nfiles+1)*nr)
    real(kind=4) :: vecs(0,0,0)
-   !real(kind=4) :: scals(1,np*(nt/nfiles+1)*nr)
    real(kind=4) :: theta(nt)
    real(kind=4) :: phi(np)
    real(kind=4) :: pi
@@ -27,19 +27,19 @@ subroutine pvts(filename,radius,scalin,np,nt,nr,nfiles,minc)
    character(len=36) :: str1 
    character(len=1) :: lf 
    integer(kind=4) :: ivtk=10
+   integer :: h,i,j,k,l,m,jinit,jend,iscal
+   integer :: nvecs=0
 
    lf = char(10) ! line feed character
 
    pi = acos(-1.)
    nnos = nr*(nt/nfiles+1)*np
-   nscals = 2
    nvecs = 0
 
    phi=(/(2.*pi/minc/(np-1)*(i-1),i=1,np)/)
    theta=(/(pi/(nt-1)*(i-1),i=1,nt)/)
 
-   scalnames(1)='Temperature'
-   scalnames(2)='Radius'
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
    open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream')
    buffer = '<?xml version="1.0"?>'//lf 
@@ -87,15 +87,23 @@ subroutine pvts(filename,radius,scalin,np,nt,nr,nfiles,minc)
                xyz(2,l)=radius(i)*sin(phi(k))*sin(theta(j))
                xyz(3,l)=radius(i)*cos(theta(j))
   
-               ! do h=1,nscals
-               scals(1,l)=scalin(k,j,i)
-               scals(2,l)=radius(i)
-               ! enddo
                l=l+1
             enddo
          enddo
       enddo
-      !call partXMLVts(fName,xyz,scals,scalnames,nscals,nnos,nr,jinit,jend,np)
+
+      do iscal=1,nscals
+         l=1
+         do k=1,np
+            do j=jinit,jend
+               do i=1,nr
+                  scals(iscal,l)=scalars(iscal,k,j,i)
+                  l=l+1
+               enddo
+            enddo
+         enddo
+      enddo
+
       call partXMLVts(fName,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs, &
              &        nnos,nr,jinit,jend,np)
       write(str1(1:36), '(6i6)') 0, nr-1, jinit-1, jend-1, 0, np-1
@@ -112,25 +120,31 @@ subroutine pvts(filename,radius,scalin,np,nt,nr,nfiles,minc)
    write(ivtk) trim(buffer)
    close(ivtk)
 
-end subroutine pvts
+end subroutine pvts_scal
 !-------------------------------------------------------------------------
-subroutine pvtsVec(filename,radius,vr,vt,vp,np,nt,nr,nfiles,minc)
+subroutine pvts(filename,radius,vecr,vect,vecp,scalars,scalcodes,veccodes,&
+                nfiles,minc,nvecs,nscals,np,nt,nr)
 
    implicit none
 
    ! input variables
-   integer :: nr,nt,np,nscals,nvecs,h,i,j,k,l,m,jinit,jend
+   integer :: nr,nt,np,nscals,nvecs
    character(len=64), intent(in) :: filename
    integer,           intent(in) :: minc
    real(kind=4),      intent(in) :: radius(nr)
-   real(kind=4),      intent(in) :: vr(np,nt,nr),vt(np,nt,nr),vp(np,nt,nr)
+   integer,           intent(in) :: scalcodes(nscals)
+   integer,           intent(in) :: veccodes(nvecs)
+   real(kind=4),      intent(in) :: scalars(nscals,np,nt,nr)
+   real(kind=4),      intent(in) :: vecr(nvecs,np,nt,nr)
+   real(kind=4),      intent(in) :: vect(nvecs,np,nt,nr)
+   real(kind=4),      intent(in) :: vecp(nvecs,np,nt,nr)
    integer,           intent(in) :: nfiles
 
    ! local variables
-   character(len=20) :: scalnames(1), vecnames(1)
+   character(len=20) :: scalnames(nscals), vecnames(nvecs)
    real(kind=4) :: xyz(3,np*(nt/nfiles+1)*nr)
-   real(kind=4) :: scals(1,np*(nt/nfiles+1)*nr)
-   real(kind=4) :: vecs(1,3,np*(nt/nfiles+1)*nr)
+   real(kind=4) :: scals(nscals,np*(nt/nfiles+1)*nr)
+   real(kind=4) :: vecs(nvecs,3,np*(nt/nfiles+1)*nr)
    real(kind=4) :: theta(nt)
    real(kind=4) :: phi(np)
    real(kind=4) :: pi,vs
@@ -140,19 +154,17 @@ subroutine pvtsVec(filename,radius,vr,vt,vp,np,nt,nr,nfiles,minc)
    character(len=36) :: str1 
    character(len=1) :: lf 
    integer(kind=4) :: ivtk=10
+   integer :: h,i,j,k,l,m,jinit,jend,ivec,iscal
 
    lf = char(10) ! line feed character
 
    pi = acos(-1.)
    nnos = nr*(nt/nfiles+1)*np
-   nscals = 1
-   nvecs = 1
 
    phi=(/(2.*pi/minc/(np-1)*(i-1),i=1,np)/)
    theta=(/(pi/(nt-1)*(i-1),i=1,nt)/)
 
-   scalnames(1)='Radius'
-   vecnames(1)='Velocity'
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
    open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream')
    buffer = '<?xml version="1.0"?>'//lf 
@@ -195,27 +207,41 @@ subroutine pvtsVec(filename,radius,vr,vt,vp,np,nt,nr,nfiles,minc)
          jinit=(m-1)*nt/nfiles
          jend=m*nt/nfiles
       end if
-      l=1
-      do k=1,np
-         do j=jinit,jend
-            do i=1,nr
-               xyz(1,l)=radius(i)*cos(phi(k))*sin(theta(j))
-               xyz(2,l)=radius(i)*sin(phi(k))*sin(theta(j))
-               xyz(3,l)=radius(i)*cos(theta(j))
-   
-               ! do h=1,nscals
-               scals(1,l)=radius(i)
-   
-               vs = vr(k,j,i)*sin(theta(j))+vt(k,j,i)*cos(theta(j))
-               vecs(1,1,l)=vs*cos(phi(k))-vp(k,j,i)*sin(phi(k))
-               vecs(1,2,l)=vs*sin(phi(k))+vp(k,j,i)*cos(phi(k))
-               vecs(1,3,l)=vr(k,j,i)*cos(theta(j))-vt(k,j,i)*sin(theta(j))
-   
-               ! enddo
-               l=l+1
+      do ivec=1,nvecs
+         l=1
+         do k=1,np
+            do j=jinit,jend
+               do i=1,nr
+                  if (ivec == 1) then
+                     xyz(1,l)=radius(i)*cos(phi(k))*sin(theta(j))
+                     xyz(2,l)=radius(i)*sin(phi(k))*sin(theta(j))
+                     xyz(3,l)=radius(i)*cos(theta(j))
+                  end if
+      
+                  vs = vecr(ivec,k,j,i)*sin(theta(j))+vect(ivec,k,j,i)*cos(theta(j))
+                  vecs(ivec,1,l)=vs*cos(phi(k))-vecp(ivec,k,j,i)*sin(phi(k))
+                  vecs(ivec,2,l)=vs*sin(phi(k))+vecp(ivec,k,j,i)*cos(phi(k))
+                  vecs(ivec,3,l)=vecr(ivec,k,j,i)*cos(theta(j))-vect(ivec,k,j,i)*sin(theta(j))
+      
+                  ! enddo
+                  l=l+1
+               end do
+            end do
+         end do
+      end do
+
+      do iscal=1,nscals
+         l=1
+         do k=1,np
+            do j=jinit,jend
+               do i=1,nr
+                  scals(iscal,l)=scalars(iscal,k,j,i)
+                  l=l+1
+               enddo
             enddo
          enddo
       enddo
+
       call partXMLVts(fName,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs, &
              &        nnos,nr,jinit,jend,np)
       write(str1(1:36), '(6i6)') 0, nr-1, jinit-1, jend-1, 0, np-1
@@ -232,7 +258,7 @@ subroutine pvtsVec(filename,radius,vr,vt,vp,np,nt,nr,nfiles,minc)
    write(ivtk) trim(buffer)
    close(ivtk)
 
-end subroutine pvtsVec
+end subroutine pvts
 !-------------------------------------------------------------------------
 subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
                  &    nnos,nr,thinit,thend,nphi)
@@ -331,27 +357,72 @@ subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
 
 end subroutine partXMLVts
 !-------------------------------------------------------------------------
-subroutine vts(filename,radius,Br,Bt,Bp,scal1,scal2,minc,np,nt,nr)
+subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
    implicit none
 
-   ! input variables
-   integer :: nr,nt,np,i,j,k,l
+   !-- Input variables
+   integer,           intent(in) :: nscals
+   integer,           intent(in) :: nvecs
+   integer,           intent(in) :: scalcodes(nscals)
+   integer,           intent(in) :: veccodes(nvecs)
+
+   !-- Output variables
+   character(len=20), intent(out) :: scalnames(nscals)
+   character(len=20), intent(out) :: vecnames(nvecs)
+
+   !-- Local variables
+   integer :: i
+
+   do i=1,nscals
+      if ( scalcodes(i) == -1) scalnames(i) = 'Radius'
+      if ( scalcodes(i) == 1) scalnames(i) = 'Entropy'
+      if ( scalcodes(i) == 2) scalnames(i) = 'Magnetic energy'
+      if ( scalcodes(i) == 3) scalnames(i) = 'z vorticity'
+      if ( scalcodes(i) == 4) scalnames(i) = 'Radial velocity'
+      if ( scalcodes(i) == 5) scalnames(i) = 'Zonal velocity'
+      if ( scalcodes(i) == 6) scalnames(i) = 'Fluct. entropy'
+      if ( scalcodes(i) == 7) scalnames(i) = 'Fluct. z vorticity'
+      if ( scalcodes(i) == 8) scalnames(i) = 'Radial vorticity'
+      if ( scalcodes(i) == 9) scalnames(i) = 'Fluct. temp.'
+   end do
+
+   do i=1,nvecs
+      if ( veccodes(i) == 1) vecnames(i) = 'Velocity'
+      if ( veccodes(i) == 2) vecnames(i) = 'Fluct. velocity'
+      if ( veccodes(i) == 3) vecnames(i) = 'Magnetic field'
+      if ( veccodes(i) == 4) vecnames(i) = 'Fluct. mag. field'
+   end do
+
+end subroutine getCode
+!-------------------------------------------------------------------------
+subroutine vts(filename,radius,vecr,vect,vecp,scalars,scalcodes,veccodes,&
+                minc,nvecs,nscals,np,nt,nr)
+
+   implicit none
+
+   !-- Input variables
+   integer :: nr,nt,np,nvecs,nscals
    character(len=64), intent(in) :: filename
    integer,           intent(in) :: minc
    real(kind=4),      intent(in) :: radius(nr)
-   real(kind=4),      intent(in) :: Br(np,nt,nr),Bt(np,nt,nr),Bp(np,nt,nr)
-   real(kind=4),      intent(in) :: scal1(np,nt,nr),scal2(np,nt,nr)
+   real(kind=4),      intent(in) :: vecr(nvecs,np,nt,nr)
+   real(kind=4),      intent(in) :: vect(nvecs,np,nt,nr)
+   real(kind=4),      intent(in) :: vecp(nvecs,np,nt,nr)
+   real(kind=4),      intent(in) :: scalars(nscals,np,nt,nr)
+   integer,           intent(in) :: scalcodes(nscals)
+   integer,           intent(in) :: veccodes(nvecs)
 
-   ! local variables
-   character(len=20) :: scalnames(4),vecnames(1)
+   !-- Local variables
+   character(len=20) :: scalnames(nscals),vecnames(nvecs)
    real(kind=4) :: xyz(3,np*nt*nr)
-   real(kind=4) :: scals(4,np*nt*nr)
-   real(kind=4) :: vecs(1,3,np*nt*nr)
+   real(kind=4) :: scals(nscals,np*nt*nr)
+   real(kind=4) :: vecs(nvecs,3,np*nt*nr)
    real(kind=4) :: theta(nt)
    real(kind=4) :: phi(np)
    real(kind=4) :: pi,Bs
    integer(kind=8) :: nnos
+   integer :: i,j,k,l,iscal,ivec
 
    pi = acos(-1.)
    nnos = nr*nt*np
@@ -359,11 +430,81 @@ subroutine vts(filename,radius,Br,Bt,Bp,scal1,scal2,minc,np,nt,nr)
    phi=(/(2.*pi/minc/(np-1)*(i-1),i=1,np)/)
    theta=(/(pi/(nt-1)*(i-1),i=1,nt)/)
 
-   scalnames(1)='Radius'
-   scalnames(2)='vr'
-   scalnames(3)='vortr'
-   scalnames(4)='entropy'
-   vecnames(1)='B'
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
+
+   do ivec=1,nvecs
+      l=1
+      do k=1,np
+         do j=1,nt
+            do i=1,nr
+               if (ivec == 1) then ! Calculate the coordinates on the first time
+                  xyz(1,l)=radius(i)*cos(phi(k))*sin(theta(j))
+                  xyz(2,l)=radius(i)*sin(phi(k))*sin(theta(j))
+                  xyz(3,l)=radius(i)*cos(theta(j))
+               end if
+     
+               Bs = vecr(ivec,k,j,i)*sin(theta(j))+vect(ivec,k,j,i)*cos(theta(j))
+               vecs(ivec,1,l)=Bs*cos(phi(k))-vecp(ivec,k,j,i)*sin(phi(k))
+               vecs(ivec,2,l)=Bs*sin(phi(k))+vecp(ivec,k,j,i)*cos(phi(k))
+               vecs(ivec,3,l)=vecr(ivec,k,j,i)*cos(theta(j))-vect(ivec,k,j,i)*sin(theta(j))
+     
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
+
+   do iscal=1,nscals
+      l=1
+      do k=1,np
+         do j=1,nt
+            do i=1,nr
+               scals(iscal,l)=scalars(iscal,k,j,i)
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
+
+   call WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
+                       vecnames,nnos,nscals,nvecs,nr,nt,np)
+
+end subroutine vts
+!-------------------------------------------------------------------------
+subroutine vts_scal(filename,radius,scalars,scalcodes,minc,nscals,np,nt,nr)
+
+   implicit none
+
+   !-- Input variables
+   integer :: nr,nt,np,nscals
+   character(len=64), intent(in) :: filename
+   integer,           intent(in) :: minc
+   real(kind=4),      intent(in) :: radius(nr)
+   real(kind=4),      intent(in) :: scalars(nscals,np,nt,nr)
+   integer,           intent(in) :: scalcodes(nscals)
+
+   !-- Local variables
+   integer :: nvecs=0
+   integer :: veccodes(0)
+   character(len=20) :: scalnames(nscals)
+   character(len=20) :: vecnames(0)
+   real(kind=4) :: xyz(3,np*nt*nr)
+   real(kind=4) :: scals(nscals,np*nt*nr)
+   real(kind=4) :: vecs(0,0,0)
+   real(kind=4) :: theta(nt)
+   real(kind=4) :: phi(np)
+   real(kind=4) :: pi,Bs
+   integer(kind=8) :: nnos
+   integer :: i,j,k,l,iscal
+
+   pi = acos(-1.)
+   nnos = nr*nt*np
+
+   phi=(/(2.*pi/minc/(np-1)*(i-1),i=1,np)/)
+   theta=(/(pi/(nt-1)*(i-1),i=1,nt)/)
+
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
+
    l=1
    do k=1,np
       do j=1,nt
@@ -372,25 +513,27 @@ subroutine vts(filename,radius,Br,Bt,Bp,scal1,scal2,minc,np,nt,nr)
             xyz(2,l)=radius(i)*sin(phi(k))*sin(theta(j))
             xyz(3,l)=radius(i)*cos(theta(j))
   
-            Bs = Br(k,j,i)*sin(theta(j))+Bt(k,j,i)*cos(theta(j))
-            vecs(1,1,l)=Bs*cos(phi(k))-Bp(k,j,i)*sin(phi(k))
-            vecs(1,2,l)=Bs*sin(phi(k))+Bp(k,j,i)*cos(phi(k))
-            vecs(1,3,l)= Br(k,j,i)*cos(theta(j))-Bt(k,j,i)*sin(theta(j))
-  
-            scals(1,l)=radius(i)
-            scals(2,l)=Br(k,j,i)
-            scals(3,l)=scal1(k,j,i)
-            scals(4,l)=scal2(k,j,i)
-  
             l=l+1
          enddo
       enddo
    enddo
 
-   call WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
-                       vecnames,nnos,4,1,nr,nt,np)
+   do iscal=1,nscals
+      l=1
+      do k=1,np
+         do j=1,nt
+            do i=1,nr
+               scals(iscal,l)=scalars(iscal,k,j,i)
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
 
-end subroutine vts
+   call WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
+                       vecnames,nnos,nscals,nvecs,nr,nt,np)
+
+end subroutine vts_scal
 !-------------------------------------------------------------------------
 subroutine WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
                       vecnames,nnos,nscals,nvecs,nr,ntheta,nphi)
@@ -491,24 +634,128 @@ subroutine WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
 
 end subroutine WriteXMLFormat
 !-------------------------------------------------------------------------
-subroutine WriteVTR(filename,scals,vecs, &
-                    nnos,nscals,nvecs,gridMax,spacng,nx,ny,nz)
+subroutine vti(filename,vecx,vecy,vecz,scalars,scalcodes,veccodes,&
+               minc,gridMax,spacng,nvecs,nscals,nz,ny,nx)
 
    implicit none
 
-   integer :: ioff
-   integer :: nbytes_scal, nbytes_vec
-   integer :: nnos
-   integer :: nscals,nvecs,i,j,k
+   !-- Input variables
+   integer :: nx,ny,nz,nvecs,nscals
+   character(len=64), intent(in) :: filename
+   real(kind=4),      intent(in) :: gridMax,spacng
+   integer,           intent(in) :: minc
+   real(kind=4),      intent(in) :: vecx(nvecs,nz,ny,nx)
+   real(kind=4),      intent(in) :: vecy(nvecs,nz,ny,nx)
+   real(kind=4),      intent(in) :: vecz(nvecs,nz,ny,nx)
+   real(kind=4),      intent(in) :: scalars(nscals,nz,ny,nx)
+   integer,           intent(in) :: scalcodes(nscals)
+   integer,           intent(in) :: veccodes(nvecs)
 
+   !-- Local variables
+   character(len=20) :: scalnames(nscals),vecnames(nvecs)
+   real(kind=4) :: scals(nscals,nz*ny*nx)
+   real(kind=4) :: vecs(nvecs,3,nz*ny*nx)
+   integer(kind=8) :: nnos
+   integer :: i,j,k,l,iscal,ivec
+
+   nnos = nx*ny*nz
+
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
+
+   do ivec=1,nvecs
+      l=1
+      do k=1,nz
+         do j=1,ny
+            do i=1,nx
+               vecs(ivec,1,l)=vecx(ivec,k,j,i)
+               vecs(ivec,2,l)=vecy(ivec,k,j,i)
+               vecs(ivec,3,l)=vecz(ivec,k,j,i)
+     
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
+
+   do iscal=1,nscals
+      l=1
+      do k=1,nz
+         do j=1,ny
+            do i=1,nx
+               scals(iscal,l)=scalars(iscal,k,j,i)
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
+
+   call WriteXmlVTI(filename,scals,scalnames,vecs, &
+                    vecnames,nnos,nscals,nvecs,gridMax,spacng,nx,ny,nz)
+
+end subroutine vti
+!-------------------------------------------------------------------------
+subroutine vti_scal(filename,scalars,scalcodes,minc,gridMax,spacng,nscals,nz,ny,nx)
+
+   implicit none
+
+   !-- Input variables
+   integer :: nx,ny,nz,nscals
+   character(len=64), intent(in) :: filename
+   real(kind=4),      intent(in) :: gridMax,spacng
+   integer,           intent(in) :: minc
+   real(kind=4),      intent(in) :: scalars(nscals,nz,ny,nx)
+   integer,           intent(in) :: scalcodes(nscals)
+
+   !-- Local variables
+   integer :: nvecs=0
+   character(len=20) :: scalnames(nscals)
+   real(kind=4) :: scals(nscals,nz*ny*nx)
+   character(len=20) :: vecnames(0)
+   integer :: veccodes(0)
+   real(kind=4) :: vecs(0,0,0)
+   integer(kind=8) :: nnos
+   integer :: i,j,k,l,iscal
+
+   nnos = nx*ny*nz
+
+   call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
+
+   do iscal=1,nscals
+      l=1
+      do k=1,nz
+         do j=1,ny
+            do i=1,nx
+               scals(iscal,l)=scalars(iscal,k,j,i)
+               l=l+1
+            enddo
+         enddo
+      enddo
+   enddo
+
+   call WriteXmlVTI(filename,scals,scalnames,vecs, &
+                    vecnames,nnos,nscals,nvecs,gridMax,spacng,nx,ny,nz)
+
+end subroutine vti_scal
+!-------------------------------------------------------------------------
+subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
+                       nnos,nscals,nvecs,gridMax,spacng,nx,ny,nz)
+
+   implicit none
+
+   !-- Input variables
    integer,          intent(in) :: nx,ny,nz
    real(kind=4),     intent(in) :: scals(nscals,nnos)
    real(kind=4),     intent(in) :: vecs(nvecs,3,nnos)
    real(kind=4),     intent(in) :: gridMax,spacng
    character(len=*), intent(in) :: filename
+   character(len=*), intent(in) :: scalnames(nscals)
+   character(len=*), intent(in) :: vecnames(nvecs)
 
-   character(len=20) :: scalnames(nscals)
-   character(len=20) :: vecnames(nvecs)
+   !-- Local variables
+   integer :: ioff
+   integer :: nbytes_scal, nbytes_vec
+   integer :: nnos
+   integer :: nscals,nvecs,i,j,k
    character(len=200) :: buffer
    character(len=1) :: lf
    character(len=12) :: offset
@@ -518,11 +765,6 @@ subroutine WriteVTR(filename,scals,vecs, &
    real(kind=4) :: floatSize
 
    lf = char(10) ! line feed character
-
-   scalnames(1)='Radius'
-   scalnames(2)='Br'
-   scalnames(3)='Energy'
-   vecnames(1) ='B'
 
    nbytes_scal   = int( nnos * sizeof(floatSize)     )
    nbytes_vec    = int( 3  * nnos * sizeof(floatSize))
@@ -589,4 +831,4 @@ subroutine WriteVTR(filename,scals,vecs, &
 
    close(ivtk)
 
-end subroutine WriteVTR
+end subroutine WriteXmlVTI

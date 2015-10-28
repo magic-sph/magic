@@ -195,9 +195,11 @@ API of the available classes, as well as some practical examples:
 
      10. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
 
-     11. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+     11. To transform the graphic files **G_#.TAG** to a file format readable by `paraview <http://www.paraview.org/>`_, `VisIt <https://visit.llnl.gov/>`_ or `mayavi <http://code.enthought.com/projects/mayavi/>`_ and do some fancy 3-D visualisation, see :ref:`here <secPythonParaview>`.
 
-     12. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
+     12. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+
+     13. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
 
 
 .. toctree::
@@ -209,5 +211,6 @@ API of the available classes, as well as some practical examples:
    apiPython/graphMovCoeff.rst
    apiPython/outTO.rst
    apiPython/runComparison.rst
+   apiPython/toParaview.rst
    apiPython/misc.rst
    apiPython/libs.rst

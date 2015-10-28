@@ -17,6 +17,7 @@ from .radialSpectra import *
 if buildSo:
     try:
         from .potExtra import *
+        from .graph2vtk import *
         from .movie3D import *
     except ImportError as e:
         pass

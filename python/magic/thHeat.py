@@ -15,7 +15,7 @@ class ThetaHeat(MagicSetup):
     python.pickle file to quicken future usage of the data.
     
     This function can **only** be used when
-    `bLayersR.TAG <secBLayersRfile>` exist in the working directory.
+    :ref:`bLayersR.TAG <secBLayersRfile>` exist in the working directory.
 
     Since this function is supposed to use time-averaged quantities, the usual
     procedure is first to define the initial averaging time using
