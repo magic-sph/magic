@@ -19,6 +19,8 @@ USE_FFTLIB=MKL
 USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
+#Use shtns for Legendre/Fourier transforms
+USE_SHTNS=no
 
 USE_PERFLIB=none
 
@@ -34,9 +36,13 @@ endif
 ifeq ($(USE_MPI),no)
 	USE_OMP=no
 endif
+
 SHTNS_INC = $(HOME)/local/include
-FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
-#FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+ifeq ($(USE_OMP),yes)
+	FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+else
+	FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+endif
 
 
 # preconditioning of the matrices
@@ -201,6 +207,12 @@ ifeq ($(USE_LAPACKLIB),LAPACK)
 	LIBS += -llapack
 endif
 
+ifeq ($(USE_SHTNS),yes)
+	PREPROC += -DWITH_SHTNS
+	INCPATHS += -I$(SHTNS_INC)
+	LIBS += $(FFLAG_SHTNS)
+endif
+
 ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
 	INCPATHS += -I$(HDF5ICL)
@@ -260,7 +272,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% shtns% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% shtns% rIterThetaBlocking_shtns% hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -287,7 +299,7 @@ ifeq ($(USE_HDF5),yes)
 endif
 
 ifeq ($(USE_SHTNS),yes)
-	RED_SOURCES += shtns.f90
+	RED_SOURCES += shtns.f90 rIterThetaBlocking_shtns.f90
 endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
@@ -426,7 +438,7 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
                         logic.o constants.o blocking.o Grenoble.o\
-                        logic.o const.o blocking.o Grenoble.o\
+                        logic.o blocking.o Grenoble.o\
                         fields.o TO.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
@@ -581,9 +593,12 @@ mpi.mod: $(MPI_INCPATH)/mpif.h
 endif
 
 ifeq ($(USE_SHTNS),yes)
+rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
+                        out_movie_file.o outRot.o nl_special_calc.o courant.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
-                        precision_mod.o
-legendre_helpers.o    : shtns.o
+                        precision_mod.o constants.o
+radialLoop.o          : rIterThetaBlocking_shtns.o
+magic.o               : shtns.o
 endif
 
 ifeq ($(USE_MKL),yes)

@@ -1,6 +1,7 @@
 module shtns
 
    use precision_mod, only: cp
+   use constants, only: ci
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
                          minc, lm_max, n_m_max, nrp
    use horizontal_data, only: dLh, gauss, theta_ord, D_m, O_sin_theta_E2
@@ -126,14 +127,13 @@ contains
 
       ! local
       complex(cp) :: Slm(lm_max), Tlm(lm_max)
-      complex(cp) :: i = cmplx(0.0, 1.0)
       integer :: lm, it, ip
       real(cp) :: m
 
       do lm = 1, lm_max
          m = D_m(lm)
-         Slm(lm) = i*m*dWlm(lm)
-         Tlm(lm) = i*m*Zlm(lm)
+         Slm(lm) = ci*m*dWlm(lm)
+         Tlm(lm) = ci*m*Zlm(lm)
       end do
 
       call shtns_sphtor_to_spat(Slm, Tlm, dvtdp, dvpdp)

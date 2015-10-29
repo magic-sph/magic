@@ -1,7 +1,7 @@
 module leg_helper_mod
 
    use precision_mod
-   use truncation, only: lm_max, l_max, n_m_max, n_phi_max
+   use truncation, only: lm_max, l_max, n_m_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
@@ -43,9 +43,6 @@ module leg_helper_mod
 contains
 
    subroutine initialize(this,lm_max,lm_maxMag,l_max)
-#ifdef WITH_SHTNS
-      use truncation, only : n_phi_max, n_theta_max
-#endif
 
       class(leg_helper_t) :: this
       integer,intent(in) :: lm_max,lm_maxMag,l_max
