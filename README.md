@@ -44,11 +44,40 @@ $ source sourceme.csh
 
 ### 3) Set up your compiler and compile the code
 
+
+#### a) Using CMake (recommended)
+
+Create a directory where the sources will be built
+
+```sh
+$ mkdir $MAGIC_HOME/build
+$ cd $MAGIC_HOME/build
+```
+Set up your compilers
+
+```sh
+$ export FC=mpiifort
+$ export CC=mpiicc
+```
+
+Compile and produce the executable (options can be passed to cmake using `-DOPTION=value`)
+
+```sh
+$ cmake ..
+$ make -j
+````
+The executable `magic.exe` has been produced!
+
+#### b) Using make (backup solution)
+
+Go to the source directory
+
 ```sh
 $ cd $MAGIC_HOME/src
 ```
 
-Edit the Makefile and specify your compiler (intel or gnu) and additional 
+Edit the Makefile with your favourite editor and specify your compiler 
+(intel, gnu, portland) and additional 
 compiler options (production run or not, debug mode, MKL library, HDF5, ...)
 
 ```sh

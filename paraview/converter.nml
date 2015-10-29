@@ -1,8 +1,0 @@
-&input
-mode     =0,
-filename ='G_1.N3m2',
-nscals   =3,
-scalnames='vr','entropy','vp',
-nvecs    =1,
-vecnames ='vel',
-&end
