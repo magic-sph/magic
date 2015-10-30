@@ -142,7 +142,8 @@ class MagicGraph(MagicSetup):
             inline = npfile(filename, endian=format)
 
             # read the header
-            version = inline.fort_read('|S20')
+            version = inline.fort_read('|S20')[0]
+            version = version.rstrip()
             runID = inline.fort_read('|S64')[0]
             self.time, n_r_max, n_theta_max, self.npI, n_r_ic_max, minc, nThetaBs, \
                   self.ra, self.ek, self.pr, self.prmag, self.radratio, \
@@ -152,8 +153,9 @@ class MagicGraph(MagicSetup):
             self.ntheta = int(n_theta_max)
             self.npI = int(self.npI)
             self.minc = int(minc)
-            if self.npI == self.ntheta*self.minc:
-                self.npI = self.npI/self.minc
+            if self.npI == self.ntheta*2:
+                self.npI = int(self.npI/self.minc)
+            self.nphi = self.npI*self.minc +1
             self.nr_ic = n_r_ic_max - 1
             self.nThetaBs = int(nThetaBs)
 
@@ -175,7 +177,7 @@ class MagicGraph(MagicSetup):
                 Btheta = N.zeros_like(entropy)
                 Bphi = N.zeros_like(entropy)
 
-            for k in range(n_r_max*nThetaBs):
+            for k in range(self.nr*self.nThetaBs):
                 # radius and Thetas in this block
                 ir, rad, ilat1, ilat2 = inline.fort_read(self.precision)
                 ir = int(ir)
@@ -184,7 +186,8 @@ class MagicGraph(MagicSetup):
                 self.radius[ir] = rad
                 nth_loc = ilat2 - ilat1 + 1
 
-                if version == 'Graphout_Version_9  ':
+
+                if version == b'Graphout_Version_9':
                     if self.prmag != 0:
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         entropy[:,ilat1:ilat2+1,ir] = data.T
