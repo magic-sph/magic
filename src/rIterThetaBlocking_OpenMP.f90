@@ -549,6 +549,7 @@ contains
 
       !$OMP END SECTIONS
       !PERFOFF
+
       !$OMP END PARALLEL
       lorentz_torque_ic = lorentz_torques_ic(1)
       do nThetaB=2,this%nThetaBs
@@ -565,6 +566,7 @@ contains
       if (DEBUG_OUTPUT) then
          call this%nl_lm(0)%output()
       end if
+
       !-- Partial calculation of time derivatives (horizontal parts):
       !   input flm...  is in (l,m) space at radial grid points this%nR !
       !   Only dVxBh needed for boundaries !
@@ -574,7 +576,7 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
-      call this%nl_lm(threadid)%get_td(this%nR,this%nBc,this%lRmsCalc, &
+      call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc, &
            &                           dVSrLM,dVxBhLM,dwdt,dzdt,dpdt,  &
            &                           dsdt,dbdt,djdt,this%leg_helper)
 
