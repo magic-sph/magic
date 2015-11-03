@@ -601,7 +601,7 @@ radialLoop.o          : rIterThetaBlocking_shtns.o
 magic.o               : shtns.o
 endif
 
-ifeq ($(USE_MKL),yes)
+ifeq ($(USE_LAPACKLIB),MKL)
 $(LAPACK_OBJS)        : lapack95.mod
 lapack95.mod          : $(MKLROOT)/include/lapack.f90
 	$(FC) -c $(FFLAGS) $(INCPATHS) $<
