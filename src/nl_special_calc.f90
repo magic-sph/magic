@@ -98,16 +98,16 @@ contains
 #endif
     
       !------ Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call shtns_load_cfg(1)
-      call shtns_spat_to_SH_ml(0, uhAS, uhLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, duhAS, duhLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, gradsAS, gradsLMr, l_max+1)
-      call shtns_load_cfg(0)
-#else
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, uhAS, uhLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, duhAS, duhLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, gradsAS, gradsLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS(gradsLMr,gradsAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+! #endif
 
    end subroutine get_nlBLayers
 !------------------------------------------------------------------------------
@@ -210,18 +210,18 @@ contains
 #endif
     
       !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call shtns_load_cfg(1)
-      call shtns_spat_to_SH_ml(0, EperpAS, EperpLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, EparAS, EparLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, EperpaxiAS, EperpaxiLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, EparaxiAS, EparaxiLMr, l_max+1)
-      call shtns_load_cfg(0)
-#else
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, EperpAS, EperpLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EparAS, EparLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EperpaxiAS, EperpaxiLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EparaxiAS, EparaxiLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(EperpaxiLMr,EparaxiLMr,EperpaxiAS,EparaxiAS,l_max+1, &
                     nThetaStart,sizeThetaB)
-#endif
+! #endif
 
    end subroutine get_perpPar
 !------------------------------------------------------------------------------
@@ -354,27 +354,27 @@ contains
 #ifdef WITH_SHTNS
          !$OMP END PARALLEL DO
 #endif
-#ifdef WITH_SHTNS
-         call shtns_load_cfg(1)
-         call shtns_spat_to_SH_ml(0, fresAS, fresLMr, l_max+1)
-         call shtns_spat_to_SH_ml(0, fpoynAS, fpoynLMr, l_max+1)
-         call shtns_load_cfg(1)
-#else
+! #ifdef WITH_SHTNS
+!          call shtns_load_cfg(1)
+!          call shtns_spat_to_SH_ml(0, fresAS, fresLMr, l_max+1)
+!          call shtns_spat_to_SH_ml(0, fpoynAS, fpoynLMr, l_max+1)
+!          call shtns_load_cfg(1)
+! #else
          call legTFAS2(fresLMr,fpoynLMr,fresAS,fpoynAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+! #endif
       end if
     
       !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call shtns_load_cfg(1)
-      call shtns_spat_to_SH_ml(0, fviscAS, fviscLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, fconvAS, fconvLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, fkinAS, fkinLMr, l_max+1)
-      call shtns_load_cfg(0)
-#else
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, fviscAS, fviscLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, fconvAS, fconvLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, fkinAS, fkinLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS(fviscLMr,fviscAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(fconvLMr,fkinLMr,fconvAS,fkinAS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+! #endif
 
    end subroutine get_fluxes
 !------------------------------------------------------------------------------
@@ -501,17 +501,17 @@ contains
 #endif
 
       !-- Add contribution from thetas in block:
-#ifdef WITH_SHTNS
-      call shtns_load_cfg(1)
-      call shtns_spat_to_SH_ml(0, HelAS, HelLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, Hel2AS, Hel2LMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, HelnaAS, HelnaLMr, l_max+1)
-      call shtns_spat_to_SH_ml(0, Helna2AS, Helna2LMr, l_max+1)
-      call shtns_load_cfg(0)
-#else
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, HelAS, HelLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, Hel2AS, Hel2LMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, HelnaAS, HelnaLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, Helna2AS, Helna2LMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(HelLMr,Hel2LMr,HelAS,Hel2AS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(HelnaLMr,Helna2LMr,HelnaAS,Helna2AS,l_max+1,nThetaStart,sizeThetaB)
-#endif
+! #endif
 
    end subroutine get_helicity
 !------------------------------------------------------------------------------
