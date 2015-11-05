@@ -399,7 +399,7 @@ contains
       !$OMP& private(Hel2AS, HelAS, dvtdr, vpna, or2, HelnaAS, Helna2AS)
 #endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          HelAS(nThetaB) =0.0_cp
          Hel2AS(nThetaB)=0.0_cp
          vras=0.0_cp
