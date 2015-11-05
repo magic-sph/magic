@@ -34,7 +34,6 @@ contains
       norm = SHT_ORTHONORMAL + SHT_NO_CS_PHASE
 
       call shtns_set_size(l_max, m_max/minc, minc, norm)
-      call shtns_calc_nlm(nlm, l_max, m_max/minc, minc)
       call shtns_precompute(SHT_GAUSS, SHT_PHI_CONTIGUOUS, &
                             1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(0)
@@ -44,19 +43,10 @@ contains
       end if
 
       call shtns_set_size(l_max+1, m_max/minc, minc, norm)
-      call shtns_calc_nlm(nlm, l_max, m_max/minc, minc)
       call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
-                            1.e-14_cp, n_theta_max, n_phi_max)
+                            1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(1)
 
-      if (lm_max /= nlm) then
-         print*, "error: nlm /= lm_max", nlm, lm_max
-#ifdef WITH_MPI
-         call MPI_Abort(MPI_COMM_WORLD, 1, ierr)
-#else
-         stop "error: nlm /= lm_max"
-#endif
-      end if
       call shtns_load_cfg(0)
 
    end subroutine

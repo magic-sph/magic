@@ -305,24 +305,24 @@ contains
 #ifdef WITH_SHTNS
       call shtns_load_cfg(1)
 
-      call shtns_SH_to_spat(BtVr, BtVrLM)
-      call shtns_SH_to_spat(BpVr, BpVrLM)
-      call shtns_SH_to_spat(BrVt, BrVtLM)
+      call shtns_spat_to_SH(BtVr, BtVrLM)
+      call shtns_spat_to_SH(BpVr, BpVrLM)
+      call shtns_spat_to_SH(BrVt, BrVtLM)
 
-      call shtns_SH_to_spat(BrVp, BrVpLM)
-      call shtns_SH_to_spat(BtVp, BtVpLM)
-      call shtns_SH_to_spat(BpVt, BpVtLM)
+      call shtns_spat_to_SH(BrVp, BrVpLM)
+      call shtns_spat_to_SH(BtVp, BtVpLM)
+      call shtns_spat_to_SH(BpVt, BpVtLM)
 
-      call shtns_SH_to_spat(BtVpCot, BtVpCotLM)
-      call shtns_SH_to_spat(BpVtCot, BpVtCotLM)
-      call shtns_SH_to_spat(BtVZCot, BtVZCotLM)
+      call shtns_spat_to_SH(BtVpCot, BtVpCotLM)
+      call shtns_spat_to_SH(BpVtCot, BpVtCotLM)
+      call shtns_spat_to_SH(BtVZCot, BtVZCotLM)
 
-      call shtns_SH_to_spat(BrVZ, BrVZLM)
-      call shtns_SH_to_spat(BtVZ, BtVZLM)
-      call shtns_SH_to_spat(BtVZsn2, BtVZLM)
+      call shtns_spat_to_SH(BrVZ, BrVZLM)
+      call shtns_spat_to_SH(BtVZ, BtVZLM)
+      call shtns_spat_to_SH(BtVZsn2, BtVZLM)
 
-      call shtns_SH_to_spat(BtVpSn2, BtVpSn2LM)
-      call shtns_SH_to_spat(BpVtsn2, BpVtsn2LM)
+      call shtns_spat_to_SH(BtVpSn2, BtVpSn2LM)
+      call shtns_spat_to_SH(BpVtsn2, BpVtsn2LM)
 
       call shtns_load_cfg(0)
 #else
