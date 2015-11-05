@@ -54,9 +54,11 @@ contains
       integer :: info
 
 #if (DEFAULT_PRECISION==sngl)
-      call cgetrs('N',n,nRHSs,cmplx(a,0.0_cp,kind=cp),len_a,pivot,rhs,ldBc,info)
+      call cgetrs('N',n,nRHSs,cmplx(a(1:n,1:n),0.0_cp,kind=cp),n,pivot(1:n), &
+                  rhs(1:n,:),n,info)
 #elif (DEFAULT_PRECISION==dble)
-      call zgetrs('N',n,nRHSs,cmplx(a,0.0_cp,kind=cp),len_a,pivot,rhs,ldBc,info)
+      call zgetrs('N',n,nRHSs,cmplx(a(1:n,1:n),0.0_cp,kind=cp),n,pivot(1:n), &
+                  rhs(1:n,:),n,info)
 #endif
 
    end subroutine cgeslML
@@ -104,9 +106,9 @@ contains
       integer, intent(out) :: info
 
 #if (DEFAULT_PRECISION==sngl)
-      call sgetrf(len_a,n,a,len_a,pivot,info)
+      call sgetrf(n,n,a(1:n,1:n),n,pivot(1:n),info)
 #elif (DEFAULT_PRECISION==dble)
-      call dgetrf(len_a,n,a,len_a,pivot,info)
+      call dgetrf(n,n,a(1:n,1:n),n,pivot(1:n),info)
 #endif
 
    end subroutine sgefa

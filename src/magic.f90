@@ -145,7 +145,7 @@ program magic
    real(cp) :: dt
    real(cp) :: dtNew
 
-   integer :: n_stop_signal       ! signal returned from step_time
+   integer :: n_stop_signal=0     ! signal returned from step_time
 
    ! MPI specific variables
 #ifdef WITHOMP

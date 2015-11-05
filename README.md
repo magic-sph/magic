@@ -89,7 +89,7 @@ The executable `magic.exe` has been produced!
 
 ```sh
 $ cd $MAGIC_HOME/samples
-$ ./magic_checks.pl --all --clean
+$ ./magic_checks.pl --all --clean --use-cmake
 ```
 
 If everything is correctly set, all auto-tests should pass!
@@ -98,7 +98,7 @@ If everything is correctly set, all auto-tests should pass!
 
 ```sh
 $ cd $SCRATCHDIR/run
-$ cp $MAGIC_HOME/src/magic.exe .
+$ cp $MAGIC_HOME/build/magic.exe .
 $ cp $MAGIC_HOME/samples/hydro_bench_anel/input.nml .
 ```
     
@@ -112,13 +112,13 @@ $ mpiexec -n 4 ./magic.exe input.nml
 
 a) Set-up your PYTHON environment ([ipython](http://ipython.org/), [scipy](http://www.scipy.org/) and [matplotlib](http://matplotlib.org/) are needed)
 
-b) Modify `magic.cfg` according to your machine
+b) Modify `magic.cfg` according to your machine in case the auto-configuration didn't work
 
 ```sh
 $ vi $MAGIC_HOME/python/magic/magic.cfg
 ```
 
-c) You can now import the python class:
+c) You can now import the python classes:
 
 ```python
 python> from magic import *
@@ -145,7 +145,6 @@ b) Try to follow the same coding style rules as in the rest of the code:
 3. Never use capital letters for variable declaration
 4. Never use `dimension(len)` for declaring array but rather `real(cp) :: data(len)`
 5. Always use the default precisions when introducing new variables `(cp)`
-
 
 More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
