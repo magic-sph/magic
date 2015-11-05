@@ -108,22 +108,22 @@ contains
 
       !--- Input variables
       real(cp),    intent(in) :: time,dt,dtNew
-      complex(cp), intent(in) :: w(lm_max,n_r_max)
-      complex(cp), intent(in) :: z(lm_max,n_r_max)
-      complex(cp), intent(in) :: p(lm_max,n_r_max)
-      complex(cp), intent(in) :: s(lm_max,n_r_max)
-      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: dwdtLast(lm_max,n_r_max)
-      complex(cp), intent(in) :: dzdtLast(lm_max,n_r_max)
-      complex(cp), intent(in) :: dpdtLast(lm_max,n_r_max)
-      complex(cp), intent(in) :: dsdtLast(lm_max,n_r_max)
-      complex(cp), intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), target, intent(in) :: w(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: z(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: p(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: s(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), target, intent(in) :: aj(lm_maxMag,n_r_maxMag)
+      complex(cp), target, intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), target, intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), target, intent(in) :: dwdtLast(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: dzdtLast(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: dpdtLast(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: dsdtLast(lm_max,n_r_max)
+      complex(cp), target, intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), target, intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
+      complex(cp), target, intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), target, intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
 
       !--- HDF5 file identifier
       integer(HID_T) :: file_id  

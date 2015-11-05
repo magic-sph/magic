@@ -34,7 +34,7 @@ contains
       integer(HID_T),   intent(in) :: loc_id
       integer(HID_T),   intent(in) :: dataset_type
       character(len=*), intent(in) :: dataset_name
-      complex(cp),  intent(in) :: dat(llm:ulm,dim1)
+      complex(cp),  intent(in), target :: dat(llm:ulm,dim1)
       integer(HSIZE_T), intent(in) :: dims_full(2)
 
       !--- Local variables
