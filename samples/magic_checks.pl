@@ -479,7 +479,7 @@ sub compare_numbers_fuzzily {
 
     # Short-circuit NaN/Inf -- they will be taken care of as they will make
     # any comparison fail
-    return 1 if (   ($x =~ /^([+-]?(NaN|Inf))$/i)
+    return 0 if (   ($x =~ /^([+-]?(NaN|Inf))$/i)
                  || ($y =~ /^([+-]?(NaN|Inf))$/i) );
 
     # Regexp for general float, groups into pre-exponent and
