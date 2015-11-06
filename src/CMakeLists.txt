@@ -98,7 +98,6 @@ try_run(SHTNS_RUN SHTNS_LINK ${CMAKE_BINARY_DIR}
    COMPILE_OUTPUT_VARIABLE OUTPUT)
 
 if(SHTNS_LINK)
-   message(STATUS "SHTNS backend: MKL")
    set(SHTNS_DEPS "${MKLCORE} ${MKLSEQ} ${MKL64}")
 endif()
 
@@ -116,10 +115,7 @@ if(NOT SHTNS_LINK)
       LINK_LIBRARIES ${SHTNS} ${FFTW3_OMP_LIBRARY} ${FFTW3_LIBRARY}
       COMPILE_OUTPUT_VARIABLE OUTPUT)
    if(SHTNS_LINK)
-      message(STATUS "SHTNS backend: FFTW")
       set(SHTNS_DEPS "${FFTW3_OMP_LIBRARY} ${FFTW3_LIBRARY}")
-   else()
-      message(STATUS "SHTNS backend: not found")
    endif(SHTNS_LINK)
 endif(NOT SHTNS_LINK)
 

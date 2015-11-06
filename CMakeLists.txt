@@ -189,8 +189,14 @@ if(USE_HDF5 MATCHES yes)
 endif()
 message(STATUS "HDF5 for check points: '${USE_HDF5}'")
 
-
-find_package(FFTW3 COMPONENTS double omp)
+find_library(FFTW3 NAME fftw3
+    PATHS /usr/local/fftw/3.3.4_openmp/lib
+         $ENV{FFTW_ROOT}/lib)
+find_library(FFTW3_OMP NAME fftw3_omp
+    PATHS /usr/local/fftw/3.3.4_openmp/lib
+         $ENV{FFTW_ROOT}/lib)
+message(STATUS "FFTW3: '${FFTW3}'")
+message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
 
 if(USE_OMP)
    find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
