@@ -263,6 +263,7 @@ description of the possible options) and run **MagIC** as follows:
   .. code-block:: bash
 
      $ export OMP_NUM_THREAD = <n_omp>
+     $ export KMP_AFFINITY=verbose,granularity=core,compact,1
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
 
 Note that the :ref:`n_r_max <varn_r_max>` must be a multiple of ``<n_mpi>``,

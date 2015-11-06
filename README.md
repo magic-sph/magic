@@ -105,6 +105,8 @@ $ cp $MAGIC_HOME/samples/hydro_bench_anel/input.nml .
 Then change the input namelist to the setup you want and run the code:
 
 ```sh
+$ export OMP_NUM_THREADS=2
+$ export KMP_AFFINITY=verbose,granularity=core,compact,1
 $ mpiexec -n 4 ./magic.exe input.nml
 ```
 
