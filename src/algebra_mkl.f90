@@ -49,7 +49,7 @@ contains
 
       complex(cp), intent(inout) :: rhs(ldBc,nRHSs) ! on input RHS of problem
 
-      call getrs(cmplx(a,0.0_cp,kind=cp),pivot,rhs)
+      call getrs(cmplx(a(1:n,1:n),0.0_cp,kind=cp),pivot(1:n),rhs(1:n,:))
 
    end subroutine cgeslML
 !-----------------------------------------------------------------------------
@@ -90,7 +90,7 @@ contains
       integer, intent(out) :: pivot(n)   ! pivoting information
       integer, intent(out) :: info
 
-      call getrf(a,pivot,info)
+      call getrf(a(1:n,1:n),pivot(1:n),info)
 
    end subroutine sgefa
 !-----------------------------------------------------------------------------

@@ -216,9 +216,11 @@ contains
       if ( l_mag_old ) then
          read(n_start_file) so,wo,zo,po
     
-         call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
+         if ( l_mag ) then
+            call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
                              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
                              .FALSE.,aj,dbdt,djdt,b )
+         end if
       else
          write(*,*) '! No magnetic data in input file!'
       end if
@@ -278,9 +280,11 @@ contains
                       so(n_data_oldP) )
     
             read(n_start_file) so,wo,zo,po
-            call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
-                             lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
-                             .TRUE.,aj_ic,dbdt_ic,djdt_ic,b_ic )
+            if ( l_mag ) then
+               call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
+                                lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
+                                .TRUE.,aj_ic,dbdt_ic,djdt_ic,b_ic )
+            end if
     
             deallocate( lm2lmo )
             deallocate( wo,zo,po,so )
@@ -1097,20 +1101,20 @@ contains
                           w,z,p,s )
 
       !--- Input variables
-      integer,         intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
-      integer,         intent(in) :: n_r_maxL,n_data_oldP,dim1
-      integer,         intent(in) :: lm2lmo(lm_max)
-      logical,         intent(in) :: l_IC
+      integer,     intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
+      integer,     intent(in) :: n_r_maxL,n_data_oldP,dim1
+      integer,     intent(in) :: lm2lmo(lm_max)
+      logical,     intent(in) :: l_IC
       complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
       complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
 
       !--- Output variables
-      complex(cp),intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
-      complex(cp),intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
+      complex(cp), intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
+      complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
 
       !--- Local variables
       integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
-      complex(cp),allocatable :: woR(:),zoR(:),poR(:),soR(:)
+      complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
 
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
       allocate( woR(n_r_maxL),zoR(n_r_maxL) )
@@ -1175,9 +1179,9 @@ contains
       !
 
       !--- Input variables
-      integer,         intent(in) :: n_r_max_old
-      integer,         intent(in) :: n_r_maxL,n_rad_tot
-      logical,         intent(in) :: lBc,l_IC
+      integer, intent(in) :: n_r_max_old
+      integer, intent(in) :: n_r_maxL,n_rad_tot
+      logical, intent(in) :: lBc,l_IC
 
       !--- Output variables
       complex(cp), intent(out) :: dataR(:)  ! old data 

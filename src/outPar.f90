@@ -74,11 +74,9 @@ contains
          fconvMeanR(:)   =0.0_cp
          fkinMeanR(:)    =0.0_cp
          fviscMeanR(:)   =0.0_cp
-         if ( l_mag_nl ) then
-            allocate( fresMeanR(n_r_max),fpoynMeanR(n_r_max) )
-            fresMeanR(:)    =0.0_cp
-            fpoynMeanR(:)   =0.0_cp
-         end if
+         allocate( fresMeanR(n_r_max),fpoynMeanR(n_r_max) )
+         fresMeanR(:)    =0.0_cp
+         fpoynMeanR(:)   =0.0_cp
       end if
 
       if ( l_perpPar ) then

@@ -84,7 +84,7 @@ contains
       if ( l_mag ) write(n_rst_file) b,aj,dbdtLast,djdtLast
 
       !-- Write IC magnetic field:
-      if ( l_mag .AND. l_cond_ic ) &
+      if ( l_mag .and. l_cond_ic ) &
           write(n_rst_file) b_ic,aj_ic,dbdt_icLast,djdt_icLast
 
       !-- Store Lorentz-torques and rotation rates:
