@@ -608,7 +608,7 @@ class AvgField:
         nusst = fac * trapz(ts3.topnuss[ind:], ts3.time[ind:])
         self.nuss = 0.5*(nussb+nusst)
 
-        if self.mode == 0:
+        if self.mode == 0 or self.mode == 8:
             ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False, 
                           tag=tag)
             mask = N.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
@@ -675,7 +675,7 @@ class AvgField:
             ek = 0. # to avoid the -1 for the non-rotating cases
         else:
             ek = self.ek
-        if self.mode == 0:
+        if self.mode == 0 or self.mode == 8:
             st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.pr, self.prmag, self.strat, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg, \
@@ -683,18 +683,13 @@ class AvgField:
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
                self.emag_tora_avg)
              
+            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
+                (self.reynolds, self.ureynolds, self.rol, self.urol, \
+                 self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
+                 self.dlV, self.udlV, self.dlB, self.dmB)
             if self.dipExtra:
-                st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
-                    (self.reynolds, self.ureynolds, self.rol, self.urol, \
-                     self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
-                     self.dlV, self.udlV, self.dlB, self.dmB)
                 st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
-            else:
-                st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
-                    (self.reynolds, self.ureynolds, self.rol, self.urol, \
-                     self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
-                     self.dlV, self.udlV, self.dlB, self.dmB)
 
             st += '%12.5e%12.5e%9.2e\n' % (self.buoPower, -self.ohmDiss, self.fohm)
         else:
