@@ -1630,10 +1630,12 @@ class Surf:
             ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-', lw=1.5)
 
             if hasattr(self.gr, 'epsS'):
-                rad = MagicRadial(field='anel', iplot=False)
-                idx = N.nonzero(N.where(abs(rad.dsdr)==abs(rad.dsdr).min(), 1, 0))[0][0]
-                ax.plot(self.gr.radius[idx]*N.cos(th), self.gr.radius[idx]*N.sin(th), 
-                        'k--', lw=2)
+                if self.gr.epsS != 0:
+                    rad = MagicRadial(field='anel', iplot=False)
+                    idx = N.nonzero(N.where(abs(rad.dsdr)==abs(rad.dsdr).min(), 
+                                1, 0))[0][0]
+                    ax.plot(self.gr.radius[idx]*N.cos(th), 
+                            self.gr.radius[idx]*N.sin(th), 'k--', lw=2)
 
             if grid:
                 ax.contour(xx, yy, tth, nGridLevs, colors='k', linestyles='--',
