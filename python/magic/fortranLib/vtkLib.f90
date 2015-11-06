@@ -385,6 +385,8 @@ subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
       if ( scalcodes(i) == 7) scalnames(i) = 'Fluct. z vorticity'
       if ( scalcodes(i) == 8) scalnames(i) = 'Radial vorticity'
       if ( scalcodes(i) == 9) scalnames(i) = 'Fluct. temp.'
+      if ( scalcodes(i) == 10) scalnames(i) = 'Kinetic energy'
+      if ( scalcodes(i) == 11) scalnames(i) = 'Radial mag. field'
    end do
 
    do i=1,nvecs

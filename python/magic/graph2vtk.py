@@ -244,11 +244,17 @@ class Graph2Vtk:
         keyScal['vortr'] = 8
         keyScal['flucttemp'] = 9
         keyScal['ekin'] = 10
+        keyScal['br'] = 11
+        keyScal['Br'] = 11
 
         # Change default scalars and vectors in non-magnetic cases
         if gr.mode == 1 or gr.mode == 7:
             if keyScal.has_key('emag'):
                 keyScal.__delitem__('emag')
+            if keyScal.has_key('br'):
+                keyScal.__delitem__('br')
+            if keyScal.has_key('Br'):
+                keyScal.__delitem__('Br')
 
         self.scalNames = N.zeros(len(scals), 'i')
         for k, scal in enumerate(scals):
