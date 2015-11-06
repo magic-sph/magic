@@ -67,6 +67,10 @@ contains
     
       n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
     
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP& private(n_theta_rel, n_phi, fac)
+#endif
       do n_theta_rel=1,n_theta_block
          n_theta=n_theta+1           ! absolute number of theta
     
@@ -79,13 +83,22 @@ contains
                                      ( fac*vp(n_phi,n_theta_rel) - omega )
          end do
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
+
     
       !-- Fourier transform phi 2 m (real 2 complex!)
-      call fft_thetab(br_vt,-1)
-      call fft_thetab(br_vp,-1)
+#ifdef WITH_SHTNS
+      call shtns_SH_to_spat(br_vt, br_vt_lm)
+      call shtns_SH_to_spat(br_vp, br_vp_lm)
+#else
+      call fft_thetab(br_vt, -1)
+      call fft_thetab(br_vp, -1)
     
       !-- Legendre transform contribution of thetas in block:
       call legTF2(n_theta_min,br_vt_lm,br_vp_lm,br_vt,br_vp)
+#endif
     
    end subroutine get_br_v_bcs
 !----------------------------------------------------------------------------
@@ -186,6 +199,7 @@ contains
       !  r**2  2 cos(theta) omega                                    
       !
 
+      use truncation, only: n_theta_max, n_phi_max
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point
       logical,  intent(in) :: lDeriv        ! derivatives required ?

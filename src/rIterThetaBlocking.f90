@@ -23,7 +23,7 @@ module rIterThetaBlocking_mod
    use physical_parameters, only: kbots,ktops,n_r_LCR
    use nonlinear_bcs, only: v_rigid_boundary
    use legendre_grid_to_spec
- 
+
    implicit none
 
    private
@@ -37,7 +37,7 @@ module rIterThetaBlocking_mod
       complex(cp), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
                                   &               BtVZsn2LM(:)
    end type dtB_arrays_t
-  
+
    type, public :: TO_arrays_t
       !----- Local TO output stuff:
       real(cp), allocatable :: dzRstrLM(:),dzAstrLM(:)
@@ -49,23 +49,23 @@ module rIterThetaBlocking_mod
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
       !integer,len :: sizeThetaB,nThetaBs
       integer :: sizeThetaB, nThetaBs
- 
+
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
       type(dtB_arrays_t) :: dtB_arrays
       type(TO_arrays_t)  :: TO_arrays
- 
+
       !class(grid_space_arrays_t),private :: gsa
- 
+
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
       !      the variables calulated with this don't give any
       !      deep insight. TO should be changes in the future to
       !      eliminate this.
       real(cp), allocatable :: BsLast(:,:,:), BpLast(:,:,:), BzLast(:,:,:)
- 
+
    contains
- 
+
       !procedure :: initialize => initialize_rIterThetaBlocking
       procedure :: allocate_common_arrays
       procedure :: deallocate_common_arrays
@@ -73,7 +73,7 @@ module rIterThetaBlocking_mod
       !procedure,deferred :: do_iteration
       procedure :: transform_to_grid_space
       procedure :: transform_to_lm_space
- 
+
    end type rIterThetaBlocking_t
 
 contains
@@ -81,16 +81,16 @@ contains
    subroutine allocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-  
-      !----- Nonlinear terms in lm-space: 
+
+      !----- Nonlinear terms in lm-space:
       !call this%nl_lm%initialize(lmP_max)
-  
-  
+
+
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
-  
+
       !----- Local dtB output stuff:
       allocate( this%dtB_arrays%BtVrLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BpVrLM(lmP_max_dtB) )
@@ -106,13 +106,13 @@ contains
       allocate( this%dtB_arrays%BtVZLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BtVZcotLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
-  
+
       !----- Local TO output stuff:
       if ( l_TO ) then
         allocate( this%TO_arrays%dzRstrLM(l_max+2),this%TO_arrays%dzAstrLM(l_max+2) )
         allocate( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
       end if
-  
+
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
@@ -122,7 +122,7 @@ contains
    subroutine deallocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-  
+
       deallocate( this%dtB_arrays%BtVrLM )
       deallocate( this%dtB_arrays%BpVrLM )
       deallocate( this%dtB_arrays%BrVtLM )
@@ -137,13 +137,13 @@ contains
       deallocate( this%dtB_arrays%BtVZLM )
       deallocate( this%dtB_arrays%BtVZcotLM )
       deallocate( this%dtB_arrays%BtVZsn2LM )
-  
+
       !----- Local TO output stuff:
       if ( l_TO ) then
         deallocate( this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM )
         deallocate( this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM )
       end if
-  
+
       deallocate( this%BsLast)
       deallocate( this%BpLast)
       deallocate( this%BzLast)
@@ -154,25 +154,25 @@ contains
 
       class(rIterThetaBlocking_t) :: this
       integer,intent(in) :: nThetaBs, sizeThetaB
-      
+
       this%nThetaBs = nThetaBs
-  
+
       this%sizeThetaB = sizeThetaB
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
    subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa)
 
-      class(rIterThetaBlocking_t) :: this
+      class(rIterThetaBlocking_t), target :: this
       integer, intent(in) :: nThetaStart,nThetaStop
       type(grid_space_arrays_t) :: gsa
-  
+
       ! Local variables
       integer :: nTheta
       logical :: DEBUG_OUTPUT=.false.
 
       !----- Legendre transform from (r,l,m) to (r,theta,m):
-      !      First version with PlmTF needed for first-touch policy  
+      !      First version with PlmTF needed for first-touch policy
       if ( l_mag ) then
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
@@ -207,7 +207,7 @@ contains
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
       end if
-  
+
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
@@ -228,7 +228,9 @@ contains
                call fft_thetab(gsa%pc,1)
             end if
          end if
-         if ( l_HT .or. this%lViscBcCalc ) call fft_thetab(gsa%drSc,1)
+         if ( l_HT .or. this%lViscBcCalc ) then
+            call fft_thetab(gsa%drSc,1)
+         endif
          if ( this%nBc == 0 ) then
             call fft_thetab(gsa%vrc,1)
             call fft_thetab(gsa%vtc,1)
@@ -240,6 +242,7 @@ contains
                call fft_thetab(gsa%cvrc,1)
                call fft_thetab(gsa%dvrdtc,1)
                call fft_thetab(gsa%dvrdpc,1)
+
                call fft_thetab(gsa%dvtdpc,1)
                call fft_thetab(gsa%dvpdpc,1)
             end if
@@ -292,7 +295,7 @@ contains
    subroutine transform_to_lm_space(this,nThetaStart,nThetaStop,gsa,nl_lm)
 
       class(rIterThetaBlocking_t) :: this
-      integer,intent(in) :: nThetaStart,nThetaStop
+      integer,intent(in) :: nThetaStart, nThetaStop
       type(grid_space_arrays_t) :: gsa
       type(nonlinear_lm_t) :: nl_lm
       
@@ -330,6 +333,7 @@ contains
                end do
             end if
          end if
+
          call fft_thetab(gsa%Advr,-1)
          call fft_thetab(gsa%Advt,-1)
          call fft_thetab(gsa%Advp,-1)

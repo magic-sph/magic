@@ -86,7 +86,7 @@ contains
     
          do n_theta_rel=1,n_theta_block
     
-            n_theta=n_theta+1
+            n_theta=n_theta_min+n_theta_rel-1
             n_theta_nhs=(n_theta+1)/2 ! northern hemisphere=odd n_theta
     
             do n_phi=1,n_phi_max

@@ -1,7 +1,7 @@
 # - Finds OpenMP support
 # This module can be used to detect OpenMP support in a compiler.
 # If the compiler supports OpenMP, the flags required to compile with
-# openmp support are set.  
+# openmp support are set.
 #
 # This module was modified from the standard FindOpenMP module to find Fortran
 # flags.
@@ -32,9 +32,9 @@ SET (OpenMP_Fortran_FLAG_CANDIDATES
      #Microsoft Visual Studio
      "/openmp"
      #Intel windows
-     "/Qopenmp" 
+     "/Qopenmp"
      #Intel
-     "-openmp" 
+     "-openmp"
      #Gnu
      "-fopenmp"
      #Empty, if compiler automatically accepts openmp
@@ -59,7 +59,7 @@ FOREACH (FLAG ${OpenMP_Fortran_FLAG_CANDIDATES})
     SET (CMAKE_REQUIRED_FLAGS "${FLAG}")
     SET (OpenMP_FLAG_DETECTED FALSE CACHE STRING "Not found..." FORCE)
     MESSAGE (STATUS "Try OpenMP Fortran flag = [${FLAG}]")
-    FILE (WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testFortranOpenMP.f90" 
+    FILE (WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testFortranOpenMP.f90"
 "
 program TestOpenMP
  use omp_lib
@@ -98,7 +98,7 @@ SET (OpenMP_Fortran_FLAGS "${OpenMP_Fortran_FLAGS_INTERNAL}"
      CACHE STRING "Fortran compiler flags for OpenMP parallization")
 
 # handle the standard arguments for FIND_PACKAGE
-FIND_PACKAGE_HANDLE_STANDARD_ARGS (OpenMP_Fortran DEFAULT_MSG 
+FIND_PACKAGE_HANDLE_STANDARD_ARGS (OpenMP_Fortran DEFAULT_MSG
     OpenMP_Fortran_FLAGS)
 
 MARK_AS_ADVANCED(OpenMP_Fortran_FLAGS)

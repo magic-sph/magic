@@ -19,6 +19,7 @@ set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_HDF5    "no"   CACHE STRING "Use HDF5 to store check points")
+set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
 
 # Specific compiler options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -140,7 +141,11 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
       message(STATUS "MKL was found: ${MKLROOT}")
       find_library(MKLCORE mkl_core HINTS ${MKLROOT}/lib/intel64)
       find_library(MKLLAPACK mkl_lapack95_lp64 HINTS ${MKLROOT}/lib/intel64)
-      find_library(MKLSEQ mkl_sequential HINTS ${MKLROOT}/lib/intel64)
+      if (USE_SHTNS MATCHES yes AND USE_OMP MATCHES yes)
+         find_library(MKLSEQ mkl_gnu_thread HINTS ${MKLROOT}/lib/intel64)
+      else()
+         find_library(MKLSEQ mkl_sequential HINTS ${MKLROOT}/lib/intel64)
+      endif()
       if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
          find_library(MKL64 mkl_intel_lp64 HINTS ${MKLROOT}/lib/intel64)
       endif()
@@ -183,6 +188,33 @@ if(USE_HDF5 MATCHES yes)
    endif()
 endif()
 message(STATUS "HDF5 for check points: '${USE_HDF5}'")
+
+find_library(FFTW3 NAME fftw3
+    PATHS /usr/local/fftw/3.3.4_openmp/lib
+         $ENV{FFTW_ROOT}/lib)
+find_library(FFTW3_OMP NAME fftw3_omp
+    PATHS /usr/local/fftw/3.3.4_openmp/lib
+         $ENV{FFTW_ROOT}/lib)
+message(STATUS "FFTW3: '${FFTW3}'")
+message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
+
+if(USE_OMP)
+   find_library(SHTNS shtns_omp HINTS $ENV{HOME}/local/lib)
+else()
+   find_library(SHTNS shtns HINTS $ENV{HOME}/local/lib)
+endif(USE_OMP)
+# Detect SHTNS
+if(USE_SHTNS MATCHES yes)
+   if(SHTNS)
+      add_definitions(-DWITH_SHTNS)
+       include_directories($ENV{HOME}/local/include)
+      message(STATUS "SHTNS: ${SHTNS}")
+   else()
+      message(STATUS "Failed to find SHTNS")
+   endif()
+else()
+   message(STATUS "Use SHTNS: no")
+endif()
 
 # Final Fortran flags (after OpenMP/MPI to avoid the conflict
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${FFLAG_STD} -g ${FFLAG_TRACEBACK} ${FFLAG_CONVERT} ${FFLAG_PREPROCESSOR}")

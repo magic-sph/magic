@@ -19,6 +19,8 @@ USE_FFTLIB=MKL
 USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
 USE_HDF5=no
+#Use shtns for Legendre/Fourier transforms
+USE_SHTNS=no
 
 USE_PERFLIB=none
 
@@ -34,6 +36,26 @@ endif
 ifeq ($(USE_MPI),no)
 	USE_OMP=no
 endif
+
+SHTNS_INC = $(HOME)/local/include
+ifeq ($(USE_OMP),yes)
+	FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns_omp -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_gnu_thread -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+else
+	FFLAG_SHTNS = -L$(HOME)/local/lib -lshtns -L$(MKLROOT)/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lrt -lm -Wl,-rpath,$(MKLROOT)/lib/intel64
+endif
+
+
+# preconditioning of the matrices
+# switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
+# WITH_PRECOND_Z
+# PRECOND_WP is always set
+# to switch the preconditioner off and get the old ill-conditioned matrices
+# just comment the following statement
+PREPROC += 	-DWITH_PRECOND_S \
+		-DWITH_PRECOND_Z \
+		-DWITH_PRECOND_BJ \
+		-DWITH_PRECOND_S0 \
+		-DWITH_PRECOND_Z10
 
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT
@@ -52,7 +74,6 @@ ifeq ($(USE_PRECOND),yes)
 			-DWITH_PRECOND_S0 \
 			-DWITH_PRECOND_Z10
 endif
-
 
 ifeq ($(COMPILER),intel)
 	FFLAG_TRACEBACK = -traceback
@@ -186,6 +207,12 @@ ifeq ($(USE_LAPACKLIB),LAPACK)
 	LIBS += -llapack
 endif
 
+ifeq ($(USE_SHTNS),yes)
+	PREPROC += -DWITH_SHTNS
+	INCPATHS += -I$(SHTNS_INC)
+	LIBS += $(FFLAG_SHTNS)
+endif
+
 ifeq ($(USE_HDF5), yes)
 	PREPROC += -DWITH_HDF5
 	INCPATHS += -I$(HDF5ICL)
@@ -245,7 +272,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% shtns% rIterThetaBlocking_shtns% hdf5Helpers% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -269,6 +296,10 @@ endif
 
 ifeq ($(USE_HDF5),yes)
 	RED_SOURCES += hdf5Helpers.f90
+endif
+
+ifeq ($(USE_SHTNS),yes)
+	RED_SOURCES += shtns.f90 rIterThetaBlocking_shtns.f90
 endif
 
 OBJS   := $(addsuffix .o, $(basename $(RED_SOURCES)))
@@ -407,6 +438,7 @@ legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
                         logic.o constants.o blocking.o Grenoble.o\
+                        logic.o blocking.o Grenoble.o\
                         fields.o TO.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
@@ -558,6 +590,15 @@ Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
 	$(FC) -c -o mpi.o -I$(MPI_INCPATH) mpimod.f90
+endif
+
+ifeq ($(USE_SHTNS),yes)
+rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
+                        out_movie_file.o outRot.o nl_special_calc.o courant.o
+shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
+                        precision_mod.o constants.o
+radialLoop.o          : rIterThetaBlocking_shtns.o
+magic.o               : shtns.o
 endif
 
 ifeq ($(USE_LAPACKLIB),MKL)

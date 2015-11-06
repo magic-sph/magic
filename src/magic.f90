@@ -131,6 +131,9 @@ program magic
 #  include "likwid_f90.h"
 #endif
 
+#ifdef WITH_SHTNS
+   use shtns
+#endif
    implicit none
 
    !-- Local variables:
@@ -255,6 +258,9 @@ program magic
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
 
+#ifdef WITH_SHTNS
+   call init_shtns()
+#endif
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then
       call writeInfo(6)

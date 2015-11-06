@@ -1,7 +1,7 @@
 module leg_helper_mod
 
    use precision_mod
-   use truncation, only: lm_max,l_max
+   use truncation, only: lm_max, l_max, n_m_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
@@ -18,7 +18,7 @@ module leg_helper_mod
    implicit none
 
    private
-   
+
    type, public :: leg_helper_t
       ! Help arrays for Legendre transform calculated in legPrepG:
       ! Parallelizatio note: these are the R-distributed versions
@@ -31,12 +31,11 @@ module leg_helper_mod
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
- 
    contains
- 
+
       procedure :: initialize
       procedure :: legPrepG
- 
+
    end type leg_helper_t
 
    public :: legPrep, legPrep_IC
@@ -86,7 +85,7 @@ contains
       !  lDeriv=.true. field derivatives required                        
 
       class(leg_helper_t) :: this
-    
+
       !-- Input of variables
       integer, intent(in) :: nR          ! radial level
       integer, intent(in) :: nBc         ! boundary condition
@@ -96,20 +95,19 @@ contains
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
       logical, intent(in) :: lTOcalc
-    
+
       !-- Input of scalar fields in LM-distributed space
       !   These have to be collected and stored in the
       !   R-distributed output variables
-    
+
       !-- Local variables:
       integer :: lm,l,m
       complex(cp) :: dbd
-    
-    
+
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma
       if ( l_conv .or. l_mag_kin ) then
-    
+
          if ( l_heat ) then
             do lm=1,lm_max
                this%sR(lm) =s_Rloc(lm,nR)   ! used for plotting and Rms
@@ -141,7 +139,7 @@ contains
                this%bCMB(lm)=b_Rloc(lm,nR)  ! used for movie output of surface field
             end do
          end if
-    
+
          if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
             this%dLhw(1)=zero
             this%vhG(1) =zero
@@ -154,7 +152,7 @@ contains
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
             end do
          end if
-    
+
          if ( lDeriv ) then
             this%dLhdw(1) =zero
             this%dLhz(1)  =zero
@@ -169,11 +167,11 @@ contains
                     cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
             end do
          end if
-    
+
       end if
-    
+
       if ( l_mag .or. l_mag_LF ) then
-    
+
          !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
          !PRINT*,"dj: ",SUM(ABS(dj(:,nR)))
          this%dLhb(1)=zero
@@ -208,9 +206,9 @@ contains
                this%cbhC(lm)=this%cbhC(lm)-cmplx(0.0_cp,ddb0(nR),kind=cp)
             end if
          end if
-    
+
       end if   ! magnetic terms required ?
-    
+
    end subroutine legPrepG
 !------------------------------------------------------------------------------
    subroutine legPrep(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
@@ -238,18 +236,18 @@ contains
       real(cp),    intent(in) :: r
       logical,     intent(in) :: lHor
       logical,     intent(in) :: lDeriv
-    
+
       !-- Output variable:
       complex(cp), intent(out) :: dLhw(*),dLhz(*)
       complex(cp), intent(out) :: vhG(*),vhC(*)
       complex(cp), intent(out) :: cvhG(*),cvhC(*)
-    
+
       !-- Local variables:
       integer :: lm,l,m
       real(cp) :: Or_e2
       complex(cp) :: help
-    
-    
+
+
       lm=0
       do m=0,l_max,minc
          do l=m,l_max
@@ -266,7 +264,7 @@ contains
          vhG(1) =zero
          vhC(1) =zero
       end if
-    
+
       if ( lDeriv ) then
          Or_e2=one/r**2
          lm=0
@@ -283,7 +281,7 @@ contains
          cvhG(1)=zero
          cvhc(1)=zero
       end if
-    
+
    end subroutine legPrep
 !------------------------------------------------------------------------------
    subroutine legPrep_IC(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
@@ -325,11 +323,11 @@ contains
       complex(cp), intent(out) :: dLhw(lm_max),dLhz(lm_max)
       complex(cp), intent(out) :: vhG(lm_max),vhC(lm_max)
       complex(cp), intent(out) :: cvhG(lm_max),cvhC(lm_max)
-       
+
       !-- Local variables:
       integer :: lm,l,m
       complex(cp) :: help1,help2
-              
+
       real(cp) :: rRatio,rDep(0:l_max),rDep2(0:l_max)
 
 

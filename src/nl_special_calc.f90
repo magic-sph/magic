@@ -58,8 +58,13 @@ contains
     
       !--- Horizontal velocity uh and duh/dr + (grad T)**2
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(uh, duh, grads)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          uhAS(nThetaB) =0.0_cp
          duhAS(nThetaB)=0.0_cp
          gradsAS(nThetaB)=0.0_cp
@@ -88,10 +93,21 @@ contains
          duhAS(nThetaB)=phiNorm*duhAS(nThetaB)
          gradsAS(nThetaB)=phiNorm*gradsAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       !------ Add contribution from thetas in block:
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, uhAS, uhLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, duhAS, duhLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, gradsAS, gradsLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(uhLMr,duhLMr,uhAS,duhAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS(gradsLMr,gradsAS,l_max+1,nThetaStart,sizeThetaB)
+! #endif
 
    end subroutine get_nlBLayers
 !------------------------------------------------------------------------------
@@ -125,8 +141,14 @@ contains
       phiNorm=one/real(n_phi_max,cp)
     
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                 &
+      !$OMP& private(nThetaB, nTheta, nPhi)             &
+      !$OMP& private(Eperp, Epar, Eperpaxi, Eparaxi)    &
+      !$OMP& private(vras, vtas, vpas)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2
     
          EperpAS(nThetaB)   =0.0_cp
@@ -183,11 +205,23 @@ contains
          EperpaxiAS(nThetaB)=phiNorm*EperpaxiAS(nThetaB)
          EparaxiAS(nThetaB) =phiNorm* EparaxiAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       !-- Add contribution from thetas in block:
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, EperpAS, EperpLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EparAS, EparLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EperpaxiAS, EperpaxiLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, EparaxiAS, EparaxiLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(EperpaxiLMr,EparaxiLMr,EperpaxiAS,EparaxiAS,l_max+1, &
                     nThetaStart,sizeThetaB)
+! #endif
 
    end subroutine get_perpPar
 !------------------------------------------------------------------------------
@@ -234,8 +268,13 @@ contains
       phiNorm=two*pi/real(n_phi_max,cp)
     
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)         &
+      !$OMP& private(nThetaB, nTheta, nPhi)     &
+      !$OMP& private(fkin, fconv, fvisc)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          nThetaNHS=(nTheta+1)/2
          fkinAS(nThetaB) =0.0_cp
          fconvAS(nThetaB)=0.0_cp
@@ -277,11 +316,19 @@ contains
          fconvAS(nThetaB)=phiNorm*fconvAS(nThetaB)
          fviscAS(nThetaB)=phiNorm*fviscAS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
     
       if ( l_mag_nl) then
          nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+         !$OMP PARALLEL DO default(shared)         &
+         !$OMP& private(nThetaB, nTheta, nPhi)     &
+         !$OMP& private(fkin, fconv, fvisc)
+#endif
          do nThetaB=1,sizeThetaB
-            nTheta=nTheta+1
+            nTheta=nThetaStart+nThetaB-1
             nThetaNHS=(nTheta+1)/2
             fresAS(nThetaB) =0.0_cp
             fpoynAS(nThetaB)=0.0_cp
@@ -304,12 +351,30 @@ contains
             fresAS(nThetaB) =phiNorm* fresAS(nThetaB)
             fpoynAS(nThetaB)=phiNorm*fpoynAS(nThetaB)
          end do
+#ifdef WITH_SHTNS
+         !$OMP END PARALLEL DO
+#endif
+! #ifdef WITH_SHTNS
+!          call shtns_load_cfg(1)
+!          call shtns_spat_to_SH_ml(0, fresAS, fresLMr, l_max+1)
+!          call shtns_spat_to_SH_ml(0, fpoynAS, fpoynLMr, l_max+1)
+!          call shtns_load_cfg(1)
+! #else
          call legTFAS2(fresLMr,fpoynLMr,fresAS,fpoynAS,l_max+1,nThetaStart,sizeThetaB)
+! #endif
       end if
     
       !-- Add contribution from thetas in block:
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, fviscAS, fviscLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, fconvAS, fconvLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, fkinAS, fkinLMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS(fviscLMr,fviscAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(fconvLMr,fkinLMr,fconvAS,fkinAS,l_max+1,nThetaStart,sizeThetaB)
+! #endif
 
    end subroutine get_fluxes
 !------------------------------------------------------------------------------
@@ -356,8 +421,17 @@ contains
 
       !--- Helicity:
       nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP& private(nThetaB, nTheta, nPhi) &
+      !$OMP& private(vras, cvras, vtas, vpas) &
+      !$OMP& private(dvrdpas, dvpdras, dvtdras, dvrdtas) &
+      !$OMP& private(vrna, cvrna, vtna) &
+      !$OMP& private(dvrdpna, dvpdrna, dvtdrna, dvrdtna, Hel, Helna) &
+      !$OMP& private(Hel2AS, HelAS, dvtdr, vpna, or2, HelnaAS, Helna2AS)
+#endif
       do nThetaB=1,sizeThetaB
-         nTheta=nTheta+1
+         nTheta=nThetaStart+nThetaB-1
          HelAS(nThetaB) =0.0_cp
          Hel2AS(nThetaB)=0.0_cp
          vras=0.0_cp
@@ -422,10 +496,22 @@ contains
          HelnaAS(nThetaB) =phiNorm*HelnaAS(nThetaB)
          Helna2AS(nThetaB)=phiNorm*Helna2AS(nThetaB)
       end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
 
       !-- Add contribution from thetas in block:
+! #ifdef WITH_SHTNS
+!       call shtns_load_cfg(1)
+!       call shtns_spat_to_SH_ml(0, HelAS, HelLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, Hel2AS, Hel2LMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, HelnaAS, HelnaLMr, l_max+1)
+!       call shtns_spat_to_SH_ml(0, Helna2AS, Helna2LMr, l_max+1)
+!       call shtns_load_cfg(0)
+! #else
       call legTFAS2(HelLMr,Hel2LMr,HelAS,Hel2AS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(HelnaLMr,Helna2LMr,HelnaAS,Helna2AS,l_max+1,nThetaStart,sizeThetaB)
+! #endif
 
    end subroutine get_helicity
 !------------------------------------------------------------------------------

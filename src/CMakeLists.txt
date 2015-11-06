@@ -34,6 +34,12 @@ if(USE_FFTLIB MATCHES MKL)
    set(fft fft_mkl.f90)
 endif()
 
+if(USE_SHTNS MATCHES yes)
+else()
+   list(REMOVE_ITEM srcfiles "${SRC}/shtns.f90")
+   list(REMOVE_ITEM srcfiles "${SRC}/rIterThetaBlocking_shtns.f90")
+endif()
+
 add_executable(magic.exe magic.f90 ${srcfiles} ${fft} ${lapack} c_utils.c)
 set_property(TARGET ${EXEC} PROPERTY LINKER_LANGUAGE Fortran)
 
@@ -70,9 +76,50 @@ endif()
 
 # Link HDF5
 if(USE_HDF5 MATCHES yes)
-   if (HDF5_FOUND AND HDF5_IS_PARALLEL)
+   if(HDF5_FOUND AND HDF5_IS_PARALLEL)
       add_library(hdf5Helpers hdf5Helpers.f90)
       target_link_libraries(hdf5Helpers ${HDF5_Fortran_LIBRARIES})
       target_link_libraries(${EXEC} hdf5Helpers)
    endif()
 endif()
+
+# check shtns backend for ffts (mkl or fftw)
+FILE(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testSHTNS.f90"
+"
+program TestFFTW
+ call shtns_verbose(0)
+end program TestFFTW
+")
+
+try_run(SHTNS_RUN SHTNS_LINK ${CMAKE_BINARY_DIR}
+   ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testSHTNS.f90
+   COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+   LINK_LIBRARIES ${SHTNS} ${MKLCORE} ${MKLSEQ} ${MKL64}
+   COMPILE_OUTPUT_VARIABLE OUTPUT)
+
+if(SHTNS_LINK)
+   set(SHTNS_DEPS "${MKLCORE} ${MKLSEQ} ${MKL64}")
+endif()
+
+if(NOT SHTNS_LINK)
+   set(SAFE_CMAKE_LIBS "${LIBS}")
+   file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testSHTNS.f90"
+   "
+   program TestFFTW
+    call shtns_verbose(0)
+   end program TestFFTW
+   ")
+   try_run(SHTNS_RUN SHTNS_LINK ${CMAKE_BINARY_DIR}
+      ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testSHTNS.f90
+      COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS}
+      LINK_LIBRARIES ${SHTNS} ${FFTW3_OMP_LIBRARY} ${FFTW3_LIBRARY}
+      COMPILE_OUTPUT_VARIABLE OUTPUT)
+   if(SHTNS_LINK)
+      set(SHTNS_DEPS "${FFTW3_OMP_LIBRARY} ${FFTW3_LIBRARY}")
+   endif(SHTNS_LINK)
+endif(NOT SHTNS_LINK)
+
+if(USE_SHTNS MATCHES yes AND SHTNS)
+   set(LIBS "${LIBS} ${SHTNS_DEPS}")
+   target_link_libraries(${EXEC} ${SHTNS})
+endif(USE_SHTNS MATCHES yes AND SHTNS)

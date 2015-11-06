@@ -259,6 +259,11 @@ contains
 
       !-- Calculate blocking parameters for blocking loops over theta:
 
+#ifdef WITH_SHTNS
+      sizeThetaB = n_theta_max
+      nfs = sizeThetaB
+      nThetaBs = 1
+#else
       if (nThreads == 1) then
 #ifdef OLD_THETA_BLOCKING    
          nfs=(sizeThetaBI/(n_phi_tot+nBSave)+1) * nBDown
@@ -282,6 +287,15 @@ contains
          call get_theta_blocking_OpenMP(n_theta_max,nThreads, nThetaBs,sizeThetaB)
          nfs=sizeThetaB
       end if
+
+#endif
+      ! sizeThetaB = n_theta_max
+      ! nfs = sizeThetaB
+      ! nThetaBs = 1
+
+      ! sizeThetaB = 4
+      ! nfs = sizeThetaB
+      ! nThetaBs = n_theta_max/nfs
 
       if ( rank == 0 ) then
          write(*,*) '!-- Blocking information:'

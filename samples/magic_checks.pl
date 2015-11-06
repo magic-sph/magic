@@ -80,6 +80,7 @@ Options:
        --max-level=LEV     \tRun all tests below with level <= LEV (default: 0)
        --hybrid            \tRun the hybrid version
        --use-mkl           \tUse the MKL for FFTs and Lapack calls
+       --use-shtns         \tUse shtns (only compatible with --use-cmake)
        --use-cmake         \tUse Cmake instead of make
 
 Example:
@@ -102,6 +103,7 @@ GetOptions(\%opts,
                     --hybrid
 		    --use-mkl
 		    --use-cmake
+		    --use-shtns
                     )
           ) or $help=1, die "Aborting.\n";
 
@@ -112,6 +114,7 @@ my $level=($opts{'level'});
 my $max_level=($opts{'max-level'});
 my $hybrid=($opts{'hybrid'} || 0 );
 my $cmake=($opts{'use-cmake'} || 0 );
+my $shtns=($opts{'use-shtns'} || 0 );
 my $mkl=($opts{'use-mkl'} || 0 );
 my $MAGIC_HOME = "";
 my $OMP_NUM_THREADS = 1;
@@ -173,20 +176,27 @@ if ( $cmake ) {
     $execdir = "$MAGIC_HOME/tmp";
     mkdir "$topdir/tmp";
     chdir "$topdir/tmp";
+    my $shtns_opt;
+    if ($shtns) {
+        $shtns_opt = "-DUSE_SHTNS=yes";
+    }
+    else {
+        $shtns_opt = "-DUSE_SHTNS=no";
+    }
     if ($hybrid) {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=yes`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=yes $shtns_opt`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_LAPACKLIB=JW -DUSE_OMP=yes`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=yes $shtns_opt`;
         }
     }
     else {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=no`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=no $shtns_opt`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_LAPACKLIB=JW -DUSE_OMP=no`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=no $shtns_opt`;
         }
     }
     `make -j`;

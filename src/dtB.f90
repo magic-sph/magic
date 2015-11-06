@@ -213,41 +213,52 @@ contains
     
       integer :: lm,l
     
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared) &
+      !$OMP& private(n_theta, n_phi)    &
+      !$OMP& private(fac, facCot, n_theta_nhs)
+#endif
       do n_theta=1,n_theta_block ! loop over ic-points, alternating north/south
-    
+
          n_theta_nhs=(n_theta_start+n_theta)/2
          fac=osn2(n_theta_nhs)
          facCot=cosn2(n_theta_nhs)*osn1(n_theta_nhs)
          if ( mod(n_theta,2) == 0 ) facCot=-facCot  ! SHS
-    
+
          do n_phi=1,n_phi_max
             BtVr(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vr(n_phi,n_theta)
             BpVr(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vr(n_phi,n_theta)
          end do
+#ifndef WITH_SHTNS
          BtVr(n_phi_max+1,n_theta)=0.0_cp
          BtVr(n_phi_max+2,n_theta)=0.0_cp
          BpVr(n_phi_max+1,n_theta)=0.0_cp
          BpVr(n_phi_max+2,n_theta)=0.0_cp
-    
+#endif
+
          do n_phi=1,n_phi_max
             BrVt(n_phi,n_theta)= fac*orho1(nR)*vt(n_phi,n_theta)*br(n_phi,n_theta)
             BrVp(n_phi,n_theta)= fac*orho1(nR)*vp(n_phi,n_theta)*br(n_phi,n_theta)
          end do
+#ifndef WITH_SHTNS
          BrVt(n_phi_max+1,n_theta)=0.0_cp
          BrVt(n_phi_max+2,n_theta)=0.0_cp
          BrVp(n_phi_max+1,n_theta)=0.0_cp
          BrVp(n_phi_max+2,n_theta)=0.0_cp
-    
+#endif
+
          vpAS=0.0_cp
          do n_phi=1,n_phi_max
             BtVp(n_phi,n_theta)= fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
             BpVt(n_phi,n_theta)= fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
             vpAS=vpAS+orho1(nR)*vp(n_phi,n_theta)
          end do
+#ifndef WITH_SHTNS
          BtVp(n_phi_max+1,n_theta)=0.0_cp
          BtVp(n_phi_max+2,n_theta)=0.0_cp
          BpVt(n_phi_max+1,n_theta)=0.0_cp
          BpVt(n_phi_max+2,n_theta)=0.0_cp
+#endif
          vpAS=vpAS/real(n_phi_max,kind=cp)
     
          !---- For toroidal terms that cancel:
@@ -257,6 +268,7 @@ contains
             BpVtSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bp(n_phi,n_theta)*vt(n_phi,n_theta)
             BtVpSn2(n_phi,n_theta)=fac*fac*orho1(nR)*bt(n_phi,n_theta)*vp(n_phi,n_theta)
          end do
+#ifndef WITH_SHTNS
          BpVtCot(n_phi_max+1,n_theta)=0.0_cp
          BpVtCot(n_phi_max+2,n_theta)=0.0_cp
          BtVpCot(n_phi_max+1,n_theta)=0.0_cp
@@ -265,7 +277,8 @@ contains
          BpVtSn2(n_phi_max+2,n_theta)=0.0_cp
          BtVpSn2(n_phi_max+1,n_theta)=0.0_cp
          BtVpSn2(n_phi_max+2,n_theta)=0.0_cp
-    
+#endif
+
          !---- For omega effect:
          do n_phi=1,n_phi_max
             BrVZ(n_phi,n_theta)=fac*br(n_phi,n_theta)*vpAS
@@ -273,6 +286,7 @@ contains
             BtVZcot(n_phi,n_theta)=facCot*bt(n_phi,n_theta)*vpAS
             BtVZsn2(n_phi,n_theta)=fac*fac*bt(n_phi,n_theta)*vpAS
          end do
+#ifndef WITH_SHTNS
          BrVZ(n_phi_max+1,n_theta)=0.0_cp
          BrVZ(n_phi_max+2,n_theta)=0.0_cp
          BtVZ(n_phi_max+1,n_theta)=0.0_cp
@@ -281,9 +295,37 @@ contains
          BtVZCot(n_phi_max+2,n_theta)=0.0_cp
          BtVZsn2(n_phi_max+1,n_theta)=0.0_cp
          BtVZsn2(n_phi_max+2,n_theta)=0.0_cp
+#endif
     
       end do
-    
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
+
+#ifdef WITH_SHTNS
+      call shtns_load_cfg(1)
+
+      call shtns_spat_to_SH(BtVr, BtVrLM)
+      call shtns_spat_to_SH(BpVr, BpVrLM)
+      call shtns_spat_to_SH(BrVt, BrVtLM)
+
+      call shtns_spat_to_SH(BrVp, BrVpLM)
+      call shtns_spat_to_SH(BtVp, BtVpLM)
+      call shtns_spat_to_SH(BpVt, BpVtLM)
+
+      call shtns_spat_to_SH(BtVpCot, BtVpCotLM)
+      call shtns_spat_to_SH(BpVtCot, BpVtCotLM)
+      call shtns_spat_to_SH(BtVZCot, BtVZCotLM)
+
+      call shtns_spat_to_SH(BrVZ, BrVZLM)
+      call shtns_spat_to_SH(BtVZ, BtVZLM)
+      call shtns_spat_to_SH(BtVZsn2, BtVZLM)
+
+      call shtns_spat_to_SH(BtVpSn2, BtVpSn2LM)
+      call shtns_spat_to_SH(BpVtsn2, BpVtsn2LM)
+
+      call shtns_load_cfg(0)
+#else
       !-- Fourier transform phi2m
       call fft_thetab(BtVpSn2,-1)
       call fft_thetab(BpVtSn2,-1)
@@ -306,7 +348,7 @@ contains
       call legTF3(n_theta_start,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpCot,BpVtCot,BtVZcot)
       call legTF3(n_theta_start,BrVZLM,BtVZLM,BtVZsn2LM,BrVZ,BtVZ,BtVZsn2)
       call legTF2(n_theta_start,BtVpSn2LM,BpVtSn2LM,BtVpSn2,BpVtSn2)
-    
+#endif
       do l=0,l_max
          lm=l2lmAS(l)
          BtVrLM(lm)   =cmplx(real(BtVrLM(lm)),   0.0_cp, kind=cp)
