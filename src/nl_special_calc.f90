@@ -61,7 +61,7 @@ contains
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared)                     &
       !$OMP& private(nThetaB, nTheta, nPhi)                 &
-      !$OMP& private(uhAS, duhAS, gradsAS, uh, duh, grads)
+      !$OMP& private(uh, duh, grads)
 #endif
       do nThetaB=1,sizeThetaB
          nTheta=nThetaStart+nThetaB-1
