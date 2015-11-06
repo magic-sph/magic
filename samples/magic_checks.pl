@@ -54,11 +54,14 @@ my %tests = (
                          dynamo_benchmark_condICrotIC
                          varCond
                     )],
+             4 => [qw(
+                         testGraphMovieOutputs 
+                    )],
             );
 
-my $itest = 1;
-my $ntests      = 0;                 # total number of tests run
-my $failed      = 0;
+my $itest    = 1;
+my $ntests   = 0;                 # total number of tests run
+my $failed   = 0;
 my $indi_fmt = '%-17s'; 
 
 
@@ -152,7 +155,7 @@ my $t1;
 # Define sample dirs
 my @sampdirs;
 if ($all) {
-    $max_level=3;
+    $max_level=4;
     @sampdirs = get_all_sampdirs($max_level);
 }
 else {
@@ -185,18 +188,18 @@ if ( $cmake ) {
     }
     if ($hybrid) {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=yes $shtns_opt`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=yes $shtns_opt`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=yes $shtns_opt`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_LAPACKLIB=JW -DUSE_OMP=yes $shtns_opt`;
         }
     }
     else {
         if ($mkl){
-            `cmake .. -DUSE_FFTLIB=MKL -DUSE_MKL=yes -DUSE_OMP=no $shtns_opt`;
+            `cmake .. -DUSE_FFTLIB=MKL -DUSE_LAPACKLIB=MKL -DUSE_OMP=no $shtns_opt`;
         }
         else {
-            `cmake .. -DUSE_FFTLIB=JW -DUSE_MKL=no -DUSE_OMP=no $shtns_opt`;
+            `cmake .. -DUSE_FFTLIB=JW -DUSE_LAPACKLIB=JW -DUSE_OMP=no $shtns_opt`;
         }
     }
     `make -j`;
