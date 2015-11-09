@@ -31,8 +31,7 @@ module Egeos_mod
    type(costf_odd_t), allocatable :: chebt_Z(:)
    integer, allocatable :: nZmaxS(:)
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
-   real(cp), allocatable :: rhoZ(:,:)   ! density (anelastic version)
-   real(cp), allocatable :: orhoZ(:,:)  ! 1/rho   (anelastic version)
+   real(cp), parameter :: eps = 10.0_cp*epsilon(one)
  
    public :: initialize_Egeos_mod, getEgeos
 
@@ -47,8 +46,6 @@ contains
       allocate( nZmaxS(nSmaxA) )
       allocate( zZ(nZmaxA,nSmaxA) )
       allocate( rZ(nZmaxA,nSmaxA) )
-      allocate( rhoZ(nZmaxA,nSmaxA) )   ! density (anelastic version)
-      allocate( orhoZ(nZmaxA,nSmaxA) )  ! 1/rho   (anelastic version)
 
    end subroutine initialize_Egeos_mod
 !----------------------------------------------------------------------------
@@ -166,7 +163,7 @@ contains
          end if
          lAS=.false.
 
-         do nS=1,nSmax
+         do nS=1,nSmaxA
             EkSTC_s(nS)=0.0_cp
             EkNTC_s(nS)=0.0_cp
             EkOTC_s(nS)=0.0_cp
@@ -183,7 +180,7 @@ contains
          !     the field (just a little bit) anyway...
          do nR=1,n_r_max
             do lm=1,lm_max
-               wS(lm,nR)  =  wS(lm,nR)*dLh(lm)
+               wS(lm,nR)=wS(lm,nR)*dLh(lm)
             end do
          end do
 
@@ -245,21 +242,6 @@ contains
                   call plm_theta(thetaZ,l_max,m_max,minc,                &
                        &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lm_max,2)
                end do
-               if ( l_anel) then
-                  ofr=( exp(strat/polind)-one )/                       &
-                       &      ( g0+half*g1*(one+radratio) +g2/radratio )
-                  do nZ=1,nZmax
-                     rhoZ(nZ,nS)=exp(-ofr*(g0*(rZ(nZ,nS)-r_cmb) +          &
-                          &        g1/(two*r_cmb)*(rZ(nZ,nS)**2-r_cmb**2) -&
-                          &        g2*(r_cmb**2/rZ(nZ,nS)-r_cmb)))
-                     orhoZ(nZ,ns)=one/rhoZ(nZ,nS)
-                  end do
-               else
-                  do nZ=1,nZmax
-                     rhoZ(nZ,nS)=one
-                     orhoZ(nZ,ns)=one
-                  end do
-               end if
             end if
 
             !--------- Get the flow components for all northern and
@@ -289,9 +271,9 @@ contains
                do nInt=1,nInts
                   if ( nInt == 1 ) then
                      do nZ=1,nZmax ! Copy on simpler array
-                        VrInt(nZ)=orhoZ(nZ,nS)*VrS(nPhi,nZ)
-                        VtInt(nZ)=orhoZ(nZ,nS)*VtS(nPhi,nZ)
-                        VpInt(nZ)=orhoZ(nZ,nS)*VpS(nPhi,nZ)
+                        VrInt(nZ)=VrS(nPhi,nZ)
+                        VtInt(nZ)=VtS(nPhi,nZ)
+                        VpInt(nZ)=VpS(nPhi,nZ)
                         EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
                      end do
                   else if ( nInt == 2 ) then
@@ -299,9 +281,9 @@ contains
                      zMax=-zMin
                      zMin=-help
                      do nZ=1,nZmax
-                        VrInt(nZ)=orhoZ(nZ,nS)*VrS(nPhi,nZ+nZmax)
-                        VtInt(nZ)=orhoZ(nZ,nS)*VtS(nPhi,nZ+nZmax)
-                        VpInt(nZ)=orhoZ(nZ,nS)*VpS(nPhi,nZ+nZmax)
+                        VrInt(nZ)=VrS(nPhi,nZ+nZmax)
+                        VtInt(nZ)=VtS(nPhi,nZ+nZmax)
+                        VpInt(nZ)=VpS(nPhi,nZ+nZmax)
                         EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
                      end do
                   end if
@@ -389,7 +371,7 @@ contains
                   else
                      CVor_I=0.0_cp
                   end if
-                  if ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp ) then
+                  if ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp .and. HelZZ > eps ) then
                      CHel_I=sqrt(HelZZ/(VZZ*VorZZ))
                   else
                      CHel_I=0.0_cp

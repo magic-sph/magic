@@ -101,6 +101,11 @@ code. It has the following levels of checking:
   |         | * Anelastic dynamo with variable conductivity          |
   |         |   (``varCond``)                                        |
   +---------+--------------------------------------------------------+
+  | 4       | * Test the writing of Graphic and Movie files          |
+  |         |   (``testGraphMovieOutputs``)                          |
+  |         | * Test the writing of TO and Geos outputs              |
+  |         |   (``testTOGeosOutputs``)                              |
+  +---------+--------------------------------------------------------+
 
 
 

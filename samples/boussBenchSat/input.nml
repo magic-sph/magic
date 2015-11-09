@@ -47,7 +47,6 @@ n_cheb_ic_max=15,
  runid       ="Benchmark 2",
  l_movie     =.FALSE.,
  l_RMS       =.FALSE.,
- l_TO        =.TRUE.,
  l_power     =.TRUE.,
  l_average   =.TRUE.,
 /

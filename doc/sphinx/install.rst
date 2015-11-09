@@ -267,6 +267,6 @@ description of the possible options) and run **MagIC** as follows:
      $ export KMP_AFFINITY=verbose,granularity=core,compact,1
      $ mpiexec -n <n_mpi> ./magic.exe input.nml
 
-Note that the :ref:`n_r_max <varn_r_max>` must be a multiple of ``<n_mpi>``,
+Note that the :ref:`n_r_max-1 <varn_r_max>` must be a multiple of ``<n_mpi>``,
 where :ref:`n_r_max <varn_r_max>` is the number of radial grid points (see
 :ref:`here <secGridNml>`). 

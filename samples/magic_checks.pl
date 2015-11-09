@@ -56,6 +56,7 @@ my %tests = (
                     )],
              4 => [qw(
                          testGraphMovieOutputs 
+                         testTOGeosOutputs
                     )],
             );
 
