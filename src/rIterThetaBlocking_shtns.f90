@@ -12,13 +12,14 @@ module rIterThetaBlocking_shtns_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
                     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
                     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-                    l_movie_oc
+                    l_movie_oc, l_TO
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
+   use TO_arrays_mod, only: TO_arrays_t
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -45,6 +46,7 @@ module rIterThetaBlocking_shtns_mod
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_shtns_t
       integer :: nThreads
       type(grid_space_arrays_t) :: gsa
+      type(TO_arrays_t) :: TO_arrays
       type(nonlinear_lm_t) :: nl_lm
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
@@ -72,6 +74,7 @@ contains
 
       call this%allocate_common_arrays()
       call this%gsa%initialize()
+      if ( l_TO ) call this%TO_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
 
    end subroutine initialize_rIterThetaBlocking_shtns
@@ -82,6 +85,7 @@ contains
 
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
+      if ( l_TO ) call this%TO_arrays%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize_rIterThetaBlocking_shtns

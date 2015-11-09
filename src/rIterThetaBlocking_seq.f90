@@ -4,6 +4,7 @@ module rIterThetaBlocking_seq_mod
    use precision_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
+   use TO_arrays_mod, only: TO_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
  
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
@@ -12,7 +13,7 @@ module rIterThetaBlocking_seq_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
                     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
                     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
-                    l_movie_oc
+                    l_movie_oc, l_TO
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
@@ -35,6 +36,7 @@ module rIterThetaBlocking_seq_mod
  
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
       type(grid_space_arrays_t) :: gsa
+      type(TO_arrays_t) :: TO_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_seq
@@ -61,6 +63,7 @@ contains
       call this%allocate_common_arrays()
       call this%gsa%initialize()
       call this%nl_lm%initialize(lmP_max)
+      if ( l_TO ) call this%TO_arrays%initialize()
 
    end subroutine initialize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
@@ -71,6 +74,7 @@ contains
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
       call this%nl_lm%finalize()
+      if ( l_TO ) call this%TO_arrays%finalize()
 
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------

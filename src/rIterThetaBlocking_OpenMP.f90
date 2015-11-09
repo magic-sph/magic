@@ -12,13 +12,14 @@ module rIterThetaBlocking_OpenMP_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
                     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
                     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-                    l_movie_oc
+                    l_movie_oc, l_TO
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
+   use TO_arrays_mod, only: TO_arrays_t
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -39,6 +40,7 @@ module rIterThetaBlocking_OpenMP_mod
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_OpenMP_t
       integer :: nThreads
       type(grid_space_arrays_t), allocatable :: gsa(:)
+      type(TO_arrays_t), allocatable :: TO_arrays(:)
       type(nonlinear_lm_t), allocatable :: nl_lm(:)
       real(cp), allocatable :: lorentz_torque_ic(:),lorentz_torque_ma(:)
    contains
@@ -72,6 +74,7 @@ contains
       allocate(this%nl_lm(0:this%nThreads-1))
       allocate(this%lorentz_torque_ic(0:this%nThreads-1))
       allocate(this%lorentz_torque_ma(0:this%nThreads-1))
+      if ( l_TO ) allocate(this%TO_arrays(0:this%nThreads-1))
 
       call this%allocate_common_arrays()
       !$OMP PARALLEL default(shared) shared(this,lmP_max) private(threadid)
@@ -81,6 +84,7 @@ contains
       threadid = 0
 #endif
       call this%gsa(threadid)%initialize()
+      if ( l_TO ) call this%TO_arrays(threadid)%initialize()
       call this%nl_lm(threadid)%initialize(lmP_max)
       !$OMP END PARALLEL
    end subroutine initialize_rIterThetaBlocking_OpenMP
@@ -101,6 +105,7 @@ contains
       call this%nl_lm(threadid)%finalize()
       !$OMP END PARALLEL
       deallocate(this%gsa)
+      if ( l_TO ) deallocate(this%TO_arrays)
       deallocate(this%nl_lm)
       deallocate(this%lorentz_torque_ic)
       deallocate(this%lorentz_torque_ma)
@@ -154,16 +159,6 @@ contains
          this%dtrkc=1.e10_cp
          this%dthkc=1.e10_cp
       end if
-      if ( this%lTOCalc ) then
-         !------ Zero lm coeffs for first theta block:
-         do l=0,l_max
-            this%TO_arrays%dzRstrLM(l+1)=0.0_cp
-            this%TO_arrays%dzAstrLM(l+1)=0.0_cp
-            this%TO_arrays%dzCorLM(l+1) =0.0_cp
-            this%TO_arrays%dzLFLM(l+1)  =0.0_cp
-         end do
-      end if
-
       !----- Prepare legendre transform:
       !      legPrepG collects all the different modes necessary
       !      to calculate the non-linear terms at a radial grid point nR
@@ -209,6 +204,16 @@ contains
 #endif
       this%lorentz_torque_ma(threadid) = 0.0_cp
       this%lorentz_torque_ic(threadid) = 0.0_cp
+      if ( this%lTOCalc ) then
+         !------ Zero lm coeffs for first theta block:
+         do l=0,l_max
+            this%TO_arrays(threadid)%dzRstrLM(l+1)=0.0_cp
+            this%TO_arrays(threadid)%dzAstrLM(l+1)=0.0_cp
+            this%TO_arrays(threadid)%dzCorLM(l+1) =0.0_cp
+            this%TO_arrays(threadid)%dzLFLM(l+1)  =0.0_cp
+         end do
+      end if
+
       c = 0.0_cp
       !$OMP SINGLE
       br_vt_lm_cmb=zero
@@ -480,8 +485,10 @@ contains
                  &     this%gsa(threadid)%btc,this%gsa(threadid)%bpc,    &
                  &     this%gsa(threadid)%cbrc,this%gsa(threadid)%cbtc,  &
                  &     this%BsLast,this%BpLast,this%BzLast,              &
-                 &     this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,  &
-                 &     this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM,     &
+                 &     this%TO_arrays(threadid)%dzRstrLM,                &
+                 &     this%TO_arrays(threadid)%dzAstrLM,                &
+                 &     this%TO_arrays(threadid)%dzCorLM,                 &
+                 &     this%TO_arrays(threadid)%dzLFLM,                  &
                  &     dtLast,this%nR,nThetaStart,this%sizeThetaB)
          end if
          PERFOFF
@@ -538,6 +545,20 @@ contains
                                      this%lorentz_torque_ma(iThread)
       end do
 
+      !$OMP SECTION
+      if ( this%lTOCalc ) then
+         do iThread=1,this%nThreads-1
+            this%TO_arrays(0)%dzRstrLM=this%TO_arrays(0)%dzRstrLM + &
+                                       this%TO_arrays(iThread)%dzRstrLM
+            this%TO_arrays(0)%dzAstrLM=this%TO_arrays(0)%dzAstrLM + &
+                                       this%TO_arrays(iThread)%dzAstrLM
+            this%TO_arrays(0)%dzCorLM=this%TO_arrays(0)%dzCorLM + &
+                                       this%TO_arrays(iThread)%dzCorLM
+            this%TO_arrays(0)%dzLFLM=this%TO_arrays(0)%dzLFLM + &
+                                       this%TO_arrays(iThread)%dzLFLM
+         end do
+      end if
+
 !!$    lorentz_torque_ic=0.0_cp
 !!$    c=0.0_cp
 !!$    do iThread=0,this%nThreads-1
@@ -587,8 +608,8 @@ contains
       if ( this%lTOcalc ) then
          call getTOfinish(this%nR,dtLast,this%leg_helper%zAS,             &
               &           this%leg_helper%dzAS,this%leg_helper%ddzAS,     &
-              &           this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM,&
-              &           this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM)
+              &           this%TO_arrays(0)%dzRstrLM,this%TO_arrays(0)%dzAstrLM,&
+              &           this%TO_arrays(0)%dzCorLM,this%TO_arrays(0)%dzLFLM)
       end if
 
       !--- Form partial horizontal derivaties of magnetic production and

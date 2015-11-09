@@ -12,7 +12,7 @@ module rIterThetaBlocking_mod
    use blocking, only: nfs
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
         & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
-        & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc, l_TO
+        & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -38,12 +38,6 @@ module rIterThetaBlocking_mod
                                   &               BtVZsn2LM(:)
    end type dtB_arrays_t
 
-   type, public :: TO_arrays_t
-      !----- Local TO output stuff:
-      real(cp), allocatable :: dzRstrLM(:),dzAstrLM(:)
-      real(cp), allocatable :: dzCorLM(:),dzLFLM(:)
-   end type TO_arrays_t
-
    type, public, abstract, extends(rIteration_t) :: rIterThetaBlocking_t
       ! or with len parameters for the theta block size and number
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
@@ -53,9 +47,6 @@ module rIterThetaBlocking_mod
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
       type(dtB_arrays_t) :: dtB_arrays
-      type(TO_arrays_t)  :: TO_arrays
-
-      !class(grid_space_arrays_t),private :: gsa
 
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
@@ -107,12 +98,6 @@ contains
       allocate( this%dtB_arrays%BtVZcotLM(lmP_max_dtB) )
       allocate( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
 
-      !----- Local TO output stuff:
-      if ( l_TO ) then
-        allocate( this%TO_arrays%dzRstrLM(l_max+2),this%TO_arrays%dzAstrLM(l_max+2) )
-        allocate( this%TO_arrays%dzCorLM(l_max+2),this%TO_arrays%dzLFLM(l_max+2) )
-      end if
-
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
@@ -137,12 +122,6 @@ contains
       deallocate( this%dtB_arrays%BtVZLM )
       deallocate( this%dtB_arrays%BtVZcotLM )
       deallocate( this%dtB_arrays%BtVZsn2LM )
-
-      !----- Local TO output stuff:
-      if ( l_TO ) then
-        deallocate( this%TO_arrays%dzRstrLM,this%TO_arrays%dzAstrLM )
-        deallocate( this%TO_arrays%dzCorLM,this%TO_arrays%dzLFLM )
-      end if
 
       deallocate( this%BsLast)
       deallocate( this%BpLast)

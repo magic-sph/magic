@@ -131,7 +131,7 @@ contains
       integer :: i                  ! counter
       logical :: l10
       integer :: nLMB
-      real(cp) :: ddzASL_loc(l_max+1)
+      real(cp) :: ddzASL_loc(l_max+1,n_r_max)
     
       complex(cp) :: Dif(lm_max)
     
@@ -593,22 +593,27 @@ contains
       if ( l_TO ) then
          !$OMP do private(nR,lm1,l1,m1)
          do nR=1,n_r_max
-            ddzASL_loc(:)=0.0_cp
+            ddzASL_loc(:,nR)=0.0_cp
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
-               if ( m1 == 0 ) ddzASL_loc(l1+1)=real(workA(lm1,nR))
+               if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(workA(lm1,nR))
             end do
-#ifdef WITH_MPI
-            call MPI_Allreduce(ddzASL_loc, ddzASL(:,nR), l_max+1, MPI_DEF_REAL, &
-                 &             MPI_SUM, MPI_COMM_WORLD, ierr)
-#else
-            ddzASL(:,nR)=ddzASL_loc(:)
-#endif
          end do
          !$OMP end do
       end if
       !$OMP END PARALLEL
+
+      if ( l_TO ) then
+         do nR=1,n_r_max
+#ifdef WITH_MPI
+            call MPI_Allreduce(ddzASL_loc(:,nR), ddzASL(:,nR), l_max+1, &
+                               MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+            ddzASL(:,nR)=ddzASL_loc(:,nR)
+#endif
+         end do
+      end if
     
       !----- Special thing for l=1,m=0 for rigid boundaries and
       !      if IC or mantle are allowed to rotate:

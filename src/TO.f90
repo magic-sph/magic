@@ -393,6 +393,11 @@ contains
 
       else if ( lTOnext ) then
 
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaBlock, nTheta, nPhi)             &
+      !$OMP& private(sinT,cosT,BsF1,BsF2,BpF1,BzF1,BzF2)
+#endif
          do nThetaBlock=1,nThetaBlockSize
             nTheta=nTheta+1
             sinT =sinTheta(nTheta)
@@ -413,6 +418,10 @@ contains
             end do
                             
          end do ! Loop over thetas in block !
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
+
                   
          if ( nThetaStart == 1 ) then
             dzdVpLMr_Rloc(1,nR) =0.0_cp
