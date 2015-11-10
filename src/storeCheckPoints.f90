@@ -378,6 +378,7 @@ contains
 
       ! Attributes must be written collectively in HDF5: broadcasting
       ! some scalars is required
+#ifdef WITH_MPI
       call MPI_Bcast(omega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(omega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(omegaOsz_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
@@ -390,13 +391,16 @@ contains
       call MPI_Bcast(omegaOsz_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
 
       ! Initialize FORTRAN interface.
       call h5open_f(error)
 
       ! Setup file access property list with parallel I/O access.
       call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+#ifdef WITH_MPI
       call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+#endif
 
       ! Create a new file collectively
       call h5fcreate_f(rst_file, H5F_ACC_TRUNC_F, file_id, error, access_prp=plist_id)

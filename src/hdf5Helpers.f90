@@ -59,7 +59,9 @@ contains
          off(2)=0
          call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, off, dims_loc, error)
          call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+#ifdef WITH_MPI
          call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, error)
+#endif
          call h5dwrite_f(dset_id, dataset_type, C_LOC(dat(lm,:)), error, &
                          file_space_id=dspace_id, mem_space_id=memspace, &
                          xfer_prp=plist_id)
