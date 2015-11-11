@@ -28,14 +28,13 @@ module updateB_mod
                        bMat_fac, jMat_fac,         &
 #endif
                        lBmat
-   use RMS, only: dtBPolLMr, dtBPol2hInt, dtBPolAs2hInt, dtBTorAs2hInt, &
-                 dtBTor2hInt
+   use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use Bext
    use algebra, only: cgeslML, sgefa
    use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize
-   use RMS_helpers, only: hInt2Pol, hInt2Tor
+   use RMS_helpers, only: hInt2PolLM, hInt2TorLM
    use cosine_transform_odd
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_drNS, get_ddr
@@ -47,6 +46,7 @@ module updateB_mod
    !-- Local work arrays:
    complex(cp), allocatable :: workA(:,:),workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
+   complex(cp), allocatable :: dtT(:), dtP(:)
    integer :: maxThreads
 
    public :: initialize_updateB,updateB
@@ -57,6 +57,9 @@ contains
 
       allocate( workA(llmMag:ulmMag,n_r_max) )
       allocate( workB(llmMag:ulmMag,n_r_max) )
+
+      allocate( dtT(llmMag:ulmMag) )
+      allocate( dtP(llmMag:ulmMag) )
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -148,6 +151,7 @@ contains
       integer :: n_cheb              ! No of cheb polynome (degree+1)
       integer :: nR                 ! No of radial grid point
       integer :: n_r_real            ! total number of used grid points
+      integer :: n_r_top,n_r_bot
 
       complex(cp) :: fac
       complex(cp) :: dbdt_ic,djdt_ic  ! they are calculated here !
@@ -694,7 +698,15 @@ contains
          end do
       end if
 
-      do nR=n_r_cmb,n_r_icb-1
+      if ( lRmsNext ) then
+         n_r_top=n_r_cmb
+         n_r_bot=n_r_icb
+      else
+         n_r_top=n_r_cmb+1
+         n_r_bot=n_r_icb-1
+      end if
+
+      do nR=n_r_top,n_r_bot
          do lm1=lmStart_00,lmStop
             l1=lm2l(lm1)
             m1=lm2m(lm1)
@@ -708,29 +720,17 @@ contains
                  ( ddj(lm1,nR) + dLlambda(nR)*dj(lm1,nR) -      &
                    dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR) )
             if ( lRmsNext ) then
-               workA(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
+               dtP(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
                              * (  b(lm1,nR)-workA(lm1,nR) )
-               workB(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
+               dtT(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
                              * ( aj(lm1,nR)-workB(lm1,nR) )
             end if
          end do
          if ( lRmsNext ) then
-            !write(*,"(A,2I3,2ES20.12)") "workA = ",nLMB,nR,SUM( workA(lmStart_00:lmStop,nR) )
-            !call hInt2Pol(workA(1,nR),nR,lmStart_00,lmStop,dtBPolLMr, &
-            !     dtBPol2hInt(nR,nTh),dtBPolAs2hInt(nR,nTh),lo_map)
-            !write(*,"(A,2I3,ES20.13)") "upB: before dtBPol2hInt = ",nLMB,nR,dtBPol2hInt(nR,1)
-            !call hInt2Pol(workA(llmMag,nR),ulmMag-llmMag+1,nR,lmStart_00-llmMag+1,lmStop-llmMag+1,&
-            !     &dtBPolLMr,dtBPol2hInt(nR,nTh),dtBPolAs2hInt(nR,nTh),lo_map)
-            call hInt2Pol(workA(llmMag,nR),llmMag,ulmMag,nR,lmStart_00,lmStop,&
-                 &dtBPolLMr,dtBPol2hInt(nR,1),dtBPolAs2hInt(nR,1),lo_map)
-            !write(*,"(A,2I3,ES20.13)") "upB: after  dtBPol2hInt = ",nLMB,nR,dtBPol2hInt(nR,1)
-
-            !write(*,"(A,2I3,3ES20.13)") "upB: before dtBTor2hInt = ",nLMB,nR,dtBTor2hInt(nR,1),SUM( workB(lmStart:lmStop,nR) )
-            !call hInt2Tor(workB(llmMag,nR),ulmMag-llmMag+1,nR,lmStart_00-llmMag+1,lmStop-llmMag+1, &
-            !     &        dtBTor2hInt(nR,nTh),dtBTorAs2hInt(nR,nTh))
-            call hInt2Tor(workB(llmMag,nR),llmMag,ulmMag,nR,lmStart_00,lmStop, &
-                 &        dtBTor2hInt(nR,1),dtBTorAs2hInt(nR,1),lo_map)
-            !write(*,"(A,2I3,ES20.13)") "upB: after  dtBTor2hInt = ",nLMB,nR,dtBTor2hInt(nR,1)
+            call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop,&
+                 & dtBPolLMr(1,nR),dtBPol2hInt(1,nR,1),lo_map)
+            call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,lmStop, &
+                 &        dtBTor2hInt(1,nR,1),lo_map)
          end if
       end do
       !PERFOFF

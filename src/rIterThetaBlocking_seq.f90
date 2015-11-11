@@ -8,7 +8,7 @@ module rIterThetaBlocking_seq_mod
    use nonlinear_lm_mod, only: nonlinear_lm_t
  
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
-                         n_phi_maxStr,  n_theta_maxStr, n_r_maxStr
+                         n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
                     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
@@ -112,11 +112,7 @@ contains
   
       !-- Local variables
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
-#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
-#else
-      logical :: lGraphHeader=.true.
-#endif
       logical :: DEBUG_OUTPUT=.false.
   
       this%nR=nR
@@ -196,10 +192,11 @@ contains
          call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
   
          !--------- Calculation of nonlinear products in grid space:
-         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then 
+         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
+                this%lRmsCalc ) then 
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             PERFON('get_nl')
-            call this%gsa%get_nl(this%nR, this%nBc, nThetaStart)
+            call this%gsa%get_nl(this%nR, this%nBc, nThetaStart, this%lRmsCalc)
             PERFOFF
   
             call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)

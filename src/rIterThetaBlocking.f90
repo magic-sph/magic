@@ -156,7 +156,7 @@ contains
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
          call legTFG(this%nBc,this%lDeriv,this%lViscBcCalc,           &
-              &      this%lFluxProfCalc,nThetaStart,                  &
+              &      this%lFluxProfCalc,this%lRmsCalc,nThetaStart,    &
               &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
               &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
               &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
@@ -176,7 +176,7 @@ contains
          !PERFON('legTFGnm')
          !LIKWID_ON('legTFGnm')
          call legTFGnomag(this%nBc,this%lDeriv,this%lViscBcCalc,            & 
-              &           this%lFluxProfCalc,nThetaStart,                   &
+              &           this%lFluxProfCalc,this%lRmsCalc,nThetaStart,     &
               &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
               &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
@@ -203,7 +203,7 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lFluxProfCalc ) then
+            if ( this%lFluxProfCalc .or. this%lRmsCalc ) then
                call fft_thetab(gsa%pc,1)
             end if
          end if
@@ -281,7 +281,8 @@ contains
       ! Local variables
       integer :: nTheta,nPhi
   
-      if ( (.not.this%isRadialBoundaryPoint) .and. ( l_conv_nl .or. l_mag_LF ) ) then
+      if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) .and. &
+            ( l_conv_nl .or. l_mag_LF ) ) then
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then
@@ -364,6 +365,28 @@ contains
                  &      gsa%VxBt,gsa%VxBp)
          end if
          !PERFOFF
+      end if
+
+      if ( this%lRmsCalc ) then
+            call fft_thetab(gsa%p1,-1)
+            call fft_thetab(gsa%p2,-1)
+            call legTF2(nThetaStart,nl_lm%p1LM,nl_lm%p2LM,gsa%p1,gsa%p2)
+            call fft_thetab(gsa%CFt2,-1)
+            call fft_thetab(gsa%CFp2,-1)
+            call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
+            if ( l_conv_nl ) then
+               call fft_thetab(gsa%Advt2,-1)
+               call fft_thetab(gsa%Advp2,-1)
+               call legTF2(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,&
+                           gsa%Advp2)
+            end if
+            if ( l_mag_nl .and. this%nR>n_r_LCR ) then
+               call fft_thetab(gsa%LFt2,-1)
+               call fft_thetab(gsa%LFp2,-1)
+               call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,&
+                           gsa%LFp2)
+
+            end if
       end if
 
    end subroutine transform_to_lm_space

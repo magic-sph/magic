@@ -32,7 +32,7 @@ module graphOut_mod
 #ifdef WITH_MPI
    public :: graphOut, graphOut_mpi, graphOut_IC, graphOut_mpi_header
 #else
-   public :: graphOut, graphOut_IC
+   public :: graphOut, graphOut_IC, graphOut_header
 #endif
 
 contains
@@ -199,6 +199,36 @@ contains
 
    end subroutine graphOut
 !-----------------------------------------------------------------------
+   subroutine graphOut_header(time)
+    
+      !-- Input variables
+      real(cp), intent(in) :: time
+
+      !-- Local variables:
+      character(len=20) :: version
+      integer :: n_theta
+    
+    
+      !-- Write header & colatitudes for n_r=0:
+    
+      version='Graphout_Version_7'
+
+      !-------- Write parameters:
+      write(n_graph_file) version
+      write(n_graph_file) runid
+      write(n_graph_file) real(time,outp), real(n_r_max,outp),          &
+                          real(n_theta_max,outp), real(n_phi_tot,outp), &
+                          real(n_r_ic_max-1,outp), real(minc,outp),     &
+                          real(nThetaBs,outp), real(ra,outp),           &
+                          real(ek,outp), real(pr,outp),                 &
+                          real(prmag,outp), real(radratio,outp),        &
+                          real(sigma_ratio,outp)
+
+      !-------- Write colatitudes:
+      write(n_graph_file) (real(theta_ord(n_theta),outp), n_theta=1,n_theta_max)
+ 
+   end subroutine graphOut_header
+!-------------------------------------------------------------------------------
 #ifdef WITH_MPI
    subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr, &
             &              n_theta_start,n_theta_block_size,lGraphHeader)

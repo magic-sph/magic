@@ -17,8 +17,7 @@ module updateZ_mod
                      & lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, &
-                    l_RMStest, l_correct_AMe, l_correct_AMz,      &
-                    l_update_v, l_TO
+                    l_correct_AMe, l_correct_AMz, l_update_v, l_TO
    use matrices, only: z10Mat, z10Pivot, lZmat, lZ10mat, &
 #ifdef WITH_PRECOND_Z
                      & zMat_fac, &
@@ -27,7 +26,7 @@ module updateZ_mod
                      & z10Mat_fac, &
 #endif
                      & zMat, zPivot
-   use RMS, only: DifTor2hInt, DifTorAs2hInt, dtVTor2hInt, dtVTorAs2hInt
+   use RMS, only: DifTor2hInt, dtVTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
                     c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
                     c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
@@ -37,7 +36,7 @@ module updateZ_mod
    use LMLoop_data, only: llm,ulm
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
-   use RMS_helpers, only: hInt2Pol, hInt2Tor
+   use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use cosine_transform_odd
  
@@ -50,6 +49,8 @@ module updateZ_mod
    complex(cp), allocatable :: workB(:,:)  ! Work array
    complex(cp), allocatable :: workC(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
+   complex(cp), allocatable :: dtV(:)
+   complex(cp), allocatable :: Dif(:) 
    integer :: maxThreads
    
    public :: updateZ,initialize_updateZ
@@ -61,6 +62,8 @@ contains
       allocate(workA(llm:ulm,n_r_max))
       allocate(workB(llm:ulm,n_r_max))
       allocate(workC(llm:ulm,n_r_max))
+      allocate( dtV(llm:ulm) )
+      allocate( Dif(llm:ulm) )
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -70,7 +73,7 @@ contains
       allocate(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
 
    end subroutine initialize_updateZ
-
+!-------------------------------------------------------------------------------
    subroutine updateZ(z,dz,dzdt,dzdtLast,time, &
      &             omega_ma,d_omega_ma_dtLast, &
      &             omega_ic,d_omega_ic_dtLast, &
@@ -133,8 +136,6 @@ contains
       integer :: nLMB
       real(cp) :: ddzASL_loc(l_max+1,n_r_max)
     
-      complex(cp) :: Dif(lm_max)
-    
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
       integer, pointer :: lm22lm(:,:,:),lm22l(:,:,:),lm22m(:,:,:)
@@ -142,6 +143,7 @@ contains
       logical :: DEBUG_OUTPUT=.false.
       integer :: nThreads,iThread,all_lms,per_thread,start_lm,stop_lm
       integer :: nChunks,iChunk,lmB0,size_of_last_chunk,threadid
+      integer :: n_r_bot, n_r_top
       complex(cp) :: rhs_sum
     
       !call mpi_barrier(MPI_COMM_WORLD,ierr)
@@ -544,6 +546,13 @@ contains
          !$OMP END PARALLEL DO
       end if ! l=1,m=1 contained in lm-block ?
     
+      if ( lRmsNext ) then
+         n_r_top=n_r_cmb
+         n_r_bot=n_r_icb
+      else
+         n_r_top=n_r_cmb+1
+         n_r_bot=n_r_icb-1
+      end if
       !if (DEBUG_OUTPUT) then
       !   do nR=1,n_r_max
       !      if ((nR == 1).or.(nR == 5)) then
@@ -556,10 +565,9 @@ contains
       !end if
       !-- Calculate explicit time step part:
       !$OMP PARALLEL default(shared) &
-      !$OMP private(nR,lm1,Dif)
+      !$OMP private(nR,lm1,dtV,Dif)
       !$OMP DO
-      do nR=n_r_cmb+1,n_r_icb-1
-         !write(*,"(A,I4,5ES20.12)") "r-dependent : ",nR,dLvisc(nR),beta(nR),or1(nR),or2(nR),dbeta(nR)
+      do nR=n_r_top,n_r_bot
          do lm1=lmStart_00,lmStop
             Dif(lm1)=hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1)))*                &
                      dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*visc(nR)*  &
@@ -568,24 +576,21 @@ contains
                  &      + dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)       &
                  &      + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
     
-    !        if (nR == 2) then
-    !           write(*,"(2I4,8ES20.12)") nR,lm1,workA(lm1,nR),Dif(lm1),z(lm1,nR),dz(lm1,nR)
-    !        end if
             dzdtLast(lm1,nR)=dzdt(lm1,nR)-coex*Dif(lm1)
             if ( lRmsNext ) then
-               workB(lm1,nR)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
-                              or2(nR)*(z(lm1,nR)-workB(lm1,nR))
-               if ( l_RMStest ) workB(lm1,nR)= workB(lm1,nR)-Dif(lm1)
+               dtV(lm1)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
+                            or2(nR)*(z(lm1,nR)-workB(lm1,nR))
             end if
          end do
          if ( lRmsNext ) then
-            call hInt2Tor(Dif,1,lm_max,nR,lmStart_00,lmStop, &
-                          DifTor2hInt(nR,1),DifTorAs2hInt(nR,1),lo_map)
-            call hInt2Tor(workB(llm,nR),llm,ulm,nR,lmStart_00,lmStop, &
-                          dtVTor2hInt(nR,1),dtVTorAs2hInt(nR,1),lo_map)
+            call hInt2Tor(Dif,llm,ulm,nR,lmStart_00,lmStop, &
+                          DifTor2hInt(1,nR,1),lo_map)
+            call hInt2Tor(dtV,llm,ulm,nR,lmStart_00,lmStop, &
+                          dtVTor2hInt(1,nR,1),lo_map)
          end if
       end do
       !$OMP end do
+
       !--- Note: from ddz=workA only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
       !    Parallization note: Very likely, all axisymmetric modes m=0 are

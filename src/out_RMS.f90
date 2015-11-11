@@ -4,7 +4,7 @@ module out_RMS
    use precision_mod
    use truncation, only: lm_max, n_r_max, lm_max_dtB, n_r_max_dtB, &
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
-                         n_r_maxMag, n_phi_max
+                         n_r_maxMag, n_phi_max, l_max
    use radial_data, only: nRstop, nRstart
    use radial_functions, only: chebt_oc, drx, r, r_CMB, rgrav
                                
@@ -63,113 +63,61 @@ contains
       integer, intent(inout) :: nRMS_sets
     
       !-- Output:
-      real(cp) :: dtVPolRms,dtVPolAsRms
-      real(cp) :: dtVTorRms,dtVTorAsRms
-      real(cp) :: CorPolRms,CorPolAsRms
-      real(cp) :: CorTorRms,CorTorAsRms
-      real(cp) :: AdvPolRms,AdvPolAsRms
-      real(cp) :: AdvTorRms,AdvTorAsRms
-      real(cp) :: LFPolRms, LFPolAsRms
-      real(cp) :: LFTorRms, LFTorAsRms
-      real(cp) :: DifPolRms,DifPolAsRms
-      real(cp) :: DifTorRms,DifTorAsRms
-      real(cp) :: BuoRms,   BuoAsRms
-      real(cp) :: PreRms,   PreAsRms
-      real(cp) :: GeoRms,   GeoAsRms
-      real(cp) :: MagRms,   MagAsRms
-      real(cp) :: ArcRms,   ArcAsRms
+      real(cp) :: dtV_Rms,dtVRmsL
+      real(cp) :: CorRms,CorRmsL
+      real(cp) :: AdvRms,AdvRmsL
+      real(cp) :: LFRms,LFRmsL
+      real(cp) :: DifRms,DifRmsL
+      real(cp) :: BuoRms,BuoRmsL
+      real(cp) :: PreRms,PreRmsL
+      real(cp) :: GeoRms,GeoRmsL
+      real(cp) :: MagRms,MagRmsL
+      real(cp) :: ArcRms,ArcRmsL
+      real(cp) :: CLFRms,CLFRmsL
+      real(cp) :: PLFRms,PLFRmsL
     
       !-- Local:
-      integer :: nR,nRC
-      !integer :: n
+      integer :: nR,nRC,l,n,lm
       real(cp) :: volC
-      real(cp) :: bal1,bal2,bal3
+      real(cp) :: Rms(n_r_max),Dif2hInt(n_r_max),dtV2hInt(n_r_max)
     
       complex(cp) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      real(cp) :: global_sum(n_r_max)
+      real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
     
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
 #ifdef WITH_MPI
-      sendcount  = (nRstop-nRstart+1)*lm_max
-      recvcounts = nr_per_rank*lm_max
-      recvcounts(n_procs-1) = (nr_per_rank+1)*lm_max
-      do irank=0,n_procs-1
-         displs(irank) = irank*nr_per_rank*lm_max
-      end do
-      ! CorPolLMr,dtVPolLMr,AdvPolLMr,LFPolLMr,DifPolLMr,BuoLMr
-      ! PreLMr,GeoLMr,MagLMr,ArcLMr
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & CorPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & AdvPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & LFPolLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & BuoLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & PreLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & GeoLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & MagLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_COMPLEX,&
-           & ArcLMr,recvcounts,displs,MPI_DEF_COMPLEX,MPI_COMM_WORLD,ierr)
     
       ! The following fields are only 1D and R distributed.
-      sendcount  = (nRstop-nRstart+1)
-      recvcounts = nr_per_rank
-      recvcounts(n_procs-1) = (nr_per_rank+1)
+      sendcount  = (nRstop-nRstart+1)*(l_max+1)
+      recvcounts = nr_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = (nr_per_rank+1)*(l_max+1)
       do irank=0,n_procs-1
-         displs(irank) = irank*nr_per_rank
+         displs(irank) = irank*nr_per_rank*(l_max+1)
       end do
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CorPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+           & Cor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CorPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+           & Adv2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CorTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CorTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & AdvPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & AdvPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & AdvTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & AdvTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & LFPol2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & LFPolAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & LFTor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & LFTorAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+           & LF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Buo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & BuoAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Pre2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & PreAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Geo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & GeoAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Mag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & MagAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Arc2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & ArcAs2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+           & CLF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & PLF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
     
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
@@ -177,30 +125,18 @@ contains
       call myAllGather(dtVPolLMr,lm_max,n_r_max)
       call myAllGather(DifPolLMr,lm_max,n_r_max)
     
-      call MPI_Reduce(dtVPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVPol2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL,&
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVPolAs2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVTor2hInt(:,1)=global_sum
-      call MPI_Reduce(dtVTorAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVTorAs2hInt(:,1)=global_sum
-      call MPI_Reduce(DifPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,1)=global_sum
-      call MPI_Reduce(DifPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPolAs2hInt(:,1)=global_sum
-      call MPI_Reduce(DifTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifTor2hInt(:,1)=global_sum
-      call MPI_Reduce(DifTorAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL,&
-           &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifTorAs2hInt(:,1)=global_sum
+      call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
+      call MPI_Reduce(dtVTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtVTor2hInt(:,:,1)=global_sum
+      call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
+      call MPI_Reduce(DifTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) DifTor2hInt(:,:,1)=global_sum
 #endif
     
       if ( rank == 0 ) then
@@ -212,319 +148,204 @@ contains
          nRC=nCut+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
     
-         if ( l_conv ) then
-    
-            !------ Coriolis force
-            if ( l_corr ) then
-               call get_drNS( CorPolLMr(1,nRC),workA(1,nRC),        &
-                    &           lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                    &           workB,chebt_RMS,dr_facC)
-               do nR=1,n_r_maxC
-                  call hInt2dPol(workA(1,nR+nCut),2,lm_max,CorPol2hInt(nR+nCut), &
-                                 CorPolAs2hInt(nR+nCut),st_map)
+         if ( l_corr ) then
+            do l=0,l_max
+               !-- Copy each mode on radial array
+               do nR=1,n_r_max
+                  Rms(nR)=Cor2hInt(l,nR)
                end do
-               CorPolRms=rInt_R(CorPol2hInt(nRC),n_r_maxC, &
-                                      n_cheb_maxC,dr_facC, &
-                              chebt_RMS)
-               CorPolAsRms=rInt_R(CorPolAs2hInt(nRC),n_r_maxC, &
-                                          n_cheb_maxC,dr_facC, &
-                                  chebt_RMS)
-               CorTorRms  =rInt_R(CorTor2hInt(nRC),n_r_maxC, &
-                                        n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-               CorTorAsRms=rInt_R(CorTorAs2hInt(nRC),n_r_maxC, &
-                                          n_cheb_maxC,dr_facC, &
-                                  chebt_RMS)
-               CorPolRms  =sqrt(CorPolRms  /volC)
-               CorPolAsRms=sqrt(CorPolAsRms/volC)
-               CorTorRms  =sqrt(CorTorRms  /volC)
-               CorTorAsRms=sqrt(CorTorAsRms/volC)
-            end if
-    
-            !------ Advection:
-            if ( l_conv_nl ) then
-               call get_drNS(AdvPolLMr(1,nRC),workA(1,nRC),          &
-                    &          lm_max,1,lm_max,n_r_maxC,n_cheb_maxC,   &
-                    &          workB,chebt_RMS,dr_facC)
-               do nR=1,n_r_maxC
-                  call hInt2dPol(workA(1,nR+nCut),2,lm_max,AdvPol2hInt(nR+nCut), &
-                                 AdvPolAs2hInt(nR+nCut),st_map)
+               !-- Integrate in radius
+               CorRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               !-- Add for total Rms
+               CorRms = CorRms+CorRmsL
+               !-- Finish Rms for mode l
+               CorRmsL=sqrt(CorRmsL/volC)
+            end do
+         end if
+         CorRms=sqrt(CorRms/volC)
+
+         !-- Advection
+         AdvRms=0.0_cp
+         if ( l_conv_nl ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=Adv2hInt(l,nR)
                end do
-               AdvPolRms  =rInt_R(AdvPol2hInt(nRC),n_r_maxC, &
-                                        n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-               AdvPolAsRms=rInt_R(AdvPolAs2hInt(nRC),n_r_maxC, &
-                                          n_cheb_maxC,dr_facC, &
-                                  chebt_RMS)
-               AdvTorRms  =rInt_R(AdvTor2hInt(nRC),n_r_maxC, &
-                                        n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-               AdvTorAsRms=rInt_R(AdvTorAs2hInt(nRC),n_r_maxC, &
-                                          n_cheb_maxC,dr_facC, &
-                                  chebt_RMS)
-               AdvPolRms  =sqrt(AdvPolRms  /volC)
-               AdvPolAsRms=sqrt(AdvPolAsRms/volC)
-               AdvTorRms  =sqrt(AdvTorRms  /volC)
-               AdvTorAsRms=sqrt(AdvTorAsRms/volC)
-            end if
-    
-            !------ Lorentz force:
-            if ( l_mag_LF ) then
-               call get_drNS(LFPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-                    &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
-               do nR=1,n_r_maxC
-                  call hInt2dPol( workA(1,nR+nCut),2,lm_max,LFPol2hInt(nR+nCut), &
-                                  LFPolAs2hInt(nR+nCut),st_map)
+               AdvRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               AdvRms =AdvRms+AdvRmsL
+               AdvRmsL=sqrt(AdvRmsL/volC)
+            end do
+         end if
+         AdvRms=sqrt(AdvRms/volC)
+
+         !-- Lorentz force
+         LFRms=0.0_cp
+         if ( l_mag_LF ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=LF2hInt(l,nR)
                end do
-               LFPolRms  =rInt_R(LFPol2hInt(nRC),n_r_maxC, &
-                                      n_cheb_maxC,dr_facC, &
-                              chebt_RMS)
-               LFPolAsRms=rInt_R(LFPolAs2hInt(nRC),n_r_maxC, &
-                                        n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-               LFTorRms  =rInt_R(LFTor2hInt(nRC),n_r_maxC, &
-                                      n_cheb_maxC,dr_facC, &
-                              chebt_RMS)
-               LFTorAsRms=rInt_R(LFTorAs2hInt(nRC),n_r_maxC, &
-                                        n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-               LFPolRms  =sqrt(LFPolRms  /volC)
-               LFPolAsRms=sqrt(LFPolAsRms/volC)
-               LFTorRms  =sqrt(LFTorRms  /volC)
-               LFTorAsRms=sqrt(LFTorAsRms/volC)
-            else
-               LFPolRms  =0.0_cp
-               LFPolAsRms=0.0_cp
-               LFTorRms  =0.0_cp
-               LFTorAsRms=0.0_cp
-            end if
+               LFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               LFRms =LFRms+LFRmsL
+               LFRmsL=sqrt(LFRmsL/volC)
+            end do
+         end if
+         LFRms=sqrt(LFRms/volC)
     
-            !------ Buoyancy:
-            if ( l_heat ) then
-               call get_drNS(BuoLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max, &
-                    &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
-               do nR=1,n_r_maxC
-                  call hInt2dPol(workA(1,nR+nCut),2,lm_max, Buo2hInt(nR+nCut), &
-                                 BuoAs2hInt(nR+nCut),st_map)
-                  Buo2hInt(nR)  =Buo2hInt(nR)*rgrav(nR)**2
-                  BuoAs2hInt(nR)=BuoAs2hInt(nR)*rgrav(nR)**2
+         !-- Buoyancy
+         BuoRms=0.0_cp
+         if ( l_conv_nl ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=Buo2hInt(l,nR)
                end do
-               BuoRms  =rInt_R(Buo2hInt(nRC),n_r_maxC, &
-                                  n_cheb_maxC,dr_facC, &
-                          chebt_RMS)
-               BuoAsRms=rInt_R(BuoAs2hInt(nRC),n_r_maxC, &
-                                    n_cheb_maxC,dr_facC, &
-                            chebt_RMS)
-               BuoRms  =sqrt(BuoRms  /volC)
-               BuoAsRms=sqrt(BuoAsRms/volC)
-            else
-               BuoRms=0.0_cp
-               BuoAsRms=0.0_cp
-            end if
-    
-            !------ Pressure gradient:
-            call get_drNS(PreLMr(1,nRC),workA(1,nRC),lm_max,1,  &
-                 &        lm_max,n_r_maxC,n_cheb_maxC,workB,    &
-                 &        chebt_RMS,dr_facC)
-            do nR=1,n_r_maxC
-               call hInt2dPol(workA(1,nR+nCut),2,lm_max,Pre2hInt(nR+nCut), &
-                             PreAs2hInt(nR+nCut),st_map)
+               BuoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               BuoRms =BuoRms+BuoRmsL
+               BuoRmsL=sqrt(BuoRmsL/volC)
             end do
-            PreRms  =rInt_R(Pre2hInt(nRC),n_r_maxC, &
-                               n_cheb_maxC,dr_facC, &
-                       chebt_RMS)
-            PreAsRms=rInt_R(PreAs2hInt(nRC),n_r_maxC, &
-                                 n_cheb_maxC,dr_facC, &
-                         chebt_RMS)
-            PreRms  =sqrt(PreRms  /volC)
-            PreAsRms=sqrt(PreAsRms/volC)
+         end if
+         BuoRms=sqrt(BuoRms/volC)
     
-            !------ Geostrophic balance:
-            call get_drNS(GeoLMr(1,nRC),workA(1,nRC),lm_max,1, &
-                 &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
-                 &        chebt_RMS,dr_facC)
-            do nR=1,n_r_maxC
-               call hInt2dPol(workA(1,nR+nCut),2,lm_max,Geo2hInt(nR+nCut), &
-                              GeoAs2hInt(nR+nCut),st_map)
+         !-- Pressure gradient
+         PreRms=0.0_cp
+         do l=0,l_max
+            do nR=1,n_r_max
+               Rms(nR)=Pre2hInt(l,nR)
             end do
-            GeoRms  =rInt_R(Geo2hInt(nRC),n_r_maxC, &
-                               n_cheb_maxC,dr_facC, &
-                       chebt_RMS)
-            GeoAsRms=rInt_R(GeoAs2hInt(nRC),n_r_maxC, &
-                                 n_cheb_maxC,dr_facC, &
-                         chebt_RMS)
-            GeoRms  =sqrt(GeoRms  /volC)
-            GeoAsRms=sqrt(GeoAsRms/volC)
-    
-            !------ Magnetostrophic balance:
-            if ( .not. l_RMStest ) then
-               call get_drNS(MagLMr(1,nRC),workA(1,nRC),lm_max,1, &
-                    &        lm_max,n_r_maxC,n_cheb_maxC,workB,   &
-                    &        chebt_RMS,dr_facC)
-               do nR=1,n_r_maxC
-                  call hInt2dPol(workA(1,nR+nCut),2,lm_max,Mag2hInt(nR+nCut), &
-                                 MagAs2hInt(nR+nCut),st_map)
+            PreRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            PreRms =PreRms+PreRmsL
+            PreRmsL=sqrt(PreRmsL/volC)
+         end do
+         PreRms=sqrt(PreRms/volC)
+
+         !-- Geostrophic balance
+         GeoRms=0.0_cp
+         do l=0,l_max
+            do nR=1,n_r_max
+               Rms(nR)=Geo2hInt(l,nR)
+            end do
+            GeoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            GeoRms =GeoRms+GeoRmsL
+            GeoRmsL=sqrt(GeoRmsL/volC)
+         end do
+         GeoRms=sqrt(GeoRms/volC)
+
+         !-- Magnetostrophic balance
+         MagRms=0.0_cp
+         if ( l_mag_LF ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=Mag2hInt(l,nR)
                end do
-            end if
-            MagRms  =rInt_R(Mag2hInt(nRC),n_r_maxC, &
-                               n_cheb_maxC,dr_facC, &
-                       chebt_RMS)
-            MagAsRms=rInt_R(MagAs2hInt(nRC),n_r_maxC, &
-                                 n_cheb_maxC,dr_facC, &
-                         chebt_RMS)
-            MagRms  =sqrt(MagRms  /volC)
-            MagAsRms=sqrt(MagAsRms/volC)
-    
-            !------ Archemidian balance:
-            call get_drNS(ArcLMr(1,nRC),workA(1,nRC),           &
-                 &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                 &        workB,chebt_RMS,dr_facC)
-            do nR=1,n_r_maxC
-               call hInt2dPol( workA(1,nR+nCut),2,lm_max,Arc2hInt(nR+nCut), &
-                               ArcAs2hInt(nR+nCut),st_map)
+               MagRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               MagRms =MagRms+MagRmsL
+               MagRmsL=sqrt(MagRmsL/volC)
             end do
-            ArcRms  =rInt_R(Arc2hInt(nRC),n_r_maxC, &
-                               n_cheb_maxC,dr_facC, &
-                       chebt_RMS)
-            ArcAsRms=rInt_R(ArcAs2hInt(nRC),n_r_maxC, &
-                                 n_cheb_maxC,dr_facC, &
-                         chebt_RMS)
-            if ( l_RMStest ) then
-               ArcRms  =half*ArcRms
-               ArcAsRms=half*ArcAsRms
-            else
-               ArcRms  =sqrt(ArcRms  /volC)
-               ArcAsRms=sqrt(ArcAsRms/volC)
-            end if
-    
-            !------ Diffusion:
-            call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
-                 &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-                 &        workB,chebt_RMS,dr_facC)
-            do nR=1,n_r_maxC
-               call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(nR+nCut,1), &
-                               DifPolAs2hInt(nR+nCut,1),lo_map)
-               !do n=2,nThreadsLMmax
-               !   DifPol2hInt(nR+nCut,1)  =DifPol2hInt(nR+nCut,1) + &
-               !        DifPol2hInt(nR+nCut,n)
-               !   DifPolAs2hInt(nR+nCut,1)=DifPolAs2hInt(nR+nCut,1) + &
-               !        DifPolAs2hInt(nR+nCut,n)
-               !   DifTor2hInt(nR+nCut,1)  =DifTor2hInt(nR+nCut,1) + &
-               !        DifTor2hInt(nR+nCut,n)
-               !   DifTorAs2hInt(nR+nCut,1)=DifTorAs2hInt(nR+nCut,1) + &
-               !        DifTorAs2hInt(nR+nCut,n)
-               !end do
+         end if
+         MagRms=sqrt(MagRms/volC)
+
+         !-- Coriolis/Lorentz balance:
+         CLFRms=0.0_cp
+         if ( l_mag_LF ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=CLF2hInt(l,nR)
+               end do
+               CLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CLFRms =CLFRms+CLFRmsL
+               CLFRmsL=sqrt(CLFRmsL/volC)
             end do
-            DifPolRms  =rInt_R(DifPol2hInt(nRC,1),n_r_maxC, &
-                                       n_cheb_maxC,dr_facC, &
-                               chebt_RMS)
-            DifPolAsRms=rInt_R(DifPolAs2hInt(nRC,1),n_r_maxC, &
-                                         n_cheb_maxC,dr_facC, &
-                                 chebt_RMS)
-            DifTorRms  =rInt_R(DifTor2hInt(nRC,1),n_r_maxC, &
-                                       n_cheb_maxC,dr_facC, &
-                               chebt_RMS)
-            DifTorAsRms=rInt_R(DifTorAs2hInt(nRC,1),n_r_maxC, &
-                                         n_cheb_maxC,dr_facC, &
-                                 chebt_RMS)
-            DifPolRms  =sqrt(DifPolRms  /volC)
-            DifPolAsRms=sqrt(DifPolAsRms/volC)
-            DifTorRms  =sqrt(DifTorRms  /volC)
-            DifTorAsRms=sqrt(DifTorAsRms/volC)
-    
-            !------ Flow changes: Inertia - Advection
-            call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-                 &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
-            do nR=1,n_r_maxC
-               call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(nR+nCut,1), &
-                               dtVPolAs2hInt(nR+nCut,1),lo_map)
-               !do n=2,nThreadsLMmax
-               !   dtVPol2hInt(nR+nCut,1)  =dtVPol2hInt(nR+nCut,1) + &
-               !        &                   dtVPol2hInt(nR+nCut,n)
-               !   dtVPolAs2hInt(nR+nCut,1)=dtVPolAs2hInt(nR+nCut,1) + &
-               !        &                   dtVPolAs2hInt(nR+nCut,n)
-               !   dtVTor2hInt(nR+nCut,1)  =dtVTor2hInt(nR+nCut,1) + &
-               !        &                   dtVTor2hInt(nR+nCut,n)
-               !   dtVTorAs2hInt(nR+nCut,1)=dtVTorAs2hInt(nR+nCut,1) + &
-               !        &                   dtVTorAs2hInt(nR+nCut,n)
-               !end do
-               !write(*,"(A,I3,ES22.14)") "after = ",nR+nCut,dtVPol2hInt(nR+nCut,1)
+         end if
+         CLFRms=sqrt(CLFRms/volC)
+
+         !-- Pressure/Lorentz balance:
+         PLFRms=0.0_cp
+         if ( l_mag_LF ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=PLF2hInt(l,nR)
+               end do
+               PLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               PLFRms =PLFRms+PLFRmsL
+               PLFRmsL=sqrt(PLFRmsL/volC)
             end do
-            !write(*,"(A,I3,ES22.14)") "dtVPol2hInt(nRC,1) = ",nRC,dtVPol2hInt(nRC,1)
-            dtVPolRms  =rInt_R(dtVPol2hInt(nRC,1),n_r_maxC, &
-                                       n_cheb_maxC,dr_facC, &
-                               chebt_RMS)
-            !write(*,"(A,ES22.14)") "dtVPolRms = ",dtVPolRms
-            dtVPolAsRms=rInt_R(dtVPolAs2hInt(nRC,1),n_r_maxC, &
-                                         n_cheb_maxC,dr_facC, &
-                                 chebt_RMS)
-            dtVTorRms  =rInt_R(dtVTor2hInt(nRC,1),n_r_maxC, &
-                                       n_cheb_maxC,dr_facC, &
-                               chebt_RMS)
-            dtVTorAsRms=rInt_R(dtVTorAs2hInt(nRC,1),n_r_maxC, &
-                                         n_cheb_maxC,dr_facC, &
-                                chebt_RMS)
-            dtVPolRms  =sqrt(dtVPolRms  /volC)
-            dtVPolAsRms=sqrt(dtVPolAsRms/volC)
-            dtVTorRms  =sqrt(dtVTorRms  /volC)
-            dtVTorAsRms=sqrt(dtVTorAsRms/volC)
+         end if
+         PLFRms=sqrt(PLFRms/volC)
+
+         !-- Archimedian balance:
+         ArcRms=0.0_cp
+         if ( l_conv_nl ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=Arc2hInt(l,nR)
+               end do
+               ArcRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               ArcRms =ArcRms+ArcRmsL
+               ArcRmsL=sqrt(ArcRmsL/volC)
+            end do
+         end if
+         ArcRms=sqrt(ArcRms/volC)
+
+         !-- Diffusion
+         DifRms=0.0_cp
+         call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
+              &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
+              &        workB,chebt_RMS,dr_facC)
+         do nR=1,n_r_maxC
+            call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(1,nR+nCut,1), &
+                             lo_map )
+         end do
+         do l=0,l_max
+            do nR=1,n_r_maxC
+               Dif2hInt(nR+nCut)=0.0_cp
+               do n=1,1
+                  Dif2hInt(nR+nCut)=Dif2hInt(nR+nCut) +        &
+                                    DifPol2hInt(l,nR+nCut,n) + &
+                                    DifTor2hInt(l,nR+nCut,n)
+               end do
+           end do
+           DifRmsL=rInt_R(Dif2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+           DifRms =DifRms+DifRmsL
+           DifRmsL=sqrt(DifRmsL/volC)
+         end do
+         DifRms=sqrt(DifRms/volC)
+
+         !-- Flow changes
+         dtV_Rms=0.0_cp
+         call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
+              &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
+         do nR=1,n_r_maxC
+            call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(1,nR+nCut,1), &
+                            lo_map)
+         end do
+         do l=0,l_max
+            do nR=1,n_r_maxC
+               dtV2hInt(nR+nCut)=0.0_cp
+               do n=1,1
+                  dtV2hInt(nR+nCut)=dtV2hInt(nR+nCut) +         &
+                                    dtVPol2hInt(l,nR+nCut,n) +  &
+                                    dtVTor2hInt(l,nR+nCut,n)
+               end do
+            end do
+            dtVRmsL=rInt_R(dtV2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            dtV_Rms =dtV_Rms+dtVRmsL
+            dtVRmsL=sqrt(dtVRmsL/volC)
+         end do
+         dtV_Rms=sqrt(dtV_Rms/volC)
     
-            !----- Output:
-            if ( l_save_out) then
-               open(n_dtvrms_file, file=dtvrms_file, form='formatted', &
-                    status='unknown', position='append')
-            end if
-            if ( l_RMStest ) then
-               write(n_dtvrms_file,'(1P,ES20.12,15ES16.8)')  &
-                    time, dtVPolRms, dtVTorRms, CorPolRms,   &
-                    CorTorRms, LFPolRms, LFTorRms,           &
-                    AdvPolRms, AdvTorRms, DifPolRms,         &
-                    DifTorRms, BuoRms,PreRms, GeoRms,        &
-                    MagRms, ArcRms
-            else
-               write(n_dtvrms_file,'(1P,ES20.12,15ES16.8)')  &
-                    time, dtVPolRms, dtVTorRms, CorPolRms,   &
-                    CorTorRms, LFPolRms,LFTorRms, AdvPolRms, &
-                    AdvTorRms, DifPolRms, DifTorRms, BuoRms, &
-                    PreRms, GeoRms/(CorPolRms+PreRms),       & 
-                    MagRms/(CorPolRms+PreRms+LFPolRms),      &  
-                    ArcRms/(CorPolRms+PreRms+LFPolRms+BuoRms) 
-            end if
-            if ( l_save_out) then
-               close(n_dtvrms_file)
-            end if
-            if ( l_save_out) then
-               open(n_dtvasrms_file, file=dtvasrms_file, form='formatted', &
-                    status='unknown', position='append')
-            end if
-            if ( l_RMStest ) then
-               write(n_dtvasrms_file,'(1P,ES20.12,15ES16.8)')    &
-                    time, dtVPolAsRms, dtVTorAsRms, CorPolAsRms, &
-                    CorTorAsRms, LFPolAsRms, LFTorAsRms,         &
-                    AdvPolAsRms, AdvTorAsRms, DifPolAsRms,       &
-                    DifTorAsRms, BuoAsRms, PreAsRms, GeoAsRms,   &
-                    MagAsRms, ArcAsRms
-            else
-               if ( PreAsRms/= 0.0_cp ) then
-                  bal1=GeoAsRms/(CorPolAsRms+PreAsRms)
-                  bal2=MagAsRms/(CorPolAsRms+PreAsRms+LFPolAsRms)
-                  bal3=ArcAsRms/(CorPolAsRms+PreAsRms+LFPolAsRms+BuoAsRms)
-               else
-                  bal1=0.0_cp
-                  bal2=0.0_cp
-                  bal3=0.0_cp
-               end if
-               write(n_dtvasrms_file,'(1P,ES20.12,15ES16.8)')    &
-                    time, dtVPolAsRms, dtVTorAsRms, CorPolAsRms, &
-                    CorTorAsRms, LFPolAsRms, LFTorAsRms,         &
-                    AdvPolAsRms,AdvTorAsRms, DifPolAsRms,        &
-                    DifTorAsRms, BuoAsRms,PreAsRms, bal1, bal2,  &
-                    bal3
-            end if
-            if ( l_save_out) then
-               close(n_dtvasrms_file)
-            end if
-    
+         !----- Output:
+         if ( l_save_out) then
+            open(n_dtvrms_file, file=dtvrms_file, form='formatted', &
+                 status='unknown', position='append')
+         end if
+         write(n_dtvrms_file,'(1P,ES20.12,12ES16.8)')       &
+              time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
+              BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
+              MagRms/(CorRms+PreRms+LFRms),                 &
+              ArcRms/(CorRms+PreRms+LFRms+BuoRms),          &
+              CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms)
+         if ( l_save_out) then
+            close(n_dtvrms_file)
          end if
     
       end if
@@ -571,19 +392,19 @@ contains
       real(cp) :: global_sum(n_r_max)
     
 #ifdef WITH_MPI
-      call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
-      call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-                      MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtBPol2hInt(:,1)=global_sum
-      call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-                      MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtBPolAs2hInt(:,1)=global_sum
-    
-      call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-                      MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) then
-         dtBTor2hInt(:,1)=global_sum
-      end if
+      !call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
+      !call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
+      !                MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      !if ( rank == 0 ) dtBPol2hInt(:,1)=global_sum
+      !call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
+      !                MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      !if ( rank == 0 ) dtBPolAs2hInt(:,1)=global_sum
+   ! 
+    !  call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
+    !                  MPI_SUM,0,MPI_COMM_WORLD,ierr)
+    !  if ( rank == 0 ) then
+    !     dtBTor2hInt(:,1)=global_sum
+    !  end if
 #endif
     
     
@@ -671,18 +492,17 @@ contains
          !--- B changes:
          call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,chebt_oc,drx)
-         do nR=1,n_r_max
-            call hInt2dPol(workA(1,nR),2,lm_max,dtBPol2hInt(nR,1), &
-                           dtBPolAs2hInt(nR,1),lo_map)
-         end do
-         dtBPolRms  =rInt_R(dtBPol2hInt(1,1),n_r_max,   &
-              &             n_r_max,drx,chebt_oc)
-         dtBPolAsRms=rInt_R(dtBPolAs2hInt(1,1),n_r_max, &
-              &             n_r_max,drx,chebt_oc)
-         dtBTorRms  =rInt_R(dtBTor2hInt(1,1),n_r_max,   &
-              &             n_r_max,drx,chebt_oc)
-         dtBTorAsRms=rInt_R(dtBTorAs2hInt(1,1),n_r_max, &
-              &             n_r_max,drx,chebt_oc)
+         !do nR=1,n_r_max
+         !   call hInt2dPol(workA(1,nR),2,lm_max,dtBPol2hInt(nR,1),lo_map)
+         !end do
+         !dtBPolRms  =rInt_R(dtBPol2hInt(1,1),n_r_max,   &
+         !     &             n_r_max,drx,chebt_oc)
+         !dtBPolAsRms=rInt_R(dtBPolAs2hInt(1,1),n_r_max, &
+         !     &             n_r_max,drx,chebt_oc)
+         !dtBTorRms  =rInt_R(dtBTor2hInt(1,1),n_r_max,   &
+         !     &             n_r_max,drx,chebt_oc)
+         !dtBTorAsRms=rInt_R(dtBTorAs2hInt(1,1),n_r_max, &
+         !     &             n_r_max,drx,chebt_oc)
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)

@@ -129,7 +129,7 @@ contains
             this%preR(1)=zero
             this%dpR(1)=zero
             do lm=2,lm_max
-               this%preR(lm)=p_Rloc(lm,nR)    ! used for Rms in get_td (anelastic)
+               this%preR(lm)=p_Rloc(lm,nR)  ! used for Rms in get_td (anelastic)
                this%dpR(lm)=dp_Rloc(lm,nR)  ! used for Rms in get_td
             end do
          end if
@@ -150,6 +150,12 @@ contains
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
                this%vhC(lm) =dw_Rloc(lm,nR) + &
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
+            end do
+         else if ( lRmsCalc ) then
+            do lm=1,lm_max
+               this%dLhw(lm)=zero
+               this%vhG(lm) =zero
+               this%vhC(lm) =zero
             end do
          end if
 

@@ -14,10 +14,9 @@ module updateWP_mod
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
                      & lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
-   use logic, only: l_update_v, l_RMStest
+   use logic, only: l_update_v
    use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac
-   use RMS, only: DifPol2hInt, DifPolAs2hInt, dtVPolLMr, dtVPol2hInt, &
-                  dtVPolAs2hInt, DifPolLMr
+   use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: cgeslML, sgefa
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
@@ -33,7 +32,7 @@ module updateWP_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workA(:,:),workB(:,:)
-   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:)
+   complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
 
@@ -48,6 +47,8 @@ contains
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
       allocate( Buo(llm:ulm) )
+
+      allocate( dtV(llm:ulm) )
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -66,6 +67,7 @@ contains
       deallocate( Pre )
       deallocate( Buo )
       deallocate( rhs1 )
+      deallocate( dtV )
 
    end subroutine finalize_updateWP
 
@@ -106,6 +108,7 @@ contains
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
+      integer :: n_r_top, n_r_bot
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -323,10 +326,18 @@ contains
 #endif
       !PERFOFF
 
+      if ( lRmsNext ) then
+         n_r_top=n_r_cmb
+         n_r_bot=n_r_icb
+      else
+         n_r_top=n_r_cmb+1
+         n_r_bot=n_r_icb-1
+      end if
+
       !PERFON('upWP_ex')
       !-- Calculate explicit time step part:
       if ( ra /= 0.0_cp ) then
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -356,24 +367,21 @@ contains
                                      +dLvisc(nR) )   *         w(lm1,nR)  &
                     &                                    ) )
                if ( lRmsNext ) then
-                  workB(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
                        &        ( w(lm1,nR)-workB(lm1,nR) )
-                  if ( l_RMStest ) workB(lm1,nR)=workB(lm1,nR)-Dif(lm1)
                end if
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr, &
-                    DifPol2hInt(nR,1),DifPolAs2hInt(nR,1),lo_map)
-               !write(*,"(A,I4,3ES22.14)") "upWP, work=",nR,SUM(workB(:,nR)),dtVPol2hInt(nR,nTh)
-               call hInt2Pol(workB(llm,nR),llm,ulm,nR,lmStart_00,lmStop, &
-                    dtVPolLMr,dtVPol2hInt(nR,1),dtVPolAs2hInt(nR,1),lo_map)
-               !write(*,"(A,2I4,ES22.14)") "upWP: ",nR,nTh,dtVPol2hInt(nR,nTh)
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr(1,nR), &
+                             DifPol2hInt(1,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,lmStop, &
+                             dtVPolLMr(1,nR),dtVPol2hInt(1,nR,1),lo_map)
             end if
          end do
 
       else  ! no s-contribution !
 
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -401,19 +409,18 @@ contains
                     (two*or1(nR)+two*third*beta(nR)+           &
                     dLvisc(nR))*            w(lm1,nR)          )  )
                if ( lRmsNext ) then
-                  workB(lm1,nR)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
                        ( w(lm1,nR)-workB(lm1,nR) )
-                  if ( l_RMStest ) workB(lm1,nR)=workB(lm1,nR)-Dif(lm1)
                end if
             end do
             if ( lRmsNext ) then
-               call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr, &
-                    DifPol2hInt(nR,1),DifPolAs2hInt(nR,1),lo_map)
-               call hInt2Pol(workB(llm,nR),llm,ulm,nR,lmStart_00,lmStop, &
-                    dtVPolLMr, dtVPol2hInt(nR,1),dtVpolAs2hInt(nR,1),lo_map)
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr(1,nR), &
+                             DifPol2hInt(1,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,lmStop, &
+                             dtVPolLMr(1,nR), dtVPol2hInt(1,nR,1),lo_map)
             end if
          end do
-         
+
       end if
       !PERFOFF
 

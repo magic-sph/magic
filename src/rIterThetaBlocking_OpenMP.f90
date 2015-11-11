@@ -143,11 +143,7 @@ contains
 
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
-#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
-#else
-      logical :: lGraphHeader=.true.
-#endif
       logical :: DEBUG_OUTPUT=.false.
       real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
 
@@ -258,7 +254,8 @@ contains
          !PERFOFF
 
          !--------- Calculation of nonlinear products in grid space:
-         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then
+         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
+               this%lRmsCalc ) then
 
             !if (DEBUG_OUTPUT) then
                !if (this%nR == 2) then
@@ -271,7 +268,8 @@ contains
             !end if
 
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(this%nR, this%nBc, nThetaStart)
+            call this%gsa(threadid)%get_nl(this%nR, this%nBc, nThetaStart, &
+                          this%lRmsCalc )
             !PERFOFF
 
             !if (DEBUG_OUTPUT) then
@@ -558,6 +556,20 @@ contains
                                        this%TO_arrays(iThread)%dzLFLM
          end do
       end if
+
+      !$OMP SECTION
+      if ( this%lRmsCalc ) then
+         do iThread=1,this%nThreads-1
+            this%nl_lm(0)%p1LM=this%nl_lm(0)%p1LM+this%nl_lm(iThread)%p1LM
+            this%nl_lm(0)%p2LM=this%nl_lm(0)%p2LM+this%nl_lm(iThread)%p2LM
+            this%nl_lm(0)%Advt2LM=this%nl_lm(0)%Advt2LM+this%nl_lm(iThread)%Advt2LM
+            this%nl_lm(0)%Advp2LM=this%nl_lm(0)%Advp2LM+this%nl_lm(iThread)%Advp2LM
+            this%nl_lm(0)%LFt2LM=this%nl_lm(0)%LFt2LM+this%nl_lm(iThread)%LFt2LM
+            this%nl_lm(0)%LFp2LM=this%nl_lm(0)%LFp2LM+this%nl_lm(iThread)%LFp2LM
+            this%nl_lm(0)%CFt2LM=this%nl_lm(0)%CFt2LM+this%nl_lm(iThread)%CFt2LM
+            this%nl_lm(0)%CFp2LM=this%nl_lm(0)%CFp2LM+this%nl_lm(iThread)%CFp2LM
+         end do
+      end if 
 
 !!$    lorentz_torque_ic=0.0_cp
 !!$    c=0.0_cp

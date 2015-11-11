@@ -459,7 +459,6 @@ contains
       
       ! Local variables
       integer :: m,l,lm,lmP,mc
-      integer :: lmP2m(lmP_max)
       
       do m=0,map%l_max
          do l=m,map%l_max
@@ -486,7 +485,7 @@ contains
             if ( m == 0 ) map%l2lmAS(l)=lm
             lmP        =lmP+1
             map%lmP2l(lmP) = l
-            lmP2m(lmP) = m
+            map%lmP2m(lmP) = m
             map%lmP2(l,m)  =lmP
             !if ( m == 0 ) l2lmPAS(l)=lmP
             map%lm2lmP(lm) =lmP
@@ -495,7 +494,7 @@ contains
          l=map%l_max+1    ! Extra l for lmP
          lmP=lmP+1
          map%lmP2l(lmP) =l
-         lmP2m(lmP) = m
+         map%lmP2m(lmP) = m
          map%lmP2(l,m)  =lmP
          !if ( m == 0 ) l2lmPAS(l)=lmP
          map%lmP2lm(lmP)=-1
@@ -524,7 +523,7 @@ contains
       end do
       do lmP=1,map%lmP_max
          l=map%lmP2l(lmP)
-         m=lmP2m(lmP)
+         m=map%lmP2m(lmP)
          if ( l > 0 .and. l > m ) then
             map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
          else
@@ -546,7 +545,6 @@ contains
       
       ! Local variables
       integer :: m,l,lm,lmP,mc
-      integer :: lmP2m(lmP_max)
       
       do m=0,map%l_max
          do l=m,map%l_max
@@ -575,7 +573,7 @@ contains
 
             lmP        =lmP+1
             map%lmP2l(lmP) = l
-            lmP2m(lmP) = m
+            map%lmP2m(lmP) = m
             map%lmP2(l,m)  =lmP
             !if ( m == 0 ) l2lmPAS(l)=lmP
             map%lm2lmP(lm) =lmP
@@ -589,7 +587,7 @@ contains
 
          lmP=lmP+1
          map%lmP2l(lmP) =l
-         lmP2m(lmP) = m
+         map%lmP2m(lmP) = m
          map%lmP2(l,m)  =lmP
          map%lmP2lm(lmP)=-1
       end do
@@ -619,7 +617,7 @@ contains
       end do
       do lmP=1,map%lmP_max
          l=map%lmP2l(lmP)
-         m=lmP2m(lmP)
+         m=map%lmP2m(lmP)
          if ( l > 0 .and. l > m ) then
             map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
          else
@@ -642,7 +640,6 @@ contains
       ! Local variables
       integer :: l,proc,lm,m,i_l,lmP,mc
       logical :: Ascending
-      integer :: lmP2m(map%lmP_max)
       integer :: l_list(0:n_procs-1,map%l_max+1)
       integer :: l_counter(0:n_procs-1)
       integer :: temp_l_counter,l0proc,pc,src_proc,temp
@@ -756,7 +753,7 @@ contains
 
                map%lmP2(l,m)=lmP
                map%lmP2l(lmP)=l
-               lmP2m(lmP) = m
+               map%lmP2m(lmP)= m
                map%lm2lmP(lm)=lmP
                map%lmP2lm(lmP)=lm
 
@@ -781,7 +778,7 @@ contains
          mc=mc+1
 
          map%lmP2l(lmP) =l
-         lmP2m(lmP) = m
+         map%lmP2m(lmP) = m
          map%lmP2(l,m)  =lmP
          map%lmP2lm(lmP)=-1
          lmP=lmP+1
@@ -808,7 +805,7 @@ contains
       end do
       do lmP=1,map%lmP_max
          l=map%lmP2l(lmP)
-         m=lmP2m(lmP)
+         m=map%lmP2m(lmP)
          if ( l > 0 .and. l > m ) then
             map%lmP2lmPS(lmP)=map%lmP2(l-1,m)
          else

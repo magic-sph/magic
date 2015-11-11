@@ -19,7 +19,7 @@ module RMS_helpers
    private
 
    public :: get_PASLM, get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-             get_RAS
+             get_RAS, hIntRms, hInt2PolLM, hInt2TorLM
 
 contains
 
@@ -139,7 +139,7 @@ contains
 
    end subroutine get_PolTorRms
 !-----------------------------------------------------------------------------
-   subroutine hInt2dPol(dPol,lmStart,lmStop,Pol2hInt,PolAs2hInt,map)
+   subroutine hInt2dPol(dPol,lmStart,lmStop,Pol2hInt,map)
     
       !-- Input variables:
       complex(cp),     intent(in) :: dPol(lm_max)   ! Toroidal field Potential
@@ -147,7 +147,7 @@ contains
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
-      real(cp), intent(inout) :: Pol2hInt,PolAs2hInt
+      real(cp), intent(inout) :: Pol2hInt(0:l_max)
     
       !-- Local variables:
       real(cp) :: help
@@ -157,14 +157,35 @@ contains
          l=map%lm2l(lm)
          m=map%lm2m(lm)
          help=dLh(st_map%lm2(l,m))*cc2real(dPol(lm),m)
-         if ( m == 0 ) PolAs2hInt=PolAs2hInt+help
-         Pol2hInt=Pol2hInt+help
+         Pol2hInt(l)=Pol2hInt(l)+help
       end do
 
    end subroutine hInt2dPol
 !-----------------------------------------------------------------------------
-   subroutine hInt2Pol(Pol,lb,ub,nR,lmStart,lmStop,PolLMr, &
-                       Pol2hInt,PolAs2hInt,map)
+   subroutine hInt2dPolLM(dPol,lmStart,lmStop,Pol2hInt,map)
+
+      !-- Input variables
+      complex(cp),     intent(in) :: dPol(lm_max) 
+      integer,         intent(in) :: lmStart,lmStop
+      type(mappings),  intent(in) :: map
+
+      !-- Output variables
+      real(cp), intent(inout) :: Pol2hInt(lm_max)
+
+      !-- Local variables
+      real(cp) :: help
+      integer :: lm,l,m
+
+      do lm=lmStart,lmStop
+         l=map%lm2l(lm)
+         m=map%lm2m(lm)
+         help=dLh(st_map%lm2(l,m))*cc2real(dPol(lm),m)
+         Pol2hInt(lm)=Pol2hInt(lm)+help
+      end do
+
+   end subroutine hInt2dPolLM
+!-----------------------------------------------------------------------------
+   subroutine hInt2Pol(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
 
       !-- Input variables:
       integer,         intent(in) :: lb,ub
@@ -173,8 +194,8 @@ contains
       type(mappings),  intent(in) :: map
 
       !-- Output variables:
-      complex(cp), intent(out) :: PolLMr(lm_max,n_r_max)
-      real(cp),    intent(inout) :: Pol2hInt,PolAs2hInt
+      complex(cp), intent(out) :: PolLMr(lm_max)
+      real(cp),    intent(inout) :: Pol2hInt(0:l_max)
 
       !-- Local variables:
       real(cp) :: help,rE2
@@ -185,14 +206,72 @@ contains
          l=map%lm2l(lm)
          m=map%lm2m(lm)
          help=rE2*cc2real(Pol(lm),m)
-         if ( m == 0 ) PolAs2hInt=PolAs2hInt+help
-         Pol2hInt=Pol2hInt+help
-         PolLMr(lm,nR)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
+         Pol2hInt(l)=Pol2hInt(l)+help
+         PolLMr(lm)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
       end do
 
    end subroutine hInt2Pol
 !-----------------------------------------------------------------------------
-   subroutine hInt2Tor(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,TorAs2hInt,map)
+   subroutine hInt2PolLM(Pol,lb,ub,nR,lmStart,lmStop,PolLMr,Pol2hInt,map)
+
+      !-- Input variables:
+      integer,         intent(in) :: lb,ub
+      complex(cp),     intent(in) :: Pol(lb:ub)   ! Poloidal field Potential
+      integer,         intent(in) :: nR,lmStart,lmStop
+      type(mappings),  intent(in) :: map
+
+      !-- Output variables:
+      complex(cp), intent(out) :: PolLMr(lm_max)
+      real(cp),    intent(inout) :: Pol2hInt(lm_max)
+
+      !-- Local variables:
+      real(cp) :: help,rE2
+      integer :: lm,l,m
+
+      rE2=r(nR)*r(nR)
+      do lm=lmStart,lmStop
+         l=map%lm2l(lm)
+         m=map%lm2m(lm)
+         help=rE2*cc2real(Pol(lm),m)
+         Pol2hInt(lm)=Pol2hInt(lm)+help
+         PolLMr(lm)=rE2/dLh(st_map%lm2(l,m))*Pol(lm)
+      end do
+
+   end subroutine hInt2PolLM
+!-----------------------------------------------------------------------------
+   subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map)
+
+      !-- Input variables
+      complex(cp),    intent(in) :: f(*)
+      integer,        intent(in) :: nR, lmStart, lmStop, lmP
+      type(mappings), intent(in) :: map
+
+      !-- Output variables
+      real(cp),       intent(inout) :: f2hInt(0:l_max)
+
+      !-- Local variables
+      real(cp) :: help,rE2
+      integer :: lm,l,m
+
+      rE2=r(nR)*r(nR)
+      do lm=lmStart,lmStop
+         if ( lmP == 0 ) then
+            l=map%lm2l(lm)
+            m=map%lm2m(lm)
+         else
+            l=map%lmP2l(lm)
+            m=map%lmP2m(lm)
+         end if
+
+         if ( l <= l_max ) then
+            help=rE2*cc2real(f(lm),m)
+            f2hInt(l)=f2hInt(l)+help
+         end if
+      end do
+
+   end subroutine hIntRms
+!-----------------------------------------------------------------------------
+   subroutine hInt2Tor(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
 
       !-- Input variables:
       integer,         intent(in) :: lb,ub
@@ -202,7 +281,7 @@ contains
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
-      real(cp),        intent(inout) :: Tor2hInt,TorAs2hInt
+      real(cp),        intent(inout) :: Tor2hInt(0:l_max)
     
       !-- Local variables:
       real(cp) :: help,rE4
@@ -213,11 +292,36 @@ contains
          l=map%lm2l(lm)
          m=map%lm2m(lm)
          help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
-         if ( m == 0 ) TorAs2hInt=TorAs2hInt+help
-         Tor2hInt=Tor2hInt+help
+         Tor2hInt(l)=Tor2hInt(l)+help
       end do
     
    end subroutine hInt2Tor
+!-----------------------------------------------------------------------------
+   subroutine hInt2TorLM(Tor,lb,ub,nR,lmStart,lmStop,Tor2hInt,map)
+
+      !-- Input variables:
+      integer,         intent(in) :: lb,ub
+      complex(cp),     intent(in) :: Tor(lb:ub)   ! Toroidal field Potential
+      integer,         intent(in) :: nR
+      integer,         intent(in) :: lmStart,lmStop
+      type(mappings),  intent(in) :: map
+    
+      !-- Output variables:
+      real(cp),        intent(inout) :: Tor2hInt(lm_max)
+    
+      !-- Local variables:
+      real(cp) :: help,rE4
+      integer :: lm,l,m
+    
+      rE4=r(nR)**4
+      do lm=lmStart,lmStop
+         l=map%lm2l(lm)
+         m=map%lm2m(lm)
+         help=rE4/dLh(st_map%lm2(l,m))*cc2real(Tor(lm),m)
+         Tor2hInt(lm)=Tor2hInt(lm)+help
+      end do
+    
+   end subroutine hInt2TorLM
 !-----------------------------------------------------------------------------
    subroutine get_RAS(Blm,Br,rT,nThetaStart,sizeThetaBlock)
       !

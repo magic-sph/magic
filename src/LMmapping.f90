@@ -10,7 +10,7 @@ module LMmapping
       integer, allocatable :: lm2mc(:),l2lmAS(:)      
       integer, allocatable :: lm2lmS(:),lm2lmA(:)     
                                                      
-      integer, allocatable :: lmP2(:,:),lmP2l(:)      
+      integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
       integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 
                                                      
       integer, allocatable :: lm2lmP(:),lmP2lm(:)     
@@ -44,6 +44,7 @@ contains
       allocate( self%lm2lmS(lm_max),self%lm2lmA(lm_max) )
 
       allocate( self%lmP2(0:l_max+1,0:l_max+1),self%lmP2l(lmP_max) )
+      allocate( self%lmP2m(lmP_max) )
       allocate( self%lmP2lmPS(lmP_max),self%lmP2lmPA(lmP_max) )
 
       allocate( self%lm2lmP(lm_max),self%lmP2lm(lmP_max) )

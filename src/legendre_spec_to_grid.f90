@@ -24,10 +24,10 @@ module legendre_spec_to_grid
 
 contains
 
-   subroutine legTFG(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,nThetaStart, &
-     &               vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,            &
-     &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
-     &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
+   subroutine legTFG(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,lRmsCalc,nThetaStart, &
+     &               vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,                     &
+     &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                               &
+     &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                             &
      &               drSc,dsdtc,dsdpc,pc,leg_helper)
       !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
@@ -66,7 +66,7 @@ contains
       
       !-- Input variables:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lFluxProfCalc,lViscBcCalc
+      logical, intent(in) :: lDeriv,lFluxProfCalc,lViscBcCalc,lRmsCalc
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -136,7 +136,7 @@ contains
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
     
-               if ( lFluxProfCalc ) then
+               if ( lFluxProfCalc .or. lRmsCalc ) then
                   do mc=1,n_m_max
                       lmS=lStop(mc)
                       pES=zero ! One equatorial symmetry
@@ -474,7 +474,7 @@ contains
                      dsdtc(mc,nThetaN)=0.0_cp
                      dsdpc(mc,nThetaN)=0.0_cp
                   end if
-                  if ( lFluxProfCalc ) then
+                  if ( lFluxProfCalc .or. lRmsCalc ) then
                      pc(mc,nThetaN)=0.0_cp
                   end if
                   vrc(mc,nThetaN)   =0.0_cp
@@ -680,10 +680,10 @@ contains
 
    end subroutine legTFG
 !------------------------------------------------------------------------------
-   subroutine legTFGnomag(nBc,lDeriv,lViscBcCalc,lFluxProfCalc, & 
-       &                 nThetaStart,vrc,vtc,vpc,dvrdrc,dvtdrc, &
-       &                 dvpdrc,cvrc,dvrdtc,dvrdpc,dvtdpc,      & 
-       &                 dvpdpc,sc,drSc,dsdtc,dsdpc,pc,         &
+   subroutine legTFGnomag(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,  & 
+       &                 lRmsCalc,nThetaStart,vrc,vtc,vpc,       &
+       &                 dvrdrc,dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,&
+       &                 dvtdpc,dvpdpc,sc,drSc,dsdtc,dsdpc,pc,   &
        &                 leg_helper)
       !
       ! Same as legTFG for non-magnetic cases
@@ -691,7 +691,7 @@ contains
 
       !-- Input:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lViscBcCalc,lFluxProfCalc
+      logical, intent(in) :: lDeriv,lViscBcCalc,lFluxProfCalc,lRmsCalc
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -752,7 +752,7 @@ contains
                end do
     
     
-               if ( lFluxProfCalc ) then
+               if ( lFluxProfCalc .or. lRmsCalc ) then
                   do mc=1,n_m_max
                      lmS=lStop(mc)
                      pES=zero ! One equatorial symmetry
@@ -973,7 +973,7 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   sc(mc,nThetaN)=0.0_cp
-                  if ( lFluxProfCalc ) then
+                  if ( lFluxProfCalc .or. lRmsCalc ) then
                      pc(mc,nThetaN)=0.0_cp
                   end if
                   if ( lViscBcCalc) then

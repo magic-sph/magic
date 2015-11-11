@@ -25,7 +25,7 @@ module radialLoop
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header
 #else
-   use graphOut_mod, only: graphOut
+   use graphOut_mod, only: graphOut_header
 #endif
 
    implicit none
@@ -156,8 +156,7 @@ contains
 #ifdef WITH_MPI
          call graphOut_mpi_header(time,nR,nThetaStart,sizeThetaB)
 #else
-         !call graphOut(time,nR,vrc,vtc,vpc,brc,btc,bpc,sc, &
-         !              nThetaStart,sizeThetaB,lGraphHeader)
+         call graphOut_header(time)
 #endif
       end if
 
@@ -228,7 +227,7 @@ contains
                !nR  = n_r_cmb
                nBc = ktopv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc &
-            &          .or. lViscBcCalc .or. lFluxProfCalc 
+            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc
             else
                cycle   ! Nothing needs to be done by thread one !
             end if
@@ -237,7 +236,7 @@ contains
                !nR = n_r_icb
                nBc = kbotv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc &
-            &          .or. lViscBcCalc .or. lFluxProfCalc
+            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc
             else
                cycle
             end if
