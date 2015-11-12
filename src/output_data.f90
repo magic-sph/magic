@@ -5,7 +5,7 @@ module output_data
 
    use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
-                    l_RMS, l_RMStest, l_save_out, l_cmb_field,       &
+                    l_RMS, l_save_out, l_cmb_field,                  &
                     l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
                     l_dt_cmb_field, l_AM, l_movie
    use parallel_mod, only: rank
@@ -199,7 +199,7 @@ contains
          e_mag_ic_file='e_mag_ic.'//tag
          e_mag_oc_file='e_mag_oc.'//tag
          dipole_file='dipole.'//tag
-         if ( l_RMS .or. l_RMStest) then
+         if ( l_RMS ) then
             dtbrms_file='dtBrms.'//tag
             dtdrms_file='dtDrms.'//tag
          end if
@@ -213,7 +213,7 @@ contains
       if ( l_perpPar ) then
          perpPar_file='perpPar.'//tag
       end if
-      if ( l_RMS .or. l_RMStest) then
+      if ( l_RMS ) then
          dtvrms_file='dtVrms.'//tag
          dtvasrms_file='dtVAsRms.'//tag
       end if
@@ -258,7 +258,7 @@ contains
             open(n_log_file, file=log_file, status='unknown')
             open(n_e_kin_file, file=e_kin_file, status='new')
             open(n_par_file, file=par_file, status='new')
-            if ( l_RMS .or. l_RMStest) then
+            if ( l_RMS ) then
                open(n_dtvrms_file, file=dtvrms_file, status='new')
                open(n_dtvasrms_file, file=dtvasrms_file, status='new')
             end if
@@ -287,7 +287,7 @@ contains
                open(n_e_mag_oc_file, file=e_mag_oc_file, status='new')
                open(n_e_mag_ic_file, file=e_mag_ic_file, status='new')
                open(n_dipole_file, file=dipole_file, status='new')
-               if ( l_RMS .or. l_RMStest) then
+               if ( l_RMS ) then
                   open(n_dtbrms_file, file=dtbrms_file, status='new')
                   open(n_dtdrms_file, file=dtdrms_file, status='new')
                end if
@@ -345,7 +345,7 @@ contains
             if ( l_perpPar ) then
                close(n_perpPar_file)
             end if
-            if ( l_RMS .or. l_RMStest ) then
+            if ( l_RMS ) then
                close(n_dtvrms_file)
                close(n_dtvasrms_file)
             end if
@@ -363,7 +363,7 @@ contains
                close(n_e_mag_oc_file)
                close(n_e_mag_ic_file)
                close(n_dipole_file)
-               if ( l_RMS .or. l_RMStest) then
+               if ( l_RMS ) then
                   close(n_dtbrms_file)
                   close(n_dtdrms_file)
                end if

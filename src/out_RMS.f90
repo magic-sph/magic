@@ -6,12 +6,11 @@ module out_RMS
                          n_cheb_max, lm_maxMag, n_theta_max, minc, &
                          n_r_maxMag, n_phi_max, l_max
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: chebt_oc, drx, r, r_CMB, rgrav
-                               
+   use radial_functions, only: chebt_oc, drx, r, r_CMB, rgrav, dr_fac
    use physical_parameters, only: ra, ek, pr, prmag, radratio
-   use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2
-   use logic, only: l_save_out, l_RMStest, l_heat, l_conv_nl, l_mag_LF, &
-                    l_conv, l_corr
+   use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
+                       lm2m
+   use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, l_corr
    use RMS
 
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
@@ -26,11 +25,12 @@ module out_RMS
                           n_dtvasrms_file, dtvasrms_file, n_dtvrms_file, &
                           dtvrms_file, n_dtbrms_file, dtbrms_file
    use constants, only: pi, vol_oc, zero, half, four, third
-   use integration, only: rInt_R
+   use integration, only: rInt_R, rInt
 #ifdef WITH_MPI
    use communications, only: myAllGather
 #endif
-   use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS
+   use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
+                          hInt2dPolLM
    use radial_der, only: get_drNS
    use cosine_transform_odd, only: costf_odd_t
 
@@ -44,18 +44,8 @@ contains
  
    subroutine dtVrms(time,nRMS_sets)
       !
-      !  For testing RMS balance and determining the necessary values of  
-      !  rDea and rCut one can use the l_RMStest=true options.            
-      !  In this case the poloidal and toroidal RMS dtV which also        
-      !  include the diffusion effects should be identical (as close as   
-      !  desired) to the RMS sum of forces stored in the Geo value and    
-      !  the Mag value, respectively.                                     
-      !  An additional tests is the Arc value which should be identical   
-      !  to the poloidal kinetic energy.                                  
-      !                                                                   
-      !  .. note:: The second test with the Arc value cannot work so easily in 
-      !            the anelastic version as the density enters now in the      
-      !            force balance. The first test should work, though.         
+      ! This routine calculates and stores the different contributions
+      ! of the forces entering the Navier-Stokes equation.
       !
 
       !-- Input variable:
@@ -358,15 +348,12 @@ contains
       real(cp), intent(in) :: time
     
       !-- Local
-      integer :: nR,n,l1m0,lm
+      integer :: nR,n,l1m0,l1m1,lm,m
       character(len=80) :: fileName
     
       real(cp) :: dtBPolRms,dtBPolAsRms
       real(cp) :: dtBTorRms,dtBTorAsRms
-      real(cp) :: DstrRms
-      real(cp) :: DadvRms
-      real(cp) :: DdifRms
-      real(cp) :: DdynRms
+      real(cp) :: DdynRms,DdynAsRms
       real(cp) :: PdynRms,PdynAsRms
       real(cp) :: TdynRms,TdynAsRms
       real(cp) :: dummy1,dummy2,dummy3
@@ -378,6 +365,9 @@ contains
       complex(cp) :: TdynLM(lm_max_dtB,n_r_max_dtB)
       complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
       complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
+
+      real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
+      real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
     
       !-- For new movie output
       integer :: nField,nFields,nFieldSize
@@ -389,148 +379,102 @@ contains
       character(len=80) :: version
       logical :: lRmsMov
     
-      real(cp) :: global_sum(n_r_max)
+      real(cp) :: global_sum(lm_max,n_r_max)
     
 #ifdef WITH_MPI
-      !call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
-      !call MPI_Reduce(dtBPol2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-      !                MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      !if ( rank == 0 ) dtBPol2hInt(:,1)=global_sum
-      !call MPI_Reduce(dtBPolAs2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-      !                MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      !if ( rank == 0 ) dtBPolAs2hInt(:,1)=global_sum
-   ! 
-    !  call MPI_Reduce(dtBTor2hInt(1,1),global_sum,n_r_max,MPI_DEF_REAL, &
-    !                  MPI_SUM,0,MPI_COMM_WORLD,ierr)
-    !  if ( rank == 0 ) then
-    !     dtBTor2hInt(:,1)=global_sum
-    !  end if
+      call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
+
+      call MPI_Reduce(dtBPol2hInt(:,:,1),global_sum,n_r_max*lm_max, &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtBPol2hInt(:,:,1)=global_sum
+      call MPI_Reduce(dtBTor2hInt(:,:,1),global_sum,n_r_max*lm_max, &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtBTor2hInt(:,:,1)=global_sum
 #endif
     
     
       if ( rank == 0 ) then
          l1m0=lm2(1,0)
+         l1m1=lm2(1,1)
     
          !--- Stretching
          call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,chebt_oc,drx)
-         !--- Finalize rms poloidal and toroidal stretching:
-         call get_PolTorRms(PstrLM,workA,TstrLM,PstrRms,TstrRms,PstrAsRms, &
-              &             TstrAsRms,st_map)
     
-         !--- Calculate dipole stretching and copy for total dynamo term:
+         !--- Add to the total dynamo term
          do nR=1,n_r_max
             do lm=1,lm_max
                PdynLM(lm,nR)  =PstrLM(lm,nR)
                drPdynLM(lm,nR)=workA(lm,nR)
-               if ( lm /= l1m0 ) then
-                  PstrLM(lm,nR)=zero
-                  workA(lm,nR) =zero
-               end if
             end do
          end do
-         !--- Get dipole stretching
-         call get_PolTorRms(PstrLM,workA,TstrLM,DstrRms,dummy1,dummy2,dummy3,st_map)
-    
-         !--- Finalize advection
+
+         !-- Finalize advection
          call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,chebt_oc,drx)
-         call get_PolTorRms(PadvLM,workA,TadvLM,PadvRms,TadvRms, &
-              &             PadvAsRms,TadvAsRms,st_map)
+                        n_cheb_max,workB,chebt_oc,drx)
+
+         !-- Add to total dynamo term:
          do nR=1,n_r_max
             do lm=1,lm_max
-               PstrLM(lm,nR)  =PdynLM(lm,nR)
                PdynLM(lm,nR)  =PdynLM(lm,nR)-PadvLM(lm,nR)
-               drPdynLM(lm,nR)=drPdynLM(lm,nR)+workA(lm,nR)
+               drPdynLM(lm,nR)=drPdynLM(lm,nR)-workA(lm,nR)
                TdynLM(lm,nR)  =TstrLM(lm,nR)-TadvLM(lm,nR)
-               if ( lm /= l1m0 ) then
-                  PadvLM(lm,nR)=zero
-                  workA(lm,nR) =zero
-               end if
             end do
          end do
-         !--- Get dipole advection and total dynamo terms:
-         call get_PolTorRms(PadvLM,workA,TadvLM,DadvRms, &
-                            dummy1,dummy2,dummy3,st_map)
-         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,PdynRms, &
-                            TdynRms,PdynAsRms,TdynAsRms,st_map)
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               PadvLM(lm,nR)=PdynLM(lm,nR)
-               if ( lm /= l1m0 ) then
-                  PdynLM(lm,nR)  =zero
-                  drPdynLM(lm,nR)=zero
-               end if
-            end do
-         end do
-         !--- Get dipole dynamo terms:
-         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,DdynRms, &
-                            dummy1,dummy2,dummy3,st_map)
-    
-         !--- Diffusion:
+
+         !--- Get RMS values of the total dynamo term:
+         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,PdynRms,TdynRms,PdynAsRms, &
+                            TdynAsRms,st_map)
+
+         !--- Finalize diffusion:
          call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,chebt_oc,drx)
+
+         !-- Get RMS values for diffusion
          call get_PolTorRms(PdifLM,workA,TdifLM,PdifRms,TdifRms,&
                             PdifAsRms,TdifAsRms,st_map)
-    
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               PdynLM(lm,nR)=PdifLM(lm,nR)
-               if ( lm /= st_map%lm2(1,0) ) then
-                  PdifLM(lm,nR)=zero
-                  workA(lm,nR) =zero
-               end if
-            end do
-         end do
-         call get_PolTorRms(PdifLM,workA,TdifLM,DdifRms,dummy1,dummy2,dummy3,st_map)
-    
-    
-         !--- Omega effect: (different mapping for PdifLM,workA and TomeLM)
-         call get_PolTorRms(PdifLM,workA,TomeLM,dummy1,TomeRms,dummy2,TomeAsRms,st_map)
-    
-    
+
+         !--- Get Omega effect rms: total toroidal field changes due to zonal flow
+         !    (this is now stretching plus advection, changed May 23 2013):
+         !    TomeAsRms is the rms of the more classical Omega effect which
+         !    decribes the creation of axisymmetric azimuthal field by zonal flow.
+         call get_PolTorRms(PdifLM,workA,TomeLM,dummy1,TomeRms,dummy2, &
+                            TomeAsRms,st_map)
+
          !--- B changes:
          call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,chebt_oc,drx)
-         !do nR=1,n_r_max
-         !   call hInt2dPol(workA(1,nR),2,lm_max,dtBPol2hInt(nR,1),lo_map)
-         !end do
-         !dtBPolRms  =rInt_R(dtBPol2hInt(1,1),n_r_max,   &
-         !     &             n_r_max,drx,chebt_oc)
-         !dtBPolAsRms=rInt_R(dtBPolAs2hInt(1,1),n_r_max, &
-         !     &             n_r_max,drx,chebt_oc)
-         !dtBTorRms  =rInt_R(dtBTor2hInt(1,1),n_r_max,   &
-         !     &             n_r_max,drx,chebt_oc)
-         !dtBTorAsRms=rInt_R(dtBTorAs2hInt(1,1),n_r_max, &
-         !     &             n_r_max,drx,chebt_oc)
+
+         do nR=1,n_r_max
+            call hInt2dPolLM(workA(1,nR),2,lm_max,dtBPol2hInt(1,nR,1),lo_map)
+            dtBP(nR)  =0.0_cp
+            dtBT(nR)  =0.0_cp
+            dtBPAs(nR)=0.0_cp
+            dtBTAs(nR)=0.0_cp
+            do n=1,1
+               do lm=1,lm_max
+                  m=lm2m(lm)
+                  dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR,n)
+                  dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR,n)
+                  if ( m == 0 ) then
+                     dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR,n)
+                     dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR,n)
+                  end if
+               end do
+            end do
+         end do
+
+         dtBPolRms  =rInt(dtBP,n_r_max,dr_fac,chebt_oc)
+         dtBPolAsRms=rInt(dtBPAs,n_r_max,dr_fac,chebt_oc)
+         dtBTorRms  =rInt(dtBT,n_r_max,dr_fac,chebt_oc)
+         dtBTorAsRms=rInt(dtBTAs,n_r_max,dr_fac,chebt_oc)
+
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
          dtBTorRms  =sqrt(dtBTorRms  /vol_oc)
          dtBTorAsRms=sqrt(dtBTorAsRms/vol_oc)
-    
-         !-- Output:
-         if ( l_save_out) then
-            open(n_dtbrms_file, file=dtbrms_file, form='formatted', &
-                 status='unknown', position='append')
-         end if
-         write(n_dtbrms_file,'(1P,ES20.12,12ES16.8)')            &
-              time, dtBPolRms, dtBTorRms, PstrRms, TstrRms,      &     
-              PadvRms,TadvRms, PdifRms,TdifRms, TomeRms/TstrRms, &
-              TomeRms,  PdynRms,TdynRms 
-         if ( l_save_out) then
-            close(n_dtbrms_file)
-         end if
-    
-         if ( l_save_out) then
-            open(n_dtdrms_file, file=dtdrms_file, form='formatted', &
-                 status='unknown', position='append')
-         end if
-         write(n_dtdrms_file,'(1P,ES20.12,3ES16.8)') &
-              time, DstrRms, DadvRms, DdifRms
-         if ( l_save_out) then
-            close(n_dtdrms_file)
-         end if
-    
+
+
          !-- Output of movie files for axisymmetric toroidal field changes:
          !   Tstr,Tome,Tdyn=Tstr+Tadv,
          lRmsMov=.false.
@@ -602,10 +546,10 @@ contains
                         call get_RAS(PstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                      else if ( nField == 2 ) then
                         ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-                        call get_RAS(PadvLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        call get_RAS(PdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                      else if ( nField == 3 ) then
                         ! Note that PdynLM stores PdifLM at this point!
-                        call get_RAS(PdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+                        call get_RAS(PdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                      else if ( nField == 4 ) then
                         call get_PASLM(TstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
                      else if ( nField == 5 ) then
@@ -638,6 +582,33 @@ contains
             end do ! Loop over different fields
     
          end if ! output of mov fields ?
+
+         !-- Get dipole dynamo contribution:
+         do nR=1,n_r_max
+            do lm=1,lm_max
+               if ( lm/=l1m0 .and. lm/=l1m1 ) THEN
+                  PdynLM(lm,nR)  =zero
+                  drPdynLM(lm,nR)=zero
+               end if
+            end do
+         end do
+         !-- Get dipole dynamo terms:
+         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,DdynRms,dummy1, &
+                            DdynAsRms,dummy3,st_map)
+
+         !-- Output:
+         if ( l_save_out) then
+            open(n_dtbrms_file, file=dtbrms_file, form='formatted', &
+                 status='unknown', position='append')
+         end if
+         write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')            &
+              time, dtBPolRms, dtBTorRms, PdynRms, TdynRms,      &
+              PdifRms,TdifRms, TomeRms/TdynRms,                  &
+              TomeAsRms/TdynRms,  DdynRms,DdynAsRms
+         if ( l_save_out) then
+            close(n_dtbrms_file)
+         end if
+
 
       end if
 

@@ -635,18 +635,17 @@ contains
          lmPA=lmP2lmPA(lmP)
          fac=or2(nR)/dLh(lm)
          if ( l > m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       - &
-                      fac*dPhi(lm)*dPhi(lm)*BtVZsn2LM(lmP)    + &
-                           fac*( dTheta1S(lm)*BtVZCotLM(lmPS) - &
-                                 dTheta1A(lm)*BtVZCotLM(lmPA) )
-            TomeRLM_Rloc(lm,nR)=          or2(nR)/dLh(lm) * ( &
+            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmP)       - &
+                                              fac*or1(nR)*(     &
+                                    dTheta1S(lm)*BrVZLM(lmPS) - &
+                                    dTheta1A(lm)*BrVZLM(lmPA) )
+            TomeRLM_Rloc(lm,nR)=                      fac * ( &
                                   dTheta1S(lm)*BrVZLM(lmPS) - &
                                   dTheta1A(lm)*BrVZLM(lmPA) )
          else if ( l == m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       - &
-                      fac*dPhi(lm)*dPhi(lm)*BtVZsn2LM(lmP)    - &
-                           fac*dTheta1A(lm)*BtVZCotLM(lmPA)
-            TomeRLM_Rloc(lm,nR)=- or2(nR)/dLh(lm) * dTheta1A(lm)*BrVZLM(lmPA)
+            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       + &
+                      fac*or1(nR)*dTheta1A(lm)*BrVZLM(lmPA)
+            TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
          end if
       end do
     

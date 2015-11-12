@@ -63,7 +63,6 @@ module logic
    logical :: l_iner         ! Switch for inertial modes calculation
    logical :: l_runTimeLimit ! Switch for absolute time limit of the run
    logical :: l_RMS          ! Switch for RMS force balances calculation
-   logical :: l_RMStest      ! Switch for test of RMS balances (geostrophic, magnetostrophic, archimedean)
    logical :: l_par          ! Switch for additional parameters calculation in s_getEgeos.f
    logical :: l_corrMov      ! Switch for North/south correlation movie (see s_getEgeos.f)
    logical :: l_PV           ! Switch for potential vorticity calculation

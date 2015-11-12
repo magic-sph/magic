@@ -9,8 +9,7 @@ module nonlinear_lm_mod
    use precision_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
-                     l_mag_nl, l_mag_kin, l_mag_LF, l_RMStest, l_conv,      &
-                     l_mag
+                     l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag
    use radial_functions, only: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
    use physical_parameters, only: CorFac,ra,epsc,ViscHeatFac,OhmLossFac,n_r_LCR
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &

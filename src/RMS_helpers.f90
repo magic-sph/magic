@@ -19,7 +19,7 @@ module RMS_helpers
    private
 
    public :: get_PASLM, get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-             get_RAS, hIntRms, hInt2PolLM, hInt2TorLM
+             get_RAS, hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM
 
 contains
 

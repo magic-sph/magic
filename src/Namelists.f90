@@ -110,7 +110,7 @@ contains
          & n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
          & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
-         & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,         &
+         & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
          & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
@@ -821,7 +821,6 @@ contains
       write(n_out,'(''  l_storeBpot     ='',l3,'','')') l_storeBpot
       write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
-      write(n_out,'(''  l_RMStest       ='',l3,'','')') l_RMStest
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
@@ -1179,11 +1178,10 @@ contains
       l_drift       =.false. ! files for calculating drift rates 
       l_iner        =.false. ! files for calculating inertial modes
       l_RMS         =.false. ! RMS force ballance and dynamo term 
-      ! ballance in dtVrms.TAG and dtBrms.TAG
-      l_RMStest     =.false. ! special test for RMS balance
+                             ! ballance in dtVrms.TAG and dtBrms.TAG
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
-      rCut          =0.075_cp ! Thickness of layer to be left out at both
+      rCut          =0.0_cp  ! Thickness of layer to be left out at both
       ! boundaries for RMS calculation.
       ! rCut=0.075 means that 7.5% at the CMB and ICB are disregarded.
       rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
