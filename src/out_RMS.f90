@@ -66,7 +66,7 @@ contains
       real(cp) :: PLFRms,PLFRmsL
     
       !-- Local:
-      integer :: nR,nRC,l,n,lm
+      integer :: nR,nRC,l,n
       real(cp) :: volC
       real(cp) :: Rms(n_r_max),Dif2hInt(n_r_max),dtV2hInt(n_r_max)
     
@@ -137,6 +137,7 @@ contains
          nRC=nCut+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
     
+         CorRms=0.0_cp
          if ( l_corr ) then
             do l=0,l_max
                !-- Copy each mode on radial array

@@ -496,8 +496,8 @@ contains
 !-----------------------------------------------------------------------
    subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
                            BtVpLM,BpVtLM,BrVZLM,BtVZLM,    &
-                           BtVpCotLM,BpVtCotLM,BtVZcotLM,  &
-                           BtVpSn2LM,BpVtSn2LM,BtVZsn2LM)
+                           BtVpCotLM,BpVtCotLM,            &
+                           BtVpSn2LM,BpVtSn2LM)
       !
       !  Purpose of this routine is to calculate theta and phi          
       !  derivative related terms of the magnetic production and         
@@ -511,7 +511,6 @@ contains
       complex(cp), intent(in) :: BtVpLM(*),BpVtLM(*)
       complex(cp), intent(in) :: BtVpCotLM(*),BpVtCotLM(*)
       complex(cp), intent(in) :: BtVpSn2LM(*),BpVtSn2LM(*)
-      complex(cp), intent(in) :: BtVZcotLM(*),BtVZsn2LM(*)
       complex(cp), intent(in) :: BrVZLM(*),BtVZLM(*)
     
       !-- Local variables:

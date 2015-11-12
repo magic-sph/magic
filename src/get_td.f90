@@ -9,7 +9,7 @@ module nonlinear_lm_mod
    use precision_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
-                     l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag
+                     l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS
    use radial_functions, only: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
    use physical_parameters, only: CorFac,ra,epsc,ViscHeatFac,OhmLossFac,n_r_LCR
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
@@ -74,14 +74,16 @@ contains
       allocate( this%OhmLossLM(lmP_max) )
 
       !-- RMS calculations
-      allocate( this%Advt2LM(lmP_max) )
-      allocate( this%Advp2LM(lmP_max) )
-      allocate( this%LFt2LM(lmP_max) )
-      allocate( this%LFp2LM(lmP_max) )
-      allocate( this%CFt2LM(lmP_max) )
-      allocate( this%CFp2LM(lmP_max) )
-      allocate( this%p1LM(lmP_max) )
-      allocate( this%p2LM(lmP_max) )
+      if ( l_RMS ) then
+         allocate( this%Advt2LM(lmP_max) )
+         allocate( this%Advp2LM(lmP_max) )
+         allocate( this%LFt2LM(lmP_max) )
+         allocate( this%LFp2LM(lmP_max) )
+         allocate( this%CFt2LM(lmP_max) )
+         allocate( this%CFp2LM(lmP_max) )
+         allocate( this%p1LM(lmP_max) )
+         allocate( this%p2LM(lmP_max) )
+      end if
       !size_in_bytes=14*lmP_max*SIZEOF_DEF_COMPLEX
       !write(*,"(A,I15,A)") "nonlinear_lm: allocated ",size_in_bytes,"B."
       !call this%set_zero()
@@ -117,14 +119,16 @@ contains
       deallocate( this%OhmLossLM )
 
       !-- RMS calculations
-      deallocate( this%Advt2LM )
-      deallocate( this%Advp2LM )
-      deallocate( this%LFt2LM )
-      deallocate( this%LFp2LM )
-      deallocate( this%CFt2LM )
-      deallocate( this%CFp2LM )
-      deallocate( this%p1LM )
-      deallocate( this%p2LM )
+      if ( l_RMS ) then
+         deallocate( this%Advt2LM )
+         deallocate( this%Advp2LM )
+         deallocate( this%LFt2LM )
+         deallocate( this%LFp2LM )
+         deallocate( this%CFt2LM )
+         deallocate( this%CFp2LM )
+         deallocate( this%p1LM )
+         deallocate( this%p2LM )
+      end if
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -147,14 +151,16 @@ contains
       this%ViscHeatLM=zero
       this%OhmLossLM=zero
 
-      this%Advt2LM=zero
-      this%Advp2LM=zero
-      this%LFp2LM=zero
-      this%LFt2LM=zero
-      this%CFt2LM=zero
-      this%CFp2LM=zero
-      this%p1LM=zero
-      this%p2LM=zero
+      if ( l_RMS ) then
+         this%Advt2LM=zero
+         this%Advp2LM=zero
+         this%LFp2LM=zero
+         this%LFt2LM=zero
+         this%CFt2LM=zero
+         this%CFp2LM=zero
+         this%p1LM=zero
+         this%p2LM=zero
+      end if
 
    end subroutine set_zero
 !----------------------------------------------------------------------------

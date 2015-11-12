@@ -199,7 +199,6 @@ contains
       !  r**2  2 cos(theta) omega                                    
       !
 
-      use truncation, only: n_theta_max, n_phi_max
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point
       logical,  intent(in) :: lDeriv        ! derivatives required ?

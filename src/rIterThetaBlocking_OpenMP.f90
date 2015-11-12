@@ -679,10 +679,8 @@ contains
               &            this%dtB_arrays(0)%BrVZLM,this%dtB_arrays(0)%BtVZLM,  &
               &            this%dtB_arrays(0)%BtVpCotLM,                         &
               &            this%dtB_arrays(0)%BpVtCotLM,                         &
-              &            this%dtB_arrays(0)%BtVZcotLM,                         &
               &            this%dtB_arrays(0)%BtVpSn2LM,                         &
-              &            this%dtB_arrays(0)%BpVtSn2LM,                         &
-              &            this%dtB_arrays(0)%BtVZsn2LM)
+              &            this%dtB_arrays(0)%BpVtSn2LM)
          PERFOFF
       end if
     end subroutine do_iteration_ThetaBlocking_OpenMP

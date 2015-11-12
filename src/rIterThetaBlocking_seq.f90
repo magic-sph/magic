@@ -399,8 +399,7 @@ contains
               &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,         &
               &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,         &
               &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,   &
-              &            this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,   &
-              &            this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
+              &            this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM)
       end if
 
    end subroutine do_iteration_ThetaBlocking_seq

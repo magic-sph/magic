@@ -1041,7 +1041,7 @@ contains
               &      dVSrLM_LMloc,dsdt_LMloc,dwdt_LMloc,dzdt_LMloc, &
               &      dpdt_LMloc,dbdt_LMloc,djdt_LMloc,              &
               &      lorentz_torque_ma,lorentz_torque_ic,           &
-              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
+              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
          call wallTime(runTimeRstop)

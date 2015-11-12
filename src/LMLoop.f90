@@ -48,7 +48,7 @@ contains
    subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,               &
        &            dVxBhLM,dVSrLM,dsdt,dwdt,dzdt,dpdt,dbdt,djdt, &
        &            lorentz_torque_ma,lorentz_torque_ic,          &
-       &            b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
+       &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -65,7 +65,7 @@ contains
       ! for djdt in update_b
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
-      integer,     intent(in) :: n_time_step
+      !integer,     intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:
       complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)

@@ -79,7 +79,6 @@ contains
       !-- Local variables:
       logical :: lDeriv
       integer :: nSmax,nS,nS_ICB
-      real(cp) :: ofr            ! inverse Froude number (anelastic)
       real(cp) :: zNorm          ! Norm z interval
       integer :: nNorm           ! No. of grid points for norm interval
       real(cp) :: zMin,zMax,help ! integration boundarie, help variable

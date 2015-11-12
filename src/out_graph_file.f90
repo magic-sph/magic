@@ -850,7 +850,7 @@ contains
       integer,    intent(in) :: graph_mpi_fh      ! mpi handle of the mpi file
 
       !-- Local variables:
-      integer :: n_phi,n_theta
+      integer :: n_theta
 
       !-- MPI related variables
       integer :: status(MPI_STATUS_SIZE)!,count

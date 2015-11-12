@@ -21,7 +21,7 @@ module grid_space_arrays_mod
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta
    use constants, only: two, third
-   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF
+   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_RMS
 
    implicit none
 
@@ -104,15 +104,17 @@ contains
       size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
 
       !-- RMS Calculations
-      allocate ( this%Advt2(nrp,nfs) )
-      allocate ( this%Advp2(nrp,nfs) )
-      allocate ( this%LFt2(nrp,nfs) )
-      allocate ( this%LFp2(nrp,nfs) )
-      allocate ( this%CFt2(nrp,nfs) )
-      allocate ( this%CFp2(nrp,nfs) )
-      allocate ( this%p1(nrp,nfs) )
-      allocate ( this%p2(nrp,nfs) )
-      size_in_bytes=size_in_bytes + 8*nrp*nfs*SIZEOF_DEF_REAL
+      if ( l_RMS ) then
+         allocate ( this%Advt2(nrp,nfs) )
+         allocate ( this%Advp2(nrp,nfs) )
+         allocate ( this%LFt2(nrp,nfs) )
+         allocate ( this%LFp2(nrp,nfs) )
+         allocate ( this%CFt2(nrp,nfs) )
+         allocate ( this%CFp2(nrp,nfs) )
+         allocate ( this%p1(nrp,nfs) )
+         allocate ( this%p2(nrp,nfs) )
+         size_in_bytes=size_in_bytes + 8*nrp*nfs*SIZEOF_DEF_REAL
+      end if
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",size_in_bytes,"B."
 
    end subroutine initialize
@@ -152,14 +154,16 @@ contains
       size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
 
       !-- RMS Calculations
-      deallocate ( this%Advt2 )
-      deallocate ( this%Advp2 )
-      deallocate ( this%LFt2 )
-      deallocate ( this%LFp2 )
-      deallocate ( this%CFt2 )
-      deallocate ( this%CFp2 )
-      deallocate ( this%p1 )
-      deallocate ( this%p2 )
+      if ( l_RMS ) then
+         deallocate ( this%Advt2 )
+         deallocate ( this%Advp2 )
+         deallocate ( this%LFt2 )
+         deallocate ( this%LFp2 )
+         deallocate ( this%CFt2 )
+         deallocate ( this%CFp2 )
+         deallocate ( this%p1 )
+         deallocate ( this%p2 )
+      end if
       size_in_bytes=size_in_bytes + 8*nrp*nfs*SIZEOF_DEF_REAL
       write(*,"(A,I15,A)") "grid_space_arrays: deallocated ",size_in_bytes,"B."
 
