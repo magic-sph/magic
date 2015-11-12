@@ -35,7 +35,7 @@ and the structure of the different type of output files:
 	 * Square velocities: :ref:`u_square.TAG <secu_squareFile>`,
 	 * Drift rates: :ref:`drift[V|B][D|Q].TAG <secdriftFile>` and :ref:`iner[P|T].TAG <secinerFile>`,
 	 * Torques: :ref:`SR[IC|MA].TAG <secSRFile>`,
-	 * RMS calculations of the force balances: :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtDrms.TAG <secdtDrmsFile>`,
+	 * RMS calculations of the force balances: :ref:`dtVrms.TAG <secdtVrmsFile>` and :ref:`dtBrms.TAG <secdtBrmsFile>`,
 	 * Kinetic energies perpendicular and parallel to the rotation axis: :ref:`perpPar.TAG <secperpParFile>`.
 
    4. **Time-averaged radial profiles**:

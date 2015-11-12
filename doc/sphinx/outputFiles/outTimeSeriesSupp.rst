@@ -352,11 +352,6 @@ These files contain information about power due to torque from viscous and Loren
 ``dtVrms.TAG``
 --------------
 
-.. warning:: The RMS calculation is actually wrong in the current version. This 
-             needs again to be ported from MagIC 3.44. This issue only affects 
-             ``dtVrms.TAG``, though. A ticket has been opened on github regarding
-	     this issue: https://github.com/magic-sph/magic/issues/1
-
 .. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
 
 This files contains the RMS force balance of the Navier Stokes equation. This file is
@@ -367,35 +362,29 @@ written by the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +===============+==================================================+
    | 1             | time                                             |
    +---------------+--------------------------------------------------+
-   | 2             | Poloidal flow changes: inertia--advection        |
+   | 2             | Flow changes: inertia--advection                 |
    +---------------+--------------------------------------------------+
-   | 3             | Toroidal flow changes: inertia--advection        |
+   | 3             | Coriolis force                                   |
    +---------------+--------------------------------------------------+
-   | 4             | Poloidal Coriolis force                          |
+   | 4             | Lorentz force                                    |
    +---------------+--------------------------------------------------+
-   | 5             | Toroidal Coriolis force                          |
+   | 5             | Advection term                                   |
    +---------------+--------------------------------------------------+
-   | 6             | Poloidal Lorentz force                           |
+   | 6             | Diffusion term                                   |
    +---------------+--------------------------------------------------+
-   | 7             | Toroidal Lorentz force                           |
+   | 7             | Buoyancy term                                    |
    +---------------+--------------------------------------------------+
-   | 8             | Poloidal advection term                          |
+   | 8             | Pressure gradient term                           |
    +---------------+--------------------------------------------------+
-   | 9             | Toroidal advection term                          |
+   | 9             | Sum of force terms: geostrophic balance          |
    +---------------+--------------------------------------------------+
-   | 10            | Poloidal diffusion term                          |
+   | 10            | Sum of force terms: magnetostrophic balance      |
    +---------------+--------------------------------------------------+
-   | 11            | Toroidal diffusion term                          |
+   | 11            | Sum of force terms: Archemidian balance          |
    +---------------+--------------------------------------------------+
-   | 12            | Buoyancy term                                    |
+   | 12            | Sum of force terms: Lorentz/Coriolis             |
    +---------------+--------------------------------------------------+
-   | 13            | Pressure gradient term                           |
-   +---------------+--------------------------------------------------+
-   | 14            | Sum of force terms: geostrophic balance          |
-   +---------------+--------------------------------------------------+
-   | 15            | Sum of force terms: magnetostrophic balance      |
-   +---------------+--------------------------------------------------+
-   | 16            | Sum of force terms: Archemidian balance          |
+   | 13            | Sum of force terms: Pressure/Lorentz             |
    +---------------+--------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
@@ -423,54 +412,27 @@ written by the subroutine :f:subr:`dtBrms <out_rms/dtbrms()>`.
    +---------------+-------------------------------------------------------+
    | 3             | Changes in magnetic field (toroidal)                  |
    +---------------+-------------------------------------------------------+
-   | 4             | Poloidal strecthing term                              |
+   | 4             | Poloidal induction term                               |
    +---------------+-------------------------------------------------------+
-   | 5             | Toroidal strecthing term                              |
-   +---------------+-------------------------------------------------------+
-   | 6             | Poloidal field advection term                         |
-   +---------------+-------------------------------------------------------+
-   | 7             | Toroidal field advection term                         |
+   | 5             | Toroidal induction term                               |
    +---------------+-------------------------------------------------------+
    | 8             | Poloidal diffusion term                               |
    +---------------+-------------------------------------------------------+
    | 9             | Toroidal diffusion term                               |
    +---------------+-------------------------------------------------------+
-   | 10            | Omega effect / toroidal strecthing term               |
+   | 10            | Omega effect / toroidal induction term                |
    +---------------+-------------------------------------------------------+
    | 11            | Omega effect                                          |
    +---------------+-------------------------------------------------------+
-   | 12            | Poloidal field production (stretching+advection)      |
+   | 12            | Production of the dipole field                        |
    +---------------+-------------------------------------------------------+
-   | 13            | Toroidal field production (stretching+advection)      |
+   | 13            | Production of the axisymmetric dipole field           |
    +---------------+-------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 
    >>> # To stack all the dtBrms.TAG files of the current directory
    >>> ts = MagicTs(field='dtBrms', all=True)
-
-
-.. _secdtDrmsFile:
-
-``dtDrms.TAG``
---------------
-
-.. note:: This file is **only** written when :ref:`l_RMS=.true. <varl_RMS>`
-
-This files contains the RMS terms that enter the induction equation of the
-dipole. This file is written by the subroutine :f:subr:`dtBrms <out_rms/dtbrms()>`.
-
-   +---------------+-------------------------------------------------------+
-   | No. of column | Contents                                              |
-   +===============+=======================================================+
-   | 1             | time                                                  |
-   +---------------+-------------------------------------------------------+
-   | 2             | Dipole stretching                                     |
-   +---------------+-------------------------------------------------------+
-   | 3             | Dipole advection term                                 |
-   +---------------+-------------------------------------------------------+
-   | 4             | Dipole diffusion term                                 |
-   +---------------+-------------------------------------------------------+
 
 
 .. _secperpParFile:

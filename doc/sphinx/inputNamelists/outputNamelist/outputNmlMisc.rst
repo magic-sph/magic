@@ -3,17 +3,15 @@
 RMS force balance
 -----------------
 
-  .. warning:: The RMS calculation is actually wrong in the current version. This needs again to be ported from MagIC 3.44. The RMS contributions to the induction equation are correct, though. A ticket has been opened on github regarding this issue: https://github.com/magic-sph/magic/issues/1
-
-The code can compute the RMS of the force balance and the induction equation.
+The code can compute the RMS contributions of the different forces that
+contribute to the Navier-Stokes equation and the the different terms that enter
+the induction equation.
 
 .. _varl_RMS:
 
-* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in the :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtDrms.TAG <secdtDrmsFile>` files.
+* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in :ref:`dtVrms.TAG <secdtVrmsFile>` and :ref:`dtBrms.TAG <secdtBrmsFile>`.
 
-* **l_RMStest** (default :f:var:`l_RMStest=.false. <l_rmstest>`) is a logical. This is a debug flag to check the consistency of the RMS calculation.
-
-* **rCut** (default :f:var:`rCut=0.075 <rcut>`) is a float. This is the thickness of the layer which is left out at both boundaries for the RMS calculation. ``rCut=0.075`` actually means that 7.5% below the CMB and above the ICB are disregarded in the force balance calculation.
+* **rCut** (default :f:var:`rCut=0.0 <rcut>`) is a float. This is the thickness of the layer which is left out at both boundaries for the RMS calculation. ``rCut=0.075`` actually means that 7.5% below the CMB and above the ICB are disregarded in the force balance calculation.
 
 * **rDea** (default  :f:var:`rDea=0.0 <rdea>`) is a float. This controls the dealiasing in RMS calculations. ``rDea=0.1`` means that the highest 10% of the Chebyshev modes are set to zero.
 
