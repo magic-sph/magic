@@ -492,12 +492,12 @@ contains
       end if  ! Viscous heating and Ohmic losses ?
 
       if ( lRmsCalc ) then
-         !!$OMP PARALLEL DO default(none) &
-         !!$OMP& private(nThetaB, nPhi, nTheta,snt,cnt,rsnt) &
-         !!$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
-         !!$OMP& shared(cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nPhi, nTheta,snt,cnt,rsnt) &
+         !$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
+         !$OMP& shared(cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
          do nThetaB=1,sizeThetaB ! loop over theta points in block
-            nTheta   =nTheta+1
+            nTheta   = nThetaB
             snt=sinTheta(nTheta)
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
@@ -518,7 +518,7 @@ contains
                end if
             end do
          end do
-         !!$OMP END PARALLEL DO
+         !$OMP END PARALLEL DO
       end if
 
 
