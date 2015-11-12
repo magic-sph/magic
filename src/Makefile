@@ -346,6 +346,7 @@ out_TO.o              : truncation.o horizontal.o num_param.o\
                         char_manip.o integration.o useful.o
 TO_helpers.o          : truncation.o blocking.o horizontal.o precision_mod.o\
                         constants.o
+TO_arrays.o           : truncation.o precision_mod.o
 courant.o             : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         useful.o radial_data.o parallel.o
@@ -420,9 +421,11 @@ rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
                         legendre_helpers.o get_td.o nonlinear_bcs.o\
                         legendre_grid_to_spec.o  out_graph_file.o
 rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
-                        out_movie_file.o outRot.o nl_special_calc.o courant.o
+                        out_movie_file.o outRot.o nl_special_calc.o courant.o\
+			TO_arrays.o
 rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
-                        out_movie_file.o outRot.o nl_special_calc.o
+                        out_movie_file.o outRot.o nl_special_calc.o\
+			TO_arrays.o
 LMLoop.o              : truncation.o blocking.o parallel.o\
                         logic.o radial_data.o\
                         output_data.o fields.o dt_fieldsLast.o mat.o\
@@ -594,7 +597,8 @@ endif
 
 ifeq ($(USE_SHTNS),yes)
 rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
-                        out_movie_file.o outRot.o nl_special_calc.o courant.o
+                        out_movie_file.o outRot.o nl_special_calc.o courant.o\
+			TO_arrays.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
                         precision_mod.o constants.o
 radialLoop.o          : rIterThetaBlocking_shtns.o
