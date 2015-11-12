@@ -184,7 +184,7 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
 #ifdef WITH_SHTNS
-   subroutine get_nl_shtns(this, nR, nBc)
+   subroutine get_nl_shtns(this, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -202,12 +202,13 @@ contains
 
       !-- Input of variables:
       integer, intent(in) :: nR
+      logical, intent(in) :: lRmsCalc
       integer, intent(in) :: nBc
 
       !-- Local variables:
-      integer :: nThetaB, nThetaNHS
+      integer :: nThetaB, nThetaNHS, nTheta
       integer :: nPhi
-      real(cp) :: or2sn2, or4sn2, csn2
+      real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt
 
 
       if ( l_mag_LF .and. nBc == 0 .and. nR>n_r_LCR ) then
@@ -485,6 +486,37 @@ contains
          end if ! if l_mag_nl ?
 
       end if  ! Viscous heating and Ohmic losses ?
+
+      if ( lRmsCalc ) then
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nPhi, nTheta) &
+         !$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
+         !$OMP& shared(cnt,snt,rsnt,cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
+         do nThetaB=1,sizeThetaB ! loop over theta points in block
+            nTheta   =nTheta+1
+            snt=sinTheta(nTheta)
+            cnt=cosTheta(nTheta)
+            rsnt=r(nR)*snt
+            do nPhi=1,n_phi_max
+               this%p1(nPhi,nThetaB)=this%pc(nPhi,nThetaB)/snt
+               this%p2(nPhi,nThetaB)=cnt*this%p1(nPhi,nThetaB)
+               this%CFt2(nPhi,nThetaB)=-2*CorFac *cnt*this%vpc(nPhi,nThetaB)/rsnt
+               this%CFp2(nPhi,nThetaB)=2*CorFac * (                      &
+                                     cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
+                                     or2(nR)*snt*this%vrc(nPhi,nThetaB) )
+               if ( l_conv_nl ) then
+                  this%Advt2(nPhi,nThetaB)=rsnt*this%Advt(nPhi,nThetaB)
+                  this%Advp2(nPhi,nThetaB)=rsnt*this%Advp(nPhi,nThetaB)
+               end if
+               if ( l_mag_LF .and. nR > n_r_LCR ) then
+                  this%LFt2(nPhi,nThetaB)=rsnt*this%LFt(nPhi,nThetaB)
+                  this%LFp2(nPhi,nThetaB)=rsnt*this%LFp(nPhi,nThetaB)
+               end if
+            end do
+         end do
+         !$OMP END PARALLEL DO
+      end if
+
 
    end subroutine get_nl_shtns
 #endif

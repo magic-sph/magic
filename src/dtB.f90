@@ -319,7 +319,7 @@ contains
 
       call shtns_spat_to_SH(BrVZ, BrVZLM)
       call shtns_spat_to_SH(BtVZ, BtVZLM)
-      call shtns_spat_to_SH(BtVZsn2, BtVZLM)
+      call shtns_spat_to_SH(BtVZsn2, BtVZsn2LM)
 
       call shtns_spat_to_SH(BtVpSn2, BtVpSn2LM)
       call shtns_spat_to_SH(BpVtsn2, BpVtsn2LM)

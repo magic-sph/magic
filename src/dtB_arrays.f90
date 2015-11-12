@@ -2,6 +2,7 @@ module dtB_arrays_mod
 
    use truncation, only: lmP_max_dtB
    use precision_mod, only: cp
+   use constants, only: zero
 
    implicit none
 
@@ -18,6 +19,7 @@ module dtB_arrays_mod
    contains
       procedure :: initialize
       procedure :: finalize
+      procedure :: set_zero
    end type dtB_arrays_t
 
 
@@ -64,5 +66,30 @@ contains
       deallocate( this%BtVZsn2LM )
 
    end subroutine finalize
+!----------------------------------------------------------------------------
+   subroutine set_zero(this)
+
+      class(dtB_arrays_t) :: this
+
+      integer :: l
+
+      do l=1,lmP_max_dtB
+         this%BtVrLM = zero
+         this%BpVrLM = zero
+         this%BrVtLM = zero
+         this%BrVpLM = zero
+         this%BtVpLM = zero
+         this%BpVtLM = zero
+         this%BrVZLM = zero
+         this%BtVZLM = zero
+         this%BtVpCotLM = zero
+         this%BpVtCotLM = zero
+         this%BtVZcotLM = zero
+         this%BtVpSn2LM = zero
+         this%BpVtSn2LM = zero
+         this%BtVZsn2LM = zero
+      end do
+
+   end subroutine set_zero
 !----------------------------------------------------------------------------
 end module dtB_arrays_mod

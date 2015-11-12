@@ -15,6 +15,7 @@ module TO_arrays_mod
    contains
       procedure :: initialize
       procedure :: finalize
+      procedure :: set_zero
    end type TO_arrays_t
 
 contains
@@ -36,5 +37,21 @@ contains
       deallocate( this%dzCorLM,this%dzLFLM )
 
    end subroutine finalize
+!----------------------------------------------------------------------------
+   subroutine set_zero(this)
+
+      class(TO_arrays_t) :: this
+
+      !-- Local variable:
+      integer :: l
+
+      do l=0,l_max
+         this%dzRstrLM(l+1)=0.0_cp
+         this%dzAstrLM(l+1)=0.0_cp
+         this%dzCorLM(l+1) =0.0_cp
+         this%dzLFLM(l+1)  =0.0_cp
+      end do
+
+   end subroutine set_zero
 !----------------------------------------------------------------------------
 end module TO_arrays_mod

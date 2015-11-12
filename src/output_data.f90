@@ -84,8 +84,8 @@ module output_data
    integer, public :: n_lp_file,n_rst_file
    integer, public :: n_e_mag_oc_file,n_e_mag_ic_file,n_e_kin_file
    integer, public :: n_u_square_file,n_par_file,n_angular_file
-   integer, public :: n_dtvrms_file,n_dtvasrms_file
-   integer, public :: n_dtbrms_file,n_dtdrms_file
+   integer, public :: n_dtvrms_file
+   integer, public :: n_dtbrms_file
    integer, public :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
    integer, public :: n_rot_file
    integer, public :: n_perpPar_file
@@ -112,8 +112,8 @@ module output_data
    character(len=72), public :: perpPar_file
    character(len=72), public :: par_file
    character(len=72), public :: angular_file
-   character(len=72), public :: dtvrms_file,dtvasrms_file
-   character(len=72), public :: dtbrms_file,dtdrms_file
+   character(len=72), public :: dtvrms_file
+   character(len=72), public :: dtbrms_file
    character(len=72), public :: rot_file
    character(len=72), public :: dipole_file
    character(len=72), public :: cmb_file,dt_cmb_file
@@ -173,9 +173,7 @@ contains
       n_par_file         =300
       n_angular_file     =301
       n_dtvrms_file      =302
-      n_dtvasrms_file    =303
       n_dtbrms_file      =304
-      n_dtdrms_file      =305
       do n=1,n_coeff_r_max
          n_v_r_file(n)=40+n
       end do
@@ -201,7 +199,6 @@ contains
          dipole_file='dipole.'//tag
          if ( l_RMS ) then
             dtbrms_file='dtBrms.'//tag
-            dtdrms_file='dtDrms.'//tag
          end if
       end if
       if ( l_AM ) then
@@ -215,7 +212,6 @@ contains
       end if
       if ( l_RMS ) then
          dtvrms_file='dtVrms.'//tag
-         dtvasrms_file='dtVAsRms.'//tag
       end if
       if ( l_rot_ic .or. l_rot_ma ) then
          rot_file='rot.'//tag
@@ -260,7 +256,6 @@ contains
             open(n_par_file, file=par_file, status='new')
             if ( l_RMS ) then
                open(n_dtvrms_file, file=dtvrms_file, status='new')
-               open(n_dtvasrms_file, file=dtvasrms_file, status='new')
             end if
             if ( l_anel ) then
                open(n_u_square_file, file=u_square_file, status='new')
@@ -289,7 +284,6 @@ contains
                open(n_dipole_file, file=dipole_file, status='new')
                if ( l_RMS ) then
                   open(n_dtbrms_file, file=dtbrms_file, status='new')
-                  open(n_dtdrms_file, file=dtdrms_file, status='new')
                end if
                if ( l_cmb_field ) then
                   open(n_cmb_file, file=cmb_file, &
@@ -347,7 +341,6 @@ contains
             end if
             if ( l_RMS ) then
                close(n_dtvrms_file)
-               close(n_dtvasrms_file)
             end if
             if ( l_r_field ) then
                do n=1,n_coeff_r_max
@@ -365,7 +358,6 @@ contains
                close(n_dipole_file)
                if ( l_RMS ) then
                   close(n_dtbrms_file)
-                  close(n_dtdrms_file)
                end if
                if ( l_cmb_field ) close(n_cmb_file)
                if ( l_cmb_field .and. l_movie ) close(n_cmbMov_file)

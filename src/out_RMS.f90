@@ -21,9 +21,8 @@ module out_RMS
                                                                   
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord
-   use output_data, only: TAG, runid, n_dtdrms_file, dtdrms_file,        &
-                          n_dtvasrms_file, dtvasrms_file, n_dtvrms_file, &
-                          dtvrms_file, n_dtbrms_file, dtbrms_file
+   use output_data, only: TAG, runid, n_dtvrms_file, dtvrms_file, &
+                          n_dtbrms_file, dtbrms_file
    use constants, only: pi, vol_oc, zero, half, four, third
    use integration, only: rInt_R, rInt
 #ifdef WITH_MPI
@@ -603,7 +602,7 @@ contains
          end if
          write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')            &
               time, dtBPolRms, dtBTorRms, PdynRms, TdynRms,      &
-              PdifRms,TdifRms, TomeRms/TdynRms,                  &
+              PdifRms, TdifRms, TomeRms/TdynRms,                 &
               TomeAsRms/TdynRms,  DdynRms,DdynAsRms
          if ( l_save_out) then
             close(n_dtbrms_file)

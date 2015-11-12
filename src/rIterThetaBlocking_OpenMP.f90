@@ -207,12 +207,10 @@ contains
       this%lorentz_torque_ic(threadid) = 0.0_cp
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
-         do l=0,l_max
-            this%TO_arrays(threadid)%dzRstrLM(l+1)=0.0_cp
-            this%TO_arrays(threadid)%dzAstrLM(l+1)=0.0_cp
-            this%TO_arrays(threadid)%dzCorLM(l+1) =0.0_cp
-            this%TO_arrays(threadid)%dzLFLM(l+1)  =0.0_cp
-         end do
+         call this%TO_arrays(threadid)%set_zero()
+      end if
+      if ( l_dtB ) then
+         call this%dtB_arrays(threadid)%set_zero()
       end if
 
       c = 0.0_cp

@@ -138,12 +138,7 @@ contains
       end if
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
-         do l=0,l_max
-            this%TO_arrays%dzRstrLM(l+1)=0.0_cp
-            this%TO_arrays%dzAstrLM(l+1)=0.0_cp
-            this%TO_arrays%dzCorLM(l+1) =0.0_cp
-            this%TO_arrays%dzLFLM(l+1)  =0.0_cp
-         end do
+         call this%TO_arrays%set_zero()
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
@@ -189,7 +184,7 @@ contains
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then
 
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(this%nR, this%nBc)
+         call this%gsa%get_nl_shtns(this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
 
          call this%transform_to_lm_space_shtns(this%gsa, this%nl_lm)
@@ -236,7 +231,7 @@ contains
       !          sign is reversed at the end of the theta blocking.
       if ( this%nR == n_r_cmb .and. l_mag_LF .and. l_rot_ma .and. l_cond_ma ) then
          call get_lorentz_torque(this%lorentz_torque_ma,   &
-              &                  1 ,this%sizeThetaB,        &
+              &                  1 ,this%sizeThetaB,       &
               &                  this%gsa%brc,             &
               &                  this%gsa%bpc,this%nR)
       end if
@@ -246,8 +241,8 @@ contains
       if ( this%l_cour ) then
          !PRINT*,"Calling courant with this%nR=",this%nR
          call courant(this%nR,this%dtrkc,this%dthkc,this%gsa%vrc, &
-              &       this%gsa%vtc,this%gsa%vpc,        &
-              &       this%gsa%brc,this%gsa%btc,        &
+              &       this%gsa%vtc,this%gsa%vpc,                  &
+              &       this%gsa%brc,this%gsa%btc,                  &
               &       this%gsa%bpc,1 ,this%sizeThetaB)
       end if
 
@@ -257,16 +252,16 @@ contains
 #ifdef WITH_MPI
             PERFON('graphout')
             call graphOut_mpi(time,this%nR,this%gsa%vrc,           &
-                 &            this%gsa%vtc,this%gsa%vpc, &
-                 &            this%gsa%brc,this%gsa%btc, &
-                 &            this%gsa%bpc,this%gsa%sc,  &
+                 &            this%gsa%vtc,this%gsa%vpc,           &
+                 &            this%gsa%brc,this%gsa%btc,           &
+                 &            this%gsa%bpc,this%gsa%sc,            &
                  &            1 ,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa%vrc,           &
-                 &        this%gsa%vtc,this%gsa%vpc, &
-                 &        this%gsa%brc,this%gsa%btc, &
-                 &        this%gsa%bpc,this%gsa%sc,  &
+                 &        this%gsa%vtc,this%gsa%vpc,           &
+                 &        this%gsa%brc,this%gsa%btc,           &
+                 &        this%gsa%bpc,this%gsa%sc,            &
                  &        1 ,this%sizeThetaB,lGraphHeader)
 #endif
       end if
@@ -274,8 +269,8 @@ contains
       !--------- Helicity output:
       if ( this%lHelCalc ) then
          PERFON('hel_out')
-         call get_helicity(this%gsa%vrc,this%gsa%vtc,&
-              &        this%gsa%vpc,this%gsa%cvrc,   &
+         call get_helicity(this%gsa%vrc,this%gsa%vtc,          &
+              &        this%gsa%vpc,this%gsa%cvrc,             &
               &        this%gsa%dvrdtc,                        &
               &        this%gsa%dvrdpc,                        &
               &        this%gsa%dvtdrc,                        &
@@ -300,22 +295,22 @@ contains
 
 
       if ( this%lFluxProfCalc ) then
-          call get_fluxes(this%gsa%vrc,this%gsa%vtc,   &
-                 &        this%gsa%vpc,this%gsa%dvrdrc,&
+          call get_fluxes(this%gsa%vrc,this%gsa%vtc,             &
+                 &        this%gsa%vpc,this%gsa%dvrdrc,          &
                  &        this%gsa%dvtdrc,                       &
                  &        this%gsa%dvpdrc,                       &
                  &        this%gsa%dvrdtc,                       &
-                 &        this%gsa%dvrdpc,this%gsa%sc, &
-                 &        this%gsa%pc,this%gsa%brc,    &
-                 &        this%gsa%btc,this%gsa%bpc,   &
-                 &        this%gsa%cbtc,this%gsa%cbpc, &
-                 &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,   &
-                 &        1 )
+                 &        this%gsa%dvrdpc,this%gsa%sc,           &
+                 &        this%gsa%pc,this%gsa%brc,              &
+                 &        this%gsa%btc,this%gsa%bpc,             &
+                 &        this%gsa%cbtc,this%gsa%cbpc,           &
+                 &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,    &
+                 &        fresLMr,nR,1 )
       end if
 
       if ( this%lPerpParCalc ) then
-          call get_perpPar(this%gsa%vrc,this%gsa%vtc, &
-                 &         this%gsa%vpc,EperpLMr,EparLMr,       &
+          call get_perpPar(this%gsa%vrc,this%gsa%vtc,       &
+                 &         this%gsa%vpc,EperpLMr,EparLMr,   &
                  &         EperpaxiLMr,EparaxiLMr,nR,1 )
       end if
 
@@ -324,9 +319,9 @@ contains
       if ( this%l_frame .and. l_movie_oc .and. l_store_frame ) then
          PERFON('mov_out')
          call store_movie_frame(this%nR,this%gsa%vrc,                &
-              &                 this%gsa%vtc,this%gsa%vpc, &
-              &                 this%gsa%brc,this%gsa%btc, &
-              &                 this%gsa%bpc,this%gsa%sc,  &
+              &                 this%gsa%vtc,this%gsa%vpc,           &
+              &                 this%gsa%brc,this%gsa%btc,           &
+              &                 this%gsa%bpc,this%gsa%sc,            &
               &                 this%gsa%drSc,                       &
               &                 this%gsa%dvrdpc,                     &
               &                 this%gsa%dvpdrc,                     &
@@ -334,7 +329,7 @@ contains
               &                 this%gsa%dvrdtc,                     &
               &                 this%gsa%cvrc,                       &
               &                 this%gsa%cbrc,                       &
-              &                 this%gsa%cbtc,1 ,           &
+              &                 this%gsa%cbtc,1 ,                    &
               &                 this%sizeThetaB,this%leg_helper%bCMB)
          PERFOFF
       end if
@@ -345,10 +340,10 @@ contains
       !          for graphic output:
       if ( l_dtB ) then
          PERFON('dtBLM')
-         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,&
-              &         this%gsa%vpc,this%gsa%brc,        &
-              &         this%gsa%btc,this%gsa%bpc,        &
-              &         1 ,this%sizeThetaB,this%dtB_arrays%BtVrLM,   &
+         call get_dtBLM(this%nR,this%gsa%vrc,this%gsa%vtc,                    &
+              &         this%gsa%vpc,this%gsa%brc,                            &
+              &         this%gsa%btc,this%gsa%bpc,                            &
+              &         1 ,this%sizeThetaB,this%dtB_arrays%BtVrLM,            &
               &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
               &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
               &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
@@ -453,7 +448,7 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lFluxProfCalc ) then
+            if ( this%lFluxProfCalc .or. this%lRmsCalc ) then
                call scal_to_spat(p_Rloc(:, nR), gsa%pc)
             end if
          end if
@@ -620,6 +615,21 @@ contains
             call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
          end if
          !PERFOFF
+      end if
+
+      if ( this%lRmsCalc ) then
+         call spat_to_SH(gsa%p1, nl_lm%p1LM)
+         call spat_to_SH(gsa%p2, nl_lm%p2LM)
+         call spat_to_SH(gsa%CFt2, nl_lm%CFt2LM)
+         call spat_to_SH(gsa%CFp2, nl_lm%CFp2LM)
+         if ( l_conv_nl ) then
+            call spat_to_SH(gsa%Advt2, nl_lm%Advt2LM)
+            call spat_to_SH(gsa%Advp2, nl_lm%Advp2LM)
+         end if
+         if ( l_mag_nl .and. this%nR>n_r_LCR ) then
+            call spat_to_SH(gsa%LFt2, nl_lm%LFt2LM)
+            call spat_to_SH(gsa%LFp2, nl_lm%LFp2LM)
+         end if
       end if
 
       call shtns_load_cfg(0)
