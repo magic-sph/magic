@@ -5,6 +5,7 @@ module rIterThetaBlocking_seq_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
+   use dtB_arrays_mod, only: dtB_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
  
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
@@ -37,6 +38,7 @@ module rIterThetaBlocking_seq_mod
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
       type(grid_space_arrays_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
+      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_seq
@@ -64,6 +66,7 @@ contains
       call this%gsa%initialize()
       call this%nl_lm%initialize(lmP_max)
       if ( l_TO ) call this%TO_arrays%initialize()
+      call this%dtB_arrays%initialize()
 
    end subroutine initialize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
@@ -75,6 +78,7 @@ contains
       call this%gsa%finalize()
       call this%nl_lm%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
+      call this%dtB_arrays%finalize()
 
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------

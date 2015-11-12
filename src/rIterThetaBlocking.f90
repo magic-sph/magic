@@ -28,16 +28,6 @@ module rIterThetaBlocking_mod
 
    private
 
-   type, public :: dtB_arrays_t
-      !----- Local dtB output stuff:
-      complex(cp), allocatable :: BtVrLM(:),BpVrLM(:),BrVtLM(:),BrVpLM(:), &
-                                  &               BtVpLM(:), BpVtLM(:)
-      complex(cp), allocatable :: BtVpCotLM(:),BpVtCotLM(:),BtVpSn2LM(:), &
-                                  &               BpVtSn2LM(:)
-      complex(cp), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
-                                  &               BtVZsn2LM(:)
-   end type dtB_arrays_t
-
    type, public, abstract, extends(rIteration_t) :: rIterThetaBlocking_t
       ! or with len parameters for the theta block size and number
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
@@ -46,7 +36,6 @@ module rIterThetaBlocking_mod
 
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
-      type(dtB_arrays_t) :: dtB_arrays
 
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
@@ -82,22 +71,6 @@ contains
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
-      !----- Local dtB output stuff:
-      allocate( this%dtB_arrays%BtVrLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVrLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVtLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVpLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpCotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtCotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpSn2LM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtSn2LM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVZLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZcotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
-
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
@@ -107,21 +80,6 @@ contains
    subroutine deallocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-
-      deallocate( this%dtB_arrays%BtVrLM )
-      deallocate( this%dtB_arrays%BpVrLM )
-      deallocate( this%dtB_arrays%BrVtLM )
-      deallocate( this%dtB_arrays%BrVpLM )
-      deallocate( this%dtB_arrays%BtVpLM )
-      deallocate( this%dtB_arrays%BpVtLM )
-      deallocate( this%dtB_arrays%BtVpCotLM )
-      deallocate( this%dtB_arrays%BpVtCotLM )
-      deallocate( this%dtB_arrays%BtVpSn2LM )
-      deallocate( this%dtB_arrays%BpVtSn2LM )
-      deallocate( this%dtB_arrays%BrVZLM )
-      deallocate( this%dtB_arrays%BtVZLM )
-      deallocate( this%dtB_arrays%BtVZcotLM )
-      deallocate( this%dtB_arrays%BtVZsn2LM )
 
       deallocate( this%BsLast)
       deallocate( this%BpLast)

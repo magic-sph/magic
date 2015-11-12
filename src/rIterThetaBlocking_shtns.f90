@@ -20,6 +20,7 @@ module rIterThetaBlocking_shtns_mod
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
+   use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -47,6 +48,7 @@ module rIterThetaBlocking_shtns_mod
       integer :: nThreads
       type(grid_space_arrays_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
+      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
       real(cp) :: lorentz_torque_ic,lorentz_torque_ma
    contains
@@ -75,6 +77,7 @@ contains
       call this%allocate_common_arrays()
       call this%gsa%initialize()
       if ( l_TO ) call this%TO_arrays%initialize()
+      call this%dtB_arrays%initialize()
       call this%nl_lm%initialize(lmP_max)
 
    end subroutine initialize_rIterThetaBlocking_shtns
@@ -86,6 +89,7 @@ contains
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
+      call this%dtB_arrays%finalize()
       call this%nl_lm%finalize()
 
    end subroutine finalize_rIterThetaBlocking_shtns
