@@ -80,7 +80,7 @@ Quickly starting using MagIC
    * The :ref:`description of the input namelists <secNamelists>` will then help
      you to define the exact physical setup you may want to simulate.
 
-   * The :ref:`description of the output files <secOutputFile>` will help you to
+   * The :ref:`description of the output files <secOutputFiles>` will help you to
      understand what are the diagnostic quantities computed by **MagIC**.
    
    * Finally, the :ref:`python functions and classes <secPythonPostProc>` will
