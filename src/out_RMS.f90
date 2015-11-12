@@ -327,7 +327,7 @@ contains
             open(n_dtvrms_file, file=dtvrms_file, form='formatted', &
                  status='unknown', position='append')
          end if
-         write(n_dtvrms_file,'(1P,ES20.12,12ES16.8)')       &
+         write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,5ES14.6)')&
               time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
               BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
               MagRms/(CorRms+PreRms+LFRms),                 &

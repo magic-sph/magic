@@ -442,7 +442,8 @@ contains
                !$OMP END PARALLEL DO
                !PERFOFF
 
-               call hIntRms(leg_helper%dpR,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
+               call hIntRms(leg_helper%dpR-beta(nR)*leg_helper%preR,&
+                            nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
                call hIntRms(dpt,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
                call hIntRms(dpp,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
 
@@ -461,9 +462,9 @@ contains
                end if
 
                do lm=1,lm_max
-                  Geo(lm)=CorPol(lm)-leg_helper%dpR(lm)
+                  Geo(lm)=CorPol(lm)-leg_helper%dpR(lm)+beta(nR)*leg_helper%preR(lm)
                   CLF(lm)=CorPol(lm)+LFPol(lm)
-                  PLF(lm)=LFPol(lm)-leg_helper%dpR(lm)
+                  PLF(lm)=LFPol(lm)-leg_helper%dpR(lm)+beta(nR)*leg_helper%preR(lm)
                   Mag(lm)=Geo(lm)+LFPol(lm)
                   Arc(lm)=Mag(lm)+Buo(lm)
                end do

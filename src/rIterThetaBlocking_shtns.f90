@@ -181,7 +181,8 @@ contains
       call this%transform_to_grid_space_shtns(this%gsa)
 
       !--------- Calculation of nonlinear products in grid space:
-      if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then
+      if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
+            this%lRmsCalc ) then
 
          PERFON('get_nl')
          call this%gsa%get_nl_shtns(this%nR, this%nBc, this%lRmsCalc)
@@ -543,7 +544,8 @@ contains
 
       call shtns_load_cfg(1)
 
-      if ( (.not.this%isRadialBoundaryPoint) .and. ( l_conv_nl .or. l_mag_LF ) ) then
+      if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) &
+            .and. ( l_conv_nl .or. l_mag_LF ) ) then
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then

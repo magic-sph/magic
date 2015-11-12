@@ -211,7 +211,7 @@ contains
       real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt
 
 
-      if ( l_mag_LF .and. nBc == 0 .and. nR>n_r_LCR ) then
+      if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
          !------ Get the Lorentz force:
          !$OMP PARALLEL DO default(none) &
          !$OMP& private(nThetaB, nPhi, nThetaNHS, or4sn2) &
@@ -252,7 +252,7 @@ contains
          !$OMP END PARALLEL DO
       end if      ! Lorentz force required ?
 
-      if ( l_conv_nl .and. nBc == 0 ) then
+      if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
          !------ Get Advection:
          !$OMP PARALLEL DO default(none) &
@@ -488,10 +488,10 @@ contains
       end if  ! Viscous heating and Ohmic losses ?
 
       if ( lRmsCalc ) then
-         !$OMP PARALLEL DO default(none) &
-         !$OMP& private(nThetaB, nPhi, nTheta) &
-         !$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
-         !$OMP& shared(cnt,snt,rsnt,cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
+         !!$OMP PARALLEL DO default(none) &
+         !!$OMP& private(nThetaB, nPhi, nTheta,snt,cnt,rsnt) &
+         !!$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
+         !!$OMP& shared(cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
          do nThetaB=1,sizeThetaB ! loop over theta points in block
             nTheta   =nTheta+1
             snt=sinTheta(nTheta)
@@ -514,7 +514,7 @@ contains
                end if
             end do
          end do
-         !$OMP END PARALLEL DO
+         !!$OMP END PARALLEL DO
       end if
 
 
