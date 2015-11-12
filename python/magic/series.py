@@ -253,37 +253,32 @@ class MagicTs(MagicSetup):
             self.eperp_axi = data[:, 3]
             self.epar_axi = data[:, 4]
             self.ekin_tot = self.eperp+self.epar
-        elif self.field in ('dtVrms', 'dtVAsRms'):
+        elif self.field in ('dtVrms'):
             self.time = data[:, 0]
-            self.dtVPolRms = data[:, 1]
-            self.dtVTorRms = data[:, 2]
-            self.CorPolRms = data[:, 3]
-            self.CorTorRms = data[:, 4]
-            self.LFPolRms = data[:, 5]
-            self.LFTorRms = data[:, 6]
-            self.AdvPolRms = data[:, 7]
-            self.AdvTorRms = data[:, 8]
-            self.DifPolRms = data[:, 9]
-            self.DifTorRms = data[:, 10]
-            self.BuoRms = data[:, 11]
-            self.PreRms = data[:, 12]
-            self.geos = data[:, 13] # geostrophic balance
-            self.mgeos = data[:, 14] # magnetostrophic balance
-            self.archim = data[:, 15] # archimedean balance
+            self.dtVRms = data[:, 1]
+            self.CorRms = data[:, 2]
+            self.LFRms = data[:, 3]
+            self.AdvRms = data[:, 4]
+            self.DifRms = data[:, 5]
+            self.BuoRms = data[:, 6]
+            self.PreRms = data[:, 7]
+            self.geos = data[:, 8] # geostrophic balance
+            self.mageos = data[:, 9] # magnetostrophic balance
+            self.arc = data[:, 10] # archimedean balance
+            self.corLor = data[:, 11] # Coriolis/Lorentz
+            self.preLor = data[:, 12] # Pressure/Lorentz
         elif self.field in ('dtBrms'):
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]
             self.dtBtorRms = data[:, 2]
-            self.StrPolRms = data[:, 3]
-            self.StrTorRms = data[:, 4]
-            self.AdvPolRms = data[:, 5]
-            self.AdvTorRms = data[:, 6]
-            self.DifPolRms = data[:, 7]
-            self.DifTorRms = data[:, 8]
-            self.omEffect = data[:, 9]
-            self.omega = data[:, 10]
-            self.DynPolRms = data[:, 11]
-            self.DynTorRms = data[:, 12]
+            self.DynPolRms = data[:, 3]
+            self.DynTorRms = data[:, 4]
+            self.DifPolRms = data[:, 5]
+            self.DifTorRms = data[:, 6]
+            self.omEffect = data[:, 7]
+            self.omega = data[:, 8]
+            self.DynDipRms = data[:, 9]
+            self.DynDipAxRms = data[:, 10]
         elif self.field in ('power'):
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
@@ -428,31 +423,31 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
-        elif self.field in ('dtVrms', 'dtVAsRms'):
+        elif self.field in ('dtVrms'):
             fig = P.figure() # Poloidal forces
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtVPolRms, label='Time derivative')
-            ax.semilogy(self.time, self.CorPolRms, label='Coriolis')
+            ax.semilogy(self.time, self.dtVRms, label='Time derivative')
+            ax.semilogy(self.time, self.CorRms, label='Coriolis')
             ax.semilogy(self.time, self.PreRms, label='Pressure')
-            ax.semilogy(self.time, self.LFPolRms, label='Lorentz')
+            ax.semilogy(self.time, self.LFRms, label='Lorentz')
             ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
-            ax.semilogy(self.time, self.AdvPolRms, label='Inertia')
-            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
+            ax.semilogy(self.time, self.AdvRms, label='Inertia')
+            ax.semilogy(self.time, self.DifRms, label='Diffusion')
 
-            ax.legend(loc='best', frameon=False)
+            ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
-            ax.set_ylabel('Poloidal RMS forces')
+            ax.set_ylabel('RMS forces')
 
             fig = P.figure() # Toroidal forces
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtVTorRms, label='Time derivative')
-            ax.semilogy(self.time, self.CorTorRms, label='Coriolis')
-            ax.semilogy(self.time, self.LFTorRms, label='Lorentz')
-            ax.semilogy(self.time, self.AdvTorRms, label='Inertia')
-            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
+            ax.semilogy(self.time, self.geos, label='Geostrophic balance')
+            ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
+            ax.semilogy(self.time, self.arc, label='Archimedean')
+            ax.semilogy(self.time, self.corLor, label='Coriolis/Lorentz')
+            ax.semilogy(self.time, self.preLor, label='Pressure/Lorentz')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
-            ax.set_ylabel('Toroidal RMS forces')
+            ax.set_ylabel('RMS balances')
 
         elif self.field == 'perpPar':
             fig = P.figure()
@@ -485,25 +480,23 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('fohm')
         elif self.field in ('dtBrms'):
-            fig = P.figure() # Poloidal forces
+            fig = P.figure() # Poloidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBpolRms, label='time derivative')
-            ax.semilogy(self.time, self.StrPolRms, label='Stretching')
-            ax.semilogy(self.time, self.AdvPolRms, label='Advection')
-            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
-            ax.semilogy(self.time, self.DynPolRms, label='Dynamo')
+            ax.semilogy(self.time, self.dtBpolRms, 'k-', label='time derivative')
+            ax.semilogy(self.time, self.DynPolRms, 'r-', label='Induction')
+            ax.semilogy(self.time, self.DifPolRms, 'b-', label='Diffusion')
 
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Poloidal field production')
 
-            fig = P.figure() # Poloidal forces
+            fig = P.figure() # Toroidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBtorRms, label='time derivative')
-            ax.semilogy(self.time, self.StrTorRms, label='Stretching')
-            ax.semilogy(self.time, self.AdvTorRms, label='Advection')
-            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
-            ax.semilogy(self.time, self.DynTorRms, label='Dynamo')
+            ax.semilogy(self.time, self.dtBtorRms, 'k-', label='time derivative', )
+            ax.semilogy(self.time, self.DynTorRms, 'r-', label='Induction')
+            ax.semilogy(self.time, self.DifTorRms, 'b-', label='Diffusion')
+            ax.semilogy(self.time, self.omEffect*self.DynTorRms, 'r--',
+                        label='Omega effect')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
