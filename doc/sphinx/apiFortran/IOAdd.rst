@@ -13,11 +13,6 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: rms_helpers
 
-``out_RMS.f90``
----------------
-
-.. f:automodule:: out_rms
-
 ``dtB.f90``
 -----------
 
