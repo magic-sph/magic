@@ -43,6 +43,7 @@ contains
       logical :: log_does_exist
       integer :: length
       integer :: argument_count
+      integer :: res
       character(len=100) :: input_filename
 
       !-- Name lists:
@@ -145,40 +146,77 @@ contains
          call get_command_argument(1,input_filename)
 
          open(105,file=trim(input_filename))
-
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading grid parameters!'
-         read(105,grid)
+         read(105,nml=grid,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No grid namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading control parameters!'
-         read(105,control)
+         read(105,nml=control,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No control namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading physical parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading physical parameters!'
-         read(105,phys_param)
+         read(105,nml=phys_param,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No phys_param namelist found!'
+         end if
+         close(105)
 
-         !-- Reading external field parameters for feedback:
-         !if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
-         !read(105,B_external)
-
+         open(105,file=trim(input_filename))
          !-- Reading start field info from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading start information!'
-         read(105,start_field)
+         read(105,nml=start_field,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No start_field namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading output parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading output information!'
-         read(105,output_control)
+         read(105,nml=output_control,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No output_control namelist found!'
+         end if
+         close(105)
 
-         !-- Reading mantle parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
-         read(105,mantle)
-
+         open(105,file=trim(input_filename))
          !-- Reading inner-core parameter from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading inner core information!'
-         read(105,inner_core)
-
+         read(105,nml=inner_core,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No inner_core namelist found!'
+         end if
          close(105)
+
+         open(105,file=trim(input_filename))
+         !-- Reading mantle parameters from namelists in STDIN:
+         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
+         read(105,nml=mantle,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No mantle namelist found!'
+         end if
+         close(105)
+
+         open(105,file=trim(input_filename))
+         !-- Reading external field parameters for feedback:
+         if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
+         read(105,nml=B_external,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No B_external namelist found!'
+         end if
+         close(105)
+
          !-- Correcting some parameters:
       end if
 

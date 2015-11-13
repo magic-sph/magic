@@ -61,8 +61,7 @@ module output_mod
    use dtB_mod, only: get_dtBLMfinish
    use out_movie, only: write_movie_frame
    use out_movie_IC, only: store_movie_frame_IC
-   use RMS, only: zeroRms
-   use out_RMS, only: dtVrms, dtBrms
+   use RMS, only: zeroRms, dtVrms, dtBrms
    use store_pot_mod, only: storePot
    use useful, only: safeOpen, safeClose, logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
