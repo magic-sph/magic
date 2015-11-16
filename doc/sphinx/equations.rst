@@ -270,7 +270,7 @@ are possible. For the Navier-Stokes equation in the Boussinesq limit MagIC uses 
    + \dfrac{Ra}{Pr} T' \dfrac{\vec{r}}{r_o}
    + \dfrac{1}{E Pm}(\vec{\nabla}\times\vec{B})\times\vec{B} 
    + \Delta \vec{u},
-   :label: eqNSB
+   :label: eqNSBoussinesq
 
 where :math:`\vec{e}_z` is the unit vector in the direction of the rotation axis and the meaning 
 of the pressure disturbance :math:`p'` has been adjusted to the new dimensionless equation form. 
@@ -478,7 +478,7 @@ jump across the shell:
 
 .. math::
    Ra = \frac{\alpha g_o d^3 \Delta T}{\kappa \nu}.
-   :label: eqRayleigh
+   :label: eqRayleighBoussinesq
 
 .. seealso:: In MagIC, those control parameters can be adjusted in the 
              :ref:`&phys_param <secPhysNml>` section of the input namelist.
@@ -562,9 +562,10 @@ change of rotation rate is determined from the net torque. Viscous,
 electromagnetic, and torques due to gravitational coupling between density
 heterogeneities in the mantle and in the inner core contribute.
 
-.. seealso:: The mechanical boundary conditions can be adjusted with the parameters
-             :ref:`ktopv <secMechanicalBcs>` and :ref:`kbotv <secMechanicalBcs>`
-           in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+.. seealso:: The mechanical boundary conditions can be adjusted with the
+             parameters :ref:`ktopv <secMechanicalBcs>` and
+             :ref:`kbotv <secMechanicalBcs>` in the :ref:`&phys_param <secPhysNml>`
+             section of the input namelist.
 
 Magnetic boundary conditions and inner core conductivity
 --------------------------------------------------------
@@ -587,7 +588,7 @@ horizontal component of the electrical field apply.
 
 .. seealso:: The magnetic boundary conditions can be adjusted with the parameters
              :ref:`ktopb <secMagneticBcs>` and :ref:`kbotb <secMagneticBcs>`
-           in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+             in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
 
 Thermal boundary conditions and distribution of buoyancy sources
 ----------------------------------------------------------------
@@ -605,4 +606,4 @@ heat flux is in that case spatially and temporally variable.
 
 .. seealso:: The thermal boundary conditions can be adjusted with the parameters
              :ref:`ktops <secThermalBcs>` and :ref:`kbots <secThermalBcs>`
-           in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+             in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
