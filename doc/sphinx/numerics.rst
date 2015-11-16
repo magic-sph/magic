@@ -193,11 +193,11 @@ isotropic resolution in the equatorial region.  Choosing
 
 .. seealso:: In MagIC, the Legendre functions are defined in the subroutine
              :f:subr:`plm_theta <plms_theta/plm_theta()>`. The Legendre transforms
-           from spectral to grid space are computed in the module
-           :f:mod:`legendre_spec_to_grid`, while the backward transform (from grid
-           space to spectral space) are computed in the module
-           :f:mod:`legendre_grid_to_spec`. The fast Fourier transforms are computed
-           in the module :f:mod:`fft`.
+             from spectral to grid space are computed in the module
+             :f:mod:`legendre_spec_to_grid`, while the backward transform (from grid
+             space to spectral space) are computed in the module
+             :f:mod:`legendre_grid_to_spec`. The fast Fourier transforms are computed
+             in the module :f:mod:`fft`.
 
 Special recurrence relations
 ----------------------------
@@ -1285,8 +1285,8 @@ Using :eq:`eqHeatingEntropy` and :eq:`eqAdvSNL`, one thus finally gets
 .. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLS` 
              are done in the subroutine 
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The radial derivative
-           is computed afterwards at the very beginning of
-           :f:subr:`updateS <updates_mod/updates()>`.
+             is computed afterwards at the very beginning of
+             :f:subr:`updateS <updates_mod/updates()>`.
 
 .. _secNonLinearG:
 
@@ -1396,8 +1396,8 @@ We thus finally get
 .. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLH` 
              are computed in the subroutine 
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The remaining radial derivative
-           is computed afterwards at the very beginning of
-           :f:subr:`updateB <updateb_mod/updateb()>`.
+             is computed afterwards at the very beginning of
+             :f:subr:`updateB <updateb_mod/updateb()>`.
 
 
 .. _secBoundaryConditions:
@@ -1539,7 +1539,7 @@ We only provide the spectral representation here:
 
 .. math::
   {\cal C}_n(r) W_{\ell mn} = 0 \;\;\mbox{at}\;\; r=r_i,r_o\;\;.
-  :label: eqBcRigid1
+  :label: eqBcMagRigid
 
 Note that the summation convention with respect to
 radial modes :math:`n` is used again.
