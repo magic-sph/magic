@@ -7,6 +7,7 @@ module fft
    use constants, only: one
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
+   use omp_lib
    use mkl_dfti
  
    implicit none
@@ -18,11 +19,6 @@ module fft
    type(DFTI_DESCRIPTOR), pointer :: c2r_handle, r2c_handle
    !----------- END MKL specific variables
  
-   interface fft_thetab
-      module procedure fft_thetab_real
-      module procedure fft_thetab_cmplx
-   end interface
- 
    public :: fft_thetab, init_fft, fft_to_real
 
 contains
@@ -32,18 +28,29 @@ contains
       ! MKL equivalent of init_fft
       !
 
+      !-- Input variable
       integer, intent(in) :: number_of_points ! number of points
+
+      !-- Local variables
+      integer :: maxThreads
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
       
       ! Fourier transformation complex->REAL with MKL DFTI interface
       ! init FFT
       status = DftiCreateDescriptor( c2r_handle, DFTI_DOUBLE, DFTI_REAL, &
                                      1, number_of_points )
       status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
-      status = DftiSetValue( c2r_handle, DFTI_INPUT_DISTANCE, ncp )
+      status = DftiSetValue( c2r_handle, DFTI_INPUT_DISTANCE, nrp )
       status = DftiSetValue( c2r_handle, DFTI_OUTPUT_DISTANCE, nrp )
-      status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
-                             DFTI_COMPLEX_COMPLEX )
+      !status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
+      !                       DFTI_COMPLEX_COMPLEX )
       status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+      status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, maxThreads)
       status = DftiCommitDescriptor( c2r_handle )
   
       ! Fourier transformation REAL->complex with MKL DFTI interface
@@ -52,38 +59,18 @@ contains
                                      1, number_of_points )
       status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_TRANSFORMS, nfs )
       status = DftiSetValue( r2c_handle, DFTI_INPUT_DISTANCE, nrp )
-      status = DftiSetValue( r2c_handle, DFTI_OUTPUT_DISTANCE, ncp )
-      status = DftiSetValue( r2c_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
-                             DFTI_COMPLEX_COMPLEX )
+      status = DftiSetValue( r2c_handle, DFTI_OUTPUT_DISTANCE, nrp )
+      !status = DftiSetValue( r2c_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
+      !                       DFTI_COMPLEX_COMPLEX )
       status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
                              one/real(number_of_points,cp) )
+      status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, maxThreads)
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft
 !------------------------------------------------------------------------------
-   subroutine fft_thetab_cmplx(f,dir)
-
-      complex(cp), intent(inout) :: f(nrp/2,nfs)
-      integer,     intent(in) :: dir            ! back or forth transform
-
-      PERFON('fft_thc')
-      if (dir == 1) then
-         ! run FFT
-         status = DftiComputeBackward( c2r_handle, f(:,1) )
-      else if (dir == -1) then
-         ! run FFT
-         status = DftiComputeForward( r2c_handle, f(:,1) )
-         !PRINT*,"Calling fft_thetab with complex array and dir /= 1. &
-         !       Don't know what to do!"
-         !call TRACEBACKQQ
-         !stop
-      end if
-      PERFOFF
-
-   end subroutine fft_thetab_cmplx
-!------------------------------------------------------------------------------
-   subroutine fft_thetab_real(f,dir)
+   subroutine fft_thetab(f,dir)
 
       real(cp), intent(inout) :: f(nrp,nfs)
       integer,  intent(in) :: dir            ! back or forth transform
@@ -106,7 +93,7 @@ contains
       end if
       PERFOFF
 
-   end subroutine fft_thetab_real
+   end subroutine fft_thetab
 !------------------------------------------------------------------------------
    subroutine fft_to_real(f,ld_f,nrep)
 
