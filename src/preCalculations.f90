@@ -139,13 +139,6 @@ contains
       !       \delta T the temperature scale, and \kappa the thermal
       !       diffusivity
       BuoFac=raScaled/pr
-      if ( index(interior_model,'JUP') /= 0 ) then
-         polind=one/0.45_cp
-      else if ( index(interior_model,'SAT') /= 0 ) then
-         polind=one/0.5_cp
-      else if ( index(interior_model,'SUN') /= 0 ) then
-         polind=one/0.6_cp
-      end if
     
       dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
