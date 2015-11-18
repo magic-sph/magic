@@ -215,6 +215,10 @@ program magic
    call initialize_LMLoop_data
    call initialize_LMLoop
 
+#ifdef WITH_SHTNS
+   call init_shtns()
+#endif
+
    call initialize_num_param
    if ( l_TO ) call initialize_TO
    if ( l_TO ) call initialize_outTO_mod
@@ -258,9 +262,6 @@ program magic
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
 
-#ifdef WITH_SHTNS
-   call init_shtns()
-#endif
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then
       call writeInfo(6)

@@ -19,7 +19,11 @@ module init_fields
                     zero, one, two, three, four, third, half
    use useful, only: random
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+#ifdef WITH_SHTNS
+   use shtns
+#else
    use fft
+#endif
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
                                   peakS, widthS, radratio, imagcon, opm,  &
                                   sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -139,9 +143,14 @@ contains
                   end do
                end do
                !------------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
                call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
+#endif
             end do ! End of loop over theta blocks
+#ifdef WITH_SHTNS
+               call spat_to_SH(ome, omeLM)
+#endif
     
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -187,9 +196,14 @@ contains
                   end do
                end do
                !------------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
                call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
+#endif
             end do ! End of loop over theta blocks
+#ifdef WITH_SHTNS
+            call spat_to_SH(ome, omeLM)
+#endif
     
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -537,10 +551,15 @@ contains
                end do
             end do
          !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
             call fft_thetab(sCMB,-1)
             call legTF1(nThetaStart,sLM,sCMB)
+#endif
 
          end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+            call spat_to_SH(sCMB, sLM)
+#endif
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
@@ -608,10 +627,15 @@ contains
             end do
          end do
       !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
          call fft_thetab(sCMB,-1)
          call legTF1(nThetaStart,sLM,sCMB)
+#endif
 
       end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+         call spat_to_SH(sCMB, sLM)
+#endif
 
 
       !--- Finally store the boundary condition and care for

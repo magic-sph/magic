@@ -181,7 +181,9 @@ contains
       real(cp), intent(in) :: f(n_phi_max, n_theta_max)
       complex(cp), intent(out) :: fLM(lm_max)
 
+      call shtns_load_cfg(1)
       call shtns_spat_to_sh(f, fLM)
+      call shtns_load_cfg(0)
 
    end subroutine spat_to_SH
 !------------------------------------------------------------------------------

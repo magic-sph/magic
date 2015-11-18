@@ -21,7 +21,11 @@ module graphOut_mod
 #else
    use output_data, only: n_graph_file, runid
 #endif
+#ifdef WITH_SHTNS
+   use shtns
+#else
    use fft
+#endif
    use legendre_spec_to_grid, only: legTF
    use leg_helper_mod, only: legPrep_IC
 
@@ -736,9 +740,19 @@ contains
                  dLhb,bhG,bhC,dLhj,cbhG,cbhC)
          end if
     
+#ifdef WITH_SHTNS
+         if ( l_cond_ic ) then
+            call torpol_to_spat(b_ic(:, nR), db_ic(:, nR), aj_ic(:, nR), &
+                                BrB, BtB, BpB)
+         else
+            call torpol_to_spat(b(:, n_r_icb), db_ic(:, 1), aj_ic(:, 1), &
+                                BrB, BtB, BpB)
+         end if
+#endif
          do nThetaB=1,nThetaBs
             nThetaStart=(nThetaB-1)*sizeThetaB+1
     
+#ifndef WITH_SHTNS
             !------ Preform Legendre transform:
             call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC, &
                  l_max,minc,nThetaStart,sizeThetaB, &
@@ -748,6 +762,7 @@ contains
             call fft_thetab(BrB,1)
             call fft_thetab(BtB,1)
             call fft_thetab(BpB,1)
+#endif
     
             !------ Copy theta block and calculate real components:
             do nTheta=1,sizeThetaB

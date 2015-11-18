@@ -16,7 +16,11 @@ module fields_average_mod
    use output_data, only: tag, graph_file, nLF, n_graph_file, &
                           log_file, n_graphs, l_max_cmb
    use parallel_mod, only: rank
+#ifdef WITH_SHTNS
+   use shtns
+#else
    use fft, only: fft_thetab
+#endif
    use constants, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
@@ -403,6 +407,19 @@ contains
                     &       l_max,minc,r(nR),.false.,.true.,          &
                     &       dLhw,vhG,vhC,dLhb,bhG,bhC)
 
+#ifdef WITH_SHTNS
+               if ( l_mag ) then
+                  call torpol_to_spat(b_ave_global(:, nR), db_ave_global, &
+                                      aj_ave_global, &
+                                      Br, Bt, Bp)
+               end if
+               call torpol_to_spat(w_ave_global, dw_ave_global, &
+                                   z_ave_global, &
+                                   Vr, Vt, Vp)
+               call scal_to_spat(s_ave_global, Sr)
+               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, &
+                             nThetaStart, sizeThetaB, lGraphHeader)
+#else
                do nThetaB=1,nThetaBs  
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
 
@@ -431,6 +448,7 @@ contains
                   call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr, &
                        &        nThetaStart,sizeThetaB,lGraphHeader)
                end do
+#endif
             end if
          end do
 
