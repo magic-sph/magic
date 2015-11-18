@@ -35,7 +35,7 @@ contains
       integer :: maxThreads
 
 #ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
+      maxThreads=omp_get_num_threads()
 #else
       maxThreads=1
 #endif
