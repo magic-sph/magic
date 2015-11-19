@@ -40,7 +40,11 @@ contains
       status = DftiSetValue( c2r_handle, DFTI_OUTPUT_DISTANCE, nrp )
       !status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
       !                       DFTI_COMPLEX_COMPLEX )
+#ifdef WITH_SHTNS
+      status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+#else
       status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+#endif
       status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
       status = DftiCommitDescriptor( c2r_handle )
   
@@ -53,7 +57,11 @@ contains
       status = DftiSetValue( r2c_handle, DFTI_OUTPUT_DISTANCE, nrp )
       !status = DftiSetValue( r2c_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
       !                       DFTI_COMPLEX_COMPLEX )
+#ifdef WITH_SHTNS
+      status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+#else
       status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+#endif
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
                              one/real(number_of_points,cp) )
       status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
@@ -92,6 +100,10 @@ contains
       real(cp), intent(inout) :: f(ld_f,nrep)
 
       type(DFTI_DESCRIPTOR), pointer :: local_c2r_handle
+#ifdef WITH_SHTNS
+      real(cp), allocatable :: work_array(:, :)
+      allocate(work_array(ld_f+2, nrep))
+#endif
 
       PERFON('fft2r')
       ! Fourier transformation complex->REAL with MKL DFTI interface
@@ -99,13 +111,25 @@ contains
       status = DftiCreateDescriptor( local_c2r_handle, DFTI_DOUBLE, &
                                      DFTI_REAL, 1, n_phi_max )
       status = DftiSetValue( local_c2r_handle, DFTI_NUMBER_OF_TRANSFORMS, nrep )
-      status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f )
       status = DftiSetValue( local_c2r_handle, DFTI_OUTPUT_DISTANCE, ld_f )
+#ifdef WITH_SHTNS
+      status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f+2 )
+      status = DftiSetValue( local_c2r_handle, DFTI_PLACEMENT, DFTI_NOT_INPLACE )
+#else
+      status = DftiSetValue( local_c2r_handle, DFTI_INPUT_DISTANCE, ld_f )
       status = DftiSetValue( local_c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
+#endif
       status = DftiCommitDescriptor( local_c2r_handle )
 
       ! run FFT
+#ifdef WITH_SHTNS
+      work_array(1:n_phi_max, :) = f(1:n_phi_max, :)
+      work_array(n_phi_max+1:n_phi_max+2, :) = 0.0_cp
+      status = DftiComputeBackward( local_c2r_handle, work_array(:, 1), f(:,1) )
+      deallocate(work_array)
+#else
       status = DftiComputeBackward( local_c2r_handle, f(:,1) )
+#endif
 
       status = DftiFreeDescriptor( local_c2r_handle )
       PERFOFF
