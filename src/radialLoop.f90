@@ -17,10 +17,14 @@ module radialLoop
 #endif
    use rIteration_mod, only: rIteration_t
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
-   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
 #ifdef WITH_SHTNS
    use rIterThetaBlocking_shtns_mod, only: rIterThetaBlocking_shtns_t
+#else
+#ifdef WITHOMP
+   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
+#else
+   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
+#endif
 #endif
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header

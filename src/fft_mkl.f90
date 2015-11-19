@@ -7,7 +7,7 @@ module fft
    use constants, only: one
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
-   use parallel_mod, only: nThreads
+   !use parallel_mod, only: nThreads
    use mkl_dfti
  
    implicit none
@@ -45,7 +45,9 @@ contains
 #else
       status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
 #endif
-      status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
+      ! This is supposed to fix the issue for ifort < 14 but it increases the
+      ! walltime
+      !status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
       status = DftiCommitDescriptor( c2r_handle )
   
       ! Fourier transformation REAL->complex with MKL DFTI interface
@@ -64,7 +66,7 @@ contains
 #endif
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
                              one/real(number_of_points,cp) )
-      status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
+      !status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft
