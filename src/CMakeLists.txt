@@ -35,8 +35,6 @@ if(USE_FFTLIB MATCHES MKL)
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
-   list(REMOVE_ITEM srcfiles "${SRC}/rIterThetaBlocking_OpenMP.f90")
-   list(REMOVE_ITEM srcfiles "${SRC}/rIterThetaBlocking_seq.f90")
 else()
    list(REMOVE_ITEM srcfiles "${SRC}/shtns.f90")
    list(REMOVE_ITEM srcfiles "${SRC}/rIterThetaBlocking_shtns.f90")
