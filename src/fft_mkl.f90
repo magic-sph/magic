@@ -7,7 +7,7 @@ module fft
    use constants, only: one
    use truncation, only: nrp, ncp, n_phi_max
    use blocking, only: nfs
-   use omp_lib
+   use parallel_mod, only: nThreads
    use mkl_dfti
  
    implicit none
@@ -31,15 +31,6 @@ contains
       !-- Input variable
       integer, intent(in) :: number_of_points ! number of points
 
-      !-- Local variables
-      integer :: maxThreads
-
-#ifdef WITHOMP
-      maxThreads=omp_get_num_threads()
-#else
-      maxThreads=1
-#endif
-      
       ! Fourier transformation complex->REAL with MKL DFTI interface
       ! init FFT
       status = DftiCreateDescriptor( c2r_handle, DFTI_DOUBLE, DFTI_REAL, &
@@ -50,7 +41,7 @@ contains
       !status = DftiSetValue( c2r_handle, DFTI_CONJUGATE_EVEN_STORAGE, &
       !                       DFTI_COMPLEX_COMPLEX )
       status = DftiSetValue( c2r_handle, DFTI_PLACEMENT, DFTI_INPLACE )
-      status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, maxThreads)
+      status = DftiSetValue( c2r_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
       status = DftiCommitDescriptor( c2r_handle )
   
       ! Fourier transformation REAL->complex with MKL DFTI interface
@@ -65,7 +56,7 @@ contains
       status = DftiSetValue( r2c_handle, DFTI_PLACEMENT, DFTI_INPLACE )
       status = DftiSetValue( r2c_handle, DFTI_FORWARD_SCALE, &
                              one/real(number_of_points,cp) )
-      status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, maxThreads)
+      status = DftiSetValue( r2c_handle, DFTI_NUMBER_OF_USER_THREADS, nThreads)
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft
