@@ -614,8 +614,8 @@ class AvgField:
                                             ts4.time[ind:])
             self.emag_tora_avg = fac* trapz(ts4.emagoc_tor_axi[ind:], 
                                             ts4.time[ind:])
-            self.emag_es_avg = fac*trapz((ts4.emagoc_pol_es[ind:] + ts4.emagoc_tor_es[ind:]),ts4.time[ind:])
-            self.emag_tot_avg = fac*trapz(ts4.emag_tot[ind:],ts4.time[ind:])
+            self.emag_es_avg = fac*trapz((ts4.emagoc_pol_es[ind:] + \
+                                          ts4.emagoc_tor_es[ind:]),ts4.time[ind:])
             if self.dipExtra:
                 ts5 = MagicTs(field='dipole', all=True, iplot=False, 
                               tag=tag)
@@ -671,12 +671,12 @@ class AvgField:
         else:
             ek = self.ek
         if self.mode == 0 or self.mode == 8:
-            st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
+            st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.pr, self.prmag, self.strat, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg, \
                self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora, \
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
-               self.emag_tora_avg, self.emag_es_avg,self.emag_tot_avg)
+               self.emag_tora_avg, self.emag_es_avg)
              
             st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
                 (self.reynolds, self.ureynolds, self.rol, self.urol, \
@@ -685,10 +685,8 @@ class AvgField:
             if self.dipExtra:
                 st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
-            if self.mode==0:
-                st += '%12.5e%12.5e%9.2e\n' % (self.buoPower, -self.ohmDiss, self.fohm)
-            else:
-                st += '%12.5e\n' % (-self.ohmDiss)
+
+            st += '%12.5e%12.5e%9.2e\n' % (self.buoPower, -self.ohmDiss, self.fohm)
 
         else:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
