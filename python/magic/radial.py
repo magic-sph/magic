@@ -131,6 +131,11 @@ class MagicRadial(MagicSetup):
                                     self.gradT2 = dat[:, 5]*(nml.stop_time-nml.start_time)
                                     gradT2init = nml.start_time
                                     gradT2finish = nml.stop_time
+                    elif self.name == 'eKinR':
+                        if os.path.exists(filename):
+                            dat = fast_read(filename, skiplines=0)
+                            for i in [0, 1, 3, 4, 5, 6, 7, 8]:
+                                data[:, i] += dat[:, i]*(nml.stop_time-nml.start_time)
                     else:
                         if os.path.exists(filename):
                             data += fast_read(filename, skiplines=0)*(nml.stop_time-nml.start_time)

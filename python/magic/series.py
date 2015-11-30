@@ -127,11 +127,12 @@ class MagicTs(MagicSetup):
                     data = datanew.copy()
                     ncolRef = data.shape[1]
                 else:
-                    ncol = datanew.shape[1]
-                    if ncol == ncolRef:
-                        data = N.vstack((data, datanew))
-                    else: # If the number of columns has changed
-                        data = N.vstack((data, datanew[:, 0:ncolRef]))
+                    if datanew.shape[0] != 0: # In case the file is empty
+                        ncol = datanew.shape[1]
+                        if ncol == ncolRef:
+                            data = N.vstack((data, datanew))
+                        else: # If the number of columns has changed
+                            data = N.vstack((data, datanew[:, 0:ncolRef]))
 
         if self.field == 'e_kin':
             self.time = data[:, 0]
@@ -474,11 +475,12 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Power')
 
-            fig = P.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.fohm)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('fohm')
+            if self.fohm.max() > 0.:
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.fohm)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('fohm')
         elif self.field in ('dtBrms'):
             fig = P.figure() # Poloidal
             ax = fig.add_subplot(111)
