@@ -268,6 +268,7 @@ class MagicTs(MagicSetup):
             self.arc = data[:, 10] # archimedean balance
             self.corLor = data[:, 11] # Coriolis/Lorentz
             self.preLor = data[:, 12] # Pressure/Lorentz
+            self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
         elif self.field in ('dtBrms'):
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]

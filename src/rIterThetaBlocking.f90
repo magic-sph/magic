@@ -341,7 +341,6 @@ contains
             call fft_thetab(gsa%LFt2,-1)
             call fft_thetab(gsa%LFp2,-1)
             call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
-
          end if
       end if
 

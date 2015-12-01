@@ -47,7 +47,7 @@ class MagicSpectrum(MagicSetup):
         """
         self.gather = gather
 
-        if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):
+        if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
             if ave:
                 self.name = 'kin_spec_ave'
             else:
@@ -57,11 +57,13 @@ class MagicSpectrum(MagicSetup):
                 self.name = 'u2_spec_ave'
             else:
                 self.name = 'u2_spec_'
-        elif field in('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR'):
+        elif field in ('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR', 'mag'):
             if ave:
                 self.name = 'mag_spec_ave'
             else:
                 self.name = 'mag_spec_'
+        elif field in ('dtVrms'):
+            self.name = 'dtVrms_spec'
 
         if tag is not None:
             if ispec is not None:
@@ -124,6 +126,20 @@ class MagicSpectrum(MagicSetup):
             self.emagcmb_l = data[:, 9]
             self.emagcmb_m = data[:, 10]
             self.eCMB = data[:, 11]
+        elif self.name == 'dtVrms_spec':
+            self.dtVRms = data[:, 1]
+            self.CorRms = data[:, 2]
+            self.LFRms = data[:, 3]
+            self.AdvRms = data[:, 4]
+            self.DifRms = data[:, 5]
+            self.BuoRms = data[:, 6]
+            self.PreRms = data[:, 7]
+            self.geos = data[:, 8] # geostrophic balance
+            self.mageos = data[:, 9] # magnetostrophic balance
+            self.arc = data[:, 10] # archimedean balance
+            self.corLor = data[:, 11] # Coriolis/Lorentz
+            self.preLor = data[:, 12] # Pressure/Lorentz
+            self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
 
         if iplot:
             self.plot()
@@ -302,6 +318,27 @@ class MagicSpectrum(MagicSetup):
                 ax.set_ylabel('Magnetic energy')
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
+
+        elif self.name == 'dtVrms_spec':
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.loglog(self.index, self.dtVRms, 'k-', label='Time derivative')
+            ax.loglog(self.index, self.CorRms, 'b-', label='Coriolis')
+            ax.loglog(self.index, self.PreRms, 'r-', label='Pressure')
+            if self.LFRms.max() > 0.:
+                ax.loglog(self.index, self.LFRms, 'c-', label='Lorentz')
+            ax.loglog(self.index, self.BuoRms, 'g-', label='Buoyancy')
+            ax.loglog(self.index, self.AdvRms, 'y-', label='Advection')
+            ax.loglog(self.index, self.DifRms, 'm-', label='Viscosity')
+            ax.loglog(self.index, self.geos, 'r--', label='Coriolis-Pressure')
+
+            if labTex:
+                ax.set_xlabel('$\ell+1$')
+            else:
+                ax.set_xlabel('l+1')
+            ax.set_ylabel('RMS forces')
+            ax.set_xlim(self.index.min(), self.index.max())
+            ax.legend(loc='upper right', frameon=False)
 
 
 class MagicSpectrum2D(MagicSetup):

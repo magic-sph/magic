@@ -467,7 +467,7 @@ spectra.o             : truncation.o blocking.o num_param.o\
                         integration.o
 RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
                         phys_param.o radial.o constants.o logic.o\
-                        output_data.o radial_derivatives.o\
+                        output_data.o radial_derivatives.o useful.o\
                         RMS_helpers.o integration.o communications.o\
                         horizontal.o dtB.o chebyshev_polynoms.o
 updateWP.o            : truncation.o blocking.o num_param.o\

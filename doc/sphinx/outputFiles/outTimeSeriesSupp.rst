@@ -386,6 +386,8 @@ written by the subroutine :f:subr:`dtVrms <out_rms/dtvrms()>`.
    +---------------+--------------------------------------------------+
    | 13            | Sum of force terms: Pressure/Lorentz             |
    +---------------+--------------------------------------------------+
+   | 14            | Sum of force terms: Coriolis/Inertia/Archimedean |
+   +---------------+--------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 

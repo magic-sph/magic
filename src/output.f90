@@ -92,7 +92,10 @@ module output_mod
    real(cp) :: eTot,eTotOld,dtEint
    real(cp) :: e_kin_pMean, e_kin_tMean
    real(cp) :: e_mag_pMean, e_mag_tMean
-   integer :: n_e_sets, nRMS_sets
+   integer :: n_e_sets
+
+   real(cp) :: timePassedRMS, timeNormRMS
+   integer :: nRMS_sets
  
    public :: output, initialize_output
 
@@ -206,7 +209,7 @@ contains
       !    Parallelization note: these fields are LM-distributed.
       !    The input fields HelLMr,Hel2LMr,TstrRLM,TadvRLM, and TomeRLM
       !    are R-distributed. More R-distributed fields are hidden 
-      !    in c_TO.f, c_RMS.f, and c_dtB.f. 
+      !    in TO.f90, RMS.f90, and dtB.f90. 
       !    input fields are R-distributed. This has to be taken into
       !    account when collecting the information from the different
       !    processors!
@@ -465,12 +468,21 @@ contains
       end if
   
   
-      if ( l_RMS .and. n_time_step == 1 ) call zeroRms
-      if ( lRmsCalc ) then
-         if ( lVerbose ) write(*,*) '! Writing RMS output !'
-         call dtVrms(time,nRMS_sets)
-         if ( l_mag ) call dtBrms(time)
-         !call zeroRms
+      if ( l_RMS ) then
+         if ( n_time_step == 1 ) then
+            nRMS_sets    =0
+            timeNormRMS  =0.0_cp
+            timePassedRMS=0.0_cp
+            call zeroRms
+         end if
+         timePassedRMS=timePassedRMS+dt
+         if ( lRmsCalc ) then
+            if ( lVerbose ) write(*,*) '! Writing RMS output !'
+            timeNormRMS=timeNormRMS+timePassedRMS
+            call dtVrms(time,nRMS_sets,timePassedRMS,timeNormRMS)
+            if ( l_mag ) call dtBrms(time)
+            timePassedRMS=0.0_cp
+         end if
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
       end if
   

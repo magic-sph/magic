@@ -17,8 +17,9 @@ module nonlinear_lm_mod
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
                               dTheta3A, dTheta4A, dPhi0, dTheta2S,     &
                               dTheta3S, dTheta4S, hdif_V, hdif_B
-   use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt, &
-                  Geo2hInt, Mag2hInt,  Arc2hInt, CLF2hInt, PLF2hInt
+   use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt,  &
+                  Geo2hInt, Mag2hInt, Arc2hInt, CLF2hInt, PLF2hInt, &
+                  CIA2hInt
    use leg_helper_mod, only:leg_helper_t
    use constants, only: zero, two
    use fields, only: w_Rloc,dw_Rloc,z_Rloc
@@ -205,7 +206,7 @@ contains
       complex(cp) :: AdvPol(lm_max),AdvTor(lm_max)
       complex(cp) :: LFPol(lm_max),LFTor(lm_max)
       complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
-      complex(cp) :: Arc(lm_max),Mag(lm_max)
+      complex(cp) :: Arc(lm_max),Mag(lm_max),CIA(lm_max)
       complex(cp) :: dpt(lm_max),dpp(lm_max), Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
       complex(cp) :: dsdt_loc
@@ -473,12 +474,14 @@ contains
                   PLF(lm)=LFPol(lm)-leg_helper%dpR(lm)+beta(nR)*leg_helper%preR(lm)
                   Mag(lm)=Geo(lm)+LFPol(lm)
                   Arc(lm)=Mag(lm)+Buo(lm)
+                  CIA(lm)=Arc(lm)+AdvPol(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
                call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
                call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
                call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
 
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
@@ -487,12 +490,14 @@ contains
                   PLF(lm)=this%LFt2LM(lmP)-dpt(lm)
                   Mag(lm)=Geo(lm)+this%LFt2LM(lmP)
                   Arc(lm)=Mag(lm)
+                  CIA(lm)=Arc(lm)-this%Advt2LM(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
                call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
                call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
                call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
     
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
@@ -501,12 +506,14 @@ contains
                   PLF(lm)=this%LFp2LM(lmP)-dpp(lm)
                   Mag(lm)=Geo(lm)+this%LFp2LM(lmP)
                   Arc(lm)=Mag(lm)
+                  CIA(lm)=Arc(lm)-this%Advp2LM(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
                call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
                call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
                call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
 
             end if
 
