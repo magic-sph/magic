@@ -12,6 +12,7 @@ module matrices
    private
  
    !-- the matrices, already LU-decomposed:
+   real(cp), public, allocatable :: p0Mat(:,:)     ! for l=m=0  
    real(cp), public, allocatable :: s0Mat(:,:)     ! for l=m=0  
    real(cp), public, allocatable :: sMat(:,:,:)
    real(cp), public, allocatable :: zMat(:,:,:) 
@@ -20,7 +21,8 @@ module matrices
    real(cp), public, allocatable :: bMat(:,:,:)
    real(cp), public, allocatable :: jMat(:,:,:)
  
-   !-- respecitive pivoting information:
+   !-- respective pivoting information:
+   integer, public, allocatable :: p0Pivot(:)
    integer, public, allocatable :: s0Pivot(:)
    integer, public, allocatable :: sPivot(:,:)
    integer, public, allocatable :: z10Pivot(:)
@@ -62,6 +64,7 @@ contains
    subroutine initialize_matrices
 
       !-- the matrices, already LU-decomposed:
+      allocate( p0Mat(n_r_max,n_r_max) )      ! for l=m=0  
       allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
       allocate( sMat(n_r_max,n_r_max,l_max) )
       allocate( zMat(n_r_max,n_r_max,l_max) )
@@ -71,6 +74,7 @@ contains
       allocate( jMat(n_r_totMag,n_r_totMag,l_maxMag) )
 
       !-- respecitive pivoting information:
+      allocate( p0Pivot(n_r_max) )
       allocate( s0Pivot(n_r_max) )
       allocate( sPivot(n_r_max,l_max) )
       allocate( z10Pivot(n_r_max) )

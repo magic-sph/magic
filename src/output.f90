@@ -345,8 +345,8 @@ contains
             end if
   
             call fields_average(nLogs,l_stop_time,timePassedLog,timeNormLog, &
-                 &              omega_ic,omega_ma,w_LMloc,z_LMloc,s_LMloc,   &
-                 &              b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+                 &              omega_ic,omega_ma,w_LMloc,z_LMloc,p_LMloc,   &
+                 &              s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
          end if

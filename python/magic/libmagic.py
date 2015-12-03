@@ -37,6 +37,12 @@ def selectField(obj, field, labTex=True):
             label = r'$B_r$'
         else:
             label = 'Br'
+    elif field in ('pressure', 'pre', 'Pre', 'Pressure', 'press', 'Press'):
+        data = obj.pre
+        if labTex:
+            label = r'$p$'
+        else:
+            label = 'p'
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
         if labTex:
@@ -587,7 +593,7 @@ def den(k, j, nr):
     return den
 
 
-def phideravg(data, minc=1):
+def phideravg(data, minc=1, order=4):
     """
     phi-derivative of an input array
 
@@ -598,14 +604,29 @@ def phideravg(data, minc=1):
     :type data: numpy.ndarray
     :param minc: azimuthal symmetry
     :type minc: int
+    :param order: order of the finite-difference scheme (possible values are 2 or 4)
+    :type order: int
     :returns: the phi-derivative of the input array
     :rtype: numpy.ndarray
     """
     nphi = data.shape[0]
     dphi = 2.*N.pi/minc/(nphi-1.)
-    der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
-    der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
-    der[-1, ...] = der[0, ...]
+    if order == 2:
+        der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
+        der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
+        der[-1, ...] = der[0, ...]
+    elif order == 4:
+        der = (   -N.roll(data,-2,axis=0) \
+               +8.*N.roll(data,-1,axis=0) \
+               -8.*N.roll(data, 1,axis=0)  \
+                  +N.roll(data, 2,axis=0)   )/(12.*dphi)
+        der[1, ...] = (-data[3, ...]+8.*data[2, ...]-\
+                       8.*data[0, ...] +data[-2, ...])/(12.*dphi)
+        der[-2, ...] = (-data[0, ...]+8.*data[-1, ...]-\
+                       8.*data[-3, ...]+data[-4, ...])/(12.*dphi)
+        der[0, ...] = (-data[2, ...]+8.*data[1, ...]-\
+                       8.*data[-2, ...] +data[-3, ...])/(12.*dphi)
+        der[-1, ...] = der[0, ...]
     return der
 
 def rderavg(data, eta=0.35, spectral=True, exclude=False):

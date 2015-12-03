@@ -20,7 +20,7 @@ module nonlinear_lm_mod
    use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt,  &
                   Geo2hInt, Mag2hInt, Arc2hInt, CLF2hInt, PLF2hInt, &
                   CIA2hInt
-   use leg_helper_mod, only:leg_helper_t
+   use leg_helper_mod, only: leg_helper_t
    use constants, only: zero, two
    use fields, only: w_Rloc,dw_Rloc,z_Rloc
    use RMS_helpers, only: hIntRms
@@ -191,7 +191,7 @@ contains
       integer,            intent(in) :: nR
       integer,            intent(in) :: nBc ! signifies boundary conditions
       logical,            intent(in) :: lRmsCalc
-      type(leg_helper_t), intent(inout) :: leg_helper
+      type(leg_helper_t), intent(in) :: leg_helper
     
       !-- Output of variables:
       complex(cp), intent(out) :: dwdt(lm_max),dzdt(lm_max)
@@ -249,11 +249,16 @@ contains
             Buo(lm) =rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
             dwdt(lm)=AdvPol_loc+CorPol_loc
             dzdt(lm)=AdvTor_loc+CorTor_loc
-            if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
-               LFPol(lm) =      or2(nR)*this%LFrLM(lm)
-               LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
-               AdvPol(lm)=AdvPol_loc-LFPol(lm)
-               AdvTor(lm)=AdvTor(lm)-LFTor(lm)
+            if ( lRmsCalc ) then
+               if ( l_mag_LF .and. nR>n_r_LCR ) then
+                  LFPol(lm) =      or2(nR)*this%LFrLM(lm)
+                  LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
+                  AdvPol(lm)=AdvPol_loc-LFPol(lm)
+                  AdvTor(lm)=AdvTor_loc-LFTor(lm)
+               else
+                  AdvPol(lm)=AdvPol_loc
+                  AdvTor(lm)=AdvTor_loc
+               end if
                CorPol(lm)=CorPol_loc
             end if
     
@@ -334,9 +339,13 @@ contains
                Buo(lm) =rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
                dwdt(lm)=AdvPol_loc+CorPol_loc
 
-               if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
-                  LFPol(lm) =or2(nR)*this%LFrLM(lmP)
-                  AdvPol(lm)=AdvPol_loc-LFPol(lm)
+               if ( lRmsCalc ) then
+                  if ( l_mag_LF .and. nR>n_r_LCR ) then
+                     LFPol(lm) =or2(nR)*this%LFrLM(lmP)
+                     AdvPol(lm)=AdvPol_loc-LFPol(lm)
+                  else
+                     AdvPol(lm)=AdvPol_loc
+                  end if
                   CorPol(lm)=CorPol_loc
                end if
 
@@ -377,20 +386,24 @@ contains
                dzdt(lm)=CorTor_loc+AdvTor_loc
                ! until here
     
-               if ( lRmsCalc .and. l_mag_LF .and. nR>n_r_LCR ) then
-                  !------ When RMS values are required, the Lorentz force is treated
-                  !       separately:
-    
-                  if ( l > m ) then
-                     !------- LFTor= 1/(E*Pm) * curl( curl(B) x B )_r
-                     LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  + &
-                                dTheta1S(lm)*this%LFpLM(lmPS) - &
-                                dTheta1A(lm)*this%LFpLM(lmPA)
-                  else if ( l == m ) then
-                     LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  - &
-                                dTheta1A(lm)*this%LFpLM(lmPA)
+               if ( lRmsCalc ) then
+                  if ( l_mag_LF .and. nR>n_r_LCR ) then
+                     !------ When RMS values are required, the Lorentz force is treated
+                     !       separately:
+       
+                     if ( l > m ) then
+                        !------- LFTor= 1/(E*Pm) * curl( curl(B) x B )_r
+                        LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  + &
+                                   dTheta1S(lm)*this%LFpLM(lmPS) - &
+                                   dTheta1A(lm)*this%LFpLM(lmPA)
+                     else if ( l == m ) then
+                        LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  - &
+                                   dTheta1A(lm)*this%LFpLM(lmPA)
+                     end if
+                     AdvTor(lm)=AdvTor_loc-LFTor(lm)
+                  else
+                     AdvTor(lm)=AdvTor_loc
                   end if
-                  AdvTor(lm)=AdvTor_loc-LFTor(lm)
                end if
     
             end do
@@ -406,27 +419,13 @@ contains
                end if
 
                lm  =1
-               lmP =lm2lmP(lm)
-               lmPA=lmP2lmPA(lmP)
-               !- Note: The spherical symmetric part of the radial 
-               !        pressure gradient is simply diagnostic
-               !        and has to balance buoyancy, Coriolis force, 
-               !        advection and Lorentz force. The remaining radial
-               !        gradient is directly given by dpR. The horizontal 
-               !        components have to be calculated from the help 
-               !        function p1LM and p2LM.
-               if ( nR <= n_r_LCR ) then
-                  leg_helper%dpR(lm)=Buo(lm)+CorPol(lm)+AdvPol(lm)
-               else
-                  leg_helper%dpR(lm)=Buo(lm)+CorPol(lm)+AdvPol(lm)+LFPol(lm)
-               end if
-               dpt(lm)=-or1(nR)*(dTheta1A(lm)*this%p1LM(lmPA)+this%p2LM(lmP)  )
+               dpt(lm)=zero
                dpp(lm)=zero
 
                !PERFON('td_cv3')
                !$OMP PARALLEL do default(none) &
                !$OMP private(lm,l,m,lmP,lmPS,lmPA) &
-               !$OMP shared(or1,dTheta1A,dTheta1S,this,dpt,dpp,dphi,nR) &
+               !$OMP shared(or1,dTheta1A,dTheta1S,this,dpt,dpp,dPhi,nR) &
                !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA,l_max,lm_max)
                do lm=2,lm_max
                   l   =lm2l(lm)
@@ -439,12 +438,14 @@ contains
                             -dTheta1A(lm)*this%p1LM(lmPA) + &
                              dTheta1S(lm)*this%p1LM(lmPS) - &
                                           this%p2LM(lmP)  )                                  
+                  else if ( l == l_max ) then
+                     dpt(lm)=zero
                   else if ( l == m ) then
                      dpt(lm)=                or1(nR)* (       &
                               -dTheta1A(lm)*this%p1LM(lmPA) - &
-                                            this%p2LM(lmP)   )
+                                            this%p2LM(lmP)  )
                   end if
-                     dpp(lm)=or1(nR)*dPhi(lm)*this%p1LM(lmP)
+                  dpp(lm)=or1(nR)*dPhi(lm)*this%p1LM(lmP)
                end do
                !$OMP END PARALLEL DO
                !PERFOFF
@@ -475,6 +476,7 @@ contains
                   Mag(lm)=Geo(lm)+LFPol(lm)
                   Arc(lm)=Mag(lm)+Buo(lm)
                   CIA(lm)=Arc(lm)+AdvPol(lm)
+                  !CIA(lm)=CorPol(lm)+Buo(lm)+AdvPol(lm)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
@@ -490,7 +492,8 @@ contains
                   PLF(lm)=this%LFt2LM(lmP)-dpt(lm)
                   Mag(lm)=Geo(lm)+this%LFt2LM(lmP)
                   Arc(lm)=Mag(lm)
-                  CIA(lm)=Arc(lm)-this%Advt2LM(lm)
+                  CIA(lm)=Arc(lm)+this%Advt2LM(lmP)
+                  !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
@@ -506,7 +509,8 @@ contains
                   PLF(lm)=this%LFp2LM(lmP)-dpp(lm)
                   Mag(lm)=Geo(lm)+this%LFp2LM(lmP)
                   Arc(lm)=Mag(lm)
-                  CIA(lm)=Arc(lm)-this%Advp2LM(lm)
+                  CIA(lm)=Arc(lm)+this%Advp2LM(lmP)
+                  !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
                end do
                call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
                call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)

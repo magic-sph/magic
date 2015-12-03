@@ -170,8 +170,8 @@ contains
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                        this%lTOcalc)
+           &                        this%lPressCalc,this%l_frame,this%lTOnext,  &
+           &                        this%lTOnext2,this%lTOcalc)
       !PERFOFF
 
       !if (DEBUG_OUTPUT) then
@@ -361,14 +361,16 @@ contains
                  &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &            this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
+                 &            this%gsa(threadid)%pc,nThetaStart,             &
+                 &            this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa(threadid)%vrc,           &
                  &        this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &        this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &        this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
+                 &        this%gsa(threadid)%pc,nThetaStart,             &
+                 &        this%sizeThetaB,lGraphHeader)
 #endif
          end if
 

@@ -6,7 +6,7 @@ module radialLoop
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
-                    l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl
+                    l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl, l_PressGraph
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -150,6 +150,7 @@ contains
       integer :: nThetaStart!,nThetaStop
       logical :: lDeriv,lOutBc,lMagNlBc
       logical :: lGraphHeader    ! Write header into graph file
+      logical :: lPressCalc
       logical :: isRadialBoundaryPoint
 
 
@@ -163,6 +164,8 @@ contains
          call graphOut_header(time)
 #endif
       end if
+
+      lPressCalc = lRmsCalc .or. ( l_PressGraph .and. l_graph ) .or. lFluxProfCalc
 
       if ( l_cour ) then
          if ( rank == 0 ) then
@@ -207,7 +210,7 @@ contains
       if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
            & l_cour .or. l_dtB .or. lMagNlBc .or. l_graph  &
            & .or. lPerpParCalc .or. lViscBcCalc .or.       &
-           & lFluxProfCalc) lOutBc=.true.
+           & lFluxProfCalc .or. lRmsCalc ) lOutBc=.true.
 
       !nRstart=n_r_cmb
       !nRstop =n_r_icb-1
@@ -252,9 +255,9 @@ contains
             nR_Mag=1
          end if
 
-         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext,lTOnext2,&
-              & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,       &
-              & lFluxProfCalc,lPerpParCalc)
+         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext, &
+              & lTOnext2,lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,  &
+              & lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc)
 
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                  &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),        &

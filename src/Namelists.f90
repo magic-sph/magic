@@ -112,7 +112,8 @@ contains
          & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
          & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
-         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar
+         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
+         & l_PressGraph
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -851,6 +852,7 @@ contains
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
       write(n_out,'(''  l_fluxProfs     ='',l3,'','')') l_fluxProfs
       write(n_out,'(''  l_perpPar       ='',l3,'','')') l_perpPar
+      write(n_out,'(''  l_PressGraph    ='',l3,'','')') l_PressGraph
       write(n_out,'(''  l_drift         ='',l3,'','')') l_drift
       write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
@@ -1213,6 +1215,7 @@ contains
       l_fluxProfs   =.false. ! radial profiles of flux contributions
       l_perpPar     =.false. ! radial profiles and time series of kinetic energy
                              ! perpendicular and parallel to the rotation axi
+      l_PressGraph  =.true.  ! store pressure in graphic files
       l_drift       =.false. ! files for calculating drift rates 
       l_iner        =.false. ! files for calculating inertial modes
       l_RMS         =.false. ! RMS force ballance and dynamo term 

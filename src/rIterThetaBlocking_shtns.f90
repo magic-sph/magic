@@ -142,8 +142,8 @@ contains
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                        this%lTOcalc)
+           &                        this%lPressCalc,this%l_frame,this%lTOnext,  &
+           &                        this%lTOnext2,this%lTOcalc)
 
       if (DEBUG_OUTPUT) then
          write(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
@@ -256,6 +256,7 @@ contains
                  &            this%gsa%vtc,this%gsa%vpc,           &
                  &            this%gsa%brc,this%gsa%btc,           &
                  &            this%gsa%bpc,this%gsa%sc,            &
+                 &            this%gsa%pc,                         &
                  &            1 ,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
@@ -263,6 +264,7 @@ contains
                  &        this%gsa%vtc,this%gsa%vpc,           &
                  &        this%gsa%brc,this%gsa%btc,           &
                  &        this%gsa%bpc,this%gsa%sc,            &
+                 &        this%gsa%pc,
                  &        1 ,this%sizeThetaB,lGraphHeader)
 #endif
       end if
@@ -448,7 +450,7 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lFluxProfCalc .or. this%lRmsCalc ) then
+            if ( this%lPressCalc ) then
                call scal_to_spat(p_Rloc(:, nR), gsa%pc)
             end if
          end if

@@ -41,6 +41,7 @@ module fields_average_mod
    complex(cp), allocatable :: w_ave(:,:)
    complex(cp), allocatable :: z_ave(:,:)
    complex(cp), allocatable :: s_ave(:,:)
+   complex(cp), allocatable :: p_ave(:,:)
    complex(cp), allocatable :: b_ave(:,:)
    complex(cp), allocatable :: aj_ave(:,:)
    complex(cp), allocatable :: b_ic_ave(:,:)
@@ -50,6 +51,7 @@ module fields_average_mod
    complex(cp), allocatable :: db_ave_global(:),aj_ave_global(:)
    complex(cp), allocatable :: w_ave_global(:),dw_ave_global(:)
    complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
+   complex(cp), allocatable :: p_ave_global(:)
  
    public :: initialize_fields_average_mod, fields_average
 
@@ -60,6 +62,7 @@ contains
       allocate( w_ave(llm:ulm,n_r_max) )
       allocate( z_ave(llm:ulm,n_r_max) )
       allocate( s_ave(llm:ulm,n_r_max) )
+      allocate( p_ave(llm:ulm,n_r_max) )
       allocate( b_ave(llm:ulm,n_r_max) )
       allocate( aj_ave(llm:ulm,n_r_max) )
       allocate( b_ic_ave(llm:ulm,n_r_ic_max) )
@@ -72,6 +75,7 @@ contains
          allocate( dw_ave_global(1:lm_max) )
          allocate( z_ave_global(1:lm_max) )
          allocate( s_ave_global(1:lm_max) )
+         allocate( p_ave_global(1:lm_max) )
 #ifdef WITH_DEBUG
       else
          allocate( db_ave_global(1) )
@@ -80,6 +84,7 @@ contains
          allocate( dw_ave_global(1) )
          allocate( z_ave_global(1) )
          allocate( s_ave_global(1) )
+         allocate( p_ave_global(1) )
 #endif
       end if
 
@@ -87,7 +92,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine fields_average(nAve,l_stop_time,                        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
-      &                      w,z,s,b,aj,b_ic,aj_ic)
+      &                      w,z,p,s,b,aj,b_ic,aj_ic)
       !
       ! This subroutine averages fields b and v over time.
       !
@@ -100,6 +105,7 @@ contains
       real(cp),    intent(in) :: omega_ic,omega_ma
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
@@ -129,7 +135,7 @@ contains
       !----- Fields in grid space:
       real(cp) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
       real(cp) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
-      real(cp) :: Sr(nrp,nfs)                         ! entropy
+      real(cp) :: Sr(nrp,nfs),PreR(nrp,nfs)           ! entropy
 
       !----- Help arrays for fields:
       complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
@@ -168,6 +174,7 @@ contains
             if ( l_conv ) then
                w_ave=zero
                z_ave=zero
+               p_ave=zero
             end if
             if ( l_heat ) then
                s_ave=zero
@@ -191,6 +198,7 @@ contains
             do lm=llm,ulm
                w_ave(lm,nR)=w_ave(lm,nR) + time_passed*w(lm,nR)
                z_ave(lm,nR)=z_ave(lm,nR) + time_passed*z(lm,nR)
+               p_ave(lm,nR)=p_ave(lm,nR) + time_passed*p(lm,nR)
             end do
          end do
       end if
@@ -231,6 +239,7 @@ contains
                do lm=llm,ulm
                   w_ave(lm,nR)=dt_norm*w_ave(lm,nR)
                   z_ave(lm,nR)=dt_norm*z_ave(lm,nR)
+                  p_ave(lm,nR)=dt_norm*p_ave(lm,nR)
                end do
             end do
          end if
@@ -374,7 +383,7 @@ contains
 
             !----- Write header into graphic file:
             lGraphHeader=.true.
-            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,0,sizeThetaB,lGraphHeader)
+            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,0,sizeThetaB,lGraphHeader)
          end if
 
          !----- Transform and output of data:
@@ -391,6 +400,7 @@ contains
             call gather_from_lo_to_rank0(w_ave(llm,nR),w_ave_global)
             call gather_from_lo_to_rank0(dw_ave(llm,nR),dw_ave_global)
             call gather_from_lo_to_rank0(z_ave(llm,nR),z_ave_global)
+            call gather_from_lo_to_rank0(p_ave(llm,nR),p_ave_global)
             if ( l_heat ) then
                call gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
             end if
@@ -416,8 +426,9 @@ contains
                call torpol_to_spat(w_ave_global, dw_ave_global, &
                                    z_ave_global, &
                                    Vr, Vt, Vp)
+               call scal_to_spat(p_ave_global, Prer)
                call scal_to_spat(s_ave_global, Sr)
-               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, &
+               call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
                              nThetaStart, sizeThetaB, lGraphHeader)
 #else
                do nThetaB=1,nThetaBs  
@@ -436,6 +447,10 @@ contains
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
                        &     Plm,dPlm,.false.,.false.,                   &
                        &     Sr,Vt,Vp,Br,Br,Br)
+                  call legTF(p_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
+                       &     l_max,minc,nThetaStart,sizeThetaB,          &
+                       &     Plm,dPlm,.false.,.false.,                   &
+                       &     Prer,Vt,Vp,Br,Br,Br)
                   call fft_thetab(Br,1)
                   call fft_thetab(Bp,1)
                   call fft_thetab(Bt,1)
@@ -443,9 +458,10 @@ contains
                   call fft_thetab(Vt,1)
                   call fft_thetab(Vp,1)
                   call fft_thetab(Sr,1)
+                  call fft_thetab(Prer,1)
 
                   !-------- Graphic output:
-                  call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr, &
+                  call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &
                        &        nThetaStart,sizeThetaB,lGraphHeader)
                end do
 #endif

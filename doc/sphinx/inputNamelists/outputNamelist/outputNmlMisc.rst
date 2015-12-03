@@ -101,3 +101,8 @@ Potential vorticity
 +++++++++++++++++++
 
 * **l_PV** (default :f:var:`l_PV=.false. <l_pv>`) is a logical. When set to ``.true.``, this logical enables some potential vorticity diagnostics. At the end of the run, the results are stored in the the files ``PVZ.TAG`` and ``Vcy.TAG``.
+
+Pressure
+++++++++
+
+* **l_PressGraph** (default :f:var:`l_PressGraph=.true. <l_pressgraph>`) is a logical. When set to ``.true.``, this logical enables the storage of pressure in the :ref:`graphic files <secGraphFile>`.

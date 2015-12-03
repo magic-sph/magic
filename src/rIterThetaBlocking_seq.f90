@@ -147,8 +147,8 @@ contains
       end if
   
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-               &                    this%l_frame,this%lTOnext,this%lTOnext2,    &
-               &                    this%lTOcalc)
+               &                    this%lPressCalc,this%l_frame,this%lTOnext,  &
+               &                    this%lTOnext2,this%lTOcalc)
       PERFOFF
 
       lorentz_torque_ma = 0.0_cp
@@ -267,14 +267,14 @@ contains
             PERFON('graphout')
             call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
                  &            this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &            this%gsa%bpc,this%gsa%sc,nThetaStart,   &
-                 &            this%sizeThetaB,lGraphHeader)
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,   &
+                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
                  &        this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &        this%gsa%bpc,this%gsa%sc,nThetaStart,   &
-                 &        this%sizeThetaB,lGraphHeader)
+                 &        this%gsa%bpc,this%gsa%sc, this%gsa%pc,  &
+                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
 #endif
          end if
   

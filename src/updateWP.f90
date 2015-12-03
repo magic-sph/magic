@@ -15,9 +15,9 @@ module updateWP_mod
                      & lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v
-   use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac
+   use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac, p0Mat, p0Pivot
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
-   use algebra, only: cgeslML, sgefa
+   use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize
@@ -58,7 +58,7 @@ contains
       allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
 
    end subroutine initialize_updateWP
-
+!-----------------------------------------------------------------------------
    subroutine finalize_updateWP
 
       deallocate( workA )
@@ -70,7 +70,7 @@ contains
       deallocate( dtV )
 
    end subroutine finalize_updateWP
-
+!-----------------------------------------------------------------------------
    subroutine updateWP(w,dw,ddw,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
         &              w1,coex,dt,nLMB,lRmsNext)
       !
@@ -108,6 +108,7 @@ contains
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
+      real(cp) :: rhs(n_r_max)  ! real RHS for l=m=0
       integer :: n_r_top, n_r_bot
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
@@ -158,7 +159,12 @@ contains
          size_of_last_chunk = chunksize + (sizeLMB2(nLMB2,nLMB)-nChunks*chunksize)
 
          l1=lm22l(1,nLMB2,nLMB)
-         if ( l1 > 0 ) then
+         if ( l1 == 0 ) then
+            if ( .not. lWPmat(l1) ) then
+               call get_p0Mat(p0Mat,p0Pivot)
+               lWPmat(l1)=.true.
+            end if
+         else
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
@@ -166,26 +172,36 @@ contains
                lWPmat(l1)=.TRUE.
                !PERFOFF
             end if
-            !write(*,"(2(A,I3))") "Running ",nChunks," for task with l1=",l1
-            do iChunk=1,nChunks
-               !$OMP TASK if (nChunks>1) default(shared) &
-               !$OMP firstprivate(iChunk) &
-               !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
-               !$OMP private(threadid)
+         end if
 
-               !PERFON('upWP_set')
+         do iChunk=1,nChunks
+            !$OMP TASK if (nChunks>1) default(shared) &
+            !$OMP firstprivate(iChunk) &
+            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
+            !$OMP private(threadid)
+
+            !PERFON('upWP_set')
 #ifdef WITHOMP
-               threadid = omp_get_thread_num()
+            threadid = omp_get_thread_num()
 #else
-               threadid = 0
+            threadid = 0
 #endif
-               lmB0=(iChunk-1)*chunksize
-               lmB=lmB0
-               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
-                  lm1=lm22lm(lm,nLMB2,nLMB)
-                  m1 =lm22m(lm,nLMB2,nLMB)
+            lmB0=(iChunk-1)*chunksize
+            lmB=lmB0
+            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+            !do lm=1,sizeLMB2(nLMB2,nLMB)
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               m1 =lm22m(lm,nLMB2,nLMB)
 
+               if ( l1 == 0 ) then
+                  rhs(1)=0.0_cp
+                  do nR=2,n_r_max
+                     rhs(nR)=rho0(nR)*rgrav(nR)*real(s(1,nR))+real(dwdt(1,nR))
+                  end do
+
+                  call sgesl(p0Mat,n_r_max,n_r_max,p0Pivot,rhs)
+
+               else ! l1 /= 0
                   lmB=lmB+1
                   rhs1(1,lmB,threadid)        =0.0_cp
                   rhs1(n_r_max,lmB,threadid)  =0.0_cp
@@ -202,10 +218,12 @@ contains
                           w1*dpdt(lm1,nR) + &
                           w2*dpdtLast(lm1,nR)
                   end do
-               end do
-               !PERFOFF
-               !PERFON('upWP_sol')
-               !if ( lmB > 0 ) then
+               end if
+            end do
+            !PERFOFF
+
+            !PERFON('upWP_sol')
+            if ( lmB > 0 ) then
 
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
@@ -221,25 +239,29 @@ contains
                      rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wpMat_fac(nR,2,l1)
                   end do
                end do
-            !end if
-               !PERFOFF
+            end if
+            !PERFOFF
 
-               if ( lRmsNext ) then ! Store old w
-                  do nR=1,n_r_max
-                     do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                        lm1=lm22lm(lm,nLMB2,nLMB)
-                        workB(lm1,nR)=w(lm1,nR)
-                     end do
+            if ( lRmsNext ) then ! Store old w
+               do nR=1,n_r_max
+                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                     lm1=lm22lm(lm,nLMB2,nLMB)
+                     workB(lm1,nR)=w(lm1,nR)
                   end do
-               end if
+               end do
+            end if
 
-               !PERFON('upWP_aft')
-               lmB=lmB0
-               do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-                  lm1=lm22lm(lm,nLMB2,nLMB)
-                  !l1 =lm22l(lm,nLMB2,nLMB)
-                  m1 =lm22m(lm,nLMB2,nLMB)
-                  !if ( l1 > 0 ) then
+            !PERFON('upWP_aft')
+            lmB=lmB0
+            do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+               lm1=lm22lm(lm,nLMB2,nLMB)
+               !l1 =lm22l(lm,nLMB2,nLMB)
+               m1 =lm22m(lm,nLMB2,nLMB)
+               if ( l1 == 0 ) then
+                  do n_cheb=1,n_cheb_max
+                     p(lm1,n_cheb)=rhs(n_cheb)
+                  end do
+               else
                   lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_cheb=1,n_cheb_max
@@ -254,12 +276,11 @@ contains
                                        &     0.0_cp,kind=cp)
                      end do
                   end if
-               end do
-               !PERFOFF
-               !$OMP END TASK
+               end if
             end do
-         end if
-         !write(*,"(3(A,I3))") "End of task ",nLMB2,"/",nLMBs2(nLMB)," on thread ",omp_get_thread_num()
+            !PERFOFF
+            !$OMP END TASK
+         end do
          !$OMP END TASK
       end do   ! end of loop over l1 subblocks
       !$OMP END SINGLE
@@ -269,7 +290,7 @@ contains
 
       !-- set cheb modes > n_cheb_max to zero (dealiazing)
       do n_cheb=n_cheb_max+1,n_r_max
-         do lm1=lmStart_00,lmStop
+         do lm1=lmStart,lmStop
             w(lm1,n_cheb)=zero
             p(lm1,n_cheb)=zero
          end do
@@ -277,7 +298,7 @@ contains
 
 
       !PERFON('upWP_drv')
-      all_lms=lmStop-lmStart_00+1
+      all_lms=lmStop-lmStart+1
 #ifdef WITHOMP
       if (all_lms < omp_get_max_threads()) then
          call omp_set_num_threads(all_lms)
@@ -300,7 +321,7 @@ contains
       per_thread=all_lms/nThreads
       !$OMP DO
       do iThread=0,nThreads-1
-         start_lm=lmStart_00+iThread*per_thread
+         start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
          !write(*,"(2(A,I3),2(A,I5))") "iThread=",iThread," on thread ", &
@@ -647,5 +668,47 @@ contains
       end if
 
    end subroutine get_wpMat
+!-----------------------------------------------------------------------------
+   subroutine get_p0Mat(pMat,pPivot)
+
+      !-- Output variables:
+      real(cp), intent(out) :: pMat(n_r_max,n_r_max)
+      integer,  intent(out) :: pPivot(n_r_max)
+
+      !-- Local variables:
+      integer :: info,nCheb,nR
+
+      !-- Boundary condition: fixed-pressure on the outer boundary
+      do nCheb=1,n_cheb_max
+         pMat(1,nCheb)=cheb_norm
+      end do
+
+      if ( n_cheb_max < n_r_max ) then
+         do nCheb=n_cheb_max+1,n_r_max
+            pMat(1,nCheb)=0.0_cp
+         end do
+      end if
+
+      do nCheb=1,n_r_max
+         do nR=2,n_r_max
+            pMat(nR,nCheb)= cheb_norm * ( dcheb(nCheb,nR)- &
+                                  beta(nR)*cheb(nCheb,nR) )
+         end do
+      end do
+
+      !----- Factors for highest and lowest cheb mode:
+      do nR=1,n_r_max
+         pMat(nR,1)      =half*pMat(nR,1)
+         pMat(nR,n_r_max)=half*pMat(nR,n_r_max)
+      end do
+
+      !---- LU decomposition:
+      call sgefa(pMat,n_r_max,n_r_max,pPivot,info)
+      if ( info /= 0 ) then
+         write(*,*) '! Singular matrix pMat0!'
+         stop '29'
+      end if
+
+   end subroutine get_p0Mat
 !-----------------------------------------------------------------------------
 end module updateWP_mod

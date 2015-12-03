@@ -69,7 +69,7 @@ contains
 
    end subroutine initialize
 !------------------------------------------------------------------------------
-   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame, &
+   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,lPressCalc,l_frame, &
         &              lTOnext,lTOnext2,lTOcalc)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
@@ -91,6 +91,7 @@ contains
       integer, intent(in) :: nBc         ! boundary condition
       logical, intent(in) :: lDeriv      ! get also field derivatives !
       logical, intent(in) :: lRmsCalc    ! Rms force balance ?
+      logical, intent(in) :: lPressCalc  ! Pressure ?
       logical, intent(in) :: l_frame     ! Calculate movie frame?
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
@@ -125,10 +126,8 @@ contains
                end if
             end do
          end if
-         if ( lRmsCalc .or. l_fluxProfs ) then
-            this%preR(1)=zero
-            this%dpR(1)=zero
-            do lm=2,lm_max
+         if ( lPressCalc ) then
+            do lm=1,lm_max
                this%preR(lm)=p_Rloc(lm,nR)  ! used for Rms in get_td (anelastic)
                this%dpR(lm)=dp_Rloc(lm,nR)  ! used for Rms in get_td
             end do

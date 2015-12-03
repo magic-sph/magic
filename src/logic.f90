@@ -73,4 +73,6 @@ module logic
    logical :: l_LCR          ! Switch for zero electrical conductivity beyond r_LCR
    logical :: lVerbose       ! Switch for detailed information about run progress
 
+   logical :: l_PressGraph   ! Store pressure in graphic files
+
 end module logic

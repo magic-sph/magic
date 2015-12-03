@@ -114,7 +114,7 @@ contains
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
          call legTFG(this%nBc,this%lDeriv,this%lViscBcCalc,           &
-              &      this%lFluxProfCalc,this%lRmsCalc,nThetaStart,    &
+              &      this%lPressCalc,nThetaStart,                     &
               &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
               &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
               &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
@@ -134,7 +134,7 @@ contains
          !PERFON('legTFGnm')
          !LIKWID_ON('legTFGnm')
          call legTFGnomag(this%nBc,this%lDeriv,this%lViscBcCalc,            & 
-              &           this%lFluxProfCalc,this%lRmsCalc,nThetaStart,     &
+              &           this%lPressCalc,nThetaStart,                      &
               &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
               &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
@@ -161,7 +161,7 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lFluxProfCalc .or. this%lRmsCalc ) then
+            if ( this%lPressCalc ) then
                call fft_thetab(gsa%pc,1)
             end if
          end if

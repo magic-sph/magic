@@ -24,10 +24,10 @@ module legendre_spec_to_grid
 
 contains
 
-   subroutine legTFG(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,lRmsCalc,nThetaStart, &
-     &               vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,                     &
-     &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                               &
-     &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                             &
+   subroutine legTFG(nBc,lDeriv,lViscBcCalc,lPressCalc,nThetaStart,    &
+     &               vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,            &
+     &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
+     &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
      &               drSc,dsdtc,dsdpc,pc,leg_helper)
       !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
@@ -66,7 +66,7 @@ contains
       
       !-- Input variables:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lFluxProfCalc,lViscBcCalc,lRmsCalc
+      logical, intent(in) :: lDeriv,lViscBcCalc,lPressCalc
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -135,23 +135,6 @@ contains
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
-    
-               if ( lFluxProfCalc .or. lRmsCalc ) then
-                  do mc=1,n_m_max
-                      lmS=lStop(mc)
-                      pES=zero ! One equatorial symmetry
-                      pEA=zero ! The other equatorial symmetry
-                      do lm=lStart(mc),lmS-1,2
-                         pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
-                         pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
-                      end do
-                      if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-                      pc(2*mc-1,nThetaN)= real(pES+pEA)
-                      pc(2*mc  ,nThetaN)=aimag(pES+pEA)
-                      pc(2*mc-1,nThetaS)= real(pES-pEA)
-                      pc(2*mc  ,nThetaS)=aimag(pES-pEA)
-                   end do
-               end if
     
                if ( lViscBcCalc ) then
                   do mc=1,n_m_max
@@ -474,9 +457,6 @@ contains
                      dsdtc(mc,nThetaN)=0.0_cp
                      dsdpc(mc,nThetaN)=0.0_cp
                   end if
-                  if ( lFluxProfCalc .or. lRmsCalc ) then
-                     pc(mc,nThetaN)=0.0_cp
-                  end if
                   vrc(mc,nThetaN)   =0.0_cp
                   vtc(mc,nThetaN)   =0.0_cp
                   vpc(mc,nThetaN)   =0.0_cp
@@ -678,10 +658,39 @@ contains
     
       end if
 
+      if ( lPressCalc ) then
+         nThetaNHS=(nThetaStart-1)/2
+         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
+            nThetaS  =nThetaN+1  ! same theta but at other HS
+            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
+            do mc=1,n_m_max
+               lmS=lStop(mc)
+               pES=zero ! One equatorial symmetry
+               pEA=zero ! The other equatorial symmetry
+               do lm=lStart(mc),lmS-1,2
+                  pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
+                  pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
+               end do
+               if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
+               pc(2*mc-1,nThetaN)= real(pES+pEA)
+               pc(2*mc  ,nThetaN)=aimag(pES+pEA)
+               pc(2*mc-1,nThetaS)= real(pES-pEA)
+               pc(2*mc  ,nThetaS)=aimag(pES-pEA)
+            end do
+         end do
+         if ( n_m_max < nrp/2 ) then
+            do nThetaN=1,sizeThetaB
+               do mc=2*n_m_max+1,nrp
+                  pc(mc,nThetaN)=0.0_cp
+               end do
+            end do  ! loop over nThetaN (theta)
+         end if
+      end if
+
    end subroutine legTFG
 !------------------------------------------------------------------------------
-   subroutine legTFGnomag(nBc,lDeriv,lViscBcCalc,lFluxProfCalc,  & 
-       &                 lRmsCalc,nThetaStart,vrc,vtc,vpc,       &
+   subroutine legTFGnomag(nBc,lDeriv,lViscBcCalc,lPressCalc,     &  
+       &                 nThetaStart,vrc,vtc,vpc,                &
        &                 dvrdrc,dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,&
        &                 dvtdpc,dvpdpc,sc,drSc,dsdtc,dsdpc,pc,   &
        &                 leg_helper)
@@ -691,7 +700,7 @@ contains
 
       !-- Input:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lViscBcCalc,lFluxProfCalc,lRmsCalc
+      logical, intent(in) :: lDeriv,lViscBcCalc,lPressCalc
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -750,24 +759,6 @@ contains
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
-    
-    
-               if ( lFluxProfCalc .or. lRmsCalc ) then
-                  do mc=1,n_m_max
-                     lmS=lStop(mc)
-                     pES=zero ! One equatorial symmetry
-                     pEA=zero ! The other equatorial symmetry
-                     do lm=lStart(mc),lmS-1,2
-                        pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
-                        pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
-                     end do
-                     if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-                     pc(2*mc-1,nThetaN)= real(pES+pEA)
-                     pc(2*mc  ,nThetaN)=aimag(pES+pEA)
-                     pc(2*mc-1,nThetaS)= real(pES-pEA)
-                     pc(2*mc  ,nThetaS)=aimag(pES-pEA)
-                  end do
-               end if
     
                if ( lViscBcCalc ) then
                   do mc=1,n_m_max
@@ -973,9 +964,6 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   sc(mc,nThetaN)=0.0_cp
-                  if ( lFluxProfCalc .or. lRmsCalc ) then
-                     pc(mc,nThetaN)=0.0_cp
-                  end if
                   if ( lViscBcCalc) then
                      dsdtc(mc,nThetaN)=0.0_cp
                      dsdpc(mc,nThetaN)=0.0_cp
@@ -1121,6 +1109,35 @@ contains
             end do  ! loop over nThetaN (theta)
          end if
     
+      end if
+
+      if ( lPressCalc ) then
+         nThetaNHS=(nThetaStart-1)/2
+         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
+            nThetaS  =nThetaN+1  ! same theta but at other HS
+            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
+            do mc=1,n_m_max
+               lmS=lStop(mc)
+               pES=zero ! One equatorial symmetry
+               pEA=zero ! The other equatorial symmetry
+               do lm=lStart(mc),lmS-1,2
+                  pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
+                  pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
+               end do
+               if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
+               pc(2*mc-1,nThetaN)= real(pES+pEA)
+               pc(2*mc  ,nThetaN)=aimag(pES+pEA)
+               pc(2*mc-1,nThetaS)= real(pES-pEA)
+               pc(2*mc  ,nThetaS)=aimag(pES-pEA)
+            end do
+         end do
+         if ( n_m_max < nrp/2 ) then
+            do nThetaN=1,sizeThetaB
+               do mc=2*n_m_max+1,nrp
+                  pc(mc,nThetaN)=0.0_cp
+               end do
+            end do  ! loop over nThetaN (theta)
+         end if
       end if
 
    end subroutine legTFGnomag

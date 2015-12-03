@@ -637,7 +637,7 @@ contains
          if ( lTOZhelp ) lTOZwrite=.true.
 
          lRmsCalc=l_RMS.and.l_log.and.(n_time_step > 1)
-         if ( l_mag .or. l_mag_LF ) l_dtB   =l_dtB.or.lRmsCalc
+         if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
          lRmsNext=l_RMS.and.l_logNext ! Used for storing in update routines !
 
          if ( n_time_step == 1 ) l_log=.true.

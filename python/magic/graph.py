@@ -133,6 +133,7 @@ class MagicGraph(MagicSetup):
             self.vr = G.vr
             self.vtheta = G.vt
             self.vphi = G.vp
+            self.pre = G.pre
             if self.prmag != 0:
                 self.Br = G.br
                 self.Btheta = G.bt
@@ -176,6 +177,8 @@ class MagicGraph(MagicSetup):
                 Br = N.zeros_like(entropy)
                 Btheta = N.zeros_like(entropy)
                 Bphi = N.zeros_like(entropy)
+            if version == b'Graphout_Version_8' or version == b'Graphout_Version_10':
+                pressure = N.zeros_like(entropy)
 
             for k in range(self.nr*self.nThetaBs):
                 # radius and Thetas in this block
@@ -186,8 +189,8 @@ class MagicGraph(MagicSetup):
                 self.radius[ir] = rad
                 nth_loc = ilat2 - ilat1 + 1
 
-
-                if version == b'Graphout_Version_9':
+                if version == b'Graphout_Version_9' or \
+                   version == b'Graphout_Version_10':
                     if self.prmag != 0:
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         entropy[:,ilat1:ilat2+1,ir] = data.T
@@ -197,6 +200,10 @@ class MagicGraph(MagicSetup):
                         vtheta[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         vphi[:,ilat1:ilat2+1,ir] = data.T
+                        if version == b'Graphout_Version_10':
+                            data = inline.fort_read(self.precision, 
+                                                    shape=(nth_loc,self.npI))
+                            pressure[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         Br[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
@@ -213,37 +220,65 @@ class MagicGraph(MagicSetup):
                         vtheta[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         vphi[:,ilat1:ilat2+1,ir] = data.T
+                        if version == b'Graphout_Version_10':
+                            data = inline.fort_read(self.precision, 
+                                                    shape=(nth_loc,self.npI))
+                            pressure[:,ilat1:ilat2+1,ir] = data.T
                 else:
                     if self.prmag != 0:
                         # To vectorize, one must also read the end-of-line symbol that
                         # accounts for 2 additionnal floats
                         # For the last line of the chunk, we should not read the last symbol
-                        data = inline.fort_read(self.precision,
-                                                shape=(7*(self.npI+2)*nth_loc-2))
-                        # Add 2 zeros for the last lines
-                        data = N.append(data, 0.)
-                        data = N.append(data, 0.)
-                        data = data.reshape((7, nth_loc, self.npI+2))
+                        if version == b'Graphout_Version_8':
+                            data = inline.fort_read(self.precision,
+                                                    shape=(8*(self.npI+2)*nth_loc-2))
+                            # Add 2 zeros for the last lines
+                            data = N.append(data, 0.)
+                            data = N.append(data, 0.)
+                            data = data.reshape((8, nth_loc, self.npI+2))
+                        else:
+                            data = inline.fort_read(self.precision,
+                                                    shape=(7*(self.npI+2)*nth_loc-2))
+                            # Add 2 zeros for the last lines
+                            data = N.append(data, 0.)
+                            data = N.append(data, 0.)
+                            data = data.reshape((7, nth_loc, self.npI+2))
                         data = data[:,:,:-2:]
                         entropy[:,ilat1:ilat2+1, ir] = data[0,...].T
                         vr[:, ilat1:ilat2+1, ir] = data[1,...].T
                         vtheta[:, ilat1:ilat2+1, ir] = data[2,...].T
                         vphi[:, ilat1:ilat2+1, ir] = data[3,...].T
-                        Br[:, ilat1:ilat2+1, ir] = data[4, ...].T
-                        Btheta[:, ilat1:ilat2+1, ir] = data[5, ...].T
-                        Bphi[:, ilat1:ilat2+1, ir] = data[6, ...].T
+                        if version == b'Graphout_Version_8':
+                            pressure[:, ilat1:ilat2+1, ir] = data[4, ...].T
+                            Br[:, ilat1:ilat2+1, ir] = data[5, ...].T
+                            Btheta[:, ilat1:ilat2+1, ir] = data[6, ...].T
+                            Bphi[:, ilat1:ilat2+1, ir] = data[7, ...].T
+                        else:
+                            Br[:, ilat1:ilat2+1, ir] = data[4, ...].T
+                            Btheta[:, ilat1:ilat2+1, ir] = data[5, ...].T
+                            Bphi[:, ilat1:ilat2+1, ir] = data[6, ...].T
                     else:
-                        data = inline.fort_read(self.precision,
-                                                shape=(4*(self.npI+2)*nth_loc-2))
-                        # Add 2 zeros for the last lines
-                        data = N.append(data, 0.)
-                        data = N.append(data, 0.)
-                        data = data.reshape((4, nth_loc, self.npI+2))
+                        if version == b'Graphout_Version_8':
+                            data = inline.fort_read(self.precision,
+                                                    shape=(5*(self.npI+2)*nth_loc-2))
+                            # Add 2 zeros for the last lines
+                            data = N.append(data, 0.)
+                            data = N.append(data, 0.)
+                            data = data.reshape((5, nth_loc, self.npI+2))
+                        else:
+                            data = inline.fort_read(self.precision,
+                                                    shape=(4*(self.npI+2)*nth_loc-2))
+                            # Add 2 zeros for the last lines
+                            data = N.append(data, 0.)
+                            data = N.append(data, 0.)
+                            data = data.reshape((4, nth_loc, self.npI+2))
                         data = data[:,:,:-2:]
                         entropy[:,ilat1:ilat2+1, ir] = data[0,...].T
                         vr[:, ilat1:ilat2+1, ir] = data[1,...].T
                         vtheta[:, ilat1:ilat2+1, ir] = data[2,...].T
                         vphi[:, ilat1:ilat2+1, ir] = data[3,...].T
+                        if version == b'Graphout_Version_8':
+                            pressure[:, ilat1:ilat2+1, ir] = data[4,...].T
 
             inline.close()
             # Sorting of data (strange hemispherical way that the magic
@@ -256,6 +291,8 @@ class MagicGraph(MagicSetup):
                 Br = self.rearangeLat(Br)
                 Btheta = self.rearangeLat(Btheta)
                 Bphi = self.rearangeLat(Bphi)
+            if version == b'Graphout_Version_8' or version == b'Graphout_Version_10':
+                pressure = self.rearangeLat(pressure)
 
             # Normalise r
             self.radius = self.radius/(1.-self.radratio)
@@ -272,6 +309,9 @@ class MagicGraph(MagicSetup):
                 self.Br = Br
                 self.Btheta = Btheta
                 self.Bphi = Bphi
+
+            if version == b'Graphout_Version_8' or version == b'Graphout_Version_10':
+                self.pre = pressure
 
     def rearangeLat(self, field):
         """
