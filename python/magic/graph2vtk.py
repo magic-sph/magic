@@ -431,6 +431,9 @@ class Graph2Vtk:
                 if index == 2:
                     self.scals[k, :, :, gr.nr:] = 0.5*(pot.brout**2+pot.btout**2+\
                                                        pot.bpout**2)
+                if index == 11:
+                    self.scals[k, :, :, gr.nr:] = pot.brout
+
 
         #----------------------------------------
         # Vectors
