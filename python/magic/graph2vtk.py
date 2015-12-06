@@ -420,6 +420,13 @@ class Graph2Vtk:
                                                         gr.vtheta[..., ::-1]**2+\
                                                         gr.vphi[..., ::-1]**2)
 
+            elif index == 11: # radial mag field
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(gr.Br[..., ::-1],
+                                                              gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = gr.Br[..., ::-1]
+
             if potExtra:
                 if index == 2:
                     self.scals[k, :, :, gr.nr:] = 0.5*(pot.brout**2+pot.btout**2+\
