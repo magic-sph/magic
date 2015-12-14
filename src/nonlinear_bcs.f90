@@ -133,7 +133,7 @@ contains
       integer :: lmPS,lmPA ! lmP for l-1 and l+1
       real(cp) :: fac
 
-      write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
+      !write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
 
       if ( bc == 'CMB' ) then
 
