@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module hdf5Helpers
    !
    ! This module contains several useful tools to manipulate HDF5 files
@@ -26,51 +27,93 @@ module hdf5Helpers
 
 contains
 
-   subroutine write_dataset(loc_id, dataset_name, dataset_type, dat, dim1, dims_full)
+#define check_error(msg) call x_check_error(msg, error, __FILE__, __LINE__)
+   subroutine x_check_error(msg, error, file, line)
+      use parallel_mod, only : rank
+      use, intrinsic :: iso_fortran_env, only : error_unit
+      character(len=*), intent(in) :: msg
+      integer, intent(in) :: error
+      character(len=*), intent(in) :: file
+      integer, intent(in) :: line
 
+      if (error /= 0) then
+        write(error_unit, '(a,i0,a,i0)') "Task #", rank, ": " // msg // ": error /= 0 at " // file // ":", line
+        stop 1
+      endif
+   end subroutine
+
+   subroutine write_dataset(loc_id, dataset_name, dataset_type, dat, dim1, dims_full)
+      use, intrinsic :: iso_fortran_env, only : error_unit
+      use parallel_mod, only : rank
 
       !--- Input variables
       integer,          intent(in) :: dim1
       integer(HID_T),   intent(in) :: loc_id
       integer(HID_T),   intent(in) :: dataset_type
       character(len=*), intent(in) :: dataset_name
-      complex(cp),  intent(in), target :: dat(llm:ulm,dim1)
+      complex(cp), intent(in) :: dat(llm:ulm,dim1)
+      complex(cp), target :: dat_transposed(dim1, llm:ulm)
       integer(HSIZE_T), intent(in) :: dims_full(2)
 
       !--- Local variables
-      integer(HSIZE_T) :: dims_loc(2)
-      integer(HSSIZE_T) :: off(2)
+      integer(HSIZE_T) :: dims(2)
+      integer(HSIZE_T) :: off(2)
       integer(HID_T) :: dspace_id, dset_id, memspace, plist_id
       integer :: error
-      integer :: l,m,lm
 
-      call h5screate_simple_f(2, dims_full, dspace_id, error)
+      dat_transposed(:,:) = transpose(dat)
+
+      PERFON('write_dataset')
+
+      ! global layout of the dataset in the file
+      dims = [dims_full(2), dims_full(1)]
+      call h5screate_simple_f(2, dims, dspace_id, error)
+      check_error("h5screate_simple_f")
+
+      ! create the dataset in the file
       call h5dcreate_f(loc_id, dataset_name, dataset_type, dspace_id, dset_id, error)
+      check_error("h5dcreate_f()")
+
       call h5sclose_f(dspace_id, error)
+      check_error("h5sclose_f()")
 
-      dims_loc = [1,dim1]
 
-      call h5screate_simple_f(2, dims_loc, memspace, error)
-      call h5dget_space_f(dset_id, dspace_id, error)
       call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+      check_error("h5pcreate_f")
 #ifdef WITH_MPI
       call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, error)
+      check_error("h5pset_dxpl_mpio_f")
 #endif
-      do lm=llm,ulm
-         l = lo_map%lm2l(lm)
-         m = lo_map%lm2m(lm)
-         off(1)=st_map%lm2(l,m)-1
-         off(2)=0
-         call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, off, dims_loc, error)
-         call h5dwrite_f(dset_id, dataset_type, C_LOC(dat(lm,:)), error, &
-                         file_space_id=dspace_id, mem_space_id=memspace, &
-                         xfer_prp=plist_id)
-      enddo
-      call h5sclose_f(memspace, error)
-      call h5sclose_f(dspace_id, error)
-      call h5dclose_f(dset_id, error)
-      call h5pclose_f(plist_id, error)
 
+      ! describe the hyperslab of the local data in the file
+      off  = [0, llm - 1]
+      dims = [dim1, ulm - llm + 1]
+      call h5dget_space_f(dset_id, dspace_id, error)
+      check_error("h5dget_space_f")
+      call h5sselect_hyperslab_f(dspace_id, H5S_SELECT_SET_F, off, dims, error)
+      check_error("h5sselect_hyperslab_f")
+
+      ! describe the layout of 'dat' in memory
+      call h5screate_simple_f(2, dims, memspace, error)
+      check_error("h5screate_simple_f()")
+
+      ! collectively write
+      call h5dwrite_f(dset_id, dataset_type, C_LOC(dat_transposed(:,:)), error, &
+                      file_space_id=dspace_id, mem_space_id=memspace, &
+                      xfer_prp=plist_id)
+      check_error("h5dwrite_f")
+
+      ! cleanup
+      call h5sclose_f(memspace, error)
+      check_error("h5sclose_f")
+      call h5sclose_f(dspace_id, error)
+      check_error("h5sclose_f()")
+      call h5pclose_f(plist_id, error)
+      check_error("h5pclose_f")
+      call h5dclose_f(dset_id, error)
+      check_error("h5dclose_f")
+
+      PERFOFF
    end subroutine write_dataset
 !------------------------------------------------------------------------------
    subroutine readHdf5_attr_dble(loc_id,attr_name,attr_value)

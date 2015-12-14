@@ -1,3 +1,4 @@
+#include "perflib_preproc.cpp"
 module storeCheckPoints
    !
    ! This module contains several subroutines that can be used to store the
@@ -126,7 +127,7 @@ contains
       complex(cp), target, intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
 
       !--- HDF5 file identifier
-      integer(HID_T) :: file_id  
+      integer(HID_T) :: file_id
 
       !--- HDF5 dataset
       integer(HID_T) :: dset1_id      ! Dataset identifier
@@ -138,7 +139,7 @@ contains
       integer(HID_T) :: groupDtFields_id,groupTorque_id 
 
       !--- HDF5 Attributes
-      integer(HID_T) :: aspace_id,attr_id
+      integer(HID_T) :: aspace_id
 
       !--- HDF5 Type
       integer(HID_T) :: type_id
@@ -369,7 +370,7 @@ contains
       integer(HID_T) :: groupDtFields_id,groupTorque_id 
 
       !--- HDF5 Attributes
-      integer(HID_T) :: aspace_id,attr_id
+      integer(HID_T) :: aspace_id
 
       !--- HDF5 Type
       integer(HID_T) :: type_id
@@ -392,6 +393,8 @@ contains
       call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
+
+      PERFON('HDF5-IO')
 
       ! Initialize FORTRAN interface.
       call h5open_f(error)
@@ -529,6 +532,8 @@ contains
 
       ! Close FORTRAN interface.
       call h5close_f(error)
+
+      PERFOFF
 
    end subroutine storeHdf5_parallel
 #endif

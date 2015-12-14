@@ -105,7 +105,7 @@ ifeq ($(COMPILER),intel)
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
 
-	FFLAG_HDF5_LIBS = -L$(HDF5LIB) -lhdf5hl_fortran -lhdf5 \
+	FFLAG_HDF5_LIBS = -L$(HDF5LIB) -lhdf5_fortran -lhdf5 \
                           -Wl,-rpath,$(HDF5LIB)
 
 endif
