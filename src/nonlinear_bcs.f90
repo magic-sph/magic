@@ -72,7 +72,7 @@ contains
       !$OMP& private(n_theta_rel, n_phi, fac)
 #endif
       do n_theta_rel=1,n_theta_block
-         n_theta=n_theta+1           ! absolute number of theta
+         n_theta=n_theta_min+n_theta_rel           ! absolute number of theta
     
          fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
     
