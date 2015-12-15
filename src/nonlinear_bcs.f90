@@ -12,6 +12,9 @@ module nonlinear_bcs
    use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
    use constants, only: two
+#ifdef WITH_SHTNS
+   use shtns, only: spat_to_SH
+#endif
 
    implicit none
 
@@ -90,8 +93,8 @@ contains
     
       !-- Fourier transform phi 2 m (real 2 complex!)
 #ifdef WITH_SHTNS
-      call shtns_SH_to_spat(br_vt, br_vt_lm)
-      call shtns_SH_to_spat(br_vp, br_vp_lm)
+      call spat_to_SH(br_vt, br_vt_lm)
+      call spat_to_SH(br_vp, br_vp_lm)
 #else
       call fft_thetab(br_vt, -1)
       call fft_thetab(br_vp, -1)
