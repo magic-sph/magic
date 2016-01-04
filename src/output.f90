@@ -387,6 +387,7 @@ contains
             call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2,dlVRu2,dlVRu2c)
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
          else
+            RolRu2  = 0.0_cp
             dlVRu2  = 0.0_cp
             dlVRu2c = 0.0_cp
          end if

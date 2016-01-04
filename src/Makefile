@@ -45,18 +45,6 @@ else
 endif
 
 
-# preconditioning of the matrices
-# switches are WITH_PRECOND_S,WITH_PRECOND_BJ,
-# WITH_PRECOND_Z
-# PRECOND_WP is always set
-# to switch the preconditioner off and get the old ill-conditioned matrices
-# just comment the following statement
-PREPROC += 	-DWITH_PRECOND_S \
-		-DWITH_PRECOND_Z \
-		-DWITH_PRECOND_BJ \
-		-DWITH_PRECOND_S0 \
-		-DWITH_PRECOND_Z10
-
 # In case MKL is not found, switch back to built-in libraries
 ifndef MKLROOT
 	USE_FFTLIB=JW
