@@ -161,8 +161,8 @@ if(USE_LAPACKLIB MATCHES MKL OR USE_FFTLIB MATCHES MKL)
    endif()
 endif()
 
-# Backup: lapack in case MKL has not been found
-if(USE_LAPACKLIB MATCHES JW OR USE_LAPACKLIB MATCHES LAPACK)
+# Detect LAPACK
+if(USE_LAPACKLIB MATCHES LAPACK)
    find_package(LAPACK)
    if (LAPACK_FOUND)
       message(STATUS "LAPACK was found")
