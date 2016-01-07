@@ -303,7 +303,11 @@ contains
             else
                RolR(nR)=RoR(nR)
             end if
-            RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            if ( l_mag_nl ) then
+               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            else
+               RmR(nR)=ReR(nR)
+            end if
          end do
 
          dlVMeanR   =dlVMeanR   +timePassed*dlVR
