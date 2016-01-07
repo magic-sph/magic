@@ -991,11 +991,12 @@ contains
 
       else if ( init_b1 == 10 ) then  ! only equatorial dipole
 
+       if ( l1m1 <= 0 ) then
+          write(*,*) '! Can not initialize l=1,m=1 !'
+          stop
+       end if
+
        if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
-          if ( l1m1 <= 0 ) then
-             write(*,*) '! Can not initialize l=1,m=1 !'
-             stop
-          end if
           b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
           do n_r=1,n_r_max
              b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1055,11 +1056,12 @@ contains
             end if
          end if
 
+         if ( l1m1 <= 0 ) then
+            write(*,*) '! Cannot initialize l=1,m=1 !'
+            stop
+         end if
+
          if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
-            if ( l1m1 <= 0 ) then
-               write(*,*) '! Cannot initialize l=1,m=1 !'
-               stop
-            end if
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m1,n_r)=b(l1m1,n_r) +                   &
