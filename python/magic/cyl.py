@@ -113,7 +113,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     if len(input[0].shape) == 3:
         nphi = input[0].shape[0]
         phi = N.linspace(0., 2.*N.pi/minc, nphi)
-        output = N.zeros((nphi, ns-2), dtype=input.dtype)
+        output = N.zeros((nphi, ns-2), dtype=input[0].dtype)
         for iphi in range(nphi):
             print(iphi)
             Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
@@ -135,7 +135,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
         S = S[:, 1:-1]
         Z = Z[:, 1:-1]
         output = []
-        outIntZ = N.zeros((ns-2), dtype=input.dtype)
+        outIntZ = N.zeros((ns-2), dtype=input[0].dtype)
         for k,out in enumerate(out2D):
             outIntZ = N.trapz(out[:, 1:-1], z, axis=0)
             if normed:

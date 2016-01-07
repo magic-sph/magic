@@ -759,6 +759,10 @@ class Surf:
                 th3D[:, i, :] = thlin[i]
             data = vr * N.sin(th3D) + vt * N.cos(th3D)
             label = 'Vs'
+        elif field in ('entropyreduced'):
+            tt = self.gr.entropy.mean(axis=0).mean(axis=0)
+            data = self.gr.entropy-tt
+            label = 'tt'
         elif field in ('Vz', 'vz'):
             vr = self.gr.vr
             vt = self.gr.vtheta

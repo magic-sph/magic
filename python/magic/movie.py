@@ -40,7 +40,8 @@ class Movie:
     def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False, 
-                 std=False, dpi=80, normRad=False, precision='Float32'):
+                 std=False, dpi=80, normRad=False, precision='Float32',
+                 deminc=True):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -77,6 +78,9 @@ class Movie:
         :type cut: float
         :param bgcolor: background color of the figure
         :type bgcolor: str
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
         """
 
         if avg or std:
@@ -228,7 +232,7 @@ class Movie:
 
         if iplot:
             cmap = P.get_cmap(cm)
-            self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor)
+            self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor, deminc)
         if avg or std:
             cmap = P.get_cmap(cm)
             self.avgStd(std, cut, levels, cmap)
@@ -250,7 +254,7 @@ class Movie:
 
     def avgStd(self, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
         """
-        plot time-average or standard deviation
+        Plot time-average or standard deviation
 
         :param std: the standard deviation is computed instead the average
                     when std is True
@@ -317,7 +321,7 @@ class Movie:
         ax.axis('off')
 
     def plot(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
-             normed=False, dpi=80, bgcolor=None):
+             normed=False, dpi=80, bgcolor=None, deminc=True):
         """
         Plotting function (it can also write the png files)
 
@@ -339,6 +343,9 @@ class Movie:
         :type normed: bool
         :param step: the stepping between two timesteps
         :type step: int
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
         """
 
         if png:
@@ -370,14 +377,22 @@ class Movie:
             fig = P.figure(figsize=(4, 8))
         elif self.surftype == 'r_constant':
             th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot*self.minc+1)
+            if deminc:
+                phi = N.linspace(-N.pi, N.pi, self.n_phi_tot*self.minc+1)
+                xxout, yyout = hammer2cart(th, -N.pi)
+                xxin, yyin = hammer2cart(th, N.pi)
+            else:
+                phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, self.n_phi_tot)
+                xxout, yyout = hammer2cart(th, -N.pi/self.minc)
+                xxin, yyin = hammer2cart(th, N.pi/self.minc)
             ttheta, pphi = N.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
             fig = P.figure(figsize=(8, 4))
         elif self.surftype == 'theta_constant':
-            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot*self.minc+1)
+            if deminc:
+                phi = N.linspace(0., 2.*N.pi, self.n_phi_tot*self.minc+1)
+            else:
+                phi = N.linspace(0., 2.*N.pi/self.minc, self.n_phi_tot)
             rr, pphi = N.meshgrid(self.radius, phi)
             xx = rr * N.cos(pphi)
             yy = rr * N.sin(pphi)
@@ -407,8 +422,11 @@ class Movie:
                     vmax = -vmin
                     cs = N.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
-                    im = ax.contourf(xx, yy, symmetrize(self.data[k, ...], self.minc),
-                                     cs, cmap=cmap, extend='both')
+                    if deminc:
+                        dat = symmetrize(self.data[k, ...], self.minc)
+                    else:
+                        dat = self.data[k, ...]
+                    im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
                 else:
                     im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
@@ -426,8 +444,11 @@ class Movie:
                     vmax = -vmin
                     cs = N.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
-                    im = ax.contourf(xx, yy, symmetrize(self.data[k, ...], self.minc),
-                                     cs, cmap=cmap, extend='both')
+                    if deminc:
+                        dat = symmetrize(self.data[k, ...], self.minc)
+                    else:
+                        dat = self.data[k, ...]
+                    im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
                 else:
                     im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
