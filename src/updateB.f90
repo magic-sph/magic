@@ -1061,12 +1061,12 @@ contains
  
 #ifdef WITH_PRECOND_BJ
       ! compute the linesum of each line
-      do nR=1,n_r_tot
-         bMat_fac(nR)=one/maxval(abs(bMat(nR,:)))
+      do nR=1,nRall
+         bMat_fac(nR)=one/maxval(abs(bMat(nR,1:nRall)))
          bMat(nR,:) = bMat(nR,:)*bMat_fac(nR)
       end do
-      do nR=1,n_r_tot
-         jMat_fac(nR)=one/maxval(abs(jMat(nR,:)))
+      do nR=1,nRall
+         jMat_fac(nR)=one/maxval(abs(jMat(nR,1:nRall)))
          jMat(nR,:) = jMat(nR,:)*jMat_fac(nR)
       end do
 #endif

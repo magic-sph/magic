@@ -646,6 +646,17 @@ contains
       integer :: temp_l_list(map%l_max+1)
 
       logical, parameter :: DEBUG_OUTPUT=.false.
+
+      do m=0,map%l_max
+         do l=m,map%l_max
+            map%lm2(l,m)  =-1
+            map%lmP2(l,m) =-1
+            !check(l,m)=0
+         end do
+         l=map%l_max+1
+         map%lmP2(l,m)=-1
+      end do
+
       ! First we loop over all l values and jump for each
       ! new l value to the next process in a snake like fashion.
       proc=0
@@ -717,7 +728,7 @@ contains
             temp=l_list(0,1)
             l_list(0,1)=l_list(0,i_l)
             l_list(0,i_l)=temp
-            EXIT
+            exit
          end if
       end do
 
