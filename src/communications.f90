@@ -530,9 +530,11 @@ contains
       else
          self%count = count
       end if
+#ifdef WITH_MPI
       allocate(self%s_request(n_procs-1))
       allocate(self%r_request(n_procs-1))
       allocate(self%final_wait_array(2*(n_procs-1)))
+#endif
       allocate(self%temp_Rloc(1:lm_max,nRstart:nRstop,1:self%count))
 
    end subroutine create_lm2r_type

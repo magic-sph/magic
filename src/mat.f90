@@ -73,7 +73,7 @@ contains
       allocate( bMat(n_r_totMag,n_r_totMag,l_maxMag) )
       allocate( jMat(n_r_totMag,n_r_totMag,l_maxMag) )
 
-      !-- respecitive pivoting information:
+      !-- respective pivoting information:
       allocate( p0Pivot(n_r_max) )
       allocate( s0Pivot(n_r_max) )
       allocate( sPivot(n_r_max,l_max) )
@@ -97,8 +97,8 @@ contains
       allocate(s0Mat_fac(n_r_max))
 #endif
 #ifdef WITH_PRECOND_BJ
-      allocate(bMat_fac(n_r_tot,l_max))
-      allocate(jMat_fac(n_r_tot,l_max))
+      allocate(bMat_fac(n_r_totMag,l_maxMag))
+      allocate(jMat_fac(n_r_totMag,l_maxMag))
 #endif
 
       !--- Logicals that inform whether the respective matrix
