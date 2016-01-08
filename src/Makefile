@@ -75,7 +75,7 @@ ifeq ($(COMPILER),intel)
 	FFLAG_CONVERT = -convert big
 	FFLAG_PROFILING = -prof-gen=srcpos
 	FFLAG_REPORT = -vec-report6
-	FFLAG_STD = -stand f03  -diag-disable 7025
+	FFLAG_STD = -stand f08  -diag-disable 7025
 	ifneq ($(PRODRUN),yes)
 		FFLAG_STD += -fp-model source
 	endif
@@ -103,7 +103,7 @@ ifeq ($(COMPILER),gnu)
 	FFLAG_TRACEBACK = -fbacktrace
 	FFLAG_OPENMP = -fopenmp
 	FFLAG_CONVERT = -fconvert=big-endian
-	FFLAG_STD = -std=f2003
+	FFLAG_STD = -std=f2008
 	FFLAG_PREPROCESSOR = -cpp
 	FFLAG_WARN_ALL = -Wall -Wno-maybe-uninitialized
 	FFLAG_CHECK_ALL = -fcheck=all
