@@ -9,16 +9,16 @@ module output_mod
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
    use num_param, only: tScale
-   use blocking, only: st_map,lm2,lo_map
+   use blocking, only: st_map, lm2, lo_map
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
                   & l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
                   & l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
                   & l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
                   & l_perpPar
-   use fields, only: omega_ic, omega_ma, b, db, ddb, aj, dj, ddj, b_ic,    &
-                   & db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, dw, ddw, z,   &
-                   & dz, s, ds, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,  &
+   use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
+                   & db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
+                   & s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
                    & s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
                    & db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
                    & b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
@@ -96,7 +96,7 @@ module output_mod
 
    real(cp) :: timePassedRMS, timeNormRMS
    integer :: nRMS_sets
- 
+
    public :: output, initialize_output
 
 contains
@@ -172,14 +172,14 @@ contains
 
    end subroutine initialize_output
 !----------------------------------------------------------------------------
-   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,            &
-        &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,      &
-        &            l_store,l_new_rst_file,                           &
-        &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,            &
-        &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,             &
-        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_at_CMB,  &
-        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,   &
-        &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,      &
+   subroutine output(time,dt,dtNew,n_time_step,l_stop_time,               &
+        &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,         &
+        &            l_store,l_new_rst_file,                              &
+        &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
+        &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
+        &            lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
+        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,      &
+        &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,         &
         &            fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
       !  This subroutine controls most of the output.                     
@@ -203,9 +203,8 @@ contains
       !    collected and is (likely) stored on the processor (#0) that performs 
       !    this routine anyway.
       real(cp),    intent(in) :: lorentz_torque_ma,lorentz_torque_ic
-      complex(cp), intent(in), pointer :: dbdt_at_CMB(:)
   
-      !--- Input of scales fields via common block in c_fields.f:
+      !--- Input of scales fields via common block in fields.f90:
       !    Parallelization note: these fields are LM-distributed.
       !    The input fields HelLMr,Hel2LMr,TstrRLM,TadvRLM, and TomeRLM
       !    are R-distributed. More R-distributed fields are hidden 
@@ -213,9 +212,9 @@ contains
       !    input fields are R-distributed. This has to be taken into
       !    account when collecting the information from the different
       !    processors!
-      !    All the fields contained in c_fields.f are needed on
+      !    All the fields contained in fields.fi90 are needed on
       !    the processor performing this routine:
-      !          w,dw,ddw,z,dz,s,ds,p,b,db,ddb,aj,dj,ddj,
+      !          w,dw,ddw,z,dz,s,p,b,db,aj,dj,ddj,
       !          b_ic,db_ic,ddb_ic,aj_ic,dj_ic,omega_ic,omega_ma
       !    omega_ic and omega_ma are likely located on processor #0 
       !    which deals with (l=1,m=0) in s_updateZ.f
@@ -243,6 +242,8 @@ contains
       real(cp),    intent(in) :: EparLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: EperpaxiLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: EparaxiLMr(l_max+1,nRstart:nRstop)
+
+      complex(cp), intent(in) :: dbdt_CMB_LMloc(llmMag:ulmMag)
   
       !--- Local stuff:
       !--- Energies:
@@ -258,10 +259,7 @@ contains
       real(cp) :: eKinIC,eKinMA        
       real(cp) :: dtE
   
-      !--- Help arrays:
-      complex(cp) :: dbdtCMB(lm_max)        ! SV at CMB !
-  
-      integer :: nR,lm,n
+      integer :: nR,lm,n,m
   
       !--- For TO:
       character(len=64) :: TOfileNhs,TOfileShs,movFile
@@ -270,6 +268,7 @@ contains
       integer :: nF1,nF2
   
       !--- Property parameters:
+      complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
       real(cp) :: dlBR(n_r_max),dlBRc(n_r_max),dlVR(n_r_max),dlVRc(n_r_max)
       real(cp) :: RolRu2(n_r_max),dlVRu2(n_r_max),dlVRu2c(n_r_max)
       real(cp) :: RmR(n_r_max)
@@ -487,6 +486,59 @@ contains
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  dtV/Brms  on rank ",rank
       end if
   
+      !--- Store poloidal magnetic coeffs at cmb
+      if ( l_cmb ) then
+         PERFON('out_cmb')
+         call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,n_cmb_sets,   &
+              &          cmb_file,n_cmb_file)
+         
+         !--- Store SV of poloidal magnetic coeffs at cmb
+         if ( l_dt_cmb_field ) then
+            !nR=8! at CMB dbdt=induction=0, only diffusion !
+            !do lm=max(2,llm),ulm
+            do lm=max(2,llm),ulm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               dbdtCMB(lm)= dbdt_CMB_LMloc(lm)/                             &
+                    &    (dLh(st_map%lm2(l,m))*or2(n_r_cmb))                       &
+                    &    + opm*hdif_B(st_map%lm2(l,m)) * ( ddb_LMloc(lm,n_r_cmb) - &
+                    &      dLh(st_map%lm2(l,m))*or2(n_r_cmb)*b_LMloc(lm,n_r_cmb) )
+            end do
+
+            call write_Bcmb(timeScaled,dbdtCMB(:),l_max_cmb,n_dt_cmb_sets,  &
+                 &          dt_cmb_file,n_dt_cmb_file)
+         end if
+         PERFOFF
+      end if
+
+      if ( l_frame .and. l_cmb_field ) then
+         call write_Bcmb(timeScaled,b_LMloc(:,n_r_cmb),l_max_cmb,   &
+              &          n_cmb_setsMov,cmbMov_file,n_cmbMov_file)
+      end if
+  
+      !--- Store potential coeffs for velocity fields and magnetic fields
+      if ( l_r ) then
+         PERFON('out_r')
+         do n=1,n_coeff_r_max
+            nR=n_coeff_r(n)
+            call write_coeff_r(timeScaled,w_LMloc(:,nR),dw_LMloc(:,nR),  &
+                 &             ddw_LMloc(:,nR),z_LMloc(:,nR),r(nR),      &
+                 &             l_max_r,n_v_r_sets(n),v_r_file(n),        &
+                 &             n_v_r_file(n),1)
+            if ( l_mag )                                                   &
+               call write_coeff_r(timeScaled,b_LMloc(:,nR),db_LMloc(:,nR), &
+                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
+                    &             l_max_r,n_b_r_sets(n),b_r_file(n),       &
+                    &             n_b_r_file(n),2)
+            if ( l_r_fieldT )                                              &
+               call write_coeff_r(timeScaled,s_LMloc(:,nR),db_LMloc(:,nR), &
+                    &             ddb_LMloc(:,nR),aj_LMloc(:,nR),r(nR),    &
+                    &             l_max_r,n_T_r_sets(n),T_r_file(n),       &
+                    &             n_t_r_file(n),3)
+         end do
+         PERFOFF
+      end if
+  
       !
       ! Parallel writing of the restart file (possible only when HDF5 is used)
       !
@@ -531,13 +583,13 @@ contains
   
       l_PVout=l_PV .and. l_log
   
-      !if (l_log.or.l_frame.or.l_graph.or.l_cmb.or.l_r.or.l_Bpot.or.l_Vpot&
+      !if (l_log.or.l_frame.or.l_graph.or.or.l_r.or.l_Bpot.or.l_Vpot&
   
 #ifdef WITH_HDF5
-      if (l_frame.or.l_graph.or.l_r.or.l_Bpot.or.l_Vpot.or.l_Tpot &
+      if (l_frame.or.l_graph.or.l_Bpot.or.l_Vpot.or.l_Tpot &
            .or.(l_SRIC.and.l_stop_time).or.l_PVout .or.l_rMagSpec) then
 #else
-      if (l_frame.or.l_graph.or.l_r.or.l_Bpot.or.l_Vpot                   &
+      if (l_frame.or.l_graph.or.l_Bpot.or.l_Vpot                   &
            & .or.l_Tpot.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout &
            & .or.l_rMagSpec) then
 #endif
@@ -545,8 +597,6 @@ contains
          write(*,"(13(A,L1))") "l_log=",l_log,     &
               & ", l_frame=",l_frame,              &
               & ", l_graph=",l_graph,              &
-              & ", l_cmb=",l_cmb,                  &
-              & ", l_r=",l_r,                      &
               & ", l_Bpot=",l_Bpot,                &
               & ", l_Vpot=",l_Vpot,                &
               & ", l_Tpot=",l_Tpot,                &
@@ -558,24 +608,15 @@ contains
 #endif
          PERFON('out_comm')
          call gather_all_from_lo_to_rank0(gt_OC,w_LMloc,w)
-         call gather_all_from_lo_to_rank0(gt_OC,dw_LMloc,dw)
-         call gather_all_from_lo_to_rank0(gt_OC,ddw_LMloc,ddw)
-  
          call gather_all_from_lo_to_rank0(gt_OC,p_LMloc,p)
-  
          call gather_all_from_lo_to_rank0(gt_OC,s_LMloc,s)
-  
          call gather_all_from_lo_to_rank0(gt_OC,z_LMloc,z)
-         call gather_all_from_lo_to_rank0(gt_OC,dz_LMloc,dz)
   
          if ( l_mag ) then
             call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
             call gather_all_from_lo_to_rank0(gt_OC,db_LMloc,db)
-            call gather_all_from_lo_to_rank0(gt_OC,ddb_LMloc,ddb)
-            
             call gather_all_from_lo_to_rank0(gt_OC,aj_LMloc,aj)
             call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
-            call gather_all_from_lo_to_rank0(gt_OC,ddj_LMloc,ddj)
          end if
   
          if ( l_cond_ic ) then
@@ -617,12 +658,6 @@ contains
                write(*,"(A,8ES22.14)") "output: w,z,p,s = ",SUM( w ), &
                                           SUM( z ),SUM( p ),SUM( s )
             end if
-         end if
-      else if ( l_cmb ) then
-         ! just gather B_cmb on rank 0 for the B_cmb output
-         if ( l_mag ) then
-            !write(*,"(A)") "Gathering only b to rank 0."
-            call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
          end if
       end if
   
@@ -681,55 +716,8 @@ contains
                  &                 b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic, &
                  &                 omega_ic,omega_ma)
   
-            if ( l_cmb_field ) then
-               call write_Bcmb(timeScaled,b(1,n_r_cmb),1,lm_max,l_max, &
-                    &          l_max_cmb,minc,lm2,n_cmb_setsMov,       &
-                    &          cmbMov_file,n_cmbMov_file)
-            end if
             PERFOFF
          end if ! write movie frame ?
-  
-         !--- Store poloidal magnetic coeffs at cmb
-         if ( l_cmb ) then
-            PERFON('out_cmb')
-            call write_Bcmb(timeScaled,b(1,n_r_cmb),1,lm_max,l_max,  &
-                 &          l_max_cmb,minc,lm2,n_cmb_sets,           &
-                 &          cmb_file,n_cmb_file)
-            
-            !--- Store SV of poloidal magnetic coeffs at cmb
-            if ( l_dt_cmb_field .and. associated(dbdt_at_CMB) ) then
-               !nR=8! at CMB dbdt=induction=0, only diffusion !
-               do lm=1,lm_max
-                  dbdtCMB(lm)= dbdt_at_CMB(lm)/(dLh(lm)*or2(n_r_cmb))       &
-                       &       + opm*hdif_B(lm) * ( ddb(lm,n_r_cmb) -       &
-                       &         dLh(lm)*or2(n_r_cmb)*b(lm,n_r_cmb) )
-               end do
-               call write_Bcmb(timeScaled,dbdtCMB,1,lm_max,l_max,        &
-                    &          l_max_cmb,minc,lm2,n_dt_cmb_sets,         &
-                    &          dt_cmb_file,n_dt_cmb_file)
-            end if
-            PERFOFF
-         end if
-  
-         !--- Store potential coeffs for velocity fields and magnetic fields
-         if ( l_r ) then
-            PERFON('out_r')
-            do n=1,n_coeff_r_max
-               nR=n_coeff_r(n)
-               call write_coeff_r(timeScaled,w(1,nR),dw(1,nR),ddw(1,nR),         &
-                    &             z(1,nR),r(nR),1,lm_max,l_max,l_max_r,minc,     &
-                    &             lm2,n_v_r_sets(n),v_r_file(n),n_v_r_file(n),1)
-               if ( l_mag )                                                      &
-                  call write_coeff_r(timeScaled,b(1,nR),db(1,nR),ddb(1,nR),      &
-                       &             aj(1,nR),r(nR),1,lm_max,l_max,l_max_r,minc, &
-                       &             lm2,n_b_r_sets(n),b_r_file(n),n_b_r_file(n),2)
-               if ( l_r_fieldT )                                                 &
-                  call write_coeff_r(timeScaled,s(1,nR),db(1,nR),ddb(1,nR),      &
-                       &             aj(1,nR),r(nR),1,lm_max,l_max,l_max_r,minc, &
-                       &             lm2,n_T_r_sets(n),T_r_file(n),n_t_r_file(n),3)
-            end do
-            PERFOFF
-         end if
   
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff 
@@ -991,8 +979,9 @@ contains
       !  NOTE: For l_stop_time=.true. outPV transforms the fields without 
       !        transforming them back. This must thus be the very last 
       !        thing done with them. 
-      if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,             &
-           &                    w,dw,ddw,z,dz,omega_ic,omega_ma)
+      if ( l_PVout ) call outPV(time,l_stop_time,nPVsets,                   &
+           &                    w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc,&
+           &                    omega_ic,omega_ma)
          
   
       if ( l_log ) then

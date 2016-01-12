@@ -153,6 +153,7 @@ contains
 
       this%lorentz_torque_ma = 0.0_cp
       this%lorentz_torque_ic = 0.0_cp
+      lorentz_torques_ic = 0.0_cp
       c = 0.0_cp
 
       br_vt_lm_cmb=zero

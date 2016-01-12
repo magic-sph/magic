@@ -374,14 +374,15 @@ outPV3.o              : truncation.o horizontal.o cosine_transform_odd.o\
                         phys_param.o radial.o logic.o blocking.o\
                         output_data.o plms.o TO_helpers.o\
                         constants.o $(FFT_OBJS) 
-out_coeff.o           : logic.o precision_mod.o
+out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
+                        truncation.o communications.o LMLoop_data.o
 magic.o               : truncation.o num_param.o parallel.o logic.o\
                         output_data.o timing.o constants.o precision_mod.o\
                         useful.o startFields.o preCalculations.o\
                         step_time.o kinetic_energy.o \
 			magnetic_energy.o horizontal.o fields_average.o \
 			Egeos.o spectra.o out_TO.o output_data.o\
-                        outPV3.o Namelists.o blocking.o
+                        outPV3.o Namelists.o blocking.o out_coeff.o
 step_time.o           : truncation.o blocking.o phys_param.o\
                         num_param.o radial_data.o\
                         logic.o output_data.o output.o movie.o\

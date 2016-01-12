@@ -55,6 +55,7 @@ my %tests = (
                          varCond
                     )],
              4 => [qw(
+			 testCoeffOutputs
 			 testRMSOutputs
                          testGraphMovieOutputs 
                          testTOGeosOutputs

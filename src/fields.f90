@@ -16,15 +16,12 @@ module fields
  
    !-- Velocity potentials:
    complex(cp), public, allocatable :: w(:,:)
-   complex(cp), public, allocatable :: dw(:,:)
-   complex(cp), public, allocatable :: ddw(:,:)
    complex(cp), public, allocatable, target :: w_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: w_Rloc_container(:,:,:)
    complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
    complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
  
    complex(cp), public, allocatable :: z(:,:)
-   complex(cp), public, allocatable :: dz(:,:)
    complex(cp), public, allocatable, target :: z_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: z_Rloc_container(:,:,:)
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
@@ -32,14 +29,12 @@ module fields
  
    !-- Pressure and entropy:
    complex(cp), public, allocatable :: s(:,:)
-   complex(cp), public, allocatable :: ds(:,:)
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
    complex(cp), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
    complex(cp), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
  
    complex(cp), public, allocatable :: p(:,:)
-   complex(cp), public, allocatable :: dp(:,:)
    complex(cp), public, allocatable, target :: p_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: p_Rloc_container(:,:,:)
    complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
@@ -48,10 +43,8 @@ module fields
    !-- Magnetic field potentials:
    complex(cp), public, allocatable :: b(:,:)
    complex(cp), public, allocatable :: db(:,:)
-   complex(cp), public, allocatable :: ddb(:,:)
    complex(cp), public, allocatable :: aj(:,:)
    complex(cp), public, allocatable :: dj(:,:)
-   complex(cp), public, allocatable :: ddj(:,:)
    complex(cp), public, allocatable, target :: b_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: b_Rloc_container(:,:,:)
    complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
@@ -96,22 +89,15 @@ contains
       if ( rank == 0 ) then
          allocate( w(lm_max,n_r_max) )
          allocate( z(lm_max,n_r_max) )
-         allocate( dw(lm_max,n_r_max) )
-         allocate( ddw(lm_max,n_r_max) )
-         allocate( dz(lm_max,n_r_max) )
          allocate( s(lm_max,n_r_max) )
-         allocate( ds(lm_max,n_r_max) )
          allocate( p(lm_max,n_r_max) )
-         allocate( dp(lm_max,n_r_max) )
-         bytes_allocated = bytes_allocated + 9*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
          allocate( b(lm_maxMag,n_r_maxMag) )
          allocate( db(lm_maxMag,n_r_maxMag) )
-         allocate( ddb(lm_maxMag,n_r_maxMag) )
          allocate( aj(lm_maxMag,n_r_maxMag) )
          allocate( dj(lm_maxMag,n_r_maxMag) )
-         allocate( ddj(lm_maxMag,n_r_maxMag) )
          bytes_allocated = bytes_allocated +  &
-                           6*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+                           4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )  
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
@@ -124,21 +110,14 @@ contains
       else
          allocate( w(1,n_r_max) )
          allocate( z(1,n_r_max) )
-         allocate( dw(1,n_r_max) )
-         allocate( ddw(1,n_r_max) )
-         allocate( dz(1,n_r_max) )
          allocate( s(1,n_r_max) )
-         allocate( ds(1,n_r_max) )
          allocate( p(1,n_r_max) )
-         allocate( dp(1,n_r_max) )
-         bytes_allocated = bytes_allocated + 9*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*n_r_max*SIZEOF_DEF_COMPLEX
          allocate( b(1,n_r_maxMag) )
          allocate( db(1,n_r_maxMag) )
-         allocate( ddb(1,n_r_maxMag) )
          allocate( aj(1,n_r_maxMag) )
          allocate( dj(1,n_r_maxMag) )
-         allocate( ddj(1,n_r_maxMag) )
-         bytes_allocated = bytes_allocated + 6*n_r_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )  
          allocate( db_ic(1,n_r_ic_maxMag) )
          allocate( ddb_ic(1,n_r_ic_maxMag) )

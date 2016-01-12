@@ -101,7 +101,9 @@ code. It has the following levels of checking:
   |         | * Anelastic dynamo with variable conductivity          |
   |         |   (``varCond``)                                        |
   +---------+--------------------------------------------------------+
-  | 4       | * Test the writing of RMS force balance                |
+  | 4       | * Test the writing of CMB and coeff files              |
+  |         |   (``testCoeffOutputs``)                               |
+  |         | * Test the writing of RMS force balance                |
   |         |   (``testRMSOutputs``)                                 |
   |         | * Test the writing of Graphic and Movie files          |
   |         |   (``testGraphMovieOutputs``)                          |

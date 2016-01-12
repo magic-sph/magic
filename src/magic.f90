@@ -126,6 +126,7 @@ program magic
    use communications, only:initialize_communications
    use power, only: initialize_output_power
    use outPar_mod, only: initialize_outPar_mod
+   use out_coeff, only: initialize_coeffs
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -201,7 +202,6 @@ program magic
       write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
            &              '                              !'
       write(n_log_file,*) '!                                                      !'
-      write(n_log_file,*) '!                                                      !'
       write(n_log_file,*) '!------------------------------------------------------!'
       write(n_log_file,*)
       if ( l_save_out ) close(n_log_file)
@@ -238,6 +238,7 @@ program magic
    call initialize_step_time
    call initialize_communications
    call initialize_outPar_mod
+   call initialize_coeffs
    if ( l_power ) call initialize_output_power
 
    !--- Do pre-calculations:

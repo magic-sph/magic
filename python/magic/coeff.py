@@ -69,7 +69,7 @@ class MagicCoeffCmb(MagicSetup):
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 precision='Float64'):
+                 precision='Float64', ave=False, sv=False):
         """
         A class to read the B_coeff_cmb files
 
@@ -83,6 +83,10 @@ class MagicCoeffCmb(MagicSetup):
         :type iplot: int
         :param precision: single or double precision
         :type precision: char
+        :param ave: load a time-averaged CMB file when set to True
+        :type ave: bool
+        :param sv: load a dt_b CMB file when set to True
+        :type sv: bool
         """
 
         logFiles = scanDir('log.*')
@@ -95,7 +99,12 @@ class MagicCoeffCmb(MagicSetup):
         rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
-        files = scanDir('B_coeff_cmb.%s' % tag)
+        if ave:
+            files = scanDir('B_coeff_cmb_ave.%s' % tag)
+        elif sv:
+            files = scanDir('B_coeff_dt_cmb.%s' % tag)
+        else:
+            files = scanDir('B_coeff_cmb.%s' % tag)
 
         # Read the B_coeff files (by stacking the different tags)
         data = []
@@ -141,17 +150,20 @@ class MagicCoeffCmb(MagicSetup):
                                     scale_b, ratio_cmb_surface, rcmb)
                 k += 2
 
-        self.dglmdt = deriv(self.time, self.glm.T, axis=2)
-        self.dhlmdt = deriv(self.time, self.hlm.T, axis=2)
-        self.dglmdt = self.dglmdt.T
-        self.dhlmdt = self.dhlmdt.T
-
-        #print(self.glm[-1, 1, 0], self.glm[-1, 2, 0], self.glm[-1, 2, 2])
-
         # Time-averaged Gauss coefficient
         facT = 1./(self.time[-1]-self.time[0])
         self.glmM = facT * N.trapz(self.glm, self.time, axis=0)
         self.hlmM = facT * N.trapz(self.hlm, self.time, axis=0)
+
+        if len(self.time) > 3:
+            self.dglmdt = deriv(self.time, self.glm.T, axis=2)
+            self.dhlmdt = deriv(self.time, self.hlm.T, axis=2)
+            self.dglmdt = self.dglmdt.T
+            self.dhlmdt = self.dhlmdt.T
+
+        else:
+            self.dglmdt = N.zeros_like(self.glm)
+            self.dhlmdt = N.zeros_like(self.hlm)
 
         # Magnetic energy (Lowes)
         self.El = (self.ell+1)*(self.glm**2+self.hlm**2).sum(axis=2)
@@ -290,7 +302,6 @@ class MagicCoeffR(MagicSetup):
         self.dwlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
         self.zlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
 
-
         # wlm
         # Axisymmetric coefficients (m=0)
         self.wlm[:, 1:, 0] = data[:, 1:self.l_max_cmb+1]
@@ -316,7 +327,6 @@ class MagicCoeffR(MagicSetup):
                 self.zlm[:, l, m] = data[:, k]+1j*data[:, k+1]
                 k += 2
 
-        print(k, data.shape)
         # ddw in case B is stored
         if field == 'B':
             self.ddwlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
@@ -327,15 +337,15 @@ class MagicCoeffR(MagicSetup):
                     self.ddwlm[:, l, m] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
-        self.epolLM = 0.5*self.ell*(self.ell+1)* (self.ell*(self.ell+1)* \
-                                    abs(self.wlm)**2+abs(self.dwlm)**2)
+        #self.epolLM = 0.5*self.ell*(self.ell+1)* (self.ell*(self.ell+1)* \
+        #                            abs(self.wlm)**2+abs(self.dwlm)**2)
         self.epolAxiL = 0.5*self.ell*(self.ell+1)*(self.ell*(self.ell+1)* \
                                     abs(self.wlm[:,:,0])**2+abs(self.dwlm[:,:,0])**2)
-        self.etorLM = 0.5*self.ell*(self.ell+1)*abs(self.zlm)**2
+        #self.etorLM = 0.5*self.ell*(self.ell+1)*abs(self.zlm)**2
         self.etorAxiL = 0.5*self.ell*(self.ell+1)*abs(self.zlm[:,:,0])**2
 
-        epolTot = self.epolLM.sum(axis=1).sum(axis=1)
-        etorTot = self.etorLM.sum(axis=1).sum(axis=1)
+        #epolTot = self.epolLM.sum(axis=1).sum(axis=1)
+        #etorTot = self.etorLM.sum(axis=1).sum(axis=1)
         etorAxiTot = self.etorAxiL.sum(axis=1)
         epolAxiTot = self.epolAxiL.sum(axis=1)
         
