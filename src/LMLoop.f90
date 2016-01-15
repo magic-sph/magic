@@ -9,6 +9,7 @@ module LMLoop_mod
    use fieldsLast
    use omp_lib
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -38,10 +39,18 @@ contains
 
    subroutine initialize_LMLoop
 
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
+
       call initialize_updateS
       call initialize_updateZ
       call initialize_updateWP
       call initialize_updateB
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+
+      call memWrite('LMLoop.f90',local_bytes_used)
 
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------

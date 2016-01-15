@@ -1,7 +1,8 @@
 module dtB_arrays_mod
 
    use truncation, only: lmP_max_dtB
-   use precision_mod, only: cp
+   use mem_alloc, only: bytes_allocated
+   use precision_mod
    use constants, only: zero
 
    implicit none
@@ -43,6 +44,7 @@ contains
       allocate( this%BtVZLM(lmP_max_dtB) )
       allocate( this%BtVZcotLM(lmP_max_dtB) )
       allocate( this%BtVZsn2LM(lmP_max_dtB) )
+      bytes_allocated = bytes_allocated+ 14*lmP_max_dtB*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
 !----------------------------------------------------------------------------

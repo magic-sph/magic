@@ -2,6 +2,7 @@ module spectra
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_ic_max, l_max, minc
    use radial_data, only: n_r_cmb, n_r_icb
@@ -61,6 +62,7 @@ contains
       allocate( ek_p2_l_ave(0:l_max),ek_p2_m_ave(0:l_max) )
       allocate( ek_t_l_ave(0:l_max),ek_t_m_ave(0:l_max) )
       allocate( ek_t2_l_ave(0:l_max),ek_t2_m_ave(0:l_max) )
+      bytes_allocated = bytes_allocated+20*(l_max+1)*SIZEOF_DEF_REAL
 
       if ( l_heat ) then
          allocate( T_ave(l_max+1) )
@@ -69,6 +71,7 @@ contains
          allocate( T2_ave(l_max+1) )
          allocate( T_ICB2_ave(l_max+1) )
          allocate( dT_ICB2_ave(l_max+1) )
+         bytes_allocated = bytes_allocated+6*(l_max+1)*SIZEOF_DEF_REAL
       end if
 
    end subroutine initialize_spectra

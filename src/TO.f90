@@ -5,6 +5,7 @@ module torsional_oscillations
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
                          n_theta_maxStr
    use radial_data, only: n_r_cmb, nRstart, nRstop
@@ -76,6 +77,7 @@ contains
          allocate( dzLFLMr(l_max+1,n_r_maxStr) )
          allocate( dzdVpLMr(l_max+1,n_r_maxStr) )
          allocate( dzddVpLMr(l_max+1,n_r_maxStr) )
+         bytes_allocated = bytes_allocated+7*n_r_maxStr*(l_max+1)*SIZEOF_DEF_REAL
          allocate( V2AS(n_theta_maxstr,n_r_maxStr) )
          allocate( Bs2AS(n_theta_maxstr,n_r_maxStr) )
          allocate( BszAS(n_theta_maxstr,n_r_maxStr) )
@@ -85,6 +87,8 @@ contains
          allocate( BpsdAS(n_theta_maxstr,n_r_maxStr) )
          allocate( BzpdAS(n_theta_maxstr,n_r_maxStr) )
          allocate( BpzdAS(n_theta_maxstr,n_r_maxStr) )
+         bytes_allocated = bytes_allocated+ &
+                           9*n_r_maxStr*n_theta_maxstr*SIZEOF_DEF_REAL
       else
          allocate( dzStrLMr(1,1) )
          allocate( dzRstrLMr(1,1) )
@@ -111,6 +115,8 @@ contains
       allocate( dzLFLMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( dzdVpLMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( dzddVpLMr_Rloc(l_max+1,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+ &
+                        7*(nRstop-nRstart+1)*(l_max+1)*SIZEOF_DEF_REAL
       allocate( V2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( Bs2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( BszAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
@@ -120,7 +126,10 @@ contains
       allocate( BpsdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( BzpdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( BpzdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+ &
+                        9*(nRstop-nRstart+1)*n_theta_maxstr*SIZEOF_DEF_REAL
       allocate( ddzASL(l_max+1,n_r_maxStr) ) 
+      bytes_allocated = bytes_allocated+ (l_max+1)*n_theta_maxstr*SIZEOF_DEF_REAL
 
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------

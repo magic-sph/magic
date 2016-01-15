@@ -6,6 +6,7 @@ module dtB_mod
    !
    use precision_mod
    use parallel_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
                          n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
                          n_r_ic_max, l_max, n_phi_max, ldtBmem
@@ -69,6 +70,8 @@ contains
          allocate( TstrLM(lm_max_dtB,n_r_max_dtB) )
          allocate( TadvLM(lm_max_dtB,n_r_max_dtB) )
          allocate( TomeLM(lm_max_dtB,n_r_max_dtB) )
+         bytes_allocated = bytes_allocated+ &
+                           5*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
       else
          allocate( PstrLM(1,1) )
          allocate( PadvLM(1,1) )
@@ -81,14 +84,20 @@ contains
       allocate( TstrLM_Rloc(lm_max_dtB,nRstart:nRstop) )
       allocate( TadvLM_Rloc(lm_max_dtB,nRstart:nRstop) )
       allocate( TomeLM_Rloc(lm_max_dtB,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+ &
+                        5*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
       if ( rank == 0 ) then
          allocate( PdifLM(lm_max_dtB,n_r_max_dtB) )
          allocate( TdifLM(lm_max_dtB,n_r_max_dtB) )
+         bytes_allocated = bytes_allocated+ &
+                           2*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
          allocate( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
          allocate( PdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
          allocate( TadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
          allocate( TdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
+         bytes_allocated = bytes_allocated+ &
+                           4*lm_max_dtB*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
       else
          allocate( PdifLM(1,1) )
          allocate( TdifLM(1,1) )
@@ -99,15 +108,21 @@ contains
       end if
       allocate( PdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
       allocate( TdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
+      bytes_allocated = bytes_allocated+ &
+                        2*(ulmMag-llmMag+1)*n_r_max_dtB*SIZEOF_DEF_COMPLEX
       allocate( PadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
       allocate( PdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
       allocate( TadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
       allocate( TdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
+      bytes_allocated = bytes_allocated+ &
+                        4*(ulmMag-llmMag+1)*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
 
       if ( rank == 0 ) then
          allocate( TstrRLM(lm_max_dtB,n_r_max_dtB) )
          allocate( TadvRLM(lm_max_dtB,n_r_max_dtB) )
          allocate( TomeRLM(lm_max_dtB,n_r_max_dtB) )
+         bytes_allocated = bytes_allocated+ &
+                           3*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
       else
          allocate( TstrRLM(1,1) )
          allocate( TadvRLM(1,1) )
@@ -116,6 +131,8 @@ contains
       allocate(TstrRLM_Rloc(lm_max_dtB,nRstart:nRstop))
       allocate(TadvRLM_Rloc(lm_max_dtB,nRstart:nRstop))
       allocate(TomeRLM_Rloc(lm_max_dtB,nRstart:nRstop))
+      bytes_allocated = bytes_allocated+ &
+                        3*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_dtB_mod
 !----------------------------------------------------------------------------

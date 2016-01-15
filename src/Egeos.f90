@@ -1,6 +1,7 @@
 module Egeos_mod
  
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
                          n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
    use parallel_mod, only: rank
@@ -46,6 +47,11 @@ contains
       allocate( nZmaxS(nSmaxA) )
       allocate( zZ(nZmaxA,nSmaxA) )
       allocate( rZ(nZmaxA,nSmaxA) )
+      bytes_allocated = bytes_allocated+ &
+                       ((nZmaxA/2+1)*nSmaxA*(1+2*lm_maxGeos))*SIZEOF_DEF_REAL + &
+                       nSmaxA*SIZEOF_INTEGER + &
+                       2*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
+
 
    end subroutine initialize_Egeos_mod
 !----------------------------------------------------------------------------

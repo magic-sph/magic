@@ -6,6 +6,7 @@ module RMS
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
                        lm2m
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
@@ -105,14 +106,23 @@ contains
       allocate( dtBPol2hInt(lm_maxMag,n_r_maxMag,nThreadsMax) )
       allocate( dtBTor2hInt(lm_maxMag,n_r_maxMag,nThreadsMax) )
       allocate( dtBPolLMr(lm_maxMag,n_r_maxMag) )
+      bytes_allocated = bytes_allocated+ &
+                        2*lm_maxMag*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
+                        lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVTor2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVPolLMr(lm_max,n_r_max) )
+      bytes_allocated = bytes_allocated+ &
+                        2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
+                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifTor2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifPolLMr(lm_max,n_r_max) )
+      bytes_allocated = bytes_allocated+ &
+                        2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
+                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
     
       allocate( Adv2hInt(0:l_max,n_r_max) )
       allocate( Cor2hInt(0:l_max,n_r_max) )
@@ -125,6 +135,7 @@ contains
       allocate( CIA2hInt(0:l_max,n_r_max) )
       allocate( CLF2hInt(0:l_max,n_r_max) )
       allocate( PLF2hInt(0:l_max,n_r_max) )
+      bytes_allocated = bytes_allocated+ 11*(l_max+1)*n_r_max*SIZEOF_DEF_REAL
 
       allocate( dtVRmsL_TA(0:l_max), dtVRmsL_SD(0:l_max), dtVRmsSD(0:l_max) )
       allocate( CorRmsL_TA(0:l_max), CorRmsL_SD(0:l_max), CorRmsSD(0:l_max) )
@@ -139,6 +150,7 @@ contains
       allocate( CIARmsL_TA(0:l_max), CIARmsL_SD(0:l_max), CIARmsSD(0:l_max) )
       allocate( CLFRmsL_TA(0:l_max), CLFRmsL_SD(0:l_max), CLFRmsSD(0:l_max) )
       allocate( PLFRmsL_TA(0:l_max), PLFRmsL_SD(0:l_max), PLFRmsSD(0:l_max) )
+      bytes_allocated = bytes_allocated+ 49*(l_max+1)*SIZEOF_DEF_REAL
 
       !--- Initialize new cut-back grid:
       call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC, &
@@ -276,6 +288,7 @@ contains
 
       allocate( r2(n_r_max2) )
       allocate( dr_fac2(n_r_max2) )
+      bytes_allocated = bytes_allocated+2*n_r_max2*SIZEOF_DEF_REAL
     
       do nR=1,n_r_max2
          r2(nR)=r(nR+nS)

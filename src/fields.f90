@@ -4,6 +4,7 @@ module fields
    !  derivatives
    !
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
                          n_r_ic_maxMag
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -78,13 +79,7 @@ module fields
 contains
 
    subroutine initialize_fields
-      !
-      ! Memory allocation
-      !
 
-      integer(lip) :: bytes_allocated
-
-      bytes_allocated = 0
       !-- Velocity potentials:
       if ( rank == 0 ) then
          allocate( w(lm_max,n_r_max) )
@@ -197,9 +192,6 @@ contains
 
       bytes_allocated = bytes_allocated + &
                         6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-
-      write(*,"(I4,A,I12,A)") rank,": Allocated in fields ", &
-                              bytes_allocated," bytes."
 
    end subroutine initialize_fields
 !----------------------------------------------------------------------------

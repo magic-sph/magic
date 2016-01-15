@@ -10,6 +10,7 @@ module fieldsLast
    ! These fields remain in the LM-distributed space 
  
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
                          n_r_ic_maxMag
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -47,13 +48,6 @@ module fieldsLast
 contains
 
    subroutine initialize_fieldsLast
-      !
-      ! Memory allocation
-      !
-
-      integer(lip) :: bytes_allocated
-
-      bytes_allocated = 0
 
       if ( rank == 0 ) then
          allocate( dwdtLast(lm_max,n_r_max) )
@@ -99,10 +93,6 @@ contains
       allocate( djdt_icLast_LMloc(llmMag:ulmMag,n_r_ic_maxMag) )
       bytes_allocated = bytes_allocated + &
                         2*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-
-      write(*,"(I4,A,I12,A)") rank,": Allocated in fieldsLast ", &
-                              bytes_allocated," bytes."
-
 
    end subroutine initialize_fieldsLast
 !-------------------------------------------------------------------------------

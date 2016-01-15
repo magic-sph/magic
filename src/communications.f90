@@ -5,6 +5,7 @@ module communications
    use mpi
 #endif
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
    use LMLoop_data, only: llm, ulm
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max
@@ -69,6 +70,7 @@ contains
    subroutine initialize_communications
 
       integer :: proc,my_lm_per_rank
+      integer(lip) :: local_bytes_used
 #ifdef WITH_MPI
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer(kind=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
@@ -94,15 +96,17 @@ contains
       ! lm_per_rank is set here
       ! ATTENTION: for the last rank, the numbers are different and are
       !            stored in nr_on_last_rank and lm_on_last_rank
+
+      local_bytes_used = bytes_allocated
       allocate(s_transfer_type(n_procs))
       allocate(s_transfer_type_nr_end(n_procs))
       allocate(r_transfer_type(n_procs))
       allocate(r_transfer_type_nr_end(n_procs))
-
       allocate(s_transfer_type_cont(n_procs,3))
       allocate(s_transfer_type_nr_end_cont(n_procs,3))
       allocate(r_transfer_type_cont(n_procs,3))
       allocate(r_transfer_type_nr_end_cont(n_procs,3))
+      bytes_allocated = bytes_allocated + 16*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
          my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
@@ -195,6 +199,8 @@ contains
 #endif
          end do
       end do
+#else
+      local_bytes_used=bytes_allocated
 #endif
 
 
@@ -203,8 +209,12 @@ contains
 
 #ifdef WITH_MPI
       allocate(s_request(n_procs-1),r_request(n_procs-1))
+      bytes_allocated = bytes_allocated + 2*(n_procs-1)*SIZEOF_INTEGER
       allocate(array_of_statuses(MPI_STATUS_SIZE,2*(n_procs-1)))
+      bytes_allocated = bytes_allocated + &
+                        2*(n_procs-1)*MPI_STATUS_SIZE*SIZEOF_INTEGER
       allocate(final_wait_array(2*(n_procs-1)))
+      bytes_allocated = bytes_allocated + 2*(n_procs-1)*SIZEOF_INTEGER
 #endif
 
       if ( l_heat ) then
@@ -233,11 +243,17 @@ contains
 
       ! allocate a temporary array for the gather operations.
       allocate(temp_r2lo(lm_max,nRstart:nRstop))
+      bytes_allocated = bytes_allocated + &
+                        lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       if ( rank == 0 ) then
          allocate(temp_gather_lo(1:lm_max))
+         bytes_allocated = bytes_allocated + lm_max*SIZEOF_DEF_COMPLEX
       else
          allocate(temp_gather_lo(1))
       end if
+
+      local_bytes_used = bytes_allocated - local_bytes_used
+      call memWrite('communications.f90', local_bytes_used)
 
    end subroutine initialize_communications
 !-------------------------------------------------------------------------------
@@ -534,8 +550,11 @@ contains
       allocate(self%s_request(n_procs-1))
       allocate(self%r_request(n_procs-1))
       allocate(self%final_wait_array(2*(n_procs-1)))
+      bytes_allocated = bytes_allocated+4*(n_procs-1)*SIZEOF_INTEGER
 #endif
       allocate(self%temp_Rloc(1:lm_max,nRstart:nRstop,1:self%count))
+      bytes_allocated = bytes_allocated+&
+                        lm_max*(nRstop-nRstart+1)*self%count*SIZEOF_DEF_COMPLEX
 
    end subroutine create_lm2r_type
 !-------------------------------------------------------------------------------

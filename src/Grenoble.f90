@@ -5,6 +5,7 @@ module Grenoble
 
    use truncation, only: n_r_maxMag
    use precision_mod
+   use mem_alloc, only: bytes_allocated
 
    implicit none
 
@@ -28,6 +29,7 @@ contains
       allocate( b0(n_r_maxMag) )
       allocate( db0(n_r_maxMag) )
       allocate( ddb0(n_r_maxMag) )
+      bytes_allocated = bytes_allocated + 3*n_r_maxMag*SIZEOF_DEF_REAL
 
    end subroutine initialize_Grenoble
 

@@ -7,6 +7,7 @@ module nonlinear_lm_mod
 
    use, intrinsic :: iso_c_binding
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
                      l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS
@@ -57,7 +58,6 @@ contains
 
       class(nonlinear_lm_t) :: this
       integer, intent(in) :: lmP_max
-      !integer :: size_in_bytes
 
       allocate( this%AdvrLM(lmP_max) )   
       allocate( this%AdvtLM(lmP_max) )   
@@ -73,6 +73,7 @@ contains
       allocate( this%VSpLM(lmP_max) )    
       allocate( this%ViscHeatLM(lmP_max) )
       allocate( this%OhmLossLM(lmP_max) )
+      bytes_allocated = bytes_allocated + 14*lmP_max*SIZEOF_DEF_COMPLEX
 
       !-- RMS calculations
       if ( l_RMS ) then
@@ -84,19 +85,8 @@ contains
          allocate( this%CFp2LM(lmP_max) )
          allocate( this%p1LM(lmP_max) )
          allocate( this%p2LM(lmP_max) )
+         bytes_allocated = bytes_allocated + 8*lmP_max*SIZEOF_DEF_COMPLEX
       end if
-      !size_in_bytes=14*lmP_max*SIZEOF_DEF_COMPLEX
-      !write(*,"(A,I15,A)") "nonlinear_lm: allocated ",size_in_bytes,"B."
-      !call this%set_zero()
-
-      !write(*,"(A,I5,A,I10,A)") "cache info for first element,  &
-      !     &       size is lmP_max=",lmP_max," = ",lmP_max*16,"B"
-      !call print_cache_info_dcmplx("this%AdvrLM"//C_NULL_CHAR,this%AdvrLM(1))
-      !call print_cache_info_dcmplx("this%AdvtLM"//C_NULL_CHAR,this%AdvtLM(1))
-      !call print_cache_info_dcmplx("this%AdvpLM"//C_NULL_CHAR,this%AdvpLM(1))
-
-      !call print_address("this%VStLM"//C_NULL_CHAR,this%VStLM(1))
-      !call print_address("this%VSpLM"//C_NULL_CHAR,this%VSpLM(1))
 
    end subroutine initialize
 !----------------------------------------------------------------------------

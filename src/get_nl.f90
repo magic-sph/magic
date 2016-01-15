@@ -14,6 +14,7 @@ module grid_space_arrays_mod
 
    use general_arrays_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
                                lambda, or4, or1
@@ -70,7 +71,6 @@ contains
    subroutine initialize(this)
 
       class(grid_space_arrays_t) :: this
-      integer :: size_in_bytes
 
       allocate( this%Advr(nrp,nfs) )
       allocate( this%Advt(nrp,nfs) )
@@ -86,7 +86,7 @@ contains
       allocate( this%VSp(nrp,nfs) )
       allocate( this%ViscHeat(nrp,nfs) )
       allocate( this%OhmLoss(nrp,nfs) )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated + 14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nrp,nfs),this%vtc(nrp,nfs),this%vpc(nrp,nfs) )
@@ -101,7 +101,7 @@ contains
       allocate( this%sc(nrp,nfs),this%drSc(nrp,nfs) )
       allocate( this%pc(nrp,nfs) )
       allocate( this%dsdtc(nrp,nfs),this%dsdpc(nrp,nfs) )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated + 22*nrp*nfs*SIZEOF_DEF_REAL
 
       !-- RMS Calculations
       if ( l_RMS ) then
@@ -113,16 +113,15 @@ contains
          allocate ( this%CFp2(nrp,nfs) )
          allocate ( this%p1(nrp,nfs) )
          allocate ( this%p2(nrp,nfs) )
-         size_in_bytes=size_in_bytes + 8*nrp*nfs*SIZEOF_DEF_REAL
+         bytes_allocated=bytes_allocated + 8*nrp*nfs*SIZEOF_DEF_REAL
       end if
-      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",size_in_bytes,"B."
+      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
 
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 
       class(grid_space_arrays_t) :: this
-      integer :: size_in_bytes
 
       deallocate( this%Advr )
       deallocate( this%Advt )
@@ -138,7 +137,6 @@ contains
       deallocate( this%VSp )
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
@@ -151,7 +149,6 @@ contains
       deallocate( this%sc,this%drSc )
       deallocate( this%pc )
       deallocate( this%dsdtc, this%dsdpc )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
 
       !-- RMS Calculations
       if ( l_RMS ) then
@@ -164,8 +161,6 @@ contains
          deallocate ( this%p1 )
          deallocate ( this%p2 )
       end if
-      size_in_bytes=size_in_bytes + 8*nrp*nfs*SIZEOF_DEF_REAL
-      write(*,"(A,I15,A)") "grid_space_arrays: deallocated ",size_in_bytes,"B."
 
    end subroutine finalize
 !----------------------------------------------------------------------------

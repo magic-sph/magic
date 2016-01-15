@@ -2,6 +2,7 @@ module outTO_mod
 
    use parallel_mod, only: rank
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
                          n_theta_max, n_phi_max, minc, lStressMem,   &
                          lm_max
@@ -57,7 +58,10 @@ contains
 
       allocate( PlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )
       allocate( dPlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + &
+                        2*lmMaxS*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( vpM(nZmaxA/2,nSmaxA) )
       allocate( LFM(nZmaxA/2,nSmaxA) )
       allocate( dVpM(nZmaxA/2,nSmaxA) )
@@ -66,10 +70,14 @@ contains
       allocate( CorM(nZmaxA/2,nSmaxA) )
       allocate( StrM(nZmaxA/2,nSmaxA) )
       allocate( CLM(nZmaxA/2,nSmaxA) )
+      bytes_allocated = bytes_allocated + 8*(nZmaxA/2)*nSmaxA*SIZEOF_OUT_REAL
       allocate( chebt_Z(nSmaxA) )
       allocate( zZ(nZmaxA,nSmaxA) )
+      bytes_allocated = bytes_allocated + nZmaxA*nSmaxA*SIZEOF_DEF_REAL
       allocate( rZ(nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( nZmaxS(nSmaxA) )
+      bytes_allocated = bytes_allocated+nSmaxA*SIZEOF_INTEGER
 
    end subroutine initialize_outTO_mod
 !----------------------------------------------------------------------------

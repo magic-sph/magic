@@ -3,6 +3,7 @@ module updateWP_mod
    
    use omp_lib
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &
@@ -44,11 +45,14 @@ contains
 
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
+      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
       allocate( Buo(llm:ulm) )
-
       allocate( dtV(llm:ulm) )
+      bytes_allocated = bytes_allocated+4*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -56,6 +60,9 @@ contains
 #endif
 
       allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
+                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+
 
    end subroutine initialize_updateWP
 !-----------------------------------------------------------------------------
@@ -484,7 +491,7 @@ contains
 
 #if 0
       if (first_run) then
-         open(NEWUNIT=filehandle,file="cheb.dat")
+         open(newunit=filehandle,file="cheb.dat")
          do nR=1,n_r_max
             do nCheb=1,n_r_max
                write(filehandle,"(ES20.12)",advance='no') cheb(nCheb,nR)
@@ -492,7 +499,7 @@ contains
             write(filehandle,"(A)") ""
          end do
          close(filehandle)
-         open(NEWUNIT=filehandle,file="dcheb.dat")
+         open(newunit=filehandle,file="dcheb.dat")
          do nR=1,n_r_max
             do nCheb=1,n_r_max
                write(filehandle,"(ES20.12)",advance='no') dcheb(nCheb,nR)
@@ -500,7 +507,7 @@ contains
             write(filehandle,"(A)") ""
          end do
          close(filehandle)
-         open(NEWUNIT=filehandle,file="d2cheb.dat")
+         open(newunit=filehandle,file="d2cheb.dat")
          do nR=1,n_r_max
             do nCheb=1,n_r_max
                write(filehandle,"(ES20.12)",advance='no') d2cheb(nCheb,nR)
@@ -508,7 +515,7 @@ contains
             write(filehandle,"(A)") ""
          end do
          close(filehandle)
-         open(NEWUNIT=filehandle,file="d3cheb.dat")
+         open(newunit=filehandle,file="d3cheb.dat")
          do nR=1,n_r_max
             do nCheb=1,n_r_max
                write(filehandle,"(ES20.12)",advance='no') d3cheb(nCheb,nR)
@@ -634,7 +641,7 @@ contains
 #ifdef MATRIX_CHECK
       ! copy the wpMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "wpMat_",l,"_",counter,".dat"
-      open(NEWUNIT=filehandle,file=trim(filename))
+      open(newunit=filehandle,file=trim(filename))
       counter= counter+1
       
       do i=1,2*n_r_max

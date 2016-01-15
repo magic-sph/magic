@@ -5,6 +5,7 @@ module fields_average_mod
 
    use truncation
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use radial_data, only: n_r_cmb
    use radial_functions, only: chebt_ic, chebt_oc, drx, chebt_ic_even,   &
                                r, dr_fac_ic
@@ -65,8 +66,10 @@ contains
       allocate( p_ave(llm:ulm,n_r_max) )
       allocate( b_ave(llm:ulm,n_r_max) )
       allocate( aj_ave(llm:ulm,n_r_max) )
+      bytes_allocated = bytes_allocated+6*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       allocate( b_ic_ave(llm:ulm,n_r_ic_max) )
       allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
+      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
 
       if ( rank == 0 ) then
          allocate( db_ave_global(1:lm_max) )
@@ -76,6 +79,7 @@ contains
          allocate( z_ave_global(1:lm_max) )
          allocate( s_ave_global(1:lm_max) )
          allocate( p_ave_global(1:lm_max) )
+         bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
 #ifdef WITH_DEBUG
       else
          allocate( db_ave_global(1) )

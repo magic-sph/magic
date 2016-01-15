@@ -2,6 +2,7 @@ module init_fields
 
    use truncation
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
                               phi, cosTheta
@@ -82,8 +83,10 @@ contains
    subroutine initialize_init_fields
 
       n_start_file=8
+      
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
+      bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_init_fields
 !-----------------------------------------------------------------------

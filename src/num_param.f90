@@ -3,6 +3,7 @@ module num_param
    !  Module containing numerical and control parameters
    !
 
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max
    use precision_mod
 
@@ -62,6 +63,7 @@ contains
    subroutine initialize_num_param
 
       allocate( delxr2(n_r_max),delxh2(n_r_max) )
+      bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_num_param
 !-------------------------------------------------------------------------------

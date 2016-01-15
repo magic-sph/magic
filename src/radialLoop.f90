@@ -2,6 +2,7 @@
 module radialLoop
 
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
@@ -51,6 +52,9 @@ contains
    subroutine initialize_radialLoop
 
       character(len=100) :: this_type
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
 
 #ifdef WITH_SHTNS
       allocate( rIterThetaBlocking_shtns_t :: this_rIteration )
@@ -68,8 +72,12 @@ contains
       class is (rIterThetaBlocking_t)
          call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
       class default
-         print*,"this_rIteration has no matching type in m_radialLoop.F90"
+         print*,"this_rIteration has no matching type in radialLoop.f90"
       end select
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+
+      call memWrite('radialLoop.f90', local_bytes_used)
 
    end subroutine initialize_radialLoop
 !----------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 module cosine_transform_even
 
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max
    use fft_fac_mod, only: fft_fac_complex
    use constants, only: half, one, two, pi, sin36, cos36, sin60, sin72, cos72
@@ -43,6 +44,7 @@ contains
 
       allocate( this%d_costf_init(nd) )
       allocate( this%i_costf_init(ni) )
+      bytes_allocated = bytes_allocated+nd*SIZEOF_DEF_REAL+ni*SIZEOF_INTEGER
 
       !-- Checking number of datapoints:
       if ( n <= 3 ) then

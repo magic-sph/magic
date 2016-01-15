@@ -16,6 +16,7 @@ module radial_functions
    use cosine_transform_odd
    use cosine_transform_even
    use radial_der, only: get_dr
+   use mem_alloc, only: bytes_allocated
  
    implicit none
 
@@ -129,12 +130,16 @@ contains
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
       allocate( rgrav(n_r_max),agrav(n_r_max) )
+      bytes_allocated = bytes_allocated + &
+                        (20*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
       allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
       allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
       allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
+      bytes_allocated = bytes_allocated + &
+                        (4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
       call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
 
@@ -142,6 +147,8 @@ contains
       allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( cheb_int_ic(n_r_ic_max) )
+      bytes_allocated = bytes_allocated + &
+                        (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
       call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
@@ -150,6 +157,7 @@ contains
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
+      bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------

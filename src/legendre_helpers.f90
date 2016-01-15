@@ -1,6 +1,7 @@
 module leg_helper_mod
 
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, n_m_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
@@ -56,16 +57,21 @@ contains
       allocate( this%vhC(lm_max) )
       allocate( this%dvhdrG(lm_max) )
       allocate( this%dvhdrC(lm_max) )
+      bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
       allocate( this%bhG(lm_maxMag) )
       allocate( this%bhC(lm_maxMag) )
       allocate( this%cbhG(lm_maxMag) )
       allocate( this%cbhC(lm_maxMag) )
+      bytes_allocated = bytes_allocated+4*lm_maxMag*SIZEOF_DEF_COMPLEX
       !----- R-distributed versions of scalar fields (see c_fields.f):
       allocate( this%sR(lm_max),this%dsR(lm_max) )
       allocate( this%preR(lm_max),this%dpR(lm_max) )
+      bytes_allocated = bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
+      bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
 
       allocate( this%bCMB(lm_maxMag) )
+      bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
 !------------------------------------------------------------------------------

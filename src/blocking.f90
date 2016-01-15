@@ -5,6 +5,7 @@ module blocking
    !
 
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
                            rank_with_l1m0
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
@@ -114,6 +115,7 @@ contains
       real(cp) :: load
       integer :: iLoad
       integer :: n
+      integer(lip) :: local_bytes_used
       integer :: LMB_with_l1m0,l1m0,irank
 
       logical,PARAMETER :: DEBUG_OUTPUT=.false.
@@ -122,6 +124,7 @@ contains
       character(len=255) :: message
 
 
+      local_bytes_used = bytes_allocated
       call allocate_mappings(st_map,l_max,lm_max,lmP_max)
       call allocate_mappings(lo_map,l_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
@@ -155,6 +158,7 @@ contains
          end if
       end if
       allocate( lmStartB(nLMBs),lmStopB(nLMBs) )
+      bytes_allocated = bytes_allocated+2*nLMBS*SIZEOF_INTEGER
 
       !--- Get radial blocking
       if ( mod(n_r_max-1,n_procs) /= 0 ) then
@@ -319,6 +323,9 @@ contains
 
          if ( l_save_out ) close(nLF)
       end if
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+      call memWrite('blocking.f90', local_bytes_used)
 
    end subroutine initialize_blocking
 !------------------------------------------------------------------------

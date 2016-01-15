@@ -2,6 +2,7 @@ module kinetic_energy
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, l_max
    use radial_functions, only: r, or1, drx, chebt_oc, &
                                or2, r_cmb, r_icb, orho1, orho2, sigma
@@ -34,6 +35,7 @@ contains
  
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
+      bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
      
    end subroutine initialize_kinetic_energy
 !-----------------------------------------------------------------------------

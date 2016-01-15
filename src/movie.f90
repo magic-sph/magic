@@ -15,6 +15,7 @@ module movie_data
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
    use useful, only: logWrite
    use constants, only: pi, one
+   use mem_alloc, only: bytes_allocated
     
    implicit none
    
@@ -79,6 +80,7 @@ contains
          n_MD=maxval(n_movie_field_stop)
          n_frame_work=max(n_MD,1)
          allocate( frames(n_frame_work) )
+         bytes_allocated = bytes_allocated+n_frame_work*SIZEOF_DEF_REAL
 
          if ( rank == 0 ) then
             do n=1,n_movies_max

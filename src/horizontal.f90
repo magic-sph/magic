@@ -15,6 +15,7 @@ module horizontal_data
    use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
+   use mem_alloc, only: bytes_allocated
  
    implicit none
 
@@ -78,9 +79,12 @@ contains
       allocate( O_sin_theta_E2(n_theta_max) )
       allocate( sinTheta(n_theta_max) )
       allocate( cosTheta(n_theta_max) )
+      bytes_allocated = bytes_allocated+n_theta_max*SIZEOF_INTEGER+&
+                        8*n_theta_max*SIZEOF_DEF_REAL
 
       !-- Phi (longitude)
       allocate( phi(n_phi_max) )
+      bytes_allocated = bytes_allocated+n_phi_max*SIZEOF_DEF_REAL
 
       !-- Legendres:
       allocate( Plm(lm_max,n_theta_max/2) )
@@ -88,6 +92,8 @@ contains
       allocate( dPlm(lm_max,n_theta_max/2) )
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
+      bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
+                        lmP_max*n_theta_max/2+n_theta_max+l_max+1)*SIZEOF_DEF_REAL
 
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max) )
@@ -101,11 +107,13 @@ contains
       allocate( D_m(lm_max),D_l(lm_max),D_lP1(lm_max) )
       allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
+      bytes_allocated = bytes_allocated+(18*lm_max+n_m_max)*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
       allocate( lStartP(n_m_max),lStopP(n_m_max) )
       allocate( lmOdd(n_m_max),lmOddP(n_m_max) )
+      bytes_allocated = bytes_allocated+6*n_m_max*SIZEOF_INTEGER
 
    end subroutine initialize_horizontal_data
 !------------------------------------------------------------------------------

@@ -3,6 +3,7 @@ module matrices
    !  This module contains matricies for internal time step
    !
 
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
                          n_r_tot
    use precision_mod
@@ -72,6 +73,9 @@ contains
       allocate( wpMat(2*n_r_max,2*n_r_max,l_max) )
       allocate( bMat(n_r_totMag,n_r_totMag,l_maxMag) )
       allocate( jMat(n_r_totMag,n_r_totMag,l_maxMag) )
+      bytes_allocated = bytes_allocated+(3*n_r_max*n_r_max+ &
+                        6*n_r_max*n_r_max*l_max+            &
+                        2*n_r_totMag*n_r_totMag*l_maxMag)*SIZEOF_DEF_REAL
 
       !-- respective pivoting information:
       allocate( p0Pivot(n_r_max) )
@@ -82,23 +86,31 @@ contains
       allocate( wpPivot(2*n_r_max,l_max) )
       allocate( bPivot(n_r_totMag,l_maxMag) )
       allocate( jPivot(n_r_totMag,l_maxMag) )
+      bytes_allocated = bytes_allocated+(3*n_r_max+4*n_r_max*l_max+ &
+                        2*n_r_totMag*l_maxMag)*SIZEOF_INTEGER
 
       allocate(wpMat_fac(2*n_r_max,2,l_max))
+      bytes_allocated = bytes_allocated+4*n_r_max*l_max*SIZEOF_DEF_REAL
 #ifdef WITH_PRECOND_Z10
       allocate(z10Mat_fac(n_r_max))
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_Z
       allocate(zMat_fac(n_r_max,l_max))
+      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S
       allocate(sMat_fac(n_r_max,l_max))
+      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(s0Mat_fac(n_r_max))
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 #endif
 #ifdef WITH_PRECOND_BJ
       allocate(bMat_fac(n_r_totMag,l_maxMag))
       allocate(jMat_fac(n_r_totMag,l_maxMag))
+      bytes_allocated = bytes_allocated+2*n_r_totMag*l_maxMag*SIZEOF_DEF_REAL
 #endif
 
       !--- Logicals that inform whether the respective matrix
@@ -107,6 +119,7 @@ contains
       allocate( lZmat(0:l_max) )
       allocate( lWPmat(0:l_max) )
       allocate( lBmat(0:l_max) )
+      bytes_allocated = bytes_allocated+4*(l_max+1)*SIZEOF_INTEGER
 
    end subroutine initialize_matrices
 !------------------------------------------------------------------------------

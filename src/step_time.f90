@@ -10,6 +10,7 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
+   use mem_alloc, only: bytes_allocated, memWrite
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
                          lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &
@@ -86,17 +87,24 @@ contains
 
       !-- Local variables
       integer :: nR,lm
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
 
       allocate(dwdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dzdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dsdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dVSrLM_Rloc(lm_max,nRstart:nRstop))
+      bytes_allocated = bytes_allocated+ &
+                        5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
       ! the magnetic part
       allocate(dbdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
       allocate(djdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
       allocate(dVxBhLM_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+      bytes_allocated = bytes_allocated+ &
+                        3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 
       ! first touch
       do nR=nRstart,nRstop
@@ -133,14 +141,21 @@ contains
       allocate(dpdt_LMloc(llm:ulm,n_r_max))
       allocate(dsdt_LMloc(llm:ulm,n_r_max))
       allocate(dVSrLM_LMloc(llm:ulm,n_r_max))
+      bytes_allocated = bytes_allocated+ 5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
-      allocate(dbdt_LMloc(llmMag:ulmmag,n_r_maxMag))
-      allocate(djdt_LMloc(llmMag:ulmmag,n_r_maxMag))
-      allocate(dVxBhLM_LMloc(llmMag:ulmmag,n_r_maxMag))
+      allocate(dbdt_LMloc(llmMag:ulmMag,n_r_maxMag))
+      allocate(djdt_LMloc(llmMag:ulmMag,n_r_maxMag))
+      allocate(dVxBhLM_LMloc(llmMag:ulmMag,n_r_maxMag))
+      bytes_allocated = bytes_allocated+ &
+                        3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
       ! Only when l_dt_cmb_field is requested
       ! There might be a way to allocate only when needed
       allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
+      bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+      call memWrite('step_time.f90', local_bytes_used)
 
    end subroutine initialize_step_time
 !-------------------------------------------------------------------------------

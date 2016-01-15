@@ -7,6 +7,7 @@ module rIterThetaBlocking_mod
 
    use rIteration_mod, only: rIteration_t
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
         & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs
@@ -62,10 +63,6 @@ contains
 
       class(rIterThetaBlocking_t) :: this
 
-      !----- Nonlinear terms in lm-space:
-      !call this%nl_lm%initialize(lmP_max)
-
-
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
@@ -74,6 +71,9 @@ contains
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+ &
+                       3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*& 
+                       SIZEOF_DEF_REAL
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------

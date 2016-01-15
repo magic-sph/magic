@@ -5,6 +5,7 @@ module out_coeff
    !
   
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use logic, only: l_r_field, l_cmb_field, l_save_out, l_average
    use parallel_mod, only: rank
    use blocking, only: lm2
@@ -26,6 +27,7 @@ contains
 
       if ( l_r_field .or. l_cmb_field .or. l_average ) then
          allocate ( work(lm_max) )
+         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
       end if
 
    end subroutine initialize_coeffs

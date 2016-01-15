@@ -7,6 +7,7 @@ module updateB_mod
 
    use omp_lib
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
                          n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
                          n_r_totMag, lm_max
@@ -57,9 +58,13 @@ contains
 
       allocate( workA(llmMag:ulmMag,n_r_max) )
       allocate( workB(llmMag:ulmMag,n_r_max) )
+      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* & 
+                        SIZEOF_DEF_COMPLEX
 
       allocate( dtT(llmMag:ulmMag) )
       allocate( dtP(llmMag:ulmMag) )
+      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -68,6 +73,9 @@ contains
 
       allocate(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       allocate(rhs2(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
+      bytes_allocated=bytes_allocated+4*n_r_max*maxThreads* &
+                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+
 
    end subroutine initialize_updateB
 !-----------------------------------------------------------------------------
@@ -1074,7 +1082,7 @@ contains
 #ifdef MATRIX_CHECK
       ! copy the bMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "bMat_",l,"_",counter,".dat"
-      open(NEWUNIT=filehandle,file=trim(filename))
+      open(newunit=filehandle,file=trim(filename))
       counter= counter+1
       
       do i=1,n_r_tot
@@ -1103,7 +1111,7 @@ contains
       ! The same computation for jMat.
       ! copy the jMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "jMat_",l,"_",counter,".dat"
-      open(NEWUNIT=filehandle,file=trim(filename))
+      open(newunit=filehandle,file=trim(filename))
       counter= counter+1
       
       do i=1,n_r_tot

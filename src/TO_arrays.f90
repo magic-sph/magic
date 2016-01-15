@@ -1,7 +1,8 @@
 module TO_arrays_mod
 
    use truncation, only: l_max
-   use precision_mod, only: cp
+   use mem_alloc, only: bytes_allocated
+   use precision_mod
 
    implicit none
 
@@ -26,6 +27,7 @@ contains
 
       allocate( this%dzRstrLM(l_max+2),this%dzAstrLM(l_max+2) )
       allocate( this%dzCorLM(l_max+2),this%dzLFLM(l_max+2) )
+      bytes_allocated = bytes_allocated+4*(l_max+2)*SIZEOF_DEF_REAL
 
    end subroutine initialize
 !----------------------------------------------------------------------------
