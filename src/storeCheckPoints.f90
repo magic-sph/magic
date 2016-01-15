@@ -138,9 +138,6 @@ contains
       integer(HID_T) :: groupParams_id,groupFields_id   ! Groups identifiers
       integer(HID_T) :: groupDtFields_id,groupTorque_id 
 
-      !--- HDF5 Attributes
-      integer(HID_T) :: aspace_id
-
       !--- HDF5 Type
       integer(HID_T) :: type_id
       integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
@@ -156,41 +153,37 @@ contains
       call h5gcreate_f(file_id, '/Params', groupParams_id, error)
 
       ! Create/write/close attributes
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Time',time*tScale)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'dt',dt)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Ra',ra)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Pr',pr)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Ek',ek)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Radratio',radratio)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Prmag',prmag)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'sigma_ratio',sigma_ratio)
-      call h5sclose_f(aspace_id, error)
+      call writeHdf5_attribute(groupParams_id,'Time',time*tScale)
+      call writeHdf5_attribute(groupParams_id,'dt',dt)
+      call writeHdf5_attribute(groupParams_id,'Ra',ra)
+      call writeHdf5_attribute(groupParams_id,'Pr',pr)
+      call writeHdf5_attribute(groupParams_id,'Ek',ek)
+      call writeHdf5_attribute(groupParams_id,'Radratio',radratio)
+      call writeHdf5_attribute(groupParams_id,'Prmag',prmag)
+      call writeHdf5_attribute(groupParams_id,'sigma_ratio',sigma_ratio)
 
       ! Close group
       call h5gclose_f(groupParams_id, error)
 
       ! Create a group for torque and rotation rates
       call h5gcreate_f(file_id, '/Torque', groupTorque_id, error)
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'lorentz_torque_ic',  &
+      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ic',  &
                               lorentz_torque_icLast)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'lorentz_torque_ma',  &
+      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ma',  &
                               lorentz_torque_maLast)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ic1',omega_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ic1',omegaOsz_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ic1',tOmega_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ic2',omega_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ic2',omegaOsz_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ic2',tOmega_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ma1',omega_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ma1',omegaOsz_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ma1',tOmega_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ma2',omega_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ma2',omegaOsz_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ma2',tOmega_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'dtNew',dtNew)
-      call h5sclose_f(aspace_id, error)
+      call writeHdf5_attribute(groupTorque_id,'omega_ic1',omega_ic1)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic1',omegaOsz_ic1)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ic1',tOmega_ic1)
+      call writeHdf5_attribute(groupTorque_id,'omega_ic2',omega_ic2)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic2',omegaOsz_ic2)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ic2',tOmega_ic2)
+      call writeHdf5_attribute(groupTorque_id,'omega_ma1',omega_ma1)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma1',omegaOsz_ma1)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ma1',tOmega_ma1)
+      call writeHdf5_attribute(groupTorque_id,'omega_ma2',omega_ma2)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma2',omegaOsz_ma2)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ma2',tOmega_ma2)
+      call writeHdf5_attribute(groupTorque_id,'dtNew',dtNew)
 
       ! Close group
       call h5gclose_f(groupTorque_id, error)
@@ -202,14 +195,12 @@ contains
       call h5gcreate_f(file_id, '/dtFields', groupDtFields_id, error)
 
       ! Create/write/close attributes
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_r_max',n_r_max)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_theta_max',n_theta_max)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_phi_tot',n_phi_tot)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'minc',minc)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'nalias',nalias)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_r_ic_max',n_r_ic_max)
-      call h5sclose_f(aspace_id, error)
+      call writeHdf5_attribute(groupFields_id,'n_r_max',n_r_max)
+      call writeHdf5_attribute(groupFields_id,'n_theta_max',n_theta_max)
+      call writeHdf5_attribute(groupFields_id,'n_phi_tot',n_phi_tot)
+      call writeHdf5_attribute(groupFields_id,'minc',minc)
+      call writeHdf5_attribute(groupFields_id,'nalias',nalias)
+      call writeHdf5_attribute(groupFields_id,'n_r_ic_max',n_r_ic_max)
 
       ! Create a HF compound type  to store Fortran complex
       call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
@@ -369,9 +360,6 @@ contains
       integer(HID_T) :: groupParams_id,groupFields_id   ! Groups identifiers
       integer(HID_T) :: groupDtFields_id,groupTorque_id 
 
-      !--- HDF5 Attributes
-      integer(HID_T) :: aspace_id
-
       !--- HDF5 Type
       integer(HID_T) :: type_id
       integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
@@ -413,42 +401,38 @@ contains
       call h5gcreate_f(file_id, '/Params', groupParams_id, error)
  
       ! Create/write/close attributes
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Time',time*tScale)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'dt',dt)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Ra',ra)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Pr',pr)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Ek',ek)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Radratio',radratio)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'Prmag',prmag)
-      call writeHdf5_attribute(groupParams_id,aspace_id,'sigma_ratio',sigma_ratio)
-      call h5sclose_f(aspace_id, error)
+      call writeHdf5_attribute(groupParams_id,'Time',time*tScale)
+      call writeHdf5_attribute(groupParams_id,'dt',dt)
+      call writeHdf5_attribute(groupParams_id,'Ra',ra)
+      call writeHdf5_attribute(groupParams_id,'Pr',pr)
+      call writeHdf5_attribute(groupParams_id,'Ek',ek)
+      call writeHdf5_attribute(groupParams_id,'Radratio',radratio)
+      call writeHdf5_attribute(groupParams_id,'Prmag',prmag)
+      call writeHdf5_attribute(groupParams_id,'sigma_ratio',sigma_ratio)
 
       ! Close group
       call h5gclose_f(groupParams_id, error)
 
       ! Create a group for torque and rotation rates
       call h5gcreate_f(file_id, '/Torque', groupTorque_id, error)
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'lorentz_torque_ic',  &
+      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ic',  &
                               lorentz_torque_icLast)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'lorentz_torque_ma',  &
+      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ma',  &
                               lorentz_torque_maLast)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ic1',omega_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ic1',omegaOsz_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ic1',tOmega_ic1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ic2',omega_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ic2',omegaOsz_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ic2',tOmega_ic2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ma1',omega_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ma1',omegaOsz_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ma1',tOmega_ma1)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omega_ma2',omega_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'omegaOsz_ma2',omegaOsz_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'tOmega_ma2',tOmega_ma2)
-      call writeHdf5_attribute(groupTorque_id,aspace_id,'dtNew',dtNew)
+      call writeHdf5_attribute(groupTorque_id,'omega_ic1',omega_ic1)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic1',omegaOsz_ic1)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ic1',tOmega_ic1)
+      call writeHdf5_attribute(groupTorque_id,'omega_ic2',omega_ic2)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic2',omegaOsz_ic2)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ic2',tOmega_ic2)
+      call writeHdf5_attribute(groupTorque_id,'omega_ma1',omega_ma1)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma1',omegaOsz_ma1)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ma1',tOmega_ma1)
+      call writeHdf5_attribute(groupTorque_id,'omega_ma2',omega_ma2)
+      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma2',omegaOsz_ma2)
+      call writeHdf5_attribute(groupTorque_id,'tOmega_ma2',tOmega_ma2)
+      call writeHdf5_attribute(groupTorque_id,'dtNew',dtNew)
 
-      call h5sclose_f(aspace_id, error)
 
       ! Close group
       call h5gclose_f(groupTorque_id, error)
@@ -460,14 +444,12 @@ contains
       call h5gcreate_f(file_id, '/dtFields', groupDtFields_id, error)
 
       ! Create/write/close attributes
-      call h5screate_f(H5S_SCALAR_F,aspace_id,error)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_r_max',n_r_max)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_theta_max',n_theta_max)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_phi_tot',n_phi_tot)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'minc',minc)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'nalias',nalias)
-      call writeHdf5_attribute(groupFields_id,aspace_id,'n_r_ic_max',n_r_ic_max)
-      call h5sclose_f(aspace_id, error)
+      call writeHdf5_attribute(groupFields_id,'n_r_max',n_r_max)
+      call writeHdf5_attribute(groupFields_id,'n_theta_max',n_theta_max)
+      call writeHdf5_attribute(groupFields_id,'n_phi_tot',n_phi_tot)
+      call writeHdf5_attribute(groupFields_id,'minc',minc)
+      call writeHdf5_attribute(groupFields_id,'nalias',nalias)
+      call writeHdf5_attribute(groupFields_id,'n_r_ic_max',n_r_ic_max)
 
       ! Create a HF compound type  to store Fortran complex
       call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
