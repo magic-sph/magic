@@ -928,7 +928,7 @@ contains
       !   20 <= nalias <= 30
       nalias        =20
       !----- Namelist contrl
-      mode          =0            ! self consistent dynamo !
+      mode          =0            ! self-consistent dynamo !
       tag           ="default"
       n_time_steps  =100
       n_tScale      =0
@@ -1198,11 +1198,11 @@ contains
       l_rMagSpec    =.false.
       l_DTrMagSpec  =.false.
 
-      !----- TO output, output times same as for log outout:
+      !----- TO output, output times same as for log output:
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
       l_TOmovie     =.false. ! TO movies 
-      sDens         =one    ! relative s-grid point density 
-      zDens         =one    ! relative z-grid point dendity 
+      sDens         =one     ! relative s-grid point density 
+      zDens         =one     ! relative z-grid point dendity 
 
       !----- Potential vortivity:
       l_PV          =.false.
@@ -1218,8 +1218,8 @@ contains
       l_PressGraph  =.true.  ! store pressure in graphic files
       l_drift       =.false. ! files for calculating drift rates 
       l_iner        =.false. ! files for calculating inertial modes
-      l_RMS         =.false. ! RMS force ballance and dynamo term 
-                             ! ballance in dtVrms.TAG and dtBrms.TAG
+      l_RMS         =.false. ! RMS force balance and dynamo term 
+                             ! balance in dtVrms.TAG and dtBrms.TAG
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
       rCut          =0.0_cp  ! Thickness of layer to be left out at both
@@ -1230,8 +1230,8 @@ contains
 
       !----- Mantle name list:
       conductance_ma=0.0_cp    ! insulation mantle is default
-      nRotMa        =0       ! non rotating mantle is default
-      rho_ratio_ma  =one    ! same density as outer core
+      nRotMa        =0         ! non rotating mantle is default
+      rho_ratio_ma  =one       ! same density as outer core
       omega_ma1     =0.0_cp    ! prescribed rotation rate
       omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
       tShift_ma1    =0.0_cp    ! time shift
@@ -1241,8 +1241,8 @@ contains
 
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default 
-      nRotIc        =0       ! non rotating inner core is default
-      rho_ratio_ic  =one    ! same density as outer core
+      nRotIc        =0         ! non rotating inner core is default
+      rho_ratio_ic  =one       ! same density as outer core
       omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
       omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
       tShift_ic1    =0.0_cp    ! time shift
