@@ -24,9 +24,9 @@ class Movie:
     >>> print(m.data) # access to the data
 
     >>> # Read three movie files (no display)
-    >>> m1 = Movie(file='AV_mov.testa', iplot=True)
-    >>> m2 = Movie(file='AV_mov.testb', iplot=True)
-    >>> m3 = Movie(file='AV_mov.testc', iplot=True)
+    >>> m1 = Movie(file='AV_mov.testa', iplot=False)
+    >>> m2 = Movie(file='AV_mov.testb', iplot=False)
+    >>> m3 = Movie(file='AV_mov.testc', iplot=False)
     >>> # Stack them together
     >>> m = m1+m2+m3
     >>> # Display
