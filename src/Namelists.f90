@@ -12,6 +12,7 @@ module Namelists
    use torsional_oscillations
    use init_fields
    use Grenoble
+   use rieutord
    use logic
    use output_data
    use parallel_mod
@@ -117,11 +118,13 @@ contains
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
-         & omega_ma2,omegaOsz_ma2,tShift_ma2
+         & omega_ma2,omegaOsz_ma2,tShift_ma2,             &
+         & amp_RiMa,omega_RiMa,m_RiMa
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
          & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
-         & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC
+         & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
+         & amp_RiIc,omega_RiIc,m_RiIc
 
 
       do n=1,4*n_impS_max
@@ -260,6 +263,9 @@ contains
       l_heat_nl=.true.
       l_SRIC   =.false.
       l_SRMA   =.false.
+      l_Ri     =.false.
+      l_RiIc   =.false.
+      l_RiMa   =.false.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -346,6 +352,18 @@ contains
       else if ( nRotMa == -1 ) then
          l_rot_ma=.true.
          l_SRMA  =.true.
+      end if
+
+      !-- Rieutord forcing at boundaries
+
+      if ( amp_RiIc /= 0.0_cp ) then
+         l_Ri   = .true.
+         l_RiIc = .true.
+      end if
+
+      if ( amp_RiMa /= 0.0_cp ) then
+         l_Ri   = .true.
+         l_RiMa = .true.
       end if
 
       if ( ek < 0.0_cp ) l_non_rot= .true. 
@@ -1238,7 +1256,10 @@ contains
       omega_ma2     =0.0_cp    ! second mantle rotation rate 
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
-
+      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiMa        =0         ! default forcing -> axisymmetric 
+      
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default 
       nRotIc        =0         ! non rotating inner core is default
@@ -1250,6 +1271,9 @@ contains
       omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
+      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiIc        =0         ! default forcing -> axisymmetric
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

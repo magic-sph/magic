@@ -144,7 +144,6 @@ endif
 # on hydra, if one compiles with the gnu compilers.
 #MPI_INCPATH=/usr/lib64/mpi/gcc/openmpi/include
 #MPI_INCPATH=/opt/ibmhpc/pecurrent/mpich2/gnu/include64
-MPI_INCPATH=$(shell mpif90 --showme:incdirs)
 
 PREPROC += -Dsngl=1 -Ddble=2
 ifeq ($(USE_MPI),yes)
@@ -505,7 +504,7 @@ updateZ.o             : truncation.o blocking.o phys_param.o\
                         logic.o init_fields.o mat.o RMS.o TO.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
-                        LMLoop_data.o communications.o mem_alloc.o
+                        LMLoop_data.o communications.o mem_alloc.o rieutord.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
                         num_param.o radial.o logic.o blocking.o\
                         output_data.o legendre_helpers.o $(FFT_OBJS)\
@@ -588,7 +587,8 @@ plms.o                : constants.o precision_mod.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
-			TO.o Grenoble.o radial.o Bext.o char_manip.o
+			TO.o Grenoble.o radial.o Bext.o char_manip.o rieutord.o
+rieutord.o            : precision_mod.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h

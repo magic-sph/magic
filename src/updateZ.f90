@@ -40,7 +40,8 @@ module updateZ_mod
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use cosine_transform_odd
- 
+   use rieutord
+    
    implicit none
  
    private
@@ -280,6 +281,7 @@ contains
                   else
                      rhs(n_r_max)=0.0_cp
                   end if
+                  
     
                   !----- This is the normal RHS for the other radial grid points:
                   do nR=2,n_r_max-1
@@ -324,8 +326,25 @@ contains
                else if ( l1 /= 0 ) then
                   !PERFON('upZ_ln0')
                   lmB=lmB+1
+                  
                   rhs1(1,lmB,threadid)      =0.0_cp
-                  rhs1(n_r_max,lmB,threadid)=0.0_cp
+                  rhs1(n_r_max,lmB,threadid)=0.0_cp                  
+                 
+                  if (l_Ri) then 
+                     if (l_RiIc) then
+                        if (l1 == m_RiIc .and. m1 == m_RiIc) then
+                           rhs1(n_r_max,lmB,threadid) = cmplx(amp_RiIc*cos(omega_RiIc*time),amp_RiIc*sin(omega_RiIc*time))
+                        end if
+                     end if
+                        
+                     if (l_RiMa) then
+                        if (l1 == m_RiMa .and. m1 == m_RiMa) then
+                           rhs1(1,lmB,threadid) = cmplx(amp_RiMa*cos(omega_RiMa*time),amp_RiMa*sin(omega_RiMa*time))
+                        end if
+                     end if
+                  end if
+                  
+
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)= O_dt*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))* &
                           & or2(nR)*z(lm1,nR) + w1*dzdt(lm1,nR) + w2*dzdtLast(lm1,nR)
