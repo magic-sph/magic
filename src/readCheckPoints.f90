@@ -1184,7 +1184,7 @@ contains
       logical, intent(in) :: lBc,l_IC
 
       !--- Output variables
-      complex(cp), intent(out) :: dataR(:)  ! old data 
+      complex(cp), intent(inout) :: dataR(:)  ! old data
 
       !-- Local variables
       integer :: nR, n_r_index_start
