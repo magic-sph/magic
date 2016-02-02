@@ -31,7 +31,7 @@ module preCalculations
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite
-   use Bext, only: l_curr, fac_loop
+   use special, only: l_curr, fac_loop
 
    implicit none
 

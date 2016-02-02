@@ -13,7 +13,7 @@ module start_fields
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
                                   ktopv, kbotv, LFfac, imagcon
    use num_param, only: dtMax, alpha
-   use Grenoble, only: lGrenoble
+   use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
                     l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &

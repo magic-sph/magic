@@ -49,18 +49,12 @@ Base modules
 .. f:automodule:: output_data
 
 
-``Bext.f90``
-------------
-
-.. f:automodule:: bext
-
-
 ``constants.f90``
 -----------------
 
 .. f:automodule:: constants
 
-``Grenoble.f90``
-----------------
+``special.f90``
+---------------
 
-.. f:automodule :: grenoble
+.. f:automodule :: special

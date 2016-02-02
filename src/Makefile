@@ -322,7 +322,7 @@ timing.o: timing.f90
 
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
-                        logic.o output_data.o movie.o Bext.o\
+                        logic.o output_data.o movie.o special.o\
                         integration.o useful.o LMLoop_data.o mem_alloc.o
 useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
@@ -430,14 +430,12 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o
-Bext.o                : precision_mod.o
 legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
                          constants.o legendre_helpers.o
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
-                        logic.o constants.o blocking.o Grenoble.o\
-                        logic.o blocking.o Grenoble.o\
-                        fields.o TO.o mem_alloc.o
+                        logic.o constants.o blocking.o special.o\
+                        logic.o blocking.o fields.o TO.o mem_alloc.o
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
@@ -504,14 +502,14 @@ updateZ.o             : truncation.o blocking.o phys_param.o\
                         logic.o init_fields.o mat.o RMS.o TO.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
-                        LMLoop_data.o communications.o mem_alloc.o rieutord.o
+                        LMLoop_data.o communications.o mem_alloc.o special.o
 out_graph_file.o      : truncation.o horizontal.o phys_param.o parallel.o\
                         num_param.o radial.o logic.o blocking.o\
                         output_data.o legendre_helpers.o $(FFT_OBJS)\
                         legendre_spec_to_grid.o
 startFields.o         : truncation.o phys_param.o num_param.o constants.o\
                         radial.o init_fields.o blocking.o logic.o\
-                        dt_fieldsLast.o Grenoble.o readCheckPoints.o\
+                        dt_fieldsLast.o special.o readCheckPoints.o\
                         fields.o radial_derivatives_even.o\
                         radial_derivatives.o useful.o communications.o
 legendre_grid_to_spec.o : truncation.o horizontal.o blocking.o 
@@ -523,7 +521,7 @@ out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
                         radial_derivatives_even.o $(FFT_OBJS) constants.o
 updateB.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o init_fields.o\
-                        logic.o radial.o Bext.o constants.o mat.o\
+                        logic.o radial.o special.o constants.o mat.o\
                         RMS.o $(LAPACK_OBJS) radial_derivatives.o\
                         cosine_transform_odd.o radial_derivatives_even.o\
                         RMS_helpers.o LMLoop_data.o mem_alloc.o
@@ -535,7 +533,7 @@ Egeos.o               : truncation.o phys_param.o num_param.o\
 preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
                         radial.o horizontal.o init_fields.o\
                         blocking.o logic.o output_data.o\
-                        useful.o integration.o parallel.o Bext.o
+                        useful.o integration.o parallel.o special.o
 RMS_helpers.o         : truncation.o blocking.o radial.o constants.o\
                         horizontal.o  useful.o integration.o\
                         LMmapping.o 
@@ -545,7 +543,7 @@ kinetic_energy.o      : truncation.o blocking.o num_param.o radial.o\
                         communications.o mem_alloc.o
 outRot.o              : truncation.o blocking.o num_param.o\
                         phys_param.o logic.o radial.o output_data.o\
-                        constants.o integration.o Grenoble.o horizontal.o
+                        constants.o integration.o special.o horizontal.o
 blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         output_data.o useful.o precision_mod.o constants.o\
                         mem_alloc.o
@@ -581,14 +579,13 @@ dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o\
                         mem_alloc.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o\
                         precision_mod.o	mem_alloc.o
-Grenoble.o            : precision_mod.o mem_alloc.o truncation.o
+special.o             : precision_mod.o mem_alloc.o truncation.o
 radial_data.o         : truncation.o parallel.o logic.o
 plms.o                : constants.o precision_mod.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
-			TO.o Grenoble.o radial.o Bext.o char_manip.o rieutord.o
-rieutord.o            : precision_mod.o
+			TO.o special.o radial.o char_manip.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h

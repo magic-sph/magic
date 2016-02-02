@@ -6,7 +6,7 @@ module leg_helper_mod
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
-   use Grenoble, only: lGrenoble, b0, db0, ddb0
+   use special, only: lGrenoble, b0, db0, ddb0
    use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
    use logic, only: l_conv, l_mag_kin, l_heat, l_mag, l_movie_oc,    &

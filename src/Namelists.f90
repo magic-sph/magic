@@ -11,12 +11,10 @@ module Namelists
    use num_param
    use torsional_oscillations
    use init_fields
-   use Grenoble
-   use rieutord
    use logic
    use output_data
    use parallel_mod
-   use Bext
+   use special
    use movie_data, only: movie,n_movies, n_movies_max
    use charmanip, only: length_to_blank,capitalize
    use blocking, only: cacheblock_size_in_B

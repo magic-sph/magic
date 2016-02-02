@@ -31,7 +31,7 @@ module updateB_mod
                        lBmat
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
-   use Bext
+   use special
    use algebra, only: cgeslML, sgefa
    use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize

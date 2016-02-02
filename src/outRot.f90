@@ -18,7 +18,7 @@ module outRot
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R
    use horizontal_data, only: cosTheta, gauss
-   use Grenoble, only: BIC, lGrenoble
+   use special, only: BIC, lGrenoble
 
    implicit none
 

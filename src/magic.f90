@@ -93,7 +93,7 @@ program magic
    use num_param
    use torsional_oscillations
    use init_fields
-   use Grenoble
+   use special
    use blocking
    use horizontal_data
    use logic

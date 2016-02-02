@@ -40,7 +40,7 @@ module updateZ_mod
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use cosine_transform_odd
-   use rieutord
+   use special
     
    implicit none
  

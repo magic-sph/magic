@@ -18,7 +18,7 @@ module magnetic_energy
                           e_mag_ic_file, n_e_mag_oc_file, e_mag_oc_file, &
                           tag
    use constants, only: pi, zero, one, two, half, four
-   use Bext, only: n_imp, rrMP
+   use special, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
