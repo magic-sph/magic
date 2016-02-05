@@ -54,13 +54,15 @@ class MagicTs(MagicSetup):
         :type tag: str
         """
         self.field = field
-        logFiles = scanDir('log.*')
+        pattern = os.path.join(datadir, 'log.*')
+        logFiles = scanDir(pattern)
 
         if tag is not None:
-            files = scanDir('%s.%s' % (self.field, tag))
+            pattern = os.path.join(datadir, '%s.%s' % (self.field, tag))
+            files = scanDir(pattern)
 
             # Either the log.tag directly exists and the setup is easy to obtain
-            if os.path.exists('log.%s' % tag):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % tag)
             # Or the tag is a bit more complicated and we need to find 
@@ -75,7 +77,7 @@ class MagicTs(MagicSetup):
 
             # Concatenate the files that correspond to the tag
             for k,file in enumerate(files):
-                filename = os.path.join(datadir, file)
+                filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
                 else:
@@ -93,8 +95,7 @@ class MagicTs(MagicSetup):
         # If no tag is specified, the most recent is plotted
         elif not all:
             if len(logFiles) != 0:
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml=logFiles[-1])
+                MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
@@ -114,11 +115,11 @@ class MagicTs(MagicSetup):
         # If no tag is specified but all=True, all the directory is plotted
         else:
             if len(logFiles) != 0:
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml=logFiles[-1])
-            files = scanDir('%s.*' % (self.field))
-            for k,file in enumerate(files):
-                filename = os.path.join(datadir, file)
+                MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
+            pattern = os.path.join(datadir, '%s.*' % (self.field))
+            files = scanDir(pattern)
+            for k, file in enumerate(files):
+                filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
                 else:

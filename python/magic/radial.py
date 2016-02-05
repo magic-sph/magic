@@ -75,8 +75,9 @@ class MagicRadial(MagicSetup):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True, 
                                         nml='log.%s' % tag)
             else:
-                files = scanDir('%s.*'% self.name)
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s.*'% self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
                 # Determine the setup
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]

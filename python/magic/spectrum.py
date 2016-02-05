@@ -70,27 +70,30 @@ class MagicSpectrum(MagicSetup):
                 file = '%s%i.%s' % (self.name, ispec, tag)
                 filename = os.path.join(datadir, file)
             else:
-                files = scanDir('%s*%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '%s*%s' % (self.name, self.tag))
+                files = scanDir(pattern)
                 if len(files) != 0:
-                    filename = os.path.join(datadir, files[-1])
+                    filename = files[-1]
                 else:
                     print('No such tag... try again')
                     return
 
-            if os.path.exists('log.%s' % tag):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % tag)
         else:
             if ispec is not None:
-                files = scanDir('%s%i*' % (self.name, ispec))
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                files = scanDir(pattern)
+                filename = files[-1]
             else:
-                files = scanDir('%s*' % self.name)
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s*' % self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists('log.%s' % ending):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
@@ -392,27 +395,30 @@ class MagicSpectrum2D(MagicSetup):
                 file = '%s%i.%s' % (self.name, ispec, tag)
                 filename = os.path.join(datadir, file)
             else:
-                files = scanDir('%s*%s' % (self.name, tag))
+                pattern = os.path.join(datadir, '%s*%s' % (self.name, self.tag))
+                files = scanDir(pattern)
                 if len(files) != 0:
-                    filename = os.path.join(datadir, files[-1])
+                    filename = files[-1]
                 else:
                     print('No such tag... try again')
                     return
 
-            if os.path.exists('log.%s' % tag):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % tag)
         else:
             if ispec is not None:
-                files = scanDir('%s%i*' % (self.name, ispec))
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s%i*' % (self.name, ispec))
+                files = scanDir(pattern)
+                filename = files[-1]
             else:
-                files = scanDir('%s*' % self.name)
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s*' % self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
             # Determine the setup
             mask = re.compile(r'.*\.(.*)')
             ending = mask.search(files[-1]).groups(0)[0]
-            if os.path.exists('log.%s' % ending):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
