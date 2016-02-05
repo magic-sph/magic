@@ -149,40 +149,40 @@ contains
       !         The only asymmetric function (sign=-1) stored here is cosn2 !
       do n_theta=1,n_theta_max/2  ! Loop over colat in NHS
 
-          colat=theta_ord(n_theta)
+         colat=theta_ord(n_theta)
 
-          !----- plmtheta calculates plms and their derivatives
-          !      up to degree and order l_max+1 and m_max at
-          !      the points cos(theta_ord(n_theta)):
-          call plm_theta(colat,l_max+1,m_max,minc, &
-                         plma,dtheta_plma,lmP_max,norm)
-          do lmP=1,lmP_max
-              l=lmP2l(lmP)
-              if ( l <= l_max ) then
-                  lm=lmP2lm(lmP)
-                  Plm(lm,n_theta) =plma(lmP)
-                  dPlm(lm,n_theta)=dtheta_plma(lmP)
-              end if
-              wPlm(lmP,n_theta)=two*pi*gauss(n_theta)*plma(lmP)
-          end do
+         !----- plmtheta calculates plms and their derivatives
+         !      up to degree and order l_max+1 and m_max at
+         !      the points cos(theta_ord(n_theta)):
+         call plm_theta(colat,l_max+1,m_max,minc, &
+                        plma,dtheta_plma,lmP_max,norm)
+         do lmP=1,lmP_max
+            l=lmP2l(lmP)
+            if ( l <= l_max ) then
+               lm=lmP2lm(lmP)
+               Plm(lm,n_theta) =plma(lmP)
+               dPlm(lm,n_theta)=dtheta_plma(lmP)
+            end if
+            wPlm(lmP,n_theta)=two*pi*gauss(n_theta)*plma(lmP)
+         end do
 
-          ! Get dP for all degrees and order m=0 at the equator only
-          ! Usefull to estimate the flow velocity at the equator
-          call plm_thetaAS(half*pi,l_max,Pl0Eq,dPl0Eq,l_max+1,norm)
+         ! Get dP for all degrees and order m=0 at the equator only
+         ! Usefull to estimate the flow velocity at the equator
+         call plm_thetaAS(half*pi,l_max,Pl0Eq,dPl0Eq,l_max+1,norm)
 
-          !-- More functions stored to obscure the code:
-          sn2(n_theta)               =sin(colat)**2
-          osn1(n_theta)              =one/sin(colat)
-          osn2(n_theta)              =osn1(n_theta)*osn1(n_theta)
-          cosn2(n_theta)             =cos(colat)*osn2(n_theta)
-          O_sin_theta(2*n_theta-1)   =one/sin(colat)
-          O_sin_theta(2*n_theta  )   =one/sin(colat)
-          O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
-          O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
-          sinTheta(2*n_theta-1)      =sin(colat)
-          sinTheta(2*n_theta  )      =sin(colat)
-          cosTheta(2*n_theta-1)      =cos(colat)
-          cosTheta(2*n_theta  )      =-cos(colat)
+         !-- More functions stored to obscure the code:
+         sn2(n_theta)               =sin(colat)**2
+         osn1(n_theta)              =one/sin(colat)
+         osn2(n_theta)              =osn1(n_theta)*osn1(n_theta)
+         cosn2(n_theta)             =cos(colat)*osn2(n_theta)
+         O_sin_theta(2*n_theta-1)   =one/sin(colat)
+         O_sin_theta(2*n_theta  )   =one/sin(colat)
+         O_sin_theta_E2(2*n_theta-1)=one/(sin(colat)*sin(colat))
+         O_sin_theta_E2(2*n_theta  )=one/(sin(colat)*sin(colat))
+         sinTheta(2*n_theta-1)      =sin(colat)
+         sinTheta(2*n_theta  )      =sin(colat)
+         cosTheta(2*n_theta-1)      =cos(colat)
+         cosTheta(2*n_theta  )      =-cos(colat)
                     
       end do
 
@@ -190,17 +190,17 @@ contains
       !-- Resort thetas in the alternating north/south order they
       !   are used for the calculations:
       do n_theta=1,n_theta_max/2
-          n_theta_cal2ord(2*n_theta-1)=n_theta
-          n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
-          theta(2*n_theta-1)          =theta_ord(n_theta)
-          theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
+         n_theta_cal2ord(2*n_theta-1)=n_theta
+         n_theta_cal2ord(2*n_theta)  =n_theta_max-n_theta+1
+         theta(2*n_theta-1)          =theta_ord(n_theta)
+         theta(2*n_theta)            =theta_ord(n_theta_max-n_theta+1)
       end do
          
 
       !----- Same for longitude output grid:
       fac=two*pi/real(n_phi_max*minc,cp)
       do n_phi=1,n_phi_max
-          phi(n_phi)=fac*real(n_phi-1,cp)
+         phi(n_phi)=fac*real(n_phi-1,cp)
       end do
 
 
@@ -210,95 +210,95 @@ contains
       !-- Build arrays depending on degree l and order m
       !   and hyperdiffusion factors:
       do m=0,m_max,minc  ! Build auxiliary array clm
-          do l=m,l_max+1
-              clm(l,m)=sqrt( real((l+m)*(l-m),cp) / real((2*l-1)*(2*l+1),cp) )
-          end do
+         do l=m,l_max+1
+            clm(l,m)=sqrt( real((l+m)*(l-m),cp) / real((2*l-1)*(2*l+1),cp) )
+         end do
       end do
 
       do lm=1,lm_max
-          l=lm2l(lm)
-          m=lm2m(lm)
+         l=lm2l(lm)
+         m=lm2m(lm)
 
-          !-- Help arrays:
-          D_l(lm)  =real(l,cp)
-          D_lP1(lm)=real(l+1,cp)
-          D_m(lm)  =real(m,cp)
+         !-- Help arrays:
+         D_l(lm)  =real(l,cp)
+         D_lP1(lm)=real(l+1,cp)
+         D_m(lm)  =real(m,cp)
 
-          !---- Operators for derivatives:
+         !---- Operators for derivatives:
 
-          !-- Phi derivate:
-          dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
-          if ( l < l_max ) then
-              dPhi0(lm)    =cmplx(0.0_cp,real(m,cp),cp)
-              dPhi02(lm)   =dPhi0(lm)*dPhi0(lm)
-          else
-              dPhi0(lm)    =zero
-              dPhi02(lm)   =zero
-          end if
-          !-- Negative horizontal Laplacian *r^2
-          dLh(lm)     =real(l*(l+1),cp)                 ! = qll1
-          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
-          dTheta1S(lm)=real(l+1,cp)        *clm(l,m)    ! = qcl1
-          dTheta1A(lm)=real(l,cp)          *clm(l+1,m)  ! = qcl
-          !-- Operator ( sin(thetaR) * d/d theta )
-          dTheta2S(lm)=real(l-1,cp)        *clm(l,m)    ! = qclm1
-          dTheta2A(lm)=real(l+2,cp)        *clm(l+1,m)  ! = qcl2
-          !-- Operator ( sin(theta) * d/d theta + cos(theta) dLh )
-          dTheta3S(lm)=real((l-1)*(l+1),cp)*clm(l,m)    ! = q0l1lm1(lm)
-          dTheta3A(lm)=real(l*(l+2),cp)    *clm(l+1,m)  ! = q0cll2(lm)
-          !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
-          dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
-          dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
+         !-- Phi derivate:
+         dPhi(lm)=cmplx(0.0_cp,real(m,cp),cp)
+         if ( l < l_max ) then
+            dPhi0(lm)    =cmplx(0.0_cp,real(m,cp),cp)
+            dPhi02(lm)   =dPhi0(lm)*dPhi0(lm)
+         else
+            dPhi0(lm)    =zero
+            dPhi02(lm)   =zero
+         end if
+         !-- Negative horizontal Laplacian *r^2
+         dLh(lm)     =real(l*(l+1),cp)                 ! = qll1
+         !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 )
+         dTheta1S(lm)=real(l+1,cp)        *clm(l,m)    ! = qcl1
+         dTheta1A(lm)=real(l,cp)          *clm(l+1,m)  ! = qcl
+         !-- Operator ( sin(thetaR) * d/d theta )
+         dTheta2S(lm)=real(l-1,cp)        *clm(l,m)    ! = qclm1
+         dTheta2A(lm)=real(l+2,cp)        *clm(l+1,m)  ! = qcl2
+         !-- Operator ( sin(theta) * d/d theta + cos(theta) dLh )
+         dTheta3S(lm)=real((l-1)*(l+1),cp)*clm(l,m)    ! = q0l1lm1(lm)
+         dTheta3A(lm)=real(l*(l+2),cp)    *clm(l+1,m)  ! = q0cll2(lm)
+         !-- Operator ( 1/sin(theta) * d/d theta * sin(theta)**2 ) * dLh
+         dTheta4S(lm)=dTheta1S(lm)*real((l-1)*l,cp)
+         dTheta4A(lm)=dTheta1A(lm)*real((l+1)*(l+2),cp)
 
-          !-- Hyperdiffusion
-          hdif_B(lm)=one
-          hdif_V(lm)=one
-          hdif_S(lm)=one
-          if ( ldifexp > 0 ) then
+         !-- Hyperdiffusion
+         hdif_B(lm)=one
+         hdif_V(lm)=one
+         hdif_S(lm)=one
+         if ( ldifexp > 0 ) then
 
-              if ( ldif >= 0 .and. l > ldif ) then
+            if ( ldif >= 0 .and. l > ldif ) then
 
-              !-- Kuang and Bloxham type:
-              !                 hdif_B(lm)=
-              !     *                   one+difeta*real(l+1-ldif,cp)**ldifexp
-              !                 hdif_V(lm)=
-              !     *                   one+ difnu*real(l+1-ldif,cp)**ldifexp
-              !                 hdif_S(lm)=
-              !     &                   one+difkap*real(l+1-ldif,cp)**ldifexp
+            !-- Kuang and Bloxham type:
+            !                 hdif_B(lm)=
+            !     *                   one+difeta*real(l+1-ldif,cp)**ldifexp
+            !                 hdif_V(lm)=
+            !     *                   one+ difnu*real(l+1-ldif,cp)**ldifexp
+            !                 hdif_S(lm)=
+            !     &                   one+difkap*real(l+1-ldif,cp)**ldifexp
 
-              !-- Old type:
-                  hdif_B(lm)= one + difeta * ( real(l+1-ldif,cp) / &
-                                                real(l_max+1-ldif,cp) )**ldifexp
-                  hdif_V(lm)= one + difnu * ( real(l+1-ldif,cp) / &
-                                               real(l_max+1-ldif,cp) )**ldifexp
-                  hdif_S(lm)= one + difkap * ( real(l+1-ldif,cp) / &
-                                                real(l_max+1-ldif,cp) )**ldifexp
+            !-- Old type:
+               hdif_B(lm)= one + difeta * ( real(l+1-ldif,cp) / &
+                                             real(l_max+1-ldif,cp) )**ldifexp
+               hdif_V(lm)= one + difnu * ( real(l+1-ldif,cp) / &
+                                            real(l_max+1-ldif,cp) )**ldifexp
+               hdif_S(lm)= one + difkap * ( real(l+1-ldif,cp) / &
+                                             real(l_max+1-ldif,cp) )**ldifexp
 
-              else if ( ldif < 0 ) then
+             else if ( ldif < 0 ) then
 
-              !-- Grote and Busse type:
-                  hdif_B(lm)= (one+difeta*real(l,cp)**ldifexp ) / &
-                              (one+difeta*real(-ldif,cp)**ldifexp )
-                  hdif_V(lm)= (one+difnu*real(l,cp)**ldifexp ) / &
-                              (one+difnu*real(-ldif,cp)**ldifexp )
-                  hdif_S(lm)= (one+difkap*real(l,cp)**ldifexp ) / &
-                              (one+difkap*real(-ldif,cp)**ldifexp )
-                               
-              end if
+             !-- Grote and Busse type:
+                hdif_B(lm)= (one+difeta*real(l,cp)**ldifexp ) / &
+                            (one+difeta*real(-ldif,cp)**ldifexp )
+                hdif_V(lm)= (one+difnu*real(l,cp)**ldifexp ) / &
+                            (one+difnu*real(-ldif,cp)**ldifexp )
+                hdif_S(lm)= (one+difkap*real(l,cp)**ldifexp ) / &
+                            (one+difkap*real(-ldif,cp)**ldifexp )
+                              
+             end if
 
-          else
+         else
 
-              if ( l == l_max .and. .not. l_non_rot ) then
-              !  Chose ampnu so that the viscous force is at least as
-              !  strong as the viscous force for l=l_max:
-              !  We can turn this argument around and state that
-              !  for example for Ek=1e-4 l_max should be 221.
-                  ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
-                  ampnu=max(one,ampnu)
-                  hdif_V(lm)=ampnu*hdif_V(lm)
-              end if
+            if ( l == l_max .and. .not. l_non_rot ) then
+            !  Chose ampnu so that the viscous force is at least as
+            !  strong as the viscous force for l=l_max:
+            !  We can turn this argument around and state that
+            !  for example for Ek=1e-4 l_max should be 221.
+               ampnu=(r_cmb**2/real(l_max*(l_max+1),cp))*(two/ek)
+               ampnu=max(one,ampnu)
+               hdif_V(lm)=ampnu*hdif_V(lm)
+            end if
 
-          end if
+         end if
 
       end do ! lm
 
@@ -312,26 +312,26 @@ contains
       lStop(1)  =l_max+1
       D_mc2m(1)=0
       if ( mod(l_max,2) == 0 ) then
-          lmOdd(1) =.true.
-          lmOddP(1)=.false.
+         lmOdd(1) =.true.
+         lmOddP(1)=.false.
       else
-          lmOdd(1) =.false.
-          lmOddP(1)=.true.
+         lmOdd(1) =.false.
+         lmOddP(1)=.true.
       end if
       do mc=2,n_m_max
-          m=(mc-1)*minc
-          D_mc2m(mc) =real(m,cp)
-          lStartP(mc)=lStopP(mc-1)+1
-          lStopP(mc) =lStartP(mc) +l_max-m+1
-          lStart(mc) =lStop(mc-1) +1
-          lStop(mc)  =lStart(mc)  +l_max-m
-          if ( mod(lStop(mc)-lStart(mc),2) == 0 ) then
-              lmOdd(mc) =.true.
-              lmOddP(mc)=.false.
-          else
-              lmOdd(mc) =.false.
-              lmOddP(mc)=.true.
-          end if
+         m=(mc-1)*minc
+         D_mc2m(mc) =real(m,cp)
+         lStartP(mc)=lStopP(mc-1)+1
+         lStopP(mc) =lStartP(mc) +l_max-m+1
+         lStart(mc) =lStop(mc-1) +1
+         lStop(mc)  =lStart(mc)  +l_max-m
+         if ( mod(lStop(mc)-lStart(mc),2) == 0 ) then
+            lmOdd(mc) =.true.
+            lmOddP(mc)=.false.
+         else
+            lmOdd(mc) =.false.
+            lmOddP(mc)=.true.
+         end if
       end do
 
 #if 0
