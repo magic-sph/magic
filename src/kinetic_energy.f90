@@ -48,8 +48,8 @@ contains
       !  integration in r by using Chebycheff integrals
       !
       !  Output:
-      !  e_p: Total poloidal     e_p_as: Total toroidal
-      !  e_t: Axisym. poloidal   e_t_as: Axisym. toroidal
+      !  e_p: Total poloidal        e_t: Total toroidal
+      !  e_p_as: Axisym. poloidal   e_t_as: Axisym. toroidal
       !
 
       !-- Input variables:
