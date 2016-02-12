@@ -334,6 +334,7 @@ class MagicSpectrum(MagicSetup):
             ax.loglog(self.index, self.AdvRms, 'y-', label='Advection')
             ax.loglog(self.index, self.DifRms, 'm-', label='Viscosity')
             ax.loglog(self.index, self.geos, 'r--', label='Coriolis-Pressure')
+            ax.loglog(self.index, self.arc, 'b--', label='Coriolis-Pressure-Buoyancy')
 
             if labTex:
                 ax.set_xlabel('$\ell+1$')

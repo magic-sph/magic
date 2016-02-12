@@ -173,7 +173,8 @@ class Graph2Vtk:
 
     def __init__(self, gr, filename='out', scals=['vr', 'emag', 'tfluct'], 
                  vecs=['u', 'B'], potExtra=False, ratio_out=2, nrout=32,
-                 deminc=True, outType='vts', nFiles=1, nx=96, ny=96, nz=96):
+                 deminc=True, outType='vts', nFiles=1, nx=96, ny=96, nz=96,
+                 labFrame=False):
         """
         :param filename: the file name of the output (without extension)
         :type filename: str
@@ -212,6 +213,8 @@ class Graph2Vtk:
         :type ny: int
         :param nz: number of grid points in the x direction
         :type nz: int
+        :param labFrame: when set to True, transform the velocity to the lab frame
+        :type labFrame: bool
         """
 
 
@@ -219,6 +222,16 @@ class Graph2Vtk:
             self.minc = 1
         else:
             self.minc = gr.minc
+
+        if labFrame:
+            th3D = N.zeros_like(gr.vphi)
+            rr3D = N.zeros_like(th3D)
+            for i in range(gr.ntheta):
+                th3D[:, i, :] = gr.colatitude[i]
+            for i in range(gr.nr):
+                rr3D[:, :, i] = gr.radius[i]
+            s3D = rr3D * N.sin(th3D)
+            gr.vphi = gr.vphi+s3D/gr.ek
 
         keyScal = {}
         keyScal['radius'] = -1

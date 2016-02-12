@@ -224,6 +224,7 @@ class MagicTs(MagicSetup):
                 self.dlVc = data[:, 17]
                 self.reEquat = data[:, 18]
             except IndexError:
+                self.dlVc = self.dlV
                 pass
         elif self.field == 'misc':
             self.time = data[:, 0]
@@ -542,7 +543,7 @@ class AvgField:
     >>> print(a) # print the formatted output
     """
 
-    def __init__(self, tstart=None, tag=None, dipExtra=False):
+    def __init__(self, tstart=None, tag=None, dipExtra=False, perpPar=False):
         """
         :param tstart: the starting time for averaging
         :type tstart: float
@@ -554,6 +555,10 @@ class AvgField:
                          values extracted from :ref:`dipole.TAG <secDipoleFile>` 
                          are also computed
         :type dipExtra: bool
+
+        :param perpPar: additional values extracted from :ref:`perpPar.TAG <secperpParFile>`
+                        are also computed
+        :type perpPar: bool
         """
 
         if os.path.exists('tInitAvg') and tstart is None:
@@ -566,6 +571,7 @@ class AvgField:
             file.write('%f' % tstart)
             file.close()
         self.dipExtra = dipExtra
+        self.perpPar = perpPar
         ts = MagicTs(field='e_kin', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
@@ -596,6 +602,7 @@ class AvgField:
         self.dmB = fac * trapz(ts2.dmB[ind:], ts2.time[ind:])
         self.dlV = fac * trapz(ts2.dlV[ind:], ts2.time[ind:])
         self.dmV = fac * trapz(ts2.dmV[ind:], ts2.time[ind:])
+        self.dlVc = fac * trapz(ts2.dlVc[ind:], ts2.time[ind:])
 
         ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
@@ -666,6 +673,23 @@ class AvgField:
             self.u2_pola = self.ekin_pola_avg
             self.u2_tora = self.ekin_tora_avg
 
+        if self.perpPar:
+            if len(glob.glob('perpPar.*')) > 0:
+                ts = MagicTs(field='perpPar', all=True, iplot=False)
+                mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+                ind = N.nonzero(mask)[0][0]
+                fac = 1./(ts.time.max()-ts.time[ind])
+                self.eperp = fac * trapz(ts.eperp[ind:], ts.time[ind:])
+                self.epar = fac * trapz(ts.epar[ind:], ts.time[ind:])
+                self.eperp_axi = fac * trapz(ts.eperp_axi[ind:], ts.time[ind:])
+                self.epar_axi = fac * trapz(ts.epar_axi[ind:], ts.time[ind:])
+            else:
+                self.eperp = 0.
+                self.epar = 0.
+                self.eperp_axi = 0.
+                self.epar_axi = 0.
+
+
     def __str__(self):
         """
         Formatted output
@@ -682,15 +706,15 @@ class AvgField:
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
                self.emag_tora_avg, self.emag_es_avg)
              
-            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
                 (self.reynolds, self.ureynolds, self.rol, self.urol, \
                  self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
-                 self.dlV, self.udlV, self.dlB, self.dmB)
+                 self.dlV, self.dmV, self.udlV, self.dlVc, self.dlB, self.dmB)
             if self.dipExtra:
                 st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
 
-            st += '%12.5e%12.5e%9.2e\n' % (self.buoPower, -self.ohmDiss, self.fohm)
+            st += '%12.5e%12.5e%9.2e' % (self.buoPower, -self.ohmDiss, self.fohm)
 
         else:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
@@ -705,7 +729,13 @@ class AvgField:
                 self.ureynolds = self.reynolds
             st += '%12.5e%12.5e%12.5e%12.5e' % \
                   (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
-            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e\n' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
               (self.reynolds, self.ureynolds, self.rol, self.urol, \
-               self.nuss, self.dlV, self.dmV, self.udlV)
+               self.nuss, self.dlV, self.dmV, self.udlV, self.dlVc)
+
+        if self.perpPar:
+            st += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp, self.epar, \
+                                                self.eperp_axi, self.epar_axi)
+        st += '\n'
+
         return st
