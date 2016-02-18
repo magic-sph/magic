@@ -70,7 +70,7 @@ class MagicSpectrum(MagicSetup):
                 file = '%s%i.%s' % (self.name, ispec, tag)
                 filename = os.path.join(datadir, file)
             else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, self.tag))
+                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
                 files = scanDir(pattern)
                 if len(files) != 0:
                     filename = files[-1]
@@ -396,7 +396,7 @@ class MagicSpectrum2D(MagicSetup):
                 file = '%s%i.%s' % (self.name, ispec, tag)
                 filename = os.path.join(datadir, file)
             else:
-                pattern = os.path.join(datadir, '%s*%s' % (self.name, self.tag))
+                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
                 files = scanDir(pattern)
                 if len(files) != 0:
                     filename = files[-1]
