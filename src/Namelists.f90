@@ -112,7 +112,7 @@ contains
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
          & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
          & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
-         & l_PressGraph
+         & l_PressGraph, l_energy_modes, m_max_modes
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -609,6 +609,10 @@ contains
          end if
       end if
 
+      if ( l_energy_modes ) then
+         if ( m_max_modes==0 .or. m_max_modes>l_max ) m_max_modes=l_max
+      end if
+
       !-- ldif determins at which l hyperdiffusivity starts:
       ldif=max(1,ldif)
       ldif=min(l_max,ldif)
@@ -869,6 +873,8 @@ contains
       write(n_out,'(''  l_fluxProfs     ='',l3,'','')') l_fluxProfs
       write(n_out,'(''  l_perpPar       ='',l3,'','')') l_perpPar
       write(n_out,'(''  l_PressGraph    ='',l3,'','')') l_PressGraph
+      write(n_out,'(''  l_energy_modes  ='',l3,'','')') l_energy_modes
+      write(n_out,'(''  m_max_modes     ='',i3,'','')') m_max_modes
       write(n_out,'(''  l_drift         ='',l3,'','')') l_drift
       write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
@@ -1139,6 +1145,10 @@ contains
       t_r_field_start=0.0_cp
       t_r_field_stop =0.0_cp
       dt_r_field     =0.0_cp
+
+      !----- Output of distribution of energies over m's
+      l_energy_modes=.false. ! to get emag and ekin for different m
+      m_max_modes   =14      ! number of modes
 
       !----- Movie output:
       l_movie       =.false.

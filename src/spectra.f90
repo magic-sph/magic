@@ -13,9 +13,13 @@ module spectra
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
-   use logic, only: l_mag, l_anel, l_cond_ic, l_heat
-   use output_data, only: tag, log_file, nLF, n_mag_spec_file, &
-                          n_u2_spec_file, n_kin_spec_file
+   use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out
+   use output_data, only: tag, log_file, nLF, n_mag_spec_file,     &
+                       &  n_u2_spec_file, n_kin_spec_file,         &
+                       &  n_am_kpol_file,n_am_ktor_file,           &
+                       & n_am_mpol_file,n_am_mtor_file,            &
+                       & am_kpol_file,am_ktor_file,am_mpol_file,   &
+                       & am_mtor_file, m_max_modes
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use useful, only: cc2real, cc22real, safeOpen, safeClose
    use integration, only: rInt_R, rIntIC, rInt
@@ -45,7 +49,7 @@ module spectra
    real(cp), allocatable :: dT_ICB2_ave(:)
  
    public :: initialize_spectra, spectrum, spectrum_average, &
-             spectrum_temp, spectrum_temp_average
+             spectrum_temp, spectrum_temp_average, get_amplitude
 
 contains
 
@@ -1127,4 +1131,160 @@ contains
 
    end subroutine spectrum_temp
 !----------------------------------------------------------------------------
+   subroutine get_amplitude(time,w,dw,z,b,db,aj)
+
+      !-- Input of variables:
+      real(cp),    intent(in) :: time
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: db(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
+
+      !-- Output: 
+      real(cp) :: e_mag_p_m(0:l_max),e_mag_t_m(0:l_max)
+      real(cp) :: e_kin_p_m(0:l_max),e_kin_t_m(0:l_max)
+
+      !-- Local variables:
+      character(len=72) :: am_kin_file, am_mag_file
+      integer :: n_r,lm,ml,l,m,n_lines
+
+      real(cp) :: e_mag_p_temp,e_mag_t_temp
+      real(cp) :: e_kin_p_temp,e_kin_t_temp
+      real(cp) :: fac_mag,fac_kin
+
+      real(cp) :: e_mag_p_r_m(n_r_max,0:l_max),e_mag_p_r_m_global(n_r_max,0:l_max)
+      real(cp) :: e_mag_t_r_m(n_r_max,0:l_max),e_mag_t_r_m_global(n_r_max,0:l_max)
+      real(cp) :: e_kin_p_r_m(n_r_max,0:l_max),e_kin_p_r_m_global(n_r_max,0:l_max)
+      real(cp) :: e_kin_t_r_m(n_r_max,0:l_max),e_kin_t_r_m_global(n_r_max,0:l_max)
+
+      do n_r=1,n_r_max
+
+         do m=0,l_max
+            if ( l_mag ) then
+               e_mag_p_r_m(n_r,m)=0.0_cp
+               e_mag_t_r_m(n_r,m)=0.0_cp
+            end if
+            e_kin_p_r_m(n_r,m)=0.0_cp
+            e_kin_t_r_m(n_r,m)=0.0_cp
+         end do
+
+         do lm=max(llm,2),ulm
+
+            l  =lo_map%lm2l(lm)
+            m  =lo_map%lm2m(lm)
+
+            if ( l_mag ) then
+               e_mag_p_temp= dLh(st_map%lm2(l,m)) * ( &
+                       & dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(b(lm,n_r),m) + &
+                       & cc2real(db(lm,n_r),m) )
+               e_mag_t_temp=dLh(st_map%lm2(l,m))*cc2real(aj(lm,n_r),m)     
+            end if
+
+            e_kin_p_temp= orho1(n_r)*dLh(st_map%lm2(l,m)) *  ( &
+                   &      dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(w(lm,n_r),m) + &
+                   &      cc2real(dw(lm,n_r),m) )
+            e_kin_t_temp=orho1(n_r)*dLh(st_map%lm2(l,m))*cc2real(z(lm,n_r),m)
+
+            !----- m-spectra:
+            if ( l_mag ) then
+               e_mag_p_r_m(n_r,m)=e_mag_p_r_m(n_r,m)+e_mag_p_temp
+               e_mag_t_r_m(n_r,m)=e_mag_t_r_m(n_r,m)+e_mag_t_temp
+            end if
+            e_kin_p_r_m(n_r,m)=e_kin_p_r_m(n_r,m)+e_kin_p_temp                 
+            e_kin_t_r_m(n_r,m)=e_kin_t_r_m(n_r,m)+e_kin_t_temp      
+
+         end do    ! do loop over lms in block 
+
+      end do    ! radial grid points 
+
+#ifdef WITH_MPI
+      if ( l_mag ) then
+         call MPI_Reduce(e_mag_p_r_m, e_mag_p_r_m_global, n_r_max*(l_max+1),&
+                 &MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(e_mag_t_r_m, e_mag_t_r_m_global, n_r_max*(l_max+1),&
+                 &MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      end if
+
+      call MPI_Reduce(e_kin_p_r_m, e_kin_p_r_m_global, n_r_max*(l_max+1),&
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_kin_t_r_m, e_kin_t_r_m_global, n_r_max*(l_max+1),&
+              & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_mag_p_r_m_global=e_mag_p_r_m
+      e_mag_t_r_m_global=e_mag_t_r_m
+      e_kin_p_r_m_global=e_kin_p_r_m
+      e_kin_t_r_m_global=e_kin_t_r_m
+#endif
+
+      if ( rank == 0 ) then
+
+         !-- Radial Integrals:
+         fac_mag=0.5*LFfac*eScale
+         fac_kin=0.5*eScale
+         do m=0,l_max ! Note: counter m is actual order+1
+            if ( l_mag ) then
+               e_mag_p_m(m)= fac_mag*rInt_R(e_mag_p_r_m_global(:,m), &
+                               &    n_r_max,n_r_max,drx,chebt_oc)
+               e_mag_t_m(m)= fac_mag*rInt_R(e_mag_t_r_m_global(:,m), &
+                               &    n_r_max,n_r_max,drx,chebt_oc)
+            end if
+            e_kin_p_m(m)   =fac_kin*rInt_R(e_kin_p_r_m_global(:,m), &
+                               &    n_r_max,n_r_max,drx,chebt_oc)       
+            e_kin_t_m(m)   =fac_kin*rInt_R(e_kin_t_r_m_global(:,m), &
+                               &    n_r_max,n_r_max,drx,chebt_oc)
+         end do
+
+         !-- Output
+         if ( l_save_out ) then
+            open(n_am_kpol_file,file=am_kpol_file,status='unknown', &
+                 & form='unformatted',position='append')
+         end if
+
+         write(n_am_kpol_file) time,(e_kin_p_m(m),m=0,m_max_modes)
+
+         if ( l_save_out ) then
+            close(n_am_kpol_file)
+         end if
+
+         if ( l_save_out ) then
+            open(n_am_ktor_file,file=am_ktor_file,status='unknown', &
+                 & form='unformatted',position='append')
+         end if
+
+         write(n_am_ktor_file) time,(e_kin_t_m(m),m=0,m_max_modes)
+
+         if ( l_save_out ) then
+            close(n_am_ktor_file)
+         end if
+
+         if ( l_mag ) then
+            if ( l_save_out ) then
+               open(n_am_mpol_file,file=am_mpol_file,status='unknown', &
+                    & form='unformatted',position='append')
+            end if
+
+            write(n_am_mpol_file) time,(e_mag_p_m(m),m=0,m_max_modes)
+
+            if ( l_save_out ) then
+               close(n_am_mpol_file)
+            end if
+
+            if ( l_save_out ) then
+               open(n_am_mtor_file,file=am_mtor_file,status='unknown', &
+                    & form='unformatted',position='append')
+            end if
+
+            write(n_am_mtor_file) time,(e_mag_t_m(m),m=0,m_max_modes)
+
+            if ( l_save_out ) then
+               close(n_am_mtor_file)
+            end if
+         end if
+
+      end if ! rank == 0
+    
+   end subroutine get_amplitude 
+!------------------------------------------------------------------------------
 end module spectra

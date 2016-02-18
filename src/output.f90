@@ -15,7 +15,7 @@ module output_mod
                   & l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
                   & l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
                   & l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
-                  & l_perpPar
+                  & l_perpPar, l_energy_modes
    use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
                    & db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
                    & s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
@@ -32,7 +32,7 @@ module output_mod
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
    use spectra, only: spectrum_average, spectrum, spectrum_temp, &
-                    & spectrum_temp_average
+                    & spectrum_temp_average, get_amplitude
    use outTO_mod, only: outTO
    use outPV3, only: outPV
    use output_data, only: tag, l_max_cmb,                           &
@@ -329,6 +329,16 @@ contains
          e_mag_ic=e_mag_p_ic+e_mag_t_ic
          PERFOFF
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_mag  on rank ",rank
+
+         !----- Calculate distribution of energies on all m's
+         if ( l_energy_modes ) then  
+            PERFON('out_amplitude') 
+            call get_amplitude(time,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,&
+                 &             db_LMloc,aj_LMloc)
+            PERFOFF
+            if ( DEBUG_OUTPUT ) &
+               & write(*,"(A,I6)") "Written  amplitude  on rank ",rank
+         endif
   
          if ( l_average ) then
             PERFON('out_aver')

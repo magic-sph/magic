@@ -5,7 +5,7 @@ module output_data
 
    use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
-                    l_RMS, l_save_out, l_cmb_field,                  &
+                    l_RMS, l_save_out, l_cmb_field, l_energy_modes,  &
                     l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
                     l_dt_cmb_field, l_AM, l_movie
    use parallel_mod, only: rank
@@ -50,6 +50,8 @@ module output_data
    integer, public :: n_Vpot_step,n_Vpots,n_t_Vpot      
    integer, public :: n_Tpot_step,n_Tpots,n_t_Tpot      
    integer, public :: n_pot_step,n_pots,n_t_pot      
+   integer, public :: n_am_kpol_file,n_am_ktor_file
+   integer, public :: n_am_mpol_file,n_am_mtor_file
    integer, public, parameter :: n_time_hits=5000
    real(cp), public ::  t_graph(n_time_hits)
    real(cp), public ::  t_rst(n_time_hits)
@@ -73,6 +75,7 @@ module output_data
    integer, public :: l_max_cmb
    integer, public :: l_max_r
    integer, public :: n_r_step
+   integer, public :: m_max_modes
  
    !----- Output files:
    integer, public :: n_log_file,nLF
@@ -125,6 +128,8 @@ module output_data
    character(len=72), public, allocatable :: t_r_file(:)
    character(len=72), public, allocatable :: b_r_file(:)
    character(len=72), public :: power_file
+   character(len=72), public :: am_kpol_file,am_ktor_file
+   character(len=72), public :: am_mpol_file,am_mtor_file
    !----- Z-integrated output:
    real(cp), public :: zDens,sDens
 
@@ -174,6 +179,10 @@ contains
       n_angular_file     =301
       n_dtvrms_file      =302
       n_dtbrms_file      =304
+      n_am_kpol_file     =400
+      n_am_ktor_file     =401
+      n_am_mpol_file     =402
+      n_am_mtor_file     =403
       do n=1,n_coeff_r_max
          n_v_r_file(n)=40+n
       end do
@@ -199,6 +208,12 @@ contains
          dipole_file='dipole.'//tag
          if ( l_RMS ) then
             dtbrms_file='dtBrms.'//tag
+         end if
+         if ( l_energy_modes ) then
+            am_kpol_file='am_kin_pol.'//tag
+            am_ktor_file='am_kin_tor.'//tag
+            am_mpol_file='am_mag_pol.'//tag
+            am_mtor_file='am_mag_tor.'//tag
          end if
       end if
       if ( l_AM ) then
@@ -302,6 +317,16 @@ contains
                           status='new', form='unformatted')
                   end do
                end if
+               if ( l_energy_modes ) then
+                  open(n_am_kpol_file,file=am_kpol_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_ktor_file,file=am_ktor_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_mpol_file,file=am_mpol_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_mtor_file,file=am_mtor_file,status='new', &
+                         &            form='unformatted')
+               endif
             end if
             if ( .not. l_SRIC .and. .not. l_SRMA ) then
                if ( l_rot_ic .or. l_rot_ma ) &
@@ -367,6 +392,12 @@ contains
                   end do
                end if
                if ( l_dt_cmb_field ) close(n_dt_cmb_file)
+               if ( l_energy_modes ) then
+                  close(n_am_kpol_file)
+                  close(n_am_ktor_file)
+                  close(n_am_mpol_file)
+                  close(n_am_mtor_file)
+               end if
             end if
             if ( l_rot_ic .or. l_rot_ma .and.      &
                  .not. l_SRIC .and. .not. l_SRMA ) &
