@@ -347,3 +347,45 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    |               | at the ICB  versus degree                                 |
    +---------------+-----------------------------------------------------------+
 
+.. _secTimeSpectraFiles:
+
+2D spectra `am_[kin|mag]_[pol|tor].TAG`
+---------------------------------------
+
+Those files contain the time evolution of the poloidal and toroidal kinetic and
+magnetic spectra for a given range of spherical harmonic orders :math:`m`.
+There are four kinds of those files that correspond to the aforementioned
+spectra, namely **am_kin_pol.TAG**, **am_kin_tor.TAG**, **am_mag_pol.TAG** and
+**am_mag_tor.TAG**. The calculations are done in the subroutine
+:f:subr:`get_amplitude <spectra/get_amplitude()>`. The structure of the output
+files is the same for the four outputs (fortran unformatted
+files):
+
+   .. code-block:: fortran
+
+       !-------------
+       ! Line 1
+       !-------------
+
+       time(t=0), e_p_m(m=0,t=0), e_p_m(m=1,t=0), ..., e_p_m(m=m_max_modes,t=0)
+
+       ...                                                           
+
+       !-------------
+       ! Line N
+       !-------------
+
+       time(t=N), e_p_m(m=0,t=N), e_p_m(m=1,t=N), ..., e_p_m(m=m_max_modes,t=N)
+
+       ... 
+
+
+Those files can be read using the python class :py:class:`MagicTs
+<magic.MagicTs>` with the following options:
+
+   >>> # Read the file am_mag_pol.ext
+   >>> ts = MagicTs(field='am_mag_pol', tag='ext')
+   >>> # Print the time
+   >>> print(ts.time)
+   >>> # Print the energy content in m=11 for all times
+   >>> print(ts.coeffs[:, 11])

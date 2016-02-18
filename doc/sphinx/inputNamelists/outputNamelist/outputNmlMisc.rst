@@ -106,3 +106,10 @@ Pressure
 ++++++++
 
 * **l_PressGraph** (default :f:var:`l_PressGraph=.true. <l_pressgraph>`) is a logical. When set to ``.true.``, this logical enables the storage of pressure in the :ref:`graphic files <secGraphFile>`.
+
+Time evolution of the m-spectra
++++++++++++++++++++++++++++++++
+
+* **l_energy_modes** (default :f:var:`l_energy_modes=.false. <l_energy_modes>`) is a logical. When set to ``.true.``, this logical enables the storage of the time-evolution of the kinetic and magnetic energy spectra for a given range of spherical harmonic orders: :ref:`time spectra <secTimeSpectraFiles>`.
+
+* **m_max_modes** (default :f:var:`m_max_modes=13 <m_max_modes>`) is an integer. This controls the maximum spherical harmonic order when :f:var:`l_energy_modes=.true. <l_energy_modes>`.
