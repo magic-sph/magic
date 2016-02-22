@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-from magic import npfile, scanDir, MagicSetup
+from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize
+import os
 import numpy as N
 import matplotlib.pyplot as P
 from magic.setup import labTex
@@ -45,12 +46,26 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     :type rcmb: float
     """
     fac = (-1)**m*ell*N.sqrt((2*ell+1.)/(4.*N.pi))
-    if m > 0:
-        fac *= N.sqrt(2.)
+    fac[m > 0 ] *= N.sqrt(2)
     glm = scale_b*ratio_cmb_surface**(ell+2.)/rcmb**2*fac*alm
     hlm = -scale_b*ratio_cmb_surface**(ell+2.)/rcmb**2*fac*blm
 
     return glm, hlm
+
+def rearangeLat(field):
+    """ 
+    This function is used to unfold the colatitudes
+        
+    :param field: input array with MagIC ordering of colatitudes (i.e.
+                  successively Northern Hemisphere and Southern 
+                  Hemisphere)
+    :type field: numpy.ndarray
+    :return: an array with the regular ordering of the colatitudes
+    :rtype: numpy.ndarray
+    """
+    even = field[:, ::2]
+    odd = field[:, 1::2]
+    return N.concatenate((even, odd[:, ::-1]), axis=1)
 
 
 class MagicCoeffCmb(MagicSetup):
@@ -64,8 +79,12 @@ class MagicCoeffCmb(MagicSetup):
     >>> # and B_coeff_cmb.testc and stack them in one single time series
     >>> cmb = MagicCoeffCmb(tag='test[a-c]')
     >>> print(cmb.ell, cmb.glm) # print \ell and g_{\ell m}
-    >>> print(cmb.glm[:, 1, 0]) # time-series of the axisymmetric dipole
-    >>> plot(cmb.time, cmb.dglmdt[:, 1, 0]) # Secular variation of the dipole
+    >>> print(cmb.glm[:, cmb.idx[1, 0]]) # time-series of the axisymmetric dipole
+    >>> plot(cmb.time, cmb.dglmdt[:, cmb.idx[2, 0]]) # Secular variation of the quadrupole
+    >>> # Display the time-evolution of the CMB field (requires shtns)
+    >>> cmb.movieCmb(levels=12, cm='seismic')
+    >>> # Save the time-evolution of the CMB field (requires shtns)
+    >>> cmb.movieCmb(levels=12, cm='seismic', png=True)
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
@@ -96,7 +115,7 @@ class MagicCoeffCmb(MagicSetup):
             str1 = 'Aspect ratio ?\n'
             self.radratio = float(input(str1))
 
-        rcmb = 1./(1.-self.radratio)
+        self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
         if ave:
@@ -119,36 +138,43 @@ class MagicCoeffCmb(MagicSetup):
                     data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        data = N.array(data, dtype=precision)
+        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)/self.minc - \
+                          self.m_max_cmb*(self.m_max_cmb-self.minc)/(2*self.minc) + \
+                          self.l_max_cmb-self.m_max_cmb+1
 
-        self.ell = N.arange(self.l_max_cmb+1)
+        # Get indices location
+        self.idx = N.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
+        self.ell = N.zeros(self.lm_max_cmb, 'i')
+        self.ms = N.zeros(self.lm_max_cmb, 'i')
+        self.idx[0:self.l_max_cmb+2, 0] = N.arange(self.l_max_cmb+1)
+        self.ell[0:self.l_max_cmb+2] = N.arange(self.l_max_cmb+2)
+        k = self.l_max_cmb+1
+        for m in range(self.minc, self.l_max_cmb+1, self.minc):
+            for l in range(m, self.l_max_cmb+1):
+                self.idx[l, m] = k
+                self.ell[self.idx[l,m]] = l
+                self.ms[self.idx[l,m]] = m
+                k +=1
+
+        # Rearange data
+        data = N.array(data, dtype=precision)
         self.nstep = data.shape[0]
+        self.blm = N.zeros((self.nstep, self.lm_max_cmb), 'Complex64')
+        self.blm[:, 1:self.l_max_cmb+1] = data[:, 1:self.l_max_cmb+1]
+        self.blm[:, self.l_max_cmb+1:] = data[:, self.l_max_cmb+1::2]+\
+                                         1j*data[:, self.l_max_cmb+2::2]
 
         # Get time
         self.time = N.zeros(self.nstep, precision)
         self.time = data[:, 0]
 
-        # Rearange and get Gauss coefficients
-        self.alm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
-        self.blm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
-        self.glm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
-        self.hlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), precision)
+        # Get Gauss coefficients
+        self.glm = N.zeros((self.nstep, self.lm_max_cmb), precision)
+        self.hlm = N.zeros((self.nstep, self.lm_max_cmb), precision)
 
-        # Axisymmetric coefficients (m=0)
-        self.alm[:, 1:, 0] = data[:, 1:self.l_max_cmb+1]
-        self.glm[:, 1:, 0], self.hlm[:, 1:, 0] = getGauss(self.alm[:, 1:, 0], 
-                     self.blm[:, 1:, 0], self.ell[1:], 0, scale_b, 
-                     ratio_cmb_surface, rcmb)
-        # Other coefficients (m!=0)
-        k = self.l_max_cmb+1
-        for m in range(self.minc, self.l_max_cmb+1, self.minc):
-            for l in range(m, self.l_max_cmb+1):
-                self.alm[:, l, m] = data[:, k]
-                self.blm[:, l, m] = data[:, k+1]
-                self.glm[:, l, m], self.hlm[:, l, m] = getGauss(self.alm[:, l, m], 
-                                    self.blm[:, l, m], l, m,
-                                    scale_b, ratio_cmb_surface, rcmb)
-                k += 2
+        self.glm, self.hlm = getGauss(self.blm.real, self.blm.imag, 
+                                      self.ell, self.ms, scale_b, 
+                                      ratio_cmb_surface, self.rcmb)
 
         # Time-averaged Gauss coefficient
         facT = 1./(self.time[-1]-self.time[0])
@@ -156,8 +182,8 @@ class MagicCoeffCmb(MagicSetup):
         self.hlmM = facT * N.trapz(self.hlm, self.time, axis=0)
 
         if len(self.time) > 3:
-            self.dglmdt = deriv(self.time, self.glm.T, axis=2)
-            self.dhlmdt = deriv(self.time, self.hlm.T, axis=2)
+            self.dglmdt = deriv(self.time, self.glm.T, axis=1)
+            self.dhlmdt = deriv(self.time, self.hlm.T, axis=1)
             self.dglmdt = self.dglmdt.T
             self.dhlmdt = self.dhlmdt.T
 
@@ -166,19 +192,27 @@ class MagicCoeffCmb(MagicSetup):
             self.dhlmdt = N.zeros_like(self.hlm)
 
         # Magnetic energy (Lowes)
-        self.El = (self.ell+1)*(self.glm**2+self.hlm**2).sum(axis=2)
+        self.El = N.zeros((self.nstep, self.l_max_cmb+1), precision)
         self.Em = N.zeros((self.nstep, self.m_max_cmb+1), precision)
-        # For m, we need to unfold the loop in case of minc != 1
-        for m in range(0, self.m_max_cmb+1, self.minc):
-            self.Em[:,m] = ((self.ell+1)*(self.glm[:, :, m]**2+self.hlm[:, :, m]**2)).sum(axis=1)
-        #self.Em = ((self.ell+1)*(self.glm**2+self.hlm**2)).sum(axis=1)
+        self.ESVl = N.zeros((self.nstep, self.l_max_cmb+1), precision)
+        E = 0.
+        for l in range(1, self.l_max_cmb+1):
+            self.El[:, l] = 0.
+            self.ESVl[:, l] = 0.
+            for m in range(0, l+1, self.minc):
+                lm = self.idx[l, m]
+                self.El[:, l] += (self.ell[lm]+1)*\
+                                (self.glm[:,lm]**2+self.hlm[:,lm]**2)
+                self.Em[:, m] += (self.ell[lm]+1)*\
+                                (self.glm[:,lm]**2+self.hlm[:,lm]**2)
+                self.ESVl[:, l] += (self.ell[lm]+1)*\
+                                  (self.dglmdt[:, lm]**2+self.dhlmdt[:, lm]**2)
 
         # Time-averaged energy
         self.ElM = facT * N.trapz(self.El, self.time, axis=0)
         self.EmM = facT * N.trapz(self.Em, self.time, axis=0)
 
         # Secular variation
-        self.ESVl = (self.ell+1)*(self.dglmdt**2+self.dhlmdt**2).sum(axis=2)
         self.ESVlM = facT * N.trapz(self.ESVl, self.time, axis=0)
         self.taul = N.sqrt(self.ElM[1:]/self.ESVlM[1:])
 
@@ -190,9 +224,10 @@ class MagicCoeffCmb(MagicSetup):
         """
         Display some results when iplot is set to True
         """
+        ell = N.arange(self.l_max_cmb+1)
         fig = P.figure()
         ax = fig.add_subplot(211)
-        ax.semilogy(self.ell[1:], self.ElM[1:], 'b-o')
+        ax.semilogy(ell[1:], self.ElM[1:], 'b-o')
         if labTex:
             ax.set_xlabel(r'$\ell$')
         else:
@@ -201,7 +236,8 @@ class MagicCoeffCmb(MagicSetup):
         ax.set_xlim(1., self.l_max_cmb)
 
         ax1 = fig.add_subplot(212)
-        ax1.semilogy(self.ell[0:self.m_max_cmb+1:self.minc], self.EmM[::self.minc], 'b-o')   
+        ax1.semilogy(ell[0:self.m_max_cmb+1:self.minc], self.EmM[::self.minc], 
+                     'b-o')   
         if labTex:
             ax1.set_xlabel(r'$m$')
         else:
@@ -210,7 +246,7 @@ class MagicCoeffCmb(MagicSetup):
 
         fig1 = P.figure()
         ax = fig1.add_subplot(111)
-        ax.loglog(self.ell[1:], self.taul, 'b-o')
+        ax.loglog(ell[1:], self.taul, 'b-o')
         if labTex:
             ax.set_xlabel(r'$\ell$')
             ax.set_ylabel(r'$\tau_\ell$')
@@ -221,11 +257,147 @@ class MagicCoeffCmb(MagicSetup):
 
         fig2 = P.figure()
         ax = fig2.add_subplot(111)
-        ax.plot(self.time, self.glm[:, 1, 0], label='g10')
-        ax.plot(self.time, self.glm[:, 2, 0], label='g20')
-        ax.plot(self.time, self.glm[:, 3, 0], label='g30')
+        ax.plot(self.time, self.glm[:, self.idx[1,0]], label='g10')
+        ax.plot(self.time, self.glm[:, self.idx[2,0]], label='g20')
+        ax.plot(self.time, self.glm[:, self.idx[3,0]], label='g30')
         ax.set_xlabel('Time')
         ax.set_ylabel('Gauss coefficients')
+
+    def movieCmb(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1,
+                 normed=False, dpi=80, bgcolor=None, deminc=True, 
+                 precision='Float64', shtns_lib='shtns'):
+        """
+        Plotting function (it can also write the png files)
+
+        .. warning:: the python bindings of `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ are mandatory to use this plotting function!
+
+        :param levels: number of contour levels
+        :type levels: int
+        :param cmap: name of the colormap
+        :type cmap: str
+        :param cut: adjust the contour extrema to max(abs(data))*cut
+        :type cut: float
+        :param png: save the movie as a series of png files when
+                    set to True
+        :type png: bool
+        :param dpi: dot per inch when saving PNGs
+        :type dpi: int
+        :param bgcolor: background color of the figure
+        :type bgcolor: str
+        :param normed: the colormap is rescaled every timestep when set to True,
+                       otherwise it is calculated from the global extrema
+        :type normed: bool
+        :param step: the stepping between two timesteps
+        :type step: int
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
+        :param precision: single or double precision
+        :type precision: char
+        :param shtns_lib: version of shtns library used: can be either 'shtns'
+                          or 'shtns-magic'
+        :type shtns_lib: char
+        """
+
+        # The python bindings of shtns are mandatory to use this function !!!
+        import shtns
+
+        # Define shtns setup
+        sh = shtns.sht(int(self.l_max_cmb), int(self.m_max_cmb/self.minc), 
+                       mres=int(self.minc), 
+                       norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
+
+        polar_opt_threshold = 1e-10
+        nlat = max((self.l_max_cmb*(3/2/2)),192)
+        nphi = 2*nlat/self.minc
+        nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
+
+        # Transform data on grid space
+        BrCMB = N.zeros((self.nstep, nphi, nlat), precision)
+        for k in range(self.nstep):
+            tmp = sh.synth(self.blm[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
+            tmp = tmp.T # Longitude, Latitude
+
+            if shtns_lib == 'shtns-magic':
+                BrCMB[k, ...] = rearangeLat
+            BrCMB[k, ...] = tmp
+
+        if png:
+            P.ioff()
+            if not os.path.exists('movie'):
+                os.mkdir('movie')
+        else:
+            P.ion()
+
+        if not normed:
+            vmin = - max(abs(BrCMB.max()), abs(BrCMB.min()))
+            vmin = cut * vmin
+            vmax = -vmin
+            cs = N.linspace(vmin, vmax, levels)
+
+        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        if deminc:
+            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+        else:
+            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
+            xxout, yyout = hammer2cart(th, -N.pi/self.minc)
+            xxin, yyin = hammer2cart(th, N.pi/self.minc)
+        ttheta, pphi = N.meshgrid(th, phi)
+        xx, yy = hammer2cart(ttheta, pphi)
+        if deminc:
+            fig = P.figure(figsize=(8, 4))
+        else:
+            fig = P.figure(figsize=(8/self.minc, 4))
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+        ax = fig.add_subplot(111, frameon=False)
+
+
+        for k in range(self.nstep):
+            if k == 0:
+                if normed:
+                    vmin = - max(abs(BrCMB[k, ...].max()), abs(BrCMB[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                if deminc:
+                    dat = symmetrize(BrCMB[k, ...], self.minc)
+                else:
+                    dat = BrCMB[k, ...]
+                im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+                ax.axis('off')
+                man = P.get_current_fig_manager()
+                man.canvas.draw()
+            if k != 0 and k % step == 0:
+                if not png:
+                    print(k)
+                P.cla()
+                if normed:
+                    vmin = - max(abs(BrCMB[k, ...].max()), abs(BrCMB[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                if deminc:
+                    dat = symmetrize(BrCMB[k, ...], self.minc)
+                else:
+                    dat = BrCMB[k, ...]
+                im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+                ax.axis('off')
+                man.canvas.draw()
+            if png:
+                filename = 'movie/img%05d.png' % k
+                print('write %s' % filename)
+                #st = 'echo %i' % ivar + ' > movie/imgmax'
+                if bgcolor is not None:
+                    fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
+                else:
+                    fig.savefig(filename, dpi=dpi)
+
 
 
 class MagicCoeffR(MagicSetup):
@@ -268,7 +440,7 @@ class MagicCoeffR(MagicSetup):
             str1 = 'Aspect ratio ?\n'
             self.radratio = float(input(str1))
 
-        rcmb = 1./(1.-self.radratio)
+        self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
 
         files = scanDir('%s_coeff_r%i.%s' % (field,r,tag))
