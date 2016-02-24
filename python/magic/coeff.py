@@ -265,7 +265,7 @@ class MagicCoeffCmb(MagicSetup):
 
     def movieCmb(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, 
-                 precision='Float64', shtns_lib='shtns'):
+                 precision='Float64', shtns_lib='shtns', contour=False, mer=False):
         """
         Plotting function (it can also write the png files)
 
@@ -297,6 +297,10 @@ class MagicCoeffCmb(MagicSetup):
         :param shtns_lib: version of shtns library used: can be either 'shtns'
                           or 'shtns-magic'
         :type shtns_lib: char
+        :param contour: also display the solid contour levels when set to True
+        :type contour: bool
+        :param mer: display meridians and circles when set to True
+        :type mer: bool
         """
 
         # The python bindings of shtns are mandatory to use this function !!!
@@ -308,7 +312,7 @@ class MagicCoeffCmb(MagicSetup):
                        norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
 
         polar_opt_threshold = 1e-10
-        nlat = max((self.l_max_cmb*(3/2/2)),192)
+        nlat = max((self.l_max_cmb*(3/2/2)*2),192)
         nphi = 2*nlat/self.minc
         nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
 
@@ -353,6 +357,10 @@ class MagicCoeffCmb(MagicSetup):
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
 
+        if mer:
+            theta = N.linspace(N.pi/2, -N.pi/2, nlat)
+            meridians = N.r_[-120, -60, 0, 60, 120]
+            circles = N.r_[ 60, 30, 0, -30, -60]
 
         for k in range(self.nstep):
             if k == 0:
@@ -366,8 +374,20 @@ class MagicCoeffCmb(MagicSetup):
                 else:
                     dat = BrCMB[k, ...]
                 im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                if contour:
+                    ax.contour(xx, yy, dat, cs, linestyles=['-', '-'],
+                               colors=['k', 'k'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
+
+                if mer:
+                    for lat0 in circles:
+                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+                    for lon0 in meridians:
+                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+
                 ax.axis('off')
                 man = P.get_current_fig_manager()
                 man.canvas.draw()
@@ -385,8 +405,20 @@ class MagicCoeffCmb(MagicSetup):
                 else:
                     dat = BrCMB[k, ...]
                 im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                if contour:
+                    ax.contour(xx, yy, dat, cs, colors=['k'],
+                               linestyles=['-', '-'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
+
+                if mer:
+                    for lat0 in circles:
+                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+                    for lon0 in meridians:
+                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+
                 ax.axis('off')
                 man.canvas.draw()
             if png:
