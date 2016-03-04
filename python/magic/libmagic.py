@@ -746,7 +746,10 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     :returns: the z derivative of the input array
     :rtype: numpy.ndarray
     """
-    ntheta = data.shape[0]
+    if len(data.shape) == 3: # 3-D
+        ntheta = data.shape[1]
+    elif len(data.shape) == 2: # 2-D
+        ntheta = data.shape[0]
     nr = data.shape[-1]
     r1 = 1./(1.-eta)
     r2 = eta/(1.-eta)
@@ -755,10 +758,19 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     else:
         th = N.linspace(0., N.pi, ntheta)
     rr = chebgrid(nr-1, r1, r2)
-    rr2D, th2D = N.meshgrid(rr,th)
+
+    if len(data.shape) == 3: # 3-D
+        thmD = N.zeros_like(data)
+        for i in range(ntheta):
+            thmD[:,i,:] = th[i]
+    elif len(data.shape) == 2: # 2-D
+        thmD = N.zeros((ntheta, nr), 'f')
+        for i in range(ntheta):
+            thmD[i, :]  = th[i]
+
     dtheta = thetaderavg(data)
     dr = rderavg(data, eta, spectral, exclude)
-    dz = N.cos(th2D)*dr - N.sin(th2D)/rr2D*dtheta
+    dz = N.cos(thmD)*dr - N.sin(thmD)/rr*dtheta
     return dz
 
 def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
