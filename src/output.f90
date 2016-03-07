@@ -487,11 +487,11 @@ contains
             call dble2str(time,string)
             rst_file='h5_rst_t='//trim(string)//'.'//tag
          end if
-         call storeHdf5_parallel(time,dt,dtNew,w_LMloc,z_LMloc,p_LMloc,s_LMloc, &
-                                 b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,       &
-                                 dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,     &
-                                 dsdtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,  &
-                                 dbdt_icLast_LMloc,djdt_icLast_LMloc)
+         call storeHdf5(time,dt,dtNew,w_LMloc,z_LMloc,p_LMloc,s_LMloc, &
+                        b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,       &
+                        dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,     &
+                        dsdtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,  &
+                        dbdt_icLast_LMloc,djdt_icLast_LMloc)
   
          if ( rank == 0 ) then
             write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&

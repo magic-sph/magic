@@ -34,11 +34,11 @@ module start_fields
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
-   use readCheckPoints, only: readHdf5_serial,readStartFields
+   use readCheckPoints, only: readHdf5,readStartFields
 #else
    use readCheckPoints, only: readStartFields
 #endif
-    
+
    implicit none
 
    private
@@ -49,14 +49,14 @@ contains
 
    subroutine getStartFields(time,dt,dtNew,n_time_step)
       !
-      !  Purpose of this subroutine is to initialize the fields and       
-      !  other auxiliary parameters.                                      
+      !  Purpose of this subroutine is to initialize the fields and
+      !  other auxiliary parameters.
       !
-    
+
       !---- Output variables:
       real(cp), intent(out) :: time,dt,dtNew
       integer,  intent(out) :: n_time_step
-    
+
       !-- Local variables:
       integer :: nR,l1m0,nLMB,l,m
       integer :: lm
@@ -64,24 +64,24 @@ contains
       real(cp) :: coex
       real(cp) :: d_omega_ma_dt,d_omega_ic_dt
       character(len=76) :: message
-    
+
       real(cp) :: sEA,sES,sAA
-    
+
       real(cp) :: s0(n_r_max),ds0(n_r_max)
       real(cp) :: w1(n_r_max),w2(n_r_max)
-    
+
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
-    
+
       integer :: ierr
       logical :: DEBUG_OUTPUT=.false.
-    
+
       !PERFON('getFlds')
       !print*,"Starting getStartFields"
       !write(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
       !---- Computations for the Nusselt number if we are anelastic
       !     Can be done before setting the fields
       if (l_heat) then
-    
+
          if ( index(interior_model,'EARTH') /= 0 ) then
             topcond=-one/epsS*dtemp0(1)
             botcond=-one/epsS*dtemp0(n_r_max)
@@ -92,39 +92,37 @@ contains
             botcond=-osq4pi*ds0(n_r_max)
          end if
       end if
-    
-    
-      !-- Start with setting fields to zero:
-      !   Touching the fields with the appropriate processor
-      !   for the LM-distribute parallel region (LMLoop) makes
-      !   sure that they are located close the individual
-      !   processors in memory:
-    
-      if ( rank == 0 ) then
-         if ( l_start_file ) then
-            !PERFON('readFlds')
+
+      ! Read restart file
+      if ( l_start_file ) then
 #ifdef WITH_HDF5
-            if ( index(start_file,'h5_') /= 0 ) then
-               call readHdf5_serial( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                    &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                    &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                    &                lorentz_torque_icLast,lorentz_torque_maLast, &
-                    &                time,dt,dtNew)
-               n_time_step=0
+         if ( index(start_file,'h5_') /= 0 ) then
+            if (rank /= 0) then
+               call readHdf5( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc, &
+                    &         b_LMloc,dbdtLast_LMloc,aj_LMloc,djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,     &
+                    &         aj_ic_LMloc,djdt_icLast_LMloc,omega_ic,omega_ma,         &
+                    &         lorentz_torque_icLast,lorentz_torque_maLast, &
+                    &         time,dt,dtNew, &
+                    &         llm, ulm, llmMag, ulmMag)
             else
-               call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                    &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                    &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                    &                lorentz_torque_icLast,lorentz_torque_maLast, &
-                    &                time,dt,dtNew,n_time_step)
-            end if
-#else
+               call readHdf5( w,dwdtLast,z,dzdtLast_lo,p,dpdtLast,s,dsdtLast, &
+                    &         b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
+                    &         aj_ic,djdt_icLast,omega_ic,omega_ma,         &
+                    &         lorentz_torque_icLast,lorentz_torque_maLast, &
+                    &         time,dt,dtNew, &
+                    &         1, lm_max, 1, lm_maxMag)
+            endif
+            n_time_step=0
+
+         else &
+#endif
+         if ( rank == 0 ) then
+            !PERFON('readFlds')
             call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
                  &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
                  &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
                  &                lorentz_torque_icLast,lorentz_torque_maLast, &
                  &                time,dt,dtNew,n_time_step)
-#endif
             if ( dt > 0.0_cp ) then
                write(message,'(''! Using old time step:'',ES16.6)') dt
             else
@@ -132,7 +130,17 @@ contains
                write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
             end if
             !PERFOFF
-         else
+         end if
+
+      else ! no start file
+
+         if (rank == 0) then
+            !-- Start with setting fields to zero:
+            !   Touching the fields with the appropriate processor
+            !   for the LM-distribute parallel region (LMLoop) makes
+            !   sure that they are located close the individual
+            !   processors in memory:
+
             ! Initialize with zero
             if ( l_conv ) then
                w       =zero
@@ -158,7 +166,7 @@ contains
                aj_ic      =zero
                djdt_icLast=zero
             end if
-    
+
             time =0.0_cp
             dt   =dtMax
             dtNew=dtMax
@@ -166,13 +174,13 @@ contains
             write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
          call logWrite(message)
-    
+
          !----- Get radial derivatives and initialize:
-    
+
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
             lmStop =lmStopB(nLMB)
-    
+
             !----- Initialize/add magnetic field:
             if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
                  & .and. ( l_mag .or. l_mag_LF ) ) then
@@ -180,26 +188,26 @@ contains
                     &     lorentz_torque_icLast, lorentz_torque_maLast, &
                     &     lmStart,lmStop)
             end if
-    
+
             !----- Initialize/add velocity, set IC and ma rotation:
             if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
                call initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
             end if
-    
+
             !----- Initialize/add entropy:
             if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
                call initS(s,lmStart,lmStop)
             end if
-    
+
             if ( DEBUG_OUTPUT ) then
                write(*,"(A,I3,10ES22.15)") "direct after init: w,z,s,b,aj ", &
                       nLMB, sum(w), sum(z), sum(s),sum(b),sum(aj)
             end if
-    
+
          end do ! Loop over LM blocks
-    
+
       end if
-    
+
       ! ========== Redistribution of the fields ============
       ! 1. Broadcast the scalars
 #ifdef WITH_MPI
@@ -212,7 +220,7 @@ contains
       call MPI_Bcast(dtNew,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 #endif
-    
+
       ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
       !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
       do nR=1,n_r_max
@@ -221,7 +229,7 @@ contains
          call scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
          call scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
          call scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
-    
+
          if ( l_mag ) then
             call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
             call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
@@ -233,7 +241,7 @@ contains
             call scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
          end do
       end if
-    
+
       ! 3. Scatter the fields to the LMloc space
       !write(*,"(4X,A)") "Start Scatter the fields"
       if ( DEBUG_OUTPUT ) then
@@ -256,7 +264,7 @@ contains
          !   write(*,"(A,I4,6ES22.14)") "LMloc arrays: ",nR, &
          !        & SUM( s_LMloc(:,nR) ),SUM( b_LMloc(:,nR) ),SUM( aj_LMloc(:,nR) )
          !end if
-    
+
       end do
       !write(*,"(A,2ES20.12)") "init z_LMloc = ",get_global_sum(z_LMloc)
       if ( l_cond_ic ) then
@@ -265,32 +273,32 @@ contains
             call scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
          end do
       end if
-    
+
       !if (DEBUG_OUTPUT) then
       !   if (rank == 0) then
       !      write(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast full = ", &
       !           & SUM( z ),SUM( dzdtLast )
       !   end if!
-    
+
       !   write(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ", &
       !        &    SUM( z_LMloc ),SUM( dzdtLast_lo )
       !end if
-    
+
       allocate( workA_LMloc(llm:ulm,n_r_max) )
       allocate( workB_LMloc(llm:ulm,n_r_max) )
-    
+
       !  print*,"Computing derivatives"
-      do nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs) 
+      do nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs)
          ! Blocking of loop over all (l,m)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
-    
+
          !if (DEBUG_OUTPUT) then
          !   write(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB, &
          !        & SUM(w_LMloc), SUM(z_LMloc), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
          !end if
-    
-    
+
+
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
                           lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
@@ -299,7 +307,7 @@ contains
                          n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
                          chebt_oc,drx )
          end if
-    
+
          if ( l_mag .or. l_mag_kin  ) then
             call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
                           lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
@@ -322,14 +330,14 @@ contains
                               dr_fac_ic,workA_LMloc,workB_LMloc,         &
                               chebt_ic, chebt_ic_even)
          end if
-    
+
          if ( l_LCR ) then
             do nR=n_r_cmb,n_r_icb-1
                if ( nR<=n_r_LCR ) then
                   do lm=lmStart,lmStop
                      l=lo_map%lm2l(lm)
                      m=lo_map%lm2m(lm)
-    
+
                      b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
                                      b_LMloc(lm,n_r_LCR)
                      db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
@@ -344,8 +352,8 @@ contains
                end if
             end do
          end if
-    
-    
+
+
          if ( l_heat ) then
             !-- Get radial derivatives of entropy:
             !if (DEBUG_OUTPUT) then
@@ -361,7 +369,7 @@ contains
                          n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
                          chebt_oc,drx )
          end if
-    
+
          if ( DEBUG_OUTPUT ) then
             !do nR=1,n_r_max
             !   write(*,"(A,I5,4ES22.14)") "Rdep: s,ds : ", nR,  &
@@ -375,9 +383,9 @@ contains
                  & nLMB, SUM(dw_LMloc), SUM(dz_LMloc),              &
                  & SUM(ds_LMloc),SUM(db_LMloc),SUM(dj_LMloc)
          end if
-         
+
       end do
-    
+
       deallocate(workA_LMloc)
       deallocate(workB_LMloc)
       !--- Get symmetry properties of tops excluding l=m=0:
@@ -407,7 +415,7 @@ contains
          write(message,'(''! Rel. RMS axi. asym. tops:'',ES16.6)') sAA
          call logWrite(message)
       end if
-    
+
       !----- Get changes in mantle and ic rotation rate:
       if ( .not. l_mag_LF ) then
          lorentz_torque_icLast=0.0_cp
@@ -434,10 +442,10 @@ contains
          d_omega_ma_dtLast=0.0_cp
          d_omega_ic_dtLast=0.0_cp
       end if
-    
-    
+
+
          ! --------------- end of insertion ----------
-    
+
       !print*,"Start redistribution in getStartfields"
       ! start the redistribution
       if (l_heat) then
@@ -448,12 +456,12 @@ contains
          call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
          call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
       end if
-    
+
       if (l_mag) then
          call lo2r_redist_start(lo2r_b,b_LMloc_container,b_Rloc_container)
          call lo2r_redist_start(lo2r_aj,aj_LMloc_container,aj_Rloc_container)
       end if
-    
+
       !print*,"End of getStartFields"
       !PERFOFF
    end subroutine getStartFields

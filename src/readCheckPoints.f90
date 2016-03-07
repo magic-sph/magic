@@ -1,6 +1,7 @@
+#include "assertions.cpp"
 module readCheckPoints
    !
-   ! This module contains the functions that can help reading and 
+   ! This module contains the functions that can help reading and
    ! mapping of the restart files
    !
 
@@ -22,18 +23,16 @@ module readCheckPoints
    use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use cosine_transform_odd
-
+   use readCheckPoints_helper
+   use assertions
 
    implicit none
 
    private
 
-   integer(lip) :: bytes_allocated=0
-
-#ifdef WITH_HDF5
-   public :: readStartFields, readHdf5_serial
-#else
    public :: readStartFields
+#ifdef WITH_HDF5
+   public :: readHdf5
 #endif
 
 contains
@@ -474,35 +473,40 @@ contains
    end subroutine readStartFields
 !------------------------------------------------------------------------------
 #ifdef WITH_HDF5
-   subroutine readHdf5_serial(w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt, &
-                              aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic, &
-                             omega_ic,omega_ma,lorentz_torque_ic, &
-                             lorentz_torque_ma,time,dt_old,dt_new)
+   subroutine readHdf5(w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt, &
+                       aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic, &
+                       omega_ic,omega_ma,lorentz_torque_ic, &
+                       lorentz_torque_ma,time,dt_old,dt_new, &
+                       llm, ulm, llmMag, ulmMag)
 
       use hdf5
-      use hdf5Helpers, only: readHdf5_attribute
+      use hdf5Helpers
+      !use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+
+      ! input
+      integer, intent(in) :: llm, ulm, llmMag, ulmMag
 
       !--- Output variables
       real(cp),    intent(out) :: time,dt_old,dt_new
       real(cp),    intent(out) :: omega_ic,omega_ma
       real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
-      complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dwdt(llm:ulm,n_r_max),dzdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dsdt(llm:ulm,n_r_max),dpdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: b(llmMag:ulmMag,n_r_maxMag),aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: dbdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: djdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dbdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: djdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !--- Local variables
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
       integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old,n_data_oldP,n_r_maxL,n_r_ic_maxL
-      integer :: l1m0,nLMB,lm,lmStart,lmStop,nR,lm_max_old
+      integer :: n_r_ic_max_old
+      integer :: l1m0,nLMB,lm,lmStart,lmStop,nR
       logical :: l_mag_old
 
       real(cp) :: fr
@@ -514,43 +518,38 @@ contains
       real(cp) :: omega_ma1Old,omegaOsz_ma1Old
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
-      complex(cp), allocatable, target :: so(:),wo(:),zo(:),po(:)
-
-      type(C_PTR) :: f_ptr
-
-      integer, allocatable :: lm2lmo(:)
+      integer, allocatable :: file_lm_map(:, :)
+      integer(HSIZE_T) :: file_lm_shape(2)
 
       !--- HDF5 file
       integer(HID_T) :: file_id
 
-      !--- HDF5 Attributes
-      integer(HID_T) :: attr_id
-      logical :: attr_exists, link_exists
+      !--- To check for HDF5 Attributes
+      logical :: link_exists
 
       !--- HDF5 Groups
       character(len=12) :: grpname,grpname1     ! Group names
       integer(HID_T) :: grp_id,grp1_id
 
-      !--- HDF5 Datasets
-      integer(HID_T) :: dset_id
-
       !--- HDF5 Type
-      integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
-      integer(HID_T) :: type_id
+      integer(HID_T) :: complex_t
 
-      integer     ::   i,error
+      integer :: error
 
       inform = 12
 
       ! Initialize FORTRAN interface.
       call h5open_f(error)
+      assert_equal(error, 0, "h5open_f")
 
       ! Create a new file using default properties.
       call h5fopen_f(start_file, H5F_ACC_RDONLY_F, file_id, error)
+      assert_equal(error, 0, "h5fopen_f")
 
       ! Open group for control parameters and read attributes
       grpname = '/Params'
       call h5gopen_f(file_id, grpname, grp_id, error)
+      assert_equal(error, 0, "h5gopen_f")
       call readHdf5_attribute(grp_id,'Ek',ek_old)
       call readHdf5_attribute(grp_id,'Ra',ra_old)
       call readHdf5_attribute(grp_id,'Pr',pr_old)
@@ -561,6 +560,7 @@ contains
       call readHdf5_attribute(grp_id,'sigma_ratio',sigma_ratio_old)
 
       call h5gclose_f(grp_id, error)
+      assert_equal(error, 0, "h5gclose_f")
 
       !---- Compare parameters:
       if ( ra /= ra_old ) &
@@ -579,21 +579,13 @@ contains
          write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
          sigma_ratio_old,sigma_ratio
 
-      ! Create a HF compound type  to store Fortran complex
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,im_size,error)
-      complex_t_size = re_size+im_size
-      call h5tcreate_f(H5T_COMPOUND_F,complex_t_size,type_id,error)
-      offset = 0
-      call h5tinsert_f(type_id, 'real', offset, H5T_NATIVE_DOUBLE, error)
-      offset = offset + re_size
-      call h5tinsert_f(type_id, 'imag', offset, H5T_NATIVE_DOUBLE, error)
-
       grpname = '/Fields'
       grpname1 = '/dtFields'
 
       call h5gopen_f(file_id, grpname, grp_id, error)
+      assert_equal(error, 0, "h5gopen_f")
       call h5gopen_f(file_id, grpname1, grp1_id, error)
+      assert_equal(error, 0, "h5gopen_f")
 
       call readHdf5_attribute(grp_id,'n_phi_tot',n_phi_tot_old)
       call readHdf5_attribute(grp_id,'minc',minc_old)
@@ -613,96 +605,44 @@ contains
       if ( l_max_old /= l_max ) &
          write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
 
-      allocate( lm2lmo(lm_max) )
+      complex_t = hdf5_fortran_complex_type()
 
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-                     m_max,minc,minc_old,inform,lm_max,   &
-                     lm_max_old,n_data_oldP,lm2lmo)
-      n_data_oldP=lm_max*(n_r_max+1)
+      ! read entire LM-mapping from restart file
+      call dataset_shape(file_id, "lm_map", file_lm_shape)
+      allocate(file_lm_map(0:file_lm_shape(1)-1, 0:file_lm_shape(2)-1))
+      call read_dataset(file_id, "lm_map", H5T_NATIVE_INTEGER, file_lm_map)
 
-      allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+      call interpolate_dataset(grp_id, "w_pol",    complex_t, w, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
+      call interpolate_dataset(grp_id, "z_tor",    complex_t, z, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
+      call interpolate_dataset(grp_id, "pressure", complex_t, p, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
 
-      call h5oexists_by_name_f(file_id, '/Fields/entropy', link_exists, error)
+      call h5oexists_by_name_f(grp_id, 'entropy', link_exists, error)
+      assert_equal(error, 0, "h5oexists_by_name_f")
       if ( link_exists ) then
-         call h5dopen_f(grp_id, 'entropy', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
+         call interpolate_dataset(grp_id, "entropy", complex_t, s, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
       end if
-      call h5dopen_f(grp_id, 'w_pol', dset_id, error)
-      f_ptr=C_LOC(wo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
 
-      call h5dopen_f(grp_id, 'z_tor', dset_id, error)
-      f_ptr=C_LOC(zo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
 
-      call h5dopen_f(grp_id, 'pressure', dset_id, error)
-      f_ptr=C_LOC(po)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
+      call interpolate_dataset(grp1_id, "dwdtLast", complex_t, dwdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
+      call interpolate_dataset(grp1_id, "dzdtLast", complex_t, dzdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
+      call interpolate_dataset(grp1_id, "dpdtLast", complex_t, dpdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
 
-      n_r_maxL = max(n_r_max,n_r_max_old)
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,  &
-                        n_r_max_old,lm_max_old,n_r_maxL,  &
-                 .false.,.false.,.false.,.false.,w,z,p,s )
-
-      call h5oexists_by_name_f(file_id, '/dtFields/dsdtLast', link_exists, error)
+      call h5oexists_by_name_f(grp1_id, 'dsdtLast', link_exists, error)
+      assert_equal(error, 0, "h5oexists_by_name_f")
       if ( link_exists ) then
-         call h5dopen_f(grp1_id, 'dsdtLast', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
+         call interpolate_dataset(grp1_id, "dsdtLast", complex_t, dsdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
       end if
-      call h5dopen_f(grp1_id, 'dwdtLast', dset_id, error)
-      f_ptr=C_LOC(wo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
 
-      call h5dopen_f(grp1_id, 'dzdtLast', dset_id, error)
-      f_ptr=C_LOC(zo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call h5dopen_f(grp1_id, 'dpdtLast', dset_id, error)
-      f_ptr=C_LOC(po)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,         &
-                         n_r_max_old,lm_max_old,n_r_maxL,.true., &
-                        .true.,.true.,.true.,dwdt,dzdt,dpdt,dsdt )
 
       if ( l_mag_old ) then
-         call h5dopen_f(grp_id, 'b_pol', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp_id, 'aj_tor', dset_id, error)
-         f_ptr=C_LOC(wo)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp1_id, 'dbdtLast', dset_id, error)
-         f_ptr=C_LOC(zo)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp1_id, 'djdtLast', dset_id, error)
-         f_ptr=C_LOC(po)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-        call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
-                            lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
-                            .false.,aj,dbdt,djdt,b )
+         call interpolate_dataset(grp_id,  "aj_tor",   complex_t, aj,   [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
+         call interpolate_dataset(grp1_id, "dbdtLast", complex_t, dbdt, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.FALSE.)
+         call interpolate_dataset(grp1_id, "djdtLast", complex_t, djdt, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.FALSE.)
+         call interpolate_dataset(grp_id,  "b_pol",    complex_t, b,    [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
       else
         write(*,*) '! No magnetic data in input file!'
       end if
+
 
       !-- If mapping towards reduced symmetry, add thermal perturbation in
       !   mode (l,m)=(minc,minc) if parameter tipdipole /= 0
@@ -737,48 +677,12 @@ contains
          end do
       end if
 
-      ! deallocation of the local arrays
-      deallocate( lm2lmo )
-      deallocate( wo,zo,po,so )
-      !bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
-
       if ( l_mag_old ) then
          if ( sigma_ratio_old /= 0.0_cp ) then
-            allocate( lm2lmo(lm_max) )
-            call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                                 m_max,minc,minc_old,inform,lm_max,   &
-                                 lm_max_old,n_data_oldP,lm2lmo)
-
-            n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
-            allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
-                      so(n_data_oldP) )
-
-            call h5dopen_f(grp_id, 'b_ic_pol', dset_id, error)
-            f_ptr=C_LOC(so)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp_id, 'aj_ic_tor', dset_id, error)
-            f_ptr=C_LOC(wo)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp1_id, 'dbdt_icLast', dset_id, error)
-            f_ptr=C_LOC(zo)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp1_id, 'djdt_icLast', dset_id, error)
-            f_ptr=C_LOC(po)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
-                             lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
-                             .true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
-
-            deallocate( lm2lmo )
-            deallocate( wo,zo,po,so )
+            call interpolate_dataset(grp_id,  "aj_ic_tor",   complex_t, aj_ic,   [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.TRUE.)
+            call interpolate_dataset(grp1_id, "dbdt_icLast", complex_t, dbdt_ic, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.TRUE.)
+            call interpolate_dataset(grp1_id, "djdt_icLast", complex_t, djdt_ic, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.TRUE.)
+            call interpolate_dataset(grp_id,  "b_ic_pol",    complex_t, b_ic,    [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.TRUE.)
          else if ( l_cond_ic ) then
             !----- No inner core fields provided by start_file, we thus assume that
             !      simple the inner core field decays like r**(l+1) from
@@ -801,7 +705,9 @@ contains
       end if
 
       call h5gclose_f(grp1_id, error)
+      assert_equal(error, 0, "h5gclose_f")
       call h5gclose_f(grp_id, error)
+      assert_equal(error, 0, "h5gclose_f")
 
       !-- Lorentz-torques:
       !   NOTE: If lMagMem=.false. the memory required to read
@@ -828,6 +734,7 @@ contains
       ! Open group for control parameters and read attributes
       grpname = '/Torque'
       call h5gopen_f(file_id, grpname, grp_id, error)
+      assert_equal(error, 0, "h5gopen_f")
 
       call readHdf5_attribute(grp_id,'lorentz_torque_ic',lorentz_torque_ic)
       call readHdf5_attribute(grp_id,'lorentz_torque_ma',lorentz_torque_ma)
@@ -846,6 +753,7 @@ contains
       call readHdf5_attribute(grp_id,'dtNew',dt_new)
 
       call h5gclose_f(grp_id, error)
+      assert_equal(error, 0, "h5gclose_f")
 
       if ( l_SRIC ) then
          if ( omega_ic1Old /= omega_ic1 )                     &
@@ -879,9 +787,11 @@ contains
 
       ! Close the file.
       call h5fclose_f(file_id, error)
+      assert_equal(error, 0, "h5fclose_f")
 
       ! Close FORTRAN interface.
       call h5close_f(error)
+      assert_equal(error, 0, "h5close_f")
 
       !----- Set IC and mantle rotation rates:
       l1m0=lm2(1,0)
@@ -928,315 +838,6 @@ contains
          omega_ma=0.0_cp
       end if
 
-   end subroutine readHdf5_serial
+   end subroutine readHdf5
 #endif
-!------------------------------------------------------------------------------
-   subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-                        m_max,minc,minc_old,inform,lm_max,   &
-                        lm_max_old,n_data_oldP,lm2lmo)
-
-      !--- Input variables
-      integer, intent(in) :: n_r_max,l_max,m_max,minc
-      integer, intent(in) :: n_r_max_old,l_max_old,minc_old
-      integer, intent(in) :: inform,lm_max
-
-      !--- Output variables
-      integer,intent(out) :: lm2lmo(lm_max)
-      integer,intent(out) :: n_data_oldP
-      integer,intent(out) :: lm_max_old
-
-      !--- Local variables
-      integer :: n_data,n_data_old
-      integer :: m_max_old
-      integer :: l,m,lm,lmo,lo,mo
-
-      !-- Outer core fields:
-      n_data  = lm_max*n_r_max
-      !-- This allows to increase the number of grid points by 10!
-
-      if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old ) then
-
-         !----- Direct reading of fields, grid not changed:
-         write(*,'(/,'' ! Reading fields directly.'')')
-
-         n_data_old=n_data
-         if ( inform>2 ) then
-            n_data_oldP=n_data
-         else
-            !----- In the past an 'extra' radial grid point has been
-            !      stored which was not really necessary
-            n_data_oldP=lm_max*(n_r_max+1)
-         end if
-
-         lm_max_old=lm_max
-      else
-
-         !----- Mapping onto new grid !
-         write(*,'(/,'' ! Mapping onto new grid.'')')
-
-         if ( MOD(minc_old,minc) /= 0 )                                &
-              &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
-
-         m_max_old =(l_max_old/minc_old)*minc_old
-         lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
-              &     m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
-              &     l_max_old-m_max_old+1
-
-         n_data_old=lm_max_old*n_r_max_old
-         if ( inform>2 ) then
-            n_data_oldP=n_data_old
-         else
-            n_data_oldP=lm_max_old*(n_r_max_old+1)
-         end if
-
-         !-- Write info to STdoUT:
-         write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
-              &       ''  minc= '',2I3,''  lm_max= '',2I5/)')         &
-              &           l_max_old,l_max,m_max_old,m_max,            &
-              &           minc_old,minc,lm_max_old,lm_max
-         if ( n_r_max_old /= n_r_max )                                &
-              &        write(*,'('' ! Old/New n_r_max='',2i4)')       &
-             &              n_r_max_old,n_r_max
-
-      end if
-
-      do lm=1,lm_max
-         l=lm2l(lm)
-         m=lm2m(lm)
-         lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-         lmo=0
-         do mo=0,l_max_old,minc_old
-            do lo=mo,l_max_old
-               lmo=lmo+1
-               if ( lo==l .and. mo==m ) then
-                  lm2lmo(lm)=lmo ! data found in startfile
-                  cycle
-               end if
-            end do
-         end do
-      end do
-
-   end subroutine getLm2lmO
-!------------------------------------------------------------------------------
-   subroutine mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo, &
-                          n_r_max_old,lm_max_old,n_r_maxL, &
-                          lbc1,lbc2,lbc3,lbc4,w,z,p,s )
-
-      !--- Input variables
-      integer,         intent(in) :: n_r_max_old,lm_max_old
-      integer,         intent(in) :: n_r_maxL,n_data_oldP
-      logical,         intent(in) :: lbc1,lbc2,lbc3,lbc4
-      integer,         intent(in) :: lm2lmo(lm_max)
-      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
-      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
-
-      !--- Output variables
-      complex(cp),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(cp),intent(out) :: p(lm_max,n_r_max),s(lm_max,n_r_max)
-
-      !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
-      complex(cp),allocatable :: woR(:),zoR(:)
-      complex(cp),allocatable :: poR(:),soR(:)
-
-      !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
-      allocate( woR(n_r_maxL),zoR(n_r_maxL) )
-      allocate( poR(n_r_maxL),soR(n_r_maxL) )
-      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-      write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
-
-      !PERFON('mD_map')
-      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
-
-         !PRINT*,nLMB,lmStart,lmStop
-         do lm=lmStart,lmStop
-            lmo=lm2lmo(lm)
-            if ( lmo > 0 ) then
-               if ( n_r_max /= n_r_max_old ) then
-                  do nR=1,n_r_max_old  ! copy on help arrays
-                     n=lmo+(nR-1)*lm_max_old
-                     woR(nR)=wo(n)
-                     zoR(nR)=zo(n)
-                     poR(nR)=po(n)
-                     if ( l_heat ) soR(nR)=so(n)
-                  end do
-                  call mapDataR(woR,n_r_max,n_r_max_old,n_r_maxL,lBc1,.FALSE.)
-                  call mapDataR(zoR,n_r_max,n_r_max_old,n_r_maxL,lBc2,.FALSE.)
-                  call mapDataR(poR,n_r_max,n_r_max_old,n_r_maxL,lBc3,.FALSE.)
-                  if ( l_heat ) call mapDataR(soR,n_r_max,n_r_max_old, & 
-                                              n_r_maxL,lBc4,.FALSE.)
-                  do nR=1,n_r_max
-                     if ( lm > 1 ) then
-                        w(lm,nR)=scale_v*woR(nR)
-                        z(lm,nR)=scale_v*zoR(nR)
-                        p(lm,nR)=scale_v*poR(nR)
-                     end if
-                     if ( l_heat ) s(lm,nR)=scale_s*soR(nR)
-                  end do
-               else
-                  do nR=1,n_r_max
-                     n=lmo+(nR-1)*lm_max_old
-                     if ( lm > 1 ) then
-                        w(lm,nR)=scale_v*wo(n)
-                        z(lm,nR)=scale_v*zo(n)
-                        p(lm,nR)=scale_v*po(n)
-                     end if
-                     if ( l_heat ) s(lm,nR)=scale_s*so(n)
-                  end do
-               end if
-            end if
-         end do
-      end do
-      !PERFOFF
-      !PRINT*,omp_get_thread_num(),": After nLMB loop"
-      deallocate(woR,zoR,poR,soR)
-      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-
-   end subroutine mapDataHydro
-!------------------------------------------------------------------------------
-   subroutine mapDataMag( wo,zo,po,so,n_data_oldP,n_rad_tot,n_r_max_old, &
-                          lm_max_old,n_r_maxL,lm2lmo,dim1,l_IC,          & 
-                          w,z,p,s )
-
-      !--- Input variables
-      integer,     intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
-      integer,     intent(in) :: n_r_maxL,n_data_oldP,dim1
-      integer,     intent(in) :: lm2lmo(lm_max)
-      logical,     intent(in) :: l_IC
-      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
-      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
-
-      !--- Output variables
-      complex(cp), intent(out) :: w(lm_maxMag,dim1),z(lm_maxMag,dim1)
-      complex(cp), intent(out) :: p(lm_maxMag,dim1),s(lm_maxMag,dim1)
-
-      !--- Local variables
-      integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
-      complex(cp), allocatable :: woR(:),zoR(:),poR(:),soR(:)
-
-      !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
-      allocate( woR(n_r_maxL),zoR(n_r_maxL) )
-      allocate( poR(n_r_maxL),soR(n_r_maxL) )
-      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-      write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
-
-      !PERFON('mD_map')
-      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-         lmStart=lmStartB(nLMB)
-         lmStop =lmStopB(nLMB)
-         lmStart=max(2,lmStart)
-         do lm=lmStart,lmStop
-            lmo=lm2lmo(lm)
-            if ( lmo > 0 ) then
-               if ( n_rad_tot /= n_r_max_old ) then
-                  do nR=1,n_r_max_old  ! copy on help arrays
-                     n=lmo+(nR-1)*lm_max_old
-                     woR(nR)=wo(n)
-                     zoR(nR)=zo(n)
-                     poR(nR)=po(n)
-                     soR(nR)=so(n)
-                  end do
-                  call mapDataR(woR,dim1,n_r_max_old,n_r_maxL,.FALSE.,l_IC)
-                  call mapDataR(zoR,dim1,n_r_max_old,n_r_maxL,.TRUE.,l_IC)
-                  call mapDataR(poR,dim1,n_r_max_old,n_r_maxL,.TRUE.,l_IC)
-                  call mapDataR(soR,dim1,n_r_max_old,n_r_maxL,.FALSE.,l_IC)
-                  do nR=1,n_rad_tot
-                     w(lm,nR)=scale_b*woR(nR)
-                     z(lm,nR)=scale_b*zoR(nR)
-                     p(lm,nR)=scale_b*poR(nR)
-                     s(lm,nR)=scale_b*soR(nR)
-                  end do
-               else
-                  do nR=1,n_rad_tot
-                     n=lmo+(nR-1)*lm_max_old
-                     w(lm,nR)=scale_b*wo(n)
-                     z(lm,nR)=scale_b*zo(n)
-                     p(lm,nR)=scale_b*po(n)
-                     s(lm,nR)=scale_b*so(n)
-                  end do
-               end if
-            end if
-         end do
-      end do
-      !PERFOFF
-      !PRINT*,omp_get_thread_num(),": After nLMB loop"
-      deallocate(woR,zoR,poR,soR)
-      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
-
-   end subroutine mapDataMag
-!------------------------------------------------------------------------------
-   subroutine mapDataR(dataR,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
-      !
-      !
-      !  Copy (interpolate) data (read from disc file) from old grid structure 
-      !  to new grid. Linear interploation is used in r if the radial grid
-      !  structure differs
-      !
-      !  called in mapdata
-      !
-      !
-
-      !--- Input variables
-      integer, intent(in) :: n_r_max_old
-      integer, intent(in) :: n_r_maxL,n_rad_tot
-      logical, intent(in) :: lBc,l_IC
-
-      !--- Output variables
-      complex(cp), intent(inout) :: dataR(:)  ! old data
-
-      !-- Local variables
-      integer :: nR, n_r_index_start
-      type(costf_odd_t) :: chebt_oc_old
-      complex(cp), allocatable :: work(:)
-      real(cp) :: cheb_norm_old,scale
-
-      allocate( work(n_r_maxL) )
-
-      !----- Initialize transform to cheb space:
-      call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2,2*n_r_maxL+5)
-
-      !-- Guess the boundary values, since they have not been stored:
-      if ( .not. l_IC .and. lBc ) then
-         dataR(1)=two*dataR(2)-dataR(3)
-         dataR(n_r_max_old)=two*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
-      end if
-
-      !----- Transform old data to cheb space:
-      call chebt_oc_old%costf1(dataR,work)
-
-      !----- Fill up cheb polynomial with zeros:
-      if ( n_rad_tot>n_r_max_old ) then
-         if ( l_IC) then
-            n_r_index_start=n_r_max_old
-         else 
-            n_r_index_start=n_r_max_old+1
-         end if
-         do nR=n_r_index_start,n_rad_tot
-            dataR(nR)=zero
-         end do
-      end if
-    
-      !----- Now transform to new radial grid points:
-      if ( l_IC ) then
-         call chebt_ic%costf1(dataR,work)
-         !----- Rescale :
-         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
-         scale=cheb_norm_old/cheb_norm_ic
-      else
-         call chebt_oc%costf1(dataR,work)
-         !----- Rescale :
-         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
-         scale=cheb_norm_old/cheb_norm
-      end if
-      do nR=1,n_rad_tot
-         dataR(nR)=scale*dataR(nR)
-      end do
-
-      call chebt_oc_old%finalize()
-      deallocate( work )
-
-   end subroutine mapDataR
-!---------------------------------------------------------------------
 end module readCheckPoints

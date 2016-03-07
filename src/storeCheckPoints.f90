@@ -1,3 +1,4 @@
+#include "assertions.cpp"
 #include "perflib_preproc.cpp"
 module storeCheckPoints
    !
@@ -18,15 +19,15 @@ module storeCheckPoints
                           omega_ma2,omegaOsz_ma2,tOmega_ma2
    use logic, only: l_heat,l_mag,l_cond_ic
    use output_data, only: n_rst_file,rst_file
+   use assertions
 
    implicit none
 
    private
- 
-#ifdef WITH_HDF5
-   public :: store, storeHdf5_serial, storeHdf5_parallel
-#else
+
    public :: store
+#ifdef WITH_HDF5
+   public :: storeHdf5
 #endif
 
 contains
@@ -100,233 +101,14 @@ contains
    end subroutine store
 !----------------------------------------------------------------------
 #ifdef WITH_HDF5
-   subroutine storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
-                                 dwdtLast,dzdtLast,dpdtLast,dsdtLast, &
-                                 dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
-
-      use hdf5
-      use hdf5Helpers, only: writeHdf5_attribute
-
-      !--- Input variables
-      real(cp),    intent(in) :: time,dt,dtNew
-      complex(cp), target, intent(in) :: w(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: z(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: p(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: s(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: b(lm_maxMag,n_r_maxMag)
-      complex(cp), target, intent(in) :: aj(lm_maxMag,n_r_maxMag)
-      complex(cp), target, intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), target, intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), target, intent(in) :: dwdtLast(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: dzdtLast(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: dpdtLast(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: dsdtLast(lm_max,n_r_max)
-      complex(cp), target, intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
-      complex(cp), target, intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
-      complex(cp), target, intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), target, intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
-
-      !--- HDF5 file identifier
-      integer(HID_T) :: file_id
-
-      !--- HDF5 dataset
-      integer(HID_T) :: dset1_id      ! Dataset identifier
-      integer(HID_T) :: dspace1_id    ! Dataspace identifier
-      integer(HSIZE_T) :: dims(2) ! Dataset dimensions
-
-      !--- HDF5 Groups
-      integer(HID_T) :: groupParams_id,groupFields_id   ! Groups identifiers
-      integer(HID_T) :: groupDtFields_id,groupTorque_id 
-
-      !--- HDF5 Type
-      integer(HID_T) :: type_id
-      integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
-      integer     ::   error
-
-      ! Initialize FORTRAN interface.
-      call h5open_f(error)
-
-      ! Create a new file using default properties.
-      call h5fcreate_f(rst_file, H5F_ACC_TRUNC_F, file_id, error)
-
-      ! Create a group for physical parameters
-      call h5gcreate_f(file_id, '/Params', groupParams_id, error)
-
-      ! Create/write/close attributes
-      call writeHdf5_attribute(groupParams_id,'Time',time*tScale)
-      call writeHdf5_attribute(groupParams_id,'dt',dt)
-      call writeHdf5_attribute(groupParams_id,'Ra',ra)
-      call writeHdf5_attribute(groupParams_id,'Pr',pr)
-      call writeHdf5_attribute(groupParams_id,'Ek',ek)
-      call writeHdf5_attribute(groupParams_id,'Radratio',radratio)
-      call writeHdf5_attribute(groupParams_id,'Prmag',prmag)
-      call writeHdf5_attribute(groupParams_id,'sigma_ratio',sigma_ratio)
-
-      ! Close group
-      call h5gclose_f(groupParams_id, error)
-
-      ! Create a group for torque and rotation rates
-      call h5gcreate_f(file_id, '/Torque', groupTorque_id, error)
-      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ic',  &
-                              lorentz_torque_icLast)
-      call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ma',  &
-                              lorentz_torque_maLast)
-      call writeHdf5_attribute(groupTorque_id,'omega_ic1',omega_ic1)
-      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic1',omegaOsz_ic1)
-      call writeHdf5_attribute(groupTorque_id,'tOmega_ic1',tOmega_ic1)
-      call writeHdf5_attribute(groupTorque_id,'omega_ic2',omega_ic2)
-      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ic2',omegaOsz_ic2)
-      call writeHdf5_attribute(groupTorque_id,'tOmega_ic2',tOmega_ic2)
-      call writeHdf5_attribute(groupTorque_id,'omega_ma1',omega_ma1)
-      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma1',omegaOsz_ma1)
-      call writeHdf5_attribute(groupTorque_id,'tOmega_ma1',tOmega_ma1)
-      call writeHdf5_attribute(groupTorque_id,'omega_ma2',omega_ma2)
-      call writeHdf5_attribute(groupTorque_id,'omegaOsz_ma2',omegaOsz_ma2)
-      call writeHdf5_attribute(groupTorque_id,'tOmega_ma2',tOmega_ma2)
-      call writeHdf5_attribute(groupTorque_id,'dtNew',dtNew)
-
-      ! Close group
-      call h5gclose_f(groupTorque_id, error)
-
-      ! Create a group for the fields
-      call h5gcreate_f(file_id, '/Fields', groupFields_id, error)
-
-      ! Create a group for the time-derivative of the fields
-      call h5gcreate_f(file_id, '/dtFields', groupDtFields_id, error)
-
-      ! Create/write/close attributes
-      call writeHdf5_attribute(groupFields_id,'n_r_max',n_r_max)
-      call writeHdf5_attribute(groupFields_id,'n_theta_max',n_theta_max)
-      call writeHdf5_attribute(groupFields_id,'n_phi_tot',n_phi_tot)
-      call writeHdf5_attribute(groupFields_id,'minc',minc)
-      call writeHdf5_attribute(groupFields_id,'nalias',nalias)
-      call writeHdf5_attribute(groupFields_id,'n_r_ic_max',n_r_ic_max)
-
-      ! Create a HF compound type  to store Fortran complex
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,im_size,error)
-      complex_t_size = re_size+im_size
-      call h5tcreate_f(H5T_COMPOUND_F,complex_t_size,type_id,error)
-      offset = 0
-      call h5tinsert_f(type_id, 'real', offset, H5T_NATIVE_DOUBLE, error)
-      offset = offset + re_size
-      call h5tinsert_f(type_id, 'imag', offset, H5T_NATIVE_DOUBLE, error)
-
-      ! Create the dataspace for physical arrays
-      dims = [lm_max, n_r_max]
-      call h5screate_simple_f(2, dims, dspace1_id, error)
-
-      ! Create and write the dataset with default properties.
-      call h5dcreate_f(groupFields_id,'w_pol',type_id, dspace1_id,dset1_id, error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(w), error)
-      call h5dclose_f(dset1_id, error)
-
-      call h5dcreate_f(groupDtFields_id,'dwdtLast',type_id,dspace1_id,dset1_id, error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(dwdtLast), error)
-      call h5dclose_f(dset1_id, error)
-
-      call h5dcreate_f(groupFields_id,'z_tor',type_id,dspace1_id,dset1_id,error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(z), error)
-      call h5dclose_f(dset1_id, error)
-
-      call h5dcreate_f(groupDtFields_id,'dzdtLast',type_id,dspace1_id,dset1_id,error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(dzdtLast), error)
-      call h5dclose_f(dset1_id, error)
-
-      call h5dcreate_f(groupFields_id,'pressure',type_id,dspace1_id,dset1_id,error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(p), error)
-      call h5dclose_f(dset1_id, error)
-
-      call h5dcreate_f(groupDtFields_id,'dpdtLast',type_id,dspace1_id,dset1_id,error)
-      call h5dwrite_f(dset1_id, type_id, C_LOC(dpdtLast), error)
-      call h5dclose_f(dset1_id, error)
-
-
-      if ( l_heat ) then
-         call h5dcreate_f(groupFields_id,'entropy',type_id,dspace1_id,dset1_id,error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(s), error)
-         call h5dclose_f(dset1_id, error)
-
-         call h5dcreate_f(groupDtFields_id,'dsdtLast',type_id,dspace1_id,dset1_id,error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(dsdtLast), error)
-         call h5dclose_f(dset1_id, error)
-      end if
-
-      ! Terminate access to the data space.
-      call h5sclose_f(dspace1_id, error)
-
-      if ( l_mag ) then
-         dims = [lm_maxMag, n_r_maxMag]
-         call h5screate_simple_f(2, dims, dspace1_id, error)
-
-         call h5dcreate_f(groupFields_id,'b_pol',type_id,dspace1_id,dset1_id,error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(b), error)
-         call h5dclose_f(dset1_id, error)
-
-         call h5dcreate_f(groupDtFields_id,'dbdtLast',type_id,dspace1_id,dset1_id, error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(dbdtLast), error)
-         call h5dclose_f(dset1_id, error)
-
-         call h5dcreate_f(groupFields_id,'aj_tor',type_id,dspace1_id,dset1_id,error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(aj), error)
-         call h5dclose_f(dset1_id, error)
-
-         call h5dcreate_f(groupDtFields_id,'djdtLast',type_id,dspace1_id,dset1_id,error)
-         call h5dwrite_f(dset1_id, type_id, C_LOC(djdtLast), error)
-         call h5dclose_f(dset1_id, error)
-
-         call h5sclose_f(dspace1_id, error)
-
-         if ( l_cond_ic ) then
-            dims = [lm_maxMag, n_r_ic_maxMag]
-            call h5screate_simple_f(2, dims, dspace1_id, error)
-
-            call h5dcreate_f(groupFields_id,'b_ic_pol',type_id,dspace1_id,dset1_id,error)
-            call h5dwrite_f(dset1_id, type_id, C_LOC(b_ic), error)
-            call h5dclose_f(dset1_id, error)
-
-            call h5dcreate_f(groupDtFields_id,'dbdt_icLast',type_id,dspace1_id, &
-                             dset1_id,error)
-            call h5dwrite_f(dset1_id, type_id, C_LOC(dbdt_icLast), error)
-            call h5dclose_f(dset1_id, error)
-
-            call h5dcreate_f(groupFields_id,'aj_ic_tor',type_id,dspace1_id, &
-                             dset1_id,error)
-            call h5dwrite_f(dset1_id, type_id, C_LOC(aj_ic), error)
-            call h5dclose_f(dset1_id, error)
-
-            call h5dcreate_f(groupDtFields_id,'djdt_icLast',type_id,dspace1_id, &
-                             dset1_id,error)
-            call h5dwrite_f(dset1_id, type_id, C_LOC(djdt_icLast), error)
-            call h5dclose_f(dset1_id, error)
-
-            call h5sclose_f(dspace1_id, error)
-         end if
-      end if
-
-
-      ! End access to the dataset and release resources used by it.
-
-
-      ! close groups
-      call h5gclose_f(groupFields_id, error)
-      call h5gclose_f(groupDtFields_id, error)
-
-      ! Close the file.
-      call h5fclose_f(file_id, error)
-
-      ! Close FORTRAN interface.
-      call h5close_f(error)
-
-   end subroutine storeHdf5_serial
-!----------------------------------------------------------------------
-   subroutine storeHdf5_parallel(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
-                                 dwdtLast,dzdtLast,dpdtLast,dsdtLast,   &
-                                 dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
+   subroutine storeHdf5(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
+                        dwdtLast,dzdtLast,dpdtLast,dsdtLast,   &
+                        dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
 
       use parallel_mod
       use hdf5
-      use hdf5Helpers, only: writeHdf5_attribute, write_dataset
+      use hdf5Helpers
+      use blocking, only: lo_map
       use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 
       !--- Input variables
@@ -348,21 +130,16 @@ contains
       complex(cp), intent(in) :: dbdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
 
-      integer :: l,m,lm
       !--- HDF5 file identifier
-      integer(HID_T) :: file_id  
+      integer(HID_T) :: file_id
       integer(HID_T) :: plist_id
-
-      !--- HDF5 dataset
-      integer(HSIZE_T) :: dims_full(2) ! Dataset dimensions
 
       !--- HDF5 Groups
       integer(HID_T) :: groupParams_id,groupFields_id   ! Groups identifiers
-      integer(HID_T) :: groupDtFields_id,groupTorque_id 
+      integer(HID_T) :: groupDtFields_id,groupTorque_id
 
       !--- HDF5 Type
-      integer(HID_T) :: type_id
-      integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
+      integer(HID_T) :: complex_t
       integer :: error
 
       ! Attributes must be written collectively in HDF5: broadcasting
@@ -386,19 +163,27 @@ contains
 
       ! Initialize FORTRAN interface.
       call h5open_f(error)
+      assert_equal(error, 0, "h5open_f")
 
       ! Setup file access property list with parallel I/O access.
       call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+      assert_equal(error, 0, "h5pcreate_f")
+
 #ifdef WITH_MPI
       call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+      assert_equal(error, 0, "h5pset_fapl_mpio_f")
 #endif
 
       ! Create a new file collectively
       call h5fcreate_f(rst_file, H5F_ACC_TRUNC_F, file_id, error, access_prp=plist_id)
+      assert_equal(error, 0, "h5fcreate_f")
+
       call h5pclose_f(plist_id, error)
+      assert_equal(error, 0, "h5pclose_f")
 
       ! Create a group for physical parameters
       call h5gcreate_f(file_id, '/Params', groupParams_id, error)
+      assert_equal(error, 0, "h5gcreate_f")
  
       ! Create/write/close attributes
       call writeHdf5_attribute(groupParams_id,'Time',time*tScale)
@@ -412,9 +197,11 @@ contains
 
       ! Close group
       call h5gclose_f(groupParams_id, error)
+      assert_equal(error, 0, "h5gclose_f")
 
       ! Create a group for torque and rotation rates
       call h5gcreate_f(file_id, '/Torque', groupTorque_id, error)
+      assert_equal(error, 0, "h5gcreate_f")
       call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ic',  &
                               lorentz_torque_icLast)
       call writeHdf5_attribute(groupTorque_id,'lorentz_torque_ma',  &
@@ -436,12 +223,15 @@ contains
 
       ! Close group
       call h5gclose_f(groupTorque_id, error)
+      assert_equal(error, 0, "h5gclose_f")
 
       ! Create a group for the fields
       call h5gcreate_f(file_id, '/Fields', groupFields_id, error)
+      assert_equal(error, 0, "h5gcreate_f")
 
       ! Create a group for the time-derivative of the fields
       call h5gcreate_f(file_id, '/dtFields', groupDtFields_id, error)
+      assert_equal(error, 0, "h5gcreate_f")
 
       ! Create/write/close attributes
       call writeHdf5_attribute(groupFields_id,'n_r_max',n_r_max)
@@ -451,72 +241,64 @@ contains
       call writeHdf5_attribute(groupFields_id,'nalias',nalias)
       call writeHdf5_attribute(groupFields_id,'n_r_ic_max',n_r_ic_max)
 
-      ! Create a HF compound type  to store Fortran complex
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,im_size,error)
-      complex_t_size = re_size+im_size
-      call h5tcreate_f(H5T_COMPOUND_F,complex_t_size,type_id,error)
-      offset = 0
-      call h5tinsert_f(type_id, 'real', offset, H5T_NATIVE_DOUBLE, error)
-      offset = offset + re_size
-      call h5tinsert_f(type_id, 'imag', offset, H5T_NATIVE_DOUBLE, error)
+      ! Create a HDF5 compound type  to store Fortran complex variables
+      complex_t = hdf5_fortran_complex_type()
 
-      ! Create the dataspace for physical arrays
-      dims_full = [lm_max, n_r_max]
+      ! save this datatype in the file
+      call h5tcommit_f(file_id, "complex_t", complex_t, error)
+      assert_equal(error, 0, "h5tcommit_f")
 
-      call write_dataset(groupFields_id, 'w_pol', type_id, w, n_r_max, dims_full)
-      call write_dataset(groupFields_id, 'z_tor', type_id, z, n_r_max, dims_full)
-      call write_dataset(groupFields_id, 'pressure', type_id, p, n_r_max, dims_full)
+      ! Save the current LM-mapping
+      call write_dataset(file_id, 'lm_map', H5T_NATIVE_INTEGER, lo_map%lm2)
 
-      call write_dataset(groupDtFields_id, 'dwdtLast', type_id, dwdtLast, n_r_max, &
-                         dims_full)
-      call write_dataset(groupDtFields_id, 'dzdtLast', type_id, dzdtLast, n_r_max, &
-                         dims_full)
-      call write_dataset(groupDtFields_id, 'dpdtLast', type_id, dpdtLast, n_r_max, &
-                         dims_full)
+      call write_dataset(groupFields_id, 'w_pol',    complex_t, w, [llm, 1], [lm_max, n_r_max])
+      call write_dataset(groupFields_id, 'z_tor',    complex_t, z, [llm, 1], [lm_max, n_r_max])
+      call write_dataset(groupFields_id, 'pressure', complex_t, p, [llm, 1], [lm_max, n_r_max])
+
+      call write_dataset(groupDtFields_id, 'dwdtLast', complex_t, dwdtLast, [llm, 1], [lm_max, n_r_max])
+      call write_dataset(groupDtFields_id, 'dzdtLast', complex_t, dzdtLast, [llm, 1], [lm_max, n_r_max])
+      call write_dataset(groupDtFields_id, 'dpdtLast', complex_t, dpdtLast, [llm, 1], [lm_max, n_r_max])
 
       if ( l_heat ) then
-         call write_dataset(groupFields_id, 'entropy', type_id, s, n_r_max, dims_full)
-         call write_dataset(groupDtFields_id, 'dsdtLast', type_id, dsdtLast, &
-                            n_r_max, dims_full)
+         call write_dataset(groupFields_id,   'entropy',  complex_t, s,        [llm, 1], [lm_max, n_r_max])
+         call write_dataset(groupDtFields_id, 'dsdtLast', complex_t, dsdtLast, [llm, 1], [lm_max, n_r_max])
       end if
 
       if ( l_mag ) then
-         dims_full = [lm_maxMag, n_r_maxMag]
-         call write_dataset(groupFields_id, 'b_pol', type_id, b, n_r_maxMag, dims_full)
-         call write_dataset(groupFields_id, 'aj_tor', type_id, aj, n_r_maxMag, dims_full)
+         call write_dataset(groupFields_id, 'b_pol',  complex_t, b,  [llmMag, 1], [lm_maxMag, n_r_maxMag])
+         call write_dataset(groupFields_id, 'aj_tor', complex_t, aj, [llmMag, 1], [lm_maxMag, n_r_maxMag])
 
-         call write_dataset(groupDtFields_id, 'dbdtLast', type_id, dbdtLast, &
-                            n_r_maxMag, dims_full)
-         call write_dataset(groupDtFields_id, 'djdtLast', type_id, djdtLast, &
-                            n_r_maxMag, dims_full)
+         call write_dataset(groupDtFields_id, 'dbdtLast', complex_t, dbdtLast, [llmMag, 1], [lm_maxMag, n_r_maxMag])
+         call write_dataset(groupDtFields_id, 'djdtLast', complex_t, djdtLast, [llmMag, 1], [lm_maxMag, n_r_maxMag])
 
          if ( l_cond_ic ) then
-            dims_full = [lm_maxMag, n_r_ic_maxMag]
-            call write_dataset(groupFields_id, 'b_ic_pol', type_id, b_ic, &
-                               n_r_ic_maxMag, dims_full)
-            call write_dataset(groupFields_id, 'aj_ic_tor', type_id, aj_ic, & 
-                               n_r_ic_maxMag, dims_full)
-
-            call write_dataset(groupDtFields_id, 'dbdt_icLast', type_id, dbdt_icLast, &
-                               n_r_ic_maxMag, dims_full)
-            call write_dataset(groupDtFields_id, 'djdt_icLast', type_id, djdt_icLast, &
-                               n_r_ic_maxMag, dims_full)
+            call write_dataset(groupFields_id,   'b_ic_pol',    complex_t, b_ic,        [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
+            call write_dataset(groupFields_id,   'aj_ic_tor',   complex_t, aj_ic,       [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
+            call write_dataset(groupDtFields_id, 'dbdt_icLast', complex_t, dbdt_icLast, [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
+            call write_dataset(groupDtFields_id, 'djdt_icLast', complex_t, djdt_icLast, [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
          end if
       end if
 
       ! close groups
       call h5gclose_f(groupFields_id, error)
+      assert_equal(error, 0, "h5gclose_f")
       call h5gclose_f(groupDtFields_id, error)
+      assert_equal(error, 0, "h5gclose_f")
+
+      ! release datatype
+      call h5tclose_f(complex_t, error)
+      assert_equal(error, 0, "h5tclose_f")
 
       ! Close the file.
       call h5fclose_f(file_id, error)
+      assert_equal(error, 0, "h5fclose_f")
 
       ! Close FORTRAN interface.
       call h5close_f(error)
+      assert_equal(error, 0, "h5close_f")
 
       PERFOFF
 
-   end subroutine storeHdf5_parallel
+   end subroutine storeHdf5
 #endif
 end module storeCheckPoints
