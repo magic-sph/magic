@@ -101,7 +101,7 @@ class MagicSpectrum(MagicSetup):
             print('No such file')
             return
 
-        if ave is False:
+        if ave is False and self.name != 'dtVrms_spec':
             data = fast_read(filename, skiplines=1)
         else:
             data = fast_read(filename)
