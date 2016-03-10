@@ -246,7 +246,7 @@ contains
       real(cp) :: dr2(n_r_max)
       real(cp) :: w1(n_r_max), w2(n_r_max)
       real(cp) :: r_icb2, r_cmb2, dr_fac
-      integer :: nRs(256)
+      integer :: nRs(63)
     
       logical :: lStop
       integer :: n,i,nR
@@ -269,7 +269,12 @@ contains
       n_r_max2=n_r_max-2*nS
     
       ! Allowed number of radial grid points:
-      nRs = [([4*i+1],i=1,256)]
+      nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
+             129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
+             321, 325, 361, 385, 401, 433, 481, 501, 513, 541, 577,  &
+             601, 641, 649, 721, 769, 801, 865, 901, 961, 973, 1001, &
+             1025, 1081, 1153, 1201, 1281, 1297, 1441, 1501, 1537,   &
+             1601, 1621, 1729, 1801, 1921, 1945, 2001, 2049]
       lStop=.true.
       do n=size(nRs),1,-1
          if ( nRs(n) <= n_r_max2 ) then

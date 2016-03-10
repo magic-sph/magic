@@ -203,7 +203,8 @@ contains
                if ( l1 == 0 ) then
                   rhs(1)=0.0_cp
                   do nR=2,n_r_max
-                     rhs(nR)=rho0(nR)*rgrav(nR)*real(s(1,nR))+real(dwdt(1,nR))
+                     rhs(nR)=rho0(nR)*rgrav(nR)*real(s(st_map%lm2(0,0),nR))+ &
+                              real(dwdt(st_map%lm2(0,0),nR))
                   end do
 
                   call sgesl(p0Mat,n_r_max,n_r_max,p0Pivot,rhs)
