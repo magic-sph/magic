@@ -219,7 +219,6 @@ class MagicCoeffCmb(MagicSetup):
         if iplot:
             self.plot()
 
-
     def plot(self):
         """
         Display some results when iplot is set to True
@@ -263,8 +262,106 @@ class MagicCoeffCmb(MagicSetup):
         ax.set_xlabel('Time')
         ax.set_ylabel('Gauss coefficients')
 
-    def movieCmb(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1,
-                 normed=False, dpi=80, bgcolor=None, deminc=True, 
+    def timeLongitude(self, removeMean=True, lat0=0., levels=12, cm='RdYlBu_r',
+                      deminc=True, shtns_lib='shtns'):
+        """
+        Plot the time-longitude diagram of Br (input latitude can be chosen)
+
+        .. warning:: the python bindings of `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ are mandatory to use this plotting function!
+
+        :param lat0: value of the latitude
+        :type lat0: float
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the colormap
+        :type cm: str
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
+        :param shtns_lib: version of shtns library used: can be either 'shtns'
+                          or 'shtns-magic'
+        :type shtns_lib: char
+        :param removeMean: remove the time-averaged part when set to True
+        :type removeMean: bool
+        """
+        # The python bindings of shtns are mandatory to use this function !!!
+        import shtns
+
+        if removeMean:
+            blmCut = self.blm-self.blm.mean(axis=0)
+        else:
+            blmCut = self.blm
+
+        # Define shtns setup
+        sh = shtns.sht(int(self.l_max_cmb), int(self.m_max_cmb/self.minc), 
+                       mres=int(self.minc), 
+                       norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
+
+        polar_opt_threshold = 1e-10
+        nlat = max((self.l_max_cmb*(3/2/2)*2),192)
+        nphi = 2*nlat/self.minc
+        nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
+
+        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        lat0 *= N.pi/180.
+        mask = N.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
+        idx = N.nonzero(mask)[0][0]
+
+        # Transform data on grid space
+        BrCMB = N.zeros((self.nstep, nphi, nlat), 'Float64')
+        if deminc:
+            dat = N.zeros((self.nstep, self.minc*nphi+1), 'Float64')
+        else:
+            dat = N.zeros((self.nstep, nphi), 'Float64')
+        for k in range(self.nstep):
+            tmp = sh.synth(blmCut[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
+            tmp = tmp.T # Longitude, Latitude
+
+            if shtns_lib == 'shtns-magic':
+                BrCMB[k, ...] = rearangeLat(tmp)
+            else:
+                BrCMB[k, ...] = tmp
+
+            if deminc:
+                dat[k, :] = symmetrize(BrCMB[k, :, idx], self.minc)
+            else:
+                dat[k, :] = BrCMB[k, :, idx]
+
+
+        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        if deminc:
+            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
+        else:
+            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
+
+        fig = P.figure()
+        ax = fig.add_subplot(111)
+        vmin = -max(abs(dat.max()), abs(dat.min()))
+        vmax = -vmin
+        cs = N.linspace(vmin, vmax, levels)
+        ax.contourf(phi, self.time, dat, cs, cmap=P.get_cmap(cm))
+
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Time')
+
+        w2 = N.fft.fft2(dat)
+        w2 = abs(w2[1:self.nstep/2+1, 0:self.m_max_cmb+1])
+
+        dw = 2.*N.pi/(self.time[-1]-self.time[0])
+        omega = dw*N.arange(self.nstep)
+        omega = omega[1:self.nstep/2+1]
+        ms = N.arange(self.m_max_cmb+1)
+
+        fig1 = P.figure()
+        ax1 = fig1.add_subplot(111)
+        ax1.contourf(ms, omega, w2, 17, cmap=P.get_cmap('jet'))
+        ax1.set_yscale('log')
+        ax1.set_xlim(0,13)
+        ax1.set_xlabel(r'Azimuthal wavenumber')
+        ax1.set_ylabel(r'Frequency')
+
+    def movieCmb(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
+                 normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
                  precision='Float64', shtns_lib='shtns', contour=False, mer=False):
         """
         Plotting function (it can also write the png files)
@@ -273,8 +370,8 @@ class MagicCoeffCmb(MagicSetup):
 
         :param levels: number of contour levels
         :type levels: int
-        :param cmap: name of the colormap
-        :type cmap: str
+        :param cm: name of the colormap
+        :type cm: str
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         :param png: save the movie as a series of png files when
@@ -301,10 +398,17 @@ class MagicCoeffCmb(MagicSetup):
         :type contour: bool
         :param mer: display meridians and circles when set to True
         :type mer: bool
+        :param removeMean: remove the time-averaged part when set to True
+        :type removeMean: bool
         """
 
         # The python bindings of shtns are mandatory to use this function !!!
         import shtns
+
+        if removeMean:
+            blmCut = self.blm-self.blm.mean(axis=0)
+        else:
+            blmCut = self.blm
 
         # Define shtns setup
         sh = shtns.sht(int(self.l_max_cmb), int(self.m_max_cmb/self.minc), 
@@ -319,12 +423,13 @@ class MagicCoeffCmb(MagicSetup):
         # Transform data on grid space
         BrCMB = N.zeros((self.nstep, nphi, nlat), precision)
         for k in range(self.nstep):
-            tmp = sh.synth(self.blm[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
+            tmp = sh.synth(blmCut[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
             tmp = tmp.T # Longitude, Latitude
 
             if shtns_lib == 'shtns-magic':
-                BrCMB[k, ...] = rearangeLat
-            BrCMB[k, ...] = tmp
+                BrCMB[k, ...] = rearangeLat(tmp)
+            else:
+                BrCMB[k, ...] = tmp
 
         if png:
             P.ioff()
@@ -373,7 +478,7 @@ class MagicCoeffCmb(MagicSetup):
                     dat = symmetrize(BrCMB[k, ...], self.minc)
                 else:
                     dat = BrCMB[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, linestyles=['-', '-'],
                                colors=['k', 'k'], linewidths=[0.7, 0.7])
@@ -404,7 +509,7 @@ class MagicCoeffCmb(MagicSetup):
                     dat = symmetrize(BrCMB[k, ...], self.minc)
                 else:
                     dat = BrCMB[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, colors=['k'],
                                linestyles=['-', '-'], linewidths=[0.7, 0.7])

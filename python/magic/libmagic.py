@@ -359,7 +359,8 @@ def symmetrize(data, ms, reversed=False):
     else:
         np = data.shape[0]*ms +1
         size = [np]
-        size.append(data.shape[1])
+        if len(data.shape) >= 2:
+            size.append(data.shape[1])
         if len(data.shape) == 3:
             size.append(data.shape[2])
         out = N.zeros(size, dtype=data.dtype)

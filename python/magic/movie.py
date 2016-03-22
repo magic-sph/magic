@@ -464,6 +464,81 @@ class Movie:
                 else:
                     fig.savefig(filename, dpi=dpi)
 
+    def timeLongitude(self, removeMean=True, lat0=0., levels=12, cm='RdYlBu_r',
+                      deminc=True):
+        """
+        Plot the time-longitude diagram (input latitude can be chosen)
+
+        :param lat0: value of the latitude
+        :type lat0: float
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the colormap
+        :type cm: str
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
+        :param removeMean: remove the time-averaged part when set to True
+        :type removeMean: bool
+        """
+
+        if removeMean:
+            datCut = self.data-self.data.mean(axis=0)
+        else:
+            datCut = self.data
+
+
+        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+        lat0 *= N.pi/180.
+        mask = N.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
+        idx = N.nonzero(mask)[0][0]
+
+        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+        if deminc:
+            phi = N.linspace(-N.pi, N.pi, self.minc*self.n_phi_tot+1)
+        else:
+            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, self.n_phi_tot)
+
+        if deminc:
+            dat = N.zeros((self.nvar, self.minc*self.n_phi_tot+1), 'Float64')
+        else:
+            dat = N.zeros((self.nvar, self.n_phi_tot), 'Float64')
+
+        for k in range(self.nvar):
+            if deminc:
+                dat[k, :] = symmetrize(datCut[k, :, idx], self.minc)
+            else:
+                dat[k, :] = datCut[k, :, idx]
+
+
+        fig = P.figure()
+        ax = fig.add_subplot(111)
+        vmin = -max(abs(dat.max()), abs(dat.min()))
+        vmax = -vmin
+        cs = N.linspace(vmin, vmax, levels)
+        ax.contourf(phi, self.time, dat, cs, cmap=P.get_cmap(cm))
+
+        ax.set_xlabel('Longitude')
+        ax.set_ylabel('Time')
+
+        m_max = self.n_phi_tot/3
+        w2 = N.fft.fft2(dat)
+        w2 = abs(w2[1:self.nvar/2+1, 0:m_max+1])
+
+        dw = 2.*N.pi/(self.time[-1]-self.time[0])
+        omega = dw*N.arange(self.nvar)
+        omega = omega[1:self.nvar/2+1]
+        ms = N.arange(m_max+1)
+
+        fig1 = P.figure()
+        ax1 = fig1.add_subplot(111)
+        ax1.contourf(ms, omega, N.log10(w2), 65, cmap=P.get_cmap('jet'))
+        ax1.set_yscale('log')
+        #ax1.set_xlim(0,13)
+        ax1.set_xlabel(r'Azimuthal wavenumber')
+        ax1.set_ylabel(r'Frequency')
+
+
 
 
 if __name__ == '__main__':
