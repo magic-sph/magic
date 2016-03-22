@@ -294,6 +294,14 @@ class MagicTs(MagicSetup):
             self.icPower = data[:, 6]
             self.mantlePower = data[:, 7]
             self.fohm = -self.ohmDiss/self.buoPower
+        elif self.field in ('SRIC'):
+            self.time = data[:,0]
+            self.viscPower = data[:,2]
+            self.totPower = data[:,3]
+            self.LorPower = data[:,4]
+            self.viscTorq = abs(data[:,2]/data[0,1])
+            self.totTorq = abs(data[:,3]/data[0,1])
+            self.LorTorq = abs(data[:,4]/data[0,1])
         elif self.field in ('am_mag_pol', 'am_mag_tor', # Tayler instability
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
@@ -506,6 +514,17 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
+
+        elif self.field in ('SRIC'):
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time,self.totTorq,'k-',label='Total')
+            ax.semilogy(self.time,self.viscTorq,'r-',label='Viscous')
+            ax.semilogy(self.time,self.LorTorq,'g-',label='Lorentz')
+
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Torque')
 
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
             fig = P.figure()
