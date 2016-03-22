@@ -296,12 +296,13 @@ class MagicTs(MagicSetup):
             self.fohm = -self.ohmDiss/self.buoPower
         elif self.field in ('SRIC'):
             self.time = data[:,0]
+            self.omega_ic = data[:,1]
             self.viscPower = data[:,2]
             self.totPower = data[:,3]
             self.LorPower = data[:,4]
-            self.viscTorq = abs(data[:,2]/data[0,1])
-            self.totTorq = abs(data[:,3]/data[0,1])
-            self.LorTorq = abs(data[:,4]/data[0,1])
+            self.viscTorq = abs(self.viscPower/self.omega_ic)
+            self.totTorq = abs(self.totPower/self.omega_ic)
+            self.LorTorq = abs(self.LorPower/self.omega_ic)
         elif self.field in ('am_mag_pol', 'am_mag_tor', # Tayler instability
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
