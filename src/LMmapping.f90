@@ -1,5 +1,8 @@
 module LMmapping
 
+   use precision_mod
+   use mem_alloc, only: bytes_allocated
+
    implicit none
  
    private
@@ -10,7 +13,7 @@ module LMmapping
       integer, allocatable :: lm2mc(:),l2lmAS(:)      
       integer, allocatable :: lm2lmS(:),lm2lmA(:)     
                                                      
-      integer, allocatable :: lmP2(:,:),lmP2l(:)      
+      integer, allocatable :: lmP2(:,:),lmP2l(:),lmP2m(:)
       integer, allocatable :: lmP2lmPS(:),lmP2lmPA(:) 
                                                      
       integer, allocatable :: lm2lmP(:),lmP2lm(:)     
@@ -42,11 +45,15 @@ contains
       allocate( self%lm2(0:l_max,0:l_max),self%lm2l(lm_max),self%lm2m(lm_max) )
       allocate( self%lm2mc(lm_max),self%l2lmAS(0:l_max) )
       allocate( self%lm2lmS(lm_max),self%lm2lmA(lm_max) )
+      bytes_allocated = bytes_allocated + &
+                        ((l_max+1)*(l_max+1)+5*lm_max+l_max+1)*SIZEOF_INTEGER
 
       allocate( self%lmP2(0:l_max+1,0:l_max+1),self%lmP2l(lmP_max) )
+      allocate( self%lmP2m(lmP_max) )
       allocate( self%lmP2lmPS(lmP_max),self%lmP2lmPA(lmP_max) )
-
       allocate( self%lm2lmP(lm_max),self%lmP2lm(lmP_max) )
+      bytes_allocated = bytes_allocated + &
+                        ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
 
    end subroutine allocate_mappings
 !-------------------------------------------------------------------------------
@@ -87,6 +94,9 @@ contains
       allocate( self%lm22lm(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22l(self%sizeLMB2max,l_max+1,nLMBs) )
       allocate( self%lm22m(self%sizeLMB2max,l_max+1,nLMBs) )
+      bytes_allocated = bytes_allocated + &
+                        (nLMBs+(l_max+1)*nLMBs+ &
+                        3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 
    end subroutine allocate_subblocks_mappings
 !-------------------------------------------------------------------------------

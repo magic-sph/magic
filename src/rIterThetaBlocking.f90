@@ -7,6 +7,7 @@ module rIterThetaBlocking_mod
 
    use rIteration_mod, only: rIteration_t
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
         & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs
@@ -28,16 +29,6 @@ module rIterThetaBlocking_mod
 
    private
 
-   type, public :: dtB_arrays_t
-      !----- Local dtB output stuff:
-      complex(cp), allocatable :: BtVrLM(:),BpVrLM(:),BrVtLM(:),BrVpLM(:), &
-                                  &               BtVpLM(:), BpVtLM(:)
-      complex(cp), allocatable :: BtVpCotLM(:),BpVtCotLM(:),BtVpSn2LM(:), &
-                                  &               BpVtSn2LM(:)
-      complex(cp), allocatable :: BrVZLM(:),BtVZLM(:),BtVZcotLM(:),       &
-                                  &               BtVZsn2LM(:)
-   end type dtB_arrays_t
-
    type, public, abstract, extends(rIteration_t) :: rIterThetaBlocking_t
       ! or with len parameters for the theta block size and number
       !type,public,extends(rIteration_t) :: rIterThetaBlocking_t(sizeThetaB,nThetaBs)
@@ -46,7 +37,6 @@ module rIterThetaBlocking_mod
 
       !type(nonlinear_lm_t) :: nl_lm
       type(leg_helper_t) :: leg_helper
-      type(dtB_arrays_t) :: dtB_arrays
 
       !----- Saved magnetic field components from last time step:
       !      This is needed for the current TO version. However,
@@ -73,55 +63,23 @@ contains
 
       class(rIterThetaBlocking_t) :: this
 
-      !----- Nonlinear terms in lm-space:
-      !call this%nl_lm%initialize(lmP_max)
-
-
       !----- Help arrays for Legendre transform calculated in legPrepG:
       !      Parallelizatio note: these are the R-distributed versions
       !      of the field scalars.
       call this%leg_helper%initialize(lm_max,lm_maxMag,l_max)
 
-      !----- Local dtB output stuff:
-      allocate( this%dtB_arrays%BtVrLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVrLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVtLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVpLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpCotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtCotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVpSn2LM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BpVtSn2LM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BrVZLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZcotLM(lmP_max_dtB) )
-      allocate( this%dtB_arrays%BtVZsn2LM(lmP_max_dtB) )
-
       allocate( this%BsLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
+      bytes_allocated = bytes_allocated+ &
+                       3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*& 
+                       SIZEOF_DEF_REAL
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------
    subroutine deallocate_common_arrays(this)
 
       class(rIterThetaBlocking_t) :: this
-
-      deallocate( this%dtB_arrays%BtVrLM )
-      deallocate( this%dtB_arrays%BpVrLM )
-      deallocate( this%dtB_arrays%BrVtLM )
-      deallocate( this%dtB_arrays%BrVpLM )
-      deallocate( this%dtB_arrays%BtVpLM )
-      deallocate( this%dtB_arrays%BpVtLM )
-      deallocate( this%dtB_arrays%BtVpCotLM )
-      deallocate( this%dtB_arrays%BpVtCotLM )
-      deallocate( this%dtB_arrays%BtVpSn2LM )
-      deallocate( this%dtB_arrays%BpVtSn2LM )
-      deallocate( this%dtB_arrays%BrVZLM )
-      deallocate( this%dtB_arrays%BtVZLM )
-      deallocate( this%dtB_arrays%BtVZcotLM )
-      deallocate( this%dtB_arrays%BtVZsn2LM )
 
       deallocate( this%BsLast)
       deallocate( this%BpLast)
@@ -156,7 +114,7 @@ contains
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
          call legTFG(this%nBc,this%lDeriv,this%lViscBcCalc,           &
-              &      this%lFluxProfCalc,nThetaStart,                  &
+              &      this%lPressCalc,nThetaStart,                     &
               &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
               &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
               &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
@@ -176,7 +134,7 @@ contains
          !PERFON('legTFGnm')
          !LIKWID_ON('legTFGnm')
          call legTFGnomag(this%nBc,this%lDeriv,this%lViscBcCalc,            & 
-              &           this%lFluxProfCalc,nThetaStart,                   &
+              &           this%lPressCalc,nThetaStart,                      &
               &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
               &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
@@ -203,7 +161,7 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lFluxProfCalc ) then
+            if ( this%lPressCalc ) then
                call fft_thetab(gsa%pc,1)
             end if
          end if
@@ -281,7 +239,8 @@ contains
       ! Local variables
       integer :: nTheta,nPhi
   
-      if ( (.not.this%isRadialBoundaryPoint) .and. ( l_conv_nl .or. l_mag_LF ) ) then
+      if ( (.not.this%isRadialBoundaryPoint .or. this%lRmsCalc) .and. &
+            ( l_conv_nl .or. l_mag_LF ) ) then
          !PERFON('inner1')
          if ( l_conv_nl .and. l_mag_LF ) then
             if ( this%nR>n_r_LCR ) then
@@ -364,6 +323,25 @@ contains
                  &      gsa%VxBt,gsa%VxBp)
          end if
          !PERFOFF
+      end if
+
+      if ( this%lRmsCalc ) then
+         call fft_thetab(gsa%p1,-1)
+         call fft_thetab(gsa%p2,-1)
+         call legTF2(nThetaStart,nl_lm%p1LM,nl_lm%p2LM,gsa%p1,gsa%p2)
+         call fft_thetab(gsa%CFt2,-1)
+         call fft_thetab(gsa%CFp2,-1)
+         call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
+         if ( l_conv_nl ) then
+            call fft_thetab(gsa%Advt2,-1)
+            call fft_thetab(gsa%Advp2,-1)
+            call legTF2(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,gsa%Advp2)
+         end if
+         if ( l_mag_nl .and. this%nR>n_r_LCR ) then
+            call fft_thetab(gsa%LFt2,-1)
+            call fft_thetab(gsa%LFp2,-1)
+            call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
+         end if
       end if
 
    end subroutine transform_to_lm_space

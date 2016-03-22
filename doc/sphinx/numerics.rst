@@ -51,13 +51,13 @@ mass flux :math:`\tilde{\rho}\vec{u}` and the magnetic field :math:`\vec{B}`. Th
   :label: eqToroPolo
 
 The two scalar potentials of a divergence free vector field can be extracted
-from its radial component and the radial component of its curl:
-
+from its radial component and the radial component of its curl using the fact that
+the toroidal field has not radial component: 
 
 .. math::
   \begin{aligned}
   \vec{e_r}\cdot \tilde{\rho}\vec{u} &=  - \Delta_H\,W, \\
-  \vec{e_r}\cdot\left(\vec{\nabla}\times\vec{B}\right) & = - \Delta_H\,Z,
+  \vec{e_r}\cdot\left(\vec{\nabla}\times\vec{u}\right) & = - \Delta_H\,Z,
   \end{aligned}
   :label: eqDeltaH
 
@@ -95,7 +95,27 @@ while the curl of :math:`\tilde{\rho}\vec{u}` is expressed by
    \dfrac{\partial^2 Z}{\partial r\partial\phi}\right]\vec{e_\phi},
    \end{aligned}
  :label: eqToroPolo2
+ 
+Using the horizontal part of the divergence operator
 
+.. math::
+   \vec{\nabla}_H = r\sin \dfrac{\partial (\sin\theta}{\partial \theta}\;\vec{e}_\theta 
+   + r\sin \dfrac{\partial}{\partial \phi}\;\vec{e}_\phi
+
+above expressions can be simplified to 
+
+.. math::
+   \tilde{\rho}\vec{u} = -\Delta_H\;\vec{e_r}\; W + \vec{\nabla}_H \dfrac{\partial}{\partial r}\;W 
+                         + \vec{\nabla}_H\times\vec{e}_r\;Z
+                         
+and
+
+.. math::
+   \nabla\times\tilde{\rho}\vec{u} = -\Delta_H\;\vec{e}_r\;Z + \vec{\nabla}_H \dfrac{\partial}{\partial r}\;Z 
+                         - \vec{\nabla}_H\times\Delta_H\vec{e}_r\;W\;\;.
+
+Below we will use the fact that the horizontal components of the poloidal field depend 
+on the radial derivative of the poloidal potential. 
 
 Spherical harmonic representation
 =================================
@@ -173,11 +193,11 @@ isotropic resolution in the equatorial region.  Choosing
 
 .. seealso:: In MagIC, the Legendre functions are defined in the subroutine
              :f:subr:`plm_theta <plms_theta/plm_theta()>`. The Legendre transforms
-	     from spectral to grid space are computed in the module
-	     :f:mod:`legendre_spec_to_grid`, while the backward transform (from grid
-	     space to spectral space) are computed in the module
-	     :f:mod:`legendre_grid_to_spec`. The fast Fourier transforms are computed
-	     in the module :f:mod:`fft`.
+             from spectral to grid space are computed in the module
+             :f:mod:`legendre_spec_to_grid`, while the backward transform (from grid
+             space to spectral space) are computed in the module
+             :f:mod:`legendre_grid_to_spec`. The fast Fourier transforms are computed
+             in the module :f:mod:`fft`.
 
 Special recurrence relations
 ----------------------------
@@ -240,7 +260,7 @@ orthogonality relation we can then map out the required contribution in the foll
   =(\ell+1)\,c_{\ell}^m\,F_{\ell-1}^m-\ell\,c_{\ell+1}^m\,F_{\ell+1}^m\,.}
   :label: eqOpTheta1
 
-Here, we have assumed that the Legendre functions are completely normalised such that
+Here, we have assumed that the Legendre functions are completely normalized such that
 
 .. math::
    \int_0^\pi d\theta\,\sin\theta\,P_\ell^m P_{\ell'}^m = \delta_{\ell \ell'}\,.
@@ -687,8 +707,15 @@ discussed :ref:`below <secNonLinearS>`.
 Equation for the poloidal magnetic potential :math:`g`
 ------------------------------------------------------
 
-The equation for the poloidal magnetic field coefficient reads
+The equation for the poloidal magnetic potential is the radial 
+component of the dynamo equation since 
 
+.. math::
+  \vec{e_r}\cdot\left(\dfrac{\partial \vec{B}}{\partial t}\right) =
+   \dfrac{\partial}{\partial t}(\vec{e_r}\cdot\vec{B})=-\Delta_H\dfrac{\partial
+   g}{\partial t}.
+
+The spectral form then reads 
 
 .. math::
    \boxed{
@@ -770,60 +797,129 @@ implicit treatment. However, the Coriolis term couples modes :math:`(\ell,m,n)` 
 toroidal flow potentials. An implicit treatment of the Coriolis term therefore
 also results in a much larger (albeit sparse) inversion matrix.
 
-W consequently adopt in **MagIC** a mixed implicit/explicit algorithm.
-Nonlinear and Coriolis terms, collected on the right hand side of equations
-:eq:`eqSpecW`, :eq:`eqSpecZ`, :eq:`eqSpecP`, :eq:`eqSpecS`, :eq:`eqSpecG`
-and :eq:`eqSpecH` are treated explicitly with a second order
-`Adams-Bashforth <https://en.wikipedia.org/wiki/Linear_multistep_method>`_ . 
-Terms collected on the left hand side are
-time-stepped with an implicit modified `Crank-Nicolson
+We consequently adopt in **MagIC** a mixed implicit/explicit algorithm.
+The general differential equation in time can be written in the form
+
+.. math:: \dfrac{\partial }{\partial t} x + \mathcal{I}(x,t) = \mathcal{E}(x,t)\;\;.
+
+where :math:`\mathcal{I}` denotes the terms treated in an implicit time step 
+and :math:`\mathcal{E}` the terms treated explicitly, i.e.~the nonlinear and Coriolis contributions.  
+The discretized implicit time step is given by 
+
+.. math:: \left(\dfrac{x(t+\delta t) - x(t)}{\delta t}\right)_I = -\alpha\;\mathcal{I}(x,t+\delta t) - (1-\alpha)\;\mathcal{I}(x,t)\;\;.
+
+where :math:`\alpha` is the weight of the new time step. 
+For :math:`\alpha=0.5` we recover a classic 
+`Crank-Nicolson
 <https://en.wikipedia.org/wiki/Crank–Nicolson_method>`_ algorithm.
-While the equations are coupled radially, they decouple for all spherical
-harmonic modes. 
+
+A  second order
+`Adams-Bashforth <https://en.wikipedia.org/wiki/Linear_multistep_method>`_ 
+scheme is used for the explicit time step:
+
+.. math:: \left(\dfrac{x(t+\delta t) - x(t)}{\delta t}\right)_E = \dfrac{3}{2}\;\mathcal{E}(x,t)
+          - \dfrac{1}{2}\;\mathcal{E} (x,t-\delta t)\;\;.
+
+The combination of both steps yields 
+
+.. math::
+    \dfrac{x(t+\delta t)}{\delta t}  + \alpha\;\mathcal{I}(x,t+\delta t) =  
+    \dfrac{x(t)}{\delta t} - (1-\alpha)\;\mathcal{I}(x,t) + 
+    \frac{3}{2}\;\mathcal{E}(x,t) - \dfrac{1}{2}\;\mathcal{E}(x,t-\delta t)\;\;.
+    
+In the code such an equation is formulated for each unknown spectral coefficient  
+(expect pressure) of spherical harmonic degree :math:`\ell` and order :math:`m` 
+and for each radial grid point :math:`r_k`. 
+Because non-linear terms and the Coriolis force are treated explicitly, 
+the equations decouple for all spherical modes.
+The different radial grid points, however, couple via the 
+Chebychev modes and form a linear algebraic system of equations that can 
+be solved with standard methods for the different spectral contributions. 
+
+For example the respective system of equations for the modes of the poloidal magnetic potential :math:`g` 
+results from considering the radial component of the dynamo equation:  
+
+.. math::
+      \left( \mathcal{A}_{kn} + \alpha\;\mathcal{I}_{kn}\right)\;g_{\ell mn}(t+\delta t) =
+      \left( \mathcal{A}_{kn} - (1 - \alpha)\;\mathcal{I}_{kn} \right)\;g_{\ell mn}(t) +
+      \frac{3}{2}\;\mathcal{E}_{k\ell m}(t) - \frac{1}{2}\;\mathcal{E}_{k\ell m}(t-\delta t) 
+      :label: imex
+
+with 
+
+.. math::
+    \mathcal{A}_{kn} = \dfrac{\ell (\ell+1)}{r_k^2}\,\dfrac{1}{\delta t} {\cal C}_{nk}\;,
+
+
+.. math::
+    \mathcal{I}_{kn}=\dfrac{\ell(\ell+1)}{r_k^2}\,\dfrac{1}{Pm}\left( \dfrac{\ell(\ell+1)}{r_k^2}\; 
+    {\cal C}_{nk}-{\cal C}''_{nk} \right)\;,
+
+and :math:`{\cal C}_{nk}={\cal C}_n(r_k)`.
+:math:`\mathcal{A}_{kn}` is a matrix that converts the poloidal field modes :math:`g_{\ell mn}` 
+to the radial magnetic field :math:`B_r(r_k,\ell m)` for a given spherical harmonic contribution 
+with an additional division by the time step :math:`\delta t`:
+
+.. math: \dfrac{B_r(r_k,\ell m)}{\delta t} = \mathcal{A}_{kn}\;g_{\ell m n}. 
+
+Here :math:`k` and :math:`n` number the radial grid points and the Chebychev coefficients, respectively. 
+Note that the Einstein sum convention is used for Chebychev modes :math:`n`.
+
+:math:`\mathcal{I}_{kn}` is the matrix describing the implicit contribution which is purely diffusive here. 
+Neither  :math:`\mathcal{A}_{kn}` nor :math:`\mathcal{I}_{kn}` depend on time but the former 
+needs to be updated when the time step :math:`\delta t` is changed. 
+The only explicit contribution is the nonlinear dynamo term 
+
+.. math:: \mathcal{E}_{k\ell m}(t)= {\cal N}_{k\ell m}^g = \int d\Omega\; {Y_{\ell}^{m}}^\star\; 
+          \vec{e_r} \cdot \vec{D}(t,r_k,\theta,\phi)\;\; .  
+
+:math:`\mathcal{E}_{k\ell m}` is a one dimensional vector for all spherical harmonic combinations 
+:math:`\ell m`.
+  
+How are these operations organized in the code? Within MagIC the poloidal magnetic field potential 
+is called ``b``. 
+The implicit step for the current time :math:`t` and the explicit step for the previous 
+time :math:`t-\delta t` is combined into one two-dimensional array 
+
+.. math:: \texttt{dbdtLast}(k,lm) =  - \frac{1}{2}\;\mathcal{E}_{k \ell m}(t-\delta t) - 
+          (1 - \alpha)\;\mathcal{I}_{kn} \;g_{\ell mn}(t)\;.
+
+where :math:`k` numbers the first dimension and the second dimension :math:`lm` numbers the spherical harmonic modes. 
+The explicit time step part is called ``dbdt`` in MagIC:
+
+.. math:: \texttt{dbdt}(k,\ell m) = \mathcal{E}_{k\ell m}.
+
+The combination of left hand side of :eq:`imex` provides the time stepping matrix for :math:`g`:
+
+.. math:: \texttt{bmat}(k,n,\ell) = {A}_{kn} + \alpha \mathcal{I}_{kn}\;.
+
+There is a different time stepping matrix for each spherical harmonic degree :math:`\ell`. 
+The linear system of equations solved for the mode :math:`\texttt{b}(k,\ell m)` at 
+time  :math:`t=t+\delta t` is then
+
+.. math:: 
+      \begin{split}
+        \texttt{bmat}(k,n,\ell) \star \texttt{b}_{i+1}(n,\ell m)  = &
+       \texttt{w1}\star\texttt{dbdt}(k,\ell m) + \texttt{w2}\star\texttt{dbdtLast}(k,\ell m)\; + \\
+        & \texttt{Odt}\star\texttt{dLh}(\ell)\star\texttt{Or2}(k)\star\texttt{b}_i(n,\ell m) \\
+        = & \texttt{rhs}(k,\ell m)
+       \end{split}\;
+       
+with
+
+..  math:: \texttt{w1}=-1/2 \dfrac{\delta t}{\delta t_{old}}\;\; , \;\; \texttt{w2}=1-\texttt{w2}\;\; , \;\;
+           \texttt{Odt}=1/\delta t\;\;,\;\;\texttt{dLh}(\ell)=\ell (\ell+1)
+           \;\;,\;\;\texttt{Or2}(k)=1/r_k^2.
+  
+
+The respective equations for the poloidal flow potential are somewhat more complex and involve coupling 
+to the pressure.....
 
 .. note::  The poloidal flow potential :eq:`eqSpecW` and the pressure :eq:`eqSpecP`
-           are nevertheless coupled for a given spherical harmonic mode.
-
-As an example, we derive the time stepping equation for the poloidal
-magnetic potential of degree :math:`\ell` and order :math:`m`,
-denoting the explicit nonlinear term at radial grid point :math:`r_k` with
-
-.. math::
-  D_{k\ell m}(t)= \int d\Omega\; {Y_{\ell}^{m}}^\star\; \vec{e_r} \cdot \vec{D}(t,r_k,\theta,\phi)\;\; .
-
-After discretization of the partial time derivative,
-:math:`\partial g_{\ell mn}/\partial t = [g_{\ell mn}(t+\delta t) - g_{\ell mn}(t)]/\delta t`
-where :math:`\delta t` is the time step, we can formulate the left hand side
-of :eq:`eqSpecG` as a matrix multiplication. The matrices :math:`\mathsf{A}`  and 
-:math:`\mathsf{G}` are defined by
-
-.. math::
-    {A}_{kn} = \dfrac{\ell (\ell+1)}{r_k^2}\,\dfrac{1}{\delta t} {\cal C}_{nk}\,,
-
-and
-
-.. math::
-    {G}_{kn}=\dfrac{\ell(\ell+1)}{r_k^2}\,\dfrac{1}{Pm}\left( \dfrac{\ell(\ell+1}{r_k^2} 
-    {\cal C}_{nk}-{\cal C}''_{nk} \right)\,,
-
-where :math:`{\cal C}_{nk}={\cal C}_n(r_k)`. The matrices depend on :math:`\ell` 
-but not on :math:`m`.  Advancing time from :math:`t` to :math:`t+\delta t` is 
-then a matter of solving
-
-.. math::
-      \left( {A}_{kn} + \alpha {G}_{kn}\right)\;g_{\ell mn}(t+\delta t) =
-      \left( {A}_{kn} - (1 - \alpha) {G}_{kn} \right)\;g_{\ell mn}(t) +
-      \frac{3}{2} D_{k\ell m}(t) - \frac{1}{2} D_{k\ell m}(t-\delta t)\,.
-
-The classical Crank-Nicholson scheme is recovered for :math:`\alpha=0.5`, but
-it seems that a slightly larger weight of :math:`\alpha=0.6` helps to stabilize
-the time integration.  Since the stability requirements limiting :math:`\delta
-t` will usually change during a computational run, the time step should be
-adjusted accordingly.  The matrix :math:`\mathsf{G}` remains unchanged, but
-:math:`\mathsf{A}` has to be updated whenever :math:`\delta t` is changed.
-This, in turn, requires a new triangulation of matrix :math:`A_{kn}+\alpha G_{kn}`,
-which is then stored for subsequent time steps until the next adjustment of
-:math:`\delta t` is in order. 
+           are nevertheless coupled for a given spherical harmonic mode. Likewise 
+           the poloidal flow and entropy (or temperature) equations should also
+           couple, but here MagIC takes the shortcut of updating entropy first 
+           and using the already updated value for an explicit treatment of buoyancy.
 
 **Courant's condition** offers a guideline
 concerning the value of :math:`\delta t`, demanding that :math:`\delta t` should be smaller
@@ -1085,7 +1181,7 @@ Nonlinear terms entering the equation for :math:`s`
 ---------------------------------------------------
 
 The nonlinear terms that enter the equation for entropy/temperature
-:eq:`eqSpecS` are twofolds: (i) the advection term, (ii) the viscous and Ohmic
+:eq:`eqSpecS` are twofold: (i) the advection term, (ii) the viscous and Ohmic
 heating terms (that vanish in the Boussinesq limit of the Navier Stokes equations).
 
 Viscous and Ohmic heating are directly calculated in the physical space by the
@@ -1189,8 +1285,8 @@ Using :eq:`eqHeatingEntropy` and :eq:`eqAdvSNL`, one thus finally gets
 .. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLS` 
              are done in the subroutine 
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The radial derivative
-	     is computed afterwards at the very beginning of
-	     :f:subr:`updateS <updates_mod/updates()>`.
+             is computed afterwards at the very beginning of
+             :f:subr:`updateS <updates_mod/updates()>`.
 
 .. _secNonLinearG:
 
@@ -1199,50 +1295,49 @@ Nonlinear terms entering the equation for :math:`g`
 
 The nonlinear term that enters the equation for the poloidal potential of the magnetic
 field :eq:`eqSpecG` is the radial component of the induction term :eq:`eqDynamoTerm`.
-In the following we introduce :math:`{\cal E}_r`, :math:`{\cal E}_\theta` and
-:math:`{\cal E}_\phi`, the three components of the electromotive force 
-:math:`\vec{u}\times\vec{B}`:
+In the following we introduce the electromotive force 
+:math:`{\cal F} = \vec{u}\times\vec{B}` with its three components 
 
 .. math::
-   {\cal E}_r=u_\theta B_\phi-u_\phi B_\theta,\quad
-   {\cal E}_\theta=u_\phi B_r-u_r B_\phi,\quad
-   {\cal E}_\phi=u_r B_\theta-u_\theta B_r\,.
+   {\cal F}_r=u_\theta B_\phi-u_\phi B_\theta,\quad
+   {\cal F}_\theta=u_\phi B_r-u_r B_\phi,\quad
+   {\cal F}_\phi=u_r B_\theta-u_\theta B_r\,.
 
 The radial component of the induction term then reads:
 
 .. math::
   {\cal N}^g = \vec{e_r}\cdot\left[\vec{\nabla}\times\left(\vec{u}\times\vec{B}\right)\right]
-   =\dfrac{1}{r\sin\theta}\left[\dfrac{\partial\,(\sin\theta {\cal E}_\phi)}{\partial\theta}
-   -\dfrac{\partial {\cal E}_\theta}{\partial \phi}\right]\,.
+   =\dfrac{1}{r\sin\theta}\left[\dfrac{\partial\,(\sin\theta {\cal F}_\phi)}{\partial\theta}
+   -\dfrac{\partial {\cal F}_\theta}{\partial \phi}\right]\,.
 
 To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, we then
 follow the usual following steps:
 
-1. Compute the quantities :math:`r^2\,\mathcal{E}_r`, :math:`\mathcal{E}_\phi/r\sin\theta`
-   and :math:`\mathcal{E}_\theta/r\sin\theta` in the physical space. In the code, this step
+1. Compute the quantities :math:`r^2\,\mathcal{F}_r`, :math:`\mathcal{F}_\phi/r\sin\theta`
+   and :math:`\mathcal{F}_\theta/r\sin\theta` in the physical space. In the code, this step
    is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
    the module :f:mod:`grid_space_arrays_mod`. 
 
-2. Transform :math:`r^2\,\mathcal{E}_r`, :math:`\mathcal{E}_\phi/r\sin\theta` 
-   and :math:`\mathcal{E}_\theta/r\sin\theta` to
+2. Transform :math:`r^2\,\mathcal{F}_r`, :math:`\mathcal{F}_\phi/r\sin\theta` 
+   and :math:`\mathcal{F}_\theta/r\sin\theta` to
    the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
    is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
-   this step :math:`{\mathcal{E}r}_{\ell}^m`, :math:`{\mathcal{E}t}_{\ell}^m` 
-   and :math:`{\mathcal{E}p}_{\ell}^m` are defined.
+   this step :math:`{\mathcal{F}_r}_{\ell}^m`, :math:`{\mathcal{F}_\theta}_{\ell}^m` 
+   and :math:`{\mathcal{F}_\phi}_{\ell}^m` are defined.
 
 3. Calculate the colatitude and theta derivatives using the recurrence relations:
 
    .. math::
-      \vartheta_1\,{\mathcal{E}p}_\ell^m-
-      \dfrac{\partial\,{\mathcal{E}t}_\ell^m}{\partial \phi}\,.
+      \vartheta_1\,{\mathcal{F}_\phi}_\ell^m-
+      \dfrac{\partial\,{\mathcal{F}_\theta}_\ell^m}{\partial \phi}\,.
 
 We thus finally get
 
 .. math::
    \boxed{
    {\cal N}^g_{\ell m}  = 
-   (\ell+1)\,c_\ell^m\,{\mathcal{E}p}_{\ell-1}^m-\ell\,c_{\ell+1}^m\,
-   {\mathcal{E}p}_{\ell+1}^m -im\,{\mathcal{E}t}_{\ell}^m\,.
+   (\ell+1)\,c_\ell^m\,{\mathcal{F}_\phi}_{\ell-1}^m-\ell\,c_{\ell+1}^m\,
+   {\mathcal{F}_\phi}_{\ell+1}^m -im\,{\mathcal{F}_\theta}_{\ell}^m\,.
    }
    :label: eqNLG
 
@@ -1262,19 +1357,19 @@ induction term :eq:`eqDynamoTerm`:
    \begin{aligned}
    {\cal N}^h = \vec{e_r}\cdot\left[\vec{\nabla}\times\vec{\nabla}\times\left(\vec{u}\times\vec{B}\right)
    \right]
-   & =\vec{e_r}\cdot\left[\vec{\nabla}\left(\vec{\nabla}\cdot\vec{\cal E}\right)
-   -\Delta\vec{\cal E}\right], \\
+   & =\vec{e_r}\cdot\left[\vec{\nabla}\left(\vec{\nabla}\cdot\vec{\mathcal{F}}\right)
+   -\Delta\vec{\mathcal{F}}\right], \\
    & = \dfrac{\partial}{\partial r}\left[\dfrac{1}{r^2}
-   \dfrac{\partial(r^2 {\cal E}_r)}{\partial r} + \dfrac{1}{r\sin\theta}
-   \dfrac{\partial(\sin\theta\,{\cal E}_\theta)}{\partial\theta}+\dfrac{1}{r\sin\theta}
-   \dfrac{\partial{\cal E}_\phi}{\partial\phi} \right] \\
+   \dfrac{\partial(r^2 {\mathcal{F}}_r)}{\partial r} + \dfrac{1}{r\sin\theta}
+   \dfrac{\partial(\sin\theta\,{\mathcal{F}}_\theta)}{\partial\theta}+\dfrac{1}{r\sin\theta}
+   \dfrac{\partial{\mathcal{F}}_\phi}{\partial\phi} \right] \\
    & \phantom{=\ }-
-   \Delta {\cal E}_r+\dfrac{2}{r^2}\left[{\cal E}_r +\dfrac{1}{\sin\theta}
-   \dfrac{\partial(\sin\theta\,{\cal E}_\theta)}{\partial\theta}+
-   \dfrac{1}{\sin\theta}\dfrac{\partial {\cal E}_\phi}{\partial \phi}\right], \\
+   \Delta {\mathcal{F}}_r+\dfrac{2}{r^2}\left[{\mathcal{F}}_r +\dfrac{1}{\sin\theta}
+   \dfrac{\partial(\sin\theta\,{\mathcal{F}}_\theta)}{\partial\theta}+
+   \dfrac{1}{\sin\theta}\dfrac{\partial {\mathcal{F}}_\phi}{\partial \phi}\right], \\
    & = \dfrac{1}{r^2}\dfrac{\partial}{\partial r}\left[\dfrac{r}{\sin\theta}\left(
-   \dfrac{\partial(\sin\theta\,{\cal E}_\theta)}{\partial\theta}+
-   \dfrac{\partial{\cal E}_\phi}{\partial\phi} \right)\right]-\Delta_H\,{\cal E}_r\,.
+   \dfrac{\partial(\sin\theta\,{\mathcal{F}}_\theta)}{\partial\theta}+
+   \dfrac{\partial{\mathcal{F}}_\phi}{\partial\phi} \right)\right]-\Delta_H\,{\mathcal{F}}_r\,.
    \end{aligned}
 
 To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, we then follow
@@ -1283,17 +1378,17 @@ of the magnetic field :math:`g`:
 
 .. math::
    \dfrac{1}{r^2}\dfrac{\partial }{\partial r}\left[r^2\left(\vartheta_1\,
-   {\mathcal{E}t}_\ell^m+\dfrac{\partial\,{\mathcal{E}p}_\ell^m}{\partial \phi}\right)\right]
-   +L_H\, {\mathcal{E}r}_\ell^m\,.
+   {\mathcal{F}t}_\ell^m+\dfrac{\partial\,{\mathcal{F}p}_\ell^m}{\partial \phi}\right)\right]
+   +L_H\, {\mathcal{F}r}_\ell^m\,.
 
 We thus finally get
 
 .. math::
    \boxed{
-   {\cal N}^h_{\ell m}  =\ell(\ell+1)\,{\mathcal{E}r}_{\ell}^m+
+   {\cal N}^h_{\ell m}  =\ell(\ell+1)\,{\mathcal{F}r}_{\ell}^m+
    \dfrac{1}{r^2}\dfrac{\partial}{\partial r}\left[r^2\left\lbrace
-   (\ell+1)\,c_\ell^m\,{\mathcal{E}t}_{\ell-1}^m-\ell\,c_{\ell+1}^m\,
-   {\mathcal{E}t}_{\ell+1}^m +im\,{\mathcal{E}p}_{\ell}^m\right\rbrace
+   (\ell+1)\,c_\ell^m\,{\mathcal{F}t}_{\ell-1}^m-\ell\,c_{\ell+1}^m\,
+   {\mathcal{F}t}_{\ell+1}^m +im\,{\mathcal{F}p}_{\ell}^m\right\rbrace
    \right]\,.
    }
    :label: eqNLH
@@ -1301,8 +1396,8 @@ We thus finally get
 .. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLH` 
              are computed in the subroutine 
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The remaining radial derivative
-	     is computed afterwards at the very beginning of
-	     :f:subr:`updateB <updateb_mod/updateb()>`.
+             is computed afterwards at the very beginning of
+             :f:subr:`updateB <updateb_mod/updateb()>`.
 
 
 .. _secBoundaryConditions:
@@ -1316,7 +1411,9 @@ Mechanical boundary conditions
 Since the system of equations is formulated on a radial grid, boundary
 conditions can simply be satisfied by replacing the collocation equation
 at grid points :math:`r_i` and :math:`r_o` with appropriate expressions.
-The condition of zero radial flow on the boundaries implies
+The condition of zero radial flow on the boundaries implies that the poloidal 
+potential has to vanish, i.e. :math:`W(r_o)=0` and :math:`W(r_i)=0`. 
+In Chebychev representation this implies 
 
 .. math::
   {\cal C}_n(r) W_{\ell mn} = 0 \;\;\mbox{at}\;\; r=r_i,r_o\;\;.
@@ -1326,7 +1423,12 @@ Note that the summation convention with respect to
 radial modes :math:`n` is used again.
 **The no-slip** condition further requires that the
 horizontal flow components also have to vanish, provided
-the two boundaries are at rest. This condition is fulfilled when
+the two boundaries are at rest. This condition is fulfilled for
+
+.. math:: 
+   \dfrac{\partial W}{\partial r}=0\;\;\mbox{and}\;\; Z=0,
+   
+at the respective boundary. In spectral space these conditions read 
 
 .. math::
    {\cal C}'_n(r) W_{\ell mn} = 0\;\;\mbox{at}\;\; r=r_i,r_o\,,
@@ -1358,7 +1460,7 @@ to that of the reference frame, and :math:`\vec{\Gamma}` is the respective torqu
 
 **Free-slip boundary conditions** require that the viscous stress vanishes, which
 in turn implies that the non-diagonal components :math:`\mathsf{Sr}_{r\phi}` and
-:math:`\mathsf{S}_{r\theta}` of the rate-of-strain tensor vanish.
+:math:`\mathsf{S}_{r\theta}` of the rate-of-strain tensor vanish. 
 Translated to the spectral representation this requires
 
 .. math::
@@ -1366,30 +1468,134 @@ Translated to the spectral representation this requires
   \right] W_{\ell mn} = 0 \;\;\mbox{and}\;\;
   \left[{\cal C}'_n(r) -\left(\frac{2}{r}+\dfrac{d\ln\tilde{\rho}}{dr}\right)\,{\cal C}_n(r)
   \right] Z_{\ell mn} = 0\;.
+  
+We show the derivation for the somewhat simpler Boussinesq approximation which yields the condition 
+
+.. math::
+   \dfrac{\partial}{\partial r} \dfrac{\vec{u}_H}{r} = 0
+   
+where the index H denotes the horizonal flow components. 
+In terms of poloidal and toroidal components this implies 
+
+.. math::
+   \dfrac{\partial}{\partial r} \dfrac{1}{r} \left( \vec{\nabla}_H \dfrac{\partial W}{\partial r}\right) =
+   \vec{\nabla}_H \dfrac{1}{r} \left( \dfrac{\partial^2}{\partial r^2} - \dfrac{2}{r} \dfrac{\partial}{\partial r} \right) W = 0
+   
+and
+
+.. math::
+   \dfrac{\partial}{\partial r} \dfrac{1}{r} \nabla\times \vec{e}_r Z = 
+   \nabla\times \vec{e}_r \dfrac{1}{r} \left( \dfrac{\partial}{\partial r} - \dfrac{2}{r} \right) Z = 0
+   
+which can be fulfilled with 
+
+.. math:: 
+   \left( \dfrac{\partial^2}{\partial r^2} - \dfrac{2}{r} \dfrac{\partial}{\partial r} \right) W = 0
+   
+and 
+   
+.. math::
+   \left( \dfrac{\partial}{\partial r} - \dfrac{2}{r} \right) Z = 0\;.
+   
+In spectral representation this then reads
+
+.. math:: 
+   \left({\cal C}''_n - \dfrac{2}{r}{\cal C}'_n
+   \right) W_{\ell mn} = 0 \;\;\mbox{and}\;\;
+   \left({\cal C}'_n - \frac{2}{r}{\cal C}_n
+   \right) Z_{\ell mn} = 0\;.
+   
+   
+Thermodynamic boundary conditions
+---------------------------------
+
+For Entropy or temperature in the Boussinesq approximation either fixed value of fixed flux conditions are used. 
+The former implies 
+
+.. math:: s=\mbox{const.}\;\;\mbox{or}\;\;T=\mbox{const.}
+
+at :math:`r_i` and/or :math:`r_o`, while the latter means
+
+.. math:: \dfrac{\partial}{\partial r} s=\mbox{const.}\;\;\mbox{or}\;\;\dfrac{\partial}{\partial r}  T=\mbox{const.}
+
+In spectral representation for example the respective entropy condition read
+
+.. math:: {\cal C}_n s_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C'}_n s_{\ell mn}=\mbox{const.}
+
+Appropriate constant values need to be chosen and are instrumental in driving the dynamo when 
+flux conditions are imposed. 
+
 
 
 Magnetic boundary conditions and inner core
 -------------------------------------------
 
-Magnetic boundary conditions at the interface with an insulating mantle
-or insulating inner core are similarly implemented.
-The toroidal magnetic field cannot enter any
-insulator and therefore has to vanish at the boundary
+Three different magnetic boundary conditions are implemented in MagIC. 
+The most simple one is the conceptual condition at the boundary to an infinite conductor. 
+Surface current in this conductor will prevent the internally produced magnetic 
+field from penetrating so that the field has to vanish at the boundary. 
+The condition are thus the same as for a rigid flow (with boundaries at rest). 
+We only provide the spectral representation here: 
 
 .. math::
-  {\cal C}_n(r) h_{\ell mn} = 0\;\;\mbox{at}\;\; r=r_i\;\;\mbox{and/or}\;\; r=r_o\;\;.
+  {\cal C}_n(r) W_{\ell mn} = 0 \;\;\mbox{at}\;\; r=r_i,r_o\;\;.
+  :label: eqBcMagRigid
 
-Matching conditions for the poloidal magnetic field with a source-free
-external potential field require that the following equations are satisfied at
-the boundary grid points:
-
+Note that the summation convention with respect to
+radial modes :math:`n` is used again.
+**The no-slip** condition further requires that the
+horizontal flow components also have to vanish, provided
+the two boundaries are at rest. This condition is fulfilled for
+   
 .. math::
-  {\cal C}_n^\prime(r) g_{\ell mn} - {\cal C}_n(r)\frac{\ell+1}{r} g_{\ell mn} = 0 \;\;\;\mbox{at}\;\;\; r=r_i,
+   {\cal C}_n(r) g_{\ell mn} = 0\;\;,\;\;{\cal C}'_n(r) g_{\ell mn} = 0
+   \;\;\mbox{and}\;\;{\cal C}_n(r) h_{\ell mn} = 0.
+  :label: eqBcMag0
 
-.. math::
-  {\cal C}_n^\prime(r) g_{\ell mn} + {\cal C}_n(r)\frac{\ell}{r} g_{\ell mn} = 0 \;\;\;\mbox{at}\;\;\; r=r_o.
+More complex are the conditions to an electrical insulator. 
+Here we actually use matching condition to a potential field condition
+that are formulated like boundary conditions.  
+Since the electrical currents have to vanish in the insulator we have :math:`\nabla\times\vec{B}`, 
+which means that the magnetic field is a potential field :math:`\vec{B}^I=-\vec{\nabla} V` 
+with :math:`\Delta V=0`. This Laplace equation implies a coupling between radial and 
+horizontal derivatives which is best solved in spectral space. Two potential contributions 
+have to be considered depending whether the field is produced above the interface radius 
+:math:`r_{BC}` or below. We distinguish these contributions with upper indices I for internal 
+or below and E for external or above. The total potential then has the form:
 
-If the inner core is modeled as an electrical conductor, a simplified dynamo
+.. math:: V_{\ell m}(r) = r_{BC} V_{\ell m}^I \left(\dfrac{r_{BC}}{r}\right)^{\ell+1} + 
+          r_{BC} V_{\ell m}^E \left(\dfrac{r}{r_{BC}}\right)^{\ell}.
+
+with the two spectral potential representations :math:`V_{\ell m}^I` and  :math:`V_{\ell m}^E`. 
+This provides well defined radial derivative for both field contributions. 
+For boundary :math:`r_o` we have to use the first contribution and match the respective field as well 
+as its radial derivative to the dynamo solution. The toroidal field cannot penetrate the 
+insulator and thus simply vanishes which yields :math:`h=0` or 
+
+.. math:: {\cal C}_n h_{\ell mn} = 0
+
+in spectral space. The poloidal field then has to match the potential field which implies 
+
+.. math:: \nabla_H \dfrac{\partial}{\partial r} g = -\nabla_H V^I
+
+for the horizontal components and 
+
+.. math:: \dfrac{\nabla_H^2}{r^2} g = \dfrac{\partial}{\partial r} V^I
+
+for the radial. In spectral space these condition can be reduce to
+
+.. math:: {\cal C'}_n(r) g_{\ell mn} = V^I_{lm}\;\;\mbox{and}\;\;
+          \dfrac{\ell(\ell+1)}{r^2} {\cal C}_n g_{\ell mn} = - \dfrac{\ell+1}{r} V^I_{lm}.
+          
+Combining both allows to eliminate the potential and finally leads to the spectral condition used in MagIC:
+
+.. math:: \left( {\cal C'}_n(r_o) + \frac{\ell}{r_o} {\cal C}_n(r_o) \right) g_{\ell mn} = 0
+
+Analogous consideration lead to the respective condition at the interface to an insulating inner core:
+
+.. math:: \left( {\cal C'}_n(r_i) - \frac{\ell+1}{r_i} {\cal C}_n(r_i) \right) g_{\ell mn} = 0.
+
+If the inner core is modelled as an electrical conductor, a simplified dynamo
 equation has to be solved in which the fluid flow is replaced by the
 solid-body rotation of the inner core. The latter is described by a single toroidal
 flow mode :math:`(\ell=1,m=0)`. The resulting nonlinear terms can be expressed by a simple

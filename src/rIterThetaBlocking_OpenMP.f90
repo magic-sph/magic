@@ -20,6 +20,7 @@ module rIterThetaBlocking_OpenMP_mod
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
+   use dtB_arrays_mod, only: dtB_arrays_t
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi
@@ -41,6 +42,7 @@ module rIterThetaBlocking_OpenMP_mod
       integer :: nThreads
       type(grid_space_arrays_t), allocatable :: gsa(:)
       type(TO_arrays_t), allocatable :: TO_arrays(:)
+      type(dtB_arrays_t), allocatable :: dtB_arrays(:)
       type(nonlinear_lm_t), allocatable :: nl_lm(:)
       real(cp), allocatable :: lorentz_torque_ic(:),lorentz_torque_ma(:)
    contains
@@ -75,6 +77,7 @@ contains
       allocate(this%lorentz_torque_ic(0:this%nThreads-1))
       allocate(this%lorentz_torque_ma(0:this%nThreads-1))
       if ( l_TO ) allocate(this%TO_arrays(0:this%nThreads-1))
+      allocate(this%dtB_arrays(0:this%nThreads-1))
 
       call this%allocate_common_arrays()
       !$OMP PARALLEL default(shared) shared(this,lmP_max) private(threadid)
@@ -85,6 +88,7 @@ contains
 #endif
       call this%gsa(threadid)%initialize()
       if ( l_TO ) call this%TO_arrays(threadid)%initialize()
+      call this%dtB_arrays(threadid)%initialize()
       call this%nl_lm(threadid)%initialize(lmP_max)
       !$OMP END PARALLEL
    end subroutine initialize_rIterThetaBlocking_OpenMP
@@ -106,6 +110,7 @@ contains
       !$OMP END PARALLEL
       deallocate(this%gsa)
       if ( l_TO ) deallocate(this%TO_arrays)
+      deallocate(this%dtB_arrays)
       deallocate(this%nl_lm)
       deallocate(this%lorentz_torque_ic)
       deallocate(this%lorentz_torque_ma)
@@ -143,11 +148,7 @@ contains
 
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
-#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
-#else
-      logical :: lGraphHeader=.true.
-#endif
       logical :: DEBUG_OUTPUT=.false.
       real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
 
@@ -169,8 +170,8 @@ contains
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
-           &                        this%lTOcalc)
+           &                        this%lPressCalc,this%l_frame,this%lTOnext,  &
+           &                        this%lTOnext2,this%lTOcalc)
       !PERFOFF
 
       !if (DEBUG_OUTPUT) then
@@ -206,12 +207,10 @@ contains
       this%lorentz_torque_ic(threadid) = 0.0_cp
       if ( this%lTOCalc ) then
          !------ Zero lm coeffs for first theta block:
-         do l=0,l_max
-            this%TO_arrays(threadid)%dzRstrLM(l+1)=0.0_cp
-            this%TO_arrays(threadid)%dzAstrLM(l+1)=0.0_cp
-            this%TO_arrays(threadid)%dzCorLM(l+1) =0.0_cp
-            this%TO_arrays(threadid)%dzLFLM(l+1)  =0.0_cp
-         end do
+         call this%TO_arrays(threadid)%set_zero()
+      end if
+      if ( l_dtB ) then
+         call this%dtB_arrays(threadid)%set_zero()
       end if
 
       c = 0.0_cp
@@ -258,7 +257,8 @@ contains
          !PERFOFF
 
          !--------- Calculation of nonlinear products in grid space:
-         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then
+         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
+               this%lRmsCalc ) then
 
             !if (DEBUG_OUTPUT) then
                !if (this%nR == 2) then
@@ -271,7 +271,8 @@ contains
             !end if
 
             !PERFON('get_nl')
-            call this%gsa(threadid)%get_nl(this%nR, this%nBc, nThetaStart)
+            call this%gsa(threadid)%get_nl(this%nR, this%nBc, nThetaStart, &
+                          this%lRmsCalc )
             !PERFOFF
 
             !if (DEBUG_OUTPUT) then
@@ -360,14 +361,16 @@ contains
                  &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &            this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
+                 &            this%gsa(threadid)%pc,nThetaStart,             &
+                 &            this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa(threadid)%vrc,           &
                  &        this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &        this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &        this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
+                 &        this%gsa(threadid)%pc,nThetaStart,             &
+                 &        this%sizeThetaB,lGraphHeader)
 #endif
          end if
 
@@ -456,14 +459,21 @@ contains
             call get_dtBLM(this%nR,this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,&
                  &         this%gsa(threadid)%vpc,this%gsa(threadid)%brc,        &
                  &         this%gsa(threadid)%btc,this%gsa(threadid)%bpc,        &
-                 &         nThetaStart,this%sizeThetaB,this%dtB_arrays%BtVrLM,   &
-                 &         this%dtB_arrays%BpVrLM,this%dtB_arrays%BrVtLM,        &
-                 &         this%dtB_arrays%BrVpLM,this%dtB_arrays%BtVpLM,        &
-                 &         this%dtB_arrays%BpVtLM,this%dtB_arrays%BrVZLM,        &
-                 &         this%dtB_arrays%BtVZLM,this%dtB_arrays%BtVpCotLM,     &
-                 &         this%dtB_arrays%BpVtCotLM,this%dtB_arrays%BtVZcotLM,  &
-                 &         this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM,  &
-                 &         this%dtB_arrays%BtVZsn2LM)
+                 &         nThetaStart,this%sizeThetaB,                          &
+                 &         this%dtB_arrays(threadid)%BtVrLM,                     &
+                 &         this%dtB_arrays(threadid)%BpVrLM,                     &
+                 &         this%dtB_arrays(threadid)%BrVtLM,                     &
+                 &         this%dtB_arrays(threadid)%BrVpLM,                     &
+                 &         this%dtB_arrays(threadid)%BtVpLM,                     &
+                 &         this%dtB_arrays(threadid)%BpVtLM,                     &
+                 &         this%dtB_arrays(threadid)%BrVZLM,                     &
+                 &         this%dtB_arrays(threadid)%BtVZLM,                     &
+                 &         this%dtB_arrays(threadid)%BtVpCotLM,                  &
+                 &         this%dtB_arrays(threadid)%BpVtCotLM,                  &
+                 &         this%dtB_arrays(threadid)%BtVZcotLM,                  &
+                 &         this%dtB_arrays(threadid)%BtVpSn2LM,                  &
+                 &         this%dtB_arrays(threadid)%BpVtSn2LM,                  &
+                 &         this%dtB_arrays(threadid)%BtVZsn2LM)
             PERFOFF
          end if
 
@@ -559,6 +569,54 @@ contains
          end do
       end if
 
+      !$OMP SECTION
+      if ( this%lRmsCalc ) then
+         do iThread=1,this%nThreads-1
+            this%nl_lm(0)%p1LM=this%nl_lm(0)%p1LM+this%nl_lm(iThread)%p1LM
+            this%nl_lm(0)%p2LM=this%nl_lm(0)%p2LM+this%nl_lm(iThread)%p2LM
+            this%nl_lm(0)%Advt2LM=this%nl_lm(0)%Advt2LM+this%nl_lm(iThread)%Advt2LM
+            this%nl_lm(0)%Advp2LM=this%nl_lm(0)%Advp2LM+this%nl_lm(iThread)%Advp2LM
+            this%nl_lm(0)%LFt2LM=this%nl_lm(0)%LFt2LM+this%nl_lm(iThread)%LFt2LM
+            this%nl_lm(0)%LFp2LM=this%nl_lm(0)%LFp2LM+this%nl_lm(iThread)%LFp2LM
+            this%nl_lm(0)%CFt2LM=this%nl_lm(0)%CFt2LM+this%nl_lm(iThread)%CFt2LM
+            this%nl_lm(0)%CFp2LM=this%nl_lm(0)%CFp2LM+this%nl_lm(iThread)%CFp2LM
+         end do
+      end if 
+
+      !$OMP SECTION
+      if ( l_dtB ) then
+         do iThread=1,this%nThreads-1
+            this%dtB_arrays(0)%BtVrLM = this%dtB_arrays(0)%BtVrLM + &
+                                        this%dtB_arrays(iThread)%BtVrLM
+            this%dtB_arrays(0)%BpVrLM = this%dtB_arrays(0)%BpVrLM + &
+                                        this%dtB_arrays(iThread)%BpVrLM
+            this%dtB_arrays(0)%BrVtLM = this%dtB_arrays(0)%BrVtLM + &
+                                        this%dtB_arrays(iThread)%BrVtLM
+            this%dtB_arrays(0)%BrVpLM = this%dtB_arrays(0)%BrVpLM + &
+                                        this%dtB_arrays(iThread)%BrVpLM
+            this%dtB_arrays(0)%BtVpLM = this%dtB_arrays(0)%BtVpLM + &
+                                        this%dtB_arrays(iThread)%BtVpLM
+            this%dtB_arrays(0)%BpVtLM = this%dtB_arrays(0)%BpVtLM + &
+                                        this%dtB_arrays(iThread)%BpVtLM
+            this%dtB_arrays(0)%BrVZLM = this%dtB_arrays(0)%BrVZLM + &
+                                        this%dtB_arrays(iThread)%BrVZLM
+            this%dtB_arrays(0)%BtVZLM = this%dtB_arrays(0)%BtVZLM + &
+                                        this%dtB_arrays(iThread)%BtVZLM
+            this%dtB_arrays(0)%BtVpCotLM = this%dtB_arrays(0)%BtVpCotLM + &
+                                           this%dtB_arrays(iThread)%BtVpCotLM
+            this%dtB_arrays(0)%BpVtCotLM = this%dtB_arrays(0)%BpVtCotLM + &
+                                           this%dtB_arrays(iThread)%BpVtCotLM
+            this%dtB_arrays(0)%BtVZcotLM = this%dtB_arrays(0)%BtVZcotLM + &
+                                           this%dtB_arrays(iThread)%BtVZcotLM
+            this%dtB_arrays(0)%BtVpSn2LM = this%dtB_arrays(0)%BtVpSn2LM + &
+                                           this%dtB_arrays(iThread)%BtVpSn2LM
+            this%dtB_arrays(0)%BpVtSn2LM = this%dtB_arrays(0)%BpVtSn2LM + &
+                                           this%dtB_arrays(iThread)%BpVtSn2LM
+            this%dtB_arrays(0)%BtVZsn2LM = this%dtB_arrays(0)%BtVZsn2LM + &
+                                           this%dtB_arrays(iThread)%BtVZsn2LM
+         end do
+      end if
+
 !!$    lorentz_torque_ic=0.0_cp
 !!$    c=0.0_cp
 !!$    do iThread=0,this%nThreads-1
@@ -616,13 +674,15 @@ contains
       !    advection terms:
       if ( l_dtB ) then
          PERFON('dtBLM')
-         call get_dH_dtBLM(this%nR,this%dtB_arrays%BtVrLM,this%dtB_arrays%BpVrLM,&
-              &            this%dtB_arrays%BrVtLM,this%dtB_arrays%BrVpLM,        &
-              &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,        &
-              &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,        &
-              &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,  &
-              &            this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,  &
-              &            this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
+         call get_dH_dtBLM(this%nR,this%dtB_arrays(0)%BtVrLM,                    &
+              &            this%dtB_arrays(0)%BpVrLM,                            &
+              &            this%dtB_arrays(0)%BrVtLM,this%dtB_arrays(0)%BrVpLM,  &
+              &            this%dtB_arrays(0)%BtVpLM,this%dtB_arrays(0)%BpVtLM,  &
+              &            this%dtB_arrays(0)%BrVZLM,this%dtB_arrays(0)%BtVZLM,  &
+              &            this%dtB_arrays(0)%BtVpCotLM,                         &
+              &            this%dtB_arrays(0)%BpVtCotLM,                         &
+              &            this%dtB_arrays(0)%BtVpSn2LM,                         &
+              &            this%dtB_arrays(0)%BpVtSn2LM)
          PERFOFF
       end if
     end subroutine do_iteration_ThetaBlocking_OpenMP

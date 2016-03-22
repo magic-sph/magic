@@ -2,6 +2,7 @@ module outPar_mod
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, &
                          l_maxMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
@@ -47,6 +48,7 @@ contains
       allocate( dlVMeanR(n_r_max),dlVcMeanR(n_r_max) )
       allocate( dlVu2MeanR(n_r_max),dlVu2cMeanR(n_r_max) )
       allocate( RolMeanR(n_r_max),RolMeanRu2(n_r_max),RmMeanR(n_r_max) )
+      bytes_allocated = bytes_allocated+7*n_r_max*SIZEOF_DEF_REAL
 
       dlVMeanR(:)     =0.0_cp
       dlVcMeanR(:)    =0.0_cp
@@ -59,6 +61,7 @@ contains
       if ( l_viscBcCalc ) then
          allocate( sMeanR(n_r_max),Svar(nRstart:nRstop),Mvar(nRstart:nRstop) )
          allocate( uhMeanR(n_r_max),duhMeanR(n_r_max),gradT2MeanR(n_r_max) )
+         bytes_allocated = bytes_allocated+6*n_r_max*SIZEOF_DEF_REAL
          Svar(:)         =0.0_cp
          Mvar(:)         =0.0_cp
          sMeanR(:)       =0.0_cp
@@ -70,11 +73,13 @@ contains
       if ( l_fluxProfs ) then
          allocate( fcondMeanR(n_r_max),fconvMeanR(n_r_max),fkinMeanR(n_r_max) )
          allocate( fviscMeanR(n_r_max) )
+         bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
          fcondMeanR(:)   =0.0_cp
          fconvMeanR(:)   =0.0_cp
          fkinMeanR(:)    =0.0_cp
          fviscMeanR(:)   =0.0_cp
          allocate( fresMeanR(n_r_max),fpoynMeanR(n_r_max) )
+         bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
          fresMeanR(:)    =0.0_cp
          fpoynMeanR(:)   =0.0_cp
       end if
@@ -82,7 +87,7 @@ contains
       if ( l_perpPar ) then
          allocate( EperpMeanR(n_r_max),EparMeanR(n_r_max) )
          allocate( EperpaxiMeanR(n_r_max),EparaxiMeanR(n_r_max) )
-
+         bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
          EperpMeanR(:)   =0.0_cp
          EparMeanR(:)    =0.0_cp
          EperpaxiMeanR(:)=0.0_cp
@@ -303,7 +308,11 @@ contains
             else
                RolR(nR)=RoR(nR)
             end if
-            RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            if ( l_mag_nl ) then
+               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+            else
+               RmR(nR)=ReR(nR)
+            end if
          end do
 
          dlVMeanR   =dlVMeanR   +timePassed*dlVR

@@ -1,11 +1,12 @@
 module leg_helper_mod
 
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, n_m_max
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
-   use Grenoble, only: lGrenoble, b0, db0, ddb0
+   use special, only: lGrenoble, b0, db0, ddb0
    use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
    use logic, only: l_conv, l_mag_kin, l_heat, l_mag, l_movie_oc,    &
@@ -56,20 +57,25 @@ contains
       allocate( this%vhC(lm_max) )
       allocate( this%dvhdrG(lm_max) )
       allocate( this%dvhdrC(lm_max) )
+      bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
       allocate( this%bhG(lm_maxMag) )
       allocate( this%bhC(lm_maxMag) )
       allocate( this%cbhG(lm_maxMag) )
       allocate( this%cbhC(lm_maxMag) )
+      bytes_allocated = bytes_allocated+4*lm_maxMag*SIZEOF_DEF_COMPLEX
       !----- R-distributed versions of scalar fields (see c_fields.f):
       allocate( this%sR(lm_max),this%dsR(lm_max) )
       allocate( this%preR(lm_max),this%dpR(lm_max) )
+      bytes_allocated = bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
+      bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
 
       allocate( this%bCMB(lm_maxMag) )
+      bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
 !------------------------------------------------------------------------------
-   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame, &
+   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,lPressCalc,l_frame, &
         &              lTOnext,lTOnext2,lTOcalc)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
@@ -91,6 +97,7 @@ contains
       integer, intent(in) :: nBc         ! boundary condition
       logical, intent(in) :: lDeriv      ! get also field derivatives !
       logical, intent(in) :: lRmsCalc    ! Rms force balance ?
+      logical, intent(in) :: lPressCalc  ! Pressure ?
       logical, intent(in) :: l_frame     ! Calculate movie frame?
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
@@ -125,11 +132,9 @@ contains
                end if
             end do
          end if
-         if ( lRmsCalc .or. l_fluxProfs ) then
-            this%preR(1)=zero
-            this%dpR(1)=zero
-            do lm=2,lm_max
-               this%preR(lm)=p_Rloc(lm,nR)    ! used for Rms in get_td (anelastic)
+         if ( lPressCalc ) then
+            do lm=1,lm_max
+               this%preR(lm)=p_Rloc(lm,nR)  ! used for Rms in get_td (anelastic)
                this%dpR(lm)=dp_Rloc(lm,nR)  ! used for Rms in get_td
             end do
          end if
@@ -150,6 +155,12 @@ contains
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
                this%vhC(lm) =dw_Rloc(lm,nR) + &
                     cmplx(-aimag(z_Rloc(lm,nR)),real(z_Rloc(lm,nR)),kind=cp)
+            end do
+         else if ( lRmsCalc ) then
+            do lm=1,lm_max
+               this%dLhw(lm)=zero
+               this%vhG(lm) =zero
+               this%vhC(lm) =zero
             end do
          end if
 

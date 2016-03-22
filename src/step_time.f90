@@ -10,6 +10,7 @@ module step_time_mod
    use parallel_mod
    use precision_mod
    use constants, only: zero, one, half
+   use mem_alloc, only: bytes_allocated, memWrite
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
                          lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &
@@ -22,8 +23,8 @@ module step_time_mod
                     l_storeVpot, l_storeBpot, l_HTmovie, l_DTrMagSpec, &
                     lVerbose, l_time_hits, l_b_nl_icb, l_b_nl_cmb,     &
                     l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
-                    l_dtBmovie, lVerbose, l_heat, l_conv, l_movie,     &
-                    l_true_time, l_runTimeLimit, l_save_out
+                    l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
+                    l_runTimeLimit, l_save_out, l_dt_cmb_field
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -54,7 +55,7 @@ module step_time_mod
    use communications, only: get_global_sum, r2lo_redist, lm2r_type, &
                              lo2r_redist_start, lo2r_redist_wait,    &
                              lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
-                             lo2r_w
+                             lo2r_w, scatter_from_rank0_to_lo
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -76,6 +77,8 @@ module step_time_mod
    complex(cp), allocatable :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
    complex(cp), allocatable :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
+   complex(cp), allocatable :: dbdt_CMB_LMloc(:)
+
    public :: initialize_step_time,step_time
 
 contains
@@ -84,17 +87,24 @@ contains
 
       !-- Local variables
       integer :: nR,lm
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
 
       allocate(dwdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dzdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dsdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
       allocate(dVSrLM_Rloc(lm_max,nRstart:nRstop))
+      bytes_allocated = bytes_allocated+ &
+                        5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
       ! the magnetic part
       allocate(dbdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
       allocate(djdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
       allocate(dVxBhLM_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+      bytes_allocated = bytes_allocated+ &
+                        3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 
       ! first touch
       do nR=nRstart,nRstop
@@ -131,10 +141,21 @@ contains
       allocate(dpdt_LMloc(llm:ulm,n_r_max))
       allocate(dsdt_LMloc(llm:ulm,n_r_max))
       allocate(dVSrLM_LMloc(llm:ulm,n_r_max))
+      bytes_allocated = bytes_allocated+ 5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
-      allocate(dbdt_LMloc(llmMag:ulmmag,n_r_maxMag))
-      allocate(djdt_LMloc(llmMag:ulmmag,n_r_maxMag))
-      allocate(dVxBhLM_LMloc(llmMag:ulmmag,n_r_maxMag))
+      allocate(dbdt_LMloc(llmMag:ulmMag,n_r_maxMag))
+      allocate(djdt_LMloc(llmMag:ulmMag,n_r_maxMag))
+      allocate(dVxBhLM_LMloc(llmMag:ulmMag,n_r_maxMag))
+      bytes_allocated = bytes_allocated+ &
+                        3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+
+      ! Only when l_dt_cmb_field is requested
+      ! There might be a way to allocate only when needed
+      allocate ( dbdt_CMB_LMloc(llmMag:ulmMag) )
+      bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+      call memWrite('step_time.f90', local_bytes_used)
 
    end subroutine initialize_step_time
 !-------------------------------------------------------------------------------
@@ -637,7 +658,7 @@ contains
          if ( lTOZhelp ) lTOZwrite=.true.
 
          lRmsCalc=l_RMS.and.l_log.and.(n_time_step > 1)
-         if ( l_mag .or. l_mag_LF ) l_dtB   =l_dtB.or.lRmsCalc
+         if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
          lRmsNext=l_RMS.and.l_logNext ! Used for storing in update routines !
 
          if ( n_time_step == 1 ) l_log=.true.
@@ -882,10 +903,9 @@ contains
          ! ==================================================================
          if ( lVerbose ) write(*,*) "! start output"
          PERFON('output')
-         if ( nRstart <= n_r_cmb ) then
+         if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
             ptr_dbdt_CMB => dbdt_Rloc(:,n_r_cmb)
-         else
-            nullify(ptr_dbdt_CMB)
+            call scatter_from_rank0_to_lo(ptr_dbdt_CMB, dbdt_CMB_LMloc)
          end if
          if ( lVerbose ) write(*,*) "! start real output"
          call output(time,dt,dtNew,n_time_step,l_stop_time,                &
@@ -893,7 +913,7 @@ contains
               &      l_store,l_new_rst_file,                               &
               &      l_spectrum,lTOCalc,lTOframe,lTOZwrite,                &
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
-              &      lorentz_torque_ic,lorentz_torque_ma,ptr_dbdt_CMB,     &
+              &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
               &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
               &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,   &
               &      fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,             & 
@@ -1041,7 +1061,7 @@ contains
               &      dVSrLM_LMloc,dsdt_LMloc,dwdt_LMloc,dzdt_LMloc, &
               &      dpdt_LMloc,dbdt_LMloc,djdt_LMloc,              &
               &      lorentz_torque_ma,lorentz_torque_ic,           &
-              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
+              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
          call wallTime(runTimeRstop)
@@ -1178,17 +1198,17 @@ contains
       call meanTime(runTimeTL,nTimeTL)
       call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
-         call writeTime(6,'! Mean wall time for r Loop                :',runTimeR)
-         call writeTime(6,'! Mean wall time for LM Loop               :',runTimeLM)
-         call writeTime(6,'! Mean wall time for t-step with matix calc:',runTimeTM)
-         call writeTime(6,'! Mean wall time for t-step with log output:',runTimeTL)
-         call writeTime(6,'! Mean wall time for pure t-step           :',runTimeT)
+         call writeTime(6,'! Mean wall time for r Loop                 :',runTimeR)
+         call writeTime(6,'! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(6,'! Mean wall time for t-step with matrix calc:',runTimeTM)
+         call writeTime(6,'! Mean wall time for t-step with log output :',runTimeTL)
+         call writeTime(6,'! Mean wall time for pure t-step            :',runTimeT)
          call safeOpen(nLF,log_file)
-         call writeTime(nLF,'! Mean wall time for r Loop                :',runTimeR)
-         call writeTime(nLF,'! Mean wall time for LM Loop               :',runTimeLM)
-         call writeTime(nLF,'! Mean wall time for t-step with matix calc:',runTimeTM)
-         call writeTime(nLF,'! Mean wall time for t-step with log output:',runTimeTL)
-         call writeTime(nLF,'! Mean wall time for pure t-step           :',runTimeT)
+         call writeTime(nLF,'! Mean wall time for r Loop                 :',runTimeR)
+         call writeTime(nLF,'! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(nLF,'! Mean wall time for t-step with matrix calc:',runTimeTM)
+         call writeTime(nLF,'! Mean wall time for t-step with log output :',runTimeTL)
+         call writeTime(nLF,'! Mean wall time for pure t-step            :',runTimeT)
          call safeClose(nLF)
       end if
       !-- Write output for variable conductivity test:

@@ -2,6 +2,7 @@ module outPV3
 
    use precision_mod
    use parallel_mod, only: rank
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
                          l_max, minc, m_max
    use radial_functions, only: cheb_norm, r_ICB, chebt_oc, r_CMB
@@ -37,12 +38,18 @@ contains
    subroutine initialize_outPV3
 
       allocate( rZ(nZmaxA/2+1,nSmaxA) )
+      allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + 2*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( PlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
       allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + &
+                        2*(l_max+1)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( PlmZ(lm_max,nZmaxA/2+1,nSmaxA) )
       allocate( dPlmZ(lm_max,nZmaxA/2+1,nSmaxA) )
-      allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
+      bytes_allocated = bytes_allocated + &
+                        2*(lm_max)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( VorOld(nrp,nZmaxA,nSmaxA) )
+      bytes_allocated = bytes_allocated + nrp*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
 
    end subroutine initialize_outPV3
 !---------------------------------------------------------------------------------

@@ -16,6 +16,7 @@ module radial_functions
    use cosine_transform_odd
    use cosine_transform_even
    use radial_der, only: get_dr
+   use mem_alloc, only: bytes_allocated
  
    implicit none
 
@@ -129,12 +130,16 @@ contains
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
       allocate( rgrav(n_r_max),agrav(n_r_max) )
+      bytes_allocated = bytes_allocated + &
+                        (20*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
       allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
       allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
       allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
+      bytes_allocated = bytes_allocated + &
+                        (4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
       call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
 
@@ -142,6 +147,8 @@ contains
       allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( cheb_int_ic(n_r_ic_max) )
+      bytes_allocated = bytes_allocated + &
+                        (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
 
       call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
@@ -150,6 +157,7 @@ contains
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
+      bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -260,6 +268,7 @@ contains
 
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
+
          a0=-122.36071577_cp
          a1= 440.86067831_cp
          a2=-644.82401602_cp
@@ -275,7 +284,24 @@ contains
                              + a3*rrOcmb**4+ a2*rrOcmb**5 + a1*rrOcmb**6 &
                              + a0*rrOcmb**7
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-            temp0(n_r)=rhoFit(n_r)**(one/polind)
+         end do
+
+         a0= -596.464198_cp
+         a1=  2447.75300_cp
+         a2= -4159.56327_cp
+         a3=  3774.39367_cp
+         a4= -1959.41844_cp
+         a5=  573.151526_cp
+         a6= -83.5604443_cp
+         a7=  2.70889691_cp
+         a8=0.0111053831_cp
+         a9= 0.999735638_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r) = a9 + a8*rrOcmb    + a7*rrOcmb**2 + a6*rrOcmb**3 &
+                            + a5*rrOcmb**4 + a4*rrOcmb**5 + a3*rrOcmb**6 &
+                            + a2*rrOcmb**7 + a1*rrOcmb**8 + a0*rrOcmb**9
          end do
 
          ! To normalise to the outer radius
@@ -317,26 +343,36 @@ contains
          
       else if ( index(interior_model,'SAT') /= 0 ) then
 
-         ! the shell can't be thicker than eta=0.15, because the fit doesn't work
-         ! below that (in Nadine's profile, that's where the IC is, anyway)
-         a0=  7791.6205_cp
-         a1=-38964.7491_cp
-         a2= 82576.2667_cp
-         a3=-96511.4441_cp
-         a4= 67847.2219_cp
-         a5=-29393.1585_cp
-         a6=  7745.12023_cp
-         a7= -1177.98473_cp
-         a8=    86.0013409_cp
-         a9=     1.11379407_cp
+         ! the shell can't be thicker than eta=0.15, because the fit doesn't 
+         ! work below that (in Nadine's profile, that's where the IC is anyway)
+         ! also r_cut_model maximum is 0.999, because rho is negative beyond
+         ! that
+         a0= 0.34973134_cp
+         a1= -0.9265371_cp
+         a2= 0.90904075_cp
+         a3=-0.33233543_cp
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a9 + a8*rrOcmb   + a7*rrOcmb**2 + a6*rrOcmb**3 &
-                             + a5*rrOcmb**4+ a4*rrOcmb**5 + a3*rrOcmb**6 &
-                             + a2*rrOcmb**7+ a1*rrOcmb**8 + a0*rrOcmb**9
+            rhoFit(n_r) = a3 + a2*rrOcmb    + a1*rrOcmb**2 + a0*rrOcmb**3
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-            temp0(n_r)=rhoFit(n_r)**(one/polind)
+         end do
+
+         a8= 1.00294605_cp
+         a7=-0.44357815_cp
+         a6= 13.9295826_cp
+         a5=-137.051347_cp
+         a4= 521.181670_cp
+         a3=-1044.41528_cp
+         a2= 1166.04926_cp
+         a1=-683.198387_cp
+         a0= 162.962632_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r)= a8 + a7*rrOcmb    + a6*rrOcmb**2 + a5*rrOcmb**3 &
+                           + a4*rrOcmb**4 + a3*rrOcmb**5 + a2*rrOcmb**6 &
+                           + a1*rrOcmb**7 + a0*rrOcmb**8
          end do
 
          ! To normalise to the outer radius
@@ -380,22 +416,30 @@ contains
 
       else if ( index(interior_model,'SUN') /= 0 ) then
 
-         a7=  113.63001006_cp
-         a6= -691.6084317_cp
-         a5= 1615.06990369_cp
-         a4=-1570.0073169_cp
-         a3=  -24.81006594_cp
-         a2= 1336.03589943_cp
-         a1=-1038.72509351_cp
-         a0=  260.41507794_cp
+         ! rho is negative beyond r_cut_model=0.9965
+         ! radratio should be 0.7 (size of the Sun's CZ)
+         a5= -24.83750402_cp
+         a4= 231.79029994_cp
+         a3=-681.72774358_cp
+         a2= 918.30741266_cp
+         a1=-594.30093367_cp
+         a0= 150.76802942_cp
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a7 + a6*rrOcmb   + a5*rrOcmb**2 + a4*rrOcmb**3 &
-                             + a3*rrOcmb**4+ a2*rrOcmb**5 + a1*rrOcmb**6 &
-                             + a0*rrOcmb**7
+            rhoFit(n_r) = a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
+                             + a1*rrOcmb**4 + a0*rrOcmb**5 
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-            temp0(n_r)=rhoFit(n_r)**(one/polind)
+         end do
+
+         a3= 5.53715416_cp
+         a2=-8.10611274_cp
+         a1=  1.7350452_cp
+         a0= 0.83470843_cp
+
+         do n_r=1,n_r_max
+            rrOcmb = r(n_r)/r_cmb*r_cut_model
+            temp0(n_r) = a3 + a2*rrOcmb    + a1*rrOcmb**2 + a0*rrOcmb**3
          end do
 
          ! To normalise to the outer radius
@@ -438,16 +482,20 @@ contains
       else if ( index(interior_model,'GLIESE229B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.52
 
-         a4= 0.99458795_cp
-         a3= 0.34418147_cp
-         a2=-4.99235635_cp
-         a1= 5.25440365_cp
-         a0=-1.60099551_cp
+         a7=  0.99879163_cp
+         a6=  0.15074601_cp
+         a5= -4.20328423_cp
+         a4=  6.43542034_cp
+         a3=-12.67297113_cp
+         a2= 21.68593078_cp
+         a1=-17.74832309_cp
+         a0=  5.35405134_cp
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a4 + a3*rrOcmb   + a2*rrOcmb**2 + a1*rrOcmb**3 &
-                             + a0*rrOcmb**4
+            rhoFit(n_r) = a7 + a6*rrOcmb    + a5*rrOcmb**2 + a4*rrOcmb**3 &
+                             + a3*rrOcmb**4 + a2*rrOcmb**5 + a1*rrOcmb**6 &
+                             + a0*rrOcmb**7
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
          end do
 
@@ -459,7 +507,7 @@ contains
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a4 + a3*rrOcmb   + a2*rrOcmb**2 + a1*rrOcmb**3 &
+            temp0(n_r)= a4 + a3*rrOcmb    + a2*rrOcmb**2 + a1*rrOcmb**3 &
                            + a0*rrOcmb**4
          end do
 
@@ -513,8 +561,8 @@ contains
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a6 + a5*rrOcmb   + a4*rrOcmb**2 + a3*rrOcmb**3 &
-                             + a2*rrOcmb**4+ a1*rrOcmb**5 + a0*rrOcmb**6
+            rhoFit(n_r) = a6 + a5*rrOcmb    + a4*rrOcmb**2 + a3*rrOcmb**3 &
+                             + a2*rrOcmb**4 + a1*rrOcmb**5 + a0*rrOcmb**6
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
          end do
 
@@ -528,8 +576,8 @@ contains
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a6 + a5*rrOcmb   + a4*rrOcmb**2 + a3*rrOcmb**3 &
-                           + a2*rrOcmb**4+ a1*rrOcmb**5 + a0*rrOcmb**6
+            temp0(n_r)= a6 + a5*rrOcmb    + a4*rrOcmb**2 + a3*rrOcmb**3 &
+                           + a2*rrOcmb**4 + a1*rrOcmb**5 + a0*rrOcmb**6
          end do
 
          ! To normalise to the outer radius
@@ -581,8 +629,8 @@ contains
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a5 + a4*rrOcmb   + a3*rrOcmb**2 + a2*rrOcmb**3 &
-                             + a1*rrOcmb**4+ a0*rrOcmb**5
+            rhoFit(n_r) = a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
+                             + a1*rrOcmb**4 + a0*rrOcmb**5
             gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
          end do
 
@@ -595,8 +643,8 @@ contains
 
          do n_r=1,n_r_max
             rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a5 + a4*rrOcmb   + a3*rrOcmb**2 + a2*rrOcmb**3 &
-                           + a1*rrOcmb**4+ a0*rrOcmb**5
+            temp0(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
+                           + a1*rrOcmb**4 + a0*rrOcmb**5
          end do
 
          ! To normalise to the outer radius

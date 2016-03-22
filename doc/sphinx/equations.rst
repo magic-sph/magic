@@ -7,14 +7,9 @@ The general equations describing thermal convection and dynamo action of a
 rotating compressible fluid are the starting point from which the Boussinesq or
 the anelastic approximations are developed.  In MagIC, we consider a spherical
 shell rotating about the vertical :math:`z` axis with a constant angular
-velocity :math:`\Omega`. The conservation of mass is expressed by the
-continuity equation:
+velocity :math:`\Omega`. Equations are solve in the corotating system. 
 
-.. math::
-   \dfrac{\partial \rho}{\partial t} + \vec{\nabla} \cdot \rho \vec{u} = 0,
-   :label: eqContinuity
-
-The conservation of momentum by
+The conservation of momentum is formulated by the Navier-Stokes equation 
 
 .. math::
    \rho\left(\dfrac{\partial \vec{u}}{\partial t}+ \vec{u}\cdot\vec{\nabla}\
@@ -23,7 +18,9 @@ The conservation of momentum by
    \vec{g}-2\rho\vec{\Omega}\times\vec{u}+ \vec{\nabla}\cdot\mathsf{S},
    :label: eqNS
 
-where :math:`\mathsf{S}` corresponds to the rate-of-strain tensor given by:
+where :math:`\vec{u}` is the velocity field, :math:`\vec{B}` the magnetic field, 
+and :math:`p` a modified pressure that includes centrifugal forces. 
+:math:`\mathsf{S}` corresponds to the rate-of-strain tensor given by:
 
 .. math::
    \begin{aligned}
@@ -31,32 +28,86 @@ where :math:`\mathsf{S}` corresponds to the rate-of-strain tensor given by:
    e_{ij} & =\dfrac{1}{2}\left(\dfrac{\partial u_i}{\partial x_j}+\dfrac{\partial
    u_j}{\partial x_i}\right).
    \end{aligned}
-
-Concerning the energy equation, several forms are possible (using internal energy, temperature
-or entropy). Here we use entropy :math:`s` as the main variable, which leads to:
+   
+Convection is driven by buoyancy forces acting on variations in density :math:`\rho`. 
+These variations have a dynamical part formulated by the continuity equation 
+describing the conservation of mass:
 
 .. math::
-  \rho T\left(\dfrac{\partial s}{\partial t}+\vec{u}\cdot \vec{\nabla} s \right) = \vec{\nabla}\cdot (K\vec{\nabla} T) + \Phi_\nu +\lambda\left(\vec{\nabla}\times\vec{B}\right)^2,
+   \dfrac{\partial \rho}{\partial t} = - \vec{\nabla} \cdot \rho \vec{u}.
+   :label: eqContinuity
+   
+In addition an equation of state is required to formulate the thermodynamic 
+density changes. For example the relation 
+
+.. math::
+  \dfrac{1}{\rho} \partial \rho = -\alpha \partial T + \beta \partial p + \delta \partial \chi 
+  :label: EOS1
+
+describes density variations cause by variations in temperature :math:`T`, pressure :math:`p`, and 
+composition :math:`\chi`. The latter contribution needs to be considered for describing the 
+effects of light elements released from a growing solid iron core in a so-called double diffusive 
+approach.  Since this is not an option in the current versions of MagIC, we will neglect the 
+respective contribution or model its effects with the co-density approach further discussed below. 
+
+To close the system we also have to formulate the dynamic changes of entropy, 
+pressure, and composition. 
+The evolution equation for pressure can be derived from the Navier-Stokes equation, 
+as will be further discussed below. For entropy variations we use the so-called energy or heat equation 
+
+.. math::
+  \rho T\left(\dfrac{\partial s}{\partial t}+\vec{u}\cdot \vec{\nabla} s \right) = 
+  \vec{\nabla}\cdot (k\vec{\nabla} T) + \Phi_\nu +\lambda\left(\vec{\nabla}\times\vec{B}\right)^2 
+  + \epsilon,
   :label: eqEntropy
 
 where :math:`\Phi_\nu` corresponds to the viscous heating expressed by
 
 .. math::
-   \Phi_\nu = 2\rho\left[e_{ij}e_{ji}-\dfrac{1}{3}\left(\vec{\nabla}\cdot\vec{u}\right)^2\right].
+   \Phi_\nu = 2\rho\left[e_{ij}e_{ji}-\dfrac{1}{3}\left(\vec{\nabla}\cdot\vec{u}\right)^2\right]
+   
+Note that we use here the summation convention over the indices :math:`i` and :math:`j`. The second last term 
+on the right hand side is the Ohmic heating due to electric currents. The last term is a volumetric 
+sink or source term that can describe various effects, for example radiogenic heating, the mixing-in  
+of the light elements or, when radially dependent, potential variations in the adiabatic gradient (see below). 
+Should compositional effects be considered an additional 
+equivalent evolution equation for :math:`\chi` needs to be considered. 
 
-Note that we use here the summation convention over the indices :math:`i` and :math:`j`.
+
 The induction equation is obtained from the Maxwell equations (ignoring displacement current)
 and Ohm's law (neglecting Hall effect):
 
 .. math::
   \dfrac{\partial \vec{B}}{\partial t} = \vec{\nabla} \times \left( \vec{u}\times\vec{B}-\lambda\,\vec{\nabla}\times\vec{B}\right).
   :label: eqInduction
+  
+When the magnetic diffusivity :math:`\lambda` is homogeneous this simplifies to the commonly used form
 
-In those equations, the symbols :math:`\vec{u}`, :math:`\vec{B}`, :math:`p` and
-:math:`s` correspond to velocity, magnetic field, pressure and entropy.
-:math:`\vec{g}` corresponds to gravity and :math:`\rho` to density. :math:`\lambda`
-is the magnetic diffusivity, :math:`\mu_0` the magnetic permeability, :math:`\nu` the kinematic
-viscosity and :math:`K` the thermal conductivity.
+.. math::
+  \dfrac{\partial \vec{B}}{\partial t} = \vec{\nabla} \times \left( \vec{u}\times\vec{B} \right) 
+  + \lambda\,\vec{\Delta}\vec{B}.
+  :label: eqInduction2
+  
+The physical properties determining above equations are rotation rate :math:`\Omega`, 
+the kinematic viscosity :math:`\nu`, the magnetic permeability :math:`\mu_0`, 
+gravity :math:`\vec{g}`, thermal conductivity :math:`k`, magnetic diffusivity 
+:math:`\lambda`. The latter connects to the electrical conductivity :math:`\sigma`
+via :math:`\lambda = 1/(\mu_0\sigma)`. 
+The thermodynamics properties appearing in :eq:`EOS1` are 
+the thermal expansivity at constant pressure (and composition) 
+ 
+.. math::
+ \alpha = \dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial T}\right)_{p},
+ :label: alpha
+
+the compressibility at constant temperature  
+
+.. math::
+ \beta = \dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial p}\right)_T
+ 
+and an equivalent parameter :math:`\delta` for the dependence of 
+density on composition. 
+
 
 .. figure:: figs/shell.png
    :scale: 50%
@@ -64,92 +115,174 @@ viscosity and :math:`K` the thermal conductivity.
    :alt: caption
 
    Sketch of the spherical shell model and its system of coordinate.
-
-The anelastic approximation
-===========================
-
-MagIC relies on the anelastic approximation of the Navier Stokes equations. There are
-different flavours of this approximation but they all assume that:
-
-   1. the departures from the thermodynamic state variables due to convection are small
-      with respect to the reference state,
-
-   2. the short-period acoustic waves are filtered-out.
-
-This second assumption implies that larger numerical timesteps will be allowed, since
-the typical timescale of the fast acoustic waves is typically much slower than the convective
-turnover time. The strict elimination of the acoustic waves formally means
-
-.. math::
-
-   \frac{\partial \rho'}{\partial t}=0
-
-in the continuity equation, where :math:`\rho'` corresponds here to the density perturbations
-of the reference state.
-
-The reference state is a background state against which perturbations are
-described. In MagIC, this background state is assumed to only depends on one
-spatial variable (radius), but in general it may as well be explicitly
-time-dependent. Each thermodynamic variable :math:`f` is then expressed as a sum
-of a spherically-symmetric time-independent quantity :math:`\tilde{f}` and a fluctuating
-quantity :math:`f'`:
-
-.. math::
-
-  f(r,\theta,\phi,t) = \tilde{f}(r)+f'(r,\theta,\phi,t)
-
-
-This separation of variables is then introduced in the set of equations
-:eq:`eqContinuity`-:eq:`eqInduction` to perform a formal **scale analysis**, taking
-into account that :math:`f'/\tilde{f} = \epsilon << 1`. The variables are then expanded
-in power series of :math:`\epsilon` and only the highest order terms are retained.
-
-
-An adiabatic reference state
-============================
-
-In a vigorously convecting astrophysical of geophysical system (like the convecting interior
-of a planet or a star), the super-adiabaticity  of the fluid is extremely small, since the
-transport of heat by convective motions is highly efficient. Therefore, **the reference background state can be assumed to be perfectly adiabatic** and obey to the following equations
-
-.. math::
-   \dfrac{d \tilde{T}}{dr} = -\dfrac{\alpha g \tilde{T}}{c_p},
-   :label: eqAdiabatRef
    
+   
+The reference state
+===================
 
-where :math:`c_p` is the heat capacity and :math:`\alpha` is expressed by
+The convective flow and the related processes including magnetic field generation constitute 
+only small disturbances around a background or reference state. In the following we denote the background 
+state with a tilde and the disturbance we are interested in with a prime. 
+Formally we will solve equations in first order of a smallness parameters :math:`\epsilon` which 
+quantified the ratio of convective disturbances to background state:
+
+.. math:: \epsilon \sim \dfrac{T'}{\tilde{T}} \sim \dfrac{p'}{\tilde{p}} \sim \dfrac{\rho'}{\tilde{\rho}} \sim  ... \ll 1 .
+   :label: epsilon
+
+The background state is hydrostatic, i.e. obeys the simple force balance
+
+.. math:: \nabla \tilde{p} = \tilde{\rho} \tilde{\vec{g}}.
+   :label: hydrostatic 
+
+Convective motions are supposed to be strong enough to provide homogeneous entropy 
+(and composition). The reference state is thus adiabatic and its gradients can be 
+expressed in terms of the pressure gradient :eq:`hydrostatic`:
+
+.. math:: \dfrac{\nabla\tilde{T}}{\tilde{T}} = \dfrac{1}{\tilde{T}} \left(\dfrac{\partial T}{\partial p}\right)_s 
+          \nabla p = \dfrac{\alpha}{c_p} \tilde{\vec{g}} ,
+          :label: nablaT
+          
+.. math:: \dfrac{\nabla\tilde{\rho}}{\tilde{\rho}} = \dfrac{1}{\tilde{\rho}} \left(\dfrac{\partial \rho}{\partial p}\right)_s 
+          \nabla p = \beta \tilde{\rho} \tilde{\vec{g}} .   
+          :label: nablarho
+
+The reference state obviously dependence only on radius.      
+Dimensionless numbers quantifying the temperature and density gradients are called dissipation number :math:`Di` and 
+compressibility parameter :math:`Co` respectively: 
+
+.. math:: Di = \dfrac{\alpha d}{c_p} \tilde{g},
+
+and 
+
+.. math:: Co = d \beta \tilde{\rho} \tilde{g}.
+
+Here :math:`d` is a typical length scale, for example the shell thickness of the problem. 
+The dissipation number is something like an inverse temperature scale hight while the 
+compressibility parameters is an inverse density scale hight. 
+The ratio of both numbers also helps to quantify the relative impact of temperature and 
+pressure on density variations: 
+
+.. math:: \dfrac{\alpha \nabla T}{\beta \nabla \rho} \approx \alpha \tilde{T} \dfrac{Di}{Co}.
+   :label: deltarho
+   
+As an example we demonstrate how to derive the first order continuity equation here. 
+Using :math:`\rho=\tilde{\rho}+\rho'` in :eq:`eqContinuity` leads to
+
+.. math:: \dfrac{\partial \tilde{\rho}}{\partial t} + \dfrac{\partial \rho'}{\partial t} 
+           = - \vec{\nabla} \cdot \left( \tilde{\rho} \vec{u} \right)
+             - \vec{\nabla} \cdot \left( \rho' \vec{u} \right).
+   
+The zero order term vanishes since the background density is considered static (or actually changing very slowly 
+on very long time scales). The second term in the right hand side is obviously of second order. 
+The ratio of the remaining two terms can be estimated to also be of first order in :math:`\epsilon`, meaning 
+that the time derivative of :math:`\rho` is actually also of second order: 
+
+.. math:: \dfrac{\left[\partial \rho /\partial t\right]}{\left[\vec{\nabla} \cdot \rho \vec{u}\right]} \approx
+          \dfrac{\rho'}{\tilde{\rho}}\approx\epsilon\;\;.
+          
+Square brackets denote order of magnitude estimates here. 
+We have used the fact that the reference state is 
+static and assume time scale of changes are comparable (or slower) :math:`\rho'` than the time 
+scales represented by :math:`u` and that length scales
+associated to the gradient operator are not too small. 
+We can then neglect local variations in :math:`\rho'` which means that sound waves are filtered out. 
+This first order continuity equation thus simply reads:
+
+.. math:: \vec{\nabla} \cdot \left( \tilde{\rho} \vec{u} \right) =  0.
+      :label: eqContiuity1
+      
+This defines the so-called anelastic approximation where sound waves are filtered out by 
+neglecting the local time derivative of density. This approximation is justified when
+typical velocities are sufficiently smaller than the speed of sound. 
+
+
+Boussinesq approximation
+========================
+
+For Earth the dissipation number and the compressibility parameter
+are around :math:`0.2` when temperature and density jump over the whole liquid core 
+are considered. This motivates the so called Boussinesq approximation where :math:`Di` and 
+:math:`Co` are assumed to vanish. The continuity equation :eq:`eqContinuity` then simplifies further:
+
+.. math:: \dfrac{1}{\tilde{\rho}} \vec{\nabla} \cdot \tilde{\rho} \vec{u} = \dfrac{\vec{u}}{\tilde{\rho}} \cdot \nabla \tilde{\rho} 
+   + \nabla\cdot\vec{u} \approx \nabla\cdot\vec{u} = 0.
+
+When using typical number for Earth, :eq:`deltarho` becomes :math:`0.05` so that pressure effects on density may be neglected. 
+The first order Navier-Stokes equation (after to zero order hydrostatic reference solution has been subtracted) then reads:
 
 .. math::
-   c_p = T\left(\dfrac{\partial s}{\partial T}\right)_p, \quad\text{and}\quad
-  \alpha = -\dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial T}\right)_p.
+   \tilde{\rho}\left(\dfrac{\partial \vec{u}}{\partial t}+ \vec{u}\cdot\vec{\nabla}\
+   \vec{u} \right) =-\vec{\nabla} p' -2\rho\vec{\Omega}\times\vec{u}
+   + \alpha \tilde{g}_o T' \dfrac{\vec{r}}{r_o}
+   + \dfrac{1}{\mu_0}(\vec{\nabla}\times\vec{B})\times\vec{B} 
+   + \tilde{\rho} \nu \Delta \vec{u}.
+   :label: eqNSB
 
-
-At this stage, it becomes convenient to start introducing **non-dimensionalised quantities**.
-The background quantities (density temperature and transport properties) are non-dimensionalised using their values at the spherical shell outer boundary :math:`r_o`. The shell thickness
-:math:`d=r_o-r_i` is used as the reference lenghtscale. The dimensionless form of Eq. :eq:`eqAdiabatRef` then reads:
+Here :math:`u` and :math:`B` are understood as first order disturbances and :math:`p'` is the first order 
+non-hydrostatic pressure and :math:`T'` the super-adiabatic temperature. 
+Above we have adopted a simplification of the buoyancy term. 
+In the Boussinesq limit with vanishing :math:`Co` and a small density difference between a 
+solid inner and a liquid outer core a linear gravity dependence provides a reasonable approximation:
 
 .. math::
-  \dfrac{d \tilde{T}}{d r} = -Di\,\alpha(r) g(r) \tilde{T}(r),
-  :label: eqAdiaRefNd
+   \tilde{\vec{g}} = \tilde{g}_o \dfrac{\vec{r}}{r_o},
+   
+where we have chosen the gravity :math:`\tilde{g}_o` at the outer boundary radius :math:`r_o` as reference.
 
-where :math:`\tilde{T}`, :math:`\alpha` and :math:`g` have been non-dimensionalised using their values at the outer boundary. :math:`Di` is the dissipation number expressed by
+The first order energy equation becomes 
 
 .. math::
-   Di = \dfrac{\alpha_o g_o d}{c_p}.
-   :label: eqDissipNb
+  \tilde{\rho}\left(\dfrac{\partial T'}{\partial t}+\vec{u}\cdot \vec{\nabla} T' \right) = 
+  \kappa \Delta T'  + \epsilon,
+  :label: eqEntropyB
 
-:math:`Di` is a measure of the thermal effects due to compressibility, namely
-viscous and ohmic heating. :math:`Di` is also the ratio between two length
-scales: the thickness of the spherical shell :math:`d` divided by the
-temperature scale heights :math:`H_T=-(d\ln T/dr)^{-1}`.
+where we have assumed a homogeneous :math:`k` and neglected viscous and Ohmic heating which can 
+be shown to scale with :math:`Di` as we discuss below. 
+Further more, we have used the simple relation
 
-When :math:`Di \ll 1`, the region where convection develops has a nearly constant reference
-temperature. Since there is no basic temperature stratification, viscous heating (which is
-the consequence of the thermal stratification due to compressibility) becomes negligible.
+.. math::
+  \partial s \approx \dfrac{\tilde{\rho} c_p}{\tilde{T}} \partial T,
+  
+defined the thermal diffusivity
 
-.. note:: The Boussinesq limit can thus be recovered by using :math:`Di \rightarrow 0`.
+.. math::
+  \kappa = \dfrac{k}{\tilde{\rho} c_p},
+  
+and adjusted the definition of :math:`\epsilon`.
 
-Provided an equation of state is given, it is then possible to integrate Eq. :eq:`eqAdiaRefNd`,to obtain the adiabatic background state.
+MagIC solves a dimensionless form of the differential equations. Time is scaled 
+in units of the viscous diffusion time :math:`d^2/\nu`, length in units of the shell thickness :math:`d`,
+temperature in units of the temperature drop :math:`\Delta T=T_o-T_i` over the shell, and 
+magnetic field in units :math:`(\mu\lambda\tilde{\rho}\Omega)^{1/2}`. 
+Technically the transition to the dimensionless form is achieved by the substitution 
+
+.. math::
+   r\rightarrow r\;d , t\rightarrow (d^2/\nu)\;t , T\rightarrow \Delta T\;T , 
+   B\rightarrow \left(\mu\lambda\tilde{\rho}\Omega\right)^{1/2}B 
+   
+where :math:`r` stands for any length. The next step then is to collect the physical properties as few a possible 
+characteristic dimensionless numbers. Note that many different scalings and combinations of dimensionless numbers 
+are possible. For the Navier-Stokes equation in the Boussinesq limit MagIC uses the form:
+
+.. math::
+   \left(\dfrac{\partial \vec{u}}{\partial t}+ \vec{u}\cdot\vec{\nabla}\
+   \vec{u} \right) =-\vec{\nabla} p' -\dfrac{2}{E}\vec{e_z}\times\vec{u}
+   + \dfrac{Ra}{Pr} T' \dfrac{\vec{r}}{r_o}
+   + \dfrac{1}{E Pm}(\vec{\nabla}\times\vec{B})\times\vec{B} 
+   + \Delta \vec{u},
+   :label: eqNSBoussinesq
+
+where :math:`\vec{e}_z` is the unit vector in the direction of the rotation axis and the meaning 
+of the pressure disturbance :math:`p'` has been adjusted to the new dimensionless equation form. 
+  
+
+Anelastic approximation
+========================
+
+The anelastic approximation adopts the simplified continuity :eq:`eqContiuity1`. 
+The background state can be specified in different ways, for example by 
+providing profiles based on internal models and/or ab initio simulations. 
+We will assume a polytropic ideal gas in the following. 
 
 Analytical solution in the limit of an ideal gas
 ------------------------------------------------
@@ -159,11 +292,14 @@ In the limit of an ideal gas which follows :math:`\tilde{p}=\tilde{\rho}\tilde{T
 
 .. math::
    \begin{aligned}
-   \dfrac{d \tilde{T}}{dr}  & = -Di\,g(r), \\
+   \dfrac{d \tilde{T}}{dr}  & = -Di\,\tilde{g}(r), \\
    \tilde{\rho} & = \tilde{T}^{1/(\gamma-1)},
    \end{aligned}
 
-where :math:`\gamma=c_p/c_v`. If we now in addition make the assumption of a
+where :math:`\gamma=c_p/c_v`. Note that we have moved to a dimensionless 
+formulations here, where all quantities have been normalized with their outer boundary values 
+and :math:`Di` refers to the respective outer boundary value. 
+If we in addition make the assumption of a
 centrally-condensed mass in the center of the spherical shell of radius
 :math:`r\in[r_i,r_o]`, i.e. :math:`g\propto, 1/r^2`, this leads to
 
@@ -174,7 +310,7 @@ centrally-condensed mass in the center of the spherical shell of radius
     Di & = \dfrac{r_i}{r_o}\left(\exp\dfrac{N_\rho}{m}-1\right),
    \end{aligned}
 
-where :math:`N_\rho=\ln(\rho_i/\rho_o)` is the number of density scale heights of the reference
+where :math:`N_\rho=\ln(\tilde{\rho}_i/\tilde{\rho}_o)` is the number of density scale heights of the reference
 state and :math:`m=1/(\gamma-1)` is the polytropic index.
    
 
@@ -186,40 +322,32 @@ state and :math:`m=1/(\gamma-1)` is the polytropic index.
                modify :math:`\gamma=c_p/c_v`.
 
 
-MHD equations
-=============
+Anelastic MHD equations
+-----------------------
 
-One of the assumptions of the anelastic approximation is that the fluctuations due to convection are much smaller than the reference state:
+In the most general formulation, all physical properties defining the background state 
+may vary with depth. Specific reference values must then be chosen to provide 
+a unique dimensionless formulations and we typically chose outer boundary values here. 
+The exception is the magnetic diffusivity where we adopt the inner boundary value instead. 
+The motivation is twofold: (i) it allows an easier control
+of the possible continuous conductivity value in the inner core; (ii) it is a more
+natural choice when modelling gas giants planets which exhibit a strong electrical 
+conductivity decay in the outer layer.
 
-.. math::
-   \epsilon \simeq \dfrac{\rho'}{\tilde{\rho}}\simeq \dfrac{T'}{\tilde{T}}\simeq \dfrac{p'}{\tilde{p}}\simeq s' \ll 1.
-
-In the following, we will treat the equations
-:eq:`eqContinuity`-:eq:`eqInduction` in nondimensional form. There is no unique
-way to scale the equations and as a consequence different sets of
-non-dimensional numbers are employed. For convection-driven dynamos, there is four
-independent control parameters.
-
-We use here the viscous diffusion time :math:`d^2/\nu_o` (where :math:`\nu_o` is the kinematic
-viscosity at the outer boundary) as a time unit and :math:`\nu_o/d` as the reference velocity.
-Magnetic field is expressed in units of :math:`\sqrt{\rho_o\mu_0\lambda_i\Omega}`, where
+The time scale is then the viscous diffusion time :math:`d^2/\nu_o` where :math:`\nu_o` is the kinematic
+viscosity at the outer boundary.
+Magnetic field is expressed in units of :math:`(\rho_o\mu_0\lambda_i\Omega)^{1/2}`, where
 :math:`\rho_o` is the density at the outer boundary and :math:`\lambda_i` is the magnetic
 diffusivity at the **inner** boundary.
-
-.. note:: All the transport properties except the magnetic diffusivity are normalised to their
-          values at the outer boundary. The motivation to rather base the reference magnetic
-          diffusivity to the **inner** boundary is twofold: (i) it allows an easier control
-          of the possible continuous conductivity value in the inner core; (ii) it is a more
-          natural choice when modelling gas giants planets which exhibit a strong electrical 
-          conductivity decay in the outer layer.
 
 This leads to the following sets of dimensionless equations:
 
 .. math::
-   E\left(\dfrac{\partial \vec{u}}{\partial t}+\vec{u}\cdot\vec{\nabla}\vec{u}\right)
-   +2\vec{e_z}\times\vec{u}= -\vec{\nabla}\left({\dfrac{p'}{\tilde{\rho}}}\right)+\dfrac{Ra\,E}{Pr}g(r)
-   \,s'\,\vec{e_r} + \dfrac{1}{Pm\,\tilde{\rho}}\left(\vec{\nabla}\times \vec{B} 
-   \right)\times \vec{B}+ \dfrac{E}{\tilde{\rho}} \vec{\nabla}\cdot \mathsf{S},
+   \left(\dfrac{\partial \vec{u}}{\partial t}+\vec{u}\cdot\vec{\nabla}\vec{u}\right)
+   = -\vec{\nabla}\left({\dfrac{p'}{\tilde{\rho}}}\right) - \dfrac{2}{E}\vec{e_z}\times\vec{u} 
+   + \dfrac{Ra}{Pr}\tilde{g} \,s'\,\vec{e_r} + 
+   \dfrac{1}{Pm\,E \,\tilde{\rho}}\left(\vec{\nabla}\times \vec{B} 
+   \right)\times \vec{B}+ \dfrac{1}{\tilde{\rho}} \vec{\nabla}\cdot \mathsf{S},
    :label: eqNSNd
 
 .. math::
@@ -233,6 +361,9 @@ This leads to the following sets of dimensionless equations:
 .. math::
    \dfrac{\partial \vec{B}}{\partial t} = \vec{\nabla} \times \left( \vec{u}\times\vec{B}\right)-\dfrac{1}{Pm}\vec{\nabla}\times\left(\lambda(r)\,\vec{\nabla}\times\vec{B}\right).
    :label: eqIndNd
+   
+Here :math:`\tilde{g}` and :math:`\tilde{\rho}` are
+the normalized radial gravity and density profiles that reach one at the outer boundary. 
 
 Entropy equation and turbulent diffusion
 ----------------------------------------
@@ -273,7 +404,7 @@ that will drive or hinder convection. This is one of the physical motivation to 
 where :math:`\kappa` is the turbulent diffusivity. **Entropy diffusion is assumed to dominate
 over temperature diffusion in turbulent flows**.
 
-The choice of the entropy scale to non-dimensionalise Eq. :eq:`eqEntropy` also depends on
+The choice of the entropy scale to non-dimensionalize Eq. :eq:`eqEntropy` also depends on
 the nature of the boundary conditions: it can be simply the entropy contrast over the layer
 :math:`\Delta s` when the entropy is held constant at both boundaries, or :math:`d\,(ds /dr)`
 when flux-based boundary conditions are employed. We will restrict to the first option in
@@ -289,51 +420,20 @@ the following, but keep in mind that depending on your setup, the entropy refere
   \dfrac{Pr\,Di}{Pm^2\,E\,Ra}\lambda(r)\left(\vec{\nabla}
   \times\vec{B}\right)^2,
   :label: eqEntropyNd
-
-The Boussinesq limit of the equations :math:`Di \rightarrow 0`
---------------------------------------------------------------
-
-When the dissipation number :math:`Di\rightarrow 0` then :math:`\tilde{T}=\text{cst.}`.
-If in addition to that if :math:`\gamma \neq 1`, the density background :math:`\tilde{\rho}`
-is also constant. 
-
-.. note:: The peculiar configuration of :math:`\gamma=1` corresponds to the so-called
-          zero-Grüneisen limit of the Navier-Stokes equation (or isothermal) and is 
-          a special case in which :math:`Di=0` but a density background (controlled 
-          by :math:`N_\rho`) is still allowed. 
-
-A brief look at Eq. :eq:`eqEntropyNd` then shows than viscous and Ohmic heating will disappear
-from the entropy equation. Furthermore, temperature and entropy fluctuations become equivalent
-quantities. If in addition to that we also neglect the possible radial-dependence of the
-transport properties (electrical conductivity, viscosity and thermal diffusivity),
-the set of equations :eq:`eqNSNd`-:eq:`eqEntropyNd` thus simplifies to the classical
-Boussinesq set of equations:
-
-.. math::
-   E\left(\dfrac{\partial \vec{u}}{\partial t}+\vec{u}\cdot\vec{\nabla}\vec{u}\right)
-   +2\vec{e_z}\times\vec{u}= -\vec{\nabla}p'+\dfrac{Ra\,E}{Pr}g(r)
-   \,T'\,\vec{e_r} + \dfrac{1}{Pm}\left(\vec{\nabla}\times \vec{B} 
-   \right)\times \vec{B}+ E\,\Delta \vec{u},
-
-.. math::
-   \vec{\nabla}\cdot\vec{u}=0,
-
-.. math::
-   \vec{\nabla}\cdot\vec{B}=0,
-
-.. math::
-   \dfrac{\partial \vec{B}}{\partial t} = \vec{\nabla} \times \left( \vec{u}\times\vec{B}\right)+\dfrac{1}{Pm}\Delta\vec{B}.
-
-.. math::
-  \dfrac{\partial T'}{\partial t} + 
-  \vec{u}\cdot\vec{\nabla} T' =
-  \dfrac{1}{Pr}\Delta T'.
-
-
+  
+A comparison with :eq:`eqNSNd` reveals meaning of the different non-dimensional numbers 
+that scale viscous and Ohmic heating. The fraction :math:`Pr/Ra` simply expresses the 
+ratio of entropy and flow in the Navier-Stokes equation, while the additional factor 
+:math:`1/E Pm` reflects the scale difference of magnetic field and flow. 
+Then remaining dissipation number :math:`Di` then expresses the relative 
+importance of viscous and Ohmic heating compared to buoyancy and Lorentz force in 
+the Navier-Stokes equation. For small :math:`Di`  both heating terms can be neglected 
+compared to entropy changes due to advection, an limit that is used in the 
+Boussinesq approximation. 
 
 
 Dimensionless control parameters
---------------------------------
+================================
 
 The equations :eq:`eqNSNd`-:eq:`eqEntropyNd` are governed by four dimensionless numbers: the
 Ekman number
@@ -370,6 +470,16 @@ the spherical shell given by its radius ratio
 and the background density and temperature profiles, either controlled by :math:`Di` or
 by :math:`N_\rho` and :math:`m`.
 
+In the Boussinesq approximation all physical properties are assumed to 
+be homogeneous and we can drop the sub-indices :math:`o`  and :math:`i` 
+except for gravity. 
+Moreover, the Rayleigh number can be expressed in terms of the temperature 
+jump across the shell:
+
+.. math::
+   Ra = \frac{\alpha g_o d^3 \Delta T}{\kappa \nu}.
+   :label: eqRayleighBoussinesq
+
 .. seealso:: In MagIC, those control parameters can be adjusted in the 
              :ref:`&phys_param <secPhysNml>` section of the input namelist.
 
@@ -382,9 +492,9 @@ The prefactor of two, which is retained in the
 Coriolis term in :eq:`eqNSNd`, is often incorporated into the definition of the
 Ekman number.
 
-.. seealso:: Those references timescales and lengthscales can be adjusted by
+.. seealso:: Those references timescales and length scales can be adjusted by
              several input parameters in the :ref:`&control <secControlNml>` section
-	     of the input namelist.
+             of the input namelist.
 
 
 Usual diagnostic quantities
@@ -452,9 +562,10 @@ change of rotation rate is determined from the net torque. Viscous,
 electromagnetic, and torques due to gravitational coupling between density
 heterogeneities in the mantle and in the inner core contribute.
 
-.. seealso:: The mechanical boundary conditions can be adjusted with the parameters
-             :ref:`ktopv <secMechanicalBcs>` and :ref:`kbotv <secMechanicalBcs>`
-	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+.. seealso:: The mechanical boundary conditions can be adjusted with the
+             parameters :ref:`ktopv <secMechanicalBcs>` and
+             :ref:`kbotv <secMechanicalBcs>` in the :ref:`&phys_param <secPhysNml>`
+             section of the input namelist.
 
 Magnetic boundary conditions and inner core conductivity
 --------------------------------------------------------
@@ -477,7 +588,7 @@ horizontal component of the electrical field apply.
 
 .. seealso:: The magnetic boundary conditions can be adjusted with the parameters
              :ref:`ktopb <secMagneticBcs>` and :ref:`kbotb <secMagneticBcs>`
-	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+             in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
 
 Thermal boundary conditions and distribution of buoyancy sources
 ----------------------------------------------------------------
@@ -495,4 +606,4 @@ heat flux is in that case spatially and temporally variable.
 
 .. seealso:: The thermal boundary conditions can be adjusted with the parameters
              :ref:`ktops <secThermalBcs>` and :ref:`kbots <secThermalBcs>`
-	     in the :ref:`&phys_param <secPhysNml>` section of the input namelist.
+             in the :ref:`&phys_param <secPhysNml>` section of the input namelist.

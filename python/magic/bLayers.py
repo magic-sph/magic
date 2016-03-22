@@ -442,10 +442,10 @@ class BLayers(MagicSetup):
                                      normed=True)
 
         self.rebl, self.rebulk = integBulkBc(self.rad, 4.*N.pi*ReR*self.rad**2, 
-                                     self.ri, self.ro, self.bcBotduh, self.bcTopduh,
+                                     self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, par.dlVc, 
+        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*N.pi*self.rad**2, 
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
@@ -467,6 +467,50 @@ class BLayers(MagicSetup):
 
         uhbm, utbm = integBotTop(self.rad, 4.*N.pi*self.uh, 
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
+
+        # Convective Rol in the thermal boundary Layer
+        if len(scanDir('perpParR.*')) != 0:
+            tags = []
+            for lg in logFiles:
+                nml = MagicSetup(quiet=True, nml=lg)
+                if nml.start_time >  tstart:
+                    if os.path.exists('perpParR.%s' % nml.tag):
+                        tags.append(nml.tag)
+            perpPar = MagicRadial(field='perpParR', iplot=False, tags=tags)
+            eperpNas = perpPar.Eperp-perpPar.Eperp_axi
+            eparNas = perpPar.Epar-perpPar.Epar_axi
+            RePerpNas = N.sqrt(2.*abs(eperpNas))
+            ReParNas = N.sqrt(2.*abs(eparNas))
+            RePerp = N.sqrt(2.*abs(perpPar.Eperp))
+            RePar = N.sqrt(2.*abs(perpPar.Epar))
+
+            self.reperpbl, self.reperpbulk = integBulkBc(self.rad, 
+                                             4.*N.pi*RePerp*self.rad**2, 
+                                             self.ri, self.ro, self.bcBotSlope, 
+                                             self.bcTopSlope, normed=True)
+            self.reparbl, self.reparbulk = integBulkBc(self.rad, 
+                                           4.*N.pi*RePar*self.rad**2, 
+                                           self.ri, self.ro, self.bcBotSlope, 
+                                           self.bcTopSlope, normed=True)
+            self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.rad, 
+                                                   4.*N.pi*RePerpNas*self.rad**2, 
+                                                   self.ri, self.ro,
+                                                   self.bcBotSlope,
+                                                   self.bcTopSlope, normed=True)
+            self.reparnasbl, self.reparnasbulk = integBulkBc(self.rad,
+                                                 4.*N.pi*ReParNas*self.rad**2, 
+                                                 self.ri, self.ro,
+                                                 self.bcBotSlope, self.bcTopSlope,
+                                                 normed=True)
+        else:
+            self.reperpbl = 0.
+            self.reperpbulk = 0.
+            self.reparbl = 0.
+            self.reparbulk = 0.
+            self.reperpnasbl = 0.
+            self.reperpnasbulk = 0.
+            self.reparnasbl = 0.
+            self.reparnasbulk = 0.
 
         if iplot:
             self.plot()
@@ -584,6 +628,11 @@ class BLayers(MagicSetup):
         st += '%12.5e%12.5e' % (self.ss[len(self.ss)/2]-self.ss[0], self.ttm-self.ss[0])
         st += '%12.5e%12.5e%12.5e' % (self.reh, self.uhBot, self.uhTop)
         st += '%12.5e%12.5e' % (self.lBot, self.lTop)
+
+        st  += '%12.5e%12.5e%12.5e%12.5e' % (self.reperpbl, self.reperpbulk,
+                                             self.reparbl, self.reparbulk)
+        st  += '%12.5e%12.5e%12.5e%12.5e' % (self.reperpnasbl, self.reperpnasbulk,
+                                             self.reparnasbl, self.reparnasbulk)
 
         return st
 

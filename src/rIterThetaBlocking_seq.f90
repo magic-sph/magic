@@ -5,10 +5,11 @@ module rIterThetaBlocking_seq_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use TO_arrays_mod, only: TO_arrays_t
+   use dtB_arrays_mod, only: dtB_arrays_t
    use nonlinear_lm_mod, only: nonlinear_lm_t
  
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
-                         n_phi_maxStr,  n_theta_maxStr, n_r_maxStr
+                         n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
                     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
@@ -37,6 +38,7 @@ module rIterThetaBlocking_seq_mod
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
       type(grid_space_arrays_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
+      type(dtB_arrays_t) :: dtB_arrays
       type(nonlinear_lm_t) :: nl_lm
    contains
       procedure :: initialize => initialize_rIterThetaBlocking_seq
@@ -64,6 +66,7 @@ contains
       call this%gsa%initialize()
       call this%nl_lm%initialize(lmP_max)
       if ( l_TO ) call this%TO_arrays%initialize()
+      call this%dtB_arrays%initialize()
 
    end subroutine initialize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
@@ -75,6 +78,7 @@ contains
       call this%gsa%finalize()
       call this%nl_lm%finalize()
       if ( l_TO ) call this%TO_arrays%finalize()
+      call this%dtB_arrays%finalize()
 
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
@@ -112,11 +116,7 @@ contains
   
       !-- Local variables
       integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
-#ifdef WITH_MPI
       logical :: lGraphHeader=.false.
-#else
-      logical :: lGraphHeader=.true.
-#endif
       logical :: DEBUG_OUTPUT=.false.
   
       this%nR=nR
@@ -147,8 +147,8 @@ contains
       end if
   
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-               &                    this%l_frame,this%lTOnext,this%lTOnext2,    &
-               &                    this%lTOcalc)
+               &                    this%lPressCalc,this%l_frame,this%lTOnext,  &
+               &                    this%lTOnext2,this%lTOcalc)
       PERFOFF
 
       lorentz_torque_ma = 0.0_cp
@@ -196,10 +196,11 @@ contains
          call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
   
          !--------- Calculation of nonlinear products in grid space:
-         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc ) then 
+         if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
+                this%lRmsCalc ) then 
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             PERFON('get_nl')
-            call this%gsa%get_nl(this%nR, this%nBc, nThetaStart)
+            call this%gsa%get_nl(this%nR, this%nBc, nThetaStart, this%lRmsCalc)
             PERFOFF
   
             call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
@@ -266,14 +267,14 @@ contains
             PERFON('graphout')
             call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
                  &            this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &            this%gsa%bpc,this%gsa%sc,nThetaStart,   &
-                 &            this%sizeThetaB,lGraphHeader)
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,   &
+                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
                  &        this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &        this%gsa%bpc,this%gsa%sc,nThetaStart,   &
-                 &        this%sizeThetaB,lGraphHeader)
+                 &        this%gsa%bpc,this%gsa%sc, this%gsa%pc,  &
+                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
 #endif
          end if
   
@@ -398,8 +399,7 @@ contains
               &            this%dtB_arrays%BtVpLM,this%dtB_arrays%BpVtLM,         &
               &            this%dtB_arrays%BrVZLM,this%dtB_arrays%BtVZLM,         &
               &            this%dtB_arrays%BtVpCotLM,this%dtB_arrays%BpVtCotLM,   &
-              &            this%dtB_arrays%BtVZcotLM,this%dtB_arrays%BtVpSn2LM,   &
-              &            this%dtB_arrays%BpVtSn2LM,this%dtB_arrays%BtVZsn2LM)
+              &            this%dtB_arrays%BtVpSn2LM,this%dtB_arrays%BpVtSn2LM)
       end if
 
    end subroutine do_iteration_ThetaBlocking_seq

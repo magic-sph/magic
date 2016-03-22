@@ -11,11 +11,10 @@ module Namelists
    use num_param
    use torsional_oscillations
    use init_fields
-   use Grenoble
    use logic
    use output_data
    use parallel_mod
-   use Bext
+   use special
    use movie_data, only: movie,n_movies, n_movies_max
    use charmanip, only: length_to_blank,capitalize
    use blocking, only: cacheblock_size_in_B
@@ -43,6 +42,7 @@ contains
       logical :: log_does_exist
       integer :: length
       integer :: argument_count
+      integer :: res
       character(len=100) :: input_filename
 
       !-- Name lists:
@@ -110,16 +110,19 @@ contains
          & n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
          & lVerbose,l_AM,l_power,l_drift,l_storeBpot,         &
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
-         & l_RMS,l_RMStest,l_par,l_corrMov,rCut,rDea,         &
-         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar
+         & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
+         & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
+         & l_PressGraph, l_energy_modes, m_max_modes
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
-         & omega_ma2,omegaOsz_ma2,tShift_ma2
+         & omega_ma2,omegaOsz_ma2,tShift_ma2,             &
+         & amp_RiMa,omega_RiMa,m_RiMa
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
          & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
-         & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC
+         & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
+         & amp_RiIc,omega_RiIc,m_RiIc
 
 
       do n=1,4*n_impS_max
@@ -145,40 +148,77 @@ contains
          call get_command_argument(1,input_filename)
 
          open(105,file=trim(input_filename))
-
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading grid parameters!'
-         read(105,grid)
+         read(105,nml=grid,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No grid namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading control parameters!'
-         read(105,control)
+         read(105,nml=control,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No control namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading physical parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading physical parameters!'
-         read(105,phys_param)
+         read(105,nml=phys_param,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No phys_param namelist found!'
+         end if
+         close(105)
 
-         !-- Reading external field parameters for feedback:
-         !if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
-         !read(105,B_external)
-
+         open(105,file=trim(input_filename))
          !-- Reading start field info from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading start information!'
-         read(105,start_field)
+         read(105,nml=start_field,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No start_field namelist found!'
+         end if
+         close(105)
 
+         open(105,file=trim(input_filename))
          !-- Reading output parameters from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading output information!'
-         read(105,output_control)
+         read(105,nml=output_control,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No output_control namelist found!'
+         end if
+         close(105)
 
-         !-- Reading mantle parameters from namelists in STDIN:
-         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
-         read(105,mantle)
-
+         open(105,file=trim(input_filename))
          !-- Reading inner-core parameter from namelists in STDIN:
          if ( rank == 0 ) write(*,*) '!  Reading inner core information!'
-         read(105,inner_core)
-
+         read(105,nml=inner_core,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No inner_core namelist found!'
+         end if
          close(105)
+
+         open(105,file=trim(input_filename))
+         !-- Reading mantle parameters from namelists in STDIN:
+         if ( rank == 0 ) write(*,*) '!  Reading mantle information!'
+         read(105,nml=mantle,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No mantle namelist found!'
+         end if
+         close(105)
+
+         open(105,file=trim(input_filename))
+         !-- Reading external field parameters for feedback:
+         if ( rank == 0 ) write(*,*) '!  Reading B external parameters!'
+         read(105,nml=B_external,iostat=res)
+         if ( res /= 0 .and. rank == 0 ) then
+            write(*,*) '! No B_external namelist found!'
+         end if
+         close(105)
+
          !-- Correcting some parameters:
       end if
 
@@ -221,6 +261,9 @@ contains
       l_heat_nl=.true.
       l_SRIC   =.false.
       l_SRMA   =.false.
+      l_Ri     =.false.
+      l_RiIc   =.false.
+      l_RiMa   =.false.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -307,6 +350,18 @@ contains
       else if ( nRotMa == -1 ) then
          l_rot_ma=.true.
          l_SRMA  =.true.
+      end if
+
+      !-- Rieutord forcing at boundaries
+
+      if ( amp_RiIc /= 0.0_cp ) then
+         l_Ri   = .true.
+         l_RiIc = .true.
+      end if
+
+      if ( amp_RiMa /= 0.0_cp ) then
+         l_Ri   = .true.
+         l_RiMa = .true.
       end if
 
       if ( ek < 0.0_cp ) l_non_rot= .true. 
@@ -552,6 +607,10 @@ contains
          else
              n_coeff_r_max=5
          end if
+      end if
+
+      if ( l_energy_modes ) then
+         if ( m_max_modes==0 .or. m_max_modes>l_max ) m_max_modes=l_max
       end if
 
       !-- ldif determins at which l hyperdiffusivity starts:
@@ -813,6 +872,9 @@ contains
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
       write(n_out,'(''  l_fluxProfs     ='',l3,'','')') l_fluxProfs
       write(n_out,'(''  l_perpPar       ='',l3,'','')') l_perpPar
+      write(n_out,'(''  l_PressGraph    ='',l3,'','')') l_PressGraph
+      write(n_out,'(''  l_energy_modes  ='',l3,'','')') l_energy_modes
+      write(n_out,'(''  m_max_modes     ='',i3,'','')') m_max_modes
       write(n_out,'(''  l_drift         ='',l3,'','')') l_drift
       write(n_out,'(''  l_iner          ='',l3,'','')') l_iner
       write(n_out,'(''  l_TO            ='',l3,'','')') l_TO
@@ -821,7 +883,6 @@ contains
       write(n_out,'(''  l_storeBpot     ='',l3,'','')') l_storeBpot
       write(n_out,'(''  l_storeVpot     ='',l3,'','')') l_storeVpot
       write(n_out,'(''  l_RMS           ='',l3,'','')') l_RMS
-      write(n_out,'(''  l_RMStest       ='',l3,'','')') l_RMStest
       write(n_out,'(''  l_par           ='',l3,'','')') l_par
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
@@ -889,7 +950,7 @@ contains
       !   20 <= nalias <= 30
       nalias        =20
       !----- Namelist contrl
-      mode          =0            ! self consistent dynamo !
+      mode          =0            ! self-consistent dynamo !
       tag           ="default"
       n_time_steps  =100
       n_tScale      =0
@@ -1085,6 +1146,10 @@ contains
       t_r_field_stop =0.0_cp
       dt_r_field     =0.0_cp
 
+      !----- Output of distribution of energies over m's
+      l_energy_modes=.false. ! to get emag and ekin for different m
+      m_max_modes   =14      ! number of modes
+
       !----- Movie output:
       l_movie       =.false.
       n_movies      =0
@@ -1159,11 +1224,11 @@ contains
       l_rMagSpec    =.false.
       l_DTrMagSpec  =.false.
 
-      !----- TO output, output times same as for log outout:
+      !----- TO output, output times same as for log output:
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
       l_TOmovie     =.false. ! TO movies 
-      sDens         =one    ! relative s-grid point density 
-      zDens         =one    ! relative z-grid point dendity 
+      sDens         =one     ! relative s-grid point density 
+      zDens         =one     ! relative z-grid point dendity 
 
       !----- Potential vortivity:
       l_PV          =.false.
@@ -1176,14 +1241,14 @@ contains
       l_fluxProfs   =.false. ! radial profiles of flux contributions
       l_perpPar     =.false. ! radial profiles and time series of kinetic energy
                              ! perpendicular and parallel to the rotation axi
+      l_PressGraph  =.true.  ! store pressure in graphic files
       l_drift       =.false. ! files for calculating drift rates 
       l_iner        =.false. ! files for calculating inertial modes
-      l_RMS         =.false. ! RMS force ballance and dynamo term 
-      ! ballance in dtVrms.TAG and dtBrms.TAG
-      l_RMStest     =.false. ! special test for RMS balance
+      l_RMS         =.false. ! RMS force balance and dynamo term 
+                             ! balance in dtVrms.TAG and dtBrms.TAG
       l_par         =.false. ! Calculate additional parameters in s_getEgeos.f
       l_corrMov     =.false. ! North/south correlation movie (see s_getEgeos.f)
-      rCut          =0.075_cp ! Thickness of layer to be left out at both
+      rCut          =0.0_cp  ! Thickness of layer to be left out at both
       ! boundaries for RMS calculation.
       ! rCut=0.075 means that 7.5% at the CMB and ICB are disregarded.
       rDea          =0.0_cp  ! Controls dealiazing in  RMS calculation
@@ -1191,19 +1256,22 @@ contains
 
       !----- Mantle name list:
       conductance_ma=0.0_cp    ! insulation mantle is default
-      nRotMa        =0       ! non rotating mantle is default
-      rho_ratio_ma  =one    ! same density as outer core
+      nRotMa        =0         ! non rotating mantle is default
+      rho_ratio_ma  =one       ! same density as outer core
       omega_ma1     =0.0_cp    ! prescribed rotation rate
       omegaOsz_ma1  =0.0_cp    ! oszillation frequency of mantle rotation rate
       tShift_ma1    =0.0_cp    ! time shift
       omega_ma2     =0.0_cp    ! second mantle rotation rate 
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
-
+      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiMa        =0         ! default forcing -> axisymmetric 
+      
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default 
-      nRotIc        =0       ! non rotating inner core is default
-      rho_ratio_ic  =one    ! same density as outer core
+      nRotIc        =0         ! non rotating inner core is default
+      rho_ratio_ic  =one       ! same density as outer core
       omega_ic1     =0.0_cp    ! prescribed rotation rate, added to first one
       omegaOsz_ic1  =0.0_cp    ! oszillation frequency of IC rotation rate
       tShift_ic1    =0.0_cp    ! time shift
@@ -1211,6 +1279,9 @@ contains
       omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
+      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
+      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
+      m_RiIc        =0         ! default forcing -> axisymmetric
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

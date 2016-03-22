@@ -5,18 +5,34 @@ module out_coeff
    !
   
    use precision_mod
-   use logic, only: l_save_out
+   use mem_alloc, only: bytes_allocated
+   use logic, only: l_r_field, l_cmb_field, l_save_out, l_average
+   use parallel_mod, only: rank
+   use blocking, only: lm2
+   use truncation, only: lm_max, l_max, minc
+   use communications, only: gather_from_lo_to_rank0
+   use LMLoop_data, only: llm, ulm
 
    implicit none
 
    private
 
-   public :: write_Bcmb, write_coeff_r
+   complex(cp), allocatable :: work(:) ! work array for r_field
+
+   public :: write_Bcmb, write_coeff_r, initialize_coeffs
 
 contains
+
+   subroutine initialize_coeffs()
+
+      if ( l_r_field .or. l_cmb_field .or. l_average ) then
+         allocate ( work(lm_max) )
+         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+      end if
+
+   end subroutine initialize_coeffs
 !----------------------------------------------------------------------
-   subroutine write_Bcmb(time,b,llm,ulm,l_max,l_max_cmb,minc, &
-        &                lm2,n_cmb_sets,cmb_file,n_cmb_file)
+   subroutine write_Bcmb(time,b_LMloc,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
       ! potential coefficients b at the CMB up to degree and order        
@@ -36,14 +52,10 @@ contains
       !
 
       !-- Input variables:
-      integer,          intent(in) :: llm,ulm
-      integer,          intent(in) :: l_max               ! Max degree of b(*,*)
-      integer,          intent(in) :: minc                ! Basic wave-number
-      integer,          intent(in) :: lm2(0:l_max,0:l_max)! Gives position of (l,m) coeff
-      real(cp),         intent(in) ::  time               ! Time
-      complex(cp),      intent(in) :: b(llm:ulm)          ! Poloidal field potential
-      character(len=*), intent(in):: cmb_file             ! Name of output file
-      integer,          intent(in) :: n_cmb_file          ! Output unit for $cmb_file
+      real(cp),         intent(in) :: time             ! Time
+      complex(cp),      intent(in) :: b_LMloc(llm:ulm) ! Poloidal field potential
+      character(len=*), intent(in) :: cmb_file         ! Name of output file
+      integer,          intent(in) :: n_cmb_file       ! Output unit for $cmb_file
 
       !-- Output variables:
       integer, intent(inout) :: l_max_cmb      ! Max degree of output
@@ -51,7 +63,7 @@ contains
       ! should be set to zero before first call
 
       !-- Local variables:
-      integer :: n,n_out ! counter
+      integer :: n,n_out        ! counters
       integer :: l,m            ! degree and order
       integer :: lm             ! position of (l,m) in b(*,n_r_cmb)
       integer :: m_max_cmb      ! Max order of output
@@ -61,75 +73,73 @@ contains
 
       real(cp), allocatable ::  out(:) ! Output array
 
-      !--- Definition of max degree for output
-      if ( l_max < l_max_cmb ) l_max_cmb=l_max
+      call gather_from_lo_to_rank0(b_LMloc, work)
 
-      !--- Define postition of CMB on radial grid:
-      n_r_cmb=1
+      if ( rank == 0 ) then
 
-      !--- Calculate no of data for l_max_cmb:
-      m_max_cmb=(l_max_cmb/minc)*minc
-      lm_max_cmb= m_max_cmb*(l_max_cmb+1)/minc &
-           &     -m_max_cmb*(m_max_cmb-minc)/(2*minc) &
-           &     +l_max_cmb-m_max_cmb+1
-      n_data=2*lm_max_cmb-l_max_cmb-2
+         !--- Definition of max degree for output
+         if ( l_max < l_max_cmb ) l_max_cmb=l_max
 
-      allocate(out(n_data))
+         !--- Define postition of CMB on radial grid:
+         n_r_cmb=1
 
-      !--- Increase no. of cmb_sets:
-      n_cmb_sets=n_cmb_sets+1
+         !--- Calculate no of data for l_max_cmb:
+         m_max_cmb=(l_max_cmb/minc)*minc
+         lm_max_cmb= m_max_cmb*(l_max_cmb+1)/minc &
+              &     -m_max_cmb*(m_max_cmb-minc)/(2*minc) &
+              &     +l_max_cmb-m_max_cmb+1
+         n_data=2*lm_max_cmb-l_max_cmb-2
 
-      !--- Open output file name:
-      if ( l_save_out .or. n_cmb_sets == 0 ) then
-         open(n_cmb_file, file=cmb_file, position='append', form='unformatted')
-      end if
+         allocate(out(n_data))
 
-      !--- If this is the first set write l_max_cmb and minc into file:
-      if ( n_cmb_sets <= 1 ) write(n_cmb_file) l_max_cmb,minc,n_data
+         !--- Increase no. of cmb_sets:
+         n_cmb_sets=n_cmb_sets+1
 
-      !--- Write b(*) into output array out(*):
-      n_out=0
+         !--- Open output file name:
+         if ( l_save_out .or. n_cmb_sets == 0 ) then
+            open(n_cmb_file, file=cmb_file, position='append', form='unformatted')
+         end if
 
-      !--- Axisymmetric part: (m=0) only real part stored
-      do l=1,l_max_cmb
-         lm=lm2(l,0)
-         n_out=n_out+1
-         out(n_out)=real(b(lm))
-      end do
+         !--- If this is the first set write l_max_cmb and minc into file:
+         if ( n_cmb_sets <= 1 ) write(n_cmb_file) l_max_cmb,minc,n_data
 
-      !--- Non-axisymmetric part: store real and imag part
-      do m=minc,l_max_cmb,minc
-         do l=m,l_max_cmb
-            lm=lm2(l,m)
+         !--- Write b(*) into output array out(*):
+         n_out=0
+
+         !--- Axisymmetric part: (m=0) only real part stored
+         do l=1,l_max_cmb
+            lm=lm2(l,0)
             n_out=n_out+1
-            out(n_out)=real(b(lm))
-            n_out=n_out+1
-            out(n_out)=aimag(b(lm))
-            if ( n_out > n_data ) then
-               write(*,*)
-               write(*,*) ' n_out larger than n_data'
-               write(*,*) ' in subroutine write_b_cmb!'
-               write(*,*) ' Should not happen!'
-               stop
-            end if
+            out(n_out)=real(work(lm))
          end do
-      end do
 
-      !--- Finally write output array out(*) into cmb_file:
-      write(n_cmb_file) time,(out(n),n=1,n_out)
+         !--- Non-axisymmetric part: store real and imag part
+         do m=minc,l_max_cmb,minc
+            do l=m,l_max_cmb
+               lm=lm2(l,m)
+               n_out=n_out+1
+               out(n_out)=real(work(lm))
+               n_out=n_out+1
+               out(n_out)=aimag(work(lm))
+            end do
+         end do
 
-      !--- Close cmb_file
-      if ( l_save_out .or. n_cmb_sets == 0 ) then
-         close(n_cmb_file)
+         !--- Finally write output array out(*) into cmb_file:
+         write(n_cmb_file) time,(out(n),n=1,n_out)
+
+         !--- Close cmb_file
+         if ( l_save_out .or. n_cmb_sets == 0 ) then
+            close(n_cmb_file)
+         end if
+
+         deallocate(out)
+
       end if
-
-      deallocate(out)
 
    end subroutine write_Bcmb
 !----------------------------------------------------------------------
-   subroutine write_coeff_r(time,w,dw,ddw,z,r,          &
-      &                     llm,ulm,l_max,l_max_r,minc, &
-      &                     lm2,n_sets,file,n_file,nVBS)
+   subroutine write_coeff_r(time,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,r,  &
+      &                     l_max_r,n_sets,file,n_file,nVBS)
       !
       ! Each call of this subroutine writes time and the poloidal and     
       ! toroidal coeffitients w,dw,z at a specific radius up to degree    
@@ -160,16 +170,12 @@ contains
       !                                                                   
 
       !-- Input variables:
-      integer,          intent(in) :: llm,ulm    
-      integer,          intent(in) :: l_max        ! Max degree of b(*,*)
-      integer,          intent(in) :: minc         ! Basic wave-number
-      integer,          intent(in) :: lm2(0:l_max,0:l_max)
-      real(cp),         intent(in) ::  r           ! radius of coeffs
-      real(cp),         intent(in) ::  time        ! Time
-      complex(cp),      intent(in) :: w(llm:ulm)   ! Poloidal field potential
-      complex(cp),      intent(in) :: dw(llm:ulm)  ! dr of Poloidal field potential
-      complex(cp),      intent(in) :: ddw(llm:ulm) ! dr^2 of Poloidal field potential
-      complex(cp),      intent(in) :: z(llm:ulm)   ! Toroidal field potential
+      real(cp),         intent(in) :: r                 ! radius of coeffs
+      real(cp),         intent(in) :: time              ! Time
+      complex(cp),      intent(in) :: w_LMloc(llm:ulm)  ! Poloidal field potential
+      complex(cp),      intent(in) :: dw_LMloc(llm:ulm) ! dr of Poloidal field potential
+      complex(cp),      intent(in) :: ddw_LMloc(llm:ulm)! dr^2 of Poloidal field potential
+      complex(cp),      intent(in) :: z_LMloc(llm:ulm)   ! Toroidal field potential
       character(len=*), intent(in) :: file         ! Name of output file
       integer,          intent(in) :: n_file       ! Output unit for $file
       integer,          intent(in) :: nVBS         ! True if output is flow
@@ -198,143 +204,170 @@ contains
            m_max_r*(m_max_r-minc)/(2*minc) + &
            l_max_r-m_max_r+1
       n_data=2*lm_max_r-l_max_r-2
-      !--- JW 10.Apr.2014: corrected dimension check for different output:
-      if ( nVBS == 1 ) then
-         allocate(out(3*n_data))
-      else if ( nVBS == 2 ) then
-         allocate(out(4*n_data))
-      else if ( nVBS == 3 ) then
-         allocate(out(n_data+1))
+
+      if ( rank == 0 ) then
+         if ( nVBS == 1 ) then
+            allocate(out(3*n_data))
+         else if ( nVBS == 2 ) then
+            allocate(out(4*n_data))
+         else if ( nVBS == 3 ) then
+            allocate(out(n_data+1))
+         end if
       end if
 
       !--- Increase no. of sets:
       n_sets=n_sets+1
 
-      !--- Open output file with name $file:
-      if ( l_save_out ) then
-         open(n_file, file=file, form='unformatted', status='unknown', &
-              position='append')
-      end if
-
-      !--- If this is the first set write, l_max_r and minc into first line:
-      if ( n_sets == 1 ) then
-         write(n_file) l_max_r,minc,n_data,r
-      end if
-
       !--- Write b(*) into output array out(*):
       n_out=0
 
-      if ( nVBS == 3 ) then
-         !--- Axisymmetric part of s: (m=0) only real part stored
-         do l=0,l_max ! start with l=0
-            lm=lm2(l,0)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(w(lm))
-            end if
-         end do
-      else
-         !--- Axisymmetric part of w: (m=0) only real part stored
-         do l=1,l_max ! start with l=1
-            lm=lm2(l,0)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(w(lm))
-            end if
+      call gather_from_lo_to_rank0(w_LMloc, work)
+
+      if ( rank == 0 ) then
+         if ( nVBS == 3 ) then
+            !--- Axisymmetric part of s: (m=0) only real part stored
+            do l=0,l_max ! start with l=0
+               lm=lm2(l,0)
+               if ( l <= l_max_r ) then
+                  n_out=n_out+1
+                  out(n_out)=real(work(lm))
+               end if
+            end do
+         else
+            !--- Axisymmetric part of w: (m=0) only real part stored
+            do l=1,l_max ! start with l=1
+               lm=lm2(l,0)
+               if ( l <= l_max_r ) then
+                  n_out=n_out+1
+                  out(n_out)=real(work(lm))
+               end if
+            end do
+         end if
+
+         !--- Non-axisymmetric part of w: store real and imag part
+         do m=minc,l_max_r,minc
+            do l=m,l_max
+               lm=lm2(l,m)
+               if ( l <= l_max_r ) then
+                  n_out=n_out+1
+                  out(n_out)=real(work(lm))
+                  n_out=n_out+1
+                  out(n_out)=aimag(work(lm))
+               end if
+            end do
          end do
       end if
 
-      !--- Non-axisymmetric part of w: store real and imag part
-      do m=minc,l_max_r,minc
-         do l=m,l_max
-            lm=lm2(l,m)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(w(lm))
-               n_out=n_out+1
-               out(n_out)=aimag(w(lm))
-            end if
-         end do
-      end do
-
       if ( nVBS /= 3 ) then
-      !-- Now output for flow or magnetic field only:
-         !--- Axisymmetric part of dw: (m=0) only real part stored
-         do l=1,l_max
-            lm=lm2(l,0)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(dw(lm))
-            end if
-         end do
-         !--- Non-axisymmetric part of dv: store real and imag part
-         do m=minc,l_max_r,minc
-            do l=m,l_max
-               lm=lm2(l,m)
+
+         call gather_from_lo_to_rank0(dw_LMloc, work)
+
+         if ( rank == 0 ) then
+            !-- Now output for flow or magnetic field only:
+            !--- Axisymmetric part of dw: (m=0) only real part stored
+            do l=1,l_max
+               lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(dw(lm))
-                  n_out=n_out+1
-                  out(n_out)=aimag(dw(lm))
+                  out(n_out)=real(work(lm))
                end if
             end do
-         end do
-         !--- Axisymmetric part of z: (m=0) only real part stored
-         do l=1,l_max
-            lm=lm2(l,0)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(z(lm))
-            end if
-         end do
-         !--- Non-axisymmetric part of z: store real and imag part
-         do m=minc,l_max_r,minc
-            do l=m,l_max
-               lm=lm2(l,m)
+            !--- Non-axisymmetric part of dv: store real and imag part
+            do m=minc,l_max_r,minc
+               do l=m,l_max
+                  lm=lm2(l,m)
+                  if ( l <= l_max_r ) then
+                     n_out=n_out+1
+                     out(n_out)=real(work(lm))
+                     n_out=n_out+1
+                     out(n_out)=aimag(work(lm))
+                  end if
+               end do
+            end do
+         end if
+
+         call gather_from_lo_to_rank0(z_LMloc, work)
+
+         if ( rank == 0 ) then
+            !--- Axisymmetric part of z: (m=0) only real part stored
+            do l=1,l_max
+               lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(z(lm))
-                  n_out=n_out+1
-                  out(n_out)=aimag(z(lm))
+                  out(n_out)=real(work(lm))
                end if
             end do
-         end do
+            !--- Non-axisymmetric part of z: store real and imag part
+            do m=minc,l_max_r,minc
+               do l=m,l_max
+                  lm=lm2(l,m)
+                  if ( l <= l_max_r ) then
+                     n_out=n_out+1
+                     out(n_out)=real(work(lm))
+                     n_out=n_out+1
+                     out(n_out)=aimag(work(lm))
+                  end if
+               end do
+            end do
+         end if
       end if
 
       !--- If this is a magnetic field I also store the second radial derivative
       !    of the poloidal potential to caluclate diffusion:
       if ( nVBS == 2 ) then
-         !--- Axisymmetric part of ddw: (m=0) only real part stored
-         do l=1,l_max
-            lm=lm2(l,0)
-            if ( l <= l_max_r ) then
-               n_out=n_out+1
-               out(n_out)=real(ddw(lm))
-            end if
-         end do
-         !--- Non-axisymmetric part of ddw: store real and imag part
-         do m=minc,l_max_r,minc
-            do l=m,l_max
-               lm=lm2(l,m)
+
+         call gather_from_lo_to_rank0(ddw_LMloc, work)
+
+         if ( rank == 0 ) then
+            !--- Axisymmetric part of ddw: (m=0) only real part stored
+            do l=1,l_max
+               lm=lm2(l,0)
                if ( l <= l_max_r ) then
                   n_out=n_out+1
-                  out(n_out)=real(ddw(lm))
-                  n_out=n_out+1
-                  out(n_out)=aimag(ddw(lm))
+                  out(n_out)=real(work(lm))
                end if
             end do
-         end do
+            !--- Non-axisymmetric part of ddw: store real and imag part
+            do m=minc,l_max_r,minc
+               do l=m,l_max
+                  lm=lm2(l,m)
+                  if ( l <= l_max_r ) then
+                     n_out=n_out+1
+                     out(n_out)=real(work(lm))
+                     n_out=n_out+1
+                     out(n_out)=aimag(work(lm))
+                  end if
+               end do
+            end do
+         end if 
       end if
 
-      !--- Finally write output array out(*) into file:
-      write(n_file) time,(out(n),n=1,n_out)
+      if ( rank == 0 ) then
 
-      !--- Close file
-      if ( l_save_out ) then
-         close(n_file)
+         !--- Open output file with name $file:
+         if ( l_save_out ) then
+            open(n_file, file=file, form='unformatted', status='unknown', &
+                 position='append')
+         end if
+
+         !--- If this is the first set write, l_max_r and minc into first line:
+         if ( n_sets == 1 ) then
+            write(n_file) l_max_r,minc,n_data,r
+         end if
+
+
+         !--- Finally write output array out(*) into file:
+         write(n_file) time,(out(n),n=1,n_out)
+
+         !--- Close file
+         if ( l_save_out ) then
+            close(n_file)
+         end if
+
+         deallocate(out)
+
       end if
 
-      deallocate(out)
 
    end subroutine write_coeff_r
 !----------------------------------------------------------------------

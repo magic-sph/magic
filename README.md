@@ -154,6 +154,7 @@ More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
 * Boussinesq equations: [Wicht (2002, PEPI, 132, 281-302)](http://dx.doi.org/10.1016/S0031-9201(02)00078-X)
 * Anelastic equations: [Gastine & Wicht (2012, Icarus, 219, 428-442)](http://dx.doi.org/10.1016/j.icarus.2012.03.018)
+* In case you use the [SHTns](https://bitbucket.org/bputigny/shtns-magic) library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: [Schaeffer (2013, GGG, 14, 751-758)](http://dx.doi.org/10.1002/ggge.20071)
 
 MagIC has been tested and validated against several international dynamo benchmarks:
 * [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)

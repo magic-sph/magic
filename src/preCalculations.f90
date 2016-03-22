@@ -31,7 +31,7 @@ module preCalculations
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite
-   use Bext, only: l_curr, fac_loop
+   use special, only: l_curr, fac_loop
 
    implicit none
 
@@ -139,13 +139,6 @@ contains
       !       \delta T the temperature scale, and \kappa the thermal
       !       diffusivity
       BuoFac=raScaled/pr
-      if ( index(interior_model,'JUP') /= 0 ) then
-         polind=one/0.45_cp
-      else if ( index(interior_model,'SAT') /= 0 ) then
-         polind=one/0.5_cp
-      else if ( index(interior_model,'SUN') /= 0 ) then
-         polind=one/0.6_cp
-      end if
     
       dtStart=dtStart/tScale
       dtMax  =dtMax/tScale

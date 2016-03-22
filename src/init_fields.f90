@@ -2,6 +2,7 @@ module init_fields
 
    use truncation
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
                               phi, cosTheta
@@ -19,7 +20,11 @@ module init_fields
                     zero, one, two, three, four, third, half
    use useful, only: random
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+#ifdef WITH_SHTNS
+   use shtns
+#else
    use fft
+#endif
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
                                   peakS, widthS, radratio, imagcon, opm,  &
                                   sigma_ratio, O_sr, kbots, ktops, opr,   &
@@ -78,8 +83,10 @@ contains
    subroutine initialize_init_fields
 
       n_start_file=8
+      
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
+      bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_init_fields
 !-----------------------------------------------------------------------
@@ -139,9 +146,14 @@ contains
                   end do
                end do
                !------------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
                call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
+#endif
             end do ! End of loop over theta blocks
+#ifdef WITH_SHTNS
+               call spat_to_SH(ome, omeLM)
+#endif
     
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -187,9 +199,14 @@ contains
                   end do
                end do
                !------------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
                call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
+#endif
             end do ! End of loop over theta blocks
+#ifdef WITH_SHTNS
+            call spat_to_SH(ome, omeLM)
+#endif
     
             !------------ ome now in spherical harmonic space,
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
@@ -537,10 +554,15 @@ contains
                end do
             end do
          !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
             call fft_thetab(sCMB,-1)
             call legTF1(nThetaStart,sLM,sCMB)
+#endif
 
          end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+            call spat_to_SH(sCMB, sLM)
+#endif
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakS, SQRT(4*pi) is a normalisation factor
@@ -608,10 +630,15 @@ contains
             end do
          end do
       !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
          call fft_thetab(sCMB,-1)
          call legTF1(nThetaStart,sLM,sCMB)
+#endif
 
       end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+         call spat_to_SH(sCMB, sLM)
+#endif
 
 
       !--- Finally store the boundary condition and care for
@@ -967,11 +994,12 @@ contains
 
       else if ( init_b1 == 10 ) then  ! only equatorial dipole
 
+       if ( l1m1 <= 0 ) then
+          write(*,*) '! Can not initialize l=1,m=1 !'
+          stop
+       end if
+
        if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
-          if ( l1m1 <= 0 ) then
-             write(*,*) '! Can not initialize l=1,m=1 !'
-             stop
-          end if
           b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
           do n_r=1,n_r_max
              b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1031,11 +1059,12 @@ contains
             end if
          end if
 
+         if ( l1m1 <= 0 ) then
+            write(*,*) '! Cannot initialize l=1,m=1 !'
+            stop
+         end if
+
          if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
-            if ( l1m1 <= 0 ) then
-               write(*,*) '! Cannot initialize l=1,m=1 !'
-               stop
-            end if
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m1,n_r)=b(l1m1,n_r) +                   &

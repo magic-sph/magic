@@ -33,6 +33,8 @@ SET (OpenMP_Fortran_FLAG_CANDIDATES
      "/openmp"
      #Intel windows
      "/Qopenmp"
+     #Future Intel
+     "-qopenmp"
      #Intel
      "-openmp"
      #Gnu

@@ -3,17 +3,15 @@
 RMS force balance
 -----------------
 
-  .. warning:: The RMS calculation is actually wrong in the current version. This needs again to be ported from MagIC 3.44. The RMS contributions to the induction equation are correct, though. A ticket has been opened on github regarding this issue: https://github.com/magic-sph/magic/issues/1
-
-The code can compute the RMS of the force balance and the induction equation.
+The code can compute the RMS contributions of the different forces that
+contribute to the Navier-Stokes equation and the the different terms that enter
+the induction equation.
 
 .. _varl_RMS:
 
-* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in the :ref:`dtVrms.TAG <secdtVrmsFile>`, :ref:`dtBrms.TAG <secdtBrmsFile>` and :ref:`dtDrms.TAG <secdtDrmsFile>` files.
+* **l_RMS** (default :f:var:`l_RMS=.false. <l_rms>`) is a logical, which enables the calculation of RMS force balance, when set to ``.true.``. The outputs are stored in :ref:`dtVrms.TAG <secdtVrmsFile>` and :ref:`dtBrms.TAG <secdtBrmsFile>`.
 
-* **l_RMStest** (default :f:var:`l_RMStest=.false. <l_rmstest>`) is a logical. This is a debug flag to check the consistency of the RMS calculation.
-
-* **rCut** (default :f:var:`rCut=0.075 <rcut>`) is a float. This is the thickness of the layer which is left out at both boundaries for the RMS calculation. ``rCut=0.075`` actually means that 7.5% below the CMB and above the ICB are disregarded in the force balance calculation.
+* **rCut** (default :f:var:`rCut=0.0 <rcut>`) is a float. This is the thickness of the layer which is left out at both boundaries for the RMS calculation. ``rCut=0.075`` actually means that 7.5% below the CMB and above the ICB are disregarded in the force balance calculation.
 
 * **rDea** (default  :f:var:`rDea=0.0 <rdea>`) is a float. This controls the dealiasing in RMS calculations. ``rDea=0.1`` means that the highest 10% of the Chebyshev modes are set to zero.
 
@@ -103,3 +101,15 @@ Potential vorticity
 +++++++++++++++++++
 
 * **l_PV** (default :f:var:`l_PV=.false. <l_pv>`) is a logical. When set to ``.true.``, this logical enables some potential vorticity diagnostics. At the end of the run, the results are stored in the the files ``PVZ.TAG`` and ``Vcy.TAG``.
+
+Pressure
+++++++++
+
+* **l_PressGraph** (default :f:var:`l_PressGraph=.true. <l_pressgraph>`) is a logical. When set to ``.true.``, this logical enables the storage of pressure in the :ref:`graphic files <secGraphFile>`.
+
+Time evolution of the m-spectra
++++++++++++++++++++++++++++++++
+
+* **l_energy_modes** (default :f:var:`l_energy_modes=.false. <l_energy_modes>`) is a logical. When set to ``.true.``, this logical enables the storage of the time-evolution of the kinetic and magnetic energy spectra for a given range of spherical harmonic orders: :ref:`time spectra <secTimeSpectraFiles>`.
+
+* **m_max_modes** (default :f:var:`m_max_modes=13 <m_max_modes>`) is an integer. This controls the maximum spherical harmonic order when :f:var:`l_energy_modes=.true. <l_energy_modes>`.

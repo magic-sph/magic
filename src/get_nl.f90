@@ -10,59 +10,19 @@ module general_arrays_mod
  
 end module general_arrays_mod
 !----------------------------------------------------------------------------
-module TO_arrays_mod
-
-   use truncation, only: l_max
-   use precision_mod, only: cp
-
-   implicit none
-
-   private
-
-   type, public :: TO_arrays_t
-      !----- Local TO output stuff:
-      real(cp), allocatable :: dzRstrLM(:),dzAstrLM(:)
-      real(cp), allocatable :: dzCorLM(:),dzLFLM(:)
-
-   contains
-      procedure :: initialize
-      procedure :: finalize
-   end type TO_arrays_t
-
-contains
-
-   subroutine initialize(this)
-
-      class(TO_arrays_t) :: this
-
-      allocate( this%dzRstrLM(l_max+2),this%dzAstrLM(l_max+2) )
-      allocate( this%dzCorLM(l_max+2),this%dzLFLM(l_max+2) )
-
-   end subroutine initialize
-!----------------------------------------------------------------------------
-   subroutine finalize(this)
-
-      class(TO_arrays_t) :: this
-
-      deallocate( this%dzRstrLM,this%dzAstrLM )
-      deallocate( this%dzCorLM,this%dzLFLM )
-
-   end subroutine finalize
-!----------------------------------------------------------------------------
-end module TO_arrays_mod
-!----------------------------------------------------------------------------
 module grid_space_arrays_mod
 
    use general_arrays_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
                                lambda, or4, or1
-   use physical_parameters, only: LFfac, n_r_LCR
+   use physical_parameters, only: LFfac, n_r_LCR, CorFac
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: osn2, cosn2
+   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta
    use constants, only: two, third
-   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF
+   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_RMS
 
    implicit none
 
@@ -75,6 +35,12 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:),  VSt(:,:),  VSp(:,:)
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
+
+      !---- RMS calculations
+      real(cp), allocatable :: Advt2(:,:), Advp2(:,:)
+      real(cp), allocatable :: LFt2(:,:), LFp2(:,:)
+      real(cp), allocatable :: CFt2(:,:), CFp2(:,:)
+      real(cp), allocatable :: p1(:,:), p2(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), pointer :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -105,7 +71,6 @@ contains
    subroutine initialize(this)
 
       class(grid_space_arrays_t) :: this
-      integer :: size_in_bytes
 
       allocate( this%Advr(nrp,nfs) )
       allocate( this%Advt(nrp,nfs) )
@@ -121,7 +86,7 @@ contains
       allocate( this%VSp(nrp,nfs) )
       allocate( this%ViscHeat(nrp,nfs) )
       allocate( this%OhmLoss(nrp,nfs) )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated + 14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nrp,nfs),this%vtc(nrp,nfs),this%vpc(nrp,nfs) )
@@ -136,15 +101,27 @@ contains
       allocate( this%sc(nrp,nfs),this%drSc(nrp,nfs) )
       allocate( this%pc(nrp,nfs) )
       allocate( this%dsdtc(nrp,nfs),this%dsdpc(nrp,nfs) )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
-      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",size_in_bytes,"B."
+      bytes_allocated=bytes_allocated + 22*nrp*nfs*SIZEOF_DEF_REAL
+
+      !-- RMS Calculations
+      if ( l_RMS ) then
+         allocate ( this%Advt2(nrp,nfs) )
+         allocate ( this%Advp2(nrp,nfs) )
+         allocate ( this%LFt2(nrp,nfs) )
+         allocate ( this%LFp2(nrp,nfs) )
+         allocate ( this%CFt2(nrp,nfs) )
+         allocate ( this%CFp2(nrp,nfs) )
+         allocate ( this%p1(nrp,nfs) )
+         allocate ( this%p2(nrp,nfs) )
+         bytes_allocated=bytes_allocated + 8*nrp*nfs*SIZEOF_DEF_REAL
+      end if
+      !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
 
    end subroutine initialize
 !----------------------------------------------------------------------------
    subroutine finalize(this)
 
       class(grid_space_arrays_t) :: this
-      integer :: size_in_bytes
 
       deallocate( this%Advr )
       deallocate( this%Advt )
@@ -160,7 +137,6 @@ contains
       deallocate( this%VSp )
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
-      size_in_bytes=14*nrp*nfs*SIZEOF_DEF_REAL
 
       !----- Fields calculated from these help arrays by legtf:
       deallocate( this%vrc,this%vtc,this%vpc )
@@ -173,8 +149,18 @@ contains
       deallocate( this%sc,this%drSc )
       deallocate( this%pc )
       deallocate( this%dsdtc, this%dsdpc )
-      size_in_bytes=size_in_bytes + 21*nrp*nfs*SIZEOF_DEF_REAL
-      write(*,"(A,I15,A)") "grid_space_arrays: deallocated ",size_in_bytes,"B."
+
+      !-- RMS Calculations
+      if ( l_RMS ) then
+         deallocate ( this%Advt2 )
+         deallocate ( this%Advp2 )
+         deallocate ( this%LFt2 )
+         deallocate ( this%LFp2 )
+         deallocate ( this%CFt2 )
+         deallocate ( this%CFp2 )
+         deallocate ( this%p1 )
+         deallocate ( this%p2 )
+      end if
 
    end subroutine finalize
 !----------------------------------------------------------------------------
@@ -197,7 +183,7 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
 #ifdef WITH_SHTNS
-   subroutine get_nl_shtns(this, nR, nBc)
+   subroutine get_nl_shtns(this, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -215,15 +201,16 @@ contains
 
       !-- Input of variables:
       integer, intent(in) :: nR
+      logical, intent(in) :: lRmsCalc
       integer, intent(in) :: nBc
 
       !-- Local variables:
-      integer :: nThetaB, nThetaNHS
+      integer :: nThetaB, nThetaNHS, nTheta
       integer :: nPhi
-      real(cp) :: or2sn2, or4sn2, csn2
+      real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt
 
 
-      if ( l_mag_LF .and. nBc == 0 .and. nR>n_r_LCR ) then
+      if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
          !------ Get the Lorentz force:
          !$OMP PARALLEL DO default(none) &
          !$OMP& private(nThetaB, nPhi, nThetaNHS, or4sn2) &
@@ -264,7 +251,7 @@ contains
          !$OMP END PARALLEL DO
       end if      ! Lorentz force required ?
 
-      if ( l_conv_nl .and. nBc == 0 ) then
+      if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
          !------ Get Advection:
          !$OMP PARALLEL DO default(none) &
@@ -499,10 +486,41 @@ contains
 
       end if  ! Viscous heating and Ohmic losses ?
 
+      if ( lRmsCalc ) then
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nPhi, nTheta,snt,cnt,rsnt) &
+         !$OMP& shared(this, nR, sizeThetaB, n_phi_max,or2,r,CorFac) &
+         !$OMP& shared(cosTheta,sinTheta,n_r_LCR,l_mag_LF,l_conv_nl)
+         do nThetaB=1,sizeThetaB ! loop over theta points in block
+            nTheta   = nThetaB
+            snt=sinTheta(nTheta)
+            cnt=cosTheta(nTheta)
+            rsnt=r(nR)*snt
+            do nPhi=1,n_phi_max
+               this%p1(nPhi,nThetaB)=this%pc(nPhi,nThetaB)/snt
+               this%p2(nPhi,nThetaB)=cnt*this%p1(nPhi,nThetaB)
+               this%CFt2(nPhi,nThetaB)=-2*CorFac *cnt*this%vpc(nPhi,nThetaB)/rsnt
+               this%CFp2(nPhi,nThetaB)=2*CorFac * (                      &
+                                     cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
+                                     or2(nR)*snt*this%vrc(nPhi,nThetaB) )
+               if ( l_conv_nl ) then
+                  this%Advt2(nPhi,nThetaB)=rsnt*this%Advt(nPhi,nThetaB)
+                  this%Advp2(nPhi,nThetaB)=rsnt*this%Advp(nPhi,nThetaB)
+               end if
+               if ( l_mag_LF .and. nR > n_r_LCR ) then
+                  this%LFt2(nPhi,nThetaB)=rsnt*this%LFt(nPhi,nThetaB)
+                  this%LFp2(nPhi,nThetaB)=rsnt*this%LFp(nPhi,nThetaB)
+               end if
+            end do
+         end do
+         !$OMP END PARALLEL DO
+      end if
+
+
    end subroutine get_nl_shtns
 #endif
 !----------------------------------------------------------------------------
-   subroutine get_nl(this,nR,nBc,nThetaStart)
+   subroutine get_nl(this,nR,nBc,nThetaStart,lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -522,16 +540,17 @@ contains
       integer, intent(in) :: nR
       integer, intent(in) :: nBc
       integer, intent(in) :: nThetaStart
+      logical, intent(in) :: lRmsCalc
 
       !-- Local variables:
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2
+      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt
 
       nThetaLast=nThetaStart-1
 
-      if ( l_mag_LF .and. nBc == 0 .and. nR>n_r_LCR ) then
+      if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
          !------ Get the Lorentz force:
          nTheta=nThetaLast
          do nThetaB=1,sizeThetaB
@@ -569,7 +588,7 @@ contains
          end do   ! theta loop
       end if      ! Lorentz force required ?
 
-      if ( l_conv_nl .and. nBc == 0 ) then
+      if ( l_conv_nl .and. (nBc == 0 .or. lRmsCalc) ) then
 
          !------ Get Advection:
          nTheta=nThetaLast
@@ -784,6 +803,52 @@ contains
          end if ! if l_mag_nl ?
 
       end if  ! Viscous heating and Ohmic losses ?
+
+      if ( lRmsCalc ) then
+         nTheta=nThetaLast
+         do nThetaB=1,sizeThetaB ! loop over theta points in block
+            nTheta   =nTheta+1
+            snt=sinTheta(nTheta)
+            cnt=cosTheta(nTheta)
+            rsnt=r(nR)*snt
+            do nPhi=1,n_phi_max
+               this%p1(nPhi,nThetaB)=this%pc(nPhi,nThetaB)/snt
+               this%p2(nPhi,nThetaB)=cnt*this%p1(nPhi,nThetaB)
+               this%CFt2(nPhi,nThetaB)=-2*CorFac *cnt*this%vpc(nPhi,nThetaB)/rsnt
+               this%CFp2(nPhi,nThetaB)=2*CorFac * (                      &
+                                     cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
+                                     or2(nR)*snt*this%vrc(nPhi,nThetaB) )
+               if ( l_conv_nl ) then
+                  this%Advt2(nPhi,nThetaB)=rsnt*this%Advt(nPhi,nThetaB)
+                  this%Advp2(nPhi,nThetaB)=rsnt*this%Advp(nPhi,nThetaB)
+               end if
+               if ( l_mag_LF .and. nR > n_r_LCR ) then
+                  this%LFt2(nPhi,nThetaB)=rsnt*this%LFt(nPhi,nThetaB)
+                  this%LFp2(nPhi,nThetaB)=rsnt*this%LFp(nPhi,nThetaB)
+               end if
+               this%p1(n_phi_max+1,nThetaB)=0.0_cp
+               this%p1(n_phi_max+2,nThetaB)=0.0_cp
+               this%p2(n_phi_max+1,nThetaB)=0.0_cp
+               this%p2(n_phi_max+2,nThetaB)=0.0_cp
+               this%CFt2(n_phi_max+1,nThetaB)=0.0_cp
+               this%CFt2(n_phi_max+2,nThetaB)=0.0_cp
+               this%CFp2(n_phi_max+1,nThetaB)=0.0_cp
+               this%CFp2(n_phi_max+2,nThetaB)=0.0_cp
+               if ( l_conv_nl ) then
+                  this%Advt2(n_phi_max+1,nThetaB)=0.0_cp
+                  this%Advt2(n_phi_max+2,nThetaB)=0.0_cp
+                  this%Advp2(n_phi_max+1,nThetaB)=0.0_cp
+                  this%Advp2(n_phi_max+2,nThetaB)=0.0_cp
+               end if
+               if ( l_mag_nl .and. nR > n_r_LCR ) then
+                  this%LFt2(n_phi_max+1,nThetaB)=0.0_cp
+                  this%LFt2(n_phi_max+2,nThetaB)=0.0_cp
+                  this%LFp2(n_phi_max+1,nThetaB)=0.0_cp
+                  this%LFp2(n_phi_max+2,nThetaB)=0.0_cp
+               end if
+            end do
+         end do
+      end if
 
    end subroutine get_nl
 !----------------------------------------------------------------------------

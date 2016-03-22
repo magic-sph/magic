@@ -26,6 +26,7 @@ module logic
    logical :: l_cond_ma      ! Switch for conducting OC
    logical :: l_time_hits    ! Switch for time for outputs
    logical :: l_average      ! Switch for calculation of time-averages
+   logical :: l_energy_modes ! Switch for calculation of distribution of energies over m's
    logical :: l_movie        ! Switch for recording of movie files
    logical :: l_movie_oc     ! Switch for recording of movie files for OC
    logical :: l_movie_ic     ! Switch for recording of movie files for IC
@@ -63,7 +64,6 @@ module logic
    logical :: l_iner         ! Switch for inertial modes calculation
    logical :: l_runTimeLimit ! Switch for absolute time limit of the run
    logical :: l_RMS          ! Switch for RMS force balances calculation
-   logical :: l_RMStest      ! Switch for test of RMS balances (geostrophic, magnetostrophic, archimedean)
    logical :: l_par          ! Switch for additional parameters calculation in s_getEgeos.f
    logical :: l_corrMov      ! Switch for North/south correlation movie (see s_getEgeos.f)
    logical :: l_PV           ! Switch for potential vorticity calculation
@@ -73,5 +73,7 @@ module logic
    logical :: l_perpPar      ! Switch for calculation of of kinetic energy perpendicular+parallel to the rotation axis
    logical :: l_LCR          ! Switch for zero electrical conductivity beyond r_LCR
    logical :: lVerbose       ! Switch for detailed information about run progress
+
+   logical :: l_PressGraph   ! Store pressure in graphic files
 
 end module logic

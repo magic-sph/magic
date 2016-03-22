@@ -37,13 +37,20 @@ This namelist defines mantle properties
 
 * **tShift_ma2** (default :f:var:`tShift_ma2=0.0 <tshift_ma2>`) is a real which defines the time shift for ``omega_ma2``.
 
-
 The resultant prescribed mantle rotation rate is computed as:
 
 .. code-block:: fortran
 
   omega_ma = omega_ma1*cos(omegaOsz_ma1*(time+tShift_ma1)) + &
              omega_ma2*cos(omegaOsz_ma2*(time+tShift_ma2))
+
+The following defines the parameters when one wants to excite inertial modes in the system artificially using the method used in `Rieutord et. al 2012 <http://dx.doi.org/10.1103/PhysRevE.86.026304>`_ .
+
+* **amp_RiMa** (default :f:var:`amp_RiMa=0.0 <amp_rima>`) is a real which defines the amplitude of forcing on the outer boundary
+
+* **omega_RiMa** (default :f:var:`omega_RiMa=0.0 <omega_rima>`) is a real which defines the frequency of forcing on the outer boundary
+
+* **m_RiMa** (default :f:var:`m_RiMa=0.0 <m_rima>`) is an integer which defines the wavenumber of the mode one wants to excite
 
 .. _secInnerCore:
 
@@ -77,3 +84,13 @@ As with the mantle, the resultant prescribed rotation rate for the inner core is
 
   omega_ic = omega_ic1*cos(omegaOsz_ic1*(time+tShift_ic1)) + &
              omega_ic2*cos(omegaOsz_ic2*(time+tShift_ic2))
+
+The following, as for the mantle namelist, is for artificially exciting inertial modes in the spherical shell, but for the inner boundary.
+
+* **amp_RiIc** (default :f:var:`amp_RiIc=0.0 <amp_riic>`) is a real which defines the amplitude of forcing on the inner boundary
+
+* **omega_RiIc** (default :f:var:`omega_RiIc=0.0 <omega_riic>`) is a real which defines the frequency of forcing on the inner boundary
+
+* **m_RiIc** (default :f:var:`m_RiIc=0.0 <m_riic>`) is an integer which defines the wavenumber of the mode one wants to excite
+
+

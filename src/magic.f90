@@ -93,7 +93,7 @@ program magic
    use num_param
    use torsional_oscillations
    use init_fields
-   use Grenoble
+   use special
    use blocking
    use horizontal_data
    use logic
@@ -126,6 +126,8 @@ program magic
    use communications, only:initialize_communications
    use power, only: initialize_output_power
    use outPar_mod, only: initialize_outPar_mod
+   use out_coeff, only: initialize_coeffs
+   use mem_alloc
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -141,6 +143,7 @@ program magic
    integer :: n_time_step_start   ! storing initial time step no
    integer :: n                   ! counter
    integer :: nO                  ! output unit
+   integer(lip) :: local_bytes_used
    real(cp) :: time
    real(cp) :: dt
    real(cp) :: dtNew
@@ -201,47 +204,75 @@ program magic
       write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
            &              '                              !'
       write(n_log_file,*) '!                                                      !'
-      write(n_log_file,*) '!                                                      !'
       write(n_log_file,*) '!------------------------------------------------------!'
       write(n_log_file,*)
       if ( l_save_out ) close(n_log_file)
    end if
 
+   call initialize_memory_counter
+
+   !-- Blocking/radial/horizontal
    call initialize_blocking
+   local_bytes_used=bytes_allocated
    call initialize_radial_data
    call initialize_radial_functions
+   call initialize_horizontal_data
+   local_bytes_used=bytes_allocated-local_bytes_used
+   call memWrite('radial/horizontal', local_bytes_used)
+
+   !-- Radial/LM Loop
    call initialize_radialLoop
    !call initialize_rIterThetaBlocking
    call initialize_LMLoop_data
    call initialize_LMLoop
 
+#ifdef WITH_SHTNS
+   call init_shtns()
+#endif
+
    call initialize_num_param
-   if ( l_TO ) call initialize_TO
-   if ( l_TO ) call initialize_outTO_mod
    call initialize_init_fields
    call initialize_Grenoble
-   call initialize_horizontal_data
+
+   local_bytes_used=bytes_allocated
    call initialize_matrices
    call initialize_fields
    call initialize_fieldsLast
-   if ( ldtBmem == 1 ) call initialize_dtB_mod
-   call initialize_kinetic_energy
-   call initialize_magnetic_energy
-   call initialize_fields_average_mod
-   if ( l_par ) call initialize_Egeos_mod
-   call initialize_spectra
-   if ( l_PV ) call initialize_outPV3
+   local_bytes_used=bytes_allocated-local_bytes_used
+   call memWrite('mat/fields/fieldsLast', local_bytes_used)
+
    call initialize_step_time
    call initialize_communications
+
+   !-- Array allocation for I/O
+   local_bytes_used=bytes_allocated
+   call initialize_kinetic_energy
+   call initialize_magnetic_energy
+   call initialize_spectra
    call initialize_outPar_mod
    if ( l_power ) call initialize_output_power
+   call initialize_coeffs
+   call initialize_fields_average_mod
+   if ( ldtBmem == 1 ) call initialize_dtB_mod
+   if ( l_TO ) call initialize_TO
+   if ( l_TO ) call initialize_outTO_mod
+   if ( l_PV ) call initialize_outPV3
+   if ( l_par ) call initialize_Egeos_mod
 
    !--- Do pre-calculations:
    call preCalc
 
    if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
-
    if ( l_RMS ) call initialize_RMS
+   local_bytes_used=bytes_allocated-local_bytes_used
+
+   !local_bytes_used=bytes_allocated-local_bytes_used
+   call memWrite('Total I/O', local_bytes_used)
+
+   if (rank == 0) print*, '-----> rank 0 has', bytes_allocated, ' B allocated'
+
+
+   call finalize_memory_counter
 
    if ( rank == 0 ) then
       if ( l_save_out ) then
@@ -258,9 +289,6 @@ program magic
    !--- Second pre-calculation:
    call preCalcTimes(time,n_time_step)
 
-#ifdef WITH_SHTNS
-   call init_shtns()
-#endif
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then
       call writeInfo(6)

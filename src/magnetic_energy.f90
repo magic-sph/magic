@@ -2,6 +2,7 @@ module magnetic_energy
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, chebt_oc, &
@@ -17,7 +18,7 @@ module magnetic_energy
                           e_mag_ic_file, n_e_mag_oc_file, e_mag_oc_file, &
                           tag
    use constants, only: pi, zero, one, two, half, four
-   use Bext, only: n_imp, rrMP
+   use special, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
@@ -41,6 +42,7 @@ contains
       allocate( e_dipA(n_r_max) )
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
+      bytes_allocated = bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
     
    end subroutine initialize_magnetic_energy
 !----------------------------------------------------------------------------

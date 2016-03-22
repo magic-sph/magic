@@ -2,11 +2,12 @@
 module radialLoop
 
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
-                    l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl
+                    l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl, l_PressGraph
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -17,15 +18,19 @@ module radialLoop
 #endif
    use rIteration_mod, only: rIteration_t
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
-   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
-   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
 #ifdef WITH_SHTNS
    use rIterThetaBlocking_shtns_mod, only: rIterThetaBlocking_shtns_t
+#else
+#ifdef WITHOMP
+   use rIterThetaBlocking_OpenMP_mod, only: rIterThetaBlocking_OpenMP_t
+#else
+   use rIterThetaBlocking_seq_mod, only: rIterThetaBlocking_seq_t
+#endif
 #endif
 #ifdef WITH_MPI
    use graphOut_mod, only: graphOut_mpi_header
 #else
-   use graphOut_mod, only: graphOut
+   use graphOut_mod, only: graphOut_header
 #endif
 
    implicit none
@@ -47,6 +52,9 @@ contains
    subroutine initialize_radialLoop
 
       character(len=100) :: this_type
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
 
 #ifdef WITH_SHTNS
       allocate( rIterThetaBlocking_shtns_t :: this_rIteration )
@@ -64,8 +72,12 @@ contains
       class is (rIterThetaBlocking_t)
          call this_rIteration%set_ThetaBlocking(nThetaBs,sizeThetaB)
       class default
-         print*,"this_rIteration has no matching type in m_radialLoop.F90"
+         print*,"this_rIteration has no matching type in radialLoop.f90"
       end select
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+
+      call memWrite('radialLoop.f90', local_bytes_used)
 
    end subroutine initialize_radialLoop
 !----------------------------------------------------------------------------
@@ -146,6 +158,7 @@ contains
       integer :: nThetaStart!,nThetaStop
       logical :: lDeriv,lOutBc,lMagNlBc
       logical :: lGraphHeader    ! Write header into graph file
+      logical :: lPressCalc
       logical :: isRadialBoundaryPoint
 
 
@@ -156,10 +169,11 @@ contains
 #ifdef WITH_MPI
          call graphOut_mpi_header(time,nR,nThetaStart,sizeThetaB)
 #else
-         !call graphOut(time,nR,vrc,vtc,vpc,brc,btc,bpc,sc, &
-         !              nThetaStart,sizeThetaB,lGraphHeader)
+         call graphOut_header(time)
 #endif
       end if
+
+      lPressCalc = lRmsCalc .or. ( l_PressGraph .and. l_graph ) .or. lFluxProfCalc
 
       if ( l_cour ) then
          if ( rank == 0 ) then
@@ -204,7 +218,7 @@ contains
       if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
            & l_cour .or. l_dtB .or. lMagNlBc .or. l_graph  &
            & .or. lPerpParCalc .or. lViscBcCalc .or.       &
-           & lFluxProfCalc) lOutBc=.true.
+           & lFluxProfCalc .or. lRmsCalc ) lOutBc=.true.
 
       !nRstart=n_r_cmb
       !nRstop =n_r_icb-1
@@ -228,7 +242,7 @@ contains
                !nR  = n_r_cmb
                nBc = ktopv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc &
-            &          .or. lViscBcCalc .or. lFluxProfCalc 
+            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc
             else
                cycle   ! Nothing needs to be done by thread one !
             end if
@@ -237,7 +251,7 @@ contains
                !nR = n_r_icb
                nBc = kbotv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc &
-            &          .or. lViscBcCalc .or. lFluxProfCalc
+            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc
             else
                cycle
             end if
@@ -249,9 +263,9 @@ contains
             nR_Mag=1
          end if
 
-         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext,lTOnext2,&
-              & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,       &
-              & lFluxProfCalc,lPerpParCalc)
+         call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext, &
+              & lTOnext2,lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,  &
+              & lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc)
 
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                  &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),        &

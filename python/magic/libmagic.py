@@ -37,6 +37,12 @@ def selectField(obj, field, labTex=True):
             label = r'$B_r$'
         else:
             label = 'Br'
+    elif field in ('pressure', 'pre', 'Pre', 'Pressure', 'press', 'Press'):
+        data = obj.pre
+        if labTex:
+            label = r'$p$'
+        else:
+            label = 'p'
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
         if labTex:
@@ -353,7 +359,8 @@ def symmetrize(data, ms, reversed=False):
     else:
         np = data.shape[0]*ms +1
         size = [np]
-        size.append(data.shape[1])
+        if len(data.shape) >= 2:
+            size.append(data.shape[1])
         if len(data.shape) == 3:
             size.append(data.shape[2])
         out = N.zeros(size, dtype=data.dtype)
@@ -587,7 +594,7 @@ def den(k, j, nr):
     return den
 
 
-def phideravg(data, minc=1):
+def phideravg(data, minc=1, order=4):
     """
     phi-derivative of an input array
 
@@ -598,14 +605,29 @@ def phideravg(data, minc=1):
     :type data: numpy.ndarray
     :param minc: azimuthal symmetry
     :type minc: int
+    :param order: order of the finite-difference scheme (possible values are 2 or 4)
+    :type order: int
     :returns: the phi-derivative of the input array
     :rtype: numpy.ndarray
     """
     nphi = data.shape[0]
     dphi = 2.*N.pi/minc/(nphi-1.)
-    der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
-    der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
-    der[-1, ...] = der[0, ...]
+    if order == 2:
+        der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
+        der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
+        der[-1, ...] = der[0, ...]
+    elif order == 4:
+        der = (   -N.roll(data,-2,axis=0) \
+               +8.*N.roll(data,-1,axis=0) \
+               -8.*N.roll(data, 1,axis=0)  \
+                  +N.roll(data, 2,axis=0)   )/(12.*dphi)
+        der[1, ...] = (-data[3, ...]+8.*data[2, ...]-\
+                       8.*data[0, ...] +data[-2, ...])/(12.*dphi)
+        der[-2, ...] = (-data[0, ...]+8.*data[-1, ...]-\
+                       8.*data[-3, ...]+data[-4, ...])/(12.*dphi)
+        der[0, ...] = (-data[2, ...]+8.*data[1, ...]-\
+                       8.*data[-2, ...] +data[-3, ...])/(12.*dphi)
+        der[-1, ...] = der[0, ...]
     return der
 
 def rderavg(data, eta=0.35, spectral=True, exclude=False):
@@ -725,7 +747,10 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     :returns: the z derivative of the input array
     :rtype: numpy.ndarray
     """
-    ntheta = data.shape[0]
+    if len(data.shape) == 3: # 3-D
+        ntheta = data.shape[1]
+    elif len(data.shape) == 2: # 2-D
+        ntheta = data.shape[0]
     nr = data.shape[-1]
     r1 = 1./(1.-eta)
     r2 = eta/(1.-eta)
@@ -734,10 +759,19 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     else:
         th = N.linspace(0., N.pi, ntheta)
     rr = chebgrid(nr-1, r1, r2)
-    rr2D, th2D = N.meshgrid(rr,th)
+
+    if len(data.shape) == 3: # 3-D
+        thmD = N.zeros_like(data)
+        for i in range(ntheta):
+            thmD[:,i,:] = th[i]
+    elif len(data.shape) == 2: # 2-D
+        thmD = N.zeros((ntheta, nr), 'f')
+        for i in range(ntheta):
+            thmD[i, :]  = th[i]
+
     dtheta = thetaderavg(data)
     dr = rderavg(data, eta, spectral, exclude)
-    dz = N.cos(th2D)*dr - N.sin(th2D)/rr2D*dtheta
+    dz = N.cos(thmD)*dr - N.sin(thmD)/rr*dtheta
     return dz
 
 def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):

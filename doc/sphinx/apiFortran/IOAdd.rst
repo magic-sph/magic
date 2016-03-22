@@ -13,15 +13,16 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: rms_helpers
 
-``out_RMS.f90``
----------------
-
-.. f:automodule:: out_rms
-
 ``dtB.f90``
 -----------
 
 .. f:automodule:: dtb_mod
+
+``dtB_arrays.f90``
+------------------
+
+.. f:automodule:: dtb_arrays_mod
+
 
 ``out_dtB_frame.f90``
 ---------------------
@@ -37,6 +38,11 @@ IO: RMS force balance, torsional oscillations, misc
 ------------------
 
 .. f:automodule:: to_helpers
+
+``TO_arrays.f90``
+-----------------
+
+.. f:automodule:: to_arrays_mod
 
 
 ``out_TO.f90``

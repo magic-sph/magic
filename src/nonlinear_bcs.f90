@@ -12,6 +12,9 @@ module nonlinear_bcs
    use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
    use constants, only: two
+#ifdef WITH_SHTNS
+   use shtns, only: spat_to_SH
+#endif
 
    implicit none
 
@@ -69,10 +72,10 @@ contains
     
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared) &
-      !$OMP& private(n_theta_rel, n_phi, fac)
+      !$OMP& private(n_theta_rel,n_phi,fac,n_theta)
 #endif
       do n_theta_rel=1,n_theta_block
-         n_theta=n_theta+1           ! absolute number of theta
+         n_theta=n_theta_min+n_theta_rel-1         ! absolute number of theta
     
          fac=O_sin_theta(n_theta)*O_sin_theta(n_theta)*O_r_E_2*O_rho
     
@@ -90,8 +93,8 @@ contains
     
       !-- Fourier transform phi 2 m (real 2 complex!)
 #ifdef WITH_SHTNS
-      call shtns_SH_to_spat(br_vt, br_vt_lm)
-      call shtns_SH_to_spat(br_vp, br_vp_lm)
+      call spat_to_SH(br_vt, br_vt_lm)
+      call spat_to_SH(br_vp, br_vp_lm)
 #else
       call fft_thetab(br_vt, -1)
       call fft_thetab(br_vp, -1)
@@ -133,7 +136,7 @@ contains
       integer :: lmPS,lmPA ! lmP for l-1 and l+1
       real(cp) :: fac
 
-      write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
+      !write(*,"(2A)") "In get_b_nl_bcs with bc=",bc
 
       if ( bc == 'CMB' ) then
 
@@ -199,7 +202,6 @@ contains
       !  r**2  2 cos(theta) omega                                    
       !
 
-      use truncation, only: n_theta_max, n_phi_max
       !-- Input of variables:
       integer,  intent(in) :: nR            ! no of radial grid point
       logical,  intent(in) :: lDeriv        ! derivatives required ?

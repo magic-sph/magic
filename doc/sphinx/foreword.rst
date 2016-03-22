@@ -59,6 +59,8 @@ papers:
 
 * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
 
+* In case you use the `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: `Schaeffer (2013, GGG, 14, 751-758) <http://dx.doi.org/10.1002/ggge.20071>`_
+
 
 .. seealso:: A (tentative) comprehensive list of the publications that have 
              been produced to date (october 2015) using **MagIC**

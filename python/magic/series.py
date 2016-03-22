@@ -26,6 +26,7 @@ class MagicTs(MagicSetup):
        * Parallel and perpendicular decomposition: :ref:`perpPar.TAG <secperpParFile>`
        * RMS force balance: :ref:`dtVrms.TAG <secdtVrmsFile>`
        * RMS induction terms: :ref:`dtBrms.TAG <secdtBrmsFile>`
+       * Time-evolution of m-spectra: :ref:`am_[kin|mag]_[pol|tor].TAG <secTimeSpectraFiles>`
 
     Here are a couple of examples of how to use this function.
 
@@ -54,13 +55,15 @@ class MagicTs(MagicSetup):
         :type tag: str
         """
         self.field = field
-        logFiles = scanDir('log.*')
+        pattern = os.path.join(datadir, 'log.*')
+        logFiles = scanDir(pattern)
 
         if tag is not None:
-            files = scanDir('%s.%s' % (self.field, tag))
+            pattern = os.path.join(datadir, '%s.%s' % (self.field, tag))
+            files = scanDir(pattern)
 
             # Either the log.tag directly exists and the setup is easy to obtain
-            if os.path.exists('log.%s' % tag):
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % tag)
             # Or the tag is a bit more complicated and we need to find 
@@ -75,7 +78,7 @@ class MagicTs(MagicSetup):
 
             # Concatenate the files that correspond to the tag
             for k,file in enumerate(files):
-                filename = os.path.join(datadir, file)
+                filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
                 else:
@@ -93,8 +96,7 @@ class MagicTs(MagicSetup):
         # If no tag is specified, the most recent is plotted
         elif not all:
             if len(logFiles) != 0:
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml=logFiles[-1])
+                MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
                 name = '%s.%s' % (self.field, self.tag)
                 filename = os.path.join(datadir, name)
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
@@ -114,11 +116,11 @@ class MagicTs(MagicSetup):
         # If no tag is specified but all=True, all the directory is plotted
         else:
             if len(logFiles) != 0:
-                MagicSetup.__init__(self, datadir=datadir, quiet=True,
-                                    nml=logFiles[-1])
-            files = scanDir('%s.*' % (self.field))
-            for k,file in enumerate(files):
-                filename = os.path.join(datadir, file)
+                MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
+            pattern = os.path.join(datadir, '%s.*' % (self.field))
+            files = scanDir(pattern)
+            for k, file in enumerate(files):
+                filename = file
                 if self.field in ('am_mag_pol','am_mag_tor','am_kin_pol','am_kin_tor'):
                     datanew = fast_read(filename, binary=True)
                 else:
@@ -127,11 +129,12 @@ class MagicTs(MagicSetup):
                     data = datanew.copy()
                     ncolRef = data.shape[1]
                 else:
-                    ncol = datanew.shape[1]
-                    if ncol == ncolRef:
-                        data = N.vstack((data, datanew))
-                    else: # If the number of columns has changed
-                        data = N.vstack((data, datanew[:, 0:ncolRef]))
+                    if datanew.shape[0] != 0: # In case the file is empty
+                        ncol = datanew.shape[1]
+                        if ncol == ncolRef:
+                            data = N.vstack((data, datanew))
+                        else: # If the number of columns has changed
+                            data = N.vstack((data, datanew[:, 0:ncolRef]))
 
         if self.field == 'e_kin':
             self.time = data[:, 0]
@@ -222,6 +225,7 @@ class MagicTs(MagicSetup):
                 self.dlVc = data[:, 17]
                 self.reEquat = data[:, 18]
             except IndexError:
+                self.dlVc = self.dlV
                 pass
         elif self.field == 'misc':
             self.time = data[:, 0]
@@ -253,37 +257,33 @@ class MagicTs(MagicSetup):
             self.eperp_axi = data[:, 3]
             self.epar_axi = data[:, 4]
             self.ekin_tot = self.eperp+self.epar
-        elif self.field in ('dtVrms', 'dtVAsRms'):
+        elif self.field in ('dtVrms'):
             self.time = data[:, 0]
-            self.dtVPolRms = data[:, 1]
-            self.dtVTorRms = data[:, 2]
-            self.CorPolRms = data[:, 3]
-            self.CorTorRms = data[:, 4]
-            self.LFPolRms = data[:, 5]
-            self.LFTorRms = data[:, 6]
-            self.AdvPolRms = data[:, 7]
-            self.AdvTorRms = data[:, 8]
-            self.DifPolRms = data[:, 9]
-            self.DifTorRms = data[:, 10]
-            self.BuoRms = data[:, 11]
-            self.PreRms = data[:, 12]
-            self.geos = data[:, 13] # geostrophic balance
-            self.mgeos = data[:, 14] # magnetostrophic balance
-            self.archim = data[:, 15] # archimedean balance
+            self.dtVRms = data[:, 1]
+            self.CorRms = data[:, 2]
+            self.LFRms = data[:, 3]
+            self.AdvRms = data[:, 4]
+            self.DifRms = data[:, 5]
+            self.BuoRms = data[:, 6]
+            self.PreRms = data[:, 7]
+            self.geos = data[:, 8] # geostrophic balance
+            self.mageos = data[:, 9] # magnetostrophic balance
+            self.arc = data[:, 10] # archimedean balance
+            self.corLor = data[:, 11] # Coriolis/Lorentz
+            self.preLor = data[:, 12] # Pressure/Lorentz
+            self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
         elif self.field in ('dtBrms'):
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]
             self.dtBtorRms = data[:, 2]
-            self.StrPolRms = data[:, 3]
-            self.StrTorRms = data[:, 4]
-            self.AdvPolRms = data[:, 5]
-            self.AdvTorRms = data[:, 6]
-            self.DifPolRms = data[:, 7]
-            self.DifTorRms = data[:, 8]
-            self.omEffect = data[:, 9]
-            self.omega = data[:, 10]
-            self.DynPolRms = data[:, 11]
-            self.DynTorRms = data[:, 12]
+            self.DynPolRms = data[:, 3]
+            self.DynTorRms = data[:, 4]
+            self.DifPolRms = data[:, 5]
+            self.DifTorRms = data[:, 6]
+            self.omEffect = data[:, 7]
+            self.omega = data[:, 8]
+            self.DynDipRms = data[:, 9]
+            self.DynDipAxRms = data[:, 10]
         elif self.field in ('power'):
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
@@ -294,6 +294,15 @@ class MagicTs(MagicSetup):
             self.icPower = data[:, 6]
             self.mantlePower = data[:, 7]
             self.fohm = -self.ohmDiss/self.buoPower
+        elif self.field in ('SRIC'):
+            self.time = data[:,0]
+            self.omega_ic = data[:,1]
+            self.viscPower = data[:,2]
+            self.totPower = data[:,3]
+            self.LorPower = data[:,4]
+            self.viscTorq = abs(self.viscPower/self.omega_ic)
+            self.totTorq = abs(self.totPower/self.omega_ic)
+            self.LorTorq = abs(self.LorPower/self.omega_ic)
         elif self.field in ('am_mag_pol', 'am_mag_tor', # Tayler instability
                             'am_kin_pol', 'am_kin_tor'):
             self.time = data[:, 0]
@@ -428,31 +437,31 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
-        elif self.field in ('dtVrms', 'dtVAsRms'):
+        elif self.field in ('dtVrms'):
             fig = P.figure() # Poloidal forces
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtVPolRms, label='Time derivative')
-            ax.semilogy(self.time, self.CorPolRms, label='Coriolis')
+            ax.semilogy(self.time, self.dtVRms, label='Time derivative')
+            ax.semilogy(self.time, self.CorRms, label='Coriolis')
             ax.semilogy(self.time, self.PreRms, label='Pressure')
-            ax.semilogy(self.time, self.LFPolRms, label='Lorentz')
+            ax.semilogy(self.time, self.LFRms, label='Lorentz')
             ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
-            ax.semilogy(self.time, self.AdvPolRms, label='Inertia')
-            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
+            ax.semilogy(self.time, self.AdvRms, label='Inertia')
+            ax.semilogy(self.time, self.DifRms, label='Diffusion')
 
-            ax.legend(loc='best', frameon=False)
+            ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
-            ax.set_ylabel('Poloidal RMS forces')
+            ax.set_ylabel('RMS forces')
 
             fig = P.figure() # Toroidal forces
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtVTorRms, label='Time derivative')
-            ax.semilogy(self.time, self.CorTorRms, label='Coriolis')
-            ax.semilogy(self.time, self.LFTorRms, label='Lorentz')
-            ax.semilogy(self.time, self.AdvTorRms, label='Inertia')
-            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
+            ax.semilogy(self.time, self.geos, label='Geostrophic balance')
+            ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
+            ax.semilogy(self.time, self.arc, label='Archimedean')
+            ax.semilogy(self.time, self.corLor, label='Coriolis/Lorentz')
+            ax.semilogy(self.time, self.preLor, label='Pressure/Lorentz')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
-            ax.set_ylabel('Toroidal RMS forces')
+            ax.set_ylabel('RMS balances')
 
         elif self.field == 'perpPar':
             fig = P.figure()
@@ -479,34 +488,44 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Power')
 
-            fig = P.figure()
-            ax = fig.add_subplot(111)
-            ax.plot(self.time, self.fohm)
-            ax.set_xlabel('Time')
-            ax.set_ylabel('fohm')
+            if self.fohm.max() > 0.:
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.fohm)
+                ax.set_xlabel('Time')
+                ax.set_ylabel('fohm')
         elif self.field in ('dtBrms'):
-            fig = P.figure() # Poloidal forces
+            fig = P.figure() # Poloidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBpolRms, label='time derivative')
-            ax.semilogy(self.time, self.StrPolRms, label='Stretching')
-            ax.semilogy(self.time, self.AdvPolRms, label='Advection')
-            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
-            ax.semilogy(self.time, self.DynPolRms, label='Dynamo')
+            ax.semilogy(self.time, self.dtBpolRms, 'k-', label='time derivative')
+            ax.semilogy(self.time, self.DynPolRms, 'r-', label='Induction')
+            ax.semilogy(self.time, self.DifPolRms, 'b-', label='Diffusion')
 
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Poloidal field production')
 
-            fig = P.figure() # Poloidal forces
+            fig = P.figure() # Toroidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBtorRms, label='time derivative')
-            ax.semilogy(self.time, self.StrTorRms, label='Stretching')
-            ax.semilogy(self.time, self.AdvTorRms, label='Advection')
-            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
-            ax.semilogy(self.time, self.DynTorRms, label='Dynamo')
+            ax.semilogy(self.time, self.dtBtorRms, 'k-', label='time derivative', )
+            ax.semilogy(self.time, self.DynTorRms, 'r-', label='Induction')
+            ax.semilogy(self.time, self.DifTorRms, 'b-', label='Diffusion')
+            ax.semilogy(self.time, self.omEffect*self.DynTorRms, 'r--',
+                        label='Omega effect')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
+
+        elif self.field in ('SRIC'):
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.semilogy(self.time,self.totTorq,'k-',label='Total')
+            ax.semilogy(self.time,self.viscTorq,'r-',label='Viscous')
+            ax.semilogy(self.time,self.LorTorq,'g-',label='Lorentz')
+
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Torque')
 
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
             fig = P.figure()
@@ -545,7 +564,7 @@ class AvgField:
     >>> print(a) # print the formatted output
     """
 
-    def __init__(self, tstart=None, tag=None, dipExtra=False):
+    def __init__(self, tstart=None, tag=None, dipExtra=False, perpPar=False):
         """
         :param tstart: the starting time for averaging
         :type tstart: float
@@ -557,6 +576,10 @@ class AvgField:
                          values extracted from :ref:`dipole.TAG <secDipoleFile>` 
                          are also computed
         :type dipExtra: bool
+
+        :param perpPar: additional values extracted from :ref:`perpPar.TAG <secperpParFile>`
+                        are also computed
+        :type perpPar: bool
         """
 
         if os.path.exists('tInitAvg') and tstart is None:
@@ -569,6 +592,7 @@ class AvgField:
             file.write('%f' % tstart)
             file.close()
         self.dipExtra = dipExtra
+        self.perpPar = perpPar
         ts = MagicTs(field='e_kin', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
@@ -599,6 +623,7 @@ class AvgField:
         self.dmB = fac * trapz(ts2.dmB[ind:], ts2.time[ind:])
         self.dlV = fac * trapz(ts2.dlV[ind:], ts2.time[ind:])
         self.dmV = fac * trapz(ts2.dmV[ind:], ts2.time[ind:])
+        self.dlVc = fac * trapz(ts2.dlVc[ind:], ts2.time[ind:])
 
         ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
@@ -621,6 +646,8 @@ class AvgField:
                                             ts4.time[ind:])
             self.emag_tora_avg = fac* trapz(ts4.emagoc_tor_axi[ind:], 
                                             ts4.time[ind:])
+            self.emag_es_avg = fac*trapz((ts4.emagoc_pol_es[ind:] + \
+                                          ts4.emagoc_tor_es[ind:]),ts4.time[ind:])
             if self.dipExtra:
                 ts5 = MagicTs(field='dipole', all=True, iplot=False, 
                               tag=tag)
@@ -667,6 +694,23 @@ class AvgField:
             self.u2_pola = self.ekin_pola_avg
             self.u2_tora = self.ekin_tora_avg
 
+        if self.perpPar:
+            if len(glob.glob('perpPar.*')) > 0:
+                ts = MagicTs(field='perpPar', all=True, iplot=False)
+                mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+                ind = N.nonzero(mask)[0][0]
+                fac = 1./(ts.time.max()-ts.time[ind])
+                self.eperp = fac * trapz(ts.eperp[ind:], ts.time[ind:])
+                self.epar = fac * trapz(ts.epar[ind:], ts.time[ind:])
+                self.eperp_axi = fac * trapz(ts.eperp_axi[ind:], ts.time[ind:])
+                self.epar_axi = fac * trapz(ts.epar_axi[ind:], ts.time[ind:])
+            else:
+                self.eperp = 0.
+                self.epar = 0.
+                self.eperp_axi = 0.
+                self.epar_axi = 0.
+
+
     def __str__(self):
         """
         Formatted output
@@ -676,22 +720,23 @@ class AvgField:
         else:
             ek = self.ek
         if self.mode == 0 or self.mode == 8:
-            st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
+            st = '%.3e%9.2e%9.2e%9.2e%5.2f%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.pr, self.prmag, self.strat, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg, \
                self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora, \
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
-               self.emag_tora_avg)
+               self.emag_tora_avg, self.emag_es_avg)
              
-            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
                 (self.reynolds, self.ureynolds, self.rol, self.urol, \
                  self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
-                 self.dlV, self.udlV, self.dlB, self.dmB)
+                 self.dlV, self.dmV, self.udlV, self.dlVc, self.dlB, self.dmB)
             if self.dipExtra:
                 st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
 
-            st += '%12.5e%12.5e%9.2e\n' % (self.buoPower, -self.ohmDiss, self.fohm)
+            st += '%12.5e%12.5e%9.2e' % (self.buoPower, -self.ohmDiss, self.fohm)
+
         else:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.strat, self.pr, self.ekin_pol_avg, \
@@ -705,7 +750,13 @@ class AvgField:
                 self.ureynolds = self.reynolds
             st += '%12.5e%12.5e%12.5e%12.5e' % \
                   (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
-            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e\n' % \
+            st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
               (self.reynolds, self.ureynolds, self.rol, self.urol, \
-               self.nuss, self.dlV, self.dmV, self.udlV)
+               self.nuss, self.dlV, self.dmV, self.udlV, self.dlVc)
+
+        if self.perpPar:
+            st += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp, self.epar, \
+                                                self.eperp_axi, self.epar_axi)
+        st += '\n'
+
         return st

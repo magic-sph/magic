@@ -2,6 +2,7 @@ module power
 
    use parallel_mod
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
                          n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -38,6 +39,7 @@ contains
       allocate( buoMeanR(n_r_max) )
       allocate( ohmDissR(n_r_max) )
       allocate( curlU2MeanR(n_r_max) )
+      bytes_allocated = bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
 
       buoMeanR(:)    = 0.0_cp
       ohmDissR(:)    = 0.0_cp

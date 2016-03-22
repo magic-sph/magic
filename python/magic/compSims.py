@@ -412,14 +412,13 @@ class CompSims:
                     radi = gr.con_radratio * gr.radius[0]
                     ax.plot(radi*N.cos(phi), radi*N.sin(phi), 'k--')
 
-            if hasattr(gr, 'cmbHflux'):
-                tit1 = r"${\cal Q}_{cmb} = %.1f$" % gr.cmbHflux
+            #if hasattr(gr, 'cmbHflux'):
+                #tit1 = r"${\cal Q}_{cmb} = %.1f$" % gr.cmbHflux
                 #if gr.strat >= 1:
                     #tit1 = r"$N_\rho = %.0f$"  % gr.strat
                 #else:
                     #tit1 = r"$N_\rho = 10^{-2}$"
-            else:
-                tit1 = datadir
+            tit1 = datadir
 
             ax.text(0.5, 0.5, tit1, fontsize=14,
                               horizontalalignment='center',

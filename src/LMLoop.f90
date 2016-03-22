@@ -9,6 +9,7 @@ module LMLoop_mod
    use fieldsLast
    use omp_lib
    use precision_mod
+   use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
@@ -38,17 +39,25 @@ contains
 
    subroutine initialize_LMLoop
 
+      integer(lip) :: local_bytes_used
+
+      local_bytes_used = bytes_allocated
+
       call initialize_updateS
       call initialize_updateZ
       call initialize_updateWP
       call initialize_updateB
+
+      local_bytes_used = bytes_allocated-local_bytes_used
+
+      call memWrite('LMLoop.f90',local_bytes_used)
 
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,               &
        &            dVxBhLM,dVSrLM,dsdt,dwdt,dzdt,dpdt,dbdt,djdt, &
        &            lorentz_torque_ma,lorentz_torque_ic,          &
-       &            b_nl_cmb,aj_nl_cmb,aj_nl_icb,n_time_step)
+       &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -65,7 +74,7 @@ contains
       ! for djdt in update_b
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
-      integer,     intent(in) :: n_time_step
+      !integer,     intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:
       complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)

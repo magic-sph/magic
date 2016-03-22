@@ -3,6 +3,7 @@ module updateS_mod
 
    use omp_lib
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_oc,orho1,or1,or2, &
@@ -48,6 +49,7 @@ contains
 
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
+      bytes_allocated = bytes_allocated + 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -55,6 +57,8 @@ contains
       maxThreads=1
 #endif
       allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
+                        maxThreads*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateS
   
@@ -855,7 +859,7 @@ contains
 #ifdef MATRIX_CHECK
       ! copy the sMat to a temporary variable for modification
       write(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
-      open(NEWUNIT=filehandle,file=trim(filename))
+      open(newunit=filehandle,file=trim(filename))
       counter= counter+1
 
       do i=1,n_r_max

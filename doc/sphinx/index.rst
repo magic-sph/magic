@@ -80,7 +80,7 @@ Quickly starting using MagIC
    * The :ref:`description of the input namelists <secNamelists>` will then help
      you to define the exact physical setup you may want to simulate.
 
-   * The :ref:`description of the output files <secOutputFile>` will help you to
+   * The :ref:`description of the output files <secOutputFiles>` will help you to
      understand what are the diagnostic quantities computed by **MagIC**.
    
    * Finally, the :ref:`python functions and classes <secPythonPostProc>` will
@@ -136,6 +136,8 @@ Giving credit
    * Boussinesq benchmark: `Christensen et al. (2001, PEPI, 128, 25-34) <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_
    
    * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
+
+   * In case you use the `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: `Schaeffer (2013, GGG, 14, 751-758) <http://dx.doi.org/10.1002/ggge.20071>`_
 
   
    .. seealso:: A (tentative) comprehensive list of the publications that have 

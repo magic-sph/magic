@@ -75,8 +75,9 @@ class MagicRadial(MagicSetup):
                     MagicSetup.__init__(self, datadir=datadir, quiet=True, 
                                         nml='log.%s' % tag)
             else:
-                files = scanDir('%s.*'% self.name)
-                filename = os.path.join(datadir, files[-1])
+                pattern = os.path.join(datadir, '%s.*'% self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
                 # Determine the setup
                 mask = re.compile(r'%s\.(.*)' % self.name)
                 ending = mask.search(files[-1]).groups(0)[0]
@@ -131,6 +132,11 @@ class MagicRadial(MagicSetup):
                                     self.gradT2 = dat[:, 5]*(nml.stop_time-nml.start_time)
                                     gradT2init = nml.start_time
                                     gradT2finish = nml.stop_time
+                    elif self.name == 'eKinR':
+                        if os.path.exists(filename):
+                            dat = fast_read(filename, skiplines=0)
+                            for i in [0, 1, 3, 4, 5, 6, 7, 8]:
+                                data[:, i] += dat[:, i]*(nml.stop_time-nml.start_time)
                     else:
                         if os.path.exists(filename):
                             data += fast_read(filename, skiplines=0)*(nml.stop_time-nml.start_time)

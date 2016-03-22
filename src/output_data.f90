@@ -5,7 +5,7 @@ module output_data
 
    use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
-                    l_RMS, l_RMStest, l_save_out, l_cmb_field,       &
+                    l_RMS, l_save_out, l_cmb_field, l_energy_modes,  &
                     l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
                     l_dt_cmb_field, l_AM, l_movie
    use parallel_mod, only: rank
@@ -50,6 +50,8 @@ module output_data
    integer, public :: n_Vpot_step,n_Vpots,n_t_Vpot      
    integer, public :: n_Tpot_step,n_Tpots,n_t_Tpot      
    integer, public :: n_pot_step,n_pots,n_t_pot      
+   integer, public :: n_am_kpol_file,n_am_ktor_file
+   integer, public :: n_am_mpol_file,n_am_mtor_file
    integer, public, parameter :: n_time_hits=5000
    real(cp), public ::  t_graph(n_time_hits)
    real(cp), public ::  t_rst(n_time_hits)
@@ -73,6 +75,7 @@ module output_data
    integer, public :: l_max_cmb
    integer, public :: l_max_r
    integer, public :: n_r_step
+   integer, public :: m_max_modes
  
    !----- Output files:
    integer, public :: n_log_file,nLF
@@ -84,8 +87,8 @@ module output_data
    integer, public :: n_lp_file,n_rst_file
    integer, public :: n_e_mag_oc_file,n_e_mag_ic_file,n_e_kin_file
    integer, public :: n_u_square_file,n_par_file,n_angular_file
-   integer, public :: n_dtvrms_file,n_dtvasrms_file
-   integer, public :: n_dtbrms_file,n_dtdrms_file
+   integer, public :: n_dtvrms_file
+   integer, public :: n_dtbrms_file
    integer, public :: n_mag_spec_file,n_kin_spec_file,n_u2_spec_file
    integer, public :: n_rot_file
    integer, public :: n_perpPar_file
@@ -112,8 +115,8 @@ module output_data
    character(len=72), public :: perpPar_file
    character(len=72), public :: par_file
    character(len=72), public :: angular_file
-   character(len=72), public :: dtvrms_file,dtvasrms_file
-   character(len=72), public :: dtbrms_file,dtdrms_file
+   character(len=72), public :: dtvrms_file
+   character(len=72), public :: dtbrms_file
    character(len=72), public :: rot_file
    character(len=72), public :: dipole_file
    character(len=72), public :: cmb_file,dt_cmb_file
@@ -125,6 +128,8 @@ module output_data
    character(len=72), public, allocatable :: t_r_file(:)
    character(len=72), public, allocatable :: b_r_file(:)
    character(len=72), public :: power_file
+   character(len=72), public :: am_kpol_file,am_ktor_file
+   character(len=72), public :: am_mpol_file,am_mtor_file
    !----- Z-integrated output:
    real(cp), public :: zDens,sDens
 
@@ -173,9 +178,11 @@ contains
       n_par_file         =300
       n_angular_file     =301
       n_dtvrms_file      =302
-      n_dtvasrms_file    =303
       n_dtbrms_file      =304
-      n_dtdrms_file      =305
+      n_am_kpol_file     =400
+      n_am_ktor_file     =401
+      n_am_mpol_file     =402
+      n_am_mtor_file     =403
       do n=1,n_coeff_r_max
          n_v_r_file(n)=40+n
       end do
@@ -199,9 +206,14 @@ contains
          e_mag_ic_file='e_mag_ic.'//tag
          e_mag_oc_file='e_mag_oc.'//tag
          dipole_file='dipole.'//tag
-         if ( l_RMS .or. l_RMStest) then
+         if ( l_RMS ) then
             dtbrms_file='dtBrms.'//tag
-            dtdrms_file='dtDrms.'//tag
+         end if
+         if ( l_energy_modes ) then
+            am_kpol_file='am_kin_pol.'//tag
+            am_ktor_file='am_kin_tor.'//tag
+            am_mpol_file='am_mag_pol.'//tag
+            am_mtor_file='am_mag_tor.'//tag
          end if
       end if
       if ( l_AM ) then
@@ -213,9 +225,8 @@ contains
       if ( l_perpPar ) then
          perpPar_file='perpPar.'//tag
       end if
-      if ( l_RMS .or. l_RMStest) then
+      if ( l_RMS ) then
          dtvrms_file='dtVrms.'//tag
-         dtvasrms_file='dtVAsRms.'//tag
       end if
       if ( l_rot_ic .or. l_rot_ma ) then
          rot_file='rot.'//tag
@@ -258,9 +269,8 @@ contains
             open(n_log_file, file=log_file, status='unknown')
             open(n_e_kin_file, file=e_kin_file, status='new')
             open(n_par_file, file=par_file, status='new')
-            if ( l_RMS .or. l_RMStest) then
+            if ( l_RMS ) then
                open(n_dtvrms_file, file=dtvrms_file, status='new')
-               open(n_dtvasrms_file, file=dtvasrms_file, status='new')
             end if
             if ( l_anel ) then
                open(n_u_square_file, file=u_square_file, status='new')
@@ -287,9 +297,8 @@ contains
                open(n_e_mag_oc_file, file=e_mag_oc_file, status='new')
                open(n_e_mag_ic_file, file=e_mag_ic_file, status='new')
                open(n_dipole_file, file=dipole_file, status='new')
-               if ( l_RMS .or. l_RMStest) then
+               if ( l_RMS ) then
                   open(n_dtbrms_file, file=dtbrms_file, status='new')
-                  open(n_dtdrms_file, file=dtdrms_file, status='new')
                end if
                if ( l_cmb_field ) then
                   open(n_cmb_file, file=cmb_file, &
@@ -308,6 +317,16 @@ contains
                           status='new', form='unformatted')
                   end do
                end if
+               if ( l_energy_modes ) then
+                  open(n_am_kpol_file,file=am_kpol_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_ktor_file,file=am_ktor_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_mpol_file,file=am_mpol_file,status='new', &
+                         &            form='unformatted')
+                  open(n_am_mtor_file,file=am_mtor_file,status='new', &
+                         &            form='unformatted')
+               endif
             end if
             if ( .not. l_SRIC .and. .not. l_SRMA ) then
                if ( l_rot_ic .or. l_rot_ma ) &
@@ -345,9 +364,8 @@ contains
             if ( l_perpPar ) then
                close(n_perpPar_file)
             end if
-            if ( l_RMS .or. l_RMStest ) then
+            if ( l_RMS ) then
                close(n_dtvrms_file)
-               close(n_dtvasrms_file)
             end if
             if ( l_r_field ) then
                do n=1,n_coeff_r_max
@@ -363,9 +381,8 @@ contains
                close(n_e_mag_oc_file)
                close(n_e_mag_ic_file)
                close(n_dipole_file)
-               if ( l_RMS .or. l_RMStest) then
+               if ( l_RMS ) then
                   close(n_dtbrms_file)
-                  close(n_dtdrms_file)
                end if
                if ( l_cmb_field ) close(n_cmb_file)
                if ( l_cmb_field .and. l_movie ) close(n_cmbMov_file)
@@ -375,6 +392,12 @@ contains
                   end do
                end if
                if ( l_dt_cmb_field ) close(n_dt_cmb_file)
+               if ( l_energy_modes ) then
+                  close(n_am_kpol_file)
+                  close(n_am_ktor_file)
+                  close(n_am_mpol_file)
+                  close(n_am_mtor_file)
+               end if
             end if
             if ( l_rot_ic .or. l_rot_ma .and.      &
                  .not. l_SRIC .and. .not. l_SRMA ) &

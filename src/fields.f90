@@ -4,6 +4,7 @@ module fields
    !  derivatives
    !
    use precision_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
                          n_r_ic_maxMag
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -16,15 +17,12 @@ module fields
  
    !-- Velocity potentials:
    complex(cp), public, allocatable :: w(:,:)
-   complex(cp), public, allocatable :: dw(:,:)
-   complex(cp), public, allocatable :: ddw(:,:)
    complex(cp), public, allocatable, target :: w_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: w_Rloc_container(:,:,:)
    complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
    complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
  
    complex(cp), public, allocatable :: z(:,:)
-   complex(cp), public, allocatable :: dz(:,:)
    complex(cp), public, allocatable, target :: z_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: z_Rloc_container(:,:,:)
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
@@ -32,14 +30,12 @@ module fields
  
    !-- Pressure and entropy:
    complex(cp), public, allocatable :: s(:,:)
-   complex(cp), public, allocatable :: ds(:,:)
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
    complex(cp), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
    complex(cp), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
  
    complex(cp), public, allocatable :: p(:,:)
-   complex(cp), public, allocatable :: dp(:,:)
    complex(cp), public, allocatable, target :: p_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: p_Rloc_container(:,:,:)
    complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
@@ -48,10 +44,8 @@ module fields
    !-- Magnetic field potentials:
    complex(cp), public, allocatable :: b(:,:)
    complex(cp), public, allocatable :: db(:,:)
-   complex(cp), public, allocatable :: ddb(:,:)
    complex(cp), public, allocatable :: aj(:,:)
    complex(cp), public, allocatable :: dj(:,:)
-   complex(cp), public, allocatable :: ddj(:,:)
    complex(cp), public, allocatable, target :: b_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: b_Rloc_container(:,:,:)
    complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
@@ -85,33 +79,20 @@ module fields
 contains
 
    subroutine initialize_fields
-      !
-      ! Memory allocation
-      !
 
-      integer(lip) :: bytes_allocated
-
-      bytes_allocated = 0
       !-- Velocity potentials:
       if ( rank == 0 ) then
          allocate( w(lm_max,n_r_max) )
          allocate( z(lm_max,n_r_max) )
-         allocate( dw(lm_max,n_r_max) )
-         allocate( ddw(lm_max,n_r_max) )
-         allocate( dz(lm_max,n_r_max) )
          allocate( s(lm_max,n_r_max) )
-         allocate( ds(lm_max,n_r_max) )
          allocate( p(lm_max,n_r_max) )
-         allocate( dp(lm_max,n_r_max) )
-         bytes_allocated = bytes_allocated + 9*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
          allocate( b(lm_maxMag,n_r_maxMag) )
          allocate( db(lm_maxMag,n_r_maxMag) )
-         allocate( ddb(lm_maxMag,n_r_maxMag) )
          allocate( aj(lm_maxMag,n_r_maxMag) )
          allocate( dj(lm_maxMag,n_r_maxMag) )
-         allocate( ddj(lm_maxMag,n_r_maxMag) )
          bytes_allocated = bytes_allocated +  &
-                           6*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+                           4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )  
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
@@ -124,21 +105,14 @@ contains
       else
          allocate( w(1,n_r_max) )
          allocate( z(1,n_r_max) )
-         allocate( dw(1,n_r_max) )
-         allocate( ddw(1,n_r_max) )
-         allocate( dz(1,n_r_max) )
          allocate( s(1,n_r_max) )
-         allocate( ds(1,n_r_max) )
          allocate( p(1,n_r_max) )
-         allocate( dp(1,n_r_max) )
-         bytes_allocated = bytes_allocated + 9*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*n_r_max*SIZEOF_DEF_COMPLEX
          allocate( b(1,n_r_maxMag) )
          allocate( db(1,n_r_maxMag) )
-         allocate( ddb(1,n_r_maxMag) )
          allocate( aj(1,n_r_maxMag) )
          allocate( dj(1,n_r_maxMag) )
-         allocate( ddj(1,n_r_maxMag) )
-         bytes_allocated = bytes_allocated + 6*n_r_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )  
          allocate( db_ic(1,n_r_ic_maxMag) )
          allocate( ddb_ic(1,n_r_ic_maxMag) )
@@ -148,35 +122,35 @@ contains
          bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
       allocate( w_LMloc_container(llm:ulm,n_r_max,1:3) )
-      w_LMloc(llm:,1:)   => w_LMloc_container(llm:ulm,1:n_r_max,1)
-      dw_LMloc(llm:,1:)  => w_LMloc_container(llm:ulm,1:n_r_max,2)
-      ddw_LMloc(llm:,1:) => w_LMloc_container(llm:ulm,1:n_r_max,3)
+      w_LMloc(llm:ulm,1:n_r_max)   => w_LMloc_container(:,:,1)
+      dw_LMloc(llm:ulm,1:n_r_max)  => w_LMloc_container(:,:,2)
+      ddw_LMloc(llm:ulm,1:n_r_max) => w_LMloc_container(:,:,3)
       allocate( w_Rloc_container(lm_max,nRstart:nRstop,1:3) )
-      w_Rloc(1:,nRstart:)   => w_Rloc_container(1:,nRstart:,1)
-      dw_Rloc(1:,nRstart:)  => w_Rloc_container(1:,nRstart:,2)
-      ddw_Rloc(1:,nRstart:) => w_Rloc_container(1:,nRstart:,3)
+      w_Rloc(1:lm_max,nRstart:nRstop)   => w_Rloc_container(:,:,1)
+      dw_Rloc(1:lm_max,nRstart:nRstop)  => w_Rloc_container(:,:,2)
+      ddw_Rloc(1:lm_max,nRstart:nRstop) => w_Rloc_container(:,:,3)
 
       allocate( z_LMloc_container(llm:ulm,n_r_max,1:2) )
-      z_LMloc(llm:,1:)   => z_LMloc_container(llm:ulm,1:n_r_max,1)
-      dz_LMloc(llm:,1:)  => z_LMloc_container(llm:ulm,1:n_r_max,2)
+      z_LMloc(llm:ulm,1:n_r_max)   => z_LMloc_container(:,:,1)
+      dz_LMloc(llm:ulm,1:n_r_max)  => z_LMloc_container(:,:,2)
       allocate( z_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      z_Rloc(1:,nRstart:)   => z_Rloc_container(1:,nRstart:,1)
-      dz_Rloc(1:,nRstart:)  => z_Rloc_container(1:,nRstart:,2)
+      z_Rloc(1:lm_max,nRstart:nRstop)   => z_Rloc_container(:,:,1)
+      dz_Rloc(1:lm_max,nRstart:nRstop)  => z_Rloc_container(:,:,2)
 
       !-- Pressure and entropy:
       allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
-      s_LMloc(llm:,1:)   => s_LMloc_container(llm:ulm,1:n_r_max,1)
-      ds_LMloc(llm:,1:)  => s_LMloc_container(llm:ulm,1:n_r_max,2)
+      s_LMloc(llm:ulm,1:n_r_max)  => s_LMloc_container(:,:,1)
+      ds_LMloc(llm:ulm,1:n_r_max) => s_LMloc_container(:,:,2)
       allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      s_Rloc(1:,nRstart:)   => s_Rloc_container(1:,nRstart:,1)
-      ds_Rloc(1:,nRstart:)  => s_Rloc_container(1:,nRstart:,2)
+      s_Rloc(1:lm_max,nRstart:nRstop)   => s_Rloc_container(:,:,1)
+      ds_Rloc(1:lm_max,nRstart:nRstop)  => s_Rloc_container(:,:,2)
 
       allocate( p_LMloc_container(llm:ulm,n_r_max,1:2) )
-      p_LMloc(llm:,1:)   => p_LMloc_container(llm:ulm,1:n_r_max,1)
-      dp_LMloc(llm:,1:)  => p_LMloc_container(llm:ulm,1:n_r_max,2)
+      p_LMloc(llm:ulm,1:n_r_max)   => p_LMloc_container(:,:,1)
+      dp_LMloc(llm:ulm,1:n_r_max)  => p_LMloc_container(:,:,2)
       allocate( p_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      p_Rloc(1:,nRstart:)   => p_Rloc_container(1:,nRstart:,1)
-      dp_Rloc(1:,nRstart:)  => p_Rloc_container(1:,nRstart:,2)
+      p_Rloc(1:lm_max,nRstart:nRstop)   => p_Rloc_container(:,:,1)
+      dp_Rloc(1:lm_max,nRstart:nRstop)  => p_Rloc_container(:,:,2)
 
       bytes_allocated = bytes_allocated + &
                         9*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -185,21 +159,21 @@ contains
 
       !-- Magnetic field potentials:
       allocate( b_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )
-      b_LMloc(llmMag:,1:)   => b_LMloc_container(llmMag:,1:,1)
-      db_LMloc(llmMag:,1:)  => b_LMloc_container(llmMag:,1:,2)
-      ddb_LMloc(llmMag:,1:) => b_LMloc_container(llmMag:,1:,3)
+      b_LMloc(llmMag:ulmMag,1:n_r_maxMag)   => b_LMloc_container(:,:,1)
+      db_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => b_LMloc_container(:,:,2)
+      ddb_LMloc(llmMag:ulmMag,1:n_r_maxMag) => b_LMloc_container(:,:,3)
       allocate( b_Rloc_container(lm_maxMag,nRstart:nRstop,1:3) )
-      b_Rloc(1:,nRstart:)   => b_Rloc_container(1:,nRstart:,1)
-      db_Rloc(1:,nRstart:)  => b_Rloc_container(1:,nRstart:,2)
-      ddb_Rloc(1:,nRstart:) => b_Rloc_container(1:,nRstart:,3)
+      b_Rloc(1:lm_maxMag,nRstart:nRstop)   => b_Rloc_container(:,:,1)
+      db_Rloc(1:lm_maxMag,nRstart:nRstop)  => b_Rloc_container(:,:,2)
+      ddb_Rloc(1:lm_maxMag,nRstart:nRstop) => b_Rloc_container(:,:,3)
 
       allocate( aj_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )
-      aj_LMloc(llmMag:,1:)  => aj_LMloc_container(llmMag:,1:,1)
-      dj_LMloc(llmMag:,1:)  => aj_LMloc_container(llmMag:,1:,2)
-      ddj_LMloc(llmMag:,1:) => aj_LMloc_container(llmMag:,1:,3)
+      aj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => aj_LMloc_container(:,:,1)
+      dj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => aj_LMloc_container(:,:,2)
+      ddj_LMloc(llmMag:ulmMag,1:n_r_maxMag) => aj_LMloc_container(:,:,3)
       allocate( aj_Rloc_container(lm_maxMag,nRstart:nRstop,1:2) )
-      aj_Rloc(1:,nRstart:)  => aj_Rloc_container(1:,nRstart:,1)
-      dj_Rloc(1:,nRstart:)  => aj_Rloc_container(1:,nRstart:,2)
+      aj_Rloc(1:lm_maxMag,nRstart:nRstop)  => aj_Rloc_container(:,:,1)
+      dj_Rloc(1:lm_maxMag,nRstart:nRstop)  => aj_Rloc_container(:,:,2)
 
       bytes_allocated = bytes_allocated + &
                         6*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
@@ -218,9 +192,6 @@ contains
 
       bytes_allocated = bytes_allocated + &
                         6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-
-      write(*,"(I4,A,I12,A)") rank,": Allocated in fields ", &
-                              bytes_allocated," bytes."
 
    end subroutine initialize_fields
 !----------------------------------------------------------------------------

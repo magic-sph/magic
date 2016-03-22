@@ -24,8 +24,10 @@ file looks like below:
       ! Line 1
       !-------------
 
-      version               !Graphout_version_9 (using MPI) or
-                            !Graphout_version_7 (without MPI)
+      version               !Graphout_version_9 (using MPI without pressure)
+                            !Graphout_version_10 (using MPI, with pressure)
+                            !Graphout_version_7 (without MPI, without pressure)
+                            !Graphout_version_8 (without MPI, with pressure)
       !----------
       ! Line 2
       !----------
@@ -49,11 +51,11 @@ file looks like below:
 
       !-----------------------------------------------------------------------
 
-      !-------------------
-      !Graphout_version_9
-      !-------------------
+      !---------------------------------------
+      !Graphout_version_9/Graphout_version_10
+      !---------------------------------------
       
-      ! This version is written when the code uses MPI (USE_MPI=yes). Parallel
+      ! These versions are written when the code uses MPI (USE_MPI=yes). Parallel
       ! chunks of fields are written for different radial levels. Chunks in theta
       ! are written in parallel using OpenMP
 
@@ -99,32 +101,41 @@ file looks like below:
       vp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) of 
                                                         !velocity
 
-      if (l_mag):                                         !For a magnetic run
-      
+      if (l_PressGraph):                                !If pressure is stored
+
         !---------------
         ! Line 4 + (N+5)
         !---------------
+  
+        pr(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !pressure
+
+
+      if (l_mag):                                         !For a magnetic run
+      
+        !-----------------
+        ! Line 4 + (N+5/6)
+        !-----------------
 
         br(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Radial magnetic field
 
-        !---------------
-        ! Line 4 + (N+6)
-        !---------------
+        !-----------------
+        ! Line 4 + (N+6/7)
+        !-----------------
 
         bt(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Theta component of 
                                                           !magnetic field
 
-        !---------------
-        ! Line 4 + (N+7)
-        !---------------
+        !-----------------
+        ! Line 4 + (N+7/8)
+        !-----------------
 
         bp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) 
                                                           !of magnetic field
       
 
-      !-------------------
-      !Graphout_version_7
-      !-------------------
+      !--------------------------------------
+      !Graphout_version_7/Graphout_version_8
+      !--------------------------------------
 
       !This version is written when the code does not use MPI (USE_MPI=no).
       !Chunks in theta are written in parallel with OpenMP.
@@ -217,6 +228,26 @@ file looks like below:
       vp(n_phi_tot,n_theta_stop,n_r)    !n_phi = n_phi_tot, n_theta = n_theta_stop, n_r 
 
 
+      if (l_PressGraph):                !If pressure is stored
+
+      !-----------
+      ! Pressure
+      !-----------
+
+      pr(1,n_theta_start,n_r)           !n_phi = 1, n_theta = n_theta_start, n_r
+      pr(2,n_theta_start,n_r)	        !n_phi = 2, n_theta = n_theta_start, n_r
+      ...
+      pr(n_phi_tot,n_theta_start,n_r)   !n_phi = n_phi_tot, n_theta = n_theta_start, n_r
+      pr(1,n_theta_start+1,n_r)         !n_phi = 1, n_theta = n_theta_start+1, n_r
+      ...
+      pr(n_phi_tot,n_theta_start+1,n_r)
+      ...
+      pr(1,n_theta_stop,n_r)            !n_phi = 1, n_theta = n_theta_stop, n_r
+      pr(2,n_theta_stop,n_r)            !n_phi = 2, n_theta = n_theta_stop, n_r
+      ...
+      pr(n_phi_tot,n_theta_stop,n_r)    !n_phi = n_phi_tot, n_theta = n_theta_stop, n_r 
+
+
       if (l_mag):                       !Only if it is a magnetic case
 
       !----------------------
@@ -288,8 +319,8 @@ The graphic files can be read using the python class :py:class:`MagicGraph <magi
 
 They can be visualized using the :py:class:`Surf <magic.Surf>` class:
 
-    >>> S = Surf(tag='TAG')
+    >>> s = Surf(tag='TAG')
     >>> # Surface map of radial velocity:
-    >>> S.surf(field = 'vr', r = 0.5, cmap = 'jet', levels = 50)
-    >>> S.slice(field = 'br', lon_0 = [0]) # Longitudinal Slice of radial magnetic field
-    >>> S.equat(field = 'entropy')         # Equatorial slice of entropy 
+    >>> s.surf(field = 'vr', r = 0.5, cmap = 'jet', levels = 50)
+    >>> s.slice(field = 'br', lon_0 = [0]) # Longitudinal Slice of radial magnetic field
+    >>> s.equat(field = 'entropy')         # Equatorial slice of entropy 
