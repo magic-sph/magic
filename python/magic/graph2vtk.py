@@ -259,6 +259,9 @@ class Graph2Vtk:
         keyScal['ekin'] = 10
         keyScal['br'] = 11
         keyScal['Br'] = 11
+        keyScal['vs'] = 12
+        keyScal['Vs'] = 12
+        keyScal['us'] = 12
 
         # Change default scalars and vectors in non-magnetic cases
         if gr.mode == 1 or gr.mode == 7:
@@ -439,6 +442,17 @@ class Graph2Vtk:
                                                               gr.minc)
                 else:
                     self.scals[k, :, :, 0:gr.nr] = gr.Br[..., ::-1]
+            elif index == 12: #cylindrical velocity
+                th3D = N.zeros_like(gr.vphi)
+                rr3D = N.zeros_like(th3D)
+                for i in range(gr.ntheta):
+                    th3D[:, i, :] = gr.colatitude[i]
+                vs = gr.vr * N.sin(th3D) + gr.vtheta * N.cos(th3D)
+
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(vs[..., ::-1],gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = vs[..., ::-1]
 
             if potExtra:
                 if index == 2:
