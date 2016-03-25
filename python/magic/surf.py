@@ -69,7 +69,7 @@ class Surf:
             del dr, dtheta, ds, rr3D, th3D, s3D
 
     def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None, 
-             vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', 
+             vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', lon_shift=0, 
              normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of an input field at a given
@@ -101,6 +101,8 @@ class Surf:
         :type levels: int
         :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
         :type cm: str
+        :param lon_shift: translate map in azimuth (in degrees)
+        :type lon_shift: int
         :param tit: display the title of the figure when set to True
         :type tit: bool
         :param cbar: display the colorbar when set to True
@@ -412,6 +414,9 @@ class Surf:
             ax.axis('off')
 
         rprof = data[..., indPlot]
+        #----shifting the azimuth data by lon_shift
+        lon_shift = int(lon_shift*self.gr.nphi/360)
+        rprof = N.roll(rprof,lon_shift,axis=0)
         rprof = symmetrize(rprof, self.gr.minc)
 
         cmap = P.get_cmap(cm)
