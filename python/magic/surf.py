@@ -1299,7 +1299,7 @@ class Surf:
 
     def slice(self, field='Bphi', lon_0=0., levels=12, cm='RdYlBu_r', 
               normed=True, vmin=None, vmax=None, cbar=True, tit=True,
-              grid=False, nGridLevs=16):
+              grid=False, nGridLevs=16, normRad=False):
         """
         Plot an azimuthal slice of a given field.
 
@@ -1337,6 +1337,9 @@ class Surf:
         :type grid: bool
         :param nGridLevs: number of grid levels
         :type nGridLevs: int
+        :param normRad: when set to True, the contour levels are normalised
+                        radius by radius (default is False)
+        :type normRad: bool
         """
         if field in ('Vs', 'vs'):
             if labTex:
@@ -1550,6 +1553,10 @@ class Surf:
                                        spectral=True, exclude=True)
                     phislice1 = data1[indPlot, ...]
                     phislice = phislice + phislice1
+
+		if normRad: # Normalise each radius
+		    maxS = N.sqrt(N.mean(phislice**2, axis=0))
+		    phislice[:, maxS!=0.] /= maxS[maxS!=0.]
 
                 ax = fig.add_subplot(1,len(lon_0),k+1, frameon=False)
                 if vmax is not None or vmin is not None:
