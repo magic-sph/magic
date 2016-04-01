@@ -548,7 +548,7 @@ class MagicCoeffR(MagicSetup):
     >>> cr = MagicCoeffR(tag='test*', field='V', r=2)
     >>> print(cr.ell, cr.wlm) # print \ell and w_{\ell m}
     >>> # Time-evolution of the poloidal energy in the (\ell=10, m=10) mode
-    >>> plot(cr.time, cr.epolLM[:, 10, 10]) 
+    >>> plot(cr.time, cr.epolLM[:, cr.idx[10, 10]]) 
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
@@ -588,8 +588,8 @@ class MagicCoeffR(MagicSetup):
             print('Reading %s' % file)
             f = npfile(file, endian='B')
             out = f.fort_read('3i4,%s' % precision)[0]
-            self.l_max_cmb, self.minc, n_data = out[0]
-            self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
+            self.l_max_r, self.minc, n_data = out[0]
+            self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
             self.radius = out[1]
 
             while 1:
@@ -597,103 +597,304 @@ class MagicCoeffR(MagicSetup):
                     data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        data = N.array(data, dtype=precision)
+        self.lm_max_r = self.m_max_r*(self.l_max_r+1)/self.minc - \
+                        self.m_max_r*(self.m_max_r-self.minc)/(2*self.minc) + \
+                        self.l_max_r-self.m_max_r+1
 
-        self.ell = N.arange(self.l_max_cmb+1)
+        # Get indices location
+        self.idx = N.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
+        self.ell = N.zeros(self.lm_max_r, 'i')
+        self.ms = N.zeros(self.lm_max_r, 'i')
+        self.idx[0:self.l_max_r+2, 0] = N.arange(self.l_max_r+1)
+        self.ell[0:self.l_max_r+2] = N.arange(self.l_max_r+2)
+        k = self.l_max_r+1
+        for m in range(self.minc, self.l_max_r+1, self.minc):
+            for l in range(m, self.l_max_r+1):
+                self.idx[l, m] = k
+                self.ell[self.idx[l,m]] = l
+                self.ms[self.idx[l,m]] = m
+                k +=1
+
+
+        # Rearange data
+        data = N.array(data, dtype=precision)
         self.nstep = data.shape[0]
+        self.wlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        self.dwlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        self.zlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
 
         # Get time
         self.time = N.zeros(self.nstep, dtype=precision)
         self.time = data[:, 0]
 
-        # Rearange and get Gauss coefficients
-        self.wlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
-        self.dwlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
-        self.zlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
-
         # wlm
-        # Axisymmetric coefficients (m=0)
-        self.wlm[:, 1:, 0] = data[:, 1:self.l_max_cmb+1]
-        # Other coefficients (m!=0)
-        k = self.l_max_cmb+1
-        for m in range(self.minc, self.l_max_cmb+1, self.minc):
-            for l in range(m, self.l_max_cmb+1):
-                self.wlm[:, l, m] = data[:, k]+1j*data[:, k+1]
+        self.wlm[:, 1:self.l_max_r+1] = data[:, 1:self.l_max_r+1]
+        k = self.l_max_r+1
+        for m in range(self.minc, self.l_max_r+1, self.minc):
+            for l in range(m, self.l_max_r+1):
+                self.wlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
 
         # dwlm
-        self.dwlm[:, 1:, 0] = data[:, k:k+self.l_max_cmb]
-        k += self.l_max_cmb
-        for m in range(self.minc, self.l_max_cmb+1, self.minc):
-            for l in range(m, self.l_max_cmb+1):
-                self.dwlm[:, l, m] = data[:, k]+1j*data[:, k+1]
+        self.dwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
+        k += self.l_max_r
+        for m in range(self.minc, self.l_max_r+1, self.minc):
+            for l in range(m, self.l_max_r+1):
+                self.dwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
         # zlm
-        self.zlm[:, 1:, 0] = data[:, k:k+self.l_max_cmb]
-        k += self.l_max_cmb
-        for m in range(self.minc, self.l_max_cmb+1, self.minc):
-            for l in range(m, self.l_max_cmb+1):
-                self.zlm[:, l, m] = data[:, k]+1j*data[:, k+1]
+        self.zlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
+        k += self.l_max_r
+        for m in range(self.minc, self.l_max_r+1, self.minc):
+            for l in range(m, self.l_max_r+1):
+                self.zlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                 k += 2
 
         # ddw in case B is stored
         if field == 'B':
-            self.ddwlm = N.zeros((self.nstep, self.l_max_cmb+1, self.m_max_cmb+1), 'Complex64')
-            self.ddwlm[:, 1:, 0] = data[:, k:k+self.l_max_cmb]
-            k += self.l_max_cmb
-            for m in range(self.minc, self.l_max_cmb+1, self.minc):
-                for l in range(m, self.l_max_cmb+1):
-                    self.ddwlm[:, l, m] = data[:, k]+1j*data[:, k+1]
+            self.ddwlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+            self.ddwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
+            k += self.l_max_r
+            for m in range(self.minc, self.l_max_r+1, self.minc):
+                for l in range(m, self.l_max_r+1):
+                    self.ddwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
-        #self.epolLM = 0.5*self.ell*(self.ell+1)* (self.ell*(self.ell+1)* \
-        #                            abs(self.wlm)**2+abs(self.dwlm)**2)
-        self.epolAxiL = 0.5*self.ell*(self.ell+1)*(self.ell*(self.ell+1)* \
-                                    abs(self.wlm[:,:,0])**2+abs(self.dwlm[:,:,0])**2)
-        #self.etorLM = 0.5*self.ell*(self.ell+1)*abs(self.zlm)**2
-        self.etorAxiL = 0.5*self.ell*(self.ell+1)*abs(self.zlm[:,:,0])**2
 
-        #epolTot = self.epolLM.sum(axis=1).sum(axis=1)
-        #etorTot = self.etorLM.sum(axis=1).sum(axis=1)
-        etorAxiTot = self.etorAxiL.sum(axis=1)
-        epolAxiTot = self.epolAxiL.sum(axis=1)
+        self.e_pol_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_tor_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_pol_l = N.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_tor_l = N.zeros((self.nstep, self.l_max_r+1), precision)
+
+        for l in range(1, self.l_max_r+1):
+            self.e_pol_l[:, l] = 0.
+            self.e_tor_l[:, l] = 0.
+            self.e_pol_axi_l[:, l] = 0.
+            self.e_tor_axi_l[:, l] = 0.
+            for m in range(0, l+1, self.minc):
+                lm = self.idx[l, m]
+
+                if m == 0:
+                    epol = 0.5*self.ell[lm]*(self.ell[lm]+1)*( \
+                           self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
+                           abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 ) 
+                    etor = 0.5*self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
+
+                    self.e_pol_axi_l[:, l] += epol
+                    self.e_tor_axi_l[:, l] += etor
+                else:
+                    epol = self.ell[lm]*(self.ell[lm]+1)*( \
+                           self.ell[lm]*(self.ell[lm]+1)/self.radius**2* \
+                           abs(self.wlm[:,lm])**2+ abs(self.dwlm[:,lm])**2 ) 
+                    etor = self.ell[lm]*(self.ell[lm]+1)*abs(self.zlm[:, lm])**2
+
+                self.e_pol_l[:, l] += epol
+                self.e_tor_l[:, l] += etor
         
-        if iplot:
-            P.plot(self.time, epolTot)
-            P.plot(self.time, etorTot)
-            P.plot(self.time, epolAxiTot)
-            P.plot(self.time, etorAxiTot)
-        
-        """
-        self.dglmdt = deriv(self.time, self.glm.T, axis=2)
-        self.dhlmdt = deriv(self.time, self.hlm.T, axis=2)
-        self.dglmdt = self.dglmdt.T
-        self.dhlmdt = self.dhlmdt.T
-
-        #print(self.glm[-1, 1, 0], self.glm[-1, 2, 0], self.glm[-1, 2, 2])
-
-        # Time-averaged Gauss coefficient
-        facT = 1./(self.time[-1]-self.time[0])
-        self.glmM = facT * N.trapz(self.glm, self.time, axis=0)
-        self.hlmM = facT * N.trapz(self.hlm, self.time, axis=0)
-
-        # Magnetic energy (Lowes)
-        self.El = (self.ell+1)*(self.glm**2+self.hlm**2).sum(axis=2)
-        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), dtype=precision)
-        # For m, we need to unfold the loop in case of minc != 1
-        for m in range(0, self.m_max_cmb+1, self.minc):
-            self.Em[:,m] = ((self.ell+1)*(self.glm[:, :, m]**2+self.hlm[:, :, m]**2)).sum(axis=1)
-        #self.Em = ((self.ell+1)*(self.glm**2+self.hlm**2)).sum(axis=1)
 
         # Time-averaged energy
-        self.ElM = facT * N.trapz(self.El, self.time, axis=0)
-        self.EmM = facT * N.trapz(self.Em, self.time, axis=0)
+        facT = 1./(self.time[-1]-self.time[0])
 
-        # Secular variation
-        self.ESVl = (self.ell+1)*(self.dglmdt**2+self.dhlmdt**2).sum(axis=2)
-        self.ESVlM = facT * N.trapz(self.ESVl, self.time, axis=0)
-        self.taul = N.sqrt(self.ElM[1:]/self.ESVlM[1:])
+        self.e_pol_lM = facT * N.trapz(self.e_pol_l, self.time, axis=0)
+        self.e_tor_lM = facT * N.trapz(self.e_tor_l, self.time, axis=0)
+        self.e_pol_axi_lM = facT * N.trapz(self.e_pol_axi_l, self.time, axis=0)
+        self.e_tor_axi_lM = facT * N.trapz(self.e_tor_axi_l, self.time, axis=0)
 
-        #if iplot:
-        #    self.plot()
+    def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
+                 normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
+                 precision='Float64', shtns_lib='shtns', contour=False, mer=False):
         """
+        Plotting function (it can also write the png files)
+
+        .. warning:: the python bindings of `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ are mandatory to use this plotting function!
+
+        :param levels: number of contour levels
+        :type levels: int
+        :param cm: name of the colormap
+        :type cm: str
+        :param cut: adjust the contour extrema to max(abs(data))*cut
+        :type cut: float
+        :param png: save the movie as a series of png files when
+                    set to True
+        :type png: bool
+        :param dpi: dot per inch when saving PNGs
+        :type dpi: int
+        :param bgcolor: background color of the figure
+        :type bgcolor: str
+        :param normed: the colormap is rescaled every timestep when set to True,
+                       otherwise it is calculated from the global extrema
+        :type normed: bool
+        :param step: the stepping between two timesteps
+        :type step: int
+        :param deminc: a logical to indicate if one wants do get rid of the
+                       possible azimuthal symmetry
+        :type deminc: bool
+        :param precision: single or double precision
+        :type precision: char
+        :param shtns_lib: version of shtns library used: can be either 'shtns'
+                          or 'shtns-magic'
+        :type shtns_lib: char
+        :param contour: also display the solid contour levels when set to True
+        :type contour: bool
+        :param mer: display meridians and circles when set to True
+        :type mer: bool
+        :param removeMean: remove the time-averaged part when set to True
+        :type removeMean: bool
+        """
+
+        # The python bindings of shtns are mandatory to use this function !!!
+        import shtns
+
+        if removeMean:
+            dataCut = self.wlm-self.wlm.mean(axis=0)
+        else:
+            dataCut = self.wlm
+
+        # Define shtns setup
+        sh = shtns.sht(int(self.l_max_r), int(self.m_max_r/self.minc), 
+                       mres=int(self.minc), 
+                       norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
+
+        polar_opt_threshold = 1e-10
+        nlat = max((self.l_max_r*(3/2/2)*2),192)
+        nphi = 2*nlat/self.minc
+        nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
+
+        # Transform data on grid space
+        data = N.zeros((self.nstep, nphi, nlat), precision)
+        for k in range(self.nstep):
+            tmp = sh.synth(dataCut[k, :]*sh.l*(sh.l+1)/self.radius**2)
+            tmp = tmp.T # Longitude, Latitude
+
+            if shtns_lib == 'shtns-magic':
+                data[k, ...] = rearangeLat(tmp)
+            else:
+                data[k, ...] = tmp
+
+        if png:
+            P.ioff()
+            if not os.path.exists('movie'):
+                os.mkdir('movie')
+        else:
+            P.ion()
+
+        if not normed:
+            vmin = - max(abs(data.max()), abs(data.min()))
+            vmin = cut * vmin
+            vmax = -vmin
+            cs = N.linspace(vmin, vmax, levels)
+
+        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        if deminc:
+            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
+            xxout, yyout = hammer2cart(th, -N.pi)
+            xxin, yyin = hammer2cart(th, N.pi)
+        else:
+            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
+            xxout, yyout = hammer2cart(th, -N.pi/self.minc)
+            xxin, yyin = hammer2cart(th, N.pi/self.minc)
+        ttheta, pphi = N.meshgrid(th, phi)
+        xx, yy = hammer2cart(ttheta, pphi)
+        if deminc:
+            fig = P.figure(figsize=(8, 4))
+        else:
+            fig = P.figure(figsize=(8/self.minc, 4))
+        fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+        ax = fig.add_subplot(111, frameon=False)
+
+        if mer:
+            theta = N.linspace(N.pi/2, -N.pi/2, nlat)
+            meridians = N.r_[-120, -60, 0, 60, 120]
+            circles = N.r_[ 60, 30, 0, -30, -60]
+
+        for k in range(self.nstep):
+            if k == 0:
+                if normed:
+                    vmin = - max(abs(data[k, ...].max()), abs(data[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                if deminc:
+                    dat = symmetrize(data[k, ...], self.minc)
+                else:
+                    dat = data[k, ...]
+                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                if contour:
+                    ax.contour(xx, yy, dat, cs, linestyles=['-', '-'],
+                               colors=['k', 'k'], linewidths=[0.7, 0.7])
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+
+                if mer:
+                    for lat0 in circles:
+                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+                    for lon0 in meridians:
+                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+
+                ax.axis('off')
+                man = P.get_current_fig_manager()
+                man.canvas.draw()
+            if k != 0 and k % step == 0:
+                if not png:
+                    print(k)
+                P.cla()
+                if normed:
+                    vmin = - max(abs(data[k, ...].max()), abs(data[k, ...].min()))
+                    vmin = cut * vmin
+                    vmax = -vmin
+                    cs = N.linspace(vmin, vmax, levels)
+                if deminc:
+                    dat = symmetrize(data[k, ...], self.minc)
+                else:
+                    dat = data[k, ...]
+                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                if contour:
+                    ax.contour(xx, yy, dat, cs, colors=['k'],
+                               linestyles=['-', '-'], linewidths=[0.7, 0.7])
+                ax.plot(xxout, yyout, 'k-', lw=1.5)
+                ax.plot(xxin, yyin, 'k-', lw=1.5)
+
+                if mer:
+                    for lat0 in circles:
+                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+                    for lon0 in meridians:
+                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        ax.plot(x0, y0, 'k:', linewidth=0.7)
+
+                ax.axis('off')
+                man.canvas.draw()
+            if png:
+                filename = 'movie/img%05d.png' % k
+                print('write %s' % filename)
+                #st = 'echo %i' % ivar + ' > movie/imgmax'
+                if bgcolor is not None:
+                    fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
+                else:
+                    fig.savefig(filename, dpi=dpi)
+
+    def fft(self):
+        """
+        Fourier transform of the poloidal energy
+        """
+        w2 = N.fft.fft(self.e_pol_l, axis=0)
+        w2 =  abs(w2[1:self.nstep/2+1,1:])
+        dw = 2.*N.pi/(self.time[-1]-self.time[0])
+        omega = dw*N.arange(self.nstep)
+        omega = omega[1:self.nstep/2+1]
+        ls = N.arange(self.l_max_r+1)
+        ls = ls[1:]
+
+        print w2.shape, dw.shape, ls.shape
+
+        fig = P.figure()
+        ax = fig.add_subplot(111)
+        im = ax.contourf(ls, omega, N.log10(w2), 31, cmap=P.get_cmap('jet'))
+
+        cbar = fig.colorbar(im)
+
+        ax.set_xlabel(r'Spherical harmonic degree')
+        ax.set_ylabel(r'Frequency')
+
