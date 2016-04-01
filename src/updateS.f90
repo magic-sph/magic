@@ -29,7 +29,7 @@ module updateS_mod
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
    use cosine_transform_odd
-   use radial_der, only: get_drNS, get_ddr
+   use radial_der, only: get_drNS, get_ddr, get_dr
    use constants, only: zero, one, two, half
 
    implicit none
@@ -37,7 +37,7 @@ module updateS_mod
    private
 
    !-- Local variables
-   complex(cp), allocatable :: workA(:,:),workB(:,:)
+   complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
 
@@ -50,6 +50,11 @@ contains
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated + 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_anelastic_liquid ) then
+         allocate( workC(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
@@ -436,8 +441,8 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
-              &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
+         call get_dr( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,          &
+              &         stop_lm-llm+1,n_r_max,n_cheb_max,workB,workC, &
               &         chebt_oc,drx)
       end do
       !$OMP end do
@@ -447,7 +452,7 @@ contains
          do lm=lmStart,lmStop
             dsdt(lm,nR)=          orho1(nR)*dsdt(lm,nR)  - & 
                 &         or2(nR)*orho1(nR)*workA(lm,nR) + &
-                &       orho1(nR)*otemp1(nR)*dtemp0(nR)*dVSrLM(lm,nR)
+                &         or2(nR)*orho1(nR)*otemp1(nR)*dtemp0(nR)*dVSrLM(lm,nR)
          end do
       end do
       !$OMP end do
