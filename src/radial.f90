@@ -34,13 +34,19 @@ module radial_functions
    real(cp), public, allocatable :: otemp1(:)    ! Inverse of background temperature
    real(cp), public, allocatable :: rho0(:)      ! Inverse of background density
    real(cp), public, allocatable :: temp0(:)     ! Background temperature
-   real(cp), public, allocatable :: dtemp0(:)    ! Radial gradient of background temperature
-   real(cp), public, allocatable :: d2temp0(:)   ! Second rad. derivative of background temperature
+   real(cp), public, allocatable :: dLtemp0(:)   ! Inverse of temperature scale height
+   real(cp), public, allocatable :: ddLtemp0(:)  ! :math:`d/dr(1/T dT/dr)` 
+   real(cp), private, allocatable :: d2temp0(:)  ! Second rad. derivative of background temperature
    real(cp), public, allocatable :: dentropy0(:) ! Radial gradient of background entropy
    real(cp), public, allocatable :: orho1(:)     ! :math:`1/\tilde{\rho}`
    real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
    real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
    real(cp), public, allocatable :: dbeta(:)     ! Radial gradient of beta
+
+   real(cp), public, allocatable :: alpha0(:)    ! Thermal expansion coefficient
+   real(cp), public, allocatable :: dLalpha0(:)  ! :math:`1/\alpha d\alpha/dr`
+   real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
+
    real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
    real(cp), public, allocatable :: ddrx(:)      ! Second derivative of non-linear mapping
    real(cp), public, allocatable :: dddrx(:)     ! Third derivative of non-linear mapping
@@ -125,13 +131,15 @@ contains
       allocate( O_r_ic2(n_r_ic_max) )
       allocate( or1(n_r_max),or2(n_r_max),or3(n_r_max),or4(n_r_max) )
       allocate( otemp1(n_r_max),rho0(n_r_max),temp0(n_r_max) )
-      allocate( dtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
+      allocate( dLtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
+      allocate( ddLtemp0(n_r_max) )
       allocate( orho1(n_r_max),orho2(n_r_max) )
       allocate( beta(n_r_max), dbeta(n_r_max) )
+      allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
       allocate( rgrav(n_r_max),agrav(n_r_max) )
       bytes_allocated = bytes_allocated + &
-                        (20*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+                        (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
@@ -175,7 +183,7 @@ contains
       real(cp) :: fac_int
       real(cp) :: r_cheb(n_r_max)
       real(cp) :: r_cheb_ic(2*n_r_ic_max-1),r_ic_2(2*n_r_ic_max-1)
-      real(cp) :: alphaT(n_r_max), drho0(n_r_max)
+      real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
       real(cp) :: a0,a1,a2,a3,a4,a5,a6,a7,a8,a9 ! polynomial fit for density
@@ -316,10 +324,11 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
-         ! Dissipation number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         ! Dissipation number
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -339,6 +348,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
          
       else if ( index(interior_model,'SAT') /= 0 ) then
@@ -387,10 +404,11 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
          ! Inverse of the Froude number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -412,6 +430,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'SUN') /= 0 ) then
@@ -454,10 +480,11 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
          ! Dissipation number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -477,6 +504,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'GLIESE229B') /= 0 ) then
@@ -523,10 +558,11 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
-         ! Dissipation number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         ! Dissipation number
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -546,6 +582,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'COROT3B') /= 0 ) then
@@ -592,10 +636,11 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
-         ! Dissipation number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         ! Dissipation number
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -615,6 +660,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'KOI889B') /= 0 ) then
@@ -659,10 +712,12 @@ contains
          call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
                      w2,chebt_oc,drx)
 
-         alphaT=-dtemp0/(gravFit*temp0)
+         alpha0=-dtemp0/(gravFit*temp0)
 
-         ! Dissipation number needed in the dissipation numbers
-         DissNb=alphaT(1)
+         ! Dissipation number
+         DissNb=alpha0(1)
+         alpha0=alpha0/alpha0(1)
+
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -682,6 +737,14 @@ contains
                      w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                   w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'EARTH') /= 0 ) then
@@ -690,20 +753,20 @@ contains
          GrunNb=1.5_cp ! Gruneisen paramater
          hcomp =2.2_cp*r_cmb
 
-         alphaT=(one+0.6_cp*r**2/hcomp**2)/(one+0.6_cp/2.2_cp**2)
+         alpha0=(one+0.6_cp*r**2/hcomp**2)/(one+0.6_cp/2.2_cp**2)
          rgrav =(r-0.6_cp*r**3/hcomp**2)/(r_cmb*(one-0.6_cp/2.2_cp**2))
 
          !dentropy0 = -half*(ampStrat+one)*(one-tanh(slopeStrat*(r-rStrat)))+ &
          !            & ampStrat
 
          !! d ln(temp0) / dr
-         !dtemp0=epsS*dentropy0-DissNb*alphaT*rgrav
+         !dtemp0=epsS*dentropy0-DissNb*alpha0*rgrav
 
          !call getBackground(dtemp0,0.0_cp,temp0)
          !temp0=exp(temp0) ! this was ln(T_0)
          !dtemp0=dtemp0*temp0
 
-         !drho0=-CompNb*epsS*alphaT*temp0*dentropy0-DissNb/GrunNb*alphaT*rgrav
+         !drho0=-CompNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*alpha0*rgrav
          !call getBackground(drho0,0.0_cp,rho0)
          !rho0=exp(rho0) ! this was ln(rho_0)
          !beta=drho0
@@ -715,7 +778,7 @@ contains
          dtemp0cond=-cmbHflux/(r**2*hcond)
           
          do k=1,10 ! 10 iterations is enough to converge
-            dtemp0ad=-DissNb*alphaT*rgrav*temp0-epsS*temp0(n_r_max)
+            dtemp0ad=-DissNb*alpha0*rgrav*temp0-epsS*temp0(n_r_max)
             n_const=minloc(abs(dtemp0ad-dtemp0cond))
             rStrat=r(n_const(1))
             func=half*(tanh(slopeStrat*(r-rStrat))+one)
@@ -729,8 +792,8 @@ contains
             call getBackground(dtemp0,one,temp0)
          end do
 
-         dentropy0=dtemp0/temp0/epsS+DissNb*alphaT*rgrav/epsS
-         drho0=-CompNb*epsS*alphaT*temp0*dentropy0-DissNb*alphaT*rgrav/GrunNb
+         dentropy0=dtemp0/temp0/epsS+DissNb*alpha0*rgrav/epsS
+         drho0=-CompNb*epsS*alpha0*temp0*dentropy0-DissNb*alpha0*rgrav/GrunNb
          call getBackground(drho0,0.0_cp,rho0)
          rho0=exp(rho0) ! this was ln(rho_0)
          beta=drho0
@@ -740,6 +803,14 @@ contains
                 &    w2,chebt_oc,drx)
          call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
                 &    w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
+         dLtemp0 = dtemp0/temp0
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                &    w2,chebt_oc,drx)
 
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
@@ -747,7 +818,7 @@ contains
          end if
 
          ! N.B. rgrav is not gravity but alpha * grav
-         rgrav = BuoFac*alphaT*rgrav
+         rgrav = BuoFac*alpha0*rgrav
 
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
@@ -765,10 +836,14 @@ contains
                     g1/(two*r_cmb)*(r**2-r_cmb**2) - &
                     g2*(r_cmb**2/r-r_cmb)))
 
-               beta =-DissNb*rgrav/BuoFac
-               dbeta=-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
-               dtemp0=0.0_cp
-               d2temp0=0.0_cp
+               beta     =-DissNb*rgrav/BuoFac
+               dbeta    =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
+               d2temp0  =0.0_cp
+               dLtemp0  =0.0_cp
+               ddLtemp0 =0.0_cp
+               alpha0   =one/temp0
+               dLalpha0 =0.0_cp
+               ddLalpha0=0.0_cp
             else
                DissNb=( exp(strat/polind)-one )/ &
                  ( g0+half*g1*(one+radratio) +g2/radratio )
@@ -778,12 +853,19 @@ contains
                rho0=temp0**polind
 
                !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-               beta=-polind*DissNb*rgrav/temp0/BuoFac
-               dbeta=-polind*DissNb/temp0**2 * &
-                    ((g1/r_cmb-two*g2*r_cmb**2*or3)* &
-                    temp0  + DissNb*rgrav**2/BuoFac**2)
-               dtemp0=-DissNb*rgrav/BuoFac
+               beta   =-polind*DissNb*rgrav/temp0/BuoFac
+               dbeta  =-polind*DissNb/temp0**2 *       &
+                      ((g1/r_cmb-two*g2*r_cmb**2*or3)* &
+                      temp0  + DissNb*rgrav**2/BuoFac**2)
+               dtemp0 =-DissNb*rgrav/BuoFac
                d2temp0=-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
+
+               !-- Thermal expansion coefficient (1/T for an ideal gas)
+               alpha0   =one/temp0
+               dLtemp0  =dtemp0/temp0
+               ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+               dLalpha0 =-dLtemp0
+               ddLalpha0=-ddLtemp0
             end if
             if (l_mag) then
                OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -809,9 +891,13 @@ contains
          otemp1   =one
          orho1    =one
          orho2    =one
+         alpha0   =one
          beta     =0.0_cp
          dbeta    =0.0_cp
-         dtemp0   =0.0_cp
+         dLalpha0 =0.0_cp
+         ddLalpha0=0.0_cp
+         dLtemp0  =0.0_cp
+         ddLtemp0 =0.0_cp
          d2temp0  =0.0_cp
          dentropy0=0.0_cp
       end if
@@ -1060,7 +1146,7 @@ contains
       end if
 
       if ( l_anelastic_liquid ) then
-         divKtemp0=rho0*kappa*(d2temp0+(beta+dLkappa+two*or1)*dtemp0)*sq4pi
+         divKtemp0=rho0*kappa*(d2temp0+(beta+dLkappa+two*or1)*temp0*dLtemp0)*sq4pi
       else
          divKtemp0=0.0_cp
       end if

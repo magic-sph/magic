@@ -6,9 +6,9 @@ module updateS_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_cheb_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc,orho1,or1,or2, &
-                           & beta, drx, ddrx, cheb_norm, dentropy0,     &
-                           & kappa, dLkappa, dtemp0, otemp1, temp0,     &
+   use radial_functions, only: chebt_oc,orho1,or1,or2,              &
+                           & beta, drx, ddrx, cheb_norm, dentropy0, &
+                           & kappa, dLkappa, dLtemp0, temp0,        &   
                            & cheb, dcheb, d2cheb
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha
@@ -323,7 +323,7 @@ contains
       !$OMP shared(s,ds,dsdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2)
+      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2)
       !$OMP DO
       do iThread=0,nThreads-1
          start_lm=lmStart+iThread*per_thread
@@ -343,7 +343,7 @@ contains
             dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                  & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * kappa(nR) * &
                  &   ( workA(lm1,nR) &
-                 &     + ( beta(nR) + otemp1(nR)*dtemp0(nR) + &
+                 &     + ( beta(nR) + dLtemp0(nR) + &
                  &       two*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
                  &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) * or2(nR)   *  s(lm1,nR) &
                  &   )
@@ -421,7 +421,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread) &
       !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1) &
-      !$OMP shared(otemp1,dtemp0,or2,lmStart,lmStop) &
+      !$OMP shared(dLtemp0,or2,lmStart,lmStop) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -452,7 +452,7 @@ contains
          do lm=lmStart,lmStop
             dsdt(lm,nR)=          orho1(nR)*dsdt(lm,nR)  - & 
                 &         or2(nR)*orho1(nR)*workA(lm,nR) + &
-                &         or2(nR)*orho1(nR)*otemp1(nR)*dtemp0(nR)*dVSrLM(lm,nR)
+                &         or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR)
          end do
       end do
       !$OMP end do
@@ -623,7 +623,7 @@ contains
       !$OMP shared(s,ds,w,dsdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm,temp0) &
       !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,otemp1,dtemp0,or1,dLkappa,dLh,or2) &
+      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2) &
       !$OMP shared(orho1)
       !$OMP DO
       do iThread=0,nThreads-1
@@ -726,7 +726,7 @@ contains
                sMat(nR,nCheb)= cheb_norm * (                                &
               &                                       O_dt*cheb(nCheb,nR) - & 
               &                 alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-              &  (beta(nR)+otemp1(nR)*dtemp0(nR)+two*or1(nR)+dLkappa(nR))* &
+              &  (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))* &
               &  dcheb(nCheb,nR) ) )
             end do
          end do
@@ -837,8 +837,8 @@ contains
                sMat(nR,nCheb)= cheb_norm * (                    &
           &                               O_dt*cheb(nCheb,nR) - &
           &      alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) + &
-          &      ( beta(nR)+otemp1(nR)*dtemp0(nR)+              &
-          &        two*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) - &
+          &      ( beta(nR)+dLtemp0(nR)+                        &
+          &        two*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) -  &
           &           dLh*or2(nR)*             cheb(nCheb,nR) ) )
             end do
          end do

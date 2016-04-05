@@ -14,8 +14,9 @@ module LMLoop_mod
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lmStartB, lmStopB
-   use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat
-   use matrices, only: lZ10mat, lSmat, lZmat, lWPmat, lBmat
+   use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
+                    l_single_matrix
+   use matrices, only: lZ10mat, lSmat, lZmat, lWPmat, lBmat, lWPSmat
    use output_data, only: nLF, log_file
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
@@ -23,10 +24,11 @@ module LMLoop_mod
    use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, &
                             lo2r_s, lo2r_z, lo2r_p, lo2r_b,     &
                             lo2r_aj, lo2r_w
-   use updateS_mod, only: initialize_updateS,updateS,updateS_ala
-   use updateZ_mod, only: initialize_updateZ,updateZ
-   use updateWP_mod, only: initialize_updateWP,updateWP
-   use updateB_mod, only: initialize_updateB,updateB
+   use updateS_mod, only: initialize_updateS, updateS, updateS_ala
+   use updateZ_mod, only: initialize_updateZ, updateZ
+   use updateWP_mod, only: initialize_updateWP, updateWP
+   use updateWPS_mod, only: initialize_updateWPS, updateWPS
+   use updateB_mod, only: initialize_updateB, updateB
    use useful, only: safeOpen, safeClose
 
    implicit none
@@ -43,9 +45,13 @@ contains
 
       local_bytes_used = bytes_allocated
 
-      call initialize_updateS
+      if ( l_single_matrix ) then
+         call initialize_updateWPS
+      else
+         call initialize_updateS
+         call initialize_updateWP
+      end if
       call initialize_updateZ
-      call initialize_updateWP
       call initialize_updateB
 
       local_bytes_used = bytes_allocated-local_bytes_used
@@ -99,6 +105,7 @@ contains
       real(cp), save :: omega_icLast
       complex(cp) :: sum_dwdt
 
+
       PERFON('LMloop')
       !LIKWID_ON('LMloop')
       if ( lVerbose ) call safeOpen(nLF,log_file)
@@ -112,9 +119,13 @@ contains
       !     stored in the module matrices in m_mat.F90:
          lZ10mat=.false.
          do l=0,l_max
-            lSmat(l) =.false.
+            if ( l_single_matrix ) then
+               lWPSmat(l)=.false.
+            else
+               lWPmat(l)=.false.
+               lSmat(l) =.false.
+            end if
             lZmat(l) =.false.
-            lWPmat(l)=.false.
             lBmat(l) =.false.
          end do
       end if
@@ -144,22 +155,24 @@ contains
          end if
          !call debug_write(dsdt,ulm-llm+1,n_r_max,"dsdt_LMloc", &
          !                        n_time_step*1000+nLMB*100,"E")
-         PERFON('up_S')
-         if ( l_anelastic_liquid ) then
-            call updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,    & 
-                 &       dsdtLast_LMloc,w1,coex,dt,nLMB)
-         else
-            call updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
-                 &       w1,coex,dt,nLMB)
+         if ( .not. l_single_matrix ) then
+            PERFON('up_S')
+            if ( l_anelastic_liquid ) then
+               call updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,    & 
+                    &       dsdtLast_LMloc,w1,coex,dt,nLMB)
+            else
+               call updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
+                    &       w1,coex,dt,nLMB)
 
+            end if
+            PERFOFF
+            ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
+            ! nonblocking send
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFON('rdstSst')
+            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+            !PERFOFF
          end if
-         PERFOFF
-         ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
-         ! nonblocking send
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFON('rdstSst')
-         call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-         !PERFOFF
 
          if ( DEBUG_OUTPUT ) then
             write(*,"(A,I2,4ES20.12)") "s_after : ",nLMB,  &
@@ -218,28 +231,40 @@ contains
                  & exponent(real(sum_dwdt)),fraction(real(sum_dwdt)),  &
                  & exponent(aimag(sum_dwdt)),fraction(aimag(sum_dwdt))
          end if
-         PERFON('up_WP')
-         call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
-              &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
-              &         w1,coex,dt,nLMB,lRmsNext)
-         PERFOFF
 
-         !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFON('rdstWPst')
-         call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-         call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
-         !PERFOFF
+         if ( l_single_matrix ) then
+            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
+                 &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,    &
+                 &         ds_LMloc, dVSrLM, dsdt, dsdtLast_LMloc,              &
+                 &         w1,coex,dt,nLMB)
 
-         if ( DEBUG_OUTPUT ) then
-            write(*,"(A,I2,12ES22.14)") "wp_after: ",nLMB,  &
-                 & GET_GLOBAL_SUM( w_LMloc(:,:) ),          &
-                 & GET_GLOBAL_SUM( p_LMloc(:,:) ),          &
-                 & GET_GLOBAL_SUM( dwdtLast_LMloc(:,:) ),   &
-                 & GET_GLOBAL_SUM( dpdtLast_LMloc(:,:) ),   &
-                 &GET_GLOBAL_SUM( dw_LMloc(:,:) )
-            write(*,"(A,I2,4ES22.14)") "wp_after(bnd_r): ",nLMB, &
-                 & GET_GLOBAL_SUM( w_LMloc(:,n_r_icb) ),         &
-                 & GET_GLOBAL_SUM( w_LMloc(:,n_r_cmb) )
+            call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
+            call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
+            call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
+         else
+            PERFON('up_WP')
+            call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
+                 &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
+                 &         w1,coex,dt,nLMB,lRmsNext)
+            PERFOFF
+
+            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
+            !PERFON('rdstWPst')
+            call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
+            call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
+            !PERFOFF
+
+            if ( DEBUG_OUTPUT ) then
+               write(*,"(A,I2,12ES22.14)") "wp_after: ",nLMB,  &
+                    & GET_GLOBAL_SUM( w_LMloc(:,:) ),          &
+                    & GET_GLOBAL_SUM( p_LMloc(:,:) ),          &
+                    & GET_GLOBAL_SUM( dwdtLast_LMloc(:,:) ),   &
+                    & GET_GLOBAL_SUM( dpdtLast_LMloc(:,:) ),   &
+                    &GET_GLOBAL_SUM( dw_LMloc(:,:) )
+               write(*,"(A,I2,4ES22.14)") "wp_after(bnd_r): ",nLMB, &
+                    & GET_GLOBAL_SUM( w_LMloc(:,n_r_icb) ),         &
+                    & GET_GLOBAL_SUM( w_LMloc(:,n_r_cmb) )
+            end if
          end if
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays

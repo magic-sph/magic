@@ -13,7 +13,7 @@ module init_fields
                                cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
                                d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
                                orho1, chebt_oc, chebt_ic,              &
-                               dtemp0, kappa, dLkappa, beta, otemp1,   &
+                               dLtemp0, kappa, dLkappa, beta,          &
                                epscProf
    use radial_data, only: n_r_icb, n_r_cmb
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
@@ -1296,7 +1296,7 @@ contains
       do n_cheb=1,n_r_max
          do n_r=2,n_r_max-1
             s0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* ( d2cheb(n_cheb,n_r) + &
-           ( two*or1(n_r)+beta(n_r)+otemp1(n_r)*dtemp0(n_r)+                   &
+           ( two*or1(n_r)+beta(n_r)+dLtemp0(n_r)+                              &
                                            dLkappa(n_r) )* dcheb(n_cheb,n_r)  )
          end do
       end do
@@ -1319,7 +1319,7 @@ contains
       !-- Fill with zeros:
       if ( n_cheb_max < n_r_max ) then
          do n_cheb=n_cheb_max+1,n_r_max
-            s0Mat(1,n_cheb)=0.0_cp
+            s0Mat(1,n_cheb)      =0.0_cp
             s0Mat(n_r_max,n_cheb)=0.0_cp
          end do
       end if

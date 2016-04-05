@@ -47,6 +47,9 @@ module num_param
    real(cp), public :: enscale         ! Energies scale
    integer, public :: n_tScale         ! Control time scale
    integer, public :: n_lScale         ! Control length scale
+
+   character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
+
  
    !-- Stop signal:
    integer, public :: istop            ! Variable used in FFT soubroutine

@@ -7,8 +7,8 @@ module start_fields
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: dtemp0, topcond, botcond, chebt_oc,   &
-                               drx, ddrx, dr_fac_ic, chebt_ic,       &
+   use radial_functions, only: topcond, botcond, chebt_oc,         &
+                               drx, ddrx, dr_fac_ic, chebt_ic,     &
                                chebt_ic_even, r, or1
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
                                   ktopv, kbotv, LFfac, imagcon
@@ -83,8 +83,10 @@ contains
       if (l_heat) then
     
          if ( index(interior_model,'EARTH') /= 0 ) then
-            topcond=-one/epsS*dtemp0(1)
-            botcond=-one/epsS*dtemp0(n_r_max)
+            !topcond=-one/epsS*dtemp0(1)
+            !botcond=-one/epsS*dtemp0(n_r_max)
+            topcond=one
+            botcond=one
          else
             call s_cond(s0)
             call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)

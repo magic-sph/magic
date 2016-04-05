@@ -59,7 +59,7 @@ contains
          & l_correct_AMz,tEND,l_non_rot,                    &
          & l_newmap,alph1,alph2,                            &
          & runHours,runMinutes,runSeconds,                  &
-         & cacheblock_size_in_B
+         & cacheblock_size_in_B,anelastic_flavour
       
       namelist/phys_param/                                    &
          & ra,pr,prmag,ek,epsc0,radratio,                     &
@@ -372,33 +372,57 @@ contains
          l_corr=.true.
       end if
 
+      call capitalize(anelastic_flavour)
+
+      if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
+           index(anelastic_flavour, 'ENT') /= 0 ) then
+         l_temperature_diff = .false.
+         l_anelastic_liquid = .false.
+         l_single_matrix    = .false.
+      else if ( index(anelastic_flavour, 'ALA') /= 0 .or. &
+           index(anelastic_flavour, 'LIQ') /= 0 ) then
+         l_temperature_diff = .false.
+         l_anelastic_liquid = .true.
+         l_single_matrix    = .false.
+      else if ( index(anelastic_flavour, 'TEMP') /= 0 .or. &
+           index(anelastic_flavour, 'TDIFF') /= 0 ) then
+         l_temperature_diff = .true.
+         l_anelastic_liquid = .false.
+         l_single_matrix    = .true.
+      else if ( index(anelastic_flavour, 'SINGLEMAT') /= 0 ) then ! Testting purposes
+         l_temperature_diff = .false.
+         l_anelastic_liquid = .false.
+         l_single_matrix    = .true.
+      else
+         l_temperature_diff = .false.
+         l_anelastic_liquid = .false.
+         l_single_matrix    = .false.
+      end if
+
+      if ( ktops > 2 .or. kbots > 2 ) then
+         l_single_matrix    = .true.
+      end if
+
+      if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
+
       call capitalize(interior_model)
 
       if ( strat > 0.0_cp ) l_anel= .true. 
 
       if ( index(interior_model,'EARTH') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.true.
       else if ( index(interior_model, 'JUP') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
       else if ( index(interior_model, 'SAT') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
       else if ( index(interior_model, 'SUN') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
       else if ( index(interior_model, 'GLIESE229B') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
       else if ( index(interior_model, 'COROT3B') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
       else if ( index(interior_model, 'KOI889B') /= 0 ) then
          l_anel=.true.
-         l_anelastic_liquid=.false.
-      else
-         l_anelastic_liquid=.false.
       end if
 
       if ( prmag == 0.0_cp ) then
@@ -693,6 +717,8 @@ contains
       write(n_out,'(''  runMinutes      ='',i4,'','')') runTimeLimit(2)
       write(n_out,'(''  runSeconds      ='',i4,'','')') runTimeLimit(3)
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
+      length=length_to_blank(anelastic_flavour)
+      write(n_out,*) " anelastic_flavour  = """,anelastic_flavour(1:length),""","
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -949,7 +975,7 @@ contains
       ! longitude direction, no aliasing for nalias=20
       !   20 <= nalias <= 30
       nalias        =20
-      !----- Namelist contrl
+      !----- Namelist control
       mode          =0            ! self-consistent dynamo !
       tag           ="default"
       n_time_steps  =100
@@ -963,6 +989,7 @@ contains
       alffac        =one
       intfac        =0.15_cp
       n_cour_step   =10
+      anelastic_flavour="None" 
 
       cacheblock_size_in_B=4096
 

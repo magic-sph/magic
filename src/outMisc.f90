@@ -6,7 +6,7 @@ module outMisc_mod
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: botcond, r_icb, dr_fac, chebt_oc, &
                                topcond, kappa, r_cmb,  &
-                               temp0, r, rho0, dtemp0
+                               temp0, r, rho0
    use physical_parameters, only: epsS
    use num_param, only: lScale
    use blocking, only: lo_map, nThetaBs, nfs, sizeThetaB
@@ -258,10 +258,10 @@ contains
             if ( l_anelastic_liquid ) then
                botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale+one
                topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale+one
-               botflux=-rho0(n_r_max)*(real(ds(1,n_r_max))*osq4pi+ &
-                        one/epsS*dtemp0(n_r_max))*r_icb**2*four*pi*kappa(n_r_max)
-               topflux=-rho0(1)*(real(ds(1,1))*osq4pi+one/epsS*dtemp0(1))*r_cmb**2* &
-                        four*pi*kappa(1)
+               botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
+                        *r_icb**2*four*pi*kappa(n_r_max)
+               topflux=-rho0(1)*real(ds(1,1))*osq4pi &
+                        *r_cmb**2*four*pi*kappa(1)
             else
                botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
                topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale

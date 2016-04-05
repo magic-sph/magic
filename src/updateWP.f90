@@ -176,7 +176,7 @@ contains
                !PERFON('upWP_mat')
                call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
                     wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
-               lWPmat(l1)=.TRUE.
+               lWPmat(l1)=.true.
                !PERFOFF
             end if
          end if

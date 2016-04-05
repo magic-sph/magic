@@ -76,4 +76,7 @@ module logic
 
    logical :: l_PressGraph   ! Store pressure in graphic files
 
+   logical :: l_single_matrix ! In case entropy, w and P are solved at once implicitely
+   logical :: l_temperature_diff ! diffusion of temperature instead of entropy
+
 end module logic
