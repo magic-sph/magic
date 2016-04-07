@@ -426,7 +426,7 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
                         output_data.o fields.o dt_fieldsLast.o mat.o\
                         updateS.o updateB.o mem_alloc.o\
                         updateZ.o updateWP.o timing.o LMLoop_data.o\
-                        communications.o debugging.o
+                        communications.o debugging.o updateWPS.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o
@@ -466,6 +466,10 @@ updateWP.o            : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         mat.o RMS.o cosine_transform_odd.o radial_derivatives.o\
                         RMS_helpers.o LMLoop_data.o mem_alloc.o
+updateWPS.o           : truncation.o blocking.o num_param.o\
+                        phys_param.o radial.o horizontal.o logic.o\
+                        mat.o cosine_transform_odd.o radial_derivatives.o\
+                        LMLoop_data.o mem_alloc.o
 chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\

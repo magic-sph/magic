@@ -389,7 +389,7 @@ contains
          l_temperature_diff = .true.
          l_anelastic_liquid = .false.
          l_single_matrix    = .true.
-      else if ( index(anelastic_flavour, 'SINGLEMAT') /= 0 ) then ! Testting purposes
+      else if ( index(anelastic_flavour, 'SINGLEMAT') /= 0 ) then ! Testing purposes
          l_temperature_diff = .false.
          l_anelastic_liquid = .false.
          l_single_matrix    = .true.
@@ -1026,8 +1026,10 @@ contains
       epsc0      =0.0_cp
       radratio   =0.35_cp
       !----- Anelatic stuff
-      strat      =0.0_cp
-      polind     =1.5_cp
+      DissNb     =0.0_cp  ! Dissipation number
+      ThExpNb    =1.0_cp  ! Thermal expansion * temperature
+      strat      =0.0_cp  ! Density contrast
+      polind     =1.5_cp  ! Polytropic index
       r_cut_model=0.98_cp ! outer radius when using interior model
       !----- Stably  stratified layer
       epsS       =0.0_cp

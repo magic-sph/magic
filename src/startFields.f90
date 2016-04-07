@@ -9,16 +9,19 @@ module start_fields
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: topcond, botcond, chebt_oc,         &
                                drx, ddrx, dr_fac_ic, chebt_ic,     &
-                               chebt_ic_even, r, or1
+                               chebt_ic_even, r, or1, alpha0,      &
+                               dLtemp0, dLalpha0, beta, orho1,     &
+                               temp0
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
-                                  ktopv, kbotv, LFfac, imagcon
+                                  ktopv, kbotv, LFfac, imagcon, ThExpNb, &
+                                  ViscHeatFac
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
                     l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
-                    l_rot_ma
-   use init_fields, only: l_start_file, init_s1, init_b1, tops,          &
+                    l_rot_ma, l_temperature_diff, l_single_matrix
+   use init_fields, only: l_start_file, init_s1, init_b1, tops, ps_cond, &
                           initV, initS, initB, s_cond, start_file
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
@@ -67,7 +70,7 @@ contains
     
       real(cp) :: sEA,sES,sAA
     
-      real(cp) :: s0(n_r_max),ds0(n_r_max)
+      real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
       real(cp) :: w1(n_r_max),w2(n_r_max)
     
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
@@ -82,16 +85,48 @@ contains
       !     Can be done before setting the fields
       if (l_heat) then
     
-         if ( index(interior_model,'EARTH') /= 0 ) then
-            !topcond=-one/epsS*dtemp0(1)
-            !botcond=-one/epsS*dtemp0(n_r_max)
-            topcond=one
-            botcond=one
-         else
-            call s_cond(s0)
+         if ( l_single_matrix ) then
+            call ps_cond(s0,p0)
             call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
-            topcond=-osq4pi*ds0(1)
-            botcond=-osq4pi*ds0(n_r_max)
+
+            if ( l_temperature_diff ) then
+               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+
+               topcond = -osq4pi*(  temp0(1)*dLtemp0(1)*s0(1) +             &
+                 &                  ViscHeatFac*ThExpNb*(                   &
+                 &                  alpha0(1)*temp0(1)*orho1(1)*            &
+                 &                  (dLalpha0(1)+dLtemp0(1)-beta(1))        &
+                 &                  )*                  p0(1) +             &
+                 &                  temp0(1)*          ds0(1) +             &
+                 &                  ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)* &
+                 &                  temp0(1)*          dp0(1) )
+               botcond = -osq4pi*( temp0(n_r_max)*dLtemp0(n_r_max)*         &
+                 &                                      s0(n_r_max) +       &
+                 &                  ViscHeatFac*ThExpNb*(                   &
+                 &           alpha0(n_r_max)*temp0(n_r_max)*orho1(n_r_max)* &
+                 & (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max)) )*    &
+                 &                                      p0(n_r_max) +       &
+                 &                  temp0(n_r_max)*    ds0(n_r_max) +       &
+                 &    ViscHeatFac*ThExpNb*alpha0(n_r_max)*temp0(n_r_max)*   &
+                 &                  orho1(n_r_max)*    dp0(n_r_max) )
+
+            else ! entropy diffusion
+               topcond=-osq4pi*ds0(1)
+               botcond=-osq4pi*ds0(n_r_max)
+            end if
+
+         else
+            if ( index(interior_model,'EARTH') /= 0 ) then
+               !topcond=-one/epsS*dtemp0(1)
+               !botcond=-one/epsS*dtemp0(n_r_max)
+               topcond=one
+               botcond=one
+            else
+               call s_cond(s0)
+               call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               topcond=-osq4pi*ds0(1)
+               botcond=-osq4pi*ds0(n_r_max)
+            end if
          end if
       end if
     
@@ -190,7 +225,7 @@ contains
     
             !----- Initialize/add entropy:
             if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-               call initS(s,lmStart,lmStop)
+               call initS(s,p,lmStart,lmStop)
             end if
     
             if ( DEBUG_OUTPUT ) then

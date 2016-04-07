@@ -7,14 +7,15 @@ module init_fields
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
                               phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_anelastic_liquid, &
-                    l_cond_ic
+                    l_cond_ic, l_temperature_diff, l_single_matrix
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
                                cheb_norm, lambda, or2, d2cheb, dcheb,  &
                                cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
                                d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
-                               orho1, chebt_oc, chebt_ic,              &
-                               dLtemp0, kappa, dLkappa, beta,          &
-                               epscProf
+                               orho1, chebt_oc, chebt_ic, temp0,       &
+                               dLtemp0, kappa, dLkappa, beta, dbeta,   &
+                               epscProf, ddLtemp0, ddLalpha0, rgrav,   &
+                               rho0, dLalpha0, alpha0
    use radial_data, only: n_r_icb, n_r_cmb
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
                     zero, one, two, three, four, third, half
@@ -28,10 +29,10 @@ module init_fields
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
                                   peakS, widthS, radratio, imagcon, opm,  &
                                   sigma_ratio, O_sr, kbots, ktops, opr,   &
-                                  epsc
+                                  epsc, ViscHeatFac, ThExpNb
    use algebra, only: sgesl, sgefa, cgesl
    use horizontal_data, only: D_lP1, hdif_B, dLh
-   use matrices, only: jMat, jPivot, s0Mat, s0Pivot
+   use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
@@ -76,7 +77,7 @@ module init_fields
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
 
-   public :: initialize_init_fields, initV, initS, initB, s_cond
+   public :: initialize_init_fields, initV, initS, initB, s_cond, ps_cond
 
 contains
 
@@ -334,7 +335,7 @@ contains
     
    end subroutine initV
 !--------------------------------------------------------------------
-   subroutine initS(s,lmStart,lmStop)
+   subroutine initS(s,p,lmStart,lmStop)
       !
       ! Purpose of this subroutine is to initialize the entropy field    
       ! according to the input control parameters.                       
@@ -365,12 +366,13 @@ contains
 
       !-- Output variables:
       complex(cp), intent(inout) :: s(lm_max,n_r_max)
+      complex(cp), intent(inout) :: p(lm_max,n_r_max)
 
       !-- Local variables:
       integer :: n_r,lm,l,m,lm00,lmMin
       real(cp) :: x,rr,c_r,c_i,s_r,s_i
       real(cp) :: ra1,ra2
-      real(cp) :: s0(n_r_max),s1(n_r_max)
+      real(cp) :: s0(n_r_max),p0(n_r_max),s1(n_r_max)
 
       integer :: nTheta,n,nThetaStart,nThetaB,nPhi,nS
       real(cp) :: xL,yL,zL,rH,angleL,s00,s00P
@@ -385,21 +387,32 @@ contains
 
 
       lm00=st_map%lm2(0,0)
-      lmMin=MAX(lmStart,2)
+      lmMin=max(lmStart,2)
 
       if ( .not. l_start_file ) then
 
          if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
-            if ( .not. l_anelastic_liquid ) then
-               call s_cond(s0)
-
-              !--- Initialize (l=0,m=0)-mode with s0:
-               open(unit=999, file='scond.dat')
+            if ( l_single_matrix ) then
+               call ps_cond(s0,p0)
+               open(unit=999, file='pscond.dat')
                do n_r=1,n_r_max
                   s(lm00,n_r)=s0(n_r)
-                  write(999,*) r(n_r), s0(n_r)*osq4pi
+                  p(lm00,n_r)=p0(n_r)
+                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi
                end do
                close(999)
+
+            else
+               if ( .not. l_anelastic_liquid ) then
+                  call s_cond(s0)
+
+                  open(unit=999, file='scond.dat')
+                  do n_r=1,n_r_max
+                     s(lm00,n_r)=s0(n_r)
+                     write(999,*) r(n_r), s0(n_r)*osq4pi
+                  end do
+                  close(999)
+               end if
             end if
          end if
 
@@ -1304,7 +1317,7 @@ contains
 
       !-- Set boundary conditions:
       do n_cheb=1,n_cheb_max
-         if ( ktops == 1 .or. kbots /= 1 ) then
+         if ( ktops == 1 .or. kbots == 2 ) then
             s0Mat(1,n_cheb)=cheb_norm
          else
             s0Mat(1,n_cheb)=dcheb(n_cheb,1)*cheb_norm
@@ -1343,7 +1356,7 @@ contains
       end do
        
       !-- Set boundary values:
-      if ( ktops /= 1 .AND. kbots /= 1 ) then
+      if ( ktops == 2 .and. kbots == 2 ) then
          rhs(1)=0.0_cp
       else
          rhs(1)=real(tops(0,0))
@@ -1369,5 +1382,209 @@ contains
       call chebt_oc%costf1(s0,work)
 
    end subroutine s_cond
+!--------------------------------------------------------------------------------
+   subroutine ps_cond(s0,p0)
+      !
+      ! Purpose of this subroutine is to solve the entropy equation      
+      ! for an the conductive (l=0,m=0)-mode.                            
+      ! Output is the radial dependence of the solution in s0 and p0.
+      !
+
+      real(cp), intent(out) :: s0(:) ! spherically-symmetric part
+      real(cp), intent(out) :: p0(:) ! spherically-symmetric part
+
+      !-- local variables:
+      integer :: n_cheb,nCheb_p,n_r,n_r_p,info
+      real(cp) :: rhs(2*n_r_max)
+      real(cp) :: work(n_r_max)
+
+      if ( l_temperature_diff ) then
+
+         do n_cheb=1,n_r_max
+            nCheb_p=n_cheb+n_r_max
+            do n_r=2,n_r_max
+               n_r_p=n_r+n_r_max
+
+               ! Delta T = epsc
+               ps0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
+                  &                                    d2cheb(n_cheb,n_r) +  &
+                  &      ( beta(n_r)+two*dLtemp0(n_r)+                       &
+                  &        two*or1(n_r)+dLkappa(n_r) )* dcheb(n_cheb,n_r) +  &
+                  &      ( ddLtemp0(n_r)+dLtemp0(n_r)*(                      &
+                  &  two*or1(n_r)+dLkappa(n_r)+dLtemp0(n_r)+beta(n_r) ) ) *  &
+                  &                                      cheb(n_cheb,n_r) ) 
+
+               ps0Mat(n_r,nCheb_p)=cheb_norm*opr*kappa(n_r)*                  &
+                  &       alpha0(n_r)*orho1(n_r)*ViscHeatFac*ThExpNb*(        &
+                  &                                    d2cheb(n_cheb,n_r) +   &
+                  &      ( dLkappa(n_r)+two*(dLalpha0(n_r)+dLtemp0(n_r)) -    &
+                  &        beta(n_r) +two*or1(n_r) ) *  dcheb(n_cheb,n_r) +   &
+                  & ( (dLkappa(n_r)+dLalpha0(n_r)+dLtemp0(n_r)+two*or1(n_r)) *&
+                  &        (dLalpha0(n_r)+dLtemp0(n_r)-beta(n_r)) +           &
+                  &        ddLalpha0(n_r)+ddLtemp0(n_r)-dbeta(n_r) ) *        &
+                  &                                      cheb(n_cheb,n_r) )
+
+               ! Hydrostatic equilibrium
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)*&
+               &                                    cheb(n_cheb,n_r)
+               ps0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)- &
+               &                          beta(n_r)*cheb(n_cheb,n_r) )
+
+            end do
+         end do
+
+      else ! entropy diffusion
+
+         do n_cheb=1,n_r_max
+            nCheb_p=n_cheb+n_r_max
+            do n_r=2,n_r_max
+               n_r_p=n_r+n_r_max
+
+               ! Delta T = epsc
+               ps0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
+                  &                                    d2cheb(n_cheb,n_r) +  &
+                  &      ( beta(n_r)+dLtemp0(n_r)+                           &
+                  &        two*or1(n_r)+dLkappa(n_r) )* dcheb(n_cheb,n_r) )
+
+               ps0Mat(n_r,nCheb_p)=0.0_cp
+
+               ! Hydrostatic equilibrium
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)* &
+                                                     cheb(n_cheb,n_r)
+               ps0Mat(n_r_p,nCheb_p)= cheb_norm *(  dcheb(n_cheb,n_r)- &
+               &                           beta(n_r)*cheb(n_cheb,n_r) )
+
+            end do
+         end do
+
+      end if
+
+       
+
+      !-- Set boundary conditions:
+      do n_cheb=1,n_cheb_max
+         nCheb_p=n_cheb+n_r_max
+         if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
+            ps0Mat(1,n_cheb)  =cheb_norm
+            ps0Mat(1,nCheb_p) =0.0_cp
+         else if ( ktops == 2) then ! constant entropy flux at CMB
+            ps0Mat(1,n_cheb) =dcheb(n_cheb,1)*cheb_norm
+            ps0Mat(1,nCheb_p)=0.0_cp
+         else if ( ktops == 3) then ! constant temperature at CMB
+            ps0Mat(1,n_cheb) =cheb_norm*temp0(1)
+            ps0Mat(1,nCheb_p)=cheb_norm*alpha0(1)*temp0(1)*orho1(1)* &
+            &                 ViscHeatFac*ThExpNb
+         else if ( ktops == 4) then ! constant temperature flux at CMB
+            ps0Mat(1,n_cheb)  =cheb_norm*temp0(1)*( dcheb(n_cheb,1)+ &
+              &                         dLtemp0(1)*cheb(n_cheb,1) )
+            ps0Mat(1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*   &
+              &              temp0(1)*ViscHeatFac*ThExpNb*(  &
+              &              dcheb(n_cheb,1)+(dLalpha0(1)+    &
+              &              dLtemp0(1)-beta(1))*cheb(n_cheb,1) )
+         end if
+
+         if ( kbots == 1 ) then        ! Constant entropy at ICB
+            ps0Mat(n_r_max,n_cheb) =cheb(n_cheb,n_r_max)*cheb_norm
+            ps0Mat(n_r_max,nCheb_p)=0.0_cp
+         else if ( kbots == 2 ) then   ! Constant entropy flux at ICB
+            ps0Mat(n_r_max,n_cheb) =dcheb(n_cheb,n_r_max)*cheb_norm
+            ps0Mat(n_r_max,nCheb_p)=0.0_cp
+         else if ( kbots == 3 ) then   ! Constant temperature at ICB
+            ps0Mat(n_r_max,n_cheb) =cheb_norm*cheb(n_cheb,n_r_max)*temp0(n_r_max)
+            ps0Mat(n_r_max,nCheb_p)=cheb_norm**cheb(n_cheb,n_r_max)* &
+              &                     alpha0(n_r_max)*temp0(n_r_max)*  &
+              &                     orho1(n_r_max)*ViscHeatFac*ThExpNb
+         else if ( kbots == 4 ) then   ! Constant temperature flux at ICB
+            ps0Mat(n_r_max,n_cheb)  =cheb_norm*temp0(n_r_max)*(           &
+              &                                    dcheb(n_cheb,n_r_max)+ &
+              &                     dLtemp0(n_r_max)*cheb(n_cheb,n_r_max) )
+            ps0Mat(n_r_max,nCheb_p)=cheb_norm*orho1(n_r_max)*alpha0(n_r_max)* &
+              &                      temp0(n_r_max)*ViscHeatFac*ThExpNb*(     &
+              &                                    dcheb(n_cheb,n_r_max)+     &
+              &                      (dLalpha0(n_r_max)+dLtemp0(n_r_max)-     &
+              &                       beta(n_r_max))*cheb(n_cheb,n_r_max) )
+         end if
+
+         !-- Boundary condition on spherically-symmetric pressure
+         ps0Mat(n_r_max+1,nCheb_p)=cheb_norm
+         ps0Mat(n_r_max+1,n_cheb) =0.0_cp
+         ps0Mat(2*n_r_max,n_cheb) =0.0_cp
+         ps0Mat(2*n_r_max,nCheb_p)=0.0_cp
+
+      end do
+       
+      !-- Fill with zeros:
+      if ( n_cheb_max < n_r_max ) then
+         do n_cheb=n_cheb_max+1,n_r_max
+            nCheb_p=n_cheb+n_r_max
+            ps0Mat(1,n_cheb)         =0.0_cp
+            ps0Mat(n_r_max,n_cheb)   =0.0_cp
+            ps0Mat(n_r_max+1,n_cheb) =0.0_cp
+            ps0Mat(2*n_r_max,n_cheb) =0.0_cp
+            ps0Mat(1,nCheb_p)        =0.0_cp
+            ps0Mat(n_r_max,nCheb_p)  =0.0_cp
+            ps0Mat(n_r_max+1,nCheb_p)=0.0_cp
+         end do
+      end if
+       
+      !-- Renormalize:
+      do n_r=1,n_r_max
+         n_r_p=n_r+n_r_max
+         ps0Mat(n_r,1)          =half*ps0Mat(n_r,1)
+         ps0Mat(n_r,n_r_max)    =half*ps0Mat(n_r,n_r_max)
+         ps0Mat(n_r,n_r_max+1)  =half*ps0Mat(n_r,n_r_max+1)
+         ps0Mat(n_r,2*n_r_max)  =half*ps0Mat(n_r,2*n_r_max)
+         ps0Mat(n_r_p,1)        =half*ps0Mat(n_r_p,1)
+         ps0Mat(n_r_p,n_r_max)  =half*ps0Mat(n_r_p,n_r_max)
+         ps0Mat(n_r_p,n_r_max+1)=half*ps0Mat(n_r_p,n_r_max+1)
+         ps0Mat(n_r_p,2*n_r_max)=half*ps0Mat(n_r_p,2*n_r_max)
+      end do
+       
+      !-- Invert matrix:
+      call sgefa(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,info)
+      if ( info /= 0 ) then
+         write(*,*) '! Singular Matrix ps0Mat in ps_cond!'
+         stop
+      end if
+       
+      !-- Set source terms in RHS:
+      do n_r=2,n_r_max-1
+         rhs(n_r)        =-epsc*epscProf(n_r)*orho1(n_r)
+         rhs(n_r+n_r_max)=0.0_cp
+      end do
+       
+      !-- Set boundary values:
+      if ( ktops == 2 .and. kbots == 2 ) then
+         rhs(1)=0.0_cp
+      else
+         rhs(1)=real(tops(0,0))
+      end if
+      rhs(n_r_max)=real(bots(0,0))
+
+      !-- Pressure at the top boundary
+      rhs(n_r_max+1)=0.0_cp
+       
+      !-- Solve for s0:
+      call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+       
+      !-- Copy result to s0:
+      do n_r=1,n_r_max
+         s0(n_r)=rhs(n_r)
+         p0(n_r)=rhs(n_r+n_r_max)
+      end do
+
+      !-- Set cheb-modes > n_cheb_max to zero:
+      if ( n_cheb_max < n_r_max ) then
+         do n_cheb=n_cheb_max+1,n_r_max
+            s0(n_cheb)=0.0_cp
+            p0(n_cheb)=0.0_cp
+         end do
+      end if
+       
+      !-- Transform to radial space:
+      call chebt_oc%costf1(s0,work)
+      call chebt_oc%costf1(p0,work)
+
+   end subroutine ps_cond
 !--------------------------------------------------------------------------------
 end module init_fields

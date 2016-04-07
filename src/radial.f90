@@ -188,7 +188,7 @@ contains
 
       real(cp) :: a0,a1,a2,a3,a4,a5,a6,a7,a8,a9 ! polynomial fit for density
       real(cp) :: temptop,gravtop,rhotop
-      real(cp) :: hcomp,CompNb,GrunNb
+      real(cp) :: hcomp,GrunNb,fac
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
@@ -329,10 +329,6 @@ contains
          ! Dissipation number
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -409,10 +405,6 @@ contains
          ! Inverse of the Froude number needed in the dissipation numbers
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -485,10 +477,6 @@ contains
          ! Dissipation number needed in the dissipation numbers
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -563,10 +551,6 @@ contains
          ! Dissipation number
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -641,10 +625,6 @@ contains
          ! Dissipation number
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -718,10 +698,6 @@ contains
          DissNb=alpha0(1)
          alpha0=alpha0/alpha0(1)
 
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
          ! Adiabatic: buoyancy term is linked to the temperature gradient
 
          !       dT
@@ -748,10 +724,10 @@ contains
          dentropy0=0.0_cp
 
       else if ( index(interior_model,'EARTH') /= 0 ) then
-         DissNb=0.3929_cp ! Di = \alpha_O g d / c_p
-         CompNb=0.0566_cp ! Co = \alpha_O T_O
-         GrunNb=1.5_cp ! Gruneisen paramater
-         hcomp =2.2_cp*r_cmb
+         DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
+         ThExpNb=0.0566_cp ! Co = \alpha_O T_O
+         GrunNb =1.5_cp ! Gruneisen paramater
+         hcomp  =2.2_cp*r_cmb
 
          alpha0=(one+0.6_cp*r**2/hcomp**2)/(one+0.6_cp/2.2_cp**2)
          rgrav =(r-0.6_cp*r**3/hcomp**2)/(r_cmb*(one-0.6_cp/2.2_cp**2))
@@ -766,7 +742,7 @@ contains
          !temp0=exp(temp0) ! this was ln(T_0)
          !dtemp0=dtemp0*temp0
 
-         !drho0=-CompNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*alpha0*rgrav
+         !drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*alpha0*rgrav
          !call getBackground(drho0,0.0_cp,rho0)
          !rho0=exp(rho0) ! this was ln(rho_0)
          !beta=drho0
@@ -793,7 +769,7 @@ contains
          end do
 
          dentropy0=dtemp0/temp0/epsS+DissNb*alpha0*rgrav/epsS
-         drho0=-CompNb*epsS*alpha0*temp0*dentropy0-DissNb*alpha0*rgrav/GrunNb
+         drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb*alpha0*rgrav/GrunNb
          call getBackground(drho0,0.0_cp,rho0)
          rho0=exp(rho0) ! this was ln(rho_0)
          beta=drho0
@@ -812,11 +788,6 @@ contains
          call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
                 &    w2,chebt_oc,drx)
 
-         ViscHeatFac=DissNb*pr/raScaled
-         if (l_mag) then
-            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
-         end if
-
          ! N.B. rgrav is not gravity but alpha * grav
          rgrav = BuoFac*alpha0*rgrav
 
@@ -829,15 +800,15 @@ contains
 
          if (l_anel) then
             if (l_isothermal) then
-               DissNb=strat /( g0+half*g1*(one+radratio) +g2/radratio )
-               ViscHeatFac=0.0_cp
-               temp0=one
-               rho0=exp(-DissNb*(g0*(r-r_cmb) + &
-                    g1/(two*r_cmb)*(r**2-r_cmb**2) - &
-                    g2*(r_cmb**2/r-r_cmb)))
+               fac      =strat /( g0+half*g1*(one+radratio) +g2/radratio )
+               DissNb   =0.0_cp
+               temp0    =one
+               rho0     =exp(-fac*(g0*(r-r_cmb) +      &
+                         g1/(two*r_cmb)*(r**2-r_cmb**2) - &
+                         g2*(r_cmb**2/r-r_cmb)))
 
-               beta     =-DissNb*rgrav/BuoFac
-               dbeta    =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
+               beta     =-fac*rgrav/BuoFac
+               dbeta    =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3)
                d2temp0  =0.0_cp
                dLtemp0  =0.0_cp
                ddLtemp0 =0.0_cp
@@ -845,20 +816,19 @@ contains
                dLalpha0 =0.0_cp
                ddLalpha0=0.0_cp
             else
-               DissNb=( exp(strat/polind)-one )/ &
-                 ( g0+half*g1*(one+radratio) +g2/radratio )
-               ViscHeatFac=DissNb*pr/raScaled
-               temp0=-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
-                      one + DissNb*r_cmb*(g0+half*g1-g2)
-               rho0=temp0**polind
+               DissNb   =( exp(strat/polind)-one )/ &
+                         ( g0+half*g1*(one+radratio) +g2/radratio )
+               temp0    =-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
+                         one + DissNb*r_cmb*(g0+half*g1-g2)
+               rho0     =temp0**polind
 
                !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-               beta   =-polind*DissNb*rgrav/temp0/BuoFac
-               dbeta  =-polind*DissNb/temp0**2 *       &
-                      ((g1/r_cmb-two*g2*r_cmb**2*or3)* &
-                      temp0  + DissNb*rgrav**2/BuoFac**2)
-               dtemp0 =-DissNb*rgrav/BuoFac
-               d2temp0=-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
+               beta     =-polind*DissNb*rgrav/temp0/BuoFac
+               dbeta    =-polind*DissNb/temp0**2 *         &
+                         ((g1/r_cmb-two*g2*r_cmb**2*or3)*  &
+                         temp0  + DissNb*rgrav**2/BuoFac**2)
+               dtemp0   =-DissNb*rgrav/BuoFac
+               d2temp0  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
 
                !-- Thermal expansion coefficient (1/T for an ideal gas)
                alpha0   =one/temp0
@@ -866,9 +836,6 @@ contains
                ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
                dLalpha0 =-dLtemp0
                ddLalpha0=-ddLtemp0
-            end if
-            if (l_mag) then
-               OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
             end if
          end if
       end if
@@ -882,9 +849,15 @@ contains
 
       !-- Get additional functions of r:
       if ( l_anel ) then
-         orho1=one/rho0
-         orho2=orho1*orho1
-         otemp1=one/temp0
+         orho1      =one/rho0
+         orho2      =orho1*orho1
+         otemp1     =one/temp0
+         ViscHeatFac=DissNb*pr/raScaled
+         if (l_mag) then
+            OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
+         else
+            OhmLossFac=0.0_cp
+         end if
       else
          rho0     =one
          temp0    =one
@@ -900,6 +873,8 @@ contains
          ddLtemp0 =0.0_cp
          d2temp0  =0.0_cp
          dentropy0=0.0_cp
+         ViscHeatFac=0.0_cp
+         OhmLossFac =0.0_cp
       end if
 
       !-- Factors for cheb integrals:

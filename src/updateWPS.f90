@@ -13,7 +13,7 @@ module updateWPS_mod
                              & alpha0,dLalpha0, ddLalpha0,              &
                              & kappa, orho1, dentropy0, temp0
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-                             & ViscHeatFac
+                             &    ViscHeatFac, ThExpNb
    use num_param, only: alpha
    use init_fields, only: tops,bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
@@ -116,7 +116,6 @@ contains
       !-- Local variables:
       real(cp) :: w2            ! weight of second time step
       real(cp) :: O_dt
-      real(cp) :: pressFac
       integer :: l1,m1          ! degree and order
       integer :: lm1,lm,lmB     ! position of (l,m) in array
       integer :: lmStart,lmStop ! max and min number of orders m
@@ -134,9 +133,6 @@ contains
 
       if ( .not. l_update_v ) return
 
-      pressFac = ViscHeatFac
-
-      
       nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
@@ -453,7 +449,7 @@ contains
                     &      two*or1(nR)+dLkappa(nR)+dLtemp0(nR)+beta(nR)) -  &
                     &       dLh(st_map%lm2(l1,m1))*or2(nR) ) *  &
                     &                     s(lm1,nR)  +                      &
-                    &   alpha0(nR)*orho1(nR)*pressFac*(                     &
+                    &   alpha0(nR)*orho1(nR)*ViscHeatFac*ThExpNb*(          &
                     &                 workC(lm1,nR)   +                     &
                     &     ( dLkappa(nR)+two*(dLtemp0(nR)+dLalpha0(nR))  +   &
                     &       two*or1(nR)-beta(nR) ) * dp(lm1,nR) +           &
@@ -531,9 +527,6 @@ contains
       integer :: nR,nCheb,nR_p,nR_s,nCheb_p,nCheb_s
       integer :: info
       real(cp) :: O_dt,dLh
-      real(cp) :: pressFac
-
-      pressFac = ViscHeatFac
 
       O_dt=one/dt
       dLh =real(l*(l+1),kind=cp)
@@ -580,7 +573,14 @@ contains
          else if ( ktops == 3 ) then ! fixed temperature
             wpsMat(2*n_r_max+1,nCheb_s)=cheb_norm*temp0(1)
             wpsMat(2*n_r_max+1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)* &
-                                        temp0(1)*pressFac
+                                        temp0(1)*ViscHeatFac*ThExpNb
+         else if ( ktops == 4 ) then ! fixed temperature flux
+            wpsMat(2*n_r_max+1,nCheb_s)=cheb_norm*temp0(1)*( dcheb(nCheb,1)+ &
+              &                                    dLtemp0(1)*cheb(nCheb,1) )
+            wpsMat(2*n_r_max+1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*   &
+              &                         temp0(1)*ViscHeatFac*ThExpNb*(  &
+              &                         dcheb(nCheb,1)+(dLalpha0(1)+    &
+              &                         dLtemp0(1)-beta(1))*cheb(nCheb,1) )
          end if
          wpsMat(2*n_r_max+1,nCheb)  =0.0_cp
 
@@ -591,9 +591,19 @@ contains
             wpsMat(3*n_r_max,nCheb_s)=cheb_norm*dcheb(nCheb,n_r_max)
             wpsMat(3*n_r_max,nCheb_p)=0.0_cp
          else if ( kbots == 3) then ! fixed temperature
-            wpsMat(2*n_r_max+1,nCheb_s)=cheb_norm*temp0(n_r_max)
-            wpsMat(2*n_r_max+1,nCheb_p)=cheb_norm*orho1(n_r_max)*alpha0(1)* &
-                                        temp0(1)*pressFac
+            wpsMat(3*n_r_max,nCheb_s)=cheb_norm*cheb(nCheb,n_r_max)*temp0(n_r_max)
+            wpsMat(3*n_r_max,nCheb_p)=cheb_norm*cheb(nCheb,n_r_max)* &
+              &                      orho1(n_r_max)*alpha0(n_r_max)* &
+              &                      temp0(n_r_max)*ViscHeatFac*ThExpNb
+         else if ( kbots == 4) then ! fixed temperature flux
+            wpsMat(3*n_r_max,nCheb_s)=cheb_norm*temp0(n_r_max)*(            &
+              &                                       dcheb(nCheb,n_r_max)+ &
+              &                       dLtemp0(n_r_max)*cheb(nCheb,n_r_max) )
+            wpsMat(3*n_r_max,nCheb_p)=cheb_norm*orho1(n_r_max)*alpha0(n_r_max)* &
+              &                         temp0(n_r_max)*ViscHeatFac*ThExpNb*(    &
+              &                                       dcheb(nCheb,n_r_max)+     &
+              &                         (dLalpha0(n_r_max)+dLtemp0(n_r_max)-    &
+              &                         beta(n_r_max))*cheb(nCheb,n_r_max) )
          end if
          wpsMat(3*n_r_max,nCheb)  =0.0_cp
 
@@ -676,7 +686,7 @@ contains
                &           dLh*or2(nR) )*           cheb(nCheb,nR) ) )
 
                wpsMat(nR_s,nCheb_p)= -alpha*cheb_norm*hdif*kappa(nR)*   &
-               &      opr*alpha0(nR)*orho1(nR)*pressFac*(               &
+               &      opr*alpha0(nR)*orho1(nR)*ViscHeatFac*ThExpNb*(    &
                &                                  d2cheb(nCheb,nR) +    &
                &      ( dLkappa(nR)+two*(dLalpha0(nR)+dLtemp0(nR)) -    &
                &        beta(nR) +two*or1(nR) ) *  dcheb(nCheb,nR) +    &
@@ -814,9 +824,6 @@ contains
       !-- Local variables:
       integer :: info,nCheb,nCheb_p,nR,nR_p
       real(cp) :: O_dt
-      real(cp) :: pressFac
-
-      pressFac = ViscHeatFac
 
       O_dt=one/dt
 
@@ -837,7 +844,7 @@ contains
                &                                    cheb(nCheb,nR) ) )
 
                psMat(nR,nCheb_p)= -alpha*cheb_norm*kappa(nR)*opr*       &
-               &     alpha0(nR)*orho1(nR)*pressFac*(                    &
+               &     alpha0(nR)*orho1(nR)*ViscHeatFac*ThExpNb*(         &
                &                                  d2cheb(nCheb,nR) +    &
                &      ( dLkappa(nR)+two*(dLalpha0(nR)+dLtemp0(nR)) -    &
                &        beta(nR) +two*or1(nR) ) *  dcheb(nCheb,nR) +    &
@@ -867,7 +874,8 @@ contains
                  &                                 dcheb(nCheb,nR) ) )
                psMat(nR,nCheb_p)  =0.0_cp ! entropy diffusion
 
-               psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*rgrav(nR)*cheb(nCheb,nR)
+               psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*rgrav(nR)* &
+               &                              cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm*alpha*( dcheb(nCheb,nR)- &
                                      beta(nR)*cheb(nCheb,nR) )
             end do
@@ -891,7 +899,16 @@ contains
          else if ( ktops == 3) then
             !--------- Constant temperature at CMB:
             psMat(1,nCheb)  =cheb_norm*temp0(1)
-            psMat(1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*temp0(1)*pressFac
+            psMat(1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*temp0(1)* &
+            &                ViscHeatFac*ThExpNb
+         else if ( ktops == 4) then
+            !--------- Constant temperature flux at CMB:
+            psMat(1,nCheb)  =cheb_norm*temp0(1)*( dcheb(nCheb,1)+ &
+              &                         dLtemp0(1)*cheb(nCheb,1) )
+            psMat(1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*   &
+              &              temp0(1)*ViscHeatFac*ThExpNb*(  &
+              &              dcheb(nCheb,1)+(dLalpha0(1)+    &
+              &              dLtemp0(1)-beta(1))*cheb(nCheb,1) )
          end if
 
          psMat(n_r_max+1,nCheb_p)=cheb_norm
@@ -909,9 +926,20 @@ contains
             psMat(n_r_max,nCheb_p)=0.0_cp
          else if ( kbots == 3) then
             !--------- Constant temperature at ICB:
-            psMat(n_r_max,nCheb)  =cheb_norm*temp0(n_r_max)
-            psMat(n_r_max,nCheb_p)=cheb_norm*alpha0(n_r_max)*temp0(n_r_max)* &
-                                   orho1(n_r_max)*pressFac
+            psMat(n_r_max,nCheb)  =cheb_norm*cheb(nCheb,n_r_max)*temp0(n_r_max)
+            psMat(n_r_max,nCheb_p)=cheb_norm*cheb(nCheb,n_r_max)*   &
+              &                    alpha0(n_r_max)*temp0(n_r_max)*  &
+              &                    orho1(n_r_max)*ViscHeatFac*ThExpNb
+         else if ( kbots == 4) then
+            !--------- Constant temperature flux at ICB:
+            psMat(n_r_max,nCheb)  =cheb_norm*temp0(n_r_max)*(            &
+              &                                    dcheb(nCheb,n_r_max)+ &
+              &                     dLtemp0(n_r_max)*cheb(nCheb,n_r_max) )
+            psMat(n_r_max,nCheb_p)=cheb_norm*orho1(n_r_max)*alpha0(n_r_max)* &
+              &                      temp0(n_r_max)*ViscHeatFac*ThExpNb*(    &
+              &                                    dcheb(nCheb,n_r_max)+     &
+              &                      (dLalpha0(n_r_max)+dLtemp0(n_r_max)-    &
+              &                       beta(n_r_max))*cheb(nCheb,n_r_max) )
          end if
       end do
 

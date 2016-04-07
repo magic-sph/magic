@@ -22,7 +22,7 @@ module output_mod
                    & s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
                    & db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
                    & b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
-                   & dj_ic_LMloc, ddj_ic_LMloc
+                   & dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc
    use fieldsLast, only: dwdtLast, dzdtLast, dpdtLast, dsdtLast, dbdtLast,  &
                        & djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
                        & dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
@@ -424,7 +424,7 @@ contains
          !----- Write misc. output:
          call outMisc( timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,      &
               &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc, &
-              &        s_LMloc,ds_LMloc,Geos,dpV,dzV)
+              &        s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,Geos,dpV,dzV)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outMisc  on rank ",rank
   
          if ( l_mag .or. l_mag_LF ) then 

@@ -354,8 +354,13 @@ contains
             facIH=mass*vol_oc
          end if
     
-         if ( ktops == 1 .and. kbots == 1 ) then
+         if ( ktops == 1 .and. kbots == 1 ) then ! Fixed entropy
     
+            tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+            bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+
+         else if ( ktops == 3 .and. kbots == 3 ) then ! Fixed temperature contrast
+
             tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
     

@@ -5,14 +5,15 @@ module outMisc_mod
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use radial_functions, only: botcond, r_icb, dr_fac, chebt_oc, &
-                               topcond, kappa, r_cmb,  &
-                               temp0, r, rho0
-   use physical_parameters, only: epsS
+                               topcond, kappa, r_cmb,temp0, r,   &
+                               rho0, dLtemp0, dLalpha0, beta,    &
+                               orho1, alpha0
+   use physical_parameters, only: epsS, ViscHeatFac, ThExpNb
    use num_param, only: lScale
    use blocking, only: lo_map, nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_par, &
-                    l_hel, l_heat
+                    l_hel, l_heat, l_temperature_diff
    use output_data, only: tag, misc_file, n_misc_file
    use Egeos_mod, only: getEgeos
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
@@ -30,7 +31,7 @@ module outMisc_mod
 contains
 
    subroutine outMisc(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr, &
-     &             nLogs,w,dw,ddw,z,dz,s,ds,Geos,dpFlow,dzFlow)
+              &       nLogs,w,dw,ddw,z,dz,s,ds,p,dp,Geos,dpFlow,dzFlow)
 
       !-- Input of variables:
       real(cp),    intent(in) :: timeScaled
@@ -43,6 +44,8 @@ contains
       !-- Input of scalar fields:
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dp(llm:ulm,n_r_max)
       !---- Fields transfered to getEgeos:
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
@@ -255,20 +258,49 @@ contains
       if ( rank == 0 ) then
          !-- Evaluate nusselt numbers (boundary heat flux density):
          if ( topcond/=0.0_cp .and. l_heat ) then
-            if ( l_anelastic_liquid ) then
-               botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale+one
-               topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale+one
-               botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
-                        *r_icb**2*four*pi*kappa(n_r_max)
-               topflux=-rho0(1)*real(ds(1,1))*osq4pi &
-                        *r_cmb**2*four*pi*kappa(1)
-            else
-               botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
-               topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
-               botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))/lScale* &
-                        r_icb**2*sq4pi*kappa(n_r_max)
-               topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
-                        sq4pi*kappa(1)
+
+            if ( l_temperature_diff ) then
+
+               botnuss=-osq4pi/botcond*  (temp0(n_r_icb)*dLtemp0(n_r_icb)*  &
+                 &                              real( s(1,n_r_icb)) +       &
+                 &                  ViscHeatFac*ThExpNb*(                   &
+                 &         alpha0(n_r_icb)*temp0(n_r_icb)*orho1(n_r_icb)*(  &  
+                 &     dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb)) )* &  
+                 &                              real( p(1,n_r_icb)) +       &
+                 &               temp0(n_r_icb)*real(ds(1,n_r_icb)) +       &
+                 &     ViscHeatFac*ThExpNb*alpha0(n_r_icb)*temp0(n_r_icb)*  &
+                 &                  orho1(n_r_icb)*real(dp(1,n_r_icb)) ) / lScale
+               topnuss=-osq4pi/topcond*  (temp0(n_r_cmb)*dLtemp0(n_r_cmb)*  &
+                 &                              real( s(1,n_r_cmb)) +       &
+                 &                  ViscHeatFac*ThExpNb*(                   &
+                 &         alpha0(n_r_cmb)*temp0(n_r_cmb)*orho1(n_r_cmb)*(  &  
+                 &     dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb)) )* &  
+                 &                              real( p(1,n_r_cmb)) +       &
+                 &               temp0(n_r_cmb)*real(ds(1,n_r_cmb)) +       &
+                 &    ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*temp0(n_r_cmb)*   &
+                 &                  orho1(n_r_cmb)*real(dp(1,n_r_cmb)) ) / lScale
+               botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
+                 &     botnuss*botcond*lScale
+               topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
+                 &     topnuss*topcond*lScale
+            else ! entropy diffusion
+
+               if ( l_anelastic_liquid ) then
+                  botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
+                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
+                  botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
+                           *r_icb**2*four*pi*kappa(n_r_max)
+                  topflux=-rho0(1)*real(ds(1,1))*osq4pi &
+                           *r_cmb**2*four*pi*kappa(1)
+               else
+                  botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
+                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
+                  botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))/lScale* &
+                           r_icb**2*sq4pi*kappa(n_r_max)
+                  topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
+                           sq4pi*kappa(1)
+               end if
+
             end if
          else
             botnuss=0.0_cp
