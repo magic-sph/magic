@@ -186,14 +186,12 @@ contains
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
-      real(cp) :: a0,a1,a2,a3,a4,a5,a6,a7,a8,a9 ! polynomial fit for density
-      real(cp) :: temptop,gravtop,rhotop
       real(cp) :: hcomp,GrunNb,fac
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
-      real(cp) :: rrOcmb,rStrat
-      real(cp) :: gravFit(n_r_max),rhoFit(n_r_max) ! normalised to rcmb
+      real(cp) :: rStrat
+      real(cp), allocatable :: coeffDens(:), coeffTemp(:)
       real(cp) :: w1(n_r_max),w2(n_r_max)
 
 #if 0
@@ -277,451 +275,82 @@ contains
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
 
-         a0=-122.36071577_cp
-         a1= 440.86067831_cp
-         a2=-644.82401602_cp
-         a3= 491.00495215_cp
-         a4=-201.96655354_cp
-         a5=  37.38863965_cp
-         a6=  -4.60312999_cp
-         a7=   4.46020423_cp
+         coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
+            &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
+            &         440.86067831_cp, -122.36071577_cp] 
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a7 + a6*rrOcmb   + a5*rrOcmb**2 + a4*rrOcmb**3 &
-                             + a3*rrOcmb**4+ a2*rrOcmb**5 + a1*rrOcmb**6 &
-                             + a0*rrOcmb**7
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffTemp = [0.999735638_cp, 0.0111053831_cp, 2.70889691_cp,  &
+            &         -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
+            &         3774.39367_cp, -4159.56327_cp, 2447.75300_cp,    &
+            &         -596.464198_cp]
 
-         a0= -596.464198_cp
-         a1=  2447.75300_cp
-         a2= -4159.56327_cp
-         a3=  3774.39367_cp
-         a4= -1959.41844_cp
-         a5=  573.151526_cp
-         a6= -83.5604443_cp
-         a7=  2.70889691_cp
-         a8=0.0111053831_cp
-         a9= 0.999735638_cp
+         call polynomialBackground(coeffDens,coeffTemp)
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r) = a9 + a8*rrOcmb    + a7*rrOcmb**2 + a6*rrOcmb**3 &
-                            + a5*rrOcmb**4 + a4*rrOcmb**5 + a3*rrOcmb**6 &
-                            + a2*rrOcmb**7 + a1*rrOcmb**8 + a0*rrOcmb**9
-         end do
-
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Dissipation number
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  -Di * alpha_T * T * grav
-         !       dr
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
-         
       else if ( index(interior_model,'SAT') /= 0 ) then
 
          ! the shell can't be thicker than eta=0.15, because the fit doesn't 
          ! work below that (in Nadine's profile, that's where the IC is anyway)
          ! also r_cut_model maximum is 0.999, because rho is negative beyond
          ! that
-         a0= 0.34973134_cp
-         a1= -0.9265371_cp
-         a2= 0.90904075_cp
-         a3=-0.33233543_cp
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a3 + a2*rrOcmb    + a1*rrOcmb**2 + a0*rrOcmb**3
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffDens = [-0.33233543_cp, 0.90904075_cp, -0.9265371_cp, &
+                      0.34973134_cp ]
 
-         a8= 1.00294605_cp
-         a7=-0.44357815_cp
-         a6= 13.9295826_cp
-         a5=-137.051347_cp
-         a4= 521.181670_cp
-         a3=-1044.41528_cp
-         a2= 1166.04926_cp
-         a1=-683.198387_cp
-         a0= 162.962632_cp
+         coeffTemp = [1.00294605_cp,-0.44357815_cp,13.9295826_cp,  &
+            &         -137.051347_cp,521.181670_cp,-1044.41528_cp, &
+            &         1166.04926_cp,-683.198387_cp, 162.962632_cp ]
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a8 + a7*rrOcmb    + a6*rrOcmb**2 + a5*rrOcmb**3 &
-                           + a4*rrOcmb**4 + a3*rrOcmb**5 + a2*rrOcmb**6 &
-                           + a1*rrOcmb**7 + a0*rrOcmb**8
-         end do
+         call polynomialBackground(coeffDens,coeffTemp)
 
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Inverse of the Froude number needed in the dissipation numbers
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  Di * alpha_T * T * grav
-         !       dr
-
-         ! N.B. rgrav is not gravity but the whole RHS !!!
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
 
       else if ( index(interior_model,'SUN') /= 0 ) then
 
          ! rho is negative beyond r_cut_model=0.9965
          ! radratio should be 0.7 (size of the Sun's CZ)
-         a5= -24.83750402_cp
-         a4= 231.79029994_cp
-         a3=-681.72774358_cp
-         a2= 918.30741266_cp
-         a1=-594.30093367_cp
-         a0= 150.76802942_cp
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
-                             + a1*rrOcmb**4 + a0*rrOcmb**5 
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffDens = [-24.83750402_cp, 231.79029994_cp, -681.72774358_cp, &
+            &         918.30741266_cp,-594.30093367_cp, 150.76802942_cp ]
 
-         a3= 5.53715416_cp
-         a2=-8.10611274_cp
-         a1=  1.7350452_cp
-         a0= 0.83470843_cp
+         coeffTemp = [5.53715416_cp, -8.10611274_cp, 1.7350452_cp, &
+            &         0.83470843_cp]
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r) = a3 + a2*rrOcmb    + a1*rrOcmb**2 + a0*rrOcmb**3
-         end do
-
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Dissipation number needed in the dissipation numbers
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  -Di * alpha_T * T * grav
-         !       dr
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
+         call polynomialBackground(coeffDens,coeffTemp)
 
       else if ( index(interior_model,'GLIESE229B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.52
 
-         a7=  0.99879163_cp
-         a6=  0.15074601_cp
-         a5= -4.20328423_cp
-         a4=  6.43542034_cp
-         a3=-12.67297113_cp
-         a2= 21.68593078_cp
-         a1=-17.74832309_cp
-         a0=  5.35405134_cp
+         coeffDens = [0.99879163_cp,0.15074601_cp,-4.20328423_cp,   &
+            &         6.43542034_cp,-12.67297113_cp,21.68593078_cp, &
+            &         -17.74832309_cp,5.35405134_cp]
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a7 + a6*rrOcmb    + a5*rrOcmb**2 + a4*rrOcmb**3 &
-                             + a3*rrOcmb**4 + a2*rrOcmb**5 + a1*rrOcmb**6 &
-                             + a0*rrOcmb**7
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffTemp = [0.99784506_cp,0.16540448_cp,-3.44594354_cp,   &
+            &         3.68189750_cp,-1.39046384_cp]
 
-         a4= 0.99784506_cp
-         a3= 0.16540448_cp
-         a2=-3.44594354_cp
-         a1= 3.68189750_cp
-         a0=-1.39046384_cp
-
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a4 + a3*rrOcmb    + a2*rrOcmb**2 + a1*rrOcmb**3 &
-                           + a0*rrOcmb**4
-         end do
-
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Dissipation number
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  -Di * alpha_T * T * grav
-         !       dr
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
+         call polynomialBackground(coeffDens,coeffTemp)
 
       else if ( index(interior_model,'COROT3B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.62
 
-         a6= 1.00035987_cp
-         a5=-0.01294658_cp
-         a4=-2.78586315_cp
-         a3= 0.70289860_cp
-         a2= 2.59463562_cp
-         a1=-1.65868190_cp
-         a0= 0.15984718_cp
+         coeffDens = [1.00035987_cp,-0.01294658_cp,-2.78586315_cp,  &
+            &         0.70289860_cp,2.59463562_cp,-1.65868190_cp,   &
+            &         0.15984718_cp]
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a6 + a5*rrOcmb    + a4*rrOcmb**2 + a3*rrOcmb**3 &
-                             + a2*rrOcmb**4 + a1*rrOcmb**5 + a0*rrOcmb**6
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffTemp = [1.00299303_cp,-0.33722671_cp,1.71340063_cp,     & 
+            &         -12.50287121_cp,21.52708693_cp,-14.91959338_cp, &
+            &         3.52970611_cp]
 
-         a6=  1.00299303_cp
-         a5= -0.33722671_cp
-         a4=  1.71340063_cp
-         a3=-12.50287121_cp
-         a2= 21.52708693_cp
-         a1=-14.91959338_cp
-         a0=  3.52970611_cp
-
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a6 + a5*rrOcmb    + a4*rrOcmb**2 + a3*rrOcmb**3 &
-                           + a2*rrOcmb**4 + a1*rrOcmb**5 + a0*rrOcmb**6
-         end do
-
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Dissipation number
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  -Di * alpha_T * T * grav
-         !       dr
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
+         call polynomialBackground(coeffDens,coeffTemp)
 
       else if ( index(interior_model,'KOI889B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.68
 
-         a5= 1.01038678_cp
-         a4=-0.17615484_cp
-         a3=-1.50567127_cp
-         a2=-1.65738032_cp
-         a1= 4.20394427_cp
-         a0=-1.87394994_cp
+         coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
+            &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
 
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            rhoFit(n_r) = a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
-                             + a1*rrOcmb**4 + a0*rrOcmb**5
-            gravFit(n_r)=four*rrOcmb - three*rrOcmb**2
-         end do
+         coeffTemp = [1.02100249_cp,-0.60750867_cp,3.23371939_cp,   &
+            &         -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
 
-         a5=  1.02100249_cp
-         a4= -0.60750867_cp
-         a3=  3.23371939_cp
-         a2=-12.80774142_cp
-         a1= 15.37629271_cp
-         a0= -6.19288785_cp
-
-         do n_r=1,n_r_max
-            rrOcmb = r(n_r)/r_cmb*r_cut_model
-            temp0(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 + a2*rrOcmb**3 &
-                           + a1*rrOcmb**4 + a0*rrOcmb**5
-         end do
-
-         ! To normalise to the outer radius
-         temptop=temp0(1)
-         rhotop=rhoFit(1)
-         gravtop=gravFit(1)
-
-         temp0  =temp0/temptop
-         gravFit=gravFit/gravtop
-
-         ! Derivative of the temperature needed to get alpha_T
-         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-
-         alpha0=-dtemp0/(gravFit*temp0)
-
-         ! Dissipation number
-         DissNb=alpha0(1)
-         alpha0=alpha0/alpha0(1)
-
-         ! Adiabatic: buoyancy term is linked to the temperature gradient
-
-         !       dT
-         !      ---- =  -Di * alpha_T * T * grav
-         !       dr
-         rgrav=-BuoFac*dtemp0/DissNb
-         rho0=rhoFit/rhotop
-
-         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-                     w2,chebt_oc,drx)
-         beta=drho0/rho0
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                     w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dentropy0=0.0_cp
+         call polynomialBackground(coeffDens,coeffTemp)
 
       else if ( index(interior_model,'EARTH') /= 0 ) then
          DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
@@ -1202,5 +831,75 @@ contains
       call chebt_oc%costf1(output,tmp)
 
    end subroutine getBackground
+!------------------------------------------------------------------------------
+   subroutine polynomialBackground(coeffDens,coeffTemp)
+      !
+      ! This subroutine allows to calculate a reference state based on an input
+      ! polynomial function.
+      !
+
+      !-- Input variables
+      real(cp), intent(in) :: coeffDens(:)
+      real(cp), intent(in) :: coeffTemp(:)
+
+      !-- Local variables
+      real(cp) :: rrOcmb(n_r_max),gravFit(n_r_max)
+      real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
+      real(cp) :: w1(n_r_max),w2(n_r_max)
+
+      integer ::  nDens,nTemp,i
+
+      nDens = size(coeffDens)
+      nTemp = size(coeffTemp)
+      rrOcmb(:) = r(:)*r_cut_model/r_cmb
+      gravFit(:)=four*rrOcmb(:)-three*rrOcmb(:)**2
+
+      do i=1,nDens
+         rho0(:) = rho0(:)+coeffDens(i)*rrOcmb(:)**(i-1)
+      end do
+
+      do i=1,nTemp
+         temp0(:) = temp0(:)+coeffTemp(i)*rrOcmb(:)**(i-1)
+      end do
+      
+      ! Normalise to the outer radius
+      temp0  =temp0/temp0(1)
+      rho0   =rho0/rho0(1)
+      gravFit=gravFit/gravFit(1)
+
+      ! Derivative of the temperature needed to get alpha_T
+      call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
+                  w2,chebt_oc,drx)
+
+      alpha0=-dtemp0/(gravFit*temp0)
+
+      ! Dissipation number
+      DissNb=alpha0(1)
+      alpha0=alpha0/alpha0(1)
+
+      ! Adiabatic: buoyancy term is linked to the temperature gradient
+
+      !       dT
+      !      ---- =  -Di * alpha_T * T * grav
+      !       dr
+      rgrav=-BuoFac*dtemp0/DissNb
+
+      call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
+             &    w2,chebt_oc,drx)
+      beta=drho0/rho0
+      call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+             &     w2,chebt_oc,drx)
+      call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+             &  w2,chebt_oc,drx)
+      call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+             &    w2,chebt_oc,drx)
+      dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+      call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+             &    w2,chebt_oc,drx)
+      dLtemp0 = dtemp0/temp0
+      call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+             &    w2,chebt_oc,drx)
+      dentropy0=0.0_cp
+   end subroutine polynomialBackground
 !------------------------------------------------------------------------------
 end module radial_functions
