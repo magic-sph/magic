@@ -62,7 +62,7 @@ contains
     
       !-- Local variables:
       integer :: nR,l1m0,nLMB,l,m
-      integer :: lm
+      integer :: lm, n_r
       integer :: lmStart,lmStop
       real(cp) :: coex
       real(cp) :: d_omega_ma_dt,d_omega_ic_dt
@@ -87,6 +87,14 @@ contains
     
          if ( l_single_matrix ) then
             call ps_cond(s0,p0)
+            open(unit=999, file='pscond.dat')
+            do n_r=1,n_r_max
+               write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi, &
+                            osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
+                            orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac)
+            end do
+            close(999)
+
             call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
 
             if ( l_temperature_diff ) then

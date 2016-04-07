@@ -854,6 +854,10 @@ contains
       rrOcmb(:) = r(:)*r_cut_model/r_cmb
       gravFit(:)=four*rrOcmb(:)-three*rrOcmb(:)**2
 
+      ! Set to zero initially
+      rho0(:) =0.0_cp
+      temp0(:)=0.0_cp
+
       do i=1,nDens
          rho0(:) = rho0(:)+coeffDens(i)*rrOcmb(:)**(i-1)
       end do
@@ -899,7 +903,8 @@ contains
       dLtemp0 = dtemp0/temp0
       call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
              &    w2,chebt_oc,drx)
-      dentropy0=0.0_cp
+      dentropy0(:)=0.0_cp
+
    end subroutine polynomialBackground
 !------------------------------------------------------------------------------
 end module radial_functions

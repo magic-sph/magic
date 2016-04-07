@@ -398,7 +398,9 @@ contains
                do n_r=1,n_r_max
                   s(lm00,n_r)=s0(n_r)
                   p(lm00,n_r)=p0(n_r)
-                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi
+                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi, &
+                               osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
+                               orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac)
                end do
                close(999)
 
@@ -1478,7 +1480,7 @@ contains
             ps0Mat(1,n_cheb)  =cheb_norm*temp0(1)*( dcheb(n_cheb,1)+ &
               &                         dLtemp0(1)*cheb(n_cheb,1) )
             ps0Mat(1,nCheb_p)=cheb_norm*orho1(1)*alpha0(1)*   &
-              &              temp0(1)*ViscHeatFac*ThExpNb*(  &
+              &              temp0(1)*ViscHeatFac*ThExpNb*(   &
               &              dcheb(n_cheb,1)+(dLalpha0(1)+    &
               &              dLtemp0(1)-beta(1))*cheb(n_cheb,1) )
          end if
@@ -1491,7 +1493,7 @@ contains
             ps0Mat(n_r_max,nCheb_p)=0.0_cp
          else if ( kbots == 3 ) then   ! Constant temperature at ICB
             ps0Mat(n_r_max,n_cheb) =cheb_norm*cheb(n_cheb,n_r_max)*temp0(n_r_max)
-            ps0Mat(n_r_max,nCheb_p)=cheb_norm**cheb(n_cheb,n_r_max)* &
+            ps0Mat(n_r_max,nCheb_p)=cheb_norm*cheb(n_cheb,n_r_max)*  &
               &                     alpha0(n_r_max)*temp0(n_r_max)*  &
               &                     orho1(n_r_max)*ViscHeatFac*ThExpNb
          else if ( kbots == 4 ) then   ! Constant temperature flux at ICB
@@ -1554,7 +1556,7 @@ contains
       end do
        
       !-- Set boundary values:
-      if ( ktops == 2 .and. kbots == 2 ) then
+      if ( (ktops==2 .and. kbots==2) .or. (ktops==4 .and. kbots==4) ) then
          rhs(1)=0.0_cp
       else
          rhs(1)=real(tops(0,0))

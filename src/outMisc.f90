@@ -257,6 +257,14 @@ contains
     
       if ( rank == 0 ) then
          !-- Evaluate nusselt numbers (boundary heat flux density):
+         open(unit=999, file='radialProfs.dat')
+         do n_r=1,n_r_max
+            write(999,*) r(n_r), osq4pi*real(s(1,n_r)), osq4pi*real(p(1,n_r)), &
+            &            osq4pi*temp0(n_r)*(real(s(1,n_r))+alpha0(n_r)*        &
+            &            orho1(n_r)*real(p(1,n_r))*ViscHeatFac*ThExpNb)
+         end do
+         close(999)
+
          if ( topcond/=0.0_cp .and. l_heat ) then
 
             if ( l_temperature_diff ) then
