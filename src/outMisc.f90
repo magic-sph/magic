@@ -12,8 +12,8 @@ module outMisc_mod
    use radial_functions, only: r_icb, dr_fac, chebt_oc, kappa,   &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
-       &                       otemp1
-   use physical_parameters, only: ViscHeatFac, ThExpNb
+       &                       otemp1, drx
+   use physical_parameters, only: ViscHeatFac, ThExpNb, GrunNb
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
@@ -24,7 +24,7 @@ module outMisc_mod
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond
    use useful, only: cc2real
-   use integration, only: rInt
+   use integration, only: rInt, rInt_R
    use LMLoop_data,only: llm,ulm
    use legendre_spec_to_grid, only: lmAS2pt
 
@@ -257,30 +257,38 @@ contains
       complex(cp), intent(in) :: dp(llm:ulm,n_r_max)
     
       !-- Local stuff:
+      real(cp) :: rhoprime(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
       real(cp) :: toptemp,bottemp
-      real(cp) :: toppres,botpres
+      real(cp) :: toppres,botpres,mass
       real(cp) :: topentropy,botentropy
-      real(cp) :: topflux,botflux
+      real(cp) :: topflux,botflux,ogrun
       character(len=76) :: filename
       integer :: n_r, filehandle
-    
-    
+
       if ( rank == 0 ) then
+
+         ogrun = one/GrunNb
 
          if ( l_anelastic_liquid ) then
             do n_r=1,n_r_max
-               TMeanR(n_r) = TMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
-               PMeanR(n_r) = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
-               SMeanR(n_r) = otemp1(n_r)*TMeanR(n_r)-ViscHeatFac*ThExpNb* &
-               &             alpha0(n_r)*orho1(n_r)*PMeanR(n_r)
+               TMeanR(n_r)   = TMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
+               PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
+               SMeanR(n_r)   = otemp1(n_r)*TMeanR(n_r)-ViscHeatFac*ThExpNb* &
+               &               alpha0(n_r)*orho1(n_r)*PMeanR(n_r)
+               rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+                  &            real(s(1,n_r))+ViscHeatFac*   &
+                  &            ogrun*real(p(1,n_r)) )
             end do
          else
             do n_r=1,n_r_max
-               SMeanR(n_r) = SMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
-               PMeanR(n_r) = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
-               TMeanR(n_r) = temp0(n_r)*SMeanR(n_r)+ViscHeatFac*ThExpNb* &
-               &             alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
+               SMeanR(n_r)   = SMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
+               PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
+               TMeanR(n_r)   = temp0(n_r)*SMeanR(n_r)+ViscHeatFac*ThExpNb* &
+                  &            alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
+               rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+                  &            temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
+                  &            ogrun*real(p(1,n_r)) )
             end do
          end if
 
@@ -383,15 +391,17 @@ contains
             topentropy=0.0_cp
             deltanuss =0.0_cp
          end if
+
+         mass=four*pi*rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
     
          if ( l_save_out ) then
             open(n_heat_file, file=heat_file, status='unknown', position='append')
          end if
 
-         write(n_heat_file,'(1P,ES20.12,10ES16.8)')        &
+         write(n_heat_file,'(1P,ES20.12,11ES16.8)')       &
               & time, botnuss, topnuss, deltanuss,        &
               & bottemp, toptemp, botentropy, topentropy, &
-              & botflux, topflux, toppres
+              & botflux, topflux, toppres, mass
 
          if ( l_save_out ) close(n_heat_file)
 

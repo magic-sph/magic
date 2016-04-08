@@ -17,6 +17,7 @@ module radial_functions
    use cosine_transform_even
    use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
+   use useful, only: logWrite
  
    implicit none
 
@@ -184,13 +185,14 @@ contains
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
-      real(cp) :: hcomp,GrunNb,fac
+      real(cp) :: hcomp,fac
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
       real(cp) :: rStrat
       real(cp), allocatable :: coeffDens(:), coeffTemp(:)
       real(cp) :: w1(n_r_max),w2(n_r_max)
+      character(len=80) :: message
 
 #if 0
       integer :: filehandle
@@ -426,9 +428,11 @@ contains
          dentropy0=0.0_cp
 
          if (l_anel) then
-            if (l_isothermal) then
+            if (l_isothermal) then ! Gruneisen is zero in this limit
                fac      =strat /( g0+half*g1*(one+radratio) +g2/radratio )
                DissNb   =0.0_cp
+               GrunNb   =0.0_cp
+               ThExpNb  =one
                temp0    =one
                rho0     =exp(-fac*(g0*(r-r_cmb) +      &
                          g1/(two*r_cmb)*(r**2-r_cmb**2) - &
@@ -443,8 +447,15 @@ contains
                dLalpha0 =0.0_cp
                ddLalpha0=0.0_cp
             else
-               DissNb   =( exp(strat/polind)-one )/ &
+               if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
+                  strat = polind* log(( g0+half*g1*(one+radratio)+g2/radratio )* &
+                                      DissNb+1)
+               else
+                  DissNb=( exp(strat/polind)-one )/ &
                          ( g0+half*g1*(one+radratio) +g2/radratio )
+               end if
+               GrunNb   =one/polind
+               ThExpNb  =one
                temp0    =-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
                          one + DissNb*r_cmb*(g0+half*g1-g2)
                rho0     =temp0**polind
@@ -472,6 +483,23 @@ contains
       if ( .not. l_heat ) then
          rgrav=0.0_cp
          agrav=0.0_cp
+      end if
+
+      if ( l_anel ) then
+         call logWrite('')
+         call logWrite('!      This is an anelastic model')
+         call logWrite('! The key parameters are the following')
+         write(message,'(''!      DissNb ='',ES16.6)') DissNb
+         call logWrite(message)
+         write(message,'(''!      ThExpNb='',ES16.6)') ThExpNb
+         call logWrite(message)
+         write(message,'(''!      GrunNb ='',ES16.6)') GrunNb
+         call logWrite(message)
+         write(message,'(''!      N_rho  ='',ES16.6)') strat
+         call logWrite(message)
+         write(message,'(''!      pol_ind='',ES16.6)') polind
+         call logWrite(message)
+         call logWrite('')
       end if
 
       !-- Get additional functions of r:

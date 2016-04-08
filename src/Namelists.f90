@@ -67,7 +67,7 @@ contains
          & s_top,s_bot,impS,sCMB,                             &
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
          & con_LambdaOut,con_FuncWidth,                       &
-         & strat,polind,g0,g1,g2,r_cut_model,                 &
+         & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
          & epsS,slopeStrat,cmbHflux,r_LCR,                    &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
          & l_isothermal
@@ -407,7 +407,12 @@ contains
 
       call capitalize(interior_model)
 
-      if ( strat > 0.0_cp ) l_anel= .true. 
+      if ( strat > 0.0_cp .and. DissNb > 0.0_cp ) then
+         write(*,*) '! Please give either strat or DissNb in the input Namelist!'
+         stop
+      end if
+
+      if ( strat > 0.0_cp .or. DissNb > 0.0_cp ) l_anel= .true. 
 
       if ( index(interior_model,'EARTH') /= 0 ) then
          l_anel=.true.
@@ -1026,11 +1031,12 @@ contains
       epsc0      =0.0_cp
       radratio   =0.35_cp
       !----- Anelatic stuff
-      DissNb     =0.0_cp  ! Dissipation number
-      ThExpNb    =1.0_cp  ! Thermal expansion * temperature
-      strat      =0.0_cp  ! Density contrast
-      polind     =1.5_cp  ! Polytropic index
-      r_cut_model=0.98_cp ! outer radius when using interior model
+      DissNb     =0.0_cp     ! Dissipation number
+      ThExpNb    =one        ! Thermal expansion * temperature
+      strat      =0.0_cp     ! Density contrast
+      polind     =2.0_cp     ! Polytropic index
+      GrunNb     =one/polind ! Gruneisen parameter
+      r_cut_model=0.98_cp    ! outer radius when using interior model
       !----- Stably  stratified layer
       epsS       =0.0_cp
       cmbHflux   =0.0_cp

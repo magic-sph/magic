@@ -34,7 +34,8 @@ module physical_parameters
    real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
    real(cp) :: OhmLossFac     ! Prefactor for Ohmic heating: :math:`Di\,Pr/(Ra\,E\,Pm^2)`
    real(cp) :: DissNb         ! Dissipation number
-   real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha T`
+   real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
+   real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T$ 
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
    real(cp) :: slopeStrat     ! stratified Layer
