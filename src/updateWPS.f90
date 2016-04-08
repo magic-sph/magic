@@ -819,7 +819,7 @@ contains
       !-- Output variables:
       real(cp), intent(out) :: psMat(2*n_r_max,2*n_r_max)
       integer,  intent(out) :: psPivot(2*n_r_max)
-      real(cp), intent(out) :: psMat_fac(n_r_max)
+      real(cp), intent(out) :: psMat_fac(2*n_r_max)
 
       !-- Local variables:
       integer :: info,nCheb,nCheb_p,nR,nR_p
@@ -970,12 +970,13 @@ contains
          psMat(nR_p,2*n_r_max)=half*psMat(nR_p,2*n_r_max)
       end do
 
+
       ! compute the linesum of each line
-      do nR=1,n_r_max
+      do nR=1,2*n_r_max
          psMat_fac(nR)=one/maxval(abs(psMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
-      do nr=1,n_r_max
+      do nr=1,2*n_r_max
          psMat(nR,:) = psMat(nR,:)*psMat_fac(nR)
       end do
 
