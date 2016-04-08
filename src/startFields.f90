@@ -7,33 +7,31 @@ module start_fields
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: topcond, botcond, chebt_oc,         &
-                               drx, ddrx, dr_fac_ic, chebt_ic,     &
-                               chebt_ic_even, r, or1, alpha0,      &
-                               dLtemp0, dLalpha0, beta, orho1,     &
-                               temp0
+   use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
+       &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
+       &                       dLalpha0, beta, orho1, temp0
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
-                                  ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-                                  ViscHeatFac
+       &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
+       &                          ViscHeatFac
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
-                    l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
-                    l_rot_ma, l_temperature_diff, l_single_matrix
+       &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
+       &            l_rot_ma, l_temperature_diff, l_single_matrix
    use init_fields, only: l_start_file, init_s1, init_b1, tops, ps_cond, &
-                          initV, initS, initB, s_cond, start_file
+       &                  initV, initS, initB, s_cond, start_file
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
-                    one, two
+       &            one, two
    use useful, only: cc2real, logWrite
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, &
-                          ulmMag,llmMag
+       &                  ulmMag,llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
-                             lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
-                             get_global_sum, lo2r_w
+       &                     lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
+       &                     get_global_sum, lo2r_w
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
@@ -45,6 +43,10 @@ module start_fields
    implicit none
 
    private
+
+   real(cp), public :: topcond ! Conducting heat flux at the outer boundary
+   real(cp), public :: botcond ! Conducting heat flux at the inner boundary
+   real(cp), public :: deltacond ! Temperature or entropy difference between boundaries
 
    public :: getStartFields
 
@@ -117,10 +119,15 @@ contains
                  &                  temp0(n_r_max)*    ds0(n_r_max) +       &
                  &    ViscHeatFac*ThExpNb*alpha0(n_r_max)*temp0(n_r_max)*   &
                  &                  orho1(n_r_max)*    dp0(n_r_max) )
-
+               deltacond=osq4pi*(temp0(n_r_max)*s0(n_r_max)-temp0(1)*s0(1)+ &
+                 &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*     &
+                 &               temp0(n_r_max)*orho1(n_r_max)*p0(n_r_max)- &
+                 &               alpha0(1)*temp0(1)*orho1(1)*p0(1)) )
+                 &               
             else ! entropy diffusion
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
+               deltacond=osq4pi*(s0(n_r_max)-s0(1))
             end if
 
          else
@@ -129,11 +136,13 @@ contains
                !botcond=-one/epsS*dtemp0(n_r_max)
                topcond=one
                botcond=one
+               deltacond=osq4pi*(s0(n_r_max)-s0(1))
             else
                call s_cond(s0)
                call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
+               deltacond=osq4pi*(s0(n_r_max)-s0(1))
             end if
          end if
       end if

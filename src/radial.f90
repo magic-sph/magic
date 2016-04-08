@@ -54,8 +54,6 @@ module radial_functions
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
-   real(cp), public :: topcond                   ! Heat flux at OC boundary
-   real(cp), public :: botcond                   ! Heat flux at IC boundary
    real(cp), public :: r_cmb                     ! OC radius
    real(cp), public :: r_icb                     ! IC radius
    real(cp), public :: r_surface                 ! Surface radius for extrapolation

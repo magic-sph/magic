@@ -127,6 +127,7 @@ program magic
    use power, only: initialize_output_power
    use outPar_mod, only: initialize_outPar_mod
    use out_coeff, only: initialize_coeffs
+   use outMisc_mod, only: initialize_outMisc_mod
    use mem_alloc
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
@@ -250,6 +251,7 @@ program magic
    call initialize_magnetic_energy
    call initialize_spectra
    call initialize_outPar_mod
+   call initialize_outMisc_mod
    if ( l_power ) call initialize_output_power
    call initialize_coeffs
    call initialize_fields_average_mod

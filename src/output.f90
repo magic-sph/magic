@@ -3,7 +3,7 @@ module output_mod
 
    use precision_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
-                       & n_r_maxMag, lm_max
+       &                 n_r_maxMag, lm_max
    use parallel_mod, only: rank
    use radial_functions, only: or1, or2, r, drx, chebt_oc, r_cmb, r_icb
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
@@ -12,39 +12,40 @@ module output_mod
    use blocking, only: st_map, lm2, lo_map
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
-                  & l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
-                  & l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
-                  & l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
-                  & l_perpPar, l_energy_modes
+       &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
+       &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
+       &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
+       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par
    use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
-                   & db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
-                   & s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
-                   & s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
-                   & db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
-                   & b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
-                   & dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc
+       &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
+       &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
+       &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
+       &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
+       &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
+       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc
    use fieldsLast, only: dwdtLast, dzdtLast, dpdtLast, dsdtLast, dbdtLast,  &
-                       & djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
-                       & dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
-                       & dbdtLast_LMloc, djdtLast_LMloc, dbdt_icLast_LMloc, &
-                       & djdt_icLast_LMloc
+       &                 djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
+       &                 dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
+       &                 dbdtLast_LMloc, djdtLast_LMloc, dbdt_icLast_LMloc, &
+       &                 djdt_icLast_LMloc
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
    use spectra, only: spectrum_average, spectrum, spectrum_temp, &
-                    & spectrum_temp_average, get_amplitude
+       &              spectrum_temp_average, get_amplitude
    use outTO_mod, only: outTO
    use outPV3, only: outPV
    use output_data, only: tag, l_max_cmb,                           &
-                        & cmbMov_file, n_cmbMov_file, cmb_file,     &
-                        & n_cmb_file, dt_cmb_file, n_dt_cmb_file,   & 
-                        & n_coeff_r, l_max_r, n_v_r_file,           &
-                        & n_b_r_file, n_t_r_file, v_r_file,         &
-                        & t_r_file, b_r_file, n_r_array, n_r_step,  &
-                        & par_file, n_par_file, nLF, log_file,      &
-                        & n_coeff_r_max, rst_file, n_rst_file
+       &                  cmbMov_file, n_cmbMov_file, cmb_file,     &
+       &                  n_cmb_file, dt_cmb_file, n_dt_cmb_file,   & 
+       &                  n_coeff_r, l_max_r, n_v_r_file,           &
+       &                  n_b_r_file, n_t_r_file, v_r_file,         &
+       &                  t_r_file, b_r_file, n_r_array, n_r_step,  &
+       &                  par_file, n_par_file, nLF, log_file,      &
+       &                  n_coeff_r_max, rst_file, n_rst_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two
-   use outMisc_mod, only: outMisc
+   use outMisc_mod, only: outHelicity, outHeat
+   use Egeos_mod, only: getEgeos
    use outRot, only: write_rot
    use charmanip, only: dble2str
    use omega, only: outOmega
@@ -53,7 +54,7 @@ module output_mod
    use graphOut_mod, only: graphOut_IC
    use power, only: get_power
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, llmMag, &
-                        & ulmMag
+       &                  ulmMag
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use out_coeff, only: write_Bcmb, write_coeff_r
    use getDlm_mod, only: getDlm
@@ -421,12 +422,20 @@ contains
               &      fpoynLMr,fresLMr,RmR)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
   
-         !----- Write misc. output:
-         call outMisc( timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,      &
-              &        nLogs,w_LMloc,dw_LMloc,ddw_LMloc,z_LMloc,dz_LMloc, &
-              &        s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,Geos,dpV,dzV)
-         if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outMisc  on rank ",rank
-  
+         if ( l_heat ) then
+            call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
+                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc)
+         end if
+
+         if ( l_hel ) then
+            call outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
+         end if
+
+         if ( l_par ) then
+            call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
+                 &        z_LMloc,dz_LMloc,Geos,dpV,dzV)
+         end if
+
          if ( l_mag .or. l_mag_LF ) then 
             call getDlm(b_LMloc,db_LMloc,aj_LMloc,dlB,dlBR,dmB,dlBc,dlBRc,'B')
          else

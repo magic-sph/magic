@@ -3,16 +3,17 @@ module Egeos_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
-                         n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
+       &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
    use parallel_mod, only: rank
    use radial_functions, only: cheb_norm, r_ICB, r_CMB, chebt_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
-                                  radratio, polind, strat
+       &                          radratio, polind, strat
    use num_param, only: tScale
    use blocking, only: lm2l, lm2m, lm2mc
    use horizontal_data, only: dLh, phi, dPhi
-   use logic, only: lVerbose, l_corrMov, l_anel
-   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA
+   use logic, only: lVerbose, l_corrMov, l_anel, l_save_out
+   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA, &
+       &                  n_geos_file, geos_file
    use constants, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
@@ -56,8 +57,7 @@ contains
    end subroutine initialize_Egeos_mod
 !----------------------------------------------------------------------------
    subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,         &
-        &              Egeos,EkNTC,EkSTC,Ekin,               &
-        &              dpFlow,dzFlow,CVzOTC,CVorOTC,CHelOTC)
+        &              Geos,dpFlow,dzFlow)
       !
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
@@ -78,11 +78,13 @@ contains
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
 
       !-- Output variables:
-      real(cp), intent(out) :: Egeos,EkNTC,EkSTC,Ekin
-      real(cp), intent(out) :: dpFlow,dzFlow ! RMS length scales
-      real(cp), intent(out) :: CVzOTC,CVorOTC,CHelOTC
+      real(cp), intent(out) :: Geos ! Degree of geostrophy
+      real(cp), intent(out) :: dpFlow ! RMS lengths scale
+      real(cp), intent(out) :: dzFlow ! RMS lengths scale
 
       !-- Local variables:
+      real(cp) :: Egeos,EkNTC,EkSTC,Ekin
+      real(cp) :: CVzOTC,CVorOTC,CHelOTC
       logical :: lDeriv
       integer :: nSmax,nS,nS_ICB
       real(cp) :: zNorm          ! Norm z interval
@@ -550,9 +552,28 @@ contains
             write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
             write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
 
+         end if ! l_corrMov
+
+         if ( Ekin > 0.0_cp ) then
+            Geos = Egeos/Ekin ! relative geostrophic kinetic energy
+         else
+            Geos = 0.0_cp
+            Ekin = -one 
          end if
 
-      end if
+         if ( l_save_out ) then
+            open(n_geos_file, file=geos_file, status='unknown', position='append')
+         end if
+
+         write(n_geos_file,'(1P,ES20.12,9ES16.8)')        &
+              & time, Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin, &
+              & CVzOTC, CVorOTC, CHelOTC, dpFlow, dzFlow
+
+         if ( l_save_out ) close(n_geos_file)
+         !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
+         !    get an idea of the precision of cylindrical integration in getEgeos.
+
+      end if ! rank == 0
       if ( lVerbose ) write(*,*) '! End of getGeos!'
 
    end subroutine getEgeos

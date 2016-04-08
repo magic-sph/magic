@@ -5,9 +5,10 @@ module output_data
 
    use precision_mod
    use logic, only: l_mag, l_anel, l_perpPar, l_r_field, l_r_fieldT, &
-                    l_RMS, l_save_out, l_cmb_field, l_energy_modes,  &
-                    l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
-                    l_dt_cmb_field, l_AM, l_movie
+       &            l_RMS, l_save_out, l_cmb_field, l_energy_modes,  &
+       &            l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
+       &            l_dt_cmb_field, l_AM, l_movie, l_heat, l_par,    &
+       &            l_hel
    use parallel_mod, only: rank
    use charmanip, only: length_to_blank
 
@@ -95,7 +96,9 @@ module output_data
    integer, public :: n_dipole_file
    integer, public :: n_cmb_file,n_dt_cmb_file
    integer, public :: n_cmbMov_file
-   integer, public :: n_misc_file
+   integer, public :: n_heat_file
+   integer, public :: n_helicity_file
+   integer, public :: n_geos_file
    integer, public :: n_SRIC_file
    integer, public :: n_SRMA_file
    integer, public, allocatable :: n_v_r_file(:)
@@ -121,7 +124,9 @@ module output_data
    character(len=72), public :: dipole_file
    character(len=72), public :: cmb_file,dt_cmb_file
    character(len=72), public :: cmbMov_file
-   character(len=72), public :: misc_file
+   character(len=72), public :: heat_file
+   character(len=72), public :: helicity_file
+   character(len=72), public :: geos_file
    character(len=72), public :: SRIC_file
    character(len=72), public :: SRMA_file
    character(len=72), public, allocatable :: v_r_file(:)
@@ -167,13 +172,15 @@ contains
       n_dipole_file      =18
       n_signal_file      =19
       n_cmb_file         =20
-      n_misc_file        =21
+      n_heat_file        =21
       n_cmbMov_file      =24
       n_SRIC_file        =25
       n_SRMA_file        =26
       n_dt_cmb_file      =27
       n_power_file       =28
       n_u_square_file    =29  
+      n_helicity_file    =211
+      n_geos_file        =221
       n_perpPar_file     =290
       n_par_file         =300
       n_angular_file     =301
@@ -257,10 +264,12 @@ contains
             t_r_file(n)=string(1:length)//tag
          end do
       end if
-      misc_file ='misc.'//tag
-      SRIC_file ='SRIC.'//tag
-      SRMA_file ='SRMA.'//tag
-      power_file='power.'//tag
+      heat_file     ='heat.'//tag
+      helicity_file ='helicity.'//tag
+      geos_file     ='geos.'//tag
+      SRIC_file     ='SRIC.'//tag
+      SRMA_file     ='SRMA.'//tag
+      power_file    ='power.'//tag
 
       !-- Open various output files that will be used throughout the run:
       if ( .not. l_save_out ) then
@@ -330,10 +339,12 @@ contains
             end if
             if ( .not. l_SRIC .and. .not. l_SRMA ) then
                if ( l_rot_ic .or. l_rot_ma ) &
-                    open(n_rot_file, file=rot_file, status="NEW")
+                    open(n_rot_file, file=rot_file, status='new')
             end if
-            open(n_misc_file, file=misc_file, status="NEW")
-            if ( l_power ) open(n_power_file, file=power_file, status="NEW")
+            if ( l_heat ) open(n_heat_file, file=heat_file, status='new')
+            if ( l_hel ) open(n_helicity_file, file=helicity_file, status='new')
+            if ( l_par ) open(n_geos_file, file=geos_file, status='new')
+            if ( l_power ) open(n_power_file, file=power_file, status='new')
          end if
       end if
 
@@ -402,7 +413,9 @@ contains
             if ( l_rot_ic .or. l_rot_ma .and.      &
                  .not. l_SRIC .and. .not. l_SRMA ) &
                  close(n_rot_file)
-            close(n_misc_file)
+            if ( l_heat ) close(n_heat_file)
+            if ( l_par ) close(n_geos_file)
+            if ( l_hel ) close(n_helicity_file)
             close(n_power_file)
             !end if
          end if

@@ -364,7 +364,7 @@ contains
             tops(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
             bots(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
     
-         else if ( ktops == 2 .and. kbots == 2 ) then
+         else if ( (ktops==2 .and. kbots==2) .or. (ktops == 4 .and. kbots==4) ) then
     
             if ( real(bots(0,0)) > 0.0_cp ) then
                write(*,*)

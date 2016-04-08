@@ -43,6 +43,7 @@ module outPar_mod
    public initialize_outPar_mod, outPar, outPerpPar
 
 contains
+
    subroutine initialize_outPar_mod
 
       allocate( dlVMeanR(n_r_max),dlVcMeanR(n_r_max) )
@@ -323,7 +324,7 @@ contains
          RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
          RmMeanR    =RmMeanR    +timePassed*RmR*sqrt(mass/rho0)*or2
          !write(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
-         ! this is to get u2 value for RmR(r) to plot in parrad.tag
+         ! this is to get u2 value for RmR(r) to plot in parR.tag
          ! and also remove r**2, so it has to be volume-averaged 
          ! like RolR
          if ( l_viscBcCalc ) then
@@ -381,7 +382,7 @@ contains
                end if
             end if
 
-            !----- Output into parrad file:
+            !----- Output into paR.TAG file:
             filename='parR.'//tag
             open(99, file=filename, status='unknown')
             do nR=1,n_r_max

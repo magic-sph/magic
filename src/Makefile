@@ -386,7 +386,7 @@ magic.o               : truncation.o num_param.o parallel.o logic.o\
                         useful.o startFields.o preCalculations.o\
                         step_time.o kinetic_energy.o mem_alloc.o\
 			magnetic_energy.o horizontal.o fields_average.o \
-			Egeos.o spectra.o out_TO.o output_data.o\
+			Egeos.o spectra.o out_TO.o output_data.o outMisc.o\
                         outPV3.o Namelists.o blocking.o out_coeff.o
 step_time.o           : truncation.o blocking.o phys_param.o\
                         num_param.o radial_data.o mem_alloc.o\
@@ -401,7 +401,7 @@ constants.o           : precision_mod.o
 outMisc.o             : truncation.o num_param.o phys_param.o logic.o\
                         output_data.o blocking.o constants.o radial.o\
                         horizontal.o legendre_spec_to_grid.o\
-                        Egeos.o integration.o
+                        Egeos.o integration.o startFields.o
 chebyshev_polynoms.o  : constants.o logic.o precision_mod.o
 rIteration.o          : precision_mod.o
 radialLoop.o          : truncation.o blocking.o parallel.o\
@@ -439,7 +439,7 @@ legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
-                        out_movie_file.o\
+                        out_movie_file.o Egeos.o\
                         outRot.o kinetic_energy.o magnetic_energy.o\
                         spectra.o fields_average.o power.o getDlm.o\
                         useful.o out_TO.o outMisc.o out_graph_file.o\
