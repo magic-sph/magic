@@ -334,12 +334,12 @@ Magnetic boundary conditions
   |             |     \frac{\partial g_{\ell m}}{\partial r}-\frac{\ell+1}{r}\,g_{\ell m}=0,\quad |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
-  | ``kbotb=2`` | Perfectly-conducting inner core:                                               |
+  | ``kbotb=2`` | Perfectly-conducting inner core:                                                |
   |             |    .. math::                                                                    |
   |             |       g_{\ell m} = \frac{\partial g_{\ell m}}{\partial r}=0,\quad               |
   |             |       \frac{\partial h_{\ell m}}{\partial r}=0                                  |
   +-------------+---------------------------------------------------------------------------------+
-  | ``kbotb=3`` | Finitely conducting inner core                                                 |
+  | ``kbotb=3`` | Finitely conducting inner core                                                  |
   +-------------+---------------------------------------------------------------------------------+
   | ``kbotb=4`` | Pseudo-vacuum outer boundary:                                                   |
   |             |    .. math::                                                                    |
