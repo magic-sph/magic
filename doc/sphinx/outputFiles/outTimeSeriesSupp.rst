@@ -184,10 +184,6 @@ This file is written by the subroutine :f:subr:`getEgeos <egeos_mod/getegeos()>`
    +---------------+--------------------------------------------------------------+
    | 8             | North/South correlation of helicity outside the TC           |
    +---------------+--------------------------------------------------------------+
-   | 9             | Average length-scale perpendicular to the rotation axis      |
-   +---------------+--------------------------------------------------------------+
-   | 10            | Average length-scale parallel to the rotation axis           |
-   +---------------+--------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 

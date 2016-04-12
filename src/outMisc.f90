@@ -387,6 +387,9 @@ contains
             open(n_heat_file, file=heat_file, status='unknown', position='append')
          end if
 
+         !-- avoid too small number in output
+         if ( abs(toppres) <= 1e-11_cp ) toppres=0.0_cp
+
          write(n_heat_file,'(1P,ES20.12,11ES16.8)')       &
               & time, botnuss, topnuss, deltanuss,        &
               & bottemp, toptemp, botentropy, topentropy, &

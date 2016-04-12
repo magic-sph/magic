@@ -434,6 +434,10 @@ contains
          if ( l_par ) then
             call getEgeos(timeScaled,nLogs,w_LMloc,dw_LMloc,ddw_LMloc,    &
                  &        z_LMloc,dz_LMloc,Geos,dpV,dzV)
+         else
+            Geos=0.0_cp
+            dpV =0.0_cp
+            dzV =0.0_cp
          end if
 
          if ( l_mag .or. l_mag_LF ) then 

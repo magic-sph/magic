@@ -565,9 +565,9 @@ contains
             open(n_geos_file, file=geos_file, status='unknown', position='append')
          end if
 
-         write(n_geos_file,'(1P,ES20.12,9ES16.8)')        &
+         write(n_geos_file,'(1P,ES20.12,7ES16.8)')        &
               & time, Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin, &
-              & CVzOTC, CVorOTC, CHelOTC, dpFlow, dzFlow
+              & CVzOTC, CVorOTC, CHelOTC
 
          if ( l_save_out ) close(n_geos_file)
          !--- NOTE: Ekin can be compared with energy in e_kin.TAG to

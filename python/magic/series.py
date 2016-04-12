@@ -244,8 +244,6 @@ class MagicTs(MagicSetup):
         elif self.field == 'geos':
             self.time = data[:, 0]
             self.geos = data[:, 1]
-            self.lpar = data[:, 8]
-            self.lperp = data[:, 9]
         elif self.field == 'heat':
             self.time = data[:, 0]
             self.botnuss = data[:, 1]
