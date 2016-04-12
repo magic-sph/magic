@@ -32,7 +32,7 @@ else
 fi
 
 # Concatenate the different output file in one single e_kin.test file
-cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start misc.start par.start power.start u_square.start > e_kin.test
+cat e_kin.start e_mag_oc.start e_mag_ic.start dipole.start heat.start par.start power.start u_square.start > e_kin.test
 #mv dtBrms.start myBrms.dat
 
 # Clean
