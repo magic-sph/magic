@@ -469,7 +469,7 @@ updateWP.o            : truncation.o blocking.o num_param.o\
 updateWPS.o           : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         mat.o cosine_transform_odd.o radial_derivatives.o\
-                        LMLoop_data.o mem_alloc.o
+                        LMLoop_data.o mem_alloc.o init_fields.o
 chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
