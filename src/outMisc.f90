@@ -13,7 +13,7 @@ module outMisc_mod
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
        &                       otemp1, drx
-   use physical_parameters, only: ViscHeatFac, ThExpNb, GrunNb
+   use physical_parameters, only: ViscHeatFac, ThExpNb, ogrun
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
@@ -32,7 +32,7 @@ module outMisc_mod
 
    private
 
-   real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:), rhoMeanR(:)
+   real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod
 
@@ -44,7 +44,6 @@ contains
          allocate( TMeanR(n_r_max) )
          allocate( SMeanR(n_r_max) )
          allocate( PMeanR(n_r_max) )
-         allocate( rhoMeanR(n_r_max) )
          TMeanR(:)   = 0.0_cp
          SMeanR(:)   = 0.0_cp
          PMeanR(:)   = 0.0_cp
@@ -262,13 +261,11 @@ contains
       real(cp) :: toptemp,bottemp
       real(cp) :: toppres,botpres,mass
       real(cp) :: topentropy,botentropy
-      real(cp) :: topflux,botflux,ogrun
+      real(cp) :: topflux,botflux
       character(len=76) :: filename
       integer :: n_r, filehandle
 
       if ( rank == 0 ) then
-
-         ogrun = one/GrunNb
 
          if ( l_anelastic_liquid ) then
             do n_r=1,n_r_max
@@ -291,14 +288,6 @@ contains
                   &            ogrun*real(p(1,n_r)) )
             end do
          end if
-
-         open(unit=999, file='radialProfs.dat')
-         do n_r=1,n_r_max
-            write(999,*) r(n_r), osq4pi*real(s(1,n_r)), osq4pi*real(p(1,n_r)), &
-            &            osq4pi*temp0(n_r)*(real(s(1,n_r))+alpha0(n_r)*        &
-            &            orho1(n_r)*real(p(1,n_r))*ViscHeatFac*ThExpNb)
-         end do
-         close(999)
 
          !-- Evaluate nusselt numbers (boundary heat flux density):
          toppres   =osq4pi*real(p(1,n_r_cmb))
@@ -410,12 +399,15 @@ contains
             TMeanR(:)=TMeanR(:)/timeNorm
             PMeanR(:)=PMeanR(:)/timeNorm
 
+            rhoPrime(:)=ThExpNb*alpha0(:)*(-rho0(:)*temp0(:)*SMeanR(:)+ &
+               &         ViscHeatFac*ogrun*PMeanR(:) )
+
             filename='heatR.'//tag
             open(newunit=filehandle, file=filename, status='unknown')
             do n_r=1,n_r_max
-               write(filehandle, '(ES20.10,4ES14.7)' ) &
+               write(filehandle, '(ES20.10,4ES15.7)' ) &
                &      r(n_r),SMeanR(n_r),TMeanR(n_r),  &
-               &      PMeanR(n_r)
+               &      PMeanR(n_r),rhoprime(n_r)
             end do
 
             close(filehandle)

@@ -9,10 +9,10 @@ module start_fields
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
-       &                       dLalpha0, beta, orho1, temp0
+       &                       dLalpha0, beta, orho1, temp0, rho0
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac
+       &                          ViscHeatFac, ogrun
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
@@ -92,8 +92,11 @@ contains
             open(unit=999, file='pscond.dat')
             do n_r=1,n_r_max
                write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi, &
-                            osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
-                            orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac)
+                 &          osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
+                 &          orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac),&
+                 &          osq4pi*ThExpNb*alpha0(n_r)*(-rho0(n_r)* &
+                 &          temp0(n_r)*s0(n_r)+ViscHeatFac*ogrun*   &
+                 &          p0(n_r))
             end do
             close(999)
 
@@ -123,7 +126,6 @@ contains
                  &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*     &
                  &               temp0(n_r_max)*orho1(n_r_max)*p0(n_r_max)- &
                  &               alpha0(1)*temp0(1)*orho1(1)*p0(1)) )
-                 &               
             else ! entropy diffusion
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
@@ -412,8 +414,13 @@ contains
             !   end do
             !end if
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                         n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                         chebt_oc,drx )
+                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                 &       chebt_oc,drx )
+            if ( l_temperature_diff ) then
+               call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
+                    &       lmStop-llm+1, n_r_max,n_cheb_max,workA_LMloc,&
+                    &       workB_LMloc, chebt_oc,drx )
+            end if
          end if
     
          if ( DEBUG_OUTPUT ) then

@@ -36,6 +36,7 @@ module physical_parameters
    real(cp) :: DissNb         ! Dissipation number
    real(cp) :: ThExpNb        ! Thermal expansion * temperature :math:`\alpha_0 T_0`
    real(cp) :: GrunNb         ! Grüneisen paramater :math:`\Gamma=(\gamma-1)/\alpha T$ 
+   real(cp) :: ogrun          ! Inverse of the Grunseisen parameter
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
    real(cp) :: slopeStrat     ! stratified Layer

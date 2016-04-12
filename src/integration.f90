@@ -111,7 +111,7 @@ contains
                  
       !--- Integrals:
       do nR=1,n_r_max
-          f2(nR)=f(nR)/dr_fac(nR)
+         f2(nR)=f(nR)/dr_fac(nR)
       end do
 
       !-- Transform to cheb space:

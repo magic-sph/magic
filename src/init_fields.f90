@@ -5,20 +5,20 @@ module init_fields
    use mem_alloc, only: bytes_allocated
    use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
-                              phi, cosTheta
+       &                      phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_anelastic_liquid, &
-                    l_cond_ic, l_temperature_diff, l_single_matrix
+       &            l_cond_ic, l_temperature_diff, l_single_matrix
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
-                               cheb_norm, lambda, or2, d2cheb, dcheb,  &
-                               cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
-                               d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
-                               orho1, chebt_oc, chebt_ic, temp0,       &
-                               dLtemp0, kappa, dLkappa, beta, dbeta,   &
-                               epscProf, ddLtemp0, ddLalpha0, rgrav,   &
-                               rho0, dLalpha0, alpha0
+       &                       cheb_norm, lambda, or2, d2cheb, dcheb,  &
+       &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
+       &                       d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
+       &                       orho1, chebt_oc, chebt_ic, temp0,       &
+       &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
+       &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
+       &                       rho0, dLalpha0, alpha0
    use radial_data, only: n_r_icb, n_r_cmb
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
-                    zero, one, two, three, four, third, half
+       &            zero, one, two, three, four, third, half
    use useful, only: random
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 #ifdef WITH_SHTNS
@@ -27,12 +27,12 @@ module init_fields
    use fft
 #endif
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
-                                  peakS, widthS, radratio, imagcon, opm,  &
-                                  sigma_ratio, O_sr, kbots, ktops, opr,   &
-                                  epsc, ViscHeatFac, ThExpNb
+       &                          peakS, widthS, radratio, imagcon, opm,  &
+       &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
+       &                          epsc, ViscHeatFac, ThExpNb, ogrun
    use algebra, only: sgesl, sgefa, cgesl
    use horizontal_data, only: D_lP1, hdif_B, dLh
-   use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot
+   use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot, ps0Mat_fac
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
@@ -398,9 +398,12 @@ contains
                do n_r=1,n_r_max
                   s(lm00,n_r)=s0(n_r)
                   p(lm00,n_r)=p0(n_r)
-                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi, &
-                               osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
-                               orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac)
+                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi,  &
+                  &            osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)*  &
+                  &            orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac), &
+                  &            osq4pi*alpha0(n_r)*ThExpNb*(-rho0(n_r)*  &
+                  &            temp0(n_r)*s0(n_r)+ViscHeatFac*ogrun*    &
+                  &            p0(n_r))
                end do
                close(999)
 
@@ -1396,16 +1399,18 @@ contains
       real(cp), intent(out) :: p0(:) ! spherically-symmetric part
 
       !-- local variables:
-      integer :: n_cheb,nCheb_p,n_r,n_r_p,info
-      real(cp) :: rhs(2*n_r_max)
+      integer :: n_cheb,nCheb_p,n_r,n_r_p,info,n_r_rho,nCheb_rho
+      real(cp) :: rhs(3*n_r_max)
       real(cp) :: work(n_r_max)
 
       if ( l_temperature_diff ) then
 
          do n_cheb=1,n_r_max
             nCheb_p=n_cheb+n_r_max
-            do n_r=2,n_r_max
+            nCheb_rho=n_cheb+2*n_r_max
+            do n_r=1,n_r_max
                n_r_p=n_r+n_r_max
+               n_r_rho=n_r+2*n_r_max
 
                ! Delta T = epsc
                ps0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
@@ -1425,12 +1430,21 @@ contains
                   &        (dLalpha0(n_r)+dLtemp0(n_r)-beta(n_r)) +           &
                   &        ddLalpha0(n_r)+ddLtemp0(n_r)-dbeta(n_r) ) *        &
                   &                                      cheb(n_cheb,n_r) )
+               ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
                ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)*&
-               &                                    cheb(n_cheb,n_r)
+                  &                                 cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)- &
-               &                          beta(n_r)*cheb(n_cheb,n_r) )
+                  &                       beta(n_r)*cheb(n_cheb,n_r) )
+               ps0Mat(n_r_p,nCheb_rho)=0.0_cp
+
+               ! Density
+               ps0Mat(n_r_rho,n_cheb)=cheb_norm*ThExpNb*alpha0(n_r)*r(n_r)*    &
+                  &                   r(n_r)*rho0(n_r)*temp0(n_r)*cheb(n_cheb,n_r)
+               ps0Mat(n_r_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun*  &
+                  &                    r(n_r)*r(n_r)*alpha0(n_r)*cheb(n_cheb,n_r)
+               ps0Mat(n_r_rho,nCheb_rho)=cheb_norm*cheb(n_cheb,n_r)
 
             end do
          end do
@@ -1439,8 +1453,10 @@ contains
 
          do n_cheb=1,n_r_max
             nCheb_p=n_cheb+n_r_max
-            do n_r=2,n_r_max
+            nCheb_rho=n_cheb+2*n_r_max
+            do n_r=1,n_r_max
                n_r_p=n_r+n_r_max
+               n_r_rho=n_r+2*n_r_max
 
                ! Delta T = epsc
                ps0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
@@ -1448,24 +1464,33 @@ contains
                   &      ( beta(n_r)+dLtemp0(n_r)+                           &
                   &        two*or1(n_r)+dLkappa(n_r) )* dcheb(n_cheb,n_r) )
 
-               ps0Mat(n_r,nCheb_p)=0.0_cp
+               ps0Mat(n_r,nCheb_p)  =0.0_cp
+               ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
                ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)* &
                                                      cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *(  dcheb(n_cheb,n_r)- &
                &                           beta(n_r)*cheb(n_cheb,n_r) )
+               ps0Mat(n_r_p,nCheb_rho)=0.0_cp
+
+               ! Density
+               ps0Mat(n_r_rho,n_cheb)=cheb_norm*ThExpNb*alpha0(n_r)*r(n_r)*    &
+                  &                   r(n_r)*rho0(n_r)*temp0(n_r)*cheb(n_cheb,n_r)
+               ps0Mat(n_r_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun*  &
+                  &                    r(n_r)*r(n_r)*alpha0(n_r)*cheb(n_cheb,n_r)
+               ps0Mat(n_r_rho,nCheb_rho)=cheb_norm*cheb(n_cheb,n_r)
 
             end do
          end do
 
       end if
 
-       
 
       !-- Set boundary conditions:
       do n_cheb=1,n_cheb_max
          nCheb_p=n_cheb+n_r_max
+         nCheb_rho=n_cheb+2*n_r_max
          if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
             ps0Mat(1,n_cheb)  =cheb_norm
             ps0Mat(1,nCheb_p) =0.0_cp
@@ -1484,6 +1509,7 @@ contains
               &              dcheb(n_cheb,1)+(dLalpha0(1)+    &
               &              dLtemp0(1)-beta(1))*cheb(n_cheb,1) )
          end if
+         ps0Mat(1,nCheb_rho)=0.0_cp
 
          if ( kbots == 1 ) then        ! Constant entropy at ICB
             ps0Mat(n_r_max,n_cheb) =cheb(n_cheb,n_r_max)*cheb_norm
@@ -1506,53 +1532,97 @@ contains
               &                      (dLalpha0(n_r_max)+dLtemp0(n_r_max)-     &
               &                       beta(n_r_max))*cheb(n_cheb,n_r_max) )
          end if
+         ps0Mat(n_r_max,nCheb_rho)    =0.0_cp
 
          !-- Boundary condition on spherically-symmetric pressure
-         ps0Mat(n_r_max+1,nCheb_p)=cheb_norm
-         ps0Mat(n_r_max+1,n_cheb) =0.0_cp
-         ps0Mat(2*n_r_max,n_cheb) =0.0_cp
-         ps0Mat(2*n_r_max,nCheb_p)=0.0_cp
+         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
+            ps0Mat(n_r_max+1,nCheb_p)=cheb_norm
+         else
+            ps0Mat(n_r_max+1,nCheb_p)    =0.0_cp
+         end if
+         ps0Mat(n_r_max+1,n_cheb)     =0.0_cp
+         ps0Mat(n_r_max+1,nCheb_rho)  =0.0_cp
+         ps0Mat(2*n_r_max,n_cheb)     =0.0_cp
+         ps0Mat(2*n_r_max,nCheb_p)    =0.0_cp
+         ps0Mat(2*n_r_max,nCheb_rho)  =0.0_cp
 
+         ps0Mat(2*n_r_max+1,n_cheb)   =0.0_cp
+         ps0Mat(2*n_r_max+1,nCheb_p)  =0.0_cp
+         ps0Mat(2*n_r_max+1,nCheb_rho)=0.0_cp
+         ps0Mat(3*n_r_max,n_cheb)     =0.0_cp
+         ps0Mat(3*n_r_max,nCheb_p)    =0.0_cp
+         ps0Mat(3*n_r_max,nCheb_rho)  =0.0_cp
       end do
+
+      ! In case density perturbations feed back on pressure (non-Boussinesq)
+      ! Impose that the integral of (rho' r^2) vanishes
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
+         ps0Mat(n_r_max+1,2*n_r_max+1)=cheb_norm
+         do n_cheb=3,n_cheb_max,2
+            nCheb_rho=n_cheb+2*n_r_max
+            ps0Mat(n_r_max+1,nCheb_rho)=-one/real(n_cheb*(n_cheb-2),cp)*cheb_norm
+         end do
+      end if
        
       !-- Fill with zeros:
       if ( n_cheb_max < n_r_max ) then
          do n_cheb=n_cheb_max+1,n_r_max
             nCheb_p=n_cheb+n_r_max
-            ps0Mat(1,n_cheb)         =0.0_cp
-            ps0Mat(n_r_max,n_cheb)   =0.0_cp
-            ps0Mat(n_r_max+1,n_cheb) =0.0_cp
-            ps0Mat(2*n_r_max,n_cheb) =0.0_cp
-            ps0Mat(1,nCheb_p)        =0.0_cp
-            ps0Mat(n_r_max,nCheb_p)  =0.0_cp
-            ps0Mat(n_r_max+1,nCheb_p)=0.0_cp
+            nCheb_rho=n_cheb+2*n_r_max
+            ps0Mat(1,n_cheb)           =0.0_cp
+            ps0Mat(n_r_max,n_cheb)     =0.0_cp
+            ps0Mat(n_r_max+1,n_cheb)   =0.0_cp
+            ps0Mat(2*n_r_max,n_cheb)   =0.0_cp
+            ps0Mat(2*n_r_max+1,n_cheb) =0.0_cp
+            ps0Mat(3*n_r_max,n_cheb)   =0.0_cp
+            ps0Mat(1,nCheb_p)          =0.0_cp
+            ps0Mat(n_r_max,nCheb_p)    =0.0_cp
+            ps0Mat(n_r_max+1,nCheb_p)  =0.0_cp
+            ps0Mat(2*n_r_max+1,nCheb_p)=0.0_cp
+            ps0Mat(3*n_r_max,nCheb_p)  =0.0_cp
+            ps0Mat(1,nCheb_rho)        =0.0_cp
+            ps0Mat(n_r_max,nCheb_rho)  =0.0_cp
+            ps0Mat(n_r_max+1,nCheb_rho)=0.0_cp
+            ps0Mat(2*n_r_max,nCheb_rho)=0.0_cp
          end do
       end if
        
       !-- Renormalize:
       do n_r=1,n_r_max
          n_r_p=n_r+n_r_max
-         ps0Mat(n_r,1)          =half*ps0Mat(n_r,1)
-         ps0Mat(n_r,n_r_max)    =half*ps0Mat(n_r,n_r_max)
-         ps0Mat(n_r,n_r_max+1)  =half*ps0Mat(n_r,n_r_max+1)
-         ps0Mat(n_r,2*n_r_max)  =half*ps0Mat(n_r,2*n_r_max)
-         ps0Mat(n_r_p,1)        =half*ps0Mat(n_r_p,1)
-         ps0Mat(n_r_p,n_r_max)  =half*ps0Mat(n_r_p,n_r_max)
-         ps0Mat(n_r_p,n_r_max+1)=half*ps0Mat(n_r_p,n_r_max+1)
-         ps0Mat(n_r_p,2*n_r_max)=half*ps0Mat(n_r_p,2*n_r_max)
+         n_r_rho=n_r+2*n_r_max
+         ps0Mat(n_r,1)              =half*ps0Mat(n_r,1)
+         ps0Mat(n_r,n_r_max)        =half*ps0Mat(n_r,n_r_max)
+         ps0Mat(n_r,n_r_max+1)      =half*ps0Mat(n_r,n_r_max+1)
+         ps0Mat(n_r,2*n_r_max)      =half*ps0Mat(n_r,2*n_r_max)
+         ps0Mat(n_r,2*n_r_max+1)    =half*ps0Mat(n_r,2*n_r_max+1)
+         ps0Mat(n_r,3*n_r_max)      =half*ps0Mat(n_r,3*n_r_max)
+         ps0Mat(n_r_p,1)            =half*ps0Mat(n_r_p,1)
+         ps0Mat(n_r_p,n_r_max)      =half*ps0Mat(n_r_p,n_r_max)
+         ps0Mat(n_r_p,n_r_max+1)    =half*ps0Mat(n_r_p,n_r_max+1)
+         ps0Mat(n_r_p,2*n_r_max)    =half*ps0Mat(n_r_p,2*n_r_max)
+         ps0Mat(n_r_p,2*n_r_max+1)  =half*ps0Mat(n_r_p,2*n_r_max+1)
+         ps0Mat(n_r_p,3*n_r_max)    =half*ps0Mat(n_r_p,3*n_r_max)
+         ps0Mat(n_r_rho,1)          =half*ps0Mat(n_r_rho,1)
+         ps0Mat(n_r_rho,n_r_max)    =half*ps0Mat(n_r_rho,n_r_max)
+         ps0Mat(n_r_rho,n_r_max+1)  =half*ps0Mat(n_r_rho,n_r_max+1)
+         ps0Mat(n_r_rho,2*n_r_max)  =half*ps0Mat(n_r_rho,2*n_r_max)
+         ps0Mat(n_r_rho,2*n_r_max+1)=half*ps0Mat(n_r_rho,2*n_r_max+1)
+         ps0Mat(n_r_rho,3*n_r_max)  =half*ps0Mat(n_r_rho,3*n_r_max)
       end do
-       
+
       !-- Invert matrix:
-      call sgefa(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,info)
+      call sgefa(ps0Mat,3*n_r_max,3*n_r_max,ps0Pivot,info)
       if ( info /= 0 ) then
          write(*,*) '! Singular Matrix ps0Mat in ps_cond!'
          stop
       end if
        
       !-- Set source terms in RHS:
-      do n_r=2,n_r_max-1
-         rhs(n_r)        =-epsc*epscProf(n_r)*orho1(n_r)
-         rhs(n_r+n_r_max)=0.0_cp
+      do n_r=1,n_r_max
+         rhs(n_r)          =-epsc*epscProf(n_r)*orho1(n_r)
+         rhs(n_r+n_r_max)  =0.0_cp
+         rhs(n_r+2*n_r_max)=0.0_cp
       end do
        
       !-- Set boundary values:
@@ -1565,9 +1635,9 @@ contains
 
       !-- Pressure at the top boundary
       rhs(n_r_max+1)=0.0_cp
-       
+
       !-- Solve for s0:
-      call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+      call sgesl(ps0Mat,3*n_r_max,3*n_r_max,ps0Pivot,rhs)
        
       !-- Copy result to s0:
       do n_r=1,n_r_max

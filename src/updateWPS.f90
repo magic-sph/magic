@@ -11,9 +11,9 @@ module updateWPS_mod
                              & beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
                              & cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
                              & alpha0,dLalpha0, ddLalpha0,              &
-                             & kappa, orho1, dentropy0, temp0
+                             & kappa, orho1, dentropy0, temp0, r
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-                             &    ViscHeatFac, ThExpNb
+                             &    ViscHeatFac, ThExpNb, ogrun
    use num_param, only: alpha
    use init_fields, only: tops,bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
@@ -25,10 +25,11 @@ module updateWPS_mod
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
-   use parallel_mod, only: chunksize
+   use parallel_mod, only: chunksize, rank
    use cosine_transform_odd
    use radial_der, only: get_dddr, get_ddr, get_dr, get_drNS
-   use constants, only: zero, one, two, three, four, third, half
+   use integration, only: rInt_R
+   use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
 
    implicit none
 
@@ -122,7 +123,7 @@ contains
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
-      real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
+      real(cp) :: rhs(3*n_r_max)  ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -243,21 +244,22 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)        =real(tops(0,0))
-                  rhs(n_r_max+1)=0.0_cp
 
-                  do nR=2,n_r_max
+                  do nR=1,n_r_max
                      rhs(nR)        =real(s(lm1,nR))*O_dt+ &
                                    w1*real(dsdt(lm1,nR)) + &
                                    w2*real(dsdtLast(lm1,nR))
                      !rhs(nR+n_r_max)=real(dwdt(st_map%lm2(0,0),nR))
                      rhs(nR+n_r_max)=w1*real(dwdt(lm1,nR))+w2*real(dwdtLast(lm1,nR))
+                     rhs(nR+2*n_r_max)=0.0_cp
                   end do
+                  rhs(1)        =real(tops(0,0))
+                  rhs(n_r_max+1)=0.0_cp
                   rhs(n_r_max)=real(bots(0,0))
 
                   rhs = ps0Mat_fac*rhs
 
-                  call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+                  call sgesl(ps0Mat,3*n_r_max,3*n_r_max,ps0Pivot,rhs)
 
                else ! l1 /= 0
                   lmB=lmB+1
@@ -388,14 +390,15 @@ contains
          !   using dwdtLast, dpdtLast as work arrays:
 
          call chebt_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
-
          call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
               &         stop_lm-llm+1, n_r_max,n_cheb_max,dwdtLast,    &
               &         dpdtLast,chebt_oc,drx,ddrx,dddrx)
          call chebt_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
+
          call get_ddr( p, dp, workC,ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max,n_cheb_max,dwdtLast,dpdtLast,            &
               &       chebt_oc,drx,ddrx)
+
          call chebt_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dsdtLast)
          call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, n_cheb_max, dwdtLast, dsdtLast,                &
@@ -404,6 +407,14 @@ contains
       end do
       !$OMP end do
       !$OMP END PARALLEL
+
+
+      !do nR=1,n_r_max
+      !   rhoprime(nR)=osq4pi*ThExpNb*alpha0(nR)*( -rho0(nR)*temp0(nR)* &
+      !                real(s(1,nR))+ViscHeatFac*ogrun*real(p(1,nR)) )
+      !end do
+      !mass = rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
+
 #ifdef WITHOMP
       call omp_set_num_threads(omp_get_max_threads())
 #endif
@@ -817,12 +828,12 @@ contains
       real(cp), intent(in) :: dt
 
       !-- Output variables:
-      real(cp), intent(out) :: psMat(2*n_r_max,2*n_r_max)
-      integer,  intent(out) :: psPivot(2*n_r_max)
-      real(cp), intent(out) :: psMat_fac(2*n_r_max)
+      real(cp), intent(out) :: psMat(3*n_r_max,3*n_r_max)
+      integer,  intent(out) :: psPivot(3*n_r_max)
+      real(cp), intent(out) :: psMat_fac(3*n_r_max)
 
       !-- Local variables:
-      integer :: info,nCheb,nCheb_p,nR,nR_p
+      integer :: info,nCheb,nCheb_p,nCheb_rho,nR,nR_p,nR_rho
       real(cp) :: O_dt
 
       O_dt=one/dt
@@ -831,8 +842,10 @@ contains
 
          do nCheb=1,n_r_max
            nCheb_p=nCheb+n_r_max
-            do nR=2,n_r_max
+           nCheb_rho=nCheb+2*n_r_max
+            do nR=1,n_r_max
                nR_p=nR+n_r_max
+               nR_rho=nR+2*n_r_max
 
                psMat(nR,nCheb)= cheb_norm * (                           &
                &                               O_dt*cheb(nCheb,nR) -    &
@@ -852,11 +865,19 @@ contains
                &        (dLalpha0(nR)+dLtemp0(nR)-beta(nR)) +           &
                &        ddLalpha0(nR)+ddLtemp0(nR)-dbeta(nR) ) *        &
                &                                    cheb(nCheb,nR) )
+               psMat(nR,nCheb_rho)=0.0_cp
 
                psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*          &
                &                     rgrav(nR)*cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm *alpha*( dcheb(nCheb,nR)- &
                &                     beta(nR)*cheb(nCheb,nR) )
+               psMat(nR_p,nCheb_rho)=0.0_cp
+
+               psMat(nR_rho,nCheb)=cheb_norm*ThExpNb*alpha0(nR)*r(nR)*     &
+               &                   r(nR)*rho0(nR)*temp0(nR)*cheb(nCheb,nR)
+               psMat(nR_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun* &
+               &                    r(nR)*r(nR)*alpha0(nR)*cheb(nCheb,nR)
+               psMat(nR_rho,nCheb_rho)=cheb_norm*cheb(nCheb,nR)
             end do
          end do
 
@@ -864,8 +885,10 @@ contains
 
          do nCheb=1,n_r_max
            nCheb_p=nCheb+n_r_max
-            do nR=2,n_r_max
+           nCheb_rho=nCheb+2*n_r_max
+            do nR=1,n_r_max
                nR_p=nR+n_r_max
+               nR_rho=nR+2*n_r_max
 
                psMat(nR,nCheb)    = cheb_norm * (                    &
                  &                             O_dt*cheb(nCheb,nR) - &
@@ -873,11 +896,19 @@ contains
                  &  (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*  &
                  &                                 dcheb(nCheb,nR) ) )
                psMat(nR,nCheb_p)  =0.0_cp ! entropy diffusion
+               psMat(nR,nCheb_rho)=0.0_cp
 
                psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*rgrav(nR)* &
                &                              cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm*alpha*( dcheb(nCheb,nR)- &
                                      beta(nR)*cheb(nCheb,nR) )
+               psMat(nR_p,nCheb_rho)=0.0_cp
+
+               psMat(nR_rho,nCheb)=cheb_norm*ThExpNb*alpha0(nR)*r(nR)*     &
+               &                   r(nR)*rho0(nR)*temp0(nR)*cheb(nCheb,nR)
+               psMat(nR_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun* &
+               &                    r(nR)*r(nR)*alpha0(nR)*cheb(nCheb,nR)
+               psMat(nR_rho,nCheb_rho)=cheb_norm*cheb(nCheb,nR)
             end do
          end do
 
@@ -887,6 +918,7 @@ contains
       !----- Boundary condition:
       do nCheb=1,n_cheb_max
          nCheb_p=nCheb+n_r_max
+         nCheb_rho=nCheb+2*n_r_max
 
          if ( ktops == 1 ) then
             !--------- Constant entropy at CMB:
@@ -910,11 +942,18 @@ contains
               &              dcheb(nCheb,1)+(dLalpha0(1)+    &
               &              dLtemp0(1)-beta(1))*cheb(nCheb,1) )
          end if
+         psMat(1,nCheb_rho)        =0.0_cp
 
-         psMat(n_r_max+1,nCheb_p)=cheb_norm
-         psMat(n_r_max+1,nCheb)  =0.0_cp
-         psMat(2*n_r_max,nCheb)  =0.0_cp
-         psMat(2*n_r_max,nCheb_p)=0.0_cp
+         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
+            psMat(n_r_max+1,nCheb_p)=cheb_norm
+         else
+            psMat(n_r_max+1,nCheb_p)=0.0_cp
+         end if
+         psMat(n_r_max+1,nCheb)    =0.0_cp
+         psMat(n_r_max+1,nCheb_rho)=0.0_cp
+         psMat(2*n_r_max,nCheb)    =0.0_cp
+         psMat(2*n_r_max,nCheb_p)  =0.0_cp
+         psMat(2*n_r_max,nCheb_rho)=0.0_cp
 
          if ( kbots == 1 ) then
             !--------- Constant entropy at ICB:
@@ -941,18 +980,39 @@ contains
               &                      (dLalpha0(n_r_max)+dLtemp0(n_r_max)-    &
               &                       beta(n_r_max))*cheb(nCheb,n_r_max) )
          end if
+         psMat(3*n_r_max,nCheb)    =0.0_cp
+         psMat(3*n_r_max,nCheb_p)  =0.0_cp
+         psMat(3*n_r_max,nCheb_rho)=0.0_cp
       end do
+
+      ! Impose that the integral of (rho' r^2) vanishes
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
+         psMat(n_r_max+1,2*n_r_max+1)=cheb_norm
+         do nCheb=3,n_cheb_max,2
+            nCheb_rho=nCheb+2*n_r_max
+            psMat(n_r_max+1,nCheb_rho)=-one/real(nCheb*(nCheb-2),cp)*cheb_norm
+         end do
+      end if
 
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
             nCheb_p=nCheb+n_r_max
-            psMat(1,nCheb)          =0.0_cp
-            psMat(n_r_max,nCheb)    =0.0_cp
-            psMat(n_r_max+1,nCheb)  =0.0_cp
-            psMat(2*n_r_max,nCheb)  =0.0_cp
-            psMat(1,nCheb_p)        =0.0_cp
-            psMat(n_r_max,nCheb_p)  =0.0_cp
-            psMat(n_r_max+1,nCheb_p)=0.0_cp
+            nCheb_rho=nCheb+2*n_r_max
+            psMat(1,nCheb)            =0.0_cp
+            psMat(n_r_max,nCheb)      =0.0_cp
+            psMat(n_r_max+1,nCheb)    =0.0_cp
+            psMat(2*n_r_max,nCheb)    =0.0_cp
+            psMat(2*n_r_max+1,nCheb)  =0.0_cp
+            psMat(3*n_r_max,nCheb)    =0.0_cp
+            psMat(1,nCheb_p)          =0.0_cp
+            psMat(n_r_max,nCheb_p)    =0.0_cp
+            psMat(n_r_max+1,nCheb_p)  =0.0_cp
+            psMat(2*n_r_max+1,nCheb_p)=0.0_cp
+            psMat(3*n_r_max,nCheb_p)  =0.0_cp
+            psMat(1,nCheb_rho)        =0.0_cp
+            psMat(n_r_max,nCheb_rho)  =0.0_cp
+            psMat(n_r_max+1,nCheb_rho)=0.0_cp
+            psMat(2*n_r_max,nCheb_rho)=0.0_cp
          end do
       end if
 
@@ -960,30 +1020,40 @@ contains
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
          nR_p=nR+n_r_max
-         psMat(nR,1)          =half*psMat(nR,1)
-         psMat(nR,n_r_max)    =half*psMat(nR,n_r_max)
-         psMat(nR,n_r_max+1)  =half*psMat(nR,n_r_max+1)
-         psMat(nR,2*n_r_max)  =half*psMat(nR,2*n_r_max)
-         psMat(nR_p,1)        =half*psMat(nR_p,1)
-         psMat(nR_p,n_r_max)  =half*psMat(nR_p,n_r_max)
-         psMat(nR_p,n_r_max+1)=half*psMat(nR_p,n_r_max+1)
-         psMat(nR_p,2*n_r_max)=half*psMat(nR_p,2*n_r_max)
+         nR_rho=nR+2*n_r_max
+         psMat(nR,1)              =half*psMat(nR,1)
+         psMat(nR,n_r_max)        =half*psMat(nR,n_r_max)
+         psMat(nR,n_r_max+1)      =half*psMat(nR,n_r_max+1)
+         psMat(nR,2*n_r_max)      =half*psMat(nR,2*n_r_max)
+         psMat(nR,2*n_r_max+1)    =half*psMat(nR,2*n_r_max+1)
+         psMat(nR,3*n_r_max)      =half*psMat(nR,3*n_r_max)
+         psMat(nR_p,1)            =half*psMat(nR_p,1)
+         psMat(nR_p,n_r_max)      =half*psMat(nR_p,n_r_max)
+         psMat(nR_p,n_r_max+1)    =half*psMat(nR_p,n_r_max+1)
+         psMat(nR_p,2*n_r_max)    =half*psMat(nR_p,2*n_r_max)
+         psMat(nR_p,2*n_r_max+1)  =half*psMat(nR_p,2*n_r_max+1)
+         psMat(nR_p,3*n_r_max)    =half*psMat(nR_p,3*n_r_max)
+         psMat(nR_rho,1)          =half*psMat(nR_rho,1)
+         psMat(nR_rho,n_r_max)    =half*psMat(nR_rho,n_r_max)
+         psMat(nR_rho,n_r_max+1)  =half*psMat(nR_rho,n_r_max+1)
+         psMat(nR_rho,2*n_r_max)  =half*psMat(nR_rho,2*n_r_max)
+         psMat(nR_rho,2*n_r_max+1)=half*psMat(nR_rho,2*n_r_max+1)
+         psMat(nR_rho,3*n_r_max)  =half*psMat(nR_rho,3*n_r_max)
       end do
 
-
       ! compute the linesum of each line
-      do nR=1,2*n_r_max
+      do nR=1,3*n_r_max
          psMat_fac(nR)=one/maxval(abs(psMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
-      do nr=1,2*n_r_max
+      do nr=1,3*n_r_max
          psMat(nR,:) = psMat(nR,:)*psMat_fac(nR)
       end do
 
       !---- LU decomposition:
-      call sgefa(psMat,2*n_r_max,2*n_r_max,psPivot,info)
+      call sgefa(psMat,3*n_r_max,3*n_r_max,psPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix psMat0!'
+         write(*,*) '! Singular matrix ps0Mat!'
          stop '29'
       end if
 

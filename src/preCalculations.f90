@@ -5,29 +5,29 @@ module preCalculations
    use output_data
    use precision_mod
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
-                         n_cheb_ic_max, m_max, minc, n_cheb_max,   &
-                         lm_max, n_phi_max, n_theta_max
+       &                 n_cheb_ic_max, m_max, minc, n_cheb_max,   &
+       &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds, &
-                          l_reset_t
+       &                  l_reset_t
    use parallel_mod, only: rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,   &
-                    l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
-                    l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
-                    l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
-                    l_LCR, l_dt_cmb_field, l_storePot
+       &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
+       &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
+       &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
+       &            l_LCR, l_dt_cmb_field, l_storePot
    use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
-                               r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
-                               beta, rho0, rgrav, dbeta,                   &
-                               dentropy0, sigma, lambda, dLkappa, kappa,   &
-                               dLvisc, dLlambda, divKtemp0, radial,        &
-                               transportProperties
+       &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
+       &                       beta, rho0, rgrav, dbeta,                   &
+       &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
+       &                       dLvisc, dLlambda, divKtemp0, radial,        &
+       &                       transportProperties
    use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
-                                  ekscaled, opr, opm, o_sr, radratio,      &
-                                  sigma_ratio, CorFac, LFfac, BuoFac,      &
-                                  PolInd, nVarCond, nVarDiff, nVarVisc,    &
-                                  rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
-                                  ktops, kbots, interior_model, r_LCR,     &
-                                  n_r_LCR, mode, tmagcon
+       &                          ekscaled, opr, opm, o_sr, radratio,      &
+       &                          sigma_ratio, CorFac, LFfac, BuoFac,      &
+       &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
+       &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
+       &                          ktops, kbots, interior_model, r_LCR,     &
+       &                          n_r_LCR, mode, tmagcon, ogrun, GrunNb
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite
@@ -91,7 +91,7 @@ contains
       else
          opm=0.0_cp
       end if
-    
+
       ! Note: CorFac is the factor in front of the Coriolis force. In the scaling
       !       used here (viscous time scale) this is simply the inverse Ekman num:
       !          CorFac=1/Ek
@@ -148,6 +148,12 @@ contains
       !-- Calculate radial functions for all threads (chebs,r,.....):
 
       call radial
+
+      if ( GrunNb /= 0.0_cp ) then
+         ogrun=one/GrunNb
+      else
+         ogrun=0.0_cp
+      end if
 
       if ( ( l_newmap ) .and. (rank == 0) ) then
          fileName='rNM.'//TAG
