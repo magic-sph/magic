@@ -24,17 +24,19 @@ and the structure of the different type of output files:
          * Rotation rates: :ref:`rot.TAG <secRotFile>`, 
 	 * Informations about the dipolar component of the magnetic field: :ref:`dipole.TAG <secDipoleFile>`,
 	 * Diagnostic parameters (Reynolds, Elsasser, etc.): :ref:`par.TAG <secParFile>`,
-	 * Additional diagnostics (heat fluxes, Nusselt numbers, etc.): :ref:`misc.TAG <secMiscFile>`.
       
    3. There are **additional conditional time series** that contain the time-evolution of 
       other physical quantities that depend on the chosen 
       :ref:`input parameters <secOutputNml>`:
 
          * Angular momentum balance: :ref:`AM.TAG <secAMFile>`,
+	 * Heat transport: :ref:`heat.TAG <secHeatFile>`,
+	 * Helicity: :ref:`helicity.TAG <secHelicityFile>`,
 	 * Power budget: :ref:`power.TAG <secpowerFile>` and :ref:`dtE.TAG <secdtEFile>`,
 	 * Square velocities: :ref:`u_square.TAG <secu_squareFile>`,
 	 * Drift rates: :ref:`drift[V|B][D|Q].TAG <secdriftFile>` and :ref:`iner[P|T].TAG <secinerFile>`,
 	 * Torques: :ref:`SR[IC|MA].TAG <secSRFile>`,
+	 * Geostrophy: :ref:`geos.TAG <secGeosFile>`,
 	 * RMS calculations of the force balances: :ref:`dtVrms.TAG <secdtVrmsFile>` and :ref:`dtBrms.TAG <secdtBrmsFile>`,
 	 * Kinetic energies perpendicular and parallel to the rotation axis: :ref:`perpPar.TAG <secperpParFile>`.
 
@@ -44,6 +46,7 @@ and the structure of the different type of output files:
          * Magnetic energies: :ref:`eMagR.TAG <secEmagRFile>`,
          * Diagnostic quantities: :ref:`parR.TAG <secParRfile>`,
          * Power budget: :ref:`powerR.TAG <secPowerRfile>`,
+	 * Average temperature, entropy and pressure: :ref:`heatR.TAG <secHeatRfile>`,
 	 * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`,
 	 * Temperature and horizontal velocities: :ref:`bLayersR.TAG <secBLayersRfile>`,
 	 * Kinetic energies perpendicular and parallel to the rotation axis: :ref:`perpParR.TAG <secPerpParRfile>`.

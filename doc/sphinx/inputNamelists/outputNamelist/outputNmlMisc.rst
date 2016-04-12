@@ -24,7 +24,7 @@ Geostrophy
 
 .. _varl_par:
 
-* **l_par** (default :f:var:`l_par=.false. <l_par>`) is a logical. When set to ``.true.``, this logical enables additional calculations (for instance the degree of geostrophy). The details of these caclulations can be found in the subroutine ``getEgeos`` in the ``Egeos.f90`` file. These quantities are then stored in the columns 10-16 of the :ref:`misc.TAG <secMiscFile>` file.
+* **l_par** (default :f:var:`l_par=.false. <l_par>`) is a logical. When set to ``.true.``, this logical enables additional calculations (for instance the degree of geostrophy). The details of these calculations can be found in the subroutine ``getEgeos`` in the ``Egeos.f90`` file. These quantities are then stored in the columns 10-16 of the :ref:`geos.TAG <secGeosFile>` file.
 
 * **l_corrMov** (default :f:var:`l_corrMov=.false. <l_corrmov>`) is a logical. When set to ``.true.``, this logical enables the calculation of a movie file that stores North/South correlation in the ``CVorz_mov.TAG`` file.
 
@@ -33,7 +33,7 @@ Helicity
 
 .. _varl_hel:
 
-* **l_hel** (default :f:var:`l_hel=.false. <l_hel>`) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the columns 6-9 of the :ref:`misc.TAG <secMiscFile>` file.
+* **l_hel** (default :f:var:`l_hel=.false. <l_hel>`) is a logical. When set to ``.true.``, this logical enables the calculation of helicity (RMS, northern and southern hemisphere, etc.). The outputs are stored in the columns 6-9 of the :ref:`helicity.TAG <secHelicityFile>` file.
 
 .. _varl_power:
 

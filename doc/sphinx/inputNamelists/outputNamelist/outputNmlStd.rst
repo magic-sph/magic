@@ -8,7 +8,7 @@ file: kinetic and magnetic energies (:ref:`e_kin.TAG <secEkinFile>`,
 :ref:`e_mag_oc.TAG <secEmagocFile>` and :ref:`e_mag_ic.TAG <secEmagicFile>`
 files), dipole information (:ref:`dipole.TAG <secDipoleFile>` file), rotation
 (:ref:`rot.TAG <secRotFile>`) parameters (:ref:`par.TAG <secParFile>`) and
-various additional diagnostics (:ref:`misc.TAG <secMiscFile>`):
+various additional diagnostics (:ref:`heat.TAG <secHeatFile>`):
 
 .. _varn_log_step:
 

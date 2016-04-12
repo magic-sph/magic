@@ -187,3 +187,16 @@ Miscellaneous
 
 * **l_non_rot** (default :f:var:`l_non_rot=.false. <l_non_rot>`) is a logical. Use it when you want to do non-rotating numerical simulations.
 
+* **anelastic_flavour** (default :f:var:`anelastic_flavour="None" <anelastic_flavour>`) is a character string. This allows to change the thermal diffusion operator used within the anelastic approximation. Possible values are:
+
+   +-------------------------------+------------------------------------+
+   | ``anelastic_flavour='LBR'``   | Entropy diffusion                  |
+   +-------------------------------+------------------------------------+
+   | ``anelastic_flavour='ENT'``   | Entropy diffusion                  |
+   +-------------------------------+------------------------------------+
+   | ``anelastic_flavour='ALA'``   | Anelastic liquid approximation     |
+   +-------------------------------+------------------------------------+
+   | ``anelastic_flavour='TDIFF'`` | Temperature diffusion              |
+   +-------------------------------+------------------------------------+
+   | ``anelastic_flavour='TEMP'``  | Temperature diffusion              |
+   +-------------------------------+------------------------------------+

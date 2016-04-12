@@ -2,6 +2,49 @@
 Additional optional time-series outputs
 =======================================
 
+
+.. _secHeatFile:
+
+``heat.TAG``
+------------
+
+This files contains informations about the heat transfer (Nusselt number, entropy and
+temperature at both boundaries). This file is written by the
+subroutine :f:subr:`outHeat <outmisc_mod/outheat()>`.  
+
+   +---------------+-------------------------------------------------------------+
+   | No. of column | Contents                                                    |
+   +===============+=============================================================+
+   | 1             | time                                                        |
+   +---------------+-------------------------------------------------------------+
+   | 2             | Nusselt number at the inner boundary                        |
+   +---------------+-------------------------------------------------------------+
+   | 3             | Nusselt number at the outer boundary                        |
+   +---------------+-------------------------------------------------------------+
+   | 4             | Nusselt number based on :math:`\Delta T` ratio              |
+   +---------------+-------------------------------------------------------------+
+   | 5             | Temperature at the inner boundary                           |
+   +---------------+-------------------------------------------------------------+
+   | 6             | Temperature at the outer boundary                           |
+   +---------------+-------------------------------------------------------------+
+   | 7             | Entropy at the inner boundary                               |
+   +---------------+-------------------------------------------------------------+
+   | 8             | Entropy at the outer boundary                               |
+   +---------------+-------------------------------------------------------------+
+   | 9             | Heat flux at the inner boundary                             |
+   +---------------+-------------------------------------------------------------+
+   | 10            | Heat flux at the outer boundary                             |
+   +---------------+-------------------------------------------------------------+
+   | 11            | Pressure perturbation at the outer boundary                 |
+   +---------------+-------------------------------------------------------------+
+   | 12            | volume integrated mass perturbation                         |
+   +---------------+-------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
+   >>> # To stack all the heat.TAG files of the current directory
+   >>> ts = MagicTs(field='heat', all=True)
+
 .. _secAMFile:
 
 ``AM.TAG``
@@ -106,6 +149,90 @@ by the subroutine :f:subr:`output <output_mod/output()>`.
    +---------------+------------------------------------------------------------------+
    | 4             | relative time variation of the total energy                      |
    +---------------+------------------------------------------------------------------+
+
+
+
+.. _secGeosFile:
+
+``geos.TAG``
+------------
+
+This files contains informations about the geostrophy of the flow.
+This file is written by the subroutine :f:subr:`getEgeos <egeos_mod/getegeos()>`.  
+
+.. note:: This file is **only** calculated when 
+          when :ref:`l_par=.true. <varl_par>`.
+
+..
+
+   +---------------+--------------------------------------------------------------+
+   | No. of column | Contents                                                     |
+   +===============+==============================================================+
+   | 1             | time                                                         |
+   +---------------+--------------------------------------------------------------+
+   | 2             | Relative geostrophic kinetic energy                          |
+   +---------------+--------------------------------------------------------------+
+   | 3             | Relative kinetic energy in the northern part of the TC       |
+   +---------------+--------------------------------------------------------------+
+   | 4             | Relative kinetic energy in the southern part of the TC       |
+   +---------------+--------------------------------------------------------------+
+   | 5             | Kinetic energy (calculated on the cylindrical grid)          |
+   +---------------+--------------------------------------------------------------+
+   | 6             | North/South correlation of Vz, outside the TC                |
+   +---------------+--------------------------------------------------------------+
+   | 7             | North/South correlation of vorticity outside the TC          |
+   +---------------+--------------------------------------------------------------+
+   | 8             | North/South correlation of helicity outside the TC           |
+   +---------------+--------------------------------------------------------------+
+   | 9             | Average length-scale perpendicular to the rotation axis      |
+   +---------------+--------------------------------------------------------------+
+   | 10            | Average length-scale parallel to the rotation axis           |
+   +---------------+--------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
+   >>> # To stack all the geos.TAG files of the current directory
+   >>> ts = MagicTs(field='geos', all=True)
+
+.. _secHelicityFile:
+
+``helicity.TAG``
+----------------
+
+This files contains informations about the kinetic helicity in both the 
+Northern and the Southern hemispheres.  This file is written by the
+subroutine :f:subr:`outHelicity <outmisc_mod/outhelicity()>`.  
+
+.. note:: This file is **only** calculated when :ref:`l_hel=.true. <varl_hel>`. 
+
+..
+
+   +---------------+-------------------------------------------------------------+
+   | No. of column | Contents                                                    |
+   +===============+=============================================================+
+   | 1             | time                                                        |
+   +---------------+-------------------------------------------------------------+
+   | 2             | Helicity (northern hemisphere)                              |
+   +---------------+-------------------------------------------------------------+
+   | 3             | Helicity (southern hemisphere)                              |
+   +---------------+-------------------------------------------------------------+
+   | 4             | RMS helicity (northern hemisphere)                          |
+   +---------------+-------------------------------------------------------------+
+   | 5             | RMS helicity (southern hemisphere)                          |
+   +---------------+-------------------------------------------------------------+
+   | 6             | Helicity (northern hemisphere, only non-axisym. flow)       |
+   +---------------+-------------------------------------------------------------+
+   | 6             | Helicity (southern hemisphere, only non-axisym. flow)       |
+   +---------------+-------------------------------------------------------------+
+   | 8             | RMS helicity (northern hemisphere, only non-axisym. flow)   |
+   +---------------+-------------------------------------------------------------+
+   | 9             | RMS helicity (southern hemisphere, only non-axisym. flow)   |
+   +---------------+-------------------------------------------------------------+
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
+   >>> # To stack all the helicity.TAG files of the current directory
+   >>> ts = MagicTs(field='helicity', all=True)
 
 .. _secu_squareFile:
 

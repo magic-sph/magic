@@ -40,6 +40,15 @@ Dimensionless control parameters
   .. math::
      N_\rho = \ln \frac{\tilde{\rho}(r_i)}{\tilde{\rho}(r_o)}
 
+* **DissNb** (default :f:var:`DissNb=0.0 <dissnb>`) is a real. This is the dissipation number:
+
+  .. math::
+     Di = \frac{\alpha_o g_o d}{c_p}
+
+  .. warning:: This can only be provided  as a **replacement** input of **strat**.
+               I.E., when one wants to define a reference state, one has to specify
+               **either** ``strat`` **or** ``DissNb`` in the input namelist.
+
 * **polind** (default :f:var:`polind=1.5 <polind>`) is a real. This is the polytropic index, which relates the background temperature to the background density:
 
   .. math::
@@ -242,7 +251,11 @@ Thermal boundary conditions
   +-------------+-------------------------------------------------------------------------------------+
   | ``ktops=1`` | Fixed entropy at outer boundary: :math:`s(r_o)=s_{top}`                             |
   +-------------+-------------------------------------------------------------------------------------+
-  | ``ktops=2`` | Fixed entropy flux at outer boundary: :math:`\partial s(r_o)/\partial r = s_{top}`  |
+  | ``ktops=2`` | Fixed entropy flux at outer boundary: :math:`\partial s(r_o)/\partial r = q_t`      |
+  +-------------+-------------------------------------------------------------------------------------+
+  | ``ktops=3`` | Fixed temperature at outer boundary: :math:`T(r_o)=T_{top}`                         |
+  +-------------+-------------------------------------------------------------------------------------+
+  | ``ktops=4`` | Fixed temperature flux at outer boundary: :math:`\partial T(r_o)/\partial r = q_t`  |
   +-------------+-------------------------------------------------------------------------------------+
 
 * **kbots** (default :f:var:`ktops=1 <kbots>`) is an  integer to specify the inner boundary entropy (or temperature) boundary condition.
