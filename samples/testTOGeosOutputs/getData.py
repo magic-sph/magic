@@ -16,6 +16,6 @@ file.close()
 
 # Cat e_kin.test + misc
 with open('e_kin.test', 'w') as outFile:
-    sp.call(['cat', 'misc.start', out], stdout=outFile)
+    sp.call(['cat', 'geos.start', out], stdout=outFile)
 
 sp.call(['rm', 'tmp'])
