@@ -19,7 +19,9 @@ class MagicTs(MagicSetup):
        * Dipole information: :ref:`dipole.TAG <secDipoleFile>`
        * Rotation: :ref:`rot.TAG <secRotFile>`
        * Diagnostic parameters: :ref:`par.TAG <secParFile>`
-       * Miscellaneous: :ref:`misc.TAG <secMiscFile>`
+       * Geostrophy: :ref:`geos.TAG <secGeosFile>`
+       * Heat transfer: :ref:`heat.TAG <secHeatFile>`
+       * Helicity: :ref:`helicity.TAG <secHelicityFile>`
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
@@ -37,8 +39,8 @@ class MagicTs(MagicSetup):
     >>> ts = MagicTs(field='power', all=True)
     >>> print(ts.time, ts.buoPower) # print time and buoyancy power 
     >>>
-    >>> # If you only want to read the file ``misc.N0m2z``
-    >>> ts = MagicTs(field='misc', tag='N0m2z', iplot=False)
+    >>> # If you only want to read the file ``heat.N0m2z``
+    >>> ts = MagicTs(field='heat', tag='N0m2z', iplot=False)
     """
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
@@ -239,6 +241,32 @@ class MagicTs(MagicSetup):
                 self.topflux = data[:, 17]
             except IndexError:
                 pass
+        elif self.field == 'geos':
+            self.time = data[:, 0]
+            self.geos = data[:, 1]
+            self.lpar = data[:, 8]
+            self.lperp = data[:, 9]
+        elif self.field == 'heat':
+            self.time = data[:, 0]
+            self.botnuss = data[:, 1]
+            self.topnuss = data[:, 2]
+            self.deltaTnuss = data[:, 3]
+            self.bottemp = data[:, 4]
+            self.toptemp = data[:, 5]
+            self.bots = data[:, 6]
+            self.tops = data[:, 7]
+            self.toppress = data[:, 8]
+            self.mass = data[:, 9]
+        elif self.field == 'helicity':
+            self.time = data[:, 0]
+            self.helN = data[:, 1]
+            self.helS = data[:, 2]
+            self.helRMSN = data[:, 3]
+            self.helRMSS = data[:, 4]
+            self.helnaN = data[:, 5]
+            self.helnaS = data[:, 6]
+            self.helnaRMSN = data[:, 7]
+            self.helnaRMSS = data[:, 8]
         elif self.field == 'u_square':
             self.time = data[:, 0]
             self.ekin_pol = data[:, 1]
@@ -415,7 +443,22 @@ class MagicTs(MagicSetup):
                 ax.plot(self.time, self.helrms)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Helicity')
-
+        elif self.field == 'heat':
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.topnuss, label='Top Nusselt')
+            ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Nusselt number')
+        elif self.field == 'helicity':
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.helRMSN, label='Northern Hemisphere')
+            ax.plot(self.time, self.helRMSS, label='Southern Hemisphere')
+            ax.legend(loc='lower right')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Helicity')
         elif self.field == 'u_square':
             fig = P.figure()
             ax = fig.add_subplot(111)
@@ -625,7 +668,11 @@ class AvgField:
         self.dmV = fac * trapz(ts2.dmV[ind:], ts2.time[ind:])
         self.dlVc = fac * trapz(ts2.dlVc[ind:], ts2.time[ind:])
 
-        ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
+        if len(glob.glob('heat.*')) > 0:
+            ts3 = MagicTs(field='heat', all=True, tag=tag, iplot=False)
+        else:
+            ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
+
         mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
         fac = 1./(ts3.time.max()-ts3.time[ind])

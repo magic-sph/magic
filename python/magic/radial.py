@@ -20,6 +20,7 @@ class MagicRadial(MagicSetup):
         * Diagnostic parameters: :ref:`parR.TAG <secPaRfile>`
         * Power budget: :ref:`powerR.TAG <secPowerRfile>`
         * Heat fluxes: :ref:`fluxesR.TAG <secFluxesRfile>`
+        * Mean entropy, temperature and pressure: :ref:`heatR.TAG <secHeatRfile>`
         * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
         * Parallel/perpendicular decomposition: :ref:`perpParR.TAG <secPerpParRfile>`
 
@@ -62,6 +63,8 @@ class MagicRadial(MagicSetup):
             self.name = 'parR'
         elif field in ('fluxesR'):
             self.name = 'fluxesR'
+        elif field in ('heatR'):
+            self.name = 'heatR'
         elif field in ('perpParR'):
             self.name = 'perpParR'
         else:
@@ -254,6 +257,12 @@ class MagicRadial(MagicSetup):
             self.fres = data[:, 6]
             self.ftot = self.fcond+self.fconv+self.fkin+self.fvisc+\
                         self.fpoyn+self.fres
+        elif self.name == 'heatR':
+            self.radius = data[:, 0]
+            self.entropy = data[:, 1]
+            self.temperature = data[:, 2]
+            self.pressure = data[:, 3]
+            self.density = data[:, 4]
         elif self.name == 'perpParR':
             self.radius = data[:, 0]
             self.Eperp = data[:, 1]
@@ -433,6 +442,23 @@ class MagicRadial(MagicSetup):
             ax.plot(self.radius, self.ftot/self.fcond[0])
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.radius[-1], self.radius[0])
+        elif self.name == 'heatR':
+            fig = P.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.radius, self.entropy, label='s')
+            ax.plot(self.radius, self.temperature, label='T')
+            ax.set_xlabel('Radius')
+            ax.set_ylabel('Temperature, Entropy')
+            ax.legend(loc='best', frameon=False)
+            ax.set_xlim(self.radius[-1], self.radius[0])
+
+            fig1 = P.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.radius, self.pressure, label='p')
+            ax1.set_xlabel('Radius')
+            ax1.set_ylabel('Pressure')
+            ax1.set_xlim(self.radius[-1], self.radius[0])
+
         elif self.name == 'perpParR':
             fig = P.figure()
             ax = fig.add_subplot(111)
