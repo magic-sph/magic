@@ -54,6 +54,10 @@ module init_fields
    complex(cp), public, allocatable :: tops(:,:)
    complex(cp), public, allocatable :: bots(:,:)
 
+   !----- Chemical composition
+   complex(cp), public, allocatable :: topxi(:,:)
+   complex(cp), public, allocatable :: botxi(:,:)
+
    !----- Peak values for magnetic field:
    real(cp), public :: bpeakbot,bpeaktop
 
@@ -1311,13 +1315,23 @@ contains
       real(cp) :: work(n_r_max)
 
       !-- Set Matrix:
-      do n_cheb=1,n_r_max
-         do n_r=2,n_r_max-1
-            s0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* ( d2cheb(n_cheb,n_r) + &
-           ( two*or1(n_r)+beta(n_r)+dLtemp0(n_r)+                              &
-                                           dLkappa(n_r) )* dcheb(n_cheb,n_r)  )
+      if ( l_anelastic_liquid ) then
+         do n_cheb=1,n_r_max
+            do n_r=2,n_r_max-1
+               s0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* ( d2cheb(n_cheb,n_r) + &
+              ( two*or1(n_r)+beta(n_r)+dLkappa(n_r) )                             &
+                                                            * dcheb(n_cheb,n_r)  )
+            end do
          end do
-      end do
+      else
+         do n_cheb=1,n_r_max
+            do n_r=2,n_r_max-1
+               s0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* ( d2cheb(n_cheb,n_r) + &
+              ( two*or1(n_r)+beta(n_r)+dLtemp0(n_r)+                              &
+                                              dLkappa(n_r) )* dcheb(n_cheb,n_r)  )
+            end do
+         end do
+      end if
        
 
       !-- Set boundary conditions:

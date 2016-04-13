@@ -11,7 +11,7 @@ module radial_functions
    use physical_parameters
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
-                    l_isothermal, l_anel, l_newmap
+       &            l_isothermal, l_anel, l_newmap
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -753,10 +753,18 @@ contains
       !-- The remaining division by rho will happen in s_updateS.F90
       if ( nVarEps == 0 ) then
          ! eps is constant
-         epscProf=otemp1
+         if ( l_anelastic_liquid ) then
+            epscProf(:)=one
+         else
+            epscProf(:)=otemp1(:)
+         end if
       else if ( nVarEps == 1 ) then
          ! rho*eps in the RHS
-         epscProf=rho0*otemp1
+         if ( l_anelastic_liquid ) then
+            epscProf(:)=rho0(:)
+         else
+            epscProf(:)=rho0(:)*otemp1(:)
+         end if
       end if
 
       !-- Variable viscosity
