@@ -1,0 +1,41 @@
+#!/bin/bash
+
+#################################################################################
+# This is a submit script for the HLRN cluster in Hannover and Berlin with Cray #
+# XC30 (MPP1) and Cray XC40 (MPP2). For more details, visit http://www.hlrn.de/ #
+#                                                                               #
+# Most modules are automatically loaded. Use a projectID if you have one, else  #
+# computing time from your user account will be used                            #
+#################################################################################
+
+#PBS -j oe
+#PBS -l feature=mpp2
+#PBS -l nodes=1:ppn=24
+#PBS -l walltime=12:00:00
+#PBS -N jobname
+#PBS -A projectID
+#PBS -o out
+#PBS -e err
+#PBS -m ea
+#PBS -M username@domain
+
+module switch PrgEnv-cray/5.2.40 PrgEnv-intel/5.2.40    #Switch to intel environment
+
+tasks_per_node=1
+n_mpi=1
+n_omp=24
+
+export OMP_NUM_THREADS=${n_omp}
+
+export MPICH_MAX_THREAD_SAFETY=multiple                 #Needed for hybrid code
+
+export KMP_STACKSIZE=1g
+export KMP_AFFINITY=noverbose,granularity=core,compact
+
+cd $PBS_O_WORKDIR
+
+#Use aprun to run magic.
+# -j 1 --> no hyperthreading (max OMP_NUM_THREADS=24)
+# -j 2 --> use hyperthreading (max OMP_NUM_THREADS=48)
+
+aprun -n ${n_mpi} -N ${tasks_per_node} -d ${n_omp} -j 1 -cc none /path/to/magic.exe input.nml
