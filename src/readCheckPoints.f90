@@ -1071,8 +1071,8 @@ contains
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*woR(nR)
                         z(lm,nR)=scale_v*zoR(nR)
-                        p(lm,nR)=scale_v*poR(nR)
                      end if
+                     p(lm,nR)=scale_v*poR(nR)
                      if ( l_heat ) s(lm,nR)=scale_s*soR(nR)
                   end do
                else
@@ -1081,8 +1081,8 @@ contains
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*wo(n)
                         z(lm,nR)=scale_v*zo(n)
-                        p(lm,nR)=scale_v*po(n)
                      end if
+                     p(lm,nR)=scale_v*po(n)
                      if ( l_heat ) s(lm,nR)=scale_s*so(n)
                   end do
                end if
