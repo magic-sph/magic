@@ -4,7 +4,7 @@ module parallel_mod
    !
 
 #ifdef WITH_MPI
-   use MPI
+   use mpimod
 #endif
    use omp_lib
 

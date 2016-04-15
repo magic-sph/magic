@@ -1,7 +1,7 @@
 module assertions
    use, intrinsic :: iso_fortran_env, only : error_unit
    use parallel_mod, only : rank
-   use mpi, only : mpi_abort, MPI_COMM_WORLD
+   use mpimod, only : mpi_abort, MPI_COMM_WORLD
    implicit none
 
    interface x_assert_equal

@@ -121,6 +121,21 @@ if(USE_MPI MATCHES yes)
       message(STATUS "Use MPI")
          add_definitions(-DWITH_MPI)
    endif()
+
+    # Detect if one has to use 'mpif.h'
+    file(WRITE "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testMPI_MOD.f90"
+    "
+    program test_mpif_h
+    use mpi
+    end program
+    ")
+    try_run(MPI_MOD_RUN MPI_MOD_LINK ${CMAKE_BINARY_DIR}
+     ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/testMPI_MOD.f90
+     COMPILE_DEFINITIONS ${CMAKE_REQUIRED_DEFINITIONS})
+    if(NOT MPI_MOD_LINK)
+       add_definitions(-DWITH_MPIF_H)
+    endif(NOT MPI_MOD_LINK)
+
 else()
       message(STATUS "No MPI: serial job")
 endif()
