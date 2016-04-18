@@ -150,7 +150,7 @@ contains
          inquire(file = input_filename, exist = nml_exist)
 
          if (.not. nml_exist) then
-            write(*,*) '! Input namelist file not found!'
+            if (rank == 0) write(*,*) '! Input namelist file not found!'
             stop
          end if
 
