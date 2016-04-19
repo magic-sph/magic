@@ -53,7 +53,7 @@ contains
       namelist/control/                                     &
          & mode,tag,n_time_steps,                           &
          & n_tScale,n_lScale,alpha,enscale,                 &
-         & l_update_v,l_update_b,l_update_s,                &
+         & l_update_v,l_update_b,l_update_s,l_update_xi,    &
          & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
          & difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe,  &
          & l_correct_AMz,tEND,l_non_rot,                    &
@@ -62,8 +62,8 @@ contains
          & cacheblock_size_in_B,anelastic_flavour
       
       namelist/phys_param/                                    &
-         & ra,pr,prmag,ek,epsc0,radratio,                     &
-         & ktops,kbots,ktopv,kbotv,ktopb,kbotb,               &
+         & ra,raxi,pr,sc,prmag,ek,epsc0,radratio,             &
+         & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi, &
          & s_top,s_bot,impS,sCMB,                             &
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
          & con_LambdaOut,con_FuncWidth,                       &
@@ -363,6 +363,8 @@ contains
          l_Ri   = .true.
          l_RiMa = .true.
       end if
+
+      if ( raxi > 0.0_cp ) l_chemical_convection = .true.
 
       if ( ek < 0.0_cp ) l_non_rot= .true. 
       if ( l_non_rot ) then
@@ -700,6 +702,7 @@ contains
       write(n_out,'(''  l_update_v      ='',l3,'','')') l_update_v
       write(n_out,'(''  l_update_b      ='',l3,'','')') l_update_b
       write(n_out,'(''  l_update_s      ='',l3,'','')') l_update_s
+      write(n_out,'(''  l_update_xi     ='',l3,'','')') l_update_xi
       write(n_out,'(''  l_newmap        ='',l3,'','')') l_newmap
       write(n_out,'(''  alph1           ='',ES14.6,'','')') alpha1
       write(n_out,'(''  alph2           ='',ES14.6,'','')') alpha2
@@ -728,7 +731,9 @@ contains
 
       write(n_out,*) "&phys_param"
       write(n_out,'(''  ra              ='',ES14.6,'','')') ra
+      write(n_out,'(''  raxi            ='',ES14.6,'','')') raxi
       write(n_out,'(''  pr              ='',ES14.6,'','')') pr
+      write(n_out,'(''  sc              ='',ES14.6,'','')') sc
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc/sq4pi
@@ -1001,6 +1006,7 @@ contains
       l_update_v    =.true.
       l_update_b    =.true.
       l_update_s    =.true.
+      l_update_xi   =.true.
       l_correct_AMe =.false.  ! Correct equatorial AM
       l_correct_AMz =.false.  ! Correct axial AM
       l_non_rot     =.false.  ! No Coriolis force !
@@ -1025,8 +1031,10 @@ contains
 
       !----- Namelist phys_param:
       ra         =1.1e5_cp
+      raxi       =0.0_cp
       ek         =1.0e-3_cp
       pr         =one
+      sc         =10.0_cp
       prmag      =5.0_cp
       epsc0      =0.0_cp
       radratio   =0.35_cp
