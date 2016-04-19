@@ -8,7 +8,7 @@ module horizontal_data
                          lm_max, n_m_max, minc, m_max
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
-   use num_param, only: difeta, difnu, difkap, ldif, ldifexp
+   use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
    use logic, only: l_non_rot
    use plms_theta, only: plm_theta, plm_thetaAS
@@ -55,7 +55,7 @@ module horizontal_data
    real(cp), public, allocatable :: dTheta4S(:),dTheta4A(:)
    real(cp), public, allocatable :: D_m(:),D_l(:),D_lP1(:)
    real(cp), public, allocatable :: D_mc2m(:)
-   real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:)
+   real(cp), public, allocatable :: hdif_B(:),hdif_V(:),hdif_S(:),hdif_Xi(:)
  
    !-- Limiting l for a given m, used in legtf
    integer, public, allocatable :: lStart(:),lStop(:)
@@ -107,7 +107,8 @@ contains
       allocate( D_m(lm_max),D_l(lm_max),D_lP1(lm_max) )
       allocate( D_mc2m(n_m_max) )
       allocate( hdif_B(lm_max),hdif_V(lm_max),hdif_S(lm_max) )
-      bytes_allocated = bytes_allocated+(18*lm_max+n_m_max)*SIZEOF_DEF_REAL
+      allocate( hdif_Xi(lm_max) )
+      bytes_allocated = bytes_allocated+(19*lm_max+n_m_max)*SIZEOF_DEF_REAL
 
       !-- Limiting l for a given m, used in legtf
       allocate( lStart(n_m_max),lStop(n_m_max) )
@@ -254,6 +255,7 @@ contains
          hdif_B(lm)=one
          hdif_V(lm)=one
          hdif_S(lm)=one
+         hdif_Xi(lm)=one
          if ( ldifexp > 0 ) then
 
             if ( ldif >= 0 .and. l > ldif ) then
@@ -273,6 +275,8 @@ contains
                                             real(l_max+1-ldif,cp) )**ldifexp
                hdif_S(lm)= one + difkap * ( real(l+1-ldif,cp) / &
                                              real(l_max+1-ldif,cp) )**ldifexp
+               hdif_Xi(lm)= one + difchem * ( real(l+1-ldif,cp) / &
+                                             real(l_max+1-ldif,cp) )**ldifexp
 
              else if ( ldif < 0 ) then
 
@@ -283,6 +287,8 @@ contains
                             (one+difnu*real(-ldif,cp)**ldifexp )
                 hdif_S(lm)= (one+difkap*real(l,cp)**ldifexp ) / &
                             (one+difkap*real(-ldif,cp)**ldifexp )
+                hdif_Xi(lm)=(one+difchem*real(l,cp)**ldifexp ) / &
+                            (one+difchem*real(-ldif,cp)**ldifexp )
                               
              end if
 

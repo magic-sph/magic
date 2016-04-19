@@ -6,7 +6,7 @@ module updateWP_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
-   use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &
+   use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
                              & chebt_oc,visc,dlvisc,                    &
                              & beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
                              & cheb_norm
@@ -218,7 +218,7 @@ contains
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=                         &
                           & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
-                          & rho0(nR)*agrav(nR)*s(lm1,nR) + &
+                          & rho0(nR)*alpha*rgrav(nR)*s(lm1,nR) + &
                           & w1*dwdt(lm1,nR) + &
                           & w2*dwdtLast(lm1,nR)
                      rhs1(nR+n_r_max,lmB,threadid)=                 &

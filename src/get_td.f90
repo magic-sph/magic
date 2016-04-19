@@ -10,17 +10,19 @@ module nonlinear_lm_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
-                     l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS
+       &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
+       &             l_chemical_conv
    use radial_functions, only: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
-   use physical_parameters, only: CorFac,ra,epsc,ViscHeatFac,OhmLossFac,n_r_LCR
+   use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
+       &                          OhmLossFac, n_r_LCR, epscXi
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
-                       lm2lmS, st_map
+       &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
-                              dTheta3A, dTheta4A, dPhi0, dTheta2S,     &
-                              dTheta3S, dTheta4S, hdif_V, hdif_B
+       &                      dTheta3A, dTheta4A, dPhi0, dTheta2S,     &
+       &                      dTheta3S, dTheta4S, hdif_V, hdif_B
    use RMS, only: Adv2hInt, Pre2hInt, Buo2hInt, Cor2hInt, LF2hInt,  &
-                  Geo2hInt, Mag2hInt, Arc2hInt, CLF2hInt, PLF2hInt, &
-                  CIA2hInt
+       &          Geo2hInt, Mag2hInt, Arc2hInt, CLF2hInt, PLF2hInt, &
+       &          CIA2hInt
    use leg_helper_mod, only: leg_helper_t
    use constants, only: zero, two
    use fields, only: w_Rloc,dw_Rloc,z_Rloc
@@ -35,6 +37,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: LFrLM(:),  LFtLM(:),  LFpLM(:)
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
+      complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
       !----- RMS calculations
       complex(cp), allocatable :: Advt2LM(:), Advp2LM(:)
@@ -74,6 +77,13 @@ contains
       allocate( this%ViscHeatLM(lmP_max) )
       allocate( this%OhmLossLM(lmP_max) )
       bytes_allocated = bytes_allocated + 14*lmP_max*SIZEOF_DEF_COMPLEX
+      
+      if ( l_chemical_conv ) then
+         allocate( this%VXirLM(lmP_max) )    
+         allocate( this%VXitLM(lmP_max) )    
+         allocate( this%VXipLM(lmP_max) )    
+         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+      end if
 
       !-- RMS calculations
       if ( l_RMS ) then
@@ -109,6 +119,12 @@ contains
       deallocate( this%ViscHeatLM )
       deallocate( this%OhmLossLM )
 
+      if ( l_chemical_conv ) then
+         deallocate( this%VXirLM )    
+         deallocate( this%VXitLM )    
+         deallocate( this%VXipLM )    
+      end if
+
       !-- RMS calculations
       if ( l_RMS ) then
          deallocate( this%Advt2LM )
@@ -127,30 +143,36 @@ contains
 
       class(nonlinear_lm_t) :: this
       
-      this%AdvrLM=zero
-      this%AdvtLM=zero
-      this%AdvpLM=zero
-      this%LFrLM=zero
-      this%LFtLM=zero
-      this%LFpLM=zero
-      this%VxBrLM=zero
-      this%VxBtLM=zero
-      this%VxBpLM=zero
-      this%VSrLM=zero
-      this%VStLM=zero
-      this%VSpLM=zero
+      this%AdvrLM    =zero
+      this%AdvtLM    =zero
+      this%AdvpLM    =zero
+      this%LFrLM     =zero
+      this%LFtLM     =zero
+      this%LFpLM     =zero
+      this%VxBrLM    =zero
+      this%VxBtLM    =zero
+      this%VxBpLM    =zero
+      this%VSrLM     =zero
+      this%VStLM     =zero
+      this%VSpLM     =zero
       this%ViscHeatLM=zero
-      this%OhmLossLM=zero
+      this%OhmLossLM =zero
+
+      if ( l_chemical_conv ) then
+         this%VXirLM=zero
+         this%VXitLM=zero
+         this%VXipLM=zero
+      end if
 
       if ( l_RMS ) then
          this%Advt2LM=zero
          this%Advp2LM=zero
-         this%LFp2LM=zero
-         this%LFt2LM=zero
-         this%CFt2LM=zero
-         this%CFp2LM=zero
-         this%p1LM=zero
-         this%p2LM=zero
+         this%LFp2LM =zero
+         this%LFt2LM =zero
+         this%CFt2LM =zero
+         this%CFp2LM =zero
+         this%p1LM   =zero
+         this%p2LM   =zero
       end if
 
    end subroutine set_zero
@@ -165,14 +187,14 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVxBhLM, &
-        &            dwdt,dzdt,dpdt,dsdt,dbdt,djdt,leg_helper)
+   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVXirLM,dVxBhLM, &
+        &            dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,leg_helper)
       !
-      !  Purpose of this to calculate time derivatives                    
-      !  dwdt,dzdt,dpdt,dsdt,dbdt,djdt                                    
-      !  and auxiliary arrays dVSrLM and dVxBhLM                          
-      !  from non-linear terms in spectral form,                          
-      !  contained in flmw1-3,flms1-3, flmb1-3 (input)                    
+      !  Purpose of this to calculate time derivatives
+      !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
+      !  and auxiliary arrays dVSrLM, dVXirLM and dVxBhLM
+      !  from non-linear terms in spectral form,
+      !  contained in flmw1-3,flms1-3, flmb1-3 (input)
       !
     
       !-- Input of variables:
@@ -184,11 +206,13 @@ contains
       type(leg_helper_t), intent(in) :: leg_helper
     
       !-- Output of variables:
-      complex(cp), intent(out) :: dwdt(lm_max),dzdt(lm_max)
-      complex(cp), intent(out) :: dpdt(lm_max),dsdt(lm_max)
-      complex(cp), intent(out) :: dbdt(lm_maxMag),djdt(lm_maxMag)
-      complex(cp), intent(out) :: dVxBhLM(lm_maxMag)
-      complex(cp), intent(out) :: dVSrLM(lm_max)
+      complex(cp), intent(out) :: dwdt(:),dzdt(:)
+      complex(cp), intent(out) :: dpdt(:),dsdt(:)
+      complex(cp), intent(out) :: dxidt(:)
+      complex(cp), intent(out) :: dbdt(:),djdt(:)
+      complex(cp), intent(out) :: dVxBhLM(:)
+      complex(cp), intent(out) :: dVSrLM(:)
+      complex(cp), intent(out) :: dVXirLM(:)
     
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
@@ -199,7 +223,7 @@ contains
       complex(cp) :: Arc(lm_max),Mag(lm_max),CIA(lm_max)
       complex(cp) :: dpt(lm_max),dpp(lm_max), Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
-      complex(cp) :: dsdt_loc
+      complex(cp) :: dsdt_loc, dxidt_loc
     
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
     
@@ -680,6 +704,45 @@ contains
                dVSrLM(lm)=0.0_cp
             end do
          end if
+
+         if ( l_chemical_conv ) then
+            dVXirLM(1)=this%VXirLM(1)
+            dxidt(1)  =epscXi
+    
+            !PERFON('td_xi_heat')
+            !$OMP PARALLEL DEFAULT(none) &
+            !$OMP private(lm,l,m,lmP,lmPS,lmPA,dxidt_loc) &
+            !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
+            !$OMP shared(lm_max,dxidt,dVXirLM,dTheta1S,dTheta1A,dPhi) &
+            !$OMP shared(nR,this) 
+            !LIKWID_ON('td_xi_heat')
+            !$OMP DO
+            do lm=2,lm_max
+               l   =lm2l(lm)
+               m   =lm2m(lm)
+               lmP =lm2lmP(lm)
+               lmPS=lmP2lmPS(lmP)
+               lmPA=lmP2lmPA(lmP)
+               !------ This is horizontal heat advection:
+               !PERFON('td_h1')
+    
+               if ( l > m ) then
+                  dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
+                       &    +dTheta1A(lm)*this%VXitLM(lmPA) &
+                       &    -dPhi(lm)*this%VXipLM(lmP)
+               else if ( l == m ) then
+                  dxidt_loc=  dTheta1A(lm)*this%VXitLM(lmPA) &
+                       &     -dPhi(lm)*this%VXipLM(lmP)
+               end if
+               !PERFOFF
+               dVXirLM(lm)=this%VXirLM(lmP)
+               dxidt(lm) = dxidt_loc
+            end do
+            !$OMP end do
+            !LIKWID_OFF('td_xi_heat')
+            !$OMP END PARALLEL
+            !PERFOFF
+         end if
     
          if ( l_mag_nl .or. l_mag_kin  ) then
             !PERFON('td_magnl')
@@ -786,6 +849,11 @@ contains
          if ( l_heat ) then
             do lm=1,lm_max
                dVSrLM(lm)=zero
+            end do
+         end if
+         if ( l_chemical_conv ) then
+            do lm=1,lm_max
+               dVXirLM(lm)=zero
             end do
          end if
          !PERFOFF

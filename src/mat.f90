@@ -4,9 +4,10 @@ module matrices
    !
 
    use mem_alloc, only: bytes_allocated
+   use logic, only: l_chemical_conv
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_totMag, &
                          n_r_tot
-   use logic, only: l_single_matrix
+   use logic, only: l_single_matrix, l_chemical_conv
    use precision_mod
 
    implicit none
@@ -18,6 +19,8 @@ module matrices
    real(cp), public, allocatable :: s0Mat(:,:)     ! for l=m=0  
    real(cp), public, allocatable :: ps0Mat(:,:)    ! for l=m=0  
    real(cp), public, allocatable :: sMat(:,:,:)
+   real(cp), public, allocatable :: xi0Mat(:,:)     ! for l=m=0  
+   real(cp), public, allocatable :: xiMat(:,:,:)
    real(cp), public, allocatable :: zMat(:,:,:) 
    real(cp), public, allocatable :: z10Mat(:,:)    ! for l=1,m=0 
    real(cp), public, allocatable :: wpMat(:,:,:) 
@@ -30,6 +33,8 @@ module matrices
    integer, public, allocatable :: s0Pivot(:)
    integer, public, allocatable :: ps0Pivot(:)
    integer, public, allocatable :: sPivot(:,:)
+   integer, public, allocatable :: xi0Pivot(:)
+   integer, public, allocatable :: xiPivot(:,:)
    integer, public, allocatable :: z10Pivot(:)
    integer, public, allocatable :: zPivot(:,:)
    integer, public, allocatable :: wpPivot(:,:)
@@ -49,9 +54,11 @@ module matrices
 #endif
 #ifdef WITH_PRECOND_S
    real(cp), public, allocatable :: sMat_fac(:,:)
+   real(cp), public, allocatable :: xiMat_fac(:,:)
 #endif
 #ifdef WITH_PRECOND_S0
    real(cp), public, allocatable :: s0Mat_fac(:)
+   real(cp), public, allocatable :: xi0Mat_fac(:)
 #endif
 #ifdef WITH_PRECOND_BJ
    real(cp), public, allocatable :: bMat_fac(:,:)
@@ -61,6 +68,7 @@ module matrices
    !    has been updated:           
    logical, public :: lZ10mat
    logical, public, allocatable :: lSmat(:)
+   logical, public, allocatable :: lXimat(:)
    logical, public, allocatable :: lZmat(:)
    logical, public, allocatable :: lWPmat(:)
    logical, public, allocatable :: lWPSmat(:)
@@ -90,6 +98,13 @@ contains
                         6*n_r_max*n_r_max*l_max+            &
                         2*n_r_totMag*n_r_totMag*l_maxMag)*SIZEOF_DEF_REAL
 
+      if ( l_chemical_conv ) then
+         allocate( xi0Mat(n_r_max,n_r_max) )      ! for l=m=0  
+         allocate( xiMat(n_r_max,n_r_max,l_max) )
+         bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*n_r_max+ &
+                           SIZEOF_DEF_REAL
+      end if
+
       !-- respective pivoting information:
       if ( l_single_matrix ) then
          allocate ( ps0Pivot(3*n_r_max) )
@@ -108,13 +123,20 @@ contains
       bytes_allocated = bytes_allocated+(3*n_r_max+4*n_r_max*l_max+ &
                         2*n_r_totMag*l_maxMag)*SIZEOF_INTEGER
 
+      if ( l_chemical_conv ) then
+         allocate( xi0Pivot(n_r_max) )
+         allocate( xiPivot(n_r_max,l_max) )
+         bytes_allocated = bytes_allocated+n_r_max*(l_max+1)*SIZEOF_INTEGER
+      end if
+
       if ( l_single_matrix ) then
          allocate(wpsMat_fac(3*n_r_max,2,l_max))
          allocate(ps0Mat_fac(3*n_r_max))
+         bytes_allocated = bytes_allocated+(6*n_r_max*l_max+3*n_r_max)*SIZEOF_DEF_REAL
       else
          allocate(wpMat_fac(2*n_r_max,2,l_max))
+         bytes_allocated = bytes_allocated+4*n_r_max*l_max*SIZEOF_DEF_REAL
       end if
-      bytes_allocated = bytes_allocated+4*n_r_max*l_max*SIZEOF_DEF_REAL
 
 #ifdef WITH_PRECOND_Z10
       allocate(z10Mat_fac(n_r_max))
@@ -127,10 +149,20 @@ contains
 #ifdef WITH_PRECOND_S
       allocate(sMat_fac(n_r_max,l_max))
       bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+
+      if ( l_chemical_conv ) then
+         allocate(xiMat_fac(n_r_max,l_max))
+         bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+      end if
 #endif
 #ifdef WITH_PRECOND_S0
       allocate(s0Mat_fac(n_r_max))
       bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+
+      if ( l_chemical_conv ) then
+         allocate(xi0Mat_fac(n_r_max))
+         bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+      end if
 #endif
 #ifdef WITH_PRECOND_BJ
       allocate(bMat_fac(n_r_totMag,l_maxMag))
@@ -149,6 +181,11 @@ contains
       allocate( lZmat(0:l_max) )
       allocate( lBmat(0:l_max) )
       bytes_allocated = bytes_allocated+4*(l_max+1)*SIZEOF_INTEGER
+
+      if ( l_chemical_conv ) then
+         allocate( lXimat(0:l_max) )
+         bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_INTEGER
+      end if
 
    end subroutine initialize_matrices
 !------------------------------------------------------------------------------

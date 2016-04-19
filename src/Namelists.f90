@@ -38,6 +38,7 @@ contains
       !-- Local stuff
       integer :: n
       integer :: nCounts
+      real(cp) :: xiCMB(4*n_impXi_max)
       real(cp) :: sCMB(4*n_impS_max),rad ! cmb heat boundary condition
       logical :: log_does_exist, nml_exist
       integer :: length
@@ -55,16 +56,16 @@ contains
          & n_tScale,n_lScale,alpha,enscale,                 &
          & l_update_v,l_update_b,l_update_s,l_update_xi,    &
          & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
-         & difnu,difeta,difkap,ldif,ldifexp,l_correct_AMe,  &
-         & l_correct_AMz,tEND,l_non_rot,                    &
+         & difnu,difeta,difkap,difchem,ldif,ldifexp,        &
+         & l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
          & l_newmap,alph1,alph2,                            &
          & runHours,runMinutes,runSeconds,                  &
          & cacheblock_size_in_B,anelastic_flavour
       
       namelist/phys_param/                                    &
-         & ra,raxi,pr,sc,prmag,ek,epsc0,radratio,             &
+         & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,     &
          & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi, &
-         & s_top,s_bot,impS,sCMB,                             &
+         & s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,   &
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
          & con_LambdaOut,con_FuncWidth,                       &
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
@@ -127,6 +128,10 @@ contains
 
       do n=1,4*n_impS_max
          sCMB(n)=0.0_cp
+      end do
+
+      do n=1,4*n_impXi_max
+         xiCMB(n)=0.0_cp
       end do
 
       runHours  =0
@@ -371,7 +376,11 @@ contains
          l_RiMa = .true.
       end if
 
-      if ( raxi > 0.0_cp ) l_chemical_convection = .true.
+      if ( raxi > 0.0_cp ) then
+         l_chemical_conv = .true.
+      else
+         l_chemical_conv = .false.
+      end if
 
       if ( ek < 0.0_cp ) l_non_rot= .true. 
       if ( l_non_rot ) then
@@ -621,6 +630,21 @@ contains
          end do
       end if
 
+      !-- Chemical composition boundary condition
+      if ( impXi /= 0 ) then
+         rad=pi/180
+         n_impXi=0
+         do n=1,4*n_impXi_max,4
+            if ( xiCMB(n) /= 0.0_cp ) then
+               n_impXi=n_impXi+1
+               peakXi(n_impXi) =xiCMB(n)
+               thetaXi(n_impXi)=rad*xiCMB(n+1)
+               phiXi(n_impXi)  =rad*xiCMB(n+2)
+               widthXi(n_impXi)=rad*xiCMB(n+3)
+            end if
+         end do
+      end if
+
       !-- Grenoble stuff:
       lGrenoble=.false.
       if ( BIC /= 0.0_cp .and. l_mag ) then
@@ -722,6 +746,7 @@ contains
       write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
       write(n_out,'(''  difeta          ='',ES14.6,'','')') difeta
       write(n_out,'(''  difkap          ='',ES14.6,'','')') difkap
+      write(n_out,'(''  difchem         ='',ES14.6,'','')') difchem
       write(n_out,'(''  ldif            ='',i3,'','')') ldif
       write(n_out,'(''  ldifexp         ='',i3,'','')') ldifexp
       write(n_out,'(''  l_correct_AMe   ='',l3,'','')') l_correct_AMe
@@ -744,6 +769,7 @@ contains
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc/sq4pi
+      write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  strat           ='',ES14.6,'','')') strat
       write(n_out,'(''  polind          ='',ES14.6,'','')') polind
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
@@ -791,6 +817,38 @@ contains
               & thetaS(i)/rad,",", phiS(i)/rad,",",        &
               & widthS(i)/rad,","
       end do
+
+      !--- Chemical composition boundary condition:
+      if ( l_chemical_conv ) then
+         write(n_out,'(''  ktopxi          ='',i3,'','')') ktopxi
+         write(n_out,'(''  kbotxi          ='',i3,'','')') kbotxi
+         write(n_out,'("  Bottom boundary l,m,Xi:")')
+         do m=0,m_max,minc
+             do l=m,l_max
+                 if ( botxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
+                      l,m,real(botxi(l,m))/sq4pi,aimag(botxi(l,m))/sq4pi
+             end do
+         end do
+         write(n_out,'("  Top boundary l,m,Xi:")')
+         do m=0,m_max,minc
+             do l=m,l_max
+                 if ( topxi(l,m) /= 0.0_cp ) write(n_out,'(1p,4x,2i4,2ES14.6)') &
+                      l,m,real(topxi(l,m))/sq4pi,aimag(topxi(l,m))/sq4pi
+             end do
+         end do
+         write(n_out,'(''  impXi           ='',i3,'','')') impXi
+         rad=pi/180.0_cp
+         do i=1,n_impXi
+            if ( i == 1 ) then
+               write(n_out,'(A)',advance='NO') "  xiCMB       ="
+            else
+               write(n_out,'(A)',advance='NO') "               "
+            end if
+            write(n_out,'(1p,4(ES14.6,A))') peakXi(i)/rad,",", &
+                 & thetaXi(i)/rad,",", phiXi(i)/rad,",",        &
+                 & widthXi(i)/rad,","
+         end do
+      end if
 
       !----- Conductivity variation:
       write(n_out,'(''  nVarCond        ='',i3,'','')') nVarCond
@@ -1033,6 +1091,7 @@ contains
       difnu         =0.0_cp
       difeta        =0.0_cp
       difkap        =0.0_cp
+      difchem       =0.0_cp
       ldif          =1
       ldifexp       =-1
 
@@ -1044,6 +1103,7 @@ contains
       sc         =10.0_cp
       prmag      =5.0_cp
       epsc0      =0.0_cp
+      epscxi0    =0.0_cp
       radratio   =0.35_cp
       !----- Anelatic stuff
       DissNb     =0.0_cp     ! Dissipation number
@@ -1063,6 +1123,8 @@ contains
       !----- Boundary conditions        
       ktops      =1
       kbots      =1
+      ktopxi     =1
+      kbotxi     =1
       ktopv      =2
       kbotv      =2
       ktopb      =1
@@ -1077,6 +1139,17 @@ contains
          thetaS(n)=0.0_cp
          phiS(n)  =0.0_cp
          widthS(n)=0.0_cp
+      end do
+      do n=1,4*n_xi_bounds
+         xi_top(n)=0.0_cp
+         xi_bot(n)=0.0_cp
+      end do
+      impXi=0
+      do n=1,n_impXi_max
+         peakXi(n) =0.0_cp
+         thetaXi(n)=0.0_cp
+         phiXi(n)  =0.0_cp
+         widthXi(n)=0.0_cp
       end do
 
       !----- Conductivity variation:

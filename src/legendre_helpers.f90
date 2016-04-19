@@ -10,10 +10,11 @@ module leg_helper_mod
    use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
    use logic, only: l_conv, l_mag_kin, l_heat, l_mag, l_movie_oc,    &
-       &            l_mag_LF, l_fluxProfs
+       &            l_mag_LF, l_fluxProfs, l_chemical_conv
    use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
-       &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma
+       &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma,     &
+       &             xi_Rloc
    use constants, only: zero, one, two
 
    implicit none
@@ -29,6 +30,7 @@ module leg_helper_mod
       complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
       !----- R-distributed versions of scalar fields (see c_fields.f):
       complex(cp), allocatable :: sR(:), dsR(:), preR(:), dpR(:)
+      complex(cp), allocatable :: xiR(:)
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
       complex(cp), allocatable :: bCMB(:)
@@ -67,6 +69,12 @@ contains
       allocate( this%sR(lm_max),this%dsR(lm_max) )
       allocate( this%preR(lm_max),this%dpR(lm_max) )
       bytes_allocated = bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_chemical_conv ) then
+         allocate( this%xiR(lm_max) )
+         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+      end if
+
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
       bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
 
@@ -117,8 +125,13 @@ contains
 
          if ( l_heat ) then
             do lm=1,lm_max
-               this%sR(lm) =s_Rloc(lm,nR)   ! used for plotting and Rms
+               this%sR(lm) =s_Rloc(lm,nR)   
                this%dsR(lm)=ds_Rloc(lm,nR)  ! used for plotting and Rms
+            end do
+         end if
+         if ( l_chemical_conv ) then
+            do lm=1,lm_max
+               this%xiR(lm)=xi_Rloc(lm,nR) 
             end do
          end if
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then

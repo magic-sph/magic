@@ -10,8 +10,10 @@ module physical_parameters
    !-- Control parameters for boundary conditions:
    integer :: mode         ! Mode of calculation
    integer :: ktops,kbots  ! Entropy boundary condition
+   integer :: ktopxi,kbotxi! Boundary conditions for chemical composition
    integer :: ktopv,kbotv  ! Velocity boundary condition
    integer :: ktopb,kbotb  ! Magnetic boundary condition
+
    !-- Parameters for a localized temperature (entropy) disturbance at CMB
    integer :: impS         ! Heat boundary condition
    integer :: n_impS       ! Heat boundary condition
@@ -20,15 +22,28 @@ module physical_parameters
    real(cp) :: phiS(n_impS_max)
    real(cp) :: peakS(n_impS_max)
    real(cp) :: widthS(n_impS_max) 
+
+   !-- Parameters for a localized chemical disturbance at CMB
+   integer :: impXi
+   integer :: n_impXi
+   integer, parameter :: n_impXi_max=20
+   real(cp) :: thetaXi(n_impXi_max)
+   real(cp) :: phiXi(n_impXi_max)
+   real(cp) :: peakXi(n_impXi_max)
+   real(cp) :: widthXi(n_impXi_max) 
  
    !-- Dimensionless parameters:
    real(cp) :: radratio       ! aspect ratio
    real(cp) :: ra             ! Rayleigh number
+   real(cp) :: raxi           ! Chemical composition-based Rayleigh number
+   real(cp) :: sc             ! Schmidt number (i.e. chemical Prandtl number)
    real(cp) :: ek             ! Ekman number
    real(cp) :: pr             ! Prandtl number
    real(cp) :: prmag          ! magnetic Prandtl number
    real(cp) :: epsc0          ! Internal heat source magnitude
+   real(cp) :: epscxi0        ! Internal chemical heat source magnitude
    real(cp) :: epsc           ! Renormalisation of epsc0
+   real(cp) :: epscxi         ! Renormalisation of epsc0Xi
    real(cp) :: strat          ! number of density scale heights
    real(cp) :: polind         ! polytropic index
    real(cp) :: ViscHeatFac    ! Prefactor for viscous heating: :math:`Di\,Pr/Ra`
@@ -50,10 +65,12 @@ module physical_parameters
    real(cp) :: rho_ratio_ic   ! Same density as outer core
    real(cp) :: rho_ratio_ma   ! Same density as outer core
    real(cp) :: opr            ! Inverse of Prandtl number
+   real(cp) :: osc            ! Inverse of Schmidt number (i.e. chemical Prandtl number)
    real(cp) :: opm            ! Inverse of magnetic Prandtl number
    real(cp) :: CorFac         ! Inverse of ekScaled
    real(cp) :: LFfac          ! Inverse of Pr*Ekman
    real(cp) :: BuoFac         ! Ratio of Rayleigh number over Prandtl number
+   real(cp) :: ChemFac        ! Ratio of comp. Rayleigh number over Schmidt number
    real(cp) :: O_sr           ! Inverse of sigma_ratio
    real(cp) :: raScaled       ! :math:`Ra\,l^3`
    real(cp) :: ekScaled       ! :math:`E\,l^2`

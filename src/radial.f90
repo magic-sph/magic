@@ -61,7 +61,6 @@ module radial_functions
  
    !-- arrays for buoyancy, depend on Ra and Pr:
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
-   real(cp), public, allocatable :: agrav(:)     ! Buoyancy term `dtemp0/Di*alpha`
  
    !-- chebychev polynomials, derivatives and integral:
    real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
@@ -136,9 +135,9 @@ contains
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
-      allocate( rgrav(n_r_max),agrav(n_r_max) )
+      allocate( rgrav(n_r_max) )
       bytes_allocated = bytes_allocated + &
-                        (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+                        (23*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
@@ -476,13 +475,6 @@ contains
                ddLalpha0=-ddLtemp0
             end if
          end if
-      end if
-
-      agrav=alpha*rgrav
-
-      if ( .not. l_heat ) then
-         rgrav=0.0_cp
-         agrav=0.0_cp
       end if
 
       if ( l_anel ) then

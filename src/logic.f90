@@ -8,6 +8,7 @@ module logic
    logical :: l_update_v     ! Switch off velocity field update
    logical :: l_update_b     ! Switch off magnetic field update
    logical :: l_update_s     ! Switch off entropy update
+   logical :: l_update_xi    ! Switch off update of chemical composition
    logical :: l_mag          ! Switch off magnetic terms calculation
    logical :: l_conv         ! Switch off convection
    logical :: l_mag_kin      ! Switch related for kinematic dynamo
@@ -78,5 +79,7 @@ module logic
 
    logical :: l_single_matrix ! In case entropy, w and P are solved at once implicitely
    logical :: l_temperature_diff ! diffusion of temperature instead of entropy
+
+   logical :: l_chemical_conv ! Switch for chemical convection
 
 end module logic

@@ -37,6 +37,7 @@ module num_param
    real(cp), public :: difeta          ! Amplitude of magnetic hyperdiffusion
    real(cp), public :: difnu           ! Amplitude of viscous hyperdiffusion
    real(cp), public :: difkap          ! Amplitude of thermal hyperdiffusion
+   real(cp), public :: difchem         ! Amplitude of chemical hyperdiffusion
  
    !-- Scalings:
    real(cp), public :: tScale          ! Time scale

@@ -9,11 +9,12 @@ module rIterThetaBlocking_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
-        & n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
+       &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
    use blocking, only: nfs
-   use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,        &
-        & l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, l_cond_ic,    &
-        & l_rot_ma, l_cond_ma, l_dtB, l_store_frame, l_movie_oc
+   use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,    &
+       &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
+       &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
+       &            l_movie_oc, l_chemical_conv
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -120,7 +121,7 @@ contains
               &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
               &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                &
               &      gsa%cbtc,gsa%cbpc,gsa%sc,gsa%drSc,               &
-              &      gsa%dsdtc, gsa%dsdpc, gsa%pc,                    &
+              &      gsa%dsdtc, gsa%dsdpc, gsa%pc, gsa%xic,           &
               &      this%leg_helper)
          !LIKWID_OFF('legTFG')
          !PERFOFF
@@ -139,7 +140,7 @@ contains
               &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
               &           gsa%sc,gsa%drSc,                                  &
-              &           gsa%dsdtc, gsa%dsdpc,gsa%pc,                      &
+              &           gsa%dsdtc, gsa%dsdpc,gsa%pc, gsa%xic,             &
               &           this%leg_helper)
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
@@ -161,9 +162,12 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
-            if ( this%lPressCalc ) then
-               call fft_thetab(gsa%pc,1)
-            end if
+         end if
+         if ( l_chemical_conv ) then
+            call fft_thetab(gsa%xic,1)
+         end if
+         if ( this%lPressCalc ) then
+            call fft_thetab(gsa%pc,1)
          end if
          if ( l_HT .or. this%lViscBcCalc ) then
             call fft_thetab(gsa%drSc,1)
@@ -305,6 +309,15 @@ contains
                call legTF1(nThetaStart,nl_lm%ViscHeatLM,gsa%ViscHeat)
             end if
          end if
+         !PERFOFF
+      end if
+      if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
+         !PERFON('inner2')
+         call fft_thetab(gsa%VXir,-1)
+         call fft_thetab(gsa%VXit,-1)
+         call fft_thetab(gsa%VXip,-1)
+         call legTF3(nThetaStart,nl_lm%VXirLM,nl_lm%VXitLM,nl_lm%VXipLM,    &
+              &      gsa%VXir,gsa%VXit,gsa%VXip)
          !PERFOFF
       end if
       if ( l_mag_nl ) then

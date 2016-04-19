@@ -17,12 +17,13 @@ module grid_space_arrays_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
-                               lambda, or4, or1
+       &                       lambda, or4, or1
    use physical_parameters, only: LFfac, n_r_LCR, CorFac
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta
    use constants, only: two, third
-   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, l_RMS
+   use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
+       &            l_RMS, l_chemical_conv
 
    implicit none
 
@@ -31,9 +32,10 @@ module grid_space_arrays_mod
    type, public, extends(general_arrays_t) :: grid_space_arrays_t
       !----- Nonlinear terms in phi/theta space: 
       real(cp), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
-      real(cp), allocatable :: LFr(:,:),  LFt(:,:),  LFp(:,:)
+      real(cp), allocatable :: LFr(:,:), LFt(:,:), LFp(:,:)
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
-      real(cp), allocatable :: VSr(:,:),  VSt(:,:),  VSp(:,:)
+      real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
+      real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
 
       !---- RMS calculations
@@ -50,7 +52,7 @@ module grid_space_arrays_mod
       real(cp), pointer :: dvtdpc(:,:), dvpdpc(:,:)
       real(cp), pointer :: brc(:,:), btc(:,:), bpc(:,:)
       real(cp), pointer :: cbrc(:,:), cbtc(:,:), cbpc(:,:)
-      real(cp), pointer :: pc(:,:)
+      real(cp), pointer :: pc(:,:), xic(:,:)
       real(cp), pointer :: dsdtc(:,:), dsdpc(:,:)
 
    contains
@@ -88,6 +90,13 @@ contains
       allocate( this%OhmLoss(nrp,nfs) )
       bytes_allocated=bytes_allocated + 14*nrp*nfs*SIZEOF_DEF_REAL
 
+      if ( l_chemical_conv ) then
+         allocate( this%VXir(nrp,nfs) )
+         allocate( this%VXit(nrp,nfs) )
+         allocate( this%VXip(nrp,nfs) )
+         bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
+      end if
+
       !----- Fields calculated from these help arrays by legtf:
       allocate( this%vrc(nrp,nfs),this%vtc(nrp,nfs),this%vpc(nrp,nfs) )
       allocate( this%dvrdrc(nrp,nfs),this%dvtdrc(nrp,nfs) )
@@ -102,6 +111,11 @@ contains
       allocate( this%pc(nrp,nfs) )
       allocate( this%dsdtc(nrp,nfs),this%dsdpc(nrp,nfs) )
       bytes_allocated=bytes_allocated + 22*nrp*nfs*SIZEOF_DEF_REAL
+
+      if ( l_chemical_conv ) then
+         allocate( this%xic(nrp,nfs) )
+         bytes_allocated=bytes_allocated + 23*nrp*nfs*SIZEOF_DEF_REAL
+      end if
 
       !-- RMS Calculations
       if ( l_RMS ) then
@@ -135,6 +149,11 @@ contains
       deallocate( this%VSr )
       deallocate( this%VSt )
       deallocate( this%VSp )
+      if ( l_chemical_conv ) then
+         deallocate( this%VXir )
+         deallocate( this%VXit )
+         deallocate( this%VXip )
+      end if
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
 
@@ -149,6 +168,10 @@ contains
       deallocate( this%sc,this%drSc )
       deallocate( this%pc )
       deallocate( this%dsdtc, this%dsdpc )
+
+      if ( l_chemical_conv ) then
+         deallocate( this%xic )
+      end if
 
       !-- RMS Calculations
       if ( l_RMS ) then
@@ -336,6 +359,32 @@ contains
          end do  ! theta loop
          !$OMP END PARALLEL DO
       end if     ! heat equation required ?
+
+      if ( l_chemical_conv .and. nBc == 0 ) then
+         !------ Get V S, the divergence of it is the advection of chem comp:
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nPhi, nThetaNHS, or2sn2) &
+         !$OMP& shared(this, or2, osn2, sizeThetaB, nR, n_phi_max)
+         do nThetaB=1,sizeThetaB
+            nThetaNHS=(nThetaB+1)/2
+            or2sn2=or2(nR)*osn2(nThetaNHS)
+            do nPhi=1,n_phi_max     ! calculate v*s components
+               this%VXir(nPhi,nThetaB)= &
+                    this%vrc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+               this%VXit(nPhi,nThetaB)= &
+                    or2sn2*this%vtc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+               this%VXip(nPhi,nThetaB)= &
+                    or2sn2*this%vpc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+            end do
+            ! this%VXir(n_phi_max+1,nThetaB)=0.0_cp
+            ! this%VXir(n_phi_max+2,nThetaB)=0.0_cp
+            ! this%VXit(n_phi_max+1,nThetaB)=0.0_cp
+            ! this%VXit(n_phi_max+2,nThetaB)=0.0_cp
+            ! this%VXip(n_phi_max+1,nThetaB)=0.0_cp
+            ! this%VXip(n_phi_max+2,nThetaB)=0.0_cp
+         end do  ! theta loop
+         !$OMP END PARALLEL DO
+      end if     ! chemical composition equation required ?
 
       if ( l_mag_nl ) then
 
@@ -668,6 +717,30 @@ contains
             this%VSp(n_phi_max+2,nThetaB)=0.0_cp
          end do  ! theta loop
       end if     ! heat equation required ?
+
+      if ( l_chemical_conv .and. nBc == 0 ) then
+         !------ Get V Xi, the divergence of the is advection of chemical comp:
+         nTheta=nThetaLast
+         do nThetaB=1,sizeThetaB
+            nTheta   =nTheta+1
+            nThetaNHS=(nTheta+1)/2
+            or2sn2=or2(nR)*osn2(nThetaNHS)
+            do nPhi=1,n_phi_max     ! calculate v*s components
+               this%VXir(nPhi,nThetaB)= &
+                    this%vrc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+               this%VXit(nPhi,nThetaB)= &
+                    or2sn2*this%vtc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+               this%VXip(nPhi,nThetaB)= &
+                    or2sn2*this%vpc(nPhi,nThetaB)*this%xic(nPhi,nThetaB)
+            end do
+            this%VXir(n_phi_max+1,nThetaB)=0.0_cp
+            this%VXir(n_phi_max+2,nThetaB)=0.0_cp
+            this%VXit(n_phi_max+1,nThetaB)=0.0_cp
+            this%VXit(n_phi_max+2,nThetaB)=0.0_cp
+            this%VXip(n_phi_max+1,nThetaB)=0.0_cp
+            this%VXip(n_phi_max+2,nThetaB)=0.0_cp
+         end do  ! theta loop
+      end if     ! chemical composition equation required ?
 
       if ( l_mag_nl ) then
 
