@@ -39,7 +39,7 @@ contains
       integer :: n
       integer :: nCounts
       real(cp) :: sCMB(4*n_impS_max),rad ! cmb heat boundary condition
-      logical :: log_does_exist
+      logical :: log_does_exist, nml_exist
       integer :: length
       integer :: argument_count
       integer :: res
@@ -146,6 +146,13 @@ contains
          stop
       else
          call get_command_argument(1,input_filename)
+
+         inquire(file = input_filename, exist = nml_exist)
+
+         if (.not. nml_exist) then
+            if (rank == 0) write(*,*) '! Input namelist file not found!'
+            stop
+         end if
 
          open(105,file=trim(input_filename))
          !-- Reading control parameters from namelists in STDIN:

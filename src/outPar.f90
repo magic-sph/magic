@@ -1,23 +1,27 @@
 module outPar_mod
+   !
+   ! This module is used to compute several time-averaged radial profiles:
+   ! fluxes, boundary layers, etc.
+   ! 
 
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxMag, l_max, lm_max, &
-                         l_maxMag
+       &                 l_maxMag
    use blocking, only: nfs, nThetaBs, sizeThetaB, lm2m
    use logic, only: l_viscBcCalc, l_anel, l_fluxProfs, l_mag_nl, &
-                    l_perpPar, l_save_out
+       &            l_perpPar, l_save_out, l_temperature_diff
    use horizontal_data, only: gauss
-   use fields, only: s_Rloc, ds_Rloc
+   use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
-                                  opr, kbots, ktops
+       &                          opr, kbots, ktops, ThExpNb
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
-                               dr_fac, chebt_oc
+       &                       dr_fac, chebt_oc, orho1, dLalpha0, &
+       &                       dLtemp0, beta, alpha0
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
-                          nRstopMag
-
+       &                  nRstopMag
    use num_param, only: tScale
    use output_data, only: tag, n_perpPar_file, perpPar_file
    use useful, only: cc2real
@@ -216,10 +220,22 @@ contains
       end if
 
       if ( l_fluxProfs ) then
-         do nR=nRstart,nRstop
-            fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
-                     temp0(nR)*r(nR)*r(nR)*sq4pi
-         end do
+         if ( l_temperature_diff ) then
+            do nR=nRstart,nRstop
+               fcR(nR)=-sq4pi*r(nR)*r(nR)*kappa(nR)*rho0(nR)*          &
+                 &      (temp0(nR)*(dLtemp0(nR)*s_Rloc(1,nR) +         &
+                 &                             ds_Rloc(1,nR))+         &
+                 &      ViscHeatFac*ThExpNb*alpha0(nR)*temp0(nR)*      &
+                 &      orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*& 
+                 &                              p_Rloc(1,nR)+          &
+                 &                             dp_Rloc(1,nR)))
+            end do
+         else
+            do nR=nRstart,nRstop
+               fcR(nR)=-real(ds_Rloc(1,nR))*kappa(nR)*rho0(nR)* &
+                 &      temp0(nR)*r(nR)*r(nR)*sq4pi
+            end do
+         end if
          do nR=nRstart,nRstop
             fkinR(nR) =0.0_cp
             fconvR(nR)=0.0_cp
