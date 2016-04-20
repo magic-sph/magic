@@ -81,7 +81,8 @@ contains
          & l_start_file,start_file,inform,                    &
          & l_reset_t,scale_s,scale_b,scale_v,tipdipole,       &
          & init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
-         & amp_s1,amp_s2,amp_v1,amp_b1
+         & amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,   &
+         & amp_xi1, amp_xi2
 
       namelist/output_control/                                &
          & n_graph_step,n_graphs,t_graph,                     &
@@ -381,6 +382,8 @@ contains
       else
          l_chemical_conv = .false.
       end if
+
+      if ( ra == 0.0_cp ) l_heat=.false.
 
       if ( ek < 0.0_cp ) l_non_rot= .true. 
       if ( l_non_rot ) then
@@ -786,7 +789,6 @@ contains
       write(n_out,'(''  kbotv           ='',i3,'','')') kbotv
       write(n_out,'(''  ktopb           ='',i3,'','')') ktopb
       write(n_out,'(''  kbotb           ='',i3,'','')') kbotb
-      write(n_out,'("  Bottom boundary l,m,S:")')
 
       !--- Heat boundary condition:
       write(n_out,'(''  ktops           ='',i3,'','')') ktops
@@ -900,11 +902,15 @@ contains
       write(n_out,'(''  init_s2         ='',i3,'','')') init_s2
       write(n_out,'(''  init_v1         ='',i3,'','')') init_v1
       write(n_out,'(''  init_b1         ='',i3,'','')') init_b1
+      write(n_out,'(''  init_xi1        ='',i7,'','')') init_xi1
+      write(n_out,'(''  init_xi2        ='',i3,'','')') init_xi2
       write(n_out,'(''  imagcon         ='',i3,'','')') imagcon
       write(n_out,'(''  amp_s1          ='',ES14.6,'','')') amp_s1
       write(n_out,'(''  amp_s2          ='',ES14.6,'','')') amp_s2
       write(n_out,'(''  amp_v1          ='',ES14.6,'','')') amp_v1
       write(n_out,'(''  amp_b1          ='',ES14.6,'','')') amp_b1
+      write(n_out,'(''  amp_xi1         ='',ES14.6,'','')') amp_xi1
+      write(n_out,'(''  amp_xi2         ='',ES14.6,'','')') amp_xi2
       write(n_out,*) "/"
 
       write(n_out,*) "&output_control"
@@ -1199,6 +1205,8 @@ contains
       tipdipole     =0.0_cp
       init_s1       =0
       init_s2       =0
+      init_xi1      =0
+      init_xi2      =0
       init_b1       =0
       init_v1       =0
       imagcon       =0
@@ -1207,6 +1215,8 @@ contains
       amp_s2        =0.0_cp
       amp_v1        =0.0_cp
       amp_b1        =one
+      amp_xi1       =0.0_cp
+      amp_xi2       =0.0_cp
 
       !----- Namelist output_control:
       l_save_out    =.false.  ! Save output

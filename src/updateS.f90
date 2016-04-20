@@ -182,11 +182,11 @@ contains
          if ( l1 == 0 ) then
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S0
-            call get_s0Mat(dt,s0Mat,s0Pivot,s0Mat_fac)
+               call get_s0Mat(dt,s0Mat,s0Pivot,s0Mat_fac)
 #else
                call get_s0Mat(dt,s0Mat,s0Pivot)
 #endif
-               lSmat(l1)=.TRUE.
+               lSmat(l1)=.true.
             end if
          else
             if ( .not. lSmat(l1) ) then
@@ -197,7 +197,7 @@ contains
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
                     sMat(1,1,l1),sPivot(1,l1))
 #endif
-               lSmat(l1)=.TRUE.
+               lSmat(l1)=.true.
                !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
             end if
           end if

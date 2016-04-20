@@ -265,7 +265,7 @@ contains
             PERFON('up_WP')
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
                  &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
-                 &         w1,coex,dt,nLMB,lRmsNext)
+                 &         xi_LMloc, w1,coex,dt,nLMB,lRmsNext)
             PERFOFF
 
             !call MPI_Barrier(MPI_COMM_WORLD,ierr)

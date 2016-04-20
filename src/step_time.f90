@@ -56,7 +56,7 @@ module step_time_mod
    use communications, only: get_global_sum, r2lo_redist, lm2r_type, &
        &                     lo2r_redist_start, lo2r_redist_wait,    &
        &                     lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
-       &                     lo2r_w, scatter_from_rank0_to_lo
+       &                     lo2r_w, scatter_from_rank0_to_lo, lo2r_xi
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -426,6 +426,9 @@ contains
          PERFON('lo2r_wt')
          if (l_heat) then
             call lo2r_redist_wait(lo2r_s)
+         end if
+         if (l_chemical_conv) then
+            call lo2r_redist_wait(lo2r_xi)
          end if
          if (l_conv) then
             call lo2r_redist_wait(lo2r_z)
@@ -807,7 +810,6 @@ contains
               &           EperpLMr_Rloc,EparLMr_Rloc,EperpaxiLMr_Rloc,         &
               &           EparaxiLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
 
-
          if ( lVerbose ) write(*,*) '! r-loop finished!'
          if ( .not.l_log ) then
             call wallTime(runTimeRstop)
@@ -854,11 +856,14 @@ contains
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
          PERFON('r2lo_dst')
-         call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
          call r2lo_redist(dwdt_Rloc,dwdt_LMloc)
          call r2lo_redist(dzdt_Rloc,dzdt_LMloc)
          call r2lo_redist(dpdt_Rloc,dpdt_LMloc)
-         call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
+
+         if ( l_heat ) then
+            call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
+            call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
+         end if
 
          if ( l_chemical_conv ) then
             call r2lo_redist(dxidt_Rloc,dxidt_LMloc)

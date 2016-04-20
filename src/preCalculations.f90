@@ -193,7 +193,7 @@ contains
          do n_r=1,n_r_max
             write(99,'(8ES16.8)') r(n_r),temp0(n_r),         &
              &   rho0(n_r),beta(n_r),dbeta(n_r),             &
-             &   rgrav(n_r)/BuoFac,dentropy0(n_r),           &
+             &   rgrav(n_r),dentropy0(n_r),                  &
              &   divKtemp0(n_r)
          end do
          close(99)
@@ -676,7 +676,7 @@ contains
             call logWrite(message)
          end if
          if ( kbotxi == 1 ) then
-            write(message,'(''! Constant temp. at ICB T ='',ES16.6)') real(botxi(0,0))/sq4pi
+            write(message,'(''! Constant comp. at ICB T ='',ES16.6)') real(botxi(0,0))/sq4pi
             call logWrite(message)
          else if ( kbotxi == 2 ) then
             help=surf_cmb*radratio**2*botconduc*real(botxi(0,0))/sq4pi

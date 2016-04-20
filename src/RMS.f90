@@ -14,7 +14,7 @@ module RMS
                          lm_max_dtB
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: chebt_oc, drx, r, r_CMB, rgrav, dr_fac
+   use radial_functions, only: chebt_oc, drx, r, r_CMB, dr_fac
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, l_corr
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord

@@ -14,7 +14,7 @@ module nonlinear_lm_mod
        &             l_chemical_conv
    use radial_functions, only: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
-       &                          OhmLossFac, n_r_LCR, epscXi
+       &                          OhmLossFac, n_r_LCR, epscXi, BuoFac
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
@@ -159,9 +159,9 @@ contains
       this%OhmLossLM =zero
 
       if ( l_chemical_conv ) then
-         this%VXirLM=zero
-         this%VXitLM=zero
-         this%VXipLM=zero
+         this%VXirLM =zero
+         this%VXitLM =zero
+         this%VXipLM =zero
       end if
 
       if ( l_RMS ) then
@@ -260,7 +260,7 @@ contains
                CorPol_loc=zero
                CorTor_loc=zero
             end if
-            Buo(lm) =rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
+            Buo(lm) =BuoFac*rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
             dwdt(lm)=AdvPol_loc+CorPol_loc
             dzdt(lm)=AdvTor_loc+CorTor_loc
             if ( lRmsCalc ) then
@@ -286,7 +286,7 @@ contains
             !$OMP shared(w_Rloc,this,dw_Rloc,nBc,leg_helper,Buo) &
             !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
             !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
-            !$OMP shared(dwdt,dzdt,rho0,rgrav)
+            !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac)
             do lm=1,lm_max
                if (lm == 1) cycle
                l   =lm2l(lm)
@@ -350,7 +350,7 @@ contains
                else
                   AdvPol_loc=zero
                endif
-               Buo(lm) =rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
+               Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
                dwdt(lm)=AdvPol_loc+CorPol_loc
 
                if ( lRmsCalc ) then
@@ -728,8 +728,8 @@ contains
     
                if ( l > m ) then
                   dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
-                       &    +dTheta1A(lm)*this%VXitLM(lmPA) &
-                       &    -dPhi(lm)*this%VXipLM(lmP)
+                       &     +dTheta1A(lm)*this%VXitLM(lmPA) &
+                       &     -dPhi(lm)*this%VXipLM(lmP)
                else if ( l == m ) then
                   dxidt_loc=  dTheta1A(lm)*this%VXitLM(lmPA) &
                        &     -dPhi(lm)*this%VXipLM(lmP)
@@ -759,7 +759,7 @@ contains
                   dVxBhLM(lm)= -r(nR)*r(nR)* dTheta1A(lm)*this%VxBtLM(lmPA)
                   dbdt(lm)   = -dTheta1A(lm)*this%VxBpLM(lmPA)
                   djdt(lm)   = zero
-                  CYCLE
+                  cycle
                end if
                l   =lm2l(lm)
                m   =lm2m(lm)

@@ -147,8 +147,8 @@ contains
          end if
          if ( lPressCalc ) then
             do lm=1,lm_max
-               this%preR(lm)=p_Rloc(lm,nR)  ! used for Rms in get_td (anelastic)
-               this%dpR(lm)=dp_Rloc(lm,nR)  ! used for Rms in get_td
+               this%preR(lm)= p_Rloc(lm,nR) ! used for Rms in get_td (anelastic)
+               this%dpR(lm) =dp_Rloc(lm,nR) ! used for Rms in get_td
             end do
          end if
          if ( l_mag .and. l_frame .and. l_movie_oc .and. nR == n_r_cmb ) then

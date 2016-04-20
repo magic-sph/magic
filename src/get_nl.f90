@@ -114,7 +114,7 @@ contains
 
       if ( l_chemical_conv ) then
          allocate( this%xic(nrp,nfs) )
-         bytes_allocated=bytes_allocated + 23*nrp*nfs*SIZEOF_DEF_REAL
+         bytes_allocated=bytes_allocated + nrp*nfs*SIZEOF_DEF_REAL
       end if
 
       !-- RMS Calculations

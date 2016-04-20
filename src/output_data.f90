@@ -8,7 +8,7 @@ module output_data
        &            l_RMS, l_save_out, l_cmb_field, l_energy_modes,  &
        &            l_rot_ic, l_rot_ma, l_power, l_SRIC, l_SRMA,     &
        &            l_dt_cmb_field, l_AM, l_movie, l_heat, l_par,    &
-       &            l_hel
+       &            l_hel, l_chemical_conv
    use parallel_mod, only: rank
    use charmanip, only: length_to_blank
 
@@ -341,7 +341,8 @@ contains
                if ( l_rot_ic .or. l_rot_ma ) &
                     open(n_rot_file, file=rot_file, status='new')
             end if
-            if ( l_heat ) open(n_heat_file, file=heat_file, status='new')
+            if ( l_heat .or. l_chemical_conv ) &
+                  open(n_heat_file, file=heat_file, status='new')
             if ( l_hel ) open(n_helicity_file, file=helicity_file, status='new')
             if ( l_par ) open(n_geos_file, file=geos_file, status='new')
             if ( l_power ) open(n_power_file, file=power_file, status='new')
@@ -413,7 +414,7 @@ contains
             if ( l_rot_ic .or. l_rot_ma .and.      &
                  .not. l_SRIC .and. .not. l_SRMA ) &
                  close(n_rot_file)
-            if ( l_heat ) close(n_heat_file)
+            if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
             if ( l_par ) close(n_geos_file)
             if ( l_hel ) close(n_helicity_file)
             close(n_power_file)

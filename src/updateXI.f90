@@ -188,7 +188,6 @@ contains
                      xiMat(1,1,l1),xiPivot(1,l1))
 #endif
                 lXimat(l1)=.true.
-                !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
              end if
           end if
 
@@ -355,7 +354,7 @@ contains
 #endif
       !
       !  Purpose of this subroutine is to contruct the time step matrix   
-      !  sMat0                                                            
+      !  xiMat0                                                            
       !
 
       !-- Input variables
@@ -498,11 +497,11 @@ contains
       !----- Other points:
       do nCheb=1,n_r_max
          do nR=2,n_r_max-1
-            xiMat(nR,nCheb)= cheb_norm * (                    &
-       &                               O_dt*cheb(nCheb,nR) -  &
-       &      alpha*osc*hdif*(             d2cheb(nCheb,nR) + &
-       &      ( beta(nR)+two*or1(nR) )*     dcheb(nCheb,nR) - &
-       &           dLh*or2(nR)*              cheb(nCheb,nR) ) )
+            xiMat(nR,nCheb)= cheb_norm * (                   &
+       &                               O_dt*cheb(nCheb,nR) - &
+       &      alpha*osc*hdif*(            d2cheb(nCheb,nR) + &
+       &      ( beta(nR)+two*or1(nR) )*    dcheb(nCheb,nR) - &
+       &           dLh*or2(nR)*             cheb(nCheb,nR) ) )
          end do
       end do
 
@@ -523,37 +522,7 @@ contains
       end do
 #endif
 
-#ifdef MATRIX_CHECK
-      ! copy the sMat to a temporary variable for modification
-      write(filename,"(A,I3.3,A,I3.3,A)") "sMat_",l,"_",counter,".dat"
-      open(newunit=filehandle,file=trim(filename))
-      counter= counter+1
-
-      do i=1,n_r_max
-         do j=1,n_r_max
-            write(filehandle,"(2ES20.12,1X)",advance="no") xiMat(i,j)
-         end do
-         write(filehandle,"(A)") ""
-      end do
-      close(filehandle)
-      temp_Mat=xiMat
-      anorm = 0.0_cp
-      do i=1,n_r_max
-         linesum = 0.0_cp
-         do j=1,n_r_max
-            linesum = linesum + abs(temp_Mat(i,j))
-         end do
-         if (linesum  >  anorm) anorm=linesum
-      end do
-      !write(*,"(A,ES20.12)") "anorm = ",anorm
-      ! LU factorization
-      call dgetrf(n_r_max,n_r_max,temp_Mat,n_r_max,ipiv,info)
-      ! estimate the condition number
-      call dgecon('I',n_r_max,temp_Mat,n_r_max,anorm,rcond,work,iwork,info)
-      write(*,"(A,I3,A,ES11.3)") "inverse condition number of sMat for l=",l," is ",rcond
-#endif
-
-!----- LU decomposition:
+      !----- LU decomposition:
       call sgefa(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
          write(*,*) 'Singular matrix xiMat!'

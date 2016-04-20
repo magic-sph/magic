@@ -17,12 +17,13 @@ module outMisc_mod
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
-   use logic, only: l_save_out, l_anelastic_liquid,  &
-       &            l_heat, l_temperature_diff
+   use logic, only: l_save_out, l_anelastic_liquid, l_heat, &
+       &            l_temperature_diff, l_chemical_conv
    use output_data, only: tag, heat_file, n_heat_file, helicity_file, &
        &                  n_helicity_file
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
-   use start_fields, only: topcond, botcond, deltacond
+   use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
+       &                   deltaxicond
    use useful, only: cc2real
    use integration, only: rInt, rInt_R
    use LMLoop_data,only: llm,ulm
@@ -32,7 +33,7 @@ module outMisc_mod
 
    private
 
-   real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:)
+   real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:), XiMeanR(:)
 
    public :: outHelicity, outHeat, initialize_outMisc_mod
 
@@ -40,15 +41,17 @@ contains
 
    subroutine initialize_outMisc_mod
 
-      if ( l_heat ) then
+      if ( l_heat .or. l_chemical_conv ) then
          allocate( TMeanR(n_r_max) )
          allocate( SMeanR(n_r_max) )
          allocate( PMeanR(n_r_max) )
-         TMeanR(:)   = 0.0_cp
-         SMeanR(:)   = 0.0_cp
-         PMeanR(:)   = 0.0_cp
+         allocate( XiMeanR(n_r_max) )
+         TMeanR(:)  = 0.0_cp
+         SMeanR(:)  = 0.0_cp
+         PMeanR(:)  = 0.0_cp
+         XiMeanR(:) = 0.0_cp
       end if
-      bytes_allocated=bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_outMisc_mod
 !---------------------------------------------------------------------------
@@ -237,7 +240,7 @@ contains
     
    end subroutine outHelicity
 !---------------------------------------------------------------------------
-   subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,dp)
+   subroutine outHeat(time,timePassed,timeNorm,l_stop_time,s,ds,p,dp,xi,dxi)
       !
       ! This subroutine is used to store informations about heat transfer
       ! (i.e. Nusselt number, temperature, entropy, ...)
@@ -254,11 +257,15 @@ contains
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
       complex(cp), intent(in) :: p(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dp(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dxi(llm:ulm,n_r_max)
     
       !-- Local stuff:
       real(cp) :: rhoprime(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
+      real(cp) :: topsherwood,botsherwood,deltasherwood
       real(cp) :: toptemp,bottemp
+      real(cp) :: topxi,botxi
       real(cp) :: toppres,botpres,mass
       real(cp) :: topentropy,botentropy
       real(cp) :: topflux,botflux
@@ -290,8 +297,8 @@ contains
          end if
 
          !-- Evaluate nusselt numbers (boundary heat flux density):
-         toppres   =osq4pi*real(p(1,n_r_cmb))
-         botpres   =osq4pi*real(p(1,n_r_icb))
+         toppres=osq4pi*real(p(1,n_r_cmb))
+         botpres=osq4pi*real(p(1,n_r_icb))
          if ( topcond/=0.0_cp ) then
 
             if ( l_temperature_diff ) then
@@ -370,15 +377,40 @@ contains
 
             end if
          else
-            botnuss   =1.0_cp
-            topnuss   =1.0_cp
+            botnuss   =one
+            topnuss   =one
             botflux   =0.0_cp
             topflux   =0.0_cp
             bottemp   =0.0_cp
             toptemp   =0.0_cp
             botentropy=0.0_cp
             topentropy=0.0_cp
-            deltanuss =0.0_cp
+            deltanuss =one
+         end if
+
+         if ( l_chemical_conv ) then
+            if ( topxicond/=0.0_cp ) then
+               do n_r=1,n_r_max
+                  XiMeanR(n_r)  = XiMeanR(n_r)+timePassed*osq4pi*real(xi(1,n_r))
+               end do
+               topxi=osq4pi*real(xi(1,n_r_cmb))
+               botxi=osq4pi*real(xi(1,n_r_icb))
+               botsherwood=-osq4pi/botxicond*real(dxi(1,n_r_icb))/lScale
+               topsherwood=-osq4pi/topxicond*real(dxi(1,n_r_cmb))/lScale
+               deltasherwood = deltaxicond/(botxi-topxi)
+            else
+               topxi=0.0_cp
+               botxi=0.0_cp
+               botsherwood=one
+               topsherwood=one
+               deltasherwood=one
+            end if
+         else
+            topxi=0.0_cp
+            botxi=0.0_cp
+            botsherwood=one
+            topsherwood=one
+            deltasherwood=one
          end if
 
          mass=four*pi*rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
@@ -390,10 +422,11 @@ contains
          !-- avoid too small number in output
          if ( abs(toppres) <= 1e-11_cp ) toppres=0.0_cp
 
-         write(n_heat_file,'(1P,ES20.12,11ES16.8)')       &
-              & time, botnuss, topnuss, deltanuss,        &
-              & bottemp, toptemp, botentropy, topentropy, &
-              & botflux, topflux, toppres, mass
+         write(n_heat_file,'(1P,ES20.12,16ES16.8)')           &
+              & time, botnuss, topnuss, deltanuss,            &
+              & bottemp, toptemp, botentropy, topentropy,     &
+              & botflux, topflux, toppres, mass, topsherwood, &
+              & botsherwood, deltasherwood, topxi, botxi
 
          if ( l_save_out ) close(n_heat_file)
 
@@ -401,6 +434,7 @@ contains
             SMeanR(:)=SMeanR(:)/timeNorm
             TMeanR(:)=TMeanR(:)/timeNorm
             PMeanR(:)=PMeanR(:)/timeNorm
+            XiMeanR(:)=XiMeanR(:)/timeNorm
 
             rhoPrime(:)=ThExpNb*alpha0(:)*(-rho0(:)*temp0(:)*SMeanR(:)+ &
                &         ViscHeatFac*ogrun*PMeanR(:) )
@@ -408,9 +442,9 @@ contains
             filename='heatR.'//tag
             open(newunit=filehandle, file=filename, status='unknown')
             do n_r=1,n_r_max
-               write(filehandle, '(ES20.10,4ES15.7)' ) &
+               write(filehandle, '(ES20.10,5ES15.7)' ) &
                &      r(n_r),SMeanR(n_r),TMeanR(n_r),  &
-               &      PMeanR(n_r),rhoprime(n_r)
+               &      PMeanR(n_r),rhoprime(n_r),XiMeanR(n_r)
             end do
 
             close(filehandle)

@@ -164,7 +164,7 @@ contains
                   end do
     
                end if ! thermal dissipation layer
-            end if
+            end if ! l_heat
             PERFOFF_I
 
             if ( l_chemical_conv ) then

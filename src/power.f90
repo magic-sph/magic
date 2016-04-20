@@ -9,7 +9,7 @@ module power
    use radial_functions, only: r_cmb, r_icb, r, chebt_oc, chebt_ic, &
                                or2, O_r_ic2, drx, lambda,           &
                                O_r_ic, rgrav, r_ic, dr_fac_ic
-   use physical_parameters, only: kbotv, ktopv, opm, LFfac
+   use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map, lmStartB, lmStopB
    use horizontal_data, only: dLh
@@ -157,7 +157,7 @@ contains
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                buoy_r(n_r)=buoy_r(n_r) + dLh(st_map%lm2(l,m)) * &
-                    rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
+                    BuoFac*rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
             end do
             !write(*,"(A,I4,2ES22.14)") "buoy_r = ",n_r,buoy_r(n_r),rgrav(n_r)
          end if

@@ -13,7 +13,7 @@ module updateWPS_mod
                              & alpha0,dLalpha0, ddLalpha0,              &
                              & kappa, orho1, dentropy0, temp0, r
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-                             &    ViscHeatFac, ThExpNb, ogrun
+                             &    ViscHeatFac, ThExpNb, ogrun, BuoFac
    use num_param, only: alpha
    use init_fields, only: tops,bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
@@ -435,7 +435,7 @@ contains
                     &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                            w(lm1,nR)  )
                Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
-               Buo(lm1) = rho0(nR)*rgrav(nR)*s(lm1,nR)
+               Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*s(lm1,nR)
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
                dpdtLast(lm1,nR)= dpdt(lm1,nR) - coex*(                    &
                     &            dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
@@ -488,7 +488,7 @@ contains
                     &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                            w(lm1,nR)  )
                Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
-               Buo(lm1) = rho0(nR)*rgrav(nR)*s(lm1,nR)
+               Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*s(lm1,nR)
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
                dpdtLast(lm1,nR)= dpdt(lm1,nR) - coex*(                    &
                     &            dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
@@ -665,7 +665,7 @@ contains
                     &                                       )  )
 
                ! Buoyancy
-               wpsMat(nR,nCheb_s)=-cheb_norm*alpha*rgrav(nR)*rho0(nR)* &
+               wpsMat(nR,nCheb_s)=-cheb_norm*alpha*BuoFac*rgrav(nR)*rho0(nR)* &
                                                       cheb(nCheb,nR)
        
                ! Pressure gradient
@@ -733,7 +733,7 @@ contains
                     &                                       )  )
 
                ! Buoyancy
-               wpsMat(nR,nCheb_s)=-cheb_norm*alpha*rgrav(nR)*rho0(nR)* &
+               wpsMat(nR,nCheb_s)=-cheb_norm*alpha*BuoFac*rgrav(nR)*rho0(nR)* &
                &                                      cheb(nCheb,nR)
        
                ! Pressure gradient
@@ -868,7 +868,7 @@ contains
                psMat(nR,nCheb_rho)=0.0_cp
 
                psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*          &
-               &                     rgrav(nR)*cheb(nCheb,nR)
+               &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm *alpha*( dcheb(nCheb,nR)- &
                &                     beta(nR)*cheb(nCheb,nR) )
                psMat(nR_p,nCheb_rho)=0.0_cp
@@ -898,8 +898,8 @@ contains
                psMat(nR,nCheb_p)  =0.0_cp ! entropy diffusion
                psMat(nR,nCheb_rho)=0.0_cp
 
-               psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*rgrav(nR)* &
-               &                              cheb(nCheb,nR)
+               psMat(nR_p,nCheb)  = -cheb_norm*alpha*BuoFac*rho0(nR)* &
+                 &                   rgrav(nR)*cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm*alpha*( dcheb(nCheb,nR)- &
                                      beta(nR)*cheb(nCheb,nR) )
                psMat(nR_p,nCheb_rho)=0.0_cp

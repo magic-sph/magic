@@ -33,7 +33,7 @@ module init_fields
        &                          epsc, ViscHeatFac, ThExpNb, ogrun,      &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
-       &                          kbotxi, ktopxi
+       &                          kbotxi, ktopxi, BuoFac
    use algebra, only: sgesl, sgefa, cgesl
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot, &
@@ -91,7 +91,7 @@ module init_fields
    real(cp), public :: tipdipole       ! adding to symetric field
 
    public :: initialize_init_fields, initV, initS, initB, s_cond, &
-             ps_cond, initXi
+             ps_cond, initXi, xi_cond
 
 contains
 
@@ -433,7 +433,6 @@ contains
             else
                if ( .not. l_anelastic_liquid ) then
                   call s_cond(s0)
-
                   open(unit=999, file='scond.dat')
                   do n_r=1,n_r_max
                      s(lm00,n_r)=s0(n_r)
@@ -752,7 +751,13 @@ contains
       if ( .not. l_start_file ) then
 
          if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
-               call xi_cond(xi0)
+            call xi_cond(xi0)
+            open(unit=999, file='xicond.dat')
+            do n_r=1,n_r_max
+               xi(lm00,n_r)=xi0(n_r)
+               write(999,*) r(n_r), xi0(n_r)*osq4pi
+            end do
+            close(999)
          end if
 
       end if
@@ -1863,7 +1868,7 @@ contains
                ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
-               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)*&
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)*&
                   &                                 cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)- &
                   &                       beta(n_r)*cheb(n_cheb,n_r) )
@@ -1898,7 +1903,7 @@ contains
                ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
-               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)* &
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)* &
                                                      cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *(  dcheb(n_cheb,n_r)- &
                &                           beta(n_r)*cheb(n_cheb,n_r) )

@@ -417,13 +417,13 @@ contains
                 &    w2,chebt_oc,drx)
 
          ! N.B. rgrav is not gravity but alpha * grav
-         rgrav = BuoFac*alpha0*rgrav
+         rgrav = alpha0*rgrav
 
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
          ! Default values: g0=0, g1=1, g2=0
          ! An easy way to change gravity
-         rgrav=BuoFac*(g0+g1*r/r_cmb+g2*(r_cmb/r)**2)
+         rgrav=g0+g1*r/r_cmb+g2*(r_cmb/r)**2
          dentropy0=0.0_cp
 
          if (l_anel) then
@@ -437,7 +437,7 @@ contains
                          g1/(two*r_cmb)*(r**2-r_cmb**2) - &
                          g2*(r_cmb**2/r-r_cmb)))
 
-               beta     =-fac*rgrav/BuoFac
+               beta     =-fac*rgrav
                dbeta    =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3)
                d2temp0  =0.0_cp
                dLtemp0  =0.0_cp
@@ -460,11 +460,11 @@ contains
                rho0     =temp0**polind
 
                !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-               beta     =-polind*DissNb*rgrav/temp0/BuoFac
+               beta     =-polind*DissNb*rgrav/temp0
                dbeta    =-polind*DissNb/temp0**2 *         &
                          ((g1/r_cmb-two*g2*r_cmb**2*or3)*  &
-                         temp0  + DissNb*rgrav**2/BuoFac**2)
-               dtemp0   =-DissNb*rgrav/BuoFac
+                         temp0  + DissNb*rgrav**2)
+               dtemp0   =-DissNb*rgrav
                d2temp0  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
 
                !-- Thermal expansion coefficient (1/T for an ideal gas)
@@ -912,7 +912,7 @@ contains
       !       dT
       !      ---- =  -Di * alpha_T * T * grav
       !       dr
-      rgrav=-BuoFac*dtemp0/DissNb
+      rgrav=-dtemp0/DissNb
 
       call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
              &    w2,chebt_oc,drx)

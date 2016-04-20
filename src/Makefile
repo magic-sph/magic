@@ -582,7 +582,7 @@ mat.o                 : truncation.o precision_mod.o mem_alloc.o
 dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o\
                         mem_alloc.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o\
-                        precision_mod.o	mem_alloc.o
+                        precision_mod.o	mem_alloc.o logic.o
 special.o             : precision_mod.o mem_alloc.o truncation.o
 radial_data.o         : truncation.o parallel.o logic.o
 plms.o                : constants.o precision_mod.o

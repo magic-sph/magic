@@ -6,7 +6,7 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
-                         n_r_ic_maxMag
+       &                 n_r_ic_maxMag
    use logic, only: l_chemical_conv
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop
@@ -186,9 +186,9 @@ contains
          xi_Rloc(1:lm_max,nRstart:nRstop)   => xi_Rloc_container(:,:,1)
          dxi_Rloc(1:lm_max,nRstart:nRstop)  => xi_Rloc_container(:,:,2)
          bytes_allocated = bytes_allocated + &
-                           (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+                           2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          bytes_allocated = bytes_allocated + &
-                           lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
 
       !-- Magnetic field potentials:

@@ -15,14 +15,16 @@ module output_mod
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
-       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par
+       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
+       &            l_chemical_conv
    use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
        &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
        &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc
+       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,        &
+       &             dxi_LMloc
    use fieldsLast, only: dwdtLast, dzdtLast, dpdtLast, dsdtLast, dbdtLast,  &
        &                 djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
        &                 dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
@@ -422,9 +424,9 @@ contains
               &      fpoynLMr,fresLMr,RmR)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
   
-         if ( l_heat ) then
+         if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
-                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc)
+                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,dxi_LMloc)
          end if
 
          if ( l_hel ) then
