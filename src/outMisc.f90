@@ -426,7 +426,7 @@ contains
               & time, botnuss, topnuss, deltanuss,            &
               & bottemp, toptemp, botentropy, topentropy,     &
               & botflux, topflux, toppres, mass, topsherwood, &
-              & botsherwood, deltasherwood, topxi, botxi
+              & botsherwood, deltasherwood, botxi, topxi
 
          if ( l_save_out ) close(n_heat_file)
 
