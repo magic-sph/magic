@@ -1559,9 +1559,9 @@ class Surf:
                     phislice1 = data1[indPlot, ...]
                     phislice = phislice + phislice1
 
-		if normRad: # Normalise each radius
-		    maxS = N.sqrt(N.mean(phislice**2, axis=0))
-		    phislice[:, maxS!=0.] /= maxS[maxS!=0.]
+                if normRad: # Normalise each radius
+                    maxS = N.sqrt(N.mean(phislice**2, axis=0))
+                    phislice[:, maxS!=0.] /= maxS[maxS!=0.]
 
                 ax = fig.add_subplot(1,len(lon_0),k+1, frameon=False)
                 if vmax is not None or vmin is not None:

@@ -887,7 +887,7 @@ class MagicCoeffR(MagicSetup):
         ls = N.arange(self.l_max_r+1)
         ls = ls[1:]
 
-        print w2.shape, dw.shape, ls.shape
+        print(w2.shape, dw.shape, ls.shape)
 
         fig = P.figure()
         ax = fig.add_subplot(111)
