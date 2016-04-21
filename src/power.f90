@@ -4,17 +4,18 @@ module power
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, &
-                         n_r_maxMag
+       &                 n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: r_cmb, r_icb, r, chebt_oc, chebt_ic, &
-                               or2, O_r_ic2, drx, lambda,           &
-                               O_r_ic, rgrav, r_ic, dr_fac_ic
-   use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac
+       &                       or2, O_r_ic2, drx, lambda,           &
+       &                       O_r_ic, rgrav, r_ic, dr_fac_ic
+   use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
+       &                          ChemFac
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map, lmStartB, lmStopB
    use horizontal_data, only: dLh
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
-                    l_conv, l_cond_ic, l_heat, l_mag
+       &            l_conv, l_cond_ic, l_heat, l_mag, l_chemical_conv
    use output_data, only: n_power_file, power_file, tag
    use useful, only: cc2real,cc22real
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
@@ -50,7 +51,7 @@ contains
    subroutine get_power(time,timePassed,timeNorm,l_stop_time, &
        &               omega_IC,omega_MA,                     &
        &               lorentz_torque_IC,lorentz_torque_MA,   &
-       &               w,ddw,z,dz,s,b,ddb,aj,dj,              &
+       &               w,ddw,z,dz,s,xi,b,ddb,aj,dj,           &
        &               db_ic,ddb_ic,aj_ic,dj_ic,              &
        &               viscDiss,ohmDiss)
       !
@@ -78,6 +79,7 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: ddb(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
@@ -160,6 +162,14 @@ contains
                     BuoFac*rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
             end do
             !write(*,"(A,I4,2ES22.14)") "buoy_r = ",n_r,buoy_r(n_r),rgrav(n_r)
+         end if
+         if ( l_chemical_conv ) then
+            do lm=max(2,llm),ulm
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               buoy_r(n_r)=buoy_r(n_r) + dLh(st_map%lm2(l,m)) * &
+                    ChemFac*rgrav(n_r)*cc22real(w(lm,n_r),xi(lm,n_r),m)
+            end do
          end if
 
       end do    ! radial grid points

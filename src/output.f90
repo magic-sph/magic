@@ -388,9 +388,9 @@ contains
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,ddw_LMloc,z_LMloc,     &
-                 &          dz_LMloc,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,     &
-                 &          dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,   &
-                 &          dj_ic_LMloc,visDiss,ohmDiss)
+                 &          dz_LMloc,s_LMloc,xi_LMloc,b_LMloc,ddb_LMloc,     &
+                 &          aj_LMloc,dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,      &
+                 &          aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
          end if

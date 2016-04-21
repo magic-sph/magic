@@ -223,12 +223,12 @@ contains
          if ( l_temperature_diff ) then
             do nR=nRstart,nRstop
                fcR(nR)=-sq4pi*r(nR)*r(nR)*kappa(nR)*rho0(nR)*          &
-                 &      (temp0(nR)*(dLtemp0(nR)*s_Rloc(1,nR) +         &
-                 &                             ds_Rloc(1,nR))+         &
+                 &      (temp0(nR)*(dLtemp0(nR)*real(s_Rloc(1,nR)) +   &
+                 &                             real(ds_Rloc(1,nR)))+   &
                  &      ViscHeatFac*ThExpNb*alpha0(nR)*temp0(nR)*      &
                  &      orho1(nR)*((dLalpha0(nR)+dLtemp0(nR)-beta(nR))*& 
-                 &                              p_Rloc(1,nR)+          &
-                 &                             dp_Rloc(1,nR)))
+                 &                             real(p_Rloc(1,nR))+     &
+                 &                            real(dp_Rloc(1,nR))))
             end do
          else
             do nR=nRstart,nRstop

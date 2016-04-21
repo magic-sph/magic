@@ -10,7 +10,7 @@ PRODRUN=yes
 USE_MPI=yes
 USE_OMP=yes
 # DEBUG: no/noopt/check/all/marmot
-DEBUG=no
+DEBUG=all
 # Pre-conditioning of the matrices: yes/no
 USE_PRECOND=yes
 # USE_FFTLIB can be MKL or JW
@@ -369,6 +369,11 @@ updateS.o             : truncation.o blocking.o horizontal.o\
                         init_fields.o constants.o mat.o mem_alloc.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o LMLoop_data.o
+updateXI.o            : truncation.o blocking.o horizontal.o\
+                        phys_param.o radial.o logic.o output_data.o\
+                        init_fields.o constants.o mat.o mem_alloc.o\
+                        $(LAPACK_OBJS) cosine_transform_odd.o\
+                        radial_derivatives.o LMLoop_data.o
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
@@ -424,7 +429,7 @@ rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
 LMLoop.o              : truncation.o blocking.o parallel.o\
                         logic.o radial_data.o\
                         output_data.o fields.o dt_fieldsLast.o mat.o\
-                        updateS.o updateB.o mem_alloc.o\
+                        updateS.o updateB.o mem_alloc.o updateXI.o\
                         updateZ.o updateWP.o timing.o LMLoop_data.o\
                         communications.o debugging.o updateWPS.o
 debugging.o           : precision_mod.o
