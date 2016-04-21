@@ -2,20 +2,23 @@
 #define ONE_LARGE_BLOCK
 
 module graphOut_mod
+   !
+   ! This module contains the subroutines that store the 3-D graphic files.
+   !
 
    use parallel_mod
    use precision_mod
    use truncation, only: lm_maxMag, n_r_maxMag, n_r_ic_maxMag, lm_max, &
-                         n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
-                         n_phi_max, nrp, n_r_ic_max
+       &                 n_theta_max, n_phi_tot, n_r_max, l_max, minc, &
+       &                 n_phi_max, nrp, n_r_ic_max
    use radial_data, only: n_r_icb
    use radial_functions, only: r_cmb, orho1, or1, or2, r, r_icb, r_ic, &
-                               O_r_ic, O_r_ic2
+       &                       O_r_ic, O_r_ic2
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use num_param, only: vScale
    use blocking, only: nThetaBs, sizeThetaB, nfs
    use horizontal_data, only: theta_ord, dLh, Plm, dPlm, O_sin_theta
-   use logic, only: l_mag, l_cond_ic, l_PressGraph
+   use logic, only: l_mag, l_cond_ic, l_PressGraph, l_chemical_conv
 #ifdef WITH_MPI
    use output_data, only: n_graph_file, runid, graph_mpi_fh
 #else
@@ -41,7 +44,7 @@ module graphOut_mod
 
 contains
 
-   subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,prer,        &
+   subroutine graphOut(time,n_r,vr,vt,vp,br,bt,bp,sr,prer,xir,      &
      &              n_theta_start,n_theta_block_size,lGraphHeader)
       !
       !
@@ -64,7 +67,7 @@ contains
       integer,  intent(in) :: n_theta_block_size     ! size of theta block
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
       real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),prer(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),prer(nrp,*),xir(nrp,*)
 
       logical,  intent(inout) :: lGraphHeader
     
@@ -81,10 +84,18 @@ contains
     
     
       !-- Write header & colatitudes for n_r=0:
-      if ( l_PressGraph) then
-         version='Graphout_Version_8'
+      if ( l_chemical_conv ) then
+         if ( l_PressGraph ) then
+            version='Graphout_Version_6'
+         else
+            version='Graphout_Version_5'
+         end if
       else
-         version='Graphout_Version_7'
+         if ( l_PressGraph ) then
+            version='Graphout_Version_8'
+         else
+            version='Graphout_Version_7'
+         end if
       end if
     
       if ( lGraphHeader ) then
@@ -162,7 +173,18 @@ contains
          end do
          call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
 
-         if ( version == 'Graphout_Version_8' ) then
+         if ( version == 'Graphout_Version_5' .or. version == 'Graphout_Version_6') then
+            !-- Write composition:
+            do n_theta=1,n_theta_block_size,2
+               do n_phi=1,n_phi_max ! do loop over phis
+                  dummy(n_phi,n_theta)  =real(xir(n_phi,n_theta),kind=outp)   ! NHS
+                  dummy(n_phi,n_theta+1)=real(xir(n_phi,n_theta+1),kind=outp) ! SHS
+               end do
+            end do
+            call graph_write(n_phi_max,n_theta_block_size,dummy,n_graph_file)
+         end if
+
+         if ( version == 'Graphout_Version_6' .or. version == 'Graphout_Version_8') then
             !-- Write pressure:
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max ! do loop over phis
@@ -226,11 +248,18 @@ contains
     
     
       !-- Write header & colatitudes for n_r=0:
-    
-      if ( l_PressGraph) then
-         version='Graphout_Version_8'
+      if ( l_chemical_conv ) then
+         if ( l_PressGraph ) then
+            version='Graphout_Version_6'
+         else
+            version='Graphout_Version_5'
+         end if
       else
-         version='Graphout_Version_7'
+         if ( l_PressGraph ) then
+            version='Graphout_Version_8'
+         else
+            version='Graphout_Version_7'
+         end if
       end if
 
       !-------- Write parameters:
@@ -250,7 +279,7 @@ contains
    end subroutine graphOut_header
 !-------------------------------------------------------------------------------
 #ifdef WITH_MPI
-   subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr,prer, &
+   subroutine graphOut_mpi(time,n_r,vr,vt,vp,br,bt,bp,sr,prer,xir, &
             &              n_theta_start,n_theta_block_size,lGraphHeader)
       !
       ! MPI version of the graphOut subroutine (use of MPI_IO)
@@ -263,7 +292,7 @@ contains
       integer,  intent(in) :: n_theta_block_size       ! size of theta block
       real(cp), intent(in) :: vr(nrp,*),vt(nrp,*),vp(nrp,*)
       real(cp), intent(in) :: br(nrp,*),bt(nrp,*),bp(nrp,*)
-      real(cp), intent(in) :: sr(nrp,*),prer(nrp,*)
+      real(cp), intent(in) :: sr(nrp,*),prer(nrp,*),xir(nrp,*)
 
       logical, intent(inout) :: lGraphHeader
 
@@ -291,10 +320,18 @@ contains
       character(len=MPI_MAX_DATAREP_STRING) :: datarep
       ! end of MPI related variables
 
-      if ( l_PressGraph) then
-         version='Graphout_Version_10'
+      if ( l_chemical_conv ) then
+         if ( l_PressGraph ) then
+            version='Graphout_Version_12'
+         else
+            version='Graphout_Version_11'
+         end if
       else
-         version='Graphout_Version_9'
+         if ( l_PressGraph ) then
+            version='Graphout_Version_10'
+         else
+            version='Graphout_Version_9'
+         end if
       end if
 
       !$OMP CRITICAL
@@ -499,8 +536,19 @@ contains
          end do
          call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
 
+         !-- Write composition:
+         if ( version == 'Graphout_Version_11' .or. version == 'Graphout_Version_12' ) then
+            do n_theta=1,n_theta_block_size,2
+               do n_phi=1,n_phi_max ! do loop over phis
+                  dummy(n_phi,n_theta)  =real(xir(n_phi,n_theta),kind=outp)   ! NHS
+                  dummy(n_phi,n_theta+1)=real(xir(n_phi,n_theta+1),kind=outp) ! SHS
+               end do
+            end do
+            call graph_write_mpi(n_phi_max,n_theta_block_size,dummy,graph_mpi_fh)
+         end if
+
          !-- Write pressure:
-         if ( version == 'Graphout_Version_10' ) then
+         if ( version == 'Graphout_Version_10' .or. version == 'Graphout_Version_12' ) then
             do n_theta=1,n_theta_block_size,2
                do n_phi=1,n_phi_max ! do loop over phis
                   dummy(n_phi,n_theta)  =real(prer(n_phi,n_theta),kind=outp)   ! NHS
@@ -580,10 +628,18 @@ contains
       ! end of MPI related variables
 
       !----- Unformatted output:
-      if ( l_PressGraph) then
-         version='Graphout_Version_10'
+      if ( l_chemical_conv ) then
+         if ( l_PressGraph ) then
+            version='Graphout_Version_12'
+         else
+            version='Graphout_Version_11'
+         end if
       else
-         version='Graphout_Version_9'
+         if ( l_PressGraph ) then
+            version='Graphout_Version_10'
+         else
+            version='Graphout_Version_9'
+         end if
       end if
 
       size_of_header = 8+len(version)+8+len(runid)+8+13*SIZEOF_INTEGER+8+ &
@@ -592,16 +648,26 @@ contains
 #ifdef ONE_LARGE_BLOCK
       size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+4* &
                                 (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
-      if ( version == 'Graphout_Version_10' ) then
+      if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                    (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
       end if
+      if ( version=='Graphout_Version_12') then
+         size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
+      end if
+
+
       if ( l_mag ) size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                    3*(8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
 #else
       size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+4* &
                                (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
-      if ( version == 'Graphout_Version_10' ) then
+      if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
+         size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+      end if
+      if ( version=='Graphout_Version_12') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                    (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
       end if

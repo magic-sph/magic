@@ -742,7 +742,7 @@ contains
       end if
 
       !-- Eps profiles
-      !-- The remaining division by rho will happen in s_updateS.F90
+      !-- The remaining division by rho will happen in updateS.f90
       if ( nVarEps == 0 ) then
          ! eps is constant
          if ( l_anelastic_liquid ) then

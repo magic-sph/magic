@@ -205,9 +205,7 @@ contains
             lmB=lmB0
 
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-               !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
@@ -256,9 +254,7 @@ contains
             lmB=lmB0
             !PERFON('upXi_af')
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
-             !do lm=1,sizeLMB2(nLMB2,nLMB)
                lm1=lm22lm(lm,nLMB2,nLMB)
-               !l1 =lm22l(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
                if ( l1 == 0 ) then
                   do n_cheb=1,n_cheb_max
@@ -333,7 +329,7 @@ contains
                  & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
                  &   ( workA(lm1,nR) &
                  &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR) &
-                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) * or2(nR)   *  xi(lm1,nR) &
+                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*xi(lm1,nR) &
                  &   )
          end do
       end do

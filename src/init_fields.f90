@@ -86,6 +86,7 @@ module init_fields
 
    !-- Scales for input field:
    real(cp), public :: scale_s
+   real(cp), public :: scale_xi
    real(cp), public :: scale_v
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
@@ -104,11 +105,15 @@ contains
       
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
+      tops(:,:)=zero
+      bots(:,:)=zero
       bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
          allocate( topxi(0:l_max,0:m_max) )
          allocate( botxi(0:l_max,0:m_max) )
+         topxi(:,:)=zero
+         botxi(:,:)=zero
          bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
       end if
 

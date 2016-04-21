@@ -362,16 +362,16 @@ contains
                  &            this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &            this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &            this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &            this%gsa(threadid)%pc,nThetaStart,             &
-                 &            this%sizeThetaB,lGraphHeader)
+                 &            this%gsa(threadid)%pc,this%gsa(threadid)%xic,  &
+                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
             call graphOut(time,this%nR,this%gsa(threadid)%vrc,           &
                  &        this%gsa(threadid)%vtc,this%gsa(threadid)%vpc, &
                  &        this%gsa(threadid)%brc,this%gsa(threadid)%btc, &
                  &        this%gsa(threadid)%bpc,this%gsa(threadid)%sc,  &
-                 &        this%gsa(threadid)%pc,nThetaStart,             &
-                 &        this%sizeThetaB,lGraphHeader)
+                 &        this%gsa(threadid)%pc,this%gsa(threadid)%xic,  &
+                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
 #endif
          end if
 

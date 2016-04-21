@@ -6,20 +6,21 @@ module readCheckPoints
 
    use precision_mod
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
-                         n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
-                         minc,lMagMem
+       &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
+       &                 minc,lMagMem
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
-                    l_mag_LF
+       &            l_mag_LF, l_chemical_conv
    use blocking, only: lm2,lmStartB,lmStopB,nLMBs,lm2l,lm2m
-   use init_fields, only: start_file,n_start_file,inform,tOmega_ic1,tOmega_ic2, &
-                          tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,         &
-                          omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,        &
-                          omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,         &
-                          tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,    &
-                          scale_s
+   use init_fields, only: start_file,n_start_file,inform,tOmega_ic1,tOmega_ic2,&
+       &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
+       &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &
+       &                  omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,        &
+       &                  tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,   &
+       &                  scale_s,scale_xi
    use radial_functions, only: chebt_oc, cheb_norm, chebt_ic, cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
-   use physical_parameters, only: ra,ek,pr,prmag,radratio,sigma_ratio,kbotv,ktopv
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
+       &                          kbotv, ktopv, sc, raxi
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use cosine_transform_odd
 
@@ -27,6 +28,8 @@ module readCheckPoints
    implicit none
 
    private
+
+   logical :: lreadS,lreadXi
 
    integer(lip) :: bytes_allocated=0
 
@@ -38,11 +41,12 @@ module readCheckPoints
 
 contains
 
-   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt, &
-      &                       b,dbdt,aj,djdt,b_ic,dbdt_ic, &
-      &                   aj_ic,djdt_ic,omega_ic,omega_ma, &
-      &               lorentz_torque_ic,lorentz_torque_ma, &
-      &                    time,dt_old,dt_new,n_time_step)
+   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,   &
+              &               xi,dxidt,b,dbdt,aj,djdt,b_ic,  &
+              &               dbdt_ic,aj_ic,djdt_ic,omega_ic,&
+              &               omega_ma,lorentz_torque_ic,    &
+              &               lorentz_torque_ma,time,dt_old, &
+              &               dt_new,n_time_step)
       !
       !   read initial condition from restart file 
       !
@@ -54,8 +58,10 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
       complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
       complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
+      complex(cp), intent(out) :: xi(lm_max,n_r_max)
       complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
       complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: dxidt(lm_max,n_r_max)
       complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
       complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
@@ -69,12 +75,12 @@ contains
       integer :: l_max_old,n_r_max_old
       integer :: n_r_ic_max_old
       real(cp) :: pr_old,ra_old,pm_old
+      real(cp) :: raxi_old,sc_old
       real(cp) :: ek_old,radratio_old
       real(cp) :: sigma_ratio_old
       integer :: nLMB,lm,lmStart,lmStop,nR,l1m0
       logical :: l_mag_old
       logical :: startfile_does_exist
-      logical :: lreadS
       integer :: informOld,ioerr
       integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
       integer, allocatable :: lm2lmo(:)
@@ -85,7 +91,7 @@ contains
       real(cp) :: omega_ma1Old,omegaOsz_ma1Old
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
-      complex(cp), allocatable :: wo(:),zo(:),po(:),so(:)
+      complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
 
       inquire(file=start_file, exist=startfile_does_exist)
     
@@ -142,7 +148,7 @@ contains
     
       l_max_old=nalias_old*n_phi_tot_old/60
       l_mag_old=.false.
-      if ( pm_old /= 0.0_cp ) l_mag_old= .TRUE. 
+      if ( pm_old /= 0.0_cp ) l_mag_old= .true. 
     
       if ( n_phi_tot_old /= n_phi_tot) &
            write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
@@ -152,10 +158,17 @@ contains
            write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
     
     
-      if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 ) then
-         lreadS=.FALSE.
+      if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
+           inform==13) then
+         lreadS=.false.
       else
-         lreadS=.TRUE.
+         lreadS=.true.
+      end if
+
+      if ( inform==13 .or. inform==14 ) then
+         lreadXi=.true.
+      else
+         lreadXi=.false.
       end if
     
       allocate( lm2lmo(lm_max) )
@@ -172,46 +185,72 @@ contains
       ! end of allocation
     
       !PERFON('mD_rd')
-      if ( lreadS ) then
-         !read(n_start_file) (wo(i),i=1,n_data_oldP),                  &
-         !     &             (zo(i),i=1,n_data_oldP),                  &
-         !     &             (po(i),i=1,n_data_oldP),                  &
-         !     &             (so(i),i=1,n_data_oldP)
-         !write(*,"(A,I10,A)") "Reading four fields, each with ", &
-         !     &               n_data_oldP," double complex entries."
-         read(n_start_file) wo, zo, po, so
+      if ( lreadXi ) then
+         allocate(xio(n_data_oldP))
+         bytes_allocated = bytes_allocated + n_data_oldP*SIZEOF_DEF_COMPLEX
+         if ( lreadS ) then
+            read(n_start_file) wo, zo, po, so, xio
+         else
+            read(n_start_file) wo, zo, po, xio
+         end if
       else
-         !read(n_start_file) (wo(i),i=1,n_data_oldP),                  &
-         !     &             (zo(i),i=1,n_data_oldP),                  &
-         !     &             (po(i),i=1,n_data_oldP)
-         read(n_start_file) wo, zo, po
-      end If
+         if ( lreadS ) then
+            read(n_start_file) wo, zo, po, so
+         else
+            read(n_start_file) wo, zo, po
+         end if
+      end if
       !PERFOFF
     
       n_r_maxL = max(n_r_max,n_r_max_old)
     
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,  &
-                        n_r_max_old,lm_max_old,n_r_maxL,  &
-                     .FALSE.,.FALSE.,.FALSE.,.FALSE.,w,z,p,s )
+      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
+                        n_r_max_old,lm_max_old,n_r_maxL,      &
+                        .false.,.false.,.false.,.false.,      &
+                        .false.,w,z,p,s,xi )
+
+      if ( l_heat .and. .not. lreadS ) then ! No entropy before
+         s(:,:)=zero
+      end if
+      if ( l_chemical_conv .and. .not. lreadXi ) then ! No composition before
+         xi(:,:)=zero
+      end if
     
       !PERFON('mD_rd_dt')
-      if ( lreadS ) then
-         !read(n_start_file) (so(i),i=1,n_data_old),                   &
-         !     &                        (wo(i),i=1,n_data_old),                   &
-         !     &                        (zo(i),i=1,n_data_old),                   &
-         !     &                        (po(i),i=1,n_data_old)
-         read(n_start_file) so,wo,zo,po
+      if ( lreadXi ) then
+         if ( lreadS ) then
+            read(n_start_file) so,wo,zo,po,xio
+         else
+            read(n_start_file) wo,zo,po,xio
+         end if
       else
-         !read(n_start_file) (wo(i),i=1,n_data_old),                   &
-         !     &                        (zo(i),i=1,n_data_old),                   &
-         !     &                        (po(i),i=1,n_data_old)
-         read(n_start_file) wo,zo,po
+         if ( lreadS ) then
+            read(n_start_file) so,wo,zo,po
+         else
+            read(n_start_file) wo,zo,po
+         end if
       end if
       !PERFOFF
     
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,         &
-                         n_r_max_old,lm_max_old,n_r_maxL,.TRUE., &
-                         .TRUE.,.TRUE.,.TRUE.,dwdt,dzdt,dpdt,dsdt )
+      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
+                         n_r_max_old,lm_max_old,n_r_maxL,.true., &
+                         .true.,.true.,.true.,.true.,dwdt,dzdt,  &
+                         dpdt,dsdt,dxidt )
+
+      if ( l_heat .and. .not. lreadS ) then ! No entropy before
+         dsdt(:,:)=zero
+      end if
+      if ( l_chemical_conv .and. .not. lreadXi ) then ! No composition before
+         dxidt(:,:)=zero
+      end if
+
+      if ( lreadXi ) then
+         read(n_start_file) raxi_old, sc_old
+         if ( raxi /= raxi_old ) &
+           write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+         if ( sc /= sc_old ) &
+           write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+      end if
     
       if ( l_mag_old ) then
          read(n_start_file) so,wo,zo,po
@@ -219,7 +258,7 @@ contains
          if ( l_mag ) then
             call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
                              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
-                             .FALSE.,aj,dbdt,djdt,b )
+                             .false.,aj,dbdt,djdt,b )
          end if
       else
          write(*,*) '! No magnetic data in input file!'
@@ -237,6 +276,20 @@ contains
                do nR=1,n_r_max+1
                   fr=sin(pi*(r(nR)-r(n_r_max)))
                   s(lm,nR)=tipdipole*fr
+               end do
+            end if
+         end do
+      end if
+
+      if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
+         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
+            lmStart=lmStartB(nLMB)
+            lmStop =lmStopB(nLMB)
+            lm=l_max+2
+            if ( lmStart<=lm .and. lmStop>=lm ) then
+               do nR=1,n_r_max+1
+                  fr=sin(pi*(r(nR)-r(n_r_max)))
+                  xi(lm,nR)=tipdipole*fr
                end do
             end if
          end do
@@ -263,6 +316,10 @@ contains
       deallocate( lm2lmo )
       deallocate( wo,zo,po,so )
       bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+
+      if ( lreadXi ) then
+         bytes_allocated = bytes_allocated - n_data_oldP*SIZEOF_DEF_COMPLEX
+      end if
     
       !call mapData(n_r_max_old,l_max_old,minc_old,l_mag_old, &
       !     w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)
@@ -275,7 +332,7 @@ contains
                      m_max,minc,minc_old,inform,lm_max,   &
                      lm_max_old,n_data_oldP,lm2lmo)
     
-            n_r_ic_maxL = MAX(n_r_ic_max,n_r_ic_max_old)
+            n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
             allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
                       so(n_data_oldP) )
     
@@ -283,7 +340,7 @@ contains
             if ( l_mag ) then
                call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
                                 lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
-                                .TRUE.,aj_ic,dbdt_ic,djdt_ic,b_ic )
+                                .true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
             end if
     
             deallocate( lm2lmo )
@@ -331,8 +388,7 @@ contains
       tOmega_ma2       =0.0_cp
       dt_new           =dt_old
       if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
-         read(n_start_file,IOSTAT=ioerr) lorentz_torque_ic, &
-              lorentz_torque_ma
+         read(n_start_file,iostat=ioerr) lorentz_torque_ic, lorentz_torque_ma
          if( ioerr/=0 ) then
             write(*,*) '! Could not read last line in input file!'
             write(*,*) '! Data missing or wrong format!'
@@ -340,7 +396,7 @@ contains
             STOP
          end if
       else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
-         read(n_start_file,IOSTAT=ioerr) lorentz_torque_ic, &
+         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
               lorentz_torque_ma,omega_ic,omega_ma
          if( ioerr/=0 ) then
             write(*,*) '! Could not read last line in input file!'
@@ -349,7 +405,7 @@ contains
             STOP
          end if
       else if ( inform == 7 .or. inform == 8 ) then
-         read(n_start_file,IOSTAT=ioerr) lorentz_torque_ic, &
+         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
               lorentz_torque_ma, &
               omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
               omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
@@ -362,8 +418,8 @@ contains
             stop
          end if
       else if ( inform > 8 ) then
-         read(n_start_file,IOSTAT=ioerr) lorentz_torque_ic, &
-              lorentz_torque_ma, &
+         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
+              lorentz_torque_ma,                       &
               omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
               omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
               omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
@@ -474,10 +530,11 @@ contains
    end subroutine readStartFields
 !------------------------------------------------------------------------------
 #ifdef WITH_HDF5
-   subroutine readHdf5_serial(w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt, &
-                              aj,djdt,b_ic,dbdt_ic,aj_ic,djdt_ic, &
-                             omega_ic,omega_ma,lorentz_torque_ic, &
-                             lorentz_torque_ma,time,dt_old,dt_new)
+   subroutine readHdf5_serial(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt, &
+              &               b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
+              &               djdt_ic,omega_ic,omega_ma,            &
+              &               lorentz_torque_ic,lorentz_torque_ma,  &
+              &               time,dt_old,dt_new)
 
       use hdf5
       use hdf5Helpers, only: readHdf5_attribute
@@ -488,8 +545,10 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
       complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
       complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
+      complex(cp), intent(out) :: xi(lm_max,n_r_max)
       complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
       complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
+      complex(cp), intent(out) :: dxidt(lm_max,n_r_max)
       complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
       complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
@@ -514,7 +573,7 @@ contains
       real(cp) :: omega_ma1Old,omegaOsz_ma1Old
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
-      complex(cp), allocatable, target :: so(:),wo(:),zo(:),po(:)
+      complex(cp), allocatable, target :: so(:),wo(:),zo(:),po(:),xio(:)
 
       type(C_PTR) :: f_ptr
 
@@ -604,7 +663,7 @@ contains
 
       l_max_old=nalias_old*n_phi_tot_old/60
       l_mag_old=.false.
-      if ( pm_old /= 0.0_cp ) l_mag_old= .TRUE.
+      if ( pm_old /= 0.0_cp ) l_mag_old= .true.
 
       if ( n_phi_tot_old /= n_phi_tot) &
          write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
@@ -646,9 +705,10 @@ contains
       call h5dclose_f(dset_id, error)
 
       n_r_maxL = max(n_r_max,n_r_max_old)
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,  &
-                        n_r_max_old,lm_max_old,n_r_maxL,  &
-                 .false.,.false.,.false.,.false.,w,z,p,s )
+      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
+                         n_r_max_old,lm_max_old,n_r_maxL,     &
+                         .false.,.false.,.false.,.false.,     &
+                         .false.,w,z,p,s,xi )
 
       call h5oexists_by_name_f(file_id, '/dtFields/dsdtLast', link_exists, error)
       if ( link_exists ) then
@@ -672,9 +732,10 @@ contains
       call h5dread_f(dset_id, type_id, f_ptr, error)
       call h5dclose_f(dset_id, error)
 
-      call mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo,         &
+      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
                          n_r_max_old,lm_max_old,n_r_maxL,.true., &
-                        .true.,.true.,.true.,dwdt,dzdt,dpdt,dsdt )
+                        .true.,.true.,.true.,.true.,dwdt,dzdt,   &
+                        dpdt,dsdt,dxidt )
 
       if ( l_mag_old ) then
          call h5dopen_f(grp_id, 'b_pol', dset_id, error)
@@ -1018,31 +1079,41 @@ contains
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
-   subroutine mapDataHydro( wo,zo,po,so,n_data_oldP,lm2lmo, &
-                          n_r_max_old,lm_max_old,n_r_maxL, &
-                          lbc1,lbc2,lbc3,lbc4,w,z,p,s )
+   subroutine mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo, &
+                            n_r_max_old,lm_max_old,n_r_maxL,    &
+                            lBc1,lBc2,lBc3,lBc4,lBc5,w,z,p,s,xi )
 
       !--- Input variables
-      integer,         intent(in) :: n_r_max_old,lm_max_old
-      integer,         intent(in) :: n_r_maxL,n_data_oldP
-      logical,         intent(in) :: lbc1,lbc2,lbc3,lbc4
-      integer,         intent(in) :: lm2lmo(lm_max)
-      complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
-      complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
+      integer,     intent(in) :: n_r_max_old,lm_max_old
+      integer,     intent(in) :: n_r_maxL,n_data_oldP
+      logical,     intent(in) :: lBc1,lBc2,lBc3,lBc4,lBc5
+      integer,     intent(in) :: lm2lmo(lm_max)
+      complex(cp), intent(in) :: wo(:),zo(:)
+      complex(cp), intent(in) :: po(:),so(:)
+      complex(cp), intent(in) :: xio(:)
 
       !--- Output variables
-      complex(cp),intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(cp),intent(out) :: p(lm_max,n_r_max),s(lm_max,n_r_max)
+      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
+      complex(cp), intent(out) :: p(lm_max,n_r_max),s(lm_max,n_r_max)
+      complex(cp), intent(out) :: xi(lm_max,n_r_max)
 
       !--- Local variables
       integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
       complex(cp),allocatable :: woR(:),zoR(:)
       complex(cp),allocatable :: poR(:),soR(:)
+      complex(cp),allocatable :: xioR(:)
 
       !PRINT*,omp_get_thread_num(),": Before nLMB loop, nLMBs=",nLMBs
-      allocate( woR(n_r_maxL),zoR(n_r_maxL) )
-      allocate( poR(n_r_maxL),soR(n_r_maxL) )
-      bytes_allocated = bytes_allocated + 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      allocate( woR(n_r_maxL),zoR(n_r_maxL),poR(n_r_maxL) )
+      bytes_allocated = bytes_allocated + 3*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( lreadS .and. l_heat ) then
+         allocate( soR(n_r_maxL) )
+         bytes_allocated = bytes_allocated + n_r_maxL*SIZEOF_DEF_COMPLEX
+      endif
+      if ( lreadXi .and. l_chemical_conv ) then
+         allocate( xioR(n_r_maxL) )
+         bytes_allocated = bytes_allocated + n_r_maxL*SIZEOF_DEF_COMPLEX
+      end if
       write(*,"(A,I12)") "maximal allocated bytes in mapData are ",bytes_allocated
 
       !PERFON('mD_map')
@@ -1060,20 +1131,26 @@ contains
                      woR(nR)=wo(n)
                      zoR(nR)=zo(n)
                      poR(nR)=po(n)
-                     if ( l_heat ) soR(nR)=so(n)
+                     if ( lreadS .and. l_heat ) soR(nR)=so(n)
+                     if ( lreadXi .and. l_chemical_conv ) xioR(nR)=xio(n)
                   end do
-                  call mapDataR(woR,n_r_max,n_r_max_old,n_r_maxL,lBc1,.FALSE.)
-                  call mapDataR(zoR,n_r_max,n_r_max_old,n_r_maxL,lBc2,.FALSE.)
-                  call mapDataR(poR,n_r_max,n_r_max_old,n_r_maxL,lBc3,.FALSE.)
-                  if ( l_heat ) call mapDataR(soR,n_r_max,n_r_max_old, & 
-                                              n_r_maxL,lBc4,.FALSE.)
+                  call mapDataR(woR,n_r_max,n_r_max_old,n_r_maxL,lBc1,.false.)
+                  call mapDataR(zoR,n_r_max,n_r_max_old,n_r_maxL,lBc2,.false.)
+                  call mapDataR(poR,n_r_max,n_r_max_old,n_r_maxL,lBc3,.false.)
+                  if ( lreadS .and. l_heat ) call mapDataR(soR,n_r_max, &
+                                                  n_r_max_old,n_r_maxL, &
+                                                  lBc4,.false.)
+                  if ( lreadXi .and. l_chemical_conv ) call mapDataR(xioR, &
+                                              n_r_max,n_r_max_old,n_r_maxL,&
+                                              lBc5,.false.)
                   do nR=1,n_r_max
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*woR(nR)
                         z(lm,nR)=scale_v*zoR(nR)
                      end if
                      p(lm,nR)=scale_v*poR(nR)
-                     if ( l_heat ) s(lm,nR)=scale_s*soR(nR)
+                     if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*soR(nR)
+                     if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=scale_xi*xioR(nR)
                   end do
                else
                   do nR=1,n_r_max
@@ -1083,7 +1160,8 @@ contains
                         z(lm,nR)=scale_v*zo(n)
                      end if
                      p(lm,nR)=scale_v*po(n)
-                     if ( l_heat ) s(lm,nR)=scale_s*so(n)
+                     if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*so(n)
+                     if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=scale_xi*xio(n)
                   end do
                end if
             end if
@@ -1091,8 +1169,16 @@ contains
       end do
       !PERFOFF
       !PRINT*,omp_get_thread_num(),": After nLMB loop"
-      deallocate(woR,zoR,poR,soR)
-      bytes_allocated = bytes_allocated - 4*n_r_maxL*SIZEOF_DEF_COMPLEX
+      deallocate(woR,zoR,poR)
+      bytes_allocated = bytes_allocated - 3*n_r_maxL*SIZEOF_DEF_COMPLEX
+      if ( lreadS .and. l_heat ) then
+         deallocate(soR)
+         bytes_allocated = bytes_allocated - n_r_maxL*SIZEOF_DEF_COMPLEX
+      end if
+      if ( lreadXi .and. l_chemical_conv ) then
+         deallocate(xioR)
+         bytes_allocated = bytes_allocated - n_r_maxL*SIZEOF_DEF_COMPLEX
+      end if
 
    end subroutine mapDataHydro
 !------------------------------------------------------------------------------

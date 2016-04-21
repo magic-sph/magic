@@ -7,15 +7,16 @@ module storeCheckPoints
    use precision_mod
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
                          lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
-   use physical_parameters, only: ra,pr,prmag,radratio,ek,sigma_ratio
+   use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
+       &                          raxi, sc
    use num_param, only: tScale
    use fieldsLast, only: d_omega_ma_dtLast,d_omega_ic_dtLast, &
-                         lorentz_torque_maLast,lorentz_torque_icLast
+       &                 lorentz_torque_maLast,lorentz_torque_icLast
    use init_fields, only: inform,omega_ic1,omegaOsz_ic1,tOmega_ic1, &
-                          omega_ic2,omegaOsz_ic2,tOmega_ic2,        &
-                          omega_ma1,omegaOsz_ma1,tOmega_ma1,        &
-                          omega_ma2,omegaOsz_ma2,tOmega_ma2
-   use logic, only: l_heat,l_mag,l_cond_ic
+       &                  omega_ic2,omegaOsz_ic2,tOmega_ic2,        &
+       &                  omega_ma1,omegaOsz_ma1,tOmega_ma1,        &
+       &                  omega_ma2,omegaOsz_ma2,tOmega_ma2
+   use logic, only: l_heat, l_mag, l_cond_ic, l_chemical_conv
    use output_data, only: n_rst_file,rst_file
 
    implicit none
@@ -30,9 +31,10 @@ module storeCheckPoints
 
 contains
 
-   subroutine store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
-                    dwdtLast,dzdtLast,dpdtLast,dsdtLast,   &
-                    dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
+   subroutine store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
+                    dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
+                    dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
+                    djdt_icLast)
       !
       ! store results on disc file (restart file)
       ! In addition to the magnetic field and velocity potentials
@@ -48,6 +50,7 @@ contains
       complex(cp), intent(in) :: z(lm_max,n_r_max)
       complex(cp), intent(in) :: p(lm_max,n_r_max)
       complex(cp), intent(in) :: s(lm_max,n_r_max)
+      complex(cp), intent(in) :: xi(lm_max,n_r_max)
       complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
       complex(cp), intent(in) :: aj(lm_maxMag,n_r_maxMag)
       complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
@@ -56,28 +59,51 @@ contains
       complex(cp), intent(in) :: dzdtLast(lm_max,n_r_max)
       complex(cp), intent(in) :: dpdtLast(lm_max,n_r_max)
       complex(cp), intent(in) :: dsdtLast(lm_max,n_r_max)
+      complex(cp), intent(in) :: dxidtLast(lm_max,n_r_max)
       complex(cp), intent(in) :: dbdtLast(lm_maxMag,n_r_maxMag)
       complex(cp), intent(in) :: djdtLast(lm_maxMag,n_r_maxMag)
       complex(cp), intent(in) :: dbdt_icLast(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: djdt_icLast(lm_maxMag,n_r_ic_maxMag)
 
       !-- Write parameters:
-      if ( .not. l_heat ) then
-         inform=11
+      if ( .not. l_chemical_conv ) then
+         if ( .not. l_heat ) then
+            inform=11
+         else
+            inform=12
+         end if
       else
-         inform=12
+         if ( .not. l_heat ) then
+            inform=13
+         else
+            inform=14
+         end if
       end if
 
       write(n_rst_file) time*tScale,dt*tScale,ra,pr,prmag,ek,radratio, &
                      inform,n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
                                                n_r_ic_max,sigma_ratio
 
-      if ( l_heat ) then
-         write(n_rst_file) w,z,p,s
-         write(n_rst_file) dsdtLast,dwdtLast,dzdtLast,dpdtLast
+      if ( .not. l_chemical_conv ) then
+         if ( l_heat ) then
+            write(n_rst_file) w,z,p,s
+            write(n_rst_file) dsdtLast,dwdtLast,dzdtLast,dpdtLast
+         else
+            write(n_rst_file) w,z,p
+            write(n_rst_file) dwdtLast,dzdtLast,dpdtLast
+         end if
       else
-         write(n_rst_file) w,z,p
-         write(n_rst_file) dwdtLast,dzdtLast,dpdtLast
+         if ( l_heat ) then
+            write(n_rst_file) w,z,p,s,xi
+            write(n_rst_file) dsdtLast,dwdtLast,dzdtLast,dpdtLast,dxidtLast
+         else
+            write(n_rst_file) w,z,p,xi
+            write(n_rst_file) dwdtLast,dzdtLast,dpdtLast,dxidtLast
+         end if
+      end if
+
+      if ( l_chemical_conv ) then
+         write(n_rst_file) raxi,sc
       end if
 
       !-- Write magnetic field:

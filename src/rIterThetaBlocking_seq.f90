@@ -266,16 +266,18 @@ contains
          if ( this%l_graph ) then
 #ifdef WITH_MPI
             PERFON('graphout')
-            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
-                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,   &
-                 &            nThetaStart,this%sizeThetaB,lGraphHeader)
+            call graphOut_mpi(time,this%nR,this%gsa%vrc,this%gsa%vtc,  &
+                 &            this%gsa%vpc,this%gsa%brc,this%gsa%btc,  &
+                 &            this%gsa%bpc,this%gsa%sc,this%gsa%pc,    &
+                 &            this%gsa%xic,nThetaStart,this%sizeThetaB,&
+                 &            lGraphHeader)
             PERFOFF
 #else
-            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc, &
-                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc, &
-                 &        this%gsa%bpc,this%gsa%sc, this%gsa%pc,  &
-                 &        nThetaStart,this%sizeThetaB,lGraphHeader)
+            call graphOut(time,this%nR,this%gsa%vrc,this%gsa%vtc,   &
+                 &        this%gsa%vpc,this%gsa%brc,this%gsa%btc,   &
+                 &        this%gsa%bpc,this%gsa%sc, this%gsa%pc,    &
+                 &        this%gsa%xic,nThetaStart,this%sizeThetaB, &
+                 &        lGraphHeader)
 #endif
          end if
   

@@ -78,8 +78,8 @@ contains
          & l_curr,amp_curr
 
       namelist/start_field/                                   &
-         & l_start_file,start_file,inform,                    &
-         & l_reset_t,scale_s,scale_b,scale_v,tipdipole,       &
+         & l_start_file,start_file,inform,l_reset_t,          &
+         & scale_s,scale_xi,scale_b,scale_v,tipdipole,        &
          & init_s1,init_s2,init_v1,init_b1,imagcon,tmagcon,   &
          & amp_s1,amp_s2,amp_v1,amp_b1, init_xi1, init_xi2,   &
          & amp_xi1, amp_xi2
@@ -895,6 +895,7 @@ contains
       write(n_out,'(''  inform          ='',i3,'','')') inform
       write(n_out,'(''  l_reset_t       ='',l3,'','')') l_reset_t
       write(n_out,'(''  scale_s         ='',ES14.6,'','')') scale_s
+      write(n_out,'(''  scale_xi        ='',ES14.6,'','')') scale_xi
       write(n_out,'(''  scale_b         ='',ES14.6,'','')') scale_b
       write(n_out,'(''  scale_v         ='',ES14.6,'','')') scale_v
       write(n_out,'(''  tipdipole       ='',ES14.6,'','')') tipdipole
@@ -1102,7 +1103,7 @@ contains
       ldifexp       =-1
 
       !----- Namelist phys_param:
-      ra         =1.1e5_cp
+      ra         =0.0_cp
       raxi       =0.0_cp
       ek         =1.0e-3_cp
       pr         =one
@@ -1200,6 +1201,7 @@ contains
       runid         ="MAGIC default run"
       l_reset_t     =.false.
       scale_s       =one
+      scale_xi      =one
       scale_b       =one
       scale_v       =one
       tipdipole     =0.0_cp

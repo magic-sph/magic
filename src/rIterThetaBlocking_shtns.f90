@@ -260,7 +260,7 @@ contains
                  &            this%gsa%vtc,this%gsa%vpc,           &
                  &            this%gsa%brc,this%gsa%btc,           &
                  &            this%gsa%bpc,this%gsa%sc,            &
-                 &            this%gsa%pc,                         &
+                 &            this%gsa%pc,this%gsa%xic,            &
                  &            1 ,this%sizeThetaB,lGraphHeader)
             PERFOFF
 #else
@@ -268,7 +268,7 @@ contains
                  &        this%gsa%vtc,this%gsa%vpc,           &
                  &        this%gsa%brc,this%gsa%btc,           &
                  &        this%gsa%bpc,this%gsa%sc,            &
-                 &        this%gsa%pc,
+                 &        this%gsa%pc,this%gsa%xic,            &
                  &        1 ,this%sizeThetaB,lGraphHeader)
 #endif
       end if

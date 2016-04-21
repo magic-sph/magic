@@ -8,10 +8,11 @@ module fields_average_mod
    use mem_alloc, only: bytes_allocated
    use radial_data, only: n_r_cmb
    use radial_functions, only: chebt_ic, chebt_oc, drx, chebt_ic_even,   &
-                               r, dr_fac_ic
+       &                       r, dr_fac_ic
    use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
    use horizontal_data, only: Plm, dPlm, dLh
-   use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic
+   use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
+       &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
    use output_data, only: tag, graph_file, nLF, n_graph_file, &
@@ -25,7 +26,7 @@ module fields_average_mod
    use constants, only: zero, vol_oc, vol_ic, one
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
-                           & gather_all_from_lo_to_rank0,gt_OC,gt_IC
+       &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
    use out_coeff, only: write_Bcmb
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC
@@ -42,6 +43,7 @@ module fields_average_mod
    complex(cp), allocatable :: w_ave(:,:)
    complex(cp), allocatable :: z_ave(:,:)
    complex(cp), allocatable :: s_ave(:,:)
+   complex(cp), allocatable :: xi_ave(:,:)
    complex(cp), allocatable :: p_ave(:,:)
    complex(cp), allocatable :: b_ave(:,:)
    complex(cp), allocatable :: aj_ave(:,:)
@@ -52,7 +54,7 @@ module fields_average_mod
    complex(cp), allocatable :: db_ave_global(:),aj_ave_global(:)
    complex(cp), allocatable :: w_ave_global(:),dw_ave_global(:)
    complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
-   complex(cp), allocatable :: p_ave_global(:)
+   complex(cp), allocatable :: p_ave_global(:), xi_ave_global(:)
  
    public :: initialize_fields_average_mod, fields_average
 
@@ -71,6 +73,11 @@ contains
       allocate( aj_ic_ave(llm:ulm,n_r_ic_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_ic_max*SIZEOF_DEF_COMPLEX
 
+      if ( l_chemical_conv ) then
+         allocate( xi_ave(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
+
       if ( rank == 0 ) then
          allocate( db_ave_global(1:lm_max) )
          allocate( aj_ave_global(1:lm_max) )
@@ -80,6 +87,10 @@ contains
          allocate( s_ave_global(1:lm_max) )
          allocate( p_ave_global(1:lm_max) )
          bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
+         if ( l_chemical_conv ) then
+            allocate( xi_ave_global(1:lm_max) )
+            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+         end if
 #ifdef WITH_DEBUG
       else
          allocate( db_ave_global(1) )
@@ -89,6 +100,9 @@ contains
          allocate( z_ave_global(1) )
          allocate( s_ave_global(1) )
          allocate( p_ave_global(1) )
+         if ( l_chemical_conv ) then
+            allocate( xi_ave_global(1) )
+         end if
 #endif
       end if
 
@@ -96,7 +110,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine fields_average(nAve,l_stop_time,                        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
-      &                      w,z,p,s,b,aj,b_ic,aj_ic)
+      &                      w,z,p,s,xi,b,aj,b_ic,aj_ic)
       !
       ! This subroutine averages fields b and v over time.
       !
@@ -111,6 +125,7 @@ contains
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: p(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
       complex(cp), intent(in) :: b(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: aj(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(in) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
@@ -139,7 +154,8 @@ contains
       !----- Fields in grid space:
       real(cp) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
       real(cp) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
-      real(cp) :: Sr(nrp,nfs),PreR(nrp,nfs)           ! entropy
+      real(cp) :: Sr(nrp,nfs),Prer(nrp,nfs)           ! entropy,pressure
+      real(cp) :: Xir(nrp,nfs) ! composition
 
       !----- Help arrays for fields:
       complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
@@ -183,6 +199,9 @@ contains
             if ( l_heat ) then
                s_ave=zero
             end if
+            if ( l_chemical_conv ) then
+               xi_ave=zero
+            end if
             if ( l_mag ) then
                b_ave=zero
                aj_ave=zero
@@ -210,6 +229,13 @@ contains
          do nR=1,n_r_max
             do lm=llm,ulm
                s_ave(lm,nR)=s_ave(lm,nR) + time_passed*s(lm,nR)
+            end do
+         end do
+      end if
+      if ( l_chemical_conv ) then
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               xi_ave(lm,nR)=xi_ave(lm,nR) + time_passed*xi(lm,nR)
             end do
          end do
       end if
@@ -251,6 +277,13 @@ contains
             do nR=1,n_r_max
                do lm=llm,ulm
                   s_ave(lm,nR)=dt_norm*s_ave(lm,nR)
+               end do
+            end do
+         end if
+         if ( l_chemical_conv ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  xi_ave(lm,nR)=dt_norm*xi_ave(lm,nR)
                end do
             end do
          end if
@@ -387,7 +420,8 @@ contains
 
             !----- Write header into graphic file:
             lGraphHeader=.true.
-            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,0,sizeThetaB,lGraphHeader)
+            call graphOut(time,0,Vr,Vt,Vp,Br,Bt,Bp,Sr,PreR,Xir, &
+                 &        0,sizeThetaB,lGraphHeader)
          end if
 
          !----- Transform and output of data:
@@ -407,6 +441,9 @@ contains
             call gather_from_lo_to_rank0(p_ave(llm,nR),p_ave_global)
             if ( l_heat ) then
                call gather_from_lo_to_rank0(s_ave(llm,nR),s_ave_global)
+            end if
+            if ( l_chemical_conv ) then
+               call gather_from_lo_to_rank0(xi_ave(llm,nR),xi_ave_global)
             end if
 
             if ( rank == 0 ) then
@@ -432,8 +469,11 @@ contains
                                    Vr, Vt, Vp)
                call scal_to_spat(p_ave_global, Prer)
                call scal_to_spat(s_ave_global, Sr)
+               if ( l_chemical_conv ) then
+                  call scal_to_spat(xi_ave_global, Xir)
+               end if
                call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-                             nThetaStart, sizeThetaB, lGraphHeader)
+               &             Xir, nThetaStart, sizeThetaB, lGraphHeader)
 #else
                do nThetaB=1,nThetaBs  
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
@@ -451,6 +491,13 @@ contains
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
                        &     Plm,dPlm,.false.,.false.,                   &
                        &     Sr,Vt,Vp,Br,Br,Br)
+                  if ( l_chemical_conv ) then
+                     call legTF(xi_ave_global,vhG,vhC,dLhw,vhG,vhC,      &
+                          &     l_max,minc,nThetaStart,sizeThetaB,       &
+                          &     Plm,dPlm,.false.,.false.,                &
+                          &     Xir,Vt,Vp,Br,Br,Br)
+                     call fft_thetab(Xir,1)
+                  end if
                   call legTF(p_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
                        &     Plm,dPlm,.false.,.false.,                   &
@@ -466,7 +513,7 @@ contains
 
                   !-------- Graphic output:
                   call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &
-                       &        nThetaStart,sizeThetaB,lGraphHeader)
+                       &        Xir,nThetaStart,sizeThetaB,lGraphHeader)
                end do
 #endif
             end if
