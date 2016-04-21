@@ -136,6 +136,8 @@ This file contains several time and horizontally averaged thermodynamic properti
    +---------------+------------------------------------------------------------+
    | 5             | density (spherically-symetric contribution)                |
    +---------------+------------------------------------------------------------+
+   | 6             | chemical composition (spherically-symetric contribution)   |
+   +---------------+------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
 

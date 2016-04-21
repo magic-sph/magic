@@ -8,6 +8,11 @@ Linear calculation part of the time stepping (LMLoop)
 
 .. f:automodule:: lmloop_mod
 
+``updateWPS.f90``
+-----------------
+
+.. f:automodule:: updatewps_mod
+
 ``updateWP.f90``
 ----------------
 
@@ -22,6 +27,11 @@ Linear calculation part of the time stepping (LMLoop)
 ----------------
 
 .. f:automodule:: updates_mod
+
+``updateXI.f90``
+----------------
+
+.. f:automodule:: updatexi_mod
 
 ``updateB.f90``
 ----------------

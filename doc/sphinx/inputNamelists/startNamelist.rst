@@ -31,6 +31,8 @@ Reading an input file of start fields
 
 * **scale_s** (default :f:var:`scale_s=1.0 <scale_s>`) is a real. It can be possibly used to multiply the input entropy field from  ``start_file`` by a constant factor ``scale_s``.
 
+* **scale_xi** (default :f:var:`scale_xi=1.0 <scale_xi>`) is a real. It can be possibly used to multiply the input chemical composition field from ``start_file`` by a constant factor ``scale_xi``.
+
 * **scale_v** (default :f:var:`scale_v=1.0 <scale_v>`) is a real. It can be possibly used to multiply the input velocity field from ``start_file`` by a constant factor ``scale_v``.
 
 * **scale_b** (default :f:var:`scale_b=1.0 <scale_b>`) is a real. It can be possibly used to multiply the input magnetic field from ``start_file`` by a constant factor ``scale_b``.
@@ -94,6 +96,34 @@ The initial perturbation is thus set to zero at both boundaries :math:`r_i` and 
 * **init_s2** (default :f:var:`init_s2=0 <init_s2>`) is an integer that controls a second spherical harmonic degee. It follows the same specifications as ``init_s1``.
 
 * **amp_s2** (default :f:var:`amp_s2=0.0 <amp_s2>`) is a real used to contol the amplitude of the perturbation defined by ``init_s2``.
+
+Initialisation of chemical composition
+++++++++++++++++++++++++++++++++++++++
+
+The chemical composition equation with possible volumetric sources and sinks
+given by :ref:`epscxi0 <varepsc0>` is solved for the spherically-symmetric
+term :math:`(\ell=0,m=0)` to get its radial dependence. In addition to this
+initial state, two other laterally varying terms can be initialized. Their
+radial dependence are assumed to follow:
+
+.. math::
+   \xi(r) = 1-2\,x^2+3\,x^4-x^6,
+
+where
+
+.. math::
+   x = 2\,r-r_o-r_i\, .
+
+The initial perturbation is thus set to zero at both boundaries :math:`r_i` and :math:`r_o`, and reaches its maximum amplitude of ``amp_xi1`` or ``amp_xi2`` at the mid-shell radius :math:`r_i+1/2`.
+
+* **init_xi1** (default :f:var:`init_xi1=0 <init_xi1>`) is an integer that controls the initial chemical composition. It follows the same specifications as ``init_s1``.
+
+* **amp_xi1** (default :f:var:`amp_xi1=0.0 <amp_xi1>`) is a real used to contol the amplitude of the perturbation defined by ``init_xi1``.
+
+* **init_xi2** (default :f:var:`init_xi2=0 <init_xi2>`) is an integer that controls a second spherical harmonic degee. It follows the same specifications as ``init_s1``.
+
+* **amp_xi2** (default :f:var:`amp_xi2=0.0 <amp_xi2>`) is a real used to contol the amplitude of the perturbation defined by ``init_xi2``.
+
 
 Initialisation of magnetic field
 ++++++++++++++++++++++++++++++++
