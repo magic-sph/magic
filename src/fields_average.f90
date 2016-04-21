@@ -143,6 +143,7 @@ contains
       !----- Time averaged fields:
       complex(cp) :: dw_ave(llm:ulm,n_r_max)
       complex(cp) :: ds_ave(llm:ulm,n_r_max)
+      complex(cp) :: dxi_ave(llm:ulm,n_r_max)
       complex(cp) :: db_ave(llm:ulm,n_r_max)
       complex(cp) :: db_ic_ave(llm:ulm,n_r_ic_max)
       complex(cp) :: ddb_ic_ave(llm:ulm,n_r_ic_max)
@@ -155,7 +156,7 @@ contains
       real(cp) :: Br(nrp,nfs),Bt(nrp,nfs),Bp(nrp,nfs) ! B field comp.
       real(cp) :: Vr(nrp,nfs),Vt(nrp,nfs),Vp(nrp,nfs) ! B field comp.
       real(cp) :: Sr(nrp,nfs),Prer(nrp,nfs)           ! entropy,pressure
-      real(cp) :: Xir(nrp,nfs) ! composition
+      real(cp) :: Xir(nrp,nfs)                        ! chemical composition
 
       !----- Help arrays for fields:
       complex(cp) :: dLhb(lm_max),bhG(lm_max),bhC(lm_max)
@@ -320,6 +321,12 @@ contains
          end if
          if ( l_heat ) then
             call get_drNS(s_ave,ds_ave,ulm-llm+1,            &
+                 &        lmStart-llm+1,lmStop-llm+1,        &
+                 &        n_r_max,n_cheb_max,workA_LMloc,    &
+                 &        chebt_oc,drx)
+         end if
+         if ( l_chemical_conv ) then
+            call get_drNS(xi_ave,dxi_ave,ulm-llm+1,          &
                  &        lmStart-llm+1,lmStop-llm+1,        &
                  &        n_r_max,n_cheb_max,workA_LMloc,    &
                  &        chebt_oc,drx)
@@ -577,6 +584,7 @@ contains
                do lm=llm,ulm
                   w_ave(lm,nR)=w_ave(lm,nR)*time_norm
                   z_ave(lm,nR)=z_ave(lm,nR)*time_norm
+                  p_ave(lm,nR)=p_ave(lm,nR)*time_norm
                end do
             end do
          end if
@@ -584,6 +592,13 @@ contains
             do nR=1,n_r_max
                do lm=llm,ulm
                   s_ave(lm,nR)=s_ave(lm,nR)*time_norm
+               end do
+            end do
+         end if
+         if ( l_chemical_conv ) then
+            do nR=1,n_r_max
+               do lm=llm,ulm
+                  xi_ave(lm,nR)=xi_ave(lm,nR)*time_norm
                end do
             end do
          end if

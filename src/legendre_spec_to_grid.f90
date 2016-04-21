@@ -1252,7 +1252,7 @@ contains
       !    The Plms and dPlms=sin(theta) d Plm / d theta are only given
       !    for the colatitudes in the northern hemisphere.
       !
-      !      * dLhw,....,cvhC : (input) arrays provided by s_legPrep.f
+      !      * dLhw,....,cvhC : (input) arrays provided by legendre_helpers.f90
       !      * l_max          : (input) maximum spherical harmonic degree
       !      * minc           : (input) azimuthal symmetry
       !      * nThetaStart    : (input) transformation is done for the range of

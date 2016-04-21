@@ -340,13 +340,29 @@ contains
                           13*SIZEOF_INTEGER+8+n_theta_max*SIZEOF_OUT_REAL
 
 #ifdef ONE_LARGE_BLOCK
-         size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+4* &
+         size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+3* &
                                    (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
+         if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
+            size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
+         else if ( version=='Graphout_Version_12') then
+            size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   2*(8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
+         end if
+
          if ( l_mag ) size_of_data_per_thetaB = size_of_data_per_thetaB + &
                             3*(8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
 #else
          size_of_data_per_thetaB = 8+4*SIZEOF_OUT_REAL+ &
-                                   4*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+                                   3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+         if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
+            size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+         else if ( version=='Graphout_Version_12') then
+            size_of_data_per_thetaB = size_of_data_per_thetaB + &
+                                   2*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+         end if
+
          if ( l_mag ) size_of_data_per_thetaB = size_of_data_per_thetaB + &
                             3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
 #endif
@@ -651,10 +667,9 @@ contains
       if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                    (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
-      end if
-      if ( version=='Graphout_Version_12') then
+      else if ( version=='Graphout_Version_12') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
-                                   (8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
+                                   2*(8+n_phi_max*SIZEOF_OUT_REAL*n_theta_block_size)
       end if
 
 
@@ -666,10 +681,9 @@ contains
       if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_11') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                    (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
-      end if
-      if ( version=='Graphout_Version_12') then
+      else if ( version=='Graphout_Version_12') then
          size_of_data_per_thetaB = size_of_data_per_thetaB + &
-                                   (8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
+                                   2*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
       end if
       if ( l_mag ) size_of_data_per_thetaB = size_of_data_per_thetaB + &
                                            3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size

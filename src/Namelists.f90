@@ -259,7 +259,6 @@ contains
 
       !-- Determine what has to be calculated depending on mode:
       lMagMem  =1
-      lAveMem  =0
       lGeos    =0
       ldtBMem  =0
       lStressMem=0
@@ -608,7 +607,6 @@ contains
       if ( mod(n_cour_step,2) /= 0 ) n_cour_step=n_cour_step+1
 
       !-- Check whether memory has been reserved:
-      if ( l_average ) lAveMem=1
       if ( l_TO ) lStressMem=1
       if ( l_RMS .or. l_DTrMagSpec ) ldtBMem=1
       if ( l_movie .or. l_TOmovie ) lMovieMem=1
