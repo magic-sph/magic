@@ -134,6 +134,7 @@ class MagicGraph(MagicSetup):
             self.vtheta = G.vt
             self.vphi = G.vp
             self.pre = G.pre
+            self.xi = G.xi
             if self.prmag != 0:
                 self.Br = G.br
                 self.Btheta = G.bt
