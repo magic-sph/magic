@@ -107,6 +107,9 @@ contains
          allocate(dVXirLM_Rloc(lm_max,nRstart:nRstop))
          bytes_allocated = bytes_allocated+ &
                            2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dxidt_Rloc(1,1))
+         allocate(dVXirLM_Rloc(1,1))
       end if
 
       ! the magnetic part

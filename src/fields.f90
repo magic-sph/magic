@@ -189,6 +189,13 @@ contains
                            2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
          bytes_allocated = bytes_allocated + &
                            2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate( xi_LMloc_container(1,1,2) ) ! For debugging
+         xi_LMloc(1:1,1:1)  => xi_LMloc_container(:,:,1)
+         dxi_LMloc(1:1,1:1) => xi_LMloc_container(:,:,2)
+         allocate( xi_Rloc_container(1,1,2) )
+         xi_Rloc(1:1,1:1)   => xi_Rloc_container(:,:,1)
+         dxi_Rloc(1:1,1:1)  => xi_Rloc_container(:,:,2)
       end if
 
       !-- Magnetic field potentials:

@@ -10,7 +10,7 @@ PRODRUN=yes
 USE_MPI=yes
 USE_OMP=yes
 # DEBUG: no/noopt/check/all/marmot
-DEBUG=all
+DEBUG=no
 # Pre-conditioning of the matrices: yes/no
 USE_PRECOND=yes
 # USE_FFTLIB can be MKL or JW
