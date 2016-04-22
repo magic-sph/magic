@@ -18,9 +18,9 @@ Outer Core
 
   .. note:: Adopting ``n_cheb_max=n_r_max-2`` is usually a good choice
 
-* **n_phi_tot** (default :f:var:`n_phi_tot=192 <n_phi_tot>`) is an integer which gives the number of longitudinal/azimuthal grid points. It has the following contraints:
+* **n_phi_tot** (default :f:var:`n_phi_tot=192 <n_phi_tot>`) is an integer which gives the number of longitudinal/azimuthal grid points. It has the following constraints:
  
-  - :f:var:`n_phi_tot`` must be a multiple of ``minc`` (see below)
+  - :f:var:`n_phi_tot` must be a multiple of :f:var:`minc` (see below)
 
   - ``n_phi_tot/minc`` must be a multiple of 4
 

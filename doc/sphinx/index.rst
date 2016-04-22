@@ -32,9 +32,9 @@ Welcome
 
      **MagIC** is a numerical code that can simulate fluid dynamics in a spherical
      shell. MagIC solves for the Navier-Stokes equation including Coriolis force,
-     optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD)
-     and a temperature (or entropy) equation under both the anelastic and the Boussinesq 
-     approximations.
+     optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD),
+     a temperature (or entropy) equation and an equation for chemical composition
+     under both the anelastic and the Boussinesq approximations.
 
      **MagIC** uses Chebyshev polynomials in the radial direction and spherical
      harmonic decomposition in the azimuthal and latitudinal directions. The
@@ -134,7 +134,9 @@ Giving credit
    * Anelastic equations: `Gastine & Wicht (2012, Icarus, 219, 28-442) <http://dx.doi.org/10.1016/j.icarus.2012.03.018>`_
    
    * Boussinesq benchmark: `Christensen et al. (2001, PEPI, 128, 25-34) <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_
-   
+
+   * Benchmark for double diffusive convection: `Breuer et al. (2010, GJI, 183, 150-162) <http://dx.doi.org/11.1111/j.1365-246X.2010.04722.x>`_
+
    * Anelastic benchmark: `Jones et al. (2011, Icarus, 216, 120-135) <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_
 
    * In case you use the `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ library for the spherical harmonics transforms (MagIC 5.3 or later), please also cite: `Schaeffer (2013, GGG, 14, 751-758) <http://dx.doi.org/10.1002/ggge.20071>`_

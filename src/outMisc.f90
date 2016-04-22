@@ -303,24 +303,16 @@ contains
 
             if ( l_temperature_diff ) then
 
-               botnuss=-osq4pi/botcond*  (temp0(n_r_icb)*dLtemp0(n_r_icb)*  &
-                 &                              real( s(1,n_r_icb)) +       &
-                 &                  ViscHeatFac*ThExpNb*(                   &
-                 &         alpha0(n_r_icb)*temp0(n_r_icb)*orho1(n_r_icb)*(  &  
-                 &     dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb)) )* &  
-                 &                              real( p(1,n_r_icb)) +       &
-                 &               temp0(n_r_icb)*real(ds(1,n_r_icb)) +       &
-                 &     ViscHeatFac*ThExpNb*alpha0(n_r_icb)*temp0(n_r_icb)*  &
-                 &                  orho1(n_r_icb)*real(dp(1,n_r_icb)) ) / lScale
-               topnuss=-osq4pi/topcond*  (temp0(n_r_cmb)*dLtemp0(n_r_cmb)*  &
-                 &                              real( s(1,n_r_cmb)) +       &
-                 &                  ViscHeatFac*ThExpNb*(                   &
-                 &         alpha0(n_r_cmb)*temp0(n_r_cmb)*orho1(n_r_cmb)*(  &  
-                 &     dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb)) )* &  
-                 &                              real( p(1,n_r_cmb)) +       &
-                 &               temp0(n_r_cmb)*real(ds(1,n_r_cmb)) +       &
-                 &    ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*temp0(n_r_cmb)*   &
-                 &                  orho1(n_r_cmb)*real(dp(1,n_r_cmb)) ) / lScale
+               botnuss=-osq4pi/botcond*temp0(n_r_icb)*( dLtemp0(n_r_icb)*   &
+                 &      real(s(1,n_r_icb)) + real(ds(1,n_r_icb)) +          &
+                 &      ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*(&
+                 &   ( dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb) )*  &  
+                 &      real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
+               topnuss=-osq4pi/topcond*temp0(n_r_cmb)*( dLtemp0(n_r_cmb)*   &
+                 &      real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb)) +          &
+                 &      ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*(&  
+                 &   ( dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb) )*  &  
+                 &      real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
 
                botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
                  &     botnuss*botcond*lScale

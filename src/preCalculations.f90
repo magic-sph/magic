@@ -384,7 +384,6 @@ contains
          else
             topconduc = rho0(1)*kappa(1)*temp0(1)
             botconduc = rho0(n_r_max)*kappa(n_r_max)*temp0(n_r_max)
-
          end if
     
          if ( ktops == 1 .and. kbots == 1 ) then ! Fixed entropy

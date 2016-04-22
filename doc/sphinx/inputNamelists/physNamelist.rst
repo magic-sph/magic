@@ -309,6 +309,8 @@ Thermal boundary conditions
 
   4. Angular width (input has to be given in degrees), stored in array :f:var:`widthS(20) <widths>`.
 
+.. _secCompBcs:
+
 Boundary conditions for chemical composition
 ++++++++++++++++++++++++++++++++++++++++++++
 

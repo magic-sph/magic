@@ -64,52 +64,56 @@ code. It has the following levels of checking:
 
   .. tabularcolumns:: |c|p{14cm}|  
 
-  +---------+--------------------------------------------------------+
-  | Level   |  Cases to check (subdirectories)                       |
-  +=========+========================================================+
-  | 0       | * Boussinesq dynamo benchmark                          |
-  |         |   (`Christensen et al., 2001                           |
-  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_) |
-  |         |   - start from zero (``dynamo_benchmark``)             |
-  |         | * Variable transport properties (viscosity,            |
-  |         |   thermal diffusivity and electrical diffusivity)      | 
-  |         |   in an anelastic convective model (``varProps``)      |
-  |         | * Boussinesq dynamo benchmark                          |
-  |         |   (`Christensen et al., 2001                           |
-  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_) |
-  |         |   - start from a saturated state (``boussBenchSat``)   |
-  +---------+--------------------------------------------------------+
-  | 1       | * Test reading and writing of                          |
-  |         |   restart files (``testRestart``)                      |
-  |         | * Test different grid truncations (``testTruncations``)|
-  |         | * Test mapping on to a new grid (``testMapping``)      |
-  |         | * Test different outputs produced (``testOutputs``)    |
-  |         | * Test different radial outputs -                      |
-  |         |   ``*R.TAG`` (``testRadialOutputs``)                   |
-  +---------+--------------------------------------------------------+
-  | 2       | * Hydrodynamic anelastic benchmark                     |
-  |         |   (`Jones et al., 2011                                 |
-  |         |   <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_)  |
-  |         |   (``hydro_bench_anel``)                               |
-  +---------+--------------------------------------------------------+
-  | 3       | * Heat flux perturbation (``fluxPerturbation``)        |
-  |         | * Isothermal model with :math:`N_{\rho}=3`             |
-  |         |   (``isothermal_nrho3``)                               |
-  |         | * Boussinesq Dynamo benchmark for conducting and       |
-  |         |   rotating inner core                                  |
-  |         |   (``dynamo_benchmark_condICrotIC``)                   |
-  |         | * Anelastic dynamo with variable conductivity          |
-  |         |   (``varCond``)                                        |
-  +---------+--------------------------------------------------------+
-  | 4       | * Test the writing of CMB and coeff files              |
-  |         |   (``testCoeffOutputs``)                               |
-  |         | * Test the writing of RMS force balance                |
-  |         |   (``testRMSOutputs``)                                 |
-  |         | * Test the writing of Graphic and Movie files          |
-  |         |   (``testGraphMovieOutputs``)                          |
-  |         | * Test the writing of TO and Geos outputs              |
-  |         |   (``testTOGeosOutputs``)                              |
-  +---------+--------------------------------------------------------+
+  +---------+-----------------------------------------------------------+
+  | Level   |  Cases to check (subdirectories)                          |
+  +=========+===========================================================+
+  | 0       | * Boussinesq dynamo benchmark                             |
+  |         |   (`Christensen et al., 2001                              |
+  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_)    |
+  |         |   - start from zero (``dynamo_benchmark``)                |
+  |         | * Variable transport properties (viscosity,               |
+  |         |   thermal diffusivity and electrical diffusivity)         |   
+  |         |   in an anelastic convective model (``varProps``)         |
+  |         | * Boussinesq dynamo benchmark                             |
+  |         |   (`Christensen et al., 2001                              |
+  |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_)    |
+  |         |   - start from a saturated state (``boussBenchSat``)      |
+  |         | * Double-diffusive convection  benchmark                  |
+  |         |   (`Breuer et al., 2010                                   |
+  |         |   <http://dx.doi.org/10.1111/j.1365-246X.2010.04722.x>`_) |
+  |         |   - start from a saturated state (``doubleDiffusion``)    |
+  +---------+-----------------------------------------------------------+
+  | 1       | * Test reading and writing of                             |
+  |         |   restart files (``testRestart``)                         |
+  |         | * Test different grid truncations (``testTruncations``)   |
+  |         | * Test mapping on to a new grid (``testMapping``)         |
+  |         | * Test different outputs produced (``testOutputs``)       |
+  |         | * Test different radial outputs -                         |
+  |         |   ``*R.TAG`` (``testRadialOutputs``)                      |
+  +---------+-----------------------------------------------------------+
+  | 2       | * Hydrodynamic anelastic benchmark                        |
+  |         |   (`Jones et al., 2011                                    |
+  |         |   <http://dx.doi.org/10.1016/j.icarus.2011.08.014>`_)     |
+  |         |   (``hydro_bench_anel``)                                  |
+  +---------+-----------------------------------------------------------+
+  | 3       | * Heat flux perturbation (``fluxPerturbation``)           |
+  |         | * Isothermal model with :math:`N_{\rho}=3`                |
+  |         |   (``isothermal_nrho3``)                                  |
+  |         | * Boussinesq Dynamo benchmark for conducting and          |
+  |         |   rotating inner core                                     |
+  |         |   (``dynamo_benchmark_condICrotIC``)                      |
+  |         | * Anelastic dynamo with variable conductivity             |
+  |         |   (``varCond``)                                           |
+  +---------+-----------------------------------------------------------+
+  | 4       | * Test the writing of CMB and coeff files                 |
+  |         |   (``testCoeffOutputs``)                                  |
+  |         | * Test the writing of RMS force balance                   |
+  |         |   (``testRMSOutputs``)                                    |
+  |         | * Test the writing of Graphic and Movie files             |
+  |         |   (``testGraphMovieOutputs``)                             |
+  |         | * Test the writing of TO and Geos outputs                 |
+  |         |   (``testTOGeosOutputs``)                                 |
+  +---------+-----------------------------------------------------------+
 
 
 
@@ -137,7 +141,7 @@ Advices when contributing to the code
 	    au FileType fortran set tabstop=3
 	    au FileType fortran set expandtab
 
-  3. Never use capital letters for variable declaration
+  3. Never use capital letters for variable declaration or Fortran keywords
   
   4. Never use :code:`dimension(len)` for declaring array but rather :code:`real(cp) :: data(len)`
  

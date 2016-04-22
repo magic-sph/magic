@@ -2,7 +2,7 @@
 
 # Foreword
 
-* **MagIC** is a numerical code that can simulate fluid dynamics in a spherical shell. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD) and a temperature (or entropy) equation under both the anelastic and the Boussinesq approximations.  
+* **MagIC** is a numerical code that can simulate fluid dynamics in a spherical shell. MagIC solves for the Navier-Stokes equation including Coriolis force, optionally coupled with an induction equation for Magneto-Hydro Dynamics (MHD), a temperature (or entropy) equation and an equation for chemical composition under both the anelastic and the Boussinesq approximations.  
 
 * **MagIC** uses Chebyshev polynomials in the radial direction and spherical harmonic decomposition in the azimuthal and latitudinal directions. The time-stepping scheme relies on a semi-implicit [Crank-Nicolson]( https://en.wikipedia.org/wiki/Crank–Nicolson_method) for the linear terms of the MHD equations and a [Adams-Bashforth](<https://en.wikipedia.org/wiki/Linear_multistep_method) scheme for the non-linear terms and the Coriolis force.  
 
@@ -144,7 +144,7 @@ b) Try to follow the same coding style rules as in the rest of the code:
 
 1. **Never** use TABS but always SPACES instead
 2. Use 3 spaces for indentation
-3. Never use capital letters for variable declaration
+3. Never use capital letters for variable declaration or Fortran keywords
 4. Never use `dimension(len)` for declaring array but rather `real(cp) :: data(len)`
 5. Always use the default precisions when introducing new variables `(cp)`
 
@@ -158,4 +158,5 @@ More on that topic [here](http://www.fortran90.org/src/best-practices.html)
 
 MagIC has been tested and validated against several international dynamo benchmarks:
 * [Christensen et al. (2001, PEPI, 128, 25-34)](http://dx.doi.org/10.1016/S0031-9201(01)00275-8)
+* [Breuer et al. (2010, GJI, 183, 150-162)](http://dx.doi.org/10.1111/j.1365-246X.2010.04722.x)
 * [Jones et al. (2011, Icarus, 216, 120-135)](http://dx.doi.org/10.1016/j.icarus.2011.08.014)

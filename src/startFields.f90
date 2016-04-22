@@ -111,23 +111,15 @@ contains
             if ( l_temperature_diff ) then
                call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
 
-               topcond = -osq4pi*(  temp0(1)*dLtemp0(1)*s0(1) +             &
-                 &                  ViscHeatFac*ThExpNb*(                   &
-                 &                  alpha0(1)*temp0(1)*orho1(1)*            &
-                 &                  (dLalpha0(1)+dLtemp0(1)-beta(1))        &
-                 &                  )*                  p0(1) +             &
-                 &                  temp0(1)*          ds0(1) +             &
-                 &                  ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)* &
-                 &                  temp0(1)*          dp0(1) )
-               botcond = -osq4pi*( temp0(n_r_max)*dLtemp0(n_r_max)*         &
-                 &                                      s0(n_r_max) +       &
-                 &                  ViscHeatFac*ThExpNb*(                   &
-                 &           alpha0(n_r_max)*temp0(n_r_max)*orho1(n_r_max)* &
-                 & (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max)) )*    &
-                 &                                      p0(n_r_max) +       &
-                 &                  temp0(n_r_max)*    ds0(n_r_max) +       &
-                 &    ViscHeatFac*ThExpNb*alpha0(n_r_max)*temp0(n_r_max)*   &
-                 &                  orho1(n_r_max)*    dp0(n_r_max) )
+               topcond = -osq4pi*temp0(1)*( dLtemp0(1)*s0(1)+ds0(1)+     &
+                 &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(       &
+                 &        (dLalpha0(1)+dLtemp0(1)-beta(1))*p0(1) +       &
+                 &                            dp0(1)) )
+               botcond = -osq4pi*temp0(n_r_max)*( dLtemp0(n_r_max)*         &
+                 &                   s0(n_r_max) + ds0(n_r_max)+            &
+                 &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*(&
+                 &    (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max))* &
+                 &                   p0(n_r_max) + dp0(n_r_max)) )
                deltacond=osq4pi*(temp0(n_r_max)*s0(n_r_max)-temp0(1)*s0(1)+ &
                  &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*     &
                  &               temp0(n_r_max)*orho1(n_r_max)*p0(n_r_max)- &

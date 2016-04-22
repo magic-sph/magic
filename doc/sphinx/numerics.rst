@@ -166,7 +166,7 @@ The potential :math:`g(r,\theta,\phi)` is a real function so that
 :math:`g_{\ell m}^\star(r)=g_{\ell,-m}(r)`, where the asterisk denotes the complex conjugate.
 Thus, only coefficients with :math:`m \ge 0` have to be considered. The same kind of
 expansion is made for the toroidal magnetic potential, the mass flux potentials,
-pressure and entropy (or temperature).
+pressure, entropy (or temperature) and chemical composition.
 
 The equations :eq:`eqLegTF1` and :eq:`eqLegTF2` define a two-step transform
 from the longitude/latitude representation to the spherical harmonic
@@ -483,6 +483,7 @@ for the poloidal potential :math:`W_{\ell m n}`:
    -\nu & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& W_{\ell m n} \\
    + \left[{\cal C}'_n -\dfrac{d\ln\tilde{\rho}}{dr}{\cal C}_n\right] & & P_{\ell m n} \\
    - \left[\dfrac{Ra\,E}{Pr}\,\tilde{\rho}\,g(r)\right] & \,{\cal C}_n & s_{\ell m n} \\
+   - \left[\dfrac{Ra_\xi\,E}{Sc}\,\tilde{\rho}\,g(r)\right] & \,{\cal C}_n & \xi_{\ell m n} \\
    = {\cal N}^W_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^W =\int d\Omega\,{Y_{\ell}^{m}}^\star\,\vec{e_r}\cdot \vec{F}\,. & &
    \end{aligned}}
    :label: eqSpecW
@@ -702,6 +703,33 @@ discussed :ref:`below <secNonLinearS>`.
 
 .. seealso:: The exact computation of the linear terms of :eq:`eqSpecS` are coded in
              the subroutines :f:subr:`get_sMat <updatez_mod/get_smat()>`
+
+Equation for chemical composition :math:`\xi`
+---------------------------------------------
+
+The equation for the chemical composition is given by
+
+.. math::
+   \boxed{
+   \begin{aligned}
+   \dfrac{1}{Sc}\left[\left(Sc\dfrac{\partial}{\partial t} + 
+   \kappa_\xi\,\dfrac{\ell(\ell+1)}{r^2} 
+   \right)\right. & \,{\cal C}_n  & \\
+   -\kappa_\xi\,\left(\dfrac{d\ln\kappa_\xi}{dr}+\dfrac{d\ln\tilde{\rho}}{dr}+
+   +\dfrac{2}{r}\right) 
+   &\,{\cal C}'_n & \\
+   -\kappa_\xi & \,{\cal C}''_n \left. \phantom{\dfrac{d\nu}{dr}}\right]& \xi_{\ell m n} \\
+   = {\cal N}^\xi_{\ell m} = \int d\Omega\,{Y_{\ell}^{m}}^\star\,{\cal N}^\xi = \int d\Omega\,{Y_{\ell}^{m}}^\star\,\left[-\vec{u}\cdot\vec{\nabla}\xi
+   \right]\,. & &
+   \end{aligned}}
+   :label: eqSpecXi
+
+Once again, the numerical evaluation of the right-hand-side (i.e. the
+non-linear term) is discussed :ref:`below <secNonLinearXi>`.
+
+.. seealso:: The exact computation of the linear terms of :eq:`eqSpecXi` are coded in
+             the subroutines :f:subr:`get_xiMat <updatexi_mod/get_ximat()>`
+
 
 
 Equation for the poloidal magnetic potential :math:`g`
@@ -1227,7 +1255,7 @@ It is in a first step rearranged as follows
 .. math::
    -\vec{u}\cdot\vec{\nabla}s = -\dfrac{1}{\tilde{\rho}}\left[
    \vec{\nabla}\cdot\left(\tilde{\rho}s\vec{u} \right)-
-   \underbrace{\vec{\nabla}\cdot\left(\tilde{\rho}\vec{u} \right)}_{=0}\right]\,.
+   s\underbrace{\vec{\nabla}\cdot\left(\tilde{\rho}\vec{u} \right)}_{=0}\right]\,.
 
 The quantities that are calculated in the physical space are thus simply the product of
 entropy/temperature :math:`s` by the velocity components. This defines three variables
@@ -1287,6 +1315,80 @@ Using :eq:`eqHeatingEntropy` and :eq:`eqAdvSNL`, one thus finally gets
              :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The radial derivative
              is computed afterwards at the very beginning of
              :f:subr:`updateS <updates_mod/updates()>`.
+
+.. _secNonLinearXi:
+
+Nonlinear terms entering the equation for :math:`\xi`
+-----------------------------------------------------
+
+The nonlinear term that enters the equation for chemical composition
+:eq:`eqSpecXi` is the advection term. This term is treated the same way
+as the advection term that enters the entropy equation.
+It is in a first step rearranged as follows
+
+.. math::
+   -\vec{u}\cdot\vec{\nabla}\xi = -\dfrac{1}{\tilde{\rho}}\left[
+   \vec{\nabla}\cdot\left(\tilde{\rho}\xi\vec{u} \right)-
+   \xi\underbrace{\vec{\nabla}\cdot\left(\tilde{\rho}\vec{u} \right)}_{=0}\right]\,.
+
+The quantities that are calculated in the physical space are thus simply the
+product of composition :math:`\xi` by the velocity components. This
+defines three variables defined in the grid space that are computed in the
+subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>`:
+
+.. math::
+   \mathcal{UX}_r = \tilde{\rho}\xi u_r,\quad  \mathcal{US}_\theta = \tilde{\rho}\xi u_\theta,
+   \quad \mathcal{UX}_\phi = \tilde{\rho}\xi u_\phi,
+
+To get the actual advection term, one must then apply the divergence operator
+to get:
+
+.. math::
+   -\vec{u}\cdot\vec{\nabla}\xi = -\dfrac{1}{\tilde{\rho}}\left[
+   \dfrac{1}{r^2}\dfrac{\partial}{\partial r}\left(r^2\,\mathcal{UX}_r\right)+
+   \dfrac{1}{r\sin\theta}\dfrac{\partial}{\partial\theta}\left(\sin\theta\,\mathcal{UX}_\theta
+   \right)+\dfrac{1}{r\sin\theta}\dfrac{\partial\,\mathcal{UX}_\phi}{\partial\phi}\right]\,.
+
+To make use of the recurrence relations :eq:`eqOpTheta1`-:eq:`eqOpTheta4`, the actual
+strategy is then to follow the following steps:
+
+1. Compute the quantities :math:`r^2\,\mathcal{UX}_r`, :math:`\mathcal{UX}_\phi/r\sin\theta`
+   and :math:`\mathcal{UX}_\theta/r\sin\theta` in the physical space. In the code, this step
+   is computed in the subroutine :f:subr:`get_nl <grid_space_arrays_mod/get_nl()>` in 
+   the module :f:mod:`grid_space_arrays_mod`. 
+
+2. Transform :math:`r^2\,\mathcal{UX}_r`, :math:`\mathcal{UX}_\phi/r\sin\theta` 
+   and :math:`\mathcal{UX}_\theta/r\sin\theta` to
+   the spectral space (thanks to a Legendre and a Fourier transform). In MagIC, this step
+   is computed in the modules :f:mod:`legendre_grid_to_spec` and :f:mod:`fft`. After
+   this step :math:`{\mathcal{UX}r}_{\ell}^m`, :math:`{\mathcal{UX}t}_{\ell}^m` 
+   and :math:`{\mathcal{UX}p}_{\ell}^m` are defined.
+
+3. Calculate the colatitude and theta derivatives using the recurrence relations:
+
+   .. math::
+      -\dfrac{1}{\tilde{\rho}}\left[
+      \dfrac{1}{r^2}\dfrac{\partial\, {\mathcal{UX}r}_\ell^m}{\partial r}+
+      \vartheta_1\,{\mathcal{UX}t}_\ell^m+
+      \dfrac{\partial\,{\mathcal{UX}p}_\ell^m}{\partial \phi}\right]\,.
+
+One thus finally gets
+
+.. math::
+   \boxed{
+   {\cal N}^\xi_{\ell m}  = -\dfrac{1}{\tilde{\rho}}\left[
+   \dfrac{1}{r^2}\dfrac{\partial\, {\mathcal{UX}r}_\ell^m}{\partial r}
+   + (\ell+1)\,c_\ell^m\,{\mathcal{UX}t}_{\ell-1}^m-
+   \ell\,c_{\ell+1}^m\,{\mathcal{UX}t}_{\ell+1}^m
+   +im\,{\mathcal{UX}p}_\ell^m\right]\,.
+   }
+   :label: eqNLXi
+
+.. seealso:: The :math:`\theta` and :math:`\phi` derivatives that enter :eq:`eqNLXi` 
+             are done in the subroutine 
+             :f:subr:`get_td <nonlinear_lm_mod/get_td()>`. The radial derivative
+             is computed afterwards at the very beginning of
+             :f:subr:`updateXi <updatexi_mod/updatexi()>`.
 
 .. _secNonLinearG:
 
@@ -1506,8 +1608,8 @@ In spectral representation this then reads
    \right) Z_{\ell mn} = 0\;.
    
    
-Thermodynamic boundary conditions
----------------------------------
+Thermal boundary conditions
+---------------------------
 
 For Entropy or temperature in the Boussinesq approximation either fixed value of fixed flux conditions are used. 
 The former implies 
@@ -1525,6 +1627,22 @@ In spectral representation for example the respective entropy condition read
 Appropriate constant values need to be chosen and are instrumental in driving the dynamo when 
 flux conditions are imposed. 
 
+
+Boundary conditions for chemical composition
+--------------------------------------------
+
+For the chemical composition, either the value or the flux is imposed at the
+boundaries. The former implies:
+
+.. math:: \xi=\mbox{const.}
+
+at :math:`r_i` and/or :math:`r_o`, while the latter means
+
+.. math:: \dfrac{\partial}{\partial r} \xi=\mbox{const.}
+
+In spectral representation, this then reads
+
+.. math:: {\cal C}_n \xi_{\ell mn}=\mbox{const.}\;\;\mbox{or}\;\;{\cal C'}_n \xi_{\ell mn}=\mbox{const.}
 
 
 Magnetic boundary conditions and inner core
