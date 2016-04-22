@@ -61,7 +61,6 @@ module radial_functions
  
    !-- arrays for buoyancy, depend on Ra and Pr:
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
-   real(cp), public, allocatable :: agrav(:)     ! Buoyancy term `dtemp0/Di*alpha`
  
    !-- chebychev polynomials, derivatives and integral:
    real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
@@ -136,9 +135,9 @@ contains
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
-      allocate( rgrav(n_r_max),agrav(n_r_max) )
+      allocate( rgrav(n_r_max) )
       bytes_allocated = bytes_allocated + &
-                        (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+                        (23*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
@@ -418,13 +417,13 @@ contains
                 &    w2,chebt_oc,drx)
 
          ! N.B. rgrav is not gravity but alpha * grav
-         rgrav = BuoFac*alpha0*rgrav
+         rgrav = alpha0*rgrav
 
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
          ! Default values: g0=0, g1=1, g2=0
          ! An easy way to change gravity
-         rgrav=BuoFac*(g0+g1*r/r_cmb+g2*(r_cmb/r)**2)
+         rgrav=g0+g1*r/r_cmb+g2*(r_cmb/r)**2
          dentropy0=0.0_cp
 
          if (l_anel) then
@@ -437,7 +436,7 @@ contains
                          g1/(two*r_cmb)*(r**2-r_cmb**2) - &
                          g2*(r_cmb**2/r-r_cmb)))
 
-               beta     =-fac*rgrav/BuoFac
+               beta     =-fac*rgrav
                dbeta    =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3)
                d2temp0  =0.0_cp
                dLtemp0  =0.0_cp
@@ -459,11 +458,11 @@ contains
                rho0     =temp0**polind
 
                !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-               beta     =-polind*DissNb*rgrav/temp0/BuoFac
+               beta     =-polind*DissNb*rgrav/temp0
                dbeta    =-polind*DissNb/temp0**2 *         &
                          ((g1/r_cmb-two*g2*r_cmb**2*or3)*  &
-                         temp0  + DissNb*rgrav**2/BuoFac**2)
-               dtemp0   =-DissNb*rgrav/BuoFac
+                         temp0  + DissNb*rgrav**2)
+               dtemp0   =-DissNb*rgrav
                d2temp0  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
 
                !-- Thermal expansion coefficient (1/T for an ideal gas)
@@ -474,13 +473,6 @@ contains
                ddLalpha0=-ddLtemp0
             end if
          end if
-      end if
-
-      agrav=alpha*rgrav
-
-      if ( .not. l_heat ) then
-         rgrav=0.0_cp
-         agrav=0.0_cp
       end if
 
       if ( l_anel ) then
@@ -748,7 +740,7 @@ contains
       end if
 
       !-- Eps profiles
-      !-- The remaining division by rho will happen in s_updateS.F90
+      !-- The remaining division by rho will happen in updateS.f90
       if ( nVarEps == 0 ) then
          ! eps is constant
          if ( l_anelastic_liquid ) then
@@ -918,7 +910,7 @@ contains
       !       dT
       !      ---- =  -Di * alpha_T * T * grav
       !       dr
-      rgrav=-BuoFac*dtemp0/DissNb
+      rgrav=-dtemp0/DissNb
 
       call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
              &    w2,chebt_oc,drx)

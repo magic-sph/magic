@@ -11,7 +11,7 @@ module communications
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop
-   use logic, only: l_mag, l_conv, l_heat
+   use logic, only: l_mag, l_conv, l_heat, l_chemical_conv
  
    implicit none
  
@@ -55,10 +55,8 @@ module communications
 #endif
  
    ! declaration of the types for the redistribution
-   !type(lm2r_type),PUBLIC :: lo2r_s, lo2r_ds, lo2r_z, lo2r_dz
-   !type(lm2r_type),public :: lo2r_p,lo2r_dp
-   !type(lm2r_type), PUBLIC :: lo2r_b, lo2r_db, lo2r_ddb, lo2r_aj, lo2r_dj
-   type(lm2r_type), public :: lo2r_w, lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj
+   type(lm2r_type), public :: lo2r_w, lo2r_s, lo2r_z, lo2r_p
+   type(lm2r_type), public :: lo2r_b, lo2r_aj, lo2r_xi
  
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
  
@@ -219,25 +217,19 @@ contains
 
       if ( l_heat ) then
          call create_lm2r_type(lo2r_s,2)
-         !call create_lm2r_type(lo2r_ds)
+      end if
+      if ( l_chemical_conv ) then
+         call create_lm2r_type(lo2r_xi,2)
       end if
       if ( l_conv ) then
          call create_lm2r_type(lo2r_z,2)
-         !call create_lm2r_type(lo2r_dz)
          call create_lm2r_type(lo2r_w,3)
-         !call create_lm2r_type(lo2r_w)
-         !call create_lm2r_type(lo2r_dw)
-         !call create_lm2r_type(lo2r_ddw)
          call create_lm2r_type(lo2r_p,2)
-         !call create_lm2r_type(lo2r_dp)
       end if
 
       if ( l_mag ) then
          call create_lm2r_type(lo2r_b,3)
-         !call create_lm2r_type(lo2r_db)
-         !call create_lm2r_type(lo2r_ddb)
          call create_lm2r_type(lo2r_aj,2)
-         !call create_lm2r_type(lo2r_dj)
       end if
 
 

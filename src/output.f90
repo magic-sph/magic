@@ -15,19 +15,21 @@ module output_mod
        &            l_dtB, l_RMS, l_r_field, l_r_fieldT, l_PV, l_SRIC,     &
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
-       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par
+       &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
+       &            l_chemical_conv
    use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
-       &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z,            &
-       &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc,          &
+       &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z, xi,        &
+       &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
        &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
        &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc
+       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,        &
+       &             dxi_LMloc
    use fieldsLast, only: dwdtLast, dzdtLast, dpdtLast, dsdtLast, dbdtLast,  &
        &                 djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
        &                 dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
        &                 dbdtLast_LMloc, djdtLast_LMloc, dbdt_icLast_LMloc, &
-       &                 djdt_icLast_LMloc
+       &                 djdt_icLast_LMloc, dxidtLast, dxidtLast_LMloc
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
@@ -356,7 +358,8 @@ contains
   
             call fields_average(nLogs,l_stop_time,timePassedLog,timeNormLog, &
                  &              omega_ic,omega_ma,w_LMloc,z_LMloc,p_LMloc,   &
-                 &              s_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc)
+                 &              s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,           &
+                 &              b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
          end if
@@ -385,9 +388,9 @@ contains
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,ddw_LMloc,z_LMloc,     &
-                 &          dz_LMloc,s_LMloc,b_LMloc,ddb_LMloc,aj_LMloc,     &
-                 &          dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,   &
-                 &          dj_ic_LMloc,visDiss,ohmDiss)
+                 &          dz_LMloc,s_LMloc,xi_LMloc,b_LMloc,ddb_LMloc,     &
+                 &          aj_LMloc,dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,      &
+                 &          aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
          end if
@@ -422,9 +425,9 @@ contains
               &      fpoynLMr,fresLMr,RmR)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
   
-         if ( l_heat ) then
+         if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
-                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc)
+                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,dxi_LMloc)
          end if
 
          if ( l_hel ) then
@@ -634,6 +637,10 @@ contains
          call gather_all_from_lo_to_rank0(gt_OC,p_LMloc,p)
          call gather_all_from_lo_to_rank0(gt_OC,s_LMloc,s)
          call gather_all_from_lo_to_rank0(gt_OC,z_LMloc,z)
+
+         if ( l_chemical_conv ) then
+            call gather_all_from_lo_to_rank0(gt_OC,xi_LMloc,xi)
+         end if
   
          if ( l_mag ) then
             call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
@@ -661,6 +668,10 @@ contains
             call gather_all_from_lo_to_rank0(gt_OC,dpdtLast_LMloc,dpdtLast)
             call gather_all_from_lo_to_rank0(gt_OC,dsdtLast_LMloc,dsdtLast)
             call gather_all_from_lo_to_rank0(gt_OC,dzdtLast_lo,dzdtLast)
+
+            if ( l_chemical_conv ) then
+               call gather_all_from_lo_to_rank0(gt_OC,dxidtLast_LMloc,dxidtLast)
+            end if
             
             if (l_mag) then
                call gather_all_from_lo_to_rank0(gt_OC,dbdtLast_LMloc,dbdtLast)
@@ -970,9 +981,11 @@ contains
                rst_file='rst_t='//trim(string)//'.'//tag
             end if
   
-            open(n_rst_file, file=rst_file, status='unknown', form='uNformatted')
-            call store(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic,dwdtLast,dzdtLast, &
-                       dpdtLast,dsdtLast,dbdtLast,djdtLast,dbdt_icLast,djdt_icLast)
+            open(n_rst_file, file=rst_file, status='unknown', form='unformatted')
+            call store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
+                 &     dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
+                 &     dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
+                 &     djdt_icLast)
             close(n_rst_file)
 !#endif
   

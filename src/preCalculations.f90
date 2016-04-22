@@ -7,14 +7,16 @@ module preCalculations
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
        &                 n_cheb_ic_max, m_max, minc, n_cheb_max,   &
        &                 lm_max, n_phi_max, n_theta_max
-   use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds, &
-       &                  l_reset_t
+   use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
+       &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
+       &                  n_xi_bounds
    use parallel_mod, only: rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,   &
        &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
        &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
-       &            l_LCR, l_dt_cmb_field, l_storePot
+       &            l_LCR, l_dt_cmb_field, l_storePot,                 &
+       &            l_temperature_diff, l_chemical_conv
    use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
        &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
        &                       beta, rho0, rgrav, dbeta,                   &
@@ -27,7 +29,9 @@ module preCalculations
        &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
        &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
        &                          ktops, kbots, interior_model, r_LCR,     &
-       &                          n_r_LCR, mode, tmagcon, ogrun, GrunNb
+       &                          n_r_LCR, mode, tmagcon, ogrun, GrunNb,   &
+       &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
+       &                          ChemFac, raxi
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite
@@ -52,6 +56,8 @@ contains
       !---- Local variables:
       real(cp) :: c1,help,facIH
       real(cp) :: delmin,sr_top,si_top,sr_bot,si_bot
+      real(cp) :: xir_top,xii_top,xir_bot,xii_bot
+      real(cp) :: topconduc, botconduc
       integer :: n,n_r,l,m,l_bot,m_bot,l_top,m_top
       character(len=76) :: fileName
       character(len=80) :: message
@@ -91,6 +97,8 @@ contains
       else
          opm=0.0_cp
       end if
+
+      if ( l_chemical_conv ) osc=one/sc
 
       ! Note: CorFac is the factor in front of the Coriolis force. In the scaling
       !       used here (viscous time scale) this is simply the inverse Ekman num:
@@ -138,7 +146,17 @@ contains
       !       with g0 the CMB gravity, \alpha the thermal expansivity,
       !       \delta T the temperature scale, and \kappa the thermal
       !       diffusivity
-      BuoFac=raScaled/pr
+      if ( l_heat ) then
+         BuoFac=raScaled/pr
+      else
+         BuoFac=0.0_cp
+      end if
+
+      if ( l_chemical_conv ) then
+         ChemFac=raxi/sc
+      else
+         ChemFac=0.0_cp
+      end if
     
       dtStart=dtStart/tScale
       dtMax  =dtMax/tScale
@@ -175,7 +193,7 @@ contains
          do n_r=1,n_r_max
             write(99,'(8ES16.8)') r(n_r),temp0(n_r),         &
              &   rho0(n_r),beta(n_r),dbeta(n_r),             &
-             &   rgrav(n_r)/BuoFac,dentropy0(n_r),           &
+             &   rgrav(n_r),dentropy0(n_r),                  &
              &   divKtemp0(n_r)
          end do
          close(99)
@@ -359,6 +377,15 @@ contains
          else if ( nVarEps==1 ) then
             facIH=mass*vol_oc
          end if
+
+         if ( l_temperature_diff .or. l_anelastic_liquid ) then
+            topconduc = rho0(1)*kappa(1)
+            botconduc = rho0(n_r_max)*kappa(n_r_max)
+         else
+            topconduc = rho0(1)*kappa(1)*temp0(1)
+            botconduc = rho0(n_r_max)*kappa(n_r_max)*temp0(n_r_max)
+
+         end if
     
          if ( ktops == 1 .and. kbots == 1 ) then ! Fixed entropy
     
@@ -401,8 +428,7 @@ contains
                      write(*,*) '! need epsc<0 !                   '
                      stop
                   end if
-                  bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * &
-                       rho0(n_r_max)*temp0(n_r_max))
+                  bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * botconduc )
                   call logWrite( &
                        '! CMB heat flux set to balance volume sources!')
     
@@ -419,7 +445,7 @@ contains
                   if ( abs(real(tops(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
                   tops(0,0)=-facIH*epsc*pr/(four*pi*r_cmb**2) + &
-                       radratio**2*rho0(n_r_max)*temp0(n_r_max)*bots(0,0)
+                            radratio**2*botconduc*bots(0,0)
                   if ( tops(0,0) /= help ) call logWrite( &
                        '!!!! WARNING: CMB heat flux corrected !!!!')
     
@@ -433,9 +459,9 @@ contains
                      write(*,*) '! epsc0>0.                        '
                      stop
                   end if
-                  help=four*pi/pr/facIH *            &
-                       (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
-                       r_cmb**2*real(tops(0,0)))
+                  help=four*pi*opr*facIH *            &
+                       (r_icb**2*real(bots(0,0))*botconduc - &
+                        r_cmb**2*real(tops(0,0))*topconduc)
                   if ( help /= epsc ) then
                      write(*,*) '! NOTE: when flux BC through the '
                      write(*,*) '! ICB and CMB are used the sources '
@@ -450,8 +476,8 @@ contains
                !--- Correct epsc0 to balance the difference between
                !    flux through the inner and outer boundary:
                epsc=four*pi/pr/facIH *          &
-                    (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
-                    r_cmb**2*real(tops(0,0)))
+                    (r_icb**2*real(bots(0,0))*botconduc - &
+                     r_cmb**2*real(tops(0,0))*topconduc)
                call logWrite( &
                     '! Sources introduced to balance surface heat flux!')
                write(message,'(''!      epsc0='',ES16.6)') epsc/sq4pi
@@ -459,8 +485,8 @@ contains
             else if ( epsc0 /= 0.0_cp .and. tops(0,0) /= 0.0_cp .and. &
                                           bots(0,0) /= 0.0_cp ) then
                help=four*pi/pr/facIH *          &
-                    (r_icb**2*real(bots(0,0))*rho0(n_r_max)*temp0(n_r_max) - &
-                    r_cmb**2*real(tops(0,0)))
+                    (r_icb**2*real(bots(0,0))*botconduc - &
+                     r_cmb**2*real(tops(0,0))*topconduc)
                if ( help /= epsc ) then
                   write(*,*) '! NOTE: when flux BC through the '
                   write(*,*) '! ICB and/or CMB is used the sources '
@@ -484,7 +510,7 @@ contains
                   real(tops(0,0))/sq4pi
             call logWrite(message)
          else if ( ktops == 2 ) then
-            help=surf_cmb*REAL(tops(0,0))/sq4pi
+            help=surf_cmb*topconduc*real(tops(0,0))/sq4pi
             write(message,'(''! Const. total CMB buoy. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
@@ -492,12 +518,173 @@ contains
             write(message,'(''! Constant temp. at ICB T ='',ES16.6)') real(bots(0,0))/sq4pi
             call logWrite(message)
          else if ( kbots == 2 ) then
-            help=surf_cmb*radratio**2*rho0(n_r_max)*temp0(n_r_max)*real(bots(0,0))/sq4pi
+            help=surf_cmb*radratio**2*botconduc*real(bots(0,0))/sq4pi
             write(message, '(''! Const. total ICB buoy. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
          help=facIH*pr*epsc/sq4pi
          write(message,'(''! Total vol. buoy. source ='',ES16.6)') help
+         call logWrite(message)
+    
+      end if
+
+      !-- Set  boundary conditions for chemical composition
+      if ( l_chemical_conv ) then
+         epscxi=epscxi0*sq4pi
+    
+         do m=0,m_max,minc
+            do l=m,l_max
+               botxi(l,m)=zero
+               topxi(l,m)=zero
+               do n=1,n_xi_bounds
+                  l_bot =int(xi_bot(4*n-3))
+                  m_bot =int(xi_bot(4*n-2))
+                  xir_bot=xi_bot(4*n-1)
+                  xii_bot=xi_bot(4*n)
+                  l_top =int(xi_top(4*n-3))
+                  m_top =int(xi_top(4*n-2))
+                  xir_top=xi_top(4*n-1)
+                  xii_top=xi_top(4*n)
+                  if ( l_bot == l .and. m_bot == m .and. &
+                       cmplx(xir_bot,xii_bot,kind=cp) /= zero ) then
+                     if ( m == 0 ) xii_bot=0.0_cp
+                     botxi(l,m)=sq4pi*cmplx(xir_bot,xii_bot,kind=cp)
+                     if ( kbotxi == 2 ) botxi(l,m)=botxi(l,m)*lScale
+                  end if
+                  if ( l_top == l .and. m_top == m .and. &
+                       cmplx(xir_top,xii_top,kind=cp) /= zero ) then
+                     if ( m == 0 ) xii_top=0.0_cp
+                     topxi(l,m)=sq4pi*cmplx(xir_top,xii_top,kind=cp)
+                     if ( ktopxi == 2 ) topxi(l,m)=topxi(l,m)*lScale
+                  end if
+               end do
+            end do
+         end do
+    
+         facIH=vol_oc
+         topconduc = rho0(1)
+         botconduc = rho0(n_r_max)
+    
+         if ( ktopxi == 1 .and. kbotxi == 1 ) then ! Fixed chemical comp
+    
+            topxi(0,0)=-r_icb**2/(r_icb**2+r_cmb**2)*sq4pi
+            botxi(0,0)= r_cmb**2/(r_icb**2+r_cmb**2)*sq4pi
+
+         else if ( (ktopxi==2 .and. kbotxi==2) ) then
+    
+            if ( real(botxi(0,0)) > 0.0_cp ) then
+               write(*,*)
+               write(*,*) '! NOTE: you have supplied'
+               write(*,*) '! xi_bot(l=0,m=0)>0 which '
+               write(*,*) '! means there is a composition '
+               write(*,*) '! flux into the inner core.'
+               write(*,*) '! This is unrealistic!'
+               write(*,*) '! Use xi_bot(l=0,m=0)<0 !'
+               stop
+            end if
+    
+            if ( abs(epscxi0) == one ) then
+    
+               if ( topxi(0,0) == 0.0_cp ) then
+    
+                  !--- Compensate by flux from ICB:
+                  !    all over the core :
+                  if ( epscxi0 >= 0 ) then
+                     write(*,*) '! NOTE: when the flux through the '
+                     write(*,*) '! outer boundary is zero, sinks in'
+                     write(*,*) '! the outer core need to balance  '
+                     write(*,*) '! the flux from the ICB. Thus we  '
+                     write(*,*) '! need epscxi<0 !                   '
+                     stop
+                  end if
+                  botxi(0,0)=epscxi*sc*facIH/(four*pi*r_icb**2*botconduc)
+                  call logWrite( &
+                       '! CMB heat flux set to balance volume sources!')
+    
+               else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) == 0.0_cp ) then
+    
+                  !--- Correct topxi to balance inner sources/sinks:
+                  if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
+                     write(*,*) '! NOTE: when the flux through the '
+                     write(*,*) '! ICB is zero we need sources in  '
+                     write(*,*) '! the outer core which means      '
+                     write(*,*) '! epscxi0>0.                        '
+                     stop
+                  end if
+                  if ( abs(real(topxi(0,0))) == sq4pi ) &
+                       call logWrite('! You intend to use the CMB flux as buoy. scale??')
+                  topxi(0,0)=-facIH*epscxi*sc/(four*pi*r_cmb**2) + &
+                       radratio**2*botxi(0,0)*botconduc
+                  if ( topxi(0,0) /= help ) call logWrite( &
+                       '!!!! WARNING: CMB composition flux corrected !!!!')
+    
+               else if ( topxi(0,0) /= 0.0_cp .and. botxi(0,0) /= 0.0_cp ) then
+    
+                  !--- Correct tops to balance inner sources/sinks:
+                  if ( epscxi0 <= 0 .and. botxi(0,0) == 0.0_cp  ) then
+                     write(*,*) '! NOTE: when the flux through the '
+                     write(*,*) '! ICB is zero we need sources in  '
+                     write(*,*) '! the outer core which means      '
+                     write(*,*) '! epscxi0>0.                      '
+                     stop
+                  end if
+                  help=four*pi/sc/facIH *            &
+                       (r_icb**2*real(botxi(0,0))*botconduc - &
+                        r_cmb**2*real(topxi(0,0))*topconduc)
+                  if ( help /= epscxi ) then
+                     write(*,*) '! NOTE: when flux BC through the '
+                     write(*,*) '! ICB and CMB are used the sources '
+                     write(*,*) '! have to balance the total flux.'
+                     stop
+                  end if
+    
+               end if
+    
+            else if ( epscxi0 == 0.0_cp .and. ( topxi(0,0) /= 0.0_cp .or. &
+                                            botxi(0,0) /= 0.0_cp ) ) then
+               !--- Correct epscxi0 to balance the difference between
+               !    flux through the inner and outer boundary:
+               epscxi=four*pi/sc/facIH *                     &
+                      (r_icb**2*real(botxi(0,0))*botconduc - &
+                       r_cmb**2*real(topxi(0,0))*topconduc)
+               call logWrite( &
+                    '! Sources introduced to balance surface Fickian flux!')
+               write(message,'(''!      epscxi0='',ES16.6)') epscxi/sq4pi
+               call logWrite(message)
+            else if ( epscxi0 /= 0.0_cp .and. topxi(0,0) /= 0.0_cp .and. &
+                                          botxi(0,0) /= 0.0_cp ) then
+               help=four*pi/sc/facIH *                     &
+                    (r_icb**2*real(botxi(0,0))*botconduc - &
+                     r_cmb**2*real(topxi(0,0))*topconduc)
+               if ( help /= epscxi ) then
+                  write(*,*) '! NOTE: when flux BC through the '
+                  write(*,*) '! ICB and/or CMB is used the sources '
+                  write(*,*) '! have to balance it.'
+                  stop
+               end if
+            end if
+    
+         end if
+    
+         if ( ktopxi == 1 ) then
+            write(message,'(''! Constant comp. at CMB T ='',ES16.6)') &
+                  real(topxi(0,0))/sq4pi
+            call logWrite(message)
+         else if ( ktopxi == 2 ) then
+            help=surf_cmb*topconduc*real(topxi(0,0))/sq4pi
+            write(message,'(''! Const. total CMB comp. flux    ='',ES16.6)') help
+            call logWrite(message)
+         end if
+         if ( kbotxi == 1 ) then
+            write(message,'(''! Constant comp. at ICB T ='',ES16.6)') real(botxi(0,0))/sq4pi
+            call logWrite(message)
+         else if ( kbotxi == 2 ) then
+            help=surf_cmb*radratio**2*botconduc*real(botxi(0,0))/sq4pi
+            write(message, '(''! Const. total ICB comp. flux    ='',ES16.6)') help
+            call logWrite(message)
+         end if
+         help=facIH*sc*epscxi/sq4pi
+         write(message,'(''! Total vol. comp. source ='',ES16.6)') help
          call logWrite(message)
     
       end if

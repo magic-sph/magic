@@ -37,6 +37,7 @@ my %tests = (
                          dynamo_benchmark
                          varProps
                          boussBenchSat
+                         doubleDiffusion
                     )],
              1 => [qw(
                          testRestart

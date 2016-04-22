@@ -15,20 +15,22 @@ module LMLoop_mod
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lmStartB, lmStopB
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
-                    l_single_matrix
-   use matrices, only: lZ10mat, lSmat, lZmat, lWPmat, lBmat, lWPSmat
+       &            l_single_matrix, l_chemical_conv
+   use matrices, only: lZ10mat, lSmat, lZmat, lWPmat, lBmat, lWPSmat, &
+       &               lXimat
    use output_data, only: nLF, log_file
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
    use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, &
-                            lo2r_s, lo2r_z, lo2r_p, lo2r_b,     &
-                            lo2r_aj, lo2r_w
+       &                    lo2r_s, lo2r_z, lo2r_p, lo2r_b,     &
+       &                    lo2r_aj, lo2r_w, lo2r_xi
    use updateS_mod, only: initialize_updateS, updateS, updateS_ala
    use updateZ_mod, only: initialize_updateZ, updateZ
    use updateWP_mod, only: initialize_updateWP, updateWP
    use updateWPS_mod, only: initialize_updateWPS, updateWPS
    use updateB_mod, only: initialize_updateB, updateB
+   use updateXi_mod, only: initialize_updateXi, updateXi
    use useful, only: safeOpen, safeClose
 
    implicit none
@@ -51,6 +53,11 @@ contains
          call initialize_updateS
          call initialize_updateWP
       end if
+
+      if ( l_chemical_conv ) then
+         call initialize_updateXi
+      end if
+
       call initialize_updateZ
       call initialize_updateB
 
@@ -61,9 +68,9 @@ contains
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,               &
-       &            dVxBhLM,dVSrLM,dsdt,dwdt,dzdt,dpdt,dbdt,djdt, &
-       &            lorentz_torque_ma,lorentz_torque_ic,          &
-       &            b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+       &            dVxBhLM,dVSrLM,dVXirLM,dsdt,dwdt,dzdt,dpdt,   &
+       &            dxidt,dbdt,djdt,lorentz_torque_ma,            &
+       &            lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -80,10 +87,12 @@ contains
       ! for djdt in update_b
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
+      complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_s
       !integer,     intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:
       complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dxidt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dzdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
@@ -127,6 +136,9 @@ contains
             end if
             lZmat(l) =.false.
             lBmat(l) =.false.
+            if ( l_chemical_conv ) then
+               lXimat(l)=.false.
+            end if
          end do
       end if
 
@@ -185,6 +197,14 @@ contains
                  & GET_GLOBAL_SUM( ds_LMloc(:,n_r_cmb) )
          end if
       end if
+
+      if ( l_chemical_conv ) then ! dp,workA usead as work arrays
+         call updateXi(xi_LMloc,dxi_LMloc,dVXirLM,dxidt,dxidtLast_LMloc, &
+              &        w1,coex,dt,nLMB)
+
+         call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
+      end if
+
       if ( l_conv ) then
          if ( DEBUG_OUTPUT ) then
             write(*,"(A,I2,6ES20.12)") "z_before: ",nLMB,   &
@@ -245,7 +265,7 @@ contains
             PERFON('up_WP')
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
                  &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
-                 &         w1,coex,dt,nLMB,lRmsNext)
+                 &         xi_LMloc, w1,coex,dt,nLMB,lRmsNext)
             PERFOFF
 
             !call MPI_Barrier(MPI_COMM_WORLD,ierr)

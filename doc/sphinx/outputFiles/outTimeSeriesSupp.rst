@@ -39,6 +39,16 @@ subroutine :f:subr:`outHeat <outmisc_mod/outheat()>`.
    +---------------+-------------------------------------------------------------+
    | 12            | volume integrated mass perturbation                         |
    +---------------+-------------------------------------------------------------+
+   | 13            | Sherwood number at the inner boundary                       |
+   +---------------+-------------------------------------------------------------+
+   | 14            | Sherwood number at the outer boundary                       |
+   +---------------+-------------------------------------------------------------+
+   | 15            | Sherwood number based on :math:`\Delta \xi` ratio           |
+   +---------------+-------------------------------------------------------------+
+   | 16            | Chemical composition at the inner boundary                  |
+   +---------------+-------------------------------------------------------------+
+   | 17            | Chemical composition at the outer boundary                  |
+   +---------------+-------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
 

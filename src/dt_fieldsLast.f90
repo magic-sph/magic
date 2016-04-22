@@ -14,6 +14,7 @@ module fieldsLast
    use truncation, only: n_r_max, lm_max, n_r_maxMag, lm_maxMag, &
                          n_r_ic_maxMag
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
+   use logic, only: l_chemical_conv
    use parallel_Mod, only: rank
 
    implicit none
@@ -30,6 +31,9 @@ module fieldsLast
  
    complex(cp), public, allocatable :: dsdtLast(:,:)
    complex(cp), public, allocatable :: dsdtLast_LMloc(:,:)
+
+   complex(cp), public, allocatable :: dxidtLast(:,:)
+   complex(cp), public, allocatable :: dxidtLast_LMloc(:,:)
  
    complex(cp), public, allocatable :: dbdtLast(:,:)
    complex(cp), public, allocatable :: djdtLast(:,:)
@@ -56,6 +60,11 @@ contains
          allocate( dsdtLast(lm_max,n_r_max) )
          bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
 
+         if ( l_chemical_conv ) then
+            allocate( dxidtLast(lm_max,n_r_max) )
+            bytes_allocated = bytes_allocated + lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         end if
+
          allocate( dbdtLast(lm_maxMag,n_r_maxMag) )
          allocate( djdtLast(lm_maxMag,n_r_maxMag) )
          bytes_allocated = bytes_allocated + &
@@ -71,6 +80,11 @@ contains
          allocate( dpdtLast(1,n_r_max) )
          allocate( dzdtLast(1,n_r_max) )
          allocate( dsdtLast(1,n_r_max) )
+         if ( l_chemical_conv ) then
+            allocate( dxidtLast(1,n_r_max) )
+            bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
+         end if
+
          allocate( dbdtLast(1,n_r_max) )
          allocate( djdtLast(1,n_r_max) )
          allocate( dbdt_icLast(1,n_r_max) )
@@ -83,6 +97,11 @@ contains
       allocate( dsdtLast_LMloc(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated + &
                         4*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_chemical_conv ) then
+         allocate( dxidtLast_LMloc(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
       allocate( dbdtLast_LMloc(llmMag:ulmMag,n_r_maxMag) )
       allocate( djdtLast_LMloc(llmMag:ulmMag,n_r_maxMag) )

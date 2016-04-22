@@ -1,4 +1,3 @@
-!$Id$
 #include "perflib_preproc.cpp"
 module legendre_spec_to_grid
 
@@ -10,8 +9,8 @@ module legendre_spec_to_grid
    use truncation, only: lm_max, n_m_max, nrp, l_max
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
-                              osn2
-   use logic, only: l_heat, l_ht
+       &                      osn2
+   use logic, only: l_heat, l_ht, l_chemical_conv
    use constants, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
@@ -25,10 +24,10 @@ module legendre_spec_to_grid
 contains
 
    subroutine legTFG(nBc,lDeriv,lViscBcCalc,lPressCalc,nThetaStart,    &
-     &               vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,            &
-     &               dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
-     &               brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
-     &               drSc,dsdtc,dsdpc,pc,leg_helper)
+              &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,            &
+              &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
+              &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
+              &      drSc,dsdtc,dsdpc,pc,xic,leg_helper)
       !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
       !    where nTheta numbers the colatitudes and l is the degree of
@@ -83,6 +82,7 @@ contains
       real(cp), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
       real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp,nfs), pc(nrp,nfs)
       real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
+      real(cp), intent(out) :: xic(nrp,nfs)
     
       !------ Legendre Polynomials 
       real(cp) :: PlmG(lm_max)
@@ -91,6 +91,7 @@ contains
       !-- Local variables:
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
       complex(cp) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
+      complex(cp) :: xiES, xiEA
       complex(cp) :: dsdtES,dsdtEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
@@ -120,7 +121,6 @@ contains
             PERFON_I('TFG_1')
             if ( l_heat ) then
                ! the original version has shown to be the fastest
-               ! putting 
                do mc=1,n_m_max
                   lmS=lStop(mc)
                   sES=zero  ! One equatorial symmetry
@@ -135,7 +135,7 @@ contains
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
-    
+
                if ( lViscBcCalc ) then
                   do mc=1,n_m_max
                      dm =D_mc2m(mc)
@@ -164,9 +164,26 @@ contains
                   end do
     
                end if ! thermal dissipation layer
-    
-            end if
+            end if ! l_heat
             PERFOFF_I
+
+            if ( l_chemical_conv ) then
+               do mc=1,n_m_max
+                  lmS=lStop(mc)
+                  xiES=zero  ! One equatorial symmetry
+                  xiEA=zero  ! The other equatorial symmetry
+                  do lm=lStart(mc),lmS-1,2
+                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
+                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
+                  end do
+                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
+                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
+                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
+                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
+                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
+               end do
+            end if
+    
             !--- Loop over all orders m: (numbered by mc)
             PERFON_I('TFG_2')
             do mc=1,n_m_max
@@ -457,6 +474,9 @@ contains
                      dsdtc(mc,nThetaN)=0.0_cp
                      dsdpc(mc,nThetaN)=0.0_cp
                   end if
+                  if ( l_chemical_conv ) then
+                     xic(mc,nThetaN)=0.0_cp
+                  end if
                   vrc(mc,nThetaN)   =0.0_cp
                   vtc(mc,nThetaN)   =0.0_cp
                   vpc(mc,nThetaN)   =0.0_cp
@@ -504,6 +524,23 @@ contains
                   sc(2*mc  ,nThetaN)=aimag(sES+sEA)
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
+               end do
+            end if
+
+            if ( l_chemical_conv ) then
+               do mc=1,n_m_max
+                  lmS=lStop(mc)
+                  xiES=zero    ! One equatorial symmetry
+                  xiEA=zero    ! The other equatorial symmetry
+                  do lm=lStart(mc),lmS-1,2
+                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
+                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
+                  end do
+                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
+                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
+                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
+                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
+                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
                end do
             end if
     
@@ -607,6 +644,9 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   sc(mc,nThetaN) =0.0_cp
+                  if ( l_chemical_conv ) then
+                     xic(mc,nThetaN)=0.0_cp
+                  end if
                   brc(mc,nThetaN)=0.0_cp
                   btc(mc,nThetaN)=0.0_cp
                   bpc(mc,nThetaN)=0.0_cp
@@ -693,7 +733,7 @@ contains
        &                 nThetaStart,vrc,vtc,vpc,                &
        &                 dvrdrc,dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,&
        &                 dvtdpc,dvpdpc,sc,drSc,dsdtc,dsdpc,pc,   &
-       &                 leg_helper)
+       &                 xic,leg_helper)
       !
       ! Same as legTFG for non-magnetic cases
       !
@@ -714,6 +754,7 @@ contains
       real(cp), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
       real(cp), intent(out) :: cvrc(nrp,nfs), pc(nrp,nfs)
       real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp, nfs)
+      real(cp), intent(out) :: xic(nrp,nfs)
       real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
     
       !------ Legendre Polynomials
@@ -723,6 +764,7 @@ contains
       !-- Local:
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
       complex(cp) :: sES,sEA,drsES,drsEA,pES,pEA
+      complex(cp) :: xiES,xiEA
       complex(cp) :: dsdtES,dsdtEA
     
       integer :: nThetaN,nThetaS,nThetaNHS
@@ -789,6 +831,23 @@ contains
     
                end if ! thermal dissipation layer
     
+            end if
+
+            if ( l_chemical_conv ) then
+               do mc=1,n_m_max
+                  lmS=lStop(mc)
+                  xiES=zero  ! One equatorial symmetry
+                  xiEA=zero  ! The other equatorial symmetry
+                  do lm=lStart(mc),lmS-1,2
+                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
+                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
+                  end do
+                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
+                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
+                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
+                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
+                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
+               end do
             end if
     
             !--- Loop over all oders m: (numbered by mc)
@@ -968,6 +1027,9 @@ contains
                      dsdtc(mc,nThetaN)=0.0_cp
                      dsdpc(mc,nThetaN)=0.0_cp
                   end if
+                  if ( l_chemical_conv ) then
+                     xic(mc,nThetaN)=0.0_cp
+                  end if
                   vrc(mc,nThetaN)   =0.0_cp
                   vtc(mc,nThetaN)   =0.0_cp
                   vpc(mc,nThetaN)   =0.0_cp
@@ -1007,6 +1069,23 @@ contains
                   sc(2*mc  ,nThetaN)=aimag(sES+sEA)
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
+               end do
+            end if
+
+            if ( l_chemical_conv ) then
+               do mc=1,n_m_max
+                  lmS=lStop(mc)
+                  xiES=zero    ! One equatorial symmetry
+                  xiEA=zero    ! The other equatorial symmetry
+                  do lm=lStart(mc),lmS-1,2
+                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
+                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
+                  end do
+                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
+                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
+                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
+                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
+                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
                end do
             end if
     
@@ -1062,9 +1141,16 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.0_cp
+                  sc(mc,nThetaN) =0.0_cp
                end do
             end do
+            if ( l_chemical_conv ) then
+               do nThetaN=1,sizeThetaB
+                  do mc=2*n_m_max+1,nrp
+                     xic(mc,nThetaN)=0.0_cp
+                  end do
+               end do
+            end if
             if ( nBc == 1 ) then
                do nThetaN=1,sizeThetaB
                   do mc=2*n_m_max+1,nrp
@@ -1166,7 +1252,7 @@ contains
       !    The Plms and dPlms=sin(theta) d Plm / d theta are only given
       !    for the colatitudes in the northern hemisphere.
       !
-      !      * dLhw,....,cvhC : (input) arrays provided by s_legPrep.f
+      !      * dLhw,....,cvhC : (input) arrays provided by legendre_helpers.f90
       !      * l_max          : (input) maximum spherical harmonic degree
       !      * minc           : (input) azimuthal symmetry
       !      * nThetaStart    : (input) transformation is done for the range of

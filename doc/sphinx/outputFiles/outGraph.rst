@@ -24,10 +24,14 @@ file looks like below:
       ! Line 1
       !-------------
 
-      version               !Graphout_version_9 (using MPI without pressure)
-                            !Graphout_version_10 (using MPI, with pressure)
-                            !Graphout_version_7 (without MPI, without pressure)
-                            !Graphout_version_8 (without MPI, with pressure)
+      version    !Graphout_version_9 (using MPI without comp. without pressure)
+                 !Graphout_version_10 (using MPI, without comp. with pressure)
+                 !Graphout_version_11 (using MPI, with comp. without pressure)
+                 !Graphout_version_12 (using MPI, with comp. with pressure)
+                 !Graphout_version_5 (without MPI, with pressure and comp.)
+                 !Graphout_version_6 (without MPI, with comp. without pressure)
+                 !Graphout_version_7 (without MPI, without comp. without pressure)
+                 !Graphout_version_8 (without MPI, without comp. with pressure)
       !----------
       ! Line 2
       !----------
@@ -51,9 +55,9 @@ file looks like below:
 
       !-----------------------------------------------------------------------
 
-      !---------------------------------------
-      !Graphout_version_9/Graphout_version_10
-      !---------------------------------------
+      !-----------------------------
+      !Graphout_version_[9/10/11/12]
+      !-----------------------------
       
       ! These versions are written when the code uses MPI (USE_MPI=yes). Parallel
       ! chunks of fields are written for different radial levels. Chunks in theta
@@ -100,42 +104,51 @@ file looks like below:
 
       vp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) of 
                                                         !velocity
-
-      if (l_PressGraph):                                !If pressure is stored
+      if (l_chemical_conv):                             !If composition is stored
 
         !---------------
         ! Line 4 + (N+5)
         !---------------
+  
+        xir(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !composition
+
+
+
+      if (l_PressGraph):                                !If pressure is stored
+
+        !-----------------
+        ! Line 4 + (N+6/7)
+        !-----------------
   
         pr(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !pressure
 
 
       if (l_mag):                                         !For a magnetic run
       
-        !-----------------
-        ! Line 4 + (N+5/6)
-        !-----------------
+        !-------------------
+        ! Line 4 + (N+5/6/7)
+        !-------------------
 
         br(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Radial magnetic field
 
-        !-----------------
-        ! Line 4 + (N+6/7)
-        !-----------------
+        !-------------------
+        ! Line 4 + (N+6/7/8)
+        !-------------------
 
         bt(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Theta component of 
                                                           !magnetic field
 
-        !-----------------
-        ! Line 4 + (N+7/8)
-        !-----------------
+        !-------------------
+        ! Line 4 + (N+7/8/9)
+        !-------------------
 
         bp(1:n_phi_tot, n_theta_start:n_theta_stop, n_r)  !Zonal (phi component) 
                                                           !of magnetic field
       
 
-      !--------------------------------------
-      !Graphout_version_7/Graphout_version_8
-      !--------------------------------------
+      !--------------------------
+      !Graphout_version_[5/6/7/8]
+      !--------------------------
 
       !This version is written when the code does not use MPI (USE_MPI=no).
       !Chunks in theta are written in parallel with OpenMP.
@@ -227,6 +240,25 @@ file looks like below:
       ...
       vp(n_phi_tot,n_theta_stop,n_r)    !n_phi = n_phi_tot, n_theta = n_theta_stop, n_r 
 
+      if (l_chemical_conv):             !If chemical composition is stored
+
+      !-------------
+      ! Composition
+      !-------------
+
+      xi(1,n_theta_start,n_r)           !n_phi = 1, n_theta = n_theta_start, n_r
+      xi(2,n_theta_start,n_r)	        !n_phi = 2, n_theta = n_theta_start, n_r
+      ...
+      xi(n_phi_tot,n_theta_start,n_r)   !n_phi = n_phi_tot, n_theta = n_theta_start, n_r
+      xi(1,n_theta_start+1,n_r)         !n_phi = 1, n_theta = n_theta_start+1, n_r
+      ...
+      xi(n_phi_tot,n_theta_start+1,n_r)
+      ...
+      xi(1,n_theta_stop,n_r)            !n_phi = 1, n_theta = n_theta_stop, n_r
+      xi(2,n_theta_stop,n_r)            !n_phi = 2, n_theta = n_theta_stop, n_r
+      ...
+      xi(n_phi_tot,n_theta_stop,n_r)    !n_phi = n_phi_tot, n_theta = n_theta_stop, n_r 
+
 
       if (l_PressGraph):                !If pressure is stored
 
@@ -315,7 +347,9 @@ file looks like below:
 
 The graphic files can be read using the python class :py:class:`MagicGraph <magic.MagicGraph>`.
 
-    >>> G = MagicGraph(ivar = 1, tag='TAG')
+    >>> gr = MagicGraph(ivar = 1, tag='TAG')
+    >>> # print radial velocity
+    >>> print(gr.vr)
 
 They can be visualized using the :py:class:`Surf <magic.Surf>` class:
 

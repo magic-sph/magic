@@ -34,13 +34,6 @@ module truncation
    integer :: l_maxMag      ! Max. degree for magnetic field calculation
    integer :: lm_maxMag     ! Max. number of l/m combinations for magnetic field calculation
  
-   !-- Values for averaged fields, only necessary 
-   !   if average is desirev (lAveMem=0).
-   integer :: lAveMem        ! Memory for calculating time averages
-   integer :: n_r_max_ave    ! Number of radial points for time average
-   integer :: n_r_ic_max_ave ! Number of IC radial points for time average
-   integer :: lm_max_ave     ! Number of l/m combinations for time average
- 
    !-- Movie memory control:
    integer :: lMovieMem      ! Memory for movies
    integer :: ldtBMem        ! Memory for movie output
@@ -67,7 +60,6 @@ contains
    subroutine initialize_truncation
 
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
-      integer :: n_r_max_AL,n_r_ic_max_AL,lm_max_AL
       integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
       integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL
       integer :: n_r_maxGL,lm_maxGL,nrpGL
@@ -117,15 +109,6 @@ contains
       n_r_totMag    = max(1,n_r_totML)
       l_maxMag      = max(1,l_maxML)
       lm_maxMag     = max(1,lm_maxML)
-
-      !-- Values for averaged fields, only necessary 
-      !   if average is desired (lAveMem=0).
-      n_r_max_AL   =lAveMem*n_r_max
-      n_r_ic_max_AL=lAveMem*n_r_ic_max
-      lm_max_AL    =lAveMem*lm_max
-      n_r_max_ave   =max(n_r_max_AL,1)
-      n_r_ic_max_ave=max(n_r_ic_max_AL,1)
-      lm_max_ave    =max(lm_max_AL,1)
 
       !-- Movie memory control:
       lm_max_dL    =ldtBMem*lm_max

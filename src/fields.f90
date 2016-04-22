@@ -6,7 +6,8 @@ module fields
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, lm_maxMag, n_r_maxMag, &
-                         n_r_ic_maxMag
+       &                 n_r_ic_maxMag
+   use logic, only: l_chemical_conv
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use radial_data, only: nRstart, nRstop
    use parallel_mod, only: rank
@@ -28,13 +29,21 @@ module fields
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
    complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
  
-   !-- Pressure and entropy:
+   !-- Entropy:
    complex(cp), public, allocatable :: s(:,:)
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
    complex(cp), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
    complex(cp), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
  
+   !-- Chemical composition:
+   complex(cp), public, allocatable :: xi(:,:)
+   complex(cp), public, allocatable, target :: xi_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: xi_Rloc_container(:,:,:)
+   complex(cp), public, pointer :: xi_LMloc(:,:), dxi_LMloc(:,:)
+   complex(cp), public, pointer :: xi_Rloc(:,:), dxi_Rloc(:,:)
+
+   !-- Pressure:
    complex(cp), public, allocatable :: p(:,:)
    complex(cp), public, allocatable, target :: p_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: p_Rloc_container(:,:,:)
@@ -87,6 +96,12 @@ contains
          allocate( s(lm_max,n_r_max) )
          allocate( p(lm_max,n_r_max) )
          bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+
+         if ( l_chemical_conv ) then
+            allocate ( xi(lm_max,n_r_max) )
+            bytes_allocated = bytes_allocated+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         end if
+
          allocate( b(lm_maxMag,n_r_maxMag) )
          allocate( db(lm_maxMag,n_r_maxMag) )
          allocate( aj(lm_maxMag,n_r_maxMag) )
@@ -108,6 +123,10 @@ contains
          allocate( s(1,n_r_max) )
          allocate( p(1,n_r_max) )
          bytes_allocated = bytes_allocated + 4*n_r_max*SIZEOF_DEF_COMPLEX
+         if ( l_chemical_conv ) then
+            allocate ( xi(1,n_r_max) )
+            bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
+         end if
          allocate( b(1,n_r_maxMag) )
          allocate( db(1,n_r_maxMag) )
          allocate( aj(1,n_r_maxMag) )
@@ -137,7 +156,7 @@ contains
       z_Rloc(1:lm_max,nRstart:nRstop)   => z_Rloc_container(:,:,1)
       dz_Rloc(1:lm_max,nRstart:nRstop)  => z_Rloc_container(:,:,2)
 
-      !-- Pressure and entropy:
+      !-- Entropy:
       allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
       s_LMloc(llm:ulm,1:n_r_max)  => s_LMloc_container(:,:,1)
       ds_LMloc(llm:ulm,1:n_r_max) => s_LMloc_container(:,:,2)
@@ -145,6 +164,7 @@ contains
       s_Rloc(1:lm_max,nRstart:nRstop)   => s_Rloc_container(:,:,1)
       ds_Rloc(1:lm_max,nRstart:nRstop)  => s_Rloc_container(:,:,2)
 
+      !-- Pressure:
       allocate( p_LMloc_container(llm:ulm,n_r_max,1:2) )
       p_LMloc(llm:ulm,1:n_r_max)   => p_LMloc_container(:,:,1)
       dp_LMloc(llm:ulm,1:n_r_max)  => p_LMloc_container(:,:,2)
@@ -156,6 +176,27 @@ contains
                         9*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       bytes_allocated = bytes_allocated + &
                         9*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+      !-- Chemical composition:
+      if ( l_chemical_conv ) then
+         allocate( xi_LMloc_container(llm:ulm,n_r_max,1:2) )
+         xi_LMloc(llm:ulm,1:n_r_max)  => xi_LMloc_container(:,:,1)
+         dxi_LMloc(llm:ulm,1:n_r_max) => xi_LMloc_container(:,:,2)
+         allocate( xi_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+         xi_Rloc(1:lm_max,nRstart:nRstop)   => xi_Rloc_container(:,:,1)
+         dxi_Rloc(1:lm_max,nRstart:nRstop)  => xi_Rloc_container(:,:,2)
+         bytes_allocated = bytes_allocated + &
+                           2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + &
+                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate( xi_LMloc_container(1,1,2) ) ! For debugging
+         xi_LMloc(1:1,1:1)  => xi_LMloc_container(:,:,1)
+         dxi_LMloc(1:1,1:1) => xi_LMloc_container(:,:,2)
+         allocate( xi_Rloc_container(1,1,2) )
+         xi_Rloc(1:1,1:1)   => xi_Rloc_container(:,:,1)
+         dxi_Rloc(1:1,1:1)  => xi_Rloc_container(:,:,2)
+      end if
 
       !-- Magnetic field potentials:
       allocate( b_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )

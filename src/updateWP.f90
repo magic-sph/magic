@@ -6,16 +6,16 @@ module updateWP_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_cheb_max, n_r_max
    use radial_data, only: n_r_cmb,n_r_icb
-   use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,agrav,rgrav, &
-                             & chebt_oc,visc,dlvisc,                    &
-                             & beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
-                             & cheb_norm
-   use physical_parameters, only: kbotv, ktopv, ra
+   use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
+       &                       chebt_oc,visc,dlvisc,                    &
+       &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
+       &                       cheb_norm
+   use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac
    use num_param, only: alpha
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
-                     & lmStartB,lmStopB
+       &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
-   use logic, only: l_update_v
+   use logic, only: l_update_v, l_chemical_conv
    use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac, p0Mat, p0Pivot
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: cgeslML, sgefa, sgesl
@@ -78,7 +78,7 @@ contains
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
-   subroutine updateWP(w,dw,ddw,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
+   subroutine updateWP(w,dw,ddw,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s,xi, &
         &              w1,coex,dt,nLMB,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
@@ -95,6 +95,7 @@ contains
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
 
       complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dw(llm:ulm,n_r_max)
@@ -175,7 +176,7 @@ contains
             if ( .not. lWPmat(l1) ) then
                !PERFON('upWP_mat')
                call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
+                    &         wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
                lWPmat(l1)=.true.
                !PERFOFF
             end if
@@ -202,10 +203,21 @@ contains
 
                if ( l1 == 0 ) then
                   rhs(1)=0.0_cp
-                  do nR=2,n_r_max
-                     rhs(nR)=rho0(nR)*rgrav(nR)*real(s(st_map%lm2(0,0),nR))+ &
-                              real(dwdt(st_map%lm2(0,0),nR))
-                  end do
+                  if ( l_chemical_conv ) then
+                     do nR=2,n_r_max
+                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*    &
+                              &  real(s(st_map%lm2(0,0),nR))+ &
+                              &  rho0(nR)*ChemFac*rgrav(nR)*  &
+                              &  real(xi(st_map%lm2(0,0),nR))+&
+                              &  real(dwdt(st_map%lm2(0,0),nR))
+                     end do
+                  else
+                     do nR=2,n_r_max
+                        rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*    &
+                              &  real(s(st_map%lm2(0,0),nR))+ &
+                              &  real(dwdt(st_map%lm2(0,0),nR))
+                     end do
+                  end if
 
                   call sgesl(p0Mat,n_r_max,n_r_max,p0Pivot,rhs)
 
@@ -215,17 +227,32 @@ contains
                   rhs1(n_r_max,lmB,threadid)  =0.0_cp
                   rhs1(n_r_max+1,lmB,threadid)=0.0_cp
                   rhs1(2*n_r_max,lmB,threadid)=0.0_cp
-                  do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=                         &
-                          & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
-                          & rho0(nR)*agrav(nR)*s(lm1,nR) + &
-                          & w1*dwdt(lm1,nR) + &
-                          & w2*dwdtLast(lm1,nR)
-                     rhs1(nR+n_r_max,lmB,threadid)=                 &
-                          -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
-                          w1*dpdt(lm1,nR) + &
-                          w2*dpdtLast(lm1,nR)
-                  end do
+                  if ( l_chemical_conv ) then
+                     do nR=2,n_r_max-1
+                        rhs1(nR,lmB,threadid)=                         &
+                             & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
+                             & rho0(nR)*alpha*BuoFac*rgrav(nR)*s(lm1,nR) + &
+                             & rho0(nR)*alpha*ChemFac*rgrav(nR)*xi(lm1,nR) + &
+                             & w1*dwdt(lm1,nR) + &
+                             & w2*dwdtLast(lm1,nR)
+                        rhs1(nR+n_r_max,lmB,threadid)=                 &
+                             -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
+                             w1*dpdt(lm1,nR) + &
+                             w2*dpdtLast(lm1,nR)
+                     end do
+                  else
+                     do nR=2,n_r_max-1
+                        rhs1(nR,lmB,threadid)=                         &
+                             & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
+                             & rho0(nR)*alpha*BuoFac*rgrav(nR)*s(lm1,nR) + &
+                             & w1*dwdt(lm1,nR) + &
+                             & w2*dwdtLast(lm1,nR)
+                        rhs1(nR+n_r_max,lmB,threadid)=                 &
+                             -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
+                             w1*dpdt(lm1,nR) + &
+                             w2*dpdtLast(lm1,nR)
+                     end do
+                  end if
                end if
             end do
             !PERFOFF
@@ -365,7 +392,7 @@ contains
 
       !PERFON('upWP_ex')
       !-- Calculate explicit time step part:
-      if ( ra /= 0.0_cp ) then
+      if ( l_chemical_conv ) then
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
@@ -379,7 +406,8 @@ contains
                     &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                            w(lm1,nR)  )
                Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
-               Buo(lm1) = rho0(nR)*rgrav(nR)*s(lm1,nR)
+               Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*s(lm1,nR) +           &
+                    &     ChemFac*rho0(nR)*rgrav(nR)*xi(lm1,nR)
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
                dpdtLast(lm1,nR)= dpdt(lm1,nR) - coex*(                    &
                     &            dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
@@ -407,49 +435,48 @@ contains
                              dtVPolLMr(1,nR),dtVPol2hInt(1,nR,1),lo_map)
             end if
          end do
-
-      else  ! no s-contribution !
-
+      else
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
-               Dif(lm1)=hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))*  &
-                                                        or2(nR)*visc(nR)*  &
-                                 (                          ddw(lm1,nR) +  &
-                             (two*dLvisc(nR)-third*beta(nR))*dw(lm1,nR) -  &
-                    (dLh(st_map%lm2(l1,m1))*or2(nR)+four*third*(dbeta(nR)+ &
-                                dLvisc(nR)*beta(nR)+                       &
-                    (three*dLvisc(nR)+beta(nR))*or1(nR))) *                &
-                                                              w(lm1,nR) )
-               Pre(lm1)=-dp(lm1,nR)+beta(nR)*p(lm1,nR)
-               dwdtLast(lm1,nR) = dwdt(lm1,nR) - coex*(Pre(lm1)+Dif(lm1))
-               dpdtLast(lm1,nR)=        dpdt(lm1,nR) - coex*(  &
-                    dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) + &
-                    hdif_V(st_map%lm2(l1,m1))*visc(nR)*        &
-                    dLh(st_map%lm2(l1,m1))*or2(nR) * (         &
-                                       -workA(lm1,nR)        + &
-                    (beta(nR)-dLvisc(nR))*ddw(lm1,nR)        + &
-                    ( dLh(st_map%lm2(l1,m1))*or2(nR)+          &
-                      dLvisc(nR)*beta(nR) + dbeta(nR)+         &
-                     two*(dLvisc(nR)+beta(nR))*or1(nR))    *   &
-                                           dw(lm1,nR)        - &
-                    dLh(st_map%lm2(l1,m1))*or2(nR)           * &
-                    (two*or1(nR)+two*third*beta(nR)+           &
-                    dLvisc(nR))*            w(lm1,nR)          )  )
+
+               Dif(lm1) = hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))* &
+                          or2(nR)*visc(nR) *                  ( ddw(lm1,nR) &
+                    &   +(two*dLvisc(nR)-third*beta(nR))*        dw(lm1,nR) &
+                    &   -( dLh(st_map%lm2(l1,m1))*or2(nR)+four*third* (     &
+                    &        dbeta(nR)+dLvisc(nR)*beta(nR)                  &
+                    &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
+                    &                                            w(lm1,nR)  )
+               Pre(lm1) = -dp(lm1,nR)+beta(nR)*p(lm1,nR)
+               Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*s(lm1,nR)
+               dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
+               dpdtLast(lm1,nR)= dpdt(lm1,nR) - coex*(                    &
+                    &            dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
+                    &          + hdif_V(st_map%lm2(l1,m1))*               &
+                    &            visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR)  &
+                    &                                  * ( -workA(lm1,nR) &
+                    &                  + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
+                    &          + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
+                    &             + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
+                    &             + two*(dLvisc(nR)+beta(nR))*or1(nR)     &
+                    &                                      ) * dw(lm1,nR) &
+                    &          - dLh(st_map%lm2(l1,m1))*or2(nR)           &
+                    &             * ( two*or1(nR)+two*third*beta(nR)      &
+                                     +dLvisc(nR) )   *         w(lm1,nR)  &
+                    &                                    ) )
                if ( lRmsNext ) then
                   dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                       ( w(lm1,nR)-workB(lm1,nR) )
+                       &        ( w(lm1,nR)-workB(lm1,nR) )
                end if
             end do
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr(1,nR), &
                              DifPol2hInt(1,nR,1),lo_map)
                call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,lmStop, &
-                             dtVPolLMr(1,nR), dtVPol2hInt(1,nR,1),lo_map)
+                             dtVPolLMr(1,nR),dtVPol2hInt(1,nR,1),lo_map)
             end if
          end do
-
       end if
       !PERFOFF
 

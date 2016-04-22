@@ -7,7 +7,8 @@ module init_fields
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
        &                      phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_anelastic_liquid, &
-       &            l_cond_ic, l_temperature_diff, l_single_matrix
+       &            l_cond_ic, l_temperature_diff, l_single_matrix,    &
+       &            l_chemical_conv
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       cheb_norm, lambda, or2, d2cheb, dcheb,  &
        &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
@@ -29,10 +30,14 @@ module init_fields
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
-       &                          epsc, ViscHeatFac, ThExpNb, ogrun
+       &                          epsc, ViscHeatFac, ThExpNb, ogrun,      &
+       &                          impXi, n_impXi_max, n_impXi, phiXi,     &
+       &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
+       &                          kbotxi, ktopxi, BuoFac
    use algebra, only: sgesl, sgefa, cgesl
    use horizontal_data, only: D_lP1, hdif_B, dLh
-   use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot, ps0Mat_fac
+   use matrices, only: jMat, jPivot, s0Mat, s0Pivot, ps0mat, ps0pivot, &
+       &               ps0Mat_fac, xi0Mat, xi0Pivot
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
@@ -42,10 +47,11 @@ module init_fields
 
    !-- Initialisation of fields:
    integer, public :: init_s1,init_s2
+   integer, public :: init_xi1,init_xi2
    integer, public :: init_b1,init_v1
 
    !----- Entropy amplitudes for initialisation:
-   real(cp), public :: amp_s1,amp_s2,amp_v1,amp_b1
+   real(cp), public :: amp_s1,amp_s2,amp_v1,amp_b1,amp_xi1,amp_xi2
 
    !----- Entropy at CMB and ICB (input):
    integer, public, parameter :: n_s_bounds=20
@@ -55,6 +61,9 @@ module init_fields
    complex(cp), public, allocatable :: bots(:,:)
 
    !----- Chemical composition
+   integer, public, parameter :: n_xi_bounds=20
+   real(cp), public :: xi_bot(4*n_xi_bounds)  ! input variables for topxi,botxi
+   real(cp), public :: xi_top(4*n_xi_bounds)
    complex(cp), public, allocatable :: topxi(:,:)
    complex(cp), public, allocatable :: botxi(:,:)
 
@@ -77,21 +86,36 @@ module init_fields
 
    !-- Scales for input field:
    real(cp), public :: scale_s
+   real(cp), public :: scale_xi
    real(cp), public :: scale_v
    real(cp), public :: scale_b
    real(cp), public :: tipdipole       ! adding to symetric field
 
-   public :: initialize_init_fields, initV, initS, initB, s_cond, ps_cond
+   public :: initialize_init_fields, initV, initS, initB, s_cond, &
+             ps_cond, initXi, xi_cond
 
 contains
 
    subroutine initialize_init_fields
+      !
+      ! Memory allocation
+      !
 
       n_start_file=8
       
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
+      tops(:,:)=zero
+      bots(:,:)=zero
       bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+
+      if ( l_chemical_conv ) then
+         allocate( topxi(0:l_max,0:m_max) )
+         allocate( botxi(0:l_max,0:m_max) )
+         topxi(:,:)=zero
+         botxi(:,:)=zero
+         bytes_allocated = bytes_allocated+2*(l_max+1)*(m_max+1)*SIZEOF_DEF_COMPLEX
+      end if
 
    end subroutine initialize_init_fields
 !-----------------------------------------------------------------------
@@ -414,7 +438,6 @@ contains
             else
                if ( .not. l_anelastic_liquid ) then
                   call s_cond(s0)
-
                   open(unit=999, file='scond.dat')
                   do n_r=1,n_r_max
                      s(lm00,n_r)=s0(n_r)
@@ -676,6 +699,318 @@ contains
       end do
 
    end subroutine initS
+!---------------------------------------------------------------------------
+   subroutine initXi(xi,lmStart,lmStop)
+      !
+      ! Purpose of this subroutine is to initialize the chemical composition
+      ! according to the input control parameters.                       
+      !
+      ! +-----------------+---------------------------------------------+
+      ! | Input           | value                                       |
+      ! +=================+=============================================+
+      ! | init_xi1 < 100: | random noise initialized                    | 
+      ! |                 | the noise spectrum decays as l^ (init_xi1-1)|    
+      ! |                 | with peak amplitude amp_xi1  for l=1        |    
+      ! +-----------------+---------------------------------------------+
+      ! | init_xi1 >=100: | a specific harmonic mode initialized        |  
+      ! |                 | with amplitude amp_xi1.                     |        
+      ! |                 | init_xi1 is interpreted as number llmm      |         
+      ! |                 | where ll: harmonic degree,                  | 
+      ! |                 | mm: harmonic order.                         | 
+      ! +-----------------+---------------------------------------------+
+      ! | init_xi2 >100 : | a second harmonic mode initialized          |  
+      ! |                 | with amplitude amp_xi2.                     |         
+      ! |                 | init_xi2 is again interpreted as number llmm|         
+      ! |                 | where ll: harmonic degree,                  |
+      ! |                 | mm: harmonic order.                         |
+      ! +-----------------+---------------------------------------------+
+      !                                                                   
+
+      !-- Input variables:
+      integer, intent(in) :: lmStart,lmStop
+
+      !-- Output variables:
+      complex(cp), intent(inout) :: xi(lm_max,n_r_max)
+
+      !-- Local variables:
+      integer :: n_r,lm,l,m,lm00,lmMin
+      real(cp) :: x,rr,c_r,c_i,xi_r,xi_i
+      real(cp) :: ra1,ra2
+      real(cp) :: xi0(n_r_max),xi1(n_r_max)
+
+      integer :: nTheta,n,nThetaStart,nThetaB,nPhi,nXi
+      real(cp) :: xL,yL,zL,rH,angleL,xi00,xi00P
+      real(cp) :: mata(n_impXi_max,n_impXi_max)
+      real(cp) :: amp(n_impXi_max)
+      integer :: pivot(n_impXi_max)
+      real(cp) :: xXi(n_impXi_max),yXi(n_impXi_max)
+      real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
+      real(cp) :: xiCMB(nrp,nfs)
+      complex(cp) :: xiLM(lmP_max)
+      integer :: info,i,j,l1,m1
+
+
+      lm00=st_map%lm2(0,0)
+      lmMin=max(lmStart,2)
+
+      if ( .not. l_start_file ) then
+
+         if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
+            call xi_cond(xi0)
+            open(unit=999, file='xicond.dat')
+            do n_r=1,n_r_max
+               xi(lm00,n_r)=xi0(n_r)
+               write(999,*) r(n_r), xi0(n_r)*osq4pi
+            end do
+            close(999)
+         end if
+
+      end if
+
+      !-- Radial dependence of perturbation in xi1:
+      do n_r=1,n_r_max
+         x=two*r(n_r)-r_cmb-r_icb
+         xi1(n_r)=one-three*x**2+three*x**4-x**6
+      end do
+
+      if ( init_xi1 < 100 .and. init_xi1 > 0 ) then
+
+      !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
+           
+         rr=random(one)
+         do lm=lmMin,lmStop
+            m1 = st_map%lm2m(lm)
+            l1 = st_map%lm2l(lm)
+            ra1=(-one+two*random(0.0_cp))*amp_xi1/D_l(st_map%lm2(l1,m1))**(init_xi1-1)
+            ra2=(-one+two*random(0.0_cp))*amp_xi1/D_l(st_map%lm2(l1,m1))**(init_xi1-1)
+            do n_r=1,n_r_max
+               c_r=ra1*xi1(n_r)
+               c_i=ra2*xi1(n_r)
+               if ( m1 > 0 ) then  ! non axisymmetric modes
+                  xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,c_i,kind=cp)
+               else
+                  xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
+               end if
+            end do
+         end do
+           
+      else if ( init_xi1 >= 100 ) then
+
+      !-- Initialize one or two modes specifically
+
+      !----- Initialize first mode:
+         l=init_xi1/100
+         if ( l > 99 ) l=init_xi1/1000
+         m=mod(init_xi1,100)
+         if ( l > 99 ) m=mod(init_xi1,1000)
+         if ( mod(m,minc) /= 0 ) then
+            write(*,*) '! Wave number of mode for chemical composition initialisation'
+            write(*,*) '! not compatible with phi-symmetry:',m
+            stop
+         end if
+         if ( l > l_max .or. l < m ) then
+            write(*,*) '! Degree of mode for chemical composition initialisation'
+            write(*,*) '! > l_max or < m !',l
+            stop
+         end if
+         lm=st_map%lm2(l,m)
+
+         if ( lmMin <= lm .and. lmStop >= lm ) then
+            do n_r=1,n_r_max
+               c_r=xi1(n_r)*amp_xi1
+               xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
+            end do
+
+            write(*,'(/'' ! Chemical composition initialized at mode:'', &
+                &  '' l='',i4,'' m='',i4,'' Ampl='',f8.5)') l,m,amp_s1
+         end if
+
+      !----- Initialize second mode:
+         if ( init_xi2 > 99 ) then
+            m=mod(init_xi2,100)
+            if ( mod(m,minc) /= 0 ) then
+               write(*,*) '! Wave number of mode for chemical composition initialisation'
+               write(*,*) '! not compatible with phi-symmetry:',m
+               stop
+            end if
+            l=init_xi2/100
+            if ( l > l_max .or. l < m ) then
+               write(*,*) '! Degree of mode for chemical composition initialisation'
+               write(*,*) '! > l_max or < m !',l
+               stop
+            end if
+
+            lm=st_map%lm2(l,m)
+            if ( lmMin <= lm .and. lmStop >= lm ) then
+               xi_r=amp_s2
+               xi_i=0.0_cp
+               if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
+               !-------- Sin(phi)-mode initialized for amp_xi2<0
+                  xi_r = 0.0_cp
+                  xi_i = amp_s2
+               end if
+               do n_r=1,n_r_max
+                  c_r=xi1(n_r)*xi_r
+                  c_i=xi1(n_r)*xi_i
+                  xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,c_i,kind=cp)
+               end do
+               write(6,'('' ! Second mode:'', &
+                    &  '' l='',i3,'' m='',i3,'' Ampl='',f8.5/)') l,m,amp_xi2
+            end if
+
+         end if
+
+      end if
+
+      if ( lmStart > lm00 .or. impXi == 0 ) then
+         return
+      end if
+
+      !-- Now care for the prescribed boundary condition:
+      if ( minc /= 1 ) then
+         write(*,*) '! impXi doesnt work for minc /= 1'
+         stop
+      end if
+
+      if ( abs(impXi) == 1 ) then
+         n_impXi=2
+         peakXi(2)=-peakXi(1)
+         thetaXi(2)=pi-thetaXi(1)
+         phiXi(2)  =pi+phiXi(1)
+         if ( phiXi(2) > 2*pi ) phiXi(2)=phiXi(2)-2*pi
+         widthXi(2)=widthXi(1)
+      end if
+
+      !-- Determine the peak value vector in (xXi,yXi,zXi) space.
+      !     Then get the proportionality factors for the linear dependence
+      !     of the mean (l=0,m=0) contribution on the total peak amplitude
+      !     amp:
+      do nXi=1,n_impXi
+
+         xXi(nXi)=sin(thetaXi(nXi))*cos(phiXi(nXi))
+         yXi(nXi)=sin(thetaXi(nXi))*sin(phiXi(nXi))
+         zXi(nXi)=cos(thetaXi(nXi))
+
+         nTheta=0
+         do n=1,nThetaBs ! loop over the theta blocks
+
+            nThetaStart=(n-1)*sizeThetaB+1
+            do nThetaB=1,sizeThetaB
+               nTheta=nTheta+1
+               do nPhi=1,n_phi_max
+                  xL=sinTheta(nTheta)*cos(phi(nPhi))
+                  yL=sinTheta(nTheta)*sin(phi(nPhi))
+                  zL=cosTheta(nTheta)
+                  rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
+                  !------ Opening angleL with peak value vector:
+                  angleL=two*abs(asin(rH/2))
+                  if ( angleL <= widthXi(nXi) ) then
+                     xiCMB(nPhi,nThetaB) = half*(cos(angleL/widthXi(nXi)*pi)+1)
+                  else
+                     xiCMB(nPhi,nThetaB)=0.0_cp
+                  end if
+               end do
+            end do
+         !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
+            call fft_thetab(xiCMB,-1)
+            call legTF1(nThetaStart,xiLM,xiCMB)
+#endif
+
+         end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+         call spat_to_SH(xiCMB, xiLM)
+#endif
+
+      !--- xiFac describes the linear dependence of the (l=0,m=0) mode
+      !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
+      !    according to the spherical harmonic function form chosen here.
+         xiFac(nXi)=real(xiLM(st_map%lm2(0,0)))*osq4pi
+
+      end do ! Loop over peak
+
+      !-- Value due to prescribed (l=0,m=0) contribution
+      xi00P=real(topxi(0,0))*osq4pi
+      if ( xi00P == 0.0_cp .and. impXi < 0 ) then
+         write(*,*) '! No relative amplitudes possible!'
+         write(*,*) '! for impXi<0 because the mean value!'
+         write(*,*) '! is zero! Refince xi_top?'
+         stop
+      end if
+      if ( impXi > 0 ) xi00P=one
+
+      !-- Determine the true amplitudes amp for the peaks by solving linear system:
+      !    These amplitudes guarantee that the peak as an ampliture peakXi
+      !    above or below the mean (l=0,m=0)
+      if ( n_impXi == 1 ) then
+         amp(1)=peakXi(1)/(xi00P*(one-xiFac(1)))
+      else
+         do j=1,n_impXi
+            amp(j)=-peakXi(j)/xi00P
+            do i=1,n_impXi
+               if ( i == j ) then
+                  mata(i,j)=xiFac(i)-1
+               else
+                  mata(i,j)=xiFac(i)
+               end if
+            end do
+         end do
+        call sgefa(mata,n_impXi_max,n_impXi,pivot,info)
+        call sgesl(mata,n_impXi_max,n_impXi,pivot,amp)
+      end if
+      xi00=0.0_cp
+      do nXi=1,n_impXi
+         xi00=xi00+xiFac(nXi)*amp(nXi)
+      end do
+
+      !--- Now get the total thing so that the mean (l=0,m=0) due
+      !    to the peaks is zero. The (l=0,m=0) contribution is
+      !    determined (prescribed) by other means.
+      nTheta=0
+      do n=1,nThetaBs ! loop over the theta blocks
+
+         nThetaStart=(n-1)*sizeThetaB+1
+         do nThetaB=1,sizeThetaB
+            nTheta=nTheta+1
+            do nPhi=1,n_phi_max
+               xL=sinTheta(nTheta)*cos(phi(nPhi))
+               yL=sinTheta(nTheta)*sin(phi(nPhi))
+               zL=cosTheta(nTheta)
+               xiCMB(nPhi,nThetaB)=-xi00
+               do nXi=1,n_impXi
+                  rH=sqrt((xXi(nXi)-xL)**2 + (yXi(nXi)-yL)**2+(zXi(nXi)-zL)**2)
+                  !------ Opening angle with peak value vector:
+                  angleL=two*abs(asin(rH/2))
+                  if ( angleL <= widthXi(nXi) )              &
+                     xiCMB(nPhi,nThetaB)=xiCMB(nPhi,nThetaB) + &
+                                        amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
+               end do
+            end do
+         end do
+      !------ Transform to spherical hamonic space for each theta block
+#ifndef WITH_SHTNS
+         call fft_thetab(xiCMB,-1)
+         call legTF1(nThetaStart,xiLM,xiCMB)
+#endif
+
+      end do ! Loop over theta blocks
+#ifdef WITH_SHTNS
+      call spat_to_SH(xiCMB, xiLM)
+#endif
+
+      !--- Finally store the boundary condition and care for
+      !    the fact that peakS provides the relative amplitudes
+      !    in comparison to the (l=0,m=0) contribution when impS<0:
+      !    Note that the (l=0,m=0) has to be determined by other means
+      !    for example by setting: s_top= 0 0 -1 0
+      do m=0,l_max,minc
+         do l=m,l_max
+            lm=st_map%lmP2(l,m)
+            if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
+         end do
+      end do
+
+   end subroutine initXi
 !---------------------------------------------------------------------------
    subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma, &
                     lmStart,lmStop)
@@ -1402,6 +1737,97 @@ contains
 
    end subroutine s_cond
 !--------------------------------------------------------------------------------
+   subroutine xi_cond(xi0)
+      !
+      ! Purpose of this subroutine is to solve the chemical composition equation      
+      ! for an the conductive (l=0,m=0)-mode.                            
+      ! Output is the radial dependence of the solution in s0.           
+      !
+
+      real(cp), intent(out) :: xi0(:) ! spherically-symmetric part
+
+      !-- local variables:
+      integer :: n_cheb,n_r,info
+      real(cp) :: rhs(n_r_max)
+      real(cp) :: work(n_r_max)
+
+      !-- Set Matrix:
+      do n_cheb=1,n_r_max
+         do n_r=2,n_r_max-1
+            xi0Mat(n_r,n_cheb)=cheb_norm*osc*( d2cheb(n_cheb,n_r) + &
+           ( two*or1(n_r)+beta(n_r) )*          dcheb(n_cheb,n_r)  )
+         end do
+      end do
+       
+
+      !-- Set boundary conditions:
+      do n_cheb=1,n_cheb_max
+         if ( ktopxi == 1 .or. kbotxi == 2 ) then
+            xi0Mat(1,n_cheb)=cheb_norm
+         else
+            xi0Mat(1,n_cheb)=dcheb(n_cheb,1)*cheb_norm
+         end if
+         if ( kbotxi == 1 ) then
+            xi0Mat(n_r_max,n_cheb)=cheb(n_cheb,n_r_max)*cheb_norm
+         else
+            xi0Mat(n_r_max,n_cheb)=dcheb(n_cheb,n_r_max)*cheb_norm
+         end if
+      end do
+       
+      !-- Fill with zeros:
+      if ( n_cheb_max < n_r_max ) then
+         do n_cheb=n_cheb_max+1,n_r_max
+            xi0Mat(1,n_cheb)      =0.0_cp
+            xi0Mat(n_r_max,n_cheb)=0.0_cp
+         end do
+      end if
+       
+      !-- Renormalize:
+      do n_r=1,n_r_max
+         xi0Mat(n_r,1)=half*xi0Mat(n_r,1)
+         xi0Mat(n_r,n_r_max)=half*xi0Mat(n_r,n_r_max)
+      end do
+       
+      !-- Invert matrix:
+      call sgefa(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
+      if ( info /= 0 ) then
+         write(*,*) '! Singular Matrix xi0Mat in init_xi!'
+         stop
+      end if
+       
+      !-- Set source terms in RHS:
+      do n_r=2,n_r_max-1
+         rhs(n_r)=-epscxi
+      end do
+       
+      !-- Set boundary values:
+      if ( ktopxi == 2 .and. kbotxi == 2 ) then
+         rhs(1)=0.0_cp
+      else
+         rhs(1)=real(topxi(0,0))
+      end if
+      rhs(n_r_max)=real(botxi(0,0))
+       
+      !-- Solve for s0:
+      call sgesl(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
+       
+      !-- Copy result to s0:
+      do n_r=1,n_r_max
+         xi0(n_r)=rhs(n_r)
+      end do
+
+      !-- Set cheb-modes > n_cheb_max to zero:
+      if ( n_cheb_max < n_r_max ) then
+         do n_cheb=n_cheb_max+1,n_r_max
+            xi0(n_cheb)=0.0_cp
+         end do
+      end if
+       
+      !-- Transform to radial space:
+      call chebt_oc%costf1(xi0,work)
+
+   end subroutine xi_cond
+!--------------------------------------------------------------------------------
    subroutine ps_cond(s0,p0)
       !
       ! Purpose of this subroutine is to solve the entropy equation      
@@ -1447,7 +1873,7 @@ contains
                ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
-               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)*&
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)*&
                   &                                 cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)- &
                   &                       beta(n_r)*cheb(n_cheb,n_r) )
@@ -1482,7 +1908,7 @@ contains
                ps0Mat(n_r,nCheb_rho)=0.0_cp
 
                ! Hydrostatic equilibrium
-               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*rgrav(n_r)* &
+               ps0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)* &
                                                      cheb(n_cheb,n_r)
                ps0Mat(n_r_p,nCheb_p)= cheb_norm *(  dcheb(n_cheb,n_r)- &
                &                           beta(n_r)*cheb(n_cheb,n_r) )

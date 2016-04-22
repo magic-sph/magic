@@ -12,15 +12,17 @@ module start_fields
        &                       dLalpha0, beta, orho1, temp0, rho0
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, ogrun
+       &                          ViscHeatFac, ogrun, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
-       &            l_rot_ma, l_temperature_diff, l_single_matrix
+       &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
+       &            l_chemical_conv
    use init_fields, only: l_start_file, init_s1, init_b1, tops, ps_cond, &
-       &                  initV, initS, initB, s_cond, start_file
+       &                  initV, initS, initB, initXi, s_cond,           &
+       &                  start_file, init_xi1, topxi, xi_cond
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
    use constants, only: zero, c_lorentz_ma, c_lorentz_ic, osq4pi, &
@@ -31,7 +33,7 @@ module start_fields
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
        &                     lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
-       &                     get_global_sum, lo2r_w
+       &                     get_global_sum, lo2r_w, lo2r_xi
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
@@ -47,6 +49,9 @@ module start_fields
    real(cp), public :: topcond ! Conducting heat flux at the outer boundary
    real(cp), public :: botcond ! Conducting heat flux at the inner boundary
    real(cp), public :: deltacond ! Temperature or entropy difference between boundaries
+   real(cp), public :: topxicond ! Conducting mass flux at the outer boundary
+   real(cp), public :: botxicond ! Conducting mass flux at the inner boundary
+   real(cp), public :: deltaxicond ! Composition difference between boundaries
 
    public :: getStartFields
 
@@ -71,6 +76,7 @@ contains
       character(len=76) :: message
     
       real(cp) :: sEA,sES,sAA
+      real(cp) :: xiEA,xiES,xiAA
     
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
       real(cp) :: w1(n_r_max),w2(n_r_max)
@@ -147,8 +153,23 @@ contains
                deltacond=osq4pi*(s0(n_r_max)-s0(1))
             end if
          end if
+      else
+         topcond  =0.0_cp
+         botcond  =0.0_cp
+         deltacond=0.0_cp
       end if
-    
+
+      if ( l_chemical_conv ) then
+         call xi_cond(s0)
+         call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+         topxicond=-osq4pi*ds0(1)
+         botxicond=-osq4pi*ds0(n_r_max)
+         deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
+      else
+         topxicond  =0.0_cp
+         botxicond  =0.0_cp
+         deltaxicond=0.0_cp
+      end if
     
       !-- Start with setting fields to zero:
       !   Touching the fields with the appropriate processor
@@ -161,25 +182,30 @@ contains
             !PERFON('readFlds')
 #ifdef WITH_HDF5
             if ( index(start_file,'h5_') /= 0 ) then
-               call readHdf5_serial( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                    &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                    &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                    &                lorentz_torque_icLast,lorentz_torque_maLast, &
+               call readHdf5_serial( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,   &
+                    &                dsdtLast,xi,dxidtLast,b,dbdtLast,aj,  &
+                    &                djdtLast,b_ic,dbdt_icLast,aj_ic,      &
+                    &                djdt_icLast,omega_ic,omega_ma,        &
+                    &                lorentz_torque_icLast,                &
+                    &                lorentz_torque_maLast,                &
                     &                time,dt,dtNew)
                n_time_step=0
             else
-               call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                    &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                    &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                    &                lorentz_torque_icLast,lorentz_torque_maLast, &
-                    &                time,dt,dtNew,n_time_step)
+               call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,   &
+                    &                dsdtLast,xi,dxidtLast,b,dbdtLast,aj,  &
+                    &                djdtLast,b_ic,dbdt_icLast,aj_ic,      &
+                    &                djdt_icLast,omega_ic,omega_ma,        &
+                    &                lorentz_torque_icLast,                &
+                    &                lorentz_torque_maLast,                &
+                    &                time,dt,dtNew,n_time_step )
             end if
 #else
             call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                 &                b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                 &                aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                 &                lorentz_torque_icLast,lorentz_torque_maLast, &
-                 &                time,dt,dtNew,n_time_step)
+                 &                xi,dxidtLast,b,dbdtLast,aj,djdtLast,         &
+                 &                b_ic,dbdt_icLast,aj_ic,djdt_icLast,omega_ic, &
+                 &                omega_ma,lorentz_torque_icLast,              &
+                 &                lorentz_torque_maLast,time,dt,dtNew,         &
+                 &                n_time_step )
 #endif
             if ( dt > 0.0_cp ) then
                write(message,'(''! Using old time step:'',ES16.6)') dt
@@ -201,6 +227,10 @@ contains
             if ( l_heat ) then
                s       =zero
                dsdtLast=zero
+            end if
+            if ( l_chemical_conv ) then
+               xi       =zero
+               dxidtLast=zero
             end if
             if ( l_mag ) then
                b       =zero
@@ -246,6 +276,11 @@ contains
             if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
                call initS(s,p,lmStart,lmStop)
             end if
+
+            !----- Initialize/add chemical convection:
+            if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
+               call initXi(xi,lmStart,lmStop)
+            end if
     
             if ( DEBUG_OUTPUT ) then
                write(*,"(A,I3,10ES22.15)") "direct after init: w,z,s,b,aj ", &
@@ -282,6 +317,10 @@ contains
             call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
             call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
          end if
+
+         if ( l_chemical_conv ) then
+            call scatter_from_rank0_to_lo(dxidtLast(1,nR),dxidtLast_LMloc(llm,nR))
+         end if
       end do
       if ( l_cond_ic ) then
          do nR=1,n_r_ic_max
@@ -303,6 +342,9 @@ contains
          if ( l_mag ) then
             call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:,nR))
             call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
+         end if
+         if ( l_chemical_conv ) then
+            call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:,nR))
          end if
          !if (DEBUG_OUTPUT) then
          !   if (rank == 0) then
@@ -336,7 +378,7 @@ contains
       allocate( workB_LMloc(llm:ulm,n_r_max) )
     
       !  print*,"Computing derivatives"
-      do nLMB=1+rank*nLMBs_per_rank,MIN((rank+1)*nLMBs_per_rank,nLMBs) 
+      do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs) 
          ! Blocking of loop over all (l,m)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
@@ -422,6 +464,13 @@ contains
                     &       workB_LMloc, chebt_oc,drx )
             end if
          end if
+
+         if ( l_chemical_conv ) then
+            !-- Get radial derivatives of chemical composition:
+            call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
+                 &       lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,  &
+                 &       workB_LMloc,chebt_oc,drx )
+         end if
     
          if ( DEBUG_OUTPUT ) then
             !do nR=1,n_r_max
@@ -448,7 +497,7 @@ contains
       do m=0,l_max,minc
          do l=m,l_max
             if ( l > 0 ) then
-               if ( MOD(l+m,2) == 0 ) then
+               if ( mod(l+m,2) == 0 ) then
                   sES=sES+cc2real(tops(l,m),m)
                else
                   sEA=sEA+cc2real(tops(l,m),m)
@@ -467,6 +516,36 @@ contains
          call logWrite(message)
          write(message,'(''! Rel. RMS axi. asym. tops:'',ES16.6)') sAA
          call logWrite(message)
+      end if
+
+      !--- Get symmetry properties of topxi excluding l=m=0:
+      if ( l_chemical_conv ) then
+         xiES=0.0_cp
+         xiEA=0.0_cp
+         xiAA=0.0_cp
+         do m=0,l_max,minc
+            do l=m,l_max
+               if ( l > 0 ) then
+                  if ( mod(l+m,2) == 0 ) then
+                     xiES=xiES+cc2real(topxi(l,m),m)
+                  else
+                     xiEA=xiEA+cc2real(topxi(l,m),m)
+                  end if
+                  if ( m /= 0 ) xiAA=xiAA+cc2real(topxi(l,m),m)
+               end if
+            end do
+         end do
+         if ( xiEA+xiES == 0 ) then
+            write(message,'(''! Only l=m=0 comp. in topxi:'')')
+            call logWrite(message)
+         else
+            xiEA=sqrt(xiEA/(xiEA+xiES))
+            xiAA=sqrt(xiAA/(xiEA+xiES))
+            write(message,'(''! Rel. RMS equ. asym. topxi:'',ES16.6)') xiEA
+            call logWrite(message)
+            write(message,'(''! Rel. RMS axi. asym. topxi:'',ES16.6)') xiAA
+            call logWrite(message)
+         end if
       end if
     
       !----- Get changes in mantle and ic rotation rate:
@@ -504,6 +583,9 @@ contains
       if (l_heat) then
          call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
       end if
+      if ( l_chemical_conv ) then
+         call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
+      end if
       if (l_conv) then
          call lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
          call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
@@ -518,4 +600,5 @@ contains
       !print*,"End of getStartFields"
       !PERFOFF
    end subroutine getStartFields
+
 end module start_fields

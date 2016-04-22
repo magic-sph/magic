@@ -89,16 +89,17 @@ contains
    end subroutine finalize_radialLoop
 !----------------------------------------------------------------------------
    subroutine radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,        &
-       &                 lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,    &
-       &                 lViscBcCalc,lFluxProfCalc,lPerpParCalc,        &
-       &                 dsdt,dwdt,dzdt,dpdt,dbdt,djdt,dVxBhLM,dVSrLM,  &
-       &                 lorentz_torque_ic,lorentz_torque_ma,           &
-       &                 br_vt_lm_cmb,br_vp_lm_cmb,                     &
-       &                 br_vt_lm_icb,br_vp_lm_icb,                     &
-       &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,       &
-       &                 duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
-       &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,             &
-       &                 EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
+              &          lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,    &
+              &          lViscBcCalc,lFluxProfCalc,lPerpParCalc,        &
+              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,           &
+              &          dVxBhLM,dVSrLM,dVXirLM,                        &
+              &          lorentz_torque_ic,lorentz_torque_ma,           &
+              &          br_vt_lm_cmb,br_vp_lm_cmb,                     &
+              &          br_vt_lm_icb,br_vp_lm_icb,                     &
+              &          HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,       &
+              &          duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
+              &          fpoynLMr,fresLMr,EperpLMr,EparLMr,             &
+              &          EperpaxiLMr,EparaxiLMr,dtrkc,dthkc)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -117,7 +118,9 @@ contains
       complex(cp), intent(out) :: dzdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dpdt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dsdt(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dxidt(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVSrLM(lm_max,nRstart:nRstop)
+      complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
@@ -267,15 +270,15 @@ contains
               & lTOnext2,lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,  &
               & lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc)
 
-         call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,                  &
-              & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dbdt(:,nR_Mag),        &
-              & djdt(:,nR_Mag),dVxBhLM(:,nR_Mag),dVSrLM(:,nR),br_vt_lm_cmb,        &
-              & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,          &
-              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),       &
-              & Helna2LMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),           &
-              & fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),fpoynLMr(:,nR_Mag),    &
-              & fresLMr(:,nR_Mag),EperpLMr(:,nR),EparLMr(:,nR),EperpaxiLMr(:,nR),  &
-              & EparaxiLMr(:,nR))
+         call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &
+              & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &
+              & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxBhLM(:,nR_Mag),dVSrLM(:,nR),  &
+              & dVXirLM(:,nR),br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,          &
+              & br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma,HelLMr(:,nR), &
+              & Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),uhLMr(:,nR),      &
+              & duhLMr(:,nR),gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),      &
+              & fviscLMr(:,nR),fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),           &
+              & EperpLMr(:,nR),EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
 
          dtrkc(nR)=this_rIteration%dtrkc      
          dthkc(nR)=this_rIteration%dthkc      

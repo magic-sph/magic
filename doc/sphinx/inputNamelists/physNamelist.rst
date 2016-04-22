@@ -8,10 +8,15 @@ This namelist contains all the appropriate relevant control physical parameters.
 Dimensionless control parameters
 --------------------------------
 
-* **ra** (default :f:var:`ra=1.1e5 <ra>`) is a real. This the Rayleigh number expressed by
+* **ra** (default :f:var:`ra=0.0 <ra>`) is a real. This the thermal Rayleigh number expressed by
   
   .. math::
      Ra = \frac{\alpha g_o \Delta T d^3}{\kappa\nu}
+
+* **raxi** (default :f:var:`raxi=0.0 <raxi>`) is a real. This the compositional Rayleigh number expressed by
+  
+  .. math::
+     Ra_\xi = \frac{\alpha g_o \Delta \xi d^3}{\kappa_\xi\nu}
 
 * **ek** (default :f:var:`ek=1e-3 <ek>`) is a real. This is the Ekman number expressed by
 
@@ -22,6 +27,11 @@ Dimensionless control parameters
 
   .. math::
      Pr = \frac{\nu}{\kappa}
+
+* **sc** (default :f:var:`sc=10.0 <sc>`) is a real. This is the Schmidt number expressed by
+
+  .. math::
+     Sc = \frac{\nu}{\kappa_\xi}
 
 * **prmag** (default :f:var:`prmag=5.0 <prmag>`) is a real. This is the magnetic Prandtl number expressed by
 
@@ -77,6 +87,14 @@ Heat sources and sinks
   ..
 
   The radial function :math:`f(r)` can be modified with the variable ``nVarEps`` that enters the same input namelist.
+
+* **epscxi0** (default :f:var:`epscxi0=0.0 <epscxi0>`) is a real. This is the volumetric source :math:`\epsilon_\xi` that enters the compositional equilibrium relation:
+
+  .. math::
+     -\nabla\cdot\left(\tilde{\rho}\nabla \xi\right) + \epsilon_\xi=0
+     :label: xiEq
+
+  ..
 
 * **nVarEps** (default :f:var:`nVarEps=0 <nvareps>`) is an integer. This is used to modify the radial-dependence ofthe volumetric heat source, i.e. :math:`f(r)` that enters equation :eq:`heatEq`.
 
@@ -162,7 +180,7 @@ corresponds to a constant electrical conductivity in the deep interior
   |                |   .. math::                                                           |
   |		   |      \lambda=\frac{\tilde{\rho}_i}{\tilde{\rho}}                      |
   +----------------+-----------------------------------------------------------------------+
-  | ``nVarCond=2`` | Radial profile of the form:                                           |
+  | ``nVarCond=4`` | Radial profile of the form:                                           |
   |                |   .. math::                                                           |
   |                |      \lambda=\left(\frac{\tilde{\rho}(r)}                             |
   |                |       {\tilde{\rho}_i}\right)^{\alpha}                                |
@@ -290,6 +308,51 @@ Thermal boundary conditions
   3. :math:`\phi` coordinate (input has to be given in degrees), stored in array :f:var:`phiS(20) <phis>`.
 
   4. Angular width (input has to be given in degrees), stored in array :f:var:`widthS(20) <widths>`.
+
+Boundary conditions for chemical composition
+++++++++++++++++++++++++++++++++++++++++++++
+
+* **ktopxi** (default :f:var:`ktopxi=1 <ktopxi>`) is an  integer to specify the outer boundary chemical composition boundary condition:
+
+  +--------------+-------------------------------------------------------------------------------------+
+  | ``ktopxi=1`` | Fixed composition at outer boundary: :math:`\xi(r_o)=\xi_{top}`                     |
+  +--------------+-------------------------------------------------------------------------------------+
+  | ``ktopxi=2`` | Fixed composition flux at outer boundary: :math:`\partial \xi(r_o)/\partial r = q_t`|
+  +--------------+-------------------------------------------------------------------------------------+
+
+* **kbotxi** (default :f:var:`ktopxi=1 <kbotxi>`) is an  integer to specify the inner boundary chemical composition boundary condition.
+
+* **xi_top** (default :f:var:`xi_top= 0 0 0.0 0.0 <xi_top>`) is a real array of lateraly varying outer chemical composition boundary conditions. Each four consecutive numbers are interpreted as follows:
+
+  1. Spherical harmonic degree :math:`\ell`
+
+  2. Spherical harmonic order :math:`m`
+
+  3. Real amplitude (:math:`\cos` contribution)
+
+  4. Imaginary amplitude (:math:`\sin` contribution)
+
+  For example, if the boundary condition should be a combination of an :math:`(\ell=1,m=0)` sherical harmonic with the amplitude 1 and an :math:`(\ell=2,m=1)` spherical harmonic with the amplitude (0.5,0.5) the respective namelist entry could read: 
+  
+  
+  .. code-block:: fortran
+   
+     xi_top = 1, 0, 1.0, 0.0, 2, 1, 0.5, 0.5, ! The comas could be left away.
+
+* **xi_bot** (default :f:var:`xi_bot=0 0 0.0 0.0 <xi_bot>`) is a real array. This is the same as ``xi_top`` but for the bottom boundary.
+
+* **impXi** (default :f:var:`impXi=0 <impxi>`) is an integer. This is a  flag to indicate if there is a localized chemical composition disturbance, imposed at the CMB. The number of these input boundary conditions is stored in ``n_impXi`` (the maximum allowed is 20), and it's given by the number of ``xiCMB`` defined in the same namelist. The default value of ``impXi`` is zero (no chemical composiiton disturbance). If it is set in the namelist for an integer greater than zero, then ``xiCMB`` has to be also defined in the namelist, as shown below.
+
+* **xiCMB** (default :f:var:`xiCMB=0.0 0.0 0.0 0.0 <xicmb>`) is a real array of CMB chemical composition boundary conditions (similar to the case of ``xi_bot`` and ``xi_top``). Each four consecutive numbers are interpreted as follows:
+
+  1. Highest amplitude value of the chemical composition boundary condition, stored in the array :f:var:`peakXi(20) <peakxi>`. When ``impXi<0``, ``peakXi`` is a relative amplitude in comparison to the :math:`(\ell=0,m=0)` contribution (for example, the case ``xi_top= 0 0 -1 0``).
+
+  2. :math:`\theta` coordinate (input has to be given in degrees), stored in array :f:var:`thetaXi(20) <thetaxi>`.
+
+  3. :math:`\phi` coordinate (input has to be given in degrees), stored in array :f:var:`phiXi(20) <phixi>`.
+
+  4. Angular width (input has to be given in degrees), stored in array :f:var:`widthXi(20) <widthxi>`.
+
 
 
 .. _secMechanicalBcs:

@@ -8,6 +8,7 @@ module greader_double
    real(kind=8), allocatable :: radius(:),colat(:)
    real(kind=8), allocatable :: entropy(:,:,:),vr(:,:,:),vt(:,:,:),vp(:,:,:)
    real(kind=8), allocatable :: Br(:,:,:),Bt(:,:,:),Bp(:,:,:),pre(:,:,:)
+   real(kind=8), allocatable :: xi(:,:,:)
 
 contains
 
@@ -60,8 +61,13 @@ contains
       allocate( dummy(1:np,1:nt) )
    
       allocate( entropy(1:np,1:nt,1:nr) )
-      if ( version == 'Graphout_Version_8' .or. version == 'Graphout_Version_10') then
+      if ( version=='Graphout_Version_6' .or. version=='Graphout_Version_8'  &
+          & .or. version=='Graphout_Version_10' .or. version=='Graphout_Version_12') then
          allocate( pre(1:np,1:nt,1:nr) )
+      end if
+      if ( version=='Graphout_Version_5' .or. version=='Graphout_Version_6' &
+          & .or. version=='Graphout_Version_11'.or. version=='Graphout_Version_12') then
+         allocate( xi(1:np,1:nt,1:nr) )
       end if
       allocate( vr(1:np,1:nt,1:nr) )
       allocate( vt(1:np,1:nt,1:nr) )
@@ -75,7 +81,8 @@ contains
       read(10) colat
    
       !reading
-      if ( version == 'Graphout_Version_9' .or. version == 'Graphout_Version_10') then
+      if ( version=='Graphout_Version_9' .or. version=='Graphout_Version_10' &
+           .or. version=='Graphout_Version_11' .or. version=='Graphout_Version_12') then
          do i=1,nr*nThetasBs
             read(10) ir, rad, ilat1, ilat2
             radius(int(ir)+1) = rad
@@ -84,7 +91,10 @@ contains
             read(10) vr(:,int(ilat1):int(ilat2),int(ir+1))
             read(10) vt(:,int(ilat1):int(ilat2),int(ir+1))
             read(10) vp(:,int(ilat1):int(ilat2),int(ir+1))
-            if ( version == 'Graphout_Version_10' ) then
+            if ( version=='Graphout_Version_11' .or. version=='Graphout_Version_12') then
+               read(10) xi(:,int(ilat1):int(ilat2),int(ir+1))
+            end if
+            if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_12') then
                read(10) pre(:,int(ilat1):int(ilat2),int(ir+1))
             end if
             if ( prmag /= 0 ) then
@@ -110,7 +120,12 @@ contains
             do j=int(ilat1),int(ilat2)
               read(10) vp(:,j,int(ir+1))
             end do
-            if ( version == 'Graphout_Version_8' ) then
+            if ( version=='Graphout_Version_5' .or. version=='Graphout_Version_6' ) then
+               do j=int(ilat1),int(ilat2)
+                 read(10) xi(:,j,int(ir+1))
+               end do
+            end if
+            if ( version=='Graphout_Version_6' .or. version=='Graphout_Version_8' ) then
                do j=int(ilat1),int(ilat2)
                  read(10) pre(:,j,int(ir+1))
                end do
@@ -154,7 +169,16 @@ contains
             vp(:,j,i)=dummy(:,2*(j-1)+1)
             vp(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
          end do
-         if ( version == 'Graphout_Version_10' .or. version == 'Graphout_Version_8' ) then
+         if ( version=='Graphout_Version_11' .or. version=='Graphout_Version_12'&
+              .or. version=='Graphout_Version_5' .or. version=='Graphout_Version_6' ) then
+            dummy = xi(:,:,i)
+            do j=1,nt/2
+               xi(:,j,i)=dummy(:,2*(j-1)+1)
+               xi(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
+            end do
+         end if
+         if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_8'&
+            & .or. version=='Graphout_Version_12' .or. version=='Graphout_Version_6' ) then
             dummy = pre(:,:,i)
             do j=1,nt/2
                pre(:,j,i)=dummy(:,2*(j-1)+1)

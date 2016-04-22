@@ -12,50 +12,51 @@ module step_time_mod
    use constants, only: zero, one, half
    use mem_alloc, only: bytes_allocated, memWrite
    use truncation, only: n_r_max, l_max, l_maxMag, n_r_maxMag, &
-                         lm_max, lmP_max, lm_maxMag
+       &                 lm_max, lmP_max, lm_maxMag
    use num_param, only: n_time_steps, runTimeLimit, tEnd, dtMax, &
-                        dtMin, tScale, alpha, runTime
+       &                dtMin, tScale, alpha, runTime
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, &
-                          n_r_icb, n_r_cmb
+       &                  n_r_icb, n_r_cmb
    use blocking, only: nLMBs, lmStartB, lmStopB
    use logic, only: l_mag, l_mag_LF, l_dtB, l_RMS, l_hel, l_TO,        &
-                    l_TOmovie, l_r_field, l_cmb_field, l_storeTpot,    &
-                    l_storeVpot, l_storeBpot, l_HTmovie, l_DTrMagSpec, &
-                    lVerbose, l_time_hits, l_b_nl_icb, l_b_nl_cmb,     &
-                    l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
-                    l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
-                    l_runTimeLimit, l_save_out, l_dt_cmb_field
+       &            l_TOmovie, l_r_field, l_cmb_field, l_storeTpot,    &
+       &            l_storeVpot, l_storeBpot, l_HTmovie, l_DTrMagSpec, &
+       &            lVerbose, l_time_hits, l_b_nl_icb, l_b_nl_cmb,     &
+       &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
+       &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
+       &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
+       &            l_chemical_conv
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
-                          lm_on_last_rank
+       &                  lm_on_last_rank
    use LMLoop_mod, only: LMLoop
    use output_data, only: tag, n_graph_step, n_graphs, n_t_graph, t_graph, &
-                          n_spec_step, n_specs, n_t_spec, t_spec,          &
-                          n_movie_step, n_movie_frames, n_t_movie, t_movie,&
-                          n_TOmovie_step, n_TOmovie_frames, n_t_TOmovie,   &
-                          t_TOmovie, n_Bpot_step, n_Bpots, n_t_Bpot,       &
-                          t_Bpot, n_Vpot_step, n_Vpots, n_t_Vpot, t_Vpot,  &
-                          n_Tpot_step, n_Tpots, n_t_Tpot, t_Tpot,          &
-                          n_rst_step, n_rsts, n_t_rst, t_rst, n_stores,    &
-                          n_log_step, n_logs, n_t_log, t_log, n_cmb_step,  &
-                          n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
-                          n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
-                          n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
-                          n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
+       &                  n_spec_step, n_specs, n_t_spec, t_spec,          &
+       &                  n_movie_step, n_movie_frames, n_t_movie, t_movie,&
+       &                  n_TOmovie_step, n_TOmovie_frames, n_t_TOmovie,   &
+       &                  t_TOmovie, n_Bpot_step, n_Bpots, n_t_Bpot,       &
+       &                  t_Bpot, n_Vpot_step, n_Vpots, n_t_Vpot, t_Vpot,  &
+       &                  n_Tpot_step, n_Tpots, n_t_Tpot, t_Tpot,          &
+       &                  n_rst_step, n_rsts, n_t_rst, t_rst, n_stores,    &
+       &                  n_log_step, n_logs, n_t_log, t_log, n_cmb_step,  &
+       &                  n_cmbs, n_t_cmb, t_cmb, n_r_field_step,          &
+       &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
+       &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
+       &                  n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
 #ifdef WITH_MPI
-                          nLF, log_file, graph_mpi_fh, n_log_file,         &
+       &                  nLF, log_file, graph_mpi_fh, n_log_file,         &
 #else
-                          nLF, log_file, n_graph_file, n_log_file,         &
+       &                  nLF, log_file, n_graph_file, n_log_file,         &
 #endif
-                          n_time_hits
+       &                  n_time_hits
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
    use useful, only: l_correct_step, safeOpen, safeClose, logWrite
    use communications, only: get_global_sum, r2lo_redist, lm2r_type, &
-                             lo2r_redist_start, lo2r_redist_wait,    &
-                             lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
-                             lo2r_w, scatter_from_rank0_to_lo
+       &                     lo2r_redist_start, lo2r_redist_wait,    &
+       &                     lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
+       &                     lo2r_w, scatter_from_rank0_to_lo, lo2r_xi
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -67,6 +68,7 @@ module step_time_mod
    !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc
    complex(cp), allocatable :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
    complex(cp), allocatable :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
+   complex(cp), allocatable :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
 
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
    complex(cp), allocatable :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
@@ -75,6 +77,7 @@ module step_time_mod
    ! The same arrays, but now the LM local part
    complex(cp), allocatable :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
    complex(cp), allocatable :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
+   complex(cp), allocatable :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
    complex(cp), allocatable :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
@@ -99,6 +102,16 @@ contains
       bytes_allocated = bytes_allocated+ &
                         5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
+      if ( l_chemical_conv ) then
+         allocate(dxidt_Rloc(lm_max,nRstart:nRstop))
+         allocate(dVXirLM_Rloc(lm_max,nRstart:nRstop))
+         bytes_allocated = bytes_allocated+ &
+                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dxidt_Rloc(1,1))
+         allocate(dVXirLM_Rloc(1,1))
+      end if
+
       ! the magnetic part
       allocate(dbdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
       allocate(djdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
@@ -120,6 +133,10 @@ contains
             dsdt_Rloc(lm,nR)=zero
             dpdt_Rloc(lm,nR)=zero
             dVSrLM_Rloc(lm,nR)=zero
+            if ( l_chemical_conv ) then
+               dxidt_Rloc(lm,nR)  =zero
+               dVXirLM_Rloc(lm,nR)=zero
+            end if
          end do
          !$OMP END PARALLEL DO
       end do
@@ -142,6 +159,12 @@ contains
       allocate(dsdt_LMloc(llm:ulm,n_r_max))
       allocate(dVSrLM_LMloc(llm:ulm,n_r_max))
       bytes_allocated = bytes_allocated+ 5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_chemical_conv ) then
+         allocate(dxidt_LMloc(llm:ulm,n_r_max))
+         allocate(dVXirLM_LMloc(llm:ulm,n_r_max))
+         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
       allocate(dbdt_LMloc(llmMag:ulmMag,n_r_maxMag))
       allocate(djdt_LMloc(llmMag:ulmMag,n_r_maxMag))
@@ -216,7 +239,7 @@ contains
       real(cp) :: dtrkc_Rloc(nRstart:nRstop), dthkc_Rloc(nRstart:nRstop) 
 
       !--- Explicit part of time stepping, calculated in s_radialLoopG.f and
-      !    passed to s_LMLoop.f where the time step is preformed.
+      !    passed to LMLoop.f where the time step is preformed.
       !    Note that the respective arrays for the changes in inner-core
       !    magnetic field are calculated in s_updateB.f and are only
       !    needed there.
@@ -406,6 +429,9 @@ contains
          PERFON('lo2r_wt')
          if (l_heat) then
             call lo2r_redist_wait(lo2r_s)
+         end if
+         if (l_chemical_conv) then
+            call lo2r_redist_wait(lo2r_xi)
          end if
          if (l_conv) then
             call lo2r_redist_wait(lo2r_z)
@@ -774,10 +800,11 @@ contains
 
          call wallTime(runTimeRstart)
          call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,          &  
+              &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,          &
               &           lViscBcCalc,lFluxProfCalc,lperpParCalc,              &
-              &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dbdt_Rloc,   &
-              &           djdt_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,lorentz_torque_ic,&
+              &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
+              &           dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,        &
+              &           dVXirLM_Rloc,lorentz_torque_ic,                      &
               &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,         &
               &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,  &
               &           HelnaLMr_Rloc,Helna2LMr_Rloc,uhLMr_Rloc,duhLMr_Rloc, &
@@ -785,7 +812,6 @@ contains
               &           fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc,            &
               &           EperpLMr_Rloc,EparLMr_Rloc,EperpaxiLMr_Rloc,         &
               &           EparaxiLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
-
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'
          if ( .not.l_log ) then
@@ -833,11 +859,20 @@ contains
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
          PERFON('r2lo_dst')
-         call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
          call r2lo_redist(dwdt_Rloc,dwdt_LMloc)
          call r2lo_redist(dzdt_Rloc,dzdt_LMloc)
          call r2lo_redist(dpdt_Rloc,dpdt_LMloc)
-         call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
+
+         if ( l_heat ) then
+            call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
+            call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
+         end if
+
+         if ( l_chemical_conv ) then
+            call r2lo_redist(dxidt_Rloc,dxidt_LMloc)
+            call r2lo_redist(dVXirLM_Rloc,dVXirLM_LMloc)
+         end if
+
          if ( l_mag ) then
             call r2lo_redist(dbdt_Rloc,dbdt_LMloc)
             call r2lo_redist(djdt_Rloc,djdt_LMloc)
@@ -1058,8 +1093,9 @@ contains
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
          call LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM_LMloc,   &
-              &      dVSrLM_LMloc,dsdt_LMloc,dwdt_LMloc,dzdt_LMloc, &
-              &      dpdt_LMloc,dbdt_LMloc,djdt_LMloc,              &
+              &      dVSrLM_LMloc,dVXirLM_LMloc,dsdt_LMloc,         &
+              &      dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,  &
+              &      dbdt_LMloc,djdt_LMloc,                         &
               &      lorentz_torque_ma,lorentz_torque_ic,           &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 

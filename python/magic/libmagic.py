@@ -43,6 +43,12 @@ def selectField(obj, field, labTex=True):
             label = r'$p$'
         else:
             label = 'p'
+    elif field in ('composition', 'xi', 'Xi', 'Comp', 'comp', 'chem', 'Chem'):
+        data = obj.xi
+        if labTex:
+            label = r'$\xi$'
+        else:
+            label = 'xi'
     elif field in ('Vr', 'vr', 'Ur', 'ur'):
         data = obj.vr
         if labTex:
