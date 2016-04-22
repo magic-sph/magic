@@ -66,7 +66,7 @@ contains
          & ktops,kbots,ktopv,kbotv,ktopb,kbotb,               &
          & s_top,s_bot,impS,sCMB,                             &
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
-         & con_LambdaOut,con_FuncWidth,                       &
+         & con_LambdaOut,con_FuncWidth,ThExpNb,               &
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
          & epsS,slopeStrat,cmbHflux,r_LCR,                    &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
@@ -732,8 +732,13 @@ contains
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc/sq4pi
-      write(n_out,'(''  strat           ='',ES14.6,'','')') strat
+      if ( DissNb /= 0.0_cp ) then
+         write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb
+      else
+         write(n_out,'(''  strat           ='',ES14.6,'','')') strat
+      end if
       write(n_out,'(''  polind          ='',ES14.6,'','')') polind
+      write(n_out,'(''  ThExpNb         ='',ES14.6,'','')') ThExpNb
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
       write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat

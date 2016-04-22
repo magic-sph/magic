@@ -432,7 +432,6 @@ contains
                fac      =strat /( g0+half*g1*(one+radratio) +g2/radratio )
                DissNb   =0.0_cp
                GrunNb   =0.0_cp
-               ThExpNb  =one
                temp0    =one
                rho0     =exp(-fac*(g0*(r-r_cmb) +      &
                          g1/(two*r_cmb)*(r**2-r_cmb**2) - &
@@ -455,7 +454,6 @@ contains
                          ( g0+half*g1*(one+radratio) +g2/radratio )
                end if
                GrunNb   =one/polind
-               ThExpNb  =one
                temp0    =-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
                          one + DissNb*r_cmb*(g0+half*g1-g2)
                rho0     =temp0**polind
