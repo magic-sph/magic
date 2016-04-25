@@ -22,9 +22,8 @@ module LMLoop_mod
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
-   use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, &
-       &                    lo2r_s, lo2r_z, lo2r_p, lo2r_b,     &
-       &                    lo2r_aj, lo2r_w, lo2r_xi
+   use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, lo2r_xi, &
+       &                    lo2r_s, lo2r_flow, lo2r_field
    use updateS_mod, only: initialize_updateS, updateS, updateS_ala
    use updateZ_mod, only: initialize_updateZ, updateZ
    use updateWP_mod, only: initialize_updateWP, updateWP
@@ -224,9 +223,6 @@ contains
          PERFOFF
 
          !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-         !PERFON('rdstZst')
-         call lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
-         !PERFOFF
 
          if ( DEBUG_OUTPUT ) then
             !do lm=lmStart,lmStop
@@ -259,20 +255,12 @@ contains
                  &         w1,coex,dt,nLMB)
 
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
-            call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-            call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
          else
             PERFON('up_WP')
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
                  &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
                  &         xi_LMloc, w1,coex,dt,nLMB,lRmsNext)
             PERFOFF
-
-            !call MPI_Barrier(MPI_COMM_WORLD,ierr)
-            !PERFON('rdstWPst')
-            call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-            call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
-            !PERFOFF
 
             if ( DEBUG_OUTPUT ) then
                write(*,"(A,I2,12ES22.14)") "wp_after: ",nLMB,  &
@@ -286,6 +274,7 @@ contains
                     & GET_GLOBAL_SUM( w_LMloc(:,n_r_cmb) )
             end if
          end if
+         call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
       end if
       if ( l_mag ) then ! dwdt,dpdt used as work arrays
          if ( DEBUG_OUTPUT ) then
@@ -308,8 +297,7 @@ contains
               &        omega_icLast, w1, coex, dt, time, nLMB, lRmsNext )
          PERFOFF
          !LIKWID_OFF('up_B')
-         call lo2r_redist_start(lo2r_b, b_LMloc_container, b_Rloc_container)
-         call lo2r_redist_start(lo2r_aj, aj_LMloc_container, aj_Rloc_container)
+         call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
 
          if ( DEBUG_OUTPUT ) then
             write(*,"(A,I2,8ES20.12)") "b_after: ",nLMB, &

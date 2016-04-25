@@ -18,14 +18,12 @@ module fields
  
    !-- Velocity potentials:
    complex(cp), public, allocatable :: w(:,:)
-   complex(cp), public, allocatable, target :: w_LMloc_container(:,:,:)
-   complex(cp), public, allocatable, target :: w_Rloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: flow_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: flow_Rloc_container(:,:,:)
    complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
    complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
  
    complex(cp), public, allocatable :: z(:,:)
-   complex(cp), public, allocatable, target :: z_LMloc_container(:,:,:)
-   complex(cp), public, allocatable, target :: z_Rloc_container(:,:,:)
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
    complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
  
@@ -45,8 +43,6 @@ module fields
 
    !-- Pressure:
    complex(cp), public, allocatable :: p(:,:)
-   complex(cp), public, allocatable, target :: p_LMloc_container(:,:,:)
-   complex(cp), public, allocatable, target :: p_Rloc_container(:,:,:)
    complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
    complex(cp), public, pointer :: p_Rloc(:,:), dp_Rloc(:,:)
  
@@ -55,12 +51,10 @@ module fields
    complex(cp), public, allocatable :: db(:,:)
    complex(cp), public, allocatable :: aj(:,:)
    complex(cp), public, allocatable :: dj(:,:)
-   complex(cp), public, allocatable, target :: b_LMloc_container(:,:,:)
-   complex(cp), public, allocatable, target :: b_Rloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: field_LMloc_container(:,:,:)
+   complex(cp), public, allocatable, target :: field_Rloc_container(:,:,:)
    complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
    complex(cp), public, pointer :: b_Rloc(:,:), db_Rloc(:,:), ddb_Rloc(:,:)
-   complex(cp), public, allocatable, target :: aj_LMloc_container(:,:,:)
-   complex(cp), public, allocatable, target :: aj_Rloc_container(:,:,:)
    complex(cp), public, pointer :: aj_LMloc(:,:), dj_LMloc(:,:), ddj_LMloc(:,:)
    complex(cp), public, pointer :: aj_Rloc(:,:), dj_Rloc(:,:)
  
@@ -140,21 +134,23 @@ contains
          allocate( ddj_ic(1,n_r_ic_maxMag) )
          bytes_allocated = bytes_allocated + 6*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
       end if
-      allocate( w_LMloc_container(llm:ulm,n_r_max,1:3) )
-      w_LMloc(llm:ulm,1:n_r_max)   => w_LMloc_container(:,:,1)
-      dw_LMloc(llm:ulm,1:n_r_max)  => w_LMloc_container(:,:,2)
-      ddw_LMloc(llm:ulm,1:n_r_max) => w_LMloc_container(:,:,3)
-      allocate( w_Rloc_container(lm_max,nRstart:nRstop,1:3) )
-      w_Rloc(1:lm_max,nRstart:nRstop)   => w_Rloc_container(:,:,1)
-      dw_Rloc(1:lm_max,nRstart:nRstop)  => w_Rloc_container(:,:,2)
-      ddw_Rloc(1:lm_max,nRstart:nRstop) => w_Rloc_container(:,:,3)
+      allocate( flow_LMloc_container(llm:ulm,n_r_max,1:7) )
+      w_LMloc(llm:ulm,1:n_r_max)   => flow_LMloc_container(:,:,1)
+      dw_LMloc(llm:ulm,1:n_r_max)  => flow_LMloc_container(:,:,2)
+      ddw_LMloc(llm:ulm,1:n_r_max) => flow_LMloc_container(:,:,3)
+      z_LMloc(llm:ulm,1:n_r_max)   => flow_LMloc_container(:,:,4)
+      dz_LMloc(llm:ulm,1:n_r_max)  => flow_LMloc_container(:,:,5)
+      p_LMloc(llm:ulm,1:n_r_max)   => flow_LMloc_container(:,:,6)
+      dp_LMloc(llm:ulm,1:n_r_max)  => flow_LMloc_container(:,:,7)
 
-      allocate( z_LMloc_container(llm:ulm,n_r_max,1:2) )
-      z_LMloc(llm:ulm,1:n_r_max)   => z_LMloc_container(:,:,1)
-      dz_LMloc(llm:ulm,1:n_r_max)  => z_LMloc_container(:,:,2)
-      allocate( z_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      z_Rloc(1:lm_max,nRstart:nRstop)   => z_Rloc_container(:,:,1)
-      dz_Rloc(1:lm_max,nRstart:nRstop)  => z_Rloc_container(:,:,2)
+      allocate( flow_Rloc_container(lm_max,nRstart:nRstop,1:7) )
+      w_Rloc(1:lm_max,nRstart:nRstop)   => flow_Rloc_container(:,:,1)
+      dw_Rloc(1:lm_max,nRstart:nRstop)  => flow_Rloc_container(:,:,2)
+      ddw_Rloc(1:lm_max,nRstart:nRstop) => flow_Rloc_container(:,:,3)
+      z_Rloc(1:lm_max,nRstart:nRstop)   => flow_Rloc_container(:,:,4)
+      dz_Rloc(1:lm_max,nRstart:nRstop)  => flow_Rloc_container(:,:,5)
+      p_Rloc(1:lm_max,nRstart:nRstop)   => flow_Rloc_container(:,:,6)
+      dp_Rloc(1:lm_max,nRstart:nRstop)  => flow_Rloc_container(:,:,7)
 
       !-- Entropy:
       allocate( s_LMloc_container(llm:ulm,n_r_max,1:2) )
@@ -163,14 +159,6 @@ contains
       allocate( s_Rloc_container(lm_max,nRstart:nRstop,1:2) )
       s_Rloc(1:lm_max,nRstart:nRstop)   => s_Rloc_container(:,:,1)
       ds_Rloc(1:lm_max,nRstart:nRstop)  => s_Rloc_container(:,:,2)
-
-      !-- Pressure:
-      allocate( p_LMloc_container(llm:ulm,n_r_max,1:2) )
-      p_LMloc(llm:ulm,1:n_r_max)   => p_LMloc_container(:,:,1)
-      dp_LMloc(llm:ulm,1:n_r_max)  => p_LMloc_container(:,:,2)
-      allocate( p_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      p_Rloc(1:lm_max,nRstart:nRstop)   => p_Rloc_container(:,:,1)
-      dp_Rloc(1:lm_max,nRstart:nRstop)  => p_Rloc_container(:,:,2)
 
       bytes_allocated = bytes_allocated + &
                         9*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -199,22 +187,21 @@ contains
       end if
 
       !-- Magnetic field potentials:
-      allocate( b_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )
-      b_LMloc(llmMag:ulmMag,1:n_r_maxMag)   => b_LMloc_container(:,:,1)
-      db_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => b_LMloc_container(:,:,2)
-      ddb_LMloc(llmMag:ulmMag,1:n_r_maxMag) => b_LMloc_container(:,:,3)
-      allocate( b_Rloc_container(lm_maxMag,nRstart:nRstop,1:3) )
-      b_Rloc(1:lm_maxMag,nRstart:nRstop)   => b_Rloc_container(:,:,1)
-      db_Rloc(1:lm_maxMag,nRstart:nRstop)  => b_Rloc_container(:,:,2)
-      ddb_Rloc(1:lm_maxMag,nRstart:nRstop) => b_Rloc_container(:,:,3)
+      allocate( field_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:6) )
+      b_LMloc(llmMag:ulmMag,1:n_r_maxMag)   => field_LMloc_container(:,:,1)
+      db_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => field_LMloc_container(:,:,2)
+      ddb_LMloc(llmMag:ulmMag,1:n_r_maxMag) => field_LMloc_container(:,:,3)
+      aj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => field_LMloc_container(:,:,4)
+      dj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => field_LMloc_container(:,:,5)
+      ddj_LMloc(llmMag:ulmMag,1:n_r_maxMag) => field_LMloc_container(:,:,6)
 
-      allocate( aj_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3) )
-      aj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => aj_LMloc_container(:,:,1)
-      dj_LMloc(llmMag:ulmMag,1:n_r_maxMag)  => aj_LMloc_container(:,:,2)
-      ddj_LMloc(llmMag:ulmMag,1:n_r_maxMag) => aj_LMloc_container(:,:,3)
-      allocate( aj_Rloc_container(lm_maxMag,nRstart:nRstop,1:2) )
-      aj_Rloc(1:lm_maxMag,nRstart:nRstop)  => aj_Rloc_container(:,:,1)
-      dj_Rloc(1:lm_maxMag,nRstart:nRstop)  => aj_Rloc_container(:,:,2)
+      allocate( field_Rloc_container(lm_maxMag,nRstart:nRstop,1:5) )
+      b_Rloc(1:lm_maxMag,nRstart:nRstop)   => field_Rloc_container(:,:,1)
+      db_Rloc(1:lm_maxMag,nRstart:nRstop)  => field_Rloc_container(:,:,2)
+      ddb_Rloc(1:lm_maxMag,nRstart:nRstop) => field_Rloc_container(:,:,3)
+      aj_Rloc(1:lm_maxMag,nRstart:nRstop)  => field_Rloc_container(:,:,4)
+      dj_Rloc(1:lm_maxMag,nRstart:nRstop)  => field_Rloc_container(:,:,5)
+
 
       bytes_allocated = bytes_allocated + &
                         6*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX

@@ -27,6 +27,12 @@ module communications
       complex(cp), pointer :: temp_Rloc(:,:,:), arr_Rloc(:,:,:)
       integer :: count
    end type lm2r_type
+
+   type, public :: r2lm_type
+      integer, allocatable :: final_wait_array(:), s_request(:), r_request(:)
+      complex(cp), pointer :: temp_Rloc(:,:,:)
+      integer :: count
+   end type r2lm_type
  
    type, public :: gather_type
       integer, allocatable :: gather_mpi_type(:)
@@ -47,7 +53,7 @@ module communications
    public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo,&
            & gather_all_from_lo_to_rank0
    public :: get_global_sum, &
-           & r2lm_redist,r2lo_redist,initialize_communications,&
+           & r2lo_redist_wait,r2lo_redist_start,initialize_communications,&
            & create_lm2r_type!,lo2r_redist,lm2r_redist
    public :: lo2r_redist_start,lo2r_redist_wait
 #ifdef WITH_MPI
@@ -55,8 +61,10 @@ module communications
 #endif
  
    ! declaration of the types for the redistribution
-   type(lm2r_type), public :: lo2r_w, lo2r_s, lo2r_z, lo2r_p
-   type(lm2r_type), public :: lo2r_b, lo2r_aj, lo2r_xi
+   type(lm2r_type), public :: lo2r_flow, lo2r_s
+   type(lm2r_type), public :: lo2r_field, lo2r_xi
+
+   type(r2lm_type), public :: r2lo_flow, r2lo_s, r2lo_xi, r2lo_b
  
    type(gather_type), public :: gt_OC,gt_IC,gt_cheb
  
@@ -73,7 +81,7 @@ contains
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer(kind=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
       integer :: base_col_type,temptype
-      integer :: blocklengths(3),blocklengths_on_last(3),displs(3),displs_on_last(3)
+      integer :: blocklengths(7),blocklengths_on_last(7),displs(7),displs_on_last(7)
       integer :: i
 
       ! first setup the datatype. It is not equal for all ranks. The n_procs-1 rank can
@@ -100,11 +108,11 @@ contains
       allocate(s_transfer_type_nr_end(n_procs))
       allocate(r_transfer_type(n_procs))
       allocate(r_transfer_type_nr_end(n_procs))
-      allocate(s_transfer_type_cont(n_procs,3))
-      allocate(s_transfer_type_nr_end_cont(n_procs,3))
-      allocate(r_transfer_type_cont(n_procs,3))
-      allocate(r_transfer_type_nr_end_cont(n_procs,3))
-      bytes_allocated = bytes_allocated + 16*n_procs*SIZEOF_INTEGER
+      allocate(s_transfer_type_cont(n_procs,7))
+      allocate(s_transfer_type_nr_end_cont(n_procs,7))
+      allocate(r_transfer_type_cont(n_procs,7))
+      allocate(r_transfer_type_nr_end_cont(n_procs,7))
+      bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
          my_lm_per_rank=lmStopB(proc+1)-lmStartB(proc+1)+1
@@ -140,11 +148,18 @@ contains
          call MPI_Type_create_resized(temptype,zerolb,extent,base_col_type,ierr)
          !call MPI_type_get_extent(base_col_type,lb_marker,myextent,ierr)
          !write(*,"(2(A,I10))") "base_col_type: lb = ",lb_marker,", extent = ",myextent
-         blocklengths = (/ nr_per_rank, nr_per_rank, nr_per_rank /)
-         displs       = (/ 0,           nr_per_rank, 2*nr_per_rank   /)
-         blocklengths_on_last = (/nr_on_last_rank,nr_on_last_rank, nr_on_last_rank/)
-         displs_on_last       = (/ 0,             nr_on_last_rank, 2*nr_on_last_rank /)
-         do i=1,3
+         blocklengths = [ nr_per_rank, nr_per_rank, nr_per_rank, nr_per_rank, &
+                       &  nr_per_rank, nr_per_rank, nr_per_rank ]
+         displs       = [ 0,           nr_per_rank, 2*nr_per_rank,    &
+                       &  3*nr_per_rank, 4*nr_per_rank, 5*nr_per_rank,&
+                       &  6*nr_per_rank ] 
+         blocklengths_on_last = [ nr_on_last_rank,nr_on_last_rank,nr_on_last_rank,&
+                               &  nr_on_last_rank,nr_on_last_rank,nr_on_last_rank,&
+                               &  nr_on_last_rank ]
+         displs_on_last     = [ 0,          nr_on_last_rank, 2*nr_on_last_rank,   &
+                             &  3*nr_on_last_rank, 4*nr_on_last_rank,             &
+                             &  5*nr_on_last_rank, 6*nr_on_last_rank ]
+         do i=1,7
             call MPI_Type_vector(i,nr_per_rank*my_lm_per_rank,n_r_max*my_lm_per_rank,&
                  & MPI_DEF_COMPLEX,r_transfer_type_cont(proc+1,i),ierr)
             call MPI_Type_commit(r_transfer_type_cont(proc+1,i),ierr)
@@ -162,7 +177,7 @@ contains
             call MPI_Type_commit(s_transfer_type_nr_end_cont(proc+1,i),ierr)
 
 #if 0
-            if (i == 3) then
+            if (i == 7) then
                call MPI_type_get_extent(r_transfer_type_cont(proc+1,i), &
                                         lb_marker,myextent,ierr)
                call MPI_type_get_true_extent(r_transfer_type_cont(proc+1,i), &
@@ -217,19 +232,20 @@ contains
 
       if ( l_heat ) then
          call create_lm2r_type(lo2r_s,2)
+         call create_r2lm_type(r2lo_s,2)
       end if
       if ( l_chemical_conv ) then
          call create_lm2r_type(lo2r_xi,2)
+         call create_r2lm_type(r2lo_xi,2)
       end if
       if ( l_conv ) then
-         call create_lm2r_type(lo2r_z,2)
-         call create_lm2r_type(lo2r_w,3)
-         call create_lm2r_type(lo2r_p,2)
+         call create_lm2r_type(lo2r_flow,7)
+         call create_r2lm_type(r2lo_flow,3)
       end if
 
       if ( l_mag ) then
-         call create_lm2r_type(lo2r_b,3)
-         call create_lm2r_type(lo2r_aj,2)
+         call create_lm2r_type(lo2r_field,5)
+         call create_r2lm_type(r2lo_b,3)
       end if
 
 
@@ -257,11 +273,11 @@ contains
       integer :: ierr
       complex(cp) :: local_sum
       
-      local_sum = SUM( dwdt_local )
+      local_sum = sum( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
                          MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
-      global_sum= SUM(dwdt_local)
+      global_sum= sum(dwdt_local)
 #endif
 
    end function get_global_sum_cmplx_2d
@@ -274,10 +290,10 @@ contains
       integer :: ierr
       real(cp) :: local_sum
       
-      local_sum = SUM( dwdt_local )
+      local_sum = sum( dwdt_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_REAL,MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
-      global_sum= SUM(dwdt_local)
+      global_sum= sum(dwdt_local)
 #endif
 
    end function get_global_sum_real_2d
@@ -326,11 +342,11 @@ contains
          ! Next time around, the lost low part will be added to y in a fresh attempt.
       end do
 
-      !local_sum = SUM( arr_local )
+      !local_sum = sum( arr_local )
       call MPI_Allreduce(local_sum,global_sum,1,MPI_DEF_COMPLEX, &
                           MPI_SUM,MPI_COMM_WORLD,ierr)
 #else
-      global_sum = SUM( arr_local )
+      global_sum = sum( arr_local )
 #endif
 
    end function get_global_sum_cmplx_1d
@@ -369,13 +385,13 @@ contains
                temp_lo(llm:ulm,nR)=arr_lo(:,nR)
             end do
             !write(*,"(A,I3,A,2ES22.14)") "recving temp_lo(",1+irank*lm_per_rank,") &
-            !     & = ",SUM(temp_lo(1+irank*lm_per_rank:1+irank*lm_per_rank+        &
+            !     & = ",sum(temp_lo(1+irank*lm_per_rank:1+irank*lm_per_rank+        &
             !     & lm_on_last_rank,:))
          else
             ! Now send the data to rank 0
             !write(*,"(A,I5,A,I2)") "Sending ",(ulm-llm+1)*self%dim2," &
             !   &    dc from rank ",rank
-            !write(*,"(A,2ES22.14)") "sending arr_lo = ", SUM(arr_lo)
+            !write(*,"(A,2ES22.14)") "sending arr_lo = ", sum(arr_lo)
             call MPI_Send(arr_lo,self%dim2*(ulm-llm+1),MPI_DEF_COMPLEX, &
                           0,gather_tag,MPI_COMM_WORLD,ierr)
          end if
@@ -561,6 +577,39 @@ contains
 
    end subroutine destroy_lm2r_type
 !-------------------------------------------------------------------------------
+   subroutine create_r2lm_type(self,count)
+
+      type(r2lm_type) :: self
+      integer, optional, intent(in) :: count
+
+      if (.not. present(count)) then
+         self%count=1
+      else
+         self%count = count
+      end if
+#ifdef WITH_MPI
+      allocate(self%s_request(n_procs-1))
+      allocate(self%r_request(n_procs-1))
+      allocate(self%final_wait_array(2*(n_procs-1)))
+      bytes_allocated = bytes_allocated+4*(n_procs-1)*SIZEOF_INTEGER
+#endif
+      allocate(self%temp_Rloc(1:lm_max,nRstart:nRstop,1:self%count))
+      bytes_allocated = bytes_allocated+&
+                        lm_max*(nRstop-nRstart+1)*self%count*SIZEOF_DEF_COMPLEX
+
+   end subroutine create_r2lm_type
+!-------------------------------------------------------------------------------
+   subroutine destroy_r2lm_type(self)
+
+      type(r2lm_type) :: self
+
+      deallocate(self%s_request)
+      deallocate(self%r_request)
+      deallocate(self%final_wait_array)
+      deallocate(self%temp_Rloc)
+
+   end subroutine destroy_r2lm_type
+!-------------------------------------------------------------------------------
   ! --------------------- NONBLOCKING ---------------------
   ! Here comes the nonblocking variant
    subroutine lm2r_redist_start(self,arr_LMloc,arr_Rloc)
@@ -588,7 +637,7 @@ contains
             ! recv_pe: receive from this rank
             send_pe = modulo(rank+irank,n_procs)
             recv_pe = modulo(rank-irank+n_procs,n_procs)
-            !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
+            !print*,"send to ",send_pe,",     recv from ",recv_pe
             if (rank == send_pe) then
                !PERFON('loc_copy')
                ! just copy
@@ -633,9 +682,9 @@ contains
             self%final_wait_array(i+1)=self%r_request(irank)
             i = i + 2
          end do
-         !PRINT*,"Waiting for completion of nonblocking communication 1"
+         !print*,"Waiting for completion of nonblocking communication 1"
          !call mpi_waitall(2*n_procs,final_wait_array,array_of_statuses,ierr)
-         !PRINT*,"Nonblocking communication 1 is done."
+         !print*,"Nonblocking communication 1 is done."
       else
          ! rank  ==  n_procs-1
          ! all receives are with the s_transfer_type_nr_end
@@ -645,7 +694,7 @@ contains
             ! recv_pe: receive from this rank
             send_pe = modulo(rank+irank,n_procs)
             recv_pe = modulo(rank-irank+n_procs,n_procs)
-            !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
+            !print*,"send to ",send_pe,",     recv from ",recv_pe
             if (rank == send_pe) then
                !PERFON('loc_copy')
                ! just copy
@@ -675,9 +724,9 @@ contains
             self%final_wait_array(i+1)=self%r_request(irank)
             i = i + 2
          end do
-         !PRINT*,"Waiting for completion of nonblocking communication 1"
+         !print*,"Waiting for completion of nonblocking communication 1"
          !call mpi_waitall(2*(n_procs-1),final_wait_array,array_of_statuses,ierr)
-         !PRINT*,"Nonblocking communication 1 is done."
+         !print*,"Nonblocking communication 1 is done."
       end if
       !write(*,"(A,I3)") "lm2r_redist_start on n_procs=",n_procs
       !PERFOFF
@@ -749,19 +798,17 @@ contains
 
    end subroutine lo2r_redist_wait
 !-------------------------------------------------------------------------------
-   subroutine r2lm_redist(arr_rloc,arr_LMloc)
+   subroutine r2lm_redist_start(self,arr_rloc,arr_LMloc)
 
-      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max)
+      type(r2lm_type) :: self
+      complex(cp), intent(in) :: arr_Rloc(lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_LMloc(llm:ulm,n_r_max,*)
   
+      integer :: i
 #ifdef WITH_MPI
       ! Local variables
-      integer :: send_pe, recv_pe,i,irank
+      integer :: send_pe, recv_pe, irank
       integer :: transfer_tag=1111
-      logical :: yetComplete(2*(n_procs-1))
-      logical :: flag
-      integer :: status(MPI_STATUS_SIZE)
-      integer :: completeCounter
   
       !write(*,"(A)") "----------- start r2lm_redist -------------"
       !PERFON('r2lm_dst')
@@ -777,55 +824,35 @@ contains
             send_pe = modulo(rank+irank,n_procs)
             recv_pe = modulo(rank-irank+n_procs,n_procs)
             if (rank == send_pe) then
-               arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+               do i=1,self%count
+                  arr_LMLoc(llm:ulm,nRstart:nRstop,i)= &
+                            arr_Rloc(llm:ulm,nRstart:nRstop,i)
+               end do
             else
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart),  &
-                    &         1,s_transfer_type(send_pe+1),send_pe,   &
-                    &         transfer_tag,MPI_COMM_WORLD,            &
-                    &         s_request(irank),ierr)
-               !write(*,"(2(A,I3))") "Sending s_transfer_type(",send_pe+1,") &
-               !&                    to pe ",send_pe
+               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),     &
+                    &         1,s_transfer_type_cont(send_pe+1,self%count),&
+                    &         send_pe,transfer_tag,MPI_COMM_WORLD,         &
+                    &         self%s_request(irank),ierr)
                if (recv_pe == n_procs-1) then
-                  call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe),    &
-                       &         1,r_transfer_type_nr_end(rank+1),recv_pe,&
-                       &         transfer_tag,MPI_COMM_WORLD,             &
-                       &         r_request(irank),ierr)
-                  !write(*,"(2(A,I3))") "Receiving r_transfer_type_nr_end(",rank+1,&
-                  !     &") from pe ",recv_pe
+                  call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe,1),          &
+                       &         1,r_transfer_type_nr_end_cont(rank+1,self%count),&
+                       &         recv_pe,transfer_tag,MPI_COMM_WORLD,             &
+                       &         self%r_request(irank),ierr)
                else
-                  call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe),          &
-                       &         1,r_transfer_type(rank+1),recv_pe,transfer_tag,&
-                       &         MPI_COMM_WORLD,r_request(irank),ierr)
-                  !write(*,"(2(A,I3))") "Receiving r_transfer_type(",rank+1,") &
-                  !                      from pe ",recv_pe
+                  call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe,1),     &
+                       &         1,r_transfer_type_cont(rank+1,self%count),  &
+                       &         recv_pe,transfer_tag,MPI_COMM_WORLD,        &
+                       &         self%r_request(irank),ierr)
                end if
             end if
          end do
   
          i=1
          do irank=1,n_procs-1
-            final_wait_array(i)=s_request(irank)
-            final_wait_array(i+1)=r_request(irank)
+            self%final_wait_array(i)=self%s_request(irank)
+            self%final_wait_array(i+1)=self%r_request(irank)
             i = i + 2
          end do
-         !PRINT*,"Waiting for completion of nonblocking communication 1"
-#if 0
-         yetComplete=.false.
-         completeCounter=0
-         i=1
-         do while (completeCounter < 2*(n_procs-1))
-            if (.not.yetComplete(i)) call mpi_test(final_wait_array(i),flag,status,ierr)
-            if (flag) then
-               yetComplete(i)=.true.
-               !write(*,"(A,I3,A,I10)") "status of request ",i," is ",status(MPI_ERROR)
-               completeCounter = completeCounter + 1
-            end if
-            i = modulo(i,2*(n_procs-1))+1
-         end do
-#endif
-         call mpi_waitall(2*(n_procs-1),final_wait_array,array_of_statuses,ierr)
-         if (ierr /= MPI_SUCCESS) write(*,"(A)") "Error with nonblocking comm. 1"
-         !PRINT*,"Nonblocking communication 1 is done."
       else
          ! rank  ==  n_procs-1
          ! all receives are with the r_transfer_type_lm_end
@@ -835,70 +862,98 @@ contains
             ! recv_pe: receive from this rank
             send_pe = modulo(rank+irank,n_procs)
             recv_pe = modulo(rank-irank+n_procs,n_procs)
-            !PRINT*,"send to ",send_pe,",     recv from ",recv_pe
+            !print*,"send to ",send_pe,",     recv from ",recv_pe
             if (rank == send_pe) then
                ! just copy
-               arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+               do i=1,self%count
+                  arr_LMLoc(llm:ulm,nRstart:nRstop,i)= &
+                           arr_Rloc(llm:ulm,nRstart:nRstop,i)
+               end do
             else
-               call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe),&
-                    &         1,r_transfer_type(rank+1),recv_pe,   &
-                    &         transfer_tag,MPI_COMM_WORLD,         &
-                    &         r_request(irank),ierr)
-               !write(*,"(2(A,I3))") "Receiving r_transfer_type(",rank+1,") &
-               !                     from pe ",recv_pe
-               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart),       &
-                    &                  1,s_transfer_type_nr_end(send_pe+1),&
-                    &                  send_pe,transfer_tag,MPI_COMM_WORLD,&
-                    &                  s_request(irank),ierr)
-               !write(*,"(2(A,I3))") "Sending s_transfer_type_nr_end(", &
-               !                     send_pe+1,") to pe ",send_pe
+               call MPI_Irecv(arr_LMloc(llm,1+nr_per_rank*recv_pe,1),    &
+                    &         1,r_transfer_type_cont(rank+1,self%count), &
+                    &         recv_pe,transfer_tag,MPI_COMM_WORLD,       &
+                    &         self%r_request(irank),ierr)
+               call MPI_Isend(arr_Rloc(lmStartB(send_pe+1),nRstart,1),            &
+                    &         1,s_transfer_type_nr_end_cont(send_pe+1,self%count),&
+                    &         send_pe,transfer_tag,MPI_COMM_WORLD,                &
+                    &         self%s_request(irank),ierr)
   
             end if
          end do
          i=1
          do irank=1,n_procs-1
-            final_wait_array(i)=s_request(irank)
-            final_wait_array(i+1)=r_request(irank)
+            self%final_wait_array(i)=self%s_request(irank)
+            self%final_wait_array(i+1)=self%r_request(irank)
             i = i + 2
          end do
-         !PRINT*,"Waiting for completion of nonblocking communication 2"
-         call mpi_waitall(2*(n_procs-1),final_wait_array,array_of_statuses,ierr)
-         if (ierr /= MPI_SUCCESS) write(*,"(A)") "Error with nonblocking comm. 2"
-         !PRINT*,"Nonblocking communication 2 is done."
       end if
   
       !PERFOFF
       !write(*,"(A)") "----------- end   r2lm_redist -------------"
 #else
-      arr_LMLoc(llm:ulm,nRstart:nRstop)=arr_Rloc(llm:ulm,nRstart:nRstop)
+      do i=1,self%count
+         arr_LMLoc(llm:ulm,nRstart:nRstop,i)=arr_Rloc(llm:ulm,nRstart:nRstop,i)
+      end do
 #endif
 
-   end subroutine r2lm_redist
+   end subroutine r2lm_redist_start
 !-------------------------------------------------------------------------------
-   subroutine r2lo_redist(arr_Rloc,arr_lo)
+   subroutine r2lm_redist_wait(self)
 
-      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop)
-      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max)
+      type(r2lm_type) :: self
+#ifdef WITH_MPI
+      integer :: ierr
+      integer :: array_of_statuses(MPI_STATUS_SIZE,2*n_procs)
+
+      !PERFON('lm2r_wt')
+      !write(*,"(A,I3)") "n_procs = ",n_procs
+      !write(*,"(2(A,I3))") "Waiting for ",2*(n_procs-1)," requests,", &
+      !   &             size(self%final_wait_array)
+      call MPI_Waitall(2*(n_procs-1),self%final_wait_array,array_of_statuses,ierr)
+      !PERFOFF
+#endif
+
+   end subroutine r2lm_redist_wait
+!-------------------------------------------------------------------------------
+   subroutine r2lo_redist_start(self,arr_Rloc,arr_lo)
+
+      type(r2lm_type) :: self
+      complex(cp), intent(in) :: arr_Rloc(1:lm_max,nRstart:nRstop,*)
+      complex(cp), intent(out) :: arr_lo(llm:ulm,1:n_r_max,*)
   
       ! Local variables
-      integer :: nR,l,m
-      ! temporary reordered array
-      !complex(cp) :: temp_lo(1:lm_max,nRstart:nRstop)
+      integer :: nR,l,m,i
+
+      self%temp_Rloc(1:,nRstart:,1:) = arr_Rloc(1:lm_max,nRstart:nRstop,1:self%count)
   
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
-      do nR=nRstart,nRstop
-         do l=0,l_max
-            do m=0,l,minc
-               temp_r2lo(lo_map%lm2(l,m),nR) = arr_Rloc(st_map%lm2(l,m),nR)
+      do i=1,self%count
+         do nR=nRstart,nRstop
+            do l=0,l_max
+               do m=0,l,minc
+                  self%temp_Rloc(lo_map%lm2(l,m),nR,i) = & 
+                                   arr_Rloc(st_map%lm2(l,m),nR,i)
+               end do
             end do
          end do
       end do
   
-      call r2lm_redist(temp_r2lo,arr_lo)
+      call r2lm_redist_start(self,self%temp_Rloc,arr_lo)
       !PERFOFF
 
-   end subroutine r2lo_redist
+   end subroutine r2lo_redist_start
+!-------------------------------------------------------------------------------
+   subroutine r2lo_redist_wait(self)
+
+      type(r2lm_type) :: self
+  
+      !PERFON("r2lo_wt")
+      call r2lm_redist_wait(self)
+      !PERFOFF
+
+   end subroutine r2lo_redist_wait
 !-------------------------------------------------------------------------------
    subroutine lm2lo_redist(arr_LMloc,arr_lo)
 
@@ -909,7 +964,7 @@ contains
       integer :: nR,l,m
   
       if (n_procs > 1) then
-         PRINT*,"lm2lo not yet parallelized"
+         print*,"lm2lo not yet parallelized"
          stop
       end if
   
@@ -932,7 +987,7 @@ contains
       integer :: nR,l,m
   
       if (n_procs > 1) then
-         PRINT*,"lo2lm not yet parallelized"
+         print*,"lo2lm not yet parallelized"
          stop
       end if
   
@@ -980,7 +1035,7 @@ contains
       end do
       do irank=0,n_procs-1
          !displs(irank) = (nR-1)*dim1 + sum(recvcounts(0:irank-1))
-         displs(irank) = SUM(recvcounts(0:irank-1))
+         displs(irank) = sum(recvcounts(0:irank-1))
       end do
       !write(*,"(4X,2I4,A,I6)") rank,nR," displs = ",displs(rank)
       !write(*,"(5(A,I4))") "LMBlocks ",1+rank*nLMBs_per_rank,"->", &

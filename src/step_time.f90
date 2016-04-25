@@ -53,10 +53,11 @@ module step_time_mod
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
    use useful, only: l_correct_step, safeOpen, safeClose, logWrite
-   use communications, only: get_global_sum, r2lo_redist, lm2r_type, &
-       &                     lo2r_redist_start, lo2r_redist_wait,    &
-       &                     lo2r_s, lo2r_z, lo2r_p, lo2r_b, lo2r_aj,&
-       &                     lo2r_w, scatter_from_rank0_to_lo, lo2r_xi
+   use communications, only: get_global_sum, r2lo_redist_start, lm2r_type,  &
+       &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
+       &                     lo2r_flow, scatter_from_rank0_to_lo, lo2r_xi,  &
+       &                     r2lo_redist_wait, r2lo_flow, r2lo_s, r2lo_xi,  &
+       &                     r2lo_b, lo2r_s
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
@@ -66,19 +67,27 @@ module step_time_mod
    private
 
    !DIR$ ATTRIBUTES ALIGN:64 :: dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dsdt_Rloc,dVSrLM_Rloc
-   complex(cp), allocatable :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
-   complex(cp), allocatable :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
-   complex(cp), allocatable :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
+   complex(cp), allocatable, target  :: dflowdt_Rloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dsdt_Rloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dxidt_Rloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dbdt_Rloc_container(:,:,:)
+   complex(cp), pointer :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
+   complex(cp), pointer :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
+   complex(cp), pointer :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
 
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
-   complex(cp), allocatable :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
-   complex(cp), allocatable, target :: dbdt_Rloc(:,:)
+   complex(cp), pointer :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
+   complex(cp), pointer :: dbdt_Rloc(:,:)
 
    ! The same arrays, but now the LM local part
-   complex(cp), allocatable :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
-   complex(cp), allocatable :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
-   complex(cp), allocatable :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
-   complex(cp), allocatable :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
+   complex(cp), allocatable, target  :: dflowdt_LMloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dsdt_LMloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dxidt_LMloc_container(:,:,:)
+   complex(cp), allocatable, target  :: dbdt_LMloc_container(:,:,:)
+   complex(cp), pointer :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
+   complex(cp), pointer :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
+   complex(cp), pointer :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
+   complex(cp), pointer :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
 
@@ -94,28 +103,34 @@ contains
 
       local_bytes_used = bytes_allocated
 
-      allocate(dwdt_Rloc(lm_max,nRstart:nRstop))
-      allocate(dzdt_Rloc(lm_max,nRstart:nRstop))
-      allocate(dsdt_Rloc(lm_max,nRstart:nRstop))
-      allocate(dpdt_Rloc(lm_max,nRstart:nRstop))
-      allocate(dVSrLM_Rloc(lm_max,nRstart:nRstop))
+      allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
+      dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
+      dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
+      dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
+
+      allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+      dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
+      dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
       bytes_allocated = bytes_allocated+ &
                         5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
-         allocate(dxidt_Rloc(lm_max,nRstart:nRstop))
-         allocate(dVXirLM_Rloc(lm_max,nRstart:nRstop))
+         allocate( dxidt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+         dxidt_Rloc(1:lm_max,nRstart:nRstop)   => dxidt_Rloc_container(:,:,1)
+         dVXirLM_Rloc(1:lm_max,nRstart:nRstop) => dxidt_Rloc_container(:,:,2)
          bytes_allocated = bytes_allocated+ &
                            2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
-         allocate(dxidt_Rloc(1,1))
-         allocate(dVXirLM_Rloc(1,1))
+         allocate( dxidt_Rloc_container(1,1,1:2) )
+         dxidt_Rloc(1:1,1:1)   => xi_Rloc_container(:,:,1)
+         dVXirLM_Rloc(1:1,1:1) => xi_Rloc_container(:,:,2)
       end if
 
       ! the magnetic part
-      allocate(dbdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
-      allocate(djdt_Rloc(lm_maxMag,nRstartMag:nRstopMag))
-      allocate(dVxBhLM_Rloc(lm_maxMag,nRstartMag:nRstopMag))
+      allocate( dbdt_Rloc_container(lm_maxMag,nRstartMag:nRstopMag,1:3) )
+      dbdt_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)   => dbdt_Rloc_container(:,:,1)
+      djdt_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)   => dbdt_Rloc_container(:,:,2)
+      dVxBhLM_Rloc(1:lm_maxMag,nRstartMag:nRstopMag)=> dbdt_Rloc_container(:,:,3)
       bytes_allocated = bytes_allocated+ &
                         3*lm_maxMag*(nRstopMag-nRstartMag+1)*SIZEOF_DEF_COMPLEX
 
@@ -153,22 +168,27 @@ contains
 
 
       ! The same arrays, but now the LM local part
-      allocate(dwdt_LMloc(llm:ulm,n_r_max))
-      allocate(dzdt_LMloc(llm:ulm,n_r_max))
-      allocate(dpdt_LMloc(llm:ulm,n_r_max))
-      allocate(dsdt_LMloc(llm:ulm,n_r_max))
-      allocate(dVSrLM_LMloc(llm:ulm,n_r_max))
+      allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3))
+      dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
+      dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
+      dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
+
+      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
+      dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
+      dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
       bytes_allocated = bytes_allocated+ 5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       if ( l_chemical_conv ) then
-         allocate(dxidt_LMloc(llm:ulm,n_r_max))
-         allocate(dVXirLM_LMloc(llm:ulm,n_r_max))
+         allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2))
+         dxidt_LMloc(llm:ulm,1:n_r_max)   => dxidt_LMloc_container(:,:,1)
+         dVXirLM_LMloc(llm:ulm,1:n_r_max) => dxidt_LMloc_container(:,:,2)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
-      allocate(dbdt_LMloc(llmMag:ulmMag,n_r_maxMag))
-      allocate(djdt_LMloc(llmMag:ulmMag,n_r_maxMag))
-      allocate(dVxBhLM_LMloc(llmMag:ulmMag,n_r_maxMag))
+      allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3))
+      dbdt_LMloc(llmMag:ulmMag,1:n_r_maxMag)    => dbdt_LMloc_container(:,:,1)
+      djdt_LMloc(llmMag:ulmMag,1:n_r_maxMag)    => dbdt_LMloc_container(:,:,2)
+      dVxBhLM_LMloc(llmMag:ulmMag,1:n_r_maxMag) => dbdt_LMloc_container(:,:,3)
       bytes_allocated = bytes_allocated+ &
                         3*(ulmMag-llmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
 
@@ -434,14 +454,11 @@ contains
             call lo2r_redist_wait(lo2r_xi)
          end if
          if (l_conv) then
-            call lo2r_redist_wait(lo2r_z)
-            call lo2r_redist_wait(lo2r_w)
-            call lo2r_redist_wait(lo2r_p)
+            call lo2r_redist_wait(lo2r_flow)
          end if
 
          if ( l_mag ) then
-            call lo2r_redist_wait(lo2r_b)
-            call lo2r_redist_wait(lo2r_aj)
+            call lo2r_redist_wait(lo2r_field)
          end if
 
 #ifdef WITH_MPI
@@ -859,24 +876,22 @@ contains
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
          PERFON('r2lo_dst')
-         call r2lo_redist(dwdt_Rloc,dwdt_LMloc)
-         call r2lo_redist(dzdt_Rloc,dzdt_LMloc)
-         call r2lo_redist(dpdt_Rloc,dpdt_LMloc)
+         call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container,dflowdt_LMloc_container)
+         call r2lo_redist_wait(r2lo_flow)
 
          if ( l_heat ) then
-            call r2lo_redist(dsdt_Rloc,dsdt_LMloc)
-            call r2lo_redist(dVSrLM_Rloc,dVSrLM_LMloc)
+            call r2lo_redist_start(r2lo_s,dsdt_Rloc_container,dsdt_LMloc_container)
+            call r2lo_redist_wait(r2lo_s)
          end if
 
          if ( l_chemical_conv ) then
-            call r2lo_redist(dxidt_Rloc,dxidt_LMloc)
-            call r2lo_redist(dVXirLM_Rloc,dVXirLM_LMloc)
+            call r2lo_redist_start(r2lo_xi,dxidt_Rloc_container,dxidt_LMloc_container)
+            call r2lo_redist_wait(r2lo_xi)
          end if
 
          if ( l_mag ) then
-            call r2lo_redist(dbdt_Rloc,dbdt_LMloc)
-            call r2lo_redist(djdt_Rloc,djdt_LMloc)
-            call r2lo_redist(dVxBhLM_Rloc,dVxBhLM_LMloc)
+            call r2lo_redist_start(r2lo_b,dbdt_Rloc_container,dbdt_LMloc_container)
+            call r2lo_redist_wait(r2lo_b)
          end if
 
 #ifdef WITH_MPI

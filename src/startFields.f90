@@ -31,9 +31,8 @@ module start_fields
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, &
        &                  ulmMag,llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
-   use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
-       &                     lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
-       &                     get_global_sum, lo2r_w, lo2r_xi
+   use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
+       &                     lo2r_xi, scatter_from_rank0_to_lo, get_global_sum
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
@@ -118,7 +117,7 @@ contains
                botcond = -osq4pi*temp0(n_r_max)*( dLtemp0(n_r_max)*         &
                  &                   s0(n_r_max) + ds0(n_r_max)+            &
                  &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*(&
-                 &    (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max))* &
+                 &    (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max))*   &
                  &                   p0(n_r_max) + dp0(n_r_max)) )
                deltacond=osq4pi*(temp0(n_r_max)*s0(n_r_max)-temp0(1)*s0(1)+ &
                  &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*     &
@@ -579,14 +578,11 @@ contains
          call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
       end if
       if (l_conv) then
-         call lo2r_redist_start(lo2r_z,z_LMloc_container,z_Rloc_container)
-         call lo2r_redist_start(lo2r_w,w_LMloc_container,w_Rloc_container)
-         call lo2r_redist_start(lo2r_p,p_LMloc_container,p_Rloc_container)
+         call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
       end if
     
       if (l_mag) then
-         call lo2r_redist_start(lo2r_b,b_LMloc_container,b_Rloc_container)
-         call lo2r_redist_start(lo2r_aj,aj_LMloc_container,aj_Rloc_container)
+         call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
       end if
     
       !print*,"End of getStartFields"
