@@ -403,7 +403,7 @@ contains
 !------------------------------------------------------------------------------
 
    subroutine readHdf5_attr_dble(loc_id,attr_name,attr_value)
-      use parallel_mod, only : rank, mpi_abort, MPI_COMM_WORLD
+      use parallel_mod, only : rank, MPI_COMM_WORLD
 
       !--- Input variables
       character(len=*), intent(in) :: attr_name
@@ -437,7 +437,7 @@ contains
 
 !------------------------------------------------------------------------------
    subroutine readHdf5_attr_int(loc_id,attr_name,attr_value)
-      use parallel_mod, only : rank, mpi_abort, MPI_COMM_WORLD
+      use parallel_mod, only : rank, MPI_COMM_WORLD
 
       !--- Input variables
       character(len=*), intent(in) :: attr_name

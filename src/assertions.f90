@@ -1,7 +1,7 @@
 module assertions
    use, intrinsic :: iso_fortran_env, only : error_unit
    use parallel_mod, only : rank
-   use mpimod, only : mpi_abort, MPI_COMM_WORLD
+   use mpimod, only : MPI_COMM_WORLD
    implicit none
 
    interface x_assert_equal
@@ -18,13 +18,15 @@ module assertions
       character(len=*), intent(in) :: file
       integer, intent(in) :: line
 
-      integer ierr
+      integer :: ierr
 
       if (value /= expected_value) then
          write(error_unit, '(a,i0,a,i0,a)')    "Task #", rank, ": " //file // ":", line, ", " // msg
          write(error_unit, '(a,i0,a,i0,a,i0)') "Task #", rank, "  assertion failed, expected ", expected_value, ", but got ", value
-         call mpi_abort(MPI_COMM_WORLD, 1, ierr)
-         stop 1
+#ifdef WITH_MPI
+         call mpi_abort(MPI_COMM_WORLD, 41, ierr)
+#endif
+         stop 41
       endif
 #ifdef DEBUG
       write(error_unit, '(a,i0,a,i0,a,i0)') "Task #", rank, "  assertion at " //file// ":", line, " valid, got expected value ", &
@@ -38,13 +40,15 @@ module assertions
       character(len=*), intent(in) :: file
       integer, intent(in) :: line
 
-      integer ierr
+      integer :: ierr
 
       if (.not. value) then
          write(error_unit, '(a,i0,a,i0,a)') "Task #", rank, ": " //file // ":", line, ", " // msg
          write(error_unit, '(a,i0,a,i0)')   "Task #", rank, "  assertion failed"
-         call mpi_abort(MPI_COMM_WORLD, 1, ierr)
-         stop 1
+#ifdef WITH_MPI
+         call mpi_abort(MPI_COMM_WORLD, 41, ierr)
+#endif
+         stop 41
       endif
 #ifdef DEBUG
       write(error_unit, '(a,i0,a,i0,a)') "Task #", rank, "  assertion at " //file// ":", line, " valid"

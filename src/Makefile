@@ -8,6 +8,7 @@ OUT_PREC=sngl
 PRODRUN=yes
 #USE_MPI: yes/no
 USE_MPI=yes
+USE_MPIF=yes
 USE_OMP=yes
 # DEBUG: no/noopt/check/all/marmot
 DEBUG=no
@@ -18,7 +19,7 @@ USE_FFTLIB=MKL
 #USE_LAPACKLIB can be MKL, LAPACK or JW
 USE_LAPACKLIB=MKL
 #Use hdf5 for input/output of the restart files: yes/no
-USE_HDF5=no
+USE_HDF5=yes
 #Use shtns for Legendre/Fourier transforms
 USE_SHTNS=no
 
@@ -154,6 +155,11 @@ else
 	FC = $(COMP_FC)
 	CC = $(COMP_CC)
 endif
+
+ifeq ($(USE_MPIF),yes)
+	PREPROC += -DWITH_MPIF_H
+endif
+   
 
 ifeq ($(USE_PERFLIB),perf)
      PREPROC += -DWITHPERF
@@ -360,7 +366,7 @@ out_movie_file.o      : truncation.o output_data.o blocking.o\
 storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
                         output_data.o init_fields.o dt_fieldsLast.o \
 			LMLoop_data.o assertions.o
-assertions.o          : parallel.o
+assertions.o          : parallel.o mpimod.o
 ifeq ($(USE_HDF5),yes)
 readCheckPoints.o     : hdf5Helpers.o
 storeCheckPoints.o    : hdf5Helpers.o
@@ -435,6 +441,8 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
                         communications.o debugging.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
+parallel.o            : mpimod.o
+precision_mod.o       : mpimod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o
 legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
                          constants.o legendre_helpers.o
