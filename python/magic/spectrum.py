@@ -143,6 +143,14 @@ class MagicSpectrum(MagicSetup):
             self.corLor = data[:, 11] # Coriolis/Lorentz
             self.preLor = data[:, 12] # Pressure/Lorentz
             self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
+            self.dtVRms_SD = data[:, 14]
+            self.CorRms_SD = data[:, 15]
+            self.LFRms_SD = data[:, 16]
+            self.AdvRms_SD = data[:, 17]
+            self.DifRms_SD = data[:, 18]
+            self.BuoRms_SD = data[:, 19]
+            self.PreRms_SD = data[:, 20]
+            self.geos_SD = data[:, 21]
 
         if iplot:
             self.plot()
