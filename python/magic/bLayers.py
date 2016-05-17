@@ -225,12 +225,14 @@ class BLayers(MagicSetup):
             a = AvgField()
             self.nuss = a.nuss
             self.reynolds = a.reynolds
+            e2fluct = a.ekin_pol_avg+a.ekin_tor_avg-a.ekin_pola_avg-a.ekin_tora_avg
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
             tags = None
             self.nuss = 1.
             self.reynolds = 1.
+            e2fluct = 1.
         par = MagicRadial(field='bLayersR', iplot=False, tags=tags)
         self.varS = N.sqrt(N.abs(par.varS))
         self.ss = par.entropy
@@ -257,6 +259,9 @@ class BLayers(MagicSetup):
         self.rad = par.radius
         self.ro = self.rad[0]
         self.ri = self.rad[-1]
+
+        vol_oc = 4./3.* N.pi * (self.ro**3-self.ri**3)
+        self.rey_fluct = N.sqrt(2.*e2fluct/vol_oc)
 
         self.reh = 4.*N.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1, 
                         self.ri, self.ro)/(4./3.*N.pi*(self.ro**3-self.ri**3))
@@ -301,17 +306,16 @@ class BLayers(MagicSetup):
                    /(self.ro**3-self.ri**3)
         dsdr = N.dot(d1, self.ss)
         self.beta = dsdr[len(dsdr)/2]
-        print('beta', self.beta)
+        print('beta=%.2f' % self.beta)
         self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
         self.slopeBot = dsdr[-1]*(self.rad-self.ri)+self.ss[-1]
 
         self.dtdrm = dsdr[len(self.ss)/2]
-        self.slopeMid = self.dtdrm*(self.rad-(self.ri+self.ro)/2.)+self.ss[len(self.ss)/2]
+        tmid = self.ss[len(self.ss)/2]
+        self.slopeMid = self.dtdrm*(self.rad-self.rad[len(self.rad)/2])+tmid
 
-        #self.bcTopSlope = -(self.ttm-self.ss[0])/dsdr[2]
-        self.bcTopSlope = (self.ss[len(self.ss)/2]-self.ss[0])/(self.dtdrm-dsdr[2])
-        #self.bcBotSlope = (self.ttm-self.ss[-1])/(dsdr[-1])
-        self.bcBotSlope = -(self.ss[len(self.ss)/2]-self.ss[-1])/(self.dtdrm-dsdr[-1])
+        self.bcTopSlope = (tmid-self.ss[0])/(self.dtdrm-dsdr[2])
+        self.bcBotSlope = -(tmid-self.ss[-1])/(self.dtdrm-dsdr[-1])
 
         # 2nd round with a more accurate slope
         bSlope = dsdr[self.rad <= self.ri+self.bcBotSlope/4.].mean()
@@ -319,10 +323,15 @@ class BLayers(MagicSetup):
         self.slopeBot = bSlope*(self.rad-self.ri)+self.ss[-1]
         self.slopeTop = tSlope*(self.rad-self.ro)+self.ss[0]
         #self.bcTopSlope = -(self.ttm-self.ss[0])/tSlope
-        self.bcTopSlope = (self.ss[len(self.ss)/2]-self.ss[0])/(self.dtdrm-tSlope)
-        #self.bcBotSlope = (self.ttm-self.ss[-1])/bSlope
-        self.bcBotSlope = -(self.ss[len(self.ss)/2]-self.ss[-1])/(self.dtdrm-bSlope)
+        self.bcTopSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)/2]-self.ss[0]+tSlope*self.ro)/(self.dtdrm-tSlope)
+        self.bcBotSlope = -(tmid-self.dtdrm*self.rad[len(self.rad)/2]-self.ss[-1]+bSlope*self.ri)/(self.dtdrm-bSlope)
+        self.dto = tSlope*(self.bcTopSlope-self.ro)+self.ss[0]
+        self.dti = bSlope*(self.bcBotSlope-self.ri)+self.ss[-1]
+        self.dto = self.dto-self.ss[0]
+        self.dti = self.ss[-1]-self.dti
 
+        self.bcTopSlope = self.ro - self.bcTopSlope
+        self.bcBotSlope = self.bcBotSlope - self.ri
 
         if hasattr(self, 'epsT'):
             self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.rad, self.epsTR, 
@@ -346,8 +355,15 @@ class BLayers(MagicSetup):
         else:
             self.dissTopV = self.ro-self.rad[ind[0]]
             self.dissBotV = self.rad[ind[-1]]-self.ri
-        self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.rad, self.vi, 
-                         self.ri, self.ro, self.dissBotV, self.dissTopV)
+        try:
+            self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.rad, self.vi, 
+                             self.ri, self.ro, self.dissBotV, self.dissTopV)
+        except AttributeError:
+            self.dissTopV = 0.
+            self.dissBotV = 0.
+            self.dissEpsVbl = 0.
+            self.dissEpsVbulk = 0.
+
         print('visc Diss bl, bulk', self.dissEpsVbl/self.epsV, self.dissEpsVbulk/self.epsV)
 
         # First way of defining the viscous boundary layers: with duhdr
@@ -435,7 +451,10 @@ class BLayers(MagicSetup):
         self.dl = par.dlVc
         y = RolC[par.radius >= self.ro-self.bcTopSlope]
         x = par.radius[par.radius >= self.ro-self.bcTopSlope]
-        self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
+        try:
+            self.rolTop = simps(3.*y*x**2, x)/(self.ro**3-(self.ro-self.bcTopSlope)**3)
+        except IndexError:
+            self.rolTop = 0.
 
         self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*N.pi*RolC*self.rad**2, 
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
@@ -530,6 +549,8 @@ class BLayers(MagicSetup):
         ax.plot(self.rad, self.slopeTop, 'k--')
         ax.plot(self.rad, self.slopeBot, 'k--')
         ax.plot(self.rad, self.slopeMid, 'k--')
+        ax.axvline(self.ri+self.bcBotSlope, color='r')
+        ax.axvline(self.ro-self.bcTopSlope, color='r')
         ax.set_ylim(self.ss[0], self.ss[-1])
         ax.set_ylabel('Entropy')
         ax1 = ax.twinx()
@@ -604,7 +625,7 @@ class BLayers(MagicSetup):
         else:
             st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr, self.radratio)
 
-        st += '%12.5e%12.5e' % (self.nuss, self.reynolds)
+        st += '%12.5e%12.5e%12.5e' % (self.nuss, self.reynolds, self.rey_fluct)
         st += '%12.5e' % self.epsT
         st += '%12.5e%12.5e%5.2f%5.2f' % (self.bcBotSlope, self.bcTopSlope,
                           self.slopeEpsTbl/self.epsT, self.slopeEpsTbulk/self.epsT)
@@ -626,6 +647,7 @@ class BLayers(MagicSetup):
         st += '%12.5e%12.5e' % (self.rehbl, self.rehbulk)
         st += '%12.5e%12.5e' % (self.lengthbl, self.lengthbulk)
         st += '%12.5e%12.5e' % (self.ss[len(self.ss)/2]-self.ss[0], self.ttm-self.ss[0])
+        st += '%12.5e%12.5e' % (self.dti, self.dto)
         st += '%12.5e%12.5e%12.5e' % (self.reh, self.uhBot, self.uhTop)
         st += '%12.5e%12.5e' % (self.lBot, self.lTop)
 
