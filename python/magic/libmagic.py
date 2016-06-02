@@ -126,6 +126,12 @@ def selectField(obj, field, labTex=True):
             label = r"$s'$"
         else:
             label = "s'"
+    elif field in ('prefluct'):
+        data = obj.pre-obj.pre.mean(axis=0)
+        if labTex:
+            label = r"$p'$"
+        else:
+            label = "p'"
     elif field in ('vrea'):
         data = N.zeros_like(obj.vr)
         for i in range(obj.ntheta):
@@ -169,9 +175,9 @@ def selectField(obj, field, labTex=True):
 
     return data, label
 
-def avgField(time, field, tstart):
+def avgField(time, field, tstart=None, std=False):
     """
-    This subroutine computes the time-average of a time series
+    This subroutine computes the time-average (and the std) of a time series
 
     >>> ts = MagicTs(field='misc', iplot=False, all=True)
     >>> nuavg = avgField(ts.time, ts.topnuss, 0.35)
@@ -183,14 +189,24 @@ def avgField(time, field, tstart):
     :type field: numpy.ndarray
     :param tstart: the starting time of the averaging
     :type tstart: float
+    :param std: when set to True, the standard deviation is also calculated
+    :type std: bool
     :returns: the time-averaged quantity
     :rtype: float
     """
-    mask = N.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
-    ind = N.nonzero(mask)[0][0]
-    fac = 1./(time.max()-time[ind])
+    if tstart is not None:
+        mask = N.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
+        ind = N.nonzero(mask)[0][0]
+    else: # the whole input array is taken!
+        ind = 0 
+    fac = 1./(time[-1]-time[ind])
     avgField = fac*N.trapz(field[ind:], time[ind:])
-    return avgField
+
+    if std:
+        stdField = N.sqrt(fac*N.trapz((field[ind:]-avgField)**2, time[ind:]))
+        return avgField, stdField
+    else:
+        return avgField
 
 def writeVpEq(par, tstart):
     """
@@ -663,12 +679,21 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
     if exclude:
         g = grid[::-1]
         gnew = N.linspace(r2, r1, 1000)
-        for i in range(data.shape[0]):
-            val = data[i, ::-1]
-            tckp = S.splrep(g[1:-1], val[1:-1])
-            fnew = S.splev(gnew, tckp)
-            data[i, 0] = fnew[-1]
-            data[i, -1] = fnew[0]
+        if len(data.shape) == 2:
+            for i in range(data.shape[0]):
+                val = data[i, ::-1]
+                tckp = S.splrep(g[1:-1], val[1:-1])
+                fnew = S.splev(gnew, tckp)
+                data[i, 0] = fnew[-1]
+                data[i, -1] = fnew[0]
+        else:
+            for j in range(data.shape[0]):
+                for i in range(data.shape[1]):
+                    val = data[j, i, ::-1]
+                    tckp = S.splrep(g[1:-1], val[1:-1])
+                    fnew = S.splev(gnew, tckp)
+                    data[j, i, 0] = fnew[-1]
+                    data[j, i, -1] = fnew[0]
     if spectral:
         d1 = matder(nr-1, r1, r2)
         if len(data.shape) == 2:
@@ -677,9 +702,11 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
             der = N.tensordot(data, d1, axes=[2, 1])
     else:
         denom = N.roll(grid, -1) - N.roll(grid, 1)
+        denom[0] = grid[1]-grid[0]
+        denom[-1] = grid[-1]-grid[-2]
         der = (N.roll(data, -1,  axis=-1)-N.roll(data, 1, axis=-1))/denom
-        der[:, 0] = (data[:, 1]-data[:, 0])/(grid[1]-grid[0])
-        der[:, -1] = (data[:, -1]-data[:, -2])/(grid[-1]-grid[-2])
+        der[..., 0] = (data[..., 1]-data[..., 0])/(grid[1]-grid[0])
+        der[..., -1] = (data[..., -1]-data[..., -2])/(grid[-1]-grid[-2])
     return der
 
 def thetaderavg(data, order=4):

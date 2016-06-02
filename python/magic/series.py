@@ -4,8 +4,7 @@ import matplotlib.pyplot as P
 import numpy as N
 from .log import MagicSetup
 import glob
-from .libmagic import fast_read, scanDir
-from scipy.integrate import trapz
+from .libmagic import fast_read, scanDir, avgField
 
 
 class MagicTs(MagicSetup):
@@ -91,9 +90,15 @@ class MagicTs(MagicSetup):
                 else:
                     ncol = datanew.shape[1]
                     if ncol == ncolRef:
-                        data = N.vstack((data, datanew))
+                        if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                            data = N.vstack((data, datanew))
+                        else: # Remove first line, that is already here
+                            data = N.vstack((data, datanew[1:,:]))
                     else: # If the number of columns has changed
-                        data = N.vstack((data, datanew[:, 0:ncolRef]))
+                        if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                            data = N.vstack((data, datanew[:, 0:ncolRef]))
+                        else: # Remove first line that is already here
+                            data = N.vstack((data, datanew[1:, 0:ncolRef]))
 
         # If no tag is specified, the most recent is plotted
         elif not all:
@@ -134,9 +139,15 @@ class MagicTs(MagicSetup):
                     if datanew.shape[0] != 0: # In case the file is empty
                         ncol = datanew.shape[1]
                         if ncol == ncolRef:
-                            data = N.vstack((data, datanew))
+                            if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                                data = N.vstack((data, datanew))
+                            else: # Remove first line that is already here
+                                data = N.vstack((data, datanew[1:,:]))
                         else: # If the number of columns has changed
-                            data = N.vstack((data, datanew[:, 0:ncolRef]))
+                            if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                                data = N.vstack((data, datanew[:, 0:ncolRef]))
+                            else: # Remove first line that is already here
+                                data = N.vstack((data, datanew[1:, 0:ncolRef]))
 
         if self.field == 'e_kin':
             self.time = data[:, 0]
@@ -605,7 +616,8 @@ class AvgField:
     >>> print(a) # print the formatted output
     """
 
-    def __init__(self, tstart=None, tag=None, dipExtra=False, perpPar=False):
+    def __init__(self, tstart=None, tag=None, dipExtra=False, perpPar=False,
+                 std=False):
         """
         :param tstart: the starting time for averaging
         :type tstart: float
@@ -621,6 +633,8 @@ class AvgField:
         :param perpPar: additional values extracted from :ref:`perpPar.TAG <secperpParFile>`
                         are also computed
         :type perpPar: bool
+        :type std: compute the standard deviation when set to True
+        :type std: bool
         """
 
         if os.path.exists('tInitAvg') and tstart is None:
@@ -632,16 +646,29 @@ class AvgField:
             file = open('tInitAvg', 'w')
             file.write('%f' % tstart)
             file.close()
+        self.std = std
         self.dipExtra = dipExtra
         self.perpPar = perpPar
+
+        # e_kin file
         ts = MagicTs(field='e_kin', all=True, tag=tag, iplot=False)
         mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
-        fac = 1./(ts.time.max()-ts.time[ind])
-        self.ekin_pol_avg = fac * trapz(ts.ekin_pol[ind:], ts.time[ind:])
-        self.ekin_tor_avg = fac * trapz(ts.ekin_tor[ind:], ts.time[ind:])
-        self.ekin_pola_avg = fac * trapz(ts.ekin_pol_axi[ind:], ts.time[ind:])
-        self.ekin_tora_avg = fac * trapz(ts.ekin_tor_axi[ind:], ts.time[ind:])
+
+        if self.std:
+            self.ekin_pol_avg, self.ekin_pol_std = avgField(ts.time[ind:],
+                                                   ts.ekin_pol[ind:], std=True)
+            self.ekin_tor_avg, self.ekin_tor_std = avgField(ts.time[ind:],
+                                                   ts.ekin_tor[ind:], std=True)
+            self.ekin_pola_avg, self.ekin_pola_std = avgField(ts.time[ind:],
+                                                     ts.ekin_pol_axi[ind:], std=True)
+            self.ekin_tora_avg, self.ekin_tora_std = avgField(ts.time[ind:],
+                                                     ts.ekin_tor_axi[ind:], std=True)
+        else:
+            self.ekin_pol_avg = avgField(ts.time[ind:], ts.ekin_pol[ind:])
+            self.ekin_tor_avg = avgField(ts.time[ind:], ts.ekin_tor[ind:])
+            self.ekin_pola_avg = avgField(ts.time[ind:], ts.ekin_pol_axi[ind:])
+            self.ekin_tora_avg = avgField(ts.time[ind:], ts.ekin_tor_axi[ind:])
 
         self.ra = ts.ra
         self.prmag = ts.prmag
@@ -650,22 +677,49 @@ class AvgField:
         self.strat = ts.strat
         self.mode = ts.mode
 
+        # par file
         ts2 = MagicTs(field='par', all=True, iplot=False, tag=tag)
         mask = N.where(abs(ts2.time-tstart) == min(abs(ts2.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
-        fac = 1./(ts2.time.max()-ts2.time[ind])
-        self.dip = fac * trapz(ts2.dipolarity[ind:], ts2.time[ind:])
-        self.dipCMB = fac * trapz(ts2.dip_cmb[ind:], ts2.time[ind:])
-        self.els = fac * trapz(ts2.elsasser[ind:], ts2.time[ind:])
-        self.elsCMB = fac * trapz(ts2.els_cmb[ind:], ts2.time[ind:])
-        self.rol = fac * trapz(ts2.rossby_l[ind:], ts2.time[ind:])
-        self.reynolds = fac * trapz(ts2.rm[ind:], ts2.time[ind:])
-        self.dlB = fac * trapz(ts2.dlB[ind:], ts2.time[ind:])
-        self.dmB = fac * trapz(ts2.dmB[ind:], ts2.time[ind:])
-        self.dlV = fac * trapz(ts2.dlV[ind:], ts2.time[ind:])
-        self.dmV = fac * trapz(ts2.dmV[ind:], ts2.time[ind:])
-        self.dlVc = fac * trapz(ts2.dlVc[ind:], ts2.time[ind:])
 
+        if self.std:
+            self.dip, self.dip_std = avgField(ts2.time[ind:],
+                                     ts2.dipolarity[ind:], std=True)
+            self.dipCMB, self.dipCMB_std = avgField(ts2.time[ind:],
+                                           ts2.dip_cmb[ind:], std=True)
+            self.els, self.els_std = avgField(ts2.time[ind:],
+                                     ts2.elsasser[ind:], std=True)
+            self.elsCMB, self.elsCMB_std = avgField(ts2.time[ind:],
+                                           ts2.els_cmb[ind:], std=True)
+            self.rol, self.rol_std = avgField(ts2.time[ind:],
+                                     ts2.rossby_l[ind:], std=True)
+            self.reynolds, self.reynolds_std = avgField(ts2.time[ind:],
+                                               ts2.rm[ind:], std=True)
+            self.dlB, self.dlB_std = avgField(ts2.time[ind:],
+                                     ts2.dlB[ind:], std=True)
+            self.dmB, self.dmB_std = avgField(ts2.time[ind:],
+                                     ts2.dmB[ind:], std=True)
+            self.dlV, self.dlV_std = avgField(ts2.time[ind:],
+                                     ts2.dlV[ind:], std=True)
+            self.dmV, self.dmV_std = avgField(ts2.time[ind:],
+                                     ts2.dmV[ind:], std=True)
+            self.dlVc, self.dlVc_std = avgField(ts2.time[ind:],
+                                       ts2.dlVc[ind:], std=True)
+
+        else:
+            self.dip = avgField(ts2.time[ind:], ts2.dipolarity[ind:])
+            self.dipCMB = avgField(ts2.time[ind:], ts2.dip_cmb[ind:])
+            self.els = avgField(ts2.time[ind:], ts2.elsasser[ind:])
+            self.elsCMB = avgField(ts2.time[ind:], ts2.els_cmb[ind:])
+            self.rol = avgField(ts2.time[ind:], ts2.rossby_l[ind:])
+            self.reynolds = avgField(ts2.time[ind:], ts2.rm[ind:])
+            self.dlB = avgField(ts2.time[ind:], ts2.dlB[ind:])
+            self.dmB = avgField(ts2.time[ind:], ts2.dmB[ind:])
+            self.dlV = avgField(ts2.time[ind:], ts2.dlV[ind:])
+            self.dmV = avgField(ts2.time[ind:], ts2.dmV[ind:])
+            self.dlVc = avgField(ts2.time[ind:], ts2.dlVc[ind:])
+
+        # heat.TAG file
         if len(glob.glob('heat.*')) > 0:
             ts3 = MagicTs(field='heat', all=True, tag=tag, iplot=False)
         else:
@@ -673,62 +727,130 @@ class AvgField:
 
         mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
         ind = N.nonzero(mask)[0][0]
-        fac = 1./(ts3.time.max()-ts3.time[ind])
-        nussb = fac * trapz(ts3.botnuss[ind:], ts3.time[ind:])
-        nusst = fac * trapz(ts3.topnuss[ind:], ts3.time[ind:])
-        self.nuss = 0.5*(nussb+nusst)
+        nuss = 0.5*(ts3.botnuss+ts3.topnuss)
+
+        if self.std:
+            self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
+        else:
+            self.nuss = avgField(ts3.time[ind:], nuss[ind:])
 
         if self.mode == 0 or self.mode == 8:
+            # Emag OC file
             ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False, 
                           tag=tag)
             mask = N.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
                            1, 0)
             ind = N.nonzero(mask)[0][0]
-            fac = 1./(ts4.time.max()-ts4.time[ind])
-            self.emag_pol_avg = fac * trapz(ts4.emagoc_pol[ind:], ts4.time[ind:])
-            self.emag_tor_avg = fac * trapz(ts4.emagoc_tor[ind:], ts4.time[ind:])
-            self.emag_pola_avg = fac* trapz(ts4.emagoc_pol_axi[ind:], 
-                                            ts4.time[ind:])
-            self.emag_tora_avg = fac* trapz(ts4.emagoc_tor_axi[ind:], 
-                                            ts4.time[ind:])
-            self.emag_es_avg = fac*trapz((ts4.emagoc_pol_es[ind:] + \
-                                          ts4.emagoc_tor_es[ind:]),ts4.time[ind:])
-            if self.dipExtra:
-                ts5 = MagicTs(field='dipole', all=True, iplot=False, 
-                              tag=tag)
-                fac = 1./(ts5.time.max()-ts5.time[ind])
-                self.dipTot = fac*trapz(ts5.dipTot_cmb[ind:], ts5.time[ind:])
-                self.dipTotl11 = fac*trapz(ts5.dipTot_l11[ind:], ts5.time[ind:])
-                self.dipl11 = fac*trapz(ts5.dip_l11[ind:], ts5.time[ind:])
-                self.dip3 = fac*trapz(ts5.dip3[ind:], ts5.time[ind:])
+            emag_es = ts4.emagoc_pol_es+ts4.emagoc_tor_es
 
-            if len(glob.glob('power.*')) > 0:
-                tspow = MagicTs(field='power', all=True, iplot=False,
-                                tag=tag)
-                mask = N.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
+            if self.std:
+                self.emag_pol_avg, self.emag_pol_std = avgField(ts4.time[ind:],
+                                              ts4.emagoc_pol[ind:], std=True)
+                self.emag_tor_avg, self.emag_tor_std = avgField(ts4.time[ind:],
+                                              ts4.emagoc_tor[ind:], std=True)
+                self.emag_pola_avg, self.emag_pola_std = avgField(ts4.time[ind:], 
+                                              ts4.emagoc_pol_axi[ind:], std=True)
+                self.emag_tora_avg, self.emag_tora_std = avgField(ts4.time[ind:],
+                                              ts4.emagoc_tor_axi[ind:], std=True)
+                self.emag_es_avg, self.emag_es_std = avgField(ts4.time[ind:],
+                                              emag_es[ind:], std=True)
+            else:
+                self.emag_pol_avg = avgField(ts4.time[ind:], ts4.emagoc_pol[ind:])
+                self.emag_tor_avg = avgField(ts4.time[ind:], ts4.emagoc_tor[ind:])
+                self.emag_pola_avg = avgField(ts4.time[ind:], 
+                                              ts4.emagoc_pol_axi[ind:])
+                self.emag_tora_avg = avgField(ts4.time[ind:],
+                                              ts4.emagoc_tor_axi[ind:])
+                self.emag_es_avg = avgField(ts4.time[ind:], emag_es[ind:])
+
+            if self.dipExtra:
+                # dipole.TAG files
+                ts5 = MagicTs(field='dipole', all=True, iplot=False, tag=tag)
+                mask = N.where(abs(ts5.time-tstart) == min(abs(ts5.time-tstart)), 
                                1, 0)
                 ind = N.nonzero(mask)[0][0]
-                fac = 1./(tspow.time.max()-tspow.time[ind])
-                self.ohmDiss = fac*trapz(tspow.ohmDiss[ind:], tspow.time[ind:])
-                self.buoPower = fac*trapz(tspow.buoPower[ind:], tspow.time[ind:])
-                self.fohm = fac*trapz(tspow.fohm[ind:], tspow.time[ind:])
+
+                if self.std:
+                    self.dipTot, self.dipTot_std = avgField(ts5.time[ind:],
+                                                   ts5.dipTot_cmb[ind:], std=True)
+                    self.dipTotl11, self.dipTotl11_std = avgField(ts5.time[ind:],
+                                                   ts5.dipTot_l11[ind:], std=True)
+                    self.dipl11, self.dipl11_std = avgField(ts5.time[ind:],
+                                                   ts5.dip_l11[ind:], std=True)
+                    self.dip3, self.dip3_std = avgField(ts5.time[ind:],
+                                                   ts5.dip3[ind:], std=True)
+                else:
+                    self.dipTot = avgField(ts5.time[ind:], ts5.dipTot_cmb[ind:])
+                    self.dipTotl11 = avgField(ts5.time[ind:],ts5.dipTot_l11[ind:])
+                    self.dipl11 = avgField(ts5.time[ind:],ts5.dip_l11[ind:])
+                    self.dip3 = avgField(ts5.time[ind:],ts5.dip3[ind:])
+
+        if len(glob.glob('power.*')) > 0:
+            # power.TAG files
+            tspow = MagicTs(field='power', all=True, iplot=False,
+                            tag=tag)
+            mask = N.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
+                           1, 0)
+            ind = N.nonzero(mask)[0][0]
+
+            if self.std:
+                self.viscDiss, self.viscDiss_std = avgField(tspow.time[ind:],
+                                            -tspow.viscDiss[ind:], std=True)
+                self.buoPower, self.buoPower_std = avgField(tspow.time[ind:],
+                                             tspow.buoPower[ind:], std=True)
+                if self.mode == 0 or self.mode == 8:
+                    self.ohmDiss, self.ohmDiss_std = avgField(tspow.time[ind:],
+                                             tspow.ohmDiss[ind:], std=True)
+                    self.fohm, self.fohm_std = avgField(tspow.time[ind:],
+                                             tspow.fohm[ind:], std=True)
             else:
-                self.ohmDiss = -1.
-                self.buoPower = 1.
-                self.fohm = 1.
+                self.viscDiss = avgField(tspow.time[ind:], -tspow.viscDiss[ind:])
+                self.buoPower = avgField(tspow.time[ind:], tspow.buoPower[ind:])
+                if self.mode == 0 or self.mode == 8:
+                    self.ohmDiss = avgField(tspow.time[ind:], tspow.ohmDiss[ind:])
+                    self.fohm = avgField(tspow.time[ind:], tspow.fohm[ind:])
+
+        else:
+            self.ohmDiss = -1.
+            self.viscDiss = -1.
+            self.buoPower = 1.
+            self.fohm = 1.
+
+            if self.std:
+                self.ohmDiss_std = 0.
+                self.viscDiss_std = 0.
+                self.buoPower_std = 0.
+                self.fohm_std = 0.
 
         if len(glob.glob('u_square.*')) > 0 and self.strat > 0:
+            # u_square.TAG files
             ts = MagicTs(field='u_square', all=True, iplot=False)
             mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
             ind = N.nonzero(mask)[0][0]
-            fac = 1./(ts.time.max()-ts.time[ind])
-            self.ureynolds = fac * trapz(ts.rm[ind:], ts.time[ind:])
-            self.urol = fac * trapz(ts.rossby_l[ind:], ts.time[ind:])
-            self.udlV = fac * trapz(ts.dl[ind:], ts.time[ind:])
-            self.u2_pol = fac * trapz(ts.ekin_pol[ind:], ts.time[ind:])
-            self.u2_tor = fac * trapz(ts.ekin_tor[ind:], ts.time[ind:])
-            self.u2_pola = fac * trapz(ts.ekin_pol_axi[ind:], ts.time[ind:])
-            self.u2_tora = fac * trapz(ts.ekin_tor_axi[ind:], ts.time[ind:])
+
+            if self.std:
+                self.ureynolds, self.ureynolds_tsd = avgField(ts.time[ind:],
+                                                 ts.rm[ind:], std=True)
+                self.urol, self.urol_std = avgField(ts.time[ind:],
+                                           ts.rossby_l[ind:], std=True)
+                self.udlV, self.udlV_std = avgField(ts.time[ind:],
+                                           ts.dl[ind:], std=True)
+                self.u2_pol, self.u2_pol_std = avgField(ts.time[ind:],
+                                           ts.ekin_pol[ind:], std=True)
+                self.u2_tor, self.u2_tor_std = avgField(ts.time[ind:],
+                                           ts.ekin_tor[ind:], std=True)
+                self.u2_pola, self.u2_pola_std = avgField(ts.time[ind:],
+                                           ts.ekin_pol_axi[ind:], std=True)
+                self.u2_tora, self.u2_tora_std = avgField(ts.time[ind:],
+                                           ts.ekin_tor_axi[ind:], std=True)
+            else:
+                self.ureynolds = avgField(ts.time[ind:], ts.rm[ind:])
+                self.urol = avgField(ts.time[ind:], ts.rossby_l[ind:])
+                self.udlV = avgField(ts.time[ind:], ts.dl[ind:])
+                self.u2_pol = avgField(ts.time[ind:], ts.ekin_pol[ind:])
+                self.u2_tor = avgField(ts.time[ind:], ts.ekin_tor[ind:])
+                self.u2_pola = avgField(ts.time[ind:], ts.ekin_pol_axi[ind:])
+                self.u2_tora = avgField(ts.time[ind:], ts.ekin_tor_axi[ind:])
 
         else:
             self.ureynolds = self.reynolds
@@ -739,27 +861,56 @@ class AvgField:
             self.u2_pola = self.ekin_pola_avg
             self.u2_tora = self.ekin_tora_avg
 
+            if self.std:
+                self.ureynolds_std = self.reynolds_std
+                self.urol_std = self.rol_std
+                self.udlV_std = self.dlV_std
+                self.u2_pol_std = self.ekin_pol_std
+                self.u2_tor_std = self.ekin_tor_std
+                self.u2_pola_std = self.ekin_pola_std
+                self.u2_tora_std = self.ekin_tora_std
+
         if self.perpPar:
             if len(glob.glob('perpPar.*')) > 0:
+                # perpPar.TAG files
                 ts = MagicTs(field='perpPar', all=True, iplot=False)
-                mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+                mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)),
+                       1, 0)
                 ind = N.nonzero(mask)[0][0]
-                fac = 1./(ts.time.max()-ts.time[ind])
-                self.eperp = fac * trapz(ts.eperp[ind:], ts.time[ind:])
-                self.epar = fac * trapz(ts.epar[ind:], ts.time[ind:])
-                self.eperp_axi = fac * trapz(ts.eperp_axi[ind:], ts.time[ind:])
-                self.epar_axi = fac * trapz(ts.epar_axi[ind:], ts.time[ind:])
+
+                if self.std:
+                    self.eperp, self.eperp_std = avgField(ts.time[ind:],
+                                                 ts.eperp[ind:], std=True)
+                    self.epar, self.epar_std = avgField(ts.time[ind:],
+                                               ts.epar[ind:], std=True)
+                    self.eperp_axi, self.eperp_axi_std = avgField(ts.time[ind:],
+                                               ts.eperp_axi[ind:], std=True)
+                    self.epar_axi, self.epar_axi_std = avgField(ts.time[ind:],
+                                               ts.epar_axi[ind:], std=True)
+                else:
+                    self.eperp = avgField(ts.time[ind:], ts.eperp[ind:])
+                    self.epar = avgField(ts.time[ind:], ts.epar[ind:])
+                    self.eperp_axi = avgField(ts.time[ind:], ts.eperp_axi[ind:])
+                    self.epar_axi = avgField(ts.time[ind:], ts.epar_axi[ind:])
+
             else:
                 self.eperp = 0.
                 self.epar = 0.
                 self.eperp_axi = 0.
                 self.epar_axi = 0.
 
+                if self.std:
+                    self.eperp_std = 0.
+                    self.epar_std = 0.
+                    self.eperp_axi_std = 0.
+                    self.epar_axi_std = 0.
+
 
     def __str__(self):
         """
         Formatted output
         """
+        st_std=''
         if self.ek == -1:
             ek = 0. # to avoid the -1 for the non-rotating cases
         else:
@@ -771,21 +922,49 @@ class AvgField:
                self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora, \
                self.emag_pol_avg, self.emag_tor_avg,  self.emag_pola_avg, \
                self.emag_tora_avg, self.emag_es_avg)
+
+            if self.std:
+                st_std = '%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e%12.5e' % \
+                  (self.ekin_pol_std, \
+                   self.ekin_tor_std, self.ekin_pola_std, self.ekin_tora_std, \
+                   self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
+                   self.u2_tora_std, self.emag_pol_std, self.emag_tor_std, \
+                   self.emag_pola_std, self.emag_tora_std, self.emag_es_std)
              
             st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
                 (self.reynolds, self.ureynolds, self.rol, self.urol, \
                  self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
                  self.dlV, self.dmV, self.udlV, self.dlVc, self.dlB, self.dmB)
+
+            if self.std:
+                st_std +='%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
+                    (self.reynolds_std, self.ureynolds_std, self.rol_std, \
+                     self.urol_std, self.dip_std, self.dipCMB_std, self.els_std, \
+                     self.elsCMB_std, self.nuss_std, self.dlV_std, self.dmV_std, \
+                     self.udlV_std, self.dlVc_std, self.dlB_std, self.dmB_std)
+
             if self.dipExtra:
                 st +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot, self.dipl11, \
                                                self.dipTotl11, self.dip3)
 
+                if self.std:
+                    st_std +='%9.2e%9.2e%9.2e%9.2e' % (self.dipTot_std, \
+                             self.dipl11_std, self.dipTotl11_std, self.dip3_std)
+
             st += '%12.5e%12.5e%9.2e' % (self.buoPower, -self.ohmDiss, self.fohm)
+
+            if self.std:
+                st_std += '%12.5e%12.5e%9.2e' % (self.buoPower_std, \
+                          self.ohmDiss_std, self.fohm_std)
 
         else:
             st = '%.3e%12.5e%5.2f%6.2f%12.5e%12.5e%12.5e%12.5e' % \
               (self.ra, ek, self.strat, self.pr, self.ekin_pol_avg, \
                self.ekin_tor_avg, self.ekin_pola_avg, self.ekin_tora_avg)
+            if self.std:
+                st_std = '%12.5e%12.5e%12.5e%12.5e' % (self.ekin_pol_std, \
+                   self.ekin_tor_std, self.ekin_pola_std, self.ekin_tora_std)
+
             if self.strat == 0:
                 self.u2_pol = self.ekin_pol_avg
                 self.u2_tor = self.ekin_tor_avg
@@ -793,15 +972,43 @@ class AvgField:
                 self.u2_tora = self.ekin_tora_avg
                 self.urol = self.rol
                 self.ureynolds = self.reynolds
+                
+                if self.std:
+                    self.u2_pol_std = self.ekin_pol_std
+                    self.u2_tor_std = self.ekin_tor_std
+                    self.u2_pola = self.ekin_pola_std
+                    self.u2_tora = self.ekin_tora_std
+                    self.urol_std = self.rol_std
+                    self.ureynolds_std = self.reynolds_std
+
             st += '%12.5e%12.5e%12.5e%12.5e' % \
                   (self.u2_pol, self.u2_tor, self.u2_pola, self.u2_tora)
+            if self.std:
+                st_std += '%12.5e%12.5e%12.5e%12.5e' % \
+                      (self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
+                       self.u2_tora_std)
             st +='%8.2f%8.2f%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
               (self.reynolds, self.ureynolds, self.rol, self.urol, \
                self.nuss, self.dlV, self.dmV, self.udlV, self.dlVc)
+            if self.std:
+                st_std +='%9.2e%9.2e%9.2e%9.2e%12.5e%9.2e%9.2e%9.2e%9.2e' % \
+                  (self.reynolds_std, self.ureynolds_std, self.rol_std, \
+                   self.urol_std, self.nuss_std, self.dlV_std, self.dmV_std, \
+                   self.udlV_std, self.dlVc_std)
+
+            #st += '%12.5e%12.5e' % (self.buoPower, self.viscDiss)
+
+            #if self.std:
+            #    st_std += '%12.5e%12.5e' % (self.buoPower_std, self.viscDiss_std)
 
         if self.perpPar:
             st += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp, self.epar, \
                                                 self.eperp_axi, self.epar_axi)
+
+            if self.std:
+                st_std += '%12.5e%12.5e%12.5e%12.5e' % (self.eperp_std, \
+                          self.epar_std, self.eperp_axi_std, self.epar_axi_std)
+        st += st_std
         st += '\n'
 
         return st
