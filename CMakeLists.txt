@@ -21,6 +21,7 @@ set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack ca
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
 set(USE_HDF5    "no"   CACHE STRING "Use HDF5 to store check points")
 set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
+find_package(SSE)
 
 # Specific compiler options
 if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
@@ -33,7 +34,11 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES Intel)
    set(FFLAG_WARN_ALL  "-warn all,nointerfaces")
    set(FFLAG_CHECK_ALL "-check all")
    set(FFLAG_FPE       "-fpe0 -fp-stack-check -ftrapuv")
-   set(FFLAG_OPT      "-xHost")
+   if(AVX2_FOUND)
+      set(FFLAG_OPT      "-xCORE-AVX2")
+   else(AVX2_FOUND)
+      set(FFLAG_OPT     "-xHost")
+   endif(AVX2_FOUND)
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -45,7 +50,11 @@ if(CMAKE_Fortran_COMPILER_ID MATCHES GNU)
    set(FFLAG_WARN_ALL  "-Wall -Wno-maybe-uninitialized")
    set(FFLAG_CHECK_ALL "-fcheck=all")
    set(FFLAG_FPE       "-ffpe-trap=invalid,zero,overflow")
-   set(FFLAG_OPT      "-march=native")
+   if(AVX2_FOUND)
+      set(FFLAG_OPT      "-march=core-avx2")
+   else(AVX2_FOUND)
+      set(FFLAG_OPT      "-march=native")
+   endif(AVX2_FOUND)
 endif()
 if(CMAKE_Fortran_COMPILER_ID MATCHES PGI)
    set(FFLAG_ARCH      "-m${ARCH}")
@@ -196,12 +205,19 @@ message(STATUS "HDF5 for check points: '${USE_HDF5}'")
 
 find_library(FFTW3 NAME fftw3
     PATHS /usr/local/fftw/3.3.4_openmp/lib
-         $ENV{FFTW_ROOT}/lib)
-find_library(FFTW3_OMP NAME fftw3_omp
-    PATHS /usr/local/fftw/3.3.4_openmp/lib
-         $ENV{FFTW_ROOT}/lib)
+         $ENV{FFTW_ROOT}/lib
+         $ENV{FFTW_HOME}/lib                 #Hydra
+         $ENV{FFTWDIR})                      #GWDG
 message(STATUS "FFTW3: '${FFTW3}'")
-message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
+
+if(USE_OMP)
+   find_library(FFTW3_OMP NAME fftw3_omp
+       PATHS /usr/local/fftw/3.3.4_openmp/lib
+            $ENV{FFTW_ROOT}/lib
+            $ENV{FFTW_HOME}/lib              #Hydra
+            $ENV{FFTWDIR})                   #GWDG
+   message(STATUS "FFTW3_OMP: '${FFTW3_OMP}'")
+endif()
 
 # Detect SHTNS
 if(USE_SHTNS MATCHES yes)

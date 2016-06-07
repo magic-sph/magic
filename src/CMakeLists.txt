@@ -99,7 +99,7 @@ if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
       COMPILE_OUTPUT_VARIABLE OUTPUT)
 
    if(SHTNS_LINK)
-      set(SHTNS_DEPS "${MKLCORE} ${MKLSEQ} ${MKL64}")
+      set(SHTNS_DEPS ${MKLCORE} ${MKLSEQ} ${MKL64})
    endif()
 
    if(NOT SHTNS_LINK)
@@ -116,11 +116,12 @@ if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)
          LINK_LIBRARIES ${SHTNS} ${FFTW3_OMP} ${FFTW3}
          COMPILE_OUTPUT_VARIABLE OUTPUT)
       if(SHTNS_LINK)
-         set(SHTNS_DEPS "${FFTW3_OMP} ${FFTW3}")
+         set(SHTNS_DEPS ${FFTW3_OMP} ${FFTW3})
       endif(SHTNS_LINK)
    endif(NOT SHTNS_LINK)
 
    set(LIBS "${LIBS} ${SHTNS_DEPS}")
    target_link_libraries(${EXEC} ${SHTNS})
+   target_link_libraries(${EXEC} ${SHTNS_DEPS})
 
 endif()
