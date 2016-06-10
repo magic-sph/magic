@@ -119,12 +119,14 @@ contains
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
          & omega_ma2,omegaOsz_ma2,tShift_ma2,             &
-         & amp_RiMa,omega_RiMa,m_RiMa
+         & amp_RiMaAsym,omega_RiMaAsym,m_RiMaAsym,        &
+         & amp_RiMaSym,omega_RiMaSym,m_RiMaSym
 
       namelist/inner_core/sigma_ratio,nRotIc,rho_ratio_ic, &
          & omega_ic1,omegaOsz_ic1,tShift_ic1,              &
          & omega_ic2,omegaOsz_ic2,tShift_ic2,BIC,          &
-         & amp_RiIc,omega_RiIc,m_RiIc
+         & amp_RiIcAsym,omega_RiIcAsym,m_RiIcAsym,         &
+         & amp_RiIcSym,omega_RiIcSym,m_RiIcSym
 
 
       do n=1,4*n_impS_max
@@ -274,8 +276,6 @@ contains
       l_SRIC   =.false.
       l_SRMA   =.false.
       l_Ri     =.false.
-      l_RiIc   =.false.
-      l_RiMa   =.false.
 
       if ( mode == 1 ) then
          !-- Only convection:
@@ -364,16 +364,11 @@ contains
          l_SRMA  =.true.
       end if
 
-      !-- Rieutord forcing at boundaries
+      !-- Inertial mode forcing at boundaries
 
-      if ( amp_RiIc /= 0.0_cp ) then
+      if ( amp_RiIcAsym /= 0.0_cp .or. amp_RiIcSym /= 0.0_cp .or. &
+           amp_RiMaAsym /= 0.0_cp .or. amp_RiMaSym /= 0.0_cp) then
          l_Ri   = .true.
-         l_RiIc = .true.
-      end if
-
-      if ( amp_RiMa /= 0.0_cp ) then
-         l_Ri   = .true.
-         l_RiMa = .true.
       end if
 
       if ( raxi > 0.0_cp ) then
@@ -1402,10 +1397,13 @@ contains
       omega_ma2     =0.0_cp    ! second mantle rotation rate 
       omegaOsz_ma2  =0.0_cp    ! oscillation frequency of second mantle rotation
       tShift_ma2    =0.0_cp    ! time shift for second rotation
-      amp_RiMa      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiMa    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiMa        =0         ! default forcing -> axisymmetric 
-      
+      amp_RiMaAsym  =0.0_cp    ! amplitude of Rieutord forcing (eq anti-symm)
+      omega_RiMaAsym=0.0_cp    ! frequency of Rieutord forcing (eq anti-symm)
+      m_RiMaAsym    =0         ! default forcing -> axisymmetric (eq anti-symm)
+      amp_RiMaSym   =0.0_cp    ! amplitude of Rieutord forcing (eq symm)
+      omega_RiMaSym =0.0_cp    ! frequency of Rieutord forcing (eq symm)
+      m_RiMaSym     =0         ! default forcing -> axisymmetric (eq symm)
+
       !----- Inner core name list:
       sigma_ratio   =0.0_cp    ! no conducting inner core is default 
       nRotIc        =0         ! non rotating inner core is default
@@ -1417,9 +1415,13 @@ contains
       omegaOsz_ic2  =0.0_cp    ! oszillation frequency of second IC rotation rate
       tShift_ic2    =0.0_cp    ! tims shift for second IC rotation
       BIC           =0.0_cp    ! Imposed dipole field strength at ICB
-      amp_RiIc      =0.0_cp    ! amplitude of Rieutord forcing
-      omega_RiIc    =0.0_cp    ! frequency of Rieutord forcing
-      m_RiIc        =0         ! default forcing -> axisymmetric
+      amp_RiIcAsym  =0.0_cp    ! amplitude of Rieutord forcing (eq anti-symm)
+      omega_RiIcAsym=0.0_cp    ! frequency of Rieutord forcing (eq anti-symm)
+      m_RiIcAsym    =0         ! default forcing -> axisymmetric (eq anti-symm)
+      amp_RiIcSym  =0.0_cp     ! amplitude of Rieutord forcing (eq symm)
+      omega_RiIcSym=0.0_cp     ! frequency of Rieutord forcing (eq symm)
+      m_RiIcSym    =0          ! default forcing -> axisymmetric (eq symm)
+
 
    end subroutine defaultNamelists
 !------------------------------------------------------------------------------

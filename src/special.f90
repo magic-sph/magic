@@ -30,14 +30,15 @@ module special
    real(cp), public :: amp_curr   ! Amplitude of magnetic field of current loop
    real(cp), public, allocatable :: fac_loop(:)  ! Array of factors for computing magnetic field for loop
 
-   !-- A toroidal boundary force of symmetry (m,m) is used.
+   !-- A toroidal boundary force of symmetry (m,m) or (m+1,m) is used.
    !-- Can be applied to inner or outer boundary.
-   logical, public :: l_Ri                  !Decide whether to use forcing at all
-   logical, public :: l_RiIc,l_RiMa         !Switches to decide which boundary
-                                            !should be forced           
-   integer, public :: m_RiIc,m_RiMa         !Order of forcing at boundaries
-   real(cp), public :: amp_RiIc,omega_RiIc  !Inner boundary
-   real(cp), public :: amp_RiMa,omega_RiMa  !Outer boundary
+   logical, public :: l_Ri                          !Decide whether to use forcing at all
+   integer, public :: m_RiIcAsym,m_RiMaAsym         !Order of forcing at boundaries
+   integer, public :: m_RiIcSym,m_RiMaSym           !Order of forcing at boundaries
+   real(cp), public :: amp_RiIcAsym,omega_RiIcAsym  !Inner boundary (eq anti symm)
+   real(cp), public :: amp_RiIcSym,omega_RiIcSym    !Inner boundary (eq symm)
+   real(cp), public :: amp_RiMaAsym,omega_RiMaAsym  !Outer boundary (eq anti symm)
+   real(cp), public :: amp_RiMaSym,omega_RiMaSym    !Outer boundary (eq symm)
 
    public :: initialize_Grenoble
 
