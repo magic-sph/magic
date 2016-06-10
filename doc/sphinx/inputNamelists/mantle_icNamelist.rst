@@ -44,13 +44,21 @@ The resultant prescribed mantle rotation rate is computed as:
   omega_ma = omega_ma1*cos(omegaOsz_ma1*(time+tShift_ma1)) + &
              omega_ma2*cos(omegaOsz_ma2*(time+tShift_ma2))
 
-The following defines the parameters when one wants to excite inertial modes in the system artificially using the method used in `Rieutord et. al 2012 <http://dx.doi.org/10.1103/PhysRevE.86.026304>`_ .
+The following defines the parameters when one wants to excite inertial modes in
+the system artificially using a method similar to `Rieutord et. al 2012
+<http://dx.doi.org/10.1103/PhysRevE.86.026304>`_ .
 
-* **amp_RiMa** (default :f:var:`amp_RiMa=0.0 <amp_rima>`) is a real which defines the amplitude of forcing on the outer boundary
+* **amp_RiMaSym** (default :f:var:`amp_RiMaSym=0.0 <amp_rimasym>`) is a real which defines the amplitude of forcing on the outer boundary for an equatorially symmetric mode
 
-* **omega_RiMa** (default :f:var:`omega_RiMa=0.0 <omega_rima>`) is a real which defines the frequency of forcing on the outer boundary
+* **omega_RiMaSym** (default :f:var:`omega_RiMaSym=0.0 <omega_rimasym>`) is a real which defines the frequency of forcing on the outer boundary for an equatorially symmetric mode 
 
-* **m_RiMa** (default :f:var:`m_RiMa=0.0 <m_rima>`) is an integer which defines the wavenumber of the mode one wants to excite
+* **m_RiMaSym** (default :f:var:`m_RiMaSym=0.0 <m_rimasym>`) is an integer which defines the wavenumber of the equatorially symmetric mode one wants to excite
+
+The following variables define the same for an equatorially anti-symmetric mode:
+
+* **amp_RiMaAsym** (default :f:var:`amp_RiMaAsym=0.0 <amp_rimaasym>`)
+* **omega_RiMaAsym** (default :f:var:`omega_RiMaAsym=0.0 <omega_rimaasym>`)
+* **m_RiMaAsym** (default :f:var:`m_RiMaAsym=0.0 <m_rimaasym>`)
 
 .. _secInnerCore:
 
@@ -87,10 +95,14 @@ As with the mantle, the resultant prescribed rotation rate for the inner core is
 
 The following, as for the mantle namelist, is for artificially exciting inertial modes in the spherical shell, but for the inner boundary.
 
-* **amp_RiIc** (default :f:var:`amp_RiIc=0.0 <amp_riic>`) is a real which defines the amplitude of forcing on the inner boundary
+* **amp_RiIcSym** (default :f:var:`amp_RiIcSym=0.0 <amp_riicsym>`) is a real which defines the amplitude of forcing on the inner boundary for an equatorially symmetric mode
 
-* **omega_RiIc** (default :f:var:`omega_RiIc=0.0 <omega_riic>`) is a real which defines the frequency of forcing on the inner boundary
+* **omega_RiIcSym** (default :f:var:`omega_RiIcSym=0.0 <omega_riicsym>`) is a real which defines the frequency of forcing on the inner boundary for an equatorially symmetric mode 
 
-* **m_RiIc** (default :f:var:`m_RiIc=0.0 <m_riic>`) is an integer which defines the wavenumber of the mode one wants to excite
+* **m_RiIcSym** (default :f:var:`m_RiIcSym=0.0 <m_riicsym>`) is an integer which defines the wavenumber of the equatorially symmetric mode one wants to excite
 
+The following variables define the same for an equatorially anti-symmetric mode:
 
+* **amp_RiIcAsym** (default :f:var:`amp_RiIcAsym=0.0 <amp_riicasym>`)
+* **omega_RiIcAsym** (default :f:var:`omega_RiIcAsym=0.0 <omega_riicasym>`)
+* **m_RiIcAsym** (default :f:var:`m_RiIcAsym=0.0 <m_riicasym>`)
