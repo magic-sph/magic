@@ -1005,6 +1005,12 @@ contains
       write(n_out,'(''  omega_ma2       ='',ES14.6,'','')') omega_ma2
       write(n_out,'(''  omegaOsz_ma2    ='',ES14.6,'','')') omegaOsz_ma2
       write(n_out,'(''  tShift_ma2      ='',ES14.6,'','')') tShift_ma2
+      write(n_out,'(''  amp_RiMaAsym    ='',ES14.6,'','')') amp_RiMaAsym
+      write(n_out,'(''  omega_RiMaAsym  ='',ES14.6,'','')') omega_RiMaAsym
+      write(n_out,'(''  m_RiMaAsym      ='',i4,'','')') m_RiMaAsym
+      write(n_out,'(''  amp_RiMaSym    ='',ES14.6,'','')') amp_RiMaSym
+      write(n_out,'(''  omega_RiMaSym  ='',ES14.6,'','')') omega_RiMaSym
+      write(n_out,'(''  m_RiMaSym      ='',i4,'','')')  m_RiMaSym
       write(n_out,*) "/"
 
       write(n_out,*) "&inner_core"
@@ -1018,6 +1024,12 @@ contains
       write(n_out,'(''  omegaOsz_ic2    ='',ES14.6,'','')') omegaOsz_ic2
       write(n_out,'(''  tShift_ic2      ='',ES14.6,'','')') tShift_ic2
       write(n_out,'(''  BIC             ='',ES14.6,'','')') BIC
+      write(n_out,'(''  amp_RiIcAsym    ='',ES14.6,'','')') amp_RiIcAsym
+      write(n_out,'(''  omega_RiIcAsym  ='',ES14.6,'','')') omega_RiIcAsym
+      write(n_out,'(''  m_RiIcAsym      ='',i4,'','')') m_RiIcAsym
+      write(n_out,'(''  amp_RiIcSym    ='',ES14.6,'','')') amp_RiIcSym
+      write(n_out,'(''  omega_RiIcSym  ='',ES14.6,'','')') omega_RiIcSym
+      write(n_out,'(''  m_RiIcSym      ='',i4,'','')')  m_RiIcSym
       write(n_out,*) "/"
       write(n_out,*) " "
 

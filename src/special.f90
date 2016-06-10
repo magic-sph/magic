@@ -1,7 +1,8 @@
 module special
    !
-   ! This module contains all variables for the case of an imposed IC dipole
-   !
+   ! This module contains all variables for the case of an imposed IC dipole,
+   ! an imposed external magnetic field and a special boundary forcing to excite
+   ! inertial modes
 
    use truncation, only: n_r_maxMag
    use precision_mod
@@ -30,15 +31,22 @@ module special
    real(cp), public :: amp_curr   ! Amplitude of magnetic field of current loop
    real(cp), public, allocatable :: fac_loop(:)  ! Array of factors for computing magnetic field for loop
 
-   !-- A toroidal boundary force of symmetry (m,m) or (m+1,m) is used.
-   !-- Can be applied to inner or outer boundary.
-   logical, public :: l_Ri                          !Decide whether to use forcing at all
-   integer, public :: m_RiIcAsym,m_RiMaAsym         !Order of forcing at boundaries
-   integer, public :: m_RiIcSym,m_RiMaSym           !Order of forcing at boundaries
-   real(cp), public :: amp_RiIcAsym,omega_RiIcAsym  !Inner boundary (eq anti symm)
-   real(cp), public :: amp_RiIcSym,omega_RiIcSym    !Inner boundary (eq symm)
-   real(cp), public :: amp_RiMaAsym,omega_RiMaAsym  !Outer boundary (eq anti symm)
-   real(cp), public :: amp_RiMaSym,omega_RiMaSym    !Outer boundary (eq symm)
+   !-- Parameters for a toroidal boundary forcing of symmetry (m,m) or (m+1,m)
+   !-- to excite inertial modes of desired symmetry
+   !-- Can be applied to inner or outer boundary
+   logical, public :: l_Ri                          !Decide whether to use inertial-mode forcing
+   integer, public :: m_RiIcAsym                    !Order of forcing at the inner boundary (eq anti symm)
+   integer, public :: m_RiMaAsym                    !Order of forcing at the outer boundary (eq anti symm)
+   integer, public :: m_RiIcSym                     !Order of forcing at the inner boundary (eq symm)
+   integer, public :: m_RiMaSym                     !Order of forcing at the outer boundary (eq symm)
+   real(cp), public :: amp_RiIcAsym                 !Amplitude of forcing at the inner boundary (eq anti symm)
+   real(cp), public :: omega_RiIcAsym               !Frequency of forcing at the inner boundary (eq anti symm)
+   real(cp), public :: amp_RiIcSym                  !Amplitude of forcing at the inner boundary (eq symm)
+   real(cp), public :: omega_RiIcSym                !Frequency of forcing at the inner boundary (eq symm)
+   real(cp), public :: amp_RiMaAsym                 !Amplitude of forcing at the outer boundary (eq anti symm)
+   real(cp), public :: omega_RiMaAsym               !Frequency of forcing at the outer boundary (eq anti symm)
+   real(cp), public :: amp_RiMaSym                  !Amplitude of forcing at the outer boundary (eq symm)
+   real(cp), public :: omega_RiMaSym                !Frequency of forcing at the outer boundary (eq symm)
 
    public :: initialize_Grenoble
 
