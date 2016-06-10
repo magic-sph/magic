@@ -25,7 +25,7 @@ This namelist defines mantle properties
 
 * **rho_ratio_ma** (default :f:var:`rho_ratio_ma=1 <rho_ratio_ma>`) is a real which gives the density of the mantle in terms of that of the outer core.
 
-* **omega_ma1** (default :f:var:`omega_ma1=0.0 <omega_ma1>`) is a real which defines a mantle rotation rate (used when ``nRotMa=0``).
+* **omega_ma1** (default :f:var:`omega_ma1=0.0 <omega_ma1>`) is a real which defines a mantle rotation rate (used when ``nRotMa=-1``).
 
 * **omegaOsz_ma1** (default :f:var:`omegaOsz_ma1=0.0 <omegaosz_ma1>`) is a real which prescribes the oscillation frequency of the mantle rotation rate. In this case, ``omega_ma1`` is the amplitude of the oscillation.
 
