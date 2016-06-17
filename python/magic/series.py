@@ -722,17 +722,21 @@ class AvgField:
         # heat.TAG file
         if len(glob.glob('heat.*')) > 0:
             ts3 = MagicTs(field='heat', all=True, tag=tag, iplot=False)
-        else:
+        elif len(glob.glob('misc.*')) > 0:
             ts3 = MagicTs(field='misc', all=True, tag=tag, iplot=False)
-
-        mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
-        ind = N.nonzero(mask)[0][0]
-        nuss = 0.5*(ts3.botnuss+ts3.topnuss)
-
-        if self.std:
-            self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
         else:
-            self.nuss = avgField(ts3.time[ind:], nuss[ind:])
+            ts3 = None
+
+        if ts3 != None:
+            if (self.mode != 7 and self.mode != 8):
+                mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
+                ind = N.nonzero(mask)[0][0]
+                nuss = 0.5*(ts3.botnuss+ts3.topnuss)
+
+                if self.std:
+                    self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
+                else:
+                    self.nuss = avgField(ts3.time[ind:], nuss[ind:])
 
         if self.mode == 0 or self.mode == 8:
             # Emag OC file
