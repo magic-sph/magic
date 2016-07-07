@@ -548,6 +548,13 @@ contains
 
       !$OMP SECTION
       do iThread=1,this%nThreads-1
+         this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
+         this%nl_lm(0)%VXitLM=this%nl_lm(0)%VXitLM + this%nl_lm(iThread)%VXitLM
+         this%nl_lm(0)%VXipLM=this%nl_lm(0)%VXipLM + this%nl_lm(iThread)%VXipLM
+      end do
+
+      !$OMP SECTION
+      do iThread=1,this%nThreads-1
          this%nl_lm(0)%ViscHeatLM=this%nl_lm(0)%ViscHeatLM +  &
                                   this%nl_lm(iThread)%ViscHeatLM
          this%nl_lm(0)%OhmLossLM=this%nl_lm(0)%OhmLossLM +    &

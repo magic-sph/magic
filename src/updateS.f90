@@ -66,8 +66,8 @@ contains
                         maxThreads*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateS
-  
-   subroutine updateS(s,ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
+!------------------------------------------------------------------------------
+   subroutine updateS(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
       !
       !  updates the entropy field s and its radial derivatives
       !  adds explicit part to time derivatives of s
@@ -78,6 +78,7 @@ contains
       real(cp),    intent(in) :: coex      ! factor depending on alpha
       real(cp),    intent(in) :: dt        ! time step
       integer,     intent(in) :: nLMB
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)
 
       !-- Input/output of scalar fields:
@@ -246,9 +247,11 @@ contains
                   rhs1(n_r_max,lmB,threadid)=sMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt + &
-                                          w1*dsdt(lm1,nR) + &
-                                          w2*dsdtLast(lm1,nR)
+                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt +            &
+                         &                w1*dsdt(lm1,nR) +            &
+                         &                w2*dsdtLast(lm1,nR) -        &
+                         &  alpha*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) &
+                         &  *or2(nR)*orho1(nR)*dentropy0(nR)*w(lm1,nR)
 #ifdef WITH_PRECOND_S
                      rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif
@@ -323,7 +326,8 @@ contains
       !$OMP shared(s,ds,dsdtLast,chebt_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2)
+      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1) &
+      !$OMP shared(dentropy0,dLkappa,dLh,or2)
       !$OMP DO
       do iThread=0,nThreads-1
          start_lm=lmStart+iThread*per_thread
@@ -341,12 +345,14 @@ contains
       do nR=n_r_cmb+1,n_r_icb-1
          do lm1=lmStart,lmStop
             dsdtLast(lm1,nR)=dsdt(lm1,nR) &
-                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * kappa(nR) * &
-                 &   ( workA(lm1,nR) &
-                 &     + ( beta(nR) + dLtemp0(nR) + &
-                 &       two*or1(nR) + dLkappa(nR) ) * ds(lm1,nR) &
-                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) * or2(nR)   *  s(lm1,nR) &
-                 &   )
+                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
+                 &   kappa(nR) *                        ( workA(lm1,nR) &
+                 &   + ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) ) &
+                 &                                         * ds(lm1,nR) &
+                 &   - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)     &
+                 &                                         *  s(lm1,nR) &
+                 &   )+coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)&
+                 &    *orho1(nR)*dentropy0(nR)*               w(lm1,nR)
          end do
       end do
       !$OMP end do
@@ -644,7 +650,7 @@ contains
            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
                 &   (                                              workA(lm1,nR) &
-                &           + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) * ds(lm1,nR) &
+                &           + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *  ds(lm1,nR) &
                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) &
                 &   ) + coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)        &
                 &           *orho1(nR)*temp0(nR)*dentropy0(nR)*        w(lm1,nR)
