@@ -169,12 +169,11 @@ contains
          if ( .not. l_single_matrix ) then
             PERFON('up_S')
             if ( l_anelastic_liquid ) then
-               call updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,    & 
-                    &       dsdtLast_LMloc,w1,coex,dt,nLMB)
+               call updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,     & 
+                    &           dsdtLast_LMloc,w1,coex,dt,nLMB)
             else
-               call updateS(s_LMloc,ds_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
+               call updateS(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
                     &       w1,coex,dt,nLMB)
-
             end if
             PERFOFF
             ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
