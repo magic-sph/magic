@@ -69,9 +69,9 @@ contains
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
          & con_LambdaOut,con_FuncWidth,ThExpNb,               &
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
-         & epsS,slopeStrat,cmbHflux,r_LCR,                    &
+         & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,    &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
-         & l_isothermal
+         & nVarEntropyGrad,l_isothermal
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -776,6 +776,9 @@ contains
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
       write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
+      write(n_out,'(''  rStrat          ='',ES14.6,'','')') rStrat
+      write(n_out,'(''  ampStrat        ='',ES14.6,'','')') ampStrat
+      write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
       length=length_to_blank(interior_model)
@@ -1129,10 +1132,13 @@ contains
       polind     =2.0_cp     ! Polytropic index
       GrunNb     =one/polind ! Gruneisen parameter
       r_cut_model=0.98_cp    ! outer radius when using interior model
-      !----- Stably  stratified layer
+      !----- Stably stratified layer
       epsS       =0.0_cp
       cmbHflux   =0.0_cp
       slopeStrat =20.0_cp
+      rStrat     =1.3_cp
+      ampStrat   =10.0_cp
+      nVarEntropyGrad=0
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp
       g1         =one

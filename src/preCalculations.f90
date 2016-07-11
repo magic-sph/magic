@@ -15,7 +15,7 @@ module preCalculations
        &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
        &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
-       &            l_LCR, l_dt_cmb_field, l_storePot,                 &
+       &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
        &            l_temperature_diff, l_chemical_conv
    use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
        &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
@@ -184,7 +184,7 @@ contains
     
       call transportProperties
 
-      if ( ( l_anel ) .and. ( rank == 0 ) ) then
+      if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
          ! Write the equilibrium setup in anel.TAG
          fileName='anel.'//TAG
          open(99, file=fileName, status='unknown')
@@ -496,7 +496,7 @@ contains
     
          end if
     
-         if ( l_anelastic_liquid ) then
+         if ( l_non_adia ) then
             bots(0,0)=0.0_cp
             tops(0,0)=0.0_cp
             epsc=0.0_cp

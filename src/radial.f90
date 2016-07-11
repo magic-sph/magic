@@ -11,7 +11,7 @@ module radial_functions
    use physical_parameters
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
-       &            l_isothermal, l_anel, l_newmap
+       &            l_isothermal, l_anel, l_newmap, l_non_adia
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -188,7 +188,6 @@ contains
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
-      real(cp) :: rStrat
       real(cp), allocatable :: coeffDens(:), coeffTemp(:)
       real(cp) :: w1(n_r_max),w2(n_r_max)
       character(len=80) :: message
@@ -270,6 +269,9 @@ contains
       or2=or1*or1       ! 1/r**2
       or3=or1*or2       ! 1/r**3
       or4=or2*or2       ! 1/r**4
+
+      !-- Get entropy gradient
+      call getEntropyGradient ! By default this is zero
 
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
@@ -397,7 +399,8 @@ contains
          end do
 
          dentropy0=dtemp0/temp0/epsS+DissNb*alpha0*rgrav/epsS
-         drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb*alpha0*rgrav/GrunNb
+         !drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb*alpha0*rgrav/GrunNb
+         drho0=-DissNb*alpha0*rgrav/GrunNb
          call getBackground(drho0,0.0_cp,rho0)
          rho0=exp(rho0) ! this was ln(rho_0)
          beta=drho0
@@ -419,12 +422,13 @@ contains
          ! N.B. rgrav is not gravity but alpha * grav
          rgrav = alpha0*rgrav
 
+         l_non_adia = .true.
+
       else  !-- Usual polytropic reference state
          ! g(r) = g0 + g1*r/ro + g2*(ro/r)**2
          ! Default values: g0=0, g1=1, g2=0
          ! An easy way to change gravity
-         rgrav=g0+g1*r/r_cmb+g2*(r_cmb/r)**2
-         dentropy0=0.0_cp
+         rgrav(:)=g0+g1*r(:)/r_cmb+g2*(r_cmb/r)**2
 
          if (l_anel) then
             if (l_isothermal) then ! Gruneisen is zero in this limit
@@ -517,7 +521,6 @@ contains
          dLtemp0  =0.0_cp
          ddLtemp0 =0.0_cp
          d2temp0  =0.0_cp
-         dentropy0=0.0_cp
          ViscHeatFac=0.0_cp
          OhmLossFac =0.0_cp
       end if
@@ -780,6 +783,43 @@ contains
       end if
 
    end subroutine transportProperties
+!------------------------------------------------------------------------------
+   subroutine getEntropyGradient
+      !
+      ! This subroutine allows to calculate the background entropy gradient
+      ! in case stable stratification is required
+      !
+
+      integer :: n_r
+
+      if ( nVarEntropyGrad == 0 ) then ! Default: isentropic
+         dEntropy0(:)=0.0_cp
+         l_non_adia = .false.
+      else if ( nVarEntropyGrad == 1 ) then ! Takehiro
+         if ( rStrat <= r_icb ) then
+            dentropy0(:) = ampStrat
+         else
+            dentropy0(:) = -half*(ampStrat+one)*(one-tanh(slopeStrat*(r(:)-rStrat)))&
+            &              + ampStrat
+         end if
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 2 ) then ! Flat + linear
+         if ( rStrat <= r_icb ) then
+            dentropy0(:) = ampStrat
+         else
+            do n_r=1,n_r_max
+               if ( r(n_r) <= rStrat ) then
+                  dentropy0(n_r)=-one
+               else
+                  dentropy0(n_r)=(ampStrat+one)*(r(n_r)-r_cmb)/(r_cmb-rStrat) + &
+                  &              ampStrat
+               end if
+            end do
+         end if
+         l_non_adia = .true.
+      end if
+
+   end subroutine getEntropyGradient
 !------------------------------------------------------------------------------
    subroutine getBackground(input,boundaryVal,output)
       !

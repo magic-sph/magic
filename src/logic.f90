@@ -81,5 +81,6 @@ module logic
    logical :: l_temperature_diff ! diffusion of temperature instead of entropy
 
    logical :: l_chemical_conv ! Switch for chemical convection
+   logical :: l_non_adia ! Switch in case the reference state is non-adiabatic
 
 end module logic

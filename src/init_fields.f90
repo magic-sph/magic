@@ -8,7 +8,7 @@ module init_fields
        &                      phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_anelastic_liquid, &
        &            l_cond_ic, l_temperature_diff, l_single_matrix,    &
-       &            l_chemical_conv
+       &            l_chemical_conv, l_non_adia
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       cheb_norm, lambda, or2, d2cheb, dcheb,  &
        &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
@@ -420,23 +420,24 @@ contains
       if ( .not. l_start_file ) then
 
          if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
-            if ( l_single_matrix ) then
-               call ps_cond(s0,p0)
-               open(unit=999, file='pscond.dat')
-               do n_r=1,n_r_max
-                  s(lm00,n_r)=s0(n_r)
-                  p(lm00,n_r)=p0(n_r)
-                  write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi,  &
-                  &            osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)*  &
-                  &            orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac), &
-                  &            osq4pi*alpha0(n_r)*ThExpNb*(-rho0(n_r)*  &
-                  &            temp0(n_r)*s0(n_r)+ViscHeatFac*ogrun*    &
-                  &            p0(n_r))
-               end do
-               close(999)
-
-            else
-               if ( .not. l_anelastic_liquid ) then
+            if ( l_single_matrix ) then ! ps cond is required
+               if ( .not. l_non_adia ) then
+                  call ps_cond(s0,p0)
+                  open(unit=999, file='pscond.dat')
+                  do n_r=1,n_r_max
+                     s(lm00,n_r)=s0(n_r)
+                     p(lm00,n_r)=p0(n_r)
+                     write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi,  &
+                     &            osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)*  &
+                     &            orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac), &
+                     &            osq4pi*alpha0(n_r)*ThExpNb*(-rho0(n_r)*  &
+                     &            temp0(n_r)*s0(n_r)+ViscHeatFac*ogrun*    &
+                     &            p0(n_r))
+                  end do
+                  close(999)
+               end if
+            else ! s cond is enough
+               if ( .not. l_non_adia ) then
                   call s_cond(s0)
                   open(unit=999, file='scond.dat')
                   do n_r=1,n_r_max

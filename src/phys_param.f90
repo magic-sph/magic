@@ -55,6 +55,9 @@ module physical_parameters
    real(cp) :: epsS           ! Deviation from the adiabat
    real(cp) :: cmbHflux       ! stratified Layer
    real(cp) :: slopeStrat     ! stratified Layer
+   real(cp) :: rStrat         ! stratified Layer
+   real(cp) :: ampStrat       ! stratified Layer
+   integer  :: nVarEntropyGrad! stratified Layer
    character(len=72) :: interior_model ! name of the interior model
    real(cp) :: r_cut_model    ! Percentage on the inner part of the interior model to be used
    real(cp) :: g0             ! Set to 1.0 for constant gravity
