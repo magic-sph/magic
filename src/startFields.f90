@@ -30,6 +30,7 @@ module start_fields
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start,lo2r_s,lo2r_z, lo2r_p,    &
                              lo2r_b, lo2r_aj, scatter_from_rank0_to_lo,  &
+                             gather_from_lo_to_rank0, &
                              get_global_sum, lo2r_w
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
@@ -97,21 +98,53 @@ contains
       if ( l_start_file ) then
 #ifdef WITH_HDF5
          if ( index(start_file,'h5_') /= 0 ) then
-            if (rank /= 0) then
-               call readHdf5( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc, &
-                    &         b_LMloc,dbdtLast_LMloc,aj_LMloc,djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,     &
-                    &         aj_ic_LMloc,djdt_icLast_LMloc,omega_ic,omega_ma,         &
-                    &         lorentz_torque_icLast,lorentz_torque_maLast, &
-                    &         time,dt,dtNew, &
-                    &         llm, ulm, llmMag, ulmMag)
-            else
-               call readHdf5( w,dwdtLast,z,dzdtLast_lo,p,dpdtLast,s,dsdtLast, &
-                    &         b,dbdtLast,aj,djdtLast,b_ic,dbdt_icLast,     &
-                    &         aj_ic,djdt_icLast,omega_ic,omega_ma,         &
-                    &         lorentz_torque_icLast,lorentz_torque_maLast, &
-                    &         time,dt,dtNew, &
-                    &         1, lm_max, 1, lm_maxMag)
-            endif
+
+            ! read local llm:ulm slice
+            call readHdf5( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc, &
+                 &         b_LMloc,dbdtLast_LMloc,aj_LMloc,djdtLast_LMloc,b_ic_LMloc,dbdt_icLast_LMloc,     &
+                 &         aj_ic_LMloc,djdt_icLast_LMloc,omega_ic,omega_ma,         &
+                 &         lorentz_torque_icLast,lorentz_torque_maLast, &
+                 &         time,dt,dtNew, &
+                 &         llm, ulm, llmMag, ulmMag)
+
+            ! for now: still gather global information on rank 0
+            do nR=1,n_r_max
+               call gather_from_lo_to_rank0(dwdtLast_LMloc(llm,nR),dwdtLast(1,nR))
+               call gather_from_lo_to_rank0(dzdtLast_lo(llm,nR),dzdtLast(1,nR))
+               call gather_from_lo_to_rank0(dpdtLast_LMloc(llm,nR),dpdtLast(1,nR))
+               call gather_from_lo_to_rank0(dsdtLast_LMloc(llm,nR),dsdtLast(1,nR))
+
+               if ( l_mag ) then
+                  call gather_from_lo_to_rank0(dbdtLast_LMloc(llm,nR),dbdtLast(1,nR))
+                  call gather_from_lo_to_rank0(djdtLast_LMloc(llm,nR),djdtLast(1,nR))
+               end if
+            end do
+
+            if ( l_cond_ic ) then
+               do nR=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(dbdt_icLast_LMloc(llm,nR),dbdt_icLast(1,nR))
+                  call gather_from_lo_to_rank0(djdt_icLast_LMloc(llm,nR),djdt_icLast(1,nR))
+               end do
+            end if
+
+            do nR=1,n_r_max
+               call gather_from_lo_to_rank0(w_LMloc(llm:,nR),w(1,nR))
+               call gather_from_lo_to_rank0(z_LMloc(llm:,nR),z(1,nR))
+               call gather_from_lo_to_rank0(p_LMloc(llm:,nR),p(1,nR))
+               call gather_from_lo_to_rank0(s_LMloc(llm:,nR),s(1,nR))
+               if ( l_mag ) then
+                  call gather_from_lo_to_rank0(b_LMloc(llmMag:,nR),b(1,nR))
+                  call gather_from_lo_to_rank0(aj_LMloc(llmMag:,nR),aj(1,nR))
+               end if
+            end do
+
+            if ( l_cond_ic ) then
+               do nR=1,n_r_ic_max
+                  call gather_from_lo_to_rank0(b_ic_LMloc(llm,nR),b_ic(1,nR))
+                  call gather_from_lo_to_rank0(aj_ic_LMloc(llm,nR),aj_ic(1,nR))
+               end do
+            end if
+
             n_time_step=0
 
          else &

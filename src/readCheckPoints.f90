@@ -481,7 +481,6 @@ contains
 
       use hdf5
       use hdf5Helpers
-      !use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 
       ! input
       integer, intent(in) :: llm, ulm, llmMag, ulmMag
@@ -616,16 +615,15 @@ contains
       call interpolate_dataset(grp_id, "z_tor",    complex_t, z, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
       call interpolate_dataset(grp_id, "pressure", complex_t, p, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
 
+      call interpolate_dataset(grp1_id, "dwdtLast", complex_t, dwdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
+      call interpolate_dataset(grp1_id, "dzdtLast", complex_t, dzdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
+      call interpolate_dataset(grp1_id, "dpdtLast", complex_t, dpdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
+
       call h5oexists_by_name_f(grp_id, 'entropy', link_exists, error)
       assert_equal(error, 0, "h5oexists_by_name_f")
       if ( link_exists ) then
          call interpolate_dataset(grp_id, "entropy", complex_t, s, [llm, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
       end if
-
-
-      call interpolate_dataset(grp1_id, "dwdtLast", complex_t, dwdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
-      call interpolate_dataset(grp1_id, "dzdtLast", complex_t, dzdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
-      call interpolate_dataset(grp1_id, "dpdtLast", complex_t, dpdt, [llm, 1], file_lm_map, lBc=.TRUE., l_IC=.FALSE.)
 
       call h5oexists_by_name_f(grp1_id, 'dsdtLast', link_exists, error)
       assert_equal(error, 0, "h5oexists_by_name_f")
@@ -635,10 +633,11 @@ contains
 
 
       if ( l_mag_old ) then
+         call interpolate_dataset(grp_id,  "b_pol",    complex_t, b,    [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
          call interpolate_dataset(grp_id,  "aj_tor",   complex_t, aj,   [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
+
          call interpolate_dataset(grp1_id, "dbdtLast", complex_t, dbdt, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.FALSE.)
          call interpolate_dataset(grp1_id, "djdtLast", complex_t, djdt, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.FALSE.)
-         call interpolate_dataset(grp_id,  "b_pol",    complex_t, b,    [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.FALSE.)
       else
         write(*,*) '! No magnetic data in input file!'
       end if
@@ -681,6 +680,7 @@ contains
          if ( sigma_ratio_old /= 0.0_cp ) then
             call interpolate_dataset(grp_id,  "aj_ic_tor",   complex_t, aj_ic,   [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.TRUE.)
             call interpolate_dataset(grp1_id, "dbdt_icLast", complex_t, dbdt_ic, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.TRUE.)
+
             call interpolate_dataset(grp1_id, "djdt_icLast", complex_t, djdt_ic, [llmMag, 1], file_lm_map, lBc=.TRUE.,  l_IC=.TRUE.)
             call interpolate_dataset(grp_id,  "b_ic_pol",    complex_t, b_ic,    [llmMag, 1], file_lm_map, lBc=.FALSE., l_IC=.TRUE.)
          else if ( l_cond_ic ) then

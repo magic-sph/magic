@@ -1,5 +1,9 @@
 #include "assertions.cpp"
 #include "perflib_preproc.cpp"
+
+! define this to get some debug prints during the HDF5 I/O
+#undef HDF5_HELPERS_DEBUG
+
 module hdf5Helpers
    !
    ! This module contains several useful tools to manipulate HDF5 files
@@ -99,21 +103,35 @@ contains
 !------------------------------------------------------------------------------
 
    subroutine write_distributed_dataset(loc_id, dataset_name, dataset_type, dat, lbound_local, dims_global)
+#ifdef HDF5_HELPERS_DEBUG
+      use parallel_mod, only : rank, n_procs, MPI_COMM_WORLD
+#endif
       !--- Input variables
       integer(HID_T),   intent(in) :: loc_id
       character(len=*), intent(in) :: dataset_name
       integer(HID_T),   intent(in) :: dataset_type
       integer,          intent(in) :: lbound_local(2), dims_global(2)
       complex(cp), intent(in) :: dat(lbound_local(1):,lbound_local(2):)
-      complex(cp), target :: dat_transposed(size(dat, dim=2), size(dat, dim=1))
+      complex(cp), target :: dat_transposed(lbound_local(2) : lbound_local(2) + size(dat, dim=2) - 1, &
+                                            lbound_local(1) : lbound_local(1) + size(dat, dim=1) - 1)
 
       !--- Local variables
       integer(HSIZE_T) :: dims(2)
       integer(HSIZE_T) :: off(2)
       integer(HID_T) :: dspace_id, dset_id, memspace_id, plist_id
       integer :: error
+#ifdef HDF5_HELPERS_DEBUG
+      integer :: i
+#endif
 
       PERFON('write_distributed_dataset')
+
+#ifdef HDF5_HELPERS_DEBUG
+      call mpi_barrier(MPI_COMM_WORLD, error)
+      if (rank == 0) then
+        write(*,*) "write dataset " // dataset_name
+      endif
+#endif
 
       ! global layout of the dataset in the file
       dims = [dims_global(2), dims_global(1)]
@@ -153,6 +171,22 @@ contains
                       mem_space_id=memspace_id, file_space_id=dspace_id, &
                       xfer_prp=plist_id)
       assert_equal(error, 0, "h5dwrite_f")
+
+#ifdef HDF5_HELPERS_DEBUG
+      write(*,*) "Task #", rank, " shape(dat) = ", shape(dat)
+      write(*,*) "Task #", rank, " shape(dat_transposed) = ", shape(dat_transposed)
+      do i = 0, n_procs - 1
+        if (rank == i) then
+          write(*,'(a,i0,a,i0,a,i0,a,i0,a,i0,a)') &
+          "Task #", rank, " writes to [", off(1), ":", off(1) + dims(1), ", ", &
+                                          off(2), ":", off(2) + dims(2), "]"
+        endif
+        call mpi_barrier(MPI_COMM_WORLD, error)
+      end do
+      if (rank == 0) then
+        write(*,*) ""
+      endif
+#endif
 
       ! cleanup
       call h5sclose_f(memspace_id, error)
@@ -255,6 +289,9 @@ contains
       use parallel_mod, only : rank, MPI_COMM_WORLD
       use blocking, only: lo_map
       use readCheckPoints_helper, only : mapDataR_copy
+#ifdef HDF5_HELPERS_DEBUG
+      use parallel_mod, only : n_procs
+#endif
       integer,          intent(in) :: lbound_local(2)
       integer(HID_T),   intent(in) :: loc_id
       integer(HID_T),   intent(in) :: dataset_type
@@ -264,29 +301,33 @@ contains
       logical, intent(in) :: lBc,l_IC
 
       !--- Local variables
-      complex(cp), target :: dat_transposed(lbound_local(2):lbound_local(2) + size(dat, dim=2) - 1, &
-                                            lbound_local(1):lbound_local(1) + size(dat, dim=1) - 1)
+      complex(cp), pointer :: dat_transposed(:, :)
       logical :: dataspace_is_simple, lm_missing
       integer(HID_T) :: dspace_id, dset_id, memspace_id, plist_id
       integer(HSIZE_T) :: blockshape(2), dataset_shape(2), max_dims(2), file_offset(2)
       type(c_ptr) :: ptr
       integer :: ndim
       integer :: error
-      integer :: l, m
-      integer :: lm, lm_file_start
-      integer(HSIZE_T) :: nblock
+      integer :: i, l, m
+      integer :: lm, lm_file_start, nblock
+#ifdef HDF5_HELPERS_DEBUG
+      integer :: p
+#endif
 
       PERFON('interpolate_dataset')
 
-      !write(*,'(a,i0,a,i0,a,i0,a,i0,a)') "Reading " // &
-      !           dataset_name // "(", lbound_local(1), ":", lbound_local(1) + size(dat, dim=1) - 1, ", ", &
-      !                                lbound_local(2), ":", lbound_local(2) + size(dat, dim=2) - 1, ")"
+#ifdef HDF5_HELPERS_DEBUG
+      call mpi_barrier(MPI_COMM_WORLD, error)
+      if (rank == 0) then
+        write(*,*) "read dataset " // dataset_name
+         write(*,'(a,i0,a,i0,a,i0,a,i0,a)') "Reading " // dataset_name // "(", &
+                    lbound_local(1), ":", lbound_local(1) + size(dat, dim=1) - 1, ", ", &
+                    lbound_local(2), ":", lbound_local(2) + size(dat, dim=2) - 1, ")"
 
-      ! initialize output array with sNaN
-      ! to abort any computiation with unitilized data, in
-      ! case there is an error in this function
-      dat(:, :) = cmplx(ieee_value(1.0_cp,ieee_signaling_nan), &
-                        ieee_value(1.0_cp,ieee_signaling_nan))
+      endif
+#endif
+
+      dat(:,:) = cmplx(-1.0, -1.0, kind=cp)
 
       ! Open the dataset
       call h5dopen_f(loc_id, dataset_name, dset_id, error)
@@ -355,7 +396,7 @@ contains
          end do
          ! contigous block in dataset(:, lm : lm + nblock - 1)
 
-         blockshape = [dataset_shape(1), nblock]
+         blockshape = [dataset_shape(1), int(nblock, kind=HSIZE_T)]
          file_offset  = [0, lm_file_start - 1]
 
          ! describe local memory layout
@@ -370,10 +411,27 @@ contains
 
          ! Do the read
          !write(*,'(a,i0,a,i0)') " reading LM block ", lm, ":", lm + nblock - 1
-         ptr = c_loc(dat_transposed(:, lm : lm + nblock))
+         allocate(dat_transposed(file_offset(1) + 1 : file_offset(1) + blockshape(1), &
+                                 file_offset(2) + 1 : file_offset(2) + blockshape(2)))
+         ptr = c_loc(dat_transposed)
          call h5dread_f(dset_id, dataset_type, ptr, error, &
                         mem_space_id=memspace_id, file_space_id=dspace_id, &
                         xfer_prp=plist_id)
+
+#ifdef HDF5_HELPERS_DEBUG
+         do p = 0, n_procs - 1
+           if (rank == p) then
+             write(*,'(a,i0,a,i0,a,i0,a,i0,a,i0,a)') &
+               "Task #", rank, " reads from [", file_offset(1), ":", file_offset(1) + blockshape(1), ", ", &
+                                                file_offset(2), ":", file_offset(2) + blockshape(2), "]"
+           endif
+           call mpi_barrier(MPI_COMM_WORLD, error)
+         end do
+         if (rank == 0) then
+           write(*,*) ""
+         endif
+#endif
+
          assert_equal(error, 0, "h5dread_f(), dataset " // dataset_name)
 
          call h5sclose_f(dspace_id, error)
@@ -381,6 +439,12 @@ contains
 
          call h5sclose_f(memspace_id, error)
          assert_equal(error, 0, "h5sclose_f(), dataset " // dataset_name)
+
+         ! interpolate and transpose 'dat_transposed' into result array 'dat'
+         do i = lm, lm + nblock - 1
+           dat(i,:) = mapDataR_copy(dat_transposed(:,i), size(dat, dim=2), int(dataset_shape(1)), lBc, l_IC)
+         end do
+         deallocate(dat_transposed)
 
          lm = lm + nblock
       end do
@@ -391,11 +455,6 @@ contains
 
       call h5pclose_f(plist_id, error)
       assert_equal(error, 0, "h5pclose_f(), dataset " // dataset_name)
-
-      ! interpolate and transpose 'dat_transposed' into result array 'dat'
-      do lm = lbound_local(1), lbound_local(1) + size(dat, dim=1) - 1
-        dat(lm,:) = mapDataR_copy(dat_transposed(:,lm), size(dat, dim=2), int(dataset_shape(1)), lBc, l_IC)
-      end do
 
       PERFOFF
    end subroutine interpolate_dataset

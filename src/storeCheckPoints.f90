@@ -99,6 +99,7 @@ contains
                                         dtNew
 
    end subroutine store
+
 !----------------------------------------------------------------------
 #ifdef WITH_HDF5
    subroutine storeHdf5(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
@@ -267,15 +268,14 @@ contains
       if ( l_mag ) then
          call write_dataset(groupFields_id, 'b_pol',  complex_t, b,  [llmMag, 1], [lm_maxMag, n_r_maxMag])
          call write_dataset(groupFields_id, 'aj_tor', complex_t, aj, [llmMag, 1], [lm_maxMag, n_r_maxMag])
-
          call write_dataset(groupDtFields_id, 'dbdtLast', complex_t, dbdtLast, [llmMag, 1], [lm_maxMag, n_r_maxMag])
          call write_dataset(groupDtFields_id, 'djdtLast', complex_t, djdtLast, [llmMag, 1], [lm_maxMag, n_r_maxMag])
 
          if ( l_cond_ic ) then
-            call write_dataset(groupFields_id,   'b_ic_pol',    complex_t, b_ic,        [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
             call write_dataset(groupFields_id,   'aj_ic_tor',   complex_t, aj_ic,       [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
             call write_dataset(groupDtFields_id, 'dbdt_icLast', complex_t, dbdt_icLast, [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
             call write_dataset(groupDtFields_id, 'djdt_icLast', complex_t, djdt_icLast, [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
+            call write_dataset(groupFields_id,   'b_ic_pol',    complex_t, b_ic,        [llmMag, 1], [lm_maxMag, n_r_ic_maxMag])
          end if
       end if
 
