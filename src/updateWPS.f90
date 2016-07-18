@@ -512,7 +512,7 @@ contains
                     &     + ( beta(nR) + dLtemp0(nR) +                    &
                     &       two*or1(nR) + dLkappa(nR) ) * ds(lm1,nR)      &
                     &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)  &
-                    &     *  s(lm1,nR) &   ) +                            &
+                    &     *  s(lm1,nR)    ) +                             &
                     &   coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR) &
                     &   *orho1(nR)*dentropy0(nR)*w(lm1,nR)
 
