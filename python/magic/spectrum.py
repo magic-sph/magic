@@ -151,6 +151,8 @@ class MagicSpectrum(MagicSetup):
             self.BuoRms_SD = data[:, 19]
             self.PreRms_SD = data[:, 20]
             self.geos_SD = data[:, 21]
+            self.mageos_SD = data[:, 22]
+            self.arc_SD = data[:, 23]
 
         if iplot:
             self.plot()

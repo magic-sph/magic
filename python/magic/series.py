@@ -264,8 +264,15 @@ class MagicTs(MagicSetup):
             self.toptemp = data[:, 5]
             self.bots = data[:, 6]
             self.tops = data[:, 7]
-            self.toppress = data[:, 8]
-            self.mass = data[:, 9]
+            self.topflux = data[:, 8]
+            self.botflux = data[:, 9]
+            self.toppress = data[:, 10]
+            self.mass = data[:, 11]
+            try:
+                self.botsherwood = data[:, 12]
+                self.topsherwood = data[:, 13]
+            except IndexError:
+                pass
         elif self.field == 'helicity':
             self.time = data[:, 0]
             self.helN = data[:, 1]
@@ -460,6 +467,14 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
+            if self.topsherwood.max() != 0:
+                fig = P.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.topsherwood, label='Top Sherwood')
+                ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
+                ax.legend(loc='lower right')
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Sherwood number')
         elif self.field == 'helicity':
             fig = P.figure()
             ax = fig.add_subplot(111)
@@ -674,7 +689,10 @@ class AvgField:
         self.prmag = ts.prmag
         self.pr = ts.pr
         self.ek = ts.ek
-        self.strat = ts.strat
+        if hasattr(ts, 'strat'):
+            self.strat = ts.strat
+        if hasattr(ts, 'DissNb'):
+            self.strat = ts.DissNb
         self.mode = ts.mode
 
         # par file

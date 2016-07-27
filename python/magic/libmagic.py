@@ -126,6 +126,12 @@ def selectField(obj, field, labTex=True):
             label = r"$s'$"
         else:
             label = "s'"
+    elif field in ('xifluct'):
+        data = obj.xi-obj.xi.mean(axis=0)
+        if labTex:
+            label = r"$\xi'$"
+        else:
+            label = "xi'"
     elif field in ('prefluct'):
         data = obj.pre-obj.pre.mean(axis=0)
         if labTex:
