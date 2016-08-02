@@ -25,7 +25,7 @@ module step_time_mod
        &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
-       &            l_chemical_conv
+       &            l_chemical_conv, l_mag_kin
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -447,13 +447,13 @@ contains
          ! Waiting for the completion before we continue to the radialLoop
          ! put the waits before signals to avoid cross communication
          PERFON('lo2r_wt')
-         if (l_heat) then
+         if ( l_heat ) then
             call lo2r_redist_wait(lo2r_s)
          end if
-         if (l_chemical_conv) then
+         if ( l_chemical_conv ) then
             call lo2r_redist_wait(lo2r_xi)
          end if
-         if (l_conv) then
+         if ( l_conv .or. l_mag_kin ) then
             call lo2r_redist_wait(lo2r_flow)
          end if
 
@@ -1356,3 +1356,4 @@ contains
    end subroutine check_time_hits
 !------------------------------------------------------------------------------
 end module step_time_mod
+
