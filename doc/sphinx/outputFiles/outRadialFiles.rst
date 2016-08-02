@@ -159,9 +159,11 @@ This file contains the time and horizontally averaged power input (Buoyancy powe
    +---------------+------------------------------------------------------------------+
    | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
    +---------------+------------------------------------------------------------------+
-   | 3             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_s`  |
    +---------------+------------------------------------------------------------------+
-   | 4             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
+   | 4             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   +---------------+------------------------------------------------------------------+
+   | 5             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
    +---------------+------------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:

@@ -214,8 +214,13 @@ class MagicRadial(MagicSetup):
         elif self.name == 'powerR':
             self.radius = data[:, 0]
             self.buoPower = data[:, 1]
-            self.viscDiss = data[:, 2]
-            self.ohmDiss = data[:, 3]
+            if data.shape[1] == 5:
+                self.buoPower_chem = data[:, 2]
+                self.viscDiss = data[:, 3]
+                self.ohmDiss = data[:, 4]
+            elif data.shape[1] == 4:
+                self.viscDiss = data[:, 2]
+                self.ohmDiss = data[:, 3]
         elif self.name == 'parrad':
             self.radius = data[:, 0]
             self.rm = data[:, 1]

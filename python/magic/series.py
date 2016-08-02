@@ -271,7 +271,15 @@ class MagicTs(MagicSetup):
             try:
                 self.botsherwood = data[:, 12]
                 self.topsherwood = data[:, 13]
+                self.deltasherwood = data[:, 14]
+                self.botxi = data[:, 15]
+                self.topxi = data[:, 16]
             except IndexError:
+                self.topsherwood = N.ones_like(self.time)
+                self.botsherwood = N.ones_like(self.time)
+                self.deltasherwood = N.ones_like(self.time)
+                self.botxi = N.zeros_like(self.time)
+                self.topxi = N.zeros_like(self.time)
                 pass
         elif self.field == 'helicity':
             self.time = data[:, 0]
@@ -331,13 +339,23 @@ class MagicTs(MagicSetup):
         elif self.field in ('power'):
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
-            self.icrotPower = data[:, 2]
-            self.mantelrotPower = data[:, 3]
-            self.viscDiss = data[:, 4]
-            self.ohmDiss = data[:, 5]
-            self.icPower = data[:, 6]
-            self.mantlePower = data[:, 7]
-            self.fohm = -self.ohmDiss/self.buoPower
+            if data.shape[1] == 11:
+                self.buoPower_chem = data[:, 2]
+                self.icrotPower = data[:, 3]
+                self.mantlerotPower = data[:, 4]
+                self.viscDiss = data[:, 5]
+                self.ohmDiss = data[:, 6]
+                self.icPower = data[:, 7]
+                self.mantlePower = data[:, 8]
+            elif data.shape[1] == 10:
+                self.buoPower_chem = N.zeros_like(self.time)
+                self.icrotPower = data[:, 2]
+                self.mantlerotPower = data[:, 3]
+                self.viscDiss = data[:, 4]
+                self.ohmDiss = data[:, 5]
+                self.icPower = data[:, 6]
+                self.mantlePower = data[:, 7]
+            self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
             self.omega_ic = data[:,1]
@@ -467,7 +485,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
-            if self.topsherwood.max() != 0:
+            if self.topsherwood.max() != 1.0:
                 fig = P.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.topsherwood, label='Top Sherwood')
@@ -548,7 +566,10 @@ class MagicTs(MagicSetup):
         elif self.field in ('power'):
             fig = P.figure()
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.buoPower, label='Buoyancy')
+            ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+            if self.buoPower_chem.max() != 0.:
+                ax.semilogy(self.time, self.buoPower_chem,
+                            label='Chemical buoyancy')
             ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
             ax.semilogy(self.time, -self.viscDiss, label='Viscous diss.')
             ax.legend(loc='best', frameon=False)

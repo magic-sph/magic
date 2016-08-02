@@ -115,21 +115,23 @@ This file contains the power budget diagnostic. This file is computed by the sub
    +---------------+------------------------------------------------------------------+
    | 2             | Buoyancy power: :math:`Ra\,g(r)\,\langle u_r T'\rangle_s`        |
    +---------------+------------------------------------------------------------------+
-   | 3             | Viscous power at the inner boundary (ICB)                        |
+   | 3             | Chemical power: :math:`Ra_\xi\,g(r)\,\langle u_r \xi'\rangle_s`  |
    +---------------+------------------------------------------------------------------+
-   | 4             | Viscous power at the outer boundary (CMB)                        |
+   | 4             | Viscous power at the inner boundary (ICB)                        |
    +---------------+------------------------------------------------------------------+
-   | 5             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
+   | 5             | Viscous power at the outer boundary (CMB)                        |
    +---------------+------------------------------------------------------------------+
-   | 6             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
+   | 6             | Viscous dissipation: :math:`\langle(\nabla \times u)^2\rangle_s` |
    +---------------+------------------------------------------------------------------+
-   | 7             | Total power at the CMB (viscous + Lorentz)                       |
+   | 7             | Ohmic dissipation: :math:`\langle(\nabla \times B)^2\rangle_s`   |
    +---------------+------------------------------------------------------------------+
-   | 8             | Total power at the ICB (viscous + Lorentz)                       |
+   | 8             | Total power at the CMB (viscous + Lorentz)                       |
    +---------------+------------------------------------------------------------------+
-   | 9             | Total power                                                      |
+   | 9             | Total power at the ICB (viscous + Lorentz)                       |
    +---------------+------------------------------------------------------------------+
-   | 10            | Time variation of total power                                    |
+   | 10            | Total power                                                      |
+   +---------------+------------------------------------------------------------------+
+   | 11            | Time variation of total power                                    |
    +---------------+------------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
