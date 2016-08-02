@@ -876,8 +876,10 @@ contains
          if ( lVerbose ) write(*,*) "! start r2lo redistribution"
 
          PERFON('r2lo_dst')
-         call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container,dflowdt_LMloc_container)
-         call r2lo_redist_wait(r2lo_flow)
+         if ( l_conv .or. l_mag_kin ) then
+            call r2lo_redist_start(r2lo_flow,dflowdt_Rloc_container,dflowdt_LMloc_container)
+            call r2lo_redist_wait(r2lo_flow)
+         end if
 
          if ( l_heat ) then
             call r2lo_redist_start(r2lo_s,dsdt_Rloc_container,dsdt_LMloc_container)
