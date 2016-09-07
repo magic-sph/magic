@@ -24,7 +24,7 @@ class MagicSetup:
         :type quiet: bool
         """
         logFile = re.compile(r'log\.(.*)')
-        valueInt  = re.compile(r'^[0-9]$')
+        valueInt  = re.compile(r'^([0-9]+)$')
         valueReal = re.compile(r'[+-]?([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)')
         valueNumber = re.compile(r'\b(([\+\-]?[0-9]+)?\.)?[0-9]*([eE][-+]?[0-9]+)?')
         valueFalse = re.compile(r"(\.(true|false|t|f)\.)",re.I)
