@@ -264,7 +264,7 @@ class Graph2Vtk:
         keyScal['us'] = 12
 
         # Change default scalars and vectors in non-magnetic cases
-        if gr.mode == 1 or gr.mode == 7:
+        if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
             if keyScal.has_key('emag'):
                 keyScal.__delitem__('emag')
             if keyScal.has_key('br'):
@@ -300,7 +300,7 @@ class Graph2Vtk:
         keyVec['bfluct'] = 4
         keyVec['Bfluct'] = 4
 
-        if gr.mode == 1 or gr.mode == 7:
+        if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
             if keyVec.has_key('bfluct'):
                 keyVec.__delitem__('bfluct')
             if keyVec.has_key('Bfluct'):
