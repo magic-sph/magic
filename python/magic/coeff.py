@@ -552,7 +552,7 @@ class MagicCoeffR(MagicSetup):
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1, precision='Float64'):
+                 field='B', r=1, precision='Float64', lCut=None):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
@@ -568,6 +568,8 @@ class MagicCoeffR(MagicSetup):
         :type r: int
         :param precision: single or double precision
         :type precision: str
+        :param lCut: reduce the spherical harmonic truncation to l <= lCut
+        :type lCut: int
         """
 
         logFiles = scanDir('log.*')
@@ -660,6 +662,10 @@ class MagicCoeffR(MagicSetup):
                     self.ddwlm[:, self.idx[l, m]] = data[:, k]+1j*data[:, k+1]
                     k += 2
 
+        # Truncate!
+        if lCut is not None:
+            if lCut < self.l_max_r:
+                self.truncate(lCut, field=field)
 
         self.e_pol_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
         self.e_tor_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
@@ -699,6 +705,66 @@ class MagicCoeffR(MagicSetup):
         self.e_tor_lM = facT * N.trapz(self.e_tor_l, self.time, axis=0)
         self.e_pol_axi_lM = facT * N.trapz(self.e_pol_axi_l, self.time, axis=0)
         self.e_tor_axi_lM = facT * N.trapz(self.e_tor_axi_l, self.time, axis=0)
+
+    def truncate(self, lCut, field='B'):
+        """
+        :param lCut: truncate to spherical harmonic degree lCut
+        :type lCut: int
+        :param field
+        """
+        self.l_max_r = lCut
+        self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
+
+        self.lm_max_r = self.m_max_r*(self.l_max_r+1)/self.minc - \
+                        self.m_max_r*(self.m_max_r-self.minc)/(2*self.minc) + \
+                        self.l_max_r-self.m_max_r+1
+
+        # Get indices location
+        idx_new = N.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
+        ell_new = N.zeros(self.lm_max_r, 'i')
+        ms_new = N.zeros(self.lm_max_r, 'i')
+        idx_new[0:self.l_max_r+2, 0] = N.arange(self.l_max_r+1)
+        ell_new[0:self.l_max_r+2] = N.arange(self.l_max_r+2)
+        k = self.l_max_r+1
+        for m in range(self.minc, self.l_max_r+1, self.minc):
+            for l in range(m, self.l_max_r+1):
+                idx_new[l, m] = k
+                ell_new[idx_new[l,m]] = l
+                ms_new[idx_new[l,m]] = m
+                k +=1
+
+        wlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        dwlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        zlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        if field == 'B':
+            ddwlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+
+        for l in range(1, self.l_max_r+1):
+            for m in range(0, l+1, self.minc):
+                lm = idx_new[l, m]
+                wlm_new[:, lm] = self.wlm[:, self.idx[l,m]]
+                zlm_new[:, lm] = self.zlm[:, self.idx[l,m]]
+                dwlm_new[:, lm] = self.dwlm[:, self.idx[l,m]]
+                if field == 'B':
+                    ddwlm_new[:, lm] = self.ddwlm[:, self.idx[l,m]]
+
+        #for m in range(self.minc, self.l_max_r+1, self.minc):
+            #for l in range(m, self.l_max_r+1):
+                #wlm_new[:, idx_new[l, m]] = self.wlm[:, self.idx[l,m]]
+                #dwlm_new[:, idx_new[l, m]] = self.dwlm[:, self.idx[l,m]]
+                #zlm_new[:, idx_new[l, m]] = self.zlm[:, self.idx[l,m]]
+                #if field == 'B':
+                    #ddwlm_new[:, idx_new[l, m]] = self.ddwlm[:, self.idx[l,m]]
+        self.idx = idx_new
+        self.ell = ell_new
+        self.ms = ms_new
+
+        self.wlm = wlm_new
+        self.dwlm = dwlm_new
+        self.zlm = zlm_new
+        if field == 'B':
+            self.ddwlm = ddwlm_new
+
 
     def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
@@ -836,7 +902,17 @@ class MagicCoeffR(MagicSetup):
                 ax.axis('off')
                 man = P.get_current_fig_manager()
                 man.canvas.draw()
-            if k != 0 and k % step == 0:
+
+                if png:
+                    filename = 'movie/img%05d.png' % k
+                    print('write %s' % filename)
+                    #st = 'echo %i' % ivar + ' > movie/imgmax'
+                    if bgcolor is not None:
+                        fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
+                    else:
+                        fig.savefig(filename, dpi=dpi)
+
+            elif k != 0 and k % step == 0:
                 if not png:
                     print(k)
                 P.cla()
@@ -866,32 +942,35 @@ class MagicCoeffR(MagicSetup):
 
                 ax.axis('off')
                 man.canvas.draw()
-            if png:
-                filename = 'movie/img%05d.png' % k
-                print('write %s' % filename)
-                #st = 'echo %i' % ivar + ' > movie/imgmax'
-                if bgcolor is not None:
-                    fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
-                else:
-                    fig.savefig(filename, dpi=dpi)
+                if png:
+                    filename = 'movie/img%05d.png' % k
+                    print('write %s' % filename)
+                    #st = 'echo %i' % ivar + ' > movie/imgmax'
+                    if bgcolor is not None:
+                        fig.savefig(filename, facecolor=bgcolor, dpi=dpi)
+                    else:
+                        fig.savefig(filename, dpi=dpi)
 
     def fft(self):
         """
         Fourier transform of the poloidal energy
         """
         w2 = N.fft.fft(self.e_pol_l, axis=0)
-        w2 =  abs(w2[1:self.nstep/2+1,1:])
+        w2 = abs(w2[1:self.nstep/2+1,1:])
         dw = 2.*N.pi/(self.time[-1]-self.time[0])
         omega = dw*N.arange(self.nstep)
         omega = omega[1:self.nstep/2+1]
         ls = N.arange(self.l_max_r+1)
         ls = ls[1:]
 
-        print(w2.shape, dw.shape, ls.shape)
-
+        dat = N.log10(w2)
+        vmax = dat.max()-1
+        vmin = dat.min()+2
+        levs = N.linspace(vmin, vmax, 65)
         fig = P.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, omega, N.log10(w2), 31, cmap=P.get_cmap('jet'))
+        im = ax.contourf(ls, omega, N.log10(w2), levs, cmap=P.get_cmap('jet'),
+                         extend='both')
 
         cbar = fig.colorbar(im)
 
