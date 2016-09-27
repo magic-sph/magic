@@ -4,8 +4,8 @@ from scipy.interpolate import interp1d
 from magic import MagicGraph, BLayers, ExtraPot
 from .setup import labTex
 from .libmagic import symmetrize, thetaderavg, rderavg, phideravg
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 import sys
 if sys.version_info.major == 3:
     from .vtklib3 import *
@@ -34,20 +34,20 @@ def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
     :rtype: (numpy.ndarray[nscals,nz,ny,nx],float,float)
     """
     nscals, np, nt, nr = scals.shape
-    phi = N.linspace(-N.pi/minc, N.pi/minc, np)
-    theta = N.linspace(0., N.pi, nt)
+    phi = np.linspace(-np.pi/minc, np.pi/minc, np)
+    theta = np.linspace(0., np.pi, nt)
     # Cube: take care of the sqrt(3.) !!!
     gridMax = radius.max()
     spacing = 2.*gridMax/(nx-1)
-    Z,Y,X = N.mgrid[-1:1:nz*1j,-1:1:ny*1j,-1:1:nx*1j]*gridMax
-    new_r = N.sqrt(X**2+Y**2+Z**2)#.ravel()
-    new_phi = N.arctan2(Y, X)#.ravel()
-    new_theta = N.arctan2(N.sqrt(X**2+Y**2), Z)#.ravel()
+    Z,Y,X = np.mgrid[-1:1:nz*1j,-1:1:ny*1j,-1:1:nx*1j]*gridMax
+    new_r = np.sqrt(X**2+Y**2+Z**2)#.ravel()
+    new_phi = np.arctan2(Y, X)#.ravel()
+    new_theta = np.arctan2(np.sqrt(X**2+Y**2), Z)#.ravel()
     del X,Y,Z
 
-    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
-    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
-    ip = interp1d(phi, N.arange(len(phi)), bounds_error=False)
+    ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
+    ip = interp1d(phi, np.arange(len(phi)), bounds_error=False)
 
     new_ir = ir(new_r)
     new_it = it(new_theta)
@@ -57,9 +57,9 @@ def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
     new_it[new_r < radius.min()] = 0.
     new_it[new_r < radius.min()] = 0.
 
-    coords = N.array([new_ip, new_it, new_ir])
+    coords = np.array([new_ip, new_it, new_ir])
 
-    scals_cart = N.zeros((nscals, nz, ny, nx), 'f')
+    scals_cart = np.zeros((nscals, nz, ny, nx), 'f')
     for iscal in range(nscals):
         if iscal == 0: # radius has been already calculated
             scals_cart[iscal, ...] = new_r
@@ -98,20 +98,20 @@ def sph2cart_vec(vecr, vect, vecp, radius, nx=96, ny=96, nz=96, minc=1):
     :rtype: (numpy.ndarray[nvecs,nz,ny,nx],...)
     """
     nvecs, np, nt, nr = vecr.shape
-    phi = N.linspace(-N.pi/minc, N.pi/minc, np)
-    theta = N.linspace(0., N.pi, nt)
+    phi = np.linspace(-np.pi/minc, np.pi/minc, np)
+    theta = np.linspace(0., np.pi, nt)
     # Cube: take care of the sqrt(3.) !!!
     gridMax = radius.max()
     spacing = 2.*gridMax/(nx-1)
-    Z,Y,X = N.mgrid[-1:1:nz*1j,-1:1:ny*1j,-1:1:nx*1j]*gridMax
-    new_r = N.sqrt(X**2+Y**2+Z**2)#.ravel()
-    new_phi = N.arctan2(Y, X)#.ravel()
-    new_theta = N.arctan2(N.sqrt(X**2+Y**2), Z)#.ravel()
+    Z,Y,X = np.mgrid[-1:1:nz*1j,-1:1:ny*1j,-1:1:nx*1j]*gridMax
+    new_r = np.sqrt(X**2+Y**2+Z**2)#.ravel()
+    new_phi = np.arctan2(Y, X)#.ravel()
+    new_theta = np.arctan2(np.sqrt(X**2+Y**2), Z)#.ravel()
     del X,Y,Z
 
-    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
-    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
-    ip = interp1d(phi, N.arange(len(phi)), bounds_error=False)
+    ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
+    ip = interp1d(phi, np.arange(len(phi)), bounds_error=False)
 
     new_ir = ir(new_r)
     new_it = it(new_theta)
@@ -121,11 +121,11 @@ def sph2cart_vec(vecr, vect, vecp, radius, nx=96, ny=96, nz=96, minc=1):
     new_it[new_r < radius.min()] = 0.
     new_it[new_r < radius.min()] = 0.
 
-    coords = N.array([new_ip, new_it, new_ir])
+    coords = np.array([new_ip, new_it, new_ir])
 
-    vecx = N.zeros((nvecs, nz, ny, nx), 'f')
-    vecy = N.zeros_like(vecx)
-    vecz = N.zeros_like(vecx)
+    vecx = np.zeros((nvecs, nz, ny, nx), 'f')
+    vecy = np.zeros_like(vecx)
+    vecz = np.zeros_like(vecx)
     for ivec in range(nvecs):
         br_cart = map_coordinates(vecr[ivec, ...], coords)
         bt_cart = map_coordinates(vect[ivec, ...], coords)
@@ -139,10 +139,10 @@ def sph2cart_vec(vecr, vect, vecp, radius, nx=96, ny=96, nz=96, minc=1):
         bt_cart[new_r > radius.max()] = 0.
         bp_cart[new_r > radius.max()] = 0.
 
-        bs = br_cart*N.sin(new_theta)+bt_cart*N.cos(new_theta)
-        vecx[ivec, ...] = bs*N.cos(new_phi) - bp_cart*N.sin(new_phi)
-        vecy[ivec, ...] = bs*N.sin(new_phi) + bp_cart*N.cos(new_phi)
-        vecz[ivec, ...] = br_cart*N.cos(new_theta) - bt_cart*N.sin(new_theta)
+        bs = br_cart*np.sin(new_theta)+bt_cart*np.cos(new_theta)
+        vecx[ivec, ...] = bs*np.cos(new_phi) - bp_cart*np.sin(new_phi)
+        vecy[ivec, ...] = bs*np.sin(new_phi) + bp_cart*np.cos(new_phi)
+        vecz[ivec, ...] = br_cart*np.cos(new_theta) - bt_cart*np.sin(new_theta)
 
     del coords, br_cart, bp_cart
 
@@ -224,13 +224,13 @@ class Graph2Vtk:
             self.minc = gr.minc
 
         if labFrame:
-            th3D = N.zeros_like(gr.vphi)
-            rr3D = N.zeros_like(th3D)
+            th3D = np.zeros_like(gr.vphi)
+            rr3D = np.zeros_like(th3D)
             for i in range(gr.ntheta):
                 th3D[:, i, :] = gr.colatitude[i]
             for i in range(gr.nr):
                 rr3D[:, :, i] = gr.radius[i]
-            s3D = rr3D * N.sin(th3D)
+            s3D = rr3D * np.sin(th3D)
             gr.vphi = gr.vphi+s3D/gr.ek
 
         keyScal = {}
@@ -272,14 +272,14 @@ class Graph2Vtk:
             if keyScal.has_key('Br'):
                 keyScal.__delitem__('Br')
 
-        self.scalNames = N.zeros(len(scals), 'i')
+        self.scalNames = np.zeros(len(scals), 'i')
         for k, scal in enumerate(scals):
             if keyScal.has_key(scal):
                 self.scalNames[k] = keyScal[scal]
             else:
                 self.scalNames[k] = 0
         # Include the radius as the first scalar quantity
-        self.scalNames = N.insert(self.scalNames, 0, -1)
+        self.scalNames = np.insert(self.scalNames, 0, -1)
         # Remove the possible 0
         self.scalNames = self.scalNames[self.scalNames!=0]
         self.nscals = len(self.scalNames)
@@ -310,7 +310,7 @@ class Graph2Vtk:
             if keyVec.has_key('B'):
                 keyVec.__delitem__('B')
 
-        self.vecNames = N.zeros(len(vecs), 'i')
+        self.vecNames = np.zeros(len(vecs), 'i')
         for k, vec in enumerate(vecs):
             if keyVec.has_key(vec):
                 self.vecNames[k] = keyVec[vec]
@@ -328,20 +328,20 @@ class Graph2Vtk:
             brCMB = gr.Br[..., 0]
             pot = ExtraPot(rcmb, brCMB, gr.minc, ratio_out=ratio_out, 
                            nrout=nrout, cutCMB=True, deminc=deminc)
-            self.radius = N.concatenate((gr.radius[::-1], pot.rout))
+            self.radius = np.concatenate((gr.radius[::-1], pot.rout))
         #----------------------------------------
         # Scalars
         #----------------------------------------
         if deminc:
             if potExtra:
-                self.scals = N.zeros((self.nscals, gr.nphi, gr.ntheta, gr.nr+nrout-1), 'f')
+                self.scals = np.zeros((self.nscals, gr.nphi, gr.ntheta, gr.nr+nrout-1), 'f')
             else:
-                self.scals = N.zeros((self.nscals, gr.nphi, gr.ntheta, gr.nr), 'f')
+                self.scals = np.zeros((self.nscals, gr.nphi, gr.ntheta, gr.nr), 'f')
         else:
             if potExtra:
-                self.scals = N.zeros((self.nscals, gr.npI, gr.ntheta, gr.nr+nrout-1), 'f')
+                self.scals = np.zeros((self.nscals, gr.npI, gr.ntheta, gr.nr+nrout-1), 'f')
             else:
-                self.scals = N.zeros((self.nscals, gr.npI, gr.ntheta, gr.nr), 'f')
+                self.scals = np.zeros((self.nscals, gr.npI, gr.ntheta, gr.nr), 'f')
 
         for k, index in enumerate(self.scalNames):
             if index == -1: # radius
@@ -362,18 +362,18 @@ class Graph2Vtk:
                                                         gr.Btheta[..., ::-1]**2+\
                                                         gr.Bphi[..., ::-1]**2)
             elif index == 3 or index == 7: # z-vorticity
-                th3D = N.zeros_like(gr.vphi)
-                rr3D = N.zeros_like(th3D)
+                th3D = np.zeros_like(gr.vphi)
+                rr3D = np.zeros_like(th3D)
                 for i in range(gr.ntheta):
                     th3D[:, i, :] = gr.colatitude[i]
                 for i in range(gr.nr):
                     rr3D[:, :, i] = gr.radius[i]
-                s3D = rr3D * N.sin(th3D)
+                s3D = rr3D * np.sin(th3D)
                 dtheta = thetaderavg(gr.vphi*s3D)
                 dr = rderavg(gr.vphi*s3D, eta=gr.radratio, spectral=True,
                              exclude=False)
-                vs = gr.vr * N.sin(th3D) + gr.vtheta * N.cos(th3D) # 'vs'
-                ds = N.sin(th3D)*dr + N.cos(th3D)/rr3D*dtheta
+                vs = gr.vr * np.sin(th3D) + gr.vtheta * np.cos(th3D) # 'vs'
+                ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dtheta
                 vortz = -1./s3D*phideravg(vs, minc=gr.minc)+ds/s3D
                 if deminc:
                     self.scals[k, :, :, 0:gr.nr] = symmetrize(vortz[..., ::-1],
@@ -404,14 +404,14 @@ class Graph2Vtk:
                 self.scals[k, ...] = self.scals[k, ...]-\
                                      self.scals[k, ...].mean(axis=0)
             elif index == 8: # r-vorticity
-                th3D = N.zeros_like(gr.vphi)
-                rr3D = N.zeros_like(th3D)
+                th3D = np.zeros_like(gr.vphi)
+                rr3D = np.zeros_like(th3D)
                 for i in range(gr.ntheta):
                     th3D[:, i, :] = gr.colatitude[i]
                 for i in range(gr.nr):
                     rr3D[:, :, i] = gr.radius[i]
-                s3D = rr3D * N.sin(th3D)
-                vortr = 1./s3D*(thetaderavg(N.sin(th3D)*gr.vphi)-\
+                s3D = rr3D * np.sin(th3D)
+                vortr = 1./s3D*(thetaderavg(np.sin(th3D)*gr.vphi)-\
                         phideravg(gr.vtheta, gr.minc))
                 if deminc:
                     self.scals[k, :, :, 0:gr.nr] = symmetrize(vortr[..., ::-1],
@@ -443,11 +443,11 @@ class Graph2Vtk:
                 else:
                     self.scals[k, :, :, 0:gr.nr] = gr.Br[..., ::-1]
             elif index == 12: #cylindrical velocity
-                th3D = N.zeros_like(gr.vphi)
-                rr3D = N.zeros_like(th3D)
+                th3D = np.zeros_like(gr.vphi)
+                rr3D = np.zeros_like(th3D)
                 for i in range(gr.ntheta):
                     th3D[:, i, :] = gr.colatitude[i]
-                vs = gr.vr * N.sin(th3D) + gr.vtheta * N.cos(th3D)
+                vs = gr.vr * np.sin(th3D) + gr.vtheta * np.cos(th3D)
 
                 if deminc:
                     self.scals[k, :, :, 0:gr.nr] = symmetrize(vs[..., ::-1],gr.minc)
@@ -467,22 +467,22 @@ class Graph2Vtk:
         #----------------------------------------
         if deminc:
             if potExtra:
-                self.vecr = N.zeros((self.nvecs, gr.nphi, gr.ntheta, gr.nr+nrout-1), 'f')
-                self.vect = N.zeros_like(self.vecr)
-                self.vecp = N.zeros_like(self.vecr)
+                self.vecr = np.zeros((self.nvecs, gr.nphi, gr.ntheta, gr.nr+nrout-1), 'f')
+                self.vect = np.zeros_like(self.vecr)
+                self.vecp = np.zeros_like(self.vecr)
             else:
-                self.vecr = N.zeros((self.nvecs, gr.nphi, gr.ntheta, gr.nr), 'f')
-                self.vect = N.zeros_like(self.vecr)
-                self.vecp = N.zeros_like(self.vecr)
+                self.vecr = np.zeros((self.nvecs, gr.nphi, gr.ntheta, gr.nr), 'f')
+                self.vect = np.zeros_like(self.vecr)
+                self.vecp = np.zeros_like(self.vecr)
         else:
             if potExtra:
-                self.vecr = N.zeros((self.nvecs, gr.npI, gr.ntheta, gr.nr+nrout-1), 'f')
-                self.vect = N.zeros_like(self.vecr)
-                self.vecp = N.zeros_like(self.vecr)
+                self.vecr = np.zeros((self.nvecs, gr.npI, gr.ntheta, gr.nr+nrout-1), 'f')
+                self.vect = np.zeros_like(self.vecr)
+                self.vecp = np.zeros_like(self.vecr)
             else:
-                self.vecr = N.zeros((self.nvecs, gr.npI, gr.ntheta, gr.nr), 'f')
-                self.vect = N.zeros_like(self.vecr)
-                self.vecp = N.zeros_like(self.vecr)
+                self.vecr = np.zeros((self.nvecs, gr.npI, gr.ntheta, gr.nr), 'f')
+                self.vect = np.zeros_like(self.vecr)
+                self.vecp = np.zeros_like(self.vecr)
 
 
         for k, index in enumerate(self.vecNames):
@@ -570,7 +570,7 @@ class Graph2Vtk:
         :type nFiles: int
         """
         if self.nvecs == 0:
-            if nFiles == 1 and N.size(self.scals)+3*N.size(self.vecr) < 512**3:
+            if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
                 vts_scal(filename, self.radius, self.scals, self.scalNames,
                          self.minc)
 
@@ -578,7 +578,7 @@ class Graph2Vtk:
                 pvts_scal(filename, self.radius, self.scals, self.scalNames, 
                           8, self.minc)
         else:
-            if nFiles == 1 and N.size(self.scals)+3*N.size(self.vecr) < 512**3:
+            if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
                 vts(filename, self.radius, self.vecr, self.vect, self.vecp,
                     self.scals, self.scalNames, self.vecNames, self.minc)
 

@@ -2,8 +2,8 @@
 from magic import *
 from scipy.integrate import trapz
 from matplotlib.ticker import ScalarFormatter
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 
 
@@ -96,25 +96,25 @@ class CompSims:
         else:
             self.nrow = self.nplot/self.ncol
 
-        P.ioff()
+        plt.ioff()
         if type == 'avg' or type == 'slice':
-            P.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
+            plt.figure(figsize=(self.ncol*1.5, self.nrow*3), dpi=dpi)
         elif type == 'equat':
-            P.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
+            plt.figure(figsize=(self.ncol*2.5, self.nrow*2.5), dpi=dpi)
         elif type == 'surf':
-            P.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
+            plt.figure(figsize=(self.ncol*3, self.nrow*1.7), dpi=dpi)
         else:
-            P.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
+            plt.figure(figsize=(self.ncol*3, self.nrow*3), dpi=dpi)
         if self.nrow == 1:
             if type == 'surf':
-                P.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
+                plt.subplots_adjust(left=0.05, right=0.98, top=0.85, bottom=0.05)
             else:
-                P.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                plt.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
         else:
             if type == 'surf':
-                P.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
+                plt.subplots_adjust(left=0.05, right=0.98, top=0.92, bottom=0.05)
             else:
-                P.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
+                plt.subplots_adjust(left=0.05, right=0.98, top=0.95, bottom=0.05)
 
         if self.field == 'ts':
             self.plotTs()
@@ -133,8 +133,8 @@ class CompSims:
                 self.plotEquat()
             elif type == 'surf':
                 self.plotSurf()
-        P.show()
-        P.ion()
+        plt.show()
+        plt.ion()
 
     def plotTs(self):
         """
@@ -148,7 +148,7 @@ class CompSims:
             print(datadir)
             ts = MagicTs(field='e_kin', iplot=False, all=True)
 
-            ax = P.subplot(self.nrow, self.ncol, iplot)
+            ax = plt.subplot(self.nrow, self.ncol, iplot)
             ax.semilogy(ts.time, ts.ekin_pol, 'b-')
             ax.semilogy(ts.time, ts.ekin_tor, 'r-')
             ax.semilogy(ts.time, ts.ekin_pol_axi, 'b--')
@@ -177,7 +177,7 @@ class CompSims:
             print(datadir)
             ts = MagicTs(field='e_mag_oc', iplot=False, all=True)
 
-            ax = P.subplot(self.nrow, self.ncol, iplot)
+            ax = plt.subplot(self.nrow, self.ncol, iplot)
             ax.semilogy(ts.time, ts.emagoc_pol, 'b-')
             ax.semilogy(ts.time, ts.emagoc_tor, 'r-')
             ax.semilogy(ts.time, ts.emagoc_pol_axi, 'b--')
@@ -204,7 +204,7 @@ class CompSims:
             print(datadir)
             ts = MagicTs(field='misc', iplot=False, all=True)
 
-            ax = P.subplot(self.nrow, self.ncol, iplot)
+            ax = plt.subplot(self.nrow, self.ncol, iplot)
             ax.plot(ts.time, ts.botnuss, 'b-')
             ax.plot(ts.time, ts.topnuss, 'g-')
 
@@ -228,9 +228,9 @@ class CompSims:
                 gr = MagicGraph(ivar=1, ave=True)
             else:
                 gr = MagicGraph(ivar=1)
-            ax = P.subplot(self.nrow, self.ncol, iplot)
+            ax = plt.subplot(self.nrow, self.ncol, iplot)
             vpm = gr.vphi.mean(axis=0)
-            theta = N.linspace(-90., 90, gr.ntheta)
+            theta = np.linspace(-90., 90, gr.ntheta)
 
             ax.plot(vpm[:, 1], theta)
 
@@ -253,7 +253,7 @@ class CompSims:
         """
         Plot radial cuts in (phi, theta)  planes using the Hammer projection.
         """
-        cmap = P.get_cmap(self.cm)
+        cmap = plt.get_cmap(self.cm)
 
         iplot = 1
         for datadir in self.dataliste:
@@ -266,27 +266,27 @@ class CompSims:
                     gr = MagicGraph(ivar=1)
 
                 rad = self.r/(1-gr.radratio) # as we give a normalised radius
-                ind = N.nonzero(N.where(abs(gr.radius-rad) \
+                ind = np.nonzero(np.where(abs(gr.radius-rad) \
                                 == min(abs(gr.radius-rad)), 1, 0))
                 indPlot = ind[0][0]
 
                 if self.field in ('Vs', 'vs'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.sin(th3D) + vt * N.cos(th3D)
+                    data = vr * np.sin(th3D) + vt * np.cos(th3D)
                     label = 'Vs'
                 elif self.field in ('Vz', 'vz'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.cos(th3D) - vt * N.sin(th3D)
+                    data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 else:
                     data, label = selectField(gr, self.field)
@@ -295,18 +295,18 @@ class CompSims:
 
             data = symmetrize(data, gr.minc)
 
-            phi2, th2 = N.mgrid[-N.pi:N.pi:gr.nphi*1j,
-                                N.pi/2.:-N.pi/2.:gr.ntheta*1j]
+            phi2, th2 = np.mgrid[-np.pi:np.pi:gr.nphi*1j,
+                                np.pi/2.:-np.pi/2.:gr.ntheta*1j]
             xx, yy = hammer2cart(th2, phi2)
 
 
-            ax = P.subplot(self.nrow, self.ncol, iplot, frameon=False)
+            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
             if self.cut != 1:
                 self.normed = False
                 vmin = - max(abs(data[..., indPlot].max()), abs(data[..., indPlot].min()))
                 vmin = self.cut*vmin
                 vmax = -vmin
-                cs = N.linspace(vmin, vmax, self.levels)
+                cs = np.linspace(vmin, vmax, self.levels)
                 im = ax.contourf(xx, yy, data[..., indPlot], cs, extend='both',
                                   cmap=cmap, aa=True)
             else:
@@ -331,7 +331,7 @@ class CompSims:
         """
         Plot equatorial cuts in (phi, r)  planes.
         """
-        cmap = P.get_cmap(self.cm)
+        cmap = plt.get_cmap(self.cm)
         iplot = 1
         for datadir in self.dataliste:
             os.chdir(self.workdir + '/' + datadir)
@@ -344,24 +344,24 @@ class CompSims:
                 if self.field in ('Vs', 'vs'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.sin(th3D) + vt * N.cos(th3D)
+                    data = vr * np.sin(th3D) + vt * np.cos(th3D)
                     label = 'Vs'
                 elif self.field in ('Vz', 'vz'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.cos(th3D) - vt * N.sin(th3D)
+                    data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 elif self.field in ('vortz'):
-                    philoc = N.linspace(0., 2.*N.pi/gr.minc, gr.npI)
-                    rrloc, pphiloc = N.meshgrid(gr.radius, philoc)
+                    philoc = np.linspace(0., 2.*np.pi/gr.minc, gr.npI)
+                    rrloc, pphiloc = np.meshgrid(gr.radius, philoc)
                     dr = rderavg(rrloc*gr.vphi[:,gr.ntheta/2,:], spectral=False,
                                  eta=gr.radratio, exclude=True)
                     equator = 1./rrloc*(dr - phideravg(gr.vr[:, gr.ntheta/2, :], gr.minc))
@@ -382,12 +382,12 @@ class CompSims:
 
             equator = symmetrize(equator, gr.minc)
 
-            phi = N.linspace(0., 2.*N.pi, gr.nphi)
-            rr, pphi = N.meshgrid(gr.radius, phi)
-            xx = rr * N.cos(pphi)
-            yy = rr * N.sin(pphi)
+            phi = np.linspace(0., 2.*np.pi, gr.nphi)
+            rr, pphi = np.meshgrid(gr.radius, phi)
+            xx = rr * np.cos(pphi)
+            yy = rr * np.sin(pphi)
 
-            ax = P.subplot(self.nrow,self.ncol,iplot, frameon=False)
+            ax = plt.subplot(self.nrow,self.ncol,iplot, frameon=False)
             if self.bw:
                 im = ax.contour(xx, yy, equator, self.levels, colors='k',
                                 linewidths=0.5)
@@ -397,20 +397,20 @@ class CompSims:
                     vmin = - max(abs(equator.max()), abs(equator.min()))
                     vmin = self.cut*vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, self.levels)
+                    cs = np.linspace(vmin, vmax, self.levels)
                     im = ax.contourf(xx, yy, equator, cs, extend='both',
                                       cmap=cmap)
                 else:
                     cs = self.levels
                     im = ax.contourf(xx, yy, equator, cs, cmap=cmap)
-            ax.plot(gr.radius[0] * N.cos(phi), gr.radius[0]*N.sin(phi), 'k-')
-            ax.plot(gr.radius[-1] * N.cos(phi), gr.radius[-1]*N.sin(phi), 'k-')
+            ax.plot(gr.radius[0] * np.cos(phi), gr.radius[0]*np.sin(phi), 'k-')
+            ax.plot(gr.radius[-1] * np.cos(phi), gr.radius[-1]*np.sin(phi), 'k-')
 
             # Variable conductivity
             if hasattr(gr, 'nVarCond'):
                 if gr.nVarCond == 2:
                     radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*N.cos(phi), radi*N.sin(phi), 'k--')
+                    ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--')
 
             #if hasattr(gr, 'cmbHflux'):
                 #tit1 = r"${\cal Q}_{cmb} = %.1f$" % gr.cmbHflux
@@ -439,7 +439,7 @@ class CompSims:
         """
         Plot azimutal averages in (theta, r) planes.
         """
-        cmap = P.get_cmap(self.cm)
+        cmap = plt.get_cmap(self.cm)
 
         iplot = 1
         for datadir in self.dataliste:
@@ -453,33 +453,33 @@ class CompSims:
                 if self.field in ('Vs', 'vs'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.sin(th3D) + vt * N.cos(th3D)
+                    data = vr * np.sin(th3D) + vt * np.cos(th3D)
                     label = 'Vs'
                 elif self.field in ('Vz', 'vz'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.cos(th3D) - vt * N.sin(th3D)
+                    data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 elif self.field in ('Cr', 'cr'):
                     vr = gr.vr
                     vt = gr.vtheta
                     vp = gr.vphi.copy()
                     vp = gr.vphi- gr.vphi.mean(axis=0) # convective vp
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros_like(vr)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros_like(vr)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    vs = vr * N.sin(th3D) + vt * N.cos(th3D)
+                    vs = vr * np.sin(th3D) + vt * np.cos(th3D)
                     data =  vs * vp
-                    denom = N.sqrt(N.mean(vs**2, axis=0)* N.mean(vp**2, axis=0))
+                    denom = np.sqrt(np.mean(vs**2, axis=0)* np.mean(vp**2, axis=0))
                     label = r'$\langle v_s v_\phi\rangle$'
                 else:
                     data, label = selectField(gr, self.field)
@@ -494,53 +494,53 @@ class CompSims:
             else:
                 ro = gr.radius[0]
                 ri = gr.radius[-1]
-                fac = 2./(N.pi*(ro**2-ri**2))
-                facOTC = ro**2.*(N.pi-2.*N.arcsin(gr.radratio))/2. \
-                         -ri**2*N.sqrt(1.-gr.radratio**2)/gr.radratio
+                fac = 2./(np.pi*(ro**2-ri**2))
+                facOTC = ro**2.*(np.pi-2.*np.arcsin(gr.radratio))/2. \
+                         -ri**2*np.sqrt(1.-gr.radratio**2)/gr.radratio
                 facOTC = 1./facOTC
-                facITC = ri**2*N.sqrt(1.-gr.radratio**2)/gr.radratio \
-                         +(ro**2-ri**2)* N.arcsin(gr.radratio) \
-                         -ri**2/2.*(N.pi - 2.*N.arcsin(gr.radratio))
+                facITC = ri**2*np.sqrt(1.-gr.radratio**2)/gr.radratio \
+                         +(ro**2-ri**2)* np.arcsin(gr.radratio) \
+                         -ri**2/2.*(np.pi - 2.*np.arcsin(gr.radratio))
                 facITC = 1./facITC
                 phiavg = data.mean(axis=0)
 
-                TC = N.array([], dtype=data.dtype)
-                outTC = N.array([], dtype=data.dtype)
-                inTC = N.array([], dtype=data.dtype)
-                integ = N.array([], dtype=data.dtype)
+                TC = np.array([], dtype=data.dtype)
+                outTC = np.array([], dtype=data.dtype)
+                inTC = np.array([], dtype=data.dtype)
+                integ = np.array([], dtype=data.dtype)
                 for k, th in enumerate(gr.colatitude):
                     rr = gr.radius[::-1]
                     dat = phiavg[k, ::-1] * rr
                     corr = intcheb(dat, gr.nr-1, ri, ro)
-                    TC = N.append(TC, corr)
-                    if th >= N.arcsin(gr.radratio)  and \
-                       th <= N.pi - N.arcsin(gr.radratio):
+                    TC = np.append(TC, corr)
+                    if th >= np.arcsin(gr.radratio)  and \
+                       th <= np.pi - np.arcsin(gr.radratio):
                         # Outside tangent cylinder
-                        val = trapz(dat[rr >= ri/N.sin(th)], 
-                                    rr[rr >= ri/N.sin(th)])
-                        outTC = N.append(outTC, val)
-                        integ = N.append(integ, th)
+                        val = trapz(dat[rr >= ri/np.sin(th)], 
+                                    rr[rr >= ri/np.sin(th)])
+                        outTC = np.append(outTC, val)
+                        integ = np.append(integ, th)
                         # Inside tangent cylinder
-                        val = trapz(dat[rr < ri/N.sin(th)], 
-                                    rr[rr < ri/N.sin(th)])
-                        inTC = N.append(inTC, val)
+                        val = trapz(dat[rr < ri/np.sin(th)], 
+                                    rr[rr < ri/np.sin(th)])
+                        inTC = np.append(inTC, val)
                     else:
                         val= intcheb(dat, gr.nr-1, ri, ro)
-                        inTC = N.append(inTC, val)
+                        inTC = np.append(inTC, val)
 
-                mask = N.where(denom == 0, 1, 0)
+                mask = np.where(denom == 0, 1, 0)
                 phiavg /= (denom+mask)
 
 
-            th = N.linspace(0., N.pi, gr.ntheta)
-            rr, tth = N.meshgrid(gr.radius, th)
-            xx = rr * N.sin(tth)
-            yy = rr * N.cos(tth)
+            th = np.linspace(0., np.pi, gr.ntheta)
+            rr, tth = np.meshgrid(gr.radius, th)
+            xx = rr * np.sin(tth)
+            yy = rr * np.cos(tth)
 
             titmax = phiavg.max()
             titmin = phiavg.min()
 
-            ax = P.subplot(self.nrow, self.ncol, iplot, frameon=False)
+            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
             if self.bw:
                 im = ax.contour(xx, yy, phiavg, self.levels, colors='k', 
                                 linewidths=0.5)
@@ -550,15 +550,15 @@ class CompSims:
                     vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
                     vmin = self.cut*vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, self.levels)
+                    cs = np.linspace(vmin, vmax, self.levels)
                     im = ax.contourf(xx, yy, phiavg, cs, extend='both',
                                       cmap=cmap)
                 else:
                     cs = self.levels
                     im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-            ax.plot(gr.radius[0]*N.sin(th), gr.radius[0]*N.cos(th),
+            ax.plot(gr.radius[0]*np.sin(th), gr.radius[0]*np.cos(th),
                    'k-')
-            ax.plot(gr.radius[-1]*N.sin(th), gr.radius[-1]*N.cos(th),
+            ax.plot(gr.radius[-1]*np.sin(th), gr.radius[-1]*np.cos(th),
                    'k-')
 
             ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
@@ -568,7 +568,7 @@ class CompSims:
             if hasattr(gr, 'nVarCond'):
                 if gr.nVarCond == 2:
                     radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*N.sin(th), radi*N.cos(th), 'k--')
+                    ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
             ax.set_title(label, fontsize=12)
             ax.axis('off')
@@ -580,7 +580,7 @@ class CompSims:
             else:
                 tit1 = r"$N_\rho = 10^{-2}$"
             """
-            #P.title(tit1, fontsize=12)
+            #plt.title(tit1, fontsize=12)
 
             """
             if int(titmin) == 0:
@@ -605,7 +605,7 @@ class CompSims:
         os.chdir(self.workdir)
 
     def plotSlice(self):
-        cmap = P.get_cmap(self.cm)
+        cmap = plt.get_cmap(self.cm)
 
         iplot = 1
         for datadir in self.dataliste:
@@ -619,20 +619,20 @@ class CompSims:
                 if self.field in ('Vs', 'vs'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.sin(th3D) + vt * N.cos(th3D)
+                    data = vr * np.sin(th3D) + vt * np.cos(th3D)
                     label = 'Vs'
                 elif self.field in ('Vz', 'vz'):
                     vr = gr.vr
                     vt = gr.vtheta
-                    thlin = N.linspace(0., N.pi, gr.ntheta)
-                    th3D = N.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
+                    thlin = np.linspace(0., np.pi, gr.ntheta)
+                    th3D = np.zeros((gr.npI, gr.ntheta, gr.nr), dtype=vr.dtype)
                     for i in range(gr.ntheta):
                         th3D[:, i, :] = thlin[i]
-                    data = vr * N.cos(th3D) - vt * N.sin(th3D)
+                    data = vr * np.cos(th3D) - vt * np.sin(th3D)
                     label = 'Vz'
                 else:
                     data, label = selectField(gr, self.field)
@@ -644,10 +644,10 @@ class CompSims:
             
             phiavg = data[0, ...]
 
-            th = N.linspace(0., N.pi, gr.ntheta)
-            rr, tth = N.meshgrid(gr.radius, th)
-            xx = rr * N.sin(tth)
-            yy = rr * N.cos(tth)
+            th = np.linspace(0., np.pi, gr.ntheta)
+            rr, tth = np.meshgrid(gr.radius, th)
+            xx = rr * np.sin(tth)
+            yy = rr * np.cos(tth)
 
             titmax = phiavg.max()
             titmin = phiavg.min()
@@ -665,20 +665,20 @@ class CompSims:
                 vmin = -vmax
             """
 
-            ax = P.subplot(self.nrow, self.ncol, iplot, frameon=False)
+            ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
             if self.cut != 1:    
                 self.normed = False
                 vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
                 vmin = self.cut*vmin
                 vmax = -vmin
-                cs = N.linspace(vmin, vmax, self.levels)
+                cs = np.linspace(vmin, vmax, self.levels)
                 im = ax.contourf(xx, yy, phiavg, cs, extend='both', cmap=cmap)
             else:
                 cs = self.levels
                 im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-            ax.plot(gr.radius[0]*N.sin(th), gr.radius[0]*N.cos(th),
+            ax.plot(gr.radius[0]*np.sin(th), gr.radius[0]*np.cos(th),
                    'k-')
-            ax.plot(gr.radius[-1]*N.sin(th), gr.radius[-1]*N.cos(th),
+            ax.plot(gr.radius[-1]*np.sin(th), gr.radius[-1]*np.cos(th),
                    'k-')
 
             ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
@@ -688,7 +688,7 @@ class CompSims:
             if hasattr(gr, 'nVarCond'):
                 if gr.nVarCond == 2:
                     radi = gr.con_radratio * gr.radius[0]
-                    ax.plot(radi*N.sin(th), radi*N.cos(th), 'k--')
+                    ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
             ax.set_title(label, fontsize=12)
             ax.axis('off')
@@ -698,7 +698,7 @@ class CompSims:
                 tit1 = r"$N_\rho = %.0f$"  % gr.strat
             else:
                 tit1 = r"$N_\rho = 10^{-2}$"
-            #P.title(tit1, fontsize=12)
+            #plt.title(tit1, fontsize=12)
 
             if int(titmin) == 0:
                 tit1 = r'$+%i$' % titmax +'\n'+r'$%.1f$' % titmin

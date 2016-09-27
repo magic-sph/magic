@@ -3,8 +3,8 @@ import glob
 import re
 import os
 import copy
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 from .npfile import *
 from magic.libmagic import symmetrize, hammer2cart
 
@@ -158,14 +158,14 @@ class Movie:
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
-            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), precision)
+            self.data = np.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             if self.movtype in [1, 2, 3]: # read inner core
                 shape = (n_r_mov_tot+2, self.n_phi_tot)
             else:
                 shape = (self.n_r_max, self.n_phi_tot)
-            self.data = N.zeros((self.nvar, self.n_phi_tot, self.n_r_max), precision)
+            self.data = np.zeros((self.nvar, self.n_phi_tot, self.n_r_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3]: # read inner core
@@ -177,9 +177,9 @@ class Movie:
             elif self.movtype in [10, 11, 12, 19, 92]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
-            self.data = N.zeros((self.nvar, self.n_theta_max, self.n_r_max), precision)
+            self.data = np.zeros((self.nvar, self.n_theta_max, self.n_r_max), precision)
 
-        self.time = N.zeros(self.nvar, precision)
+        self.time = np.zeros(self.nvar, precision)
 
         # READ the data
 
@@ -226,15 +226,15 @@ class Movie:
         infile.close()
 
         if normRad:
-            norm = N.sqrt(N.mean(self.data**2, axis=1))
+            norm = np.sqrt(np.mean(self.data**2, axis=1))
             norm = norm.mean(axis=0)
             self.data[:, :, norm!=0.] /= norm[norm!=0.]
 
         if iplot:
-            cmap = P.get_cmap(cm)
+            cmap = plt.get_cmap(cm)
             self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor, deminc)
         if avg or std:
-            cmap = P.get_cmap(cm)
+            cmap = plt.get_cmap(cm)
             self.avgStd(std, cut, levels, cmap)
 
     def __add__(self, new):
@@ -246,8 +246,8 @@ class Movie:
                   to allow any summation/
         """
         out = copy.deepcopy(new)
-        out.time = N.concatenate((self.time, new.time), axis=0)
-        out.data = N.concatenate((self.data, new.data), axis=0)
+        out.time = np.concatenate((self.time, new.time), axis=0)
+        out.data = np.concatenate((self.data, new.data), axis=0)
         out.nvar = self.nvar+new.nvar
         out.var2 = out.nvar
         return out
@@ -273,45 +273,45 @@ class Movie:
         vmin = - max(abs(avg.max()), abs(avg.min()))
         vmin = cut * vmin
         vmax = -vmin
-        cs = N.linspace(vmin, vmax, levels)
+        cs = np.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            rr, tth = N.meshgrid(self.radius, th)
-            xx = rr * N.cos(tth)
-            yy = rr * N.sin(tth)
-            xxout = rr.max() * N.cos(th)
-            yyout = rr.max() * N.sin(th)
-            xxin = rr.min() * N.cos(th)
-            yyin = rr.min() * N.sin(th)
-            fig = P.figure(figsize=(4, 8))
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+            rr, tth = np.meshgrid(self.radius, th)
+            xx = rr * np.cos(tth)
+            yy = rr * np.sin(tth)
+            xxout = rr.max() * np.cos(th)
+            yyout = rr.max() * np.sin(th)
+            xxin = rr.min() * np.cos(th)
+            yyin = rr.min() * np.sin(th)
+            fig = plt.figure(figsize=(4, 8))
         elif self.surftype == 'r_constant':
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-            ttheta, pphi = N.meshgrid(th, phi)
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+            phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
+            ttheta, pphi = np.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
-            fig = P.figure(figsize=(8, 4))
+            xxout, yyout = hammer2cart(th, -np.pi)
+            xxin, yyin = hammer2cart(th, np.pi)
+            fig = plt.figure(figsize=(8, 4))
         elif self.surftype == 'theta_constant':
-            phi = N.linspace(0., 2.*N.pi, self.n_phi_tot)
-            rr, pphi = N.meshgrid(self.radius, phi)
-            xx = rr * N.cos(pphi)
-            yy = rr * N.sin(pphi)
-            xxout = rr.max() * N.cos(pphi)
-            yyout = rr.max() * N.sin(pphi)
-            xxin = rr.min() * N.cos(pphi)
-            yyin = rr.min() * N.sin(pphi)
-            fig = P.figure(figsize=(6, 6))
+            phi = np.linspace(0., 2.*np.pi, self.n_phi_tot)
+            rr, pphi = np.meshgrid(self.radius, phi)
+            xx = rr * np.cos(pphi)
+            yy = rr * np.sin(pphi)
+            xxout = rr.max() * np.cos(pphi)
+            yyout = rr.max() * np.sin(pphi)
+            xxin = rr.min() * np.cos(pphi)
+            yyin = rr.min() * np.sin(pphi)
+            fig = plt.figure(figsize=(6, 6))
         elif self.surftype == '3d volume':
             self.data = self.data[..., 0]
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-            ttheta, pphi = N.meshgrid(th, phi)
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+            phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
+            ttheta, pphi = np.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
-            fig = P.figure(figsize=(8, 4))
+            xxout, yyout = hammer2cart(th, -np.pi)
+            xxin, yyin = hammer2cart(th, np.pi)
+            fig = plt.figure(figsize=(8, 4))
 
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
@@ -349,67 +349,67 @@ class Movie:
         """
 
         if png:
-            P.ioff()
+            plt.ioff()
             if not os.path.exists('movie'):
                 os.mkdir('movie')
         else:
-            P.ion()
+            plt.ion()
 
         if not normed:
             vmin = - max(abs(self.data.max()), abs(self.data.min()))
             vmin = cut * vmin
             vmax = -vmin
             #vmin, vmax = self.data.min(), self.data.max()
-            cs = N.linspace(vmin, vmax, levels)
+            cs = np.linspace(vmin, vmax, levels)
 
         if self.surftype == 'phi_constant':
             #if self.movtype in [1, 7]:
-                #th = N.linspace(0., 2.*N.pi, 2*self.n_theta_max)
+                #th = np.linspace(0., 2.*np.pi, 2*self.n_theta_max)
             #else:
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            rr, tth = N.meshgrid(self.radius, th)
-            xx = rr * N.cos(tth)
-            yy = rr * N.sin(tth)
-            xxout = rr.max() * N.cos(th)
-            yyout = rr.max() * N.sin(th)
-            xxin = rr.min() * N.cos(th)
-            yyin = rr.min() * N.sin(th)
-            fig = P.figure(figsize=(4, 8))
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+            rr, tth = np.meshgrid(self.radius, th)
+            xx = rr * np.cos(tth)
+            yy = rr * np.sin(tth)
+            xxout = rr.max() * np.cos(th)
+            yyout = rr.max() * np.sin(th)
+            xxin = rr.min() * np.cos(th)
+            yyin = rr.min() * np.sin(th)
+            fig = plt.figure(figsize=(4, 8))
         elif self.surftype == 'r_constant':
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             if deminc:
-                phi = N.linspace(-N.pi, N.pi, self.n_phi_tot*self.minc+1)
-                xxout, yyout = hammer2cart(th, -N.pi)
-                xxin, yyin = hammer2cart(th, N.pi)
+                phi = np.linspace(-np.pi, np.pi, self.n_phi_tot*self.minc+1)
+                xxout, yyout = hammer2cart(th, -np.pi)
+                xxin, yyin = hammer2cart(th, np.pi)
             else:
-                phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, self.n_phi_tot)
-                xxout, yyout = hammer2cart(th, -N.pi/self.minc)
-                xxin, yyin = hammer2cart(th, N.pi/self.minc)
-            ttheta, pphi = N.meshgrid(th, phi)
+                phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, self.n_phi_tot)
+                xxout, yyout = hammer2cart(th, -np.pi/self.minc)
+                xxin, yyin = hammer2cart(th, np.pi/self.minc)
+            ttheta, pphi = np.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
-            fig = P.figure(figsize=(8, 4))
+            fig = plt.figure(figsize=(8, 4))
         elif self.surftype == 'theta_constant':
             if deminc:
-                phi = N.linspace(0., 2.*N.pi, self.n_phi_tot*self.minc+1)
+                phi = np.linspace(0., 2.*np.pi, self.n_phi_tot*self.minc+1)
             else:
-                phi = N.linspace(0., 2.*N.pi/self.minc, self.n_phi_tot)
-            rr, pphi = N.meshgrid(self.radius, phi)
-            xx = rr * N.cos(pphi)
-            yy = rr * N.sin(pphi)
-            xxout = rr.max() * N.cos(pphi)
-            yyout = rr.max() * N.sin(pphi)
-            xxin = rr.min() * N.cos(pphi)
-            yyin = rr.min() * N.sin(pphi)
-            fig = P.figure(figsize=(6, 6))
+                phi = np.linspace(0., 2.*np.pi/self.minc, self.n_phi_tot)
+            rr, pphi = np.meshgrid(self.radius, phi)
+            xx = rr * np.cos(pphi)
+            yy = rr * np.sin(pphi)
+            xxout = rr.max() * np.cos(pphi)
+            yyout = rr.max() * np.sin(pphi)
+            xxin = rr.min() * np.cos(pphi)
+            yyin = rr.min() * np.sin(pphi)
+            fig = plt.figure(figsize=(6, 6))
         elif self.surftype == '3d volume':
             self.data = self.data[..., 0]
-            th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-            phi = N.linspace(-N.pi, N.pi, self.n_phi_tot)
-            ttheta, pphi = N.meshgrid(th, phi)
+            th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+            phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
+            ttheta, pphi = np.meshgrid(th, phi)
             xx, yy = hammer2cart(ttheta, pphi)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
-            fig = P.figure(figsize=(8, 4))
+            xxout, yyout = hammer2cart(th, -np.pi)
+            xxin, yyin = hammer2cart(th, np.pi)
+            fig = plt.figure(figsize=(8, 4))
 
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
@@ -420,7 +420,7 @@ class Movie:
                     vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
                         dat = symmetrize(self.data[k, ...], self.minc)
@@ -432,17 +432,17 @@ class Movie:
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')
-                man = P.get_current_fig_manager()
+                man = plt.get_current_fig_manager()
                 man.canvas.draw()
             if k != 0 and k % step == 0:
                 if not png:
                     print(k+self.var2-self.nvar)
-                P.cla()
+                plt.cla()
                 if normed:
                     vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
                         dat = symmetrize(self.data[k, ...], self.minc)
@@ -488,21 +488,21 @@ class Movie:
             datCut = self.data
 
 
-        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-        lat0 *= N.pi/180.
-        mask = N.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
-        idx = N.nonzero(mask)[0][0]
+        th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+        lat0 *= np.pi/180.
+        mask = np.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
+        idx = np.nonzero(mask)[0][0]
 
-        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
+        th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
         if deminc:
-            phi = N.linspace(-N.pi, N.pi, self.minc*self.n_phi_tot+1)
+            phi = np.linspace(-np.pi, np.pi, self.minc*self.n_phi_tot+1)
         else:
-            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, self.n_phi_tot)
+            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, self.n_phi_tot)
 
         if deminc:
-            dat = N.zeros((self.nvar, self.minc*self.n_phi_tot+1), 'Float64')
+            dat = np.zeros((self.nvar, self.minc*self.n_phi_tot+1), 'Float64')
         else:
-            dat = N.zeros((self.nvar, self.n_phi_tot), 'Float64')
+            dat = np.zeros((self.nvar, self.n_phi_tot), 'Float64')
 
         for k in range(self.nvar):
             if deminc:
@@ -511,28 +511,28 @@ class Movie:
                 dat[k, :] = datCut[k, :, idx]
 
 
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111)
         vmin = -max(abs(dat.max()), abs(dat.min()))
         vmax = -vmin
-        cs = N.linspace(vmin, vmax, levels)
-        ax.contourf(phi, self.time, dat, cs, cmap=P.get_cmap(cm))
+        cs = np.linspace(vmin, vmax, levels)
+        ax.contourf(phi, self.time, dat, cs, cmap=plt.get_cmap(cm))
 
         ax.set_xlabel('Longitude')
         ax.set_ylabel('Time')
 
         m_max = self.n_phi_tot/3
-        w2 = N.fft.fft2(dat)
+        w2 = np.fft.fft2(dat)
         w2 = abs(w2[1:self.nvar/2+1, 0:m_max+1])
 
-        dw = 2.*N.pi/(self.time[-1]-self.time[0])
-        omega = dw*N.arange(self.nvar)
+        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+        omega = dw*np.arange(self.nvar)
         omega = omega[1:self.nvar/2+1]
-        ms = N.arange(m_max+1)
+        ms = np.arange(m_max+1)
 
-        fig1 = P.figure()
+        fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        ax1.contourf(ms, omega, N.log10(w2), 65, cmap=P.get_cmap('jet'))
+        ax1.contourf(ms, omega, np.log10(w2), 65, cmap=plt.get_cmap('jet'))
         ax1.set_yscale('log')
         #ax1.set_xlim(0,13)
         ax1.set_xlabel(r'Azimuthal wavenumber')
@@ -543,4 +543,4 @@ class Movie:
 
 if __name__ == '__main__':
     Movie(step=1)
-    P.show()
+    plt.show()

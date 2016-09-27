@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import numpy as N
+import numpy as np
 import os, re
 from .log import MagicSetup
 from .libmagic import scanDir
@@ -168,18 +168,18 @@ class MagicGraph(MagicSetup):
                               self.npI))
 
             self.colatitude = inline.fort_read(self.precision)
-            self.radius = N.zeros((self.nr), self.precision)
+            self.radius = np.zeros((self.nr), self.precision)
 
-            entropy = N.zeros((self.npI, self.ntheta, self.nr), self.precision)
-            vr = N.zeros_like(entropy)
-            vtheta = N.zeros_like(entropy)
-            vphi = N.zeros_like(entropy)
+            entropy = np.zeros((self.npI, self.ntheta, self.nr), self.precision)
+            vr = np.zeros_like(entropy)
+            vtheta = np.zeros_like(entropy)
+            vphi = np.zeros_like(entropy)
             if self.prmag != 0:
-                Br = N.zeros_like(entropy)
-                Btheta = N.zeros_like(entropy)
-                Bphi = N.zeros_like(entropy)
+                Br = np.zeros_like(entropy)
+                Btheta = np.zeros_like(entropy)
+                Bphi = np.zeros_like(entropy)
             if version == b'Graphout_Version_8' or version == b'Graphout_Version_10':
-                pressure = N.zeros_like(entropy)
+                pressure = np.zeros_like(entropy)
 
             for k in range(self.nr*self.nThetaBs):
                 # radius and Thetas in this block
@@ -234,15 +234,15 @@ class MagicGraph(MagicSetup):
                             data = inline.fort_read(self.precision,
                                                     shape=(8*(self.npI+2)*nth_loc-2))
                             # Add 2 zeros for the last lines
-                            data = N.append(data, 0.)
-                            data = N.append(data, 0.)
+                            data = np.append(data, 0.)
+                            data = np.append(data, 0.)
                             data = data.reshape((8, nth_loc, self.npI+2))
                         else:
                             data = inline.fort_read(self.precision,
                                                     shape=(7*(self.npI+2)*nth_loc-2))
                             # Add 2 zeros for the last lines
-                            data = N.append(data, 0.)
-                            data = N.append(data, 0.)
+                            data = np.append(data, 0.)
+                            data = np.append(data, 0.)
                             data = data.reshape((7, nth_loc, self.npI+2))
                         data = data[:,:,:-2:]
                         entropy[:,ilat1:ilat2+1, ir] = data[0,...].T
@@ -263,15 +263,15 @@ class MagicGraph(MagicSetup):
                             data = inline.fort_read(self.precision,
                                                     shape=(5*(self.npI+2)*nth_loc-2))
                             # Add 2 zeros for the last lines
-                            data = N.append(data, 0.)
-                            data = N.append(data, 0.)
+                            data = np.append(data, 0.)
+                            data = np.append(data, 0.)
                             data = data.reshape((5, nth_loc, self.npI+2))
                         else:
                             data = inline.fort_read(self.precision,
                                                     shape=(4*(self.npI+2)*nth_loc-2))
                             # Add 2 zeros for the last lines
-                            data = N.append(data, 0.)
-                            data = N.append(data, 0.)
+                            data = np.append(data, 0.)
+                            data = np.append(data, 0.)
                             data = data.reshape((4, nth_loc, self.npI+2))
                         data = data[:,:,:-2:]
                         entropy[:,ilat1:ilat2+1, ir] = data[0,...].T
@@ -327,4 +327,4 @@ class MagicGraph(MagicSetup):
         """
         even = field[:, ::2, :] 
         odd = field[:, 1::2, :]
-        return N.concatenate((even, odd[:, ::-1, :]), axis=1)
+        return np.concatenate((even, odd[:, ::-1, :]), axis=1)

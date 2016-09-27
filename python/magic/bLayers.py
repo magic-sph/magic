@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 import os
 from magic import MagicRadial, matder, intcheb, MagicSetup, scanDir, AvgField
 from magic.setup import labTex
@@ -32,23 +32,23 @@ def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
               top boundary layer
     :rtype: list
     """
-    idxT = N.nonzero(N.where(uh==uhTop, 1, 0))[0][0]
+    idxT = np.nonzero(np.where(uh==uhTop, 1, 0))[0][0]
     x = rad[idxT-3:idxT+4]
     y =  uh[idxT-3:idxT+4]
-    newx = N.linspace(x[0], x[-1], 128)
+    newx = np.linspace(x[0], x[-1], 128)
     tckp = splrep(x[::-1], y[::-1])
     newy = splev(newx, tckp)
-    ind = argrelextrema(newy, N.greater)[0]
+    ind = argrelextrema(newy, np.greater)[0]
     bcTopUh = ro-newx[ind]
     topUh = newy[ind]
     
-    idxT = N.nonzero(N.where(uh==uhBot, 1, 0))[0][0]
+    idxT = np.nonzero(np.where(uh==uhBot, 1, 0))[0][0]
     x = rad[idxT-3:idxT+4]
     y =  uh[idxT-3:idxT+4]
-    newx = N.linspace(x[0], x[-1], 128)
+    newx = np.linspace(x[0], x[-1], 128)
     tckp = splrep(x[::-1], y[::-1])
     newy = splev(newx, tckp)
-    ind = argrelextrema(newy, N.greater)[0]
+    ind = argrelextrema(newy, np.greater)[0]
     bcBotUh = newx[ind]-ri
     botUh = newy[ind]
 
@@ -87,8 +87,8 @@ def integBulkBc(rad, field, ri, ro, lambdai, lambdao, normed=False):
     integBc = intcheb(field2, len(field2)-1, ri, ro)
 
     if normed:
-        volBc1 = 4./3.*N.pi*(ro**3-(ro-lambdao)**3)
-        volBc2 = 4./3.*N.pi*((ri+lambdai)**3-(ri)**3)
+        volBc1 = 4./3.*np.pi*(ro**3-(ro-lambdao)**3)
+        volBc2 = 4./3.*np.pi*((ri+lambdai)**3-(ri)**3)
         volBc = volBc1+volBc2
         integBc = integBc/volBc
 
@@ -101,7 +101,7 @@ def integBulkBc(rad, field, ri, ro, lambdai, lambdao, normed=False):
     integBulk = intcheb(field2, len(field2)-1, ri, ro)
 
     if normed:
-        volBulk = 4./3.*N.pi*((ro-lambdao)**3-(ri+lambdai)**3)
+        volBulk = 4./3.*np.pi*((ro-lambdao)**3-(ri+lambdai)**3)
         integBulk = integBulk/volBulk
 
     return integBc, integBulk
@@ -141,8 +141,8 @@ def integBotTop(rad, field, ri, ro, lambdai, lambdao, normed=False):
     integBot = intcheb(field2, len(field2)-1, ri, ro)
 
     if normed:
-        volBc1 = 4./3.*N.pi*(ro**3-(ro-lambdao)**3)
-        volBc2 = 4./3.*N.pi*((ri+lambdai)**3-(ri)**3)
+        volBc1 = 4./3.*np.pi*(ro**3-(ro-lambdao)**3)
+        volBc2 = 4./3.*np.pi*((ri+lambdai)**3-(ri)**3)
         integTop /= volBc1
         integBot /= volBc2
 
@@ -234,7 +234,7 @@ class BLayers(MagicSetup):
             self.reynolds = 1.
             e2fluct = 1.
         par = MagicRadial(field='bLayersR', iplot=False, tags=tags)
-        self.varS = N.sqrt(N.abs(par.varS))
+        self.varS = np.sqrt(np.abs(par.varS))
         self.ss = par.entropy
 
         if os.path.exists('tInitAvg'):
@@ -250,7 +250,7 @@ class BLayers(MagicSetup):
             if len(tagsFix) > 0:
                 print('Fix temp. tags', tagsFix)
                 parFix = MagicRadial(field='bLayersR', iplot=False, tags=tagsFix)
-                self.varS = N.sqrt(N.abs(parFix.varS))
+                self.varS = np.sqrt(np.abs(parFix.varS))
                 self.ss = parFix.entropy
 
             self.tags = tagsFix
@@ -260,18 +260,18 @@ class BLayers(MagicSetup):
         self.ro = self.rad[0]
         self.ri = self.rad[-1]
 
-        vol_oc = 4./3.* N.pi * (self.ro**3-self.ri**3)
-        self.rey_fluct = N.sqrt(2.*e2fluct/vol_oc)
+        vol_oc = 4./3.* np.pi * (self.ro**3-self.ri**3)
+        self.rey_fluct = np.sqrt(2.*e2fluct/vol_oc)
 
-        self.reh = 4.*N.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1, 
-                        self.ri, self.ro)/(4./3.*N.pi*(self.ro**3-self.ri**3))
+        self.reh = 4.*np.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1, 
+                        self.ri, self.ro)/(4./3.*np.pi*(self.ro**3-self.ri**3))
 
         # Thermal dissipation boundary layer
         if hasattr(par, 'dissS'):
             self.dissS = par.dissS
-            self.epsT = -4.*N.pi*intcheb(self.rad**2*self.dissS, len(self.rad)-1, 
+            self.epsT = -4.*np.pi*intcheb(self.rad**2*self.dissS, len(self.rad)-1, 
                                          self.ro, self.ri)
-            self.epsTR = 4.*N.pi*self.rad**2*self.dissS
+            self.epsTR = 4.*np.pi*self.rad**2*self.dissS
             ind = getMaxima(-abs(self.epsTR-self.epsT))
 
             try:
@@ -288,7 +288,7 @@ class BLayers(MagicSetup):
             print('thDiss bl, bulk',  self.dissEpsTbl/self.epsT, self.dissEpsTbulk/self.epsT)
         # First way of defining the thermal boundary layers: with var(S)
         #rThLayer = getMaxima(self.rad, self.varS)
-        ind = argrelextrema(self.varS, N.greater)[0]
+        ind = argrelextrema(self.varS, np.greater)[0]
         if len(ind) != 0:
             self.bcTopVarS = self.ro-self.rad[ind[0]]
             self.bcBotVarS = self.rad[ind[-1]]-self.ri
@@ -304,7 +304,7 @@ class BLayers(MagicSetup):
         d1 = matder(len(self.rad)-1, self.ro, self.ri)
         self.ttm = 3.*intcheb(self.ss*self.rad**2, len(self.rad)-1, self.ri, self.ro) \
                    /(self.ro**3-self.ri**3)
-        dsdr = N.dot(d1, self.ss)
+        dsdr = np.dot(d1, self.ss)
         self.beta = dsdr[len(dsdr)/2]
         print('beta=%.2f' % self.beta)
         self.slopeTop = dsdr[2]*(self.rad-self.ro)+self.ss[0]
@@ -369,7 +369,7 @@ class BLayers(MagicSetup):
         # First way of defining the viscous boundary layers: with duhdr
         #rViscousLayer = getMaxima(self.rad, self.duh)
         if self.kbotv == 1 and self.ktopv == 1:
-            ind = argrelextrema(self.duh, N.greater)[0]
+            ind = argrelextrema(self.duh, np.greater)[0]
             if len(ind) == 0:
                 self.bcTopduh = 1.
                 self.bcBotduh = 1.
@@ -391,9 +391,9 @@ class BLayers(MagicSetup):
             self.uhBot = 0.
             self.uhTop = 0.
         else:
-            ind = argrelextrema(self.uh, N.greater)[0]
+            ind = argrelextrema(self.uh, np.greater)[0]
             if len(ind) == 1:
-                ind = argrelextrema(self.uh, N.greater_equal)[0]
+                ind = argrelextrema(self.uh, np.greater_equal)[0]
             if len(ind) == 0:
                 self.bcTopduh = 1.
                 self.bcBotduh = 1.
@@ -414,7 +414,7 @@ class BLayers(MagicSetup):
                         getAccuratePeaks(self.rad, self.uh, self.uhTop, \
                                          self.uhBot, self.ri, self.ro)
 
-            duhdr = N.dot(d1, self.uh)
+            duhdr = np.dot(d1, self.uh)
 
             #1st round
             mask = (self.rad>=self.ro-self.bcTopduh/4)*(self.rad<self.ro)
@@ -445,7 +445,7 @@ class BLayers(MagicSetup):
         par = MagicRadial(field='parR', iplot=False, tags=tags)
         kin = MagicRadial(field='eKinR', iplot=False, tags=tags)
         ekinNas = kin.ekin_pol+kin.ekin_tor-kin.ekin_pol_axi-kin.ekin_tor_axi
-        ReR = N.sqrt(2.*abs(ekinNas)/par.radius**2/(4.*N.pi))
+        ReR = np.sqrt(2.*abs(ekinNas)/par.radius**2/(4.*np.pi))
         RolC = ReR*par.ek/par.dlVc
 
         self.dl = par.dlVc
@@ -456,19 +456,19 @@ class BLayers(MagicSetup):
         except IndexError:
             self.rolTop = 0.
 
-        self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*N.pi*RolC*self.rad**2, 
+        self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*np.pi*RolC*self.rad**2, 
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rebl, self.rebulk = integBulkBc(self.rad, 4.*N.pi*ReR*self.rad**2, 
+        self.rebl, self.rebulk = integBulkBc(self.rad, 4.*np.pi*ReR*self.rad**2, 
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*N.pi*self.rad**2, 
+        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*np.pi*self.rad**2, 
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rehbl, self.rehbulk = integBulkBc(self.rad, self.uh*4.*N.pi*self.rad**2, 
+        self.rehbl, self.rehbulk = integBulkBc(self.rad, self.uh*4.*np.pi*self.rad**2, 
                                      self.ri, self.ro, self.bcBotduh, self.bcTopduh,
                                      normed=True)
 
@@ -481,10 +481,10 @@ class BLayers(MagicSetup):
 
         par.dlVc[0] = 0.
         par.dlVc[-1] = 0.
-        self.lBot, self.lTop = integBotTop(self.rad, 4.*N.pi*self.rad**2*par.dlVc, 
+        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*par.dlVc, 
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
-        uhbm, utbm = integBotTop(self.rad, 4.*N.pi*self.uh, 
+        uhbm, utbm = integBotTop(self.rad, 4.*np.pi*self.uh, 
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
         # Convective Rol in the thermal boundary Layer
@@ -498,26 +498,26 @@ class BLayers(MagicSetup):
             perpPar = MagicRadial(field='perpParR', iplot=False, tags=tags)
             eperpNas = perpPar.Eperp-perpPar.Eperp_axi
             eparNas = perpPar.Epar-perpPar.Epar_axi
-            RePerpNas = N.sqrt(2.*abs(eperpNas))
-            ReParNas = N.sqrt(2.*abs(eparNas))
-            RePerp = N.sqrt(2.*abs(perpPar.Eperp))
-            RePar = N.sqrt(2.*abs(perpPar.Epar))
+            RePerpNas = np.sqrt(2.*abs(eperpNas))
+            ReParNas = np.sqrt(2.*abs(eparNas))
+            RePerp = np.sqrt(2.*abs(perpPar.Eperp))
+            RePar = np.sqrt(2.*abs(perpPar.Epar))
 
             self.reperpbl, self.reperpbulk = integBulkBc(self.rad, 
-                                             4.*N.pi*RePerp*self.rad**2, 
+                                             4.*np.pi*RePerp*self.rad**2, 
                                              self.ri, self.ro, self.bcBotSlope, 
                                              self.bcTopSlope, normed=True)
             self.reparbl, self.reparbulk = integBulkBc(self.rad, 
-                                           4.*N.pi*RePar*self.rad**2, 
+                                           4.*np.pi*RePar*self.rad**2, 
                                            self.ri, self.ro, self.bcBotSlope, 
                                            self.bcTopSlope, normed=True)
             self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.rad, 
-                                                   4.*N.pi*RePerpNas*self.rad**2, 
+                                                   4.*np.pi*RePerpNas*self.rad**2, 
                                                    self.ri, self.ro,
                                                    self.bcBotSlope,
                                                    self.bcTopSlope, normed=True)
             self.reparnasbl, self.reparnasbulk = integBulkBc(self.rad,
-                                                 4.*N.pi*ReParNas*self.rad**2, 
+                                                 4.*np.pi*ReParNas*self.rad**2, 
                                                  self.ri, self.ro,
                                                  self.bcBotSlope, self.bcTopSlope,
                                                  normed=True)
@@ -541,8 +541,8 @@ class BLayers(MagicSetup):
         """
         Plotting function
         """
-        #P.rcdefaults()
-        fig = P.figure()
+        #plt.rcdefaults()
+        fig = plt.figure()
         ax = fig.add_subplot(211)
         ax.plot(self.rad, self.ss)
         ax.axhline(self.ttm, color='gray', linestyle='-')
@@ -574,9 +574,9 @@ class BLayers(MagicSetup):
             ax.plot(self.rad, self.uh)
             ax.plot(self.rad, self.slopeTopU, 'k--')
             ax.plot(self.rad, self.slopeBotU, 'k--')
-            mask = (N.abs(self.rad-self.ri-self.bcBotduh)==N.abs(self.rad-self.ri-self.bcBotduh).min())
+            mask = (np.abs(self.rad-self.ri-self.bcBotduh)==np.abs(self.rad-self.ri-self.bcBotduh).min())
             ax.axhline(self.uh[mask], color='k', linestyle='--', xmin=0., xmax=self.bcBotduh)
-            mask = (N.abs(self.rad-self.ro+self.bcTopduh)==N.abs(self.rad-self.ro+self.bcTopduh).min())
+            mask = (np.abs(self.rad-self.ro+self.bcTopduh)==np.abs(self.rad-self.ro+self.bcTopduh).min())
             ax.axhline(self.uh[mask], color='k', linestyle='--', xmin=1.-self.bcTopduh, xmax=1.)
             if labTex:
                 ax.set_ylabel(r'$u_h$')
@@ -588,7 +588,7 @@ class BLayers(MagicSetup):
         ax.set_xlim(self.rad[-1], self.rad[0])
         ax.set_xlabel('Radius')
 
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(211)
         ax.semilogy(self.rad, self.vi)
         ax.axhline(self.epsV, color='k', linestyle='--')
@@ -663,4 +663,4 @@ if __name__ == '__main__':
 
     b = BLayers(iplot=True)
     print(b)
-    P.show()
+    plt.show()

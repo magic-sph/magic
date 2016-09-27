@@ -2,8 +2,8 @@
 import glob
 import re
 import os
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 from .npfile import *
 
 
@@ -75,7 +75,7 @@ class TOMovie:
         n_type, n_surface, const, n_fields = infile.fort_read(precision)
         movtype = infile.fort_read(precision)
         n_fields = int(n_fields)
-        self.movtype = N.asarray(movtype)
+        self.movtype = np.asarray(movtype)
         n_surface = int(n_surface)
 
         # RUN PARAMETERS
@@ -97,14 +97,14 @@ class TOMovie:
         surftype = 'phi_constant'
         shape = (self.n_r_max, self.n_theta_max)
 
-        self.time = N.zeros(self.nvar, precision)
-        self.asVphi = N.zeros((self.nvar, self.n_theta_max,self.n_r_max), precision)
-        self.rey = N.zeros_like(self.asVphi)
-        self.adv = N.zeros_like(self.asVphi)
-        self.visc = N.zeros_like(self.asVphi)
-        self.lorentz = N.zeros_like(self.asVphi)
-        self.coriolis = N.zeros_like(self.asVphi)
-        self.dtVp = N.zeros_like(self.asVphi)
+        self.time = np.zeros(self.nvar, precision)
+        self.asVphi = np.zeros((self.nvar, self.n_theta_max,self.n_r_max), precision)
+        self.rey = np.zeros_like(self.asVphi)
+        self.adv = np.zeros_like(self.asVphi)
+        self.visc = np.zeros_like(self.asVphi)
+        self.lorentz = np.zeros_like(self.asVphi)
+        self.coriolis = np.zeros_like(self.asVphi)
+        self.dtVp = np.zeros_like(self.asVphi)
 
         # READ the data
         for k in range(self.nvar):
@@ -122,7 +122,7 @@ class TOMovie:
             self.dtVp[k, ...] = infile.fort_read(precision, shape=shape).T
 
         if iplot:
-            cmap = P.get_cmap(cm)
+            cmap = plt.get_cmap(cm)
             self.plot(cut, levels, avg, cmap)
 
     def plot(self, cut=0.8, levs=16, avg=True, cmap='RdYlBu_r'):
@@ -138,15 +138,15 @@ class TOMovie:
         :param cmap: name of the colormap
         :type cmap: str
         """
-        th = N.linspace(N.pi/2., -N.pi/2., self.n_theta_max)
-        rr, tth = N.meshgrid(self.radius, th)
-        xx = rr * N.cos(tth)
-        yy = rr * N.sin(tth)
-        xxout = rr.max() * N.cos(th)
-        yyout = rr.max() * N.sin(th)
-        xxin = rr.min() * N.cos(th)
-        yyin = rr.min() * N.sin(th)
-        fig = P.figure(figsize=(20, 5))
+        th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
+        rr, tth = np.meshgrid(self.radius, th)
+        xx = rr * np.cos(tth)
+        yy = rr * np.sin(tth)
+        xxout = rr.max() * np.cos(th)
+        yyout = rr.max() * np.sin(th)
+        xxin = rr.min() * np.cos(th)
+        yyin = rr.min() * np.sin(th)
+        fig = plt.figure(figsize=(20, 5))
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01, wspace=0.01)
 
         if avg:
@@ -161,12 +161,12 @@ class TOMovie:
             vmin = - max(abs(cor.max()), abs(cor.min()))
             vmin = cut * vmin
             vmax = -vmin
-            cs = N.linspace(vmin, vmax, levs)
+            cs = np.linspace(vmin, vmax, levs)
 
             vmin = - max(abs(asVp.max()), abs(asVp.min()))
             vmin = cut * vmin
             vmax = -vmin
-            csVp = N.linspace(vmin, vmax, levs)
+            csVp = np.linspace(vmin, vmax, levs)
 
             ax = fig.add_subplot(181)
             ax.axis('off')
@@ -227,17 +227,17 @@ class TOMovie:
                                   verticalalignment='center')
 
         else:
-            P.ion()
+            plt.ion()
 
             vmin = - max(abs(self.coriolis.max()), abs(self.coriolis.min()))
             vmin = cut * vmin
             vmax = -vmin
-            cs = N.linspace(vmin, vmax, levs)
+            cs = np.linspace(vmin, vmax, levs)
 
             vmin = - max(abs(self.asVphi.max()), abs(self.asVphi.min()))
             vmin = cut * vmin
             vmax = -vmin
-            cs1 = N.linspace(vmin, vmax, levs)
+            cs1 = np.linspace(vmin, vmax, levs)
 
             for k in range(self.nvar-1): # avoid last dvp/dt which is wrong
                 bal = self.asVphi[k, ...]+self.adv[k, ...]+self.rey[k, ...]+\
@@ -308,10 +308,10 @@ class TOMovie:
                     ax8.text(0.05, 0., 'dvp/dt', fontsize=20, horizontalalignment='left',
                                   verticalalignment='center')
 
-                    man = P.get_current_fig_manager()
+                    man = plt.get_current_fig_manager()
                     man.canvas.draw()
                 else:
-                    P.cla()
+                    plt.cla()
                     im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1, 
                                      cmap=cmap, extend='both')
                     im = ax2.contourf(xx, yy, self.adv[k, ...], cs, 
@@ -329,14 +329,14 @@ class TOMovie:
                     im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs, 
                                      cmap=cmap, extend='both')
 
-                    P.axis('off')
+                    plt.axis('off')
                     man.canvas.draw()
 
-            #P.ioff()
+            #plt.ioff()
 
             
 
 if __name__ == '__main__':
     file ='TO_mov.test'
     TOMovie(file=file)
-    P.show()
+    plt.show()

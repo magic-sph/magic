@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize
 import os
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 from magic.setup import labTex
 
 
@@ -21,8 +21,8 @@ def deriv(x, y, axis=0):
         exit("Paramaters must have at least three points")
     #if len(x) != len(y):
         #exit("Vectors must have the same size")
-    d = (N.roll(y, -1, axis=axis)-N.roll(y, 1, axis=axis))/ \
-        (N.roll(x, -1)-N.roll(x, 1))
+    d = (np.roll(y, -1, axis=axis)-np.roll(y, 1, axis=axis))/ \
+        (np.roll(x, -1)-np.roll(x, 1))
     d[..., 0] = (-3.*y[..., 0]+4.*y[..., 1]-y[..., 2])/(x[..., 2]-x[..., 0])
     d[..., -1] = (3*y[..., -1]-4*y[..., -2]+y[..., -3])/(x[..., -1]-x[..., -3])
     return d
@@ -45,8 +45,8 @@ def getGauss(alm, blm, ell, m, scale_b, ratio_cmb_surface, rcmb):
     :param rcmb: radius of the outer boundary
     :type rcmb: float
     """
-    fac = (-1)**m*ell*N.sqrt((2*ell+1.)/(4.*N.pi))
-    fac[m > 0 ] *= N.sqrt(2)
+    fac = (-1)**m*ell*np.sqrt((2*ell+1.)/(4.*np.pi))
+    fac[m > 0 ] *= np.sqrt(2)
     glm = scale_b*ratio_cmb_surface**(ell+2.)/rcmb**2*fac*alm
     hlm = -scale_b*ratio_cmb_surface**(ell+2.)/rcmb**2*fac*blm
 
@@ -65,7 +65,7 @@ def rearangeLat(field):
     """
     even = field[:, ::2]
     odd = field[:, 1::2]
-    return N.concatenate((even, odd[:, ::-1]), axis=1)
+    return np.concatenate((even, odd[:, ::-1]), axis=1)
 
 
 class MagicCoeffCmb(MagicSetup):
@@ -143,11 +143,11 @@ class MagicCoeffCmb(MagicSetup):
                           self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
-        self.idx = N.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
-        self.ell = N.zeros(self.lm_max_cmb, 'i')
-        self.ms = N.zeros(self.lm_max_cmb, 'i')
-        self.idx[0:self.l_max_cmb+2, 0] = N.arange(self.l_max_cmb+1)
-        self.ell[0:self.l_max_cmb+2] = N.arange(self.l_max_cmb+2)
+        self.idx = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
+        self.ell = np.zeros(self.lm_max_cmb, 'i')
+        self.ms = np.zeros(self.lm_max_cmb, 'i')
+        self.idx[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
+        self.ell[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
         k = self.l_max_cmb+1
         for m in range(self.minc, self.l_max_cmb+1, self.minc):
             for l in range(m, self.l_max_cmb+1):
@@ -157,20 +157,20 @@ class MagicCoeffCmb(MagicSetup):
                 k +=1
 
         # Rearange data
-        data = N.array(data, dtype=precision)
+        data = np.array(data, dtype=precision)
         self.nstep = data.shape[0]
-        self.blm = N.zeros((self.nstep, self.lm_max_cmb), 'Complex64')
+        self.blm = np.zeros((self.nstep, self.lm_max_cmb), 'Complex64')
         self.blm[:, 1:self.l_max_cmb+1] = data[:, 1:self.l_max_cmb+1]
         self.blm[:, self.l_max_cmb+1:] = data[:, self.l_max_cmb+1::2]+\
                                          1j*data[:, self.l_max_cmb+2::2]
 
         # Get time
-        self.time = N.zeros(self.nstep, precision)
+        self.time = np.zeros(self.nstep, precision)
         self.time = data[:, 0]
 
         # Get Gauss coefficients
-        self.glm = N.zeros((self.nstep, self.lm_max_cmb), precision)
-        self.hlm = N.zeros((self.nstep, self.lm_max_cmb), precision)
+        self.glm = np.zeros((self.nstep, self.lm_max_cmb), precision)
+        self.hlm = np.zeros((self.nstep, self.lm_max_cmb), precision)
 
         self.glm, self.hlm = getGauss(self.blm.real, self.blm.imag, 
                                       self.ell, self.ms, scale_b, 
@@ -178,8 +178,8 @@ class MagicCoeffCmb(MagicSetup):
 
         # Time-averaged Gauss coefficient
         facT = 1./(self.time[-1]-self.time[0])
-        self.glmM = facT * N.trapz(self.glm, self.time, axis=0)
-        self.hlmM = facT * N.trapz(self.hlm, self.time, axis=0)
+        self.glmM = facT * np.trapz(self.glm, self.time, axis=0)
+        self.hlmM = facT * np.trapz(self.hlm, self.time, axis=0)
 
         if len(self.time) > 3:
             self.dglmdt = deriv(self.time, self.glm.T, axis=1)
@@ -188,13 +188,13 @@ class MagicCoeffCmb(MagicSetup):
             self.dhlmdt = self.dhlmdt.T
 
         else:
-            self.dglmdt = N.zeros_like(self.glm)
-            self.dhlmdt = N.zeros_like(self.hlm)
+            self.dglmdt = np.zeros_like(self.glm)
+            self.dhlmdt = np.zeros_like(self.hlm)
 
         # Magnetic energy (Lowes)
-        self.El = N.zeros((self.nstep, self.l_max_cmb+1), precision)
-        self.Em = N.zeros((self.nstep, self.m_max_cmb+1), precision)
-        self.ESVl = N.zeros((self.nstep, self.l_max_cmb+1), precision)
+        self.El = np.zeros((self.nstep, self.l_max_cmb+1), precision)
+        self.Em = np.zeros((self.nstep, self.m_max_cmb+1), precision)
+        self.ESVl = np.zeros((self.nstep, self.l_max_cmb+1), precision)
         E = 0.
         for l in range(1, self.l_max_cmb+1):
             self.El[:, l] = 0.
@@ -209,12 +209,12 @@ class MagicCoeffCmb(MagicSetup):
                                   (self.dglmdt[:, lm]**2+self.dhlmdt[:, lm]**2)
 
         # Time-averaged energy
-        self.ElM = facT * N.trapz(self.El, self.time, axis=0)
-        self.EmM = facT * N.trapz(self.Em, self.time, axis=0)
+        self.ElM = facT * np.trapz(self.El, self.time, axis=0)
+        self.EmM = facT * np.trapz(self.Em, self.time, axis=0)
 
         # Secular variation
-        self.ESVlM = facT * N.trapz(self.ESVl, self.time, axis=0)
-        self.taul = N.sqrt(self.ElM[1:]/self.ESVlM[1:])
+        self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
+        self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
 
         if iplot:
             self.plot()
@@ -223,8 +223,8 @@ class MagicCoeffCmb(MagicSetup):
         """
         Display some results when iplot is set to True
         """
-        ell = N.arange(self.l_max_cmb+1)
-        fig = P.figure()
+        ell = np.arange(self.l_max_cmb+1)
+        fig = plt.figure()
         ax = fig.add_subplot(211)
         ax.semilogy(ell[1:], self.ElM[1:], 'b-o')
         if labTex:
@@ -243,7 +243,7 @@ class MagicCoeffCmb(MagicSetup):
             ax1.set_xlabel('Order m')
         ax1.set_ylabel('Magnetic energy')
 
-        fig1 = P.figure()
+        fig1 = plt.figure()
         ax = fig1.add_subplot(111)
         ax.loglog(ell[1:], self.taul, 'b-o')
         if labTex:
@@ -254,7 +254,7 @@ class MagicCoeffCmb(MagicSetup):
             ax.set_ylabel('tau  l')
         ax.set_xlim(1, self.l_max_cmb)
 
-        fig2 = P.figure()
+        fig2 = plt.figure()
         ax = fig2.add_subplot(111)
         ax.plot(self.time, self.glm[:, self.idx[1,0]], label='g10')
         ax.plot(self.time, self.glm[:, self.idx[2,0]], label='g20')
@@ -302,17 +302,17 @@ class MagicCoeffCmb(MagicSetup):
         nphi = 2*nlat/self.minc
         nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
 
-        th = N.linspace(N.pi/2., -N.pi/2., nlat)
-        lat0 *= N.pi/180.
-        mask = N.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
-        idx = N.nonzero(mask)[0][0]
+        th = np.linspace(np.pi/2., -np.pi/2., nlat)
+        lat0 *= np.pi/180.
+        mask = np.where(abs(th-lat0) == abs(th-lat0).min(), 1, 0)
+        idx = np.nonzero(mask)[0][0]
 
         # Transform data on grid space
-        BrCMB = N.zeros((self.nstep, nphi, nlat), 'Float64')
+        BrCMB = np.zeros((self.nstep, nphi, nlat), 'Float64')
         if deminc:
-            dat = N.zeros((self.nstep, self.minc*nphi+1), 'Float64')
+            dat = np.zeros((self.nstep, self.minc*nphi+1), 'Float64')
         else:
-            dat = N.zeros((self.nstep, nphi), 'Float64')
+            dat = np.zeros((self.nstep, nphi), 'Float64')
         for k in range(self.nstep):
             tmp = sh.synth(blmCut[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
             tmp = tmp.T # Longitude, Latitude
@@ -328,33 +328,33 @@ class MagicCoeffCmb(MagicSetup):
                 dat[k, :] = BrCMB[k, :, idx]
 
 
-        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        th = np.linspace(np.pi/2., -np.pi/2., nlat)
         if deminc:
-            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
+            phi = np.linspace(-np.pi, np.pi, self.minc*nphi+1)
         else:
-            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
+            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, nphi)
 
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111)
         vmin = -max(abs(dat.max()), abs(dat.min()))
         vmax = -vmin
-        cs = N.linspace(vmin, vmax, levels)
-        ax.contourf(phi, self.time, dat, cs, cmap=P.get_cmap(cm))
+        cs = np.linspace(vmin, vmax, levels)
+        ax.contourf(phi, self.time, dat, cs, cmap=plt.get_cmap(cm))
 
         ax.set_xlabel('Longitude')
         ax.set_ylabel('Time')
 
-        w2 = N.fft.fft2(dat)
+        w2 = np.fft.fft2(dat)
         w2 = abs(w2[1:self.nstep/2+1, 0:self.m_max_cmb+1])
 
-        dw = 2.*N.pi/(self.time[-1]-self.time[0])
-        omega = dw*N.arange(self.nstep)
+        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+        omega = dw*np.arange(self.nstep)
         omega = omega[1:self.nstep/2+1]
-        ms = N.arange(self.m_max_cmb+1)
+        ms = np.arange(self.m_max_cmb+1)
 
-        fig1 = P.figure()
+        fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        ax1.contourf(ms, omega, w2, 17, cmap=P.get_cmap('jet'))
+        ax1.contourf(ms, omega, w2, 17, cmap=plt.get_cmap('jet'))
         ax1.set_yscale('log')
         ax1.set_xlim(0,13)
         ax1.set_xlabel(r'Azimuthal wavenumber')
@@ -421,7 +421,7 @@ class MagicCoeffCmb(MagicSetup):
         nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
 
         # Transform data on grid space
-        BrCMB = N.zeros((self.nstep, nphi, nlat), precision)
+        BrCMB = np.zeros((self.nstep, nphi, nlat), precision)
         for k in range(self.nstep):
             tmp = sh.synth(blmCut[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
             tmp = tmp.T # Longitude, Latitude
@@ -432,40 +432,40 @@ class MagicCoeffCmb(MagicSetup):
                 BrCMB[k, ...] = tmp
 
         if png:
-            P.ioff()
+            plt.ioff()
             if not os.path.exists('movie'):
                 os.mkdir('movie')
         else:
-            P.ion()
+            plt.ion()
 
         if not normed:
             vmin = - max(abs(BrCMB.max()), abs(BrCMB.min()))
             vmin = cut * vmin
             vmax = -vmin
-            cs = N.linspace(vmin, vmax, levels)
+            cs = np.linspace(vmin, vmax, levels)
 
-        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        th = np.linspace(np.pi/2., -np.pi/2., nlat)
         if deminc:
-            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
+            phi = np.linspace(-np.pi, np.pi, self.minc*nphi+1)
+            xxout, yyout = hammer2cart(th, -np.pi)
+            xxin, yyin = hammer2cart(th, np.pi)
         else:
-            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
-            xxout, yyout = hammer2cart(th, -N.pi/self.minc)
-            xxin, yyin = hammer2cart(th, N.pi/self.minc)
-        ttheta, pphi = N.meshgrid(th, phi)
+            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, nphi)
+            xxout, yyout = hammer2cart(th, -np.pi/self.minc)
+            xxin, yyin = hammer2cart(th, np.pi/self.minc)
+        ttheta, pphi = np.meshgrid(th, phi)
         xx, yy = hammer2cart(ttheta, pphi)
         if deminc:
-            fig = P.figure(figsize=(8, 4))
+            fig = plt.figure(figsize=(8, 4))
         else:
-            fig = P.figure(figsize=(8/self.minc, 4))
+            fig = plt.figure(figsize=(8/self.minc, 4))
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
 
         if mer:
-            theta = N.linspace(N.pi/2, -N.pi/2, nlat)
-            meridians = N.r_[-120, -60, 0, 60, 120]
-            circles = N.r_[ 60, 30, 0, -30, -60]
+            theta = np.linspace(np.pi/2, -np.pi/2, nlat)
+            meridians = np.r_[-120, -60, 0, 60, 120]
+            circles = np.r_[ 60, 30, 0, -30, -60]
 
         for k in range(self.nstep):
             if k == 0:
@@ -473,12 +473,12 @@ class MagicCoeffCmb(MagicSetup):
                     vmin = - max(abs(BrCMB[k, ...].max()), abs(BrCMB[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if deminc:
                     dat = symmetrize(BrCMB[k, ...], self.minc)
                 else:
                     dat = BrCMB[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, linestyles=['-', '-'],
                                colors=['k', 'k'], linewidths=[0.7, 0.7])
@@ -487,29 +487,29 @@ class MagicCoeffCmb(MagicSetup):
 
                 if mer:
                     for lat0 in circles:
-                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        x0, y0 = hammer2cart(lat0*np.pi/180., phi)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
                     for lon0 in meridians:
-                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
 
                 ax.axis('off')
-                man = P.get_current_fig_manager()
+                man = plt.get_current_fig_manager()
                 man.canvas.draw()
             if k != 0 and k % step == 0:
                 if not png:
                     print(k)
-                P.cla()
+                plt.cla()
                 if normed:
                     vmin = - max(abs(BrCMB[k, ...].max()), abs(BrCMB[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if deminc:
                     dat = symmetrize(BrCMB[k, ...], self.minc)
                 else:
                     dat = BrCMB[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, colors=['k'],
                                linestyles=['-', '-'], linewidths=[0.7, 0.7])
@@ -518,10 +518,10 @@ class MagicCoeffCmb(MagicSetup):
 
                 if mer:
                     for lat0 in circles:
-                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        x0, y0 = hammer2cart(lat0*np.pi/180., phi)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
                     for lon0 in meridians:
-                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
 
                 ax.axis('off')
@@ -604,11 +604,11 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1
 
         # Get indices location
-        self.idx = N.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        self.ell = N.zeros(self.lm_max_r, 'i')
-        self.ms = N.zeros(self.lm_max_r, 'i')
-        self.idx[0:self.l_max_r+2, 0] = N.arange(self.l_max_r+1)
-        self.ell[0:self.l_max_r+2] = N.arange(self.l_max_r+2)
+        self.idx = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
+        self.ell = np.zeros(self.lm_max_r, 'i')
+        self.ms = np.zeros(self.lm_max_r, 'i')
+        self.idx[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
+        self.ell[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
         for m in range(self.minc, self.l_max_r+1, self.minc):
             for l in range(m, self.l_max_r+1):
@@ -619,14 +619,14 @@ class MagicCoeffR(MagicSetup):
 
 
         # Rearange data
-        data = N.array(data, dtype=precision)
+        data = np.array(data, dtype=precision)
         self.nstep = data.shape[0]
-        self.wlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
-        self.dwlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
-        self.zlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        self.wlm = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        self.dwlm = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        self.zlm = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
 
         # Get time
-        self.time = N.zeros(self.nstep, dtype=precision)
+        self.time = np.zeros(self.nstep, dtype=precision)
         self.time = data[:, 0]
 
         # wlm
@@ -654,7 +654,7 @@ class MagicCoeffR(MagicSetup):
 
         # ddw in case B is stored
         if field == 'B':
-            self.ddwlm = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+            self.ddwlm = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
             self.ddwlm[:, 1:self.l_max_r+1] = data[:, k:k+self.l_max_r]
             k += self.l_max_r
             for m in range(self.minc, self.l_max_r+1, self.minc):
@@ -667,10 +667,10 @@ class MagicCoeffR(MagicSetup):
             if lCut < self.l_max_r:
                 self.truncate(lCut, field=field)
 
-        self.e_pol_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_tor_axi_l = N.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_pol_l = N.zeros((self.nstep, self.l_max_r+1), precision)
-        self.e_tor_l = N.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_pol_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_tor_axi_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_pol_l = np.zeros((self.nstep, self.l_max_r+1), precision)
+        self.e_tor_l = np.zeros((self.nstep, self.l_max_r+1), precision)
 
         for l in range(1, self.l_max_r+1):
             self.e_pol_l[:, l] = 0.
@@ -701,10 +701,10 @@ class MagicCoeffR(MagicSetup):
         # Time-averaged energy
         facT = 1./(self.time[-1]-self.time[0])
 
-        self.e_pol_lM = facT * N.trapz(self.e_pol_l, self.time, axis=0)
-        self.e_tor_lM = facT * N.trapz(self.e_tor_l, self.time, axis=0)
-        self.e_pol_axi_lM = facT * N.trapz(self.e_pol_axi_l, self.time, axis=0)
-        self.e_tor_axi_lM = facT * N.trapz(self.e_tor_axi_l, self.time, axis=0)
+        self.e_pol_lM = facT * np.trapz(self.e_pol_l, self.time, axis=0)
+        self.e_tor_lM = facT * np.trapz(self.e_tor_l, self.time, axis=0)
+        self.e_pol_axi_lM = facT * np.trapz(self.e_pol_axi_l, self.time, axis=0)
+        self.e_tor_axi_lM = facT * np.trapz(self.e_tor_axi_l, self.time, axis=0)
 
     def truncate(self, lCut, field='B'):
         """
@@ -720,11 +720,11 @@ class MagicCoeffR(MagicSetup):
                         self.l_max_r-self.m_max_r+1
 
         # Get indices location
-        idx_new = N.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
-        ell_new = N.zeros(self.lm_max_r, 'i')
-        ms_new = N.zeros(self.lm_max_r, 'i')
-        idx_new[0:self.l_max_r+2, 0] = N.arange(self.l_max_r+1)
-        ell_new[0:self.l_max_r+2] = N.arange(self.l_max_r+2)
+        idx_new = np.zeros((self.l_max_r+1, self.m_max_r+1), 'i')
+        ell_new = np.zeros(self.lm_max_r, 'i')
+        ms_new = np.zeros(self.lm_max_r, 'i')
+        idx_new[0:self.l_max_r+2, 0] = np.arange(self.l_max_r+1)
+        ell_new[0:self.l_max_r+2] = np.arange(self.l_max_r+2)
         k = self.l_max_r+1
         for m in range(self.minc, self.l_max_r+1, self.minc):
             for l in range(m, self.l_max_r+1):
@@ -733,11 +733,11 @@ class MagicCoeffR(MagicSetup):
                 ms_new[idx_new[l,m]] = m
                 k +=1
 
-        wlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
-        dwlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
-        zlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        wlm_new = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        dwlm_new = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
+        zlm_new = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
         if field == 'B':
-            ddwlm_new = N.zeros((self.nstep, self.lm_max_r), 'Complex64')
+            ddwlm_new = np.zeros((self.nstep, self.lm_max_r), 'Complex64')
 
         for l in range(1, self.l_max_r+1):
             for m in range(0, l+1, self.minc):
@@ -827,7 +827,7 @@ class MagicCoeffR(MagicSetup):
         nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
 
         # Transform data on grid space
-        data = N.zeros((self.nstep, nphi, nlat), precision)
+        data = np.zeros((self.nstep, nphi, nlat), precision)
         for k in range(self.nstep):
             tmp = sh.synth(dataCut[k, :]*sh.l*(sh.l+1)/self.radius**2)
             tmp = tmp.T # Longitude, Latitude
@@ -838,40 +838,40 @@ class MagicCoeffR(MagicSetup):
                 data[k, ...] = tmp
 
         if png:
-            P.ioff()
+            plt.ioff()
             if not os.path.exists('movie'):
                 os.mkdir('movie')
         else:
-            P.ion()
+            plt.ion()
 
         if not normed:
             vmin = - max(abs(data.max()), abs(data.min()))
             vmin = cut * vmin
             vmax = -vmin
-            cs = N.linspace(vmin, vmax, levels)
+            cs = np.linspace(vmin, vmax, levels)
 
-        th = N.linspace(N.pi/2., -N.pi/2., nlat)
+        th = np.linspace(np.pi/2., -np.pi/2., nlat)
         if deminc:
-            phi = N.linspace(-N.pi, N.pi, self.minc*nphi+1)
-            xxout, yyout = hammer2cart(th, -N.pi)
-            xxin, yyin = hammer2cart(th, N.pi)
+            phi = np.linspace(-np.pi, np.pi, self.minc*nphi+1)
+            xxout, yyout = hammer2cart(th, -np.pi)
+            xxin, yyin = hammer2cart(th, np.pi)
         else:
-            phi = N.linspace(-N.pi/self.minc, N.pi/self.minc, nphi)
-            xxout, yyout = hammer2cart(th, -N.pi/self.minc)
-            xxin, yyin = hammer2cart(th, N.pi/self.minc)
-        ttheta, pphi = N.meshgrid(th, phi)
+            phi = np.linspace(-np.pi/self.minc, np.pi/self.minc, nphi)
+            xxout, yyout = hammer2cart(th, -np.pi/self.minc)
+            xxin, yyin = hammer2cart(th, np.pi/self.minc)
+        ttheta, pphi = np.meshgrid(th, phi)
         xx, yy = hammer2cart(ttheta, pphi)
         if deminc:
-            fig = P.figure(figsize=(8, 4))
+            fig = plt.figure(figsize=(8, 4))
         else:
-            fig = P.figure(figsize=(8/self.minc, 4))
+            fig = plt.figure(figsize=(8/self.minc, 4))
         fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
 
         if mer:
-            theta = N.linspace(N.pi/2, -N.pi/2, nlat)
-            meridians = N.r_[-120, -60, 0, 60, 120]
-            circles = N.r_[ 60, 30, 0, -30, -60]
+            theta = np.linspace(np.pi/2, -np.pi/2, nlat)
+            meridians = np.r_[-120, -60, 0, 60, 120]
+            circles = np.r_[ 60, 30, 0, -30, -60]
 
         for k in range(self.nstep):
             if k == 0:
@@ -879,12 +879,12 @@ class MagicCoeffR(MagicSetup):
                     vmin = - max(abs(data[k, ...].max()), abs(data[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if deminc:
                     dat = symmetrize(data[k, ...], self.minc)
                 else:
                     dat = data[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, linestyles=['-', '-'],
                                colors=['k', 'k'], linewidths=[0.7, 0.7])
@@ -893,14 +893,14 @@ class MagicCoeffR(MagicSetup):
 
                 if mer:
                     for lat0 in circles:
-                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        x0, y0 = hammer2cart(lat0*np.pi/180., phi)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
                     for lon0 in meridians:
-                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
 
                 ax.axis('off')
-                man = P.get_current_fig_manager()
+                man = plt.get_current_fig_manager()
                 man.canvas.draw()
 
                 if png:
@@ -915,17 +915,17 @@ class MagicCoeffR(MagicSetup):
             elif k != 0 and k % step == 0:
                 if not png:
                     print(k)
-                P.cla()
+                plt.cla()
                 if normed:
                     vmin = - max(abs(data[k, ...].max()), abs(data[k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    cs = N.linspace(vmin, vmax, levels)
+                    cs = np.linspace(vmin, vmax, levels)
                 if deminc:
                     dat = symmetrize(data[k, ...], self.minc)
                 else:
                     dat = data[k, ...]
-                im = ax.contourf(xx, yy, dat, cs, cmap=P.get_cmap(cm), extend='both')
+                im = ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap(cm), extend='both')
                 if contour:
                     ax.contour(xx, yy, dat, cs, colors=['k'],
                                linestyles=['-', '-'], linewidths=[0.7, 0.7])
@@ -934,10 +934,10 @@ class MagicCoeffR(MagicSetup):
 
                 if mer:
                     for lat0 in circles:
-                        x0, y0 = hammer2cart(lat0*N.pi/180., phi)
+                        x0, y0 = hammer2cart(lat0*np.pi/180., phi)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
                     for lon0 in meridians:
-                        x0, y0 = hammer2cart(theta, lon0*N.pi/180.)
+                        x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
                         ax.plot(x0, y0, 'k:', linewidth=0.7)
 
                 ax.axis('off')
@@ -955,21 +955,21 @@ class MagicCoeffR(MagicSetup):
         """
         Fourier transform of the poloidal energy
         """
-        w2 = N.fft.fft(self.e_pol_l, axis=0)
+        w2 = np.fft.fft(self.e_pol_l, axis=0)
         w2 = abs(w2[1:self.nstep/2+1,1:])
-        dw = 2.*N.pi/(self.time[-1]-self.time[0])
-        omega = dw*N.arange(self.nstep)
+        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+        omega = dw*np.arange(self.nstep)
         omega = omega[1:self.nstep/2+1]
-        ls = N.arange(self.l_max_r+1)
+        ls = np.arange(self.l_max_r+1)
         ls = ls[1:]
 
-        dat = N.log10(w2)
+        dat = np.log10(w2)
         vmax = dat.max()-1
         vmin = dat.min()+2
-        levs = N.linspace(vmin, vmax, 65)
-        fig = P.figure()
+        levs = np.linspace(vmin, vmax, 65)
+        fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(ls, omega, N.log10(w2), levs, cmap=P.get_cmap('jet'),
+        im = ax.contourf(ls, omega, np.log10(w2), levs, cmap=plt.get_cmap('jet'),
                          extend='both')
 
         cbar = fig.colorbar(im)
