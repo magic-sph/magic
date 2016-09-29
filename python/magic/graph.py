@@ -113,9 +113,9 @@ class MagicGraph(MagicSetup):
                 G = Gdble.greader_double
 
             G.readg(filename)
-            self.nr = G.nr
-            self.ntheta = G.nt
-            self.npI = G.np
+            self.nr = int(G.nr)
+            self.ntheta = int(G.nt)
+            self.npI = int(G.np)
             self.minc = int(G.minc)
             self.time = G.time
             self.ra = G.ra
