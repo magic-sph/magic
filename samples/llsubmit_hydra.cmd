@@ -11,40 +11,21 @@
 # @ tasks_per_node = 16
 # @ resources = ConsumableCpus(1)
 # @ network.MPI = sn_all,not_shared,us
-# @ wall_clock_limit = 00:15:00
+# @ wall_clock_limit = 01:00:00
 # @ notification = complete
 # @ notify_user = $(user)@rzg.mpg.de
 # @ queue
 
-#
-# run the program
-#
+module load intel gcc mkl cmake
+module load mpi.ibm
+module load python27/python/2.7
+module load python27/scipy/2015.10
 
 export MACHINE=hydra
-
 export FC=mpiifort
 export CC=mpiicc
+export KMP_AFFINITY=verbose,granularity=core,compact,1
 
 source ../sourceme.sh
 
-module load intel gcc mkl cmake
-#module load perflib/2.2
-#export PERFLIB_OUTPUT_FORMAT=xml
-#export I_MPI_PIN_PROCESSOR_LIST=allcores
-export KMP_AFFINITY=verbose,granularity=core,compact,1
-
-### set OMP_NUM_THREADS
-#export OMP_NUM_THREADS=16
-
-### set MKL to serial mode
-#export MKL_SERIAL=yes
-
-### set MPI algorithms for Intel MPI ###
-#export I_MPI_ADJUST_REDUCE=4
-#export F_UFMTENDIAN=big
-
-### start program
-
-./magic_checks.pl --all --clean --use-cmake --use-mkl
-
-
+./magic_wizard.py --use-mpi --use-mkl --nranks 16 --mpicmd mpiexec

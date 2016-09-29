@@ -29,6 +29,6 @@ export OMP_NUM_THREADS=5
 
 source ../sourceme.sh
 
-./magic_wizard.py --use-mpi --use-openmp --use-mkl --nranks 8 --nthreads 2 --mpicmd mpiexec
+./magic_wizard.py --use-mpi --use-openmp --use-mkl --use-shtns --nranks 8 --nthreads 2 --mpicmd mpiexec
 
 
