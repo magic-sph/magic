@@ -478,7 +478,7 @@ contains
                   call scal_to_spat(xi_ave_global, Xir)
                end if
                call graphOut(time, nR, Vr, Vt, Vp, Br, Bt, Bp, Sr, Prer, &
-               &             Xir, nThetaStart, sizeThetaB, lGraphHeader)
+               &             Xir, 1, sizeThetaB, lGraphHeader)
 #else
                do nThetaB=1,nThetaBs  
                   nThetaStart=(nThetaB-1)*sizeThetaB+1
