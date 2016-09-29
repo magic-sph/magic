@@ -222,11 +222,9 @@ contains
       if ( rank == 0 ) then
          allocate(workA_global(1:lm_max,1:n_cheb_max))
          allocate(workB_global(1:lm_max,1:n_cheb_max))
-#ifdef WITH_DEBUG
       else
          allocate(workA_global(1,1:n_cheb_max))
          allocate(workB_global(1,1:n_cheb_max))
-#endif
       end if
 
       do n_cheb=1,n_cheb_max

@@ -63,6 +63,8 @@ contains
          if ( l_chemical_conv ) then
             allocate( dxidtLast(lm_max,n_r_max) )
             bytes_allocated = bytes_allocated + lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate( dxidtLast(1,1) )
          end if
 
          allocate( dbdtLast(lm_maxMag,n_r_maxMag) )
@@ -83,6 +85,8 @@ contains
          if ( l_chemical_conv ) then
             allocate( dxidtLast(1,n_r_max) )
             bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate( dxidtLast(1,1) )
          end if
 
          allocate( dbdtLast(1,n_r_max) )
@@ -101,6 +105,8 @@ contains
       if ( l_chemical_conv ) then
          allocate( dxidtLast_LMloc(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate( dxidtLast_LMloc(1,1) )
       end if
 
       allocate( dbdtLast_LMloc(llmMag:ulmMag,n_r_maxMag) )

@@ -94,6 +94,8 @@ contains
          if ( l_chemical_conv ) then
             allocate ( xi(lm_max,n_r_max) )
             bytes_allocated = bytes_allocated+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate ( xi(1,1) )
          end if
 
          allocate( b(lm_maxMag,n_r_maxMag) )
@@ -120,6 +122,8 @@ contains
          if ( l_chemical_conv ) then
             allocate ( xi(1,n_r_max) )
             bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate ( xi(1,1) )
          end if
          allocate( b(1,n_r_maxMag) )
          allocate( db(1,n_r_maxMag) )

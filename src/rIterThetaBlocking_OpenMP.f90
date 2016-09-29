@@ -7,12 +7,12 @@ module rIterThetaBlocking_OpenMP_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
 
    use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&
-                         n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+                   &     n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
-                    l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
-                    l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-                    l_movie_oc, l_TO
+              &     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
+              &     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
+              &     l_movie_oc, l_TO, l_chemical_conv
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -170,8 +170,8 @@ contains
               & this%nBc,", lDeriv = ",this%lDeriv,", l_mag = ",l_mag
       end if
 
-      call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%lPressCalc,this%l_frame,this%lTOnext,  &
+      call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc,&
+           &                        this%lPressCalc,this%l_frame,this%lTOnext, &
            &                        this%lTOnext2,this%lTOcalc)
       !PERFOFF
 
@@ -287,7 +287,8 @@ contains
             !end if
             !PERFON('grid2lm')
             call this%transform_to_lm_space(nThetaStart,nThetaStop, &
-                 &                          this%gsa(threadid),this%nl_lm(threadid))
+                 &                          this%gsa(threadid),     &
+                 &                          this%nl_lm(threadid))
             !PERFOFF
 
          else if ( l_mag ) then
@@ -306,14 +307,14 @@ contains
          !     These products are used in get_b_nl_bcs.
          !PERFON('nl_cmb')
          if ( this%nR == n_r_cmb .and. l_b_nl_cmb ) then
-            call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
-                 &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,    &
-                 &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+            call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,   &
+                 &            this%gsa(threadid)%vpc,this%leg_helper%omegaMA,  &
+                 &            or2(this%nR),orho1(this%nR),nThetaStart,         &
                  &            this%sizeThetaB,br_vt_lm_cmb,br_vp_lm_cmb)
          else if ( this%nR == n_r_icb .and. l_b_nl_icb ) then
-            call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,     &
-                 &            this%gsa(threadid)%vpc,this%leg_helper%omegaIC,    &
-                 &            or2(this%nR),orho1(this%nR),nThetaStart,           &
+            call get_br_v_bcs(this%gsa(threadid)%brc,this%gsa(threadid)%vtc,   &
+                 &            this%gsa(threadid)%vpc,this%leg_helper%omegaIC,  &
+                 &            or2(this%nR),orho1(this%nR),nThetaStart,         &
                  &            this%sizeThetaB,br_vt_lm_icb,br_vp_lm_icb)
          end if
          !PERFOFF
@@ -547,11 +548,13 @@ contains
       end do
 
       !$OMP SECTION
-      do iThread=1,this%nThreads-1
-         this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
-         this%nl_lm(0)%VXitLM=this%nl_lm(0)%VXitLM + this%nl_lm(iThread)%VXitLM
-         this%nl_lm(0)%VXipLM=this%nl_lm(0)%VXipLM + this%nl_lm(iThread)%VXipLM
-      end do
+      if ( l_chemical_conv ) then
+         do iThread=1,this%nThreads-1
+            this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
+            this%nl_lm(0)%VXitLM=this%nl_lm(0)%VXitLM + this%nl_lm(iThread)%VXitLM
+            this%nl_lm(0)%VXipLM=this%nl_lm(0)%VXipLM + this%nl_lm(iThread)%VXipLM
+         end do
+      end if
 
       !$OMP SECTION
       do iThread=1,this%nThreads-1

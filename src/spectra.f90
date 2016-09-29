@@ -1147,8 +1147,7 @@ contains
       real(cp) :: e_kin_p_m(0:l_max),e_kin_t_m(0:l_max)
 
       !-- Local variables:
-      character(len=72) :: am_kin_file, am_mag_file
-      integer :: n_r,lm,ml,l,m,n_lines
+      integer :: n_r,lm,l,m
 
       real(cp) :: e_mag_p_temp,e_mag_t_temp
       real(cp) :: e_kin_p_temp,e_kin_t_temp

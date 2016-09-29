@@ -91,7 +91,6 @@ contains
             allocate( xi_ave_global(1:lm_max) )
             bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
          end if
-#ifdef WITH_DEBUG
       else
          allocate( db_ave_global(1) )
          allocate( aj_ave_global(1) )
@@ -103,7 +102,6 @@ contains
          if ( l_chemical_conv ) then
             allocate( xi_ave_global(1) )
          end if
-#endif
       end if
 
    end subroutine initialize_fields_average_mod
