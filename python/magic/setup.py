@@ -78,7 +78,7 @@ if buildSo:
                  'greader_single%i' % pythonVersion,
                  'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'greader_single3.cpython-%sm.so' % pythonSuffix, 
+            sp.call(['mv', 'greader_single3.cpython-%sm\*' % pythonSuffix, 
                      '%s/greader_single3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_single2.so', '%s' % magicdir])
@@ -94,7 +94,7 @@ if buildSo:
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'greader_double3.cpython-%sm.so' % pythonSuffix, 
+            sp.call(['mv', 'greader_double3.cpython-%sm\*' % pythonSuffix, 
                      '%s/greader_double3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
@@ -111,7 +111,7 @@ if buildSo:
                  'potential%i' % pythonVersion,
                  'spec.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'potential3.cpython-%sm.so' % pythonSuffix, 
+            sp.call(['mv', 'potential3.cpython-%sm\*' % pythonSuffix, 
                      '%s/potential3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'potential2.so', '%s' % magicdir])
@@ -128,7 +128,7 @@ if buildSo:
                  'vtklib%i' % pythonVersion,
                  'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
-            sp.call(['mv', 'vtklib3.cpython-%sm.so' % pythonSuffix, 
+            sp.call(['mv', 'vtklib3.cpython-%sm\*' % pythonSuffix, 
                      '%s/vtklib3.so' % magicdir])
         elif pythonVersion == 2:
             sp.call(['mv', 'vtklib2.so', '%s' % magicdir])
