@@ -63,7 +63,7 @@ contains
       character(len=80) :: filename
     
       real(cp) :: powerLor,powerVis
-      real(cp), save :: AMzLast,eKinAMzLast
+      real(cp), save :: AMzLast=0.0_cp,eKinAMzLast=0.0_cp
     
       integer, pointer :: lm2(:,:)
       integer :: i,l,m,ilm,lm_vals(21),n_lm_vals
