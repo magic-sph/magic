@@ -2,8 +2,8 @@
 from magic import MagicGraph, BLayers
 from .setup import labTex
 from .libmagic import symmetrize
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 import sys
 if sys.version_info.major == 3:
     from .potential3 import *
@@ -43,25 +43,25 @@ class ExtraPot:
         self.minc = minc
         self.nrout = nrout
         self.np, self.nt = self.brcmb.shape
-        brcmbfour = N.fft.fft(self.brcmb, axis=0)/(4.*N.pi*self.np)
+        brcmbfour = np.fft.fft(self.brcmb, axis=0)/(4.*np.pi*self.np)
 
-        self.rout = N.linspace(self.rcmb, ratio_out*rcmb, self.nrout)
+        self.rout = np.linspace(self.rcmb, ratio_out*rcmb, self.nrout)
         if cutCMB:
             self.rout = self.rout[1:]
             self.nrout = self.nrout -1
 
-        self.brout = N.zeros((self.np, self.nt, self.nrout), dtype=self.brcmb.dtype)
-        self.btout = N.zeros_like(self.brout)
-        self.bpout = N.zeros_like(self.brout)
+        self.brout = np.zeros((self.np, self.nt, self.nrout), dtype=self.brcmb.dtype)
+        self.btout = np.zeros_like(self.brout)
+        self.bpout = np.zeros_like(self.brout)
 
         for k, radius  in enumerate(self.rout):
             radratio = self.rcmb/radius
             brm, btm, bpm =  extrapolate(brcmbfour, radratio, self.minc)
-            brsurf = N.fft.ifft(brm, axis=0)*self.np
+            brsurf = np.fft.ifft(brm, axis=0)*self.np
             self.brout[..., k] = brsurf.real
-            btsurf = N.fft.ifft(btm, axis=0)*self.np
+            btsurf = np.fft.ifft(btm, axis=0)*self.np
             self.btout[..., k] = btsurf.real
-            bpsurf = N.fft.ifft(bpm, axis=0)*self.np
+            bpsurf = np.fft.ifft(bpm, axis=0)*self.np
             self.bpout[..., k] = bpsurf.real
 
         if deminc:
@@ -104,21 +104,21 @@ class ExtraPot:
             data = self.bpout
 
         phiavg = data.mean(axis=0)
-        th = N.linspace(0, N.pi, self.nt)
-        rr, tth = N.meshgrid(self.rout, th)
-        xx = rr * N.sin(tth)
-        yy = rr * N.cos(tth)
+        th = np.linspace(0, np.pi, self.nt)
+        rr, tth = np.meshgrid(self.rout, th)
+        xx = rr * np.sin(tth)
+        yy = rr * np.cos(tth)
 
-        fig = P.figure(figsize=(4,8))
+        fig = plt.figure(figsize=(4,8))
         fig.subplots_adjust(top=0.99, bottom=0.01, right=0.99, left=0.01)
         ax = fig.add_subplot(111, frameon=False)
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
         if vmax is not None and vmin is not None:
             normed = False
-            cs = N.linspace(vmin, vmax, levels)
+            cs = np.linspace(vmin, vmax, levels)
             im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap, extend='both')
         else:
             cs = levels
             im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-        ax.plot(self.rcmb*N.sin(th), self.rcmb*N.cos(th), 'k-')
+        ax.plot(self.rcmb*np.sin(th), self.rcmb*np.cos(th), 'k-')
         ax.axis('off')

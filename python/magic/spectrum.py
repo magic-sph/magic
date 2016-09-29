@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os, re
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 from .log import MagicSetup
 from .libmagic import scanDir, fast_read
 from .npfile import *
@@ -151,6 +151,8 @@ class MagicSpectrum(MagicSetup):
             self.BuoRms_SD = data[:, 19]
             self.PreRms_SD = data[:, 20]
             self.geos_SD = data[:, 21]
+            self.mageos_SD = data[:, 22]
+            self.arc_SD = data[:, 23]
 
         if iplot:
             self.plot()
@@ -161,7 +163,7 @@ class MagicSpectrum(MagicSetup):
         """
         if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
             if self.gather:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(211)
                 ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
                 ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
@@ -185,7 +187,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
             else:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
                 ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
@@ -197,7 +199,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
 
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                          'k-', label='poloidal')
@@ -212,7 +214,7 @@ class MagicSpectrum(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
         elif self.name == 'u2_spec_ave' or self.name == 'u2_spec_':
             if self.gather:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(211)
                 ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
                 ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
@@ -238,7 +240,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
             else:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
                 ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
@@ -251,7 +253,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
 
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                          'k-', label='poloidal')
@@ -267,7 +269,7 @@ class MagicSpectrum(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
         elif self.name == 'mag_spec_ave' or self.name == 'mag_spec_':
             if self.gather:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(211)
                 ax.loglog(self.index, self.emag_poll, 'k-', label='poloidal')
                 ax.loglog(self.index, self.emag_torl, 'b-', label='toroidal')
@@ -295,7 +297,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
             else:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index, self.emag_poll/self.emag_poll.max(),
                           'k-', label='poloidal')
@@ -311,7 +313,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlim(self.index.min(), self.index.max())
                 ax.legend(loc='upper right', frameon=False)
 
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, 
                           self.emag_polm[::self.minc]/self.emag_polm.max(),
@@ -331,7 +333,7 @@ class MagicSpectrum(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
 
         elif self.name == 'dtVrms_spec':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.loglog(self.index, self.dtVRms, 'k-', label='Time derivative')
             ax.loglog(self.index, self.CorRms, 'b-', label='Coriolis')
@@ -342,7 +344,7 @@ class MagicSpectrum(MagicSetup):
             ax.loglog(self.index, self.AdvRms, 'y-', label='Advection')
             ax.loglog(self.index, self.DifRms, 'm-', label='Viscosity')
             ax.loglog(self.index, self.geos, 'r--', label='Coriolis-Pressure')
-            ax.loglog(self.index, self.arc, 'b--', label='Coriolis-Pressure-Buoyancy')
+            #ax.loglog(self.index, self.arc, 'b--', label='Coriolis-Pressure-Buoyancy')
 
             if labTex:
                 ax.set_xlabel('$\ell+1$')
@@ -446,7 +448,7 @@ class MagicSpectrum2D(MagicSetup):
         self.e_tor_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
         self.e_tor_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
 
-        self.ell = N.arange(self.l_max+1)
+        self.ell = np.arange(self.l_max+1)
         file.close()
 
         if iplot:
@@ -462,13 +464,13 @@ class MagicSpectrum2D(MagicSetup):
         :param cm: name of the colormap
         :type cm: str
         """
-        fig0 = P.figure()
+        fig0 = plt.figure()
         ax0 = fig0.add_subplot(111)
-        vmax = N.log10(self.e_pol_l).max()
+        vmax = np.log10(self.e_pol_l).max()
         vmin = vmax-14
-        levs = N.linspace(vmin, vmax, levels)
-        im = ax0.contourf(self.ell[1:], self.rad, N.log10(self.e_pol_l.T), 
-                          levs, cmap=P.get_cmap(cm), extend='both')
+        levs = np.linspace(vmin, vmax, levels)
+        im = ax0.contourf(self.ell[1:], self.rad, np.log10(self.e_pol_l.T), 
+                          levs, cmap=plt.get_cmap(cm), extend='both')
         fig0.colorbar(im)
         if labTex:
             ax0.set_xlabel('Degree $\ell$')
@@ -479,13 +481,13 @@ class MagicSpectrum2D(MagicSetup):
         ax0.set_xscale('log')
         ax0.set_title('E pol')
 
-        fig1 = P.figure()
+        fig1 = plt.figure()
         ax1 = fig1.add_subplot(111)
-        vmax = N.log10(self.e_tor_l).max()
+        vmax = np.log10(self.e_tor_l).max()
         vmin = vmax-14
-        levs = N.linspace(vmin, vmax, levels)
-        im = ax1.contourf(self.ell[1:], self.rad, N.log10(self.e_tor_l.T), 
-                          levs, cmap=P.get_cmap(cm), extend='both')
+        levs = np.linspace(vmin, vmax, levels)
+        im = ax1.contourf(self.ell[1:], self.rad, np.log10(self.e_tor_l.T), 
+                          levs, cmap=plt.get_cmap(cm), extend='both')
         fig1.colorbar(im)
         if labTex:
             ax1.set_xlabel('Degree $\ell$')
@@ -496,14 +498,14 @@ class MagicSpectrum2D(MagicSetup):
         ax1.set_xscale('log')
         ax1.set_title('E tor')
 
-        fig2 = P.figure()
+        fig2 = plt.figure()
         ax2 = fig2.add_subplot(111)
-        vmax = N.log10(self.e_pol_m).max()
+        vmax = np.log10(self.e_pol_m).max()
         vmin = vmax-14
-        levs = N.linspace(vmin, vmax, levels)
+        levs = np.linspace(vmin, vmax, levels)
         im = ax2.contourf(self.ell[::self.minc]+1, self.rad, 
-                          N.log10(self.e_pol_m[::self.minc,:].T), 
-                          levs, cmap=P.get_cmap(cm), extend='both')
+                          np.log10(self.e_pol_m[::self.minc,:].T), 
+                          levs, cmap=plt.get_cmap(cm), extend='both')
         fig2.colorbar(im)
         if labTex:
             ax2.set_xlabel('Order $m+1$')
@@ -514,14 +516,14 @@ class MagicSpectrum2D(MagicSetup):
         ax2.set_xscale('log')
         ax2.set_title('E pol')
 
-        fig3 = P.figure()
+        fig3 = plt.figure()
         ax3 = fig3.add_subplot(111)
-        vmax = N.log10(self.e_tor_m).max()
+        vmax = np.log10(self.e_tor_m).max()
         vmin = vmax-14
-        levs = N.linspace(vmin, vmax, levels)
+        levs = np.linspace(vmin, vmax, levels)
         im = ax3.contourf(self.ell[::self.minc]+1, self.rad, 
-                          N.log10(self.e_tor_m[::self.minc,:].T), 
-                          levs, cmap=P.get_cmap(cm), extend='both')
+                          np.log10(self.e_tor_m[::self.minc,:].T), 
+                          levs, cmap=plt.get_cmap(cm), extend='both')
         fig3.colorbar(im)
         if labTex:
             ax3.set_xlabel('Order $m+1$')

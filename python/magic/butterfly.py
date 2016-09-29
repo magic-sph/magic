@@ -3,8 +3,8 @@ import glob
 import re
 import os
 import copy
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 import scipy.interpolate as S
 from magic.libmagic import cut, hammer2cart
 from magic.setup import labTex
@@ -111,7 +111,7 @@ class Butterfly:
         # GRID
         self.rad = rad
         self.radius = infile.fort_read(self.precision)
-        ind = N.nonzero(N.where(abs(self.radius-self.rad) \
+        ind = np.nonzero(np.where(abs(self.radius-self.rad) \
                         == min(abs(self.radius-self.rad)), 1, 0))
         self.indPlot = ind[0][0]
         self.theta = infile.fort_read(self.precision)
@@ -123,7 +123,7 @@ class Butterfly:
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
-            self.data = N.zeros((self.n_theta_max, self.nvar), self.precision)
+            self.data = np.zeros((self.n_theta_max, self.nvar), self.precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             shape = (self.n_r_max, self.n_phi_tot)
@@ -134,10 +134,10 @@ class Butterfly:
                 shape = (int(n_r_mov_tot)+2, self.n_theta_max)
             else:
                 shape = (self.n_r_max, self.n_theta_max)
-            self.data = N.zeros((self.n_theta_max, self.nvar), self.precision)
+            self.data = np.zeros((self.n_theta_max, self.nvar), self.precision)
 
-        self.cmap = P.get_cmap(cm)
-        self.time = N.zeros(self.nvar, self.precision)
+        self.cmap = plt.get_cmap(cm)
+        self.time = np.zeros(self.nvar, self.precision)
 
         for i in range(self.var2-self.nvar):
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
@@ -181,8 +181,8 @@ class Butterfly:
         >>> b.plot(levels=33, contour=True, cut=0.8, cm='seismic')
         """
         out = copy.deepcopy(new)
-        out.time = N.concatenate((self.time, new.time), axis=0)
-        out.data = N.concatenate((self.data, new.data), axis=1)
+        out.time = np.concatenate((self.time, new.time), axis=0)
+        out.data = np.concatenate((self.data, new.data), axis=1)
         return out
 
     def plot(self, levels=12, contour=False, renorm=False, cut=0.5, mesh=3,
@@ -206,18 +206,18 @@ class Butterfly:
         :param cut: adjust the contour extrema to max(abs(data))*cut
         :type cut: float
         """
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111)
         vmax = max(abs(self.data.max()), abs(self.data.min()))
         if contour:
-            im = ax.contourf(self.time, self.theta*180/N.pi, self.data[::-1,:], 
+            im = ax.contourf(self.time, self.theta*180/np.pi, self.data[::-1,:], 
                             levels, cmap=cm, aa=True)
         else:
             extent = self.time.min(), self.time.max(), -90, 90
             if renorm:
                 nx = mesh*len(self.time)
-                x = N.linspace(self.time.min(), self.time.max(), nx)
-                data = N.zeros((len(self.theta), nx), self.precision)
+                x = np.linspace(self.time.min(), self.time.max(), nx)
+                data = np.zeros((len(self.theta), nx), self.precision)
                 for i in range(self.data.shape[0]):
                     tckp = S.splrep(self.time, self.data[i, :])
                     data[i, :] = S.splev(x, tckp)
@@ -263,8 +263,8 @@ class Butterfly:
         """
         if renorm:
             nx = 3*len(self.time)
-            x = N.linspace(self.time.min(), self.time.max(), nx)
-            data = N.zeros((len(self.theta), nx), self.precision)
+            x = np.linspace(self.time.min(), self.time.max(), nx)
+            data = np.zeros((len(self.theta), nx), self.precision)
             for i in range(self.data.shape[0]):
                 tckp = S.splrep(self.time, self.data[i, :])
                 data[i, :] = S.splev(x, tckp)
@@ -274,16 +274,16 @@ class Butterfly:
             print("Warning time and data have been replaced by the extrapolated values !!!")
             print("####################")
         nt = self.time.shape[0]
-        w1 = N.fft.fft(self.data, axis=1)
-        self.amp = N.abs(w1[:, 1:nt/2+1])
-        dw = 2.*N.pi/(self.time[-1]-self.time[0])
-        w = dw*N.arange(nt)
+        w1 = np.fft.fft(self.data, axis=1)
+        self.amp = np.abs(w1[:, 1:nt/2+1])
+        dw = 2.*np.pi/(self.time[-1]-self.time[0])
+        w = dw*np.arange(nt)
         self.omega = w[1:nt/2+1]
-        self.amp1D = N.zeros_like(self.omega)
+        self.amp1D = np.zeros_like(self.omega)
         for i in range(len(self.omega)):
             self.amp1D[i] = simps(self.amp[:, i], self.theta)
 
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(211)
         extent = self.omega.min(), self.omega.max(), -90, 90
         ax.imshow(self.amp, extent=extent, aspect='auto', origin='upper')
@@ -302,5 +302,5 @@ if __name__ == '__main__':
     t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1, 
                    iplot=False)
     t1.plot()
-    P.show()
+    plt.show()
 

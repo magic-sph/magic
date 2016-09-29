@@ -2,7 +2,7 @@
 import subprocess as sp
 import os
 import sys
-import matplotlib.pyplot as P
+import matplotlib.pyplot as plt
 try:
     import configparser as CoPa
 except ImportError:
@@ -35,29 +35,29 @@ else: # Default if the PATH is messed up
 # Plots setup
 #
 
-P.switch_backend(backend)
-P.rc('xtick.major', size=7)
-P.rc('xtick.minor', size=3.5)
-P.rc('ytick.major', size=7)
-P.rc('ytick.minor', size=3.5)
-P.rc('axes.formatter', limits=(-5,5))
-#P.rc('axes', color_cycle=('30a2da', 'fc4f30', 'e5ae38', '6d904f', '8b8b8b'))
+plt.switch_backend(backend)
+plt.rc('xtick.major', size=7)
+plt.rc('xtick.minor', size=3.5)
+plt.rc('ytick.major', size=7)
+plt.rc('ytick.minor', size=3.5)
+plt.rc('axes.formatter', limits=(-5,5))
+#plt.rc('axes', color_cycle=('30a2da', 'fc4f30', 'e5ae38', '6d904f', '8b8b8b'))
 
 if labTex:
-    P.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
-    P.rc('xtick', labelsize=14)
-    P.rc('ytick', labelsize=14)
-    P.rc('legend', fontsize=14)
-    P.rc('axes', labelsize=20)
-    P.rc('text', usetex=True)
-    P.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
+    plt.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
+    plt.rc('xtick', labelsize=14)
+    plt.rc('ytick', labelsize=14)
+    plt.rc('legend', fontsize=14)
+    plt.rc('axes', labelsize=20)
+    plt.rc('text', usetex=True)
+    plt.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
 else:
-    P.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
-    P.rc('xtick', labelsize=12)
-    P.rc('ytick', labelsize=12)
-    P.rc('legend', fontsize=12)
-    P.rc('axes', labelsize=16)
-    P.rc('font', size=14)
+    plt.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
+    plt.rc('xtick', labelsize=12)
+    plt.rc('ytick', labelsize=12)
+    plt.rc('legend', fontsize=12)
+    plt.rc('axes', labelsize=16)
+    plt.rc('font', size=14)
 
 #
 # Library setup

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import os, re
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 from .log import MagicSetup
 from .libmagic import fast_read,scanDir
 
@@ -151,7 +151,7 @@ class MagicRadial(MagicSetup):
 
                 if hasattr(self, 'gradT2'):
                     self.gradT2 = self.gradT2/(gradT2finish-gradT2init)
-                    dat = N.zeros((data.shape[0], 6), dtype=self.gradT2.dtype)
+                    dat = np.zeros((data.shape[0], 6), dtype=self.gradT2.dtype)
                     dat[:, 0:5] = data[:, 0:5]
                     dat[:, 5] = self.gradT2
                     data = dat
@@ -192,7 +192,7 @@ class MagicRadial(MagicSetup):
             try:
                 self.dsdr = data[:, 6]
             except IndexError:
-                self.dsdr = N.zeros_like(self.radius)
+                self.dsdr = np.zeros_like(self.radius)
         elif self.name == 'varDiff':
             self.radius = data[:, 0]
             self.conduc = data[:, 1]
@@ -214,8 +214,13 @@ class MagicRadial(MagicSetup):
         elif self.name == 'powerR':
             self.radius = data[:, 0]
             self.buoPower = data[:, 1]
-            self.viscDiss = data[:, 2]
-            self.ohmDiss = data[:, 3]
+            if data.shape[1] == 5:
+                self.buoPower_chem = data[:, 2]
+                self.viscDiss = data[:, 3]
+                self.ohmDiss = data[:, 4]
+            elif data.shape[1] == 4:
+                self.viscDiss = data[:, 2]
+                self.ohmDiss = data[:, 3]
         elif self.name == 'parrad':
             self.radius = data[:, 0]
             self.rm = data[:, 1]
@@ -278,7 +283,7 @@ class MagicRadial(MagicSetup):
         Display the result when ``iplot=True``
         """
         if self.name == 'eKinR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.ekin_pol+self.ekin_tor, 'k-', 
                    label='ekin tot')
@@ -291,7 +296,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'eMagR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.emag_pol+self.emag_tor, 'k-', 
                    label='emag tot')
@@ -308,14 +313,14 @@ class MagicRadial(MagicSetup):
                     ax.axvline(self.con_radratio*self.radius[0], color='k',
                               linestyle='--')
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.dip_ratio)
             ax.set_xlabel('Radius')
             ax.set_ylabel('Dipolarity')
             ax.set_xlim(self.radius.min(), self.radius.max())
         elif self.name == 'anel':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.radius, self.temp0, 'b-', label='temp')
             ax.semilogy(self.radius, self.rho0, 'r-', label='rho')
@@ -324,7 +329,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.beta, 'b-', label='beta')
             ax.plot(self.radius, self.dbeta, 'r-', label='dbeta/dr')
@@ -333,14 +338,14 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.grav)
             ax.set_xlabel('Radius')
             ax.set_xlabel('Gravity')
             ax.set_xlim(self.radius.min(), self.radius.max())
         elif self.name == 'varDiff':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.radius, self.conduc, 'b-', label='conductivity')
             ax.semilogy(self.radius, self.kappa, 'r-', label='diffusivity')
@@ -350,7 +355,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
             
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.dLkappa, 'b-', label='dLkappa')
             ax.set_xlabel('Radius')
@@ -358,7 +363,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'varVisc':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.radius, self.dynVisc, 'b-', label='dyn. visc')
             ax.semilogy(self.radius, self.kinVisc, 'r-', label='kin. visc')
@@ -369,7 +374,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
             
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             axplot(self.radius, self.dLvisc, 'b-', label='dLvisc')
             ax.set_xlabel('Radius')
@@ -377,7 +382,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'varCond':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.radius, self.conduc, 'b-', label='conductivity')
             ax.set_ylabel('Electrical conductivity')
@@ -385,7 +390,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'powerR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.buoPower, 'b-', label='Power')
             ax.plot(self.radius, self.viscDiss, 'g-', label='visc diss')
@@ -395,7 +400,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'parrad' or self.name == 'bLayersR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.entropy, 'b-', label='entropy')
             ax.twinx()
@@ -404,7 +409,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.uh, 'b-', label='uh')
             ax.plot(self.radius, self.duhdr, 'g-', label='duhdr')
@@ -412,13 +417,13 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'parR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.rm)
             ax.set_xlabel('Radius')
             ax.set_ylabel('Rm')
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.rol, label='Rol')
             ax.plot(self.radius, self.urol, label='u Rol')
@@ -427,7 +432,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'fluxesR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.fcond/self.fcond[0], label='Fcond')
             ax.plot(self.radius, self.fconv/self.fcond[0], label='Fconv')
@@ -443,7 +448,7 @@ class MagicRadial(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.radius[-1], self.radius[0])
         elif self.name == 'heatR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.entropy, label='s')
             ax.plot(self.radius, self.temperature, label='T')
@@ -452,7 +457,7 @@ class MagicRadial(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlim(self.radius[-1], self.radius[0])
 
-            fig1 = P.figure()
+            fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
             ax1.plot(self.radius, self.pressure, label='p')
             ax1.set_xlabel('Radius')
@@ -460,7 +465,7 @@ class MagicRadial(MagicSetup):
             ax1.set_xlim(self.radius[-1], self.radius[0])
 
         elif self.name == 'perpParR':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.Eperp, 'b-', label='E perp.')
             ax.plot(self.radius, self.Epar, 'r-', label='E par.')

@@ -1,7 +1,7 @@
 #-*- coding: utf-8 -*-
 import os, re
-import matplotlib.pyplot as P
-import numpy as N
+import matplotlib.pyplot as plt
+import numpy as np
 from .log import MagicSetup
 import glob
 from .libmagic import fast_read, scanDir, avgField
@@ -91,14 +91,14 @@ class MagicTs(MagicSetup):
                     ncol = datanew.shape[1]
                     if ncol == ncolRef:
                         if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                            data = N.vstack((data, datanew))
+                            data = np.vstack((data, datanew))
                         else: # Remove first line, that is already here
-                            data = N.vstack((data, datanew[1:,:]))
+                            data = np.vstack((data, datanew[1:,:]))
                     else: # If the number of columns has changed
                         if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                            data = N.vstack((data, datanew[:, 0:ncolRef]))
+                            data = np.vstack((data, datanew[:, 0:ncolRef]))
                         else: # Remove first line that is already here
-                            data = N.vstack((data, datanew[1:, 0:ncolRef]))
+                            data = np.vstack((data, datanew[1:, 0:ncolRef]))
 
         # If no tag is specified, the most recent is plotted
         elif not all:
@@ -140,14 +140,14 @@ class MagicTs(MagicSetup):
                         ncol = datanew.shape[1]
                         if ncol == ncolRef:
                             if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                                data = N.vstack((data, datanew))
+                                data = np.vstack((data, datanew))
                             else: # Remove first line that is already here
-                                data = N.vstack((data, datanew[1:,:]))
+                                data = np.vstack((data, datanew[1:,:]))
                         else: # If the number of columns has changed
                             if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
-                                data = N.vstack((data, datanew[:, 0:ncolRef]))
+                                data = np.vstack((data, datanew[:, 0:ncolRef]))
                             else: # Remove first line that is already here
-                                data = N.vstack((data, datanew[1:, 0:ncolRef]))
+                                data = np.vstack((data, datanew[1:, 0:ncolRef]))
 
         if self.field == 'e_kin':
             self.time = data[:, 0]
@@ -264,8 +264,23 @@ class MagicTs(MagicSetup):
             self.toptemp = data[:, 5]
             self.bots = data[:, 6]
             self.tops = data[:, 7]
-            self.toppress = data[:, 8]
-            self.mass = data[:, 9]
+            self.topflux = data[:, 8]
+            self.botflux = data[:, 9]
+            self.toppress = data[:, 10]
+            self.mass = data[:, 11]
+            try:
+                self.botsherwood = data[:, 12]
+                self.topsherwood = data[:, 13]
+                self.deltasherwood = data[:, 14]
+                self.botxi = data[:, 15]
+                self.topxi = data[:, 16]
+            except IndexError:
+                self.topsherwood = np.ones_like(self.time)
+                self.botsherwood = np.ones_like(self.time)
+                self.deltasherwood = np.ones_like(self.time)
+                self.botxi = np.zeros_like(self.time)
+                self.topxi = np.zeros_like(self.time)
+                pass
         elif self.field == 'helicity':
             self.time = data[:, 0]
             self.helN = data[:, 1]
@@ -324,13 +339,23 @@ class MagicTs(MagicSetup):
         elif self.field in ('power'):
             self.time = data[:, 0]
             self.buoPower = data[:, 1]
-            self.icrotPower = data[:, 2]
-            self.mantelrotPower = data[:, 3]
-            self.viscDiss = data[:, 4]
-            self.ohmDiss = data[:, 5]
-            self.icPower = data[:, 6]
-            self.mantlePower = data[:, 7]
-            self.fohm = -self.ohmDiss/self.buoPower
+            if data.shape[1] == 11:
+                self.buoPower_chem = data[:, 2]
+                self.icrotPower = data[:, 3]
+                self.mantlerotPower = data[:, 4]
+                self.viscDiss = data[:, 5]
+                self.ohmDiss = data[:, 6]
+                self.icPower = data[:, 7]
+                self.mantlePower = data[:, 8]
+            elif data.shape[1] == 10:
+                self.buoPower_chem = np.zeros_like(self.time)
+                self.icrotPower = data[:, 2]
+                self.mantlerotPower = data[:, 3]
+                self.viscDiss = data[:, 4]
+                self.ohmDiss = data[:, 5]
+                self.icPower = data[:, 6]
+                self.mantlePower = data[:, 7]
+            self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
             self.omega_ic = data[:,1]
@@ -353,7 +378,7 @@ class MagicTs(MagicSetup):
         Plotting subroutines. Only called if 'iplot=True'
         """
         if self.field == 'e_kin':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.ekin_pol, 'b-', label='ekin pol')
             ax.plot(self.time, self.ekin_tor, 'r-', label='ekin tor')
@@ -364,7 +389,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
         elif self.field == 'e_mag_oc':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.emagoc_pol, 'b-', label='emag pol')
             ax.plot(self.time, self.emagoc_tor, 'r-', label='emag tor')
@@ -375,7 +400,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Emag')
         elif self.field == 'e_mag_ic':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.emagic_pol, 'b-', label='emag_ic pol')
             ax.plot(self.time, self.emagic_tor, 'r-', label='emag_ic tor')
@@ -387,7 +412,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
         elif self.field == 'dipole':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.theta_dip, 'b-', label='theta_dip')
             #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
@@ -395,7 +420,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylim(-1., 181)
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.dipTot, 'b-', label='Total dipolarity')
             ax.plot(self.time, self.dipolarity, 'b--', label='Axisym dipolarity')
@@ -408,18 +433,18 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Dipolarity')
             ax.set_xlabel('Time')
         elif self.field == 'AM':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(211)
             ax.plot(self.time, self.am_oc_z, label='Outer core')
             ax.plot(self.time, self.amz, 'k-', label='Total')
             ax.legend(loc='best')
             ax.set_ylabel('AM')
             ax = fig.add_subplot(212)
-            ax.semilogy(self.time[1:], N.abs(self.damzdt[1:]))
+            ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
             ax.set_xlabel('Time')
             ax.set_ylabel('dAmz / dt')
         elif self.field == 'par':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
             ax.semilogy(self.time, self.elsasser, label='Elsasser')
@@ -431,7 +456,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
             if self.dipolarity.max() > 0.:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.dipolarity, label='Dipolarity')
                 ax.plot(self.time, self.dip_cmb, label='Dipolarity CMB')
@@ -439,7 +464,7 @@ class MagicTs(MagicSetup):
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Dipolarity')
         elif self.field == 'misc':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.topnuss, label='Top Nusselt')
             ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
@@ -447,21 +472,29 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
             if self.helrms.max() != 0.:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.helrms)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Helicity')
         elif self.field == 'heat':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.topnuss, label='Top Nusselt')
             ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
             ax.legend(loc='lower right')
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
+            if self.topsherwood.max() != 1.0:
+                fig = plt.figure()
+                ax = fig.add_subplot(111)
+                ax.plot(self.time, self.topsherwood, label='Top Sherwood')
+                ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
+                ax.legend(loc='lower right')
+                ax.set_xlabel('Time')
+                ax.set_ylabel('Sherwood number')
         elif self.field == 'helicity':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.helRMSN, label='Northern Hemisphere')
             ax.plot(self.time, self.helRMSS, label='Southern Hemisphere')
@@ -469,7 +502,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Helicity')
         elif self.field == 'u_square':
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.ekin_pol, 'b-', label='ekin pol')
             ax.plot(self.time, self.ekin_tor, 'r-', label='ekin tor')
@@ -480,7 +513,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('u**2')
 
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
             ax.semilogy(self.time, self.ro, label='Rossby')
@@ -490,7 +523,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
         elif self.field in ('dtVrms'):
-            fig = P.figure() # Poloidal forces
+            fig = plt.figure() # Poloidal forces
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.dtVRms, label='Time derivative')
             ax.semilogy(self.time, self.CorRms, label='Coriolis')
@@ -504,7 +537,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('RMS forces')
 
-            fig = P.figure() # Toroidal forces
+            fig = plt.figure() # Toroidal forces
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.geos, label='Geostrophic balance')
             ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
@@ -516,7 +549,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('RMS balances')
 
         elif self.field == 'perpPar':
-            fig = P.figure()
+            fig = plt.figure()
             ax= fig.add_subplot(111)
 
             ax.plot(self.time, self.eperp, 'b-', label='Ekin perp.')
@@ -531,9 +564,12 @@ class MagicTs(MagicSetup):
             ax.set_xlim(self.time[0], self.time[-1])
 
         elif self.field in ('power'):
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.buoPower, label='Buoyancy')
+            ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+            if self.buoPower_chem.max() != 0.:
+                ax.semilogy(self.time, self.buoPower_chem,
+                            label='Chemical buoyancy')
             ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
             ax.semilogy(self.time, -self.viscDiss, label='Viscous diss.')
             ax.legend(loc='best', frameon=False)
@@ -541,13 +577,13 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Power')
 
             if self.fohm.max() > 0.:
-                fig = P.figure()
+                fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.fohm)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('fohm')
         elif self.field in ('dtBrms'):
-            fig = P.figure() # Poloidal
+            fig = plt.figure() # Poloidal
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.dtBpolRms, 'k-', label='time derivative')
             ax.semilogy(self.time, self.DynPolRms, 'r-', label='Induction')
@@ -557,7 +593,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Poloidal field production')
 
-            fig = P.figure() # Toroidal
+            fig = plt.figure() # Toroidal
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.dtBtorRms, 'k-', label='time derivative', )
             ax.semilogy(self.time, self.DynTorRms, 'r-', label='Induction')
@@ -569,7 +605,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Toroidal field production')
 
         elif self.field in ('SRIC'):
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.time,self.totTorq,'k-',label='Total')
             ax.semilogy(self.time,self.viscTorq,'r-',label='Viscous')
@@ -580,7 +616,7 @@ class MagicTs(MagicSetup):
             ax.set_ylabel('Torque')
 
         elif self.field in ('am_mag_pol', 'am_mag_tor', 'am_kin_pol', 'am_kin_tor'):
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             print(self.coeffs.shape)
             for k in range(self.coeffs.shape[1]):
@@ -652,8 +688,8 @@ class AvgField:
 
         # e_kin file
         ts = MagicTs(field='e_kin', all=True, tag=tag, iplot=False)
-        mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
-        ind = N.nonzero(mask)[0][0]
+        mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+        ind = np.nonzero(mask)[0][0]
 
         if self.std:
             self.ekin_pol_avg, self.ekin_pol_std = avgField(ts.time[ind:],
@@ -674,13 +710,16 @@ class AvgField:
         self.prmag = ts.prmag
         self.pr = ts.pr
         self.ek = ts.ek
-        self.strat = ts.strat
+        if hasattr(ts, 'strat'):
+            self.strat = ts.strat
+        if hasattr(ts, 'DissNb'):
+            self.strat = ts.DissNb
         self.mode = ts.mode
 
         # par file
         ts2 = MagicTs(field='par', all=True, iplot=False, tag=tag)
-        mask = N.where(abs(ts2.time-tstart) == min(abs(ts2.time-tstart)), 1, 0)
-        ind = N.nonzero(mask)[0][0]
+        mask = np.where(abs(ts2.time-tstart) == min(abs(ts2.time-tstart)), 1, 0)
+        ind = np.nonzero(mask)[0][0]
 
         if self.std:
             self.dip, self.dip_std = avgField(ts2.time[ind:],
@@ -729,8 +768,8 @@ class AvgField:
 
         if ts3 != None:
             if (self.mode != 7 and self.mode != 8):
-                mask = N.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
-                ind = N.nonzero(mask)[0][0]
+                mask = np.where(abs(ts3.time-tstart) == min(abs(ts3.time-tstart)), 1, 0)
+                ind = np.nonzero(mask)[0][0]
                 nuss = 0.5*(ts3.botnuss+ts3.topnuss)
 
                 if self.std:
@@ -742,9 +781,9 @@ class AvgField:
             # Emag OC file
             ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False, 
                           tag=tag)
-            mask = N.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
+            mask = np.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
                            1, 0)
-            ind = N.nonzero(mask)[0][0]
+            ind = np.nonzero(mask)[0][0]
             emag_es = ts4.emagoc_pol_es+ts4.emagoc_tor_es
 
             if self.std:
@@ -770,9 +809,9 @@ class AvgField:
             if self.dipExtra:
                 # dipole.TAG files
                 ts5 = MagicTs(field='dipole', all=True, iplot=False, tag=tag)
-                mask = N.where(abs(ts5.time-tstart) == min(abs(ts5.time-tstart)), 
+                mask = np.where(abs(ts5.time-tstart) == min(abs(ts5.time-tstart)), 
                                1, 0)
-                ind = N.nonzero(mask)[0][0]
+                ind = np.nonzero(mask)[0][0]
 
                 if self.std:
                     self.dipTot, self.dipTot_std = avgField(ts5.time[ind:],
@@ -793,9 +832,9 @@ class AvgField:
             # power.TAG files
             tspow = MagicTs(field='power', all=True, iplot=False,
                             tag=tag)
-            mask = N.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
+            mask = np.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
                            1, 0)
-            ind = N.nonzero(mask)[0][0]
+            ind = np.nonzero(mask)[0][0]
 
             if self.std:
                 self.viscDiss, self.viscDiss_std = avgField(tspow.time[ind:],
@@ -829,8 +868,8 @@ class AvgField:
         if len(glob.glob('u_square.*')) > 0 and self.strat > 0:
             # u_square.TAG files
             ts = MagicTs(field='u_square', all=True, iplot=False)
-            mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
-            ind = N.nonzero(mask)[0][0]
+            mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
+            ind = np.nonzero(mask)[0][0]
 
             if self.std:
                 self.ureynolds, self.ureynolds_tsd = avgField(ts.time[ind:],
@@ -878,9 +917,9 @@ class AvgField:
             if len(glob.glob('perpPar.*')) > 0:
                 # perpPar.TAG files
                 ts = MagicTs(field='perpPar', all=True, iplot=False)
-                mask = N.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)),
+                mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)),
                        1, 0)
-                ind = N.nonzero(mask)[0][0]
+                ind = np.nonzero(mask)[0][0]
 
                 if self.std:
                     self.eperp, self.eperp_std = avgField(ts.time[ind:],

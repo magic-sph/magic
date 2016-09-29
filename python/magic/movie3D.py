@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import glob
 import re,os
-import numpy as N
+import numpy as np
 from magic.libmagic import symmetrize
 from magic import ExtraPot
 from .npfile import *
@@ -80,8 +80,8 @@ class Movie3D:
         else:
             self.nvar = nvar
 
-        vecNames = N.r_[3]
-        scalNames = N.r_[-1]
+        vecNames = np.r_[3]
+        scalNames = np.r_[-1]
 
         # READ the movie file 
         infile = npfile(filename, endian='B')
@@ -108,9 +108,9 @@ class Movie3D:
 
         # GRID
         if potExtra:
-            self.radius = N.zeros((n_r_mov_tot+1+nrout), 'f')
+            self.radius = np.zeros((n_r_mov_tot+1+nrout), 'f')
         else:
-            self.radius = N.zeros((n_r_mov_tot+2), 'f')
+            self.radius = np.zeros((n_r_mov_tot+2), 'f')
         tmp = infile.fort_read(precision)/(1.-radratio)
         rcmb = tmp[0]
         self.radius[2:n_r_mov_tot+2] = tmp[::-1]
@@ -119,15 +119,15 @@ class Movie3D:
 
         shape = (n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot)
 
-        self.time = N.zeros(self.nvar, precision)
+        self.time = np.zeros(self.nvar, precision)
         if potExtra:
-            scals = N.zeros((n_r_mov_tot+1+nrout, self.n_theta_max, 
+            scals = np.zeros((n_r_mov_tot+1+nrout, self.n_theta_max, 
                              self.n_phi_tot*minc+1,1),'f')
         else:
-            scals = N.zeros((n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot*minc+1,1),'f')
-        vecr = N.zeros_like(scals)
-        vect = N.zeros_like(scals)
-        vecp = N.zeros_like(scals)
+            scals = np.zeros((n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot*minc+1,1),'f')
+        vecr = np.zeros_like(scals)
+        vect = np.zeros_like(scals)
+        vecp = np.zeros_like(scals)
 
 
         # Potential extrapolation
@@ -159,7 +159,7 @@ class Movie3D:
             if k % step == 0:
                 #print(k+self.var2-self.nvar)
                 tmp = infile.fort_read(precision, shape=shape)
-                brCMB = N.zeros((self.n_theta_max, self.n_phi_tot), 'f')
+                brCMB = np.zeros((self.n_theta_max, self.n_phi_tot), 'f')
                 brCMB = tmp[0, :, :]
                 brCMB = brCMB.T
                 if potExtra:

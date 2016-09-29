@@ -276,6 +276,7 @@ contains
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
 
+         allocate( coeffDens(8), coeffTemp(10) )
          coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
             &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
             &         440.86067831_cp, -122.36071577_cp] 
@@ -286,6 +287,7 @@ contains
             &         -596.464198_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'SAT') /= 0 ) then
 
@@ -294,21 +296,23 @@ contains
          ! also r_cut_model maximum is 0.999, because rho is negative beyond
          ! that
 
+         allocate( coeffDens(4), coeffTemp(9) )
          coeffDens = [-0.33233543_cp, 0.90904075_cp, -0.9265371_cp, &
-                      0.34973134_cp ]
+            &         0.34973134_cp ]
 
          coeffTemp = [1.00294605_cp,-0.44357815_cp,13.9295826_cp,  &
             &         -137.051347_cp,521.181670_cp,-1044.41528_cp, &
             &         1166.04926_cp,-683.198387_cp, 162.962632_cp ]
 
          call polynomialBackground(coeffDens,coeffTemp)
-
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'SUN') /= 0 ) then
 
          ! rho is negative beyond r_cut_model=0.9965
          ! radratio should be 0.7 (size of the Sun's CZ)
 
+         allocate( coeffDens(6), coeffTemp(4) )
          coeffDens = [-24.83750402_cp, 231.79029994_cp, -681.72774358_cp, &
             &         918.30741266_cp,-594.30093367_cp, 150.76802942_cp ]
 
@@ -316,10 +320,12 @@ contains
             &         0.83470843_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'GLIESE229B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.52
 
+         allocate( coeffDens(8), coeffTemp(5) )
          coeffDens = [0.99879163_cp,0.15074601_cp,-4.20328423_cp,   &
             &         6.43542034_cp,-12.67297113_cp,21.68593078_cp, &
             &         -17.74832309_cp,5.35405134_cp]
@@ -328,10 +334,12 @@ contains
             &         3.68189750_cp,-1.39046384_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'COROT3B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.62
 
+         allocate( coeffDens(7), coeffTemp(7) )
          coeffDens = [1.00035987_cp,-0.01294658_cp,-2.78586315_cp,  &
             &         0.70289860_cp,2.59463562_cp,-1.65868190_cp,   &
             &         0.15984718_cp]
@@ -341,10 +349,12 @@ contains
             &         3.52970611_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'KOI889B') /= 0 ) then
          ! Use also nVarDiff=2 with difExp=0.68
 
+         allocate( coeffDens(6), coeffTemp(6) )
          coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
             &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
 
@@ -352,6 +362,7 @@ contains
             &         -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'EARTH') /= 0 ) then
          DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
@@ -929,44 +940,44 @@ contains
       do i=1,nTemp
          temp0(:) = temp0(:)+coeffTemp(i)*rrOcmb(:)**(i-1)
       end do
-      
+
       ! Normalise to the outer radius
-      temp0  =temp0/temp0(1)
-      rho0   =rho0/rho0(1)
-      gravFit=gravFit/gravFit(1)
+      temp0(:)   = temp0(:)/temp0(1)
+      rho0(:)    = rho0(:)/rho0(1)
+      gravFit(:) = gravFit(:)/gravFit(1)
 
       ! Derivative of the temperature needed to get alpha_T
       call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-                  w2,chebt_oc,drx)
+           &      w2,chebt_oc,drx)
 
-      alpha0=-dtemp0/(gravFit*temp0)
+      alpha0(:)=-dtemp0(:)/(gravFit(:)*temp0(:))
 
       ! Dissipation number
       DissNb=alpha0(1)
-      alpha0=alpha0/alpha0(1)
+      alpha0(:)=alpha0(:)/alpha0(1)
 
       ! Adiabatic: buoyancy term is linked to the temperature gradient
 
       !       dT
       !      ---- =  -Di * alpha_T * T * grav
       !       dr
-      rgrav=-dtemp0/DissNb
+      rgrav(:)=-dtemp0(:)/DissNb
 
       call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-             &    w2,chebt_oc,drx)
-      beta=drho0/rho0
+           &      w2,chebt_oc,drx)
+      beta(:)=drho0(:)/rho0(:)
       call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-             &     w2,chebt_oc,drx)
+           &      w2,chebt_oc,drx)
       call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-             &  w2,chebt_oc,drx)
+           &      w2,chebt_oc,drx)
       call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-             &    w2,chebt_oc,drx)
-      dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+           &      w2,chebt_oc,drx)
+      dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr
       call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-             &    w2,chebt_oc,drx)
-      dLtemp0 = dtemp0/temp0
+           &      w2,chebt_oc,drx)
+      dLtemp0(:)=dtemp0(:)/temp0(:)
       call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-             &    w2,chebt_oc,drx)
+           &      w2,chebt_oc,drx)
       dentropy0(:)=0.0_cp
 
    end subroutine polynomialBackground

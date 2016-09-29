@@ -7,9 +7,9 @@ import sys
 
 def getMyMatplotlibEnv():
     try:
-        import numpy as N
-        N.seterr('raise')
-        import matplotlib.pyplot as P
+        import numpy as np
+        np.seterr('raise')
+        import matplotlib.pyplot as plt
         import warnings
 
         backend = ''
@@ -18,7 +18,7 @@ def getMyMatplotlibEnv():
         # GTKAgg is the default one
         try:
             try:
-                P.switch_backend('GTKAgg')
+                plt.switch_backend('GTKAgg')
                 return 'GTKAgg'
             except Warning:
                 pass
@@ -28,7 +28,7 @@ def getMyMatplotlibEnv():
         # Qt4
         try:
             try:
-                P.switch_backend('Qt4Agg')
+                plt.switch_backend('Qt4Agg')
                 return 'Qt4Agg'
             except Warning:
                 pass
@@ -38,7 +38,7 @@ def getMyMatplotlibEnv():
         # TkAgg is the fallback value
         try:
             try:
-                P.switch_backend('TkAgg')
+                plt.switch_backend('TkAgg')
                 return 'TkAgg'
             except Warning:
                 pass

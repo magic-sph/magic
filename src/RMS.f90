@@ -150,7 +150,7 @@ contains
       allocate( CIARmsL_TA(0:l_max), CIARmsL_SD(0:l_max), CIARmsSD(0:l_max) )
       allocate( CLFRmsL_TA(0:l_max), CLFRmsL_SD(0:l_max), CLFRmsSD(0:l_max) )
       allocate( PLFRmsL_TA(0:l_max), PLFRmsL_SD(0:l_max), PLFRmsSD(0:l_max) )
-      bytes_allocated = bytes_allocated+ 49*(l_max+1)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+ 39*(l_max+1)*SIZEOF_DEF_REAL
 
       !--- Initialize new cut-back grid:
       call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC, &

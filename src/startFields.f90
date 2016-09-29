@@ -207,7 +207,7 @@ contains
             !PERFOFF
          else
             ! Initialize with zero
-            if ( l_conv ) then
+            if ( l_conv .or. l_mag_kin ) then
                w       =zero
                dwdtLast=zero
                z       =zero
@@ -571,17 +571,17 @@ contains
     
       !print*,"Start redistribution in getStartfields"
       ! start the redistribution
-      if (l_heat) then
+      if ( l_heat ) then
          call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
       end if
       if ( l_chemical_conv ) then
          call lo2r_redist_start(lo2r_xi,xi_LMloc_container,xi_Rloc_container)
       end if
-      if (l_conv) then
+      if ( l_conv .or. l_mag_kin ) then
          call lo2r_redist_start(lo2r_flow,flow_LMloc_container,flow_Rloc_container)
       end if
     
-      if (l_mag) then
+      if ( l_mag ) then
          call lo2r_redist_start(lo2r_field,field_LMloc_container,field_Rloc_container)
       end if
     

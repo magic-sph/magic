@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import scipy.interpolate as S
-import numpy as N
+import numpy as np
 import glob, os, re, sys
 from .npfile import *
 
@@ -126,6 +126,12 @@ def selectField(obj, field, labTex=True):
             label = r"$s'$"
         else:
             label = "s'"
+    elif field in ('xifluct'):
+        data = obj.xi-obj.xi.mean(axis=0)
+        if labTex:
+            label = r"$\xi'$"
+        else:
+            label = "xi'"
     elif field in ('prefluct'):
         data = obj.pre-obj.pre.mean(axis=0)
         if labTex:
@@ -133,7 +139,7 @@ def selectField(obj, field, labTex=True):
         else:
             label = "p'"
     elif field in ('vrea'):
-        data = N.zeros_like(obj.vr)
+        data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]-obj.vr[:, -i-1, :])/2.
         if labTex:
@@ -141,7 +147,7 @@ def selectField(obj, field, labTex=True):
         else:
             label = 'vr ea'
     elif field in ('vra'):
-        data = N.zeros_like(obj.vr)
+        data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vr[:, i, :]+obj.vr[:, -i-1, :])/2.
         if labTex:
@@ -149,7 +155,7 @@ def selectField(obj, field, labTex=True):
         else:
             label = 'vr es'
     elif field in ('vpea'):
-        data = N.zeros_like(obj.vr)
+        data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]-obj.vphi[:, -i-1, :])/2.
         if labTex:
@@ -157,7 +163,7 @@ def selectField(obj, field, labTex=True):
         else:
             label = r'vp ea'
     elif field in ('vpa'):
-        data = N.zeros_like(obj.vr)
+        data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.vphi[:, i, :]+obj.vphi[:, -i-1, :])/2.
         if labTex:
@@ -165,7 +171,7 @@ def selectField(obj, field, labTex=True):
         else:
             label = r'vp es'
     elif field in ('tea'):
-        data = N.zeros_like(obj.vr)
+        data = np.zeros_like(obj.vr)
         for i in range(obj.ntheta):
             data[:, i, :] = (obj.entropy[:, i, :]-obj.entropy[:, -i-1, :])/2.
         if labTex:
@@ -195,15 +201,15 @@ def avgField(time, field, tstart=None, std=False):
     :rtype: float
     """
     if tstart is not None:
-        mask = N.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
-        ind = N.nonzero(mask)[0][0]
+        mask = np.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
+        ind = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
         ind = 0 
     fac = 1./(time[-1]-time[ind])
-    avgField = fac*N.trapz(field[ind:], time[ind:])
+    avgField = fac*np.trapz(field[ind:], time[ind:])
 
     if std:
-        stdField = N.sqrt(fac*N.trapz((field[ind:]-avgField)**2, time[ind:]))
+        stdField = np.sqrt(fac*np.trapz((field[ind:]-avgField)**2, time[ind:]))
         return avgField, stdField
     else:
         return avgField
@@ -226,12 +232,12 @@ def writeVpEq(par, tstart):
     :returns: a formatted string
     :rtype: str
     """
-    mask = N.where(abs(par.time-tstart) == min(abs(par.time-tstart)), 1, 0)
-    ind = N.nonzero(mask)[0][0]
+    mask = np.where(abs(par.time-tstart) == min(abs(par.time-tstart)), 1, 0)
+    ind = np.nonzero(mask)[0][0]
     fac = 1./(par.time.max()-par.time[ind])
-    avgReEq = fac*N.trapz(par.reEquat[ind:], par.time[ind:])
+    avgReEq = fac*np.trapz(par.reEquat[ind:], par.time[ind:])
     roEq = avgReEq*par.ek*(1.-par.radratio)
-    avgRolC = fac*N.trapz(par.rolc[ind:], par.time[ind:])
+    avgRolC = fac*np.trapz(par.rolc[ind:], par.time[ind:])
     st = '%10.3e%5.2f%6.2f%11.3e%11.3e%11.3e' % (par.ek, par.strat, par.pr, 
                                                  par.ra, roEq, avgRolC)
     return st
@@ -300,7 +306,7 @@ def hammer2cart(ttheta, pphi, colat=False):
     >>> # Load Graphic file
     >>> gr = MagicGraph()
     >>> # Meshgrid
-    >>> pphi, ttheta = mgrid[-N.pi:N.pi:gr.nphi*1j, N.pi/2.:-N.pi/2.:gr.ntheta*1j]
+    >>> pphi, ttheta = mgrid[-np.pi:np.pi:gr.nphi*1j, np.pi/2.:-np.pi/2.:gr.ntheta*1j]
     >>> x,y = hammer2cart(ttheta, pphi)
     >>> # Contour plots
     >>> contourf(x, y, gr.vphi)
@@ -316,15 +322,15 @@ def hammer2cart(ttheta, pphi, colat=False):
     """
 
     if not colat: # for lat and phi \in [-pi, pi]
-        xx = 2.*N.sqrt(2.) * N.cos(ttheta)*N.sin(pphi/2.)\
-             /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
-        yy = N.sqrt(2.) * N.sin(ttheta)\
-             /N.sqrt(1.+N.cos(ttheta)*N.cos(pphi/2.))
+        xx = 2.*np.sqrt(2.) * np.cos(ttheta)*np.sin(pphi/2.)\
+             /np.sqrt(1.+np.cos(ttheta)*np.cos(pphi/2.))
+        yy = np.sqrt(2.) * np.sin(ttheta)\
+             /np.sqrt(1.+np.cos(ttheta)*np.cos(pphi/2.))
     else:  # for colat and phi \in [0, 2pi]
-        xx = -2.*N.sqrt(2.) * N.sin(ttheta)*N.cos(pphi/2.)\
-             /N.sqrt(1.+N.sin(ttheta)*N.sin(pphi/2.))
-        yy = N.sqrt(2.) * N.cos(ttheta)\
-             /N.sqrt(1.+N.sin(ttheta)*N.sin(pphi/2.))
+        xx = -2.*np.sqrt(2.) * np.sin(ttheta)*np.cos(pphi/2.)\
+             /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
+        yy = np.sqrt(2.) * np.cos(ttheta)\
+             /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
     return xx, yy
 
 def cut(dat, vmax=None, vmin=None):
@@ -346,11 +352,11 @@ def cut(dat, vmax=None, vmin=None):
     :rtype: numpy.ndarray
     """
     if vmax is not None:
-        mask = N.where(dat>=vmax, 1, 0)
+        mask = np.where(dat>=vmax, 1, 0)
         dat = dat*(mask == 0) + vmax*(mask == 1)
         normed = False
     if vmin is not None:
-        mask = N.where(dat<=vmin, 1, 0)
+        mask = np.where(dat<=vmin, 1, 0)
         dat = dat*(mask == 0) + vmin*(mask == 1)
         normed = False
     return dat
@@ -369,23 +375,23 @@ def symmetrize(data, ms, reversed=False):
     :rtype: numpy.ndarray
     """
     if reversed:
-        np = data.shape[-1]*ms +1
-        size = [np]
+        nphi = data.shape[-1]*ms+1
+        size = [nphi]
         size.insert(0,data.shape[-2])
         if len(data.shape) == 3:
             size.insert(0,data.shape[-3])
-        out = N.zeros(size, dtype=data.dtype)
+        out = np.zeros(size, dtype=data.dtype)
         for i in range(ms):
             out[..., i*data.shape[-1]:(i+1)*data.shape[-1]] = data
         out[..., -1] = out[..., 0]
     else:
-        np = data.shape[0]*ms +1
-        size = [np]
+        nphi = data.shape[0]*ms +1
+        size = [nphi]
         if len(data.shape) >= 2:
             size.append(data.shape[1])
         if len(data.shape) == 3:
             size.append(data.shape[2])
-        out = N.zeros(size, dtype=data.dtype)
+        out = np.zeros(size, dtype=data.dtype)
         for i in range(ms):
             out[i*data.shape[0]:(i+1)*data.shape[0], ...] = data
         out[-1, ...] = out[0, ...]
@@ -418,7 +424,7 @@ def fast_read(file, skiplines=0, binary=False, precision='Float64'):
             st = line.replace('D', 'E')
             if k >= skiplines:
                 X.append(st.split())
-        X = N.array(X, dtype=precision)
+        X = np.array(X, dtype=precision)
         f.close()
     else:
         f = npfile(file, endian='B')
@@ -428,7 +434,7 @@ def fast_read(file, skiplines=0, binary=False, precision='Float64'):
                 X.append(f.fort_read(precision))
             except TypeError:
                 break
-        X = N.array(X, dtype=precision)
+        X = np.array(X, dtype=precision)
         f.close()
     return X
 
@@ -466,7 +472,7 @@ def anelprof(radius, strat, polind, g0=0., g1=0., g2=1.):
         ro = radius[-1]
         radratio = radius[0]/radius[-1]
     grav = g0 + g1 * radius/ro + g2 * (ro/radius)**2
-    ofr=( N.exp(strat/polind)-1. )/ ( g0+0.5*g1*(1.+radratio) +g2/radratio )
+    ofr=( np.exp(strat/polind)-1. )/ ( g0+0.5*g1*(1.+radratio) +g2/radratio )
 
     temp0 = -ofr*( g0*radius +0.5*g1*radius**2/ro-g2*ro**2/radius ) + \
             1.+ ofr*ro*(g0+0.5*g1-g2)
@@ -491,7 +497,7 @@ def chebgrid(nr, a, b):
     :rtype: numpy.ndarray
     """
     rst = (a+b)/(b-a)
-    rr = 0.5*(rst+N.cos(N.pi*(1.-N.arange(nr+1.)/nr)))*(b-a)
+    rr = 0.5*(rst+np.cos(np.pi*(1.-np.arange(nr+1.)/nr)))*(b-a)
     return rr
 
 def matder(nr, z1, z2):
@@ -516,7 +522,7 @@ def matder(nr, z1, z2):
     :rtype: numpy.ndarray
     """
     nrp = nr+1
-    w1 = N.zeros((nrp, nrp), dtype='Float64')
+    w1 = np.zeros((nrp, nrp), dtype='Float64')
     zl = z2-z1
     for i in range(nrp):
         for j in range(nrp):
@@ -542,15 +548,15 @@ def intcheb(f, nr, z1, z2):
     :returns: the integrated quantity
     :rtype: float
     """
-    func = lambda i, j: 2.*N.cos(N.pi*i*j/nr)/nr
-    w1 = N.fromfunction(func, (nr+1, nr+1))
+    func = lambda i, j: 2.*np.cos(np.pi*i*j/nr)/nr
+    w1 = np.fromfunction(func, (nr+1, nr+1))
      
     w1[:, 0] = w1[:, 0]/2.
     w1[:, nr] = w1[:, nr]/2.
     w1[0, :] = w1[0, :]/2.
     w1[nr, :] = w1[nr, :]/2.
      
-    w2 = N.dot(w1, f)
+    w2 = np.dot(w1, f)
     int = 0.
     for i in range(0, nr+1, 2):
         int = int-(z2-z1)/(i**2-1)*w2[i]
@@ -582,8 +588,8 @@ def dnum(k, j, nr):
                 dnum = 1./3.*float(nr*nr)+1./6.
             return dnum
      
-        dnum = 0.5*(float(nr)+0.5)*((float(nr)+0.5)+(1./N.tan(N.pi*float(j) \
-               /float(2.*nr)))**2)+1./8.-0.25/(N.sin(N.pi*float(j)/ \
+        dnum = 0.5*(float(nr)+0.5)*((float(nr)+0.5)+(1./np.tan(np.pi*float(j) \
+               /float(2.*nr)))**2)+1./8.-0.25/(np.sin(np.pi*float(j)/ \
                float(2*nr))**2) - 0.5*float(nr*nr)
         return dnum
      
@@ -593,7 +599,7 @@ def dnum(k, j, nr):
 def ff(i, nr):
     if i == 0:
         return 0
-    ff = float(nr)*0.5/N.tan(N.pi*float(i)/float(2.*nr))
+    ff = float(nr)*0.5/np.tan(np.pi*float(i)/float(2.*nr))
      
     a = i % 2
     if a == 0:
@@ -610,7 +616,7 @@ def den(k, j, nr):
             den = 1.
         return den
      
-    den = float(nr)*N.sin(N.pi*float(k)/float(nr))
+    den = float(nr)*np.sin(np.pi*float(k)/float(nr))
     if (j == 0 or j == nr):
         den = 2.*den
     return den
@@ -633,16 +639,16 @@ def phideravg(data, minc=1, order=4):
     :rtype: numpy.ndarray
     """
     nphi = data.shape[0]
-    dphi = 2.*N.pi/minc/(nphi-1.)
+    dphi = 2.*np.pi/minc/(nphi-1.)
     if order == 2:
-        der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dphi)
+        der = (np.roll(data, -1,  axis=0)-np.roll(data, 1, axis=0))/(2.*dphi)
         der[0, ...] = (data[1, ...]-data[-2, ...])/(2.*dphi)
         der[-1, ...] = der[0, ...]
     elif order == 4:
-        der = (   -N.roll(data,-2,axis=0) \
-               +8.*N.roll(data,-1,axis=0) \
-               -8.*N.roll(data, 1,axis=0)  \
-                  +N.roll(data, 2,axis=0)   )/(12.*dphi)
+        der = (   -np.roll(data,-2,axis=0) \
+               +8.*np.roll(data,-1,axis=0) \
+               -8.*np.roll(data, 1,axis=0)  \
+                  +np.roll(data, 2,axis=0)   )/(12.*dphi)
         der[1, ...] = (-data[3, ...]+8.*data[2, ...]-\
                        8.*data[0, ...] +data[-2, ...])/(12.*dphi)
         der[-2, ...] = (-data[0, ...]+8.*data[-1, ...]-\
@@ -678,7 +684,7 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
     grid = chebgrid(nr-1, r1, r2)
     if exclude:
         g = grid[::-1]
-        gnew = N.linspace(r2, r1, 1000)
+        gnew = np.linspace(r2, r1, 1000)
         if len(data.shape) == 2:
             for i in range(data.shape[0]):
                 val = data[i, ::-1]
@@ -697,14 +703,14 @@ def rderavg(data, eta=0.35, spectral=True, exclude=False):
     if spectral:
         d1 = matder(nr-1, r1, r2)
         if len(data.shape) == 2:
-            der = N.tensordot(data, d1, axes=[1, 1])
+            der = np.tensordot(data, d1, axes=[1, 1])
         else:
-            der = N.tensordot(data, d1, axes=[2, 1])
+            der = np.tensordot(data, d1, axes=[2, 1])
     else:
-        denom = N.roll(grid, -1) - N.roll(grid, 1)
+        denom = np.roll(grid, -1) - np.roll(grid, 1)
         denom[0] = grid[1]-grid[0]
         denom[-1] = grid[-1]-grid[-2]
-        der = (N.roll(data, -1,  axis=-1)-N.roll(data, 1, axis=-1))/denom
+        der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/denom
         der[..., 0] = (data[..., 1]-data[..., 0])/(grid[1]-grid[0])
         der[..., -1] = (data[..., -1]-data[..., -2])/(grid[-1]-grid[-2])
     return der
@@ -725,16 +731,16 @@ def thetaderavg(data, order=4):
     """
     if len(data.shape) == 3: # 3-D
         ntheta = data.shape[1]
-        dtheta = N.pi/(ntheta-1.)
+        dtheta = np.pi/(ntheta-1.)
         if order == 2:
-            der = (N.roll(data, -1,  axis=1)-N.roll(data, 1, axis=1))/(2.*dtheta)
+            der = (np.roll(data, -1,  axis=1)-np.roll(data, 1, axis=1))/(2.*dtheta)
             der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
             der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dtheta
         elif order == 4:
-            der = (   -N.roll(data,-2,axis=1) \
-                   +8.*N.roll(data,-1,axis=1) \
-                   -8.*N.roll(data, 1,axis=1)  \
-                      +N.roll(data, 2,axis=1)   )/(12.*dtheta)
+            der = (   -np.roll(data,-2,axis=1) \
+                   +8.*np.roll(data,-1,axis=1) \
+                   -8.*np.roll(data, 1,axis=1)  \
+                      +np.roll(data, 2,axis=1)   )/(12.*dtheta)
             der[:, 1, :] = (data[:, 2, :]-data[:, 0, :])/(2.*dtheta)
             der[:, -2, :] = (data[:, -1, :]-data[:, -3, :])/(2.*dtheta)
             der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dtheta
@@ -742,14 +748,14 @@ def thetaderavg(data, order=4):
 
     elif len(data.shape) == 2: #2-D
         ntheta = data.shape[0]
-        dtheta = N.pi/(ntheta-1.)
+        dtheta = np.pi/(ntheta-1.)
         if order == 2:
-            der = (N.roll(data, -1,  axis=0)-N.roll(data, 1, axis=0))/(2.*dtheta)
+            der = (np.roll(data, -1,  axis=0)-np.roll(data, 1, axis=0))/(2.*dtheta)
             der[0, :] = (data[1, :]-data[0, :])/dtheta
             der[-1, :] = (data[-1, :]-data[-2, :])/dtheta
         elif order == 4:
-            der = (-N.roll(data,-2,axis=0)+8.*N.roll(data,-1,axis=0)-\
-                  8.*N.roll(data,1,axis=0)+N.roll(data,2,axis=0))/(12.*dtheta)
+            der = (-np.roll(data,-2,axis=0)+8.*np.roll(data,-1,axis=0)-\
+                  8.*np.roll(data,1,axis=0)+np.roll(data,2,axis=0))/(12.*dtheta)
             der[1, :] = (data[2, :]-data[0, :])/(2.*dtheta)
             der[-2, :] = (data[-1, :]-data[-3, :])/(2.*dtheta)
             der[0, :] = (data[1, :]-data[0, :])/dtheta
@@ -790,21 +796,21 @@ def zderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     if colat is not None:
         th = colat
     else:
-        th = N.linspace(0., N.pi, ntheta)
+        th = np.linspace(0., np.pi, ntheta)
     rr = chebgrid(nr-1, r1, r2)
 
     if len(data.shape) == 3: # 3-D
-        thmD = N.zeros_like(data)
+        thmD = np.zeros_like(data)
         for i in range(ntheta):
             thmD[:,i,:] = th[i]
     elif len(data.shape) == 2: # 2-D
-        thmD = N.zeros((ntheta, nr), 'f')
+        thmD = np.zeros((ntheta, nr), 'f')
         for i in range(ntheta):
             thmD[i, :]  = th[i]
 
     dtheta = thetaderavg(data)
     dr = rderavg(data, eta, spectral, exclude)
-    dz = N.cos(thmD)*dr - N.sin(thmD)/rr*dtheta
+    dz = np.cos(thmD)*dr - np.sin(thmD)/rr*dtheta
     return dz
 
 def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
@@ -836,12 +842,12 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     if colat is not None:
         th = colat
     else:
-        th = N.linspace(0., N.pi, ntheta)
+        th = np.linspace(0., np.pi, ntheta)
     rr = chebgrid(nr-1, r1, r2)
-    rr2D, th2D = N.meshgrid(rr,th)
+    rr2D, th2D = np.meshgrid(rr,th)
     dtheta = thetaderavg(data)
     dr = rderavg(data, eta, spectral, exclude)
-    ds = N.sin(th2D)*dr + N.cos(th2D)/rr2D*dtheta
+    ds = np.sin(th2D)*dr + np.cos(th2D)/rr2D*dtheta
     return ds
 
 
@@ -862,7 +868,7 @@ def cylSder(radius, data):
     """
     ns = data.shape[-1]
     ds = radius.max()/(ns-1.)
-    der = (N.roll(data, -1,  axis=-1)-N.roll(data, 1, axis=-1))/(2.*ds)
+    der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/(2.*ds)
     der[..., 0] = (data[..., 1]-data[..., 0])/ds
     der[..., -1] = (data[..., -1]-data[..., -2])/ds
     return der
@@ -884,7 +890,7 @@ def cylZder(z, data):
     """
     nz = data.shape[1]
     dz = (z.max()-z.min())/(nz-1.)
-    der = (N.roll(data, -1,  axis=1)-N.roll(data, 1, axis=1))/(2.*dz)
+    der = (np.roll(data, -1,  axis=1)-np.roll(data, 1, axis=1))/(2.*dz)
     der[:, 0, :] = (data[:, 1, :]-data[:, 0, :])/dz
     der[:, -1, :] = (data[:, -1, :]-data[:, -2, :])/dz
     return der

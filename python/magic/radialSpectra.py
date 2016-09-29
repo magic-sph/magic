@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, MagicSetup, scanDir, chebgrid
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 class MagicRSpec(MagicSetup):
@@ -51,7 +51,7 @@ class MagicRSpec(MagicSetup):
         n_r_ic_tot = 2*self.n_r_ic_max-1
         innerCoreGrid = chebgrid(n_r_ic_tot-1, self.ricb, -self.ricb)
 
-        self.radius = N.zeros((self.n_r_tot-1), dtype=precision)
+        self.radius = np.zeros((self.n_r_tot-1), dtype=precision)
 
         self.radius[:self.n_r_max] = outerCoreGrid
         self.radius[self.n_r_max-1:] = innerCoreGrid[:self.n_r_ic_max]
@@ -70,15 +70,15 @@ class MagicRSpec(MagicSetup):
                     data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        data = N.array(data, dtype=precision)
+        data = np.array(data, dtype=precision)
 
         # Time (every two lines only)
         self.time = data[::2, 0]
 
         # Poloidal/Toroidal energy for all radii for the 6 first spherical harmonic
         # degrees
-        self.e_pol = N.zeros((len(self.time), self.n_r_tot-1, 6), dtype=precision)
-        self.e_pol_axi = N.zeros_like(self.e_pol)
+        self.e_pol = np.zeros((len(self.time), self.n_r_tot-1, 6), dtype=precision)
+        self.e_pol_axi = np.zeros_like(self.e_pol)
 
         self.e_pol[:, :, 0] = data[::2, 1:self.n_r_tot]
         self.e_pol[:, :, 1] = data[::2, self.n_r_tot-1:2*(self.n_r_tot-1)]
@@ -101,7 +101,7 @@ class MagicRSpec(MagicSetup):
         """
         Plotting function for time-averaged profiles
         """
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.e_pol[:, :, 0].mean(axis=0), 'b-', label='Dip.')
         ax.plot(self.radius, abs(self.e_pol_axi[:, :, 0].mean(axis=0)), 'b--', 
@@ -128,4 +128,4 @@ class MagicRSpec(MagicSetup):
 
 if __name__ == '__main__':
     r = MagicRSpec(tag='test', field='Bp', avg=True)
-    P.show()
+    plt.show()

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-import numpy as N
-import matplotlib.pyplot as P
+import numpy as np
+import matplotlib.pyplot as plt
 from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
 from magic import MagicGraph, MagicSetup
 from magic.setup import labTex
@@ -43,21 +43,21 @@ def sph2cyl_plane(data, rad, ns, nz):
 
     radius = rad[::-1]
 
-    theta = N.linspace(0., N.pi, ntheta)
+    theta = np.linspace(0., np.pi, ntheta)
 
-    Z, S = N.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+    Z, S = np.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
 
-    new_r = N.sqrt(S**2+Z**2).ravel()
-    new_theta = N.arctan2(S, Z).ravel()
-    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
-    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
+    new_r = np.sqrt(S**2+Z**2).ravel()
+    new_theta = np.arctan2(S, Z).ravel()
+    ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
 
     new_ir = ir(new_r)
     new_it = it(new_theta)
     new_ir[new_r > radius.max()] = len(radius)-1.
     new_ir[new_r < radius.min()] = 0.
 
-    coords = N.array([new_it, new_ir])
+    coords = np.array([new_it, new_ir])
 
     output = []
     for dat in data:
@@ -101,25 +101,25 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     nz = 2*ns
     ro = radius[0]
     ri = radius[-1]
-    z = N.linspace(-ro, ro, nz)
-    cylRad = N.linspace(0., ro, ns)
+    z = np.linspace(-ro, ro, nz)
+    cylRad = np.linspace(0., ro, ns)
     cylRad = cylRad[1:-1]
     
-    height = N.zeros_like(cylRad)
-    height[cylRad>=ri] = 2.*N.sqrt(ro**2-cylRad[cylRad>=ri]**2)
-    height[cylRad<ri] = 2.*(N.sqrt(ro**2-cylRad[cylRad<ri]**2)\
-                                 -N.sqrt(ri**2-cylRad[cylRad<ri]**2))
+    height = np.zeros_like(cylRad)
+    height[cylRad>=ri] = 2.*np.sqrt(ro**2-cylRad[cylRad>=ri]**2)
+    height[cylRad<ri] = 2.*(np.sqrt(ro**2-cylRad[cylRad<ri]**2)\
+                                 -np.sqrt(ri**2-cylRad[cylRad<ri]**2))
 
     if len(input[0].shape) == 3:
         nphi = input[0].shape[0]
-        phi = N.linspace(0., 2.*N.pi/minc, nphi)
-        output = N.zeros((nphi, ns-2), dtype=input[0].dtype)
+        phi = np.linspace(0., 2.*np.pi/minc, nphi)
+        output = np.zeros((nphi, ns-2), dtype=input[0].dtype)
         for iphi in range(nphi):
             print(iphi)
             Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
             S = S[:, 1:-1]
             Z = Z[:, 1:-1]
-            output[iphi, :] = N.trapz(out2D[0][:, 1:-1], z, axis=0)
+            output[iphi, :] = np.trapz(out2D[0][:, 1:-1], z, axis=0)
             if normed:
                 output[iphi, :] /= height
 
@@ -135,9 +135,9 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
         S = S[:, 1:-1]
         Z = Z[:, 1:-1]
         output = []
-        outIntZ = N.zeros((ns-2), dtype=input[0].dtype)
+        outIntZ = np.zeros((ns-2), dtype=input[0].dtype)
         for k,out in enumerate(out2D):
-            outIntZ = N.trapz(out[:, 1:-1], z, axis=0)
+            outIntZ = np.trapz(out[:, 1:-1], z, axis=0)
             if normed:
                 outIntZ /= height
             output.append(outIntZ)
@@ -179,26 +179,26 @@ def sph2cyl(g, ns=None, nz=None):
     if ns is None or nz is None:
         ns = g.nr ; nz = 2*ns
 
-    theta = N.linspace(0., N.pi, g.ntheta)
+    theta = np.linspace(0., np.pi, g.ntheta)
     radius = g.radius[::-1]
 
-    Z, S = N.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
+    Z, S = np.mgrid[-radius.max():radius.max():nz*1j,0:radius.max():ns*1j]
 
-    new_r = N.sqrt(S**2+Z**2).ravel()
-    new_theta = N.arctan2(S, Z).ravel()
-    ir = interp1d(radius, N.arange(len(radius)), bounds_error=False)
-    it = interp1d(theta, N.arange(len(theta)), bounds_error=False)
+    new_r = np.sqrt(S**2+Z**2).ravel()
+    new_theta = np.arctan2(S, Z).ravel()
+    ir = interp1d(radius, np.arange(len(radius)), bounds_error=False)
+    it = interp1d(theta, np.arange(len(theta)), bounds_error=False)
 
     new_ir = ir(new_r)
     new_it = it(new_theta)
     new_ir[new_r > radius.max()] = len(radius)-1.
     new_ir[new_r < radius.min()] = 0.
 
-    coords = N.array([new_it, new_ir])
+    coords = np.array([new_it, new_ir])
 
-    vr_cyl = N.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
-    vp_cyl = N.zeros_like(vr_cyl)
-    vt_cyl = N.zeros_like(vr_cyl)
+    vr_cyl = np.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
+    vp_cyl = np.zeros_like(vr_cyl)
+    vt_cyl = np.zeros_like(vr_cyl)
     for k in range(g.npI):
         print(k)
         dat = map_coordinates(g.vphi[k, :, ::-1], coords, order=3)
@@ -214,11 +214,11 @@ def sph2cyl(g, ns=None, nz=None):
         dat[new_r < radius.min()] = 0.
         vr_cyl[k, ...] = dat.reshape((nz, ns))
 
-    th3D = N.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
+    th3D = np.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
     for i in range(g.npI):
-        th3D[i, ...] = N.arctan2(S, Z)
-    vs = vr_cyl * N.sin(th3D) + vt_cyl * N.cos(th3D)
-    vz = vr_cyl * N.cos(th3D) - vt_cyl * N.sin(th3D)
+        th3D[i, ...] = np.arctan2(S, Z)
+    vs = vr_cyl * np.sin(th3D) + vt_cyl * np.cos(th3D)
+    vz = vr_cyl * np.cos(th3D) - vt_cyl * np.sin(th3D)
 
     return S, Z, vs, vp_cyl, vz
 
@@ -290,23 +290,23 @@ class Cyl(MagicSetup):
             self.S, self.Z, self.vs, self.vphi, self.vz = \
                          pickle.load(file)
             file.close()
-        self.radius = N.linspace(0., self.ro, self.ns)
-        temp0, rho0, beta0 = anelprof(N.linspace(self.ro, self.ri, self.ns), 
+        self.radius = np.linspace(0., self.ro, self.ns)
+        temp0, rho0, beta0 = anelprof(np.linspace(self.ro, self.ri, self.ns), 
                                      self.strat, self.polind)
-        rho = N.zeros((self.nphi/2, self.ns), dtype=self.vr.dtype)
-        beta = N.zeros_like(rho)
+        rho = np.zeros((self.nphi/2, self.ns), dtype=self.vr.dtype)
+        beta = np.zeros_like(rho)
         for i in range(self.nphi/2):
             rho[i, :] = rho0
             beta[i, :] = beta0
         Z, S, [rho, beta] = sph2cyl_plane([rho,beta], 
-                                 N.linspace(self.ro, self.ri, self.ns), 
+                                 np.linspace(self.ro, self.ri, self.ns), 
                                  self.ns, self.nz)
-        self.rho = N.zeros_like(self.vs)
-        self.beta = N.zeros_like(self.vs)
+        self.rho = np.zeros_like(self.vs)
+        self.beta = np.zeros_like(self.vs)
         for i in range(self.npI):
             self.rho[i, ...] = rho
             self.beta[i, ...] = beta
-        self.z = N.linspace(-self.ro, self.ro, self.nz)
+        self.z = np.linspace(-self.ro, self.ro, self.nz)
 
     def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None, 
              levels=16, cm='RdYlBu_r', normed=True, figsize=None):
@@ -335,7 +335,7 @@ class Cyl(MagicSetup):
         :type vmax: float
         """
         r /= (1-self.ri/self.ro) # as we give a normalised radius
-        ind = N.nonzero(N.where(abs(self.radius-r) \
+        ind = np.nonzero(np.where(abs(self.radius-r) \
                         == min(abs(self.radius-r)), 1, 0))
         indPlot = ind[0][0]
 
@@ -355,14 +355,14 @@ class Cyl(MagicSetup):
             data = self.vz
             label = 'Vz'
 
-        phi = N.linspace(0., 2.*N.pi, self.nphi)
+        phi = np.linspace(0., 2.*np.pi, self.nphi)
 
         data[..., indPlot] = cut(data[..., indPlot], vmax, vmin)
         data = symmetrize(data, self.minc)
 
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
 
-        fig = P.figure()
+        fig = plt.figure()
         ax = fig.add_subplot(111)
         im = ax.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap, 
                         aa=True)
@@ -375,7 +375,7 @@ class Cyl(MagicSetup):
             ax.set_xlabel('phi', fontsize=18)
             ax.set_ylabel('z', fontsize=18)
             ax.set_title('%s: r/ro = %.3f' % (label, rad), fontsize=24)
-        cbar = P.colorbar(im)
+        cbar = plt.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
             im.set_clim(-max(abs(data[..., indPlot].max()), 
@@ -437,8 +437,8 @@ class Cyl(MagicSetup):
             else:
                 label = 'dvzdz'
         elif field in ('anel'):
-            betas = cylSder(self.radius, N.log(self.rho))
-            betaz = cylZder(self.z, N.log(self.rho))
+            betas = cylSder(self.radius, np.log(self.rho))
+            betaz = cylZder(self.z, np.log(self.rho))
             data = self.vs * betas + self.vz * betaz
             if labTex:
                 label = r'$\beta v_r$'
@@ -456,17 +456,17 @@ class Cyl(MagicSetup):
         equator = cut(equator, vmax, vmin)
         equator = symmetrize(equator, self.minc)
 
-        phi = N.linspace(0., 2.*N.pi, self.nphi)
-        rr, pphi = N.meshgrid(self.radius, phi)
-        xx = rr * N.cos(pphi)
-        yy = rr * N.sin(pphi)
+        phi = np.linspace(0., 2.*np.pi, self.nphi)
+        rr, pphi = np.meshgrid(self.radius, phi)
+        xx = rr * np.cos(pphi)
+        yy = rr * np.sin(pphi)
 
-        fig = P.figure(figsize=(8.25, 6))
+        fig = plt.figure(figsize=(8.25, 6))
         ax = fig.add_subplot(111, frameon=False)
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
         im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
-        ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
-        ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
+        ax.plot(self.ri * np.cos(phi), self.ri*np.sin(phi), 'k-')
+        ax.plot(self.ro * np.cos(phi), self.ro*np.sin(phi), 'k-')
         ax.set_title(label, fontsize=24)
         ax.axis('off')
         fig.colorbar(im)
@@ -522,21 +522,21 @@ class Cyl(MagicSetup):
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.vs * vp
-            denom = N.sqrt(N.mean(self.vs**2, axis=0)* N.mean(vp**2, axis=0))
+            denom = np.sqrt(np.mean(self.vs**2, axis=0)* np.mean(vp**2, axis=0))
             if labTex:
                 label = r'$\langle v_s v_\phi\rangle$'
             else:
                 label = 'vs vphi'
 
-        th = N.linspace(0., N.pi, 128)
+        th = np.linspace(0., np.pi, 128)
 
         if field not in ('Cr', 'cr'):
             phiavg = data.mean(axis=0)
         else:
-            mask = N.where(denom == 0, 1, 0)
+            mask = np.where(denom == 0, 1, 0)
             phiavg = data.mean(axis=0)/(denom+mask)
-            m1 = N.sqrt(self.S**2+self.Z**2) >= self.ri
-            m2 = N.sqrt(self.S**2+self.Z**2) <= self.ro
+            m1 = np.sqrt(self.S**2+self.Z**2) >= self.ri
+            m2 = np.sqrt(self.S**2+self.Z**2) <= self.ro
             m3 = self.S <= self.ri
             m4 = self.S >= self.ri
             print('Correlation', phiavg[m1*m2].mean())
@@ -545,12 +545,12 @@ class Cyl(MagicSetup):
 
         phiavg = cut(phiavg, vmax, vmin)
 
-        fig = P.figure(figsize=(5.5, 8))
+        fig = plt.figure(figsize=(5.5, 8))
         ax = fig.add_subplot(111, frameon=False)
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
         im = ax.contourf(self.S, self.Z, phiavg, levels, cmap=cmap)
-        ax.plot(self.ri*N.sin(th), self.ri*N.cos(th), 'k-')
-        ax.plot(self.ro*N.sin(th), self.ro*N.cos(th), 'k-')
+        ax.plot(self.ri*np.sin(th), self.ri*np.cos(th), 'k-')
+        ax.plot(self.ro*np.sin(th), self.ro*np.cos(th), 'k-')
         ax.plot([0., 0], [self.ri, self.ro], 'k-')
         ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
         ax.set_title(label, fontsize=24)
@@ -587,15 +587,15 @@ class Cyl(MagicSetup):
                     profile is also displayed
         :type avg: bool
         """
-        phi = N.linspace(0., 2.*N.pi, self.nphi)
-        rr, pphi = N.meshgrid(self.radius, phi)
-        xx = rr * N.cos(pphi)
-        yy = rr * N.sin(pphi)
+        phi = np.linspace(0., 2.*np.pi, self.nphi)
+        rr, pphi = np.meshgrid(self.radius, phi)
+        xx = rr * np.cos(pphi)
+        yy = rr * np.sin(pphi)
         if field in ('Vr', 'vr', 'Ur', 'ur'):
             data = self.vphi
             label = 'Radial velocity'
         elif field in ('betaz'):
-            betaz = cylZder(self.z, N.log(self.rho))
+            betaz = cylZder(self.z, np.log(self.rho))
             data =  self.vz * betaz
             data *= self.vs
             if labTex:
@@ -603,7 +603,7 @@ class Cyl(MagicSetup):
             else:
                 label = 'betaz uz'
         elif field in ('betas'):
-            betas = cylSder(self.radius, N.log(self.rho))
+            betas = cylSder(self.radius, np.log(self.rho))
             data =  self.vs * betas
             data *= self.vs
             if labTex:
@@ -618,11 +618,11 @@ class Cyl(MagicSetup):
                 label = 'rho'
         elif field in ('anel'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
-            betas = cylSder(self.radius, N.log(self.rho))
-            betaz = cylZder(self.z, N.log(self.rho))
+            betas = cylSder(self.radius, np.log(self.rho))
+            betaz = cylZder(self.z, np.log(self.rho))
             data = self.vs * betas + self.vz * betaz
             data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
-            mask = N.where(self.S == 0, 1, 0)
+            mask = np.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
             if labTex:
@@ -631,7 +631,7 @@ class Cyl(MagicSetup):
                 label = 'beta ur'
         elif field in ('vortz'):
             data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
-            mask = N.where(self.S == 0, 1, 0)
+            mask = np.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
             if labTex:
                 label = r'$\omega_z$'
@@ -639,9 +639,9 @@ class Cyl(MagicSetup):
                 label = 'omegaz'
         elif field in ('vopot'):
             data = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
-            mask = N.where(self.S == 0, 1, 0)
+            mask = np.where(self.S == 0, 1, 0)
             data = data/(self.S+mask)
-            data = data-2./self.ek*N.log(self.rho)
+            data = data-2./self.ek*np.log(self.rho)
             label = 'vopot'
         elif field in ('Vphi', 'vphi', 'Uphi', 'uphi', 'up', 'Up', 'Vp', 'vp'):
             data = self.vphi
@@ -670,14 +670,14 @@ class Cyl(MagicSetup):
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
             data =  self.rho * self.vs * vp
-            denom = N.zeros((self.npI, self.ns), dtype=vp.dtype)
+            denom = np.zeros((self.npI, self.ns), dtype=vp.dtype)
             if labTex:
                 label = r'$\langle \rho v_s v_\phi\rangle$'
             else:
                 label = 'rho vs vphi'
         elif field in ('reynolds'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
-            phi = N.linspace(0., 2.*N.pi, self.npI)
+            phi = np.linspace(0., 2.*np.pi, self.npI)
             data =  self.rho * self.vs * vp
             if labTex:
                 label = r'$\rho v_s v_\phi$'
@@ -685,18 +685,18 @@ class Cyl(MagicSetup):
                 label = 'rho vs vphi'
         elif field in ('vsvp'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
-            phi = N.linspace(0., 2.*N.pi, self.npI)
+            phi = np.linspace(0., 2.*np.pi, self.npI)
             data =  self.vs * vp
             if labTex:
                 label = r'$v_s v_\phi$'
             else:
                 label = 'vs vphi'
         elif field in ('vrvs'):
-            th2D = N.arctan2(self.S, self.Z)
-            vr = self.vs * N.sin(th2D) + self.vz * N.cos(th2D)
-            phi = N.linspace(0., 2.*N.pi, self.npI)
+            th2D = np.arctan2(self.S, self.Z)
+            vr = self.vs * np.sin(th2D) + self.vz * np.cos(th2D)
+            phi = np.linspace(0., 2.*np.pi, self.npI)
             data =  self.vs * vr
-            denom = N.zeros((self.npI, self.ns), dtype=vr.dtype)
+            denom = np.zeros((self.npI, self.ns), dtype=vr.dtype)
             if labTex:
                 label = r'$\rho v_s v_r$'
             else:
@@ -704,7 +704,7 @@ class Cyl(MagicSetup):
         elif field in ('dvz'):
             data =  cylZder(self.z, self.vz)
             data1 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
-            mask = N.where(self.S == 0, 1, 0)
+            mask = np.where(self.S == 0, 1, 0)
             data1 = data1/(self.S+mask)
             data *= data1
             if labTex:
@@ -717,70 +717,70 @@ class Cyl(MagicSetup):
             else:
                 label = 'dvz/dz + beta*vr'
             data =  cylZder(self.z, self.vz)
-            betas = cylSder(self.radius, N.log(self.rho))
-            betaz = cylZder(self.z, N.log(self.rho))
+            betas = cylSder(self.radius, np.log(self.rho))
+            betaz = cylZder(self.z, np.log(self.rho))
             data1 = self.vs * betas + self.vz * betaz
             data += data1
             data2 = cylSder(self.radius, self.vphi*self.S)-phideravg(self.vs, self.minc)
-            mask = N.where(self.S == 0, 1, 0)
+            mask = np.where(self.S == 0, 1, 0)
             data2 = data2/(self.S+mask)
             data *= data2
 
-        equator = N.zeros((self.npI, self.ns), dtype=self.vs.dtype)
+        equator = np.zeros((self.npI, self.ns), dtype=self.vs.dtype)
         for i, rad in enumerate(self.radius):
             if rad <= self.ri:
-                zo = N.sqrt(self.ro**2-rad**2) 
-                zi = N.sqrt(self.ri**2-rad**2) 
+                zo = np.sqrt(self.ro**2-rad**2) 
+                zi = np.sqrt(self.ri**2-rad**2) 
                 m1 = abs(self.z) <= zo
                 m2 = abs(self.z) >= zi
                 equator[:, i] = data[:, m1*m2, i].mean(axis=1)
                 if field  in ('Cr', 'cr'):
-                    denom[:, i] = N.sqrt( \
-                   N.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
-                 * N.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
+                    denom[:, i] = np.sqrt( \
+                   np.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
+                 * np.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
                 elif field in ('vrvs'):
-                    denom[:, i] = N.sqrt( \
-                   N.mean(vr[:, m1*m2, i]**2, axis=1)\
-                 * N.mean(self.vs[:, m1*m2, i]**2, axis=1))
+                    denom[:, i] = np.sqrt( \
+                   np.mean(vr[:, m1*m2, i]**2, axis=1)\
+                 * np.mean(self.vs[:, m1*m2, i]**2, axis=1))
             elif rad > self.ri and rad < self.ro:
-                zo = N.sqrt(self.ro**2-rad**2) 
+                zo = np.sqrt(self.ro**2-rad**2) 
                 m1 = self.z >= -zo
                 m2 = self.z <= zo
                 equator[:, i] = data[:, m1*m2, i].mean(axis=1)
                 if field  in ('Cr', 'cr'):
-                    denom[:, i] = N.sqrt( \
-                   N.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
-                 * N.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
+                    denom[:, i] = np.sqrt( \
+                   np.mean(self.rho[:, m1*m2, i]*self.vs[:, m1*m2, i]**2, axis=1)\
+                 * np.mean(self.rho[:, m1*m2, i]*vp[:, m1*m2, i]**2, axis=1))
                 elif field in ('vrvs'):
-                    denom[:, i] = N.sqrt( \
-                   N.mean(vr[:, m1*m2, i]**2, axis=1)\
-                 * N.mean(self.vs[:, m1*m2, i]**2, axis=1))
+                    denom[:, i] = np.sqrt( \
+                   np.mean(vr[:, m1*m2, i]**2, axis=1)\
+                 * np.mean(self.vs[:, m1*m2, i]**2, axis=1))
         if field  in ('Cr', 'cr', 'vrvs'):
-            mask = N.where(denom == 0, 1, 0)
+            mask = np.where(denom == 0, 1, 0)
             equator /= (denom+mask)
 
         equator = cut(equator, vmax, vmin)
         equator = symmetrize(equator, self.minc)
 
 
-        fig = P.figure(figsize=(8.25, 6))
+        fig = plt.figure(figsize=(8.25, 6))
         ax = fig.add_subplot(111, frameon=False)
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
         im = ax.contourf(xx, yy, equator, levels, cmap=cmap)
-        ax.plot(self.ri * N.cos(phi), self.ri*N.sin(phi), 'k-')
-        ax.plot(self.ro * N.cos(phi), self.ro*N.sin(phi), 'k-')
+        ax.plot(self.ri * np.cos(phi), self.ri*np.sin(phi), 'k-')
+        ax.plot(self.ro * np.cos(phi), self.ro*np.sin(phi), 'k-')
         ax.set_title(label, fontsize=24)
         ax.axis('off')
         fig.colorbar(im)
         if avg:
-            fig = P.figure()
+            fig = plt.figure()
             ax = fig.add_subplot(111)
             if field in ('vphi'):
-                dat  = N.mean(equator, axis=0)
+                dat  = np.mean(equator, axis=0)
                 dat = dat[:-1]
                 ax.plot(self.radius[:-1], dat)
             else:
-                ax.plot(self.radius, N.mean(equator, axis=0))
+                ax.plot(self.radius, np.mean(equator, axis=0))
             ax.set_xlabel('Radius', fontsize=18)
             ax.set_xlim(0, self.radius.max())
 
@@ -833,25 +833,25 @@ class Cyl(MagicSetup):
 
         data = symmetrize(data, self.minc)
 
-        th = N.linspace(-N.pi/2, N.pi/2, 128)
-        phi = N.linspace(0., 360, self.nphi)
+        th = np.linspace(-np.pi/2, np.pi/2, 128)
+        phi = np.linspace(0., 360, self.nphi)
 
-        lon_0 = N.asarray(lon_0)
+        lon_0 = np.asarray(lon_0)
         
-        cmap = P.get_cmap(cm)
+        cmap = plt.get_cmap(cm)
 
         if len(lon_0) > 1:
-            fig = P.figure(figsize=(3.5*len(lon_0), 5.1))
+            fig = plt.figure(figsize=(3.5*len(lon_0), 5.1))
             for k, lon in enumerate(lon_0):
-                ind = N.nonzero(N.where(abs(phi-lon) \
+                ind = np.nonzero(np.where(abs(phi-lon) \
                                 == min(abs(phi-lon)), 1, 0))
                 indPlot = ind[0][0]
                 phislice = data[indPlot, ...]
                 ax = fig.add_subplot(1,len(lon_0),k+1, frameon=False)
 
                 im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
-                ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
-                ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
+                ax.plot(self.ro*np.cos(th), self.ro*np.sin(th), 'k-')
+                ax.plot(self.ri*np.cos(th), self.ri*np.sin(th), 'k-')
                 ax.plot([0., 0], [self.ri, self.ro], 'k-')
                 ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
                 ax.axis('off')
@@ -859,16 +859,16 @@ class Cyl(MagicSetup):
                 #fig.colorbar(im, orientation='horizontal')
 
         else:
-            ind = N.nonzero(N.where(abs(phi-lon_0[0]) \
+            ind = np.nonzero(np.where(abs(phi-lon_0[0]) \
                             == min(abs(phi-lon_0[0])), 1, 0))
             indPlot = ind[0][0]
             phislice = data[indPlot, ...]
 
-            fig = P.figure(figsize=(5.5, 8))
+            fig = plt.figure(figsize=(5.5, 8))
             ax = fig.add_subplot(111, frameon=False)
             im = ax.contourf(self.S, self.Z, phislice, levels, cmap=cmap)
-            ax.plot(self.ro*N.cos(th), self.ro*N.sin(th), 'k-')
-            ax.plot(self.ri*N.cos(th), self.ri*N.sin(th), 'k-')
+            ax.plot(self.ro*np.cos(th), self.ro*np.sin(th), 'k-')
+            ax.plot(self.ri*np.cos(th), self.ri*np.sin(th), 'k-')
             ax.plot([0., 0], [self.ri, self.ro], 'k-')
             ax.plot([0., 0], [-self.ri, -self.ro], 'k-')
             ax.set_title(label, fontsize=24)
@@ -885,4 +885,4 @@ class Cyl(MagicSetup):
 if __name__ == '__main__':
     c = Cyl(ivar=1)
     c.equat(field='vs', normed=False)
-    P.show()
+    plt.show()
