@@ -46,7 +46,7 @@ def generateEkinFile(fileName='e_kin.test'):
     file = open(fileName, 'w')
 
     # Classical CMB file
-    cmb = MagicCoeffCmb(tag='start', iplot=False)
+    cmb = MagicCoeffCmb(tag='start', iplot=False, quiet=True)
     st = '%.5e %.5e %.5e %.5e %.5e' % ( cmb.glm[0, cmb.idx[1, 0]], 
                                         cmb.glm[2, cmb.idx[1, 0]], 
                                         cmb.hlm[-1, cmb.idx[5, 0]], 
@@ -55,7 +55,7 @@ def generateEkinFile(fileName='e_kin.test'):
     file.write(st+'\n')
 
     # Secular variation CMB file
-    cmb = MagicCoeffCmb(tag='start', iplot=False, sv=True)
+    cmb = MagicCoeffCmb(tag='start', iplot=False, sv=True, quiet=True)
     st = '%.5e %.5e %.5e %.5e %.5e' % ( cmb.glm[0, cmb.idx[1, 0]], 
                                         cmb.glm[2, cmb.idx[1, 0]], 
                                         cmb.hlm[-1, cmb.idx[5, 0]], 
@@ -64,7 +64,7 @@ def generateEkinFile(fileName='e_kin.test'):
     file.write(st+'\n')
 
     # Time-averaged CMB file
-    cmb = MagicCoeffCmb(tag='start',  iplot=False, ave=True)
+    cmb = MagicCoeffCmb(tag='start',  iplot=False, ave=True, quiet=True)
     st = '%.5e %.5e %.5e %.5e' % ( cmb.glm[0, cmb.idx[1, 0]], 
                                    cmb.hlm[0, cmb.idx[5, 0]], 
                                    cmb.glm[0, cmb.idx[5, 4]], 
@@ -72,28 +72,28 @@ def generateEkinFile(fileName='e_kin.test'):
     file.write(st+'\n')
 
     # Coeff at depth
-    coeff = MagicCoeffR(tag='start',  field='V', r=1, iplot=False)
+    coeff = MagicCoeffR(tag='start',  field='V', r=1, iplot=False, quiet=True)
     st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[4, 4]].real, 
                                    coeff.wlm[0, coeff.idx[4, 4]].imag, 
                                    coeff.zlm[0, coeff.idx[1, 0]].real, 
                                    coeff.wlm[0, coeff.idx[2, 0]].imag )
     file.write(st+'\n')
 
-    coeff = MagicCoeffR(tag='start',  field='V', r=2, iplot=False)
+    coeff = MagicCoeffR(tag='start',  field='V', r=2, iplot=False, quiet=True)
     st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[4, 4]].real, 
                                    coeff.wlm[0, coeff.idx[4, 4]].imag, 
                                    coeff.zlm[0, coeff.idx[1, 0]].real, 
                                    coeff.wlm[0, coeff.idx[2, 0]].imag )
     file.write(st+'\n')
 
-    coeff = MagicCoeffR(tag='start',  field='B', r=1, iplot=False)
+    coeff = MagicCoeffR(tag='start',  field='B', r=1, iplot=False, quiet=True)
     st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[1, 0]].real, 
                                    coeff.wlm[0, coeff.idx[1, 0]].imag, 
                                    coeff.zlm[0, coeff.idx[5, 0]].real, 
                                    coeff.wlm[0, coeff.idx[5, 4]].imag )
     file.write(st+'\n')
 
-    coeff = MagicCoeffR(tag='start',  field='B', r=2, iplot=False)
+    coeff = MagicCoeffR(tag='start',  field='B', r=2, iplot=False, quiet=True)
     st = '%.5e %.5e %.5e %.5e' % ( coeff.wlm[0, coeff.idx[1, 0]].real, 
                                    coeff.wlm[0, coeff.idx[1, 0]].imag, 
                                    coeff.zlm[0, coeff.idx[4, 0]].real, 
@@ -168,3 +168,6 @@ class TestCoeffOutputs(unittest.TestCase):
         datRef = readStack('%s/reference.out' % self.dir)
         datTmp = readStack('%s/e_kin.test' % self.dir)
         np.testing.assert_equal(datRef, datTmp)
+
+if __name__ == '__main__':
+    generateEkinFile('e_kin.test')
