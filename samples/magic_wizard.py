@@ -26,6 +26,7 @@ import testRMSOutputs.unitTest
 import testGraphMovieOutputs.unitTest
 import testTOGeosOutputs.unitTest
 
+__version__ = '1.0'
 
 
 def getParser():
@@ -33,6 +34,9 @@ def getParser():
     Get script option
     """
     parser = argparse.ArgumentParser()
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s '+__version__, 
+                        help="Show program's version number and exit.")
     parser.add_argument('--level', action='store', dest='test_level', type=int,
                         default=-1, help='Test level')
     parser.add_argument('--use-debug-flags', action='store_true', 
@@ -52,11 +56,11 @@ def getParser():
     parser.add_argument('--use-precond', action='store', dest='use_precond', 
                         type=bool, default=True, 
                         help='Use matrix preconditioning')
+    parser.add_argument('--nranks', action='store', dest='nranks', type=int,
+                        default=4, help='Specify the number of MPI ranks')
     parser.add_argument('--nthreads', action='store', dest='nthreads', type=int,
                         default=1,
                         help='Specify the number of threads (hybrid version)')
-    parser.add_argument('--nranks', action='store', dest='nranks', type=int,
-                        default=4, help='Specify the number of MPI ranks')
     parser.add_argument('--mpicmd', action='store', dest='mpicmd', type=str,
                         default='mpirun', help='Specify the mpi executable')
 

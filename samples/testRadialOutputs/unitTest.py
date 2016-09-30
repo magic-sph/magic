@@ -64,7 +64,8 @@ class RadialOutputTest(unittest.TestCase):
 
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = 'cat eKinR.start eMagR.start parR.start powerR.start bLayersR.start fluxesR.start perpParR.start > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 

@@ -125,7 +125,8 @@ class TestCoeffOutputs(unittest.TestCase):
             os.remove(f)
         os.chdir(self.dir)
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
 
     def tearDown(self):
         # Cleaning when leaving

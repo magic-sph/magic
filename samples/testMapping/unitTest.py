@@ -74,9 +74,11 @@ class TestMapping(unittest.TestCase):
 
         os.chdir(self.dir)
         cmd = '%s %s/inputStart.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
         cmd = '%s %s/%s' % (self.execCmd, self.dir, inpFile)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
 
     def tearDown(self):
         # Cleaning when leaving
