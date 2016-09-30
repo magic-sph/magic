@@ -88,7 +88,7 @@ class MagicCoeffCmb(MagicSetup):
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 precision='Float64', ave=False, sv=False):
+                 precision='Float64', ave=False, sv=False, quiet=False):
         """
         A class to read the B_coeff_cmb files
 
@@ -106,6 +106,8 @@ class MagicCoeffCmb(MagicSetup):
         :type ave: bool
         :param sv: load a dt_b CMB file when set to True
         :type sv: bool
+        :param quiet: verbose when toggled to True (default is True)
+        :type quiet: bool
         """
 
         logFiles = scanDir('log.*')
@@ -128,7 +130,7 @@ class MagicCoeffCmb(MagicSetup):
         # Read the B_coeff files (by stacking the different tags)
         data = []
         for k, file in enumerate(files):
-            print('Reading %s' % file)
+            if not quiet: print('Reading %s' % file)
             f = npfile(file, endian='B')
             self.l_max_cmb, self.minc, n_data = f.fort_read('i')
             self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
@@ -177,19 +179,20 @@ class MagicCoeffCmb(MagicSetup):
                                       ratio_cmb_surface, self.rcmb)
 
         # Time-averaged Gauss coefficient
-        facT = 1./(self.time[-1]-self.time[0])
-        self.glmM = facT * np.trapz(self.glm, self.time, axis=0)
-        self.hlmM = facT * np.trapz(self.hlm, self.time, axis=0)
+        if not ave:
+            facT = 1./(self.time[-1]-self.time[0])
+            self.glmM = facT * np.trapz(self.glm, self.time, axis=0)
+            self.hlmM = facT * np.trapz(self.hlm, self.time, axis=0)
 
-        if len(self.time) > 3:
-            self.dglmdt = deriv(self.time, self.glm.T, axis=1)
-            self.dhlmdt = deriv(self.time, self.hlm.T, axis=1)
-            self.dglmdt = self.dglmdt.T
-            self.dhlmdt = self.dhlmdt.T
+            if len(self.time) > 3:
+                self.dglmdt = deriv(self.time, self.glm.T, axis=1)
+                self.dhlmdt = deriv(self.time, self.hlm.T, axis=1)
+                self.dglmdt = self.dglmdt.T
+                self.dhlmdt = self.dhlmdt.T
 
-        else:
-            self.dglmdt = np.zeros_like(self.glm)
-            self.dhlmdt = np.zeros_like(self.hlm)
+            else:
+                self.dglmdt = np.zeros_like(self.glm)
+                self.dhlmdt = np.zeros_like(self.hlm)
 
         # Magnetic energy (Lowes)
         self.El = np.zeros((self.nstep, self.l_max_cmb+1), precision)
@@ -205,16 +208,18 @@ class MagicCoeffCmb(MagicSetup):
                                 (self.glm[:,lm]**2+self.hlm[:,lm]**2)
                 self.Em[:, m] += (self.ell[lm]+1)*\
                                 (self.glm[:,lm]**2+self.hlm[:,lm]**2)
-                self.ESVl[:, l] += (self.ell[lm]+1)*\
-                                  (self.dglmdt[:, lm]**2+self.dhlmdt[:, lm]**2)
+                if not ave:
+                    self.ESVl[:, l] += (self.ell[lm]+1)*\
+                                      (self.dglmdt[:, lm]**2+self.dhlmdt[:, lm]**2)
 
-        # Time-averaged energy
-        self.ElM = facT * np.trapz(self.El, self.time, axis=0)
-        self.EmM = facT * np.trapz(self.Em, self.time, axis=0)
+        if not ave:
+            # Time-averaged energy
+            self.ElM = facT * np.trapz(self.El, self.time, axis=0)
+            self.EmM = facT * np.trapz(self.Em, self.time, axis=0)
 
-        # Secular variation
-        self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
-        self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
+            # Secular variation
+            self.ESVlM = facT * np.trapz(self.ESVl, self.time, axis=0)
+            self.taul = np.sqrt(self.ElM[1:]/self.ESVlM[1:])
 
         if iplot:
             self.plot()
