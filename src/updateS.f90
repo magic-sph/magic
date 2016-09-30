@@ -227,8 +227,8 @@ contains
                   rhs(n_r_max)=real(bots(0,0))
                   do nR=2,n_r_max-1
                      rhs(nR)=real(s(lm1,nR))*O_dt+ &
-                          w1*real(dsdt(lm1,nR)) + &
-                          w2*real(dsdtLast(lm1,nR))
+                     &    w1*real(dsdt(lm1,nR))  + &
+                     &    w2*real(dsdtLast(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S0

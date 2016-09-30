@@ -249,7 +249,7 @@ contains
       integer :: nRs(63)
     
       logical :: lStop
-      integer :: n,i,nR
+      integer :: n,nR
     
       !--- New radial grid:
     

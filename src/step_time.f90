@@ -183,6 +183,10 @@ contains
          dxidt_LMloc(llm:ulm,1:n_r_max)   => dxidt_LMloc_container(:,:,1)
          dVXirLM_LMloc(llm:ulm,1:n_r_max) => dxidt_LMloc_container(:,:,2)
          bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dxidt_LMloc_container(1,1,1:2))
+         dxidt_LMloc(1:1,1:1)   => dxidt_LMloc_container(:,:,1)
+         dVXirLM_LMloc(1:1,1:1) => dxidt_LMloc_container(:,:,2)
       end if
 
       allocate(dbdt_LMloc_container(llmMag:ulmMag,n_r_maxMag,1:3))
