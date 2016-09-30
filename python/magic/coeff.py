@@ -140,8 +140,8 @@ class MagicCoeffCmb(MagicSetup):
                     data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)/self.minc - \
-                          self.m_max_cmb*(self.m_max_cmb-self.minc)/(2*self.minc) + \
+        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)//self.minc - \
+                          self.m_max_cmb*(self.m_max_cmb-self.minc)//(2*self.minc) + \
                           self.l_max_cmb-self.m_max_cmb+1
 
         # Get indices location
@@ -604,8 +604,8 @@ class MagicCoeffR(MagicSetup):
                     data.append(f.fort_read(precision))
                 except TypeError:
                     break
-        self.lm_max_r = self.m_max_r*(self.l_max_r+1)/self.minc - \
-                        self.m_max_r*(self.m_max_r-self.minc)/(2*self.minc) + \
+        self.lm_max_r = self.m_max_r*(self.l_max_r+1)//self.minc - \
+                        self.m_max_r*(self.m_max_r-self.minc)//(2*self.minc) + \
                         self.l_max_r-self.m_max_r+1
 
         # Get indices location
