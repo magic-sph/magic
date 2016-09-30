@@ -92,7 +92,7 @@ The executable `magic.exe` has been produced!
 
 ```sh
 $ cd $MAGIC_HOME/samples
-$ ./magic_checks.pl --all --clean --use-cmake
+$ ./magic_wizard.py --use-mpi --nranks 4 --mpicmd mpiexec
 ```
 
 If everything is correctly set, all auto-tests should pass!

@@ -28,39 +28,41 @@ Checking the consistency of the code
 ====================================
 
 It is frequently required to check the consistency of the code, especially **after
-the implementation of new features**. For this reason, we have the
-`Perl <https://www.perl.org/>`_ script ``magic_checks.pl``, located in the
+the implementation of new features**. For this reason, we developed the
+python test suite ``magic_wizard.py``, located in the
 directory :code:`$MAGIC_HOME/samples/`, which tests the compilation of the code
 and it's results against a set of standard solutions in sample directories to
-check if the code produces the correct output. It has been initially ported from the
-auto-test subroutines of the `pencil-code <https://github.com/pencil-code/>`_
-developed by W. Dobler and adapted to the MagIC code.
+check if the code produces the correct output. 
 
 You can run it as follows:
 
 .. code-block:: bash
 
- ./magic_checks.pl <options>
+ ./magic_checks.py <options>
 
 It supports the following options:
 
 .. code-block:: bash
  
   -h,  --help              Show usage overview
-  -c,  --clean             Clean the directories when it is finished
-  -a,  --all               All auto-tests are computed
-       --level=LEV         Run only tests from level LEV
-       --max-level=LEV     Run all tests below with level <= LEV (default: 0)
-       --hybrid            Run the hybrid version
-       --use-cmake         Use CMake to build the code instead of make
-       --use-mkl           Use the Math Kernel Library for FFTs and Lapack calls
+       --level LEV               Run only tests from level LEV
+       --use-debug-flags         Compile MagIC with the debug flags
+       --use-mpi                 Use MPI
+       --use-openmp              Use the hybrid version of MagIC
+       --use-mkl                 Use the MKL for FFTs and Lapack calls
+       --use-shtns               Use SHTns for Legendre transforms
+       --use-hdf5                Use HDF5 to store restart files
+       --use-precond USE_PRECOND Use matrix preconditioning
+       --nranks NRANKS           Specify the number of MPI ranks
+       --nthreads NTHREADS       Specify the number of threads (hybrid version)
+       --mpicmd MPICMD           Specify the mpi executable (mpiexec, mpirun, srun)
+
+       
 
 .. note::
-   When using the ``--use-cmake`` option, make sure that your environment variables
-   ``FC`` and ``CC`` are correctly defined
+   Make sure that your environment variables ``FC`` and ``CC`` are correctly defined otherwise the script will use the default system compilers.
 
-The ``level=LEV`` defines the priority level of check and validation of the
-code. It has the following levels of checking:
+The ``--level LEV`` option defines the priority level of check and validation of the code. It has the following levels of checking:
 
   .. tabularcolumns:: |c|p{14cm}|  
 
