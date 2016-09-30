@@ -557,7 +557,7 @@ class MagicCoeffR(MagicSetup):
     """
     
     def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
-                 field='B', r=1, precision='Float64', lCut=None):
+                 field='B', r=1, precision='Float64', lCut=None, quiet=False):
         """
         :param tag: if you specify a pattern, it tries to read the corresponding files
         :type tag: str
@@ -575,6 +575,8 @@ class MagicCoeffR(MagicSetup):
         :type precision: str
         :param lCut: reduce the spherical harmonic truncation to l <= lCut
         :type lCut: int
+        :param quiet: verbose when toggled to True (default is True)
+        :type quiet: bool
         """
 
         logFiles = scanDir('log.*')
@@ -592,7 +594,7 @@ class MagicCoeffR(MagicSetup):
         # Read the B_coeff files (by stacking the different tags)
         data = []
         for k, file in enumerate(files):
-            print('Reading %s' % file)
+            if not quiet: print('Reading %s' % file)
             f = npfile(file, endian='B')
             out = f.fort_read('3i4,%s' % precision)[0]
             self.l_max_r, self.minc, n_data = out[0]
