@@ -181,8 +181,8 @@ contains
         &            l_spectrum,lTOCalc,lTOframe,lTOZwrite,               &
         &            l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                &
         &            lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,  &
-        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,      &
-        &            gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,         &
+        &            HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,uhLMr,     &
+        &            duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,fpoynLMr,  &
         &            fresLMr,EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
       !
       !  This subroutine controls most of the output.                     
@@ -233,6 +233,7 @@ contains
       real(cp),    intent(in) :: Hel2LMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: HelnaLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: Helna2LMr(l_max+1,nRstart:nRstop)
+      real(cp),    intent(in) :: viscLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: uhLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: gradsLMr(l_max+1,nRstart:nRstop)
       real(cp),    intent(in) :: duhLMr(l_max+1,nRstart:nRstop)
@@ -379,18 +380,17 @@ contains
                        &                    dtEint/timeNormLog,dtE/eTot
                   close(99)
                else
-                  eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
+                  eTot  =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtEint=0.0_cp
                end if
-               !write(*,"(A,7ES22.14)") "eTot = ",eTot,e_kin,e_mag,e_mag_ic, &
-               !     &                            e_mag_os,eKinIC,eKinMA
             end if
+
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,ddw_LMloc,z_LMloc,     &
                  &          dz_LMloc,s_LMloc,xi_LMloc,b_LMloc,ddb_LMloc,     &
                  &          aj_LMloc,dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,      &
-                 &          aj_ic_LMloc,dj_ic_LMloc,visDiss,ohmDiss)
+                 &          aj_ic_LMloc,dj_ic_LMloc,viscLMr,visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
          end if

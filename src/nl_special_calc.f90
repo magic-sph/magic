@@ -11,16 +11,17 @@ module nl_special_calc
    use physical_parameters, only: ek, ViscHeatFac
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
-                               visc, or4
+                         &     visc, or4, r
    use blocking, only: sizeThetaB, nfs
-   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2
+   use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
  
    implicit none
 
    private
 
-   public :: get_nlBLayers, get_perpPar, get_fluxes, get_helicity
+   public :: get_nlBLayers, get_perpPar, get_fluxes, get_helicity, &
+        &    get_visc_heat
 
 contains
 
@@ -514,5 +515,77 @@ contains
 ! #endif
 
    end subroutine get_helicity
+!------------------------------------------------------------------------------
+   subroutine get_visc_heat(vr,vt,vp,cvr,dvrdr,dvrdt,dvrdp,dvtdr,&
+              &             dvtdp,dvpdr,dvpdp,viscLMr,nR,nThetaStart)
+      !
+      !   Calculates axisymmetric contributions of the viscous heating
+      !
+      !
+    
+      !-- Input of variables
+      integer,  intent(in) :: nR
+      integer,  intent(in) :: nThetaStart
+      real(cp), intent(in) :: vr(nrp,nfs),vt(nrp,nfs),vp(nrp,nfs),cvr(nrp,nfs)
+      real(cp), intent(in) :: dvrdr(nrp,nfs),dvrdt(nrp,nfs),dvrdp(nrp,nfs)
+      real(cp), intent(in) :: dvtdr(nrp,nfs),dvtdp(nrp,nfs)
+      real(cp), intent(in) :: dvpdr(nrp,nfs),dvpdp(nrp,nfs)
+    
+      !-- Output variables:
+      real(cp), intent(out) :: viscLMr(l_max+1)
+    
+      !-- Local variables:
+      integer :: nTheta,nThetaB,nPhi, nThetaNHS
+      real(cp) :: viscAS(nfs),vischeat,csn2, phinorm
+    
+      phiNorm=two*pi/real(n_phi_max,cp)
+
+      nTheta=nThetaStart-1
+#ifdef WITH_SHTNS
+      !$OMP PARALLEL DO default(shared)                     &
+      !$OMP& private(nThetaB, nTheta, nPhi)                 &
+      !$OMP& private(vischeat)
+#endif
+      do nThetaB=1,sizeThetaB
+         nTheta=nThetaStart+nThetaB-1
+         nThetaNHS=(nTheta+1)/2
+         csn2     =cosn2(nThetaNHS)
+         if ( mod(nTheta,2) == 0 ) csn2=-csn2 ! South, odd function in theta
+
+         viscAS(nThetaB)=0.0_cp
+         do nPhi=1,n_phi_max
+            vischeat=         or2(nR)*orho1(nR)*visc(nR)*(        &
+                  two*(                     dvrdr(nPhi,nThetaB) - & ! (1)
+                  (two*or1(nR)+beta(nR))*vr(nphi,nThetaB) )**2  + &
+                  two*( csn2*                  vt(nPhi,nThetaB) + &
+                                            dvpdp(nphi,nThetaB) + &
+                                            dvrdr(nPhi,nThetaB) - & ! (2)
+                  or1(nR)*               vr(nPhi,nThetaB) )**2  + &
+                  two*(                     dvpdp(nphi,nThetaB) + &
+                        csn2*                  vt(nPhi,nThetaB) + & ! (3)
+                  or1(nR)*               vr(nPhi,nThetaB) )**2  + &
+                       ( two*               dvtdp(nPhi,nThetaB) + &
+                                              cvr(nPhi,nThetaB) - & ! (6)
+                   two*csn2*             vp(nPhi,nThetaB) )**2  + &
+                                              osn2(nThetaNHS) * ( &
+                      ( r(nR)*              dvtdr(nPhi,nThetaB) - &
+                        (two+beta(nR)*r(nR))*  vt(nPhi,nThetaB) + & ! (4)
+                  or1(nR)*            dvrdt(nPhi,nThetaB) )**2  + &
+                      ( r(nR)*              dvpdr(nPhi,nThetaB) - &
+                        (two+beta(nR)*r(nR))*  vp(nPhi,nThetaB) + & ! (5)
+                  or1(nR)*            dvrdp(nPhi,nThetaB) )**2 )- &
+                 two*third*(  beta(nR)*        vr(nPhi,nThetaB) )**2 )
+
+            viscAS(nThetaB)=viscAS(nThetaB)+vischeat
+         end do
+         viscAS(nThetaB)=phiNorm*viscAS(nThetaB)
+      end do
+#ifdef WITH_SHTNS
+      !$OMP END PARALLEL DO
+#endif
+    
+      call legTFAS(viscLMr,viscAS,l_max+1,nThetaStart,sizeThetaB)
+
+   end subroutine get_visc_heat
 !------------------------------------------------------------------------------
 end module nl_special_calc

@@ -122,8 +122,8 @@ contains
         &                 dVSrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb,        &
         &                 br_vt_lm_icb,br_vp_lm_icb,                       &
         &                 lorentz_torque_ic, lorentz_torque_ma,            &
-        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,  &
-        &                 gradsLMr,fconvLMr,fkinLMr,fviscLMr,              &
+        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
+        &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
         &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
         &                 EparaxiLMr)
 
@@ -143,6 +143,7 @@ contains
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
       real(cp),    intent(out) :: HelLMr(:),Hel2LMr(:),HelnaLMr(:),Helna2LMr(:)
       real(cp),    intent(out) :: uhLMr(:),duhLMr(:),gradsLMr(:)
+      real(cp),    intent(out) :: viscLMr(:)
       real(cp),    intent(out) :: fconvLMr(:),fkinLMr(:),fviscLMr(:)
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
@@ -198,7 +199,7 @@ contains
       !$OMP SHARED(lorentz_torques_ic) &
       !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
       !$OMP shared(fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr) &
-      !$OMP shared(EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+      !$OMP shared(EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr,viscLMr)
 #ifdef WITHOMP
       threadid = omp_get_thread_num()
 #else
@@ -224,6 +225,7 @@ contains
       Hel2LMr=0.0_cp
       HelnaLMr=0.0_cp
       Helna2LMr=0.0_cp
+      viscLMr=0.0_cp
       uhLMr = 0.0_cp
       duhLMr = 0.0_cp
       gradsLMr = 0.0_cp
@@ -241,7 +243,8 @@ contains
       call this%nl_lm(threadid)%set_zero()
       !$OMP do &
       !$OMP reduction(+:br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
-      !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
+      !$OMP reduction(+:HelLMr,Hel2LMr,HelnaLMr,Helna2LMr) &
+      !$OMP reduction(+:viscLMr,uhLMr,duhLMr,gradsLMr) &
       !$OMP reduction(+:fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr) &
       !$OMP reduction(+:EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
 
@@ -386,6 +389,22 @@ contains
                  &        this%gsa(threadid)%dvtdrc,                        &
                  &        this%gsa(threadid)%dvpdrc,HelLMr,Hel2LMr,         &
                  &        HelnaLMr,Helna2LMr,this%nR,nThetaStart)
+            PERFOFF
+         end if
+
+         !--------- Viscous heating:
+         if ( this%lPowerCalc ) then
+            PERFON('hel_out')
+            call get_visc_heat(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,&
+                 &        this%gsa(threadid)%vpc,this%gsa(threadid)%cvrc,    &
+                 &        this%gsa(threadid)%dvrdrc,                         &
+                 &        this%gsa(threadid)%dvrdtc,                         &
+                 &        this%gsa(threadid)%dvrdpc,                         &
+                 &        this%gsa(threadid)%dvtdrc,                         &
+                 &        this%gsa(threadid)%dvtdpc,                         &
+                 &        this%gsa(threadid)%dvpdrc,                         &
+                 &        this%gsa(threadid)%dvpdpc,viscLMr,this%nR,         &
+                 &        nThetaStart)
             PERFOFF
          end if
 

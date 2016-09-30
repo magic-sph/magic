@@ -11,6 +11,7 @@ module rIteration_mod
       logical :: l_cour
       logical :: lTOCalc,lTOnext,lTOnext2
       logical :: lDeriv,lRmsCalc,lHelCalc,l_frame, lMagNlBc
+      logical :: lPowerCalc
       logical :: l_graph,lPerpParCalc,lViscBcCalc,lFluxProfCalc,lPressCalc
       logical :: isRadialBoundaryPoint
       real(cp) :: dtrkc,dthkc
@@ -37,10 +38,10 @@ module rIteration_mod
                  &               dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,    &
                  &               br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb, &
                  &               lorentz_torque_ic,lorentz_torque_ma,    &
-                 &               HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,&
-                 &               duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
-                 &               fviscLMr,fpoynLMr,fresLMr,EperpLMr,     &
-                 &               EparLMr,EperpaxiLMr,EparaxiLMr)
+                 &               HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,      &
+                 &               viscLMr,uhLMr,duhLMr,gradsLMr,fconvLMr, &
+                 &               fkinLMr,fviscLMr,fpoynLMr,fresLMr,      &
+                 &               EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
          import
          class(rIteration_t) :: this
  
@@ -61,6 +62,7 @@ module rIteration_mod
          real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
          real(cp),    intent(out) :: HelLMr(:), Hel2LMr(:)
          real(cp),    intent(out) :: HelnaLMr(:), Helna2LMr(:)
+         real(cp),    intent(out) :: viscLMr(:)
          real(cp),    intent(out) :: uhLMr(:), duhLMr(:), gradsLMr(:)
          real(cp),    intent(out) :: fconvLMr(:), fkinLMr(:), fviscLMr(:)
          real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
@@ -79,12 +81,14 @@ module rIteration_mod
 
 contains
 
-   subroutine set_steering_variables(this,l_cour,lTOCalc,lTOnext,lTOnext2,&
-        & lDeriv,lRmsCalc,lHelCalc,l_frame,lMagNlBc,l_graph,lViscBcCalc,  &
-        & lFluxProfCalc,lPerpParCalc,lPressCalc)
+   subroutine set_steering_variables(this,l_cour,lTOCalc,lTOnext,lTOnext2, &
+              &                      lDeriv,lRmsCalc,lHelCalc,lPowerCalc,  &
+              &                      l_frame,lMagNlBc,l_graph,lViscBcCalc, &
+              &                      lFluxProfCalc,lPerpParCalc,lPressCalc)
 
       class(rIteration_t) :: this
-      logical, intent(in) :: l_cour,lDeriv,lRmsCalc,lHelCalc,l_frame
+      logical, intent(in) :: l_cour,lDeriv,lRmsCalc
+      logical, intent(in) :: lHelCalc,lPowerCalc,l_frame
       logical, intent(in) :: lTOCalc,lTOnext,lTOnext2, lMagNlBc,l_graph
       logical, intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc,lPressCalc
 
@@ -95,6 +99,7 @@ contains
       this%lDeriv = lDeriv
       this%lRmsCalc = lRmsCalc
       this%lHelCalc = lHelCalc
+      this%lPowerCalc = lPowerCalc
       this%l_frame = l_frame
       this%lMagNlBc = lMagNlBc
       this%l_graph = l_graph

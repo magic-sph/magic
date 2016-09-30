@@ -25,7 +25,7 @@ module step_time_mod
        &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
-       &            l_chemical_conv, l_mag_kin
+       &            l_chemical_conv, l_mag_kin, l_power
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -233,6 +233,7 @@ contains
       logical :: l_cmb            ! Store set of b at CMB
       logical :: l_r              ! Store coeff at various depths
       logical :: lHelCalc         ! Calculate helicity for output
+      logical :: lPowerCalc       ! Calculate viscous heating in the physical space
       logical :: lviscBcCalc      ! Calculate horizontal velocity and (grad T)**2
       logical :: lFluxProfCalc    ! Calculate radial flux components
       logical :: lperpParCalc     ! Calculate perpendicular and parallel Ekin
@@ -276,6 +277,7 @@ contains
       real(cp) :: Hel2LMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: HelnaLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: Helna2LMr_Rloc(l_max+1,nRstart:nRstop)
+      real(cp) :: viscLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: uhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: duhLMr_Rloc(l_max+1,nRstart:nRstop)
       real(cp) :: gradsLMr_Rloc(l_max+1,nRstart:nRstop)
@@ -719,6 +721,8 @@ contains
 
          lHelCalc=l_hel.and.l_log
 
+         lPowerCalc=l_power.and.l_log
+
          lperpParCalc=l_perpPar.and.l_log
 
          lFluxProfCalc =l_FluxProfs.and.l_log
@@ -821,18 +825,20 @@ contains
 
          call wallTime(runTimeRstart)
          call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,lRmsCalc,          &
+              &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
+              &           lPowerCalc,lRmsCalc,                                 &
               &           lViscBcCalc,lFluxProfCalc,lperpParCalc,              &
               &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
               &           dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,        &
               &           dVXirLM_Rloc,lorentz_torque_ic,                      &
               &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,         &
               &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,  &
-              &           HelnaLMr_Rloc,Helna2LMr_Rloc,uhLMr_Rloc,duhLMr_Rloc, &
-              &           gradsLMr_Rloc,fconvLMr_Rloc,fkinLMr_Rloc,            &
-              &           fviscLMr_Rloc,fpoynLMr_Rloc,fresLMr_Rloc,            &
-              &           EperpLMr_Rloc,EparLMr_Rloc,EperpaxiLMr_Rloc,         &
-              &           EparaxiLMr_Rloc,dtrkc_Rloc,dthkc_Rloc)
+              &           HelnaLMr_Rloc,Helna2LMr_Rloc,viscLMr_Rloc,           &
+              &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,  &
+              &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,            &
+              &           fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,             &
+              &           EperpaxiLMr_Rloc,EparaxiLMr_Rloc,                    &
+              &           dtrkc_Rloc,dthkc_Rloc)
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'
          if ( .not.l_log ) then
@@ -971,9 +977,9 @@ contains
               &      l_frame,n_frame,l_cmb,n_cmb_sets,l_r,                 &
               &      lorentz_torque_ic,lorentz_torque_ma,dbdt_CMB_LMloc,   &
               &      HelLMr_Rloc,Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,&
-              &      uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,   &
-              &      fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,             & 
-              &      fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,              & 
+              &      viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,    &
+              &      fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,             &
+              &      fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,& 
               &      EperpaxiLMr_Rloc,EparaxiLMr_Rloc)
          PERFOFF
          if ( lVerbose ) write(*,*) "! output finished"
