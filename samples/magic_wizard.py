@@ -87,7 +87,7 @@ def wizard():
     print("                  :   .      '.         ")
     print("                  :  : :      :         ")
     print("                  :__:-:__.;--'         ")
-    print("                         '-'   '-'      ")
+    print("                   '-'   '-'            ")
     print('\n')
 
 

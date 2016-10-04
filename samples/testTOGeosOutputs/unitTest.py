@@ -129,3 +129,6 @@ class TestTOGeosOutputs(unittest.TestCase):
         datRef = readStack('%s/reference.out' % self.dir)
         datTmp = readStack('%s/e_kin.test' % self.dir)
         np.testing.assert_equal(datRef, datTmp)
+
+if __name__ == '__main__':
+    generateEkinFile('e_kin.test')

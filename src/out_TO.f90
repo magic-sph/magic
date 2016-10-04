@@ -347,7 +347,7 @@ contains
          end if
 
          lStopRun=.false.
-         do nS=1,nSmax
+         outer: do nS=1,nSmax
 
             !------ Get integral boundaries for this s:
             zMax=sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
@@ -390,7 +390,7 @@ contains
                      lStopRun=.true.
                   end if
                end if
-               if ( lStopRun ) GOTO 99
+               if ( lStopRun ) cycle outer
                do nZ=1,nZmax
                   rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
                   thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
@@ -692,9 +692,7 @@ contains
 
             end if
 
-   99     continue
-
-         end do  ! Loop over s 
+         end do outer ! Loop over s 
          ! Integration finished
 
          close (95)

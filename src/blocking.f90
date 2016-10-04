@@ -337,7 +337,7 @@ contains
       
       !-- Local variables:
       integer :: number_of_blocks
-      logical :: lStop
+      logical :: lAfter,lStop
       integer :: size
       integer :: nB2,n,n2,n3
       integer :: help,help1(lm_max),help2(lm_max),help3(lm_max)
@@ -368,14 +368,18 @@ contains
                if ( sub_map%lm22l(1,n2,n) == map%lm2l(lm) ) then
                   !------ Add to old block
                   sub_map%sizeLMB2(n2,n)=sub_map%sizeLMB2(n2,n)+1
-                  go to 20
+                  lAfter=.false.
+                  exit
+               else
+                  lAfter=.true.
                end if
             end do
-            !------ Start new l-block:
-            n2 = sub_map%nLMBs2(n)+1
-            sub_map%nLMBs2(n)     =n2
-            sub_map%sizeLMB2(n2,n)=1
-20          continue
+            if ( lAfter ) then
+               !------ Start new l-block:
+               n2 = sub_map%nLMBs2(n)+1
+               sub_map%nLMBs2(n)     =n2
+               sub_map%sizeLMB2(n2,n)=1
+            end if
             sub_map%lm22lm(sub_map%sizeLMB2(n2,n),n2,n)=lm
             sub_map%lm22l(sub_map%sizeLMB2(n2,n),n2,n) =map%lm2l(lm)
             sub_map%lm22m(sub_map%sizeLMB2(n2,n),n2,n) =map%lm2m(lm)
@@ -719,7 +723,7 @@ contains
             else
                l_list(pc,:)=temp_l_list
                l_counter(pc)=temp_l_counter
-               EXIT
+               exit
             end if
             ! now we can overwrite src_proc
             pc=src_proc
@@ -898,7 +902,7 @@ contains
             if ( modulo(nThetaBs,nThreads) == 0 ) then
                best_s=s
             elseif (nThetaBs/nThreads  ==  0) then
-               EXIT
+               exit
             end if
          end if
       end do
