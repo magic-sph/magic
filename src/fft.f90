@@ -41,6 +41,7 @@ contains
       integer :: i,j,nFacs,nFactors,help
       integer, parameter :: nFacsA=100
       integer :: fac(nFacsA),factor(nFacsA)
+      logical :: lAfter
       real(cp) :: phi,dPhi
 
       nd = 3*(n/2)
@@ -82,11 +83,16 @@ contains
          do i=2,nFactors
             help=factor(i)
             do j=i-1,1,-1
-               if ( factor(j) <= help ) goto 15
-               factor(j+1)=factor(j) ! SHIFT UP
+               if ( factor(j) <= help ) then
+                  factor(j+1)=help ! INSERT
+                  lAfter=.false.
+                  exit
+               else
+                  factor(j+1)=factor(j) ! SHIFT UP
+                  lAfter=.true.
+               end if
             end do
-            j=0
-15          factor(j+1)=help ! INSERT
+            if ( lAfter ) factor(1)=help ! INSERT
          end do
       end if
 
@@ -537,28 +543,29 @@ contains
       jc=jb+jink
   
       ims=1
-      if(la < m .and. la < 16) go to 65
-      do ijk=1,nsize
-         iadd=(ijk-1)*nrp-1
-         do l=1,la
-            i=l*2+iadd
-            c(  i)=a(  i)+(a(ib+i)+a(ic+i))
-            d(  i)=b(  i)+(b(ib+i)+b(ic+i))
-            c(jb+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
-                 -(sin60*(b(ib+i)-b(ic+i)))
-            c(jc+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
-                 +(sin60*(b(ib+i)-b(ic+i)))
-            d(jb+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
-                 +(sin60*(a(ib+i)-a(ic+i)))
-            d(jc+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
-                 -(sin60*(a(ib+i)-a(ic+i)))
+      if ( la >= m .or. la >= 16 ) then
+         do ijk=1,nsize
+            iadd=(ijk-1)*nrp-1
+            do l=1,la
+               i=l*2+iadd
+               c(  i)=a(  i)+(a(ib+i)+a(ic+i))
+               d(  i)=b(  i)+(b(ib+i)+b(ic+i))
+               c(jb+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
+                    -(sin60*(b(ib+i)-b(ic+i)))
+               c(jc+i)=(a(  i)-half*(a(ib+i)+a(ic+i))) &
+                    +(sin60*(b(ib+i)-b(ic+i)))
+               d(jb+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
+                    +(sin60*(a(ib+i)-a(ic+i)))
+               d(jc+i)=(b(  i)-half*(b(ib+i)+b(ic+i))) &
+                    -(sin60*(a(ib+i)-a(ic+i)))
+            enddo
          enddo
-      enddo
+     
+         if (la == m) return
+         ims=la+1
+      end if
   
-      if (la == m) return
-      ims=la+1
-  
-65    do im=ims,m
+      do im=ims,m
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass3!'
             write(*,*) 'Should be at least:',m
@@ -642,34 +649,35 @@ contains
       jd=jc+jink
   
       ims=1
-      if(la < m .and. la < 64) go to 105
-      do ijk=1,nsize
-         iadd=(ijk-1)*nrp-1
-         do l=1,la
-            i=l*2+iadd
-            aac=a(i)+a(ic+i)
-            abd=a(ib+i)+a(id+i)
-            bac=b(i)+b(ic+i)
-            bbd=b(ib+i)+b(id+i)
-            aacm=a(i)-a(ic+i)
-            abdm=a(ib+i)-a(id+i)
-            bacm=b(i)-b(ic+i)
-            bbdm=b(ib+i)-b(id+i)
-            c(   i)=aac+abd
-            c(jc+i)=aac-abd
-            d(   i)=bac+bbd
-            d(jc+i)=bac-bbd
-            c(jb+i)=aacm-bbdm
-            c(jd+i)=aacm+bbdm
-            d(jb+i)=bacm+abdm
-            d(jd+i)=bacm-abdm
+      if ( la >= m .or. la >= 64) then
+         do ijk=1,nsize
+            iadd=(ijk-1)*nrp-1
+            do l=1,la
+               i=l*2+iadd
+               aac=a(i)+a(ic+i)
+               abd=a(ib+i)+a(id+i)
+               bac=b(i)+b(ic+i)
+               bbd=b(ib+i)+b(id+i)
+               aacm=a(i)-a(ic+i)
+               abdm=a(ib+i)-a(id+i)
+               bacm=b(i)-b(ic+i)
+               bbdm=b(ib+i)-b(id+i)
+               c(   i)=aac+abd
+               c(jc+i)=aac-abd
+               d(   i)=bac+bbd
+               d(jc+i)=bac-bbd
+               c(jb+i)=aacm-bbdm
+               c(jd+i)=aacm+bbdm
+               d(jb+i)=bacm+abdm
+               d(jd+i)=bacm-abdm
+            enddo
          enddo
-      enddo
+     
+         if (la == m) return
+         ims=la+1
+      end if
   
-      if (la == m) return
-      ims=la+1
-  
-105   do im=ims,m
+      do im=ims,m
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass4!'
             write(*,*) 'Should be at least:',m
@@ -750,44 +758,47 @@ contains
       je=jd+jink
   
       ims=1
-      if(la < m .and. la < 16) go to 145
-      do ijk=1,nsize
-         iadd=(ijk-1)*nrp-1
-         do l=1,la
-            i=l*2+iadd
-            c( i)=a(i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
-            d( i)=b(i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
-            c(jb+i)=(a(i)+cos72*(a(ib+i)+a(ie+i)) &
-                 -cos36*(a(ic+i)+a(id+i))) &
-                 -(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
-            c(je+i)=(a(i)+cos72*(a(ib+i)+a(ie+i)) &
-                 -cos36*(a(ic+i)+a(id+i))) &
-                 +(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
-            d(jb+i)=(b(i)+cos72*(b(ib+i)+b(ie+i)) &
-                 -cos36*(b(ic+i)+b(id+i))) &
-                 +(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
-            d(je+i)=(b(i)+cos72*(b(ib+i)+b(ie+i)) &
-                 -cos36*(b(ic+i)+b(id+i))) &
-                 -(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
-            c(jc+i)=(a(i)-cos36*(a(ib+i)+a(ie+i)) &
-                 +cos72*(a(ic+i)+a(id+i))) &
-                 -(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
-            c(jd+i)=(a(i)-cos36*(a(ib+i)+a(ie+i)) &
-                 +cos72*(a(ic+i)+a(id+i))) &
-                 +(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
-            d(jc+i)=(b(i)-cos36*(b(ib+i)+b(ie+i)) &
-                 +cos72*(b(ic+i)+b(id+i))) &
-                 +(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
-            d(jd+i)=(b(i)-cos36*(b(ib+i)+b(ie+i)) &
-                 +cos72*(b(ic+i)+b(id+i))) &
-                 -(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
-         enddo
-      enddo
-  
-      if (la == m) return
-      ims=la+1
+      if ( la >= m .or. la >= 16) then
 
-145   do im=ims,m
+         do ijk=1,nsize
+            iadd=(ijk-1)*nrp-1
+            do l=1,la
+               i=l*2+iadd
+               c( i)=a(i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
+               d( i)=b(i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
+               c(jb+i)=(a(i)+cos72*(a(ib+i)+a(ie+i)) &
+                    -cos36*(a(ic+i)+a(id+i))) &
+                    -(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
+               c(je+i)=(a(i)+cos72*(a(ib+i)+a(ie+i)) &
+                    -cos36*(a(ic+i)+a(id+i))) &
+                    +(sin72*(b(ib+i)-b(ie+i))+sin36*(b(ic+i)-b(id+i)))
+               d(jb+i)=(b(i)+cos72*(b(ib+i)+b(ie+i)) &
+                    -cos36*(b(ic+i)+b(id+i))) &
+                    +(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
+               d(je+i)=(b(i)+cos72*(b(ib+i)+b(ie+i)) &
+                    -cos36*(b(ic+i)+b(id+i))) &
+                    -(sin72*(a(ib+i)-a(ie+i))+sin36*(a(ic+i)-a(id+i)))
+               c(jc+i)=(a(i)-cos36*(a(ib+i)+a(ie+i)) &
+                    +cos72*(a(ic+i)+a(id+i))) &
+                    -(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
+               c(jd+i)=(a(i)-cos36*(a(ib+i)+a(ie+i)) &
+                    +cos72*(a(ic+i)+a(id+i))) &
+                    +(sin36*(b(ib+i)-b(ie+i))-sin72*(b(ic+i)-b(id+i)))
+               d(jc+i)=(b(i)-cos36*(b(ib+i)+b(ie+i)) &
+                    +cos72*(b(ic+i)+b(id+i))) &
+                    +(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
+               d(jd+i)=(b(i)-cos36*(b(ib+i)+b(ie+i)) &
+                    +cos72*(b(ic+i)+b(id+i))) &
+                    -(sin36*(a(ib+i)-a(ie+i))-sin72*(a(ic+i)-a(id+i)))
+            enddo
+         enddo
+  
+         if (la == m) return
+         ims=la+1
+
+      end if
+
+      do im=ims,m
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass5!'
             write(*,*) 'Should be at least:',m
