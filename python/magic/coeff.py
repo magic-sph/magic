@@ -717,7 +717,8 @@ class MagicCoeffR(MagicSetup):
         """
         :param lCut: truncate to spherical harmonic degree lCut
         :type lCut: int
-        :param field
+        :param field: name of the field ('V', 'B' or 'T')
+        :type field: char
         """
         self.l_max_r = lCut
         self.m_max_r = int((self.l_max_r/self.minc)*self.minc)
