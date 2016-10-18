@@ -165,8 +165,8 @@ class MagicSpectrum(MagicSetup):
             if self.gather:
                 fig = plt.figure()
                 ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                ax.loglog(self.index, self.ekin_poll, label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, label='toroidal')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                 else:
@@ -176,9 +176,9 @@ class MagicSpectrum(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
                 ax = fig.add_subplot(212)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                         'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
-                         'b-', label='toroidal')
+                          label='toroidal')
                 if labTex:
                     ax.set_xlabel('Order $m+1$')
                 else:
@@ -189,8 +189,8 @@ class MagicSpectrum(MagicSetup):
             else:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                ax.loglog(self.index, self.ekin_poll, label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, label='toroidal')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                 else:
@@ -202,9 +202,9 @@ class MagicSpectrum(MagicSetup):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                         'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                         'b-', label='toroidal')
+                          label='toroidal')
                 if labTex:
                     ax.set_xlabel('$m$ + 1')
                 else:
@@ -216,8 +216,8 @@ class MagicSpectrum(MagicSetup):
             if self.gather:
                 fig = plt.figure()
                 ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                ax.loglog(self.index, self.ekin_poll, label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, label='toroidal')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                     ax.set_ylabel(r'${\cal U}^2$')
@@ -228,9 +228,9 @@ class MagicSpectrum(MagicSetup):
                 ax.legend(loc='upper right', frameon=False)
                 ax = fig.add_subplot(212)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                         'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
-                         'b-', label='toroidal')
+                          label='toroidal')
                 if labTex:
                     ax.set_xlabel('Order $m+1$')
                     ax.set_ylabel(r'${\cal U}^2$')
@@ -242,8 +242,8 @@ class MagicSpectrum(MagicSetup):
             else:
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index, self.ekin_poll, 'k-', label='poloidal')
-                ax.loglog(self.index, self.ekin_torl, 'b-', label='toroidal')
+                ax.loglog(self.index, self.ekin_poll, label='poloidal')
+                ax.loglog(self.index, self.ekin_torl, label='toroidal')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                     ax.set_ylabel(r'${\cal U}^2$')
@@ -256,9 +256,9 @@ class MagicSpectrum(MagicSetup):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
-                         'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
-                         'b-', label='toroidal')
+                          label='toroidal')
                 if labTex:
                     ax.set_xlabel(r'$m + 1$')
                     ax.set_ylabel(r'${\cal U}^2$')
@@ -271,9 +271,9 @@ class MagicSpectrum(MagicSetup):
             if self.gather:
                 fig = plt.figure()
                 ax = fig.add_subplot(211)
-                ax.loglog(self.index, self.emag_poll, 'k-', label='poloidal')
-                ax.loglog(self.index, self.emag_torl, 'b-', label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l, 'g-', label='cmb')
+                ax.loglog(self.index, self.emag_poll, label='poloidal')
+                ax.loglog(self.index, self.emag_torl, label='toroidal')
+                ax.loglog(self.index, self.emagcmb_l, label='cmb')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
                 else:
@@ -284,11 +284,11 @@ class MagicSpectrum(MagicSetup):
 
                 ax = fig.add_subplot(212)
                 ax.loglog(self.index[::self.minc], self.emag_polm[::self.minc],
-                         'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc], self.emag_torm[::self.minc],
-                         'b-', label='toroidal')
+                          label='toroidal')
                 ax.loglog(self.index[::self.minc], self.emagcmb_m[::self.minc],
-                         'g-', label='cmb')
+                          label='cmb')
                 if labTex:
                     ax.set_xlabel('Order $m$')
                 else:
@@ -300,10 +300,10 @@ class MagicSpectrum(MagicSetup):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index, self.emag_poll/self.emag_poll.max(),
-                          'k-', label='poloidal')
-                ax.loglog(self.index, self.emag_torl/self.emag_torl.max(), 'b-',
+                          label='poloidal')
+                ax.loglog(self.index, self.emag_torl/self.emag_torl.max(),
                           label='toroidal')
-                ax.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(), 'g-',
+                ax.loglog(self.index, self.emagcmb_l/self.emagcmb_l.max(),
                           label='cmb')
                 if labTex:
                     ax.set_xlabel('Degree $\ell$')
@@ -317,13 +317,13 @@ class MagicSpectrum(MagicSetup):
                 ax = fig.add_subplot(111)
                 ax.loglog(self.index[::self.minc]+1, 
                           self.emag_polm[::self.minc]/self.emag_polm.max(),
-                          'k-', label='poloidal')
+                          label='poloidal')
                 ax.loglog(self.index[::self.minc]+1, 
                           self.emag_torm[::self.minc]/self.emag_torm.max(),
-                          'b-', label='toroidal')
+                          label='toroidal')
                 ax.loglog(self.index[::self.minc]+1,
                           self.emagcmb_m[::self.minc]/self.emagcmb_m.max(),
-                          'g-', label='cmb')
+                          label='cmb')
                 if labTex:
                     ax.set_xlabel('$m$+1')
                 else:
@@ -335,15 +335,15 @@ class MagicSpectrum(MagicSetup):
         elif self.name == 'dtVrms_spec':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.loglog(self.index, self.dtVRms, 'k-', label='Time derivative')
-            ax.loglog(self.index, self.CorRms, 'b-', label='Coriolis')
-            ax.loglog(self.index, self.PreRms, 'r-', label='Pressure')
+            ax.loglog(self.index, self.CorRms, label='Coriolis')
+            ax.loglog(self.index, self.PreRms, label='Pressure')
             if self.LFRms.max() > 0.:
-                ax.loglog(self.index, self.LFRms, 'c-', label='Lorentz')
-            ax.loglog(self.index, self.BuoRms, 'g-', label='Buoyancy')
-            ax.loglog(self.index, self.AdvRms, 'y-', label='Advection')
-            ax.loglog(self.index, self.DifRms, 'm-', label='Viscosity')
-            ax.loglog(self.index, self.geos, 'r--', label='Coriolis-Pressure')
+                ax.loglog(self.index, self.LFRms, label='Lorentz')
+            ax.loglog(self.index, self.BuoRms, label='Buoyancy')
+            ax.loglog(self.index, self.AdvRms, label='Advection')
+            ax.loglog(self.index, self.DifRms, label='Viscosity')
+            ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
+            ax.loglog(self.index, self.dtVRms, label='Time derivative')
             #ax.loglog(self.index, self.arc, 'b--', label='Coriolis-Pressure-Buoyancy')
 
             if labTex:

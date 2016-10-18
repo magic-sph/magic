@@ -380,41 +380,51 @@ class MagicTs(MagicSetup):
         if self.field == 'e_kin':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.ekin_pol, 'b-', label='ekin pol')
-            ax.plot(self.time, self.ekin_tor, 'r-', label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, 'b--', label='ekin pol axi')
-            ax.plot(self.time, self.ekin_tor_axi, 'r--', label='ekin tor axi')
-            ax.plot(self.time, self.ekin_tot, 'k-')
+            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                    label='ekin pol')
+            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                    label='ekin tor')
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da', 
+                    label='ekin pol axi')
+            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                    label='ekin tor axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.emagoc_pol, 'b-', label='emag pol')
-            ax.plot(self.time, self.emagoc_tor, 'r-', label='emag tor')
-            ax.plot(self.time, self.emagoc_pol_axi, 'b--', label='emag pol axi')
-            ax.plot(self.time, self.emagoc_tor_axi, 'r--', label='emag tor axi')
-            ax.plot(self.time, self.emag_tot, 'k-')
+            ax.plot(self.time, self.emagoc_pol, ls='-', c='#30a2da',
+                    label='emag pol')
+            ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
+                    label='emag tor')
+            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da', 
+                    label='emag pol axi')
+            ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
+                    label='emag tor axi')
+            ax.plot(self.time, self.emag_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Emag')
         elif self.field == 'e_mag_ic':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.emagic_pol, 'b-', label='emag_ic pol')
-            ax.plot(self.time, self.emagic_tor, 'r-', label='emag_ic tor')
-            ax.plot(self.time, self.emagic_pol_axi, 'b--',
-                   label='emag_ic pol axi')
-            ax.plot(self.time, self.emagic_tor_axi, 'r--',
-                   label='emag_ic tor axi')
-            ax.legend(loc='lower right')
+            ax.plot(self.time, self.emagic_pol, ls='-', c='#30a2da',
+                    label='emagic pol')
+            ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
+                    label='emagic tor')
+            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da', 
+                    label='emagic pol axi')
+            ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
+                    label='emagic tor axi')
+            ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('emag inner core')
         elif self.field == 'dipole':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.theta_dip, 'b-', label='theta_dip')
+            ax.plot(self.time, self.theta_dip, label='theta_dip')
             #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
             ax.set_ylabel('Dipole angle')
             ax.set_xlabel('Time')
@@ -422,13 +432,19 @@ class MagicTs(MagicSetup):
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.dipTot, 'b-', label='Total dipolarity')
-            ax.plot(self.time, self.dipolarity, 'b--', label='Axisym dipolarity')
-            ax.plot(self.time, self.dipTot_cmb, 'g-', label='Total dipoloarity CMB')
-            ax.plot(self.time, self.dip_cmb, 'g--', label='Axisym dipolarity')
-            ax.plot(self.time, self.dip_l11, 'k-', label='Axisym dip l=11')
-            ax.plot(self.time, self.dipTot_l11, 'k--', label='Total dip l=11')
-            ax.plot(self.time, self.dip3, 'r-', label='Epol axi/Ecmb')
+            ax.plot(self.time, self.dipTot, label='Total dipolarity')
+            ax.plot(self.time, self.dipolarity, ls='--', c='#30a2da',
+                    label='Axisym dipolarity')
+            ax.plot(self.time, self.dipTot_cmb, ls='-', c='#6d904f',
+                    label='Total dipoloarity CMB')
+            ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
+                    label='Axisym dipolarity')
+            ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
+                    label='Axisym dip l=11')
+            ax.plot(self.time, self.dipTot_l11, ls='--', c='#fc4f30',
+                    label='Total dip l=11')
+            ax.plot(self.time, self.dip3, ls='-', c='#e5ae38',
+                    label='Epol axi/Ecmb')
             ax.legend(loc='best', frameon=False)
             ax.set_ylabel('Dipolarity')
             ax.set_xlabel('Time')
@@ -436,8 +452,8 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(211)
             ax.plot(self.time, self.am_oc_z, label='Outer core')
-            ax.plot(self.time, self.amz, 'k-', label='Total')
-            ax.legend(loc='best')
+            ax.plot(self.time, self.amz, ls='-', c='#31363b', label='Total')
+            ax.legend(loc='best', frameon=False)
             ax.set_ylabel('AM')
             ax = fig.add_subplot(212)
             ax.semilogy(self.time[1:], np.abs(self.damzdt[1:]))
@@ -447,12 +463,13 @@ class MagicTs(MagicSetup):
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.rm, label='Magnetic Reynolds')
-            ax.semilogy(self.time, self.elsasser, label='Elsasser')
-            ax.semilogy(self.time, self.els_cmb, label='Elsasser CMB')
+            if self.elsasser.max() > 0.:
+                ax.semilogy(self.time, self.elsasser, label='Elsasser')
+                ax.semilogy(self.time, self.els_cmb, label='Elsasser CMB')
             ax.semilogy(self.time, self.rossby_l, label='Rossby l')
             if hasattr(self, 'rolc'):
                 ax.semilogy(self.time, self.rolc, label='Roc l')
-            ax.legend(loc='lower right')
+            ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
             if self.dipolarity.max() > 0.:
@@ -482,7 +499,7 @@ class MagicTs(MagicSetup):
             ax = fig.add_subplot(111)
             ax.plot(self.time, self.topnuss, label='Top Nusselt')
             ax.plot(self.time, self.botnuss, label='Bottom Nusselt')
-            ax.legend(loc='lower right')
+            ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Nusselt number')
             if self.topsherwood.max() != 1.0:
@@ -490,7 +507,7 @@ class MagicTs(MagicSetup):
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.topsherwood, label='Top Sherwood')
                 ax.plot(self.time, self.botsherwood, label='Bottom Sherwood')
-                ax.legend(loc='lower right')
+                ax.legend(loc='lower right', frameon=False)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Sherwood number')
         elif self.field == 'helicity':
@@ -504,11 +521,15 @@ class MagicTs(MagicSetup):
         elif self.field == 'u_square':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.ekin_pol, 'b-', label='ekin pol')
-            ax.plot(self.time, self.ekin_tor, 'r-', label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, 'b--', label='ekin pol axi')
-            ax.plot(self.time, self.ekin_tor_axi, 'r--', label='ekin tor axi')
-            ax.plot(self.time, self.ekin_tot, 'k-')
+            ax.plot(self.time, self.ekin_pol, ls='-', c='#30a2da',
+                    label='ekin pol')
+            ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
+                    label='ekin tor')
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da', 
+                    label='ekin pol axi')
+            ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
+                    label='ekin tor axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('u**2')
@@ -519,19 +540,19 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.ro, label='Rossby')
             ax.semilogy(self.time, self.rossby_l, label='Rossby l')
             ax.semilogy(self.time, self.dl, label='l')
-            ax.legend(loc='lower right')
+            ax.legend(loc='lower right', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Params')
         elif self.field in ('dtVrms'):
             fig = plt.figure() # Poloidal forces
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtVRms, label='Time derivative')
             ax.semilogy(self.time, self.CorRms, label='Coriolis')
             ax.semilogy(self.time, self.PreRms, label='Pressure')
             ax.semilogy(self.time, self.LFRms, label='Lorentz')
             ax.semilogy(self.time, self.BuoRms, label='Buoyancy')
             ax.semilogy(self.time, self.AdvRms, label='Inertia')
             ax.semilogy(self.time, self.DifRms, label='Diffusion')
+            ax.semilogy(self.time, self.dtVRms, label='Time derivative', zorder=0)
 
             ax.legend(loc='best', frameon=False, ncol=2)
             ax.set_xlabel('Time')
@@ -551,15 +572,19 @@ class MagicTs(MagicSetup):
         elif self.field == 'perpPar':
             fig = plt.figure()
             ax= fig.add_subplot(111)
-
-            ax.plot(self.time, self.eperp, 'b-', label='Ekin perp.')
-            ax.plot(self.time, self.epar, 'r-', label='Ekin par.')
-            ax.plot(self.time, self.eperp_axi, 'b--', label='Ekin perp. axi.')
-            ax.plot(self.time, self.epar_axi, 'r--', label='Ekin par. axi.')
+            ax.plot(self.time, self.eperp, ls='-', c='#30a2da',
+                    label='ekin perp')
+            ax.plot(self.time, self.epar, ls='-', c='#fc4f30',
+                    label='ekin par')
+            ax.plot(self.time, self.eperp_axi, ls='--', c='#30a2da', 
+                    label='ekin perp axi')
+            ax.plot(self.time, self.epar_axi, ls='--', c='#fc4f30',
+                    label='ekin par axi')
+            ax.plot(self.time, self.ekin_tot, ls='-', c='#31363B')
             ax.plot(self.time, self.ekin_tot, 'k-')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
-            ax.set_ylabel('Ekin')
+            ax.set_ylabel('Kinetic energy')
 
             ax.set_xlim(self.time[0], self.time[-1])
 
@@ -585,9 +610,9 @@ class MagicTs(MagicSetup):
         elif self.field in ('dtBrms'):
             fig = plt.figure() # Poloidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBpolRms, 'k-', label='time derivative')
-            ax.semilogy(self.time, self.DynPolRms, 'r-', label='Induction')
-            ax.semilogy(self.time, self.DifPolRms, 'b-', label='Diffusion')
+            ax.semilogy(self.time, self.DynPolRms, label='Induction')
+            ax.semilogy(self.time, self.DifPolRms, label='Diffusion')
+            ax.semilogy(self.time, self.dtBpolRms, label='Time derivative')
 
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
@@ -595,11 +620,11 @@ class MagicTs(MagicSetup):
 
             fig = plt.figure() # Toroidal
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.dtBtorRms, 'k-', label='time derivative', )
-            ax.semilogy(self.time, self.DynTorRms, 'r-', label='Induction')
-            ax.semilogy(self.time, self.DifTorRms, 'b-', label='Diffusion')
-            ax.semilogy(self.time, self.omEffect*self.DynTorRms, 'r--',
+            ax.semilogy(self.time, self.DynTorRms, label='Induction')
+            ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
+            ax.semilogy(self.time, self.omEffect*self.DynTorRms, 
                         label='Omega effect')
+            ax.semilogy(self.time, self.dtBtorRms, label='Time derivative', )
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Toroidal field production')
@@ -607,9 +632,9 @@ class MagicTs(MagicSetup):
         elif self.field in ('SRIC'):
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time,self.totTorq,'k-',label='Total')
-            ax.semilogy(self.time,self.viscTorq,'r-',label='Viscous')
-            ax.semilogy(self.time,self.LorTorq,'g-',label='Lorentz')
+            ax.semilogy(self.time, self.viscTorq, label='Viscous')
+            ax.semilogy(self.time, self.LorTorq, label='Lorentz')
+            ax.semilogy(self.time, self.totTorq, label='Total')
 
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
