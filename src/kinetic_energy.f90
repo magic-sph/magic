@@ -13,7 +13,7 @@ module kinetic_energy
    use logic, only: l_save_out, l_non_rot
    use output_data, only: n_e_kin_file, e_kin_file, tag, n_u_square_file, &
                           u_square_file
-   use constants, only: pi, vol_oc, one, two, half, four
+   use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
    use LMLoop_data, only: llm,ulm
    use communications, only: get_global_sum
  
@@ -181,14 +181,14 @@ contains
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do
          !-- Radial Integrals:
-         e_p    = rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t    = rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as = rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as = rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_es = rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_es = rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_eas= rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_eas= rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p    =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t    =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_as =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_as =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_es =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_es =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p_eas=rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_eas=rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
 
          fac    =half*eScale
          e_p    =fac*e_p
@@ -200,7 +200,7 @@ contains
          e_p_eas=fac*e_p_eas
          e_t_eas=fac*e_t_eas
 
-         !-- OUTPUT:
+         !-- Output:
          if ( present(ekinR) ) then
             do nR=1,n_r_max
                ekinR(nR)=fac*(e_p_r_global(nR)+e_t_r_global(nR))
@@ -208,38 +208,36 @@ contains
          end if
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_kin_file, file=e_kin_file, status='unknown', position='append')
+               open(n_e_kin_file, file=e_kin_file, status='unknown', &
+               &    position='append')
             end if
             write(n_e_kin_file,'(1P,ES20.12,8ES16.8)')    &
-                 & time*tScale, &  ! 1
-                 & e_p,e_t,       &! 2,3
-                 & e_p_as,e_t_as, &! 4,5
-                 & e_p_es,e_t_es, &! 6,7
-                 & e_p_eas,e_t_eas ! 8,9
+            &     time*tScale, e_p, e_t, e_p_as,e_t_as,   & ! 1,2,3,4,5
+            &     e_p_es, e_t_es, e_p_eas,e_t_eas           ! 6,7,8,9
             if ( l_save_out ) close(n_e_kin_file)
          end if
 
          ! NOTE: n_e_sets=0 prevents averaging
          if ( n_e_sets == 1 ) then
             timeTot=one
-            e_pA    = e_p_r_global
-            e_p_asA = e_p_r_global
-            e_tA    = e_t_r_global
-            e_t_asA = e_t_r_global
+            e_pA   =e_p_r_global
+            e_p_asA=e_p_r_global
+            e_tA   =e_t_r_global
+            e_t_asA=e_t_r_global
          else if ( n_e_sets == 2 ) then
-            dt=time-timeLast
-            timeTot=two*dt
-            e_pA    = dt*(e_pA   +e_p_r_global   )
-            e_p_asA = dt*(e_p_asA+e_p_as_r_global)
-            e_tA    = dt*(e_tA   +e_t_r_global   )
-            e_t_asA = dt*(e_t_asA+e_t_as_r_global)
+            dt      =time-timeLast
+            timeTot =two*dt
+            e_pA    =dt*(e_pA   +e_p_r_global   )
+            e_p_asA =dt*(e_p_asA+e_p_as_r_global)
+            e_tA    =dt*(e_tA   +e_t_r_global   )
+            e_t_asA =dt*(e_t_asA+e_t_as_r_global)
          else
             dt=time-timeLast
             timeTot=timeTot+dt
-            e_pA    = e_pA    + dt*e_p_r_global
-            e_p_asA = e_p_asA + dt*e_p_as_r_global
-            e_tA    = e_tA    + dt*e_t_r_global
-            e_t_asA = e_t_asA + dt*e_t_as_r_global
+            e_pA   =e_pA    + dt*e_p_r_global
+            e_p_asA=e_p_asA + dt*e_p_as_r_global
+            e_tA   =e_tA    + dt*e_t_r_global
+            e_t_asA=e_t_asA + dt*e_t_as_r_global
          end if
 
          !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
@@ -328,13 +326,13 @@ contains
       real(cp) :: ReConv,RoConv,RolC
 
       do nR=1,n_r_max
-         e_p_r(nR)    =0.0_cp
-         e_t_r(nR)    =0.0_cp
-         e_p_as_r(nR) =0.0_cp
-         e_t_as_r(nR) =0.0_cp
-         O_rho        =orho2(nR) ! divided by rho**2
+         e_p_r(nR)   =0.0_cp
+         e_t_r(nR)   =0.0_cp
+         e_p_as_r(nR)=0.0_cp
+         e_t_as_r(nR)=0.0_cp
+         O_rho       =orho2(nR) ! divided by rho**2
          do l=1,l_max
-            e_lr(nR,l)=0.0_cp
+            e_lr(nR,l)  =0.0_cp
             e_lr_c(nR,l)=0.0_cp
          end do
 
@@ -389,29 +387,27 @@ contains
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
-         e_p    =rInt_R(e_p_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_t    =rInt_R(e_t_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         fac    =half*eScale
-         e_p    =fac*e_p
-         e_t    =fac*e_t
-         e_p_as =fac*e_p_as
-         e_t_as =fac*e_t_as
+         e_p   =rInt_R(e_p_r_global,   n_r_max,n_r_max,drx,chebt_oc)
+         e_t   =rInt_R(e_t_r_global,   n_r_max,n_r_max,drx,chebt_oc)
+         e_p_as=rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_t_as=rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         fac   =half*eScale
+         e_p   =fac*e_p
+         e_t   =fac*e_t
+         e_p_as=fac*e_p_as
+         e_t_as=fac*e_t_as
 
-         e_kin  =e_t+e_p
-         do nR=1,n_r_max
-            ekinR(nR)=fac*(e_p_r_global(nR)+e_t_r_global(nR))
-         end do
+         e_kin =e_t+e_p
+         ekinR(:)=fac*(e_p_r_global(:)+e_t_r_global(:))
 
          !-- Rossby number
-         Re=sqrt(two*e_kin/vol_oc)
+         Re    =sqrt(two*e_kin/vol_oc)
          ReConv=sqrt(two*(e_kin-e_p_as-e_t_as)/vol_oc)
          if ( l_non_rot ) then
-            Ro=0.0_cp
+            Ro    =0.0_cp
             RoConv=0.0_cp
          else
-            Ro=Re*ek
+            Ro    =Re*ek
             RoConv=ReConv*ek
          end if
 
@@ -422,17 +418,17 @@ contains
          ELc=0.0_cp
          do l=1,l_max
             e_l=fac*rInt_R(e_lr_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
-            E =E+e_l
-            EL=EL+real(l,cp)*e_l
+            E  =E+e_l
+            EL =EL+real(l,cp)*e_l
             e_l=fac*rInt_R(e_lr_c_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
             Ec =Ec+e_l
             ELc=ELc+real(l,cp)*e_l
          end do
          if ( EL /= 0.0_cp ) then
-            dl=pi*E/EL
+            dl =pi*E/EL
             dlc=pi*Ec/ELc
          else
-            dl=0.0_cp
+            dl =0.0_cp
             dlc=0.0_cp
          end if
          do nR=1,n_r_max
@@ -449,24 +445,24 @@ contains
                ELRc(nR)=ELRc(nR)+real(l,cp)*e_l
             end do
             if ( ELR(nR) /= 0.0_cp ) then
-               dlR(nR)=pi*ER(nR)/ELR(nR)
+               dlR(nR) =pi*ER(nR)/ELR(nR)
                dlRc(nR)=pi*ERc(nR)/ELRc(nR)
             else
-               dlR(nR)=0.0_cp
+               dlR(nR) =0.0_cp
                dlRc(nR)=0.0_cp
             end if
          end do
 
          !-- Local Rossby number
          if ( dl/=0.0_cp ) then
-            Rol = Ro/dl
-            RolC = RoConv/dlc
+            Rol =Ro/dl
+            RolC=RoConv/dlc
          else
-            Rol = Ro
-            RolC = RoConv
+            Rol =Ro
+            RolC=RoConv
          end if
          do nR=1,n_r_max
-            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi))
+            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR))*osq4pi
             RoR(nR)=ReR(nR)*ek
             if ( dlR(nR) /= 0.0_cp ) then
                RolR(nR)=RoR(nR)/dlR(nR)
@@ -480,7 +476,7 @@ contains
          if ( prmag /= 0 .and. nVarCond > 0 ) then
             Rm=0.0_cp
             Rm=rInt_R(RmR,n_r_max,n_r_max,drx,chebt_oc)
-            Rm=Rm*3/(r_cmb**3-r_icb**3)
+            Rm=three*Rm/(r_cmb**3-r_icb**3)
          elseif ( prmag /= 0 ) then
             Rm=Re*prmag
          else
@@ -490,15 +486,11 @@ contains
          !-- Output
          if ( l_save_out ) then
             open(n_u_square_file, file=u_square_file, status='unknown', &
-                 position='append')
+            &    position='append')
          end if
-         write(n_u_square_file,'(1P,ES20.12,10ES16.8)') &
-              &  time*tScale,     & ! 1
-              &      e_p,e_t,     & ! 2,3
-              &e_p_as,e_t_as,     & ! 4,5
-              &        Ro,Rm,     & ! 6,7
-              &       Rol,dl,     & ! 8,9
-              &     RolC,dlc        ! 10,11
+         write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
+         &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5
+         &     Ro, Rm, Rol, dl, RolC, dlc                   ! 6,7,8,9,10,11
          if ( l_save_out ) close(n_u_square_file)
       end if
 
