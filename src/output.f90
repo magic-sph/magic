@@ -45,7 +45,7 @@ module output_mod
        &                  t_r_file, b_r_file, n_r_array, n_r_step,  &
        &                  par_file, n_par_file, nLF, log_file,      &
        &                  n_coeff_r_max, rst_file, n_rst_file
-   use constants, only: vol_oc, vol_ic, mass, surf_cmb, two
+   use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
    use Egeos_mod, only: getEgeos
    use outRot, only: write_rot
@@ -795,7 +795,7 @@ contains
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
                Rm=rInt_R(RmR,n_r_max,n_r_max,drx,chebt_oc)
-               Rm=Rm*3/(r_cmb**3-r_icb**3)
+               Rm=three*Rm/(r_cmb**3-r_icb**3)
             elseif ( prmag /= 0 ) then
                Rm=Re*prmag
             else

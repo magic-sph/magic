@@ -2,6 +2,8 @@
 import subprocess as sp
 import os
 import sys
+from itertools import cycle
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 try:
     import configparser as CoPa
@@ -21,6 +23,12 @@ if 'MAGIC_HOME' in os.environ:
     parser.read(magicdir + '/magic.cfg')
     backend = parser.get('plots', 'backend')
     labTex = parser.getboolean('plots', 'labTex')
+    try:
+        defaultCm = parser.get('plots', 'defaultCm')
+        defaultLevels = parser.getint('plots', 'defaultLevels')
+    except CoPa.NoOptionError:
+        defaultCm = 'seismic'
+        defaultLevels = 65
     # Do you want to build so libraries -> need f2py + ifort or gfortran (> 4.1)
     buildSo = parser.getboolean('libraries', 'buildLib')
     fcompiler = parser.get('libraries', 'fcompiler')
@@ -29,22 +37,30 @@ if 'MAGIC_HOME' in os.environ:
 else: # Default if the PATH is messed up
     backend = 'GTKAgg'
     labTex = False
+    defaultCm = 'seismic'
+    defaultLevels = 65
     buildSo = False
 
 #
 # Plots setup
 #
-
 plt.switch_backend(backend)
-plt.rc('xtick.major', size=7)
-plt.rc('xtick.minor', size=3.5)
-plt.rc('ytick.major', size=7)
-plt.rc('ytick.minor', size=3.5)
+plt.rc('xtick.major', size=7, width=1)
+plt.rc('xtick.minor', size=3.5, width=1)
+plt.rc('ytick.major', size=7, width=1)
+plt.rc('ytick.minor', size=3.5, width=1)
 plt.rc('axes.formatter', limits=(-5,5))
-#plt.rc('axes', color_cycle=('30a2da', 'fc4f30', 'e5ae38', '6d904f', '8b8b8b'))
+if mpl.__version__ >= '1.5':
+    colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8', 
+              '#8b8b8b', '#988ed5']
+    plt.rc('axes', prop_cycle=(cycle('color', colors)))
+else:
+    plt.rc('axes', color_cycle=('30a2da', '6d904f', 'fc4f30', 'e5ae38', '7a68a6',
+                                'ffb5b8', '8b8b8b', '988ed5'))
+plt.rc('lines', linewidth=1.5)
+plt.rc('figure.subplot', right=0.97, top=0.97, hspace=0.24)
 
 if labTex:
-    plt.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
     plt.rc('xtick', labelsize=14)
     plt.rc('ytick', labelsize=14)
     plt.rc('legend', fontsize=14)
@@ -52,7 +68,6 @@ if labTex:
     plt.rc('text', usetex=True)
     plt.rc('font', size=18, **{'family':'serif','serif':['Computer Modern']})
 else:
-    plt.rc('figure.subplot', right=0.95, top=0.95, hspace=0.24)
     plt.rc('xtick', labelsize=12)
     plt.rc('ytick', labelsize=12)
     plt.rc('legend', fontsize=12)

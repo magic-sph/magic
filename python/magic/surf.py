@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from magic import MagicGraph, MagicSetup, MagicRadial
-from magic.setup import labTex
+from magic.setup import labTex, defaultCm, defaultLevels
 from .libmagic import *
 import matplotlib.pyplot as plt
 import os
@@ -69,7 +69,7 @@ class Surf:
             del dr, dtheta, ds, rr3D, th3D, s3D
 
     def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None, 
-             vmin=None, lat_0=30., levels=16, cm='RdYlBu_r', lon_shift=0, 
+             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, lon_shift=0, 
              normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of an input field at a given
@@ -459,7 +459,7 @@ class Surf:
             im.set_clim(-max(abs(rprof.max()), abs(rprof.min())), 
                          max(abs(rprof.max()), abs(rprof.min())))
 
-    def equat(self, field='vr', levels=16, cm='RdYlBu_r', normed=True,
+    def equat(self, field='vr', levels=defaultLevels, cm=defaultCm, normed=True,
               vmax=None, vmin=None, cbar=True, tit=True, avg=False, normRad=False):
         """
         Plot the equatorial cut of a given field
@@ -660,7 +660,7 @@ class Surf:
             ax1.set_ylabel(label)
             ax1.set_xlim(self.gr.radius.min(), self.gr.radius.max())
 
-    def avg(self, field='vphi', levels=16, cm='RdYlBu_r', normed=True,
+    def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm, normed=True,
             vmax=None, vmin=None, cbar=True, tit=True,
             pol=False, tor=False, mer=False,
             merLevels=16, polLevels=16):
@@ -1302,7 +1302,7 @@ class Surf:
             im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
                          max(abs(phiavg.max()), abs(phiavg.min())))
 
-    def slice(self, field='Bphi', lon_0=0., levels=12, cm='RdYlBu_r', 
+    def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=defaultCm, 
               normed=True, vmin=None, vmax=None, cbar=True, tit=True,
               grid=False, nGridLevs=16, normRad=False):
         """
@@ -1674,7 +1674,7 @@ class Surf:
                              max(abs(phislice.max()), abs(phislice.min())))
 
 
-def report(nvar=1, levels=16, lclean=True):
+def report(nvar=1, levels=defaultLevels, lclean=True):
     """
     This subroutine prepares a pdf document that gather some important diagnostics
 
