@@ -314,7 +314,7 @@ contains
       !  (curl U)**2 to calculate the dippisated energy and inner core
       !  or mantle are allowed to rotate.
       !  The only flow component here is l=1,m=0, i.e. lm=2
-      !  If the rotation rates of inner core of mantel are kept
+      !  If the rotation rates of inner core of mantle are kept
       !  fixed, the viscous dissipation may actually be a power source if
       !  the radial derivatives drz10 are negative (positive) at the
       !  ICB (CMB)! The energy transfere is described by the very
