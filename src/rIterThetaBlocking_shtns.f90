@@ -295,7 +295,7 @@ contains
               &        this%gsa%cvrc,this%gsa%dvrdrc,this%gsa%dvrdtc,   &
               &        this%gsa%dvrdpc,this%gsa%dvtdrc,this%gsa%dvtdpc, &
               &        this%gsa%dvpdrc,this%gsa%dvpdpc,viscLMr,         &
-              &        this%nR,nThetaStart)
+              &        this%nR,1)
          PERFOFF
       end if
   
