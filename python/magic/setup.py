@@ -2,7 +2,6 @@
 import subprocess as sp
 import os
 import sys
-from itertools import cycle
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 try:
@@ -51,9 +50,10 @@ plt.rc('ytick.major', size=7, width=1)
 plt.rc('ytick.minor', size=3.5, width=1)
 plt.rc('axes.formatter', limits=(-5,5))
 if mpl.__version__ >= '1.5':
+    from cycler import cycler
     colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8', 
               '#8b8b8b', '#988ed5']
-    plt.rc('axes', prop_cycle=(cycle('color', colors)))
+    plt.rc('axes', prop_cycle=(cycler('color', colors)))
 else:
     plt.rc('axes', color_cycle=('30a2da', '6d904f', 'fc4f30', 'e5ae38', '7a68a6',
                                 'ffb5b8', '8b8b8b', '988ed5'))
