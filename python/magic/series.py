@@ -144,7 +144,10 @@ class MagicTs(MagicSetup):
                             else: # Remove first line that is already here
                                 data = np.vstack((data, datanew[1:,:]))
                         else: # If the number of columns has changed
-                            if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                            if self.field in ('power'):
+                                data = np.vstack((data, datanew[:, (0,1,3,4,5,6,
+                                                                    7,8,9,10)]))
+                            elif self.field in ('AM', 'dtVrms', 'dtBrms'):
                                 data = np.vstack((data, datanew[:, 0:ncolRef]))
                             else: # Remove first line that is already here
                                 data = np.vstack((data, datanew[1:, 0:ncolRef]))
@@ -595,7 +598,8 @@ class MagicTs(MagicSetup):
             if self.buoPower_chem.max() != 0.:
                 ax.semilogy(self.time, self.buoPower_chem,
                             label='Chemical buoyancy')
-            ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
+            if self.ohmDiss.max() != 0.:
+                ax.semilogy(self.time, -self.ohmDiss, label='Ohmic diss.')
             ax.semilogy(self.time, -self.viscDiss, label='Viscous diss.')
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')

@@ -58,7 +58,7 @@ else:
     plt.rc('axes', color_cycle=('30a2da', '6d904f', 'fc4f30', 'e5ae38', '7a68a6',
                                 'ffb5b8', '8b8b8b', '988ed5'))
 plt.rc('lines', linewidth=1.5)
-plt.rc('figure.subplot', right=0.97, top=0.97, hspace=0.24)
+plt.rc('figure.subplot', right=0.97, top=0.96, hspace=0.24)
 
 if labTex:
     plt.rc('xtick', labelsize=14)
