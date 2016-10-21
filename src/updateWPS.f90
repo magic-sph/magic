@@ -15,7 +15,7 @@ module updateWPS_mod
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
                              &    ViscHeatFac, ThExpNb, ogrun, BuoFac
    use num_param, only: alpha
-   use init_fields, only: tops,bots
+   use init_fields, only: tops, bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
                      & lmStartB,lmStopB
    use horizontal_data, only: hdif_V, hdif_S, dLh
@@ -254,8 +254,8 @@ contains
                      rhs(nR+2*n_r_max)=0.0_cp
                   end do
                   rhs(1)        =real(tops(0,0))
+                  rhs(n_r_max)  =real(bots(0,0))
                   rhs(n_r_max+1)=0.0_cp
-                  rhs(n_r_max)=real(bots(0,0))
 
                   rhs = ps0Mat_fac*rhs
 
@@ -264,9 +264,12 @@ contains
                else ! l1 /= 0
                   lmB=lmB+1
                   rhs1(1,lmB,threadid)          =0.0_cp
+                  rhs1(n_r_max,lmB,threadid)    =0.0_cp
                   rhs1(n_r_max+1,lmB,threadid)  =0.0_cp
+                  rhs1(2*n_r_max,lmB,threadid)  =0.0_cp
                   rhs1(2*n_r_max+1,lmB,threadid)=tops(l1,m1)
-                  do nR=2,n_r_max
+                  rhs1(3*n_r_max,lmB,threadid)  =bots(l1,m1)
+                  do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=                         &
                           & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
                           & w1*dwdt(lm1,nR) + w2*dwdtLast(lm1,nR)
@@ -277,9 +280,6 @@ contains
                           s(lm1,nR)*O_dt + w1*dsdt(lm1,nR) + &
                           w2*dsdtLast(lm1,nR)
                   end do
-                  rhs1(n_r_max,lmB,threadid)    =0.0_cp
-                  rhs1(2*n_r_max,lmB,threadid)  =0.0_cp
-                  rhs1(3*n_r_max,lmB,threadid)  =0.0_cp
                end if
             end do
             !PERFOFF
