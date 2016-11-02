@@ -377,7 +377,7 @@ updateXI.o            : truncation.o blocking.o horizontal.o\
 power.o               : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o radial.o logic.o\
                         output_data.o outRot.o integration.o useful.o\
-                        mem_alloc.o
+                        mem_alloc.o legendre_spec_to_grid.o
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
 outPV3.o              : truncation.o horizontal.o cosine_transform_odd.o\
                         phys_param.o radial.o logic.o blocking.o\
