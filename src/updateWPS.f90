@@ -123,7 +123,7 @@ contains
       integer :: nLMB2
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
-      real(cp) :: rhs(3*n_r_max)  ! real RHS for l=m=0
+      real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -251,7 +251,6 @@ contains
                                    w2*real(dsdtLast(lm1,nR))
                      !rhs(nR+n_r_max)=real(dwdt(st_map%lm2(0,0),nR))
                      rhs(nR+n_r_max)=w1*real(dwdt(lm1,nR))+w2*real(dwdtLast(lm1,nR))
-                     rhs(nR+2*n_r_max)=0.0_cp
                   end do
                   rhs(1)        =real(tops(0,0))
                   rhs(n_r_max)  =real(bots(0,0))
@@ -259,7 +258,7 @@ contains
 
                   rhs = ps0Mat_fac*rhs
 
-                  call sgesl(ps0Mat,3*n_r_max,3*n_r_max,ps0Pivot,rhs)
+                  call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
 
                else ! l1 /= 0
                   lmB=lmB+1
@@ -832,12 +831,13 @@ contains
       real(cp), intent(in) :: dt
 
       !-- Output variables:
-      real(cp), intent(out) :: psMat(3*n_r_max,3*n_r_max)
-      integer,  intent(out) :: psPivot(3*n_r_max)
-      real(cp), intent(out) :: psMat_fac(3*n_r_max)
+      real(cp), intent(out) :: psMat(2*n_r_max,2*n_r_max)
+      integer,  intent(out) :: psPivot(2*n_r_max)
+      real(cp), intent(out) :: psMat_fac(2*n_r_max)
 
       !-- Local variables:
-      integer :: info,nCheb,nCheb_p,nCheb_rho,nR,nR_p,nR_rho
+      integer :: info,nCheb,nCheb_p,nR,nR_p,n_cheb_in
+      real(cp) :: work(n_r_max),work2(n_r_max),work3(n_r_max)
       real(cp) :: O_dt
 
       O_dt=one/dt
@@ -845,11 +845,9 @@ contains
       if ( l_temperature_diff ) then ! temperature diffusion
 
          do nCheb=1,n_r_max
-           nCheb_p=nCheb+n_r_max
-           nCheb_rho=nCheb+2*n_r_max
+            nCheb_p=nCheb+n_r_max
             do nR=1,n_r_max
                nR_p=nR+n_r_max
-               nR_rho=nR+2*n_r_max
 
                psMat(nR,nCheb)= cheb_norm * (                           &
                &                               O_dt*cheb(nCheb,nR) -    &
@@ -869,19 +867,11 @@ contains
                &        (dLalpha0(nR)+dLtemp0(nR)-beta(nR)) +           &
                &        ddLalpha0(nR)+ddLtemp0(nR)-dbeta(nR) ) *        &
                &                                    cheb(nCheb,nR) )
-               psMat(nR,nCheb_rho)=0.0_cp
 
                psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*          &
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm *alpha*( dcheb(nCheb,nR)- &
                &                     beta(nR)*cheb(nCheb,nR) )
-               psMat(nR_p,nCheb_rho)=0.0_cp
-
-               psMat(nR_rho,nCheb)=cheb_norm*ThExpNb*alpha0(nR)*r(nR)*     &
-               &                   r(nR)*rho0(nR)*temp0(nR)*cheb(nCheb,nR)
-               psMat(nR_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun* &
-               &                    r(nR)*r(nR)*alpha0(nR)*cheb(nCheb,nR)
-               psMat(nR_rho,nCheb_rho)=cheb_norm*cheb(nCheb,nR)
             end do
          end do
 
@@ -889,10 +879,8 @@ contains
 
          do nCheb=1,n_r_max
            nCheb_p=nCheb+n_r_max
-           nCheb_rho=nCheb+2*n_r_max
             do nR=1,n_r_max
                nR_p=nR+n_r_max
-               nR_rho=nR+2*n_r_max
 
                psMat(nR,nCheb)    = cheb_norm * (                    &
                  &                             O_dt*cheb(nCheb,nR) - &
@@ -900,19 +888,11 @@ contains
                  &  (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*  &
                  &                                 dcheb(nCheb,nR) ) )
                psMat(nR,nCheb_p)  =0.0_cp ! entropy diffusion
-               psMat(nR,nCheb_rho)=0.0_cp
 
                psMat(nR_p,nCheb)  = -cheb_norm*alpha*BuoFac*rho0(nR)* &
                  &                   rgrav(nR)*cheb(nCheb,nR)
                psMat(nR_p,nCheb_p)= cheb_norm*alpha*( dcheb(nCheb,nR)- &
                                      beta(nR)*cheb(nCheb,nR) )
-               psMat(nR_p,nCheb_rho)=0.0_cp
-
-               psMat(nR_rho,nCheb)=cheb_norm*ThExpNb*alpha0(nR)*r(nR)*     &
-               &                   r(nR)*rho0(nR)*temp0(nR)*cheb(nCheb,nR)
-               psMat(nR_rho,nCheb_p)=-cheb_norm*ThExpNb*ViscHeatFac*ogrun* &
-               &                    r(nR)*r(nR)*alpha0(nR)*cheb(nCheb,nR)
-               psMat(nR_rho,nCheb_rho)=cheb_norm*cheb(nCheb,nR)
             end do
          end do
 
@@ -922,7 +902,6 @@ contains
       !----- Boundary condition:
       do nCheb=1,n_cheb_max
          nCheb_p=nCheb+n_r_max
-         nCheb_rho=nCheb+2*n_r_max
 
          if ( ktops == 1 ) then
             !--------- Constant entropy at CMB:
@@ -946,18 +925,6 @@ contains
               &              dcheb(nCheb,1)+(dLalpha0(1)+    &
               &              dLtemp0(1)-beta(1))*cheb(nCheb,1) )
          end if
-         psMat(1,nCheb_rho)        =0.0_cp
-
-         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
-            psMat(n_r_max+1,nCheb_p)=cheb_norm
-         else
-            psMat(n_r_max+1,nCheb_p)=0.0_cp
-         end if
-         psMat(n_r_max+1,nCheb)    =0.0_cp
-         psMat(n_r_max+1,nCheb_rho)=0.0_cp
-         psMat(2*n_r_max,nCheb)    =0.0_cp
-         psMat(2*n_r_max,nCheb_p)  =0.0_cp
-         psMat(2*n_r_max,nCheb_rho)=0.0_cp
 
          if ( kbots == 1 ) then
             !--------- Constant entropy at ICB:
@@ -984,78 +951,91 @@ contains
               &                      (dLalpha0(n_r_max)+dLtemp0(n_r_max)-    &
               &                       beta(n_r_max))*cheb(nCheb,n_r_max) )
          end if
-         psMat(3*n_r_max,nCheb)    =0.0_cp
-         psMat(3*n_r_max,nCheb_p)  =0.0_cp
-         psMat(3*n_r_max,nCheb_rho)=0.0_cp
+
+         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
+            psMat(n_r_max+1,nCheb_p)=cheb_norm
+         else
+            psMat(n_r_max+1,nCheb_p)=0.0_cp
+         end if
+         psMat(n_r_max+1,nCheb)  =0.0_cp
+         psMat(2*n_r_max,nCheb)  =0.0_cp
+         psMat(2*n_r_max,nCheb_p)=0.0_cp
       end do
 
+      ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
       if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
-         psMat(n_r_max+1,2*n_r_max+1)=cheb_norm
-         do nCheb=3,n_cheb_max,2
-            nCheb_rho=nCheb+2*n_r_max
-            psMat(n_r_max+1,nCheb_rho)=-one/real(nCheb*(nCheb-2),cp)*cheb_norm
+
+         work(:)=ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+         call chebt_oc%costf1(work,work2)
+         work         =work*cheb_norm
+         work(1)      =half*work(1)
+         work(n_r_max)=half*work(n_r_max)
+
+         work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:)
+         call chebt_oc%costf1(work2,work3)
+         work2         =work2*cheb_norm
+         work2(1)      =half*work2(1)
+         work2(n_r_max)=half*work2(n_r_max)
+
+         do nCheb=1,n_cheb_max
+            nCheb_p=nCheb+n_r_max
+            psMat(n_r_max+1,nCheb_p)=0.0_cp
+            psMat(n_r_max+1,nCheb)  =0.0_cp
+            do n_cheb_in=1,n_cheb_max
+               if (mod(nCheb+n_cheb_in-2,2)==0) then
+               psMat(n_r_max+1,nCheb_p)=psMat(n_r_max+1,nCheb_p)+ &
+               &                       (one/(one-real(n_cheb_in-nCheb,cp)**2)+&
+               &                       one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+               &                       work(n_cheb_in)*half*cheb_norm
+               psMat(n_r_max+1,nCheb)  =psMat(n_r_max+1,nCheb)+ &
+               &                       (one/(one-real(n_cheb_in-nCheb,cp)**2)+&
+               &                       one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+               &                       work2(n_cheb_in)*half*cheb_norm
+               end if
+            end do
          end do
+
       end if
+
 
       if ( n_cheb_max < n_r_max ) then ! fill with zeros !
          do nCheb=n_cheb_max+1,n_r_max
             nCheb_p=nCheb+n_r_max
-            nCheb_rho=nCheb+2*n_r_max
-            psMat(1,nCheb)            =0.0_cp
-            psMat(n_r_max,nCheb)      =0.0_cp
-            psMat(n_r_max+1,nCheb)    =0.0_cp
-            psMat(2*n_r_max,nCheb)    =0.0_cp
-            psMat(2*n_r_max+1,nCheb)  =0.0_cp
-            psMat(3*n_r_max,nCheb)    =0.0_cp
-            psMat(1,nCheb_p)          =0.0_cp
-            psMat(n_r_max,nCheb_p)    =0.0_cp
-            psMat(n_r_max+1,nCheb_p)  =0.0_cp
-            psMat(2*n_r_max+1,nCheb_p)=0.0_cp
-            psMat(3*n_r_max,nCheb_p)  =0.0_cp
-            psMat(1,nCheb_rho)        =0.0_cp
-            psMat(n_r_max,nCheb_rho)  =0.0_cp
-            psMat(n_r_max+1,nCheb_rho)=0.0_cp
-            psMat(2*n_r_max,nCheb_rho)=0.0_cp
+            psMat(1,nCheb)          =0.0_cp
+            psMat(n_r_max,nCheb)    =0.0_cp
+            psMat(n_r_max+1,nCheb)  =0.0_cp
+            psMat(2*n_r_max,nCheb)  =0.0_cp
+            psMat(1,nCheb_p)        =0.0_cp
+            psMat(n_r_max,nCheb_p)  =0.0_cp
+            psMat(n_r_max+1,nCheb_p)=0.0_cp
          end do
       end if
-
 
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
          nR_p=nR+n_r_max
-         nR_rho=nR+2*n_r_max
-         psMat(nR,1)              =half*psMat(nR,1)
-         psMat(nR,n_r_max)        =half*psMat(nR,n_r_max)
-         psMat(nR,n_r_max+1)      =half*psMat(nR,n_r_max+1)
-         psMat(nR,2*n_r_max)      =half*psMat(nR,2*n_r_max)
-         psMat(nR,2*n_r_max+1)    =half*psMat(nR,2*n_r_max+1)
-         psMat(nR,3*n_r_max)      =half*psMat(nR,3*n_r_max)
-         psMat(nR_p,1)            =half*psMat(nR_p,1)
-         psMat(nR_p,n_r_max)      =half*psMat(nR_p,n_r_max)
-         psMat(nR_p,n_r_max+1)    =half*psMat(nR_p,n_r_max+1)
-         psMat(nR_p,2*n_r_max)    =half*psMat(nR_p,2*n_r_max)
-         psMat(nR_p,2*n_r_max+1)  =half*psMat(nR_p,2*n_r_max+1)
-         psMat(nR_p,3*n_r_max)    =half*psMat(nR_p,3*n_r_max)
-         psMat(nR_rho,1)          =half*psMat(nR_rho,1)
-         psMat(nR_rho,n_r_max)    =half*psMat(nR_rho,n_r_max)
-         psMat(nR_rho,n_r_max+1)  =half*psMat(nR_rho,n_r_max+1)
-         psMat(nR_rho,2*n_r_max)  =half*psMat(nR_rho,2*n_r_max)
-         psMat(nR_rho,2*n_r_max+1)=half*psMat(nR_rho,2*n_r_max+1)
-         psMat(nR_rho,3*n_r_max)  =half*psMat(nR_rho,3*n_r_max)
+         psMat(nR,1)          =half*psMat(nR,1)
+         psMat(nR,n_r_max)    =half*psMat(nR,n_r_max)
+         psMat(nR,n_r_max+1)  =half*psMat(nR,n_r_max+1)
+         psMat(nR,2*n_r_max)  =half*psMat(nR,2*n_r_max)
+         psMat(nR_p,1)        =half*psMat(nR_p,1)
+         psMat(nR_p,n_r_max)  =half*psMat(nR_p,n_r_max)
+         psMat(nR_p,n_r_max+1)=half*psMat(nR_p,n_r_max+1)
+         psMat(nR_p,2*n_r_max)=half*psMat(nR_p,2*n_r_max)
       end do
 
       ! compute the linesum of each line
-      do nR=1,3*n_r_max
+      do nR=1,2*n_r_max
          psMat_fac(nR)=one/maxval(abs(psMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
-      do nr=1,3*n_r_max
+      do nr=1,2*n_r_max
          psMat(nR,:) = psMat(nR,:)*psMat_fac(nR)
       end do
 
       !---- LU decomposition:
-      call sgefa(psMat,3*n_r_max,3*n_r_max,psPivot,info)
+      call sgefa(psMat,2*n_r_max,2*n_r_max,psPivot,info)
       if ( info /= 0 ) then
          write(*,*) '! Singular matrix ps0Mat!'
          stop '29'

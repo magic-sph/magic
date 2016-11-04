@@ -82,7 +82,7 @@ contains
 
       !-- the matrices, already LU-decomposed:
       if ( l_single_matrix ) then
-         allocate( ps0Mat(3*n_r_max,3*n_r_max) )      ! for l=m=0  
+         allocate( ps0Mat(2*n_r_max,2*n_r_max) )      ! for l=m=0  
          allocate( wpsMat(3*n_r_max,3*n_r_max,l_max) )
       else
          allocate( p0Mat(n_r_max,n_r_max) )      ! for l=m=0  
@@ -107,7 +107,7 @@ contains
 
       !-- respective pivoting information:
       if ( l_single_matrix ) then
-         allocate ( ps0Pivot(3*n_r_max) )
+         allocate ( ps0Pivot(2*n_r_max) )
          allocate ( wpsPivot(3*n_r_max,l_max) )
          allocate( s0Pivot(n_r_max) ) ! still needed for scond
       else
@@ -131,8 +131,8 @@ contains
 
       if ( l_single_matrix ) then
          allocate(wpsMat_fac(3*n_r_max,2,l_max))
-         allocate(ps0Mat_fac(3*n_r_max))
-         bytes_allocated = bytes_allocated+(6*n_r_max*l_max+3*n_r_max)*SIZEOF_DEF_REAL
+         allocate(ps0Mat_fac(2*n_r_max))
+         bytes_allocated = bytes_allocated+(6*n_r_max*l_max+2*n_r_max)*SIZEOF_DEF_REAL
       else
          allocate(wpMat_fac(2*n_r_max,2,l_max))
          bytes_allocated = bytes_allocated+4*n_r_max*l_max*SIZEOF_DEF_REAL
