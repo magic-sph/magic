@@ -1019,9 +1019,14 @@ contains
 
       !-- Outer core fields:
       n_data  = lm_max*n_r_max
-      !-- This allows to increase the number of grid points by 10!
 
-      if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old ) then
+      if ( .not. l_axi_old ) then
+         m_max_old=(l_max_old/minc_old)*minc_old
+      else
+         m_max_old=0
+      end if
+
+      if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old .and. m_max==m_max_old ) then
 
          !----- Direct reading of fields, grid not changed:
          write(*,'(/,'' ! Reading fields directly.'')')
@@ -1044,11 +1049,6 @@ contains
          if ( mod(minc_old,minc) /= 0 )                                &
               &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
-         if ( .not. l_axi_old ) then
-            m_max_old =(l_max_old/minc_old)*minc_old
-         else
-            m_max_old =0
-         end if
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
               &     m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
               &     l_max_old-m_max_old+1
@@ -1071,21 +1071,37 @@ contains
 
       end if
 
-      do lm=1,lm_max
-         l=lm2l(lm)
-         m=lm2m(lm)
-         lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
-         lmo=0
-         do mo=0,l_max_old,minc_old
-            do lo=mo,l_max_old
+      if ( .not. l_axi_old ) then
+         do lm=1,lm_max
+            l=lm2l(lm)
+            m=lm2m(lm)
+            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
+            lmo=0
+            do mo=0,l_max_old,minc_old
+               do lo=mo,l_max_old
+                  lmo=lmo+1
+                  if ( lo==l .and. mo==m ) then
+                     lm2lmo(lm)=lmo ! data found in startfile
+                     cycle
+                  end if
+               end do
+            end do
+         end do
+      else
+         do lm=1,lm_max
+            l=lm2l(lm)
+            m=lm2m(lm)
+            lm2lmo(lm)=-1 ! -1 means that there is no data in the startfile
+            lmo=0
+            do lo=0,l_max_old
                lmo=lmo+1
-               if ( lo==l .and. mo==m ) then
+               if ( lo==l .and. m==0 ) then
                   lm2lmo(lm)=lmo ! data found in startfile
                   cycle
                end if
             end do
          end do
-      end do
+      end if
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
