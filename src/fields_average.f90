@@ -501,20 +501,22 @@ contains
                           &     l_max,minc,nThetaStart,sizeThetaB,       &
                           &     Plm,dPlm,.false.,.false.,                &
                           &     Xir,Vt,Vp,Br,Br,Br)
-                     call fft_thetab(Xir,1)
+                     if ( .not. l_axi ) call fft_thetab(Xir,1)
                   end if
                   call legTF(p_ave_global,vhG,vhC,dLhw,vhG,vhC,          &
                        &     l_max,minc,nThetaStart,sizeThetaB,          &
                        &     Plm,dPlm,.false.,.false.,                   &
                        &     Prer,Vt,Vp,Br,Br,Br)
-                  call fft_thetab(Br,1)
-                  call fft_thetab(Bp,1)
-                  call fft_thetab(Bt,1)
-                  call fft_thetab(Vr,1)
-                  call fft_thetab(Vt,1)
-                  call fft_thetab(Vp,1)
-                  call fft_thetab(Sr,1)
-                  call fft_thetab(Prer,1)
+                  if ( .not. l_axi ) then
+                     call fft_thetab(Br,1)
+                     call fft_thetab(Bp,1)
+                     call fft_thetab(Bt,1)
+                     call fft_thetab(Vr,1)
+                     call fft_thetab(Vt,1)
+                     call fft_thetab(Vp,1)
+                     call fft_thetab(Sr,1)
+                     call fft_thetab(Prer,1)
+                  end if
 
                   !-------- Graphic output:
                   call graphOut(time,nR,Vr,Vt,Vp,Br,Bt,Bp,Sr,Prer, &

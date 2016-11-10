@@ -1,14 +1,14 @@
 module nonlinear_bcs
 
    use precision_mod
-   use truncation, only: nrp, lmP_max, n_phi_max
+   use truncation, only: nrp, lmP_max, n_phi_max, l_axi
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
-                       sizeThetaB
+       &               sizeThetaB
    use physical_parameters, only: sigma_ratio, conductance_ma, prmag
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
-                              dLh, sn2, cosTheta
+       &                      dLh, sn2, cosTheta
    use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
    use constants, only: two
@@ -96,8 +96,10 @@ contains
       call spat_to_SH(br_vt, br_vt_lm)
       call spat_to_SH(br_vp, br_vp_lm)
 #else
-      call fft_thetab(br_vt, -1)
-      call fft_thetab(br_vp, -1)
+      if ( .not. l_axi ) then
+         call fft_thetab(br_vt, -1)
+         call fft_thetab(br_vp, -1)
+      end if
     
       !-- Legendre transform contribution of thetas in block:
       call legTF2(n_theta_min,br_vt_lm,br_vp_lm,br_vt,br_vp)

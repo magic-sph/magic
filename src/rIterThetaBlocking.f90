@@ -8,8 +8,9 @@ module rIterThetaBlocking_mod
    use rIteration_mod, only: rIteration_t
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB, &
-       &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr,lm_maxMag
+   use truncation, only: lm_max,lmP_max,nrp,l_max,lmP_max_dtB,   &
+       &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr, &
+       &                 lm_maxMag,l_axi
    use blocking, only: nfs
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
@@ -149,10 +150,12 @@ contains
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then
-            call fft_thetab(gsa%sc,1)
+            if ( .not. l_axi ) call fft_thetab(gsa%sc,1)
             if ( this%lViscBcCalc ) then
-               call fft_thetab(gsa%dsdtc,1)
-               call fft_thetab(gsa%dsdpc,1)
+               if ( .not. l_axi ) then
+                  call fft_thetab(gsa%dsdtc,1)
+                  call fft_thetab(gsa%dsdpc,1)
+               end if
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -163,20 +166,22 @@ contains
                end if
             end if
          end if
-         if ( l_chemical_conv ) then
+         if ( l_chemical_conv .and. (.not. l_axi) ) then
             call fft_thetab(gsa%xic,1)
          end if
-         if ( this%lPressCalc ) then
+         if ( this%lPressCalc  .and. (.not. l_axi) ) then
             call fft_thetab(gsa%pc,1)
          end if
          if ( l_HT .or. this%lViscBcCalc ) then
-            call fft_thetab(gsa%drSc,1)
+            if ( .not. l_axi ) call fft_thetab(gsa%drSc,1)
          endif
          if ( this%nBc == 0 ) then
-            call fft_thetab(gsa%vrc,1)
-            call fft_thetab(gsa%vtc,1)
-            call fft_thetab(gsa%vpc,1)
-            if ( this%lDeriv ) then
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%vrc,1)
+               call fft_thetab(gsa%vtc,1)
+               call fft_thetab(gsa%vpc,1)
+            end if
+            if ( this%lDeriv .and. ( .not. l_axi ) ) then
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
@@ -189,17 +194,21 @@ contains
             end if
          else if ( this%nBc == 1 ) then ! Stress free
             gsa%vrc = 0.0_cp
-            call fft_thetab(gsa%vtc,1)
-            call fft_thetab(gsa%vpc,1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%vtc,1)
+               call fft_thetab(gsa%vpc,1)
+            end if
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
-               call fft_thetab(gsa%dvrdrc,1)
-               call fft_thetab(gsa%dvtdrc,1)
-               call fft_thetab(gsa%dvpdrc,1)
-               call fft_thetab(gsa%cvrc,1)
-               call fft_thetab(gsa%dvtdpc,1)
-               call fft_thetab(gsa%dvpdpc,1)
+               if ( .not. l_axi ) then
+                  call fft_thetab(gsa%dvrdrc,1)
+                  call fft_thetab(gsa%dvtdrc,1)
+                  call fft_thetab(gsa%dvpdrc,1)
+                  call fft_thetab(gsa%cvrc,1)
+                  call fft_thetab(gsa%dvtdpc,1)
+                  call fft_thetab(gsa%dvpdpc,1)
+               end if
             end if
          else if ( this%nBc == 2 ) then 
             if ( this%nR == n_r_cmb ) then
@@ -213,7 +222,7 @@ contains
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
                     &                nThetaStart)
             end if
-            if ( this%lDeriv ) then
+            if ( this%lDeriv .and. ( .not. l_axi ) ) then
                call fft_thetab(gsa%dvrdrc,1)
                call fft_thetab(gsa%dvtdrc,1)
                call fft_thetab(gsa%dvpdrc,1)
@@ -221,10 +230,12 @@ contains
          end if
       end if
       if ( l_mag .or. l_mag_LF ) then
-         call fft_thetab(gsa%brc,1)
-         call fft_thetab(gsa%btc,1)
-         call fft_thetab(gsa%bpc,1)
-         if ( this%lDeriv ) then
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%brc,1)
+            call fft_thetab(gsa%btc,1)
+            call fft_thetab(gsa%bpc,1)
+         end if
+         if ( this%lDeriv .and. ( .not. l_axi ) ) then
             call fft_thetab(gsa%cbrc,1)
             call fft_thetab(gsa%cbtc,1)
             call fft_thetab(gsa%cbpc,1)
@@ -276,16 +287,20 @@ contains
             end if
          end if
 
-         call fft_thetab(gsa%Advr,-1)
-         call fft_thetab(gsa%Advt,-1)
-         call fft_thetab(gsa%Advp,-1)
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%Advr,-1)
+            call fft_thetab(gsa%Advt,-1)
+            call fft_thetab(gsa%Advp,-1)
+         end if
          call legTF3(nThetaStart,nl_lm%AdvrLM,nl_lm%AdvtLM,nl_lm%AdvpLM,    &
               &      gsa%Advr,gsa%Advt,gsa%Advp)
          if ( this%lRmsCalc .and. l_mag_LF .and. this%nR>n_r_LCR ) then 
             ! LF treated extra:
-            call fft_thetab(gsa%LFr,-1)
-            call fft_thetab(gsa%LFt,-1)
-            call fft_thetab(gsa%LFp,-1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%LFr,-1)
+               call fft_thetab(gsa%LFt,-1)
+               call fft_thetab(gsa%LFp,-1)
+            end if
             call legTF3(nThetaStart,nl_lm%LFrLM,nl_lm%LFtLM,nl_lm%LFpLM,    &
                  &      gsa%LFr,gsa%LFt,gsa%LFp)
          end if
@@ -293,19 +308,23 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_heat ) then
          !PERFON('inner2')
-         call fft_thetab(gsa%VSr,-1)
-         call fft_thetab(gsa%VSt,-1)
-         call fft_thetab(gsa%VSp,-1)
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%VSr,-1)
+            call fft_thetab(gsa%VSt,-1)
+            call fft_thetab(gsa%VSp,-1)
+         end if
          call legTF3(nThetaStart,nl_lm%VSrLM,nl_lm%VStLM,nl_lm%VSpLM,       &
               &      gsa%VSr,gsa%VSt,gsa%VSp)
          if (l_anel) then ! anelastic stuff 
             if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-               call fft_thetab(gsa%ViscHeat,-1)
-               call fft_thetab(gsa%OhmLoss,-1)
+               if ( .not. l_axi ) then
+                  call fft_thetab(gsa%ViscHeat,-1)
+                  call fft_thetab(gsa%OhmLoss,-1)
+               end if
                call legTF2(nThetaStart,nl_lm%OhmLossLM,nl_lm%ViscHeatLM,    &
                     &      gsa%OhmLoss,gsa%ViscHeat)
             else
-               call fft_thetab(gsa%ViscHeat,-1)
+               if ( .not. l_axi ) call fft_thetab(gsa%ViscHeat,-1)
                call legTF1(nThetaStart,nl_lm%ViscHeatLM,gsa%ViscHeat)
             end if
          end if
@@ -313,9 +332,11 @@ contains
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
          !PERFON('inner2')
-         call fft_thetab(gsa%VXir,-1)
-         call fft_thetab(gsa%VXit,-1)
-         call fft_thetab(gsa%VXip,-1)
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%VXir,-1)
+            call fft_thetab(gsa%VXit,-1)
+            call fft_thetab(gsa%VXip,-1)
+         end if
          call legTF3(nThetaStart,nl_lm%VXirLM,nl_lm%VXitLM,nl_lm%VXipLM,    &
               &      gsa%VXir,gsa%VXit,gsa%VXip)
          !PERFOFF
@@ -323,15 +344,19 @@ contains
       if ( l_mag_nl ) then
          !PERFON('mag_nl')
          if ( .not.this%isRadialBoundaryPoint .and. this%nR>n_r_LCR ) then
-            call fft_thetab(gsa%VxBr,-1)
-            call fft_thetab(gsa%VxBt,-1)
-            call fft_thetab(gsa%VxBp,-1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%VxBr,-1)
+               call fft_thetab(gsa%VxBt,-1)
+               call fft_thetab(gsa%VxBp,-1)
+            end if
             call legTF3(nThetaStart,nl_lm%VxBrLM,nl_lm%VxBtLM,nl_lm%VxBpLM, &
                  &       gsa%VxBr,gsa%VxBt,gsa%VxBp)
          else
             !write(*,"(I4,A,ES20.13)") this%nR,", VxBt = ",sum(VxBt*VxBt)
-            call fft_thetab(gsa%VxBt,-1)
-            call fft_thetab(gsa%VxBp,-1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%VxBt,-1)
+               call fft_thetab(gsa%VxBp,-1)
+            end if
             call legTF2(nThetaStart,nl_lm%VxBtLM,nl_lm%VxBpLM,              &
                  &      gsa%VxBt,gsa%VxBp)
          end if
@@ -339,20 +364,28 @@ contains
       end if
 
       if ( this%lRmsCalc ) then
-         call fft_thetab(gsa%p1,-1)
-         call fft_thetab(gsa%p2,-1)
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%p1,-1)
+            call fft_thetab(gsa%p2,-1)
+         end if
          call legTF2(nThetaStart,nl_lm%p1LM,nl_lm%p2LM,gsa%p1,gsa%p2)
-         call fft_thetab(gsa%CFt2,-1)
-         call fft_thetab(gsa%CFp2,-1)
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%CFt2,-1)
+            call fft_thetab(gsa%CFp2,-1)
+         end if
          call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
          if ( l_conv_nl ) then
-            call fft_thetab(gsa%Advt2,-1)
-            call fft_thetab(gsa%Advp2,-1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%Advt2,-1)
+               call fft_thetab(gsa%Advp2,-1)
+            end if
             call legTF2(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,gsa%Advp2)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call fft_thetab(gsa%LFt2,-1)
-            call fft_thetab(gsa%LFp2,-1)
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%LFt2,-1)
+               call fft_thetab(gsa%LFp2,-1)
+            end if
             call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
          end if
       end if

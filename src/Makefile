@@ -326,7 +326,7 @@ magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         integration.o useful.o LMLoop_data.o mem_alloc.o
 useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
-LMmapping.o           : mem_alloc.o
+LMmapping.o           : mem_alloc.o truncation.o
 mem_alloc.o           : parallel.o precision_mod.o output_data.o
 out_TO.o              : truncation.o horizontal.o num_param.o\
                         phys_param.o radial.o logic.o blocking.o\
@@ -411,7 +411,7 @@ chebyshev_polynoms.o  : constants.o logic.o precision_mod.o
 rIteration.o          : precision_mod.o
 radialLoop.o          : truncation.o blocking.o parallel.o\
                         phys_param.o logic.o output_data.o\
-                        constants.o legendre_spec_to_grid.o $(FFT_OBJS) \
+                        constants.o legendre_spec_to_grid.o\
                         get_td.o out_graph_file.o radial_data.o rIteration.o \
 			rIterThetaBlocking.o rIterThetaBlocking_OpenMP.o \
 			rIterThetaBlocking_seq.o mem_alloc.o

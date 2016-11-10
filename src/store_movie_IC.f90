@@ -2,19 +2,19 @@ module out_movie_IC
 
    use precision_mod
    use truncation, only: minc, lm_maxMag, n_r_maxMag, n_r_ic_maxMag, &
-                         n_phi_max, lm_max, n_r_ic_max, nrp, l_max,  &
-                         n_theta_max
+       &                 n_phi_max, lm_max, n_r_ic_max, nrp, l_max,  &
+       &                 n_theta_max, l_axi
    use radial_data, only: n_r_icb
    use radial_functions, only: r_ic, r_ICB, O_r_ic2, O_r_ic
    use physical_parameters, only: LFfac
    use blocking, only: sizeThetaB, nThetaBs, nfs
    use horizontal_data, only: dLh, Plm, dPlm, n_theta_cal2ord, &
-                              O_sin_theta
+       &                      O_sin_theta
    use logic, only: l_cond_ic
    use movie_data, only: frames, n_movie_field_stop, n_movie_field_start, &
-                         n_movie_type, n_movie_const, n_movie_fields_ic,  &
-                         n_movie_surface, n_movies, n_movie_field_type,   &
-                         n_movie_fields
+       &                 n_movie_type, n_movie_const, n_movie_fields_ic,  &
+       &                 n_movie_surface, n_movies, n_movie_field_type,   &
+       &                 n_movie_fields
    use fft, only: fft_thetab
    use out_movie, only: get_fl
    use legendre_spec_to_grid, only: legTF
@@ -112,11 +112,13 @@ contains
                   call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
                              nThetaStart,sizeThetaB,Plm,dPlm,.true., &
                              .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
-                  call fft_thetab(BrB,1)
-                  call fft_thetab(BtB,1)
-                  call fft_thetab(BpB,1)
-                  call fft_thetab(cBrB,1)
-                  call fft_thetab(cBtB,1)
+                  if ( .not. l_axi ) then
+                     call fft_thetab(BrB,1)
+                     call fft_thetab(BtB,1)
+                     call fft_thetab(BpB,1)
+                     call fft_thetab(cBrB,1)
+                     call fft_thetab(cBtB,1)
+                  end if
     
                   do n_field=n_fields_oc+1,n_fields
                      n_field_type= n_movie_field_type(n_field,n_movie)
@@ -202,9 +204,11 @@ contains
                call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
                           nThetaStart,sizeThetaB,Plm,dPlm,.true., &
                           .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
-               call fft_thetab(BrB,1)
-               call fft_thetab(BtB,1)
-               call fft_thetab(BpB,1)
+               if ( .not. l_axi ) then
+                  call fft_thetab(BrB,1)
+                  call fft_thetab(BtB,1)
+                  call fft_thetab(BpB,1)
+               end if
     
                do n_field=n_fields_oc+1,n_fields
                   n_field_type=n_movie_field_type(n_field,n_movie)
@@ -279,10 +283,12 @@ contains
                call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,  &
                           nTheta,2,Plm,dPlm,.true.,.true.,BrB,BtB, &
                           BpB,cBrB,cBtB,cBpB)
-               call fft_thetab(BrB,1)
-               call fft_thetab(BtB,1)
-               call fft_thetab(BpB,1)
-               call fft_thetab(cBtB,1)
+               if ( .not. l_axi ) then
+                  call fft_thetab(BrB,1)
+                  call fft_thetab(BtB,1)
+                  call fft_thetab(BpB,1)
+                  call fft_thetab(cBtB,1)
+               end if
     
                do n_field=n_fields_oc+1,n_fields
     
@@ -362,11 +368,13 @@ contains
                      call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, & 
                                 nThetaStart,sizeThetaB,Plm,dPlm,.true., &
                                 .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
-                     call fft_thetab(BrB,1)
-                     call fft_thetab(BtB,1)
-                     call fft_thetab(BpB,1)
-                     call fft_thetab(cBrB,1)
-                     call fft_thetab(cBtB,1)
+                     if ( .not. l_axi ) then
+                        call fft_thetab(BrB,1)
+                        call fft_thetab(BtB,1)
+                        call fft_thetab(BpB,1)
+                        call fft_thetab(cBrB,1)
+                        call fft_thetab(cBtB,1)
+                     end if
                   end if
     
                   do n_field=n_fields_oc+1,n_fields

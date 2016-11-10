@@ -11,11 +11,13 @@ module truncation
    integer :: n_r_ic_max    ! number of grid points in inner core
    integer :: n_cheb_ic_max ! number of chebs in inner core
    integer :: minc          ! basic wavenumber, longitude symmetry  
-   integer :: nalias        ! controls dealiasing in latitude and 
+   integer :: nalias        ! controls dealiasing in latitude
+   logical :: l_axi         ! logical for axisymmetric calculations
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points
    integer :: n_theta_max ! number of theta grid-points
+   integer :: n_theta_axi ! number of theta grid-points (axisymmetric models)
    integer :: l_max       ! max degree of Plms
    integer :: m_max       ! max order of Plms
    integer :: n_m_max     ! max number of ms (different oders)
@@ -64,15 +66,24 @@ contains
       integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL
       integer :: n_r_maxGL,lm_maxGL,nrpGL
 
-      ! absolute number of phi grid-points
-      n_phi_max=n_phi_tot/minc
+      if ( .not. l_axi ) then
+         ! absolute number of phi grid-points
+         n_phi_max=n_phi_tot/minc
 
-      ! number of theta grid-points
-      n_theta_max=n_phi_tot/2
+         ! number of theta grid-points
+         n_theta_max=n_phi_tot/2
 
-      ! max degree and order of Plms
-      l_max=(nalias*n_theta_max)/30 
-      m_max=(l_max/minc)*minc
+         ! max degree and order of Plms
+         l_max=(nalias*n_theta_max)/30 
+         m_max=(l_max/minc)*minc
+      else
+         n_theta_max=n_theta_axi
+         n_phi_max  =1
+         n_phi_tot  =1
+         minc       =1
+         l_max      =(nalias*n_theta_max)/30 
+         m_max      =0
+      end if
 
       ! max number of ms (different oders)
       n_m_max=m_max/minc+1
@@ -149,25 +160,25 @@ contains
          write(*,*) '! Wave number minc should be > 0!'
          stop
       end if
-      if ( mod(n_phi_tot,minc) /= 0 ) then
+      if ( mod(n_phi_tot,minc) /= 0 .and. (.not. l_axi) ) then
          write(*,*)
          write(*,*) '! Number of longitude grid points n_phi_tot'
          write(*,*) '! must be a multiple of minc !!'
          stop
       end if
-      if ( mod(n_phi_max,4) /= 0 ) then
+      if ( mod(n_phi_max,4) /= 0 .and. (.not. l_axi) ) then
          write(*,*)
          write(*,*) '! Number of longitude grid points n_phi_tot/minc'
          write(*,*) '! must be a multiple of 4!!'
          stop
       end if
-      if ( mod(n_phi_tot,16) /= 0 ) then
+      if ( mod(n_phi_tot,16) /= 0 .and. (.not. l_axi) ) then
          write(*,*)
          write(*,*) '! Number of longitude grid points n_phi_tot'
          write(*,*) '! must be a multiple of 16!!'
          stop
       end if
-      if ( n_phi_max/2 <= 2 ) then
+      if ( n_phi_max/2 <= 2 .and. (.not. l_axi) ) then
          write(*,*)
          write(*,*) '! Number of longitude grid points n_phi_tot'
          write(*,*) '! must be larger than 2*minc!!',n_phi_max

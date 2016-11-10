@@ -176,7 +176,7 @@ contains
                end do
                !------------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-               call fft_thetab(ome,-1)
+               if ( .not. l_axi ) call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
 #endif
             end do ! End of loop over theta blocks
@@ -229,7 +229,7 @@ contains
                end do
                !------------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-               call fft_thetab(ome,-1)
+               if ( .not. l_axi ) call fft_thetab(ome,-1)
                call legTF1(nThetaStart,omeLM,ome)
 #endif
             end do ! End of loop over theta blocks
@@ -601,7 +601,7 @@ contains
             end do
          !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-            call fft_thetab(sCMB,-1)
+            if ( .not. l_axi ) call fft_thetab(sCMB,-1)
             call legTF1(nThetaStart,sLM,sCMB)
 #endif
 
@@ -677,7 +677,7 @@ contains
          end do
       !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-         call fft_thetab(sCMB,-1)
+         if ( .not. l_axi ) call fft_thetab(sCMB,-1)
          call legTF1(nThetaStart,sLM,sCMB)
 #endif
 
@@ -914,7 +914,7 @@ contains
             end do
          !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-            call fft_thetab(xiCMB,-1)
+            if ( .not. l_axi ) call fft_thetab(xiCMB,-1)
             call legTF1(nThetaStart,xiLM,xiCMB)
 #endif
 
@@ -990,7 +990,7 @@ contains
          end do
       !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
-         call fft_thetab(xiCMB,-1)
+         if ( .not. l_axi ) call fft_thetab(xiCMB,-1)
          call legTF1(nThetaStart,xiLM,xiCMB)
 #endif
 

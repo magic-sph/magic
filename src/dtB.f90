@@ -8,15 +8,15 @@ module dtB_mod
    use parallel_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
-                         n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
-                         n_r_ic_max, l_max, n_phi_max, ldtBmem
+       &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
+       &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, chebt_oc, &
-                               or1, orho1, drx
+       &                       or1, orho1, drx
    use radial_data,only: nRstart,nRstop
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
-                              dTheta1S, dTheta1A
+       &                      dTheta1S, dTheta1A
    use logic, only: l_cond_ic, l_DTrMagSpec
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
@@ -344,20 +344,22 @@ contains
       call shtns_load_cfg(0)
 #else
       !-- Fourier transform phi2m
-      call fft_thetab(BtVpSn2,-1)
-      call fft_thetab(BpVtSn2,-1)
-      call fft_thetab(BtVpCot,-1)
-      call fft_thetab(BpVtCot,-1)
-      call fft_thetab(BtVr,-1)
-      call fft_thetab(BpVr,-1)
-      call fft_thetab(BrVt,-1)
-      call fft_thetab(BrVp,-1)
-      call fft_thetab(BtVp,-1)
-      call fft_thetab(BpVt,-1)
-      call fft_thetab(BrVZ,-1)
-      call fft_thetab(BtVZ,-1)
-      call fft_thetab(BtVZcot,-1)
-      call fft_thetab(BtVZsn2,-1)
+      if ( .not. l_axi ) then
+         call fft_thetab(BtVpSn2,-1)
+         call fft_thetab(BpVtSn2,-1)
+         call fft_thetab(BtVpCot,-1)
+         call fft_thetab(BpVtCot,-1)
+         call fft_thetab(BtVr,-1)
+         call fft_thetab(BpVr,-1)
+         call fft_thetab(BrVt,-1)
+         call fft_thetab(BrVp,-1)
+         call fft_thetab(BtVp,-1)
+         call fft_thetab(BpVt,-1)
+         call fft_thetab(BrVZ,-1)
+         call fft_thetab(BtVZ,-1)
+         call fft_thetab(BtVZcot,-1)
+         call fft_thetab(BtVZsn2,-1)
+      end if
     
       !-- Legendre transform: theta2l
       call legTF3(n_theta_start,BtVrLM,BpVrLM,BrVtLM,BtVr,BpVr,BrVt)

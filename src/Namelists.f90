@@ -48,8 +48,8 @@ contains
 
       !-- Name lists:
       integer :: runHours,runMinutes,runSeconds
-      namelist/grid/n_r_max,n_cheb_max,n_phi_tot, &
-         &  n_r_ic_max,n_cheb_ic_max,minc,nalias
+      namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
+         &  n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi
 
       namelist/control/                                     &
          & mode,tag,n_time_steps,                           &
@@ -711,10 +711,12 @@ contains
       write(n_out,'(''  n_r_max         ='',i5,'','')') n_r_max
       write(n_out,'(''  n_cheb_max      ='',i5,'','')') n_cheb_max
       write(n_out,'(''  n_phi_tot       ='',i5,'','')') n_phi_tot
+      write(n_out,'(''  n_theta_axi     ='',i5,'','')') n_theta_axi
       write(n_out,'(''  n_r_ic_max      ='',i5,'','')') n_r_ic_max
       write(n_out,'(''  n_cheb_ic_max   ='',i5,'','')') n_cheb_ic_max
       write(n_out,'(''  minc            ='',i5,'','')') minc
       write(n_out,'(''  nalias          ='',i5,'','')') nalias
+      write(n_out,'(''  l_axi           ='',l3,'','')') l_axi
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -1057,6 +1059,7 @@ contains
       ! 16,32,48,64,96,128,192,256,288,320,384,
       ! 400,512,576,640,768,864,1024
       n_phi_tot     =192
+      n_theta_axi   =0
       ! number of grid points in inner core
       n_r_ic_max    =17
       ! number of chebs in inner core
@@ -1067,6 +1070,8 @@ contains
       ! longitude direction, no aliasing for nalias=20
       !   20 <= nalias <= 30
       nalias        =20
+      l_axi         =.false.
+
       !----- Namelist control
       mode          =0            ! self-consistent dynamo !
       tag           ="default"

@@ -5,7 +5,7 @@ module horizontal_data
    !
 
    use truncation, only: l_max, lmP_max, n_theta_max, n_phi_max, &
-                         lm_max, n_m_max, minc, m_max
+       &                 lm_max, n_m_max, minc, m_max, l_axi
    use radial_functions, only: r_cmb
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
@@ -206,7 +206,7 @@ contains
 
 
       !-- Initialize fast fourier transform for phis:
-      call init_fft(n_phi_max)
+      if ( .not. l_axi ) call init_fft(n_phi_max)
 
       !-- Build arrays depending on degree l and order m
       !   and hyperdiffusion factors:

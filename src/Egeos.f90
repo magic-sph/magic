@@ -3,7 +3,8 @@ module Egeos_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
-       &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max
+       &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max,  &
+       &                 l_axi
    use parallel_mod, only: rank
    use radial_functions, only: cheb_norm, r_ICB, r_CMB, chebt_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
@@ -840,7 +841,7 @@ contains
             end do
     
             !--- Transform m 2 phi for phi-derivative
-            call fft_to_real(dV,nrpGeos,nZmax)
+            if ( .not. l_axi ) call fft_to_real(dV,nrpGeos,nZmax)
     
             !--- Phi average
             do nS=1,nZmax
@@ -861,10 +862,12 @@ contains
       end if
     
       !----- Transform m 2 phi for flow field:
-      call fft_to_real(VrS,nrpGeos,nZmax)
-      call fft_to_real(VtS,nrpGeos,nZmax)
-      call fft_to_real(VpS,nrpGeos,nZmax)
-      call fft_to_real(VorS,nrpGeos,nZmax)
+      if ( .not. l_axi ) then
+         call fft_to_real(VrS,nrpGeos,nZmax)
+         call fft_to_real(VtS,nrpGeos,nZmax)
+         call fft_to_real(VpS,nrpGeos,nZmax)
+         call fft_to_real(VorS,nrpGeos,nZmax)
+      end if
     
    end subroutine getDVptr
 !----------------------------------------------------------------------------

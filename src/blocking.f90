@@ -7,14 +7,14 @@ module blocking
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: nThreads, rank, n_procs, nLMBs_per_rank, &
-                           rank_with_l1m0
+       &                   rank_with_l1m0
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
-                         minc, n_r_max
+       &                 minc, n_r_max, m_max, l_axi
    use logic, only: l_save_out
    use output_data, only: nLF, log_file
    use LMmapping, only: mappings, allocate_mappings,  &
-                        allocate_subblocks_mappings,  &
-                        subblocks_mappings
+       &                allocate_subblocks_mappings,  &
+       &                subblocks_mappings
    use useful, only: logWrite
    use constants, only: one
  
@@ -242,8 +242,10 @@ contains
       lm2lmP(1:lm_max) => st_map%lm2lmP
       lmP2lm(1:lmP_max) => st_map%lmP2lm
 
-      call allocate_subblocks_mappings(st_sub_map,st_map,nLMBs,l_max,lmStartB,lmStopB)
-      call allocate_subblocks_mappings(lo_sub_map,lo_map,nLMBs,l_max,lmStartB,lmStopB)
+      call allocate_subblocks_mappings(st_sub_map,st_map,nLMBs,l_max,&
+           &                           lmStartB,lmStopB)
+      call allocate_subblocks_mappings(lo_sub_map,lo_map,nLMBs,l_max,&
+           &                           lmStartB,lmStopB)
       !call allocate_subblocks_mappings(sn_sub_map,sn_map,nLMBs,l_max,lmStartB,lmStopB)
 
       !--- Getting lm sub-blocks:
@@ -450,7 +452,7 @@ contains
          stop
       end if
 
-      do m=0,l_max,minc
+      do m=0,m_max,minc
          do l=m,l_max
             if ( check(l,m) == 0 ) then
                write(*,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
@@ -471,7 +473,7 @@ contains
       ! Local variables
       integer :: m,l,lm,lmP,mc
       
-      do m=0,map%l_max
+      do m=0,map%m_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
@@ -484,7 +486,7 @@ contains
       lm =0
       lmP=0
       mc =0
-      do m=0,map%l_max,minc
+      do m=0,map%m_max,minc
          mc=mc+1
          !m2mc(m)=mc
          do l=m,map%l_max
@@ -557,7 +559,7 @@ contains
       ! Local variables
       integer :: m,l,lm,lmP,mc
       
-      do m=0,map%l_max
+      do m=0,map%m_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
@@ -569,31 +571,52 @@ contains
 
       lm =0
       lmP=0
-      do l=0,map%l_max
-         mc =0
-         ! set l2lmAS for m==0
-         map%l2lmAS(l)=lm
-         do m=0,l,minc
-            mc=mc+1
+      if ( .not. l_axi ) then
+         do l=0,map%l_max
+            mc =0
+            ! set l2lmAS for m==0
+            map%l2lmAS(l)=lm
+            do m=0,l,minc
+               mc=mc+1
+
+               lm         =lm+1
+               map%lm2l(lm)   =l
+               map%lm2m(lm)   =m
+               map%lm2mc(lm)  =mc
+               map%lm2(l,m)   =lm
+
+               lmP        =lmP+1
+               map%lmP2l(lmP) = l
+               map%lmP2m(lmP) = m
+               map%lmP2(l,m)  =lmP
+               !if ( m == 0 ) l2lmPAS(l)=lmP
+               map%lm2lmP(lm) =lmP
+               map%lmP2lm(lmP)=lm
+            end do
+         end do
+      else
+         do l=0,map%l_max
+            ! set l2lmAS for m==0
+            map%l2lmAS(l)=lm
 
             lm         =lm+1
             map%lm2l(lm)   =l
-            map%lm2m(lm)   =m
-            map%lm2mc(lm)  =mc
-            map%lm2(l,m)   =lm
+            map%lm2m(lm)   =0
+            map%lm2mc(lm)  =1
+            map%lm2(l,0)   =lm
 
             lmP        =lmP+1
             map%lmP2l(lmP) = l
-            map%lmP2m(lmP) = m
-            map%lmP2(l,m)  =lmP
+            map%lmP2m(lmP) = 0
+            map%lmP2(l,0)  =lmP
             !if ( m == 0 ) l2lmPAS(l)=lmP
             map%lm2lmP(lm) =lmP
             map%lmP2lm(lmP)=lm
          end do
-      end do
+      end if
       l=map%l_max+1    ! Extra l for lmP
       mc =0
-      do m=0,map%l_max,minc
+      do m=0,map%m_max,minc
          mc=mc+1
 
          lmP=lmP+1
@@ -658,7 +681,7 @@ contains
 
       logical, parameter :: DEBUG_OUTPUT=.false.
 
-      do m=0,map%l_max
+      do m=0,map%m_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
@@ -760,20 +783,46 @@ contains
 
       lm=1
       lmP=1
-      do proc=0,n_procs-1
-         lmStartB(proc+1)=lm
-         do i_l=1,l_counter(proc)-1
-            l=l_list(proc,i_l)
-            mc = 0
-            !write(*,"(3I3)") i_l,proc,l
-            do m=0,l,minc
-               mc = mc+1
-               map%lm2(l,m)=lm
-               map%lm2l(lm)=l
-               map%lm2m(lm)=m
-               map%lm2mc(lm)=mc
+      if ( .not. l_axi ) then
+         do proc=0,n_procs-1
+            lmStartB(proc+1)=lm
+            do i_l=1,l_counter(proc)-1
+               l=l_list(proc,i_l)
+               mc = 0
+               !write(*,"(3I3)") i_l,proc,l
+               do m=0,l,minc
+                  mc = mc+1
+                  map%lm2(l,m)=lm
+                  map%lm2l(lm)=l
+                  map%lm2m(lm)=m
+                  map%lm2mc(lm)=mc
 
-               map%lmP2(l,m)=lmP
+                  map%lmP2(l,m)=lmP
+                  map%lmP2l(lmP)=l
+                  map%lmP2m(lmP)= m
+                  map%lm2lmP(lm)=lmP
+                  map%lmP2lm(lmP)=lm
+
+                  lm = lm+1
+                  lmP = lmP+1
+               end do
+            end do
+            lmStopB(proc+1)=lm-1
+            write(*,"(I3,2(A,I6))") proc,": lmStartB=",lmStartB(proc+1), &
+                                    ", lmStopB=",lmStopB(proc+1)
+         end do
+      else
+         do proc=0,n_procs-1
+            lmStartB(proc+1)=lm
+            do i_l=1,l_counter(proc)-1
+               l=l_list(proc,i_l)
+               mc = mc+1
+               map%lm2(l,0)=lm
+               map%lm2l(lm)=l
+               map%lm2m(lm)=0
+               map%lm2mc(lm)=0
+
+               map%lmP2(l,0)=lmP
                map%lmP2l(lmP)=l
                map%lmP2m(lmP)= m
                map%lm2lmP(lm)=lmP
@@ -782,11 +831,12 @@ contains
                lm = lm+1
                lmP = lmP+1
             end do
+            lmStopB(proc+1)=lm-1
+            write(*,"(I3,2(A,I6))") proc,": lmStartB=",lmStartB(proc+1), &
+                                    ", lmStopB=",lmStopB(proc+1)
          end do
-         lmStopB(proc+1)=lm-1
-         write(*,"(I3,2(A,I6))") proc,": lmStartB=",lmStartB(proc+1), &
-                                 ", lmStopB=",lmStopB(proc+1)
-      end do
+
+      end if
       
       if ( lm-1 /= map%lm_max ) then
          write(*,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
@@ -796,7 +846,7 @@ contains
 
       l=map%l_max+1    ! Extra l for lmP
       mc =0
-      do m=0,map%l_max,minc
+      do m=0,map%m_max,minc
          mc=mc+1
 
          map%lmP2l(lmP) =l

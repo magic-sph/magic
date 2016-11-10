@@ -2,24 +2,24 @@ module out_movie
 
    use precision_mod
    use truncation, only: n_phi_max, n_theta_max, minc, lm_max, nrp, l_max,  &
-                         n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
-                         n_r_ic_max, n_r_max
+       &                 n_m_max, lm_maxMag, n_r_maxMag, n_r_ic_maxMag,     &
+       &                 n_r_ic_max, n_r_max, l_axi
    use movie_data, only: frames, n_movie_fields, n_movies, n_movie_surface, &
-                         n_movie_const, n_movie_field_type,                 &
-                         n_movie_field_start,n_movie_field_stop,            &
-                         movieDipColat, movieDipLon, movieDipStrength,      &
-                         movieDipStrengthGeo, t_movieS, n_movie_type,       &
-                         lStoreMov, n_movie_const, n_movie_file,            &
-                         n_movie_fields_ic, movie_file, movie_const
+       &                 n_movie_const, n_movie_field_type,                 &
+       &                 n_movie_field_start,n_movie_field_stop,            &
+       &                 movieDipColat, movieDipLon, movieDipStrength,      &
+       &                 movieDipStrengthGeo, t_movieS, n_movie_type,       &
+       &                 lStoreMov, n_movie_const, n_movie_file,            &
+       &                 n_movie_fields_ic, movie_file, movie_const
    use radial_data, only: n_r_icb
    use radial_functions, only: orho1, orho2, or1, or2, or3, or4, beta,  &
-                               r_surface, r_cmb, r, r_ic
+       &                       r_surface, r_cmb, r, r_ic
    use physical_parameters, only: LFfac, radratio, ra, ek, pr, prmag
    use num_param, only: vScale, tScale
    use blocking, only: nfs, lm2l, lm2
-   use horizontal_data, only: O_sin_theta, sinTheta, cosTheta, n_theta_cal2ord, &
-                              O_sin_theta_E2, Plm, dLh, dPlm, osn1,   &
-                              D_l, dPhi, phi, theta_ord
+   use horizontal_data, only: O_sin_theta, sinTheta, cosTheta,        &
+       &                      n_theta_cal2ord, O_sin_theta_E2, Plm,   &
+       &                      dLh, dPlm, osn1, D_l, dPhi, phi, theta_ord
    use fields, only: w_Rloc, b_Rloc, b, b_ic
    use fft, only: fft_thetab
    use logic, only: l_save_out, l_cond_ic
@@ -1598,9 +1598,11 @@ contains
       end do        ! Loop over colatitudes
 
       !-- Transform m 2 phi:
-      call fft_thetab(b_r,1)
-      call fft_thetab(b_t,1)
-      call fft_thetab(b_p,1)
+      if ( .not. l_axi ) then
+         call fft_thetab(b_r,1)
+         call fft_thetab(b_t,1)
+         call fft_thetab(b_p,1)
+      end if
 
    end subroutine get_B_surface
 !----------------------------------------------------------------------------

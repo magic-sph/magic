@@ -1,6 +1,7 @@
 module LMmapping
 
    use precision_mod
+   use truncation, only: l_axi
    use mem_alloc, only: bytes_allocated
 
    implicit none
@@ -8,7 +9,7 @@ module LMmapping
    private
  
    type, public :: mappings
-      integer :: l_max,lm_max,lmP_max
+      integer :: l_max,m_max,lm_max,lmP_max
       integer, allocatable :: lm2(:,:),lm2l(:),lm2m(:)
       integer, allocatable :: lm2mc(:),l2lmAS(:)      
       integer, allocatable :: lm2lmS(:),lm2lmA(:)     
@@ -21,7 +22,7 @@ module LMmapping
    end type mappings
  
    type, public :: subblocks_mappings
-      integer :: nLMBs,l_max,sizeLMB2max
+      integer :: nLMBs,l_max,m_max,sizeLMB2max
       integer, allocatable :: nLMBs2(:)
       integer, allocatable :: sizeLMB2(:,:)
       integer, allocatable :: lm22lm(:,:,:)
@@ -39,6 +40,11 @@ contains
       integer, intent(in) :: l_max, lm_max, lmP_max
 
       self%l_max = l_max
+      if ( .not. l_axi ) then
+         self%m_max = l_max
+      else
+         self%m_max = 0
+      end if
       self%lm_max = lm_max
       self%lmP_max = lmP_max
 
@@ -71,6 +77,12 @@ contains
 
       self%nLMBs = nLMBs
       self%l_max = l_max
+
+      if ( .not. l_axi ) then
+         self%m_max = l_max
+      else
+         self%m_max = 0
+      end if
 
       ! now determine the maximal size of a subblock (was sizeLMB2max parameter
       ! in former versions).

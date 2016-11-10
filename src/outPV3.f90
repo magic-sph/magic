@@ -4,7 +4,7 @@ module outPV3
    use parallel_mod, only: rank
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
-                         l_max, minc, m_max
+       &                 l_max, minc, m_max, l_axi
    use radial_functions, only: cheb_norm, r_ICB, chebt_oc, r_CMB
    use physical_parameters, only: radratio
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
@@ -558,11 +558,13 @@ contains
       end do
 
       !----- Transform m 2 phi for flow field:
-      call fft_to_real(VrS,nrp,nZmax)
-      call fft_to_real(VtS,nrp,nZmax)
-      call fft_to_real(VpS,nrp,nZmax)
-      call fft_to_real(VorS,nrp,nZmax)
-      call fft_to_real(dpVorS,nrp,nZmax)
+      if ( .not. l_axi ) then
+         call fft_to_real(VrS,nrp,nZmax)
+         call fft_to_real(VtS,nrp,nZmax)
+         call fft_to_real(VpS,nrp,nZmax)
+         call fft_to_real(VorS,nrp,nZmax)
+         call fft_to_real(dpVorS,nrp,nZmax)
+      end if
 
    end subroutine getPVptr
 !---------------------------------------------------------------------------------
