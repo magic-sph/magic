@@ -1,0 +1,49 @@
+&grid
+ n_r_max     =81,
+ n_cheb_max  =79,
+ n_theta_axi =160,
+ n_r_ic_max  =17,
+n_cheb_ic_max=15,
+ minc        =1,
+ l_axi       =.true.,
+/
+&control
+ mode        =7,
+ tag         ="start",
+ n_time_steps=100,
+ courfac     =2.5D0,
+ alffac      =1.0D0,
+ dtmax       =1.0D-4,
+ n_cour_step =5,
+ alpha       =0.5D0,
+ runHours    =12,
+ runMinutes  =00,
+/
+&phys_param
+ ek          =1.0D-4,
+ radratio    =0.35D0,
+ ktopv       =2,
+ kbotv       =2,
+/
+&start_field
+ l_start_file=.false.,
+ start_file  ="rst_end.start",
+ init_v1     =1,
+/
+&output_control
+ n_log_step  =50,
+ n_graphs    =1,
+ n_rsts      =1,
+ n_stores    =0,
+ runid       ="Axisymmetric Couette",
+ l_RMS       =.false.,
+ l_power     =.true.,
+/
+&mantle 
+ nRotMa      =0,
+/
+&inner_core 
+ sigma_ratio =0.d0,
+ nRotIC      =-1,
+ omega_ic1   =-4000.d0,
+/

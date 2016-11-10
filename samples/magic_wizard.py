@@ -21,6 +21,7 @@ import isothermal_nrho3.unitTest
 import dynamo_benchmark_condICrotIC.unitTest
 import varCond.unitTest
 import hydro_bench_anel.unitTest
+import couetteAxi.unitTest
 import testCoeffOutputs.unitTest
 import testRMSOutputs.unitTest
 import testGraphMovieOutputs.unitTest
@@ -242,6 +243,12 @@ def getSuite(startdir, cmd, precision, args):
         # Double Diffusion
         suite.addTest(doubleDiffusion.unitTest.DoubleDiffusion('outputFileDiff',
                                                   '%s/doubleDiffusion'\
+                                                  % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
+        # Axisymmetric run (spherical Couette)
+        suite.addTest(couetteAxi.unitTest.CouetteAxi('outputFileDiff',
+                                                  '%s/couetteAxi'\
                                                   % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
