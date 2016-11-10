@@ -84,6 +84,9 @@ The ``--level LEV`` option defines the priority level of check and validation of
   |         |   (`Breuer et al., 2010                                   |
   |         |   <http://dx.doi.org/10.1111/j.1365-246X.2010.04722.x>`_) |
   |         |   - start from a saturated state (``doubleDiffusion``)    |
+  |         | * Axisymmetric spherical Couette flow - this auto-test    |
+  |         |   checks the axisymmetric version of MagIC                |
+  |         |   (``couetteAxi``)                                        |
   +---------+-----------------------------------------------------------+
   | 1       | * Test reading and writing of                             |
   |         |   restart files (``testRestart``)                         |

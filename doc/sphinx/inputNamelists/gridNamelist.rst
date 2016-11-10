@@ -28,6 +28,10 @@ Outer Core
 
   .. note:: The possible values for :f:var:`n_phi_max` are thus: 16, 32, 48, 64, 96, 128, 192, 256, 288? 320, 384, 400, 512, 576, 640, 768, 864, 1024, 1280, 1536, 1792, 2048, ...
 
+* **l_axi** (default :f:var:`l_axi=.false. <l_axi>`) is a logical. When set to true, one considers only the axisymmetric mode (i.e. MagIC becomes a 2-D axisymmetric code).
+
+* **n_theta_axi** (default :f:var:`n_theta_axi=0 <n_theta_axi>`) is an integer which gives the number of latitudinal grid points when MagIC computes only the axisymmetric mode.
+
 Inner Core
 ----------
 
