@@ -181,7 +181,7 @@ contains
 #endif
             end do ! End of loop over theta blocks
 #ifdef WITH_SHTNS
-               call spat_to_SH(ome, omeLM)
+            call spat_to_SH(ome, omeLM)
 #endif
     
             !------------ ome now in spherical harmonic space,
@@ -607,7 +607,7 @@ contains
 
          end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-            call spat_to_SH(sCMB, sLM)
+         call spat_to_SH(sCMB, sLM)
 #endif
 
       !--- sFac describes the linear dependence of the (l=0,m=0) mode
@@ -683,7 +683,7 @@ contains
 
       end do ! Loop over theta blocks
 #ifdef WITH_SHTNS
-         call spat_to_SH(sCMB, sLM)
+      call spat_to_SH(sCMB, sLM)
 #endif
 
 

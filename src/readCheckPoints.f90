@@ -30,6 +30,7 @@ module readCheckPoints
    private
 
    logical :: lreadS,lreadXi
+   logical :: l_axi_old
 
    integer(lip) :: bytes_allocated=0
 
@@ -146,7 +147,13 @@ contains
            write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
            sigma_ratio_old,sigma_ratio
     
-      l_max_old=nalias_old*n_phi_tot_old/60
+      if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+         l_max_old=nalias_old*n_theta_max_old/30
+         l_axi_old=.true.
+      else
+         l_max_old=nalias_old*n_phi_tot_old/60
+         l_axi_old=.false.
+      end if
       l_mag_old=.false.
       if ( pm_old /= 0.0_cp ) l_mag_old= .true. 
     
@@ -156,7 +163,7 @@ contains
            write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
       if ( l_max_old /= l_max ) &
            write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
-    
+
     
       if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
            inform==13) then
@@ -174,8 +181,8 @@ contains
       allocate( lm2lmo(lm_max) )
     
       call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-                     m_max,minc,minc_old,inform,lm_max,   &
-                     lm_max_old,n_data_oldP,lm2lmo)
+           &         m_max,minc,minc_old,inform,lm_max,   &
+           &         lm_max_old,n_data_oldP,lm2lmo)
     
       ! allocation of local arrays.
       ! if this becomes a performance bottleneck, one can make a module
@@ -205,9 +212,9 @@ contains
       n_r_maxL = max(n_r_max,n_r_max_old)
     
       call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
-                        n_r_max_old,lm_max_old,n_r_maxL,      &
-                        .false.,.false.,.false.,.false.,      &
-                        .false.,w,z,p,s,xi )
+           &            n_r_max_old,lm_max_old,n_r_maxL,      &
+           &            .false.,.false.,.false.,.false.,      &
+           &            .false.,w,z,p,s,xi )
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
          s(:,:)=zero
@@ -233,9 +240,9 @@ contains
       !PERFOFF
     
       call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
-                         n_r_max_old,lm_max_old,n_r_maxL,.true., &
-                         .true.,.true.,.true.,.true.,dwdt,dzdt,  &
-                         dpdt,dsdt,dxidt )
+           &             n_r_max_old,lm_max_old,n_r_maxL,.true., &
+           &             .true.,.true.,.true.,.true.,dwdt,dzdt,  &
+           &             dpdt,dsdt,dxidt )
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
          dsdt(:,:)=zero
@@ -257,8 +264,8 @@ contains
     
          if ( l_mag ) then
             call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
-                             lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
-                             .false.,aj,dbdt,djdt,b )
+                 &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
+                 &           .false.,aj,dbdt,djdt,b )
          end if
       else
          write(*,*) '! No magnetic data in input file!'
@@ -297,8 +304,8 @@ contains
     
       !-- If starting from data file with longitudinal symmetry, add
       !   weak non-axisymmetric dipole component if tipdipole  /=  0
-      if ( ( l_mag .or. l_mag_LF )                                    &
-           &       .and. minc==1 .and. minc_old/=1 .and.                  &
+      if ( ( l_mag .or. l_mag_LF )                                &
+           &       .and. minc==1 .and. minc_old/=1 .and.          &
            &       tipdipole>0.0_cp .and. l_mag_old ) then
          do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
             lmStart=lmStartB(nLMB)
@@ -329,8 +336,8 @@ contains
          if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
             allocate( lm2lmo(lm_max) )
             call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                     m_max,minc,minc_old,inform,lm_max,   &
-                     lm_max_old,n_data_oldP,lm2lmo)
+                 &         m_max,minc,minc_old,inform,lm_max,         &
+                 &         lm_max_old,n_data_oldP,lm2lmo)
     
             n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
             allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
@@ -338,9 +345,10 @@ contains
     
             read(n_start_file) so,wo,zo,po
             if ( l_mag ) then
-               call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
-                                lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
-                                .true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
+               call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,    &
+                    &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL, &
+                    &           lm2lmo,n_r_ic_maxMag,.true.,aj_ic,     &
+                    &           dbdt_ic,djdt_ic,b_ic )
             end if
     
             deallocate( lm2lmo )
@@ -393,7 +401,7 @@ contains
             write(*,*) '! Could not read last line in input file!'
             write(*,*) '! Data missing or wrong format!'
             write(*,*) '! Change inform accordingly!'
-            STOP
+            stop
          end if
       else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
          read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
@@ -402,7 +410,7 @@ contains
             write(*,*) '! Could not read last line in input file!'
             write(*,*) '! Data missing or wrong format!'
             write(*,*) '! Change inform accordingly!'
-            STOP
+            stop
          end if
       else if ( inform == 7 .or. inform == 8 ) then
          read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
@@ -429,7 +437,7 @@ contains
             write(*,*) '! Could not read last line in input file!'
             write(*,*) '! Data missing or wrong format!'
             write(*,*) '! Change inform accordingly!'
-            STOP
+            stop
          end if
       else
          !-- These could possibly be calcualted from the B-field
@@ -487,7 +495,7 @@ contains
             tOmega_ic1=time+tShift_ic1
             tOmega_ic2=time+tShift_ic2
             omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                 omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                     omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
             write(*,*)
             write(*,*) '! I use prescribed inner core rotation rate:'
             write(*,*) '! omega_ic=',omega_ic
@@ -509,7 +517,7 @@ contains
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
             omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                 omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
             write(*,*)
             write(*,*) '! I use prescribed mantle rotation rate:'
             write(*,*) '! omega_ma =',omega_ma
@@ -522,8 +530,6 @@ contains
       else
          omega_ma=0.0_cp
       end if
-    
-    
     
       close(n_start_file)
  
@@ -675,8 +681,8 @@ contains
       allocate( lm2lmo(lm_max) )
 
       call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-                     m_max,minc,minc_old,inform,lm_max,   &
-                     lm_max_old,n_data_oldP,lm2lmo)
+           &         m_max,minc,minc_old,inform,lm_max,   &
+           &         lm_max_old,n_data_oldP,lm2lmo)
       n_data_oldP=lm_max*(n_r_max+1)
 
       allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
@@ -706,9 +712,9 @@ contains
 
       n_r_maxL = max(n_r_max,n_r_max_old)
       call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
-                         n_r_max_old,lm_max_old,n_r_maxL,     &
-                         .false.,.false.,.false.,.false.,     &
-                         .false.,w,z,p,s,xi )
+           &             n_r_max_old,lm_max_old,n_r_maxL,     &
+           &             .false.,.false.,.false.,.false.,     &
+           &             .false.,w,z,p,s,xi )
 
       call h5oexists_by_name_f(file_id, '/dtFields/dsdtLast', link_exists, error)
       if ( link_exists ) then
@@ -733,9 +739,9 @@ contains
       call h5dclose_f(dset_id, error)
 
       call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
-                         n_r_max_old,lm_max_old,n_r_maxL,.true., &
-                        .true.,.true.,.true.,.true.,dwdt,dzdt,   &
-                        dpdt,dsdt,dxidt )
+           &             n_r_max_old,lm_max_old,n_r_maxL,.true., &
+           &            .true.,.true.,.true.,.true.,dwdt,dzdt,   &
+           &            dpdt,dsdt,dxidt )
 
       if ( l_mag_old ) then
          call h5dopen_f(grp_id, 'b_pol', dset_id, error)
@@ -759,8 +765,8 @@ contains
          call h5dclose_f(dset_id, error)
 
         call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
-                            lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
-                            .false.,aj,dbdt,djdt,b )
+             &              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
+             &              .false.,aj,dbdt,djdt,b )
       else
         write(*,*) '! No magnetic data in input file!'
       end if
@@ -807,8 +813,8 @@ contains
          if ( sigma_ratio_old /= 0.0_cp ) then
             allocate( lm2lmo(lm_max) )
             call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                                 m_max,minc,minc_old,inform,lm_max,   &
-                                 lm_max_old,n_data_oldP,lm2lmo)
+                 &         m_max,minc,minc_old,inform,lm_max,         &
+                 &         lm_max_old,n_data_oldP,lm2lmo)
 
             n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
             allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
@@ -993,8 +999,8 @@ contains
 #endif
 !------------------------------------------------------------------------------
    subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-                        m_max,minc,minc_old,inform,lm_max,   &
-                        lm_max_old,n_data_oldP,lm2lmo)
+              &         m_max,minc,minc_old,inform,lm_max,   &
+              &         lm_max_old,n_data_oldP,lm2lmo)
 
       !--- Input variables
       integer, intent(in) :: n_r_max,l_max,m_max,minc
@@ -1035,10 +1041,14 @@ contains
          !----- Mapping onto new grid !
          write(*,'(/,'' ! Mapping onto new grid.'')')
 
-         if ( MOD(minc_old,minc) /= 0 )                                &
+         if ( mod(minc_old,minc) /= 0 )                                &
               &     write(6,'('' ! Warning: Incompatible old/new minc= '',2i3)')
 
-         m_max_old =(l_max_old/minc_old)*minc_old
+         if ( .not. l_axi_old ) then
+            m_max_old =(l_max_old/minc_old)*minc_old
+         else
+            m_max_old =0
+         end if
          lm_max_old=m_max_old*(l_max_old+1)/minc_old -                &
               &     m_max_old*(m_max_old-minc_old)/(2*minc_old) +     &
               &     l_max_old-m_max_old+1
@@ -1080,8 +1090,8 @@ contains
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
    subroutine mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo, &
-                            n_r_max_old,lm_max_old,n_r_maxL,    &
-                            lBc1,lBc2,lBc3,lBc4,lBc5,w,z,p,s,xi )
+              &             n_r_max_old,lm_max_old,n_r_maxL,    &
+              &             lBc1,lBc2,lBc3,lBc4,lBc5,w,z,p,s,xi )
 
       !--- Input variables
       integer,     intent(in) :: n_r_max_old,lm_max_old
@@ -1224,10 +1234,10 @@ contains
                      poR(nR)=po(n)
                      soR(nR)=so(n)
                   end do
-                  call mapDataR(woR,dim1,n_r_max_old,n_r_maxL,.FALSE.,l_IC)
-                  call mapDataR(zoR,dim1,n_r_max_old,n_r_maxL,.TRUE.,l_IC)
-                  call mapDataR(poR,dim1,n_r_max_old,n_r_maxL,.TRUE.,l_IC)
-                  call mapDataR(soR,dim1,n_r_max_old,n_r_maxL,.FALSE.,l_IC)
+                  call mapDataR(woR,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
+                  call mapDataR(zoR,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
+                  call mapDataR(poR,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
+                  call mapDataR(soR,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
                   do nR=1,n_rad_tot
                      w(lm,nR)=scale_b*woR(nR)
                      z(lm,nR)=scale_b*zoR(nR)

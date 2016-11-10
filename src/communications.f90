@@ -8,7 +8,7 @@ module communications
    use mem_alloc, only: memWrite, bytes_allocated
    use parallel_mod, only: rank, n_procs, ierr, nr_per_rank, nr_on_last_rank
    use LMLoop_data, only: llm, ulm
-   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max
+   use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_mag_kin
@@ -400,23 +400,39 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         do nR=1,self%dim2
-            do l=0,l_max
-               do m=0,l,minc
-                  arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
+         if ( .not. l_axi ) then
+            do nR=1,self%dim2
+               do l=0,l_max
+                  do m=0,l,minc
+                     arr_full(st_map%lm2(l,m),nR) = temp_lo(lo_map%lm2(l,m),nR)
+                  end do
                end do
             end do
-         end do
+         else
+            do nR=1,self%dim2
+               do l=0,l_max
+                  arr_full(st_map%lm2(l,0),nR) = temp_lo(lo_map%lm2(l,0),nR)
+               end do
+            end do
+         end if
          deallocate(temp_lo)
       end if
 #else
-      do nR=1,self%dim2
-         do l=0,l_max
-            do m=0,l,minc
-               arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+      if ( .not. l_axi ) then
+         do nR=1,self%dim2
+            do l=0,l_max
+               do m=0,l,minc
+                  arr_full(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+               end do
             end do
          end do
-      end do
+      else
+         do nR=1,self%dim2
+            do l=0,l_max
+               arr_full(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
+            end do
+         end do
+      end if
 #endif
 
    end subroutine gather_all_from_lo_to_rank0
@@ -490,18 +506,30 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         do l=0,l_max
-            do m=0,l,minc
-               arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
+         if ( .not. l_axi ) then
+            do l=0,l_max
+               do m=0,l,minc
+                  arr_full(st_map%lm2(l,m)) = temp_gather_lo(lo_map%lm2(l,m))
+               end do
             end do
-         end do
+         else
+            do l=0,l_max
+               arr_full(st_map%lm2(l,0)) = temp_gather_lo(lo_map%lm2(l,0))
+            end do
+         end if
       end if
 #else
-      do l=0,l_max
-         do m=0,l,minc
-            arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
+      if ( .not. l_axi ) then
+         do l=0,l_max
+            do m=0,l,minc
+               arr_full(st_map%lm2(l,m)) = arr_lo(lo_map%lm2(l,m))
+            end do
          end do
-      end do
+      else
+         do l=0,l_max
+            arr_full(st_map%lm2(l,0)) = arr_lo(lo_map%lm2(l,0))
+         end do
+      end if
 #endif
     
    end subroutine gather_from_lo_to_rank0
@@ -524,22 +552,34 @@ contains
 
       if ( rank == 0 ) then
          ! reorder
-         do l=0,l_max
-            do m=0,l,minc
-               temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
+         if ( .not. l_axi ) then
+            do l=0,l_max
+               do m=0,l,minc
+                  temp_gather_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
+               end do
             end do
-         end do
+         else
+            do l=0,l_max
+               temp_gather_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
+            end do
+         end if
       end if
 
       call MPI_ScatterV(temp_gather_lo,sendcounts,displs,MPI_DEF_COMPLEX,&
            &            arr_lo,sendcounts(rank),MPI_DEF_COMPLEX,0,       &
            &            MPI_COMM_WORLD,ierr)
 #else
-      do l=0,l_max
-         do m=0,l,minc
-            arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
+      if ( .not. l_axi ) then
+         do l=0,l_max
+            do m=0,l,minc
+               arr_lo(lo_map%lm2(l,m)) = arr_full(st_map%lm2(l,m))
+            end do
          end do
-      end do
+      else
+         do l=0,l_max
+            arr_lo(lo_map%lm2(l,0)) = arr_full(st_map%lm2(l,0))
+         end do
+      end if
 #endif
 
    end subroutine scatter_from_rank0_to_lo
@@ -784,16 +824,27 @@ contains
       call lm2r_redist_wait(self)
       ! now in self%temp_Rloc we do have the lo_ordered r-local part
       ! now reorder to the original ordering
-      do i=1,self%count
-         do nR=nRstart,nRstop
-            do l=0,l_max
-               do m=0,l,minc
-                  self%arr_Rloc(st_map%lm2(l,m),nR,i) = &
-                         self%temp_Rloc(lo_map%lm2(l,m),nR,i)
+      if ( .not. l_axi ) then
+         do i=1,self%count
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     self%arr_Rloc(st_map%lm2(l,m),nR,i) = &
+                            self%temp_Rloc(lo_map%lm2(l,m),nR,i)
+                  end do
                end do
             end do
          end do
-      end do
+      else
+         do i=1,self%count
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  self%arr_Rloc(st_map%lm2(l,0),nR,i) = &
+                         self%temp_Rloc(lo_map%lm2(l,0),nR,i)
+               end do
+            end do
+         end do
+      end if
       !PERFOFF
 
    end subroutine lo2r_redist_wait
@@ -929,16 +980,27 @@ contains
   
       ! Just copy the array with permutation
       !PERFON('r2lo_dst')
-      do i=1,self%count
-         do nR=nRstart,nRstop
-            do l=0,l_max
-               do m=0,l,minc
-                  self%temp_Rloc(lo_map%lm2(l,m),nR,i) = & 
-                                   arr_Rloc(st_map%lm2(l,m),nR,i)
+      if ( .not. l_axi ) then
+         do i=1,self%count
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  do m=0,l,minc
+                     self%temp_Rloc(lo_map%lm2(l,m),nR,i) = & 
+                                      arr_Rloc(st_map%lm2(l,m),nR,i)
+                  end do
                end do
             end do
          end do
-      end do
+      else
+         do i=1,self%count
+            do nR=nRstart,nRstop
+               do l=0,l_max
+                  self%temp_Rloc(lo_map%lm2(l,0),nR,i) = & 
+                                   arr_Rloc(st_map%lm2(l,0),nR,i)
+               end do
+            end do
+         end do
+      end if
   
       call r2lm_redist_start(self,self%temp_Rloc,arr_lo)
       !PERFOFF
@@ -968,13 +1030,21 @@ contains
          stop
       end if
   
-      do nR=1,n_r_max
-         do l=0,l_max
-            do m=0,l,minc
-               arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
+      if ( .not. l_axi ) then
+         do nR=1,n_r_max
+            do l=0,l_max
+               do m=0,l,minc
+                  arr_lo(lo_map%lm2(l,m),nR) = arr_LMloc(st_map%lm2(l,m),nR)
+               end do
             end do
          end do
-      end do
+      else
+         do nR=1,n_r_max
+            do l=0,l_max
+               arr_lo(lo_map%lm2(l,0),nR) = arr_LMloc(st_map%lm2(l,0),nR)
+            end do
+         end do
+      end if
     
    end subroutine lm2lo_redist
 !-------------------------------------------------------------------------------
@@ -991,13 +1061,21 @@ contains
          stop
       end if
   
-      do nR=1,n_r_max
-         do l=0,l_max
-            do m=0,l,minc
-               arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+      if ( .not. l_axi ) then
+         do nR=1,n_r_max
+            do l=0,l_max
+               do m=0,l,minc
+                  arr_LMloc(st_map%lm2(l,m),nR) = arr_lo(lo_map%lm2(l,m),nR)
+               end do
             end do
          end do
-      end do
+      else
+         do nR=1,n_r_max
+            do l=0,l_max
+               arr_LMloc(st_map%lm2(l,0),nR) = arr_lo(lo_map%lm2(l,0),nR)
+            end do
+         end do
+      end if
       
    end subroutine lo2lm_redist
 !-------------------------------------------------------------------------------

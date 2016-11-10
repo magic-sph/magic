@@ -485,18 +485,30 @@ contains
       sES=0.0_cp
       sEA=0.0_cp
       sAA=0.0_cp
-      do m=0,l_max,minc
-         do l=m,l_max
-            if ( l > 0 ) then
-               if ( mod(l+m,2) == 0 ) then
-                  sES=sES+cc2real(tops(l,m),m)
-               else
-                  sEA=sEA+cc2real(tops(l,m),m)
+      if ( .not. l_axi ) then
+         do m=0,l_max,minc
+            do l=m,l_max
+               if ( l > 0 ) then
+                  if ( mod(l+m,2) == 0 ) then
+                     sES=sES+cc2real(tops(l,m),m)
+                  else
+                     sEA=sEA+cc2real(tops(l,m),m)
+                  end if
+                  if ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
                end if
-               if ( m /= 0 ) sAA=sAA+cc2real(tops(l,m),m)
+            end do
+         end do
+      else
+         do l=0,l_max
+            if ( l > 0 ) then
+               if ( mod(l,2) == 0 ) then
+                  sES=sES+cc2real(tops(l,0),0)
+               else
+                  sEA=sEA+cc2real(tops(l,0),0)
+               end if
             end if
          end do
-      end do
+      end if
       if ( sEA+sES == 0 ) then
          write(message,'(''! Only l=m=0 comp. in tops:'')')
          call logWrite(message)
@@ -514,18 +526,30 @@ contains
          xiES=0.0_cp
          xiEA=0.0_cp
          xiAA=0.0_cp
-         do m=0,l_max,minc
-            do l=m,l_max
-               if ( l > 0 ) then
-                  if ( mod(l+m,2) == 0 ) then
-                     xiES=xiES+cc2real(topxi(l,m),m)
-                  else
-                     xiEA=xiEA+cc2real(topxi(l,m),m)
+         if ( .not. l_axi ) then
+            do m=0,l_max,minc
+               do l=m,l_max
+                  if ( l > 0 ) then
+                     if ( mod(l+m,2) == 0 ) then
+                        xiES=xiES+cc2real(topxi(l,m),m)
+                     else
+                        xiEA=xiEA+cc2real(topxi(l,m),m)
+                     end if
+                     if ( m /= 0 ) xiAA=xiAA+cc2real(topxi(l,m),m)
                   end if
-                  if ( m /= 0 ) xiAA=xiAA+cc2real(topxi(l,m),m)
+               end do
+            end do
+         else
+            do l=0,l_max
+               if ( l > 0 ) then
+                  if ( mod(l,2) == 0 ) then
+                     xiES=xiES+cc2real(topxi(l,0),0)
+                  else
+                     xiEA=xiEA+cc2real(topxi(l,0),0)
+                  end if
                end if
             end do
-         end do
+         end if
          if ( xiEA+xiES == 0 ) then
             write(message,'(''! Only l=m=0 comp. in topxi:'')')
             call logWrite(message)

@@ -364,7 +364,11 @@ contains
                   toptemp   =temp0(n_r_cmb)*topentropy+ViscHeatFac*ThExpNb*   &
                     &        orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
                     &        toppres
-                  deltanuss = deltacond/(botentropy-topentropy)
+                  if ( botentropy /= topentropy ) then
+                     deltanuss = deltacond/(botentropy-topentropy)
+                  else
+                     deltanuss = one
+                  end if
                end if
 
             end if
