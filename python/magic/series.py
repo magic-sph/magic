@@ -358,7 +358,8 @@ class MagicTs(MagicSetup):
                 self.ohmDiss = data[:, 5]
                 self.icPower = data[:, 6]
                 self.mantlePower = data[:, 7]
-            self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
+                if (self.buoPower+self.buoPower_chem).max() != 0:
+                     self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
             self.omega_ic = data[:,1]
@@ -594,7 +595,8 @@ class MagicTs(MagicSetup):
         elif self.field in ('power'):
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
+            if self.buoPower.max() != 0.:
+               ax.semilogy(self.time, self.buoPower, label='Thermal buoyancy')
             if self.buoPower_chem.max() != 0.:
                 ax.semilogy(self.time, self.buoPower_chem,
                             label='Chemical buoyancy')
@@ -605,7 +607,7 @@ class MagicTs(MagicSetup):
             ax.set_xlabel('Time')
             ax.set_ylabel('Power')
 
-            if self.fohm.max() > 0.:
+            if hasattr(self,'fohm'):
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.fohm)
