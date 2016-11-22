@@ -882,7 +882,8 @@ class AvgField:
                 self.buoPower = avgField(tspow.time[ind:], tspow.buoPower[ind:])
                 if self.mode == 0 or self.mode == 8:
                     self.ohmDiss = avgField(tspow.time[ind:], tspow.ohmDiss[ind:])
-                    self.fohm = avgField(tspow.time[ind:], tspow.fohm[ind:])
+                    if self.mode == 0:
+                        self.fohm = avgField(tspow.time[ind:], tspow.fohm[ind:])
 
         else:
             self.ohmDiss = -1.
