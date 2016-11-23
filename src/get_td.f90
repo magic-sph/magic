@@ -1,4 +1,3 @@
-#include "perflib_preproc.cpp"
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
 #endif
@@ -13,7 +12,7 @@ module nonlinear_lm_mod
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
        &             l_chemical_conv, l_TP_form, l_single_matrix
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
-       &                       or4, temp0, alpha0, orho1
+       &                       or4, temp0, alpha0
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ThExpNb, ogrun
@@ -40,7 +39,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
-      complex(cp), allocatable :: VPrLM(:),  VPtLM(:),  VPpLM(:)
+      complex(cp), allocatable :: VPrLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
       !----- RMS calculations
       complex(cp), allocatable :: Advt2LM(:), Advp2LM(:)
@@ -83,9 +82,7 @@ contains
 
       if ( l_TP_form ) then
          allocate( this%VPrLM(lmP_max) )    
-         allocate( this%VPtLM(lmP_max) )    
-         allocate( this%VPpLM(lmP_max) )    
-         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + lmP_max*SIZEOF_DEF_COMPLEX
       end if
       
       if ( l_chemical_conv ) then
@@ -131,8 +128,6 @@ contains
 
       if ( l_TP_form ) then
          deallocate( this%VPrLM )    
-         deallocate( this%VPtLM )    
-         deallocate( this%VPpLM )    
       end if
 
       if ( l_chemical_conv ) then
@@ -176,8 +171,6 @@ contains
 
       if ( l_TP_form ) then
          this%VPrLM =zero
-         this%VPtLM =zero
-         this%VPpLM =zero
       end if
 
       if ( l_chemical_conv ) then
@@ -659,6 +652,7 @@ contains
          if ( l_heat ) then
             dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
             dVSrLM(1)=this%VSrLM(1)
+            if ( l_TP_form ) dVPrLM(1)=this%VPrLM(1)
             if ( l_anel ) then
                if ( l_anelastic_liquid .or. l_TP_form ) then
                   if ( l_mag_nl ) then
@@ -686,7 +680,7 @@ contains
             !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
             !$OMP shared(lm_max,dsdt,dVSrLM,dTheta1S,dTheta1A,dPhi) &
             !$OMP shared(l_anel,l_anelastic_liquid,l_mag_nl,nR) &
-            !$OMP shared(l_TP_form) &
+            !$OMP shared(l_TP_form, dVPrLM) &
             !$OMP shared(ViscHeatFac,hdif_V,OhmLossFac,hdif_B,temp0,this)
             !LIKWID_ON('td_heat')
             !$OMP DO
@@ -733,6 +727,7 @@ contains
                !                    -dLh(lm)*w(lm,nR)*or2(nR)*dsR(1)
                dVSrLM(lm)=this%VSrLM(lmP)
                dsdt(lm) = dsdt_loc
+               if ( l_TP_form ) dVPrLM(lm)=this%VPrLM(lmP)
             end do
             !$OMP end do
             !LIKWID_OFF('td_heat')
@@ -743,43 +738,6 @@ contains
                dsdt(lm)  =0.0_cp
                dVSrLM(lm)=0.0_cp
             end do
-         end if
-
-         if ( l_TP_form ) then
-            dVPrLM(1)=this%VPrLM(1)
-
-            !PERFON('td_p_heat')
-            !$OMP PARALLEL DEFAULT(none) &
-            !$OMP private(lm,l,m,lmP,lmPS,lmPA,dsdt_loc) &
-            !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
-            !$OMP shared(lm_max,dsdt,dVPrLM,dTheta1S,dTheta1A,dPhi) &
-            !$OMP shared(nR,alpha0,temp0,orho1,ViscHeatFac,ThExpNb,this) 
-            !LIKWID_ON('td_p_heat')
-            !$OMP DO
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
-    
-               if ( l > m ) then
-                  dsdt_loc= -dTheta1S(lm)*this%VPtLM(lmPS) &
-                       &     +dTheta1A(lm)*this%VPtLM(lmPA) &
-                       &     -dPhi(lm)*this%VPpLM(lmP)
-               else if ( l == m ) then
-                  dsdt_loc=  dTheta1A(lm)*this%VPtLM(lmPA) &
-                       &     -dPhi(lm)*this%VPpLM(lmP)
-               end if
-
-               dVPrLM(lm)=this%VPrLM(lmP)
-               dsdt(lm) = dsdt(lm) - alpha0(nR)*temp0(nR)*orho1(nR)*&
-               &          ViscHeatFac*ThExpNb*dsdt_loc
-            end do
-            !$OMP end do
-            !LIKWID_OFF('td_p_heat')
-            !$OMP END PARALLEL
-            !PERFOFF
          end if
 
          if ( l_chemical_conv ) then

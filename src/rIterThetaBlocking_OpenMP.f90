@@ -570,8 +570,6 @@ contains
       if ( l_TP_form ) then
          do iThread=1,this%nThreads-1
             this%nl_lm(0)%VPrLM=this%nl_lm(0)%VPrLM + this%nl_lm(iThread)%VPrLM
-            this%nl_lm(0)%VPtLM=this%nl_lm(0)%VPtLM + this%nl_lm(iThread)%VPtLM
-            this%nl_lm(0)%VPpLM=this%nl_lm(0)%VPpLM + this%nl_lm(iThread)%VPpLM
          end do
       end if
 

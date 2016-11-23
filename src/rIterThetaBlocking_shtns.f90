@@ -631,8 +631,6 @@ contains
       if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
          !PERFON('inner2')
          call spat_to_SH(gsa%VPr, nl_lm%VPrLM)
-         call spat_to_SH(gsa%VPt, nl_lm%VPtLM)
-         call spat_to_SH(gsa%VPp, nl_lm%VPpLM)
          !PERFOFF
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then

@@ -17,8 +17,9 @@ module grid_space_arrays_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
-       &                       lambda, or4, or1
-   use physical_parameters, only: LFfac, n_r_LCR, CorFac
+       &                       lambda, or4, or1, alpha0, temp0
+   use physical_parameters, only: LFfac, n_r_LCR, CorFac,  &
+       &                          ThExpNb, ViscHeatFac
    use blocking, only: nfs, sizeThetaB
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta
    use constants, only: two, third
@@ -36,7 +37,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
-      real(cp), allocatable :: VPr(:,:), VPt(:,:), VPp(:,:)
+      real(cp), allocatable :: VPr(:,:)
       real(cp), allocatable :: ViscHeat(:,:), OhmLoss(:,:)
 
       !---- RMS calculations
@@ -93,9 +94,7 @@ contains
 
       if ( l_TP_form ) then
          allocate( this%VPr(nrp,nfs) )
-         allocate( this%VPt(nrp,nfs) )
-         allocate( this%VPp(nrp,nfs) )
-         bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
+         bytes_allocated=bytes_allocated + nrp*nfs*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
@@ -161,8 +160,6 @@ contains
       deallocate( this%VSp )
       if ( l_TP_form ) then
          deallocate( this%VPr )
-         deallocate( this%VPt )
-         deallocate( this%VPp )
       end if
       if ( l_chemical_conv ) then
          deallocate( this%VXir )
@@ -348,23 +345,50 @@ contains
       end if  ! Navier-Stokes nonlinear advection term ?
 
       if ( l_heat_nl .and. nBc == 0 ) then
-         !------ Get V S, the divergence of it is entropy advection:
-         !$OMP PARALLEL DO default(none) &
-         !$OMP& private(nThetaB, nPhi, nThetaNHS, or2sn2) &
-         !$OMP& shared(this, or2, osn2, sizeThetaB, nR, n_phi_max)
-         do nThetaB=1,sizeThetaB
-            nThetaNHS=(nThetaB+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
-            do nPhi=1,n_phi_max     ! calculate v*s components
-               this%VSr(nPhi,nThetaB)= &
-                    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-               this%VSt(nPhi,nThetaB)= &
-                    or2sn2*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-               this%VSp(nPhi,nThetaB)= &
-                    or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-            end do
-         end do  ! theta loop
-         !$OMP END PARALLEL DO
+         if ( l_TP_form ) then
+            !------ Get V S, the divergence of it is entropy advection:
+            !$OMP PARALLEL DO default(none) &
+            !$OMP& private(nThetaB, nPhi, nThetaNHS, or2sn2) &
+            !$OMP& shared(this, or2, osn2, sizeThetaB, nR, n_phi_max) &
+            !$OMP& shared(alpha0, temp0, orho1, ThExpNb, ViscHeatFac)
+            do nThetaB=1,sizeThetaB
+               nThetaNHS=(nThetaB+1)/2
+               or2sn2=or2(nR)*osn2(nThetaNHS)
+               do nPhi=1,n_phi_max     ! calculate v*s components
+                  this%VSr(nPhi,nThetaB)=                                   &
+                  &    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSt(nPhi,nThetaB)=                                   &
+                  &    or2sn2*(this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  &    ThExpNb*this%vtc(nPhi,nThetaB)*this%pc(nPhi,nThetaB))
+                  this%VSp(nPhi,nThetaB)=                                   &
+                  &    or2sn2*(this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  &    ThExpNb*this%vpc(nPhi,nThetaB)*this%pc(nPhi,nThetaB))
+                  this%VPr(nPhi,nThetaB)=                                   &
+                  &    this%vrc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
+               end do
+            end do  ! theta loop
+            !$OMP END PARALLEL DO
+         else
+            !------ Get V S, the divergence of it is entropy advection:
+            !$OMP PARALLEL DO default(none) &
+            !$OMP& private(nThetaB, nPhi, nThetaNHS, or2sn2) &
+            !$OMP& shared(this, or2, osn2, sizeThetaB, nR, n_phi_max)
+            do nThetaB=1,sizeThetaB
+               nThetaNHS=(nThetaB+1)/2
+               or2sn2=or2(nR)*osn2(nThetaNHS)
+               do nPhi=1,n_phi_max     ! calculate v*s components
+                  this%VSr(nPhi,nThetaB)= &
+                  &    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSt(nPhi,nThetaB)= &
+                  &    or2sn2*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSp(nPhi,nThetaB)= &
+                  &    or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+               end do
+            end do  ! theta loop
+            !$OMP END PARALLEL DO
+         end if
       end if     ! heat equation required ?
 
       if ( l_chemical_conv .and. nBc == 0 ) then
@@ -386,26 +410,6 @@ contains
          end do  ! theta loop
          !$OMP END PARALLEL DO
       end if     ! chemical composition equation required ?
-
-      if ( l_TP_form .and. nBc == 0 ) then
-         !------ Get V P, the divergence of it is the advection of pressure:
-         !$OMP PARALLEL DO default(none) &
-         !$OMP& private(nThetaB, nPhi, nThetaNHS, or2sn2) &
-         !$OMP& shared(this, or2, osn2, sizeThetaB, nR, n_phi_max)
-         do nThetaB=1,sizeThetaB
-            nThetaNHS=(nThetaB+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
-            do nPhi=1,n_phi_max     ! calculate v*s components
-               this%VPr(nPhi,nThetaB)= &
-               &    this%vrc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-               this%VPt(nPhi,nThetaB)= &
-               &    or2sn2*this%vtc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-               this%VPp(nPhi,nThetaB)= &
-               &    or2sn2*this%vpc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-            end do
-         end do  ! theta loop
-         !$OMP END PARALLEL DO
-      end if     ! pressure advection required ?
 
       if ( l_mag_nl ) then
 
@@ -717,26 +721,57 @@ contains
 
       if ( l_heat_nl .and. nBc == 0 ) then
          !------ Get V S, the divergence of the is entropy advection:
-         nTheta=nThetaLast
-         do nThetaB=1,sizeThetaB
-            nTheta   =nTheta+1
-            nThetaNHS=(nTheta+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
-            do nPhi=1,n_phi_max     ! calculate v*s components
-               this%VSr(nPhi,nThetaB)= &
-                    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-               this%VSt(nPhi,nThetaB)= &
-                    or2sn2*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-               this%VSp(nPhi,nThetaB)= &
-                    or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
-            end do
-            this%VSr(n_phi_max+1,nThetaB)=0.0_cp
-            this%VSr(n_phi_max+2,nThetaB)=0.0_cp
-            this%VSt(n_phi_max+1,nThetaB)=0.0_cp
-            this%VSt(n_phi_max+2,nThetaB)=0.0_cp
-            this%VSp(n_phi_max+1,nThetaB)=0.0_cp
-            this%VSp(n_phi_max+2,nThetaB)=0.0_cp
-         end do  ! theta loop
+         if ( l_TP_form ) then
+            nTheta=nThetaLast
+            do nThetaB=1,sizeThetaB
+               nTheta   =nTheta+1
+               nThetaNHS=(nTheta+1)/2
+               or2sn2=or2(nR)*osn2(nThetaNHS)
+               do nPhi=1,n_phi_max     ! calculate v*s components
+                  this%VSr(nPhi,nThetaB)=                                   &
+                  &    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSt(nPhi,nThetaB)=                                   &
+                  &    or2sn2*(this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  &    ThExpNb*this%vtc(nPhi,nThetaB)*this%pc(nPhi,nThetaB))
+                  this%VSp(nPhi,nThetaB)=                                   &
+                  &    or2sn2*(this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB) &
+                  &    - alpha0(nR)*temp0(nR)*orho1(nR)*ViscHeatFac*        &
+                  &    ThExpNb*this%vpc(nPhi,nThetaB)*this%pc(nPhi,nThetaB))
+                  this%VPr(nPhi,nThetaB)=                                   &
+                  &    this%vrc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
+               end do
+               this%VSr(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSr(n_phi_max+2,nThetaB)=0.0_cp
+               this%VSt(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSt(n_phi_max+2,nThetaB)=0.0_cp
+               this%VSp(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSp(n_phi_max+2,nThetaB)=0.0_cp
+               this%VPr(n_phi_max+1,nThetaB)=0.0_cp
+               this%VPr(n_phi_max+2,nThetaB)=0.0_cp
+            end do  ! theta loop
+         else
+            nTheta=nThetaLast
+            do nThetaB=1,sizeThetaB
+               nTheta   =nTheta+1
+               nThetaNHS=(nTheta+1)/2
+               or2sn2=or2(nR)*osn2(nThetaNHS)
+               do nPhi=1,n_phi_max     ! calculate v*s components
+                  this%VSr(nPhi,nThetaB)= &
+                  &    this%vrc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSt(nPhi,nThetaB)= &
+                  &    or2sn2*this%vtc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+                  this%VSp(nPhi,nThetaB)= &
+                  &    or2sn2*this%vpc(nPhi,nThetaB)*this%sc(nPhi,nThetaB)
+               end do
+               this%VSr(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSr(n_phi_max+2,nThetaB)=0.0_cp
+               this%VSt(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSt(n_phi_max+2,nThetaB)=0.0_cp
+               this%VSp(n_phi_max+1,nThetaB)=0.0_cp
+               this%VSp(n_phi_max+2,nThetaB)=0.0_cp
+            end do  ! theta loop
+         end if
       end if     ! heat equation required ?
 
       if ( l_chemical_conv .and. nBc == 0 ) then
@@ -760,29 +795,6 @@ contains
             this%VXit(n_phi_max+2,nThetaB)=0.0_cp
             this%VXip(n_phi_max+1,nThetaB)=0.0_cp
             this%VXip(n_phi_max+2,nThetaB)=0.0_cp
-         end do  ! theta loop
-      end if     ! chemical composition equation required ?
-
-      if ( l_TP_form .and. nBc == 0 ) then
-         nTheta=nThetaLast
-         do nThetaB=1,sizeThetaB
-            nTheta   =nTheta+1
-            nThetaNHS=(nTheta+1)/2
-            or2sn2=or2(nR)*osn2(nThetaNHS)
-            do nPhi=1,n_phi_max     ! calculate v*p components
-               this%VPr(nPhi,nThetaB)= &
-               &    this%vrc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-               this%VPt(nPhi,nThetaB)= &
-               &    or2sn2*this%vtc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-               this%VPp(nPhi,nThetaB)= &
-               &    or2sn2*this%vpc(nPhi,nThetaB)*this%pc(nPhi,nThetaB)
-            end do
-            this%VPr(n_phi_max+1,nThetaB)=0.0_cp
-            this%VPr(n_phi_max+2,nThetaB)=0.0_cp
-            this%VPt(n_phi_max+1,nThetaB)=0.0_cp
-            this%VPt(n_phi_max+2,nThetaB)=0.0_cp
-            this%VPp(n_phi_max+1,nThetaB)=0.0_cp
-            this%VPp(n_phi_max+2,nThetaB)=0.0_cp
          end do  ! theta loop
       end if     ! chemical composition equation required ?
 

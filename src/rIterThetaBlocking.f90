@@ -333,11 +333,8 @@ contains
       if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
          if ( .not. l_axi ) then
             call fft_thetab(gsa%VPr,-1)
-            call fft_thetab(gsa%VPt,-1)
-            call fft_thetab(gsa%VPp,-1)
          end if
-         call legTF3(nThetaStart,nl_lm%VPrLM,nl_lm%VPtLM,nl_lm%VPpLM,    &
-              &      gsa%VPr,gsa%VPt,gsa%VPp)
+         call legTF1(nThetaStart,nl_lm%VPrLM,gsa%VPr)
       end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
          if ( .not. l_axi ) then
