@@ -4,27 +4,18 @@ module updateS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, lm_max, n_cheb_max
+   use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc,orho1,or1,or2,              &
-                           & beta, drx, ddrx, cheb_norm, dentropy0, &
-                           & kappa, dLkappa, dLtemp0, temp0,        &   
-                           & cheb, dcheb, d2cheb
+   use radial_functions, only: chebt_oc,orho1,or1,or2,                &
+       &                       beta, drx, ddrx, cheb_norm, dentropy0, &
+       &                       kappa, dLkappa, dLtemp0, temp0,        &   
+       &                       cheb, dcheb, d2cheb
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha
    use init_fields, only: tops,bots
    use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh,hdif_S
    use logic, only: l_update_s, l_anelastic_liquid
-   use matrices, only: lSmat,s0Mat,s0Pivot,&
-#ifdef WITH_PRECOND_S
-                       & sMat_fac, &
-#endif
-#ifdef WITH_PRECOND_S0
-                       & s0Mat_fac, &
-#endif
-                       & sMat,sPivot
-
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
@@ -39,6 +30,18 @@ module updateS_mod
    !-- Local variables
    complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: s0Mat(:,:)     ! for l=m=0  
+   real(cp), allocatable :: sMat(:,:,:)
+   integer, allocatable :: s0Pivot(:)
+   integer, allocatable :: sPivot(:,:)
+#ifdef WITH_PRECOND_S
+   real(cp), allocatable :: sMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_S0
+   real(cp), allocatable :: s0Mat_fac(:)
+#endif
+   logical, public, allocatable :: lSmat(:)
+
    integer :: maxThreads
 
    public :: initialize_updateS,updateS,updateS_ala
@@ -63,7 +66,25 @@ contains
 #endif
       allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
-                        maxThreads*SIZEOF_DEF_COMPLEX
+      &                 maxThreads*SIZEOF_DEF_COMPLEX
+
+      allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
+      allocate( sMat(n_r_max,n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(n_r_max*n_r_max*(1+l_max))* &
+      &                 SIZEOF_DEF_REAL
+      allocate( s0Pivot(n_r_max) )
+      allocate( sPivot(n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*l_max)*SIZEOF_INTEGER
+#ifdef WITH_PRECOND_S
+      allocate(sMat_fac(n_r_max,l_max))
+      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+#endif
+#ifdef WITH_PRECOND_S0
+      allocate(s0Mat_fac(n_r_max))
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
+      allocate( lSmat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
    end subroutine initialize_updateS
 !------------------------------------------------------------------------------
@@ -500,7 +521,7 @@ contains
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
                              sMat(1,1,l1),sPivot(1,l1))
 #endif
-               lSmat(l1)=.TRUE.
+               lSmat(l1)=.true.
              !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
             end if
          end if

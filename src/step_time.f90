@@ -25,7 +25,7 @@ module step_time_mod
        &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
-       &            l_chemical_conv, l_mag_kin, l_power
+       &            l_chemical_conv, l_mag_kin, l_power, l_TP_form
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -74,6 +74,7 @@ module step_time_mod
    complex(cp), pointer :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
    complex(cp), pointer :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
    complex(cp), pointer :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
+   complex(cp), pointer :: dVPrLM_Rloc(:,:)
 
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
    complex(cp), pointer :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
@@ -87,6 +88,7 @@ module step_time_mod
    complex(cp), pointer :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
    complex(cp), pointer :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
    complex(cp), pointer :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
+   complex(cp), pointer :: dVPrLM_LMloc(:,:)
    complex(cp), pointer :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
@@ -108,11 +110,20 @@ contains
       dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
       dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
 
-      allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
-      dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
-      dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
-      bytes_allocated = bytes_allocated+ &
-                        5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      if ( l_TP_form ) then
+         allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
+         dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
+         dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
+         dVPrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,3)
+         bytes_allocated = bytes_allocated+ &
+                           6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
+         dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
+         dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
+         bytes_allocated = bytes_allocated+ &
+                           5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      end if
 
       if ( l_chemical_conv ) then
          allocate( dxidt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
@@ -148,6 +159,9 @@ contains
             dsdt_Rloc(lm,nR)=zero
             dpdt_Rloc(lm,nR)=zero
             dVSrLM_Rloc(lm,nR)=zero
+            if ( l_TP_form ) then
+               dVPrLM_Rloc(lm,nR)=zero
+            end if
             if ( l_chemical_conv ) then
                dxidt_Rloc(lm,nR)  =zero
                dVXirLM_Rloc(lm,nR)=zero
@@ -173,10 +187,18 @@ contains
       dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
       dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
 
-      allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
-      dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
-      dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
-      bytes_allocated = bytes_allocated+ 5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      if ( l_TP_form ) then
+         allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:3))
+         dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
+         dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
+         dVPrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,3)
+         bytes_allocated = bytes_allocated+6*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
+         dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
+         dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
+         bytes_allocated = bytes_allocated+5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
       if ( l_chemical_conv ) then
          allocate(dxidt_LMloc_container(llm:ulm,n_r_max,1:2))
@@ -830,7 +852,7 @@ contains
               &           lViscBcCalc,lFluxProfCalc,lperpParCalc,              &
               &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
               &           dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,        &
-              &           dVXirLM_Rloc,lorentz_torque_ic,                      &
+              &           dVPrLM_Rloc,dVXirLM_Rloc,lorentz_torque_ic,          &
               &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,         &
               &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,  &
               &           HelnaLMr_Rloc,Helna2LMr_Rloc,viscLMr_Rloc,           &
@@ -1120,9 +1142,9 @@ contains
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
          call LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM_LMloc,   &
-              &      dVSrLM_LMloc,dVXirLM_LMloc,dsdt_LMloc,         &
-              &      dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,  &
-              &      dbdt_LMloc,djdt_LMloc,                         &
+              &      dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,       &
+              &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,   &
+              &      dxidt_LMloc,dbdt_LMloc,djdt_LMloc,             &
               &      lorentz_torque_ma,lorentz_torque_ic,           &
               &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 

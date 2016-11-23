@@ -9,12 +9,12 @@ module rIterThetaBlocking_seq_mod
    use nonlinear_lm_mod, only: nonlinear_lm_t
  
    use truncation, only: lm_max,lmP_max, nrp, l_max, lmP_max_dtB, &
-                         n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
-                    l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
-                    l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
-                    l_movie_oc, l_TO
+       &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
+       &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
+       &            l_movie_oc, l_TO
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
@@ -84,8 +84,8 @@ contains
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
         &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxBhLM,  &
-        &                 dVSrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb,     &
-        &                 br_vt_lm_icb,br_vp_lm_icb,                    &
+        &                 dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,           &
+        &                 br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
         &                 lorentz_torque_ic, lorentz_torque_ma,         &
         &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
         &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
@@ -100,7 +100,7 @@ contains
   
       !-- Output variables
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
+      complex(cp), intent(out) :: dxidt(:), dVXirLM(:), dVPrLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -392,8 +392,8 @@ contains
       !write(*,"(A,I4,4ES20.13)") "before_td: ",this%nR,SUM(this%nl_lm%VxBtLM),&
       !     & SUM(this%nl_lm%VxBpLM)
       PERFON('get_td')
-      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM, &
-           &                 dVXirLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,   &
+      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,      &
+           &                 dVPrLM,dVXirLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt, &
            &                 dxidt,dbdt,djdt,this%leg_helper)
       PERFOFF
       !do lm=1,lm_max

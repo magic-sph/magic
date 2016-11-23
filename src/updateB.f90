@@ -9,12 +9,12 @@ module updateB_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
-                         n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
-                         n_r_totMag, lm_max
-   use radial_functions, only: chebt_ic,drx,ddrx,or2,r_cmb, chebt_oc,       &
-                            & chebt_ic_even, d2cheb_ic, cheb_norm_ic,       &
-                            & dr_fac_ic,lambda,dLlambda,o_r_ic,r,cheb_norm, &
-                            & cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic
+       &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
+       &                 n_r_totMag, lm_max, l_maxMag
+   use radial_functions, only: chebt_ic,drx,ddrx,or2,r_cmb, chebt_oc,        &
+       &                       chebt_ic_even, d2cheb_ic, cheb_norm_ic,       &
+       &                       dr_fac_ic,lambda,dLlambda,o_r_ic,r,cheb_norm, &
+       &                       cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic
    use radial_data, only: n_r_cmb,n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
                                  sigma_ratio, conductance_ma, ktopb, kbotb
@@ -23,12 +23,7 @@ module updateB_mod
    use blocking, only: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-                    l_b_nl_cmb, l_update_b 
-   use matrices, only: bPivot, jPivot, bMat, jMat, &
-#ifdef WITH_PRECOND_BJ
-                       bMat_fac, jMat_fac,         &
-#endif
-                       lBmat
+       &            l_b_nl_cmb, l_update_b 
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
@@ -48,6 +43,17 @@ module updateB_mod
    complex(cp), allocatable :: workA(:,:),workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
+   real(cp), allocatable :: bMat(:,:,:)
+   real(cp), allocatable :: jMat(:,:,:)
+   integer, allocatable :: bPivot(:,:)
+   integer, allocatable :: jPivot(:,:)
+#ifdef WITH_PRECOND_BJ
+   real(cp), allocatable :: bMat_fac(:,:)
+   real(cp), allocatable :: jMat_fac(:,:)
+#endif
+   logical, public, allocatable :: lBmat(:)
+
+
    integer :: maxThreads
 
    public :: initialize_updateB,updateB
@@ -70,6 +76,21 @@ contains
 #else
       maxThreads=1
 #endif
+      allocate( bMat(n_r_tot,n_r_tot,l_maxMag) )
+      allocate( jMat(n_r_tot,n_r_totMag,l_maxMag) )
+      bytes_allocated = bytes_allocated+(2*n_r_tot*n_r_tot*l_maxMag) &
+      &                 *SIZEOF_DEF_REAL
+      allocate( bPivot(n_r_tot,l_maxMag) )
+      allocate( jPivot(n_r_tot,l_maxMag) )
+      bytes_allocated = bytes_allocated+2*n_r_tot*l_maxMag*SIZEOF_INTEGER
+
+#ifdef WITH_PRECOND_BJ
+      allocate(bMat_fac(n_r_tot,l_maxMag))
+      allocate(jMat_fac(n_r_tot,l_maxMag))
+      bytes_allocated = bytes_allocated+2*n_r_tot*l_maxMag*SIZEOF_DEF_REAL
+#endif
+      allocate( lBmat(0:l_maxMag) )
+      bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
       allocate(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       allocate(rhs2(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
@@ -302,7 +323,7 @@ contains
                              bMat(1,1,l1),bPivot(1,l1),      &
                              jMat(1,1,l1),jPivot(1,l1) )
 #endif
-               lBmat(l1)=.TRUE.
+               lBmat(l1)=.true.
             end if
          end if
 

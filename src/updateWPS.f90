@@ -4,24 +4,23 @@ module updateWPS_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_cheb_max, n_r_max
+   use truncation, only: lm_max, n_cheb_max, n_r_max, l_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
-                             & chebt_oc,visc,dLvisc,                    &
-                             & beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
-                             & cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
-                             & alpha0,dLalpha0, ddLalpha0,              &
-                             & kappa, orho1, dentropy0, temp0, r
+       &                       chebt_oc,visc,dLvisc,                    &
+       &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
+       &                       cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
+       &                       alpha0,dLalpha0, ddLalpha0,              &
+       &                       kappa, orho1, dentropy0, temp0, r
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-                             &    ViscHeatFac, ThExpNb, ogrun, BuoFac
+       &                          ViscHeatFac, ThExpNb, ogrun, BuoFac, &
+       &                          CorFac
    use num_param, only: alpha
    use init_fields, only: tops, bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
-                     & lmStartB,lmStopB
+       &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, hdif_S, dLh
    use logic, only: l_update_v, l_temperature_diff
-   use matrices, only: wpsMat, wpsPivot, lWPSmat, wpsMat_fac, ps0Mat, ps0Pivot, &
-                       ps0Mat_fac
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
@@ -39,6 +38,14 @@ module updateWPS_mod
    complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:)
+   integer, allocatable :: ps0Pivot(:)
+   real(cp), allocatable :: wpsMat(:,:,:)
+   integer, allocatable :: wpsPivot(:,:)
+   real(cp), allocatable :: wpsMat_fac(:,:,:)
+   real(cp) :: Cor00_fac
+   logical, public, allocatable :: lWPSmat(:)
+
    integer :: maxThreads
 
    public :: initialize_updateWPS, updateWPS
@@ -63,11 +70,24 @@ contains
 #else
       maxThreads=1
 #endif
+      allocate( ps0Mat(2*n_r_max,2*n_r_max) )
+      allocate( ps0Mat_fac(2*n_r_max) )
+      allocate( ps0Pivot(2*n_r_max) )
+      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
+      &                 +2*n_r_max*SIZEOF_INTEGER
+      allocate( wpsMat(3*n_r_max,3*n_r_max,l_max) )
+      allocate(wpsMat_fac(3*n_r_max,2,l_max))
+      allocate ( wpsPivot(3*n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
+      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
+      allocate( lWPSmat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
       allocate( rhs1(3*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
+      Cor00_fac=four/sqrt(three)
 
    end subroutine initialize_updateWPS
 !-----------------------------------------------------------------------------
@@ -84,8 +104,8 @@ contains
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
-   subroutine updateWPS(w,dw,ddw,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
-        &               ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
+   subroutine updateWPS(w,dw,ddw,z10,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
+              &         ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -99,6 +119,7 @@ contains
       integer,     intent(in) :: nLMB     ! block number
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
+      real(cp),    intent(in) :: z10(n_r_max)
 
       complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
@@ -219,7 +240,9 @@ contains
          else
             if ( .not. lWPSmat(l1) ) then
                call get_wpsMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                               wpsMat(1,1,l1),wpsPivot(1,l1),wpsMat_fac(1,1,l1))
+                    &          hdif_S(st_map%lm2(l1,0)),       &
+                    &          wpsMat(1,1,l1),wpsPivot(1,l1),  &
+                    &          wpsMat_fac(1,1,l1))
                lWPSmat(l1)=.true.
             end if
          end if
@@ -247,10 +270,10 @@ contains
 
                   do nR=1,n_r_max
                      rhs(nR)        =real(s(lm1,nR))*O_dt+ &
-                                   w1*real(dsdt(lm1,nR)) + &
-                                   w2*real(dsdtLast(lm1,nR))
-                     !rhs(nR+n_r_max)=real(dwdt(st_map%lm2(0,0),nR))
-                     rhs(nR+n_r_max)=w1*real(dwdt(lm1,nR))+w2*real(dwdtLast(lm1,nR))
+                     &             w1*real(dsdt(lm1,nR)) + &
+                     &             w2*real(dsdtLast(lm1,nR))
+                     rhs(nR+n_r_max)=real(dwdt(lm1,nR))+Cor00_fac*&
+                     &               CorFac*or1(nR)*z10(nR)
                   end do
                   rhs(1)        =real(tops(0,0))
                   rhs(n_r_max)  =real(bots(0,0))
@@ -269,15 +292,18 @@ contains
                   rhs1(2*n_r_max+1,lmB,threadid)=tops(l1,m1)
                   rhs1(3*n_r_max,lmB,threadid)  =bots(l1,m1)
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=                         &
-                          & O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*w(lm1,nR) + &
-                          & w1*dwdt(lm1,nR) + w2*dwdtLast(lm1,nR)
-                     rhs1(nR+n_r_max,lmB,threadid)=                 &
-                          -O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*dw(lm1,nR) + &
-                          w1*dpdt(lm1,nR) + w2*dpdtLast(lm1,nR)
-                     rhs1(nR+2*n_r_max,lmB,threadid)=               &
-                          s(lm1,nR)*O_dt + w1*dsdt(lm1,nR) + &
-                          w2*dsdtLast(lm1,nR)
+                     rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(l1,m1))* &
+                     &                     or2(nR)*w(lm1,nR) +          &
+                     &                     w1*dwdt(lm1,nR) +            &
+                     &                     w2*dwdtLast(lm1,nR)
+                     rhs1(nR+n_r_max,lmB,threadid)=-O_dt*                 &
+                     &                             dLh(st_map%lm2(l1,m1))*&
+                     &                             or2(nR)*dw(lm1,nR) +   &
+                     &                             w1*dpdt(lm1,nR) +      &
+                     &                             w2*dpdtLast(lm1,nR)
+                     rhs1(nR+2*n_r_max,lmB,threadid)=s(lm1,nR)*O_dt +  &
+                     &                               w1*dsdt(lm1,nR) + &
+                     &                               w2*dsdtLast(lm1,nR)
                   end do
                end if
             end do
@@ -521,7 +547,7 @@ contains
 
    end subroutine updateWPS
    !------------------------------------------------------------------------------
-   subroutine get_wpsMat(dt,l,hdif,wpsMat,wpsPivot,wpsMat_fac)
+   subroutine get_wpsMat(dt,l,hdif_vel,hdif_s,wpsMat,wpsPivot,wpsMat_fac)
       !
       !  Purpose of this subroutine is to contruct the time step matrix  
       !  wpmat  for the NS equation.                                    
@@ -529,7 +555,8 @@ contains
 
       !-- Input variables:
       real(cp), intent(in) :: dt
-      real(cp), intent(in) :: hdif
+      real(cp), intent(in) :: hdif_vel
+      real(cp), intent(in) :: hdif_s
       integer,  intent(in) :: l
 
       !-- Output variables:
@@ -660,7 +687,7 @@ contains
 
                ! W equation
                wpsMat(nR,nCheb)= cheb_norm *  ( O_dt*dLh*or2(nR)*cheb(nCheb,nR)  &
-                    &   - alpha*hdif*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR)   &
+                    &   - alpha*hdif_vel*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR)   &
                     &          +(two*dLvisc(nR)-third*beta(nR))*dcheb(nCheb,nR)  &
                     &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)    &
                     &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )  &
@@ -677,7 +704,7 @@ contains
 
                ! P equation
                wpsMat(nR_p,nCheb)= cheb_norm * ( -O_dt*dLh*or2(nR)*dcheb(nCheb,nR)&
-                    &  -alpha*hdif*visc(nR)*dLh*or2(nR)      *(- d3cheb(nCheb,nR) &
+                    &  -alpha*hdif_vel*visc(nR)*dLh*or2(nR)      *(- d3cheb(nCheb,nR) &
                     &                   +( beta(nR)-dLvisc(nR) )*d2cheb(nCheb,nR) &
                     &      +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)           &
                     &       +two*(dLvisc(nR)+beta(nR))*or1(nR) )*dcheb(nCheb,nR)  &
@@ -692,14 +719,14 @@ contains
                ! S equation
                wpsMat(nR_s,nCheb_s)= cheb_norm * (                      &
                &                               O_dt*cheb(nCheb,nR) -    &
-               &      alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) +    &
+               &      alpha*opr*hdif_s*kappa(nR)*(  d2cheb(nCheb,nR) +  &
                &      ( beta(nR)+two*dLtemp0(nR)+                       &
                &        two*or1(nR)+dLkappa(nR) )* dcheb(nCheb,nR) +    &
                &      ( ddLtemp0(nR)+dLtemp0(nR)*(                      &
                &  two*or1(nR)+dLkappa(nR)+dLtemp0(nR)+beta(nR) )   -    &   
                &           dLh*or2(nR) )*           cheb(nCheb,nR) ) )
 
-               wpsMat(nR_s,nCheb_p)= -alpha*cheb_norm*hdif*kappa(nR)*   &
+               wpsMat(nR_s,nCheb_p)= -alpha*cheb_norm*hdif_s*kappa(nR)* &
                &      opr*alpha0(nR)*orho1(nR)*ViscHeatFac*ThExpNb*(    &
                &                                  d2cheb(nCheb,nR) +    &
                &      ( dLkappa(nR)+two*(dLalpha0(nR)+dLtemp0(nR)) -    &
@@ -728,7 +755,7 @@ contains
 
                ! W equation
                wpsMat(nR,nCheb)= cheb_norm *  ( O_dt*dLh*or2(nR)*cheb(nCheb,nR)  &
-                    &   - alpha*hdif*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR)   &
+                    &   - alpha*hdif_vel*visc(nR)*dLh*or2(nR) * ( d2cheb(nCheb,nR)   &
                     &          +(two*dLvisc(nR)-third*beta(nR))*dcheb(nCheb,nR)  &
                     &         -( dLh*or2(nR)+four*third*( dLvisc(nR)*beta(nR)    &
                     &          +(three*dLvisc(nR)+beta(nR))*or1(nR)+dbeta(nR) )  &
@@ -745,7 +772,7 @@ contains
 
                ! P equation
                wpsMat(nR_p,nCheb)= cheb_norm * ( -O_dt*dLh*or2(nR)*dcheb(nCheb,nR)&
-                    &  -alpha*hdif*visc(nR)*dLh*or2(nR)      *(- d3cheb(nCheb,nR) &
+                    &  -alpha*hdif_vel*visc(nR)*dLh*or2(nR)  *(- d3cheb(nCheb,nR) &
                     &                   +( beta(nR)-dLvisc(nR) )*d2cheb(nCheb,nR) &
                     &      +( dLh*or2(nR)+dbeta(nR)+dLvisc(nR)*beta(nR)           &
                     &       +two*(dLvisc(nR)+beta(nR))*or1(nR) )*dcheb(nCheb,nR)  &
@@ -760,7 +787,7 @@ contains
                ! S equation
                wpsMat(nR_s,nCheb_s)= cheb_norm * (                   &
                &                               O_dt*cheb(nCheb,nR) - &
-               &      alpha*opr*hdif*kappa(nR)*(  d2cheb(nCheb,nR) + &
+               &     alpha*opr*hdif_s*kappa(nR)*(  d2cheb(nCheb,nR)+ &
                &      ( beta(nR)+dLtemp0(nR)+                        &
                &        two*or1(nR)+dLkappa(nR) )*dcheb(nCheb,nR) -  &
                &           dLh*or2(nR)*            cheb(nCheb,nR) ) )
@@ -868,10 +895,10 @@ contains
                &        ddLalpha0(nR)+ddLtemp0(nR)-dbeta(nR) ) *        &
                &                                    cheb(nCheb,nR) )
 
-               psMat(nR_p,nCheb)  = -cheb_norm*alpha*rho0(nR)*          &
+               psMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*          &
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
-               psMat(nR_p,nCheb_p)= cheb_norm *alpha*( dcheb(nCheb,nR)- &
-               &                     beta(nR)*cheb(nCheb,nR) )
+               psMat(nR_p,nCheb_p)= cheb_norm *( dcheb(nCheb,nR)- &
+               &                         beta(nR)*cheb(nCheb,nR) )
             end do
          end do
 
@@ -883,16 +910,16 @@ contains
                nR_p=nR+n_r_max
 
                psMat(nR,nCheb)    = cheb_norm * (                    &
-                 &                             O_dt*cheb(nCheb,nR) - &
-                 &       alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
-                 &  (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*  &
-                 &                                 dcheb(nCheb,nR) ) )
+               &                               O_dt*cheb(nCheb,nR) - &
+               &         alpha*opr*kappa(nR)*(    d2cheb(nCheb,nR) + &
+               &    (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*  &
+               &                                   dcheb(nCheb,nR) ) )
                psMat(nR,nCheb_p)  =0.0_cp ! entropy diffusion
 
-               psMat(nR_p,nCheb)  = -cheb_norm*alpha*BuoFac*rho0(nR)* &
-                 &                   rgrav(nR)*cheb(nCheb,nR)
-               psMat(nR_p,nCheb_p)= cheb_norm*alpha*( dcheb(nCheb,nR)- &
-                                     beta(nR)*cheb(nCheb,nR) )
+               psMat(nR_p,nCheb)  = -cheb_norm*BuoFac*rho0(nR)* &
+               &                     rgrav(nR)*cheb(nCheb,nR)
+               psMat(nR_p,nCheb_p)= cheb_norm*( dcheb(nCheb,nR)- &
+               &                        beta(nR)*cheb(nCheb,nR) )
             end do
          end do
 
@@ -984,14 +1011,14 @@ contains
             psMat(n_r_max+1,nCheb)  =0.0_cp
             do n_cheb_in=1,n_cheb_max
                if (mod(nCheb+n_cheb_in-2,2)==0) then
-               psMat(n_r_max+1,nCheb_p)=psMat(n_r_max+1,nCheb_p)+ &
-               &                       (one/(one-real(n_cheb_in-nCheb,cp)**2)+&
-               &                       one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
-               &                       work(n_cheb_in)*half*cheb_norm
-               psMat(n_r_max+1,nCheb)  =psMat(n_r_max+1,nCheb)+ &
-               &                       (one/(one-real(n_cheb_in-nCheb,cp)**2)+&
-               &                       one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
-               &                       work2(n_cheb_in)*half*cheb_norm
+                  psMat(n_r_max+1,nCheb_p)=psMat(n_r_max+1,nCheb_p)+             &
+                  &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
+                  &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+                  &                       work(n_cheb_in)*half*cheb_norm
+                  psMat(n_r_max+1,nCheb)  =psMat(n_r_max+1,nCheb)+               &
+                  &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
+                  &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+                  &                     work2(n_cheb_in)*half*cheb_norm
                end if
             end do
          end do

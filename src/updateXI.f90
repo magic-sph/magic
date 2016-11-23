@@ -3,7 +3,7 @@ module updateXi_mod
 
    use omp_lib
    use precision_mod
-   use truncation, only: n_r_max, lm_max, n_cheb_max
+   use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_oc,orho1,or1,or2,     &
        &                       beta, drx, ddrx, cheb_norm, &
@@ -14,21 +14,13 @@ module updateXi_mod
    use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_Xi
    use logic, only: l_update_xi
-   use matrices, only: lXimat, xi0Mat, xi0Pivot,&
-#ifdef WITH_PRECOND_S
-       &               xiMat_fac, &
-#endif
-#ifdef WITH_PRECOND_S0
-       &               xi0Mat_fac, &
-#endif
-       &               xiMat, xiPivot
-
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
    use cosine_transform_odd
    use radial_der, only: get_drNS, get_ddr
    use constants, only: zero, one, two, half
+   use mem_alloc, only: bytes_allocated
 
    implicit none
 
@@ -38,6 +30,17 @@ module updateXi_mod
    complex(cp), allocatable :: workA(:,:),workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
+   real(cp), allocatable :: xi0Mat(:,:)     ! for l=m=0  
+   real(cp), allocatable :: xiMat(:,:,:)
+   integer, allocatable :: xi0Pivot(:)
+   integer, allocatable :: xiPivot(:,:)
+#ifdef WITH_PRECOND_S
+   real(cp), allocatable :: xiMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_S0
+   real(cp), allocatable :: xi0Mat_fac(:)
+#endif
+   logical, public, allocatable :: lXimat(:)
 
    public :: initialize_updateXi, updateXi
 
@@ -47,13 +50,38 @@ contains
 
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
+      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
       maxThreads=1
 #endif
+
+      allocate( xi0Mat(n_r_max,n_r_max) )      ! for l=m=0  
+      allocate( xiMat(n_r_max,n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*n_r_max*n_r_max+ &
+      &                 SIZEOF_DEF_REAL
+      allocate( xi0Pivot(n_r_max) )
+      allocate( xiPivot(n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+n_r_max*(l_max+1)*SIZEOF_INTEGER
+
+#ifdef WITH_PRECOND_S
+
+      allocate(xiMat_fac(n_r_max,l_max))
+      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+#endif
+#ifdef WITH_PRECOND_S0
+      allocate(xi0Mat_fac(n_r_max))
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
+      allocate( lXimat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
       allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
+      &                 maxThreads*SIZEOF_DEF_COMPLEX
+
 
    end subroutine initialize_updateXi
 !------------------------------------------------------------------------------

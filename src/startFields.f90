@@ -9,7 +9,8 @@ module start_fields
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
-       &                       dLalpha0, beta, orho1, temp0, rho0
+       &                       dLalpha0, beta, orho1, temp0, rho0,       &
+       &                       otemp1
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, ogrun, impXi
@@ -19,9 +20,9 @@ module start_fields
    use logic, only: l_conv, l_mag, l_cond_ic, l_heat, l_SRMA, l_SRIC,    &
        &            l_mag_kin, l_mag_LF, l_rot_ic, l_z10Mat, l_LCR,      &
        &            l_rot_ma, l_temperature_diff, l_single_matrix,       &
-       &            l_chemical_conv
-   use init_fields, only: l_start_file, init_s1, init_b1, tops, ps_cond, &
-       &                  initV, initS, initB, initXi, s_cond,           &
+       &            l_chemical_conv, l_TP_form, l_anelastic_liquid
+   use init_fields, only: l_start_file, init_s1, init_b1, tops, pt_cond, &
+       &                  initV, initS, initB, initXi, ps_cond,          &
        &                  start_file, init_xi1, topxi, xi_cond
    use fields ! The entire module is required
    use fieldsLast ! The entire module is required
@@ -82,7 +83,7 @@ contains
     
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
     
-      integer :: ierr
+      integer :: ierr, filehandle
       logical :: DEBUG_OUTPUT=.false.
     
       !PERFON('getFlds')
@@ -90,60 +91,92 @@ contains
       !write(*,"(2(A,L1))") "l_conv=",l_conv,", l_heat=",l_heat
       !---- Computations for the Nusselt number if we are anelastic
       !     Can be done before setting the fields
-      if (l_heat) then
+      if ( l_heat ) then
     
-         if ( l_single_matrix ) then
+         if ( rank == 0 ) open(newunit=filehandle, file='pscond.dat')
+
+         if ( l_TP_form .or. l_anelastic_liquid ) then ! temperature
+
+            call pt_cond(s0,p0)
+            
+            if ( rank == 0 ) then
+               do n_r=1,n_r_max
+                  write(filehandle,'(5ES20.12)') r(n_r), osq4pi*otemp1(n_r)*&
+                  &            (s0(n_r)-ViscHeatFac*ThExpNb*alpha0(n_r)*    &
+                  &            temp0(n_r)*orho1(n_r)*p0(n_r)),              &
+                  &            osq4pi*p0(n_r), osq4pi*s0(n_r),              &
+                  &            osq4pi*alpha0(n_r)*(-rho0(n_r)*s0(n_r)+      &
+                  &            ViscHeatFac*ThExpNb*(alpha0(n_r)*temp0(n_r)  &
+                  &            +ogrun)*p0(n_r))
+               end do
+            end if
+
+            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+
+            if ( l_temperature_diff ) then ! temperature diffusion
+               topcond=-osq4pi*ds0(1)
+               botcond=-osq4pi*ds0(n_r_max)
+               deltacond=osq4pi*(s0(n_r_max)-s0(1))
+            else ! entropy diffusion
+               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+
+               topcond = -osq4pi*(otemp1(1)*( -dLtemp0(1)*s0(1)+ds0(1))- &
+               &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(         &
+               &        (dLalpha0(1)-beta(1))*p0(1) + dp0(1)) )
+               botcond = -osq4pi*(otemp1(n_r_max)*( -dLtemp0(n_r_max)*    &
+               &                   s0(n_r_max) + ds0(n_r_max))-           &
+               &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*(&
+               &             (dLalpha0(n_r_max)-beta(n_r_max))*           &
+               &                   p0(n_r_max) + dp0(n_r_max)) )
+               deltacond=osq4pi*(otemp1(n_r_max)*s0(n_r_max)-otemp1(1)*s0(1)- &
+               &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*         &
+               &               orho1(n_r_max)*p0(n_r_max)-                    &
+               &               alpha0(1)*orho1(1)*p0(1)) )
+            end if
+
+         else ! entropy is the thermodynamic variable
+
             call ps_cond(s0,p0)
-            open(unit=999, file='pscond.dat')
-            do n_r=1,n_r_max
-               write(999,*) r(n_r), s0(n_r)*osq4pi, p0(n_r)*osq4pi, &
-                 &          osq4pi*temp0(n_r)*(s0(n_r)+alpha0(n_r)* &
-                 &          orho1(n_r)*p0(n_r)*ThExpNb*ViscHeatFac),&
-                 &          osq4pi*ThExpNb*alpha0(n_r)*(-rho0(n_r)* &
-                 &          temp0(n_r)*s0(n_r)+ViscHeatFac*ogrun*   &
-                 &          p0(n_r))
-            end do
-            close(999)
+
+            if ( rank == 0 ) then
+               do n_r=1,n_r_max
+                  write(filehandle,'(5ES20.12)') r(n_r), s0(n_r)*osq4pi, &
+                  &            p0(n_r)*osq4pi, osq4pi*temp0(n_r)*(       &
+                  &            s0(n_r)+alpha0(n_r)*orho1(n_r)*p0(n_r)*   &
+                  &            ThExpNb*ViscHeatFac), osq4pi*alpha0(n_r)* &
+                  &            ThExpNb*(-rho0(n_r)*temp0(n_r)*s0(n_r)+   &
+                  &            ViscHeatFac*ogrun*p0(n_r))
+               end do
+            end if
 
             call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
 
             if ( l_temperature_diff ) then
                call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
 
-               topcond = -osq4pi*temp0(1)*( dLtemp0(1)*s0(1)+ds0(1)+     &
-                 &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(       &
-                 &        (dLalpha0(1)+dLtemp0(1)-beta(1))*p0(1) +       &
-                 &                            dp0(1)) )
-               botcond = -osq4pi*temp0(n_r_max)*( dLtemp0(n_r_max)*         &
-                 &                   s0(n_r_max) + ds0(n_r_max)+            &
-                 &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*(&
-                 &    (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max))*   &
-                 &                   p0(n_r_max) + dp0(n_r_max)) )
+               topcond = -osq4pi*temp0(1)*( dLtemp0(1)*s0(1)+ds0(1)+   &
+               &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(       &
+               &        (dLalpha0(1)+dLtemp0(1)-beta(1))*p0(1) +       &
+               &                            dp0(1)) )
+               botcond = -osq4pi*temp0(n_r_max)*( dLtemp0(n_r_max)*       &
+               &                   s0(n_r_max) + ds0(n_r_max)+            &
+               &      ViscHeatFac*ThExpNb*alpha0(n_r_max)*orho1(n_r_max)*(&
+               &    (dLtemp0(n_r_max)+dLalpha0(n_r_max)-beta(n_r_max))*   &
+               &                   p0(n_r_max) + dp0(n_r_max)) )
                deltacond=osq4pi*(temp0(n_r_max)*s0(n_r_max)-temp0(1)*s0(1)+ &
-                 &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*     &
-                 &               temp0(n_r_max)*orho1(n_r_max)*p0(n_r_max)- &
-                 &               alpha0(1)*temp0(1)*orho1(1)*p0(1)) )
+               &               ViscHeatFac*ThExpNb*( alpha0(n_r_max)*       &
+               &               temp0(n_r_max)*orho1(n_r_max)*p0(n_r_max)-   &
+               &               alpha0(1)*temp0(1)*orho1(1)*p0(1)) )
             else ! entropy diffusion
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
                deltacond=osq4pi*(s0(n_r_max)-s0(1))
             end if
 
-         else
-            if ( index(interior_model,'EARTH') /= 0 ) then
-               !topcond=-one/epsS*dtemp0(1)
-               !botcond=-one/epsS*dtemp0(n_r_max)
-               topcond=one
-               botcond=one
-               deltacond=osq4pi*(s0(n_r_max)-s0(1))
-            else
-               call s_cond(s0)
-               call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
-               topcond=-osq4pi*ds0(1)
-               botcond=-osq4pi*ds0(n_r_max)
-               deltacond=osq4pi*(s0(n_r_max)-s0(1))
-            end if
          end if
+
+         if ( rank == 0 ) close(filehandle)
+
       else
          topcond  =0.0_cp
          botcond  =0.0_cp
@@ -449,7 +482,7 @@ contains
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
                  &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
                  &       chebt_oc,drx )
-            if ( l_temperature_diff ) then
+            if ( l_single_matrix ) then
                call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
                     &       lmStop-llm+1, n_r_max,n_cheb_max,workA_LMloc,&
                     &       workB_LMloc, chebt_oc,drx )

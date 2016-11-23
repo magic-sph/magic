@@ -366,12 +366,12 @@ hdf5Helpers.o         : blocking.o LMLoop_data.o precision_mod.o
 endif
 updateS.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
-                        init_fields.o constants.o mat.o mem_alloc.o\
+                        init_fields.o constants.o mem_alloc.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o LMLoop_data.o
 updateXI.o            : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
-                        init_fields.o constants.o mat.o mem_alloc.o\
+                        init_fields.o constants.o mem_alloc.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o LMLoop_data.o
 power.o               : truncation.o blocking.o horizontal.o\
@@ -427,11 +427,11 @@ rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o\
 			TO_arrays.o dtB_arrays.o
 LMLoop.o              : truncation.o blocking.o parallel.o\
-                        logic.o radial_data.o\
-                        output_data.o fields.o dt_fieldsLast.o mat.o\
+                        logic.o radial_data.o updateWPS.o\
+                        output_data.o fields.o dt_fieldsLast.o\
                         updateS.o updateB.o mem_alloc.o updateXI.o\
                         updateZ.o updateWP.o timing.o LMLoop_data.o\
-                        communications.o debugging.o updateWPS.o
+                        communications.o debugging.o updateWPT.o
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o
@@ -467,13 +467,17 @@ RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
                         output_data.o radial_derivatives.o useful.o\
                         RMS_helpers.o integration.o communications.o\
                         horizontal.o dtB.o chebyshev_polynoms.o mem_alloc.o
-updateWP.o            : truncation.o blocking.o num_param.o\
+updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
-                        mat.o RMS.o cosine_transform_odd.o radial_derivatives.o\
+                        RMS.o cosine_transform_odd.o radial_derivatives.o\
                         RMS_helpers.o LMLoop_data.o mem_alloc.o
+updateWPT.o           : truncation.o blocking.o num_param.o\
+                        phys_param.o radial.o horizontal.o logic.o\
+                        cosine_transform_odd.o radial_derivatives.o\
+                        LMLoop_data.o mem_alloc.o init_fields.o
 updateWPS.o           : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
-                        mat.o cosine_transform_odd.o radial_derivatives.o\
+                        cosine_transform_odd.o radial_derivatives.o\
                         LMLoop_data.o mem_alloc.o init_fields.o
 chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
@@ -508,7 +512,7 @@ radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
                         cosine_transform_even.o
 updateZ.o             : truncation.o blocking.o phys_param.o\
                         num_param.o constants.o radial.o horizontal.o\
-                        logic.o init_fields.o mat.o RMS.o TO.o\
+                        logic.o init_fields.o RMS.o TO.o\
                         $(LAPACK_OBJS) cosine_transform_odd.o\
                         radial_derivatives.o outRot.o RMS_helpers.o \
                         LMLoop_data.o communications.o mem_alloc.o special.o
@@ -530,7 +534,7 @@ out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
                         radial_derivatives_even.o $(FFT_OBJS) constants.o
 updateB.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o init_fields.o\
-                        logic.o radial.o special.o constants.o mat.o\
+                        logic.o radial.o special.o constants.o\
                         RMS.o $(LAPACK_OBJS) radial_derivatives.o\
                         cosine_transform_odd.o radial_derivatives_even.o\
                         RMS_helpers.o LMLoop_data.o mem_alloc.o
@@ -557,7 +561,7 @@ blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         output_data.o useful.o precision_mod.o constants.o\
                         mem_alloc.o
 num_param.o           : truncation.o precision_mod.o mem_alloc.o
-radial.o              : truncation.o radial_data.o mat.o $(LAPACK_OBJS)\
+radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
                         num_param.o phys_param.o logic.o precision_mod.o\
                         output_data.o cosine_transform_odd.o\
                         chebyshev_polynoms.o radial_derivatives.o\
@@ -583,7 +587,6 @@ TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
                         legendre_grid_to_spec.o mem_alloc.o
 $(LAPACK_OBJS)        : precision_mod.o constants.o
-mat.o                 : truncation.o precision_mod.o mem_alloc.o
 dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o\
                         mem_alloc.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o\

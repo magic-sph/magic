@@ -9,27 +9,26 @@ module LMLoop_mod
    use fieldsLast
    use omp_lib
    use precision_mod
+   use parallel_mod
    use mem_alloc, only: memWrite, bytes_allocated
-   use parallel_mod, only: rank
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
-   use blocking, only: lmStartB, lmStopB
+   use blocking, only: lmStartB, lmStopB, lo_map
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
-       &            l_single_matrix, l_chemical_conv
-   use matrices, only: lZ10mat, lSmat, lZmat, lWPmat, lBmat, lWPSmat, &
-       &               lXimat
+       &            l_single_matrix, l_chemical_conv, l_TP_form
    use output_data, only: nLF, log_file
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
    use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, lo2r_xi, &
        &                    lo2r_s, lo2r_flow, lo2r_field
-   use updateS_mod, only: initialize_updateS, updateS, updateS_ala
-   use updateZ_mod, only: initialize_updateZ, updateZ
-   use updateWP_mod, only: initialize_updateWP, updateWP
-   use updateWPS_mod, only: initialize_updateWPS, updateWPS
-   use updateB_mod, only: initialize_updateB, updateB
-   use updateXi_mod, only: initialize_updateXi, updateXi
+   use updateS_mod, only: initialize_updateS, updateS, updateS_ala, lSmat
+   use updateZ_mod, only: initialize_updateZ, updateZ, lZ10mat, lZmat
+   use updateWP_mod, only: initialize_updateWP, updateWP, lWPmat
+   use updateWPT_mod, only: initialize_updateWPT, updateWPT, lWPTmat
+   use updateWPS_mod, only: initialize_updateWPS, updateWPS, lWPSmat
+   use updateB_mod, only: initialize_updateB, updateB, lBmat
+   use updateXi_mod, only: initialize_updateXi, updateXi, lXimat
    use useful, only: safeOpen, safeClose
 
    implicit none
@@ -47,18 +46,20 @@ contains
       local_bytes_used = bytes_allocated
 
       if ( l_single_matrix ) then
-         call initialize_updateWPS
+         if ( l_TP_form ) then
+            call initialize_updateWPT
+         else
+            call initialize_updateWPS
+         end if
       else
          call initialize_updateS
          call initialize_updateWP
       end if
 
-      if ( l_chemical_conv ) then
-         call initialize_updateXi
-      end if
+      if ( l_chemical_conv ) call initialize_updateXi
 
       call initialize_updateZ
-      call initialize_updateB
+      if ( l_mag ) call initialize_updateB
 
       local_bytes_used = bytes_allocated-local_bytes_used
 
@@ -66,10 +67,11 @@ contains
 
    end subroutine initialize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,               &
-       &            dVxBhLM,dVSrLM,dVXirLM,dsdt,dwdt,dzdt,dpdt,   &
-       &            dxidt,dbdt,djdt,lorentz_torque_ma,            &
-       &            lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM,      &
+              &      dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,            &
+              &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,&
+              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,       &
+              &      aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
       !
@@ -86,7 +88,8 @@ contains
       ! for djdt in update_b
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
-      complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_s
+      complex(cp), intent(inout) :: dVPrLM(llm:ulm,n_r_max)  ! for dsdt in update_s
+      complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_xi
       !integer,     intent(in) :: n_time_step
 
       !--- Input from radialLoop and then redistributed:
@@ -105,12 +108,13 @@ contains
       !--- Local counter
       integer :: nLMB
       integer :: lmStart,lmStop
-      integer :: l
+      integer :: l,nR,ierr
       integer :: tStart(4),tStop(4),tPassed(4)
 
       logical,parameter :: DEBUG_OUTPUT=.false.
       !--- Inner core rotation from last time step
       real(cp), save :: omega_icLast
+      real(cp) :: z10(n_r_max)
       complex(cp) :: sum_dwdt
 
 
@@ -128,16 +132,18 @@ contains
          lZ10mat=.false.
          do l=0,l_max
             if ( l_single_matrix ) then
-               lWPSmat(l)=.false.
+               if ( l_TP_form .or. l_anelastic_liquid ) then
+                  lWPTmat(l)=.false.
+               else
+                  lWPSmat(l)=.false.
+               end if
             else
                lWPmat(l)=.false.
                lSmat(l) =.false.
             end if
             lZmat(l) =.false.
-            lBmat(l) =.false.
-            if ( l_chemical_conv ) then
-               lXimat(l)=.false.
-            end if
+            if ( l_mag ) lBmat(l) =.false.
+            if ( l_chemical_conv ) lXimat(l)=.false.
          end do
       end if
 
@@ -169,11 +175,11 @@ contains
          if ( .not. l_single_matrix ) then
             PERFON('up_S')
             if ( l_anelastic_liquid ) then
-               call updateS_ala(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,     & 
-                    &           dsdtLast_LMloc,w1,coex,dt,nLMB)
+               call updateS_ala(s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt,  & 
+                    &           dsdtLast_LMloc, w1, coex, dt, nLMB)
             else
-               call updateS(s_LMloc,ds_LMloc,w_LMloc,dVSrLM,dsdt,dsdtLast_LMloc, &
-                    &       w1,coex,dt,nLMB)
+               call updateS( s_LMloc, ds_LMloc, w_LMloc, dVSrLM,dsdt, &
+                    &        dsdtLast_LMloc, w1, coex, dt, nLMB )
             end if
             PERFOFF
             ! Here one could start the redistribution of s_LMloc,ds_LMloc etc. with a 
@@ -248,10 +254,27 @@ contains
          end if
 
          if ( l_single_matrix ) then
-            call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
-                 &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,    &
-                 &         ds_LMloc, dVSrLM, dsdt, dsdtLast_LMloc,              &
-                 &         w1,coex,dt,nLMB)
+#ifdef WITH_MPI
+            if ( rank == rank_with_l1m0 ) then
+               do nR=1,n_r_max
+                  z10(nR)=real(z(lo_map%lm2(1,0),nR))
+               end do
+            end if
+            call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
+                 &         MPI_COMM_WORLD,ierr)
+#endif
+            if ( l_TP_form ) then
+               call updateWPT( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
+                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
+                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
+                 &             dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt, &
+                 &             nLMB )
+            else
+               call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
+                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
+                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
+                 &             dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB )
+            end if
 
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
          else

@@ -12,7 +12,7 @@ module rIterThetaBlocking_OpenMP_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
               &     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
               &     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-              &     l_movie_oc, l_TO, l_chemical_conv
+              &     l_movie_oc, l_TO, l_chemical_conv, l_TP_form
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -119,7 +119,7 @@ contains
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
         &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxBhLM,     &
-        &                 dVSrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb,        &
+        &                 dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb, &
         &                 br_vt_lm_icb,br_vp_lm_icb,                       &
         &                 lorentz_torque_ic, lorentz_torque_ma,            &
         &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
@@ -132,7 +132,7 @@ contains
       real(cp), intent(in) :: time,dt,dtLast
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
-      complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
+      complex(cp), intent(out) :: dxidt(:), dVPrLM(:),dVXirLM(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
@@ -567,6 +567,15 @@ contains
       end do
 
       !$OMP SECTION
+      if ( l_TP_form ) then
+         do iThread=1,this%nThreads-1
+            this%nl_lm(0)%VPrLM=this%nl_lm(0)%VPrLM + this%nl_lm(iThread)%VPrLM
+            this%nl_lm(0)%VPtLM=this%nl_lm(0)%VPtLM + this%nl_lm(iThread)%VPtLM
+            this%nl_lm(0)%VPpLM=this%nl_lm(0)%VPpLM + this%nl_lm(iThread)%VPpLM
+         end do
+      end if
+
+      !$OMP SECTION
       if ( l_chemical_conv ) then
          do iThread=1,this%nThreads-1
             this%nl_lm(0)%VXirLM=this%nl_lm(0)%VXirLM + this%nl_lm(iThread)%VXirLM
@@ -685,9 +694,9 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
-      call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,         &
-           &                    dVSrLM,dVXirLM,dVxBhLM,dwdt,dzdt,dpdt,  &
-           &                    dsdt,dxidt,dbdt,djdt,this%leg_helper)
+      call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,          &
+           &                    dVSrLM,dVPrLM,dVXirLM,dVxBhLM,dwdt,dzdt, &
+           &                    dpdt,dsdt,dxidt,dbdt,djdt,this%leg_helper)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

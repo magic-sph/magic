@@ -18,7 +18,7 @@ module outMisc_mod
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, &
-       &            l_temperature_diff, l_chemical_conv
+       &            l_temperature_diff, l_chemical_conv, l_TP_form
    use output_data, only: tag, heat_file, n_heat_file, helicity_file, &
        &                  n_helicity_file
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
@@ -267,111 +267,133 @@ contains
       real(cp) :: toptemp,bottemp
       real(cp) :: topxi,botxi
       real(cp) :: toppres,botpres,mass
-      real(cp) :: topentropy,botentropy
+      real(cp) :: topentropy, botentropy
       real(cp) :: topflux,botflux
       character(len=76) :: filename
       integer :: n_r, filehandle
 
       if ( rank == 0 ) then
 
-         if ( l_anelastic_liquid ) then
+         if ( l_anelastic_liquid .or. l_TP_form ) then
             do n_r=1,n_r_max
                TMeanR(n_r)   = TMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
                PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
                SMeanR(n_r)   = otemp1(n_r)*TMeanR(n_r)-ViscHeatFac*ThExpNb* &
                &               alpha0(n_r)*orho1(n_r)*PMeanR(n_r)
                rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-                  &            real(s(1,n_r))+ViscHeatFac*   &
-                  &            ogrun*real(p(1,n_r)) )
+               &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
+               &               alpha0(n_r)*temp0(n_r)+ogrun)*           &
+               &               real(p(1,n_r)) )
             end do
          else
             do n_r=1,n_r_max
                SMeanR(n_r)   = SMeanR(n_r)+timePassed*osq4pi*real(s(1,n_r))
                PMeanR(n_r)   = PMeanR(n_r)+timePassed*osq4pi*real(p(1,n_r))
                TMeanR(n_r)   = temp0(n_r)*SMeanR(n_r)+ViscHeatFac*ThExpNb* &
-                  &            alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
+               &               alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
                rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
-                  &            temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
-                  &            ogrun*real(p(1,n_r)) )
+               &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
+               &               ogrun*real(p(1,n_r)) )
             end do
          end if
 
          !-- Evaluate nusselt numbers (boundary heat flux density):
          toppres=osq4pi*real(p(1,n_r_cmb))
          botpres=osq4pi*real(p(1,n_r_icb))
-         if ( topcond/=0.0_cp ) then
+         if ( topcond /= 0.0_cp ) then
 
-            if ( l_temperature_diff ) then
+            if ( l_anelastic_liquid .or. l_TP_form ) then
 
-               botnuss=-osq4pi/botcond*temp0(n_r_icb)*( dLtemp0(n_r_icb)*   &
-                 &      real(s(1,n_r_icb)) + real(ds(1,n_r_icb)) +          &
-                 &      ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*(&
-                 &   ( dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb) )*  &  
-                 &      real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
-               topnuss=-osq4pi/topcond*temp0(n_r_cmb)*( dLtemp0(n_r_cmb)*   &
-                 &      real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb)) +          &
-                 &      ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*(&  
-                 &   ( dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb) )*  &  
-                 &      real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
+               bottemp=osq4pi*real(s(1,n_r_icb))
+               toptemp=osq4pi*real(s(1,n_r_cmb))
 
-               botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
-                 &     botnuss*botcond*lScale
-               topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
-                 &     topnuss*topcond*lScale
+               botentropy=otemp1(n_r_icb)*bottemp-ViscHeatFac*ThExpNb*   &
+               &          orho1(n_r_icb)*alpha0(n_r_icb)*botpres
+               topentropy=otemp1(n_r_cmb)*toptemp-ViscHeatFac*ThExpNb*   &
+               &          orho1(n_r_cmb)*alpha0(n_r_cmb)*toppres
+
+               if ( l_temperature_diff ) then
+
+                  botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
+                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
+                  botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
+                  &        *r_icb**2*four*pi*kappa(n_r_max)
+                  topflux=-rho0(1)*real(ds(1,1))*osq4pi &
+                  &        *r_cmb**2*four*pi*kappa(1)
+
+                  deltanuss = deltacond/(bottemp-toptemp)
+
+               else
+
+                  botnuss=-osq4pi/botcond*(otemp1(n_r_icb)*( -dLtemp0(n_r_icb)* &
+                  &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb))) -          &
+                  &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*( &
+                  &         ( dLalpha0(n_r_icb)-beta(n_r_icb) )*                &  
+                  &        real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
+                  topnuss=-osq4pi/topcond*(otemp1(n_r_cmb)*( -dLtemp0(n_r_cmb)* &
+                  &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb))) -          &
+                  &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*( &
+                  &         ( dLalpha0(n_r_cmb)-beta(n_r_cmb) )*                &  
+                  &        real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
+
+                  botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
+                  &       botnuss*botcond*lScale*temp0(n_r_icb)
+                  topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
+                  &       topnuss*topcond*lScale*temp0(n_r_cmb)
+
+                  deltanuss = deltacond/(botentropy-topentropy)
+
+               end if
+
+            else ! s corresponds to entropy
 
                botentropy=osq4pi*real(s(1,n_r_icb))
                topentropy=osq4pi*real(s(1,n_r_cmb))
 
                bottemp   =temp0(n_r_icb)*botentropy+ViscHeatFac*ThExpNb*   &
-                 &        orho1(n_r_icb)*temp0(n_r_icb)*alpha0(n_r_icb)*   &
-                 &        botpres
+               &          orho1(n_r_icb)*temp0(n_r_icb)*alpha0(n_r_icb)*   &
+               &          botpres
                toptemp   =temp0(n_r_cmb)*topentropy+ViscHeatFac*ThExpNb*   &
-                 &        orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
-                 &        toppres
-               deltanuss = deltacond/(bottemp-toptemp)
-            else ! entropy diffusion
+               &          orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
+               &          toppres
 
-               if ( l_anelastic_liquid ) then
-                  botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
-                  topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
-                  botflux=-rho0(n_r_max)*real(ds(1,n_r_max))*osq4pi &
-                           *r_icb**2*four*pi*kappa(n_r_max)
-                  topflux=-rho0(1)*real(ds(1,1))*osq4pi &
-                           *r_cmb**2*four*pi*kappa(1)
+               if ( l_temperature_diff ) then
 
-                  bottemp=osq4pi*real(s(1,n_r_icb))
-                  toptemp=osq4pi*real(s(1,n_r_cmb))
+                  botnuss=-osq4pi/botcond*temp0(n_r_icb)*( dLtemp0(n_r_icb)*   &
+                  &        real(s(1,n_r_icb)) + real(ds(1,n_r_icb)) +          &
+                  &        ViscHeatFac*ThExpNb*alpha0(n_r_icb)*orho1(n_r_icb)*(&
+                  &     ( dLalpha0(n_r_icb)+dLtemp0(n_r_icb)-beta(n_r_icb) )*  &
+                  &        real(p(1,n_r_icb)) + real(dp(1,n_r_icb)) ) ) / lScale
+                  topnuss=-osq4pi/topcond*temp0(n_r_cmb)*( dLtemp0(n_r_cmb)*   &
+                  &        real(s(1,n_r_cmb)) + real(ds(1,n_r_cmb)) +          &
+                  &        ViscHeatFac*ThExpNb*alpha0(n_r_cmb)*orho1(n_r_cmb)*(&
+                  &     ( dLalpha0(n_r_cmb)+dLtemp0(n_r_cmb)-beta(n_r_cmb) )*  &
+                  &        real(p(1,n_r_cmb)) + real(dp(1,n_r_cmb)) ) ) / lScale
 
-                  botentropy=otemp1(n_r_icb)*bottemp-ViscHeatFac*ThExpNb*   &
-                 &        orho1(n_r_icb)*alpha0(n_r_icb)*botpres
-                  topentropy=otemp1(n_r_cmb)*toptemp-ViscHeatFac*ThExpNb*   &
-                 &        orho1(n_r_cmb)**alpha0(n_r_cmb)*toppres
+                  botflux=four*pi*r_icb**2*kappa(n_r_icb)*rho0(n_r_icb) *      &
+                  &       botnuss*botcond*lScale
+                  topflux=four*pi*r_cmb**2*kappa(n_r_cmb)*rho0(n_r_cmb) *      &
+                  &       topnuss*topcond*lScale
+
                   deltanuss = deltacond/(bottemp-toptemp)
+
                else
+
                   botnuss=-osq4pi/botcond*real(ds(1,n_r_icb))/lScale
                   topnuss=-osq4pi/topcond*real(ds(1,n_r_cmb))/lScale
-                  botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))/lScale* &
-                           r_icb**2*sq4pi*kappa(n_r_max)
+                  botflux=-rho0(n_r_max)*temp0(n_r_max)*real(ds(1,n_r_max))* &
+                  &        r_icb**2*sq4pi*kappa(n_r_max)/lScale
                   topflux=-rho0(1)*temp0(1)*real(ds(1,1))/lScale*r_cmb**2* &
-                           sq4pi*kappa(1)
-
-                  botentropy=osq4pi*real(s(1,n_r_icb))
-                  topentropy=osq4pi*real(s(1,n_r_cmb))
-
-                  bottemp   =temp0(n_r_icb)*botentropy+ViscHeatFac*ThExpNb*   &
-                    &        orho1(n_r_icb)*temp0(n_r_icb)*alpha0(n_r_icb)*   &
-                    &        botpres
-                  toptemp   =temp0(n_r_cmb)*topentropy+ViscHeatFac*ThExpNb*   &
-                    &        orho1(n_r_cmb)*temp0(n_r_cmb)*alpha0(n_r_cmb)*   &
-                    &        toppres
+                  &        sq4pi*kappa(1)
                   if ( botentropy /= topentropy ) then
                      deltanuss = deltacond/(botentropy-topentropy)
                   else
                      deltanuss = one
                   end if
+
                end if
 
-            end if
+            end if 
          else
             botnuss   =one
             topnuss   =one
@@ -418,11 +440,11 @@ contains
          !-- avoid too small number in output
          if ( abs(toppres) <= 1e-11_cp ) toppres=0.0_cp
 
-         write(n_heat_file,'(1P,ES20.12,16ES16.8)')           &
-              & time, botnuss, topnuss, deltanuss,            &
-              & bottemp, toptemp, botentropy, topentropy,     &
-              & botflux, topflux, toppres, mass, topsherwood, &
-              & botsherwood, deltasherwood, botxi, topxi
+         write(n_heat_file,'(1P,ES20.12,16ES16.8)')          &
+         &     time, botnuss, topnuss, deltanuss,            &
+         &     bottemp, toptemp, botentropy, topentropy,     &
+         &     botflux, topflux, toppres, mass, topsherwood, &
+         &     botsherwood, deltasherwood, botxi, topxi
 
          if ( l_save_out ) close(n_heat_file)
 

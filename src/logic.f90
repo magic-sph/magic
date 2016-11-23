@@ -83,4 +83,6 @@ module logic
    logical :: l_chemical_conv ! Switch for chemical convection
    logical :: l_non_adia ! Switch in case the reference state is non-adiabatic
 
+   logical :: l_TP_form ! Use temperature and pressure instead of entropy and pressure
+
 end module logic

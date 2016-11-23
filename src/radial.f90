@@ -5,13 +5,13 @@ module radial_functions
    !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
-   use matrices, only: s0Mat,s0Pivot
    use algebra, only: sgesl,sgefa
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
-       &            l_isothermal, l_anel, l_newmap, l_non_adia
+       &            l_isothermal, l_anel, l_newmap, l_non_adia,   &
+       &            l_TP_form, l_temperature_diff, l_single_matrix
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -493,6 +493,21 @@ contains
       if ( l_anel ) then
          call logWrite('')
          call logWrite('!      This is an anelastic model')
+         if ( l_TP_form ) then
+            call logWrite('! You use temperature and pressure as thermodynamic variables')
+         else
+            call logWrite('! You use entropy and pressure as thermodynamic variables')
+         end if
+         if ( l_temperature_diff ) then
+            call logWrite('! You use temperature diffusion')
+         else
+            call logWrite('! You use entropy diffusion')
+         end if
+         if ( l_single_matrix ) then
+            call logWrite('! You solve one big matrix (3*n_r_max,3*n_r_max)')
+         else
+            call logWrite('! You solve two small matrices')
+         end if
          call logWrite('! The key parameters are the following')
          write(message,'(''!      DissNb ='',ES16.6)') DissNb
          call logWrite(message)
@@ -757,14 +772,14 @@ contains
       !-- The remaining division by rho will happen in updateS.f90
       if ( nVarEps == 0 ) then
          ! eps is constant
-         if ( l_anelastic_liquid ) then
+         if ( l_anelastic_liquid .or. l_TP_form ) then
             epscProf(:)=one
          else
             epscProf(:)=otemp1(:)
          end if
       else if ( nVarEps == 1 ) then
          ! rho*eps in the RHS
-         if ( l_anelastic_liquid ) then
+         if ( l_anelastic_liquid .or. l_TP_form ) then
             epscProf(:)=rho0(:)
          else
             epscProf(:)=rho0(:)*otemp1(:)
@@ -849,33 +864,38 @@ contains
       real(cp) :: tmp(n_r_max)
       integer :: n_cheb,n_r,info
 
+      real(cp), allocatable :: workMat(:,:)
+      integer, allocatable :: workPivot(:)
+
+      allocate( workMat(n_r_max,n_r_max) )
+      allocate( workPivot(n_r_max) )
 
       do n_cheb=1,n_r_max
          do n_r=2,n_r_max
-            s0Mat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
+            workMat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
          end do
       end do
 
       !-- boundary conditions
       do n_cheb=1,n_cheb_max
-         s0Mat(1,n_cheb)=cheb_norm
-         s0Mat(n_r_max,n_cheb)=0.0_cp
+         workMat(1,n_cheb)=cheb_norm
+         workMat(n_r_max,n_cheb)=0.0_cp
       end do
 
       !-- fill with zeros
       if ( n_cheb_max < n_r_max ) then
          do n_cheb=n_cheb_max+1,n_r_max
-            s0Mat(1,n_cheb)=0.0_cp
+            workMat(1,n_cheb)=0.0_cp
          end do
       end if
 
       !-- renormalize
       do n_r=1,n_r_max
-         s0Mat(n_r,1)      =half*s0Mat(n_r,1)
-         s0Mat(n_r,n_r_max)=half*s0Mat(n_r,n_r_max)
+         workMat(n_r,1)      =half*workMat(n_r,1)
+         workMat(n_r,n_r_max)=half*workMat(n_r,n_r_max)
       end do
 
-      call sgefa(s0Mat,n_r_max,n_r_max,s0Pivot,info)
+      call sgefa(workMat,n_r_max,n_r_max,workPivot,info)
 
       if ( info /= 0 ) then
          write(*,*) '! Singular Matrix in getBackground!'
@@ -888,7 +908,7 @@ contains
       rhs(1)=boundaryVal
 
       !-- Solve for s0:
-      call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+      call sgesl(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
       do n_r=1,n_r_max
@@ -904,6 +924,8 @@ contains
 
       !-- Transform to radial space:
       call chebt_oc%costf1(output,tmp)
+
+      deallocate( workMat, workPivot )
 
    end subroutine getBackground
 !------------------------------------------------------------------------------

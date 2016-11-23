@@ -4,19 +4,19 @@ module updateWP_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, n_cheb_max, n_r_max
+   use truncation, only: lm_max, n_cheb_max, n_r_max, l_max
    use radial_data, only: n_r_cmb,n_r_icb
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
-       &                       chebt_oc,visc,dlvisc,                    &
+       &                       chebt_oc,visc,dlvisc,r,alpha0,temp0,     &
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
        &                       cheb_norm
-   use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac
+   use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
+       &                          ViscHeatFac, ThExpNb, ogrun
    use num_param, only: alpha
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
    use logic, only: l_update_v, l_chemical_conv
-   use matrices, only: wpMat, wpPivot, lWPmat, wpMat_fac, p0Mat, p0Pivot
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
@@ -25,6 +25,7 @@ module updateWP_mod
    use RMS_helpers, only:  hInt2Pol
    use cosine_transform_odd
    use radial_der, only: get_dddr, get_dr
+   use integration, only: rInt_R
    use constants, only: zero, one, two, three, four, third, half
 
    implicit none
@@ -33,8 +34,13 @@ module updateWP_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workA(:,:),workB(:,:)
+   real(cp), allocatable :: work(:), work1(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
+   real(cp), allocatable :: wpMat(:,:,:), wpMat_fac(:,:,:)
+   real(cp), allocatable :: p0Mat(:,:)
+   integer, allocatable :: wpPivot(:,:), p0Pivot(:)
+   logical, public, allocatable :: lWPmat(:)
    integer :: maxThreads
 
    public :: initialize_updateWP, updateWP
@@ -47,6 +53,9 @@ contains
       allocate( workB(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
+      allocate( work(n_r_max), work1(n_r_max) )
+      bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
       allocate( Buo(llm:ulm) )
@@ -58,6 +67,15 @@ contains
 #else
       maxThreads=1
 #endif
+
+      allocate( wpMat(2*n_r_max,2*n_r_max,l_max), p0Mat(n_r_max,n_r_max) )
+      allocate( wpMat_fac(2*n_r_max,2,l_max) )
+      allocate( wpPivot(2*n_r_max,l_max), p0Pivot(n_r_max) )
+      allocate( lWPmat(0:l_max) )
+      bytes_allocated=bytes_allocated+((4*n_r_max+4)*(l_max)+n_r_max)*n_r_max* &
+      &               SIZEOF_DEF_REAL+(2*n_r_max*l_max+n_r_max)*SIZEOF_INTEGER+&
+      &               (l_max+1)*SIZEOF_LOGICAL
+
 
       allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
@@ -75,6 +93,8 @@ contains
       deallocate( Buo )
       deallocate( rhs1 )
       deallocate( dtV )
+      deallocate( p0Mat, p0Pivot )
+      deallocate( wpMat, wpMat_fac, wpPivot, lWPmat )
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
@@ -202,7 +222,13 @@ contains
                m1 =lm22m(lm,nLMB2,nLMB)
 
                if ( l1 == 0 ) then
-                  rhs(1)=0.0_cp
+                  !-- The integral of rho' r^2 dr vanishes
+                  do nR=1,n_r_max
+                     work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
+                     &        r(nR)*real(s(st_map%lm2(0,0),nR))
+                  end do
+                  rhs(1)=rInt_R(work,n_r_max,n_r_max,drx,chebt_oc)
+
                   if ( l_chemical_conv ) then
                      do nR=2,n_r_max
                         rhs(nR)=rho0(nR)*BuoFac*rgrav(nR)*    &
@@ -711,25 +737,46 @@ contains
       integer,  intent(out) :: pPivot(n_r_max)
 
       !-- Local variables:
-      integer :: info,nCheb,nR
+      integer :: info, nCheb, nR, nCheb_in
 
-      !-- Boundary condition: fixed-pressure on the outer boundary
-      do nCheb=1,n_cheb_max
-         pMat(1,nCheb)=cheb_norm
-      end do
-
-      if ( n_cheb_max < n_r_max ) then
-         do nCheb=n_cheb_max+1,n_r_max
-            pMat(1,nCheb)=0.0_cp
-         end do
-      end if
 
       do nCheb=1,n_r_max
          do nR=2,n_r_max
             pMat(nR,nCheb)= cheb_norm * ( dcheb(nCheb,nR)- &
-                                  beta(nR)*cheb(nCheb,nR) )
+            &                     beta(nR)*cheb(nCheb,nR) )
          end do
       end do
+
+
+      !-- Boundary condition for spherically-symmetric pressure
+      !-- The integral of rho' r^2 dr vanishes
+      work(:) = ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+      call chebt_oc%costf1(work,work1)
+      work(:)      =work(:)*cheb_norm
+      work(1)      =half*work(1)
+      work(n_r_max)=half*work(n_r_max)
+      do nCheb=1,n_cheb_max
+         pMat(1,nCheb)=0.0_cp
+         do nCheb_in=1,n_cheb_max
+            if ( mod(nCheb+nCheb_in-2,2)==0 ) then
+               pMat(1,nCheb)=pMat(1,nCheb)+ &
+               &             ( one/(one-real(nCheb_in-nCheb,cp)**2)    + &
+               &               one/(one-real(nCheb_in+nCheb-2,cp)**2) )* &
+               &               work(nCheb_in)*half*cheb_norm
+            end if
+         end do
+      end do
+
+      !-- Boundary condition: pressure vanishes on the outer boundary
+      !do nCheb=1,n_cheb_max
+      !   pMat(1,nCheb)=cheb_norm
+      !end do
+
+      if ( n_cheb_max < n_r_max ) then ! fill with zeros
+         do nCheb=n_cheb_max+1,n_r_max
+            pMat(1,nCheb)=0.0_cp
+         end do
+      end if
 
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
@@ -740,7 +787,7 @@ contains
       !---- LU decomposition:
       call sgefa(pMat,n_r_max,n_r_max,pPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix pMat0!'
+         write(*,*) '! Singular matrix p0Mat!'
          stop '29'
       end if
 

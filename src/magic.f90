@@ -97,7 +97,6 @@ program magic
    use blocking
    use horizontal_data
    use logic
-   use matrices
    use fields
    use fieldsLast
    use constants, only: codeVersion
@@ -236,11 +235,10 @@ program magic
    call initialize_Grenoble
 
    local_bytes_used=bytes_allocated
-   call initialize_matrices
    call initialize_fields
    call initialize_fieldsLast
    local_bytes_used=bytes_allocated-local_bytes_used
-   call memWrite('mat/fields/fieldsLast', local_bytes_used)
+   call memWrite('fields/fieldsLast', local_bytes_used)
 
    call initialize_step_time
    call initialize_communications

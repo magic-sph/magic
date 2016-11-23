@@ -7,11 +7,11 @@ module nl_special_calc
    use precision_mod
    use truncation, only: nrp, n_phi_max, l_max, l_maxMag
    use constants, only: pi, one, two, third, half
-   use logic, only: l_mag_nl
-   use physical_parameters, only: ek, ViscHeatFac
+   use logic, only: l_mag_nl, l_TP_form, l_anelastic_liquid
+   use physical_parameters, only: ek, ViscHeatFac, ThExpNb
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: orho1, orho2, or2, or1, beta, temp0, &
-                         &     visc, or4, r
+       &                       visc, or4, r, alpha0
    use blocking, only: sizeThetaB, nfs
    use horizontal_data, only: O_sin_theta_E2, cosTheta, sn2, osn2, cosn2
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
@@ -226,10 +226,10 @@ contains
 
    end subroutine get_perpPar
 !------------------------------------------------------------------------------
-   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,      &
-                    &  dvrdt,dvrdp,sr,pr,br,bt,bp,cbt,cbp,&
-                    &  fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
-                    &  fresLMR,nR,nThetaStart)
+   subroutine get_fluxes(vr,vt,vp,dvrdr,dvtdr,dvpdr,        &
+              &          dvrdt,dvrdp,sr,pr,br,bt,bp,cbt,cbp,&
+              &          fconvLMr,fkinLMr,fviscLMr,fpoynLMr,&
+              &          fresLMR,nR,nThetaStart)
       !
       !   Calculates the fluxes:
       !
@@ -284,29 +284,34 @@ contains
          fconv=0.0_cp
          fvisc=0.0_cp
          do nPhi=1,n_phi_max
-            fconv=temp0(nr)*vr(nPhi,nThetaB)*sr(nPhi,nThetaB)     +    &
-                       ViscHeatFac*orho1(nr)*vr(nPhi,nThetaB)*pr(nPhi,nThetaB)
+            if ( l_anelastic_liquid .or. l_TP_form ) then
+               fconv=vr(nPhi,nThetaB)*sr(nPhi,nThetaB) 
+            else
+               fconv=temp0(nr)*vr(nPhi,nThetaB)*sr(nPhi,nThetaB)     +    &
+               &          ViscHeatFac*ThExpNb*alpha0(nr)*temp0(nr)*       &
+               &          orho1(nr)*vr(nPhi,nThetaB)*pr(nPhi,nThetaB)
+            end if
     
             fkin=half*or2(nR)*orho2(nR)*(osn2(nThetaNHS)*(             &
-                               vt(nPhi,nThetaB)*vt(nPhi,nThetaB)  +    &
-                               vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )+    &
-                       or2(nR)*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) )*    &
-                                          vr(nPhi,nThetaB)
+            &                  vt(nPhi,nThetaB)*vt(nPhi,nThetaB)  +    &
+            &                  vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )+    &
+            &          or2(nR)*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) )*    &
+            &                             vr(nPhi,nThetaB)
     
             if ( nR/=n_r_icb .and. nR/=n_r_cmb ) then
                fvisc=-two*visc(nR)*orho1(nR)*vr(nPhi,nThetaB)*or2(nR)* (     &
-                                             dvrdr(nPhi,nThetaB)             &
-                 -(two*or1(nR)+two*third*beta(nR))*vr(nPhi,nThetaB) )-       &
-                                       visc(nR)*orho1(nR)*vt(nPhi,nThetaB)*  &
-                                            osn2(nThetaNHS)* (               &
-                                       or2(nR)*dvrdt(nPhi,nThetaB)           &
-                                              +dvtdr(nPhi,nThetaB)           &
-                       -(two*or1(nR)+beta(nR))*vt(nPhi,nThetaB) )  -         &
-                       visc(nR)*orho1(nR)*vp(nPhi,nThetaB)*                  &
-                                               osn2(nThetaNHS)* (            &
-                                       or2(nR)*dvrdp(nPhi,nThetaB)           &
-                                              +dvpdr(nPhi,nThetaB)           &
-                       -(two*or1(nR)+beta(nR))*vp(nPhi,nThetaB) ) 
+               &                             dvrdr(nPhi,nThetaB)             &
+               & -(two*or1(nR)+two*third*beta(nR))*vr(nPhi,nThetaB) )-       &
+               &                       visc(nR)*orho1(nR)*vt(nPhi,nThetaB)*  &
+               &                            osn2(nThetaNHS)* (               &
+               &                       or2(nR)*dvrdt(nPhi,nThetaB)           &
+               &                              +dvtdr(nPhi,nThetaB)           &
+               &       -(two*or1(nR)+beta(nR))*vt(nPhi,nThetaB) )  -         &
+               &       visc(nR)*orho1(nR)*vp(nPhi,nThetaB)*                  &
+               &                               osn2(nThetaNHS)* (            &
+               &                       or2(nR)*dvrdp(nPhi,nThetaB)           &
+               &                              +dvpdr(nPhi,nThetaB)           &
+               &       -(two*or1(nR)+beta(nR))*vp(nPhi,nThetaB) ) 
             end if
     
             fkinAS(nThetaB) = fkinAS(nThetaB)+fkin

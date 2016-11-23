@@ -15,7 +15,7 @@ module rIterThetaBlocking_mod
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
-       &            l_movie_oc, l_chemical_conv
+       &            l_movie_oc, l_chemical_conv, l_TP_form
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -330,8 +330,16 @@ contains
          end if
          !PERFOFF
       end if
+      if ( (.not.this%isRadialBoundaryPoint) .and. l_TP_form ) then
+         if ( .not. l_axi ) then
+            call fft_thetab(gsa%VPr,-1)
+            call fft_thetab(gsa%VPt,-1)
+            call fft_thetab(gsa%VPp,-1)
+         end if
+         call legTF3(nThetaStart,nl_lm%VPrLM,nl_lm%VPtLM,nl_lm%VPpLM,    &
+              &      gsa%VPr,gsa%VPt,gsa%VPp)
+      end if
       if ( (.not.this%isRadialBoundaryPoint) .and. l_chemical_conv ) then
-         !PERFON('inner2')
          if ( .not. l_axi ) then
             call fft_thetab(gsa%VXir,-1)
             call fft_thetab(gsa%VXit,-1)
@@ -339,7 +347,6 @@ contains
          end if
          call legTF3(nThetaStart,nl_lm%VXirLM,nl_lm%VXitLM,nl_lm%VXipLM,    &
               &      gsa%VXir,gsa%VXit,gsa%VXip)
-         !PERFOFF
       end if
       if ( l_mag_nl ) then
          !PERFON('mag_nl')

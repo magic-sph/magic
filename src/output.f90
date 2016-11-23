@@ -388,16 +388,18 @@ contains
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
                  &          lorentz_torque_ma,w_LMloc,ddw_LMloc,z_LMloc,     &
-                 &          dz_LMloc,s_LMloc,xi_LMloc,b_LMloc,ddb_LMloc,     &
-                 &          aj_LMloc,dj_LMloc,db_ic_LMloc,ddb_ic_LMloc,      &
-                 &          aj_ic_LMloc,dj_ic_LMloc,viscLMr,visDiss,ohmDiss)
+                 &          dz_LMloc,s_LMloc,p_LMloc,xi_LMloc,               &
+                 &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
+                 &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
+                 &          visDiss,ohmDiss)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  power  on rank ",rank
          end if
   
          !----- If anelastic additional u**2 outputs
          if ( l_anel ) then
-            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2,dlVRu2,dlVRu2c)
+            call get_u_square(time,w_LMloc,dw_LMloc,z_LMloc,RolRu2, &
+                 &            dlVRu2,dlVRu2c)
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  u_square  on rank ",rank
          else
             RolRu2  = 0.0_cp
@@ -409,25 +411,20 @@ contains
             call outPerpPar(time,timePassedLog,timeNormLog,l_stop_time, &
                  &          EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
          end if
-         !----- Radial properties
-         !write(*,"(A,4ES20.12)") "before getDlm, w(n_r_icb,n_r_cmb): ",&
-         !     & w_LMloc(n_r_icb),w_LMloc(n_r_cmb)
-         !write(*,"(A,4ES20.12)") "before getDlm, dw(n_r_icb,n_r_cmb): ",&
-         !     & dw_LMloc(n_r_icb),dw_LMloc(n_r_cmb)
-         !write(*,"(A,4ES20.12)") "before getDlm, z(n_r_icb,n_r_cmb): ",&
-         !     & z_LMloc(n_r_icb),z_LMloc(n_r_cmb)
+
          call getDlm(w_LMloc,dw_LMloc,z_LMloc,dlV,dlVR,dmV,dlVc,dlVRc,'V')
-         !write(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_icb) = ",dlVr(n_r_icb),dlVrc(n_r_icb)
-         !write(*,"(A,ES20.12)") "dlVr,dlVrc(n_r_cmb) = ",dlVr(n_r_cmb),dlVrc(n_r_cmb)
+
          call outPar(timePassedLog,timeNormLog,nLogs,l_stop_time,        &
               &      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,             &
               &      uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr,    &
               &      fpoynLMr,fresLMr,RmR)
+
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  outPar  on rank ",rank
   
          if ( l_heat .or. l_chemical_conv ) then
             call outHeat(timeScaled,timePassedLog,timeNormLog,l_stop_time, &
-                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,dxi_LMloc)
+                 &       s_LMloc,ds_LMloc,p_LMloc,dp_LMloc,xi_LMloc,       &
+                 &       dxi_LMloc)
          end if
 
          if ( l_hel ) then

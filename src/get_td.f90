@@ -11,10 +11,12 @@ module nonlinear_lm_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
-       &             l_chemical_conv
-   use radial_functions, only: r,or2,or1,beta,rho0,rgrav,epscProf,or4,temp0
+       &             l_chemical_conv, l_TP_form, l_single_matrix
+   use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
+       &                       or4, temp0, alpha0, orho1
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
-       &                          OhmLossFac, n_r_LCR, epscXi, BuoFac
+       &                          OhmLossFac, n_r_LCR, epscXi,   &
+       &                          BuoFac, ThExpNb, ogrun
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
@@ -38,6 +40,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: VxBrLM(:), VxBtLM(:), VxBpLM(:)
       complex(cp), allocatable :: VSrLM(:),  VStLM(:),  VSpLM(:)
       complex(cp), allocatable :: VXirLM(:),  VXitLM(:),  VXipLM(:)
+      complex(cp), allocatable :: VPrLM(:),  VPtLM(:),  VPpLM(:)
       complex(cp), allocatable :: ViscHeatLM(:), OhmLossLM(:)
       !----- RMS calculations
       complex(cp), allocatable :: Advt2LM(:), Advp2LM(:)
@@ -77,6 +80,13 @@ contains
       allocate( this%ViscHeatLM(lmP_max) )
       allocate( this%OhmLossLM(lmP_max) )
       bytes_allocated = bytes_allocated + 14*lmP_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_TP_form ) then
+         allocate( this%VPrLM(lmP_max) )    
+         allocate( this%VPtLM(lmP_max) )    
+         allocate( this%VPpLM(lmP_max) )    
+         bytes_allocated = bytes_allocated + 3*lmP_max*SIZEOF_DEF_COMPLEX
+      end if
       
       if ( l_chemical_conv ) then
          allocate( this%VXirLM(lmP_max) )    
@@ -119,6 +129,12 @@ contains
       deallocate( this%ViscHeatLM )
       deallocate( this%OhmLossLM )
 
+      if ( l_TP_form ) then
+         deallocate( this%VPrLM )    
+         deallocate( this%VPtLM )    
+         deallocate( this%VPpLM )    
+      end if
+
       if ( l_chemical_conv ) then
          deallocate( this%VXirLM )    
          deallocate( this%VXitLM )    
@@ -158,6 +174,12 @@ contains
       this%ViscHeatLM=zero
       this%OhmLossLM =zero
 
+      if ( l_TP_form ) then
+         this%VPrLM =zero
+         this%VPtLM =zero
+         this%VPpLM =zero
+      end if
+
       if ( l_chemical_conv ) then
          this%VXirLM =zero
          this%VXitLM =zero
@@ -187,8 +209,8 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVXirLM,dVxBhLM, &
-        &            dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,leg_helper)
+   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVPrLM,dVXirLM,dVxBhLM, &
+              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,leg_helper)
       !
       !  Purpose of this to calculate time derivatives
       !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
@@ -213,6 +235,7 @@ contains
       complex(cp), intent(out) :: dVxBhLM(:)
       complex(cp), intent(out) :: dVSrLM(:)
       complex(cp), intent(out) :: dVXirLM(:)
+      complex(cp), intent(out) :: dVPrLM(:)
     
       !-- Local variables:
       integer :: l,m,lm,lmS,lmA,lmP,lmPS,lmPA
@@ -261,7 +284,11 @@ contains
                CorTor_loc=zero
             end if
             Buo(lm) =BuoFac*rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
-            dwdt(lm)=AdvPol_loc+CorPol_loc
+            if ( l_single_matrix ) then
+               dwdt(lm)=AdvPol_loc!+CorPol_loc
+            else
+               dwdt(lm)=AdvPol_loc+CorPol_loc
+            end if
             dzdt(lm)=AdvTor_loc+CorTor_loc
             if ( lRmsCalc ) then
                if ( l_mag_LF .and. nR>n_r_LCR ) then
@@ -286,9 +313,9 @@ contains
             !$OMP shared(w_Rloc,this,dw_Rloc,nBc,leg_helper,Buo) &
             !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
             !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
-            !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac)
-            do lm=1,lm_max
-               if (lm == 1) cycle
+            !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac,l_TP_form,temp0) &
+            !$OMP shared(l_anelastic_liquid,alpha0,ThExpNb,ViscHeatFac,ogrun)
+            do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
                lmS =lm2lmS(lm)
@@ -329,17 +356,17 @@ contains
 #endif
                if ( l_corr .and. nBc /= 2 ) then
                   if ( l < l_max .and. l > m ) then
-                     CorPol_loc =two*CorFac*or1(nR) * ( &
-                             dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
-                          dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
-                          dTheta2S(lm)*z_Rloc(lmS,nR) )
+                     CorPol_loc =two*CorFac*or1(nR) * (  &
+                     &       dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                     &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
                   else if ( l == l_max ) then
                      CorPol_loc= two*CorFac*or1(nR) * ( &
-                                  dPhi0(lm)*dw_Rloc(lm,nR)  )
+                     &            dPhi0(lm)*dw_Rloc(lm,nR)  )
                   else if ( l == m ) then
                      CorPol_loc = two*CorFac*or1(nR) * ( &
-                              dPhi0(lm)*dw_Rloc(lm,nR)  + &
-                           dTheta2A(lm)*z_Rloc(lmA,nR) )
+                     &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
+                     &     dTheta2A(lm)*z_Rloc(lmA,nR) )
                   end if
                else
                   CorPol_loc=zero
@@ -350,7 +377,14 @@ contains
                else
                   AdvPol_loc=zero
                endif
-               Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
+               if ( l_TP_form .or. l_anelastic_liquid ) then
+                  Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(          &
+                  &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*&
+                  &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*  &
+                  &        leg_helper%preR(lm) )
+               else
+                  Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
+               end if
                dwdt(lm)=AdvPol_loc+CorPol_loc
 
                if ( lRmsCalc ) then
@@ -365,20 +399,20 @@ contains
 
                if ( l_corr ) then
                   if ( l < l_max .and. l > m ) then
-                     CorTor_loc=          two*CorFac*or2(nR) * ( &
-                                      dPhi0(lm)*z_Rloc(lm,nR)   + &
-                                  dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
-                          or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
-                                  dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
-                          or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
+                     CorTor_loc=          two*CorFac*or2(nR) * (  &
+                     &                dPhi0(lm)*z_Rloc(lm,nR)   + &
+                     &            dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  + &
+                     &            dTheta3S(lm)*dw_Rloc(lmS,nR)  - &
+                     &    or1(nR)*dTheta4S(lm)* w_Rloc(lmS,nR)  )
                   else if ( l == l_max ) then
                      CorTor_loc=two*CorFac*or2(nR) * ( &
-                                  dPhi0(lm)*z_Rloc(lm,nR)   )
+                     &            dPhi0(lm)*z_Rloc(lm,nR)   )
                   else if ( l == m ) then
-                     CorTor_loc=  two*CorFac*or2(nR) * ( &
-                              dPhi0(lm)*z_Rloc(lm,nR)   + &
-                          dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
-                          or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  )
+                     CorTor_loc=  two*CorFac*or2(nR) * (  &
+                     &        dPhi0(lm)*z_Rloc(lm,nR)   + &
+                     &    dTheta3A(lm)*dw_Rloc(lmA,nR)  + &
+                     &    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR)  )
                   end if
                else
                   CorTor_loc=zero
@@ -387,11 +421,11 @@ contains
                if ( l_conv_nl ) then
                   if ( l > m ) then
                      AdvTor_loc=   -dPhi(lm)*this%AdvtLM(lmP)  + &
-                                dTheta1S(lm)*this%AdvpLM(lmPS) - &
-                                dTheta1A(lm)*this%AdvpLM(lmPA)
+                     &          dTheta1S(lm)*this%AdvpLM(lmPS) - &
+                     &          dTheta1A(lm)*this%AdvpLM(lmPA)
                   else if ( l == m ) then
                      AdvTor_loc=   -dPhi(lm)*this%AdvtLM(lmP)  - &
-                                dTheta1A(lm)*this%AdvpLM(lmPA)
+                     &          dTheta1A(lm)*this%AdvpLM(lmPA)
                   end if
                else
                   AdvTor_loc=zero
@@ -408,11 +442,11 @@ contains
                      if ( l > m ) then
                         !------- LFTor= 1/(E*Pm) * curl( curl(B) x B )_r
                         LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  + &
-                                   dTheta1S(lm)*this%LFpLM(lmPS) - &
-                                   dTheta1A(lm)*this%LFpLM(lmPA)
+                        &          dTheta1S(lm)*this%LFpLM(lmPS) - &
+                        &          dTheta1A(lm)*this%LFpLM(lmPA)
                      else if ( l == m ) then
                         LFTor(lm) =   -dPhi(lm)*this%LFtLM(lmP)  - &
-                                   dTheta1A(lm)*this%LFpLM(lmPA)
+                        &          dTheta1A(lm)*this%LFpLM(lmPA)
                      end if
                      AdvTor(lm)=AdvTor_loc-LFTor(lm)
                   else
@@ -449,23 +483,28 @@ contains
                   lmPA=lmP2lmPA(lmP)
                   if ( l<l_max .and. l>m ) then
                      dpt(lm)=               or1(nR)* (      &
-                            -dTheta1A(lm)*this%p1LM(lmPA) + &
-                             dTheta1S(lm)*this%p1LM(lmPS) - &
-                                          this%p2LM(lmP)  )                                  
+                     &      -dTheta1A(lm)*this%p1LM(lmPA) + &
+                     &       dTheta1S(lm)*this%p1LM(lmPS) - &
+                     &                    this%p2LM(lmP)  )                                  
                   else if ( l == l_max ) then
                      dpt(lm)=zero
                   else if ( l == m ) then
                      dpt(lm)=                or1(nR)* (       &
-                              -dTheta1A(lm)*this%p1LM(lmPA) - &
-                                            this%p2LM(lmP)  )
+                     &        -dTheta1A(lm)*this%p1LM(lmPA) - &
+                     &                      this%p2LM(lmP)  )
                   end if
                   dpp(lm)=or1(nR)*dPhi(lm)*this%p1LM(lmP)
                end do
                !$OMP END PARALLEL DO
                !PERFOFF
 
-               call hIntRms(leg_helper%dpR-beta(nR)*leg_helper%preR,&
-                            nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
+               if ( l_TP_form .or. l_anelastic_liquid ) then
+                  call hIntRms(leg_helper%dpR,nR,1,lm_max,0, &
+                       &       Pre2hInt(:,nR),st_map)
+               else
+                  call hIntRms(leg_helper%dpR-beta(nR)*leg_helper%preR,&
+                       &       nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
+               end if
                call hIntRms(dpt,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
                call hIntRms(dpp,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
 
@@ -621,7 +660,7 @@ contains
             dsdt_loc  =epsc*epscProf(nR)!+opr/epsS*divKtemp0(nR)
             dVSrLM(1)=this%VSrLM(1)
             if ( l_anel ) then
-               if ( l_anelastic_liquid ) then
+               if ( l_anelastic_liquid .or. l_TP_form ) then
                   if ( l_mag_nl ) then
                      dsdt_loc=dsdt_loc+                                        &
                      &    ViscHeatFac*hdif_V(1)*temp0(nR)*this%ViscHeatLM(1)+  &
@@ -647,6 +686,7 @@ contains
             !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
             !$OMP shared(lm_max,dsdt,dVSrLM,dTheta1S,dTheta1A,dPhi) &
             !$OMP shared(l_anel,l_anelastic_liquid,l_mag_nl,nR) &
+            !$OMP shared(l_TP_form) &
             !$OMP shared(ViscHeatFac,hdif_V,OhmLossFac,hdif_B,temp0,this)
             !LIKWID_ON('td_heat')
             !$OMP DO
@@ -670,7 +710,7 @@ contains
                !PERFOFF
                !PERFON('td_h2')
                if ( l_anel ) then
-                  if ( l_anelastic_liquid ) then
+                  if ( l_anelastic_liquid .or. l_TP_form ) then
                      dsdt_loc = dsdt_loc+ &
                           &     ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
@@ -703,6 +743,43 @@ contains
                dsdt(lm)  =0.0_cp
                dVSrLM(lm)=0.0_cp
             end do
+         end if
+
+         if ( l_TP_form ) then
+            dVPrLM(1)=this%VPrLM(1)
+
+            !PERFON('td_p_heat')
+            !$OMP PARALLEL DEFAULT(none) &
+            !$OMP private(lm,l,m,lmP,lmPS,lmPA,dsdt_loc) &
+            !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA) &
+            !$OMP shared(lm_max,dsdt,dVPrLM,dTheta1S,dTheta1A,dPhi) &
+            !$OMP shared(nR,alpha0,temp0,orho1,ViscHeatFac,ThExpNb,this) 
+            !LIKWID_ON('td_p_heat')
+            !$OMP DO
+            do lm=2,lm_max
+               l   =lm2l(lm)
+               m   =lm2m(lm)
+               lmP =lm2lmP(lm)
+               lmPS=lmP2lmPS(lmP)
+               lmPA=lmP2lmPA(lmP)
+    
+               if ( l > m ) then
+                  dsdt_loc= -dTheta1S(lm)*this%VPtLM(lmPS) &
+                       &     +dTheta1A(lm)*this%VPtLM(lmPA) &
+                       &     -dPhi(lm)*this%VPpLM(lmP)
+               else if ( l == m ) then
+                  dsdt_loc=  dTheta1A(lm)*this%VPtLM(lmPA) &
+                       &     -dPhi(lm)*this%VPpLM(lmP)
+               end if
+
+               dVPrLM(lm)=this%VPrLM(lmP)
+               dsdt(lm) = dsdt(lm) - alpha0(nR)*temp0(nR)*orho1(nR)*&
+               &          ViscHeatFac*ThExpNb*dsdt_loc
+            end do
+            !$OMP end do
+            !LIKWID_OFF('td_p_heat')
+            !$OMP END PARALLEL
+            !PERFOFF
          end if
 
          if ( l_chemical_conv ) then
@@ -856,7 +933,11 @@ contains
                dVXirLM(lm)=zero
             end do
          end if
-         !PERFOFF
+         if ( l_TP_form ) then
+            do lm=1,lm_max
+               dVPrLM(lm)=zero
+            end do
+         end if
     
       end if  ! boundary ? lvelo ?
 

@@ -11,7 +11,8 @@ module communications
    use truncation, only: l_max, lm_max, minc, n_r_max, n_r_ic_max, l_axi
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop
-   use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, l_mag_kin
+   use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, &
+       &            l_mag_kin, l_TP_form
  
    implicit none
  
@@ -232,7 +233,11 @@ contains
 
       if ( l_heat ) then
          call create_lm2r_type(lo2r_s,2)
-         call create_r2lm_type(r2lo_s,2)
+         if ( l_TP_form ) then
+            call create_r2lm_type(r2lo_s,3) ! since we also need u\grad P
+         else
+            call create_r2lm_type(r2lo_s,2)
+         end if
       end if
       if ( l_chemical_conv ) then
          call create_lm2r_type(lo2r_xi,2)

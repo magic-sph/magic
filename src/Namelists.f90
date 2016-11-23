@@ -60,7 +60,8 @@ contains
          & l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
          & l_newmap,alph1,alph2,                            &
          & runHours,runMinutes,runSeconds,                  &
-         & cacheblock_size_in_B,anelastic_flavour
+         & cacheblock_size_in_B,anelastic_flavour,          &
+         & thermo_variable
       
       namelist/phys_param/                                    &
          & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,     &
@@ -387,10 +388,21 @@ contains
          l_corr=.true.
       end if
 
-      call capitalize(anelastic_flavour)
+      !-- Choose between temperature and entropy (same in the Boussinesq limit)
+      call capitalize(thermo_variable)
+      if ( index(thermo_variable, 'T') /= 0 ) then
+         l_TP_form=.true.
+      else if ( index(thermo_variable, 'S') /= 0 .or. &
+              & index(thermo_variable, 'ENT') /=0 ) then
+         l_TP_form=.false.
+      else
+         l_TP_form=.false.
+      end if
 
+      !-- Choose between entropy diffusion and temperature diffusion 
+      call capitalize(anelastic_flavour)
       if ( index(anelastic_flavour, 'LBR') /= 0 .or. &
-           index(anelastic_flavour, 'ENT') /= 0 ) then
+         & index(anelastic_flavour, 'ENT') /= 0 ) then
          l_temperature_diff = .false.
          l_anelastic_liquid = .false.
          l_single_matrix    = .false.
@@ -414,11 +426,11 @@ contains
          l_single_matrix    = .false.
       end if
 
-      if ( ktops > 2 .or. kbots > 2 ) then
+      if ( ktops > 2 .or. kbots > 2 .or. l_TP_form ) then
          l_single_matrix    = .true.
       end if
 
-      if ( l_anelastic_liquid .or. l_temperature_diff ) l_anel=.true.
+      if ( l_anelastic_liquid .or. l_temperature_diff .or. l_TP_form ) l_anel=.true.
 
       call capitalize(interior_model)
 
@@ -757,6 +769,8 @@ contains
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
       length=length_to_blank(anelastic_flavour)
       write(n_out,*) " anelastic_flavour  = """,anelastic_flavour(1:length),""","
+      length=length_to_blank(thermo_variable)
+      write(n_out,*) " thermo_variable    = """,thermo_variable(1:length),""","
       write(n_out,*) "/"
 
       write(n_out,*) "&phys_param"
@@ -1086,7 +1100,8 @@ contains
       alffac        =one
       intfac        =0.15_cp
       n_cour_step   =10
-      anelastic_flavour="None" 
+      anelastic_flavour="None" ! Useless in Boussinesq
+      thermo_variable="None" 
 
       cacheblock_size_in_B=4096
 

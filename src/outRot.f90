@@ -308,7 +308,7 @@ contains
       end if
     
       if ( l_iner ) then
-         ! l_iner can only be .TRUE. for minc=1
+         ! l_iner can only be .true. for minc=1
          n_lm_vals=0
          do l=1,6
             do m=1,l

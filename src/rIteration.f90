@@ -35,13 +35,14 @@ module rIteration_mod
    !-----------------------------------------------------------------------------
       subroutine do_iteration_if(this,nR,nBc,time,dt,dtLast,             &
                  &               dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,    &
-                 &               dVxBhLM,dVSrLM,dVXirLM,br_vt_lm_cmb,    &
-                 &               br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb, &
-                 &               lorentz_torque_ic,lorentz_torque_ma,    &
-                 &               HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,      &
-                 &               viscLMr,uhLMr,duhLMr,gradsLMr,fconvLMr, &
-                 &               fkinLMr,fviscLMr,fpoynLMr,fresLMr,      &
-                 &               EperpLMr,EparLMr,EperpaxiLMr,EparaxiLMr)
+                 &               dVxBhLM,dVSrLM,dVPrLM,dVXirLM,          &
+                 &               br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb, &
+                 &               br_vp_lm_icb,lorentz_torque_ic,         &
+                 &               lorentz_torque_ma,HelLMr,Hel2LMr,       &
+                 &               HelnaLMr,Helna2LMr,viscLMr,uhLMr,duhLMr,&
+                 &               gradsLMr,fconvLMr,fkinLMr,fviscLMr,     &
+                 &               fpoynLMr,fresLMr,EperpLMr,EparLMr,      &
+                 &               EperpaxiLMr,EparaxiLMr)
          import
          class(rIteration_t) :: this
  
@@ -52,7 +53,7 @@ module rIteration_mod
          !-- Output variables
          complex(cp), intent(out) :: dwdt(:), dzdt(:), dpdt(:), dsdt(:), dVSrLM(:)
          complex(cp), intent(out) :: dbdt(:), djdt(:), dVxBhLM(:)
-         complex(cp), intent(out) :: dxidt(:), dVXirLM(:)
+         complex(cp), intent(out) :: dxidt(:), dVPrLM(:), dVXirLM(:)
          !---- Output of nonlinear products for nonlinear
          !     magnetic boundary conditions (needed in s_updateB.f):
          complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB

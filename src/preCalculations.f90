@@ -505,20 +505,35 @@ contains
             !      r_cmb**2*dtemp0(1)*rho0(1)*kappa(1))*sq4pi
          end if
          if ( ktops == 1 ) then
-            write(message,'(''! Constant temp. at CMB T ='',ES16.6)') &
+            write(message,'(''! Const. entropy at outer boundary S ='',ES16.6)') &
                   real(tops(0,0))/sq4pi
             call logWrite(message)
          else if ( ktops == 2 ) then
             help=surf_cmb*topconduc*real(tops(0,0))/sq4pi
-            write(message,'(''! Const. total CMB buoy. flux    ='',ES16.6)') help
+            write(message,'(''! Const. total outer boundary entropy flux    ='',ES16.6)') help
+            call logWrite(message)
+         else if ( ktops == 3 ) then
+            write(message,'(''! Const. temp. at outer boundary S ='',ES16.6)') &
+                  real(tops(0,0))/sq4pi
+            call logWrite(message)
+         else if ( ktops == 4 ) then
+            help=surf_cmb*topconduc*real(tops(0,0))/sq4pi
+            write(message,'(''! Const. total outer boundary temp. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
          if ( kbots == 1 ) then
-            write(message,'(''! Constant temp. at ICB T ='',ES16.6)') real(bots(0,0))/sq4pi
+            write(message,'(''! Const. entropy at inner boundary S ='',ES16.6)') real(bots(0,0))/sq4pi
             call logWrite(message)
          else if ( kbots == 2 ) then
             help=surf_cmb*radratio**2*botconduc*real(bots(0,0))/sq4pi
-            write(message, '(''! Const. total ICB buoy. flux    ='',ES16.6)') help
+            write(message, '(''! Const. total inner boundary entropy flux    ='',ES16.6)') help
+            call logWrite(message)
+         else if ( kbots == 3 ) then
+            write(message,'(''! Const. temp. at inner boundary S ='',ES16.6)') real(bots(0,0))/sq4pi
+            call logWrite(message)
+         else if ( kbots == 4 ) then
+            help=surf_cmb*radratio**2*botconduc*real(bots(0,0))/sq4pi
+            write(message, '(''! Const. total inner boundary temp. flux    ='',ES16.6)') help
             call logWrite(message)
          end if
          help=facIH*pr*epsc/sq4pi
@@ -763,7 +778,7 @@ contains
          call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time, &
                                t_cmb_start,t_cmb_stop,dt_cmb, &
                          n_cmbs,n_cmb_step,'cmb',time,tScale)
-         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .TRUE. 
+         if ( n_cmbs > 0 .or. n_cmb_step > 0 .or. l_time ) l_cmb_field= .true. 
          l_time_hits=l_time_hits .or. l_time
       end if
       l_dt_cmb_field=l_dt_cmb_field .and. l_cmb_field
@@ -773,7 +788,7 @@ contains
          call get_hit_times(t_r_field,n_time_hits,n_t_r_field,l_time, &
                            t_r_field_start,t_r_field_stop,dt_r_field, &
                           n_r_fields,n_r_field_step,'r_field',time,tScale)
-         if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .TRUE. 
+         if ( n_r_fields > 0 .or. n_r_field_step > 0 .or. l_time ) l_r_field= .true. 
          l_time_hits=l_time_hits .or. l_time
       end iF
 

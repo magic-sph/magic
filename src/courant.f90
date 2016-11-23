@@ -5,7 +5,7 @@ module courant_mod
    use truncation, only: nrp, n_phi_max
    use radial_data, only: nRstart, nRstop
    use radial_functions, only: orho1, orho2, or4, or2
-   use physical_parameters, only: LFfac, opm, r_LCR
+   use physical_parameters, only: LFfac, opm
    use num_param, only: courfac, delxr2, delxh2, alffac
    use blocking, only: nfs
    use horizontal_data, only: osn2
@@ -52,9 +52,9 @@ contains
       real(cp), intent(in) :: bp(nrp,nfs)   ! azimuthal magnetic field
     
       !-- Output:
-      real(cp), intent(inout) :: dtrkc  ! Courant step (based on radial advection)
-                                        ! for the range of points covered
-      real(cp), intent(inout) :: dthkc  ! Courant step based on horizontal advection
+      real(cp), intent(inout) :: dtrkc    ! Courant step (based on radial advection)
+                                          ! for the range of points covered
+      real(cp), intent(inout) :: dthkc    ! Courant step based on horizontal advection
     
       !-- Local  variables:
       integer :: n_theta       ! absolut no of theta
@@ -80,7 +80,7 @@ contains
     
       n_theta=n_theta_min-1
     
-      if ( l_mag .and. l_mag_LF .and. n_r<=r_LCR .and. .not. l_mag_kin ) then
+      if ( l_mag .and. l_mag_LF .and. .not. l_mag_kin ) then
     
          af2=alffac*alffac
     
@@ -93,16 +93,16 @@ contains
     
                vflr2=orho2(n_r)*vr(n_phi,n_theta_rel)*vr(n_phi,n_theta_rel)
                valr =br(n_phi,n_theta_rel)*br(n_phi,n_theta_rel) * &
-               &     LFfac*orho1(n_r)
+                     LFfac*orho1(n_r)
                valr2=valr*valr/(valr+valri2)
                vr2max=max(vr2max,O_r_e_4*(cf2*vflr2+af2*valr2))
     
                vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
-               &        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+                        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
+                        osn2(n_theta_nhs)*orho2(n_r)
                valh2= ( bt(n_phi,n_theta_rel)*bt(n_phi,n_theta_rel) +  &
-               &        bp(n_phi,n_theta_rel)*bp(n_phi,n_theta_rel) )* &
-               &        LFfac*osn2(n_theta_nhs)*orho1(n_r)
+                        bp(n_phi,n_theta_rel)*bp(n_phi,n_theta_rel) )* &
+                        LFfac*osn2(n_theta_nhs)*orho1(n_r)
                valh2m=valh2*valh2/(valh2+valhi2)
                vh2max=max(vh2max,O_r_E_2*(cf2*vflh2+af2*valh2m))
     
@@ -122,9 +122,9 @@ contains
                vflr2=orho2(n_r)*vr(n_phi,n_theta_rel)*vr(n_phi,n_theta_rel)
                vr2max=max(vr2max,cf2*O_r_E_4*vflr2)
     
-               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) +  &
-               &        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
-               &        osn2(n_theta_nhs)*orho2(n_r)
+               vflh2= ( vt(n_phi,n_theta_rel)*vt(n_phi,n_theta_rel) + &
+                        vp(n_phi,n_theta_rel)*vp(n_phi,n_theta_rel) )* &
+                        osn2(n_theta_nhs)*orho2(n_r)
                vh2max=max(vh2max,cf2*O_r_E_2*vflh2)
     
             end do
@@ -185,9 +185,9 @@ contains
       end do
 #ifdef WITH_MPI
       call MPI_Allreduce(MPI_IN_PLACE,dt_r,1,MPI_DEF_REAL, &
-           &             MPI_MIN,MPI_COMM_WORLD,ierr)
+                         MPI_MIN,MPI_COMM_WORLD,ierr)
       call MPI_Allreduce(MPI_IN_PLACE,dt_h,1,MPI_DEF_REAL, &
-           &             MPI_MIN,MPI_COMM_WORLD,ierr)
+                         MPI_MIN,MPI_COMM_WORLD,ierr)
 #endif
     
       dt_rh=min(dt_r,dt_h)

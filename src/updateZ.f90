@@ -8,9 +8,9 @@ module updateZ_mod
    use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
-                               cheb_norm, dLvisc, beta, rho0, r_icb,&
-                               r_cmb,  drx, ddrx, r, beta, dbeta,   &
-                               chebt_oc
+       &                       cheb_norm, dLvisc, beta, rho0, r_icb,&
+       &                       r_cmb,  drx, ddrx, r, beta, dbeta,   &
+       &                       chebt_oc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: alpha, AMstart
    use torsional_oscillations, only: ddzASL
@@ -19,19 +19,11 @@ module updateZ_mod
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, &
                     l_correct_AMe, l_correct_AMz, l_update_v, l_TO
-   use matrices, only: z10Mat, z10Pivot, lZmat, lZ10mat, &
-#ifdef WITH_PRECOND_Z
-                     & zMat_fac, &
-#endif
-#ifdef WITH_PRECOND_Z10
-                     & z10Mat_fac, &
-#endif
-                     & zMat, zPivot
    use RMS, only: DifTor2hInt, dtVTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
-                    c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
-                    c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
-                    half
+       &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
+       &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
+       &                half
    use parallel_mod
    use algebra, only: cgeslML, cgesl, sgefa
    use LMLoop_data, only: llm,ulm
@@ -53,6 +45,19 @@ module updateZ_mod
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: dtV(:)
    complex(cp), allocatable :: Dif(:) 
+   real(cp), allocatable :: zMat(:,:,:)
+   real(cp), allocatable :: z10Mat(:,:) 
+#ifdef WITH_PRECOND_Z
+   real(cp), allocatable :: zMat_fac(:,:)
+#endif
+#ifdef WITH_PRECOND_Z10
+   real(cp), allocatable :: z10Mat_fac(:)
+#endif
+   integer, allocatable :: z10Pivot(:)
+   integer, allocatable :: zPivot(:,:)
+   logical, public :: lZ10mat
+   logical, public, allocatable :: lZmat(:)
+
    integer :: maxThreads
    
    public :: updateZ,initialize_updateZ
@@ -74,9 +79,31 @@ contains
 #else
       maxThreads=1
 #endif
+
+      allocate( zMat(n_r_max,n_r_max,l_max) )
+      allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0 
+      bytes_allocated = bytes_allocated+(n_r_max*n_r_max+ &
+      &                 n_r_max*n_r_max*l_max)*SIZEOF_DEF_REAL
+
+      allocate( z10Pivot(n_r_max) )
+      allocate( zPivot(n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(n_r_max+n_r_max*l_max)*&
+      &                 SIZEOF_INTEGER
+
+#ifdef WITH_PRECOND_Z10
+      allocate(z10Mat_fac(n_r_max))
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
+#endif
+#ifdef WITH_PRECOND_Z
+      allocate(zMat_fac(n_r_max,l_max))
+      bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
+#endif
+      allocate( lZmat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+ 
       allocate(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
-                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+      &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
@@ -206,7 +233,7 @@ contains
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
                    &        zMat(1,1,l1),zPivot(1,l1))
 #endif
-               lZmat(l1)=.TRUE.
+               lZmat(l1)=.true.
             !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))
             end if
          end if

@@ -950,7 +950,7 @@ contains
          !-- Get dipole dynamo contribution:
          do nR=1,n_r_max
             do lm=1,lm_max
-               if ( lm/=l1m0 .and. lm/=l1m1 ) THEN
+               if ( lm/=l1m0 .and. lm/=l1m1 ) then
                   PdynLM(lm,nR)  =zero
                   drPdynLM(lm,nR)=zero
                end if

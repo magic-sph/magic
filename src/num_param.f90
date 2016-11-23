@@ -50,6 +50,7 @@ module num_param
    integer, public :: n_lScale         ! Control length scale
 
    character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
+   character(len=72), public :: thermo_variable ! thermodynamic variable: S or T
 
  
    !-- Stop signal:

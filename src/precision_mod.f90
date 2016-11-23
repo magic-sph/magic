@@ -35,6 +35,7 @@ module precision_mod
    !-- Precision for long integers
    integer, public, parameter :: lip=selected_int_kind(12)
    integer, public, parameter :: SIZEOF_INTEGER=4
+   integer, public, parameter :: SIZEOF_LOGICAL=2
    integer, public, parameter :: SIZEOF_CHARACTER=1
 
 #ifdef WITH_MPI
