@@ -66,20 +66,6 @@ contains
 
    subroutine initialize_updateZ
 
-      allocate(workA(llm:ulm,n_r_max))
-      allocate(workB(llm:ulm,n_r_max))
-      allocate(workC(llm:ulm,n_r_max))
-      allocate( dtV(llm:ulm) )
-      allocate( Dif(llm:ulm) )
-      bytes_allocated=bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads=1
-#endif
-
       allocate( zMat(n_r_max,n_r_max,l_max) )
       allocate( z10Mat(n_r_max,n_r_max) )    ! for l=1,m=0 
       bytes_allocated = bytes_allocated+(n_r_max*n_r_max+ &
@@ -100,10 +86,26 @@ contains
 #endif
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+      allocate(workA(llm:ulm,n_r_max))
+      allocate(workB(llm:ulm,n_r_max))
+      allocate(workC(llm:ulm,n_r_max))
+      allocate( dtV(llm:ulm) )
+      allocate( Dif(llm:ulm) )
+      bytes_allocated=bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
  
       allocate(rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       bytes_allocated=bytes_allocated+n_r_max*maxThreads* &
       &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+
+      AMstart=0.0_cp
 
    end subroutine initialize_updateZ
 !-------------------------------------------------------------------------------
@@ -361,28 +363,32 @@ contains
                      if (amp_RiIcAsym /= 0.0_cp) then
                         if (l1 == m_RiIcAsym .and. m1 == m_RiIcAsym) then
                            rhs1(n_r_max,lmB,threadid) = cmplx(amp_RiIcAsym*cos(omega_RiIcAsym*time), &
-                                                              amp_RiIcAsym*sin(omega_RiIcAsym*time))
+                           &                                  amp_RiIcAsym*sin(omega_RiIcAsym*time), &
+                           &                                  kind=cp)
                         end if
                      end if
                         
                      if (amp_RiMaAsym /= 0.0_cp) then
                         if (l1 == m_RiMaAsym .and. m1 == m_RiMaAsym) then
                            rhs1(1,lmB,threadid) = cmplx(amp_RiMaAsym*cos(omega_RiMaAsym*time),       &
-                                                        amp_RiMaAsym*sin(omega_RiMaAsym*time))
+                           &                            amp_RiMaAsym*sin(omega_RiMaAsym*time),       &
+                           &                            kind=cp)
                         end if
                      end if
 
                      if (amp_RiIcSym /= 0.0_cp) then
                         if (l1 == m_RiIcSym+1 .and. m1 == m_RiIcSym) then
                            rhs1(n_r_max,lmB,threadid) = cmplx(amp_RiIcSym*cos(-omega_RiIcSym*time),   &
-                                                              amp_RiIcSym*sin(-omega_RiIcSym*time))
+                           &                                  amp_RiIcSym*sin(-omega_RiIcSym*time),   &
+                           &                                  kind=cp)
                         end if
                      end if
 
                      if (amp_RiMaSym /= 0.0_cp) then
                         if (l1 == m_RiMaSym+1 .and. m1 == m_RiMaSym) then
                            rhs1(1,lmB,threadid) = cmplx(amp_RiMaSym*cos(-omega_RiMaSym*time),         &
-                                                        amp_RiMaSym*sin(-omega_RiMaSym*time))
+                           &                            amp_RiMaSym*sin(-omega_RiMaSym*time),         &
+                           &                            kind=cp)
                         end if
                      end if
                   end if

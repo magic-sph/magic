@@ -53,6 +53,20 @@ contains
 
    subroutine initialize_updateWPT
 
+      allocate( pt0Mat(2*n_r_max,2*n_r_max) )
+      allocate( pt0Mat_fac(2*n_r_max) )
+      allocate( pt0Pivot(2*n_r_max) )
+      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
+      &                 +2*n_r_max*SIZEOF_INTEGER
+      allocate( wptMat(3*n_r_max,3*n_r_max,l_max) )
+      allocate(wptMat_fac(3*n_r_max,2,l_max))
+      allocate ( wptPivot(3*n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
+      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
+      allocate( lWPTmat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
       allocate( workC(llm:ulm,n_r_max) )
@@ -70,18 +84,6 @@ contains
 #else
       maxThreads=1
 #endif
-      allocate( pt0Mat(2*n_r_max,2*n_r_max) )
-      allocate( pt0Mat_fac(2*n_r_max) )
-      allocate( pt0Pivot(2*n_r_max) )
-      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
-      &                 +2*n_r_max*SIZEOF_INTEGER
-      allocate( wptMat(3*n_r_max,3*n_r_max,l_max) )
-      allocate(wptMat_fac(3*n_r_max,2,l_max))
-      allocate ( wptPivot(3*n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
-      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
-      allocate( lWPTmat(0:l_max) )
-      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
       allocate( rhs1(3*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
@@ -363,8 +365,8 @@ contains
                   lmB=lmB+1
                   if ( m1 > 0 ) then
                      do n_cheb=1,n_cheb_max
-                        w(lm1,n_cheb)=rhs1(n_cheb,lmB,threadid)
-                        p(lm1,n_cheb)=rhs1(n_r_max+n_cheb,lmB,threadid)
+                        w(lm1,n_cheb) =rhs1(n_cheb,lmB,threadid)
+                        p(lm1,n_cheb) =rhs1(n_r_max+n_cheb,lmB,threadid)
                         tt(lm1,n_cheb)=rhs1(2*n_r_max+n_cheb,lmB,threadid)
                      end do
                   else

@@ -62,20 +62,6 @@ contains
 
    subroutine initialize_updateB
 
-      allocate( workA(llmMag:ulmMag,n_r_max) )
-      allocate( workB(llmMag:ulmMag,n_r_max) )
-      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* & 
-                        SIZEOF_DEF_COMPLEX
-
-      allocate( dtT(llmMag:ulmMag) )
-      allocate( dtP(llmMag:ulmMag) )
-      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
-
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads=1
-#endif
       allocate( bMat(n_r_tot,n_r_tot,l_maxMag) )
       allocate( jMat(n_r_tot,n_r_totMag,l_maxMag) )
       bytes_allocated = bytes_allocated+(2*n_r_tot*n_r_tot*l_maxMag) &
@@ -91,6 +77,22 @@ contains
 #endif
       allocate( lBmat(0:l_maxMag) )
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
+
+
+      allocate( workA(llmMag:ulmMag,n_r_max) )
+      allocate( workB(llmMag:ulmMag,n_r_max) )
+      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* & 
+                        SIZEOF_DEF_COMPLEX
+
+      allocate( dtT(llmMag:ulmMag) )
+      allocate( dtP(llmMag:ulmMag) )
+      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*SIZEOF_DEF_COMPLEX
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
 
       allocate(rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))
       allocate(rhs2(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1))

@@ -93,6 +93,8 @@ module step_time_mod
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
 
+   integer :: sigFile
+
    public :: initialize_step_time,step_time
 
 contains
@@ -121,6 +123,7 @@ contains
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
          dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
+         allocate( dVPrLM_Rloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+ &
                            5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
@@ -197,6 +200,7 @@ contains
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
          dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
          dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
+         allocate( dVPrLM_LMloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
@@ -406,9 +410,9 @@ contains
       n_rst_signal=0
       if ( rank == 0 ) then
          message='signal'//'.'//tag
-         open(19, file=trim(message), status='unknown')
-         write(19,'(A3)') 'NOT'
-         close(19)
+         open(newunit=sigFile, file=trim(message), status='unknown')
+         write(sigFile,'(A3)') 'NOT'
+         close(sigFile)
       end if
       !call MPI_Win_create(signals,4*SIZEOF_integer,SIZEOF_integer,info,&
       !     & MPI_COMM_WORLD,signal_window,ierr)
@@ -513,9 +517,9 @@ contains
          if ( rank == 0 ) then
             !----- Signalling via file signal:
             message='signal'//'.'//tag
-            open(19, file=trim(message), status='old')
-            read(19,*) SIG
-            close(19)
+            open(newunit=sigFile, file=trim(message), status='old')
+            read(sigFile,*) SIG
+            close(sigFile)
             if ( len(trim(SIG)) > 0 ) then ! Non blank string ?
                call capitalize(SIG)
 
@@ -525,9 +529,9 @@ contains
                if ( index(SIG,'GRA')/=0 ) then 
                   !n_graph_signal=1
                   signals(2)=1
-                  open(19, file=trim(message), status='unknown')
-                  write(19,'(A3)') 'NOT'
-                  close(19)
+                  open(newunit=sigFile, file=trim(message), status='unknown')
+                  write(sigFile,'(A3)') 'NOT'
+                  close(sigFile)
                else
                   !n_graph_signal=0
                   signals(2)=0
@@ -536,9 +540,9 @@ contains
                if ( index(SIG,'RST')/=0 ) then
                   signals(3)=1
                   !n_rst_signal=1
-                  open(19, file=trim(message), status='unknown')
-                  write(19,'(A3)') 'NOT'
-                  close(19)
+                  open(newunit=sigFile, file=trim(message), status='unknown')
+                  write(sigFile,'(A3)') 'NOT'
+                  close(sigFile)
                else
                   signals(3)=0
                   !n_rst_signal=0
@@ -547,9 +551,9 @@ contains
                if ( index(SIG,'SPE')/=0 ) then
                   signals(4)=1
                   !n_spec_signal=1
-                  open(19, file=trim(message), status='unknown')
-                  write(19,'(A3)') 'NOT'
-                  close(19)
+                  open(newunit=sigFile, file=trim(message), status='unknown')
+                  write(sigFile,'(A3)') 'NOT'
+                  close(sigFile)
                else
                   signals(4)=0
                   !n_spec_signal=0

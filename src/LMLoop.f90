@@ -254,12 +254,12 @@ contains
          end if
 
          if ( l_single_matrix ) then
-#ifdef WITH_MPI
             if ( rank == rank_with_l1m0 ) then
                do nR=1,n_r_max
                   z10(nR)=real(z(lo_map%lm2(1,0),nR))
                end do
             end if
+#ifdef WITH_MPI
             call MPI_Bcast(z10,n_r_max,MPI_DEF_REAL,rank_with_l1m0, &
                  &         MPI_COMM_WORLD,ierr)
 #endif

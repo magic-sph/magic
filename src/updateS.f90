@@ -50,24 +50,6 @@ contains
 
    subroutine initialize_updateS
 
-      allocate( workA(llm:ulm,n_r_max) )
-      allocate( workB(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated + 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
-      if ( l_anelastic_liquid ) then
-         allocate( workC(llm:ulm,n_r_max) )
-         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      end if
-
-#ifdef WITHOMP
-      maxThreads=omp_get_max_threads()
-#else
-      maxThreads=1
-#endif
-      allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
-      bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
-      &                 maxThreads*SIZEOF_DEF_COMPLEX
-
       allocate( s0Mat(n_r_max,n_r_max) )      ! for l=m=0  
       allocate( sMat(n_r_max,n_r_max,l_max) )
       bytes_allocated = bytes_allocated+(n_r_max*n_r_max*(1+l_max))* &
@@ -85,6 +67,24 @@ contains
 #endif
       allocate( lSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
+      allocate( workA(llm:ulm,n_r_max) )
+      allocate( workB(llm:ulm,n_r_max) )
+      bytes_allocated = bytes_allocated + 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
+      if ( l_anelastic_liquid ) then
+         allocate( workC(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
+
+#ifdef WITHOMP
+      maxThreads=omp_get_max_threads()
+#else
+      maxThreads=1
+#endif
+      allocate( rhs1(n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
+      bytes_allocated = bytes_allocated + n_r_max*lo_sub_map%sizeLMB2max*&
+      &                 maxThreads*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateS
 !------------------------------------------------------------------------------
@@ -586,8 +586,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
-                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+               call cgeslML(sMat(1,1,l1),n_r_max,n_r_max, &
+                    &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
             end if
             !PERFOFF
 

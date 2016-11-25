@@ -226,9 +226,6 @@ program magic
    call initialize_LMLoop_data
    call initialize_LMLoop
 
-#ifdef WITH_SHTNS
-   call init_shtns()
-#endif
 
    call initialize_num_param
    call initialize_init_fields
@@ -258,6 +255,11 @@ program magic
    if ( l_TO ) call initialize_outTO_mod
    if ( l_PV ) call initialize_outPV3
    if ( l_par ) call initialize_Egeos_mod
+
+#ifdef WITH_SHTNS
+   call init_shtns()
+#endif
+
 
    !--- Do pre-calculations:
    call preCalc

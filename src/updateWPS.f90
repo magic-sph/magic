@@ -54,6 +54,19 @@ contains
 
    subroutine initialize_updateWPS
 
+      allocate( ps0Mat(2*n_r_max,2*n_r_max) )
+      allocate( ps0Mat_fac(2*n_r_max) )
+      allocate( ps0Pivot(2*n_r_max) )
+      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
+      &                 +2*n_r_max*SIZEOF_INTEGER
+      allocate( wpsMat(3*n_r_max,3*n_r_max,l_max) )
+      allocate(wpsMat_fac(3*n_r_max,2,l_max))
+      allocate ( wpsPivot(3*n_r_max,l_max) )
+      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
+      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
+      allocate( lWPSmat(0:l_max) )
+      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
+
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
       allocate( workC(llm:ulm,n_r_max) )
@@ -70,18 +83,6 @@ contains
 #else
       maxThreads=1
 #endif
-      allocate( ps0Mat(2*n_r_max,2*n_r_max) )
-      allocate( ps0Mat_fac(2*n_r_max) )
-      allocate( ps0Pivot(2*n_r_max) )
-      bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
-      &                 +2*n_r_max*SIZEOF_INTEGER
-      allocate( wpsMat(3*n_r_max,3*n_r_max,l_max) )
-      allocate(wpsMat_fac(3*n_r_max,2,l_max))
-      allocate ( wpsPivot(3*n_r_max,l_max) )
-      bytes_allocated = bytes_allocated+(9*n_r_max*l_max+6*n_r_max*l_max)*&
-      &                 SIZEOF_DEF_REAL+3*n_r_max*l_max*SIZEOF_INTEGER
-      allocate( lWPSmat(0:l_max) )
-      bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
       allocate( rhs1(3*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &

@@ -49,6 +49,14 @@ contains
 
    subroutine initialize_updateWP
 
+      allocate( wpMat(2*n_r_max,2*n_r_max,l_max), p0Mat(n_r_max,n_r_max) )
+      allocate( wpMat_fac(2*n_r_max,2,l_max) )
+      allocate( wpPivot(2*n_r_max,l_max), p0Pivot(n_r_max) )
+      allocate( lWPmat(0:l_max) )
+      bytes_allocated=bytes_allocated+((4*n_r_max+4)*(l_max)+n_r_max)*n_r_max* &
+      &               SIZEOF_DEF_REAL+(2*n_r_max*l_max+n_r_max)*SIZEOF_INTEGER+&
+      &               (l_max+1)*SIZEOF_LOGICAL
+
       allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
@@ -67,15 +75,6 @@ contains
 #else
       maxThreads=1
 #endif
-
-      allocate( wpMat(2*n_r_max,2*n_r_max,l_max), p0Mat(n_r_max,n_r_max) )
-      allocate( wpMat_fac(2*n_r_max,2,l_max) )
-      allocate( wpPivot(2*n_r_max,l_max), p0Pivot(n_r_max) )
-      allocate( lWPmat(0:l_max) )
-      bytes_allocated=bytes_allocated+((4*n_r_max+4)*(l_max)+n_r_max)*n_r_max* &
-      &               SIZEOF_DEF_REAL+(2*n_r_max*l_max+n_r_max)*SIZEOF_INTEGER+&
-      &               (l_max+1)*SIZEOF_LOGICAL
-
 
       allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
@@ -223,11 +222,15 @@ contains
 
                if ( l1 == 0 ) then
                   !-- The integral of rho' r^2 dr vanishes
-                  do nR=1,n_r_max
-                     work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
-                     &        r(nR)*real(s(st_map%lm2(0,0),nR))
-                  end do
-                  rhs(1)=rInt_R(work,n_r_max,n_r_max,drx,chebt_oc)
+                  if ( ThExpNb*ViscHeatFac /= 0 ) then
+                     do nR=1,n_r_max
+                        work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
+                        &        r(nR)*real(s(st_map%lm2(0,0),nR))
+                     end do
+                     rhs(1)=rInt_R(work,n_r_max,n_r_max,drx,chebt_oc)
+                  else
+                     rhs(1)=0.0_cp
+                  end if
 
                   if ( l_chemical_conv ) then
                      do nR=2,n_r_max
@@ -750,22 +753,28 @@ contains
 
       !-- Boundary condition for spherically-symmetric pressure
       !-- The integral of rho' r^2 dr vanishes
-      work(:) = ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
-      call chebt_oc%costf1(work,work1)
-      work(:)      =work(:)*cheb_norm
-      work(1)      =half*work(1)
-      work(n_r_max)=half*work(n_r_max)
-      do nCheb=1,n_cheb_max
-         pMat(1,nCheb)=0.0_cp
-         do nCheb_in=1,n_cheb_max
-            if ( mod(nCheb+nCheb_in-2,2)==0 ) then
-               pMat(1,nCheb)=pMat(1,nCheb)+ &
-               &             ( one/(one-real(nCheb_in-nCheb,cp)**2)    + &
-               &               one/(one-real(nCheb_in+nCheb-2,cp)**2) )* &
-               &               work(nCheb_in)*half*cheb_norm
-            end if
+      if ( ThExpNb*ViscHeatFac /= 0 ) then
+         work(:) = ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+         call chebt_oc%costf1(work,work1)
+         work(:)      =work(:)*cheb_norm
+         work(1)      =half*work(1)
+         work(n_r_max)=half*work(n_r_max)
+         do nCheb=1,n_cheb_max
+            pMat(1,nCheb)=0.0_cp
+            do nCheb_in=1,n_cheb_max
+               if ( mod(nCheb+nCheb_in-2,2)==0 ) then
+                  pMat(1,nCheb)=pMat(1,nCheb)+ &
+                  &             ( one/(one-real(nCheb_in-nCheb,cp)**2)    + &
+                  &               one/(one-real(nCheb_in+nCheb-2,cp)**2) )* &
+                  &               work(nCheb_in)*half*cheb_norm
+               end if
+            end do
          end do
-      end do
+      else
+         do nCheb=1,n_cheb_max
+            pMat(1,nCheb)=cheb_norm
+         end do
+      end if
 
       !-- Boundary condition: pressure vanishes on the outer boundary
       !do nCheb=1,n_cheb_max

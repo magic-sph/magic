@@ -415,34 +415,34 @@ contains
     
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
-                          lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
-                          workB_LMloc,chebt_oc,drx,ddrx )
+                 &        lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
+                 &        workB_LMloc,chebt_oc,drx,ddrx )
             call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                         n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                         chebt_oc,drx )
+                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                 &       chebt_oc,drx )
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
             call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
-                          lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
-                          n_cheb_max,workA_LMloc,workB_LMloc,         &
-                          chebt_oc,drx,ddrx )
+                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
+                 &        n_cheb_max,workA_LMloc,workB_LMloc,         &
+                 &        chebt_oc,drx,ddrx )
             call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
-                          lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
-                          n_cheb_max,workA_LMloc,workB_LMloc,          &
-                          chebt_oc,drx,ddrx )
+                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
+                 &        n_cheb_max,workA_LMloc,workB_LMloc,          &
+                 &        chebt_oc,drx,ddrx )
          end if
          if ( l_cond_ic ) then
             call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,       &
-                              ulmMag-llmMag+1,lmStart-llmMag+1,          &
-                              lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                              dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                              chebt_ic, chebt_ic_even)
+                 &            ulmMag-llmMag+1,lmStart-llmMag+1,          &
+                 &            lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
+                 &            dr_fac_ic,workA_LMloc,workB_LMloc,         &
+                 &            chebt_ic, chebt_ic_even)
             call get_ddr_even(aj_ic_LMloc,dj_ic_LMloc,ddj_ic_LMloc,      &
-                              ulmMag-llmMag+1,lmStart-llmMag+1,          &
-                              lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
-                              dr_fac_ic,workA_LMloc,workB_LMloc,         &
-                              chebt_ic, chebt_ic_even)
+                 &            ulmMag-llmMag+1,lmStart-llmMag+1,          &
+                 &            lmStop-llmMag+1,n_r_ic_max,n_cheb_ic_max,  &
+                 &            dr_fac_ic,workA_LMloc,workB_LMloc,         &
+                 &            chebt_ic, chebt_ic_even)
          end if
     
          if ( l_LCR ) then
@@ -453,12 +453,12 @@ contains
                      m=lo_map%lm2m(lm)
     
                      b_LMloc(lm,nR)=(r(n_r_LCR)/r(nR))**real(l,cp)* &
-                                     b_LMloc(lm,n_r_LCR)
+                     &               b_LMloc(lm,n_r_LCR)
                      db_LMloc(lm,nR)=-real(l,cp)*(r(n_r_LCR))**real(l,cp)/ &
-                                     (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
+                     &               (r(nR))**real(l+1,cp)*b_LMloc(lm,n_r_LCR)
                      ddb_LMloc(lm,nR)=real(l,cp)*real(l+1,cp)*    &
-                                      (r(n_r_LCR))**(real(l,cp))/ &
-                                      (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
+                     &                (r(n_r_LCR))**(real(l,cp))/ &
+                     &                (r(nR))**real(l+2,cp)*b_LMloc(lm,n_r_LCR)
                      aj_LMloc(lm,nR)=zero
                      dj_LMloc(lm,nR)=zero
                      ddj_LMloc(lm,nR)=zero
