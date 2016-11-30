@@ -334,28 +334,28 @@ contains
                      if (amp_RiIcAsym /= 0.0_cp) then
                         if (l1 == m_RiIcAsym .and. m1 == m_RiIcAsym) then
                            rhs1(n_r_max,lmB,threadid) = cmplx(amp_RiIcAsym*cos(omega_RiIcAsym*time), &
-                                                              amp_RiIcAsym*sin(omega_RiIcAsym*time))
+                                                              amp_RiIcAsym*sin(omega_RiIcAsym*time),kind=cp)
                         end if
                      end if
                         
                      if (amp_RiMaAsym /= 0.0_cp) then
                         if (l1 == m_RiMaAsym .and. m1 == m_RiMaAsym) then
                            rhs1(1,lmB,threadid) = cmplx(amp_RiMaAsym*cos(omega_RiMaAsym*time),       &
-                                                        amp_RiMaAsym*sin(omega_RiMaAsym*time))
+                                                        amp_RiMaAsym*sin(omega_RiMaAsym*time),kind=cp)
                         end if
                      end if
 
                      if (amp_RiIcSym /= 0.0_cp) then
                         if (l1 == m_RiIcSym+1 .and. m1 == m_RiIcSym) then
                            rhs1(n_r_max,lmB,threadid) = cmplx(amp_RiIcSym*cos(-omega_RiIcSym*time),   &
-                                                              amp_RiIcSym*sin(-omega_RiIcSym*time))
+                                                              amp_RiIcSym*sin(-omega_RiIcSym*time),kind=cp)
                         end if
                      end if
 
                      if (amp_RiMaSym /= 0.0_cp) then
                         if (l1 == m_RiMaSym+1 .and. m1 == m_RiMaSym) then
                            rhs1(1,lmB,threadid) = cmplx(amp_RiMaSym*cos(-omega_RiMaSym*time),         &
-                                                        amp_RiMaSym*sin(-omega_RiMaSym*time))
+                                                        amp_RiMaSym*sin(-omega_RiMaSym*time),kind=cp)
                         end if
                      end if
                   end if
