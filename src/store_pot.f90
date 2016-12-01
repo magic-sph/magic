@@ -23,6 +23,8 @@ module store_pot_mod
 
    private
 
+   integer :: fileHandle
+
    public :: storePot, storePotW
 
 contains
@@ -99,20 +101,21 @@ contains
          !           end if
       end if
     
-      open(99, file=fileName, form='unformatted', status='unknown')
+      open(newunit=fileHandle, file=fileName, form='unformatted', &
+      &    status='unknown')
     
-      write(99) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
-      write(99) real(ra,kind=outp), real(ek,kind=outp), real(pr,kind=outp), &
-              & real(prmag,kind=outp), real(radratio,kind=outp),            &
-              & real(sigma_ratio,kind=outp), real(omega_ma,kind=outp),      &
-              & real(omega_ic,kind=outp)
-      write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)),   &
-                                         aimag(workA(lm,n_cheb)),           &
-                                         kind=outp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
+      write(fileHandle) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
+      write(fileHandle) real(ra,kind=outp), real(ek,kind=outp),               &
+      &                 real(pr,kind=outp), real(prmag,kind=outp),            &
+      &                 real(radratio,kind=outp), real(sigma_ratio,kind=outp),&
+      &                 real(omega_ma,kind=outp), real(omega_ic,kind=outp)
+      write(fileHandle) real(time,kind=outp), ( (cmplx(real(workA(lm,n_cheb)),&
+      &                 aimag(workA(lm,n_cheb)),kind=outp ),lm=1,lm_max),     &
+      &                 n_cheb=1,n_cheb_max )
       if ( lVB ) then
-         write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)),   &
-                                            aimag(workB(lm,n_cheb)),           &
-                                            kind=outp ),lm=1,lm_max),n_cheb=1,n_cheb_max )
+         write(fileHandle) real(time,kind=outp),((cmplx(real(workB(lm,n_cheb)),&
+         &                 aimag(workB(lm,n_cheb)),kind=outp),lm=1,lm_max),    &
+         &                 n_cheb=1,n_cheb_max )
       end if
     
       !-- Now inner core field
@@ -142,18 +145,16 @@ contains
                end if
             end do
          end do
-         write(99) real(time,kind=outp), ( (cmplx(   real(workA(lm,n_cheb)), &
-                                            aimag(workA(lm,n_cheb)),         &
-                                            kind=outp),                      &
-                                            lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
-         write(99) real(time,kind=outp), ( (cmplx(   real(workB(lm,n_cheb)), &
-                                            aimag(workB(lm,n_cheb)),         &
-                                            kind=outp),                      &
-                                            lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
+         write(fileHandle) real(time,kind=outp),((cmplx(real(workA(lm,n_cheb)),&
+         &                 aimag(workA(lm,n_cheb)),kind=outp),lm=1,lm_max),    &
+         &                 n_cheb=1,n_cheb_ic_max )
+         write(fileHandle) real(time,kind=outp),((cmplx(real(workB(lm,n_cheb)),&
+         &                 aimag(workB(lm,n_cheb)),kind=outp),lm=1,lm_max),    &
+         &                 n_cheb=1,n_cheb_ic_max )
     
       end if
     
-      close(99)
+      close(fileHandle)
 
    end subroutine storePot
 !----------------------------------------------------------------------
@@ -249,22 +250,25 @@ contains
             !         end if
          end if
 
-         open(99, file=fileName, form='unformatted', status='unknown')
+         open(newunit=fileHandle, file=fileName, form='unformatted', &
+         &    status='unknown')
 
-         write(99) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
-         write(99) real(ra,kind=outp), real(ek,kind=outp), real(pr,kind=outp), &
-              &    real(prmag,kind=outp), real(radratio,kind=outp),            &
-              &    real(sigma_ratio,kind=outp), real(omega_ma,kind=outp),      &
-              &    real(omega_ic,kind=outp)
-         write(99) real(time,kind=outp), ( (cmplx( real(workA_global(lm,n_cheb)),  &
-                                                   aimag(workA_global(lm,n_cheb)), &
-                                                   kind=outp ),                    &
-                                                   lm=1,lm_max),n_cheb=1,n_cheb_max )
+         write(fileHandle) l_max,n_cheb_max,n_cheb_ic_max,minc,lm_max
+         write(fileHandle) real(ra,kind=outp), real(ek,kind=outp),       &
+         &                 real(pr,kind=outp), real(prmag,kind=outp),    &
+         &                 real(radratio,kind=outp),                     &
+         &                 real(sigma_ratio,kind=outp),                  &
+         &                 real(omega_ma,kind=outp),                     &
+         &    real(omega_ic,kind=outp)
+         write(fileHandle) real(time,kind=outp),                         &
+         &                 ((cmplx(real(workA_global(lm,n_cheb)),        &
+         &                 aimag(workA_global(lm,n_cheb)),kind=outp ),   &
+         &                 lm=1,lm_max),n_cheb=1,n_cheb_max )
          if ( lVB ) then
-            write(99) real(time,kind=outp), ( (cmplx( real(workB_global(lm,n_cheb)),  &
-                                                      aimag(workB_global(lm,n_cheb)), &
-                                                      kind=outp ),                    &
-                                                      lm=1,lm_max),n_cheb=1,n_cheb_max)
+            write(fileHandle) real(time,kind=outp),                      &
+            &                 ((cmplx(real(workB_global(lm,n_cheb)),     &
+            &                 aimag(workB_global(lm,n_cheb)),kind=outp ),&
+            &                 lm=1,lm_max),n_cheb=1,n_cheb_max)
          end if
       end if
       
@@ -302,11 +306,11 @@ contains
          if ( rank == 0 ) then
             write(*,*) 'WRITING IC DATA INTO FILE:',fileName
 
-            write(99) real(time,kind=outp),                               &
+            write(fileHandle) real(time,kind=outp),                       &
                  &   ( (cmplx( real(workA_global(lm,n_cheb)),             &
                  &            aimag(workA_global(lm,n_cheb)), kind=outp ),&
                  &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
-            write(99) real(time,kind=outp),                               &
+            write(fileHandle) real(time,kind=outp),                       &
                  &   ( (cmplx( real(workB_global(lm,n_cheb)),             &
                  &            aimag(workB_global(lm,n_cheb)), kind=outp), &
                  &     lm=1,lm_max),n_cheb=1,n_cheb_ic_max )
@@ -314,7 +318,7 @@ contains
 
       end if
 
-      close(99)
+      close(fileHandle)
 
       if ( rank == 0 ) deallocate( workA_global,workB_global ) 
 

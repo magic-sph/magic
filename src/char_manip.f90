@@ -81,12 +81,15 @@ contains
 
       !-- Output variable:
       real(cp), intent(out) :: num     ! output
+
+      !-- Local variable:
+      integer :: fileHandle
   
       read(string,*) num
   
-      open(99,file='.helpfile',status='unknown')
-      write(99,*) num
-      close(99)
+      open(newunit=fileHandle, file='.helpfile', status='unknown')
+      write(fileHandle,*) num
+      close(fileHandle)
 
    end subroutine str2dble
 !------------------------------------------------------------------------------

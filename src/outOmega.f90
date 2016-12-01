@@ -47,12 +47,13 @@ contains
       real(cp) :: VpS,omega(2)
       real(cp) :: workA(lm_max,n_r_max) ! work array
 
+      integer :: fileHandle
       character(len=64) :: fileName
 
       if ( lVerbose ) write(*,*) '! Starting outOmega!'
 
       fileName='omega.'//tag
-      open(99, file=fileName, status='unknown')
+      open(newunit=fileHandle, file=fileName, status='unknown')
 
       dsZ=r_CMB/real(nSmax-1,kind=cp)
 
@@ -90,11 +91,11 @@ contains
 
          end do inner ! Loop over north and south hemisphere
 
-         write(99,*) sZ,omega(1),omega(2)
+         write(fileHandle,*) sZ,omega(1),omega(2)
 
       end do outer ! Loop over s
 
-      close(99)
+      close(fileHandle)
 
       if ( lVerbose ) write(*,*) '! End of outOmega!'
 

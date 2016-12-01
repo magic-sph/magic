@@ -16,7 +16,7 @@ module output_mod
        &            l_cond_ic,l_rMagSpec, l_movie_ic, l_store_frame,       &
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
-       &            l_chemical_conv
+       &            l_chemical_conv, l_movie
    use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
        &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z, xi,        &
        &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
@@ -37,19 +37,14 @@ module output_mod
        &              spectrum_temp_average, get_amplitude
    use outTO_mod, only: outTO
    use outPV3, only: outPV
-   use output_data, only: tag, l_max_cmb,                           &
-       &                  cmbMov_file, n_cmbMov_file, cmb_file,     &
-       &                  n_cmb_file, dt_cmb_file, n_dt_cmb_file,   & 
-       &                  n_coeff_r, l_max_r, n_v_r_file,           &
-       &                  n_b_r_file, n_t_r_file, v_r_file,         &
-       &                  t_r_file, b_r_file, n_r_array, n_r_step,  &
-       &                  par_file, n_par_file, nLF, log_file,      &
-       &                  n_coeff_r_max, rst_file, n_rst_file
+   use output_data, only: tag, l_max_cmb, n_rst_file, n_coeff_r, l_max_r,   &
+       &                  n_r_array, n_r_step,  n_log_file, log_file,       &
+       &                  n_coeff_r_max, rst_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
    use Egeos_mod, only: getEgeos
    use outRot, only: write_rot
-   use charmanip, only: dble2str
+   use charmanip, only: dble2str, length_to_blank
    use omega, only: outOmega
    use integration, only: rInt_R
    use outPar_mod, only: outPar, outPerpPar
@@ -66,7 +61,7 @@ module output_mod
    use out_movie_IC, only: store_movie_frame_IC
    use RMS, only: zeroRms, dtVrms, dtBrms
    use store_pot_mod, only: storePot
-   use useful, only: safeOpen, safeClose, logWrite
+   use useful, only:  logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
    use storeCheckPoints
 
@@ -100,13 +95,25 @@ module output_mod
    real(cp) :: timePassedRMS, timeNormRMS
    integer :: nRMS_sets
 
-   public :: output, initialize_output
+   integer :: n_dtE_file, n_par_file, n_cmb_file
+   integer :: n_cmbMov_file, n_dt_cmb_file
+   integer, allocatable :: n_v_r_file(:)
+   integer, allocatable :: n_t_r_file(:)
+   integer, allocatable:: n_b_r_file(:)
+   character(len=72) :: dtE_file, par_file
+   character(len=72) :: cmb_file, dt_cmb_file, cmbMov_file
+   character(len=72), allocatable :: v_r_file(:)
+   character(len=72), allocatable :: t_r_file(:)
+   character(len=72), allocatable :: b_r_file(:)
+
+   public :: output, initialize_output, finalize_output
 
 contains
 
    subroutine initialize_output
 
-      integer :: n
+      integer :: n, length
+      character(len=72) :: string
 
       if ( l_r_field .or. l_r_fieldT ) then
          allocate ( n_coeff_r(n_coeff_r_max))
@@ -120,10 +127,27 @@ contains
             n_b_r_sets=0
          end if
 
+         do n=1,n_coeff_r_max
+            write(string,'(''V_coeff_r'',i1,''.'')') n
+            length=length_to_blank(string)
+            v_r_file(n)=string(1:length)//tag
+            if ( l_mag ) then
+               write(string,'(''B_coeff_r'',i1,''.'')') n
+               length=length_to_blank(string)
+               B_r_file(n)=string(1:length)//tag
+            end if
+         end do
+
          if ( l_r_fieldT ) then
             allocate ( n_t_r_file(n_coeff_r_max), t_r_file(n_coeff_r_max) )
             allocate ( n_t_r_sets(n_coeff_r_max) ) 
             n_T_r_sets=0
+
+            do n=1,n_coeff_r_max
+               write(string,'(''T_coeff_r'',i1,''.'')') n
+               length=length_to_blank(string)
+               t_r_file(n)=string(1:length)//tag
+            end do
          end if
 
          if ( count(n_r_array>0)> 0 ) then
@@ -173,7 +197,107 @@ contains
       lvDissmean   =0.0_cp
       lbDissmean   =0.0_cp
 
+      par_file='par.'//tag
+      if ( l_mag .and. l_cmb_field ) then
+         cmb_file   ='B_coeff_cmb.'//tag
+         if ( l_movie ) then
+            cmbMov_file='B_coeff_cmbMov.'//tag
+         end if
+      end if
+
+      if ( l_mag .and. l_dt_cmb_field ) then
+         dt_cmb_file   ='B_coeff_dt_cmb.'//tag
+      end if
+
+      if ( l_power ) then
+         dtE_file='dtE.'//tag
+      end if
+
+      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+         open(newunit=n_par_file, file=par_file, status='new')
+
+         if ( l_mag .and. l_cmb_field ) then
+            open(newunit=n_cmb_file, file=cmb_file, &
+            &    status='new', form='unformatted')
+            if ( l_movie ) then
+               open(newunit=n_cmbMov_file, file=cmbMov_file, &
+               &    status='new', form='unformatted')
+            end if
+         end if
+
+         if ( l_mag .and. l_dt_cmb_field ) then
+            open(newunit=n_dt_cmb_file, file=dt_cmb_file, &
+                 status='new', form='unformatted')
+         end if
+
+         if ( l_power ) then
+            open(newunit=n_dtE_file, file=dtE_file, status='new')
+         end if
+
+         if ( l_r_field ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_v_r_file(n), file=v_r_file(n), &
+               &    status='new', form='unformatted')
+               if ( l_mag ) then
+                  open(newunit=n_b_r_file(n), file=b_r_file(n), &
+                  &    status='new', form='unformatted')
+               end if
+            end do
+         end if
+         if ( l_r_fieldT ) then
+            do n=1,n_coeff_r_max
+               open(newunit=n_t_r_file(n), file=t_r_file(n), &
+               &    status='new', form='unformatted')
+            end do
+         end if
+
+      end if
+
    end subroutine initialize_output
+!----------------------------------------------------------------------------
+   subroutine finalize_output
+
+      integer :: n
+
+      if ( l_r_field .or. l_r_fieldT ) then
+         deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
+
+         if ( l_mag ) then
+            deallocate ( n_b_r_file, b_r_file, n_b_r_sets )
+         end if
+
+         if ( l_r_fieldT ) then
+            deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
+         end if
+      end if
+
+      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+         if ( l_mag .and. l_cmb_field ) then
+            close(n_cmb_file)
+            if (l_movie) close(n_cmbMov_file)
+         end if
+         if ( l_mag .and. l_dt_cmb_field ) then
+            close(n_dt_cmb_file)
+         end if
+         if ( l_r_field ) then
+            do n=1,n_coeff_r_max
+               close(n_v_r_file(n))
+               if ( l_mag ) then
+                  close(n_b_r_file(n))
+               end if
+            end do
+         end if
+
+         if ( l_r_fieldT ) then
+            do n=1,n_coeff_r_max
+               close(n_t_r_file(n))
+            end do
+         end if
+
+         if ( l_power ) close(n_dtE_file)
+      end if
+
+   end subroutine finalize_output
 !----------------------------------------------------------------------------
    subroutine output(time,dt,dtNew,n_time_step,l_stop_time,               &
         &            l_Bpot,l_Vpot,l_Tpot,l_log,l_graph,lRmsCalc,         &
@@ -266,10 +390,7 @@ contains
       integer :: nR,lm,n,m
   
       !--- For TO:
-      character(len=64) :: TOfileNhs,TOfileShs,movFile
-      character(len=66) :: tayFile
       logical :: lTOrms    
-      integer :: nF1,nF2
   
       !--- Property parameters:
       complex(cp) :: dbdtCMB(llmMag:ulmMag)        ! SV at CMB !
@@ -370,15 +491,17 @@ contains
             PERFON('out_pwr')
             if ( rank == 0 ) then
                if ( nLogs > 1 ) then
-                  filename='dtE.'//tag
-                  open(99,file=filename, status='unknown', position='append')
+                  if ( l_save_out ) then
+                     open(newunit=n_dtE_file, file=dtE_file, &
+                     &    status='unknown', position='append')
+                  end if
                   eTotOld=eTot
                   eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtE    =(eTot-eTotOld)/timePassedLog
                   dtEint =dtEint+timePassedLog*(eTot-eTotOld)
-                  write(99,'(ES20.10,3ES16.6)') time,dtE,                  &
+                  write(n_dtE_file,'(ES20.10,3ES16.6)') time,dtE,         &
                        &                    dtEint/timeNormLog,dtE/eTot
-                  close(99)
+                  if ( l_save_out ) close(n_dtE_file)
                else
                   eTot  =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtEint=0.0_cp
@@ -459,12 +582,6 @@ contains
       if ( lTOCalc ) then
          !------ Output for every log time step:
          if ( lVerbose ) write(*,*) '! Calling outTO !'
-         TOfileNhs='TOnhs.'//tag
-         TOfileShs='TOshs.'//tag
-         movFile  ='TO_mov.'//tag
-         tayFile  ='TaySphere4.'//tag
-         nF1      =93
-         nF2      =94
          lTOrms   =.true.
          if ( .not. l_log ) then
             call get_e_kin(time,.false.,l_stop_time,0,w_LMloc,dw_LMloc,  &
@@ -472,10 +589,9 @@ contains
                  &         ekinR)
             e_kin=e_kin_p+e_kin_t
          end if
-         call outTO(time,n_time_step,e_kin,e_kin_t_as,                      &
-              &     nF1,nF2,TOfileNhs,TOfileShs,movFile,tayFile,            &
-              &     nTOsets,nTOmovSets,nTOrmsSets,lTOframe,lTOrms,lTOZwrite,&
-              &     z_LMloc,omega_ic,omega_ma)
+         call outTO(time,n_time_step,e_kin,e_kin_t_as,nTOsets,nTOmovSets, &
+         &          nTOrmsSets,lTOframe,lTOrms,lTOZwrite,z_LMloc,omega_ic,&
+         &          omega_ma)
          !------ Note: time averaging, time differencing done by IDL routine!
   
          if ( lVerbose ) write(*,*) '! outTO finished !'
@@ -586,14 +702,17 @@ contains
                  & "             at time=",time,         &
                  & "            step no.=",n_time_step,  &
                  & "           into file=",rst_file
-            call safeOpen(nLF,log_file)
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
             
-            write(nLF,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
-                 & " ! Storing restart file:",              &
-                 & "             at time=",time,            &
-                 & "            step no.=",n_time_step,     &
+            write(n_log_file,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
+                 & " ! Storing restart file:",                     &
+                 & "             at time=",time,                   &
+                 & "            step no.=",n_time_step,            &
                  & "           into file=",rst_file
-            call safeClose(nLF)
+            if ( l_save_out ) close(n_log_file)
          end if
       end if
 #endif
@@ -829,7 +948,8 @@ contains
   
             !----- Ouput into par file:
             if ( l_save_out ) then
-               open(n_par_file, file=par_file, status='unknown', position='append')
+               open(newunit=n_par_file, file=par_file, status='unknown', &
+               &    position='append')
             end if
             write(n_par_file,'(ES20.12,18ES16.8)')  &
                  &                   time,          &! 1) time
@@ -895,48 +1015,55 @@ contains
                lvDissMean =lvDissMean/timeNormLog
                lbDissMean =lbDissMean/timeNormLog
   
-               call safeOpen(nLF,log_file)
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
   
                !--- Write end-energies including energy density:
                !    plus info on movie frames in to STDOUT and log-file
-               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
-                 & " ! Energies at end of time integration:",                     &
-                 & " !  (total,poloidal,toroidal,total density)",                 &
-                 & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,    &
-                 & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,    &
-                 & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,e_mag_ic/vol_ic
+               write(*,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')  &
+               & " ! Energies at end of time integration:",                 &
+               & " !  (total,poloidal,toroidal,total density)",             &
+               & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+               & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+               & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+               & e_mag_ic/vol_ic
   
-               write(nLF,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')     &
-                 & " ! Energies at end of time integration:",                    &
-                 & " !  (total,poloidal,toroidal,total density)",                &
-                 & " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,   &
-                 & " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,   &
-                 & " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,e_mag_ic/vol_ic
+               write(n_log_file,                                               &
+               &    '(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6,/,A,4ES16.6)')        &
+               &    " ! Energies at end of time integration:",                 &
+               &    " !  (total,poloidal,toroidal,total density)",             &
+               &    " !  Kinetic energies:",e_kin,e_kin_p,e_kin_t,e_kin/vol_oc,&
+               &    " !  OC mag. energies:",e_mag,e_mag_p,e_mag_t,e_mag/vol_oc,&
+               &    " !  IC mag. energies:",e_mag_ic,e_mag_p_ic,e_mag_t_ic,    &
+               &    e_mag_ic/vol_ic
   
-               write(nLF,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')                 &
-                 & " ! Time averaged energies :",                                &
-                 & " !  (total,poloidal,toroidal,total density)",                &
-                 & " !  Kinetic energies:",e_kin_pMean+e_kin_tMean,e_kin_pMean,  &
-                 &                         e_kin_tMean,(e_kin_pMean+e_kin_tMean)/&
-                 &                         vol_oc,                               &
-                 & " !  OC mag. energies:",e_mag_pMean+e_mag_tMean,e_mag_pMean,  &
-                 &                         e_mag_tMean,(e_mag_pMean+e_mag_tMean)/&
-                 &                         vol_oc
+               write(n_log_file,'(1p,/,A,/,A,/,A,4ES16.6,/,A,4ES16.6)')        &
+               & " ! Time averaged energies :",                                &
+               & " !  (total,poloidal,toroidal,total density)",                &
+               & " !  Kinetic energies:",e_kin_pMean+e_kin_tMean,e_kin_pMean,  &
+               &                         e_kin_tMean,(e_kin_pMean+e_kin_tMean)/&
+               &                         vol_oc,                               &
+               & " !  OC mag. energies:",e_mag_pMean+e_mag_tMean,e_mag_pMean,  &
+               &                         e_mag_tMean,(e_mag_pMean+e_mag_tMean)/&
+               &                         vol_oc
   
-               write(nLF,'(1p,/,A,7(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
-                 & " ! Time averaged property parameters :",                           &
-                 & " !  Rm (Re)         :",RmMean,                                     &
-                 & " !  Elsass          :",ElMean,                                     &
-                 & " !  Elsass at CMB   :",ElCmbMean,                                  &
-                 & " !  Rol             :",RolMean,                                    &
-                 & " !  Geos            :",GeosMean,                                   &
-                 & " !  Dip             :",DipMean,                                    &
-                 & " !  DipCMB          :",DipCMBMean,                                 &
-                 & " !  l,m,p,z V scales:",dlVMean,dmVMean,dpVMean,dzVmean,            &
-                 & " !  l,m, B scales   :",dlBMean,dmBMean,                            &
-                 & " !  vis, Ohm scale  :",lvDissMean,lbDissMean
-  
-               call safeClose(nLF)
+               write(n_log_file,                                               &
+               & '(1p,/,A,7(/,A,ES12.4),/,A,4ES12.4,/,A,2ES12.4,/,A,2ES12.4)') &
+               & " ! Time averaged property parameters :",                     &
+               & " !  Rm (Re)         :",RmMean,                               &
+               & " !  Elsass          :",ElMean,                               &
+               & " !  Elsass at CMB   :",ElCmbMean,                            &
+               & " !  Rol             :",RolMean,                              &
+               & " !  Geos            :",GeosMean,                             &
+               & " !  Dip             :",DipMean,                              &
+               & " !  DipCMB          :",DipCMBMean,                           &
+               & " !  l,m,p,z V scales:",dlVMean,dmVMean,dpVMean,dzVmean,      &
+               & " !  l,m, B scales   :",dlBMean,dmBMean,                      &
+               & " !  vis, Ohm scale  :",lvDissMean,lbDissMean
+
+               if ( l_save_out ) close(n_log_file)
   
             end if ! l_stop_time ?
   
@@ -978,7 +1105,8 @@ contains
                rst_file='rst_t='//trim(string)//'.'//tag
             end if
   
-            open(n_rst_file, file=rst_file, status='unknown', form='unformatted')
+            open(newunit=n_rst_file, file=rst_file, status='unknown', &
+            &    form='unformatted')
             call store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
                  &     dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
                  &     dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
@@ -987,18 +1115,21 @@ contains
 !#endif
   
             write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
-                 & " ! Storing restart file:",           &
-                 & "             at time=",time,         &
-                 & "            step no.=",n_time_step,  &
-                 & "           into file=",rst_file
-            call safeOpen(nLF,log_file)
-            
-            write(nLF,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
-                 & " ! Storing restart file:",              &
-                 & "             at time=",time,            &
-                 & "            step no.=",n_time_step,     &
-                 & "           into file=",rst_file
-            call safeClose(nLF)
+            &    " ! Storing restart file:",             &
+            &    "             at time=",time,           &
+            &    "            step no.=",n_time_step,    &
+            &    "           into file=",rst_file
+
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_log_file,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
+            &    " ! Storing restart file:",                       &
+            &    "             at time=",time,                     &
+            &    "            step no.=",n_time_step,              &
+            &    "           into file=",rst_file
+            if ( l_save_out ) close(n_log_file)
             PERFOFF
          end if
 #endif

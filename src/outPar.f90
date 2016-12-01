@@ -24,7 +24,7 @@ module outPar_mod
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use num_param, only: tScale
-   use output_data, only: tag, n_perpPar_file, perpPar_file
+   use output_data, only: tag
    use useful, only: cc2real
    use integration, only: rInt
    use legendre_spec_to_grid, only: lmAS2pt
@@ -44,8 +44,10 @@ module outPar_mod
    real(cp), allocatable :: fresMeanR(:), fpoynMeanR(:)
    real(cp), allocatable :: EperpMeanR(:),EparMeanR(:)
    real(cp), allocatable :: EperpaxiMeanR(:),EparaxiMeanR(:)
+   integer :: n_perpPar_file
+   character(len=72) :: perpPar_file
 
-   public initialize_outPar_mod, outPar, outPerpPar
+   public initialize_outPar_mod, finalize_outPar_mod, outPar, outPerpPar
 
 contains
 
@@ -63,6 +65,8 @@ contains
       RolMeanR(:)     =0.0_cp
       RolMeanRu2(:)   =0.0_cp
       RmMeanR(:)      =0.0_cp
+
+      perpPar_file='perpPar.'//tag
 
       if ( l_viscBcCalc ) then
          allocate( sMeanR(n_r_max),Svar(nRstart:nRstop),Mvar(nRstart:nRstop) )
@@ -98,9 +102,37 @@ contains
          EparMeanR(:)    =0.0_cp
          EperpaxiMeanR(:)=0.0_cp
          EparaxiMeanR(:) =0.0_cp
+
+         if ( rank == 0 .and. (.not. l_save_out) ) then 
+            open(newunit=n_perpPar_file, file=perpPar_file, status='new')
+         end if 
       end if
 
    end subroutine initialize_outPar_mod
+!-----------------------------------------------------------------------
+   subroutine finalize_outPar_mod
+
+      deallocate( dlVMeanR, dlVcMeanR )
+      deallocate( dlVu2MeanR, dlVu2cMeanR )
+      deallocate( RolMeanR, RolMeanRu2,RmMeanR )
+
+      if ( l_viscBcCalc ) then
+         deallocate( sMeanR,Svar,Mvar )
+         deallocate( uhMeanR,duhMeanR,gradT2MeanR )
+      end if
+
+      if ( l_fluxProfs ) then
+         deallocate( fcondMeanR,fconvMeanR,fkinMeanR )
+         deallocate( fviscMeanR )
+      end if
+
+      if ( l_perpPar ) then
+         deallocate( EperpMeanR, EparMeanR )
+         deallocate( EperpaxiMeanR, EparaxiMeanR )
+         if ( rank == 0 .and. (.not. l_save_out) ) close(n_perpPar_file)
+      end if
+
+   end subroutine finalize_outPar_mod
 !-----------------------------------------------------------------------
    subroutine outPar(timePassed,timeNorm,nLogs,l_stop_time,       &
                      ekinR,RolRu2,dlVR,dlVRc,dlVRu2,dlVRu2c,      &
@@ -145,6 +177,7 @@ contains
       real(cp) :: duh(nfs), uh(nfs), gradT2(nfs)
       real(cp) :: fkin(nfs), fconv(nfs), fvisc(nfs), fres(nfs), fpoyn(nfs)
 
+      integer :: fileHandle
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 
 
@@ -419,9 +452,9 @@ contains
 
             !----- Output into paR.TAG file:
             filename='parR.'//tag
-            open(99, file=filename, status='unknown')
+            open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
-               write(99,'(ES20.10,8ES15.7)')     &
+               write(fileHandle,'(ES20.10,8ES15.7)') &
                           &   r(nR),             &! 1) radius
                           &   RmMeanR(nR),       &! 2) magnetic Reynolds number
                           &   RolMeanR(nR),      &! 3) local Rossby number
@@ -431,13 +464,13 @@ contains
                           &   dlVu2MeanR(nR),    &! 7) u squared local length scale 
                           &   dlVu2cMeanR(nR)     ! 8) u squared conv. local length scale
             end do
-            close(99)
+            close(fileHandle)
 
             if ( l_viscBcCalc ) then
                filename='bLayersR.'//tag
-               open(99, file=filename, status='unknown')
+               open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(ES20.10,6ES15.7)')            &
+                  write(fileHandle,'(ES20.10,6ES15.7)')    &
                           &   r(nR),                       &! 1) radius
                           &   sMeanR(nR)*osq4pi,           &! 2) entropy
                           &   Svar_global(nR)/(four*pi),   &! 3) entropy variance
@@ -445,23 +478,23 @@ contains
                           &   duhMeanR(nR),                &! 5) duh/dr
                           &   gradT2MeanR(nR)               ! 6) (grad T)**2
                end do
-               close(99)
+               close(fileHandle)
             end if
 
             if ( l_fluxProfs ) then
                filename='fluxesR.'//tag
-               open(99, file=filename, status='unknown')
+               open(newunit=fileHandle, file=filename, status='unknown')
                do nR=1,n_r_max
-                  write(99,'(ES20.10,7ES15.7)')      &
-                          &   r(nR),                 &! 1) radius
-                          &   fcondMeanR(nR),        &! 2) Fcond
-                          &   fconvMeanR(nR),        &! 3) Fconv
-                          &   fkinMeanR(nR),         &! 4) Fkin
-                          &   fviscMeanR(nR),        &! 5) Fvisc
-                          &   fpoynMeanR(nR),        &! 6) Fpoyn
-                          &   fresMeanR(nR)           ! 7) Fres
+                  write(fileHandle,'(ES20.10,7ES15.7)')  &
+                          &   r(nR),                     &! 1) radius
+                          &   fcondMeanR(nR),            &! 2) Fcond
+                          &   fconvMeanR(nR),            &! 3) Fconv
+                          &   fkinMeanR(nR),             &! 4) Fkin
+                          &   fviscMeanR(nR),            &! 5) Fvisc
+                          &   fpoynMeanR(nR),            &! 6) Fpoyn
+                          &   fresMeanR(nR)               ! 7) Fres
                end do
-               close(99)
+               close(fileHandle)
             end if
 
          end if ! l_stop_time ?
@@ -494,6 +527,7 @@ contains
       real(cp) :: EperpT,EparT,EperpaxT,EparaxT
 
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: fileHandle
 
       do nR=nRstart,nRstop
          EperpR(nR)   =0.0_cp
@@ -558,7 +592,8 @@ contains
 
          !-- Output
          if ( l_save_out ) then
-            open(n_perpPar_file, file=perpPar_file, status='unknown', position='append')
+            open(newunit=n_perpPar_file, file=perpPar_file, &
+            &    status='unknown', position='append')
          end if
          write(n_perpPar_file,'(1P,ES20.12,4ES16.8)') &
               &  time*tScale,     & ! 1
@@ -576,16 +611,16 @@ contains
              EperpaxiMeanR  =EperpaxiMeanR/timeNorm
              EparaxiMeanR   =EparaxiMeanR/timeNorm
              filename='perpParR.'//tag
-             open(99, file=filename, status='unknown')
+             open(newunit=fileHandle, file=filename, status='unknown')
              do nR=1,n_r_max
-                write(99,'(ES20.10,4ES15.7)')     &
-                           &   r(nR),             &! 1) radius
-                           &   EperpMeanR(nR),    &! 2) E perpendicular
-                           &   EparMeanR(nR),     &! 3) E parallel
-                           &   EperpaxiMeanR(nR), &! 4) E perp (axisymetric)
-                           &   EparaxiMeanR(nR)    ! 5) E parallel (axisymetric)
+                write(fileHandle,'(ES20.10,4ES15.7)')&
+                           &   r(nR),                &! 1) radius
+                           &   EperpMeanR(nR),       &! 2) E perpendicular
+                           &   EparMeanR(nR),        &! 3) E parallel
+                           &   EperpaxiMeanR(nR),    &! 4) E perp (axisymetric)
+                           &   EparaxiMeanR(nR)       ! 5) E parallel (axisymetric)
              end do
-             close(99)
+             close(fileHandle)
          end if
       end if
 

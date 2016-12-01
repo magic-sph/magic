@@ -119,6 +119,8 @@ contains
       complex(cp) :: zP(lm_max,n_r_max)
       complex(cp) :: dzP(lm_max,n_r_max)
 
+      integer :: n_pvz_file, n_vcy_file
+
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
 
@@ -192,23 +194,25 @@ contains
          !--- Open file for output:
          if ( l_stop_time ) then
             fileName='PVZ.'//TAG
-            open(95,file=fileName, form='unformatted', status='unknown')
-            write(95) real(time,kind=outp), real(nSmax,kind=outp),     &
-                    & real(nZmax,kind=outp), real(omega_IC,kind=outp), &
-                    & real(omega_ma,kind=outp)
-            write(95) (real(sZ(nS),kind=outp),nS=1,nSmax)
-            write(95) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
+            open(newunit=n_pvz_file, file=fileName, form='unformatted', &
+            &    status='unknown')
+            write(n_pvz_file) real(time,kind=outp), real(nSmax,kind=outp), &
+            &     real(nZmax,kind=outp), real(omega_IC,kind=outp),         &
+            &     real(omega_ma,kind=outp)
+            write(n_pvz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            write(n_pvz_file) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
 
 
             !--- Open file for the three flow components:
             fileName='Vcy.'//TAG
-            open(96,file=fileName,form='unformatted', status='unknown')
-            write(96) real(time,kind=outp), real(nSmax,kind=outp),        &
-                 &    real(nZmax,kind=outp), real(n_phi_max,kind=outp),   &
-                 &    real(omega_IC,kind=outp), real(omega_ma,kind=outp), &
-                 &    real(radratio,kind=outp), real(minc,kind=outp)
-            write(96) (real(sZ(nS),kind=outp),nS=1,nSmax)
-            write(96) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
+            open(newunit=n_vcy_file, file=fileName,form='unformatted', &
+            &    status='unknown')
+            write(n_vcy_file) real(time,kind=outp), real(nSmax,kind=outp),&
+            &     real(nZmax,kind=outp), real(n_phi_max,kind=outp),       &
+            &     real(omega_IC,kind=outp), real(omega_ma,kind=outp),     &
+            &     real(radratio,kind=outp), real(minc,kind=outp)
+            write(n_vcy_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            write(n_vcy_file) (real(zZ(nZ),kind=outp),nZ=1,nZmax)
          end if
 
 
@@ -267,8 +271,8 @@ contains
                  &        VsS,VpS,VzS,VorS,dpVorS)
 
             if ( l_stop_time ) then
-               write(95) (real(omS(nZ),kind=outp),nZ=1,nZmax)
-               write(96) real(nZmaxNS,kind=outp)
+               write(n_pvz_file) (real(omS(nZ),kind=outp),nZ=1,nZmax)
+               write(n_vcy_file) real(nZmaxNS,kind=outp)
                nC=0
                do nZ=1,nZmaxNS
                   do nPhi=1,n_phi_max
@@ -281,11 +285,11 @@ contains
                               (real(time-timeOld,kind=outp))
                   end do
                end do
-               write(96) (out1(nZ),nZ=1,nC)
-               write(96) (out2(nZ),nZ=1,nC)
-               write(96) (out3(nZ),nZ=1,nC)
-               write(96) (out4(nZ),nZ=1,nC)
-               write(96) (out5(nZ),nZ=1,nC)
+               write(n_vcy_file) (out1(nZ),nZ=1,nC)
+               write(n_vcy_file) (out2(nZ),nZ=1,nC)
+               write(n_vcy_file) (out3(nZ),nZ=1,nC)
+               write(n_vcy_file) (out4(nZ),nZ=1,nC)
+               write(n_vcy_file) (out5(nZ),nZ=1,nC)
             else
                timeOld=time
                do nZ=1,nZmaxNS
@@ -297,8 +301,8 @@ contains
 
          end do  ! Loop over s 
 
-         if ( l_stop_time ) close(95)
-         if ( l_stop_time ) close(96)
+         if ( l_stop_time ) close(n_pvz_file)
+         if ( l_stop_time ) close(n_vcy_file)
 
       end if ! Rank 0
 

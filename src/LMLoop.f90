@@ -15,8 +15,9 @@ module LMLoop_mod
    use radial_data, only: n_r_icb, n_r_cmb
    use blocking, only: lmStartB, lmStopB, lo_map
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
-       &            l_single_matrix, l_chemical_conv, l_TP_form
-   use output_data, only: nLF, log_file
+       &            l_single_matrix, l_chemical_conv, l_TP_form,         &
+       &            l_save_out
+   use output_data, only: n_log_file, log_file
    use timing, only: wallTime,subTime,writeTime
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use debugging,  only: debug_write
@@ -29,7 +30,6 @@ module LMLoop_mod
    use updateWPS_mod, only: initialize_updateWPS, updateWPS, lWPSmat
    use updateB_mod, only: initialize_updateB, updateB, lBmat
    use updateXi_mod, only: initialize_updateXi, updateXi, lXimat
-   use useful, only: safeOpen, safeClose
 
    implicit none
 
@@ -120,7 +120,10 @@ contains
 
       PERFON('LMloop')
       !LIKWID_ON('LMloop')
-      if ( lVerbose ) call safeOpen(nLF,log_file)
+      if ( lVerbose .and. l_save_out ) then
+         open(newunit=n_log_file, file=log_file, status='unknown', &
+         &    position='append')
+      end if
 
       omega_icLast=omega_ic
 
@@ -338,16 +341,16 @@ contains
       if ( lVerbose ) then
          call wallTime(tStop)
          call subTime(tStart,tStop,tPassed)
-         !write(nLF,*) '! Thread no:',nTh
-         write(nLF,*) 'lmStart,lmStop:',lmStartB(nLMB),lmStopB(nLMB)
-         call writeTime(nLF,'! Time for thread:',tPassed)
+         !write(n_log_file,*) '! Thread no:',nTh
+         write(n_log_file,*) 'lmStart,lmStop:',lmStartB(nLMB),lmStopB(nLMB)
+         call writeTime(n_log_file,'! Time for thread:',tPassed)
       end if
 
 
       lorentz_torque_maLast=lorentz_torque_ma
       lorentz_torque_icLast=lorentz_torque_ic
 
-      if ( lVerbose ) call safeClose(nLF)
+      if ( lVerbose .and. l_save_out ) close(n_log_file)
 
       !LIKWID_OFF('LMloop')
       PERFOFF

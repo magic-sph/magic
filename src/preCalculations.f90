@@ -59,6 +59,7 @@ contains
       real(cp) :: xir_top,xii_top,xir_bot,xii_bot
       real(cp) :: topconduc, botconduc
       integer :: n,n_r,l,m,l_bot,m_bot,l_top,m_top
+      integer :: fileHandle
       character(len=76) :: fileName
       character(len=80) :: message
       real(cp) :: mom(n_r_max)
@@ -175,11 +176,12 @@ contains
 
       if ( ( l_newmap ) .and. (rank == 0) ) then
          fileName='rNM.'//TAG
-         open(99, file=fileName, status='unknown')
+         open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
-            write(99,'(I4,4ES16.8)') n_r,r(n_r)-r_icb,drx(n_r),ddrx(n_r),dddrx(n_r)
+            write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb, &
+            &                                drx(n_r), ddrx(n_r), dddrx(n_r)
          end do
-         close(99)
+         close(fileHandle)
       end if
     
       call transportProperties
@@ -187,60 +189,65 @@ contains
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
          ! Write the equilibrium setup in anel.TAG
          fileName='anel.'//TAG
-         open(99, file=fileName, status='unknown')
-         write(99,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
-             &       'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
+         open(newunit=fileHandle, file=fileName, status='unknown')
+         write(fileHandle,'(8a15)') 'radius', 'temp0', 'rho0', 'beta', &
+         &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)'
          do n_r=1,n_r_max
-            write(99,'(8ES16.8)') r(n_r),temp0(n_r),         &
-             &   rho0(n_r),beta(n_r),dbeta(n_r),             &
-             &   rgrav(n_r),dentropy0(n_r),                  &
-             &   divKtemp0(n_r)
+            write(fileHandle,'(8ES16.8)') r(n_r), temp0(n_r), rho0(n_r),    &
+            &                             beta(n_r), dbeta(n_r), rgrav(n_r),&
+            &                             dentropy0(n_r), divKtemp0(n_r)
          end do
-         close(99)
+         close(fileHandle)
       end if
     
       !-- Write radial profiles
       if ( l_mag .and. nVarCond > 0 ) then
          fileName='varCond.'//TAG
-         open(99, file=fileName, status='unknown')
-         write(99,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
+         open(newunit=fileHandle, file=fileName, status='unknown')
+         write(fileHandle,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
          do n_r=n_r_max,1,-1
-            write(99,'(4ES16.8)') r(n_r),sigma(n_r),lambda(n_r), &
-                 dLlambda(n_r)
+            write(fileHandle,'(4ES16.8)') r(n_r),sigma(n_r),lambda(n_r), &
+            &                             dLlambda(n_r)
          end do
-         close(99)
+         close(fileHandle)
       end if
     
       if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
          fileName='varDiff.'//TAG
-         open(99, file=fileName, status='unknown')
-         write(99,'(5a15)') 'radius', 'conductivity', 'kappa', 'dLkappa', 'Prandtl'
+         open(newunit=fileHandle, file=fileName, status='unknown')
+         write(fileHandle,'(5a15)') 'radius', 'conductivity', 'kappa', &
+         &                          'dLkappa', 'Prandtl'
          do n_r=n_r_max,1,-1
-            write(99,'(5ES16.8)') r(n_r),kappa(n_r)*rho0(n_r), &
-                 kappa(n_r),dLkappa(n_r),pr*visc(n_r)/kappa(n_r)
+            write(fileHandle,'(5ES16.8)') r(n_r),kappa(n_r)*rho0(n_r), &
+            &                             kappa(n_r),dLkappa(n_r),     &
+            &                             pr*visc(n_r)/kappa(n_r)
          end do
-         close(99)
+         close(fileHandle)
       end if
     
       if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
          fileName='varVisc.'//TAG
-         open(99, file=fileName, status='unknown')
-         write(99,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
-              'dLvisc', 'Ekman', 'Prandtl', 'Pm'
+         open(newunit=fileHandle, file=fileName, status='unknown')
+         write(fileHandle,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
+         &                          'dLvisc', 'Ekman', 'Prandtl', 'Pm'
          if ( l_mag ) then
             do n_r=n_r_max,1,-1
-               write(99,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
-                    visc(n_r),dLvisc(n_r),ek*visc(n_r),          &
-                    pr*visc(n_r)/kappa(n_r),prmag*visc(n_r)/lambda(n_r)
+               write(fileHandle,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
+               &                             visc(n_r),dLvisc(n_r),      &
+               &                             ek*visc(n_r),               &
+               &                             pr*visc(n_r)/kappa(n_r),    &
+               &                             prmag*visc(n_r)/lambda(n_r)
             end do
          else
             do n_r=n_r_max,1,-1
-               write(99,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
-                    visc(n_r),dLvisc(n_r),ek*visc(n_r),          &
-                    pr*visc(n_r)/kappa(n_r),prmag
+               write(fileHandle,'(7ES16.8)') r(n_r),visc(n_r)*rho0(n_r), &
+               &                             visc(n_r), dLvisc(n_r),     &
+               &                             ek*visc(n_r),               &
+               &                             pr*visc(n_r)/kappa(n_r),    &
+               &                             prmag
             end do
          end if
-         close(99)
+         close(fileHandle)
       end if
     
       l_LCR=.false.
@@ -981,9 +988,6 @@ contains
       integer, intent(in) :: n_out
 
       if ( rank == 0 ) then
-         if ( l_save_out .and. n_out==n_log_file ) then
-            open(n_out, file=log_file, status='unknown', position='append')
-         end if
 
          !-- Output of mode:
          write(n_out,*)
@@ -1049,7 +1053,6 @@ contains
          write(n_out,'(''  nalias       ='',i6, &
               &   '' = spher. harm. deal. factor '')') nalias
 
-         if ( l_save_out .and. n_out == n_log_file ) close(n_out)
       end if
 
    end subroutine writeInfo

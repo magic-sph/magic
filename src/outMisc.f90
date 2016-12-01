@@ -17,10 +17,9 @@ module outMisc_mod
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
-   use logic, only: l_save_out, l_anelastic_liquid, l_heat, &
+   use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
        &            l_temperature_diff, l_chemical_conv, l_TP_form
-   use output_data, only: tag, heat_file, n_heat_file, helicity_file, &
-       &                  n_helicity_file
+   use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
@@ -34,8 +33,10 @@ module outMisc_mod
    private
 
    real(cp), allocatable :: TMeanR(:), SMeanR(:), PMeanR(:), XiMeanR(:)
+   integer :: n_heat_file, n_helicity_file
+   character(len=72) :: heat_file, helicity_file
 
-   public :: outHelicity, outHeat, initialize_outMisc_mod
+   public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod
 
 contains
 
@@ -53,7 +54,31 @@ contains
       end if
       bytes_allocated=bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
 
+      helicity_file='helicity.'//tag
+      heat_file    ='heat.'//tag
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_hel ) then
+            open(newunit=n_helicity_file, file=helicity_file, status='new')
+         end if
+         if ( l_heat .or. l_chemical_conv ) then
+            open(newunit=n_heat_file, file=heat_file, status='new')
+         end if
+      end if
+
    end subroutine initialize_outMisc_mod
+!---------------------------------------------------------------------------
+   subroutine finalize_outMisc_mod
+
+      if ( l_heat .or. l_chemical_conv ) then
+         deallocate( TMeanR, SMeanR, PMeanR, XiMeanR )
+      end if
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_hel ) close(n_helicity_file)
+         if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
+      end if
+
+   end subroutine finalize_outMisc_mod
 !---------------------------------------------------------------------------
    subroutine outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
       !
@@ -226,8 +251,8 @@ contains
          end if
     
          if ( l_save_out ) then
-            open(n_helicity_file, file=helicity_file, status='unknown',  &
-               & position='append')
+            open(newunit=n_helicity_file, file=helicity_file,   &
+            &    status='unknown', position='append')
          end if
 
          write(n_helicity_file,'(1P,ES20.12,8ES16.8)')    &
@@ -434,11 +459,14 @@ contains
          mass=four*pi*rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
     
          if ( l_save_out ) then
-            open(n_heat_file, file=heat_file, status='unknown', position='append')
+            open(newunit=n_heat_file, file=heat_file, status='unknown', &
+            &    position='append')
          end if
 
          !-- avoid too small number in output
          if ( abs(toppres) <= 1e-11_cp ) toppres=0.0_cp
+
+         if ( abs(mass) <= 1e-11_cp ) mass=0.0_cp
 
          write(n_heat_file,'(1P,ES20.12,16ES16.8)')          &
          &     time, botnuss, topnuss, deltanuss,            &

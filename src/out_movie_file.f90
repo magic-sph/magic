@@ -221,8 +221,8 @@ contains
     
          !------ Open movie file:
          if ( l_save_out ) then
-            open(n_out, file=movie_file(n_movie), status='unknown', &
-                 form='unformatted', position='append')
+            open(newunit=n_out, file=movie_file(n_movie), status='unknown', &
+            &    form='unformatted', position='append')
          end if
     
          !------ Write header if this is the first frame:

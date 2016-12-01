@@ -17,6 +17,8 @@ module radial_spectra
 
    private
 
+   integer :: fileHandle
+
    public :: rBrSpec, rBpSpec
 
 contains
@@ -117,25 +119,25 @@ contains
       !-- Output into file:
       !     writing l=0/1/2 magnetic energy
       specFile=trim(adjustl(fileRoot))//'.'//tag
-      open(91, file=specFile, form='unformatted', status='unknown', &
-           position='append')
+      open(newunit=fileHandle, file=specFile, form='unformatted', &
+      &    status='unknown', position='append')
     
-      write(91) real(time,kind=outp),                       &
-           (real(e_p(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-           (real(e_p(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-           (real(e_p(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-           (real(e_p(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-           (real(e_p(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-           (real(e_p(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-      write(91) real(time,kind=outp),                       &
-           (real(e_p_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
-           (real(e_p_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
-           (real(e_p_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
-           (real(e_p_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
-           (real(e_p_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
-           (real(e_p_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+      write(fileHandle) real(time,kind=outp),                           &
+      &                (real(e_p(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_p(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_p(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_p(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_p(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_p(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+      write(fileHandle) real(time,kind=outp),                           &
+      &                (real(e_p_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_p_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_p_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_p_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_p_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_p_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
     
-      close(91)
+      close(fileHandle)
     
    end subroutine rBrSpec
 !----------------------------------------------------------------------------
@@ -221,23 +223,25 @@ contains
       !-- Output into file:
       !     writing l=0/1/2 magnetic energy
       specFile=trim(adjustl(fileRoot))//'.'//tag
-      open(91, file=specFile, form='unformatted', status='unknown', &
-           position='append')
+      open(newunit=fileHandle, file=specFile, form='unformatted', &
+      &    status='unknown', position='append')
     
-      write(91) real(time,kind=outp), (real(e_t(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-                            (real(e_t(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-                            (real(e_t(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-                            (real(e_t(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-                            (real(e_t(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-                            (real(e_t(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-      write(91) real(time,kind=outp), (real(e_t_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
-                            (real(e_t_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
-                            (real(e_t_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
-                            (real(e_t_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
-                            (real(e_t_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
-                            (real(e_t_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+      write(fileHandle) real(time,kind=outp),                           &
+      &                (real(e_t(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_t(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_t(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_t(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_t(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+      &                (real(e_t(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+      write(fileHandle) real(time,kind=outp),                           &
+      &                (real(e_t_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_t_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_t_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_t_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_t_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
+      &                (real(e_t_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
     
-      close(91)
+      close(fileHandle)
     
    end subroutine rBpSpec
 !----------------------------------------------------------------------------

@@ -11,7 +11,7 @@ module blocking
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
        &                 minc, n_r_max, m_max, l_axi
    use logic, only: l_save_out
-   use output_data, only: nLF, log_file
+   use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings,  &
        &                allocate_subblocks_mappings,  &
        &                subblocks_mappings
@@ -118,7 +118,7 @@ contains
       integer(lip) :: local_bytes_used
       integer :: LMB_with_l1m0,l1m0,irank
 
-      logical,PARAMETER :: DEBUG_OUTPUT=.false.
+      logical, parameter :: DEBUG_OUTPUT=.false.
       integer :: lm,l,m
 
       character(len=255) :: message
@@ -128,10 +128,6 @@ contains
       call allocate_mappings(st_map,l_max,lm_max,lmP_max)
       call allocate_mappings(lo_map,l_max,lm_max,lmP_max)
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
-
-      if ( ( rank == 0 ) .and. l_save_out ) then
-         open(nLF, file=log_file, status='unknown', position='append')
-      end if
 
       if ( rank == 0 ) then
          write(message,*) '! Number of ranks I will use:',n_procs
@@ -304,6 +300,11 @@ contains
       ! nThetaBs = n_theta_max/nfs
 
       if ( rank == 0 ) then
+         if ( l_save_out ) then
+            open(newunit=n_log_file, file=log_file, status='unknown', &
+            &    position='append')
+         end if
+
          write(*,*) '!-- Blocking information:'
          write(*,*)
          write(*,*) '!    Number of LM-blocks:',nLMBs
@@ -313,17 +314,17 @@ contains
          write(*,*) '! Number of theta blocks:',nThetaBs
          write(*,*) '!   size of theta blocks:',sizeThetaB
          write(*,*) '!       ideal size (nfs):',nfs
-         write(nLF,*) '!-- Blocking information:'
-         write(nLF,*)
-         write(nLF,*) '!    Number of LM-blocks:',nLMBs
-         write(nLF,*) '!    Size   of LM-blocks:',sizeLMB
-         write(nLF,*) '!               nThreads:',nThreads
-         write(nLF,*)
-         write(nLF,*) '! Number of theta blocks:',nThetaBs
-         write(nLF,*) '!   size of theta blocks:',sizeThetaB
-         write(nLF,*) '!       ideal size (nfs):',nfs
+         write(n_log_file,*) '!-- Blocking information:'
+         write(n_log_file,*)
+         write(n_log_file,*) '!    Number of LM-blocks:',nLMBs
+         write(n_log_file,*) '!    Size   of LM-blocks:',sizeLMB
+         write(n_log_file,*) '!               nThreads:',nThreads
+         write(n_log_file,*)
+         write(n_log_file,*) '! Number of theta blocks:',nThetaBs
+         write(n_log_file,*) '!   size of theta blocks:',sizeThetaB
+         write(n_log_file,*) '!       ideal size (nfs):',nfs
 
-         if ( l_save_out ) close(nLF)
+         if ( l_save_out ) close(n_log_file)
       end if
 
       local_bytes_used = bytes_allocated-local_bytes_used

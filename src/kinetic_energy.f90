@@ -5,18 +5,16 @@ module kinetic_energy
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, l_max
    use radial_functions, only: r, or1, drx, chebt_oc, &
-                               or2, r_cmb, r_icb, orho1, orho2, sigma
+       &                       or2, r_cmb, r_icb, orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
-   use logic, only: l_save_out, l_non_rot
-   use output_data, only: n_e_kin_file, e_kin_file, tag, n_u_square_file, &
-                          u_square_file
+   use logic, only: l_save_out, l_non_rot, l_anel
+   use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
    use LMLoop_data, only: llm,ulm
    use communications, only: get_global_sum
- 
    use integration, only: rInt_R
    use useful, only: cc2real
  
@@ -26,8 +24,13 @@ module kinetic_energy
  
    real(cp), allocatable :: e_pA(:),e_p_asA(:)
    real(cp), allocatable :: e_tA(:),e_t_asA(:)
+
+   integer :: n_e_kin_file, n_u_square_file
+   character(len=72) :: e_kin_file
+   character(len=72) :: u_square_file
  
-   public :: get_e_kin, get_u_square, initialize_kinetic_energy
+   public :: get_e_kin, get_u_square, initialize_kinetic_energy, &
+   &         finalize_kinetic_energy
  
 contains
 
@@ -36,8 +39,29 @@ contains
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
       bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
+
+      e_kin_file    = 'e_kin.'//tag
+      u_square_file = 'u_square.'//tag
+      if ( rank == 0 .and. ( .not. l_save_out ) ) then
+         open(newunit=n_e_kin_file, file=e_kin_file, status='new')
+
+         if ( l_anel ) then
+            open(newunit=n_u_square_file, file=u_square_file, status='new')
+         end if
+      end if
      
    end subroutine initialize_kinetic_energy
+!-----------------------------------------------------------------------------
+   subroutine finalize_kinetic_energy
+
+      deallocate( e_pA, e_p_asA, e_tA, e_t_asA )
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         close(n_e_kin_file)
+         if ( l_anel ) close(n_u_square_file)
+      end if
+
+   end subroutine finalize_kinetic_energy
 !-----------------------------------------------------------------------------
    subroutine get_e_kin(time,l_write,l_stop_time,n_e_sets, &
        &               w,dw,z,e_p,e_t,e_p_as,e_t_as,ekinR)
@@ -89,7 +113,7 @@ contains
       real(cp) :: e_p_es_r_global(n_r_max),e_t_es_r_global(n_r_max)
       real(cp) :: e_p_eas_r_global(n_r_max),e_t_eas_r_global(n_r_max)
 
-      integer nR,lm,l,m
+      integer nR,lm,l,m,fileHandle
       real(cp) :: fac
       real(cp) :: O_rho ! 1/rho (anelastic)
 
@@ -208,7 +232,7 @@ contains
          end if
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_kin_file, file=e_kin_file, status='unknown', &
+               open(newunit=n_e_kin_file, file=e_kin_file, status='unknown', &
                &    position='append')
             end if
             write(n_e_kin_file,'(1P,ES20.12,8ES16.8)')    &
@@ -244,10 +268,10 @@ contains
          if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=half*eScale
             filename='eKinR.'//tag
-            open(99, file=filename, status='unknown')
+            open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
                surf=four*pi*r(nR)**2
-               write(99,'(ES20.10,8ES15.7)') r(nR),                 &
+               write(fileHandle,'(ES20.10,8ES15.7)') r(nR),         &
                     &               fac*e_pA(nR)/timetot,           &
                     &               fac*e_p_asA(nR)/timetot,        &
                     &               fac*e_tA(nR)/timetot,           &
@@ -257,7 +281,7 @@ contains
                     &               fac*e_tA(nR)/timetot/surf,      &
                     &               fac*e_t_asA(nR)/timetot/surf
             end do
-            close(99)
+            close(fileHandle)
          end if
          timeLast=time
       end if
@@ -485,8 +509,8 @@ contains
 
          !-- Output
          if ( l_save_out ) then
-            open(n_u_square_file, file=u_square_file, status='unknown', &
-            &    position='append')
+            open(newunit=n_u_square_file, file=u_square_file,  &
+            &    status='unknown',position='append')
          end if
          write(n_u_square_file,'(1P,ES20.12,10ES16.8)')   &
          &     time*tScale, e_p, e_t, e_p_as, e_t_as,     & ! 1,2,3, 4,5

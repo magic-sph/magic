@@ -15,8 +15,8 @@ module fields_average_mod
        &            l_chemical_conv
    use kinetic_energy, only: get_e_kin
    use magnetic_energy, only: get_e_mag
-   use output_data, only: tag, graph_file, nLF, n_graph_file, &
-                          log_file, n_graphs, l_max_cmb
+   use output_data, only: tag, n_log_file, log_file, n_graphs, l_max_cmb, &
+       &                  n_graph_file, graph_file
    use parallel_mod, only: rank
 #ifdef WITH_SHTNS
    use shtns
@@ -353,7 +353,8 @@ contains
             call spectrum_temp(time,n_spec,s_ave,ds_ave)
          end if
          if ( l_save_out ) then
-            open(nLF,file=log_file, status='unknown', position='append')
+            open(newunit=n_log_file, file=log_file, status='unknown', &
+            &    position='append')
          end if
 
          !----- Write averaged energies into log-file at end of run:
@@ -375,43 +376,40 @@ contains
                  &         e_mag_os_ave,e_mag_as_os_ave,e_cmb,Dip,DipCMB, &
                  &         elsAnel)
 
-            if (rank == 0) then
+            if ( rank == 0 ) then
                !----- Output of energies of averaged field:
-               write(nLF,'(/,A)')                                        &
-                    &           ' ! ENERGIES OF TIME AVERAGED FIELD'
-               write(nLF,                                                &
-                    &        '('' !  (total,poloidal,toroidal,total density)'')')
-               write(nLF,'(1P,'' !  Kinetic energies:'',4ES16.6)')                 &
-                    &           (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave, &
-                    &           (e_kin_p_ave+e_kin_t_ave)/vol_oc
-               write(nLF,'(1P,'' !  OC Mag  energies:'',4ES16.6)')                 &
-                    &           (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave, &
-                    &           (e_mag_p_ave+e_mag_t_ave)/vol_oc
-               write(nLF,'(1P,'' !  IC Mag  energies:'',4ES16.6)')       &
-                    &           (e_mag_p_ic_ave+e_mag_t_ic_ave),         &
-                    &           e_mag_p_ic_ave,e_mag_t_ic_ave,           &
-                    &           (e_mag_p_ic_ave+e_mag_t_ic_ave)/vol_ic
-               write(nLF,'(1P,'' !  OS Mag  energies:'',ES16.6)')        &
-                    &           e_mag_os_ave
-               write(nLF,'(/,'' !  AXISYMMETRIC PARTS:'')')
-               write(nLF,                                                &
-                    &        '('' !  (total,poloidal,toroidal,total density)'')')
-               write(nLF,'(1P,'' !  Kinetic AS energies:'',4ES16.6)')    &
-                    &           (e_kin_p_as_ave+e_kin_t_as_ave),         &
-                    &           e_kin_p_as_ave,e_kin_t_as_ave,           &
-                    &           (e_kin_p_as_ave+e_kin_t_as_ave)/vol_oc
-               write(nLF,'(1P,'' !  OC Mag  AS energies:'',4ES16.6)')    &
-                    &           (e_mag_p_as_ave+e_mag_t_as_ave),         &
-                    &           e_mag_p_as_ave,e_mag_t_as_ave,           &
-                    &           (e_mag_p_as_ave+e_mag_t_as_ave)/vol_oc
-               write(nLF,'(1P,'' !  IC Mag  AS energies:'',4ES16.6)')    &
-                    &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave),   &
-                    &           e_mag_p_as_ic_ave,e_mag_t_as_ic_ave,     &
-                    &           (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave)/vol_ic
-               write(nLF,'(1P,'' !  OS Mag  AS energies:'',ES16.6)')     &
-                    &           e_mag_os_ave
-               write(nLF,'(1P,'' !  Relative ax. dip. E:'',ES16.6)')     &
-                    &           Dip           
+               write(n_log_file,'(/,A)')                           &
+               &    ' ! ENERGIES OF TIME AVERAGED FIELD'
+               write(n_log_file,                                   &
+               &    '('' !  (total,poloidal,toroidal,total density)'')')
+               write(n_log_file,'(1P,'' !  Kinetic energies:'',4ES16.6)') &
+               &    (e_kin_p_ave+e_kin_t_ave),e_kin_p_ave,e_kin_t_ave,    &
+               &    (e_kin_p_ave+e_kin_t_ave)/vol_oc
+               write(n_log_file,'(1P,'' !  OC Mag  energies:'',4ES16.6)') &
+               &    (e_mag_p_ave+e_mag_t_ave),e_mag_p_ave,e_mag_t_ave,    &
+               &    (e_mag_p_ave+e_mag_t_ave)/vol_oc
+               write(n_log_file,'(1P,'' !  IC Mag  energies:'',4ES16.6)') &
+               &    (e_mag_p_ic_ave+e_mag_t_ic_ave),e_mag_p_ic_ave,       &
+               &     e_mag_t_ic_ave,(e_mag_p_ic_ave+e_mag_t_ic_ave)/vol_ic
+               write(n_log_file,'(1P,'' !  OS Mag  energies:'',ES16.6)')  &
+               &     e_mag_os_ave
+               write(n_log_file,'(/,'' !  AXISYMMETRIC PARTS:'')')
+               write(n_log_file,                                          &
+               &     '('' !  (total,poloidal,toroidal,total density)'')')
+               write(n_log_file,'(1P,'' !  Kinetic AS energies:'',4ES16.6)') &
+               &    (e_kin_p_as_ave+e_kin_t_as_ave),e_kin_p_as_ave,          &
+               &     e_kin_t_as_ave,(e_kin_p_as_ave+e_kin_t_as_ave)/vol_oc
+               write(n_log_file,'(1P,'' !  OC Mag  AS energies:'',4ES16.6)') &
+               &    (e_mag_p_as_ave+e_mag_t_as_ave),e_mag_p_as_ave,          &
+               &     e_mag_t_as_ave,(e_mag_p_as_ave+e_mag_t_as_ave)/vol_oc
+               write(n_log_file,'(1P,'' !  IC Mag  AS energies:'',4ES16.6)') &
+               &    (e_mag_p_as_ic_ave+e_mag_t_as_ic_ave),e_mag_p_as_ic_ave, &
+               &     e_mag_t_as_ic_ave,(e_mag_p_as_ic_ave+e_mag_t_as_ic_ave) & 
+               &     /vol_ic
+               write(n_log_file,'(1P,'' !  OC Mag  AS energies:'',ES16.6)')  &
+               &     e_mag_os_ave
+               write(n_log_file,'(1P,'' !  Relative ax. dip. E:'',ES16.6)')  &
+               &     Dip           
             end if
          end if ! End of run ?
             
@@ -421,7 +419,8 @@ contains
 
          if ( rank == 0 ) then
             graph_file='G_ave.'//tag
-            open(n_graph_file, file=graph_file, status='unknown', form='unformatted')
+            open(newunit=n_graph_file, file=graph_file, status='unknown', &
+            &    form='unformatted')
 
             !----- Write header into graphic file:
             lGraphHeader=.true.
@@ -545,7 +544,8 @@ contains
 
          !----- Write info about graph-file into STDOUT and log-file:
          if ( l_stop_time ) then
-            if ( rank == 0 ) write(nLF,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
+            if ( rank == 0 )  &
+            &  write(n_log_file,'(/,'' ! WRITING AVERAGED GRAPHIC FILE !'')')
          end if
 
          !--- Store time averaged poloidal magnetic coeffs at cmb
@@ -575,7 +575,7 @@ contains
               &         workA_LMloc,dw_ave,db_ave,nTpotSets,'Tpot_ave.', &
               &                                      omega_ma,omega_ic)
 
-         if ( l_save_out ) close(nLF)
+         if ( l_save_out ) close(n_log_file)
 
          ! now correct the stored average fields by the factor which has been
          ! applied before

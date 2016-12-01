@@ -26,7 +26,7 @@ contains
       !-- Local variables
       character(len=50) :: filename
       logical :: write_unformatted,write_exponent
-      integer :: i,j
+      integer :: i,j,fileHandle
  
       if (present(form)) then
          if ((form == 'U').or.(form == 'u')) then
@@ -44,24 +44,24 @@ contains
  
       if (write_unformatted) then
          write(filename,"(A,I4.4,A)") trim(label),timestep,".dat"
-         open(732,file=trim(filename),form="unformatted")
-         write(732) arr
-         close(732)
+         open(newunit=fileHandle,file=trim(filename),form="unformatted")
+         write(fileHandle) arr
+         close(fileHandle)
       else
          write(filename,"(A,I4.4,A)") trim(label),timestep,".txt"
-         open(732,file=trim(filename))
+         open(newunit=fileHandle,file=trim(filename))
          do j=1,dim2
             do i=1,dim1
                if (write_exponent) then
-                  write(732,"(2(I4,F21.18))") exponent(real(arr(i,j))),       &
+                  write(fileHandle,"(2(I4,F21.18))") exponent(real(arr(i,j))),&
                        & fraction(real(arr(i,j))), exponent(aimag(arr(i,j))), &
                        & fraction(aimag(arr(i,j)))
                else
-                  write(732,"(2ES22.15)") arr(i,j)
+                  write(fileHandle,"(2ES22.15)") arr(i,j)
                end if
             end do
          end do
-         close(732)
+         close(fileHandle)
       end if
 
    end subroutine debug_write_2D
@@ -78,7 +78,7 @@ contains
       !-- Local variables
       character(len=50) :: filename
       logical :: write_unformatted,write_exponent
-      integer :: i
+      integer :: i, fileHandle
  
       if (present(form)) then
          if ((form == 'U').or.(form == 'u')) then
@@ -96,22 +96,22 @@ contains
  
       if (write_unformatted) then
          write(filename,"(A,I4.4,A)") trim(label),timestep,".dat"
-         open(732,file=trim(filename),form="unformatted")
-         write(732) arr
-         close(732)
+         open(newunit=fileHandle,file=trim(filename),form="unformatted")
+         write(fileHandle) arr
+         close(fileHandle)
       else
          write(filename,"(A,I4.4,A)") trim(label),timestep,".txt"
-         open(732,file=trim(filename))
+         open(newunit=fileHandle,file=trim(filename))
          do i=1,dim1
             if (write_exponent) then
-               write(732,"(2(I4,F21.18))") exponent(real(arr(i))),      &
-                    & fraction(real(arr(i))), exponent(aimag(arr(i))),  &
+               write(fileHandle,"(2(I4,F21.18))") exponent(real(arr(i))), &
+                    & fraction(real(arr(i))), exponent(aimag(arr(i))),    &
                     & fraction(aimag(arr(i)))
             else
-               write(732,"(2ES22.15)") arr(i)
+               write(fileHandle,"(2ES22.15)") arr(i)
             end if
          end do
-         close(732)
+         close(fileHandle)
       end if
 
    end subroutine debug_write_1D

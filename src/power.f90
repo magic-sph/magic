@@ -19,7 +19,7 @@ module power
    use logic, only: l_rot_ic, l_SRIC, l_rot_ma, l_SRMA, l_save_out, &
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
        &            l_chemical_conv, l_anelastic_liquid
-   use output_data, only: n_power_file, power_file, tag
+   use output_data, only: tag
    use useful, only: cc2real,cc22real
    use LMLoop_data,only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt_R,rIntIC
@@ -35,8 +35,10 @@ module power
    real(cp), allocatable :: buo_chem_MeanR(:) ! Buoyancy power (chemical)
    real(cp), allocatable :: viscHeatMeanR(:)  ! Viscous dissipation
    real(cp), allocatable :: ohmDissR(:)       ! Ohmic dissipation
+   integer :: n_power_file
+   character(len=72) :: power_file
 
-   public :: initialize_output_power, get_power
+   public :: initialize_output_power, get_power, finalize_output_power
 
 contains
   
@@ -56,7 +58,22 @@ contains
       viscHeatMeanR(:)  = 0.0_cp
       buo_chem_MeanR(:) = 0.0_cp
 
+      power_file='power.'//tag
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         open(newunit=n_power_file, file=power_file, status='new')
+      end if
+
    end subroutine initialize_output_power
+!----------------------------------------------------------------------------
+   subroutine finalize_output_power
+
+      deallocate( buoMeanR, ohmDissR, viscHeatMeanR, buo_chem_MeanR )
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         close(n_power_file)
+      end if
+
+   end subroutine finalize_output_power
 !----------------------------------------------------------------------------
    subroutine get_power(time,timePassed,timeNorm,l_stop_time, &
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
@@ -128,7 +145,7 @@ contains
       real(cp), save :: powerDiff, eDiffInt,tStart
 
       logical :: rank_has_l1m0
-      integer :: sr_tag
+      integer :: sr_tag, fileHandle
 #ifdef WITH_MPI
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: status(MPI_STATUS_SIZE)
@@ -443,8 +460,8 @@ contains
             powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
             eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
             if ( l_save_out ) then
-               open(n_power_file, file=power_file, status='unknown', &
-                    position='append')
+               open(newunit=n_power_file, file=power_file, status='unknown', &
+               &    position='append')
             end if
             write(n_power_file,'(1P,ES20.12,10ES16.8)')  &
             &    time*tScale, buoy, buoy_chem,           &
@@ -469,16 +486,16 @@ contains
             ohmDissR(:)     =ohmDissR(:)/timeNorm
             viscHeatMeanR(:)=viscHeatMeanR(:)/timeNorm
             fileName='powerR.'//tag
-            open(99, file=fileName, status='unknown')
+            open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(99,'(ES20.10,4ES15.7)')  &
+               write(fileHandle,'(ES20.10,4ES15.7)')  &
                     &   r(n_r),               & ! 1) radius
                     &   buoMeanR(n_r),        & ! 2) Buo power
                     &   buo_chem_MeanR(n_r),  & ! 3) Chem power
                     &   viscHeatMeanR(n_r),   & ! 4) Viscous heating
                     &   ohmDissR(n_r)           ! 5) Ohmic dissipation
             end do
-            close(99)
+            close(fileHandle)
          end if
       end if
 

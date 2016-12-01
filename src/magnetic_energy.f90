@@ -6,17 +6,15 @@ module magnetic_energy
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, chebt_oc, &
-                               sigma, orho1, r, or2, drx
+       &                       sigma, orho1, r, or2, drx
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use horizontal_data, only: dLh
    use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
-                         movieDipStrengthGeo
-   use output_data, only: n_dipole_file, dipole_file, n_e_mag_ic_file,   &
-                          e_mag_ic_file, n_e_mag_oc_file, e_mag_oc_file, &
-                          tag
+       &                 movieDipStrengthGeo
+   use output_data, only: tag
    use constants, only: pi, zero, one, two, half, four
    use special, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
@@ -32,8 +30,11 @@ module magnetic_energy
    real(cp), allocatable :: e_p_asA(:)   ! Time-averaged axisymmetric poloidal energy
    real(cp), allocatable :: e_tA(:)      ! Time-averaged toroidal energy
    real(cp), allocatable :: e_t_asA(:)   ! Time-averaged axisymmetric toroidal energy
+
+   integer :: n_dipole_file, n_e_mag_ic_file, n_e_mag_oc_file
+   character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
  
-   public :: initialize_magnetic_energy, get_e_mag
+   public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
   
 contains
 
@@ -43,15 +44,36 @@ contains
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
       allocate( e_tA(n_r_max),e_t_asA(n_r_max) )
       bytes_allocated = bytes_allocated+5*n_r_max*SIZEOF_DEF_REAL
+
+      e_mag_ic_file='e_mag_ic.'//tag
+      e_mag_oc_file='e_mag_oc.'//tag
+      dipole_file  ='dipole.'//tag
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, status='new')
+         open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, status='new')
+         open(newunit=n_dipole_file, file=dipole_file, status='new')
+      end if
     
    end subroutine initialize_magnetic_energy
 !----------------------------------------------------------------------------
+   subroutine finalize_magnetic_energy
+
+      deallocate( e_dipA, e_pA, e_p_asA, e_tA, e_t_asA)
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         close(n_e_mag_oc_file)
+         close(n_e_mag_ic_file)
+         close(n_dipole_file)
+      end if
+
+   end subroutine finalize_magnetic_energy
+!----------------------------------------------------------------------------
    subroutine get_e_mag(time,l_write,l_stop_time,n_e_sets,        &
-        &               b,db,aj,b_ic,db_ic,aj_ic,                 &
-        &               e_p,e_t,e_p_as,e_t_as,                    &
-        &               e_p_ic,e_t_ic,e_p_as_ic,e_t_as_ic,        &
-        &               e_p_os,e_p_as_os,e_cmb,Dip,DipCMB,        &
-        &               elsAnel)
+              &         b,db,aj,b_ic,db_ic,aj_ic,                 &
+              &         e_p,e_t,e_p_as,e_t_as,                    &
+              &         e_p_ic,e_t_ic,e_p_as_ic,e_t_as_ic,        &
+              &         e_p_os,e_p_as_os,e_cmb,Dip,DipCMB,        &
+              &         elsAnel)
       !
       !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
@@ -135,6 +157,7 @@ contains
 #ifdef WITH_MPI
       integer :: status(MPI_STATUS_SIZE)
 #endif
+      integer :: fileHandle
       integer :: sr_tag,request1,request2
 
       ! some arbitrary send recv tag
@@ -326,7 +349,7 @@ contains
          if ( l_stop_time ) then
             fac=half*LFfac*eScale
             filename='eMagR.'//tag
-            open(99, file=filename, status='unknown')
+            open(newunit=fileHandle, file=filename, status='unknown')
             do nR=1,n_r_max
                eTot=e_pA(nR)+e_tA(nR)
                if ( e_dipA(nR)  <  1.e-6_cp*eTot ) then
@@ -335,7 +358,7 @@ contains
                   eDR=e_dipA(nR)/eTot
                end if
                surf=four*pi*r(nR)**2
-               write(99,'(ES20.10,9ES15.7)') r(nR),                 &
+               write(fileHandle,'(ES20.10,9ES15.7)') r(nR),         &
                     &               fac*e_pA(nR)/timetot,           &
                     &               fac*e_p_asA(nR)/timetot,        &
                     &               fac*e_tA(nR)/timetot,           &
@@ -346,7 +369,7 @@ contains
                     &               fac*e_t_asA(nR)/timetot/surf,   &
                     &               eDR
             end do
-            close(99)
+            close(fileHandle)
          end if
          timeLast=time
 
@@ -566,8 +589,8 @@ contains
       if ( rank == 0 ) then
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_mag_oc_file, file=e_mag_oc_file, status='unknown', &
-                    &             position='append')
+               open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, &
+               &    status='unknown', position='append')
             end if
             write(n_e_mag_oc_file,'(1P,ES20.12,12ES16.8)')               &
                  &                             time*tScale,              &! 1
@@ -583,8 +606,8 @@ contains
          !-- Output of IC energies:
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_e_mag_ic_file, file=e_mag_ic_file, status='unknown', &
-                    &             position='append')
+               open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, &
+               &    status='unknown', position='append')
             end if
             write(n_e_mag_ic_file,'(1P,ES20.12,4ES16.8)')             &
                  &                       time*tScale,                 &
@@ -668,8 +691,8 @@ contains
          !-- Output of pole position:
          if ( l_write ) then
             if ( l_save_out ) then
-               open(n_dipole_file, file=dipole_file, status='unknown',   &
-                    &             position='append')
+               open(newunit=n_dipole_file, file=dipole_file,  &
+               &    status='unknown', position='append')
             end if
             if ( e_p_e == 0 ) then
                e_p_e_ratio=0.0_cp

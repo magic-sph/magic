@@ -562,11 +562,11 @@ blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         mem_alloc.o
 num_param.o           : truncation.o precision_mod.o mem_alloc.o
 radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
-                        num_param.o phys_param.o logic.o precision_mod.o\
+                        phys_param.o logic.o precision_mod.o\
                         output_data.o cosine_transform_odd.o\
                         chebyshev_polynoms.o radial_derivatives.o\
 			cosine_transform_even.o mem_alloc.o useful.o
-output_data.o         : logic.o parallel.o char_manip.o precision_mod.o
+output_data.o         : precision_mod.o
 horizontal.o          : truncation.o phys_param.o num_param.o precision_mod.o\
                         radial.o logic.o blocking.o plms.o $(FFT_OBJS)\
                         mem_alloc.o

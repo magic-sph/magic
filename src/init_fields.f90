@@ -754,7 +754,7 @@ contains
       real(cp) :: zXi(n_impXi_max),xiFac(n_impXi_max)
       real(cp) :: xiCMB(nrp,nfs)
       complex(cp) :: xiLM(lmP_max)
-      integer :: info,i,j,l1,m1
+      integer :: info,i,j,l1,m1,fileHandle
 
 
       lm00=st_map%lm2(0,0)
@@ -764,12 +764,12 @@ contains
 
          if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
             call xi_cond(xi0)
-            open(unit=999, file='xicond.dat')
+            open(newunit=fileHandle, file='xicond.dat')
             do n_r=1,n_r_max
                xi(lm00,n_r)=xi0(n_r)
-               write(999,*) r(n_r), xi0(n_r)*osq4pi
+               write(fileHandle,*) r(n_r), xi0(n_r)*osq4pi
             end do
-            close(999)
+            close(fileHandle)
          end if
 
       end if

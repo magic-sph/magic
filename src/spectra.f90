@@ -4,24 +4,20 @@ module spectra
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_maxMag, n_r_maxMag, &
-                         n_r_ic_max, l_max, minc
+       &                 n_r_ic_max, l_max, minc
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: orho1, orho2, r_ic, chebt_ic,    &
-                               chebt_oc, or2, r_icb, dr_fac_ic, &
-                               drx, dr_fac, r
+       &                       chebt_oc, or2, r_icb, dr_fac_ic, &
+       &                       drx, dr_fac, r
    use physical_parameters, only: LFfac
    use num_param, only: eScale, tScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
-   use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out
-   use output_data, only: tag, log_file, nLF, n_mag_spec_file,     &
-                       &  n_u2_spec_file, n_kin_spec_file,         &
-                       &  n_am_kpol_file,n_am_ktor_file,           &
-                       & n_am_mpol_file,n_am_mtor_file,            &
-                       & am_kpol_file,am_ktor_file,am_mpol_file,   &
-                       & am_mtor_file, m_max_modes
-   use LMLoop_data,only: llm,ulm,llmMag,ulmMag
-   use useful, only: cc2real, cc22real, safeOpen, safeClose
+   use logic, only: l_mag, l_anel, l_cond_ic, l_heat, l_save_out, &
+       &            l_energy_modes
+   use output_data, only: tag, log_file, n_log_file, m_max_modes
+   use LMLoop_data,only: llm, ulm, llmMag, ulmMag
+   use useful, only: cc2real, cc22real
    use integration, only: rInt_R, rIntIC, rInt
    use constants, only: pi, vol_oc, half, one, four
 
@@ -47,9 +43,18 @@ module spectra
    real(cp), allocatable :: T2_ave(:)
    real(cp), allocatable :: T_ICB2_ave(:)
    real(cp), allocatable :: dT_ICB2_ave(:)
+
+   integer :: n_kin_spec_file, n_u2_spec_file, n_mag_spec_file
+   integer :: n_temp_spec_file
+   integer :: n_am_kpol_file, n_am_ktor_file
+   integer :: n_am_mpol_file, n_am_mtor_file
+   character(len=72) :: am_kpol_file, am_ktor_file
+   character(len=72) :: am_mpol_file, am_mtor_file
+
  
-   public :: initialize_spectra, spectrum, spectrum_average, &
-             spectrum_temp, spectrum_temp_average, get_amplitude
+   public :: initialize_spectra, spectrum, spectrum_average,     &
+   &         spectrum_temp, spectrum_temp_average, get_amplitude,&
+   &         finalize_spectra
 
 contains
 
@@ -78,10 +83,52 @@ contains
          bytes_allocated = bytes_allocated+6*(l_max+1)*SIZEOF_DEF_REAL
       end if
 
+      am_kpol_file='am_kin_pol.'//tag
+      am_ktor_file='am_kin_tor.'//tag
+      am_mpol_file='am_mag_pol.'//tag
+      am_mtor_file='am_mag_tor.'//tag
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_mag .and. l_energy_modes ) then
+            open(newunit=n_am_kpol_file,file=am_kpol_file,status='new', &
+            &    form='unformatted')
+            open(newunit=n_am_ktor_file,file=am_ktor_file,status='new', &
+            &    form='unformatted')
+            open(newunit=n_am_mpol_file,file=am_mpol_file,status='new', &
+            &    form='unformatted')
+            open(newunit=n_am_mtor_file,file=am_mtor_file,status='new', &
+            &    form='unformatted')
+         end if
+      end if
+
    end subroutine initialize_spectra
 !----------------------------------------------------------------------------
+   subroutine finalize_spectra
+
+      deallocate( e_p_l_ave, e_p_m_ave, e_p2_l_ave, e_p2_m_ave )
+      deallocate( e_t_l_ave, e_t_m_ave, e_t2_l_ave, e_t2_m_ave )
+      deallocate( e_cmb_l_ave, e_cmb_m_ave, e_cmb2_l_ave, e_cmb2_m_ave )
+      deallocate( ek_p_l_ave, ek_p_m_ave, ek_p2_l_ave, ek_p2_m_ave )
+      deallocate( ek_t_l_ave, ek_t_m_ave, ek_t2_l_ave, ek_t2_m_ave )
+
+      if ( l_heat ) then
+         deallocate( T_ave, T_ICB_ave, dT_ICB_ave, T2_ave, T_ICB2_ave, &
+         &           dT_ICB2_ave )
+      end if
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_mag .and. l_energy_modes ) then
+            close(n_am_kpol_file)
+            close(n_am_ktor_file)
+            close(n_am_mpol_file)
+            close(n_am_mtor_file)
+         end if
+      end if
+
+   end subroutine finalize_spectra
+!----------------------------------------------------------------------------
    subroutine spectrum_average(n_time_ave,l_stop_time,             &
-       &                      time_passed,time_norm,b,aj,db,BV)
+              &                time_passed,time_norm,b,aj,db,BV)
 
       !-- Input variables:
       integer,          intent(in) :: n_time_ave
@@ -264,8 +311,7 @@ contains
                write(*,*) 'WRONG BV INPUT TO spectrum_average!'
                stop
             end if
-            nOut   =93
-            open(nOut, file=outFile, status='unknown')
+            open(newunit=nOut, file=outFile, status='unknown')
             if ( BV == 'B' ) then
                do l=0,l_max
                   SDp_l = get_standard_deviation(dt_norm,e_p_l_ave(l),e_p2_l_ave(l))
@@ -278,7 +324,7 @@ contains
                   !     &  dt_norm*e_cmb2_m_ave(l),    &
                   !     & (dt_norm*e_cmb_m_ave(l))**2, &
                   !     & dt_norm*e_cmb2_m_ave(l) - (dt_norm*e_cmb_m_ave(l))**2
-                  write(93,'(2X,1P,I4,16ES16.8)') l,                          &
+                  write(nOut,'(2X,1P,I4,16ES16.8)') l,                        &
                        &  dt_norm*e_p_l_ave(l),   dt_norm*e_p_m_ave(l),       &
                        &  dt_norm*e_t_l_ave(l),   dt_norm*e_t_m_ave(l),       &
                        &  dt_norm*e_cmb_l_ave(l), dt_norm*e_cmb_m_ave(l),     &
@@ -295,7 +341,7 @@ contains
                end do
             else
                do l=0,l_max
-                  write(93,'(2X,1P,I4,8ES16.8)') l,                           &
+                  write(nOut,'(2X,1P,I4,8ES16.8)') l,                         &
                        &  dt_norm*ek_p_l_ave(l), dt_norm*ek_p_m_ave(l),       &
                        &  dt_norm*ek_t_l_ave(l), dt_norm*ek_t_m_ave(l),       &
                        &  dt_norm*ek_p2_l_ave(l),dt_norm*ek_p2_m_ave(l),      &
@@ -305,12 +351,17 @@ contains
             close(nOut)
 
             if ( l_stop_time ) then
-               call safeOpen(nLF,log_file)
-               write(nLF,"(/,A,A)") ' ! TIME AVERAGED SPECTRA STORED IN FILE: ', &
-                     outFile
-               write(nLF,"(A,I5)")  ' !              No. of averaged spectra: ', &
-                     n_time_ave
-               call safeClose(nLF)
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,"(/,A,A)")  &
+               &     ' ! TIME AVERAGED SPECTRA STORED IN FILE: ', &
+               &      outFile
+               write(n_log_file,"(A,I5)")   &
+               &     ' !              No. of averaged spectra: ', &
+               &     n_time_ave
+               if ( l_save_out ) close(n_log_file)
             end if
 
          end if
@@ -735,7 +786,7 @@ contains
          if ( l_mag ) then
             write(string, *) n_spec
             mag_spec_file='mag_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_mag_spec_file, file=mag_spec_file, status='unknown')
+            open(newunit=n_mag_spec_file, file=mag_spec_file, status='unknown')
             if ( n_spec == 0 ) then
                write(n_mag_spec_file,'(1x, &
                     &      ''Magnetic energy spectra of time averaged field:'')')
@@ -760,7 +811,7 @@ contains
             close(n_mag_spec_file)
     
             mag_spec_file='2D_mag_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_mag_spec_file, file=mag_spec_file, status='unknown', &
+            open(newunit=n_mag_spec_file, file=mag_spec_file, status='unknown', &
                  form='unformatted')
     
             write(n_mag_spec_file) time*tScale,n_r_max,l_max,minc
@@ -776,7 +827,7 @@ contains
          if ( l_anel ) then
             write(string, *) n_spec
             u2_spec_file='u2_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_u2_spec_file, file=u2_spec_file, status='unknown')
+            open(newunit=n_u2_spec_file, file=u2_spec_file, status='unknown')
             if ( n_spec == 0 ) then
                write(n_u2_spec_file,'(1x, &
                     &     ''Velocity square spectra of time averaged field:'')')
@@ -794,7 +845,7 @@ contains
             close(n_u2_spec_file)
     
             u2_spec_file='2D_u2_spec_'//trim(adjustl(string))//'.'//tag
-            open(n_u2_spec_file, file=u2_spec_file, status='unknown', &
+            open(newunit=n_u2_spec_file, file=u2_spec_file, status='unknown', &
                  form='unformatted')
     
             write(n_u2_spec_file) time*tScale,n_r_max,l_max,minc
@@ -810,7 +861,7 @@ contains
     
          write(string, *) n_spec
          kin_spec_file='kin_spec_'//trim(adjustl(string))//'.'//tag
-         open(n_kin_spec_file, file=kin_spec_file, status='unknown')
+         open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown')
          if ( n_spec == 0 ) then
             write(n_kin_spec_file,'(1x, &
                  &      ''Kinetic energy spectra of time averaged field:'')')
@@ -831,7 +882,7 @@ contains
          close(n_kin_spec_file)
     
          kin_spec_file='2D_kin_spec_'//trim(adjustl(string))//'.'//tag
-         open(n_kin_spec_file, file=kin_spec_file, status='unknown', &
+         open(newunit=n_kin_spec_file, file=kin_spec_file, status='unknown', &
               form='unformatted')
     
          write(n_kin_spec_file) time*tScale,n_r_max,l_max,minc
@@ -979,20 +1030,24 @@ contains
 
             !------ Output:
             outFile='T_spec_ave.'//TAG
-            nOut   =93
-            open(nOut,file=outFile,status='unknown')
+            open(newunit=nOut,file=outFile,status='unknown')
             do l=1,l_max+1
-               write(93,'(2X,1P,I4,6ES16.8)') l,                   &
+               write(nOut,'(2X,1P,I4,6ES16.8)') l,                 &
                     &              T_ave(l),T2_ave(l),             &
                     &              T_ICB_ave(l),T_ICB2_ave(l),     &
                     &              dT_ICB_ave(l),dT_ICB2_ave(l) 
             end do
             close(nOut)
 
-            call safeOpen(nLF,log_file)
-            write(nLF,"(/,A,A)") ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', outFile
-            write(nLF,"(A,I5)")  ' !              No. of averaged spectra: ', n_time_ave
-            call safeClose(nLF)
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_log_file,"(/,A,A)")  &
+            &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', outFile
+            write(n_log_file,"(A,I5)")  &
+            &    ' !              No. of averaged spectra: ', n_time_ave
+            if ( l_save_out ) close(n_log_file)
 
          end if
       end if
@@ -1117,15 +1172,14 @@ contains
          !-- Output into files:
          write(string, *) n_spec
          spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
-         open(98, file=spec_file, status='unknown')
-         write(98,'(1x,''TC spectra at time:'', ES20.12)') time*tScale
+         open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
+         write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)') time*tScale
          do ml=1,l_max+1
-            write(98,'(1P,I4,6ES12.4)')   &
-                 ml-1,T_l(ml),T_m(ml),    &
-                 T_ICB_l(ml),T_ICB_m(ml), &
-                 dT_ICB_l(ml),dT_ICB_m(ml)
+            write(n_temp_spec_file,'(1P,I4,6ES12.4)')   &
+            &     ml-1, T_l(ml), T_m(ml),  T_ICB_l(ml), &
+            &     T_ICB_m(ml), dT_ICB_l(ml), dT_ICB_m(ml)
          end do
-         close(98)
+         close(n_temp_spec_file)
 
       end if
 
@@ -1237,7 +1291,7 @@ contains
 
          !-- Output
          if ( l_save_out ) then
-            open(n_am_kpol_file,file=am_kpol_file,status='unknown', &
+            open(newunit=n_am_kpol_file,file=am_kpol_file,status='unknown', &
                  & form='unformatted',position='append')
          end if
 
@@ -1248,7 +1302,7 @@ contains
          end if
 
          if ( l_save_out ) then
-            open(n_am_ktor_file,file=am_ktor_file,status='unknown', &
+            open(newunit=n_am_ktor_file,file=am_ktor_file,status='unknown', &
                  & form='unformatted',position='append')
          end if
 
@@ -1260,7 +1314,7 @@ contains
 
          if ( l_mag ) then
             if ( l_save_out ) then
-               open(n_am_mpol_file,file=am_mpol_file,status='unknown', &
+               open(newunit=n_am_mpol_file,file=am_mpol_file,status='unknown', &
                     & form='unformatted',position='append')
             end if
 
@@ -1271,7 +1325,7 @@ contains
             end if
 
             if ( l_save_out ) then
-               open(n_am_mtor_file,file=am_mtor_file,status='unknown', &
+               open(newunit=n_am_mtor_file,file=am_mtor_file,status='unknown', &
                     & form='unformatted',position='append')
             end if
 

@@ -97,7 +97,8 @@ contains
       inquire(file=start_file, exist=startfile_does_exist)
     
       if ( startfile_does_exist ) then
-         open(n_start_file, file=start_file, status='old', form='unformatted')
+         open(newunit=n_start_file, file=start_file, status='old', &
+         &    form='unformatted')
       else
          write(*,*)
          write(*,*) '! The restart file does not exist !'

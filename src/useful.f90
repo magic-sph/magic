@@ -14,7 +14,7 @@ module useful
    private
 
    public :: l_correct_step, random, factorise, cc2real, cc22real, &
-             safeOpen, safeClose, logWrite, getMSD2
+   &         logWrite, getMSD2
 
 contains
 
@@ -219,25 +219,6 @@ contains
 
    end function cc22real
 !----------------------------------------------------------------------------
-   subroutine safeOpen(nf, file_name)
-
-      integer,          intent(in) :: nf
-      character(len=*), intent(in) :: file_name
-  
-      if ( l_save_out ) then
-         open(nf, file=file_name, status='unknown', position='append')
-      end if
-
-   end subroutine safeOpen
-!----------------------------------------------------------------------------
-   subroutine safeClose(nf)
-
-      integer, intent(in) :: nf
-  
-      if ( l_save_out ) close(nf)
-
-   end subroutine safeClose
-!----------------------------------------------------------------------------
    subroutine logWrite(message)
 
       !-- Input variable:
@@ -245,7 +226,8 @@ contains
 
        if ( rank == 0 ) then
           if ( l_save_out ) then
-             open(n_log_file, file=log_file, status='unknown', position='append')
+             open(newunit=n_log_file, file=log_file, status='unknown', &
+             &    position='append')
           end if
           write(n_log_file,*) trim(message)
           write(*,*)          trim(message)

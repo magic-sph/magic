@@ -9,12 +9,10 @@ module outRot
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map,st_map,lmStartB,lmStopB, lm2
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
-                    l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift
-   use output_data, only: tag, angular_file, n_angular_file,    &
-                          n_SRIC_file, n_rot_file, n_SRMA_file, &
-                          SRMA_file, SRIC_file, rot_file
+       &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift
+   use output_data, only: tag
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
-                    y10_norm, zero, two, third, four, half
+       &            y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use integration, only: rInt, rInt_R
    use horizontal_data, only: cosTheta, gauss
@@ -29,13 +27,102 @@ module outRot
       module procedure get_viscous_torque_complex
    end interface get_viscous_torque
 
+   integer :: n_SRMA_file, n_SRIC_file
+   integer :: n_angular_file, n_rot_file
+   integer :: n_inerP_file, n_inerT_file
+   integer :: n_driftVD_file, n_driftVQ_file
+   integer :: n_driftBD_file, n_driftBQ_file
+   character(len=72) :: SRMA_file, SRIC_file, rot_file, angular_file
+   character(len=72) :: inerP_file, inerT_file
+   character(len=72) :: driftVD_file, driftVQ_file
+   character(len=72) :: driftBD_file, driftBQ_file
+
    public :: write_rot, get_viscous_torque, get_angular_moment, &
-             get_lorentz_torque
+   &         get_lorentz_torque, initialize_outRot, finalize_outRot
 
 contains
 
-   subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b, &
-                      & omega_ic,omega_ma,lorentz_torque_ic,lorentz_torque_ma)
+   subroutine initialize_outRot
+
+      SRIC_file   ='SRIC.'//tag
+      SRMA_file   ='SRMA.'//tag
+      rot_file    ='rot.'//tag
+      angular_file='AM.'//tag
+      driftVD_file='driftVD.'//tag
+      driftVQ_file='driftVQ.'//tag
+      driftBD_file='driftBD.'//tag
+      driftBQ_file='driftBQ.'//tag
+      inerP_file  ='inerP.'//tag
+      inerT_file  ='inerT.'//tag
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+
+         if ( l_SRIC ) then
+            open(newunit=n_SRIC_file, file=SRIC_file, status='new')
+         end if
+
+         if ( l_SRMA ) then
+            open(newunit=n_SRMA_file, file=SRMA_file, status='new')
+         end if
+
+         if ( .not. l_SRIC .and. .not. l_SRMA ) then
+            if ( l_rot_ic .or. l_rot_ma ) then
+               open(newunit=n_rot_file, file=rot_file, status='new')
+            end if
+         end if
+
+         if ( l_AM ) then
+            open(newunit=n_angular_file, file=angular_file, status='new')
+         end if
+
+         if ( l_drift ) then
+            open(newunit=n_driftVD_file, file=driftVD_file, status='new')
+            open(newunit=n_driftVQ_file, file=driftVQ_file, status='new')
+            if ( l_mag ) then
+               open(newunit=n_driftBD_file, file=driftBD_file, status='new')
+               open(newunit=n_driftBQ_file, file=driftBQ_file, status='new')
+            end if
+         end if
+
+         if ( l_iner ) then
+            open(newunit=n_inerP_file, file=inerP_file, status='new')
+            open(newunit=n_inerT_file, file=inerT_file, status='new')
+         end if
+
+      end if
+
+   end subroutine initialize_outRot
+!-----------------------------------------------------------------------
+   subroutine finalize_outRot
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         if ( l_SRIC ) close(n_SRIC_file)
+         if ( l_SRMA ) close(n_SRMA_file)
+         if ( l_AM ) close(n_angular_file)
+         if ( l_iner ) then
+            close(n_inerT_file)
+            close(n_inerP_file)
+         end if
+         if ( .not. l_SRIC .and. .not. l_SRMA ) then
+            if ( l_rot_ic .or. l_rot_ma ) then
+               close(n_rot_file)
+            end if
+         end if
+         if ( l_drift ) then
+            close(n_driftVD_file)
+            close(n_driftVQ_file)
+            if ( l_mag ) then
+               close(n_driftBD_file)
+               close(n_driftBQ_file)
+            end if
+         end if
+      end if
+
+   end subroutine finalize_outRot
+!-----------------------------------------------------------------------
+   subroutine write_rot(time,dt,eKinIC,ekinMA,w,z,dz,b,     &
+              &         omega_ic,omega_ma,lorentz_torque_ic,&
+              &         lorentz_torque_ma)
     
       !-- Input of variables:
       real(cp),    intent(in) :: omega_ic,omega_ma
@@ -60,7 +147,6 @@ contains
       real(cp) :: angular_moment_ic(3)
       real(cp) :: angular_moment_ma(3)
       complex(cp) :: z10(n_r_max),z11(n_r_max)
-      character(len=80) :: filename
     
       real(cp) :: powerLor,powerVis
       real(cp), save :: AMzLast=0.0_cp,eKinAMzLast=0.0_cp
@@ -130,24 +216,30 @@ contains
          if ( l_SRIC ) then
             powerLor=lorentz_torque_ic*omega_IC
             powerVis=viscous_torque_ic*omega_IC
-            open(n_SRIC_file, file=SRIC_file, status="unknown", position='append')
+            if ( l_save_out ) then
+               open(newunit=n_SRIC_file, file=SRIC_file, status='unknown', &
+               &    position='append')
+            end if
             write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')   &
                  time*tScale,omega_ic/tScale,              &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
                  powerVis*vScale*vScale/tScale,            &
                  powerLor*vScale*vScale/tScale
-            close(n_SRIC_file)
+            if ( l_save_out ) close(n_SRIC_file)
          end if
          if ( l_SRMA ) then
             powerLor=lorentz_torque_ma*omega_ma
             powerVis=viscous_torque_ma*omega_ma
-            open(n_SRMA_file, file=SRMA_file, status="unknown", position='append')
+            if ( l_save_out ) then
+               open(newunit=n_SRMA_file, file=SRMA_file, status='unknown', &
+               &    position='append')
+            end if
             write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')   &
                  time*tScale, omega_ma/tScale,             &
                  (powerLor+powerVis)*vScale*vScale/tScale, &
                  powerVis*vScale*vScale/tScale,            &
                  powerLor*vScale*vScale/tScale
-            close(n_SRMA_file)
+            if ( l_save_out ) close(n_SRMA_file)
          end if
       end if
     
@@ -164,20 +256,24 @@ contains
          call sendvals_to_rank0(z,n_r3,lm_vals(1:8),zvals_on_rank0(:,3))
     
          if ( rank == 0 ) then
-            filename='driftVD.'//tag
-            open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,ES20.12,24ES12.4)') &
+            if ( l_save_out ) then
+               open(newunit=n_driftVD_file, file=driftVD_file, status='unknown', &
+               &    position='append')
+               open(newunit=n_driftVQ_file, file=driftVQ_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_driftVD_file,'(1P,2X,ES20.12,24ES12.4)') &
                  time, (zvals_on_rank0(ilm,1),ilm=1,4),   &
                  (zvals_on_rank0(ilm,2),ilm=1,4),         &
                  (zvals_on_rank0(ilm,3),ilm=1,4)
-            close(n_SRIC_file)
-            filename='driftVQ.'//tag
-            open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,ES20.12,24ES12.4)') &
+            write(n_driftVQ_file,'(1P,2X,ES20.12,24ES12.4)') &
                  time, (zvals_on_rank0(ilm,1),ilm=5,8),   &
                  (zvals_on_rank0(ilm,2),ilm=5,8),         &
                  (zvals_on_rank0(ilm,3),ilm=5,8)
-            close(n_SRIC_file)
+            if ( l_save_out ) then
+               close(n_driftVD_file)
+               close(n_driftVQ_file)
+            end if
          end if
          
          if ( l_mag .or. l_mag_LF ) then
@@ -187,18 +283,22 @@ contains
             call sendvals_to_rank0(b,n_r2,lm_vals(1:8),bvals_on_rank0(:,2))
     
             if ( rank == 0 ) then
-               filename='driftBD.'//tag
-               open(n_SRIC_file, file=filename, status='unknown', position='append')
+               if ( l_save_out ) then
+                  open(newunit=n_driftBD_file, file=driftBD_file, status='unknown', &
+                  &    position='append')
+                  open(newunit=n_driftBQ_file, file=driftBQ_file, status='unknown', &
+                  &    position='append')
+               end if
                write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=5,8),   &
                     (bvals_on_rank0(ilm,2),ilm=5,8)
-               close(n_SRIC_file)
-               filename='driftBQ.'//tag
-               open(n_SRIC_file, file=filename, status='unknown', position='append')
                write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=1,4),   &
                     (bvals_on_rank0(ilm,2),ilm=1,4)
-               close(n_SRIC_file)
+               if ( l_save_out ) then
+                  close(n_driftBD_file)
+                  close(n_driftBQ_file)
+               end if
             end if
          end if ! l_mag
       end if
@@ -206,7 +306,8 @@ contains
       if ( .not. l_SRIC .and. ( l_rot_ic .or. l_rot_ma ) ) then
          if ( rank == 0 ) then
             if ( l_save_out ) then
-               open(n_rot_file, file=rot_file, status='unknown', position='append')
+               open(newunit=n_rot_file, file=rot_file, status='unknown', &
+               &    position='append')
             end if
             write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)') &
                  time*tScale, omega_ic/tScale,          &
@@ -274,8 +375,8 @@ contains
             call get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
                                     angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
-               open(n_angular_file, file=angular_file, status='unknown', &
-                    position='append')
+               open(newunit=n_angular_file, file=angular_file, status='unknown', &
+               &    position='append')
             end if
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0_cp
@@ -320,22 +421,26 @@ contains
          call sendvals_to_rank0(w,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
     
          if ( rank == 0 ) then
-            filename='inerP.'//tag
-            open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,ES20.12,21ES12.4)') &
+            if ( l_save_out ) then
+               open(newunit=n_inerP_file, file=inerP_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_inerP_file,'(1P,2X,ES20.12,21ES12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
-            close(n_SRIC_file)
+            if ( l_save_out ) close(n_inerP_file)
          end if
     
          n_r1=int(half*(n_r_max-1))
          call sendvals_to_rank0(z,n_r1,lm_vals(1:n_lm_vals),vals_on_rank0_1d)
     
          if ( rank == 0 ) then
-            filename='inerT.'//tag
-            open(n_SRIC_file, file=filename, status='unknown', position='append')
-            write(n_SRIC_file,'(1P,2X,ES20.12,21ES12.4)') &
+            if ( l_save_out ) then
+               open(newunit=n_inerT_file, file=inerT_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_inerT_file,'(1P,2X,ES20.12,21ES12.4)') &
                  time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
-            close(n_SRIC_file)
+            if ( l_save_out ) close(n_inerT_file)
          end if
     
       end if

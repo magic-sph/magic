@@ -45,14 +45,14 @@ module step_time_mod
        &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
        &                  n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
 #ifdef WITH_MPI
-       &                  nLF, log_file, graph_mpi_fh, n_log_file,         &
+       &                  log_file, graph_mpi_fh, n_log_file,              &
 #else
-       &                  nLF, log_file, n_graph_file, n_log_file,         &
+       &                  log_file, n_log_file,                            &
 #endif
-       &                  n_time_hits
+       &                  n_time_hits, n_graph_file
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
-   use useful, only: l_correct_step, safeOpen, safeClose, logWrite
+   use useful, only: l_correct_step, logWrite
    use communications, only: get_global_sum, r2lo_redist_start, lm2r_type,  &
        &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
        &                     lo2r_flow, scatter_from_rank0_to_lo, lo2r_xi,  &
@@ -767,24 +767,28 @@ contains
             end if
             if ( rank == 0 ) then
                write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
-                    &" ! Storing graphic file:",            &
-                    &"             at time=",timeScaled,    &
-                    &"            step no.=",n_time_step,   &
-                    &"           into file=",graph_file
-               call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
-                    &" ! Storing graphic file:",               &
-                    &"             at time=",timeScaled,       &
-                    &"            step no.=",n_time_step,      &
-                    &"           into file=",graph_file
-               call safeClose(nLF)
+               &    " ! Storing graphic file:",             &
+               &    "             at time=",timeScaled,     &
+               &    "            step no.=",n_time_step,    &
+               &    "           into file=",graph_file
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
+               &    " ! Storing graphic file:",                       &
+               &    "             at time=",timeScaled,               &
+               &    "            step no.=",n_time_step,              &
+               &    "           into file=",graph_file
+               if ( l_save_out ) close(n_log_file)
             end if
 #ifdef WITH_MPI
             call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
                  &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
                  &             MPI_INFO_NULL,graph_mpi_fh,ierr)
 #else
-            open(n_graph_file,file=graph_file,status='new',form='unformatted')
+            open(newunit=n_graph_file,file=graph_file,status='new',  &
+            &    form='unformatted')
 #endif
             !call MPI_ERROR_STRING(ierr,error_string,length_of_error,ierr)
             !PRINT*,"MPI_FILE_OPEN returned: ",trim(error_string)
@@ -1075,13 +1079,16 @@ contains
          if ( dtNew < dtMin ) then
             if ( rank == 0 ) then
                write(*,'(1p,/,A,ES14.4,/,A)')            &
-                    &" ! TIME STEP TOO SMALL, dt=",dtNew,&
-                    &" ! I THUS stop THE RUN !"
-               call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,ES14.4,/,A)')          &
-                    &" ! TIME STEP TOO SMALL, dt=",dtNew,&
-                    &" ! I THUS stop THE RUN !"
-               call safeClose(nLF)
+               &    " ! TIME STEP TOO SMALL, dt=",dtNew, &
+               &    " ! I THUS stop THE RUN !"
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,'(1p,/,A,ES14.4,/,A)')     &
+               &    " ! TIME STEP TOO SMALL, dt=",dtNew,   &
+               &    " ! I THUS stop THE RUN !"
+               if ( l_save_out ) close(n_log_file)
             end if
             stop
          end if
@@ -1092,17 +1099,21 @@ contains
             lCourChecking=.true.
             if ( rank == 0 ) then
                write(*,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')  &
-                    &" ! Changing time step at time=",(time+dt)*tScale,  &
-                    &"                 time step no=",n_time_step+1,     &
-                    &"                      last dt=",dt*tScale,         &
-                    &"                       new dt=",dtNew*tScale
-               call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)') &
-                    &" ! Changing time step at time=",(time+dt)*tScale,   &
-                    &"                 time step no=",n_time_step+1,      &
-                    &"                      last dt=",dt*tScale,          &
-                    &"                       new dt=",dtNew*tScale
-               call safeClose(nLF)
+               &    " ! Changing time step at time=",(time+dt)*tScale,   &
+               &    "                 time step no=",n_time_step+1,      &
+               &    "                      last dt=",dt*tScale,          &
+               &    "                       new dt=",dtNew*tScale
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,                                         &
+               &    '(1p,/,A,ES18.10,/,A,i9,/,A,ES15.8,/,A,ES15.8)')     &
+               &    " ! Changing time step at time=",(time+dt)*tScale,   &
+               &    "                 time step no=",n_time_step+1,      &
+               &    "                      last dt=",dt*tScale,          &
+               &    "                       new dt=",dtNew*tScale
+               if ( l_save_out ) close(n_log_file)
             end if
          else
             w2New=-half ! Normal weight if timestep is not changed !
@@ -1231,10 +1242,15 @@ contains
             if ( nTimeT > 0 ) then
                call meanTime(runTimePassed,nTimeT)
                if ( rank == 0 ) then
-                  call writeTime(6,'! Mean wall time for time step:', runTimePassed)
-                  call safeOpen(nLF,log_file)
-                  call writeTime(nLF,'! Mean wall time for time step:', runTimePassed)
-                  call safeClose(nLF)
+                  call writeTime(6,'! Mean wall time for time step:',  &
+                  &              runTimePassed)
+                  if ( l_save_out ) then
+                     open(newunit=n_log_file, file=log_file, status='unknown', &
+                     &    position='append')
+                  end if
+                  call writeTime(n_log_file,'! Mean wall time for time step:', &
+                  &              runTimePassed)
+                  if ( l_save_out ) close(n_log_file)
                end if
             end if
          end if
@@ -1252,26 +1268,32 @@ contains
                     &" !     starting at time: ",t_movieS(1)*tScale,      &
                     &" !       ending at time: ",t_movieS(n_frame)*tScale,&
                     &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
-               call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,/,A,i10,3(/,A,ES16.6))')                  &
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))')           &
                     &" !  No of stored movie frames: ",n_frame,           &
                     &" !     starting at time: ",t_movieS(1)*tScale,      &
                     &" !       ending at time: ",t_movieS(n_frame)*tScale,&
                     &" !      with step width: ",(t_movieS(2)-t_movieS(1))*tScale
-               call safeClose(nLF)
+               if ( l_save_out ) close(n_log_file)
             else
                write(*,'(1p,/,/,A,i10,3(/,A,ES16.6))')          &
                     &" !  No of stored movie frames: ",n_frame, &
                     &" !     starting at time: ",0.0_cp,        &
                     &" !       ending at time: ",0.0_cp,        &
                     &" !      with step width: ",0.0_cp
-               call safeOpen(nLF,log_file)
-               write(nLF,'(1p,/,/,A,i10,3(/,A,ES16.6))')        &
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,'(1p,/,/,A,i10,3(/,A,ES16.6))') &
                     &" !  No of stored movie frames: ",n_frame, &
                     &" !     starting at time: ",0.0_cp,        &
                     &" !       ending at time: ",0.0_cp,        &
                     &" !      with step width: ",0.0_cp
-               call safeClose(nLF)
+               if ( l_save_out ) close(n_log_file)
             end if
          end if
       end if
@@ -1287,29 +1309,32 @@ contains
       call meanTime(runTimeTL,nTimeTL)
       call meanTime(runTimeT,nTimeT)
       if ( rank == 0 ) then
-         call writeTime(6,'! Mean wall time for r Loop                 :',runTimeR)
-         call writeTime(6,'! Mean wall time for LM Loop                :',runTimeLM)
-         call writeTime(6,'! Mean wall time for t-step with matrix calc:',runTimeTM)
-         call writeTime(6,'! Mean wall time for t-step with log output :',runTimeTL)
-         call writeTime(6,'! Mean wall time for pure t-step            :',runTimeT)
-         call safeOpen(nLF,log_file)
-         call writeTime(nLF,'! Mean wall time for r Loop                 :',runTimeR)
-         call writeTime(nLF,'! Mean wall time for LM Loop                :',runTimeLM)
-         call writeTime(nLF,'! Mean wall time for t-step with matrix calc:',runTimeTM)
-         call writeTime(nLF,'! Mean wall time for t-step with log output :',runTimeTL)
-         call writeTime(nLF,'! Mean wall time for pure t-step            :',runTimeT)
-         call safeClose(nLF)
+         call writeTime(6, &
+         &    '! Mean wall time for r Loop                 :',runTimeR)
+         call writeTime(6, &
+         &   '! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(6, &
+         &   '! Mean wall time for t-step with matrix calc:',runTimeTM)
+         call writeTime(6, &
+         &   '! Mean wall time for t-step with log output :',runTimeTL)
+         call writeTime(6, &
+         &   '! Mean wall time for pure t-step            :',runTimeT)
+         if ( l_save_out ) then
+            open(newunit=n_log_file, file=log_file, status='unknown', &
+            &    position='append')
+         end if
+         call writeTime(n_log_file,  &
+         &    '! Mean wall time for r Loop                 :',runTimeR)
+         call writeTime(n_log_file,  &
+         &    '! Mean wall time for LM Loop                :',runTimeLM)
+         call writeTime(n_log_file,  &
+         &    '! Mean wall time for t-step with matrix calc:',runTimeTM)
+         call writeTime(n_log_file,  &
+         &    '! Mean wall time for t-step with log output :',runTimeTL)
+         call writeTime(n_log_file,  &
+         &    '! Mean wall time for pure t-step            :',runTimeT)
+         if ( l_save_out ) close(n_log_file)
       end if
-      !-- Write output for variable conductivity test:
-      !       if ( imagcon == -10 ) then
-      !          message='testVarCond.'//tag
-      !          open(99,file=message,status='unknown')
-      !           do nR=n_r_max,1,-1             ! Diffusive toroidal field
-      !             write(99,*) r(nR),real(aj(4,nR)),jVarCon(nR)
-      !           end do
-      !          close(99)
-      !       end if
-
 
       !-- WORK IS DONE !
 #ifdef WITH_MPI
@@ -1378,7 +1403,8 @@ contains
          &     time_new*tScale,time*tScale
          if ( rank == 0 ) then
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', position='append')
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
                write(n_log_file,                                                &
                     &     '(/," ! TIME STEP CHANGED TO HIT TIME:",1p,2ES16.6)') &
                     &     time_new*tScale,time*tScale

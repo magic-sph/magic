@@ -101,7 +101,7 @@ program magic
    use fieldsLast
    use constants, only: codeVersion
    use movie_data, only: initialize_movie_data, finalize_movie_data
-   use RMS, only: initialize_RMS
+   use RMS, only: initialize_RMS, finalize_RMS
    use dtB_mod, only: initialize_dtB_mod
    use radial_data, only: initialize_radial_data
    use radialLoop
@@ -113,20 +113,21 @@ program magic
    use magnetic_energy
    use fields_average_mod
    use Egeos_mod
-   use spectra, only: initialize_spectra
-   use output_data
-   use output_mod, only: initialize_output
-   use outPV3, only:initialize_outPV3
+   use spectra, only: initialize_spectra, finalize_spectra
+   use output_data, only: tag, log_file, n_log_file
+   use output_mod, only: initialize_output, finalize_output
+   use outPV3, only: initialize_outPV3
    use outTO_mod,only: initialize_outTO_mod
    use parallel_mod
    use Namelists
    use step_time_mod, only: initialize_step_time, step_time
    use timing, only: writeTime,wallTime
    use communications, only:initialize_communications
-   use power, only: initialize_output_power
-   use outPar_mod, only: initialize_outPar_mod
+   use power, only: initialize_output_power, finalize_output_power
+   use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
    use out_coeff, only: initialize_coeffs
-   use outMisc_mod, only: initialize_outMisc_mod
+   use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
+   use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
@@ -192,13 +193,10 @@ program magic
    !--- Check parameters and write info to SDTOUT
    call checkTruncation
 
-   !--- Open output files:
-   call openFiles
+   log_file='log.'//tag
 
    if ( rank == 0 ) then
-      if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='unknown', position='append')
-      end if
+      open(newunit=n_log_file, file=log_file, status='new')
       write(n_log_file,*) '!------------------------------------------------------!'
       write(n_log_file,*) '!                                                      !'
       write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
@@ -243,10 +241,11 @@ program magic
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated
    call initialize_kinetic_energy
-   call initialize_magnetic_energy
+   if ( l_mag ) call initialize_magnetic_energy
    call initialize_spectra
    call initialize_outPar_mod
    call initialize_outMisc_mod
+   call initialize_outRot
    if ( l_power ) call initialize_output_power
    call initialize_coeffs
    call initialize_fields_average_mod
@@ -278,7 +277,8 @@ program magic
 
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='unknown', position='append')
+         open(newunit=n_log_file, file=log_file, status='unknown', &
+         &    position='append')
       end if
       call writeNamelists(6)
       call writeNamelists(n_log_file)
@@ -293,8 +293,13 @@ program magic
 
    !--- Write info to STDOUT and log-file:
    if ( rank == 0 ) then
+      if ( l_save_out ) then
+         open(newunit=n_log_file, file=log_file, status='unknown', &
+         &    position='append')
+      end if
       call writeInfo(6)
       call writeInfo(n_log_file)
+      if ( l_save_out ) close(n_log_file)
    end if
 
    !--- AND NOW FOR THE TIME INTEGRATION:
@@ -302,7 +307,8 @@ program magic
    !--- Write starting time to SDTOUT and logfile:
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='unknown',  position='append')
+         open(newunit=n_log_file, file=log_file, status='unknown',  &
+         &    position='append')
       end if
       do n=1,2
          if ( n == 1 ) nO=6
@@ -325,7 +331,8 @@ program magic
    !--- Write stop time to SDTOUR and logfile:
    if ( rank == 0 ) then
       if ( l_save_out ) then
-         open(n_log_file, file=log_file, status='unknown', position='append')
+         open(newunit=n_log_file, file=log_file, status='unknown', &
+         &    position='append')
       end if
 
       do n=1,2
@@ -364,10 +371,19 @@ program magic
    !--- Closing the movie files (if any)
    call finalize_movie_data
    !--- Closing the output files:
-   call closeFiles
+   call finalize_output
+   call finalize_kinetic_energy
+   call finalize_outPar_mod
+   call finalize_outMisc_mod
+   call finalize_outRot
+   call finalize_spectra
+   if ( l_mag ) call finalize_magnetic_energy
+   if ( l_power ) call finalize_output_power
+   if ( l_RMS ) call finalize_RMS
+   if ( l_par ) call finalize_Egeos_mod
+
+   if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
    
-
-
    PERFOFF
    PERFOUT('main')
    !LIKWID_OFF('main')

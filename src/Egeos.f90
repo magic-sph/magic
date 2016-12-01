@@ -13,8 +13,7 @@ module Egeos_mod
    use blocking, only: lm2l, lm2m, lm2mc
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out
-   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA, &
-       &                  n_geos_file, geos_file
+   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA
    use constants, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
@@ -35,8 +34,11 @@ module Egeos_mod
    integer, allocatable :: nZmaxS(:)
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
+
+   integer :: n_geos_file
+   character(len=72) :: geos_file
  
-   public :: initialize_Egeos_mod, getEgeos
+   public :: initialize_Egeos_mod, getEgeos, finalize_Egeos_mod
 
 contains
 
@@ -54,8 +56,21 @@ contains
                        nSmaxA*SIZEOF_INTEGER + &
                        2*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
 
+      geos_file='geos.'//tag
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         open(newunit=n_geos_file, file=geos_file, status='new')
+      end if
 
    end subroutine initialize_Egeos_mod
+!----------------------------------------------------------------------------
+   subroutine finalize_Egeos_mod
+
+      deallocate( OsinTS, PlmS, dPlmS, chebt_Z, nZmaxS, zZ, rZ )
+
+      if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
+
+   end subroutine finalize_Egeos_mod
 !----------------------------------------------------------------------------
    subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,         &
         &              Geos,dpFlow,dzFlow)
@@ -496,9 +511,8 @@ contains
             !           ndS=nSmax-n
             !          nSmax=n
 
-            nOutFile=93
             movFile ='CVorz_mov.'//tag
-            open(nOutFile, file=movFile, status='unknown',   &
+            open(newunit=nOutFile, file=movFile, status='unknown',   &
             &    form='unformatted', position='append')
 
             !--- Write header into output file:
@@ -563,7 +577,8 @@ contains
          end if
 
          if ( l_save_out ) then
-            open(n_geos_file, file=geos_file, status='unknown', position='append')
+            open(newunit=n_geos_file, file=geos_file, status='unknown', &
+            &    position='append')
          end if
 
          write(n_geos_file,'(1P,ES20.12,7ES16.8)')        &

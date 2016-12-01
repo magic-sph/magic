@@ -55,11 +55,11 @@ contains
       real(cp),         intent(in) :: time             ! Time
       complex(cp),      intent(in) :: b_LMloc(llm:ulm) ! Poloidal field potential
       character(len=*), intent(in) :: cmb_file         ! Name of output file
-      integer,          intent(in) :: n_cmb_file       ! Output unit for $cmb_file
 
       !-- Output variables:
-      integer, intent(inout) :: l_max_cmb      ! Max degree of output
-      integer, intent(inout) :: n_cmb_sets     ! Total no. of cmb sets,
+      integer, intent(inout) :: n_cmb_file    ! Output unit for $cmb_file
+      integer, intent(inout) :: l_max_cmb     ! Max degree of output
+      integer, intent(inout) :: n_cmb_sets    ! Total no. of cmb sets,
       ! should be set to zero before first call
 
       !-- Local variables:
@@ -97,7 +97,8 @@ contains
 
          !--- Open output file name:
          if ( l_save_out .or. n_cmb_sets == 0 ) then
-            open(n_cmb_file, file=cmb_file, position='append', form='unformatted')
+            open(newunit=n_cmb_file, file=cmb_file, position='append', &
+            &    form='unformatted')
          end if
 
          !--- If this is the first set write l_max_cmb and minc into file:
@@ -177,10 +178,10 @@ contains
       complex(cp),      intent(in) :: ddw_LMloc(llm:ulm)! dr^2 of Poloidal field potential
       complex(cp),      intent(in) :: z_LMloc(llm:ulm)   ! Toroidal field potential
       character(len=*), intent(in) :: file         ! Name of output file
-      integer,          intent(in) :: n_file       ! Output unit for $file
       integer,          intent(in) :: nVBS         ! True if output is flow
 
       !-- Output:
+      integer, intent(inout) :: n_file      ! Output unit for $file
       integer, intent(inout) :: l_max_r     ! Max degree of output
       integer, intent(inout) :: n_sets      ! Total no. of cmb sets,
       ! should be set to zero before first call
@@ -346,7 +347,7 @@ contains
 
          !--- Open output file with name $file:
          if ( l_save_out ) then
-            open(n_file, file=file, form='unformatted', status='unknown', &
+            open(newunit=n_file, file=file, form='unformatted', status='unknown', &
                  position='append')
          end if
 

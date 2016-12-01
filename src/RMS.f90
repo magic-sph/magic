@@ -8,14 +8,15 @@ module RMS
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
-                       lm2m
+       &               lm2m
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
-                         l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-                         lm_max_dtB
+       &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
+       &                 lm_max_dtB
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
    use radial_functions, only: chebt_oc, drx, r, r_CMB, dr_fac
-   use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, l_corr
+   use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
+       &            l_corr, l_mag
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
@@ -23,16 +24,15 @@ module RMS
    use chebyshev_polynoms_mod, only: cheb_grid
    use radial_functions, only: nDi_costf1, nDd_costf1, r
    use radial_der, only: get_dr, get_drNS
-   use output_data, only: rDea, rCut, TAG, runid, n_dtvrms_file, dtvrms_file, &
-                          n_dtbrms_file, dtbrms_file
+   use output_data, only: rDea, rCut, TAG, runid
    use cosine_transform_odd
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
-                          hInt2dPolLM
+       &                  hInt2dPolLM
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
-                      TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
-                      PadvRms, TadvRms, PadvAsRms, TadvAsRms, PdifRms, &
-                      TdifRms, PdifAsRms, TdifAsRms, TomeRms,          &
-                      TomeAsRms
+       &              TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
+       &              PadvRms, TadvRms, PadvAsRms, TadvAsRms, PdifRms, &
+       &              TdifRms, PdifAsRms, TdifAsRms, TomeRms,          &
+       &              TomeAsRms
    use useful, only: getMSD2
                                                                   
 #ifdef WITH_MPI
@@ -91,8 +91,10 @@ module RMS
    real(cp), allocatable :: PLFRmsL_TA(:), PLFRmsL_SD(:), PLFRmsSD(:)
 
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
-
-   public :: dtVrms, dtBrms, initialize_RMS, zeroRms
+   integer :: n_dtvrms_file, n_dtbrms_file
+   character(len=72) :: dtvrms_file, dtbrms_file
+ 
+   public :: dtVrms, dtBrms, initialize_RMS, zeroRms, finalize_RMS
 
 contains
 
@@ -156,7 +158,46 @@ contains
       call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC, &
                     nCut,dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
 
+      dtvrms_file='dtVrms.'//tag
+      dtbrms_file='dtBrms.'//tag
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         open(newunit=n_dtvrms_file, file=dtvrms_file, status='new')
+         if ( l_mag ) then
+            open(newunit=n_dtbrms_file, file=dtbrms_file, status='new')
+         end if
+      end if
+
    end subroutine initialize_RMS
+!----------------------------------------------------------------------------
+   subroutine finalize_RMS
+
+      deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
+      deallocate( dtVPol2hInt, dtVTor2hInt, dtVPolLMr )
+      deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
+      deallocate( Adv2hInt, Cor2hInt, LF2hInt )
+      deallocate( Buo2hInt, Pre2hInt, Geo2hInt)
+      deallocate( Mag2hInt, Arc2hInt, CIA2hInt)
+      deallocate( CLF2hInt, PLF2hInt)
+      deallocate( dtVRmsL_TA, dtVRmsL_SD, dtVRmsSD )
+      deallocate( CorRmsL_TA, CorRmsL_SD, CorRmsSD )
+      deallocate( LFRmsL_TA, LFRmsL_SD, LFRmsSD )
+      deallocate( AdvRmsL_TA, AdvRmsL_SD, AdvRmsSD )
+      deallocate( DifRmsL_TA, DifRmsL_SD, DifRmsSD )
+      deallocate( BuoRmsL_TA, BuoRmsL_SD, BuoRmsSD )
+      deallocate( PreRmsL_TA, PreRmsL_SD, PreRmsSD )
+      deallocate( GeoRmsL_TA, GeoRmsL_SD, GeoRmsSD )
+      deallocate( MagRmsL_TA, MagRmsL_SD, MagRmsSD )
+      deallocate( ArcRmsL_TA, ArcRmsL_SD, ArcRmsSD )
+      deallocate( CIARmsL_TA, CIARmsL_SD, CIARmsSD )
+      deallocate( CLFRmsL_TA, CLFRmsL_SD, CLFRmsSD )
+      deallocate( PLFRmsL_TA, PLFRmsL_SD, PLFRmsSD )
+
+      if ( rank == 0 .and. (.not. l_save_out) ) then
+         close(n_dtvrms_file)
+         if ( l_mag ) close(n_dtbrms_file)
+      end if
+
+   end subroutine finalize_RMS
 !----------------------------------------------------------------------------
    subroutine zeroRms
       !
@@ -343,7 +384,7 @@ contains
       real(cp) :: PLFRms,PLFRmsL
     
       !-- Local variables:
-      integer :: nR,nRC,l,n
+      integer :: nR,nRC,l,n,fileHandle
       real(cp) :: volC
       real(cp) :: Rms(n_r_max),Dif2hInt(n_r_max),dtV2hInt(n_r_max)
     
@@ -644,8 +685,8 @@ contains
     
          !----- Output:
          if ( l_save_out) then
-            open(n_dtvrms_file, file=dtvrms_file, form='formatted', &
-                 status='unknown', position='append')
+            open(newunit=n_dtvrms_file, file=dtvrms_file, &
+            &    form='formatted', status='unknown', position='append')
          end if
          write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,6ES14.6)')&
               time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
@@ -689,18 +730,19 @@ contains
          end do
 
          fileName='dtVrms_spec.'//tag
-         open(90,file=fileName,form='formatted',status='unknown')
+         open(newunit=fileHandle,file=fileName,form='formatted', &
+         &    status='unknown')
          do l=0,l_max
-            write(90,'(1P,I4,26ES16.8)') l+1,                                &
-     &            dtVRmsL_TA(l),CorRmsL_TA(l),LFRmsL_TA(l),AdvRmsL_TA(l),    &
-     &            DifRmsL_TA(l),BuoRmsL_TA(l),PreRmsL_TA(l),GeoRmsL_TA(l),   &
-     &            MagRmsL_TA(l),ArcRmsL_TA(l),CLFRmsL_TA(l),PLFRmsL_TA(l),   &
-     &            CIARmsL_TA(l),dtVRmsSD(l),CorRmsSD(l),LFRmsSD(l),          &
-     &            AdvRmsSD(l),DifRmsSD(l),BuoRmsSD(l),PreRmsSD(l),           &
-     &            GeoRmsSD(l),MagRmsSD(l),ArcRmsSD(l),CLFRmsSD(l),           &
-     &            PLFRmsSD(l),CIARmsSD(l)
+            write(fileHandle,'(1P,I4,26ES16.8)') l+1,                        &
+            &     dtVRmsL_TA(l),CorRmsL_TA(l),LFRmsL_TA(l),AdvRmsL_TA(l),    &
+            &     DifRmsL_TA(l),BuoRmsL_TA(l),PreRmsL_TA(l),GeoRmsL_TA(l),   &
+            &     MagRmsL_TA(l),ArcRmsL_TA(l),CLFRmsL_TA(l),PLFRmsL_TA(l),   &
+            &     CIARmsL_TA(l),dtVRmsSD(l),CorRmsSD(l),LFRmsSD(l),          &
+            &     AdvRmsSD(l),DifRmsSD(l),BuoRmsSD(l),PreRmsSD(l),           &
+            &     GeoRmsSD(l),MagRmsSD(l),ArcRmsSD(l),CLFRmsSD(l),           &
+            &     PLFRmsSD(l),CIARmsSD(l)
          end do
-         close(90)
+         close(fileHandle)
     
       end if
 
@@ -736,7 +778,7 @@ contains
       !-- For new movie output
       integer :: nField,nFields,nFieldSize
       integer :: nTheta,nThetaN,nThetaS,nThetaStart
-      integer :: nPos
+      integer :: nPos, fileHandle
       real(cp) :: dumm(12),rS
       real(cp) :: fOut(n_theta_max*n_r_max)
       real(cp) :: outBlock(nfs)
@@ -847,16 +889,17 @@ contains
             nFieldSize=n_theta_max*n_r_max
             nFields=7
             fileName='dtTas_mov.'//TAG
-            open(90, file=fileName, status='unknown', form='unformatted')
+            open(newunit=fileHandle, file=fileName, status='unknown', &
+            &    form='unformatted')
     
             !------ Write header
             version='JW_Movie_Version_2'
-            write(90) version
+            write(fileHandle) version
             dumm(1)=112           ! type of input
             dumm(2)=3             ! marker for constant phi plane
             dumm(3)=0.0_cp          ! surface constant
             dumm(4)=nFields       ! no of fields
-            write(90) (real(dumm(n),kind=outp),n=1,4)
+            write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
     
             !------ Define marker for output fields stored in movie field
             dumm(1)=101           ! Field marker for AS Br stretching
@@ -866,10 +909,10 @@ contains
             dumm(5)=105           ! Field marker for AS Bp dynamo term
             dumm(6)=106           ! Field marker for AS Bp omega effect
             dumm(7)=107           ! Field marker for AS Bp diffusion
-            write(90) (real(dumm(n),kind=outp),n=1,nFields)
+            write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
     
             !------ Now other info about grid and parameters:
-            write(90) runid        ! run identifier
+            write(fileHandle) runid        ! run identifier
             dumm( 1)=n_r_max          ! total number of radial points
             dumm( 2)=n_r_max          ! no of radial point in outer core
             dumm( 3)=n_theta_max      ! no. of theta points
@@ -881,10 +924,10 @@ contains
             dumm( 9)=prmag            !      -"-
             dumm(10)=radratio         ! ratio of inner / outer core
             dumm(11)=tScale           ! timescale
-            write(90) (real(dumm(n),kind=outp),     n=1,11)
-            write(90) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
-            write(90) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-            write(90) (real(phi(n),kind=outp),      n=1,n_phi_max)
+            write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
+            write(fileHandle) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
+            write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
+            write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
     
             dumm(1)=1    ! time frame number for movie
             dumm(2)=0.0_cp ! time
@@ -894,7 +937,7 @@ contains
             dumm(6)=0.0_cp
             dumm(7)=0.0_cp
             dumm(8)=0.0_cp
-            write(90) (real(dumm(n),kind=outp),n=1,8)
+            write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
     
             !------ Loop over different output field:
             do nField=1,nFields
@@ -941,9 +984,11 @@ contains
                end do ! Loop over R
     
                !------ Output of field:
-               write(90) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
+               write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
     
             end do ! Loop over different fields
+
+            close(fileHandle)
     
          end if ! output of mov fields ?
 
@@ -962,17 +1007,14 @@ contains
 
          !-- Output:
          if ( l_save_out) then
-            open(n_dtbrms_file, file=dtbrms_file, form='formatted', &
-                 status='unknown', position='append')
+            open(newunit=n_dtbrms_file, file=dtbrms_file,  &
+            &    form='formatted', status='unknown', position='append')
          end if
          write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')            &
               time, dtBPolRms, dtBTorRms, PdynRms, TdynRms,      &
               PdifRms, TdifRms, TomeRms/TdynRms,                 &
               TomeAsRms/TdynRms,  DdynRms,DdynAsRms
-         if ( l_save_out) then
-            close(n_dtbrms_file)
-         end if
-
+         if ( l_save_out) close(n_dtbrms_file)
 
       end if
 

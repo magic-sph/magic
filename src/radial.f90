@@ -8,7 +8,6 @@ module radial_functions
    use algebra, only: sgesl,sgefa
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
-   use num_param, only: alpha
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
        &            l_isothermal, l_anel, l_newmap, l_non_adia,   &
        &            l_TP_form, l_temperature_diff, l_single_matrix
@@ -258,7 +257,7 @@ contains
                      drx,ddrx,dddrx)
 
 #if 0
-      open(newuniT=filehandle,file="r_cheb.dat")
+      open(newunit=filehandle,file="r_cheb.dat")
       do n_r=1,n_r_max
          write(filehandle,"(2ES20.12)") r_cheb(n_r),r(n_r)
       end do

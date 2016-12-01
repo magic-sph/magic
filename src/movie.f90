@@ -89,8 +89,8 @@ contains
             !----- Open movie files on first processor only:
             if ( .not. l_save_out ) then
                do n=1,n_movies
-                  open(n_movie_file(n), file=movie_file(n), &
-                       status='new', form='unformatted')
+                  open(newunit=n_movie_file(n), file=movie_file(n), &
+                  &    status='new', form='unformatted')
                end do
             end if
          end if
@@ -1259,7 +1259,8 @@ contains
          !--- Write info about output files into log-file:
          if ( rank == 0 ) then
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', position='append')
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
             end if
             write(n_log_file,'(/,'' ! PRODUCING MOVIE-FILE :'',a64)') &
                   movie_file(n_movies)

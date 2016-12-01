@@ -4,22 +4,22 @@ module outTO_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
-                         n_theta_max, n_phi_max, minc, lStressMem,   &
-                         lm_max
+       &                 n_theta_max, n_phi_max, minc, lStressMem,   &
+       &                 lm_max
    use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, drx
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
-                                     BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
-                                     dzdVpLMr, dzddVpLMr, dzRstrLMr,   &
-                                     dzAstrLMr, dzStrLMr, dzLFLMr,     &
-                                     dzCorLMr, TO_gather_Rloc_on_rank0, &
-                                     dzRstrLMr_Rloc
+       &                             BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
+       &                             dzdVpLMr, dzddVpLMr, dzRstrLMr,   &
+       &                             dzAstrLMr, dzStrLMr, dzLFLMr,     &
+       &                             dzCorLMr, TO_gather_Rloc_on_rank0, &
+       &                             dzRstrLMr_Rloc
    use num_param, only: tScale
    use blocking, only: nThetaBs, sizeThetaB, nfs, st_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file, &
-                          nSmaxA, nZmaxA
+       &                  nSmaxA, nZmaxA
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
    use charmanip, only: dble2str
@@ -47,6 +47,10 @@ module outTO_mod
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    integer, allocatable :: nZmaxS(:)
    type(costf_odd_t), allocatable :: chebt_Z(:)
+
+   !-- Output files
+   character(len=64) :: TOfileNhs,TOfileShs,movFile
+   character(len=66) :: tayFile
 
    public :: initialize_outTO_mod, outTO
 
@@ -79,11 +83,14 @@ contains
       allocate( nZmaxS(nSmaxA) )
       bytes_allocated = bytes_allocated+nSmaxA*SIZEOF_INTEGER
 
+      TOfileNhs='TOnhs.'//tag
+      TOfileShs='TOshs.'//tag
+      movFile  ='TO_mov.'//tag
+      tayFile  ='TaySphere4.'//tag
+
    end subroutine initialize_outTO_mod
 !----------------------------------------------------------------------------
-   subroutine outTO(time,n_time_step,                   &
-        &           eKin,eKinTAS,nOutFile,nOutFile2,    &
-        &           TOfileNhs,TOfileShs,movFile,tayFile,&
+   subroutine outTO(time,n_time_step,eKin,eKinTAS,      &
         &           nTOsets,nTOmovSets,nTOrmsSets,      &
         &           lTOmov,lTOrms,lTOZwrite,            &
         &           z,omega_ic,omega_ma)
@@ -101,8 +108,6 @@ contains
       real(cp),         intent(in) :: time
       integer,          intent(in) :: n_time_step
       real(cp),         intent(in) :: eKin, eKinTAS
-      integer,          intent(in) :: nOutFile, nOutFile2
-      character(len=*), intent(in) :: TOfileNhs, TOfileShs, movFile, tayFile
       logical,          intent(in) :: lTOmov
       complex(cp),      intent(in) :: z(llm:ulm,n_r_max)
       real(cp),         intent(in) :: omega_ic, omega_ma
@@ -132,6 +137,7 @@ contains
       real(cp) :: workA(lmMaxS,n_r_maxStr)
 
       integer :: lm,l ! counter for degree
+      integer :: nOutFile, nOutFile2
 
       integer :: nSmax,nS,nSI
       real(cp) :: zNorm  ! Norm z interval
@@ -228,6 +234,7 @@ contains
       character(len=255) :: message
       character(len=64) :: version,fileName
       integer :: nFieldSize,nPos
+      integer :: n_toz_file, n_tozm_file
 
       !integer :: nLines
       real(cp) :: dumm(12)
@@ -333,17 +340,20 @@ contains
             nTOZfile=nTOZfile+1
             call dble2str(real(nTOZfile,cp),string)
             fileName='TOZ_'//trim(adjustl(string))//'.'//TAG
-            open(95, file=fileName, form='unformatted', status='unknown')
-            write(95) real(time,kind=outp), real(nSmax,kind=outp), &
-                    & real(omega_ic,kind=outp), real(omega_ma,kind=outp)
-            write(95) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            open(newunit=n_toz_file, file=fileName, form='unformatted', &
+            &    status='unknown')
+            write(n_toz_file) real(time,kind=outp), real(nSmax,kind=outp), &
+            &                 real(omega_ic,kind=outp),                    &
+            &                 real(omega_ma,kind=outp)
+            write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
          end if
          if ( nTOsets > 1 .and. l_TOZave ) then
             fileName='TOZM.'//TAG
-            open(96,file=fileName, form='unformatted', status='unknown')
-            write(96) real(nSmax,kind=outp), real(omega_ic,kind=outp), &
-                    & real(omega_ma,kind=outp)
-            write(96) (real(sZ(nS),kind=outp),nS=1,nSmax)
+            open(newunit=n_tozm_file,file=fileName, form='unformatted', &
+            &    status='unknown')
+            write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &
+            &                  real(omega_ma,kind=outp)
+            write(n_tozm_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
          end if
 
          lStopRun=.false.
@@ -508,27 +518,27 @@ contains
             end if
 
             if ( l_TOZave .and. nTOsets > 1 ) then
-               write(96) real(nZmaxNS,kind=outp)
-               write(96) (real(zALL(nZ),kind=outp),nZ=1,nZmaxNS), &
-                    &    (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
-                    &    (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-                    &    (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
-                    &    (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
-                    &    (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
-                    &    (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-                    &    (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-                    &    (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
+               write(n_tozm_file) real(nZmaxNS,kind=outp)
+               write(n_tozm_file) (real(zALL(nZ),kind=outp),nZ=1,nZmaxNS), &
+               &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+               &                  (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+               &                  (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+               &                  (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+               &                  (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
             end if
             if ( lTOZwrite ) then
-               write(95) real(nZmaxNS)
-               write(95) (real(zALL(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
-                    &    (real(VpS(nZ),kind=outp)  ,nZ=1,nZmaxNS),      &
-                    &    (real(dVpS(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
-                    &    (real(RstrS(nZ),kind=outp),nZ=1,nZmaxNS),      &
-                    &    (real(AstrS(nZ),kind=outp),nZ=1,nZmaxNS),      &
-                    &    (real(LFfac*LFS(nZ),kind=outp),nZ=1,nZmaxNS),  &
-                    &    (real(StrS(nZ),kind=outp) ,nZ=1,nZmaxNS),      &
-                    &    (real(CorS(nZ),kind=outp) ,nZ=1,nZmaxNS)
+               write(n_toz_file) real(nZmaxNS)
+               write(n_toz_file) (real(zALL(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
+               &                 (real(VpS(nZ),kind=outp)  ,nZ=1,nZmaxNS),    &
+               &                 (real(dVpS(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
+               &                 (real(RstrS(nZ),kind=outp),nZ=1,nZmaxNS),    &
+               &                 (real(AstrS(nZ),kind=outp),nZ=1,nZmaxNS),    &
+               &                 (real(LFfac*LFS(nZ),kind=outp),nZ=1,nZmaxNS),&
+               &                 (real(StrS(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
+               &                 (real(CorS(nZ),kind=outp) ,nZ=1,nZmaxNS)
             end if
 
             !--- Z-integrals:
@@ -695,8 +705,8 @@ contains
          end do outer ! Loop over s 
          ! Integration finished
 
-         close (95)
-         if ( l_TOZave .and. nTOsets > 1 ) close (96)
+         close (n_toz_file)
+         if ( l_TOZave .and. nTOsets > 1 ) close (n_tozm_file)
 
          if ( lStopRun ) stop
 
@@ -783,7 +793,7 @@ contains
          end do
 
          !--- Output of z-integral:
-         open(nOutFile, file=TOfileNhs, status='unknown',    &
+         open(newunit=nOutFile, file=TOfileNhs, status='unknown',    &
               &       form='unformatted', position='append')
          if ( nTOsets == 1 ) then
 
@@ -815,7 +825,7 @@ contains
               &  (real(LFfac*Bs2IntN(nS),kind=outp)      ,nS=1,nSmax)    ! 20 
          close(nOutFile)
 
-         open(nOutFile, file=TOfileShs, status='unknown',       &
+         open(newunit=nOutFile, file=TOfileShs, status='unknown',       &
               &       form='unformatted', position='append')
          if ( nTOsets == 1 ) then
             write(nOutFile) real(nSmax,kind=outp)
@@ -871,7 +881,7 @@ contains
             nFields=7
             if ( lTOmov ) then
 
-               open(nOutFile, file=movFile, status='unknown',              &
+               open(newunit=nOutFile, file=movFile, status='unknown',  &
                     &             form='unformatted', position='append')
 
                !--- Write header into output file:
@@ -941,8 +951,8 @@ contains
                end do
 
                nTOrmsSets=nTOrmsSets+1
-               open(nOutFile2, file=tayFile, form='unformatted',           &
-                    &             status='unknown', position='append')
+               open(newunit=nOutFile2, file=tayFile, form='unformatted',  &
+               &    status='unknown', position='append')
                if ( nTOrmsSets == 1 ) then
                   write(nOutFile2) real(n_r_max,kind=outp)
                   write(nOutFile2) (real(r(nR),kind=outp),nR=1,n_r_max)
@@ -1033,7 +1043,8 @@ contains
             end do ! Loop over output functions
 
             if ( l_save_out ) then
-               open(n_log_file, file=log_file, status='unknown', position='append')
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
             end if
             if ( lTOmov ) then 
                close(nOutFile)
