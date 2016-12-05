@@ -171,6 +171,10 @@ contains
                         ome(nPhi,nThetaB)=omega_ma1
                      end if
                   end do
+#ifndef WITH_SHTNS
+                  ome(n_phi_max+1,nThetaB)=0.0_cp
+                  ome(n_phi_max+2,nThetaB)=0.0_cp
+#endif
                end do
                !------------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
@@ -224,6 +228,10 @@ contains
                      !ome(nPhi,nThetaB)=amp_v1*r_icb/r(nR)
                      ome(nPhi,nThetaB)=amp_v1/sqrt(one+ss**4)
                   end do
+#ifndef WITH_SHTNS
+                  ome(n_phi_max+1,nThetaB)=0.0_cp
+                  ome(n_phi_max+2,nThetaB)=0.0_cp
+#endif
                end do
                !------------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
@@ -604,6 +612,10 @@ contains
                      sCMB(nPhi,nThetaB)=0.0_cp
                   end if
                end do
+#ifndef WITH_SHTNS
+               sCMB(n_phi_max+1,nThetaB)=0.0_cp
+               sCMB(n_phi_max+2,nThetaB)=0.0_cp
+#endif
             end do
          !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
@@ -680,6 +692,10 @@ contains
                                         amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
                end do
             end do
+#ifndef WITH_SHTNS
+            sCMB(n_phi_max+1,nThetaB)=0.0_cp
+            sCMB(n_phi_max+2,nThetaB)=0.0_cp
+#endif
          end do
       !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
@@ -917,6 +933,10 @@ contains
                      xiCMB(nPhi,nThetaB)=0.0_cp
                   end if
                end do
+#ifndef WITH_SHTNS
+               xiCMB(n_phi_max+1,nThetaB)=0.0_cp
+               xiCMB(n_phi_max+2,nThetaB)=0.0_cp
+#endif
             end do
          !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS
@@ -993,6 +1013,10 @@ contains
                                         amp(nXi)*half*(cos(angleL/widthXi(nXi)*pi)+1)
                end do
             end do
+#ifndef WITH_SHTNS
+            xiCMB(n_phi_max+1,nThetaB)=0.0_cp
+            xiCMB(n_phi_max+2,nThetaB)=0.0_cp
+#endif
          end do
       !------ Transform to spherical hamonic space for each theta block
 #ifndef WITH_SHTNS

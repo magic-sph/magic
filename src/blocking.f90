@@ -474,7 +474,7 @@ contains
       ! Local variables
       integer :: m,l,lm,lmP,mc
       
-      do m=0,map%m_max
+      do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
@@ -560,7 +560,7 @@ contains
       ! Local variables
       integer :: m,l,lm,lmP,mc
       
-      do m=0,map%m_max
+      do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
@@ -682,7 +682,7 @@ contains
 
       logical, parameter :: DEBUG_OUTPUT=.false.
 
-      do m=0,map%m_max
+      do m=0,map%l_max
          do l=m,map%l_max
             map%lm2(l,m)  =-1
             map%lmP2(l,m) =-1
