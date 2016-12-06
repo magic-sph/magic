@@ -37,6 +37,7 @@ module leg_helper_mod
    contains
 
       procedure :: initialize
+      procedure :: finalize
       procedure :: legPrepG
 
    end type leg_helper_t
@@ -82,6 +83,20 @@ contains
       bytes_allocated = bytes_allocated+lm_maxMag*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize
+!------------------------------------------------------------------------------
+   subroutine finalize(this)
+
+      class(leg_helper_t) :: this
+
+      deallocate( this%dLhw, this%dLhdw, this%dLhz, this%dLhb, this%dLhj )
+      deallocate( this%vhG, this%vhC, this%dvhdrG, this%dvhdrC )
+      deallocate( this%bhG, this%bhC, this%cbhG, this%cbhC, this%sR, this%dsR )
+      deallocate( this%preR, this%dpR, this%zAS, this%dzAS, this%ddzAS )
+      deallocate( this%bCMB )
+
+      if ( l_chemical_conv ) deallocate( this%xiR )
+
+   end subroutine finalize
 !------------------------------------------------------------------------------
    subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,lPressCalc,l_frame, &
         &              lTOnext,lTOnext2,lTOcalc)

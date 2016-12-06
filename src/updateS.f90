@@ -44,7 +44,7 @@ module updateS_mod
 
    integer :: maxThreads
 
-   public :: initialize_updateS,updateS,updateS_ala
+   public :: initialize_updateS, updateS, updateS_ala, finalize_updateS
 
 contains
 
@@ -87,6 +87,20 @@ contains
       &                 maxThreads*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_updateS
+!------------------------------------------------------------------------------
+   subroutine finalize_updateS
+
+      deallocate( s0Mat, sMat, s0Pivot, sPivot, lSmat )
+#ifdef WITH_PRECOND_S
+      deallocate( sMat_fac )
+#endif
+#ifdef WITH_PRECOND_S0
+      deallocate( s0Mat_fac )
+#endif
+      deallocate( workA, workB, rhs1 )
+      if ( l_anelastic_liquid ) deallocate( workC )
+  
+   end subroutine finalize_updateS
 !------------------------------------------------------------------------------
    subroutine updateS(s,ds,w,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
       !

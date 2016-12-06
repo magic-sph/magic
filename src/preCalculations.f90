@@ -713,7 +713,7 @@ contains
 
       !--- Compute fac_loop for current carrying loop
 
-      if(l_curr) then
+      if ( l_curr ) then
 
          allocate(fac_loop(l_max))
               
@@ -725,7 +725,8 @@ contains
                if(l==1) then
                   fac_loop(l)= half
                else
-                  fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/real(l-1,kind=cp)
+                  fac_loop(l)= -fac_loop(l-2)*0.64_cp*real(l,kind=cp)/ &
+                  &            real(l-1,kind=cp)
                end if
             end if
                
@@ -735,7 +736,7 @@ contains
        
 
    end subroutine preCalc
-!--------------------------------------------------------
+!-------------------------------------------------------------------------------
    subroutine preCalcTimes(time,n_time_step)
       !
       !  Precalc. after time, time and dthas been read from startfile.

@@ -89,12 +89,12 @@ program magic
    use truncation
    use precision_mod
    use physical_parameters
-   use radial_functions
+   use radial_functions, only: initialize_radial_functions, finalize_radial_functions
    use num_param
    use torsional_oscillations
    use init_fields
-   use special
-   use blocking
+   use special, only: initialize_Grenoble, finalize_Grenoble
+   use blocking, only: initialize_blocking, finalize_blocking
    use horizontal_data
    use logic
    use fields
@@ -102,11 +102,11 @@ program magic
    use constants, only: codeVersion
    use movie_data, only: initialize_movie_data, finalize_movie_data
    use RMS, only: initialize_RMS, finalize_RMS
-   use dtB_mod, only: initialize_dtB_mod
+   use dtB_mod, only: initialize_dtB_mod, finalize_dtB_mod
    use radial_data, only: initialize_radial_data
-   use radialLoop
+   use radialLoop, only: initialize_radialLoop, finalize_radialLoop
    use lmLoop_data, only: initialize_LMLoop_data
-   use LMLoop_mod,only: initialize_LMLoop
+   use LMLoop_mod,only: initialize_LMLoop, finalize_LMLoop
    use preCalculations
    use start_fields, only: getStartFields
    use kinetic_energy
@@ -116,16 +116,16 @@ program magic
    use spectra, only: initialize_spectra, finalize_spectra
    use output_data, only: tag, log_file, n_log_file
    use output_mod, only: initialize_output, finalize_output
-   use outPV3, only: initialize_outPV3
-   use outTO_mod,only: initialize_outTO_mod
+   use outPV3, only: initialize_outPV3, finalize_outPV3
+   use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
    use Namelists
-   use step_time_mod, only: initialize_step_time, step_time
+   use step_time_mod, only: initialize_step_time, step_time, finalize_step_time
    use timing, only: writeTime,wallTime
-   use communications, only:initialize_communications
+   use communications, only:initialize_communications, finalize_communications
    use power, only: initialize_output_power, finalize_output_power
    use outPar_mod, only: initialize_outPar_mod, finalize_outPar_mod
-   use out_coeff, only: initialize_coeffs
+   use out_coeff, only: initialize_coeffs, finalize_coeffs
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
@@ -223,7 +223,6 @@ program magic
    !call initialize_rIterThetaBlocking
    call initialize_LMLoop_data
    call initialize_LMLoop
-
 
    call initialize_num_param
    call initialize_init_fields
@@ -370,17 +369,38 @@ program magic
 
    !--- Closing the movie files (if any)
    call finalize_movie_data
-   !--- Closing the output files:
-   call finalize_output
-   call finalize_kinetic_energy
-   call finalize_outPar_mod
-   call finalize_outMisc_mod
+   if ( l_RMS ) call finalize_RMS
+   if ( l_TO ) call finalize_outTO_mod
+   if ( l_TO ) call finalize_TO
+   if ( l_PV ) call finalize_outPV3
+   if ( l_par ) call finalize_Egeos_mod
+   if ( ldtBmem == 1 ) call finalize_dtB_mod
+   call finalize_fields_average_mod
+   call finalize_coeffs
+   if ( l_power ) call finalize_output_power
    call finalize_outRot
+   call finalize_outMisc_mod
+   call finalize_outPar_mod
    call finalize_spectra
    if ( l_mag ) call finalize_magnetic_energy
-   if ( l_power ) call finalize_output_power
-   if ( l_RMS ) call finalize_RMS
-   if ( l_par ) call finalize_Egeos_mod
+   call finalize_kinetic_energy
+
+   call finalize_communications
+   call finalize_step_time
+   call finalize_fieldsLast
+   call finalize_fields
+
+   call finalize_Grenoble
+   call finalize_init_fields
+   call finalize_num_param
+   call finalize_LMLoop
+   call finalize_radialLoop
+
+   call finalize_horizontal_data
+   call finalize_radial_functions
+   call finalize_blocking
+
+   call finalize_output
 
    if ( rank == 0 .and. (.not. l_save_out) )  close(n_log_file)
    

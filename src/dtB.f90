@@ -55,7 +55,8 @@ module dtB_mod
    real(cp), public :: TdifRms, TdifAsRms
    real(cp), public :: TomeRms, TomeAsRms
 
-   public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM
+   public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
+   &         finalize_dtB_mod
 
 contains
 
@@ -135,6 +136,18 @@ contains
                         3*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_dtB_mod
+!----------------------------------------------------------------------------
+   subroutine finalize_dtB_mod
+
+      deallocate( PstrLM, PadvLM, TstrLM, TadvLM, TomeLM )
+      deallocate( PstrLM_Rloc, PadvLM_Rloc, TstrLM_Rloc, TadvLM_Rloc )
+      deallocate( TdifLMIC, TadvLMIC, PdifLMIC, PadvLMIC, TdifLM, PdifLM )
+      deallocate( PdifLM_LMloc, TdifLM_LMloc, PadvLMIC_LMloc, PdifLMIC_LMloc )
+      deallocate( TadvLMIC_LMloc, TdifLMIC_LMloc )
+      deallocate( TstrRLM, TadvRLM, TomeRLM, TomeLM_Rloc )
+      deallocate( TstrRLM_Rloc, TadvRLM_Rloc, TomeRLM_Rloc )
+
+   end subroutine finalize_dtB_mod
 !----------------------------------------------------------------------------
    subroutine dtb_gather_Rloc_on_rank0
       !

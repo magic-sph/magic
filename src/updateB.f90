@@ -56,7 +56,7 @@ module updateB_mod
 
    integer :: maxThreads
 
-   public :: initialize_updateB,updateB
+   public :: initialize_updateB, finalize_updateB, updateB
 
 contains
 
@@ -101,6 +101,17 @@ contains
 
 
    end subroutine initialize_updateB
+!-----------------------------------------------------------------------------
+   subroutine finalize_updateB
+
+      deallocate( bMat, jMat, bPivot, jPivot, lBmat )
+
+#ifdef WITH_PRECOND_BJ
+      deallocate(bMat_fac,jMat_fac)
+#endif
+      deallocate( workA, workB, dtT, dtP, rhs1, rhs2 )
+
+   end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
    subroutine updateB(b,db,ddb,aj,dj,ddj,dVxBhLM, &
        &             dbdt,dbdtLast,djdt,djdtLast, &

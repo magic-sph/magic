@@ -56,7 +56,9 @@ module fields_average_mod
    complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
    complex(cp), allocatable :: p_ave_global(:), xi_ave_global(:)
  
-   public :: initialize_fields_average_mod, fields_average
+   public :: initialize_fields_average_mod, fields_average, &
+   &         finalize_fields_average_mod
+
 
 contains
 
@@ -105,6 +107,16 @@ contains
       end if
 
    end subroutine initialize_fields_average_mod
+!----------------------------------------------------------------------------
+   subroutine finalize_fields_average_mod
+
+      deallocate( w_ave, z_ave, s_ave, p_ave, b_ave, aj_ave, b_ic_ave )
+      deallocate( aj_ic_ave, db_ave_global, aj_ave_global, w_ave_global )
+      deallocate( dw_ave_global, z_ave_global, s_ave_global, p_ave_global )
+
+      if ( l_chemical_conv ) deallocate( xi_ave, xi_ave_global )
+
+   end subroutine finalize_fields_average_mod
 !----------------------------------------------------------------------------
    subroutine fields_average(nAve,l_stop_time,                        &
       &                      time_passed,time_norm,omega_ic,omega_ma, &

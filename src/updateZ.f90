@@ -60,7 +60,7 @@ module updateZ_mod
 
    integer :: maxThreads
    
-   public :: updateZ,initialize_updateZ
+   public :: updateZ, initialize_updateZ, finalize_updateZ
 
 contains
 
@@ -108,6 +108,20 @@ contains
       AMstart=0.0_cp
 
    end subroutine initialize_updateZ
+!-------------------------------------------------------------------------------
+   subroutine finalize_updateZ
+
+      deallocate( z10Mat, zMat, z10Pivot, zPivot, lZmat )
+#ifdef WITH_PRECOND_Z10
+      deallocate( z10Mat_fac )
+#endif
+#ifdef WITH_PRECOND_Z
+      deallocate( zMat_fac )
+#endif
+      deallocate( workA, workB, workC, rhs1 )
+      deallocate( dtV, Dif )
+
+   end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
    subroutine updateZ(z,dz,dzdt,dzdtLast,time, &
      &             omega_ma,d_omega_ma_dtLast, &

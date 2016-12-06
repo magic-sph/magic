@@ -77,7 +77,7 @@ module fields
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
 
-   public :: initialize_fields
+   public :: initialize_fields, finalize_fields
 
 contains
 
@@ -226,5 +226,20 @@ contains
                         6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
    end subroutine initialize_fields
+!----------------------------------------------------------------------------
+   subroutine finalize_fields
+
+      deallocate( w, z, s, p, b, db, aj, dj, b_ic, db_ic, ddb_ic )
+      deallocate( aj_ic, dj_ic, ddj_ic, flow_LMloc_container )
+      deallocate( flow_Rloc_container, s_LMloc_container, s_Rloc_container )
+      deallocate( field_LMloc_container, field_Rloc_container )
+      deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
+      deallocate( dj_ic_LMloc, ddj_ic_LMloc )
+
+      if ( l_chemical_conv ) then
+         deallocate( xi, xi_LMloc_container, xi_Rloc_container )
+      end if
+
+   end subroutine finalize_fields
 !----------------------------------------------------------------------------
 end module fields

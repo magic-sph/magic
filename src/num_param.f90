@@ -62,6 +62,7 @@ module num_param
    integer, public :: runTimeStart(4)  ! Wall clock time of start of the run
 
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
+   public :: finalize_num_param        ! Subroutine that deallocates arrays
 
 contains
 
@@ -71,5 +72,11 @@ contains
       bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_num_param
+!-------------------------------------------------------------------------------
+   subroutine finalize_num_param
+
+      deallocate( delxr2, delxh2 )
+
+   end subroutine finalize_num_param
 !-------------------------------------------------------------------------------
 end module num_param

@@ -31,7 +31,7 @@ module outPV3
    real(cp), allocatable :: OsinTS(:,:)
    real(cp), allocatable :: VorOld(:,:,:)
  
-   public :: initialize_outPV3, outPV
+   public :: initialize_outPV3, finalize_outPV3, outPV
   
 contains
 
@@ -52,6 +52,12 @@ contains
       bytes_allocated = bytes_allocated + nrp*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
 
    end subroutine initialize_outPV3
+!---------------------------------------------------------------------------------
+   subroutine finalize_outPV3
+
+      deallocate( rZ, OsinTS, PlmS, dPlmS, PlmZ, dPlmZ, VorOld )
+
+   end subroutine finalize_outPV3
 !---------------------------------------------------------------------------------
    subroutine outPV(time,l_stop_time,nPVsets,w,dw,ddw,z,dz,omega_IC,omega_MA)
       !

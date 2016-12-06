@@ -19,7 +19,7 @@ module out_coeff
 
    complex(cp), allocatable :: work(:) ! work array for r_field
 
-   public :: write_Bcmb, write_coeff_r, initialize_coeffs
+   public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs
 
 contains
 
@@ -31,7 +31,15 @@ contains
       end if
 
    end subroutine initialize_coeffs
-!----------------------------------------------------------------------
+!-------------------------------------------------------------------------------
+   subroutine finalize_coeffs()
+
+      if ( l_r_field .or. l_cmb_field .or. l_average ) then
+         deallocate( work )
+      end if
+
+   end subroutine finalize_coeffs
+!-------------------------------------------------------------------------------
    subroutine write_Bcmb(time,b_LMloc,l_max_cmb,n_cmb_sets,cmb_file,n_cmb_file)
       !
       ! Each call of this subroutine writes time and the poloidal magnetic
@@ -371,5 +379,5 @@ contains
 
 
    end subroutine write_coeff_r
-!----------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 end module out_coeff

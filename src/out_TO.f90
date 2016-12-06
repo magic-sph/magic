@@ -52,7 +52,7 @@ module outTO_mod
    character(len=64) :: TOfileNhs,TOfileShs,movFile
    character(len=66) :: tayFile
 
-   public :: initialize_outTO_mod, outTO
+   public :: initialize_outTO_mod, finalize_outTO_mod, outTO
 
 contains
 
@@ -89,6 +89,13 @@ contains
       tayFile  ='TaySphere4.'//tag
 
    end subroutine initialize_outTO_mod
+!----------------------------------------------------------------------------
+   subroutine finalize_outTO_mod
+
+      deallocate( PlmS, dPlmS, OsinTS, vpM, LFM, dVpM, AstrM, RstrM, CorM )
+      deallocate( StrM, CLM, zZ, rZ, nZmaxS )
+
+   end subroutine finalize_outTO_mod
 !----------------------------------------------------------------------------
    subroutine outTO(time,n_time_step,eKin,eKinTAS,      &
         &           nTOsets,nTOmovSets,nTOrmsSets,      &

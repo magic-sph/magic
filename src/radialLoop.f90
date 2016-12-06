@@ -8,7 +8,7 @@ module radialLoop
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
        &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,            &
-       &            l_PressGraph, l_TP_form
+       &            l_PressGraph, l_TP_form, l_single_matrix
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -36,14 +36,8 @@ module radialLoop
    implicit none
 
    private
-   !---- Nonlinear terms, field components and help arrays
-   !     for Legendre transform, field components, and dtB and 
-   !     TO output. These are all stored in COMMON BLOCKS
-   !     that are thread privat rather than using explicit 
-   !     PRIVATE statements in the PARALLEL do clause.
 
-
-   public :: initialize_radialLoop,finalize_radialLoop,radialLoopG
+   public :: initialize_radialLoop, finalize_radialLoop, radialLoopG
 
    class(rIteration_t), pointer :: this_rIteration
 
@@ -225,7 +219,8 @@ contains
       if ( lTOCalc .or. lHelCalc .or. l_frame .or.         &
            & l_cour .or. l_dtB .or. lMagNlBc .or. l_graph  &
            & .or. lPerpParCalc .or. lViscBcCalc .or.       &
-           & lFluxProfCalc .or. lRmsCalc .or. lPowerCalc ) lOutBc=.true.
+           & lFluxProfCalc .or. lRmsCalc .or. lPowerCalc   &
+           & .or. l_single_matrix ) lOutBc=.true.
 
       !nRstart=n_r_cmb
       !nRstop =n_r_icb-1

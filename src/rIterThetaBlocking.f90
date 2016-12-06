@@ -83,6 +83,7 @@ contains
 
       class(rIterThetaBlocking_t) :: this
 
+      call this%leg_helper%finalize()
       deallocate( this%BsLast)
       deallocate( this%BpLast)
       deallocate( this%BzLast)

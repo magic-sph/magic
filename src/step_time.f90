@@ -95,7 +95,7 @@ module step_time_mod
 
    integer :: sigFile
 
-   public :: initialize_step_time,step_time
+   public :: initialize_step_time, finalize_step_time, step_time
 
 contains
 
@@ -231,6 +231,16 @@ contains
       call memWrite('step_time.f90', local_bytes_used)
 
    end subroutine initialize_step_time
+!-------------------------------------------------------------------------------
+   subroutine finalize_step_time
+
+      deallocate( dflowdt_Rloc_container, dsdt_Rloc_container )
+      deallocate( dbdt_Rloc_container, dflowdt_LMloc_container )
+      deallocate( dsdt_LMloc_container, dbdt_LMloc_container )
+      deallocate( dbdt_CMB_LMloc )
+      if ( l_chemical_conv ) deallocate(dxidt_Rloc_container, dxidt_LMloc_container)
+
+   end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
    subroutine step_time(time,dt,dtNew,n_time_step)
       !

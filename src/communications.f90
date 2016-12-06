@@ -51,11 +51,11 @@ module communications
    integer, allocatable :: s_request(:),r_request(:),final_wait_array(:)
    integer, allocatable :: array_of_statuses(:,:)
  
-   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo,&
-           & gather_all_from_lo_to_rank0
-   public :: get_global_sum, &
-           & r2lo_redist_wait,r2lo_redist_start,initialize_communications,&
-           & create_lm2r_type!,lo2r_redist,lm2r_redist
+   public :: gather_from_lo_to_rank0,scatter_from_rank0_to_lo, &
+   &         gather_all_from_lo_to_rank0
+   public :: get_global_sum, finalize_communications,                      &
+   &         r2lo_redist_wait,r2lo_redist_start,initialize_communications, &
+   &         create_lm2r_type!,lo2r_redist,lm2r_redist
    public :: lo2r_redist_start,lo2r_redist_wait
 #ifdef WITH_MPI
    public :: myAllGather
@@ -270,6 +270,45 @@ contains
 
    end subroutine initialize_communications
 !-------------------------------------------------------------------------------
+   subroutine finalize_communications
+
+      call destroy_gather_type(gt_OC)
+      call destroy_gather_type(gt_IC)
+
+#ifdef WITH_MPI
+      deallocate( s_request, r_request, array_of_statuses, final_wait_array )
+      deallocate( s_transfer_type, s_transfer_type_nr_end )
+      deallocate( r_transfer_type, r_transfer_type_nr_end )
+      deallocate( s_transfer_type_cont, s_transfer_type_nr_end_cont )
+      deallocate( r_transfer_type_cont, r_transfer_type_nr_end_cont )
+#endif
+
+      if ( l_heat ) then
+         call destroy_lm2r_type(lo2r_s)
+         if ( l_TP_form ) then
+            call destroy_r2lm_type(r2lo_s) ! since we also need u\grad P
+         else
+            call destroy_r2lm_type(r2lo_s)
+         end if
+      end if
+      if ( l_chemical_conv ) then
+         call destroy_lm2r_type(lo2r_xi)
+         call destroy_r2lm_type(r2lo_xi)
+      end if
+      if ( l_conv .or. l_mag_kin) then
+         call destroy_lm2r_type(lo2r_flow)
+         call destroy_r2lm_type(r2lo_flow)
+      end if
+
+      if ( l_mag ) then
+         call destroy_lm2r_type(lo2r_field)
+         call destroy_r2lm_type(r2lo_b)
+      end if
+
+      deallocate( temp_r2lo, temp_gather_lo )
+
+   end subroutine finalize_communications
+!-------------------------------------------------------------------------------
    complex(cp) function get_global_sum_cmplx_2d(dwdt_local) result(global_sum)
 
       complex(cp), intent(in) :: dwdt_local(:,:)
@@ -483,8 +522,9 @@ contains
       do proc=0,n_procs-1
          call MPI_Type_free(self%gather_mpi_type(proc),ierr)
       end do
-#endif
+
       deallocate(self%gather_mpi_type)
+#endif
 
    end subroutine destroy_gather_type
 !-------------------------------------------------------------------------------
@@ -615,10 +655,12 @@ contains
 
       type(lm2r_type) :: self
 
-      deallocate(self%temp_Rloc)
+#ifdef WITH_MPI
+      deallocate(self%final_wait_array)
       deallocate(self%s_request)
       deallocate(self%r_request)
-      deallocate(self%final_wait_array)
+#endif
+      deallocate(self%temp_Rloc)
 
    end subroutine destroy_lm2r_type
 !-------------------------------------------------------------------------------
@@ -648,9 +690,11 @@ contains
 
       type(r2lm_type) :: self
 
+#ifdef WITH_MPI
       deallocate(self%s_request)
       deallocate(self%r_request)
       deallocate(self%final_wait_array)
+#endif
       deallocate(self%temp_Rloc)
 
    end subroutine destroy_r2lm_type
@@ -1221,4 +1265,3 @@ contains
 #endif
 !------------------------------------------------------------------------------
 end module communications
-

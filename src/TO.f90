@@ -7,15 +7,15 @@ module torsional_oscillations
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
-                         n_theta_maxStr
+       &                 n_theta_maxStr
    use radial_data, only: n_r_cmb, nRstart, nRstop
    use LMLoop_data, only: llmMag, ulmMag
    use radial_functions, only: r, or1, or2, or3, or4, beta, orho1, &
-                               dbeta
+       &                       dbeta
    use physical_parameters, only: CorFac, kbotv, ktopv
    use blocking, only: nfs, lm2
    use horizontal_data, only: sinTheta, cosTheta, hdif_V, dTheta1A, dTheta1S, & 
-                              dLh
+       &                      dLh
    use constants, only: one, two
    use logic, only: lVerbose, l_mag
    use legendre_grid_to_spec, only: legTFAS2
@@ -60,7 +60,7 @@ module torsional_oscillations
    real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
 
    public :: initialize_TO, getTO, getTOnext, getTOfinish, &
-             TO_gather_Rloc_on_rank0
+   &         TO_gather_Rloc_on_rank0, finalize_TO
 
 contains
 
@@ -132,6 +132,18 @@ contains
       bytes_allocated = bytes_allocated+ (l_max+1)*n_theta_maxstr*SIZEOF_DEF_REAL
 
    end subroutine initialize_TO
+!-----------------------------------------------------------------------------
+   subroutine finalize_TO
+
+      deallocate( ddzASL, BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
+      deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc, V2AS_Rloc )
+      deallocate( dzddVpLMr_Rloc, dzdVpLMr_Rloc, dzLFLMr_Rloc, dzCorLMr_Rloc )
+      deallocate( dzAStrLMr_Rloc, dzRstrLMr_Rloc, dzStrLMr_Rloc )
+      deallocate( dzStrLMr, dzRstrLMr, dzAstrLMr, dzCorLMr, dzLFLMr, dzdVpLMr )
+      deallocate( dzddVpLMr, V2AS, Bs2AS, BszAS, BspAS, BpzAS, BspdAS )
+      deallocate( BpsdAS, BzpdAS, BpzdAS )
+
+   end subroutine finalize_TO
 !-----------------------------------------------------------------------------
    subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,  &
                                     BsLast,BpLast,BzLast, &

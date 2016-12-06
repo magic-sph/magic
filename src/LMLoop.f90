@@ -23,19 +23,19 @@ module LMLoop_mod
    use debugging,  only: debug_write
    use communications, only: GET_GLOBAL_SUM, lo2r_redist_start, lo2r_xi, &
        &                    lo2r_s, lo2r_flow, lo2r_field
-   use updateS_mod, only: initialize_updateS, updateS, updateS_ala, lSmat
-   use updateZ_mod, only: initialize_updateZ, updateZ, lZ10mat, lZmat
-   use updateWP_mod, only: initialize_updateWP, updateWP, lWPmat
-   use updateWPT_mod, only: initialize_updateWPT, updateWPT, lWPTmat
-   use updateWPS_mod, only: initialize_updateWPS, updateWPS, lWPSmat
-   use updateB_mod, only: initialize_updateB, updateB, lBmat
-   use updateXi_mod, only: initialize_updateXi, updateXi, lXimat
+   use updateS_mod
+   use updateZ_mod
+   use updateWP_mod
+   use updateWPT_mod
+   use updateWPS_mod
+   use updateB_mod
+   use updateXi_mod
 
    implicit none
 
    private
 
-   public :: LMLoop,initialize_LMLoop
+   public :: LMLoop, initialize_LMLoop, finalize_LMLoop
 
 contains
 
@@ -66,6 +66,26 @@ contains
       call memWrite('LMLoop.f90',local_bytes_used)
 
    end subroutine initialize_LMLoop
+!----------------------------------------------------------------------------
+   subroutine finalize_LMLoop
+
+      if ( l_single_matrix ) then
+         if ( l_TP_form ) then
+            call finalize_updateWPT
+         else
+            call finalize_updateWPS
+         end if
+      else
+         call finalize_updateS
+         call finalize_updateWP
+      end if
+
+      if ( l_chemical_conv ) call finalize_updateXi
+
+      call finalize_updateZ
+      if ( l_mag ) call finalize_updateB
+
+   end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
    subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM,      &
               &      dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,            &

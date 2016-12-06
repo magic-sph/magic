@@ -48,7 +48,7 @@ module special
    real(cp), public :: amp_RiMaSym                  !Amplitude of forcing at the outer boundary (eq symm)
    real(cp), public :: omega_RiMaSym                !Frequency of forcing at the outer boundary (eq symm)
 
-   public :: initialize_Grenoble
+   public :: initialize_Grenoble, finalize_Grenoble
 
 contains
 
@@ -59,5 +59,11 @@ contains
       allocate( ddb0(n_r_maxMag) )
 
    end subroutine initialize_Grenoble
+!------------------------------------------------------------------------------
+   subroutine finalize_Grenoble
 
+      deallocate( b0, db0, ddb0 )
+
+   end subroutine finalize_Grenoble
+!------------------------------------------------------------------------------
 end module special

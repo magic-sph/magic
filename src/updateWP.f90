@@ -43,7 +43,7 @@ module updateWP_mod
    logical, public, allocatable :: lWPmat(:)
    integer :: maxThreads
 
-   public :: initialize_updateWP, updateWP
+   public :: initialize_updateWP, finalize_updateWP, updateWP
 
 contains
 
@@ -85,15 +85,10 @@ contains
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWP
 
-      deallocate( workA )
-      deallocate( workB )
-      deallocate( Dif )
-      deallocate( Pre )
-      deallocate( Buo )
-      deallocate( rhs1 )
-      deallocate( dtV )
-      deallocate( p0Mat, p0Pivot )
       deallocate( wpMat, wpMat_fac, wpPivot, lWPmat )
+      deallocate( p0Mat, p0Pivot )
+      deallocate( workA, workB, rhs1 )
+      deallocate( Dif, Pre, Buo, dtV )
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------

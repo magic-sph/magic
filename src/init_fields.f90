@@ -8,7 +8,7 @@ module init_fields
        &                      phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
-       &            l_anelastic_liquid
+       &            l_anelastic_liquid, l_non_adia
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       cheb_norm, lambda, or2, d2cheb, dcheb,  &
        &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
@@ -90,7 +90,7 @@ module init_fields
    real(cp), public :: tipdipole       ! adding to symetric field
 
    public :: initialize_init_fields, initV, initS, initB, ps_cond, &
-   &         pt_cond, initXi, xi_cond
+   &         pt_cond, initXi, xi_cond, finalize_init_fields
 
 contains
 
@@ -116,7 +116,14 @@ contains
       end if
 
    end subroutine initialize_init_fields
-!-----------------------------------------------------------------------
+!------------------------------------------------------------------------------
+   subroutine finalize_init_fields
+
+      deallocate (tops, bots )
+      if ( l_chemical_conv ) deallocate( topxi, botxi )
+
+   end subroutine finalize_init_fields
+!------------------------------------------------------------------------------
    subroutine initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
       !
       ! Purpose of this subroutine is to initialize the velocity field   
@@ -423,7 +430,7 @@ contains
       lm00=st_map%lm2(0,0)
       lmMin=max(lmStart,2)
 
-      if ( .not. l_start_file ) then
+      if ( (.not. l_start_file) .and. (.not. l_non_adia) ) then
 
          if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
 

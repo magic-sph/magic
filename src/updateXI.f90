@@ -42,7 +42,7 @@ module updateXi_mod
 #endif
    logical, public, allocatable :: lXimat(:)
 
-   public :: initialize_updateXi, updateXi
+   public :: initialize_updateXi, finalize_updateXi, updateXi
 
 contains
 
@@ -57,7 +57,6 @@ contains
       bytes_allocated = bytes_allocated+n_r_max*(l_max+1)*SIZEOF_INTEGER
 
 #ifdef WITH_PRECOND_S
-
       allocate(xiMat_fac(n_r_max,l_max))
       bytes_allocated = bytes_allocated+n_r_max*l_max*SIZEOF_DEF_REAL
 #endif
@@ -84,6 +83,19 @@ contains
 
 
    end subroutine initialize_updateXi
+!------------------------------------------------------------------------------
+   subroutine finalize_updateXI
+
+      deallocate( xi0Mat, xiMat, xi0Pivot, xiPivot, lXimat )
+#ifdef WITH_PRECOND_S
+      deallocate(xiMat_fac)
+#endif
+#ifdef WITH_PRECOND_S0
+      deallocate(xi0Mat_fac)
+#endif
+      deallocate( workA, workB, rhs1 )
+
+   end subroutine finalize_updateXI
 !------------------------------------------------------------------------------
    subroutine updateXi(xi,dxi,dVXirLM,dxidt,dxidtLast,w1,coex,dt,nLMB)
       !

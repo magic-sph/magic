@@ -30,7 +30,8 @@ module LMmapping
       integer, allocatable :: lm22m(:,:,:)
    end type subblocks_mappings
  
-   public :: allocate_mappings,allocate_subblocks_mappings
+   public :: allocate_mappings, deallocate_mappings, &
+   &         allocate_subblocks_mappings, deallocate_subblocks_mappings
 
 contains
 
@@ -62,6 +63,17 @@ contains
                         ((l_max+2)*(l_max+2)+5*lmP_max+lm_max)*SIZEOF_INTEGER
 
    end subroutine allocate_mappings
+!-------------------------------------------------------------------------------
+   subroutine deallocate_mappings(self)
+
+      type(mappings) :: self
+
+      deallocate( self%lm2, self%lm2l, self%lm2m, self%lm2mc, self%l2lmAS )
+      deallocate( self%lm2lmS, self%lm2lmA, self%lmP2, self%lmP2l )
+      deallocate( self%lmP2m, self%lmP2lmPS, self%lmP2lmPA, self%lm2lmP )
+      deallocate( self%lmP2lm )
+
+   end subroutine deallocate_mappings
 !-------------------------------------------------------------------------------
    subroutine allocate_subblocks_mappings(self,map,nLMBs,l_max,lmStartB,lmStopB)
 
@@ -111,5 +123,14 @@ contains
                         3*(l_max+1)*nLMBS*self%sizeLMB2max)*SIZEOF_INTEGER
 
    end subroutine allocate_subblocks_mappings
+!-------------------------------------------------------------------------------
+   subroutine deallocate_subblocks_mappings(self)
+
+      type(subblocks_mappings) :: self
+
+      deallocate( self%nLMBs2, self%sizeLMB2, self%lm22lm, self%lm22l )
+      deallocate( self%lm22m )
+
+   end subroutine deallocate_subblocks_mappings
 !-------------------------------------------------------------------------------
 end module LMmapping

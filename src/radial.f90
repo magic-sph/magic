@@ -104,7 +104,8 @@ module radial_functions
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
-   public :: initialize_radial_functions, radial, transportProperties
+   public :: initialize_radial_functions, radial, transportProperties, &
+   &         finalize_radial_functions
 
 contains
 
@@ -165,6 +166,22 @@ contains
       bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
 
    end subroutine initialize_radial_functions
+!------------------------------------------------------------------------------
+   subroutine finalize_radial_functions
+
+      deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
+      deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
+      deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
+      deallocate( ddLalpha0, dLalpha0, drx, ddrx, dddrx, rgrav )
+      deallocate( cheb, dcheb, d2cheb, d3cheb, cheb_int )
+      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+      deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
+      deallocate( visc, dLvisc, epscProf, divKtemp0 )
+
+      call chebt_oc%finalize()
+      call chebt_ic%finalize()
+
+   end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
    subroutine radial
       !

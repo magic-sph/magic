@@ -12,8 +12,8 @@ module blocking
        &                 minc, n_r_max, m_max, l_axi
    use logic, only: l_save_out
    use output_data, only: n_log_file, log_file
-   use LMmapping, only: mappings, allocate_mappings,  &
-       &                allocate_subblocks_mappings,  &
+   use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
+       &                allocate_subblocks_mappings, deallocate_subblocks_mappings, &
        &                subblocks_mappings
    use useful, only: logWrite
    use constants, only: one
@@ -106,7 +106,7 @@ module blocking
       module procedure get_theta_blocking_cache,get_theta_blocking_OpenMP
    end interface get_theta_blocking
  
-   public :: initialize_blocking, get_theta_blocking
+   public :: initialize_blocking, finalize_blocking, get_theta_blocking
 
 contains
 
@@ -331,6 +331,18 @@ contains
       call memWrite('blocking.f90', local_bytes_used)
 
    end subroutine initialize_blocking
+!------------------------------------------------------------------------
+   subroutine finalize_blocking
+
+      call deallocate_mappings(st_map)
+      call deallocate_mappings(lo_map)
+
+      deallocate( lmStartB,lmStopB )
+
+      call deallocate_subblocks_mappings(st_sub_map)
+      call deallocate_subblocks_mappings(lo_sub_map)
+
+   end subroutine finalize_blocking
 !------------------------------------------------------------------------
    subroutine get_subblocks(map,sub_map) 
 
