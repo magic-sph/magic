@@ -454,9 +454,9 @@ contains
             end do
             if ( lRmsNext ) then
                call hInt2Pol(Dif,llm,ulm,nR,lmStart_00,lmStop,DifPolLMr(1,nR), &
-                             DifPol2hInt(1,nR,1),lo_map)
+                    &        DifPol2hInt(:,nR,1),lo_map)
                call hInt2Pol(dtV,llm,ulm,nR,lmStart_00,lmStop, &
-                             dtVPolLMr(1,nR),dtVPol2hInt(1,nR,1),lo_map)
+                    &        dtVPolLMr(1,nR),dtVPol2hInt(:,nR,1),lo_map)
             end if
          end do
       else
