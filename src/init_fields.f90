@@ -79,7 +79,6 @@ module init_fields
    logical, public :: l_start_file     ! taking fields from startfile ?
    logical, public :: l_reset_t        ! reset time from startfile ?
    integer, public :: inform           ! format of start_file
-   integer, public :: n_start_file     ! I/O unit of start_file
    character(len=72), public :: start_file  ! name of start_file           
 
    !-- Scales for input field:
@@ -99,8 +98,6 @@ contains
       ! Memory allocation
       !
 
-      n_start_file=8
-      
       allocate( tops(0:l_max,0:m_max) )
       allocate( bots(0:l_max,0:m_max) )
       tops(:,:)=zero
