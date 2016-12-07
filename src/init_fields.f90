@@ -33,7 +33,7 @@ module init_fields
        &                          epsc, ViscHeatFac, ThExpNb, ogrun,      &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
-       &                          kbotxi, ktopxi, BuoFac
+       &                          kbotxi, ktopxi, BuoFac, ktopp
    use algebra, only: sgesl, sgefa, cgesl
    use horizontal_data, only: D_lP1, hdif_B, dLh
    use legendre_grid_to_spec, only: legTF1
@@ -1912,13 +1912,6 @@ contains
             pt0Mat(n_r_max,nCheb_p)=0.0_cp
          end if
 
-         !-- Boundary condition on spherically-symmetric pressure
-         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
-            pt0Mat(n_r_max+1,nCheb_p)=cheb_norm
-         else
-            pt0Mat(n_r_max+1,nCheb_p)=0.0_cp
-         end if
-         pt0Mat(n_r_max+1,n_cheb) =0.0_cp
          pt0Mat(2*n_r_max,n_cheb) =0.0_cp
          pt0Mat(2*n_r_max,nCheb_p)=0.0_cp
 
@@ -1926,7 +1919,7 @@ contains
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
-      if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
          work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun)*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
@@ -1957,7 +1950,12 @@ contains
                end if
             end do
          end do
-
+      else
+         do n_cheb=1,n_cheb_max
+            nCheb_p=n_cheb+n_r_max
+            pt0Mat(n_r_max+1,n_cheb) =0.0_cp
+            pt0Mat(n_r_max+1,nCheb_p)=cheb_norm
+         end do
       end if
        
       !-- Fill with zeros:
@@ -2176,13 +2174,6 @@ contains
             &                        (dLalpha0(n_r_max)+dLtemp0(n_r_max)-     &
             &                         beta(n_r_max))*cheb(n_cheb,n_r_max) )
          end if
-
-         !-- Boundary condition on spherically-symmetric pressure
-         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
-            ps0Mat(n_r_max+1,nCheb_p)=cheb_norm
-         else
-            ps0Mat(n_r_max+1,nCheb_p)=0.0_cp
-         end if
          ps0Mat(n_r_max+1,n_cheb) =0.0_cp
          ps0Mat(2*n_r_max,n_cheb) =0.0_cp
          ps0Mat(2*n_r_max,nCheb_p)=0.0_cp
@@ -2191,7 +2182,7 @@ contains
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
-      if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
 
          work(:)=ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
@@ -2222,7 +2213,12 @@ contains
                end if
             end do
          end do
-
+      else
+         do n_cheb=1,n_cheb_max
+            nCheb_p=n_cheb+n_r_max
+            ps0Mat(n_r_max+1,n_cheb) =0.0_cp
+            ps0Mat(n_r_max+1,nCheb_p)=cheb_norm
+         end do
       end if
        
       !-- Fill with zeros:

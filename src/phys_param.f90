@@ -13,6 +13,7 @@ module physical_parameters
    integer :: ktopxi,kbotxi! Boundary conditions for chemical composition
    integer :: ktopv,kbotv  ! Velocity boundary condition
    integer :: ktopb,kbotb  ! Magnetic boundary condition
+   integer :: ktopp        ! Boundary condition for spherically-symmetric pressure
 
    !-- Parameters for a localized temperature (entropy) disturbance at CMB
    integer :: impS         ! Heat boundary condition

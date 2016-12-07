@@ -14,7 +14,7 @@ module updateWPT_mod
        &                       kappa, orho2, dentropy0, temp0, r
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, ogrun, BuoFac, &
-       &                          CorFac
+       &                          CorFac, ktopp
    use num_param, only: alpha
    use init_fields, only: tops, bots
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
@@ -1048,19 +1048,13 @@ contains
             ptMat(n_r_max,nCheb_p)=0.0_cp
          end if
 
-         if ( ViscHeatFac*ThExpNb == 0.0_cp ) then ! No feedback of density on pressure
-            ptMat(n_r_max+1,nCheb_p)=cheb_norm
-         else
-            ptMat(n_r_max+1,nCheb_p)=0.0_cp
-         end if
-         ptMat(n_r_max+1,nCheb)  =0.0_cp
          ptMat(2*n_r_max,nCheb)  =0.0_cp
          ptMat(2*n_r_max,nCheb_p)=0.0_cp
       end do
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
-      if ( ViscHeatFac*ThExpNb /= 0.0_cp ) then
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
          work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun)*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
@@ -1090,6 +1084,14 @@ contains
                   &                    work2(n_cheb_in)*half*cheb_norm
                end if
             end do
+         end do
+
+      else
+
+         do nCheb=1,n_cheb_max
+            nCheb_p=nCheb+n_r_max
+            ptMat(n_r_max+1,nCheb)  =0.0_cp
+            ptMat(n_r_max+1,nCheb_p)=cheb_norm
          end do
 
       end if

@@ -11,7 +11,7 @@ module updateWP_mod
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
        &                       cheb_norm
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
-       &                          ViscHeatFac, ThExpNb, ogrun
+       &                          ViscHeatFac, ThExpNb, ogrun, ktopp
    use num_param, only: alpha
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
@@ -217,7 +217,7 @@ contains
 
                if ( l1 == 0 ) then
                   !-- The integral of rho' r^2 dr vanishes
-                  if ( ThExpNb*ViscHeatFac /= 0 ) then
+                  if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
                      do nR=1,n_r_max
                         work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
                         &        r(nR)*real(s(st_map%lm2(0,0),nR))
@@ -745,10 +745,9 @@ contains
          end do
       end do
 
-
       !-- Boundary condition for spherically-symmetric pressure
       !-- The integral of rho' r^2 dr vanishes
-      if ( ThExpNb*ViscHeatFac /= 0 ) then
+      if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
          work(:) = ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
          call chebt_oc%costf1(work,work1)
          work(:)      =work(:)*cheb_norm
@@ -770,11 +769,6 @@ contains
             pMat(1,nCheb)=cheb_norm
          end do
       end if
-
-      !-- Boundary condition: pressure vanishes on the outer boundary
-      !do nCheb=1,n_cheb_max
-      !   pMat(1,nCheb)=cheb_norm
-      !end do
 
       if ( n_cheb_max < n_r_max ) then ! fill with zeros
          do nCheb=n_cheb_max+1,n_r_max

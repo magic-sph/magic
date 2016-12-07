@@ -73,7 +73,7 @@ contains
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
          & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,    &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
-         & nVarEntropyGrad,l_isothermal
+         & nVarEntropyGrad,l_isothermal,ktopp
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -805,6 +805,9 @@ contains
       write(n_out,'(''  ktopb           ='',i3,'','')') ktopb
       write(n_out,'(''  kbotb           ='',i3,'','')') kbotb
 
+      !-- Spherically-symmetric pressure
+      write(n_out,'(''  ktopp           ='',i3,'','')') ktopp
+
       !--- Heat boundary condition:
       write(n_out,'(''  ktops           ='',i3,'','')') ktops
       write(n_out,'(''  kbots           ='',i3,'','')') kbots
@@ -1170,6 +1173,7 @@ contains
       kbotv      =2
       ktopb      =1
       kbotb      =1
+      ktopp      =1
       do n=1,4*n_s_bounds
          s_top(n)=0.0_cp
          s_bot(n)=0.0_cp
