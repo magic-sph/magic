@@ -158,9 +158,7 @@ contains
       deallocate( this%VSr )
       deallocate( this%VSt )
       deallocate( this%VSp )
-      if ( l_TP_form ) then
-         deallocate( this%VPr )
-      end if
+      if ( l_TP_form ) deallocate( this%VPr )
       if ( l_chemical_conv ) then
          deallocate( this%VXir )
          deallocate( this%VXit )
@@ -178,12 +176,8 @@ contains
       deallocate( this%brc,this%btc,this%bpc )
       deallocate( this%cbrc,this%cbtc,this%cbpc )
       deallocate( this%sc,this%drSc )
-      deallocate( this%pc )
+      deallocate( this%pc, this%xic )
       deallocate( this%dsdtc, this%dsdpc )
-
-      if ( l_chemical_conv ) then
-         deallocate( this%xic )
-      end if
 
       !-- RMS Calculations
       if ( l_RMS ) then
