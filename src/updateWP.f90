@@ -87,7 +87,7 @@ contains
 
       deallocate( wpMat, wpMat_fac, wpPivot, lWPmat )
       deallocate( p0Mat, p0Pivot )
-      deallocate( workA, workB, rhs1 )
+      deallocate( workA, workB, rhs1, work, work1 )
       deallocate( Dif, Pre, Buo, dtV )
 
    end subroutine finalize_updateWP

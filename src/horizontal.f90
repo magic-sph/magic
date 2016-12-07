@@ -128,6 +128,8 @@ contains
       deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
       deallocate( lStart, lStop, lStartP, lStopP, lmOdd, lmOddP )
 
+      if ( .not. l_axi ) call finalize_fft()
+
    end subroutine finalize_horizontal_data
 !------------------------------------------------------------------------------
    subroutine horizontal

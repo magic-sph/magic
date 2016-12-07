@@ -180,6 +180,7 @@ contains
 
       call chebt_oc%finalize()
       call chebt_ic%finalize()
+      if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------

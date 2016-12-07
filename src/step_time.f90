@@ -238,7 +238,9 @@ contains
       deallocate( dbdt_Rloc_container, dflowdt_LMloc_container )
       deallocate( dsdt_LMloc_container, dbdt_LMloc_container )
       deallocate( dbdt_CMB_LMloc )
-      if ( l_chemical_conv ) deallocate(dxidt_Rloc_container, dxidt_LMloc_container)
+      deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
+
+      if ( .not. l_TP_form ) deallocate ( dVPrLM_RLoc, dVPrLM_LMLoc )
 
    end subroutine finalize_step_time
 !-------------------------------------------------------------------------------

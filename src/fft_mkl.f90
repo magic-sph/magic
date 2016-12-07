@@ -19,7 +19,7 @@ module fft
    type(DFTI_DESCRIPTOR), pointer :: c2r_handle, r2c_handle
    !----------- END MKL specific variables
  
-   public :: fft_thetab, init_fft, fft_to_real
+   public :: fft_thetab, init_fft, fft_to_real, finalize_fft
 
 contains
 
@@ -70,6 +70,13 @@ contains
       status = DftiCommitDescriptor( r2c_handle )
 
    end subroutine init_fft
+!------------------------------------------------------------------------------
+   subroutine finalize_fft
+
+      status = DftiFreeDescriptor( c2r_handle )
+      status = DftiFreeDescriptor( r2c_handle )
+
+   end subroutine finalize_fft
 !------------------------------------------------------------------------------
    subroutine fft_thetab(f,dir)
 

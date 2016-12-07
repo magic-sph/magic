@@ -236,9 +236,7 @@ contains
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
 
-      if ( l_chemical_conv ) then
-         deallocate( xi, xi_LMloc_container, xi_Rloc_container )
-      end if
+      deallocate( xi, xi_LMloc_container, xi_Rloc_container )
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------

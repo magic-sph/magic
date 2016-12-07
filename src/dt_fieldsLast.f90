@@ -128,7 +128,7 @@ contains
       deallocate( dwdtLast_LMloc, dpdtLast_LMloc, dzdtLast_lo )
       deallocate( dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc )
       deallocate( dbdt_icLast_LMloc, djdt_icLast_LMloc )
-      if ( l_chemical_conv ) deallocate( dxidtLast, dxidtLast_LMloc )
+      deallocate( dxidtLast, dxidtLast_LMloc )
 
    end subroutine finalize_fieldsLast
 !-------------------------------------------------------------------------------

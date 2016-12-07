@@ -193,6 +193,8 @@ contains
       deallocate( CLFRmsL_TA, CLFRmsL_SD, CLFRmsSD )
       deallocate( PLFRmsL_TA, PLFRmsL_SD, PLFRmsSD )
 
+      call chebt_RMS%finalize()
+
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_dtvrms_file)
          if ( l_mag ) close(n_dtbrms_file)

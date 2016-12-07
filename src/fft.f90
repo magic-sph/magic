@@ -23,7 +23,7 @@ module fft
    integer :: i_fft_init(ni)
    real(cp), allocatable ::  d_fft_init(:)
  
-   public :: fft_thetab, init_fft, fft_to_real
+   public :: fft_thetab, init_fft, fft_to_real, finalize_fft
 
 contains
   
@@ -133,6 +133,12 @@ contains
       end do
 
    end subroutine init_fft
+!------------------------------------------------------------------------------
+   subroutine finalize_fft
+
+      deallocate(d_fft_init )
+
+   end subroutine finalize_fft
 !------------------------------------------------------------------------------
    subroutine fft_to_real(f,ld_f,nrep)
 
