@@ -423,3 +423,18 @@ Magnetic boundary conditions
   |             |    .. math::                                                                    |
   |             |       \frac{\partial g_{\ell m}}{\partial r}=0,\quad  h_{\ell m}=0              |
   +-------------+---------------------------------------------------------------------------------+
+
+.. _secPressureBcs:
+
+Boundary condition for spherically-symmetric pressure
++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+* **ktopp** (default :f:var:`ktopp=1 <ktopp>`) is an integer, which corresponds to the boundary condition for the spherically-symmetric pressure at :math:`r=r_o`.
+
+  +-------------+--------------------------------------------------------------------+
+  | ``ktopp=1`` | The integral of the spherically-symmetric density perturbation     |
+  |             | vanishes.                                                          |
+  +-------------+--------------------------------------------------------------------+
+  | ``ktopp=2`` | The spherically-symmetric pressure fluctuation vanishes at the     |
+  |             | outer boundary.                                                    |
+  +-------------+--------------------------------------------------------------------+
