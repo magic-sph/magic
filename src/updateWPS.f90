@@ -20,7 +20,9 @@ module updateWPS_mod
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, hdif_S, dLh
-   use logic, only: l_update_v, l_temperature_diff
+   use logic, only: l_update_v, l_temperature_diff, l_RMS
+   use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
+   use RMS_helpers, only:  hInt2Pol
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
@@ -35,7 +37,7 @@ module updateWPS_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:)
+   complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:), workD(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:)
@@ -48,7 +50,7 @@ module updateWPS_mod
 
    integer :: maxThreads
 
-   public :: initialize_updateWPS, updateWPS
+   public :: initialize_updateWPS, finalize_updateWPS, updateWPS
 
 contains
 
@@ -88,25 +90,27 @@ contains
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
                       lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
+      if ( l_RMS ) then
+         allocate( workD(llm:ulm, n_r_max) )
+         bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_REAL
+      end if
+
       Cor00_fac=four/sqrt(three)
 
    end subroutine initialize_updateWPS
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWPS
 
-      deallocate( workA )
-      deallocate( workB )
-      deallocate( workC )
-      deallocate( Dif )
-      deallocate( Pre )
-      deallocate( Buo )
-      deallocate( rhs1 )
-      deallocate( dtV )
+      deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
+      deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
+      deallocate( workA, workB, workC, rhs1)
+      deallocate( Dif, Pre, Buo, dtV )
+      if ( l_RMS ) deallocate( workD )
 
    end subroutine finalize_updateWPS
 !-----------------------------------------------------------------------------
    subroutine updateWPS(w,dw,ddw,z10,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s, &
-              &         ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB)
+              &         ds,dVSrLM,dsdt,dsdtLast,w1,coex,dt,nLMB,lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -118,6 +122,7 @@ contains
       real(cp),    intent(in) :: coex     ! factor depending on alpha
       real(cp),    intent(in) :: dt       ! time step
       integer,     intent(in) :: nLMB     ! block number
+      logical,     intent(in) :: lRmsNext
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
       real(cp),    intent(in) :: z10(n_r_max)
@@ -146,6 +151,7 @@ contains
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
+      integer :: n_r_top, n_r_bot
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -273,6 +279,9 @@ contains
                      rhs(nR)        =real(s(lm1,nR))*O_dt+ &
                      &             w1*real(dsdt(lm1,nR)) + &
                      &             w2*real(dsdtLast(lm1,nR))
+                     !rhs(nR+n_r_max)=w1*real(dwdt(lm1,nR))+Cor00_fac*&
+                     !&               alpha*CorFac*or1(nR)*z10(nR)+   &
+                     !&               w2*real(dwdtLast(lm1,nR))
                      rhs(nR+n_r_max)=real(dwdt(lm1,nR))+Cor00_fac*&
                      &               CorFac*or1(nR)*z10(nR)
                   end do
@@ -330,6 +339,15 @@ contains
                end do
             end if
             !PERFOFF
+
+            if ( lRmsNext ) then ! Store old w
+               do nR=1,n_r_max
+                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                     lm1=lm22lm(lm,nLMB2,nLMB)
+                     workD(lm1,nR)=w(lm1,nR)
+                  end do
+               end do
+            end if
 
             !PERFON('upWP_aft')
             lmB=lmB0
@@ -446,9 +464,17 @@ contains
 #endif
       !PERFOFF
 
+      if ( lRmsNext ) then
+         n_r_top=n_r_cmb
+         n_r_bot=n_r_icb
+      else
+         n_r_top=n_r_cmb+1
+         n_r_bot=n_r_icb-1
+      end if
+
       !-- Calculate explicit time step part:
       if ( l_temperature_diff ) then
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -497,12 +523,26 @@ contains
                     &   )*                p(lm1,nR) ) ) +                   &
                     &   coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)   &
                     &   *orho1(nR)*dentropy0(nR)*w(lm1,nR)
+               if ( lRmsNext ) then
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  &        ( w(lm1,nR)-workD(lm1,nR) )
+               end if
+               !if ( l1 == 0 ) then
+               !   dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1) + &
+               !   &                 Cor00_fac*CorFac*or1(nR)*z10(nR))
+               !end if
             end do
+            if ( lRmsNext ) then
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop,DifPolLMr(1,nR), &
+                    &        DifPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
+                    &        dtVPolLMr(1,nR),dtVPol2hInt(:,nR,1),lo_map)
+            end if
          end do
 
       else ! entropy diffusion
 
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -542,7 +582,22 @@ contains
                     &   coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR) &
                     &   *orho1(nR)*dentropy0(nR)*w(lm1,nR)
 
+               !if ( l1 == 0 ) then
+               !   dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1) + &
+               !   &                 Cor00_fac*CorFac*or1(nR)*z10(nR))
+               !end if
+               if ( lRmsNext ) then
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  &        ( w(lm1,nR)-workD(lm1,nR) )
+               end if
+
             end do
+            if ( lRmsNext ) then
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop,DifPolLMr(1,nR), &
+                    &        DifPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
+                    &        dtVPolLMr(1,nR),dtVPol2hInt(:,nR,1),lo_map)
+            end if
          end do
       end if
 

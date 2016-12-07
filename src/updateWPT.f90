@@ -21,6 +21,8 @@ module updateWPT_mod
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, hdif_S, dLh
    use logic, only: l_update_v, l_temperature_diff
+   use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
+   use RMS_helpers, only:  hInt2Pol
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
@@ -47,7 +49,7 @@ module updateWPT_mod
    real(cp) :: Cor00_fac
    integer :: maxThreads
 
-   public :: initialize_updateWPT, updateWPT
+   public :: initialize_updateWPT, finalize_updateWPT, updateWPT
 
 contains
 
@@ -96,19 +98,16 @@ contains
 !-----------------------------------------------------------------------------
    subroutine finalize_updateWPT
 
-      deallocate( workA )
-      deallocate( workB )
-      deallocate( workC )
-      deallocate( Dif )
-      deallocate( Pre )
-      deallocate( Buo )
-      deallocate( rhs1 )
-      deallocate( dtV )
+      deallocate( wptMat, wptMat_fac, wptPivot )
+      deallocate( pt0Mat, pt0Mat_fac, pt0Pivot, lWPTmat )
+      deallocate( workA, workB, workC, rhs1 )
+      deallocate( Dif, Pre, Buo, dtV )
 
    end subroutine finalize_updateWPT
 !-----------------------------------------------------------------------------
-   subroutine updateWPT(w,dw,ddw,z10,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,tt, &
-        &               dtt,dVTrLM,dVPrLM,dttdt,dttdtLast,w1,coex,dt,nLMB)
+   subroutine updateWPT(w,dw,ddw,z10,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,tt,  &
+        &               dtt,dVTrLM,dVPrLM,dttdt,dttdtLast,w1,coex,dt,nLMB, &
+        &               lRmsNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -120,6 +119,7 @@ contains
       real(cp),    intent(in) :: coex     ! factor depending on alpha
       real(cp),    intent(in) :: dt       ! time step
       integer,     intent(in) :: nLMB     ! block number
+      logical,     intent(in) :: lRmsNext
       complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
       real(cp),    intent(in) :: z10(n_r_max)
@@ -149,6 +149,7 @@ contains
       integer :: nR             ! counts radial grid points
       integer :: n_cheb         ! counts cheb modes
       real(cp) :: rhs(2*n_r_max)  ! real RHS for l=m=0
+      integer :: n_r_top, n_r_bot
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
       integer, pointer :: sizeLMB2(:,:),lm2(:,:)
@@ -350,6 +351,15 @@ contains
             end if
             !PERFOFF
 
+            if ( lRmsNext ) then ! Store old w
+               do nR=1,n_r_max
+                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                     lm1=lm22lm(lm,nLMB2,nLMB)
+                     workD(lm1,nR)=w(lm1,nR)
+                  end do
+               end do
+            end if
+
             !PERFON('upWP_aft')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -458,9 +468,17 @@ contains
 #endif
       !PERFOFF
 
+      if ( lRmsNext ) then
+         n_r_top=n_r_cmb
+         n_r_bot=n_r_icb
+      else
+         n_r_top=n_r_cmb+1
+         n_r_bot=n_r_icb-1
+      end if
+
       !-- Calculate explicit time step part:
       if ( l_temperature_diff ) then
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -497,15 +515,25 @@ contains
                     &     + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *        &
                     &                    dtt(lm1,nR) -                    &
                     &       dLh(st_map%lm2(l1,m1))*or2(nR)  *             &
-                    &                     tt(lm1,nR)  )+                   &
+                    &                     tt(lm1,nR)  )+                  &
                     &   coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR) &
                     &   *temp0(nR)*orho1(nR)*dentropy0(nR)*w(lm1,nR)
+               if ( lRmsNext ) then
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  &        ( w(lm1,nR)-workD(lm1,nR) )
+               end if
             end do
+            if ( lRmsNext ) then
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop,DifPolLMr(1,nR), &
+                    &        DifPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
+                    &        dtVPolLMr(1,nR),dtVPol2hInt(:,nR,1),lo_map)
+            end if
          end do
 
       else ! entropy diffusion
 
-         do nR=n_r_cmb+1,n_r_icb-1
+         do nR=n_r_top,n_r_bot
             do lm1=lmStart,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
@@ -557,8 +585,17 @@ contains
                     &                                     p(lm1,nR) ) ) + &
                     &   coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR) &
                     &   *orho1(nR)*dentropy0(nR)*w(lm1,nR)
-
+               if ( lRmsNext ) then
+                  dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
+                  &        ( w(lm1,nR)-workD(lm1,nR) )
+               end if
             end do
+            if ( lRmsNext ) then
+               call hInt2Pol(Dif,llm,ulm,nR,lmStart,lmStop,DifPolLMr(1,nR), &
+                    &        DifPol2hInt(:,nR,1),lo_map)
+               call hInt2Pol(dtV,llm,ulm,nR,lmStart,lmStop, &
+                    &        dtVPolLMr(1,nR),dtVPol2hInt(:,nR,1),lo_map)
+            end if
          end do
       end if
 
@@ -911,9 +948,9 @@ contains
                &                  alpha0(nR)*temp0(nR)*orho1(nR)*       &
                &                               O_dt*cheb(nCheb,nR)
 
-               ptMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*alpha0(nR)*&
+               ptMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*alpha0(nR)*  &
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
-               ptMat(nR_p,nCheb_p)= cheb_norm*(   dcheb(nCheb,nR)  &
+               ptMat(nR_p,nCheb_p)= cheb_norm*(          dcheb(nCheb,nR) &
                &                   +BuoFac*ViscHeatFac*(                 &
                &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun )* &
                &                   alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))
@@ -949,7 +986,7 @@ contains
 
                ptMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*alpha0(nR)*&
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
-               ptMat(nR_p,nCheb_p)= cheb_norm*(   dcheb(nCheb,nR)  &
+               ptMat(nR_p,nCheb_p)= cheb_norm*(         dcheb(nCheb,nR)  &
                &                   +BuoFac*ViscHeatFac*(                 &
                &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun )* &
                &                   alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))

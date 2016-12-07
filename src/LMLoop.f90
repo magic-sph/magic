@@ -13,7 +13,7 @@ module LMLoop_mod
    use mem_alloc, only: memWrite, bytes_allocated
    use truncation, only: l_max, lm_max, n_r_max, n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb
-   use blocking, only: lmStartB, lmStopB, lo_map
+   use blocking, only: lmStartB, lmStopB, st_map
    use logic, only: l_mag, l_conv, l_anelastic_liquid, lVerbose, l_heat, &
        &            l_single_matrix, l_chemical_conv, l_TP_form,         &
        &            l_save_out
@@ -279,7 +279,7 @@ contains
          if ( l_single_matrix ) then
             if ( rank == rank_with_l1m0 ) then
                do nR=1,n_r_max
-                  z10(nR)=real(z(lo_map%lm2(1,0),nR))
+                  z10(nR)=real(z(st_map%lm2(1,0),nR))
                end do
             end if
 #ifdef WITH_MPI
@@ -291,12 +291,13 @@ contains
                  &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
                  &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
                  &             dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt, &
-                 &             nLMB )
+                 &             nLMB, lRmsNext )
             else
                call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
                  &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
                  &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-                 &             dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB )
+                 &             dsdt, dsdtLast_LMloc, w1, coex, dt, nLMB,   &
+                 &             lRmsNext )
             end if
 
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
