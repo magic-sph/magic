@@ -40,7 +40,7 @@ module updateWPT_mod
    complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:),workD(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
-   real(cp), allocatable :: pt0Mat(:,:), pt0Mat_fac(:)
+   real(cp), allocatable :: pt0Mat(:,:), pt0Mat_fac(:,:)
    integer, allocatable :: pt0Pivot(:)
    real(cp), allocatable :: wptMat(:,:,:)
    integer, allocatable :: wptPivot(:,:)
@@ -56,7 +56,7 @@ contains
    subroutine initialize_updateWPT
 
       allocate( pt0Mat(2*n_r_max,2*n_r_max) )
-      allocate( pt0Mat_fac(2*n_r_max) )
+      allocate( pt0Mat_fac(2*n_r_max,2) )
       allocate( pt0Pivot(2*n_r_max) )
       bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                 +2*n_r_max*SIZEOF_INTEGER
@@ -297,9 +297,15 @@ contains
                   rhs(n_r_max)  =real(bots(0,0))
                   rhs(n_r_max+1)=0.0_cp
 
-                  rhs = pt0Mat_fac*rhs
+                  do nR=1,2*n_r_max
+                     rhs(nR)=rhs(nR)*pt0Mat_fac(nR,1)
+                  end do
 
                   call sgesl(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
+
+                  do nR=1,2*n_r_max
+                     rhs(nR)=rhs(nR)*pt0Mat_fac(nR,2)
+                  end do
 
                else ! l1 /= 0
                   lmB=lmB+1
@@ -922,7 +928,7 @@ contains
       !-- Output variables:
       real(cp), intent(out) :: ptMat(2*n_r_max,2*n_r_max)
       integer,  intent(out) :: ptPivot(2*n_r_max)
-      real(cp), intent(out) :: ptMat_fac(2*n_r_max)
+      real(cp), intent(out) :: ptMat_fac(2*n_r_max,2)
 
       !-- Local variables:
       integer :: info,nCheb,nCheb_p,nR,nR_p,n_cheb_in
@@ -1125,11 +1131,20 @@ contains
 
       ! compute the linesum of each line
       do nR=1,2*n_r_max
-         ptMat_fac(nR)=one/maxval(abs(ptMat(nR,:)))
+         ptMat_fac(nR,1)=one/maxval(abs(ptMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,2*n_r_max
-         ptMat(nR,:) = ptMat(nR,:)*ptMat_fac(nR)
+         ptMat(nR,:) = ptMat(nR,:)*ptMat_fac(nR,1)
+      end do
+
+      ! also compute the rowsum of each column
+      do nR=1,2*n_r_max
+         ptMat_fac(nR,2)=one/maxval(abs(ptMat(:,nR)))
+      end do
+      ! now divide each row by the rowsum
+      do nR=1,2*n_r_max
+         ptMat(:,nR) = ptMat(:,nR)*ptMat_fac(nR,2)
       end do
 
       !---- LU decomposition:

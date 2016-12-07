@@ -40,7 +40,7 @@ module updateWPS_mod
    complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:), workD(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
-   real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:)
+   real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
    integer, allocatable :: ps0Pivot(:)
    real(cp), allocatable :: wpsMat(:,:,:)
    integer, allocatable :: wpsPivot(:,:)
@@ -57,7 +57,7 @@ contains
    subroutine initialize_updateWPS
 
       allocate( ps0Mat(2*n_r_max,2*n_r_max) )
-      allocate( ps0Mat_fac(2*n_r_max) )
+      allocate( ps0Mat_fac(2*n_r_max,2) )
       allocate( ps0Pivot(2*n_r_max) )
       bytes_allocated = bytes_allocated+(4*n_r_max+2)*n_r_max*SIZEOF_DEF_REAL &
       &                 +2*n_r_max*SIZEOF_INTEGER
@@ -289,9 +289,15 @@ contains
                   rhs(n_r_max)  =real(bots(0,0))
                   rhs(n_r_max+1)=0.0_cp
 
-                  rhs = ps0Mat_fac*rhs
+                  do nR=1,2*n_r_max
+                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,1)
+                  end do
 
                   call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+
+                  do nR=1,2*n_r_max
+                     rhs(nR)=rhs(nR)*ps0Mat_fac(nR,2)
+                  end do
 
                else ! l1 /= 0
                   lmB=lmB+1
@@ -916,7 +922,7 @@ contains
       !-- Output variables:
       real(cp), intent(out) :: psMat(2*n_r_max,2*n_r_max)
       integer,  intent(out) :: psPivot(2*n_r_max)
-      real(cp), intent(out) :: psMat_fac(2*n_r_max)
+      real(cp), intent(out) :: psMat_fac(2*n_r_max,2)
 
       !-- Local variables:
       integer :: info,nCheb,nCheb_p,nR,nR_p,n_cheb_in
@@ -1111,12 +1117,22 @@ contains
 
       ! compute the linesum of each line
       do nR=1,2*n_r_max
-         psMat_fac(nR)=one/maxval(abs(psMat(nR,:)))
+         psMat_fac(nR,1)=one/maxval(abs(psMat(nR,:)))
       end do
       ! now divide each line by the linesum to regularize the matrix
       do nr=1,2*n_r_max
-         psMat(nR,:) = psMat(nR,:)*psMat_fac(nR)
+         psMat(nR,:) = psMat(nR,:)*psMat_fac(nR,1)
       end do
+
+      ! also compute the rowsum of each column
+      do nR=1,2*n_r_max
+         psMat_fac(nR,2)=one/maxval(abs(psMat(:,nR)))
+      end do
+      ! now divide each row by the rowsum
+      do nR=1,2*n_r_max
+         psMat(:,nR) = psMat(:,nR)*psMat_fac(nR,2)
+      end do
+
 
       !---- LU decomposition:
       call sgefa(psMat,2*n_r_max,2*n_r_max,psPivot,info)
