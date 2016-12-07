@@ -200,3 +200,11 @@ Miscellaneous
    +-------------------------------+------------------------------------+
    | ``anelastic_flavour='TEMP'``  | Temperature diffusion              |
    +-------------------------------+------------------------------------+
+
+* **thermo_variable** (default :f:var:`thermo_variable="S" <thermo_variable>`) is a character string. This allows to change the default thermodynamic variable (and hence change the entropy/temperature equation used). This switch only matters when one wants to run an anelastic model. Possible values are:
+
+   +---------------------------+-----------------------------------------+
+   | ``thermo_variable='S'``   | Use entropy as a primitive variable     |
+   +---------------------------+-----------------------------------------+
+   | ``thermo_variable='T'``   | Use temperature as a primitive variable |
+   +---------------------------+-----------------------------------------+

@@ -935,7 +935,7 @@ time  :math:`t=t+\delta t` is then
        
 with
 
-..  math:: \texttt{w1}=-1/2 \dfrac{\delta t}{\delta t_{old}}\;\; , \;\; \texttt{w2}=1-\texttt{w2}\;\; , \;\;
+..  math:: \texttt{w2}=-1/2 \dfrac{\delta t}{\delta t_{old}}\;\; , \;\; \texttt{w1}=1-\texttt{w2}\;\; , \;\;
            \texttt{Odt}=1/\delta t\;\;,\;\;\texttt{dLh}(\ell)=\ell (\ell+1)
            \;\;,\;\;\texttt{Or2}(k)=1/r_k^2.
   
