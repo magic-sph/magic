@@ -171,6 +171,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_RMS
 
+      deallocate( rC, dr_facC )
       deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
       deallocate( dtVPol2hInt, dtVTor2hInt, dtVPolLMr )
       deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
@@ -638,8 +639,8 @@ contains
               &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
               &        workB,chebt_RMS,dr_facC)
          do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(1,nR+nCut,1), &
-                             lo_map )
+            call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(:,nR+nCut,1), &
+                 &           lo_map )
          end do
          do l=0,l_max
             do nR=1,n_r_maxC
@@ -663,23 +664,23 @@ contains
          call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
               &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
          do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(1,nR+nCut,1), &
-                            lo_map)
+            call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(:,nR+nCut,1), &
+                 &          lo_map)
          end do
          do l=0,l_max
             do nR=1,n_r_maxC
                dtV2hInt(nR+nCut)=0.0_cp
                do n=1,1
                   dtV2hInt(nR+nCut)=dtV2hInt(nR+nCut) +         &
-                                    dtVPol2hInt(l,nR+nCut,n) +  &
-                                    dtVTor2hInt(l,nR+nCut,n)
+                  &                 dtVPol2hInt(l,nR+nCut,n) +  &
+                  &                 dtVTor2hInt(l,nR+nCut,n)
                end do
             end do
             dtVRmsL=rInt_R(dtV2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
             dtV_Rms =dtV_Rms+dtVRmsL
             dtVRmsL=sqrt(dtVRmsL/volC)
             call getMSD2(dtVRmsL_TA(l),dtVRmsL_SD(l),dtVRmsL, &
-                         nRMS_sets,timePassed,timeNorm)
+                 &       nRMS_sets,timePassed,timeNorm)
          end do
          dtV_Rms=sqrt(dtV_Rms/volC)
     
@@ -689,12 +690,12 @@ contains
             &    form='formatted', status='unknown', position='append')
          end if
          write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,6ES14.6)')&
-              time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
-              BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
-              MagRms/(CorRms+PreRms+LFRms),                 &
-              ArcRms/(CorRms+PreRms+LFRms+BuoRms),          &
-              CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms), &
-              CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
+         &    time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
+         &    BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
+         &    MagRms/(CorRms+PreRms+LFRms),                 &
+         &    ArcRms/(CorRms+PreRms+LFRms+BuoRms),          &
+         &    CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms), &
+         &    CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
          if ( l_save_out) then
             close(n_dtvrms_file)
          end if

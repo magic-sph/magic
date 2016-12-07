@@ -1174,6 +1174,9 @@ contains
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*woR(nR)
                         z(lm,nR)=scale_v*zoR(nR)
+                     else
+                        w(1,nR)=zero
+                        z(1,nR)=zero
                      end if
                      p(lm,nR)=scale_v*poR(nR)
                      if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*soR(nR)
@@ -1185,6 +1188,9 @@ contains
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*wo(n)
                         z(lm,nR)=scale_v*zo(n)
+                     else
+                        w(1,nR)=zero
+                        z(1,nR)=zero
                      end if
                      p(lm,nR)=scale_v*po(n)
                      if ( lreadS .and. l_heat ) s(lm,nR)=scale_s*so(n)

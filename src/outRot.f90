@@ -289,10 +289,10 @@ contains
                   open(newunit=n_driftBQ_file, file=driftBQ_file, status='unknown', &
                   &    position='append')
                end if
-               write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
+               write(n_driftBD_file,'(1P,2X,ES20.12,16ES12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=5,8),   &
                     (bvals_on_rank0(ilm,2),ilm=5,8)
-               write(n_SRIC_file,'(1P,2X,ES20.12,16ES12.4)') &
+               write(n_driftBQ_file,'(1P,2X,ES20.12,16ES12.4)') &
                     time, (bvals_on_rank0(ilm,1),ilm=1,4),   &
                     (bvals_on_rank0(ilm,2),ilm=1,4)
                if ( l_save_out ) then

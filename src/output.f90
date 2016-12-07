@@ -410,7 +410,6 @@ contains
   
       real(cp) :: timeScaled
   
-      character(len=76) :: filename
       character(len=96) :: message
   
       character(len=20) :: string
