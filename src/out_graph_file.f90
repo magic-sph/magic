@@ -991,13 +991,22 @@ contains
       integer :: n_theta
 
       !-- MPI related variables
-      integer :: status(MPI_STATUS_SIZE)!,count
+      integer :: status(MPI_STATUS_SIZE), count
+      integer(kind=MPI_OFFSET_KIND) :: offset
 
 #ifdef ONE_LARGE_BLOCK
       call MPI_FILE_WRITE(graph_mpi_fh,n_phis*n_thetas*SIZEOF_OUT_REAL,1, &
                           MPI_INTEGER,status,ierr)
-      call MPI_FILE_WRITE(graph_mpi_fh,dummy(:,1:n_thetas),n_phis*n_thetas, &
-                          MPI_OUT_REAL,status,ierr)
+      ! call MPI_FILE_WRITE(graph_mpi_fh,dummy(:,1:n_thetas),n_phis*n_thetas, &
+      !                     MPI_OUT_REAL,status,ierr)
+      count = 0
+      do while (n_phis*n_thetas /= count)
+          offset = -count*SIZEOF_OUT_REAL
+          if (count /= 0 ) call MPI_File_seek(graph_mpi_fh, offset, MPI_SEEK_CUR, ierr)
+          call MPI_File_write(graph_mpi_fh,dummy(:,1:n_thetas),n_phis*n_thetas, &
+          MPI_OUT_REAL,status,ierr)
+          call MPI_Get_count(status, MPI_OUT_REAL, count, ierr)
+      enddo
       call MPI_FILE_WRITE(graph_mpi_fh,n_phis*n_thetas*SIZEOF_OUT_REAL,1, &
                           MPI_INTEGER,status,ierr)
 #else
