@@ -781,7 +781,7 @@ contains
       write(n_out,'(''  sc              ='',ES14.6,'','')') sc
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
-      write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc/sq4pi
+      write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb
       write(n_out,'(''  strat           ='',ES14.6,'','')') strat
@@ -1373,6 +1373,13 @@ contains
       t_TOZ_start   =0.0_cp
       t_TOZ_stop    =0.0_cp
       dt_TOZ        =0.0_cp
+
+      !----- Output TO:
+      n_TO_step     =0
+      n_TOs         =0
+      t_TO_start    =0.0_cp
+      t_TO_stop     =0.0_cp
+      dt_TO         =0.0_cp
 
       !----- Times for different output:
       do n=1,n_time_hits

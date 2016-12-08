@@ -712,7 +712,7 @@ contains
          end do outer ! Loop over s 
          ! Integration finished
 
-         close (n_toz_file)
+         if ( lTOZwrite ) close(n_toz_file)
          if ( l_TOZave .and. nTOsets > 1 ) close (n_tozm_file)
 
          if ( lStopRun ) stop

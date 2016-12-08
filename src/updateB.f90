@@ -560,9 +560,9 @@ contains
 
                !LIKWID_ON('upB_sol')
                call cgeslML(bMat(:,:,l1),n_r_tot,n_r_real, &
-                    bPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+                    bPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
                call cgeslML(jMat(:,:,l1),n_r_tot,n_r_real, &
-                    jPivot(:,l1),rhs2(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+                    jPivot(:,l1),rhs2(:,lmB0+1:lmB,threadid),lmB-lmB0)
                !LIKWID_OFF('upB_sol')
             end if
 

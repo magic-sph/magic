@@ -291,7 +291,7 @@ contains
                   end do
                end do
                call cgeslML(wpMat(:,:,l1),2*n_r_max,2*n_r_max,    &
-                    &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),2*n_r_max,lmB-lmB0)
+                    &       wpPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,2*n_r_max

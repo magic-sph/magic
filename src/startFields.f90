@@ -365,16 +365,16 @@ contains
          if ( rank == 0 ) write(*,"(A,2ES20.12)") "init z = ",sum(z)
       end if
       do nR=1,n_r_max
-         call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:,nR))
-         call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:,nR))
-         call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:,nR))
-         call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:,nR))
+         call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:ulm,nR))
          if ( l_mag ) then
-            call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:,nR))
-            call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:,nR))
+            call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:ulmMag,nR))
+            call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:ulmMag,nR))
          end if
          if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:,nR))
+            call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:ulm,nR))
          end if
          !if (DEBUG_OUTPUT) then
          !   if (rank == 0) then

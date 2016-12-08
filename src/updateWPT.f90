@@ -347,7 +347,7 @@ contains
                end do
                call cgeslML(wptMat(:,:,l1),3*n_r_max,3*n_r_max,        &
                     &       wptPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),&
-                    &       3*n_r_max,lmB-lmB0)
+                    &       lmB-lmB0)
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,3*n_r_max

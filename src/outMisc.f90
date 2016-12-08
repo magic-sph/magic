@@ -287,6 +287,7 @@ contains
     
       !-- Local stuff:
       real(cp) :: rhoprime(n_r_max)
+      real(cp) :: tmp(n_r_max)
       real(cp) :: topnuss,botnuss,deltanuss
       real(cp) :: topsherwood,botsherwood,deltasherwood
       real(cp) :: toptemp,bottemp
@@ -456,7 +457,8 @@ contains
             deltasherwood=one
          end if
 
-         mass=four*pi*rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
+         tmp(:)=rhoprime(:)*r(:)**2
+         mass=four*pi*rInt_R(tmp,n_r_max,n_r_max,drx,chebt_oc)
     
          if ( l_save_out ) then
             open(newunit=n_heat_file, file=heat_file, status='unknown', &

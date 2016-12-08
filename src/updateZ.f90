@@ -421,7 +421,7 @@ contains
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
                call cgeslML(zMat(:,:,l1),n_r_max,n_r_max, &
-                    &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+                    &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
             if ( lRmsNext ) then ! Store old z

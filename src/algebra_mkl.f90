@@ -32,7 +32,7 @@ contains
 
    end subroutine cgesl
 !-----------------------------------------------------------------------------
-   subroutine cgeslML(a,len_a,n,pivot,rhs,ldBc,nRHSs)
+   subroutine cgeslML(a,len_a,n,pivot,rhs,nRHSs)
       !
       !  This routine does the backward substitution into a lu-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex 
@@ -42,12 +42,11 @@ contains
       !-- Input variables:
       integer,  intent(in) :: n           ! dimension of problem
       integer,  intent(in) :: len_a       ! leading dimension of a
-      integer,  intent(in) :: pivot(n)       ! pivot pointer of length n
-      integer,  intent(in) :: ldBc        ! leading dimension of bc
+      integer,  intent(in) :: pivot(n)    ! pivot pointer of length n
       real(cp), intent(in) :: a(len_a,n)  ! real n X n matrix
       integer,  intent(in) :: nRHSs       ! number of right-hand sides
 
-      complex(cp), intent(inout) :: rhs(ldBc,nRHSs) ! on input RHS of problem
+      complex(cp), intent(inout) :: rhs(:,:) ! on input RHS of problem
 
       call getrs(cmplx(a(1:n,1:n),0.0_cp,kind=cp),pivot(1:n),rhs(1:n,:))
 

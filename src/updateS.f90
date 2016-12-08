@@ -298,7 +298,7 @@ contains
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
                call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
-                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -601,7 +601,7 @@ contains
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
                call cgeslML(sMat(1,1,l1),n_r_max,n_r_max, &
-                    &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+                    &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 

@@ -829,7 +829,6 @@ contains
             lmStartB(proc+1)=lm
             do i_l=1,l_counter(proc)-1
                l=l_list(proc,i_l)
-               mc = mc+1
                map%lm2(l,0)=lm
                map%lm2l(lm)=l
                map%lm2m(lm)=0

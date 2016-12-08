@@ -287,7 +287,7 @@ contains
             !PERFON('upXi_sol')
             if ( lmB  >  lmB0 ) then
                call cgeslML(xiMat(:,:,l1),n_r_max,n_r_max, &
-                    &       xiPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),n_r_max,lmB-lmB0)
+                    &       xiPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
