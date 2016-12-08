@@ -237,6 +237,12 @@ contains
                dt=dtMax
                write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
             end if
+
+            if ( .not. l_heat ) then
+               s       =zero
+               dsdtLast=zero
+            end if
+
             !PERFOFF
          else
             ! Initialize with zero

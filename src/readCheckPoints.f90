@@ -11,7 +11,7 @@ module readCheckPoints
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv
    use blocking, only: lm2,lmStartB,lmStopB,nLMBs,lm2l,lm2m
-   use init_fields, only: start_file,n_start_file,inform,tOmega_ic1,tOmega_ic2,&
+   use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
        &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &
        &                  omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,        &
@@ -32,6 +32,7 @@ module readCheckPoints
    logical :: lreadS,lreadXi
    logical :: l_axi_old
 
+   integer :: n_start_file
    integer(lip) :: bytes_allocated=0
 
 #ifdef WITH_HDF5
@@ -202,6 +203,7 @@ contains
             read(n_start_file) wo, zo, po, xio
          end if
       else
+         allocate(xio(1))
          if ( lreadS ) then
             read(n_start_file) wo, zo, po, so
          else
@@ -1027,7 +1029,8 @@ contains
          m_max_old=0
       end if
 
-      if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old .and. m_max==m_max_old ) then
+      if ( l_max==l_max_old .and. minc==minc_old .and. n_r_max==n_r_max_old &
+      &    .and. m_max==m_max_old ) then
 
          !----- Direct reading of fields, grid not changed:
          write(*,'(/,'' ! Reading fields directly.'')')
@@ -1197,6 +1200,15 @@ contains
                      if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=scale_xi*xio(n)
                   end do
                end if
+            else
+               do nR=1,n_r_max
+                  w(lm,nR)=zero
+                  z(lm,nR)=zero
+                  p(lm,nR)=zero
+                  if ( lreadS .and. l_heat ) s(lm,nR)=zero
+                  if ( lreadXi .and. l_chemical_conv ) xi(lm,nR)=zero
+
+               end do
             end if
          end do
       end do
@@ -1276,6 +1288,13 @@ contains
                      s(lm,nR)=scale_b*so(n)
                   end do
                end if
+            else
+               do nR=1,n_rad_tot
+                  w(lm,nR)=zero
+                  z(lm,nR)=zero
+                  p(lm,nR)=zero
+                  s(lm,nR)=zero
+               end do
             end if
          end do
       end do
