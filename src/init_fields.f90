@@ -16,7 +16,7 @@ module init_fields
        &                       orho1, chebt_oc, chebt_ic, temp0,       &
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
-       &                       rho0, dLalpha0, alpha0, otemp1
+       &                       rho0, dLalpha0, alpha0, otemp1, ogrun
    use radial_data, only: n_r_icb, n_r_cmb
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
@@ -30,7 +30,7 @@ module init_fields
    use physical_parameters, only: impS, n_impS_max, n_impS, phiS, thetaS, &
        &                          peakS, widthS, radratio, imagcon, opm,  &
        &                          sigma_ratio, O_sr, kbots, ktops, opr,   &
-       &                          epsc, ViscHeatFac, ThExpNb, ogrun,      &
+       &                          epsc, ViscHeatFac, ThExpNb,             &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp
@@ -1818,9 +1818,9 @@ contains
                ! Hydrostatic equilibrium
                pt0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)*&
                &                              alpha0(n_r)*cheb(n_cheb,n_r)
-               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+         &
-               &                      ViscHeatFac*BuoFac*(                    &
-               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun )* &
+               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+              &
+               &                      ViscHeatFac*BuoFac*(                         &
+               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )* &
                &                      alpha0(n_r)*rgrav(n_r)*cheb(n_cheb,n_r) )
 
             end do
@@ -1855,9 +1855,9 @@ contains
                ! Hydrostatic equilibrium
                pt0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)* &
                                               alpha0(n_r)*cheb(n_cheb,n_r)
-               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+         &
-               &                      ViscHeatFac*BuoFac*(                    &
-               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun )* &
+               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+              &
+               &                      ViscHeatFac*BuoFac*(                         &
+               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )* &
                &                      alpha0(n_r)*rgrav(n_r)*cheb(n_cheb,n_r) )
 
             end do
@@ -1918,7 +1918,7 @@ contains
       ! Impose that the integral of (rho' r^2) vanishes
       if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
-         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun)*r(:)*r(:)
+         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun(:))*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
          work         =work*cheb_norm
          work(1)      =half*work(1)
@@ -2181,7 +2181,7 @@ contains
       ! Impose that the integral of (rho' r^2) vanishes
       if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
 
-         work(:)=ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+         work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
          work         =work*cheb_norm
          work(1)      =half*work(1)

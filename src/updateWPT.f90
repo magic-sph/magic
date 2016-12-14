@@ -11,9 +11,9 @@ module updateWPT_mod
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
        &                       cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
        &                       alpha0,dLalpha0, ddLalpha0, otemp1,      &
-       &                       kappa, orho2, dentropy0, temp0, r
+       &                       kappa, orho2, dentropy0, temp0, r, ogrun
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-       &                          ViscHeatFac, ThExpNb, ogrun, BuoFac, &
+       &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
    use num_param, only: alpha
    use init_fields, only: tops, bots
@@ -496,8 +496,8 @@ contains
                     &        dbeta(nR)+dLvisc(nR)*beta(nR)                  &
                     &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                             w(lm1,nR) )
-               Pre(lm1) = -dp(lm1,nR)-BuoFac*ViscHeatFac*(        &
-                    &     ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*    &
+               Pre(lm1) = -dp(lm1,nR)-BuoFac*ViscHeatFac*(          &
+                    &     ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                     &     alpha0(nR)*rgrav(nR)*p(lm1,nR)
                Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*alpha0(nR)*tt(lm1,nR)
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
@@ -552,7 +552,7 @@ contains
                     &        +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
                     &                                            w(lm1,nR)  )
                Pre(lm1) = -dp(lm1,nR)-BuoFac*ViscHeatFac*(        &
-                    &     ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*    &
+                    &     ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*&
                     &     alpha0(nR)*rgrav(nR)*p(lm1,nR)
                Buo(lm1) = BuoFac*rho0(nR)*rgrav(nR)*alpha0(nR)*tt(lm1,nR)
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Pre(lm1)+Buo(lm1)+Dif(lm1))
@@ -759,9 +759,9 @@ contains
                     &                     alpha0(nR)*cheb(nCheb,nR)
        
                ! Pressure gradient
-               wptMat(nR,nCheb_p)= cheb_norm*alpha*(     dcheb(nCheb,nR) &
-                    &              +BuoFac*ViscHeatFac*(                 &
-                    &              ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*  &
+               wptMat(nR,nCheb_p)= cheb_norm*alpha*(     dcheb(nCheb,nR)     &
+                    &              +BuoFac*ViscHeatFac*(                     &
+                    &              ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                     &              alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))
 
                ! P equation
@@ -821,9 +821,9 @@ contains
                &                                 alpha0(nR)*cheb(nCheb,nR)
        
                ! Pressure gradient
-               wptMat(nR,nCheb_p)= cheb_norm*alpha*(     dcheb(nCheb,nR) &
-                    &             +BuoFac*ViscHeatFac*(                  &
-                    &              ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*  &
+               wptMat(nR,nCheb_p)= cheb_norm*alpha*(     dcheb(nCheb,nR)     &
+                    &             +BuoFac*ViscHeatFac*(                      &
+                    &              ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                     &              alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))
 
                ! P equation
@@ -956,9 +956,9 @@ contains
 
                ptMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*alpha0(nR)*  &
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
-               ptMat(nR_p,nCheb_p)= cheb_norm*(          dcheb(nCheb,nR) &
-               &                   +BuoFac*ViscHeatFac*(                 &
-               &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun )* &
+               ptMat(nR_p,nCheb_p)= cheb_norm*(          dcheb(nCheb,nR)     & 
+               &                   +BuoFac*ViscHeatFac*(                     &
+               &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR) )* &
                &                   alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))
             end do
          end do
@@ -992,9 +992,9 @@ contains
 
                ptMat(nR_p,nCheb)  = -cheb_norm*rho0(nR)*alpha0(nR)*&
                &                     BuoFac*rgrav(nR)*cheb(nCheb,nR)
-               ptMat(nR_p,nCheb_p)= cheb_norm*(         dcheb(nCheb,nR)  &
-               &                   +BuoFac*ViscHeatFac*(                 &
-               &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun )* &
+               ptMat(nR_p,nCheb_p)= cheb_norm*(         dcheb(nCheb,nR)      &
+               &                   +BuoFac*ViscHeatFac*(                     &
+               &                   ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR) )* &
                &                   alpha0(nR)*rgrav(nR)*  cheb(nCheb,nR))
             end do
          end do
@@ -1062,7 +1062,7 @@ contains
       ! Impose that the integral of (rho' r^2) vanishes
       if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
-         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun)*r(:)*r(:)
+         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun(:))*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
          work         =work*cheb_norm
          work(1)      =half*work(1)

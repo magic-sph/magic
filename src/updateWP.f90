@@ -9,9 +9,9 @@ module updateWP_mod
    use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
        &                       chebt_oc,visc,dlvisc,r,alpha0,temp0,     &
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
-       &                       cheb_norm
+       &                       cheb_norm, ogrun
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
-       &                          ViscHeatFac, ThExpNb, ogrun, ktopp
+       &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: alpha
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
@@ -748,7 +748,7 @@ contains
       !-- Boundary condition for spherically-symmetric pressure
       !-- The integral of rho' r^2 dr vanishes
       if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
-         work(:) = ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+         work(:) = ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
          call chebt_oc%costf1(work,work1)
          work(:)      =work(:)*cheb_norm
          work(1)      =half*work(1)

@@ -12,8 +12,8 @@ module outMisc_mod
    use radial_functions, only: r_icb, dr_fac, chebt_oc, kappa,   &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
-       &                       otemp1, drx
-   use physical_parameters, only: ViscHeatFac, ThExpNb, ogrun
+       &                       otemp1, drx, ogrun
+   use physical_parameters, only: ViscHeatFac, ThExpNb
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
    use horizontal_data, only: gauss
@@ -308,7 +308,7 @@ contains
                &               alpha0(n_r)*orho1(n_r)*PMeanR(n_r)
                rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
                &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
-               &               alpha0(n_r)*temp0(n_r)+ogrun)*           &
+               &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
                &               real(p(1,n_r)) )
             end do
          else
@@ -319,7 +319,7 @@ contains
                &               alpha0(n_r)*temp0(n_r)*orho1(n_r)*PMeanR(n_r)
                rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
                &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
-               &               ogrun*real(p(1,n_r)) )
+               &               ogrun(n_r)*real(p(1,n_r)) )
             end do
          end if
 
@@ -485,7 +485,7 @@ contains
             XiMeanR(:)=XiMeanR(:)/timeNorm
 
             rhoPrime(:)=ThExpNb*alpha0(:)*(-rho0(:)*temp0(:)*SMeanR(:)+ &
-               &         ViscHeatFac*ogrun*PMeanR(:) )
+               &         ViscHeatFac*ogrun(:)*PMeanR(:) )
 
             filename='heatR.'//tag
             open(newunit=filehandle, file=filename, status='unknown')

@@ -64,15 +64,15 @@ contains
          & cacheblock_size_in_B,anelastic_flavour,          &
          & thermo_variable
       
-      namelist/phys_param/                                    &
-         & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,     &
-         & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi, &
-         & s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,   &
-         & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch, &
-         & con_LambdaOut,con_FuncWidth,ThExpNb,               &
-         & strat,polind,DissNb,g0,g1,g2,r_cut_model,          &
-         & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,    &
-         & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,   &
+      namelist/phys_param/                                      &
+         & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
+         & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
+         & s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
+         & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
+         & con_LambdaOut,con_FuncWidth,ThExpNb,                 &
+         & strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
+         & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
+         & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
          & nVarEntropyGrad,l_isothermal,ktopp
 
       namelist/B_external/                                    &
@@ -792,6 +792,7 @@ contains
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
       write(n_out,'(''  rStrat          ='',ES14.6,'','')') rStrat
       write(n_out,'(''  ampStrat        ='',ES14.6,'','')') ampStrat
+      write(n_out,'(''  thickStrat      ='',ES14.6,'','')') thickStrat
       write(n_out,'(''  nVarEntropyGrad ='',i3,'','')') nVarEntropyGrad
       write(n_out,'(''  radratio        ='',ES14.6,'','')') radratio
       write(n_out,'(''  l_isothermal    ='',l3,'','')') l_isothermal
@@ -1159,6 +1160,7 @@ contains
       slopeStrat =20.0_cp
       rStrat     =1.3_cp
       ampStrat   =10.0_cp
+      thickStrat =0.1_cp
       nVarEntropyGrad=0
       !----- Gravity parameters: defaut value g propto r (i.e. g1=1)
       g0         =0.0_cp

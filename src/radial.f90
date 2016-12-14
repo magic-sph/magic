@@ -46,6 +46,7 @@ module radial_functions
    real(cp), public, allocatable :: alpha0(:)    ! Thermal expansion coefficient
    real(cp), public, allocatable :: dLalpha0(:)  ! :math:`1/\alpha d\alpha/dr`
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
+   real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
 
    real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
    real(cp), public, allocatable :: ddrx(:)      ! Second derivative of non-linear mapping
@@ -135,9 +136,9 @@ contains
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
-      allocate( rgrav(n_r_max) )
+      allocate( rgrav(n_r_max), ogrun(n_r_max) )
       bytes_allocated = bytes_allocated + &
-                        (23*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+                        (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
       allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
@@ -172,7 +173,7 @@ contains
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
-      deallocate( ddLalpha0, dLalpha0, drx, ddrx, dddrx, rgrav )
+      deallocate( ddLalpha0, dLalpha0, drx, ddrx, dddrx, rgrav, ogrun )
       deallocate( cheb, dcheb, d2cheb, d3cheb, cheb_int )
       deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
@@ -191,7 +192,7 @@ contains
 
       !-- Local variables:
       integer :: n_r,n_cheb,n_cheb_int
-      integer :: n_r_ic_tot,k
+      integer :: n_r_ic_tot, k, i
       integer :: n_const(1)
 
       !integer :: n_r_start
@@ -205,8 +206,8 @@ contains
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
-      real(cp), allocatable :: coeffDens(:), coeffTemp(:)
-      real(cp) :: w1(n_r_max),w2(n_r_max)
+      real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
+      real(cp) :: w1(n_r_max), w2(n_r_max), rrOcmb(n_r_max)
       character(len=80) :: message
 
 #if 0
@@ -293,18 +294,82 @@ contains
       !-- Fit to an interior model
       if ( index(interior_model,'JUP') /= 0 ) then
 
-         allocate( coeffDens(8), coeffTemp(10) )
-         coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
-            &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
-            &         440.86067831_cp, -122.36071577_cp] 
+         if ( l_non_adia ) then
+            rrOcmb(:) = r(:)*r_cut_model/r_cmb
+            rgrav(:)=  83.4792166296_cp*rrOcmb(:)+7.0970761715_cp*rrOcmb(:)**2 &
+            &        -112.0000517766_cp*rrOcmb(:)**3+47.3447404648_cp*rrOcmb(:)**4
 
-         coeffTemp = [0.999735638_cp, 0.0111053831_cp, 2.70889691_cp,  &
-            &         -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
-            &         3774.39367_cp, -4159.56327_cp, 2447.75300_cp,    &
-            &         -596.464198_cp]
+            allocate ( coeffAlpha(10), coeffTemp(10) )
+            coeffAlpha = [ -12.9483344953_cp, 12.7631620079_cp, -60.0717008192_cp, &
+               &           1.41916870466_cp, 755.055391736_cp, -1938.08838168_cp,  &
+               &           952.893688457_cp, 2544.71502695_cp, -3703.20551213_cp,  &
+               &           1440.95591192_cp]
+            coeffTemp = [ 1.24462655e+05_cp, -2.85767595e+06_cp, 3.04794799e+07_cp, &
+               &         -1.72807386e+08_cp, 5.83323621e+08_cp, -1.23322830e+09_cp, &
+               &          1.64950647e+09_cp, -1.35626053e+09_cp, 6.25695974e+08_cp, &
+               &          -1.23976043e+08_cp ]
+            ! Temperature is only required to estimate ThExpNb
+            alpha0(:)=0.0_cp
+            temp0(:) =0.0_cp
+            do i=1,10
+               alpha0(:) = alpha0(:)+coeffAlpha(i)*rrOcmb(:)**(i-1)
+               temp0(:)  = temp0(:) +coeffTemp(i) *rrOcmb(:)**(i-1)
+            end do
+            alpha0(:)=exp(alpha0(:)) ! Polynomial fit was on ln(alpha0)
+            DissNb   =alpha0(1)*rgrav(1)*(rrOcmb(1)-rrOcmb(n_r_max))*6.9894e7 &
+            &         /1.5e4_cp ! 1.5e4 is cp 6.9894e7 is R_J
+            ThExpNb  =alpha0(1)*temp0(1)
+            alpha0(:)=alpha0(:)/alpha0(1)
+            rgrav(:) =rgrav(:)/rgrav(1)
 
-         call polynomialBackground(coeffDens,coeffTemp)
-         deallocate( coeffDens, coeffTemp)
+            ! d ln(temp0) / dr
+            dtemp0(:)=epsS*dentropy0(:)-DissNb*alpha0(:)*rgrav(:)
+            call getBackground(dtemp0,0.0_cp,temp0)
+            temp0=exp(temp0) ! this was ln(T_0)
+            dtemp0=dtemp0*temp0
+
+            !-- Radial profile for the Grüneisen parameter (from French et al.)
+            ogrun(:) = one/(0.57_cp-0.17_cp*tanh(50.0_cp*(rrOcmb(:)-0.88_cp)))
+            GrunNb = one/ogrun(1)
+            ogrun(:) = ogrun(:)/ogrun(1)
+
+            drho0=-ThExpNb*epsS*alpha0*temp0*dentropy0-DissNb/GrunNb*ogrun*alpha0*rgrav
+            call getBackground(drho0,0.0_cp,rho0)
+            rho0=exp(rho0) ! this was ln(rho_0)
+            beta=drho0
+
+            ! The final stuff is always required
+            call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                   &    w2,chebt_oc,drx)
+            call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+            call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            dLtemp0 = dtemp0/temp0
+            ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+
+            !-- Multiply the gravity by alpha0 and temp0
+            rgrav(:)=rgrav(:)*alpha0(:)*temp0(:)
+
+            !nVarDiff = 5
+            deallocate(coeffAlpha, coeffTemp)
+         else
+            allocate( coeffDens(8), coeffTemp(10) )
+            coeffDens = [4.46020423_cp, -4.60312999_cp, 37.38863965_cp,       &
+               &         -201.96655354_cp, 491.00495215_cp, -644.82401602_cp, &
+               &         440.86067831_cp, -122.36071577_cp] 
+
+            coeffTemp = [0.999735638_cp, 0.0111053831_cp, 2.70889691_cp,  &
+               &         -83.5604443_cp, 573.151526_cp, -1959.41844_cp,   &
+               &         3774.39367_cp, -4159.56327_cp, 2447.75300_cp,    &
+               &         -596.464198_cp]
+
+            call polynomialBackground(coeffDens,coeffTemp)
+            deallocate( coeffDens, coeffTemp)
+         end if
 
       else if ( index(interior_model,'SAT') /= 0 ) then
 
@@ -474,6 +539,7 @@ contains
                dLtemp0  =0.0_cp
                ddLtemp0 =0.0_cp
                alpha0   =one/temp0
+               ogrun    =one
                dLalpha0 =0.0_cp
                ddLalpha0=0.0_cp
             else
@@ -499,6 +565,7 @@ contains
 
                !-- Thermal expansion coefficient (1/T for an ideal gas)
                alpha0   =one/temp0
+               ogrun    =one
                dLtemp0  =dtemp0/temp0
                ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
                dLalpha0 =-dLtemp0
@@ -557,6 +624,7 @@ contains
          orho1    =one
          orho2    =one
          alpha0   =one
+         ogrun    =one
          beta     =0.0_cp
          dbeta    =0.0_cp
          dLalpha0 =0.0_cp
@@ -722,12 +790,12 @@ contains
             ! kappa(n_r)=one/rho0(n_r) Denise's version
             kappa=rho0(n_r_max)/rho0
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,chebt_oc,drx)
+                 &      w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 2 ) then ! Profile
             kappa=(rho0/rho0(n_r_max))**difExp
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,chebt_oc,drx)
+                 &      w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
@@ -746,14 +814,14 @@ contains
             do n_r=1,n_r_max
                rrOcmb = r(n_r)/r_cmb*r_cut_model
                kappa(n_r)= a5 + a4*rrOcmb    + a3*rrOcmb**2 &
-                              + a2*rrOcmb**3 + a1*rrOcmb**4 &
-                                             + a0*rrOcmb**5
+               &              + a2*rrOcmb**3 + a1*rrOcmb**4 &
+               &                             + a0*rrOcmb**5
 
             end do
             kappatop=kappa(1) ! normalise by the value at the top
             kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,chebt_oc,drx)
+                 &      w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 4) then ! Earth case
             !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
@@ -780,7 +848,14 @@ contains
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
             call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                        w1,w2,chebt_oc,drx)
+                 &      w1,w2,chebt_oc,drx)
+            dLkappa=dkappa/kappa
+         else if ( nVarDiff == 5 ) then ! Thermal background equilibrium
+            kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
+            kcond=kcond/kcond(1)
+            kappa=kcond/rho0
+            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                 &      w1,w2,chebt_oc,drx)
             dLkappa=dkappa/kappa
          end if
       end if
@@ -819,7 +894,7 @@ contains
          dLvisc=dvisc/visc
       end if
 
-      if ( l_anelastic_liquid ) then
+      if ( l_anelastic_liquid .or. l_non_adia ) then
          divKtemp0=rho0*kappa*(d2temp0+(beta+dLkappa+two*or1)*temp0*dLtemp0)*sq4pi
       else
          divKtemp0=0.0_cp
@@ -858,6 +933,15 @@ contains
                   &              ampStrat
                end if
             end do
+         end if
+         l_non_adia = .true.
+      else if ( nVarEntropyGrad == 3 ) then ! SSL
+         if ( rStrat <= r_icb ) then
+            dentropy0(:) = -one
+         else
+            dentropy0(:) = 0.25_cp*(ampStrat+one)*(one+tanh(slopeStrat*(r(:)-rStrat)))&
+            &              *(one-tanh(slopeStrat*(r(:)-rStrat-thickStrat)))           &
+            &              - one
          end if
          l_non_adia = .true.
       end if
@@ -994,6 +1078,8 @@ contains
       ! Dissipation number
       DissNb=alpha0(1)
       alpha0(:)=alpha0(:)/alpha0(1)
+
+      ogrun(:)=alpha0(:)*temp0(:)
 
       ! Adiabatic: buoyancy term is linked to the temperature gradient
 

@@ -12,10 +12,10 @@ module nonlinear_lm_mod
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
        &             l_chemical_conv, l_TP_form, l_single_matrix
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
-       &                       or4, temp0, alpha0
+       &                       or4, temp0, alpha0, ogrun
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
-       &                          BuoFac, ThExpNb, ogrun
+       &                          BuoFac, ThExpNb
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
@@ -371,9 +371,9 @@ contains
                   AdvPol_loc=zero
                endif
                if ( l_TP_form .or. l_anelastic_liquid ) then
-                  Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(          &
-                  &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*&
-                  &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun)*  &
+                  Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
+                  &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*    &
+                  &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
                   &        leg_helper%preR(lm) )
                else
                   Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)

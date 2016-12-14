@@ -10,10 +10,10 @@ module updateWPS_mod
        &                       chebt_oc,visc,dLvisc,                    &
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
        &                       cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
-       &                       alpha0,dLalpha0, ddLalpha0,              &
+       &                       alpha0,dLalpha0, ddLalpha0, ogrun,       &
        &                       kappa, orho1, dentropy0, temp0, r
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
-       &                          ViscHeatFac, ThExpNb, ogrun, BuoFac, &
+       &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
    use num_param, only: alpha
    use init_fields, only: tops, bots
@@ -219,9 +219,7 @@ contains
 
 
       !PERFON('upWP_ssol')
-      !$OMP PARALLEL default(shared) &
-      !$OMP private(nLMB2,lm,lm1,l1,m1,lmB)
-      !write(*,"(I3,A)") omp_get_thread_num(),": before SINGLE"
+      !$OMP PARALLEL default(shared)
       !$OMP SINGLE
       ! each of the nLMBs2(nLMB) subblocks have one l value
       do nLMB2=1,nLMBs2(nLMB)
@@ -229,8 +227,7 @@ contains
 
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
-         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(workB,nLMB,nLMBs2,rhs1)
+         !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -255,7 +252,7 @@ contains
          end if
 
          do iChunk=1,nChunks
-            !$OMP TASK if (nChunks>1) default(shared) &
+            !$OMP TASK default(shared) &
             !$OMP firstprivate(iChunk) &
             !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
             !$OMP private(threadid)
@@ -326,7 +323,7 @@ contains
             !PERFOFF
 
             !PERFON('upWP_sol')
-            if ( lmB > 0 ) then
+            if ( lmB > lmB0 ) then
 
                ! use the mat_fac(:,1) to scale the rhs
                do lm=lmB0+1,lmB
@@ -1049,7 +1046,7 @@ contains
       ! Impose that the integral of (rho' r^2) vanishes
       if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
 
-         work(:)=ThExpNb*ViscHeatFac*ogrun*alpha0(:)*r(:)*r(:)
+         work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
          call chebt_oc%costf1(work,work2)
          work         =work*cheb_norm
          work(1)      =half*work(1)

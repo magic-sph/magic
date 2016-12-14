@@ -10,10 +10,10 @@ module start_fields
    use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
-       &                       otemp1
+       &                       otemp1, ogrun
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
-       &                          ViscHeatFac, ogrun, impXi
+       &                          ViscHeatFac, impXi
    use num_param, only: dtMax, alpha
    use special, only: lGrenoble
    use blocking, only: lmStartB, lmStopB, nLMBs, lo_map
@@ -107,7 +107,7 @@ contains
                   &            osq4pi*p0(n_r), osq4pi*s0(n_r),              &
                   &            osq4pi*alpha0(n_r)*(-rho0(n_r)*s0(n_r)+      &
                   &            ViscHeatFac*ThExpNb*(alpha0(n_r)*temp0(n_r)  &
-                  &            +ogrun)*p0(n_r))
+                  &            +ogrun(n_r))*p0(n_r))
                end do
             end if
 
@@ -145,7 +145,7 @@ contains
                   &            s0(n_r)+alpha0(n_r)*orho1(n_r)*p0(n_r)*   &
                   &            ThExpNb*ViscHeatFac), osq4pi*alpha0(n_r)* &
                   &            ThExpNb*(-rho0(n_r)*temp0(n_r)*s0(n_r)+   &
-                  &            ViscHeatFac*ogrun*p0(n_r))
+                  &            ViscHeatFac*ogrun(n_r)*p0(n_r))
                end do
             end if
 
