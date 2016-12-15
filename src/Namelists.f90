@@ -69,7 +69,7 @@ contains
          & ktops,kbots,ktopv,kbotv,ktopb,kbotb,kbotxi,ktopxi,   &
          & s_top,s_bot,impS,sCMB,xi_top,xi_bot,impXi,xiCMB,     &
          & nVarCond,con_DecRate,con_RadRatio,con_LambdaMatch,   &
-         & con_LambdaOut,con_FuncWidth,ThExpNb,                 &
+         & con_LambdaOut,con_FuncWidth,ThExpNb,GrunNb,          &
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
          & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
@@ -787,6 +787,7 @@ contains
       write(n_out,'(''  strat           ='',ES14.6,'','')') strat
       write(n_out,'(''  polind          ='',ES14.6,'','')') polind
       write(n_out,'(''  ThExpNb         ='',ES14.6,'','')') ThExpNb
+      write(n_out,'(''  GrunNb          ='',ES14.6,'','')') GrunNb
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
       write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat
@@ -1152,7 +1153,7 @@ contains
       ThExpNb    =one        ! Thermal expansion * temperature
       strat      =0.0_cp     ! Density contrast
       polind     =2.0_cp     ! Polytropic index
-      GrunNb     =one/polind ! Gruneisen parameter
+      GrunNb     =one/polind ! Gruneisen parameter (by default this is adiabatic)
       r_cut_model=0.98_cp    ! outer radius when using interior model
       !----- Stably stratified layer
       epsS       =0.0_cp
