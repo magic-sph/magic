@@ -18,6 +18,6 @@ script:
     - export FC=mpif90
     - export CC=mpicc
     - mkdir cmake-build
-    - cd build
+    - cd cmake-build
     - cmake .. -DUSE_MPI=yes
     - make -j 4
