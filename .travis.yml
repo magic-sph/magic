@@ -4,9 +4,9 @@ sudo: required
 addons:
     apt:
         packages:
-            - gfortran-4.9
-            - gcc-4.9
-            - g++-4.9
+            - gfortran
+            - gcc
+            - g++
             - cmake
 
 before_install:
