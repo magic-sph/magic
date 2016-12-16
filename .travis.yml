@@ -10,16 +10,16 @@ addons:
             - gcc-5
             - g++-5
             - cmake
+            - mpich2
 
 before_install:
     - sudo apt-get -qq update
     - pip install numpy matplotlib scipy
-    - sudo apt-get install mpich2 -y
 
 script:
-    - export FC=/usr/bin/mpif90.mpich2
-    - export CC=/usr/bin/mpicc.mpich2
+    - export FC=/usr/bin/mpif90
+    - export CC=/usr/bin/mpicc
     - mkdir cmake-build
     - cd cmake-build
-    - cmake .. -DUSE_MPI=yes
+    - cmake ..
     - make -j 4
