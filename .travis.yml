@@ -5,8 +5,8 @@ addons:
     apt:
         packages:
             - gfortran-4.9
-	    - gcc-4.9
-	    - g++-4.9
+            - gcc-4.9
+            - g++-4.9
             - cmake
 
 before_install:
@@ -21,4 +21,3 @@ script:
     - cd build
     - cmake .. -DUSE_MPI=yes
     - make -j 4
-
