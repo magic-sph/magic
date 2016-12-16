@@ -4,6 +4,7 @@ sudo: required
 addons:
     apt:
         sources:
+            - kalakris-cmake
             - ubuntu-toolchain-r-test
         packages:
             - gfortran-5
@@ -17,9 +18,9 @@ before_install:
     - pip install numpy matplotlib scipy
 
 script:
-    - export FC=mpif90
-    - export CC=mpicc
+    - export FC=/usr/bin/gfortran-5
+    - export CC=/usr/bin/gcc-5
     - mkdir cmake-build
     - cd cmake-build
-    - cmake ..
+    - cmake .. -DUSE_MPI=no
     - make -j 4
