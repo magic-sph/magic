@@ -17,8 +17,8 @@ before_install:
     - pip install numpy matplotlib scipy
 
 script:
-    - export FC=/usr/bin/mpif90
-    - export CC=/usr/bin/mpicc
+    - export FC=mpif90
+    - export CC=mpicc
     - mkdir cmake-build
     - cd cmake-build
     - cmake ..
