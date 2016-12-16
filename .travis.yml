@@ -18,9 +18,9 @@ before_install:
     - pip install numpy matplotlib scipy
 
 script:
+    - ulimit -s unlimited
+    - source sourceme.sh
     - export FC=/usr/bin/gfortran-5
     - export CC=/usr/bin/gcc-5
-    - mkdir cmake-build
-    - cd cmake-build
-    - cmake .. -DUSE_MPI=no
-    - make -j 4
+    - cd samples
+    - ./magic_wizard.py --level 0
