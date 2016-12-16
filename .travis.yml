@@ -4,9 +4,9 @@ sudo: required
 addons:
     apt:
         packages:
-            - gfortran
-            - gcc
-            - g++
+            - gfortran-5
+            - gcc-5
+            - g++-5
             - cmake
 
 before_install:
@@ -15,8 +15,8 @@ before_install:
     - sudo apt-get install mpich2 -y
 
 script:
-    - export FC=mpif90
-    - export CC=mpicc
+    - export FC=/usr/bin/mpif90.mpich2
+    - export CC=/usr/bin/mpicc.mpich2
     - mkdir cmake-build
     - cd cmake-build
     - cmake .. -DUSE_MPI=yes
