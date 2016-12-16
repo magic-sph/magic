@@ -44,20 +44,23 @@ contains
    end subroutine parallel
 
    subroutine check_MPI_error(code)
-       integer, intent(in) :: code
-       character(len=MPI_MAX_ERROR_STRING) :: error_str
-       integer :: ierr, strlen
 
-       if (code /= 0) then
+      integer, intent(in) :: code
 #ifdef WITH_MPI
-            call MPI_Error_string(code, error_str, strlen, ierr)
-            write(*, '(A, A)') 'MPI error: ', trim(error_str)
-            call MPI_Abort(MPI_COMM_WORLD, code, ierr)
-#else
-            write(*, '(A, I4)') 'Error code: ', code
-            stop
+      character(len=MPI_MAX_ERROR_STRING) :: error_str
+      integer :: ierr, strlen
 #endif
-       endif
+
+      if (code /= 0) then
+#ifdef WITH_MPI
+          call MPI_Error_string(code, error_str, strlen, ierr)
+          write(*, '(A, A)') 'MPI error: ', trim(error_str)
+          call MPI_Abort(MPI_COMM_WORLD, code, ierr)
+#else
+          write(*, '(A, I4)') 'Error code: ', code
+          stop
+#endif
+      endif
 
    end subroutine check_MPI_error
 !------------------------------------------------------------------------------
