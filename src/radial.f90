@@ -531,6 +531,7 @@ contains
                !-- Use d2temp0 as a work array
                d2temp0(:)=-epsS*dentropy0(:)
                call getBackground(dtemp0,1.0_cp,temp0,d2temp0)
+               dtemp0(:)=epsS*temp0(:)*dentropy0(:)-DissNb*rgrav(:)
 
                drho0=-ThExpNb*epsS*dentropy0-DissNb/GrunNb*rgrav/temp0
                call getBackground(drho0,0.0_cp,rho0)
