@@ -983,13 +983,13 @@ contains
       end do
       write(n_out,'(''  l_probe         ='',l3,'','')') l_probe
       write(n_out,'(''  n_probe_step    ='',i5,'','')') n_probe_step
-      write(n_out,'(''  n_probe_out  ='',i5,'','')') n_probe_out
+      write(n_out,'(''  n_probe_out     ='',i5,'','')') n_probe_out
       write(n_out,'(''  t_probe_start   ='',ES14.6,'','')') t_probe_start
       write(n_out,'(''  t_probe_stop    ='',ES14.6,'','')') t_probe_stop
       write(n_out,'(''  dt_probe        ='',ES14.6,'','')') dt_probe
-      write(n_out,'(''  r_probe        ='',ES14.6,'','')') r_probe
-      write(n_out,'(''  theta_probe        ='',ES14.6,'','')') theta_probe
-      write(n_out,'(''  n_phi_probes       ='',i3,'','')') n_phi_probes
+      write(n_out,'(''  r_probe         ='',ES14.6,'','')') r_probe
+      write(n_out,'(''  theta_probe     ='',ES14.6,'','')') theta_probe
+      write(n_out,'(''  n_phi_probes    ='',i3,'','')') n_phi_probes
       write(n_out,'(''  l_average       ='',l3,'','')') l_average
       write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field

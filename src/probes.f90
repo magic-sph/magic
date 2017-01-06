@@ -50,8 +50,10 @@ contains
       end if
       
       r_probe = r_probe + r_icb
-      theta_probe = mod(abs(theta_probe),90.0_cp)            !Make sure theta is positive and between 0 and 90
       
+      theta_probe = mod(abs(theta_probe),180.0_cp)            !Make sure theta is positive and between 0 and 90
+      if(theta_probe > 90.0_cp) theta_probe = 180 - theta_probe
+
       rad_usr = minloc(abs(r_probe - r),1)
       n_theta_usr = minloc(abs(theta_probe*deg2rad - theta),1)
 
