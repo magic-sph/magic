@@ -3,6 +3,8 @@ module truncation
    ! This module defines the grid points and the truncation 
    !
 
+   use precision_mod, only: cp
+
    implicit none
 
    integer :: n_r_max       ! number of radial grid points
@@ -13,6 +15,10 @@ module truncation
    integer :: minc          ! basic wavenumber, longitude symmetry  
    integer :: nalias        ! controls dealiasing in latitude
    logical :: l_axi         ! logical for axisymmetric calculations
+   character(len=72) :: radial_scheme ! radial scheme (either Cheybev of FD)
+   real(cp) :: fd_stretch    ! regular intervals over irregular intervals
+   real(cp) :: fd_ratio      ! drMin over drMax (only when FD are used)
+   integer :: fd_order      ! Finite difference order (for now only 2 and 4 are safe)
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points

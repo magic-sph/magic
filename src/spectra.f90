@@ -304,9 +304,9 @@ contains
             !------ Output:
             dt_norm=one/time_norm
             if ( BV == 'B' ) then
-               outFile='mag_spec_ave.'//TAG
+               outFile='mag_spec_ave.'//tag
             else if ( BV == 'V' ) then
-               outFile='kin_spec_ave.'//TAG
+               outFile='kin_spec_ave.'//tag
             else
                write(*,*) 'WRONG BV INPUT TO spectrum_average!'
                stop
@@ -1029,7 +1029,7 @@ contains
             end do
 
             !------ Output:
-            outFile='T_spec_ave.'//TAG
+            outFile='T_spec_ave.'//tag
             open(newunit=nOut,file=outFile,status='unknown')
             do l=1,l_max+1
                write(nOut,'(2X,1P,I4,6ES16.8)') l,                 &

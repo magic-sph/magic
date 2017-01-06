@@ -175,7 +175,7 @@ contains
       end if
 
       if ( ( l_newmap ) .and. (rank == 0) ) then
-         fileName='rNM.'//TAG
+         fileName='rNM.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
             write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb, &
@@ -187,8 +187,8 @@ contains
       call transportProperties
 
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
-         ! Write the equilibrium setup in anel.TAG
-         fileName='anel.'//TAG
+         ! Write the equilibrium setup in anel.tag
+         fileName='anel.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(9a15)') 'radius', 'temp0', 'rho0', 'beta',         &
          &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)',&
@@ -204,7 +204,7 @@ contains
     
       !-- Write radial profiles
       if ( l_mag .and. nVarCond > 0 ) then
-         fileName='varCond.'//TAG
+         fileName='varCond.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
          do n_r=n_r_max,1,-1
@@ -215,7 +215,7 @@ contains
       end if
     
       if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
-         fileName='varDiff.'//TAG
+         fileName='varDiff.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(5a15)') 'radius', 'conductivity', 'kappa', &
          &                          'dLkappa', 'Prandtl'
@@ -228,7 +228,7 @@ contains
       end if
     
       if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
-         fileName='varVisc.'//TAG
+         fileName='varVisc.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
          &                          'dLvisc', 'Ekman', 'Prandtl', 'Pm'

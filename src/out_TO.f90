@@ -18,7 +18,7 @@ module outTO_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs, st_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
-   use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file, &
+   use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file, &
        &                  nSmaxA, nZmaxA
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
@@ -346,7 +346,7 @@ contains
          if ( lTOZwrite ) then
             nTOZfile=nTOZfile+1
             call dble2str(real(nTOZfile,cp),string)
-            fileName='TOZ_'//trim(adjustl(string))//'.'//TAG
+            fileName='TOZ_'//trim(adjustl(string))//'.'//tag
             open(newunit=n_toz_file, file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_toz_file) real(time,kind=outp), real(nSmax,kind=outp), &
@@ -355,7 +355,7 @@ contains
             write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
          end if
          if ( nTOsets > 1 .and. l_TOZave ) then
-            fileName='TOZM.'//TAG
+            fileName='TOZM.'//tag
             open(newunit=n_tozm_file,file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &

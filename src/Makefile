@@ -320,10 +320,12 @@ timing.o: timing.f90
 # cancelling the implicit rule for .F files
 #%.f: %.F
 
+truncation.o          : precision_mod.o
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
                         logic.o output_data.o movie.o special.o\
                         integration.o useful.o LMLoop_data.o mem_alloc.o
+finite_differences.o  : truncation.o useful.o constants.o parallel.o
 useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
 LMmapping.o           : mem_alloc.o truncation.o
@@ -562,7 +564,7 @@ blocking.o            : truncation.o LMmapping.o logic.o parallel.o\
                         mem_alloc.o
 num_param.o           : truncation.o precision_mod.o mem_alloc.o
 radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
-                        phys_param.o logic.o precision_mod.o\
+                        phys_param.o logic.o precision_mod.o finite_differences.o\
                         output_data.o cosine_transform_odd.o\
                         chebyshev_polynoms.o radial_derivatives.o\
 			cosine_transform_even.o mem_alloc.o useful.o

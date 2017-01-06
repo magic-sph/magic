@@ -199,7 +199,7 @@ contains
 
          !--- Open file for output:
          if ( l_stop_time ) then
-            fileName='PVZ.'//TAG
+            fileName='PVZ.'//tag
             open(newunit=n_pvz_file, file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_pvz_file) real(time,kind=outp), real(nSmax,kind=outp), &
@@ -210,7 +210,7 @@ contains
 
 
             !--- Open file for the three flow components:
-            fileName='Vcy.'//TAG
+            fileName='Vcy.'//tag
             open(newunit=n_vcy_file, file=fileName,form='unformatted', &
             &    status='unknown')
             write(n_vcy_file) real(time,kind=outp), real(nSmax,kind=outp),&

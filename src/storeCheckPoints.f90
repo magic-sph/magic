@@ -1,7 +1,7 @@
 module storeCheckPoints
    !
    ! This module contains several subroutines that can be used to store the
-   ! rst_#.TAG files
+   ! rst_#.tag files
    !
 
    use precision_mod

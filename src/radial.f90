@@ -4,19 +4,25 @@ module radial_functions
    !  temperature, cheb transforms, etc.)
    !
 
-   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
+   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
+       &                 fd_stretch, fd_order
    use algebra, only: sgesl,sgefa
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
-   use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
-       &            l_isothermal, l_anel, l_newmap, l_non_adia,   &
-       &            l_TP_form, l_temperature_diff, l_single_matrix
+   use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
+       &            l_isothermal, l_anel, l_newmap, l_non_adia,    &
+       &            l_TP_form, l_temperature_diff, l_single_matrix,&
+       &            l_finite_diff
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
    use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
+   use parallel_mod, only: rank
+   use output_data, only: tag
+   use finite_differences, only: get_FD_grid, initialize_FD_arrays, &
+       &                         finalize_FD_arrays
  
    implicit none
 
@@ -115,14 +121,6 @@ contains
       ! Initial memory allocation
       !
 
-      nDi_costf1=2*n_r_max+2
-      nDd_costf1=2*n_r_max+5
-
-      nDi_costf1_ic=2*n_r_ic_max+2
-      nDd_costf1_ic=2*n_r_ic_max+5
-      nDi_costf2_ic=2*n_r_ic_max
-      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
-
       ! allocate the arrays
       allocate( r(n_r_max) )
       allocate( r_ic(n_r_ic_max) )
@@ -140,31 +138,47 @@ contains
       bytes_allocated = bytes_allocated + &
                         (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
-      allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
-      allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
-      allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
-      allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
-      allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
-      bytes_allocated = bytes_allocated + &
-                        (4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
-
-      call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
-
-      allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
-      allocate( cheb_int_ic(n_r_ic_max) )
-      bytes_allocated = bytes_allocated + &
-                        (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
-
-      call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
-
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
       allocate( sigma(n_r_max) )
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
       allocate( visc(n_r_max),dLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
+
+
+      if ( .not. l_finite_diff ) then
+
+         allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
+         allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
+         allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
+         allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
+         allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
+         bytes_allocated = bytes_allocated + &
+                           (4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+
+         nDi_costf1=2*n_r_max+2
+         nDd_costf1=2*n_r_max+5
+
+         nDi_costf1_ic=2*n_r_ic_max+2
+         nDd_costf1_ic=2*n_r_ic_max+5
+         nDi_costf2_ic=2*n_r_ic_max
+         nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
+
+         call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
+
+         allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
+         allocate( cheb_int_ic(n_r_ic_max) )
+         bytes_allocated = bytes_allocated + &
+                           (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+
+         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+
+      else
+         call initialize_FD_arrays(n_r_max,fd_order)
+      end if
+
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -174,14 +188,18 @@ contains
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
       deallocate( ddLalpha0, dLalpha0, drx, ddrx, dddrx, rgrav, ogrun )
-      deallocate( cheb, dcheb, d2cheb, d3cheb, cheb_int )
-      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, epscProf, divKtemp0 )
 
-      call chebt_oc%finalize()
-      call chebt_ic%finalize()
-      if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
+      if ( .not. l_finite_diff ) then
+         deallocate( cheb, dcheb, d2cheb, d3cheb, cheb_int )
+         deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+         call chebt_oc%finalize()
+         call chebt_ic%finalize()
+         if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
+      else
+         call finalize_FD_arrays()
+      end if
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
@@ -209,10 +227,8 @@ contains
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
       real(cp) :: w1(n_r_max), w2(n_r_max), rrOcmb(n_r_max)
       character(len=80) :: message
-
-#if 0
-      integer :: filehandle
-#endif
+      character(len=76) :: fileName
+      integer :: fileHandle
 
       !-- Radial grid point:
       !   radratio is aspect ratio
@@ -221,67 +237,69 @@ contains
       r_icb=r_cmb-one
       r_surface=2.8209_cp    ! in units of (r_cmb-r_icb)
 
-      cheb_norm=sqrt(two/real(n_r_max-1,kind=cp))
-      dr_fac=two/(r_cmb-r_icb)
 
-      if ( l_newmap ) then
-         alpha1         =alph1
-         alpha2         =alph2
-         paraK=atan(alpha1*(1+alpha2))/atan(alpha1*(1-alpha2))
-         paraX0=(paraK-1)/(paraK+1)
-         lambd=atan(alpha1*(1-alpha2))/(1-paraX0)
+      if ( .not. l_finite_diff ) then
+
+         cheb_norm=sqrt(two/real(n_r_max-1,kind=cp))
+         dr_fac=two/(r_cmb-r_icb)
+
+         if ( l_newmap ) then
+            alpha1         =alph1
+            alpha2         =alph2
+            paraK=atan(alpha1*(1+alpha2))/atan(alpha1*(1-alpha2))
+            paraX0=(paraK-1)/(paraK+1)
+            lambd=atan(alpha1*(1-alpha2))/(1-paraX0)
+         else
+            alpha1         =0.0_cp
+            alpha2         =0.0_cp
+         end if
+
+         !-- Start with outer core:
+         !   cheb_grid calculates the n_r_max gridpoints, these
+         !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
+         !   r_cheb are the grid_points in the Cheb interval [-1,1]
+         !   and r are these points mapped to the interval [r_icb,r_cmb]:
+         call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
+              &               alpha1,alpha2,paraX0,lambd)
+
+         if ( l_newmap ) then
+            do n_r=1,n_r_max
+               drx(n_r) =                          (two*alpha1) /      &
+                    ((one+alpha1**2*(two*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
+                    lambd)
+               ddrx(n_r) = -(8.0_cp*alpha1**3*(two*r(n_r)-r_icb-r_cmb-alpha2)) / &
+                    ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
+                    lambd)
+               dddrx(n_r) =        (16.0_cp*alpha1**3*(-one+three*alpha1**2* &
+                                     (-two*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
+                    ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
+                    lambd)
+            end do
+         else
+            do n_r=1,n_r_max
+               drx(n_r)=two/(r_cmb-r_icb)
+               ddrx(n_r)=0
+               dddrx(n_r)=0
+            end do
+         end if
+
+         !-- Calculate chebs and their derivatives up to degree n_r_max-1
+         !   on the n_r radial grid points r:
+         call get_chebs(n_r_max,r_icb,r_cmb,r_cheb,n_r_max,       &
+              &         cheb,dcheb,d2cheb,d3cheb,n_r_max,n_r_max, &
+              &         drx,ddrx,dddrx)
       else
-         alpha1         =0.0_cp
-         alpha2         =0.0_cp
+         call get_FD_grid(fd_stretch, fd_ratio, r_icb, r_cmb, r)
       end if
 
-      !-- Start with outer core:
-      !   cheb_grid calculates the n_r_max gridpoints, these
-      !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
-      !   r_cheb are the grid_points in the Cheb interval [-1,1]
-      !   and r are these points mapped to the interval [r_icb,r_cmb]:
-      call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
-                           alpha1,alpha2,paraX0,lambd)
-#if 0
-      do n_r=1,n_r_max
-         write(*,"(I3,2ES20.12)") n_r,r_cheb(n_r),r(n_r)
-      end do
-#endif
-
-      if ( l_newmap ) then
+      if ( rank == 0 ) then
+         fileName = 'radius.'//tag
+         open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
-            drx(n_r) =                          (two*alpha1) /      &
-                 ((one+alpha1**2*(two*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
-                 lambd)
-            ddrx(n_r) = -(8.0_cp*alpha1**3*(two*r(n_r)-r_icb-r_cmb-alpha2)) / &
-                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
-                 lambd)
-            dddrx(n_r) =        (16.0_cp*alpha1**3*(-one+three*alpha1**2* &
-                                  (-two*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
-                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
-                 lambd)
+            write(fileHandle,'(I4, ES16.8)') n_r, r(n_r)
          end do
-      else
-         do n_r=1,n_r_max
-            drx(n_r)=two/(r_cmb-r_icb)
-            ddrx(n_r)=0
-            dddrx(n_r)=0
-         end do
+         close(fileHandle)
       end if
-
-      !-- Calculate chebs and their derivatives up to degree n_r_max-1
-      !   on the n_r radial grid points r:
-      call get_chebs(n_r_max,r_icb,r_cmb,r_cheb,n_r_max,       &
-                     cheb,dcheb,d2cheb,d3cheb,n_r_max,n_r_max, &
-                     drx,ddrx,dddrx)
-
-#if 0
-      open(newunit=filehandle,file="r_cheb.dat")
-      do n_r=1,n_r_max
-         write(filehandle,"(2ES20.12)") r_cheb(n_r),r(n_r)
-      end do
-      close(filehandle)
-#endif
 
       or1=one/r         ! 1/r
       or2=or1*or1       ! 1/r**2
