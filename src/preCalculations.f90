@@ -16,7 +16,7 @@ module preCalculations
        &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
-       &            l_temperature_diff, l_chemical_conv
+       &            l_temperature_diff, l_chemical_conv, l_probe
    use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
        &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -783,6 +783,15 @@ contains
            &             n_specs,n_spec_step,'spec',time,tScale)
       l_time_hits=l_time_hits .or. l_time
 
+      if ( l_probe ) then
+         l_probe=.false.
+         call get_hit_times(t_probe,n_time_hits,n_t_probe,l_time, &
+              &             t_probe_start,t_probe_stop,dt_probe,  &
+              &             n_probe_out,n_probe_step,'probe',time,tScale)
+         if ( n_probe_out > 0 .or. n_probe_step > 0 .or. l_time ) l_probe= .true.
+         l_time_hits=l_time_hits .or. l_time
+      end if
+
       if ( l_cmb_field ) then
          l_cmb_field=.false.
          call get_hit_times(t_cmb,n_time_hits,n_t_cmb,l_time, &
@@ -911,7 +920,7 @@ contains
       t_stop =t_stop/tScale
       dt     =dt/tScale
 
-      !-- Check whether any time is given explicitely:
+      !-- Check whether any time is given explicitly:
       l_t=.false.
       n_t=0
       do n=1,n_t_max
@@ -927,7 +936,7 @@ contains
       if ( .not. l_t .and. ( dt > 0.0_cp .or. &
          ( n_tot > 0 .and. t_stop > t_start ) ) ) then
 
-         if ( n_tot > 0 .AND. dt > 0.0_cp ) then
+         if ( n_tot > 0 .and. dt > 0.0_cp ) then
             n_t  =n_tot
             n_tot=0
          else if ( dt > 0.0_cp ) then
@@ -956,6 +965,7 @@ contains
          else
             t(1)=t_start
          end if
+
          do n=2,n_t
             t(n)=t(n-1)+dt
          end do

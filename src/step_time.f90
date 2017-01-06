@@ -25,7 +25,8 @@ module step_time_mod
        &            l_FluxProfs, l_ViscBcCalc, l_perpPar, l_HT, l_dtB, &
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
-       &            l_chemical_conv, l_mag_kin, l_power, l_TP_form
+       &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
+       &            l_probe
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -44,6 +45,7 @@ module step_time_mod
        &                  n_r_fields, n_t_r_field, t_r_field, n_TO_step,   &
        &                  n_TOs, n_t_TO, t_TO, n_TOZ_step, n_TOZs,         &
        &                  n_t_TOZ, t_TOZ, l_graph_time, graph_file,        &
+       &                  n_probe_step,n_probe_out,n_t_probe,t_probe,      &
 #ifdef WITH_MPI
        &                  log_file, graph_mpi_fh, n_log_file,              &
 #else
@@ -61,6 +63,7 @@ module step_time_mod
    use courant_mod, only: dt_courant
    use nonlinear_bcs, only: get_b_nl_bcs
    use timing ! Everything is needed
+   use probe_mod
 
    implicit none 
 
@@ -283,6 +286,7 @@ contains
       logical :: l_Bpot,l_Vpot,l_Tpot
       logical :: lRmsCalc,lRmsNext
       logical :: lMat             ! update matricies
+      logical :: l_probe_out      ! Sensor output
 
       !--- Counter:
       integer :: n                ! Counter
@@ -668,6 +672,10 @@ contains
               &     l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
               &     n_TOmovie_step,n_TOmovie_frames,n_t_TOmovie,t_TOmovie,0)
 
+         l_probe_out=l_probe .and.                                               &
+              &     l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
+              &     n_probe_step,n_probe_out,n_t_probe,t_probe,0)
+
          l_Bpot=l_storeBpot .and. (                                              &
               &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
               &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or. &
@@ -866,20 +874,20 @@ contains
          ! ===================================================================
 
          call wallTime(runTimeRstart)
-         call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
-              &           lPowerCalc,lRmsCalc,                                 &
-              &           lViscBcCalc,lFluxProfCalc,lperpParCalc,              &
-              &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
-              &           dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,dVSrLM_Rloc,        &
-              &           dVPrLM_Rloc,dVXirLM_Rloc,lorentz_torque_ic,          &
-              &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,         &
-              &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,  &
-              &           HelnaLMr_Rloc,Helna2LMr_Rloc,viscLMr_Rloc,           &
-              &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,  &
-              &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,            &
-              &           fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,             &
-              &           EperpaxiLMr_Rloc,EparaxiLMr_Rloc,                    &
+         call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,                  &
+              &           lTOCalc,lTONext,lTONext2,lHelCalc,                      &
+              &           lPowerCalc,lRmsCalc,                                    &
+              &           lViscBcCalc,lFluxProfCalc,lperpParCalc,                 &
+              &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,    &
+              &           dxidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,            &
+              &           dVSrLM_Rloc,dVPrLM_Rloc,dVXirLM_Rloc,lorentz_torque_ic, &
+              &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,            &
+              &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,     &
+              &           HelnaLMr_Rloc,Helna2LMr_Rloc,viscLMr_Rloc,              &
+              &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,     &
+              &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,               &
+              &           fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,                &
+              &           EperpaxiLMr_Rloc,EparaxiLMr_Rloc,                       &
               &           dtrkc_Rloc,dthkc_Rloc)
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'

@@ -988,32 +988,14 @@ contains
                const  =r_cmb
             else if ( r_movie > 0 ) then
                r_movie=r_icb+r_movie
-               do n_r=2,n_r_max
-                  if ( r(n_r-1) > r_movie .and. r(n_r)  <= r_movie ) then
-                     if ( r(n_r-1)-r_movie < r_movie-r(n_r) ) then
-                        n_const=n_r-1
-                     else
-                        n_const=n_r
-                     end if
-                     const=r(n_const)
-                     exit
-                  end if
-               end do
+               n_const = minloc(abs(r - r_movie),1)
+               const = r(n_const)
             else
                !------ Negative numbers signify inner core values in
                !       fractions of r_icb:
                r_movie=-r_movie*r_icb
-               do n_r=2,n_r_ic_max
-                  if ( r_ic(n_r-1) >= r_movie .and. r_ic(n_r)  <= r_movie ) then
-                     if ( r_ic(n_r-1)-r_movie < r_movie-r_ic(n_r) ) then
-                        n_const=-(n_r-1)
-                     else
-                        n_const=-n_r
-                     end if
-                     const=r_ic(-n_const)
-                     exit
-                  end if
-               end do
+               n_const = minloc(abs(r_ic - r_movie),1)
+               const = r_ic(n_const)
             end if
     
          else if ( INDEX(string,'EQ') /= 0 .or. lEquator ) then

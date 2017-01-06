@@ -129,6 +129,7 @@ program magic
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
+   use probe_mod, only: initialize_probes
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -263,6 +264,7 @@ program magic
    call preCalc
 
    if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
+   if (l_probe) call initialize_probes       !Needs to be called after preCalc to get correct coordinate values
    if ( l_RMS ) call initialize_RMS
    local_bytes_used=bytes_allocated-local_bytes_used
 

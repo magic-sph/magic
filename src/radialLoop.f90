@@ -85,7 +85,7 @@ contains
    subroutine radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,         &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lViscBcCalc,lFluxProfCalc,lPerpParCalc,&
-              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,            &
+              &          l_probe_out,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,&
               &          dVxBhLM,dVSrLM,dVPrLM,dVXirLM,                  &
               &          lorentz_torque_ic,lorentz_torque_ma,            &
               &          br_vt_lm_cmb,br_vp_lm_cmb,                      &
@@ -103,7 +103,7 @@ contains
       logical,      intent(in) :: lTOcalc,lTONext,lTONext2,lHelCalc
       logical,      intent(in) :: lPowerCalc
       logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
-      logical,      intent(in) :: lRmsCalc
+      logical,      intent(in) :: lRmsCalc, l_probe_out
       real(cp),     intent(in) :: time,dt,dtLast
 
       !---- Output of explicit time step:
@@ -270,7 +270,7 @@ contains
          call this_rIteration%set_steering_variables(l_cour,lTOCalc,lTOnext, &
               & lTOnext2,lDeriv,lRmsCalc,lHelCalc,lPowerCalc,l_frame,        &
               & lMagNlBc,l_graph,lViscBcCalc,lFluxProfCalc,lPerpParCalc,     &
-              & lPressCalc)
+              & lPressCalc, l_probe_out)
 
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &

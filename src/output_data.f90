@@ -30,6 +30,7 @@ module output_data
    real(cp), public :: t_Vpot_start,t_Vpot_stop,dt_Vpot
    real(cp), public :: t_Tpot_start,t_Tpot_stop,dt_Tpot
    real(cp), public :: t_pot_start,t_pot_stop,dt_pot
+   real(cp), public :: t_probe_start,t_probe_stop,dt_probe
    integer, public :: n_graph_step,n_graphs,n_t_graph
    integer, public :: n_rst_step,n_rsts,n_t_rst,n_stores
    integer, public :: n_log_step,n_logs,n_t_log
@@ -44,6 +45,7 @@ module output_data
    integer, public :: n_Vpot_step,n_Vpots,n_t_Vpot      
    integer, public :: n_Tpot_step,n_Tpots,n_t_Tpot      
    integer, public :: n_pot_step,n_pots,n_t_pot      
+   integer, public :: n_probe_step,n_probe_out,n_t_probe
    integer, public, parameter :: n_time_hits=5000
    real(cp), public ::  t_graph(n_time_hits)
    real(cp), public ::  t_rst(n_time_hits)
@@ -59,6 +61,7 @@ module output_data
    real(cp), public ::  t_Vpot(n_time_hits)
    real(cp), public ::  t_Tpot(n_time_hits)
    real(cp), public ::  t_pot(n_time_hits)
+   real(cp), public ::  t_probe(n_time_hits)
  
    !----- Output radii and degrees for coeff files:
    integer, public :: n_coeff_r_max

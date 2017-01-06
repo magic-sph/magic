@@ -14,7 +14,7 @@ module rIterThetaBlocking_seq_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF,&
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,   &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,    &
-       &            l_movie_oc, l_TO
+       &            l_movie_oc, l_TO, l_probe
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use torsional_oscillations, only: getTO, getTOnext, getTOfinish
@@ -30,11 +30,12 @@ module rIterThetaBlocking_seq_mod
    use nonlinear_bcs, only: get_br_v_bcs
    use constants, only: zero
    use nl_special_calc
- 
+   use probe_mod
+
    implicit none
-   
+
    private
- 
+
    type, public, extends(rIterThetaBlocking_t) :: rIterThetaBlocking_seq_t
       type(grid_space_arrays_t) :: gsa
       type(TO_arrays_t) :: TO_arrays
@@ -50,18 +51,18 @@ module rIterThetaBlocking_seq_mod
 contains
 
    function getThisType(this)
- 
+
       class(rIterThetaBlocking_seq_t) :: this
       character(len=100) :: getThisType
-  
+
       getThisType="rIterThetaBlocking_seq_t"
- 
+
    end function getThisType
 !------------------------------------------------------------------------------
    subroutine initialize_rIterThetaBlocking_seq(this)
 
       class(rIterThetaBlocking_seq_t) :: this
-  
+
       call this%allocate_common_arrays()
       call this%gsa%initialize()
       call this%nl_lm%initialize(lmP_max)
@@ -73,7 +74,7 @@ contains
    subroutine finalize_rIterThetaBlocking_seq(this)
 
       class(rIterThetaBlocking_seq_t) :: this
-  
+
       call this%deallocate_common_arrays()
       call this%gsa%finalize()
       call this%nl_lm%finalize()
@@ -282,7 +283,11 @@ contains
                  &        lGraphHeader)
 #endif
          end if
-  
+
+         if ( this%l_probe_out ) then
+            call probe_out(time,this%nR,this%gsa%vpc, nThetaStart,this%sizeThetaB)
+         end if
+
          !--------- Helicity output:
          if ( this%lHelCalc ) then
             PERFON('hel_out')

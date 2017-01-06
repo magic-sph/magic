@@ -8,12 +8,12 @@ module rIterThetaBlocking_shtns_mod
 
    use truncation, only: lm_max, lmP_max, l_max, lmP_max_dtB,      &
        &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr, &
-       &                 n_theta_max, n_phi_max, nrp
+       &                 n_theta_max, n_phi_max, nrp, n_r_max
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel,  &
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
-       &            l_TO, l_chemical_conv, l_TP_form
+       &            l_TO, l_chemical_conv, l_TP_form, l_probe
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -40,6 +40,7 @@ module rIterThetaBlocking_shtns_mod
        &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
        &             w_Rloc,dw_Rloc,ddw_Rloc, xi_Rloc
    use physical_parameters, only: ktops, kbots, n_r_LCR
+   use probe_mod
 
    implicit none
 
@@ -273,6 +274,10 @@ contains
                  &        this%gsa%pc,this%gsa%xic,            &
                  &        1 ,this%sizeThetaB,lGraphHeader)
 #endif
+      end if
+
+      if ( this%l_probe_out ) then
+         call probe_out(time,this%nR,this%gsa%vpc, 1,this%sizeThetaB)
       end if
 
       !--------- Helicity output:

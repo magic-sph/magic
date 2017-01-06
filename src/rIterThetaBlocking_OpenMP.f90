@@ -12,7 +12,7 @@ module rIterThetaBlocking_OpenMP_mod
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
               &     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
               &     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-              &     l_movie_oc, l_TO, l_chemical_conv, l_TP_form
+              &     l_movie_oc, l_TO, l_chemical_conv, l_TP_form, l_probe
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -33,6 +33,7 @@ module rIterThetaBlocking_OpenMP_mod
    use courant_mod, only: courant
    use nonlinear_bcs, only: get_br_v_bcs
    use nl_special_calc
+   use probe_mod
 
    implicit none
 
@@ -379,6 +380,10 @@ contains
 #endif
          end if
 
+         if (this%l_probe_out ) then
+            call probe_out(time,this%nR,this%gsa(threadid)%vpc, nThetaStart, &
+                 &        this%sizeThetaB)
+         end if
          !--------- Helicity output:
          if ( this%lHelCalc ) then
             PERFON('hel_out')

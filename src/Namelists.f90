@@ -18,7 +18,8 @@ module Namelists
    use movie_data, only: movie,n_movies, n_movies_max
    use charmanip, only: length_to_blank,capitalize
    use blocking, only: cacheblock_size_in_B
- 
+   use probe_mod
+
    implicit none
  
    private
@@ -116,7 +117,9 @@ contains
          & l_storeVpot,l_storeTpot,l_storePot,sDens,zDens,    &
          & l_RMS,l_par,l_corrMov,rCut,rDea,                   &
          & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
-         & l_PressGraph, l_energy_modes, m_max_modes
+         & l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
+         & r_probe,theta_probe,n_phi_probes,n_probe_step,     &
+         & n_probe_out,t_probe_start,t_probe_stop,dt_probe
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -978,6 +981,15 @@ contains
             write(n_out,'(''  movie           = '',a,'','')') movie(n)(1:length)
          end if
       end do
+      write(n_out,'(''  l_probe         ='',l3,'','')') l_probe
+      write(n_out,'(''  n_probe_step    ='',i5,'','')') n_probe_step
+      write(n_out,'(''  n_probe_out  ='',i5,'','')') n_probe_out
+      write(n_out,'(''  t_probe_start   ='',ES14.6,'','')') t_probe_start
+      write(n_out,'(''  t_probe_stop    ='',ES14.6,'','')') t_probe_stop
+      write(n_out,'(''  dt_probe        ='',ES14.6,'','')') dt_probe
+      write(n_out,'(''  r_probe        ='',ES14.6,'','')') r_probe
+      write(n_out,'(''  theta_probe        ='',ES14.6,'','')') theta_probe
+      write(n_out,'(''  n_phi_probes       ='',i3,'','')') n_phi_probes
       write(n_out,'(''  l_average       ='',l3,'','')') l_average
       write(n_out,'(''  l_cmb_field     ='',l3,'','')') l_cmb_field
       write(n_out,'(''  l_dt_cmb_field  ='',l3,'','')') l_dt_cmb_field
@@ -1338,6 +1350,17 @@ contains
          movie(n)=' '
       end do
 
+      !----- Output from probes:
+      l_probe       =.false.
+      n_probe_step  =0
+      n_probe_out   =0
+      t_probe_start =0.0_cp
+      t_probe_stop  =0.0_cp
+      dt_probe      =0.0_cp
+      n_phi_probes  =0
+      r_probe       =0.0_cp
+      theta_probe   =0.0_cp
+
       !----- Output of magnetic potentials:
       l_storeBpot   =.false.
       n_Bpot_step   =0
@@ -1400,6 +1423,7 @@ contains
          t_TO(n)     =-one
          t_TOZ(n)    =-one
          t_TOmovie(n)=-one
+         t_probe     =-one
       end do
 
       !----- Magnetic spectra for different depths

@@ -259,18 +259,6 @@ contains
 
       integer :: n
 
-      if ( l_r_field .or. l_r_fieldT ) then
-         deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
-
-         if ( l_mag ) then
-            deallocate ( n_b_r_file, b_r_file, n_b_r_sets )
-         end if
-
-         if ( l_r_fieldT ) then
-            deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
-         end if
-      end if
-
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
             close(n_cmb_file)
@@ -296,6 +284,19 @@ contains
 
          if ( l_power ) close(n_dtE_file)
       end if
+
+      if ( l_r_field .or. l_r_fieldT ) then
+         deallocate ( n_coeff_r, n_v_r_file, v_r_file, n_v_r_sets )
+
+         if ( l_mag ) then
+            deallocate ( n_b_r_file, b_r_file, n_b_r_sets )
+         end if
+
+         if ( l_r_fieldT ) then
+            deallocate ( n_t_r_file, t_r_file, n_t_r_sets )
+         end if
+      end if
+
 
    end subroutine finalize_output
 !----------------------------------------------------------------------------
