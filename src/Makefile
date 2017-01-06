@@ -391,7 +391,7 @@ magic.o               : truncation.o num_param.o parallel.o logic.o\
                         useful.o startFields.o preCalculations.o\
                         step_time.o kinetic_energy.o mem_alloc.o\
 			magnetic_energy.o horizontal.o fields_average.o \
-			Egeos.o spectra.o out_TO.o output_data.o outMisc.o\
+			Egeos.o spectra.o out_TO.o output_data.o outMisc.o probes.o\
                         outPV3.o Namelists.o blocking.o out_coeff.o
 step_time.o           : truncation.o blocking.o phys_param.o\
                         num_param.o radial_data.o mem_alloc.o\
@@ -399,7 +399,7 @@ step_time.o           : truncation.o blocking.o phys_param.o\
                         char_manip.o timing.o courant.o\
                         radialLoop.o nonlinear_bcs.o\
                         LMLoop.o dt_fieldsLast.o \
-			c_utils.o useful.o
+			c_utils.o useful.o probes.o
 phys_param.o          : precision_mod.o
 char_manip.o          : precision_mod.o
 constants.o           : precision_mod.o
@@ -422,10 +422,10 @@ rIterThetaBlocking.o  : rIteration.o truncation.o blocking.o \
                         legendre_grid_to_spec.o  out_graph_file.o
 rIterThetaBlocking_OpenMP.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o
+			TO_arrays.o dtB_arrays.o probes.o
 rIterThetaBlocking_seq.o : rIterThetaBlocking.o TO.o dtB.o\
                         out_movie_file.o outRot.o nl_special_calc.o\
-			TO_arrays.o dtB_arrays.o
+			TO_arrays.o dtB_arrays.o probes.o
 LMLoop.o              : truncation.o blocking.o parallel.o\
                         logic.o radial_data.o updateWPS.o\
                         output_data.o fields.o dt_fieldsLast.o\
@@ -592,12 +592,14 @@ dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o\
 fields.o              : truncation.o LMLoop_data.o radial_data.o\
                         precision_mod.o	mem_alloc.o logic.o
 special.o             : precision_mod.o mem_alloc.o truncation.o
+probes.o              : parallel.o precision_mod.o truncation.o radial.o num_param.o\
+                        blocking.o horizontal.o output_data.o constants.o
 radial_data.o         : truncation.o parallel.o logic.o
 plms.o                : constants.o precision_mod.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \
-			TO.o special.o radial.o char_manip.o
+			TO.o special.o radial.o char_manip.o probes.o
 
 ifeq ($(USE_MPI),yes)
 mpi.mod: $(MPI_INCPATH)/mpif.h
@@ -607,7 +609,7 @@ endif
 ifeq ($(USE_SHTNS),yes)
 rIterThetaBlocking_shtns.o : rIterThetaBlocking.o TO.o dtB.o shtns.o\
                         out_movie_file.o outRot.o nl_special_calc.o courant.o\
-			TO_arrays.o dtB_arrays.o
+			TO_arrays.o dtB_arrays.o probes.o
 shtns.o               : truncation.o blocking.o horizontal.o radial.o  parallel.o\
                         precision_mod.o constants.o
 radialLoop.o          : rIterThetaBlocking_shtns.o
