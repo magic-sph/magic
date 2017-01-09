@@ -129,7 +129,7 @@ program magic
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
-   use probe_mod, only: initialize_probes
+   use probe_mod, only: initialize_probes, finalize_probes
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
 #  include "likwid_f90.h"
@@ -386,6 +386,7 @@ program magic
    call finalize_spectra
    if ( l_mag ) call finalize_magnetic_energy
    call finalize_kinetic_energy
+   if ( l_probe ) call finalize_probes
 
    call finalize_communications
    call finalize_step_time
