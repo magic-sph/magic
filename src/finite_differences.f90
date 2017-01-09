@@ -11,60 +11,72 @@ module finite_differences
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
 
-
    implicit none
 
    private
 
-   real(cp), allocatable :: dr_stencil(:,:)
-   real(cp), allocatable :: ddr_stencil(:,:)
-   real(cp), allocatable :: dddr_stencil(:,:)
-   real(cp), allocatable :: dr_stencil_top(:,:)
-   real(cp), allocatable :: dr_stencil_bot(:,:)
-   real(cp), allocatable :: ddr_stencil_top(:,:)
-   real(cp), allocatable :: ddr_stencil_bot(:,:)
-   real(cp), allocatable :: dddr_stencil_top(:,:)
-   real(cp), allocatable :: dddr_stencil_bot(:,:)
+   type, public :: type_stencil
+      integer :: order
+      real(cp), allocatable :: dr(:,:)
+      real(cp), allocatable :: ddr(:,:)
+      real(cp), allocatable :: dddr(:,:)
+      real(cp), allocatable :: dr_top(:,:)
+      real(cp), allocatable :: dr_bot(:,:)
+      real(cp), allocatable :: ddr_top(:,:)
+      real(cp), allocatable :: ddr_bot(:,:)
+      real(cp), allocatable :: dddr_top(:,:)
+      real(cp), allocatable :: dddr_bot(:,:)
+   contains
+      procedure :: initialize
+      procedure :: finalize
+      procedure :: get_FD_coeffs
+   end type type_stencil
 
-   public :: get_FD_grid, initialize_FD_arrays, finalize_FD_arrays
+
+   public :: get_FD_grid
 
 contains
 
-   subroutine initialize_FD_arrays(n_r_max,order)
+   subroutine initialize(this,n_r_max,order)
       !
       ! This subroutine allocates the arrays used when finite difference are used
       !
 
+      class(type_stencil) :: this
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer, intent(in) :: order   ! FD order
 
-      allocate( dr_stencil(n_r_max,0:order) )
-      allocate( ddr_stencil(n_r_max,0:order) )
-      allocate( dddr_stencil(n_r_max,0:order+2) )
-      allocate( dr_stencil_top(order/2,0:order) )
-      allocate( dr_stencil_bot(order/2,0:order) )
-      allocate( ddr_stencil_top(order/2,0:order+1) )
-      allocate( ddr_stencil_bot(order/2,0:order+1) )
-      allocate( dddr_stencil_top(order/2+1,0:order+2) )
-      allocate( dddr_stencil_bot(order/2+1,0:order+2) )
+      this%order = order
+
+      allocate( this%dr(n_r_max,0:order) )
+      allocate( this%ddr(n_r_max,0:order) )
+      allocate( this%dddr(n_r_max,0:order+2) )
+      allocate( this%dr_top(order/2,0:order) )
+      allocate( this%dr_bot(order/2,0:order) )
+      allocate( this%ddr_top(order/2,0:order+1) )
+      allocate( this%ddr_bot(order/2,0:order+1) )
+      allocate( this%dddr_top(order/2+1,0:order+2) )
+      allocate( this%dddr_bot(order/2+1,0:order+2) )
 
       bytes_allocated=bytes_allocated+(n_r_max*(3*order+5)+         &
       &               order/2*(4*order+6)+(order/2+1)*(2*order+6))* &
       &               SIZEOF_DEF_REAL
 
-   end subroutine initialize_FD_arrays
+   end subroutine initialize
 !---------------------------------------------------------------------------
-   subroutine finalize_FD_arrays
+   subroutine finalize(this)
       !
       ! This subroutine deallocates the arrays used in FD
       !
 
-      deallocate( dr_stencil, ddr_stencil, dddr_stencil )
-      deallocate( dr_stencil_top, dr_stencil_bot )
-      deallocate( ddr_stencil_top, ddr_stencil_bot )
-      deallocate( dddr_stencil_top, dddr_stencil_bot )
+      class(type_stencil) :: this
 
-   end subroutine finalize_FD_arrays
+      deallocate( this%dr, this%ddr, this%dddr )
+      deallocate( this%dr_top, this%dr_bot )
+      deallocate( this%ddr_top, this%ddr_bot )
+      deallocate( this%dddr_top, this%dddr_bot )
+
+   end subroutine finalize
 !---------------------------------------------------------------------------
    subroutine get_FD_grid(ratio1, ratio2, ricb, rcmb, r)
       !
@@ -155,29 +167,30 @@ contains
       do n_r=1,n_r_max
          f_c(1,n_r)=sin(r(n_r))
       end do
-      call get_FD_coeffs(2, r)
+      !call this%get_FD_coeffs(r)
       ! call get_dr_real_1d_fd(f, df, n_r_max, 2)
-      call get_dr_complex_fd(f_c, df_c, 1, 1, 1, n_r_max, 2)
-      call get_ddr_fd(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, 2)
-      call get_dddr_fd(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, 2)
+      !call get_dr_complex_fd(f_c, df_c, 1, 1, 1, n_r_max, this)
+      !call get_ddr_fd(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, this)
+      !call get_dddr_fd(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, this)
 
-      open(newunit=fileHandle, file='test.txt', status='unknown')
+      !open(newunit=fileHandle, file='test.txt', status='unknown')
 
-      do n_r=1,n_r_max
-         write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
-         &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
-         &                               real(dddf_c(1,n_r))
-      end do
+      !do n_r=1,n_r_max
+      !   write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
+      !   &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
+      !   &                               real(dddf_c(1,n_r))
+      !end do
 
-      close(fileHandle)
-      stop
+      !close(fileHandle)
+      !stop
 
    end subroutine get_FD_grid
 !---------------------------------------------------------------------------
-   subroutine get_FD_coeffs(order, r)
+   subroutine get_FD_coeffs(this, r)
+
+      class(type_stencil) :: this
 
       !-- Input quantities:
-      integer, intent(in) :: order ! Order of the finite difference scheme
       real(cp), intent(in) :: r(:) ! Radius
 
       !-- Local quantities:
@@ -187,92 +200,92 @@ contains
       real(cp) :: weight
       integer :: n_r, od, od_in
 
-      allocate( dr_spacing(order+1) )
-      allocate( taylor_exp(0:order,0:order) )
-      allocate( taylor_exp_inv(0:order,0:order) )
+      allocate( dr_spacing(this%order+1) )
+      allocate( taylor_exp(0:this%order,0:this%order) )
+      allocate( taylor_exp_inv(0:this%order,0:this%order) )
 
       !
       !-- Step 1: First and 2nd derivatives in the bulk
       !
-      do n_r=1+order/2,n_r_max-order/2
-         do od=0,order
-            dr_spacing(od+1)=r(n_r-order/2+od)-r(n_r)
+      do n_r=1+this%order/2,n_r_max-this%order/2
+         do od=0,this%order
+            dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+1)
+         weight = sum(abs(dr_spacing))/(this%order+1)
 
-         do od=0,order
+         do od=0,this%order
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+1)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
 
-         do od_in=0,order
+         do od_in=0,this%order
             !-- Preconditioning
-            do od=0,order
+            do od=0,this%order
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dr_stencil(n_r,od_in) =taylor_exp_inv(1,od_in)
-            ddr_stencil(n_r,od_in)=taylor_exp_inv(2,od_in)
+            this%dr(n_r,od_in) =taylor_exp_inv(1,od_in)
+            this%ddr(n_r,od_in)=taylor_exp_inv(2,od_in)
          end do
       end do
 
       !
       !-- Step 2: First derivative for the outer points
       !
-      do n_r=1,order/2
-         do od=0,order
+      do n_r=1,this%order/2
+         do od=0,this%order
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+1)
+         weight = sum(abs(dr_spacing))/(this%order+1)
 
-         do od=0,order
+         do od=0,this%order
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+1)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
 
-         do od_in=0,order
+         do od_in=0,this%order
             !-- Preconditioning
-            do od=0,order
+            do od=0,this%order
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dr_stencil_top(n_r,od_in) =taylor_exp_inv(1,od_in)
+            this%dr_top(n_r,od_in) =taylor_exp_inv(1,od_in)
          end do
       end do
 
       !
       !-- Step 3: First derivative for the inner points
       !
-      do n_r=1,order/2
-         do od=0,order
+      do n_r=1,this%order/2
+         do od=0,this%order
             dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+1)
+         weight = sum(abs(dr_spacing))/(this%order+1)
 
-         do od=0,order
+         do od=0,this%order
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+1)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
 
-         do od_in=0,order
+         do od_in=0,this%order
             !-- Preconditioning
-            do od=0,order
+            do od=0,this%order
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dr_stencil_bot(n_r,od_in) =taylor_exp_inv(1,od_in)
+            this%dr_bot(n_r,od_in) =taylor_exp_inv(1,od_in)
          end do
       end do
 
@@ -281,60 +294,60 @@ contains
       !
       !-- Step 4: 2nd derivative for the outer points
       !
-      allocate( dr_spacing(order+2) )
-      allocate( taylor_exp(0:order+1,0:order+1) )
-      allocate( taylor_exp_inv(0:order+1,0:order+1) )
+      allocate( dr_spacing(this%order+2) )
+      allocate( taylor_exp(0:this%order+1,0:this%order+1) )
+      allocate( taylor_exp_inv(0:this%order+1,0:this%order+1) )
 
-      do n_r=1,order/2
-         do od=0,order+1
+      do n_r=1,this%order/2
+         do od=0,this%order+1
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+2)
+         weight = sum(abs(dr_spacing))/(this%order+2)
 
-         do od=0,order+1
+         do od=0,this%order+1
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+2)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+2)
 
-         do od_in=0,order+1
+         do od_in=0,this%order+1
             !-- Preconditioning
-            do od=0,order+1
+            do od=0,this%order+1
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            ddr_stencil_top(n_r,od_in) =taylor_exp_inv(2,od_in)
+            this%ddr_top(n_r,od_in) =taylor_exp_inv(2,od_in)
          end do
       end do
 
       !
       !-- Step 5: 2nd derivative for the inner points
       !
-      do n_r=1,order/2
-         do od=0,order+1
+      do n_r=1,this%order/2
+         do od=0,this%order+1
             dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+2)
+         weight = sum(abs(dr_spacing))/(this%order+2)
 
-         do od=0,order+1
+         do od=0,this%order+1
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+2)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+2)
 
-         do od_in=0,order+1
+         do od_in=0,this%order+1
             !-- Preconditioning
-            do od=0,order+1
+            do od=0,this%order+1
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            ddr_stencil_bot(n_r,od_in) =taylor_exp_inv(2,od_in)
+            this%ddr_bot(n_r,od_in) =taylor_exp_inv(2,od_in)
          end do
       end do
 
@@ -343,88 +356,88 @@ contains
       !
       !-- Step 6: 3rd derivative in the bulk
       !
-      allocate( dr_spacing(order+3) )
-      allocate( taylor_exp(0:order+2,0:order+2) )
-      allocate( taylor_exp_inv(0:order+2,0:order+2) )
+      allocate( dr_spacing(this%order+3) )
+      allocate( taylor_exp(0:this%order+2,0:this%order+2) )
+      allocate( taylor_exp_inv(0:this%order+2,0:this%order+2) )
 
-      do n_r=2+order/2,n_r_max-order/2-1
-         do od=0,order+2
-            dr_spacing(od+1)=r(n_r-order/2-1+od)-r(n_r)
+      do n_r=2+this%order/2,n_r_max-this%order/2-1
+         do od=0,this%order+2
+            dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+3)
+         weight = sum(abs(dr_spacing))/(this%order+3)
 
-         do od=0,order+2
+         do od=0,this%order+2
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+3)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
 
-         do od_in=0,order+2
+         do od_in=0,this%order+2
             !-- Preconditioning
-            do od=0,order+2
+            do od=0,this%order+2
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dddr_stencil(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr(n_r,od_in) =taylor_exp_inv(3,od_in)
          end do
       end do
 
       !
       !-- Step 7: 3rd derivative for the outer points
       !
-      do n_r=1,order/2+1
-         do od=0,order+2
+      do n_r=1,this%order/2+1
+         do od=0,this%order+2
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+3)
+         weight = sum(abs(dr_spacing))/(this%order+3)
 
-         do od=0,order+2
+         do od=0,this%order+2
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+3)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
 
-         do od_in=0,order+2
+         do od_in=0,this%order+2
             !-- Preconditioning
-            do od=0,order+2
+            do od=0,this%order+2
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dddr_stencil_top(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr_top(n_r,od_in) =taylor_exp_inv(3,od_in)
          end do
       end do
 
       !
       !-- Step 8: 3rd derivative for the inner points
       !
-      do n_r=1,order/2+1
-         do od=0,order+2
+      do n_r=1,this%order/2+1
+         do od=0,this%order+2
             dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(order+3)
+         weight = sum(abs(dr_spacing))/(this%order+3)
 
-         do od=0,order+2
+         do od=0,this%order+2
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, order+3)
+         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
 
-         do od_in=0,order+2
+         do od_in=0,this%order+2
             !-- Preconditioning
-            do od=0,order+2
+            do od=0,this%order+2
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
-            dddr_stencil_bot(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr_bot(n_r,od_in) =taylor_exp_inv(3,od_in)
          end do
       end do
 
@@ -523,249 +536,5 @@ contains
       end do
 
    end subroutine inverse
-!---------------------------------------------------------------------------
-   subroutine get_dr_real_1d_fd(f,df,n_r_max, order)
-
-      !-- Input variables
-      integer,  intent(in) :: n_r_max     ! Number of radial grid points
-      integer,  intent(in) :: order       ! Order of the FD scheme
-      real(cp), intent(in) :: f(n_r_max)  ! Input array
-
-      !-- Output variable
-      real(cp), intent(out) :: df(n_r_max)! Output array
-
-      !-- Local variables
-      integer :: n_r, od
-
-      df(:) = 0.0_cp
-
-      print*, dr_stencil_bot
-
-      do od=0,order
-         !-- Bulk points
-         do n_r=1+order/2,n_r_max-order/2
-            df(n_r) = df(n_r)+dr_stencil(n_r, od) * f(n_r-order/2+od)
-         end do
-
-         !-- Boundary points
-         do n_r=1,order/2
-            df(n_r) = df(n_r)+dr_stencil_top(n_r,od) * f(od+1)
-         end do
-         do n_r=1,order/2
-            df(n_r_max-n_r+1) = df(n_r_max-n_r+1)+dr_stencil_bot(n_r,od)*f(n_r_max-od)
-         end do
-      end do
-
-   end subroutine get_dr_real_1d_fd
-!---------------------------------------------------------------------------
-   subroutine get_dr_complex_fd(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,order)
-
-      !-- Input variables
-      integer,     intent(in) :: n_r_max            ! Number of radial grid points
-      integer,     intent(in) :: n_f_max            ! first dimension of f
-      integer,     intent(in) :: n_f_start          ! first function to be treated
-      integer,     intent(in) :: n_f_stop           ! last function to be treated
-      integer,     intent(in) :: order              ! Order of the FD scheme
-      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
-
-      !-- Output variable
-      complex(cp), intent(out) :: df(n_f_max,n_r_max) ! First derivative
-
-      !-- Local variables
-      integer :: n_r, n_f, od
-
-      !-- Initiatise to zero:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r) =zero
-         end do
-      end do
-
-      !-- Bulk points for 1st derivative
-      do od=0,order
-         do n_r=1+order/2,n_r_max-order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r)=df(n_f,n_r)+dr_stencil(n_r,od)*f(n_f,n_r-order/2+od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 1st derivative
-      do od=0,order
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
-               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-   end subroutine get_dr_complex_fd
-!---------------------------------------------------------------------------
-   subroutine get_ddr_fd(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max, order)
-
-      !-- Input variables
-      integer,     intent(in) :: n_r_max            ! Number of radial grid points
-      integer,     intent(in) :: n_f_max            ! first dimension of f
-      integer,     intent(in) :: n_f_start          ! first function to be treated
-      integer,     intent(in) :: n_f_stop           ! last function to be treated
-      integer,     intent(in) :: order              ! Order of the FD scheme
-      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
-
-      !-- Output variable
-      complex(cp), intent(out) :: df(n_f_max,n_r_max) ! First derivative
-      complex(cp), intent(out) :: ddf(n_f_max,n_r_max)! Second derivative
-
-      !-- Local variables
-      integer :: n_r, n_f, od
-
-      !-- Initiatise to zero:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r) =zero
-            ddf(n_f,n_r)=zero
-         end do
-      end do
-
-      !-- Bulk points for 1st and 2nd derivatives
-      do od=0,order
-         do n_r=1+order/2,n_r_max-order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r)  = df(n_f,n_r) + dr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
-               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 1st derivative
-      do od=0,order
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
-               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 2nd derivative
-      do od=0,order+1
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
-               &                       ddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-   end subroutine get_ddr_fd
-!---------------------------------------------------------------------------
-   subroutine get_dddr_fd(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,n_r_max,order)
-
-      !-- Input variables
-      integer,     intent(in) :: n_r_max            ! Number of radial grid points
-      integer,     intent(in) :: n_f_max            ! first dimension of f
-      integer,     intent(in) :: n_f_start          ! first function to be treated
-      integer,     intent(in) :: n_f_stop           ! last function to be treated
-      integer,     intent(in) :: order              ! Order of the FD scheme
-      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
-
-      !-- Output variable
-      complex(cp), intent(out) :: df(n_f_max,n_r_max)  ! First derivative
-      complex(cp), intent(out) :: ddf(n_f_max,n_r_max) ! Second derivative
-      complex(cp), intent(out) :: dddf(n_f_max,n_r_max)! Third derivative
-
-      !-- Local variables
-      integer :: n_r, n_f, od
-
-      !-- Initiatise to zero:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r)  =zero
-            ddf(n_f,n_r) =zero
-            dddf(n_f,n_r)=zero
-         end do
-      end do
-
-      !-- Bulk points for 1st and 2nd derivatives
-      do od=0,order
-         do n_r=1+order/2,n_r_max-order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r)  = df(n_f,n_r) + dr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
-               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
-            end do
-         end do
-      end do
-
-      print*, dddr_stencil(16, :)
-      !-- Bulk points for 3rd derivative
-      do od=0,order+2
-         do n_r=2+order/2,n_r_max-order/2-1
-            do n_f=n_f_start,n_f_stop
-               dddf(n_f,n_r)=dddf(n_f,n_r)+dddr_stencil(n_r,od)*f(n_f,n_r-order/2-1+od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 1st derivative
-      do od=0,order
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
-               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 2nd derivative
-      do od=0,order+1
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2
-            do n_f=n_f_start,n_f_stop
-               ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
-               &                       ddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-      !-- Boundary points for 3rd derivative
-      do od=0,order+2
-         do n_r=1,order/2+1
-            do n_f=n_f_start,n_f_stop
-               dddf(n_f,n_r) = dddf(n_f,n_r)+dddr_stencil_top(n_r,od) * f(n_f,od+1)
-            end do
-         end do
-         do n_r=1,order/2+1
-            do n_f=n_f_start,n_f_stop
-               dddf(n_f,n_r_max-n_r+1) = dddf(n_f,n_r_max-n_r+1)+               &
-               &                       dddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
-            end do
-         end do
-      end do
-
-   end subroutine get_dddr_fd
 !---------------------------------------------------------------------------
 end module finite_differences

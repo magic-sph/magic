@@ -16,13 +16,12 @@ module radial_functions
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
-   use radial_der, only: get_dr
+   use radial_der, only: get_dr, get_dr_fd
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
    use parallel_mod, only: rank
    use output_data, only: tag
-   use finite_differences, only: get_FD_grid, initialize_FD_arrays, &
-       &                         finalize_FD_arrays
+   use finite_differences, only: get_FD_grid, type_stencil
  
    implicit none
 
@@ -80,6 +79,8 @@ module radial_functions
    type(costf_odd_t), public :: chebt_oc
    type(costf_odd_t), public :: chebt_ic
    type(costf_even_t), public :: chebt_ic_even
+
+   type(type_stencil), public :: stencil_oc
  
    !-- same for inner core:
    real(cp), public :: cheb_norm_ic                      ! Chebyshev normalisation for IC
@@ -176,7 +177,7 @@ contains
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
       else
-         call initialize_FD_arrays(n_r_max,fd_order)
+         call stencil_oc%initialize(n_r_max,fd_order)
       end if
 
 
@@ -198,7 +199,7 @@ contains
          call chebt_ic%finalize()
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       else
-         call finalize_FD_arrays()
+         call stencil_oc%finalize()
       end if
 
    end subroutine finalize_radial_functions
@@ -290,6 +291,8 @@ contains
               &         drx,ddrx,dddrx)
       else
          call get_FD_grid(fd_stretch, fd_ratio, r_icb, r_cmb, r)
+
+         call stencil_oc%get_FD_coeffs(r)
       end if
 
       if ( rank == 0 ) then
@@ -357,15 +360,23 @@ contains
             beta=drho0
 
             ! The final stuff is always required
-            call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                   &    w2,chebt_oc,drx)
-            call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
-            call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
-            dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-            call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                      &    w2,chebt_oc,drx)
+               call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                      &    w2,chebt_oc,drx)
+               call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                      &    w2,chebt_oc,drx)
+               dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+               call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                      &    w2,chebt_oc,drx)
+            else
+               call get_dr_fd(beta,dbeta,n_r_max,stencil_oc)
+               call get_dr_fd(dtemp0,d2temp0,n_r_max,stencil_oc)
+               call get_dr_fd(alpha0,dLalpha0,n_r_max,stencil_oc)
+               dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+               call get_dr_fd(dLalpha0,ddLalpha0,n_r_max,stencil_oc)
+            end if
             dLtemp0 = dtemp0/temp0
             ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
 
@@ -517,18 +528,28 @@ contains
          beta=drho0
 
          ! The final stuff is always required
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                &    w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
+         if ( .not. l_finite_diff ) then
+            call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                   &    w2,chebt_oc,drx)
+            call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+            call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+            dLtemp0 = dtemp0/temp0
+            call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+                   &    w2,chebt_oc,drx)
+         else
+            call get_dr_fd(beta,dbeta,n_r_max,stencil_oc)
+            call get_dr_fd(dtemp0,d2temp0,n_r_max,stencil_oc)
+            call get_dr_fd(alpha0,dLalpha0,n_r_max,stencil_oc)
+            dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
+            call get_dr_fd(dLalpha0,ddLalpha0,n_r_max,stencil_oc)
+            dLtemp0 = dtemp0/temp0
+            call get_dr_fd(dLtemp0,ddLtemp0,n_r_max,stencil_oc)
+         end if
 
          ! N.B. rgrav is not gravity but alpha * grav
          rgrav = alpha0*rgrav
@@ -557,10 +578,15 @@ contains
                beta=drho0
 
                ! The final stuff is always required
-               call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                      &    w2,chebt_oc,drx)
-               call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                      &    w2,chebt_oc,drx)
+               if ( .not. l_finite_diff ) then
+                  call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+                         &    w2,chebt_oc,drx)
+                  call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+                         &    w2,chebt_oc,drx)
+               else
+                  call get_dr_fd(beta,dbeta,n_r_max,stencil_oc)
+                  call get_dr_fd(dtemp0,d2temp0,n_r_max,stencil_oc)
+               end if
                dLtemp0 = dtemp0/temp0
                ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
 
@@ -677,12 +703,13 @@ contains
       end if
 
       !-- Factors for cheb integrals:
-      cheb_int(1)=one   ! Integration constant chosen !
-      do n_cheb=3,n_r_max,2
-         cheb_int(n_cheb)  =-one/real(n_cheb*(n_cheb-2),kind=cp)
-         cheb_int(n_cheb-1)= 0.0_cp
-      end do
-
+      if ( .not. l_finite_diff ) then
+         cheb_int(1)=one   ! Integration constant chosen !
+         do n_cheb=3,n_r_max,2
+            cheb_int(n_cheb)  =-one/real(n_cheb*(n_cheb-2),kind=cp)
+            cheb_int(n_cheb-1)= 0.0_cp
+         end do
+      end if
 
       !-- Proceed with inner core:
 
@@ -809,14 +836,22 @@ contains
           else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
              lambda=rho0(n_r_max)/rho0
              sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,chebt_oc,drx)
+             if ( .not. l_finite_diff ) then
+                call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
+                     &      w1,w2,chebt_oc,drx)
+             else
+                call get_dr_fd(lambda,dsigma,n_r_max,stencil_oc)
+             end if
              dLlambda=dsigma/lambda
           else if ( nVarCond == 4 ) then ! Profile
              lambda=(rho0/rho0(n_r_max))**difExp
              sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,chebt_oc,drx)
+             if ( .not. l_finite_diff ) then
+                call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
+                     &      w1,w2,chebt_oc,drx)
+             else
+                call get_dr_fd(lambda,dsigma,n_r_max,stencil_oc)
+             end if
              dLlambda=dsigma/lambda
           end if
       end if
@@ -829,13 +864,21 @@ contains
          else if ( nVarDiff == 1 ) then ! Constant conductivity
             ! kappa(n_r)=one/rho0(n_r) Denise's version
             kappa=rho0(n_r_max)/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                    &      w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(kappa,dkappa,n_r_max,stencil_oc)
+            end if
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 2 ) then ! Profile
             kappa=(rho0/rho0(n_r_max))**difExp
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                    &      w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(kappa,dkappa,n_r_max,stencil_oc)
+            end if
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
@@ -860,8 +903,12 @@ contains
             end do
             kappatop=kappa(1) ! normalise by the value at the top
             kappa=kappa/kappatop
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                    &      w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(kappa,dkappa,n_r_max,stencil_oc)
+            end if
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 4) then ! Earth case
             !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
@@ -887,15 +934,23 @@ contains
             kcond=(one-0.4469_cp*(r/r_cmb)**2)/(one-0.4469_cp)
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                    &      w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(kappa,dkappa,n_r_max,stencil_oc)
+            end if
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 5 ) then ! Thermal background equilibrium
             kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
+                    &      w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(kappa,dkappa,n_r_max,stencil_oc)
+            end if
             dLkappa=dkappa/kappa
          end if
       end if
@@ -924,13 +979,21 @@ contains
          dLvisc=0.0_cp
       else if ( nVarVisc == 1 ) then ! Constant dynamic viscosity
          visc=rho0(n_r_max)/rho0
-         call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,chebt_oc,drx)
+         if ( .not. l_finite_diff ) then
+            call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
+                 &      w1,w2,chebt_oc,drx)
+         else
+            call get_dr_fd(visc,dvisc,n_r_max,stencil_oc)
+         end if
          dLvisc=dvisc/visc
       else if ( nVarVisc == 2 ) then ! Profile
          visc=(rho0/rho0(n_r_max))**difExp
-         call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,chebt_oc,drx)
+         if ( .not. l_finite_diff ) then
+            call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
+                 &      w1,w2,chebt_oc,drx)
+         else
+            call get_dr_fd(visc,dvisc,n_r_max,stencil_oc)
+         end if
          dLvisc=dvisc/visc
       end if
 
@@ -1116,8 +1179,12 @@ contains
       gravFit(:) = gravFit(:)/gravFit(1)
 
       ! Derivative of the temperature needed to get alpha_T
-      call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      if ( .not. l_finite_diff ) then
+         call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+      else
+         call get_dr_fd(temp0,dtemp0,n_r_max,stencil_oc)
+      end if
 
       alpha0(:)=-dtemp0(:)/(gravFit(:)*temp0(:))
 
@@ -1134,21 +1201,33 @@ contains
       !       dr
       rgrav(:)=-dtemp0(:)/DissNb
 
-      call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
-      beta(:)=drho0(:)/rho0(:)
-      call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-           &      w2,chebt_oc,drx)
-      call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
-      call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
-      dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr
-      call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
-      dLtemp0(:)=dtemp0(:)/temp0(:)
-      call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      if ( .not. l_finite_diff ) then
+         call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+         beta(:)=drho0(:)/rho0(:)
+         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
+              &      w2,chebt_oc,drx)
+         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+         dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+         dLtemp0(:)=dtemp0(:)/temp0(:)
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
+              &      w2,chebt_oc,drx)
+      else
+         call get_dr_fd(rho0,drho0,n_r_max,stencil_oc)
+         beta(:)=drho0(:)/rho0(:)
+         call get_dr_fd(beta,dbeta,n_r_max,stencil_oc)
+         call get_dr_fd(dtemp0,d2temp0,n_r_max,stencil_oc)
+         call get_dr_fd(alpha0,dLalpha0,n_r_max,stencil_oc)
+         dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr
+         call get_dr_fd(dLalpha0,ddLalpha0,n_r_max,stencil_oc)
+         dLtemp0(:)=dtemp0(:)/temp0(:)
+         call get_dr_fd(dLtemp0,ddLtemp0,n_r_max,stencil_oc)
+      end if
       dentropy0(:)=0.0_cp
 
    end subroutine polynomialBackground
