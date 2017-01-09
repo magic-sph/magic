@@ -6,7 +6,7 @@ module finite_differences
 
    use precision_mod
    use parallel_mod, only: rank
-   use constants, only: one, two
+   use constants, only: one, two, zero
    use truncation, only: n_r_max
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
@@ -88,6 +88,7 @@ contains
 
       ! To be removed:
       real(cp) :: f(n_r_max), df(n_r_max)
+      complex(cp) :: f_c(1,n_r_max), df_c(1,n_r_max), ddf_c(1,n_r_max), dddf_c(1,n_r_max)
       character(len=72) :: fileName
       integer :: fileHandle
 
@@ -150,14 +151,22 @@ contains
          end if
       end if
 
-      f = cos(r)
+      f = sin(r)
+      do n_r=1,n_r_max
+         f_c(1,n_r)=sin(r(n_r))
+      end do
       call get_FD_coeffs(2, r)
-      call get_dr_real_1d_fd(f, df, n_r_max, 2)
+      ! call get_dr_real_1d_fd(f, df, n_r_max, 2)
+      call get_dr_complex_fd(f_c, df_c, 1, 1, 1, n_r_max, 2)
+      call get_ddr_fd(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, 2)
+      call get_dddr_fd(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, 2)
 
       open(newunit=fileHandle, file='test.txt', status='unknown')
 
       do n_r=1,n_r_max
-         write(fileHandle, '(3ES20.12)') r(n_r), f(n_r), df(n_r)
+         write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
+         &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
+         &                               real(dddf_c(1,n_r))
       end do
 
       close(fileHandle)
@@ -340,7 +349,7 @@ contains
 
       do n_r=2+order/2,n_r_max-order/2-1
          do od=0,order+2
-            dr_spacing(od+1)=r(n_r-order/2+od)-r(n_r)
+            dr_spacing(od+1)=r(n_r-order/2-1+od)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
@@ -548,5 +557,215 @@ contains
       end do
 
    end subroutine get_dr_real_1d_fd
+!---------------------------------------------------------------------------
+   subroutine get_dr_complex_fd(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,order)
+
+      !-- Input variables
+      integer,     intent(in) :: n_r_max            ! Number of radial grid points
+      integer,     intent(in) :: n_f_max            ! first dimension of f
+      integer,     intent(in) :: n_f_start          ! first function to be treated
+      integer,     intent(in) :: n_f_stop           ! last function to be treated
+      integer,     intent(in) :: order              ! Order of the FD scheme
+      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
+
+      !-- Output variable
+      complex(cp), intent(out) :: df(n_f_max,n_r_max) ! First derivative
+
+      !-- Local variables
+      integer :: n_r, n_f, od
+
+      !-- Initiatise to zero:
+      do n_r=1,n_r_max
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_r) =zero
+         end do
+      end do
+
+      !-- Bulk points for 1st derivative
+      do od=0,order
+         do n_r=1+order/2,n_r_max-order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r)=df(n_f,n_r)+dr_stencil(n_r,od)*f(n_f,n_r-order/2+od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 1st derivative
+      do od=0,order
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+   end subroutine get_dr_complex_fd
+!---------------------------------------------------------------------------
+   subroutine get_ddr_fd(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max, order)
+
+      !-- Input variables
+      integer,     intent(in) :: n_r_max            ! Number of radial grid points
+      integer,     intent(in) :: n_f_max            ! first dimension of f
+      integer,     intent(in) :: n_f_start          ! first function to be treated
+      integer,     intent(in) :: n_f_stop           ! last function to be treated
+      integer,     intent(in) :: order              ! Order of the FD scheme
+      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
+
+      !-- Output variable
+      complex(cp), intent(out) :: df(n_f_max,n_r_max) ! First derivative
+      complex(cp), intent(out) :: ddf(n_f_max,n_r_max)! Second derivative
+
+      !-- Local variables
+      integer :: n_r, n_f, od
+
+      !-- Initiatise to zero:
+      do n_r=1,n_r_max
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_r) =zero
+            ddf(n_f,n_r)=zero
+         end do
+      end do
+
+      !-- Bulk points for 1st and 2nd derivatives
+      do od=0,order
+         do n_r=1+order/2,n_r_max-order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r)  = df(n_f,n_r) + dr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
+               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 1st derivative
+      do od=0,order
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 2nd derivative
+      do od=0,order+1
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
+               &                       ddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+   end subroutine get_ddr_fd
+!---------------------------------------------------------------------------
+   subroutine get_dddr_fd(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,n_r_max,order)
+
+      !-- Input variables
+      integer,     intent(in) :: n_r_max            ! Number of radial grid points
+      integer,     intent(in) :: n_f_max            ! first dimension of f
+      integer,     intent(in) :: n_f_start          ! first function to be treated
+      integer,     intent(in) :: n_f_stop           ! last function to be treated
+      integer,     intent(in) :: order              ! Order of the FD scheme
+      complex(cp), intent(in) :: f(n_f_max,n_r_max) ! Input array
+
+      !-- Output variable
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)  ! First derivative
+      complex(cp), intent(out) :: ddf(n_f_max,n_r_max) ! Second derivative
+      complex(cp), intent(out) :: dddf(n_f_max,n_r_max)! Third derivative
+
+      !-- Local variables
+      integer :: n_r, n_f, od
+
+      !-- Initiatise to zero:
+      do n_r=1,n_r_max
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_r)  =zero
+            ddf(n_f,n_r) =zero
+            dddf(n_f,n_r)=zero
+         end do
+      end do
+
+      !-- Bulk points for 1st and 2nd derivatives
+      do od=0,order
+         do n_r=1+order/2,n_r_max-order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r)  = df(n_f,n_r) + dr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
+               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil(n_r,od) * f(n_f,n_r-order/2+od)
+            end do
+         end do
+      end do
+
+      print*, dddr_stencil(16, :)
+      !-- Bulk points for 3rd derivative
+      do od=0,order+2
+         do n_r=2+order/2,n_r_max-order/2-1
+            do n_f=n_f_start,n_f_stop
+               dddf(n_f,n_r)=dddf(n_f,n_r)+dddr_stencil(n_r,od)*f(n_f,n_r-order/2-1+od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 1st derivative
+      do od=0,order
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r) = df(n_f,n_r)+dr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+               &                       dr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 2nd derivative
+      do od=0,order+1
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               ddf(n_f,n_r) = ddf(n_f,n_r)+ddr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2
+            do n_f=n_f_start,n_f_stop
+               ddf(n_f,n_r_max-n_r+1) = ddf(n_f,n_r_max-n_r+1)+               &
+               &                       ddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+      !-- Boundary points for 3rd derivative
+      do od=0,order+2
+         do n_r=1,order/2+1
+            do n_f=n_f_start,n_f_stop
+               dddf(n_f,n_r) = dddf(n_f,n_r)+dddr_stencil_top(n_r,od) * f(n_f,od+1)
+            end do
+         end do
+         do n_r=1,order/2+1
+            do n_f=n_f_start,n_f_stop
+               dddf(n_f,n_r_max-n_r+1) = dddf(n_f,n_r_max-n_r+1)+               &
+               &                       dddr_stencil_bot(n_r,od)*f(n_f,n_r_max-od)
+            end do
+         end do
+      end do
+
+   end subroutine get_dddr_fd
 !---------------------------------------------------------------------------
 end module finite_differences
