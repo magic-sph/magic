@@ -16,7 +16,7 @@ module radial_functions
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
-   use radial_der, only: get_dr, get_dr_fd
+   use radial_der, only: get_dr, get_dr_fd, get_ddr_fd, get_dddr_fd
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
    use parallel_mod, only: rank
@@ -80,6 +80,10 @@ module radial_functions
    type(costf_odd_t), public :: chebt_ic
    type(costf_even_t), public :: chebt_ic_even
 
+   real(cp), public, allocatable :: eye(:,:)    ! Identity matrix
+   real(cp), public, allocatable :: drMat(:,:)  ! First radial derivative
+   real(cp), public, allocatable :: d2rMat(:,:) ! Second radial derivative
+   real(cp), public, allocatable :: d3rMat(:,:) ! Third radial derivative
    type(type_stencil), public :: stencil_oc
  
    !-- same for inner core:
@@ -177,6 +181,12 @@ contains
          call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
       else
+         allocate( eye(n_r_max,n_r_max) )      ! identity matrix
+         allocate( drMat(n_r_max,n_r_max) )    ! first radial derivative
+         allocate( d2rMat(n_r_max,n_r_max) )   ! second radial derivative
+         allocate( d3rMat(n_r_max,n_r_max) )   ! second radial derivative
+         bytes_allocated = bytes_allocated + &
+                           (4*n_r_max*n_r_max)*SIZEOF_DEF_REAL
          call stencil_oc%initialize(n_r_max,fd_order)
       end if
 
@@ -199,6 +209,7 @@ contains
          call chebt_ic%finalize()
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       else
+         deallocate( eye, drMat)
          call stencil_oc%finalize()
       end if
 
@@ -230,6 +241,11 @@ contains
       character(len=80) :: message
       character(len=76) :: fileName
       integer :: fileHandle
+
+     ! To be removed:
+      real(cp) :: f(n_r_max), df(n_r_max), ddf(n_r_max), dddf(n_r_max)
+      complex(cp) :: f_c(1,n_r_max), df_c(1,n_r_max), ddf_c(1,n_r_max), dddf_c(1,n_r_max)
+      integer :: j
 
       !-- Radial grid point:
       !   radratio is aspect ratio
@@ -293,6 +309,48 @@ contains
          call get_FD_grid(fd_stretch, fd_ratio, r_icb, r_cmb, r)
 
          call stencil_oc%get_FD_coeffs(r)
+
+         call stencil_oc%get_FD_matder(n_r_max,eye,drMat,d2rMat,d3rMat)
+
+         !-- To be removed
+         do n_r=1,n_r_max
+            f_c(1,n_r)=sin(r(n_r))
+         end do
+
+         call get_dr_fd(f_c, df_c, 1, 1, 1, n_r_max, stencil_oc)
+         call get_ddr_fd(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, stencil_oc)
+         call get_dddr_fd(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, stencil_oc)
+
+         open(newunit=fileHandle, file='test.txt', status='unknown')
+
+         do n_r=1,n_r_max
+         write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
+         &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
+         &                               real(dddf_c(1,n_r))
+         end do
+
+         f(:)=real(f_c(1,:))
+         
+         do i=1,n_r_max
+            df(i)=0.0_cp
+            ddf(i)=0.0_cp
+            dddf(i)=0.0_cp
+            do j=1,n_r_max
+               df(i) = df(i) + drMat(i,j)*f(j)
+               ddf(i) = ddf(i) + d2rMat(i,j)*f(j)
+               dddf(i) = dddf(i) + d3rMat(i,j)*f(j)
+            end do
+         end do
+
+         do n_r=1,n_r_max
+            ! print*, r(n_r),real(df_c(1,n_r)),df(n_r)
+            ! print*, r(n_r),real(ddf_c(1,n_r)),ddf(n_r)
+            print*, r(n_r),real(dddf_c(1,n_r)),dddf(n_r)
+         end do
+
+         close(fileHandle)
+         stop
+
       end if
 
       if ( rank == 0 ) then
@@ -1067,7 +1125,8 @@ contains
       !-- Local variables:
       real(cp) :: rhs(n_r_max)
       real(cp) :: tmp(n_r_max)
-      integer :: n_cheb,n_r,info
+      integer :: n_cheb,n_r,info,n_r_out
+      real(cp) :: workMat_fac(n_r_max, 2)
 
       real(cp), allocatable :: workMat(:,:)
       integer, allocatable :: workPivot(:)
@@ -1075,35 +1134,67 @@ contains
       allocate( workMat(n_r_max,n_r_max) )
       allocate( workPivot(n_r_max) )
 
-      do n_cheb=1,n_r_max
-         do n_r=2,n_r_max
-            if ( present(coeff) ) then
-               workMat(n_r,n_cheb)=cheb_norm*( dcheb(n_cheb,n_r)+&
-               &                     coeff(n_r)*cheb(n_cheb,n_r) )
-            else
-               workMat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
-            end if
+      if ( .not. l_finite_diff ) then
+         do n_cheb=1,n_r_max
+            do n_r=2,n_r_max
+               if ( present(coeff) ) then
+                  workMat(n_r,n_cheb)=cheb_norm*( dcheb(n_cheb,n_r)+&
+                  &                     coeff(n_r)*cheb(n_cheb,n_r) )
+               else
+                  workMat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
+               end if
+            end do
          end do
-      end do
-
-      !-- boundary conditions
-      do n_cheb=1,n_cheb_max
-         workMat(1,n_cheb)=cheb_norm
-         workMat(n_r_max,n_cheb)=0.0_cp
-      end do
-
-      !-- fill with zeros
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            workMat(1,n_cheb)=0.0_cp
+      else
+         do n_r_out=1,n_r_max
+            do n_r=2,n_r_max
+               if ( present(coeff) ) then
+                  workMat(n_r,n_r_out)=( drMat(n_r,n_r_out)+&
+                  &               coeff(n_r)*eye(n_r,n_r_out) )
+               else
+                  workMat(n_r,n_r_out)=drMat(n_r,n_r_out)
+               end if
+            end do
          end do
       end if
 
-      !-- renormalize
+      !-- boundary conditions
+      if ( .not. l_finite_diff ) then
+         do n_cheb=1,n_cheb_max
+            workMat(1,n_cheb)=cheb_norm
+            workMat(n_r_max,n_cheb)=0.0_cp
+         end do
+
+         !-- fill with zeros
+         if ( n_cheb_max < n_r_max ) then
+            do n_cheb=n_cheb_max+1,n_r_max
+               workMat(1,n_cheb)=0.0_cp
+            end do
+         end if
+
+         !-- renormalize
+         do n_r=1,n_r_max
+            workMat(n_r,1)      =half*workMat(n_r,1)
+            workMat(n_r,n_r_max)=half*workMat(n_r,n_r_max)
+         end do
+      else
+         workMat(1,1)=one
+         workMat(1,2:n_r_max)=0.0_cp
+      end if
+
       do n_r=1,n_r_max
-         workMat(n_r,1)      =half*workMat(n_r,1)
-         workMat(n_r,n_r_max)=half*workMat(n_r,n_r_max)
+         workMat_fac(n_r,1)=one/maxval(abs(workMat(n_r,:)))
       end do
+      do n_r=1,n_r_max
+         workMat(n_r,:)=workMat(n_r,:)*workMat_fac(n_r,1)
+      end do
+      do n_r=1,n_r_max
+         workMat_fac(n_r,2)=one/maxval(abs(workMat(:,n_r)))
+      end do
+      do n_r=1,n_r_max
+         workMat(:,n_r)=workMat(:,n_r)*workMat_fac(n_r,2)
+      end do
+
 
       call sgefa(workMat,n_r_max,n_r_max,workPivot,info)
 
@@ -1117,23 +1208,29 @@ contains
       end do
       rhs(1)=boundaryVal
 
+      do n_r=1,n_r_max
+         rhs(n_r)=rhs(n_r)*workMat_fac(n_r,1)
+      end do
+
       !-- Solve for s0:
       call sgesl(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
       do n_r=1,n_r_max
-         output(n_r)=rhs(n_r)
+         output(n_r)=rhs(n_r)*workMat_fac(n_r,2)
       end do
 
-      !-- Set cheb-modes > n_cheb_max to zero:
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            output(n_cheb)=0.0_cp
-         end do
-      end if
+      if ( .not. l_finite_diff ) then
+         !-- Set cheb-modes > n_cheb_max to zero:
+         if ( n_cheb_max < n_r_max ) then
+            do n_cheb=n_cheb_max+1,n_r_max
+               output(n_cheb)=0.0_cp
+            end do
+         end if
 
-      !-- Transform to radial space:
-      call chebt_oc%costf1(output,tmp)
+         !-- Transform to radial space:
+         call chebt_oc%costf1(output,tmp)
+      end if
 
       deallocate( workMat, workPivot )
 

@@ -738,8 +738,8 @@ contains
       write(n_out,'(''  minc            ='',i5,'','')') minc
       write(n_out,'(''  nalias          ='',i5,'','')') nalias
       write(n_out,'(''  l_axi           ='',l3,'','')') l_axi
-      write(n_out,'(''  fd_stretch      ='',i5,'','')') fd_stretch
-      write(n_out,'(''  fd_ratio        ='',i5,'','')') fd_ratio
+      write(n_out,'(''  fd_stretch      ='',ES14.6,'','')') fd_stretch
+      write(n_out,'(''  fd_ratio        ='',ES14.6,'','')') fd_ratio
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
       write(n_out,*) "/"
 

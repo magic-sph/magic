@@ -6,7 +6,7 @@ module finite_differences
 
    use precision_mod
    use parallel_mod, only: rank
-   use constants, only: one, two, zero
+   use constants, only: one, two
    use truncation, only: n_r_max
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
@@ -30,6 +30,7 @@ module finite_differences
       procedure :: initialize
       procedure :: finalize
       procedure :: get_FD_coeffs
+      procedure :: get_FD_matder
    end type type_stencil
 
 
@@ -98,12 +99,6 @@ contains
       integer :: n_r
       integer :: n_bulk_points, n_boundary_points
 
-      ! To be removed:
-      real(cp) :: f(n_r_max), df(n_r_max)
-      complex(cp) :: f_c(1,n_r_max), df_c(1,n_r_max), ddf_c(1,n_r_max), dddf_c(1,n_r_max)
-      character(len=72) :: fileName
-      integer :: fileHandle
-
       r(1)=rcmb ! start with the outer boundary
 
       if ( ratio2 == one ) then ! Regular grid
@@ -162,27 +157,6 @@ contains
             stop
          end if
       end if
-
-      f = sin(r)
-      do n_r=1,n_r_max
-         f_c(1,n_r)=sin(r(n_r))
-      end do
-      !call this%get_FD_coeffs(r)
-      ! call get_dr_real_1d_fd(f, df, n_r_max, 2)
-      !call get_dr_complex_fd(f_c, df_c, 1, 1, 1, n_r_max, this)
-      !call get_ddr_fd(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, this)
-      !call get_dddr_fd(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, this)
-
-      !open(newunit=fileHandle, file='test.txt', status='unknown')
-
-      !do n_r=1,n_r_max
-      !   write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
-      !   &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
-      !   &                               real(dddf_c(1,n_r))
-      !end do
-
-      !close(fileHandle)
-      !stop
 
    end subroutine get_FD_grid
 !---------------------------------------------------------------------------
@@ -444,6 +418,64 @@ contains
       deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
 
    end subroutine get_FD_coeffs
+!---------------------------------------------------------------------------
+   subroutine get_FD_matder(this, n_r_max, eye, drMat, d2rMat, d3rMat)
+
+      class(type_stencil) :: this
+
+      !-- Input variable
+      integer,  intent(in) :: n_r_max
+
+      !-- Output variable
+      real(cp), intent(out) :: eye(n_r_max, n_r_max)    ! Identity matrix
+      real(cp), intent(out) :: drMat(n_r_max, n_r_max)  ! First derivative
+      real(cp), intent(out) :: d2rMat(n_r_max, n_r_max) ! Second derivative
+      real(cp), intent(out) :: d3rMat(n_r_max, n_r_max) ! Third derivative
+
+      !-- Local variables
+      integer :: i, j, n_r
+
+      !-- Set everything to zero
+      do j=1,n_r_max
+         do i=1,n_r_max
+            drMat(i,j) =0.0_cp
+            d2rMat(i,j)=0.0_cp
+            d3rMat(i,j)=0.0_cp
+            eye(i,j)   =0.0_cp
+         end do
+         eye(j,j)=1.0_cp
+      end do
+
+      !-- Bulk points for 1st and 2nd derivatives
+      do n_r=this%order/2+1,n_r_max-this%order/2
+         drMat(n_r,n_r-this%order/2:n_r+this%order/2) = this%dr(n_r,:)
+         d2rMat(n_r,n_r-this%order/2:n_r+this%order/2)=this%ddr(n_r,:)
+      end do
+
+      !-- Bulk points for 3rd derivative
+      do n_r=2+this%order/2,n_r_max-this%order/2-1
+         d3rMat(n_r,n_r-this%order/2-1:n_r+this%order/2+1)=this%dddr(n_r,:)
+      end do
+
+      !-- Boundary points for 1st derivative
+      do n_r=1,this%order/2
+         drMat(n_r,1:this%order+1)                         =this%dr_top(n_r,:)
+         drMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order:-1)=this%dr_bot(n_r,:)
+      end do
+
+      !-- Boundary points for 2nd derivative
+      do n_r=1,this%order/2
+         d2rMat(n_r,1:this%order+2)                           =this%ddr_top(n_r,:)
+         d2rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-1:-1)=this%ddr_bot(n_r,:)
+      end do
+
+      !-- Boundary points for 3rd derivative
+      do n_r=1,this%order/2+1
+         d3rMat(n_r,1:this%order+3)                           =this%dddr_top(n_r,:)
+         d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-2:-1)=this%dddr_bot(n_r,:)
+      end do
+
+   end subroutine get_FD_matder
 !---------------------------------------------------------------------------
    integer function factorial(n)
       !
