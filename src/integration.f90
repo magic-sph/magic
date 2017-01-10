@@ -11,7 +11,7 @@ module integration
 
    private
 
-   public :: rInt, rIntIC, rInt_R
+   public :: rInt, rIntIC, rInt_R, rInt_fd
 
 contains
 
@@ -56,6 +56,54 @@ contains
       rInt=two/drFac*sqrt(two/real(nRmax-1,cp))*rInt
 
    end function rInt
+!------------------------------------------------------------------------------
+   real(cp) function rInt_fd(f,r,nRmax) result(rInt)
+
+      !-- Input variables
+      integer,  intent(in) :: nRmax
+      real(cp), intent(in) :: f(nRmax)
+      real(cp), intent(in) :: r(nRmax)
+
+      !-- Local variables
+      real(cp) :: h1, h2
+      integer :: nR
+
+      if ( mod(nRmax,2)==1 ) then ! Odd number (Simpson ok)
+
+         rInt = 0.0_cp
+         do nR=2,nRmax-1,2
+            h2=r(nR+1)-r(nR)
+            h1=r(nR)-r(nR-1)
+            rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+            &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(nR+1)*(two*h2-h1)/h2 )
+         end do
+
+         print*, 'here'
+
+      else ! Even number (twice simpson + trapz on the first and last points)
+
+         rInt = half*(r(2)-r(1))*(f(2)+f(1))
+         do nR=3,nRmax,2
+            h2=r(nR+1)-r(nR)
+            h1=r(nR)-r(nR-1)
+            rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+            &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(nR+1)*(two*h2-h1)/h2 )
+         end do
+         rInt = rInt+half*(r(nRmax)-r(nRmax-1))*(f(nRmax)+f(nRmax-1))
+         do nR=2,nRmax-1,2
+            h2=r(nR+1)-r(nR)
+            h1=r(nR)-r(nR-1)
+            rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+            &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
+            &                      f(nR+1)*(two*h2-h1)/h2 )
+         end do
+         rInt = half*rInt
+
+      end if
+
+   end function rInt_fd
 !------------------------------------------------------------------------------
    real(cp) function rIntIC(f,nRmax,drFac,chebt)
       !

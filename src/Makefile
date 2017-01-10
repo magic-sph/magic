@@ -320,7 +320,7 @@ timing.o: timing.f90
 # cancelling the implicit rule for .F files
 #%.f: %.F
 
-truncation.o          : precision_mod.o
+truncation.o          : precision_mod.o logic.o
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
                         logic.o output_data.o movie.o special.o\

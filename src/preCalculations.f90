@@ -16,7 +16,7 @@ module preCalculations
        &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
-       &            l_temperature_diff, l_chemical_conv
+       &            l_temperature_diff, l_chemical_conv, l_finite_diff
    use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
        &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -33,7 +33,7 @@ module preCalculations
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi
    use horizontal_data, only: horizontal
-   use integration, only: rInt_R
+   use integration, only: rInt_R, rInt_fd
    use useful, only: logWrite
    use special, only: l_curr, fac_loop
 
@@ -279,7 +279,11 @@ contains
          do n_r=1,n_r_max
             mom(n_r)=r(n_r)**2 * rho0(n_r)
          end do
-         mass=four*pi/vol_oc*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+         if ( .not. l_finite_diff ) then
+            mass=four*pi/vol_oc*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+         else
+            mass=four*pi/vol_oc*rInt_fd(mom,r,n_r_max)
+         end if
       else
          mass=one
       end if
@@ -316,7 +320,11 @@ contains
       do n_r=1,n_r_max
          mom(n_r)=r(n_r)**4 * rho0(n_r)
       end do
-      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+      if ( .not. l_finite_diff ) then
+         c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+      else
+         c_moi_oc=8.0_cp*third*pi*rInt_fd(mom,r,n_r_max)
+      end if
     
       !----- Mantle normalized moment of inertia:
       c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma

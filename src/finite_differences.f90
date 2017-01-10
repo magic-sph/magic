@@ -262,8 +262,6 @@ contains
          end do
       end do
 
-      print*, this%dr, 10.0_cp*epsilon(one)
-
       !
       !-- Step 2: First derivative for the outer points
       !

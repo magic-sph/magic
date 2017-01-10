@@ -16,12 +16,16 @@ module radial_functions
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
+   !-- remove useless calls to ddr and dddr
    use radial_der, only: get_dr, get_dr_fd, get_ddr_fd, get_dddr_fd
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
    use parallel_mod, only: rank
    use output_data, only: tag
    use finite_differences, only: get_FD_grid, type_stencil
+
+   !-- to be removed
+   use integration, only: rInt_fd
  
    implicit none
 
@@ -332,6 +336,8 @@ contains
          end do
 
          f(:)=real(f_c(1,:))
+
+         print*, rInt_fd(f,r,n_r_max)
          
          do i=1,n_r_max
             df(i)=0.0_cp

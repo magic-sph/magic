@@ -4,6 +4,7 @@ module truncation
    !
 
    use precision_mod, only: cp
+   use logic, only: l_finite_diff
 
    implicit none
 
@@ -192,11 +193,13 @@ contains
       end if
 
       !-- Checking radial grid:
-      if ( mod(n_r_max-1,4) /= 0 ) then
-         write(*,*)
-         write(*,*) '! Number n_r_max-1 should be a multiple '
-         write(*,*) '! of 4 !!'
-         stop
+      if ( .not. l_finite_diff ) then
+         if ( mod(n_r_max-1,4) /= 0 ) then
+            write(*,*)
+            write(*,*) '! Number n_r_max-1 should be a multiple '
+            write(*,*) '! of 4 !!'
+            stop
+         end if
       end if
 
       if ( n_theta_max <= 2 ) then
