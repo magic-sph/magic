@@ -310,6 +310,8 @@ contains
 
          call stencil_oc%get_FD_coeffs(r)
 
+         call stencil_oc%nullify_epsilon()
+
          call stencil_oc%get_FD_matder(n_r_max,eye,drMat,d2rMat,d3rMat)
 
          !-- To be removed
@@ -349,7 +351,7 @@ contains
          end do
 
          close(fileHandle)
-         stop
+         ! stop
 
       end if
 
