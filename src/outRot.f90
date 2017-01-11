@@ -9,12 +9,13 @@ module outRot
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map,st_map,lmStartB,lmStopB, lm2
    use logic, only: l_AM, l_save_out, l_iner, l_SRIC, l_rot_ic, &
-       &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift
+       &            l_SRMA, l_rot_ma, l_mag_LF, l_mag, l_drift, &
+       &            l_finite_diff
    use output_data, only: tag
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
        &            y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
-   use integration, only: rInt, rInt_R
+   use integration, only: rInt_R, rInt_fd
    use horizontal_data, only: cosTheta, gauss
    use special, only: BIC, lGrenoble
 
@@ -613,9 +614,15 @@ contains
       end do
     
       !----- Perform radial integral:
-      do n=1,3
-         angular_moment_oc(n)=rInt_R(f(1,n),n_r_max,n_r_max,drx,chebt_oc)
-      end do
+      if ( .not. l_finite_diff ) then
+         do n=1,3
+            angular_moment_oc(n)=rInt_R(f(1,n),n_r_max,n_r_max,drx,chebt_oc)
+         end do
+      else
+         do n=1,3
+            angular_moment_oc(n)=rInt_fd(f(1,n),r,n_r_max)
+         end do
+      end if
     
       !----- Apply normalisation factors of chebs and other factors
       !      plus the sign correction for y-component:

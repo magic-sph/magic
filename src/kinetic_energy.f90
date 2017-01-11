@@ -15,7 +15,7 @@ module kinetic_energy
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
    use LMLoop_data, only: llm,ulm
    use communications, only: get_global_sum
-   use integration, only: rInt_R
+   use integration, only: rInt_R, rInt_fd
    use useful, only: cc2real
  
    implicit none
@@ -205,14 +205,25 @@ contains
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do
          !-- Radial Integrals:
-         e_p    =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t    =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_es =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_es =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_eas=rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_eas=rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         if ( .not. l_finite_diff ) then
+            e_p    =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_t    =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_p_as =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_t_as =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_p_es =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_t_es =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_p_eas=rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_t_eas=rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         else
+            e_p    =rInt_fd(e_p_r_global,r,n_r_max)
+            e_t    =rInt_fd(e_t_r_global,r,n_r_max)
+            e_p_as =rInt_fd(e_p_as_r_global,r,n_r_max)
+            e_t_as =rInt_fd(e_t_as_r_global,r,n_r_max)
+            e_p_es =rInt_fd(e_p_es_r_global,r,n_r_max)
+            e_t_es =rInt_fd(e_t_es_r_global,r,n_r_max)
+            e_p_eas=rInt_fd(e_p_eas_r_global,r,n_r_max)
+            e_t_eas=rInt_fd(e_t_eas_r_global,r,n_r_max)
+         end if
 
          fac    =half*eScale
          e_p    =fac*e_p
@@ -411,10 +422,17 @@ contains
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
-         e_p   =rInt_R(e_p_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_t   =rInt_R(e_t_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as=rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as=rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         if ( .not. l_finite_diff ) then
+            e_p   =rInt_R(e_p_r_global,   n_r_max,n_r_max,drx,chebt_oc)
+            e_t   =rInt_R(e_t_r_global,   n_r_max,n_r_max,drx,chebt_oc)
+            e_p_as=rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            e_t_as=rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         else
+            e_p   =rInt_fd(e_p_r_global,   r,n_r_max)
+            e_t   =rInt_fd(e_t_r_global,   r,n_r_max)
+            e_p_as=rInt_fd(e_p_as_r_global,r,n_r_max)
+            e_t_as=rInt_fd(e_t_as_r_global,r,n_r_max)
+         end if
          fac   =half*eScale
          e_p   =fac*e_p
          e_t   =fac*e_t

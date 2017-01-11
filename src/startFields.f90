@@ -10,7 +10,7 @@ module start_fields
    use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
-       &                       otemp1, ogrun
+       &                       otemp1, ogrun, stencil_oc
    use physical_parameters, only: interior_model, epsS, impS, n_r_LCR,   &
        &                          ktopv, kbotv, LFfac, imagcon, ThExpNb, &
        &                          ViscHeatFac, impXi
@@ -34,7 +34,7 @@ module start_fields
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
        &                     lo2r_xi, scatter_from_rank0_to_lo, get_global_sum
-   use radial_der, only: get_dr, get_ddr
+   use radial_der, only: get_dr, get_ddr, get_dr_fd, get_ddr_fd
    use radial_der_even, only: get_ddr_even
 #ifdef WITH_HDF5
    use readCheckPoints, only: readHdf5_serial,readStartFields
@@ -111,14 +111,22 @@ contains
                end do
             end if
 
-            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(s0,ds0,n_r_max,stencil_oc)
+            end if
 
             if ( l_temperature_diff ) then ! temperature diffusion
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
                deltacond=osq4pi*(s0(n_r_max)-s0(1))
             else ! entropy diffusion
-               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               if ( .not. l_finite_diff ) then
+                  call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               else
+                  call get_dr_fd(p0,dp0,n_r_max,stencil_oc)
+               end if
 
                topcond = -osq4pi*(otemp1(1)*( -dLtemp0(1)*s0(1)+ds0(1))- &
                &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(         &
@@ -149,10 +157,18 @@ contains
                end do
             end if
 
-            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            if ( .not. l_finite_diff ) then
+               call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            else
+               call get_dr_fd(s0,ds0,n_r_max,stencil_oc)
+            end if
 
             if ( l_temperature_diff ) then
-               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               if ( .not. l_finite_diff ) then
+                  call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               else
+                  call get_dr_fd(p0,dp0,n_r_max,stencil_oc)
+               end if
 
                topcond = -osq4pi*temp0(1)*( dLtemp0(1)*s0(1)+ds0(1)+   &
                &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(       &
@@ -185,7 +201,11 @@ contains
 
       if ( l_chemical_conv ) then
          call xi_cond(s0)
-         call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+         if ( .not. l_finite_diff ) then
+            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+         else
+            call get_dr_fd(s0,ds0,n_r_max,stencil_oc)
+         end if
          topxicond=-osq4pi*ds0(1)
          botxicond=-osq4pi*ds0(n_r_max)
          deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
@@ -420,12 +440,19 @@ contains
     
     
          if ( l_conv .or. l_mag_kin ) then
-            call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
-                 &        lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
-                 &        workB_LMloc,chebt_oc,drx,ddrx )
-            call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                 &       chebt_oc,drx )
+            if ( .not. l_finite_diff ) then
+               call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
+                    &        lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
+                    &        workB_LMloc,chebt_oc,drx,ddrx )
+               call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                    &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                    &       chebt_oc,drx )
+            else
+               call get_ddr_fd( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
+                    &        lmStop-llm+1,n_r_max,stencil_oc)
+               call get_dr_fd(z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                    &       n_r_max,stencil_oc)
+            end if
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
@@ -485,21 +512,36 @@ contains
             !      end do
             !   end do
             !end if
-            call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                 &       chebt_oc,drx )
+            if ( .not. l_finite_diff ) then 
+               call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                    &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
+                    &       chebt_oc,drx )
+            else
+               call get_dr_fd(s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
+                    &       n_r_max,stencil_oc)
+            end if
             if ( l_single_matrix ) then
-               call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
-                    &       lmStop-llm+1, n_r_max,n_cheb_max,workA_LMloc,&
-                    &       workB_LMloc, chebt_oc,drx )
+               if ( .not. l_finite_diff ) then
+                  call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
+                       &       lmStop-llm+1, n_r_max,n_cheb_max,workA_LMloc,&
+                       &       workB_LMloc, chebt_oc,drx )
+               else
+                  call get_dr_fd( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
+                       &       lmStop-llm+1, n_r_max, stencil_oc)
+               end if
             end if
          end if
 
          if ( l_chemical_conv ) then
             !-- Get radial derivatives of chemical composition:
-            call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
-                 &       lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,  &
-                 &       workB_LMloc,chebt_oc,drx )
+            if ( .not. l_finite_diff ) then
+               call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
+                    &       lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,  &
+                    &       workB_LMloc,chebt_oc,drx )
+            else
+               call get_dr_fd( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
+                    &       lmStop-llm+1,n_r_max,stencil_oc)
+            end if
          end if
     
          if ( DEBUG_OUTPUT ) then
