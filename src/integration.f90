@@ -79,8 +79,6 @@ contains
             &                      f(nR+1)*(two*h2-h1)/h2 )
          end do
 
-         print*, 'here'
-
       else ! Even number (twice simpson + trapz on the first and last points)
 
          rInt = half*(r(2)-r(1))*(f(2)+f(1))

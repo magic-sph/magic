@@ -10,7 +10,7 @@ module kinetic_energy
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map
    use horizontal_data, only: dLh
-   use logic, only: l_save_out, l_non_rot, l_anel
+   use logic, only: l_save_out, l_non_rot, l_anel, l_finite_diff
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
    use LMLoop_data, only: llm,ulm

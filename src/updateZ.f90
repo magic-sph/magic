@@ -9,8 +9,8 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, cheb, dcheb, d2cheb, &
        &                       cheb_norm, dLvisc, beta, rho0, r_icb,&
-       &                       r_cmb,  drx, ddrx, r, beta, dbeta,   &
-       &                       chebt_oc
+       &                       r_cmb, r, beta, dbeta,   &
+       &                       rscheme_oc
    use physical_parameters, only: kbotv, ktopv, LFfac
    use num_param, only: alpha, AMstart
    use torsional_oscillations, only: ddzASL
@@ -41,7 +41,6 @@ module updateZ_mod
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workA(:,:)  ! Work array
    complex(cp), allocatable :: workB(:,:)  ! Work array
-   complex(cp), allocatable :: workC(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: dtV(:)
    complex(cp), allocatable :: Dif(:) 
@@ -89,10 +88,9 @@ contains
 
       allocate(workA(llm:ulm,n_r_max))
       allocate(workB(llm:ulm,n_r_max))
-      allocate(workC(llm:ulm,n_r_max))
       allocate( dtV(llm:ulm) )
       allocate( Dif(llm:ulm) )
-      bytes_allocated=bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       bytes_allocated=bytes_allocated+2*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
@@ -118,7 +116,7 @@ contains
 #ifdef WITH_PRECOND_Z
       deallocate( zMat_fac )
 #endif
-      deallocate( workA, workB, workC, rhs1 )
+      deallocate( workA, workB, rhs1 )
       deallocate( dtV, Dif )
 
    end subroutine finalize_updateZ
@@ -489,8 +487,8 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
-      !$OMP shared(z,dz,dzdtLast,chebt_oc,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workC,llm,ulm)
+      !$OMP shared(z,dz,dzdtLast,rscheme_oc) &
+      !$OMP shared(n_r_max,n_cheb_max,workA,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -506,10 +504,9 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
-         call chebt_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dzdtLast)
+         call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_ddr(z, dz, workA, ulm-llm+1, start_lm-llm+1,     &
-                      stop_lm-llm+1,n_r_max, n_cheb_max, dzdtLast, &
-                      workC,chebt_oc,drx,ddrx)
+              &       stop_lm-llm+1,n_r_max, rscheme_oc)
       end do
       !$OMP end do
       !$OMP END PARALLEL

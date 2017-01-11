@@ -6,10 +6,10 @@ module updateWP_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_cheb_max, n_r_max, l_max
    use radial_data, only: n_r_cmb,n_r_icb
-   use radial_functions, only: drx,ddrx,dddrx,or1,or2,rho0,rgrav,       &
+   use radial_functions, only: drx,or1,or2,rho0,rgrav,       &
        &                       chebt_oc,visc,dlvisc,r,alpha0,temp0,     &
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
-       &                       cheb_norm, ogrun
+       &                       cheb_norm, ogrun, rscheme_oc
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: alpha
@@ -367,7 +367,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
-      !$OMP shared(chebt_oc,drx,ddrx,dddrx) &
+      !$OMP shared(rscheme_oc,drx) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,workA,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -389,15 +389,13 @@ contains
          !-- Transform to radial space and get radial derivatives
          !   using dwdtLast, dpdtLast as work arrays:
 
-         call chebt_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
+         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
 
          call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
-              &         stop_lm-llm+1, n_r_max,n_cheb_max,dwdtLast,    &
-              &         dpdtLast,chebt_oc,drx,ddrx,dddrx)
-         call chebt_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
+              &         stop_lm-llm+1, n_r_max, rscheme_oc)
+         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,n_cheb_max,dwdtLast,dpdtLast,            &
-              &       chebt_oc,drx)
+              &       n_r_max, rscheme_oc )
       end do
       !$OMP end do
       !$OMP END PARALLEL
@@ -749,7 +747,7 @@ contains
       !-- The integral of rho' r^2 dr vanishes
       if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
          work(:) = ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
-         call chebt_oc%costf1(work,work1)
+         call rscheme_oc%costf1(work)
          work(:)      =work(:)*cheb_norm
          work(1)      =half*work(1)
          work(n_r_max)=half*work(n_r_max)

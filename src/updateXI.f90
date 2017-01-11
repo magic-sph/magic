@@ -7,7 +7,7 @@ module updateXi_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_oc,orho1,or1,or2,     &
        &                       beta, drx, ddrx, cheb_norm, &
-       &                       cheb, dcheb, d2cheb
+       &                       cheb, dcheb, d2cheb, rscheme_oc
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: alpha
    use init_fields, only: topxi, botxi
@@ -345,7 +345,7 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
-      !$OMP shared(xi,dxi,dxidtLast,chebt_oc,drx,ddrx) &
+      !$OMP shared(xi,dxi,dxidtLast,rscheme_oc) &
       !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dxidt,coex,osc,hdif_Xi) &
       !$OMP shared(st_map,lm2l,lm2m,beta,or1,dLh,or2)
@@ -354,10 +354,9 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
-         call chebt_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dxidtLast)
+         call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_ddr(xi, dxi, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
-              &       n_r_max, n_cheb_max, workB, dxidtLast,                   &
-              &       chebt_oc,drx,ddrx)
+              &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
 

@@ -23,7 +23,7 @@ module RMS
    use integration, only: rInt_R, rInt
    use chebyshev_polynoms_mod, only: cheb_grid
    use radial_functions, only: nDi_costf1, nDd_costf1, r
-   use radial_der, only: get_dr, get_drNS
+   use radial_der, only: get_dr_back, get_drNS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
@@ -352,7 +352,7 @@ contains
       do nR=1,n_r_max
          drx(nR)=one
       end do
-      call get_dr(r2,dr2,n_r_max2,n_cheb_max2,w1,w2,chebt_RMS,drx)
+      call get_dr_back(r2,dr2,n_r_max2,n_cheb_max2,w1,w2,chebt_RMS,drx)
       do nR=1,n_r_max2
          dr_fac2(nR)=one/dr2(nR)
       end do

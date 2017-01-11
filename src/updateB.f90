@@ -14,7 +14,7 @@ module updateB_mod
    use radial_functions, only: chebt_ic,drx,ddrx,or2,r_cmb, chebt_oc,        &
        &                       chebt_ic_even, d2cheb_ic, cheb_norm_ic,       &
        &                       dr_fac_ic,lambda,dLlambda,o_r_ic,r,cheb_norm, &
-       &                       cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic
+       &                       cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic,rscheme_oc
    use radial_data, only: n_r_cmb,n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
                                  sigma_ratio, conductance_ma, ktopb, kbotb
@@ -654,7 +654,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &
-      !$OMP shared(chebt_oc,drx,ddrx) &
+      !$OMP shared(chebt_oc,rscheme_oc,drx,ddrx) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag) &
       !$OMP shared(l_cond_ic,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic) &
       !$OMP shared(chebt_ic,chebt_ic_even) &
@@ -678,19 +678,17 @@ contains
 
          !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
          !PERFON('upB_cb')
-         call chebt_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1,   &
-              &      stop_lm-llmMag+1, dbdtLast)
+         call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1,   &
+              &                 stop_lm-llmMag+1)
          !PERFOFF
          !PERFON('upB_db')
          call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,n_cheb_max,        &
-              &       dbdtLast,djdtLast,chebt_oc,drx,ddrx)
+              &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
          !PERFOFF
-         call chebt_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
-              &      stop_lm-llmMag+1, dbdtLast)
+         call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
+              &                 stop_lm-llmMag+1)
          call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,n_cheb_max,dbdtLast,&
-              &       djdtLast,chebt_oc,drx,ddrx)
+              &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
          
          !-- Same for inner core:
          if ( l_cond_ic ) then

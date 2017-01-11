@@ -11,7 +11,7 @@ module updateWPS_mod
        &                       beta,dbeta,cheb,dcheb,d2cheb,d3cheb,     &
        &                       cheb_norm, dLkappa, dLtemp0, ddLtemp0,   &
        &                       alpha0,dLalpha0, ddLalpha0, ogrun,       &
-       &                       kappa, orho1, dentropy0, temp0, r
+       &                       kappa, orho1, dentropy0, temp0, r, rscheme_oc
    use physical_parameters, only: kbotv, ktopv, ktops, kbots, ra, opr, &
        &                          ViscHeatFac, ThExpNb, BuoFac,        &
        &                          CorFac, ktopp
@@ -28,7 +28,7 @@ module updateWPS_mod
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank
    use cosine_transform_odd
-   use radial_der, only: get_dddr, get_ddr, get_dr, get_drNS
+   use radial_der, only: get_dddr, get_ddr, get_drNS
    use integration, only: rInt_R
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
 
@@ -414,7 +414,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,s,ds,dwdtLast,dpdtLast,dsdtLast) &
-      !$OMP shared(chebt_oc,drx,ddrx,dddrx) &
+      !$OMP shared(rscheme_oc) &
       !$OMP shared(n_r_max,n_cheb_max,nThreads,workA,workB,workC,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -436,20 +436,17 @@ contains
          !-- Transform to radial space and get radial derivatives
          !   using dwdtLast, dpdtLast as work arrays:
 
-         call chebt_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
+         call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
-              &         stop_lm-llm+1, n_r_max,n_cheb_max,dwdtLast,    &
-              &         dpdtLast,chebt_oc,drx,ddrx,dddrx)
-         call chebt_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dwdtLast)
+              &         stop_lm-llm+1, n_r_max, rscheme_oc )
+         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
 
          call get_ddr( p, dp, workC,ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,n_cheb_max,dwdtLast,dpdtLast,            &
-              &       chebt_oc,drx,ddrx)
+              &       n_r_max,rscheme_oc)
 
-         call chebt_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dsdtLast)
+         call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_ddr(s, ds, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, n_cheb_max, dwdtLast, dsdtLast,                &
-              &       chebt_oc,drx,ddrx)
+              &       n_r_max, rscheme_oc)
 
       end do
       !$OMP end do
@@ -923,7 +920,7 @@ contains
 
       !-- Local variables:
       integer :: info,nCheb,nCheb_p,nR,nR_p,n_cheb_in
-      real(cp) :: work(n_r_max),work2(n_r_max),work3(n_r_max)
+      real(cp) :: work(n_r_max),work2(n_r_max)
       real(cp) :: O_dt
 
       O_dt=one/dt
@@ -1047,13 +1044,13 @@ contains
       if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
 
          work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
-         call chebt_oc%costf1(work,work2)
+         call rscheme_oc%costf1(work)
          work         =work*cheb_norm
          work(1)      =half*work(1)
          work(n_r_max)=half*work(n_r_max)
 
          work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:)
-         call chebt_oc%costf1(work2,work3)
+         call rscheme_oc%costf1(work2)
          work2         =work2*cheb_norm
          work2(1)      =half*work2(1)
          work2(n_r_max)=half*work2(n_r_max)
