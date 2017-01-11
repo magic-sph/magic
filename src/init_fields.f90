@@ -10,7 +10,7 @@ module init_fields
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
        &            l_anelastic_liquid, l_non_adia
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
-       &                       cheb_norm, lambda, or2, d2cheb, dcheb,  &
+       &                       lambda, or2, d2cheb, dcheb,  &
        &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
        &                       d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
        &                       orho1, chebt_oc, chebt_ic, temp0,       &
@@ -1526,7 +1526,7 @@ contains
       complex(cp), intent(out) :: aj0_ic(:) ! aj(l=0,m=0) in the inner core
 
       !-- Local variables
-      integer :: n_cheb,n_r,info,n_r_real
+      integer :: n_cheb,n_r,info,n_r_real,n_r_out
       complex(cp) :: rhs(n_r_tot)
       complex(cp) :: work_l(n_r_max)
       complex(cp) :: work_l_ic(n_r_ic_max)
@@ -1540,51 +1540,51 @@ contains
       if ( l_cond_ic ) n_r_real = n_r_real+n_r_ic_max
 
       !----- Outer core:
-      do n_cheb=1,n_cheb_max
+      do n_r_out=1,rscheme_oc%n_max
          do n_r=2,n_r_max-1
-            jMat(n_r,n_cheb)= cheb_norm * &
-              hdif_B(lm0)*dLh(lm0)*opm*lambda(n_r)*or2(n_r) * &
-              &       (                  d2cheb(n_cheb,n_r) + &
-              &             dLlambda(n_r)*dcheb(n_cheb,n_r) - &
-              &          dLh(lm0)*or2(n_r)*cheb(n_cheb,n_r) )
+            jMat(n_r,n_r_out)= rscheme_oc%rnorm *                   &
+              &    hdif_B(lm0)*dLh(lm0)*opm*lambda(n_r)*or2(n_r) *  &
+              &       (            rscheme_oc%d2rMat(n_r,n_r_out) + &
+              &       dLlambda(n_r)*rscheme_oc%drMat(n_r,n_r_out) - &
+              &    dLh(lm0)*or2(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
          end do
       end do
        
       !----- boundary conditions:
       !----- CMB:
-      do n_cheb=1,n_cheb_max     ! should be bpeaktop at CMB
-         jMat(1,n_cheb)=cheb_norm*cheb(n_cheb,1)
+      do n_r_out=1,rscheme_oc%n_max     ! should be bpeaktop at CMB
+         jMat(1,n_r_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
       end do
-      do n_cheb=n_cheb_max+1,n_r_max
-         jMat(1,n_cheb)=0.0_cp
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
+         jMat(1,n_r_out)=0.0_cp
       end do
 
       !----- ICB:
       if ( l_cond_ic ) then  ! matching condition at inner core:
 
-         do n_cheb=1,n_cheb_max
-            jMat(n_r_max,n_cheb)=cheb_norm*cheb(n_cheb,n_r_max)
-            jMat(n_r_max+1,n_cheb)= cheb_norm*sigma_ratio*dcheb(n_cheb,n_r_max)
+         do n_cheb=1,rscheme_oc%n_max
+            jMat(n_r_max,n_cheb)=rscheme_oc%rnorm*cheb(n_cheb,n_r_max)
+            jMat(n_r_max+1,n_cheb)= rscheme_oc%rnorm*sigma_ratio*dcheb(n_cheb,n_r_max)
          end do
-         do n_cheb=n_cheb_max+1,n_r_max
-            jMat(n_r_max,n_cheb)=0.0_cp
+         do n_cheb=rscheme_oc%n_max+1,n_r_max
+            jMat(n_r_max,n_cheb)  =0.0_cp
             jMat(n_r_max+1,n_cheb)=0.0_cp
          end do
 
       else
 
-         do n_cheb=1,n_cheb_max
-            jMat(n_r_max,n_cheb)=cheb(n_cheb,n_r_max)*cheb_norm
+         do n_r_out=1,rscheme_oc%n_max
+            jMat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)*rscheme_oc%rnorm
          end do
-         do n_cheb=n_cheb_max+1,n_r_max
-            jMat(n_r_max,n_cheb)=0.0_cp
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            jMat(n_r_max,n_r_out)=0.0_cp
          end do
 
       end if
        
       do n_r=1,n_r_max
-         jMat(n_r,1)      =half*jMat(n_r,1)
-         jMat(n_r,n_r_max)=half*jMat(n_r,n_r_max)
+         jMat(n_r,1)      =rscheme_oc%boundary_fac*jMat(n_r,1)
+         jMat(n_r,n_r_max)=rscheme_oc%boundary_fac*jMat(n_r,n_r_max)
       end do
 
       !----- Inner core:
@@ -1648,11 +1648,11 @@ contains
       call cgesl(jMat(1,1),n_r_tot,n_r_real,jPivot(1),rhs)
 
       !----- copy result for OC:
-      do n_cheb=1,n_cheb_max
-         aj0(n_cheb)=rhs(n_cheb)
+      do n_r_out=1,rscheme_oc%n_max
+         aj0(n_r_out)=rhs(n_r_out)
       end do
-      do n_cheb=n_cheb_max+1,n_r_max
-         aj0(n_cheb)=zero
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
+         aj0(n_r_out)=zero
       end do
 
       !----- transform to radial space:
@@ -1795,74 +1795,80 @@ contains
 
       !-- local variables:
       integer :: n_cheb,nCheb_p,n_r,n_r_p,info,n_cheb_in
-      real(cp), allocatable :: work(:), work2(:), work3(:), rhs(:)
+      integer :: n_r_out, n_r_out_p
+      real(cp), allocatable :: work(:), work2(:), rhs(:)
       integer, allocatable :: pt0Pivot(:)
       real(cp), allocatable :: pt0Mat_fac(:)
       real(cp), allocatable :: pt0Mat(:, :)
 
-      allocate ( rhs(2*n_r_max), work(n_r_max), work2(n_r_max), work3(n_r_max) )
+      allocate ( rhs(2*n_r_max), work(n_r_max), work2(n_r_max) )
       allocate ( pt0Pivot(2*n_r_max), pt0Mat_fac(2*n_r_max) )
       allocate ( pt0Mat(2*n_r_max,2*n_r_max) )
 
       if ( l_temperature_diff ) then
 
-         do n_cheb=1,n_r_max
-            nCheb_p=n_cheb+n_r_max
+         do n_r_out=1,n_r_max
+            n_r_out_p=n_r_out+n_r_max
             do n_r=1,n_r_max
                n_r_p=n_r+n_r_max
 
                ! Delta T = epsc
-               pt0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
-               &                                       d2cheb(n_cheb,n_r) +  &
+               pt0Mat(n_r,n_r_out)=rscheme_oc%rnorm*opr*kappa(n_r)* (        &
+               &                          rscheme_oc%d2rMat(n_r,n_r_out) +   &
                &         ( beta(n_r)+two*or1(n_r)+dLkappa(n_r) )*            &
-               &                                        dcheb(n_cheb,n_r) )
+               &                           rscheme_oc%drMat(n_r,n_r_out) )
 
-               pt0Mat(n_r,nCheb_p)=0.0_cp
+               pt0Mat(n_r,n_r_out_p)=0.0_cp
 
                ! Hydrostatic equilibrium
-               pt0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)*&
-               &                              alpha0(n_r)*cheb(n_cheb,n_r)
-               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+              &
-               &                      ViscHeatFac*BuoFac*(                         &
-               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )* &
-               &                      alpha0(n_r)*rgrav(n_r)*cheb(n_cheb,n_r) )
+               pt0Mat(n_r_p,n_r_out) = -rscheme_oc%rnorm*rho0(n_r)*BuoFac*   &
+               &                        rgrav(n_r)*alpha0(n_r)*              &
+               &                         rscheme_oc%rMat(n_r,n_r_out)
+               pt0Mat(n_r_p,n_r_out_p)= rscheme_oc%rnorm *(                  &
+               &                           rscheme_oc%drMat(n_r,n_r_out)+    &
+               &                      ViscHeatFac*BuoFac*(                   &
+               &               ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )*  &
+               &                      alpha0(n_r)*rgrav(n_r)*                &
+               &                            rscheme_oc%rMat(n_r,n_r_out) )
 
             end do
          end do
 
       else ! entropy diffusion
 
-         do n_cheb=1,n_r_max
-            nCheb_p=n_cheb+n_r_max
+         do n_r_out=1,n_r_max
+            n_r_out_p=n_r_out+n_r_max
             do n_r=1,n_r_max
                n_r_p=n_r+n_r_max
 
                ! Delta T = epsc
-               pt0Mat(n_r,n_cheb)=cheb_norm*opr*kappa(n_r)* (                &
-               &                                       d2cheb(n_cheb,n_r) +  &
-               &         ( beta(n_r)-dLtemp0(n_r)+                           &
-               &           two*or1(n_r)+dLkappa(n_r) )* dcheb(n_cheb,n_r) -  &
-               &         (ddLtemp0(n_r)+dLtemp0(n_r)*(dLkappa(n_r)+beta(n_r) &
-               &          +two*or1(n_r)))*               cheb(n_cheb,n_r) )
-               pt0Mat(n_r,nCheb_p)=-cheb_norm*opr*kappa(n_r)*alpha0(n_r)*    &
-               &                   temp0(n_r)*orho1(n_r)*ViscHeatFac*        &
-               &                   ThExpNb*(           d2cheb(n_cheb,n_r) +  &
-               &                   ( dLkappa(n_r)+dLtemp0(n_r)+two*or1(n_r)+ &
-               &                     two*dLalpha0(n_r)-beta(n_r) ) *         &
-               &                                        dcheb(n_cheb,n_r) +  &
-               &                   ((dLalpha0(n_r)-beta(n_r))*( two*or1(n_r)+&
-               &                    dLalpha0(n_r)+dLkappa(n_r)+dLtemp0(n_r) )&
-               &                    +ddLalpha0(n_r)-dbeta(n_r) ) *           &
-               &                                         cheb(n_cheb,n_r))
-
+               pt0Mat(n_r,n_r_out)=rscheme_oc%rnorm*opr*kappa(n_r)* (           &
+               &                              rscheme_oc%d2rMat(n_r,n_r_out) +  &
+               & ( beta(n_r)-dLtemp0(n_r)+two*or1(n_r)+dLkappa(n_r) )*          &
+               &                               rscheme_oc%drMat(n_r,n_r_out) -  &
+               &         (ddLtemp0(n_r)+dLtemp0(n_r)*(dLkappa(n_r)+beta(n_r)    &
+               &          +two*or1(n_r)))*     rscheme_oc%rMat(n_r,n_r_out) )
+               pt0Mat(n_r,n_r_out_p)=-rscheme_oc%rnorm*opr*kappa(n_r)*          &
+               &               alpha0(n_r)*temp0(n_r)*orho1(n_r)*ViscHeatFac*   &
+               &          ThExpNb*(           rscheme_oc%d2rMat(n_r,n_r_out) +  &
+               &          ( dLkappa(n_r)+dLtemp0(n_r)+two*or1(n_r)+             &
+               &                   two*dLalpha0(n_r)-beta(n_r) ) *              &
+               &                              rscheme_oc%drMat(n_r,n_r_out) +   &
+               &                   ((dLalpha0(n_r)-beta(n_r))*( two*or1(n_r)+   &
+               &                    dLalpha0(n_r)+dLkappa(n_r)+dLtemp0(n_r) )   &
+               &                    +ddLalpha0(n_r)-dbeta(n_r) ) *              &
+               &                              rscheme_oc%rMat(n_r,n_r_out))
 
                ! Hydrostatic equilibrium
-               pt0Mat(n_r_p,n_cheb) = -cheb_norm*rho0(n_r)*BuoFac*rgrav(n_r)* &
-                                              alpha0(n_r)*cheb(n_cheb,n_r)
-               pt0Mat(n_r_p,nCheb_p)= cheb_norm *( dcheb(n_cheb,n_r)+              &
-               &                      ViscHeatFac*BuoFac*(                         &
-               &                      ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )* &
-               &                      alpha0(n_r)*rgrav(n_r)*cheb(n_cheb,n_r) )
+               pt0Mat(n_r_p,n_r_out) = -rscheme_oc%rnorm*rho0(n_r)*BuoFac*    &
+               &                       rgrav(n_r)*alpha0(n_r)*                &
+               &                       rscheme_oc%rMat(n_r,n_r_out)
+               pt0Mat(n_r_p,n_r_out_p)= rscheme_oc%rnorm *(                   &
+               &                       rscheme_oc%drMat(n_r,n_r_out)+         &
+               &                      ViscHeatFac*BuoFac*(                    &
+               &                 ThExpNb*alpha0(n_r)*temp0(n_r)+ogrun(n_r) )* &
+               &                  alpha0(n_r)*rgrav(n_r)*                     &
+               &                        rscheme_oc%rMat(n_r,n_r_out) )
 
             end do
          end do
@@ -1871,119 +1877,137 @@ contains
 
 
       !-- Set boundary conditions:
-      do n_cheb=1,n_cheb_max
-         nCheb_p=n_cheb+n_r_max
+      do n_r_out=1,rscheme_oc%n_max
+         n_r_out_p=n_r_out+n_r_max
          if ( ktops == 1 .or. kbots == 2 .or. kbots == 4 ) then
-            pt0Mat(1,n_cheb)  =otemp1(1)*cheb_norm
-            pt0Mat(1,nCheb_p) =-cheb_norm*ViscHeatFac*ThExpNb*alpha0(1)*&
-            &                  orho1(1)
+            pt0Mat(1,n_r_out)=otemp1(1)*rscheme_oc%rnorm* &
+            &                 rscheme_oc%rMat(1,n_r_out)
+            pt0Mat(1,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+            &                   alpha0(1)*orho1(1)*rscheme_oc%rMat(1,n_r_out)
          else if ( ktops == 2) then ! constant entropy flux at outer boundary
-            pt0Mat(1,n_cheb) =cheb_norm*otemp1(1)*( dcheb(n_cheb,1)- &
-            &                          dLtemp0(1)*   cheb(n_cheb,1) )
-            pt0Mat(1,nCheb_p)=-cheb_norm*ViscHeatFac*ThExpNb*alpha0(1)*&
-            &                 orho1(1)*(            dcheb(n_cheb,1)+   &
-            &                 (dLalpha0(1)-beta(1))* cheb(n_cheb,1) )
+            pt0Mat(1,n_r_out) =rscheme_oc%rnorm*otemp1(1)*(            &
+            &                             rscheme_oc%drMat(1,n_r_out)- &
+            &                dLtemp0(1)*   rscheme_oc%rMat(1,n_r_out) )
+            pt0Mat(1,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb*alpha0(1)* &
+            &                 orho1(1)*(            rscheme_oc%drMat(1,n_r_out)+ &
+            &                 (dLalpha0(1)-beta(1))* rscheme_oc%rMat(1,n_r_out) )
          else if ( ktops == 3) then ! constant temperature at outer boundary
-            pt0Mat(1,n_cheb)  =cheb_norm
-            pt0Mat(1,nCheb_p) =0.0_cp
+            pt0Mat(1,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
+            pt0Mat(1,n_r_out_p) =0.0_cp
          else if ( ktops == 4) then ! constant temperature flux at outer boundary
-            pt0Mat(1,n_cheb) =dcheb(n_cheb,1)*cheb_norm
-            pt0Mat(1,nCheb_p)=0.0_cp
+            pt0Mat(1,n_r_out) =rscheme_oc%drMat(1,n_r_out)*rscheme_oc%rnorm
+            pt0Mat(1,n_r_out_p)=0.0_cp
          end if
 
          if ( kbots == 1 ) then        ! Constant entropy at inner boundary
-            pt0Mat(n_r_max,n_cheb) =cheb(n_cheb,n_r_max)*cheb_norm*otemp1(n_r_max)
-            pt0Mat(n_r_max,nCheb_p)=-cheb_norm*ViscHeatFac*ThExpNb* &
-            &                       alpha0(n_r_max)*orho1(n_r_max)* &
-            &                       cheb(n_cheb,n_r_max)
+            pt0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)* &
+            &                       rscheme_oc%rnorm*otemp1(n_r_max)
+            pt0Mat(n_r_max,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+            &                       alpha0(n_r_max)*orho1(n_r_max)*          &
+            &                       rscheme_oc%rMat(n_r_max,n_r_out)
          else if ( kbots == 2 ) then   ! Constant entropy flux at inner boundary
-            pt0Mat(n_r_max,n_cheb) =cheb_norm*otemp1(n_r_max)*(            &
-            &                                       dcheb(n_cheb,n_r_max)- &
-            &                       dLtemp0(n_r_max)*cheb(n_cheb,n_r_max) )
-            pt0Mat(n_r_max,nCheb_p)=-cheb_norm*ViscHeatFac*ThExpNb*        &
-            &                       alpha0(n_r_max)*orho1(n_r_max)*(       &
-            &                                       dcheb(n_cheb,n_r_max)+ &
-            &                       (dLalpha0(n_r_max)-beta(n_r_max))*     &
-            &                                        cheb(n_cheb,n_r_max) )
+            pt0Mat(n_r_max,n_r_out) =rscheme_oc%rnorm*otemp1(n_r_max)*(   &
+            &                          rscheme_oc%drMat(n_r_max,n_r_out)- &
+            &          dLtemp0(n_r_max)*rscheme_oc%rMat(n_r_max,n_r_out) )
+            pt0Mat(n_r_max,n_r_out_p)=-rscheme_oc%rnorm*ViscHeatFac*ThExpNb* &
+            &          alpha0(n_r_max)*orho1(n_r_max)*(                      &
+            &                           rscheme_oc%drMat(n_r_max,n_r_out)+   &
+            &         (dLalpha0(n_r_max)-beta(n_r_max))*                     &
+            &                           rscheme_oc%rMat(n_r_max,n_r_out) )
          else if ( kbots == 3 ) then   ! Constant temperature at inner boundary
-            pt0Mat(n_r_max,n_cheb) =cheb(n_cheb,n_r_max)*cheb_norm
-            pt0Mat(n_r_max,nCheb_p)=0.0_cp
+            pt0Mat(n_r_max,n_r_out)=rscheme_oc%rMat(n_r_max,n_r_out)* &
+            &                       rscheme_oc%rnorm
+            pt0Mat(n_r_max,n_r_out_p)=0.0_cp
          else if ( kbots == 4 ) then   ! Constant temperature flux at inner boundary
-            pt0Mat(n_r_max,n_cheb) =dcheb(n_cheb,n_r_max)*cheb_norm
-            pt0Mat(n_r_max,nCheb_p)=0.0_cp
+            pt0Mat(n_r_max,n_r_out)=rscheme_oc%drMat(n_r_max,n_r_out)* &
+            &                       rscheme_oc%rnorm
+            pt0Mat(n_r_max,n_r_out_p)=0.0_cp
          end if
 
-         pt0Mat(2*n_r_max,n_cheb) =0.0_cp
-         pt0Mat(2*n_r_max,nCheb_p)=0.0_cp
+         if ( rscheme_oc%version == 'cheb' ) then
+            pt0Mat(2*n_r_max,n_r_out)  =0.0_cp
+            pt0Mat(2*n_r_max,n_r_out_p)=0.0_cp
+         end if
 
       end do
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
-      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
-         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+ogrun(:))*r(:)*r(:)
-         call chebt_oc%costf1(work,work2)
-         work         =work*cheb_norm
-         work(1)      =half*work(1)
-         work(n_r_max)=half*work(n_r_max)
+      if ( rscheme_oc%version == 'cheb' ) then
+         if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
-         work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:) 
-         call chebt_oc%costf1(work2,work3)
-         work2         =work2*cheb_norm
-         work2(1)      =half*work2(1)
-         work2(n_r_max)=half*work2(n_r_max)
+            work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+&
+            &       ogrun(:))*r(:)*r(:)
+            call rscheme_oc%costf1(work)
+            work         =work*rscheme_oc%rnorm
+            work(1)      =half*work(1)
+            work(n_r_max)=half*work(n_r_max)
 
-         do n_cheb=1,n_cheb_max
-            nCheb_p=n_cheb+n_r_max
-            pt0Mat(n_r_max+1,nCheb_p)=0.0_cp
-            pt0Mat(n_r_max+1,n_cheb) =0.0_cp
-            do n_cheb_in=1,n_cheb_max
-               if (mod(n_cheb+n_cheb_in-2,2)==0) then
-                  pt0Mat(n_r_max+1,nCheb_p)=pt0Mat(n_r_max+1,nCheb_p)+ &
-                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
-                  &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
-                  &                       work(n_cheb_in)*half*cheb_norm
-                  pt0Mat(n_r_max+1,n_cheb)=pt0Mat(n_r_max+1,n_cheb)+ &
-                  &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
-                  &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
-                  &                       work2(n_cheb_in)*half*cheb_norm
-               end if
+            work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:) 
+            call rscheme_oc%costf1(work2)
+            work2         =work2*rscheme_oc%rnorm
+            work2(1)      =half*work2(1)
+            work2(n_r_max)=half*work2(n_r_max)
+
+            do n_cheb=1,rscheme_oc%n_max
+               nCheb_p=n_cheb+n_r_max
+               pt0Mat(n_r_max+1,nCheb_p)=0.0_cp
+               pt0Mat(n_r_max+1,n_cheb) =0.0_cp
+               do n_cheb_in=1,rscheme_oc%n_max
+                  if (mod(n_cheb+n_cheb_in-2,2)==0) then
+                     pt0Mat(n_r_max+1,nCheb_p)=pt0Mat(n_r_max+1,nCheb_p)+ &
+                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                     &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
+                     &                       work(n_cheb_in)*half*rscheme_oc%rnorm
+                     pt0Mat(n_r_max+1,n_cheb)=pt0Mat(n_r_max+1,n_cheb)+ &
+                     &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
+                     &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
+                     &                       work2(n_cheb_in)*half*rscheme_oc%rnorm
+                  end if
+               end do
             end do
-         end do
+         else
+            do n_r_out=1,rscheme_oc%n_max
+               n_r_out_p=n_r_out+n_r_max
+               pt0Mat(n_r_max+1,n_r_out) =0.0_cp
+               pt0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
+            end do
+         end if
       else
-         do n_cheb=1,n_cheb_max
-            nCheb_p=n_cheb+n_r_max
-            pt0Mat(n_r_max+1,n_cheb) =0.0_cp
-            pt0Mat(n_r_max+1,nCheb_p)=cheb_norm
+
+         do n_r_out=1,rscheme_oc%n_max
+            n_r_out_p=n_r_out+n_r_max
+            pt0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
          end do
+
       end if
        
       !-- Fill with zeros:
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            nCheb_p=n_cheb+n_r_max
-            pt0Mat(1,n_cheb)         =0.0_cp
-            pt0Mat(n_r_max,n_cheb)   =0.0_cp
-            pt0Mat(n_r_max+1,n_cheb) =0.0_cp
-            pt0Mat(2*n_r_max,n_cheb) =0.0_cp
-            pt0Mat(1,nCheb_p)        =0.0_cp
-            pt0Mat(n_r_max,nCheb_p)  =0.0_cp
-            pt0Mat(n_r_max+1,nCheb_p)=0.0_cp
+      if ( rscheme_oc%n_max < n_r_max ) then
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            n_r_out_p=n_r_out+n_r_max
+            pt0Mat(1,n_r_out)          =0.0_cp
+            pt0Mat(n_r_max,n_r_out)    =0.0_cp
+            pt0Mat(n_r_max+1,n_r_out)  =0.0_cp
+            pt0Mat(2*n_r_max,n_r_out)  =0.0_cp
+            pt0Mat(1,n_r_out_p)        =0.0_cp
+            pt0Mat(n_r_max,n_r_out_p)  =0.0_cp
+            pt0Mat(n_r_max+1,n_r_out_p)=0.0_cp
          end do
       end if
        
       !-- Renormalize:
       do n_r=1,n_r_max
          n_r_p=n_r+n_r_max
-         pt0Mat(n_r,1)          =half*pt0Mat(n_r,1)
-         pt0Mat(n_r,n_r_max)    =half*pt0Mat(n_r,n_r_max)
-         pt0Mat(n_r,n_r_max+1)  =half*pt0Mat(n_r,n_r_max+1)
-         pt0Mat(n_r,2*n_r_max)  =half*pt0Mat(n_r,2*n_r_max)
-         pt0Mat(n_r_p,1)        =half*pt0Mat(n_r_p,1)
-         pt0Mat(n_r_p,n_r_max)  =half*pt0Mat(n_r_p,n_r_max)
-         pt0Mat(n_r_p,n_r_max+1)=half*pt0Mat(n_r_p,n_r_max+1)
-         pt0Mat(n_r_p,2*n_r_max)=half*pt0Mat(n_r_p,2*n_r_max)
+         pt0Mat(n_r,1)          =rscheme_oc%boundary_fac*pt0Mat(n_r,1)
+         pt0Mat(n_r,n_r_max)    =rscheme_oc%boundary_fac*pt0Mat(n_r,n_r_max)
+         pt0Mat(n_r,n_r_max+1)  =rscheme_oc%boundary_fac*pt0Mat(n_r,n_r_max+1)
+         pt0Mat(n_r,2*n_r_max)  =rscheme_oc%boundary_fac*pt0Mat(n_r,2*n_r_max)
+         pt0Mat(n_r_p,1)        =rscheme_oc%boundary_fac*pt0Mat(n_r_p,1)
+         pt0Mat(n_r_p,n_r_max)  =rscheme_oc%boundary_fac*pt0Mat(n_r_p,n_r_max)
+         pt0Mat(n_r_p,n_r_max+1)=rscheme_oc%boundary_fac*pt0Mat(n_r_p,n_r_max+1)
+         pt0Mat(n_r_p,2*n_r_max)=rscheme_oc%boundary_fac*pt0Mat(n_r_p,2*n_r_max)
       end do
 
 
@@ -2032,19 +2056,19 @@ contains
          p0(n_r)=rhs(n_r+n_r_max)
       end do
 
-      !-- Set cheb-modes > n_cheb_max to zero:
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            t0(n_cheb)=0.0_cp
-            p0(n_cheb)=0.0_cp
+      !-- Set cheb-modes > rscheme_oc%n_max to zero:
+      if ( rscheme_oc%n_max < n_r_max ) then
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            t0(n_r_out)=0.0_cp
+            p0(n_r_out)=0.0_cp
          end do
       end if
        
       !-- Transform to radial space:
-      call chebt_oc%costf1(t0,work)
-      call chebt_oc%costf1(p0,work)
+      call rscheme_oc%costf1(t0)
+      call rscheme_oc%costf1(p0)
 
-      deallocate ( rhs, work, work2, work3 )
+      deallocate ( rhs, work, work2 )
       deallocate ( pt0Pivot, pt0Mat_fac )
       deallocate ( pt0Mat )
 
@@ -2201,30 +2225,30 @@ contains
 
             work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
             call rscheme_oc%costf1(work)
-            work         =work*cheb_norm
+            work         =work*rscheme_oc%rnorm
             work(1)      =half*work(1)
             work(n_r_max)=half*work(n_r_max)
 
             work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:) 
             call rscheme_oc%costf1(work2)
-            work2         =work2*cheb_norm
+            work2         =work2*rscheme_oc%rnorm
             work2(1)      =half*work2(1)
             work2(n_r_max)=half*work2(n_r_max)
 
-            do n_cheb=1,n_cheb_max
+            do n_cheb=1,rscheme_oc%n_max
                nCheb_p=n_cheb+n_r_max
                ps0Mat(n_r_max+1,nCheb_p)=0.0_cp
                ps0Mat(n_r_max+1,n_cheb)=0.0_cp
-               do n_cheb_in=1,n_cheb_max
+               do n_cheb_in=1,rscheme_oc%n_max
                   if (mod(n_cheb+n_cheb_in-2,2)==0) then
                   ps0Mat(n_r_max+1,nCheb_p)=ps0Mat(n_r_max+1,nCheb_p)+ &
                   &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
                   &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
-                  &                       work(n_cheb_in)*half*cheb_norm
+                  &                       work(n_cheb_in)*half*rscheme_oc%rnorm
                   ps0Mat(n_r_max+1,n_cheb)=ps0Mat(n_r_max+1,n_cheb)+ &
                   &                       (one/(one-real(n_cheb_in-n_cheb,cp)**2)+&
                   &                       one/(one-real(n_cheb_in+n_cheb-2,cp)**2))*&
-                  &                       work2(n_cheb_in)*half*cheb_norm
+                  &                       work2(n_cheb_in)*half*rscheme_oc%rnorm
                   end if
                end do
             end do
@@ -2316,7 +2340,7 @@ contains
          p0(n_r)=rhs(n_r+n_r_max)
       end do
 
-      !-- Set cheb-modes > n_cheb_max to zero:
+      !-- Set cheb-modes > rscheme_oc%n_max to zero:
       if ( rscheme_oc%n_max < n_r_max ) then
          do n_cheb=rscheme_oc%n_max+1,n_r_max
             s0(n_cheb)=0.0_cp
