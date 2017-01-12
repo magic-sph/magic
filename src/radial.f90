@@ -28,7 +28,7 @@ module radial_functions
    use finite_differences, only: get_FD_grid, type_stencil
 
    !-- to be removed
-   use integration, only: rInt_fd
+   use integration, only: rInt_R
  
    implicit none
 
@@ -375,7 +375,7 @@ contains
 
          f(:)=real(f_c(1,:))
 
-         print*, rInt_fd(f,r,n_r_max)
+         print*, rInt_R(f,r,rscheme_oc)
          
          do i=1,n_r_max
             df(i)=0.0_cp

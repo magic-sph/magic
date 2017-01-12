@@ -7,7 +7,7 @@ module RMS_helpers
    use precision_mod
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
-   use radial_functions, only: or2, drx, chebt_oc, r
+   use radial_functions, only: or2, rscheme_oc, r
    use horizontal_data, only: osn1, Plm, dPlm, dLh
    use useful, only: cc2real
    use integration, only: rInt_R
@@ -127,10 +127,10 @@ contains
       end do    ! radial grid points
     
       !-- Radial Integrals:
-      PolRms  =rInt_R(PolRms_r,n_r_max,n_r_max,drx,chebt_oc)
-      TorRms  =rInt_R(TorRms_r,n_r_max,n_r_max,drx,chebt_oc)
-      PolAsRms=rInt_R(PolAsRms_r,n_r_max,n_r_max,drx,chebt_oc)
-      TorAsRms=rInt_R(TorAsRms_r,n_r_max,n_r_max,drx,chebt_oc)
+      PolRms  =rInt_R(PolRms_r,r,rscheme_oc)
+      TorRms  =rInt_R(TorRms_r,r,rscheme_oc)
+      PolAsRms=rInt_R(PolAsRms_r,r,rscheme_oc)
+      TorAsRms=rInt_R(TorAsRms_r,r,rscheme_oc)
       fac=one/vol_oc
       PolRms  =sqrt(fac*PolRms)
       TorRms  =sqrt(fac*TorRms)

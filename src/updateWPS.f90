@@ -29,7 +29,7 @@ module updateWPS_mod
    use parallel_mod, only: chunksize, rank
    use cosine_transform_odd
    use radial_der, only: get_dddr, get_ddr, get_drNS
-   use integration, only: rInt_R
+   !use integration, only: rInt_R
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
 
    implicit none
@@ -457,7 +457,7 @@ contains
       !   rhoprime(nR)=osq4pi*ThExpNb*alpha0(nR)*( -rho0(nR)*temp0(nR)* &
       !                real(s(1,nR))+ViscHeatFac*ogrun*real(p(1,nR)) )
       !end do
-      !mass = rInt_R(rhoprime*r**2,n_r_max,n_r_max,drx,chebt_oc)
+      !mass = rInt_R(rhoprime*r*r,r,rscheme_oc)
 
 #ifdef WITHOMP
       call omp_set_num_threads(omp_get_max_threads())

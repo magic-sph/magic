@@ -6,9 +6,9 @@ module power
    use truncation, only: n_r_ic_maxMag, n_r_max, n_r_ic_max, l_max, &
        &                 n_r_maxMag
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: r_cmb, r_icb, r, chebt_oc, chebt_ic, &
-       &                       or2, O_r_ic2, drx, lambda, temp0,    &
-       &                       O_r_ic, rgrav, r_ic, dr_fac_ic,      &
+   use radial_functions, only: r_cmb, r_icb, r, rscheme_oc, chebt_ic, &
+       &                       or2, O_r_ic2, lambda, temp0,           &
+       &                       O_r_ic, rgrav, r_ic, dr_fac_ic,        &
        &                       alpha0, orho1, otemp1
    use physical_parameters, only: kbotv, ktopv, opm, LFfac, BuoFac, &
        &                          ChemFac, ThExpNb, ViscHeatFac
@@ -274,30 +274,30 @@ contains
          !-- Transform to cheb space:
          if ( l_conv ) then
             !curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
-            !curlU2=rInt_R(curlU2_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
             viscHeatMeanR=viscHeatMeanR+timePassed*viscHeatR_global*eScale
-            viscHeat=rInt_R(viscHeatR_global,n_r_max,n_r_max,drx,chebt_oc)
+            viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
             viscHeat=eScale*viscHeat
          else
             viscHeat=0.0_cp
          end if
          if ( l_mag )  then
             ohmDissR=ohmDissR+timePassed*curlB2_r_global*LFfac*opm*eScale
-            curlB2=rInt_R(curlB2_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            curlB2=rInt_R(curlB2_r_global,r,rscheme_oc)
             curlB2=LFfac*opm*eScale*curlB2
          else
             curlB2=0.0_cp
          end if
          if ( l_heat ) then
             buoMeanR=buoMeanR+timePassed*buoy_r_global*eScale
-            buoy=rInt_R(buoy_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            buoy=rInt_R(buoy_r_global,r,rscheme_oc)
             buoy=eScale*buoy
          else
             buoy=0.0_cp
          end if
          if ( l_chemical_conv ) then
             buo_chem_MeanR=buo_chem_MeanR+timePassed*buoy_chem_r_global*eScale
-            buoy_chem=rInt_R(buoy_chem_r_global,n_r_max,n_r_max,drx,chebt_oc)
+            buoy_chem=rInt_R(buoy_chem_r_global,r,rscheme_oc)
             buoy_chem=eScale*buoy_chem
          else
             buoy_chem=0.0_cp

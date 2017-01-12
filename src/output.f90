@@ -5,7 +5,7 @@ module output_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max
    use parallel_mod, only: rank
-   use radial_functions, only: or1, or2, r, drx, chebt_oc, r_cmb, r_icb
+   use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
    use num_param, only: tScale
@@ -909,7 +909,7 @@ contains
   
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
-               Rm=rInt_R(RmR,n_r_max,n_r_max,drx,chebt_oc)
+               Rm=rInt_R(RmR,r,rscheme_oc)
                Rm=three*Rm/(r_cmb**3-r_icb**3)
             elseif ( prmag /= 0 ) then
                Rm=Re*prmag

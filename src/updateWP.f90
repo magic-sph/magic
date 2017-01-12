@@ -6,10 +6,9 @@ module updateWP_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, l_max
    use radial_data, only: n_r_cmb,n_r_icb
-   use radial_functions, only: drx,or1,or2,rho0,rgrav,       &
-       &                       chebt_oc,visc,dlvisc,r,alpha0,temp0,     &
-       &                       beta,dbeta,     &
-       &                       ogrun, rscheme_oc
+   use radial_functions, only: or1,or2,rho0,rgrav,        &
+       &                       visc,dlvisc,r,alpha0,temp0,&
+       &                       beta,dbeta,ogrun,rscheme_oc
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: alpha
@@ -222,7 +221,7 @@ contains
                         work(nR)=ThExpNb*alpha0(nR)*temp0(nR)*rho0(nR)*r(nR)*&
                         &        r(nR)*real(s(st_map%lm2(0,0),nR))
                      end do
-                     rhs(1)=rInt_R(work,n_r_max,n_r_max,drx,chebt_oc)
+                     rhs(1)=rInt_R(work,r,rscheme_oc)
                   else
                      rhs(1)=0.0_cp
                   end if
@@ -371,8 +370,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
-      !$OMP shared(rscheme_oc,drx) &
-      !$OMP shared(n_r_max,nThreads,workA,llm,ulm)
+      !$OMP shared(rscheme_oc,n_r_max,nThreads,workA,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()

@@ -5,8 +5,8 @@ module magnetic_energy
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
    use radial_data, only: n_r_cmb
-   use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, chebt_oc, &
-       &                       sigma, orho1, r, or2, drx
+   use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, &
+       &                       sigma, orho1, r, or2, rscheme_oc
    use physical_parameters, only: LFfac, kbotb, ktopb
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
@@ -375,17 +375,17 @@ contains
 
 
          !-- Radial integrals:
-         e_p        =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t        =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as     =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as     =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_es     =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_es     =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_eas    =rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_eas    =rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_dipole   =rInt_R(e_dipole_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_dipole_ax=rInt_R(e_dipole_ax_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         elsAnel    =rInt_R(els_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p        =rInt_R(e_p_r_global,r,rscheme_oc)
+         e_t        =rInt_R(e_t_r_global,r,rscheme_oc)
+         e_p_as     =rInt_R(e_p_as_r_global,r,rscheme_oc)
+         e_t_as     =rInt_R(e_t_as_r_global,r,rscheme_oc)
+         e_p_es     =rInt_R(e_p_es_r_global,r,rscheme_oc)
+         e_t_es     =rInt_R(e_t_es_r_global,r,rscheme_oc)
+         e_p_eas    =rInt_R(e_p_eas_r_global,r,rscheme_oc)
+         e_t_eas    =rInt_R(e_t_eas_r_global,r,rscheme_oc)
+         e_dipole   =rInt_R(e_dipole_r_global,r,rscheme_oc)
+         e_dipole_ax=rInt_R(e_dipole_ax_r_global,r,rscheme_oc)
+         elsAnel    =rInt_R(els_r_global,r,rscheme_oc)
 
          fac=half*LFfac*eScale
          e_p        =fac*e_p

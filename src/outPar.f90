@@ -19,14 +19,14 @@ module outPar_mod
        &                          opr, kbots, ktops, ThExpNb
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
-       &                       dr_fac, chebt_oc, orho1, dLalpha0, &
+       &                       dr_fac, rscheme_oc, orho1, dLalpha0, &
        &                       dLtemp0, beta, alpha0
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag
    use num_param, only: tScale
    use output_data, only: tag
    use useful, only: cc2real
-   use integration, only: rInt
+   use integration, only: rInt_R
    use legendre_spec_to_grid, only: lmAS2pt
 
    implicit none
@@ -585,10 +585,10 @@ contains
 
 
       if ( rank == 0 ) then
-         EperpT  =four*pi*rInt(EperpR_global*r**2,n_r_max,dr_fac,chebt_oc)
-         EparT   =four*pi*rInt(EparR_global*r**2,n_r_max,dr_fac,chebt_oc)
-         EperpaxT=four*pi*rInt(EperpaxiR_global*r**2,n_r_max,dr_fac,chebt_oc)
-         EparaxT =four*pi*rInt(EparaxiR_global*r**2,n_r_max,dr_fac,chebt_oc)
+         EperpT  =four*pi*rInt_R(EperpR_global*r*r,r,rscheme_oc)
+         EparT   =four*pi*rInt_R(EparR_global*r*r,r,rscheme_oc)
+         EperpaxT=four*pi*rInt_R(EperpaxiR_global*r*r,r,rscheme_oc)
+         EparaxT =four*pi*rInt_R(EparaxiR_global*r*r,r,rscheme_oc)
 
          !-- Output
          if ( l_save_out ) then

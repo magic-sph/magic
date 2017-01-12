@@ -6,7 +6,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max
-   use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, drx
+   use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
        &                             BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
@@ -1081,16 +1081,16 @@ contains
                LFR(nR)    =fac*LFR(nR)
                CorR(nR)   =fac*CorR(nR)
                if ( LFABSR(nR) /= 0.0_cp ) then
-                  TayR(nR)   =abs(LFR(nR))/(fac*LFABSR(nR))
+                  TayR(nR)=abs(LFR(nR))/(fac*LFABSR(nR))
                else
-                  TayR(nR)   =0.0_cp
+                  TayR(nR)=0.0_cp
                end if
                !              TayRMSR(nR)=rS*rS*TayR(nR)
                TayRMSR(nR)=TayR(nR)
             end do
 
             !--- Now perform the radial integral: ( not tested )
-            TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,chebt_oc)
+            TaySRMS=rInt_R(TayRMSR,r,rscheme_oc)
             !--- And finally calculate the mean value, the factor 4*pi comes from
             !    the fact that the surface integral has already been cared for
             !    NOTE: Integral for RMS Taylorisation changed to not respect the 

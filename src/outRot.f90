@@ -4,7 +4,7 @@ module outRot
    use precision_mod
    use truncation, only: n_r_max, n_r_maxMag, minc, nrp, n_phi_max
    use radial_data, only: n_r_CMB, n_r_ICB
-   use radial_functions, only: r_icb, r_cmb, r, drx, chebt_oc
+   use radial_functions, only: r_icb, r_cmb, r, rscheme_oc
    use physical_parameters, only: kbotv, ktopv
    use num_param, only: lScale, tScale, vScale
    use blocking, only: lo_map,st_map,lmStartB,lmStopB, lm2
@@ -15,7 +15,7 @@ module outRot
    use constants, only: c_moi_oc, c_moi_ma, c_moi_ic, pi, y11_norm, &
        &            y10_norm, zero, two, third, four, half
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
-   use integration, only: rInt_R, rInt_fd
+   use integration, only: rInt_R
    use horizontal_data, only: cosTheta, gauss
    use special, only: BIC, lGrenoble
 
@@ -614,22 +614,16 @@ contains
       end do
     
       !----- Perform radial integral:
-      if ( .not. l_finite_diff ) then
-         do n=1,3
-            angular_moment_oc(n)=rInt_R(f(1,n),n_r_max,n_r_max,drx,chebt_oc)
-         end do
-      else
-         do n=1,3
-            angular_moment_oc(n)=rInt_fd(f(1,n),r,n_r_max)
-         end do
-      end if
+      do n=1,3
+         angular_moment_oc(n)=rInt_R(f(:,n),r,rscheme_oc)
+      end do
     
       !----- Apply normalisation factors of chebs and other factors
       !      plus the sign correction for y-component:
       fac=8.0_cp*third*pi
       angular_moment_oc(1)= two*fac*y11_norm * angular_moment_oc(1)
       angular_moment_oc(2)=-two*fac*y11_norm * angular_moment_oc(2)
-      angular_moment_oc(3)=      fac*y10_norm * angular_moment_oc(3)
+      angular_moment_oc(3)=     fac*y10_norm * angular_moment_oc(3)
     
       !----- Now inner core and mantle:
       angular_moment_ic(1)=0.0_cp

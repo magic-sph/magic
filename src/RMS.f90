@@ -14,13 +14,13 @@ module RMS
        &                 lm_max_dtB
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: chebt_oc, drx, r, r_CMB, dr_fac
+   use radial_functions, only: rscheme_oc, chebt_oc, drx, r, r_CMB
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
        &            l_corr, l_mag
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
-   use integration, only: rInt_R, rInt
+   use integration, only: rInt_R_back, rInt_R
    use chebyshev_polynoms_mod, only: cheb_grid
    use radial_functions, only: nDi_costf1, nDd_costf1, r
    use radial_der, only: get_dr_back, get_drNS
@@ -467,7 +467,7 @@ contains
                   Rms(nR)=Cor2hInt(l,nR)
                end do
                !-- Integrate in radius
-               CorRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CorRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                !-- Add for total Rms
                CorRms = CorRms+CorRmsL
                !-- Finish Rms for mode l
@@ -486,7 +486,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Adv2hInt(l,nR)
                end do
-               AdvRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               AdvRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                AdvRms =AdvRms+AdvRmsL
                AdvRmsL=sqrt(AdvRmsL/volC)
                call getMSD2(AdvRmsL_TA(l),AdvRmsL_SD(l),AdvRmsL, &
@@ -502,7 +502,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=LF2hInt(l,nR)
                end do
-               LFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               LFRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                LFRms =LFRms+LFRmsL
                LFRmsL=sqrt(LFRmsL/volC)
                call getMSD2(LFRmsL_TA(l),LFRmsL_SD(l),LFRmsL, &
@@ -518,7 +518,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Buo2hInt(l,nR)
                end do
-               BuoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               BuoRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                BuoRms =BuoRms+BuoRmsL
                BuoRmsL=sqrt(BuoRmsL/volC)
                call getMSD2(BuoRmsL_TA(l),BuoRmsL_SD(l),BuoRmsL, &
@@ -533,7 +533,7 @@ contains
             do nR=1,n_r_max
                Rms(nR)=Pre2hInt(l,nR)
             end do
-            PreRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            PreRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
             PreRms =PreRms+PreRmsL
             PreRmsL=sqrt(PreRmsL/volC)
             call getMSD2(PreRmsL_TA(l),PreRmsL_SD(l),PreRmsL, &
@@ -547,7 +547,7 @@ contains
             do nR=1,n_r_max
                Rms(nR)=Geo2hInt(l,nR)
             end do
-            GeoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            GeoRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
             GeoRms =GeoRms+GeoRmsL
             GeoRmsL=sqrt(GeoRmsL/volC)
             call getMSD2(GeoRmsL_TA(l),GeoRmsL_SD(l),GeoRmsL, &
@@ -562,7 +562,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Mag2hInt(l,nR)
                end do
-               MagRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               MagRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                MagRms =MagRms+MagRmsL
                MagRmsL=sqrt(MagRmsL/volC)
                call getMSD2(MagRmsL_TA(l),MagRmsL_SD(l),MagRmsL, &
@@ -578,7 +578,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=CLF2hInt(l,nR)
                end do
-               CLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CLFRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                CLFRms =CLFRms+CLFRmsL
                CLFRmsL=sqrt(CLFRmsL/volC)
                call getMSD2(CLFRmsL_TA(l),CLFRmsL_SD(l),CLFRmsL, &
@@ -594,7 +594,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=PLF2hInt(l,nR)
                end do
-               PLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               PLFRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                PLFRms =PLFRms+PLFRmsL
                PLFRmsL=sqrt(PLFRmsL/volC)
                call getMSD2(PLFRmsL_TA(l),PLFRmsL_SD(l),PLFRmsL, &
@@ -610,7 +610,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Arc2hInt(l,nR)
                end do
-               ArcRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               ArcRmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                ArcRms =ArcRms+ArcRmsL
                ArcRmsL=sqrt(ArcRmsL/volC)
                call getMSD2(ArcRmsL_TA(l),ArcRmsL_SD(l),ArcRmsL, &
@@ -626,7 +626,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=CIA2hInt(l,nR)
                end do
-               CIARmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CIARmsL=rInt_R_back(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
                CIARms =CIARms+CIARmsL
                CIARmsL=sqrt(CIARmsL/volC)
                call getMSD2(CIARmsL_TA(l),CIARmsL_SD(l),CIARmsL, &
@@ -653,7 +653,7 @@ contains
                                     DifTor2hInt(l,nR+nCut,n)
                end do
            end do
-           DifRmsL=rInt_R(Dif2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+           DifRmsL=rInt_R_back(Dif2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
            DifRms =DifRms+DifRmsL
            DifRmsL=sqrt(DifRmsL/volC)
            CALL getMSD2(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
@@ -678,7 +678,7 @@ contains
                   &                 dtVTor2hInt(l,nR+nCut,n)
                end do
             end do
-            dtVRmsL=rInt_R(dtV2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            dtVRmsL=rInt_R_back(dtV2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
             dtV_Rms =dtV_Rms+dtVRmsL
             dtVRmsL=sqrt(dtVRmsL/volC)
             call getMSD2(dtVRmsL_TA(l),dtVRmsL_SD(l),dtVRmsL, &
@@ -873,10 +873,10 @@ contains
             end do
          end do
 
-         dtBPolRms  =rInt(dtBP,n_r_max,dr_fac,chebt_oc)
-         dtBPolAsRms=rInt(dtBPAs,n_r_max,dr_fac,chebt_oc)
-         dtBTorRms  =rInt(dtBT,n_r_max,dr_fac,chebt_oc)
-         dtBTorAsRms=rInt(dtBTAs,n_r_max,dr_fac,chebt_oc)
+         dtBPolRms  =rInt_R(dtBP,r,rscheme_oc)
+         dtBPolAsRms=rInt_R(dtBPAs,r,rscheme_oc)
+         dtBTorRms  =rInt_R(dtBT,r,rscheme_oc)
+         dtBTorAsRms=rInt_R(dtBTAs,r,rscheme_oc)
 
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
