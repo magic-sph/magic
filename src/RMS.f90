@@ -26,6 +26,7 @@ module RMS
    use radial_der, only: get_dr_back, get_drNS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
+   use LMLoop_data, only: llm, ulm
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
        &                  hInt2dPolLM
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
@@ -114,17 +115,17 @@ contains
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVTor2hInt(0:l_max,n_r_max,nThreadsMax) )
-      allocate( dtVPolLMr(lm_max,n_r_max) )
+      allocate( dtVPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
                         2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifTor2hInt(0:l_max,n_r_max,nThreadsMax) )
-      allocate( DifPolLMr(lm_max,n_r_max) )
+      allocate( DifPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
                         2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
     
       allocate( Adv2hInt(0:l_max,n_r_max) )
       allocate( Cor2hInt(0:l_max,n_r_max) )
@@ -156,7 +157,7 @@ contains
 
       !--- Initialize new cut-back grid:
       call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC, &
-                    nCut,dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
+           &        nCut,dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
 
       dtvrms_file='dtVrms.'//tag
       dtbrms_file='dtBrms.'//tag
@@ -244,7 +245,7 @@ contains
          end do
       end do
       do nR=1,n_r_max
-         do lm=1,lm_max
+         do lm=llm,ulm
             dtVPolLMr(lm,nR)=zero
             DifPolLMr(lm,nR)=zero
          end do
@@ -391,12 +392,36 @@ contains
       real(cp) :: volC
       real(cp) :: Rms(n_r_max),Dif2hInt(n_r_max),dtV2hInt(n_r_max)
     
-      complex(cp) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
+      complex(cp) :: workA(llm:ulm,n_r_max),workB(llm:ulm,n_r_max)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
       character(len=80) :: fileName
-    
+
+      !-- Diffusion
+      DifRms=0.0_cp
+      call get_drNS(DifPolLMr,workA,ulm-llm+1,1,ulm-llm+1, &
+           &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
+      do nR=1,n_r_maxC
+         call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,DifPol2hInt(:,nR+nCut,1), &
+              &           lo_map )
+      end do
+      call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
+
+      !-- Flow changes
+      dtV_Rms=0.0_cp
+      call get_drNS(dtVPolLMr,workA,ulm-llm+1,1,ulm-llm+1, &
+           &        n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
+      do nR=1,n_r_maxC
+         call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,dtVPol2hInt(:,nR+nCut,1), &
+              &          lo_map)
+      end do
+      call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
+
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
@@ -435,18 +460,18 @@ contains
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
     
-      call myAllGather(dtVPolLMr,lm_max,n_r_max)
-      call myAllGather(DifPolLMr,lm_max,n_r_max)
+      ! call myAllGather(dtVPolLMr,lm_max,n_r_max)
+      ! call myAllGather(DifPolLMr,lm_max,n_r_max)
     
-      call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
+      ! call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           ! &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      ! if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
       call MPI_Reduce(dtVTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTor2hInt(:,:,1)=global_sum
-      call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
+      ! call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           ! &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      ! if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
       call MPI_Reduce(DifTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTor2hInt(:,:,1)=global_sum
@@ -635,15 +660,6 @@ contains
          end if
          CIARms=sqrt(CIARms/volC)
 
-         !-- Diffusion
-         DifRms=0.0_cp
-         call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
-              &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-              &        workB,chebt_RMS,dr_facC)
-         do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(:,nR+nCut,1), &
-                 &           lo_map )
-         end do
          do l=0,l_max
             do nR=1,n_r_maxC
                Dif2hInt(nR+nCut)=0.0_cp
@@ -661,14 +677,6 @@ contains
          end do
          DifRms=sqrt(DifRms/volC)
 
-         !-- Flow changes
-         dtV_Rms=0.0_cp
-         call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-              &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
-         do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(:,nR+nCut,1), &
-                 &          lo_map)
-         end do
          do l=0,l_max
             do nR=1,n_r_maxC
                dtV2hInt(nR+nCut)=0.0_cp

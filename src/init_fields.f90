@@ -12,7 +12,7 @@ module init_fields
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
-       &                       r_ic, orho1, chebt_oc, chebt_ic, temp0, &
+       &                       r_ic, orho1, chebt_ic, temp0,           &
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
@@ -1658,7 +1658,7 @@ contains
       end do
 
       !----- transform to radial space:
-      call chebt_oc%costf1(aj0,work_l)
+      call rscheme_oc%costf1(aj0)
        
       if ( l_cond_ic ) then
            

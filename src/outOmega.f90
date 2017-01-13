@@ -6,7 +6,7 @@ module omega
 
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
-   use radial_functions, only: r_CMB, r_ICB, chebt_oc
+   use radial_functions, only: r_CMB, r_ICB, rscheme_oc
    use blocking, only: lm2
    use logic, only: lVerbose
    use output_data, only: tag
@@ -67,7 +67,7 @@ contains
       end do
 
       !---- Transform the contributions to cheb space for z-integral:
-      call chebt_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
 
       sZ=0.0_cp
       outer: do nS=1,nSmax

@@ -5,8 +5,7 @@ module outPV3
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
        &                 l_max, minc, m_max, l_axi
-   use radial_functions, only: cheb_norm, r_ICB, rscheme_oc, r_CMB, &
-       &                       rscheme_oc, chebt_oc
+   use radial_functions, only: cheb_norm, r_ICB, rscheme_oc, r_CMB
    use physical_parameters, only: radratio
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use blocking, only: lm2, lm2m, lm2l, lm2mc, st_map, lo_map
@@ -201,7 +200,7 @@ contains
             end do
 
             !---- Transform the contributions to cheb space:
-            call chebt_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
+            call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
          end if
 
          dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax

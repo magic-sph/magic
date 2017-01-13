@@ -6,7 +6,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max
-   use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, rscheme_oc
+   use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
        &                             BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
@@ -317,23 +317,23 @@ contains
          end do
 
          !---- Transform the contributions to cheb space for z-integral:
-         call chebt_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
 
          dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
          nSI   =0
@@ -877,12 +877,12 @@ contains
                end do
             end do
 
-            call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
 
             !--- Open output file
             nFields=7

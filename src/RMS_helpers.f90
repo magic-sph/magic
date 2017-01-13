@@ -142,8 +142,8 @@ contains
    subroutine hInt2dPol(dPol,lmStart,lmStop,Pol2hInt,map)
     
       !-- Input variables:
-      complex(cp),     intent(in) :: dPol(lm_max)   ! Toroidal field Potential
       integer,         intent(in) :: lmStart,lmStop
+      complex(cp),     intent(in) :: dPol(lmStart:lmStop)   ! Toroidal field Potential
       type(mappings),  intent(in) :: map
     
       !-- Output variables:
@@ -194,7 +194,7 @@ contains
       type(mappings),  intent(in) :: map
 
       !-- Output variables:
-      complex(cp), intent(out) :: PolLMr(lm_max)
+      complex(cp), intent(out) :: PolLMr(lb:ub)
       real(cp),    intent(inout) :: Pol2hInt(0:l_max)
 
       !-- Local variables:
