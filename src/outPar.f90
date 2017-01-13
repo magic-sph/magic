@@ -19,7 +19,7 @@ module outPar_mod
        &                          opr, kbots, ktops, ThExpNb
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
-       &                       dr_fac, rscheme_oc, orho1, dLalpha0, &
+       &                       rscheme_oc, orho1, dLalpha0,       &
        &                       dLtemp0, beta, alpha0
    use radial_data, only: n_r_icb, nRstart, nRstop, nRstartMag, &
        &                  nRstopMag

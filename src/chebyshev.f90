@@ -8,8 +8,7 @@ module chebyshev
        &                cos36, sin60, sin72, cos72
    use LMLoop_data, only: llm,ulm
    use radial_scheme, only: type_rscheme
-   use logic, only: l_newmap, l_PV, l_TO, l_storeBpot, l_storeVpot, &
-       &            l_storeTpot, l_storepot
+   use logic, only: l_newmap, l_PV, l_TO
    use useful, only: factorise
 
    implicit none
@@ -75,8 +74,7 @@ contains
       allocate( this%d3rMat(n_r_max,n_r_max) )
       bytes_allocated=bytes_allocated+5*n_r_max*n_r_max*SIZEOF_DEF_REAL
 
-      if ( l_PV .or. l_TO .or. l_storeBpot .or. l_storeVpot .or. l_storeTpot .or. &
-           l_storePot ) then
+      if ( l_PV .or. l_TO ) then
          allocate( work(1:lm_max,n_r_max) )
       else
          ! allocate( work(1:lm_max,n_r_max) )

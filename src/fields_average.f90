@@ -7,8 +7,8 @@ module fields_average_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use radial_data, only: n_r_cmb
-   use radial_functions, only: chebt_ic, chebt_oc, drx, chebt_ic_even,   &
-       &                       r, dr_fac_ic
+   use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
+       &                       rscheme_oc
    use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
    use horizontal_data, only: Plm, dPlm, dLh
    use logic, only: l_mag, l_conv, l_save_out, l_heat, l_cond_ic, &
@@ -34,7 +34,7 @@ module fields_average_mod
    use leg_helper_mod, only: legPrep
    use legendre_spec_to_grid, only: legTF
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
-   use radial_der, only: get_drNS
+   use radial_der, only: get_dr
  
    implicit none
  
@@ -319,27 +319,19 @@ contains
          lmStart=lmStartB(rank+1)
          lmStop = lmStopB(rank+1)
 
-         call get_drNS(w_ave,dw_ave,ulm-llm+1,          &
-              &        lmStart-llm+1,lmStop-llm+1,      &
-              &        n_r_max,n_cheb_max,workA_LMloc,  &
-              &        chebt_oc,drx)
-         if (l_mag) then
-            call get_drNS(b_ave,db_ave,ulm-llm+1,          &
-                 &        lmStart-llm+1,lmStop-llm+1,      &
-                 &        n_r_max,n_cheb_max,workA_LMloc,  &
-                 &        chebt_oc,drx)
+         call get_dr(w_ave,dw_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,   &
+              &      n_r_max,rscheme_oc)
+         if ( l_mag ) then
+            call get_dr(b_ave,db_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
+                 &      n_r_max,rscheme_oc)
          end if
          if ( l_heat ) then
-            call get_drNS(s_ave,ds_ave,ulm-llm+1,            &
-                 &        lmStart-llm+1,lmStop-llm+1,        &
-                 &        n_r_max,n_cheb_max,workA_LMloc,    &
-                 &        chebt_oc,drx)
+            call get_dr(s_ave,ds_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
+                 &      n_r_max,rscheme_oc)
          end if
          if ( l_chemical_conv ) then
-            call get_drNS(xi_ave,dxi_ave,ulm-llm+1,          &
-                 &        lmStart-llm+1,lmStop-llm+1,        &
-                 &        n_r_max,n_cheb_max,workA_LMloc,    &
-                 &        chebt_oc,drx)
+            call get_dr(xi_ave,dxi_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1, &
+                 &      n_r_max,rscheme_oc)
          end if
          if ( l_cond_ic ) then
             call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &

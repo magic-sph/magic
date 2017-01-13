@@ -15,9 +15,9 @@ module updateXi_mod
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
-   use cosine_transform_odd
    use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
+   use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
 
    implicit none
@@ -25,7 +25,6 @@ module updateXi_mod
    private
 
    !-- Local variables
-   complex(cp), allocatable :: workA(:,:),workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
    real(cp), allocatable :: xi0Mat(:,:)     ! for l=m=0  
@@ -65,10 +64,6 @@ contains
       allocate( lXimat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      allocate( workA(llm:ulm,n_r_max) )
-      allocate( workB(llm:ulm,n_r_max) )
-      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -91,7 +86,7 @@ contains
 #ifdef WITH_PRECOND_S0
       deallocate(xi0Mat_fac)
 #endif
-      deallocate( workA, workB, rhs1 )
+      deallocate( rhs1 )
 
    end subroutine finalize_updateXI
 !------------------------------------------------------------------------------
@@ -155,14 +150,14 @@ contains
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
       !$OMP shared(dVXirLM,dxidt,orho1,or2) &
-      !$OMP shared(n_r_max,rscheme_oc,workA,workB,nThreads,llm,ulm)
+      !$OMP shared(n_r_max,rscheme_oc,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dxidtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dxidtLast used as work arrays
       all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
@@ -174,10 +169,10 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dxidt:
-         !call get_drNS( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,       &
-         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max,workB, &
+         !call get_drNS( dVXirLM,work_LMloc,ulm-llm+1,start_lm-llm+1,       &
+         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max, &
          !     &         chebt_oc,drx)
-         call get_dr( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,       &
+         call get_dr( dVXirLM,work_LMloc,ulm-llm+1,start_lm-llm+1,       &
               &       stop_lm-llm+1,n_r_max, rscheme_oc )
       end do
       !$OMP end do
@@ -185,7 +180,7 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dxidt(lm,nR)=orho1(nR)*(dxidt(lm,nR)-or2(nR)*workA(lm,nR))
+            dxidt(lm,nR)=orho1(nR)*(dxidt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
          end do
       end do
       !$OMP end do
@@ -346,7 +341,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
       !$OMP shared(xi,dxi,dxidtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,workA,workB,llm,ulm) &
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dxidt,coex,osc,hdif_Xi) &
       !$OMP shared(st_map,lm2l,lm2m,beta,or1,dLh,or2)
       !$OMP DO
@@ -355,7 +350,7 @@ contains
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
          call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(xi, dxi, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
+         call get_ddr(xi, dxi, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
               &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
@@ -366,7 +361,7 @@ contains
          do lm1=lmStart,lmStop
             dxidtLast(lm1,nR)=dxidt(lm1,nR) &
                  & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
-                 &   ( workA(lm1,nR) &
+                 &   ( work_LMloc(lm1,nR) &
                  &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR) &
                  &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*xi(lm1,nR) &
                  &   )
@@ -378,7 +373,7 @@ contains
       call omp_set_num_threads(maxThreads)
 #endif
       !PERFOFF
-      !-- workA=dds not needed further after this point, used as work array later
+      !-- work_LMloc=dds not needed further after this point, used as work array later
 
    end subroutine updateXi
 !------------------------------------------------------------------------------

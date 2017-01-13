@@ -16,7 +16,7 @@ module updateZ_mod
                      & lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, &
-                    l_correct_AMe, l_correct_AMz, l_update_v, l_TO
+                    l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_RMS
    use RMS, only: DifTor2hInt, dtVTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
@@ -28,7 +28,7 @@ module updateZ_mod
    use outRot, only: get_angular_moment
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
-   use cosine_transform_odd
+   use fields, only: work_LMloc
    use special
     
    implicit none
@@ -36,7 +36,6 @@ module updateZ_mod
    private
  
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workA(:,:)  ! Work array
    complex(cp), allocatable :: workB(:,:)  ! Work array
    complex(cp), allocatable :: rhs1(:,:,:) ! RHS for other modes
    complex(cp), allocatable :: dtV(:)
@@ -83,11 +82,13 @@ contains
       allocate( lZmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      allocate(workA(llm:ulm,n_r_max))
-      allocate(workB(llm:ulm,n_r_max))
+      if ( l_RMS ) then
+         allocate(workB(llm:ulm,n_r_max))
+         bytes_allocated=bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
+
       allocate( dtV(llm:ulm) )
       allocate( Dif(llm:ulm) )
-      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       bytes_allocated=bytes_allocated+2*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
 
 #ifdef WITHOMP
@@ -113,8 +114,10 @@ contains
 #ifdef WITH_PRECOND_Z
       deallocate( zMat_fac )
 #endif
-      deallocate( workA, workB, rhs1 )
+      deallocate( rhs1 )
       deallocate( dtV, Dif )
+
+      if ( l_RMS ) deallocate( workB )
 
    end subroutine finalize_updateZ
 !-------------------------------------------------------------------------------
@@ -492,7 +495,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart_00,lmStop,nThreads) &
       !$OMP shared(z,dz,dzdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,workA,llm,ulm)
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -509,7 +512,7 @@ contains
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
          call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(z, dz, workA, ulm-llm+1, start_lm-llm+1,     &
+         call get_ddr(z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1,     &
               &       stop_lm-llm+1,n_r_max, rscheme_oc)
       end do
       !$OMP end do
@@ -586,7 +589,7 @@ contains
             z(l1m0,nR)  =z(l1m0,nR)  - rho0(nR)*r_E_2*corr_l1m0
             dz(l1m0,nR) =dz(l1m0,nR) - rho0(nR)*( &
             &            two*r(nR)+r_E_2*beta(nR))*corr_l1m0
-            workA(l1m0,nR)=workA(l1m0,nR)-rho0(nR)*( &
+            work_LMloc(l1m0,nR)=work_LMloc(l1m0,nR)-rho0(nR)*( &
             &              two+four*beta(nR)*r(nR) + &
             &              dbeta(nR)*r_E_2 +         &
             &              beta(nR)*beta(nR)*r_E_2 )*corr_l1m0
@@ -626,7 +629,7 @@ contains
             z(l1m1,nR)  =z(l1m1,nR)  -  rho0(nR)*r_E_2*corr_l1m1
             dz(l1m1,nR) =dz(l1m1,nR) -  rho0(nR)*( &
             &            two*r(nR)+r_E_2*beta(nR))*corr_l1m1
-            workA(l1m1,nR)=workA(l1m1,nR)-rho0(nR)*(    &
+            work_LMloc(l1m1,nR)=work_LMloc(l1m1,nR)-rho0(nR)*(    &
             &             two+four*beta(nR)*r(nR) +     &
             &                        dbeta(nR)*r_E_2 +  &
             &                beta(nR)*beta(nR)*r_E_2 )*corr_l1m1
@@ -659,7 +662,7 @@ contains
          do lm1=lmStart_00,lmStop
             Dif(lm1)=hdif_V(st_map%lm2(lm2l(lm1),lm2m(lm1)))*                &
             &        dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*visc(nR)*  &
-            &      ( workA(lm1,nR)   +(dLvisc(nR)-beta(nR))  *dz(lm1,nR)     &
+            &      ( work_LMloc(lm1,nR)   +(dLvisc(nR)-beta(nR)) *dz(lm1,nR) &
             &        -( dLvisc(nR)*beta(nR)+two*dLvisc(nR)*or1(nR)           &
             &           + dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)       &
             &           + dbeta(nR)+ two*beta(nR)*or1(nR) ) * z(lm1,nR) )
@@ -679,7 +682,7 @@ contains
       end do
       !$OMP end do
 
-      !--- Note: from ddz=workA only the axisymmetric contributions are needed
+      !--- Note: from ddz=work_LMloc only the axisymmetric contributions are needed
       !    beyond this point for the TO calculation.
       !    Parallization note: Very likely, all axisymmetric modes m=0 are
       !    located on the first processor #0.
@@ -690,7 +693,7 @@ contains
             do lm1=lmStart_00,lmStop
                l1=lm2l(lm1)
                m1=lm2m(lm1)
-               if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(workA(lm1,nR))
+               if ( m1 == 0 ) ddzASL_loc(l1+1,nR)=real(work_LMloc(lm1,nR))
             end do
          end do
          !$OMP end do

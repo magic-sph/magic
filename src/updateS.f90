@@ -17,8 +17,8 @@ module updateS_mod
    use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
-   use cosine_transform_odd
    use radial_der, only: get_ddr, get_dr
+   use fields, only:  work_LMloc
    use constants, only: zero, one, two
 
    implicit none
@@ -26,7 +26,6 @@ module updateS_mod
    private
 
    !-- Local variables
-   complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: s0Mat(:,:)     ! for l=m=0  
    real(cp), allocatable :: sMat(:,:,:)
@@ -66,15 +65,6 @@ contains
       allocate( lSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      allocate( workA(llm:ulm,n_r_max) )
-      allocate( workB(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated + 2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
-      if ( l_anelastic_liquid ) then
-         allocate( workC(llm:ulm,n_r_max) )
-         bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-      end if
-
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -95,8 +85,7 @@ contains
 #ifdef WITH_PRECOND_S0
       deallocate( s0Mat_fac )
 #endif
-      deallocate( workA, workB, rhs1 )
-      if ( l_anelastic_liquid ) deallocate( workC )
+      deallocate( rhs1 )
   
    end subroutine finalize_updateS
 !------------------------------------------------------------------------------
@@ -161,14 +150,14 @@ contains
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
       !$OMP shared(dVSrLM,dsdt,orho1,or2) &
-      !$OMP shared(n_r_max,rscheme_oc,workA,workB,nThreads,llm,ulm)
+      !$OMP shared(n_r_max,rscheme_oc,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
       all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
@@ -180,10 +169,10 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         !call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
-         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max,workB, &
+         !call get_drNS( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
+         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max, &
          !     &         chebt_oc)
-         call get_dr( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
+         call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
               &       stop_lm-llm+1,n_r_max,rscheme_oc )
       end do
       !$OMP end do
@@ -191,7 +180,7 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*workA(lm,nR))
+            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
          end do
       end do
       !$OMP end do
@@ -359,7 +348,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
       !$OMP shared(s,ds,dsdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,workA,workB,llm,ulm) &
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1) &
       !$OMP shared(dentropy0,dLkappa,dLh,or2)
@@ -369,7 +358,7 @@ contains
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &        n_r_max, rscheme_oc)
       end do
       !$OMP end do
@@ -380,7 +369,7 @@ contains
          do lm1=lmStart,lmStop
             dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                  & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
-                 &   kappa(nR) *                        ( workA(lm1,nR) &
+                 &   kappa(nR) *                   ( work_LMloc(lm1,nR) &
                  &   + ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) ) &
                  &                                         * ds(lm1,nR) &
                  &   - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)     &
@@ -395,7 +384,6 @@ contains
       call omp_set_num_threads(maxThreads)
 #endif
       !PERFOFF
-      !-- workA=dds not needed further after this point, used as work array later
 
    end subroutine updateS
 !------------------------------------------------------------------------------
@@ -462,14 +450,14 @@ contains
       !$OMP shared(all_lms,per_thread) &
       !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1) &
       !$OMP shared(dLtemp0,or2,lmStart,lmStop) &
-      !$OMP shared(n_r_max,workA,workB,nThreads,llm,ulm)
+      !$OMP shared(n_r_max,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
       all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
@@ -481,7 +469,7 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         call get_dr( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,          &
+         call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,    &
               &       stop_lm-llm+1,n_r_max,rscheme_oc )
       end do
       !$OMP end do
@@ -490,7 +478,7 @@ contains
       do nR=1,n_r_max
          do lm=lmStart,lmStop
             dsdt(lm,nR)=          orho1(nR)*dsdt(lm,nR)  - & 
-                &         or2(nR)*orho1(nR)*workA(lm,nR) + &
+                &     or2(nR)*orho1(nR)*work_LMloc(lm,nR) + &
                 &         or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR)
          end do
       end do
@@ -660,7 +648,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,nThreads) &
       !$OMP shared(s,ds,w,dsdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,workA,workB,llm,ulm,temp0) &
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm,temp0) &
       !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2) &
       !$OMP shared(orho1)
@@ -670,7 +658,7 @@ contains
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(s, ds, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
               &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
@@ -681,7 +669,7 @@ contains
          do lm1=lmStart,lmStop
            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
-                &   (                                              workA(lm1,nR) &
+                &   (                                         work_LMloc(lm1,nR) &
                 &           + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *  ds(lm1,nR) &
                 &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) &
                 &   ) + coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)        &
@@ -694,7 +682,6 @@ contains
       call omp_set_num_threads(maxThreads)
 #endif
       !PERFOFF
-      !-- workA=dds not needed further after this point, used as work array later
 
    end subroutine updateS_ala
 !-------------------------------------------------------------------------------

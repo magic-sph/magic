@@ -14,16 +14,16 @@ module updateWP_mod
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
-   use logic, only: l_update_v, l_chemical_conv
+   use logic, only: l_update_v, l_chemical_conv, l_RMS
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize
    use RMS_helpers, only:  hInt2Pol
-   use cosine_transform_odd
    use radial_der, only: get_dddr, get_dr
    use integration, only: rInt_R
+   use fields, only: work_LMloc
    use constants, only: zero, one, two, three, four, third, half
 
    implicit none
@@ -31,8 +31,8 @@ module updateWP_mod
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workA(:,:),workB(:,:)
-   real(cp), allocatable :: work(:), work1(:)
+   complex(cp), allocatable :: workB(:,:)
+   real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: wpMat(:,:,:), wpMat_fac(:,:,:)
@@ -55,12 +55,13 @@ contains
       &               SIZEOF_DEF_REAL+(2*n_r_max*l_max+n_r_max)*SIZEOF_INTEGER+&
       &               (l_max+1)*SIZEOF_LOGICAL
 
-      allocate( workA(llm:ulm,n_r_max) )
-      allocate( workB(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      if ( l_RMS ) then
+         allocate( workB(llm:ulm,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
-      allocate( work(n_r_max), work1(n_r_max) )
-      bytes_allocated = bytes_allocated+2*n_r_max*SIZEOF_DEF_REAL
+      allocate( work(n_r_max) )
+      bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL
 
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
@@ -76,7 +77,7 @@ contains
 
       allocate( rhs1(2*n_r_max,lo_sub_map%sizeLMB2max,0:maxThreads-1) )
       bytes_allocated=bytes_allocated+2*n_r_max*maxThreads* &
-                      lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
+      &               lo_sub_map%sizeLMB2max*SIZEOF_DEF_COMPLEX
 
 
    end subroutine initialize_updateWP
@@ -85,8 +86,9 @@ contains
 
       deallocate( wpMat, wpMat_fac, wpPivot, lWPmat )
       deallocate( p0Mat, p0Pivot )
-      deallocate( workA, workB, rhs1, work, work1 )
+      deallocate( rhs1, work )
       deallocate( Dif, Pre, Buo, dtV )
+      if ( l_RMS ) deallocate( workB )
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
@@ -369,7 +371,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
-      !$OMP shared(rscheme_oc,n_r_max,nThreads,workA,llm,ulm)
+      !$OMP shared(rscheme_oc,n_r_max,nThreads,work_LMloc,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -392,7 +394,7 @@ contains
 
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
 
-         call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
+         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
               &         stop_lm-llm+1, n_r_max, rscheme_oc)
          call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
@@ -436,7 +438,7 @@ contains
                &                 dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
                &               + hdif_V(st_map%lm2(l1,m1))*               &
                &                 visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR)  &
-               &                                       * ( -workA(lm1,nR) &
+               &                                  * ( -work_LMloc(lm1,nR) &
                &                       + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
                &               + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
                &                  + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
@@ -478,7 +480,7 @@ contains
                &                 dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
                &               + hdif_V(st_map%lm2(l1,m1))*               &
                &                 visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR)  &
-               &                                       * ( -workA(lm1,nR) &
+               &                                  * ( -work_LMloc(lm1,nR) &
                &                       + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
                &               + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
                &                  + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
@@ -504,8 +506,6 @@ contains
       !PERFOFF
 
       !deallocate(rhs1)
-
-      !  Note: workA=dddw not needed beyond this point!
 
    end subroutine updateWP
    !------------------------------------------------------------------------------

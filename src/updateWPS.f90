@@ -25,17 +25,16 @@ module updateWPS_mod
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank
-   use cosine_transform_odd
    use radial_der, only: get_dddr, get_ddr, get_dr
-   !use integration, only: rInt_R
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
+   use fields, only: work_LMloc
 
    implicit none
 
    private
 
    !-- Input of recycled work arrays:
-   complex(cp), allocatable :: workA(:,:),workB(:,:), workC(:,:), workD(:,:)
+   complex(cp), allocatable :: workB(:,:), workC(:,:), workD(:,:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
    real(cp), allocatable :: ps0Mat(:,:), ps0Mat_fac(:,:)
@@ -67,10 +66,9 @@ contains
       allocate( lWPSmat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      allocate( workA(llm:ulm,n_r_max) )
       allocate( workB(llm:ulm,n_r_max) )
       allocate( workC(llm:ulm,n_r_max) )
-      bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( Dif(llm:ulm) )
       allocate( Pre(llm:ulm) )
@@ -101,7 +99,7 @@ contains
 
       deallocate( ps0Mat, ps0Mat_fac, ps0Pivot )
       deallocate( wpsMat, wpsMat_fac, wpsPivot, lWPSmat )
-      deallocate( workA, workB, workC, rhs1)
+      deallocate( workB, workC, rhs1)
       deallocate( Dif, Pre, Buo, dtV )
       if ( l_RMS ) deallocate( workD )
 
@@ -181,14 +179,14 @@ contains
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
       !$OMP shared(dVSrLM,dsdt,orho1,or2) &
-      !$OMP shared(n_r_max,workA,workB,nThreads,llm,ulm)
+      !$OMP shared(n_r_max,work_LMloc,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
       all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
@@ -200,10 +198,10 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         !call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
+         !call get_drNS( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
          !     &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
          !     &         chebt_oc,drx)
-         call get_dr( dVSrLM, workA, ulm-llm+1,start_lm-llm+1,  &
+         call get_dr( dVSrLM, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
               &       stop_lm-llm+1,n_r_max,rscheme_oc )
       end do
       !$OMP end do
@@ -211,7 +209,7 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*workA(lm,nR))
+            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
          end do
       end do
       !$OMP end do
@@ -414,7 +412,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStop) &
       !$OMP shared(w,dw,ddw,p,dp,s,ds,dwdtLast,dpdtLast,dsdtLast) &
-      !$OMP shared(rscheme_oc,n_r_max,nThreads,workA,workB,workC,llm,ulm)
+      !$OMP shared(rscheme_oc,n_r_max,nThreads,work_LMloc,workB,workC,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
@@ -436,7 +434,7 @@ contains
          !   using dwdtLast, dpdtLast as work arrays:
 
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_dddr( w, dw, ddw, workA, ulm-llm+1, start_lm-llm+1,  &
+         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
               &         stop_lm-llm+1, n_r_max, rscheme_oc )
          call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
 
@@ -492,7 +490,7 @@ contains
                &                 dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
                &               + hdif_V(st_map%lm2(l1,m1))*               &
                &                 visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR)  &
-               &                                       * ( -workA(lm1,nR) &
+               &                                  * ( -work_LMloc(lm1,nR) &
                &                       + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
                &               + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
                &                  + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
@@ -560,7 +558,7 @@ contains
                &                 dLh(st_map%lm2(l1,m1))*or2(nR)*p(lm1,nR) &
                &               + hdif_V(st_map%lm2(l1,m1))*               &
                &                 visc(nR)*dLh(st_map%lm2(l1,m1))*or2(nR)  &
-               &                                       * ( -workA(lm1,nR) &
+               &                                  * ( -work_LMloc(lm1,nR) &
                &                       + (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
                &               + ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
                &                  + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
@@ -1056,8 +1054,10 @@ contains
             &            beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
          end if
 
-         psMat(2*n_r_max,nR_out)  =0.0_cp
-         psMat(2*n_r_max,nR_out_p)=0.0_cp
+         if ( rscheme_oc%version == 'cheb' ) then
+            psMat(2*n_r_max,nR_out)  =0.0_cp
+            psMat(2*n_r_max,nR_out_p)=0.0_cp
+         end if
       end do
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
@@ -1079,7 +1079,7 @@ contains
          do nCheb=1,rscheme_oc%n_max
             nR_out_p=nCheb+n_r_max
             psMat(n_r_max+1,nR_out_p)=0.0_cp
-            psMat(n_r_max+1,nCheb)  =0.0_cp
+            psMat(n_r_max+1,nCheb)   =0.0_cp
             do n_cheb_in=1,rscheme_oc%n_max
                if (mod(nCheb+n_cheb_in-2,2)==0) then
                   psMat(n_r_max+1,nR_out_p)=psMat(n_r_max+1,nR_out_p)+           &

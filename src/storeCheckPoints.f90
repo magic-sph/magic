@@ -6,7 +6,7 @@ module storeCheckPoints
 
    use precision_mod
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-                         lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
+       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
@@ -32,9 +32,9 @@ module storeCheckPoints
 contains
 
    subroutine store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
-                    dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
-                    dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
-                    djdt_icLast)
+              &     dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
+              &     dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
+              &     djdt_icLast)
       !
       ! store results on disc file (restart file)
       ! In addition to the magnetic field and velocity potentials

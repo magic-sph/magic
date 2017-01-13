@@ -73,6 +73,8 @@ module fields
    complex(cp), public, allocatable :: aj_ic_LMloc(:,:) 
    complex(cp), public, allocatable :: dj_ic_LMloc(:,:)
    complex(cp), public, allocatable :: ddj_ic_LMloc(:,:)
+
+   complex(cp), public, allocatable :: work_LMloc(:,:) ! Needed in update routines
  
    !-- Rotation rates:
    real(cp), public :: omega_ic,omega_ma
@@ -225,6 +227,9 @@ contains
       bytes_allocated = bytes_allocated + &
                         6*(ulmMag-llmMag+1)*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
+      allocate( work_LMloc(llm:ulm,1:n_r_max) )
+      bytes_allocated = bytes_allocated + (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+
    end subroutine initialize_fields
 !----------------------------------------------------------------------------
    subroutine finalize_fields
@@ -235,8 +240,8 @@ contains
       deallocate( field_LMloc_container, field_Rloc_container )
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
-
       deallocate( xi, xi_LMloc_container, xi_Rloc_container )
+      deallocate( work_LMloc )
 
    end subroutine finalize_fields
 !----------------------------------------------------------------------------

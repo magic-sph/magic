@@ -8,93 +8,10 @@ module chebyshev_polynoms_mod
  
    private
  
-   interface get_chebs
-      module procedure get_chebs_recurr
-   end interface get_chebs
-  
-   public :: get_chebs, cheb_grid, get_chebs_even
+   public :: cheb_grid, get_chebs_even
 
 contains
 
-   subroutine get_chebs_recurr(n_r,a,b,y,n_r_max,                  &
-        &                      cheb,dcheb,d2cheb,d3cheb,dim1,dim2, &
-        &                      map_fac1,map_fac2,map_fac3)
-      !
-      !  Construct Chebychev polynomials and their first, second,
-      !  and third derivative up to degree n_r at n_r points x
-      !  in the interval [a,b]. Since the Chebs are only defined
-      !  in [-1,1] we have to use a map, mapping the points x
-      !  points y in the interval [-1,1]. This map is executed
-      !  by the subroutine cheb_grid and has to be done
-      !  before calling this program.
-      !
-
-      !-- Input variables:
-      integer,  intent(in) :: n_r       ! number of grid points
-      ! n_r grid points suffice for a cheb
-      ! transform up to degree n_r-1
-      real(cp), intent(in) :: a,b       ! interval boundaries [a,b]
-      integer,  intent(in) :: n_r_max   ! leading dimension of
-      ! cheb(i,j) and der. in calling routine
-      real(cp), intent(in) :: y(n_r_max)! n_r grid points in interval [a,b]
-      integer,  intent(in) :: dim1,dim2 ! dimensions of cheb,dcheb,....
-      real(cp), intent(in) :: map_fac1(n_r_max)
-      real(cp), intent(in) :: map_fac2(n_r_max)
-      real(cp), intent(in) :: map_fac3(n_r_max)
-
-      !-- Output variables:
-      real(cp), intent(out) :: cheb(dim1,dim2)   ! cheb(i,j) is Chebychev pol.
-      ! of degree i at grid point j
-      real(cp), intent(out) :: dcheb(dim1,dim2)  ! first derivative of cheb
-      real(cp), intent(out) :: d2cheb(dim1,dim2) ! second derivative o cheb
-      real(cp), intent(out) :: d3cheb(dim1,dim2) ! third derivative of cheb
-
-      !-- Local variables:
-      integer :: n,k   ! counter
-      real(cp) :: map_fac ! maping factor to transfrom y-derivatives
-      ! in [-1,1] to x-derivatives in [a,b]
-
-      !-- definition of map_fac:
-      !   d Cheb(y) / d x = d y / d x * d Cheb(y) / d y
-      !                   = map_fac * d Cheb(y) / d y
-      map_fac=two/(b-a)
-
-      !-- construction of chebs and derivatives with recursion:
-      do k=1,n_r  ! do loop over the n_r grid points !
-
-         !----- set first two chebs:
-         cheb(1,k)=one
-         cheb(2,k)=y(k)
-         dcheb(1,k)=0.0_cp
-         dcheb(2,k)=map_fac1(k)
-         d2cheb(1,k)=0.0_cp
-         d2cheb(2,k)=map_fac2(k)
-         d3cheb(1,k)=0.0_cp
-         d3cheb(2,k)=map_fac3(k)
-
-         !----- now construct the rest with a recursion:
-         do n=3,n_r ! do loop over the (n-1) order of the chebs
-
-            cheb(n,k)=    two*y(k)*cheb(n-1,k)-cheb(n-2,k)
-            dcheb(n,k)=        two*map_fac1(k)*cheb(n-1,k) + &
-                                     two*y(k)*dcheb(n-1,k) - &
-                                               dcheb(n-2,k)
-            d2cheb(n,k)=       two*map_fac2(k)*cheb(n-1,k) + &
-                             four*map_fac1(k)*dcheb(n-1,k) + &
-                                    two*y(k)*d2cheb(n-1,k) - &
-                                              d2cheb(n-2,k)
-            d3cheb(n,k)=       two*map_fac3(k)*cheb(n-1,k) + &
-                           6.0_cp*map_fac2(k)*dcheb(n-1,k) + &
-                          6.0_cp*map_fac1(k)*d2cheb(n-1,k) + &
-                                    two*y(k)*d3cheb(n-1,k) - &
-                                              d3cheb(n-2,k)
-
-         end do
-
-      end do
-
-   end subroutine get_chebs_recurr
-!------------------------------------------------------------------------------
    subroutine get_chebs_even(n_r,a,b,y,n_r_max, &
                              cheb,dcheb,d2cheb,dim1,dim2)
       !
@@ -149,20 +66,20 @@ contains
             !-- even chebs:
             cheb(n,k)=two*y(k)*last_cheb-cheb(n-1,k)
             dcheb(n,k)=two*map_fac*last_cheb + &
-                         two*y(k)*last_dcheb - &
-                                   dcheb(n-1,k)
+            &            two*y(k)*last_dcheb - &
+            &                      dcheb(n-1,k)
             d2cheb(n,k)=four*map_fac*last_dcheb + &
-                           two*y(k)*last_d2cheb - &
-                                      d2cheb(n-1,k)
+            &              two*y(k)*last_d2cheb - &
+            &                         d2cheb(n-1,k)
              
             !-- odd chebs: not stored but necessary for recursion
             last_cheb=two*y(k)*cheb(n,k)-last_cheb
             last_dcheb=two*map_fac*cheb(n,k) + &
-                         two*y(k)*dcheb(n,k) - &
-                                     last_dcheb
+            &            two*y(k)*dcheb(n,k) - &
+            &                        last_dcheb
             last_d2cheb=four*map_fac*dcheb(n,k) + &
-                           two*y(k)*d2cheb(n,k) - &
-                                     last_d2cheb
+            &              two*y(k)*d2cheb(n,k) - &
+            &                        last_d2cheb
          end do
       end do
 
@@ -255,8 +172,8 @@ contains
                !     dcheb(n-2,k)
             end if
             dcheb(n,k)=  two*map_fac1(k)*cheb(n-1,k) + &
-                               two*y(k)*dcheb(n-1,k) - &
-                                         dcheb(n-2,k)
+            &                  two*y(k)*dcheb(n-1,k) - &
+            &                           dcheb(n-2,k)
 
             !if (ABS(local_dcheb) > 0.0_cp) then
             !write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in dcheb calculation: ",n,k,&
@@ -321,11 +238,11 @@ contains
             !   end if
             !end if
 
-            d3cheb(n,k)=       two*map_fac3(k)*cheb(n-1,k) + &
-                              6.0_cp*map_fac2(k)*dcheb(n-1,k) + &
-                             6.0_cp*map_fac1(k)*d2cheb(n-1,k) + &
-                                    two*y(k)*d3cheb(n-1,k) - &
-                                              d3cheb(n-2,k)
+            d3cheb(n,k)=       two*map_fac3(k)*   cheb(n-1,k) + &
+            &                 6.0_cp*map_fac2(k)*dcheb(n-1,k) + &
+            &                6.0_cp*map_fac1(k)*d2cheb(n-1,k) + &
+            &                          two*y(k)*d3cheb(n-1,k) - &
+            &                                   d3cheb(n-2,k)
             !if (ABS(local_d3cheb) > 0.0_cp) then
             !write(*,"(A,2I3,3ES20.12,ES11.3)") "Error in d3cheb calculation: ",n,k,&
             !        & d3cheb(n,k),local_d3cheb,d3cheb(n,k)-local_d3cheb,&

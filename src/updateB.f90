@@ -8,13 +8,12 @@ module updateB_mod
    use omp_lib
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_max, n_r_tot, n_r_ic_max, n_cheb_max, &
+   use truncation, only: n_r_max, n_r_tot, n_r_ic_max, &
        &                 n_cheb_ic_max, n_r_ic_maxMag, n_r_maxMag, &
        &                 n_r_totMag, lm_max, l_maxMag
-   use radial_functions, only: chebt_ic,drx,ddrx,or2,r_cmb, chebt_oc,        &
-       &                       chebt_ic_even, d2cheb_ic, cheb_norm_ic,       &
-       &                       dr_fac_ic,lambda,dLlambda,o_r_ic,r,cheb_norm, &
-       &                       cheb, dcheb, d2cheb, or1, cheb_ic, dcheb_ic,rscheme_oc
+   use radial_functions, only: chebt_ic,or2,r_cmb,chebt_ic_even, d2cheb_ic, &
+       &                       cheb_norm_ic,dr_fac_ic,lambda,dLlambda,o_r_ic,r,&
+       &                       or1, cheb_ic, dcheb_ic,rscheme_oc
    use radial_data, only: n_r_cmb,n_r_icb
    use physical_parameters, only: n_r_LCR,opm,O_sr,kbotb, imagcon, tmagcon, &
                                  sigma_ratio, conductance_ma, ktopb, kbotb
@@ -23,7 +22,7 @@ module updateB_mod
    use blocking, only: nLMBs,st_map,lo_map,st_sub_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh, dPhi, hdif_B, D_l, D_lP1
    use logic, only: l_cond_ic, l_LCR, l_rot_ic, l_mag_nl, l_b_nl_icb, &
-       &            l_b_nl_cmb, l_update_b 
+       &            l_b_nl_cmb, l_update_b, l_RMS
    use RMS, only: dtBPolLMr, dtBPol2hInt, dtBTor2hInt
    use constants, only: pi, zero, one, two, three, half
    use special
@@ -31,16 +30,16 @@ module updateB_mod
    use LMLoop_data, only: llmMag,ulmMag
    use parallel_mod, only:  rank,chunksize
    use RMS_helpers, only: hInt2PolLM, hInt2TorLM
-   use cosine_transform_odd
+   use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
-   use radial_der, only: get_drNS, get_ddr
+   use radial_der, only: get_dr, get_ddr
    
    implicit none
 
    private
 
    !-- Local work arrays:
-   complex(cp), allocatable :: workA(:,:),workB(:,:)
+   complex(cp), allocatable :: workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:),rhs2(:,:,:)
    complex(cp), allocatable :: dtT(:), dtP(:)
    real(cp), allocatable :: bMat(:,:,:)
@@ -79,10 +78,11 @@ contains
       bytes_allocated = bytes_allocated+(l_maxMag+1)*SIZEOF_LOGICAL
 
 
-      allocate( workA(llmMag:ulmMag,n_r_max) )
-      allocate( workB(llmMag:ulmMag,n_r_max) )
-      bytes_allocated = bytes_allocated+2*(ulmMag-llmMag+1)*n_r_max* & 
-                        SIZEOF_DEF_COMPLEX
+      if ( l_RMS ) then
+         allocate( workB(llmMag:ulmMag,n_r_max) )
+         bytes_allocated = bytes_allocated+(ulmMag-llmMag+1)*n_r_max* & 
+         &                 SIZEOF_DEF_COMPLEX
+      end if
 
       allocate( dtT(llmMag:ulmMag) )
       allocate( dtP(llmMag:ulmMag) )
@@ -109,7 +109,8 @@ contains
 #ifdef WITH_PRECOND_BJ
       deallocate(bMat_fac,jMat_fac)
 #endif
-      deallocate( workA, workB, dtT, dtP, rhs1, rhs2 )
+      deallocate( dtT, dtP, rhs1, rhs2 )
+      if ( l_RMS ) deallocate( workB )
 
    end subroutine finalize_updateB
 !-----------------------------------------------------------------------------
@@ -190,8 +191,8 @@ contains
       integer :: lmStart,lmStop      ! max and min number of orders m
       integer :: lmStart_00          ! excluding l=0,m=0
       integer :: nLMB2
-      integer :: n_cheb              ! No of cheb polynome (degree+1)
-      integer :: nR                 ! No of radial grid point
+      integer :: n_r_out             ! No of cheb polynome (degree+1)
+      integer :: nR                  ! No of radial grid point
       integer :: n_r_real            ! total number of used grid points
       integer :: n_r_top,n_r_bot
 
@@ -252,10 +253,9 @@ contains
       !   write(*,"(I4,A,2I6)") rank,": ",ulmMag,lmStop
       !   stop
       !end if
-      !call get_drNS( dVxBhLM,workA, &
+      !call get_dr( dVxBhLM,workA, &
       !     &         ulmMag-llmMag+1,(2*lmStart-1)-llmMag+1,lmStop-llmMag+1, &
-      !     &         n_r_max,n_cheb_max,workB, &
-      !     &         chebt_oc,drx)
+      !     &         n_r_max,rscheme_oc )
       ! simplified interface
       !PRINT*,rank,": computing for ",ulmMag-llmMag+1," rows, chebt_oc = ",chebt_oc
 
@@ -269,16 +269,15 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStop,lmStart_00) &
-      !$OMP shared(dVxBhLM,workA,workB,djdt,or2) &
-      !$OMP shared(chebt_oc,drx) &
-      !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag)
+      !$OMP shared(dVxBhLM,work_LMloc,djdt,or2,rscheme_oc) &
+      !$OMP shared(n_r_max,nThreads,llmMag,ulmMag)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else 
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
       !$OMP BARRIER
@@ -288,9 +287,12 @@ contains
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
 
-         call get_drNS( dVxBhLM,workA,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &         stop_lm-llmMag+1,n_r_max,n_cheb_max,workB,       &
-              &         chebt_oc,drx)
+         !call get_drNS( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+         !     &         stop_lm-llmMag+1,n_r_max,n_cheb_max,workB,       &
+         !     &         chebt_oc,drx)
+
+         call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
+              &       stop_lm-llmMag+1,n_r_max,rscheme_oc )
 
       end do
       !$OMP end do
@@ -298,7 +300,7 @@ contains
       !$OMP do private(nR)
       do nR=1,n_r_max
          do lm=lmStart_00,lmStop
-            djdt(lm,nR)=djdt(lm,nR)+or2(nR)*workA(lm,nR)
+            djdt(lm,nR)=djdt(lm,nR)+or2(nR)*work_LMloc(lm,nR)
          end do
       end do
       !$OMP end do
@@ -329,12 +331,12 @@ contains
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
                call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),           &
-                             bMat(1,1,l1),bPivot(1,l1), bMat_fac(1,l1),&
-                             jMat(1,1,l1),jPivot(1,l1), jMat_fac(1,l1))
+                    &        bMat(1,1,l1),bPivot(1,l1), bMat_fac(1,l1),&
+                    &        jMat(1,1,l1),jPivot(1,l1), jMat_fac(1,l1))
 #else
                call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)), &
-                             bMat(1,1,l1),bPivot(1,l1),      &
-                             jMat(1,1,l1),jPivot(1,l1) )
+                    &        bMat(1,1,l1),bPivot(1,l1),      &
+                    &        jMat(1,1,l1),jPivot(1,l1) )
 #endif
                lBmat(l1)=.true.
             end if
@@ -343,7 +345,7 @@ contains
          do iChunk=1,nChunks
             !$OMP TASK if (nChunks>1) default(shared) &
             !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
+            !$OMP private(lmB0,lmB,lm,lm1,m1,nR) &
             !$OMP private(dbdt_ic,djdt_ic,fac,bpeaktop,ff) &
             !$OMP private(threadid)
 #ifdef WITHOMP
@@ -486,10 +488,10 @@ contains
                               b10max=bmax_imp*r_cmb**2
                               cimp=b10max**expo_imp / (expo_imp-1)
                               aimp=amp_imp*cimp*expo_imp / &
-                                   (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
+                              &    (cimp*(expo_imp-1))**((expo_imp-1)/expo_imp)
 
                               ff=  aimp*real(b(2,1))**expo_imp/ &
-                                   (cimp+real(b(2,1))**expo_imp)
+                              &    (cimp+real(b(2,1))**expo_imp)
 
                            end if
                            rhs1(1,lmB,threadid)=(2*l1+1)/r_cmb*ff
@@ -504,9 +506,9 @@ contains
                         rhs2(nR,lmB,threadid)=0.0_cp
                      else
                         rhs1(nR,lmB,threadid)= ( w1*dbdt(lm1,nR)+w2*dbdtLast(lm1,nR) ) &
-                          &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
+                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR)
                         rhs2(nR,lmB,threadid)= ( w1*djdt(lm1,nR)+w2*djdtLast(lm1,nR) ) &
-                          &        + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
+                        &          + O_dt*dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR)
                      end if
                   end do
 
@@ -522,21 +524,21 @@ contains
 
                      do nR=2,n_r_ic_max
                         if ( omega_ic == 0.0_cp .or. .not. l_rot_ic .or. &
-                             .not. l_mag_nl ) then
+                        &    .not. l_mag_nl ) then
                            dbdt_ic=zero
                            djdt_ic=zero
                         else
                            fac=-omega_ic*or2(n_r_max)*dPhi(st_map%lm2(l1,m1))* &
-                                dLh(st_map%lm2(l1,m1))
+                           &    dLh(st_map%lm2(l1,m1))
                            dbdt_ic=fac*b_ic(lm1,nR)
                            djdt_ic=fac*aj_ic(lm1,nR)
                         end if
                         rhs1(n_r_max+nR,lmB,threadid)=                 &
-                             & ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) ) &
-                             & +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * b_ic(lm1,nR)
+                        &      ( w1*dbdt_ic + w2*dbdt_icLast(lm1,nR) ) &
+                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * b_ic(lm1,nR)
                         rhs2(n_r_max+nR,lmB,threadid)=                 &
-                             & ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) ) &
-                             & +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * aj_ic(lm1,nR)
+                        &      ( w1*djdt_ic + w2*djdt_icLast(lm1,nR) ) &
+                        &      +O_dt*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * aj_ic(lm1,nR)
 
                         !--------- Store the IC non-linear terms for the usage below:
                         dbdt_icLast(lm1,nR)=dbdt_ic
@@ -571,7 +573,7 @@ contains
                   do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
                      !do lm=1,sizeLMB2(nLMB2,nLMB)
                      lm1=lm22lm(lm,nLMB2,nLMB)
-                     workA(lm1,nR)=b(lm1,nR)
+                     work_LMloc(lm1,nR)=b(lm1,nR)
                      workB(lm1,nR)=aj(lm1,nR)
                   end do
                end do
@@ -590,29 +592,29 @@ contains
                   lmB=lmB+1
 
                   if ( m1 > 0 ) then
-                     do n_cheb=1,n_cheb_max  ! outer core
-                        b(lm1,n_cheb) =rhs1(n_cheb,lmB,threadid)
-                        aj(lm1,n_cheb)=rhs2(n_cheb,lmB,threadid)
+                     do n_r_out=1,rscheme_oc%n_max  ! outer core
+                        b(lm1,n_r_out) =rhs1(n_r_out,lmB,threadid)
+                        aj(lm1,n_r_out)=rhs2(n_r_out,lmB,threadid)
                      end do
                      if ( l_cond_ic ) then   ! inner core
-                        do n_cheb=1,n_cheb_ic_max
-                           b_ic(lm1,n_cheb) = rhs1(n_r_max+n_cheb,lmB,threadid)
-                           aj_ic(lm1,n_cheb)= rhs2(n_r_max+n_cheb,lmB,threadid)
+                        do n_r_out=1,n_cheb_ic_max
+                           b_ic(lm1,n_r_out) = rhs1(n_r_max+n_r_out,lmB,threadid)
+                           aj_ic(lm1,n_r_out)= rhs2(n_r_max+n_r_out,lmB,threadid)
                         end do
                      end if
                   else
-                     do n_cheb=1,n_cheb_max   ! outer core
-                        b(lm1,n_cheb) = &
-                             cmplx(real(rhs1(n_cheb,lmB,threadid)),0.0_cp,kind=cp)
-                        aj(lm1,n_cheb)= &
-                             cmplx(real(rhs2(n_cheb,lmB,threadid)),0.0_cp,kind=cp)
+                     do n_r_out=1,rscheme_oc%n_max   ! outer core
+                        b(lm1,n_r_out) = &
+                        &    cmplx(real(rhs1(n_r_out,lmB,threadid)),0.0_cp,kind=cp)
+                        aj(lm1,n_r_out)= &
+                        &    cmplx(real(rhs2(n_r_out,lmB,threadid)),0.0_cp,kind=cp)
                      end do
                      if ( l_cond_ic ) then    ! inner core
-                        do n_cheb=1,n_cheb_ic_max
-                           b_ic(lm1,n_cheb)= cmplx( &
-                             real(rhs1(n_r_max+n_cheb,lmB,threadid)),0.0_cp,kind=cp)
-                           aj_ic(lm1,n_cheb)= cmplx( &
-                             real(rhs2(n_r_max+n_cheb,lmB,threadid)),0.0_cp,kind=cp)
+                        do n_r_out=1,n_cheb_ic_max
+                           b_ic(lm1,n_r_out)= cmplx( &
+                           & real(rhs1(n_r_max+n_r_out,lmB,threadid)),0.0_cp,kind=cp)
+                           aj_ic(lm1,n_r_out)= cmplx( &
+                           & real(rhs2(n_r_max+n_r_out,lmB,threadid)),0.0_cp,kind=cp)
                         end do
                      end if
                   end if
@@ -626,19 +628,19 @@ contains
       !$OMP END SINGLE
       !$OMP END PARALLEL
 
-      !-- Set cheb modes > n_cheb_max to zero (dealiazing)
+      !-- Set cheb modes > rscheme_oc%n_max to zero (dealiazing)
       !   for inner core modes > 2*n_cheb_ic_max = 0
-      do n_cheb=n_cheb_max+1,n_r_max
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart_00,lmStop
-            b(lm1,n_cheb) =zero
-            aj(lm1,n_cheb)=zero
+            b(lm1,n_r_out) =zero
+            aj(lm1,n_r_out)=zero
          end do
       end do
       if ( l_cond_ic ) then
-         do n_cheb=n_cheb_ic_max+1,n_r_ic_max
+         do n_r_out=n_cheb_ic_max+1,n_r_ic_max
             do lm1=lmStart_00,lmStop
-               b_ic(lm1,n_cheb) =zero
-               aj_ic(lm1,n_cheb)=zero
+               b_ic(lm1,n_r_out) =zero
+               aj_ic(lm1,n_r_out)=zero
             end do
          end do
       end if
@@ -654,8 +656,7 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
       !$OMP shared(b,db,ddb,aj,dj,ddj,dbdtLast,djdtLast) &
-      !$OMP shared(chebt_oc,rscheme_oc,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,nThreads,llmMag,ulmMag) &
+      !$OMP shared(rscheme_oc,n_r_max,nThreads,llmMag,ulmMag) &
       !$OMP shared(l_cond_ic,b_ic,db_ic,ddb_ic,aj_ic,dj_ic,ddj_ic) &
       !$OMP shared(chebt_ic,chebt_ic_even) &
       !$OMP shared(n_r_ic_max,n_cheb_ic_max,dr_fac_ic)
@@ -665,7 +666,7 @@ contains
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dsdtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dsdtLast used as work arrays
       per_thread=all_lms/nThreads
       !write(*,"(2(A,I5))") "nThreads = ",nThreads,", per_thread = ",per_thread
       !$OMP END SINGLE
@@ -678,32 +679,32 @@ contains
 
          !-- Radial derivatives: dbdtLast and djdtLast used as work arrays
          !PERFON('upB_cb')
-         call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1,   &
+         call rscheme_oc%costf1(b,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &                 stop_lm-llmMag+1)
          !PERFOFF
          !PERFON('upB_db')
          call get_ddr(b,db,ddb,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
          !PERFOFF
-         call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1,   &
+         call rscheme_oc%costf1(aj, ulmMag-llmMag+1, start_lm-llmMag+1, &
               &                 stop_lm-llmMag+1)
          call get_ddr(aj,dj,ddj,ulmMag-llmMag+1,start_lm-llmMag+1, &
               &       stop_lm-llmMag+1,n_r_max,rscheme_oc)
          
          !-- Same for inner core:
          if ( l_cond_ic ) then
-            call chebt_ic%costf1(b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &      stop_lm-llmMag+1, dbdtLast)
-            call get_ddr_even( b_ic,db_ic,ddb_ic,                     &
-                 & ulmMag-llmMag+1,start_lm-llmMag+1,  &
-                 & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,   &
-                 & dr_fac_ic,dbdtLast,djdtLast, chebt_ic, chebt_ic_even)
-            call chebt_ic%costf1(aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
-                 &      stop_lm-llmMag+1, dbdtLast)
-            call get_ddr_even( aj_ic,dj_ic,ddj_ic,                   &
-                 & ulmMag-llmMag+1,start_lm-llmMag+1, &
-                 & stop_lm-llmMag+1, n_r_ic_max,n_cheb_ic_max,  &
-                 & dr_fac_ic,dbdtLast,djdtLast, chebt_ic, chebt_ic_even)
+            call chebt_ic%costf1( b_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &                stop_lm-llmMag+1, dbdtLast)
+            call get_ddr_even( b_ic,db_ic,ddb_ic, ulmMag-llmMag+1, &
+                 &             start_lm-llmMag+1,stop_lm-llmMag+1, &
+                 &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,&
+                 &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
+            call chebt_ic%costf1( aj_ic, ulmMag-llmMag+1, start_lm-llmMag+1, &
+                 &               stop_lm-llmMag+1, dbdtLast)
+            call get_ddr_even( aj_ic,dj_ic,ddj_ic, ulmMag-llmMag+1,  &
+                 &             start_lm-llmMag+1, stop_lm-llmMag+1,  &
+                 &             n_r_ic_max,n_cheb_ic_max, dr_fac_ic,  &
+                 &             dbdtLast,djdtLast, chebt_ic, chebt_ic_even )
          end if
       end do
       !$OMP end do
@@ -724,12 +725,12 @@ contains
 
                   b(lm1,nR)=(r(n_r_LCR)/r(nR))**D_l(st_map%lm2(l1,m1))*b(lm1,n_r_LCR)
                   db(lm1,nR)=-real(D_l(st_map%lm2(l1,m1)),kind=cp)*     &
-                             (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/      &
-                             (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
+                  &          (r(n_r_LCR))**D_l(st_map%lm2(l1,m1))/      &
+                  &          (r(nR))**(D_l(st_map%lm2(l1,m1))+1)*b(lm1,n_r_LCR)
                   ddb(lm1,nR)=real(D_l(st_map%lm2(l1,m1)),kind=cp)*         &
-                              (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
-                              *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
-                              (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
+                  &           (real(D_l(st_map%lm2(l1,m1)),kind=cp)+1)      &
+                  &           *(r(n_r_LCR))**(D_l(st_map%lm2(l1,m1)))/ &
+                  &           (r(nR))**(D_l(st_map%lm2(l1,m1))+2)*b(lm1,n_r_LCR)
                   aj(lm1,nR)=zero
                   dj(lm1,nR)=zero
                   ddj(lm1,nR)=zero
@@ -751,26 +752,26 @@ contains
             l1=lm2l(lm1)
             m1=lm2m(lm1)
             dbdtLast(lm1,nR)= dbdt(lm1,nR) -                    &
-                 coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-                               dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                 ( ddb(lm1,nR) - dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR) )
+            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
+            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
+            &    ( ddb(lm1,nR) - dLh(st_map%lm2(l1,m1))*or2(nR)*b(lm1,nR) )
             djdtLast(lm1,nR)= djdt(lm1,nR) -                    &
-                 coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
-                               dLh(st_map%lm2(l1,m1))*or2(nR) * &
-                 ( ddj(lm1,nR) + dLlambda(nR)*dj(lm1,nR) -      &
-                   dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR) )
+            &    coex*opm*lambda(nR)*hdif_B(st_map%lm2(l1,m1))* &
+            &                  dLh(st_map%lm2(l1,m1))*or2(nR) * &
+            &    ( ddj(lm1,nR) + dLlambda(nR)*dj(lm1,nR) -      &
+            &      dLh(st_map%lm2(l1,m1))*or2(nR)*aj(lm1,nR) )
             if ( lRmsNext ) then
                dtP(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-                             * (  b(lm1,nR)-workA(lm1,nR) )
+               &             * (  b(lm1,nR)-work_LMloc(lm1,nR) )
                dtT(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) &
-                             * ( aj(lm1,nR)-workB(lm1,nR) )
+               &             * ( aj(lm1,nR)-workB(lm1,nR) )
             end if
          end do
          if ( lRmsNext ) then
             call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop,&
-                 & dtBPolLMr(1,nR),dtBPol2hInt(1,nR,1),lo_map)
+                 &          dtBPolLMr(1,nR),dtBPol2hInt(1,nR,1),lo_map)
             call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,lmStop, &
-                 &        dtBTor2hInt(1,nR,1),lo_map)
+                 &          dtBTor2hInt(1,nR,1),lo_map)
          end if
       end do
       !PERFOFF
@@ -785,13 +786,13 @@ contains
                l1=lm2l(lm1)
                m1=lm2m(lm1)
                dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-                    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                    (                        ddb_ic(lm1,nR) +           &
-                    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
+               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
+               &    (                        ddb_ic(lm1,nR) +           &
+               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*db_ic(lm1,nR) )
                djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-                    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                    (                        ddj_ic(lm1,nR) +           &
-                    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
+               &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
+               &    (                        ddj_ic(lm1,nR) +           &
+               &    two*D_lP1(st_map%lm2(l1,m1))*O_r_ic(nR)*dj_ic(lm1,nR) )
             end do
          end do
          nR=n_r_ic_max
@@ -799,11 +800,11 @@ contains
             l1=lm2l(lm1)
             m1=lm2m(lm1)
             dbdt_icLast(lm1,nR)=dbdt_icLast(lm1,nR) -                &
-                 coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                 (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
+            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
+            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddb_ic(lm1,nR)
             djdt_icLast(lm1,nR)=djdt_icLast(lm1,nR) -                &
-                 coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
-                 (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
+            &    coex*opm*O_sr*dLh(st_map%lm2(l1,m1))*or2(n_r_max) * &
+            &    (one+two*D_lP1(st_map%lm2(l1,m1)))*ddj_ic(lm1,nR)
          end do
          !PERFOFF
       end if
@@ -835,7 +836,7 @@ contains
 #endif
  
       !-- local variables:
-      integer :: nR,nCheb,nRall
+      integer :: nR,nCheb,nR_out,nRall
       integer :: info
       real(cp) :: l_P_1
       real(cp) :: O_dt,dLh
@@ -866,53 +867,54 @@ contains
       l_P_1=real(l+1,kind=cp)
     
       do nR=2,n_r_max-1
-         do nCheb=1,n_r_max
-            bMat(nR,nCheb)=                       cheb_norm * ( &
-                              O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
-                      alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
-                                             d2cheb(nCheb,nR) - &
-                                   dLh*or2(nR)*cheb(nCheb,nR) ) )
+         do nR_out=1,n_r_max
+            bMat(nR,nR_out)=                       rscheme_oc%rnorm * (     &
+            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
+            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                                rscheme_oc%d2rMat(nR,nR_out) - &
+            &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
     
-            jMat(nR,nCheb)=                       cheb_norm * ( &
-                              O_dt*dLh*or2(nR)*cheb(nCheb,nR) - &
-                      alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * ( &
-                                             d2cheb(nCheb,nR) + &
-                                 dLlambda(nR)*dcheb(nCheb,nR) - &
-                                   dLh*or2(nR)*cheb(nCheb,nR) ) )
+            jMat(nR,nR_out)=                       rscheme_oc%rnorm * (     &
+            &                 O_dt*dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) - &
+            &         alpha*opm*lambda(nR)*hdif*dLh*or2(nR) * (             &
+            &                                rscheme_oc%d2rMat(nR,nR_out) + &
+            &                    dLlambda(nR)*rscheme_oc%drMat(nR,nR_out) - &
+            &                      dLh*or2(nR)*rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
     
       if  ( l_LCR ) then
          do nR=2,n_r_max-1
             if ( nR<=n_r_LCR ) then
-               do nCheb=1,n_r_max
-                  bMat(nR,nCheb)= cheb_norm*(     dcheb(nCheb,nR) + &
-                                   real(l,kind=cp)*or1(nR)*cheb(nCheb,nR) ) 
+               do nR_out=1,n_r_max
+                  bMat(nR,nR_out)= rscheme_oc%rnorm*(                       &
+                  &                           rscheme_oc%drMat(nR,nR_out) + &
+                  &    real(l,kind=cp)*or1(nR)*rscheme_oc%rMat(nR,nR_out) ) 
     
-                  jMat(nR,nCheb)= cheb_norm*cheb(nCheb,nR)
+                  jMat(nR,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
                end do
             end if
          end do
       end if
     
       !----- boundary conditions for outer core field:
-      do nCheb=1,n_cheb_max
+      do nR_out=1,rscheme_oc%n_max
 
          if ( ktopb == 1 .or. ktopb == 3 ) then
          !-------- at CMB (nR=1):
          !         the internal poloidal field should fit a potential
          !         field (matrix bmat) and the toroidal field has to
          !         vanish (matrix ajmat).
-            bMat(1,nCheb)=            cheb_norm * ( &
-                                   dcheb(nCheb,1) + &
-                  real(l,cp)*or1(1)*cheb(nCheb,1) + &
-                                  conductance_ma* ( &
-                                  d2cheb(nCheb,1) - &
-                         dLh*or2(1)*cheb(nCheb,1) ) )
-    
-            jMat(1,nCheb)=            cheb_norm * ( &
-                                    cheb(nCheb,1) + &
-                    conductance_ma*dcheb(nCheb,1) )
+            bMat(1,nR_out)=            rscheme_oc%rnorm * (     &
+            &                      rscheme_oc%drMat(1,nR_out) + &
+            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,nR_out) + &
+            &                     conductance_ma* (             &
+            &                     rscheme_oc%d2rMat(1,nR_out) - &
+            &            dLh*or2(1)*rscheme_oc%rMat(1,nR_out) ) )
+
+            jMat(1,nR_out)=            rscheme_oc%rnorm * (     &
+            &                       rscheme_oc%rMat(1,nR_out) + &
+            &       conductance_ma*rscheme_oc%drMat(1,nR_out) )
          else if ( ktopb == 2 ) then
             write(*,*) '! Boundary condition ktopb=2 not defined!'
             stop
@@ -921,21 +923,21 @@ contains
             !----- pseudo vacuum condition, field has only
             !      a radial component, horizontal components
             !      vanish when aj and db are zero:
-            bMat(1,nCheb)=cheb_norm*dcheb(nCheb,1)
-            jMat(1,nCheb)=cheb_norm*cheb(nCheb,1)
+            bMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
+            jMat(1,nR_out)=rscheme_oc%rnorm* rscheme_oc%rMat(1,nR_out)
          end if
 
          !-------- at IC (nR=n_r_max):
          if ( kbotb == 1 ) then
             !----------- insulating IC, field has to fit a potential field:
-            bMat(n_r_max,nCheb)=       cheb_norm * ( &
-                              dcheb(nCheb,n_r_max) - &
-                 l_P_1*or1(n_r_max)*cheb(nCheb,n_r_max) )
-            jMat(n_r_max,nCheb)=       cheb_norm*cheb(nCheb,n_r_max)
+            bMat(n_r_max,nR_out)=rscheme_oc%rnorm * (                 &
+            &                      rscheme_oc%drMat(n_r_max,nR_out) - &
+            &    l_P_1*or1(n_r_max)*rscheme_oc%rMat(n_r_max,nR_out) )
+            jMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
          else if ( kbotb == 2 ) then
             !----------- perfect conducting IC
-            bMat(n_r_max-1,nCheb)=cheb_norm*d2cheb(nCheb,n_r_max)
-            jMat(n_r_max,nCheb)  =cheb_norm* dcheb(nCheb,n_r_max)
+            bMat(n_r_max-1,nR_out)=rscheme_oc%rnorm*rscheme_oc%d2rMat(n_r_max,nR_out)
+            jMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%drMat(n_r_max,nR_out)
          else if ( kbotb == 3 ) then
             !---------- finite conducting IC, four boundary conditions:
             !           continuity of b,j, (d b)/(d r) and (d j)/(d r)/sigma.
@@ -943,26 +945,27 @@ contains
             !           here we set the outer core part of the equations.
             !           the conductivity ratio sigma_ratio is used as
             !           an additional dimensionless parameter.
-            bMat(n_r_max,nCheb)=  cheb_norm*cheb(nCheb,n_r_max)
-            bMat(n_r_max+1,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
-            jMat(n_r_max,nCheb)=  cheb_norm*cheb(nCheb,n_r_max)
-            jMat(n_r_max+1,nCheb)=cheb_norm*sigma_ratio*dcheb(nCheb,n_r_max)
+            bMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,nR_out)
+            bMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+            jMat(n_r_max,nR_out)  =rscheme_oc%rnorm* rscheme_oc%rMat(n_r_max,nR_out)
+            jMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*sigma_ratio* &
+            &                      rscheme_oc%drMat(n_r_max,nR_out)
          else if ( kbotb == 4 ) then
             !----- Pseudovacuum conduction at lower boundary:
-            bMat(n_r_max,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
-            jMat(n_r_max,nCheb)=cheb_norm*cheb(nCheb,n_r_max)
+            bMat(n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+            jMat(n_r_max,nR_out)= rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
             end if
 
          !-------- Imposed fields: (overwrites above IC boundary cond.)
          if ( l == 1 .and. ( imagcon == -1 .or. imagcon == -2 ) ) then
-            bMat(n_r_max,nCheb)=  cheb_norm * cheb(nCheb,n_r_max)
+            bMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
          else if ( l == 3 .and. imagcon == -10 ) then
             if ( l_LCR ) then
                write(*,*) 'Imposed field not compatible with weak conducting region!'
                stop
             end if
-            jMat(1,nCheb)      =  cheb_norm * cheb(nCheb,1)
-            jMat(n_r_max,nCheb)=  cheb_norm * cheb(nCheb,n_r_max)
+            jMat(1,nR_out)      =  rscheme_oc%rnorm * rscheme_oc%rMat(1,nR_out)
+            jMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
          else if ( n_imp == 1 ) then
             !-- This is the Uli Christensen idea where the external field is
             !   not fixed but compensates the internal field so that the
@@ -972,56 +975,56 @@ contains
                stop
             end if
             rRatio=rrMP**real(2*l+1,kind=cp)
-            bMat(1,nCheb)=            cheb_norm * ( &
-                                   dcheb(nCheb,1) + &
-                  real(l,cp)*or1(1)*cheb(nCheb,1) - &
-                 real(2*l+1,cp)*or1(1)/(1-rRatio) + &
-                                  conductance_ma* ( &
-                                  d2cheb(nCheb,1) - &
-                         dLh*or2(1)*cheb(nCheb,1) ) )
+            bMat(1,nR_out)=            rscheme_oc%rnorm * (     &
+            &                      rscheme_oc%drMat(1,nR_out) + &
+            &     real(l,cp)*or1(1)*rscheme_oc%rMat(1,nR_out) - &
+            &    real(2*l+1,cp)*or1(1)/(1-rRatio) +             &
+            &                     conductance_ma* (             &
+            &                     rscheme_oc%d2rMat(1,nR_out) - &
+            &            dLh*or2(1)*rscheme_oc%rMat(1,nR_out) ) )
          end if
     
       end do ! loop over cheb modes !
     
       !----- fill up with zeros:
-      do nCheb=n_cheb_max+1,n_r_max
-         bMat(1,nCheb)=0.0_cp
-         jMat(1,nCheb)=0.0_cp
+      do nR_out=rscheme_oc%n_max+1,n_r_max
+         bMat(1,nR_out)=0.0_cp
+         jMat(1,nR_out)=0.0_cp
          if ( l_LCR ) then
             do nR=2,n_r_LCR
-               bMat(nR,nCheb)=0.0_cp
-               jMat(nR,nCheb)=0.0_cp
+               bMat(nR,nR_out)=0.0_cp
+               jMat(nR,nR_out)=0.0_cp
             end do
          end if
          if ( kbotb == 1 ) then
-            bMat(n_r_max,nCheb)  =0.0_cp
-            jMat(n_r_max,nCheb)  =0.0_cp
+            bMat(n_r_max,nR_out)  =0.0_cp
+            jMat(n_r_max,nR_out)  =0.0_cp
          else if ( kbotb == 2 ) then
-            bMat(n_r_max-1,nCheb)=0.0_cp
-            jMat(n_r_max,nCheb)  =0.0_cp
+            bMat(n_r_max-1,nR_out)=0.0_cp
+            jMat(n_r_max,nR_out)  =0.0_cp
          else if ( kbotb == 3 ) then
-            bMat(n_r_max,nCheb)  =0.0_cp
-            bMat(n_r_max+1,nCheb)=0.0_cp
-            jMat(n_r_max,nCheb)  =0.0_cp
-            jMat(n_r_max+1,nCheb)=0.0_cp
+            bMat(n_r_max,nR_out)  =0.0_cp
+            bMat(n_r_max+1,nR_out)=0.0_cp
+            jMat(n_r_max,nR_out)  =0.0_cp
+            jMat(n_r_max+1,nR_out)=0.0_cp
          else if ( kbotb == 4 ) then
-            bMat(n_r_max,nCheb)  =0.0_cp
-            jMat(n_r_max,nCheb)  =0.0_cp
+            bMat(n_r_max,nR_out)  =0.0_cp
+            jMat(n_r_max,nR_out)  =0.0_cp
          end if
       end do
     
       !----- normalization for highest and lowest Cheb mode:
       do nR=1,n_r_max
-         bMat(nR,1)      =half*bMat(nR,1)
-         bMat(nR,n_r_max)=half*bMat(nR,n_r_max)
-         jMat(nR,1)      =half*jMat(nR,1)
-         jMat(nR,n_r_max)=half*jMat(nR,n_r_max)
+         bMat(nR,1)      =rscheme_oc%boundary_fac*bMat(nR,1)
+         bMat(nR,n_r_max)=rscheme_oc%boundary_fac*bMat(nR,n_r_max)
+         jMat(nR,1)      =rscheme_oc%boundary_fac*jMat(nR,1)
+         jMat(nR,n_r_max)=rscheme_oc%boundary_fac*jMat(nR,n_r_max)
       end do
       if ( kbotb == 3 ) then
-         bMat(n_r_max+1,1)=half*bMat(n_r_max+1,1)
-         bMat(n_r_max+1,n_r_max)=half*bMat(n_r_max+1,n_r_max)
-         jMat(n_r_max+1,1)=half*jMat(n_r_max+1,1)
-         jMat(n_r_max+1,n_r_max)=half*jMat(n_r_max+1,n_r_max)
+         bMat(n_r_max+1,1)=rscheme_oc%boundary_fac*bMat(n_r_max+1,1)
+         bMat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac*bMat(n_r_max+1,n_r_max)
+         jMat(n_r_max+1,1)=rscheme_oc%boundary_fac*jMat(n_r_max+1,1)
+         jMat(n_r_max+1,n_r_max)=rscheme_oc%boundary_fac*jMat(n_r_max+1,n_r_max)
       end if
     
       !----- Conducting inner core:
@@ -1037,11 +1040,11 @@ contains
                !            NOTE: no hyperdiffusion in inner core !
     
                bMat(n_r_max+nR,n_r_max+nCheb) =       &
-                    cheb_norm_ic*dLh*or2(n_r_max) * ( &
-                             O_dt*cheb_ic(nCheb,nR) - &
-                                   alpha*opm*O_sr * ( &
-                                d2cheb_ic(nCheb,nR) + &
-                    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
+               &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
+               &             O_dt*cheb_ic(nCheb,nR) - &
+               &                   alpha*opm*O_sr * ( &
+               &                d2cheb_ic(nCheb,nR) + &
+               &    two*l_P_1*O_r_ic(nR)*dcheb_ic(nCheb,nR) )   )
     
                jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
             end do
@@ -1049,10 +1052,10 @@ contains
             !----- Special treatment for r=0, asymptotic of 1/r dr
             nR=n_r_ic_max
             bMat(n_r_max+nR,n_r_max+nCheb) =       &
-                 cheb_norm_ic*dLh*or2(n_r_max) * ( &
-                          O_dt*cheb_ic(nCheb,nR) - &
-                                  alpha*opm*O_sr * &
-                 (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
+            &    cheb_norm_ic*dLh*or2(n_r_max) * ( &
+            &             O_dt*cheb_ic(nCheb,nR) - &
+            &                     alpha*opm*O_sr * &
+            &    (one+two*l_P_1)*d2cheb_ic(nCheb,nR) )
     
             jMat(n_r_max+nR,n_r_max+nCheb)=bMat(n_r_max+nR,n_r_max+nCheb)
          end do
@@ -1061,8 +1064,8 @@ contains
          do nCheb=1,n_cheb_ic_max
             bMat(n_r_max,n_r_max+nCheb)=-cheb_norm_ic*cheb_ic(nCheb,1)
             bMat(n_r_max+1,n_r_max+nCheb)=             &
-                 -cheb_norm_ic * ( dcheb_ic(nCheb,1) + &
-                 l_P_1*or1(n_r_max)*cheb_ic(nCheb,1) )
+            &    -cheb_norm_ic * ( dcheb_ic(nCheb,1) + &
+            &    l_P_1*or1(n_r_max)*cheb_ic(nCheb,1) )
             jMat(n_r_max,n_r_max+nCheb)=bMat(n_r_max,n_r_max+nCheb)
             jMat(n_r_max+1,n_r_max+nCheb)=bMat(n_r_max+1,n_r_max+nCheb)
          end do ! cheb modes

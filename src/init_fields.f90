@@ -10,10 +10,9 @@ module init_fields
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
        &            l_anelastic_liquid, l_non_adia
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
-       &                       lambda, or2, d2cheb, dcheb,  &
-       &                       cheb, dLlambda, or3, cheb_ic, dcheb_ic, &
-       &                       d2cheb_ic, cheb_norm_ic, or1, r_ic,     &
-       &                       orho1, chebt_oc, chebt_ic, temp0,       &
+       &                       lambda, or2, dLlambda, or3, cheb_ic,    &
+       &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
+       &                       r_ic, orho1, chebt_oc, chebt_ic, temp0, &
        &                       dLtemp0, kappa, dLkappa, beta, dbeta,   &
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
@@ -1562,13 +1561,14 @@ contains
       !----- ICB:
       if ( l_cond_ic ) then  ! matching condition at inner core:
 
-         do n_cheb=1,rscheme_oc%n_max
-            jMat(n_r_max,n_cheb)=rscheme_oc%rnorm*cheb(n_cheb,n_r_max)
-            jMat(n_r_max+1,n_cheb)= rscheme_oc%rnorm*sigma_ratio*dcheb(n_cheb,n_r_max)
+         do n_r_out=1,rscheme_oc%n_max
+            jMat(n_r_max,n_r_out)  =rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,n_r_out)
+            jMat(n_r_max+1,n_r_out)=rscheme_oc%rnorm*sigma_ratio* &
+            &                       rscheme_oc%drMat(n_r_max,n_r_out)
          end do
-         do n_cheb=rscheme_oc%n_max+1,n_r_max
-            jMat(n_r_max,n_cheb)  =0.0_cp
-            jMat(n_r_max+1,n_cheb)=0.0_cp
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            jMat(n_r_max,n_r_out)  =0.0_cp
+            jMat(n_r_max+1,n_r_out)=0.0_cp
          end do
 
       else
@@ -1607,24 +1607,26 @@ contains
                       D_lP1(lm0)*or1(n_r_max)*cheb_ic(n_cheb,1) )
          end do
          do n_cheb=n_r_max+n_cheb_ic_max+1,n_r_tot
-            jMat(n_r_max,n_cheb)=0.0_cp
+            jMat(n_r_max,n_cheb)  =0.0_cp
             jMat(n_r_max+1,n_cheb)=0.0_cp
          end do
 
          !-------- normalization for lowest Cheb mode:
-         do n_r=n_r_max+1,n_r_tot
-            jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
-         end do
+         if ( rscheme_oc%version == 'cheb' ) then
+            do n_r=n_r_max+1,n_r_tot
+               jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
+            end do
+         end if
 
          !-------- fill matrix up with zeros:
-         do n_cheb=n_r_max+1,n_r_tot
+         do n_r_out=n_r_max+1,n_r_tot
             do n_r=1,n_r_max-1
-               jMat(n_r,n_cheb)=0.0_cp
+               jMat(n_r,n_r_out)=0.0_cp
             end do
          end do
-         do n_cheb=1,n_r_max
+         do n_r_out=1,n_r_max
             do n_r=n_r_max+2,n_r_tot
-               jMat(n_r,n_cheb)=0.0_cp
+               jMat(n_r,n_r_out)=0.0_cp
             end do
          end do
 
