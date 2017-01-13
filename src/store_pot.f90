@@ -76,7 +76,8 @@ contains
             if ( n_r_out == 1 .or. n_r_out == n_r_max ) then
                workA(lm,n_r_out)=rscheme_oc%rnorm*rscheme_oc%boundary_fac*&
                &                 workA(lm,n_r_out)
-               if ( lVB ) workB(lm,n_r_out)=rscheme_oc%rnorm*rscheme_oc%boundary_fac*workB(lm,n_r_out)
+               if ( lVB ) workB(lm,n_r_out)=rscheme_oc%rnorm* &
+               &                rscheme_oc%boundary_fac*workB(lm,n_r_out)
             else
                workA(lm,n_r_out)=rscheme_oc%rnorm*workA(lm,n_r_out)
                if ( lVB ) workB(lm,n_r_out)=rscheme_oc%rnorm*workB(lm,n_r_out)
@@ -178,10 +179,11 @@ contains
          end if
     
       end if
+
+      deallocate( workA_global, workB_global )
     
       if ( rank == 0 ) then
          close(fileHandle)
-         deallocate( workA_global, workB_global )
       end if
 
    end subroutine storePot
@@ -347,9 +349,10 @@ contains
 
       end if
 
+      deallocate( workA_global,workB_global ) 
+
       if ( rank == 0 ) then
          close(fileHandle)
-         deallocate( workA_global,workB_global ) 
       end if
 
    end subroutine storePotW

@@ -5,10 +5,11 @@ module outPV3
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
        &                 l_max, minc, m_max, l_axi
-   use radial_functions, only: cheb_norm, r_ICB, chebt_oc, r_CMB
+   use radial_functions, only: cheb_norm, r_ICB, rscheme_oc, r_CMB, &
+       &                       rscheme_oc, chebt_oc
    use physical_parameters, only: radratio
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
-   use blocking, only: lm2, lm2m, lm2l, lm2mc
+   use blocking, only: lm2, lm2m, lm2l, lm2mc, st_map, lo_map
    use horizontal_data, only: dLh, dPhi
    use logic, only: lVerbose, l_SRIC
    use output_data, only: tag, sDens, nSmaxA, nZmaxA
@@ -81,10 +82,9 @@ contains
       real(cp) :: dzVpLMr(l_max+1,n_r_max)
 
       !--- Work array:
-      complex(cp) :: workA(lm_max,n_r_max)
       real(cp) :: workAr(lm_max,n_r_max)
 
-      integer :: lm,l
+      integer :: lm, l, m
 
       real(cp) :: fac
 
@@ -118,23 +118,58 @@ contains
       real(outp) :: out5(n_phi_max*nZmaxA)
       real(cp), save :: timeOld
 
+      complex(cp) :: wP(llm:ulm,n_r_max)
+      complex(cp) :: dwP(llm:ulm,n_r_max)
+      complex(cp) :: ddwP(llm:ulm,n_r_max)
+      complex(cp) :: zP(llm:ulm,n_r_max)
+      complex(cp) :: dzP(llm:ulm,n_r_max)
+
       !-- This may be deleted later:
-      complex(cp) :: wP(lm_max,n_r_max)
-      complex(cp) :: dwP(lm_max,n_r_max)
-      complex(cp) :: ddwP(lm_max,n_r_max)
-      complex(cp) :: zP(lm_max,n_r_max)
-      complex(cp) :: dzP(lm_max,n_r_max)
+      complex(cp), allocatable :: wP_global(:,:), dwP_global(:,:), ddwP_global(:,:)
+      complex(cp), allocatable :: zP_global(:,:), dzP_global(:,:)
 
       integer :: n_pvz_file, n_vcy_file
 
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
 
-      call gather_all_from_lo_to_rank0(gt_OC,w,wP)
-      call gather_all_from_lo_to_rank0(gt_OC,dw,dwP)
-      call gather_all_from_lo_to_rank0(gt_OC,ddw,ddwP)
-      call gather_all_from_lo_to_rank0(gt_OC,z,zP)
-      call gather_all_from_lo_to_rank0(gt_OC,dz,dzP)
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            wP(lm,nR) =w(lm,nR)*dLh(st_map%lm2(l,m))
+            dwP(lm,nR)=dw(lm,nR)
+            ddwP(lm,nR)=ddw(lm,nR)
+            zP(lm,nR)=z(lm,nR)
+            dzP(lm,nR)=dz(lm,nR)
+         end do
+      end do
+
+      call rscheme_oc%costf1(wP,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dwP,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(ddwP,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(zP,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dzP,ulm-llm+1,1,ulm-llm+1)
+
+      if ( rank == 0 ) then
+         allocate( wP_global(1:lm_max,1:n_r_max) )
+         allocate( dwP_global(1:lm_max,1:n_r_max) )
+         allocate( ddwP_global(1:lm_max,1:n_r_max) )
+         allocate( zP_global(1:lm_max,1:n_r_max) )
+         allocate( dzP_global(1:lm_max,1:n_r_max) )
+      else
+         allocate( wP_global(1,1) )
+         allocate( dwP_global(1,1) )
+         allocate( ddwP_global(1,1) )
+         allocate( zP_global(1,1) )
+         allocate( dzP_global(1,1) )
+      end if
+
+      call gather_all_from_lo_to_rank0(gt_OC,wP,wP_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dwP,dwP_global)
+      call gather_all_from_lo_to_rank0(gt_OC,ddwP,ddwP_global)
+      call gather_all_from_lo_to_rank0(gt_OC,zP,zP_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dzP,dzP_global)
 
       if ( rank == 0 ) then
 
@@ -168,23 +203,6 @@ contains
             !---- Transform the contributions to cheb space:
             call chebt_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
          end if
-
-         !--- Transforming of field without the backtransform
-         !    Thus this must be the last thing done with the 
-         !    fields in a run. See output.f90 and step_time.f90.
-         !    NOTE: output is only non-axisymmetric part!
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               wP(lm,nR)  =wP(lm,nR)*dLh(lm)
-            end do
-         end do
-
-         !---- Transform the contributions to cheb space for z-integral:
-         call chebt_oc%costf1(wP,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(dwP,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(ddwP,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(zP,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(dzP,lm_max,1,lm_max,workA)
 
          dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
          nSI=0                  ! Inner core position
@@ -311,6 +329,8 @@ contains
          if ( l_stop_time ) close(n_vcy_file)
 
       end if ! Rank 0
+
+      deallocate( wP_global, dwP_global, ddwP_global, zP_global, dzP_global )
 
    end subroutine outPV
 !---------------------------------------------------------------------------------
