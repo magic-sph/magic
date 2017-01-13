@@ -605,16 +605,16 @@ contains
          if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
               & (l1m0 >= llm .and.l1m0 <= ulm) ) then
             d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
-            d_omega_ma_dtLast=d_omega_ma_dt -           &
-                 coex * ( two*or1(1)*real(z_LMloc(l1m0,1)) - &
-                 real(dz_LMloc(l1m0,1)) )
+            d_omega_ma_dtLast=d_omega_ma_dt -                              &
+            &                 coex * ( two*or1(1)*real( z_LMloc(l1m0,1)) - &
+            &                                     real(dz_LMloc(l1m0,1)) )
          end if
          if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
               & (l1m0 >= llm .and. l1m0 <= ulm) ) then
             d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
-            d_omega_ic_dtLast= d_omega_ic_dt +                      &
-                 coex * ( two*or1(n_r_max)*real(z_LMloc(l1m0,n_r_max)) - &
-                 real(dz_LMloc(l1m0,n_r_max)) )
+            d_omega_ic_dtLast= d_omega_ic_dt +coex * (                         &
+            &                  two*or1(n_r_max)*real( z_LMloc(l1m0,n_r_max)) - &
+            &                                   real(dz_LMloc(l1m0,n_r_max)) )
          end if
       else
          d_omega_ma_dtLast=0.0_cp

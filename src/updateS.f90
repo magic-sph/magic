@@ -6,8 +6,7 @@ module updateS_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc, orho1, or1, or2,         &
-       &                       beta, drx, dentropy0, rscheme_oc,  &
+   use radial_functions, only: orho1, or1, or2, beta, dentropy0, rscheme_oc,  &
        &                       kappa, dLkappa, dLtemp0, temp0
    use physical_parameters, only: opr, kbots, ktops
    use num_param, only: alpha
@@ -15,11 +14,11 @@ module updateS_mod
    use blocking, only: nLMBs,st_map,lo_map,lo_sub_map,lmStartB,lmStopB
    use horizontal_data, only: dLh,hdif_S
    use logic, only: l_update_s, l_anelastic_liquid
-   use LMLoop_data, only: llm,ulm
+   use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
    use cosine_transform_odd
-   use radial_der, only: get_drNS, get_ddr, get_dr
+   use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
 
    implicit none
@@ -161,7 +160,7 @@ contains
       !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVSrLM,chebt_oc,drx,dsdt,orho1,or2) &
+      !$OMP shared(dVSrLM,dsdt,orho1,or2) &
       !$OMP shared(n_r_max,rscheme_oc,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -183,7 +182,7 @@ contains
          !--- Finish calculation of dsdt:
          !call get_drNS( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
          !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max,workB, &
-         !     &         chebt_oc,drx)
+         !     &         chebt_oc)
          call get_dr( dVSrLM,workA,ulm-llm+1,start_lm-llm+1,  &
               &       stop_lm-llm+1,n_r_max,rscheme_oc )
       end do
@@ -359,7 +358,7 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
-      !$OMP shared(s,ds,dsdtLast,rscheme_oc,drx) &
+      !$OMP shared(s,ds,dsdtLast,rscheme_oc) &
       !$OMP shared(n_r_max,workA,workB,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1) &
@@ -461,7 +460,7 @@ contains
       !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread) &
-      !$OMP shared(dVSrLM,rscheme_oc,drx,dsdt,orho1) &
+      !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1) &
       !$OMP shared(dLtemp0,or2,lmStart,lmStop) &
       !$OMP shared(n_r_max,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
@@ -660,7 +659,7 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,nThreads) &
-      !$OMP shared(s,ds,w,dsdtLast,rscheme_oc,drx) &
+      !$OMP shared(s,ds,w,dsdtLast,rscheme_oc) &
       !$OMP shared(n_r_max,workA,workB,llm,ulm,temp0) &
       !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2) &

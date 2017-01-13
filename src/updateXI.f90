@@ -5,9 +5,7 @@ module updateXi_mod
    use precision_mod
    use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc,orho1,or1,or2,     &
-       &                       beta, drx, ddrx, &
-       &                       cheb, rscheme_oc
+   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: alpha
    use init_fields, only: topxi, botxi
@@ -18,7 +16,7 @@ module updateXi_mod
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
    use cosine_transform_odd
-   use radial_der, only: get_drNS, get_ddr
+   use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
    use mem_alloc, only: bytes_allocated
 
@@ -156,7 +154,7 @@ contains
       !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVXirLM,chebt_oc,drx,dxidt,orho1,or2) &
+      !$OMP shared(dVXirLM,dxidt,orho1,or2) &
       !$OMP shared(n_r_max,rscheme_oc,workA,workB,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -176,9 +174,11 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dxidt:
-         call get_drNS( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,       &
-              &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max,workB, &
-              &         chebt_oc,drx)
+         !call get_drNS( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,       &
+         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max,workB, &
+         !     &         chebt_oc,drx)
+         call get_dr( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,       &
+              &       stop_lm-llm+1,n_r_max, rscheme_oc )
       end do
       !$OMP end do
 

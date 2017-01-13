@@ -6,9 +6,8 @@ module updateWP_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: lm_max, n_r_max, l_max
    use radial_data, only: n_r_cmb,n_r_icb
-   use radial_functions, only: or1,or2,rho0,rgrav,        &
-       &                       visc,dlvisc,r,alpha0,temp0,&
-       &                       beta,dbeta,ogrun,rscheme_oc
+   use radial_functions, only: or1, or2, rho0, rgrav, visc, dLvisc, r, &
+       &                       alpha0, temp0, beta, dbeta, ogrun, rscheme_oc
    use physical_parameters, only: kbotv, ktopv, ra, BuoFac, ChemFac,    &
        &                          ViscHeatFac, ThExpNb, ktopp
    use num_param, only: alpha
@@ -739,7 +738,7 @@ contains
          end do
       else
          do nR_out=1,rscheme_oc%n_max
-            pMat(1,nR_out)=rscheme_oc%rnorm
+            pMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end do
       end if
 
