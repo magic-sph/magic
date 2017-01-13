@@ -250,7 +250,7 @@ contains
       real(cp) :: func(n_r_max)
 
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
-      real(cp) :: w1(n_r_max), w2(n_r_max), rrOcmb(n_r_max)
+      real(cp) :: rrOcmb(n_r_max)
       character(len=80) :: message
       character(len=76) :: fileName
       integer :: fileHandle
@@ -830,7 +830,6 @@ contains
       real(cp) :: kcond(n_r_max)
       real(cp) :: a0,a1,a2,a3,a4,a5
       real(cp) :: kappatop,rrOcmb
-      real(cp) :: w1(n_r_max),w2(n_r_max)
 
       !-- Variable conductivity:
 
@@ -1068,7 +1067,7 @@ contains
 
       !-- Local variables:
       real(cp) :: rhs(n_r_max)
-      integer :: n_r,info,n_r_out, n_cheb
+      integer :: n_r,info,n_r_out
       real(cp) :: workMat_fac(n_r_max, 2)
 
       real(cp), allocatable :: workMat(:,:)
@@ -1174,7 +1173,6 @@ contains
       !-- Local variables
       real(cp) :: rrOcmb(n_r_max),gravFit(n_r_max)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
-      real(cp) :: w1(n_r_max),w2(n_r_max)
 
       integer ::  nDens,nTemp,i
 

@@ -74,12 +74,13 @@ contains
       allocate( this%d3rMat(n_r_max,n_r_max) )
       bytes_allocated=bytes_allocated+5*n_r_max*n_r_max*SIZEOF_DEF_REAL
 
-      if ( l_PV .or. l_TO ) then
-         allocate( work(1:lm_max,n_r_max) )
-      else
+      ! if ( l_PV .or. l_TO ) then
          ! allocate( work(1:lm_max,n_r_max) )
-         allocate( work(llm:ulm,n_r_max) )
-      end if
+      ! else
+         ! allocate( work(1:lm_max,n_r_max) )
+         !allocate( work(llm:ulm,n_r_max) )
+      allocate( work(1:ulm-llm+1,n_r_max) )
+      ! end if
       allocate( work1d(n_r_max), work1d_real(n_r_max) )
 
       ni = 2*n_r_max+2

@@ -39,16 +39,15 @@ module radial_der
 contains
 
 !------------------------------------------------------------------------------
-   subroutine initialize_der_arrays(n_r_max,llm,ulm,lm_max)
+   subroutine initialize_der_arrays(n_r_max,llm,ulm)
 
       integer, intent(in) :: n_r_max
-      integer, intent(in) :: lm_max
       integer, intent(in) :: llm
       integer, intent(in) :: ulm
 
       if ( .not. l_finite_diff ) then
          allocate( work_1d_real(n_r_max) )
-         allocate( work(llm:ulm,n_r_max) )
+         allocate( work(1:ulm-llm+1,n_r_max) )
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
          &                 n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
       end if

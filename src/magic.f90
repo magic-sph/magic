@@ -239,7 +239,7 @@ program magic
    call initialize_step_time
    call initialize_communications
 
-   call initialize_der_arrays(n_r_max,llm,ulm,lm_max)
+   call initialize_der_arrays(n_r_max,llm,ulm)
 
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated
