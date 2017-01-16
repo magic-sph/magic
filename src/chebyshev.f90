@@ -10,6 +10,7 @@ module chebyshev
    use radial_scheme, only: type_rscheme
    use logic, only: l_newmap, l_PV, l_TO
    use useful, only: factorise
+   use chebyshev_polynoms_mod, only: cheb_grid
 
    implicit none
 
@@ -287,47 +288,6 @@ contains
       deallocate( work, work1d, work1d_real )
 
    end subroutine finalize
-!------------------------------------------------------------------------------
-   subroutine cheb_grid(a,b,n,x,y,a1,a2,x0,lbd)
-      !
-      !   Given the interval [a,b] the routine returns the
-      !   n+1 points that should be used to support a
-      !   Chebychev expansion. These are the n+1 extrema y(i) of
-      !   the Chebychev polynomial of degree n in the
-      !   interval [-1,1].
-      !   The respective points mapped into the interval of
-      !   question [a,b] are the x(i).
-      !
-      !   .. note:: x(i) and y(i) are stored in the reversed order:
-      !             x(1)=b, x(n+1)=a, y(1)=1, y(n+1)=-1
-      !
-       
-      !-- Input variables
-      real(cp), intent(in) :: a,b   ! interval boundaries
-      integer,  intent(in) :: n ! degree of Cheb polynomial to be represented by the grid points
-      real(cp), intent(in) :: a1,a2,x0,lbd
-
-      !-- Output variables
-      real(cp), intent(out) :: x(*) ! grid points in interval [a,b]
-      real(cp), intent(out) :: y(*) ! grid points in interval [-1,1]
-       
-      !-- Local variables:
-      real(cp) :: bpa,bma
-      integer :: k
-       
-      bma=half*(b-a)
-      bpa=half*(a+b)
-       
-      do k=1,n+1
-         y(k)=cos( pi*real(k-1,cp)/real(n,cp) )
-         if ( l_newmap ) then
-            x(k)=(a2+tan(lbd*(y(k)-x0))/a1)/2 + bpa
-         else
-            x(k)=bma * y(k) + bpa
-         end if
-      end do
-        
-   end subroutine cheb_grid
 !------------------------------------------------------------------------------
    subroutine get_der_mat(this, n_r_max)
       !

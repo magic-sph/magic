@@ -148,11 +148,11 @@ contains
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
-      integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
-      real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
+      real(cp) :: c,lorentz_torques_ic(this%nThetaBs)
 
       this%nR=nR
       this%nBc=nBc
@@ -194,7 +194,7 @@ contains
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
       !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
-      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
+      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,c) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
       !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &

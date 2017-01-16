@@ -198,11 +198,8 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         !call get_drNS( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
-         !     &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
-         !     &         chebt_oc,drx)
          call get_dr( dVSrLM, work_LMloc, ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max,rscheme_oc )
+              &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       end do
       !$OMP end do
 
@@ -618,7 +615,7 @@ contains
       integer,  intent(out) :: wpsPivot(3*n_r_max)
 
       !-- local variables:
-      integer :: nR,nCheb,nR_out,nR_p,nR_s,nR_out_p,nR_out_s
+      integer :: nR,nR_out,nR_p,nR_s,nR_out_p,nR_out_s
       integer :: info
       real(cp) :: O_dt,dLh
 

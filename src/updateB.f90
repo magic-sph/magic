@@ -287,12 +287,8 @@ contains
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
 
-         !call get_drNS( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-         !     &         stop_lm-llmMag+1,n_r_max,n_cheb_max,workB,       &
-         !     &         chebt_oc,drx)
-
          call get_dr( dVxBhLM,work_LMloc,ulmMag-llmMag+1,start_lm-llmMag+1, &
-              &       stop_lm-llmMag+1,n_r_max,rscheme_oc )
+              &       stop_lm-llmMag+1,n_r_max,rscheme_oc,nocopy=.true. )
 
       end do
       !$OMP end do

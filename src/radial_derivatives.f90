@@ -445,7 +445,7 @@ contains
    end subroutine get_dr_real_1d
 !------------------------------------------------------------------------------
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &              n_r_max,r_scheme)
+              &              n_r_max,r_scheme,nocopy)
       !
       !  Returns first radial derivative df of the input function f.      
       !  Array f(n_f_max,*) may contain several functions numbered by     
@@ -457,34 +457,58 @@ contains
       !-- Input variables:
       integer,             intent(in) :: n_r_max          ! number of radial grid points
       integer,             intent(in) :: n_f_max          ! first dim of f
-      complex(cp),         intent(in) :: f(n_f_max,n_r_max)
+      complex(cp),         intent(inout) :: f(n_f_max,n_r_max)
       integer,             intent(in) :: n_f_start        ! first function to be treated
       integer,             intent(in) :: n_f_stop         ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
+      logical, optional,   intent(in) :: nocopy
     
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
     
       !-- Local:
       integer :: n_r,n_f,od
+      logical :: copy_array
     
       if ( r_scheme%version == 'cheb' ) then
+
+         if ( present(nocopy) ) then
+            copy_array=.false.
+         else
+            copy_array=.true.
+         end if
     
-         do n_r=1,n_r_max
-            do n_f=n_f_start,n_f_stop
-               work(n_f,n_r)=f(n_f,n_r)
+         if ( copy_array )  then
+            do n_r=1,n_r_max
+               do n_f=n_f_start,n_f_stop
+                  work(n_f,n_r)=f(n_f,n_r)
+               end do
             end do
-         end do
        
-         !-- Transform f to cheb space:
-         call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
-       
-         !-- Get derivatives:
-         call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme%n_max, &
-              &         one)
-       
-         !-- Transform back:
-         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
+            !-- Transform f to cheb space:
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+          
+            !-- Get derivatives:
+            call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme%n_max, &
+                 &         one)
+          
+            !-- Transform back:
+            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
+
+         else
+
+            !-- Transform f to cheb space:
+            call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+          
+            !-- Get derivatives:
+            call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme%n_max, &
+                 &         one)
+          
+            !-- Transform back:
+            call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+            call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
+
+         end if
        
          !-- New map:
          do n_r=1,n_r_max

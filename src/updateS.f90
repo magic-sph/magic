@@ -169,11 +169,8 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dsdt:
-         !call get_drNS( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
-         !     &         stop_lm-llm+1,n_r_max,rscheme_oc%n_max, &
-         !     &         chebt_oc)
          call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,  &
-              &       stop_lm-llm+1,n_r_max,rscheme_oc )
+              &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       end do
       !$OMP end do
 

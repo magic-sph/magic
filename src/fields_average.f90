@@ -320,18 +320,18 @@ contains
          lmStop = lmStopB(rank+1)
 
          call get_dr(w_ave,dw_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,   &
-              &      n_r_max,rscheme_oc)
+              &      n_r_max,rscheme_oc,nocopy=.true.)
          if ( l_mag ) then
             call get_dr(b_ave,db_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc)
+                 &      n_r_max,rscheme_oc,nocopy=.true.)
          end if
          if ( l_heat ) then
             call get_dr(s_ave,ds_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1,  &
-                 &      n_r_max,rscheme_oc)
+                 &      n_r_max,rscheme_oc,nocopy=.true.)
          end if
          if ( l_chemical_conv ) then
             call get_dr(xi_ave,dxi_ave,ulm-llm+1,lmStart-llm+1,lmStop-llm+1, &
-                 &      n_r_max,rscheme_oc)
+                 &      n_r_max,rscheme_oc,nocopy=.true.)
          end if
          if ( l_cond_ic ) then
             call get_ddrNS_even(b_ic_ave,db_ic_ave,ddb_ic_ave,         &
