@@ -45,8 +45,8 @@ n_cheb_ic_max=15,
  n_rsts      =0,
  n_stores    =0,
  runid       ="Benchmark 2",
- l_RMS       =.TRUE.,
- rCut        =0.0D0,
+ l_RMS       =.true.,
+ rCut        =1.0D-2,
 /
 &mantle 
  nRotMa      =0
