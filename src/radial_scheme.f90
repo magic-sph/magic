@@ -1,4 +1,7 @@
 module radial_scheme
+   !
+   ! This is an abstract type that defines the radial scheme used in MagIC
+   !
 
    use precision_mod
 
@@ -10,6 +13,7 @@ module radial_scheme
 
       integer :: n_max
       integer :: order
+      integer :: nRmax
       real(cp) :: rnorm
       real(cp) :: boundary_fac
       real(cp), allocatable :: rMat(:,:)
@@ -33,16 +37,16 @@ module radial_scheme
 
    contains
 
-      procedure(initialize_if), deferred :: initialize
-      procedure(empty_if), deferred :: finalize
+      procedure(initialize_if),  deferred :: initialize
+      procedure(empty_if),       deferred :: finalize
       procedure(get_der_mat_if), deferred :: get_der_mat
-      procedure(get_grid_if), deferred :: get_grid
-      !procedure(get_dr_real_1d_if), deferred :: get_dr_complex
+      procedure(get_grid_if),    deferred :: get_grid
       procedure :: costf1_complex
       procedure :: costf1_real
       procedure :: costf1_complex_1d
       procedure :: costf1_real_1d
-      generic :: costf1 => costf1_complex, costf1_real, costf1_complex_1d, costf1_real_1d
+      generic :: costf1 => costf1_complex, costf1_real, costf1_complex_1d, &
+                 costf1_real_1d
 
    end type type_rscheme
 
@@ -52,7 +56,7 @@ module radial_scheme
          import
          class(type_rscheme) :: this
       end subroutine empty_if
-
+      !------------------------------------------------------------------------
       subroutine get_grid_if(this,n_r_max,ricb,rcmb,ratio1,ratio2,r)
          import
          class(type_rscheme) :: this
@@ -67,9 +71,8 @@ module radial_scheme
          !-- Output quantities:
          real(cp), intent(out) :: r(n_r_max) ! radius
 
-
       end subroutine get_grid_if
-
+      !------------------------------------------------------------------------
       subroutine initialize_if(this,n_r_max,order)
 
          import
@@ -78,7 +81,7 @@ module radial_scheme
          integer, intent(in) :: order
 
       end subroutine initialize_if
-
+      !------------------------------------------------------------------------
       subroutine get_der_mat_if(this,n_r_max)
 
          import
@@ -86,7 +89,7 @@ module radial_scheme
          integer, intent(in) :: n_r_max
 
       end subroutine get_der_mat_if
-
+      !------------------------------------------------------------------------
    end interface
 
 contains
@@ -100,11 +103,11 @@ contains
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
 
       !-- Output variables:
-      complex(cp), intent(inout) :: f(n_f_max,*) ! data/coeff input
-      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,*)
+      complex(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
+      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,this%nRmax)
 
-   end subroutine
-
+   end subroutine costf1_complex
+!------------------------------------------------------------------------------
    subroutine costf1_real(this,f,n_f_max,n_f_start,n_f_stop,f2)
 
       class(type_rscheme) :: this
@@ -114,25 +117,25 @@ contains
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
 
       !-- Output variables:
-      real(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
-      real(cp), intent(out) :: f2(n_f_max,*)    ! work array of the same size as f
+      real(cp), intent(inout) :: f(n_f_max,this%nRmax)  ! data/coeff input
+      real(cp), intent(out) :: f2(n_f_max,this%nRmax)   ! work array of the same size as f
 
-   end subroutine
-
+   end subroutine costf1_real
+!------------------------------------------------------------------------------
    subroutine costf1_real_1d(this,f)
 
       class(type_rscheme) :: this
 
-      real(cp), intent(inout) :: f(*)   ! data/coeff input
+      real(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
 
-   end subroutine
-
+   end subroutine costf1_real_1d
+!------------------------------------------------------------------------------
    subroutine costf1_complex_1d(this,f)
 
       class(type_rscheme) :: this
 
-      complex(cp), intent(inout) :: f(*)   ! data/coeff input
+      complex(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
 
-   end subroutine
-
+   end subroutine costf1_complex_1d
+!------------------------------------------------------------------------------
 end module radial_scheme

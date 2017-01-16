@@ -23,7 +23,6 @@ module chebyshev
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
       type(costf_odd_t) :: chebt_oc
       real(cp), allocatable :: r_cheb(:)
-      integer :: nRmax
       complex(cp), pointer :: work_costf(:,:)
 
    contains
@@ -239,23 +238,21 @@ contains
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
     
       !-- Output variables:
-      complex(cp), intent(inout) :: f(n_f_max,*) ! data/coeff input
-      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,*)
+      complex(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
+      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,this%nRmax)
     
       !-- Local variables:
       integer :: n
       complex(cp), pointer :: work(:,:)
 
 
-      n=this%chebt_oc%i_costf_init(1)
-
       if ( present(work_array) ) then
-         work(1:,1:) => work_array(1:n_f_max,1:n)
+         work(1:,1:) => work_array(1:n_f_max,1:this%nRmax)
       else
          work(1:,1:) => this%work_costf(1:n_f_max,1:)
       end if
 
-      call this%chebt_oc%costf1(f(:,1:n),n_f_max,n_f_start,n_f_stop,work(:,1:n))
+      call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,work(:,1:this%nRmax))
     
    end subroutine costf1_complex
 !------------------------------------------------------------------------------
@@ -264,18 +261,12 @@ contains
       class(type_cheb_odd) :: this
 
       !-- Output variables:
-      complex(cp), intent(inout) :: f(*)   ! data/coeff input
+      complex(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
     
       !-- Local variables:
-      integer :: n
-      complex(cp), allocatable :: work1d(:)
+      complex(cp) :: work1d(this%nRmax)
     
-      n=this%chebt_oc%i_costf_init(1)
-      allocate( work1d(n) )
-
-      call this%chebt_oc%costf1(f(1:n), work1d(1:n))
-    
-      deallocate( work1d )
+      call this%chebt_oc%costf1(f, work1d)
 
    end subroutine costf1_complex_1d
 !------------------------------------------------------------------------------
@@ -288,14 +279,9 @@ contains
       integer,  intent(in) :: n_f_start,n_f_stop ! columns to be transformed
     
       !-- Output variables:
-      real(cp), intent(inout) :: f(n_f_max,*)   ! data/coeff input
-      real(cp), intent(out) :: f2(n_f_max,*)    ! work array of the same size as f
-
-      !-- Local variables:
-      integer :: n
-
-      n=this%chebt_oc%i_costf_init(1)
-      call this%chebt_oc%costf1(f(:,1:n),n_f_max,n_f_start,n_f_stop,f2(:,1:n))
+      real(cp), intent(inout) :: f(n_f_max,this%nRmax) ! data/coeff input
+      real(cp), intent(out) :: f2(n_f_max,this%nRmax)  ! work array of the same size as f
+      call this%chebt_oc%costf1(f,n_f_max,n_f_start,n_f_stop,f2)
 
    end subroutine costf1_real
 !------------------------------------------------------------------------------
@@ -304,18 +290,12 @@ contains
       class(type_cheb_odd) :: this
 
       !-- Output variables:
-      real(cp), intent(inout) :: f(*)   ! data/coeff input
+      real(cp), intent(inout) :: f(this%nRmax)   ! data/coeff input
     
       !-- Local variables:
-      integer :: n
-      real(cp), allocatable :: work1d_real(:)
+      real(cp) :: work1d_real(this%nrMax)
 
-      n=this%chebt_oc%i_costf_init(1)
-      allocate( work1d_real(n) )
-
-      call this%chebt_oc%costf1(f(1:n),work1d_real)
-
-      deallocate( work1d_real )
+      call this%chebt_oc%costf1(f,work1d_real)
 
    end subroutine costf1_real_1d
 !------------------------------------------------------------------------------
