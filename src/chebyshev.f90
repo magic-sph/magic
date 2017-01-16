@@ -17,10 +17,13 @@ module chebyshev
    private
 
    type, public, extends(type_rscheme) :: type_cheb_odd
+
       real(cp) :: alpha1 !Input parameter for non-linear map to define degree of spacing (0.0:2.0)
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
       integer, allocatable  :: i_costf_init(:)
       real(cp), allocatable :: d_costf_init(:)
+      real(cp), allocatable :: r_cheb(:)
+      complex(cp), pointer :: work_costf(:,:)
 
    contains
 
@@ -32,15 +35,8 @@ module chebyshev
       procedure :: costf1_complex
       procedure :: costf1_real
       procedure :: costf1_real_1d
-      !generic :: costf1 => costf1_complex,costf1_real,costf1_real_1d,costf1_complex_1d
+
    end type type_cheb_odd
-
-   real(cp), allocatable :: r_cheb(:)
-
-   !-- Work arrays that are needed to compute the cosine transforms
-   complex(cp), allocatable :: work(:,:)
-   complex(cp), allocatable :: work1d(:)
-   real(cp), allocatable :: work1d_real(:)
 
 contains
 
@@ -68,21 +64,21 @@ contains
       this%boundary_fac = half
       this%version = 'cheb'
 
-      allocate( r_cheb(n_r_max) )
       allocate( this%rMat(n_r_max,n_r_max) )
       allocate( this%drMat(n_r_max,n_r_max) )
       allocate( this%d2rMat(n_r_max,n_r_max) )
       allocate( this%d3rMat(n_r_max,n_r_max) )
-      bytes_allocated=bytes_allocated+5*n_r_max*n_r_max*SIZEOF_DEF_REAL
+      allocate( this%r_cheb(n_r_max) )
+      bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
       ! if ( l_PV .or. l_TO ) then
-         ! allocate( work(1:lm_max,n_r_max) )
+         ! allocate( this%work(1:lm_max,n_r_max) )
       ! else
-         ! allocate( work(1:lm_max,n_r_max) )
-         !allocate( work(llm:ulm,n_r_max) )
-      allocate( work(1:ulm-llm+1,n_r_max) )
+         ! allocate( this%work(1:lm_max,n_r_max) )
+         !allocate( this%work(llm:ulm,n_r_max) )
+      allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
+      bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
       ! end if
-      allocate( work1d(n_r_max), work1d_real(n_r_max) )
 
       ni = 2*n_r_max+2
       nd = 2*n_r_max+5
@@ -246,7 +242,7 @@ contains
          this%alpha2=0.0_cp
       end if
 
-      call cheb_grid(ricb,rcmb,n_r_max-1,r,r_cheb,this%alpha1,this%alpha2, &
+      call cheb_grid(ricb,rcmb,n_r_max-1,r,this%r_cheb,this%alpha1,this%alpha2, &
            &         paraX0,lambd)
 
       if ( l_newmap ) then
@@ -284,8 +280,8 @@ contains
       deallocate( this%i_costf_init )
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
       deallocate( this%drx, this%ddrx, this%dddrx )
-      deallocate( r_cheb )
-      deallocate( work, work1d, work1d_real )
+      deallocate( this%r_cheb )
+      deallocate( this%work_costf )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -318,7 +314,7 @@ contains
 
          !----- set first two chebs:
          this%rMat(1,k)=one
-         this%rMat(2,k)=r_cheb(k)
+         this%rMat(2,k)=this%r_cheb(k)
          this%drMat(1,k)=0.0_cp
          this%drMat(2,k)=this%drx(k)
          this%d2rMat(1,k)=0.0_cp
@@ -329,24 +325,26 @@ contains
          !----- now construct the rest with a recursion:
          do n=3,n_r_max ! do loop over the (n-1) order of the chebs
 
-            this%rMat(n,k)=    two*r_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
+            this%rMat(n,k)=    two*this%r_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
             this%drMat(n,k)=   two*this%drx(k)*this%rMat(n-1,k) + &
-            &                        two*r_cheb(k)*this%drMat(n-1,k) - &
+            &                        two*this%r_cheb(k)*this%drMat(n-1,k) - &
             &                                 this%drMat(n-2,k)
             this%d2rMat(n,k)=  two*this%ddrx(k)*this%rMat(n-1,k) + &
             &                four*this%drx(k)*this%drMat(n-1,k) + &
-            &                       two*r_cheb(k)*this%d2rMat(n-1,k) - &
+            &                       two*this%r_cheb(k)*this%d2rMat(n-1,k) - &
             &                                this%d2rMat(n-2,k)
             this%d3rMat(n,k)=  two*this%dddrx(k)*this%rMat(n-1,k) + &
             &              6.0_cp*this%ddrx(k)*this%drMat(n-1,k) + &
             &             6.0_cp*this%drx(k)*this%d2rMat(n-1,k) + &
-            &                       two*r_cheb(k)*this%d3rMat(n-1,k) - &
+            &                       two*this%r_cheb(k)*this%d3rMat(n-1,k) - &
             &                                this%d3rMat(n-2,k)
 
          end do
 
       end do
 
+      !-- This transposition is needed to bring those matrices in alignement
+      !-- with the fortran column-major storage (see update routines)
       this%rMat  =transpose(this%rMat)
       this%drMat =transpose(this%drMat)
       this%d2rMat=transpose(this%d2rMat)
@@ -354,7 +352,7 @@ contains
 
    end subroutine get_der_mat
 !------------------------------------------------------------------------------
-   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop)
+   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,work_array)
       !
       !  Purpose of this subroutine is to perform a multiple
       !  cosine transforms for n+1 datapoints
@@ -371,6 +369,7 @@ contains
     
       !-- Output variables:
       complex(cp), intent(inout) :: f(n_f_max,*) ! data/coeff input
+      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,*)
     
       !-- Local variables:
       integer :: n
@@ -395,20 +394,16 @@ contains
       integer :: n_factors,n_fac,fac,fac_tot
     
       complex(cp) :: tot_sum(lm_max)
-    
-      if ( n_f_start < 1 ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_start should be >=1'
-         write(*,*) '! but is:',n_f_start
-         stop
-      end if
-      if ( n_f_stop > n_f_max ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_stop > n_f_max !'
-         stop
-      end if
-    
+      complex(cp), pointer :: work(:,:)
+
+
       n=this%i_costf_init(1)-1
+
+      if ( present(work_array) ) then
+         work(1:,1:) => work_array(1:n_f_max,1:n+1)
+      else
+         work(1:,1:) => this%work_costf(1:n_f_max,1:)
+      end if
     
       n_P1=n+1
       n_P2=n+2
@@ -486,13 +481,13 @@ contains
          fac=this%i_costf_init(n+3+n_fac)
          if ( l_f2_data ) then
             !----- fft_fac returns complex transform of f2's on f's:
-            call fft_fac_complex(work(1,1),work(1,2),f(1,1),f(1,2),    &
+            call fft_fac_complex(work(1:,1),work(1:,2),f(1:,1),f(1:,2),    &
                  &       this%d_costf_init(n+2),n_f_max,n_f_start,      &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.false.
          else
             !----- fft_fac returns complex transform of f's on f2's:
-            call fft_fac_complex(f(1,1),f(1,2),work(1,1),work(1,2),   &
+            call fft_fac_complex(f(1:,1),f(1:,2),work(1:,1),work(1:,2),   &
                  &       this%d_costf_init(n+2),n_f_max,n_f_start,     &
                  &       n_f_stop,n_O2,fac,fac_tot)
             l_f2_data=.true.
@@ -591,11 +586,14 @@ contains
       complex(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
       complex(cp) :: w_h1,w_h2
       complex(cp) :: tot_sum
+      complex(cp), allocatable :: work1d(:)
       real(cp) :: fac_norm,facn
       real(cp) :: wr_j,wi_j,wr_i,wi_i
       integer :: n_factors,n_fac,fac,fac_tot
     
       n=this%i_costf_init(1)-1
+
+      allocate( work1d(n+1) )
     
       n_P1=n+1
       n_P2=n+2
@@ -738,6 +736,8 @@ contains
          f(j)=tot_sum
       end do
 
+      deallocate( work1d )
+
    end subroutine costf1_complex_1d
 !------------------------------------------------------------------------------
    subroutine costf1_real(this,f,n_f_max,n_f_start,n_f_stop,f2)
@@ -775,20 +775,9 @@ contains
     
       real(cp) :: tot_sum(lm_max_real)
     
-      if ( n_f_start < 1 ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_start should be >=1'
-         write(*,*) '! but is:',n_f_start
-         stop
-      end if
-      if ( n_f_stop > n_f_max ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_stop > n_f_max !'
-         stop
-      end if
     
       n=this%i_costf_init(1)-1
-    
+
       n_P1=n+1
       n_P2=n+2
       n_P3=n+3
@@ -964,6 +953,7 @@ contains
       integer :: n_O2_P1 ! n/2+1
       integer :: n_O2_P2 ! n/2+2
     
+      real(cp), allocatable :: work1d_real(:)
       real(cp) :: f_h1,f_h2,f_h3,f_h4 ! help variables
       real(cp) :: fac_norm,facn
       real(cp) :: w_h1,w_h2
@@ -972,6 +962,8 @@ contains
       integer :: n_factors,n_fac,fac,fac_tot
 
       n=this%i_costf_init(1)-1
+
+      allocate( work1d_real(n+1) )
     
       n_P1=n+1
       n_P2=n+2
@@ -1113,6 +1105,8 @@ contains
          tot_sum=tot_sum+f(j)
          f(j)=tot_sum
       end do
+
+      deallocate( work1d_real )
 
    end subroutine costf1_real_1d
 !------------------------------------------------------------------------------

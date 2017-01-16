@@ -12,8 +12,8 @@ module dtB_mod
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
    use physical_parameters, only: opm,O_sr
-   use radial_functions, only: O_r_ic, lambda, or2, dLlambda, chebt_oc, &
-       &                       or1, orho1, drx
+   use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
+       &                       or1, orho1
    use radial_data,only: nRstart,nRstop
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
@@ -25,7 +25,7 @@ module dtB_mod
    use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
    use constants, only: two
-   use radial_der, only: get_drNS
+   use radial_der, only: gets_drNS
  
    implicit none
  
@@ -460,8 +460,8 @@ contains
       end do
     
       if ( rank == 0 ) then
-         call get_drNS(TstrRLM,workA,lm_max,1,lm_max, &
-                       n_r_max,n_cheb_max,workB,chebt_oc,drx)
+         call gets_drNS(TstrRLM,workA,lm_max,1,lm_max, &
+              &        n_r_max,n_cheb_max,workB,rscheme_oc)
     
          do nR=1,n_r_max
             do lm=1,lm_max
@@ -469,8 +469,8 @@ contains
             end do
          end do
          
-         call get_drNS(TomeRLM,workA,lm_max,1,lm_max, &
-                       n_r_max,n_cheb_max,workB,chebt_oc,drx)
+         call gets_drNS(TomeRLM,workA,lm_max,1,lm_max, &
+              &        n_r_max,n_cheb_max,workB,rscheme_oc)
          
          do nR=1,n_r_max
             do lm=1,lm_max
@@ -478,8 +478,8 @@ contains
             end do
          end do
          
-         call get_drNS(TadvRLM,workA,lm_max,1,lm_max, &
-                       n_r_max,n_cheb_max,workB,chebt_oc,drx)
+         call gets_drNS(TadvRLM,workA,lm_max,1,lm_max, &
+              &        n_r_max,n_cheb_max,workB,rscheme_oc)
          
          do nR=1,n_r_max
             do lm=1,lm_max

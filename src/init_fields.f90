@@ -1527,7 +1527,6 @@ contains
       !-- Local variables
       integer :: n_cheb,n_r,info,n_r_real,n_r_out
       complex(cp) :: rhs(n_r_tot)
-      complex(cp) :: work_l(n_r_max)
       complex(cp) :: work_l_ic(n_r_ic_max)
       real(cp), allocatable :: jMat(:,:)
       integer, allocatable :: jPivot(:)

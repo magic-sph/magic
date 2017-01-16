@@ -140,7 +140,7 @@ contains
             do nR=2,nRmax-1,2
                h2=r(nR+1)-r(nR)
                h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
                &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
                &                      f(nR+1)*(two*h2-h1)/h2 )
             end do
@@ -153,7 +153,7 @@ contains
             do nR=3,nRmax,2
                h2=r(nR+1)-r(nR)
                h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
                &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
                &                      f(nR+1)*(two*h2-h1)/h2 )
             end do
@@ -161,11 +161,11 @@ contains
             do nR=2,nRmax-1,2
                h2=r(nR+1)-r(nR)
                h1=r(nR)-r(nR-1)
-               rInt=rInt+(h1+h2)/6.*( f(nR-1)*(two*h1-h2)/h1         +&
+               rInt=rInt+(h1+h2)/6.0_cp*( f(nR-1)*(two*h1-h2)/h1     +&
                &                      f(nR)  *(h1+h2)*(h1+h2)/(h1*h2)+&
                &                      f(nR+1)*(two*h2-h1)/h2 )
             end do
-            rInt = half*rInt
+            rInt = -half*rInt
 
          end if
 

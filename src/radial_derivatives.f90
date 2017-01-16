@@ -31,7 +31,8 @@ module radial_der
    end interface get_dcheb
 
    public :: get_dr_back, get_drNS, get_ddr, get_dddr, get_dcheb, &
-   &         get_dr, initialize_der_arrays, finalize_der_arrays
+   &         get_dr, initialize_der_arrays, finalize_der_arrays,  &
+   &         gets_drNS
 
    complex(cp), allocatable :: work(:,:)
    real(cp), allocatable :: work_1d_real(:)
@@ -203,6 +204,54 @@ contains
       end do
 
    end subroutine get_drNS
+!------------------------------------------------------------------------------
+   subroutine gets_drNS(f,df,n_f_max,n_f_start,n_f_stop, &
+        &              n_r_max,n_cheb_max,work1,r_scheme )
+      !
+      !  Returns first radial derivative df of the input function f.      
+      !  Array f(n_f_max,*) may contain several functions numbered by     
+      !  the first index. The subroutine calculates the derivatives of    
+      !  the functions f(n_f_start,*) to f(n_f_stop,*) by transforming    
+      !  to a Chebychev representation using n_r_max radial grid points . 
+      !  Note: when using this function the input field f is slightly     
+      !  changed by the back and forth transform. Use s_get_dr.f to       
+      !  avoid this.                                                      
+      !
+    
+      !-- Input variables:
+      integer,             intent(in) :: n_r_max          ! number of radial grid points
+      integer,             intent(in) :: n_f_max          ! first dim of f
+      complex(cp),         intent(inout) :: f(n_f_max,n_r_max)
+      integer,             intent(in) :: n_f_start        ! first function to be treated
+      integer,             intent(in) :: n_f_stop         ! last function to be treated
+      integer,             intent(in) :: n_cheb_max       ! max number of cheb modes
+      class(type_rscheme), intent(in) :: r_scheme
+    
+      !-- Output variables:
+      complex(cp), intent(out) :: work1(n_f_max,n_r_max) ! work array needed for costf
+      complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
+    
+      !-- Local variables:
+      integer :: n_r,n_f
+    
+      !-- Transform f to cheb space:
+      call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
+    
+      !-- Get derivatives:
+      call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,n_cheb_max,one)
+    
+      !-- Transform back:
+      call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
+      call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
+    
+      !-- New map:
+      do n_r=1,n_r_max
+         do n_f=n_f_start,n_f_stop
+            df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+         end do
+      end do
+
+   end subroutine gets_drNS
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
                                 n_r_max,n_cheb_max,d_fac)

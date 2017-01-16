@@ -46,7 +46,7 @@ module radial_scheme
 
    end type type_rscheme
 
-   interface 
+   abstract interface 
 
       subroutine empty_if(this)
          import
@@ -91,7 +91,7 @@ module radial_scheme
 
 contains
 
-   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop)
+   subroutine costf1_complex(this,f,n_f_max,n_f_start,n_f_stop,work_array)
 
       class(type_rscheme) :: this
 
@@ -101,6 +101,7 @@ contains
 
       !-- Output variables:
       complex(cp), intent(inout) :: f(n_f_max,*) ! data/coeff input
+      complex(cp), optional, target, intent(inout) :: work_array(n_f_max,*)
 
    end subroutine
 
