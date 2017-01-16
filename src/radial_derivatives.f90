@@ -9,16 +9,10 @@ module radial_der
    use cosine_transform_odd
    use radial_scheme, only: type_rscheme
    use logic, only: l_finite_diff
-   use finite_differences, only: type_stencil
 
    implicit none
 
    private
-
-   interface get_dr_back
-      module procedure get_dr_real_1d_back
-      module procedure get_dr_complex_back
-   end interface get_dr_back
 
    interface get_dr
       module procedure get_dr_real_1d
@@ -30,9 +24,8 @@ module radial_der
       module procedure get_dcheb_complex
    end interface get_dcheb
 
-   public :: get_dr_back, get_drNS, get_ddr, get_dddr, get_dcheb, &
-   &         get_dr, initialize_der_arrays, finalize_der_arrays,  &
-   &         gets_drNS
+   public :: get_drNS, get_ddr, get_dddr, get_dcheb,  &
+   &         get_dr, initialize_der_arrays, finalize_der_arrays
 
    complex(cp), allocatable :: work(:,:)
    real(cp), allocatable :: work_1d_real(:)
@@ -41,6 +34,9 @@ contains
 
 !------------------------------------------------------------------------------
    subroutine initialize_der_arrays(n_r_max,llm,ulm)
+      !
+      ! Allocate work arrays to compute derivatives
+      !
 
       integer, intent(in) :: n_r_max
       integer, intent(in) :: llm
@@ -52,160 +48,19 @@ contains
          bytes_allocated = bytes_allocated+n_r_max*SIZEOF_DEF_REAL+&
          &                 n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
       end if
-      !allocate( work(llm:ulm, 1:n_r_max) )
 
    end subroutine initialize_der_arrays
 !------------------------------------------------------------------------------
    subroutine finalize_der_arrays
+      !
+      ! Deallocate work arrays
+      !
 
       if ( .not. l_finite_diff ) deallocate( work_1d_real, work )
 
    end subroutine finalize_der_arrays
 !------------------------------------------------------------------------------
-   subroutine get_dr_complex_back(f,df,n_f_max,n_f_start,n_f_stop, &
-        &            n_r_max,n_cheb_max,work1,work2,chebt,drx)
-      !
-      !  Returns first radial derivative df of the input function f.      
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivaties of     
-      !  the functions f(n_f_start,*) to f(n_f_stop) by transforming      
-      !  to a Chebychev representation using n_r_max radial grid points . 
-      !
-    
-      !-- Input variables:
-      integer,           intent(in) :: n_r_max          ! number of radial grid points
-      integer,           intent(in) :: n_f_max          ! first dim of f
-      complex(cp),       intent(in) :: f(n_f_max,n_r_max)
-      integer,           intent(in) :: n_f_start        ! first function to be treated
-      integer,           intent(in) :: n_f_stop         ! last function to be treated
-      integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
-      real(cp),          intent(in) :: drx(n_r_max)     ! first derivatives of x(r)
-      type(costf_odd_t), intent(in) :: chebt
-    
-      !-- Output variables:
-      complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
-      complex(cp), intent(out) :: work1(n_f_max,n_r_max)! work array needed for costf
-      complex(cp), intent(out) :: work2(n_f_max,n_r_max)! work array for f transfer
-    
-      !-- Local:
-      integer :: n_r,n_f
-    
-    
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            work2(n_f,n_r)=f(n_f,n_r)
-         end do
-      end do
-    
-      !-- Transform f to cheb space:
-      call chebt%costf1(work2,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- Get derivatives:
-      call get_dcheb(work2,df,n_f_max,n_f_start,n_f_stop, n_r_max,n_cheb_max,one)
-    
-      !-- Transform back:
-      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- New map:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r)=drx(n_r)*df(n_f,n_r)
-         end do
-      end do
-
-   end subroutine get_dr_complex_back
-!------------------------------------------------------------------------------
-   subroutine get_dr_real_1d_back(f,df,n_r_max,n_cheb_max,work1,work2,  &
-              &              chebt,drx)
- 
-      !-- Input variables:
-      integer,           intent(in) :: n_r_max          ! number of radial grid points
-      real(cp),          intent(in) :: f(n_r_max)
-      integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
-      real(cp),          intent(in) :: drx(n_r_max)     ! first derivatives of x(r)
-      type(costf_odd_t), intent(in) :: chebt
-    
-      !-- Output variables:
-      real(cp), intent(out) :: df(n_r_max)   ! first derivative of f
-      real(cp), intent(out) :: work1(n_r_max)! work array needed for costf
-      real(cp), intent(out) :: work2(n_r_max)! work array for f transfer
-    
-      !-- Local:
-      integer :: n_r
-    
-    
-      !-- Copy input functions:
-      do n_r=1,n_r_max
-         work2(n_r)=f(n_r)
-      end do
-    
-      !-- Transform f to cheb space:
-      call chebt%costf1(work2,work1)
-    
-      !-- Get derivatives:
-      call get_dcheb(work2,df,n_r_max,n_cheb_max,one)
-    
-      !-- Transform back:
-      call chebt%costf1(df,work1)
-    
-      !-- New map:
-      do n_r=1,n_r_max
-         df(n_r)=drx(n_r)*df(n_r)
-      end do
-
-   end subroutine get_dr_real_1d_back
-!------------------------------------------------------------------------------
    subroutine get_drNS(f,df,n_f_max,n_f_start,n_f_stop, &
-        &              n_r_max,n_cheb_max,work1,        &
-        &              chebt,drx)
-      !
-      !  Returns first radial derivative df of the input function f.      
-      !  Array f(n_f_max,*) may contain several functions numbered by     
-      !  the first index. The subroutine calculates the derivatives of    
-      !  the functions f(n_f_start,*) to f(n_f_stop,*) by transforming    
-      !  to a Chebychev representation using n_r_max radial grid points . 
-      !  Note: when using this function the input field f is slightly     
-      !  changed by the back and forth transform. Use s_get_dr.f to       
-      !  avoid this.                                                      
-      !
-    
-      !-- Input variables:
-      integer,           intent(in) :: n_r_max          ! number of radial grid points
-      integer,           intent(in) :: n_f_max          ! first dim of f
-      complex(cp),       intent(inout) :: f(n_f_max,n_r_max)
-      integer,           intent(in) :: n_f_start        ! first function to be treated
-      integer,           intent(in) :: n_f_stop         ! last function to be treated
-      integer,           intent(in) :: n_cheb_max       ! max number of cheb modes
-      real(cp),          intent(in) :: drx(*)           ! first derivatives of x(r)
-      type(costf_odd_t), intent(in) :: chebt
-    
-      !-- Output variables:
-      complex(cp), intent(out) :: work1(n_f_max,n_r_max) ! work array needed for costf
-      complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
-    
-      !-- Local variables:
-      integer :: n_r,n_f
-    
-      !-- Transform f to cheb space:
-      call chebt%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- Get derivatives:
-      call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,n_cheb_max,one)
-    
-      !-- Transform back:
-      call chebt%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-      call chebt%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- New map:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r)=drx(n_r)*df(n_f,n_r)
-         end do
-      end do
-
-   end subroutine get_drNS
-!------------------------------------------------------------------------------
-   subroutine gets_drNS(f,df,n_f_max,n_f_start,n_f_stop, &
         &              n_r_max,n_cheb_max,work1,r_scheme )
       !
       !  Returns first radial derivative df of the input function f.      
@@ -216,6 +71,11 @@ contains
       !  Note: when using this function the input field f is slightly     
       !  changed by the back and forth transform. Use s_get_dr.f to       
       !  avoid this.                                                      
+      !
+      !  TG: 01/2017:
+      !  This routine should be clearly removed once the remaining modules
+      !  that still need it are correctly distributed and don't require 
+      !  work arrays of size (lm_max,n_r_max) any longer
       !
     
       !-- Input variables:
@@ -251,7 +111,7 @@ contains
          end do
       end do
 
-   end subroutine gets_drNS
+   end subroutine get_drNS
 !------------------------------------------------------------------------------
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
                                 n_r_max,n_cheb_max,d_fac)

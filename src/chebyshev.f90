@@ -71,14 +71,8 @@ contains
       allocate( this%r_cheb(n_r_max) )
       bytes_allocated=bytes_allocated+(4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
 
-      ! if ( l_PV .or. l_TO ) then
-         ! allocate( this%work(1:lm_max,n_r_max) )
-      ! else
-         ! allocate( this%work(1:lm_max,n_r_max) )
-         !allocate( this%work(llm:ulm,n_r_max) )
       allocate( this%work_costf(1:ulm-llm+1,n_r_max) )
       bytes_allocated=bytes_allocated+n_r_max*(ulm-llm+1)*SIZEOF_DEF_COMPLEX
-      ! end if
 
       ni = 2*n_r_max+2
       nd = 2*n_r_max+5

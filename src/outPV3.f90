@@ -5,7 +5,7 @@ module outPV3
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_m_max, n_phi_max, n_r_max, nrp, lm_max, &
        &                 l_max, minc, m_max, l_axi
-   use radial_functions, only: cheb_norm, r_ICB, rscheme_oc, r_CMB
+   use radial_functions, only: r_ICB, rscheme_oc, r_CMB
    use physical_parameters, only: radratio
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use blocking, only: lm2, lm2m, lm2l, lm2mc, st_map, lo_map
@@ -402,8 +402,8 @@ contains
          !       for renormalisation. Its not needed if one used
          !       costf1 for the back transform.
          x=two*(rS(nN)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1) =one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2) =x*cheb_norm
+         chebS(1) =one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2) =x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do
@@ -476,8 +476,8 @@ contains
          nS=(nZmax+1)/2
 
          x=two*(rS(nS)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1)=one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2)=x*cheb_norm
+         chebS(1)=one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2)=x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do

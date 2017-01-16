@@ -16,7 +16,7 @@ module out_dtB_frame
    use fft
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
-   use radial_der, only: gets_drNS
+   use radial_der, only: get_drNS
 
    implicit none
 
@@ -188,26 +188,26 @@ contains
     
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
-               call gets_drNS(PstrLM,workA,lm_max,1,lm_max, &
+               call get_drNS(PstrLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 36 ) then
-               call gets_drNS(PadvLM,workA,lm_max,1,lm_max, &
+               call get_drNS(PadvLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 37 ) then
-               call gets_drNS(PdifLM,workA,lm_max,1,lm_max, &
+               call get_drNS(PdifLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
     
             else if ( n_field_type == 38 ) then
-               call gets_drNS(TstrLM,workA,lm_max,1,lm_max, &
+               call get_drNS(TstrLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 39 ) then
-               call gets_drNS(TomeLM,workA,lm_max,1,lm_max, &
+               call get_drNS(TomeLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 40 ) then
-               call gets_drNS(TadvLM,workA,lm_max,1,lm_max, &
+               call get_drNS(TadvLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 41 ) then
-               call gets_drNS(TdifLM,workA,lm_max,1,lm_max, &
+               call get_drNS(TdifLM,workA,lm_max,1,lm_max, &
                              n_r_max,n_cheb_max,workB,rscheme_oc)
             end if
     

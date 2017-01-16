@@ -9,7 +9,7 @@ module RMS
    use mem_alloc, only: bytes_allocated
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
        &               lm2m
-   use f_differences, only: type_fd
+   use finite_differences, only: type_fd
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
@@ -25,7 +25,7 @@ module RMS
    use constants, only: zero, one, half, four, third, vol_oc, pi
    use integration, only: rInt_R
    use chebyshev_polynoms_mod, only: cheb_grid
-   use radial_der, only: get_dr, gets_drNS
+   use radial_der, only: get_dr, get_drNS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use LMLoop_data, only: llm, ulm
@@ -159,8 +159,8 @@ contains
 
       if ( .not. l_finite_diff ) then
          allocate ( type_cheb_odd :: rscheme_RMS )
-      ! else
-         ! allocate ( type_fd :: rscheme_RMS )
+      else
+         allocate ( type_fd :: rscheme_RMS )
       end if
 
       !--- Initialize new cut-back grid:
@@ -825,7 +825,7 @@ contains
          l1m1=lm2(1,1)
     
          !--- Stretching
-         call gets_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
+         call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,rscheme_oc)
     
          !--- Add to the total dynamo term
@@ -837,7 +837,7 @@ contains
          end do
 
          !-- Finalize advection
-         call gets_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
+         call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
                         n_cheb_max,workB,rscheme_oc)
 
          !-- Add to total dynamo term:
@@ -854,7 +854,7 @@ contains
                             TdynAsRms,st_map)
 
          !--- Finalize diffusion:
-         call gets_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
+         call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,rscheme_oc)
 
          !-- Get RMS values for diffusion
@@ -869,7 +869,7 @@ contains
                             TomeAsRms,st_map)
 
          !--- B changes:
-         call gets_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
+         call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
               &        n_cheb_max,workB,rscheme_oc)
 
          do nR=1,n_r_max

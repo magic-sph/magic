@@ -6,7 +6,7 @@ module Egeos_mod
        &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max,  &
        &                 l_axi
    use parallel_mod, only: rank
-   use radial_functions, only: cheb_norm, r_ICB, r_CMB, rscheme_oc
+   use radial_functions, only: r_ICB, r_CMB, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
        &                          radratio, polind, strat
    use num_param, only: tScale
@@ -691,8 +691,8 @@ contains
          !       for renormalisation. Its not needed if one used
          !       costf1 for the back transform.
          x=two*(rS(nN)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1) =one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2) =x*cheb_norm
+         chebS(1) =one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2) =x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do
@@ -766,8 +766,8 @@ contains
          nS=(nZmax+1)/2
     
          x=two*(rS(nS)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1)=one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2)=x*cheb_norm
+         chebS(1)=one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2)=x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do

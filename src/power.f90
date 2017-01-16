@@ -77,7 +77,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine get_power(time,timePassed,timeNorm,l_stop_time, &
               &         omega_IC,omega_MA,lorentz_torque_IC,  &
-              &         lorentz_torque_MA,w,ddw,z,dz,s,p,     &
+              &         lorentz_torque_MA,w,z,dz,s,p,         &
               &         xi,b,ddb,aj,dj,db_ic,ddb_ic,aj_ic,    &
               &         dj_ic,viscLMr,viscDiss,ohmDiss)
       !
@@ -101,7 +101,7 @@ contains
       real(cp),    intent(in) :: omega_IC,omega_MA
       real(cp),    intent(in) :: lorentz_torque_IC,lorentz_torque_MA
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      !complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)

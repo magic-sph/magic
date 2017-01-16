@@ -10,7 +10,7 @@ module radial_functions
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
-       &            l_isothermal, l_anel, l_newmap, l_non_adia,    &
+       &            l_isothermal, l_anel, l_non_adia,              &
        &            l_TP_form, l_temperature_diff, l_single_matrix,&
        &            l_finite_diff
    use chebyshev_polynoms_mod ! Everything is needed
@@ -18,18 +18,14 @@ module radial_functions
    use cosine_transform_even
    use radial_scheme, only: type_rscheme
    use chebyshev, only: type_cheb_odd
-   use f_differences, only: type_fd
+   use finite_differences, only: type_fd
    !-- remove useless calls to ddr and dddr
    use radial_der, only: get_dr, get_ddr, get_dddr, get_dr
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
    use parallel_mod, only: rank
    use output_data, only: tag
-   use finite_differences, only: get_FD_grid, type_stencil
 
-   !-- to be removed
-   use integration, only: rInt_R
- 
    implicit none
 
    private
@@ -60,7 +56,6 @@ module radial_functions
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
    real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
 
-   real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
@@ -72,20 +67,12 @@ module radial_functions
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
  
    !-- chebychev polynomials, derivatives and integral:
-   real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
-   integer, public :: nDi_costf1                    ! Radii for transform
    integer, public :: nDd_costf1                    ! Radii for transform
-   type(costf_odd_t), public :: chebt_oc
    type(costf_odd_t), public :: chebt_ic
    type(costf_even_t), public :: chebt_ic_even
 
-   real(cp), public, allocatable :: eye(:,:)    ! Identity matrix
-   real(cp), public, allocatable :: drMat(:,:)  ! First radial derivative
-   real(cp), public, allocatable :: d2rMat(:,:) ! Second radial derivative
-   real(cp), public, allocatable :: d3rMat(:,:) ! Third radial derivative
-   type(type_stencil), public :: stencil_oc
-
+   !-- Radial scheme
    class(type_rscheme), public, pointer :: rscheme_oc
  
    !-- same for inner core:
@@ -142,10 +129,8 @@ contains
       allocate( orho1(n_r_max),orho2(n_r_max) )
       allocate( beta(n_r_max), dbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
-      allocate( drx(n_r_max) )
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
-      bytes_allocated = bytes_allocated + &
-                        (22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(21*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
       allocate( sigma(n_r_max) )
@@ -154,15 +139,10 @@ contains
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
 
-
       if ( .not. l_finite_diff ) then
 
          allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
          bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_REAL
-
-         nDi_costf1=2*n_r_max+2
-         nDd_costf1=2*n_r_max+5
-         call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
 
          allocate ( type_cheb_odd :: rscheme_oc )
 
@@ -186,21 +166,10 @@ contains
 
          allocate ( type_fd :: rscheme_oc )
 
-         !-- To be removed
-         allocate( eye(n_r_max,n_r_max) )      ! identity matrix
-         allocate( drMat(n_r_max,n_r_max) )    ! first radial derivative
-         allocate( d2rMat(n_r_max,n_r_max) )   ! second radial derivative
-         allocate( d3rMat(n_r_max,n_r_max) )   ! second radial derivative
-         bytes_allocated = bytes_allocated + &
-                           (4*n_r_max*n_r_max)*SIZEOF_DEF_REAL
-         call stencil_oc%initialize(n_r_max,fd_order)
-         !--
-
          n_in = fd_order
 
       end if
       call rscheme_oc%initialize(n_r_max,n_in)
-
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -209,19 +178,15 @@ contains
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
       deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
-      deallocate( ddLalpha0, dLalpha0, drx, rgrav, ogrun )
+      deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, epscProf, divKtemp0 )
 
       if ( .not. l_finite_diff ) then
          deallocate( cheb_int )
          deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
-         call chebt_oc%finalize()
          call chebt_ic%finalize()
          if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
-      else
-         deallocate( eye, drMat)
-         call stencil_oc%finalize()
       end if
 
       call rscheme_oc%finalize()
@@ -240,10 +205,8 @@ contains
 
       !integer :: n_r_start
       real(cp) :: fac_int
-      real(cp) :: r_cheb(n_r_max)
       real(cp) :: r_cheb_ic(2*n_r_ic_max-1),r_ic_2(2*n_r_ic_max-1)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
-      real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
       real(cp) :: hcomp,fac
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
@@ -257,10 +220,6 @@ contains
 
       real(cp) :: ratio1, ratio2
 
-     ! To be removed:
-      real(cp) :: f(n_r_max), df(n_r_max), ddf(n_r_max), dddf(n_r_max)
-      complex(cp) :: f_c(1,n_r_max), df_c(1,n_r_max), ddf_c(1,n_r_max), dddf_c(1,n_r_max)
-      integer :: j
 
       !-- Radial grid point:
       !   radratio is aspect ratio
@@ -269,58 +228,6 @@ contains
       r_icb=r_cmb-one
       r_surface=2.8209_cp    ! in units of (r_cmb-r_icb)
 
-
-      if ( .not. l_finite_diff ) then
-
-         cheb_norm=sqrt(two/real(n_r_max-1,kind=cp))
-
-         if ( l_newmap ) then
-            alpha1         =alph1
-            alpha2         =alph2
-            paraK=atan(alpha1*(1+alpha2))/atan(alpha1*(1-alpha2))
-            paraX0=(paraK-1)/(paraK+1)
-            lambd=atan(alpha1*(1-alpha2))/(1-paraX0)
-         else
-            alpha1         =0.0_cp
-            alpha2         =0.0_cp
-         end if
-
-         !-- Start with outer core:
-         !   cheb_grid calculates the n_r_max gridpoints, these
-         !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
-         !   r_cheb are the grid_points in the Cheb interval [-1,1]
-         !   and r are these points mapped to the interval [r_icb,r_cmb]:
-         call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
-              &               alpha1,alpha2,paraX0,lambd)
-
-         if ( l_newmap ) then
-            do n_r=1,n_r_max
-               drx(n_r) =                          (two*alpha1) /      &
-                    ((one+alpha1**2*(two*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
-                    lambd)
-            end do
-         else
-            do n_r=1,n_r_max
-               drx(n_r)=two/(r_cmb-r_icb)
-            end do
-         end if
-
-         !-- Calculate chebs and their derivatives up to degree n_r_max-1
-         !   on the n_r radial grid points r:
-
-      else
-
-         call get_FD_grid(fd_stretch, fd_ratio, r_icb, r_cmb, r)
-
-         call stencil_oc%get_FD_coeffs(r)
-
-         call stencil_oc%nullify_epsilon()
-
-         call stencil_oc%get_FD_matder(n_r_max,eye,drMat,d2rMat,d3rMat)
-
-
-      end if
-
       if ( .not. l_finite_diff ) then
          ratio1=alph1
          ratio2=alph2
@@ -328,52 +235,9 @@ contains
          ratio1=fd_stretch
          ratio2=fd_ratio
       end if
+
       call rscheme_oc%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r)
-
       call rscheme_oc%get_der_mat(n_r_max)
-
-      if ( l_finite_diff ) then
-         !-- To be removed
-         do n_r=1,n_r_max
-            f_c(1,n_r)=sin(r(n_r))
-         end do
-
-         call get_dr(f_c, df_c, 1, 1, 1, n_r_max, rscheme_oc)
-         call get_ddr(f_c, df_c, ddf_c, 1, 1, 1, n_r_max, rscheme_oc)
-         call get_dddr(f_c, df_c, ddf_c, dddf_c, 1, 1, 1, n_r_max, rscheme_oc)
-
-         open(newunit=fileHandle, file='test.txt', status='unknown')
-
-         do n_r=1,n_r_max
-         write(fileHandle, '(5ES20.12)') r(n_r), real(f_c(1,n_r)), &
-         &                               real(df_c(1,n_r)), real(ddf_c(1,n_r)), &
-         &                               real(dddf_c(1,n_r))
-         end do
-
-         f(:)=real(f_c(1,:))
-
-         print*, rInt_R(f,r,rscheme_oc)
-         
-         do i=1,n_r_max
-            df(i)=0.0_cp
-            ddf(i)=0.0_cp
-            dddf(i)=0.0_cp
-            do j=1,n_r_max
-               df(i) = df(i) + drMat(i,j)*f(j)
-               ddf(i) = ddf(i) + d2rMat(i,j)*f(j)
-               dddf(i) = dddf(i) + d3rMat(i,j)*f(j)
-            end do
-         end do
-
-         do n_r=1,n_r_max
-            ! print*, r(n_r),real(df_c(1,n_r)),df(n_r)
-            ! print*, r(n_r),real(ddf_c(1,n_r)),ddf(n_r)
-            print*, r(n_r),real(dddf_c(1,n_r)),dddf(n_r)
-         end do
-
-         close(fileHandle)
-         ! stop
-      end if
 
       if ( rank == 0 ) then
          fileName = 'radius.'//tag

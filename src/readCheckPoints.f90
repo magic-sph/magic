@@ -17,12 +17,12 @@ module readCheckPoints
        &                  omega_ma2,omegaOsz_ma2,tShift_ic1,tShift_ic2,        &
        &                  tShift_ma1,tShift_ma2,tipdipole, scale_b, scale_v,   &
        &                  scale_s,scale_xi
-   use radial_functions, only: chebt_oc, cheb_norm, chebt_ic, cheb_norm_ic, r
+   use radial_functions, only: rscheme_oc, chebt_ic, cheb_norm_ic, r
    use radial_data, only: n_r_icb, n_r_cmb
    use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio, &
        &                          kbotv, ktopv, sc, raxi
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
-   use cosine_transform_odd
+   use chebyshev, only: type_cheb_odd
 
 
    implicit none
@@ -1326,14 +1326,14 @@ contains
 
       !-- Local variables
       integer :: nR, n_r_index_start
-      type(costf_odd_t) :: chebt_oc_old
+      type(type_cheb_odd) :: rscheme_oc_old
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
 
       allocate( work(n_r_maxL) )
 
       !----- Initialize transform to cheb space:
-      call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2,2*n_r_maxL+5)
+      call rscheme_oc_old%initialize(n_r_max_old, n_r_max_old-2) ! We don't care about the second parameter here
 
       !-- Guess the boundary values, since they have not been stored:
       if ( .not. l_IC .and. lBc ) then
@@ -1342,7 +1342,7 @@ contains
       end if
 
       !----- Transform old data to cheb space:
-      call chebt_oc_old%costf1(dataR,work)
+      call rscheme_oc_old%costf1(dataR)
 
       !----- Fill up cheb polynomial with zeros:
       if ( n_rad_tot>n_r_max_old ) then
@@ -1363,16 +1363,16 @@ contains
          cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
          scale=cheb_norm_old/cheb_norm_ic
       else
-         call chebt_oc%costf1(dataR,work)
+         call rscheme_oc%costf1(dataR)
          !----- Rescale :
          cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
-         scale=cheb_norm_old/cheb_norm
+         scale=cheb_norm_old/rscheme_oc%rnorm
       end if
       do nR=1,n_rad_tot
          dataR(nR)=scale*dataR(nR)
       end do
 
-      call chebt_oc_old%finalize()
+      call rscheme_oc_old%finalize()
       deallocate( work )
 
    end subroutine mapDataR

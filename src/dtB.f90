@@ -25,7 +25,7 @@ module dtB_mod
    use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
    use constants, only: two
-   use radial_der, only: gets_drNS
+   use radial_der, only: get_drNS
  
    implicit none
  
@@ -460,7 +460,7 @@ contains
       end do
     
       if ( rank == 0 ) then
-         call gets_drNS(TstrRLM,workA,lm_max,1,lm_max, &
+         call get_drNS(TstrRLM,workA,lm_max,1,lm_max, &
               &        n_r_max,n_cheb_max,workB,rscheme_oc)
     
          do nR=1,n_r_max
@@ -469,7 +469,7 @@ contains
             end do
          end do
          
-         call gets_drNS(TomeRLM,workA,lm_max,1,lm_max, &
+         call get_drNS(TomeRLM,workA,lm_max,1,lm_max, &
               &        n_r_max,n_cheb_max,workB,rscheme_oc)
          
          do nR=1,n_r_max
@@ -478,7 +478,7 @@ contains
             end do
          end do
          
-         call gets_drNS(TadvRLM,workA,lm_max,1,lm_max, &
+         call get_drNS(TadvRLM,workA,lm_max,1,lm_max, &
               &        n_r_max,n_cheb_max,workB,rscheme_oc)
          
          do nR=1,n_r_max

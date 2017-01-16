@@ -8,31 +8,23 @@ module finite_differences
    use parallel_mod, only: rank
    use constants, only: one, two
    use truncation, only: n_r_max
-   use useful, only: logWrite
+   use useful, only: logWrite, factorial, inverse
    use mem_alloc, only: bytes_allocated
+   use radial_scheme, only: type_rscheme
 
    implicit none
 
    private
 
-   type, public :: type_stencil
-      integer :: order
-      real(cp), allocatable :: dr(:,:)
-      real(cp), allocatable :: ddr(:,:)
-      real(cp), allocatable :: dddr(:,:)
-      real(cp), allocatable :: dr_top(:,:)
-      real(cp), allocatable :: dr_bot(:,:)
-      real(cp), allocatable :: ddr_top(:,:)
-      real(cp), allocatable :: ddr_bot(:,:)
-      real(cp), allocatable :: dddr_top(:,:)
-      real(cp), allocatable :: dddr_bot(:,:)
+   type, public, extends(type_rscheme) :: type_fd
    contains
       procedure :: initialize
       procedure :: finalize
-      procedure :: nullify_epsilon
-      procedure :: get_FD_coeffs
-      procedure :: get_FD_matder
-   end type type_stencil
+      procedure, private :: nullify_epsilon
+      procedure, private :: get_FD_coeffs
+      procedure :: get_der_mat
+      procedure :: get_grid => get_FD_grid
+   end type type_fd
 
 
    public :: get_FD_grid
@@ -44,11 +36,15 @@ contains
       ! This subroutine allocates the arrays used when finite difference are used
       !
 
-      class(type_stencil) :: this
+      class(type_fd) :: this
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer, intent(in) :: order   ! FD order
 
       this%order = order
+      this%rnorm = one
+      this%n_max = n_r_max
+      this%boundary_fac = one
+      this%version = 'fd'
 
       allocate( this%dr(n_r_max,0:order) )
       allocate( this%ddr(n_r_max,0:order) )
@@ -64,6 +60,13 @@ contains
       &               order/2*(4*order+6)+(order/2+1)*(2*order+6))* &
       &               SIZEOF_DEF_REAL
 
+      allocate( this%rMat(n_r_max,n_r_max) )
+      allocate( this%drMat(n_r_max,n_r_max) )
+      allocate( this%d2rMat(n_r_max,n_r_max) )
+      allocate( this%d3rMat(n_r_max,n_r_max) )
+
+      bytes_allocated=bytes_allocated+4*n_r_max*n_r_max*SIZEOF_DEF_REAL
+
    end subroutine initialize
 !---------------------------------------------------------------------------
    subroutine finalize(this)
@@ -71,12 +74,13 @@ contains
       ! This subroutine deallocates the arrays used in FD
       !
 
-      class(type_stencil) :: this
+      class(type_fd) :: this
 
       deallocate( this%dr, this%ddr, this%dddr )
       deallocate( this%dr_top, this%dr_bot )
       deallocate( this%ddr_top, this%ddr_bot )
       deallocate( this%dddr_top, this%dddr_bot )
+      deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
 
    end subroutine finalize
 !---------------------------------------------------------------------------
@@ -85,7 +89,7 @@ contains
       ! Nullify epsilon values
       !
 
-      class(type_stencil) :: this
+      class(type_fd) :: this
 
       !-- Local variables
       real(cp) :: eps
@@ -134,19 +138,22 @@ contains
 
    end subroutine nullify_epsilon
 !---------------------------------------------------------------------------
-   subroutine get_FD_grid(ratio1, ratio2, ricb, rcmb, r)
+   subroutine get_FD_grid(this, n_r_max, ricb, rcmb, ratio1, ratio2, r)
       !
       ! This subroutine constructs the radial grid
       !
 
+      class(type_fd) :: this
+
       !-- Input quantities:
+      integer,  intent(in) :: n_r_max    ! Number of grid points
       real(cp), intent(inout) :: ratio1  ! Nboudary/Nbulk
       real(cp), intent(in) :: ratio2     ! drMin/drMax
       real(cp), intent(in) :: ricb       ! inner boundary
       real(cp), intent(in) :: rcmb       ! outer boundary
 
       !-- Output quantities:
-      real(cp), intent(out) :: r(:) ! radius
+      real(cp), intent(out) :: r(n_r_max) ! radius
 
       !-- Local quantities:
       real(cp) :: dr_before, dr_after
@@ -213,11 +220,14 @@ contains
          end if
       end if
 
+      call this%get_FD_coeffs(r)
+      call this%nullify_epsilon()
+
    end subroutine get_FD_grid
 !---------------------------------------------------------------------------
    subroutine get_FD_coeffs(this, r)
 
-      class(type_stencil) :: this
+      class(type_fd) :: this
 
       !-- Input quantities:
       real(cp), intent(in) :: r(:) ! Radius
@@ -474,18 +484,12 @@ contains
 
    end subroutine get_FD_coeffs
 !---------------------------------------------------------------------------
-   subroutine get_FD_matder(this, n_r_max, eye, drMat, d2rMat, d3rMat)
+   subroutine get_der_mat(this, n_r_max)
 
-      class(type_stencil) :: this
+      class(type_fd) :: this
 
       !-- Input variable
       integer,  intent(in) :: n_r_max
-
-      !-- Output variable
-      real(cp), intent(out) :: eye(n_r_max, n_r_max)    ! Identity matrix
-      real(cp), intent(out) :: drMat(n_r_max, n_r_max)  ! First derivative
-      real(cp), intent(out) :: d2rMat(n_r_max, n_r_max) ! Second derivative
-      real(cp), intent(out) :: d3rMat(n_r_max, n_r_max) ! Third derivative
 
       !-- Local variables
       integer :: i, j, n_r
@@ -493,135 +497,43 @@ contains
       !-- Set everything to zero
       do j=1,n_r_max
          do i=1,n_r_max
-            drMat(i,j) =0.0_cp
-            d2rMat(i,j)=0.0_cp
-            d3rMat(i,j)=0.0_cp
-            eye(i,j)   =0.0_cp
+            this%drMat(i,j) =0.0_cp
+            this%d2rMat(i,j)=0.0_cp
+            this%d3rMat(i,j)=0.0_cp
+            this%rMat(i,j)  =0.0_cp
          end do
-         eye(j,j)=1.0_cp
+         this%rMat(j,j)=1.0_cp
       end do
 
       !-- Bulk points for 1st and 2nd derivatives
       do n_r=this%order/2+1,n_r_max-this%order/2
-         drMat(n_r,n_r-this%order/2:n_r+this%order/2) = this%dr(n_r,:)
-         d2rMat(n_r,n_r-this%order/2:n_r+this%order/2)=this%ddr(n_r,:)
+         this%drMat(n_r,n_r-this%order/2:n_r+this%order/2) = this%dr(n_r,:)
+         this%d2rMat(n_r,n_r-this%order/2:n_r+this%order/2)=this%ddr(n_r,:)
       end do
 
       !-- Bulk points for 3rd derivative
       do n_r=2+this%order/2,n_r_max-this%order/2-1
-         d3rMat(n_r,n_r-this%order/2-1:n_r+this%order/2+1)=this%dddr(n_r,:)
+         this%d3rMat(n_r,n_r-this%order/2-1:n_r+this%order/2+1)=this%dddr(n_r,:)
       end do
 
       !-- Boundary points for 1st derivative
       do n_r=1,this%order/2
-         drMat(n_r,1:this%order+1)                         =this%dr_top(n_r,:)
-         drMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order:-1)=this%dr_bot(n_r,:)
+         this%drMat(n_r,1:this%order+1)                         =this%dr_top(n_r,:)
+         this%drMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order:-1)=this%dr_bot(n_r,:)
       end do
 
       !-- Boundary points for 2nd derivative
       do n_r=1,this%order/2
-         d2rMat(n_r,1:this%order+2)                           =this%ddr_top(n_r,:)
-         d2rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-1:-1)=this%ddr_bot(n_r,:)
+         this%d2rMat(n_r,1:this%order+2)                           =this%ddr_top(n_r,:)
+         this%d2rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-1:-1)=this%ddr_bot(n_r,:)
       end do
 
       !-- Boundary points for 3rd derivative
       do n_r=1,this%order/2+1
-         d3rMat(n_r,1:this%order+3)                           =this%dddr_top(n_r,:)
-         d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-2:-1)=this%dddr_bot(n_r,:)
+         this%d3rMat(n_r,1:this%order+3)                           =this%dddr_top(n_r,:)
+         this%d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-2:-1)=this%dddr_bot(n_r,:)
       end do
 
-   end subroutine get_FD_matder
-!---------------------------------------------------------------------------
-   integer function factorial(n)
-      !
-      ! Compute the factorial of n
-      !
-
-      !-- Input variable
-      integer, intent(inout) :: n
-
-      integer :: i
-
-      factorial = 1
-      do i=1,n
-         factorial = factorial*i
-      end do
-
-   end function factorial
-!---------------------------------------------------------------------------
-   subroutine inverse(a,c,n)
-      ! Inverse matrix
-      ! Method: Based on Doolittle LU factorization for Ax=b
-      !
-
-      !-- Input:
-      integer,  intent(in) :: n
-      real(cp), intent(inout) :: a(n,n)
-
-      !-- Output
-      real(cp), intent(out) :: c(n,n)
-
-      !-- Local variables
-      real(cp) :: L(n,n), U(n,n), b(n), d(n), x(n)
-      real(cp) :: coeff
-      integer :: i, j, k
-
-      ! step 0: initialization for matrices L and U and b
-      L(:,:)=0.0_cp
-      U(:,:)=0.0_cp
-      b(:)  =0.0_cp
-
-      ! step 1: forward elimination
-      do k=1, n-1
-         do i=k+1,n
-            coeff=a(i,k)/a(k,k)
-            L(i,k) = coeff
-            do j=k+1,n
-               a(i,j) = a(i,j)-coeff*a(k,j)
-            end do
-         end do
-      end do
-
-      ! Step 2: prepare L and U matrices 
-      ! L matrix is a matrix of the elimination coefficient
-      ! + the diagonal elements are 1.0
-      do i=1,n
-        L(i,i) = one
-      end do
-      ! U matrix is the upper triangular part of A
-      do j=1,n
-         do i=1,j
-            U(i,j) = a(i,j)
-         end do
-      end do
-
-      ! Step 3: compute columns of the inverse matrix C
-      do k=1,n
-         b(k)=one
-         d(1) = b(1)
-         ! Step 3a: Solve Ld=b using the forward substitution
-         do i=2,n
-            d(i)=b(i)
-            do j=1,i-1
-               d(i) = d(i) - L(i,j)*d(j)
-            end do
-         end do
-         ! Step 3b: Solve Ux=d using the back substitution
-         x(n)=d(n)/U(n,n)
-         do i = n-1,1,-1
-            x(i) = d(i)
-            do j=n,i+1,-1
-               x(i)=x(i)-U(i,j)*x(j)
-            end do
-            x(i) = x(i)/u(i,i)
-         end do
-         ! Step 3c: fill the solutions x(n) into column k of C
-         do i=1,n
-            c(i,k) = x(i)
-         end do
-         b(k)=0.0_cp
-      end do
-
-   end subroutine inverse
+   end subroutine get_der_mat
 !---------------------------------------------------------------------------
 end module finite_differences

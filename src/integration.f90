@@ -12,7 +12,7 @@ module integration
 
    private
 
-   public :: rIntIC, rInt_R_back, rInt_R
+   public :: rIntIC, rInt_R
 
 contains
 
@@ -50,44 +50,6 @@ contains
       rIntIC=sqrt(two/real(nRmax-1,cp))*rIntIC/drFac
 
    end function rIntIC
-!------------------------------------------------------------------------------
-   real(cp) function rInt_R_back(f,n_r_max,n_cheb_max,dr_fac,chebt) result(rInt_R)
-      !
-      !   Same as function rInt but for a radial dependent mapping function
-      !   dr_fac2.
-      !
-
-      !-- Input variables:
-      integer,           intent(in) :: n_r_max,n_cheb_max
-      real(cp),          intent(in) :: f(n_r_max)
-      real(cp),          intent(in) :: dr_fac(n_r_max)
-      type(costf_odd_t), intent(in) :: chebt
-              
-      !-- Local variables
-      real(cp) :: f2(n_r_max)
-      real(cp) :: work(n_r_max)
-      integer :: nR,nCheb
-                 
-      !--- Integrals:
-      do nR=1,n_r_max
-         f2(nR)=f(nR)/dr_fac(nR)
-      end do
-
-      !-- Transform to cheb space:
-      call chebt%costf1(f2,work)
-      f2(1)      =half*f2(1)
-      f2(n_r_max)=half*f2(n_r_max)
-
-      !-- Sum contribution:
-      rInt_R=f2(1)            ! This is zero order contribution
-      do nCheb=3,n_cheb_max,2 ! Only even chebs contribute
-         rInt_R=rInt_R-one/real(nCheb*(nCheb-2),cp)*f2(nCheb)
-      end do
-
-      !-- Remaining renormalisation:
-      rInt_R=two*sqrt(two/real(n_r_max-1,cp))*rInt_R
-
-   end function rInt_R_back
 !------------------------------------------------------------------------------
    real(cp) function rInt_R(f,r,r_scheme) result(rInt)
       !
