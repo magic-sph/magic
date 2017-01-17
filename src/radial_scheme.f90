@@ -13,6 +13,7 @@ module radial_scheme
 
       integer :: n_max
       integer :: order
+      integer :: order_boundary
       integer :: nRmax
       real(cp) :: rnorm
       real(cp) :: boundary_fac
@@ -73,12 +74,13 @@ module radial_scheme
 
       end subroutine get_grid_if
       !------------------------------------------------------------------------
-      subroutine initialize_if(this,n_r_max,order)
+      subroutine initialize_if(this,n_r_max,order,order_boundary)
 
          import
          class(type_rscheme) :: this
          integer, intent(in) :: n_r_max
          integer, intent(in) :: order
+         integer, intent(in) :: order_boundary
 
       end subroutine initialize_if
       !------------------------------------------------------------------------

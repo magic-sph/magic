@@ -38,7 +38,7 @@ module chebyshev
 
 contains
 
-   subroutine initialize(this, n_r_max, order)
+   subroutine initialize(this, n_r_max, order, order_boundary)
       !
       !  Purpose of this subroutine is to calculate and store several     
       !  values that will be needed for a fast cosine transform of the    
@@ -50,6 +50,7 @@ contains
       
       integer, intent(in) :: n_r_max
       integer, intent(in) :: order ! This is going to be n_cheb_max
+      integer, intent(in) :: order_boundary ! Not used in cheb !
 
       !-- Local variables:
       integer :: ni,nd

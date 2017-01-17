@@ -31,7 +31,7 @@ module finite_differences
 
 contains
 
-   subroutine initialize(this,n_r_max,order)
+   subroutine initialize(this,n_r_max,order,order_boundary)
       !
       ! This subroutine allocates the arrays used when finite difference are used
       !
@@ -39,8 +39,10 @@ contains
       class(type_fd) :: this
       integer, intent(in) :: n_r_max ! Number of radial grid points
       integer, intent(in) :: order   ! FD order
+      integer, intent(in) :: order_boundary   ! FD order on the boundary
 
       this%order = order
+      this%order_boundary = order_boundary
       this%rnorm = one
       this%n_max = n_r_max
       this%boundary_fac = one
@@ -49,16 +51,16 @@ contains
       allocate( this%dr(this%n_max,0:order) )
       allocate( this%ddr(this%n_max,0:order) )
       allocate( this%dddr(this%n_max,0:order+2) )
-      allocate( this%dr_top(order/2,0:order) )
-      allocate( this%dr_bot(order/2,0:order) )
-      allocate( this%ddr_top(order/2,0:order+1) )
-      allocate( this%ddr_bot(order/2,0:order+1) )
-      allocate( this%dddr_top(order/2+1,0:order+2) )
-      allocate( this%dddr_bot(order/2+1,0:order+2) )
+      allocate( this%dr_top(order/2,0:order_boundary) )
+      allocate( this%dr_bot(order/2,0:order_boundary) )
+      allocate( this%ddr_top(order/2,0:order_boundary+1) )
+      allocate( this%ddr_bot(order/2,0:order_boundary+1) )
+      allocate( this%dddr_top(order/2+1,0:order_boundary+2) )
+      allocate( this%dddr_bot(order/2+1,0:order_boundary+2) )
 
       bytes_allocated=bytes_allocated+(this%n_max*(3*order+5)+         &
-      &               order/2*(4*order+6)+(order/2+1)*(2*order+6))* &
-      &               SIZEOF_DEF_REAL
+      &               order/2*(4*order_boundary+6)+                    &
+      &               (order/2+1)*(2*order_boundary+6))*SIZEOF_DEF_REAL
 
       allocate( this%rMat(this%n_max,this%n_max) )
       allocate( this%drMat(this%n_max,this%n_max) )
@@ -113,7 +115,7 @@ contains
       end do
 
       !-- Boundary points for 1st derivative
-      do od=0,this%order
+      do od=0,this%order_boundary
          do n_r=1,this%order/2
             if ( abs(this%dr_bot(n_r,od)) < eps ) this%dr_bot(n_r,od)=0.0_cp
             if ( abs(this%dr_top(n_r,od)) < eps ) this%dr_top(n_r,od)=0.0_cp
@@ -121,7 +123,7 @@ contains
       end do
 
       !-- Boundary points for 2nd derivative
-      do od=0,this%order+1
+      do od=0,this%order_boundary+1
          do n_r=1,this%order/2
             if ( abs(this%ddr_bot(n_r,od)) < eps ) this%ddr_bot(n_r,od)=0.0_cp
             if ( abs(this%ddr_top(n_r,od)) < eps ) this%ddr_top(n_r,od)=0.0_cp
@@ -129,7 +131,7 @@ contains
       end do
 
       !-- Boundary points for 3rd derivative
-      do od=0,this%order+2
+      do od=0,this%order_boundary+2
          do n_r=1,this%order/2+1
             if ( abs(this%dddr_bot(n_r,od)) < eps ) this%dddr_bot(n_r,od)=0.0_cp
             if ( abs(this%dddr_top(n_r,od)) < eps ) this%dddr_top(n_r,od)=0.0_cp
@@ -239,13 +241,13 @@ contains
       real(cp) :: weight
       integer :: n_r, od, od_in
 
+      !
+      !-- Step 1: First and 2nd derivatives in the bulk
+      !
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
       allocate( taylor_exp_inv(0:this%order,0:this%order) )
 
-      !
-      !-- Step 1: First and 2nd derivatives in the bulk
-      !
       do n_r=1+this%order/2,this%n_max-this%order/2
          do od=0,this%order
             dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
@@ -272,27 +274,33 @@ contains
          end do
       end do
 
+      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+
       !
       !-- Step 2: First derivative for the outer points
       !
+      allocate( dr_spacing(this%order_boundary+1) )
+      allocate( taylor_exp(0:this%order_boundary,0:this%order_boundary) )
+      allocate( taylor_exp_inv(0:this%order_boundary,0:this%order_boundary) )
+
       do n_r=1,this%order/2
-         do od=0,this%order
+         do od=0,this%order_boundary
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+1)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+1)
 
-         do od=0,this%order
+         do od=0,this%order_boundary
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+1)
 
-         do od_in=0,this%order
+         do od_in=0,this%order_boundary
             !-- Preconditioning
-            do od=0,this%order
+            do od=0,this%order_boundary
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -304,23 +312,23 @@ contains
       !-- Step 3: First derivative for the inner points
       !
       do n_r=1,this%order/2
-         do od=0,this%order
+         do od=0,this%order_boundary
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+1)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+1)
 
-         do od=0,this%order
+         do od=0,this%order_boundary
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+1)
 
-         do od_in=0,this%order
+         do od_in=0,this%order_boundary
             !-- Preconditioning
-            do od=0,this%order
+            do od=0,this%order_boundary
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -333,28 +341,28 @@ contains
       !
       !-- Step 4: 2nd derivative for the outer points
       !
-      allocate( dr_spacing(this%order+2) )
-      allocate( taylor_exp(0:this%order+1,0:this%order+1) )
-      allocate( taylor_exp_inv(0:this%order+1,0:this%order+1) )
+      allocate( dr_spacing(this%order_boundary+2) )
+      allocate( taylor_exp(0:this%order_boundary+1,0:this%order_boundary+1) )
+      allocate( taylor_exp_inv(0:this%order_boundary+1,0:this%order_boundary+1) )
 
       do n_r=1,this%order/2
-         do od=0,this%order+1
+         do od=0,this%order_boundary+1
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+2)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+2)
 
-         do od=0,this%order+1
+         do od=0,this%order_boundary+1
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+2)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+2)
 
-         do od_in=0,this%order+1
+         do od_in=0,this%order_boundary+1
             !-- Preconditioning
-            do od=0,this%order+1
+            do od=0,this%order_boundary+1
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -366,23 +374,23 @@ contains
       !-- Step 5: 2nd derivative for the inner points
       !
       do n_r=1,this%order/2
-         do od=0,this%order+1
+         do od=0,this%order_boundary+1
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+2)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+2)
 
-         do od=0,this%order+1
+         do od=0,this%order_boundary+1
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+2)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+2)
 
-         do od_in=0,this%order+1
+         do od_in=0,this%order_boundary+1
             !-- Preconditioning
-            do od=0,this%order+1
+            do od=0,this%order_boundary+1
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -424,27 +432,33 @@ contains
          end do
       end do
 
+      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+
       !
       !-- Step 7: 3rd derivative for the outer points
       !
+      allocate( dr_spacing(this%order_boundary+3) )
+      allocate( taylor_exp(0:this%order_boundary+2,0:this%order_boundary+2) )
+      allocate( taylor_exp_inv(0:this%order_boundary+2,0:this%order_boundary+2) )
+
       do n_r=1,this%order/2+1
-         do od=0,this%order+2
+         do od=0,this%order_boundary+2
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+3)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+3)
 
-         do od=0,this%order+2
+         do od=0,this%order_boundary+2
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+3)
 
-         do od_in=0,this%order+2
+         do od_in=0,this%order_boundary+2
             !-- Preconditioning
-            do od=0,this%order+2
+            do od=0,this%order_boundary+2
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -456,23 +470,23 @@ contains
       !-- Step 8: 3rd derivative for the inner points
       !
       do n_r=1,this%order/2+1
-         do od=0,this%order+2
+         do od=0,this%order_boundary+2
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+3)
+         weight = sum(abs(dr_spacing))/(this%order_boundary+3)
 
-         do od=0,this%order+2
+         do od=0,this%order_boundary+2
             taylor_exp(:, od) = (dr_spacing(:)/weight)**od
          end do
 
          !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
+         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+3)
 
-         do od_in=0,this%order+2
+         do od_in=0,this%order_boundary+2
             !-- Preconditioning
-            do od=0,this%order+2
+            do od=0,this%order_boundary+2
                taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
                &                           factorial(od)/weight**od
             end do
@@ -518,20 +532,20 @@ contains
 
       !-- Boundary points for 1st derivative
       do n_r=1,this%order/2
-         this%drMat(n_r,1:this%order+1)                         =this%dr_top(n_r,:)
-         this%drMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order:-1)=this%dr_bot(n_r,:)
+         this%drMat(n_r,1:this%order_boundary+1)                         =this%dr_top(n_r,:)
+         this%drMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary:-1)=this%dr_bot(n_r,:)
       end do
 
       !-- Boundary points for 2nd derivative
       do n_r=1,this%order/2
-         this%d2rMat(n_r,1:this%order+2)                           =this%ddr_top(n_r,:)
-         this%d2rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-1:-1)=this%ddr_bot(n_r,:)
+         this%d2rMat(n_r,1:this%order_boundary+2)                           =this%ddr_top(n_r,:)
+         this%d2rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary-1:-1)=this%ddr_bot(n_r,:)
       end do
 
       !-- Boundary points for 3rd derivative
       do n_r=1,this%order/2+1
-         this%d3rMat(n_r,1:this%order+3)                           =this%dddr_top(n_r,:)
-         this%d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order-2:-1)=this%dddr_bot(n_r,:)
+         this%d3rMat(n_r,1:this%order_boundary+3)                           =this%dddr_top(n_r,:)
+         this%d3rMat(n_r_max-n_r+1,n_r_max:n_r_max-this%order_boundary-2:-1)=this%dddr_bot(n_r,:)
       end do
 
    end subroutine get_der_mat

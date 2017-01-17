@@ -339,7 +339,9 @@ contains
             do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
                df(n_r) = df(n_r)+r_scheme%dr(n_r, od) * f(n_r-r_scheme%order/2+od)
             end do
+         end do
 
+         do od=0,r_scheme%order_boundary
             !-- Boundary points
             do n_r=1,r_scheme%order/2
                df(n_r) = df(n_r)+r_scheme%dr_top(n_r,od) * f(od+1)
@@ -445,7 +447,7 @@ contains
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order
+         do od=0,r_scheme%order_boundary
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
@@ -539,7 +541,7 @@ contains
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order
+         do od=0,r_scheme%order_boundary
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
@@ -554,7 +556,7 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order+1
+         do od=0,r_scheme%order_boundary+1
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
@@ -665,7 +667,7 @@ contains
          end do
 
          !-- Boundary points for 1st derivative
-         do od=0,r_scheme%order
+         do od=0,r_scheme%order_boundary
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
@@ -680,7 +682,7 @@ contains
          end do
 
          !-- Boundary points for 2nd derivative
-         do od=0,r_scheme%order+1
+         do od=0,r_scheme%order_boundary+1
             do n_r=1,r_scheme%order/2
                do n_f=n_f_start,n_f_stop
                   ddf(n_f,n_r) = ddf(n_f,n_r)+r_scheme%ddr_top(n_r,od) * f(n_f,od+1)
@@ -695,7 +697,7 @@ contains
          end do
 
          !-- Boundary points for 3rd derivative
-         do od=0,r_scheme%order+2
+         do od=0,r_scheme%order_boundary+2
             do n_r=1,r_scheme%order/2+1
                do n_f=n_f_start,n_f_stop
                   dddf(n_f,n_r) = dddf(n_f,n_r)+r_scheme%dddr_top(n_r,od) * f(n_f,od+1)

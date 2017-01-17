@@ -51,7 +51,7 @@ contains
       integer :: runHours,runMinutes,runSeconds
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
          &  n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
-         &  fd_order,fd_ratio,fd_stretch
+         &  fd_order,fd_order_bound,fd_ratio,fd_stretch
 
       namelist/control/                                     &
          & mode,tag,n_time_steps,                           &
@@ -741,6 +741,7 @@ contains
       write(n_out,'(''  fd_stretch      ='',ES14.6,'','')') fd_stretch
       write(n_out,'(''  fd_ratio        ='',ES14.6,'','')') fd_ratio
       write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
+      write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -1106,7 +1107,8 @@ contains
       l_axi         =.false.
 
       !-- Finite differences
-      fd_order      =2
+      fd_order      =4
+      fd_order_bound=4
       fd_stretch    =0.3_cp
       fd_ratio      =0.1_cp
 

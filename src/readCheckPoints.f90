@@ -25,6 +25,7 @@ module readCheckPoints
    use chebyshev, only: type_cheb_odd
    use radial_scheme, only: type_rscheme
    use finite_differences, only: type_fd
+   use cosine_transform_odd, only: costf_odd_t
    use useful, only: polynomial_interpolation
    use constants, only: one
 
@@ -100,7 +101,7 @@ contains
 
       character(len=72) :: rscheme_version_old
       real(cp) :: ratio1, ratio2, r_icb_old, r_cmb_old
-      integer :: n_in
+      integer :: n_in, n_in_2
 
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
       real(cp), allocatable :: r_old(:)
@@ -206,9 +207,11 @@ contains
          else
             allocate ( type_fd :: rscheme_oc_old )
          end if
+         n_in_2 = n_in
       else
          rscheme_version_old='cheb'
          n_in  =n_r_max_old-2 ! Just a guess here
+         n_in_2=n_r_max_old-2 ! Just a guess here
          ratio1=0.0_cp
          ratio2=0.0_cp
          allocate ( type_cheb_odd :: rscheme_oc_old )
@@ -218,7 +221,7 @@ contains
       r_icb_old=radratio_old/(one-radratio_old)
       r_cmb_old=one/(one-radratio_old)
 
-      call rscheme_oc_old%initialize(n_r_max_old, n_in)
+      call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
       call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
            &                       ratio2, r_old)
 
@@ -1384,6 +1387,7 @@ contains
       complex(cp) :: yold(4), dy
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
+      type(costf_odd_t) :: chebt_oc_old
 
 
       !-- If **both** the old and the new schemes are Chebyshev, we can
@@ -1436,33 +1440,72 @@ contains
       !-- polynomial interpolation
       else
 
-         allocate( work(n_r_max) )
+         !----- Now transform the inner core:
+         if ( l_IC ) then
 
-         !-- Interpolate data and store into a work array
-         do nR=1,n_r_max
+            allocate( work(n_r_maxL) )
 
-            nR_old=minloc(abs(r_old-r(nR)),1)
-            if ( nR_old < 3 ) nR_old=3
-            if ( nR_old == n_r_max_old ) nR_old=n_r_max_old-1
+            !-- This is needed for the inner core
+            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
 
-            xold(1)=r_old(nR_old-2)
-            xold(2)=r_old(nR_old-1)
-            xold(3)=r_old(nR_old)
-            xold(4)=r_old(nR_old+1)
+            !----- Transform old data to cheb space:
+            call chebt_oc_old%costf1(dataR, work)
 
-            yold(1)=dataR(nR_old-2)
-            yold(2)=dataR(nR_old-1)
-            yold(3)=dataR(nR_old)
-            yold(4)=dataR(nR_old+1)
+            call chebt_oc_old%finalize()
 
-            call polynomial_interpolation(xold, yold, r(nR), work(nR), dy)
+            !----- Fill up cheb polynomial with zeros:
+            if ( n_rad_tot>n_r_max_old ) then
+               n_r_index_start=n_r_max_old
+               do nR=n_r_index_start,n_rad_tot
+                  dataR(nR)=zero
+               end do
+            end if
 
-         end do
 
-         !-- Copy interpolated data
-         dataR(:)=work(:)
+            call chebt_ic%costf1(dataR,work)
+            !----- Rescale :
+            cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
+            scale=cheb_norm_old/cheb_norm_ic
 
-         deallocate( work )
+            deallocate( work )
+
+            do nR=1,n_rad_tot
+               dataR(nR)=scale*dataR(nR)
+            end do
+
+         else
+
+            allocate( work(n_r_max) )
+
+            !-- Interpolate data and store into a work array
+            do nR=1,n_r_max
+
+               nR_old=minloc(abs(r_old-r(nR)),1)
+               if ( nR_old < 3 ) nR_old=3
+               if ( nR_old == n_r_max_old ) nR_old=n_r_max_old-1
+
+               xold(1)=r_old(nR_old-2)
+               xold(2)=r_old(nR_old-1)
+               xold(3)=r_old(nR_old)
+               xold(4)=r_old(nR_old+1)
+
+               yold(1)=dataR(nR_old-2)
+               yold(2)=dataR(nR_old-1)
+               yold(3)=dataR(nR_old)
+               yold(4)=dataR(nR_old+1)
+
+               call polynomial_interpolation(xold, yold, r(nR), work(nR), dy)
+
+            end do
+
+            !-- Copy interpolated data
+            do nR=1,n_r_max
+               dataR(nR)=work(nR)
+            end do
+
+            deallocate( work )
+
+         end if
 
       end if
 

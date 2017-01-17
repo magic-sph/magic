@@ -19,7 +19,8 @@ module truncation
    character(len=72) :: radial_scheme ! radial scheme (either Cheybev of FD)
    real(cp) :: fd_stretch    ! regular intervals over irregular intervals
    real(cp) :: fd_ratio      ! drMin over drMax (only when FD are used)
-   integer :: fd_order      ! Finite difference order (for now only 2 and 4 are safe)
+   integer :: fd_order       ! Finite difference order (for now only 2 and 4 are safe)
+   integer :: fd_order_bound ! Finite difference order on the  boundaries
  
    !-- Derived quantities:
    integer :: n_phi_max   ! absolute number of phi grid-points

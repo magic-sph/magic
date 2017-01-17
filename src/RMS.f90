@@ -356,7 +356,7 @@ contains
       r_icb2=r2(n_r_max2)
       r_cmb2=r2(1)
 
-      call rscheme_RMS%initialize(n_r_max2, n_cheb_max2)
+      call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_cheb_max2)
       call rscheme_RMS%get_grid(n_r_max2, r_icb2, r_cmb2, ratio1, ratio2, r2C)
 
       if ( rscheme_RMS%version == 'cheb' ) then

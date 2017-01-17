@@ -5,7 +5,7 @@ module radial_functions
    !
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
-       &                 fd_stretch, fd_order
+       &                 fd_stretch, fd_order, fd_order_bound
    use algebra, only: sgesl,sgefa
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
@@ -114,7 +114,7 @@ contains
       ! Initial memory allocation
       !
 
-      integer :: n_in
+      integer :: n_in, n_in_2
 
       ! allocate the arrays
       allocate( r(n_r_max) )
@@ -138,6 +138,20 @@ contains
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
       bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
 
+      nDi_costf1_ic=2*n_r_ic_max+2
+      nDd_costf1_ic=2*n_r_ic_max+5
+      nDi_costf2_ic=2*n_r_ic_max
+      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
+
+      allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
+      allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
+      allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
+      allocate( cheb_int_ic(n_r_ic_max) )
+      bytes_allocated = bytes_allocated + &
+                        (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
+
+      call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
+
       if ( .not. l_finite_diff ) then
 
          allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
@@ -145,30 +159,19 @@ contains
 
          allocate ( type_cheb_odd :: rscheme_oc )
 
-         nDi_costf1_ic=2*n_r_ic_max+2
-         nDd_costf1_ic=2*n_r_ic_max+5
-         nDi_costf2_ic=2*n_r_ic_max
-         nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
-
-         allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
-         allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
-         allocate( d2cheb_ic(n_r_ic_max,n_r_ic_max) )
-         allocate( cheb_int_ic(n_r_ic_max) )
-         bytes_allocated = bytes_allocated + &
-                           (3*n_r_ic_max*n_r_ic_max+n_r_ic_max)*SIZEOF_DEF_REAL
-
-         call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
          n_in = n_cheb_max
+         n_in_2 = n_cheb_max
 
       else
 
          allocate ( type_fd :: rscheme_oc )
 
          n_in = fd_order
+         n_in_2 = fd_order_bound
 
       end if
-      call rscheme_oc%initialize(n_r_max,n_in)
+      call rscheme_oc%initialize(n_r_max,n_in,n_in_2)
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -181,11 +184,12 @@ contains
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
       deallocate( visc, dLvisc, epscProf, divKtemp0 )
 
+      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+      call chebt_ic%finalize()
+      if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
+
       if ( .not. l_finite_diff ) then
          deallocate( cheb_int )
-         deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
-         call chebt_ic%finalize()
-         if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
       end if
 
       call rscheme_oc%finalize()
