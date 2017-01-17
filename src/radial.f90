@@ -19,8 +19,7 @@ module radial_functions
    use radial_scheme, only: type_rscheme
    use chebyshev, only: type_cheb_odd
    use finite_differences, only: type_fd
-   !-- remove useless calls to ddr and dddr
-   use radial_der, only: get_dr, get_ddr, get_dddr, get_dr
+   use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
    use parallel_mod, only: rank

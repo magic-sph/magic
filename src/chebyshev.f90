@@ -2,13 +2,11 @@ module chebyshev
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, lm_max_real
-   use fft_fac_mod, only: fft_fac_complex, fft_fac_real
    use constants, only: half, one, two, three, four, pi, sin36, &
        &                cos36, sin60, sin72, cos72
    use LMLoop_data, only: llm,ulm
    use radial_scheme, only: type_rscheme
-   use logic, only: l_newmap, l_PV, l_TO
+   use logic, only: l_newmap
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd, only: costf_odd_t
@@ -117,16 +115,16 @@ contains
       if ( l_newmap ) then
 
          do n_r=1,n_r_max
-            this%drx(n_r) =                          (two*this%alpha1) /   &
+            this%drx(n_r)  =                         (two*this%alpha1) /      &
             &    ((one+this%alpha1**2*(two*r(n_r)-ricb-rcmb-this%alpha2)**2)* &
             &    lambd)
-            this%ddrx(n_r) = -(8.0_cp*this%alpha1**3*(two*r(n_r)-ricb-rcmb-this%alpha2)) / &
+            this%ddrx(n_r) =-(8.0_cp*this%alpha1**3*(two*r(n_r)-ricb-rcmb-this%alpha2)) / &
             &    ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+this%alpha2)**2)**2*     &
             &    lambd)
-            this%dddrx(n_r) =        (16.0_cp*this%alpha1**3*(-one+three*this%alpha1**2* &
-            &                     (-two*r(n_r)+ricb+rcmb+this%alpha2)**2)) / &
-            &    ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+this%alpha2)**2)**3* &
-            &    lambd)
+            this%dddrx(n_r)=(16.0_cp*this%alpha1**3*(-one+three*this%alpha1**2*     &
+            &                           (-two*r(n_r)+ricb+rcmb+this%alpha2)**2)) /  &
+            &      ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+this%alpha2)**2)**3* &
+            &       lambd)
          end do
 
       else

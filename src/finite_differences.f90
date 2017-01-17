@@ -7,7 +7,7 @@ module finite_differences
    use precision_mod
    use parallel_mod, only: rank
    use constants, only: one, two
-   use truncation, only: n_r_max
+   !use truncation, only: n_r_max
    use useful, only: logWrite, factorial, inverse
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
@@ -46,9 +46,9 @@ contains
       this%boundary_fac = one
       this%version = 'fd'
 
-      allocate( this%dr(n_r_max,0:order) )
-      allocate( this%ddr(n_r_max,0:order) )
-      allocate( this%dddr(n_r_max,0:order+2) )
+      allocate( this%dr(this%n_max,0:order) )
+      allocate( this%ddr(this%n_max,0:order) )
+      allocate( this%dddr(this%n_max,0:order+2) )
       allocate( this%dr_top(order/2,0:order) )
       allocate( this%dr_bot(order/2,0:order) )
       allocate( this%ddr_top(order/2,0:order+1) )
@@ -56,16 +56,16 @@ contains
       allocate( this%dddr_top(order/2+1,0:order+2) )
       allocate( this%dddr_bot(order/2+1,0:order+2) )
 
-      bytes_allocated=bytes_allocated+(n_r_max*(3*order+5)+         &
+      bytes_allocated=bytes_allocated+(this%n_max*(3*order+5)+         &
       &               order/2*(4*order+6)+(order/2+1)*(2*order+6))* &
       &               SIZEOF_DEF_REAL
 
-      allocate( this%rMat(n_r_max,n_r_max) )
-      allocate( this%drMat(n_r_max,n_r_max) )
-      allocate( this%d2rMat(n_r_max,n_r_max) )
-      allocate( this%d3rMat(n_r_max,n_r_max) )
+      allocate( this%rMat(this%n_max,this%n_max) )
+      allocate( this%drMat(this%n_max,this%n_max) )
+      allocate( this%d2rMat(this%n_max,this%n_max) )
+      allocate( this%d3rMat(this%n_max,this%n_max) )
 
-      bytes_allocated=bytes_allocated+4*n_r_max*n_r_max*SIZEOF_DEF_REAL
+      bytes_allocated=bytes_allocated+4*this%n_max*this%n_max*SIZEOF_DEF_REAL
 
    end subroutine initialize
 !---------------------------------------------------------------------------
@@ -99,7 +99,7 @@ contains
 
       !-- Bulk points for 1st and 2nd derivative
       do od=0,this%order
-         do n_r=1,n_r_max
+         do n_r=1,this%n_max
             if ( abs(this%dr(n_r,od)) < eps ) this%dr(n_r,od)=0.0_cp
             if ( abs(this%ddr(n_r,od)) < eps ) this%ddr(n_r,od)=0.0_cp
          end do
@@ -107,7 +107,7 @@ contains
 
       !-- Bulk points for 3rd derivative
       do od=0,this%order+2
-         do n_r=1,n_r_max
+         do n_r=1,this%n_max
             if ( abs(this%dddr(n_r,od)) < eps ) this%dddr(n_r,od)=0.0_cp
          end do
       end do
@@ -246,7 +246,7 @@ contains
       !
       !-- Step 1: First and 2nd derivatives in the bulk
       !
-      do n_r=1+this%order/2,n_r_max-this%order/2
+      do n_r=1+this%order/2,this%n_max-this%order/2
          do od=0,this%order
             dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
          end do
@@ -305,7 +305,7 @@ contains
       !
       do n_r=1,this%order/2
          do od=0,this%order
-            dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
+            dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
@@ -367,7 +367,7 @@ contains
       !
       do n_r=1,this%order/2
          do od=0,this%order+1
-            dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
+            dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning
@@ -399,7 +399,7 @@ contains
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
       allocate( taylor_exp_inv(0:this%order+2,0:this%order+2) )
 
-      do n_r=2+this%order/2,n_r_max-this%order/2-1
+      do n_r=2+this%order/2,this%n_max-this%order/2-1
          do od=0,this%order+2
             dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
          end do
@@ -457,7 +457,7 @@ contains
       !
       do n_r=1,this%order/2+1
          do od=0,this%order+2
-            dr_spacing(od+1)=r(n_r_max-od)-r(n_r_max-n_r+1)
+            dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
          !-- This is a weight for matrix preconditioning

@@ -6,8 +6,9 @@ module storeCheckPoints
 
    use precision_mod
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
-   use radial_functions, only: rscheme_oc, r
+       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
+       &                 fd_stretch, fd_ratio
+   use radial_functions, only: rscheme_oc, alph1, alph2
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
@@ -87,7 +88,11 @@ contains
       &                                        n_r_ic_max,sigma_ratio
 
       !-- Store radius and scheme version (FD or CHEB)
-      write(n_rst_file) rscheme_oc%version, r
+      if ( rscheme_oc%version == 'cheb' ) then
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%n_max, alph1, alph2
+      else
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%order, fd_stretch, fd_ratio
+      end if
 
       if ( .not. l_chemical_conv ) then
          if ( l_heat ) then

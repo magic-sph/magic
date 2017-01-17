@@ -23,6 +23,10 @@ module readCheckPoints
        &                          kbotv, ktopv, sc, raxi
    use constants, only: c_z10_omega_ic, c_z10_omega_ma, pi, zero, two
    use chebyshev, only: type_cheb_odd
+   use radial_scheme, only: type_rscheme
+   use finite_differences, only: type_fd
+   use useful, only: polynomial_interpolation
+   use constants, only: one
 
 
    implicit none
@@ -34,6 +38,7 @@ module readCheckPoints
 
    integer :: n_start_file
    integer(lip) :: bytes_allocated=0
+   class(type_rscheme), pointer :: rscheme_oc_old
 
 #ifdef WITH_HDF5
    public :: readStartFields, readHdf5_serial
@@ -93,9 +98,12 @@ contains
       real(cp) :: omega_ma1Old,omegaOsz_ma1Old
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
+      character(len=72) :: rscheme_version_old
+      real(cp) :: ratio1, ratio2, r_icb_old, r_cmb_old
+      integer :: n_in
+
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
       real(cp), allocatable :: r_old(:)
-      character(len=72) :: rscheme_version_old
 
       inquire(file=start_file, exist=startfile_does_exist)
     
@@ -189,12 +197,34 @@ contains
          lreadR=.false.
       end if
 
+      allocate( r_old(n_r_max_old) )
+
       if ( lreadR ) then
-         allocate( r_old(n_r_max_old) )
-         read(n_start_file) rscheme_version_old, r_old
+         read(n_start_file) rscheme_version_old, n_in, ratio1, ratio2
+         if ( rscheme_version_old == 'cheb' ) then
+            allocate ( type_cheb_odd :: rscheme_oc_old )
+         else
+            allocate ( type_fd :: rscheme_oc_old )
+         end if
       else
          rscheme_version_old='cheb'
+         n_in  =n_r_max_old-2 ! Just a guess here
+         ratio1=0.0_cp
+         ratio2=0.0_cp
+         allocate ( type_cheb_odd :: rscheme_oc_old )
       end if
+
+
+      r_icb_old=radratio_old/(one-radratio_old)
+      r_cmb_old=one/(one-radratio_old)
+
+      call rscheme_oc_old%initialize(n_r_max_old, n_in)
+      call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
+           &                       ratio2, r_old)
+
+      if ( rscheme_oc%version /= rscheme_oc_old%version ) &
+         & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
+         & rscheme_oc_old%version, rscheme_oc%version
     
       allocate( lm2lmo(lm_max) )
     
@@ -230,9 +260,9 @@ contains
     
       n_r_maxL = max(n_r_max,n_r_max_old)
     
-      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
-           &            n_r_max_old,lm_max_old,n_r_maxL,      &
-           &            .false.,.false.,.false.,.false.,      &
+      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
+           &            n_r_max_old,lm_max_old,n_r_maxL,            &
+           &            .false.,.false.,.false.,.false.,            &
            &            .false.,w,z,p,s,xi )
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
@@ -258,9 +288,9 @@ contains
       end if
       !PERFOFF
     
-      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
-           &             n_r_max_old,lm_max_old,n_r_maxL,.true., &
-           &             .true.,.true.,.true.,.true.,dwdt,dzdt,  &
+      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
+           &             n_r_max_old,lm_max_old,n_r_maxL,.true.,    &
+           &             .true.,.true.,.true.,.true.,dwdt,dzdt,     &
            &             dpdt,dsdt,dxidt )
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
@@ -282,8 +312,8 @@ contains
          read(n_start_file) so,wo,zo,po
     
          if ( l_mag ) then
-            call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
-                 &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
+            call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
+                 &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,             &
                  &           .false.,aj,dbdt,djdt,b )
          end if
       else
@@ -364,9 +394,9 @@ contains
     
             read(n_start_file) so,wo,zo,po
             if ( l_mag ) then
-               call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,    &
-                    &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL, &
-                    &           lm2lmo,n_r_ic_maxMag,.true.,aj_ic,     &
+               call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
+                    &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
+                    &           lm2lmo,n_r_ic_maxMag,.true.,aj_ic,        &
                     &           dbdt_ic,djdt_ic,b_ic )
             end if
     
@@ -392,6 +422,9 @@ contains
             end do
          end if
       end if
+
+      deallocate( r_old )
+      call rscheme_oc_old%finalize() ! deallocate old radial scheme
     
       !-- Lorentz-torques:
       !   NOTE: If lMagMem=.false. the memory required to read
@@ -730,9 +763,9 @@ contains
       call h5dclose_f(dset_id, error)
 
       n_r_maxL = max(n_r_max,n_r_max_old)
-      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,  &
-           &             n_r_max_old,lm_max_old,n_r_maxL,     &
-           &             .false.,.false.,.false.,.false.,     &
+      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
+           &             n_r_max_old,lm_max_old,n_r_maxL,           &
+           &             .false.,.false.,.false.,.false.,           &
            &             .false.,w,z,p,s,xi )
 
       call h5oexists_by_name_f(file_id, '/dtFields/dsdtLast', link_exists, error)
@@ -757,9 +790,9 @@ contains
       call h5dread_f(dset_id, type_id, f_ptr, error)
       call h5dclose_f(dset_id, error)
 
-      call mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo,     &
-           &             n_r_max_old,lm_max_old,n_r_maxL,.true., &
-           &            .true.,.true.,.true.,.true.,dwdt,dzdt,   &
+      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,     &
+           &             n_r_max_old,lm_max_old,n_r_maxL,.true.,       &
+           &            .true.,.true.,.true.,.true.,dwdt,dzdt,         &
            &            dpdt,dsdt,dxidt )
 
       if ( l_mag_old ) then
@@ -783,8 +816,8 @@ contains
          call h5dread_f(dset_id, type_id, f_ptr, error)
          call h5dclose_f(dset_id, error)
 
-        call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_max,n_r_max_old, &
-             &              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,    &
+        call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
+             &              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,          &
              &              .false.,aj,dbdt,djdt,b )
       else
         write(*,*) '! No magnetic data in input file!'
@@ -859,9 +892,9 @@ contains
             call h5dread_f(dset_id, type_id, f_ptr, error)
             call h5dclose_f(dset_id, error)
 
-            call mapDataMag( wo,zo,po,so,n_data_oldP,n_r_ic_max,n_r_ic_max_old, &
-                             lm_max_old,n_r_ic_maxL,lm2lmo,n_r_ic_maxMag,       &
-                             .true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
+            call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max,      &
+                 &           n_r_ic_max_old, lm_max_old,n_r_ic_maxL,lm2lmo, &
+                 &           n_r_ic_maxMag,.true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
 
             deallocate( lm2lmo )
             deallocate( wo,zo,po,so )
@@ -1125,8 +1158,8 @@ contains
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
-   subroutine mapDataHydro( wo,zo,po,so,xio,n_data_oldP,lm2lmo, &
-              &             n_r_max_old,lm_max_old,n_r_maxL,    &
+   subroutine mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo, &
+              &             n_r_max_old,lm_max_old,n_r_maxL,          &
               &             lBc1,lBc2,lBc3,lBc4,lBc5,w,z,p,s,xi )
 
       !--- Input variables
@@ -1136,6 +1169,7 @@ contains
       integer,     intent(in) :: lm2lmo(lm_max)
       complex(cp), intent(in) :: wo(:),zo(:)
       complex(cp), intent(in) :: po(:),so(:)
+      real(cp),    intent(in) :: r_old(:)
       complex(cp), intent(in) :: xio(:)
 
       !--- Output variables
@@ -1171,7 +1205,9 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( n_r_max /= n_r_max_old ) then
+               if ( n_r_max /= n_r_max_old .or. &
+               &    rscheme_oc%version /= rscheme_oc_old%version ) then
+
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
                      woR(nR)=wo(n)
@@ -1180,15 +1216,15 @@ contains
                      if ( lreadS .and. l_heat ) soR(nR)=so(n)
                      if ( lreadXi .and. l_chemical_conv ) xioR(nR)=xio(n)
                   end do
-                  call mapDataR(woR,n_r_max,n_r_max_old,n_r_maxL,lBc1,.false.)
-                  call mapDataR(zoR,n_r_max,n_r_max_old,n_r_maxL,lBc2,.false.)
-                  call mapDataR(poR,n_r_max,n_r_max_old,n_r_maxL,lBc3,.false.)
-                  if ( lreadS .and. l_heat ) call mapDataR(soR,n_r_max, &
-                                                  n_r_max_old,n_r_maxL, &
-                                                  lBc4,.false.)
-                  if ( lreadXi .and. l_chemical_conv ) call mapDataR(xioR, &
-                                              n_r_max,n_r_max_old,n_r_maxL,&
-                                              lBc5,.false.)
+                  call mapDataR(woR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc1,.false.)
+                  call mapDataR(zoR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc2,.false.)
+                  call mapDataR(poR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc3,.false.)
+                  if ( lreadS .and. l_heat ) then
+                     call mapDataR(soR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc4,.false.)
+                  end if
+                  if ( lreadXi .and. l_chemical_conv ) then
+                     call mapDataR(xioR,r_old,n_r_max,n_r_max_old,n_r_maxL,lBc5,.false.)
+                  end if
                   do nR=1,n_r_max
                      if ( lm > 1 ) then
                         w(lm,nR)=scale_v*woR(nR)
@@ -1243,9 +1279,8 @@ contains
 
    end subroutine mapDataHydro
 !------------------------------------------------------------------------------
-   subroutine mapDataMag( wo,zo,po,so,n_data_oldP,n_rad_tot,n_r_max_old, &
-                          lm_max_old,n_r_maxL,lm2lmo,dim1,l_IC,          & 
-                          w,z,p,s )
+   subroutine mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_rad_tot,n_r_max_old, &
+              &           lm_max_old,n_r_maxL,lm2lmo,dim1,l_IC,w,z,p,s )
 
       !--- Input variables
       integer,     intent(in) :: n_rad_tot,n_r_max_old,lm_max_old
@@ -1253,6 +1288,7 @@ contains
       integer,     intent(in) :: lm2lmo(lm_max)
       logical,     intent(in) :: l_IC
       complex(cp), intent(in) :: wo(n_data_oldP),zo(n_data_oldP)
+      real(cp),    intent(in) :: r_old(:)
       complex(cp), intent(in) :: po(n_data_oldP),so(n_data_oldP)
 
       !--- Output variables
@@ -1277,7 +1313,8 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( n_rad_tot /= n_r_max_old ) then
+               if ( n_rad_tot /= n_r_max_old .or. &
+               &    rscheme_oc%version /= rscheme_oc_old%version ) then
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
                      woR(nR)=wo(n)
@@ -1285,10 +1322,10 @@ contains
                      poR(nR)=po(n)
                      soR(nR)=so(n)
                   end do
-                  call mapDataR(woR,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
-                  call mapDataR(zoR,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(poR,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
-                  call mapDataR(soR,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
+                  call mapDataR(zoR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
+                  call mapDataR(poR,r_old,dim1,n_r_max_old,n_r_maxL,.true.,l_IC)
+                  call mapDataR(soR,r_old,dim1,n_r_max_old,n_r_maxL,.false.,l_IC)
                   do nR=1,n_rad_tot
                      w(lm,nR)=scale_b*woR(nR)
                      z(lm,nR)=scale_b*zoR(nR)
@@ -1321,7 +1358,7 @@ contains
 
    end subroutine mapDataMag
 !------------------------------------------------------------------------------
-   subroutine mapDataR(dataR,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
+   subroutine mapDataR(dataR,r_old,n_rad_tot,n_r_max_old,n_r_maxL,lBc,l_IC)
       !
       !
       !  Copy (interpolate) data (read from disc file) from old grid structure 
@@ -1333,63 +1370,101 @@ contains
       !
 
       !--- Input variables
-      integer, intent(in) :: n_r_max_old
-      integer, intent(in) :: n_r_maxL,n_rad_tot
-      logical, intent(in) :: lBc,l_IC
+      integer,  intent(in) :: n_r_max_old
+      integer,  intent(in) :: n_r_maxL,n_rad_tot
+      real(cp), intent(in) :: r_old(:)
+      logical,  intent(in) :: lBc,l_IC
 
       !--- Output variables
-      complex(cp), intent(out) :: dataR(:)  ! old data 
+      complex(cp), intent(inout) :: dataR(:)  ! old data 
 
       !-- Local variables
-      integer :: nR, n_r_index_start
-      type(type_cheb_odd) :: rscheme_oc_old
+      integer :: nR, nR_old, n_r_index_start
+      real(cp) :: xold(4)
+      complex(cp) :: yold(4), dy
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
 
-      allocate( work(n_r_maxL) )
 
-      !----- Initialize transform to cheb space:
-      call rscheme_oc_old%initialize(n_r_max_old, n_r_max_old-2) ! We don't care about the second parameter here
+      !-- If **both** the old and the new schemes are Chebyshev, we can
+      !-- use costf to get the new data
+      if ( rscheme_oc%version == 'cheb' .and. rscheme_oc_old%version == 'cheb' ) then
 
-      !-- Guess the boundary values, since they have not been stored:
-      if ( .not. l_IC .and. lBc ) then
-         dataR(1)=two*dataR(2)-dataR(3)
-         dataR(n_r_max_old)=two*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
-      end if
-
-      !----- Transform old data to cheb space:
-      call rscheme_oc_old%costf1(dataR)
-
-      !----- Fill up cheb polynomial with zeros:
-      if ( n_rad_tot>n_r_max_old ) then
-         if ( l_IC) then
-            n_r_index_start=n_r_max_old
-         else 
-            n_r_index_start=n_r_max_old+1
+         !-- Guess the boundary values, since they have not been stored:
+         if ( .not. l_IC .and. lBc ) then
+            dataR(1)=two*dataR(2)-dataR(3)
+            dataR(n_r_max_old)=two*dataR(n_r_max_old-1)-dataR(n_r_max_old-2)
          end if
-         do nR=n_r_index_start,n_rad_tot
-            dataR(nR)=zero
-         end do
-      end if
-    
-      !----- Now transform to new radial grid points:
-      if ( l_IC ) then
-         call chebt_ic%costf1(dataR,work)
-         !----- Rescale :
-         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
-         scale=cheb_norm_old/cheb_norm_ic
-      else
-         call rscheme_oc%costf1(dataR)
-         !----- Rescale :
-         cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
-         scale=cheb_norm_old/rscheme_oc%rnorm
-      end if
-      do nR=1,n_rad_tot
-         dataR(nR)=scale*dataR(nR)
-      end do
 
-      call rscheme_oc_old%finalize()
-      deallocate( work )
+         !----- Transform old data to cheb space:
+         call rscheme_oc_old%costf1(dataR)
+
+         !----- Fill up cheb polynomial with zeros:
+         if ( n_rad_tot>n_r_max_old ) then
+            if ( l_IC) then
+               n_r_index_start=n_r_max_old
+            else 
+               n_r_index_start=n_r_max_old+1
+            end if
+            do nR=n_r_index_start,n_rad_tot
+               dataR(nR)=zero
+            end do
+         end if
+       
+         !----- Now transform to new radial grid points:
+         if ( l_IC ) then
+
+            allocate( work(n_r_maxL) )
+
+            call chebt_ic%costf1(dataR,work)
+            !----- Rescale :
+            cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
+            scale=cheb_norm_old/cheb_norm_ic
+
+            deallocate( work )
+         else
+            call rscheme_oc%costf1(dataR)
+            !----- Rescale :
+            cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
+            scale=cheb_norm_old/rscheme_oc%rnorm
+         end if
+         do nR=1,n_rad_tot
+            dataR(nR)=scale*dataR(nR)
+         end do
+
+      !-- If either the old grid or the new grid is FD, we use a 
+      !-- polynomial interpolation
+      else
+
+         allocate( work(n_r_max) )
+
+         !-- Interpolate data and store into a work array
+         do nR=1,n_r_max
+
+            nR_old=minloc(abs(r_old-r(nR)),1)
+            if ( nR_old < 3 ) nR_old=3
+            if ( nR_old == n_r_max_old ) nR_old=n_r_max_old-1
+
+            xold(1)=r_old(nR_old-2)
+            xold(2)=r_old(nR_old-1)
+            xold(3)=r_old(nR_old)
+            xold(4)=r_old(nR_old+1)
+
+            yold(1)=dataR(nR_old-2)
+            yold(2)=dataR(nR_old-1)
+            yold(3)=dataR(nR_old)
+            yold(4)=dataR(nR_old+1)
+
+            call polynomial_interpolation(xold, yold, r(nR), work(nR), dy)
+
+         end do
+
+         !-- Copy interpolated data
+         dataR(:)=work(:)
+
+         deallocate( work )
+
+      end if
 
    end subroutine mapDataR
 !---------------------------------------------------------------------
