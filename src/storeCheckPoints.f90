@@ -89,9 +89,11 @@ contains
 
       !-- Store radius and scheme version (FD or CHEB)
       if ( rscheme_oc%version == 'cheb' ) then
-         write(n_rst_file) rscheme_oc%version, rscheme_oc%n_max, alph1, alph2
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%n_max, &
+         &                 rscheme_oc%order_boundary, alph1, alph2
       else
-         write(n_rst_file) rscheme_oc%version, rscheme_oc%order, fd_stretch, fd_ratio
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%order, &
+         &                 rscheme_oc%order_boundary, fd_stretch, fd_ratio
       end if
 
       if ( .not. l_chemical_conv ) then

@@ -201,17 +201,16 @@ contains
       allocate( r_old(n_r_max_old) )
 
       if ( lreadR ) then
-         read(n_start_file) rscheme_version_old, n_in, ratio1, ratio2
+         read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
          if ( rscheme_version_old == 'cheb' ) then
             allocate ( type_cheb_odd :: rscheme_oc_old )
          else
             allocate ( type_fd :: rscheme_oc_old )
          end if
-         n_in_2 = n_in
       else
          rscheme_version_old='cheb'
          n_in  =n_r_max_old-2 ! Just a guess here
-         n_in_2=n_r_max_old-2 ! Just a guess here
+         n_in_2=0 ! Regular grid
          ratio1=0.0_cp
          ratio2=0.0_cp
          allocate ( type_cheb_odd :: rscheme_oc_old )
@@ -222,6 +221,11 @@ contains
       r_cmb_old=one/(one-radratio_old)
 
       call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
+
+      !--
+      !-- There's possibly an issue when the Chebyshev mapping was used in
+      !-- the old grid. So far get_grid uses l_newmap as a global quantity
+      !--
       call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
            &                       ratio2, r_old)
 

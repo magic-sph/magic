@@ -6,7 +6,6 @@ module chebyshev
        &                cos36, sin60, sin72, cos72
    use LMLoop_data, only: llm,ulm
    use radial_scheme, only: type_rscheme
-   use logic, only: l_newmap
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd, only: costf_odd_t
@@ -19,6 +18,7 @@ module chebyshev
 
       real(cp) :: alpha1 !Input parameter for non-linear map to define degree of spacing (0.0:2.0)
       real(cp) :: alpha2 !Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
+      logical :: l_map
       type(costf_odd_t) :: chebt_oc
       real(cp), allocatable :: r_cheb(:)
       complex(cp), pointer :: work_costf(:,:)
@@ -50,8 +50,8 @@ contains
       
       integer, intent(in) :: n_r_max
       integer, intent(in) :: order ! This is going to be n_cheb_max
-      integer, intent(in) :: order_boundary ! Not used in cheb !
-
+      integer, intent(in) :: order_boundary ! this is used to determine whether mappings are used
+            
       !-- Local variables:
       integer :: ni,nd
 
@@ -60,6 +60,13 @@ contains
       this%boundary_fac = half
       this%version = 'cheb'
       this%nRmax = n_r_max
+      this%order_boundary=order_boundary
+
+      if ( order_boundary == 1 ) then
+         this%l_map=.true.
+      else
+         this%l_map=.false.
+      end if
 
       allocate( this%rMat(n_r_max,n_r_max) )
       allocate( this%drMat(n_r_max,n_r_max) )
@@ -99,7 +106,12 @@ contains
       integer :: n_r
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
-      if ( l_newmap ) then
+      !--
+      !-- There's possibly an issue when the Chebyshev mapping was used in
+      !-- the old grid. So far get_grid uses l_newmap as a global quantity
+      !--
+
+      if ( this%l_map ) then
          this%alpha1=ratio1
          this%alpha2=ratio2
          paraK=atan(this%alpha1*(one+this%alpha2))/atan(this%alpha1*(one-this%alpha2))
@@ -113,7 +125,7 @@ contains
       call cheb_grid(ricb,rcmb,n_r_max-1,r,this%r_cheb,this%alpha1,this%alpha2, &
            &         paraX0,lambd)
 
-      if ( l_newmap ) then
+      if ( this%l_map ) then
 
          do n_r=1,n_r_max
             this%drx(n_r)  =                         (two*this%alpha1) /      &

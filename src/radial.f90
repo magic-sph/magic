@@ -12,7 +12,7 @@ module radial_functions
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
        &            l_isothermal, l_anel, l_non_adia,              &
        &            l_TP_form, l_temperature_diff, l_single_matrix,&
-       &            l_finite_diff
+       &            l_finite_diff, l_newmap
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
@@ -159,15 +159,18 @@ contains
 
          allocate ( type_cheb_odd :: rscheme_oc )
 
-
          n_in = n_cheb_max
-         n_in_2 = n_cheb_max
+         if ( l_newmap ) then
+            n_in_2 = 1
+         else
+            n_in_2 = 0
+         end if
 
       else
 
          allocate ( type_fd :: rscheme_oc )
 
-         n_in = fd_order
+         n_in   = fd_order
          n_in_2 = fd_order_bound
 
       end if

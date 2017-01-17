@@ -17,9 +17,9 @@ module RMS
        &                 lm_max_dtB, fd_ratio, fd_stretch
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb, alph1, alph2
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
-       &            l_corr, l_mag, l_finite_diff
+       &            l_corr, l_mag, l_finite_diff, l_newmap
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
@@ -293,7 +293,7 @@ contains
       real(cp) :: dr2(n_r_max)
       real(cp) :: r_icb2, r_cmb2
       real(cp) :: ratio1, ratio2
-      integer :: nRs(63)
+      integer :: nRs(63), n_in_2
     
       logical :: lStop
       integer :: n,nR
@@ -348,9 +348,16 @@ contains
          r_icb2=r2(n_r_max2)
          r_cmb2=r2(1)
 
-         call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_cheb_max2)
-         ratio1 = 0.0_cp
-         ratio2 = 0.0_cp
+         if ( l_newmap ) then
+            n_in_2 = 1
+            ratio1 = alph1
+            ratio2 = alph2
+         else
+            n_in_2 = 0
+            ratio1 = 0.0_cp
+            ratio2 = 0.0_cp
+         end if
+         call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_in_2)
          call rscheme_RMS%get_grid(n_r_max2, r_icb2, r_cmb2, ratio1, ratio2, r2C)
 
          do nR=1,n_r_max2
