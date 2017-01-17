@@ -26,9 +26,6 @@ module finite_differences
       procedure :: get_grid => get_FD_grid
    end type type_fd
 
-
-   public :: get_FD_grid
-
 contains
 
    subroutine initialize(this,n_r_max,order,order_boundary)

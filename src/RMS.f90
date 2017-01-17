@@ -17,7 +17,7 @@ module RMS
        &                 lm_max_dtB, fd_ratio, fd_stretch
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: rscheme_oc, r, r_CMB
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
        &            l_corr, l_mag, l_finite_diff
    use num_param, only: tScale
@@ -165,7 +165,6 @@ contains
 
       !--- Initialize new cut-back grid:
       call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC,nCut,rscheme_RMS)
-      ! rscheme_RMS => cheb_odd
 
       dtvrms_file='dtVrms.'//tag
       dtbrms_file='dtBrms.'//tag
@@ -340,26 +339,20 @@ contains
          nS=(n_r_max-n_r_max2)/2
          n_cheb_max2=min(int((one-rDea)*n_r_max2),n_cheb_max)
 
-         ratio1=fd_stretch
-         ratio2=fd_ratio
-      else
-         ratio1=0.0_cp
-         ratio2=0.0_cp
-      end if
-
-      allocate( r2(n_r_max2) )
-      bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
+         allocate( r2(n_r_max2) )
+         bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
     
-      do nR=1,n_r_max2
-         r2(nR)=r(nR+nS)
-      end do
-      r_icb2=r2(n_r_max2)
-      r_cmb2=r2(1)
+         do nR=1,n_r_max2
+            r2(nR)=r(nR+nS)
+         end do
+         r_icb2=r2(n_r_max2)
+         r_cmb2=r2(1)
 
-      call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_cheb_max2)
-      call rscheme_RMS%get_grid(n_r_max2, r_icb2, r_cmb2, ratio1, ratio2, r2C)
+         call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_cheb_max2)
+         ratio1 = 0.0_cp
+         ratio2 = 0.0_cp
+         call rscheme_RMS%get_grid(n_r_max2, r_icb2, r_cmb2, ratio1, ratio2, r2C)
 
-      if ( rscheme_RMS%version == 'cheb' ) then
          do nR=1,n_r_max2
             rscheme_RMS%drx(nR)=one
          end do
@@ -369,6 +362,25 @@ contains
          do nR=1,n_r_max2
             rscheme_RMS%drx(nR)=one/dr2(nR)
          end do
+
+      else ! finite differences
+
+         allocate( r2(n_r_max2) )
+         bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
+    
+         do nR=1,n_r_max2
+            r2(nR)=r(nR+nS)
+         end do
+         r_icb2=r2(n_r_max2)
+         r_cmb2=r2(1)
+
+         call rscheme_RMS%initialize(n_r_max, rscheme_oc%order, &
+              &                      rscheme_oc%order_boundary)
+         ratio1 = fd_stretch
+         ratio2 = fd_ratio
+         call rscheme_RMS%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r2C)
+         call rscheme_oc%get_der_mat(n_r_max)
+
       end if
 
    end subroutine init_rNB
@@ -415,9 +427,15 @@ contains
 
       !-- Diffusion
       DifRms=0.0_cp
-      call get_dr(DifPolLMr(llm:,nRC:),workA(llm:,nRC:), &
-           &      ulm-llm+1,1,ulm-llm+1, &
-           &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      if ( rscheme_RMS%version == 'cheb' ) then
+         call get_dr(DifPolLMr(llm:,nRC:),workA(llm:,nRC:), &
+              &      ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      else
+         call get_dr(DifPolLMr(llm:,:),workA(llm:,:), &
+              &      ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_RMS)
+      end if
+
       do nR=1,n_r_maxC
          call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,DifPol2hInt(:,nR+nCut,1), &
               &           lo_map )
@@ -430,8 +448,14 @@ contains
 
       !-- Flow changes
       dtV_Rms=0.0_cp
-      call get_dr(dtVPolLMr(llm:,nRC:),workA(llm:,nRC:),ulm-llm+1,1,ulm-llm+1, &
-           &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      if ( rscheme_RMS%version == 'cheb' ) then
+         call get_dr(dtVPolLMr(llm:,nRC:),workA(llm:,nRC:),ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      else
+         call get_dr(dtVPolLMr(llm:,:),workA(llm:,:),ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_max,rscheme_RMS)
+      end if
+
       do nR=1,n_r_maxC
          call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,dtVPol2hInt(:,nR+nCut,1), &
               &          lo_map)
@@ -946,7 +970,7 @@ contains
             dumm(10)=radratio         ! ratio of inner / outer core
             dumm(11)=tScale           ! timescale
             write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-            write(fileHandle) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
+            write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
             write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
             write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
     

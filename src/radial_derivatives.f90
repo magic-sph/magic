@@ -92,24 +92,61 @@ contains
       complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
     
       !-- Local variables:
-      integer :: n_r,n_f
+      integer :: n_r,n_f,od
+
+      if ( r_scheme%version == 'cheb' ) then
     
-      !-- Transform f to cheb space:
-      call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- Get derivatives:
-      call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,n_cheb_max,one)
-    
-      !-- Transform back:
-      call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
-      call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
-    
-      !-- New map:
-      do n_r=1,n_r_max
-         do n_f=n_f_start,n_f_stop
-            df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+         !-- Transform f to cheb space:
+         call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
+       
+         !-- Get derivatives:
+         call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,n_cheb_max,one)
+       
+         !-- Transform back:
+         call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop,work1)
+         call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop,work1)
+       
+         !-- New map:
+         do n_r=1,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r)=r_scheme%drx(n_r)*df(n_f,n_r)
+            end do
          end do
-      end do
+
+      else
+
+         !-- Initialise to zero:
+         do n_r=1,n_r_max
+            do n_f=n_f_start,n_f_stop
+               df(n_f,n_r) =zero
+            end do
+         end do
+
+         !-- Bulk points for 1st derivative
+         do od=0,r_scheme%order
+            do n_r=1+r_scheme%order/2,n_r_max-r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r)=df(n_f,n_r)+r_scheme%dr(n_r,od)*f(n_f,n_r-r_scheme%order/2+od)
+               end do
+            end do
+         end do
+
+         !-- Boundary points for 1st derivative
+         do od=0,r_scheme%order_boundary
+            do n_r=1,r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r) = df(n_f,n_r)+r_scheme%dr_top(n_r,od) * f(n_f,od+1)
+               end do
+            end do
+            do n_r=1,r_scheme%order/2
+               do n_f=n_f_start,n_f_stop
+                  df(n_f,n_r_max-n_r+1) = df(n_f,n_r_max-n_r+1)+               &
+                  &                       r_scheme%dr_bot(n_r,od)*f(n_f,n_r_max-od)
+               end do
+            end do
+         end do
+
+      end if
 
    end subroutine get_drNS
 !------------------------------------------------------------------------------
