@@ -77,6 +77,9 @@ contains
 
       call this%chebt_oc%initialize(n_r_max, ni, nd)
 
+      allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
+      bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
+
    end subroutine initialize
 !------------------------------------------------------------------------------
    subroutine initialize_mapping(this, n_r_max, ricb, rcmb, ratio1, ratio2, r)
@@ -97,10 +100,6 @@ contains
       integer :: n_r
       real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
-      allocate ( this%drx(n_r_max), this%ddrx(n_r_max), this%dddrx(n_r_max) )
-      bytes_allocated=bytes_allocated+3*n_r_max*SIZEOF_DEF_REAL
-
-      
       if ( l_newmap ) then
          this%alpha1=ratio1
          this%alpha2=ratio2
@@ -146,12 +145,14 @@ contains
 
       class(type_cheb_odd) :: this
 
-      call this%chebt_oc%finalize()
 
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
-      deallocate( this%drx, this%ddrx, this%dddrx )
       deallocate( this%r_cheb )
+      deallocate( this%drx )
+      deallocate( this%ddrx, this%dddrx )
       deallocate( this%work_costf )
+
+      call this%chebt_oc%finalize()
 
    end subroutine finalize
 !------------------------------------------------------------------------------
@@ -242,7 +243,6 @@ contains
       complex(cp), optional, target, intent(inout) :: work_array(n_f_max,this%nRmax)
     
       !-- Local variables:
-      integer :: n
       complex(cp), pointer :: work(:,:)
 
 

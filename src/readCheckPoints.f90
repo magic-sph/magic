@@ -29,7 +29,7 @@ module readCheckPoints
 
    private
 
-   logical :: lreadS,lreadXi
+   logical :: lreadS, lreadXi, lreadR
    logical :: l_axi_old
 
    integer :: n_start_file
@@ -94,6 +94,8 @@ contains
       real(cp) :: omega_ma2Old,omegaOsz_ma2Old
 
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
+      real(cp), allocatable :: r_old(:)
+      character(len=72) :: rscheme_version_old
 
       inquire(file=start_file, exist=startfile_does_exist)
     
@@ -168,16 +170,30 @@ contains
 
     
       if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
-           inform==13) then
+           inform==13 .or. inform==21 .or. inform==23) then
          lreadS=.false.
       else
          lreadS=.true.
       end if
 
-      if ( inform==13 .or. inform==14 ) then
+      if ( inform==13 .or. inform==14 .or. inform==23 .or. inform==24 ) then
          lreadXi=.true.
       else
          lreadXi=.false.
+      end if
+
+      !-- Radius is now stored since it can also handle finite differences
+      if ( inform > 20 ) then
+         lreadR=.true.
+      else
+         lreadR=.false.
+      end if
+
+      if ( lreadR ) then
+         allocate( r_old(n_r_max_old) )
+         read(n_start_file) rscheme_version_old, r_old
+      else
+         rscheme_version_old='cheb'
       end if
     
       allocate( lm2lmo(lm_max) )
