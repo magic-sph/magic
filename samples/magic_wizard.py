@@ -381,7 +381,9 @@ if __name__ == '__main__':
     print('----------------------')
     suite = getSuite(startdir, cmd, precision, args)
     runner = unittest.TextTestRunner(verbosity=0)
-    runner.run(suite)
+    ret = not runner.run(suite).wasSuccessful()
 
     # Clean build directory
     clean_exec_dir(execDir)
+
+    sys.exit(ret)

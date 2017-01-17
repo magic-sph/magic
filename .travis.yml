@@ -24,6 +24,5 @@ script:
     - export FC=/usr/bin/gfortran-5
     - export CC=/usr/bin/gcc-5
     - cd samples
-    - cat /proc/cpuinfo
     - export OMP_NUM_THREADS=1
-    - ./magic_wizard.py --use-mpi --nranks 4 --use-openmp --nthreads 1 --level 0 --mpicmd mpirun
+    - ./magic_wizard.py --use-mpi --nranks 2 --use-openmp --nthreads 1 --level 0 --mpicmd mpirun
