@@ -1611,11 +1611,9 @@ contains
          end do
 
          !-------- normalization for lowest Cheb mode:
-         if ( rscheme_oc%version == 'cheb' ) then
-            do n_r=n_r_max+1,n_r_tot
-               jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
-            end do
-         end if
+         do n_r=n_r_max+1,n_r_tot
+            jMat(n_r,n_r_max+1)=half*jMat(n_r,n_r_max+1)
+         end do
 
          !-------- fill matrix up with zeros:
          do n_r_out=n_r_max+1,n_r_tot
