@@ -1935,21 +1935,22 @@ contains
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
 
-      if ( rscheme_oc%version == 'cheb' ) then
-         if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp==1 ) then
 
-            work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+&
-            &       ogrun(:))*r(:)*r(:)
-            call rscheme_oc%costf1(work)
-            work         =work*rscheme_oc%rnorm
-            work(1)      =half*work(1)
-            work(n_r_max)=half*work(n_r_max)
+         work(:)=ViscHeatFac*alpha0(:)*(ThExpNb*alpha0(:)*temp0(:)+&
+         &       ogrun(:))*r(:)*r(:)
+         call rscheme_oc%costf1(work)
+         work         =work*rscheme_oc%rnorm
+         work(1)      =rscheme_oc%boundary_fac*work(1)
+         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
-            work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:) 
-            call rscheme_oc%costf1(work2)
-            work2         =work2*rscheme_oc%rnorm
-            work2(1)      =half*work2(1)
-            work2(n_r_max)=half*work2(n_r_max)
+         work2(:)=-alpha0(:)*rho0(:)*r(:)*r(:) 
+         call rscheme_oc%costf1(work2)
+         work2         =work2*rscheme_oc%rnorm
+         work2(1)      =rscheme_oc%boundary_fac*work2(1)
+         work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
+
+         if ( rscheme_oc%version == 'cheb' ) then
 
             do n_cheb=1,rscheme_oc%n_max
                nCheb_p=n_cheb+n_r_max
@@ -1968,17 +1969,30 @@ contains
                   end if
                end do
             end do
+         
          else
-            do n_r_out=1,rscheme_oc%n_max
+
+            !-- In the finite differences case, we restrict the integral boundary
+            !-- condition to a trapezoidal rule of integration
+            do n_r_out=2,rscheme_oc%n_max-1
                n_r_out_p=n_r_out+n_r_max
-               pt0Mat(n_r_max+1,n_r_out) =0.0_cp
-               pt0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
+               pt0Mat(n_r_max+1,n_r_out)  =half*work2(n_r_out)*        &
+               &                           ( r(n_r_out+1)-r(n_r_out-1) )
+               pt0Mat(n_r_max+1,n_r_out_p)=half* work(n_r_out)*        &
+               &                           ( r(n_r_out+1)-r(n_r_out-1) )
             end do
+            pt0Mat(n_r_max+1,1)        =half*work2(1)*( r(2)-r(1) )
+            pt0Mat(n_r_max+1,n_r_max+1)=half* work(1)*( r(2)-r(1) )
+            pt0Mat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+            pt0Mat(n_r_max+1,2*n_r_max)=half* work(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+
          end if
+
       else
 
          do n_r_out=1,rscheme_oc%n_max
             n_r_out_p=n_r_out+n_r_max
+            if ( rscheme_oc%version == 'cheb' ) pt0Mat(n_r_max+1,n_r_out) =0.0_cp
             pt0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
          end do
 
@@ -2220,21 +2234,22 @@ contains
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)
       ! Impose that the integral of (rho' r^2) vanishes
-      if ( rscheme_oc%version == 'cheb' ) then
 
-         if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
+      if ( ViscHeatFac*ThExpNb /= 0.0_cp .and. ktopp == 1 ) then
 
-            work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
-            call rscheme_oc%costf1(work)
-            work         =work*rscheme_oc%rnorm
-            work(1)      =half*work(1)
-            work(n_r_max)=half*work(n_r_max)
+         work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
+         call rscheme_oc%costf1(work)
+         work         =work*rscheme_oc%rnorm
+         work(1)      =rscheme_oc%boundary_fac*work(1)
+         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
-            work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:) 
-            call rscheme_oc%costf1(work2)
-            work2         =work2*rscheme_oc%rnorm
-            work2(1)      =half*work2(1)
-            work2(n_r_max)=half*work2(n_r_max)
+         work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:) 
+         call rscheme_oc%costf1(work2)
+         work2         =work2*rscheme_oc%rnorm
+         work2(1)      =rscheme_oc%boundary_fac*work2(1)
+         work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
+
+         if ( rscheme_oc%version == 'cheb' ) then
 
             do n_cheb=1,rscheme_oc%n_max
                nCheb_p=n_cheb+n_r_max
@@ -2253,18 +2268,30 @@ contains
                   end if
                end do
             end do
+
          else
-            do n_r_out=1,n_r_max
+
+            !-- In the finite differences case, we restrict the integral boundary
+            !-- condition to a trapezoidal rule of integration
+            do n_r_out=2,rscheme_oc%n_max-1
                n_r_out_p=n_r_out+n_r_max
-               ps0Mat(n_r_max+1,n_r_out) =0.0_cp
-               ps0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
+               ps0Mat(n_r_max+1,n_r_out)  =half*work2(n_r_out)*        &
+               &                           ( r(n_r_out+1)-r(n_r_out-1) )
+               ps0Mat(n_r_max+1,n_r_out_p)=half*work(n_r_out)*         &
+               &                           ( r(n_r_out+1)-r(n_r_out-1) )
             end do
+            ps0Mat(n_r_max+1,1)        =half*work2(1)*( r(2)-r(1) )
+            ps0Mat(n_r_max+1,n_r_max+1)=half* work(1)*( r(2)-r(1) )
+            ps0Mat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+            ps0Mat(n_r_max+1,2*n_r_max)=half* work(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+
          end if
 
       else
 
          do n_r_out=1,n_r_max
             n_r_out_p=n_r_out+n_r_max
+            if ( rscheme_oc%version == 'cheb' ) ps0Mat(n_r_max+1,n_r_out) =0.0_cp
             ps0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
          end do
 

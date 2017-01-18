@@ -720,26 +720,44 @@ contains
       !-- Boundary condition for spherically-symmetric pressure
       !-- The integral of rho' r^2 dr vanishes
       if ( ThExpNb*ViscHeatFac /= 0 .and. ktopp==1 ) then
+
          work(:) = ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work)
          work(:)      =work(:)*rscheme_oc%rnorm
-         work(1)      =half*work(1)
-         work(n_r_max)=half*work(n_r_max)
-         do nCheb=1,rscheme_oc%n_max
-            pMat(1,nCheb)=0.0_cp
-            do nCheb_in=1,rscheme_oc%n_max
-               if ( mod(nCheb+nCheb_in-2,2)==0 ) then
-                  pMat(1,nCheb)=pMat(1,nCheb)+ &
-                  &             ( one/(one-real(nCheb_in-nCheb,cp)**2)    + &
-                  &               one/(one-real(nCheb_in+nCheb-2,cp)**2) )* &
-                  &               work(nCheb_in)*half*rscheme_oc%rnorm
-               end if
+         work(1)      =rscheme_oc%boundary_fac*work(1)
+         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
+
+         if ( rscheme_oc%version == 'cheb' ) then
+
+            do nCheb=1,rscheme_oc%n_max
+               pMat(1,nCheb)=0.0_cp
+               do nCheb_in=1,rscheme_oc%n_max
+                  if ( mod(nCheb+nCheb_in-2,2)==0 ) then
+                     pMat(1,nCheb)=pMat(1,nCheb)+ &
+                     &             ( one/(one-real(nCheb_in-nCheb,cp)**2)    + &
+                     &               one/(one-real(nCheb_in+nCheb-2,cp)**2) )* &
+                     &               work(nCheb_in)*half*rscheme_oc%rnorm
+                  end if
+               end do
             end do
-         end do
+
+         else
+
+            !-- In the finite differences case, we restrict the integral boundary
+            !-- condition to a trapezoidal rule of integration
+            do nR_out=2,rscheme_oc%n_max-1
+               pMat(n_r_max+1,nR_out)=half*work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
+            end do
+            pMat(n_r_max+1,1)=half*work(1)*(r(2)-r(1))
+
+         end if
+
       else
+
          do nR_out=1,rscheme_oc%n_max
             pMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end do
+
       end if
 
       if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros

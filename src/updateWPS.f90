@@ -1064,38 +1064,56 @@ contains
          work(:)=ThExpNb*ViscHeatFac*ogrun(:)*alpha0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work)
          work         =work*rscheme_oc%rnorm
-         work(1)      =half*work(1)
-         work(n_r_max)=half*work(n_r_max)
+         work(1)      =rscheme_oc%boundary_fac*work(1)
+         work(n_r_max)=rscheme_oc%boundary_fac*work(n_r_max)
 
          work2(:)=-ThExpNb*alpha0(:)*temp0(:)*rho0(:)*r(:)*r(:)
          call rscheme_oc%costf1(work2)
          work2         =work2*rscheme_oc%rnorm
-         work2(1)      =half*work2(1)
-         work2(n_r_max)=half*work2(n_r_max)
+         work2(1)      =rscheme_oc%boundary_fac*work2(1)
+         work2(n_r_max)=rscheme_oc%boundary_fac*work2(n_r_max)
 
-         do nCheb=1,rscheme_oc%n_max
-            nR_out_p=nCheb+n_r_max
-            psMat(n_r_max+1,nR_out_p)=0.0_cp
-            psMat(n_r_max+1,nCheb)   =0.0_cp
-            do n_cheb_in=1,rscheme_oc%n_max
-               if (mod(nCheb+n_cheb_in-2,2)==0) then
-                  psMat(n_r_max+1,nR_out_p)=psMat(n_r_max+1,nR_out_p)+           &
-                  &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
-                  &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
-                  &                       work(n_cheb_in)*half*rscheme_oc%rnorm
-                  psMat(n_r_max+1,nCheb)  =psMat(n_r_max+1,nCheb)+               &
-                  &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
-                  &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
-                  &                     work2(n_cheb_in)*half*rscheme_oc%rnorm
-               end if
+         if ( rscheme_oc%version == 'cheb' ) then
+
+            do nCheb=1,rscheme_oc%n_max
+               nR_out_p=nCheb+n_r_max
+               psMat(n_r_max+1,nR_out_p)=0.0_cp
+               psMat(n_r_max+1,nCheb)   =0.0_cp
+               do n_cheb_in=1,rscheme_oc%n_max
+                  if (mod(nCheb+n_cheb_in-2,2)==0) then
+                     psMat(n_r_max+1,nR_out_p)=psMat(n_r_max+1,nR_out_p)+           &
+                     &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
+                     &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+                     &                       work(n_cheb_in)*half*rscheme_oc%rnorm
+                     psMat(n_r_max+1,nCheb)  =psMat(n_r_max+1,nCheb)+               &
+                     &                     (one/(one-real(n_cheb_in-nCheb,cp)**2)+  &
+                     &                     one/(one-real(n_cheb_in+nCheb-2,cp)**2))*&
+                     &                     work2(n_cheb_in)*half*rscheme_oc%rnorm
+                  end if
+               end do
             end do
-         end do
+
+         else
+
+            !-- In the finite differences case, we restrict the integral boundary
+            !-- condition to a trapezoidal rule of integration
+            do nR_out=2,rscheme_oc%n_max-1
+               nR_out_p=nR_out+n_r_max
+               psMat(n_r_max+1,nR_out)  =half*work2(nR_out)*( r(nR_out+1)-r(nR_out-1) )
+               psMat(n_r_max+1,nR_out_p)=half* work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
+            end do
+            psMat(n_r_max+1,1)        =half*work2(1)*( r(2)-r(1) )
+            psMat(n_r_max+1,n_r_max+1)=half* work(1)*( r(2)-r(1) )
+            psMat(n_r_max+1,n_r_max)  =half*work2(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+            psMat(n_r_max+1,2*n_r_max)=half* work(n_r_max)*( r(n_r_max)-r(n_r_max-1) )
+
+         end if
 
       else
 
          do nR_out=1,rscheme_oc%n_max
             nR_out_p=nR_out+n_r_max
-            psMat(n_r_max+1,nR_out)  =0.0_cp
+            if ( rscheme_oc%version == 'cheb' ) psMat(n_r_max+1,nR_out)  =0.0_cp
             psMat(n_r_max+1,nR_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end do
 
