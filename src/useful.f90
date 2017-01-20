@@ -274,7 +274,7 @@ contains
       !
 
       !-- Input variable
-      integer, intent(inout) :: n
+      integer, intent(in) :: n
 
       integer :: i
 
@@ -360,7 +360,7 @@ contains
 
    end subroutine inverse
 !----------------------------------------------------------------------------
-   subroutine polynomial_interpolation(xold, yold, xnew ,ynew ,dy)
+   subroutine polynomial_interpolation(xold, yold, xnew ,ynew)
 
       !-- Input variables
       real(cp),    intent(in) :: xold(4) 
@@ -369,25 +369,23 @@ contains
 
       !-- Output variables
       complex(cp), intent(out) :: ynew 
-      complex(cp), intent(out) :: dy
 
       !-- Local variables
+      complex(cp) :: dy
       real(cp) :: yold_real(4), yold_imag(4)
       real(cp) :: ynew_real, ynew_imag
-      real(cp) :: dy_real, dy_imag
 
       yold_real= real(yold)
       yold_imag=aimag(yold)
 
-      call polynomial_interpolation_real(xold, yold_real, xnew, ynew_real, dy_real)
-      call polynomial_interpolation_real(xold, yold_imag, xnew, ynew_imag, dy_imag)
+      call polynomial_interpolation_real(xold, yold_real, xnew, ynew_real)
+      call polynomial_interpolation_real(xold, yold_imag, xnew, ynew_imag)
 
       ynew = cmplx(ynew_real, ynew_imag, kind=cp)
-      dy = cmplx(dy_real, dy_imag, kind=cp)
 
    end subroutine polynomial_interpolation
 !----------------------------------------------------------------------------
-   subroutine polynomial_interpolation_real(xold,yold,xnew,ynew,dy)
+   subroutine polynomial_interpolation_real(xold,yold,xnew,ynew)
 
       !-- Input variables:
       real(cp), intent(in) :: xold(:)
@@ -396,12 +394,11 @@ contains
 
       !-- Output variables:
       real(cp), intent(out) :: ynew
-      real(cp), intent(out) :: dy
 
       !-- Local variables:
       integer :: n_stencil
       integer :: n_st, n_st_out, n_s
-      real(cp) :: diff, diff_tmp
+      real(cp) :: diff, diff_tmp, dy
       real(cp) :: ho, hp, den, work_diff
       real(cp), allocatable :: work1(:), work2(:)
 

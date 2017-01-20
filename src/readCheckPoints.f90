@@ -1388,7 +1388,7 @@ contains
       !-- Local variables
       integer :: nR, nR_old, n_r_index_start
       real(cp) :: xold(4)
-      complex(cp) :: yold(4), dy
+      complex(cp) :: yold(4)
       complex(cp), allocatable :: work(:)
       real(cp) :: cheb_norm_old,scale
       type(costf_odd_t) :: chebt_oc_old
@@ -1498,7 +1498,7 @@ contains
                yold(3)=dataR(nR_old)
                yold(4)=dataR(nR_old+1)
 
-               call polynomial_interpolation(xold, yold, r(nR), work(nR), dy)
+               call polynomial_interpolation(xold, yold, r(nR), work(nR))
 
             end do
 
