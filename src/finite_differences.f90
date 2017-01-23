@@ -19,7 +19,6 @@ module finite_differences
    contains
       procedure :: initialize
       procedure :: finalize
-      procedure, private :: nullify_epsilon
       procedure, private :: get_FD_coeffs
       procedure :: get_der_mat
       procedure :: get_grid => get_FD_grid
@@ -81,60 +80,6 @@ contains
       deallocate( this%rMat, this%drMat, this%d2rMat, this%d3rMat )
 
    end subroutine finalize
-!---------------------------------------------------------------------------
-   subroutine nullify_epsilon(this)
-      !
-      ! Nullify epsilon values
-      !
-
-      class(type_fd) :: this
-
-      !-- Local variables
-      real(cp) :: eps
-      integer :: n_r, od
-
-      eps = 100.0_cp*epsilon(one)
-
-      !-- Bulk points for 1st and 2nd derivative
-      do od=0,this%order
-         do n_r=1,this%n_max
-            if ( abs(this%dr(n_r,od)) < eps ) this%dr(n_r,od)=0.0_cp
-            if ( abs(this%ddr(n_r,od)) < eps ) this%ddr(n_r,od)=0.0_cp
-         end do
-      end do
-
-      !-- Bulk points for 3rd derivative
-      do od=0,this%order+2
-         do n_r=1,this%n_max
-            if ( abs(this%dddr(n_r,od)) < eps ) this%dddr(n_r,od)=0.0_cp
-         end do
-      end do
-
-      !-- Boundary points for 1st derivative
-      do od=0,this%order_boundary
-         do n_r=1,this%order/2
-            if ( abs(this%dr_bot(n_r,od)) < eps ) this%dr_bot(n_r,od)=0.0_cp
-            if ( abs(this%dr_top(n_r,od)) < eps ) this%dr_top(n_r,od)=0.0_cp
-         end do
-      end do
-
-      !-- Boundary points for 2nd derivative
-      do od=0,this%order_boundary+1
-         do n_r=1,this%order/2
-            if ( abs(this%ddr_bot(n_r,od)) < eps ) this%ddr_bot(n_r,od)=0.0_cp
-            if ( abs(this%ddr_top(n_r,od)) < eps ) this%ddr_top(n_r,od)=0.0_cp
-         end do
-      end do
-
-      !-- Boundary points for 3rd derivative
-      do od=0,this%order_boundary+2
-         do n_r=1,this%order/2+1
-            if ( abs(this%dddr_bot(n_r,od)) < eps ) this%dddr_bot(n_r,od)=0.0_cp
-            if ( abs(this%dddr_top(n_r,od)) < eps ) this%dddr_top(n_r,od)=0.0_cp
-         end do
-      end do
-
-   end subroutine nullify_epsilon
 !---------------------------------------------------------------------------
    subroutine get_FD_grid(this, n_r_max, ricb, rcmb, ratio1, ratio2, r)
       !
@@ -211,11 +156,17 @@ contains
 
       end if
 
-      if ( abs(r(n_r_max)-ricb) > 10.0_cp*epsilon(one) ) then
-         if ( rank == 0 ) then
-            write(*,*) 'Wrong internal radius!'
+      if ( r(n_r_max) /= ricb ) then
+
+         if ( abs(r(n_r_max)-ricb) > dr_before ) then
+            if ( rank == 0 ) then
+               write(*,*) 'Wrong internal radius!'
+            end if
             stop
+         else
+            r(n_r_max)=ricb
          end if
+
       end if
 
       call this%get_FD_coeffs(r)
