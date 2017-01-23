@@ -7,8 +7,7 @@ module finite_differences
    use precision_mod
    use parallel_mod, only: rank
    use constants, only: one, two
-   !use truncation, only: n_r_max
-   use useful, only: logWrite, factorial, inverse
+   use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
 
@@ -220,7 +219,6 @@ contains
       end if
 
       call this%get_FD_coeffs(r)
-      call this%nullify_epsilon()
 
    end subroutine get_FD_grid
 !---------------------------------------------------------------------------
@@ -234,74 +232,46 @@ contains
       !-- Local quantities:
       real(cp), allocatable :: dr_spacing(:)
       real(cp), allocatable :: taylor_exp(:,:)
-      real(cp), allocatable :: taylor_exp_inv(:,:)
-      real(cp) :: weight
-      integer :: n_r, od, od_in
+      integer :: n_r, od
 
       !
       !-- Step 1: First and 2nd derivatives in the bulk
       !
       allocate( dr_spacing(this%order+1) )
       allocate( taylor_exp(0:this%order,0:this%order) )
-      allocate( taylor_exp_inv(0:this%order,0:this%order) )
 
       do n_r=1+this%order/2,this%n_max-this%order/2
          do od=0,this%order
             dr_spacing(od+1)=r(n_r-this%order/2+od)-r(n_r)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+1)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order, &
+              &                   this%order,taylor_exp)
 
          do od=0,this%order
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+1)
-
-         do od_in=0,this%order
-            !-- Preconditioning
-            do od=0,this%order
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dr(n_r,od_in) =taylor_exp_inv(1,od_in)
-            this%ddr(n_r,od_in)=taylor_exp_inv(2,od_in)
+            this%dr(n_r,od) =taylor_exp(od,1)
+            this%ddr(n_r,od)=taylor_exp(od,2)
          end do
       end do
 
-      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+      deallocate( dr_spacing, taylor_exp )
 
       !
       !-- Step 2: First derivative for the outer points
       !
       allocate( dr_spacing(this%order_boundary+1) )
       allocate( taylor_exp(0:this%order_boundary,0:this%order_boundary) )
-      allocate( taylor_exp_inv(0:this%order_boundary,0:this%order_boundary) )
 
       do n_r=1,this%order/2
          do od=0,this%order_boundary
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+1)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary, &
+              &                   this%order_boundary,taylor_exp)
 
          do od=0,this%order_boundary
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+1)
-
-         do od_in=0,this%order_boundary
-            !-- Preconditioning
-            do od=0,this%order_boundary
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dr_top(n_r,od_in) =taylor_exp_inv(1,od_in)
+            this%dr_top(n_r,od) =taylor_exp(od,1)
          end do
       end do
 
@@ -313,57 +283,32 @@ contains
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+1)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary, &
+              &                   this%order_boundary,taylor_exp)
 
          do od=0,this%order_boundary
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+1)
-
-         do od_in=0,this%order_boundary
-            !-- Preconditioning
-            do od=0,this%order_boundary
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dr_bot(n_r,od_in) =taylor_exp_inv(1,od_in)
+            this%dr_bot(n_r,od) =taylor_exp(od,1)
          end do
       end do
 
-      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+      deallocate( dr_spacing, taylor_exp )
 
       !
       !-- Step 4: 2nd derivative for the outer points
       !
       allocate( dr_spacing(this%order_boundary+2) )
       allocate( taylor_exp(0:this%order_boundary+1,0:this%order_boundary+1) )
-      allocate( taylor_exp_inv(0:this%order_boundary+1,0:this%order_boundary+1) )
 
       do n_r=1,this%order/2
          do od=0,this%order_boundary+1
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+2)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+1, &
+              &                   this%order_boundary+1,taylor_exp)
 
          do od=0,this%order_boundary+1
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+2)
-
-         do od_in=0,this%order_boundary+1
-            !-- Preconditioning
-            do od=0,this%order_boundary+1
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%ddr_top(n_r,od_in) =taylor_exp_inv(2,od_in)
+            this%ddr_top(n_r,od) =taylor_exp(od,2)
          end do
       end do
 
@@ -375,91 +320,52 @@ contains
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+2)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+1, &
+              &                   this%order_boundary+1,taylor_exp)
 
          do od=0,this%order_boundary+1
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+2)
-
-         do od_in=0,this%order_boundary+1
-            !-- Preconditioning
-            do od=0,this%order_boundary+1
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%ddr_bot(n_r,od_in) =taylor_exp_inv(2,od_in)
+            this%ddr_bot(n_r,od) =taylor_exp(od,2)
          end do
       end do
 
-      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+      deallocate( dr_spacing, taylor_exp )
 
       !
       !-- Step 6: 3rd derivative in the bulk
       !
       allocate( dr_spacing(this%order+3) )
       allocate( taylor_exp(0:this%order+2,0:this%order+2) )
-      allocate( taylor_exp_inv(0:this%order+2,0:this%order+2) )
 
       do n_r=2+this%order/2,this%n_max-this%order/2-1
          do od=0,this%order+2
             dr_spacing(od+1)=r(n_r-this%order/2-1+od)-r(n_r)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order+3)
-
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order+2,this%order+2, &
+              &                   taylor_exp)
          do od=0,this%order+2
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order+3)
-
-         do od_in=0,this%order+2
-            !-- Preconditioning
-            do od=0,this%order+2
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dddr(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr(n_r,od) =taylor_exp(od,3)
          end do
       end do
 
-      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+      deallocate( dr_spacing, taylor_exp )
 
       !
       !-- Step 7: 3rd derivative for the outer points
       !
       allocate( dr_spacing(this%order_boundary+3) )
       allocate( taylor_exp(0:this%order_boundary+2,0:this%order_boundary+2) )
-      allocate( taylor_exp_inv(0:this%order_boundary+2,0:this%order_boundary+2) )
 
       do n_r=1,this%order/2+1
          do od=0,this%order_boundary+2
             dr_spacing(od+1)=r(od+1)-r(n_r)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+3)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+2, &
+              &                   this%order_boundary+2,taylor_exp)
 
          do od=0,this%order_boundary+2
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+3)
-
-         do od_in=0,this%order_boundary+2
-            !-- Preconditioning
-            do od=0,this%order_boundary+2
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dddr_top(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr_top(n_r,od) =taylor_exp(od,3)
          end do
       end do
 
@@ -471,27 +377,15 @@ contains
             dr_spacing(od+1)=r(this%n_max-od)-r(this%n_max-n_r+1)
          end do
 
-         !-- This is a weight for matrix preconditioning
-         weight = sum(abs(dr_spacing))/(this%order_boundary+3)
+         call populate_fd_weights(0.0_cp,dr_spacing,this%order_boundary+2, &
+              &                   this%order_boundary+2,taylor_exp)
 
          do od=0,this%order_boundary+2
-            taylor_exp(:, od) = (dr_spacing(:)/weight)**od
-         end do
-
-         !-- Invert the matrix to get the FD coeffs
-         call inverse(taylor_exp, taylor_exp_inv, this%order_boundary+3)
-
-         do od_in=0,this%order_boundary+2
-            !-- Preconditioning
-            do od=0,this%order_boundary+2
-               taylor_exp_inv(od, od_in) = taylor_exp_inv(od,od_in)* &
-               &                           factorial(od)/weight**od
-            end do
-            this%dddr_bot(n_r,od_in) =taylor_exp_inv(3,od_in)
+            this%dddr_bot(n_r,od) =taylor_exp(od,3)
          end do
       end do
 
-      deallocate( dr_spacing, taylor_exp, taylor_exp_inv )
+      deallocate( dr_spacing, taylor_exp )
 
    end subroutine get_FD_coeffs
 !---------------------------------------------------------------------------
@@ -546,5 +440,65 @@ contains
       end do
 
    end subroutine get_der_mat
-!---------------------------------------------------------------------------
+!----------------------------------------------------------------------------
+   subroutine populate_fd_weights(z, x, nd, m, c)
+      !
+      !  Input Parameters
+      !    z            -  location where approximations are to be
+      !                    accurate
+      !    x(0:nd)      -  grid point locations, found in x(0:n)
+      !    nd           -  dimension of x- and c-arrays in calling
+      !                    program x(0:nd) and c(0:nd, 0:m), respectively
+      !    m            -  highest derivative for which weights are
+      !                    sought
+      !
+      !  Output Parameter
+      !    c(0:nd,0:m)  -  weights at grid locations x(0:n) for
+      !                    derivatives of order 0:m, found in c(0:nd, 0:m)
+      !
+      !  Reference:
+      !      Generation of Finite Difference Formulas on Arbitrarily
+      !          Spaced Grids, Bengt Fornberg,
+      !          Mathematics of compuation, 51, 184, 1988, 699-706
+
+      !-- Input quantities:
+      real(cp), intent(in) :: z
+      integer,  intent(in) :: nd, m
+      real(cp), intent(in) :: x(0:nd)
+
+      !-- Output:
+      real(cp), intent(out) :: c(0:nd, 0:m)
+
+      !-- Local variables
+      real(cp) :: c1, c2, c3, c4, c5
+      integer :: i, j, k, mn
+
+      c1 = 1.0_cp
+      c4 = x(0) - z
+      c(:,:)  = 0.0_cp
+      c(0, 0) = 1.0_cp
+      do i=1, nd
+         mn = min(i, m)
+         c2 = 1.0_cp
+         c5 = c4
+         c4 = x(i) - z
+         do j=0, i-1
+            c3 = x(i) - x(j)
+            c2 = c2*c3
+            if (j == i-1) then
+               do k = mn, 1, -1
+                   c(i, k) = c1*(k*c(i-1, k-1) - c5*c(i-1, k))/c2
+               end do
+               c(i, 0) = -c1*c5*c(i-1, 0)/c2
+            endif
+            do k=mn, 1, -1
+               c(j, k) = (c4*c(j, k) - k*c(j, k-1))/c3
+            end do
+            c(j, 0) = c4*c(j, 0)/c3
+         end do
+         c1 = c2
+      end do
+
+   end subroutine populate_fd_weights
+!------------------------------------------------------------------------------
 end module finite_differences
