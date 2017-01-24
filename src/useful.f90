@@ -279,7 +279,6 @@ contains
       complex(cp), intent(out) :: ynew 
 
       !-- Local variables
-      complex(cp) :: dy
       real(cp) :: yold_real(4), yold_imag(4)
       real(cp) :: ynew_real, ynew_imag
 

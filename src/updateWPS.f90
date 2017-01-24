@@ -1113,7 +1113,7 @@ contains
 
          do nR_out=1,rscheme_oc%n_max
             nR_out_p=nR_out+n_r_max
-            if ( rscheme_oc%version == 'cheb' ) psMat(n_r_max+1,nR_out)  =0.0_cp
+            psMat(n_r_max+1,nR_out)  =0.0_cp
             psMat(n_r_max+1,nR_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          end do
 

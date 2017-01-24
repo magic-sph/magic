@@ -1990,7 +1990,7 @@ contains
 
          do n_r_out=1,rscheme_oc%n_max
             n_r_out_p=n_r_out+n_r_max
-            if ( rscheme_oc%version == 'cheb' ) pt0Mat(n_r_max+1,n_r_out) =0.0_cp
+            pt0Mat(n_r_max+1,n_r_out) =0.0_cp
             pt0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
          end do
 
@@ -2289,7 +2289,7 @@ contains
 
          do n_r_out=1,n_r_max
             n_r_out_p=n_r_out+n_r_max
-            if ( rscheme_oc%version == 'cheb' ) ps0Mat(n_r_max+1,n_r_out) =0.0_cp
+            ps0Mat(n_r_max+1,n_r_out)  =0.0_cp
             ps0Mat(n_r_max+1,n_r_out_p)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
          end do
 
