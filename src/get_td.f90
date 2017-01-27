@@ -322,23 +322,34 @@ contains
 
                   if ( l_corr ) then
                      if ( l < l_max .and. l > m ) then
-                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                    &
-                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) )        + &
-                        &  dTheta3A(lm)*( dz_Rloc(lmA,nR)-beta(nR)*z_Rloc(lmA,nR) ) + &
-                        &  dTheta3S(lm)*( dz_Rloc(lmS,nR)-beta(nR)*z_Rloc(lmS,nR) ) + &
-                        &  dLh(lm)*or1(nR)* (                                         &
-                        &  dTheta2A(lm)*z_Rloc(lmA,nR)-dTheta2S(lm)*z_Rloc(lmS,nR) ) )
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                        &                   dPhi0(lm)*(                          &
+                        &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                        &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                        &                         leg_helper%dLhw(lm) )        + &
+                        &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                        &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                        &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
+                        &                            beta(nR)*z_Rloc(lmS,nR) ) + &
+                        &          or1(nR)* (                                    &
+                        &         dTheta4A(lm)* z_Rloc(lmA,nR)          &
+                        &        -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
                      else if ( l == l_max ) then
-                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                &
-                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR) + &
-                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) ) )
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                        &                   dPhi0(lm)*(                          &
+                        &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                        &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                        &                         leg_helper%dLhw(lm) ) )
                      else if ( l == m ) then
-                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                    &
-                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
-                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) )        + &
-                        &  dTheta3A(lm)*( dz_Rloc(lmA,nR)-beta(nR)*z_Rloc(lmA,nR) ) + &
-                        &  dLh(lm)*or1(nR)* dTheta2A(lm)*z_Rloc(lmA,nR) )
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
+                        &                   dPhi0(lm)*(                          &
+                        &         -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                        &             ( beta(nR)*or1(nR)+or2(nR))*               &
+                        &                         leg_helper%dLhw(lm) )        + &
+                        &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
+                        &                            beta(nR)*z_Rloc(lmA,nR) ) + &
+                        &          or1(nR)* (                                    &
+                        &          dTheta4A(lm)* z_Rloc(lmA,nR) ) )
                      end if
                   else
                      CorPol_loc=zero
