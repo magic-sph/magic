@@ -6,9 +6,10 @@ module radialLoop
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
-   use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
-       &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,            &
-       &            l_PressGraph, l_TP_form, l_single_matrix
+   use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic,    &
+       &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,               &
+       &            l_PressGraph, l_TP_form, l_single_matrix, l_double_curl, &
+       &            l_chemical_conv
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -86,7 +87,7 @@ contains
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
               &          lRmsCalc,lViscBcCalc,lFluxProfCalc,lPerpParCalc,&
               &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,            &
-              &          dVxBhLM,dVSrLM,dVPrLM,dVXirLM,                  &
+              &          dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,          &
               &          lorentz_torque_ic,lorentz_torque_ma,            &
               &          br_vt_lm_cmb,br_vp_lm_cmb,                      &
               &          br_vt_lm_icb,br_vp_lm_icb,                      &
@@ -119,6 +120,7 @@ contains
       complex(cp), intent(out) :: dVXirLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dbdt(lm_maxMag,nRstartMag:nRstopMag)
       complex(cp), intent(out) :: djdt(lm_maxMag,nRstartMag:nRstopMag)
+      complex(cp), intent(out) :: dVxVhLM(lm_max,nRstart:nRstop)
       complex(cp), intent(out) :: dVxBhLM(lm_maxMag,nRstartMag:nRstopMag)
       real(cp),    intent(out) :: lorentz_torque_ma,lorentz_torque_ic
 
@@ -191,14 +193,14 @@ contains
       do lm=1,lm_max
          if ( rank == 0 ) then
             dVSrLM(lm,n_r_cmb) =zero
-            if ( l_mag ) then
-               dVxBhLM(lm,n_r_cmb)=zero
-            end if
+            if ( l_chemical_conv ) dVXirLM(lm,n_r_cmb)=zero
+            if ( l_mag ) dVxBhLM(lm,n_r_cmb)=zero
+            if ( l_double_curl ) dVxVhLM(lm,n_r_cmb)=zero
          elseif (rank == n_procs-1) then
             dVSrLM(lm,n_r_icb) =zero
-            if ( l_mag ) then
-               dVxBhLM(lm,n_r_icb)=zero
-            end if
+            if ( l_chemical_conv ) dVXirLM(lm,n_r_icb)=zero
+            if ( l_mag ) dVxBhLM(lm,n_r_icb)=zero
+            if ( l_double_curl ) dVxVhLM(lm,n_r_icb)=zero
          end if
       end do
 
@@ -274,14 +276,14 @@ contains
 
          call this_rIteration%do_iteration(nR,nBc,time,dt,dtLast,              &
               & dsdt(:,nR),dwdt(:,nR),dzdt(:,nR),dpdt(:,nR),dxidt(:,nR),       &
-              & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxBhLM(:,nR_Mag),dVSrLM(:,nR),  &
-              & dVPrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,br_vp_lm_cmb,          &
-              & br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,lorentz_torque_ma, &
-              & HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),Helna2LMr(:,nR),     &
-              & viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),gradsLMr(:,nR),         &
-              & fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),fpoynLMr(:,nR_Mag),&
-              & fresLMr(:,nR_Mag),EperpLMr(:,nR),EparLMr(:,nR),                &
-              & EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
+              & dbdt(:,nR_Mag),djdt(:,nR_Mag),dVxVhLM(:,nR),dVxBhLM(:,nR_Mag), &
+              & dVSrLM(:,nR),dVPrLM(:,nR),dVXirLM(:,nR),br_vt_lm_cmb,          &
+              & br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,lorentz_torque_ic,      &
+              & lorentz_torque_ma,HelLMr(:,nR),Hel2LMr(:,nR),HelnaLMr(:,nR),   &
+              & Helna2LMr(:,nR),viscLMr(:,nR),uhLMr(:,nR),duhLMr(:,nR),        &
+              & gradsLMr(:,nR),fconvLMr(:,nR),fkinLMr(:,nR),fviscLMr(:,nR),    &
+              & fpoynLMr(:,nR_Mag),fresLMr(:,nR_Mag),EperpLMr(:,nR),           &
+              & EparLMr(:,nR),EperpaxiLMr(:,nR),EparaxiLMr(:,nR))
 
          dtrkc(nR)=this_rIteration%dtrkc      
          dthkc(nR)=this_rIteration%dthkc      

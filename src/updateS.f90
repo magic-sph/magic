@@ -467,7 +467,7 @@ contains
 
          !--- Finish calculation of dsdt:
          call get_dr( dVSrLM,work_LMloc,ulm-llm+1,start_lm-llm+1,    &
-              &       stop_lm-llm+1,n_r_max,rscheme_oc )
+              &       stop_lm-llm+1,n_r_max,rscheme_oc, nocopy=.true. )
       end do
       !$OMP end do
 

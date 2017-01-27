@@ -397,6 +397,8 @@ contains
          l_corr=.true.
       end if
 
+      l_double_curl=.true.
+
       !-- Choose between temperature and entropy (same in the Boussinesq limit)
       call capitalize(thermo_variable)
       if ( index(thermo_variable, 'T') /= 0 ) then

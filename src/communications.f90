@@ -12,7 +12,7 @@ module communications
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use radial_data, only: nRstart, nRstop
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, &
-       &            l_mag_kin, l_TP_form
+       &            l_mag_kin, l_TP_form, l_double_curl
  
    implicit none
  
@@ -245,7 +245,11 @@ contains
       end if
       if ( l_conv .or. l_mag_kin) then
          call create_lm2r_type(lo2r_flow,7)
-         call create_r2lm_type(r2lo_flow,3)
+         if ( l_double_curl ) then
+            call create_r2lm_type(r2lo_flow,4)
+         else
+            call create_r2lm_type(r2lo_flow,3)
+         end if
       end if
 
       if ( l_mag ) then

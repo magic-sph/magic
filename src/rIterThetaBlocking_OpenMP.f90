@@ -118,9 +118,9 @@ contains
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxBhLM,     &
-        &                 dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb, &
-        &                 br_vt_lm_icb,br_vp_lm_icb,                       &
+        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
+        &                 dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
+        &                 br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
         &                 lorentz_torque_ic, lorentz_torque_ma,            &
         &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
         &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
@@ -133,7 +133,7 @@ contains
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:), dVPrLM(:),dVXirLM(:)
-      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
+      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:),dVxVhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
       complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
@@ -693,8 +693,9 @@ contains
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,          &
-           &                    dVSrLM,dVPrLM,dVXirLM,dVxBhLM,dwdt,dzdt, &
-           &                    dpdt,dsdt,dxidt,dbdt,djdt,this%leg_helper)
+           &                    dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM,   &
+           &                    dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,     &
+           &                    this%leg_helper)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

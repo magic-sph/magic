@@ -49,6 +49,7 @@ module radial_functions
    real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
    real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
    real(cp), public, allocatable :: dbeta(:)     ! Radial gradient of beta
+   real(cp), public, allocatable :: ddbeta(:)    ! 2nd derivative of beta
 
    real(cp), public, allocatable :: alpha0(:)    ! Thermal expansion coefficient
    real(cp), public, allocatable :: dLalpha0(:)  ! :math:`1/\alpha d\alpha/dr`
@@ -101,6 +102,7 @@ module radial_functions
    real(cp), public, allocatable :: dLkappa(:)    ! Derivative of thermal diffusivity
    real(cp), public, allocatable :: visc(:)       ! Kinematic viscosity
    real(cp), public, allocatable :: dLvisc(:)     ! Derivative of kinematic viscosity
+   real(cp), public, allocatable :: ddLvisc(:)    ! 2nd derivative of kinematic viscosity
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
@@ -126,17 +128,17 @@ contains
       allocate( dLtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
       allocate( ddLtemp0(n_r_max) )
       allocate( orho1(n_r_max),orho2(n_r_max) )
-      allocate( beta(n_r_max), dbeta(n_r_max) )
+      allocate( beta(n_r_max), dbeta(n_r_max), ddbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
-      bytes_allocated = bytes_allocated+(21*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
       allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
       allocate( sigma(n_r_max) )
       allocate( kappa(n_r_max),dLkappa(n_r_max) )
-      allocate( visc(n_r_max),dLvisc(n_r_max) )
+      allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
       allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
-      bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
       nDi_costf1_ic=2*n_r_ic_max+2
       nDd_costf1_ic=2*n_r_ic_max+5
@@ -182,10 +184,10 @@ contains
 
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
-      deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
+      deallocate( ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0 )
       deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
-      deallocate( visc, dLvisc, epscProf, divKtemp0 )
+      deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
 
       deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
       call chebt_ic%finalize()
@@ -312,6 +314,7 @@ contains
 
             ! The final stuff is always required
             call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+            call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
             call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
             call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
             dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
@@ -468,6 +471,7 @@ contains
 
          ! The final stuff is always required
          call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+         call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
          call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
          call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
          dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
@@ -503,6 +507,7 @@ contains
 
                ! The final stuff is always required
                call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+               call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
                call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
 
                dLtemp0 = dtemp0/temp0
@@ -511,19 +516,20 @@ contains
             else !-- Adiabatic reference state
 
                if ( l_isothermal ) then ! Gruneisen is zero in this limit
-                  fac      =strat /( g0+half*g1*(one+radratio) +g2/radratio )
-                  DissNb   =0.0_cp
-                  GrunNb   =0.0_cp
-                  temp0    =one
-                  rho0     =exp(-fac*(g0*(r-r_cmb) +      &
-                            g1/(two*r_cmb)*(r**2-r_cmb**2) - &
-                            g2*(r_cmb**2/r-r_cmb)))
+                  fac        =strat /( g0+half*g1*(one+radratio) +g2/radratio )
+                  DissNb     =0.0_cp
+                  GrunNb     =0.0_cp
+                  temp0(:)   =one
+                  rho0(:)    =exp(-fac*(g0*(r(:)-r_cmb) +         &
+                  &           g1/(two*r_cmb)*(r(:)**2-r_cmb**2) - &
+                  &           g2*(r_cmb**2/r(:)-r_cmb)))
 
-                  beta     =-fac*rgrav
-                  dbeta    =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3)
-                  d2temp0  =0.0_cp
-                  dLtemp0  =0.0_cp
-                  ddLtemp0 =0.0_cp
+                  beta(:)    =-fac*rgrav(:)
+                  dbeta(:)   =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3(:))
+                  ddbeta(:)  =6.0_cp*fac*g2*r_cmb**2*or4(:)
+                  d2temp0(:) =0.0_cp
+                  dLtemp0(:) =0.0_cp
+                  ddLtemp0(:)=0.0_cp
                else
                   if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
                      strat = polind* log(( g0+half*g1*(one+radratio)+g2/radratio )* &
@@ -532,28 +538,34 @@ contains
                      DissNb=( exp(strat/polind)-one )/ &
                             ( g0+half*g1*(one+radratio) +g2/radratio )
                   end if
-                  GrunNb   =one/polind
-                  temp0    =-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
-                            one + DissNb*r_cmb*(g0+half*g1-g2)
-                  rho0     =temp0**polind
+                  GrunNb      =one/polind
+                  temp0(:)    =-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb- &
+                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb*(g0+half*g1-g2)
+                  rho0(:)     =temp0**polind
 
                   !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-                  beta     =-polind*DissNb*rgrav/temp0
-                  dbeta    =-polind*DissNb/temp0**2 *         &
-                            ((g1/r_cmb-two*g2*r_cmb**2*or3)*  &
-                            temp0  + DissNb*rgrav**2)
-                  dtemp0   =-DissNb*rgrav
-                  d2temp0  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
-                  dLtemp0  =dtemp0/temp0
-                  ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+                  beta(:)     =-polind*DissNb*rgrav(:)/temp0(:)
+                  dbeta(:)    =-polind*DissNb/temp0(:)**2 *         &
+                  &            ((g1/r_cmb-two*g2*r_cmb**2*or3(:))*  &
+                  &            temp0(:)  + DissNb*rgrav(:)**2)
+                  ddbeta(:)   =-polind*DissNb/temp0(:)**3 * (   temp0(:)*          &
+                  &            ( 6.0_cp*g2*r_cmb**2*or4(:)*temp0(:)+               &
+                  &              DissNb*rgrav(:)*(g1/r_cmb-two*g2*r_cmb**2*or3(:)) &
+                  &            )+two*DissNb*rgrav(:)*(DissNb*rgrav(:)**2+          &
+                  &             (g1/r_cmb-two*g2*r_cmb**2*or3(:))*temp0(:) ) )
+                  dtemp0(:)   =-DissNb*rgrav(:)
+                  d2temp0(:)  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3(:))
+                  dLtemp0(:)  =dtemp0(:)/temp0(:)
+                  ddLtemp0(:) =-(dtemp0(:)/temp0(:))**2+d2temp0(:)/temp0(:)
                end if
+
             end if
 
             !-- Thermal expansion coefficient (1/T for an ideal gas)
-            alpha0   =one/temp0
-            ogrun    =one
-            dLalpha0 =-dLtemp0
-            ddLalpha0=-ddLtemp0
+            alpha0(:)   =one/temp0(:)
+            ogrun(:)    =one
+            dLalpha0(:) =-dLtemp0(:)
+            ddLalpha0(:)=-ddLtemp0(:)
 
          end if
       end if
@@ -592,9 +604,9 @@ contains
 
       !-- Get additional functions of r:
       if ( l_anel ) then
-         orho1      =one/rho0
-         orho2      =orho1*orho1
-         otemp1     =one/temp0
+         orho1(:)   =one/rho0(:)
+         orho2(:)   =orho1(:)*orho1(:)
+         otemp1(:)  =one/temp0(:)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -602,22 +614,23 @@ contains
             OhmLossFac=0.0_cp
          end if
       else
-         rho0     =one
-         temp0    =one
-         otemp1   =one
-         orho1    =one
-         orho2    =one
-         alpha0   =one
-         ogrun    =one
-         beta     =0.0_cp
-         dbeta    =0.0_cp
-         dLalpha0 =0.0_cp
-         ddLalpha0=0.0_cp
-         dLtemp0  =0.0_cp
-         ddLtemp0 =0.0_cp
-         d2temp0  =0.0_cp
-         ViscHeatFac=0.0_cp
-         OhmLossFac =0.0_cp
+         rho0(:)     =one
+         temp0(:)    =one
+         otemp1(:)   =one
+         orho1(:)    =one
+         orho2(:)    =one
+         alpha0(:)   =one
+         ogrun(:)    =one
+         beta(:)     =0.0_cp
+         dbeta(:)    =0.0_cp
+         ddbeta(:)   =0.0_cp
+         dLalpha0(:) =0.0_cp
+         ddLalpha0(:)=0.0_cp
+         dLtemp0(:)  =0.0_cp
+         ddLtemp0(:) =0.0_cp
+         d2temp0(:)  =0.0_cp
+         ViscHeatFac =0.0_cp
+         OhmLossFac  =0.0_cp
       end if
 
       !-- Factors for cheb integrals:
@@ -856,16 +869,19 @@ contains
 
       !-- Variable viscosity
       if ( nVarVisc == 0 ) then ! default: constant kinematic viscosity
-         visc  =one
-         dLvisc=0.0_cp
+         visc(:)   =one
+         dLvisc(:) =0.0_cp
+         ddLvisc(:)=0.0_cp
       else if ( nVarVisc == 1 ) then ! Constant dynamic viscosity
-         visc=rho0(n_r_max)/rho0
+         visc(:)=rho0(n_r_max)/rho0(:)
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
-         dLvisc=dvisc/visc
+         dLvisc(:)=dvisc(:)/visc(:)
+         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       else if ( nVarVisc == 2 ) then ! Profile
          visc=(rho0/rho0(n_r_max))**difExp
          call get_dr(visc,dvisc,n_r_max,rscheme_oc)
-         dLvisc=dvisc/visc
+         dLvisc(:)=dvisc(:)/visc(:)
+         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       end if
 
       if ( l_anelastic_liquid .or. l_non_adia ) then
@@ -1089,6 +1105,7 @@ contains
       call get_dr(rho0,drho0,n_r_max,rscheme_oc)
       beta(:)=drho0(:)/rho0(:)
       call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+      call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
       call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
       call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
       dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr

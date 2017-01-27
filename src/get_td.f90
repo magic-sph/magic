@@ -10,9 +10,9 @@ module nonlinear_lm_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
-       &             l_chemical_conv, l_TP_form, l_single_matrix
+       &             l_chemical_conv, l_TP_form, l_single_matrix, l_double_curl
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
-       &                       or4, temp0, alpha0, ogrun
+       &                       or4, temp0, alpha0, ogrun, orho1
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
        &                          BuoFac, ThExpNb
@@ -26,7 +26,7 @@ module nonlinear_lm_mod
        &          CIA2hInt
    use leg_helper_mod, only: leg_helper_t
    use constants, only: zero, two
-   use fields, only: w_Rloc,dw_Rloc,z_Rloc
+   use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
    use RMS_helpers, only: hIntRms
     
 
@@ -202,12 +202,12 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVPrLM,dVXirLM,dVxBhLM, &
+   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM, &
               &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,leg_helper)
       !
       !  Purpose of this to calculate time derivatives
       !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
-      !  and auxiliary arrays dVSrLM, dVXirLM and dVxBhLM
+      !  and auxiliary arrays dVSrLM, dVXirLM and dVxBhLM, dVxVhLM
       !  from non-linear terms in spectral form,
       !  contained in flmw1-3,flms1-3, flmb1-3 (input)
       !
@@ -226,6 +226,7 @@ contains
       complex(cp), intent(out) :: dxidt(:)
       complex(cp), intent(out) :: dbdt(:),djdt(:)
       complex(cp), intent(out) :: dVxBhLM(:)
+      complex(cp), intent(out) :: dVxVhLM(:)
       complex(cp), intent(out) :: dVSrLM(:)
       complex(cp), intent(out) :: dVXirLM(:)
       complex(cp), intent(out) :: dVPrLM(:)
@@ -303,7 +304,7 @@ contains
             !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmPS,lmP2lmPA) &
             !$OMP shared(lm_max,l_corr,l_max,l_conv_nl,lRmsCalc,l_mag_LF) &
             !$OMP shared(CorPol,AdvPol,LFPol,AdvTor,LFTor,z_Rloc,nR) &
-            !$OMP shared(w_Rloc,this,dw_Rloc,nBc,leg_helper,Buo) &
+            !$OMP shared(w_Rloc,l_double_curl,this,dw_Rloc,nBc,leg_helper,Buo) &
             !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
             !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
             !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac,l_TP_form,temp0) &
@@ -317,59 +318,82 @@ contains
                lmPS=lmP2lmPS(lmP)
                lmPA=lmP2lmPA(lmP)
     
-#if 0
-               write(*,"(A,I4,A)") "========== lm = ",lm," =========="
-               call print_cache_info_integer("l"//C_NULL_CHAR,l)
-               call print_cache_info_dcmplx("dPhi0"//C_NULL_CHAR,dPhi0(lm))
-               call print_cache_info_dcmplx("dPhi"//C_NULL_CHAR,dPhi(lm))
-               call print_cache_info_dreal("dTheta1A"//C_NULL_CHAR,dTheta1A(lm))
-               call print_cache_info_dreal("dTheta1S"//C_NULL_CHAR,dTheta1S(lm))
-               call print_cache_info_dreal("dTheta2A"//C_NULL_CHAR,dTheta2A(lm))
-               call print_cache_info_dreal("dTheta2S"//C_NULL_CHAR,dTheta2S(lm))
-               call print_cache_info_dreal("dTheta3A"//C_NULL_CHAR,dTheta3A(lm))
-               call print_cache_info_dreal("dTheta3S"//C_NULL_CHAR,dTheta3S(lm))
-               call print_cache_info_dreal("dTheta4A"//C_NULL_CHAR,dTheta4A(lm))
-               call print_cache_info_dreal("dTheta4S"//C_NULL_CHAR,dTheta4S(lm))
-               call print_cache_info_dcmplx("z_Rloc(lmA)"//C_NULL_CHAR,z_Rloc(lmA,nR))
-               call print_cache_info_dcmplx("z_Rloc(lmS)"//C_NULL_CHAR,z_Rloc(lmS,nR))
-               call print_cache_info_dcmplx("w_Rloc(lmA)"//C_NULL_CHAR,w_Rloc(lmA,nR))
-               call print_cache_info_dcmplx("w_Rloc(lmS)"//C_NULL_CHAR,w_Rloc(lmS,nR))
-               call print_cache_info_dcmplx("dw_Rloc(lmA)"//C_NULL_CHAR,dw_Rloc(lmA,nR))
-               call print_cache_info_dcmplx("dw_Rloc(lmS)"//C_NULL_CHAR,dw_Rloc(lmS,nR))
-               call print_cache_info_dcmplx("dw_Rloc"//C_NULL_CHAR,dw_Rloc(lm,nR))
-               call print_cache_info_dcmplx("this%AdvrLM(lmP)"//C_NULL_CHAR, &
-                                            this%AdvrLM(lmP))
-               call print_cache_info_dcmplx("this%AdvtLM(lmP)"//C_NULL_CHAR, &
-                                            this%AdvtLM(lmP))
-               call print_cache_info_dcmplx("this%AdvpLM(lmPA)"//C_NULL_CHAR, &
-                                            this%AdvpLM(lmPA))
-               call print_cache_info_dcmplx("this%AdvpLM(lmPS)"//C_NULL_CHAR, &
-                                            this%AdvpLM(lmPS))
-               write(*,"(A)") ""
-#endif
-               if ( l_corr .and. nBc /= 2 ) then
-                  if ( l < l_max .and. l > m ) then
-                     CorPol_loc =two*CorFac*or1(nR) * (  &
-                     &       dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
-                     &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
-                     &    dTheta2S(lm)*z_Rloc(lmS,nR) )
-                  else if ( l == l_max ) then
-                     CorPol_loc= two*CorFac*or1(nR) * ( &
-                     &            dPhi0(lm)*dw_Rloc(lm,nR)  )
-                  else if ( l == m ) then
-                     CorPol_loc = two*CorFac*or1(nR) * ( &
-                     &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
-                     &     dTheta2A(lm)*z_Rloc(lmA,nR) )
-                  end if
-               else
-                  CorPol_loc=zero
-               end if
+               if ( l_double_curl ) then ! Pressure is not needed
 
-               if ( l_conv_nl ) then
-                  AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
-               else
-                  AdvPol_loc=zero
-               endif
+                  if ( l_corr ) then
+                     if ( l < l_max .and. l > m ) then
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                    &
+                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) )        + &
+                        &  dTheta3A(lm)*( dz_Rloc(lmA,nR)-beta(nR)*z_Rloc(lmA,nR) ) + &
+                        &  dTheta3S(lm)*( dz_Rloc(lmS,nR)-beta(nR)*z_Rloc(lmS,nR) ) + &
+                        &  dLh(lm)*or1(nR)* (                                         &
+                        &  dTheta2A(lm)*z_Rloc(lmA,nR)-dTheta2S(lm)*z_Rloc(lmS,nR) ) )
+                     else if ( l == l_max ) then
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                &
+                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR) + &
+                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) ) )
+                     else if ( l == m ) then
+                        CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(                    &
+                        &  dPhi0(lm)*( -ddw_Rloc(lm,nR)+beta(nR)*dw_Rloc(lm,nR)     + &
+                        &  ( beta(nR)*or1(nR)+or2(nR))*leg_helper%dLhw(lm) )        + &
+                        &  dTheta3A(lm)*( dz_Rloc(lmA,nR)-beta(nR)*z_Rloc(lmA,nR) ) + &
+                        &  dLh(lm)*or1(nR)* dTheta2A(lm)*z_Rloc(lmA,nR) )
+                     end if
+                  else
+                     CorPol_loc=zero
+                  end if
+
+                  if ( l_conv_nl ) then
+
+                     if ( l > m ) then
+                        dVxVhLM(lm)=      orho1(nR)*r(nR)*r(nR)* ( &
+                        &        dTheta1S(lm)*this%AdvtLM(lmPS) -  &
+                        &        dTheta1A(lm)*this%AdvtLM(lmPA) +  &
+                        &             dPhi(lm)*this%AdvpLM(lmP)  )
+                     else if ( l == m ) then
+                        dVxVhLM(lm)=      orho1(nR)*r(nR)*r(nR)* ( &
+                        &      - dTheta1A(lm)*this%AdvtLM(lmPA) +  &
+                        &        dPhi(lm)*this%AdvpLM(lmP)  )
+                     end if
+
+                     AdvPol_loc=dLh(lm)*or4(nR)*orho1(nR)*this%AdvrLM(lmP)
+
+                  else
+
+                     AdvPol_loc =zero
+                     dVxVhLM(lm)=zero
+
+                  endif
+
+               else ! We don't use the double curl
+
+                  if ( l_corr .and. nBc /= 2 ) then
+                     if ( l < l_max .and. l > m ) then
+                        CorPol_loc =two*CorFac*or1(nR) * (  &
+                        &       dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                        &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                        &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                     else if ( l == l_max ) then
+                        CorPol_loc= two*CorFac*or1(nR) * ( &
+                        &            dPhi0(lm)*dw_Rloc(lm,nR)  )
+                     else if ( l == m ) then
+                        CorPol_loc = two*CorFac*or1(nR) * ( &
+                        &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
+                        &     dTheta2A(lm)*z_Rloc(lmA,nR) )
+                     end if
+                  else
+                     CorPol_loc=zero
+                  end if
+
+                  if ( l_conv_nl ) then
+                     AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
+                  else
+                     AdvPol_loc=zero
+                  endif
+
+               end if ! Double curl or not for the poloidal equation
+
                if ( l_TP_form .or. l_anelastic_liquid ) then
                   Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
                   &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*    &
@@ -378,7 +402,9 @@ contains
                else
                   Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
                end if
+
                dwdt(lm)=AdvPol_loc+CorPol_loc
+
 
                if ( lRmsCalc ) then
                   if ( l_mag_LF .and. nR>n_r_LCR ) then
@@ -567,76 +593,79 @@ contains
 
             end if
 
-            !PERFON('td_cv2')
-            !$OMP PARALLEL default(none) &
-            !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
-            !$OMP private(AdvPol_loc,CorPol_loc) &
-            !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmpS,lmP2lmPA) &
-            !$OMP shared(lm_max,l_max,nR,l_corr,l_conv_nl) &
-            !$OMP shared(CorFac,or1,or2,dPhi0,dTheta3A,dTheta3S,dTheta1S,dTheta1A) &
-            !$OMP shared(z_Rloc,dPhi,leg_helper,dw_Rloc) &
-            !$OMP shared(CorPol,AdvPol,dpdt,this)
-            !LIKWID_ON('td_cv2')
-            !$OMP DO
-            do lm=2,lm_max
-               l   =lm2l(lm)
-               m   =lm2m(lm)
-               lmS =lm2lmS(lm)
-               lmA =lm2lmA(lm)
-               lmP =lm2lmP(lm)
-               lmPS=lmP2lmPS(lmP)
-               lmPA=lmP2lmPA(lmP)
-    
-               !------ Recycle CorPol and AdvPol:
-               if ( l_corr ) then
-                  !PERFON('td_cv2c')
-                  if ( l < l_max .and. l > m ) then
-                     CorPol_loc=                    two*CorFac*or2(nR) * &
-                          &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                          &                  +or1(nR)*leg_helper%dLhw(lm) &
-                          &                                             ) &
-                          &                  +dTheta3A(lm)*z_Rloc(lmA,nR) &
-                          &                  +dTheta3S(lm)*z_Rloc(lmS,nR) &
-                          &               )
-    
-                  else if ( l == l_max ) then
-                     CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
-                                 ( dw_Rloc(lm,nR) + or1(nR)*leg_helper%dLhw(lm) ) )
-    
-                  else if ( l == m ) then
-                     CorPol_loc=                    two*CorFac*or2(nR) * &
-                          &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                          &                  +or1(nR)*leg_helper%dLhw(lm) &
-                          &                                              )&
-                          &                 +dTheta3A(lm)*z_Rloc(lmA,nR)  &
-                          &               )
-    
+            if ( .not. l_double_curl ) then ! In case double curl is calculated dpdt is useless
+               !PERFON('td_cv2')
+               !$OMP PARALLEL default(none) &
+               !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
+               !$OMP private(AdvPol_loc,CorPol_loc) &
+               !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmpS,lmP2lmPA) &
+               !$OMP shared(lm_max,l_max,nR,l_corr,l_conv_nl) &
+               !$OMP shared(CorFac,or1,or2,dPhi0,dTheta3A,dTheta3S,dTheta1S,dTheta1A) &
+               !$OMP shared(z_Rloc,dPhi,leg_helper,dw_Rloc) &
+               !$OMP shared(CorPol,AdvPol,dpdt,this)
+               !LIKWID_ON('td_cv2')
+               !$OMP DO
+               do lm=2,lm_max
+                  l   =lm2l(lm)
+                  m   =lm2m(lm)
+                  lmS =lm2lmS(lm)
+                  lmA =lm2lmA(lm)
+                  lmP =lm2lmP(lm)
+                  lmPS=lmP2lmPS(lmP)
+                  lmPA=lmP2lmPA(lmP)
+       
+                  !------ Recycle CorPol and AdvPol:
+                  if ( l_corr ) then
+                     !PERFON('td_cv2c')
+                     if ( l < l_max .and. l > m ) then
+                        CorPol_loc=                    two*CorFac*or2(nR) * &
+                             &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
+                             &                  +or1(nR)*leg_helper%dLhw(lm) &
+                             &                                             ) &
+                             &                  +dTheta3A(lm)*z_Rloc(lmA,nR) &
+                             &                  +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                             &               )
+       
+                     else if ( l == l_max ) then
+                        CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
+                                    ( dw_Rloc(lm,nR) + or1(nR)*leg_helper%dLhw(lm) ) )
+       
+                     else if ( l == m ) then
+                        CorPol_loc=                    two*CorFac*or2(nR) * &
+                             &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
+                             &                  +or1(nR)*leg_helper%dLhw(lm) &
+                             &                                              )&
+                             &                 +dTheta3A(lm)*z_Rloc(lmA,nR)  &
+                             &               )
+       
+                     end if
+                     !PERFOFF
+                  else
+                     CorPol_loc=zero
                   end if
-                  !PERFOFF
-               else
-                  CorPol_loc=zero
-               end if
-               if ( l_conv_nl ) then
-                  !PERFON('td_cv2nl')
-                  if ( l > m ) then
-                     AdvPol_loc= dTheta1S(lm)*this%AdvtLM(lmPS) - &
-                                 dTheta1A(lm)*this%AdvtLM(lmPA) + &
-                                     dPhi(lm)*this%AdvpLM(lmP)
-                  else if ( l == m ) then
-                     AdvPol_loc=-dTheta1A(lm)*this%AdvtLM(lmPA) + &
-                                     dPhi(lm)*this%AdvpLM(lmP)
+                  if ( l_conv_nl ) then
+                     !PERFON('td_cv2nl')
+                     if ( l > m ) then
+                        AdvPol_loc= dTheta1S(lm)*this%AdvtLM(lmPS) - &
+                                    dTheta1A(lm)*this%AdvtLM(lmPA) + &
+                                        dPhi(lm)*this%AdvpLM(lmP)
+                     else if ( l == m ) then
+                        AdvPol_loc=-dTheta1A(lm)*this%AdvtLM(lmPA) + &
+                                        dPhi(lm)*this%AdvpLM(lmP)
+                     end if
+                     !PERFOFF
+                  else
+                     AdvPol_loc=zero
                   end if
-                  !PERFOFF
-               else
-                  AdvPol_loc=zero
-               end if
-               dpdt(lm)=AdvPol_loc+CorPol_loc
-    
-            end do ! lm loop
-            !$OMP end do 
-            !LIKWID_OFF('td_cv2')
-            !$OMP END PARALLEL 
-            !PERFOFF
+                  dpdt(lm)=AdvPol_loc+CorPol_loc
+       
+               end do ! lm loop
+               !$OMP end do 
+               !LIKWID_OFF('td_cv2')
+               !$OMP END PARALLEL 
+               !PERFOFF
+            end if
+
          else
             do lm=2,lm_max
                dwdt(lm) =0.0_cp
@@ -881,9 +910,9 @@ contains
                dVSrLM(lm) =zero
             end do
          end if
-         if ( l_heat ) then
+         if ( l_double_curl ) then
             do lm=1,lm_max
-               dVSrLM(lm)=zero
+               dVxVhLM(lm)=zero
             end do
          end if
          if ( l_chemical_conv ) then
