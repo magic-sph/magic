@@ -8,6 +8,11 @@ Useful additional libraries
 
 .. f:automodule:: useful
 
+``mem_alloc.f90``
+------------------
+
+.. f:automodule:: mem_alloc
+
 ``char_manip.f90``
 ------------------
 

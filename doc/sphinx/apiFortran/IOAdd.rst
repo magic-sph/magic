@@ -79,3 +79,8 @@ IO: RMS force balance, torsional oscillations, misc
 -----------------------
 
 .. f:automodule:: nl_special_calc
+
+``probes.f90``
+--------------
+
+.. f:automodule:: probe_mod

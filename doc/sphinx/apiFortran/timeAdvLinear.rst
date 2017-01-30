@@ -13,6 +13,11 @@ Linear calculation part of the time stepping (LMLoop)
 
 .. f:automodule:: updatewps_mod
 
+``updateWPT.f90``
+-----------------
+
+.. f:automodule:: updatewpt_mod
+
 ``updateWP.f90``
 ----------------
 

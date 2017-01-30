@@ -38,11 +38,6 @@ Base modules
 
 .. f:automodule:: fieldslast
 
-``mat.f90``
------------
-
-.. f:automodule:: matrices 
-
 ``output_data.f90``
 -------------------
 
