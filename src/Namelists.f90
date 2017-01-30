@@ -1121,8 +1121,8 @@ contains
       l_axi         =.false.
 
       !-- Finite differences
-      fd_order      =4
-      fd_order_bound=4
+      fd_order      =2
+      fd_order_bound=2
       fd_stretch    =0.3_cp
       fd_ratio      =0.1_cp
 

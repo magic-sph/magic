@@ -869,25 +869,23 @@ contains
          wMat(n_r_max,nR_out_ddw)=0.0_cp
     
          if ( ktopv == 1 ) then  ! free slip !
-            wMat(n_r_max+1,nR_out)= rscheme_oc%rnorm * (            &
-            &                        rscheme_oc%d2rMat(1,nR_out) -  &
-            &    (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out) )
+            wMat(n_r_max+1,nR_out)= -rscheme_oc%rnorm *         &
+            &                       (two*or1(1)+beta(1))*rscheme_oc%drMat(1,nR_out) 
+            wMat(n_r_max+1,nR_out_ddw)= rscheme_oc%rnorm * rscheme_oc%rMat(1,nR_out)
          else                    ! no slip, note exception for l=1,m=0
-            wMat(n_r_max+1,nR_out)=rscheme_oc%rnorm* &
-            &                       rscheme_oc%drMat(1,nR_out)
+            wMat(n_r_max+1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
+            wMat(n_r_max+1,nR_out_ddw)=0.0_cp
          end if
-         wMat(n_r_max+1,nR_out_ddw)=0.0_cp
     
          if ( kbotv == 1 ) then  ! free slip !
-            wMat(2*n_r_max,nR_out)=rscheme_oc%rnorm * (            &
-            &                  rscheme_oc%d2rMat(n_r_max,nR_out) - &
-            &      ( two*or1(n_r_max)+beta(n_r_max))*              &
-            &                  rscheme_oc%drMat(n_r_max,nR_out))
+            wMat(2*n_r_max,nR_out)= -rscheme_oc%rnorm *              &
+            &                      (two*or1(n_r_max)+beta(n_r_max))* &
+            &                      rscheme_oc%drMat(n_r_max,nR_out)
+            wMat(2*n_r_max,nR_out_ddw)=rscheme_oc%rnorm*rscheme_oc%rMat(n_r_max,nR_out)
          else                 ! no slip, note exception for l=1,m=0
-            wMat(2*n_r_max,nR_out)=rscheme_oc%rnorm *              &
-            &                       rscheme_oc%drMat(n_r_max,nR_out)
+            wMat(2*n_r_max,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(n_r_max,nR_out)
+            wMat(2*n_r_max,nR_out_ddw)=0.0_cp
          end if
-         wMat(2*n_r_max,nR_out_ddw)=0.0_cp
     
       end do   !  loop over nR_out
     
