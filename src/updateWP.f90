@@ -174,8 +174,8 @@ contains
          !$OMP PARALLEL  &
          !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
          !$OMP shared(all_lms,per_thread) &
-         !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1) &
-         !$OMP shared(dLtemp0,or2,lmStart,lmStop) &
+         !$OMP shared(dVxVhLM,rscheme_oc,dwdt) &
+         !$OMP shared(or2,lmStart,lmStop) &
          !$OMP shared(n_r_max,work_LMloc,nThreads,llm,ulm)
          !$OMP SINGLE
 #ifdef WITHOMP
@@ -565,6 +565,16 @@ contains
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Buo(lm1)+Dif(lm1))
 
                if ( lRmsNext ) then
+                  !-- In case RMS force balance is required, one needs to also
+                  !-- compute the classical diffusivity that is used in the non
+                  !-- double-curl version
+                  Dif(lm1) = hdif_V(st_map%lm2(l1,m1))*dLh(st_map%lm2(l1,m1))* &
+                  &          or2(nR)*visc(nR) *                  ( ddw(lm1,nR) &
+                  &        +(two*dLvisc(nR)-third*beta(nR))*        dw(lm1,nR) &
+                  &        -( dLh(st_map%lm2(l1,m1))*or2(nR)+four*third* (     &
+                  &             dbeta(nR)+dLvisc(nR)*beta(nR)                  &
+                  &             +(three*dLvisc(nR)+beta(nR))*or1(nR) )   )*    &
+                  &                                                 w(lm1,nR)  )
                   dtV(lm1)=O_dt*dLh(st_map%lm2(l1,m1))*or2(nR) * &
                   &             ( w(lm1,nR)-workB(lm1,nR) )
                end if
@@ -825,7 +835,8 @@ contains
    subroutine get_wMat(dt,l,hdif,wMat,wPivot,wMat_fac)
       !
       !  Purpose of this subroutine is to contruct the time step matrix  
-      !  wpmat  for the NS equation.                                    
+      !  wpmat  for the NS equation. This matrix corresponds here to the
+      !  radial component of the double-curl of the Navier-Stokes equation.
       !
 
       !-- Input variables:
@@ -898,9 +909,11 @@ contains
       do nR_out=1,n_r_max
          nR_out_ddw=nR_out+n_r_max
          do nR=2,n_r_max-1
-            !write(*,"(I3,A,6ES11.3)") nR,", visc,beta,dLvisc,dbeta = ",&
-            !     & visc(nR),beta(nR),dLvisc(nR),dbeta(nR),hdif,alpha
-            ! in the BM2 case: visc=1.0,beta=0.0,dLvisc=0.0,dbeta=0.0
+
+            !-- Here instead of solving one single matrix that would require
+            !-- the 4th derivative, we instead solve a matrix of size 
+            !-- (2*n_r_max, 2*n_r_max) that solve for w and ddw
+
             nR_ddw=nR+n_r_max
             wMat(nR,nR_out)= rscheme_oc%rnorm *  (                          &
             &             -O_dt*dLh*or2(nR)*orho1(nR)*(                     &
@@ -919,9 +932,8 @@ contains
             &      beta(nR)+two*or1(nR)*(two*dLvisc(nR)-beta(nR)-three*     &
             &      or1(nR) ) + dLh*or2(nR) ) *                              &
             &                                rscheme_oc%rMat(nR,nR_out) ) )
-            ! &                              rscheme_oc%d2rMat(nR,nR_out) -   &
 
-            wMat(nR,nR_out_ddw)= rscheme_oc%rnorm *  (                     &
+            wMat(nR,nR_out_ddw)= rscheme_oc%rnorm *  (                      &
             &              -O_dt*dLh*or2(nR)*orho1(nR)*                     &
             &                                 rscheme_oc%rMat(nR,nR_out) +  &
             &      alpha*orho1(nR)*hdif*visc(nR)*dLh*or2(nR) * (            &
@@ -932,8 +944,8 @@ contains
             &       two*or1(nR)*(dLvisc(nR)+beta(nR))-two*dLh*or2(nR) ) *   &
             &                                 rscheme_oc%rMat(nR,nR_out) ) )
 
-            wMat(nR_ddw,nR_out)    = -rscheme_oc%rnorm*rscheme_oc%d2rMat(nR,nR_out)
-            wMat(nR_ddw,nR_out_ddw)=  rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
+            wMat(nR_ddw,nR_out)    =-rscheme_oc%rnorm*rscheme_oc%d2rMat(nR,nR_out)
+            wMat(nR_ddw,nR_out_ddw)=   rscheme_oc%rnorm*rscheme_oc%rMat(nR,nR_out)
          end do
       end do
     

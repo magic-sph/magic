@@ -450,7 +450,7 @@ contains
          end if
 
          !--- Because the two systems are coupled only the total 
-         !--- ohmic dissipation in useful:
+         !--- ohmic dissipation is useful:
          ohmDiss=-curlB2-curlB2_IC
 
          powerDiffOld=powerDiff

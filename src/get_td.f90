@@ -308,7 +308,8 @@ contains
             !$OMP shared(CorFac,or1,or2,dPhi0,dPhi,dTheta2A,dTheta2S,n_r_LCR) &
             !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
             !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac,l_TP_form,temp0) &
-            !$OMP shared(l_anelastic_liquid,alpha0,ThExpNb,ViscHeatFac,ogrun)
+            !$OMP shared(l_anelastic_liquid,alpha0,ThExpNb,ViscHeatFac,ogrun) &
+            !$OMP shared(beta,orho1,r,or4,ddw_Rloc,dVxVhLM,dz_Rloc,dLh)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
@@ -332,8 +333,8 @@ contains
                         &             dTheta3S(lm)*( dz_Rloc(lmS,nR)-            &
                         &                            beta(nR)*z_Rloc(lmS,nR) ) + &
                         &          or1(nR)* (                                    &
-                        &         dTheta4A(lm)* z_Rloc(lmA,nR)          &
-                        &        -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
+                        &             dTheta4A(lm)* z_Rloc(lmA,nR)               &
+                        &            -dTheta4S(lm)* z_Rloc(lmS,nR) ) )
                      else if ( l == l_max ) then
                         CorPol_loc =two*CorFac*or2(nR)*orho1(nR)*(               &
                         &                   dPhi0(lm)*(                          &
@@ -349,7 +350,7 @@ contains
                         &             dTheta3A(lm)*( dz_Rloc(lmA,nR)-            &
                         &                            beta(nR)*z_Rloc(lmA,nR) ) + &
                         &          or1(nR)* (                                    &
-                        &          dTheta4A(lm)* z_Rloc(lmA,nR) ) )
+                        &             dTheta4A(lm)* z_Rloc(lmA,nR) ) )
                      end if
                   else
                      CorPol_loc=zero

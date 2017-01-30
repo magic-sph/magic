@@ -51,8 +51,8 @@ module num_param
 
    character(len=72), public :: anelastic_flavour ! version of the anelastic approximation
    character(len=72), public :: thermo_variable ! thermodynamic variable: S or T
+   character(len=72), public :: polo_flow_eq ! form of the poloidal flow equation: Pressure or Double Curl
 
- 
    !-- Stop signal:
    integer, public :: istop            ! Variable used in FFT soubroutine
  
