@@ -325,7 +325,11 @@ magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
                         logic.o output_data.o movie.o special.o\
                         integration.o useful.o LMLoop_data.o mem_alloc.o
-finite_differences.o  : truncation.o useful.o constants.o parallel.o
+finite_differences.o  : truncation.o useful.o constants.o parallel.o\
+                        radial_scheme.o mem_alloc.o
+chebyshev.o           : mem_alloc.o constants.o LMLoop_data.o radial_scheme.o\
+                        chebyshev_polynoms.o cosine_transform_odd.o useful.o
+radial_scheme.o       : precision_mod.o
 useful.o              : logic.o output_data.o parallel.o precision_mod.o\
                         constants.o
 LMmapping.o           : mem_alloc.o truncation.o
@@ -334,7 +338,8 @@ out_TO.o              : truncation.o horizontal.o num_param.o\
                         phys_param.o radial.o logic.o blocking.o\
                         constants.o output_data.o TO.o legendre_grid_to_spec.o\
                         cosine_transform_odd.o chebInt.o plms.o TO_helpers.o\
-                        char_manip.o integration.o useful.o mem_alloc.o
+                        char_manip.o integration.o useful.o mem_alloc.o\
+                        communications.o
 TO_helpers.o          : truncation.o blocking.o horizontal.o precision_mod.o\
                         constants.o
 TO_arrays.o           : truncation.o precision_mod.o mem_alloc.o
@@ -468,19 +473,20 @@ RMS.o                 : truncation.o parallel.o blocking.o num_param.o\
                         phys_param.o radial.o constants.o logic.o\
                         output_data.o radial_derivatives.o useful.o\
                         RMS_helpers.o integration.o communications.o\
-                        horizontal.o dtB.o chebyshev_polynoms.o mem_alloc.o
+                        horizontal.o dtB.o chebyshev_polynoms.o mem_alloc.o\
+                        finite_differences.o radial_scheme.o chebyshev.o
 updateWP.o            : truncation.o blocking.o num_param.o integration.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         RMS.o cosine_transform_odd.o radial_derivatives.o\
-                        RMS_helpers.o LMLoop_data.o mem_alloc.o
-updateWPT.o           : truncation.o blocking.o num_param.o\
+                        RMS_helpers.o LMLoop_data.o mem_alloc.o fields.o
+updateWPT.o           : truncation.o blocking.o num_param.o fields.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         cosine_transform_odd.o radial_derivatives.o\
-                        LMLoop_data.o mem_alloc.o init_fields.o
+                        LMLoop_data.o mem_alloc.o init_fields.o RMS.o
 updateWPS.o           : truncation.o blocking.o num_param.o\
                         phys_param.o radial.o horizontal.o logic.o\
                         cosine_transform_odd.o radial_derivatives.o\
-                        LMLoop_data.o mem_alloc.o init_fields.o
+                        LMLoop_data.o mem_alloc.o init_fields.o RMS.o
 chebInt.o             : chebyshev_polynoms.o cosine_transform_odd.o\
                         radial_derivatives.o
 get_td.o              : truncation.o blocking.o horizontal.o\
@@ -509,7 +515,8 @@ cosine_transform_odd.o : truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o
 readCheckPoints.o     : truncation.o blocking.o phys_param.o\
                         init_fields.o constants.o radial.o\
-                        logic.o cosine_transform_odd.o
+                        logic.o cosine_transform_odd.o finite_differences.o\
+                        chebyshev.o radial_scheme.o
 radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
                         cosine_transform_even.o
 updateZ.o             : truncation.o blocking.o phys_param.o\
@@ -567,7 +574,8 @@ radial.o              : truncation.o radial_data.o $(LAPACK_OBJS)\
                         phys_param.o logic.o precision_mod.o finite_differences.o\
                         output_data.o cosine_transform_odd.o\
                         chebyshev_polynoms.o radial_derivatives.o\
-			cosine_transform_even.o mem_alloc.o useful.o
+			cosine_transform_even.o mem_alloc.o useful.o radial_scheme.o\
+                        chebyshev.o finite_differences.o
 output_data.o         : precision_mod.o
 horizontal.o          : truncation.o phys_param.o num_param.o precision_mod.o\
                         radial.o logic.o blocking.o plms.o $(FFT_OBJS)\
