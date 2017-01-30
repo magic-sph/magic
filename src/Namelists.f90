@@ -261,6 +261,7 @@ contains
       call capitalize(polo_flow_eq)
       if ( index(polo_flow_eq, 'DC') /= 0 ) then
          l_double_curl = .true.
+         l_PressGraph  = .false.
       else
          l_double_curl = .false.
       end if
@@ -274,6 +275,7 @@ contains
 
       if ( l_finite_diff ) then
          l_double_curl=.true.
+         l_PressGraph =.false.
          write(*,*) '! Finite differences are used: I use the double-curl form !'
       end if
 

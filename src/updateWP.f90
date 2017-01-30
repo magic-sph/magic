@@ -15,7 +15,8 @@ module updateWP_mod
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
        &               lmStartB,lmStopB
    use horizontal_data, only: hdif_V, dLh
-   use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl
+   use logic, only: l_update_v, l_chemical_conv, l_RMS, l_double_curl, &
+       &            l_fluxProfs
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use algebra, only: cgeslML, sgefa, sgesl
    use LMLoop_data, only: llm, ulm
@@ -33,6 +34,7 @@ module updateWP_mod
 
    !-- Input of recycled work arrays:
    complex(cp), allocatable :: workB(:,:), ddddw(:,:)
+   complex(cp), allocatable :: dwold(:,:)
    real(cp), allocatable :: work(:)
    complex(cp), allocatable :: Dif(:),Pre(:),Buo(:),dtV(:)
    complex(cp), allocatable :: rhs1(:,:,:)
@@ -64,6 +66,10 @@ contains
       if ( l_double_curl ) then
          allocate( ddddw(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         if ( l_RMS .or. l_FluxProfs ) then
+            allocate( dwold(llm:ulm,n_r_max) )
+            bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         end if
       end if
 
       allocate( work(n_r_max) )
@@ -95,12 +101,17 @@ contains
       deallocate( rhs1, work )
       deallocate( Dif, Pre, Buo, dtV )
       if ( l_RMS ) deallocate( workB )
-      if ( l_double_curl ) deallocate( ddddw )
+      if ( l_double_curl ) then
+         deallocate( ddddw )
+         if ( l_RMS .or. l_FluxProfs ) then
+            deallocate( dwold )
+         end if
+      end if
 
    end subroutine finalize_updateWP
 !-----------------------------------------------------------------------------
    subroutine updateWP(w,dw,ddw,dVxVhLM,dwdt,dwdtLast,p,dp,dpdt,dpdtLast,s,xi, &
-        &              w1,coex,dt,nLMB,lRmsNext)
+        &              w1,coex,dt,nLMB,lRmsNext,lPressNext)
       !
       !  updates the poloidal velocity potential w, the pressure p,  and
       !  their derivatives
@@ -113,6 +124,7 @@ contains
       real(cp),    intent(in) :: dt       ! time step
       integer,     intent(in) :: nLMB     ! block number
       logical,     intent(in) :: lRmsNext
+      logical,     intent(in) :: lPressNext
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: xi(llm:ulm,n_r_max)
@@ -223,7 +235,7 @@ contains
          !$OMP TASK default(shared) &
          !$OMP firstprivate(nLMB2) &
          !$OMP private(lm,lm1,l1,m1,lmB,iChunk,nChunks,size_of_last_chunk,threadid) &
-         !$OMP shared(workB,nLMB,nLMBs2,rhs1)
+         !$OMP shared(workB,dwold,nLMB,nLMBs2,rhs1)
 
          ! determine the number of chunks of m
          ! total number for l1 is sizeLMB2(nLMB2,nLMB)
@@ -397,6 +409,15 @@ contains
                end do
             end if
 
+            if ( l_double_curl .and. lPressNext ) then ! Store old dw
+               do nR=1,n_r_max
+                  do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
+                     lm1=lm22lm(lm,nLMB2,nLMB)
+                     dwold(lm1,nR)=dw(lm1,nR)
+                  end do
+               end do
+            end if
+
             !PERFON('upWP_aft')
             lmB=lmB0
             do lm=lmB0+1,min(iChunk*chunksize,sizeLMB2(nLMB2,nLMB))
@@ -454,10 +475,9 @@ contains
       do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart,lmStop
             w(lm1,n_r_out)=zero
+            p(lm1,n_r_out)=zero
             if ( l_double_curl ) then
                ddw(lm1,n_r_out)=zero
-            else
-               p(lm1,n_r_out)=zero
             end if
          end do
       end do
@@ -473,7 +493,7 @@ contains
       !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(all_lms,per_thread,lmStart_00,lmStop) &
-      !$OMP shared(w,dw,ddw,p,dp,dwdtLast,dpdtLast) &
+      !$OMP shared(w,dw,ddw,p,dp) &
       !$OMP shared(rscheme_oc,n_r_max,nThreads,ddddw,work_LMloc,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -496,6 +516,7 @@ contains
          !   using dwdtLast, dpdtLast as work arrays:
 
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+         call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
 
          if ( l_double_curl ) then
             call get_dr( w, dw, ulm-llm+1, start_lm-llm+1,  &
@@ -507,7 +528,6 @@ contains
          else
             call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
                  &         stop_lm-llm+1, n_r_max, rscheme_oc)
-            call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
             call get_dr( p, dp, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
                  &       n_r_max, rscheme_oc )
          end if
@@ -530,6 +550,11 @@ contains
       !PERFON('upWP_ex')
       !-- Calculate explicit time step part:
       if ( l_double_curl ) then
+
+         if ( lPressNext ) then
+            n_r_top=n_r_cmb
+            n_r_bot=n_r_icb
+         end if
 
          do nR=n_r_top,n_r_bot
             do lm1=lmStart_00,lmStop
@@ -563,6 +588,24 @@ contains
                end if
 
                dwdtLast(lm1,nR)=dwdt(lm1,nR) - coex*(Buo(lm1)+Dif(lm1))
+
+               if ( l1 /= 0 .and. lPressNext ) then
+                  ! In the double curl formulation, we can estimate the pressure
+                  ! if required.
+                  p(lm1,nR)=-r(nR)*r(nR)/dLh(st_map%lm2(l1,m1))*dpdt(lm1,nR) &
+                  &                -O_dt*(dw(lm1,nR)-dwold(lm1,nR))+         &
+                  &                 hdif_V(st_map%lm2(l1,m1))*visc(nR)*      &
+                  &                                    ( work_LMloc(lm1,nR)  &
+                  &                       - (beta(nR)-dLvisc(nR))*ddw(lm1,nR)&
+                  &               - ( dLh(st_map%lm2(l1,m1))*or2(nR)         &
+                  &                  + dLvisc(nR)*beta(nR)+ dbeta(nR)        &
+                  &                  + two*(dLvisc(nR)+beta(nR))*or1(nR)     &
+                  &                                           ) * dw(lm1,nR) &
+                  &               + dLh(st_map%lm2(l1,m1))*or2(nR)           &
+                  &                  * ( two*or1(nR)+two*third*beta(nR)      &
+                  &                     +dLvisc(nR) )   *         w(lm1,nR)  &
+                  &                                         ) 
+               end if
 
                if ( lRmsNext ) then
                   !-- In case RMS force balance is required, one needs to also
@@ -637,7 +680,44 @@ contains
       end if
       !PERFOFF
 
-      !deallocate(rhs1)
+      ! In case pressure is needed in the double curl formulation
+      ! we also have to compute the radial derivative of p
+      if ( lPressNext .and. l_double_curl ) then
+         !PERFON('upWP_drv')
+         all_lms=lmStop-lmStart+1
+#ifdef WITHOMP
+         if (all_lms < omp_get_max_threads()) then
+            call omp_set_num_threads(all_lms)
+         end if
+#endif
+         !$OMP PARALLEL  &
+         !$OMP private(iThread,start_lm,stop_lm) &
+         !$OMP shared(all_lms,per_thread,lmStop) &
+         !$OMP shared(p,dp,rscheme_oc,n_r_max,nThreads,llm,ulm)
+         !$OMP SINGLE
+#ifdef WITHOMP
+         nThreads=omp_get_num_threads()
+#else
+         nThreads = 1
+#endif
+         !$OMP END SINGLE
+         !$OMP BARRIER
+         per_thread=all_lms/nThreads
+         !$OMP DO
+         do iThread=0,nThreads-1
+            start_lm=lmStart+iThread*per_thread
+            stop_lm = start_lm+per_thread-1
+            if (iThread == nThreads-1) stop_lm=lmStop
+
+            call get_dr( p, dp, ulm-llm+1, start_lm-llm+1,  &
+                 &         stop_lm-llm+1, n_r_max, rscheme_oc)
+         end do
+         !$OMP end do
+         !$OMP END PARALLEL
+#ifdef WITHOMP
+         call omp_set_num_threads(omp_get_max_threads())
+#endif
+      end if
 
    end subroutine updateWP
 !------------------------------------------------------------------------------

@@ -392,8 +392,8 @@ contains
       !write(*,"(A,I4,4ES20.13)") "before_td: ",this%nR,SUM(this%nl_lm%VxBtLM),&
       !     & SUM(this%nl_lm%VxBpLM)
       PERFON('get_td')
-      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,dVSrLM,      &
-           &                 dVPrLM,dVXirLM,dVxVhLM,dVxBhLM,dwdt,dzdt,   &
+      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,this%lPressCalc, &
+           &                 dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM,dwdt,dzdt,&
            &                 dpdt,dsdt,dxidt,dbdt,djdt,this%leg_helper)
       PERFOFF
       !do lm=1,lm_max

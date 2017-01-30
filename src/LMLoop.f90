@@ -87,10 +87,10 @@ contains
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxVhLM,dVxBhLM, &
-              &      dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,               &
-              &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,   &
-              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,          &
+   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM, &
+              &      dVxBhLM,dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,          &
+              &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,      &
+              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,             &
               &      aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
@@ -102,6 +102,7 @@ contains
       real(cp),    intent(in) :: dt,time
       logical,     intent(in) :: lMat
       logical,     intent(in) :: lRmsNext
+      logical,     intent(in) :: lPressNext
 
       !--- Input from radialLoop:
       !    These fields are provided in the R-distributed space!
@@ -307,7 +308,7 @@ contains
             call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dVxVhLM, dwdt,     &
                  &         dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,         &
                  &         dpdtLast_LMloc, s_LMloc, xi_LMloc, w1, coex, dt, &
-                 &         nLMB, lRmsNext)
+                 &         nLMB, lRmsNext, lPressNext)
             PERFOFF
 
             if ( DEBUG_OUTPUT ) then

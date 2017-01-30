@@ -202,8 +202,9 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM, &
-              &      dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,leg_helper)
+   subroutine get_td(this,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVPrLM,dVXirLM, &
+              &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,   &
+              &      leg_helper)
       !
       !  Purpose of this to calculate time derivatives
       !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
@@ -218,6 +219,7 @@ contains
       integer,            intent(in) :: nR
       integer,            intent(in) :: nBc ! signifies boundary conditions
       logical,            intent(in) :: lRmsCalc
+      logical,            intent(in) :: lPressCalc
       type(leg_helper_t), intent(in) :: leg_helper
     
       !-- Output of variables:
@@ -277,14 +279,18 @@ contains
                CorPol_loc=zero
                CorTor_loc=zero
             end if
-            Buo(lm) =BuoFac*rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
+
             if ( l_single_matrix ) then
                dwdt(lm)=AdvPol_loc!+CorPol_loc
             else
                dwdt(lm)=AdvPol_loc+CorPol_loc
             end if
+
             dzdt(lm)=AdvTor_loc+CorTor_loc
+
             if ( lRmsCalc ) then
+
+               Buo(lm) =BuoFac*rgrav(nR)*rho0(nR)*leg_helper%sR(lm)
                if ( l_mag_LF .and. nR>n_r_LCR ) then
                   LFPol(lm) =      or2(nR)*this%LFrLM(lm)
                   LFTor(lm) =-dTheta1A(lm)*this%LFpLM(lmPA)
@@ -295,6 +301,7 @@ contains
                   AdvTor(lm)=AdvTor_loc
                end if
                CorPol(lm)=CorPol_loc
+
             end if
     
             !PERFON('td_cv1')
@@ -406,19 +413,49 @@ contains
 
                end if ! Double curl or not for the poloidal equation
 
-               if ( l_TP_form .or. l_anelastic_liquid ) then
-                  Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
-                  &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*    &
-                  &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
-                  &        leg_helper%preR(lm) )
-               else
-                  Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
-               end if
-
                dwdt(lm)=AdvPol_loc+CorPol_loc
 
+               if ( lRmsCalc ) then ! RMS force balance
 
-               if ( lRmsCalc ) then
+                  if ( l_TP_form .or. l_anelastic_liquid ) then
+                     Buo(lm) =BuoFac*alpha0(nR)*rgrav(nR)*(              &
+                     &        rho0(nR)*leg_helper%sR(lm)-ViscHeatFac*    &
+                     &        (ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))*  &
+                     &        leg_helper%preR(lm) )
+                  else
+                     Buo(lm) =BuoFac*rho0(nR)*rgrav(nR)*leg_helper%sR(lm)
+                  end if
+
+                  if ( l_double_curl ) then 
+                     ! In that case we have to recompute the Coriolis force
+                     ! since we also want the pressure gradient
+                     if ( l_corr .and. nBc /= 2 ) then
+                        if ( l < l_max .and. l > m ) then
+                           CorPol_loc =two*CorFac*or1(nR) * (  &
+                           &       dPhi0(lm)*dw_Rloc(lm,nR) +  & ! phi-deriv of dw/dr
+                           &    dTheta2A(lm)*z_Rloc(lmA,nR) -  & ! sin(theta) dtheta z
+                           &    dTheta2S(lm)*z_Rloc(lmS,nR) )
+                        else if ( l == l_max ) then
+                           CorPol_loc= two*CorFac*or1(nR) * ( &
+                           &            dPhi0(lm)*dw_Rloc(lm,nR)  )
+                        else if ( l == m ) then
+                           CorPol_loc = two*CorFac*or1(nR) * ( &
+                           &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
+                           &     dTheta2A(lm)*z_Rloc(lmA,nR) )
+                        end if
+                     else
+                        CorPol_loc=zero
+                     end if
+
+                     ! We also need to recompute AdvPol_loc here
+                     if ( l_conv_nl ) then
+                        AdvPol_loc=or2(nR)*this%AdvrLM(lmP)
+                     else
+                        AdvPol_loc=zero
+                     endif
+
+                  end if
+
                   if ( l_mag_LF .and. nR>n_r_LCR ) then
                      LFPol(lm) =or2(nR)*this%LFrLM(lmP)
                      AdvPol(lm)=AdvPol_loc-LFPol(lm)
@@ -426,6 +463,7 @@ contains
                      AdvPol(lm)=AdvPol_loc
                   end if
                   CorPol(lm)=CorPol_loc
+
                end if
 
                if ( l_corr ) then
@@ -605,7 +643,8 @@ contains
 
             end if
 
-            if ( .not. l_double_curl ) then ! In case double curl is calculated dpdt is useless
+            ! In case double curl is calculated dpdt is useless
+            if ( (.not. l_double_curl) .or. lPressCalc ) then 
                !PERFON('td_cv2')
                !$OMP PARALLEL default(none) &
                !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &

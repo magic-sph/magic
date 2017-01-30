@@ -8,8 +8,7 @@ module radialLoop
    use blocking, only: nThetaBs, sizeThetaB
    use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic,    &
        &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,               &
-       &            l_PressGraph, l_TP_form, l_single_matrix, l_double_curl, &
-       &            l_chemical_conv
+       &            l_single_matrix, l_double_curl, l_chemical_conv
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
    use radial_data,only: nRstart,nRstop,n_r_cmb, nRstartMag, nRstopMag, &
@@ -85,9 +84,9 @@ contains
 !----------------------------------------------------------------------------
    subroutine radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,         &
               &          lTOCalc,lTONext,lTONext2,lHelCalc,lPowerCalc,   &
-              &          lRmsCalc,lViscBcCalc,lFluxProfCalc,lPerpParCalc,&
-              &          dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,            &
-              &          dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,          &
+              &          lRmsCalc,lPressCalc,lViscBcCalc,lFluxProfCalc,  &
+              &          lPerpParCalc,dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,    &
+              &          djdt,dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,     &
               &          lorentz_torque_ic,lorentz_torque_ma,            &
               &          br_vt_lm_cmb,br_vp_lm_cmb,                      &
               &          br_vt_lm_icb,br_vp_lm_icb,                      &
@@ -105,6 +104,7 @@ contains
       logical,      intent(in) :: lPowerCalc
       logical,      intent(in) :: lViscBcCalc,lFluxProfCalc,lPerpParCalc
       logical,      intent(in) :: lRmsCalc
+      logical,      intent(in) :: lPressCalc
       real(cp),     intent(in) :: time,dt,dtLast
 
       !---- Output of explicit time step:
@@ -160,7 +160,6 @@ contains
       integer :: nThetaStart!,nThetaStop
       logical :: lDeriv,lOutBc,lMagNlBc
       logical :: lGraphHeader    ! Write header into graph file
-      logical :: lPressCalc
       logical :: isRadialBoundaryPoint
 
 
@@ -174,9 +173,6 @@ contains
          call graphOut_header(time)
 #endif
       end if
-
-      lPressCalc = lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
-      &            .or. lFluxProfCalc .or. l_TP_form
 
       if ( l_cour ) then
          if ( rank == 0 ) then

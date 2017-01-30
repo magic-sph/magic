@@ -414,9 +414,9 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
-      call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,            &
-           &                 dVSrLM, dVPrLM, dVXirLM, dVxVhLM, dVxBhLM,   &
-           &                 dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,   &
+      call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc, this%lPressCalc, &
+           &                 dVSrLM, dVPrLM, dVXirLM, dVxVhLM, dVxBhLM,         &
+           &                 dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,         &
            &                 this%leg_helper)
 
       !PERFOFF

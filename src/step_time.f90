@@ -26,7 +26,7 @@ module step_time_mod
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
        &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
-       &            l_double_curl
+       &            l_double_curl, l_PressGraph
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -307,6 +307,7 @@ contains
       logical :: l_logNext,l_logNext2
       logical :: l_Bpot,l_Vpot,l_Tpot
       logical :: lRmsCalc,lRmsNext
+      logical :: lPressCalc,lPressNext
       logical :: lMat             ! update matricies
 
       !--- Counter:
@@ -769,9 +770,13 @@ contains
               &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
          if ( lTOZhelp ) lTOZwrite=.true.
 
-         lRmsCalc=l_RMS.and.l_log.and.(n_time_step > 1)
+         lRmsCalc=l_RMS .and. l_log .and. (n_time_step > 1)
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
-         lRmsNext=l_RMS.and.l_logNext ! Used for storing in update routines !
+         lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
+
+         lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
+         &            .or. lFluxProfCalc .or. l_TP_form
+         lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
          if ( n_time_step == 1 ) l_log=.true.
 
@@ -893,7 +898,7 @@ contains
          call wallTime(runTimeRstart)
          call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
               &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
-              &           lPowerCalc,lRmsCalc,                                 &
+              &           lPowerCalc,lRmsCalc,lPressCalc,                      &
               &           lViscBcCalc,lFluxProfCalc,lperpParCalc,              &
               &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
               &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,       &
@@ -1193,12 +1198,11 @@ contains
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
-         call LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxVhLM_LMloc,     &
-              &      dVxBhLM_LMloc,dVSrLM_LMloc,dVPrLM_LMloc,         &
-              &      dVXirLM_LMloc,dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,  &
-              &      dpdt_LMloc,dxidt_LMloc,dbdt_LMloc,djdt_LMloc,    &
-              &      lorentz_torque_ma,lorentz_torque_ic,             &
-              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+         call LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM_LMloc, &
+              &      dVxBhLM_LMloc,dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,  &
+              &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,&
+              &      dbdt_LMloc,djdt_LMloc,lorentz_torque_ma,                &
+              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
          call wallTime(runTimeRstop)
