@@ -27,10 +27,16 @@ def cleanDir(dir):
     if os.path.exists('%s/__pycache__' % dir):
         shutil.rmtree('%s/__pycache__' % dir)
 
-
-def readData(file):
-    return np.loadtxt(file)
-
+def readStack(file):
+    f = open(file, 'r')
+    #out = []
+    out = np.array([])
+    for line in f.readlines():
+        cut = line.split()
+        dat = np.asarray(cut, dtype='Float64')
+        #out.append(dat)
+        out = np.append(out, dat)
+    return out
 
 class FiniteDifferences(unittest.TestCase):
 
@@ -53,10 +59,13 @@ class FiniteDifferences(unittest.TestCase):
         print('Description :           %s' % self.description)
         self.startTime = time.time()
         cleanDir(self.dir)
+        for f in glob.glob('%s/*.start' % self.dir):
+            os.remove(f)
+
         os.chdir(self.dir)
         # First run the Chebyshev case
         cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
-        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
         cmd = 'cat e_kin.start e_mag_ic.start e_mag_oc.start > e_kin.test'
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
@@ -95,6 +104,6 @@ class FiniteDifferences(unittest.TestCase):
                 print(result.failures[-1][-1])
 
     def outputFileDiff(self):
-        datRef = readData('%s/reference.out' % self.dir)
-        datTmp = readData('%s/e_kin.test' % self.dir)
+        datRef = readStack('%s/reference.out' % self.dir)
+        datTmp = readStack('%s/e_kin.test' % self.dir)
         np.testing.assert_allclose(datRef, datTmp, rtol=self.precision, atol=1e-20)

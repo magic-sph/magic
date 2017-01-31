@@ -48,6 +48,12 @@ class TestTruncations(unittest.TestCase):
         self.execCmd = execCmd
         self.startDir = os.getcwd()
         self.description = "Test various truncations"
+        self.tags = ['test96', 'test96m4', 'test128', 'test128m4', 'test192',
+                     'test192m4', 'test256', 'test256m4', 'test288', 'test288m4',
+                     'test320', 'test320m4', 'test384', 'test384m4', 'test400',
+                     'test400m4', 'test512', 'test512m4', 'test640', 'test640m4',
+                     'test768', 'test768m4', 'test800', 'test800m4', 'test864m4',
+                     'test1024m4']
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -60,18 +66,13 @@ class TestTruncations(unittest.TestCase):
         self.startTime = time.time()
         cleanDir(self.dir)
         os.chdir(self.dir)
-        tags = ['test96', 'test96m4', 'test128', 'test128m4', 'test192',
-                'test192m4', 'test256', 'test256m4', 'test288', 'test288m4',
-                'test320', 'test320m4', 'test384', 'test384m4', 'test400',
-                'test400m4', 'test512', 'test512m4', 'test640', 'test640m4',
-                'test768', 'test768m4', 'test800', 'test800m4', 'test864m4',
-                'test1024m4']
         nphis = [96, 96, 128, 128, 192, 192, 256, 256, 288, 288, 320, 320,
                  384, 384, 400, 400, 512, 512, 640, 640, 768, 768, 800,
                  800, 864, 1024]
         mincs = [1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 1, 4, 
                  1, 4, 1, 4, 1, 4, 4, 4]
-        for k, tag in enumerate(tags):
+        str = "cat "
+        for k, tag in enumerate(self.tags):
             cmd = "sed -i 's/tag.*/tag         ="+'"%s"'%tag+",/g' input.nml"
             sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
             cmd = "sed -i 's/n_phi_tot.*/n_phi_tot   =%i,/g' input.nml" % nphis[k]
@@ -85,14 +86,17 @@ class TestTruncations(unittest.TestCase):
                     stderr=open(os.devnull, 'wb'))
 
             # Concatenate e_kin files
+            str += 'e_kin.%s ' % tag
             cmd = "cat e_kin.%s >> e_kin.test" % tag
-            sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
+        cmd = str+ '> e_kin.test'
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
-            # Clean up
+    def tearDown(self):
+        # Clean up
+        for tag in self.tags:
             for f in glob.glob('%s/*.%s' % (self.dir, tag)):
                 os.remove(f)
 
-    def tearDown(self):
         # Restore initial values in the namelist
         cmd = "sed -i 's/tag.*/tag         ="+'"test96"'+",/g' input.nml"
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))

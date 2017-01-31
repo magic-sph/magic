@@ -41,7 +41,7 @@ class VariableProperties(unittest.TestCase):
         self.precision = precision
         self.execCmd = execCmd
         self.startDir = os.getcwd()
-        self.description = "Variable transport properties (anelastic)"
+        self.description = "Variable transport properties (anelastic, both Cheb and FD)"
 
     def list2reason(self, exc_list):
         if exc_list and exc_list[-1][0] is self:
@@ -54,14 +54,25 @@ class VariableProperties(unittest.TestCase):
         self.startTime = time.time()
         cleanDir(self.dir)
         os.chdir(self.dir)
-        cmd = '%s %s/input.nml' % (self.execCmd, self.dir)
+        # First run the Chebyshev case
+        cmd = '%s %s/inputCheb.nml' % (self.execCmd, self.dir)
         sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
                 stderr=open(os.devnull, 'wb'))
+        # Second run the Finite Differences case
+        cmd = '%s %s/inputFD.nml' % (self.execCmd, self.dir)
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'),
+                stderr=open(os.devnull, 'wb'))
+        cmd = 'cat e_kin.cheb e_kin.fd > e_kin.test'
+        sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
 
     def tearDown(self):
         # Cleaning when leaving
         os.chdir(self.startDir)
         cleanDir(self.dir)
+        for f in glob.glob('%s/*.cheb' % self.dir):
+            os.remove(f)
+        for f in glob.glob('%s/*.fd' % self.dir):
+            os.remove(f)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))
