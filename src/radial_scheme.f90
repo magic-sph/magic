@@ -51,7 +51,7 @@ module radial_scheme
 
    end type type_rscheme
 
-   abstract interface 
+   interface 
 
       subroutine empty_if(this)
          import
