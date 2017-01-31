@@ -289,9 +289,9 @@ contains
             end if
 
             !-- Get all three components in the shell
-            call getPVptr(wP,dwP,ddwP,zP,dzP,r_ICB,r_CMB,rZ(1,nS),                 &
-                 &        nZmaxNS,nZmaxA,PlmZ(1,1,nS),dPlmZ(1,1,nS),OsinTS(1,nS),  &
-                 &        VsS,VpS,VzS,VorS,dpVorS)
+            call getPVptr(wP_global,dwP_global,ddwP_global,zP_global,dzP_global,   &
+                 &        r_ICB,r_CMB,rZ(1,nS),nZmaxNS,nZmaxA,PlmZ(1,1,nS),        &
+                 &        dPlmZ(1,1,nS),OsinTS(1,nS),VsS,VpS,VzS,VorS,dpVorS)
 
             if ( l_stop_time ) then
                write(n_pvz_file) (real(omS(nZ),kind=outp),nZ=1,nZmax)

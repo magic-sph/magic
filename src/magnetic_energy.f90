@@ -703,7 +703,7 @@ contains
             ! There are still differences in field 17 of the dipole file. These
             ! differences are due to the summation for e_es_cmb and are only of the order
             ! of machine accuracy.
-            write(n_dipole_file,'(1P,ES20.12,19ES16.8)')   &
+            write(n_dipole_file,'(1P,ES20.12,19ES14.6)')   &
                  &       time*tScale,                      &! 1
                  &       theta_dip,phi_dip,                &! 2,3
                  &       Dip,                              &! 4  

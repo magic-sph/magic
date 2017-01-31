@@ -774,10 +774,6 @@ contains
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
          lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
 
-         lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
-         &            .or. lFluxProfCalc .or. l_TP_form
-         lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
-
          if ( n_time_step == 1 ) l_log=.true.
 
          if ( l_stop_time ) then                  ! Programm stopped by kill -30
@@ -796,6 +792,10 @@ contains
          lFluxProfCalc =l_FluxProfs.and.l_log
 
          lViscBcCalc =l_ViscBcCalc.and.l_log
+
+         lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
+         &            .or. lFluxProfCalc .or. l_TP_form
+         lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
          if ( l_graph ) then  ! write graphic output !
             PERFON('graph')
