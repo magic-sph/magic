@@ -76,6 +76,9 @@ The ``--level LEV`` option defines the priority level of check and validation of
   |         | * Variable transport properties (viscosity,               |
   |         |   thermal diffusivity and electrical diffusivity)         |   
   |         |   in an anelastic convective model (``varProps``)         |
+  |         | * Test of a case that uses finite differences             |
+  |         |   - restart from a case that used Chebyshev polynomials   |
+  |         |   (``finite_differences``)                                |
   |         | * Boussinesq dynamo benchmark                             |
   |         |   (`Christensen et al., 2001                              |
   |         |   <http://dx.doi.org/10.1016/S0031-9201(01)00275-8>`_)    |
