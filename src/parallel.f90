@@ -12,7 +12,7 @@ module parallel_mod
 
    integer :: nThreads
    integer :: rank,n_procs
-   integer :: nr_per_rank,nr_on_last_rank
+   integer :: nR_per_rank,nR_on_last_rank
    integer :: nLMBs_per_rank
    integer :: rank_with_l1m0
    integer :: chunksize

@@ -1113,9 +1113,9 @@ contains
             !-- In the finite differences case, we restrict the integral boundary
             !-- condition to a trapezoidal rule of integration
             do nR_out=2,rscheme_oc%n_max-1
-               pMat(n_r_max+1,nR_out)=half*work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
+               pMat(1,nR_out)=half*work(nR_out)*( r(nR_out+1)-r(nR_out-1) )
             end do
-            pMat(n_r_max+1,1)=half*work(1)*(r(2)-r(1))
+            pMat(1,1)=half*work(1)*(r(2)-r(1))
 
          end if
 

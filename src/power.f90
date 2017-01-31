@@ -251,10 +251,10 @@ contains
 
       if ( l_conv ) then
          sendcount  = (nRstop-nRstart+1)
-         recvcounts = nr_per_rank
-         recvcounts(n_procs-1) = (nr_per_rank+1)
+         recvcounts = nR_per_rank
+         recvcounts(n_procs-1) = nR_on_last_rank
          do i=0,n_procs-1
-            displs(i) = i*nr_per_rank
+            displs(i) = i*nR_per_rank
          end do
          call MPI_GatherV(viscHeatR, sendcount, MPI_DEF_REAL,                &
               &           viscHeatR_global, recvcounts,displs, MPI_DEF_REAL, &

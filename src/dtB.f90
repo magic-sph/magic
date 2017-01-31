@@ -160,10 +160,10 @@ contains
     
       if ( ldtBmem == 1 ) then
          sendcount  = (nRstop-nRstart+1)*lm_max_dtB
-         recvcounts = nr_per_rank*lm_max_dtB
-         recvcounts(n_procs-1) = nr_on_last_rank*lm_max_dtB
+         recvcounts = nR_per_rank*lm_max_dtB
+         recvcounts(n_procs-1) = nR_on_last_rank*lm_max_dtB
          do i=0,n_procs-1
-            displs(i) = i*nr_per_rank*lm_max_dtB
+            displs(i) = i*nR_per_rank*lm_max_dtB
          end do
          call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
               & TstrRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)

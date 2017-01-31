@@ -164,10 +164,10 @@ contains
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
     
       sendcount  = (nRstop-nRstart+1)
-      recvcounts = nr_per_rank
-      recvcounts(n_procs-1) = (nr_per_rank+1)
+      recvcounts = nR_per_rank
+      recvcounts(n_procs-1) = nR_on_last_rank
       do i=0,n_procs-1
-         displs(i) = i*nr_per_rank
+         displs(i) = i*nR_per_rank
       end do
 #ifdef WITH_MPI
       call MPI_GatherV(Hel2Nr,sendcount,MPI_DEF_REAL,&

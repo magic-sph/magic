@@ -480,10 +480,10 @@ contains
     
       ! The following fields are only 1D and R distributed.
       sendcount  = (nRstop-nRstart+1)*(l_max+1)
-      recvcounts = nr_per_rank*(l_max+1)
-      recvcounts(n_procs-1) = (nr_per_rank+1)*(l_max+1)
+      recvcounts = nR_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
       do irank=0,n_procs-1
-         displs(irank) = irank*nr_per_rank*(l_max+1)
+         displs(irank) = irank*nR_per_rank*(l_max+1)
       end do
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Cor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
@@ -755,17 +755,19 @@ contains
          do l=0,l_max
             dtVRmsSD(l)=sqrt(dtVRmsL_SD(l)/timeNorm)
             CorRmsSD(l)=sqrt(CorRmsL_SD(l)/timeNorm)
-            LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
             AdvRmsSD(l)=sqrt(AdvRmsL_SD(l)/timeNorm)
             DifRmsSD(l)=sqrt(DifRmsL_SD(l)/timeNorm)
             BuoRmsSD(l)=sqrt(BuoRmsL_SD(l)/timeNorm)
             PreRmsSD(l)=sqrt(PreRmsL_SD(l)/timeNorm)
             GeoRmsSD(l)=sqrt(GeoRmsL_SD(l)/timeNorm)
-            MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
             ArcRmsSD(l)=sqrt(ArcRmsL_SD(l)/timeNorm)
             CIARmsSD(l)=sqrt(CIARmsL_SD(l)/timeNorm)
-            CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
-            PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
+            if ( l_mag_LF ) then
+               LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
+               MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
+               CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
+               PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
+            end if 
             dtVRmsL_TA(l)=max(dtVRmsL_TA(l),eps)
             CorRmsL_TA(l)=max(CorRmsL_TA(l),eps)
             LFRmsL_TA(l) =max(LFRmsL_TA(l),eps)

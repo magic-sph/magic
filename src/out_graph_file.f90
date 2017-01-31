@@ -367,7 +367,7 @@ contains
                             3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
 #endif
          size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
-         size_of_data_per_rank = size_of_data_per_r * nr_per_rank
+         size_of_data_per_rank = size_of_data_per_r * nR_per_rank
 
          if ( rank == 0 ) then
             ! rank zero writes the Header
@@ -689,7 +689,7 @@ contains
                                            3*(8+n_phi_max*SIZEOF_OUT_REAL)*n_theta_block_size
 #endif
       size_of_data_per_r = size_of_data_per_thetaB * nThetaBs
-      size_of_data_per_rank = size_of_data_per_r * nr_per_rank
+      size_of_data_per_rank = size_of_data_per_r * nR_per_rank
 
       if ( rank == 0 ) then
          ! rank zero writes the Header

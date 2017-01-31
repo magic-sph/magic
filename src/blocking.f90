@@ -10,7 +10,7 @@ module blocking
        &                   rank_with_l1m0
    use truncation, only: lmP_max, lm_max, l_max, nrp, n_theta_max, &
        &                 minc, n_r_max, m_max, l_axi
-   use logic, only: l_save_out
+   use logic, only: l_save_out, l_finite_diff
    use output_data, only: n_log_file, log_file
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
        &                allocate_subblocks_mappings, deallocate_subblocks_mappings, &
@@ -60,8 +60,6 @@ module blocking
    integer, public, pointer :: lm22m(:,:,:)
  
    type(subblocks_mappings), public, target :: st_sub_map, lo_sub_map,sn_sub_map
- 
-   integer, public :: sizeRB
  
  
    !------------------------------------------------------------------------
@@ -157,15 +155,16 @@ contains
       bytes_allocated = bytes_allocated+2*nLMBS*SIZEOF_INTEGER
 
       !--- Get radial blocking
-      if ( mod(n_r_max-1,n_procs) /= 0 ) then
-         if ( rank == 0 ) then
-            write(*,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
-            write(*,*) 'n_procs :',n_procs
-            write(*,*) 'n_r_max-1:',n_r_max-1
+      if ( .not. l_finite_diff ) then
+         if ( mod(n_r_max-1,n_procs) /= 0 ) then
+            if ( rank == 0 ) then
+               write(*,*) 'Number of MPI ranks has to be multiple of n_r_max-1!'
+               write(*,*) 'n_procs :',n_procs
+               write(*,*) 'n_r_max-1:',n_r_max-1
+            end if
+            stop
          end if
-         stop
       end if
-      sizeRB=(n_r_max-1)/n_procs
 
       !--- Calculate lm and ml blocking:
       do n=1,nLMBs
