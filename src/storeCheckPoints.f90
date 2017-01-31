@@ -1,12 +1,14 @@
 module storeCheckPoints
    !
    ! This module contains several subroutines that can be used to store the
-   ! rst_#.TAG files
+   ! rst_#.tag files
    !
 
    use precision_mod
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
-                         lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max
+       &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
+       &                 fd_stretch, fd_ratio
+   use radial_functions, only: rscheme_oc, alph1, alph2
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
    use num_param, only: tScale
@@ -32,9 +34,9 @@ module storeCheckPoints
 contains
 
    subroutine store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
-                    dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
-                    dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
-                    djdt_icLast)
+              &     dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
+              &     dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
+              &     djdt_icLast)
       !
       ! store results on disc file (restart file)
       ! In addition to the magnetic field and velocity potentials
@@ -68,21 +70,31 @@ contains
       !-- Write parameters:
       if ( .not. l_chemical_conv ) then
          if ( .not. l_heat ) then
-            inform=11
+            inform=21
          else
-            inform=12
+            inform=22
          end if
       else
          if ( .not. l_heat ) then
-            inform=13
+            inform=23
          else
-            inform=14
+            inform=24
          end if
       end if
 
+
       write(n_rst_file) time*tScale,dt*tScale,ra,pr,prmag,ek,radratio, &
-                     inform,n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
-                                               n_r_ic_max,sigma_ratio
+      &              inform,n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
+      &                                        n_r_ic_max,sigma_ratio
+
+      !-- Store radius and scheme version (FD or CHEB)
+      if ( rscheme_oc%version == 'cheb' ) then
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%n_max, &
+         &                 rscheme_oc%order_boundary, alph1, alph2
+      else
+         write(n_rst_file) rscheme_oc%version, rscheme_oc%order, &
+         &                 rscheme_oc%order_boundary, fd_stretch, fd_ratio
+      end if
 
       if ( .not. l_chemical_conv ) then
          if ( l_heat ) then

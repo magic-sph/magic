@@ -10,11 +10,11 @@ Outer Core
 
 .. _varn_r_max:
 
-* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). It must be of the form ``4*n+1``, where ``n`` is an integer.
+* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). If Chebyshev polynomials are used for the radial integration scheme, there are some constraints on the value of `n_r_max`: first of all it must be of the form ``4*n+1``, where ``n`` is an integer; and second the prime decomposition of `n_r_max` should only contain multiple of 3, 4 and 5 (this second condition comes from the Chebyshev transforms). This constraint does not exist when finite differences are used.
 
-  .. note:: The possible values for :f:var:`n_r_max` are thus: 17, 21, 25, 33, 37, 41, 49, 61, 65, 73? 81, 97, 101, 121, 129, 145, 161, 257, 401, 513, ...
+  .. note:: If Chebyshev polynomials are used, the possible values for :f:var:`n_r_max` below 220 are hence: 17, 21, 25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121, 129, 145, 161, 181, 193, 201, 217,...
 
-* **n_cheb_max** (default :f:var:`n_cheb_max=31 <n_cheb_max>`) is an integer which is the number of terms in the Chebyshev polynomial expansion to be used in the radial direction - the highest degree of Chebyshev polynomial used being ``n_cheb_max-1``. Note that ``n_cheb_max <= n_r_max``.
+* **n_cheb_max** (default :f:var:`n_cheb_max=31 <n_cheb_max>`) is an integer which is the number of terms in the Chebyshev polynomial expansion to be used in the radial direction - the highest degree of Chebyshev polynomial used being ``n_cheb_max-1``. Note that ``n_cheb_max <= n_r_max``. This quantity will not be used if finite differences are used.
 
   .. note:: Adopting ``n_cheb_max=n_r_max-2`` is usually a good choice
 
@@ -31,6 +31,16 @@ Outer Core
 * **l_axi** (default :f:var:`l_axi=.false. <l_axi>`) is a logical. When set to true, one considers only the axisymmetric mode (i.e. MagIC becomes a 2-D axisymmetric code).
 
 * **n_theta_axi** (default :f:var:`n_theta_axi=0 <n_theta_axi>`) is an integer which gives the number of latitudinal grid points when MagIC computes only the axisymmetric mode.
+
+* **fd_order** (default :f:var:`fd_order=2 <fd_order>`) is an integer. This is the order of the finite difference scheme for the bulk points (possible values are 2, 4, 6).
+
+* **fd_order_bound** (default :f:var:`fd_order_bound=2 <fd_order_bound>`) is an integer. This is the order of the finite difference scheme for the boundary points (possible values are 1,2,3,4,5,6, ...).
+
+* **fd_stretch** (default :f:var:`fd_stretch=0.3 <fd_stretch>`) is a real. It controls the ratio between the number of points in the boundary layers and in the bulk.
+
+* **fd_ratio** (default :f:var:`fd_ratio=0.1 <fd_ratio>`) is a real. It controls the ratio between the smallest grid spacing and the largest grid spacing.  
+
+  .. note:: When `fd_ratio` is set to 1, the radial grid is regularly-spaced.
 
 Inner Core
 ----------

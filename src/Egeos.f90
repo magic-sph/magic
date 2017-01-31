@@ -6,11 +6,11 @@ module Egeos_mod
        &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max,  &
        &                 l_axi
    use parallel_mod, only: rank
-   use radial_functions, only: cheb_norm, r_ICB, r_CMB, chebt_oc
+   use radial_functions, only: r_ICB, r_CMB, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
        &                          radratio, polind, strat
    use num_param, only: tScale
-   use blocking, only: lm2l, lm2m, lm2mc
+   use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out
    use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA
@@ -19,7 +19,7 @@ module Egeos_mod
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
    use plms_theta, only: plm_theta
    use fft, only: fft_to_real
-   use cosine_transform_odd
+   use cosine_transform_odd, only: costf_odd_t
    use chebInt_mod
 
    implicit none 
@@ -112,14 +112,16 @@ contains
       real(cp) :: phiNorm
       logical :: lTC
 
-      !-- Local field copies to avoid changes by back and forth transform:
-      complex(cp) :: wS(lm_maxGeos,n_r_maxGeos)
-      complex(cp) :: dwS(lm_maxGeos,n_r_maxGeos)
-      complex(cp) :: ddwS(lm_maxGeos,n_r_maxGeos)
-      complex(cp) :: zS(lm_maxGeos,n_r_maxGeos)
-      complex(cp) :: dzS(lm_maxGeos,n_r_maxGeos)
-      !---- Additional work array
-      complex(cp) :: workA(lm_maxGeos,n_r_maxGeos)
+      !-- Local field copies to avoid changes by back and forth cosine transforms:
+      complex(cp) :: wS(llm:ulm,n_r_maxGeos)
+      complex(cp) :: dwS(llm:ulm,n_r_maxGeos)
+      complex(cp) :: ddwS(llm:ulm,n_r_maxGeos)
+      complex(cp) :: zS(llm:ulm,n_r_maxGeos)
+      complex(cp) :: dzS(llm:ulm,n_r_maxGeos)
+
+      !-- Arrays needed after gather (allocate and deallocate to avoid memory blowup)
+      complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
+      complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
 
       !-- Representation in (phi,z):
       real(cp) :: VrS(nrpGeos,nZmaxA),VrInt(nZmaxA),VrIntS
@@ -151,7 +153,7 @@ contains
       !-- Movie output
       integer :: nOutFile,n
       character(len=66) :: version,movFile
-      integer :: nFields,nFieldSize
+      integer :: nFields,nFieldSize,l,m
       real(cp) :: dumm(40)
       real(outp) :: CVz(nrpGeos,nZmaxA)
       real(outp) :: CVor(nrpGeos,nZmaxA)
@@ -160,11 +162,43 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outGeos!'
 
-      call gather_all_from_lo_to_rank0(gt_OC,w,wS)
-      call gather_all_from_lo_to_rank0(gt_OC,dw,dwS)
-      call gather_all_from_lo_to_rank0(gt_OC,ddw,ddwS)
-      call gather_all_from_lo_to_rank0(gt_OC,z,zS)
-      call gather_all_from_lo_to_rank0(gt_OC,dz,dzS)
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            wS(lm,nR) =w(lm,nR)*dLh(st_map%lm2(l,m))
+            dwS(lm,nR)=dw(lm,nR)
+            ddwS(lm,nR)=ddw(lm,nR)
+            zS(lm,nR)=z(lm,nR)
+            dzS(lm,nR)=dz(lm,nR)
+         end do
+      end do
+
+      call rscheme_oc%costf1(wS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dwS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(ddwS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
+
+      if ( rank == 0 ) then
+         allocate( wS_global(1:lm_max,1:n_r_max) )
+         allocate( dwS_global(1:lm_max,1:n_r_max) )
+         allocate( ddwS_global(1:lm_max,1:n_r_max) )
+         allocate( zS_global(1:lm_max,1:n_r_max) )
+         allocate( dzS_global(1:lm_max,1:n_r_max) )
+      else
+         allocate( wS_global(1,1) )
+         allocate( dwS_global(1,1) )
+         allocate( ddwS_global(1,1) )
+         allocate( zS_global(1,1) )
+         allocate( dzS_global(1,1) )
+      end if
+
+      call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
 
       if ( rank == 0 ) then
          lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
@@ -197,21 +231,6 @@ contains
             CVor_s(nS) =0.0_cp
             CHel_s(nS) =0.0_cp
          end do
-
-         !---- Copy for following costf so that no      
-         !     back transform is needed that would change
-         !     the field (just a little bit) anyway...
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               wS(lm,nR)=wS(lm,nR)*dLh(lm)
-            end do
-         end do
-
-         call chebt_oc%costf1(wS,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(dwS,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(ddwS,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(zS,lm_max,1,lm_max,workA)
-         call chebt_oc%costf1(dzS,lm_max,1,lm_max,workA)
 
          !---- Contributions are now in fully spectral space!
          !---- Do the z-integral:
@@ -276,9 +295,10 @@ contains
                nZmax=nZmaxS(nS)
             end if
 
-            call getDVptr(wS,dwS,ddwS,zS,dzS,r_ICB,r_CMB,rZ(1,nS),            &
-                 &      nZmax,nZmaxA,PlmS(1,1,nS),dPlmS(1,1,nS),OsinTS(1,nS), &
-                 &                           lDeriv,VrS,VtS,VpS,VozS,dpEkInt)
+            call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
+                 &        r_ICB,r_CMB,rZ(1,nS),nZmax,nZmaxA,PlmS(1,1,nS),        &
+                 &        dPlmS(1,1,nS),OsinTS(1,nS),lDeriv,VrS,VtS,VpS,VozS,    &
+                 &        dpEkInt)
 
             nZmax=nZmaxS(nS)
 
@@ -590,6 +610,9 @@ contains
          !    get an idea of the precision of cylindrical integration in getEgeos.
 
       end if ! rank == 0
+
+      deallocate( wS_global, dwS_global, ddwS_global, zS_global, dzS_global )
+
       if ( lVerbose ) write(*,*) '! End of getGeos!'
 
    end subroutine getEgeos
@@ -668,8 +691,8 @@ contains
          !       for renormalisation. Its not needed if one used
          !       costf1 for the back transform.
          x=two*(rS(nN)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1) =one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2) =x*cheb_norm
+         chebS(1) =one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2) =x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do
@@ -743,8 +766,8 @@ contains
          nS=(nZmax+1)/2
     
          x=two*(rS(nS)-half*(rMin+rMax))/(rMax-rMin)
-         chebS(1)=one*cheb_norm ! Extra cheb_norm cheap here
-         chebS(2)=x*cheb_norm
+         chebS(1)=one*rscheme_oc%rnorm ! Extra cheb_norm cheap here
+         chebS(2)=x*rscheme_oc%rnorm
          do nCheb=3,n_r_max
             chebS(nCheb)=two*x*chebS(nCheb-1)-chebS(nCheb-2)
          end do

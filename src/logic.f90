@@ -86,4 +86,7 @@ module logic
    logical :: l_TP_form ! Use temperature and pressure instead of entropy and pressure
    logical :: l_probe        ! Switch for artifical sensors
 
+   logical :: l_finite_diff ! Use finite differences for the radial scheme
+   logical :: l_double_curl ! Use the double-curl of the NS equation to get the poloidal equation
+
 end module logic

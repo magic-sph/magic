@@ -119,9 +119,9 @@ contains
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxBhLM,     &
-        &                 dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,br_vp_lm_cmb, &
-        &                 br_vt_lm_icb,br_vp_lm_icb,                       &
+        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
+        &                 dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
+        &                 br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
         &                 lorentz_torque_ic, lorentz_torque_ma,            &
         &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
         &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
@@ -134,7 +134,7 @@ contains
 
       complex(cp), intent(out) :: dwdt(:),dzdt(:),dpdt(:),dsdt(:),dVSrLM(:)
       complex(cp), intent(out) :: dxidt(:), dVPrLM(:),dVXirLM(:)
-      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:)
+      complex(cp), intent(out) :: dbdt(:),djdt(:),dVxBhLM(:),dVxVhLM(:)
       !---- Output of nonlinear products for nonlinear
       !     magnetic boundary conditions (needed in s_updateB.f):
       complex(cp), intent(out) :: br_vt_lm_cmb(:) ! product br*vt at CMB
@@ -149,11 +149,11 @@ contains
       real(cp),    intent(out) :: fpoynLMr(:),fresLMr(:)
       real(cp),    intent(out) :: EperpLMr(:),EparLMr(:),EperpaxiLMr(:),EparaxiLMr(:)
 
-      integer :: l,lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
+      integer :: lm,nThetaB,nThetaLast,nThetaStart,nThetaStop
       integer :: threadid,iThread
       logical :: lGraphHeader=.false.
       logical :: DEBUG_OUTPUT=.false.
-      real(cp) :: lt,y,c,t,lorentz_torques_ic(this%nThetaBs)
+      real(cp) :: c,lorentz_torques_ic(this%nThetaBs)
 
       this%nR=nR
       this%nBc=nBc
@@ -195,7 +195,7 @@ contains
       !$OMP SHARED(l_rot_ma,l_cond_ma,l_movie_oc,l_store_frame,l_dtB) &
       !$OMP SHARED(lmP_max,n_r_cmb,n_r_icb) &
       !$OMP SHARED(or2,orho1,time,dt,dtLast,DEBUG_OUTPUT) &
-      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,y,t,c,lt) &
+      !$OMP PRIVATE(threadid,nThetaLast,nThetaStart,nThetaStop,c) &
       !$OMP shared(br_vt_lm_cmb,br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb) &
       !$OMP SHARED(lorentz_torques_ic) &
       !$OMP shared(HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,uhLMr,duhLMr,gradsLMr) &
@@ -697,9 +697,10 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
-      call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,          &
-           &                    dVSrLM,dVPrLM,dVXirLM,dVxBhLM,dwdt,dzdt, &
-           &                    dpdt,dsdt,dxidt,dbdt,djdt,this%leg_helper)
+      call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,this%lPressCalc, &
+           &                    dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM,          &
+           &                    dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,            &
+           &                    this%leg_helper)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

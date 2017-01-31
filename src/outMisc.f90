@@ -9,10 +9,10 @@ module outMisc_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: l_max, n_r_max, lm_max
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
-   use radial_functions, only: r_icb, dr_fac, chebt_oc, kappa,   &
+   use radial_functions, only: r_icb, rscheme_oc, kappa,         &
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
-       &                       otemp1, drx, ogrun
+       &                       otemp1, ogrun, rscheme_oc
    use physical_parameters, only: ViscHeatFac, ThExpNb
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB
@@ -24,7 +24,7 @@ module outMisc_mod
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
        &                   deltaxicond
    use useful, only: cc2real
-   use integration, only: rInt, rInt_R
+   use integration, only: rInt_R
    use LMLoop_data,only: llm,ulm
    use legendre_spec_to_grid, only: lmAS2pt
 
@@ -164,10 +164,10 @@ contains
       ! Hel2Sr,Helna2Sr,HelSr,HelnaSr
     
       sendcount  = (nRstop-nRstart+1)
-      recvcounts = nr_per_rank
-      recvcounts(n_procs-1) = (nr_per_rank+1)
+      recvcounts = nR_per_rank
+      recvcounts(n_procs-1) = nR_on_last_rank
       do i=0,n_procs-1
-         displs(i) = i*nr_per_rank
+         displs(i) = i*nR_per_rank
       end do
 #ifdef WITH_MPI
       call MPI_GatherV(Hel2Nr,sendcount,MPI_DEF_REAL,&
@@ -211,15 +211,15 @@ contains
     
       if ( rank == 0 ) then
          !------ Integration over r without the boundaries and normalization:
-         HelN  =rInt(HelNr_global,n_r_max,dr_fac,chebt_oc)
-         HelS  =rInt(HelSr_global,n_r_max,dr_fac,chebt_oc)
-         HelnaN=rInt(HelnaNr_global,n_r_max,dr_fac,chebt_oc)
-         HelnaS=rInt(HelnaSr_global,n_r_max,dr_fac,chebt_oc)
-         HelEA =rInt(HelEAr_global,n_r_max,dr_fac,chebt_oc)
-         HelRMSN=rInt(Hel2Nr_global,n_r_max,dr_fac,chebt_oc)
-         HelRMSS=rInt(Hel2Sr_global,n_r_max,dr_fac,chebt_oc)
-         HelnaRMSN=rInt(Helna2Nr_global,n_r_max,dr_fac,chebt_oc)
-         HelnaRMSS=rInt(Helna2Sr_global,n_r_max,dr_fac,chebt_oc)
+         HelN  =rInt_R(HelNr_global,r,rscheme_oc)
+         HelS  =rInt_R(HelSr_global,r,rscheme_oc)
+         HelnaN=rInt_R(HelnaNr_global,r,rscheme_oc)
+         HelnaS=rInt_R(HelnaSr_global,r,rscheme_oc)
+         HelEA =rInt_R(HelEAr_global,r,rscheme_oc)
+         HelRMSN=rInt_R(Hel2Nr_global,r,rscheme_oc)
+         HelRMSS=rInt_R(Hel2Sr_global,r,rscheme_oc)
+         HelnaRMSN=rInt_R(Helna2Nr_global,r,rscheme_oc)
+         HelnaRMSS=rInt_R(Helna2Sr_global,r,rscheme_oc)
  
          HelN  =two*pi*HelN/(vol_oc/2) ! Note integrated over half spheres only !
          HelS  =two*pi*HelS/(vol_oc/2) ! Factor 2*pi is from phi integration
@@ -457,8 +457,8 @@ contains
             deltasherwood=one
          end if
 
-         tmp(:)=rhoprime(:)*r(:)**2
-         mass=four*pi*rInt_R(tmp,n_r_max,n_r_max,drx,chebt_oc)
+         tmp(:)=rhoprime(:)*r(:)*r(:)
+         mass=four*pi*rInt_R(tmp,r,rscheme_oc)
     
          if ( l_save_out ) then
             open(newunit=n_heat_file, file=heat_file, status='unknown', &

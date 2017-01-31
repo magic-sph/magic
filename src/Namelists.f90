@@ -51,7 +51,8 @@ contains
       !-- Name lists:
       integer :: runHours,runMinutes,runSeconds
       namelist/grid/n_r_max,n_cheb_max,n_phi_tot,n_theta_axi, &
-         &  n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi
+         &  n_r_ic_max,n_cheb_ic_max,minc,nalias,l_axi,       &
+         &  fd_order,fd_order_bound,fd_ratio,fd_stretch
 
       namelist/control/                                     &
          & mode,tag,n_time_steps,                           &
@@ -63,7 +64,7 @@ contains
          & l_newmap,alph1,alph2,                            &
          & runHours,runMinutes,runSeconds,                  &
          & cacheblock_size_in_B,anelastic_flavour,          &
-         & thermo_variable
+         & thermo_variable,radial_scheme,polo_flow_eq
       
       namelist/phys_param/                                      &
          & ra,raxi,pr,sc,prmag,ek,epsc0,epscxi0,radratio,       &
@@ -258,6 +259,27 @@ contains
          end if
          length=length_to_blank(tag)
          tag=tag(1:length)//'_BIS'
+      end if
+
+      call capitalize(polo_flow_eq)
+      if ( index(polo_flow_eq, 'DC') /= 0 ) then
+         l_double_curl = .true.
+         l_PressGraph  = .false.
+      else
+         l_double_curl = .false.
+      end if
+
+      call capitalize(radial_scheme)
+      if ( index(radial_scheme, 'FD') /= 0 ) then
+         l_finite_diff = .true.
+      else
+         l_finite_diff = .false.
+      end if
+
+      if ( l_finite_diff ) then
+         l_double_curl=.true.
+         l_PressGraph =.false.
+         write(*,*) '! Finite differences are used: I use the double-curl form !'
       end if
 
       n_stores=max(n_stores,n_rsts)
@@ -733,6 +755,10 @@ contains
       write(n_out,'(''  minc            ='',i5,'','')') minc
       write(n_out,'(''  nalias          ='',i5,'','')') nalias
       write(n_out,'(''  l_axi           ='',l3,'','')') l_axi
+      write(n_out,'(''  fd_stretch      ='',ES14.6,'','')') fd_stretch
+      write(n_out,'(''  fd_ratio        ='',ES14.6,'','')') fd_ratio
+      write(n_out,'(''  fd_order        ='',i5,'','')') fd_order
+      write(n_out,'(''  fd_order_bound  ='',i5,'','')') fd_order_bound
       write(n_out,*) "/"
 
       write(n_out,*) "&control"
@@ -771,6 +797,10 @@ contains
       write(n_out,'(''  runMinutes      ='',i4,'','')') runTimeLimit(2)
       write(n_out,'(''  runSeconds      ='',i4,'','')') runTimeLimit(3)
       write(n_out,'(''  tEND            ='',ES14.6,'','')') tEND
+      length=length_to_blank(radial_scheme)
+      write(n_out,*) " radial_scheme      = """,radial_scheme(1:length),""","
+      length=length_to_blank(polo_flow_eq)
+      write(n_out,*) " polo_flow_eq       = """,polo_flow_eq(1:length),""","
       length=length_to_blank(anelastic_flavour)
       write(n_out,*) " anelastic_flavour  = """,anelastic_flavour(1:length),""","
       length=length_to_blank(thermo_variable)
@@ -1104,6 +1134,12 @@ contains
       nalias        =20
       l_axi         =.false.
 
+      !-- Finite differences
+      fd_order      =2
+      fd_order_bound=2
+      fd_stretch    =0.3_cp
+      fd_ratio      =0.1_cp
+
       !----- Namelist control
       mode          =0            ! self-consistent dynamo !
       tag           ="default"
@@ -1119,7 +1155,9 @@ contains
       intfac        =0.15_cp
       n_cour_step   =10
       anelastic_flavour="None" ! Useless in Boussinesq
-      thermo_variable="None" 
+      thermo_variable  ="None" 
+      polo_flow_eq     ="WP"   ! Choose between 'DC' (double-curl) and 'WP' (Pressure)
+      radial_scheme    ="CHEB" ! Choose between 'CHEB' and 'FD'
 
       cacheblock_size_in_B=4096
 

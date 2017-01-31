@@ -1356,17 +1356,17 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_phi_max
-               local_end  =local_start+nr_per_rank*n_phi_max-1
-               if (rank == n_procs-1) local_end = local_start+nr_on_last_rank*n_phi_max-1
+               local_end  =local_start+nR_per_rank*n_phi_max-1
+               if (rank == n_procs-1) local_end = local_start+nR_on_last_rank*n_phi_max-1
                if (local_end > n_stop) then
                   write(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
                   stop
                end if
                do irank=0,n_procs-1
-                  recvcounts(irank) = nr_per_rank*n_phi_max
-                  displs(irank)     = irank*nr_per_rank*n_phi_max
+                  recvcounts(irank) = nR_per_rank*n_phi_max
+                  displs(irank)     = irank*nR_per_rank*n_phi_max
                end do
-               recvcounts(n_procs-1) = nr_on_last_rank*n_phi_max
+               recvcounts(n_procs-1) = nR_on_last_rank*n_phi_max
                sendcount=local_end-local_start+1
 
                call mpi_gatherv(frames(local_start),sendcount,MPI_DEF_REAL,&
@@ -1386,18 +1386,18 @@ contains
                field_length = n_stop-n_start+1
 
                local_start=n_start+(nRstart-1)*n_theta_max
-               local_end  =local_start+nr_per_rank*n_theta_max-1
+               local_end  =local_start+nR_per_rank*n_theta_max-1
                if (rank == n_procs-1) local_end = local_start+ &
-                                                  nr_on_last_rank*n_theta_max-1
+                                                  nR_on_last_rank*n_theta_max-1
                if (local_end > n_stop) then
                   write(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
                   stop
                end if
                do irank=0,n_procs-1
-                  recvcounts(irank) = nr_per_rank*n_theta_max
-                  displs(irank)     = irank*nr_per_rank*n_theta_max
+                  recvcounts(irank) = nR_per_rank*n_theta_max
+                  displs(irank)     = irank*nR_per_rank*n_theta_max
                end do
-               recvcounts(n_procs-1) = nr_on_last_rank*n_theta_max
+               recvcounts(n_procs-1) = nR_on_last_rank*n_theta_max
                sendcount=local_end-local_start+1
                call mpi_gatherv(frames(local_start),sendcount,MPI_DEF_REAL,&
                     & field_frames_global,recvcounts,displs,MPI_DEF_REAL,&

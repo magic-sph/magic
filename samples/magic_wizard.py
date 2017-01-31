@@ -12,6 +12,7 @@ import testRadialOutputs.unitTest
 import boussBenchSat.unitTest
 import dynamo_benchmark.unitTest
 import varProps.unitTest
+import finite_differences.unitTest
 import doubleDiffusion.unitTest
 import testRestart.unitTest
 import testMapping.unitTest
@@ -234,6 +235,13 @@ def getSuite(startdir, cmd, precision, args):
                                                   '%s/varProps' % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
+
+        # Finite differences
+        suite.addTest(finite_differences.unitTest.FiniteDifferences('outputFileDiff',
+                                                  '%s/finite_differences' % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
+
         # Saturated state of the Boussinesq benchmark (conducting IC)
         suite.addTest(boussBenchSat.unitTest.BoussinesqBenchmarkTest(
                                                   'outputFileDiff',

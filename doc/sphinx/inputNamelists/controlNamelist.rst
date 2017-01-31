@@ -153,10 +153,20 @@ input variables:
 
 .. _varl_newmap:
 
-Mapping of the Gauss-Lobatto grid
----------------------------------
+Radial scheme and mapping of the Gauss-Lobatto grid
+---------------------------------------------------
 
-Non-linear mapping function to concentrate/diperse grid points around a point inside the domain. For full description, see Bayliss and Turkel (1990). The function that re-distributes the collocation points is
+In MagIC, one can either use finite differences or Chebyshev polynomials for the radial integration scheme. This choice is controlled by the following input parameter:
+
+* **radial_scheme** (default :f:var:`radial_scheme='CHEB' <radial_scheme>`) is a character string.
+
+  +-----------------------+--------------------------------+
+  | radial_scheme='CHEB'  | Use Chebyshev polynomials      |
+  +-----------------------+--------------------------------+
+  | radial_scheme='FD'    | Use finite differences         |
+  +-----------------------+--------------------------------+
+
+When Chebyshev polynomials are used, it is also possible to use a non-linear mapping function to concentrate/diperse grid points around a point inside the domain. For a full description, see Bayliss and Turkel (1990). The function that re-distributes the collocation points is
 
 .. math::
    r=\alpha_2+\left[ \frac{\textrm{tan}^{-1}\left(\lambda(r_{cheb}-x_0)\right)}{\alpha_1} \right] \textrm{ ,}
@@ -189,22 +199,31 @@ Miscellaneous
 
 * **anelastic_flavour** (default :f:var:`anelastic_flavour="None" <anelastic_flavour>`) is a character string. This allows to change the thermal diffusion operator used within the anelastic approximation. Possible values are:
 
-   +-------------------------------+------------------------------------+
-   | ``anelastic_flavour='LBR'``   | Entropy diffusion                  |
-   +-------------------------------+------------------------------------+
-   | ``anelastic_flavour='ENT'``   | Entropy diffusion                  |
-   +-------------------------------+------------------------------------+
-   | ``anelastic_flavour='ALA'``   | Anelastic liquid approximation     |
-   +-------------------------------+------------------------------------+
-   | ``anelastic_flavour='TDIFF'`` | Temperature diffusion              |
-   +-------------------------------+------------------------------------+
-   | ``anelastic_flavour='TEMP'``  | Temperature diffusion              |
-   +-------------------------------+------------------------------------+
+   +---------------------------+------------------------------------+
+   | anelastic_flavour='LBR'   | Entropy diffusion                  |
+   +---------------------------+------------------------------------+
+   | anelastic_flavour='ENT'   | Entropy diffusion                  |
+   +---------------------------+------------------------------------+
+   | anelastic_flavour='ALA'   | Anelastic liquid approximation     |
+   +---------------------------+------------------------------------+
+   | anelastic_flavour='TDIFF' | Temperature diffusion              |
+   +---------------------------+------------------------------------+
+   | anelastic_flavour='TEMP'  | Temperature diffusion              |
+   +---------------------------+------------------------------------+
 
 * **thermo_variable** (default :f:var:`thermo_variable="S" <thermo_variable>`) is a character string. This allows to change the default thermodynamic variable (and hence change the entropy/temperature equation used). This switch only matters when one wants to run an anelastic model. Possible values are:
 
-   +---------------------------+-----------------------------------------+
-   | ``thermo_variable='S'``   | Use entropy as a primitive variable     |
-   +---------------------------+-----------------------------------------+
-   | ``thermo_variable='T'``   | Use temperature as a primitive variable |
-   +---------------------------+-----------------------------------------+
+   +-----------------------+-----------------------------------------+
+   | thermo_variable='S'   | Use entropy as a primitive variable     |
+   +-----------------------+-----------------------------------------+
+   | thermo_variable='T'   | Use temperature as a primitive variable |
+   +-----------------------+-----------------------------------------+
+
+* **polo_flow_eq** (default :f:var:`polo_flow_eq="WP" <polo_flow_eq>`) is a character string. This allows to change how the equation for the poloidal flow potential is constructed. One can either use the radial component of the Navier-Stokes equation and hence keep a coupled system that involve the poloidal potential :math:`W` and the pressure :math:`p`, or take the radial component of the double-curl of the Navier-Stokes equation to suppress pressure.
+
+   +---------------------+-----------------------------------------+
+   | polo_flow_eq='WP'   | Use the pressure formulation            |
+   +---------------------+-----------------------------------------+
+   | polo_flow_eq='DC'   | Use the double-curl formulation         |
+   +---------------------+-----------------------------------------+
+

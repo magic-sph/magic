@@ -7,7 +7,7 @@ module start_fields
    use truncation
    use precision_mod
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc,drx, ddrx, dr_fac_ic, chebt_ic,  &
+   use radial_functions, only: dr_fac_ic, chebt_ic, rscheme_oc,          &
        &                       chebt_ic_even, r, or1, alpha0, dLtemp0,   &
        &                       dLalpha0, beta, orho1, temp0, rho0,       &
        &                       otemp1, ogrun
@@ -79,7 +79,6 @@ contains
       real(cp) :: xiEA,xiES,xiAA
     
       real(cp) :: s0(n_r_max),p0(n_r_max),ds0(n_r_max),dp0(n_r_max)
-      real(cp) :: w1(n_r_max),w2(n_r_max)
     
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
     
@@ -111,14 +110,14 @@ contains
                end do
             end if
 
-            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            call get_dr(s0,ds0,n_r_max,rscheme_oc)
 
             if ( l_temperature_diff ) then ! temperature diffusion
                topcond=-osq4pi*ds0(1)
                botcond=-osq4pi*ds0(n_r_max)
                deltacond=osq4pi*(s0(n_r_max)-s0(1))
             else ! entropy diffusion
-               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               call get_dr(p0,dp0,n_r_max,rscheme_oc)
 
                topcond = -osq4pi*(otemp1(1)*( -dLtemp0(1)*s0(1)+ds0(1))- &
                &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(         &
@@ -149,10 +148,10 @@ contains
                end do
             end if
 
-            call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+            call get_dr(s0,ds0,n_r_max,rscheme_oc)
 
             if ( l_temperature_diff ) then
-               call get_dr(p0,dp0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+               call get_dr(p0,dp0,n_r_max,rscheme_oc)
 
                topcond = -osq4pi*temp0(1)*( dLtemp0(1)*s0(1)+ds0(1)+   &
                &        ViscHeatFac*ThExpNb*alpha0(1)*orho1(1)*(       &
@@ -185,7 +184,7 @@ contains
 
       if ( l_chemical_conv ) then
          call xi_cond(s0)
-         call get_dr(s0,ds0,n_r_max,n_cheb_max,w1,w2,chebt_oc,drx)
+         call get_dr(s0,ds0,n_r_max,rscheme_oc)
          topxicond=-osq4pi*ds0(1)
          botxicond=-osq4pi*ds0(n_r_max)
          deltaxicond=osq4pi*(s0(n_r_max)-s0(1))
@@ -421,22 +420,18 @@ contains
     
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
-                 &        lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,        &
-                 &        workB_LMloc,chebt_oc,drx,ddrx )
+                 &        lmStop-llm+1,n_r_max,rscheme_oc )
             call get_dr( z_LMloc,dz_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                 &       chebt_oc,drx )
+                 &       n_r_max,rscheme_oc )
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
             call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
-                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,   &
-                 &        n_cheb_max,workA_LMloc,workB_LMloc,         &
-                 &        chebt_oc,drx,ddrx )
-            call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
                  &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
-                 &        n_cheb_max,workA_LMloc,workB_LMloc,          &
-                 &        chebt_oc,drx,ddrx )
+                 &        rscheme_oc )
+            call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
+                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,     &
+                 &        rscheme_oc )
          end if
          if ( l_cond_ic ) then
             call get_ddr_even(b_ic_LMloc,db_ic_LMLoc,ddb_ic_LMloc,       &
@@ -486,20 +481,17 @@ contains
             !   end do
             !end if
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
-                 &       n_r_max,n_cheb_max,workA_LMloc,workB_LMloc,             &
-                 &       chebt_oc,drx )
+                 &       n_r_max,rscheme_oc )
             if ( l_single_matrix ) then
                call get_dr( p_LMloc,dp_LMloc,ulm-llm+1, lmStart-llm+1,   &
-                    &       lmStop-llm+1, n_r_max,n_cheb_max,workA_LMloc,&
-                    &       workB_LMloc, chebt_oc,drx )
+                    &       lmStop-llm+1, n_r_max, rscheme_oc )
             end if
          end if
 
          if ( l_chemical_conv ) then
             !-- Get radial derivatives of chemical composition:
             call get_dr( xi_LMloc,dxi_LMloc,ulm-llm+1, lmStart-llm+1,  &
-                 &       lmStop-llm+1,n_r_max,n_cheb_max,workA_LMloc,  &
-                 &       workB_LMloc,chebt_oc,drx )
+                 &       lmStop-llm+1,n_r_max,rscheme_oc )
          end if
     
          if ( DEBUG_OUTPUT ) then
@@ -613,16 +605,16 @@ contains
          if ( ( .not. l_SRMA .and. ktopv == 2 .and. l_rot_ma ).and.&
               & (l1m0 >= llm .and.l1m0 <= ulm) ) then
             d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_maLast
-            d_omega_ma_dtLast=d_omega_ma_dt -           &
-                 coex * ( two*or1(1)*real(z_LMloc(l1m0,1)) - &
-                 real(dz_LMloc(l1m0,1)) )
+            d_omega_ma_dtLast=d_omega_ma_dt -                              &
+            &                 coex * ( two*or1(1)*real( z_LMloc(l1m0,1)) - &
+            &                                     real(dz_LMloc(l1m0,1)) )
          end if
          if ( ( .not. l_SRIC .and. kbotv == 2 .and. l_rot_ic ).and.&
               & (l1m0 >= llm .and. l1m0 <= ulm) ) then
             d_omega_ic_dt=LFfac*c_lorentz_ic*lorentz_torque_icLast
-            d_omega_ic_dtLast= d_omega_ic_dt +                      &
-                 coex * ( two*or1(n_r_max)*real(z_LMloc(l1m0,n_r_max)) - &
-                 real(dz_LMloc(l1m0,n_r_max)) )
+            d_omega_ic_dtLast= d_omega_ic_dt +coex * (                         &
+            &                  two*or1(n_r_max)*real( z_LMloc(l1m0,n_r_max)) - &
+            &                                   real(dz_LMloc(l1m0,n_r_max)) )
          end if
       else
          d_omega_ma_dtLast=0.0_cp

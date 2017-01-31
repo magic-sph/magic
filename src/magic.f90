@@ -89,12 +89,14 @@ program magic
    use truncation
    use precision_mod
    use physical_parameters
+   use radial_der, only: initialize_der_arrays, finalize_der_arrays
    use radial_functions, only: initialize_radial_functions, finalize_radial_functions
    use num_param
    use torsional_oscillations
    use init_fields
    use special, only: initialize_Grenoble, finalize_Grenoble
    use blocking, only: initialize_blocking, finalize_blocking
+   use LMLoop_data, only: llm, ulm
    use horizontal_data
    use logic
    use fields
@@ -214,6 +216,7 @@ program magic
    call initialize_blocking
    local_bytes_used=bytes_allocated
    call initialize_radial_data
+   call initialize_LMLoop_data ! needed before radial_functions
    call initialize_radial_functions
    call initialize_horizontal_data
    local_bytes_used=bytes_allocated-local_bytes_used
@@ -222,7 +225,6 @@ program magic
    !-- Radial/LM Loop
    call initialize_radialLoop
    !call initialize_rIterThetaBlocking
-   call initialize_LMLoop_data
    call initialize_LMLoop
 
    call initialize_num_param
@@ -237,6 +239,8 @@ program magic
 
    call initialize_step_time
    call initialize_communications
+
+   call initialize_der_arrays(n_r_max,llm,ulm)
 
    !-- Array allocation for I/O
    local_bytes_used=bytes_allocated
@@ -398,6 +402,8 @@ program magic
    call finalize_num_param
    call finalize_LMLoop
    call finalize_radialLoop
+
+   call finalize_der_arrays
 
    call finalize_horizontal_data
    call finalize_radial_functions

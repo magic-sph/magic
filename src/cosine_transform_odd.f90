@@ -224,18 +224,6 @@ contains
     
       complex(cp) :: tot_sum(lm_max)
     
-      if ( n_f_start < 1 ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_start should be >=1'
-         write(*,*) '! but is:',n_f_start
-         stop
-      end if
-      if ( n_f_stop > n_f_max ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_stop > n_f_max !'
-         stop
-      end if
-    
       n=this%i_costf_init(1)-1
     
       n_P1=n+1
@@ -603,18 +591,6 @@ contains
       integer :: n_factors,n_fac,fac,fac_tot
     
       real(cp) :: tot_sum(lm_max_real)
-    
-      if ( n_f_start < 1 ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_start should be >=1'
-         write(*,*) '! but is:',n_f_start
-         stop
-      end if
-      if ( n_f_stop > n_f_max ) then
-         write(*,*) '! Message from costf1:'
-         write(*,*) '! n_f_stop > n_f_max !'
-         stop
-      end if
     
       n=this%i_costf_init(1)-1
     

@@ -17,8 +17,8 @@ module preCalculations
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
        &            l_temperature_diff, l_chemical_conv, l_probe
-   use radial_functions, only: chebt_oc, temp0, r_CMB,                     &
-       &                       r_surface, visc, r, r_ICB, drx, ddrx, dddrx,&
+   use radial_functions, only: rscheme_oc, temp0, r_CMB,                   &
+       &                       r_surface, visc, r, r_ICB,                  &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
@@ -175,11 +175,13 @@ contains
       end if
 
       if ( ( l_newmap ) .and. (rank == 0) ) then
-         fileName='rNM.'//TAG
+         fileName='rNM.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
-            write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb, &
-            &                                drx(n_r), ddrx(n_r), dddrx(n_r)
+            write(fileHandle,'(I4,4ES16.8)') n_r, r(n_r)-r_icb,   &
+            &                                rscheme_oc%drx(n_r), &
+            &                                rscheme_oc%ddrx(n_r),&
+            &                                rscheme_oc%dddrx(n_r)
          end do
          close(fileHandle)
       end if
@@ -187,8 +189,8 @@ contains
       call transportProperties
 
       if ( ( l_anel .or. l_non_adia ) .and. ( rank == 0 ) ) then
-         ! Write the equilibrium setup in anel.TAG
-         fileName='anel.'//TAG
+         ! Write the equilibrium setup in anel.tag
+         fileName='anel.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(9a15)') 'radius', 'temp0', 'rho0', 'beta',         &
          &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)',&
@@ -204,7 +206,7 @@ contains
     
       !-- Write radial profiles
       if ( l_mag .and. nVarCond > 0 ) then
-         fileName='varCond.'//TAG
+         fileName='varCond.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(4a15)') 'radius', 'sigma', 'lambda', 'dLlambda'
          do n_r=n_r_max,1,-1
@@ -215,7 +217,7 @@ contains
       end if
     
       if ( ( l_heat .and. nVarDiff > 0  .or. nVarVisc > 0) .and. ( rank == 0 ) ) then
-         fileName='varDiff.'//TAG
+         fileName='varDiff.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(5a15)') 'radius', 'conductivity', 'kappa', &
          &                          'dLkappa', 'Prandtl'
@@ -228,7 +230,7 @@ contains
       end if
     
       if ( ( nVarVisc > 0 ) .and. (rank == 0) ) then
-         fileName='varVisc.'//TAG
+         fileName='varVisc.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
          write(fileHandle,'(7a15)') 'radius', 'dynVisc', 'kinVisc', &
          &                          'dLvisc', 'Ekman', 'Prandtl', 'Pm'
@@ -279,7 +281,7 @@ contains
          do n_r=1,n_r_max
             mom(n_r)=r(n_r)**2 * rho0(n_r)
          end do
-         mass=four*pi/vol_oc*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+         mass=four*pi/vol_oc*rInt_R(mom,r,rscheme_oc)
       else
          mass=one
       end if
@@ -316,7 +318,7 @@ contains
       do n_r=1,n_r_max
          mom(n_r)=r(n_r)**4 * rho0(n_r)
       end do
-      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,n_r_max,n_r_max,drx,chebt_oc)
+      c_moi_oc=8.0_cp*third*pi*rInt_R(mom,r,rscheme_oc)
     
       !----- Mantle normalized moment of inertia:
       c_moi_ma=8.0_cp*pi/15.0_cp*(r_surface**5-r_cmb**5)*rho_ratio_ma

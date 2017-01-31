@@ -528,10 +528,10 @@ contains
 
 #ifdef WITH_MPI
       sendcount  = (nRstop-nRstart+1)*(l_max+1)
-      recvcounts = nr_per_rank*(l_max+1)
-      recvcounts(n_procs-1) = nr_on_last_rank*(l_max+1)
+      recvcounts = nR_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
       do i=0,n_procs-1
-         displs(i) = i*nr_per_rank*(l_max+1)
+         displs(i) = i*nR_per_rank*(l_max+1)
       end do
       call MPI_GatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,&
            & dzStrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
@@ -549,10 +549,10 @@ contains
            & dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 
       sendcount  = (nRstop-nRstart+1)*n_theta_maxStr
-      recvcounts = nr_per_rank*n_theta_maxStr
-      recvcounts(n_procs-1) = nr_on_last_rank*n_theta_maxStr
+      recvcounts = nR_per_rank*n_theta_maxStr
+      recvcounts(n_procs-1) = nR_on_last_rank*n_theta_maxStr
       do i=0,n_procs-1
-         displs(i) = i*nr_per_rank*n_theta_maxStr
+         displs(i) = i*nR_per_rank*n_theta_maxStr
       end do
       call MPI_GatherV(V2AS_Rloc,sendcount,MPI_DEF_REAL,&
            & V2AS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)

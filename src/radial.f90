@@ -4,20 +4,27 @@ module radial_functions
    !  temperature, cheb transforms, etc.)
    !
 
-   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max
+   use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
+       &                 fd_stretch, fd_order, fd_order_bound
    use algebra, only: sgesl,sgefa
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
-   use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid, &
-       &            l_isothermal, l_anel, l_newmap, l_non_adia,   &
-       &            l_TP_form, l_temperature_diff, l_single_matrix
+   use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
+       &            l_isothermal, l_anel, l_non_adia,              &
+       &            l_TP_form, l_temperature_diff, l_single_matrix,&
+       &            l_finite_diff, l_newmap
    use chebyshev_polynoms_mod ! Everything is needed
    use cosine_transform_odd
    use cosine_transform_even
+   use radial_scheme, only: type_rscheme
+   use chebyshev, only: type_cheb_odd
+   use finite_differences, only: type_fd
    use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
    use useful, only: logWrite
- 
+   use parallel_mod, only: rank
+   use output_data, only: tag
+
    implicit none
 
    private
@@ -42,16 +49,13 @@ module radial_functions
    real(cp), public, allocatable :: orho2(:)     ! :math:`1/\tilde{\rho}^2`
    real(cp), public, allocatable :: beta(:)      ! Inverse of density scale height drho0/rho0
    real(cp), public, allocatable :: dbeta(:)     ! Radial gradient of beta
+   real(cp), public, allocatable :: ddbeta(:)    ! 2nd derivative of beta
 
    real(cp), public, allocatable :: alpha0(:)    ! Thermal expansion coefficient
    real(cp), public, allocatable :: dLalpha0(:)  ! :math:`1/\alpha d\alpha/dr`
    real(cp), public, allocatable :: ddLalpha0(:) ! :math:`d/dr(1/alpha d\alpha/dr)`
    real(cp), public, allocatable :: ogrun(:)     ! :math:`1/\Gamma`
 
-   real(cp), public, allocatable :: drx(:)       ! First derivative of non-linear mapping (see Bayliss and Turkel, 1990)
-   real(cp), public, allocatable :: ddrx(:)      ! Second derivative of non-linear mapping
-   real(cp), public, allocatable :: dddrx(:)     ! Third derivative of non-linear mapping
-   real(cp), public :: dr_fac                    ! :math:`2/d`, where :math:`d=r_o-r_i`
    real(cp), public :: dr_fac_ic                 ! For IC: :math:`2/(2 r_i)`
    real(cp), public :: alpha1   ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
    real(cp), public :: alpha2   ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
@@ -63,17 +67,13 @@ module radial_functions
    real(cp), public, allocatable :: rgrav(:)     ! Buoyancy term `dtemp0/Di`
  
    !-- chebychev polynomials, derivatives and integral:
-   real(cp), public :: cheb_norm                    ! Chebyshev normalisation 
-   real(cp), public, allocatable :: cheb(:,:)       ! Chebyshev polynomials
-   real(cp), public, allocatable :: dcheb(:,:)      ! First radial derivative
-   real(cp), public, allocatable :: d2cheb(:,:)     ! Second radial derivative
-   real(cp), public, allocatable :: d3cheb(:,:)     ! Third radial derivative
    real(cp), public, allocatable :: cheb_int(:)     ! Array for cheb integrals
-   integer, public :: nDi_costf1                     ! Radii for transform
-   integer, public :: nDd_costf1                     ! Radii for transform
-   type(costf_odd_t), public :: chebt_oc
+   integer, public :: nDd_costf1                    ! Radii for transform
    type(costf_odd_t), public :: chebt_ic
    type(costf_even_t), public :: chebt_ic_even
+
+   !-- Radial scheme
+   class(type_rscheme), public, pointer :: rscheme_oc
  
    !-- same for inner core:
    real(cp), public :: cheb_norm_ic                      ! Chebyshev normalisation for IC
@@ -102,6 +102,7 @@ module radial_functions
    real(cp), public, allocatable :: dLkappa(:)    ! Derivative of thermal diffusivity
    real(cp), public, allocatable :: visc(:)       ! Kinematic viscosity
    real(cp), public, allocatable :: dLvisc(:)     ! Derivative of kinematic viscosity
+   real(cp), public, allocatable :: ddLvisc(:)    ! 2nd derivative of kinematic viscosity
    real(cp), public, allocatable :: divKtemp0(:)  ! Term for liquid anelastic approximation
    real(cp), public, allocatable :: epscProf(:)   ! Sources in heat equations
 
@@ -115,13 +116,7 @@ contains
       ! Initial memory allocation
       !
 
-      nDi_costf1=2*n_r_max+2
-      nDd_costf1=2*n_r_max+5
-
-      nDi_costf1_ic=2*n_r_ic_max+2
-      nDd_costf1_ic=2*n_r_ic_max+5
-      nDi_costf2_ic=2*n_r_ic_max
-      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
+      integer :: n_in, n_in_2
 
       ! allocate the arrays
       allocate( r(n_r_max) )
@@ -133,22 +128,22 @@ contains
       allocate( dLtemp0(n_r_max),d2temp0(n_r_max),dentropy0(n_r_max) )
       allocate( ddLtemp0(n_r_max) )
       allocate( orho1(n_r_max),orho2(n_r_max) )
-      allocate( beta(n_r_max), dbeta(n_r_max) )
+      allocate( beta(n_r_max), dbeta(n_r_max), ddbeta(n_r_max) )
       allocate( alpha0(n_r_max), dLalpha0(n_r_max), ddLalpha0(n_r_max) )
-      allocate( drx(n_r_max),ddrx(n_r_max),dddrx(n_r_max) )
       allocate( rgrav(n_r_max), ogrun(n_r_max) )
-      bytes_allocated = bytes_allocated + &
-                        (24*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+(22*n_r_max+3*n_r_ic_max)*SIZEOF_DEF_REAL
 
-      allocate( cheb(n_r_max,n_r_max) )     ! Chebychev polynomials
-      allocate( dcheb(n_r_max,n_r_max) )    ! first radial derivative
-      allocate( d2cheb(n_r_max,n_r_max) )   ! second radial derivative
-      allocate( d3cheb(n_r_max,n_r_max) )   ! third radial derivative
-      allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
-      bytes_allocated = bytes_allocated + &
-                        (4*n_r_max*n_r_max+n_r_max)*SIZEOF_DEF_REAL
+      allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
+      allocate( sigma(n_r_max) )
+      allocate( kappa(n_r_max),dLkappa(n_r_max) )
+      allocate( visc(n_r_max),dLvisc(n_r_max),ddLvisc(n_r_max) )
+      allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
+      bytes_allocated = bytes_allocated + 11*n_r_max*SIZEOF_DEF_REAL
 
-      call chebt_oc%initialize(n_r_max,nDi_costf1,nDd_costf1)
+      nDi_costf1_ic=2*n_r_ic_max+2
+      nDd_costf1_ic=2*n_r_ic_max+5
+      nDi_costf2_ic=2*n_r_ic_max
+      nDd_costf2_ic=2*n_r_ic_max+n_r_ic_max/2+5
 
       allocate( cheb_ic(n_r_ic_max,n_r_ic_max) )
       allocate( dcheb_ic(n_r_ic_max,n_r_ic_max) )
@@ -159,12 +154,29 @@ contains
 
       call chebt_ic%initialize(n_r_ic_max,nDi_costf1_ic,nDd_costf1_ic)
 
-      allocate( lambda(n_r_max),dLlambda(n_r_max),jVarCon(n_r_max) )
-      allocate( sigma(n_r_max) )
-      allocate( kappa(n_r_max),dLkappa(n_r_max) )
-      allocate( visc(n_r_max),dLvisc(n_r_max) )
-      allocate( epscProf(n_r_max),divKtemp0(n_r_max) )
-      bytes_allocated = bytes_allocated + 10*n_r_max*SIZEOF_DEF_REAL
+      if ( .not. l_finite_diff ) then
+
+         allocate( cheb_int(n_r_max) )         ! array for cheb integrals !
+         bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_REAL
+
+         allocate ( type_cheb_odd :: rscheme_oc )
+
+         n_in = n_cheb_max
+         if ( l_newmap ) then
+            n_in_2 = 1
+         else
+            n_in_2 = 0
+         end if
+
+      else
+
+         allocate ( type_fd :: rscheme_oc )
+
+         n_in   = fd_order
+         n_in_2 = fd_order_bound
+
+      end if
+      call rscheme_oc%initialize(n_r_max,n_in,n_in_2)
 
    end subroutine initialize_radial_functions
 !------------------------------------------------------------------------------
@@ -172,16 +184,20 @@ contains
 
       deallocate( r, r_ic, O_r_ic, O_r_ic2, or1, or2, or3, or4 )
       deallocate( otemp1, rho0, temp0, dLtemp0, d2temp0, dentropy0 )
-      deallocate( ddLtemp0, orho1, orho2, beta, dbeta, alpha0 )
-      deallocate( ddLalpha0, dLalpha0, drx, ddrx, dddrx, rgrav, ogrun )
-      deallocate( cheb, dcheb, d2cheb, d3cheb, cheb_int )
-      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
+      deallocate( ddLtemp0, orho1, orho2, beta, dbeta, ddbeta, alpha0 )
+      deallocate( ddLalpha0, dLalpha0, rgrav, ogrun )
       deallocate( lambda, dLlambda, jVarCon, sigma, kappa, dLkappa )
-      deallocate( visc, dLvisc, epscProf, divKtemp0 )
+      deallocate( visc, dLvisc, ddLvisc, epscProf, divKtemp0 )
 
-      call chebt_oc%finalize()
+      deallocate( cheb_ic, dcheb_ic, d2cheb_ic, cheb_int_ic )
       call chebt_ic%finalize()
       if ( n_r_ic_max > 0 .and. l_cond_ic ) call chebt_ic_even%finalize()
+
+      if ( .not. l_finite_diff ) then
+         deallocate( cheb_int )
+      end if
+
+      call rscheme_oc%finalize()
 
    end subroutine finalize_radial_functions
 !------------------------------------------------------------------------------
@@ -197,22 +213,21 @@ contains
 
       !integer :: n_r_start
       real(cp) :: fac_int
-      real(cp) :: r_cheb(n_r_max)
       real(cp) :: r_cheb_ic(2*n_r_ic_max-1),r_ic_2(2*n_r_ic_max-1)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
-      real(cp) :: lambd,paraK,paraX0 !parameters of the nonlinear mapping
 
       real(cp) :: hcomp,fac
       real(cp) :: dtemp0cond(n_r_max),dtemp0ad(n_r_max),hcond(n_r_max)
       real(cp) :: func(n_r_max)
 
       real(cp), allocatable :: coeffDens(:), coeffTemp(:), coeffAlpha(:)
-      real(cp) :: w1(n_r_max), w2(n_r_max), rrOcmb(n_r_max)
+      real(cp) :: rrOcmb(n_r_max)
       character(len=80) :: message
+      character(len=76) :: fileName
+      integer :: fileHandle
 
-#if 0
-      integer :: filehandle
-#endif
+      real(cp) :: ratio1, ratio2
+
 
       !-- Radial grid point:
       !   radratio is aspect ratio
@@ -221,67 +236,26 @@ contains
       r_icb=r_cmb-one
       r_surface=2.8209_cp    ! in units of (r_cmb-r_icb)
 
-      cheb_norm=sqrt(two/real(n_r_max-1,kind=cp))
-      dr_fac=two/(r_cmb-r_icb)
-
-      if ( l_newmap ) then
-         alpha1         =alph1
-         alpha2         =alph2
-         paraK=atan(alpha1*(1+alpha2))/atan(alpha1*(1-alpha2))
-         paraX0=(paraK-1)/(paraK+1)
-         lambd=atan(alpha1*(1-alpha2))/(1-paraX0)
+      if ( .not. l_finite_diff ) then
+         ratio1=alph1
+         ratio2=alph2
       else
-         alpha1         =0.0_cp
-         alpha2         =0.0_cp
+         ratio1=fd_stretch
+         ratio2=fd_ratio
       end if
 
-      !-- Start with outer core:
-      !   cheb_grid calculates the n_r_max gridpoints, these
-      !   are the extrema of a Cheb pylonomial of degree n_r_max-1,
-      !   r_cheb are the grid_points in the Cheb interval [-1,1]
-      !   and r are these points mapped to the interval [r_icb,r_cmb]:
-      call cheb_grid(r_icb,r_cmb,n_r_max-1,r,r_cheb, &
-                           alpha1,alpha2,paraX0,lambd)
-#if 0
-      do n_r=1,n_r_max
-         write(*,"(I3,2ES20.12)") n_r,r_cheb(n_r),r(n_r)
-      end do
-#endif
+      call rscheme_oc%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r)
+      call rscheme_oc%get_der_mat(n_r_max)
 
-      if ( l_newmap ) then
+      if ( rank == 0 ) then
+         fileName = 'radius.'//tag
+         open(newunit=fileHandle, file=fileName, status='unknown')
          do n_r=1,n_r_max
-            drx(n_r) =                          (two*alpha1) /      &
-                 ((one+alpha1**2*(two*r(n_r)-r_icb-r_cmb-alpha2)**2)* &
-                 lambd)
-            ddrx(n_r) = -(8.0_cp*alpha1**3*(two*r(n_r)-r_icb-r_cmb-alpha2)) / &
-                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**2*  & 
-                 lambd)
-            dddrx(n_r) =        (16.0_cp*alpha1**3*(-one+three*alpha1**2* &
-                                  (-two*r(n_r)+r_icb+r_cmb+alpha2)**2)) / &
-                 ((one+alpha1**2*(-two*r(n_r)+r_icb+r_cmb+alpha2)**2)**3* &
-                 lambd)
+            write(fileHandle,'(I4, ES16.8)') n_r, r(n_r)
          end do
-      else
-         do n_r=1,n_r_max
-            drx(n_r)=two/(r_cmb-r_icb)
-            ddrx(n_r)=0
-            dddrx(n_r)=0
-         end do
+         close(fileHandle)
       end if
-
-      !-- Calculate chebs and their derivatives up to degree n_r_max-1
-      !   on the n_r radial grid points r:
-      call get_chebs(n_r_max,r_icb,r_cmb,r_cheb,n_r_max,       &
-                     cheb,dcheb,d2cheb,d3cheb,n_r_max,n_r_max, &
-                     drx,ddrx,dddrx)
-
-#if 0
-      open(newunit=filehandle,file="r_cheb.dat")
-      do n_r=1,n_r_max
-         write(filehandle,"(2ES20.12)") r_cheb(n_r),r(n_r)
-      end do
-      close(filehandle)
-#endif
+      !stop
 
       or1=one/r         ! 1/r
       or2=or1*or1       ! 1/r**2
@@ -339,15 +313,12 @@ contains
             beta=drho0
 
             ! The final stuff is always required
-            call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                   &    w2,chebt_oc,drx)
-            call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
-            call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
+            call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+            call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+            call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+            call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
             dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-            call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                   &    w2,chebt_oc,drx)
+            call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
             dLtemp0 = dtemp0/temp0
             ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
 
@@ -499,18 +470,14 @@ contains
          beta=drho0
 
          ! The final stuff is always required
-         call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                &    w2,chebt_oc,drx)
-         call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
-         call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
+         call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+         call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+         call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+         call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
          dLalpha0=dLalpha0/alpha0 ! d log (alpha) / dr
-         call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
+         call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
          dLtemp0 = dtemp0/temp0
-         call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-                &    w2,chebt_oc,drx)
+         call get_dr(dLtemp0,ddLtemp0,n_r_max,rscheme_oc)
 
          ! N.B. rgrav is not gravity but alpha * grav
          rgrav = alpha0*rgrav
@@ -539,29 +506,30 @@ contains
                beta=drho0
 
                ! The final stuff is always required
-               call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-                      &    w2,chebt_oc,drx)
-               call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-                      &    w2,chebt_oc,drx)
+               call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+               call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+               call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+
                dLtemp0 = dtemp0/temp0
                ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
 
             else !-- Adiabatic reference state
 
                if ( l_isothermal ) then ! Gruneisen is zero in this limit
-                  fac      =strat /( g0+half*g1*(one+radratio) +g2/radratio )
-                  DissNb   =0.0_cp
-                  GrunNb   =0.0_cp
-                  temp0    =one
-                  rho0     =exp(-fac*(g0*(r-r_cmb) +      &
-                            g1/(two*r_cmb)*(r**2-r_cmb**2) - &
-                            g2*(r_cmb**2/r-r_cmb)))
+                  fac        =strat /( g0+half*g1*(one+radratio) +g2/radratio )
+                  DissNb     =0.0_cp
+                  GrunNb     =0.0_cp
+                  temp0(:)   =one
+                  rho0(:)    =exp(-fac*(g0*(r(:)-r_cmb) +         &
+                  &           g1/(two*r_cmb)*(r(:)**2-r_cmb**2) - &
+                  &           g2*(r_cmb**2/r(:)-r_cmb)))
 
-                  beta     =-fac*rgrav
-                  dbeta    =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3)
-                  d2temp0  =0.0_cp
-                  dLtemp0  =0.0_cp
-                  ddLtemp0 =0.0_cp
+                  beta(:)    =-fac*rgrav(:)
+                  dbeta(:)   =-fac*(g1/r_cmb-two*g2*r_cmb**2*or3(:))
+                  ddbeta(:)  =6.0_cp*fac*g2*r_cmb**2*or4(:)
+                  d2temp0(:) =0.0_cp
+                  dLtemp0(:) =0.0_cp
+                  ddLtemp0(:)=0.0_cp
                else
                   if ( strat == 0.0_cp .and. DissNb /= 0.0_cp ) then
                      strat = polind* log(( g0+half*g1*(one+radratio)+g2/radratio )* &
@@ -570,28 +538,34 @@ contains
                      DissNb=( exp(strat/polind)-one )/ &
                             ( g0+half*g1*(one+radratio) +g2/radratio )
                   end if
-                  GrunNb   =one/polind
-                  temp0    =-DissNb*( g0*r+half*g1*r**2/r_cmb-g2*r_cmb**2/r ) + &
-                            one + DissNb*r_cmb*(g0+half*g1-g2)
-                  rho0     =temp0**polind
+                  GrunNb      =one/polind
+                  temp0(:)    =-DissNb*( g0*r(:)+half*g1*r(:)**2/r_cmb- &
+                  &            g2*r_cmb**2/r(:) ) + one + DissNb*r_cmb*(g0+half*g1-g2)
+                  rho0(:)     =temp0**polind
 
                   !-- Computation of beta= dln rho0 /dr and dbeta=dbeta/dr
-                  beta     =-polind*DissNb*rgrav/temp0
-                  dbeta    =-polind*DissNb/temp0**2 *         &
-                            ((g1/r_cmb-two*g2*r_cmb**2*or3)*  &
-                            temp0  + DissNb*rgrav**2)
-                  dtemp0   =-DissNb*rgrav
-                  d2temp0  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3)
-                  dLtemp0  =dtemp0/temp0
-                  ddLtemp0 =-(dtemp0/temp0)**2+d2temp0/temp0
+                  beta(:)     =-polind*DissNb*rgrav(:)/temp0(:)
+                  dbeta(:)    =-polind*DissNb/temp0(:)**2 *         &
+                  &            ((g1/r_cmb-two*g2*r_cmb**2*or3(:))*  &
+                  &            temp0(:)  + DissNb*rgrav(:)**2)
+                  ddbeta(:)   =-polind*DissNb/temp0(:)**3 * (   temp0(:)*          &
+                  &            ( 6.0_cp*g2*r_cmb**2*or4(:)*temp0(:)+               &
+                  &              DissNb*rgrav(:)*(g1/r_cmb-two*g2*r_cmb**2*or3(:)) &
+                  &            )+two*DissNb*rgrav(:)*(DissNb*rgrav(:)**2+          &
+                  &             (g1/r_cmb-two*g2*r_cmb**2*or3(:))*temp0(:) ) )
+                  dtemp0(:)   =-DissNb*rgrav(:)
+                  d2temp0(:)  =-DissNb*(g1/r_cmb-two*g2*r_cmb**2*or3(:))
+                  dLtemp0(:)  =dtemp0(:)/temp0(:)
+                  ddLtemp0(:) =-(dtemp0(:)/temp0(:))**2+d2temp0(:)/temp0(:)
                end if
+
             end if
 
             !-- Thermal expansion coefficient (1/T for an ideal gas)
-            alpha0   =one/temp0
-            ogrun    =one
-            dLalpha0 =-dLtemp0
-            ddLalpha0=-ddLtemp0
+            alpha0(:)   =one/temp0(:)
+            ogrun(:)    =one
+            dLalpha0(:) =-dLtemp0(:)
+            ddLalpha0(:)=-ddLtemp0(:)
 
          end if
       end if
@@ -630,9 +604,9 @@ contains
 
       !-- Get additional functions of r:
       if ( l_anel ) then
-         orho1      =one/rho0
-         orho2      =orho1*orho1
-         otemp1     =one/temp0
+         orho1(:)   =one/rho0(:)
+         orho2(:)   =orho1(:)*orho1(:)
+         otemp1(:)  =one/temp0(:)
          ViscHeatFac=DissNb*pr/raScaled
          if (l_mag) then
             OhmLossFac=ViscHeatFac/(ekScaled*prmag**2)
@@ -640,31 +614,33 @@ contains
             OhmLossFac=0.0_cp
          end if
       else
-         rho0     =one
-         temp0    =one
-         otemp1   =one
-         orho1    =one
-         orho2    =one
-         alpha0   =one
-         ogrun    =one
-         beta     =0.0_cp
-         dbeta    =0.0_cp
-         dLalpha0 =0.0_cp
-         ddLalpha0=0.0_cp
-         dLtemp0  =0.0_cp
-         ddLtemp0 =0.0_cp
-         d2temp0  =0.0_cp
-         ViscHeatFac=0.0_cp
-         OhmLossFac =0.0_cp
+         rho0(:)     =one
+         temp0(:)    =one
+         otemp1(:)   =one
+         orho1(:)    =one
+         orho2(:)    =one
+         alpha0(:)   =one
+         ogrun(:)    =one
+         beta(:)     =0.0_cp
+         dbeta(:)    =0.0_cp
+         ddbeta(:)   =0.0_cp
+         dLalpha0(:) =0.0_cp
+         ddLalpha0(:)=0.0_cp
+         dLtemp0(:)  =0.0_cp
+         ddLtemp0(:) =0.0_cp
+         d2temp0(:)  =0.0_cp
+         ViscHeatFac =0.0_cp
+         OhmLossFac  =0.0_cp
       end if
 
       !-- Factors for cheb integrals:
-      cheb_int(1)=one   ! Integration constant chosen !
-      do n_cheb=3,n_r_max,2
-         cheb_int(n_cheb)  =-one/real(n_cheb*(n_cheb-2),kind=cp)
-         cheb_int(n_cheb-1)= 0.0_cp
-      end do
-
+      if ( .not. l_finite_diff ) then
+         cheb_int(1)=one   ! Integration constant chosen !
+         do n_cheb=3,n_r_max,2
+            cheb_int(n_cheb)  =-one/real(n_cheb*(n_cheb-2),kind=cp)
+            cheb_int(n_cheb-1)= 0.0_cp
+         end do
+      end if
 
       !-- Proceed with inner core:
 
@@ -737,7 +713,6 @@ contains
       real(cp) :: kcond(n_r_max)
       real(cp) :: a0,a1,a2,a3,a4,a5
       real(cp) :: kappatop,rrOcmb
-      real(cp) :: w1(n_r_max),w2(n_r_max)
 
       !-- Variable conductivity:
 
@@ -791,14 +766,12 @@ contains
           else if ( nVarCond == 3 ) then ! Magnetic diff propto 1/rho
              lambda=rho0(n_r_max)/rho0
              sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,chebt_oc,drx)
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
           else if ( nVarCond == 4 ) then ! Profile
              lambda=(rho0/rho0(n_r_max))**difExp
              sigma=one/lambda
-             call get_dr(lambda,dsigma,n_r_max,n_cheb_max, &
-                         w1,w2,chebt_oc,drx)
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
           end if
       end if
@@ -811,13 +784,11 @@ contains
          else if ( nVarDiff == 1 ) then ! Constant conductivity
             ! kappa(n_r)=one/rho0(n_r) Denise's version
             kappa=rho0(n_r_max)/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 2 ) then ! Profile
             kappa=(rho0/rho0(n_r_max))**difExp
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 3 ) then ! polynomial fit to a model
             if ( radratio < 0.19_cp ) then
@@ -842,8 +813,7 @@ contains
             end do
             kappatop=kappa(1) ! normalise by the value at the top
             kappa=kappa/kappatop
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 4) then ! Earth case
             !condTop=r_cmb**2*dtemp0(1)*or2/dtemp0
@@ -861,23 +831,20 @@ contains
             !kcond=condTop*func+condBot*(1-func)
             !kcond=kcond/kcond(n_r_max)
             !kappa=kcond/rho0
-            !call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-            !            w1,w2,chebt_oc,drx)
+            !call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             !dLkappa=dkappa/kappa
 
             ! Alternative scenario
             kcond=(one-0.4469_cp*(r/r_cmb)**2)/(one-0.4469_cp)
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          else if ( nVarDiff == 5 ) then ! Thermal background equilibrium
             kcond(:)=one/(r(:)*r(:)*dLtemp0(:)*temp0(:))
             kcond=kcond/kcond(1)
             kappa=kcond/rho0
-            call get_dr(kappa,dkappa,n_r_max,n_cheb_max, &
-                 &      w1,w2,chebt_oc,drx)
+            call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          end if
       end if
@@ -902,18 +869,19 @@ contains
 
       !-- Variable viscosity
       if ( nVarVisc == 0 ) then ! default: constant kinematic viscosity
-         visc  =one
-         dLvisc=0.0_cp
+         visc(:)   =one
+         dLvisc(:) =0.0_cp
+         ddLvisc(:)=0.0_cp
       else if ( nVarVisc == 1 ) then ! Constant dynamic viscosity
-         visc=rho0(n_r_max)/rho0
-         call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,chebt_oc,drx)
-         dLvisc=dvisc/visc
+         visc(:)=rho0(n_r_max)/rho0(:)
+         call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+         dLvisc(:)=dvisc(:)/visc(:)
+         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       else if ( nVarVisc == 2 ) then ! Profile
          visc=(rho0/rho0(n_r_max))**difExp
-         call get_dr(visc,dvisc,n_r_max,n_cheb_max, &
-                     w1,w2,chebt_oc,drx)
-         dLvisc=dvisc/visc
+         call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+         dLvisc(:)=dvisc(:)/visc(:)
+         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       end if
 
       if ( l_anelastic_liquid .or. l_non_adia ) then
@@ -985,8 +953,8 @@ contains
 
       !-- Local variables:
       real(cp) :: rhs(n_r_max)
-      real(cp) :: tmp(n_r_max)
-      integer :: n_cheb,n_r,info
+      integer :: n_r,info,n_r_out
+      real(cp) :: workMat_fac(n_r_max, 2)
 
       real(cp), allocatable :: workMat(:,:)
       integer, allocatable :: workPivot(:)
@@ -994,35 +962,51 @@ contains
       allocate( workMat(n_r_max,n_r_max) )
       allocate( workPivot(n_r_max) )
 
-      do n_cheb=1,n_r_max
+      do n_r_out=1,n_r_max
          do n_r=2,n_r_max
             if ( present(coeff) ) then
-               workMat(n_r,n_cheb)=cheb_norm*( dcheb(n_cheb,n_r)+&
-               &                     coeff(n_r)*cheb(n_cheb,n_r) )
+               workMat(n_r,n_r_out)=rscheme_oc%rnorm*(              &
+               &                      rscheme_oc%drMat(n_r,n_r_out)+&
+               &            coeff(n_r)*rscheme_oc%rMat(n_r,n_r_out) )
             else
-               workMat(n_r,n_cheb)=cheb_norm*dcheb(n_cheb,n_r)
+               workMat(n_r,n_r_out)=rscheme_oc%rnorm*               &
+               &                    rscheme_oc%drMat(n_r,n_r_out)
             end if
          end do
       end do
 
       !-- boundary conditions
-      do n_cheb=1,n_cheb_max
-         workMat(1,n_cheb)=cheb_norm
-         workMat(n_r_max,n_cheb)=0.0_cp
+      do n_r_out=1,rscheme_oc%n_max
+         workMat(1,n_r_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,n_r_out)
+         if ( rscheme_oc%version == 'cheb' ) workMat(n_r_max,n_r_out)=0.0_cp
       end do
 
       !-- fill with zeros
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            workMat(1,n_cheb)=0.0_cp
+      if ( rscheme_oc%n_max < n_r_max ) then
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            workMat(1,n_r_out)=0.0_cp
          end do
       end if
 
       !-- renormalize
       do n_r=1,n_r_max
-         workMat(n_r,1)      =half*workMat(n_r,1)
-         workMat(n_r,n_r_max)=half*workMat(n_r,n_r_max)
+        workMat(n_r,1)      =rscheme_oc%boundary_fac*workMat(n_r,1)
+        workMat(n_r,n_r_max)=rscheme_oc%boundary_fac*workMat(n_r,n_r_max)
       end do
+
+      do n_r=1,n_r_max
+         workMat_fac(n_r,1)=one/maxval(abs(workMat(n_r,:)))
+      end do
+      do n_r=1,n_r_max
+         workMat(n_r,:)=workMat(n_r,:)*workMat_fac(n_r,1)
+      end do
+      do n_r=1,n_r_max
+         workMat_fac(n_r,2)=one/maxval(abs(workMat(:,n_r)))
+      end do
+      do n_r=1,n_r_max
+         workMat(:,n_r)=workMat(:,n_r)*workMat_fac(n_r,2)
+      end do
+
 
       call sgefa(workMat,n_r_max,n_r_max,workPivot,info)
 
@@ -1036,23 +1020,27 @@ contains
       end do
       rhs(1)=boundaryVal
 
+      do n_r=1,n_r_max
+         rhs(n_r)=rhs(n_r)*workMat_fac(n_r,1)
+      end do
+
       !-- Solve for s0:
       call sgesl(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
       do n_r=1,n_r_max
-         output(n_r)=rhs(n_r)
+         output(n_r)=rhs(n_r)*workMat_fac(n_r,2)
       end do
 
       !-- Set cheb-modes > n_cheb_max to zero:
-      if ( n_cheb_max < n_r_max ) then
-         do n_cheb=n_cheb_max+1,n_r_max
-            output(n_cheb)=0.0_cp
+      if ( rscheme_oc%n_max < n_r_max ) then
+         do n_r_out=rscheme_oc%n_max+1,n_r_max
+            output(n_r_out)=0.0_cp
          end do
       end if
 
       !-- Transform to radial space:
-      call chebt_oc%costf1(output,tmp)
+      call rscheme_oc%costf1(output)
 
       deallocate( workMat, workPivot )
 
@@ -1071,7 +1059,6 @@ contains
       !-- Local variables
       real(cp) :: rrOcmb(n_r_max),gravFit(n_r_max)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
-      real(cp) :: w1(n_r_max),w2(n_r_max)
 
       integer ::  nDens,nTemp,i
 
@@ -1098,8 +1085,7 @@ contains
       gravFit(:) = gravFit(:)/gravFit(1)
 
       ! Derivative of the temperature needed to get alpha_T
-      call get_dr(temp0,dtemp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      call get_dr(temp0,dtemp0,n_r_max,rscheme_oc)
 
       alpha0(:)=-dtemp0(:)/(gravFit(:)*temp0(:))
 
@@ -1116,21 +1102,16 @@ contains
       !       dr
       rgrav(:)=-dtemp0(:)/DissNb
 
-      call get_dr(rho0,drho0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      call get_dr(rho0,drho0,n_r_max,rscheme_oc)
       beta(:)=drho0(:)/rho0(:)
-      call get_dr(beta,dbeta,n_r_max,n_cheb_max,w1,     &
-           &      w2,chebt_oc,drx)
-      call get_dr(dtemp0,d2temp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
-      call get_dr(alpha0,dLalpha0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      call get_dr(beta,dbeta,n_r_max,rscheme_oc)
+      call get_dr(dbeta,ddbeta,n_r_max,rscheme_oc)
+      call get_dr(dtemp0,d2temp0,n_r_max,rscheme_oc)
+      call get_dr(alpha0,dLalpha0,n_r_max,rscheme_oc)
       dLalpha0(:)=dLalpha0(:)/alpha0(:) ! d log (alpha) / dr
-      call get_dr(dLalpha0,ddLalpha0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      call get_dr(dLalpha0,ddLalpha0,n_r_max,rscheme_oc)
       dLtemp0(:)=dtemp0(:)/temp0(:)
-      call get_dr(dLtemp0,ddLtemp0,n_r_max,n_cheb_max,w1, &
-           &      w2,chebt_oc,drx)
+      call get_dr(dLtemp0,ddLtemp0,n_r_max,rscheme_oc)
       dentropy0(:)=0.0_cp
 
    end subroutine polynomialBackground

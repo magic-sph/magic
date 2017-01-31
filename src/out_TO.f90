@@ -6,7 +6,7 @@ module outTO_mod
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max
-   use radial_functions, only: r_ICB, chebt_oc, r, r_CMB, orho1, drx
+   use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
    use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
        &                             BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
@@ -18,7 +18,7 @@ module outTO_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs, st_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
-   use output_data, only: sDens, zDens, TAG, log_file, runid, n_log_file, &
+   use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file, &
        &                  nSmaxA, nZmaxA
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
@@ -317,23 +317,23 @@ contains
          end do
 
          !---- Transform the contributions to cheb space for z-integral:
-         call chebt_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
-         call chebt_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
+         call rscheme_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
 
          dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
          nSI   =0
@@ -346,7 +346,7 @@ contains
          if ( lTOZwrite ) then
             nTOZfile=nTOZfile+1
             call dble2str(real(nTOZfile,cp),string)
-            fileName='TOZ_'//trim(adjustl(string))//'.'//TAG
+            fileName='TOZ_'//trim(adjustl(string))//'.'//tag
             open(newunit=n_toz_file, file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_toz_file) real(time,kind=outp), real(nSmax,kind=outp), &
@@ -355,7 +355,7 @@ contains
             write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
          end if
          if ( nTOsets > 1 .and. l_TOZave ) then
-            fileName='TOZM.'//TAG
+            fileName='TOZM.'//tag
             open(newunit=n_tozm_file,file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &
@@ -877,12 +877,12 @@ contains
                end do
             end do
 
-            call chebt_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-            call chebt_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
 
             !--- Open output file
             nFields=7
@@ -1081,16 +1081,16 @@ contains
                LFR(nR)    =fac*LFR(nR)
                CorR(nR)   =fac*CorR(nR)
                if ( LFABSR(nR) /= 0.0_cp ) then
-                  TayR(nR)   =abs(LFR(nR))/(fac*LFABSR(nR))
+                  TayR(nR)=abs(LFR(nR))/(fac*LFABSR(nR))
                else
-                  TayR(nR)   =0.0_cp
+                  TayR(nR)=0.0_cp
                end if
                !              TayRMSR(nR)=rS*rS*TayR(nR)
                TayRMSR(nR)=TayR(nR)
             end do
 
             !--- Now perform the radial integral: ( not tested )
-            TaySRMS=rInt_R(TayRMSR,n_r_max,n_r_max,drx,chebt_oc)
+            TaySRMS=rInt_R(TayRMSR,r,rscheme_oc)
             !--- And finally calculate the mean value, the factor 4*pi comes from
             !    the fact that the surface integral has already been cared for
             !    NOTE: Integral for RMS Taylorisation changed to not respect the 

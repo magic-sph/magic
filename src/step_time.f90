@@ -26,7 +26,7 @@ module step_time_mod
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
        &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
-       &            l_probe
+       &            l_double_curl, l_PressGraph, l_probe
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -77,7 +77,7 @@ module step_time_mod
    complex(cp), pointer :: dwdt_Rloc(:,:),dzdt_Rloc(:,:)
    complex(cp), pointer :: dpdt_Rloc(:,:), dsdt_Rloc(:,:), dVSrLM_Rloc(:,:)
    complex(cp), pointer :: dxidt_Rloc(:,:), dVXirLM_Rloc(:,:)
-   complex(cp), pointer :: dVPrLM_Rloc(:,:)
+   complex(cp), pointer :: dVPrLM_Rloc(:,:), dVxVhLM_Rloc(:,:)
 
    !DIR$ ATTRIBUTES ALIGN:64 :: djdt_Rloc,dbdt_Rloc,dVxBhLM_Rloc
    complex(cp), pointer :: djdt_Rloc(:,:), dVxBhLM_Rloc(:,:)
@@ -91,7 +91,7 @@ module step_time_mod
    complex(cp), pointer :: dwdt_LMloc(:,:), dzdt_LMloc(:,:)
    complex(cp), pointer :: dpdt_LMloc(:,:), dsdt_LMloc(:,:), dVSrLM_LMloc(:,:)
    complex(cp), pointer :: dxidt_LMloc(:,:), dVXirLM_LMloc(:,:)
-   complex(cp), pointer :: dVPrLM_LMloc(:,:)
+   complex(cp), pointer :: dVPrLM_LMloc(:,:), dVxVhLM_LMloc(:,:)
    complex(cp), pointer :: dbdt_LMloc(:,:), djdt_LMloc(:,:), dVxBhLM_LMloc(:,:)
 
    complex(cp), allocatable :: dbdt_CMB_LMloc(:)
@@ -110,10 +110,23 @@ contains
 
       local_bytes_used = bytes_allocated
 
-      allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
-      dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
-      dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
-      dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
+      if ( l_double_curl ) then
+         allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:4) )
+         dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
+         dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
+         dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
+         dVxVhLM_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,4)
+         bytes_allocated = bytes_allocated+ &
+                           4*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      else
+         allocate( dflowdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
+         dwdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,1)
+         dzdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,2)
+         dpdt_Rloc(1:lm_max,nRstart:nRstop) => dflowdt_Rloc_container(:,:,3)
+         allocate( dVxVhLM_Rloc(1:1,1:1) )
+         bytes_allocated = bytes_allocated+ &
+                           3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      end if
 
       if ( l_TP_form ) then
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:3) )
@@ -121,14 +134,14 @@ contains
          dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
          dVPrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,3)
          bytes_allocated = bytes_allocated+ &
-                           6*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+                           3*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       else
          allocate( dsdt_Rloc_container(lm_max,nRstart:nRstop,1:2) )
          dsdt_Rloc(1:lm_max,nRstart:nRstop)   => dsdt_Rloc_container(:,:,1)
          dVSrLM_Rloc(1:lm_max,nRstart:nRstop) => dsdt_Rloc_container(:,:,2)
          allocate( dVPrLM_Rloc(1:1,1:1) )
          bytes_allocated = bytes_allocated+ &
-                           5*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+                           2*lm_max*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_chemical_conv ) then
@@ -165,9 +178,8 @@ contains
             dsdt_Rloc(lm,nR)=zero
             dpdt_Rloc(lm,nR)=zero
             dVSrLM_Rloc(lm,nR)=zero
-            if ( l_TP_form ) then
-               dVPrLM_Rloc(lm,nR)=zero
-            end if
+            if ( l_double_curl ) dVxVhLM_Rloc(lm,nR)=zero
+            if ( l_TP_form ) dVPrLM_Rloc(lm,nR)=zero
             if ( l_chemical_conv ) then
                dxidt_Rloc(lm,nR)  =zero
                dVXirLM_Rloc(lm,nR)=zero
@@ -188,23 +200,34 @@ contains
 
 
       ! The same arrays, but now the LM local part
-      allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3))
-      dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
-      dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
-      dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
+      if ( l_double_curl ) then
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:4))
+         dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
+         dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
+         dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
+         dVxVhLM_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,4)
+         bytes_allocated = bytes_allocated+4*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate(dflowdt_LMloc_container(llm:ulm,n_r_max,1:3))
+         dwdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,1)
+         dzdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,2)
+         dpdt_LMloc(llm:ulm,1:n_r_max) => dflowdt_LMloc_container(:,:,3)
+         allocate( dVxVhLM_LMloc(1:1,1:1) )
+         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      end if
 
       if ( l_TP_form ) then
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:3))
          dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
          dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
          dVPrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,3)
-         bytes_allocated = bytes_allocated+6*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated+3*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       else
          allocate(dsdt_LMloc_container(llm:ulm,n_r_max,1:2))
          dsdt_LMloc(llm:ulm,1:n_r_max)   => dsdt_LMloc_container(:,:,1)
          dVSrLM_LMloc(llm:ulm,1:n_r_max) => dsdt_LMloc_container(:,:,2)
          allocate( dVPrLM_LMloc(1:1,1:1) )
-         bytes_allocated = bytes_allocated+5*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
       end if
 
       if ( l_chemical_conv ) then
@@ -243,7 +266,8 @@ contains
       deallocate( dbdt_CMB_LMloc )
       deallocate( dxidt_Rloc_container, dxidt_LMloc_container )
 
-      if ( .not. l_TP_form ) deallocate ( dVPrLM_RLoc, dVPrLM_LMLoc )
+      if ( .not. l_TP_form ) deallocate( dVPrLM_RLoc, dVPrLM_LMLoc )
+      if ( .not. l_double_curl ) deallocate( dVxVhLM_Rloc, dVxVhLM_LMloc )
 
    end subroutine finalize_step_time
 !-------------------------------------------------------------------------------
@@ -285,6 +309,7 @@ contains
       logical :: l_logNext,l_logNext2
       logical :: l_Bpot,l_Vpot,l_Tpot
       logical :: lRmsCalc,lRmsNext
+      logical :: lPressCalc,lPressNext
       logical :: lMat             ! update matricies
       logical :: l_probe_out      ! Sensor output
 
@@ -752,9 +777,9 @@ contains
               &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
          if ( lTOZhelp ) lTOZwrite=.true.
 
-         lRmsCalc=l_RMS.and.l_log.and.(n_time_step > 1)
+         lRmsCalc=l_RMS .and. l_log .and. (n_time_step > 1)
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc
-         lRmsNext=l_RMS.and.l_logNext ! Used for storing in update routines !
+         lRmsNext=l_RMS .and. l_logNext ! Used for storing in update routines !
 
          if ( n_time_step == 1 ) l_log=.true.
 
@@ -774,6 +799,10 @@ contains
          lFluxProfCalc =l_FluxProfs.and.l_log
 
          lViscBcCalc =l_ViscBcCalc.and.l_log
+
+         lPressCalc=lRmsCalc .or. ( l_PressGraph .and. l_graph )  &
+         &            .or. lFluxProfCalc .or. l_TP_form
+         lPressNext=( l_RMS .or. l_FluxProfs ) .and. l_logNext
 
          if ( l_graph ) then  ! write graphic output !
             PERFON('graph')
@@ -874,20 +903,21 @@ contains
          ! ===================================================================
 
          call wallTime(runTimeRstart)
-         call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,                  &
-              &           lTOCalc,lTONext,lTONext2,lHelCalc,                      &
-              &           lPowerCalc,lRmsCalc,                                    &
-              &           lViscBcCalc,lFluxProfCalc,lperpParCalc,                 &
-              &           l_probe_out,dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,    &
-              &           dxidt_Rloc,dbdt_Rloc,djdt_Rloc,dVxBhLM_Rloc,            &
-              &           dVSrLM_Rloc,dVPrLM_Rloc,dVXirLM_Rloc,lorentz_torque_ic, &
-              &           lorentz_torque_ma,br_vt_lm_cmb,br_vp_lm_cmb,            &
-              &           br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,Hel2LMr_Rloc,     &
-              &           HelnaLMr_Rloc,Helna2LMr_Rloc,viscLMr_Rloc,              &
-              &           uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,fconvLMr_Rloc,     &
-              &           fkinLMr_Rloc,fviscLMr_Rloc,fpoynLMr_Rloc,               &
-              &           fresLMr_Rloc,EperpLMr_Rloc,EparLMr_Rloc,                &
-              &           EperpaxiLMr_Rloc,EparaxiLMr_Rloc,                       &
+
+         call radialLoopG(l_graph,l_cour,l_frame,time,dt,dtLast,               &
+              &           lTOCalc,lTONext,lTONext2,lHelCalc,                   &
+              &           lPowerCalc,lRmsCalc,lPressCalc,                      &
+              &           lViscBcCalc,lFluxProfCalc,lperpParCalc,l_probe_out,  &
+              &           dsdt_Rloc,dwdt_Rloc,dzdt_Rloc,dpdt_Rloc,dxidt_Rloc,  &
+              &           dbdt_Rloc,djdt_Rloc,dVxVhLM_Rloc,dVxBhLM_Rloc,       &
+              &           dVSrLM_Rloc,dVPrLM_Rloc,dVXirLM_Rloc,                &
+              &           lorentz_torque_ic,lorentz_torque_ma,br_vt_lm_cmb,    &
+              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,HelLMr_Rloc,  &
+              &           Hel2LMr_Rloc,HelnaLMr_Rloc,Helna2LMr_Rloc,           &
+              &           viscLMr_Rloc,uhLMr_Rloc,duhLMr_Rloc,gradsLMr_Rloc,   &
+              &           fconvLMr_Rloc,fkinLMr_Rloc,fviscLMr_Rloc,            &
+              &           fpoynLMr_Rloc,fresLMr_Rloc,EperpLMr_Rloc,            &
+              &           EparLMr_Rloc,EperpaxiLMr_Rloc,EparaxiLMr_Rloc,       &
               &           dtrkc_Rloc,dthkc_Rloc)
 
          if ( lVerbose ) write(*,*) '! r-loop finished!'
@@ -1176,12 +1206,11 @@ contains
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
-         call LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM_LMloc,   &
-              &      dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,       &
-              &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,   &
-              &      dxidt_LMloc,dbdt_LMloc,djdt_LMloc,             &
-              &      lorentz_torque_ma,lorentz_torque_ic,           &
-              &      b_nl_cmb,aj_nl_cmb,aj_nl_icb)
+         call LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM_LMloc, &
+              &      dVxBhLM_LMloc,dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,  &
+              &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,&
+              &      dbdt_LMloc,djdt_LMloc,lorentz_torque_ma,                &
+              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,aj_nl_icb)
 
          if ( lVerbose ) write(*,*) '! lm-loop finished!'
          call wallTime(runTimeRstop)

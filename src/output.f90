@@ -5,7 +5,7 @@ module output_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max
    use parallel_mod, only: rank
-   use radial_functions, only: or1, or2, r, drx, chebt_oc, r_cmb, r_icb
+   use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
    use num_param, only: tScale
@@ -297,7 +297,6 @@ contains
          end if
       end if
 
-
    end subroutine finalize_output
 !----------------------------------------------------------------------------
    subroutine output(time,dt,dtNew,n_time_step,l_stop_time,               &
@@ -510,7 +509,7 @@ contains
 
             call get_power( time,timePassedLog,timeNormLog,l_stop_time,      &
                  &          omega_ic,omega_ma,lorentz_torque_ic,             &
-                 &          lorentz_torque_ma,w_LMloc,ddw_LMloc,z_LMloc,     &
+                 &          lorentz_torque_ma,w_LMloc,z_LMloc,               &
                  &          dz_LMloc,s_LMloc,p_LMloc,xi_LMloc,               &
                  &          b_LMloc,ddb_LMloc,aj_LMloc,dj_LMloc,db_ic_LMloc, &
                  &          ddb_ic_LMloc,aj_ic_LMloc,dj_ic_LMloc,viscLMr,    &
@@ -678,6 +677,16 @@ contains
          PERFOFF
       end if
   
+      if ( l_Bpot )                                                          &
+           &     call storePot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           &                   nBpotSets,'Bpot.',omega_ma,omega_ic)
+      if ( l_Vpot )                                                          &
+           &     call storePot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc,  &
+           &                   nVpotSets,'Vpot.',omega_ma,omega_ic)
+      if ( l_Tpot )                                                         &
+           &     call storePot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           &                   nTpotSets,'Tpot.',omega_ma,omega_ic)
+  
       !
       ! Parallel writing of the restart file (possible only when HDF5 is used)
       !
@@ -725,23 +734,17 @@ contains
   
       l_PVout=l_PV .and. l_log
   
-      !if (l_log.or.l_frame.or.l_graph.or.or.l_r.or.l_Bpot.or.l_Vpot&
-  
 #ifdef WITH_HDF5
-      if (l_frame.or.l_graph.or.l_Bpot.or.l_Vpot.or.l_Tpot &
-           .or.(l_SRIC.and.l_stop_time).or.l_PVout .or.l_rMagSpec) then
+      if (l_frame.or.l_graph .or.(l_SRIC.and.l_stop_time) &
+          .or.l_PVout .or.l_rMagSpec) then
 #else
-      if (l_frame.or.l_graph.or.l_Bpot.or.l_Vpot                   &
-           & .or.l_Tpot.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout &
+      if (l_frame.or.l_graph.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout &
            & .or.l_rMagSpec) then
 #endif
 #if 0
          write(*,"(13(A,L1))") "l_log=",l_log,     &
               & ", l_frame=",l_frame,              &
               & ", l_graph=",l_graph,              &
-              & ", l_Bpot=",l_Bpot,                &
-              & ", l_Vpot=",l_Vpot,                &
-              & ", l_Tpot=",l_Tpot,                &
               & ", l_store=",l_store,              &
               & ", l_SRIC=",l_SRIC,                &
               & ", l_stop_time=",l_stop_time,      &
@@ -779,7 +782,7 @@ contains
          ! which first have to be gathered on rank 0
   
 #ifndef WITH_HDF5
-         if (l_store) then
+         if ( l_store ) then
             call gather_all_from_lo_to_rank0(gt_OC,dwdtLast_LMloc,dwdtLast)
             call gather_all_from_lo_to_rank0(gt_OC,dpdtLast_LMloc,dpdtLast)
             call gather_all_from_lo_to_rank0(gt_OC,dsdtLast_LMloc,dsdtLast)
@@ -789,12 +792,12 @@ contains
                call gather_all_from_lo_to_rank0(gt_OC,dxidtLast_LMloc,dxidtLast)
             end if
             
-            if (l_mag) then
+            if ( l_mag ) then
                call gather_all_from_lo_to_rank0(gt_OC,dbdtLast_LMloc,dbdtLast)
                call gather_all_from_lo_to_rank0(gt_OC,djdtLast_LMloc,djdtLast)
             end if
   
-            if (l_cond_ic) then
+            if ( l_cond_ic ) then
                call gather_all_from_lo_to_rank0(gt_IC,dbdt_icLast_LMloc,dbdt_icLast)
                call gather_all_from_lo_to_rank0(gt_IC,djdt_icLast_LMloc,djdt_icLast)
             end if
@@ -910,7 +913,7 @@ contains
   
             if ( prmag /= 0 .and. nVarCond > 0 ) then
                Rm=0.0_cp
-               Rm=rInt_R(RmR,n_r_max,n_r_max,drx,chebt_oc)
+               Rm=rInt_R(RmR,r,rscheme_oc)
                Rm=three*Rm/(r_cmb**3-r_icb**3)
             elseif ( prmag /= 0 ) then
                Rm=Re*prmag
@@ -1068,16 +1071,6 @@ contains
             end if ! l_stop_time ?
   
          end if ! l_log
-  
-         if ( l_Bpot )                                       &
-              &     call storePot(time,b,aj,b_ic,aj_ic,      &
-              &        nBpotSets,'Bpot.',omega_ma,omega_ic)
-         if ( l_Vpot )                                       &
-              &     call storePot(time,w,z,b_ic,aj_ic,       &
-              &        nVpotSets,'Vpot.',omega_ma,omega_ic)
-         if ( l_Tpot )                                       &
-              &     call storePot(time,s,z,b_ic,aj_ic,       &
-              &        nTpotSets,'Tpot.',omega_ma,omega_ic)
          
          !----- Store current solution
          !      Note: unless l_new_rst_file=.true. .and. .not.l_stop_time

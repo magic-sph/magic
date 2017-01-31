@@ -87,10 +87,10 @@ contains
 
    end subroutine finalize_LMLoop
 !----------------------------------------------------------------------------
-   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,dVxBhLM,      &
-              &      dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,            &
-              &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,&
-              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,       &
+   subroutine LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM, &
+              &      dVxBhLM,dVSrLM,dVPrLM,dVXirLM,dsdt,dwdt,          &
+              &      dzdt,dpdt,dxidt,dbdt,djdt,lorentz_torque_ma,      &
+              &      lorentz_torque_ic,b_nl_cmb,aj_nl_cmb,             &
               &      aj_nl_icb)
       !
       !  This subroutine performs the actual time-stepping.
@@ -102,11 +102,13 @@ contains
       real(cp),    intent(in) :: dt,time
       logical,     intent(in) :: lMat
       logical,     intent(in) :: lRmsNext
+      logical,     intent(in) :: lPressNext
 
       !--- Input from radialLoop:
       !    These fields are provided in the R-distributed space!
       ! for djdt in update_b
       complex(cp), intent(inout) :: dVxBhLM(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: dVxVhLM(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dVSrLM(llm:ulm,n_r_max)   ! for dsdt in update_s
       complex(cp), intent(inout) :: dVPrLM(llm:ulm,n_r_max)  ! for dsdt in update_s
       complex(cp), intent(inout) :: dVXirLM(llm:ulm,n_r_max)  ! for dxidt in update_xi
@@ -115,7 +117,7 @@ contains
       !--- Input from radialLoop and then redistributed:
       complex(cp), intent(inout) :: dsdt(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: dxidt(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: dwdt(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: dwdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dzdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dpdt(llm:ulm,n_r_max)
       complex(cp), intent(in) :: dbdt(llmMag:ulmMag,n_r_maxMag)
@@ -287,10 +289,10 @@ contains
                  &         MPI_COMM_WORLD,ierr)
 #endif
             if ( l_TP_form ) then
-               call updateWPT( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
-                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,    &
-                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,  &
-                 &             dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt, &
+               call updateWPT( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,     &
+                 &             dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,     &
+                 &             dpdtLast_LMloc, s_LMloc, ds_LMloc, dVSrLM,   &
+                 &             dVPrLM, dsdt, dsdtLast_LMloc, w1, coex, dt,  &
                  &             nLMB, lRmsNext )
             else
                call updateWPS( w_LMloc, dw_LMloc, ddw_LMloc, z10, dwdt,    &
@@ -303,9 +305,10 @@ contains
             call lo2r_redist_start(lo2r_s,s_LMloc_container,s_Rloc_container)
          else
             PERFON('up_WP')
-            call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dwdt, dwdtLast_LMloc, &
-                 &         p_LMloc, dp_LMloc, dpdt, dpdtLast_LMloc, s_LMloc,   &
-                 &         xi_LMloc, w1,coex,dt,nLMB,lRmsNext)
+            call updateWP( w_LMloc, dw_LMloc, ddw_LMloc, dVxVhLM, dwdt,     &
+                 &         dwdtLast_LMloc, p_LMloc, dp_LMloc, dpdt,         &
+                 &         dpdtLast_LMloc, s_LMloc, xi_LMloc, w1, coex, dt, &
+                 &         nLMB, lRmsNext, lPressNext)
             PERFOFF
 
             if ( DEBUG_OUTPUT ) then

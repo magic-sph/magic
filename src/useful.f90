@@ -14,7 +14,7 @@ module useful
    private
 
    public :: l_correct_step, random, factorise, cc2real, cc22real, &
-   &         logWrite, getMSD2
+   &         logWrite, getMSD2, polynomial_interpolation
 
 contains
 
@@ -267,5 +267,87 @@ contains
       end if
 
    end subroutine getMSD2
+!----------------------------------------------------------------------------
+   subroutine polynomial_interpolation(xold, yold, xnew ,ynew)
+
+      !-- Input variables
+      real(cp),    intent(in) :: xold(4) 
+      complex(cp), intent(in) :: yold(4)
+      real(cp),    intent(in) :: xnew
+
+      !-- Output variables
+      complex(cp), intent(out) :: ynew 
+
+      !-- Local variables
+      real(cp) :: yold_real(4), yold_imag(4)
+      real(cp) :: ynew_real, ynew_imag
+
+      yold_real= real(yold)
+      yold_imag=aimag(yold)
+
+      call polynomial_interpolation_real(xold, yold_real, xnew, ynew_real)
+      call polynomial_interpolation_real(xold, yold_imag, xnew, ynew_imag)
+
+      ynew = cmplx(ynew_real, ynew_imag, kind=cp)
+
+   end subroutine polynomial_interpolation
+!----------------------------------------------------------------------------
+   subroutine polynomial_interpolation_real(xold,yold,xnew,ynew)
+
+      !-- Input variables:
+      real(cp), intent(in) :: xold(:)
+      real(cp), intent(in) :: yold(:)
+      real(cp), intent(in) :: xnew
+
+      !-- Output variables:
+      real(cp), intent(out) :: ynew
+
+      !-- Local variables:
+      integer :: n_stencil
+      integer :: n_st, n_st_out, n_s
+      real(cp) :: diff, diff_tmp, dy
+      real(cp) :: ho, hp, den, work_diff
+      real(cp), allocatable :: work1(:), work2(:)
+
+      n_stencil=size(xold)
+      allocate( work1(n_stencil), work2(n_stencil) )
+
+      n_s=1
+      diff=abs(xnew-xold(1))
+      do n_st=1,n_stencil
+         diff_tmp=abs(xnew-xold(n_st))
+         if ( diff_tmp < diff ) then
+            n_s =n_st
+            diff=diff_tmp
+         end if
+         work1(n_st)=yold(n_st)
+         work2(n_st)=yold(n_st)
+      end do
+      ynew=yold(n_s)
+
+      n_s=n_s-1
+      do n_st_out=1,n_stencil-1
+         do n_st=1,n_stencil-n_st_out
+            ho       =xold(n_st)-xnew
+            hp       =xold(n_st+n_st_out)-xnew
+            work_diff=work1(n_st+1)-work2(n_st)
+            den=ho-hp
+            if ( den == 0.0_cp ) stop
+            den        =work_diff/den
+            work2(n_st)=hp*den
+            work1(n_st)=ho*den
+         end do
+         if ( 2*n_s < n_stencil-n_st_out )then
+            dy=work1(n_s+1)
+         else
+            dy=work2(n_s)
+            n_s=n_s-1
+         end if
+         ynew=ynew+dy
+      end do
+
+      deallocate( work1, work2 )
+
+   end subroutine polynomial_interpolation_real
 !----------------------------------------------------------------------------
 end module useful

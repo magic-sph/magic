@@ -2,7 +2,7 @@ module out_dtB_frame
 
    use truncation
    use precision_mod
-   use radial_functions, only: r, or1, chebt_ic, r_ic, drx, chebt_oc, r_icb, &
+   use radial_functions, only: r, or1, chebt_ic, r_ic, rscheme_oc, r_icb, &
                                dr_fac_ic, chebt_ic_even
    use blocking, only: nThetaBs, sizeThetaB, lm2m, lm2l, nfs, lm2
    use horizontal_data, only: cosTheta, n_theta_cal2ord, sinTheta, osn1, &
@@ -189,26 +189,26 @@ contains
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
                call get_drNS(PstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 36 ) then
                call get_drNS(PadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 37 ) then
                call get_drNS(PdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
     
             else if ( n_field_type == 38 ) then
                call get_drNS(TstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 39 ) then
                call get_drNS(TomeLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 40 ) then
                call get_drNS(TadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             else if ( n_field_type == 41 ) then
                call get_drNS(TdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,chebt_oc,drx)
+                             n_r_max,n_cheb_max,workB,rscheme_oc)
             end if
     
             if ( n_surface == 0 ) then

@@ -3,11 +3,9 @@ module updateXi_mod
 
    use omp_lib
    use precision_mod
-   use truncation, only: n_r_max, lm_max, n_cheb_max, l_max
+   use truncation, only: n_r_max, lm_max, l_max
    use radial_data, only: n_r_cmb, n_r_icb
-   use radial_functions, only: chebt_oc,orho1,or1,or2,     &
-       &                       beta, drx, ddrx, cheb_norm, &
-       &                       cheb, dcheb, d2cheb
+   use radial_functions, only: orho1, or1, or2, beta, rscheme_oc
    use physical_parameters, only: osc, kbotxi, ktopxi
    use num_param, only: alpha
    use init_fields, only: topxi, botxi
@@ -17,9 +15,9 @@ module updateXi_mod
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
    use algebra, only: cgeslML,sgesl, sgefa
-   use cosine_transform_odd
-   use radial_der, only: get_drNS, get_ddr
-   use constants, only: zero, one, two, half
+   use radial_der, only: get_ddr, get_dr
+   use constants, only: zero, one, two
+   use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
 
    implicit none
@@ -27,7 +25,6 @@ module updateXi_mod
    private
 
    !-- Local variables
-   complex(cp), allocatable :: workA(:,:),workB(:,:)
    complex(cp), allocatable :: rhs1(:,:,:)
    integer :: maxThreads
    real(cp), allocatable :: xi0Mat(:,:)     ! for l=m=0  
@@ -67,10 +64,6 @@ contains
       allocate( lXimat(0:l_max) )
       bytes_allocated = bytes_allocated+(l_max+1)*SIZEOF_LOGICAL
 
-      allocate( workA(llm:ulm,n_r_max) )
-      allocate( workB(llm:ulm,n_r_max) )
-      bytes_allocated=bytes_allocated+2*(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
-
 #ifdef WITHOMP
       maxThreads=omp_get_max_threads()
 #else
@@ -93,7 +86,7 @@ contains
 #ifdef WITH_PRECOND_S0
       deallocate(xi0Mat_fac)
 #endif
-      deallocate( workA, workB, rhs1 )
+      deallocate( rhs1 )
 
    end subroutine finalize_updateXI
 !------------------------------------------------------------------------------
@@ -125,7 +118,7 @@ contains
       integer :: lmStart,lmStop
       integer :: nLMB2
       integer :: nR                 ! counts radial grid points
-      integer :: n_cheb             ! counts cheb modes
+      integer :: n_r_out             ! counts cheb modes
       real(cp) ::  rhs(n_r_max) ! real RHS for l=m=0
 
       integer, pointer :: nLMBs2(:),lm2l(:),lm2m(:)
@@ -156,15 +149,15 @@ contains
       !$OMP PARALLEL  &
       !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
       !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVXirLM,chebt_oc,drx,dxidt,orho1,or2) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,nThreads,llm,ulm)
+      !$OMP shared(dVXirLM,dxidt,orho1,or2) &
+      !$OMP shared(n_r_max,rscheme_oc,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
       nThreads=omp_get_num_threads()
 #else
       nThreads=1
 #endif
-      !-- Get radial derivatives of s: workA,dxidtLast used as work arrays
+      !-- Get radial derivatives of s: work_LMloc,dxidtLast used as work arrays
       all_lms=lmStop-lmStart+1
       per_thread=all_lms/nThreads
       !$OMP END SINGLE
@@ -176,16 +169,15 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
 
          !--- Finish calculation of dxidt:
-         call get_drNS( dVXirLM,workA,ulm-llm+1,start_lm-llm+1,  &
-              &         stop_lm-llm+1,n_r_max,n_cheb_max,workB, &
-              &         chebt_oc,drx)
+         call get_dr( dVXirLM,work_LMloc,ulm-llm+1,start_lm-llm+1,       &
+              &       stop_lm-llm+1,n_r_max, rscheme_oc, nocopy=.true. )
       end do
       !$OMP end do
 
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dxidt(lm,nR)=orho1(nR)*(dxidt(lm,nR)-or2(nR)*workA(lm,nR))
+            dxidt(lm,nR)=orho1(nR)*(dxidt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
          end do
       end do
       !$OMP end do
@@ -234,7 +226,7 @@ contains
          do iChunk=1,nChunks
             !$OMP TASK default(shared) &
             !$OMP firstprivate(iChunk) &
-            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_cheb) &
+            !$OMP private(lmB0,lmB,lm,lm1,m1,nR,n_r_out) &
             !$OMP private(threadid)
 #ifdef WITHOMP
             threadid = omp_get_thread_num()
@@ -297,18 +289,18 @@ contains
                lm1=lm22lm(lm,nLMB2,nLMB)
                m1 =lm22m(lm,nLMB2,nLMB)
                if ( l1 == 0 ) then
-                  do n_cheb=1,n_cheb_max
-                     xi(lm1,n_cheb)=rhs(n_cheb)
+                  do n_r_out=1,rscheme_oc%n_max
+                     xi(lm1,n_r_out)=rhs(n_r_out)
                   end do
                else
                   lmB=lmB+1
                   if ( m1 > 0 ) then
-                     do n_cheb=1,n_cheb_max
-                        xi(lm1,n_cheb)=rhs1(n_cheb,lmB,threadid)
+                     do n_r_out=1,rscheme_oc%n_max
+                        xi(lm1,n_r_out)=rhs1(n_r_out,lmB,threadid)
                      end do
                   else
-                     do n_cheb=1,n_cheb_max
-                        xi(lm1,n_cheb)= cmplx(real(rhs1(n_cheb,lmB,threadid)), &
+                     do n_r_out=1,rscheme_oc%n_max
+                        xi(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
                                        &     0.0_cp,kind=cp)
                      end do
                   end if
@@ -323,10 +315,10 @@ contains
       !$OMP END PARALLEL
 
       !write(*,"(A,2ES22.12)") "s after = ",SUM(s)
-      !-- set cheb modes > n_cheb_max to zero (dealiazing)
-      do n_cheb=n_cheb_max+1,n_r_max
+      !-- set cheb modes > rscheme_oc%n_max to zero (dealiazing)
+      do n_r_out=rscheme_oc%n_max+1,n_r_max
          do lm1=lmStart,lmStop
-            xi(lm1,n_cheb)=zero
+            xi(lm1,n_r_out)=zero
          end do
       end do
 
@@ -345,8 +337,8 @@ contains
       !$OMP PARALLEL &
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,lmStart,lmStop,nThreads) &
-      !$OMP shared(xi,dxi,dxidtLast,chebt_oc,drx,ddrx) &
-      !$OMP shared(n_r_max,n_cheb_max,workA,workB,llm,ulm) &
+      !$OMP shared(xi,dxi,dxidtLast,rscheme_oc) &
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dxidt,coex,osc,hdif_Xi) &
       !$OMP shared(st_map,lm2l,lm2m,beta,or1,dLh,or2)
       !$OMP DO
@@ -354,10 +346,9 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
-         call chebt_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1,dxidtLast)
-         call get_ddr(xi, dxi, workA, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
-              &       n_r_max, n_cheb_max, workB, dxidtLast,                   &
-              &       chebt_oc,drx,ddrx)
+         call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
+         call get_ddr(xi, dxi, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
+              &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
 
@@ -367,7 +358,7 @@ contains
          do lm1=lmStart,lmStop
             dxidtLast(lm1,nR)=dxidt(lm1,nR) &
                  & - coex*osc*hdif_Xi(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
-                 &   ( workA(lm1,nR) &
+                 &   ( work_LMloc(lm1,nR) &
                  &     + ( beta(nR)+two*or1(nR) ) * dxi(lm1,nR) &
                  &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*xi(lm1,nR) &
                  &   )
@@ -379,7 +370,7 @@ contains
       call omp_set_num_threads(maxThreads)
 #endif
       !PERFOFF
-      !-- workA=dds not needed further after this point, used as work array later
+      !-- work_LMloc=dds not needed further after this point, used as work array later
 
    end subroutine updateXi
 !------------------------------------------------------------------------------
@@ -404,49 +395,53 @@ contains
 #endif
 
       !-- Local variables:
-      integer :: info,nCheb,nR
+      integer :: info,nR_out,nR
       real(cp) :: O_dt
 
       O_dt=one/dt
     
       !----- Boundary condition:
-      do nCheb=1,n_cheb_max
+      do nR_out=1,rscheme_oc%n_max
     
          if ( ktopxi == 1 ) then
             !--------- Constant entropy at CMB:
-            xiMat(1,nCheb)=cheb_norm
+            xiMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          else
             !--------- Constant flux at CMB:
-            xiMat(1,nCheb)=cheb_norm*dcheb(nCheb,1)
+            xiMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
          end if
          if ( kbotxi == 1 ) then
             !--------- Constant entropy at ICB:
-            xiMat(n_r_max,nCheb)=cheb_norm*cheb(nCheb,n_r_max)
+            xiMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
+            &                     rscheme_oc%rMat(n_r_max,nR_out)
          else
             !--------- Constant flux at ICB:
-            xiMat(n_r_max,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
+            xiMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
+            &                     rscheme_oc%drMat(n_r_max,nR_out)
          end if
+
       end do
-      if ( n_cheb_max < n_r_max ) then ! fill with zeros !
-         do nCheb=n_cheb_max+1,n_r_max
-            xiMat(1,nCheb)      =0.0_cp
-            xiMat(n_r_max,nCheb)=0.0_cp
+
+      if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+         do nR_out=rscheme_oc%n_max+1,n_r_max
+            xiMat(1,nR_out)      =0.0_cp
+            xiMat(n_r_max,nR_out)=0.0_cp
          end do
       end if
     
-      do nCheb=1,n_r_max
+      do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            xiMat(nR,nCheb)= cheb_norm * (                     &
-           &                             O_dt*cheb(nCheb,nR) - & 
-           &                 alpha*osc*(    d2cheb(nCheb,nR) + &
-           &      (beta(nR)+two*or1(nR))*    dcheb(nCheb,nR) ) )
+            xiMat(nR,nR_out)= rscheme_oc%rnorm * (                      &
+            &                         O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+            &             alpha*osc*(    rscheme_oc%d2rMat(nR,nR_out) + &
+            &  (beta(nR)+two*or1(nR))*    rscheme_oc%drMat(nR,nR_out) ) )
          end do
       end do
     
       !----- Factors for highest and lowest cheb mode:
       do nR=1,n_r_max
-         xiMat(nR,1)      =half*xiMat(nR,1)
-         xiMat(nR,n_r_max)=half*xiMat(nR,n_r_max)
+         xiMat(nR,1)      =rscheme_oc%boundary_fac*xiMat(nR,1)
+         xiMat(nR,n_r_max)=rscheme_oc%boundary_fac*xiMat(nR,n_r_max)
       end do
     
 #ifdef WITH_PRECOND_S0
@@ -492,7 +487,7 @@ contains
 #endif
 
       !-- Local variables:
-      integer :: info,nCheb,nR
+      integer :: info,nR_out,nR
       real(cp) :: O_dt,dLh
 
 #ifdef MATRIX_CHECK
@@ -511,40 +506,43 @@ contains
       dLh=real(l*(l+1),kind=cp)
 
       !----- Boundary coditions:
-      do nCheb=1,n_cheb_max
+      do nR_out=1,rscheme_oc%n_max
          if ( ktopxi == 1 ) then
-            xiMat(1,nCheb)=cheb_norm
+            xiMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%rMat(1,nR_out)
          else
-            xiMat(1,nCheb)=cheb_norm*dcheb(nCheb,1)
+            xiMat(1,nR_out)=rscheme_oc%rnorm*rscheme_oc%drMat(1,nR_out)
          end if
          if ( kbotxi == 1 ) then
-            xiMat(n_r_max,nCheb)=cheb_norm*cheb(nCheb,n_r_max)
+            xiMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
+            &                     rscheme_oc%rMat(n_r_max,nR_out)
          else
-            xiMat(n_r_max,nCheb)=cheb_norm*dcheb(nCheb,n_r_max)
+            xiMat(n_r_max,nR_out)=rscheme_oc%rnorm* &
+            &                     rscheme_oc%drMat(n_r_max,nR_out)
          end if
       end do
-      if ( n_cheb_max < n_r_max ) then ! fill with zeros !
-         do nCheb=n_cheb_max+1,n_r_max
-            xiMat(1,nCheb)      =0.0_cp
-            xiMat(n_r_max,nCheb)=0.0_cp
+
+      if ( rscheme_oc%n_max < n_r_max ) then ! fill with zeros !
+         do nR_out=rscheme_oc%n_max+1,n_r_max
+            xiMat(1,nR_out)      =0.0_cp
+            xiMat(n_r_max,nR_out)=0.0_cp
          end do
       end if
 
       !----- Other points:
-      do nCheb=1,n_r_max
+      do nR_out=1,n_r_max
          do nR=2,n_r_max-1
-            xiMat(nR,nCheb)= cheb_norm * (                   &
-       &                               O_dt*cheb(nCheb,nR) - &
-       &      alpha*osc*hdif*(            d2cheb(nCheb,nR) + &
-       &      ( beta(nR)+two*or1(nR) )*    dcheb(nCheb,nR) - &
-       &           dLh*or2(nR)*             cheb(nCheb,nR) ) )
+            xiMat(nR,nR_out)= rscheme_oc%rnorm * (                       &
+            &                          O_dt*rscheme_oc%rMat(nR,nR_out) - &
+            & alpha*osc*hdif*(            rscheme_oc%d2rMat(nR,nR_out) + &
+            & ( beta(nR)+two*or1(nR) )*    rscheme_oc%drMat(nR,nR_out) - &
+            &      dLh*or2(nR)*             rscheme_oc%rMat(nR,nR_out) ) )
          end do
       end do
 
       !----- Factor for highest and lowest cheb:
       do nR=1,n_r_max
-         xiMat(nR,1)      =half*xiMat(nR,1)
-         xiMat(nR,n_r_max)=half*xiMat(nR,n_r_max)
+         xiMat(nR,1)      =rscheme_oc%boundary_fac*xiMat(nR,1)
+         xiMat(nR,n_r_max)=rscheme_oc%boundary_fac*xiMat(nR,n_r_max)
       end do
 
 #ifdef WITH_PRECOND_S

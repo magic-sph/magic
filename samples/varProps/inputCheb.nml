@@ -6,8 +6,8 @@
 /
 &control
  mode        =1,
- tag         ="test",
- n_time_steps=500,
+ tag         ="cheb",
+ n_time_steps=250,
  courfac     =2.5D0,
  alffac      =1.0D0,
  dtmax       =1.0D-4,
@@ -36,7 +36,7 @@
  difExp      =-0.5D0,
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="NONE",
  init_s1     =0707,
  amp_s1      =0.01,
@@ -47,10 +47,10 @@
  n_rsts      =1,
  n_stores    =0,
  runid       ="Nrho=3 ASH profiles",
- l_movie     =.FALSE.,
- l_average   =.TRUE.,
- l_drift     =.TRUE.,
- l_AM        =.TRUE.,
+ l_movie     =.false.,
+ l_average   =.true.,
+ l_drift     =.true.,
+ l_AM        =.true.,
 /
 &mantle 
  nRotMa      =0

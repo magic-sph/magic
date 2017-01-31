@@ -4,8 +4,8 @@ module kinetic_energy
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, l_max
-   use radial_functions, only: r, or1, drx, chebt_oc, &
-       &                       or2, r_cmb, r_icb, orho1, orho2, sigma
+   use radial_functions, only: r, or1, rscheme_oc, or2, r_cmb, r_icb, &
+       &                       orho1, orho2, sigma
    use physical_parameters, only: prmag, ek, nVarCond
    use num_param, only: tScale, eScale
    use blocking, only: lo_map, st_map
@@ -13,7 +13,7 @@ module kinetic_energy
    use logic, only: l_save_out, l_non_rot, l_anel
    use output_data, only: tag
    use constants, only: pi, vol_oc, one, two, three, half, four, osq4pi
-   use LMLoop_data, only: llm,ulm
+   use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use integration, only: rInt_R
    use useful, only: cc2real
@@ -205,14 +205,14 @@ contains
          !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
          !end do
          !-- Radial Integrals:
-         e_p    =rInt_R(e_p_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t    =rInt_R(e_t_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as =rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as =rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_es =rInt_R(e_p_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_es =rInt_R(e_t_es_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_p_eas=rInt_R(e_p_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_eas=rInt_R(e_t_eas_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p    =rInt_R(e_p_r_global,r,rscheme_oc)
+         e_t    =rInt_R(e_t_r_global,r,rscheme_oc)
+         e_p_as =rInt_R(e_p_as_r_global,r,rscheme_oc)
+         e_t_as =rInt_R(e_t_as_r_global,r,rscheme_oc)
+         e_p_es =rInt_R(e_p_es_r_global,r,rscheme_oc)
+         e_t_es =rInt_R(e_t_es_r_global,r,rscheme_oc)
+         e_p_eas=rInt_R(e_p_eas_r_global,r,rscheme_oc)
+         e_t_eas=rInt_R(e_t_eas_r_global,r,rscheme_oc)
 
          fac    =half*eScale
          e_p    =fac*e_p
@@ -411,10 +411,10 @@ contains
 
       if ( rank == 0 ) then
          !-- Radial Integrals:
-         e_p   =rInt_R(e_p_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_t   =rInt_R(e_t_r_global,   n_r_max,n_r_max,drx,chebt_oc)
-         e_p_as=rInt_R(e_p_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
-         e_t_as=rInt_R(e_t_as_r_global,n_r_max,n_r_max,drx,chebt_oc)
+         e_p   =rInt_R(e_p_r_global,   r,rscheme_oc)
+         e_t   =rInt_R(e_t_r_global,   r,rscheme_oc)
+         e_p_as=rInt_R(e_p_as_r_global,r,rscheme_oc)
+         e_t_as=rInt_R(e_t_as_r_global,r,rscheme_oc)
          fac   =half*eScale
          e_p   =fac*e_p
          e_t   =fac*e_t
@@ -441,10 +441,10 @@ contains
          Ec =0.0_cp
          ELc=0.0_cp
          do l=1,l_max
-            e_l=fac*rInt_R(e_lr_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
+            e_l=fac*rInt_R(e_lr_global(1:,l),r,rscheme_oc)
             E  =E+e_l
             EL =EL+real(l,cp)*e_l
-            e_l=fac*rInt_R(e_lr_c_global(1,l),n_r_max,n_r_max,drx,chebt_oc)
+            e_l=fac*rInt_R(e_lr_c_global(1:,l),r,rscheme_oc)
             Ec =Ec+e_l
             ELc=ELc+real(l,cp)*e_l
          end do
@@ -499,7 +499,7 @@ contains
          !-- Magnetic reynolds number
          if ( prmag /= 0 .and. nVarCond > 0 ) then
             Rm=0.0_cp
-            Rm=rInt_R(RmR,n_r_max,n_r_max,drx,chebt_oc)
+            Rm=rInt_R(RmR,r,rscheme_oc)
             Rm=three*Rm/(r_cmb**3-r_icb**3)
          elseif ( prmag /= 0 ) then
             Rm=Re*prmag

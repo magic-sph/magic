@@ -9,23 +9,26 @@ module RMS
    use mem_alloc, only: bytes_allocated
    use blocking, only: st_map, nThetaBs, nfs, sizeThetaB, lo_map, lm2, &
        &               lm2m
+   use finite_differences, only: type_fd
+   use chebyshev, only: type_cheb_odd
+   use radial_scheme, only: type_rscheme
    use truncation, only: n_r_max, n_cheb_max, n_r_maxMag, lm_max, lm_maxMag, &
        &                 l_max, n_phi_max, n_theta_max, minc, n_r_max_dtB,   &
-       &                 lm_max_dtB
+       &                 lm_max_dtB, fd_ratio, fd_stretch
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: chebt_oc, drx, r, r_CMB, dr_fac
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb, alph1, alph2
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
-       &            l_corr, l_mag
+       &            l_corr, l_mag, l_finite_diff, l_newmap
    use num_param, only: tScale
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
-   use integration, only: rInt_R, rInt
+   use integration, only: rInt_R
    use chebyshev_polynoms_mod, only: cheb_grid
-   use radial_functions, only: nDi_costf1, nDd_costf1, r
    use radial_der, only: get_dr, get_drNS
-   use output_data, only: rDea, rCut, TAG, runid
+   use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
+   use LMLoop_data, only: llm, ulm
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
        &                  hInt2dPolLM
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
@@ -43,7 +46,7 @@ module RMS
  
    private
 
-   type(costf_odd_t), public :: chebt_RMS
+   class(type_rscheme), pointer :: rscheme_RMS
    integer, public :: n_r_maxC     ! Number of radial points
    integer, public :: n_cheb_maxC  ! Number of Chebyshevs
    integer, public :: nCut         ! Number of points for the cut-off
@@ -114,17 +117,17 @@ contains
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVTor2hInt(0:l_max,n_r_max,nThreadsMax) )
-      allocate( dtVPolLMr(lm_max,n_r_max) )
+      allocate( dtVPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
                         2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifTor2hInt(0:l_max,n_r_max,nThreadsMax) )
-      allocate( DifPolLMr(lm_max,n_r_max) )
+      allocate( DifPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
                         2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
     
       allocate( Adv2hInt(0:l_max,n_r_max) )
       allocate( Cor2hInt(0:l_max,n_r_max) )
@@ -154,9 +157,14 @@ contains
       allocate( PLFRmsL_TA(0:l_max), PLFRmsL_SD(0:l_max), PLFRmsSD(0:l_max) )
       bytes_allocated = bytes_allocated+ 39*(l_max+1)*SIZEOF_DEF_REAL
 
+      if ( .not. l_finite_diff ) then
+         allocate ( type_cheb_odd :: rscheme_RMS )
+      else
+         allocate ( type_fd :: rscheme_RMS )
+      end if
+
       !--- Initialize new cut-back grid:
-      call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC, &
-                    nCut,dr_facC,chebt_RMS,nDi_costf1,nDd_costf1)
+      call init_rNB(r,rCut,rDea,rC,n_r_maxC,n_cheb_maxC,nCut,rscheme_RMS)
 
       dtvrms_file='dtVrms.'//tag
       dtbrms_file='dtBrms.'//tag
@@ -171,7 +179,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_RMS
 
-      deallocate( rC, dr_facC )
+      deallocate( rC )
       deallocate( dtBPol2hInt, dtBTor2hInt, dtBPolLMr )
       deallocate( dtVPol2hInt, dtVTor2hInt, dtVPolLMr )
       deallocate( DifPol2hInt, DifTor2hInt, DifPolLMr )
@@ -193,7 +201,7 @@ contains
       deallocate( CLFRmsL_TA, CLFRmsL_SD, CLFRmsSD )
       deallocate( PLFRmsL_TA, PLFRmsL_SD, PLFRmsSD )
 
-      call chebt_RMS%finalize()
+      call rscheme_RMS%finalize()
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_dtvrms_file)
@@ -244,7 +252,7 @@ contains
          end do
       end do
       do nR=1,n_r_max
-         do lm=1,lm_max
+         do lm=llm,ulm
             dtVPolLMr(lm,nR)=zero
             DifPolLMr(lm,nR)=zero
          end do
@@ -258,8 +266,7 @@ contains
    end subroutine zeroRms
 !----------------------------------------------------------------------------
    subroutine init_rNB(r,rCut,rDea,r2,n_r_max2,n_cheb_max2, &
-        &              nS,dr_fac2,chebt_RMS,nDi_costf1,     &
-        &              nDd_costf1)
+        &              nS,rscheme_RMS)
       !
       ! Prepares the usage of a cut back radial grid where nS points
       ! on both boundaries are discarded.
@@ -275,22 +282,18 @@ contains
       !--- Input variables:
       real(cp),              intent(in) :: r(n_r_max)
       real(cp),              intent(in) :: rCut,rDea
-      integer,               intent(in) :: nDi_costf1,nDd_costf1
     
       !--- Output variables:
       integer,               intent(out) :: nS,n_r_max2,n_cheb_max2
       real(cp), allocatable, intent(out) :: r2(:)
-      real(cp), allocatable, intent(out) :: dr_fac2(:)
-      type(costf_odd_t),     intent(out) :: chebt_RMS
+      class(type_rscheme),   intent(out) :: rscheme_RMS
     
       ! Local stuff
-      real(cp) :: drx(n_r_max)      ! first derivatives of x(r)
       real(cp) :: r2C(n_r_max)
-      real(cp) :: r_cheb2(n_r_max)
       real(cp) :: dr2(n_r_max)
-      real(cp) :: w1(n_r_max), w2(n_r_max)
-      real(cp) :: r_icb2, r_cmb2, dr_fac
-      integer :: nRs(63)
+      real(cp) :: r_icb2, r_cmb2
+      real(cp) :: ratio1, ratio2
+      integer :: nRs(63), n_in_2
     
       logical :: lStop
       integer :: n,nR
@@ -312,50 +315,80 @@ contains
       nS=nS-1
       n_r_max2=n_r_max-2*nS
     
-      ! Allowed number of radial grid points:
-      nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
-             129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
-             321, 325, 361, 385, 401, 433, 481, 501, 513, 541, 577,  &
-             601, 641, 649, 721, 769, 801, 865, 901, 961, 973, 1001, &
-             1025, 1081, 1153, 1201, 1281, 1297, 1441, 1501, 1537,   &
-             1601, 1621, 1729, 1801, 1921, 1945, 2001, 2049]
-      lStop=.true.
-      do n=size(nRs),1,-1
-         if ( nRs(n) <= n_r_max2 ) then
-            lStop=.false.
-            exit
+      if ( .not. l_finite_diff ) then
+         ! Allowed number of radial grid points:
+         nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
+                129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
+                321, 325, 361, 385, 401, 433, 481, 501, 513, 541, 577,  &
+                601, 641, 649, 721, 769, 801, 865, 901, 961, 973, 1001, &
+                1025, 1081, 1153, 1201, 1281, 1297, 1441, 1501, 1537,   &
+                1601, 1621, 1729, 1801, 1921, 1945, 2001, 2049]
+         lStop=.true.
+         do n=size(nRs),1,-1
+            if ( nRs(n) <= n_r_max2 ) then
+               lStop=.false.
+               exit
+            end if
+         end do
+         if ( lStop ) then
+            write(*,*) 'No n_r_max2 found in init_rNB!'
+            stop
          end if
-      end do
-      if ( lStop ) then
-         write(*,*) 'No n_r_max2 found in init_rNB!'
-         stop
+       
+         n_r_max2=nRs(n)
+         nS=(n_r_max-n_r_max2)/2
+         n_cheb_max2=min(int((one-rDea)*n_r_max2),n_cheb_max)
+
+         allocate( r2(n_r_max2) )
+         bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
+    
+         do nR=1,n_r_max2
+            r2(nR)=r(nR+nS)
+         end do
+         r_icb2=r2(n_r_max2)
+         r_cmb2=r2(1)
+
+         if ( l_newmap ) then
+            n_in_2 = 1
+            ratio1 = alph1
+            ratio2 = alph2
+         else
+            n_in_2 = 0
+            ratio1 = 0.0_cp
+            ratio2 = 0.0_cp
+         end if
+         call rscheme_RMS%initialize(n_r_max2, n_cheb_max2, n_in_2)
+         call rscheme_RMS%get_grid(n_r_max2, r_icb2, r_cmb2, ratio1, ratio2, r2C)
+
+         do nR=1,n_r_max2
+            rscheme_RMS%drx(nR)=one
+         end do
+
+         call get_dr(r2,dr2,n_r_max2,rscheme_RMS)
+
+         do nR=1,n_r_max2
+            rscheme_RMS%drx(nR)=one/dr2(nR)
+         end do
+
+      else ! finite differences
+
+         allocate( r2(n_r_max2) )
+         bytes_allocated = bytes_allocated+n_r_max2*SIZEOF_DEF_REAL
+    
+         do nR=1,n_r_max2
+            r2(nR)=r(nR+nS)
+         end do
+         r_icb2=r2(n_r_max2)
+         r_cmb2=r2(1)
+
+         call rscheme_RMS%initialize(n_r_max, rscheme_oc%order, &
+              &                      rscheme_oc%order_boundary)
+         ratio1 = fd_stretch
+         ratio2 = fd_ratio
+         call rscheme_RMS%get_grid(n_r_max, r_icb, r_cmb, ratio1, ratio2, r2C)
+         call rscheme_oc%get_der_mat(n_r_max)
+
       end if
-    
-      n_r_max2=nRs(n)
-      nS=(n_r_max-n_r_max2)/2
-      n_cheb_max2=min(int((one-rDea)*n_r_max2),n_cheb_max)
-
-      allocate( r2(n_r_max2) )
-      allocate( dr_fac2(n_r_max2) )
-      bytes_allocated = bytes_allocated+2*n_r_max2*SIZEOF_DEF_REAL
-    
-      do nR=1,n_r_max2
-         r2(nR)=r(nR+nS)
-      end do
-      r_icb2=r2(n_r_max2)
-      r_cmb2=r2(1)
-      call cheb_grid(r_icb2,r_cmb2,n_r_max2-1,r2C,r_cheb2, &
-                     0.0_cp,0.0_cp,0.0_cp,0.0_cp)
-      call chebt_RMS%initialize(n_r_max2, nDi_costf1, nDd_costf1)
-
-      dr_fac=one
-      do nR=1,n_r_max
-         drx(nR)=one
-      end do
-      call get_dr(r2,dr2,n_r_max2,n_cheb_max2,w1,w2,chebt_RMS,drx)
-      do nR=1,n_r_max2
-         dr_fac2(nR)=one/dr2(nR)
-      end do
 
    end subroutine init_rNB
 !-----------------------------------------------------------------------------
@@ -391,12 +424,55 @@ contains
       real(cp) :: volC
       real(cp) :: Rms(n_r_max),Dif2hInt(n_r_max),dtV2hInt(n_r_max)
     
-      complex(cp) :: workA(lm_max,n_r_max),workB(lm_max,n_r_max)
+      complex(cp) :: workA(llm:ulm,n_r_max)
       integer :: recvcounts(0:n_procs-1),displs(0:n_procs-1)
       real(cp) :: global_sum(l_max+1,n_r_max)
       integer :: irank,sendcount
       character(len=80) :: fileName
-    
+
+      nRC=nCut+1
+
+      !-- Diffusion
+      DifRms=0.0_cp
+      if ( rscheme_RMS%version == 'cheb' ) then
+         call get_dr(DifPolLMr(llm:,nRC:),workA(llm:,nRC:), &
+              &      ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      else
+         call get_dr(DifPolLMr(llm:,:),workA(llm:,:), &
+              &      ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_RMS)
+      end if
+
+      do nR=1,n_r_maxC
+         call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,DifPol2hInt(:,nR+nCut,1), &
+              &           lo_map )
+      end do
+#ifdef WITH_MPI
+      call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
+#endif
+
+      !-- Flow changes
+      dtV_Rms=0.0_cp
+      if ( rscheme_RMS%version == 'cheb' ) then
+         call get_dr(dtVPolLMr(llm:,nRC:),workA(llm:,nRC:),ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_maxC,rscheme_RMS,nocopy=.true.)
+      else
+         call get_dr(dtVPolLMr(llm:,:),workA(llm:,:),ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_max,rscheme_RMS)
+      end if
+
+      do nR=1,n_r_maxC
+         call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,dtVPol2hInt(:,nR+nCut,1), &
+              &          lo_map)
+      end do
+#ifdef WITH_MPI
+      call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
+           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
+#endif
+
       ! First gather all needed arrays on rank 0
       ! some more arrays to gather for the dtVrms routine
       ! we need some more fields for the dtBrms routine
@@ -404,10 +480,10 @@ contains
     
       ! The following fields are only 1D and R distributed.
       sendcount  = (nRstop-nRstart+1)*(l_max+1)
-      recvcounts = nr_per_rank*(l_max+1)
-      recvcounts(n_procs-1) = (nr_per_rank+1)*(l_max+1)
+      recvcounts = nR_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
       do irank=0,n_procs-1
-         displs(irank) = irank*nr_per_rank*(l_max+1)
+         displs(irank) = irank*nR_per_rank*(l_max+1)
       end do
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Cor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
@@ -435,18 +511,9 @@ contains
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
     
-      call myAllGather(dtVPolLMr,lm_max,n_r_max)
-      call myAllGather(DifPolLMr,lm_max,n_r_max)
-    
-      call MPI_Reduce(dtVPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtVPol2hInt(:,:,1)=global_sum
       call MPI_Reduce(dtVTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtVTor2hInt(:,:,1)=global_sum
-      call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) DifPol2hInt(:,:,1)=global_sum
       call MPI_Reduce(DifTor2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) DifTor2hInt(:,:,1)=global_sum
@@ -456,7 +523,6 @@ contains
     
          !write(*,"(A,ES22.14)") "dtVPol2hInt = ",SUM(dtVPol2hInt)
          nRMS_sets=nRMS_sets+1
-         nRC=nCut+1
          volC=four*third*pi*(r(1+nCut)**3-r(n_r_max-nCut)**3)
     
          CorRms=0.0_cp
@@ -467,7 +533,7 @@ contains
                   Rms(nR)=Cor2hInt(l,nR)
                end do
                !-- Integrate in radius
-               CorRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CorRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                !-- Add for total Rms
                CorRms = CorRms+CorRmsL
                !-- Finish Rms for mode l
@@ -486,7 +552,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Adv2hInt(l,nR)
                end do
-               AdvRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               AdvRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                AdvRms =AdvRms+AdvRmsL
                AdvRmsL=sqrt(AdvRmsL/volC)
                call getMSD2(AdvRmsL_TA(l),AdvRmsL_SD(l),AdvRmsL, &
@@ -502,7 +568,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=LF2hInt(l,nR)
                end do
-               LFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               LFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                LFRms =LFRms+LFRmsL
                LFRmsL=sqrt(LFRmsL/volC)
                call getMSD2(LFRmsL_TA(l),LFRmsL_SD(l),LFRmsL, &
@@ -518,7 +584,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Buo2hInt(l,nR)
                end do
-               BuoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               BuoRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                BuoRms =BuoRms+BuoRmsL
                BuoRmsL=sqrt(BuoRmsL/volC)
                call getMSD2(BuoRmsL_TA(l),BuoRmsL_SD(l),BuoRmsL, &
@@ -533,7 +599,7 @@ contains
             do nR=1,n_r_max
                Rms(nR)=Pre2hInt(l,nR)
             end do
-            PreRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            PreRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             PreRms =PreRms+PreRmsL
             PreRmsL=sqrt(PreRmsL/volC)
             call getMSD2(PreRmsL_TA(l),PreRmsL_SD(l),PreRmsL, &
@@ -547,7 +613,7 @@ contains
             do nR=1,n_r_max
                Rms(nR)=Geo2hInt(l,nR)
             end do
-            GeoRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            GeoRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             GeoRms =GeoRms+GeoRmsL
             GeoRmsL=sqrt(GeoRmsL/volC)
             call getMSD2(GeoRmsL_TA(l),GeoRmsL_SD(l),GeoRmsL, &
@@ -562,7 +628,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Mag2hInt(l,nR)
                end do
-               MagRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               MagRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                MagRms =MagRms+MagRmsL
                MagRmsL=sqrt(MagRmsL/volC)
                call getMSD2(MagRmsL_TA(l),MagRmsL_SD(l),MagRmsL, &
@@ -578,7 +644,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=CLF2hInt(l,nR)
                end do
-               CLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CLFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                CLFRms =CLFRms+CLFRmsL
                CLFRmsL=sqrt(CLFRmsL/volC)
                call getMSD2(CLFRmsL_TA(l),CLFRmsL_SD(l),CLFRmsL, &
@@ -594,7 +660,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=PLF2hInt(l,nR)
                end do
-               PLFRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               PLFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                PLFRms =PLFRms+PLFRmsL
                PLFRmsL=sqrt(PLFRmsL/volC)
                call getMSD2(PLFRmsL_TA(l),PLFRmsL_SD(l),PLFRmsL, &
@@ -610,7 +676,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=Arc2hInt(l,nR)
                end do
-               ArcRmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               ArcRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                ArcRms =ArcRms+ArcRmsL
                ArcRmsL=sqrt(ArcRmsL/volC)
                call getMSD2(ArcRmsL_TA(l),ArcRmsL_SD(l),ArcRmsL, &
@@ -626,7 +692,7 @@ contains
                do nR=1,n_r_max
                   Rms(nR)=CIA2hInt(l,nR)
                end do
-               CIARmsL=rInt_R(Rms(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+               CIARmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                CIARms =CIARms+CIARmsL
                CIARmsL=sqrt(CIARmsL/volC)
                call getMSD2(CIARmsL_TA(l),CIARmsL_SD(l),CIARmsL, &
@@ -635,15 +701,6 @@ contains
          end if
          CIARms=sqrt(CIARms/volC)
 
-         !-- Diffusion
-         DifRms=0.0_cp
-         call get_drNS(DifPolLMr(1,nRC),workA(1,nRC),        &
-              &        lm_max,1,lm_max,n_r_maxC,n_cheb_maxC, &
-              &        workB,chebt_RMS,dr_facC)
-         do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,DifPol2hInt(:,nR+nCut,1), &
-                 &           lo_map )
-         end do
          do l=0,l_max
             do nR=1,n_r_maxC
                Dif2hInt(nR+nCut)=0.0_cp
@@ -653,7 +710,7 @@ contains
                                     DifTor2hInt(l,nR+nCut,n)
                end do
            end do
-           DifRmsL=rInt_R(Dif2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+           DifRmsL=rInt_R(Dif2hInt(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
            DifRms =DifRms+DifRmsL
            DifRmsL=sqrt(DifRmsL/volC)
            CALL getMSD2(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
@@ -661,14 +718,6 @@ contains
          end do
          DifRms=sqrt(DifRms/volC)
 
-         !-- Flow changes
-         dtV_Rms=0.0_cp
-         call get_drNS( dtVPolLMr(1,nRC),workA(1,nRC),lm_max,1,lm_max,&
-              &         n_r_maxC,n_cheb_maxC,workB,chebt_RMS,dr_facC)
-         do nR=1,n_r_maxC
-            call hInt2dPol( workA(1,nR+nCut),2,lm_max,dtVPol2hInt(:,nR+nCut,1), &
-                 &          lo_map)
-         end do
          do l=0,l_max
             do nR=1,n_r_maxC
                dtV2hInt(nR+nCut)=0.0_cp
@@ -678,7 +727,7 @@ contains
                   &                 dtVTor2hInt(l,nR+nCut,n)
                end do
             end do
-            dtVRmsL=rInt_R(dtV2hInt(nRC),n_r_maxC,n_cheb_maxC,dr_facC,chebt_RMS)
+            dtVRmsL=rInt_R(dtV2hInt(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             dtV_Rms =dtV_Rms+dtVRmsL
             dtVRmsL=sqrt(dtVRmsL/volC)
             call getMSD2(dtVRmsL_TA(l),dtVRmsL_SD(l),dtVRmsL, &
@@ -706,17 +755,19 @@ contains
          do l=0,l_max
             dtVRmsSD(l)=sqrt(dtVRmsL_SD(l)/timeNorm)
             CorRmsSD(l)=sqrt(CorRmsL_SD(l)/timeNorm)
-            LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
             AdvRmsSD(l)=sqrt(AdvRmsL_SD(l)/timeNorm)
             DifRmsSD(l)=sqrt(DifRmsL_SD(l)/timeNorm)
             BuoRmsSD(l)=sqrt(BuoRmsL_SD(l)/timeNorm)
             PreRmsSD(l)=sqrt(PreRmsL_SD(l)/timeNorm)
             GeoRmsSD(l)=sqrt(GeoRmsL_SD(l)/timeNorm)
-            MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
             ArcRmsSD(l)=sqrt(ArcRmsL_SD(l)/timeNorm)
             CIARmsSD(l)=sqrt(CIARmsL_SD(l)/timeNorm)
-            CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
-            PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
+            if ( l_mag_LF ) then
+               LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
+               MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
+               CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
+               PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
+            end if 
             dtVRmsL_TA(l)=max(dtVRmsL_TA(l),eps)
             CorRmsL_TA(l)=max(CorRmsL_TA(l),eps)
             LFRmsL_TA(l) =max(LFRmsL_TA(l),eps)
@@ -808,7 +859,7 @@ contains
     
          !--- Stretching
          call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,chebt_oc,drx)
+              &        n_cheb_max,workB,rscheme_oc)
     
          !--- Add to the total dynamo term
          do nR=1,n_r_max
@@ -820,7 +871,7 @@ contains
 
          !-- Finalize advection
          call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
-                        n_cheb_max,workB,chebt_oc,drx)
+                        n_cheb_max,workB,rscheme_oc)
 
          !-- Add to total dynamo term:
          do nR=1,n_r_max
@@ -837,7 +888,7 @@ contains
 
          !--- Finalize diffusion:
          call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,chebt_oc,drx)
+              &        n_cheb_max,workB,rscheme_oc)
 
          !-- Get RMS values for diffusion
          call get_PolTorRms(PdifLM,workA,TdifLM,PdifRms,TdifRms,&
@@ -852,7 +903,7 @@ contains
 
          !--- B changes:
          call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,chebt_oc,drx)
+              &        n_cheb_max,workB,rscheme_oc)
 
          do nR=1,n_r_max
             call hInt2dPolLM(workA(1,nR),2,lm_max,dtBPol2hInt(1,nR,1),lo_map)
@@ -873,10 +924,10 @@ contains
             end do
          end do
 
-         dtBPolRms  =rInt(dtBP,n_r_max,dr_fac,chebt_oc)
-         dtBPolAsRms=rInt(dtBPAs,n_r_max,dr_fac,chebt_oc)
-         dtBTorRms  =rInt(dtBT,n_r_max,dr_fac,chebt_oc)
-         dtBTorAsRms=rInt(dtBTAs,n_r_max,dr_fac,chebt_oc)
+         dtBPolRms  =rInt_R(dtBP,r,rscheme_oc)
+         dtBPolAsRms=rInt_R(dtBPAs,r,rscheme_oc)
+         dtBTorRms  =rInt_R(dtBT,r,rscheme_oc)
+         dtBTorAsRms=rInt_R(dtBTAs,r,rscheme_oc)
 
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
@@ -891,7 +942,7 @@ contains
     
             nFieldSize=n_theta_max*n_r_max
             nFields=7
-            fileName='dtTas_mov.'//TAG
+            fileName='dtTas_mov.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown', &
             &    form='unformatted')
     
@@ -928,7 +979,7 @@ contains
             dumm(10)=radratio         ! ratio of inner / outer core
             dumm(11)=tScale           ! timescale
             write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-            write(fileHandle) (real(r(n)/r_CMB,kind=outp),  n=1,n_r_max)
+            write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
             write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
             write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
     
