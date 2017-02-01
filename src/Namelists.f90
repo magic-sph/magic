@@ -1117,7 +1117,7 @@ contains
       ! max degree-1 of cheb polynomia
       n_cheb_max    =31
       ! number of longitude grid points
-      ! Possible valus: 
+      ! Possible values: 
       ! 16,32,48,64,96,128,192,256,288,320,384,
       ! 400,512,576,640,768,864,1024
       n_phi_tot     =192
