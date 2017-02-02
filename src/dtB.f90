@@ -61,14 +61,6 @@ module dtB_mod
    complex(cp), public, pointer :: TomeRLM_LMloc(:,:), TomeLM_LMloc(:,:)
    complex(cp), public, pointer :: TstrRLM_LMloc(:,:), TstrLM_LMloc(:,:)
    complex(cp), public, pointer :: TadvRLM_LMloc(:,:), TadvLM_LMloc(:,:)
- 
-   real(cp), public :: PstrRms, PstrAsRms
-   real(cp), public :: PadvRms, PadvAsRms
-   real(cp), public :: PdifRms, PdifAsRms
-   real(cp), public :: TstrRms, TstrAsRms
-   real(cp), public :: TadvRms, TadvAsRms
-   real(cp), public :: TdifRms, TdifAsRms
-   real(cp), public :: TomeRms, TomeAsRms
 
    type(r2lm_type) :: r2lo_dtB
 
@@ -154,6 +146,8 @@ contains
       TadvRLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,6)
       PstrLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,7)
       PadvLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,8)
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*lm_max_dtB*
+      &                 SIZEOF_DEF_COMPLEX
 
       allocate( dtB_LMloc_container(llmMag:ulmMag,n_r_max_dtB,8) )
       TomeLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,1)
@@ -164,6 +158,8 @@ contains
       TadvRLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,6)
       PstrLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,7)
       PadvLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,8)
+      bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB*
+      &                 SIZEOF_DEF_COMPLEX
 
       call create_r2lm_type(r2lo_dtB,8)
 
@@ -183,57 +179,16 @@ contains
 
    end subroutine finalize_dtB_mod
 !----------------------------------------------------------------------------
-   subroutine dtb_gather_Rloc_on_rank0
+   subroutine dtb_from_Rloc_to_lo
       !
       ! MPI communicators for dtB outputs
       !
-
-#ifdef WITH_MPI
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      integer :: i,ierr
-    
-      if ( ldtBmem == 1 ) then
-         sendcount  = (nRstop-nRstart+1)*lm_max_dtB
-         recvcounts = nR_per_rank*lm_max_dtB
-         recvcounts(n_procs-1) = nR_on_last_rank*lm_max_dtB
-         do i=0,n_procs-1
-            displs(i) = i*nR_per_rank*lm_max_dtB
-         end do
-         ! call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TstrRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         ! call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TadvRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         ! call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TomeRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-    
-         ! call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         ! call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         ! call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & PstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         ! call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & PadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-    
-         ! call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              ! & TomeLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-      end if
-#else
-      ! TstrRLM=TstrRLM_Rloc
-      ! TadvRLM=TadvRLM_Rloc
-      ! TomeRLM=TomeRLM_Rloc
-      ! TstrLM=TstrLM_Rloc
-      ! TadvLM=TadvLM_Rloc
-      ! PstrLM=PstrLM_Rloc
-      ! PadvLM=PadvLM_Rloc
-      ! TomeLM=TomeLM_Rloc
-#endif
 
       !-- Redistribute from r-distrubuted arrays to LM-distributed arrays
       call r2lo_redist_start(r2lo_dtB, dtB_Rloc_container, dtB_LMloc_container)
       call r2lo_redist_wait(r2lo_dtB)
 
-   end subroutine dtb_gather_Rloc_on_rank0
+   end subroutine dtb_from_Rloc_to_lo
 !----------------------------------------------------------------------------
    subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,n_theta_start,n_theta_block, &
                &         BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
@@ -464,9 +419,9 @@ contains
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
       integer :: l,m,lm
       
-      ! gathering TstrRLM,TadvRLM and TomeRLM on rank0,
-      ! they are then in st_map order
-      call dtB_gather_Rloc_on_rank0
+
+      !-- Bring some array from rLoc to LMloc
+      call dtB_from_Rloc_to_lo()
     
       if ( l_cond_ic ) then
          do nR=1,n_r_ic_max

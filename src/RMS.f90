@@ -30,14 +30,9 @@ module RMS
    use cosine_transform_odd
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
-       &                  hInt2dPolLM, get_PolTorRms_new
-   use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
-       &              TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
-       &              PadvRms, TadvRms, PadvAsRms, TadvAsRms, PdifRms, &
-       &              TdifRms, PdifAsRms, TdifAsRms, TomeRms,          &
-       &              TomeAsRms, PdifLM_LMloc, TdifLM_LMloc,           &
-       &              PstrLM_LMloc, PadvLM_LMloc, TadvLM_LMloc,        &
-       &              TstrLM_LMloc, TomeLM_LMloc
+       &                  hInt2dPolLM
+   use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
+       &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
    use useful, only: getMSD2
                                                                   
 #ifdef WITH_MPI
@@ -110,11 +105,11 @@ contains
 
       integer, parameter :: nThreadsMax=1
 
-      allocate( dtBPol2hInt(lm_maxMag,n_r_maxMag,nThreadsMax) )
-      allocate( dtBTor2hInt(lm_maxMag,n_r_maxMag,nThreadsMax) )
-      allocate( dtBPolLMr(lm_maxMag,n_r_maxMag) )
+      allocate( dtBPol2hInt(llmMag:ulmMag,n_r_maxMag,nThreadsMax) )
+      allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag,nThreadsMax) )
+      allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
       bytes_allocated = bytes_allocated+ &
-                        2*lm_maxMag*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
+                        2*(ulmMag-llmMag+1)*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
                         (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
@@ -231,7 +226,7 @@ contains
             end do
          end do
          do nR=1,n_r_maxMag
-            do lm=1,lm_maxMag
+            do lm=llmMag,ulmMag
                dtBPol2hInt(lm,nR,n)=0.0_cp
                dtBTor2hInt(lm,nR,n)=0.0_cp
             end do
@@ -260,7 +255,7 @@ contains
          end do
       end do
       do nR=1,n_r_maxMag
-         do lm=1,lm_maxMag
+         do lm=llmMag,ulmMag
             dtBPolLMr(lm,nR)=zero
          end do
       end do
@@ -811,7 +806,6 @@ contains
     
       !-- Local
       integer :: nR,n,l1m0,l1m1,lm,m
-      character(len=80) :: fileName
     
       real(cp) :: dtBPolRms,dtBPolAsRms
       real(cp) :: dtBTorRms,dtBTorAsRms
@@ -823,36 +817,27 @@ contains
       complex(cp) :: PdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
-      complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
-      complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
       complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
 
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
       real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
+      real(cp) :: dtBP_global(n_r_max),dtBPAs_global(n_r_max)
+      real(cp) :: dtBT_global(n_r_max),dtBTAs_global(n_r_max)
+
+      real(cp) :: PdifRms, PdifAsRms, TdifRms, TdifAsRms, TomeRms, TomeAsRms
     
       !-- For new movie output
-      integer :: nField,nFields,nFieldSize
-      integer :: nTheta,nThetaN,nThetaS,nThetaStart
-      integer :: nPos, fileHandle
-      real(cp) :: dumm(12),rS
-      real(cp) :: fOut(n_theta_max*n_r_max)
-      real(cp) :: outBlock(nfs)
-      character(len=80) :: version
-      logical :: lRmsMov
+      ! character(len=80) :: fileName
+      ! integer :: nField,nFields,nFieldSize
+      ! integer :: nTheta,nThetaN,nThetaS,nThetaStart
+      ! integer :: nPos, fileHandle
+      ! real(cp) :: dumm(12),rS
+      ! real(cp) :: fOut(n_theta_max*n_r_max)
+      ! real(cp) :: outBlock(nfs)
+      ! character(len=80) :: version
+      ! logical :: lRmsMov
     
-      real(cp) :: global_sum(lm_max,n_r_max)
     
-#ifdef WITH_MPI
-      call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
-
-      call MPI_Reduce(dtBPol2hInt(:,:,1),global_sum,n_r_max*lm_max, &
-       &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtBPol2hInt(:,:,1)=global_sum
-      call MPI_Reduce(dtBTor2hInt(:,:,1),global_sum,n_r_max*lm_max, &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      if ( rank == 0 ) dtBTor2hInt(:,:,1)=global_sum
-#endif
-
       !--- Stretching
       call get_dr(PstrLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
            &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
@@ -879,7 +864,7 @@ contains
       end do
 
       !--- Get RMS values of the total dynamo term:
-      call get_PolTorRms_new(PdynLM,drPdynLM,TdynLM,llmMag,ulmMag,PdynRms,TdynRms, &
+      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,llmMag,ulmMag,PdynRms,TdynRms, &
            &             PdynAsRms,TdynAsRms,lo_map)
     
 
@@ -888,59 +873,61 @@ contains
            &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
 
       !-- Get RMS values for diffusion
-      call get_PolTorRms_new(PdifLM_LMloc,work_LMloc,TdifLM_LMloc,llmMag,ulmMag, &
-           &                 PdifRms,TdifRms,PdifAsRms,TdifAsRms,lo_map)
+      call get_PolTorRms(PdifLM_LMloc,work_LMloc,TdifLM_LMloc,llmMag,ulmMag, &
+           &             PdifRms,TdifRms,PdifAsRms,TdifAsRms,lo_map)
 
       !--- Get Omega effect rms: total toroidal field changes due to zonal flow
       !    (this is now stretching plus advection, changed May 23 2013):
       !    TomeAsRms is the rms of the more classical Omega effect which
       !    decribes the creation of axisymmetric azimuthal field by zonal flow.
-      call get_PolTorRms_new(PdifLM_LMloc,work_LMloc,TomeLM_LMloc,llmMag,ulmMag, &
+      call get_PolTorRms(PdifLM_LMloc,work_LMloc,TomeLM_LMloc,llmMag,ulmMag, &
            &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
 
       !--- B changes:
-      ! call get_dr(dtBPolLMr(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
-           ! &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
-! 
-      ! do nR=1,n_r_max
-         ! call hInt2dPolLM(work_LMloc(llm:,nR),llm,ulm,dtBPol2hInt(:,nR,1),lo_map)
-      ! end do
+      call get_dr(dtBPolLMr(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+
+      do nR=1,n_r_max
+         call hInt2dPolLM(work_LMloc(llm:,nR),llm,ulm,dtBPol2hInt(llm:,nR,1),lo_map)
+         dtBP(nR)  =0.0_cp
+         dtBT(nR)  =0.0_cp
+         dtBPAs(nR)=0.0_cp
+         dtBTAs(nR)=0.0_cp
+         do n=1,1
+            do lm=llm,ulm
+               m=lo_map%lm2m(lm)
+               dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR,n)
+               dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR,n)
+               if ( m == 0 ) then
+                  dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR,n)
+                  dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR,n)
+               end if
+            end do
+         end do
+      end do
 
 #ifdef WITH_MPI
-      ! call MPI_Reduce(dtBPol2hInt(:,:,1),global_sum,n_r_max*lm_max, &
-           ! &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      ! if ( rank == 0 ) dtBPol2hInt(:,:,1)=global_sum
+      call MPI_Reduce(dtBP, dtBP_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(dtBT, dtBT_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(dtBPAs, dtBPAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(dtBTAs, dtBTAs_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+#else
+      dtBP_global(:)  =dtBP(:)
+      dtBT_global(:)  =dtBT(:)
+      dtBPAs_global(:)=dtBPAs(:)
+      dtBTAs_global(:)=dtBTAs(:)
 #endif
     
       if ( rank == 0 ) then
 
-         !--- B changes:
-         call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,rscheme_oc)
-
-         do nR=1,n_r_max
-            call hInt2dPolLM(workA(1,nR),2,lm_max,dtBPol2hInt(1,nR,1),lo_map)
-            dtBP(nR)  =0.0_cp
-            dtBT(nR)  =0.0_cp
-            dtBPAs(nR)=0.0_cp
-            dtBTAs(nR)=0.0_cp
-            do n=1,1
-               do lm=1,lm_max
-                  m=lm2m(lm)
-                  dtBP(nR)=dtBP(nR)+dtBPol2hInt(lm,nR,n)
-                  dtBT(nR)=dtBT(nR)+dtBTor2hInt(lm,nR,n)
-                  if ( m == 0 ) then
-                     dtBPAs(nR)=dtBPAs(nR)+dtBPol2hInt(lm,nR,n)
-                     dtBTAs(nR)=dtBTAs(nR)+dtBTor2hInt(lm,nR,n)
-                  end if
-               end do
-            end do
-         end do
-
-         dtBPolRms  =rInt_R(dtBP,r,rscheme_oc)
-         dtBPolAsRms=rInt_R(dtBPAs,r,rscheme_oc)
-         dtBTorRms  =rInt_R(dtBT,r,rscheme_oc)
-         dtBTorAsRms=rInt_R(dtBTAs,r,rscheme_oc)
+         dtBPolRms  =rInt_R(dtBP_global,r,rscheme_oc)
+         dtBPolAsRms=rInt_R(dtBPAs_global,r,rscheme_oc)
+         dtBTorRms  =rInt_R(dtBT_global,r,rscheme_oc)
+         dtBTorAsRms=rInt_R(dtBTAs_global,r,rscheme_oc)
 
          dtBPolRms  =sqrt(dtBPolRms  /vol_oc)
          dtBPolAsRms=sqrt(dtBPolAsRms/vol_oc)
@@ -950,114 +937,114 @@ contains
 
          !-- Output of movie files for axisymmetric toroidal field changes:
          !   Tstr,Tome,Tdyn=Tstr+Tadv,
-         lRmsMov=.false.
-         if ( lRmsMov ) then
+         ! lRmsMov=.false.
+         ! if ( lRmsMov ) then
     
-            nFieldSize=n_theta_max*n_r_max
-            nFields=7
-            fileName='dtTas_mov.'//tag
-            open(newunit=fileHandle, file=fileName, status='unknown', &
-            &    form='unformatted')
+         !    nFieldSize=n_theta_max*n_r_max
+         !    nFields=7
+         !    fileName='dtTas_mov.'//tag
+         !    open(newunit=fileHandle, file=fileName, status='unknown', &
+         !    &    form='unformatted')
     
-            !------ Write header
-            version='JW_Movie_Version_2'
-            write(fileHandle) version
-            dumm(1)=112           ! type of input
-            dumm(2)=3             ! marker for constant phi plane
-            dumm(3)=0.0_cp          ! surface constant
-            dumm(4)=nFields       ! no of fields
-            write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
+         !    !------ Write header
+         !    version='JW_Movie_Version_2'
+         !    write(fileHandle) version
+         !    dumm(1)=112           ! type of input
+         !    dumm(2)=3             ! marker for constant phi plane
+         !    dumm(3)=0.0_cp          ! surface constant
+         !    dumm(4)=nFields       ! no of fields
+         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,4)
     
-            !------ Define marker for output fields stored in movie field
-            dumm(1)=101           ! Field marker for AS Br stretching
-            dumm(2)=102           ! Field marker for AS Br dynamo term
-            dumm(3)=103           ! Field marker for AS Br diffusion
-            dumm(4)=104           ! Field marker for AS Bp stretching
-            dumm(5)=105           ! Field marker for AS Bp dynamo term
-            dumm(6)=106           ! Field marker for AS Bp omega effect
-            dumm(7)=107           ! Field marker for AS Bp diffusion
-            write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
+         !    !------ Define marker for output fields stored in movie field
+         !    dumm(1)=101           ! Field marker for AS Br stretching
+         !    dumm(2)=102           ! Field marker for AS Br dynamo term
+         !    dumm(3)=103           ! Field marker for AS Br diffusion
+         !    dumm(4)=104           ! Field marker for AS Bp stretching
+         !    dumm(5)=105           ! Field marker for AS Bp dynamo term
+         !    dumm(6)=106           ! Field marker for AS Bp omega effect
+         !    dumm(7)=107           ! Field marker for AS Bp diffusion
+         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,nFields)
     
-            !------ Now other info about grid and parameters:
-            write(fileHandle) runid        ! run identifier
-            dumm( 1)=n_r_max          ! total number of radial points
-            dumm( 2)=n_r_max          ! no of radial point in outer core
-            dumm( 3)=n_theta_max      ! no. of theta points
-            dumm( 4)=n_phi_max        ! no. of phi points
-            dumm( 5)=minc             ! imposed symmetry
-            dumm( 6)=ra               ! control parameters
-            dumm( 7)=ek               ! (for information only)
-            dumm( 8)=pr               !      -"-
-            dumm( 9)=prmag            !      -"-
-            dumm(10)=radratio         ! ratio of inner / outer core
-            dumm(11)=tScale           ! timescale
-            write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
-            write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
-            write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
-            write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
+         !    !------ Now other info about grid and parameters:
+         !    write(fileHandle) runid        ! run identifier
+         !    dumm( 1)=n_r_max          ! total number of radial points
+         !    dumm( 2)=n_r_max          ! no of radial point in outer core
+         !    dumm( 3)=n_theta_max      ! no. of theta points
+         !    dumm( 4)=n_phi_max        ! no. of phi points
+         !    dumm( 5)=minc             ! imposed symmetry
+         !    dumm( 6)=ra               ! control parameters
+         !    dumm( 7)=ek               ! (for information only)
+         !    dumm( 8)=pr               !      -"-
+         !    dumm( 9)=prmag            !      -"-
+         !    dumm(10)=radratio         ! ratio of inner / outer core
+         !    dumm(11)=tScale           ! timescale
+         !    write(fileHandle) (real(dumm(n),kind=outp),     n=1,11)
+         !    write(fileHandle) (real(r(n)/r_cmb,kind=outp),  n=1,n_r_max)
+         !    write(fileHandle) (real(theta_ord(n),kind=outp),n=1,n_theta_max)
+         !    write(fileHandle) (real(phi(n),kind=outp),      n=1,n_phi_max)
     
-            dumm(1)=1    ! time frame number for movie
-            dumm(2)=0.0_cp ! time
-            dumm(3)=0.0_cp
-            dumm(4)=0.0_cp
-            dumm(5)=0.0_cp
-            dumm(6)=0.0_cp
-            dumm(7)=0.0_cp
-            dumm(8)=0.0_cp
-            write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
+         !    dumm(1)=1    ! time frame number for movie
+         !    dumm(2)=0.0_cp ! time
+         !    dumm(3)=0.0_cp
+         !    dumm(4)=0.0_cp
+         !    dumm(5)=0.0_cp
+         !    dumm(6)=0.0_cp
+         !    dumm(7)=0.0_cp
+         !    dumm(8)=0.0_cp
+         !    write(fileHandle) (real(dumm(n),kind=outp),n=1,8)
     
-            !------ Loop over different output field:
-            do nField=1,nFields
+         !    !------ Loop over different output field:
+         !    do nField=1,nFields
     
-               !------ Loop over r and theta:
-               do nR=1,n_r_max ! Loop over radial points
-                  rS=r(nR)
-                  do n=1,nThetaBs ! Loop over theta blocks
-                     nThetaStart=(n-1)*sizeThetaB+1
+         !       !------ Loop over r and theta:
+         !       do nR=1,n_r_max ! Loop over radial points
+         !          rS=r(nR)
+         !          do n=1,nThetaBs ! Loop over theta blocks
+         !             nThetaStart=(n-1)*sizeThetaB+1
     
-                     !------ Convert from lm to theta block and store in outBlock:
-                     if ( nField == 1 ) then
-                        call get_RAS(PstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 2 ) then
-                        ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-                        call get_RAS(PdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 3 ) then
-                        ! Note that PdynLM stores PdifLM at this point!
-                        call get_RAS(PdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 4 ) then
-                        call get_PASLM(TstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 5 ) then
-                        call get_PASLM(TdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 6 ) then
-                        call get_PASLM(TomeLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     else if ( nField == 7 ) then
-                        call get_PASLM(TdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
-                     end if
+         !             !------ Convert from lm to theta block and store in outBlock:
+         !             if ( nField == 1 ) then
+         !                call get_RAS(PstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 2 ) then
+         !                ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
+         !                call get_RAS(PdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 3 ) then
+         !                ! Note that PdynLM stores PdifLM at this point!
+         !                call get_RAS(PdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 4 ) then
+         !                call get_PASLM(TstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 5 ) then
+         !                call get_PASLM(TdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 6 ) then
+         !                call get_PASLM(TomeLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             else if ( nField == 7 ) then
+         !                call get_PASLM(TdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !             end if
     
-                     !------ Storage of field in fout for theta block
-                     do nTheta=1,sizeThetaB,2
-                        !-- Convert to correct order in theta grid points 
-                        !-- and store of fOut:
-                        nThetaN=(nThetaStart+nTheta)/2
-                        nPos=(nR-1)*n_theta_max+nThetaN
-                        fOut(nPos)=outBlock(nTheta)
-                        nThetaS=n_theta_max-nThetaN+1
-                        nPos=(nR-1)*n_theta_max+nThetaS
-                        fOut(nPos)=outBlock(nTheta+1)
-                     end do ! Loop over thetas in block
+         !             !------ Storage of field in fout for theta block
+         !             do nTheta=1,sizeThetaB,2
+         !                !-- Convert to correct order in theta grid points 
+         !                !-- and store of fOut:
+         !                nThetaN=(nThetaStart+nTheta)/2
+         !                nPos=(nR-1)*n_theta_max+nThetaN
+         !                fOut(nPos)=outBlock(nTheta)
+         !                nThetaS=n_theta_max-nThetaN+1
+         !                nPos=(nR-1)*n_theta_max+nThetaS
+         !                fOut(nPos)=outBlock(nTheta+1)
+         !             end do ! Loop over thetas in block
     
-                  end do ! Loop over theta blocks
+         !          end do ! Loop over theta blocks
     
-               end do ! Loop over R
+         !       end do ! Loop over R
     
-               !------ Output of field:
-               write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
+         !       !------ Output of field:
+         !       write(fileHandle) (real(fOut(nPos),kind=outp),nPos=1,nFieldSize)
     
-            end do ! Loop over different fields
+         !    end do ! Loop over different fields
 
-            close(fileHandle)
+         !    close(fileHandle)
     
-         end if ! output of mov fields ?
+         ! end if ! output of mov fields ?
 
       end if
 
@@ -1074,8 +1061,8 @@ contains
       end do
 
       !-- Get dipole dynamo terms:
-      call get_PolTorRms_new(PdynLM,drPdynLM,TdynLM,llm,ulm,DdynRms,dummy1, &
-           &                 DdynAsRms,dummy3,lo_map)
+      call get_PolTorRms(PdynLM,drPdynLM,TdynLM,llm,ulm,DdynRms,dummy1, &
+           &             DdynAsRms,dummy3,lo_map)
 
       if ( rank == 0 ) then
          !-- Output:

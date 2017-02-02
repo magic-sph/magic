@@ -765,9 +765,9 @@ contains
          end do
          if ( lRmsNext ) then
             call hInt2PolLM(dtP,llmMag,ulmMag,nR,lmStart_00,lmStop,&
-                 &          dtBPolLMr(1,nR),dtBPol2hInt(1,nR,1),lo_map)
+                 &          dtBPolLMr(llmMag:,nR),dtBPol2hInt(llmMag:,nR,1),lo_map)
             call hInt2TorLM(dtT,llmMag,ulmMag,nR,lmStart_00,lmStop, &
-                 &          dtBTor2hInt(1,nR,1),lo_map)
+                 &          dtBTor2hInt(llmMag:,nR,1),lo_map)
          end if
       end do
       !PERFOFF
