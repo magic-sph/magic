@@ -1,8 +1,10 @@
 module radial_spectra
 
    use precision_mod
+   use parallel_mod
    use truncation, only: lm_max, n_r_max, n_r_ic_max, l_max, n_r_tot
    use radial_data, only: n_r_icb
+   use LMLoop_data, only: llm,ulm
    use radial_functions, only: or2, r_icb, r_ic
    use num_param, only: eScale
    use blocking, only: st_map
@@ -27,15 +29,15 @@ contains
 
       !-- Input variables
       real(cp),         intent(in) :: time
-      complex(cp),      intent(in) :: Pol(lm_max,n_r_max)
-      complex(cp),      intent(in) :: PolIC(lm_max,n_r_ic_max)
+      complex(cp),      intent(in) :: Pol(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: PolIC(llm:ulm,n_r_ic_max)
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
       type(mappings),   intent(in) :: map
     
       !-- Output to file:
-      real(cp) :: e_p_AS(l_max,n_r_tot)
-      real(cp) :: e_p(l_max,n_r_tot)
+      real(cp) :: e_p_AS(6,n_r_tot), e_p_AS_global(6,n_r_tot)
+      real(cp) :: e_p(6,n_r_tot), e_p_global(6,n_r_tot)
     
       !-- Local:
       character(len=72) :: specFile
@@ -49,10 +51,10 @@ contains
     
       do n_r=1,n_r_max
          ! setting zero
-         e_p(1:6,n_r)=0.0_cp
+         e_p(1:6,n_r)   =0.0_cp
          e_p_AS(1:6,n_r)=0.0_cp
     
-         do lm=2,lm_max
+         do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             if ( l <= 6 ) then
                m=map%lm2m(lm)
@@ -82,19 +84,19 @@ contains
                e_p(l,n_r_max-1+n_r)=0.0_cp
                e_p_AS(l,n_r_max-1+n_r)=0.0_cp
             end do
-            do lm=2,lm_max
+            do lm=max(2,llm),ulm
                l=map%lm2l(lm)
                if ( l <= 6 ) then
                   m=map%lm2m(lm)
                   if ( m /= 0 .or. lAS ) then
                      if ( l_cond_ic ) then
                         e_p_temp=dLh(st_map%lm2(l,m))*rRatio**(2*l) * &
-                                 dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
-                                 cc2real(PolIC(lm,n_r),m)
+                        &        dLh(st_map%lm2(l,m))*O_r_icb_E_2*    &
+                        &        cc2real(PolIC(lm,n_r),m)
                         amp=real(PolIC(lm,n_r))
                      else
                         e_p_temp=dLh(st_map%lm2(l,m))*O_r_icb_E_2*rRatio**(2*l) * &
-                                 dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
+                        &        dLh(st_map%lm2(l,m))*cc2real(PolIC(lm,n_r_ICB),m)
                         amp=real(Pol(lm,n_r_ICB))
                      end if
                      if ( m == 0 ) then
@@ -115,29 +117,43 @@ contains
             end do
          end do
       end if
+
+#ifdef WITH_MPI
+      call MPI_Reduce(e_p,e_p_global, 6*n_r_tot, MPI_DEF_REAL, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+      call MPI_Reduce(e_p_AS,e_p_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+#else
+      e_p_global(:)   =e_p(:)
+      e_p_AS_global(:)=e_p_AS(:)
+#endif
       
-      !-- Output into file:
-      !     writing l=0/1/2 magnetic energy
-      specFile=trim(adjustl(fileRoot))//'.'//tag
-      open(newunit=fileHandle, file=specFile, form='unformatted', &
-      &    status='unknown', position='append')
-    
-      write(fileHandle) real(time,kind=outp),                           &
-      &                (real(e_p(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_p(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_p(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_p(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_p(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_p(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-      write(fileHandle) real(time,kind=outp),                           &
-      &                (real(e_p_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_p_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_p_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_p_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_p_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_p_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-    
-      close(fileHandle)
+      if ( rank == 0 ) then
+
+         !-- Output into file:
+         !     writing l=0/1/2 magnetic energy
+         specFile=trim(adjustl(fileRoot))//'.'//tag
+         open(newunit=fileHandle, file=specFile, form='unformatted', &
+         &    status='unknown', position='append')
+       
+         write(fileHandle) real(time,kind=outp),                                &
+         &                (real(e_p_global(1,n_r),kind=outp),n_r=1,n_r_tot-1),  &
+         &                (real(e_p_global(2,n_r),kind=outp),n_r=1,n_r_tot-1),  &
+         &                (real(e_p_global(3,n_r),kind=outp),n_r=1,n_r_tot-1),  &
+         &                (real(e_p_global(4,n_r),kind=outp),n_r=1,n_r_tot-1),  &
+         &                (real(e_p_global(5,n_r),kind=outp),n_r=1,n_r_tot-1),  &
+         &                (real(e_p_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+         write(fileHandle) real(time,kind=outp),                                  &
+         &                (real(e_p_AS_global(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_p_AS_global(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_p_AS_global(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_p_AS_global(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_p_AS_global(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_p_AS_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+       
+         close(fileHandle)
+
+      end if
     
    end subroutine rBrSpec
 !----------------------------------------------------------------------------
@@ -148,15 +164,15 @@ contains
 
       !-- Input variables:
       real(cp),         intent(in) :: time
-      complex(cp),      intent(in) :: Tor(lm_max,n_r_max)
-      complex(cp),      intent(in) :: TorIC(lm_max,n_r_ic_max)
+      complex(cp),      intent(in) :: Tor(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: TorIC(llm:ulm,n_r_ic_max)
       character(len=*), intent(in) :: fileRoot
       logical,          intent(in) :: lIC
       type(mappings),   intent(in) :: map
     
       !-- Output:
-      real(cp) :: e_t_AS(l_max,n_r_tot)
-      real(cp) :: e_t(l_max,n_r_tot)
+      real(cp) :: e_t_AS(6,n_r_tot), e_t_AS_global(6,n_r_tot)
+      real(cp) :: e_t(6,n_r_tot), e_t_global(6,n_r_tot)
     
       !-- Local:
       character(len=72) :: specFile
@@ -169,10 +185,10 @@ contains
     
       do n_r=1,n_r_max
          do l=1,6
-            e_t(l,n_r)=0.0_cp
-            e_t_AS(l,n_r) = 0.0_cp
+            e_t(l,n_r)   =0.0_cp
+            e_t_AS(l,n_r)=0.0_cp
          end do
-         do lm=2,lm_max
+         do lm=max(2,llm),ulm
             l=map%lm2l(lm)
             if ( l <= 6 ) then
                m=map%lm2m(lm)
@@ -200,7 +216,7 @@ contains
     
          do n_r=2,n_r_ic_max
             rRatio=r_ic(n_r)/r_ic(1)
-            do lm=2,lm_max
+            do lm=max(2,llm),ulm
                l=map%lm2l(lm)
                if ( l <= 6 ) then
                   m=map%lm2m(lm)
@@ -219,29 +235,43 @@ contains
          end do
     
       end if
+
+#ifdef WITH_MPI
+      call MPI_Reduce(e_t,e_t_global, 6*n_r_tot, MPI_DEF_REAL, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+      call MPI_Reduce(e_t_AS,e_t_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
+           &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
+#else
+      e_t_global(:)   =e_t(:)
+      e_t_AS_global(:)=e_t_AS(:)
+#endif
+      
+      if ( rank == 0 ) then
     
-      !-- Output into file:
-      !     writing l=0/1/2 magnetic energy
-      specFile=trim(adjustl(fileRoot))//'.'//tag
-      open(newunit=fileHandle, file=specFile, form='unformatted', &
-      &    status='unknown', position='append')
-    
-      write(fileHandle) real(time,kind=outp),                           &
-      &                (real(e_t(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_t(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_t(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_t(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_t(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
-      &                (real(e_t(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-      write(fileHandle) real(time,kind=outp),                           &
-      &                (real(e_t_AS(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_t_AS(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_t_AS(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_t_AS(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_t_AS(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
-      &                (real(e_t_AS(6,n_r),kind=outp),n_r=1,n_r_tot-1)
-    
-      close(fileHandle)
+         !-- Output into file:
+         !     writing l=0/1/2 magnetic energy
+         specFile=trim(adjustl(fileRoot))//'.'//tag
+         open(newunit=fileHandle, file=specFile, form='unformatted', &
+         &    status='unknown', position='append')
+       
+         write(fileHandle) real(time,kind=outp),                                  &
+         &                (real(e_t_global(1,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+         &                (real(e_t_global(2,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+         &                (real(e_t_global(3,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+         &                (real(e_t_global(4,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+         &                (real(e_t_global(5,n_r),kind=outp),n_r=1,n_r_tot-1),    &
+         &                (real(e_t_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+         write(fileHandle) real(time,kind=outp),                                  &
+         &                (real(e_t_AS_global(1,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_t_AS_global(2,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_t_AS_global(3,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_t_AS_global(4,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_t_AS_global(5,n_r),kind=outp),n_r=1,n_r_tot-1), &
+         &                (real(e_t_AS_global(6,n_r),kind=outp),n_r=1,n_r_tot-1)
+       
+         close(fileHandle)
+
+      end if
     
    end subroutine rBpSpec
 !----------------------------------------------------------------------------

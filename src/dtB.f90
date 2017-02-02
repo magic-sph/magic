@@ -146,7 +146,7 @@ contains
       TadvRLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,6)
       PstrLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,7)
       PadvLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,8)
-      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*lm_max_dtB*
+      bytes_allocated = bytes_allocated+8*(nRstop-nRstart+1)*lm_max_dtB* &
       &                 SIZEOF_DEF_COMPLEX
 
       allocate( dtB_LMloc_container(llmMag:ulmMag,n_r_max_dtB,8) )
@@ -158,7 +158,7 @@ contains
       TadvRLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,6)
       PstrLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,7)
       PadvLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,8)
-      bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB*
+      bytes_allocated = bytes_allocated+8*(ulmMag-llmMag+1)*n_r_max_dtB* &
       &                 SIZEOF_DEF_COMPLEX
 
       call create_r2lm_type(r2lo_dtB,8)
@@ -476,48 +476,30 @@ contains
             TadvLM_LMloc(lm,nR)=TadvLM_LMloc(lm,nR)+or1(nR)*work_LMloc(lm,nR)
          end do
       end do
-    
-      ! PdifLM and TdifLM need to be gathered over lm
-      call gather_all_from_lo_to_rank0(gt_OC,TomeLM_LMloc,TomeLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TomeRLM_LMloc,TomeRLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TstrLM_LMloc,TstrLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TstrRLM_LMloc,TstrRLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TadvLM_LMloc,TadvLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TadvRLM_LMloc,TadvRLM)
-      call gather_all_from_lo_to_rank0(gt_OC,PdifLM_LMloc,PdifLM)
-      call gather_all_from_lo_to_rank0(gt_OC,TdifLM_LMloc,TdifLM)
-         
-      if ( l_DTrMagSpec .and. n_time_step > 1 ) then
-    
-         ! also gather PadvLMIC,TadvLMIC,PdifLMIC and TdifLMIC
-         call gather_all_from_lo_to_rank0(gt_IC,PadvLMIC_LMloc,PadvLMIC)
-         call gather_all_from_lo_to_rank0(gt_IC,TadvLMIC_LMloc,TadvLMIC)
-         call gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMloc,PdifLMIC)
-         call gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMloc,TdifLMIC)
-    
-         if ( rank == 0 ) then
-            call rBrSpec(time,PstrLM,PadvLMIC,'rBrProSpec',.false.,st_map)
-            call rBrSpec(time,PadvLM,PadvLMIC,'rBrAdvSpec',.true.,st_map)
-            call rBrSpec(time,PdifLM,PdifLMIC,'rBrDifSpec',.true.,st_map)
-            do nR=1,n_r_max
-               do lm=1,lm_max
-                  PstrLM(lm,nR)=PstrLM(lm,nR)-PadvLM(lm,nR)
-               end do
-            end do
-            call rBrSpec(time,PstrLM,PadvLMIC,'rBrDynSpec',.false.,st_map)
-    
-            call rBpSpec(time,TstrLM,TadvLMIC,'rBpProSpec',.false.,st_map)
-            call rBpSpec(time,TadvLM,TadvLMIC,'rBpAdvSpec',.true.,st_map)
-            call rBpSpec(time,TdifLM,TdifLMIC,'rBpDifSpec',.true.,st_map)
-            do nR=1,n_r_max
-               do lm=1,lm_max
-                  TstrLM(lm,nR)=TstrLM(lm,nR)-TadvLM(lm,nR)
-               end do
-            end do
-            call rBpSpec(time,TstrLM,TadvLMIC,'rBpDynSpec',.false.,st_map)
-         end if
-      end if
 
+      if ( l_DTrMagSpec .and. n_time_step > 1 ) then
+         call rBrSpec(time,PstrLM_LMLoc,PadvLMIC_LMloc,'rBrProSpec',.false.,lo_map)
+         call rBrSpec(time,PadvLM_LMLoc,PadvLMIC_LMLoc,'rBrAdvSpec',.true.,lo_map)
+         call rBrSpec(time,PdifLM_LMLoc,PdifLMIC_LMLoc,'rBrDifSpec',.true.,lo_map)
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               work_LMloc(lm,nR)=PstrLM_LMloc(lm,nR)-PadvLM_LMloc(lm,nR)
+            end do
+         end do
+         call rBrSpec(time,work_LMloc,PadvLMIC_LMloc,'rBrDynSpec',.false.,lo_map)
+
+         call rBpSpec(time,TstrLM_LMloc,TadvLMIC_LMloc,'rBpProSpec',.false.,lo_map)
+         call rBpSpec(time,TadvLM_LMloc,TadvLMIC_LMloc,'rBpAdvSpec',.true.,lo_map)
+         call rBpSpec(time,TdifLM_LMloc,TdifLMIC_LMloc,'rBpDifSpec',.true.,lo_map)
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               work_LMloc(lm,nR)=TstrLM_LMloc(lm,nR)-TadvLM_LMloc(lm,nR)
+            end do
+         end do
+         call rBpSpec(time,work_LMloc,TadvLMIC_LMloc,'rBpDynSpec',.false.,lo_map)
+
+      end if
+    
    end subroutine get_dtBLMfinish
 !-----------------------------------------------------------------------
    subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &

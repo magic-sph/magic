@@ -686,6 +686,18 @@ contains
       if ( l_Tpot )                                                         &
            &     call storePot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
            &                   nTpotSets,'Tpot.',omega_ma,omega_ic)
+
+      !--- Write spectra output that has partially been calculated in LMLoop
+      if ( l_rMagSpec .and. n_time_step > 1 ) then
+         if ( l_frame ) then
+            call rBrSpec(time,b_LMloc, b_ic_LMloc ,'rBrSpecMov',.true.,lo_map)
+            call rBpSpec(time,aj_LMloc,aj_ic_LMloc,'rBpSpecMov',.true.,lo_map)
+         end if
+         if ( l_log ) then
+            call rBrSpec(time,b_LMloc, b_ic_LMloc ,'rBrSpec',.true.,lo_map)
+            call rBpSpec(time,aj_LMloc,aj_ic_LMloc,'rBpSpec',.true.,lo_map)
+         end if
+      end if
   
       !
       ! Parallel writing of the restart file (possible only when HDF5 is used)
@@ -735,11 +747,9 @@ contains
       l_PVout=l_PV .and. l_log
   
 #ifdef WITH_HDF5
-      if (l_frame.or.l_graph .or.(l_SRIC.and.l_stop_time) &
-          .or.l_PVout .or.l_rMagSpec) then
+      if ( l_frame.or.l_graph .or.(l_SRIC.and.l_stop_time) .or.l_PVout ) then
 #else
-      if (l_frame.or.l_graph.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout &
-           & .or.l_rMagSpec) then
+      if ( l_frame.or.l_graph.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout ) then
 #endif
 #if 0
          write(*,"(13(A,L1))") "l_log=",l_log,     &
@@ -748,8 +758,7 @@ contains
               & ", l_store=",l_store,              &
               & ", l_SRIC=",l_SRIC,                &
               & ", l_stop_time=",l_stop_time,      &
-              & ", l_PVout=",l_PVout,              &
-              & ", l_rMagSpec=",l_rMagSpec
+              & ", l_PVout=",l_PVout
 #endif
          PERFON('out_comm')
          call gather_all_from_lo_to_rank0(gt_OC,w_LMloc,w)
@@ -836,18 +845,6 @@ contains
          !      field has been written in radialLoop !
          if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )          &
               &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
-  
-         !--- Write spectra output that has partially been calculated in LMLoop
-         if ( l_rMagSpec .and. n_time_step > 1 ) then
-            if ( l_frame ) then
-               call rBrSpec(time,b, b_ic ,'rBrSpecMov',.true.,st_map)
-               call rBpSpec(time,aj,aj_ic,'rBpSpecMov',.true.,st_map)
-            end if
-            if ( l_log ) then
-               call rBrSpec(time,b, b_ic ,'rBrSpec',.true.,st_map)
-               call rBpSpec(time,aj,aj_ic,'rBpSpec',.true.,st_map)
-            end if
-         end if
   
          !--- Movie output and various supplementary things:
          if ( l_frame ) then
