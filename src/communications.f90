@@ -83,7 +83,7 @@ contains
       integer(kind=MPI_ADDRESS_KIND) :: zerolb, extent, sizeof_double_complex
       integer(kind=MPI_ADDRESS_KIND) :: lb_marker, myextent, true_lb, true_extent
       integer :: base_col_type,temptype
-      integer :: blocklengths(7),blocklengths_on_last(7),displs(7),displs_on_last(7)
+      integer :: blocklengths(8),blocklengths_on_last(8),displs(8),displs_on_last(8)
       integer :: i
 
       ! first setup the datatype. It is not equal for all ranks. The n_procs-1 rank can
@@ -110,10 +110,10 @@ contains
       allocate(s_transfer_type_nr_end(n_procs))
       allocate(r_transfer_type(n_procs))
       allocate(r_transfer_type_nr_end(n_procs))
-      allocate(s_transfer_type_cont(n_procs,7))
-      allocate(s_transfer_type_nr_end_cont(n_procs,7))
-      allocate(r_transfer_type_cont(n_procs,7))
-      allocate(r_transfer_type_nr_end_cont(n_procs,7))
+      allocate(s_transfer_type_cont(n_procs,8))
+      allocate(s_transfer_type_nr_end_cont(n_procs,8))
+      allocate(r_transfer_type_cont(n_procs,8))
+      allocate(r_transfer_type_nr_end_cont(n_procs,8))
       bytes_allocated = bytes_allocated + 32*n_procs*SIZEOF_INTEGER
 
       do proc=0,n_procs-1
@@ -151,17 +151,18 @@ contains
          !call MPI_type_get_extent(base_col_type,lb_marker,myextent,ierr)
          !write(*,"(2(A,I10))") "base_col_type: lb = ",lb_marker,", extent = ",myextent
          blocklengths = [ nR_per_rank, nR_per_rank, nR_per_rank, nR_per_rank, &
-                       &  nR_per_rank, nR_per_rank, nR_per_rank ]
+                       &  nR_per_rank, nR_per_rank, nR_per_rank, nR_per_rank ]
          displs       = [ 0,           nR_per_rank, 2*nR_per_rank,    &
                        &  3*nR_per_rank, 4*nR_per_rank, 5*nR_per_rank,&
-                       &  6*nR_per_rank ] 
+                       &  6*nR_per_rank, 7*nR_per_rank ] 
          blocklengths_on_last = [ nR_on_last_rank,nR_on_last_rank,nR_on_last_rank,&
                                &  nR_on_last_rank,nR_on_last_rank,nR_on_last_rank,&
-                               &  nR_on_last_rank ]
+                               &  nR_on_last_rank, nR_on_last_rank ]
          displs_on_last     = [ 0,          nR_on_last_rank, 2*nR_on_last_rank,   &
                              &  3*nR_on_last_rank, 4*nR_on_last_rank,             &
-                             &  5*nR_on_last_rank, 6*nR_on_last_rank ]
-         do i=1,7
+                             &  5*nR_on_last_rank, 6*nR_on_last_rank,             &
+                             &  7*nR_on_last_rank ]
+         do i=1,8
             call MPI_Type_vector(i,nR_per_rank*my_lm_per_rank,n_r_max*my_lm_per_rank,&
                  & MPI_DEF_COMPLEX,r_transfer_type_cont(proc+1,i),ierr)
             call MPI_Type_commit(r_transfer_type_cont(proc+1,i),ierr)
@@ -179,7 +180,7 @@ contains
             call MPI_Type_commit(s_transfer_type_nr_end_cont(proc+1,i),ierr)
 
 #if 0
-            if (i == 7) then
+            if (i == 8) then
                call MPI_type_get_extent(r_transfer_type_cont(proc+1,i), &
                                         lb_marker,myextent,ierr)
                call MPI_type_get_true_extent(r_transfer_type_cont(proc+1,i), &

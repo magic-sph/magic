@@ -10,7 +10,9 @@ module dtB_mod
    use truncation, only: nrp, n_r_maxMag, n_r_ic_maxMag, n_r_max, lm_max_dtB, &
        &                 n_r_max_dtB, n_r_ic_max_dtB, lm_max, n_cheb_max,     &
        &                 n_r_ic_max, l_max, n_phi_max, ldtBmem, l_axi
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
+   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC, &
+       &                     r2lm_type, create_r2lm_type, destroy_r2lm_type, &
+       &                     r2lo_redist_start, r2lo_redist_wait
    use physical_parameters, only: opm,O_sr
    use radial_functions, only: O_r_ic, lambda, or2, dLlambda, rscheme_oc, &
        &                       or1, orho1
@@ -25,7 +27,7 @@ module dtB_mod
    use fft
    use legendre_grid_to_spec, only: legTF2, legTF3
    use constants, only: two
-   use radial_der, only: get_drNS
+   use radial_der, only: get_drNS, get_dr
  
    implicit none
  
@@ -33,9 +35,6 @@ module dtB_mod
  
    complex(cp), public, allocatable :: PstrLM(:,:), TstrLM(:,:), PadvLM(:,:)
    complex(cp), public, allocatable :: TadvLM(:,:), TomeLM(:,:)
-   complex(cp), public, allocatable :: PstrLM_Rloc(:,:),TstrLM_Rloc(:,:)
-   complex(cp), public, allocatable :: PadvLM_Rloc(:,:), TadvLM_Rloc(:,:)
-   complex(cp), public, allocatable :: TomeLM_Rloc(:,:)
  
    complex(cp), public, allocatable :: PdifLM(:,:), TdifLM(:,:), PadvLMIC(:,:)
    complex(cp), public, allocatable :: PdifLMIC(:,:), TadvLMIC(:,:), TdifLMIC(:,:)
@@ -44,8 +43,24 @@ module dtB_mod
    complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
  
    complex(cp), public, allocatable :: TstrRLM(:,:), TadvRLM(:,:), TomeRLM(:,:)
-   complex(cp), public, allocatable :: TstrRLM_Rloc(:,:), TadvRLM_Rloc(:,:)
-   complex(cp), public, allocatable :: TomeRLM_Rloc(:,:)
+   ! complex(cp), public, allocatable :: TomeRLM_Rloc(:,:), TomeRLM_LMloc(:,:)
+
+
+   !-- Container for R to LM MPI transposes
+   complex(cp), allocatable, target :: dtB_LMloc_container(:,:,:)
+   complex(cp), allocatable, target :: dtB_Rloc_container(:,:,:)
+
+   !-- R-distributed arrays
+   complex(cp), pointer :: PstrLM_Rloc(:,:), PadvLM_Rloc(:,:)
+   complex(cp), pointer :: TomeRLM_Rloc(:,:), TomeLM_Rloc(:,:)
+   complex(cp), pointer :: TstrRLM_Rloc(:,:), TstrLM_Rloc(:,:)
+   complex(cp), pointer :: TadvRLM_Rloc(:,:), TadvLM_Rloc(:,:)
+
+   !-- LM-distributed arrays
+   complex(cp), public, pointer :: PstrLM_LMloc(:,:), PadvLM_LMloc(:,:)
+   complex(cp), public, pointer :: TomeRLM_LMloc(:,:), TomeLM_LMloc(:,:)
+   complex(cp), public, pointer :: TstrRLM_LMloc(:,:), TstrLM_LMloc(:,:)
+   complex(cp), public, pointer :: TadvRLM_LMloc(:,:), TadvLM_LMloc(:,:)
  
    real(cp), public :: PstrRms, PstrAsRms
    real(cp), public :: PadvRms, PadvAsRms
@@ -54,6 +69,8 @@ module dtB_mod
    real(cp), public :: TadvRms, TadvAsRms
    real(cp), public :: TdifRms, TdifAsRms
    real(cp), public :: TomeRms, TomeAsRms
+
+   type(r2lm_type) :: r2lo_dtB
 
    public :: initialize_dtB_mod, get_dtBLMfinish, get_dtBLM, get_dH_dtBLM, &
    &         finalize_dtB_mod
@@ -80,11 +97,6 @@ contains
          allocate( TadvLM(1,1) )
          allocate( TomeLM(1,1) )
       end if
-      allocate( PstrLM_Rloc(lm_max_dtB,nRstart:nRstop) )
-      allocate( PadvLM_Rloc(lm_max_dtB,nRstart:nRstop) )
-      allocate( TstrLM_Rloc(lm_max_dtB,nRstart:nRstop) )
-      allocate( TadvLM_Rloc(lm_max_dtB,nRstart:nRstop) )
-      allocate( TomeLM_Rloc(lm_max_dtB,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+ &
                         5*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
 
@@ -129,23 +141,45 @@ contains
          allocate( TadvRLM(1,1) )
          allocate( TomeRLM(1,1) )
       end if
-      allocate(TstrRLM_Rloc(lm_max_dtB,nRstart:nRstop))
-      allocate(TadvRLM_Rloc(lm_max_dtB,nRstart:nRstop))
-      allocate(TomeRLM_Rloc(lm_max_dtB,nRstart:nRstop))
       bytes_allocated = bytes_allocated+ &
                         3*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+
+
+      allocate( dtB_Rloc_container(lm_max_dtB,nRstart:nRstop,8) )
+      TomeLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,1)
+      TomeRLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,2)
+      TstrLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,3)
+      TstrRLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,4)
+      TadvLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,5)
+      TadvRLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,6)
+      PstrLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,7)
+      PadvLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,8)
+
+      allocate( dtB_LMloc_container(llmMag:ulmMag,n_r_max_dtB,8) )
+      TomeLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,1)
+      TomeRLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,2)
+      TstrLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,3)
+      TstrRLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,4)
+      TadvLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,5)
+      TadvRLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,6)
+      PstrLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,7)
+      PadvLM_LMloc(llmMag:ulmMag,1:n_r_max_dtB) => dtB_LMloc_container(:,:,8)
+
+      call create_r2lm_type(r2lo_dtB,8)
 
    end subroutine initialize_dtB_mod
 !----------------------------------------------------------------------------
    subroutine finalize_dtB_mod
 
       deallocate( PstrLM, PadvLM, TstrLM, TadvLM, TomeLM )
-      deallocate( PstrLM_Rloc, PadvLM_Rloc, TstrLM_Rloc, TadvLM_Rloc )
       deallocate( TdifLMIC, TadvLMIC, PdifLMIC, PadvLMIC, TdifLM, PdifLM )
       deallocate( PdifLM_LMloc, TdifLM_LMloc, PadvLMIC_LMloc, PdifLMIC_LMloc )
       deallocate( TadvLMIC_LMloc, TdifLMIC_LMloc )
-      deallocate( TstrRLM, TadvRLM, TomeRLM, TomeLM_Rloc )
-      deallocate( TstrRLM_Rloc, TadvRLM_Rloc, TomeRLM_Rloc )
+      deallocate( TstrRLM, TadvRLM, TomeRLM )
+
+      deallocate( dtB_Rloc_container, dtB_LMloc_container )
+
+      call destroy_r2lm_type(r2lo_dtB)
 
    end subroutine finalize_dtB_mod
 !----------------------------------------------------------------------------
@@ -165,42 +199,46 @@ contains
          do i=0,n_procs-1
             displs(i) = i*nR_per_rank*lm_max_dtB
          end do
-         call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TstrRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TadvRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TomeRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TstrRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TstrRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TadvRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TadvRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TomeRLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TomeRLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & PstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
-         call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & PadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(PstrLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & PstrLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(PadvLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & PadvLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
     
-         call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
-              & TomeLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
+         ! call MPI_GatherV(TomeLM_Rloc,sendcount,MPI_DEF_COMPLEX,&
+              ! & TomeLM,recvcounts,displs,MPI_DEF_COMPLEX,0,MPI_COMM_WORLD,ierr)
       end if
 #else
-      TstrRLM=TstrRLM_Rloc
-      TadvRLM=TadvRLM_Rloc
-      TomeRLM=TomeRLM_Rloc
-      TstrLM=TstrLM_Rloc
-      TadvLM=TadvLM_Rloc
-      PstrLM=PstrLM_Rloc
-      PadvLM=PadvLM_Rloc
-      TomeLM=TomeLM_Rloc
+      ! TstrRLM=TstrRLM_Rloc
+      ! TadvRLM=TadvRLM_Rloc
+      ! TomeRLM=TomeRLM_Rloc
+      ! TstrLM=TstrLM_Rloc
+      ! TadvLM=TadvLM_Rloc
+      ! PstrLM=PstrLM_Rloc
+      ! PadvLM=PadvLM_Rloc
+      ! TomeLM=TomeLM_Rloc
 #endif
+
+      !-- Redistribute from r-distrubuted arrays to LM-distributed arrays
+      call r2lo_redist_start(r2lo_dtB, dtB_Rloc_container, dtB_LMloc_container)
+      call r2lo_redist_wait(r2lo_dtB)
 
    end subroutine dtb_gather_Rloc_on_rank0
 !----------------------------------------------------------------------------
    subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,n_theta_start,n_theta_block, &
-     &                   BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
-     &                   BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpSn2LM,   &
-     &                   BpVtSn2LM,BtVZsn2LM)
+               &         BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
+               &         BtVZLM,BtVpCotLM,BpVtCotLM,BtVZcotLM,BtVpSn2LM,   &
+               &         BpVtSn2LM,BtVZsn2LM)
 
       !
       !  This subroutine calculates non-linear products in grid-space for radial
@@ -423,9 +461,7 @@ contains
     
       !-- Local variables:
       integer :: nR
-    
-      complex(cp) :: workA(lm_max,n_r_max), workB(lm_max,n_r_max)
-    
+      complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max)
       integer :: l,m,lm
       
       ! gathering TstrRLM,TadvRLM and TomeRLM on rank0,
@@ -458,38 +494,41 @@ contains
                  dLh(st_map%lm2(l,m))*or2(nR)*aj(lm,nR) )
          end do
       end do
+         
+      call get_dr(TomeRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+         
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            TomeLM_LMloc(lm,nR)=TomeLM_LMloc(lm,nR)+or1(nR)*work_LMloc(lm,nR)
+         end do
+      end do
+
+      call get_dr(TstrRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
     
-      if ( rank == 0 ) then
-         call get_drNS(TstrRLM,workA,lm_max,1,lm_max, &
-              &        n_r_max,n_cheb_max,workB,rscheme_oc)
-    
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               TstrLM(lm,nR)=TstrLM(lm,nR)+or1(nR)*workA(lm,nR)
-            end do
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            TstrLM_LMloc(lm,nR)=TstrLM_LMloc(lm,nR)+or1(nR)*work_LMloc(lm,nR)
          end do
+      end do
          
-         call get_drNS(TomeRLM,workA,lm_max,1,lm_max, &
-              &        n_r_max,n_cheb_max,workB,rscheme_oc)
-         
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               TomeLM(lm,nR)=TomeLM(lm,nR)+or1(nR)*workA(lm,nR)
-            end do
+      call get_dr(TadvRLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+      
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            TadvLM_LMloc(lm,nR)=TadvLM_LMloc(lm,nR)+or1(nR)*work_LMloc(lm,nR)
          end do
-         
-         call get_drNS(TadvRLM,workA,lm_max,1,lm_max, &
-              &        n_r_max,n_cheb_max,workB,rscheme_oc)
-         
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               TadvLM(lm,nR)=TadvLM(lm,nR)+or1(nR)*workA(lm,nR)
-            end do
-         end do
-      end if
-      !end do
+      end do
     
       ! PdifLM and TdifLM need to be gathered over lm
+      call gather_all_from_lo_to_rank0(gt_OC,TomeLM_LMloc,TomeLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TomeRLM_LMloc,TomeRLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TstrLM_LMloc,TstrLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TstrRLM_LMloc,TstrRLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TadvLM_LMloc,TadvLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TadvRLM_LMloc,TadvRLM)
       call gather_all_from_lo_to_rank0(gt_OC,PdifLM_LMloc,PdifLM)
       call gather_all_from_lo_to_rank0(gt_OC,TdifLM_LMloc,TdifLM)
          

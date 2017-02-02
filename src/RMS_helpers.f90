@@ -5,6 +5,7 @@ module RMS_helpers
    !
 
    use precision_mod
+   use parallel_mod
    use truncation, only: l_max, lm_max_dtB, n_r_max, lm_max
    use blocking, only: lm2, st_map
    use radial_functions, only: or2, rscheme_oc, r
@@ -19,7 +20,8 @@ module RMS_helpers
    private
 
    public :: get_PASLM, get_PolTorRms, hInt2dPol, hInt2Pol, hInt2Tor, &
-             get_RAS, hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM
+   &         get_RAS, hIntRms, hInt2PolLM, hInt2TorLM, hInt2dPolLM,   &
+   &         get_PolTorRms_new
 
 contains
 
@@ -68,6 +70,98 @@ contains
 
    end subroutine get_PASLM
 !---------------------------------------------------------------------------
+   subroutine get_PolTorRms_new(Pol,drPol,Tor,llm,ulm,PolRms,TorRms, &
+              &                 PolAsRms,TorAsRms,map)
+      !
+      !  calculates integral PolRms=sqrt( Integral (pol^2 dV) )
+      !  calculates integral TorRms=sqrt( Integral (tor^2 dV) )
+      !  plus axisymmetric parts.
+      !  integration in theta,phi by summation of spherical harmonics
+      !  integration in r by using Chebycheff integrals
+      !  The mapping map gives the mapping lm to l,m for the input
+      !  arrays Pol,drPol and Tor
+      !  Output: PolRms,TorRms,PolAsRms,TorAsRms
+      !
+    
+      !-- Input variables:
+      integer,         intent(in) :: llm
+      integer,         intent(in) :: ulm
+      complex(cp),     intent(in) :: Pol(llm:ulm,n_r_max)   ! Poloidal field Potential
+      complex(cp),     intent(in) :: drPol(llm:ulm,n_r_max) ! Radial derivative of Pol
+      complex(cp),     intent(in) :: Tor(llm:ulm,n_r_max)   ! Toroidal field Potential
+      type(mappings),  intent(in) :: map
+    
+      !-- Output variables:
+      real(cp), intent(out) :: PolRms,PolAsRms
+      real(cp), intent(out) :: TorRms,TorAsRms
+    
+      !-- Local variables:
+      real(cp) :: PolRmsTemp,TorRmsTemp
+      real(cp) :: PolRms_r(n_r_max), PolRms_r_global(n_r_max)
+      real(cp) :: TorRms_r(n_r_max), TorRms_r_global(n_r_max)
+      real(cp) :: PolAsRms_r(n_r_max), PolAsRms_r_global(n_r_max)
+      real(cp) :: TorAsRms_r(n_r_max), TorAsRms_r_global(n_r_max)
+    
+      integer :: n_r,lm,l,m
+      real(cp) :: fac
+    
+      do n_r=1,n_r_max
+    
+         PolRms_r(n_r)  =0.0_cp
+         TorRms_r(n_r)  =0.0_cp
+         PolAsRms_r(n_r)=0.0_cp
+         TorAsRms_r(n_r)=0.0_cp
+    
+         do lm=max(2,llm),ulm
+            l=map%lm2l(lm)
+            m=map%lm2m(lm)
+            PolRmsTemp= dLh(st_map%lm2(l,m)) * (                        &
+                 dLh(st_map%lm2(l,m))*or2(n_r)*cc2real(Pol(lm,n_r),m) + &
+                 cc2real(drPol(lm,n_r),m) )
+            TorRmsTemp=   dLh(st_map%lm2(l,m))*cc2real(Tor(lm,n_r),m)
+            if ( m == 0 ) then  ! axisymmetric part
+               PolAsRms_r(n_r)=PolAsRms_r(n_r) + PolRmsTemp
+               TorAsRms_r(n_r)=TorAsRms_r(n_r) + TorRmsTemp
+            else
+               PolRms_r(n_r)  =PolRms_r(n_r)   + PolRmsTemp
+               TorRms_r(n_r)  =TorRms_r(n_r)   + TorRmsTemp
+            end if
+         end do    ! do loop over lms in block
+         PolRms_r(n_r)=PolRms_r(n_r) + PolAsRms_r(n_r)
+         TorRms_r(n_r)=TorRms_r(n_r) + TorAsRms_r(n_r)
+      end do    ! radial grid points
+
+#ifdef WITH_MPI
+      call MPI_Reduce(PolRms_r, PolRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(PolAsRms_r, PolAsRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(TorRms_r, TorRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(TorAsRms_r, TorAsRms_r_global, n_r_max, MPI_DEF_REAL, MPI_SUM, &
+           &          0, MPI_COMM_WORLD, ierr)
+#else
+      PolRms_r_global(:)  =PolRms_r(:)
+      PolAsRms_r_global(:)=PolAsRms_r(:)
+      TorRms_r_global(:)  =TorRms_r(:)
+      TorAsRms_r_global(:)=TorAsRms_r(:)
+#endif
+
+      if ( rank == 0 ) then
+         !-- Radial Integrals:
+         PolRms  =rInt_R(PolRms_r_global,r,rscheme_oc)
+         TorRms  =rInt_R(TorRms_r_global,r,rscheme_oc)
+         PolAsRms=rInt_R(PolAsRms_r_global,r,rscheme_oc)
+         TorAsRms=rInt_R(TorAsRms_r_global,r,rscheme_oc)
+         fac=one/vol_oc
+         PolRms  =sqrt(fac*PolRms)
+         TorRms  =sqrt(fac*TorRms)
+         PolAsRms=sqrt(fac*PolAsRms)
+         TorAsRms=sqrt(fac*TorAsRms)
+      end if
+
+   end subroutine get_PolTorRms_new
+!-----------------------------------------------------------------------------
    subroutine get_PolTorRms(Pol,drPol,Tor,PolRms,TorRms,PolAsRms,TorAsRms,map)
       !
       !  calculates integral PolRms=sqrt( Integral (pol^2 dV) )

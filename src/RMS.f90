@@ -28,14 +28,16 @@ module RMS
    use radial_der, only: get_dr, get_drNS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
-   use LMLoop_data, only: llm, ulm
+   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use RMS_helpers, only: hInt2dPol, get_PolTorRms, get_PASLM, get_RAS, &
-       &                  hInt2dPolLM
+       &                  hInt2dPolLM, get_PolTorRms_new
    use dtB_mod, only: PstrLM, TstrLM, PadvLM, TadvLM, TomeLM, PdifLM,  &
        &              TdifLM, PstrRms,TstrRms, PstrAsRms, TstrAsRms,   &
        &              PadvRms, TadvRms, PadvAsRms, TadvAsRms, PdifRms, &
        &              TdifRms, PdifAsRms, TdifAsRms, TomeRms,          &
-       &              TomeAsRms
+       &              TomeAsRms, PdifLM_LMloc, TdifLM_LMloc,           &
+       &              PstrLM_LMloc, PadvLM_LMloc, TadvLM_LMloc,        &
+       &              TstrLM_LMloc, TomeLM_LMloc
    use useful, only: getMSD2
                                                                   
 #ifdef WITH_MPI
@@ -113,7 +115,7 @@ contains
       allocate( dtBPolLMr(lm_maxMag,n_r_maxMag) )
       bytes_allocated = bytes_allocated+ &
                         2*lm_maxMag*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
-                        lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+                        (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVTor2hInt(0:l_max,n_r_max,nThreadsMax) )
@@ -818,13 +820,12 @@ contains
       real(cp) :: TdynRms,TdynAsRms
       real(cp) :: dummy1,dummy2,dummy3
     
-      !----- Note: five full additional fields needed here!
-      !      This may cause memory problems.
-      complex(cp) :: PdynLM(lm_max_dtB,n_r_max_dtB)
-      complex(cp) :: drPdynLM(lm_max_dtB,n_r_max_dtB)
-      complex(cp) :: TdynLM(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: PdynLM(llmMag:ulmMag,n_r_max_dtB)
+      complex(cp) :: drPdynLM(llmMag:ulmMag,n_r_max_dtB)
+      complex(cp) :: TdynLM(llmMag:ulmMag,n_r_max_dtB)
       complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
       complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: work_LMloc(llmMag:ulmMag,n_r_max_dtB)
 
       real(cp) :: dtBP(n_r_max),dtBPAs(n_r_max)
       real(cp) :: dtBT(n_r_max),dtBTAs(n_r_max)
@@ -845,61 +846,73 @@ contains
       call myAllGather(dtBPolLMr,lm_maxMag,n_r_maxMag)
 
       call MPI_Reduce(dtBPol2hInt(:,:,1),global_sum,n_r_max*lm_max, &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+       &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBPol2hInt(:,:,1)=global_sum
       call MPI_Reduce(dtBTor2hInt(:,:,1),global_sum,n_r_max*lm_max, &
            &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       if ( rank == 0 ) dtBTor2hInt(:,:,1)=global_sum
 #endif
+
+      !--- Stretching
+      call get_dr(PstrLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
     
+      !--- Add to the total dynamo term
+      do nR=1,n_r_max
+         do lm=llmMag,ulmMag
+            PdynLM(lm,nR)  =PstrLM_LMloc(lm,nR)
+            drPdynLM(lm,nR)=work_LMloc(lm,nR)
+         end do
+      end do
+
+      !-- Finalize advection
+      call get_dr(PadvLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+
+      !-- Add to total dynamo term:
+      do nR=1,n_r_max
+         do lm=llmMag,ulmMag
+            PdynLM(lm,nR)  =PdynLM(lm,nR)-PadvLM_LMloc(lm,nR)
+            drPdynLM(lm,nR)=drPdynLM(lm,nR)-work_LMloc(lm,nR)
+            TdynLM(lm,nR)  =TstrLM_LMloc(lm,nR)-TadvLM_LMloc(lm,nR)
+         end do
+      end do
+
+      !--- Get RMS values of the total dynamo term:
+      call get_PolTorRms_new(PdynLM,drPdynLM,TdynLM,llmMag,ulmMag,PdynRms,TdynRms, &
+           &             PdynAsRms,TdynAsRms,lo_map)
+    
+
+      !--- Finalize diffusion:
+      call get_dr(PdifLM_LMloc(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+
+      !-- Get RMS values for diffusion
+      call get_PolTorRms_new(PdifLM_LMloc,work_LMloc,TdifLM_LMloc,llmMag,ulmMag, &
+           &                 PdifRms,TdifRms,PdifAsRms,TdifAsRms,lo_map)
+
+      !--- Get Omega effect rms: total toroidal field changes due to zonal flow
+      !    (this is now stretching plus advection, changed May 23 2013):
+      !    TomeAsRms is the rms of the more classical Omega effect which
+      !    decribes the creation of axisymmetric azimuthal field by zonal flow.
+      call get_PolTorRms_new(PdifLM_LMloc,work_LMloc,TomeLM_LMloc,llmMag,ulmMag, &
+           &             dummy1,TomeRms,dummy2,TomeAsRms,lo_map)
+
+      !--- B changes:
+      ! call get_dr(dtBPolLMr(llmMag:,:),work_LMloc(llmMag:,:),ulmMag-llmMag+1, &
+           ! &      1,ulmMag-llmMag+1,n_r_max,rscheme_oc,nocopy=.true.)
+! 
+      ! do nR=1,n_r_max
+         ! call hInt2dPolLM(work_LMloc(llm:,nR),llm,ulm,dtBPol2hInt(:,nR,1),lo_map)
+      ! end do
+
+#ifdef WITH_MPI
+      ! call MPI_Reduce(dtBPol2hInt(:,:,1),global_sum,n_r_max*lm_max, &
+           ! &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      ! if ( rank == 0 ) dtBPol2hInt(:,:,1)=global_sum
+#endif
     
       if ( rank == 0 ) then
-         l1m0=lm2(1,0)
-         l1m1=lm2(1,1)
-    
-         !--- Stretching
-         call get_drNS(PstrLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,rscheme_oc)
-    
-         !--- Add to the total dynamo term
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               PdynLM(lm,nR)  =PstrLM(lm,nR)
-               drPdynLM(lm,nR)=workA(lm,nR)
-            end do
-         end do
-
-         !-- Finalize advection
-         call get_drNS(PadvLM,workA,lm_max,1,lm_max,n_r_max, &
-                        n_cheb_max,workB,rscheme_oc)
-
-         !-- Add to total dynamo term:
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               PdynLM(lm,nR)  =PdynLM(lm,nR)-PadvLM(lm,nR)
-               drPdynLM(lm,nR)=drPdynLM(lm,nR)-workA(lm,nR)
-               TdynLM(lm,nR)  =TstrLM(lm,nR)-TadvLM(lm,nR)
-            end do
-         end do
-
-         !--- Get RMS values of the total dynamo term:
-         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,PdynRms,TdynRms,PdynAsRms, &
-                            TdynAsRms,st_map)
-
-         !--- Finalize diffusion:
-         call get_drNS(PdifLM,workA,lm_max,1,lm_max,n_r_max, &
-              &        n_cheb_max,workB,rscheme_oc)
-
-         !-- Get RMS values for diffusion
-         call get_PolTorRms(PdifLM,workA,TdifLM,PdifRms,TdifRms,&
-                            PdifAsRms,TdifAsRms,st_map)
-
-         !--- Get Omega effect rms: total toroidal field changes due to zonal flow
-         !    (this is now stretching plus advection, changed May 23 2013):
-         !    TomeAsRms is the rms of the more classical Omega effect which
-         !    decribes the creation of axisymmetric azimuthal field by zonal flow.
-         call get_PolTorRms(PdifLM,workA,TomeLM,dummy1,TomeRms,dummy2, &
-                            TomeAsRms,st_map)
 
          !--- B changes:
          call get_drNS(dtBPolLMr,workA,lm_max,1,lm_max,n_r_max, &
@@ -1046,19 +1059,25 @@ contains
     
          end if ! output of mov fields ?
 
-         !-- Get dipole dynamo contribution:
-         do nR=1,n_r_max
-            do lm=1,lm_max
-               if ( lm/=l1m0 .and. lm/=l1m1 ) then
-                  PdynLM(lm,nR)  =zero
-                  drPdynLM(lm,nR)=zero
-               end if
-            end do
-         end do
-         !-- Get dipole dynamo terms:
-         call get_PolTorRms(PdynLM,drPdynLM,TdynLM,DdynRms,dummy1, &
-                            DdynAsRms,dummy3,st_map)
+      end if
 
+      !-- Get dipole dynamo contribution:
+      l1m0=lo_map%lm2(1,0)
+      l1m1=lo_map%lm2(1,1)
+      do nR=1,n_r_max
+         do lm=llmMag,ulmMag
+            if ( lm/=l1m0 .and. lm/=l1m1 ) then
+               PdynLM(lm,nR)  =zero
+               drPdynLM(lm,nR)=zero
+            end if
+         end do
+      end do
+
+      !-- Get dipole dynamo terms:
+      call get_PolTorRms_new(PdynLM,drPdynLM,TdynLM,llm,ulm,DdynRms,dummy1, &
+           &                 DdynAsRms,dummy3,lo_map)
+
+      if ( rank == 0 ) then
          !-- Output:
          if ( l_save_out) then
             open(newunit=n_dtbrms_file, file=dtbrms_file,  &
