@@ -602,7 +602,7 @@ contains
          call get_dtBLMfinish(time,n_time_step,omega_ic,b_LMloc,ddb_LMloc, &
               &               aj_LMloc,dj_LMloc,ddj_LMloc,b_ic_LMloc,      &
               &               db_ic_LMloc,ddb_ic_LMloc,aj_ic_LMloc,        &
-              &               dj_ic_LMloc,ddj_ic_LMloc)
+              &               dj_ic_LMloc,ddj_ic_LMloc,l_frame)
       end if
   
   

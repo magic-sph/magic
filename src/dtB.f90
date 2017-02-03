@@ -19,7 +19,7 @@ module dtB_mod
    use radial_data,only: nRstart,nRstop
    use horizontal_data, only: dPhi, D_lP1, dLh, hdif_B, osn2, cosn2, osn1, &
        &                      dTheta1S, dTheta1A
-   use logic, only: l_cond_ic, l_DTrMagSpec
+   use logic, only: l_cond_ic, l_DTrMagSpec, l_dtBmovie
    use LMLoop_data, only: llmMag, ulmMag, llm, ulm
    use blocking, only: lo_map, st_map, l2lmAS, lm2l, lm2m, lmP2lmPS, lmP2lmPA, &
                        lm2lmP, nfs
@@ -33,18 +33,12 @@ module dtB_mod
  
    private 
  
+   !-- Global arrays!!! They are only required for some movie outputs
+   !-- but we should definitely try to get rid of them
    complex(cp), public, allocatable :: PstrLM(:,:), TstrLM(:,:), PadvLM(:,:)
    complex(cp), public, allocatable :: TadvLM(:,:), TomeLM(:,:)
- 
    complex(cp), public, allocatable :: PdifLM(:,:), TdifLM(:,:), PadvLMIC(:,:)
    complex(cp), public, allocatable :: PdifLMIC(:,:), TadvLMIC(:,:), TdifLMIC(:,:)
-   complex(cp), public, allocatable :: PdifLM_LMloc(:,:), TdifLM_LMloc(:,:)
-   complex(cp), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
-   complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
- 
-   complex(cp), public, allocatable :: TstrRLM(:,:), TadvRLM(:,:), TomeRLM(:,:)
-   ! complex(cp), public, allocatable :: TomeRLM_Rloc(:,:), TomeRLM_LMloc(:,:)
-
 
    !-- Container for R to LM MPI transposes
    complex(cp), allocatable, target :: dtB_LMloc_container(:,:,:)
@@ -61,6 +55,9 @@ module dtB_mod
    complex(cp), public, pointer :: TomeRLM_LMloc(:,:), TomeLM_LMloc(:,:)
    complex(cp), public, pointer :: TstrRLM_LMloc(:,:), TstrLM_LMloc(:,:)
    complex(cp), public, pointer :: TadvRLM_LMloc(:,:), TadvLM_LMloc(:,:)
+   complex(cp), public, allocatable :: PdifLM_LMloc(:,:), TdifLM_LMloc(:,:)
+   complex(cp), public, allocatable :: PadvLMIC_LMloc(:,:), PdifLMIC_LMloc(:,:)
+   complex(cp), public, allocatable :: TadvLMIC_LMloc(:,:), TdifLMIC_LMloc(:,:)
 
    type(r2lm_type) :: r2lo_dtB
 
@@ -74,43 +71,46 @@ contains
       ! Memory allocation
       !
 
-      if ( rank == 0 ) then
-         allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( PadvLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TstrLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TadvLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TomeLM(lm_max_dtB,n_r_max_dtB) )
-         bytes_allocated = bytes_allocated+ &
-                           5*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
-      else
-         allocate( PstrLM(1,1) )
-         allocate( PadvLM(1,1) )
-         allocate( TstrLM(1,1) )
-         allocate( TadvLM(1,1) )
-         allocate( TomeLM(1,1) )
-      end if
-      bytes_allocated = bytes_allocated+ &
-                        5*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
+      !
+      ! The remaining global arrays should be suppressed, they are only
+      ! needed because of some movie outputs
+      !
+      if ( l_dtBmovie ) then
+         if ( rank == 0 ) then
+            allocate( PstrLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( PadvLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( TstrLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( TadvLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( TomeLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( PdifLM(lm_max_dtB,n_r_max_dtB) )
+            allocate( TdifLM(lm_max_dtB,n_r_max_dtB) )
+            bytes_allocated = bytes_allocated+ &
+            &                 7*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
+         else
+            allocate( PstrLM(1,1) )
+            allocate( PadvLM(1,1) )
+            allocate( PdifLM(1,1) )
+            allocate( TdifLM(1,1) )
+            allocate( TstrLM(1,1) )
+            allocate( TadvLM(1,1) )
+            allocate( TomeLM(1,1) )
+         end if
 
-      if ( rank == 0 ) then
-         allocate( PdifLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TdifLM(lm_max_dtB,n_r_max_dtB) )
-         bytes_allocated = bytes_allocated+ &
-                           2*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
-         allocate( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-         allocate( PdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-         allocate( TadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-         allocate( TdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
-         bytes_allocated = bytes_allocated+ &
-                           4*lm_max_dtB*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
-      else
-         allocate( PdifLM(1,1) )
-         allocate( TdifLM(1,1) )
-         allocate( PadvLMIC(1,1) )
-         allocate( PdifLMIC(1,1) )
-         allocate( TadvLMIC(1,1) )
-         allocate( TdifLMIC(1,1) )
+         if ( rank == 0 ) then
+            allocate( PadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
+            allocate( PdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
+            allocate( TadvLMIC(lm_max_dtB,n_r_ic_max_dtB) )
+            allocate( TdifLMIC(lm_max_dtB,n_r_ic_max_dtB) )
+            bytes_allocated = bytes_allocated+ &
+            &                 4*lm_max_dtB*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
+         else
+            allocate( PadvLMIC(1,1) )
+            allocate( PdifLMIC(1,1) )
+            allocate( TadvLMIC(1,1) )
+            allocate( TdifLMIC(1,1) )
+         end if
       end if
+
       allocate( PdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
       allocate( TdifLM_LMloc(llmMag:ulmMag,n_r_max_dtB) )
       bytes_allocated = bytes_allocated+ &
@@ -120,22 +120,7 @@ contains
       allocate( TadvLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
       allocate( TdifLMIC_LMloc(llmMag:ulmMag,n_r_ic_max_dtB) )
       bytes_allocated = bytes_allocated+ &
-                        4*(ulmMag-llmMag+1)*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
-
-      if ( rank == 0 ) then
-         allocate( TstrRLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TadvRLM(lm_max_dtB,n_r_max_dtB) )
-         allocate( TomeRLM(lm_max_dtB,n_r_max_dtB) )
-         bytes_allocated = bytes_allocated+ &
-                           3*lm_max_dtB*n_r_max_dtB*SIZEOF_DEF_COMPLEX
-      else
-         allocate( TstrRLM(1,1) )
-         allocate( TadvRLM(1,1) )
-         allocate( TomeRLM(1,1) )
-      end if
-      bytes_allocated = bytes_allocated+ &
-                        3*lm_max_dtB*(nRstop-nRstart+1)*SIZEOF_DEF_COMPLEX
-
+      &                 4*(ulmMag-llmMag+1)*n_r_ic_max_dtB*SIZEOF_DEF_COMPLEX
 
       allocate( dtB_Rloc_container(lm_max_dtB,nRstart:nRstop,8) )
       TomeLM_Rloc(1:lm_max_dtB,nRstart:nRstop) => dtB_Rloc_container(:,:,1)
@@ -167,12 +152,13 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_dtB_mod
 
-      deallocate( PstrLM, PadvLM, TstrLM, TadvLM, TomeLM )
-      deallocate( TdifLMIC, TadvLMIC, PdifLMIC, PadvLMIC, TdifLM, PdifLM )
+      if ( l_dtBmovie ) then
+         deallocate( PstrLM, PadvLM, TstrLM, TadvLM, TomeLM )
+         deallocate( TdifLMIC, TadvLMIC, PdifLMIC, PadvLMIC, TdifLM, PdifLM )
+      end if
+
       deallocate( PdifLM_LMloc, TdifLM_LMloc, PadvLMIC_LMloc, PdifLMIC_LMloc )
       deallocate( TadvLMIC_LMloc, TdifLMIC_LMloc )
-      deallocate( TstrRLM, TadvRLM, TomeRLM )
-
       deallocate( dtB_Rloc_container, dtB_LMloc_container )
 
       call destroy_r2lm_type(r2lo_dtB)
@@ -181,7 +167,7 @@ contains
 !----------------------------------------------------------------------------
    subroutine dtb_from_Rloc_to_lo
       !
-      ! MPI communicators for dtB outputs
+      ! MPI transpose (from LM to R ) for dtB calculations
       !
 
       !-- Redistribute from r-distrubuted arrays to LM-distributed arrays
@@ -189,6 +175,28 @@ contains
       call r2lo_redist_wait(r2lo_dtB)
 
    end subroutine dtb_from_Rloc_to_lo
+!----------------------------------------------------------------------------
+   subroutine dtb_gather_lo_on_rank0
+      !
+      ! MPI gather on rank0 for dtBmovie outputs.
+      ! This routine should really be suppressed once the movie
+      ! outputs have been improved
+      !
+
+      call gather_all_from_lo_to_rank0(gt_OC,PstrLM_LMloc,PstrLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TstrLM_LMloc,TstrLM)
+      call gather_all_from_lo_to_rank0(gt_OC,PadvLM_LMloc,PadvLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TadvLM_LMloc,TadvLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TomeLM_LMloc,TomeLM)
+      call gather_all_from_lo_to_rank0(gt_OC,PdifLM_LMloc,PdifLM)
+      call gather_all_from_lo_to_rank0(gt_OC,TdifLM_LMloc,TdifLM)
+      call gather_all_from_lo_to_rank0(gt_IC,PadvLMIC_LMloc,PadvLMIC)
+      call gather_all_from_lo_to_rank0(gt_IC,TadvLMIC_LMloc,TadvLMIC)
+      call gather_all_from_lo_to_rank0(gt_IC,PdifLMIC_LMloc,PdifLMIC)
+      call gather_all_from_lo_to_rank0(gt_IC,TdifLMIC_LMloc,TdifLMIC)
+
+
+   end subroutine dtb_gather_lo_on_rank0
 !----------------------------------------------------------------------------
    subroutine  get_dtBLM(nR,vr,vt,vp,br,bt,bp,n_theta_start,n_theta_block, &
                &         BtVrLM,BpVrLM,BrVtLM,BrVpLM,BtVpLM,BpVtLM,BrVZLM, &
@@ -393,10 +401,166 @@ contains
       end do
     
    end subroutine get_dtBLM
-!------------------------------------------------------------------------------------
-   subroutine get_dtBLMfinish(time,n_time_step,omega_ic, &
-     &                     b,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic, &
-     &                     aj_ic,dj_ic,ddj_ic)
+!-----------------------------------------------------------------------
+   subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
+              &            BtVpLM,BpVtLM,BrVZLM,BtVZLM,    &
+              &            BtVpCotLM,BpVtCotLM,            &
+              &            BtVpSn2LM,BpVtSn2LM)
+      !
+      !  Purpose of this routine is to calculate theta and phi          
+      !  derivative related terms of the magnetic production and         
+      !  advection terms and store them.                                  
+      !
+
+      !-- Input variables:
+      integer,     intent(in) :: nR
+      complex(cp), intent(in) :: BtVrLM(*),BpVrLM(*)
+      complex(cp), intent(in) :: BrVtLM(*),BrVpLM(*)
+      complex(cp), intent(in) :: BtVpLM(*),BpVtLM(*)
+      complex(cp), intent(in) :: BtVpCotLM(*),BpVtCotLM(*)
+      complex(cp), intent(in) :: BtVpSn2LM(*),BpVtSn2LM(*)
+      complex(cp), intent(in) :: BrVZLM(*),BtVZLM(*)
+    
+      !-- Local variables:
+      integer :: l,m,lm,lmP,lmPS,lmPA
+      real(cp) :: fac
+    
+      PstrLM_Rloc(1,nR)=0.0_cp
+      PadvLM_Rloc(1,nR)=0.0_cp
+      do lm=2,lm_max
+         l   =lm2l(lm)
+         m   =lm2m(lm)
+         lmP =lm2lmP(lm)
+         lmPS=lmP2lmPS(lmP)
+         lmPA=lmP2lmPA(lmP)
+         if ( l > m ) then
+            PstrLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   (                     &
+            &    dTheta1S(lm)*BtVrLM(lmPS) - dTheta1A(lm)*BtVrLM(lmPA) + &
+            &    dPhi(lm)*BpVrLM(lmP)  )
+            PadvLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   (                     &
+            &    dTheta1S(lm)*BrVtLM(lmPS) - dTheta1A(lm)*BrVtLM(lmPA) + &
+            &    dPhi(lm)*BrVpLM(lmP)  )
+         else if ( l == m ) then
+            PstrLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   ( &
+            &    - dTheta1A(lm)*BtVrLM(lmPA) + dPhi(lm)*BpVrLM(lmP)  )
+            PadvLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   ( &
+            &    - dTheta1A(lm)*BrVtLM(lmPA) + dPhi(lm)*BrVpLM(lmP) )
+         end if
+      end do
+    
+      !--- Poloidal advection and stretching term finished for radial level nR !
+    
+      TstrLM_Rloc(1,nR) =0.0_cp
+      TstrRLM_Rloc(1,nR)=0.0_cp
+      do lm=2,lm_max
+         l   =lm2l(lm)
+         m   =lm2m(lm)
+         lmP =lm2lmP(lm)
+         lmPS=lmP2lmPS(lmP)
+         lmPA=lmP2lmPA(lmP)
+         fac=or2(nR)/dLh(lm)
+         if ( l > m ) then
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
+            &            fac*dPhi(lm)*dPhi(lm)*( BtVpSn2LM(lmP) + &
+            &                                BpVtSn2LM(lmP) )   + &
+            &                                             fac * ( &
+            &             dTheta1S(lm) * ( or1(nR)*BpVrLM(lmPS) + &
+            &                                   BpVtCotLM(lmPS) + &
+            &                                 BtVpCotLM(lmPS) ) - &
+            &             dTheta1A(lm) * ( or1(nR)*BpVrLM(lmPA) + &
+            &                                   BpVtCotLM(lmPA) + &
+            &                               BtVpCotLM(lmPA) ) ) - &
+            &                  fac*or1(nR)*dPhi(lm)*BtVrLM(lmP)
+            TstrRLM_Rloc(lm,nR)=             or1(nR)/dLh(lm) * ( &
+            &                        dTheta1S(lm)*BrVpLM(lmPS) - &
+            &                        dTheta1A(lm)*BrVpLM(lmPA) - &
+            &                            dPhi(lm)*BrVtLM(lmP)  )
+         else if ( l == m ) then
+            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
+            &            fac*dPhi(lm)*dPhi(lm)*( BtVpSn2LM(lmP) + &
+            &                                BpVtSn2LM(lmP) )   + &
+            &                                             fac * ( &
+            &           - dTheta1A(lm) * ( or1(nR)*BpVrLM(lmPA) + &
+            &                                   BpVtCotLM(lmPA) + &
+            &                               BtVpCotLM(lmPA) ) ) - &
+            &                  fac*or1(nR)*dPhi(lm)*BtVrLM(lmP)
+            TstrRLM_Rloc(lm,nR)=             or1(nR)/dLh(lm) * ( &
+            &                      - dTheta1A(lm)*BrVpLM(lmPA) - &
+            &                            dPhi(lm)*BrVtLM(lmP)  )
+         end if
+      end do
+    
+      TadvLM_Rloc(1,nR) =0.0_cp
+      TadvRLM_Rloc(1,nR)=0.0_cp
+      do lm=2,lm_max
+         l   =lm2l(lm)
+         m   =lm2m(lm)
+         lmP =lm2lmP(lm)
+         lmPS=lmP2lmPS(lmP)
+         lmPA=lmP2lmPA(lmP)
+         fac=or2(nR)/dLh(lm)
+         if ( l > m ) then
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
+            &           fac*dPhi(lm)*dPhi(lm)*( BpVtSn2LM(lmP) + &
+            &                               BtVpSn2LM(lmP) )   + &
+            &                                            fac * ( &
+            &            dTheta1S(lm) * ( or1(nR)*BrVpLM(lmPS) + &
+            &                                  BtVpCotLM(lmPS) + &
+            &                                BpVtCotLM(lmPS) ) - &
+            &            dTheta1A(lm) * ( or1(nR)*BrVpLM(lmPA) + &
+            &                                  BtVpCotLM(lmPA) + &
+            &                              BpVtCotLM(lmPA) ) ) - &
+            &    fac*or1(nR)*dPhi(lm)*BrVtLM(lmP)
+            TadvRLM_Rloc(lm,nR)=or2(nR)/dLh(lm) * ( &
+            &           dTheta1S(lm)*BpVrLM(lmPS) - &
+            &           dTheta1A(lm)*BpVrLM(lmPA) - &
+            &               dPhi(lm)*BtVrLM(lmP)   )
+         else if ( l == m ) then
+            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
+            &           fac*dPhi(lm)*dPhi(lm)*( BpVtSn2LM(lmP) + &
+            &                               BtVpSn2LM(lmP) )   + &
+            &                                            fac * ( &
+            &          - dTheta1A(lm) * ( or1(nR)*BrVpLM(lmPA) + &
+            &                                  BtVpCotLM(lmPA) + &
+            &                              BpVtCotLM(lmPA) ) ) - &
+            &                fac*or1(nR)*dPhi(lm)*BrVtLM(lmP)
+            TadvRLM_Rloc(lm,nR)=or2(nR)/dLh(lm) * ( &
+            &         - dTheta1A(lm)*BpVrLM(lmPA) - &
+            &               dPhi(lm)*BtVrLM(lmP)   )
+         end if
+      end do
+    
+      !--- TomeLM same as TstrLM but where ever Vp appeared
+      !    it is replaced by its axisymmetric contribution VZ:
+      TomeLM_Rloc(1,nR) =0.0_cp
+      TomeRLM_Rloc(1,nR)=0.0_cp
+      do lm=2,lm_max
+         l  =lm2l(lm)
+         m  =lm2m(lm)
+         lmP=lm2lmP(lm)
+         lmPS=lmP2lmPS(lmP)
+         lmPA=lmP2lmPA(lmP)
+         fac=or2(nR)/dLh(lm)
+         if ( l > m ) then
+            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmP)       - &
+            &                                 fac*or1(nR)*(     &
+            &                       dTheta1S(lm)*BrVZLM(lmPS) - &
+            &                       dTheta1A(lm)*BrVZLM(lmPA) )
+            TomeRLM_Rloc(lm,nR)=                      fac * ( &
+            &                     dTheta1S(lm)*BrVZLM(lmPS) - &
+            &                     dTheta1A(lm)*BrVZLM(lmPA) )
+         else if ( l == m ) then
+            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       + &
+            &         fac*or1(nR)*dTheta1A(lm)*BrVZLM(lmPA)
+            TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
+         end if
+      end do
+    
+   end subroutine get_dH_dtBLM
+!------------------------------------------------------------------------------
+   subroutine get_dtBLMfinish(time,n_time_step,omega_ic,         &
+     &                        b,ddb,aj,dj,ddj,b_ic,db_ic,ddb_ic, &
+     &                        aj_ic,dj_ic,ddj_ic,l_frame)
 
       !-- Input of variables:
       real(cp),    intent(in) :: time
@@ -413,6 +577,7 @@ contains
       complex(cp), intent(in) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: dj_ic(llmMag:ulmMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: ddj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      logical,     intent(in) :: l_frame
     
       !-- Local variables:
       integer :: nR
@@ -431,9 +596,9 @@ contains
                PadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*b_ic(lm,nR)
                TadvLMIC_LMloc(lm,nR)=-omega_ic*dPhi(st_map%lm2(l,m))*aj_ic(lm,nR)
                PdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddb_ic(lm,nR) + &
-                    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*db_ic(lm,nR) )
+               &    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*db_ic(lm,nR) )
                TdifLMIC_LMloc(lm,nR)=opm*O_sr * ( ddj_ic(lm,nR) + &
-                    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*dj_ic(lm,nR) )
+               &    two*D_lP1(st_map%lm2(l,m))*O_r_ic(nR)*dj_ic(lm,nR) )
             end do
          end do
       end if
@@ -443,10 +608,10 @@ contains
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)
             PdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
-                 (ddb(lm,nR)-dLh(st_map%lm2(l,m))*or2(nR)*b(lm,nR))
+            &    (ddb(lm,nR)-dLh(st_map%lm2(l,m))*or2(nR)*b(lm,nR))
             TdifLM_LMloc(lm,nR)= opm*lambda(nR)*hdif_B(st_map%lm2(l,m)) * &
-                 ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - &
-                 dLh(st_map%lm2(l,m))*or2(nR)*aj(lm,nR) )
+            &    ( ddj(lm,nR) + dLlambda(nR)*dj(lm,nR) - &
+            &    dLh(st_map%lm2(l,m))*or2(nR)*aj(lm,nR) )
          end do
       end do
          
@@ -499,163 +664,12 @@ contains
          call rBpSpec(time,work_LMloc,TadvLMIC_LMloc,'rBpDynSpec',.false.,lo_map)
 
       end if
+
+      if ( l_dtBmovie .and. l_frame ) then
+         !-- If movie is required, let's gather everything on rank 0
+         call dtb_gather_lo_on_rank0()
+      end if
     
    end subroutine get_dtBLMfinish
-!-----------------------------------------------------------------------
-   subroutine get_dH_dtBLM(nR,BtVrLM,BpVrLM,BrVtLM,BrVpLM, &
-                           BtVpLM,BpVtLM,BrVZLM,BtVZLM,    &
-                           BtVpCotLM,BpVtCotLM,            &
-                           BtVpSn2LM,BpVtSn2LM)
-      !
-      !  Purpose of this routine is to calculate theta and phi          
-      !  derivative related terms of the magnetic production and         
-      !  advection terms and store them.                                  
-      !
-
-      !-- Input variables:
-      integer,     intent(in) :: nR
-      complex(cp), intent(in) :: BtVrLM(*),BpVrLM(*)
-      complex(cp), intent(in) :: BrVtLM(*),BrVpLM(*)
-      complex(cp), intent(in) :: BtVpLM(*),BpVtLM(*)
-      complex(cp), intent(in) :: BtVpCotLM(*),BpVtCotLM(*)
-      complex(cp), intent(in) :: BtVpSn2LM(*),BpVtSn2LM(*)
-      complex(cp), intent(in) :: BrVZLM(*),BtVZLM(*)
-    
-      !-- Local variables:
-      integer :: l,m,lm,lmP,lmPS,lmPA
-      real(cp) :: fac
-    
-      PstrLM_Rloc(1,nR)=0.0_cp
-      PadvLM_Rloc(1,nR)=0.0_cp
-      do lm=2,lm_max
-         l   =lm2l(lm)
-         m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
-         if ( l > m ) then
-            PstrLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   (                     &
-                 dTheta1S(lm)*BtVrLM(lmPS) - dTheta1A(lm)*BtVrLM(lmPA) + &
-                 dPhi(lm)*BpVrLM(lmP)  )
-            PadvLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   (                     &
-                 dTheta1S(lm)*BrVtLM(lmPS) - dTheta1A(lm)*BrVtLM(lmPA) + &
-                 dPhi(lm)*BrVpLM(lmP)  )
-         else if ( l == m ) then
-            PstrLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   ( &
-                 - dTheta1A(lm)*BtVrLM(lmPA) + dPhi(lm)*BpVrLM(lmP)  )
-            PadvLM_Rloc(lm,nR)=or2(nR)/dLh(lm) *   ( &
-                 - dTheta1A(lm)*BrVtLM(lmPA) + dPhi(lm)*BrVpLM(lmP) )
-         end if
-      end do
-    
-      !--- Poloidal advection and stretching term finished for radial level nR !
-    
-      TstrLM_Rloc(1,nR) =0.0_cp
-      TstrRLM_Rloc(1,nR)=0.0_cp
-      do lm=2,lm_max
-         l   =lm2l(lm)
-         m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
-         fac=or2(nR)/dLh(lm)
-         if ( l > m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-                         fac*dPhi(lm)*dPhi(lm)*( BtVpSn2LM(lmP) + &
-                                             BpVtSn2LM(lmP) )   + &
-                                                          fac * ( &
-                          dTheta1S(lm) * ( or1(nR)*BpVrLM(lmPS) + &
-                                                BpVtCotLM(lmPS) + &
-                                              BtVpCotLM(lmPS) ) - &
-                          dTheta1A(lm) * ( or1(nR)*BpVrLM(lmPA) + &
-                                                BpVtCotLM(lmPA) + &
-                                            BtVpCotLM(lmPA) ) ) - &
-                               fac*or1(nR)*dPhi(lm)*BtVrLM(lmP)
-            TstrRLM_Rloc(lm,nR)=             or1(nR)/dLh(lm) * ( &
-                                     dTheta1S(lm)*BrVpLM(lmPS) - &
-                                     dTheta1A(lm)*BrVpLM(lmPA) - &
-                                         dPhi(lm)*BrVtLM(lmP)  )
-         else if ( l == m ) then
-            TstrLM_Rloc(lm,nR)=        -or2(nR)*BtVpLM(lmP)     - &
-                         fac*dPhi(lm)*dPhi(lm)*( BtVpSn2LM(lmP) + &
-                                             BpVtSn2LM(lmP) )   + &
-                                                          fac * ( &
-                        - dTheta1A(lm) * ( or1(nR)*BpVrLM(lmPA) + &
-                                                BpVtCotLM(lmPA) + &
-                                            BtVpCotLM(lmPA) ) ) - &
-                               fac*or1(nR)*dPhi(lm)*BtVrLM(lmP)
-            TstrRLM_Rloc(lm,nR)=             or1(nR)/dLh(lm) * ( &
-                                   - dTheta1A(lm)*BrVpLM(lmPA) - &
-                                         dPhi(lm)*BrVtLM(lmP)  )
-         end if
-      end do
-    
-      TadvLM_Rloc(1,nR) =0.0_cp
-      TadvRLM_Rloc(1,nR)=0.0_cp
-      do lm=2,lm_max
-         l   =lm2l(lm)
-         m   =lm2m(lm)
-         lmP =lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
-         fac=or2(nR)/dLh(lm)
-         if ( l > m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-                        fac*dPhi(lm)*dPhi(lm)*( BpVtSn2LM(lmP) + &
-                                            BtVpSn2LM(lmP) )   + &
-                                                         fac * ( &
-                         dTheta1S(lm) * ( or1(nR)*BrVpLM(lmPS) + &
-                                               BtVpCotLM(lmPS) + &
-                                             BpVtCotLM(lmPS) ) - &
-                         dTheta1A(lm) * ( or1(nR)*BrVpLM(lmPA) + &
-                                               BtVpCotLM(lmPA) + &
-                                           BpVtCotLM(lmPA) ) ) - &
-                 fac*or1(nR)*dPhi(lm)*BrVtLM(lmP)
-            TadvRLM_Rloc(lm,nR)=or2(nR)/dLh(lm) * ( &
-                        dTheta1S(lm)*BpVrLM(lmPS) - &
-                        dTheta1A(lm)*BpVrLM(lmPA) - &
-                            dPhi(lm)*BtVrLM(lmP)   )
-         else if ( l == m ) then
-            TadvLM_Rloc(lm,nR)=       -or2(nR)*BpVtLM(lmP)     - &
-                        fac*dPhi(lm)*dPhi(lm)*( BpVtSn2LM(lmP) + &
-                                            BtVpSn2LM(lmP) )   + &
-                                                         fac * ( &
-                       - dTheta1A(lm) * ( or1(nR)*BrVpLM(lmPA) + &
-                                               BtVpCotLM(lmPA) + &
-                                           BpVtCotLM(lmPA) ) ) - &
-                             fac*or1(nR)*dPhi(lm)*BrVtLM(lmP)
-            TadvRLM_Rloc(lm,nR)=or2(nR)/dLh(lm) * ( &
-                      - dTheta1A(lm)*BpVrLM(lmPA) - &
-                            dPhi(lm)*BtVrLM(lmP)   )
-         end if
-      end do
-    
-      !--- TomeLM same as TstrLM but where ever Vp appeared
-      !    it is replaced by its axisymmetric contribution VZ:
-      TomeLM_Rloc(1,nR) =0.0_cp
-      TomeRLM_Rloc(1,nR)=0.0_cp
-      do lm=2,lm_max
-         l  =lm2l(lm)
-         m  =lm2m(lm)
-         lmP=lm2lmP(lm)
-         lmPS=lmP2lmPS(lmP)
-         lmPA=lmP2lmPA(lmP)
-         fac=or2(nR)/dLh(lm)
-         if ( l > m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmP)       - &
-                                              fac*or1(nR)*(     &
-                                    dTheta1S(lm)*BrVZLM(lmPS) - &
-                                    dTheta1A(lm)*BrVZLM(lmPA) )
-            TomeRLM_Rloc(lm,nR)=                      fac * ( &
-                                  dTheta1S(lm)*BrVZLM(lmPS) - &
-                                  dTheta1A(lm)*BrVZLM(lmPA) )
-         else if ( l == m ) then
-            TomeLM_Rloc(lm,nR)=    -or2(nR)*BtVZLM(lmp)       + &
-                      fac*or1(nR)*dTheta1A(lm)*BrVZLM(lmPA)
-            TomeRLM_Rloc(lm,nR)=-fac*dTheta1A(lm)*BrVZLM(lmPA)
-         end if
-      end do
-    
-   end subroutine get_dH_dtBLM
-!-----------------------------------------------------------------------
+!------------------------------------------------------------------------------
 end module dtB_mod

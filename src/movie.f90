@@ -74,7 +74,7 @@ contains
          l_dtBmovie=.false.
          l_store_frame=.false.
       else
-         call get_movie_type
+         call get_movie_type()
 
          ! Allocate the required memory
          n_MD=maxval(n_movie_field_stop)

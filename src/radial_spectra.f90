@@ -124,8 +124,8 @@ contains
       call MPI_Reduce(e_p_AS,e_p_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
            &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
 #else
-      e_p_global(:)   =e_p(:)
-      e_p_AS_global(:)=e_p_AS(:)
+      e_p_global(:,:)   =e_p(:,:)
+      e_p_AS_global(:,:)=e_p_AS(:,:)
 #endif
       
       if ( rank == 0 ) then
@@ -242,8 +242,8 @@ contains
       call MPI_Reduce(e_t_AS,e_t_AS_global, 6*n_r_tot, MPI_DEF_REAL, &
            &          MPI_SUM, 0, MPI_COMM_WORLD, ierr )
 #else
-      e_t_global(:)   =e_t(:)
-      e_t_AS_global(:)=e_t_AS(:)
+      e_t_global(:,:)   =e_t(:,:)
+      e_t_AS_global(:,:)=e_t_AS(:,:)
 #endif
       
       if ( rank == 0 ) then
