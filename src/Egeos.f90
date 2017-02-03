@@ -858,19 +858,19 @@ contains
             do nS=1,nZmax
                if ( n == 1 ) then
                   dpEk(nS)=0.0_cp
-                  do mc=1,nrpGeos
+                  do mc=1,nrpGeos/2
                      dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VrS(2*mc-1,nS)-aimag(dp)*VrS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VrS(2*mc-1,nS)+ real(dp)*VrS(2*mc,nS)
                   end do
                else if ( n == 2 ) then
-                  do mc=1,nrpGeos
+                  do mc=1,nrpGeos/2
                      dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VtS(2*mc-1,nS)-aimag(dp)*VtS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VtS(2*mc-1,nS)+ real(dp)*VtS(2*mc,nS)
                   end do
                else if ( n == 3 ) then
-                  do mc=1,nrpGeos
+                  do mc=1,nrpGeos/2
                      dp=ci*real((mc-1)*minc,cp) ! - i m
                      dV(2*mc-1,nS)= real(dp)*VpS(2*mc-1,nS)-aimag(dp)*VpS(2*mc,nS)
                      dV(2*mc  ,nS)=aimag(dp)*VpS(2*mc-1,nS)+ real(dp)*VpS(2*mc,nS)
