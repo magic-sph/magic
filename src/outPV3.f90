@@ -132,6 +132,28 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
 
+      !-- I tried to fix this but I'm not sure it's actually correct,
+      !-- since there's no auto-test for this output this might be wrong
+      if ( l_stop_time ) then
+         if ( l_SRIC  .and. omega_IC /= 0 ) then
+            fac=one/omega_IC
+         else
+            fac=one
+         end if
+         do nR=1,n_r_max
+            do lm=llm,ulm
+               l = lo_map%lm2l(lm)
+               m = lo_map%lm2m(lm)
+               if ( m == 0 ) then
+                  dzVpLMr(l+1,nR)=fac*real(z(lm,nR))
+               end if
+            end do
+         end do
+
+         !---- Transform the contributions to cheb space:
+         call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
+      end if
+
       do nR=1,n_r_max
          do lm=llm,ulm
             l = lo_map%lm2l(lm)
@@ -185,23 +207,6 @@ contains
             stop
          end if
          nZmax=2*nSmax
-
-         if ( l_stop_time ) then
-            if ( l_SRIC  .and. omega_IC /= 0 ) then
-               fac=one/omega_IC
-            else
-               fac=one
-            end if
-            do nR=1,n_r_max
-               do l=1,l_max
-                  lm=lm2(l,0)
-                  dzVpLMr(l+1,nR)=fac*real(z(lm,nR))
-               end do
-            end do
-
-            !---- Transform the contributions to cheb space:
-            call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
-         end if
 
          dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
          nSI=0                  ! Inner core position

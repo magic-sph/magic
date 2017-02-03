@@ -710,7 +710,7 @@ contains
            DifRmsL=rInt_R(Dif2hInt(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
            DifRms =DifRms+DifRmsL
            DifRmsL=sqrt(DifRmsL/volC)
-           CALL getMSD2(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
+           call getMSD2(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
                         nRMS_sets,timePassed,timeNorm)
          end do
          DifRms=sqrt(DifRms/volC)
