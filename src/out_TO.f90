@@ -26,7 +26,6 @@ module outTO_mod
    use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
-   use charmanip, only: dble2str
    use integration, only: rInt_R
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
@@ -40,7 +39,9 @@ module outTO_mod
 
    private
 
+   integer :: nTOZfile
    integer :: nSmax, nZmaxA
+   integer :: nSstart, nSstop, nS_per_rank
    
    !-- Plms: Plm,sin
    real(cp), allocatable :: PlmS(:,:,:)
@@ -85,6 +86,8 @@ contains
 
    subroutine initialize_outTO_mod
 
+      integer :: nS_remaining
+
       !-- R-distributed arrays
       allocate( V2LMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( Bs2LMr_Rloc(l_max+1,nRstart:nRstop) )
@@ -116,6 +119,17 @@ contains
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
       nSmax=int(sDens*nSmax)
       nZmaxA=4*nSmax
+
+      !-- Distribute over the ranks
+      nS_per_rank = nSmax/n_procs
+      nSstart = 1+rank*nS_per_rank
+      nSstop = 1+(rank+1)*nS_per_rank-1
+      nS_remaining = nSmax-(1+n_procs*nS_per_rank-1)
+      if ( rank == n_procs-1 ) then
+         nSstop = nSstop+nS_remaining
+         nS_per_rank = nS_per_rank + nS_remaining
+      end if
+
 
       allocate( PlmS(l_max+1,nZmaxA/2+1,nSmax) )
       allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmax) )
@@ -209,15 +223,15 @@ contains
       integer :: nThetaStart
 
       integer :: nZ,nZmax,nZmaxNS!,nZP
-      real(cp) :: VpS(nZmaxA)      
-      real(cp) :: dVpS(nZmaxA)      
+      real(cp) :: VpS(nZmaxA,nSmax)
+      real(cp) :: dVpS(nZmaxA,nSmax) 
       real(cp) :: ddVpS(nZmaxA)      
       real(cp) :: V2S(nZmaxA)
-      real(cp) :: LFS(nZmaxA)
-      real(cp) :: CorS(nZmaxA)
-      real(cp) :: RstrS(nZmaxA)
-      real(cp) :: AstrS(nZmaxA)
-      real(cp) :: StrS(nZmaxA)
+      real(cp) :: LFS(nZmaxA,nSmax)
+      real(cp) :: CorS(nZmaxA,nSmax)
+      real(cp) :: RstrS(nZmaxA,nSmax)
+      real(cp) :: AstrS(nZmaxA,nSmax)
+      real(cp) :: StrS(nZmaxA,nSmax)
       real(cp) :: Bs2S(nZmaxA)
       real(cp) :: BspS(nZmaxA)
       real(cp) :: BspdS(nZmaxA)
@@ -294,8 +308,7 @@ contains
       logical :: l_TOZave
 
       !-- For TOZ output files:
-      integer, save :: nTOZfile!,length
-      character(len=10) :: string
+      character(len=14) :: string
 
       if ( lVerbose ) write(*,*) '! Starting outTO!'
 
@@ -389,26 +402,6 @@ contains
 
       if ( rank == 0 ) then
 
-         if ( nTOsets == 1 ) nTOZfile=0
-         if ( lTOZwrite ) then
-            nTOZfile=nTOZfile+1
-            call dble2str(real(nTOZfile,cp),string)
-            fileName='TOZ_'//trim(adjustl(string))//'.'//tag
-            open(newunit=n_toz_file, file=fileName, form='unformatted', &
-            &    status='unknown')
-            write(n_toz_file) real(time,kind=outp), real(nSmax,kind=outp), &
-            &                 real(omega_ic,kind=outp),                    &
-            &                 real(omega_ma,kind=outp)
-            write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
-         end if
-         if ( nTOsets > 1 .and. l_TOZave ) then
-            fileName='TOZM.'//tag
-            open(newunit=n_tozm_file,file=fileName, form='unformatted', &
-            &    status='unknown')
-            write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &
-            &                  real(omega_ma,kind=outp)
-            write(n_tozm_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
-         end if
 
          lStopRun=.false.
          outer: do nS=1,nSmax
@@ -432,9 +425,9 @@ contains
                !       chebIntInit returns zZ,nZmaxS,chebt_Z
                !       Note that this returns z in the MAGIC way, 
                !       starting with zMax, ending with zMin
-               !       z(1,nS)=zMin, z(nZmax,nS)=zMax
+               !       z(:,nS)=zMin, z(nZmax,nS)=zMax
                call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-                    &            nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
+                    &            nZmaxA,zZ(:,nS),nZmaxS(nS),chebt_Z(nS))
 
                !--- Points in nothers halfsphere
                if ( lTC ) then
@@ -470,140 +463,109 @@ contains
             nZmax=nZmaxS(nS)
             if ( lTC ) then
                nZmaxNS=2*nZmax
-               do nZ=1,nZmax
-                  zALL(nZ)=zZ(nZ,nS)
-                  zALL(nZmaxNS-nZ+1)=-zZ(nZ,nS)
-               end do
             else
                nZmaxNS=nZmax
-               do nZ=1,nZmax
-                  zALL(nZ)=zZ(nZ,nS)
-               end do
             end if
 
-            call getPAStr(VpS,dzVpLMr,nZmaxNS,nZmaxA,l_max+1,             &
+            call getPAStr(VpS(:,nS),dzVpLMr,nZmaxNS,nZmaxA,l_max+1,      &
                  &                      l_max,r_ICB,r_CMB,n_r_max,       &
-                 &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(dVpS,dzdVpLMr,nZmaxNS,nZmaxA,l_max+1,           &
+                 &                 rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(dVpS(:,nS),dzdVpLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
-                 &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
+                 &                   rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
             call getPAStr(ddVpS,dzddVpLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
-                 &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(RstrS,dzRstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
+                 &                     rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(RstrS(:,nS),dzRstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
-                 &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(AstrS,dzAstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
+                 &                     rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(AstrS(:,nS),dzAstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
-                 &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(StrS,dzStrLMr,nZmaxNS,nZmaxA,l_max+1,           &
+                 &                     rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(StrS(:,nS),dzStrLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
-                 &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(LFS,dzLFLMr,nZmaxNS,nZmaxA,l_max+1,             &
+                 &                   rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(LFS(:,nS),dzLFLMr,nZmaxNS,nZmaxA,l_max+1,             &
                  &                      l_max,r_ICB,r_CMB,n_r_max,       &
-                 &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(CorS,dzCorLMr,nZmaxNS,nZmaxA,l_max+1,           &
+                 &                 rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
+            call getPAStr(CorS(:,nS),dzCorLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
-                 &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
+                 &                   rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
             do nZ=1,nZmaxNS
-               TayS(nZ) =abs(LFS(nZ))
-               TayRS(nZ)=abs(RstrS(nZ))
-               TayVS(nZ)=abs(StrS(nZ))
+               TayS(nZ) =abs(LFS(nZ,nS))
+               TayRS(nZ)=abs(RstrS(nZ,nS))
+               TayVS(nZ)=abs(StrS(nZ,nS))
             end do
 
             call getAStr(V2S,V2LMr,nZmaxNS,nZmaxA,l_max+1,                &
                  &                   l_max,r_ICB,r_CMB,n_r_max,          &
-                 &                            rZ(1,nS),PlmS(1,1,nS))
+                 &                            rZ(:,nS),PlmS(:,:,nS))
             call getAStr(Bs2S,Bs2LMr,nZmaxNS,nZmaxA,l_max+1,              &
                  &                     l_max,r_ICB,r_CMB,n_r_max,        &
-                 &                              rZ(1,nS),PlmS(1,1,nS))
+                 &                              rZ(:,nS),PlmS(:,:,nS))
             call getAStr(BspS,BspLMr,nZmaxNS,nZmaxA,l_max+1,              &
                  &                     l_max,r_ICB,r_CMB,n_r_max,        &
-                 &                              rZ(1,nS),PlmS(1,1,nS))
+                 &                              rZ(:,nS),PlmS(:,:,nS))
             call getAStr(BspdS,BspdLMr,nZmaxNS,nZmaxA,l_max+1,            &
                  &                       l_max,r_ICB,r_CMB,n_r_max,      &
-                 &                                rZ(1,nS),PlmS(1,1,nS))
+                 &                                rZ(:,nS),PlmS(:,:,nS))
             call getAStr(BpsdS,BpsdLMr,nZmaxNS,nZmaxA,l_max+1,            &
                  &                       l_max,r_ICB,r_CMB,n_r_max,      &
-                 &                                rZ(1,nS),PlmS(1,1,nS))
+                 &                                rZ(:,nS),PlmS(:,:,nS))
 
             if ( l_TOZave ) then
                if ( nTOsets == 1 ) then
                   timeAve=1.e0_outp
                   do nZ=1,nZmaxNS
-                     VpM(nZ,nS)  =real(VpS(nZ),kind=outp)
-                     dVpM(nZ,nS) =real(dVpS(nZ),kind=outp)
-                     LFM(nZ,nS)  =real(LFfac*LFS(nZ),kind=outp)
-                     RstrM(nZ,nS)=real(RstrS(nZ),kind=outp)
-                     AstrM(nZ,nS)=real(AstrS(nZ),kind=outp)
-                     StrM(nZ,nS) =real(StrS(nZ),kind=outp)
-                     CorM(nZ,nS) =real(CorS(nZ),kind=outp)
-                     CLM(nZ,nS)  =real(CorS(nZ)+LFfac*LFS(nZ),kind=outp)
+                     VpM(nZ,nS)  =real(VpS(nZ,nS),kind=outp)
+                     dVpM(nZ,nS) =real(dVpS(nZ,nS),kind=outp)
+                     LFM(nZ,nS)  =real(LFfac*LFS(nZ,nS),kind=outp)
+                     RstrM(nZ,nS)=real(RstrS(nZ,nS),kind=outp)
+                     AstrM(nZ,nS)=real(AstrS(nZ,nS),kind=outp)
+                     StrM(nZ,nS) =real(StrS(nZ,nS),kind=outp)
+                     CorM(nZ,nS) =real(CorS(nZ,nS),kind=outp)
+                     CLM(nZ,nS)  =real(CorS(nZ,nS)+LFfac*LFS(nZ,nS),kind=outp)
                   end do
                else if ( nTOsets == 2 ) then
                   dt=real(time-timeLast,kind=outp)
                   timeAve=dt
                   do nZ=1,nZmaxNS
-                     VpM(nZ,nS)  =dt*(VpM(nZ,nS)  +real(VpS(nZ),kind=outp))
-                     dVpM(nZ,nS) =dt*(dVpM(nZ,nS) +real(dVpS(nZ),kind=outp))
-                     LFM(nZ,nS)  =dt*(LFM(nZ,nS)  +real(LFfac*LFS(nZ),kind=outp))
-                     RstrM(nZ,nS)=dt*(RstrM(nZ,nS)+real(RstrS(nZ),kind=outp))
-                     AstrM(nZ,nS)=dt*(AstrM(nZ,nS)+real(AstrS(nZ),kind=outp))
-                     StrM(nZ,nS) =dt*(StrM(nZ,nS) +real(StrS(nZ),kind=outp))
-                     CorM(nZ,nS) =dt*(CorM(nZ,nS) +real(CorS(nZ),kind=outp))
-                     CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +real(CorS(nZ)+LFfac*LFS(nZ),kind=outp))
+                     VpM(nZ,nS)  =dt*(VpM(nZ,nS)  +real(VpS(nZ,nS),kind=outp))
+                     dVpM(nZ,nS) =dt*(dVpM(nZ,nS) +real(dVpS(nZ,nS),kind=outp))
+                     LFM(nZ,nS)  =dt*(LFM(nZ,nS)  +real(LFfac*LFS(nZ,nS),kind=outp))
+                     RstrM(nZ,nS)=dt*(RstrM(nZ,nS)+real(RstrS(nZ,nS),kind=outp))
+                     AstrM(nZ,nS)=dt*(AstrM(nZ,nS)+real(AstrS(nZ,nS),kind=outp))
+                     StrM(nZ,nS) =dt*(StrM(nZ,nS) +real(StrS(nZ,nS),kind=outp))
+                     CorM(nZ,nS) =dt*(CorM(nZ,nS) +real(CorS(nZ,nS),kind=outp))
+                     CLM(nZ,nS)  =dt*(CLM(nZ,nS)  +real(CorS(nZ,nS)+LFfac*LFS(nZ,nS),kind=outp))
                   end do
                else
                   dt=real(time-timeLast,kind=outp)
                   timeAve=timeAve+dt
                   do nZ=1,nZmaxNS
-                     VpM(nZ,nS)  =VpM(nZ,nS)  +dt*real(VpS(nZ),kind=outp)
-                     dVpM(nZ,nS) =dVpM(nZ,nS) +dt*real(dVpS(nZ),kind=outp)
-                     LFM(nZ,nS)  =LFM(nZ,nS)  +dt*real(LFfac*LFS(nZ),kind=outp)
-                     RstrM(nZ,nS)=RstrM(nZ,nS)+dt*real(RstrS(nZ),kind=outp)
-                     AstrM(nZ,nS)=AstrM(nZ,nS)+dt*real(AstrS(nZ),kind=outp)
-                     StrM(nZ,nS) =StrM(nZ,nS) +dt*real(StrS(nZ),kind=outp)
-                     CorM(nZ,nS) =CorM(nZ,nS) +dt*real(CorS(nZ),kind=outp)
-                     CLM(nZ,nS)  =CLM(nZ,nS)  +dt*real(CorS(nZ)+LFfac*LFS(nZ),kind=outp)
+                     VpM(nZ,nS)  =VpM(nZ,nS)  +dt*real(VpS(nZ,nS),kind=outp)
+                     dVpM(nZ,nS) =dVpM(nZ,nS) +dt*real(dVpS(nZ,nS),kind=outp)
+                     LFM(nZ,nS)  =LFM(nZ,nS)  +dt*real(LFfac*LFS(nZ,nS),kind=outp)
+                     RstrM(nZ,nS)=RstrM(nZ,nS)+dt*real(RstrS(nZ,nS),kind=outp)
+                     AstrM(nZ,nS)=AstrM(nZ,nS)+dt*real(AstrS(nZ,nS),kind=outp)
+                     StrM(nZ,nS) =StrM(nZ,nS) +dt*real(StrS(nZ,nS),kind=outp)
+                     CorM(nZ,nS) =CorM(nZ,nS) +dt*real(CorS(nZ,nS),kind=outp)
+                     CLM(nZ,nS)  =CLM(nZ,nS)  +dt*real(CorS(nZ,nS)+LFfac*LFS(nZ,nS),kind=outp)
                   end do
                end if
             end if
 
-            if ( l_TOZave .and. nTOsets > 1 ) then
-               write(n_tozm_file) real(nZmaxNS,kind=outp)
-               write(n_tozm_file) (real(zALL(nZ),kind=outp),nZ=1,nZmaxNS), &
-               &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
-               &                  (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-               &                  (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
-               &                  (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
-               &                  (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
-               &                  (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-               &                  (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
-               &                  (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
-            end if
-            if ( lTOZwrite ) then
-               write(n_toz_file) real(nZmaxNS)
-               write(n_toz_file) (real(zALL(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
-               &                 (real(VpS(nZ),kind=outp)  ,nZ=1,nZmaxNS),    &
-               &                 (real(dVpS(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
-               &                 (real(RstrS(nZ),kind=outp),nZ=1,nZmaxNS),    &
-               &                 (real(AstrS(nZ),kind=outp),nZ=1,nZmaxNS),    &
-               &                 (real(LFfac*LFS(nZ),kind=outp),nZ=1,nZmaxNS),&
-               &                 (real(StrS(nZ),kind=outp) ,nZ=1,nZmaxNS),    &
-               &                 (real(CorS(nZ),kind=outp) ,nZ=1,nZmaxNS)
-            end if
-
             !--- Z-integrals:
-            VpIntN(nS)  =chebInt(VpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-            dVpIntN(nS) =chebInt(dVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            VpIntN(nS)  =chebInt(VpS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            dVpIntN(nS) =chebInt(dVpS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             ddVpIntN(nS)=chebInt(ddVpS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-            LFIntN(nS)  =chebInt(LFS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            LFIntN(nS)  =chebInt(LFS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             TayIntN(nS) =chebInt(TayS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             TayRIntN(nS)=chebInt(TayRS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             TayVIntN(nS)=chebInt(TayVS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-            RstrIntN(nS)=chebInt(RstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-            AstrIntN(nS)=chebInt(AstrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-            StrIntN(nS) =chebInt(StrS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            RstrIntN(nS)=chebInt(RstrS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            AstrIntN(nS)=chebInt(AstrS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+            StrIntN(nS) =chebInt(StrS(:,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             V2IntN(nS)  =chebInt(V2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             Bs2IntN(nS) =chebInt(Bs2S,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
             BspIntN(nS) =chebInt(BspS,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
@@ -622,16 +584,16 @@ contains
 
             !--- Z-integration inside northern TC:
             if ( lTC ) then
-               VpIntS(nS)  =chebInt(VpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               dVpIntS(nS) =chebInt(dVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               VpIntS(nS)  =chebInt(VpS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               dVpIntS(nS) =chebInt(dVpS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                ddVpIntS(nS)=chebInt(ddVpS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               LFIntS(nS)  =chebInt(LFS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               LFIntS(nS)  =chebInt(LFS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                TayIntS(nS) =chebInt(TayS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                TayRIntS(nS)=chebInt(TayRS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                TayVIntS(nS)=chebInt(TayVS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               RstrIntS(nS)=chebInt(RstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               AstrIntS(nS)=chebInt(AstrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               StrIntS(nS) =chebInt(StrS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               RstrIntS(nS)=chebInt(RstrS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               AstrIntS(nS)=chebInt(AstrS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               StrIntS(nS) =chebInt(StrS(nZmax+1,nS),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                V2IntS(nS)  =chebInt(V2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                Bs2IntS(nS) =chebInt(Bs2S(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                BspIntS(nS) =chebInt(BspS(nZmax+1),zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
@@ -679,13 +641,13 @@ contains
                Bs2B(1) =Bs2S(1)
                Bs2B(2) =Bs2S(nZmaxNS)
                call getAStr(BszB,BszLMr,2,2,l_max+1,l_max,           &
-                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
                call getAStr(BpzB,BpzLMr,2,2,l_max+1,l_max,           &
-                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
                call getAStr(BzpdB,BzpdLMr,2,2,l_max+1,l_max,         &
-                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
                call getAStr(BpzdB,BpzdLMr,2,2,l_max+1,l_max,         &
-                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
 
                TauBS(nS)  =-(BpzB(2)+sZ(nS)/zMin*BspB(2))
                dTauBS(nS) =-(BpzdB(2)+BzpdB(2) + sZ(nS)/zMin*(BspdB(2)+BpsdB(2)))
@@ -737,11 +699,11 @@ contains
                Bs2B(1) =Bs2S(1)
                Bs2B(2) =Bs2S(nZmaxNS)
                call getAStr(BpzB,BpzLMr,2,2,l_max+1,l_max,           &
-                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                   r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
                call getAStr(BzpdB,BzpdLMr,2,2,l_max+1,l_max,         &
-                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
                call getAStr(BpzdB,BpzdLMr,2,2,l_max+1,l_max,         &
-                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
+                    &                     r_ICB,r_CMB,n_r_max,rB,PlmS(:,:,nS))
 
                TauBS(nS)  = BpzB(1)+sZ(nS)/zMax*BspB(1) - BpzB(2)-sZ(nS)/zMin*BspB(2)
                dTauBS(nS) = BpzdB(1)+BzpdB(1) + sZ(nS)/zMax*(BspdB(1)+BpsdB(1)) -   &
@@ -756,6 +718,76 @@ contains
 
          end do outer ! Loop over s 
          ! Integration finished
+
+
+         !-- Outputs
+         if ( nTOsets == 1 ) nTOZfile=0
+         if ( lTOZwrite ) then
+            nTOZfile=nTOZfile+1
+            write(string, *) nTOZfile
+            fileName='TOZ_'//trim(adjustl(string))//'.'//tag
+            open(newunit=n_toz_file, file=fileName, form='unformatted', &
+            &    status='unknown')
+            write(n_toz_file) real(time,kind=outp), real(nSmax,kind=outp), &
+            &                 real(omega_ic,kind=outp),                    &
+            &                 real(omega_ma,kind=outp)
+            write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
+         end if
+         if ( nTOsets > 1 .and. l_TOZave ) then
+            fileName='TOZM.'//tag
+            open(newunit=n_tozm_file,file=fileName, form='unformatted', &
+            &    status='unknown')
+            write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &
+            &                  real(omega_ma,kind=outp)
+            write(n_tozm_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
+         end if
+
+         do nS=1,nSmax
+
+            if ( sZ(nS) < r_ICB ) then
+               lTC=.true.
+            else
+               lTC=.false.
+            end if
+
+            nZmax=nZmaxS(nS)
+            if ( lTC ) then
+               nZmaxNS=2*nZmax
+               do nZ=1,nZmax
+                  zALL(nZ)=zZ(nZ,nS)
+                  zALL(nZmaxNS-nZ+1)=-zZ(nZ,nS)
+               end do
+            else
+               nZmaxNS=nZmax
+               do nZ=1,nZmax
+                  zALL(nZ)=zZ(nZ,nS)
+               end do
+            end if
+
+            if ( l_TOZave .and. nTOsets > 1 ) then
+               write(n_tozm_file) real(nZmaxNS,kind=outp)
+               write(n_tozm_file) (real(zALL(nZ),kind=outp),nZ=1,nZmaxNS), &
+               &                  (VpM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+               &                  (dVpM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (RstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+               &                  (AstrM(nZ,nS)/timeAve,nZ=1,nZmaxNS),     &
+               &                  (LFM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS),     &
+               &                  (StrM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (CorM(nZ,nS)/timeAve ,nZ=1,nZmaxNS),     &
+               &                  (CLM(nZ,nS)/timeAve  ,nZ=1,nZmaxNS)
+            end if
+            if ( lTOZwrite ) then
+               write(n_toz_file) real(nZmaxNS)
+               write(n_toz_file) (real(zALL(nZ),kind=outp) ,nZ=1,nZmaxNS),       &
+               &                 (real(VpS(nZ,nS),kind=outp)  ,nZ=1,nZmaxNS),    &
+               &                 (real(dVpS(nZ,nS),kind=outp) ,nZ=1,nZmaxNS),    &
+               &                 (real(RstrS(nZ,nS),kind=outp),nZ=1,nZmaxNS),    &
+               &                 (real(AstrS(nZ,nS),kind=outp),nZ=1,nZmaxNS),    &
+               &                 (real(LFfac*LFS(nZ,nS),kind=outp),nZ=1,nZmaxNS),&
+               &                 (real(StrS(nZ,nS),kind=outp) ,nZ=1,nZmaxNS),    &
+               &                 (real(CorS(nZ,nS),kind=outp) ,nZ=1,nZmaxNS)
+            end if
+         end do
 
          if ( lTOZwrite ) close(n_toz_file)
          if ( l_TOZave .and. nTOsets > 1 ) close (n_tozm_file)
