@@ -1473,7 +1473,7 @@ contains
       l_TO          =.false. ! TO output in TOnhs.TAG, TOshs.TAG
       l_TOmovie     =.false. ! TO movies 
       sDens         =one     ! relative s-grid point density 
-      zDens         =one     ! relative z-grid point dendity 
+      zDens         =one     ! relative z-grid point density 
 
       !----- Potential vortivity:
       l_PV          =.false.

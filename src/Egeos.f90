@@ -13,7 +13,7 @@ module Egeos_mod
    use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map
    use horizontal_data, only: dLh, phi, dPhi
    use logic, only: lVerbose, l_corrMov, l_anel, l_save_out
-   use output_data, only: sDens, zDens, tag, runid, nSmaxA, nZmaxA
+   use output_data, only: sDens, zDens, tag, runid
    use constants, only: pi, zero, ci, one, two, half
    use LMLoop_data, only: llm,ulm
    use communications, only: gather_all_from_lo_to_rank0,gt_OC
@@ -36,6 +36,7 @@ module Egeos_mod
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
 
    integer :: n_geos_file
+   integer :: nSmax,nZmaxA
    character(len=72) :: geos_file
  
    public :: initialize_Egeos_mod, getEgeos, finalize_Egeos_mod
@@ -44,17 +45,21 @@ contains
 
    subroutine initialize_Egeos_mod
 
-      allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
-      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSmaxA) )  ! This is huge !
-      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSmaxA) ) ! This is huge !
-      allocate( chebt_Z(nSmaxA) )
-      allocate( nZmaxS(nSmaxA) )
-      allocate( zZ(nZmaxA,nSmaxA) )
-      allocate( rZ(nZmaxA,nSmaxA) )
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
+      nSmax=int(sDens*nSmax)
+      nZmaxA=2*nSmax
+
+      allocate( OsinTS(nZmaxA/2+1,nSmax) )
+      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSmax) )  ! This is huge !
+      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSmax) ) ! This is huge !
+      allocate( chebt_Z(nSmax) )
+      allocate( nZmaxS(nSmax) )
+      allocate( zZ(nZmaxA,nSmax) )
+      allocate( rZ(nZmaxA,nSmax) )
       bytes_allocated = bytes_allocated+ &
-                       ((nZmaxA/2+1)*nSmaxA*(1+2*lm_maxGeos))*SIZEOF_DEF_REAL + &
-                       nSmaxA*SIZEOF_INTEGER + &
-                       2*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
+                       ((nZmaxA/2+1)*nSmax*(1+2*lm_maxGeos))*SIZEOF_DEF_REAL + &
+                       nSmax*SIZEOF_INTEGER + &
+                       2*nZmaxA*nSmax*SIZEOF_DEF_REAL
 
       geos_file='geos.'//tag
 
@@ -102,12 +107,12 @@ contains
       real(cp) :: Egeos,EkNTC,EkSTC,Ekin
       real(cp) :: CVzOTC,CVorOTC,CHelOTC
       logical :: lDeriv
-      integer :: nSmax,nS,nS_ICB
+      integer :: nS,nS_ICB
       real(cp) :: zNorm          ! Norm z interval
       integer :: nNorm           ! No. of grid points for norm interval
       real(cp) :: zMin,zMax,help ! integration boundarie, help variable
       logical :: lAS             ! .true. if axisymmetric (m=0) functions
-      real(cp) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
+      real(cp) :: sZ(nSmax),dsZ ! cylindrical radius s and s-step
       integer :: nPhi,nI
       real(cp) :: phiNorm
       logical :: lTC
@@ -133,12 +138,12 @@ contains
       integer :: nZ,nZmax,nZS,nZN
       integer :: lm,nR
       real(cp) :: EkInt(nZmaxA),EkIntS
-      real(cp) :: EkSTC_s(nSmaxA),EkNTC_s(nSmaxA),EkOTC_s(nSmaxA)
-      real(cp) :: Egeos_s(nSmaxA)
+      real(cp) :: EkSTC_s(nSmax),EkNTC_s(nSmax),EkOTC_s(nSmax)
+      real(cp) :: Egeos_s(nSmax)
       real(cp) :: EkOTC
       real(cp) :: dpEkInt(nZmaxA),dpEkIntS
       real(cp) :: dzEkInt(nZmaxA),dzEkIntS
-      real(cp) :: dpEk_s(nSmaxA),dzEk_s(nSmaxA)
+      real(cp) :: dpEk_s(nSmax),dzEk_s(nSmax)
       real(cp) :: thetaZ
 
       logical :: lStopRun
@@ -148,7 +153,7 @@ contains
       real(cp) :: VzS,VzN,VorS,VorN,surf,delz
       real(cp) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
       real(cp) :: CVz_I,CVor_I,CHel_I
-      real(cp) :: CVz_s(nSmaxA),CVor_s(nSmaxA),CHel_S(nSmaxA)
+      real(cp) :: CVz_s(nSmax),CVor_s(nSmax),CHel_S(nSmax)
 
       !-- Movie output
       integer :: nOutFile,n
@@ -213,14 +218,9 @@ contains
          nSmax=n_r_max+int(r_ICB*real(n_r_max,cp)) 
          nSmax=int(sDens*nSmax)
          dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
-         if ( nSmax > nSmaxA ) then
-            write(*,*) 'Increase nSmaxA in getGeos!'
-            write(*,*) 'Should be at least nSmax=',nSmax
-            stop
-         end if
          lAS=.false.
 
-         do nS=1,nSmaxA
+         do nS=1,nSmax
             EkSTC_s(nS)=0.0_cp
             EkNTC_s(nS)=0.0_cp
             EkOTC_s(nS)=0.0_cp

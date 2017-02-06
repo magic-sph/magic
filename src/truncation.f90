@@ -63,7 +63,6 @@ module truncation
    integer :: n_r_maxGeos    ! Number of radial points for Geostrophic output
    integer :: lm_maxGeos     ! Number of l/m combinations for Geostrophic output
    integer :: nrpGeos        ! Number of cyl. radial points for Geostrophic output
-   integer :: ncpGeos
  
 contains
 
@@ -154,7 +153,6 @@ contains
       n_r_maxGeos=max(n_r_maxGL,2)
       lm_maxGeos =max(lm_maxGL,2)
       nrpGeos    =max(nrpGL,2)
-      ncpGeos    =nrpGeos/2 
 
    end subroutine initialize_truncation
 !--------------------------------------------------------------------------------

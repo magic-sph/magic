@@ -35,10 +35,6 @@ module RMS
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
    use useful, only: getMSD2
                                                                   
-#ifdef WITH_MPI
-   use communications, only: myAllGather
-#endif
- 
    implicit none
  
    private
