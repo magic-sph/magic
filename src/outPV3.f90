@@ -11,7 +11,7 @@ module outPV3
    use blocking, only: lm2, lm2m, lm2l, lm2mc, st_map, lo_map
    use horizontal_data, only: dLh, dPhi
    use logic, only: lVerbose, l_SRIC
-   use output_data, only: tag, sDens, nSmaxA, nZmaxA
+   use output_data, only: tag, sDens
    use LMLoop_data, only: llm, ulm
    use plms_theta, only: plm_theta
    use constants, only: pi, zero, one, two, half, ci
@@ -30,6 +30,10 @@ module outPV3
    real(cp), allocatable :: dPlmZ(:,:,:)
    real(cp), allocatable :: OsinTS(:,:)
    real(cp), allocatable :: VorOld(:,:,:)
+   integer, allocatable :: nZC(:), nZ2(:,:)
+
+
+   integer :: nSmax, nZmax
  
    public :: initialize_outPV3, finalize_outPV3, outPV
   
@@ -37,25 +41,32 @@ contains
 
    subroutine initialize_outPV3
 
-      allocate( rZ(nZmaxA/2+1,nSmaxA) )
-      allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
-      bytes_allocated = bytes_allocated + 2*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( PlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
-      allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,kind=cp))
+      nSmax=int(sDens*nSmax)
+      nZmax=2*nSmax
+
+      allocate( rZ(nZmax/2+1,nSmax) )
+      allocate( OsinTS(nZmax/2+1,nSmax) )
+      bytes_allocated = bytes_allocated + 2*(nZmax/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( PlmS(l_max+1,nZmax/2+1,nSmax) )
+      allocate( dPlmS(l_max+1,nZmax/2+1,nSmax) )
       bytes_allocated = bytes_allocated + &
-                        2*(l_max+1)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( PlmZ(lm_max,nZmaxA/2+1,nSmaxA) )
-      allocate( dPlmZ(lm_max,nZmaxA/2+1,nSmaxA) )
+                        2*(l_max+1)*(nZmax/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( PlmZ(lm_max,nZmax/2+1,nSmax) )
+      allocate( dPlmZ(lm_max,nZmax/2+1,nSmax) )
       bytes_allocated = bytes_allocated + &
-                        2*(lm_max)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( VorOld(nrp,nZmaxA,nSmaxA) )
-      bytes_allocated = bytes_allocated + nrp*nZmaxA*nSmaxA*SIZEOF_DEF_REAL
+                        2*(lm_max)*(nZmax/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( VorOld(nrp,nZmax,nSmax) )
+      bytes_allocated = bytes_allocated + nrp*nZmax*nSmax*SIZEOF_DEF_REAL
+
+      allocate( nZC(nSmax),nZ2(nZmax,nSmax) )
+      bytes_allocated = bytes_allocated + nSmax*(1+nZmax)*SIZEOF_INTEGER
 
    end subroutine initialize_outPV3
 !---------------------------------------------------------------------------------
    subroutine finalize_outPV3
 
-      deallocate( rZ, OsinTS, PlmS, dPlmS, PlmZ, dPlmZ, VorOld )
+      deallocate( rZ, OsinTS, PlmS, dPlmS, PlmZ, dPlmZ, VorOld, nZC, nZ2 )
 
    end subroutine finalize_outPV3
 !---------------------------------------------------------------------------------
@@ -88,14 +99,13 @@ contains
       real(cp) :: fac
 
       !--- define Grid
-      integer :: nSmax,nS,nSI
-      real(cp) ::  sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
+      integer :: nS,nSI
+      real(cp) ::  sZ(nSmax),dsZ ! cylindrical radius s and s-step
 
-      integer :: nZ,nZmax,nZmaxNS
-      integer, save :: nZC(nSmaxA),nZ2(nZmaxA,nSmaxA)
+      integer :: nZ,nZmaxNS
       integer, save :: nZS
-      real(cp) :: zZ(nZmaxA),zstep!,zZC
-      real(cp) :: VpAS(nZmaxA),omS(nZmaxA)
+      real(cp) :: zZ(nZmax),zstep!,zZC
+      real(cp) :: VpAS(nZmax),omS(nZmax)
 
       !-- Plms: Plm,sin
       integer :: nR,nPhi,nC
@@ -105,16 +115,16 @@ contains
       character(len=80) :: fileName
 
       !-- Output of all three field components:
-      real(cp) :: VsS(nrp,nZmaxA)
-      real(cp) :: VpS(nrp,nZmaxA)
-      real(cp) :: VzS(nrp,nZmaxA)
-      real(cp) :: VorS(nrp,nZmaxA)
-      real(cp) :: dpVorS(nrp,nZmaxA)
-      real(outp) :: out1(n_phi_max*nZmaxA)
-      real(outp) :: out2(n_phi_max*nZmaxA)
-      real(outp) :: out3(n_phi_max*nZmaxA)
-      real(outp) :: out4(n_phi_max*nZmaxA)
-      real(outp) :: out5(n_phi_max*nZmaxA)
+      real(cp) :: VsS(nrp,nZmax)
+      real(cp) :: VpS(nrp,nZmax)
+      real(cp) :: VzS(nrp,nZmax)
+      real(cp) :: VorS(nrp,nZmax)
+      real(cp) :: dpVorS(nrp,nZmax)
+      real(outp) :: out1(n_phi_max*nZmax)
+      real(outp) :: out2(n_phi_max*nZmax)
+      real(outp) :: out3(n_phi_max*nZmax)
+      real(outp) :: out4(n_phi_max*nZmax)
+      real(outp) :: out5(n_phi_max*nZmax)
       real(cp), save :: timeOld
 
       complex(cp) :: wP(llm:ulm,n_r_max)
@@ -198,16 +208,6 @@ contains
 
          !-- Start with calculating advection due to axisymmetric flows:
 
-         nSmax=n_r_max+int(r_ICB*real(n_r_max,kind=cp))
-         nSmax=int(sDens*nSmax)
-         if ( nSmax > nSmaxA ) then
-            write(*,*) 'Increase nSmaxA in outPV!'
-            write(*,*) 'Should be at least nSmax=',nSmax
-            write(*,*) 'But is only=',nSmaxA
-            stop
-         end if
-         nZmax=2*nSmax
-
          dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
          nSI=0                  ! Inner core position
          do nS=1,nSmax
@@ -273,7 +273,7 @@ contains
             !-- Get azimuthal flow component in the shell
             nZmaxNS=nZC(nS) ! all z points within shell
             if ( l_stop_time ) then
-               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max+1,      &
+               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmax,l_max+1,      &
                     &        l_max,r_ICB,r_CMB,n_r_max,                &
                     &        rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
 
@@ -295,7 +295,7 @@ contains
 
             !-- Get all three components in the shell
             call getPVptr(wP_global,dwP_global,ddwP_global,zP_global,dzP_global,   &
-                 &        r_ICB,r_CMB,rZ(1,nS),nZmaxNS,nZmaxA,PlmZ(1,1,nS),        &
+                 &        r_ICB,r_CMB,rZ(1,nS),nZmaxNS,nZmax,PlmZ(1,1,nS),        &
                  &        dPlmZ(1,1,nS),OsinTS(1,nS),VsS,VpS,VzS,VorS,dpVorS)
 
             if ( l_stop_time ) then
@@ -362,7 +362,7 @@ contains
       complex(cp), intent(in) :: z(lm_max,n_r_max)
       complex(cp), intent(in) :: dz(lm_max,n_r_max)
       real(cp),    intent(in) :: rMin,rMax  ! radial bounds
-      integer,     intent(in) :: nZmax,nZmaxA ! number of (r,theta) points
+      integer,     intent(in) :: nZmax,nZmaxA! number of (r,theta) points
       real(cp),    intent(in) :: rS(nZmaxA)
       real(cp),    intent(in) :: PlmS(lm_max,nZmaxA/2+1)
       real(cp),    intent(in) :: dPlmS(lm_max,nZmaxA/2+1)

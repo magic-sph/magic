@@ -23,8 +23,7 @@ module outTO_mod
    use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
-   use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file, &
-       &                  nSmaxA, nZmaxA
+   use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file
    use constants, only: pi, vol_oc, one, two, half, four
    use LMLoop_data, only: llm, ulm
    use charmanip, only: dble2str
@@ -40,6 +39,8 @@ module outTO_mod
    implicit none 
 
    private
+
+   integer :: nSmax, nZmaxA
    
    !-- Plms: Plm,sin
    real(cp), allocatable :: PlmS(:,:,:)
@@ -112,28 +113,32 @@ contains
       bytes_allocated=bytes_allocated+11*n_r_max*(l_max+1)* &
       &               SIZEOF_DEF_REAL
 
-      allocate( PlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
-      allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
+      nSmax=int(sDens*nSmax)
+      nZmaxA=4*nSmax
+
+      allocate( PlmS(l_max+1,nZmaxA/2+1,nSmax) )
+      allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmax) )
       bytes_allocated = bytes_allocated + &
-                        2*(l_max+1)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
-      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( vpM(nZmaxA/2,nSmaxA) )
-      allocate( LFM(nZmaxA/2,nSmaxA) )
-      allocate( dVpM(nZmaxA/2,nSmaxA) )
-      allocate( AstrM(nZmaxA/2,nSmaxA) )
-      allocate( RstrM(nZmaxA/2,nSmaxA) )
-      allocate( CorM(nZmaxA/2,nSmaxA) )
-      allocate( StrM(nZmaxA/2,nSmaxA) )
-      allocate( CLM(nZmaxA/2,nSmaxA) )
-      bytes_allocated = bytes_allocated + 8*(nZmaxA/2)*nSmaxA*SIZEOF_OUT_REAL
-      allocate( chebt_Z(nSmaxA) )
-      allocate( zZ(nZmaxA,nSmaxA) )
-      bytes_allocated = bytes_allocated + nZmaxA*nSmaxA*SIZEOF_DEF_REAL
-      allocate( rZ(nZmaxA/2+1,nSmaxA) )
-      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
-      allocate( nZmaxS(nSmaxA) )
-      bytes_allocated = bytes_allocated+nSmaxA*SIZEOF_INTEGER
+                        2*(l_max+1)*(nZmaxA/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( OsinTS(nZmaxA/2+1,nSmax) )
+      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( vpM(nZmaxA/2,nSmax) )
+      allocate( LFM(nZmaxA/2,nSmax) )
+      allocate( dVpM(nZmaxA/2,nSmax) )
+      allocate( AstrM(nZmaxA/2,nSmax) )
+      allocate( RstrM(nZmaxA/2,nSmax) )
+      allocate( CorM(nZmaxA/2,nSmax) )
+      allocate( StrM(nZmaxA/2,nSmax) )
+      allocate( CLM(nZmaxA/2,nSmax) )
+      bytes_allocated = bytes_allocated + 8*(nZmaxA/2)*nSmax*SIZEOF_OUT_REAL
+      allocate( chebt_Z(nSmax) )
+      allocate( zZ(nZmaxA,nSmax) )
+      bytes_allocated = bytes_allocated + nZmaxA*nSmax*SIZEOF_DEF_REAL
+      allocate( rZ(nZmaxA/2+1,nSmax) )
+      bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmax*SIZEOF_DEF_REAL
+      allocate( nZmaxS(nSmax) )
+      bytes_allocated = bytes_allocated+nSmax*SIZEOF_INTEGER
 
       TOfileNhs='TOnhs.'//tag
       TOfileShs='TOshs.'//tag
@@ -185,14 +190,14 @@ contains
       integer :: lm,l,m ! counter for degree and order
       integer :: nOutFile, nOutFile2
 
-      integer :: nSmax,nS,nSI
+      integer :: nS,nSI
       real(cp) :: zNorm  ! Norm z interval
       integer :: nNorm  ! No. of grid points for norm interval
       real(cp) :: zMin,zMax!,help ! integration boundarie, help variable
       logical :: lAS    ! .true. if axisymmetric (m=0) functions
-      real(cp) :: sZ(nSmaxA),dsZ ! cylindrical radius s and s-step
-      real(cp) :: h(nSmaxA),Oh(nSmaxA)
-      real(cp) :: Os2(nSmaxA)
+      real(cp) :: sZ(nSmax),dsZ ! cylindrical radius s and s-step
+      real(cp) :: h(nSmax),Oh(nSmax)
+      real(cp) :: Os2(nSmax)
 
       integer :: nR     ! counter for radial grid point
       integer :: n      ! counter for theta blocks
@@ -221,34 +226,34 @@ contains
       real(cp) :: TayRS(nZmaxA)
       real(cp) :: TayVS(nZmaxA)
 
-      real(cp) :: VpIntN(nSmaxA)  ,VpIntS(nSmaxA)    ! integration results
-      real(cp) :: dVpIntN(nSmaxA) ,dVpIntS(nSmaxA)   ! integration results
-      real(cp) :: ddVpIntN(nSmaxA),ddVpIntS(nSmaxA)  ! integration results
-      real(cp) :: VpRIntN(nSmaxA) ,VpRIntS(nSmaxA)   ! for different s and 
-      real(cp) :: V2IntS(nSmaxA)  ,V2IntN(nSmaxA)
-      real(cp) :: LFIntN(nSmaxA)  ,LFIntS(nSmaxA)   
-      real(cp) :: RstrIntN(nSmaxA),RstrIntS(nSmaxA) 
-      real(cp) :: AstrIntN(nSmaxA),AstrIntS(nSmaxA) 
-      real(cp) :: StrIntN(nSmaxA) ,StrIntS(nSmaxA) 
-      real(cp) :: Bs2IntN(nSmaxA) ,Bs2IntS(nSmaxA)
-      real(cp) :: BspIntN(nSmaxA) ,BspIntS(nSmaxA)
-      real(cp) :: BspdIntN(nSmaxA),BspdIntS(nSmaxA)
-      real(cp) :: BpsdIntN(nSmaxA),BpsdIntS(nSmaxA)
-      real(cp) :: TayIntN(nSmaxA) ,TayIntS(nSmaxA) 
-      real(cp) :: TayRIntN(nSmaxA),TayRIntS(nSmaxA) 
-      real(cp) :: TayVIntN(nSmaxA),TayVIntS(nSmaxA) 
-      real(cp) :: SVpIntN(nSmaxA) ,SVpIntS(nSmaxA)   ! help arrays and values for 
-      real(cp) :: SBs2IntN(nSmaxA),SBs2IntS(nSmaxA)  ! differentiation in s   
-      real(cp) :: SBspIntN(nSmaxA),SBspIntS(nSmaxA)
+      real(cp) :: VpIntN(nSmax)  ,VpIntS(nSmax)    ! integration results
+      real(cp) :: dVpIntN(nSmax) ,dVpIntS(nSmax)   ! integration results
+      real(cp) :: ddVpIntN(nSmax),ddVpIntS(nSmax)  ! integration results
+      real(cp) :: VpRIntN(nSmax) ,VpRIntS(nSmax)   ! for different s and 
+      real(cp) :: V2IntS(nSmax)  ,V2IntN(nSmax)
+      real(cp) :: LFIntN(nSmax)  ,LFIntS(nSmax)   
+      real(cp) :: RstrIntN(nSmax),RstrIntS(nSmax) 
+      real(cp) :: AstrIntN(nSmax),AstrIntS(nSmax) 
+      real(cp) :: StrIntN(nSmax) ,StrIntS(nSmax) 
+      real(cp) :: Bs2IntN(nSmax) ,Bs2IntS(nSmax)
+      real(cp) :: BspIntN(nSmax) ,BspIntS(nSmax)
+      real(cp) :: BspdIntN(nSmax),BspdIntS(nSmax)
+      real(cp) :: BpsdIntN(nSmax),BpsdIntS(nSmax)
+      real(cp) :: TayIntN(nSmax) ,TayIntS(nSmax) 
+      real(cp) :: TayRIntN(nSmax),TayRIntS(nSmax) 
+      real(cp) :: TayVIntN(nSmax),TayVIntS(nSmax) 
+      real(cp) :: SVpIntN(nSmax) ,SVpIntS(nSmax)   ! help arrays and values for 
+      real(cp) :: SBs2IntN(nSmax),SBs2IntS(nSmax)  ! differentiation in s   
+      real(cp) :: SBspIntN(nSmax),SBspIntS(nSmax)
       real(cp) :: dSVpIntN, dSVpIntS
       real(cp) :: d2SVpIntN,d2SVpIntS
       real(cp) :: dSBspIntN,dSBspIntS
       real(cp) :: dSBs2IntN,dSBs2IntS
-      real(cp) :: TauN(nSmaxA),TauS(nSmaxA)          ! Taylor integral
-      real(cp) :: TauBN(nSmaxA),TauBS(nSmaxA)       
-      real(cp) :: dTauBN(nSmaxA),dTauBS(nSmaxA)    
-      real(cp) :: dTTauN(nSmaxA),dTTauS(nSmaxA)      ! time change of Tau...
-      real(cp) :: dTTauBN(nSmaxA),dTTauBS(nSmaxA)   
+      real(cp) :: TauN(nSmax),TauS(nSmax)          ! Taylor integral
+      real(cp) :: TauBN(nSmax),TauBS(nSmax)       
+      real(cp) :: dTauBN(nSmax),dTauBS(nSmax)    
+      real(cp) :: dTTauN(nSmax),dTTauS(nSmax)      ! time change of Tau...
+      real(cp) :: dTTauBN(nSmax),dTTauBS(nSmax)   
 
       !-- For integration along z:
       real(cp) :: zALL(2*nZmaxA)
@@ -311,13 +316,6 @@ contains
 
       zNorm=one               ! This is r_CMB-r_ICB
       nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
-      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
-      nSmax=int(sDens*nSmax)
-      if ( nSmax > nSmaxA ) then
-         write(*,*) 'Increase nSmaxA in ouTO!'
-         write(*,*) 'Should be at least nSmax=',nSmax
-         stop
-      end if
       lAS=.true.
 
       !--- Transform to lm-space for all radial grid points:

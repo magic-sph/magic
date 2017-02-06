@@ -254,8 +254,6 @@ program magic
    call initialize_coeffs
    call initialize_fields_average_mod
    if ( l_TO ) call initialize_TO
-   if ( l_TO ) call initialize_outTO_mod
-   if ( l_PV ) call initialize_outPV3
 
 #ifdef WITH_SHTNS
    call init_shtns()
@@ -266,6 +264,8 @@ program magic
    call preCalc
 
    if ( l_par ) call initialize_Egeos_mod ! Needs to be called after preCalc, r_icb needed
+   if ( l_TO ) call initialize_outTO_mod ! Needs to be called after preCalc, r_icb needed
+   if ( l_PV ) call initialize_outPV3 ! Needs to be called after preCalc, r_icb needed
 
    if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
    if ( ldtBmem == 1 ) call initialize_dtB_mod ! Needs to be called after movie to make sure l_dtBmovie has been set
