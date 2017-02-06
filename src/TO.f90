@@ -31,15 +31,6 @@ module torsional_oscillations
    real(cp), public, allocatable :: dzLFLMr(:,:)
    real(cp), public, allocatable :: dzdVpLMr(:,:)
    real(cp), public, allocatable :: dzddVpLMr(:,:)
-   real(cp), public, allocatable :: V2AS(:,:)
-   real(cp), public, allocatable :: Bs2AS(:,:)
-   real(cp), public, allocatable :: BszAS(:,:)
-   real(cp), public, allocatable :: BspAS(:,:)
-   real(cp), public, allocatable :: BpzAS(:,:)
-   real(cp), public, allocatable :: BspdAS(:,:)
-   real(cp), public, allocatable :: BpsdAS(:,:)
-   real(cp), public, allocatable :: BzpdAS(:,:)
-   real(cp), public, allocatable :: BpzdAS(:,:)
    real(cp), public, allocatable :: ddzASL(:,:)
 
    real(cp), public, allocatable :: dzStrLMr_Rloc(:,:)
@@ -68,45 +59,14 @@ contains
       !
       ! Allocate the memory needed
       !
-
-      if ( rank == 0 ) then
-         allocate( dzStrLMr(l_max+1,n_r_maxStr) )
-         allocate( dzRstrLMr(l_max+1,n_r_maxStr) )
-         allocate( dzAstrLMr(l_max+1,n_r_maxStr) )
-         allocate( dzCorLMr(l_max+1,n_r_maxStr) )
-         allocate( dzLFLMr(l_max+1,n_r_maxStr) )
-         allocate( dzdVpLMr(l_max+1,n_r_maxStr) )
-         allocate( dzddVpLMr(l_max+1,n_r_maxStr) )
-         bytes_allocated = bytes_allocated+7*n_r_maxStr*(l_max+1)*SIZEOF_DEF_REAL
-         allocate( V2AS(n_theta_maxstr,n_r_maxStr) )
-         allocate( Bs2AS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BszAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BspAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BpzAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BspdAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BpsdAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BzpdAS(n_theta_maxstr,n_r_maxStr) )
-         allocate( BpzdAS(n_theta_maxstr,n_r_maxStr) )
-         bytes_allocated = bytes_allocated+ &
-                           9*n_r_maxStr*n_theta_maxstr*SIZEOF_DEF_REAL
-      else
-         allocate( dzStrLMr(1,1) )
-         allocate( dzRstrLMr(1,1) )
-         allocate( dzAstrLMr(1,1) )
-         allocate( dzCorLMr(1,1) )
-         allocate( dzLFLMr(1,1) )
-         allocate( dzdVpLMr(1,1) )
-         allocate( dzddVpLMr(1,1) )
-         allocate( V2AS(1,1) )
-         allocate( Bs2AS(1,1) )
-         allocate( BszAS(1,1) )
-         allocate( BspAS(1,1) )
-         allocate( BpzAS(1,1) )
-         allocate( BspdAS(1,1) )
-         allocate( BpsdAS(1,1) )
-         allocate( BzpdAS(1,1) )
-         allocate( BpzdAS(1,1) )
-      end if
+      allocate( dzStrLMr(l_max+1,n_r_maxStr) )
+      allocate( dzRstrLMr(l_max+1,n_r_maxStr) )
+      allocate( dzAstrLMr(l_max+1,n_r_maxStr) )
+      allocate( dzCorLMr(l_max+1,n_r_maxStr) )
+      allocate( dzLFLMr(l_max+1,n_r_maxStr) )
+      allocate( dzdVpLMr(l_max+1,n_r_maxStr) )
+      allocate( dzddVpLMr(l_max+1,n_r_maxStr) )
+      bytes_allocated = bytes_allocated+7*n_r_maxStr*(l_max+1)*SIZEOF_DEF_REAL
 
       allocate( dzStrLMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( dzRstrLMr_Rloc(l_max+1,nRstart:nRstop) )
@@ -140,15 +100,14 @@ contains
       deallocate( dzddVpLMr_Rloc, dzdVpLMr_Rloc, dzLFLMr_Rloc, dzCorLMr_Rloc )
       deallocate( dzAStrLMr_Rloc, dzRstrLMr_Rloc, dzStrLMr_Rloc )
       deallocate( dzStrLMr, dzRstrLMr, dzAstrLMr, dzCorLMr, dzLFLMr, dzdVpLMr )
-      deallocate( dzddVpLMr, V2AS, Bs2AS, BszAS, BspAS, BpzAS, BspdAS )
-      deallocate( BpsdAS, BzpdAS, BpzdAS )
+      deallocate( dzddVpLMr )
 
    end subroutine finalize_TO
 !-----------------------------------------------------------------------------
    subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,  &
-                                    BsLast,BpLast,BzLast, &
-                        dzRstrLM,dzAstrLM,dzCorLM,dzLFLM, &
-                   dtLast,nR,nThetaStart,nThetaBlockSize)
+              &                     BsLast,BpLast,BzLast, &
+              &         dzRstrLM,dzAstrLM,dzCorLM,dzLFLM, &
+              &    dtLast,nR,nThetaStart,nThetaBlockSize)
       !
       !  This program calculates various axisymmetric linear
       !  and nonlinear variables for a radial grid point nR and
@@ -548,30 +507,6 @@ contains
       call MPI_GatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,&
            & dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 
-      sendcount  = (nRstop-nRstart+1)*n_theta_maxStr
-      recvcounts = nR_per_rank*n_theta_maxStr
-      recvcounts(n_procs-1) = nR_on_last_rank*n_theta_maxStr
-      do i=0,n_procs-1
-         displs(i) = i*nR_per_rank*n_theta_maxStr
-      end do
-      call MPI_GatherV(V2AS_Rloc,sendcount,MPI_DEF_REAL,&
-           & V2AS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(Bs2AS_Rloc,sendcount,MPI_DEF_REAL,&
-           & Bs2AS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BszAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BszAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BspAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BspAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpzAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BpzAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BspdAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BspdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpsdAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BpsdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BzpdAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BzpdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(BpzdAS_Rloc,sendcount,MPI_DEF_REAL,&
-           & BpzdAS,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #else
      dzStrLMr=dzStrLMr_Rloc
      dzRstrLMr=dzRstrLMr_Rloc

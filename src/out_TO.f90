@@ -1,21 +1,26 @@
 module outTO_mod
 
-   use parallel_mod, only: rank
+   use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_maxStr, n_theta_maxStr, l_max, &
        &                 n_theta_max, n_phi_max, minc, lStressMem,   &
        &                 lm_max
    use radial_functions, only: r_ICB, rscheme_oc, r, r_CMB, orho1, rscheme_oc
+   use radial_data, only: nRstart, nRstop
    use physical_parameters, only: ra, ek, pr, prmag, radratio, LFfac
-   use torsional_oscillations, only: V2AS, Bs2AS, BspAS, BszAS, BpzAS, &
-       &                             BspdAS, BpsdAS, BzpdAS, BpzdAS,   &
+   use torsional_oscillations, only: BpzAS_Rloc, BspdAS_Rloc, BpsdAS_Rloc, &
+       &                             BzpdAS_Rloc, BpzdAS_Rloc,   &
        &                             dzdVpLMr, dzddVpLMr, dzRstrLMr,   &
        &                             dzAstrLMr, dzStrLMr, dzLFLMr,     &
-       &                             dzCorLMr, TO_gather_Rloc_on_rank0, &
-       &                             dzRstrLMr_Rloc
+       &                             dzCorLMr, TO_gather_Rloc_on_rank0,&
+       &                             dzRstrLMr_Rloc, Bs2AS_Rloc,       &
+       &                             V2AS_Rloc, BspAS_Rloc, BszAS_Rloc,&
+       &                             dzAstrLMr_Rloc, dzCorLMr_Rloc,    &
+       &                             dzddVpLMr_Rloc, dzdVpLMr_Rloc,    &
+       &                             dzLFLMr_Rloc, dzStrLMr_Rloc
    use num_param, only: tScale
-   use blocking, only: nThetaBs, sizeThetaB, nfs, st_map
+   use blocking, only: nThetaBs, sizeThetaB, nfs, lo_map
    use horizontal_data, only: phi, sinTheta, theta_ord, gauss
    use logic, only: lVerbose, l_save_out
    use output_data, only: sDens, zDens, tag, log_file, runid, n_log_file, &
@@ -36,8 +41,6 @@ module outTO_mod
 
    private
    
-   integer :: lmMaxS
- 
    !-- Plms: Plm,sin
    real(cp), allocatable :: PlmS(:,:,:)
    real(cp), allocatable :: dPlmS(:,:,:)
@@ -47,6 +50,29 @@ module outTO_mod
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    integer, allocatable :: nZmaxS(:)
    type(costf_odd_t), allocatable :: chebt_Z(:)
+
+   !--
+      !-- (l,r) Representation of the different contributions
+   real(cp), allocatable :: dzVpLMr_loc(:,:)
+   real(cp), allocatable :: V2LMr_Rloc(:,:)
+   real(cp), allocatable :: Bs2LMr_Rloc(:,:)
+   real(cp), allocatable :: BszLMr_Rloc(:,:)
+   real(cp), allocatable :: BspLMr_Rloc(:,:)
+   real(cp), allocatable :: BpzLMr_Rloc(:,:)
+   real(cp), allocatable :: BspdLMr_Rloc(:,:)
+   real(cp), allocatable :: BpsdLMr_Rloc(:,:)
+   real(cp), allocatable :: BzpdLMr_Rloc(:,:)
+   real(cp), allocatable :: BpzdLMr_Rloc(:,:)
+   real(cp), allocatable :: dzVpLMr(:,:)
+   real(cp), allocatable :: V2LMr(:,:)
+   real(cp), allocatable :: Bs2LMr(:,:)
+   real(cp), allocatable :: BszLMr(:,:)
+   real(cp), allocatable :: BspLMr(:,:)
+   real(cp), allocatable :: BpzLMr(:,:)
+   real(cp), allocatable :: BspdLMr(:,:)
+   real(cp), allocatable :: BpsdLMr(:,:)
+   real(cp), allocatable :: BzpdLMr(:,:)
+   real(cp), allocatable :: BpzdLMr(:,:)
 
    !-- Output files
    character(len=64) :: TOfileNhs,TOfileShs,movFile
@@ -58,12 +84,38 @@ contains
 
    subroutine initialize_outTO_mod
 
-      lmMaxS = l_max+1
+      !-- R-distributed arrays
+      allocate( V2LMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( Bs2LMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BszLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BspLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BpzLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BspdLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BpsdLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BzpdLMr_Rloc(l_max+1,nRstart:nRstop) )
+      allocate( BpzdLMr_Rloc(l_max+1,nRstart:nRstop) )
+      bytes_allocated=bytes_allocated+9*(nRstop-nRstart+1)*(l_max+1)* &
+      &               SIZEOF_DEF_REAL
 
-      allocate( PlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )
-      allocate( dPlmS(lmMaxS,nZmaxA/2+1,nSmaxA) )
+      !-- Global arrays
+      allocate( dzVpLMr_loc(l_max+1,n_r_max) )
+      allocate( dzVpLMr(l_max+1,n_r_max) )
+      allocate( V2LMr(l_max+1,n_r_max) )
+      allocate( Bs2LMr(l_max+1,n_r_max) )
+      allocate( BszLMr(l_max+1,n_r_max) )
+      allocate( BspLMr(l_max+1,n_r_max) )
+      allocate( BpzLMr(l_max+1,n_r_max) )
+      allocate( BspdLMr(l_max+1,n_r_max) )
+      allocate( BpsdLMr(l_max+1,n_r_max) )
+      allocate( BzpdLMr(l_max+1,n_r_max) )
+      allocate( BpzdLMr(l_max+1,n_r_max) )
+      bytes_allocated=bytes_allocated+11*n_r_max*(l_max+1)* &
+      &               SIZEOF_DEF_REAL
+
+      allocate( PlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
+      allocate( dPlmS(l_max+1,nZmaxA/2+1,nSmaxA) )
       bytes_allocated = bytes_allocated + &
-                        2*lmMaxS*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
+                        2*(l_max+1)*(nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( OsinTS(nZmaxA/2+1,nSmaxA) )
       bytes_allocated = bytes_allocated + (nZmaxA/2+1)*nSmaxA*SIZEOF_DEF_REAL
       allocate( vpM(nZmaxA/2,nSmaxA) )
@@ -127,23 +179,10 @@ contains
       !-- Local variables:
       logical :: lTC,lStopRun
 
-      !-- (l,r) Representation of the different contributions
-      real(cp) :: dzVpLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: V2LMr(lmMaxS,n_r_maxStr)
-      real(cp) :: Bs2LMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BszLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BspLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BpzLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BspdLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BpsdLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BzpdLMr(lmMaxS,n_r_maxStr)
-      real(cp) :: BpzdLMr(lmMaxS,n_r_maxStr)
-      complex(cp) :: zS(lm_max,n_r_maxStr)
-
       !---- Work array:
-      real(cp) :: workA(lmMaxS,n_r_maxStr)
+      real(cp) :: workA(l_max+1,n_r_maxStr)
 
-      integer :: lm,l ! counter for degree
+      integer :: lm,l,m ! counter for degree and order
       integer :: nOutFile, nOutFile2
 
       integer :: nSmax,nS,nSI
@@ -164,7 +203,7 @@ contains
       integer :: nThetaNHS
       integer :: nThetaStart
 
-      integer :: nZ,nZmax,nZmaxNS,nZmaxH!,nZP
+      integer :: nZ,nZmax,nZmaxNS!,nZP
       real(cp) :: VpS(nZmaxA)      
       real(cp) :: dVpS(nZmaxA)      
       real(cp) :: ddVpS(nZmaxA)      
@@ -255,92 +294,102 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outTO!'
 
-      call TO_gather_Rloc_on_rank0
+      nTOsets=nTOsets+1
 
-      call gather_all_from_lo_to_rank0(gt_OC,z,zS)
+      l_TOZave=.true.
+
+      !--- Rescaling for rotation time scale and planetary radius
+      !    length scale, for the velocity I use the Rossby number
+      !       vSF=ek/r_CMB                   
+      !       fSF=ek*ek/(four*pi**2*r_CMB)  
+      vSF=one
+      fSF=one
+
+      nFieldSize=n_theta_maxStr*n_r_maxStr
+
+      !-- Start with calculating advection due to axisymmetric flows:
+
+      zNorm=one               ! This is r_CMB-r_ICB
+      nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
+      nSmax=int(sDens*nSmax)
+      if ( nSmax > nSmaxA ) then
+         write(*,*) 'Increase nSmaxA in ouTO!'
+         write(*,*) 'Should be at least nSmax=',nSmax
+         stop
+      end if
+      lAS=.true.
+
+      !--- Transform to lm-space for all radial grid points:
+
+      do nR=nRstart,nRstop
+         do n=1,nThetaBs
+            nThetaStart=(n-1)*sizeThetaB+1
+            call legTFAS(V2LMr_Rloc(1,nR),V2AS_Rloc(nThetaStart,nR),               &
+                 &       l_max+1,nThetaStart,sizeThetaB)
+            call legTFAS2(Bs2LMr_Rloc(1,nR),BszLMr_Rloc(1,nR),                     &
+                 &        Bs2AS_Rloc(nThetaStart,nR),BszAS_Rloc(nThetaStart,nR),   &
+                 &        l_max+1,nThetaStart,sizeThetaB)
+            call legTFAS2(BspLMr_Rloc(1,nR),BpzLMr_Rloc(1,nR),                     &
+                 &        BspAS_Rloc(nThetaStart,nR),BpzAS_Rloc(nThetaStart,nR),   &
+                 &        l_max+1,nThetaStart,sizeThetaB)
+            call legTFAS2(BspdLMr_Rloc(1,nR),BpsdLMr_Rloc(1,nR),                   &
+                 &        BspdAS_Rloc(nThetaStart,nR),BpsdAS_Rloc(nThetaStart,nR), &
+                 &        l_max+1,nThetaStart,sizeThetaB)
+            call legTFAS2(BzpdLMr_Rloc(1,nR),BpzdLMr_Rloc(1,nR),                   &
+                 &        BzpdAS_Rloc(nThetaStart,nR),BpzdAS_Rloc(nThetaStart,nR), &
+                 &        l_max+1,nThetaStart,sizeThetaB)
+         end do
+      end do ! Loop over radial grid points
+
+
+      !-- All gather everything at this stage
+      call outTO_allgather_Rloc()
+
+      do nR=1,n_r_max
+         dzVpLMr_loc(:,nR)=0.0_cp
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            m=lo_map%lm2m(lm)
+            if ( m == 0 ) dzVpLMr_loc(l+1,nR)=orho1(nR)*real(z(lm,nR))
+         end do
+#ifdef WITH_MPI
+         call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
+              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+         dzVPLMr(:,nR)=dzVpLMr_loc(:,nR)
+#endif
+      end do
+
+
+      !---- Transform the contributions to cheb space for z-integral:
+      call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(V2LMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzdVpLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzddVpLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(Bs2LMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BszLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BspLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BpzLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzRstrLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzAstrLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzStrLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzLFLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(dzCorLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BspdLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BpsdLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BpzdLMr,l_max+1,1,l_max+1,workA)
+      call rscheme_oc%costf1(BzpdLMr,l_max+1,1,l_max+1,workA)
+
+
+      dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
+      nSI   =0
+      do nS=1,nSmax
+         sZ(nS)=(nS-half)*dsZ
+         if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
+      end do
 
       if ( rank == 0 ) then
-
-         nTOsets=nTOsets+1
-
-         l_TOZave=.true.
-
-         !--- Rescaling for rotation time scale and planetary radius
-         !    length scale, for the velocity I use the Rossby number
-         !       vSF=ek/r_CMB                   
-         !       fSF=ek*ek/(four*pi**2*r_CMB)  
-         vSF=one
-         fSF=one
-
-         nFieldSize=n_theta_maxStr*n_r_maxStr
-
-         !-- Start with calculating advection due to axisymmetric flows:
-
-         zNorm=one               ! This is r_CMB-r_ICB
-         nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
-         nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
-         nSmax=int(sDens*nSmax)
-         if ( nSmax > nSmaxA ) then
-            write(*,*) 'Increase nSmaxA in ouTO!'
-            write(*,*) 'Should be at least nSmax=',nSmax
-            stop
-         end if
-         lAS=.true.
-
-         !--- Transform to lm-space for all radial grid points:
-
-         do nR=1,n_r_max
-            do n=1,nThetaBs
-               nThetaStart=(n-1)*sizeThetaB+1
-               call legTFAS(V2LMr(1,nR),V2AS(nThetaStart,nR),            &
-                    &               l_max+1,nThetaStart,sizeThetaB)
-               call legTFAS2(Bs2LMr(1,nR),BszLMr(1,nR),                            &
-                    &               Bs2AS(nThetaStart,nR),BszAS(nThetaStart,nR),   &
-                    &               l_max+1,nThetaStart,sizeThetaB)
-               call legTFAS2(BspLMr(1,nR),BpzLMr(1,nR),                            &
-                    &               BspAS(nThetaStart,nR),BpzAS(nThetaStart,nR),   &
-                    &               l_max+1,nThetaStart,sizeThetaB)
-               call legTFAS2(BspdLMr(1,nR),BpsdLMr(1,nR),                          &
-                    &               BspdAS(nThetaStart,nR),BpsdAS(nThetaStart,nR), &
-                    &               l_max+1,nThetaStart,sizeThetaB)
-               call legTFAS2(BzpdLMr(1,nR),BpzdLMr(1,nR),                          &
-                    &               BzpdAS(nThetaStart,nR),BpzdAS(nThetaStart,nR), &
-                    &               l_max+1,nThetaStart,sizeThetaB)
-            end do
-         end do ! Loop over radial grid points
-
-         do nR=1,n_r_max
-            do l=1,l_max
-               lm=st_map%lm2(l,0)
-               dzVpLMr(l+1,nR)=real(zS(lm,nR))
-            end do
-         end do
-
-         !---- Transform the contributions to cheb space for z-integral:
-         call rscheme_oc%costf1(dzVpLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(V2LMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzddVpLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(Bs2LMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BszLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BspLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BpzLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BspdLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BpsdLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BpzdLMr,lmMaxS,1,lmMaxS,workA)
-         call rscheme_oc%costf1(BzpdLMr,lmMaxS,1,lmMaxS,workA)
-
-         dsZ   =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
-         nSI   =0
-         do nS=1,nSmax
-            sZ(nS)=(nS-half)*dsZ
-            if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
-         end do
 
          if ( nTOsets == 1 ) nTOZfile=0
          if ( lTOZwrite ) then
@@ -413,7 +462,7 @@ contains
                   thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
                   OsinTS(nZ,nS)=one/sin(thetaZ)
                   call plm_theta(thetaZ,l_max,0,minc,                    &
-                       &         PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lmMaxS,2)
+                       &         PlmS(1,nZ,nS),dPlmS(1,nZ,nS),l_max+1,2)
                end do
             end if
 
@@ -423,41 +472,39 @@ contains
             nZmax=nZmaxS(nS)
             if ( lTC ) then
                nZmaxNS=2*nZmax
-               nZmaxH =nZmax
                do nZ=1,nZmax
                   zALL(nZ)=zZ(nZ,nS)
                   zALL(nZmaxNS-nZ+1)=-zZ(nZ,nS)
                end do
             else
                nZmaxNS=nZmax
-               nZmaxH =(nZmax-1)/2+1
                do nZ=1,nZmax
                   zALL(nZ)=zZ(nZ,nS)
                end do
             end if
 
-            call getPAStr(VpS,dzVpLMr,nZmaxNS,nZmaxA,lmMaxS,             &
+            call getPAStr(VpS,dzVpLMr,nZmaxNS,nZmaxA,l_max+1,             &
                  &                      l_max,r_ICB,r_CMB,n_r_max,       &
                  &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(dVpS,dzdVpLMr,nZmaxNS,nZmaxA,lmMaxS,           &
+            call getPAStr(dVpS,dzdVpLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
                  &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(ddVpS,dzddVpLMr,nZmaxNS,nZmaxA,lmMaxS,         &
+            call getPAStr(ddVpS,dzddVpLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
                  &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(RstrS,dzRstrLMr,nZmaxNS,nZmaxA,lmMaxS,         &
+            call getPAStr(RstrS,dzRstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
                  &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(AstrS,dzAstrLMr,nZmaxNS,nZmaxA,lmMaxS,         &
+            call getPAStr(AstrS,dzAstrLMr,nZmaxNS,nZmaxA,l_max+1,         &
                  &                          l_max,r_ICB,r_CMB,n_r_max,   &
                  &                     rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(StrS,dzStrLMr,nZmaxNS,nZmaxA,lmMaxS,           &
+            call getPAStr(StrS,dzStrLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
                  &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(LFS,dzLFLMr,nZmaxNS,nZmaxA,lmMaxS,             &
+            call getPAStr(LFS,dzLFLMr,nZmaxNS,nZmaxA,l_max+1,             &
                  &                      l_max,r_ICB,r_CMB,n_r_max,       &
                  &                 rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
-            call getPAStr(CorS,dzCorLMr,nZmaxNS,nZmaxA,lmMaxS,           &
+            call getPAStr(CorS,dzCorLMr,nZmaxNS,nZmaxA,l_max+1,           &
                  &                        l_max,r_ICB,r_CMB,n_r_max,     &
                  &                   rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
             do nZ=1,nZmaxNS
@@ -466,19 +513,19 @@ contains
                TayVS(nZ)=abs(StrS(nZ))
             end do
 
-            call getAStr(V2S,V2LMr,nZmaxNS,nZmaxA,lmMaxS,                &
+            call getAStr(V2S,V2LMr,nZmaxNS,nZmaxA,l_max+1,                &
                  &                   l_max,r_ICB,r_CMB,n_r_max,          &
                  &                            rZ(1,nS),PlmS(1,1,nS))
-            call getAStr(Bs2S,Bs2LMr,nZmaxNS,nZmaxA,lmMaxS,              &
+            call getAStr(Bs2S,Bs2LMr,nZmaxNS,nZmaxA,l_max+1,              &
                  &                     l_max,r_ICB,r_CMB,n_r_max,        &
                  &                              rZ(1,nS),PlmS(1,1,nS))
-            call getAStr(BspS,BspLMr,nZmaxNS,nZmaxA,lmMaxS,              &
+            call getAStr(BspS,BspLMr,nZmaxNS,nZmaxA,l_max+1,              &
                  &                     l_max,r_ICB,r_CMB,n_r_max,        &
                  &                              rZ(1,nS),PlmS(1,1,nS))
-            call getAStr(BspdS,BspdLMr,nZmaxNS,nZmaxA,lmMaxS,            &
+            call getAStr(BspdS,BspdLMr,nZmaxNS,nZmaxA,l_max+1,            &
                  &                       l_max,r_ICB,r_CMB,n_r_max,      &
                  &                                rZ(1,nS),PlmS(1,1,nS))
-            call getAStr(BpsdS,BpsdLMr,nZmaxNS,nZmaxA,lmMaxS,            &
+            call getAStr(BpsdS,BpsdLMr,nZmaxNS,nZmaxA,l_max+1,            &
                  &                       l_max,r_ICB,r_CMB,n_r_max,      &
                  &                                rZ(1,nS),PlmS(1,1,nS))
 
@@ -633,13 +680,13 @@ contains
                BpsdB(2)=BpsdS(nZmaxNS)
                Bs2B(1) =Bs2S(1)
                Bs2B(2) =Bs2S(nZmaxNS)
-               call getAStr(BszB,BszLMr,2,2,lmMaxS,l_max,           &
+               call getAStr(BszB,BszLMr,2,2,l_max+1,l_max,           &
                     &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
-               call getAStr(BpzB,BpzLMr,2,2,lmMaxS,l_max,           &
+               call getAStr(BpzB,BpzLMr,2,2,l_max+1,l_max,           &
                     &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
-               call getAStr(BzpdB,BzpdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BzpdB,BzpdLMr,2,2,l_max+1,l_max,         &
                     &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
-               call getAStr(BpzdB,BpzdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BpzdB,BpzdLMr,2,2,l_max+1,l_max,         &
                     &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
 
                TauBS(nS)  =-(BpzB(2)+sZ(nS)/zMin*BspB(2))
@@ -660,13 +707,13 @@ contains
                BpsdB(2)=BpsdS(nZmax+1)
                Bs2B(1) =Bs2S(nZmax)
                Bs2B(2) =Bs2S(nZmax+1)
-               call getAStr(BszB,BszLMr,2,2,lmMaxS,l_max,           &
+               call getAStr(BszB,BszLMr,2,2,l_max+1,l_max,           &
                     &               r_ICB,r_CMB,n_r_max,rB,PlmS(1,nZmax,nS))
-               call getAStr(BpzB,BpzLMr,2,2,lmMaxS,l_max,           &
+               call getAStr(BpzB,BpzLMr,2,2,l_max+1,l_max,           &
                     &               r_ICB,r_CMB,n_r_max,rB,PlmS(1,nZmax,nS))
-               call getAStr(BzpdB,BzpdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BzpdB,BzpdLMr,2,2,l_max+1,l_max,         &
                     &                 r_ICB,r_CMB,n_r_max,rB,PlmS(1,nZmax,nS))
-               call getAStr(BpzdB,BpzdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BpzdB,BpzdLMr,2,2,l_max+1,l_max,         &
                     &                 r_ICB,r_CMB,n_r_max,rB,PlmS(1,nZmax,nS))
 
                TauBS(nS)  =TauBS(nS)  +(BpzB(2)+sZ(nS)/zMin*BspB(2))
@@ -691,11 +738,11 @@ contains
                BpsdB(2)=BpsdS(nZmaxNS)
                Bs2B(1) =Bs2S(1)
                Bs2B(2) =Bs2S(nZmaxNS)
-               call getAStr(BpzB,BpzLMr,2,2,lmMaxS,l_max,           &
+               call getAStr(BpzB,BpzLMr,2,2,l_max+1,l_max,           &
                     &                   r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
-               call getAStr(BzpdB,BzpdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BzpdB,BzpdLMr,2,2,l_max+1,l_max,         &
                     &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
-               call getAStr(BpzdB,BpzdLMr,2,2,lmMaxS,l_max,         &
+               call getAStr(BpzdB,BpzdLMr,2,2,l_max+1,l_max,         &
                     &                     r_ICB,r_CMB,n_r_max,rB,PlmS(1,1,nS))
 
                TauBS(nS)  = BpzB(1)+sZ(nS)/zMax*BspB(1) - BpzB(2)-sZ(nS)/zMin*BspB(2)
@@ -868,21 +915,14 @@ contains
          lTOrms=.true.
          if ( lTOmov .or. lTOrms ) then
 
-            !--- Output of graphic file:
             !--- Transform back to radial space:
-            do nR=1,n_r_max
-               do l=1,l_max
-                  lm=st_map%lm2(l,0)
-                  dzVpLMr(l+1,nR)=orho1(nR)*real(zS(lm,nR)) ! instead of transform copy again
-               end do
-            end do
-
-            call rscheme_oc%costf1(dzdVpLMr,lmMaxS,1,lmMaxS,workA)
-            call rscheme_oc%costf1(dzRstrLMr,lmMaxS,1,lmMaxS,workA)
-            call rscheme_oc%costf1(dzAstrLMr,lmMaxS,1,lmMaxS,workA)
-            call rscheme_oc%costf1(dzStrLMr,lmMaxS,1,lmMaxS,workA)
-            call rscheme_oc%costf1(dzLFLMr,lmMaxS,1,lmMaxS,workA)
-            call rscheme_oc%costf1(dzCorLMr,lmMaxS,1,lmMaxS,workA)
+            call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzdVpLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzRstrLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzAstrLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzStrLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzLFLMr,l_max+1,1,l_max+1,workA)
+            call rscheme_oc%costf1(dzCorLMr,l_max+1,1,l_max+1,workA)
 
             !--- Open output file
             nFields=7
@@ -1125,5 +1165,83 @@ contains
       if ( lVerbose ) write(*,*) '! End of outTO!'
 
    end subroutine outTO
+!----------------------------------------------------------------------------
+   subroutine outTO_allgather_Rloc
+      !
+      ! MPI communicators for TO outputs
+      !
+
+      !-- Local variables:
+      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+      integer :: i,ierr
+
+#ifdef WITH_MPI
+
+      sendcount  = (nRstop-nRstart+1)*(l_max+1)
+      recvcounts = nR_per_rank*(l_max+1)
+      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
+      do i=0,n_procs-1
+         displs(i) = i*nR_per_rank*(l_max+1)
+      end do
+      call MPI_AllGatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              dzStrLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              dzRstrLMr,recvcounts,displs,MPI_DEF_REAL,&
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              dzAstrLMr,recvcounts,displs,MPI_DEF_REAL,&
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              dzCorLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,       &
+           &              dzLFLMr,recvcounts,displs,MPI_DEF_REAL,  &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              dzdVpLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,&
+           &              MPI_COMM_WORLD,ierr)
+
+      call MPI_AllGatherV(V2LMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              V2LMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(Bs2LMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              Bs2LMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BszLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BszLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BspLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BspLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BpzLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BpzLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BspdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BspdLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BpsdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BpsdLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BzpdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BzpdLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllGatherV(BpzdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+           &              BpzdLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              MPI_COMM_WORLD,ierr)
+#else
+     dzStrLMr =dzStrLMr_Rloc
+     dzRstrLMr=dzRstrLMr_Rloc
+     dzAstrLMr=dzAstrLMr_Rloc
+     dzCorLMr =dzCorLMr_Rloc
+     dzLFLMr  =dzLFLMr_Rloc
+     dzdVpLMr =dzdVpLMr_Rloc
+     dzddVpLMr=dzddVpLMr_Rloc
+#endif
+
+   end subroutine outTO_allgather_Rloc
 !----------------------------------------------------------------------------
 end module outTO_mod
