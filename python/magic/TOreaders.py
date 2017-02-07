@@ -5,6 +5,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
+from .log import MagicSetup
+from .libmagic import scanDir
 
 
 class TOMovie:
@@ -333,10 +335,393 @@ class TOMovie:
                     man.canvas.draw()
 
             #plt.ioff()
-
             
+class MagicTOZ(MagicSetup):
+    """
+    This class can be used to read the TOZ.TAG files produced by the TO outputs
+
+    >>> # read the content of TOZ_1.tag
+    >>> # where tag is the most recent file in the current directory
+    >>> toz = MagicTOZ(itoz=1)
+    >>> # read the content of TOZ_ave.test
+    >>> toz = MagicTOZ(tag='test', ave=True)
+    """
+
+    def __init__(self, datadir='.', itoz=1, tag=None, precision='Float32', ave=False):
+        """
+        :param datadir: current working directory
+        :type datadir: str
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :type tag: str
+        :param precision: single or double precision
+        :type precision: str
+        :param iplot: display the output plot when set to True (default is True)
+        :type iplot: bool
+        :param ave: plot a time-averaged TOZ file when set to True
+        :type ave: bool
+        :param itoz: the number of the TOZ file you want to plot
+        :type itoz: int
+        """
+
+        if ave:
+            self.name = 'TOZ_ave'
+            n_fields = 9
+        else:
+            self.name = 'TOZ_'
+            n_fields = 8
+
+        if tag is not None:
+            if itoz is not None:
+                file = '%s%i.%s' % (self.name, itoz, tag)
+                filename = os.path.join(datadir, file)
+            else:
+                pattern = os.path.join(datadir, '%s*%s' % (self.name, tag))
+                files = scanDir(pattern)
+                if len(files) != 0:
+                    filename = files[-1]
+                else:
+                    print('No such tag... try again')
+                    return
+
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % tag)
+        else:
+            if itoz is not None:
+                pattern = os.path.join(datadir, '%s%i*' % (self.name, itoz))
+                files = scanDir(pattern)
+                filename = files[-1]
+            else:
+                pattern = os.path.join(datadir, '%s*' % self.name)
+                files = scanDir(pattern)
+                filename = files[-1]
+            # Determine the setup
+            mask = re.compile(r'.*\.(.*)')
+            ending = mask.search(files[-1]).groups(0)[0]
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % ending)
+
+
+        infile = npfile(filename, endian='B')
+
+        if ave:
+            self.nSmax, self.omega_ic, self.omega_oc = infile.fort_read(precision)
+        else:
+            self.time, self.nSmax, self.omega_ic, \
+                       self.omega_oc = infile.fort_read(precision)
+        self.nSmax = int(self.nSmax)
+        
+        self.cylRad = infile.fort_read(precision)
+
+        self.zall = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.vp = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.dvp = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.Rstr = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.Astr = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.LF = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.Cor = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        self.str = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+        if ( n_fields == 9 ):
+            self.CL = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
+
+
+        for nS in range(self.nSmax):
+            nZmaxNS = int(infile.fort_read(precision))
+            data = infile.fort_read(precision)
+            data = data.reshape((n_fields, nZmaxNS))
+            self.zall[:nZmaxNS, nS] = data[0, :]
+            self.vp[:nZmaxNS, nS] = data[1, :]
+            self.dvp[:nZmaxNS, nS] = data[2, :]
+            self.Rstr[:nZmaxNS, nS] = data[3, :]
+            self.Astr[:nZmaxNS, nS] = data[4, :]
+            self.LF[:nZmaxNS, nS] = data[5, :]
+            self.str[:nZmaxNS, nS] = data[6, :]
+            self.Cor[:nZmaxNS, nS] = data[7, :]
+            if n_fields == 9:
+                self.CL[:nZmaxNS, nS] = data[8, :]
+
+        infile.close()
+
+        S = np.zeros_like(self.zall)
+        for i in range(2*self.nSmax):
+            S[i,:] = self.cylRad
+        
+        #plt.contourf(S, self.zall, self.vp)
+        #self.zall -= self.zall.min()
+        #im = plt.contourf(S, self.zall, self.Cor)
+        #plt.colorbar(im)
+        #plt.show()
+
+
+class MagicTOHemi(MagicSetup):
+    """
+    This class can be used to read and display z-integrated quantities
+    produced by the TO outputs. Those are basically the TO[s|n]hn.TAG files
+
+    >>> to = MagicTOHemi(hemi='n', iplot=True) # For the Northern hemisphere
+    """
+
+    def __init__(self, datadir='.', hemi='n', tag=None, precision='Float32',
+                 iplot=False):
+        """
+        :param datadir: current working directory
+        :type datadir: str
+        :param hemi: Northern or Southern hemisphere ('n' or 's')
+        :type hemi: str
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :type tag: str
+        :param precision: single or double precision
+        :type precision: str
+        :param iplot: display the output plot when set to True (default is True)
+        :type iplot: bool
+        """
+
+        if tag is not None:
+            pattern = os.path.join(datadir, 'TO%shs.%s' % (hemi, tag))
+            files = scanDir(pattern)
+            if len(files) != 0:
+                filename = files[-1]
+            else:
+                print('No such tag... try again')
+                return
+
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % tag)
+        else:
+            pattern = os.path.join(datadir, 'TO%shs.*' % hemi)
+            files = scanDir(pattern)
+            filename = files[-1]
+            # Determine the setup
+            mask = re.compile(r'.*\.(.*)')
+            ending = mask.search(files[-1]).groups(0)[0]
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % ending)
+
+        if not os.path.exists(filename):
+            print('No such file')
+            return
+
+        infile = npfile(filename, endian='B')
+
+        self.nSmax = int(infile.fort_read(precision))
+        self.cylRad = infile.fort_read(precision)
+
+        ind = 0
+        while 1:
+            try:
+                data = infile.fort_read(precision)
+                if ind == 0:
+                    self.time = np.r_[data[0]]
+                else:
+                    self.time = np.append(self.time, data[0])
+
+                data = data[1:]
+                data = data.reshape((17, self.nSmax))
+
+                if ind == 0:
+                    self.vp = data[0, :]
+                    self.dvp = data[1, :]
+                    self.ddvp = data[2, :]
+                    self.vpr = data[3, :]
+                    self.rstr = data[4, :]
+                    self.astr = data[5, :]
+                    self.LF = data[6, :]
+                    self.viscstr = data[7, :]
+                    self.tay = data[8, :]
+                else:
+                    self.vp = np.vstack((self.vp, data[0, :]))
+                    self.dvp = np.vstack((self.dvp, data[1, :]))
+                    self.ddvp = np.vstack((self.ddvp, data[2, :]))
+                    self.vpr = np.vstack((self.vpr, data[3, :]))
+                    self.rstr = np.vstack((self.rstr, data[4, :]))
+                    self.astr = np.vstack((self.astr, data[5, :]))
+                    self.LF = np.vstack((self.LF, data[6, :]))
+                    self.viscstr = np.vstack((self.viscstr, data[7, :]))
+                    self.tay = np.vstack((self.tay, data[8, :]))
+
+                ind += 1
+            except TypeError:
+                break
+        infile.close()
+
+        if iplot:
+            self.plot()
+
+    def plot(self):
+        """
+        Plotting function
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(self.cylRad, self.vp.mean(axis=0))
+        ax.set_xlabel('Cylindrical radius')
+        ax.axhline(linestyle='--', linewidth=1.5, color='k')
+        ax.set_ylabel('Vphi')
+        ax.set_xlim(self.cylRad[0], self.cylRad[-1])
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(self.cylRad, self.rstr.mean(axis=0), label='Reynolds stress')
+        ax.plot(self.cylRad, self.astr.mean(axis=0), label='Axi. Reynolds stress')
+        ax.plot(self.cylRad, self.LF.mean(axis=0), label='Lorentz force')
+        ax.plot(self.cylRad, self.viscstr.mean(axis=0), label='Viscous stress')
+        ax.set_xlabel('Cylindrical radius')
+        ax.set_ylabel('Integrated forces')
+        ax.legend(loc='upper left', frameon=False)
+        ax.set_xlim(self.cylRad[0], self.cylRad[-1])
+
+        #fig = plt.figure()
+        #ax = fig.add_subplot(111)
+        #ax.plot(self.cylRad, self.tay.mean(axis=0))
+        #ax.set_xlabel('Cylindrical radius')
+        #ax.axhline(linestyle='--', linewidth=1.5, color='k')
+        #ax.set_ylabel('Taylorisation')
+        #ax.set_xlim(self.cylRad[0], self.cylRad[-1])
+
+
+
+class MagicTaySphere(MagicSetup):
+    """
+    This class can be used to read and display quantities
+    produced by the TO outputs. Those are basically the TaySphere.TAG files
+
+    >>> to = MagicTaySphere(iplot=True) # For the Northern hemisphere
+    >>> print(to.time, to.e_kin)
+    """
+
+    def __init__(self, datadir='.', tag=None, precision='Float32', iplot=False):
+        """
+        :param datadir: current working directory
+        :type datadir: str
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :type tag: str
+        :param precision: single or double precision
+        :type precision: str
+        :param iplot: display the output plot when set to True (default is True)
+        :type iplot: bool
+        """
+
+        if tag is not None:
+            pattern = os.path.join(datadir, 'TaySphere.%s' % tag)
+            files = scanDir(pattern)
+            if len(files) != 0:
+                filename = files[-1]
+            else:
+                print('No such tag... try again')
+                return
+
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % tag)
+        else:
+            pattern = os.path.join(datadir, 'TaySphere.*')
+            files = scanDir(pattern)
+            filename = files[-1]
+            # Determine the setup
+            mask = re.compile(r'.*\.(.*)')
+            ending = mask.search(files[-1]).groups(0)[0]
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % ending)
+
+        if not os.path.exists(filename):
+            print('No such file')
+            return
+
+        infile = npfile(filename, endian='B')
+
+        self.n_r_max = int(infile.fort_read(precision))
+        self.radius = infile.fort_read(precision)
+
+        ind = 0
+        while 1:
+            try:
+                data = infile.fort_read(precision)
+                if ind == 0:
+                    self.time = np.r_[data[0]]
+                    self.vpRMS = np.r_[data[1]]
+                    self.vgRMS = np.r_[data[2]]
+                    self.tayRMS = np.r_[data[3]]
+                    self.taySRMS = np.r_[data[4]]
+                    self.tayRRMS = np.r_[data[5]]
+                    self.tayVRMS = np.r_[data[6]]
+                    self.e_kin = np.r_[data[7]]
+                else:
+                    self.time = np.append(self.time, data[0])
+                    self.vpRMS = np.append(self.vgRMS, data[1])
+                    self.vgRMS = np.append(self.vgRMS, data[2])
+                    self.tayRMS = np.append(self.tayRMS, data[3])
+                    self.taySRMS = np.append(self.taySRMS, data[4])
+                    self.tayRRMS = np.append(self.tayRRMS, data[5])
+                    self.tayVRMS = np.append(self.tayVRMS, data[6])
+                    self.e_kin = np.append(self.e_kin, data[7])
+
+                data = data[8:]
+                data = data.reshape((8, self.n_r_max))
+
+                if ind == 0:
+                    self.vp = data[0, :]
+                    self.dvp = data[1, :]
+                    self.rstr = data[2, :]
+                    self.astr = data[3, :]
+                    self.LF = data[4, :]
+                    self.viscstr = data[5, :]
+                    self.cor = data[6, :]
+                    self.tay = data[7, :]
+                else:
+                    self.vp = np.vstack((self.vp, data[0, :]))
+                    self.dvp = np.vstack((self.dvp, data[1, :]))
+                    self.rstr = np.vstack((self.rstr, data[2, :]))
+                    self.astr = np.vstack((self.astr, data[3, :]))
+                    self.LF = np.vstack((self.LF, data[4, :]))
+                    self.viscstr = np.vstack((self.viscstr, data[5, :]))
+                    self.cor = np.vstack((self.cor, data[6, :]))
+                    self.tay = np.vstack((self.tay, data[7, :]))
+
+                ind += 1
+            except TypeError:
+                break
+        infile.close()
+
+        if iplot:
+            self.plot()
+
+    def plot(self):
+        """
+        Plotting function
+        """
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(self.radius, self.vp.mean(axis=0))
+        ax.set_xlabel('Radius')
+        ax.axhline(linestyle='--', linewidth=1.5, color='k')
+        ax.set_ylabel('Vphi')
+        ax.set_xlim(self.radius[0], self.radius[-1])
+
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        ax.plot(self.radius, self.rstr.mean(axis=0), label='Reynolds stress')
+        ax.plot(self.radius, self.astr.mean(axis=0), label='Axi. Reynolds stress')
+        ax.plot(self.radius, self.LF.mean(axis=0), label='Lorentz force')
+        ax.plot(self.radius, self.viscstr.mean(axis=0), label='Viscous stress')
+        ax.set_xlabel('Radius')
+        ax.set_ylabel('Forces')
+        ax.legend(loc='upper left', frameon=False)
+        ax.set_xlim(self.radius[0], self.radius[-1])
+
 
 if __name__ == '__main__':
+
+    MagicTOZ(tag='start', itoz=1, ave=False, verbose=True)
+
+    MagicTOHemi(hemi='n', iplot=True)
+
     file ='TO_mov.test'
     TOMovie(file=file)
     plt.show()

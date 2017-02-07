@@ -6,7 +6,7 @@ from .graph import *
 from .surf import *
 from .spectrum import *
 from .movie import *
-from .toMovie import *
+from .TOreaders import *
 from .cyl import *
 from .compSims import *
 from .butterfly import *
