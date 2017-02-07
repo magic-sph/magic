@@ -345,7 +345,7 @@ contains
       real(cp) :: TayRMS,TaySRMS
       real(cp) :: TayRRMS,TayVRMS
       real(cp) :: VpRMS,VRMS,VgRMS
-      real(cp) :: rS,sS,global_sum
+      real(cp) :: rS,sS
       real(cp) :: outBlock(nfs)
       real(outp) :: dt
 
@@ -364,6 +364,7 @@ contains
       character(len=14) :: string
 
 #ifdef WITH_MPI
+      real(cp) :: global_sum
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 #endif
 
@@ -581,31 +582,9 @@ contains
                   CLM_Sloc(nZ,nS)  =real(CorS_Sloc(nZ,nS)+ &
                   &                 LFfac*LFS_Sloc(nZ,nS),kind=outp)
                end do
-            else if ( nTOsets == 2 ) then
-               dt=real(time-timeLast,kind=outp)
-               timeAve=dt
-               do nZ=1,nZmaxNS
-                  VpM_Sloc(nZ,nS)  =dt*(VpM_Sloc(nZ,nS)  +           &
-                  &                 real(VpS_Sloc(nZ,nS),kind=outp))
-                  dVpM_Sloc(nZ,nS) =dt*(dVpM_Sloc(nZ,nS) +           &
-                  &                 real(dVpS_Sloc(nZ,nS),kind=outp))
-                  LFM_Sloc(nZ,nS)  =dt*(LFM_Sloc(nZ,nS)  +           &
-                  &                 real(LFfac*LFS_Sloc(nZ,nS),kind=outp))
-                  RstrM_Sloc(nZ,nS)=dt*(RstrM_Sloc(nZ,nS)+           &
-                  &                 real(RstrS_Sloc(nZ,nS),kind=outp))
-                  AstrM_Sloc(nZ,nS)=dt*(AstrM_Sloc(nZ,nS)+           &
-                  &                 real(AstrS_Sloc(nZ,nS),kind=outp))
-                  StrM_Sloc(nZ,nS) =dt*(StrM_Sloc(nZ,nS) +           &
-                  &                 real(StrS_Sloc(nZ,nS),kind=outp))
-                  CorM_Sloc(nZ,nS) =dt*(CorM_Sloc(nZ,nS) +           &
-                  &                 real(CorS_Sloc(nZ,nS),kind=outp))
-                  CLM_Sloc(nZ,nS)  =dt*(CLM_Sloc(nZ,nS)  +           &
-                  &                 real(CorS_Sloc(nZ,nS)+           &
-                  &                 LFfac*LFS_Sloc(nZ,nS),kind=outp))
-               end do
             else
                dt=real(time-timeLast,kind=outp)
-               timeAve=timeAve+dt
+               if ( nS == nSstart ) timeAve=timeAve+dt
                do nZ=1,nZmaxNS
                   VpM_Sloc(nZ,nS)  =VpM_Sloc(nZ,nS)  +               &
                   &                 dt*real(VpS_Sloc(nZ,nS),kind=outp)
@@ -1036,27 +1015,64 @@ contains
               &           0, MPI_COMM_WORLD, ierr)
       end if
 #else
-      nZmaxS(:) = nZmaxS_Sloc(:)
-      zZ(:,:)   = zZ_Sloc(:,:)
+      nZmaxS(:)  =nZmaxS_Sloc(:)
+      zZ(:,:)    =zZ_Sloc(:,:)
+      VpIntN(:)  =VpIntN_Sloc(:)
+      VpIntS(:)  =VpIntS_Sloc(:)
+      SVpIntN(:) =SVpIntN_Sloc(:)
+      SBspIntN(:)=SBspIntN_Sloc(:)
+      SBs2IntN(:)=SBs2IntN_Sloc(:)
+      SVpIntS(:) =SVpIntS_Sloc(:)
+      SBspIntS(:)=SBspIntS_Sloc(:)
+      SBs2IntS(:)=SBs2IntS_Sloc(:)
+      TauBN(:)   =TauBN_Sloc(:)
+      TauBS(:)   =TauBS_Sloc(:)
+      dTauBN(:)  =dTauBN_Sloc(:)
+      dTauBS(:)  =dTauBS_Sloc(:)
+      dTTauBN(:) =dTTauBN_Sloc(:)
+      dTTauBS(:) =dTTauBS_Sloc(:)
+      Bs2IntS(:) =Bs2IntS_Sloc(:)
+      Bs2IntN(:) =Bs2IntN_Sloc(:)
+      dVpIntN(:) =dVpIntN_Sloc(:)
+      dVpIntS(:) =dVpIntS_Sloc(:)
+      ddVpIntN(:)=ddVpIntN_Sloc(:)
+      ddVpIntS(:)=ddVpIntS_Sloc(:)
+      VpRIntN(:) =VpRIntN_Sloc(:)
+      VpRIntS(:) =VpRIntS_Sloc(:)
+      LFIntN(:)  =LFIntN_Sloc(:)
+      LFIntS(:)  =LFIntS_Sloc(:)
+      RstrIntN(:)=RstrIntN_Sloc(:)
+      RstrIntS(:)=RstrIntS_Sloc(:)
+      AstrIntN(:)=AstrIntN_Sloc(:)
+      AstrIntS(:)=AstrIntS_Sloc(:)
+      StrIntN(:) =StrIntN_Sloc(:)
+      StrIntS(:) =StrIntS_Sloc(:)
+      TayIntN(:) =TayIntN_Sloc(:)
+      TayIntS(:) =TayIntS_Sloc(:)
+      BspdIntN(:)=BspdIntN_Sloc(:)
+      BspdIntS(:)=BspdIntS_Sloc(:)
+      BpsdIntN(:)=BpsdIntN_Sloc(:)
+      BpsdIntS(:)=BpsdIntS_Sloc(:)
+
       if ( lTOZwrite ) then
-         VpS(:,:)    = VpS_Sloc(:,:)
-         dVpS(:,:)   = dVpS_Sloc(:,:)
-         RstrS(:,:)  = RstrS_Sloc(:,:)
-         AstrS(:,:)  = AstrS_Sloc(:,:)
-         StrS(:,:)   = StrS_Sloc(:,:)
-         CorS(:,:)   = CorS_Sloc(:,:)
-         LFS(:,:)    = LFS_Sloc(:,:)
+         VpS(:,:)  =VpS_Sloc(:,:)
+         dVpS(:,:) =dVpS_Sloc(:,:)
+         RstrS(:,:)=RstrS_Sloc(:,:)
+         AstrS(:,:)=AstrS_Sloc(:,:)
+         StrS(:,:) =StrS_Sloc(:,:)
+         CorS(:,:) =CorS_Sloc(:,:)
+         LFS(:,:)  =LFS_Sloc(:,:)
       end if
 
       if ( l_TOZave .and. nTOsets > 1 ) then
-         VpM(:,:)    = VpM_Sloc(:,:)
-         dVpM(:,:)   = dVpM_Sloc(:,:)
-         RstrM(:,:)  = RstrM_Sloc(:,:)
-         AstrM(:,:)  = AstrM_Sloc(:,:)
-         StrM(:,:)   = StrM_Sloc(:,:)
-         CorM(:,:)   = CorM_Sloc(:,:)
-         LFM(:,:)    = LFM_Sloc(:,:)
-         CLM(:,:)    = CLM_Sloc(:,:)
+         VpM(:,:)  =VpM_Sloc(:,:)
+         dVpM(:,:) =dVpM_Sloc(:,:)
+         RstrM(:,:)=RstrM_Sloc(:,:)
+         AstrM(:,:)=AstrM_Sloc(:,:)
+         StrM(:,:) =StrM_Sloc(:,:)
+         CorM(:,:) =CorM_Sloc(:,:)
+         LFM(:,:)  =LFM_Sloc(:,:)
+         CLM(:,:)  =CLM_Sloc(:,:)
       end if
 #endif
 
@@ -1493,11 +1509,13 @@ contains
 
          end if
 
-         timeLast=time
 
-         lTOZwrite=.false.
 
       end if ! Rank 0
+
+      timeLast=time
+
+      lTOZwrite=.false.
 
       if ( lVerbose ) write(*,*) '! End of outTO!'
 
@@ -1508,11 +1526,10 @@ contains
       ! MPI communicators for TO outputs
       !
 
+#ifdef WITH_MPI
       !-- Local variables:
       integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: i,ierr
-
-#ifdef WITH_MPI
 
       sendcount  = (nRstop-nRstart+1)*(l_max+1)
       recvcounts = nR_per_rank*(l_max+1)
@@ -1520,63 +1537,72 @@ contains
       do i=0,n_procs-1
          displs(i) = i*nR_per_rank*(l_max+1)
       end do
-      call MPI_AllGatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+      call MPI_AllGatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzStrLMr,recvcounts,displs,MPI_DEF_REAL, &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+      call MPI_AllGatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzRstrLMr,recvcounts,displs,MPI_DEF_REAL,&
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+      call MPI_AllGatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzAstrLMr,recvcounts,displs,MPI_DEF_REAL,&
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+      call MPI_AllGatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzCorLMr,recvcounts,displs,MPI_DEF_REAL, &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,       &
+      call MPI_AllGatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,     &
            &              dzLFLMr,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,      &
+      call MPI_AllGatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,    &
            &              dzdVpLMr,recvcounts,displs,MPI_DEF_REAL, &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+      call MPI_AllGatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,   &
            &              dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,&
            &              MPI_COMM_WORLD,ierr)
 
-      call MPI_AllGatherV(V2LMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              V2LMr,recvcounts,displs,MPI_DEF_REAL, &
+      call MPI_AllGatherV(V2LMr_Rloc,sendcount,MPI_DEF_REAL,       &
+           &              V2LMr,recvcounts,displs,MPI_DEF_REAL,    &
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllGatherV(Bs2LMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              Bs2LMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              Bs2LMr,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllGatherV(BszLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BszLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              BszLMr,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllGatherV(BspLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BspLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              BspLMr,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
       call MPI_AllGatherV(BpzLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BpzLMr,recvcounts,displs,MPI_DEF_REAL, &
+           &              BpzLMr,recvcounts,displs,MPI_DEF_REAL,   &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(BspdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BspdLMr,recvcounts,displs,MPI_DEF_REAL, &
+      call MPI_AllGatherV(BspdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              BspdLMr,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(BpsdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BpsdLMr,recvcounts,displs,MPI_DEF_REAL, &
+      call MPI_AllGatherV(BpsdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              BpsdLMr,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(BzpdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BzpdLMr,recvcounts,displs,MPI_DEF_REAL, &
+      call MPI_AllGatherV(BzpdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              BzpdLMr,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
-      call MPI_AllGatherV(BpzdLMr_Rloc,sendcount,MPI_DEF_REAL,      &
-           &              BpzdLMr,recvcounts,displs,MPI_DEF_REAL, &
+      call MPI_AllGatherV(BpzdLMr_Rloc,sendcount,MPI_DEF_REAL,     &
+           &              BpzdLMr,recvcounts,displs,MPI_DEF_REAL,  &
            &              MPI_COMM_WORLD,ierr)
 #else
-     dzStrLMr =dzStrLMr_Rloc
-     dzRstrLMr=dzRstrLMr_Rloc
-     dzAstrLMr=dzAstrLMr_Rloc
-     dzCorLMr =dzCorLMr_Rloc
-     dzLFLMr  =dzLFLMr_Rloc
-     dzdVpLMr =dzdVpLMr_Rloc
-     dzddVpLMr=dzddVpLMr_Rloc
+     dzStrLMr(:,:) =dzStrLMr_Rloc(:,:)
+     dzRstrLMr(:,:)=dzRstrLMr_Rloc(:,:)
+     dzAstrLMr(:,:)=dzAstrLMr_Rloc(:,:)
+     dzCorLMr(:,:) =dzCorLMr_Rloc(:,:)
+     dzLFLMr(:,:)  =dzLFLMr_Rloc(:,:)
+     dzdVpLMr(:,:) =dzdVpLMr_Rloc(:,:)
+     dzddVpLMr(:,:)=dzddVpLMr_Rloc(:,:)
+     V2LMr(:,:)    =V2LMr_Rloc(:,:)
+     Bs2LMr(:,:)   =Bs2LMr_Rloc(:,:)
+     BszLMr(:,:)   =BszLMr_Rloc(:,:)
+     BspLMr(:,:)   =BspLMr_Rloc(:,:)
+     BpzLMr(:,:)   =BpzLMr_Rloc(:,:)
+     BspdLMr(:,:)  =BspdLMr_Rloc(:,:)
+     BpsdLMr(:,:)  =BpsdLMr_Rloc(:,:)
+     BzpdLMr(:,:)  =BzpdLMr_Rloc(:,:)
+     BpzdLMr(:,:)  =BpzdLMr_Rloc(:,:)
 #endif
 
    end subroutine outTO_allgather_Rloc
