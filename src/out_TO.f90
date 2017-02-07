@@ -128,7 +128,7 @@ contains
 
       nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
       nSmax=int(sDens*nSmax)
-      nZmaxA=4*nSmax
+      nZmaxA=2*nSmax
 
       !-- Distribute over the ranks
       nS_per_rank = nSmax/n_procs
@@ -149,15 +149,15 @@ contains
       bytes_allocated = bytes_allocated + (nZmaxA/2+1)*(nSstop-nSstart+1)* &
       &                 SIZEOF_DEF_REAL
 
-      allocate( VpM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( dVpM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( LFM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( AstrM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( RstrM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( CorM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( StrM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      allocate( CLM_Sloc(nZmaxA/2,nSstart:nSstop) )
-      bytes_allocated = bytes_allocated + 4*nZmaxA*(nSstop-nSstart+1)* &
+      allocate( VpM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( dVpM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( LFM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( AstrM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( RstrM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( CorM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( StrM_Sloc(nZmaxA,nSstart:nSstop) )
+      allocate( CLM_Sloc(nZmaxA,nSstart:nSstop) )
+      bytes_allocated = bytes_allocated + 8*nZmaxA*(nSstop-nSstart+1)* &
       &                 SIZEOF_OUT_REAL
 
       allocate( chebt_Z(nSstart:nSstop) )
@@ -174,12 +174,12 @@ contains
       if ( rank == 0 ) then
          allocate ( nZmaxS(nSmax) )
          allocate( zZ(nZmaxA,nSmax) )
-         allocate( VpM(nZmaxA/2,nSmax), dVpM(nZmaxA/2,nSmax) )
-         allocate( LFM(nZmaxA/2,nSmax), AstrM(nZmaxA/2,nSmax) )
-         allocate( RstrM(nZmaxA/2,nSmax), CorM(nZmaxA/2,nSmax) )
-         allocate( StrM(nZmaxA/2,nSmax), CLM(nZmaxA/2,nSmax) )
+         allocate( VpM(nZmaxA,nSmax), dVpM(nZmaxA,nSmax) )
+         allocate( LFM(nZmaxA,nSmax), AstrM(nZmaxA,nSmax) )
+         allocate( RstrM(nZmaxA,nSmax), CorM(nZmaxA,nSmax) )
+         allocate( StrM(nZmaxA,nSmax), CLM(nZmaxA,nSmax) )
 
-         bytes_allocated = bytes_allocated+4*nZmaxA*nSmax*SIZEOF_OUT_REAL+&
+         bytes_allocated = bytes_allocated+8*nZmaxA*nSmax*SIZEOF_OUT_REAL+&
          &                 nZmaxA*nSmax*SIZEOF_DEF_REAL+nSmax*SIZEOF_INTEGER
       else
          allocate ( nZmaxS(1) )
@@ -863,6 +863,33 @@ contains
               &           0, MPI_COMM_WORLD, ierr)
       end if
 
+      if ( l_TOZave .and. nTOsets > 1 ) then
+         call MPI_GatherV(VpM_Sloc, sendcount, MPI_OUT_REAL,       &
+              &           VpM, recvcounts, displs, MPI_OUT_REAL,   &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(dVpM_Sloc, sendcount, MPI_OUT_REAL,      &
+              &           dVpM, recvcounts, displs, MPI_OUT_REAL,  &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(RstrM_Sloc, sendcount, MPI_OUT_REAL,     &
+              &           RstrM, recvcounts, displs, MPI_OUT_REAL, &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(AstrM_Sloc, sendcount, MPI_OUT_REAL,     &
+              &           AstrM, recvcounts, displs, MPI_OUT_REAL, &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(StrM_Sloc, sendcount, MPI_OUT_REAL,      &
+              &           StrM, recvcounts, displs, MPI_OUT_REAL,  &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(CorM_Sloc, sendcount, MPI_OUT_REAL,      &
+              &           CorM, recvcounts, displs, MPI_OUT_REAL,  &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(LFM_Sloc, sendcount, MPI_OUT_REAL,       &
+              &           LFM, recvcounts, displs, MPI_OUT_REAL,   &
+              &           0, MPI_COMM_WORLD, ierr)
+         call MPI_GatherV(CLM_Sloc, sendcount, MPI_OUT_REAL,       &
+              &           CLM, recvcounts, displs, MPI_OUT_REAL,   &
+              &           0, MPI_COMM_WORLD, ierr)
+      end if
+
       sendcount  = (nSstop-nSstart+1)
       recvcounts = nS_per_rank
       recvcounts(n_procs-1)=nS_on_last_rank
@@ -981,39 +1008,6 @@ contains
       call MPI_GatherV(BpsdIntS_Sloc, sendcount, MPI_DEF_REAL,      &
            &           BpsdIntS, recvcounts, displs, MPI_DEF_REAL,  &
            &           0, MPI_COMM_WORLD, ierr)
-
-      if ( l_TOZave .and. nTOsets > 1 ) then
-         sendcount  = (nSstop-nSstart+1)*nZmaxA/2
-         recvcounts = nS_per_rank*nZmaxA/2
-         recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA/2
-         do i=0,n_procs-1
-            displs(i) = i*nS_per_rank*nZmaxA/2
-         end do
-         call MPI_GatherV(VpM_Sloc, sendcount, MPI_OUT_REAL,       &
-              &           VpM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(dVpM_Sloc, sendcount, MPI_OUT_REAL,      &
-              &           dVpM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(RstrM_Sloc, sendcount, MPI_OUT_REAL,     &
-              &           RstrM, recvcounts, displs, MPI_OUT_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(AstrM_Sloc, sendcount, MPI_OUT_REAL,     &
-              &           AstrM, recvcounts, displs, MPI_OUT_REAL, &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(StrM_Sloc, sendcount, MPI_OUT_REAL,      &
-              &           StrM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(CorM_Sloc, sendcount, MPI_OUT_REAL,      &
-              &           CorM, recvcounts, displs, MPI_OUT_REAL,  &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(LFM_Sloc, sendcount, MPI_OUT_REAL,       &
-              &           LFM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
-         call MPI_GatherV(CLM_Sloc, sendcount, MPI_OUT_REAL,       &
-              &           CLM, recvcounts, displs, MPI_OUT_REAL,   &
-              &           0, MPI_COMM_WORLD, ierr)
-      end if
 #else
       nZmaxS(:)  =nZmaxS_Sloc(:)
       zZ(:,:)    =zZ_Sloc(:,:)
