@@ -47,6 +47,9 @@ module Egeos_mod
 contains
 
    subroutine initialize_Egeos_mod
+      !
+      ! Memory allocation in Egeos
+      !
 
       integer :: nS_remaining
 
@@ -66,8 +69,8 @@ contains
       nS_on_last_rank = nS_per_rank + nS_remaining
 
       allocate( OsinTS(nZmaxA/2+1,nSstart:nSstop) )
-      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) )  ! This is huge !
-      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) ) ! This is huge !
+      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) ) 
+      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) )
       allocate( chebt_Z(nSstart:nSstop) )
       allocate( nZmaxS(nSstart:nSstop) )
       allocate( zZ(nZmaxA,nSstart:nSstop) )
@@ -77,6 +80,7 @@ contains
       &                (nSstop-nSstart+1)*SIZEOF_INTEGER + &
       &                2*nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
 
+      !-- The following global arrays are required in getDVptr
       allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
       allocate( ddwS_global(lm_max,n_r_max), zS_global(lm_max,n_r_max) )
       allocate( dzS_global(lm_max,n_r_max) ) 
@@ -91,15 +95,18 @@ contains
    end subroutine initialize_Egeos_mod
 !----------------------------------------------------------------------------
    subroutine finalize_Egeos_mod
+      !
+      ! Memory deallocation
+      !
 
       deallocate( OsinTS, PlmS, dPlmS, chebt_Z, nZmaxS, zZ, rZ )
+      deallocate( wS_global, dwS_global, ddwS_global, zS_global, dzS_global)
 
       if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
 
    end subroutine finalize_Egeos_mod
 !----------------------------------------------------------------------------
-   subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,         &
-        &              Geos,dpFlow,dzFlow)
+   subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,Geos,dpFlow,dzFlow)
       !
       !   Output of axisymmetric zonal flow, its relative strength,
       !   its time variation, and all forces acting on it.
@@ -156,8 +163,8 @@ contains
       integer :: nZ,nZmax,nZS,nZN
       integer :: lm,nR
       real(cp) :: EkInt(nZmaxA),EkIntS
-      real(cp) :: EkSTC_s(nSstart:nSstop),EkNTC_s(nSstart:nSstop),EkOTC_s(nSstart:nSstop)
-      real(cp) :: Egeos_s(nSstart:nSstop)
+      real(cp) :: EkSTC_s(nSstart:nSstop),EkNTC_s(nSstart:nSstop)
+      real(cp) :: Egeos_s(nSstart:nSstop),EkOTC_s(nSstart:nSstop)
       real(cp) :: EkOTC
       real(cp) :: dpEkInt(nZmaxA),dpEkIntS
       real(cp) :: dzEkInt(nZmaxA),dzEkIntS
@@ -189,7 +196,6 @@ contains
 #ifdef WITH_MPI
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
 #endif
-
 
 
       if ( lVerbose ) write(*,*) '! Starting outGeos!'
@@ -289,7 +295,7 @@ contains
             !       for HIS nS and the Plms along the Cylinder
             !       chebIntInit returns zZ,nZmaxS,chebt_Z
             call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-                 &           nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
+                 &           nZmaxA,zZ(:,nS),nZmaxS(nS),chebt_Z(nS))
             !------ Calculate and store 1/sin(theta) and Plms,dPlms for 
             !       southern HS:
 
@@ -310,7 +316,7 @@ contains
                thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
                OsinTS(nZ,nS)=one/sin(thetaZ)
                call plm_theta(thetaZ,l_max,m_max,minc,                &
-                    &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lm_max,2)
+                    &            PlmS(:,nZ,nS),dPlmS(:,nZ,nS),lm_max,2)
             end do
          end if
 
@@ -324,8 +330,8 @@ contains
          end if
 
          call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
-              &        r_ICB,r_CMB,rZ(1,nS),nZmax,nZmaxA,PlmS(1,1,nS),        &
-              &        dPlmS(1,1,nS),OsinTS(1,nS),lDeriv,VrS,VtS,VpS,VozS,    &
+              &        r_ICB,r_CMB,rZ(:,nS),nZmax,nZmaxA,PlmS(:,:,nS),        &
+              &        dPlmS(:,:,nS),OsinTS(:,nS),lDeriv,VrS,VtS,VpS,VozS,    &
               &        dpEkInt)
 
          nZmax=nZmaxS(nS)
@@ -367,31 +373,31 @@ contains
                EkIntS=chebIntD(EkInt,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
 
                !-------- Get volume integral of energies:
-               Egeos_s(nS)=Egeos_s(nS) +                              &
-                    &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
-                    &      (VrIntS**2+VtIntS**2+VpIntS**2)
+               Egeos_s(nS)=Egeos_s(nS) +                             &
+               &           half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
+               &           (VrIntS**2+VtIntS**2+VpIntS**2)
                if ( lTC ) then
                   if ( nInt == 1 ) then
                      EkSTC_s(nS)=EkSTC_s(nS) +                        &
-                          &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                     &           half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                   else if ( nInt == 2 ) then
                      EkNTC_s(nS)=EkNTC_s(nS) +                        &
-                          &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                     &           half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                   end if
                else
                   EkOTC_s(nS)=EkOTC_s(nS) +                           &
-                       &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
+                  &           half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                end if
 
                !-------- Note: chebIntD returns the z derivative
                if ( lDeriv ) then
                   do nZ=1,nZmax
                      dzEkInt(nZ)=VrInt(nZ)*VrInt(nZ) +                &
-                          &      VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
+                     &           VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
                   end do
                   dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
                   dzEk_s(nS)=dzEk_s(nS) +                             &
-                       &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
+                  &          half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
                end if
 
             end do ! Loop over north/south integral
@@ -447,9 +453,9 @@ contains
                else
                   CHel_I=0.0_cp
                end if
-               CVz_Sloc(nPhi,nSstop-nS+nSstart) =real(CVz_I,kind=outp)
-               CVor_Sloc(nPhi,nSstop-nS+nSstart)=real(CVor_I,kind=outp)
-               CHel_Sloc(nPhi,nSstop-nS+nSstart)=real(CHel_I,kind=outp)
+               CVz_Sloc(nPhi,nS) =real(CVz_I,kind=outp)
+               CVor_Sloc(nPhi,nS)=real(CVor_I,kind=outp)
+               CHel_Sloc(nPhi,nS)=real(CHel_I,kind=outp)
                CVz_s(nS) =CVz_s(nS) +phiNorm*sZ(nS)*dsZ*CVz_I  
                CVor_s(nS)=CVor_s(nS)+phiNorm*sZ(nS)*dsZ*CVor_I
                CHel_s(nS)=CHel_s(nS)+phiNorm*sZ(nS)*dsZ*CHel_I
@@ -476,9 +482,9 @@ contains
                   end do
                end if
                dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-               dpEk_s(nS)=dpEk_s(nS) +                                &
-                    &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
-                    &     (sZ(nS)**2) ! Convert angle to length
+               dpEk_s(nS)=dpEk_s(nS) +                               &
+               &          half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
+               &          (sZ(nS)**2) ! Convert angle to length
             end do
          end if
 
@@ -517,11 +523,11 @@ contains
            &             MPI_COMM_WORLD, ierr)
       call MPI_Allreduce(MPI_IN_PLACE, Egeos, 1, MPI_DEF_REAL, MPI_SUM,  &
            &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+      call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM, &
            &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+      call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,&
            &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, CHelOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+      call MPI_Allreduce(MPI_IN_PLACE, CHelOTC, 1, MPI_DEF_REAL, MPI_SUM,&
            &             MPI_COMM_WORLD, ierr)
 #endif
 
@@ -574,8 +580,6 @@ contains
          Ekin = -one 
       end if
 
-      l_corrMov=.true.
-
       if ( l_corrMov ) then
          !--- Determine s used for correl
          n=0
@@ -584,9 +588,9 @@ contains
                n=n+1
             else 
                do nPhi=1,n_phi_max
-                  CVz_Sloc(nPhi,nSstop-nS+nSstart) =0.0_cp
-                  CVor_Sloc(nPhi,nSstop-nS+nSstart)=0.0_cp
-                  CHel_Sloc(nPhi,nSstop-nS+nSstart)=0.0_cp
+                  CVz_Sloc(nPhi,nS) =0.0_cp
+                  CVor_Sloc(nPhi,nS)=0.0_cp
+                  CHel_Sloc(nPhi,nS)=0.0_cp
                end do
             end if
          end do
@@ -645,7 +649,7 @@ contains
             !--- Write header into output file:
             if ( nGeosSets == 1 ) then
 
-               nFields=2
+               nFields=3
                nFieldSize=(nSmax-nS_ICB+1)*n_phi_max
                version='JW_Movie_Version_2'
                write(nOutFile) version
@@ -690,9 +694,9 @@ contains
             dumm(8)=0.0_cp
             write(nOutFile) (real(dumm(n),kind=outp),n=1,8)
 
-            write(nOutFile) ((CVz(nPhi,nS) ,nPhi=1,n_phi_max), nS=1,nSmax)
-            write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
-            ! write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
+            write(nOutFile) ((CVz(nPhi,nS) ,nPhi=1,n_phi_max), nS=nSmax,1,-1)
+            write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=nSmax,1,-1)
+            write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=nSmax,1,-1)
 
             close(nOutFile)
 
