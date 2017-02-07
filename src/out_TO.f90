@@ -191,7 +191,7 @@ contains
       TOfileNhs='TOnhs.'//tag
       TOfileShs='TOshs.'//tag
       movFile  ='TO_mov.'//tag
-      tayFile  ='TaySphere4.'//tag
+      tayFile  ='TaySphere.'//tag
 
    end subroutine initialize_outTO_mod
 !----------------------------------------------------------------------------
@@ -1092,7 +1092,7 @@ contains
             write(n_toz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
          end if
          if ( nTOsets > 1 .and. l_TOZave ) then
-            fileName='TOZM.'//tag
+            fileName='TOZ_ave.'//tag
             open(newunit=n_tozm_file,file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_tozm_file) real(nSmax,kind=outp),real(omega_ic,kind=outp), &
