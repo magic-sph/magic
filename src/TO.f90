@@ -3,7 +3,6 @@ module torsional_oscillations
    !  This module contains information for TO calculation and output
    !
 
-   use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: nrp, n_phi_maxStr, n_r_maxStr, l_max, &
@@ -50,8 +49,7 @@ module torsional_oscillations
    real(cp), public, allocatable :: BzpdAS_Rloc(:,:)
    real(cp), public, allocatable :: BpzdAS_Rloc(:,:)
 
-   public :: initialize_TO, getTO, getTOnext, getTOfinish, &
-   &         TO_gather_Rloc_on_rank0, finalize_TO
+   public :: initialize_TO, getTO, getTOnext, getTOfinish, finalize_TO
 
 contains
 
@@ -76,7 +74,8 @@ contains
       allocate( dzdVpLMr_Rloc(l_max+1,nRstart:nRstop) )
       allocate( dzddVpLMr_Rloc(l_max+1,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+ &
-                        7*(nRstop-nRstart+1)*(l_max+1)*SIZEOF_DEF_REAL
+      &                 7*(nRstop-nRstart+1)*(l_max+1)*SIZEOF_DEF_REAL
+
       allocate( V2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( Bs2AS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( BszAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
@@ -87,13 +86,17 @@ contains
       allocate( BzpdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       allocate( BpzdAS_Rloc(n_theta_maxstr,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+ &
-                        9*(nRstop-nRstart+1)*n_theta_maxstr*SIZEOF_DEF_REAL
+      &                 9*(nRstop-nRstart+1)*n_theta_maxStr*SIZEOF_DEF_REAL
+
       allocate( ddzASL(l_max+1,n_r_maxStr) ) 
-      bytes_allocated = bytes_allocated+ (l_max+1)*n_theta_maxstr*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+ (l_max+1)*n_r_maxStr*SIZEOF_DEF_REAL
 
    end subroutine initialize_TO
 !-----------------------------------------------------------------------------
    subroutine finalize_TO
+      !
+      ! Deallocate the memory
+      !
 
       deallocate( ddzASL, BpzdAS_Rloc, BzpdAS_Rloc, BpsdAS_Rloc, BspdAS_Rloc )
       deallocate( BpzAS_Rloc, BspAS_Rloc, BszAS_Rloc, Bs2AS_Rloc, V2AS_Rloc )
@@ -104,10 +107,9 @@ contains
 
    end subroutine finalize_TO
 !-----------------------------------------------------------------------------
-   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,  &
-              &                     BsLast,BpLast,BzLast, &
-              &         dzRstrLM,dzAstrLM,dzCorLM,dzLFLM, &
-              &    dtLast,nR,nThetaStart,nThetaBlockSize)
+   subroutine getTO(vr,vt,vp,cvr,dvpdr,br,bt,bp,cbr,cbt,BsLast,BpLast,BzLast, &
+              &     dzRstrLM,dzAstrLM,dzCorLM,dzLFLM,dtLast,nR,nThetaStart,   &
+              &     nThetaBlockSize)
       !
       !  This program calculates various axisymmetric linear
       !  and nonlinear variables for a radial grid point nR and
@@ -221,39 +223,30 @@ contains
             VrMean =VrMean +vr(nPhi,nThetaBlock)
             VtMean =VtMean +vt(nPhi,nThetaBlock)
             VpMean =VpMean +vp(nPhi,nThetaBlock)
-            Vr2Mean=Vr2Mean+vr(nPhi,nThetaBlock)* &
-                            vr(nPhi,nThetaBlock)
-            Vt2Mean=Vt2Mean+vt(nPhi,nThetaBlock)* &
-                            vt(nPhi,nThetaBlock)
-            Vp2Mean=Vp2Mean+vp(nPhi,nThetaBlock)* &
-                            vp(nPhi,nThetaBlock)
-            dVpdrMean  =dVpdrMean    + orho1(nR)* & ! dvp/dr
-                      ( dvpdr(nPhi,nThetaBlock) - &
-                    beta(nR)*vp(nPhi,nThetaBlock) )
-            cVrMean    =cVrMean  +cvr(nPhi,nThetaBlock)
+            Vr2Mean=Vr2Mean+vr(nPhi,nThetaBlock)*vr(nPhi,nThetaBlock)
+            Vt2Mean=Vt2Mean+vt(nPhi,nThetaBlock)*vt(nPhi,nThetaBlock)
+            Vp2Mean=Vp2Mean+vp(nPhi,nThetaBlock)*vp(nPhi,nThetaBlock)
+            dVpdrMean=dVpdrMean    + orho1(nR)*( dvpdr(nPhi,nThetaBlock) - &
+            &                              beta(nR)*vp(nPhi,nThetaBlock) )
+            cVrMean  =cVrMean  +cvr(nPhi,nThetaBlock)
             VrdVpdrMean=VrdVpdrMean  + orho1(nR)*           & ! rho * vr * dvp/dr
-              vr(nPhi,nThetaBlock)*(dvpdr(nPhi,nThetaBlock) &
-                             -beta(nR)*vp(nPhi,nThetaBlock))
-            VtcVrMean  =VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
-                        vt(nPhi,nThetaBlock)*cvr(nPhi,nThetaBlock)
+            & vr(nPhi,nThetaBlock)*(dvpdr(nPhi,nThetaBlock) &
+            &                -beta(nR)*vp(nPhi,nThetaBlock))
+            VtcVrMean=VtcVrMean    + orho1(nR)*  &  ! rho * vt * cvr
+            &         vt(nPhi,nThetaBlock)*cvr(nPhi,nThetaBlock)
             if ( l_mag ) then
-               LFmean=LFmean +                                      &
-                   cbr(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) -     &
-                   cbt(nPhi,nThetaBlock)*br(nPhi,nThetaBlock)
-               Bs2Mean=Bs2Mean +                                    &
-                  Bs2F1*br(nPhi,nThetaBlock)*br(nPhi,nThetaBlock) + &
-                  Bs2F2*bt(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) + &
-                  Bs2F3*br(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock)
-               BspMean=BspMean +                                    &
-                  BspF1*br(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock) + &
-                  BspF2*bt(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock)
-               BpzMean=BpzMean +                                    &
-                  BpzF1*br(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock) - &
-                  BpzF2*bt(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock)
-               BszMean=BszMean +                                    &
-                  BszF1*br(nPhi,nThetaBlock)*br(nPhi,nThetaBlock) + &
-                  BszF2*br(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) - &
-                  BszF3*bt(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock)
+               LFmean=LFmean + cbr(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) - &
+               &               cbt(nPhi,nThetaBlock)*br(nPhi,nThetaBlock)
+               Bs2Mean=Bs2Mean + Bs2F1*br(nPhi,nThetaBlock)*br(nPhi,nThetaBlock) + &
+               &                 Bs2F2*bt(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) + &
+               &                 Bs2F3*br(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock)
+               BspMean=BspMean + BspF1*br(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock) + &
+               &                 BspF2*bt(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock)
+               BpzMean=BpzMean + BpzF1*br(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock) - &
+               &                 BpzF2*bt(nPhi,nThetaBlock)*bp(nPhi,nThetaBlock)
+               BszMean=BszMean + BszF1*br(nPhi,nThetaBlock)*br(nPhi,nThetaBlock) + &
+               &                 BszF2*br(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock) - &
+               &                 BszF3*bt(nPhi,nThetaBlock)*bt(nPhi,nThetaBlock)
                BsL=BsF1*br(nPhi,nThetaBlock) + BsF2*bt(nPhi,nThetaBlock)
                BpL=BpF1*bp(nPhi,nThetaBlock)
                BzL=BzF1*br(nPhi,nThetaBlock) - BzF2*bt(nPhi,nThetaBlock)
@@ -290,8 +283,8 @@ contains
          V2AS_Rloc(nTheta,nR)=Vr2Mean+Vt2Mean+Vp2Mean
          VpMean =phiNorm*or1(nR)*Osin*VpMean
          !--- This is Coriolis force / r*sin(theta)
-         dzCorMean(nThetaBlock)= phiNorm*two*CorFac * &
-               (or3(nR)*VrMean+or2(nR)*cosOsin2*VtMean)
+         dzCorMean(nThetaBlock)=phiNorm*two*CorFac * &
+         &                      (or3(nR)*VrMean+or2(nR)*cosOsin2*VtMean)
          if ( l_mag ) then
             !--- This is Lorentz force/ r*sin(theta)
             dzLFmean(nThetaBlock)=phiNorm*or4(nR)*Osin2*LFmean
@@ -307,13 +300,13 @@ contains
 
          ! dVpdrMean, VtcVrMean and VrdVpdrMean are already divided by rho
          Rmean(nThetaBlock)=                                  &
-                      phiNorm * or4(nR)*Osin2* (VrdVpdrMean - &
-                                   phiNorm*VrMean*dVpdrMean + &
-                                                  VtcVrMean - &
-                            orho1(nR)*phiNorm*VtMean*cVrMean )
+         &            phiNorm * or4(nR)*Osin2* (VrdVpdrMean - &
+         &                         phiNorm*VrMean*dVpdrMean + &
+         &                                        VtcVrMean - &
+         &                  orho1(nR)*phiNorm*VtMean*cVrMean )
          Amean(nThetaBlock)=                                  &
-            phiNorm*or4(nR)*Osin2*phiNorm*(VrMean*dVpdrMean + &
-                                   orho1(nR)*VtMean*cVrMean )
+         &  phiNorm*or4(nR)*Osin2*phiNorm*(VrMean*dVpdrMean + &
+         &                         orho1(nR)*VtMean*cVrMean )
 
       end do ! Loop over thetas in block !
 
@@ -321,17 +314,16 @@ contains
       !------ Add contribution from thetas in block:
       !       note legtfAS2 returns modes l=0 -- l=l_max+1
       call legTFAS2(dzRstrLM,dzAstrLM,Rmean,Amean,     &
-                    l_max+2,nThetaStart,nThetaBlockSize)
+           &        l_max+2,nThetaStart,nThetaBlockSize)
       call legTFAS2(dzCorLM,dzLFLM,dzCorMean,dZLFmean, &
-                    l_max+2,nThetaStart,nThetaBlockSize)
+           &        l_max+2,nThetaStart,nThetaBlockSize)
 
       if ( lVerbose ) write(*,*) '! End of getTO!'
 
    end subroutine getTO
 !-----------------------------------------------------------------------------
-   subroutine getTOnext(zAS,br,bt,bp,lTONext,lTONext2,    &
-                dt,dtLast,nR,nThetaStart,nThetaBlockSize, &
-                                    BsLast,BpLast,BzLast)
+   subroutine getTOnext(zAS,br,bt,bp,lTONext,lTONext2,dt,dtLast,nR, &
+              &         nThetaStart,nThetaBlockSize,BsLast,BpLast,BzLast)
       !
       !  Preparing TO calculation by storing flow and magnetic field
       !  contribution to build time derivative.
@@ -391,10 +383,10 @@ contains
             !--- Get zonal means of velocity and derivatives:
             do nPhi=1,n_phi_maxStr
                BsLast(nPhi,nTheta,nR)=BsF1*br(nPhi,nThetaBlock) + &
-                                      BsF2*bt(nPhi,nThetaBlock)
+               &                      BsF2*bt(nPhi,nThetaBlock)
                BpLast(nPhi,nTheta,nR)=BpF1*bp(nPhi,nThetaBlock)
                BzLast(nPhi,nTheta,nR)=BzF1*br(nPhi,nThetaBlock) - &
-                                      BzF2*bt(nPhi,nThetaBlock)
+               &                      BzF2*bt(nPhi,nThetaBlock)
             end do
                             
          end do ! Loop over thetas in block !
@@ -410,7 +402,7 @@ contains
                lm=lm2(l,0)
                dzdVpLMr_Rloc(l+1,nR) = zAS(l+1)
                dzddVpLMr_Rloc(l+1,nR)= ( dzddVpLMr_Rloc(l+1,nR) - &
-                                  ((dtLast+dt)/dt)*zAS(l+1) )/dtLast
+               &                  ((dtLast+dt)/dt)*zAS(l+1) )/dtLast
             end do
          end if
 
@@ -421,7 +413,7 @@ contains
    end subroutine getTOnext
 !-----------------------------------------------------------------------------
    subroutine getTOfinish(nR,dtLast,zAS,dzAS,ddzAS,dzRstrLM, &
-                          dzAstrLM,dzCorLM,dzLFLM)
+              &           dzAstrLM,dzCorLM,dzLFLM)
       !
       !  This program was previously part of getTO(...)
       !  It has now been separated to get it out of the theta-block loop.
@@ -452,80 +444,28 @@ contains
          lA=(l+1)+1
          lm=lm2(l,0)
          dzStrLMr_Rloc(l+1,nR)= hdif_V(lm) * (                 &
-                                                  ddzAS(l+1) - &
-                                         beta(nR)* dzAS(l+1) - &
-            (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
-                                                    zAS(l+1) )
-      !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
-      !     minus sign to bring stuff on the RHS of NS equation !
+         &                                        ddzAS(l+1) - &
+         &                               beta(nR)* dzAS(l+1) - &
+         &  (dLh(lm)*or2(nR)+dbeta(nR)+two*beta(nR)*or1(nR))*  &
+         &                                          zAS(l+1) )
+         !---- -r**2/(l(l+1)) 1/sin(theta) dtheta sin(theta)**2
+         !     minus sign to bring stuff on the RHS of NS equation !
          dzRstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
-                             dTheta1S(lm)*dzRstrLM(lS) - &
-                             dTheta1A(lm)*dzRstrLM(lA) )
+         &                   dTheta1S(lm)*dzRstrLM(lS) - &
+         &                   dTheta1A(lm)*dzRstrLM(lA) )
          dzAstrLMr_Rloc(l+1,nR)=-r(nR)*r(nR)/dLh(lm) * ( &
-                             dTheta1S(lm)*dzAstrLM(lS) - &
-                             dTheta1A(lm)*dzAstrLM(lA) )
+         &                   dTheta1S(lm)*dzAstrLM(lS) - &
+         &                   dTheta1A(lm)*dzAstrLM(lA) )
          dzCorLMr_Rloc(l+1,nR) =-r(nR)*r(nR)/dLh(lm) * ( &
-                              dTheta1S(lm)*dzCorLM(lS) - &
-                              dTheta1A(lm)*dzCorLM(lA) )
+         &                    dTheta1S(lm)*dzCorLM(lS) - &
+         &                    dTheta1A(lm)*dzCorLM(lA) )
          dzLFLMr_Rloc(l+1,nR)  = r(nR)*r(nR)/dLh(lm) * ( &
-                               dTheta1S(lm)*dzLFLM(lS) - &
-                               dTheta1A(lm)*dzLFLM(lA) )
+         &                     dTheta1S(lm)*dzLFLM(lS) - &
+         &                     dTheta1A(lm)*dzLFLM(lA) )
          dzdVpLMr_Rloc(l+1,nR) =(zAS(l+1)-dzdVpLMr_Rloc(l+1,nR))/dtLast
          dzddVpLMr_Rloc(l+1,nR)=(zAS(l+1)/dtLast+dzddVpLMr_Rloc(l+1,nR))/dtLast
       end do
       
    end subroutine getTOfinish
-!-----------------------------------------------------------------------------
-   subroutine TO_gather_Rloc_on_rank0
-      !
-      ! MPI communicators for TO outputs
-      !
-
-      !-- Local variables:
-      integer :: sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
-      integer :: i,ierr
-
-#ifdef WITH_MPI
-      sendcount  = (nRstop-nRstart+1)*(l_max+1)
-      recvcounts = nR_per_rank*(l_max+1)
-      recvcounts(n_procs-1) = nR_on_last_rank*(l_max+1)
-      do i=0,n_procs-1
-         displs(i) = i*nR_per_rank*(l_max+1)
-      end do
-      call MPI_GatherV(dzStrLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzStrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzRstrLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzRstrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzAstrLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzAstrLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzCorLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzCorLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzLFLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzLFLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzdVpLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzdVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_GatherV(dzddVpLMr_Rloc,sendcount,MPI_DEF_REAL,&
-           & dzddVpLMr,recvcounts,displs,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-
-#else
-     dzStrLMr=dzStrLMr_Rloc
-     dzRstrLMr=dzRstrLMr_Rloc
-     dzAstrLMr=dzAstrLMr_Rloc
-     dzCorLMr=dzCorLMr_Rloc
-     dzLFLMr=dzLFLMr_Rloc
-     dzdVpLMr=dzdVpLMr_Rloc
-     dzddVpLMr=dzddVpLMr_Rloc
-     V2AS=V2AS_Rloc
-     Bs2AS=Bs2AS_Rloc
-     BszAS=BszAS_Rloc
-     BspAS=BspAS_Rloc
-     BpzAS=BpzAS_Rloc
-     BspdAS=BspdAS_Rloc
-     BpsdAS=BpsdAS_Rloc
-     BzpdAS=BzpdAS_Rloc
-     BpzdAS=BpzdAS_Rloc
-#endif
-
-   end subroutine TO_gather_Rloc_on_rank0
 !-----------------------------------------------------------------------------
 end module torsional_oscillations

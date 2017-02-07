@@ -17,8 +17,7 @@ module TO_helpers
 
 contains
 
-   subroutine getPAStr(fZ,flmn,nZmax,nZmaxA,lmMax,lMax, &
-                              rMin,rMax,nChebMax,rZ,dPlm,OsinTS)
+   subroutine getPAStr(fZ,flmn,nZmax,nZmaxA,lMax,rMin,rMax,nChebMax,rZ,dPlm,OsinTS)
       !
       !  Calculates axisymmetric phi component for a given toroidal
       !  potential flmn in spherical harmonic/Cheb space.
@@ -29,13 +28,13 @@ contains
       !
 
       !--- Input variables:
-      integer,  intent(in) :: lmMax, lMax
-      real(cp), intent(in) :: flmn(lmMax,*)
+      integer,  intent(in) :: lMax
+      real(cp), intent(in) :: flmn(lMax+1,*)
       integer,  intent(in) :: nZmax, nZmaxA
       real(cp), intent(in) :: rMin, rMax
       integer,  intent(in) :: nChebMax
       real(cp), intent(in) :: rZ(nZmaxA/2+1)
-      real(cp), intent(in) :: dPlm(lmMax,nZmaxA/2+1)
+      real(cp), intent(in) :: dPlm(lMax+1,nZmaxA/2+1)
       real(cp), intent(in) :: OsinTS(nZmaxA/2+1)
 
       !--- Output variables:
@@ -157,7 +156,7 @@ contains
 
    end subroutine get_PAS
 !----------------------------------------------------------------------------
-   subroutine getAStr(fZ,flmn,nZmax,nZmaxA,lmMax,lMax,rMin,rMax,nChebMax,rZ,Plm)
+   subroutine getAStr(fZ,flmn,nZmax,nZmaxA,lMax,rMin,rMax,nChebMax,rZ,Plm)
       !
       !  Calculates function value at radii rZ(nZmax) and
       !  colatitudes for which Plm(theta) is given from
@@ -166,13 +165,13 @@ contains
       !
 
       !--- Input variables:
-      integer,  intent(in) :: lmMax, lMax
-      real(cp), intent(in) :: flmn(lmMax,*)
+      integer,  intent(in) :: lMax
+      real(cp), intent(in) :: flmn(lMax+1,*)
       integer,  intent(in) :: nZmax, nZmaxA
       real(cp), intent(in) :: rMin, rMax
       integer,  intent(in) :: nChebMax
       real(cp), intent(in) :: rZ(nZmaxA/2+1)
-      real(cp), intent(in) :: Plm(lmMax,nZmaxA/2+1)
+      real(cp), intent(in) :: Plm(lMax+1,nZmaxA/2+1)
 
       !--- Output variables :
       real(cp), intent(out) :: fZ(*)

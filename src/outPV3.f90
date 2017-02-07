@@ -273,9 +273,8 @@ contains
             !-- Get azimuthal flow component in the shell
             nZmaxNS=nZC(nS) ! all z points within shell
             if ( l_stop_time ) then
-               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmax,l_max+1,      &
-                    &        l_max,r_ICB,r_CMB,n_r_max,                &
-                    &        rZ(1,nS),dPlmS(1,1,nS),OsinTS(1,nS))
+               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmax,l_max,r_ICB,r_CMB,n_r_max, &
+                    &        rZ(:,nS),dPlmS(:,:,nS),OsinTS(:,nS))
 
                !-- Copy to array with all z-points
                do nZ=1,nZmax
