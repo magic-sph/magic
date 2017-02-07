@@ -1,11 +1,11 @@
 module Egeos_mod
  
    use precision_mod
+   use parallel_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrpGeos, &
        &                 n_r_maxGeos, lm_maxGeos, minc, l_max, m_max,  &
        &                 l_axi
-   use parallel_mod, only: rank
    use radial_functions, only: r_ICB, r_CMB, rscheme_oc
    use physical_parameters, only: ra, ek, pr, prmag, g0, g1, g2, &
        &                          radratio, polind, strat
@@ -30,13 +30,16 @@ module Egeos_mod
    real(cp), allocatable :: dPlmS(:,:,:) ! This is huge !
    real(cp), allocatable :: OsinTS(:,:)
 
+   complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
+   complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
+
    type(costf_odd_t), allocatable :: chebt_Z(:)
    integer, allocatable :: nZmaxS(:)
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
 
    integer :: n_geos_file
-   integer :: nSmax,nZmaxA
+   integer :: nSmax, nZmaxA, nSstart, nSstop, nS_per_rank, nS_on_last_rank
    character(len=72) :: geos_file
  
    public :: initialize_Egeos_mod, getEgeos, finalize_Egeos_mod
@@ -45,21 +48,39 @@ contains
 
    subroutine initialize_Egeos_mod
 
-      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp))
+      integer :: nS_remaining
+
+      nSmax=n_r_max+int(r_ICB*real(n_r_max,cp)) 
       nSmax=int(sDens*nSmax)
+
       nZmaxA=2*nSmax
 
-      allocate( OsinTS(nZmaxA/2+1,nSmax) )
-      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSmax) )  ! This is huge !
-      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSmax) ) ! This is huge !
-      allocate( chebt_Z(nSmax) )
-      allocate( nZmaxS(nSmax) )
-      allocate( zZ(nZmaxA,nSmax) )
-      allocate( rZ(nZmaxA,nSmax) )
-      bytes_allocated = bytes_allocated+ &
-                       ((nZmaxA/2+1)*nSmax*(1+2*lm_maxGeos))*SIZEOF_DEF_REAL + &
-                       nSmax*SIZEOF_INTEGER + &
-                       2*nZmaxA*nSmax*SIZEOF_DEF_REAL
+      !-- Distribute over the ranks
+      nS_per_rank = nSmax/n_procs
+      nSstart = 1+rank*nS_per_rank
+      nSstop = 1+(rank+1)*nS_per_rank-1
+      nS_remaining = nSmax-(1+n_procs*nS_per_rank-1)
+      if ( rank == n_procs-1 ) then
+         nSstop = nSstop+nS_remaining
+      end if
+      nS_on_last_rank = nS_per_rank + nS_remaining
+
+      allocate( OsinTS(nZmaxA/2+1,nSstart:nSstop) )
+      allocate( PlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) )  ! This is huge !
+      allocate( dPlmS(lm_maxGeos,nZmaxA/2+1,nSstart:nSstop) ) ! This is huge !
+      allocate( chebt_Z(nSstart:nSstop) )
+      allocate( nZmaxS(nSstart:nSstop) )
+      allocate( zZ(nZmaxA,nSstart:nSstop) )
+      allocate( rZ(nZmaxA,nSstart:nSstop) )
+      bytes_allocated = bytes_allocated+ ((nZmaxA/2+1)*(nSstop-nSstart+1)* &
+      &                (1+2*lm_maxGeos))*SIZEOF_DEF_REAL + &
+      &                (nSstop-nSstart+1)*SIZEOF_INTEGER + &
+      &                2*nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
+
+      allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
+      allocate( ddwS_global(lm_max,n_r_max), zS_global(lm_max,n_r_max) )
+      allocate( dzS_global(lm_max,n_r_max) ) 
+      bytes_allocated = bytes_allocated+ 5*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
 
       geos_file='geos.'//tag
 
@@ -124,9 +145,6 @@ contains
       complex(cp) :: zS(llm:ulm,n_r_maxGeos)
       complex(cp) :: dzS(llm:ulm,n_r_maxGeos)
 
-      !-- Arrays needed after gather (allocate and deallocate to avoid memory blowup)
-      complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
-      complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
 
       !-- Representation in (phi,z):
       real(cp) :: VrS(nrpGeos,nZmaxA),VrInt(nZmaxA),VrIntS
@@ -138,12 +156,12 @@ contains
       integer :: nZ,nZmax,nZS,nZN
       integer :: lm,nR
       real(cp) :: EkInt(nZmaxA),EkIntS
-      real(cp) :: EkSTC_s(nSmax),EkNTC_s(nSmax),EkOTC_s(nSmax)
-      real(cp) :: Egeos_s(nSmax)
+      real(cp) :: EkSTC_s(nSstart:nSstop),EkNTC_s(nSstart:nSstop),EkOTC_s(nSstart:nSstop)
+      real(cp) :: Egeos_s(nSstart:nSstop)
       real(cp) :: EkOTC
       real(cp) :: dpEkInt(nZmaxA),dpEkIntS
       real(cp) :: dzEkInt(nZmaxA),dzEkIntS
-      real(cp) :: dpEk_s(nSmax),dzEk_s(nSmax)
+      real(cp) :: dpEk_s(nSstart:nSstop),dzEk_s(nSstart:nSstop)
       real(cp) :: thetaZ
 
       logical :: lStopRun
@@ -153,16 +171,25 @@ contains
       real(cp) :: VzS,VzN,VorS,VorN,surf,delz
       real(cp) :: VzSN,VzSS,VzNN,VorSN,VorSS,VorNN,HelZZ,VZZ,VorZZ
       real(cp) :: CVz_I,CVor_I,CHel_I
-      real(cp) :: CVz_s(nSmax),CVor_s(nSmax),CHel_S(nSmax)
+      real(cp) :: CVz_s(nSstart:nSstop),CVor_s(nSstart:nSstop),CHel_S(nSstart:nSstop)
 
       !-- Movie output
       integer :: nOutFile,n
-      character(len=66) :: version,movFile
+      character(len=66) :: movFile
+      character(len=64) :: version
       integer :: nFields,nFieldSize,l,m
       real(cp) :: dumm(40)
-      real(outp) :: CVz(nrpGeos,nZmaxA)
-      real(outp) :: CVor(nrpGeos,nZmaxA)
-      real(outp) :: CHel(nrpGeos,nZmaxA)
+      real(outp) :: CVz(nrpGeos,nSmax)
+      real(outp) :: CVor(nrpGeos,nSmax)
+      real(outp) :: CHel(nrpGeos,nSmax)
+      real(outp) :: CVz_Sloc(nrpGeos,nSstart:nSstop)
+      real(outp) :: CVor_Sloc(nrpGeos,nSstart:nSstop)
+      real(outp) :: CHel_Sloc(nrpGeos,nSstart:nSstop)
+
+#ifdef WITH_MPI
+      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+#endif
+
 
 
       if ( lVerbose ) write(*,*) '! Starting outGeos!'
@@ -171,11 +198,11 @@ contains
          do lm=llm,ulm
             l = lo_map%lm2l(lm)
             m = lo_map%lm2m(lm)
-            wS(lm,nR) =w(lm,nR)*dLh(st_map%lm2(l,m))
-            dwS(lm,nR)=dw(lm,nR)
+            wS(lm,nR)  =w(lm,nR)*dLh(st_map%lm2(l,m))
+            dwS(lm,nR) =dw(lm,nR)
             ddwS(lm,nR)=ddw(lm,nR)
-            zS(lm,nR)=z(lm,nR)
-            dzS(lm,nR)=dz(lm,nR)
+            zS(lm,nR)  =z(lm,nR)
+            dzS(lm,nR) =dz(lm,nR)
          end do
       end do
 
@@ -185,329 +212,424 @@ contains
       call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
       call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
 
-      if ( rank == 0 ) then
-         allocate( wS_global(1:lm_max,1:n_r_max) )
-         allocate( dwS_global(1:lm_max,1:n_r_max) )
-         allocate( ddwS_global(1:lm_max,1:n_r_max) )
-         allocate( zS_global(1:lm_max,1:n_r_max) )
-         allocate( dzS_global(1:lm_max,1:n_r_max) )
-      else
-         allocate( wS_global(1,1) )
-         allocate( dwS_global(1,1) )
-         allocate( ddwS_global(1,1) )
-         allocate( zS_global(1,1) )
-         allocate( dzS_global(1,1) )
-      end if
-
+      !-- Unfortunately they need to be broadcasted...
       call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
       call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
       call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
       call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
       call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
+#ifdef WITH_MPI
+      call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+#endif
 
-      if ( rank == 0 ) then
-         lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
+      lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
 
-         phiNorm=two*pi/n_phi_max
-         lStopRun=.false.
-         lDeriv=.true.
+      phiNorm=two*pi/n_phi_max
+      lStopRun=.false.
+      lDeriv=.true.
 
-         !---- Get resolution in s and z for z-integral:
-         zNorm=one               ! This is r_CMB-r_ICB
-         nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
-         nSmax=n_r_max+int(r_ICB*real(n_r_max,cp)) 
-         nSmax=int(sDens*nSmax)
-         dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
-         lAS=.false.
+      !---- Get resolution in s and z for z-integral:
+      zNorm=one               ! This is r_CMB-r_ICB
+      nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
+      dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
+      lAS=.false.
 
-         do nS=1,nSmax
-            EkSTC_s(nS)=0.0_cp
-            EkNTC_s(nS)=0.0_cp
-            EkOTC_s(nS)=0.0_cp
-            Egeos_s(nS)=0.0_cp
-            dpEk_s(nS) =0.0_cp
-            dzEk_s(nS) =0.0_cp
-            CVz_s(nS)  =0.0_cp
-            CVor_s(nS) =0.0_cp
-            CHel_s(nS) =0.0_cp
-         end do
+      !-- Global array
+      do nS=1,nSmax
+         sZ(nS)=(nS-half)*dsZ
+      end do
 
-         !---- Contributions are now in fully spectral space!
-         !---- Do the z-integral:
-         nI=0
+      do nS=nSstart,nSstop
+         EkSTC_s(nS)=0.0_cp
+         EkNTC_s(nS)=0.0_cp
+         EkOTC_s(nS)=0.0_cp
+         Egeos_s(nS)=0.0_cp
+         dpEk_s(nS) =0.0_cp
+         dzEk_s(nS) =0.0_cp
+         CVz_s(nS)  =0.0_cp
+         CVor_s(nS) =0.0_cp
+         CHel_s(nS) =0.0_cp
+      end do
 
-         do nS=1,nSmax
-            sZ(nS)=(nS-half)*dsZ
-            if ( sZ(nS) < r_ICB ) then
-               lTC=.true.
+      !---- Contributions are now in fully spectral space!
+      !---- Do the z-integral:
+      nI=0
+
+      do nS=nSstart,nSstop
+         if ( sZ(nS) < r_ICB ) then
+            lTC=.true.
+         else
+            lTC=.false.
+         end if
+         if ( nS > nSstart ) then
+            if ( sZ(nS-1) < r_ICB .and. sZ(nS) >= r_ICB ) nS_ICB=nS
+         end if
+
+         !------ Get integral boundaries for this s:
+         zMin=-sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
+         if ( lTC ) then
+            zMax=-sqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
+         else
+            zMax=-zMin
+         end if
+
+
+         if ( nGeosSets == 1 ) then
+            !------ Initialize integration for NHS:
+            !       Each processor calculates Cheb transform data 
+            !       for HIS nS and the Plms along the Cylinder
+            !       chebIntInit returns zZ,nZmaxS,chebt_Z
+            call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
+                 &           nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
+            !------ Calculate and store 1/sin(theta) and Plms,dPlms for 
+            !       southern HS:
+
+            if ( lTC ) then 
+               nZmax=nZmaxS(nS)  ! nZmax point in each polar region
             else
-               lTC=.false.
+               nZmax=(nZmaxS(nS)-1)/2+1 ! Odd point number !    
+               ! all together nZmaxS(nS) from
+               ! south to north including equator
             end if
-            if ( nS > 1 ) then
-               if ( sZ(nS-1) < r_ICB .and. sZ(ns) >= r_ICB ) nS_ICB=nS
+            if ( 2*nZmax > nZmaxA ) then ! TC case most critical
+               write(*,*) '! nZmaxA too small in getEgeos!'
+               write(*,*) '! Should be at least:',2*nZmax
+               lStopRun=.true.
             end if
+            do nZ=1,nZmax
+               rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
+               thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
+               OsinTS(nZ,nS)=one/sin(thetaZ)
+               call plm_theta(thetaZ,l_max,m_max,minc,                &
+                    &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lm_max,2)
+            end do
+         end if
 
-            !------ Get integral boundaries for this s:
-            zMin=-sqrt(r_CMB*r_CMB-sZ(nS)*sZ(nS))
-            if ( lTC ) then
-               zMax=-sqrt(r_ICB*r_ICB-sZ(nS)*sZ(nS))
-            else
-               zMax=-zMin
-            end if
-
-            if ( nGeosSets == 1 ) then
-               !------ Initialize integration for NHS:
-               !       Each processor calculates Cheb transform data 
-               !       for HIS nS and the Plms along the Cylinder
-               !       chebIntInit returns zZ,nZmaxS,chebt_Z
-               call chebIntInit(zMin,zMax,zNorm,nNorm,                   &
-                    &           nZmaxA,zZ(1,nS),nZmaxS(nS),chebt_Z(nS))
-               !------ Calculate and store 1/sin(theta) and Plms,dPlms for 
-               !       southern HS:
-
-               if ( lTC ) then 
-                  nZmax=nZmaxS(nS)  ! nZmax point in each polar region
-               else
-                  nZmax=(nZmaxS(nS)-1)/2+1 ! Odd point number !    
-                  ! all together nZmaxS(nS) from
-                  ! south to north including equator
-               end if
-               if ( 2*nZmax > nZmaxA ) then ! TC case most critical
-                  write(*,*) '! nZmaxA too small in getEgeos!'
-                  write(*,*) '! Should be at least:',2*nZmax
-                  lStopRun=.true.
-               end if
-               do nZ=1,nZmax
-                  rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
-                  thetaZ       =atan2(sZ(nS),zZ(nZ,nS))
-                  OsinTS(nZ,nS)=one/sin(thetaZ)
-                  call plm_theta(thetaZ,l_max,m_max,minc,                &
-                       &            PlmS(1,nZ,nS),dPlmS(1,nZ,nS),lm_max,2)
-               end do
-            end if
-
-            !--------- Get the flow components for all northern and
-            !          southern thetas and all phis:
-            if ( lTC ) then
-               nZmax=2*nZmaxS(nS) ! north and south points
-               ! calculated in one go
-            else
-               nZmax=nZmaxS(nS)
-            end if
-
-            call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
-                 &        r_ICB,r_CMB,rZ(1,nS),nZmax,nZmaxA,PlmS(1,1,nS),        &
-                 &        dPlmS(1,1,nS),OsinTS(1,nS),lDeriv,VrS,VtS,VpS,VozS,    &
-                 &        dpEkInt)
-
+         !--------- Get the flow components for all northern and
+         !          southern thetas and all phis:
+         if ( lTC ) then
+            nZmax=2*nZmaxS(nS) ! north and south points
+            ! calculated in one go
+         else
             nZmax=nZmaxS(nS)
+         end if
 
-            !------- Perform z-integral(s) for all phis:
-            do nPhi=1,n_phi_max
+         call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global, &
+              &        r_ICB,r_CMB,rZ(1,nS),nZmax,nZmaxA,PlmS(1,1,nS),        &
+              &        dPlmS(1,1,nS),OsinTS(1,nS),lDeriv,VrS,VtS,VpS,VozS,    &
+              &        dpEkInt)
 
-               !------- Two seperate integrals inside TC:
-               if ( lTC ) then
-                  nInts=2 ! separate north and south integral
-               else
-                  nInts=1
+         nZmax=nZmaxS(nS)
+
+         !------- Perform z-integral(s) for all phis:
+         do nPhi=1,n_phi_max
+
+            !------- Two seperate integrals inside TC:
+            if ( lTC ) then
+               nInts=2 ! separate north and south integral
+            else
+               nInts=1
+            end if
+            do nInt=1,nInts
+               if ( nInt == 1 ) then
+                  do nZ=1,nZmax ! Copy on simpler array
+                     VrInt(nZ)=VrS(nPhi,nZ)
+                     VtInt(nZ)=VtS(nPhi,nZ)
+                     VpInt(nZ)=VpS(nPhi,nZ)
+                     EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
+                  end do
+               else if ( nInt == 2 ) then
+                  help=zMax
+                  zMax=-zMin
+                  zMin=-help
+                  do nZ=1,nZmax
+                     VrInt(nZ)=VrS(nPhi,nZ+nZmax)
+                     VtInt(nZ)=VtS(nPhi,nZ+nZmax)
+                     VpInt(nZ)=VpS(nPhi,nZ+nZmax)
+                     EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
+                  end do
                end if
-               do nInt=1,nInts
+
+               !-------- NOTE: chebIntD replaces VrInt with z-derivative
+               !               for lDeriv=.true.
+               VrIntS=chebIntD(VrInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               VtIntS=chebIntD(VtInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               VpIntS=chebIntD(VpInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               EkIntS=chebIntD(EkInt,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+
+               !-------- Get volume integral of energies:
+               Egeos_s(nS)=Egeos_s(nS) +                              &
+                    &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
+                    &      (VrIntS**2+VtIntS**2+VpIntS**2)
+               if ( lTC ) then
                   if ( nInt == 1 ) then
-                     do nZ=1,nZmax ! Copy on simpler array
-                        VrInt(nZ)=VrS(nPhi,nZ)
-                        VtInt(nZ)=VtS(nPhi,nZ)
-                        VpInt(nZ)=VpS(nPhi,nZ)
-                        EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
-                     end do
+                     EkSTC_s(nS)=EkSTC_s(nS) +                        &
+                          &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                   else if ( nInt == 2 ) then
-                     help=zMax
-                     zMax=-zMin
-                     zMin=-help
-                     do nZ=1,nZmax
-                        VrInt(nZ)=VrS(nPhi,nZ+nZmax)
-                        VtInt(nZ)=VtS(nPhi,nZ+nZmax)
-                        VpInt(nZ)=VpS(nPhi,nZ+nZmax)
-                        EkInt(nZ)=(VrInt(nZ)**2+VtInt(nZ)**2+VpInt(nZ)**2)
-                     end do
-                  end if
-
-                  !-------- NOTE: chebIntD replaces VrInt with z-derivative
-                  !               for lDeriv=.true.
-                  VrIntS=chebIntD(VrInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-                  VtIntS=chebIntD(VtInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-                  VpIntS=chebIntD(VpInt,lDeriv,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-                  EkIntS=chebIntD(EkInt,.false.,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-
-                  !-------- Get volume integral of energies:
-                  Egeos_s(nS)=Egeos_s(nS) +                              &
-                       &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ *     &
-                       &      (VrIntS**2+VtIntS**2+VpIntS**2)
-                  if ( lTC ) then
-                     if ( nInt == 1 ) then
-                        EkSTC_s(nS)=EkSTC_s(nS) +                        &
-                             &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
-                     else if ( nInt == 2 ) then
-                        EkNTC_s(nS)=EkNTC_s(nS) +                        &
-                             &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
-                     end if
-                  else
-                     EkOTC_s(nS)=EkOTC_s(nS) +                           &
+                     EkNTC_s(nS)=EkNTC_s(nS) +                        &
                           &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                   end if
-
-                  !-------- Note: chebIntD returns the z derivative
-                  if ( lDeriv ) then
-                     do nZ=1,nZmax
-                        dzEkInt(nZ)=VrInt(nZ)*VrInt(nZ) +                &
-                             &      VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
-                     end do
-                     dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-                     dzEk_s(nS)=dzEk_s(nS) +                             &
-                          &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
-                  end if
-
-               end do ! Loop over north/south integral
-
-
-               ! --- All the stuff for North/South correlation only outside TC
-               !     and only 0.1 away from boundaries:
-               !     Here only integrals over one hemisphere are required. I thus
-               !     copy the southern points to the northern hermisphere.
-               if ( lCorrel .and. .not.lTC ) then
-                  VzSN =0.0_cp
-                  VzSS =0.0_cp
-                  VzNN =0.0_cp
-                  VorSN=0.0_cp
-                  VorSS=0.0_cp
-                  VorNN=0.0_cp
-                  HelZZ=0.0_cp
-                  VZZ  =0.0_cp
-                  VorZZ=0.0_cp
-                  do nZN=1,nZmax/2 ! Dont use equatorial point
-                     nZS  =nZmax-nZN+1
-                     delz =zZ(nZN,nS)-zZ(nZN+1,nS)
-                     sinT =one/OsinTS(nZN,nS)
-                     cosT =sqrt(one-sinT**2)
-                     VzN  = cosT*VrS(nPhi,nZN)-sinT*VtS(nPhi,nZN)
-                     VzS  =-cosT*VrS(nPhi,nZS)-sinT*VtS(nPhi,nZS)
-                     VorN =VozS(nPhi,nZN)
-                     VorS =VozS(nPhi,nZS)
-                     VzSN =VzSN+delz*VzS*VzN
-                     VzNN =VzNN+delz*VzN*VzN
-                     VzSS =VzSS+delz*VzS*VzS
-                     VorSN=VorSN+delz*VorS*VorN
-                     VorNN=VorNN+delz*VorN*VorN
-                     VorSS=VorSS+delz*VorS*VorS
-                     HelZZ=HelZZ+delz*(VorN*VzN+VorS*VzS)**2
-                     VZZ  =VZZ  +delz*(VzN*VzN+VzS*VzS)
-                     VorZZ=VorZZ+delz*(VorN*VorN+VorS*VorS)
-                  end do
-
-                  !------------ Calculate the integrals from zMin+0.1 to zMax-0.1:
-                  if ( VzSS /= 0.0_cp .and. VzNN /= 0.0_cp ) then
-                     CVz_I = VzSN/sqrt(VzSS*VzNN)
-                  else
-                     CVz_I = 0.0_cp
-                  end if
-                  if ( VorSS /= 0.0_cp .and. VorNN /= 0.0_cp ) then
-                     CVor_I=VorSN/sqrt(VorSS*VorNN)
-                  else
-                     CVor_I=0.0_cp
-                  end if
-                  if ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp .and. HelZZ > eps ) then
-                     CHel_I=sqrt(HelZZ/(VZZ*VorZZ))
-                  else
-                     CHel_I=0.0_cp
-                  end if
-                  CVz(nPhi,nSmax-nS+1) =real(CVz_I,kind=outp)
-                  CVor(nPhi,nSmax-nS+1)=real(CVor_I,kind=outp)
-                  CHel(nPhi,nSmax-nS+1)=real(CHel_I,kind=outp)
-                  CVz_s(nS) =CVz_s(nS) +phiNorm*sZ(nS)*dsZ*CVz_I  
-                  CVor_s(nS)=CVor_s(nS)+phiNorm*sZ(nS)*dsZ*CVor_I
-                  CHel_s(nS)=CHel_s(nS)+phiNorm*sZ(nS)*dsZ*CHel_I
-
-               end if ! lCorrel ?
-
-            end do  ! Loop over phi
-
-            if ( lDeriv ) then
-               !--------- dpEkInt treated differently cause phi intergral has 
-               !          already been preformed by getDVptr
-               if ( lTC ) then
-                  nInts=2 ! separate north and south integral
                else
-                  nInts=1
+                  EkOTC_s(nS)=EkOTC_s(nS) +                           &
+                       &      half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*EkIntS
                end if
-               do nInt=1,nInts
-                  if ( nInt == 2 ) then
-                     help=zMax
-                     zMax=-zMin
-                     zMin=-help
-                     do nZ=1,nZmax
-                        dpEkInt(nZ)=dpEkInt(nZ+nZmax)
-                     end do
-                  end if
-                  dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
-                  dpEk_s(nS)=dpEk_s(nS) +                                &
-                       &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
-                       &     (sZ(nS)**2) ! Convert angle to length
+
+               !-------- Note: chebIntD returns the z derivative
+               if ( lDeriv ) then
+                  do nZ=1,nZmax
+                     dzEkInt(nZ)=VrInt(nZ)*VrInt(nZ) +                &
+                          &      VtInt(nZ)*VtInt(nZ) + VpInt(nZ)*VpInt(nZ)
+                  end do
+                  dzEkIntS=chebInt(dzEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+                  dzEk_s(nS)=dzEk_s(nS) +                             &
+                       &     half*phiNorm*(zMax-zMin)*sZ(nS)*dsZ*dzEkIntS
+               end if
+
+            end do ! Loop over north/south integral
+
+
+            ! --- All the stuff for North/South correlation only outside TC
+            !     and only 0.1 away from boundaries:
+            !     Here only integrals over one hemisphere are required. I thus
+            !     copy the southern points to the northern hermisphere.
+            if ( lCorrel .and. .not.lTC ) then
+               VzSN =0.0_cp
+               VzSS =0.0_cp
+               VzNN =0.0_cp
+               VorSN=0.0_cp
+               VorSS=0.0_cp
+               VorNN=0.0_cp
+               HelZZ=0.0_cp
+               VZZ  =0.0_cp
+               VorZZ=0.0_cp
+               do nZN=1,nZmax/2 ! Dont use equatorial point
+                  nZS  =nZmax-nZN+1
+                  delz =zZ(nZN,nS)-zZ(nZN+1,nS)
+                  sinT =one/OsinTS(nZN,nS)
+                  cosT =sqrt(one-sinT**2)
+                  VzN  = cosT*VrS(nPhi,nZN)-sinT*VtS(nPhi,nZN)
+                  VzS  =-cosT*VrS(nPhi,nZS)-sinT*VtS(nPhi,nZS)
+                  VorN =VozS(nPhi,nZN)
+                  VorS =VozS(nPhi,nZS)
+                  VzSN =VzSN+delz*VzS*VzN
+                  VzNN =VzNN+delz*VzN*VzN
+                  VzSS =VzSS+delz*VzS*VzS
+                  VorSN=VorSN+delz*VorS*VorN
+                  VorNN=VorNN+delz*VorN*VorN
+                  VorSS=VorSS+delz*VorS*VorS
+                  HelZZ=HelZZ+delz*(VorN*VzN+VorS*VzS)**2
+                  VZZ  =VZZ  +delz*(VzN*VzN+VzS*VzS)
+                  VorZZ=VorZZ+delz*(VorN*VorN+VorS*VorS)
+               end do
+
+               !------------ Calculate the integrals from zMin+0.1 to zMax-0.1:
+               if ( VzSS /= 0.0_cp .and. VzNN /= 0.0_cp ) then
+                  CVz_I = VzSN/sqrt(VzSS*VzNN)
+               else
+                  CVz_I = 0.0_cp
+               end if
+               if ( VorSS /= 0.0_cp .and. VorNN /= 0.0_cp ) then
+                  CVor_I=VorSN/sqrt(VorSS*VorNN)
+               else
+                  CVor_I=0.0_cp
+               end if
+               if ( VZZ /= 0.0_cp .and. VorZZ /= 0.0_cp .and. HelZZ > eps ) then
+                  CHel_I=sqrt(HelZZ/(VZZ*VorZZ))
+               else
+                  CHel_I=0.0_cp
+               end if
+               CVz_Sloc(nPhi,nSstop-nS+nSstart) =real(CVz_I,kind=outp)
+               CVor_Sloc(nPhi,nSstop-nS+nSstart)=real(CVor_I,kind=outp)
+               CHel_Sloc(nPhi,nSstop-nS+nSstart)=real(CHel_I,kind=outp)
+               CVz_s(nS) =CVz_s(nS) +phiNorm*sZ(nS)*dsZ*CVz_I  
+               CVor_s(nS)=CVor_s(nS)+phiNorm*sZ(nS)*dsZ*CVor_I
+               CHel_s(nS)=CHel_s(nS)+phiNorm*sZ(nS)*dsZ*CHel_I
+
+            end if ! lCorrel ?
+
+         end do  ! Loop over phi
+
+         if ( lDeriv ) then
+            !--------- dpEkInt treated differently cause phi intergral has 
+            !          already been preformed by getDVptr
+            if ( lTC ) then
+               nInts=2 ! separate north and south integral
+            else
+               nInts=1
+            end if
+            do nInt=1,nInts
+               if ( nInt == 2 ) then
+                  help=zMax
+                  zMax=-zMin
+                  zMin=-help
+                  do nZ=1,nZmax
+                     dpEkInt(nZ)=dpEkInt(nZ+nZmax)
+                  end do
+               end if
+               dpEkIntS=chebInt(dpEkInt,zMin,zMax,nZmax,nZmaxA,chebt_Z(nS))
+               dpEk_s(nS)=dpEk_s(nS) +                                &
+                    &     half*(zMax-zMin)*sZ(nS)*dsZ*dpEkIntS /     &
+                    &     (sZ(nS)**2) ! Convert angle to length
+            end do
+         end if
+
+      end do ! big loop over S
+
+
+      !--- Collect:
+      EkSTC  =0.0_cp
+      EkNTC  =0.0_cp
+      EkOTC  =0.0_cp
+      Egeos  =0.0_cp
+      CVzOTC =0.0_cp
+      CVorOTC=0.0_cp
+      CHelOTC=0.0_cp
+      do nS=nSstart,nSstop
+         Egeos=Egeos+Egeos_s(nS)
+         if ( sZ(ns) < r_ICB ) then
+            EkSTC=EkSTC+EkSTC_s(nS)
+            EkNTC=EkNTC+EkNTC_s(nS)
+         else
+            EkOTC  =EkOTC  +EkOTC_s(nS)
+            if ( lCorrel ) then
+               CVzOTC =CVzOTC +CVz_s(nS)
+               CVorOTC=CVorOTC+CVor_s(nS)
+               CHelOTC=CHelOTC+CHel_s(nS)
+            end if
+         end if
+      end do
+
+#ifdef WITH_MPI
+      call MPI_Allreduce(MPI_IN_PLACE, EkSTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, EkNTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, EkOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, Egeos, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, CVzOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, CVorOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, CHelOTC, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      if ( lCorrel ) then
+         surf=0.0_cp
+         do nS=nSstart,nSstop
+            if ( sZ(nS) >= r_ICB ) surf=surf+sZ(nS)*dsZ
+         end do
+#ifdef WITH_MPI
+         call MPI_Allreduce(MPI_IN_PLACE, surf, 1, MPI_DEF_REAL, MPI_SUM,  &
+              &             MPI_COMM_WORLD, ierr)
+#endif
+
+         surf   =two*pi*surf
+         CVzOTC =CVzOTC/surf
+         CVorOTC=CVorOTC/surf
+         CHelOTC=CHelOTC/surf
+      end if
+      Ekin=EkSTC+EkNTC+EKOTC ! Can be used for testing 
+
+      dpFlow=0.0_cp
+      dzFlow=0.0_cp
+      if ( lDeriv ) then
+         do nS=nSstart,nSstop
+            dpFlow=dpFlow+dpEk_s(nS)
+            dzFlow=dzFlow+dzEk_s(nS)
+         end do
+         if ( dpFlow /= 0.0_cp ) then
+            dpFlow = sqrt(Ekin/dpFlow)
+         else
+            dpFlow = 0.0_cp
+         end if
+         if ( dzFlow /= 0.0_cp ) then
+            dzFlow = sqrt(Ekin/dzFlow)
+         else
+            dzFlow = 0.0_cp
+         end if
+      end if
+#ifdef WITH_MPI
+      call MPI_Allreduce(MPI_IN_PLACE, dpFlow, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+      call MPI_Allreduce(MPI_IN_PLACE, dzFlow, 1, MPI_DEF_REAL, MPI_SUM,  &
+           &             MPI_COMM_WORLD, ierr)
+#endif
+
+      if ( Ekin > 0.0_cp ) then
+         Geos = Egeos/Ekin ! relative geostrophic kinetic energy
+      else
+         Geos = 0.0_cp
+         Ekin = -one 
+      end if
+
+      l_corrMov=.true.
+
+      if ( l_corrMov ) then
+         !--- Determine s used for correl
+         n=0
+         do nS=nSstart,nSstop
+            if ( sZ(nS) >= r_ICB+0.1_cp .and. sZ(nS) <= r_CMB-0.1_cp ) then
+               n=n+1
+            else 
+               do nPhi=1,n_phi_max
+                  CVz_Sloc(nPhi,nSstop-nS+nSstart) =0.0_cp
+                  CVor_Sloc(nPhi,nSstop-nS+nSstart)=0.0_cp
+                  CHel_Sloc(nPhi,nSstop-nS+nSstart)=0.0_cp
                end do
             end if
-
-         end do ! big loop over S
-
-         !--- Collect:
-         EkSTC  =0.0_cp
-         EkNTC  =0.0_cp
-         EkOTC  =0.0_cp
-         Egeos  =0.0_cp
-         CVzOTC =0.0_cp
-         CVorOTC=0.0_cp
-         CHelOTC=0.0_cp
-         do nS=1,nSmax
-            Egeos=Egeos+Egeos_s(nS)
-            if ( sZ(ns) < r_ICB ) then
-               EkSTC=EkSTC+EkSTC_s(nS)
-               EkNTC=EkNTC+EkNTC_s(nS)
-            else
-               EkOTC  =EkOTC  +EkOTC_s(nS)
-               if ( lCorrel ) then
-                  CVzOTC =CVzOTC +CVz_s(nS)
-                  CVorOTC=CVorOTC+CVor_s(nS)
-                  CHelOTC=CHelOTC+CHel_s(nS)
-               end if
-            end if
          end do
-         if ( lCorrel ) then
-            surf=0.0_cp
-            do nS=1,nSmax
-               if ( sZ(nS) >= r_ICB ) surf=surf+sZ(nS)*dsZ
-            end do
-            surf   =two*pi*surf
-            CVzOTC =CVzOTC/surf
-            CVorOTC=CVorOTC/surf
-            CHelOTC=CHelOTC/surf
-         end if
-         Ekin=EkSTC+EkNTC+EKOTC ! Can be used for testing 
 
-         dpFlow=0.0_cp
-         dzFlow=0.0_cp
-         if ( lDeriv ) then
-            do nS=1,nSmax
-               dpFlow=dpFlow+dpEk_s(nS)
-               dzFlow=dzFlow+dzEk_s(nS)
-            end do
-            if ( dpFlow /= 0.0_cp ) then
-               dpFlow = sqrt(Ekin/dpFlow)
-            else
-               dpFlow = 0.0_cp
-            end if
-            if ( dzFlow /= 0.0_cp ) then
-               dzFlow = sqrt(Ekin/dzFlow)
-            else
-               dzFlow = 0.0_cp
-            end if
+#ifdef WITH_MPI
+         sendcount  = (nSstop-nSstart+1)*nrpGeos
+         recvcounts = nS_per_rank*nrpGeos
+         recvcounts(n_procs-1)=nS_on_last_rank*nrpGeos
+         do i=0,n_procs-1
+            displs(i) = i*nS_per_rank*nrpGeos
+         end do
+
+         call MPI_GatherV(CVZ_Sloc,sendcount,MPI_OUT_REAL,     &
+              &           CVZ,recvcounts,displs,MPI_OUT_REAL,  &
+              &           0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(CVor_Sloc,sendcount,MPI_OUT_REAL,    &
+              &           CVor,recvcounts,displs,MPI_OUT_REAL, &
+              &           0,MPI_COMM_WORLD,ierr)
+         call MPI_GatherV(CHel_Sloc,sendcount,MPI_OUT_REAL,    &
+              &           CHel,recvcounts,displs,MPI_OUT_REAL, &
+              &           0,MPI_COMM_WORLD,ierr)
+#else
+         CVz(:,:) =CVz_Sloc(:,:) 
+         CVor(:,:)=CVor_Sloc(:,:) 
+         CHel(:,:)=CHel_Sloc(:,:) 
+#endif
+
+      end if
+
+      if ( rank == 0 ) then
+
+         if ( l_save_out ) then
+            open(newunit=n_geos_file, file=geos_file, status='unknown', &
+            &    position='append')
          end if
+
+         write(n_geos_file,'(1P,ES20.12,7ES16.8)')       &
+         &     time, Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin, &
+         &     CVzOTC, CVorOTC, CHelOTC
+
+         if ( l_save_out ) close(n_geos_file)
+         !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
+         !    get an idea of the precision of cylindrical integration in getEgeos.
 
          !        write(99,*) 'E:',EkSTC,EkNTC,EkOTC
          !        write(99,*) 'Ekin:',Ekin
@@ -516,21 +638,6 @@ contains
          !--- Write correlation movie:
          if ( l_corrMov ) then
 
-            !--- Determine s used for correl
-            n=0
-            do nS=1,nSmax
-               if ( sZ(nS) >= r_ICB+0.1_cp .and. sZ(nS) <= r_CMB-0.1_cp ) then
-                  n=n+1
-               else 
-                  do nPhi=1,n_phi_max
-                     CVz(nPhi,nSmax-nS+1)=0.0_cp
-                     CVor(nPhi,nSmax-nS+1)=0.0_cp
-                  end do
-               end if
-            end do
-            !           ndS=nSmax-n
-            !          nSmax=n
-
             movFile ='CVorz_mov.'//tag
             open(newunit=nOutFile, file=movFile, status='unknown',   &
             &    form='unformatted', position='append')
@@ -538,7 +645,7 @@ contains
             !--- Write header into output file:
             if ( nGeosSets == 1 ) then
 
-               nFields=3
+               nFields=2
                nFieldSize=(nSmax-nS_ICB+1)*n_phi_max
                version='JW_Movie_Version_2'
                write(nOutFile) version
@@ -585,33 +692,13 @@ contains
 
             write(nOutFile) ((CVz(nPhi,nS) ,nPhi=1,n_phi_max), nS=1,nSmax)
             write(nOutFile) ((CVor(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
-            write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
+            ! write(nOutFile) ((CHel(nPhi,nS),nPhi=1,n_phi_max), nS=1,nSmax)
+
+            close(nOutFile)
 
          end if ! l_corrMov
 
-         if ( Ekin > 0.0_cp ) then
-            Geos = Egeos/Ekin ! relative geostrophic kinetic energy
-         else
-            Geos = 0.0_cp
-            Ekin = -one 
-         end if
-
-         if ( l_save_out ) then
-            open(newunit=n_geos_file, file=geos_file, status='unknown', &
-            &    position='append')
-         end if
-
-         write(n_geos_file,'(1P,ES20.12,7ES16.8)')        &
-              & time, Geos, EkNTC/Ekin, EkSTC/Ekin, Ekin, &
-              & CVzOTC, CVorOTC, CHelOTC
-
-         if ( l_save_out ) close(n_geos_file)
-         !--- NOTE: Ekin can be compared with energy in e_kin.TAG to
-         !    get an idea of the precision of cylindrical integration in getEgeos.
-
       end if ! rank == 0
-
-      deallocate( wS_global, dwS_global, ddwS_global, zS_global, dzS_global )
 
       if ( lVerbose ) write(*,*) '! End of getGeos!'
 
