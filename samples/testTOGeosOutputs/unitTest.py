@@ -41,19 +41,45 @@ def readStack(file):
 
 
 def generateEkinFile(fileName='e_kin.test'):
-    from magic import TOMovie
+    from magic import TOMovie, MagicTOZ, MagicTaySphere, MagicTOHemi
 
+    # Write output for TO_mov file
     to = TOMovie(file='TO_mov.start', iplot=False)
-
     out = 'tmp'
     file = open(out, 'w')
     st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( to.asVphi[0, 13, 3], 
          to.rey[1, 21, 22], to.adv[1, 52, 11], to.visc[0, 12, 25], 
          to.lorentz[0, 73, 30], to.coriolis[1, 33, 3], to.dtVp[1, 88, 7] )
 
-    # Write output for TO files
     file.write(st+'\n')
+
+    # TOZ_3.TAG file
+    to = MagicTOZ(itoz=3)
+    st = '%.4f %.4f %.4f %.4f' % (to.vp[12, 12], to.Rstr[11, 20], to.LF[3, 5], to.str[4, 4])
+    file.write(st+'\n')
+
+    # TOZ_ave.TAG file
+    to = MagicTOZ(ave=True)
+    st = '%.4f %.4f %.4f %.4f' % (to.dvp[6, 18], to.Cor[12, 11], to.Astr[7, 2], to.CL[2, 8])
+    file.write(st+'\n')
+
+    # TOnhs.TAG
+    to = MagicTOHemi(hemi='n')
+    st = '%.4f %.4f %.4f %.4f' % (to.vp[2, 18], to.rstr[3, 11], to.astr[0, 30], to.LF[2, 21])
+    file.write(st+'\n')
+
+    # TOshs.TAG
+    to = MagicTOHemi(hemi='s')
+    st = '%.4f %.4f %.4f %.4f' % (to.dvp[3, 12], to.viscstr[1, 9], to.tay[4, 27], to.vpr[2, 21])
+    file.write(st+'\n')
+
+    # TaySphere.TAG
+    to = MagicTaySphere()
+    st = '%.4f %.4f %.4f %.4f' % (to.e_kin[3], to.tayRMS[4], to.viscstr[4, 27], to.LF[2, 21])
+    file.write(st+'\n')
+
     file.close()
+
 
     # Cat e_kin.test + misc
     with open(fileName, 'w') as outFile:
