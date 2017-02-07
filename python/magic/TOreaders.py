@@ -110,7 +110,6 @@ class TOMovie:
 
         # READ the data
         for k in range(self.nvar):
-            print(k)
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
                            movieDipStrengthGeo = infile.fort_read(precision)
@@ -347,7 +346,7 @@ class MagicTOZ(MagicSetup):
     >>> toz = MagicTOZ(tag='test', ave=True)
     """
 
-    def __init__(self, datadir='.', itoz=1, tag=None, precision='Float32', ave=False):
+    def __init__(self, datadir='.', itoz=None, tag=None, precision='Float32', ave=False):
         """
         :param datadir: current working directory
         :type datadir: str
