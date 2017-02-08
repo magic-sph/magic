@@ -1,4 +1,4 @@
-module Egeos_mod
+module geos_mod
  
    use precision_mod
    use parallel_mod
@@ -25,6 +25,7 @@ module Egeos_mod
  
    private
  
+   real(cp) :: timeOld
    real(cp), allocatable :: PlmS(:,:,:), PlmZ(:,:,:)
    real(cp), allocatable :: dPlmS(:,:,:), dPlmZ(:,:,:)
    real(cp), allocatable :: OsinTS(:,:)
@@ -42,11 +43,11 @@ module Egeos_mod
    integer :: nSmax, nZmaxA, nSstart, nSstop, nS_per_rank, nS_on_last_rank
    character(len=72) :: geos_file
  
-   public :: initialize_Egeos_mod, getEgeos, finalize_Egeos_mod
+   public :: initialize_geos_mod, getEgeos, finalize_geos_mod, outPV
 
 contains
 
-   subroutine initialize_Egeos_mod(l_geos, l_PV)
+   subroutine initialize_geos_mod(l_geos, l_PV)
       !
       ! Memory allocation in Egeos
       !
@@ -110,9 +111,9 @@ contains
          end if
       end if
 
-   end subroutine initialize_Egeos_mod
+   end subroutine initialize_geos_mod
 !----------------------------------------------------------------------------
-   subroutine finalize_Egeos_mod(l_geos, l_PV)
+   subroutine finalize_geos_mod(l_geos, l_PV)
       !
       ! Memory deallocation
       !
@@ -129,7 +130,7 @@ contains
 
       if ( l_PV ) deallocate( PlmZ, dPlmZ, VorOld, nZC, nZ2 )
 
-   end subroutine finalize_Egeos_mod
+   end subroutine finalize_geos_mod
 !----------------------------------------------------------------------------
    subroutine getEgeos(time,nGeosSets,w,dw,ddw,z,dz,Geos,dpFlow,dzFlow)
       !
@@ -170,13 +171,6 @@ contains
       real(cp) :: phiNorm
       logical :: lTC
 
-      !-- Local field copies to avoid changes by back and forth cosine transforms:
-      complex(cp) :: wS(llm:ulm,n_r_max)
-      complex(cp) :: dwS(llm:ulm,n_r_max)
-      complex(cp) :: ddwS(llm:ulm,n_r_max)
-      complex(cp) :: zS(llm:ulm,n_r_max)
-      complex(cp) :: dzS(llm:ulm,n_r_max)
-
 
       !-- Representation in (phi,z):
       real(cp) :: VrS(nrp,nZmaxA),VrInt(nZmaxA),VrIntS
@@ -186,7 +180,6 @@ contains
       real(cp) :: sinT,cosT
       integer :: nInt,nInts   ! index for NHS and SHS integral
       integer :: nZ,nZmax,nZS,nZN
-      integer :: lm,nR
       real(cp) :: EkInt(nZmaxA),EkIntS
       real(cp) :: EkSTC_s(nSstart:nSstop),EkNTC_s(nSstart:nSstop)
       real(cp) :: Egeos_s(nSstart:nSstop),EkOTC_s(nSstart:nSstop)
@@ -209,7 +202,7 @@ contains
       integer :: nOutFile,n
       character(len=66) :: movFile
       character(len=64) :: version
-      integer :: nFields,nFieldSize,l,m
+      integer :: nFields,nFieldSize
       real(cp) :: dumm(40)
       real(outp) :: CVz(nrp,nSmax)
       real(outp) :: CVor(nrp,nSmax)
@@ -225,42 +218,7 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outGeos!'
 
-      do nR=1,n_r_max
-         do lm=llm,ulm
-            l = lo_map%lm2l(lm)
-            m = lo_map%lm2m(lm)
-            wS(lm,nR)  =w(lm,nR)*dLh(st_map%lm2(l,m))
-            dwS(lm,nR) =dw(lm,nR)
-            ddwS(lm,nR)=ddw(lm,nR)
-            zS(lm,nR)  =z(lm,nR)
-            dzS(lm,nR) =dz(lm,nR)
-         end do
-      end do
-
-      call rscheme_oc%costf1(wS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(ddwS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
-
-      !-- Unfortunately they need to be broadcasted...
-      call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
-#ifdef WITH_MPI
-      call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,&
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
-           &         MPI_COMM_WORLD, ierr)
-      call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
-           &         MPI_COMM_WORLD, ierr)
-#endif
+      call costf_arrays(w,dw,ddw,z,dz)
 
       lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
 
@@ -753,7 +711,7 @@ contains
       integer, intent(inout) :: nPVsets
 
       !-- (l,r) Representation of the different contributions
-      real(cp) :: dzVpLMr(l_max+1,n_r_max)
+      real(cp) :: dzVpLMr(l_max+1,n_r_max), dzVpLMr_loc(l_max+1,n_r_max)
 
       !--- Work array:
       real(cp) :: workAr(lm_max,n_r_max)
@@ -769,7 +727,11 @@ contains
       integer :: nZ,nZmaxNS
       integer, save :: nZS
       real(cp) :: zZ(nZmaxA),zstep!,zZC
-      real(cp) :: VpAS(nZmaxA),omS(nZmaxA)
+      real(cp) :: VpAS(nZmaxA),omS(nZmaxA,nSmax)
+
+      !-- Local arrays
+      real(cp) :: omS_Sloc(nZmaxA,nSstart:nSstop)
+      real(outp) :: frame_Sloc(5,n_phi_max*nZmaxA,nSstart:nSstop)
 
       !-- Plms: Plm,sin
       integer :: nR,nPhi,nC
@@ -783,28 +745,20 @@ contains
       real(cp) :: VpS(nrp,nZmaxA)
       real(cp) :: VzS(nrp,nZmaxA)
       real(cp) :: VorS(nrp,nZmaxA)
-      real(outp) :: out1(n_phi_max*nZmaxA)
-      real(outp) :: out2(n_phi_max*nZmaxA)
-      real(outp) :: out3(n_phi_max*nZmaxA)
-      real(outp) :: out4(n_phi_max*nZmaxA)
-      real(outp) :: out5(n_phi_max*nZmaxA)
-      real(cp), save :: timeOld
-
-      complex(cp) :: wP(llm:ulm,n_r_max)
-      complex(cp) :: dwP(llm:ulm,n_r_max)
-      complex(cp) :: ddwP(llm:ulm,n_r_max)
-      complex(cp) :: zP(llm:ulm,n_r_max)
-      complex(cp) :: dzP(llm:ulm,n_r_max)
+      real(outp) :: frame(5,n_phi_max*nZmaxA,nSmax)
 
       integer :: n_pvz_file, n_vcy_file
 
+#ifdef WITH_MPI
+      integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
+#endif
 
       if ( lVerbose ) write(*,*) '! Starting outPV!'
 
       kindCalc = 2
 
-      !-- I tried to fix this but I'm not sure it's actually correct,
-      !-- since there's no auto-test for this output this might be wrong
+      call costf_arrays(w,dw,ddw,z,dz)
+
       if ( l_stop_time ) then
          if ( l_SRIC  .and. omega_IC /= 0 ) then
             fac=one/omega_IC
@@ -812,62 +766,148 @@ contains
             fac=one
          end if
          do nR=1,n_r_max
+            dzVpLMr_loc(:,nR)=0.0_cp
             do lm=llm,ulm
-               l = lo_map%lm2l(lm)
-               m = lo_map%lm2m(lm)
-               if ( m == 0 ) then
-                  dzVpLMr(l+1,nR)=fac*real(z(lm,nR))
-               end if
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               if ( m == 0 ) dzVpLMr_loc(l+1,nR)=fac*real(z(lm,nR))
             end do
+#ifdef WITH_MPI
+            call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
+                 &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+            dzVPLMr(:,nR)=dzVpLMr_loc(:,nR)
+#endif
          end do
 
          !---- Transform the contributions to cheb space:
          call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workAr)
+
       end if
 
-      do nR=1,n_r_max
-         do lm=llm,ulm
-            l = lo_map%lm2l(lm)
-            m = lo_map%lm2m(lm)
-            wP(lm,nR) =w(lm,nR)*dLh(st_map%lm2(l,m))
-            dwP(lm,nR)=dw(lm,nR)
-            ddwP(lm,nR)=ddw(lm,nR)
-            zP(lm,nR)=z(lm,nR)
-            dzP(lm,nR)=dz(lm,nR)
-         end do
+
+      nPVsets=nPVsets+1
+
+      !-- Global arrays
+      dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
+      nSI=0                  ! Inner core position
+      do nS=1,nSmax
+         sZ(nS)=(nS-half)*dsZ
+         if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
+      end do
+      zstep=2*r_CMB/real(nZmaxA-1,kind=cp)
+      do nZ=1,nZmaxA
+         zZ(nZ)=r_CMB-(nZ-1)*zstep
       end do
 
-      call rscheme_oc%costf1(wP,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dwP,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(ddwP,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(zP,ulm-llm+1,1,ulm-llm+1)
-      call rscheme_oc%costf1(dzP,ulm-llm+1,1,ulm-llm+1)
 
-      call gather_all_from_lo_to_rank0(gt_OC,wP,wS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dwP,dwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,ddwP,ddwS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,zP,zS_global)
-      call gather_all_from_lo_to_rank0(gt_OC,dzP,dzS_global)
+      do nS=nSstart,nSstop
 
-      if ( rank == 0 ) then
+         !------ Get r,theta,Plm,dPlm for northern hemishere:
+         if ( nPVsets == 1 ) then ! do this only for the first call !
+            nZC(nS)=0 ! Points within shell
+            do nZ=1,nZmaxA
+               rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
+               if ( rZS >= r_ICB .and. rZS <= r_CMB ) then
+                  nZC(nS)=nZC(nS)+1  ! Counts all z within shell
+                  nZ2(nZ,nS)=nZC(nS) ! No of point within shell
+                  if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
+                     rZ(nZC(nS),nS)=rZS
+                     thetaZ=atan2(sZ(nS),zZ(nZ))
+                     OsinTS(nZC(nS),nS)=one/sin(thetaZ)
+                     call plm_theta(thetaZ,l_max,0,minc,              &
+                          &    PlmZ(:,nZC(nS),nS),dPlmZ(:,nZC(nS),nS),l_max+1,2)
+                     call plm_theta(thetaZ,l_max,m_max,minc,          &
+                          &    PlmS(:,nZC(nS),nS),dPlmS(:,nZC(nS),nS),lm_max,2)
+                  end if
+               else
+                  nZ2(nZ,nS)=-1 ! No z found within shell !
+               end if
+            end do
+         end if
 
-         nPVsets=nPVsets+1
-
-         !-- Start with calculating advection due to axisymmetric flows:
-
-         dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
-         nSI=0                  ! Inner core position
-         do nS=1,nSmax
-            sZ(nS)=(nS-half)*dsZ
-            if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
-         end do
-         zstep=2*r_CMB/real(nZmaxA-1,kind=cp)
-         do nZ=1,nZmaxA
-            zZ(nZ)=r_CMB-(nZ-1)*zstep
-         end do
-
-         !--- Open file for output:
+         !-- Get azimuthal flow component in the shell
+         nZmaxNS=nZC(nS) ! all z points within shell
          if ( l_stop_time ) then
+            call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max,r_ICB,r_CMB,n_r_max, &
+                 &        rZ(:,nS),dPlmZ(:,:,nS),OsinTS(:,nS))
+
+            !-- Copy to array with all z-points
+            do nZ=1,nZmaxA
+               rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
+               nZS=nZ2(nZ,nS)
+               if ( nZS > 0 ) then
+                  omS_Sloc(nZ,nS)=VpAS(nZS)/sZ(nS)
+               else
+                  if ( rZS <= r_ICB ) then
+                     omS_Sloc(nZ,nS)=one
+                  else
+                     omS_Sloc(nZ,nS)=fac*omega_MA
+                  end if
+               end if
+            end do
+         end if
+
+         !-- Get all three components in the shell
+         call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global,   &
+              &        r_ICB,r_CMB,rZ(:,nS),nZmaxNS,nZmaxA,PlmS(:,:,nS),        &
+              &        dPlmS(:,:,nS),OsinTS(:,nS),kindCalc,VsS,VpS,VzS,VorS)
+
+         if ( l_stop_time ) then
+            nC=0
+            do nZ=1,nZmaxNS
+               do nPhi=1,n_phi_max
+                  nC=nC+1
+                  frame_Sloc(1,nC,nS)=real(VsS(nPhi,nZ),kind=outp) ! Vs
+                  frame_Sloc(2,nC,nS)=real(VpS(nPhi,nZ),kind=outp) ! Vphi
+                  frame_Sloc(3,nC,nS)=real(VzS(nPhi,nZ),kind=outp) ! Vz
+                  frame_Sloc(4,nC,nS)=real(VorS(nPhi,nZ),kind=outp)
+                  frame_Sloc(5,nC,nS)=(real(VorS(nPhi,nZ)-VorOld(nPhi,nZ,nS),kind=outp))/ &
+                              (real(time-timeOld,kind=outp))
+               end do
+            end do
+         else
+            timeOld=time
+            do nZ=1,nZmaxNS
+               do nPhi=1,n_phi_max
+                  VorOld(nPhi,nZ,nS)=VorS(nPhi,nZ)
+               end do
+            end do
+         end if
+
+      end do  ! Loop over s 
+
+      if ( l_stop_time ) then
+
+#ifdef WITH_MPI
+         sendcount  = (nSstop-nSstart+1)*nZmaxA
+         do i=0,n_procs-1
+            recvcounts(i) = nS_per_rank*nZmaxA
+            displs(i) = i*nS_per_rank*nZmaxA
+         end do
+         recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA
+         call MPI_GatherV(omS_Sloc, sendcount, MPI_DEF_REAL,       &
+              &           omS, recvcounts, displs, MPI_DEF_REAL,   &
+              &           0, MPI_COMM_WORLD, ierr)
+
+         sendcount  = (nSstop-nSstart+1)*nZmaxA*n_phi_max*5
+         do i=0,n_procs-1
+            recvcounts(i) = nS_per_rank*nZmaxA*n_phi_max*5
+            displs(i) = i*nS_per_rank*nZmaxA*n_phi_max*5
+         end do
+         recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA*n_phi_max*5
+         call MPI_GatherV(frame_Sloc, sendcount, MPI_OUT_REAL,       &
+              &           frame, recvcounts, displs, MPI_OUT_REAL,   &
+              &           0, MPI_COMM_WORLD, ierr)
+#else
+         omS(:,:)    =omS_Sloc(:,:)
+         frame(:,:,:)=frame_Sloc(:,:,:)
+
+#endif
+         !-- Write output only at the final timestep
+         if ( rank == 0 ) then
+
+            !--- Open file for output:
             fileName='PVZ.'//tag
             open(newunit=n_pvz_file, file=fileName, form='unformatted', &
             &    status='unknown')
@@ -888,97 +928,23 @@ contains
             &     real(radratio,kind=outp), real(minc,kind=outp)
             write(n_vcy_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
             write(n_vcy_file) (real(zZ(nZ),kind=outp),nZ=1,nZmaxA)
-         end if
 
-
-
-         do nS=1,nSmax
-
-            !------ Get r,theta,Plm,dPlm for northern hemishere:
-            if ( nPVsets == 1 ) then ! do this only for the first call !
-               nZC(nS)=0 ! Points within shell
-               do nZ=1,nZmaxA
-                  rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
-                  if ( rZS >= r_ICB .and. rZS <= r_CMB ) then
-                     nZC(nS)=nZC(nS)+1  ! Counts all z within shell
-                     nZ2(nZ,nS)=nZC(nS) ! No of point within shell
-                     if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
-                        rZ(nZC(nS),nS)=rZS
-                        thetaZ=atan2(sZ(nS),zZ(nZ))
-                        OsinTS(nZC(nS),nS)=one/sin(thetaZ)
-                        call plm_theta(thetaZ,l_max,0,minc,              &
-                             &    PlmZ(:,nZC(nS),nS),dPlmZ(:,nZC(nS),nS),l_max+1,2)
-                        call plm_theta(thetaZ,l_max,m_max,minc,          &
-                             &    PlmS(:,nZC(nS),nS),dPlmS(:,nZC(nS),nS),lm_max,2)
-                     end if
-                  else
-                     nZ2(nZ,nS)=-1 ! No z found within shell !
-                  end if
-               end do
-            end if
-
-            !-- Get azimuthal flow component in the shell
-            nZmaxNS=nZC(nS) ! all z points within shell
-            if ( l_stop_time ) then
-               call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max,r_ICB,r_CMB,n_r_max, &
-                    &        rZ(:,nS),dPlmZ(:,:,nS),OsinTS(:,nS))
-
-               !-- Copy to array with all z-points
-               do nZ=1,nZmaxA
-                  rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
-                  nZS=nZ2(nZ,nS)
-                  if ( nZS > 0 ) then
-                     omS(nZ)=VpAS(nZS)/sZ(nS)
-                  else
-                     if ( rZS <= r_ICB ) then
-                        omS(nZ)=one
-                     else
-                        omS(nZ)=fac*omega_MA
-                     end if
-                  end if
-               end do
-            end if
-
-            !-- Get all three components in the shell
-            call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global,   &
-                 &        r_ICB,r_CMB,rZ(:,nS),nZmaxNS,nZmaxA,PlmS(:,:,nS),        &
-                 &        dPlmS(:,:,nS),OsinTS(:,nS),kindCalc,VsS,VpS,VzS,VorS)
-
-            if ( l_stop_time ) then
-               write(n_pvz_file) (real(omS(nZ),kind=outp),nZ=1,nZmaxA)
+            do nS=1,nSmax
+               write(n_pvz_file) (real(omS(nZ,nS),kind=outp),nZ=1,nZmaxA)
                write(n_vcy_file) real(nZmaxNS,kind=outp)
-               nC=0
-               do nZ=1,nZmaxNS
-                  do nPhi=1,n_phi_max
-                     nC=nC+1
-                     out1(nC)=real(VsS(nPhi,nZ),kind=outp) ! Vs
-                     out2(nC)=real(VpS(nPhi,nZ),kind=outp) ! Vphi
-                     out3(nC)=real(VzS(nPhi,nZ),kind=outp) ! Vz
-                     out4(nC)=real(VorS(nPhi,nZ),kind=outp)
-                     out5(nC)=(real(VorS(nPhi,nZ)-VorOld(nPhi,nZ,nS),kind=outp))/ &
-                              (real(time-timeOld,kind=outp))
-                  end do
-               end do
-               write(n_vcy_file) (out1(nZ),nZ=1,nC)
-               write(n_vcy_file) (out2(nZ),nZ=1,nC)
-               write(n_vcy_file) (out3(nZ),nZ=1,nC)
-               write(n_vcy_file) (out4(nZ),nZ=1,nC)
-               write(n_vcy_file) (out5(nZ),nZ=1,nC)
-            else
-               timeOld=time
-               do nZ=1,nZmaxNS
-                  do nPhi=1,n_phi_max
-                     VorOld(nPhi,nZ,nS)=VorS(nPhi,nZ)
-                  end do
-               end do
-            end if
+               write(n_vcy_file) (frame(1,nZ,nS),nZ=1,nC)
+               write(n_vcy_file) (frame(2,nZ,nS),nZ=1,nC)
+               write(n_vcy_file) (frame(3,nZ,nS),nZ=1,nC)
+               write(n_vcy_file) (frame(4,nZ,nS),nZ=1,nC)
+               write(n_vcy_file) (frame(5,nZ,nS),nZ=1,nC)
+            end do
 
-         end do  ! Loop over s 
+            close(n_pvz_file)
+            close(n_vcy_file)
 
-         if ( l_stop_time ) close(n_pvz_file)
-         if ( l_stop_time ) close(n_vcy_file)
+         end if ! Rank 0
 
-      end if ! Rank 0
+      end if ! l_stop_time
 
    end subroutine outPV
 !---------------------------------------------------------------------------------
@@ -990,11 +956,9 @@ contains
       !  dPlmS=sin(theta)*dTheta Plm(theta), and OsinTS=1/sin(theta).
       !  The flow is calculated for all n_phi_max azimuthal points used in the code,
       !  and for corresponding latitudes north and south of the equator.
-      !  For lDeriv=.true. the subroutine also calculates dpEk and dzEk which
+      !  When kindCalc=1, the subroutine also calculates dpEk and dzEk which
       !  are phi averages of (d Vr/d phi)**2 + (d Vtheta/ d phi)**2 + (d Vphi/ d phi)**2
       !  and (d Vr/d z)**2 + (d Vtheta/ d z)**2 + (d Vphi/ d z)**2, respectively.
-      !  These two quantities are used to calculate z and phi scale of the flow in
-      !  s_getEgeos.f
       !  
       !  .. note:: on input wS=w/r^2, dwS=dw/r, ddwS=ddw/r, zS=z/r
       !
@@ -1305,4 +1269,64 @@ contains
     
    end subroutine getDVptr
 !----------------------------------------------------------------------------
-end module Egeos_mod
+   subroutine costf_arrays(w,dw,ddw,z,dz)
+      !
+      ! This subroutine performs local copy of LM-distributed arrays, do
+      ! a cosine transform and then allgather them
+      !
+
+      !-- Input variables
+      complex(cp), intent(in) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: ddw(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
+      complex(cp), intent(in) :: dz(llm:ulm,n_r_max)
+
+      !-- Local variables
+      complex(cp) :: wS(llm:ulm,n_r_max)
+      complex(cp) :: dwS(llm:ulm,n_r_max)
+      complex(cp) :: ddwS(llm:ulm,n_r_max)
+      complex(cp) :: zS(llm:ulm,n_r_max)
+      complex(cp) :: dzS(llm:ulm,n_r_max)
+
+      integer :: nR, lm, l, m
+
+      do nR=1,n_r_max
+         do lm=llm,ulm
+            l = lo_map%lm2l(lm)
+            m = lo_map%lm2m(lm)
+            wS(lm,nR)  =w(lm,nR)*dLh(st_map%lm2(l,m))
+            dwS(lm,nR) =dw(lm,nR)
+            ddwS(lm,nR)=ddw(lm,nR)
+            zS(lm,nR)  =z(lm,nR)
+            dzS(lm,nR) =dz(lm,nR)
+         end do
+      end do
+
+      call rscheme_oc%costf1(wS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dwS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(ddwS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(zS,ulm-llm+1,1,ulm-llm+1)
+      call rscheme_oc%costf1(dzS,ulm-llm+1,1,ulm-llm+1)
+
+      !-- Unfortunately they need to be broadcasted...
+      call gather_all_from_lo_to_rank0(gt_OC,wS,wS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dwS,dwS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,ddwS,ddwS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,zS,zS_global)
+      call gather_all_from_lo_to_rank0(gt_OC,dzS,dzS_global)
+#ifdef WITH_MPI
+      call MPI_Bcast(wS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(dwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(ddwS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,&
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(zS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0,  &
+           &         MPI_COMM_WORLD, ierr)
+      call MPI_Bcast(dzS_global,n_r_max*lm_max, MPI_DEF_COMPLEX, 0, &
+           &         MPI_COMM_WORLD, ierr)
+#endif
+   end subroutine costf_arrays
+!------------------------------------------------------------------------------
+end module geos_mod

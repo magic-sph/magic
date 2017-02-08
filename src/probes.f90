@@ -39,8 +39,7 @@ contains
 
    subroutine initialize_probes
       
-      integer           :: rIter,thIter
-      real(cp)          :: deg2rad
+      real(cp) :: deg2rad
 
       deg2rad = pi/180.0_cp
       probe_file = "probeVp."//tag

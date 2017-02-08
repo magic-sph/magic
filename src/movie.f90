@@ -393,7 +393,7 @@ contains
       character(len=80) :: string,word,stringC
       character(len=80) :: file_name
       character(len=50) :: typeStr
-      integer :: n_r,n_theta,n_phi
+      integer :: n_theta,n_phi
       real(cp) :: r_movie,theta_movie,phi_movie
       real(cp) :: phi_max
       real(cp) :: rad

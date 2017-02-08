@@ -36,13 +36,12 @@ module output_mod
    use spectra, only: spectrum_average, spectrum, spectrum_temp, &
        &              spectrum_temp_average, get_amplitude
    use outTO_mod, only: outTO
-   use outPV3, only: outPV
    use output_data, only: tag, l_max_cmb, n_rst_file, n_coeff_r, l_max_r,   &
        &                  n_r_array, n_r_step,  n_log_file, log_file,       &
        &                  n_coeff_r_max, rst_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
-   use Egeos_mod, only: getEgeos
+   use geos_mod, only: getEgeos, outPV
    use outRot, only: write_rot
    use charmanip, only: dble2str, length_to_blank
    use omega, only: outOmega

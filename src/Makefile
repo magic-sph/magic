@@ -386,10 +386,6 @@ power.o               : truncation.o blocking.o horizontal.o\
                         output_data.o outRot.o integration.o useful.o\
                         mem_alloc.o legendre_spec_to_grid.o
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
-outPV3.o              : truncation.o horizontal.o cosine_transform_odd.o\
-                        phys_param.o radial.o logic.o blocking.o\
-                        output_data.o plms.o TO_helpers.o mem_alloc.o\
-                        constants.o $(FFT_OBJS) 
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o LMLoop_data.o\
                         mem_alloc.o
@@ -398,8 +394,8 @@ magic.o               : truncation.o num_param.o parallel.o logic.o\
                         useful.o startFields.o preCalculations.o\
                         step_time.o kinetic_energy.o mem_alloc.o\
 			magnetic_energy.o horizontal.o fields_average.o \
-			Egeos.o spectra.o out_TO.o output_data.o outMisc.o probes.o\
-                        outPV3.o Namelists.o blocking.o out_coeff.o
+			outGeos.o spectra.o out_TO.o output_data.o outMisc.o probes.o\
+                        Namelists.o blocking.o out_coeff.o
 step_time.o           : truncation.o blocking.o phys_param.o\
                         num_param.o radial_data.o mem_alloc.o\
                         logic.o output_data.o output.o movie.o\
@@ -413,7 +409,7 @@ constants.o           : precision_mod.o
 outMisc.o             : truncation.o num_param.o phys_param.o logic.o\
                         output_data.o blocking.o constants.o radial.o\
                         horizontal.o legendre_spec_to_grid.o\
-                        Egeos.o integration.o startFields.o
+                        integration.o startFields.o
 chebyshev_polynoms.o  : constants.o logic.o precision_mod.o
 rIteration.o          : precision_mod.o
 radialLoop.o          : truncation.o blocking.o parallel.o\
@@ -451,12 +447,12 @@ legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
 output.o              : truncation.o blocking.o phys_param.o\
                         num_param.o logic.o output_data.o radial.o\
                         horizontal.o constants.o fields.o radial_spectra.o\
-                        out_movie_file.o Egeos.o\
+                        out_movie_file.o outGeos.o\
                         outRot.o kinetic_energy.o magnetic_energy.o\
                         spectra.o fields_average.o power.o getDlm.o\
                         useful.o out_TO.o outMisc.o out_graph_file.o\
                         char_manip.o storeCheckPoints.o\
-                        integration.o outPV3.o outOmega.o parallel.o \
+                        integration.o outOmega.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o store_pot.o
 communications.o      : blocking.o parallel.o LMLoop_data.o truncation.o\
@@ -547,7 +543,7 @@ updateB.o             : truncation.o blocking.o horizontal.o\
                         RMS.o $(LAPACK_OBJS) radial_derivatives.o\
                         cosine_transform_odd.o radial_derivatives_even.o\
                         RMS_helpers.o LMLoop_data.o mem_alloc.o
-Egeos.o               : truncation.o phys_param.o num_param.o\
+outGeos.o             : truncation.o phys_param.o num_param.o\
                         horizontal.o radial.o blocking.o constants.o\
                         output_data.o logic.o cosine_transform_odd.o chebInt.o\
                         plms.o $(FFT_OBJS) LMLoop_data.o communications.o\
