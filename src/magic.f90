@@ -118,7 +118,6 @@ program magic
    use spectra, only: initialize_spectra, finalize_spectra
    use output_data, only: tag, log_file, n_log_file
    use output_mod, only: initialize_output, finalize_output
-   use outPV3, only: initialize_outPV3, finalize_outPV3
    use outTO_mod,only: initialize_outTO_mod, finalize_outTO_mod
    use parallel_mod
    use Namelists
@@ -263,10 +262,8 @@ program magic
    !--- Do pre-calculations:
    call preCalc
 
-   if ( l_par ) call initialize_Egeos_mod ! Needs to be called after preCalc, r_icb needed
+   if ( l_par .or. l_PV ) call initialize_Egeos_mod(l_par,l_PV) ! Needs to be called after preCalc, r_icb needed
    if ( l_TO ) call initialize_outTO_mod ! Needs to be called after preCalc, r_icb needed
-   if ( l_PV ) call initialize_outPV3 ! Needs to be called after preCalc, r_icb needed
-
    if ( l_movie ) call initialize_movie_data !Needs to be called after preCalc to get correct coordinate values
    if ( ldtBmem == 1 ) call initialize_dtB_mod ! Needs to be called after movie to make sure l_dtBmovie has been set
    if (l_probe) call initialize_probes       !Needs to be called after preCalc to get correct coordinate values
@@ -379,8 +376,7 @@ program magic
    if ( l_RMS ) call finalize_RMS
    if ( l_TO ) call finalize_outTO_mod
    if ( l_TO ) call finalize_TO
-   if ( l_PV ) call finalize_outPV3
-   if ( l_par ) call finalize_Egeos_mod
+   if ( l_par .or. l_PV ) call finalize_Egeos_mod(l_par, l_PV)
    if ( ldtBmem == 1 ) call finalize_dtB_mod
    call finalize_fields_average_mod
    call finalize_coeffs

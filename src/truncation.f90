@@ -58,12 +58,6 @@ module truncation
    integer :: n_theta_maxStr ! Number of theta points for stress output
    integer :: n_phi_maxStr   ! Number of phi points for stress output
  
-   !--- Memory control for Geotrophys output:
-   integer :: lGeos          ! Memory for Geostrophic output
-   integer :: n_r_maxGeos    ! Number of radial points for Geostrophic output
-   integer :: lm_maxGeos     ! Number of l/m combinations for Geostrophic output
-   integer :: nrpGeos        ! Number of cyl. radial points for Geostrophic output
- 
 contains
 
    subroutine initialize_truncation
@@ -71,7 +65,6 @@ contains
       integer :: n_r_maxML,n_r_ic_maxML,n_r_totML,l_maxML,lm_maxML
       integer :: lm_max_dL,lmP_max_dL,n_r_max_dL,n_r_ic_max_dL
       integer :: n_r_maxSL,n_theta_maxSL,n_phi_maxSL
-      integer :: n_r_maxGL,lm_maxGL,nrpGL
 
       if ( .not. l_axi ) then
          ! absolute number of phi grid-points
@@ -145,14 +138,6 @@ contains
       n_r_maxStr    =max(n_r_maxSL,1)
       n_theta_maxStr=max(n_theta_maxSL,1)
       n_phi_maxStr  =max(n_phi_maxSL,1)
-
-      !--- Memory control for Geotrophys output:
-      n_r_maxGL  =lGeos*n_r_max
-      lm_maxGL   =lGeos*lm_max
-      nrpGL      =lGeos*nrp
-      n_r_maxGeos=max(n_r_maxGL,2)
-      lm_maxGeos =max(lm_maxGL,2)
-      nrpGeos    =max(nrpGL,2)
 
    end subroutine initialize_truncation
 !--------------------------------------------------------------------------------
