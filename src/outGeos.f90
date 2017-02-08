@@ -1,4 +1,8 @@
 module geos_mod
+   !
+   ! This module is used to calculate the outputs when either l_par
+   ! or l_PV are set to .true.
+   !
  
    use precision_mod
    use parallel_mod
@@ -26,16 +30,16 @@ module geos_mod
    private
  
    real(cp) :: timeOld
-   real(cp), allocatable :: PlmS(:,:,:), PlmZ(:,:,:)
-   real(cp), allocatable :: dPlmS(:,:,:), dPlmZ(:,:,:)
-   real(cp), allocatable :: OsinTS(:,:)
+   real(cp), allocatable :: PlmS(:,:,:), PlmZ(:,:,:), PlmSPV(:,:,:)
+   real(cp), allocatable :: dPlmS(:,:,:), dPlmZ(:,:,:), dPlmSPV(:,:,:)
+   real(cp), allocatable :: OsinTS(:,:), OsinTSPV(:,:)
 
    complex(cp), allocatable :: wS_global(:,:), dwS_global(:,:), ddwS_global(:,:)
    complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
 
    type(costf_odd_t), allocatable :: chebt_Z(:)
    integer, allocatable :: nZmaxS(:), nZC(:), nZC_Sloc(:), nZ2(:,:)
-   real(cp), allocatable :: zZ(:,:), rZ(:,:)
+   real(cp), allocatable :: zZ(:,:), rZ(:,:), rZPV(:,:)
    real(cp), allocatable :: VorOld(:,:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
 
@@ -71,15 +75,6 @@ contains
       end if
       nS_on_last_rank = nS_per_rank + nS_remaining
 
-      allocate( OsinTS(nZmaxA/2+1,nSstart:nSstop) )
-      allocate( PlmS(lm_max,nZmaxA/2+1,nSstart:nSstop) ) 
-      allocate( dPlmS(lm_max,nZmaxA/2+1,nSstart:nSstop) )
-      allocate( zZ(nZmaxA,nSstart:nSstop) )
-      allocate( rZ(nZmaxA,nSstart:nSstop) )
-      bytes_allocated = bytes_allocated+ ((nZmaxA/2+1)*(nSstop-nSstart+1)* &
-      &                (1+2*lm_max))*SIZEOF_DEF_REAL + &
-      &                2*nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
-
       !-- The following global arrays are required in getDVptr
       allocate( wS_global(lm_max,n_r_max), dwS_global(lm_max,n_r_max) )
       allocate( ddwS_global(lm_max,n_r_max), zS_global(lm_max,n_r_max) )
@@ -87,6 +82,13 @@ contains
       bytes_allocated = bytes_allocated+ 5*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
 
       if ( l_PV ) then
+         allocate( OsinTSPV(nZmaxA/2+1,nSstart:nSstop) )
+         allocate( PlmSPV(lm_max,nZmaxA/2+1,nSstart:nSstop) ) 
+         allocate( dPlmSPV(lm_max,nZmaxA/2+1,nSstart:nSstop) )
+         allocate( rZPV(nZmaxA,nSstart:nSstop) )
+         bytes_allocated = bytes_allocated+ ((nZmaxA/2+1)*(nSstop-nSstart+1)* &
+         &                (1+2*lm_max))*SIZEOF_DEF_REAL + &
+         &                nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
          allocate( PlmZ(l_max+1,nZmaxA/2+1,nSstart:nSstop) )
          allocate( dPlmZ(l_max+1,nZmaxA/2+1,nSstart:nSstop) )
          bytes_allocated = bytes_allocated + 2*(l_max+1)*(nZmaxA/2+1)* &
@@ -107,6 +109,15 @@ contains
       end if
 
       if ( l_geos ) then
+         allocate( OsinTS(nZmaxA/2+1,nSstart:nSstop) )
+         allocate( PlmS(lm_max,nZmaxA/2+1,nSstart:nSstop) ) 
+         allocate( dPlmS(lm_max,nZmaxA/2+1,nSstart:nSstop) )
+         allocate( zZ(nZmaxA,nSstart:nSstop) )
+         allocate( rZ(nZmaxA,nSstart:nSstop) )
+         bytes_allocated = bytes_allocated+ ((nZmaxA/2+1)*(nSstop-nSstart+1)* &
+         &                (1+2*lm_max))*SIZEOF_DEF_REAL + &
+         &                2*nZmaxA*(nSstop-nSstart+1)*SIZEOF_DEF_REAL
+
          allocate( nZmaxS(nSstart:nSstop) )
          allocate( chebt_Z(nSstart:nSstop) )
          bytes_allocated = bytes_allocated+(nSstop-nSstart+1)*SIZEOF_INTEGER
@@ -126,15 +137,18 @@ contains
       logical, intent(in) :: l_geos
       logical, intent(in) :: l_PV
 
-      deallocate( OsinTS, PlmS, dPlmS, zZ, rZ )
       deallocate( wS_global, dwS_global, ddwS_global, zS_global, dzS_global)
 
       if ( l_geos ) then
+         deallocate( OsinTS, PlmS, dPlmS, zZ, rZ )
          deallocate( chebt_Z, nZmaxS )
          if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
       end if
 
-      if ( l_PV ) deallocate( PlmZ, dPlmZ, VorOld, nZC_Sloc, nZC, nZ2 )
+      if ( l_PV ) then
+         deallocate( PlmZ, dPlmZ, VorOld, nZC_Sloc, nZC, nZ2 )
+         deallocate( OsinTSPV, PlmSPV, dPlmSPV, rZPV )
+      end if
 
    end subroutine finalize_geos_mod
 !----------------------------------------------------------------------------
@@ -171,7 +185,6 @@ contains
       real(cp) :: zNorm          ! Norm z interval
       integer :: nNorm           ! No. of grid points for norm interval
       real(cp) :: zMin,zMax,help ! integration boundarie, help variable
-      logical :: lAS             ! .true. if axisymmetric (m=0) functions
       real(cp) :: sZ(nSmax),dsZ ! cylindrical radius s and s-step
       integer :: nPhi,nI
       real(cp) :: phiNorm
@@ -194,8 +207,6 @@ contains
       real(cp) :: dzEkInt(nZmaxA),dzEkIntS
       real(cp) :: dpEk_s(nSstart:nSstop),dzEk_s(nSstart:nSstop)
       real(cp) :: thetaZ
-
-      logical :: lStopRun
 
       !-- Correlation (new Oct. 4 2007)
       logical :: lCorrel
@@ -227,9 +238,7 @@ contains
       call costf_arrays(w,dw,ddw,z,dz)
 
       lCorrel=.true. ! Calculate Vz and Vorz north/south correlation
-
       phiNorm=two*pi/n_phi_max
-      lStopRun=.false.
       lDeriv=.true.
       kindCalc=1
 
@@ -237,7 +246,6 @@ contains
       zNorm=one               ! This is r_CMB-r_ICB
       nNorm=int(zDens*n_r_max) ! Covered with nNorm  points !
       dsZ  =r_CMB/real(nSmax,cp)  ! Step in s controlled by nSmax
-      lAS=.false.
 
       !-- Global array
       do nS=1,nSmax
@@ -295,11 +303,6 @@ contains
                nZmax=(nZmaxS(nS)-1)/2+1 ! Odd point number !    
                ! all together nZmaxS(nS) from
                ! south to north including equator
-            end if
-            if ( 2*nZmax > nZmaxA ) then ! TC case most critical
-               write(*,*) '! nZmaxA too small in getEgeos!'
-               write(*,*) '! Should be at least:',2*nZmax
-               lStopRun=.true.
             end if
             do nZ=1,nZmax
                rZ(nZ,nS)    =sqrt(zZ(nZ,nS)**2+sZ(nS)**2)
@@ -727,8 +730,8 @@ contains
       real(cp) :: fac
 
       !--- define Grid
-      integer :: nS,nSI
-      real(cp) ::  sZ(nSmax),dsZ ! cylindrical radius s and s-step
+      integer :: nS
+      real(cp) :: sZ(nSmax),dsZ ! cylindrical radius s and s-step
 
       integer :: nZ,nZmaxNS
       integer, save :: nZS
@@ -796,10 +799,8 @@ contains
 
       !-- Global arrays
       dsZ=r_CMB/real(nSmax,kind=cp)  ! Step in s controlled by nSmax
-      nSI=0                  ! Inner core position
       do nS=1,nSmax
          sZ(nS)=(nS-half)*dsZ
-         if ( sZ(nS) < r_ICB .and. nS > nSI ) nSI=nS
       end do
       zstep=2*r_CMB/real(nZmaxA-1,kind=cp)
       do nZ=1,nZmaxA
@@ -818,14 +819,14 @@ contains
                   nZC_Sloc(nS)=nZC_Sloc(nS)+1  ! Counts all z within shell
                   nZ2(nZ,nS)=nZC_Sloc(nS) ! No of point within shell
                   if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
-                     rZ(nZC_Sloc(nS),nS)=rZS
+                     rZPV(nZC_Sloc(nS),nS)=rZS
                      thetaZ=atan2(sZ(nS),zZ(nZ))
-                     OsinTS(nZC_Sloc(nS),nS)=one/sin(thetaZ)
+                     OsinTSPV(nZC_Sloc(nS),nS)=one/sin(thetaZ)
                      call plm_theta(thetaZ,l_max,0,minc,PlmZ(:,nZC_Sloc(nS),nS),&
                           &         dPlmZ(:,nZC_Sloc(nS),nS),l_max+1,2)
-                     call plm_theta(thetaZ,l_max,m_max,minc,          &
-                          &         PlmS(:,nZC_Sloc(nS),nS),          &
-                          &         dPlmS(:,nZC_Sloc(nS),nS),lm_max,2)
+                     call plm_theta(thetaZ,l_max,m_max,minc,            &
+                          &         PlmSPV(:,nZC_Sloc(nS),nS),          &
+                          &         dPlmSPV(:,nZC_Sloc(nS),nS),lm_max,2)
                   end if
                else
                   nZ2(nZ,nS)=-1 ! No z found within shell !
@@ -837,7 +838,7 @@ contains
          nZmaxNS=nZC_Sloc(nS) ! all z points within shell
          if ( l_stop_time ) then
             call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max,r_ICB,r_CMB,n_r_max, &
-                 &        rZ(:,nS),dPlmZ(:,:,nS),OsinTS(:,nS))
+                 &        rZPV(:,nS),dPlmZ(:,:,nS),OsinTSPV(:,nS))
 
             !-- Copy to array with all z-points
             do nZ=1,nZmaxA
@@ -857,8 +858,8 @@ contains
 
          !-- Get all three components in the shell
          call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global,   &
-              &        r_ICB,r_CMB,rZ(:,nS),nZmaxNS,nZmaxA,PlmS(:,:,nS),        &
-              &        dPlmS(:,:,nS),OsinTS(:,nS),kindCalc,VsS,VzS,VpS,VorS)
+              &        r_ICB,r_CMB,rZPV(:,nS),nZmaxNS,nZmaxA,PlmSPV(:,:,nS),    &
+              &        dPlmSPV(:,:,nS),OsinTSPV(:,nS),kindCalc,VsS,VzS,VpS,VorS)
 
          if ( l_stop_time ) then
             nC=0

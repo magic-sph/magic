@@ -55,15 +55,11 @@ IO: RMS force balance, torsional oscillations, misc
 
 .. f:automodule:: radial_spectra
 
-``Egeos.f90``
--------------
+``outGeos.f90``
+---------------
 
-.. f:automodule:: egeos_mod
+.. f:automodule:: geos_mod
 
-``outPV3.f90``
---------------
-
-.. f:automodule:: outpv3
 
 ``chebInt.f90``
 ---------------
