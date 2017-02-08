@@ -1,6 +1,7 @@
 module chebInt_mod
 
    use precision_mod
+   use parallel_mod
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd
    use radial_der, only: get_dcheb
@@ -105,6 +106,7 @@ contains
       !   zCheb are the grid points in the cheb interval [-1,1]
       !   These are not really needed for the integration.
       call cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.0_cp,0.0_cp,0.0_cp,0.0_cp)
+      z(nGridPoints+1:nGridPointsMax)=0.0_cp
 
       deallocate( zCheb )
 
