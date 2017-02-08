@@ -5,7 +5,7 @@ module geos_mod
    use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, lm_max, n_m_max, n_phi_max, nrp,     &
        &                 minc, l_max, m_max, l_axi
-   use radial_functions, only: r_ICB, r_CMB, rscheme_oc
+   use radial_functions, only: r_ICB, r_CMB, rscheme_oc, orho1
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use num_param, only: tScale
    use blocking, only: lm2l, lm2m, lm2mc, lo_map, st_map
@@ -34,7 +34,7 @@ module geos_mod
    complex(cp), allocatable :: zS_global(:,:), dzS_global(:,:)
 
    type(costf_odd_t), allocatable :: chebt_Z(:)
-   integer, allocatable :: nZmaxS(:), nZC(:), nZ2(:,:)
+   integer, allocatable :: nZmaxS(:), nZC(:), nZC_Sloc(:), nZ2(:,:)
    real(cp), allocatable :: zZ(:,:), rZ(:,:)
    real(cp), allocatable :: VorOld(:,:,:)
    real(cp), parameter :: eps = 10.0_cp*epsilon(one)
@@ -95,9 +95,15 @@ contains
          bytes_allocated = bytes_allocated + nrp*nZmaxA*(nSstop-nSstart+1)* &
          &                 SIZEOF_DEF_REAL
 
-         allocate( nZC(nSstart:nSstop),nZ2(nZmaxA,nSstart:nSstop) )
+         allocate( nZC_Sloc(nSstart:nSstop),nZ2(nZmaxA,nSstart:nSstop) )
          bytes_allocated = bytes_allocated + (nSstop-nSstart+1)*(1+nZmaxA)* &
          &                 SIZEOF_INTEGER
+         if ( rank == 0 ) then
+            allocate (nZC(nSmax))
+            bytes_allocated = bytes_allocated+nSmax*SIZEOF_INTEGER
+         else
+            allocate (nZC(1))
+         end if
       end if
 
       if ( l_geos ) then
@@ -128,7 +134,7 @@ contains
          if ( rank == 0 .and. (.not. l_save_out) ) close(n_geos_file)
       end if
 
-      if ( l_PV ) deallocate( PlmZ, dPlmZ, VorOld, nZC, nZ2 )
+      if ( l_PV ) deallocate( PlmZ, dPlmZ, VorOld, nZC_Sloc, nZC, nZ2 )
 
    end subroutine finalize_geos_mod
 !----------------------------------------------------------------------------
@@ -734,7 +740,7 @@ contains
       real(outp) :: frame_Sloc(5,n_phi_max*nZmaxA,nSstart:nSstop)
 
       !-- Plms: Plm,sin
-      integer :: nR,nPhi,nC
+      integer :: nC,nR,nPhi
       real(cp) :: thetaZ,rZS!,sinT,cosT
 
       !-- For PV output files: 
@@ -770,7 +776,7 @@ contains
             do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               if ( m == 0 ) dzVpLMr_loc(l+1,nR)=fac*real(z(lm,nR))
+               if ( m == 0 ) dzVpLMr_loc(l+1,nR)=fac*orho1(nR)*real(z(lm,nR))
             end do
 #ifdef WITH_MPI
             call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVPLMr(:,nR), l_max+1, &
@@ -805,20 +811,21 @@ contains
 
          !------ Get r,theta,Plm,dPlm for northern hemishere:
          if ( nPVsets == 1 ) then ! do this only for the first call !
-            nZC(nS)=0 ! Points within shell
+            nZC_Sloc(nS)=0 ! Points within shell
             do nZ=1,nZmaxA
                rZS=sqrt(zZ(nZ)**2+sZ(nS)**2)
                if ( rZS >= r_ICB .and. rZS <= r_CMB ) then
-                  nZC(nS)=nZC(nS)+1  ! Counts all z within shell
-                  nZ2(nZ,nS)=nZC(nS) ! No of point within shell
+                  nZC_Sloc(nS)=nZC_Sloc(nS)+1  ! Counts all z within shell
+                  nZ2(nZ,nS)=nZC_Sloc(nS) ! No of point within shell
                   if ( zZ(nZ) > 0 ) then ! Onl north hemisphere
-                     rZ(nZC(nS),nS)=rZS
+                     rZ(nZC_Sloc(nS),nS)=rZS
                      thetaZ=atan2(sZ(nS),zZ(nZ))
-                     OsinTS(nZC(nS),nS)=one/sin(thetaZ)
-                     call plm_theta(thetaZ,l_max,0,minc,              &
-                          &    PlmZ(:,nZC(nS),nS),dPlmZ(:,nZC(nS),nS),l_max+1,2)
+                     OsinTS(nZC_Sloc(nS),nS)=one/sin(thetaZ)
+                     call plm_theta(thetaZ,l_max,0,minc,PlmZ(:,nZC_Sloc(nS),nS),&
+                          &         dPlmZ(:,nZC_Sloc(nS),nS),l_max+1,2)
                      call plm_theta(thetaZ,l_max,m_max,minc,          &
-                          &    PlmS(:,nZC(nS),nS),dPlmS(:,nZC(nS),nS),lm_max,2)
+                          &         PlmS(:,nZC_Sloc(nS),nS),          &
+                          &         dPlmS(:,nZC_Sloc(nS),nS),lm_max,2)
                   end if
                else
                   nZ2(nZ,nS)=-1 ! No z found within shell !
@@ -827,7 +834,7 @@ contains
          end if
 
          !-- Get azimuthal flow component in the shell
-         nZmaxNS=nZC(nS) ! all z points within shell
+         nZmaxNS=nZC_Sloc(nS) ! all z points within shell
          if ( l_stop_time ) then
             call getPAStr(VpAS,dzVpLMr,nZmaxNS,nZmaxA,l_max,r_ICB,r_CMB,n_r_max, &
                  &        rZ(:,nS),dPlmZ(:,:,nS),OsinTS(:,nS))
@@ -851,7 +858,7 @@ contains
          !-- Get all three components in the shell
          call getDVptr(wS_global,dwS_global,ddwS_global,zS_global,dzS_global,   &
               &        r_ICB,r_CMB,rZ(:,nS),nZmaxNS,nZmaxA,PlmS(:,:,nS),        &
-              &        dPlmS(:,:,nS),OsinTS(:,nS),kindCalc,VsS,VpS,VzS,VorS)
+              &        dPlmS(:,:,nS),OsinTS(:,nS),kindCalc,VsS,VzS,VpS,VorS)
 
          if ( l_stop_time ) then
             nC=0
@@ -862,8 +869,9 @@ contains
                   frame_Sloc(2,nC,nS)=real(VpS(nPhi,nZ),kind=outp) ! Vphi
                   frame_Sloc(3,nC,nS)=real(VzS(nPhi,nZ),kind=outp) ! Vz
                   frame_Sloc(4,nC,nS)=real(VorS(nPhi,nZ),kind=outp)
-                  frame_Sloc(5,nC,nS)=(real(VorS(nPhi,nZ)-VorOld(nPhi,nZ,nS),kind=outp))/ &
-                              (real(time-timeOld,kind=outp))
+                  frame_Sloc(5,nC,nS)=(real(VorS(nPhi,nZ)-             &
+                  &                    VorOld(nPhi,nZ,nS),kind=outp))/ &
+                  &                   (real(time-timeOld,kind=outp))
                end do
             end do
          else
@@ -886,8 +894,8 @@ contains
             displs(i) = i*nS_per_rank*nZmaxA
          end do
          recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA
-         call MPI_GatherV(omS_Sloc, sendcount, MPI_DEF_REAL,       &
-              &           omS, recvcounts, displs, MPI_DEF_REAL,   &
+         call MPI_GatherV(omS_Sloc, sendcount, MPI_DEF_REAL,      &
+              &           omS, recvcounts, displs, MPI_DEF_REAL,  &
               &           0, MPI_COMM_WORLD, ierr)
 
          sendcount  = (nSstop-nSstart+1)*nZmaxA*n_phi_max*5
@@ -896,13 +904,23 @@ contains
             displs(i) = i*nS_per_rank*nZmaxA*n_phi_max*5
          end do
          recvcounts(n_procs-1)=nS_on_last_rank*nZmaxA*n_phi_max*5
-         call MPI_GatherV(frame_Sloc, sendcount, MPI_OUT_REAL,       &
-              &           frame, recvcounts, displs, MPI_OUT_REAL,   &
+         call MPI_GatherV(frame_Sloc, sendcount, MPI_OUT_REAL,    &
+              &           frame, recvcounts, displs, MPI_OUT_REAL,&
+              &           0, MPI_COMM_WORLD, ierr)
+
+         sendcount  = (nSstop-nSstart+1)
+         do i=0,n_procs-1
+            recvcounts(i) = nS_per_rank
+            displs(i) = i*nS_per_rank
+         end do
+         recvcounts(n_procs-1)=nS_on_last_rank
+         call MPI_GatherV(nZC_Sloc, sendcount, MPI_INTEGER,       &
+              &           nZC, recvcounts, displs, MPI_INTEGER,   &
               &           0, MPI_COMM_WORLD, ierr)
 #else
          omS(:,:)    =omS_Sloc(:,:)
          frame(:,:,:)=frame_Sloc(:,:,:)
-
+         nZC(:)      =nZC_Sloc(:)
 #endif
          !-- Write output only at the final timestep
          if ( rank == 0 ) then
@@ -912,7 +930,7 @@ contains
             open(newunit=n_pvz_file, file=fileName, form='unformatted', &
             &    status='unknown')
             write(n_pvz_file) real(time,kind=outp), real(nSmax,kind=outp), &
-            &     real(nZmaxA,kind=outp), real(omega_IC,kind=outp),         &
+            &     real(nZmaxA,kind=outp), real(omega_IC,kind=outp),        &
             &     real(omega_ma,kind=outp)
             write(n_pvz_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
             write(n_pvz_file) (real(zZ(nZ),kind=outp),nZ=1,nZmaxA)
@@ -923,14 +941,19 @@ contains
             open(newunit=n_vcy_file, file=fileName,form='unformatted', &
             &    status='unknown')
             write(n_vcy_file) real(time,kind=outp), real(nSmax,kind=outp),&
-            &     real(nZmaxA,kind=outp), real(n_phi_max,kind=outp),       &
+            &     real(nZmaxA,kind=outp), real(n_phi_max,kind=outp),      &
             &     real(omega_IC,kind=outp), real(omega_ma,kind=outp),     &
             &     real(radratio,kind=outp), real(minc,kind=outp)
             write(n_vcy_file) (real(sZ(nS),kind=outp),nS=1,nSmax)
             write(n_vcy_file) (real(zZ(nZ),kind=outp),nZ=1,nZmaxA)
 
             do nS=1,nSmax
+
+               nZmaxNS=nZC(nS) ! all z points within shell
+               nC = n_phi_max*nZmaxNS
+
                write(n_pvz_file) (real(omS(nZ,nS),kind=outp),nZ=1,nZmaxA)
+
                write(n_vcy_file) real(nZmaxNS,kind=outp)
                write(n_vcy_file) (frame(1,nZ,nS),nZ=1,nC)
                write(n_vcy_file) (frame(2,nZ,nS),nZ=1,nC)
@@ -1295,11 +1318,11 @@ contains
          do lm=llm,ulm
             l = lo_map%lm2l(lm)
             m = lo_map%lm2m(lm)
-            wS(lm,nR)  =w(lm,nR)*dLh(st_map%lm2(l,m))
-            dwS(lm,nR) =dw(lm,nR)
-            ddwS(lm,nR)=ddw(lm,nR)
-            zS(lm,nR)  =z(lm,nR)
-            dzS(lm,nR) =dz(lm,nR)
+            wS(lm,nR)  =orho1(nR)*w(lm,nR)*dLh(st_map%lm2(l,m))
+            dwS(lm,nR) =orho1(nR)*dw(lm,nR)
+            ddwS(lm,nR)=orho1(nR)*ddw(lm,nR)
+            zS(lm,nR)  =orho1(nR)*z(lm,nR)
+            dzS(lm,nR) =orho1(nR)*dz(lm,nR)
          end do
       end do
 
