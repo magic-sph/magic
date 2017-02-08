@@ -133,6 +133,7 @@ class Movie:
             print('!!! Warning: several fields in the movie file !!!')
             print('!!! Only the last one will be displayed       !!!')
             print('!!! For TO_mov.TAG, use TOMovie(...) instead  !!!')
+            print('!!! %i fields !!!' % n_fields)
         self.movtype = int(movtype[0])
         n_surface = int(n_surface)
 

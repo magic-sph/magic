@@ -715,6 +715,174 @@ class MagicTaySphere(MagicSetup):
         ax.set_xlim(self.radius[0], self.radius[-1])
 
 
+
+class MagicPV(MagicSetup):
+    """
+    This class can be used to read and display quantities
+    produced by the PV outputs. Those are basically the PVZ.TAG and the Vcy.TAG
+    files
+
+    >>> # To plot the content of PVZ.test
+    >>> pv = MagicPV(field='PVZ', tag='test', iplot=True)
+    """
+
+    def __init__(self, field='PVZ', datadir='.', tag=None, precision='Float32',
+                 iplot=False):
+        """
+        :param field: file prefix (either 'Vcy' or 'PVZ')
+        :type field: str
+        :param datadir: current working directory
+        :type datadir: str
+        :param tag: file suffix (tag), if not specified the most recent one in
+                    the current directory is chosen
+        :type tag: str
+        :param precision: single or double precision
+        :type precision: str
+        :param iplot: display the output plot when set to True (default is True)
+        :type iplot: bool
+        """
+
+        if tag is not None:
+            pattern = os.path.join(datadir, '%s.%s' % (field, tag))
+            files = scanDir(pattern)
+            if len(files) != 0:
+                filename = files[-1]
+            else:
+                print('No such tag... try again')
+                return
+
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % tag)
+        else:
+            pattern = os.path.join(datadir, '%s.*' % field)
+            files = scanDir(pattern)
+            filename = files[-1]
+            # Determine the setup
+            mask = re.compile(r'.*\.(.*)')
+            ending = mask.search(files[-1]).groups(0)[0]
+            if os.path.exists(os.path.join(datadir, 'log.%s' % ending)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % ending)
+
+        if not os.path.exists(filename):
+            print('No such file')
+            return
+
+        infile = npfile(filename, endian='B')
+
+        if field == 'Vcy':
+            self.time, self.nSmax, self.nZmax, self.n_phi_max, self.omega_ic, \
+            self.omega_ma, self.radratio, self.minc = infile.fort_read(precision)
+            self.n_phi_max = int(self.n_phi_max)
+        elif field == 'PVZ':
+            self.time, self.nSmax, self.nZmax, self.omega_ic, self.omega_ma = \
+                                 infile.fort_read(precision)
+        self.nSmax = int(self.nSmax)
+        self.nZmax = int(self.nZmax)
+
+        self.cyl_rad = infile.fort_read(precision)
+        self.z = infile.fort_read(precision)
+
+        if field == 'Vcy':
+            self.vs = np.zeros((self.nZmax*self.n_phi_max, self.nSmax), dtype=precision)
+            self.vphi = np.zeros_like(self.vs)
+            self.vz = np.zeros_like(self.vs)
+            self.vort = np.zeros_like(self.vs)
+            self.dtvort = np.zeros_like(self.vs)
+            for i in range(self.nSmax):
+                nZmax = int(infile.fort_read(precision))
+                start = (self.nZmax-nZmax)/2* self.n_phi_max
+                stop = start+nZmax*self.n_phi_max
+                self.vs[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
+                self.vphi[start:stop, i] = infile.fort_read(precision)
+                self.vz[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
+                self.vort[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
+                self.dtvort[:nZmax*self.n_phi_max, i] = infile.fort_read(precision)
+
+            self.vs = self.vs.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+            self.vz = self.vz.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+            self.vphi = self.vphi.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+            self.vort = self.vort.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+            self.dtvort = self.dtvort.reshape((self.nZmax, self.n_phi_max, self.nSmax))
+
+            self.vphi = np.transpose(self.vphi, axes=(1,0,2))
+            self.vs = np.transpose(self.vs, axes=(1,0,2))
+            self.vz = np.transpose(self.vz, axes=(1,0,2))
+            self.vort = np.transpose(self.vort, axes=(1,0,2))
+            self.dtvort = np.transpose(self.dtvort, axes=(1,0,2))
+
+        elif field == 'PVZ':
+            self.omS = np.zeros((self.nZmax, self.nSmax), dtype=precision)
+            for i in range(self.nSmax):
+                self.omS[:, i] = infile.fort_read(precision)
+
+        if iplot:
+            self.plot(field)
+
+    def plot(self, field):
+        """
+        Plotting routine
+
+        :param field: file prefix (either 'Vcy' or 'PVZ')
+        :type field: str
+        """
+        if field == 'PVZ':
+            S, Z = np.meshgrid(self.cyl_rad, self.z)
+            fig = plt.figure(figsize=(4.5,8))
+            ax = fig.add_subplot(111)
+            vmax = abs(self.omS).max()
+            vmin = -vmax
+            cs = np.linspace(vmin, vmax, 17)
+            ax.contourf(S, Z, self.omS, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+            theta = np.linspace(np.pi/2, -np.pi/2, 32)
+            rcmb = self.z.max()
+            ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
+        elif field == 'Vcy':
+            S, Z = np.meshgrid(self.cyl_rad, self.z)
+            rcmb = 1./(1.-self.radratio)
+            ricb = self.radratio/(1.-self.radratio)
+            for field in [self.vphi]:
+                dat = field.mean(axis=0)
+                fig = plt.figure(figsize=(4.5,8))
+                ax = fig.add_subplot(111)
+                vmax = abs(dat).max()
+                vmin = -vmax
+                cs = np.linspace(vmin, vmax, 17)
+                ax.contourf(S, Z, dat, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+                theta = np.linspace(np.pi/2, -np.pi/2, 32)
+                ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
+                ax.plot(ricb*np.cos(theta), ricb*np.sin(theta), 'k-', lw=1.5)
+
+            phi = np.linspace(0., 2*np.pi, self.n_phi_max)
+            S, pphi = np.meshgrid(self.cyl_rad, phi)
+            xx = S*np.cos(pphi)
+            yy = S*np.sin(pphi)
+            for field in [self.vs]:
+                dat = field[:,self.nZmax/2,:]
+                fig = plt.figure(figsize=(6,6))
+                fig.subplots_adjust(top=0.99, right=0.99, bottom=0.01, left=0.01)
+                ax = fig.add_subplot(111, frameon=False)
+
+                vmax = abs(dat).max()
+                vmin = -vmax
+                cs = np.linspace(vmin, vmax, 17)
+                ax.contourf(xx, yy, dat, cs, cmap=plt.get_cmap('RdYlBu'), extend='both')
+                theta = np.linspace(0., 2*np.pi, 32)
+                ax.plot(rcmb*np.cos(theta), rcmb*np.sin(theta), 'k-', lw=1.5)
+                ax.plot(ricb*np.cos(theta), ricb*np.sin(theta), 'k-', lw=1.5)
+                ax.axis('off')
+
+
+if __name__ == '__main__':
+    pv = MagicPV(field='PVZ', iplot=True)
+    pv = MagicPV(field='Vcy', iplot=True)
+    plt.show()
+
+
+
+
+
 if __name__ == '__main__':
 
     MagicTOZ(tag='start', itoz=1, ave=False, verbose=True)

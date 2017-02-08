@@ -217,12 +217,6 @@ class MagicTs(MagicSetup):
             self.mantle_rot = data[:, 4]
             self.lo_mantle_rot = data[:, 5]
             self.visc_mantle_rot = data[:, 6]
-            self.Bpol_re = data[:, 7]
-            self.Bpol_im = data[:, 8]
-            self.ang_mom = data[:, 9]
-            self.ic_ang_mom = data[:, 10]
-            self.oc_ang_mom = data[:, 11]
-            self.mantle_ang_mom = data[:, 12]
         elif self.field == 'par':
             self.time = data[:, 0]
             self.rm = data[:, 1]
