@@ -537,7 +537,7 @@ getDlm.o              : truncation.o blocking.o num_param.o constants.o\
 out_dtB_frame.o       : truncation.o blocking.o radial.o logic.o\
                         horizontal.o dtB.o radial_derivatives.o\
                         radial_derivatives_even.o $(FFT_OBJS) constants.o
-updateB.o             : truncation.o blocking.o horizontal.o\
+updateB.o             : truncation.o blocking.o horizontal.o fields.o\
                         phys_param.o num_param.o init_fields.o\
                         logic.o radial.o special.o constants.o\
                         RMS.o $(LAPACK_OBJS) radial_derivatives.o\
@@ -547,7 +547,7 @@ outGeos.o             : truncation.o phys_param.o num_param.o\
                         horizontal.o radial.o blocking.o constants.o\
                         output_data.o logic.o cosine_transform_odd.o chebInt.o\
                         plms.o $(FFT_OBJS) LMLoop_data.o communications.o\
-                        mem_alloc.o
+                        mem_alloc.o TO_helpers.o
 preCalculations.o     : truncation.o phys_param.o num_param.o constants.o\
                         radial.o horizontal.o init_fields.o\
                         blocking.o logic.o output_data.o\
