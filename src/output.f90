@@ -2,9 +2,9 @@
 module output_mod
 
    use precision_mod
+   use parallel_mod
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max
-   use parallel_mod, only: rank
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
@@ -402,7 +402,7 @@ contains
       real(cp) :: dlB,dlBc,dmB
       real(cp) :: dlV,dlVc,dmV,dpV,dzV
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
-      integer :: l,lm0
+      integer :: l
       real(cp) :: ReEquat
   
       logical :: l_PVout
@@ -436,10 +436,6 @@ contains
               &         dw_LMloc,z_LMloc,e_kin_p,e_kin_t,e_kin_p_as, &
               &         e_kin_t_as,ekinR)
          e_kin=e_kin_p+e_kin_t
-         !write(*,"(A,3(I4,F20.17))") "e_kin, e_kin_p_as,e_kin_t_as = ",&
-         !     &EXPONENT(e_kin),FRACTION(e_kin),&
-         !     &EXPONENT(e_kin_p_as),FRACTION(e_kin_p_as),&
-         !     &EXPONENT(e_kin_t_as),FRACTION(e_kin_t_as)
          e_kin_nas=e_kin-e_kin_p_as-e_kin_t_as
          if ( DEBUG_OUTPUT ) write(*,"(A,I6)") "Written  e_kin  on rank ",rank
   
@@ -462,6 +458,24 @@ contains
             if ( DEBUG_OUTPUT ) &
                & write(*,"(A,I6)") "Written  amplitude  on rank ",rank
          endif
+  
+         !---- Surface zonal velocity at the equator
+         if ( ktopv==1 ) then
+            ReEquat=0.0_cp
+            do lm=llm,ulm
+               l = lo_map%lm2l(lm)
+               m = lo_map%lm2m(lm)
+               if ( m == 0 ) then
+                  ReEquat=ReEquat-real(z_LMloc(lm,n_r_cmb))*dPl0Eq(l+1)*or1(n_r_cmb)
+               end if
+            end do
+#ifdef WITH_MPI
+            call MPI_AllReduce(MPI_IN_PLACE, ReEquat, 1, MPI_DEF_REAL, MPI_SUM, &
+                 &             MPI_COMM_WORLD, ierr)
+#endif
+         else
+            ReEquat=0.0_cp
+         end if
   
          if ( l_average ) then
             PERFON('out_aver')
@@ -884,17 +898,6 @@ contains
                RoConv=ReConv*ek
             end if
   
-            !---- Surface zonal velocity at the equator
-            if ( ktopv==1 ) then
-               ReEquat=0.0_cp
-               do l=1,l_max
-                  lm0=lm2(l,0)
-                  ReEquat=ReEquat-real(z(lm0,n_r_cmb))*dPl0Eq(l+1)*or1(n_r_cmb)
-               end do
-            else
-               ReEquat=0.0_cp
-            end if
-  
             if ( dlV /= 0.0_cp ) then
                Rol=Ro/dlV   ! See Christensen&Aubert 2006, eqn.(27)
             else
@@ -933,7 +936,7 @@ contains
                end if
                if ( l_mag .or. l_mag_LF ) then
                   if ( ohmDiss /= 0.0_cp ) then
-                     lbDiss=SQRT((e_mag+e_mag_ic)/ABS(ohmDiss)) ! Ohmic diffusion 
+                     lbDiss=sqrt((e_mag+e_mag_ic)/abs(ohmDiss)) ! Ohmic diffusion 
                   else
                      lbDiss=0.0_cp
                   end if

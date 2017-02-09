@@ -11,7 +11,7 @@ module horizontal_data
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
    use logic, only: l_non_rot
-   use plms_theta, only: plm_theta, plm_thetaAS
+   use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
    use precision_mod
@@ -183,7 +183,7 @@ contains
 
          ! Get dP for all degrees and order m=0 at the equator only
          ! Usefull to estimate the flow velocity at the equator
-         call plm_thetaAS(half*pi,l_max,Pl0Eq,dPl0Eq,l_max+1,norm)
+         call plm_theta(half*pi,l_max,0,minc,Pl0Eq,dPl0Eq,l_max+1,norm)
 
          !-- More functions stored to obscure the code:
          sn2(n_theta)               =sin(colat)**2
