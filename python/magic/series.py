@@ -352,8 +352,8 @@ class MagicTs(MagicSetup):
                 self.ohmDiss = data[:, 5]
                 self.icPower = data[:, 6]
                 self.mantlePower = data[:, 7]
-                if (self.buoPower+self.buoPower_chem).max() != 0:
-                     self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
+            if (self.buoPower+self.buoPower_chem).max() != 0:
+                 self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
             self.omega_ic = data[:,1]
