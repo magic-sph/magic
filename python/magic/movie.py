@@ -41,7 +41,7 @@ class Movie:
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
                  bgcolor=None, fluct=False, normed=False, avg=False, 
                  std=False, dpi=80, normRad=False, precision='Float32',
-                 deminc=True):
+                 deminc=True, ifield=0):
         """
         :param nvar: the number of timesteps of the movie file we want to plot
                      starting from the last line
@@ -81,6 +81,9 @@ class Movie:
         :param deminc: a logical to indicate if one wants do get rid of the
                        possible azimuthal symmetry
         :type deminc: bool
+        :param ifield: in case of a multiple-field movie file, you can change
+                       the default field displayed using the parameter ifield
+        :type ifield: int
         """
 
         if avg or std:
@@ -112,6 +115,7 @@ class Movie:
             elif mot2.match(line):
                 nlines = int(mot2.findall(line)[0])
         logfile.close()
+        
         if lastvar is None:
             self.var2 = nlines
         else:
@@ -128,19 +132,20 @@ class Movie:
         version = infile.fort_read('|S64')
         n_type, n_surface, const, n_fields = infile.fort_read(precision)
         movtype = infile.fort_read(precision)
-        n_fields = int(n_fields)
-        if n_fields > 1:
+        self.n_fields = int(n_fields)
+        if self.n_fields > 1:
             print('!!! Warning: several fields in the movie file !!!')
-            print('!!! Only the last one will be displayed       !!!')
-            print('!!! For TO_mov.TAG, use TOMovie(...) instead  !!!')
-            print('!!! %i fields !!!' % n_fields)
+            print('!!! %i fields !!!' % self.n_fields)
+            print('!!! The one displayed is controlled by the    !!!')
+            print('!!! input parameter ifield (=0 by default)    !!!')
         self.movtype = int(movtype[0])
         n_surface = int(n_surface)
 
         # RUN PARAMETERS
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
-             self.ek, self.pr, self.prmag, self.radratio, self.tScale = infile.fort_read(precision)
+             self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
+                                                    infile.fort_read(precision)
         self.minc = int(self.minc)
         n_r_mov_tot = int(n_r_mov_tot)
         self.n_r_max = int(n_r_max)
@@ -159,14 +164,16 @@ class Movie:
         elif n_surface == 1:
             self.surftype = 'r_constant'
             shape = (self.n_theta_max, self.n_phi_tot)
-            self.data = np.zeros((self.nvar, self.n_phi_tot, self.n_theta_max), precision)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                  self.n_theta_max), precision)
         elif n_surface == 2:
             self.surftype = 'theta_constant'
             if self.movtype in [1, 2, 3]: # read inner core
                 shape = (n_r_mov_tot+2, self.n_phi_tot)
             else:
                 shape = (self.n_r_max, self.n_phi_tot)
-            self.data = np.zeros((self.nvar, self.n_phi_tot, self.n_r_max), precision)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_phi_tot,
+                                  self.n_r_max), precision)
         elif n_surface == 3:
             self.surftype = 'phi_constant'
             if self.movtype in [1, 2, 3]: # read inner core
@@ -178,7 +185,8 @@ class Movie:
             elif self.movtype in [10, 11, 12, 19, 92]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
-            self.data = np.zeros((self.nvar, self.n_theta_max, self.n_r_max), precision)
+            self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
+                                 self.n_r_max), precision)
 
         self.time = np.zeros(self.nvar, precision)
 
@@ -189,7 +197,7 @@ class Movie:
             n_frame, t_movieS, omega_ic, omega_ma, movieDipColat, \
                                    movieDipLon, movieDipStrength, \
                             movieDipStrengthGeo = infile.fort_read(precision)
-            for ll in range(n_fields):
+            for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
         # then read the remaining requested nvar lines
         for k in range(self.nvar):
@@ -197,46 +205,48 @@ class Movie:
                                    movieDipLon, movieDipStrength, \
                             movieDipStrengthGeo = infile.fort_read(precision)
             self.time[k] = t_movieS
-            for ll in range(n_fields):
+            for ll in range(self.n_fields):
                 dat = infile.fort_read(precision, shape=shape)
                 if n_surface == 2:
                     if self.movtype in [1, 2, 3]:
                         dat = dat[:self.n_r_max, :].T
-                        self.data[k, ...] = dat
+                        self.data[ll, k, ...] = dat
                     else:
-                        self.data[k, ...] = dat.T
+                        self.data[ll, k, ...] = dat.T
                 elif n_surface == 3:
                     if self.movtype in [1, 2, 3]:
                         dat = dat[:self.n_r_max, :self.n_theta_max].T
-                        self.data[k, :, ::2] = dat[:, :n_r_max/2+1]
-                        self.data[k, :, 1::2] = dat[:, n_r_max/2+1:]
+                        self.data[ll, k, :, ::2] = dat[:, :n_r_max/2+1]
+                        self.data[ll, k, :, 1::2] = dat[:, n_r_max/2+1:]
                     elif self.movtype in [8, 9]:
                         dat = dat[:self.n_r_max, :].T
-                        self.data[k, ...] = dat
+                        self.data[ll, k, ...] = dat
                     elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54, 91]:
                         dat = dat[:, :self.n_theta_max].T
-                        self.data[k, :, ::2] = dat[:, :n_r_max/2+1]
-                        self.data[k, :, 1::2] = dat[:, n_r_max/2+1:]
+                        self.data[ll, k, :, ::2] = dat[:, :n_r_max/2+1]
+                        self.data[ll, k, :, 1::2] = dat[:, n_r_max/2+1:]
                     elif self.movtype in [10, 11, 12, 19, 92]:
-                        self.data[k, ...] = dat.T
+                        self.data[ll, k, ...] = dat.T
                 else:
-                    self.data[k, ...] = dat.T
-            if fluct:
-                self.data[k, ...] = self.data[k, ...]-self.data[k, ...].mean(axis=0)
+                    self.data[ll, k, ...] = dat.T
+                if fluct:
+                    self.data[ll, k, ...] -= self.data[ll, k, ...].mean(axis=0)
 
         infile.close()
 
         if normRad:
-            norm = np.sqrt(np.mean(self.data**2, axis=1))
-            norm = norm.mean(axis=0)
-            self.data[:, :, norm!=0.] /= norm[norm!=0.]
+            for ll in range(self.n_fields):
+                norm = np.sqrt(np.mean(self.data[ll, ...]**2, axis=1))
+                norm = norm.mean(axis=0)
+                self.data[ll, :, :, norm!=0.] /= norm[norm!=0.]
 
         if iplot:
             cmap = plt.get_cmap(cm)
-            self.plot(cut, levels, cmap, png, step, normed, dpi, bgcolor, deminc)
+            self.plot(ifield, cut, levels, cmap, png, step, normed, dpi, bgcolor,
+                      deminc)
         if avg or std:
             cmap = plt.get_cmap(cm)
-            self.avgStd(std, cut, levels, cmap)
+            self.avgStd(ifield, std, cut, levels, cmap)
 
     def __add__(self, new):
         """
@@ -253,10 +263,13 @@ class Movie:
         out.var2 = out.nvar
         return out
 
-    def avgStd(self, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
+    def avgStd(self, ifield=0, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
         """
         Plot time-average or standard deviation
 
+        :param ifield: in case of a multiple-field movie file, you can change
+                       the default field displayed using the parameter ifield
+        :type ifield: int
         :param std: the standard deviation is computed instead the average
                     when std is True
         :type std: bool
@@ -268,9 +281,9 @@ class Movie:
         :type cut: float
         """
         if std:
-            avg = self.data.std(axis=0)
+            avg = self.data[ifield, ...].std(axis=0)
         else:
-            avg = self.data.mean(axis=0)
+            avg = self.data[ifield, ...].mean(axis=0)
         vmin = - max(abs(avg.max()), abs(avg.min()))
         vmin = cut * vmin
         vmax = -vmin
@@ -305,7 +318,7 @@ class Movie:
             yyin = rr.min() * np.sin(pphi)
             fig = plt.figure(figsize=(6, 6))
         elif self.surftype == '3d volume':
-            self.data = self.data[..., 0]
+            self.data = self.data[ifield, ..., 0]
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
             ttheta, pphi = np.meshgrid(th, phi)
@@ -321,11 +334,14 @@ class Movie:
         ax.plot(xxin, yyin, 'k-', lw=1.5)
         ax.axis('off')
 
-    def plot(self, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
+    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
              normed=False, dpi=80, bgcolor=None, deminc=True):
         """
         Plotting function (it can also write the png files)
 
+        :param ifield: in case of a multiple-field movie file, you can change
+                       the default field displayed using the parameter ifield
+        :type ifield: int
         :param levels: number of contour levels
         :type levels: int
         :param cmap: name of the colormap
@@ -357,7 +373,8 @@ class Movie:
             plt.ion()
 
         if not normed:
-            vmin = - max(abs(self.data.max()), abs(self.data.min()))
+            vmin = - max(abs(self.data[ifield, ...].max()),
+                         abs(self.data[ifield, ...].min()))
             vmin = cut * vmin
             vmax = -vmin
             #vmin, vmax = self.data.min(), self.data.max()
@@ -403,7 +420,7 @@ class Movie:
             yyin = rr.min() * np.sin(pphi)
             fig = plt.figure(figsize=(6, 6))
         elif self.surftype == '3d volume':
-            self.data = self.data[..., 0]
+            self.data = self.data[ifield, ..., 0]
             th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)
             phi = np.linspace(-np.pi, np.pi, self.n_phi_tot)
             ttheta, pphi = np.meshgrid(th, phi)
@@ -418,18 +435,21 @@ class Movie:
         for k in range(self.nvar):
             if k == 0:
                 if normed:
-                    vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
+                    vmin = - max(abs(self.data[ifield, k, ...].max()),
+                                 abs(self.data[ifield, k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
+                    print vmin, vmax, levels
                     cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
-                        dat = symmetrize(self.data[k, ...], self.minc)
+                        dat = symmetrize(self.data[ifield, k, ...], self.minc)
                     else:
-                        dat = self.data[k, ...]
+                        dat = self.data[ifield, k, ...]
                     im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
                 else:
-                    im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                    im = ax.contourf(xx, yy, self.data[ifield, k, ...], cs,
+                                     cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')
@@ -440,18 +460,20 @@ class Movie:
                     print(k+self.var2-self.nvar)
                 plt.cla()
                 if normed:
-                    vmin = - max(abs(self.data[k, ...].max()), abs(self.data[k, ...].min()))
+                    vmin = - max(abs(self.data[ifield, k, ...].max()),
+                                 abs(self.data[ifield, k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
                     cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
-                        dat = symmetrize(self.data[k, ...], self.minc)
+                        dat = symmetrize(self.data[ifield, k, ...], self.minc)
                     else:
-                        dat = self.data[k, ...]
+                        dat = self.data[ifield, k, ...]
                     im = ax.contourf(xx, yy, dat, cs, cmap=cmap, extend='both')
                 else:
-                    im = ax.contourf(xx, yy, self.data[k, ...], cs, cmap=cmap, extend='both')
+                    im = ax.contourf(xx, yy, self.data[ifield, k, ...], cs,
+                                     cmap=cmap, extend='both')
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
                 ax.axis('off')
@@ -465,11 +487,14 @@ class Movie:
                 else:
                     fig.savefig(filename, dpi=dpi)
 
-    def timeLongitude(self, removeMean=True, lat0=0., levels=12, cm='RdYlBu_r',
-                      deminc=True):
+    def timeLongitude(self, ifield=0, removeMean=True, lat0=0., levels=12, 
+                      cm='RdYlBu_r', deminc=True):
         """
         Plot the time-longitude diagram (input latitude can be chosen)
 
+        :param ifield: in case of a multiple-field movie file, you can change
+                       the default field displayed using the parameter ifield
+        :type ifield: int
         :param lat0: value of the latitude
         :type lat0: float
         :param levels: number of contour levels
@@ -484,9 +509,9 @@ class Movie:
         """
 
         if removeMean:
-            datCut = self.data-self.data.mean(axis=0)
+            datCut = self.data[ifield, ...]-self.data[ifield, ...].mean(axis=0)
         else:
-            datCut = self.data
+            datCut = self.data[ifield, ...]
 
 
         th = np.linspace(np.pi/2., -np.pi/2., self.n_theta_max)

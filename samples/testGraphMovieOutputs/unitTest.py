@@ -61,10 +61,10 @@ def generateEkinFile(fileName='e_kin.test'):
     teq = Movie(file='T_EQU_mov.start', iplot=False)
     vortz = Movie(file='VorZ_EQU_mov.start', iplot=False)
     hel = Movie(file='HE_R=C2_mov.start', iplot=False)
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % (av.data[1, 121, 12], 
-         ahf.data[0, 99, 33], brcmb.data[1, 47, 128], vtr.data[0, 33, 87],
-         vreq.data[0, 28, 31], teq.data[1, 29, 29], vortz.data[1, 1, 1],
-         hel.data[0, 3, 4])
+    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f' % (av.data[0, 1, 121, 12], 
+         ahf.data[0, 0, 99, 33], brcmb.data[0, 1, 47, 128], vtr.data[0, 0, 33, 87],
+         vreq.data[0, 0, 28, 31], teq.data[0, 1, 29, 29], vortz.data[0, 1, 1, 1],
+         hel.data[0, 0, 3, 4])
 
     # Write output for movie files
     file.write(st)
@@ -138,3 +138,7 @@ class TestGraphicMovieOutputs(unittest.TestCase):
         datRef = readStack('%s/reference.out' % self.dir)
         datTmp = readStack('%s/e_kin.test' % self.dir)
         np.testing.assert_equal(datRef, datTmp)
+
+
+if __name__ == '__main__':
+    generateEkinFile('e_kin.test')
