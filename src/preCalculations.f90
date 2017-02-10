@@ -304,11 +304,11 @@ contains
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and inner core rotation rate:
-      c_z10_omega_ic=y10_norm/(r(n_r_max)*r(n_r_max))
+      c_z10_omega_ic=y10_norm/(r(n_r_max)*r(n_r_max))/rho0(n_r_max)
     
       !----- Proportionality factor of (l=1,m=0) toroidal velocity potential
       !      and mantle rotation rate:
-      c_z10_omega_ma=y10_norm/(r(1)*r(1))
+      c_z10_omega_ma=y10_norm/(r(1)*r(1))/rho0(1)
     
       !----- Inner-core normalized moment of inertia:
       c_moi_ic=8.0_cp*pi/15.0_cp*r_icb**5*rho_ratio_ic*rho0(n_r_max)
