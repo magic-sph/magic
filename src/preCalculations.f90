@@ -278,9 +278,7 @@ contains
     
       !-- Computation of the average density (useful to compute Re and Rm)
       if ( l_anel ) then
-         do n_r=1,n_r_max
-            mom(n_r)=r(n_r)**2 * rho0(n_r)
-         end do
+         mom(:)=r(:)**2 * rho0(:)
          mass=four*pi/vol_oc*rInt_R(mom,r,rscheme_oc)
       else
          mass=one
@@ -387,6 +385,9 @@ contains
             facIH=vol_oc
          else if ( nVarEps==1 ) then
             facIH=mass*vol_oc
+         else if ( nVarEps == 2 ) then
+            mom(:)=r(:)**2*rho0(:)*temp0(:)
+            facIH=four*pi*rInt_R(mom,r,rscheme_oc)
          end if
 
          if ( l_temperature_diff .or. l_anelastic_liquid ) then
