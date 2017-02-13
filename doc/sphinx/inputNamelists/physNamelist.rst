@@ -103,6 +103,9 @@ Heat sources and sinks
   +---------------+-------------------------------------------------------------+
   | ``nVarEps=1`` | Proportional to density, i.e. :math:`f(r)=\tilde{\rho}(r)`. |
   +---------------+-------------------------------------------------------------+
+  | ``nVarEps=2`` | Proportional to density times temperature,                  |
+  |               | i.e. :math:`f(r)=\tilde{\rho}(r)\tilde{T}`.                 |
+  +---------------+-------------------------------------------------------------+
 
 .. _varinterior_model:
 
