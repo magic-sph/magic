@@ -90,7 +90,7 @@ and the structure of the different type of output files:
    11. **Additional specific outputs**:
 
          * Torsional oscillations (see :ref:`here <secTOoutputFiles>`),
-	 * Potential files: :ref:`Vpot_#.TAG <secVpotFile>`, :ref:`Bpot_#.TAG <secBpotFile>` and :ref:`Tpot_#.TAG <secTpotFile>`,
+	 * Potential files: :ref:`V_lmr_#.TAG <secVpotFile>`, :ref:`B_lmr_#.TAG <secBpotFile>` and :ref:`T_lmr_#.TAG <secTpotFile>`,
 	 * Potential vorticity files: ``PVZ.TAG`` and ``Vcy.TAG``,
 	 * Magnetic spectra for various radii: :ref:`rB[r|p]Spec.TAG <secrBspecFiles>`.
 

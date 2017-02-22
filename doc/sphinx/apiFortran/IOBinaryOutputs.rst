@@ -28,11 +28,6 @@ IO: graphic files, movie files, coeff files and potential files
 
 .. f:automodule:: out_coeff
 
-``store_pot.f90``
------------------
-
-.. f:automodule:: store_pot_mod
-
 ``field_average.f90``
 ---------------------
 
