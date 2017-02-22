@@ -117,6 +117,25 @@ if buildSo:
             sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
+    # For the Legendre transforms
+    if not os.path.exists('legendre%i.so' % pythonVersion):
+        os.chdir('fortranLib')
+        print("Please wait: building Legendre transforms...")
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'legendre%i' % pythonVersion,
+                 'legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+        if pythonVersion == 3:
+            cmd = "mv legendre3.cpython-%sm* %s/legendre3.so" % \
+                  (pythonSuffix, magicdir)
+            sp.call(cmd, shell=True)
+        elif pythonVersion == 2:
+            sp.call(['mv', 'legendre2.so', '%s' % magicdir])
+        os.chdir(magicdir)
+
+
     # For the potential field extrapolation
     if not os.path.exists('potential%i.so' % pythonVersion):
         os.chdir('fortranLib')

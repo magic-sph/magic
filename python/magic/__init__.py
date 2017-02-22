@@ -19,5 +19,6 @@ if buildSo:
         from .potExtra import *
         from .graph2vtk import *
         from .movie3D import *
+        from .potential import *
     except ImportError as e:
         pass
