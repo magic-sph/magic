@@ -6,7 +6,8 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
-from magic.libmagic import symmetrize, hammer2cart
+from magic.libmagic import symmetrize
+from magic.plotlib import hammer2cart
 
 
 

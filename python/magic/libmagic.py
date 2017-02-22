@@ -298,69 +298,6 @@ def scanDir(pattern, tfix=None):
         out = [i[1] for i in dat]
     return out
 
-def hammer2cart(ttheta, pphi, colat=False):
-    """
-    This function is used to define the Hammer projection used when
-    plotting surface contours in :py:class:`magic.Surf`
-
-    >>> # Load Graphic file
-    >>> gr = MagicGraph()
-    >>> # Meshgrid
-    >>> pphi, ttheta = mgrid[-np.pi:np.pi:gr.nphi*1j, np.pi/2.:-np.pi/2.:gr.ntheta*1j]
-    >>> x,y = hammer2cart(ttheta, pphi)
-    >>> # Contour plots
-    >>> contourf(x, y, gr.vphi)
-
-    :param ttheta: meshgrid [nphi, ntheta] for the latitudinal direction
-    :type ttheta: numpy.ndarray
-    :param pphi: meshgrid [nphi, ntheta] for the azimuthal direction
-    :param colat: colatitudes (when not specified a regular grid is assumed)
-    :type colat: numpy.ndarray
-    :returns: a tuple that contains two [nphi, ntheta] arrays: the x, y meshgrid
-              used in contour plots
-    :rtype: (numpy.ndarray, numpy.ndarray)
-    """
-
-    if not colat: # for lat and phi \in [-pi, pi]
-        xx = 2.*np.sqrt(2.) * np.cos(ttheta)*np.sin(pphi/2.)\
-             /np.sqrt(1.+np.cos(ttheta)*np.cos(pphi/2.))
-        yy = np.sqrt(2.) * np.sin(ttheta)\
-             /np.sqrt(1.+np.cos(ttheta)*np.cos(pphi/2.))
-    else:  # for colat and phi \in [0, 2pi]
-        xx = -2.*np.sqrt(2.) * np.sin(ttheta)*np.cos(pphi/2.)\
-             /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
-        yy = np.sqrt(2.) * np.cos(ttheta)\
-             /np.sqrt(1.+np.sin(ttheta)*np.sin(pphi/2.))
-    return xx, yy
-
-def cut(dat, vmax=None, vmin=None):
-    """
-    This functions truncates the values of an input array that are beyond 
-    vmax or below vmin and replace them by vmax and vmin, respectively.
-
-    >>> # Keep only values between -1e3 and 1e3
-    >>> datNew = cut(dat, vmin=-1e3, vmax=1e3)
-
-    :param dat: an input array
-    :type dat: numpy.ndarray
-    :param vmax: maximum upper bound
-    :type vmax: float
-    :param vmin: minimum lower bound
-    :type vmin: float
-    :returns: an array where the values >=vmax have been replaced by vmax
-              and the values <=vmin have been replaced by vmin
-    :rtype: numpy.ndarray
-    """
-    if vmax is not None:
-        mask = np.where(dat>=vmax, 1, 0)
-        dat = dat*(mask == 0) + vmax*(mask == 1)
-        normed = False
-    if vmin is not None:
-        mask = np.where(dat<=vmin, 1, 0)
-        dat = dat*(mask == 0) + vmin*(mask == 1)
-        normed = False
-    return dat
-
 def symmetrize(data, ms, reversed=False):
     """
     Symmetrise an array which is defined only with an azimuthal symmetry minc=ms

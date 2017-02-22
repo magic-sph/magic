@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
-from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, cut
+from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize
+from .plotlib import cut
 from magic import MagicGraph, MagicSetup
 from magic.setup import labTex
 from scipy.ndimage import map_coordinates

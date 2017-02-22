@@ -6,7 +6,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.interpolate as S
-from magic.libmagic import cut, hammer2cart
+from magic.plotlib import cut
 from magic.setup import labTex
 from scipy.integrate import simps
 from .npfile import *

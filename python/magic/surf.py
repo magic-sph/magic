@@ -2,6 +2,7 @@
 from magic import MagicGraph, MagicSetup, MagicRadial
 from magic.setup import labTex, defaultCm, defaultLevels
 from .libmagic import *
+from .plotlib import equatContour, merContour, radialContour
 import matplotlib.pyplot as plt
 import os
 import numpy as np
@@ -332,86 +333,8 @@ class Surf:
         else:
             data, label = selectField(self.gr, field, labTex)
 
-        phi = np.linspace(-np.pi, np.pi, self.gr.nphi)
-        theta = np.linspace(np.pi/2, -np.pi/2, self.gr.ntheta)
-        pphi, ttheta = np.mgrid[-np.pi:np.pi:self.gr.nphi*1j,
-                            np.pi/2.:-np.pi/2.:self.gr.ntheta*1j]
-        lon2 = pphi * 180./np.pi
-        lat2 = ttheta * 180./np.pi
-
-        delat = 30. ; delon = 60.
-        circles = np.arange(delat, 90.+delat, delat).tolist()+\
-                  np.arange(-delat, -90.-delat, -delat).tolist()
-        meridians = np.arange(-180+delon, 180, delon)
-
-        if proj == 'moll' or proj == 'hammer':
-            if tit:
-                if cbar:
-                    fig = plt.figure(figsize=(9,4.5))
-                    ax = fig.add_axes([0.01, 0.01, 0.87, 0.87])
-                else:
-                    fig = plt.figure(figsize=(8,4.5))
-                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.87])
-                ax.set_title('%s: r/ro = %.3f' % (label, rad), 
-                             fontsize=24)
-            else:
-                if cbar:
-                    fig = plt.figure(figsize=(9,4))
-                    ax = fig.add_axes([0.01, 0.01, 0.87, 0.98])
-                else:
-                    fig = plt.figure(figsize=(8,4))
-                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-                tit1 = r'%.2f Ro' % rad
-                ax.text(0.12, 0.9, tit1, fontsize=16,
-                      horizontalalignment='right',
-                      verticalalignment='center',
-                      transform = ax.transAxes)
-        else:
-            if tit:
-                if cbar:
-                    fig = plt.figure(figsize=(6,5.5))
-                    ax = fig.add_axes([0.01, 0.01, 0.82, 0.9])
-                else:
-                    fig = plt.figure(figsize=(5,5.5))
-                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-                ax.set_title('%s: r/ro = %.3f' % (label, rad), 
-                             fontsize=24)
-            else:
-                if cbar:
-                    fig = plt.figure(figsize=(6,5))
-                    ax = fig.add_axes([0.01, 0.01, 0.82, 0.98])
-                else:
-                    fig = plt.figure(figsize=(5,5))
-                    ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-                tit1 = r'%.2f Ro' % rad
-                ax.text(0.12, 0.9, tit1, fontsize=16,
-                      horizontalalignment='right',
-                      verticalalignment='center',
-                      transform = ax.transAxes)
-            
-        if proj != 'hammer':
-            from mpl_toolkits.basemap import Basemap
-            map = Basemap(projection=proj, lon_0=lon_0, lat_0=lat_0,
-                          resolution='c')
-            map.drawparallels([0.], dashes=[2, 3], linewidth=0.5)
-            map.drawparallels(circles, dashes=[2,3], linewidth=0.5)
-            map.drawmeridians(meridians, dashes=[2,3], linewidth=0.5)
-            map.drawmeridians([-180], dashes=[20,0], linewidth=0.5)
-            map.drawmeridians([180], dashes=[20,0], linewidth=0.5)
-            x, y = list(map(lon2, lat2))
-        else:
-            x, y = hammer2cart(ttheta, pphi)
-            for lat0 in circles:
-                x0, y0 = hammer2cart(lat0*np.pi/180., phi)
-                ax.plot(x0, y0, 'k:', linewidth=0.7)
-            for lon0 in meridians:
-                x0, y0 = hammer2cart(theta, lon0*np.pi/180.)
-                ax.plot(x0, y0, 'k:', linewidth=0.7)
-            xxout, yyout  = hammer2cart(theta, -np.pi)
-            xxin, yyin  = hammer2cart(theta, np.pi)
-            ax.plot(xxin, yyin, 'k-')
-            ax.plot(xxout, yyout, 'k-')
-            ax.axis('off')
+        if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
+            normed = False
 
         rprof = data[..., indPlot]
         #----shifting the azimuth data by lon_shift
@@ -419,45 +342,9 @@ class Surf:
         rprof = np.roll(rprof,lon_shift,axis=0)
         rprof = symmetrize(rprof, self.gr.minc)
 
-        cmap = plt.get_cmap(cm)
+        fig = radialContour(rprof, rad, label, proj, lon_0, vmax, vmin,
+                            lat_0, levels, cm, normed, cbar, tit, lines)
 
-        if proj == 'ortho': 
-            lats = np.linspace(-90., 90., self.gr.ntheta)
-            dat = map.transform_scalar(rprof.T, phi*180/np.pi, lats, 
-                                       self.gr.nphi, self.gr.ntheta, masked=True)
-            im = map.imshow(dat, cmap=cmap)
-        else:
-            if vmax is not None or vmin is not None:
-                normed = False
-                cs = np.linspace(vmin, vmax, levels)
-                im = ax.contourf(x, y, rprof, cs, cmap=cmap, extend='both')
-                if lines:
-                    ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5, extend='both')
-                    ax.contour(x, y, rprof, 1, colors=['k'])
-                #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
-            else:
-                cs = levels
-                im = ax.contourf(x, y, rprof, cs, cmap=cmap)
-                if lines:
-                    ax.contour(x, y, rprof, cs, colors='k', linewidths=0.5)
-                    ax.contour(x, y, rprof, 1, colors=['k'])
-                #im = ax.pcolormesh(x, y, rprof, cmap=cmap, antialiased=True)
-
-        # Add the colorbar at the right place
-        pos = ax.get_position()
-        l, b, w, h = pos.bounds
-        if cbar:
-            if tit:
-                cax = fig.add_axes([0.9, 0.46-0.7*h/2., 0.03, 0.7*h])
-            else:
-                cax = fig.add_axes([0.9, 0.51-0.7*h/2., 0.03, 0.7*h])
-            mir = fig.colorbar(im, cax=cax)
-
-        # Normalise around zero
-        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
-            and normed is True:
-            im.set_clim(-max(abs(rprof.max()), abs(rprof.min())), 
-                         max(abs(rprof.max()), abs(rprof.min())))
 
     def equat(self, field='vr', levels=defaultLevels, cm=defaultCm, normed=True,
               vmax=None, vmin=None, cbar=True, tit=True, avg=False, normRad=False):
@@ -586,69 +473,18 @@ class Surf:
 
         equator = symmetrize(equator, self.gr.minc)
 
-        if normRad: # Normalise each radius
-            maxS = np.sqrt(np.mean(equator**2, axis=0))
-            equator[:, maxS!=0.] /= maxS[maxS!=0.]
-
-        if tit:
-            if cbar:
-                fig = plt.figure(figsize=(6.5,5.5))
-                ax = fig.add_axes([0.01, 0.01, 0.76, 0.9])
-            else:
-                fig = plt.figure(figsize=(5,5.5))
-                ax = fig.add_axes([0.01, 0.01, 0.98, 0.9])
-            ax.set_title(label, fontsize=24)
-        else:
-            if cbar:
-                fig = plt.figure(figsize=(6.5,5))
-                ax = fig.add_axes([0.01, 0.01, 0.76, 0.98])
-            else:
-                fig = plt.figure(figsize=(5, 5))
-                ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-
-        cmap = plt.get_cmap(cm)
-        if vmax is not None or vmin is not None:
+        if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
-            cs = np.linspace(vmin, vmax, levels)
-            im = ax.contourf(xx, yy, equator, cs, cmap=cmap, extend='both')
-        else:
-            cs = levels
-            im = ax.contourf(xx, yy, equator, cs, cmap=cmap)
-            #im = ax.pcolormesh(xx, yy, equator, cmap=cmap, antialiased=True)
-        ax.plot(self.gr.radius[0] * np.cos(phi), self.gr.radius[0]*np.sin(phi),
-               'k-', lw=1.5)
-        ax.plot(self.gr.radius[-1] * np.cos(phi), self.gr.radius[-1]*np.sin(phi),
-               'k-', lw=1.5)
 
-        ax.axis('off')
+        fig, xx, yy = equatContour( equator, self.gr.radius, label, levels, cm, 
+                                    normed, vmax, vmin, cbar, tit, normRad)
+        ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line
         if hasattr(self.gr, 'nVarCond'):
             if self.gr.nVarCond == 2:
                 radi = self.gr.con_RadRatio * self.gr.radius[0]
                 ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--', lw=1.5)
-
-        #if hasattr(self.gr, 'epsS'):
-        #    rad = MagicRadial(field='anel', iplot=False)
-        #    idx = np.nonzero(np.where(abs(rad.dsdr)==abs(rad.dsdr).min(), 1, 0))[0][0]
-        #    ax.plot(self.gr.radius[idx]*np.cos(phi), self.gr.radius[idx]*np.sin(phi), 
-        #            'k--', lw=2)
-
-        # Add the colorbar at the right place
-        pos = ax.get_position()
-        l, b, w, h = pos.bounds
-        if cbar:
-            if tit:
-                cax = fig.add_axes([0.85, 0.46-0.7*h/2., 0.03, 0.7*h])
-            else:
-                cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
-            mir = fig.colorbar(im, cax=cax)
-
-        # Normalise data 
-        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
-            and normed is True:
-            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
-                         max(abs(equator.max()), abs(equator.min())))
 
         # If avg is requested, then display an additional figure
         # with azimutal average 
@@ -1216,36 +1052,12 @@ class Surf:
             phiavg /= (denom + mask)
             #phiavg /= den
 
-        th = np.linspace(0, np.pi, self.gr.ntheta)
-        rr, tth = np.meshgrid(self.gr.radius, th)
-        xx = rr * np.sin(tth)
-        yy = rr * np.cos(tth)
-
-        if tit:
-            if cbar:
-                fig = plt.figure(figsize=(5,7.5))
-                ax = fig.add_axes([0.01, 0.01, 0.69, 0.91])
-            else:
-                fig = plt.figure(figsize=(3.5,7.5))
-                ax = fig.add_axes([0.01, 0.01, 0.98, 0.91])
-            ax.set_title(label, fontsize=24)
-        else:
-            if cbar:
-                fig = plt.figure(figsize=(5,7))
-                ax = fig.add_axes([0.01, 0.01, 0.69, 0.98])
-            else:
-                fig = plt.figure(figsize=(3.5,7))
-                ax = fig.add_axes([0.01, 0.01, 0.98, 0.98])
-
-        cmap = plt.get_cmap(cm)
-        if vmax is not None and vmin is not None:
+        if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
-            cs = np.linspace(vmin, vmax, levels)
-            im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap, extend='both')
-        else:
-            cs = levels
-            im = ax.contourf(xx, yy, phiavg, cs, cmap=cmap)
-            #im = ax.pcolormesh(xx, yy, phiavg, cmap=cmap, antialiased=True)
+
+        fig, xx, yy = merContour(phiavg, self.gr.radius, label, levels, cm, normed,
+                                 vmax, vmin, cbar, tit)
+        ax = fig.get_axes()[0]
 
         if pol:
             ax.contour(xx, yy, poloLines, polLevels, colors=['k'],
@@ -1260,47 +1072,14 @@ class Surf:
             lev = np.linspace(minMeri, maxMeri, merLevels)
             im2 = ax.contour(xx, yy, meriLines, lev, colors=['k'],
                        linewidths=[0.8])
-        ax.plot(self.gr.radius[0]*np.sin(th), self.gr.radius[0]*np.cos(th), 'k-')
-        ax.plot(self.gr.radius[-1]*np.sin(th), self.gr.radius[-1]*np.cos(th), 'k-')
-        ax.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
-        ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
-        #ax.axvline(0., color='k', ymin=self.gr.radius[-1])
-        ax.axis('off')
-
-        # Add the colorbar at the right place
-        pos = ax.get_position()
-        l, b, w, h = pos.bounds
-        if cbar:
-            if tit:
-                cax = fig.add_axes([0.82, 0.46-0.7*h/2., 0.04, 0.7*h])
-            else:
-                cax = fig.add_axes([0.82, 0.5-0.7*h/2., 0.04, 0.7*h])
-            mir = fig.colorbar(im, cax=cax)
-        
-        if field == 'b2':
-            fig1 = plt.figure()
-            ax1 = fig1.add_subplot(111)
-            ax1.plot(self.gr.radius, phiavg.mean(axis=0), 'k-')
-            ax1.set_xlim(self.gr.radius.min(), self.gr.radius.max())
-            ax1.set_xlabel('Radius')
-            ax1.set_ylabel('Amplitude of B')
-            if hasattr(self.gr, 'nVarCond'):
-                if self.gr.nVarCond == 2:
-                    ax1.axvline(self.gr.con_RadRatio*self.gr.radius[0],
-                              color='k', linestyle='--')
-
 
         # Variable conductivity: add a dashed line
         if hasattr(self.gr, 'nVarCond'):
             if self.gr.nVarCond == 2:
                 radi = self.gr.con_RadRatio * self.gr.radius[0]
+                th = np.linspace(0, np.pi, self.gr.ntheta)
                 ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
-        # Normalisation of the contours around zero
-        if field not in ['entropy', 's', 'S', 'u2', 'b2', 'nrj'] \
-            and normed is True:
-            im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
-                         max(abs(phiavg.max()), abs(phiavg.min())))
 
     def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=defaultCm, 
               normed=True, vmin=None, vmax=None, cbar=True, tit=True,
