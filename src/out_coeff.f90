@@ -1,25 +1,33 @@
 module out_coeff
    !
    ! This module contains the subroutines that calculate the Bcmb files
-   ! and the [B|V|T]_coeff_r files
+   ! , the [B|V|T]_coeff_r files and the [B|V|T]_lmr files
    !
   
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use logic, only: l_r_field, l_cmb_field, l_save_out, l_average
+   use logic, only: l_r_field, l_cmb_field, l_save_out, l_average, &
+       &            l_cond_ic
+   use radial_functions, only: r, rho0
+   use physical_parameters, only: ra, ek, pr, prmag, radratio, sigma_ratio
    use parallel_mod, only: rank
    use blocking, only: lm2
-   use truncation, only: lm_max, l_max, minc
+   use truncation, only: lm_max, l_max, minc, n_r_max, n_r_ic_max, minc
    use communications, only: gather_from_lo_to_rank0
    use LMLoop_data, only: llm, ulm
+   use output_data, only: tag
+   use constants, only: two, half
 
    implicit none
 
    private
 
+   integer :: fileHandle
+
    complex(cp), allocatable :: work(:) ! work array for r_field
 
-   public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs
+   public :: write_Bcmb, write_coeff_r, initialize_coeffs, finalize_coeffs, &
+   &         write_Pot
 
 contains
 
@@ -380,4 +388,116 @@ contains
 
    end subroutine write_coeff_r
 !-------------------------------------------------------------------------------
+   subroutine write_Pot(time,b,aj,b_ic,aj_ic,nPotSets,root,omega_ma,omega_ic)
+      !
+      ! This routine stores the fields in spectral and radial space
+      !
+
+      !-- Input of variables:
+      real(cp),         intent(in) :: time
+      complex(cp),      intent(in) :: b(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: aj(llm:ulm,n_r_max)
+      complex(cp),      intent(in) :: b_ic(llm:ulm,n_r_ic_max)
+      complex(cp),      intent(in) :: aj_ic(llm:ulm,n_r_ic_max)
+      character(len=*), intent(in) :: root
+      real(cp),         intent(in) :: omega_ma,omega_ic
+
+      integer,          intent(inout) :: nPotSets
+    
+      !-- Work arrays:
+      complex(cp), allocatable :: workA_global(:,:)
+      complex(cp), allocatable :: workB_global(:,:)
+    
+      !-- File outputs:
+      character(80) :: string
+      character(:), allocatable :: head
+      integer :: n_r,lm
+      character(80) :: fileName
+      logical :: lVB
+    
+      head = trim(adjustl(root))
+      nPotSets=nPotSets+1
+      lVB=.false.
+      if ( root(1:1) /= 'T' .and. root(1:1) /= 'Xi' ) lVB= .true.
+
+    
+      ! now gather the fields on rank 0 and write them to file
+      ! it would be nicer to write the fields with MPI IO in parallel
+      ! but then presumably the file format will change
+      if ( rank == 0 ) then
+         allocate(workA_global(lm_max,n_r_max))
+         allocate(workB_global(lm_max,n_r_max))
+      else
+         allocate(workA_global(1,n_r_max))
+         allocate(workB_global(1,n_r_max))
+      end if
+
+      do n_r=1,n_r_max
+         call gather_from_lo_to_rank0(b(llm,n_r),workA_global(:,n_r))
+         call gather_from_lo_to_rank0(aj(llm,n_r),workB_global(:,n_r))
+      end do
+
+      if ( rank == 0 ) then
+         !--- Write:
+         if ( nPotSets == 0 ) then ! nPotSets=-1 on call
+            fileName=head//tag
+         else
+            write(string, *) nPotSets
+            fileName=head(1:len(head)-1)//'_'//trim(adjustl(string))//'.'//tag
+            !         end if
+         end if
+
+         open(newunit=fileHandle, file=fileName, form='unformatted', &
+         &    status='unknown')
+
+         write(fileHandle) l_max,n_r_max,n_r_ic_max,minc,lm_max
+         write(fileHandle) real(ra,kind=outp), real(ek,kind=outp),     &
+         &                 real(pr,kind=outp), real(prmag,kind=outp),  &
+         &                 real(radratio,kind=outp),                   &
+         &                 real(sigma_ratio,kind=outp),                &
+         &                 real(omega_ma,kind=outp),                   &
+         &                 real(omega_ic,kind=outp)
+
+         write(fileHandle) real(time, kind=outp)
+         write(fileHandle) real(r,kind=outp), real(rho0, kind=outp)
+
+         write(fileHandle) ((cmplx(real(workA_global(lm,n_r)),         &
+         &                 aimag(workA_global(lm,n_r)),kind=outp ),    &
+         &                 lm=1,lm_max),n_r=1,n_r_max )
+         if ( lVB ) then
+            write(fileHandle) ((cmplx(real(workB_global(lm,n_r)),      &
+            &                 aimag(workB_global(lm,n_r)),kind=outp ), &
+            &                 lm=1,lm_max),n_r=1,n_r_max)
+         end if
+      end if
+
+
+      !-- Now inner core field
+      if ( root(1:1) == 'B' .and. l_cond_ic ) then
+
+         do n_r=1,n_r_ic_max
+            call gather_from_lo_to_rank0(b_ic(llm,n_r),workA_global(:,n_r))
+            call gather_from_lo_to_rank0(aj_ic(llm,n_r),workB_global(:,n_r))
+         end do
+
+         if ( rank == 0 ) then
+            write(fileHandle) ( (cmplx( real(workA_global(lm,n_r)),    &
+            &                 aimag(workA_global(lm,n_r)), kind=outp ),&
+            &          lm=1,lm_max),n_r=1,n_r_ic_max )
+            write(fileHandle) ( (cmplx( real(workB_global(lm,n_r)),    &
+            &                 aimag(workB_global(lm,n_r)), kind=outp), &
+            &          lm=1,lm_max),n_r=1,n_r_ic_max )
+         end if
+
+      end if
+
+
+      if ( rank == 0 ) then
+         close(fileHandle)
+      end if
+
+      deallocate( workA_global, workB_global )
+
+   end subroutine write_Pot
+!------------------------------------------------------------------------------
 end module out_coeff

@@ -356,7 +356,7 @@ fields_average.o      : truncation.o output_data.o blocking.o\
                         radial_derivatives.o radial_derivatives_even.o\
                         spectra.o kinetic_energy.o out_graph_file.o\
                         magnetic_energy.o legendre_spec_to_grid.o\
-                        $(FFT_OBJS) out_coeff.o store_pot.o\
+                        $(FFT_OBJS) out_coeff.o\
                         legendre_helpers.o mem_alloc.o
 get_nl.o              : truncation.o horizontal.o logic.o\
                         phys_param.o radial.o blocking.o mem_alloc.o
@@ -388,7 +388,7 @@ power.o               : truncation.o blocking.o horizontal.o\
 integration.o         : cosine_transform_odd.o precision_mod.o constants.o
 out_coeff.o           : logic.o precision_mod.o parallel.o blocking.o\
                         truncation.o communications.o LMLoop_data.o\
-                        mem_alloc.o
+                        mem_alloc.o radial.o output_data.o phys_param.o
 magic.o               : truncation.o num_param.o parallel.o logic.o\
                         output_data.o timing.o constants.o precision_mod.o\
                         useful.o startFields.o preCalculations.o\
@@ -454,7 +454,7 @@ output.o              : truncation.o blocking.o phys_param.o\
                         char_manip.o storeCheckPoints.o\
                         integration.o outOmega.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
-                        store_movie_IC.o RMS.o store_pot.o
+                        store_movie_IC.o RMS.o
 communications.o      : blocking.o parallel.o LMLoop_data.o truncation.o\
 			radial_data.o mem_alloc.o
 outPar.o              : truncation.o blocking.o phys_param.o\
@@ -501,9 +501,6 @@ nl_special_calc.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o constants.o
 outOmega.o            : truncation.o blocking.o logic.o\
                         output_data.o radial.o cosine_transform_odd.o plms.o
-store_pot.o           : truncation.o radial.o output_data.o phys_param.o\
-                        logic.o cosine_transform_odd.o LMLoop_data.o\
-                        parallel.o communications.o
 fft_fac.o             : constants.o precision_mod.o
 cosine_transform_even.o: truncation.o fft_fac.o constants.o useful.o\
                         mem_alloc.o

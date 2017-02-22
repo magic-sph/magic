@@ -52,14 +52,13 @@ module output_mod
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, llmMag, &
        &                  ulmMag
    use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
-   use out_coeff, only: write_Bcmb, write_coeff_r
+   use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
    use dtB_mod, only: get_dtBLMfinish
    use out_movie, only: write_movie_frame
    use out_movie_IC, only: store_movie_frame_IC
    use RMS, only: zeroRms, dtVrms, dtBrms
-   use store_pot_mod, only: storePot
    use useful, only:  logWrite
    use radial_spectra  ! rBrSpec, rBpSpec
    use storeCheckPoints
@@ -691,14 +690,14 @@ contains
       end if
   
       if ( l_Bpot )                                                          &
-           &     call storePot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-           &                   nBpotSets,'Bpot.',omega_ma,omega_ic)
+           &     call write_Pot(time,b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,&
+           &                   nBpotSets,'B_lmr.',omega_ma,omega_ic)
       if ( l_Vpot )                                                          &
-           &     call storePot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc,  &
-           &                   nVpotSets,'Vpot.',omega_ma,omega_ic)
-      if ( l_Tpot )                                                         &
-           &     call storePot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
-           &                   nTpotSets,'Tpot.',omega_ma,omega_ic)
+           &     call write_Pot(time,w_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           &                   nVpotSets,'V_lmr.',omega_ma,omega_ic)
+      if ( l_Tpot )                                                          &
+           &     call write_Pot(time,s_LMloc,z_LMloc,b_ic_LMloc,aj_ic_LMloc, &
+           &                   nTpotSets,'T_lmr.',omega_ma,omega_ic)
 
       !--- Write spectra output that has partially been calculated in LMLoop
       if ( l_rMagSpec .and. n_time_step > 1 ) then

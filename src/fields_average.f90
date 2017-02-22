@@ -27,10 +27,9 @@ module fields_average_mod
    use LMLoop_data, only: llm,ulm,llmMag,ulmMag
    use communications, only: get_global_sum, gather_from_lo_to_rank0,&
        &                     gather_all_from_lo_to_rank0,gt_OC,gt_IC
-   use out_coeff, only: write_Bcmb
+   use out_coeff, only: write_Bcmb, write_Pot
    use spectra, only: spectrum, spectrum_temp
    use graphOut_mod, only: graphOut, graphOut_IC
-   use store_pot_mod, only: storePotW
    use leg_helper_mod, only: legPrep
    use legendre_spec_to_grid, only: legTF
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
@@ -568,16 +567,20 @@ contains
          nVpotSets=-1
          nTpotSets=-1
          if ( l_mag) then
-            call storePotW(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,            &
-                 &         workA_LMloc,dw_ave,db_ave,nBpotSets,'Bpot_ave.', &
-                 &         omega_ma,omega_ic)
+            call write_Pot(time,b_ave,aj_ave,b_ic_ave,aj_ic_ave,nBpotSets,  &
+                 &        'B_lmr_ave.',omega_ma,omega_ic)
          end if
-         call storePotW(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,             &
-              &         workA_LMloc,dw_ave,db_ave,nVpotSets,'Vpot_ave.', &
-              &                                      omega_ma,omega_ic)
-         call storePotW(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,             &
-              &         workA_LMloc,dw_ave,db_ave,nTpotSets,'Tpot_ave.', &
-              &                                      omega_ma,omega_ic)
+         call write_Pot(time,w_ave,z_ave,b_ic_ave,aj_ic_ave,nVpotSets,      &
+              &        'V_lmr_ave.',omega_ma,omega_ic)
+         if ( l_heat ) then
+            call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
+                 &        'T_lmr_ave.',omega_ma,omega_ic)
+         end if
+
+         ! if ( l_chemical_conv ) then
+            ! call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
+                 ! &        'Xi_lmr_ave.',omega_ma,omega_ic)
+         ! end if
 
          if ( l_save_out ) close(n_log_file)
 
