@@ -108,8 +108,10 @@ contains
       real(cp) :: e_p_eas_r(n_r_max)
       real(cp) :: e_t_eas_r(n_r_max)
 
-      real(cp) :: e_pA_global(n_r_max),e_tA_global(n_r_max)
-      real(cp) :: e_p_asA_global(n_r_max),e_t_asA_global(n_r_max)
+      real(cp) :: e_p_r_global(n_r_max),e_t_r_global(n_r_max)
+      real(cp) :: e_p_as_r_global(n_r_max),e_t_as_r_global(n_r_max)
+      real(cp) :: e_p_es_r_global(n_r_max),e_t_es_r_global(n_r_max)
+      real(cp) :: e_p_eas_r_global(n_r_max),e_t_eas_r_global(n_r_max)
 
       integer nR,lm,l,m,fileHandle
       real(cp) :: fac
@@ -169,81 +171,65 @@ contains
          !write(*,"(4X,A,I4,2ES22.14)") "e_p_r: ",nR,e_p_r(nR),e_p_as_r(nR)
       end do    ! radial grid points
 
-      !-- Radial Integrals:
-      e_p    =rInt_R(e_p_r,r,rscheme_oc)
-      e_t    =rInt_R(e_t_r,r,rscheme_oc)
-      e_p_as =rInt_R(e_p_as_r,r,rscheme_oc)
-      e_t_as =rInt_R(e_t_as_r,r,rscheme_oc)
-      e_p_es =rInt_R(e_p_es_r,r,rscheme_oc)
-      e_t_es =rInt_R(e_t_es_r,r,rscheme_oc)
-      e_p_eas=rInt_R(e_p_eas_r,r,rscheme_oc)
-      e_t_eas=rInt_R(e_t_eas_r,r,rscheme_oc)
-
-      fac    =half*eScale
-      e_p    =fac*e_p
-      e_t    =fac*e_t
-      e_p_as =fac*e_p_as
-      e_t_as =fac*e_t_as
-      e_p_es =fac*e_p_es
-      e_t_es =fac*e_t_es
-      e_p_eas=fac*e_p_eas
-      e_t_eas=fac*e_t_eas
-
-      if ( present(ekinR) ) then
-         do nR=1,n_r_max
-            ekinR(nR)=fac*(e_p_r(nR)+e_t_r(nR))
-         end do
-#ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE, ekinR, n_r_max, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-#endif
-      end if
-
-      ! NOTE: n_e_sets=0 prevents averaging
-      if ( n_e_sets == 1 ) then
-         timeTot=one
-         e_pA   =e_p_r
-         e_p_asA=e_p_r
-         e_tA   =e_t_r
-         e_t_asA=e_t_r
-      else if ( n_e_sets == 2 ) then
-         dt      =time-timeLast
-         timeTot =two*dt
-         e_pA    =dt*(e_pA   +e_p_r )
-         e_p_asA =dt*(e_p_asA+e_p_as_r)
-         e_tA    =dt*(e_tA   +e_t_r )
-         e_t_asA =dt*(e_t_asA+e_t_as_r)
-      else
-         dt=time-timeLast
-         timeTot=timeTot+dt
-         e_pA   =e_pA    + dt*e_p_r
-         e_p_asA=e_p_asA + dt*e_p_as_r
-         e_tA   =e_tA    + dt*e_t_r
-         e_t_asA=e_t_asA + dt*e_t_as_r
-      end if
-
       ! reduce over the ranks
 #ifdef WITH_MPI
-      call MPI_Allreduce(MPI_IN_PLACE, e_p, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_t, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_p_as, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_t_as, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_p_es, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_t_es, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_p_eas, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
-      call MPI_Allreduce(MPI_IN_PLACE, e_t_eas, 1, MPI_DEF_REAL,MPI_SUM, &
-           &             MPI_COMM_WORLD, ierr)
+      call MPI_Reduce(e_p_r,    e_p_r_global,     n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_t_r,    e_t_r_global,     n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_p_as_r, e_p_as_r_global,  n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_t_as_r, e_t_as_r_global,  n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_p_es_r, e_p_es_r_global,  n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_t_es_r, e_t_es_r_global,  n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_p_eas_r,e_p_eas_r_global, n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(e_t_eas_r,e_t_eas_r_global, n_r_max, &
+           & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      e_p_r_global    =e_p_r
+      e_t_r_global    =e_t_r
+      e_p_as_r_global =e_p_as_r
+      e_t_as_r_global =e_t_as_r
+      e_p_es_r_global =e_p_es_r
+      e_t_es_r_global =e_t_es_r
+      e_p_eas_r_global=e_p_eas_r
+      e_t_eas_r_global=e_t_eas_r
 #endif
 
-      !-- Write e_kin.TAG file
       if ( rank == 0 ) then
+         !do nR=1,n_r_max
+         !   write(*,"(4X,A,I4,ES22.14)") "e_p_r_global: ",nR,e_p_r_global(nR)
+         !end do
+         !-- Radial Integrals:
+         e_p    =rInt_R(e_p_r_global,r,rscheme_oc)
+         e_t    =rInt_R(e_t_r_global,r,rscheme_oc)
+         e_p_as =rInt_R(e_p_as_r_global,r,rscheme_oc)
+         e_t_as =rInt_R(e_t_as_r_global,r,rscheme_oc)
+         e_p_es =rInt_R(e_p_es_r_global,r,rscheme_oc)
+         e_t_es =rInt_R(e_t_es_r_global,r,rscheme_oc)
+         e_p_eas=rInt_R(e_p_eas_r_global,r,rscheme_oc)
+         e_t_eas=rInt_R(e_t_eas_r_global,r,rscheme_oc)
+
+         fac    =half*eScale
+         e_p    =fac*e_p
+         e_t    =fac*e_t
+         e_p_as =fac*e_p_as
+         e_t_as =fac*e_t_as
+         e_p_es =fac*e_p_es
+         e_t_es =fac*e_t_es
+         e_p_eas=fac*e_p_eas
+         e_t_eas=fac*e_t_eas
+
+         !-- Output:
+         if ( present(ekinR) ) then
+            do nR=1,n_r_max
+               ekinR(nR)=fac*(e_p_r_global(nR)+e_t_r_global(nR))
+            end do
+         end if
          if ( l_write ) then
             if ( l_save_out ) then
                open(newunit=n_e_kin_file, file=e_kin_file, status='unknown', &
@@ -254,28 +240,32 @@ contains
             &     e_p_es, e_t_es, e_p_eas,e_t_eas           ! 6,7,8,9
             if ( l_save_out ) close(n_e_kin_file)
          end if
-      end if
 
-      if ( l_stop_time .and. (n_e_sets > 1) ) then
+         ! NOTE: n_e_sets=0 prevents averaging
+         if ( n_e_sets == 1 ) then
+            timeTot=one
+            e_pA   =e_p_r_global
+            e_p_asA=e_p_r_global
+            e_tA   =e_t_r_global
+            e_t_asA=e_t_r_global
+         else if ( n_e_sets == 2 ) then
+            dt      =time-timeLast
+            timeTot =two*dt
+            e_pA    =dt*(e_pA   +e_p_r_global   )
+            e_p_asA =dt*(e_p_asA+e_p_as_r_global)
+            e_tA    =dt*(e_tA   +e_t_r_global   )
+            e_t_asA =dt*(e_t_asA+e_t_as_r_global)
+         else
+            dt=time-timeLast
+            timeTot=timeTot+dt
+            e_pA   =e_pA    + dt*e_p_r_global
+            e_p_asA=e_p_asA + dt*e_p_as_r_global
+            e_tA   =e_tA    + dt*e_t_r_global
+            e_t_asA=e_t_asA + dt*e_t_as_r_global
+         end if
 
-         ! reduce over the ranks
-#ifdef WITH_MPI
-         call MPI_Reduce(e_pA,    e_pA_global,     n_r_max,       &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_p_asA,    e_p_asA_global,     n_r_max, &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_tA,    e_tA_global,     n_r_max,       &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-         call MPI_Reduce(e_t_asA,    e_t_asA_global,     n_r_max, &
-              &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-         e_pA_global(:)    = e_pA(:)
-         e_p_asA_global(:) = e_p_asA(:)
-         e_tA_global(:)    = e_tA(:)
-         e_t_asA_global(:) = e_t_asA(:)
-#endif
-         !-- Write eKinR.TAG file
-         if ( rank == 0 ) then
+         !write(*,"(A,2ES22.14)") "e_pA, e_tA = ",SUM( e_pA ),SUM( e_tA )
+         if ( l_stop_time .and. (n_e_sets > 1) ) then
             fac=half*eScale
             filename='eKinR.'//tag
             open(newunit=fileHandle, file=filename, status='unknown')
@@ -293,8 +283,21 @@ contains
             end do
             close(fileHandle)
          end if
+         timeLast=time
       end if
-      timeLast=time
+
+      ! broadcast the output arguments of the function to have them on all ranks
+      ! e_p,e_t,e_p_as,e_t_as
+#ifdef WITH_MPI
+      call MPI_Bcast(e_p,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_p_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(e_t_as,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+
+      if ( present(ekinR) ) then
+         call MPI_Bcast(ekinR,n_r_max,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      end if
+#endif
 
    end subroutine get_e_kin
 !-----------------------------------------------------------------------------
