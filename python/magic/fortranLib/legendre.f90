@@ -56,9 +56,9 @@ contains
             do l=m,l_max
                lm = lm+1
                lmP = lmP+1
-               Plm(lm,n_theta)  = plma(lmP)
+               Plm(lm,n_theta)  = (-1.d0)**(real(m,kind=8))*plma(lmP)
                ! True theta derivative !!!
-               dPlm(lm,n_theta) = dtheta_plma(lmP)/sin(colat)
+               dPlm(lm,n_theta) = (-1.d0)**(real(m,kind=8))*dtheta_plma(lmP)/sin(colat)
                ! Add the theta dependence in dPhi to simplify the output
                dPhi(lm,n_theta) = real(m,kind=8)/sin(colat)
             end do
