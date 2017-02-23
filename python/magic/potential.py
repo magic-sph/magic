@@ -54,6 +54,14 @@ class MagicPotential(MagicSetup):
         :type precision: str
         """
 
+        if hasattr(self, 'radial_scheme'):
+            if self.radial_scheme == 'FD':
+                self.rcheb = False
+            else:
+                self.rcheb = True
+        else:
+            self.rcheb = True
+
         if ave:
             self.name = '%s_lmr_ave' % field
         else:
@@ -186,7 +194,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vr'
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'utheta', 'vtheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 vt, vp = self.sp.specspat_vec(1, self.n_theta_max, 1,
                                        field[:, i], self.tor[:, i], self.lm_max)
@@ -196,7 +204,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vtheta'
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 vt, vp = self.sp.specspat_vec(1, self.n_theta_max, 1,
                                        field[:, i], self.tor[:, i], self.lm_max)
@@ -216,7 +224,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'br'
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 bt, bp = self.sp.specspat_vec(1, self.n_theta_max, 1,
                                        field[:, i], self.tor[:, i], self.lm_max)
@@ -226,7 +234,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Btheta'
         elif field in ('bp', 'Bp', 'bphi', 'Bphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 bt, bp = self.sp.specspat_vec(1, self.n_theta_max, 1,
                                        field[:, i], self.tor[:, i], self.lm_max)
@@ -298,7 +306,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vr'
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'vtheta', 'utheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 vt, vp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
                                                     self.tor[:, i], self.lm_max)
@@ -309,7 +317,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vtheta'
         elif field in ('vp', 'Vp', 'up', 'Up', 'vphi', 'uphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 vt, vp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
                                                     self.tor[:, i], self.lm_max)
@@ -330,7 +338,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Br'
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 bt, bp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
                                                     self.tor[:, i], self.lm_max)
@@ -341,7 +349,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Btheta'
         elif field in ('bp', 'Bp', 'Bphi', 'bphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
                 bt, bp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
                                                     self.tor[:, i], self.lm_max)
@@ -438,7 +446,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vr'
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'vtheta', 'utheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
             vt, vp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
                                           self.n_m_max, field, self.tor[:, indPlot],
@@ -450,7 +458,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'vtheta'
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
             vt, vp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
                                           self.n_m_max, field, self.tor[:, indPlot],
@@ -473,7 +481,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Br'
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
             bt, bp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
                                           self.n_m_max, field, self.tor[:, indPlot],
@@ -485,7 +493,7 @@ class MagicPotential(MagicSetup):
             else:
                 label = 'Btheta'
         elif field in ('bp', 'Bp', 'bphi', 'Bphi'):
-            field = rderavg(self.pol, self.radratio)
+            field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
             bt, bp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
                                           self.n_m_max, field, self.tor[:, indPlot],
