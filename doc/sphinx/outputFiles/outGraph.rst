@@ -355,6 +355,6 @@ They can be visualized using the :py:class:`Surf <magic.Surf>` class:
 
     >>> s = Surf(tag='TAG')
     >>> # Surface map of radial velocity:
-    >>> s.surf(field = 'vr', r = 0.5, cmap = 'jet', levels = 50)
+    >>> s.surf(field = 'vr', r = 0.5, cm = 'jet', levels = 50)
     >>> s.slice(field = 'br', lon_0 = [0]) # Longitudinal Slice of radial magnetic field
     >>> s.equat(field = 'entropy')         # Equatorial slice of entropy 

@@ -32,6 +32,13 @@ terminate its execution:
      Once the spectra files have been written, the keyword will be automatically replaced
      by ``NOT``.
 
+   * **POT**: Changing the word ``NOT`` to ``POT`` will cause the code to produce
+     the potential files :ref:`V_lmr_#.TAG <secVpotFile>` (and possibly 
+     :ref:`B_lmr_#.TAG <secBpotFile>` and `T_lmr_#.TAG <secTpotFile>` depending
+     if the run is magnetic or not, or if it solves a temperature/entropy equation).
+     Once the potential files have been written, the keyword will be automatically replaced
+     by ``NOT``.
+
 
    .. note:: Those keywords are **case-insensitive**.
 

@@ -62,6 +62,21 @@ stored as a fortran unformatted file which follows the following structure:
        z(lm=1,n_r=n_r_max), ..., z(lm=lm_max,n_r=n_r_max)
 
 
+The potential files that contain the poloidal and toroidal potentials for the momentum
+can be read and transformed to the physical space using the python class :py:class:`MagicPotential <magic.MagicPotential>`.
+
+    >>> p = MagicPotential(field='V')
+    >>> print(p.pol[p.idex[3,2], 32]) # print w(l=3,m=2,n_r=32)
+
+Once transformed to the physical space using a Fourier and a Legendre transform, they
+can be displayed:
+
+    >>> p.equat(field='vr', cm='jet', levels=50) # Equatorial cut of vr
+    >>> p.avg(field='vp') # Azimuthal average of vphi
+    >>> p.surf(field='vt', r=0.8) # Radial cut of vtheta at r=0.8r_o
+
+
+
 .. _secBpotFile:
 
 ``B_lmr_#.TAG``, ``B_lmr_ave.TAG``
@@ -143,6 +158,20 @@ stored as a fortran unformatted file which follows the following structure:
        aj_ic(lm=1,n_r=n_r_max), ..., aj_ic(lm=lm_max,n_r=n_r_max)
 
 
+The potential files that contain the poloidal and toroidal potentials for the magnetic field can be read and transformed to the physical space using the python class :py:class:`MagicPotential <magic.MagicPotential>`.
+
+    >>> p = MagicPotential(field='B')
+    >>> print(p.tor[p.idex[3,2], 32]) # print aj(l=3,m=2,n_r=32)
+
+Once transformed to the physical space using a Fourier and a Legendre transform, they
+can be displayed:
+
+    >>> p.equat(field='Br', cm='jet', levels=50) # Equatorial cut of Br
+    >>> p.avg(field='Bp') # Azimuthal average of Bphi
+    >>> p.surf(field='Bt', r=0.8) # Radial cut of Btheta at r=0.8r_o
+
+
+
 
 .. _secTpotFile:
 
@@ -192,3 +221,15 @@ stored as a fortran unformatted file which follows the following structure:
        s(lm=1,n_r=1), s(lm=2, n_r=1), ..., s(lm=lm_max, n_r=1),
        ...
        s(lm=1,n_r=n_r_max), ..., s(lm=lm_max,n_r=n_r_max)
+
+
+The potential files that contain the temperature/entropy in the spectral space can be read and transformed to the physical space using the python class :py:class:`MagicPotential <magic.MagicPotential>`.
+
+    >>> p = MagicPotential(field='T')
+    >>> print(p.pol[p.idex[0,0], 10]) # print s(l=0,m=0,n_r=10)
+
+Once transformed to the physical space using a Fourier and a Legendre transform, they
+can be displayed:
+
+    >>> p.equat(field='T', cm='jet', levels=50) # Equatorial cut of temperature/entropy
+    >>> p.avg(field='T') # Azimuthal average of temperature/entropy
