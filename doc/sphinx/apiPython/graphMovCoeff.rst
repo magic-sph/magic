@@ -49,3 +49,12 @@ Support for ``B[rp]Spec.TAG``
    :private-members:
    :special-members:
 
+.. _secPythonPot:
+
+Support for ``[V|B|T]_lmr_#.TAG``
+---------------------------------
+
+.. autoclass:: magic.MagicPotential
+   :members:
+   :private-members:
+   :special-members:

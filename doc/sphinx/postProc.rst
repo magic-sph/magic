@@ -83,6 +83,19 @@ configuration is thus:
 
    labTex = False
 
+You can change the default colormap that will be used in the plotting routines.
+
+.. code-block:: python
+
+   defaultCm = seismic
+
+You cant change the default number of contours that will be used in the plotting routines.
+
+.. code-block:: python
+
+   defaultLevels = 65
+
+
 If you want to enable all the features of the python functions (faster reading the 
 :ref:`G_#.TAG <secGraphFile>`, conversion to the `VTK/VTS <http://www.vtk.org/>`_
 file format, potential extrapolation of the field lines, etc.), some fortran libraries
@@ -156,6 +169,7 @@ If the build was successful, it should display::
 
    Please wait: building greader_single...
    Please wait: building greader_double...
+   Please wait: building Legendre transforms...
    Please wait: building potential extrapolation...
    Please wait: building vtklib...
 
@@ -187,19 +201,21 @@ API of the available classes, as well as some practical examples:
 
      6. To read and analyse movie files **_mov.TAG**, see :ref:`here <secPythonMovieFiles>`.
 
-     7. To read and analyse coeff files **_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
+     7. To read and analyse coeff files **[V|B|T]_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
 
-     8. To read and analyse coeff files **_coeff.TAG**, see :ref:`here <secPythonCoeffs>`.
+     8. To read and analyse potential files **[V|B|T]_lmr_#.TAG**, see :ref:`here <secPythonPot>`.
 
      9. To read and analyse radial spectra **B[r|p]Spec.TAG**, see :ref:`here <secPythonRSpec>`.
 
-     10. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
+     10. To read and analyse TO outputs, see :ref:`here <secPythonTO>`.
 
-     11. To transform the graphic files **G_#.TAG** to a file format readable by `paraview <http://www.paraview.org/>`_, `VisIt <https://visit.llnl.gov/>`_ or `mayavi <http://code.enthought.com/projects/mayavi/>`_ and do some fancy 3-D visualisation, see :ref:`here <secPythonParaview>`.
+     11. To compare several runs simultaneously, see :ref:`here <secPythonComp>`.
 
-     12. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+     12. To transform the graphic files **G_#.TAG** to a file format readable by `paraview <http://www.paraview.org/>`_, `VisIt <https://visit.llnl.gov/>`_ or `mayavi <http://code.enthought.com/projects/mayavi/>`_ and do some fancy 3-D visualisation, see :ref:`here <secPythonParaview>`.
 
-     13. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
+     13. For additional diagnostics (boundary layer, heat transport, interpolation on cylindrical grids, etc.), see :ref:`here <secPythonMisc>`.
+
+     14. To take a look at the additional useful functions available (derivation, integration, interpolation, etc.), see :ref:`here <secPythonLibs>`.
 
 
 .. toctree::

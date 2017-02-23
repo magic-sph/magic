@@ -1,3 +1,4 @@
+.. _secPotFiles:
 
 Potential files ``[V|B|T]_lmr_#.TAG``
 =====================================
