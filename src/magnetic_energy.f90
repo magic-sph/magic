@@ -204,8 +204,8 @@ contains
             m=lo_map%lm2m(lm)
 
             e_p_temp= dLh(st_map%lm2(l,m))*( dLh(st_map%lm2(l,m))*    &
-                 &                       or2(nR)*cc2real( b(lm,nR),m) &
-                 &                             + cc2real(db(lm,nR),m) )
+            &                            or2(nR)*cc2real( b(lm,nR),m) &
+            &                                  + cc2real(db(lm,nR),m) )
             e_t_temp= dLh(st_map%lm2(l,m)) * cc2real(aj(lm,nR),m)
 
             if ( m == 0 ) then  ! axisymmetric part 

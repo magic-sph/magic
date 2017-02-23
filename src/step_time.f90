@@ -382,12 +382,14 @@ contains
       real(cp) :: tenth_n_time_steps
 
       !-- Interupt procedure:
-      integer :: signals(4)
+      integer :: signals(5)
       integer :: n_stop_signal     ! =1 causes run to stop
       integer :: n_graph_signal    ! =1 causes output of graphic file
       integer :: n_rst_signal      ! =1 causes output of rst file
       integer :: n_spec_signal     ! =1 causes output of a spec file
-      integer :: old_stop_signal,old_graph_signal,old_rst_signal,old_spec_signal
+      integer :: n_pot_signal      ! =1 causes output for pot files
+      integer :: old_stop_signal,old_graph_signal,old_rst_signal
+      integer :: old_spec_signal,old_pot_signal
 
       !--- Timing
       integer :: runTimePassed(4)
@@ -448,7 +450,8 @@ contains
       n_stop_signal =0     ! Stop signal returned to calling program
       n_graph_signal=0     ! Graph signal returned to calling program
       n_spec_signal=0      ! Spec signal
-      n_rst_signal=0
+      n_rst_signal=0       ! Rst signal
+      n_pot_signal=0       ! Potential file signal
       if ( rank == 0 ) then
          message='signal'//'.'//tag
          open(newunit=sigFile, file=trim(message), status='unknown')
@@ -568,36 +571,39 @@ contains
                if ( index(SIG,'END')/=0 ) signals(1)=1  !n_stop_signal=1
                old_graph_signal=n_graph_signal
                if ( index(SIG,'GRA')/=0 ) then 
-                  !n_graph_signal=1
                   signals(2)=1
                   open(newunit=sigFile, file=trim(message), status='unknown')
                   write(sigFile,'(A3)') 'NOT'
                   close(sigFile)
                else
-                  !n_graph_signal=0
                   signals(2)=0
                end if
                old_rst_signal=n_rst_signal
                if ( index(SIG,'RST')/=0 ) then
                   signals(3)=1
-                  !n_rst_signal=1
                   open(newunit=sigFile, file=trim(message), status='unknown')
                   write(sigFile,'(A3)') 'NOT'
                   close(sigFile)
                else
                   signals(3)=0
-                  !n_rst_signal=0
                end if
                old_spec_signal=n_spec_signal
                if ( index(SIG,'SPE')/=0 ) then
                   signals(4)=1
-                  !n_spec_signal=1
                   open(newunit=sigFile, file=trim(message), status='unknown')
                   write(sigFile,'(A3)') 'NOT'
                   close(sigFile)
                else
                   signals(4)=0
-                  !n_spec_signal=0
+               end if
+               old_pot_signal=n_pot_signal
+               if ( index(SIG,'POT')/=0 ) then
+                  signals(5)=1
+                  open(newunit=sigFile, file=trim(message), status='unknown')
+                  write(sigFile,'(A3)') 'NOT'
+                  close(sigFile)
+               else
+                  signals(5)=0
                end if
             end if
          end if
@@ -617,31 +623,29 @@ contains
             if ((old_stop_signal /= n_stop_signal) .or.      &
                  & (old_graph_signal /= n_graph_signal) .or. &
                  & (old_rst_signal /= n_rst_signal) .or.     &
-                 & (old_spec_signal /= n_spec_signal)) then
+                 & (old_spec_signal /= n_spec_signal) .or.   &
+                 & (old_pot_signal /= n_pot_signal) then
                do iRank=1,n_procs-1
                   write(*,"(A,I4)") "MPI_putting from rank 0 to rank ",iRank
-                  call MPI_Put(signals,4,MPI_integer,&
-                       &       iRank,0,4,MPI_integer,signal_window,ierr)
+                  call MPI_Put(signals,5,MPI_integer,&
+                       &       iRank,0,5,MPI_integer,signal_window,ierr)
                end do
             end if
          end if
 #endif
 #ifdef WITH_MPI
-         call MPI_Bcast(signals,4,MPI_integer,0,MPI_COMM_WORLD,ierr)
-         !call MPI_Bcast(n_stop_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
-         !call MPI_Bcast(n_graph_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
-         !call MPI_Bcast(n_spec_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
-         !call MPI_Bcast(n_rst_signal,1,MPI_integer,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(signals,5,MPI_integer,0,MPI_COMM_WORLD,ierr)
 #endif
          !write(*,"(A)") "Win_fence 2 start"
          !PERFON('fence2')
          !call MPI_Win_fence(0,signal_window,ierr)
          !PERFOFF
          !write(*,"(A)") "Win_fence 2 end"
-         n_stop_signal=signals(1)
+         n_stop_signal =signals(1)
          n_graph_signal=signals(2)
-         n_rst_signal=signals(3)
-         n_spec_signal=signals(4)
+         n_rst_signal  =signals(3)
+         n_spec_signal =signals(4)
+         n_pot_signal  =signals(5)
          PERFOFF
 
 #ifdef WITH_MPI
@@ -701,18 +705,23 @@ contains
               &     l_correct_step(n_time_step-1,time,timeLast,n_time_steps,     &
               &     n_probe_step,n_probe_out,n_t_probe,t_probe,0)
 
-         l_Bpot=l_storeBpot .and. (                                              &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or. &
-              &            n_time_steps == 1 )
+         if ( l_mag .or. l_mag_LF ) then
+            l_Bpot=l_storeBpot .and. (                                              &
+                 &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+                 &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or. &
+                 &            n_time_steps == 1 )  .or. n_pot_signal == 1
+         end if
          l_Vpot=l_storeVpot .and. (                                              &
               &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
               &                       n_Vpot_step,n_Vpots,n_t_Vpot,t_Vpot,0).or. &
-              &            n_time_steps == 1 )
-         l_Tpot=l_storeTpot .and. (                                              &
-              &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
-              &                       n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or. &
-              &            n_time_steps == 1 )
+              &            n_time_steps == 1 ) .or. n_pot_signal == 1
+         if ( l_heat ) then
+            l_Tpot=l_storeTpot .and. (                                              &
+                 &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
+                 &                       n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or. &
+                 &            n_time_steps == 1 ) .or. n_pot_signal == 1
+         end if
+         n_pot_signal=0   ! reset interrupt signal !
 
          l_cour=.true.
 
