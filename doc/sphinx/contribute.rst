@@ -38,7 +38,7 @@ You can run it as follows:
 
 .. code-block:: bash
 
- ./magic_checks.py <options>
+ ./magic_wizard.py <options>
 
 It supports the following options:
 
