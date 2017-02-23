@@ -710,6 +710,8 @@ contains
                  &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
                  &                       n_Bpot_step,n_Bpots,n_t_Bpot,t_Bpot,0).or. &
                  &            n_time_steps == 1 )  .or. n_pot_signal == 1
+         else
+            l_Bpot=.false.
          end if
          l_Vpot=l_storeVpot .and. (                                              &
               &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
@@ -720,6 +722,8 @@ contains
                  &        l_correct_step(n_time_step-1,time,timeLast,n_time_steps,  &
                  &                       n_Tpot_step,n_Tpots,n_t_Tpot,t_Tpot,0).or. &
                  &            n_time_steps == 1 ) .or. n_pot_signal == 1
+         else
+            l_Tpot=.false.
          end if
          n_pot_signal=0   ! reset interrupt signal !
 
