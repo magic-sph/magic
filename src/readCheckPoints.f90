@@ -1405,7 +1405,14 @@ contains
          end if
 
          !----- Transform old data to cheb space:
-         call rscheme_oc_old%costf1(dataR)
+         if ( l_IC ) then
+            allocate( work(n_r_maxL) )
+            call chebt_oc_old%initialize(n_r_max_old, 2*n_r_maxL+2, 2*n_r_maxL+5)
+            call chebt_oc_old%costf1(dataR, work)
+            call chebt_oc_old%finalize()
+         else
+            call rscheme_oc_old%costf1(dataR)
+         end if
 
          !----- Fill up cheb polynomial with zeros:
          if ( n_rad_tot>n_r_max_old ) then
@@ -1421,9 +1428,6 @@ contains
        
          !----- Now transform to new radial grid points:
          if ( l_IC ) then
-
-            allocate( work(n_r_maxL) )
-
             call chebt_ic%costf1(dataR,work)
             !----- Rescale :
             cheb_norm_old=sqrt(two/real(n_r_max_old-1,kind=cp))
