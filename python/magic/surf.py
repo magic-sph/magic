@@ -25,7 +25,6 @@ class Surf:
     >>> s.avg(field='vp')
     >>> s.surf(field='entropy', r=0.8)
     >>> s.slice(field='Br', lon_0=[0, 30])
-
     """
 
     def __init__(self, ivar=None, datadir='.', vort=False, ave=False, tag=None,
@@ -104,6 +103,11 @@ class Surf:
         :type cm: str
         :param lon_shift: translate map in azimuth (in degrees)
         :type lon_shift: int
+        :param lon_0: central azimuth (only used with Basemap)
+        :type lon_0: float
+        :param lat_0: central latitude (only used with Basemap)
+        :type lat_0: float
+        :param tit: display the title of the figure when set to True
         :param tit: display the title of the figure when set to True
         :type tit: bool
         :param cbar: display the colorbar when set to True
@@ -533,8 +537,10 @@ class Surf:
         :param normed: when set to True, the colormap is centered around zero.
                        Default is True, except for entropy/temperature plots.
         :type normed: bool
-        :param pol: diplay the poloidal field lines contours when set to Tru
+        :param pol: diplay the poloidal field lines contours when set to True
         :type pol: bool
+        :param tor: diplay the toroidal axisymmetric field contours when set to True
+        :type tor: bool
         :param mer: display the meridional circulation contours when set to True
         :type mer: bool
         :param merLevels: number of contour levels to display meridional circulation

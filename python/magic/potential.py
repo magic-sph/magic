@@ -4,19 +4,55 @@ from .setup import labTex, defaultCm, defaultLevels, labTex
 from .libmagic import *
 from .plotlib import radialContour, merContour, equatContour
 import os, re, sys
+import numpy as np
+import matplotlib.pyplot as plt
 if sys.version_info.major == 3:
     from legendre3 import *
 elif  sys.version_info.major == 2:
     from legendre2 import *
 
-import numpy as np
-import matplotlib.pyplot as plt
 
 
 class MagicPotential(MagicSetup):
+    """
+    This class allows to load and display the content of the potential
+    files: :ref:`V_lmr.TAG <secVpotFile>`, :ref:`B_lmr.TAG <secBpotFile>`
+    and :ref:`T_lmr.TAG <secTpotFile>`. This class allows to transform
+    the poloidal/toroidal potential in spectral space to the physical 
+    quantities in the physical space. It allows to plot radial and
+    equatorial cuts as well as phi-averages.
+
+    >>> # To read T_lmr.test
+    >>> p = MagicPotential(field='T', ipot=1, tag='test')
+    >>> # To read the latest V_lmr file in the working directory
+    >>> p = MagicPotential(field='V')
+    >>> # Get the poloidal potential (lm, nR)
+    >>> wlm = p.pol
+    >>> # Obtain the value of w(l=12, m=12, nR=33)
+    >>> print( p.pol[p.idx[12,12], 32] )
+
+    >>> # Possible plots
+    >>> p.equat(field='vr')
+    >>> p.avg(field='vp')
+    >>> p.surf(field='vt', r=0.8)
+    """
 
     def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None, 
                  precision='Float32'):
+        """
+        :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
+        :type field: str
+        :param datadir: the working directory
+        :type datadir: str
+        :param tag: if you specify a pattern, it tries to read the corresponding files
+        :type tag: str
+        :param ave: plot a time-averaged spectrum when set to True
+        :type ave: bool
+        :param ipot: the number of the lmr file you want to plot
+        :type ipot: int
+        :param precision: single or double precision
+        :type precision: str
+        """
 
         if ave:
             self.name = '%s_lmr_ave' % field
@@ -101,6 +137,34 @@ class MagicPotential(MagicSetup):
 
     def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm, normed=True,
             vmax=None, vmin=None, cbar=True, tit=True):
+        """
+        Plot the azimutal average of a given field.
+
+           >>> p = MagicPotential(field='V')
+           >>> # Axisymmetric zonal flows, 65 contour levels
+           >>> p.avg(field='vp', levels=65, cm='seismic')
+
+           >>> # Minimal plot (no cbar, not title)
+           >>> p.avg(field='vr', tit=False, cbar=False)
+
+        :param field: the field you want to display
+        :type field: str
+        :param levels: the number of levels in the contourf plot
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
+        :type normed: bool
+        """
 
         phiavg = np.zeros((self.n_theta_max, self.n_r_max), 'f')
         if field in ('T', 'temp', 'S', 'entropy'):
@@ -180,6 +244,38 @@ class MagicPotential(MagicSetup):
 
     def equat(self, field='vr', levels=defaultLevels, cm=defaultCm, normed=True,
               vmax=None, vmin=None, cbar=True, tit=True, normRad=False):
+        """
+        Plot the equatorial cut of a given field
+
+           >>> p = MagicPotential(field='B')
+           >>> # Equatorial cut of the Br
+           >>> p.equat(field='Br')
+
+           >>> # Normalise the contour levels radius by radius
+           >>> p.equat(field='Bphi', normRad=True)
+
+        :param field: the name of the input physical quantity you want to
+                      display
+        :type field: str
+        :param normRad: when set to True, the contour levels are normalised
+                        radius by radius (default is False)
+        :type normRad: bool
+        :param levels: the number of levels in the contour
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+                       Default is True, except for entropy/temperature plots.
+        :type normed: bool
+        """
 
         equator = np.zeros((self.n_phi_max, self.n_r_max), 'f')
 
@@ -274,6 +370,48 @@ class MagicPotential(MagicSetup):
     def surf(self, field='vr', proj='hammer', lon_0=0., r=0.85, vmax=None,
              vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, lon_shift=0,
              normed=True, cbar=True, tit=True, lines=False):
+        """
+        Plot the surface distribution of an input field at a given
+        input radius (normalised by the outer boundary radius).
+
+           >>> p = MagicPotential(field='V')
+           >>> # Radial flow component at ``r=0.95 r_o``, 65 contour levels
+           >>> p.surf(field='vr', r=0.95, levels=65, cm='seismic')
+
+           >>> # Control the limit of the colormap from -1e3 to 1e3
+           >>> p.surf(field='vp', r=1., vmin=-1e3, vmax=1e3, levels=33)
+    
+        :param field: the name of the field you want to display
+        :type field: str
+        :param proj: the type of projection. Default is Hammer, in case
+                     you want to use 'ortho' or 'moll', then Basemap is
+                     required.
+        :type proj: str
+        :param lon_0: central azimuth (only used with Basemap)
+        :type lon_0: float
+        :param lat_0: central latitude (only used with Basemap)
+        :type lat_0: float
+        :param r: the radius at which you want to display the input
+                  data (in normalised units with the radius of the outer boundary)
+        :type r: float
+        :param levels: the number of levels in the contour
+        :type levels: int
+        :param cm: name of the colormap ('jet', 'seismic', 'RdYlBu_r', etc.)
+        :type cm: str
+        :param tit: display the title of the figure when set to True
+        :type tit: bool
+        :param cbar: display the colorbar when set to True
+        :type cbar: bool
+        :param lines: when set to True, over-plot solid lines to highlight
+                      the limits between two adjacent contour levels
+        :type lines: bool
+        :param vmax: maximum value of the contour levels
+        :type vmax: float
+        :param vmin: minimum value of the contour levels
+        :type vmin: float
+        :param normed: when set to True, the colormap is centered around zero.
+        :type normed: bool
+        """
 
         r /= (1-self.radratio) # as we give a normalised radius
         ind = np.nonzero(np.where(abs(self.radius-r) \
