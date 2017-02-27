@@ -123,8 +123,9 @@ class MagicPotential(MagicSetup):
             self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
             self.tor = self.tor.T
 
-
         self.n_theta_max = 3*self.l_max/2
+        if self.n_theta_max % 2: # odd number
+            self.n_theta_max += 1
         self.n_phi_max = 2*self.n_theta_max
         self.nphi = self.n_phi_max+1
         self.sp = legendre
