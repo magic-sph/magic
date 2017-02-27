@@ -117,6 +117,24 @@ if buildSo:
             sp.call(['mv', 'greader_double2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
+    # For the reader of the potential files
+    if not os.path.exists('lmrreader_single%i.so' % pythonVersion):
+        os.chdir('fortranLib')
+        print("Please wait: building lmrreader_single...")
+        sp.call(['%s' % f2pycmd,
+                 '--fcompiler=%s' % fcompiler,
+                 '--compiler=%s' % ccompiler,
+                 '-c', '-m', '--opt=-O3', 
+                 'lmrreader_single%i' % pythonVersion,
+                 'readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
+        if pythonVersion == 3:
+            cmd = "mv lmrreader_single3.cpython-%sm* %s/lmrreader_single3.so" % \
+                  (pythonSuffix, magicdir)
+            sp.call(cmd, shell=True)
+        elif pythonVersion == 2:
+            sp.call(['mv', 'lmrreader_single2.so', '%s' % magicdir])
+        os.chdir(magicdir)
+
     # For the Legendre transforms
     if not os.path.exists('legendre%i.so' % pythonVersion):
         os.chdir('fortranLib')
@@ -134,7 +152,6 @@ if buildSo:
         elif pythonVersion == 2:
             sp.call(['mv', 'legendre2.so', '%s' % magicdir])
         os.chdir(magicdir)
-
 
     # For the potential field extrapolation
     if not os.path.exists('potential%i.so' % pythonVersion):

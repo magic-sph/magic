@@ -1,15 +1,25 @@
 # -*- coding: utf-8 -*-
-from magic import npfile, MagicSetup, scanDir
-from .setup import labTex, defaultCm, defaultLevels, labTex
+from magic import MagicSetup, scanDir
+from .setup import labTex, defaultCm, defaultLevels, labTex, buildSo
 from .libmagic import *
 from .plotlib import radialContour, merContour, equatContour
 import os, re, sys
 import numpy as np
 import matplotlib.pyplot as plt
-if sys.version_info.major == 3:
-    from legendre3 import *
-elif  sys.version_info.major == 2:
-    from legendre2 import *
+
+if buildSo:
+    if sys.version_info.major == 3:
+        from legendre3 import *
+        import lmrreader_single3 as Psngl
+    elif  sys.version_info.major == 2:
+        from legendre2 import *
+        import lmrreader_single2 as Psngl
+
+    readingMode = 'f2py'
+else:
+    import npfile
+    readingMode = 'python'
+
 
 
 
@@ -99,29 +109,64 @@ class MagicPotential(MagicSetup):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
-        infile = npfile(filename, endian='B')
+        if readingMode  == 'python':
 
-        # Read header
-        self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
+            infile = npfile(filename, endian='B')
+
+            # Read header
+            self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
                                           self.lm_max = infile.fort_read('i4')
-        self.m_max = (self.l_max/self.minc)*self.minc
-        self.n_m_max = self.m_max/self.minc+1
-        self.ra, self.ek, self.pr, self.prmag, self.radratio, \
-           self.sigma_ratio, self.omega_ma, self.omega_ic = infile.fort_read(precision)
-        self.time = infile.fort_read(precision)
-        dat = infile.fort_read(precision)
-        # Read radius and density
-        self.radius = dat[:self.n_r_max]
-        self.rho0 = dat[self.n_r_max:]
+            self.m_max = (self.l_max/self.minc)*self.minc
+            self.n_m_max = self.m_max/self.minc+1
+            self.ra, self.ek, self.pr, self.prmag, self.radratio, self.sigma_ratio, \
+                         self.omega_ma, self.omega_ic = infile.fort_read(precision)
+            self.time = infile.fort_read(precision)
+            dat = infile.fort_read(precision)
+            # Read radius and density
+            self.radius = dat[:self.n_r_max]
+            self.rho0 = dat[self.n_r_max:]
 
-        # Read field in the outer core
-        self.pol = infile.fort_read('Complex32')
-        self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
-        self.pol = self.pol.T
-        if ( field != 'T' and field != 'Xi' ):
-            self.tor = infile.fort_read('Complex32')
-            self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
-            self.tor = self.tor.T
+            # Read field in the outer core
+            self.pol = infile.fort_read('Complex32')
+            self.pol = self.pol.reshape((self.n_r_max, self.lm_max))
+            self.pol = self.pol.T
+            if ( field != 'T' and field != 'Xi' ):
+                self.tor = infile.fort_read('Complex32')
+                self.tor = self.tor.reshape((self.n_r_max, self.lm_max))
+                self.tor = self.tor.T
+
+            infile.close()
+
+        else: # F2py reader
+
+            if ( field != 'T' and field != 'Xi' ): 
+                l_read_tor = True
+            else:
+                l_read_tor = False
+
+            Prd = Psngl.potreader_single
+            Prd.readpot(filename, l_read_tor)
+            self.n_r_max = Prd.n_r_max
+            self.l_max = Prd.l_max
+            self.n_r_ic_max = Prd.n_r_ic_max
+            self.minc = Prd.minc
+            self.lm_max = Prd.lm_max
+            self.m_max = (self.l_max/self.minc)*self.minc
+            self.n_m_max = self.m_max/self.minc+1
+            self.ra = Prd.ra
+            self.ek = Prd.ek
+            self.radratio = Prd.radratio
+            self.sigma_ratio = Prd.sigma_ratio
+            self.prmag = Prd.prmag
+            self.pr = Prd.pr
+            self.omega_ic = Prd.omega_ic
+            self.omega_ma = Prd.omega_ma
+            self.radius = Prd.radius
+            self.rho0 = Prd.rho0
+
+            self.pol = Prd.pol
+            if ( field != 'T' and field != 'Xi' ):
+                self.tor = Prd.tor
 
         self.n_theta_max = 3*self.l_max/2
         if self.n_theta_max % 2: # odd number
