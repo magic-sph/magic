@@ -259,7 +259,7 @@ class Movie:
         """
         out = copy.deepcopy(new)
         out.time = np.concatenate((self.time, new.time), axis=0)
-        out.data = np.concatenate((self.data, new.data), axis=0)
+        out.data = np.concatenate((self.data, new.data), axis=1)
         out.nvar = self.nvar+new.nvar
         out.var2 = out.nvar
         return out
