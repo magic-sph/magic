@@ -2,7 +2,9 @@ module legendre
 
    implicit none
 
-   integer :: n_m_max
+   integer :: lm_max
+   integer :: l_max, minc, n_m_max
+   integer :: n_theta_max, n_phi_max
    real(kind=8), allocatable :: Plm(:,:)
    real(kind=8), allocatable :: dPlm(:,:)
    real(kind=8), allocatable :: dPhi(:,:)
@@ -10,31 +12,37 @@ module legendre
    integer, allocatable :: lStart(:)
    integer, allocatable :: lStop(:)
    logical, allocatable :: lmOdd(:)
-  
+
 contains
 
-   subroutine initTransform(l_max,minc,lm_max, n_theta_max)
+   subroutine init(l_max_in,minc_in,lm_max_in,n_theta_max_in)
 
       !-- Input variables
-      integer, intent(in) :: l_max
-      integer, intent(in) :: minc
-      integer, intent(in) :: n_theta_max
-      integer, intent(in) :: lm_max
+      integer, intent(in) :: l_max_in ! Spherical harmonic order
+      integer, intent(in) :: minc_in  ! Azimuthal symmetry
+      integer, intent(in) :: n_theta_max_in ! Number of latitudinal grid point
+      integer, intent(in) :: lm_max_in ! lm max
 
       !-- Local variables:
-      integer ::  m_max, lm, lmP, l, m, lmP_max
-      integer :: n_theta
+      integer ::  lm, lmP, l, m, lmP_max
+      integer :: n_theta, m_max
       real(kind=8) :: colat, dpi
-      real(kind=8) ::  gauss(n_theta_max)
+      real(kind=8), allocatable ::  gauss(:)
       real(kind=8), allocatable :: plma(:),dtheta_plma(:)
 
       dpi=4.d0*atan(1.d0)
 
+      l_max = l_max_in
+      minc = minc_in
+      lm_max = lm_max_in
+      n_theta_max = n_theta_max_in
+      n_phi_max = n_theta_max*2/minc
       m_max = (l_max/minc)*minc
       n_m_max = m_max/minc+1
       lmP_max = lm_max+n_m_max
 
-      if ( allocated(plma) ) deallocate( plma, dtheta_plma)
+      if ( allocated(plma) ) deallocate( gauss, plma, dtheta_plma)
+      allocate(gauss(n_theta_max))
       allocate(plma(1:lmP_max))
       allocate(dtheta_plma(1:lmP_max))
 
@@ -75,7 +83,7 @@ contains
 
       deallocate( plma, dtheta_plma)
 
-   end subroutine initTransform
+   end subroutine init
 !------------------------------------------------------------------------------
    subroutine gauleg(theta_ord,gauss,n_theta_max)
 
@@ -224,20 +232,24 @@ contains
         
    end subroutine plm_theta
 !------------------------------------------------------------------------------
-   subroutine specspat_scal(br, n_phi_max, n_theta_max, n_m_max_loc, inputLM, &
-              &             lm_max)
+   subroutine specspat_scal(inputLM, br, n_th, n_ph)
 
       !-- Input variables
-      integer, intent(in) :: n_phi_max, n_theta_max
-      integer, intent(in) :: lm_max, n_m_max_loc
-      complex(kind=4) :: inputLM(lm_max)
+      integer :: n_th, n_ph
+      complex(kind=4), intent(in) :: inputLM(*)
 
       !-- Output variable
-      complex(kind=8), intent(out) :: br(n_phi_max,n_theta_max)
+      complex(kind=8), intent(out) :: br(n_ph,n_th)
 
       !-- Local variables
-      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms
+      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms, n_m_max_loc
       complex(kind=8) :: s12,z12
+
+      if ( n_ph == 1 ) then ! Axisymmetric case
+         n_m_max_loc = 1
+      else
+         n_m_max_loc = n_m_max
+      end if
 
       nThetaNHS=0
       do nThetaN=1,n_theta_max/2
@@ -260,22 +272,20 @@ contains
       enddo
 
       !-- symmetrize
-      if ( n_phi_max > 1 ) then
-         br(n_m_max_loc+1:n_phi_max/2+1,:)=(0.d0,0.d0)
-         br(n_phi_max/2+2:n_phi_max,:)    =conjg(br(n_phi_max/2:2:-1,:))
+      if ( n_ph > 1 ) then
+         br(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
+         br(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(br(n_phi_max/2:2:-1,1:n_theta_max))
       end if
 
    end subroutine specspat_scal
 !------------------------------------------------------------------------------
-   subroutine specspat_equat_scal(br, n_phi_max, inputLM, lm_max)
+   subroutine specspat_equat_scal(inputLM, br)
 
       !-- Input variables
-      integer, intent(in) :: n_phi_max
-      integer, intent(in) :: lm_max
-      complex(kind=4) :: inputLM(lm_max)
+      complex(kind=4), intent(in) :: inputLM(*)
 
       !-- Output variable
-      complex(kind=8), intent(out) :: br(n_phi_max)
+      complex(kind=8), intent(inout) :: br(*)
 
       !-- Local variables
       integer :: nThetaNHS,n_m,lm,lms
@@ -304,28 +314,35 @@ contains
 
    end subroutine specspat_equat_scal
 !------------------------------------------------------------------------------
-   subroutine specspat_vec(bt, bp, n_phi_max, n_theta_max, n_m_max_loc, dpoldrLM, &
-              &            torLM, lm_max)
+   subroutine specspat_vec(dpoldrLM, torLM, bt, bp, n_th, n_ph)
 
       !-- Input variables
-      integer, intent(in) :: n_phi_max, n_theta_max
-      integer, intent(in) :: lm_max, n_m_max_loc
-      complex(kind=4) :: dpoldrLM(lm_max)
-      complex(kind=4) :: torLM(lm_max)
+      integer :: n_ph, n_th
+      complex(kind=4), intent(in) :: dpoldrLM(*)
+      complex(kind=4), intent(in) :: torLM(*)
 
       !-- Output variables
-      complex(kind=8), intent(out) :: bt(n_phi_max,n_theta_max)
-      complex(kind=8), intent(out) :: bp(n_phi_max,n_theta_max)
+      complex(kind=8), intent(out) :: bt(n_ph,n_th)
+      complex(kind=8), intent(out) :: bp(n_ph,n_th)
 
       !-- Local variables
-      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms
+      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms,n_m_max_loc
       real(kind=8) :: PlmG(lm_max), PlmC(lm_max)
       complex(kind=8) :: vhG(lm_max), vhC(lm_max)
-      complex(kind=8) :: vhN1,vhS1,vhN2,vhS2
+      complex(kind=8) :: vhN1,vhS1,vhN2,vhS2, ii
+
+      if ( n_ph == 1 ) then ! Axisymmetric case
+         n_m_max_loc = 1
+      else
+         n_m_max_loc = n_m_max
+      end if
+
+
+      ii = (0.d0, 1.d0)
 
       do lm=1,lm_max
-         vhG(lm)=dpoldrLM(lm)-cmplx(-aimag(torLM(lm)),real(torLM(lm)),kind=8)
-         vhC(lm)=dpoldrLM(lm)+cmplx(-aimag(torLM(lm)),real(torLM(lm)),kind=8)
+         vhG(lm)=dpoldrLM(lm)-ii*torLM(lm)
+         vhC(lm)=dpoldrLM(lm)+ii*torLM(lm)
       end do
 
       nThetaNHS=0
@@ -370,46 +387,46 @@ contains
             bt(n_m,nThetaN)=0.5d0*(vhN1+vhN2)
             bt(n_m,nThetaS)=0.5d0*(vhS1+vhS2)
 
-            bp(n_m,nThetaN)=0.5d0*cmplx(aimag(vhN1-vhN2),-real(vhN1-vhN2), kind=8)
-            bp(n_m,nThetaS)=0.5d0*cmplx(aimag(vhS1-vhS2),-real(vhS1-vhS2), kind=8)
+            bp(n_m,nThetaN)=-0.5d0*ii*(vhN1-vhN2)
+            bp(n_m,nThetaS)=-0.5d0*ii*(vhS1-vhS2)
          enddo
       enddo
 
       !-- symmetrize
-      if ( n_phi_max > 1 ) then
-         bt(n_m_max_loc+1:n_phi_max/2+1,:)=(0.d0,0.d0)
-         bt(n_phi_max/2+2:n_phi_max,:)    =conjg(bt(n_phi_max/2:2:-1,:))
-         bp(n_m_max_loc+1:n_phi_max/2+1,:)=(0.d0,0.d0)
-         bp(n_phi_max/2+2:n_phi_max,:)    =conjg(bp(n_phi_max/2:2:-1,:))
+      if ( n_ph > 1 ) then
+         bt(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
+         bt(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(bt(n_phi_max/2:2:-1,1:n_theta_max))
+         bp(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
+         bp(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(bp(n_phi_max/2:2:-1,1:n_theta_max))
       end if
 
    end subroutine specspat_vec
 !-------------------------------------------------------------------------------
-   subroutine specspat_equat_vec(bt, bp, n_phi_max, dpoldrLM, torLM, lm_max)
+   subroutine specspat_equat_vec(dpoldrLM, torLM, bt, bp)
 
       !-- Input variables
-      integer, intent(in) :: n_phi_max
-      integer, intent(in) :: lm_max
-      complex(kind=4) :: dpoldrLM(lm_max)
-      complex(kind=4) :: torLM(lm_max)
+      complex(kind=4), intent(in) :: dpoldrLM(*)
+      complex(kind=4), intent(in) :: torLM(*)
 
       !-- Output variables
-      complex(kind=8), intent(out) :: bt(n_phi_max)
-      complex(kind=8), intent(out) :: bp(n_phi_max)
+      complex(kind=8), intent(inout) :: bt(*)
+      complex(kind=8), intent(inout) :: bp(*)
 
       !-- Local variables
       integer :: nThetaNHS,n_m,lm,lms
       integer :: shapePlm(2)
       real(kind=8) :: PlmG(lm_max), PlmC(lm_max)
       complex(kind=8) :: vhG(lm_max), vhC(lm_max)
-      complex(kind=8) :: vhN1,vhS1,vhN2,vhS2
+      complex(kind=8) :: vhN1,vhS1,vhN2,vhS2, ii
+
+      ii = (0.0d0, 1.0d0)
 
       shapePlm = shape(Plm)
       nThetaNHS = shapePlm(2)
 
       do lm=1,lm_max
-         vhG(lm)=dpoldrLM(lm)-cmplx(-aimag(torLM(lm)),real(torLM(lm)),kind=8)
-         vhC(lm)=dpoldrLM(lm)+cmplx(-aimag(torLM(lm)),real(torLM(lm)),kind=8)
+         vhG(lm)=dpoldrLM(lm)-ii*torLM(lm)
+         vhC(lm)=dpoldrLM(lm)+ii*torLM(lm)
       end do
 
       do n_m=1,n_m_max
@@ -450,8 +467,8 @@ contains
          bt(n_m)=0.5d0*(vhN1+vhN2)
          bt(n_m)=0.5d0*(vhS1+vhS2)
 
-         bp(n_m)=0.5d0*cmplx(aimag(vhN1-vhN2),-real(vhN1-vhN2), kind=8)
-         bp(n_m)=0.5d0*cmplx(aimag(vhS1-vhS2),-real(vhS1-vhS2), kind=8)
+         bp(n_m)=-0.5d0*ii*(vhN1-vhN2)
+         bp(n_m)=-0.5d0*ii*(vhS1-vhS2)
       enddo
 
       bt(n_m_max+1:n_phi_max/2+1)=(0.d0,0.d0)

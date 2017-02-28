@@ -82,6 +82,13 @@ if buildSo:
     startdir = os.getcwd()
     os.chdir(magicdir)
 
+    if fcompiler.startswith('intel'):
+        f90options = '-O3 -xHost'
+    elif fcompiler == 'gnu' or fcompiler == 'g95':
+        f90options = '-O3 -march=native'
+    else:
+        f90options = '-O3'
+
     # For reading G files
     if not os.path.exists('greader_single%i.so' % pythonVersion):
         os.chdir('fortranLib')
@@ -89,7 +96,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
                  'greader_single%i' % pythonVersion,
                  'readG_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
@@ -106,7 +114,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m', 
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
@@ -124,7 +133,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
                  'lmrreader_single%i' % pythonVersion,
                  'readPot_single.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
@@ -142,7 +152,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
                  'legendre%i' % pythonVersion,
                  'legendre.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
@@ -160,7 +171,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
                  'potential%i' % pythonVersion,
                  'spec.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:
@@ -178,7 +190,8 @@ if buildSo:
         sp.call(['%s' % f2pycmd,
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
-                 '-c', '-m', '--opt=-O3', 
+                 '--opt=%s' % f90options,
+                 '-c', '-m',
                  'vtklib%i' % pythonVersion,
                  'vtkLib.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:

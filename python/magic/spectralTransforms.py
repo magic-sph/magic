@@ -1,0 +1,140 @@
+# -*- coding: utf-8 -*-
+import sys
+import numpy as np
+from .setup import buildSo
+
+if buildSo:
+    if sys.version_info.major == 3:
+        import legendre3 as leg
+    elif  sys.version_info.major == 2:
+        import legendre2 as leg
+
+
+
+class SpectralTransforms(object):
+    """
+    This python class is used to compute Legendre and Fourier transforms
+    from spectral to physical space. It works in two steps: one first needs
+    to initialize the transform
+
+    >>> sh = SpecTransform( l_max=256, lm_max=33153, n_theta_max=384)
+    >>> print(Tlm[:, 10].shape) # lm_max (Temperature at ir=10)
+    >>> T = sh.spec_spat(Tlm) # T[n_phi_max, n_theta_max]
+    """
+
+    def __init__(self, l_max=32, minc=1, lm_max=561, n_theta_max=64):
+        """
+        :param l_max: maximum spherical harmonic degree
+        :type l_max: int
+        :param minc: azimuthal symmetry
+        :type minc: int
+        :param lm_max: maximum l,m combination
+        :type lm_max: int
+        :param n_theta_max: number of grid points in the latitudinal direction
+        :type n_theta_max: int
+        """
+        self.legF90 = leg.legendre
+        self.legF90.init(l_max, minc, lm_max, n_theta_max)
+        self.l_max = self.legF90.l_max
+        self.minc = self.legF90.minc
+        self.lm_max = self.legF90.lm_max
+        self.n_theta_max = self.legF90.n_theta_max
+        self.n_phi_max = self.legF90.n_phi_max
+        self.m_max = (self.l_max/self.minc) * self.minc
+
+        print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % (self.l_max, self.m_max,
+                                     self.minc, self.lm_max))
+        print('n_phi_max, n_theta_max: %i, %i' % (self.n_phi_max, self.n_theta_max))
+
+        self.colat = self.legF90.sinth
+
+        self.idx = np.zeros((self.l_max+1, self.m_max+1), 'i')
+        self.ell = np.zeros((self.lm_max), 'i')
+
+        self.idx[0:self.l_max+2, 0] = np.arange(self.l_max+1)
+        self.ell[0:self.l_max+2] = np.arange(self.l_max+2)
+        k = self.l_max+1
+        for m in range(self.minc, self.l_max+1, self.minc):
+            for l in range(m, self.l_max+1):
+                self.idx[l, m] = k
+                self.ell[self.idx[l,m]] = l
+                k +=1
+
+    def spec_spat(self, *args, **kwargs):
+        """
+        This subroutine computes a transfrom from spectral to spatial
+        for all latitudes. It returns either  one or two 2-D arrays 
+        (dimension(n_phi_max,n_theta_max)) depending if only the poloidal 
+        or both the poloidal and the toroidal potentials are given as
+        input quantities.
+
+        >>> print(wlmr.shape) # lm_max
+        >>> vr = spec_spat_equat(wlmr)
+        >>> print(vr.shape) # n_phi, n_theta
+        >>> vt, vp = spec_spat_equat(dwdrlmr, zlmr)
+        """
+
+        if kwargs.has_key('l_axi'):
+            l_axi = kwargs['l_axi']
+            if l_axi:
+                n_phi = 1
+            else:
+                n_phi = self.n_phi_max
+        else:
+            n_phi = self.n_phi_max
+
+        if len(args) == 1:
+            polo = args[0]
+            out = self.legF90.specspat_scal(polo, self.n_theta_max, n_phi)
+            if n_phi > 1:
+                out = np.fft.ifft(out, axis=0)*self.n_phi_max
+            out = out.real
+            return out
+        elif len(args) == 2:
+            polo = args[0]
+            toro = args[1]
+            vt, vp = self.legF90.specspat_vec(polo, toro, self.n_theta_max, n_phi)
+            if n_phi > 1:
+                vt = np.fft.ifft(vt, axis=0)*self.n_phi_max
+                vp = np.fft.ifft(vp, axis=0)*self.n_phi_max
+            vt = vt.real
+            vp = vp.real
+            return vt, vp
+
+    def spec_spat_equat(self, *args):
+        """
+        This subroutine computes a transfrom from spectral to spatial
+        at the equator. It returns either one or two 1-D arrays 
+        (dimension(n_phi_max) depending if only the poloidal or both the
+        poloidal and the toroidal potentials are given as input quantities.
+
+        >>> print(wlmr.shape) # lm_max
+        >>> vr = spec_spat_equat(wlmr)
+        >>> print(vr.shape) # n_phi
+        >>> vt, vp = spec_spat_equat(dwdrlmr, zlmr)
+        """
+
+        if len(args) == 1:
+            polo = args[0]
+            out = np.zeros((self.n_phi_max), 'Complex64')
+            self.legF90.specspat_equat_scal(polo, out)
+            out = np.fft.ifft(out)*self.n_phi_max
+            out = out.real
+            return out
+        elif len(args) == 2:
+            polo = args[0]
+            toro = args[1]
+            vt = np.zeros((self.n_phi_max), 'Complex64')
+            vp = np.zeros((self.n_phi_max), 'Complex64')
+            self.legF90.specspat_equat_vec(polo, toro, vt, vp)
+            vt = np.fft.ifft(vt)*self.n_phi_max
+            vp = np.fft.ifft(vp)*self.n_phi_max
+            vt = vt.real
+            vp = vp.real
+            return vt, vp
+
+
+
+if __name__ == '__main__':
+    sh = SpectralTransform( l_max=256, lm_max=33153, n_theta_max=384)
+    print( a.lm_max )

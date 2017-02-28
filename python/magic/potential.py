@@ -2,17 +2,16 @@
 from magic import MagicSetup, scanDir
 from .setup import labTex, defaultCm, defaultLevels, labTex, buildSo
 from .libmagic import *
+from .spectralTransforms import SpectralTransforms
 from .plotlib import radialContour, merContour, equatContour
-import os, re, sys
+import os, re, sys, time
 import numpy as np
 import matplotlib.pyplot as plt
 
 if buildSo:
     if sys.version_info.major == 3:
-        from legendre3 import *
         import lmrreader_single3 as Psngl
     elif  sys.version_info.major == 2:
-        from legendre2 import *
         import lmrreader_single2 as Psngl
 
     readingMode = 'f2py'
@@ -109,6 +108,7 @@ class MagicPotential(MagicSetup):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
+        t1 = time.time()
         if readingMode  == 'python':
 
             infile = npfile(filename, endian='B')
@@ -167,27 +167,22 @@ class MagicPotential(MagicSetup):
             self.pol = Prd.pol
             if ( field != 'T' and field != 'Xi' ):
                 self.tor = Prd.tor
+        t2 = time.time()
+        print('Time to read %s: %.2f' % (filename, t2-t1))
 
         self.n_theta_max = 3*self.l_max/2
         if self.n_theta_max % 2: # odd number
             self.n_theta_max += 1
-        self.n_phi_max = 2*self.n_theta_max
-        self.nphi = self.n_phi_max+1
-        self.sp = legendre
-        self.sp.inittransform(self.l_max, self.minc, self.lm_max, 
-                              self.n_theta_max)
-        self.colat = self.sp.sinth
+        self.n_phi_max = 2*self.n_theta_max/self.minc
+        t1 = time.time()
+        self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
+                                     lm_max=self.lm_max, n_theta_max=self.n_theta_max)
+        t2 = time.time()
+        print('Time to set up the spectral transforms: %.2f' % (t2-t1))
+        self.colat = self.sh.colat
 
-        self.idx = np.zeros((self.l_max+1, self.m_max+1), 'i')
-        self.ell = np.zeros(self.lm_max, 'i')
-        self.idx[0:self.l_max+2, 0] = np.arange(self.l_max+1)
-        self.ell[0:self.l_max+2] = np.arange(self.l_max+2)
-        k = self.l_max+1
-        for m in range(self.minc, self.l_max+1, self.minc):
-            for l in range(m, self.l_max+1):
-                self.idx[l, m] = k
-                self.ell[self.idx[l,m]] = l
-                k +=1
+        self.idx = self.sh.idx
+        self.ell = self.sh.ell
 
     def avg(self, field='vphi', levels=defaultLevels, cm=defaultCm, normed=True,
             vmax=None, vmin=None, cbar=True, tit=True):
@@ -221,20 +216,17 @@ class MagicPotential(MagicSetup):
         """
 
         phiavg = np.zeros((self.n_theta_max, self.n_r_max), 'f')
+        t1 = time.time()
         if field in ('T', 'temp', 'S', 'entropy'):
             for i in range(self.n_r_max):
-                out = self.sp.specspat_scal(1, self.n_theta_max, 1, self.pol[:, i],
-                                         self.lm_max)
-                phiavg[:, i] = out[0,:].real
+                phiavg[:, i] = self.sh.spec_spat(self.pol[:, i], l_axi=True)
 
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
             for i in range(self.n_r_max):
                 field = self.pol[:,i]*self.ell*(self.ell+1)/self.radius[i]**2\
                         /self.rho0[i]
-
-                out = self.sp.specspat_scal(1, self.n_theta_max, 1, field, self.lm_max)
-                phiavg[:, i] = out[0,:].real
+                phiavg[:, i] = self.sh.spec_spat(field, l_axi=True)
             if labTex:
                 label = r'$v_r$'
             else:
@@ -242,9 +234,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'utheta', 'vtheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sp.specspat_vec(1, self.n_theta_max, 1,
-                                       field[:, i], self.tor[:, i], self.lm_max)
-                phiavg[:, i] = vt[0,:].real/self.radius[i]/self.rho0[i]
+                vt, vp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                phiavg[:, i] = vt/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\theta$'
             else:
@@ -252,9 +243,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sp.specspat_vec(1, self.n_theta_max, 1,
-                                       field[:, i], self.tor[:, i], self.lm_max)
-                phiavg[:, i] = vp[0,:].real/self.radius[i]/self.rho0[i]
+                vt, vp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                phiavg[:, i] = vp/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\phi$'
             else:
@@ -263,8 +253,7 @@ class MagicPotential(MagicSetup):
             for i in range(self.n_r_max):
                 field = self.pol[:,i]*self.ell*(self.ell+1)/self.radius[i]**2
 
-                out = self.sp.specspat_scal(1, self.n_theta_max, 1, field, self.lm_max)
-                phiavg[:, i] = out[0,:].real
+                phiavg[:, i] = self.sh.spec_spat(field, l_axi=True)
             if labTex:
                 label = r'$B_r$'
             else:
@@ -272,9 +261,8 @@ class MagicPotential(MagicSetup):
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sp.specspat_vec(1, self.n_theta_max, 1,
-                                       field[:, i], self.tor[:, i], self.lm_max)
-                phiavg[:, i] = bt[0,:].real/self.radius[i]
+                bt, bp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                phiavg[:, i] = bt.real/self.radius[i]
             if labTex:
                 label = r'$B_\theta$'
             else:
@@ -282,15 +270,16 @@ class MagicPotential(MagicSetup):
         elif field in ('bp', 'Bp', 'bphi', 'Bphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sp.specspat_vec(1, self.n_theta_max, 1,
-                                       field[:, i], self.tor[:, i], self.lm_max)
-                phiavg[:, i] = bp[0,:].real/self.radius[i]
+                bt, bp = self.sh.spec_spat( field[:, i], self.tor[:, i], l_axi=True)
+                phiavg[:, i] = bp.real/self.radius[i]
             if labTex:
                 label = r'$B_\phi$'
             else:
                 label = 'Bphi'
+        t2 = time.time()
+        print('Transform time (avg): %.2f' % (t2-t1))
         
-        if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
+        if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
         fig, xx, yy = merContour(phiavg, self.radius, label, levels, cm, normed,
@@ -332,21 +321,16 @@ class MagicPotential(MagicSetup):
         """
 
         equator = np.zeros((self.n_phi_max, self.n_r_max), 'f')
-
+        t1 = time.time()
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S'):
             for i in range(self.n_r_max):
-                out = self.sp.specspat_equat_scal(self.n_phi_max, self.pol[:, i],
-                                                  self.lm_max)
-                out = np.fft.ifft(out)*self.n_phi_max
-                equator[:, i] = out.real
+                equator[:, i] = self.sh.spec_spat_equat(self.pol[:, i])
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
             for i in range(self.n_r_max):
                 field = self.ell*(self.ell+1)/self.radius[i]**2/self.rho0[i]*\
                         self.pol[:, i]
-                out = self.sp.specspat_equat_scal(self.n_phi_max, field, self.lm_max)
-                out = np.fft.ifft(out)*self.n_phi_max
-                equator[:, i] = out.real
+                equator[:, i] = self.sh.spec_spat_equat(field)
             if labTex:
                 label = r'$v_r$'
             else:
@@ -354,10 +338,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'vtheta', 'utheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
-                                                    self.tor[:, i], self.lm_max)
-                rprof = np.fft.ifft(vt, axis=0)*self.n_phi_max
-                equator[:, i] = rprof.real/self.radius[i]/self.rho0[i]
+                vt, vp = self.sh.spec_spat_equat(field[:, i], self.tor[:, i])
+                equator[:, i] = vt/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\theta$'
             else:
@@ -365,10 +347,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vp', 'Vp', 'up', 'Up', 'vphi', 'uphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                vt, vp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
-                                                    self.tor[:, i], self.lm_max)
-                rprof = np.fft.ifft(vp, axis=0)*self.n_phi_max
-                equator[:, i] = rprof.real/self.radius[i]/self.rho0[i]
+                vt, vp = self.sh.spec_spat_equat(field[:, i], self.tor[:, i])
+                equator[:, i] = vp/self.radius[i]/self.rho0[i]
             if labTex:
                 label = r'$v_\phi$'
             else:
@@ -376,9 +356,7 @@ class MagicPotential(MagicSetup):
         elif field in ('Br', 'br'):
             for i in range(self.n_r_max):
                 field = self.ell*(self.ell+1)/self.radius[i]**2*self.pol[:, i]
-                out = self.sp.specspat_equat_scal(self.n_phi_max, field, self.lm_max)
-                out = np.fft.ifft(out)*self.n_phi_max
-                equator[:, i] = out.real
+                equator[:, i] = self.sh.spec_spat_equat(field)
             if labTex:
                 label = r'$B_r$'
             else:
@@ -386,10 +364,8 @@ class MagicPotential(MagicSetup):
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
-                                                    self.tor[:, i], self.lm_max)
-                rprof = np.fft.ifft(bt, axis=0)*self.n_phi_max
-                equator[:, i] = rprof.real/self.radius[i]
+                bt, bp = self.sh.spec_spat_equat(field[:, i], self.tor[:, i])
+                equator[:, i] = bt/self.radius[i]
             if labTex:
                 label = r'$B_\theta$'
             else:
@@ -397,14 +373,14 @@ class MagicPotential(MagicSetup):
         elif field in ('bp', 'Bp', 'Bphi', 'bphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             for i in range(self.n_r_max):
-                bt, bp = self.sp.specspat_equat_vec(self.n_phi_max, field[:, i],
-                                                    self.tor[:, i], self.lm_max)
-                rprof = np.fft.ifft(bp, axis=0)*self.n_phi_max
-                equator[:, i] = rprof.real/self.radius[i]
+                bt, bp = self.sh.spec_spat_equat(field[:, i], self.tor[:, i])
+                equator[:, i] = bp/self.radius[i]
             if labTex:
                 label = r'$B_\phi$'
             else:
                 label = 'Bphi'
+        t2 = time.time()
+        print('Transform time (equat): %.2f' % (t2-t1))
 
         equator = symmetrize(equator, self.minc)
 
@@ -473,20 +449,15 @@ class MagicPotential(MagicSetup):
         indPlot = ind[0][0]
         rad = self.radius[indPlot] * (1.-self.radratio)
 
+        t1 = time.time()
+        rprof = np.zeros((self.n_phi_max, self.n_theta_max), 'Complex64')
         if field in ('T', 'temp', 'S', 'entropy'):
-            rprof = self.sp.specspat_scal(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, self.pol[:, indPlot],
-                                          self.lm_max)
-            rprof = np.fft.ifft(rprof, axis=0)*self.n_phi_max
-            rprof = rprof.real
+            rprof = self.sh.spec_spat(self.pol[:, indPlot])
             label = 'T'
         elif field in ('vr', 'Vr', 'ur', 'Ur'):
             field = self.ell*(self.ell+1)/self.radius[indPlot]**2/self.rho0[indPlot]*\
                     self.pol[:, indPlot]
-            rprof = self.sp.specspat_scal(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.lm_max)
-            rprof = np.fft.ifft(rprof, axis=0)*self.n_phi_max
-            rprof = rprof.real
+            rprof = self.sh.spec_spat(field)
             if labTex:
                 label = r'$v_r$'
             else:
@@ -494,11 +465,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vt', 'Vt', 'ut', 'Ut', 'vtheta', 'utheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
-            vt, vp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.tor[:, indPlot],
-                                          self.lm_max)
-            rprof = np.fft.ifft(vt, axis=0)*self.n_phi_max
-            rprof = rprof.real/self.radius[indPlot]/self.rho0[indPlot]
+            vt, vp = self.sh.spec_spat(field, self.tor[:, indPlot])
+            rprof = vt/self.radius[indPlot]/self.rho0[indPlot]
             if labTex:
                 label = r'$v_\theta$'
             else:
@@ -506,11 +474,8 @@ class MagicPotential(MagicSetup):
         elif field in ('vp', 'Vp', 'up', 'Up', 'uphi', 'vphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
-            vt, vp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.tor[:, indPlot],
-                                          self.lm_max)
-            rprof = np.fft.ifft(vp, axis=0)*self.n_phi_max
-            rprof = rprof.real/self.radius[indPlot]/self.rho0[indPlot]
+            vt, vp  = self.sh.spec_spat(field, self.tor[:, indPlot])
+            rprof = vp/self.radius[indPlot]/self.rho0[indPlot]
             if labTex:
                 label = r'$v_\phi$'
             else:
@@ -518,10 +483,7 @@ class MagicPotential(MagicSetup):
         elif field in ('br', 'Br'):
             field = self.ell*(self.ell+1)/self.radius[indPlot]**2*\
                     self.pol[:, indPlot]
-            rprof = self.sp.specspat_scal(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.lm_max)
-            rprof = np.fft.ifft(rprof, axis=0)*self.n_phi_max
-            rprof = rprof.real
+            rprof = self.sh.spec_spat(field)
             if labTex:
                 label = r'$B_r$'
             else:
@@ -529,11 +491,8 @@ class MagicPotential(MagicSetup):
         elif field in ('bt', 'Bt', 'Btheta', 'btheta'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
-            bt, bp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.tor[:, indPlot],
-                                          self.lm_max)
-            rprof = np.fft.ifft(bt, axis=0)*self.n_phi_max
-            rprof = rprof.real/self.radius[indPlot]
+            bt, bp = self.sh.spec_spat(field, self.tor[:, indPlot])
+            rprof = bt/self.radius[indPlot]
             if labTex:
                 label = r'$B_\theta$'
             else:
@@ -541,15 +500,14 @@ class MagicPotential(MagicSetup):
         elif field in ('bp', 'Bp', 'bphi', 'Bphi'):
             field = rderavg(self.pol, self.radratio, spectral=self.rcheb)
             field = field[:, indPlot]
-            bt, bp = self.sp.specspat_vec(self.n_phi_max, self.n_theta_max,
-                                          self.n_m_max, field, self.tor[:, indPlot],
-                                          self.lm_max)
-            rprof = np.fft.ifft(bp, axis=0)*self.n_phi_max
-            rprof = rprof.real/self.radius[indPlot]
+            bt, bp = self.sh.spec_spat(field, self.tor[:, indPlot])
+            rprof = bp/self.radius[indPlot]
             if labTex:
                 label = r'$B_\phi$'
             else:
                 label = 'Bphi'
+        t2 = time.time()
+        print('Transform time (surf): %.2f' % (t2-t1))
 
 
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
@@ -560,15 +518,9 @@ class MagicPotential(MagicSetup):
 
 
 if __name__ == '__main__':
-
     p = MagicPotential(field='B', ave=True)
     p.surf(field='br', r=0.9)
     p.avg(field='br')
     p.equat(field='br')
-
-    #p = MagicPotential(field='T', ave=True)
-    #p.surf(field='T', r=0.63)
-    #p.avg(field='T')
-    #p.equat(field='T')
 
     plt.show()
