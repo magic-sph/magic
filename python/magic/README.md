@@ -47,11 +47,19 @@ You can modify the default matplotlib rendering backend (among the possible opti
 ```python
 backend = TkAgg
 ```
-If LaTeX is installed on your machine, you can also use the LaTeX fonts for matplotlib labels. On clusters, however, LaTeX is however not installed most of the time, so the default is
+If LaTeX is installed on your machine, you can also use the LaTeX fonts for matplotlib labels. On clusters, however, LaTeX is not installed most of the time, so the default is
 
 ```python
 labTex = False
 ```
+
+Finally, you can change the default colormap and number of contours that will be used by default when contour plots are requestd.
+
+```python
+defaultCm = seismic
+defaultLevels = 65
+```
+
 ### 2) Fortran libs setup
 
 If you want to enable all the features of the python functions (reading the G files with fortran, support for VTK files, ...), the fortran libraries in `$MAGIC_HOME/python/magic/fortranLib`  need to be built using `f2py`.
