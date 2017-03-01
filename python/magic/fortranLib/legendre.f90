@@ -6,6 +6,7 @@ module legendre
    integer :: l_max, minc, n_m_max
    integer :: n_theta_max, n_phi_max
    real(kind=8), allocatable :: Plm(:,:)
+   real(kind=8), allocatable :: wPlm(:,:)
    real(kind=8), allocatable :: dPlm(:,:)
    real(kind=8), allocatable :: dPhi(:,:)
    real(kind=8), allocatable :: sinTh(:)
@@ -46,8 +47,9 @@ contains
       allocate(plma(1:lmP_max))
       allocate(dtheta_plma(1:lmP_max))
 
-      if ( allocated(Plm) ) deallocate( Plm, dPlm, dPhi, sinTh)
+      if ( allocated(Plm) ) deallocate( Plm, wPlm, dPlm, dPhi, sinTh)
       allocate(Plm(1:lm_max,1:n_theta_max/2))
+      allocate(wPlm(1:lm_max,1:n_theta_max/2))
       allocate(dPlm(1:lm_max,1:n_theta_max/2))
       allocate(dPhi(1:lm_max,1:n_theta_max/2))
       allocate(sinTh(n_theta_max))
@@ -69,6 +71,7 @@ contains
                dPlm(lm,n_theta) = (-1.d0)**(real(m,kind=8))*dtheta_plma(lmP)/sin(colat)
                ! Add the theta dependence in dPhi to simplify the output
                dPhi(lm,n_theta) = real(m,kind=8)/sin(colat)
+               wPlm(lm,n_theta) = 2.d0*dpi*gauss(n_theta)*(-1.d0)**(real(m,kind=8))*plma(lmP)
             end do
             lmP = lmP+1
          end do
@@ -477,6 +480,88 @@ contains
       bp(n_phi_max/2+2:n_phi_max)=conjg(bp(n_phi_max/2:2:-1))
 
    end subroutine specspat_equat_vec
+!-------------------------------------------------------------------------------
+   subroutine spatspec(input, n_ph, f1LM, lm_max)
+
+      !-- Input variables
+      integer :: n_ph, lm_max
+      complex(kind=8), intent(in) :: input(n_ph,*)
+
+      !-- Output variables
+      complex(kind=8), intent(out) :: f1LM(lm_max)
+
+      !-- Local variables
+      complex(kind=8) :: work(n_phi_max,n_theta_max)
+      complex(kind=8) :: f1ES(n_phi_max,n_theta_max)
+      complex(kind=8) :: f1EA(n_phi_max,n_theta_max)
+      complex(kind=8) :: f1ES1,f1ES2,f1EA1,f1EA2
+      integer :: nThetaNHS, nThetaN, nThetaS
+      integer :: n_m,lms,lm
+      integer :: n_theta_1,n_theta_rel_1,n_theta_rel_2,n_theta_2
+
+      !-- Scrambling
+      do nThetaN=1,n_theta_max/2
+         work(:,2*nThetaN-1)=input(:,nThetaN)
+         work(:,2*nThetaN)  =input(:,n_theta_max-nThetaN+1)
+      end do
+
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max,2
+         ! nThetaS=n_theta_max-nThetaN+1
+         nThetaS=nThetaN+1
+         nThetaNHS=nThetaNHS+1
+         do n_m=1,n_m_max
+            f1ES(n_m,nThetaNHS)=work(n_m,nThetaN)+work(n_m,nThetaS)
+            f1EA(n_m,nThetaNHS)=work(n_m,nThetaN)-work(n_m,nThetaS)
+         end do
+      end do
+
+      do n_m=1,n_m_max
+         lms=lStop(n_m)
+         f1ES1=f1ES(n_m,1)
+         f1ES2=f1ES(n_m,2)
+         f1EA1=f1EA(n_m,1)
+         f1EA2=f1EA(n_m,2)
+         do lm=lStart(n_m),lms-1,2
+            f1LM(lm)  =f1ES1*wPlm(lm,1)  +f1ES2*wPlm(lm,2)
+            f1LM(lm+1)=f1EA1*wPlm(lm+1,1)+f1EA2*wPlm(lm+1,2)
+         enddo
+
+         if ( lmOdd(n_m) ) then
+            f1LM(lms)=f1ES1*wPlm(lms,1)+f1ES2*wPlm(lms,2)
+         end if
+      enddo
+
+      n_theta_1=1
+      do n_theta_rel_1=3,n_theta_max/2,2
+         n_theta_rel_2=n_theta_rel_1+1
+         n_theta_1=n_theta_1+2
+         n_theta_2=n_theta_1+1
+         do n_m=1,n_m_max
+            lms=lStop(n_m)
+            f1ES1=f1ES(n_m,n_theta_rel_1)
+            f1ES2=f1ES(n_m,n_theta_rel_2)
+            f1EA1=f1EA(n_m,n_theta_rel_1)
+            f1EA2=f1EA(n_m,n_theta_rel_2)
+            do lm=lStart(n_m),lms-1,2
+               f1LM(lm)  =f1LM(lm)+f1ES1*wPlm(lm,n_theta_1)+ &
+               &                   f1ES2*wPlm(lm,n_theta_2)
+               f1LM(lm+1)=f1LM(lm+1)+f1EA1*wPlm(lm+1,n_theta_1)+ &
+               &                   f1EA2*wPlm(lm+1,n_theta_2)
+            enddo
+
+            if ( lmOdd(n_m) ) then
+               f1LM(lms)=f1LM(lms)+f1ES1*wPlm(lms,n_theta_1)+ &
+               &                   f1ES2*wPlm(lms,n_theta_2)
+            end if
+         enddo
+      enddo
+
+      ! do n_m=1,n_m_max
+         ! outputLM(lStart(n_m):lStop(n_m))=flm1(lStartP(n_m):lStopP(n_m)-1)
+      ! enddo
+
+   end subroutine spatspec
 !-------------------------------------------------------------------------------
    subroutine getblocks(l_max,minc,n_m_max,lStart,lStop,lmOdd)
 

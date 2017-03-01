@@ -105,7 +105,7 @@ class SpectralTransforms(object):
         """
         This subroutine computes a transfrom from spectral to spatial
         at the equator. It returns either one or two 1-D arrays 
-        (dimension(n_phi_max) depending if only the poloidal or both the
+        (dimension(n_phi_max)) depending if only the poloidal or both the
         poloidal and the toroidal potentials are given as input quantities.
 
         >>> print(wlmr.shape) # lm_max
@@ -133,8 +133,28 @@ class SpectralTransforms(object):
             vp = vp.real
             return vt, vp
 
+    def spat_spec(self, *args):
+        """
+        This subroutine computes a transfrom from spatial representation
+        (n_phi,n_theta) to spectral representation (lm_max). It returns 
+        one complex 1-D array (dimension(n_phi_max))
 
+        >>> gr = MagicGraph()
+        >>> sh = SpectralTransforms(gr.l_max, gr.minc, gr.lm_max, gr.n_theta_max)
+        >>> vr = gr.vr[:,:,30] # Radius ir=30
+        >>> vrlm = sh.spat_spec(vr) # vrlm is a complex array (lm_max)
+        >>> # Caculation of the poloidal potential from vr:
+        >>> wlm = np.zeros_like(vrlm)
+        >>> wlm[1:] = vrlm[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*gr.radius[30]**2
+        """
+
+        if len(args) == 1:
+            out = args[0]
+            out = np.fft.fft(out, axis=0)/self.n_phi_max
+            outLM = self.legF90.spatspec(out, self.lm_max)
+
+        return outLM
 
 if __name__ == '__main__':
-    sh = SpectralTransform( l_max=256, lm_max=33153, n_theta_max=384)
+    sh = SpectralTransforms( l_max=256, lm_max=33153, n_theta_max=384)
     print( a.lm_max )
