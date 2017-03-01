@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 from magic import MagicGraph, BLayers
+from .spectralTransforms import SpectralTransforms
 from .setup import labTex
 from .libmagic import symmetrize
 import matplotlib.pyplot as plt
 import numpy as np
 import sys
-if sys.version_info.major == 3:
-    from .potential3 import *
-elif  sys.version_info.major == 2:
-    from .potential2 import *
+
+
 
 class ExtraPot:
     """
@@ -43,26 +42,39 @@ class ExtraPot:
         self.minc = minc
         self.nrout = nrout
         self.np, self.nt = self.brcmb.shape
-        brcmbfour = np.fft.fft(self.brcmb, axis=0)/(4.*np.pi*self.np)
+
 
         self.rout = np.linspace(self.rcmb, ratio_out*rcmb, self.nrout)
         if cutCMB:
             self.rout = self.rout[1:]
             self.nrout = self.nrout -1
 
+        l_max = (20*self.nt)/30
+        m_max = (l_max/self.minc)*self.minc
+        lm_max = m_max*(l_max+1)/minc-m_max*(m_max-minc)/(2*minc)+(l_max+1-m_max)
+
+        sh = SpectralTransforms(l_max, self.minc, lm_max, self.nt)
+        brlm = sh.spat_spec(self.brcmb)
+        bpolcmb = np.zeros_like(brlm)
+        bpolcmb[1:] = brlm[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*self.rcmb**2
+        btor = np.zeros_like(brlm)
+
         self.brout = np.zeros((self.np, self.nt, self.nrout), dtype=self.brcmb.dtype)
         self.btout = np.zeros_like(self.brout)
         self.bpout = np.zeros_like(self.brout)
 
+
         for k, radius  in enumerate(self.rout):
             radratio = self.rcmb/radius
-            brm, btm, bpm =  extrapolate(brcmbfour, radratio, self.minc)
-            brsurf = np.fft.ifft(brm, axis=0)*self.np
-            self.brout[..., k] = brsurf.real
-            btsurf = np.fft.ifft(btm, axis=0)*self.np
-            self.btout[..., k] = btsurf.real
-            bpsurf = np.fft.ifft(bpm, axis=0)*self.np
-            self.bpout[..., k] = bpsurf.real
+            # Potential extrapolation
+            bpol = bpolcmb * radratio**sh.ell
+            # Derivative is analytical:
+            dbpoldr = -sh.ell/radius * bpol
+            brlm = sh.ell*(sh.ell+1) * bpol / radius**2
+            self.brout[..., k] = sh.spec_spat(brlm)
+            self.btout[..., k], self.bpout[..., k] = sh.spec_spat(dbpoldr, btor)
+            self.btout[..., k] /= radius
+            self.bpout[..., k] /= radius
 
         if deminc:
             self.brout = symmetrize(self.brout, self.minc)

@@ -33,20 +33,21 @@ class SpectralTransforms(object):
         :param n_theta_max: number of grid points in the latitudinal direction
         :type n_theta_max: int
         """
-        self.legF90 = leg.legendre
-        self.legF90.init(l_max, minc, lm_max, n_theta_max)
-        self.l_max = self.legF90.l_max
-        self.minc = self.legF90.minc
-        self.lm_max = self.legF90.lm_max
-        self.n_theta_max = self.legF90.n_theta_max
-        self.n_phi_max = self.legF90.n_phi_max
+        self._legF90 = leg.legendre
+        self._legF90.init(l_max, minc, lm_max, n_theta_max)
+        self.l_max = self._legF90.l_max
+        self.minc = self._legF90.minc
+        self.lm_max = self._legF90.lm_max
+        self.n_theta_max = self._legF90.n_theta_max
+        self.n_phi_max = self._legF90.n_phi_max
         self.m_max = (self.l_max/self.minc) * self.minc
 
+        print('Spectral transform setup:')
         print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % (self.l_max, self.m_max,
                                      self.minc, self.lm_max))
         print('n_phi_max, n_theta_max: %i, %i' % (self.n_phi_max, self.n_theta_max))
 
-        self.colat = self.legF90.sinth
+        self.colat = self._legF90.sinth
 
         self.idx = np.zeros((self.l_max+1, self.m_max+1), 'i')
         self.ell = np.zeros((self.lm_max), 'i')
@@ -85,7 +86,7 @@ class SpectralTransforms(object):
 
         if len(args) == 1:
             polo = args[0]
-            out = self.legF90.specspat_scal(polo, self.n_theta_max, n_phi)
+            out = self._legF90.specspat_scal(polo, self.n_theta_max, n_phi)
             if n_phi > 1:
                 out = np.fft.ifft(out, axis=0)*self.n_phi_max
             out = out.real
@@ -93,7 +94,7 @@ class SpectralTransforms(object):
         elif len(args) == 2:
             polo = args[0]
             toro = args[1]
-            vt, vp = self.legF90.specspat_vec(polo, toro, self.n_theta_max, n_phi)
+            vt, vp = self._legF90.specspat_vec(polo, toro, self.n_theta_max, n_phi)
             if n_phi > 1:
                 vt = np.fft.ifft(vt, axis=0)*self.n_phi_max
                 vp = np.fft.ifft(vp, axis=0)*self.n_phi_max
@@ -117,7 +118,7 @@ class SpectralTransforms(object):
         if len(args) == 1:
             polo = args[0]
             out = np.zeros((self.n_phi_max), 'Complex64')
-            self.legF90.specspat_equat_scal(polo, out)
+            self._legF90.specspat_equat_scal(polo, out)
             out = np.fft.ifft(out)*self.n_phi_max
             out = out.real
             return out
@@ -126,7 +127,7 @@ class SpectralTransforms(object):
             toro = args[1]
             vt = np.zeros((self.n_phi_max), 'Complex64')
             vp = np.zeros((self.n_phi_max), 'Complex64')
-            self.legF90.specspat_equat_vec(polo, toro, vt, vp)
+            self._legF90.specspat_equat_vec(polo, toro, vt, vp)
             vt = np.fft.ifft(vt)*self.n_phi_max
             vp = np.fft.ifft(vp)*self.n_phi_max
             vt = vt.real
@@ -151,7 +152,7 @@ class SpectralTransforms(object):
         if len(args) == 1:
             out = args[0]
             out = np.fft.fft(out, axis=0)/self.n_phi_max
-            outLM = self.legF90.spatspec(out, self.lm_max)
+            outLM = self._legF90.spatspec(out, self.lm_max)
 
         return outLM
 

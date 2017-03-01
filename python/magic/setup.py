@@ -164,25 +164,6 @@ if buildSo:
             sp.call(['mv', 'legendre2.so', '%s' % magicdir])
         os.chdir(magicdir)
 
-    # For the potential field extrapolation
-    if not os.path.exists('potential%i.so' % pythonVersion):
-        os.chdir('fortranLib')
-        print("Please wait: building potential extrapolation...")
-        sp.call(['%s' % f2pycmd,
-                 '--fcompiler=%s' % fcompiler,
-                 '--compiler=%s' % ccompiler,
-                 '--opt=%s' % f90options,
-                 '-c', '-m',
-                 'potential%i' % pythonVersion,
-                 'spec.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
-        if pythonVersion == 3:
-            cmd = "mv potential3.cpython-%sm* %s/potential3.so" % \
-                  (pythonSuffix, magicdir)
-            sp.call(cmd, shell=True)
-        elif pythonVersion == 2:
-            sp.call(['mv', 'potential2.so', '%s' % magicdir])
-        os.chdir(magicdir)
-
     # For the vtk file format convertion
     if not os.path.exists('vtklib%i.so' % pythonVersion):
         os.chdir('fortranLib')
@@ -203,4 +184,3 @@ if buildSo:
         os.chdir(magicdir)
 
     os.chdir(startdir)
-

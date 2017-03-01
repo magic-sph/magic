@@ -509,6 +509,7 @@ class MagicPotential(MagicSetup):
         t2 = time.time()
         print('Transform time (surf): %.2f' % (t2-t1))
 
+        rprof = symmetrize(rprof, self.minc)
 
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
