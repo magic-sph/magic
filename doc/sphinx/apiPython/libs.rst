@@ -1,10 +1,9 @@
-
 .. _secPythonLibs:
 
-Various useful functions
-------------------------
+Spectral tansforms
+------------------
 
-.. automodule:: magic.libmagic
+.. autmodule:: magic.spectraltransforms
    :members:
 
 Plotting functions
@@ -13,3 +12,9 @@ Plotting functions
 .. automodule:: magic.plotlib
    :members:
 
+
+Various useful functions
+------------------------
+
+.. automodule:: magic.libmagic
+   :members:
