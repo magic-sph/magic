@@ -74,7 +74,6 @@ class SpectralTransforms(object):
         >>> print(vr.shape) # n_phi, n_theta
         >>> vt, vp = spec_spat_equat(dwdrlmr, zlmr)
         """
-
         if kwargs.has_key('l_axi'):
             l_axi = kwargs['l_axi']
             if l_axi:
@@ -100,7 +99,57 @@ class SpectralTransforms(object):
                 vp = np.fft.ifft(vp, axis=0)*self.n_phi_max
             vt = vt.real
             vp = vp.real
+
             return vt, vp
+
+    def spec_spat_dtheta(self, polo, l_axi=False):
+        """
+        This routine computes the theta-derivative and the transform from spectral
+        to spatrial spaces. It returns a 2-D array of dimension (n_phi,n_theta)
+
+        >>> p = MagicPotential('V')
+        >>> vrlm = p.pol*p.ell*(p.ell+1)/p.radius[ir]**2/p.rho0[ir] # vr at r=ir
+        >>> dvrdt = p.sh.spec_spat_dtheta(vrlm) # theta-derivative of vr
+
+        :param polo: the input array(lm_max) in spectral space
+        :type polo: numpy.ndarray
+        :param l_axi: switch to True, if only the axisymmetric field is needed
+        :type l_axi: bool
+        :returns: the theta derivative in the physical space (n_phi, n_theta)
+        :rtype: numpy.ndarray
+        """
+        if l_axi:
+            n_phi = 1
+        else:
+            n_phi = self.n_phi_max
+
+        out = self._legF90.specspat_dtheta(polo, self.n_theta_max, n_phi)
+        if n_phi > 1:
+            out = np.fft.ifft(out, axis=0)*self.n_phi_max
+        out = out.real
+
+        return out
+
+    def spec_spat_dphi(self, polo):
+        """
+        This routine computes the phi-derivative and the transform from spectral
+        to spatrial spaces. It returns a 2-D array of dimension (n_phi,n_theta)
+
+        >>> p = MagicPotential('V')
+        >>> vrlm = p.pol*p.ell*(p.ell+1)/p.radius[ir]**2/p.rho0[ir] # vr at r=ir
+        >>> dvrdp = p.sh.spec_spat_dphi(vrlm) # phi-derivative of vr
+
+        :param polo: the input array(lm_max) in spectral space
+        :type polo: numpy.ndarray
+        :returns: the phi derivative in the physical space (n_phi, n_theta)
+        :rtype: numpy.ndarray
+        """
+        out = self._legF90.specspat_dphi(polo, self.n_theta_max, self.n_phi_max)
+        out = np.fft.ifft(out, axis=0)*self.n_phi_max
+        # since dPhilm contains a 1/sin(theta) one has to multiply by sin(theta)
+        out = out.real * np.sin(self.colat)
+
+        return out
 
     def spec_spat_equat(self, *args):
         """
@@ -114,14 +163,15 @@ class SpectralTransforms(object):
         >>> print(vr.shape) # n_phi
         >>> vt, vp = spec_spat_equat(dwdrlmr, zlmr)
         """
-
         if len(args) == 1:
             polo = args[0]
             out = np.zeros((self.n_phi_max), 'Complex64')
             self._legF90.specspat_equat_scal(polo, out)
             out = np.fft.ifft(out)*self.n_phi_max
             out = out.real
+
             return out
+
         elif len(args) == 2:
             polo = args[0]
             toro = args[1]
@@ -132,9 +182,10 @@ class SpectralTransforms(object):
             vp = np.fft.ifft(vp)*self.n_phi_max
             vt = vt.real
             vp = vp.real
+
             return vt, vp
 
-    def spat_spec(self, *args):
+    def spat_spec(self, input):
         """
         This subroutine computes a transfrom from spatial representation
         (n_phi,n_theta) to spectral representation (lm_max). It returns 
@@ -147,12 +198,14 @@ class SpectralTransforms(object):
         >>> # Caculation of the poloidal potential from vr:
         >>> wlm = np.zeros_like(vrlm)
         >>> wlm[1:] = vrlm[1:]/(sh.ell[1:]*(sh.ell[1:]+1))*gr.radius[30]**2
-        """
 
-        if len(args) == 1:
-            out = args[0]
-            out = np.fft.fft(out, axis=0)/self.n_phi_max
-            outLM = self._legF90.spatspec(out, self.lm_max)
+        :param input: input array in the physical space (n_phi,n_theta)
+        :type input: numpy.ndarray
+        :returns: output array in the spectral space (lm_max)
+        :rtype: numpy.ndarray
+        """
+        out = np.fft.fft(input, axis=0)/self.n_phi_max
+        outLM = self._legF90.spatspec(out, self.lm_max)
 
         return outLM
 

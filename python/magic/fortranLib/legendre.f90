@@ -154,11 +154,6 @@ contains
 
       pos=0
       do m=0,max_order,m0
-         ! if (m == 0) then
-            ! dnorm=1.d0
-         ! else
-            ! dnorm=sq2
-         ! endif
           
          fac=1.d0
          do j=3,2*m+1,2
@@ -281,6 +276,102 @@ contains
       end if
 
    end subroutine specspat_scal
+!------------------------------------------------------------------------------
+   subroutine specspat_dtheta(inputLM, dpoldt, n_th, n_ph)
+
+      !-- Input variables
+      integer :: n_th, n_ph
+      complex(kind=4), intent(in) :: inputLM(*)
+
+      !-- Output variable
+      complex(kind=8), intent(out) :: dpoldt(n_ph,n_th)
+
+      !-- Local variables
+      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms, n_m_max_loc
+      complex(kind=8) :: s12,z12
+
+      if ( n_ph == 1 ) then ! Axisymmetric case
+         n_m_max_loc = 1
+      else
+         n_m_max_loc = n_m_max
+      end if
+
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max/2
+         nThetaS=n_theta_max-nThetaN+1
+         nThetaNHS=nThetaNHS+1
+         do n_m=1,n_m_max_loc
+            lms=lStop(n_m)
+            s12=(0.d0,0.d0)
+            z12=(0.d0,0.d0)
+            do lm=lStart(n_m),lms-1,2
+               s12=s12+inputLM(lm)  *dPlm(lm,nThetaNHS)
+               z12=z12+inputLM(lm+1)*dPlm(lm+1,nThetaNHS)
+            enddo
+            if ( lmOdd(n_m) ) then
+               s12=s12+inputLM(lms)*dPlm(lms,nThetaNHS)
+            endif
+            dpoldt(n_m,nThetaN)=s12+z12
+            dpoldt(n_m,nThetaS)=z12-s12
+         enddo
+      enddo
+
+      !-- symmetrize
+      if ( n_ph > 1 ) then
+         dpoldt(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
+         dpoldt(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(dpoldt(n_phi_max/2:2:-1,1:n_theta_max))
+      end if
+
+   end subroutine specspat_dtheta
+!------------------------------------------------------------------------------
+   subroutine specspat_dphi(inputLM, dpoldp, n_th, n_ph)
+
+      !-- Input variables
+      integer :: n_th, n_ph
+      complex(kind=4), intent(in) :: inputLM(*)
+
+      !-- Output variable
+      complex(kind=8), intent(out) :: dpoldp(n_ph,n_th)
+
+      !-- Local variables
+      integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms, n_m_max_loc
+      complex(kind=8) :: s12,z12,ii
+
+      ii = (0.d0, 1.d0)
+
+      if ( n_ph == 1 ) then ! Axisymmetric case
+         n_m_max_loc = 1
+      else
+         n_m_max_loc = n_m_max
+      end if
+
+      nThetaNHS=0
+      do nThetaN=1,n_theta_max/2
+         nThetaS=n_theta_max-nThetaN+1
+         nThetaNHS=nThetaNHS+1
+         do n_m=1,n_m_max_loc
+            lms=lStop(n_m)
+            s12=(0.d0,0.d0)
+            z12=(0.d0,0.d0)
+            do lm=lStart(n_m),lms-1,2
+               s12=s12+inputLM(lm)  *ii*dPhi(lm  ,nThetaNHS)*Plm(lm  ,nThetaNHS)
+               z12=z12+inputLM(lm+1)*ii*dPhi(lm+1,nThetaNHS)*Plm(lm+1,nThetaNHS)
+            enddo
+            if ( lmOdd(n_m) ) then
+               s12=s12+inputLM(lms)*dPhi(lms,nThetaNHS)*Plm(lms,nThetaNHS)
+            endif
+            dpoldp(n_m,nThetaN)=s12+z12
+            dpoldp(n_m,nThetaS)=s12-z12
+         enddo
+      enddo
+
+      !-- symmetrize
+      if ( n_ph > 1 ) then
+         dpoldp(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
+         dpoldp(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(dpoldp(n_phi_max/2:2:-1,1:n_theta_max))
+      end if
+
+   end subroutine specspat_dphi
 !------------------------------------------------------------------------------
    subroutine specspat_equat_scal(inputLM, br)
 
