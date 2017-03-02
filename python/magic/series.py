@@ -731,6 +731,8 @@ class AvgField:
             self.ekin_pola_avg = avgField(ts.time[ind:], ts.ekin_pol_axi[ind:])
             self.ekin_tora_avg = avgField(ts.time[ind:], ts.ekin_tor_axi[ind:])
 
+        self.tavg = ts.time[-1]-ts.time[ind] # Averaging time
+
         self.ra = ts.ra
         self.prmag = ts.prmag
         self.pr = ts.pr
@@ -868,14 +870,14 @@ class AvgField:
                                              tspow.buoPower[ind:], std=True)
                 if self.mode == 0 or self.mode == 8:
                     self.ohmDiss, self.ohmDiss_std = avgField(tspow.time[ind:],
-                                             tspow.ohmDiss[ind:], std=True)
+                                             -tspow.ohmDiss[ind:], std=True)
                     self.fohm, self.fohm_std = avgField(tspow.time[ind:],
                                              tspow.fohm[ind:], std=True)
             else:
                 self.viscDiss = avgField(tspow.time[ind:], -tspow.viscDiss[ind:])
                 self.buoPower = avgField(tspow.time[ind:], tspow.buoPower[ind:])
                 if self.mode == 0 or self.mode == 8:
-                    self.ohmDiss = avgField(tspow.time[ind:], tspow.ohmDiss[ind:])
+                    self.ohmDiss = avgField(tspow.time[ind:], -tspow.ohmDiss[ind:])
                     if self.mode == 0:
                         self.fohm = avgField(tspow.time[ind:], tspow.fohm[ind:])
 
