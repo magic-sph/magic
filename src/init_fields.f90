@@ -4,6 +4,7 @@ module init_fields
    !
 
    use precision_mod
+   use parallel_mod, only: rank
    use communications, only: r2lm_type, create_r2lm_type, lm2r_type,  &
        &                     r2lo_redist_start, r2lo_redist_wait,     &
        &                     create_lm2r_type, destroy_lm2r_type,     &
@@ -13,9 +14,10 @@ module init_fields
        &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
        &                 l_axi,minc,n_cheb_ic_max,lm_max
    use mem_alloc, only: bytes_allocated
-   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map
-   use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
-       &                      phi, cosTheta
+   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map,  &
+       &               lmStartB, lmStopB
+   use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, &
+       &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
        &            l_anelastic_liquid, l_non_adia
@@ -45,7 +47,6 @@ module init_fields
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp
    use algebra, only: sgesl, sgefa, cgesl
-   use horizontal_data, only: D_lP1, hdif_B, dLh
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
@@ -134,16 +135,13 @@ contains
 
    end subroutine finalize_init_fields
 !------------------------------------------------------------------------------
-   subroutine initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
+   subroutine initV(w,z,omega_ic,omega_ma)
       !
       ! Purpose of this subroutine is to initialize the velocity field   
       ! So far it is only rudimentary and will be expanded later.        
       ! Because s is needed for dwdt init_s has to be called before.     
       !                                                                   
 
-      !-- Input variables
-      integer, intent(in) :: lmStart,lmStop
-    
       !-- Output variables
       complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
@@ -151,7 +149,7 @@ contains
     
       !-- Local variables
       complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
-      integer :: lm,l,m,n,lmStart00,st_lmP
+      integer :: lm,l,m,n,st_lmP,l1m0
       integer :: nR,nTheta,nThetaB,nThetaStart,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
@@ -310,8 +308,6 @@ contains
     
       else if ( init_v1 > 2 ) then
 
-         lmStart00=max(lmStart,1)
-    
          !--- Add random noise toroidal field of all (l,m) modes exept (l=0,m=0):
          !    It decays likes l**(init_v1-1)
          !    Amplitude is chosen so that the (1,0) term resembles amp_v1 *
@@ -326,12 +322,12 @@ contains
          do nR=1,n_r_max
             rDep(nR)=amp_r/r(nR)**(rExp-1.)
             !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
-            do lm=lmStart00,lmStop
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               if ( D_l(lo_map%lm2(l,m)) /= 0.0_cp ) then
-                  ra1=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(init_v1-1)
-                  ra2=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(init_v1-1)
+               if ( l /= 0 ) then
+                  ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
+                  ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(init_v1-1)
                   c_r=ra1*rDep(nR)
                   c_i=ra2*rDep(nR)
                   if ( m == 0 ) then  ! non axisymmetric modes
@@ -346,8 +342,6 @@ contains
     
       else if ( init_v1 < -1 ) then
 
-         lmStart00=max(lmStart,1)
-    
          !--- Add random noise poloidal field of all (l,m) modes exept (l=0,m=0):
          !    It decays likes l**(init_v1-1)
          !    Amplitude is chosen to be comparable to amp * inner core roation speed
@@ -359,11 +353,11 @@ contains
          end if
          do nR=1,n_r_max
             rDep(nR)=-amp_r*sin( (r(nR)-r_ICB)*PI )
-            do lm=lmStart00,lmStop
+            do lm=llm,ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               ra1=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(-init_v1-1)
-               ra2=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(-init_v1-1)
+               ra1=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
+               ra2=(-one+two*random(0.0_cp))/(real(l,cp))**(-init_v1-1)
                c_r=ra1*rDep(nR)
                c_i=ra2*rDep(nR)
                if ( m > 0 ) then  ! no axisymmetric modes
@@ -377,17 +371,20 @@ contains
     
       !----- Caring for IC and mantle rotation rates if this
       !      has not been done already in read_start_file.f:
-      if ( lmStart == 1 ) then ! Selects one processor !
-         if ( ( .not. l_start_file ) .and.( llm <= lo_map%lm2(1,0) ) &
-              & .and.( lo_map%lm2(1,0) <= ulm ) ) then
+      if ( ( .not. l_start_file ) ) then
+
+         l1m0 = lo_map%lm2(1,0)
+
+         if ( (l1m0>=lmStartB(rank+1)) .and. (l1m0<=lmStopB(rank+1)) ) then
+
             write(*,*) '! NO STARTFILE READ, SETTING Z10!'
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
-                    omega_ic2*cos(omegaOsz_ic2*tShift_ic2)
+               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2)
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
-               z(lo_map%lm2(1,0),n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
+               z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
             else if ( l_rot_ic .and. omega_ic1 == 0.0_cp ) then
                omega_ic=c_z10_omega_ic*real(z(lo_map%lm2(1,0),n_r_icb))
             else
@@ -395,25 +392,27 @@ contains
             end if
             if ( l_SRMA .or. l_rot_ma .and. omega_ma1 /= 0.0_cp ) then
                omega_ma=omega_ma1*cos(omegaOsz_ma1*tShift_ma1) + &
-                        omega_ma2*cos(omegaOsz_ma2*tShift_ma2)
+               &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2)
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
                write(*,*) '! omega_ma=',omega_ma
-               z(lo_map%lm2(1,0),n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
+               z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
             else if ( l_rot_ma .and. omega_ma1 == 0.0_cp ) then
                omega_ma=c_z10_omega_ma*real(z(lo_map%lm2(1,0),n_r_cmb))
             else
                omega_ma=0.0_cp
             end if
-         else
-            if ( nRotIc == 2 ) omega_ic=omega_ic1
-            if ( nRotMa == 2 ) omega_ma=omega_ma1
+
          end if
-      end if ! lmStart=1 ?
+
+      else
+         if ( nRotIc == 2 ) omega_ic=omega_ic1
+         if ( nRotMa == 2 ) omega_ma=omega_ma1
+      end if
     
    end subroutine initV
 !--------------------------------------------------------------------
-   subroutine initS(s,p,lmStart,lmStop)
+   subroutine initS(s,p)
       !
       ! Purpose of this subroutine is to initialize the entropy field    
       ! according to the input control parameters.                       
@@ -439,15 +438,12 @@ contains
       ! +-----------------+---------------------------------------------+
       !                                                                   
 
-      !-- Input variables:
-      integer, intent(in) :: lmStart,lmStop
-
       !-- Output variables:
       complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
       complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
 
       !-- Local variables:
-      integer :: n_r,lm,l,m,lm00,lmMin
+      integer :: n_r,lm,l,m,lm00
       real(cp) :: x,rr,c_r,c_i,s_r,s_i
       real(cp) :: ra1,ra2
       real(cp) :: s0(n_r_max),p0(n_r_max),s1(n_r_max)
@@ -462,14 +458,19 @@ contains
       real(cp) :: sCMB(nrp,nfs)
       complex(cp) :: sLM(lmP_max)
       integer :: info,i,j,l1,m1,filehandle
+      logical :: rank_has_l0m0
 
 
       lm00=lo_map%lm2(0,0)
-      lmMin=max(lmStart,2)
+      rank_has_l0m0=.false.
+
+      if ( lm00 >= lmStartB(rank+1) .and. lm00 <= lmStopB(rank+1) ) then
+         rank_has_l0m0=.true.
+      end if
 
       if ( (.not. l_start_file) .and. (.not. l_non_adia) ) then
 
-         if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
+         if ( rank_has_l0m0 ) then
 
             open(newunit=filehandle, file='scond.dat')
             if ( l_TP_form .or. l_anelastic_liquid ) then
@@ -481,7 +482,7 @@ contains
                   &            osq4pi*p0(n_r), osq4pi*s0(n_r),               &
                   &            osq4pi*alpha0(n_r)*(-rho0(n_r)*s0(n_r)+       &
                   &            ViscHeatFac*ThExpNb*(alpha0(n_r)*temp0(n_r)   &
-                  &            +ogrun)*p0(n_r))
+                  &            +ogrun(n_r))*p0(n_r))
                end do
             else
                call ps_cond(s0,p0)
@@ -491,7 +492,7 @@ contains
                   &            s0(n_r)+alpha0(n_r)*orho1(n_r)*p0(n_r)*   &
                   &            ThExpNb*ViscHeatFac), osq4pi*alpha0(n_r)* &
                   &            ThExpNb*(-rho0(n_r)*temp0(n_r)*s0(n_r)+   &
-                  &            ViscHeatFac*ogrun*p0(n_r))
+                  &            ViscHeatFac*ogrun(n_r)*p0(n_r))
                end do
             end if
             close(filehandle)
@@ -511,20 +512,18 @@ contains
       end do
 
       !-- In case 's' denotes temperature
-      if ( l_TP_form ) then
-         s1(:)=s1(:)*temp0(:)
-      end if
+      if ( l_TP_form ) s1(:)=s1(:)*temp0(:)
 
       if ( init_s1 < 100 .and. init_s1 > 0 ) then
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
            
          rr=random(one)
-         do lm=lmMin,lmStop
+         do lm=max(llm,2),ulm
             m1 = lo_map%lm2m(lm)
             l1 = lo_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_s1/D_l(lo_map%lm2(l1,m1))**(init_s1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_s1/D_l(lo_map%lm2(l1,m1))**(init_s1-1)
+            ra1=(-one+two*random(0.0_cp))*amp_s1/(real(l1,cp))**(init_s1-1)
+            ra2=(-one+two*random(0.0_cp))*amp_s1/(real(l1,cp))**(init_s1-1)
             do n_r=1,n_r_max
                c_r=ra1*s1(n_r)
                c_i=ra2*s1(n_r)
@@ -556,18 +555,17 @@ contains
             stop
          end if
          lm=lo_map%lm2(l,m)
-
-         if ( lmMin <= lm .and. lmStop >= lm ) then
+         if( (lm>=lmStartB(rank+1)) .and. (lm<=lmStopB(rank+1)) ) then
             do n_r=1,n_r_max
                c_r=s1(n_r)*amp_s1
                s(lm,n_r)=s(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
             end do
 
             write(*,'(/'' ! Entropy initialized at mode:'', &
-                &  '' l='',i4,'' m='',i4,'' Ampl='',f8.5)') l,m,amp_s1
+            &      '' l='',i4,'' m='',i4,'' Ampl='',f8.5)') l,m,amp_s1
          end if
 
-      !----- Initialize second mode:
+         !----- Initialize second mode:
          if ( init_s2 > 99 ) then
             m=mod(init_s2,100)
             if ( mod(m,minc) /= 0 ) then
@@ -583,9 +581,9 @@ contains
             end if
 
             lm=lo_map%lm2(l,m)
-            if ( lmMin <= lm .and. lmStop >= lm ) then
-               s_r=amp_s2
-               s_i=0.0_cp
+            s_r=amp_s2
+            s_i=0.0_cp
+            if( (lm>=lmStartB(rank+1)) .and. (lm<=lmStopB(rank+1)) ) then
                if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
                !-------- Sin(phi)-mode initialized for amp_s2<0
                   s_r = 0.0_cp
@@ -604,10 +602,7 @@ contains
 
       end if
 
-      if ( lmStart > lm00 .or. impS == 0 ) then
-         !sumVal = SUM( s(lmStart:lmStop,:) )
-         !write(*,"(A,2I5,2(I4,F20.16))") "END   initS: ",lmStart,lmStop, EXPONENT(REAL(sumVal)),FRACTION(REAL(sumVal)),&
-         !     &EXPONENT(aimag(sumVal)),FRACTION(aimag(sumVal))
+      if ( impS == 0 ) then
          return
       end if
 
@@ -690,7 +685,7 @@ contains
       if ( impS > 0 ) s00P=one
 
       !-- Determine the true amplitudes amp for the peaks by solving linear system:
-      !    These amplitudes guarantee that the peak as an ampliture peakS
+      !    These amplitudes guarantee that the peak has an ampliture peakS
       !    above or below the mean (l=0,m=0)
       if ( n_impS == 1 ) then
          amp(1)=peakS(1)/(s00P*(one-sFac(1)))
@@ -732,8 +727,8 @@ contains
                   !------ Opening angle with peak value vector:
                   angleL=two*abs(asin(rH/2))
                   if ( angleL <= widthS(nS) )                &
-                     sCMB(nPhi,nThetaB)=sCMB(nPhi,nThetaB) + &
-                                        amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
+                  &  sCMB(nPhi,nThetaB)=sCMB(nPhi,nThetaB) + &
+                  &                     amp(nS)*(cos(angleL/widthS(nS)*pi)+1)/2
                end do
             end do
 #ifndef WITH_SHTNS
@@ -765,9 +760,11 @@ contains
          end do
       end do
 
+      print*, rank, tops(10:11,3:4)
+
    end subroutine initS
 !---------------------------------------------------------------------------
-   subroutine initXi(xi,lmStart,lmStop)
+   subroutine initXi(xi)
       !
       ! Purpose of this subroutine is to initialize the chemical composition
       ! according to the input control parameters.                       
@@ -793,9 +790,6 @@ contains
       ! +-----------------+---------------------------------------------+
       !                                                                   
 
-      !-- Input variables:
-      integer, intent(in) :: lmStart,lmStop
-
       !-- Output variables:
       complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
 
@@ -818,11 +812,10 @@ contains
 
 
       lm00=lo_map%lm2(0,0)
-      lmMin=max(lmStart,2)
 
       if ( .not. l_start_file ) then
 
-         if ( lmStart <= lm00 .and. lmStop >= lm00 ) then
+         if ( (lmStartB(rank+1) <= lm00) .and. (lmStopB(rank+1) >= lm00) ) then
             call xi_cond(xi0)
             open(newunit=fileHandle, file='xicond.dat')
             do n_r=1,n_r_max
@@ -843,13 +836,13 @@ contains
       if ( init_xi1 < 100 .and. init_xi1 > 0 ) then
 
       !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
-           
+
          rr=random(one)
-         do lm=lmMin,lmStop
+         do lm=max(llm,2),ulm
             m1 = lo_map%lm2m(lm)
             l1 = lo_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_xi1/D_l(lo_map%lm2(l1,m1))**(init_xi1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_xi1/D_l(lo_map%lm2(l1,m1))**(init_xi1-1)
+            ra1=(-one+two*random(0.0_cp))*amp_xi1/(real(l1,cp))**(init_xi1-1)
+            ra2=(-one+two*random(0.0_cp))*amp_xi1/(real(l1,cp))**(init_xi1-1)
             do n_r=1,n_r_max
                c_r=ra1*xi1(n_r)
                c_i=ra2*xi1(n_r)
@@ -882,7 +875,7 @@ contains
          end if
          lm=lo_map%lm2(l,m)
 
-         if ( lmMin <= lm .and. lmStop >= lm ) then
+         if ( (lmStartB(rank+1) <= lm) .and. (lmStopB(rank+1) >= lm) ) then
             do n_r=1,n_r_max
                c_r=xi1(n_r)*amp_xi1
                xi(lm,n_r)=xi(lm,n_r)+cmplx(c_r,0.0_cp,kind=cp)
@@ -908,7 +901,7 @@ contains
             end if
 
             lm=lo_map%lm2(l,m)
-            if ( lmMin <= lm .and. lmStop >= lm ) then
+            if ( (lmStartB(rank+1) <= lm) .and. (lmStopB(rank+1) >= lm) ) then
                xi_r=amp_s2
                xi_i=0.0_cp
                if ( amp_s2 < 0.0_cp .and. m /= 0 ) then
@@ -929,7 +922,7 @@ contains
 
       end if
 
-      if ( lmStart > lm00 .or. impXi == 0 ) then
+      if ( impXi == 0 ) then
          return
       end if
 
@@ -996,7 +989,7 @@ contains
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
       !    according to the spherical harmonic function form chosen here.
-         xiFac(nXi)=real(xiLM(lo_map%lm2(0,0)))*osq4pi
+         xiFac(nXi)=real(xiLM(st_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
 
@@ -1080,24 +1073,20 @@ contains
       !    for example by setting: s_top= 0 0 -1 0
       do m=0,l_max,minc
          do l=m,l_max
-            lm=lo_map%lmP2(l,m)
+            lm=st_map%lmP2(l,m)
             if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
          end do
       end do
 
    end subroutine initXi
 !---------------------------------------------------------------------------
-   subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma, &
-                    lmStart,lmStop)
+   subroutine initB(b,aj,b_ic,aj_ic,lorentz_torque_ic,lorentz_torque_ma)
       !
       ! Purpose of this subroutine is to initialize the magnetic field  
       ! according to the control parameters imagcon and init_b1/2.     
       ! In addition CMB and ICB peak values are calculated for        
       ! magneto convection.                                          
       !
-
-      !-- Input variables:
-      integer, intent(in) :: lmStart,lmStop
 
       !-- Output variables:
       real(cp), intent(out) :: lorentz_torque_ic
@@ -1109,7 +1098,7 @@ contains
       complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables:
-      integer :: lm,lm0,lmStart00,l1,m1
+      integer :: lm,lm0,l1,m1
       integer :: n_r
       real(cp) :: b_pol,b_tor
       complex(cp) :: aj0(n_r_max+1)
@@ -1123,8 +1112,6 @@ contains
       integer :: bExp
 
       integer :: l1m0,l2m0,l3m0,l1m1
-
-      lmStart00 = max(lmStart,1)
 
       l1m0 = lo_map%lm2(1,0)
       l2m0 = lo_map%lm2(2,0)
@@ -1200,7 +1187,7 @@ contains
          bpeaktop=0.0_cp
          aVarCon =-one/255.0_cp
          bVarCon =256.0_cp/255.0_cp
-         if ( lmStart <= lm0 .and. lmStop >= lm0 ) then ! select processor
+         if ( lmStartB(rank+1) <= lm0 .and. lmStopB(rank+1) >= lm0 ) then ! select processor
             do n_r=1,n_r_max             ! Diffusive toroidal field
                jVarCon(n_r)=aVarCon*r(n_r)**2 + bVarCon/(r(n_r)**6)
                aj(lm0,n_r) =jVarCon(n_r) + 0.1_cp*sin((r(n_r)-r_ICB)*pi)
@@ -1214,7 +1201,7 @@ contains
       !      diffusion equation solved in j_cond, amplitude defined
       !      by bpeaktop and bpeakbot respectively.
       !      bpeakbot is only used for insulating inner core !
-         if ( lmStart <= lm0 .and. lmStop >= lm0 ) then ! select processor
+         if ( lmStartB(rank+1) <= lm0 .and. lmStopB(rank+1) >= lm0 ) then ! select processor
             call j_cond(lm0,aj0,aj0_ic)
             do n_r=1,n_r_max             ! Diffusive toroidal field
                aj(lm0,n_r)=aj0(n_r)
@@ -1232,7 +1219,7 @@ contains
       ! inner core and at r_cmb/2 for a conducting
       ! inner core
 
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_tor=-two*amp_b1*sqrt(third*pi)  ! minus sign makes phi comp. > 0
             if ( l_cond_ic ) then
                do n_r=1,n_r_max
@@ -1259,7 +1246,7 @@ contains
          ! a homogeneous  current density, its maximum at
          ! the ICB is set to amp_b1.
          ! The inner core poloidal field is chosen accordingly.
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_tor=-four*third*amp_b1*sqrt(pi/5.0_cp)
             if ( l_cond_ic ) then
                b_pol=amp_b1*sqrt(three*pi)/(three+r_cmb)
@@ -1287,7 +1274,7 @@ contains
             end if
          end if
 
-         if ( lmStart <= l2m0 .and. lmStop >= l2m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
             b_tor=-four*third*amp_b1*sqrt(pi/5.0_cp)
             if ( l_cond_ic ) then
                b_pol=amp_b1*sqrt(three*pi)/(three+r_cmb)
@@ -1312,7 +1299,7 @@ contains
 
       else if ( init_b1 == 4 .or. imagcon == -1 ) then  ! l=1,m0 poloidal field
       ! with max field amplitude amp_b1 at r_icb
-       if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
           b_pol=-amp_b1*r_icb**3*sqrt(third*pi)
           do n_r=1,n_r_max
              b(l1m0,n_r)=b(l1m0,n_r)+b_pol*or1(n_r)
@@ -1327,7 +1314,7 @@ contains
 
       else if ( init_b1 == 5 ) then  ! l=1,m0 poloidal field
       ! constant j density, defined max field value amp_v1 at r_cmb
-       if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
           if ( l_cond_ic ) then
              b_pol=amp_b1*sqrt(three*pi)/r_cmb
              do n_r=1,n_r_max
@@ -1350,7 +1337,7 @@ contains
 
       else if ( init_b1 == 6 ) then  ! l=1,m=0 poloidal field , constant in r !
       ! no potential at r_cmb but simple
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_pol=amp_b1
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*r(n_r)**2
@@ -1364,7 +1351,7 @@ contains
 
       else if ( init_b1 == 7 .or. imagcon == -2 ) then  ! l=1,m0 poloidal field
       ! which is potential field at r_cmb
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1380,7 +1367,7 @@ contains
 
       else if ( init_b1 == 8 ) then  ! l=1,m0 pol. field, l=2,m=0 toroidal field
       ! which is potential field at r_cmb
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_cmb)**2 * &
@@ -1394,7 +1381,7 @@ contains
             end if
          end if
 
-         if ( lmStart <= l2m0 .and. lmStop >= l2m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
             b_tor=amp_b1*three*half*sqrt(pi/5.0_cp)*r_icb**2*radratio
             do n_r=1,n_r_max
                aj(l2m0,n_r)=aj(l2m0,n_r)+b_tor*(r(n_r)/r_icb)**3 * &
@@ -1410,7 +1397,7 @@ contains
 
       else if ( init_b1 == 9 ) then  ! l=2,m0 poloidal field
       ! which is potential field at r_cmb
-         if ( lmStart <= l2m0 .and. lmStop >= l2m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
             b_pol=amp_b1*7.0_cp/6.0_cp*sqrt(pi/5.0_cp)*r_icb**2*radratio
             do n_r=1,n_r_max
                b(l2m0,n_r)=b(l2m0,n_r)+b_pol*(r(n_r)/r_icb)**3 * &
@@ -1431,7 +1418,7 @@ contains
           stop
        end if
 
-       if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
+       if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
           b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
           do n_r=1,n_r_max
              b(l1m1,n_r)=b(l1m1,n_r)+b_pol*(r(n_r)/r_icb)**2 * &
@@ -1459,11 +1446,11 @@ contains
 
      !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
          rr=random(one)
-         do lm=lmStart00,lmStop
+         do lm=llm,ulm
             l1=lo_map%lm2l(lm)
             m1=lo_map%lm2m(lm)
-            bR=(-one+two*random(0.0_cp))*amp_b1/D_l(lo_map%lm2(l1,m1))**(bExp-1)
-            bI=(-one+two*random(0.0_cp))*amp_b1/D_l(lo_map%lm2(l1,m1))**(bExp-1)
+            bR=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
+            bI=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
             if ( m1 == 0 ) bI=0.0_cp
             do n_r=1,n_r_max
                b(lm,n_r)=b(lm,n_r) + cmplx(bR*b1(n_r),bI*b1(n_r),kind=cp)
@@ -1477,7 +1464,7 @@ contains
 
       else if ( init_b1 == 11 ) then  ! axial and equatorial dipole
 
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m0,n_r)=b(l1m0,n_r)+b_pol*(r(n_r)/r_cmb)**2 * &
@@ -1496,7 +1483,7 @@ contains
             stop
          end if
 
-         if ( lmStart <= l1m1 .and. lmStop >= l1m1 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
             b_pol=amp_b1*5.0_cp*half*sqrt(third*pi)*r_icb**2
             do n_r=1,n_r_max
                b(l1m1,n_r)=b(l1m1,n_r) +                   &
@@ -1513,7 +1500,7 @@ contains
 
       else if ( init_b1 == 21 ) then ! toroidal field created by inner core rotation
       ! equatorialy symmetric
-         if ( lmStart <= l1m0 .and. lmStop >= l1m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
             end do
@@ -1529,7 +1516,7 @@ contains
 
       else if ( init_b1 == 22 ) then ! toroidal field created by inner core rotation
       ! equatorialy asymmetric
-         if ( lmStart <= l2m0 .and. lmStop >= l2m0 ) then ! select processor
+         if ( lmStartB(rank+1) <= l2m0 .and. lmStopB(rank+1) >= l2m0 ) then ! select processor
             do n_r=1,n_r_max
                aj0(n_r)=amp_b1*(r_icb/r(n_r))**6
             end do

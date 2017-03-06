@@ -357,36 +357,34 @@ contains
       allocate( workA_LMloc(llm:ulm,n_r_max) )
       allocate( workB_LMloc(llm:ulm,n_r_max) )
 
-      !-- Initialize field
+      !-- Initialize/add fields
+      !----- Initialize/add magnetic field:
+      if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
+           & .and. ( l_mag .or. l_mag_LF ) ) then
+         call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,      &
+              &     lorentz_torque_icLast, lorentz_torque_maLast)
+      end if
+
+      !----- Initialize/add velocity, set IC and ma rotation:
+      if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
+         call initV(w_LMloc,z_LMloc,omega_ic,omega_ma)
+      end if
+
+      !----- Initialize/add entropy:
+      if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
+         call initS(s_LMloc,p_LMloc)
+      end if
+
+      !----- Initialize/add chemical convection:
+      if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
+         call initXi(xi_LMloc)
+      end if
+
+      !  Computing derivatives
       do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
  
-         !----- Initialize/add magnetic field:
-         if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
-              & .and. ( l_mag .or. l_mag_LF ) ) then
-            call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,      &
-            &          lorentz_torque_icLast, lorentz_torque_maLast, &
-            &          lmStart-llm+1,lmStop-llm+1)
-         end if
- 
-         !----- Initialize/add velocity, set IC and ma rotation:
-         if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
-            call initV(w_LMloc,z_LMloc,omega_ic,omega_ma,lmStart-llm+1,lmStop-llm+1)
-         end if
- 
-         !----- Initialize/add entropy:
-         if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-            call initS(s_LMloc,p_LMloc,lmStart-llm+1,lmStop-llm+1)
-         end if
-
-         !----- Initialize/add chemical convection:
-         if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
-            call initXi(xi_LMloc,lmStart-llm+1,lmStop-llm+1)
-         end if
- 
-      !  Computing derivatives
-    
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
                  &        lmStop-llm+1,n_r_max,rscheme_oc )
