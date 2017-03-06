@@ -788,7 +788,11 @@ contains
          lTOZhelp= n_time_step > 2 .and. l_TO .and.                         &
               &                l_correct_step(n_time_step-1,time,timeLast,  &
               &            n_time_steps,n_TOZ_step,n_TOZs,n_t_TOZ,t_TOZ,0)
-         if ( lTOZhelp ) lTOZwrite=.true.
+         if ( lTOZhelp ) then 
+            lTOZwrite=.true.
+         else
+            lTOZwrite=.false.
+         end if
 
          lRmsCalc=l_RMS .and. l_log .and. (n_time_step > 1)
          if ( l_mag .or. l_mag_LF ) l_dtB = l_dtB .or. lRmsCalc

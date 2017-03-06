@@ -1,9 +1,19 @@
 module init_fields
+   !
+   ! This module is used to construct the initial solution.
+   !
 
-   use truncation
    use precision_mod
+   use communications, only: r2lm_type, create_r2lm_type, lm2r_type,  &
+       &                     r2lo_redist_start, r2lo_redist_wait,     &
+       &                     create_lm2r_type, destroy_lm2r_type,     &
+       &                     lo2r_redist_start, lo2r_redist_wait,     &
+       &                     destroy_r2lm_type
+   use truncation, only: n_r_max, nrp, n_r_maxMag,n_r_ic_max,lmP_max, &
+       &                 n_phi_max,n_theta_max,n_r_tot,l_max,m_max,   &
+       &                 l_axi,minc,n_cheb_ic_max,lm_max
    use mem_alloc, only: bytes_allocated
-   use blocking, only: nfs, nThetaBs, sizeThetaB, st_map, lmP2lmPS
+   use blocking, only: nfs, nThetaBs, sizeThetaB, lo_map, st_map
    use horizontal_data, only: sinTheta, dLh, dTheta1S, dTheta1A, D_l, &
        &                      phi, cosTheta
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
@@ -17,7 +27,7 @@ module init_fields
        &                       epscProf, ddLtemp0, ddLalpha0, rgrav,   &
        &                       rho0, dLalpha0, alpha0, otemp1, ogrun,  &
        &                       rscheme_oc
-   use radial_data, only: n_r_icb, n_r_cmb
+   use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
    use useful, only: random
@@ -115,6 +125,9 @@ contains
    end subroutine initialize_init_fields
 !------------------------------------------------------------------------------
    subroutine finalize_init_fields
+      !
+      ! Memory deallocation
+      !
 
       deallocate (tops, bots )
       if ( l_chemical_conv ) deallocate( topxi, botxi )
@@ -132,33 +145,36 @@ contains
       integer, intent(in) :: lmStart,lmStop
     
       !-- Output variables
-      complex(cp), intent(inout) :: w(lm_max,n_r_max)
-      complex(cp), intent(inout) :: z(lm_max,n_r_max)
+      complex(cp), intent(inout) :: w(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: z(llm:ulm,n_r_max)
       real(cp), intent(out) :: omega_ic,omega_ma
     
       !-- Local variables
+      complex(cp) :: z_Rloc(lm_max,nRstart:nRstop)
       integer :: lm,l,m,n,lmStart00,st_lmP
       integer :: nR,nTheta,nThetaB,nThetaStart,nPhi
       real(cp) :: ra1,ra2,c_r,c_i
       real(cp) :: amp_r,rExp
       real(cp) :: rDep(n_r_max)
-      integer :: l1m0
+      type(r2lm_type) :: r2lo_initv
+      type(lm2r_type) :: lo2r_initv
     
       real(cp) :: ss,ome(nrp,nfs)
       complex(cp) :: omeLM(lmP_max)
-    
-      ! This routine is called from a rank-0 region and is operating
-      ! on the full fields in standard order.
-    
-      lmStart00=max(lmStart,1)
-      l1m0=st_map%lm2(1,0)
-    
+
       !-- Initialize rotation according to
       !   given inner core and mantel rotation rate:
       if ( init_v1 == 1 .and. ( omega_ic1 /= 0.0_cp .or. omega_ma1 /= 0.0_cp ) ) then
+
+         call create_r2lm_type(r2lo_initv,1)
+         call create_lm2r_type(lo2r_initv,1)
+
+         !-- From lo distributed to r distributed
+         call lo2r_redist_start(lo2r_initv, z, z_Rloc)
+         call lo2r_redist_wait(lo2r_initv)
     
          !-- Approximating the Stewardson solution:
-         do nR=1,n_r_max
+         do nR=nRstart,nRstop
     
             nTheta=0
             do n=1,nThetaBs ! loop over the theta blocks
@@ -189,35 +205,48 @@ contains
 #ifdef WITH_SHTNS
             call spat_to_SH(ome, omeLM)
 #endif
-    
-            !------------ ome now in spherical harmonic space,
-            !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
-            !             additional application of r**2/(l*(l+1)) then yields
-            !             the axisymmetric toriodal flow contribution:
-            do lm=lmStart00,lmStop
+
+            !------- ome now in spherical harmonic space,
+            !        apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
+            !        additional application of r**2/(l*(l+1)) then yields
+            !        the axisymmetric toriodal flow contribution:
+            do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
-               st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
+               st_lmP=st_map%lm2lmP(lm)
                if ( l > m ) then
-                  z(lm,nR)=z(lm,nR) + &
-                       r(nR)**2/dLh(lm) * ( &
-                       dTheta1S(lm)*omeLM(lmP2lmPS(st_lmP)) &
-                       & - dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP)) )
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + r(nR)**2/dLh(lm) * ( &
+                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP))   &
+                  &   -dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
                else if ( l == m ) then
-                  if ( dLh(st_map%lm2(l,m)) /= 0.0_cp ) then 
-                     z(lm,nR)=z(lm,nR) - &
-                          r(nR)**2/dLh(st_map%lm2(l,m)) * &
-                          dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP))
+                  if ( dLh(lm) /= 0.0_cp ) then 
+                     z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) *  &
+                     &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
                   end if
                end if
             end do
     
          end do ! close loop over radial grid points
+
+         !-- Transpose back to lo distributed
+         call r2lo_redist_start(r2lo_initv, z_Rloc, z)
+         call r2lo_redist_wait(r2lo_initv)
+
+         !-- Destroy MPI communicators
+         call destroy_r2lm_type(r2lo_initv)
+         call destroy_lm2r_type(lo2r_initv)
     
       else if ( init_v1 == 2 ) then
+
+         call create_r2lm_type(r2lo_initv,1)
+         call create_lm2r_type(lo2r_initv,1)
+
+         !-- From lo distributed to r distributed
+         call lo2r_redist_start(lo2r_initv, z, z_Rloc)
+         call lo2r_redist_wait(lo2r_initv)
     
          !-- Approximating the Stewardson solution:
-         do nR=1,n_r_max
+         do nR=nRstart,nRstop
     
             nTheta=0
             do n=1,nThetaBs ! loop over the theta blocks
@@ -251,28 +280,37 @@ contains
             !             apply operator dTheta1=1/(r sinTheta) d/ d theta sinTheta**2,
             !             additional application of r**2/(l*(l+1)) then yields
             !             the axisymmetric toriodal flow contribution:
-            do lm=lmStart00,lmStop
+            do lm=2,lm_max
                l   =st_map%lm2l(lm)
                m   =st_map%lm2m(lm)
                st_lmP=st_map%lm2lmP(st_map%lm2(l,m))
                if ( l > m ) then
-                  z(lm,nR)=z(lm,nR) + &
-                       r(nR)**2/dLh(st_map%lm2(l,m)) * ( &
-                       dTheta1S(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPS(st_lmP)) &
-                       & - dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP)) )
+                  z_Rloc(lm,nR)=z_Rloc(lm,nR) + &
+                  &    r(nR)**2/dLh(lm) * ( &
+                  &    dTheta1S(lm)*omeLM(st_map%lmP2lmPS(st_lmP)) &
+                  &    - dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP)) )
                else if ( l == m ) then
-                  if ( dLh(st_map%lm2(l,m)) /= 0.0_cp ) then 
-                      z(lm,nR)=z(lm,nR) - &
-                           r(nR)**2/dLh(st_map%lm2(l,m)) * &
-                           dTheta1A(st_map%lm2(l,m))*omeLM(st_map%lmP2lmPA(st_lmP))
+                  if ( dLh(lm) /= 0.0_cp ) then 
+                      z_Rloc(lm,nR)=z_Rloc(lm,nR) - r(nR)**2/dLh(lm) * &
+                      &    dTheta1A(lm)*omeLM(st_map%lmP2lmPA(st_lmP))
                   end if
                end if
             end do
     
          end do ! close loop over radial grid points
+
+         !-- Transpose back to lo distributed
+         call r2lo_redist_start(r2lo_initv, z_Rloc, z)
+         call r2lo_redist_wait(r2lo_initv)
+
+         !-- Destroy MPI communicators
+         call destroy_r2lm_type(r2lo_initv)
+         call destroy_lm2r_type(lo2r_initv)
     
     
       else if ( init_v1 > 2 ) then
+
+         lmStart00=max(lmStart,1)
     
          !--- Add random noise toroidal field of all (l,m) modes exept (l=0,m=0):
          !    It decays likes l**(init_v1-1)
@@ -289,11 +327,11 @@ contains
             rDep(nR)=amp_r/r(nR)**(rExp-1.)
             !write(*,"(A,I3,A,ES20.12)") "rDep(",nR,") = ",rDep(nR)
             do lm=lmStart00,lmStop
-               l=st_map%lm2l(lm)
-               m=st_map%lm2m(lm)
-               if ( D_l(st_map%lm2(l,m)) /= 0.0_cp ) then
-                  ra1=(-one+two*random(0.0_cp))/D_l(st_map%lm2(l,m))**(init_v1-1)
-                  ra2=(-one+two*random(0.0_cp))/D_l(st_map%lm2(l,m))**(init_v1-1)
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               if ( D_l(lo_map%lm2(l,m)) /= 0.0_cp ) then
+                  ra1=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(init_v1-1)
+                  ra2=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(init_v1-1)
                   c_r=ra1*rDep(nR)
                   c_i=ra2*rDep(nR)
                   if ( m == 0 ) then  ! non axisymmetric modes
@@ -307,6 +345,8 @@ contains
          end do
     
       else if ( init_v1 < -1 ) then
+
+         lmStart00=max(lmStart,1)
     
          !--- Add random noise poloidal field of all (l,m) modes exept (l=0,m=0):
          !    It decays likes l**(init_v1-1)
@@ -320,10 +360,10 @@ contains
          do nR=1,n_r_max
             rDep(nR)=-amp_r*sin( (r(nR)-r_ICB)*PI )
             do lm=lmStart00,lmStop
-               l=st_map%lm2l(lm)
-               m=st_map%lm2m(lm)
-               ra1=(-one+two*random(0.0_cp))/D_l(st_map%lm2(l,m))**(-init_v1-1)
-               ra2=(-one+two*random(0.0_cp))/D_l(st_map%lm2(l,m))**(-init_v1-1)
+               l=lo_map%lm2l(lm)
+               m=lo_map%lm2m(lm)
+               ra1=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(-init_v1-1)
+               ra2=(-one+two*random(0.0_cp))/D_l(lo_map%lm2(l,m))**(-init_v1-1)
                c_r=ra1*rDep(nR)
                c_i=ra2*rDep(nR)
                if ( m > 0 ) then  ! no axisymmetric modes
@@ -338,8 +378,8 @@ contains
       !----- Caring for IC and mantle rotation rates if this
       !      has not been done already in read_start_file.f:
       if ( lmStart == 1 ) then ! Selects one processor !
-         if ( ( .not. l_start_file ) .and.( llm <= st_map%lm2(1,0) ) &
-              & .and.( st_map%lm2(1,0) <= ulm ) ) then
+         if ( ( .not. l_start_file ) .and.( llm <= lo_map%lm2(1,0) ) &
+              & .and.( lo_map%lm2(1,0) <= ulm ) ) then
             write(*,*) '! NO STARTFILE READ, SETTING Z10!'
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
@@ -347,9 +387,9 @@ contains
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
-               z(st_map%lm2(1,0),n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
+               z(lo_map%lm2(1,0),n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,kind=cp)
             else if ( l_rot_ic .and. omega_ic1 == 0.0_cp ) then
-               omega_ic=c_z10_omega_ic*real(z(st_map%lm2(1,0),n_r_icb))
+               omega_ic=c_z10_omega_ic*real(z(lo_map%lm2(1,0),n_r_icb))
             else
                omega_ic=0.0_cp
             end if
@@ -359,9 +399,9 @@ contains
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
                write(*,*) '! omega_ma=',omega_ma
-               z(st_map%lm2(1,0),n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
+               z(lo_map%lm2(1,0),n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,kind=cp)
             else if ( l_rot_ma .and. omega_ma1 == 0.0_cp ) then
-               omega_ma=c_z10_omega_ma*real(z(st_map%lm2(1,0),n_r_cmb))
+               omega_ma=c_z10_omega_ma*real(z(lo_map%lm2(1,0),n_r_cmb))
             else
                omega_ma=0.0_cp
             end if
@@ -403,8 +443,8 @@ contains
       integer, intent(in) :: lmStart,lmStop
 
       !-- Output variables:
-      complex(cp), intent(inout) :: s(lm_max,n_r_max)
-      complex(cp), intent(inout) :: p(lm_max,n_r_max)
+      complex(cp), intent(inout) :: s(llm:ulm,n_r_max)
+      complex(cp), intent(inout) :: p(llm:ulm,n_r_max)
 
       !-- Local variables:
       integer :: n_r,lm,l,m,lm00,lmMin
@@ -424,7 +464,7 @@ contains
       integer :: info,i,j,l1,m1,filehandle
 
 
-      lm00=st_map%lm2(0,0)
+      lm00=lo_map%lm2(0,0)
       lmMin=max(lmStart,2)
 
       if ( (.not. l_start_file) .and. (.not. l_non_adia) ) then
@@ -481,10 +521,10 @@ contains
            
          rr=random(one)
          do lm=lmMin,lmStop
-            m1 = st_map%lm2m(lm)
-            l1 = st_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_s1/D_l(st_map%lm2(l1,m1))**(init_s1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_s1/D_l(st_map%lm2(l1,m1))**(init_s1-1)
+            m1 = lo_map%lm2m(lm)
+            l1 = lo_map%lm2l(lm)
+            ra1=(-one+two*random(0.0_cp))*amp_s1/D_l(lo_map%lm2(l1,m1))**(init_s1-1)
+            ra2=(-one+two*random(0.0_cp))*amp_s1/D_l(lo_map%lm2(l1,m1))**(init_s1-1)
             do n_r=1,n_r_max
                c_r=ra1*s1(n_r)
                c_i=ra2*s1(n_r)
@@ -515,7 +555,7 @@ contains
             write(*,*) '! > l_max or < m !',l
             stop
          end if
-         lm=st_map%lm2(l,m)
+         lm=lo_map%lm2(l,m)
 
          if ( lmMin <= lm .and. lmStop >= lm ) then
             do n_r=1,n_r_max
@@ -542,7 +582,7 @@ contains
                stop
             end if
 
-            lm=st_map%lm2(l,m)
+            lm=lo_map%lm2(l,m)
             if ( lmMin <= lm .and. lmStop >= lm ) then
                s_r=amp_s2
                s_i=0.0_cp
@@ -757,7 +797,7 @@ contains
       integer, intent(in) :: lmStart,lmStop
 
       !-- Output variables:
-      complex(cp), intent(inout) :: xi(lm_max,n_r_max)
+      complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
 
       !-- Local variables:
       integer :: n_r,lm,l,m,lm00,lmMin
@@ -777,7 +817,7 @@ contains
       integer :: info,i,j,l1,m1,fileHandle
 
 
-      lm00=st_map%lm2(0,0)
+      lm00=lo_map%lm2(0,0)
       lmMin=max(lmStart,2)
 
       if ( .not. l_start_file ) then
@@ -806,10 +846,10 @@ contains
            
          rr=random(one)
          do lm=lmMin,lmStop
-            m1 = st_map%lm2m(lm)
-            l1 = st_map%lm2l(lm)
-            ra1=(-one+two*random(0.0_cp))*amp_xi1/D_l(st_map%lm2(l1,m1))**(init_xi1-1)
-            ra2=(-one+two*random(0.0_cp))*amp_xi1/D_l(st_map%lm2(l1,m1))**(init_xi1-1)
+            m1 = lo_map%lm2m(lm)
+            l1 = lo_map%lm2l(lm)
+            ra1=(-one+two*random(0.0_cp))*amp_xi1/D_l(lo_map%lm2(l1,m1))**(init_xi1-1)
+            ra2=(-one+two*random(0.0_cp))*amp_xi1/D_l(lo_map%lm2(l1,m1))**(init_xi1-1)
             do n_r=1,n_r_max
                c_r=ra1*xi1(n_r)
                c_i=ra2*xi1(n_r)
@@ -840,7 +880,7 @@ contains
             write(*,*) '! > l_max or < m !',l
             stop
          end if
-         lm=st_map%lm2(l,m)
+         lm=lo_map%lm2(l,m)
 
          if ( lmMin <= lm .and. lmStop >= lm ) then
             do n_r=1,n_r_max
@@ -867,7 +907,7 @@ contains
                stop
             end if
 
-            lm=st_map%lm2(l,m)
+            lm=lo_map%lm2(l,m)
             if ( lmMin <= lm .and. lmStop >= lm ) then
                xi_r=amp_s2
                xi_i=0.0_cp
@@ -956,7 +996,7 @@ contains
       !--- xiFac describes the linear dependence of the (l=0,m=0) mode
       !    on the amplitude peakXi, sqrt(4*pi) is a normalisation factor
       !    according to the spherical harmonic function form chosen here.
-         xiFac(nXi)=real(xiLM(st_map%lm2(0,0)))*osq4pi
+         xiFac(nXi)=real(xiLM(lo_map%lm2(0,0)))*osq4pi
 
       end do ! Loop over peak
 
@@ -1040,7 +1080,7 @@ contains
       !    for example by setting: s_top= 0 0 -1 0
       do m=0,l_max,minc
          do l=m,l_max
-            lm=st_map%lmP2(l,m)
+            lm=lo_map%lmP2(l,m)
             if ( l <= l_max .and. l > 0 ) topxi(l,m)=topxi(l,m)+xiLM(lm)
          end do
       end do
@@ -1063,10 +1103,10 @@ contains
       real(cp), intent(out) :: lorentz_torque_ic
       real(cp), intent(out) :: lorentz_torque_ma
 
-      complex(cp), intent(inout) :: b(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(inout) :: aj(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(inout) :: b_ic(lm_maxMag,n_r_ic_max)
-      complex(cp), intent(inout) :: aj_ic(lm_maxMag,n_r_ic_max)
+      complex(cp), intent(inout) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(inout) :: b_ic(llmMag:ulmMag,n_r_ic_max)
+      complex(cp), intent(inout) :: aj_ic(llmMag:ulmMag,n_r_ic_max)
 
       !-- Local variables:
       integer :: lm,lm0,lmStart00,l1,m1
@@ -1086,10 +1126,10 @@ contains
 
       lmStart00 = max(lmStart,1)
 
-      l1m0 = st_map%lm2(1,0)
-      l2m0 = st_map%lm2(2,0)
-      l3m0 = st_map%lm2(3,0)
-      l1m1 = st_map%lm2(1,1)
+      l1m0 = lo_map%lm2(1,0)
+      l2m0 = lo_map%lm2(2,0)
+      l3m0 = lo_map%lm2(3,0)
+      l1m1 = lo_map%lm2(1,1)
 
       lm0=l2m0 ! Default quadrupole field
 
@@ -1420,10 +1460,10 @@ contains
      !-- Random noise initialization of all (l,m) modes exept (l=0,m=0):
          rr=random(one)
          do lm=lmStart00,lmStop
-            l1=st_map%lm2l(lm)
-            m1=st_map%lm2m(lm)
-            bR=(-one+two*random(0.0_cp))*amp_b1/D_l(st_map%lm2(l1,m1))**(bExp-1)
-            bI=(-one+two*random(0.0_cp))*amp_b1/D_l(st_map%lm2(l1,m1))**(bExp-1)
+            l1=lo_map%lm2l(lm)
+            m1=lo_map%lm2m(lm)
+            bR=(-one+two*random(0.0_cp))*amp_b1/D_l(lo_map%lm2(l1,m1))**(bExp-1)
+            bI=(-one+two*random(0.0_cp))*amp_b1/D_l(lo_map%lm2(l1,m1))**(bExp-1)
             if ( m1 == 0 ) bI=0.0_cp
             do n_r=1,n_r_max
                b(lm,n_r)=b(lm,n_r) + cmplx(bR*b1(n_r),bI*b1(n_r),kind=cp)

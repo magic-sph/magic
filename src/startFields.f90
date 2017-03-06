@@ -200,8 +200,9 @@ contains
       !   sure that they are located close the individual
       !   processors in memory:
     
-      if ( rank == 0 ) then
-         if ( l_start_file ) then
+      if ( l_start_file ) then
+
+         if ( rank == 0 ) then
             !PERFON('readFlds')
 #ifdef WITH_HDF5
             if ( index(start_file,'h5_') /= 0 ) then
@@ -242,181 +243,149 @@ contains
                dsdtLast=zero
             end if
 
-            !PERFOFF
-         else
-            ! Initialize with zero
-            if ( l_conv .or. l_mag_kin ) then
-               w       =zero
-               dwdtLast=zero
-               z       =zero
-               dzdtLast=zero
-               p       =zero
-               dpdtLast=zero
+         end if ! For now only rank0 reads
+
+         ! ========== Redistribution of the fields ============
+         ! 1. Broadcast the scalars
+#ifdef WITH_MPI
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(lorentz_torque_icLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(lorentz_torque_maLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(dt,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(dtNew,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+#endif
+
+         ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
+         !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
+         do nR=1,n_r_max
+            !write(*,"(8X,A,I4)") "nR = ",nR
+            call scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
+            call scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
+            call scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
+            call scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
+       
+            if ( l_mag ) then
+               call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
+               call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
             end if
-            if ( l_heat ) then
-               s       =zero
-               dsdtLast=zero
+
+            if ( l_chemical_conv ) then
+               call scatter_from_rank0_to_lo(dxidtLast(1,nR),dxidtLast_LMloc(llm,nR))
+            end if
+         end do
+         if ( l_cond_ic ) then
+            do nR=1,n_r_ic_max
+               call scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
+               call scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
+            end do
+         end if
+       
+         ! 3. Scatter the fields to the LMloc space
+         !write(*,"(4X,A)") "Start Scatter the fields"
+         if ( DEBUG_OUTPUT ) then
+            if ( rank == 0 ) write(*,"(A,2ES20.12)") "init z = ",sum(z)
+         end if
+         do nR=1,n_r_max
+            call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:ulm,nR))
+            if ( l_mag ) then
+               call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:ulmMag,nR))
+               call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:ulmMag,nR))
             end if
             if ( l_chemical_conv ) then
-               xi       =zero
-               dxidtLast=zero
+               call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:ulm,nR))
             end if
-            if ( l_mag ) then
-               b       =zero
-               dbdtLast=zero
-               aj      =zero
-               djdtLast=zero
-            end if
-            if ( l_cond_ic ) then
-               b_ic       =zero
-               dbdt_icLast=zero
-               aj_ic      =zero
-               djdt_icLast=zero
-            end if
-    
-            time =0.0_cp
-            dt   =dtMax
-            dtNew=dtMax
-            n_time_step=0
-            write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
+       
+         end do
+         if ( l_cond_ic ) then
+            do nR=1,n_r_ic_max
+               call scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
+               call scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
+            end do
          end if
-         call logWrite(message)
-    
-         !----- Get radial derivatives and initialize:
-    
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-    
-            !----- Initialize/add magnetic field:
-            if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
-                 & .and. ( l_mag .or. l_mag_LF ) ) then
-               call initB(b,aj,b_ic,aj_ic, &
-                    &     lorentz_torque_icLast, lorentz_torque_maLast, &
-                    &     lmStart,lmStop)
-            end if
-    
-            !----- Initialize/add velocity, set IC and ma rotation:
-            if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
-               call initV(w,z,omega_ic,omega_ma,lmStart,lmStop)
-            end if
-    
-            !----- Initialize/add entropy:
-            if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
-               call initS(s,p,lmStart,lmStop)
-            end if
 
-            !----- Initialize/add chemical convection:
-            if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
-               call initXi(xi,lmStart,lmStop)
-            end if
+            !PERFOFF
+      else ! If there's no restart file
+
+         ! Initialize with zero
+         if ( l_conv .or. l_mag_kin ) then
+            w_LMloc(:,:)       =zero
+            dwdtLast_LMloc(:,:)=zero
+            z_LMloc(:,:)       =zero
+            dzdtLast_lo(:,:)   =zero
+            p_LMloc(:,:)       =zero
+            dpdtLast_LMloc(:,:)=zero
+         end if
+         if ( l_heat ) then
+            s_LMloc(:,:)       =zero
+            dsdtLast_LMloc(:,:)=zero
+         end if
+         if ( l_chemical_conv ) then
+            xi_LMloc(:,:)       =zero
+            dxidtLast_LMloc(:,:)=zero
+         end if
+         if ( l_mag ) then
+            b_LMloc(:,:)       =zero
+            dbdtLast_LMloc(:,:)=zero
+            aj_LMloc(:,:)      =zero
+            djdtLast_LMloc(:,:)=zero
+         end if
+         if ( l_cond_ic ) then
+            b_ic_LMloc(:,:)       =zero
+            dbdt_icLast_LMloc(:,:)=zero
+            aj_ic_LMloc(:,:)      =zero
+            djdt_icLast_LMloc(:,:)=zero
+         end if
     
-            if ( DEBUG_OUTPUT ) then
-               write(*,"(A,I3,10ES22.15)") "direct after init: w,z,s,b,aj ", &
-                      nLMB, sum(w), sum(z), sum(s),sum(b),sum(aj)
-            end if
-    
-         end do ! Loop over LM blocks
-    
+         time =0.0_cp
+         dt   =dtMax
+         dtNew=dtMax
+         n_time_step=0
+         if (rank == 0) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
       end if
-    
-      ! ========== Redistribution of the fields ============
-      ! 1. Broadcast the scalars
+      call logWrite(message)
+
 #ifdef WITH_MPI
-      call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(lorentz_torque_icLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(lorentz_torque_maLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(dt,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(dtNew,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call mpi_barrier(MPI_COMM_WORLD, ierr)
 #endif
-    
-      ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
-      !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
-      do nR=1,n_r_max
-         !write(*,"(8X,A,I4)") "nR = ",nR
-         call scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
-         call scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
-         call scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
-         call scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
-    
-         if ( l_mag ) then
-            call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
-            call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
-         end if
 
-         if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(dxidtLast(1,nR),dxidtLast_LMloc(llm,nR))
-         end if
-      end do
-      if ( l_cond_ic ) then
-         do nR=1,n_r_ic_max
-            call scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
-            call scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
-         end do
-      end if
-    
-      ! 3. Scatter the fields to the LMloc space
-      !write(*,"(4X,A)") "Start Scatter the fields"
-      if ( DEBUG_OUTPUT ) then
-         if ( rank == 0 ) write(*,"(A,2ES20.12)") "init z = ",sum(z)
-      end if
-      do nR=1,n_r_max
-         call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:ulm,nR))
-         if ( l_mag ) then
-            call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:ulmMag,nR))
-            call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:ulmMag,nR))
-         end if
-         if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:ulm,nR))
-         end if
-         !if (DEBUG_OUTPUT) then
-         !   if (rank == 0) then
-         !      write(*,"(A,I4,6ES22.14)") "full arrays: ",nR, &
-         !           &  SUM( s(:,nR) ),SUM( b(:,nR) ),SUM( aj(:,nR) )
-         !   end if
-         !   write(*,"(A,I4,6ES22.14)") "LMloc arrays: ",nR, &
-         !        & SUM( s_LMloc(:,nR) ),SUM( b_LMloc(:,nR) ),SUM( aj_LMloc(:,nR) )
-         !end if
-    
-      end do
-      !write(*,"(A,2ES20.12)") "init z_LMloc = ",get_global_sum(z_LMloc)
-      if ( l_cond_ic ) then
-         do nR=1,n_r_ic_max
-            call scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
-            call scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
-         end do
-      end if
-    
-      !if (DEBUG_OUTPUT) then
-      !   if (rank == 0) then
-      !      write(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast full = ", &
-      !           & SUM( z ),SUM( dzdtLast )
-      !   end if!
-    
-      !   write(*,"(A,4ES20.12)") "getStartFields: z,dzdtLast = ", &
-      !        &    SUM( z_LMloc ),SUM( dzdtLast_lo )
-      !end if
-    
       allocate( workA_LMloc(llm:ulm,n_r_max) )
       allocate( workB_LMloc(llm:ulm,n_r_max) )
-    
-      !  print*,"Computing derivatives"
-      do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs) 
-         ! Blocking of loop over all (l,m)
+
+      !-- Initialize field
+      do nLMB=1+rank*nLMBs_per_rank,min((rank+1)*nLMBs_per_rank,nLMBs)
          lmStart=lmStartB(nLMB)
          lmStop =lmStopB(nLMB)
-    
-         !if (DEBUG_OUTPUT) then
-         !   write(*,"(A,I3,10ES22.15)") "after init: w,z,s,b,aj ",nLMB, &
-         !        & SUM(w_LMloc), SUM(z_LMloc), SUM(s_LMloc),SUM(b_LMloc),SUM(aj_LMloc)
-         !end if
-    
+ 
+         !----- Initialize/add magnetic field:
+         if ( ( imagcon /= 0 .or. init_b1 /= 0 .or. lGrenoble ) &
+              & .and. ( l_mag .or. l_mag_LF ) ) then
+            call initB(b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,      &
+            &          lorentz_torque_icLast, lorentz_torque_maLast, &
+            &          lmStart-llm+1,lmStop-llm+1)
+         end if
+ 
+         !----- Initialize/add velocity, set IC and ma rotation:
+         if ( l_conv .or. l_mag_kin .or. l_SRIC .or. l_SRMA ) then
+            call initV(w_LMloc,z_LMloc,omega_ic,omega_ma,lmStart-llm+1,lmStop-llm+1)
+         end if
+ 
+         !----- Initialize/add entropy:
+         if ( ( init_s1 /= 0 .or. impS /= 0 ) .and. l_heat ) then
+            call initS(s_LMloc,p_LMloc,lmStart-llm+1,lmStop-llm+1)
+         end if
+
+         !----- Initialize/add chemical convection:
+         if ( ( init_xi1 /= 0 .or. impXi /= 0 ) .and. l_chemical_conv ) then
+            call initXi(xi_LMloc,lmStart-llm+1,lmStop-llm+1)
+         end if
+ 
+      !  Computing derivatives
     
          if ( l_conv .or. l_mag_kin ) then
             call get_ddr( w_LMloc,dw_LMloc,ddw_LMloc,ulm-llm+1,lmStart-llm+1, &
@@ -426,11 +395,11 @@ contains
          end if
     
          if ( l_mag .or. l_mag_kin  ) then
-            call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1, &
+            call get_ddr( b_LMloc,db_LMloc,ddb_LMloc,ulmMag-llmMag+1,  &
                  &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
                  &        rscheme_oc )
             call get_ddr( aj_LMloc,dj_LMloc,ddj_LMloc,ulmMag-llmMag+1, &
-                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,     &
+                 &        lmStart-llmMag+1,lmStop-llmMag+1,n_r_max,    &
                  &        rscheme_oc )
          end if
          if ( l_cond_ic ) then
@@ -471,15 +440,6 @@ contains
     
          if ( l_heat ) then
             !-- Get radial derivatives of entropy:
-            !if (DEBUG_OUTPUT) then
-             !  do nR=1,n_r_max
-            !      write(*,"(A,I4)") "nR=",nR
-            !      do lm=lmStart,lmStop
-            !         write(*,"(4X,A,4I5,2ES22.14)") "s : ", nR,lm, &
-            !              &  lo_map%lm2l(lm),lo_map%lm2m(lm),s_LMloc(lm,nR)
-            !      end do
-            !   end do
-            !end if
             call get_dr( s_LMloc,ds_LMloc,ulm-llm+1, lmStart-llm+1,lmStop-llm+1, &
                  &       n_r_max,rscheme_oc )
             if ( l_single_matrix ) then
@@ -494,24 +454,11 @@ contains
                  &       lmStop-llm+1,n_r_max,rscheme_oc )
          end if
     
-         if ( DEBUG_OUTPUT ) then
-            !do nR=1,n_r_max
-            !   write(*,"(A,I5,4ES22.14)") "Rdep: s,ds : ", nR,  &
-            !        & SUM(s_LMloc(lmStart:lmStop,nR)),SUM(ds_LMloc(lmStart:lmStop,nR))
-            !end do
-            !do lm=lmStart,lmStop
-            !   write(*,"(A,3I5,4ES22.14)") "s,ds : ", lm,lo_map%lm2l(lm), &
-            !        & lo_map%lm2m(lm), SUM(s_LMloc(lm,:)),SUM(ds_LMloc(lm,:))
-            !end do
-            write(*,"(A,I3,10ES22.15)") "derivatives: w,z,s,b,aj ", &
-                 & nLMB, SUM(dw_LMloc), SUM(dz_LMloc),              &
-                 & SUM(ds_LMloc),SUM(db_LMloc),SUM(dj_LMloc)
-         end if
-         
       end do
     
       deallocate(workA_LMloc)
       deallocate(workB_LMloc)
+
       !--- Get symmetry properties of tops excluding l=m=0:
       sES=0.0_cp
       sEA=0.0_cp

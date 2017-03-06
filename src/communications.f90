@@ -57,7 +57,7 @@ module communications
    &         r2lo_redist_wait,r2lo_redist_start,initialize_communications, &
    &         create_lm2r_type!,lo2r_redist,lm2r_redist
    public :: lo2r_redist_start,lo2r_redist_wait, create_r2lm_type,   &
-   &         destroy_r2lm_type
+   &         destroy_r2lm_type,destroy_lm2r_type
 #ifdef WITH_MPI
    public :: myAllGather
 #endif
