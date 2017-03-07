@@ -363,9 +363,10 @@ get_nl.o              : truncation.o horizontal.o logic.o\
 out_movie_file.o      : truncation.o output_data.o blocking.o\
                         radial.o horizontal.o movie.o fields.o\
                         num_param.o $(FFT_OBJS) logic.o\
-                        out_dtB_frame.o
+                        out_dtB_frame.o parallel.o communications.o
 storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
-                        output_data.o init_fields.o dt_fieldsLast.o 
+                        output_data.o init_fields.o dt_fieldsLast.o\
+                        communications.o parallel.o
 ifeq ($(USE_HDF5),yes)
 readCheckPoints.o     : hdf5Helpers.o
 storeCheckPoints.o    : hdf5Helpers.o LMLoop_data.o
@@ -577,7 +578,7 @@ RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
                         useful.o phys_param.o LMLoop_data.o\
-                        cosine_transform_odd.o mem_alloc.o
+                        cosine_transform_odd.o mem_alloc.o parallel.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
                         horizontal.o char_manip.o useful.o

@@ -617,8 +617,7 @@ contains
       !$OMP END CRITICAL
    end subroutine graphOut_mpi
 !----------------------------------------------------------------------------
-   subroutine graphOut_mpi_header(time,n_r, &
-        &              n_theta_start,n_theta_block_size)
+   subroutine graphOut_mpi_header(time,n_r,n_theta_start,n_theta_block_size)
       !
       ! Writes the header (MPI version)
       !
@@ -801,7 +800,7 @@ contains
    end subroutine graphOut_mpi_header
 #endif
 !----------------------------------------------------------------------------
-   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
+   subroutine graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
       !
       !  Purpose of this subroutine is to write inner core magnetic       
       !  field onto graphic output file. If the inner core is             
@@ -817,7 +816,7 @@ contains
       complex(cp), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: dj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: bICB(lm_maxMag)
     
       !-- Local variables:
       integer :: nR
@@ -849,25 +848,24 @@ contains
     
          if ( l_cond_ic ) then
             call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                 aj_ic(1,nR),dj_ic(1,nR), &
-                 dLh,lm_max,l_max,minc, &
-                 r_ic(nR),r_ICB,.false.,.true.,l_cond_ic, &
-                 dLhb,bhG,bhC,dLhj,cbhG,cbhC)
+                 &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                 &          l_max,minc,r_ic(nR),r_ICB,.false.,   &
+                 &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                 &          cbhG,cbhC)
          else
-            call legPrep_IC(b(1,n_r_icb),db_ic(1,1), &
-                 ddb_ic(1,1),aj_ic(1,1), &
-                 dj_ic(1,1),dLh,lm_max,l_max,minc, &
-                 r_ic(nR),r_ICB,.false.,.true.,l_cond_ic, &
-                 dLhb,bhG,bhC,dLhj,cbhG,cbhC)
+            call legPrep_IC(bICB(:),db_ic(1,1),ddb_ic(1,1),aj_ic(1,1), &
+                 &          dj_ic(1,1),dLh,lm_max,l_max,minc,r_ic(nR), &
+                 &          r_ICB,.false.,.true.,l_cond_ic,dLhb,bhG,   &
+                 &          bhC,dLhj,cbhG,cbhC)
          end if
     
 #ifdef WITH_SHTNS
          if ( l_cond_ic ) then
             call torpol_to_spat(b_ic(:, nR), db_ic(:, nR), aj_ic(:, nR), &
-                                BrB, BtB, BpB)
+                 &              BrB, BtB, BpB)
          else
-            call torpol_to_spat(b(:, n_r_icb), db_ic(:, 1), aj_ic(:, 1), &
-                                BrB, BtB, BpB)
+            call torpol_to_spat(bICB(:), db_ic(:, 1), aj_ic(:, 1), &
+                 &              BrB, BtB, BpB)
          end if
 #endif
          do nThetaB=1,nThetaBs

@@ -29,13 +29,13 @@ module out_movie_IC
 
 contains
 
-   subroutine store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
+   subroutine store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
       !
       ! Controls storage of IC magnetic field in movie frame.
       !
 
       !-- Input of scalar fields:
-      complex(cp), intent(in) :: b(lm_maxMag,n_r_maxMag)
+      complex(cp), intent(in) :: bICB(lm_maxMag)
       complex(cp), intent(in) :: b_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: db_ic(lm_maxMag,n_r_ic_maxMag)
       complex(cp), intent(in) :: ddb_ic(lm_maxMag,n_r_ic_maxMag)
@@ -92,16 +92,16 @@ contains
     
                if ( l_cond_ic ) then
                   call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                                  aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                else
-                  call legPrep_IC(b(1,n_r_icb),db_ic(1,1),ddb_ic(1,1), &
-                                  aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
+                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                end if
     
                !------ Calculate magnetic field on grid points:
@@ -110,8 +110,8 @@ contains
     
                   !------ Preform Legendre transform:
                   call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                             nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                             .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                       &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
+                       &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
                   if ( .not. l_axi ) then
                      call fft_thetab(BrB,1)
                      call fft_thetab(BtB,1)
@@ -184,16 +184,16 @@ contains
     
             if ( l_cond_ic ) then
                call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                               aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
-                               l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                               .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                               cbhG,cbhC)
+                    &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                    &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                    &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                    &          cbhG,cbhC)
             else
-               call legPrep_IC(b(1,n_r_icb),db_ic(1,1),ddb_ic(1,1), &
-                               aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
-                               l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                               .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                               cbhG,cbhC)
+               call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
+                    &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                    &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                    &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                    &          cbhG,cbhC)
             end if
     
             !------ Calculate magnetic field on grid points:
@@ -202,8 +202,8 @@ contains
     
                !------ Preform Legendre transform:
                call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, &
-                          nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                          .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                    &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
+                    &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
                if ( .not. l_axi ) then
                   call fft_thetab(BrB,1)
                   call fft_thetab(BtB,1)
@@ -259,16 +259,16 @@ contains
     
                if ( l_cond_ic ) then
                   call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                                  aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                else
-                  call legPrep_IC(b(1,n_r_icb),db_ic(1,1),ddb_ic(1,1), &
-                                  aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
+                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                end if
     
                if ( mod(n_const,2) == 1 ) then
@@ -281,8 +281,8 @@ contains
     
                !------ Preform Legendre transform for 2 theta points
                call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc,  &
-                          nTheta,2,Plm,dPlm,.true.,.true.,BrB,BtB, &
-                          BpB,cBrB,cBtB,cBpB)
+                    &     nTheta,2,Plm,dPlm,.true.,.true.,BrB,BtB, &
+                    &     BpB,cBrB,cBtB,cBpB)
                if ( .not. l_axi ) then
                   call fft_thetab(BrB,1)
                   call fft_thetab(BtB,1)
@@ -336,16 +336,16 @@ contains
     
                if ( l_cond_ic ) then
                   call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                                  aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                else
-                  call legPrep_IC(b(1,n_r_icb),db_ic(1,1),ddb_ic(1,1), &
-                                  aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
-                                  l_max,minc,r_ic(nR),r_ICB,.true.,    &
-                                  .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
-                                  cbhG,cbhC)
+                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
+                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                       &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
+                       &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
+                       &          cbhG,cbhC)
                end if
     
                !------ Get phi no. for left and righty halfspheres:

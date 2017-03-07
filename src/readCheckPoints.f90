@@ -120,26 +120,26 @@ contains
       sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
       if ( inform == -1 ) then ! This is default !
          read(n_start_file)                                         &
-              time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-              informOld,n_r_max_old,n_theta_max_old,n_phi_tot_old,  &
-              minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
+         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+         &    informOld,n_r_max_old,n_theta_max_old,n_phi_tot_old,  &
+         &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
          n_time_step=0
       else if ( inform == 0 ) then
          read(n_start_file)                                         &
-              time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-              n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-              minc_old,nalias_old
+         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+         &    minc_old,nalias_old
       else if ( inform == 1 ) then
          read(n_start_file)                                         &
-              time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-              n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-              minc_old
+         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+         &    minc_old
          nalias_old=nalias
       else if ( inform >= 2 ) then
          read(n_start_file)                                         &
-              time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-              n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-              minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
+         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+         &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
       end if
       if ( inform == -1 ) inform=informOld
     

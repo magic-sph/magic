@@ -5,9 +5,11 @@ module omega
    !
 
    use precision_mod
+   use parallel_mod
    use truncation, only: n_r_max, lm_max, l_max, minc
-   use radial_functions, only: r_CMB, r_ICB, rscheme_oc
-   use blocking, only: lm2
+   use radial_functions, only: r_CMB, r_ICB, rscheme_oc, orho1
+   use LMLoop_data, only: llm,ulm
+   use blocking, only: lo_map
    use logic, only: lVerbose
    use output_data, only: tag
    use plms_theta, only: plm_theta
@@ -32,14 +34,14 @@ contains
       !
 
       !-- Input variables:
-      complex(cp), intent(in) :: z(lm_max,n_r_max)
+      complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       real(cp),    intent(in) :: omega_IC
               
       !-- Local stuff:
-      real(cp) :: dzVpLMr(l_max+1,n_r_max)
+      real(cp) :: dzVpLMr_loc(l_max+1,n_r_max), dzVpLMr(l_max+1,n_r_max)
 
-      integer :: nR,lm,l ! counter
-      integer :: nNS     ! index for NHS and SHS
+      integer :: nR,lm,l,m ! counter
+      integer :: nNS       ! index for NHS and SHS
 
       integer :: nS
       real(cp) ::  sZ,zZ,dsZ
@@ -52,52 +54,64 @@ contains
 
       if ( lVerbose ) write(*,*) '! Starting outOmega!'
 
-      fileName='omega.'//tag
-      open(newunit=fileHandle, file=fileName, status='unknown')
 
       dsZ=r_CMB/real(nSmax-1,kind=cp)
 
       !--- Transform to lm-space for all radial grid points:
       do nR=1,n_r_max
-         dzVpLMr(1,nR)=0.0_cp
-         do l=1,l_max
-            lm=lm2(l,0)
-            dzVpLMr(l+1,nR)=real(z(lm,nR))
+         dzVpLMr_loc(1,nR)=0.0_cp
+         do lm=llm,ulm
+            l=lo_map%lm2l(lm)
+            m=lo_map%lm2m(lm)
+            if ( m == 0 ) dzVpLMr_loc(l+1,nR)=orho1(nR)*real(z(lm,nR))
          end do
+#ifdef WITH_MPI
+         call MPI_Allreduce(dzVpLMr_loc(:,nR), dzVpLMr(:,nR), l_max+1, &
+              &             MPI_DEF_REAL, MPI_SUM, MPI_COMM_WORLD, ierr)
+#else
+         dzVpLMr(:,nR)=dzVpLMr_loc(:,nR)
+#endif
       end do
 
-      !---- Transform the contributions to cheb space for z-integral:
-      call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
+      if ( rank == 0 ) then
 
-      sZ=0.0_cp
-      outer: do nS=1,nSmax
-         sZ=sZ+dsZ
+         !---- Transform the contributions to cheb space for z-integral:
+         call rscheme_oc%costf1(dzVpLMr,l_max+1,1,l_max+1,workA)
 
-         inner: do nNS=1,2  !  North and south hemisphere !
+         fileName='omega.'//tag
+         open(newunit=fileHandle, file=fileName, status='unknown')
 
-            if ( nNS == 1 ) then  ! south hemisphere !
-               zZ=r_ICB+half
-            else
-               zZ=-(r_ICB+half)
-            end if
-            rZ    =sqrt(zZ*zZ+sZ*sZ)
-            thetaZ=atan2(sZ,zZ)
-            if ( rZ > r_CMB ) exit outer
+         sZ=0.0_cp
+         outer: do nS=1,nSmax
+            sZ=sZ+dsZ
 
-              !------ Get the function values for (sZ,zCy)
-            VpS=lnPAS2tr(dzVpLMr,l_max+1,r_ICB,r_CMB, &
-                         l_max,minc,n_r_max,thetaZ,rZ)
-            omega(nNS)=VpS/(rZ*sin(thetaZ))/omega_IC
+            inner: do nNS=1,2  !  North and south hemisphere !
 
-         end do inner ! Loop over north and south hemisphere
+               if ( nNS == 1 ) then  ! south hemisphere !
+                  zZ=r_ICB+half
+               else
+                  zZ=-(r_ICB+half)
+               end if
+               rZ    =sqrt(zZ*zZ+sZ*sZ)
+               thetaZ=atan2(sZ,zZ)
+               if ( rZ > r_CMB ) exit outer
 
-         write(fileHandle,*) sZ,omega(1),omega(2)
+                 !------ Get the function values for (sZ,zCy)
+               VpS=lnPAS2tr(dzVpLMr,l_max+1,r_ICB,r_CMB, &
+                            l_max,minc,n_r_max,thetaZ,rZ)
+               omega(nNS)=VpS/(rZ*sin(thetaZ))/omega_IC
 
-      end do outer ! Loop over s
+            end do inner ! Loop over north and south hemisphere
 
-      close(fileHandle)
+            write(fileHandle,*) sZ,omega(1),omega(2)
 
-      if ( lVerbose ) write(*,*) '! End of outOmega!'
+         end do outer ! Loop over s
+
+         close(fileHandle)
+
+         if ( lVerbose ) write(*,*) '! End of outOmega!'
+
+      end if
 
    end subroutine outOmega
 !-----------------------------------------------------------------------------

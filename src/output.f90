@@ -3,10 +3,12 @@ module output_mod
 
    use precision_mod
    use parallel_mod
+   use mem_alloc, only: bytes_allocated
    use truncation, only: n_r_max, n_r_ic_max, minc, l_max, l_maxMag, &
        &                 n_r_maxMag, lm_max
    use radial_functions, only: or1, or2, r, rscheme_oc, r_cmb, r_icb
-   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag, n_r_cmb
+   use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag,    &
+       &                  n_r_cmb, n_r_icb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
    use num_param, only: tScale
    use blocking, only: st_map, lm2, lo_map
@@ -17,28 +19,24 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
        &            l_chemical_conv, l_movie
-   use fields, only: omega_ic, omega_ma, b, db, aj, dj, b_ic,              &
-       &             db_ic, ddb_ic, aj_ic, dj_ic, ddj_ic, w, z, xi,        &
-       &             s, p, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
-       &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,        &
-       &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,   &
-       &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,   &
-       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc,        &
-       &             dxi_LMloc
-   use fieldsLast, only: dwdtLast, dzdtLast, dpdtLast, dsdtLast, dbdtLast,  &
-       &                 djdtLast, dbdt_icLast, djdt_icLast, dwdtLast_LMloc,&
-       &                 dzdtLast_lo, dpdtLast_LMloc, dsdtLast_LMloc,       &
-       &                 dbdtLast_LMloc, djdtLast_LMloc, dbdt_icLast_LMloc, &
-       &                 djdt_icLast_LMloc, dxidtLast, dxidtLast_LMloc
+   use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
+       &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
+       &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
+       &             db_LMloc, ddb_LMloc, aj_LMloc, dj_LMloc, ddj_LMloc,     &
+       &             b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc,     &
+       &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc, dxi_LMloc
+   use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
+       &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
+       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast, &
+       &                 dxidtLast_LMloc
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average
    use spectra, only: spectrum_average, spectrum, spectrum_temp, &
        &              spectrum_temp_average, get_amplitude
    use outTO_mod, only: outTO
-   use output_data, only: tag, l_max_cmb, n_rst_file, n_coeff_r, l_max_r,   &
-       &                  n_r_array, n_r_step,  n_log_file, log_file,       &
-       &                  n_coeff_r_max, rst_file
+   use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
+       &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
    use outMisc_mod, only: outHelicity, outHeat
    use geos_mod, only: getEgeos, outPV
@@ -51,7 +49,8 @@ module output_mod
    use power, only: get_power
    use LMLoop_data, only: lm_per_rank, lm_on_last_rank, llm, ulm, llmMag, &
        &                  ulmMag
-   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC
+   use communications, only: gather_all_from_lo_to_rank0, gt_OC, gt_IC,  &
+       &                     gather_from_lo_to_rank0
    use out_coeff, only: write_Bcmb, write_coeff_r, write_Pot
    use getDlm_mod, only: getDlm
    use movie_data, only: movie_gather_frames_to_rank0
@@ -103,6 +102,7 @@ module output_mod
    character(len=72), allocatable :: v_r_file(:)
    character(len=72), allocatable :: t_r_file(:)
    character(len=72), allocatable :: b_r_file(:)
+   complex(cp), allocatable :: bICB(:)
 
    public :: output, initialize_output, finalize_output
 
@@ -112,6 +112,15 @@ contains
 
       integer :: n, length
       character(len=72) :: string
+
+      if ( l_mag ) then
+         if ( rank == 0 ) then 
+            allocate( bICB(lm_max) )
+            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate( bICB(1) )
+         end if
+      end if
 
       if ( l_r_field .or. l_r_fieldT ) then
          allocate ( n_coeff_r(n_coeff_r_max))
@@ -256,6 +265,8 @@ contains
    subroutine finalize_output
 
       integer :: n
+
+      if ( l_mag ) deallocate( bICB )
 
       if ( rank == 0 .and. ( .not. l_save_out ) ) then
          if ( l_mag .and. l_cmb_field ) then
@@ -403,14 +414,9 @@ contains
       real(cp) :: visDiss,ohmDiss,lvDiss,lbDiss
       integer :: l
       real(cp) :: ReEquat
-  
       logical :: l_PVout
-  
       real(cp) :: timeScaled
-  
       character(len=96) :: message
-  
-      character(len=20) :: string
       logical :: DEBUG_OUTPUT=.false.
   
       timeScaled=tScale*time
@@ -710,13 +716,18 @@ contains
             call rBpSpec(time,aj_LMloc,aj_ic_LMloc,'rBpSpec',.true.,lo_map)
          end if
       end if
-  
+
       !
-      ! Parallel writing of the restart file (possible only when HDF5 is used)
+      ! Writing of the restart file (possible only when HDF5 is used)
       !
-#ifdef WITH_HDF5
       if ( l_store ) then
-  
+#ifndef WITH_HDF5
+         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,w_LMloc,&
+              &     z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,&
+              &     aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,       &
+              &     dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,&
+              &     dbdt_icLast_LMloc,djdt_icLast_LMloc)
+#else
          if ( l_stop_time .or. .not.l_new_rst_file ) then
             rst_file='h5_rst_end.'//tag
          else if ( l_new_rst_file ) then
@@ -747,8 +758,8 @@ contains
                  & "           into file=",rst_file
             if ( l_save_out ) close(n_log_file)
          end if
-      end if
 #endif
+      end if
   
   
       ! ===================================================
@@ -756,38 +767,12 @@ contains
       ! ===================================================
       ! We have all fields in LMloc space. Thus we gather the whole fields on rank 0.
   
-      l_PVout=l_PV .and. l_log
+      l_PVout = l_PV .and. l_log
   
-#ifdef WITH_HDF5
-      if ( l_frame.or.l_graph .or.(l_SRIC.and.l_stop_time) .or.l_PVout ) then
-#else
-      if ( l_frame.or.l_graph.or.l_store.or.(l_SRIC.and.l_stop_time).or.l_PVout ) then
-#endif
-#if 0
-         write(*,"(13(A,L1))") "l_log=",l_log,     &
-              & ", l_frame=",l_frame,              &
-              & ", l_graph=",l_graph,              &
-              & ", l_store=",l_store,              &
-              & ", l_SRIC=",l_SRIC,                &
-              & ", l_stop_time=",l_stop_time,      &
-              & ", l_PVout=",l_PVout
-#endif
+      if ( l_frame .or. (l_graph .and. l_mag .and. n_r_ic_max > 0) ) then
          PERFON('out_comm')
-         call gather_all_from_lo_to_rank0(gt_OC,w_LMloc,w)
-         call gather_all_from_lo_to_rank0(gt_OC,p_LMloc,p)
-         call gather_all_from_lo_to_rank0(gt_OC,s_LMloc,s)
-         call gather_all_from_lo_to_rank0(gt_OC,z_LMloc,z)
 
-         if ( l_chemical_conv ) then
-            call gather_all_from_lo_to_rank0(gt_OC,xi_LMloc,xi)
-         end if
-  
-         if ( l_mag ) then
-            call gather_all_from_lo_to_rank0(gt_OC,b_LMloc,b)
-            call gather_all_from_lo_to_rank0(gt_OC,db_LMloc,db)
-            call gather_all_from_lo_to_rank0(gt_OC,aj_LMloc,aj)
-            call gather_all_from_lo_to_rank0(gt_OC,dj_LMloc,dj)
-         end if
+         if ( l_mag ) call gather_from_lo_to_rank0(b_LMloc(:,n_r_icb),bICB)
   
          if ( l_cond_ic ) then
             call gather_all_from_lo_to_rank0(gt_IC,b_ic_LMloc,b_ic)
@@ -801,40 +786,11 @@ contains
   
          ! for writing a restart file, we also need the d?dtLast arrays, 
          ! which first have to be gathered on rank 0
-  
-#ifndef WITH_HDF5
-         if ( l_store ) then
-            call gather_all_from_lo_to_rank0(gt_OC,dwdtLast_LMloc,dwdtLast)
-            call gather_all_from_lo_to_rank0(gt_OC,dpdtLast_LMloc,dpdtLast)
-            call gather_all_from_lo_to_rank0(gt_OC,dsdtLast_LMloc,dsdtLast)
-            call gather_all_from_lo_to_rank0(gt_OC,dzdtLast_lo,dzdtLast)
-
-            if ( l_chemical_conv ) then
-               call gather_all_from_lo_to_rank0(gt_OC,dxidtLast_LMloc,dxidtLast)
-            end if
-            
-            if ( l_mag ) then
-               call gather_all_from_lo_to_rank0(gt_OC,dbdtLast_LMloc,dbdtLast)
-               call gather_all_from_lo_to_rank0(gt_OC,djdtLast_LMloc,djdtLast)
-            end if
-  
-            if ( l_cond_ic ) then
-               call gather_all_from_lo_to_rank0(gt_IC,dbdt_icLast_LMloc,dbdt_icLast)
-               call gather_all_from_lo_to_rank0(gt_IC,djdt_icLast_LMloc,djdt_icLast)
-            end if
-         end if
-#endif
-  
          PERFOFF
   
-         if (DEBUG_OUTPUT) then
-            if ( rank == 0 ) then
-               write(*,"(A,8ES22.14)") "output: w,z,p,s = ",SUM( w ), &
-                                          SUM( z ),SUM( p ),SUM( s )
-            end if
-         end if
       end if
   
+      !--- Movie output and various supplementary things:
       if ( l_frame ) then
          ! The frames array for the movies is distributed over the ranks
          ! and has to be gathered on rank 0 for output.
@@ -844,7 +800,25 @@ contains
          ! up to    n_movie_field_stop(1+n_fields_oc+n_fields,n_movie) (n_fields_ic>0
          ! or       n_movie_field_stop(1+n_fields,n_movie)             (n_fields_ic=0)
   
-         call movie_gather_frames_to_rank0
+         call movie_gather_frames_to_rank0()
+
+         if ( l_movie_ic .and. l_store_frame ) then
+            call store_movie_frame_IC(bICB,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
+         end if
+
+         n_frame=n_frame+1
+         call logWrite(' ')
+         if ( rank == 0 ) then 
+            write(message,'(1p,A,I8,A,ES16.6,I8)')            &
+            &      " ! WRITING MOVIE FRAME NO ",n_frame,      &
+            &      "       at time/step",timeScaled,n_time_step
+         end if
+         call logWrite(message)
+
+         !--- Storing the movie frame:
+         call write_movie_frame(n_frame,timeScaled,b_LMloc,db_LMloc,aj_LMloc, &
+              &                 dj_LMloc,b_ic,db_ic,aj_ic,dj_ic,omega_ic,     &
+              &                 omega_ma)
       end if
   
       ! =======================================================================
@@ -856,30 +830,7 @@ contains
          !----- Plot out inner core magnetic field, outer core
          !      field has been written in radialLoop !
          if ( l_graph .and. l_mag .and. n_r_ic_max > 0 )          &
-              &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,b)
-  
-         !--- Movie output and various supplementary things:
-         if ( l_frame ) then
-            PERFON('out_fram')
-            if ( l_movie_ic .and. l_store_frame ) then
-               !write(*,"(A)") "Calling store_movie_frame_IC from output."
-               call store_movie_frame_IC(b,b_ic,db_ic,ddb_ic,aj_ic,dj_ic)
-            end if
-  
-            n_frame=n_frame+1
-            call logWrite(' ')
-            write(message,'(1p,A,I8,A,ES16.6,I8)')            &
-                 & " ! WRITING MOVIE FRAME NO ",n_frame,      &
-                 & "       at time/step",timeScaled,n_time_step
-            call logWrite(message)
-  
-            !--- Storing the movie frame:
-            call write_movie_frame(n_frame,timeScaled,                &
-                 &                 b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic, &
-                 &                 omega_ic,omega_ma)
-  
-            PERFOFF
-         end if ! write movie frame ?
+              &     call graphOut_IC(b_ic,db_ic,ddb_ic,aj_ic,dj_ic,bICB)
   
          if ( l_log ) then
             !--- Energies and rotation info and a lot of other stuff 
@@ -1071,65 +1022,12 @@ contains
   
          end if ! l_log
          
-         !----- Store current solution
-         !      Note: unless l_new_rst_file=.true. .and. .not.l_stop_time
-         !            this is written into rst_end.TAG
-  
-#ifndef WITH_HDF5
-         if ( l_store ) then
-!#ifdef WITH_HDF5
-  !          if ( l_stop_time .or. .not.l_new_rst_file ) then
-  !             rst_file='ser_h5_rst_end.'//tag
-  !          else if ( l_new_rst_file ) then
-  !             call dble2str(time,string)
-  !             rst_file='h5_rst_t='//trim(string)//'.'//tag
-  !          end if
-  !          call storeHdf5_serial(time,dt,dtNew,w,z,p,s,b,aj,b_ic,aj_ic, &
-  !                                  dwdtLast,dzdtLast,dpdtLast,          &
-  !                                  dsdtLast,dbdtLast,djdtLast,          &
-  !                                  dbdt_icLast,djdt_icLast)
-!#else
-            PERFON('out_rst')
-            if ( l_stop_time .or. .not.l_new_rst_file ) then
-               rst_file="rst_end."//tag
-            else if ( l_new_rst_file ) then
-               call dble2str(time,string)
-               rst_file='rst_t='//trim(string)//'.'//tag
-            end if
-  
-            open(newunit=n_rst_file, file=rst_file, status='unknown', &
-            &    form='unformatted')
-            call store(time,dt,dtNew,w,z,p,s,xi,b,aj,b_ic,aj_ic, &
-                 &     dwdtLast,dzdtLast,dpdtLast,dsdtLast,      &
-                 &     dxidtLast,dbdtLast,djdtLast,dbdt_icLast,  &
-                 &     djdt_icLast)
-            close(n_rst_file)
-!#endif
-  
-            write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
-            &    " ! Storing restart file:",             &
-            &    "             at time=",time,           &
-            &    "            step no.=",n_time_step,    &
-            &    "           into file=",rst_file
-
-            if ( l_save_out ) then
-               open(newunit=n_log_file, file=log_file, status='unknown', &
-               &    position='append')
-            end if
-            write(n_log_file,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
-            &    " ! Storing restart file:",                       &
-            &    "             at time=",time,                     &
-            &    "            step no.=",n_time_step,              &
-            &    "           into file=",rst_file
-            if ( l_save_out ) close(n_log_file)
-            PERFOFF
-         end if
-#endif
          
-         if ( l_SRIC .and. l_stop_time ) call outOmega(z,omega_ic)
          
          PERFOFF
       end if
+
+      if ( l_SRIC .and. l_stop_time ) call outOmega(z_LMloc,omega_ic)
 
       !----- Output of axisymm. rotation rate for potential vorticity analysis:
       !  NOTE: For l_stop_time=.true. outPV transforms the fields without 

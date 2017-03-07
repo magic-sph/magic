@@ -77,13 +77,12 @@ module output_data
 #ifdef WITH_MPI
    integer, public :: graph_mpi_fh
 #endif
-   integer, public :: n_graph_file, n_rst_file
+   integer, public :: n_graph_file
  
    character(len=55), public :: tag
    character(len=72), public :: log_file
    character(len=72), public :: graph_file
    character(len=72), public :: lp_file
-   character(len=72), public :: rst_file
    !----- Z-integrated output:
    real(cp), public :: zDens,sDens
 
