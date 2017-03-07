@@ -54,7 +54,7 @@ def generateEkinFile(fileName='e_kin.test'):
     file.write(st+'\n')
 
     # TOZ_3.TAG file
-    to = MagicTOZ(itoz=3)
+    to = MagicTOZ(itoz=2)
     st = '%.4f %.4f %.4f %.4f' % (to.vp[12, 12], to.Rstr[11, 20], to.LF[3, 5], to.str[4, 4])
     file.write(st+'\n')
 
