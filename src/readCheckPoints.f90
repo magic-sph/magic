@@ -13,7 +13,7 @@ module readCheckPoints
        &                 minc,lMagMem
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
        &            l_mag_LF, l_chemical_conv
-   use blocking, only: lm2,lmStartB,lmStopB,nLMBs,lm2l,lm2m
+   use blocking, only: lo_map,lmStartB,lmStopB,nLMBs,lm2l,lm2m
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
        &                  omega_ic2,omegaOsz_ic2,omega_ma1,omegaOsz_ma1,       &
@@ -44,11 +44,7 @@ module readCheckPoints
    integer(lip) :: bytes_allocated=0
    class(type_rscheme), pointer :: rscheme_oc_old
 
-#ifdef WITH_HDF5
-   public :: readStartFields, readHdf5_serial
-#else
    public :: readStartFields
-#endif
 
 contains
 
@@ -281,6 +277,7 @@ contains
       call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(inform,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
 
       if ( rank == 0 ) then
@@ -551,7 +548,7 @@ contains
          end if
       end if
 
-      deallocate( workA, workB, workC, workD )
+      if ( l_mag_old ) deallocate( workA, workB, workC, workD )
       
       if ( rank == 0 ) then
          deallocate( r_old )
@@ -660,64 +657,81 @@ contains
                  write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
                  omegaOsz_ma2Old,omegaOsz_ma2
          end if
+      end if ! rank == 0
+
+#ifdef WITH_MPI
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
        
-       
-         !----- Set IC and mantle rotation rates:
-         !      Following cases are covered:
-         !       1) Prescribed inner-core rotation omega_ic_pre
-         !       2) Rotation has been read above ( inform >= 4)
-         !       3) Rotation calculated from flow field z(l=1,m=0)
-         !       4) No rotation
-         !       5) Flow driven by prescribed inner core rotation
-         !       l_SRIC=.true. (spherical Couette case)
-         l1m0=lm2(1,0)
-         if ( l_rot_ic ) then
-            if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
-               if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
-               if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
-               tOmega_ic1=time+tShift_ic1
-               tOmega_ic2=time+tShift_ic2
-               omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+      !----- Set IC and mantle rotation rates:
+      !      Following cases are covered:
+      !       1) Prescribed inner-core rotation omega_ic_pre
+      !       2) Rotation has been read above ( inform >= 4)
+      !       3) Rotation calculated from flow field z(l=1,m=0)
+      !       4) No rotation
+      !       5) Flow driven by prescribed inner core rotation
+      !       l_SRIC=.true. (spherical Couette case)
+      l1m0=lo_map%lm2(1,0)
+      if ( l_rot_ic ) then
+         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
+            tOmega_ic1=time+tShift_ic1
+            tOmega_ic2=time+tShift_ic2
+            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+            &        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+            if ( rank == 0 ) then
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
-               if ( kbotv == 2 ) &
-                    z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-            else if ( inform >= 7 ) then
-               omega_ic=omega_ic1Old
             end if
-         else
-            omega_ic=0.0_cp
+            if ( kbotv == 2 ) then
+               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+                  z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+               end if
+            end if
+         else if ( inform >= 7 ) then
+            omega_ic=omega_ic1Old
          end if
+      else
+         omega_ic=0.0_cp
+      end if
        
-         !----- Mantle rotation, same as for inner core (see above)
-         !      exept the l_SRIC case.
-         if ( l_rot_ma ) then
-            if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
-               if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
-               if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
-               tOmega_ma1=time+tShift_ma1
-               tOmega_ma2=time+tShift_ma2
-               omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+      !----- Mantle rotation, same as for inner core (see above)
+      !      exept the l_SRIC case.
+      if ( l_rot_ma ) then
+         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
+            tOmega_ma1=time+tShift_ma1
+            tOmega_ma2=time+tShift_ma2
+            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            if ( rank == 0 ) then
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
                write(*,*) '! omega_ma =',omega_ma
                write(*,*) '! omega_ma1=',omega_ma1
-               if ( ktopv == 2 ) &
-                    z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-            else if ( inform >= 7 ) then
-               omega_ma=omega_ma1Old
             end if
-         else
-            omega_ma=0.0_cp
+            if ( ktopv == 2 ) then
+               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+                  z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+               end if
+            end if
+         else if ( inform >= 7 ) then
+            omega_ma=omega_ma1Old
          end if
+      else
+         omega_ma=0.0_cp
+      end if
        
-         close(n_start_file)
+      if (rank == 0) close(n_start_file)
 
-      end if ! rank == 0
-    
    end subroutine readStartFields
 !------------------------------------------------------------------------------
    subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &

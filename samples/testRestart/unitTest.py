@@ -41,13 +41,12 @@ def readStack(file):
 class TestRestart(unittest.TestCase):
 
     def __init__(self, testName, dir, execCmd='mpirun -n 8 ../tmp/magic.exe', 
-                 precision=1e-8, use_hdf5=False):
+                 precision=1e-8):
         super(TestRestart, self).__init__(testName)
         self.dir = dir
         self.precision = precision
         self.execCmd = execCmd
         self.startDir = os.getcwd()
-        self.use_hdf5 = use_hdf5
         self.description = "Test restarting from a check point"
 
     def list2reason(self, exc_list):
@@ -63,14 +62,7 @@ class TestRestart(unittest.TestCase):
         for f in glob.glob('%s/*.start' % self.dir):
             os.remove(f)
 
-        if self.use_hdf5:
-            cmd = 'sed -i'+"'s/start_file  ="+\
-                  '"rst_end.start"/start_file  ="h5_rst_end.start"'+\
-                  "/' input_tmp.nml'"
-            sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
-            inpFile = 'input_tmp.nml'
-        else:
-            inpFile = 'input.nml'
+        inpFile = 'input.nml'
 
         os.chdir(self.dir)
         cmd = '%s %s/inputStart.nml' % (self.execCmd, self.dir)
@@ -86,8 +78,6 @@ class TestRestart(unittest.TestCase):
         cleanDir(self.dir)
         for f in glob.glob('%s/*.start' % self.dir):
             os.remove(f)
-        if self.use_hdf5:
-            os.remove('%s/input_tmp.nml' % self.dir)
 
         t = time.time()-self.startTime
         st = time.strftime("%M:%S", time.gmtime(t))

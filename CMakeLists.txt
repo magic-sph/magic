@@ -19,7 +19,6 @@ set(USE_MPI     "yes"  CACHE STRING "Use MPI parallelization")
 set(USE_OMP     "yes"  CACHE STRING "Use OpenMP")
 set(USE_LAPACKLIB "MKL"  CACHE STRING "Use the Math Kernel Library for lapack calls")
 set(USE_PRECOND "yes"  CACHE STRING "Use matrix preconditioning")
-set(USE_HDF5    "no"   CACHE STRING "Use HDF5 to store check points")
 set(USE_SHTNS   "no"   CACHE STRING "Use libshtns for SH projection")
 find_package(SSE)
 
@@ -189,19 +188,6 @@ endif()
 
 message(STATUS "Use '${USE_FFTLIB}' for the FFTs")
 message(STATUS "Use '${USE_LAPACKLIB}' for the LU factorisations")
-
-# Detect HDF5
-if(USE_HDF5 MATCHES yes)
-   find_package(HDF5 COMPONENTS Fortran)
-   if (HDF5_FOUND AND HDF5_IS_PARALLEL)
-      add_definitions(-DWITH_HDF5)
-      add_definitions(${HDF5_DEFINITIONS})
-      include_directories(${HDF5_INCLUDE_DIRS})
-   else()
-      message(STATUS "HDF5 was not found, back to standalone libaries")
-   endif()
-endif()
-message(STATUS "HDF5 for check points: '${USE_HDF5}'")
 
 find_library(FFTW3 NAME fftw3
     PATHS /usr/local/fftw/3.3.4_openmp/lib

@@ -717,47 +717,14 @@ contains
       end if
 
       !
-      ! Writing of the restart file (possible only when HDF5 is used)
+      ! Writing of the restart file
       !
       if ( l_store ) then
-#ifndef WITH_HDF5
          call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,w_LMloc,&
               &     z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,&
               &     aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,       &
               &     dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,&
               &     dbdt_icLast_LMloc,djdt_icLast_LMloc)
-#else
-         if ( l_stop_time .or. .not.l_new_rst_file ) then
-            rst_file='h5_rst_end.'//tag
-         else if ( l_new_rst_file ) then
-            call dble2str(time,string)
-            rst_file='h5_rst_t='//trim(string)//'.'//tag
-         end if
-         call storeHdf5_parallel(time,dt,dtNew,w_LMloc,z_LMloc,p_LMloc,s_LMloc, &
-                                 b_LMloc,aj_LMloc,b_ic_LMloc,aj_ic_LMloc,       &
-                                 dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,     &
-                                 dsdtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,  &
-                                 dbdt_icLast_LMloc,djdt_icLast_LMloc)
-  
-         if ( rank == 0 ) then
-            write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
-                 & " ! Storing restart file:",           &
-                 & "             at time=",time,         &
-                 & "            step no.=",n_time_step,  &
-                 & "           into file=",rst_file
-            if ( l_save_out ) then
-               open(newunit=n_log_file, file=log_file, status='unknown', &
-               &    position='append')
-            end if
-            
-            write(n_log_file,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
-                 & " ! Storing restart file:",                     &
-                 & "             at time=",time,                   &
-                 & "            step no.=",n_time_step,            &
-                 & "           into file=",rst_file
-            if ( l_save_out ) close(n_log_file)
-         end if
-#endif
       end if
   
   

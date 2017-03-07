@@ -7,7 +7,6 @@ list(REMOVE_ITEM srcfiles "${SRC}/algebra.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/fft_mkl.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/fft.f90")
 list(REMOVE_ITEM srcfiles "${SRC}/magic.f90")
-list(REMOVE_ITEM srcfiles "${SRC}/hdf5Helpers.f90")
 
 set_source_files_properties(mpimod.f90 PROPERTIES COMPILE_FLAGS ${FFLAG_NO_STD})
 
@@ -72,15 +71,6 @@ endif()
 # Link LAPACK
 if(USE_LAPACKLIB MATCHES LAPACK)
    target_link_libraries(${EXEC} ${LAPACK_LIBRARIES})
-endif()
-
-# Link HDF5
-if(USE_HDF5 MATCHES yes)
-   if(HDF5_FOUND AND HDF5_IS_PARALLEL)
-      add_library(hdf5Helpers hdf5Helpers.f90)
-      target_link_libraries(hdf5Helpers ${HDF5_Fortran_LIBRARIES})
-      target_link_libraries(${EXEC} hdf5Helpers)
-   endif()
 endif()
 
 if(USE_SHTNS MATCHES yes AND NOT SHTNS MATCHES SHTNS-NOTFOUND)

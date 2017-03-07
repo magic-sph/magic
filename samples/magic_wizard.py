@@ -53,8 +53,6 @@ def getParser():
                         help='Use the MKL for FFTs and Lapack calls')
     parser.add_argument('--use-shtns', action='store_true', dest='use_shtns', 
                         default=False, help='Use SHTns for Legendre transforms')
-    parser.add_argument('--use-hdf5', action='store_true', dest='use_hdf5', 
-                        default=False, help='Use HDF5 to store restart files')
     parser.add_argument('--use-precond', action='store', dest='use_precond', 
                         type=bool, default=True, 
                         help='Use matrix preconditioning')
@@ -130,19 +128,14 @@ def cmake(args, startdir, execDir):
             omp_opt = '-DUSE_OMP=yes'
         else:
             omp_opt = '-DUSE_OMP=no'
-        if args.use_hdf5:
-            hdf5_opt = '-DUSE_HDF5=yes'
-        else:
-            hdf5_opt = '-DUSE_HDF5=no'
     else:
         mpi_opt = '-DUSE_MPI=no'
         omp_opt = '-DUSE_OMP=no'
-        hdf5_opt = '-DUSE_HDF5=no'
 
     # Compilation
-    cmd = 'cmake %s/.. %s %s %s %s %s %s %s' % (startdir, mpi_opt, build_type,
+    cmd = 'cmake %s/.. %s %s %s %s %s %s' % (startdir, mpi_opt, build_type,
                                                 precond_opt, mkl_opt, omp_opt, 
-                                                shtns_opt, hdf5_opt)
+                                                shtns_opt)
     print('  '+cmd)
     print('\n')
     sp.call(cmd, shell=True, stdout=open(os.devnull, 'wb'))
@@ -183,7 +176,6 @@ def get_env(args):
             print('  nThreads  : %i' % args.nthreads)
         print('  MKL       : %r' % args.use_mkl)
         print('  SHTNS     : %r' % args.use_shtns)
-        print('  HDF5      : %r' % args.use_hdf5)
     print('\n')
 
 
@@ -265,7 +257,6 @@ def getSuite(startdir, cmd, precision, args):
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',
                                                   '%s/testRestart' % startdir, 
                                                   execCmd=cmd,
-                                                  use_hdf5=args.use_hdf5,
                                                   precision=precision))
         # Test truncations
         suite.addTest(testTruncations.unitTest.TestTruncations('outputFileDiff',
@@ -277,7 +268,6 @@ def getSuite(startdir, cmd, precision, args):
         suite.addTest(testMapping.unitTest.TestMapping('outputFileDiff',
                                                   '%s/testMapping' % startdir, 
                                                   execCmd=cmd,
-                                                  use_hdf5=args.use_hdf5,
                                                   precision=precision))
         # Check standard time series outputs
         suite.addTest(testOutputs.unitTest.OutputTest('outputFileDiff',

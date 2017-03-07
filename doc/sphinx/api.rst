@@ -38,7 +38,7 @@ for the Fortran domain <http://www.ifremer.fr/vacumm/user.desc.fdoc.dom.html>`_.
 
      14. For reading and writing the check points (restart files), see :ref:`here <secFortranRestart>`.
 
-     15. For additional useful functions (string manipulation, HDF5 support, etc.), see :ref:`here <secFortranMisc>`.
+     15. For additional useful functions (string manipulation, etc.), see :ref:`here <secFortranMisc>`.
 
 .. toctree::
    :hidden:

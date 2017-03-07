@@ -43,15 +43,15 @@ def readStack(file):
 def generateEkinFile(fileName='e_kin.test'):
     from magic import MagicGraph, Movie
 
-    gr = MagicGraph(ivar=1)
-
+    #gr = MagicGraph(ivar=1)
+#
     file = open(fileName, 'w')
-    st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( gr.entropy[10, 13, 3], 
-         gr.Br[33, 0, 2], gr.Btheta[3, 11, 11], gr.Bphi[34, 12, 25], 
-         gr.vr[11, 15, 2], gr.vtheta[33, 33, 3], gr.vphi[32, 33, 7] )
-
-    # Write output for graphic files
-    file.write(st+'\n')
+    #st = '%.4f %.4f %.4f %.4f %.4f %.4f %.4f' % ( gr.entropy[10, 13, 3], 
+         #gr.Br[33, 0, 2], gr.Btheta[3, 11, 11], gr.Bphi[34, 12, 25], 
+         #gr.vr[11, 15, 2], gr.vtheta[33, 33, 3], gr.vphi[32, 33, 7] )
+#
+     #Write output for graphic files
+    #file.write(st+'\n')
 
     av = Movie(file='AV_mov.start', iplot=False)
     ahf = Movie(file='AHF_mov.start', iplot=False)

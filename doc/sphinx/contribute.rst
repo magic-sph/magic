@@ -51,7 +51,6 @@ It supports the following options:
        --use-openmp              Use the hybrid version of MagIC
        --use-mkl                 Use the MKL for FFTs and Lapack calls
        --use-shtns               Use SHTns for Legendre transforms
-       --use-hdf5                Use HDF5 to store restart files
        --use-precond USE_PRECOND Use matrix preconditioning
        --nranks NRANKS           Specify the number of MPI ranks
        --nthreads NTHREADS       Specify the number of threads (hybrid version)

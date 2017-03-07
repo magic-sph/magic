@@ -82,7 +82,7 @@ $ cd $MAGIC_HOME/src
 
 Edit the Makefile with your favourite editor and specify your compiler 
 (intel, gnu, portland) and additional 
-compiler options (production run or not, debug mode, MKL library, HDF5, ...)
+compiler options (production run or not, debug mode, MKL library, ...)
 
 ```sh
 $ make -j

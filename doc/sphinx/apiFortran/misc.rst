@@ -18,8 +18,3 @@ Useful additional libraries
 
 .. f:automodule:: charmanip
 
-
-``hdf5Helpers.f90``
---------------------
-
-.. f:automodule:: hdf5helpers

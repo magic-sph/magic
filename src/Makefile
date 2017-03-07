@@ -17,21 +17,10 @@ USE_PRECOND=yes
 USE_FFTLIB=MKL
 #USE_LAPACKLIB can be MKL, LAPACK or JW
 USE_LAPACKLIB=MKL
-#Use hdf5 for input/output of the restart files: yes/no
-USE_HDF5=no
 #Use shtns for Legendre/Fourier transforms
 USE_SHTNS=no
 
 USE_PERFLIB=none
-
-ifdef HDF5_HOME
-	HDF5LIB=$(HDF5_HOME)/lib 
-	HDF5ICL=$(HDF5_HOME)/include
-endif
-ifdef HDF5DIR
-	HDF5LIB=$(HDF5DIR) 
-	HDF5ICL=$(HDF5INCLUDE)
-endif
 
 ifeq ($(USE_MPI),no)
 	USE_OMP=no
@@ -92,9 +81,6 @@ ifeq ($(COMPILER),intel)
                          -lmkl_lapack95_lp64\
 			 -lmkl_sequential -lmkl_core -lpthread -lm \
 			 -Wl,-rpath,$(MKLROOT)/lib/intel64 
-
-	FFLAG_HDF5_LIBS = -L$(HDF5LIB) -lhdf5hl_fortran -lhdf5 \
-                          -Wl,-rpath,$(HDF5LIB)
 
 endif
 ifeq ($(COMPILER),gnu)
@@ -200,12 +186,6 @@ ifeq ($(USE_SHTNS),yes)
 	LIBS += $(FFLAG_SHTNS)
 endif
 
-ifeq ($(USE_HDF5), yes)
-	PREPROC += -DWITH_HDF5
-	INCPATHS += -I$(HDF5ICL)
-	LIBS += $(FFLAG_HDF5_LIBS)
-endif
-
 ifeq ($(PRECISION),sngl)
 	PREPROC += -DDEFAULT_PRECISION=sngl
 else ifeq ($(PRECISION),dble)
@@ -259,7 +239,7 @@ FFLAGS_NOCHECK = $(filter-out $(FFLAG_CHECK_ALL),$(FFLAGS))
 
 OUT     = magic.exe
 SOURCES:= $(wildcard *.f90)
-RED_SOURCES = $(filter-out fft% algebra% shtns% rIterThetaBlocking_shtns% hdf5Helpers% mpimod%,$(SOURCES))
+RED_SOURCES = $(filter-out fft% algebra% shtns% rIterThetaBlocking_shtns% mpimod%,$(SOURCES))
 RED_SOURCES += fft_fac.o
 
 ifeq ($(USE_FFTLIB),JW)
@@ -279,10 +259,6 @@ else ifeq ($(USE_LAPACKLIB),LAPACK)
 else ifeq ($(USE_LAPACKLIB),JW)
 	RED_SOURCES += algebra.f90
 	LAPACK_OBJS += algebra.o
-endif
-
-ifeq ($(USE_HDF5),yes)
-	RED_SOURCES += hdf5Helpers.f90
 endif
 
 ifeq ($(USE_SHTNS),yes)
@@ -367,11 +343,6 @@ out_movie_file.o      : truncation.o output_data.o blocking.o\
 storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
                         output_data.o init_fields.o dt_fieldsLast.o\
                         communications.o parallel.o
-ifeq ($(USE_HDF5),yes)
-readCheckPoints.o     : hdf5Helpers.o
-storeCheckPoints.o    : hdf5Helpers.o LMLoop_data.o
-hdf5Helpers.o         : blocking.o LMLoop_data.o precision_mod.o
-endif
 updateS.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o\
