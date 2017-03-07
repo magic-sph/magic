@@ -27,8 +27,7 @@ module output_mod
        &             dj_ic_LMloc, ddj_ic_LMloc, dp_LMloc, xi_LMloc, dxi_LMloc
    use fieldsLast, only: dwdtLast_LMloc, dzdtLast_lo, dpdtLast_LMloc,     &
        &                 dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc,  &
-       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast, &
-       &                 dxidtLast_LMloc
+       &                 dbdt_icLast_LMloc, djdt_icLast_LMloc, dxidtLast_LMloc
    use kinetic_energy, only: get_e_kin, get_u_square
    use magnetic_energy, only: get_e_mag
    use fields_average_mod, only: fields_average

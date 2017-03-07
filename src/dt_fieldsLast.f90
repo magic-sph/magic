@@ -21,26 +21,14 @@ module fieldsLast
 
    private
 
-   complex(cp), public, allocatable :: dwdtLast(:,:)
-   complex(cp), public, allocatable :: dpdtLast(:,:)
    complex(cp), public, allocatable :: dwdtLast_LMloc(:,:)
    complex(cp), public, allocatable :: dpdtLast_LMloc(:,:)
- 
-   complex(cp), public, allocatable :: dzdtLast(:,:)
    complex(cp), public, allocatable :: dzdtLast_lo(:,:)
- 
-   complex(cp), public, allocatable :: dsdtLast(:,:)
    complex(cp), public, allocatable :: dsdtLast_LMloc(:,:)
-
-   complex(cp), public, allocatable :: dxidtLast(:,:)
    complex(cp), public, allocatable :: dxidtLast_LMloc(:,:)
  
-   complex(cp), public, allocatable :: dbdtLast(:,:)
-   complex(cp), public, allocatable :: djdtLast(:,:)
    complex(cp), public, allocatable :: dbdtLast_LMloc(:,:)
    complex(cp), public, allocatable :: djdtLast_LMloc(:,:)
-   complex(cp), public, allocatable :: dbdt_icLast(:,:)
-   complex(cp), public, allocatable :: djdt_icLast(:,:)
    complex(cp), public, allocatable :: dbdt_icLast_LMloc(:,:)
    complex(cp), public, allocatable :: djdt_icLast_LMloc(:,:)
 
@@ -53,48 +41,6 @@ contains
 
    subroutine initialize_fieldsLast
 
-      if ( rank == 0 ) then
-         allocate( dwdtLast(lm_max,n_r_max) )
-         allocate( dpdtLast(lm_max,n_r_max) )
-         allocate( dzdtLast(lm_max,n_r_max) )
-         allocate( dsdtLast(lm_max,n_r_max) )
-         bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-
-         if ( l_chemical_conv ) then
-            allocate( dxidtLast(lm_max,n_r_max) )
-            bytes_allocated = bytes_allocated + lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate( dxidtLast(1,1) )
-         end if
-
-         allocate( dbdtLast(lm_maxMag,n_r_maxMag) )
-         allocate( djdtLast(lm_maxMag,n_r_maxMag) )
-         bytes_allocated = bytes_allocated + &
-                           2*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
-
-         allocate( dbdt_icLast(lm_maxMag,n_r_ic_maxMag) )
-         allocate( djdt_icLast(lm_maxMag,n_r_ic_maxMag) )
-         bytes_allocated = bytes_allocated + &
-                           2*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
-
-      else
-         allocate( dwdtLast(1,n_r_max) )
-         allocate( dpdtLast(1,n_r_max) )
-         allocate( dzdtLast(1,n_r_max) )
-         allocate( dsdtLast(1,n_r_max) )
-         if ( l_chemical_conv ) then
-            allocate( dxidtLast(1,n_r_max) )
-            bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate( dxidtLast(1,1) )
-         end if
-
-         allocate( dbdtLast(1,n_r_max) )
-         allocate( djdtLast(1,n_r_max) )
-         allocate( dbdt_icLast(1,n_r_max) )
-         allocate( djdt_icLast(1,n_r_max) )
-         bytes_allocated = bytes_allocated + 8*n_r_max*SIZEOF_DEF_COMPLEX
-      end if
       allocate( dwdtLast_LMloc(llm:ulm,n_r_max) )
       allocate( dpdtLast_LMloc(llm:ulm,n_r_max) )
       allocate( dzdtLast_lo(llm:ulm,n_r_max) )
@@ -123,12 +69,10 @@ contains
 !-------------------------------------------------------------------------------
    subroutine finalize_fieldsLast
 
-      deallocate( dwdtLast, dpdtLast, dzdtLast, dsdtLast )
-      deallocate( dbdtLast, djdtLast, dbdt_icLast, djdt_icLast )
       deallocate( dwdtLast_LMloc, dpdtLast_LMloc, dzdtLast_lo )
       deallocate( dsdtLast_LMloc, dbdtLast_LMloc, djdtLast_LMloc )
       deallocate( dbdt_icLast_LMloc, djdt_icLast_LMloc )
-      deallocate( dxidtLast, dxidtLast_LMloc )
+      deallocate( dxidtLast_LMloc )
 
    end subroutine finalize_fieldsLast
 !-------------------------------------------------------------------------------

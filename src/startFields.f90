@@ -33,14 +33,10 @@ module start_fields
        &                  ulmMag,llmMag
    use parallel_mod, only: rank, n_procs, nLMBs_per_rank
    use communications, only: lo2r_redist_start, lo2r_s, lo2r_flow, lo2r_field, &
-       &                     lo2r_xi, scatter_from_rank0_to_lo, get_global_sum
+       &                     lo2r_xi
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
-#ifdef WITH_HDF5
-   use readCheckPoints, only: readHdf5_serial,readStartFields
-#else
    use readCheckPoints, only: readStartFields
-#endif
     
    implicit none
 
@@ -83,7 +79,6 @@ contains
       complex(cp), allocatable :: workA_LMloc(:,:),workB_LMloc(:,:)
     
       integer :: ierr, filehandle
-      logical :: DEBUG_OUTPUT=.false.
     
       !PERFON('getFlds')
       !print*,"Starting getStartFields"
@@ -202,48 +197,28 @@ contains
     
       if ( l_start_file ) then
 
+         call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
+              &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
+              &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
+              &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
+              &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
+              &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
+              &                lorentz_torque_icLast,lorentz_torque_maLast,    &
+              &                time,dt,dtNew,n_time_step )
+
          if ( rank == 0 ) then
-            !PERFON('readFlds')
-#ifdef WITH_HDF5
-            if ( index(start_file,'h5_') /= 0 ) then
-               call readHdf5_serial( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,   &
-                    &                dsdtLast,xi,dxidtLast,b,dbdtLast,aj,  &
-                    &                djdtLast,b_ic,dbdt_icLast,aj_ic,      &
-                    &                djdt_icLast,omega_ic,omega_ma,        &
-                    &                lorentz_torque_icLast,                &
-                    &                lorentz_torque_maLast,                &
-                    &                time,dt,dtNew)
-               n_time_step=0
-            else
-               call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,   &
-                    &                dsdtLast,xi,dxidtLast,b,dbdtLast,aj,  &
-                    &                djdtLast,b_ic,dbdt_icLast,aj_ic,      &
-                    &                djdt_icLast,omega_ic,omega_ma,        &
-                    &                lorentz_torque_icLast,                &
-                    &                lorentz_torque_maLast,                &
-                    &                time,dt,dtNew,n_time_step )
-            end if
-#else
-            call readStartFields( w,dwdtLast,z,dzdtLast,p,dpdtLast,s,dsdtLast, &
-                 &                xi,dxidtLast,b,dbdtLast,aj,djdtLast,         &
-                 &                b_ic,dbdt_icLast,aj_ic,djdt_icLast,omega_ic, &
-                 &                omega_ma,lorentz_torque_icLast,              &
-                 &                lorentz_torque_maLast,time,dt,dtNew,         &
-                 &                n_time_step )
-#endif
             if ( dt > 0.0_cp ) then
                write(message,'(''! Using old time step:'',ES16.6)') dt
             else
                dt=dtMax
                write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
             end if
+         end if
 
-            if ( .not. l_heat ) then
-               s       =zero
-               dsdtLast=zero
-            end if
-
-         end if ! For now only rank0 reads
+         if ( .not. l_heat ) then
+            s_LMloc(:,:)       =zero
+            dsdtLast_LMloc(:,:)=zero
+         end if
 
          ! ========== Redistribution of the fields ============
          ! 1. Broadcast the scalars
@@ -257,57 +232,6 @@ contains
          call MPI_Bcast(dtNew,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
          call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 #endif
-
-         ! 2. Scatter the d?dtLast arrays, they are only used in LMLoop
-         !write(*,"(4X,A)") "Start Scatter d?dtLast arrays"
-         do nR=1,n_r_max
-            !write(*,"(8X,A,I4)") "nR = ",nR
-            call scatter_from_rank0_to_lo(dwdtLast(1,nR),dwdtLast_LMloc(llm,nR))
-            call scatter_from_rank0_to_lo(dzdtLast(1,nR),dzdtLast_lo(llm,nR))
-            call scatter_from_rank0_to_lo(dpdtLast(1,nR),dpdtLast_LMloc(llm,nR))
-            call scatter_from_rank0_to_lo(dsdtLast(1,nR),dsdtLast_LMloc(llm,nR))
-       
-            if ( l_mag ) then
-               call scatter_from_rank0_to_lo(dbdtLast(1,nR),dbdtLast_LMloc(llm,nR))
-               call scatter_from_rank0_to_lo(djdtLast(1,nR),djdtLast_LMloc(llm,nR))
-            end if
-
-            if ( l_chemical_conv ) then
-               call scatter_from_rank0_to_lo(dxidtLast(1,nR),dxidtLast_LMloc(llm,nR))
-            end if
-         end do
-         if ( l_cond_ic ) then
-            do nR=1,n_r_ic_max
-               call scatter_from_rank0_to_lo(dbdt_icLast(1,nR),dbdt_icLast_LMloc(llm,nR))
-               call scatter_from_rank0_to_lo(djdt_icLast(1,nR),djdt_icLast_LMloc(llm,nR))
-            end do
-         end if
-       
-         ! 3. Scatter the fields to the LMloc space
-         !write(*,"(4X,A)") "Start Scatter the fields"
-         if ( DEBUG_OUTPUT ) then
-            if ( rank == 0 ) write(*,"(A,2ES20.12)") "init z = ",sum(z)
-         end if
-         do nR=1,n_r_max
-            call scatter_from_rank0_to_lo(w(1,nR),w_LMloc(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(z(1,nR),z_LMloc(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(p(1,nR),p_LMloc(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(s(1,nR),s_LMloc(llm:ulm,nR))
-            if ( l_mag ) then
-               call scatter_from_rank0_to_lo(b(1,nR),b_LMloc(llmMag:ulmMag,nR))
-               call scatter_from_rank0_to_lo(aj(1,nR),aj_LMloc(llmMag:ulmMag,nR))
-            end if
-            if ( l_chemical_conv ) then
-               call scatter_from_rank0_to_lo(xi(1,nR),xi_LMloc(llm:ulm,nR))
-            end if
-       
-         end do
-         if ( l_cond_ic ) then
-            do nR=1,n_r_ic_max
-               call scatter_from_rank0_to_lo(b_ic(1,nR),b_ic_LMloc(llm,nR))
-               call scatter_from_rank0_to_lo(aj_ic(1,nR),aj_ic_LMloc(llm,nR))
-            end do
-         end if
 
             !PERFOFF
       else ! If there's no restart file
@@ -351,7 +275,7 @@ contains
       call logWrite(message)
 
 #ifdef WITH_MPI
-      call mpi_barrier(MPI_COMM_WORLD, ierr)
+      call MPI_Barrier(MPI_COMM_WORLD, ierr)
 #endif
 
       allocate( workA_LMloc(llm:ulm,n_r_max) )

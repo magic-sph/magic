@@ -17,40 +17,32 @@ module fields
    private
  
    !-- Velocity potentials:
-   complex(cp), public, allocatable :: w(:,:)
    complex(cp), public, allocatable, target :: flow_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: flow_Rloc_container(:,:,:)
    complex(cp), public, pointer :: w_LMloc(:,:),dw_LMloc(:,:),ddw_LMloc(:,:)
    complex(cp), public, pointer :: w_Rloc(:,:), dw_Rloc(:,:), ddw_Rloc(:,:)
  
-   complex(cp), public, allocatable :: z(:,:)
    complex(cp), public, pointer :: z_LMloc(:,:),dz_LMloc(:,:)
    complex(cp), public, pointer :: z_Rloc(:,:), dz_Rloc(:,:)
  
    !-- Entropy:
-   complex(cp), public, allocatable :: s(:,:)
    complex(cp), public, allocatable, target :: s_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: s_Rloc_container(:,:,:)
    complex(cp), public, pointer :: s_LMloc(:,:), ds_LMloc(:,:)
    complex(cp), public, pointer :: s_Rloc(:,:), ds_Rloc(:,:)
  
    !-- Chemical composition:
-   complex(cp), public, allocatable :: xi(:,:)
    complex(cp), public, allocatable, target :: xi_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: xi_Rloc_container(:,:,:)
    complex(cp), public, pointer :: xi_LMloc(:,:), dxi_LMloc(:,:)
    complex(cp), public, pointer :: xi_Rloc(:,:), dxi_Rloc(:,:)
 
    !-- Pressure:
-   complex(cp), public, allocatable :: p(:,:)
    complex(cp), public, pointer :: p_LMloc(:,:), dp_LMloc(:,:)
    complex(cp), public, pointer :: p_Rloc(:,:), dp_Rloc(:,:)
  
    !-- Magnetic field potentials:
    complex(cp), public, allocatable :: b(:,:)
-   complex(cp), public, allocatable :: db(:,:)
-   complex(cp), public, allocatable :: aj(:,:)
-   complex(cp), public, allocatable :: dj(:,:)
    complex(cp), public, allocatable, target :: field_LMloc_container(:,:,:)
    complex(cp), public, allocatable, target :: field_Rloc_container(:,:,:)
    complex(cp), public, pointer :: b_LMloc(:,:), db_LMloc(:,:), ddb_LMloc(:,:)
@@ -87,25 +79,9 @@ contains
 
       !-- Velocity potentials:
       if ( rank == 0 ) then
-         allocate( w(lm_max,n_r_max) )
-         allocate( z(lm_max,n_r_max) )
-         allocate( s(lm_max,n_r_max) )
-         allocate( p(lm_max,n_r_max) )
-         bytes_allocated = bytes_allocated + 4*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-
-         if ( l_chemical_conv ) then
-            allocate ( xi(lm_max,n_r_max) )
-            bytes_allocated = bytes_allocated+lm_max*n_r_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate ( xi(1,1) )
-         end if
-
          allocate( b(lm_maxMag,n_r_maxMag) )
-         allocate( db(lm_maxMag,n_r_maxMag) )
-         allocate( aj(lm_maxMag,n_r_maxMag) )
-         allocate( dj(lm_maxMag,n_r_maxMag) )
          bytes_allocated = bytes_allocated +  &
-                           4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+                           lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(lm_maxMag,n_r_ic_maxMag) )  
          allocate( db_ic(lm_maxMag,n_r_ic_maxMag) )
          allocate( ddb_ic(lm_maxMag,n_r_ic_maxMag) )
@@ -116,22 +92,8 @@ contains
                            6*lm_maxMag*n_r_ic_maxMag*SIZEOF_DEF_COMPLEX
 
       else
-         allocate( w(1,n_r_max) )
-         allocate( z(1,n_r_max) )
-         allocate( s(1,n_r_max) )
-         allocate( p(1,n_r_max) )
-         bytes_allocated = bytes_allocated + 4*n_r_max*SIZEOF_DEF_COMPLEX
-         if ( l_chemical_conv ) then
-            allocate ( xi(1,n_r_max) )
-            bytes_allocated = bytes_allocated + n_r_max*SIZEOF_DEF_COMPLEX
-         else
-            allocate ( xi(1,1) )
-         end if
          allocate( b(1,n_r_maxMag) )
-         allocate( db(1,n_r_maxMag) )
-         allocate( aj(1,n_r_maxMag) )
-         allocate( dj(1,n_r_maxMag) )
-         bytes_allocated = bytes_allocated + 4*n_r_maxMag*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + n_r_maxMag*SIZEOF_DEF_COMPLEX
          allocate( b_ic(1,n_r_ic_maxMag) )  
          allocate( db_ic(1,n_r_ic_maxMag) )
          allocate( ddb_ic(1,n_r_ic_maxMag) )
@@ -234,13 +196,13 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_fields
 
-      deallocate( w, z, s, p, b, db, aj, dj, b_ic, db_ic, ddb_ic )
+      deallocate( b, b_ic, db_ic, ddb_ic )
       deallocate( aj_ic, dj_ic, ddj_ic, flow_LMloc_container )
       deallocate( flow_Rloc_container, s_LMloc_container, s_Rloc_container )
       deallocate( field_LMloc_container, field_Rloc_container )
       deallocate( b_ic_LMloc, db_ic_LMloc, ddb_ic_LMloc, aj_ic_LMloc )
       deallocate( dj_ic_LMloc, ddj_ic_LMloc )
-      deallocate( xi, xi_LMloc_container, xi_Rloc_container )
+      deallocate( xi_LMloc_container, xi_Rloc_container )
       deallocate( work_LMloc )
 
    end subroutine finalize_fields

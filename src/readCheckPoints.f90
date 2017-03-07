@@ -5,6 +5,9 @@ module readCheckPoints
    !
 
    use precision_mod
+   use parallel_mod
+   use communications, only: scatter_from_rank0_to_lo
+   use LMLoop_data, only: llm, ulm, llmMag, ulmMag
    use truncation, only: n_r_max,lm_max,n_r_maxMag,lm_maxMag,n_r_ic_max, &
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem
@@ -64,19 +67,20 @@ contains
       integer,     intent(out) :: n_time_step
       real(cp),    intent(out) :: omega_ic,omega_ma
       real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
-      complex(cp), intent(out) :: xi(lm_max,n_r_max)
-      complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: dxidt(lm_max,n_r_max)
-      complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dwdt(llm:ulm,n_r_max),dzdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dsdt(llm:ulm,n_r_max),dpdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dxidt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: dbdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: djdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dbdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: djdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local:
       integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
@@ -86,7 +90,7 @@ contains
       real(cp) :: raxi_old,sc_old
       real(cp) :: ek_old,radratio_old
       real(cp) :: sigma_ratio_old
-      integer :: nLMB,lm,lmStart,lmStop,nR,l1m0
+      integer :: lm,nR,l1m0
       logical :: l_mag_old
       logical :: startfile_does_exist
       integer :: informOld,ioerr
@@ -104,173 +108,219 @@ contains
       integer :: n_in, n_in_2
 
       complex(cp), allocatable :: wo(:),zo(:),po(:),so(:),xio(:)
+      complex(cp), allocatable :: workA(:,:),workB(:,:),workC(:,:)
+      complex(cp), allocatable :: workD(:,:),workE(:,:)
       real(cp), allocatable :: r_old(:)
 
-      inquire(file=start_file, exist=startfile_does_exist)
-    
-      if ( startfile_does_exist ) then
-         open(newunit=n_start_file, file=start_file, status='old', &
-         &    form='unformatted')
-      else
-         write(*,*)
-         write(*,*) '! The restart file does not exist !'
-         stop
-      end if
-    
-      sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
-      if ( inform == -1 ) then ! This is default !
-         read(n_start_file)                                         &
-         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-         &    informOld,n_r_max_old,n_theta_max_old,n_phi_tot_old,  &
-         &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
-         n_time_step=0
-      else if ( inform == 0 ) then
-         read(n_start_file)                                         &
-         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-         &    minc_old,nalias_old
-      else if ( inform == 1 ) then
-         read(n_start_file)                                         &
-         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-         &    minc_old
-         nalias_old=nalias
-      else if ( inform >= 2 ) then
-         read(n_start_file)                                         &
-         &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
-         &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
-         &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
-      end if
-      if ( inform == -1 ) inform=informOld
-    
-      !---- Compare parameters:
-      if ( ra /= ra_old ) &
-           write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
-      if ( ek /= ek_old ) &
-           write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
-      if ( pr /= pr_old ) &
-           write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
-      if ( prmag /= pm_old )                                          &
-           write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
-           pm_old,prmag
-      if ( radratio /= radratio_old )                                    &
-           write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
-           radratio_old,radratio
-      if ( sigma_ratio /= sigma_ratio_old )                             &
-           write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
-           sigma_ratio_old,sigma_ratio
-    
-      if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
-         l_max_old=nalias_old*n_theta_max_old/30
-         l_axi_old=.true.
-      else
-         l_max_old=nalias_old*n_phi_tot_old/60
-         l_axi_old=.false.
-      end if
-      l_mag_old=.false.
-      if ( pm_old /= 0.0_cp ) l_mag_old= .true. 
-    
-      if ( n_phi_tot_old /= n_phi_tot) &
-           write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
-      if ( nalias_old /= nalias) &
-           write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
-      if ( l_max_old /= l_max ) &
-           write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+      if ( rank == 0 ) then
+         inquire(file=start_file, exist=startfile_does_exist)
+       
+         if ( startfile_does_exist ) then
+            open(newunit=n_start_file, file=start_file, status='old', &
+            &    form='unformatted')
+         else
+            write(*,*)
+            write(*,*) '! The restart file does not exist !'
+            stop
+         end if
+       
+         sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
+         if ( inform == -1 ) then ! This is default !
+            read(n_start_file)                                         &
+            &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+            &    informOld,n_r_max_old,n_theta_max_old,n_phi_tot_old,  &
+            &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
+            n_time_step=0
+         else if ( inform == 0 ) then
+            read(n_start_file)                                         &
+            &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+            &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+            &    minc_old,nalias_old
+         else if ( inform == 1 ) then
+            read(n_start_file)                                         &
+            &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+            &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+            &    minc_old
+            nalias_old=nalias
+         else if ( inform >= 2 ) then
+            read(n_start_file)                                         &
+            &    time,dt_old,ra_old,pr_old,pm_old,ek_old,radratio_old, &
+            &    n_time_step,n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+            &    minc_old,nalias_old,n_r_ic_max_old,sigma_ratio_old
+         end if
+         if ( inform == -1 ) inform=informOld
+       
+         !---- Compare parameters:
+         if ( ra /= ra_old ) &
+              write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
+         if ( ek /= ek_old ) &
+              write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
+         if ( pr /= pr_old ) &
+              write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+         if ( prmag /= pm_old )                                          &
+              write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
+              pm_old,prmag
+         if ( radratio /= radratio_old )                                    &
+              write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
+              radratio_old,radratio
+         if ( sigma_ratio /= sigma_ratio_old )                             &
+              write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+              sigma_ratio_old,sigma_ratio
+       
+         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+            l_max_old=nalias_old*n_theta_max_old/30
+            l_axi_old=.true.
+         else
+            l_max_old=nalias_old*n_phi_tot_old/60
+            l_axi_old=.false.
+         end if
+         l_mag_old=.false.
+         if ( pm_old /= 0.0_cp ) l_mag_old= .true. 
+       
+         if ( n_phi_tot_old /= n_phi_tot) &
+              write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+         if ( nalias_old /= nalias) &
+              write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+         if ( l_max_old /= l_max ) &
+              write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
 
-    
-      if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
-           inform==13 .or. inform==21 .or. inform==23) then
-         lreadS=.false.
-      else
-         lreadS=.true.
-      end if
+       
+         if ( inform==6 .or. inform==7 .or. inform==9 .or. inform==11 .or. &
+              inform==13 .or. inform==21 .or. inform==23) then
+            lreadS=.false.
+         else
+            lreadS=.true.
+         end if
 
-      if ( inform==13 .or. inform==14 .or. inform==23 .or. inform==24 ) then
-         lreadXi=.true.
-      else
-         lreadXi=.false.
-      end if
+         if ( inform==13 .or. inform==14 .or. inform==23 .or. inform==24 ) then
+            lreadXi=.true.
+         else
+            lreadXi=.false.
+         end if
 
-      !-- Radius is now stored since it can also handle finite differences
-      if ( inform > 20 ) then
-         lreadR=.true.
-      else
-         lreadR=.false.
-      end if
+         !-- Radius is now stored since it can also handle finite differences
+         if ( inform > 20 ) then
+            lreadR=.true.
+         else
+            lreadR=.false.
+         end if
 
-      allocate( r_old(n_r_max_old) )
+         allocate( r_old(n_r_max_old) )
 
-      if ( lreadR ) then
-         read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
-         if ( rscheme_version_old == 'cheb' ) then
+         if ( lreadR ) then
+            read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
+            if ( rscheme_version_old == 'cheb' ) then
+               allocate ( type_cheb_odd :: rscheme_oc_old )
+            else
+               allocate ( type_fd :: rscheme_oc_old )
+            end if
+         else
+            rscheme_version_old='cheb'
+            n_in  =n_r_max_old-2 ! Just a guess here
+            n_in_2=0 ! Regular grid
+            ratio1=0.0_cp
+            ratio2=0.0_cp
             allocate ( type_cheb_odd :: rscheme_oc_old )
-         else
-            allocate ( type_fd :: rscheme_oc_old )
          end if
+
+
+         r_icb_old=radratio_old/(one-radratio_old)
+         r_cmb_old=one/(one-radratio_old)
+
+         call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
+
+         !--
+         !-- There's possibly an issue when the Chebyshev mapping was used in
+         !-- the old grid. So far get_grid uses l_newmap as a global quantity
+         !--
+         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
+              &                       ratio2, r_old)
+
+         if ( rscheme_oc%version /= rscheme_oc_old%version ) &
+            & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
+            & rscheme_oc_old%version, rscheme_oc%version
+       
+         allocate( lm2lmo(lm_max) )
+       
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
+              &         m_max,minc,minc_old,inform,lm_max,   &
+              &         lm_max_old,n_data_oldP,lm2lmo)
+       
+         ! allocation of local arrays.
+         ! if this becomes a performance bottleneck, one can make a module
+         ! and allocate the array only once in the initialization
+         allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
+         bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+         ! end of allocation
+       
+         !PERFON('mD_rd')
+         if ( lreadXi ) then
+            allocate(xio(n_data_oldP))
+            bytes_allocated = bytes_allocated + n_data_oldP*SIZEOF_DEF_COMPLEX
+            if ( lreadS ) then
+               read(n_start_file) wo, zo, po, so, xio
+            else
+               read(n_start_file) wo, zo, po, xio
+            end if
+         else
+            allocate(xio(1))
+            if ( lreadS ) then
+               read(n_start_file) wo, zo, po, so
+            else
+               read(n_start_file) wo, zo, po
+            end if
+         end if
+         !PERFOFF
+
+      end if ! rank == 0
+
+#ifdef WITH_MPI
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lreadS,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lreadXi,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(inform,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
+
+      if ( rank == 0 ) then
+         allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
+         allocate( workC(lm_max,n_r_max) )
+         allocate( workD(lm_max,n_r_max) )
+         allocate( workE(lm_max,n_r_max) )
+         bytes_allocated = bytes_allocated + 5*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
       else
-         rscheme_version_old='cheb'
-         n_in  =n_r_max_old-2 ! Just a guess here
-         n_in_2=0 ! Regular grid
-         ratio1=0.0_cp
-         ratio2=0.0_cp
-         allocate ( type_cheb_odd :: rscheme_oc_old )
+         allocate( workA(1,n_r_max), workB(1,n_r_max), workC(1,n_r_max) )
+         allocate( workD(1,n_r_max), workE(1,n_r_max) )
       end if
 
-
-      r_icb_old=radratio_old/(one-radratio_old)
-      r_cmb_old=one/(one-radratio_old)
-
-      call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
-
-      !--
-      !-- There's possibly an issue when the Chebyshev mapping was used in
-      !-- the old grid. So far get_grid uses l_newmap as a global quantity
-      !--
-      call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
-           &                       ratio2, r_old)
-
-      if ( rscheme_oc%version /= rscheme_oc_old%version ) &
-         & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
-         & rscheme_oc_old%version, rscheme_oc%version
+      workA(:,:)=zero
+      workB(:,:)=zero
+      workC(:,:)=zero
+      workD(:,:)=zero
+      workE(:,:)=zero
     
-      allocate( lm2lmo(lm_max) )
-    
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-           &         m_max,minc,minc_old,inform,lm_max,   &
-           &         lm_max_old,n_data_oldP,lm2lmo)
-    
-      ! allocation of local arrays.
-      ! if this becomes a performance bottleneck, one can make a module
-      ! and allocate the array only once in the initialization
-      allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
-      ! end of allocation
-    
-      !PERFON('mD_rd')
-      if ( lreadXi ) then
-         allocate(xio(n_data_oldP))
-         bytes_allocated = bytes_allocated + n_data_oldP*SIZEOF_DEF_COMPLEX
-         if ( lreadS ) then
-            read(n_start_file) wo, zo, po, so, xio
-         else
-            read(n_start_file) wo, zo, po, xio
-         end if
-      else
-         allocate(xio(1))
-         if ( lreadS ) then
-            read(n_start_file) wo, zo, po, so
-         else
-            read(n_start_file) wo, zo, po
-         end if
+      if ( rank == 0 ) then
+         n_r_maxL = max(n_r_max,n_r_max_old)
+
+         call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
+              &            n_r_max_old,lm_max_old,n_r_maxL,            &
+              &            .false.,.false.,.false.,.false.,            &
+              &            .false.,workA,workB,workC,workD,workE )
       end if
-      !PERFOFF
-    
-      n_r_maxL = max(n_r_max,n_r_max_old)
-    
-      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
-           &            n_r_max_old,lm_max_old,n_r_maxL,            &
-           &            .false.,.false.,.false.,.false.,            &
-           &            .false.,w,z,p,s,xi )
+
+      !-- Scatter everything
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(workA(1,nR),w(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workB(1,nR),z(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workC(1,nR),p(llm:ulm,nR))
+         if ( l_heat ) then
+            call scatter_from_rank0_to_lo(workD(1,nR),s(llm:ulm,nR))
+         end if
+         if ( l_chemical_conv ) then
+            call scatter_from_rank0_to_lo(workE(1,nR),xi(llm:ulm,nR))
+         end if
+      end do
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
          s(:,:)=zero
@@ -278,27 +328,50 @@ contains
       if ( l_chemical_conv .and. .not. lreadXi ) then ! No composition before
          xi(:,:)=zero
       end if
+
+      workA(:,:)=zero
+      workB(:,:)=zero
+      workC(:,:)=zero
+      workD(:,:)=zero
+      workE(:,:)=zero
     
-      !PERFON('mD_rd_dt')
-      if ( lreadXi ) then
-         if ( lreadS ) then
-            read(n_start_file) so,wo,zo,po,xio
+      !-- Read the d?dt fields
+      if ( rank == 0 ) then
+         if ( lreadXi ) then
+            if ( lreadS ) then
+               read(n_start_file) so,wo,zo,po,xio
+            else
+               read(n_start_file) wo,zo,po,xio
+            end if
          else
-            read(n_start_file) wo,zo,po,xio
+            if ( lreadS ) then
+               read(n_start_file) so,wo,zo,po
+            else
+               read(n_start_file) wo,zo,po
+            end if
          end if
-      else
-         if ( lreadS ) then
-            read(n_start_file) so,wo,zo,po
-         else
-            read(n_start_file) wo,zo,po
-         end if
+         !PERFOFF
+       
+         call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
+              &             n_r_max_old,lm_max_old,n_r_maxL,.true.,    &
+              &             .true.,.true.,.true.,.true.,workA,workB,   &
+              &             workC,workD,workE )
       end if
-      !PERFOFF
-    
-      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
-           &             n_r_max_old,lm_max_old,n_r_maxL,.true.,    &
-           &             .true.,.true.,.true.,.true.,dwdt,dzdt,     &
-           &             dpdt,dsdt,dxidt )
+
+      !-- Scatter everything
+      do nR=1,n_r_max
+         !write(*,"(8X,A,I4)") "nR = ",nR
+         call scatter_from_rank0_to_lo(workA(1,nR),dwdt(llm,nR))
+         call scatter_from_rank0_to_lo(workB(1,nR),dzdt(llm,nR))
+         call scatter_from_rank0_to_lo(workC(1,nR),dpdt(llm,nR))
+         if ( l_heat ) then
+            call scatter_from_rank0_to_lo(workD(1,nR),dsdt(llm,nR))
+         end if
+
+         if ( l_chemical_conv ) then
+            call scatter_from_rank0_to_lo(workE(1,nR),dxidt(llm,nR))
+         end if
+      end do
 
       if ( l_heat .and. .not. lreadS ) then ! No entropy before
          dsdt(:,:)=zero
@@ -307,55 +380,80 @@ contains
          dxidt(:,:)=zero
       end if
 
-      if ( lreadXi ) then
-         read(n_start_file) raxi_old, sc_old
-         if ( raxi /= raxi_old ) &
-           write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
-         if ( sc /= sc_old ) &
-           write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
-      end if
-    
-      if ( l_mag_old ) then
-         read(n_start_file) so,wo,zo,po
-    
-         if ( l_mag ) then
-            call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
-                 &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,             &
-                 &           .false.,aj,dbdt,djdt,b )
-         end if
+      deallocate(workA, workB, workC, workD, workE)
+
+      if ( rank == 0 ) then
+         allocate( workA(lm_maxMag,n_r_maxMag), workB(lm_maxMag,n_r_maxMag) )
+         allocate( workC(lm_maxMag,n_r_maxMag) )
+         allocate( workD(lm_maxMag, n_r_maxMag) )
+         bytes_allocated = bytes_allocated - 5*lm_max*n_r_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated + 4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
       else
-         write(*,*) '! No magnetic data in input file!'
+         allocate( workA(1,n_r_maxMag), workB(1,n_r_maxMag), workC(1,n_r_maxMag) )
+         allocate( workD(1,n_r_maxMag) )
       end if
+
+      workA(:,:)=zero
+      workB(:,:)=zero
+      workC(:,:)=zero
+      workD(:,:)=zero
+    
+      if ( rank == 0 ) then
+         if ( lreadXi ) then
+            read(n_start_file) raxi_old, sc_old
+            if ( raxi /= raxi_old ) &
+              write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+            if ( sc /= sc_old ) &
+              write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+         end if
+    
+         if ( l_mag_old ) then
+            read(n_start_file) so,wo,zo,po
+       
+            if ( l_mag ) then
+               call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
+                    &           lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,             &
+                    &           .false.,workA,workB,workC,workD )
+            end if
+         else
+            write(*,*) '! No magnetic data in input file!'
+         end if
+      end if
+
+
+      !-- Scatter everything
+      if ( l_mag_old .and. l_mag ) then
+         do nR=1,n_r_maxMag
+            call scatter_from_rank0_to_lo(workA(1,nR),aj(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workB(1,nR),dbdt(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workC(1,nR),djdt(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workD(1,nR),b(llm:ulm,nR))
+         end do
+      end if
+
+      deallocate( workA, workB, workC, workD )
     
     
       !-- If mapping towards reduced symmetry, add thermal perturbation in
       !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
       if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-            lm=l_max+2
-            if ( lmStart<=lm .and. lmStop>=lm ) then
-               do nR=1,n_r_max+1
-                  fr=sin(pi*(r(nR)-r(n_r_max)))
-                  s(lm,nR)=tipdipole*fr
-               end do
-            end if
-         end do
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               s(lm,nR)=tipdipole*fr
+            end do
+         end if
       end if
 
       if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-            lm=l_max+2
-            if ( lmStart<=lm .and. lmStop>=lm ) then
-               do nR=1,n_r_max+1
-                  fr=sin(pi*(r(nR)-r(n_r_max)))
-                  xi(lm,nR)=tipdipole*fr
-               end do
-            end if
-         end do
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               xi(lm,nR)=tipdipole*fr
+            end do
+         end if
       end if
     
       !-- If starting from data file with longitudinal symmetry, add
@@ -363,699 +461,264 @@ contains
       if ( ( l_mag .or. l_mag_LF )                                &
            &       .and. minc==1 .and. minc_old/=1 .and.          &
            &       tipdipole>0.0_cp .and. l_mag_old ) then
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-            lm=l_max+2
-            if ( lmStart<=lm .and. lmStop>=lm ) then
-               do nR=1,n_r_max+1
-                  b(lm,nR)=tipdipole
-               end do
-            end if
-         end do
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               b(lm,nR)=tipdipole
+            end do
+         end if
       end if
-    
-      ! deallocation of the local arrays
-      deallocate( lm2lmo )
-      deallocate( wo,zo,po,so )
-      bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
 
-      if ( lreadXi ) then
-         bytes_allocated = bytes_allocated - n_data_oldP*SIZEOF_DEF_COMPLEX
+
+      !-- Inner core part
+      !
+      !
+      if ( l_mag_old ) then
+         if ( rank == 0 ) then
+            allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
+            allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
+            bytes_allocated = bytes_allocated - 4*lm_maxMag*n_r_maxMag*SIZEOF_DEF_COMPLEX
+            bytes_allocated = bytes_allocated + 4*lm_max*n_r_ic_max*SIZEOF_DEF_COMPLEX
+         else
+            allocate( workA(1,n_r_ic_max), workB(1,n_r_ic_max) )
+            allocate( workC(1,n_r_ic_max), workD(1,n_r_ic_max) )
+         end if
+
+         workA(:,:)=zero
+         workB(:,:)=zero
+         workC(:,:)=zero
+         workD(:,:)=zero
       end if
-    
-      !call mapData(n_r_max_old,l_max_old,minc_old,l_mag_old, &
-      !     w,dwdt,z,dzdt,p,dpdt,s,dsdt,b,dbdt,aj,djdt)
-    
+      
+      if ( rank == 0 ) then
+         ! deallocation of the local arrays
+         deallocate( lm2lmo )
+         deallocate( wo,zo,po,so )
+         bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
+
+         if ( lreadXi ) then
+            bytes_allocated = bytes_allocated - n_data_oldP*SIZEOF_DEF_COMPLEX
+         end if
+      end if
+
       !-- Inner core fields:
       if ( l_mag_old ) then
+    
          if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
-            allocate( lm2lmo(lm_max) )
-            call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                 &         m_max,minc,minc_old,inform,lm_max,         &
-                 &         lm_max_old,n_data_oldP,lm2lmo)
+            if ( rank == 0 ) then
+               allocate( lm2lmo(lm_max) )
+               call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
+                    &         m_max,minc,minc_old,inform,lm_max,         &
+                    &         lm_max_old,n_data_oldP,lm2lmo)
+       
+               n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
+               allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
+                         so(n_data_oldP) )
+       
+               read(n_start_file) so,wo,zo,po
+               if ( l_mag ) then
+                  call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
+                       &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
+                       &           lm2lmo,n_r_ic_maxMag,.true.,workA,        &
+                       &           workB,workC,workD )
+               end if
     
-            n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
-            allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
-                      so(n_data_oldP) )
-    
-            read(n_start_file) so,wo,zo,po
-            if ( l_mag ) then
-               call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
-                    &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
-                    &           lm2lmo,n_r_ic_maxMag,.true.,aj_ic,        &
-                    &           dbdt_ic,djdt_ic,b_ic )
+               deallocate( lm2lmo )
+               deallocate( wo,zo,po,so )
             end if
-    
-            deallocate( lm2lmo )
-            deallocate( wo,zo,po,so )
+
+            do nR=1,n_r_ic_max
+               call scatter_from_rank0_to_lo(workA(1,nR),aj_ic(llm,nR))
+               call scatter_from_rank0_to_lo(workB(1,nR),dbdt_ic(llm,nR))
+               call scatter_from_rank0_to_lo(workC(1,nR),djdt_ic(llm,nR))
+               call scatter_from_rank0_to_lo(workD(1,nR),b_ic(llm,nR))
+            end do
+
          else if ( l_cond_ic ) then
             !----- No inner core fields provided by start_file, we thus assume that
             !      simple the inner core field decays like r**(l+1) from
             !      the ICB to r=0:
             write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
     
-            do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-               lmStart=lmStartB(nLMB)
-               lmStop =lmStopB(nLMB)
-               do lm=lmStart,lmStop
-                  do nR=1,n_r_ic_max
-                     b_ic(lm,nR)   =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                     dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
-                  end do
+            do lm=llm,ulm
+               do nR=1,n_r_ic_max
+                  b_ic(lm,nR)   =b(lm,n_r_CMB)
+                  aj_ic(lm,nR)  =aj(lm,n_r_CMB)
+                  dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
+                  djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
                end do
             end do
          end if
       end if
 
-      deallocate( r_old )
-      call rscheme_oc_old%finalize() ! deallocate old radial scheme
+      deallocate( workA, workB, workC, workD )
+      
+      if ( rank == 0 ) then
+         deallocate( r_old )
+         call rscheme_oc_old%finalize() ! deallocate old radial scheme
     
-      !-- Lorentz-torques:
-      !   NOTE: If lMagMem=.false. the memory required to read
-      !         magnetic field is not available. The code therefore
-      !         cannot read lorentz torques and rotations that
-      !         are stored after the magnetic fields.
-      !         In this case I set the lorentz torques to zero and
-      !         calculate the rotation from the speed at the
-      !         boundaries in the case of no slip conditions.
-      omega_ic1Old     =0.0_cp
-      omegaOsz_ic1Old  =0.0_cp
-      tOmega_ic1       =0.0_cp
-      omega_ic2Old     =0.0_cp
-      omegaOsz_ic2Old  =0.0_cp
-      tOmega_ic2       =0.0_cp
-      omega_ma1Old     =0.0_cp
-      omegaOsz_ma1Old  =0.0_cp
-      tOmega_ma1       =0.0_cp
-      omega_ma2Old     =0.0_cp
-      omegaOsz_ma2Old  =0.0_cp
-      tOmega_ma2       =0.0_cp
-      dt_new           =dt_old
-      if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
-         read(n_start_file,iostat=ioerr) lorentz_torque_ic, lorentz_torque_ma
-         if( ioerr/=0 ) then
-            write(*,*) '! Could not read last line in input file!'
-            write(*,*) '! Data missing or wrong format!'
-            write(*,*) '! Change inform accordingly!'
-            stop
+         !-- Lorentz-torques:
+         !   NOTE: If lMagMem=.false. the memory required to read
+         !         magnetic field is not available. The code therefore
+         !         cannot read lorentz torques and rotations that
+         !         are stored after the magnetic fields.
+         !         In this case I set the lorentz torques to zero and
+         !         calculate the rotation from the speed at the
+         !         boundaries in the case of no slip conditions.
+         omega_ic1Old     =0.0_cp
+         omegaOsz_ic1Old  =0.0_cp
+         tOmega_ic1       =0.0_cp
+         omega_ic2Old     =0.0_cp
+         omegaOsz_ic2Old  =0.0_cp
+         tOmega_ic2       =0.0_cp
+         omega_ma1Old     =0.0_cp
+         omegaOsz_ma1Old  =0.0_cp
+         tOmega_ma1       =0.0_cp
+         omega_ma2Old     =0.0_cp
+         omegaOsz_ma2Old  =0.0_cp
+         tOmega_ma2       =0.0_cp
+         dt_new           =dt_old
+         if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
+            read(n_start_file,iostat=ioerr) lorentz_torque_ic, lorentz_torque_ma
+            if( ioerr/=0 ) then
+               write(*,*) '! Could not read last line in input file!'
+               write(*,*) '! Data missing or wrong format!'
+               write(*,*) '! Change inform accordingly!'
+               stop
+            end if
+         else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
+            read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
+                 lorentz_torque_ma,omega_ic,omega_ma
+            if( ioerr/=0 ) then
+               write(*,*) '! Could not read last line in input file!'
+               write(*,*) '! Data missing or wrong format!'
+               write(*,*) '! Change inform accordingly!'
+               stop
+            end if
+         else if ( inform == 7 .or. inform == 8 ) then
+            read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
+                 lorentz_torque_ma, &
+                 omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
+                 omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
+                 omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
+                 omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
+            if( ioerr/=0 ) then
+               write(*,*) '! Could not read last line in input file!'
+               write(*,*) '! Data missing or wrong format!'
+               write(*,*) '! Change inform accordingly!'
+               stop
+            end if
+         else if ( inform > 8 ) then
+            read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
+                 lorentz_torque_ma,                       &
+                 omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
+                 omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
+                 omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
+                 omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
+                 dt_new
+            if( ioerr/=0 ) then
+               write(*,*) '! Could not read last line in input file!'
+               write(*,*) '! Data missing or wrong format!'
+               write(*,*) '! Change inform accordingly!'
+               stop
+            end if
+         else
+            !-- These could possibly be calcualted from the B-field
+            lorentz_torque_ic=0.0_cp
+            lorentz_torque_ma=0.0_cp
          end if
-      else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
-         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-              lorentz_torque_ma,omega_ic,omega_ma
-         if( ioerr/=0 ) then
-            write(*,*) '! Could not read last line in input file!'
-            write(*,*) '! Data missing or wrong format!'
-            write(*,*) '! Change inform accordingly!'
-            stop
+         if ( inform < 11 ) then
+            lorentz_torque_ic=pm_old*lorentz_torque_ic
+            lorentz_torque_ma=pm_old*lorentz_torque_ma
          end if
-      else if ( inform == 7 .or. inform == 8 ) then
-         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-              lorentz_torque_ma, &
-              omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
-              omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
-              omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
-              omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2
-         if( ioerr/=0 ) then
-            write(*,*) '! Could not read last line in input file!'
-            write(*,*) '! Data missing or wrong format!'
-            write(*,*) '! Change inform accordingly!'
-            stop
+       
+         if ( l_SRIC ) then
+            if ( omega_ic1Old /= omega_ic1 )                     &
+                 write(*,*) '! New IC rotation rate 1 (old/new):', &
+                 omega_ic1Old,omega_ic1
+            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                    &
+                 write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+                 omegaOsz_ic1Old,omegaOsz_ic1
+            if ( omega_ic2Old /= omega_ic2 )                     &
+                 write(*,*) '! New IC rotation rate 2 (old/new):', &
+                 omega_ic2Old,omega_ic2
+            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                    &
+                 write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+                 omegaOsz_ic2Old,omegaOsz_ic2
          end if
-      else if ( inform > 8 ) then
-         read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
-              lorentz_torque_ma,                       &
-              omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
-              omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
-              omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
-              omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
-              dt_new
-         if( ioerr/=0 ) then
-            write(*,*) '! Could not read last line in input file!'
-            write(*,*) '! Data missing or wrong format!'
-            write(*,*) '! Change inform accordingly!'
-            stop
+         if ( l_SRMA ) then
+            if ( omega_ma1Old /= omega_ma1 )                     &
+                 write(*,*) '! New MA rotation rate 1 (old/new):', &
+                 omega_ma1Old,omega_ma1
+            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                    &
+                 write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+                 omegaOsz_ma1Old,omegaOsz_ma1
+            if ( omega_ma2Old /= omega_ma2 )                     &
+                 write(*,*) '! New MA rotation rate 2 (old/new):', &
+                 omega_ma2Old,omega_ma2
+            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                    &
+                 write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+                 omegaOsz_ma2Old,omegaOsz_ma2
          end if
-      else
-         !-- These could possibly be calcualted from the B-field
-         lorentz_torque_ic=0.0_cp
-         lorentz_torque_ma=0.0_cp
-      end if
-      if ( inform < 11 ) then
-         lorentz_torque_ic=pm_old*lorentz_torque_ic
-         lorentz_torque_ma=pm_old*lorentz_torque_ma
-      end if
+       
+       
+         !----- Set IC and mantle rotation rates:
+         !      Following cases are covered:
+         !       1) Prescribed inner-core rotation omega_ic_pre
+         !       2) Rotation has been read above ( inform >= 4)
+         !       3) Rotation calculated from flow field z(l=1,m=0)
+         !       4) No rotation
+         !       5) Flow driven by prescribed inner core rotation
+         !       l_SRIC=.true. (spherical Couette case)
+         l1m0=lm2(1,0)
+         if ( l_rot_ic ) then
+            if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+               if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+               if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
+               tOmega_ic1=time+tShift_ic1
+               tOmega_ic2=time+tShift_ic2
+               omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+                        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+               write(*,*)
+               write(*,*) '! I use prescribed inner core rotation rate:'
+               write(*,*) '! omega_ic=',omega_ic
+               if ( kbotv == 2 ) &
+                    z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+            else if ( inform >= 7 ) then
+               omega_ic=omega_ic1Old
+            end if
+         else
+            omega_ic=0.0_cp
+         end if
+       
+         !----- Mantle rotation, same as for inner core (see above)
+         !      exept the l_SRIC case.
+         if ( l_rot_ma ) then
+            if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+               if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+               if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
+               tOmega_ma1=time+tShift_ma1
+               tOmega_ma2=time+tShift_ma2
+               omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+               write(*,*)
+               write(*,*) '! I use prescribed mantle rotation rate:'
+               write(*,*) '! omega_ma =',omega_ma
+               write(*,*) '! omega_ma1=',omega_ma1
+               if ( ktopv == 2 ) &
+                    z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+            else if ( inform >= 7 ) then
+               omega_ma=omega_ma1Old
+            end if
+         else
+            omega_ma=0.0_cp
+         end if
+       
+         close(n_start_file)
+
+      end if ! rank == 0
     
-      if ( l_SRIC ) then
-         if ( omega_ic1Old /= omega_ic1 )                     &
-              write(*,*) '! New IC rotation rate 1 (old/new):', &
-              omega_ic1Old,omega_ic1
-         if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                    &
-              write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
-              omegaOsz_ic1Old,omegaOsz_ic1
-         if ( omega_ic2Old /= omega_ic2 )                     &
-              write(*,*) '! New IC rotation rate 2 (old/new):', &
-              omega_ic2Old,omega_ic2
-         if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                    &
-              write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
-              omegaOsz_ic2Old,omegaOsz_ic2
-      end if
-      if ( l_SRMA ) then
-         if ( omega_ma1Old /= omega_ma1 )                     &
-              write(*,*) '! New MA rotation rate 1 (old/new):', &
-              omega_ma1Old,omega_ma1
-         if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                    &
-              write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
-              omegaOsz_ma1Old,omegaOsz_ma1
-         if ( omega_ma2Old /= omega_ma2 )                     &
-              write(*,*) '! New MA rotation rate 2 (old/new):', &
-              omega_ma2Old,omega_ma2
-         if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                    &
-              write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
-              omegaOsz_ma2Old,omegaOsz_ma2
-      end if
-    
-    
-      !----- Set IC and mantle rotation rates:
-      !      Following cases are covered:
-      !       1) Prescribed inner-core rotation omega_ic_pre
-      !       2) Rotation has been read above ( inform >= 4)
-      !       3) Rotation calculated from flow field z(l=1,m=0)
-      !       4) No rotation
-      !       5) Flow driven by prescribed inner core rotation
-      !       l_SRIC=.true. (spherical Couette case)
-      l1m0=lm2(1,0)
-      if ( l_rot_ic ) then
-         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
-            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
-            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
-            tOmega_ic1=time+tShift_ic1
-            tOmega_ic2=time+tShift_ic2
-            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-            write(*,*)
-            write(*,*) '! I use prescribed inner core rotation rate:'
-            write(*,*) '! omega_ic=',omega_ic
-            if ( kbotv == 2 ) &
-                 z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-         else if ( inform >= 7 ) then
-            omega_ic=omega_ic1Old
-         end if
-      else
-         omega_ic=0.0_cp
-      end if
-    
-      !----- Mantle rotation, same as for inner core (see above)
-      !      exept the l_SRIC case.
-      if ( l_rot_ma ) then
-         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
-            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
-            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
-            tOmega_ma1=time+tShift_ma1
-            tOmega_ma2=time+tShift_ma2
-            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-            write(*,*)
-            write(*,*) '! I use prescribed mantle rotation rate:'
-            write(*,*) '! omega_ma =',omega_ma
-            write(*,*) '! omega_ma1=',omega_ma1
-            if ( ktopv == 2 ) &
-                 z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-         else if ( inform >= 7 ) then
-            omega_ma=omega_ma1Old
-         end if
-      else
-         omega_ma=0.0_cp
-      end if
-    
-      close(n_start_file)
- 
    end subroutine readStartFields
-!------------------------------------------------------------------------------
-#ifdef WITH_HDF5
-   subroutine readHdf5_serial(w,dwdt,z,dzdt,p,dpdt,s,dsdt,xi,dxidt, &
-              &               b,dbdt,aj,djdt,b_ic,dbdt_ic,aj_ic,    &
-              &               djdt_ic,omega_ic,omega_ma,            &
-              &               lorentz_torque_ic,lorentz_torque_ma,  &
-              &               time,dt_old,dt_new)
-
-      use hdf5
-      use hdf5Helpers, only: readHdf5_attribute
-
-      !--- Output variables
-      real(cp),    intent(out) :: time,dt_old,dt_new
-      real(cp),    intent(out) :: omega_ic,omega_ma
-      real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
-      complex(cp), intent(out) :: w(lm_max,n_r_max),z(lm_max,n_r_max)
-      complex(cp), intent(out) :: s(lm_max,n_r_max),p(lm_max,n_r_max)
-      complex(cp), intent(out) :: xi(lm_max,n_r_max)
-      complex(cp), intent(out) :: dwdt(lm_max,n_r_max),dzdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: dsdt(lm_max,n_r_max),dpdt(lm_max,n_r_max)
-      complex(cp), intent(out) :: dxidt(lm_max,n_r_max)
-      complex(cp), intent(out) :: b(lm_maxMag,n_r_maxMag),aj(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: dbdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: djdt(lm_maxMag,n_r_maxMag)
-      complex(cp), intent(out) :: b_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: aj_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: dbdt_ic(lm_maxMag,n_r_ic_maxMag)
-      complex(cp), intent(out) :: djdt_ic(lm_maxMag,n_r_ic_maxMag)
-
-      !--- Local variables
-      integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
-      integer :: l_max_old,n_r_max_old
-      integer :: n_r_ic_max_old,n_data_oldP,n_r_maxL,n_r_ic_maxL
-      integer :: l1m0,nLMB,lm,lmStart,lmStop,nR,lm_max_old
-      logical :: l_mag_old
-
-      real(cp) :: fr
-      real(cp) :: pr_old,ra_old,pm_old
-      real(cp) :: ek_old,radratio_old
-      real(cp) :: sigma_ratio_old
-      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
-      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
-      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
-      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
-
-      complex(cp), allocatable, target :: so(:),wo(:),zo(:),po(:),xio(:)
-
-      type(C_PTR) :: f_ptr
-
-      integer, allocatable :: lm2lmo(:)
-
-      !--- HDF5 file
-      integer(HID_T) :: file_id
-
-      !--- HDF5 Attributes
-      integer(HID_T) :: attr_id
-      logical :: attr_exists, link_exists
-
-      !--- HDF5 Groups
-      character(len=12) :: grpname,grpname1     ! Group names
-      integer(HID_T) :: grp_id,grp1_id
-
-      !--- HDF5 Datasets
-      integer(HID_T) :: dset_id
-
-      !--- HDF5 Type
-      integer(HSIZE_T) :: re_size,im_size,complex_t_size,offset
-      integer(HID_T) :: type_id
-
-      integer     ::   i,error
-
-      inform = 12
-
-      ! Initialize FORTRAN interface.
-      call h5open_f(error)
-
-      ! Create a new file using default properties.
-      call h5fopen_f(start_file, H5F_ACC_RDONLY_F, file_id, error)
-
-      ! Open group for control parameters and read attributes
-      grpname = '/Params'
-      call h5gopen_f(file_id, grpname, grp_id, error)
-      call readHdf5_attribute(grp_id,'Ek',ek_old)
-      call readHdf5_attribute(grp_id,'Ra',ra_old)
-      call readHdf5_attribute(grp_id,'Pr',pr_old)
-      call readHdf5_attribute(grp_id,'Prmag',pm_old)
-      call readHdf5_attribute(grp_id,'Radratio',radratio_old)
-      call readHdf5_attribute(grp_id,'Time',time)
-      call readHdf5_attribute(grp_id,'dt',dt_old)
-      call readHdf5_attribute(grp_id,'sigma_ratio',sigma_ratio_old)
-
-      call h5gclose_f(grp_id, error)
-
-      !---- Compare parameters:
-      if ( ra /= ra_old ) &
-         write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
-      if ( ek /= ek_old ) &
-         write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
-      if ( pr /= pr_old ) &
-         write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
-      if ( prmag /= pm_old )                                        &
-         write(*,'(/,'' ! New mag Pr.number (old/new):'',2ES16.6)') &
-         pm_old,prmag
-      if ( radratio /= radratio_old )                                  &
-         write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
-         radratio_old,radratio
-      if ( sigma_ratio /= sigma_ratio_old )                           &
-         write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
-         sigma_ratio_old,sigma_ratio
-
-      ! Create a HF compound type  to store Fortran complex
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,re_size,error)
-      call h5tget_size_f(H5T_NATIVE_DOUBLE,im_size,error)
-      complex_t_size = re_size+im_size
-      call h5tcreate_f(H5T_COMPOUND_F,complex_t_size,type_id,error)
-      offset = 0
-      call h5tinsert_f(type_id, 'real', offset, H5T_NATIVE_DOUBLE, error)
-      offset = offset + re_size
-      call h5tinsert_f(type_id, 'imag', offset, H5T_NATIVE_DOUBLE, error)
-
-      grpname = '/Fields'
-      grpname1 = '/dtFields'
-
-      call h5gopen_f(file_id, grpname, grp_id, error)
-      call h5gopen_f(file_id, grpname1, grp1_id, error)
-
-      call readHdf5_attribute(grp_id,'n_phi_tot',n_phi_tot_old)
-      call readHdf5_attribute(grp_id,'minc',minc_old)
-      call readHdf5_attribute(grp_id,'n_r_ic_max',n_r_ic_max_old)
-      call readHdf5_attribute(grp_id,'n_r_max',n_r_max_old)
-      call readHdf5_attribute(grp_id,'n_theta_max',n_theta_max_old)
-      call readHdf5_attribute(grp_id,'nalias',nalias_old)
-
-      l_max_old=nalias_old*n_phi_tot_old/60
-      l_mag_old=.false.
-      if ( pm_old /= 0.0_cp ) l_mag_old= .true.
-
-      if ( n_phi_tot_old /= n_phi_tot) &
-         write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
-      if ( nalias_old /= nalias) &
-         write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
-      if ( l_max_old /= l_max ) &
-         write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
-
-      allocate( lm2lmo(lm_max) )
-
-      call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
-           &         m_max,minc,minc_old,inform,lm_max,   &
-           &         lm_max_old,n_data_oldP,lm2lmo)
-      n_data_oldP=lm_max*(n_r_max+1)
-
-      allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP),so(n_data_oldP) )
-      bytes_allocated = bytes_allocated + 4*n_data_oldP*SIZEOF_DEF_COMPLEX
-
-      call h5oexists_by_name_f(file_id, '/Fields/entropy', link_exists, error)
-      if ( link_exists ) then
-         call h5dopen_f(grp_id, 'entropy', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-      end if
-      call h5dopen_f(grp_id, 'w_pol', dset_id, error)
-      f_ptr=C_LOC(wo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call h5dopen_f(grp_id, 'z_tor', dset_id, error)
-      f_ptr=C_LOC(zo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call h5dopen_f(grp_id, 'pressure', dset_id, error)
-      f_ptr=C_LOC(po)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      n_r_maxL = max(n_r_max,n_r_max_old)
-      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
-           &             n_r_max_old,lm_max_old,n_r_maxL,           &
-           &             .false.,.false.,.false.,.false.,           &
-           &             .false.,w,z,p,s,xi )
-
-      call h5oexists_by_name_f(file_id, '/dtFields/dsdtLast', link_exists, error)
-      if ( link_exists ) then
-         call h5dopen_f(grp1_id, 'dsdtLast', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-      end if
-      call h5dopen_f(grp1_id, 'dwdtLast', dset_id, error)
-      f_ptr=C_LOC(wo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call h5dopen_f(grp1_id, 'dzdtLast', dset_id, error)
-      f_ptr=C_LOC(zo)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call h5dopen_f(grp1_id, 'dpdtLast', dset_id, error)
-      f_ptr=C_LOC(po)
-      call h5dread_f(dset_id, type_id, f_ptr, error)
-      call h5dclose_f(dset_id, error)
-
-      call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,     &
-           &             n_r_max_old,lm_max_old,n_r_maxL,.true.,       &
-           &            .true.,.true.,.true.,.true.,dwdt,dzdt,         &
-           &            dpdt,dsdt,dxidt )
-
-      if ( l_mag_old ) then
-         call h5dopen_f(grp_id, 'b_pol', dset_id, error)
-         f_ptr=C_LOC(so)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp_id, 'aj_tor', dset_id, error)
-         f_ptr=C_LOC(wo)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp1_id, 'dbdtLast', dset_id, error)
-         f_ptr=C_LOC(zo)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-         call h5dopen_f(grp1_id, 'djdtLast', dset_id, error)
-         f_ptr=C_LOC(po)
-         call h5dread_f(dset_id, type_id, f_ptr, error)
-         call h5dclose_f(dset_id, error)
-
-        call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_max,n_r_max_old, &
-             &              lm_max_old,n_r_maxL,lm2lmo,n_r_maxMag,          &
-             &              .false.,aj,dbdt,djdt,b )
-      else
-        write(*,*) '! No magnetic data in input file!'
-      end if
-
-      !-- If mapping towards reduced symmetry, add thermal perturbation in
-      !   mode (l,m)=(minc,minc) if parameter tipdipole /= 0
-      if ( l_heat .and.  minc < minc_old .and. tipdipole > 0.0_cp ) then
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-            lm=l_max+2
-            if ( lmStart <= lm .and. lmStop >= lm ) then
-               do nR=1,n_r_max+1
-                  fr=sin(pi*(r(nR)-r(n_r_max)))
-                  s(lm,nR)=tipdipole*fr
-               end do
-            end if
-         end do
-      end if
-
-      !-- If starting from data file with longitudinal symmetry, add
-      !   weak non-axisymmetric dipole component if tipdipole /= 0
-      if ( ( l_mag .or. l_mag_LF )                                    &
-          &       .and. minc==1 .and. minc_old/=1 .and.               &
-          &       tipdipole>0.0_cp .and. l_mag_old ) then
-         do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-            lmStart=lmStartB(nLMB)
-            lmStop =lmStopB(nLMB)
-            lm=l_max+2
-            if ( lmStart<=lm .and. lmStop>=lm ) then
-               do nR=1,n_r_max+1
-                  b(lm,nR)=tipdipole
-               end do
-            end if
-         end do
-      end if
-
-      ! deallocation of the local arrays
-      deallocate( lm2lmo )
-      deallocate( wo,zo,po,so )
-      !bytes_allocated = bytes_allocated - 4*n_data_oldP*SIZEOF_DEF_COMPLEX
-
-      if ( l_mag_old ) then
-         if ( sigma_ratio_old /= 0.0_cp ) then
-            allocate( lm2lmo(lm_max) )
-            call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                 &         m_max,minc,minc_old,inform,lm_max,         &
-                 &         lm_max_old,n_data_oldP,lm2lmo)
-
-            n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
-            allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
-                      so(n_data_oldP) )
-
-            call h5dopen_f(grp_id, 'b_ic_pol', dset_id, error)
-            f_ptr=C_LOC(so)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp_id, 'aj_ic_tor', dset_id, error)
-            f_ptr=C_LOC(wo)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp1_id, 'dbdt_icLast', dset_id, error)
-            f_ptr=C_LOC(zo)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call h5dopen_f(grp1_id, 'djdt_icLast', dset_id, error)
-            f_ptr=C_LOC(po)
-            call h5dread_f(dset_id, type_id, f_ptr, error)
-            call h5dclose_f(dset_id, error)
-
-            call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max,      &
-                 &           n_r_ic_max_old, lm_max_old,n_r_ic_maxL,lm2lmo, &
-                 &           n_r_ic_maxMag,.true.,aj_ic,dbdt_ic,djdt_ic,b_ic )
-
-            deallocate( lm2lmo )
-            deallocate( wo,zo,po,so )
-         else if ( l_cond_ic ) then
-            !----- No inner core fields provided by start_file, we thus assume that
-            !      simple the inner core field decays like r**(l+1) from
-            !      the ICB to r=0:
-            write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
-
-            do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
-               lmStart=lmStartB(nLMB)
-               lmStop =lmStopB(nLMB)
-               do lm=lmStart,lmStop
-                  do nR=1,n_r_ic_max
-                     b_ic(lm,nR)   =b(lm,n_r_CMB)
-                     aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                     dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                     djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
-                  end do
-               end do
-            end do
-         end if
-      end if
-
-      call h5gclose_f(grp1_id, error)
-      call h5gclose_f(grp_id, error)
-
-      !-- Lorentz-torques:
-      !   NOTE: If lMagMem=.false. the memory required to read
-      !         magnetic field is not available. The code therefore
-      !         cannot read lorentz torques and rotations that
-      !         are stored after the magnetic fields.
-      !         In this case I set the lorentz torques to zero and
-      !         calculate the rotation from the speed at the
-      !         boundaries in the case of no slip conditions.
-      omega_ic1Old     =0.0_cp
-      omegaOsz_ic1Old  =0.0_cp
-      tOmega_ic1       =0.0_cp
-      omega_ic2Old     =0.0_cp
-      omegaOsz_ic2Old  =0.0_cp
-      tOmega_ic2       =0.0_cp
-      omega_ma1Old     =0.0_cp
-      omegaOsz_ma1Old  =0.0_cp
-      tOmega_ma1       =0.0_cp
-      omega_ma2Old     =0.0_cp
-      omegaOsz_ma2Old  =0.0_cp
-      tOmega_ma2       =0.0_cp
-      dt_new           =dt_old
-
-      ! Open group for control parameters and read attributes
-      grpname = '/Torque'
-      call h5gopen_f(file_id, grpname, grp_id, error)
-
-      call readHdf5_attribute(grp_id,'lorentz_torque_ic',lorentz_torque_ic)
-      call readHdf5_attribute(grp_id,'lorentz_torque_ma',lorentz_torque_ma)
-      call readHdf5_attribute(grp_id,'omega_ic1',omega_ic1Old)
-      call readHdf5_attribute(grp_id,'omegaOsz_ic1',omegaOsz_ic1Old)
-      call readHdf5_attribute(grp_id,'tOmega_ic1',tOmega_ic1)
-      call readHdf5_attribute(grp_id,'omega_ic2',omega_ic2Old)
-      call readHdf5_attribute(grp_id,'omegaOsz_ic2',omegaOsz_ic2Old)
-      call readHdf5_attribute(grp_id,'tOmega_ic2',tOmega_ic2)
-      call readHdf5_attribute(grp_id,'omega_ma1',omega_ma1Old)
-      call readHdf5_attribute(grp_id,'omegaOsz_ma1',omegaOsz_ma1Old)
-      call readHdf5_attribute(grp_id,'tOmega_ma1',tOmega_ma1)
-      call readHdf5_attribute(grp_id,'omega_ma2',omega_ma2Old)
-      call readHdf5_attribute(grp_id,'omegaOsz_ma2',omegaOsz_ma2Old)
-      call readHdf5_attribute(grp_id,'tOmega_ma2',tOmega_ma2)
-      call readHdf5_attribute(grp_id,'dtNew',dt_new)
-
-      call h5gclose_f(grp_id, error)
-
-      if ( l_SRIC ) then
-         if ( omega_ic1Old /= omega_ic1 )                     &
-            write(*,*) '! New IC rotation rate 1 (old/new):', &
-            omega_ic1Old,omega_ic1
-         if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                    &
-            write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
-            omegaOsz_ic1Old,omegaOsz_ic1
-         if ( omega_ic2Old /= omega_ic2 )                     &
-            write(*,*) '! New IC rotation rate 2 (old/new):', &
-            omega_ic2Old,omega_ic2
-         if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                    &
-            write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
-            omegaOsz_ic2Old,omegaOsz_ic2
-      end if
-      if ( l_SRMA ) then
-         if ( omega_ma1Old /= omega_ma1 )                     &
-            write(*,*) '! New MA rotation rate 1 (old/new):', &
-            omega_ma1Old,omega_ma1
-         if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                    &
-            write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
-            omegaOsz_ma1Old,omegaOsz_ma1
-         if ( omega_ma2Old /= omega_ma2 )                     &
-            write(*,*) '! New MA rotation rate 2 (old/new):', &
-            omega_ma2Old,omega_ma2
-         if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                    &
-            write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
-            omegaOsz_ma2Old,omegaOsz_ma2
-       end if
-
-
-      ! Close the file.
-      call h5fclose_f(file_id, error)
-
-      ! Close FORTRAN interface.
-      call h5close_f(error)
-
-      !----- Set IC and mantle rotation rates:
-      l1m0=lm2(1,0)
-      if ( l_rot_ic ) then
-         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
-            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
-            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
-            tOmega_ic1=time+tShift_ic1
-            tOmega_ic2=time+tShift_ic2
-            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-            write(*,*)
-            write(*,*) '! I use prescribed inner core rotation rate:'
-            write(*,*) '! omega_ic=',omega_ic
-            if ( kbotv == 2 ) &
-               z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
-         else if ( inform >= 7 ) then
-            omega_ic=omega_ic1Old
-         end if
-      else
-         omega_ic=0.0_cp
-      end if
-
-      !----- Mantle rotation, same as for inner core (see above)
-      !      exept the l_SRIC case.
-      if ( l_rot_ma ) then
-         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
-            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
-            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
-            tOmega_ma1=time+tShift_ma1
-            tOmega_ma2=time+tShift_ma2
-            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-            write(*,*)
-            write(*,*) '! I use prescribed mantle rotation rate:'
-            write(*,*) '! omega_ma =',omega_ma
-            write(*,*) '! omega_ma1=',omega_ma1
-            if ( ktopv == 2 ) &
-               z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
-         else if ( inform >= 7 ) then
-            omega_ma=omega_ma1Old
-         end if
-      else
-         omega_ma=0.0_cp
-      end if
-
-   end subroutine readHdf5_serial
-#endif
 !------------------------------------------------------------------------------
    subroutine getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
               &         m_max,minc,minc_old,inform,lm_max,   &
