@@ -6,7 +6,7 @@ module legendre_spec_to_grid
 #endif
 
    use precision_mod
-   use truncation, only: lm_max, n_m_max, nrp, l_max
+   use truncation, only: lm_max, n_m_max, nrp, l_max, l_axi
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
        &                      osn2
@@ -1317,7 +1317,54 @@ contains
          !--- Loop over all oders m: (numbered by mc)
          lm=0
          mc=0
-         do m=0,l_max,minc
+         if ( .not. l_axi ) then
+            do m=0,l_max,minc
+               mc=mc+1
+               if ( mc > nrp/2 ) then
+                  write(*,*) 'nrp too small in s_legTF!'
+                  write(*,*) 'Increase nrp in calling routine!'
+                  stop
+               end if
+               vrES =zero
+               vrEA =zero
+               cvrES=zero
+               cvrEA=zero
+               do l=m,l_max-1,2
+                  lm=lm+2
+                  vrES=vrES+dLhw(lm-1)*Plm(lm-1,nThetaNHS)
+                  if ( lHor ) then
+                     PlmG(lm-1)=dPlm(lm-1,nThetaNHS) - m*Plm(lm-1,nThetaNHS)
+                     PlmC(lm-1)=dPlm(lm-1,nThetaNHS) + m*Plm(lm-1,nThetaNHS)
+                  end if
+                  if ( lDeriv ) cvrES=cvrES+dLhz(lm-1)*Plm(lm-1,nThetaNHS)
+                  vrEA=vrEA+dLhw(lm)*Plm(lm,nThetaNHS)
+                  if ( lHor ) then
+                     PlmG(lm)=dPlm(lm,nThetaNHS)-m*Plm(lm,nThetaNHS)
+                     PlmC(lm)=dPlm(lm,nThetaNHS)+m*Plm(lm,nThetaNHS)
+                  end if
+                  if ( lDeriv ) cvrEA=cvrEA+dLhz(lm)*Plm(lm,nThetaNHS)
+               end do
+               if ( mod(l_max-m+1,2) == 1 ) then
+                  lm=lm+1
+                  vrES=vrES+dLhw(lm)*Plm(lm,nThetaNHS)
+                  if ( lHor ) then
+                     PlmG(lm)=dPlm(lm,nThetaNHS)-m*Plm(lm,nThetaNHS)
+                     PlmC(lm)=dPlm(lm,nThetaNHS)+m*Plm(lm,nThetaNHS)
+                  end if
+                  if ( lDeriv ) cvrES=cvrES+dLhz(lm)*Plm(lm,nThetaNHS)
+               end if
+               vrc(2*mc-1,nThetaN)= real(vrES+vrEA)
+               vrc(2*mc  ,nThetaN)=aimag(vrES+vrEA)
+               vrc(2*mc-1,nThetaS)= real(vrES-vrEA)
+               vrc(2*mc  ,nThetaS)=aimag(vrES-vrEA)
+               if ( lDeriv ) then
+                  cvrc(2*mc-1,nThetaN)= real(cvrES+cvrEA)
+                  cvrc(2*mc  ,nThetaN)=aimag(cvrES+cvrEA)
+                  cvrc(2*mc-1,nThetaS)= real(cvrES-cvrEA)
+                  cvrc(2*mc  ,nThetaS)=aimag(cvrES-cvrEA)
+               end if
+            end do
+         else
             mc=mc+1
             if ( mc > nrp/2 ) then
                write(*,*) 'nrp too small in s_legTF!'
@@ -1328,27 +1375,27 @@ contains
             vrEA =zero
             cvrES=zero
             cvrEA=zero
-            do l=m,l_max-1,2
+            do l=0,l_max-1,2
                lm=lm+2
                vrES=vrES+dLhw(lm-1)*Plm(lm-1,nThetaNHS)
                if ( lHor ) then
-                  PlmG(lm-1)=dPlm(lm-1,nThetaNHS) - m*Plm(lm-1,nThetaNHS)
-                  PlmC(lm-1)=dPlm(lm-1,nThetaNHS) + m*Plm(lm-1,nThetaNHS)
+                  PlmG(lm-1)=dPlm(lm-1,nThetaNHS)
+                  PlmC(lm-1)=dPlm(lm-1,nThetaNHS)
                end if
                if ( lDeriv ) cvrES=cvrES+dLhz(lm-1)*Plm(lm-1,nThetaNHS)
                vrEA=vrEA+dLhw(lm)*Plm(lm,nThetaNHS)
                if ( lHor ) then
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-m*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+m*Plm(lm,nThetaNHS)
+                  PlmG(lm)=dPlm(lm,nThetaNHS)
+                  PlmC(lm)=dPlm(lm,nThetaNHS)
                end if
                if ( lDeriv ) cvrEA=cvrEA+dLhz(lm)*Plm(lm,nThetaNHS)
             end do
-            if ( mod(l_max-m+1,2) == 1 ) then
+            if ( mod(l_max+1,2) == 1 ) then
                lm=lm+1
                vrES=vrES+dLhw(lm)*Plm(lm,nThetaNHS)
                if ( lHor ) then
-                  PlmG(lm)=dPlm(lm,nThetaNHS)-m*Plm(lm,nThetaNHS)
-                  PlmC(lm)=dPlm(lm,nThetaNHS)+m*Plm(lm,nThetaNHS)
+                  PlmG(lm)=dPlm(lm,nThetaNHS)
+                  PlmC(lm)=dPlm(lm,nThetaNHS)
                end if
                if ( lDeriv ) cvrES=cvrES+dLhz(lm)*Plm(lm,nThetaNHS)
             end if
@@ -1362,27 +1409,54 @@ contains
                cvrc(2*mc-1,nThetaS)= real(cvrES-cvrEA)
                cvrc(2*mc  ,nThetaS)=aimag(cvrES-cvrEA)
             end if
-         end do
+
+         end if ! l_axi
          n_m_max=mc
     
          !--- Now the stuff using generalized harmonics:
          if ( lHor ) then
             lm=0
             mc=0
-            do m=0,l_max,minc
+            if ( .not. l_axi ) then
+               do m=0,l_max,minc
+                  mc=mc+1
+                  vhN1=zero
+                  vhS1=zero
+                  vhN2=zero
+                  vhS2=zero
+                  do l=m,l_max-1,2
+                     lm=lm+2
+                     vhN1=vhN1+vhG(lm-1)*PlmG(lm-1)+vhG(lm)*PlmG(lm)
+                     vhS1=vhS1-vhG(lm-1)*PlmC(lm-1)+vhG(lm)*PlmC(lm)
+                     vhN2=vhN2+vhC(lm-1)*PlmC(lm-1)+vhC(lm)*PlmC(lm)
+                     vhS2=vhS2-vhC(lm-1)*PlmG(lm-1)+vhC(lm)*PlmG(lm)
+                  end do
+                  if ( mod(l_max-m+1,2) == 1 ) then
+                     lm=lm+1
+                     vhN1=vhN1+vhG(lm)*PlmG(lm)
+                     vhS1=vhS1-vhG(lm)*PlmC(lm)
+                     vhN2=vhN2+vhC(lm)*PlmC(lm)
+                     vhS2=vhS2-vhC(lm)*PlmG(lm)
+                  end if
+                  vhN1M(mc)=half*vhN1
+                  vhS1M(mc)=half*vhS1
+                  vhN2M(mc)=half*vhN2
+                  vhS2M(mc)=half*vhS2
+               end do
+            else
                mc=mc+1
                vhN1=zero
                vhS1=zero
                vhN2=zero
                vhS2=zero
-               do l=m,l_max-1,2
+               do l=0,l_max-1,2
                   lm=lm+2
                   vhN1=vhN1+vhG(lm-1)*PlmG(lm-1)+vhG(lm)*PlmG(lm)
                   vhS1=vhS1-vhG(lm-1)*PlmC(lm-1)+vhG(lm)*PlmC(lm)
                   vhN2=vhN2+vhC(lm-1)*PlmC(lm-1)+vhC(lm)*PlmC(lm)
                   vhS2=vhS2-vhC(lm-1)*PlmG(lm-1)+vhC(lm)*PlmG(lm)
                end do
-               if ( mod(l_max-m+1,2) == 1 ) then
+               if ( mod(l_max+1,2) == 1 ) then
                   lm=lm+1
                   vhN1=vhN1+vhG(lm)*PlmG(lm)
                   vhS1=vhS1-vhG(lm)*PlmC(lm)
@@ -1393,7 +1467,7 @@ contains
                vhS1M(mc)=half*vhS1
                vhN2M(mc)=half*vhN2
                vhS2M(mc)=half*vhS2
-            end do
+            end if
             !--- Unscramble:
             n_m_max=mc
             do mc=1,n_m_max
@@ -1413,20 +1487,46 @@ contains
          if ( lDeriv ) then
             lm=0
             mc=0
-            do m=0,l_max,minc
+            if ( .not. l_axi ) then
+               do m=0,l_max,minc
+                  mc=mc+1
+                  vhN1 =zero
+                  vhS1 =zero
+                  vhN2 =zero
+                  vhS2 =zero
+                  do l=m,l_max-1,2
+                     lm=lm+2
+                     vhN1=vhN1+cvhG(lm-1)*PlmG(lm-1)+cvhG(lm)*PlmG(lm)
+                     vhS1=vhS1-cvhG(lm-1)*PlmC(lm-1)+cvhG(lm)*PlmC(lm)
+                     vhN2=vhN2+cvhC(lm-1)*PlmC(lm-1)+cvhC(lm)*PlmC(lm)
+                     vhS2=vhS2-cvhC(lm-1)*PlmG(lm-1)+cvhC(lm)*PlmG(lm)
+                  end do
+                  if ( mod(l_max-m+1,2) == 1 ) then
+                     lm=lm+1
+                     vhN1=vhN1+cvhG(lm)*PlmG(lm)
+                     vhS1=vhS1-cvhG(lm)*PlmC(lm)
+                     vhN2=vhN2+cvhC(lm)*PlmC(lm)
+                     vhS2=vhS2-cvhC(lm)*PlmG(lm)
+                  end if
+                  cvhN1M(mc)=half*vhN1
+                  cvhS1M(mc)=half*vhS1
+                  cvhN2M(mc)=half*vhN2
+                  cvhS2M(mc)=half*vhS2
+               end do
+            else
                mc=mc+1
                vhN1 =zero
                vhS1 =zero
                vhN2 =zero
                vhS2 =zero
-               do l=m,l_max-1,2
+               do l=0,l_max-1,2
                   lm=lm+2
                   vhN1=vhN1+cvhG(lm-1)*PlmG(lm-1)+cvhG(lm)*PlmG(lm)
                   vhS1=vhS1-cvhG(lm-1)*PlmC(lm-1)+cvhG(lm)*PlmC(lm)
                   vhN2=vhN2+cvhC(lm-1)*PlmC(lm-1)+cvhC(lm)*PlmC(lm)
                   vhS2=vhS2-cvhC(lm-1)*PlmG(lm-1)+cvhC(lm)*PlmG(lm)
                end do
-               if ( mod(l_max-m+1,2) == 1 ) then
+               if ( mod(l_max+1,2) == 1 ) then
                   lm=lm+1
                   vhN1=vhN1+cvhG(lm)*PlmG(lm)
                   vhS1=vhS1-cvhG(lm)*PlmC(lm)
@@ -1437,7 +1537,7 @@ contains
                cvhS1M(mc)=half*vhS1
                cvhN2M(mc)=half*vhN2
                cvhS2M(mc)=half*vhS2
-            end do
+            end if
             n_m_max=mc
             do mc=1,n_m_max
                cvtc(2*mc-1,nThetaN)= real(cvhN1M(mc)+cvhN2M(mc))

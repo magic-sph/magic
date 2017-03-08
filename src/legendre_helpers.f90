@@ -2,7 +2,7 @@ module leg_helper_mod
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: lm_max, l_max, n_m_max
+   use truncation, only: lm_max, l_max, n_m_max, l_axi
    use radial_data, only: n_r_icb, n_r_cmb
    use radial_functions, only: or2
    use torsional_oscillations, only: ddzASL
@@ -379,8 +379,26 @@ contains
       end do
 
       lm=0
-      do m=0,l_max,minc
-         do l=m,l_max
+      if ( .not. l_axi ) then
+         do m=0,l_max,minc
+            do l=m,l_max
+               lm=lm+1
+               dLhw(lm)=rDep(l)*dLh(lm)*w(lm)
+               if ( lHor ) then
+                  if ( lCondIC ) then
+                     help1=rDep2(l)*((l+1)*w(lm)+r*dw(lm))
+                     help2=rDep(l)*z(lm)
+                     vhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=cp )
+                     vhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=cp )
+                  else
+                     vhG(lm)=rDep2(l)*(l+1)*w(lm) ! Only poloidal
+                     vhC(lm)=vhG(lm)
+                  end if
+               end if
+            end do
+         end do
+      else
+         do l=0,l_max
             lm=lm+1
             dLhw(lm)=rDep(l)*dLh(lm)*w(lm)
             if ( lHor ) then
@@ -395,7 +413,7 @@ contains
                end if
             end if
          end do
-      end do
+      end if
       dLhw(1)=zero
       if ( lHor ) then
          vhG(1) =zero
@@ -404,8 +422,25 @@ contains
 
       if ( lDeriv ) then
          lm=0
-         do m=0,l_max,minc
-            do l=m,l_max
+         if ( .not. l_axi ) then
+            do m=0,l_max,minc
+               do l=m,l_max
+                  lm=lm+1
+                  if ( lCondIC ) then
+                     dLhz(lm)=rDep(l)*dLh(lm)*z(lm)
+                     help1=rDep(l)*( (l+1)*z(lm)/r+dz(lm) )
+                     help2=rDep(l)*(-two*(l+1)/r*dw(lm)-ddw(lm))
+                     cvhG(lm)=help1-cmplx(-aimag(help2),real(help2),kind=cp)
+                     cvhC(lm)=help1+cmplx(-aimag(help2),real(help2),kind=cp)
+                  else
+                     dLhz(lm)=zero
+                     cvhG(lm)=zero
+                     cvhC(lm)=zero
+                  end if
+               end do
+            end do
+         else
+            do l=0,l_max
                lm=lm+1
                if ( lCondIC ) then
                   dLhz(lm)=rDep(l)*dLh(lm)*z(lm)
@@ -419,7 +454,7 @@ contains
                   cvhC(lm)=zero
                end if
             end do
-         end do
+         end if
          dLhz(1)=zero
          cvhG(1)=zero
          cvhc(1)=zero
