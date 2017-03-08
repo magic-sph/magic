@@ -26,7 +26,7 @@ n_cheb_ic_max=15,
 /
 &start_field
  l_start_file=.true.,
- start_file  ="rst_end.start",
+ start_file  ="checkpoint_end.start",
 /
 &output_control
  n_log_step  =1,
