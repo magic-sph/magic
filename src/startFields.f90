@@ -36,7 +36,7 @@ module start_fields
        &                     lo2r_xi
    use radial_der, only: get_dr, get_ddr
    use radial_der_even, only: get_ddr_even
-   use readCheckPoints, only: readStartFields
+   use readCheckPoints, only: readStartFields_old, readStartFields
     
    implicit none
 
@@ -197,41 +197,37 @@ contains
     
       if ( l_start_file ) then
 
-         call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
-              &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
-              &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
-              &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
-              &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
-              &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
-              &                lorentz_torque_icLast,lorentz_torque_maLast,    &
-              &                time,dt,dtNew,n_time_step )
+         if ( index(start_file, 'rst_') /= 0 ) then
+            call readStartFields_old( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo, &
+                 &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
+                 &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
+                 &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
+                 &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
+                 &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
+                 &                lorentz_torque_icLast,lorentz_torque_maLast,    &
+                 &                time,dt,dtNew,n_time_step )
+         else
+            call readStartFields( w_LMloc,dwdtLast_LMloc,z_LMloc,dzdtLast_lo,     &
+                 &                p_LMloc,dpdtLast_LMloc,s_LMloc,dsdtLast_LMloc,  &
+                 &                xi_LMloc,dxidtLast_LMloc,b_LMloc,dbdtLast_LMloc,&
+                 &                aj_LMloc,djdtLast_LMloc,b_ic_LMloc,             &
+                 &                dbdt_icLast_LMloc,aj_ic_LMloc,                  &
+                 &                djdt_icLast_LMloc,omega_ic,omega_ma,            &
+                 &                lorentz_torque_icLast,lorentz_torque_maLast,    &
+                 &                time,dt,dtNew,n_time_step )
+         end if
 
-         if ( rank == 0 ) then
-            if ( dt > 0.0_cp ) then
-               write(message,'(''! Using old time step:'',ES16.6)') dt
-            else
-               dt=dtMax
-               write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
-            end if
+         if ( dt > 0.0_cp ) then
+            if ( rank==0 ) write(message,'(''! Using old time step:'',ES16.6)') dt
+         else
+            dt=dtMax
+            if ( rank==0 ) write(message,'(''! Using dtMax time step:'',ES16.6)') dtMax
          end if
 
          if ( .not. l_heat ) then
             s_LMloc(:,:)       =zero
             dsdtLast_LMloc(:,:)=zero
          end if
-
-         ! ========== Redistribution of the fields ============
-         ! 1. Broadcast the scalars
-#ifdef WITH_MPI
-         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(lorentz_torque_icLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(lorentz_torque_maLast,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(dt,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(dtNew,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
-         call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
-#endif
 
             !PERFOFF
       else ! If there's no restart file
@@ -512,5 +508,5 @@ contains
       !print*,"End of getStartFields"
       !PERFOFF
    end subroutine getStartFields
-
+!------------------------------------------------------------------------------
 end module start_fields

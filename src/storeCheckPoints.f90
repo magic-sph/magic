@@ -1,7 +1,7 @@
 module storeCheckPoints
    !
    ! This module contains several subroutines that can be used to store the
-   ! rst_#.tag files
+   ! checkpoint_#.tag files
    !
 
    use precision_mod
@@ -38,10 +38,13 @@ contains
               &     dsdtLast,dxidtLast,dbdtLast,djdtLast,dbdt_icLast,      &
               &     djdt_icLast)
       !
-      ! store results on disc file (restart file)
+      ! This subroutine stores the results in a checkpoint file.
       ! In addition to the magnetic field and velocity potentials
-      ! we store the time derivative terms
-      ! djdt(lm,nR),dbdt(lm,nR), ......
+      ! we also store the time derivative terms djdt(lm,nR),dbdt(lm,nR), ...
+      ! to allow to restart with 2nd order Adams-Bashforth scheme.
+      ! To minimize the memory imprint, a gater/write strategy has been adopted
+      ! here. This implies that only one global array dimension(lm_max,n_r_max)
+      ! is required.
       !
 
       !-- Input of variables:
@@ -71,32 +74,18 @@ contains
       complex(cp), intent(in) :: djdt_icLast(llmMag:ulmMag,n_r_ic_maxMag)
 
       !-- Local variables
-      complex(cp), allocatable :: workA(:,:), workB(:,:), workC(:,:)
-      complex(cp), allocatable :: workD(:,:), workE(:,:)
+      complex(cp), allocatable :: work(:,:)
 
-      integer :: n_rst_file
+      integer :: n_rst_file, version
       character(len=72) :: string,rst_file
 
+      version = 1
+
       if ( l_stop_time .or. .not.l_new_rst_file ) then
-         rst_file="rst_end."//tag
+         rst_file="checkpoint_end."//tag
       else if ( l_new_rst_file ) then
          call dble2str(time,string)
-         rst_file='rst_t='//trim(string)//'.'//tag
-      end if
-
-      !-- Write parameters:
-      if ( .not. l_chemical_conv ) then
-         if ( .not. l_heat ) then
-            inform=21
-         else
-            inform=22
-         end if
-      else
-         if ( .not. l_heat ) then
-            inform=23
-         else
-            inform=24
-         end if
+         rst_file='checkpoint_t='//trim(string)//'.'//tag
       end if
 
       if ( rank == 0 ) then
@@ -104,9 +93,11 @@ contains
          &    form='unformatted')
 
          !-- Write the header of the file
-         write(n_rst_file) time*tScale,dt*tScale,ra,pr,prmag,ek,radratio, &
-         &              inform,n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
-         &                                        n_r_ic_max,sigma_ratio
+         write(n_rst_file) version
+         write(n_rst_file) time*tScale,dt*tScale,n_time_step
+         write(n_rst_file) ra,pr,raxi,sc,prmag,ek,radratio,sigma_ratio
+         write(n_rst_file) n_r_max,n_theta_max,n_phi_tot,minc,nalias, &
+         &                 n_r_ic_max
 
          !-- Store radius and scheme version (FD or CHEB)
          if ( rscheme_oc%version == 'cheb' ) then
@@ -116,119 +107,7 @@ contains
             write(n_rst_file) rscheme_oc%version, rscheme_oc%order, &
             &                 rscheme_oc%order_boundary, fd_stretch, fd_ratio
          end if
-      end if
 
-      !-- Memory allocation of global arrays to write outputs
-      if ( rank == 0 ) then
-         allocate( workA(lm_max,n_r_max), workB(lm_max,n_r_max) )
-         allocate( workC(lm_max,n_r_max) )
-         if ( l_chemical_conv .or. l_heat .or. l_mag ) allocate( workD(lm_max,n_r_max) )
-         if ( l_chemical_conv .and. l_heat ) allocate( workE(lm_max,n_r_max) )
-      else
-         allocate( workA(1,1), workB(1,1), workC(1,1) )
-         if ( l_chemical_conv .or. l_heat .or. l_mag ) allocate( workD(1,1) )
-         if ( l_chemical_conv .and. l_heat ) allocate( workE(1,1) )
-      end if
-
-      !-- Gather fields on rank 0
-      call gather_all_from_lo_to_rank0(gt_OC,w,workA)
-      call gather_all_from_lo_to_rank0(gt_OC,z,workB)
-      call gather_all_from_lo_to_rank0(gt_OC,p,workC)
-      if ( .not. l_chemical_conv  ) then
-         if ( l_heat ) call gather_all_from_lo_to_rank0(gt_OC,s,workD)
-      else
-         if ( l_heat ) then
-            call gather_all_from_lo_to_rank0(gt_OC,s,workD)
-            call gather_all_from_lo_to_rank0(gt_OC,xi,workE)
-         else
-            call gather_all_from_lo_to_rank0(gt_OC,xi,workD)
-         end if
-      end if
-
-      !-- Write output
-      if ( rank == 0 ) then
-         if ( .not. l_chemical_conv ) then
-            if ( l_heat ) then
-               write(n_rst_file) workA,workB,workC,workD
-            else
-               write(n_rst_file) workA,workB,workC
-            end if
-         else
-            if ( l_heat ) then
-               write(n_rst_file) workA,workB,workC,workD,workE
-            else
-               write(n_rst_file) workA,workB,workC,workD
-            end if
-         end if
-      end if
-
-      !-- Gather d?/dt fields on rank 0
-      call gather_all_from_lo_to_rank0(gt_OC,dwdtLast,workA)
-      call gather_all_from_lo_to_rank0(gt_OC,dzdtLast,workB)
-      call gather_all_from_lo_to_rank0(gt_OC,dpdtLast,workC)
-      if ( .not. l_chemical_conv  ) then
-         if ( l_heat ) call gather_all_from_lo_to_rank0(gt_OC,dsdtLast,workD)
-      else
-         if ( l_heat ) then
-            call gather_all_from_lo_to_rank0(gt_OC,dsdtLast,workD)
-            call gather_all_from_lo_to_rank0(gt_OC,dxidtLast,workE)
-         else
-            call gather_all_from_lo_to_rank0(gt_OC,dxidtLast,workD)
-         end if
-      end if
-
-      !-- Write output
-      if ( rank == 0 ) then
-         if ( .not. l_chemical_conv ) then
-            if ( l_heat ) then
-               write(n_rst_file) workD,workA,workB,workC
-            else
-               write(n_rst_file) workA,workB,workC
-            end if
-         else
-            if ( l_heat ) then
-               write(n_rst_file) workD,workA,workB,workC,workE
-            else
-               write(n_rst_file) workA,workB,workC,workD
-            end if
-         end if
-
-         if ( l_chemical_conv ) then
-            write(n_rst_file) raxi,sc
-         end if
-      end if
-
-      if ( l_chemical_conv .and. l_heat ) deallocate( workE )
-
-      if ( l_mag ) then
-         !-- Gather magnetic field
-         call gather_all_from_lo_to_rank0(gt_OC,b,workA)
-         call gather_all_from_lo_to_rank0(gt_OC,aj,workB)
-         call gather_all_from_lo_to_rank0(gt_OC,dbdtLast,workC)
-         call gather_all_from_lo_to_rank0(gt_OC,djdtLast,workD)
-
-         !-- Write magnetic field:
-         if ( rank == 0 ) write(n_rst_file) workA,workB,workC,workD
-
-         !-- Inner core
-         if ( l_cond_ic ) then
-            deallocate( workA, workB, workC, workD )
-            allocate( workA(lm_max,n_r_ic_max), workB(lm_max,n_r_ic_max) )
-            allocate( workC(lm_max,n_r_ic_max), workD(lm_max,n_r_ic_max) )
-
-            !-- Gather inner core magnetic field
-            call gather_all_from_lo_to_rank0(gt_IC,b_ic,workA)
-            call gather_all_from_lo_to_rank0(gt_IC,aj_ic,workB)
-            call gather_all_from_lo_to_rank0(gt_IC,dbdt_icLast,workC)
-            call gather_all_from_lo_to_rank0(gt_IC,djdt_icLast,workD)
-
-            !-- Write IC magnetic field:
-            if ( rank == 0 ) write(n_rst_file) workA,workB,workC,workD
-         end if
-
-      end if
-
-      if ( rank == 0 ) then
          !-- Store Lorentz-torques and rotation rates:
          write(n_rst_file) lorentz_torque_icLast,lorentz_torque_maLast, &
          &                 omega_ic1,omegaOsz_ic1,tOmega_ic1,           &
@@ -237,10 +116,91 @@ contains
          &                 omega_ma2,omegaOsz_ma2,tOmega_ma2,           &
          &                 dtNew
 
+         !-- Write logical to know how many fields are stored
+         write(n_rst_file) l_heat, l_chemical_conv, l_mag, l_cond_ic
+      end if
+
+      !-- Memory allocation of global arrays to write outputs
+      if ( rank == 0 ) then
+         allocate( work(lm_max,n_r_max) )
+      else
+         allocate( work(1,1) )
+      end if
+
+      !-- Gather fields on rank 0 and write
+
+      !-- Poloidal flow
+      call gather_all_from_lo_to_rank0(gt_OC,w,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      call gather_all_from_lo_to_rank0(gt_OC,dwdtLast,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      !-- Toroidal flow
+      call gather_all_from_lo_to_rank0(gt_OC,z,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      call gather_all_from_lo_to_rank0(gt_OC,dzdtLast,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      !-- Pressure
+      call gather_all_from_lo_to_rank0(gt_OC,p,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      call gather_all_from_lo_to_rank0(gt_OC,dpdtLast,work)
+      if ( rank == 0 ) write(n_rst_file) work
+      !-- Entropy
+      if ( l_heat) then
+         call gather_all_from_lo_to_rank0(gt_OC,s,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_OC,dsdtLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+      end if
+      !-- Chemical composition
+      if ( l_chemical_conv  ) then
+         call gather_all_from_lo_to_rank0(gt_OC,xi,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_OC,dxidtLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+      end if
+
+      !-- Outer core magnetic field
+      if ( l_mag ) then
+         call gather_all_from_lo_to_rank0(gt_OC,b,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_OC,dbdtLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_OC,aj,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_OC,djdtLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+      end if
+
+      !-- Inner core magnetic field
+      if ( l_mag .and. l_cond_ic ) then
+         deallocate( work )
+         if ( rank == 0 ) then
+            allocate ( work(lm_max, n_r_ic_max) )
+         else
+            allocate ( work(1,1) )
+         end if
+
+         call gather_all_from_lo_to_rank0(gt_IC,b_ic,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_IC,dbdt_icLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_IC,aj_ic,work)
+         if ( rank == 0 ) write(n_rst_file) work
+         call gather_all_from_lo_to_rank0(gt_IC,djdt_icLast,work)
+         if ( rank == 0 ) write(n_rst_file) work
+      end if
+
+      !-- Deallocate work array
+      deallocate( work)
+
+
+      !-- Close checkpoint file and display a message in the log file
+      if ( rank == 0 ) then
+
          close(n_rst_file)
 
          write(*,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)')&
-         &    " ! Storing restart file:",             &
+         &    " ! Storing checkpoint file:",          &
          &    "             at time=",time,           &
          &    "            step no.=",n_time_step,    &
          &    "           into file=",rst_file
@@ -250,17 +210,13 @@ contains
             &    position='append')
          end if
          write(n_log_file,'(/,1P,A,/,A,ES20.10,/,A,I15,/,A,A)') &
-         &    " ! Storing restart file:",                       &
+         &    " ! Storing checkpoint file:",                    &
          &    "             at time=",time,                     &
          &    "            step no.=",n_time_step,              &
          &    "           into file=",rst_file
          if ( l_save_out ) close(n_log_file)
 
       end if
-
-      deallocate( workA,workB,workC )
-      if ( l_chemical_conv .or. l_heat .or. l_mag ) deallocate( workD )
-
 
 
    end subroutine store

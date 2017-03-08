@@ -128,8 +128,12 @@ contains
       !call allocate_mappings(sn_map,l_max,lm_max,lmP_max)
 
       if ( rank == 0 ) then
-         write(message,*) '! Number of ranks I will use:',n_procs
-         call logWrite(message)
+         if ( l_save_out ) then
+            open(newunit=n_log_file, file=log_file, status='unknown', &
+            &    position='append')
+         end if
+         write(n_log_file,*) '! Number of ranks I will use:',n_procs
+         if ( l_save_out ) close(n_log_file)
       end if
 
       nLMBs = n_procs

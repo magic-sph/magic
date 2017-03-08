@@ -4,7 +4,7 @@ module init_fields
    !
 
    use precision_mod
-   use parallel_mod, only: rank
+   use parallel_mod
    use communications, only: r2lm_type, create_r2lm_type, lm2r_type,  &
        &                     r2lo_redist_start, r2lo_redist_wait,     &
        &                     create_lm2r_type, destroy_lm2r_type,     &
@@ -402,8 +402,12 @@ contains
             else
                omega_ma=0.0_cp
             end if
-
          end if
+
+#ifdef WITH_MPI
+         call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+         call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,rank_with_l1m0,MPI_COMM_WORLD,ierr)
+#endif
 
       else
          if ( nRotIc == 2 ) omega_ic=omega_ic1
@@ -794,7 +798,7 @@ contains
       complex(cp), intent(inout) :: xi(llm:ulm,n_r_max)
 
       !-- Local variables:
-      integer :: n_r,lm,l,m,lm00,lmMin
+      integer :: n_r,lm,l,m,lm00
       real(cp) :: x,rr,c_r,c_i,xi_r,xi_i
       real(cp) :: ra1,ra2
       real(cp) :: xi0(n_r_max),xi1(n_r_max)

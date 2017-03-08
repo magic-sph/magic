@@ -183,7 +183,7 @@ program magic
       !call get_resetTime(resetTime)
       call wallTime(runTimeStart)
       write(*,*)
-      write(*,*) '!--- Program MAGIC ', trim(codeVersion), ' ---!'
+      write(*,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
       call writeTime(6,'! Started at:',runTimeStart)
    end if
 
@@ -199,13 +199,36 @@ program magic
 
    if ( rank == 0 ) then
       open(newunit=n_log_file, file=log_file, status='new')
-      write(n_log_file,*) '!------------------------------------------------------!'
-      write(n_log_file,*) '!                                                      !'
-      write(n_log_file,*) '!       Program MAGIC ', trim(codeVersion),  &
-           &              '                              !'
-      write(n_log_file,*) '!                                                      !'
-      write(n_log_file,*) '!------------------------------------------------------!'
-      write(n_log_file,*)
+
+      write(n_log_file,*) '!      __  __             _____ _____   _____   __       '
+      write(n_log_file,*) '!     |  \/  |           |_   _/ ____| | ____| / /       '
+      write(n_log_file,*) '!     | \  / | __ _  __ _  | || |      | |__  / /_       '
+      write(n_log_file,*) '!     | |\/| |/ _` |/ _` | | || |      |___ \| "_ \      '
+      write(n_log_file,*) '!     | |  | | (_| | (_| |_| || |____   ___) | (_) |     '
+      write(n_log_file,*) '!     |_|  |_|\__,_|\__, |_____\_____| |____(_)___/      '
+      write(n_log_file,*) '!                    __/ |                               '
+      write(n_log_file,*) '!                   |___/                                '
+      write(n_log_file,*) '!                                                        '
+      write(n_log_file,*) '!                                                        '
+      write(n_log_file,*) '!                          /^\     .                     '
+      write(n_log_file,*) '!                     /\   "V"                           '
+      write(n_log_file,*) '!                    /__\   I      O  o                  '
+      write(n_log_file,*) '!                   //..\\  I     .                      '
+      write(n_log_file,*) '!                   \].`[/  I                            '
+      write(n_log_file,*) '!                   /l\/j\  (]    .  O                   '
+      write(n_log_file,*) '!                  /. ~~ ,\/I          .                 '
+      write(n_log_file,*) '!                  \\L__j^\/I       o                    '
+      write(n_log_file,*) '!                   \/--v}  I     o   .                  '
+      write(n_log_file,*) '!                   |    |  I   _________                '
+      write(n_log_file,*) '!                   |    |  I c(`       ")o              '
+      write(n_log_file,*) '!                   |    l  I   \.     ,/                '
+      write(n_log_file,*) '!                 _/j  L l\_!  _//^---^\\_               '
+      write(n_log_file,*) '!              ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~            '
+      write(n_log_file,*) '!                                                        '
+      write(n_log_file,*) '!                                                        '
+
+
+
       if ( l_save_out ) close(n_log_file)
    end if
 

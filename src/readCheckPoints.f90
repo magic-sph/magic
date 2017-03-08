@@ -44,18 +44,20 @@ module readCheckPoints
    integer(lip) :: bytes_allocated=0
    class(type_rscheme), pointer :: rscheme_oc_old
 
-   public :: readStartFields
+   public :: readStartFields_old, readStartFields
 
 contains
 
-   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,   &
-              &               xi,dxidt,b,dbdt,aj,djdt,b_ic,  &
-              &               dbdt_ic,aj_ic,djdt_ic,omega_ic,&
-              &               omega_ma,lorentz_torque_ic,    &
-              &               lorentz_torque_ma,time,dt_old, &
-              &               dt_new,n_time_step)
+   subroutine readStartFields_old(w,dwdt,z,dzdt,p,dpdt,s,dsdt,   &
+              &                   xi,dxidt,b,dbdt,aj,djdt,b_ic,  &
+              &                   dbdt_ic,aj_ic,djdt_ic,omega_ic,&
+              &                   omega_ma,lorentz_torque_ic,    &
+              &                   lorentz_torque_ma,time,dt_old, &
+              &                   dt_new,n_time_step)
       !
-      !   read initial condition from restart file 
+      ! This subroutine is used to read the old restart files produced
+      ! by MagIC. This is now deprecated with the change of the file format.
+      ! This is still needed to read old files.
       !
 
       !-- Output:
@@ -278,6 +280,8 @@ contains
       call MPI_Bcast(inform,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(sigma_ratio_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dt_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
 #endif
 
       if ( rank == 0 ) then
@@ -300,10 +304,10 @@ contains
       if ( rank == 0 ) then
          n_r_maxL = max(n_r_max,n_r_max_old)
 
-         call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
-              &            n_r_max_old,lm_max_old,n_r_maxL,            &
-              &            .false.,.false.,.false.,.false.,            &
-              &            .false.,workA,workB,workC,workD,workE )
+         call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
+              &             lm_max_old,n_r_maxL,.false.,.false.,       &
+              &             .false.,.false.,.false.,workA,workB,workC, &
+              &             workD,workE )
       end if
 
       !-- Scatter everything
@@ -349,10 +353,9 @@ contains
          end if
          !PERFOFF
        
-         call mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo,  &
-              &             n_r_max_old,lm_max_old,n_r_maxL,.true.,    &
-              &             .true.,.true.,.true.,.true.,workA,workB,   &
-              &             workC,workD,workE )
+         call mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,  &
+              &             lm_max_old,n_r_maxL,.true.,.true.,.true.,  &
+              &             .true.,.true.,workA,workB,workC,workD,workE )
       end if
 
       !-- Scatter everything
@@ -499,56 +502,72 @@ contains
       end if
 
       !-- Inner core fields:
-      if ( l_mag_old ) then
-    
-         if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
-            if ( rank == 0 ) then
-               allocate( lm2lmo(lm_max) )
-               call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
-                    &         m_max,minc,minc_old,inform,lm_max,         &
-                    &         lm_max_old,n_data_oldP,lm2lmo)
+      if ( l_mag .or. l_mag_LF ) then
+         if ( l_mag_old ) then
        
-               n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
-               allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
-                         so(n_data_oldP) )
+            if ( inform >= 2 .and. sigma_ratio_old /= 0.0_cp ) then
+               if ( rank == 0 ) then
+                  allocate( lm2lmo(lm_max) )
+                  call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
+                       &         m_max,minc,minc_old,inform,lm_max,         &
+                       &         lm_max_old,n_data_oldP,lm2lmo)
+          
+                  n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
+                  allocate( wo(n_data_oldP),zo(n_data_oldP),po(n_data_oldP), &
+                            so(n_data_oldP) )
+          
+                  read(n_start_file) so,wo,zo,po
+                  if ( l_mag ) then
+                     call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
+                          &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
+                          &           lm2lmo,n_r_ic_maxMag,.true.,workA,        &
+                          &           workB,workC,workD )
+                  end if
        
-               read(n_start_file) so,wo,zo,po
-               if ( l_mag ) then
-                  call mapDataMag( wo,zo,po,so,r_old,n_data_oldP,n_r_ic_max, &
-                       &           n_r_ic_max_old,lm_max_old,n_r_ic_maxL,    &
-                       &           lm2lmo,n_r_ic_maxMag,.true.,workA,        &
-                       &           workB,workC,workD )
+                  deallocate( lm2lmo )
+                  deallocate( wo,zo,po,so )
                end if
-    
-               deallocate( lm2lmo )
-               deallocate( wo,zo,po,so )
-            end if
 
-            do nR=1,n_r_ic_max
-               call scatter_from_rank0_to_lo(workA(1,nR),aj_ic(llm,nR))
-               call scatter_from_rank0_to_lo(workB(1,nR),dbdt_ic(llm,nR))
-               call scatter_from_rank0_to_lo(workC(1,nR),djdt_ic(llm,nR))
-               call scatter_from_rank0_to_lo(workD(1,nR),b_ic(llm,nR))
-            end do
-
-         else if ( l_cond_ic ) then
-            !----- No inner core fields provided by start_file, we thus assume that
-            !      simple the inner core field decays like r**(l+1) from
-            !      the ICB to r=0:
-            write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
-    
-            do lm=llm,ulm
                do nR=1,n_r_ic_max
-                  b_ic(lm,nR)   =b(lm,n_r_CMB)
-                  aj_ic(lm,nR)  =aj(lm,n_r_CMB)
-                  dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
-                  djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                  call scatter_from_rank0_to_lo(workA(1,nR),aj_ic(llm,nR))
+                  call scatter_from_rank0_to_lo(workB(1,nR),dbdt_ic(llm,nR))
+                  call scatter_from_rank0_to_lo(workC(1,nR),djdt_ic(llm,nR))
+                  call scatter_from_rank0_to_lo(workD(1,nR),b_ic(llm,nR))
                end do
-            end do
+
+            else if ( l_cond_ic ) then
+               !----- No inner core fields provided by start_file, we thus assume that
+               !      simple the inner core field decays like r**(l+1) from
+               !      the ICB to r=0:
+               if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+       
+               do lm=llm,ulm
+                  do nR=1,n_r_ic_max
+                     b_ic(lm,nR)   =b(lm,n_r_CMB)
+                     aj_ic(lm,nR)  =aj(lm,n_r_CMB)
+                     dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
+                     djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                  end do
+               end do
+            end if
          end if
       end if
 
       if ( l_mag_old ) deallocate( workA, workB, workC, workD )
+
+      omega_ic1Old     =0.0_cp
+      omegaOsz_ic1Old  =0.0_cp
+      tOmega_ic1       =0.0_cp
+      omega_ic2Old     =0.0_cp
+      omegaOsz_ic2Old  =0.0_cp
+      tOmega_ic2       =0.0_cp
+      omega_ma1Old     =0.0_cp
+      omegaOsz_ma1Old  =0.0_cp
+      tOmega_ma1       =0.0_cp
+      omega_ma2Old     =0.0_cp
+      omegaOsz_ma2Old  =0.0_cp
+      tOmega_ma2       =0.0_cp
+      dt_new           =dt_old
       
       if ( rank == 0 ) then
          deallocate( r_old )
@@ -562,19 +581,6 @@ contains
          !         In this case I set the lorentz torques to zero and
          !         calculate the rotation from the speed at the
          !         boundaries in the case of no slip conditions.
-         omega_ic1Old     =0.0_cp
-         omegaOsz_ic1Old  =0.0_cp
-         tOmega_ic1       =0.0_cp
-         omega_ic2Old     =0.0_cp
-         omegaOsz_ic2Old  =0.0_cp
-         tOmega_ic2       =0.0_cp
-         omega_ma1Old     =0.0_cp
-         omegaOsz_ma1Old  =0.0_cp
-         tOmega_ma1       =0.0_cp
-         omega_ma2Old     =0.0_cp
-         omegaOsz_ma2Old  =0.0_cp
-         tOmega_ma2       =0.0_cp
-         dt_new           =dt_old
          if ( inform == 3 .and. l_mag_old .and. lMagMem == 1 ) then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, lorentz_torque_ma
             if( ioerr/=0 ) then
@@ -666,6 +672,7 @@ contains
       call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
       call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dt_new,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
 #endif
        
       !----- Set IC and mantle rotation rates:
@@ -731,6 +738,638 @@ contains
       end if
        
       if (rank == 0) close(n_start_file)
+
+      ! The broadcast is still needed for old file format
+#ifdef WITH_MPI
+      call MPI_Bcast(omega_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
+
+   end subroutine readStartFields_old
+!------------------------------------------------------------------------------
+   subroutine readStartFields(w,dwdt,z,dzdt,p,dpdt,s,dsdt,   &
+              &               xi,dxidt,b,dbdt,aj,djdt,b_ic,  &
+              &               dbdt_ic,aj_ic,djdt_ic,omega_ic,&
+              &               omega_ma,lorentz_torque_ic,    &
+              &               lorentz_torque_ma,time,dt_old, &
+              &               dt_new,n_time_step)
+      !
+      ! This subroutine is used to read the restart files produced
+      ! by MagIC. 
+      !
+
+      !-- Output:
+      real(cp),    intent(out) :: time,dt_old,dt_new
+      integer,     intent(out) :: n_time_step
+      real(cp),    intent(out) :: omega_ic,omega_ma
+      real(cp),    intent(out) :: lorentz_torque_ic,lorentz_torque_ma
+      complex(cp), intent(out) :: w(llm:ulm,n_r_max),z(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: s(llm:ulm,n_r_max),p(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: xi(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dwdt(llm:ulm,n_r_max),dzdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dsdt(llm:ulm,n_r_max),dpdt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: dxidt(llm:ulm,n_r_max)
+      complex(cp), intent(out) :: b(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: aj(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: dbdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: djdt(llmMag:ulmMag,n_r_maxMag)
+      complex(cp), intent(out) :: b_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: aj_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: dbdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
+      complex(cp), intent(out) :: djdt_ic(llmMag:ulmMag,n_r_ic_maxMag)
+
+      !-- Local:
+      integer :: minc_old,n_phi_tot_old,n_theta_max_old,nalias_old
+      integer :: l_max_old,n_r_max_old
+      integer :: n_r_ic_max_old
+      real(cp) :: pr_old,ra_old,pm_old
+      real(cp) :: raxi_old,sc_old
+      real(cp) :: ek_old,radratio_old
+      real(cp) :: sigma_ratio_old
+      integer :: lm,nR,l1m0
+      logical :: l_mag_old, l_heat_old
+      logical :: l_cond_ic_old, l_chemical_conv_old
+      logical :: startfile_does_exist
+      integer :: n_r_maxL,n_r_ic_maxL,n_data_oldP,lm_max_old
+      integer, allocatable :: lm2lmo(:)
+
+      real(cp) :: fr
+      real(cp) :: omega_ic1Old,omegaOsz_ic1Old
+      real(cp) :: omega_ic2Old,omegaOsz_ic2Old
+      real(cp) :: omega_ma1Old,omegaOsz_ma1Old
+      real(cp) :: omega_ma2Old,omegaOsz_ma2Old
+
+      character(len=72) :: rscheme_version_old
+      real(cp) :: ratio1, ratio2, r_icb_old, r_cmb_old
+      integer :: n_in, n_in_2, version
+
+      complex(cp), allocatable :: workOld(:)
+      complex(cp), allocatable :: work(:,:)
+      real(cp), allocatable :: r_old(:)
+
+      if ( rank == 0 ) then
+         inquire(file=start_file, exist=startfile_does_exist)
+       
+         if ( startfile_does_exist ) then
+            open(newunit=n_start_file, file=start_file, status='old', &
+            &    form='unformatted')
+         else
+            write(*,*)
+            write(*,*) '! The restart file does not exist !'
+            stop
+         end if
+
+         read(n_start_file) version
+         read(n_start_file) time, dt_old, n_time_step
+         read(n_start_file) ra_old,pr_old,raxi_old,sc_old,pm_old, &
+         &                  ek_old,radratio_old,sigma_ratio_old
+         read(n_start_file) n_r_max_old,n_theta_max_old,n_phi_tot_old,&
+         &                  minc_old,nalias_old,n_r_ic_max_old
+       
+         !---- Compare parameters:
+         if ( ra /= ra_old ) &
+              write(*,'(/,'' ! New Rayleigh number (old/new):'',2ES16.6)') ra_old,ra
+         if ( ek /= ek_old ) &
+              write(*,'(/,'' ! New Ekman number (old/new):'',2ES16.6)') ek_old,ek
+         if ( pr /= pr_old ) &
+              write(*,'(/,'' ! New Prandtl number (old/new):'',2ES16.6)') pr_old,pr
+         if ( prmag /= pm_old )                                          &
+              write(*,'(/,'' ! New mag Pr number (old/new):'',2ES16.6)') &
+              pm_old,prmag
+            if ( raxi /= raxi_old ) &
+              write(*,'(/,'' ! New composition-based Rayleigh number (old/new):'',2ES16.6)') raxi_old,raxi
+            if ( sc /= sc_old ) &
+              write(*,'(/,'' ! New Schmidt number (old/new):'',2ES16.6)') sc_old,sc
+         if ( radratio /= radratio_old )                                    &
+              write(*,'(/,'' ! New mag aspect ratio (old/new):'',2ES16.6)') &
+              radratio_old,radratio
+         if ( sigma_ratio /= sigma_ratio_old )                             &
+              write(*,'(/,'' ! New mag cond. ratio (old/new):'',2ES16.6)') &
+              sigma_ratio_old,sigma_ratio
+       
+         if ( n_phi_tot_old == 1 ) then ! Axisymmetric restart file
+            l_max_old=nalias_old*n_theta_max_old/30
+            l_axi_old=.true.
+         else
+            l_max_old=nalias_old*n_phi_tot_old/60
+            l_axi_old=.false.
+         end if
+       
+         if ( n_phi_tot_old /= n_phi_tot) &
+              write(*,*) '! New n_phi_tot (old,new):',n_phi_tot_old,n_phi_tot
+         if ( nalias_old /= nalias) &
+              write(*,*) '! New nalias (old,new)   :',nalias_old,nalias
+         if ( l_max_old /= l_max ) &
+              write(*,*) '! New l_max (old,new)    :',l_max_old,l_max
+
+       
+         allocate( r_old(n_r_max_old) )
+
+         read(n_start_file) rscheme_version_old, n_in, n_in_2, ratio1, ratio2
+         if ( rscheme_version_old == 'cheb' ) then
+            allocate ( type_cheb_odd :: rscheme_oc_old )
+         else
+            allocate ( type_fd :: rscheme_oc_old )
+         end if
+
+         r_icb_old=radratio_old/(one-radratio_old)
+         r_cmb_old=one/(one-radratio_old)
+
+         call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
+
+         !--
+         !-- There's possibly an issue when the Chebyshev mapping was used in
+         !-- the old grid. So far get_grid uses l_newmap as a global quantity
+         !--
+         call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
+              &                       ratio2, r_old)
+
+         if ( rscheme_oc%version /= rscheme_oc_old%version ) &
+            & write(*,'(/,'' ! New radial scheme (old/new):'',2A4)') &
+            & rscheme_oc_old%version, rscheme_oc%version
+       
+         !-- Determine the old mapping
+         allocate( lm2lmo(lm_max) )
+         call getLm2lmO(n_r_max,n_r_max_old,l_max,l_max_old, &
+              &         m_max,minc,minc_old,4,lm_max,        &
+              &         lm_max_old,n_data_oldP,lm2lmo)
+         n_r_maxL = max(n_r_max,n_r_max_old)
+
+         !-- Read Lorentz torques and rotation rates:
+         read(n_start_file) lorentz_torque_ic, lorentz_torque_ma,    &
+         &                  omega_ic1Old,omegaOsz_ic1Old,tOmega_ic1, &
+         &                  omega_ic2Old,omegaOsz_ic2Old,tOmega_ic2, &
+         &                  omega_ma1Old,omegaOsz_ma1Old,tOmega_ma1, &
+         &                  omega_ma2Old,omegaOsz_ma2Old,tOmega_ma2, &
+         &                  dt_new
+       
+         if ( l_SRIC ) then
+            if ( omega_ic1Old /= omega_ic1 )                       &
+                 write(*,*) '! New IC rotation rate 1 (old/new):', &
+                 omega_ic1Old,omega_ic1
+            if ( omegaOsz_ic1Old /= omegaOsz_ic1 )                      &
+                 write(*,*) '! New IC rotation osz. rate 1 (old/new):', &
+                 omegaOsz_ic1Old,omegaOsz_ic1
+            if ( omega_ic2Old /= omega_ic2 )                       &
+                 write(*,*) '! New IC rotation rate 2 (old/new):', &
+                 omega_ic2Old,omega_ic2
+            if ( omegaOsz_ic2Old /= omegaOsz_ic2 )                      &
+                 write(*,*) '! New IC rotation osz. rate 2 (old/new):', &
+                 omegaOsz_ic2Old,omegaOsz_ic2
+         end if
+         if ( l_SRMA ) then
+            if ( omega_ma1Old /= omega_ma1 )                       &
+                 write(*,*) '! New MA rotation rate 1 (old/new):', &
+                 omega_ma1Old,omega_ma1
+            if ( omegaOsz_ma1Old /= omegaOsz_ma1 )                      &
+                 write(*,*) '! New MA rotation osz. rate 1 (old/new):', &
+                 omegaOsz_ma1Old,omegaOsz_ma1
+            if ( omega_ma2Old /= omega_ma2 )                       &
+                 write(*,*) '! New MA rotation rate 2 (old/new):', &
+                 omega_ma2Old,omega_ma2
+            if ( omegaOsz_ma2Old /= omegaOsz_ma2 )                      &
+                 write(*,*) '! New MA rotation osz. rate 2 (old/new):', &
+                 omegaOsz_ma2Old,omegaOsz_ma2
+         end if
+
+         read(n_start_file) l_heat_old, l_chemical_conv_old, l_mag_old, &
+         &                  l_cond_ic_old
+       
+      end if ! rank == 0
+
+#ifdef WITH_MPI
+      call MPI_Bcast(l_mag_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_heat_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_chemical_conv_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(l_cond_ic_old,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(minc_old,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(time,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ic1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(omega_ma1Old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ic2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma1,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(tOmega_ma2,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dt_old,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(n_time_step,1,MPI_INTEGER,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(dt_new,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lorentz_torque_ic,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+      call MPI_Bcast(lorentz_torque_ma,1,MPI_DEF_REAL,0,MPI_COMM_WORLD,ierr)
+#endif
+
+      !-- Allocate arrays
+      if ( rank == 0 ) then
+         allocate( work(lm_max,n_r_max), workOld(n_data_oldP) )
+      else
+         allocate( work(1,n_r_max), workOld(1) )
+      end if
+
+      !-- Read the poloidal flow
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+         !-- Cancel the spherically symmetric part for poloidal flow
+         work(1,:)=zero
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),w(llm:ulm,nR))
+      end do
+
+      !-- Read dwdt
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+         !-- Cancel the spherically symmetric part for poloidal flow
+         work(1,:)=zero
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),dwdt(llm:ulm,nR))
+      end do
+
+      !-- Read the toroidal flow
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+         !-- Cancel the spherically symmetric part for toroidal flow
+         work(1,:)=zero
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),z(llm:ulm,nR))
+      end do
+
+      !-- Read dzdt
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+         !-- Cancel the spherically symmetric part for toroidal flow
+         work(1,:)=zero
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),dzdt(llm:ulm,nR))
+      end do
+
+      !-- Read the pressure
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),p(llm:ulm,nR))
+      end do
+
+      !-- Read dpdt
+      if ( rank == 0 ) then
+         work(:,:)=zero
+         read(n_start_file) workOld
+         call mapOneField( workOld,scale_v,r_old,lm2lmo,n_r_max_old, &
+              &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+      end if
+      do nR=1,n_r_max
+         call scatter_from_rank0_to_lo(work(:,nR),dpdt(llm:ulm,nR))
+      end do
+
+      if ( l_heat_old ) then
+         !-- Read the entropy
+         if ( rank == 0 ) then
+            work(:,:)=zero
+            read(n_start_file) workOld
+            call mapOneField( workOld,scale_s,r_old,lm2lmo,n_r_max_old, &
+                 &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+         end if
+         if ( l_heat ) then
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),s(llm:ulm,nR))
+            end do
+         end if
+
+         !-- Read dsdt
+         if ( rank == 0 ) then
+            work(:,:)=zero
+            read(n_start_file) workOld
+            call mapOneField( workOld,scale_s,r_old,lm2lmo,n_r_max_old, &
+                 &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+         end if
+         if ( l_heat ) then
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),dsdt(llm:ulm,nR))
+            end do
+         end if
+      end if
+
+      if ( l_chemical_conv_old ) then
+         !-- Read the chemical composition
+         if ( rank == 0 ) then
+            work(:,:)=zero
+            read(n_start_file) workOld
+            call mapOneField( workOld,scale_xi,r_old,lm2lmo,n_r_max_old, &
+                 &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+         end if
+         if ( l_chemical_conv ) then
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),xi(llm:ulm,nR))
+            end do
+         end if
+
+         !-- Read dsdt
+         if ( rank == 0 ) then
+            work(:,:)=zero
+            read(n_start_file) workOld
+            call mapOneField( workOld,scale_xi,r_old,lm2lmo,n_r_max_old, &
+                 &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+         end if
+         if ( l_chemical_conv ) then
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),dxidt(llm:ulm,nR))
+            end do
+         end if
+      end if
+
+      if ( l_heat .and. .not. l_heat_old ) then ! No entropy before
+         s(:,:)   =zero
+         dsdt(:,:)=zero
+      end if
+      if ( l_chemical_conv .and. .not. l_chemical_conv_old ) then ! No composition before
+         xi(:,:)   =zero
+         dxidt(:,:)=zero
+      end if
+
+      if ( l_mag .or. l_mag_LF ) then
+
+         if ( l_mag_old ) then
+            !-- Read the poloidal magnetic field
+            if ( rank == 0 ) then
+               work(:,:)=zero
+               read(n_start_file) workOld
+               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old, &
+               &                 lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+               !-- Cancel the spherically-symmetric part
+               work(1,:)=zero
+            end if
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),b(llm:ulm,nR))
+            end do
+
+            !-- Read dbdt
+            if ( rank == 0 ) then
+               work(:,:)=zero
+               read(n_start_file) workOld
+               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+               !-- Cancel the spherically-symmetric part
+               work(1,:)=zero
+            end if
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),dbdt(llm:ulm,nR))
+            end do
+
+            !-- Read the toroidal magnetic field
+            if ( rank == 0 ) then
+               work(:,:)=zero
+               read(n_start_file) workOld
+               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &            lm_max_old,n_r_maxL,n_r_max,.false.,.false.,work )
+               !-- Cancel the spherically-symmetric part
+               work(1,:)=zero
+            end if
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),aj(llm:ulm,nR))
+            end do
+
+            !-- Read djdt
+            if ( rank == 0 ) then
+               work(:,:)=zero
+               read(n_start_file) workOld
+               call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_max_old,   &
+                    &            lm_max_old,n_r_maxL,n_r_max,.true.,.false.,work )
+               !-- Cancel the spherically-symmetric part
+               work(1,:)=zero
+            end if
+            do nR=1,n_r_max
+               call scatter_from_rank0_to_lo(work(:,nR),djdt(llm:ulm,nR))
+            end do
+
+            if ( l_cond_ic ) then
+
+               if ( l_cond_ic_old ) then
+                  deallocate( work, workOld )
+
+                  if ( rank == 0 ) then
+                     deallocate( lm2lmo )
+                     allocate( lm2lmo(lm_max) )
+                     call getLm2lmO(n_r_ic_max,n_r_ic_max_old,l_max,l_max_old, &
+                          &         m_max,minc,minc_old,4,lm_max,              &
+                          &         lm_max_old,n_data_oldP,lm2lmo)
+       
+                     n_r_ic_maxL = max(n_r_ic_max,n_r_ic_max_old)
+                     allocate( work(lm_max,n_r_ic_max) )
+                     allocate( workOld(n_data_oldP) )
+                  else
+                     allocate( work(1,n_r_ic_max), workOld(1) )
+                  end if
+
+                  !-- Read the inner core poloidal magnetic field
+                  if ( rank == 0 ) then
+                     work(:,:)=zero
+                     read(n_start_file) workOld
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
+                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.false.,   &
+                          &            .true.,work )
+                     !-- Cancel the spherically-symmetric part
+                     work(1,:)=zero
+                  end if
+                  do nR=1,n_r_ic_max
+                     call scatter_from_rank0_to_lo(work(:,nR),b_ic(llm:ulm,nR))
+                  end do
+
+                  !-- Read dbdt_ic
+                  if ( rank == 0 ) then
+                     work(:,:)=zero
+                     read(n_start_file) workOld
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
+                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.true.,    &
+                          &            .true.,work )
+                     !-- Cancel the spherically-symmetric part
+                     work(1,:)=zero
+                  end if
+                  do nR=1,n_r_ic_max
+                     call scatter_from_rank0_to_lo(work(:,nR),dbdt_ic(llm:ulm,nR))
+                  end do
+
+                  !-- Read the inner core toroidal magnetic field
+                  if ( rank == 0 ) then
+                     work(:,:)=zero
+                     read(n_start_file) workOld
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old, &
+                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.false.,   &
+                          &            .true.,work )
+                     !-- Cancel the spherically-symmetric part
+                     work(1,:)=zero
+                  end if
+                  do nR=1,n_r_ic_max
+                     call scatter_from_rank0_to_lo(work(:,nR),aj_ic(llm:ulm,nR))
+                  end do
+
+                  !-- Read djdt_ic
+                  if ( rank == 0 ) then
+                     work(:,:)=zero
+                     read(n_start_file) workOld
+                     call mapOneField( workOld,scale_b,r_old,lm2lmo,n_r_ic_max_old,&
+                          &            lm_max_old,n_r_ic_maxL,n_r_ic_max,.true.,   &
+                          &            .true.,work )
+                     !-- Cancel the spherically-symmetric part
+                     work(1,:)=zero
+                  end if
+                  do nR=1,n_r_ic_max
+                     call scatter_from_rank0_to_lo(work(:,nR),djdt_ic(llm:ulm,nR))
+                  end do
+
+                  if ( rank == 0 ) deallocate( lm2lmo )
+
+               else
+                  !-- No inner core fields provided by start_file, we thus assume that
+                  !   simple the inner core field decays like r**(l+1) from
+                  !   the ICB to r=0:
+                  if ( rank == 0 ) write(*,'(/,'' ! USING POTENTIAL IC fields!'')')
+       
+                  do lm=llm,ulm
+                     do nR=1,n_r_ic_max
+                        b_ic(lm,nR)   =b(lm,n_r_CMB)
+                        aj_ic(lm,nR)  =aj(lm,n_r_CMB)
+                        dbdt_ic(lm,nR)=dbdt(lm,n_r_CMB)
+                        djdt_ic(lm,nR)=djdt(lm,n_r_CMB)
+                     end do
+                  end do
+
+               end if
+
+            end if
+
+         else
+            if ( rank == 0 ) write(*,*) '! No magnetic data in input file!'
+         end if
+
+      end if
+
+
+      !-- Free memory
+      deallocate( work, workOld )
+      
+      !-- Close file
+      if ( rank == 0 ) then
+         deallocate( r_old )
+         call rscheme_oc_old%finalize() ! deallocate old radial scheme
+         close(n_start_file)
+      end if ! rank == 0
+
+
+      !-- If mapping towards reduced symmetry, add thermal perturbation in
+      !   mode (l,m)=(minc,minc) if parameter tipdipole  /=  0
+      if ( l_heat .and. minc<minc_old .and. tipdipole>0.0_cp ) then
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               s(lm,nR)=tipdipole*fr
+            end do
+         end if
+      end if
+
+      if ( l_chemical_conv .and. minc<minc_old .and. tipdipole>0.0_cp ) then
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               fr=sin(pi*(r(nR)-r(n_r_max)))
+               xi(lm,nR)=tipdipole*fr
+            end do
+         end if
+      end if
+    
+      !-- If starting from data file with longitudinal symmetry, add
+      !   weak non-axisymmetric dipole component if tipdipole  /=  0
+      if ( ( l_mag .or. l_mag_LF )                                &
+           &       .and. minc==1 .and. minc_old/=1 .and.          &
+           &       tipdipole>0.0_cp .and. l_mag_old ) then
+         lm=l_max+2
+         if ( lmStartB(rank+1)<=lm .and. lmStopB(rank+1)>=lm ) then
+            do nR=1,n_r_max+1
+               b(lm,nR)=tipdipole
+            end do
+         end if
+      end if
+
+      !----- Set IC and mantle rotation rates:
+      !      Following cases are covered:
+      !       1) Prescribed inner-core rotation omega_ic_pre
+      !       2) Rotation has been read above ( inform >= 4)
+      !       3) Rotation calculated from flow field z(l=1,m=0)
+      !       4) No rotation
+      !       5) Flow driven by prescribed inner core rotation
+      !       l_SRIC=.true. (spherical Couette case)
+      l1m0=lo_map%lm2(1,0)
+      if ( l_rot_ic ) then
+         if ( l_SRIC .or. omega_ic1 /= 0.0_cp ) then
+            if ( tShift_ic1 == 0.0_cp ) tShift_ic1=tOmega_ic1-time
+            if ( tShift_ic2 == 0.0_cp ) tShift_ic2=tOmega_ic2-time
+            tOmega_ic1=time+tShift_ic1
+            tOmega_ic2=time+tShift_ic2
+            omega_ic=omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
+            &        omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+            if ( rank == 0 ) then
+               write(*,*)
+               write(*,*) '! I use prescribed inner core rotation rate:'
+               write(*,*) '! omega_ic=',omega_ic
+            end if
+            if ( kbotv == 2 ) then
+               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+                  z(l1m0,n_r_icb)=cmplx(omega_ic/c_z10_omega_ic,0.0_cp,kind=cp)
+               end if
+            end if
+         else
+            omega_ic=omega_ic1Old
+         end if
+      else
+         omega_ic=0.0_cp
+      end if
+       
+      !----- Mantle rotation, same as for inner core (see above)
+      !      exept the l_SRIC case.
+      if ( l_rot_ma ) then
+         if ( l_SRMA .or. omega_ma1 /= 0.0_cp ) then
+            if ( tShift_ma1 == 0.0_cp ) tShift_ma1=tOmega_ma1-time
+            if ( tShift_ma2 == 0.0_cp ) tShift_ma2=tOmega_ma2-time
+            tOmega_ma1=time+tShift_ma1
+            tOmega_ma2=time+tShift_ma2
+            omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
+                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            if ( rank == 0 ) then
+               write(*,*)
+               write(*,*) '! I use prescribed mantle rotation rate:'
+               write(*,*) '! omega_ma =',omega_ma
+               write(*,*) '! omega_ma1=',omega_ma1
+            end if
+            if ( ktopv == 2 ) then
+               if ( lmStartB(rank+1)<=l1m0 .and. lmStopB(rank+1)>=l1m0 ) then
+                  z(l1m0,n_r_cmb)=cmplx(omega_ma/c_z10_omega_ma,0.0_cp,kind=cp)
+               end if
+            end if
+         else
+            omega_ma=omega_ma1Old
+         end if
+      else
+         omega_ma=0.0_cp
+      end if
 
    end subroutine readStartFields
 !------------------------------------------------------------------------------
@@ -842,13 +1481,66 @@ contains
 
    end subroutine getLm2lmO
 !------------------------------------------------------------------------------
-   subroutine mapDataHydro( wo,zo,po,so,xio,r_old,n_data_oldP,lm2lmo, &
-              &             n_r_max_old,lm_max_old,n_r_maxL,          &
-              &             lBc1,lBc2,lBc3,lBc4,lBc5,w,z,p,s,xi )
+   subroutine mapOneField( wo,scale_w,r_old,lm2lmo,n_r_max_old,   &
+              &            lm_max_old,n_r_maxL,dim1,lBc1,l_IC,w )
+
+      !--- Input variables
+      integer,     intent(in) :: n_r_max_old,lm_max_old,dim1
+      integer,     intent(in) :: n_r_maxL
+      logical,     intent(in) :: lBc1,l_IC
+      integer,     intent(in) :: lm2lmo(lm_max)
+      complex(cp), intent(in) :: wo(:)
+      real(cp),    intent(in) :: r_old(:)
+      real(cp),    intent(in) :: scale_w
+
+      !--- Output variables
+      complex(cp), intent(out) :: w(lm_max,dim1)
+
+      !--- Local variables
+      integer :: lm,lmo,n,nR,lmStart,lmStop,nLMB
+      complex(cp) :: woR(n_r_maxL)
+
+      do nLMB=1,nLMBs ! Blocking of loop over all (l,m)
+         lmStart=lmStartB(nLMB)
+         lmStop =lmStopB(nLMB)
+
+         do lm=lmStart,lmStop
+            lmo=lm2lmo(lm)
+            if ( lmo > 0 ) then
+               if ( dim1 /= n_r_max_old .or. &
+               &    rscheme_oc%version /= rscheme_oc_old%version ) then
+
+                  do nR=1,n_r_max_old  ! copy on help arrays
+                     n=lmo+(nR-1)*lm_max_old
+                     woR(nR)=wo(n)
+                  end do
+                  call mapDataR(woR,r_old,dim1,n_r_max_old,n_r_maxL,lBc1,l_IC)
+                  do nR=1,dim1
+                     w(lm,nR)=scale_w*woR(nR)
+                  end do
+               else
+                  do nR=1,dim1
+                     n=lmo+(nR-1)*lm_max_old
+                     w(lm,nR)=scale_w*wo(n)
+                  end do
+               end if
+            else
+               do nR=1,dim1
+                  w(lm,nR)=zero
+               end do
+            end if
+         end do
+      end do
+
+   end subroutine mapOneField
+!------------------------------------------------------------------------------
+   subroutine mapDataHydro( wo,zo,po,so,xio,r_old,lm2lmo,n_r_max_old,   &
+              &             lm_max_old,n_r_maxL,lBc1,lBc2,lBc3,lBc4,    &
+              &             lBc5,w,z,p,s,xi )
 
       !--- Input variables
       integer,     intent(in) :: n_r_max_old,lm_max_old
-      integer,     intent(in) :: n_r_maxL,n_data_oldP
+      integer,     intent(in) :: n_r_maxL
       logical,     intent(in) :: lBc1,lBc2,lBc3,lBc4,lBc5
       integer,     intent(in) :: lm2lmo(lm_max)
       complex(cp), intent(in) :: wo(:),zo(:)
