@@ -12,7 +12,7 @@ module readCheckPoints
        &                 n_r_ic_maxMag,nalias,n_phi_tot,l_max,m_max,     &
        &                 minc,lMagMem
    use logic, only: l_rot_ma,l_rot_ic,l_SRIC,l_SRMA,l_cond_ic,l_heat,l_mag, &
-       &            l_mag_LF, l_chemical_conv
+       &            l_mag_LF, l_chemical_conv, l_AB1
    use blocking, only: lo_map,lmStartB,lmStopB,nLMBs,lm2l,lm2m
    use init_fields, only: start_file,inform,tOmega_ic1,tOmega_ic2,             &
        &                  tOmega_ma1,tOmega_ma2,omega_ic1,omegaOsz_ic1,        &
@@ -819,6 +819,12 @@ contains
             write(*,*)
             write(*,*) '! The restart file does not exist !'
             stop
+         end if
+
+         if ( index(start_file, 'checkpoint_ave') /= 0 ) then
+            write(*,*) '! This is a time-averaged checkpoint'
+            write(*,*) '! d#dt arrays will be set to zero'
+            l_AB1=.true.
          end if
 
          read(n_start_file) version

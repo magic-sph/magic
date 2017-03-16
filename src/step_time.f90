@@ -26,7 +26,7 @@ module step_time_mod
        &            l_dtBmovie, l_heat, l_conv, l_movie,l_true_time,   &
        &            l_runTimeLimit, l_save_out, l_dt_cmb_field,        &
        &            l_chemical_conv, l_mag_kin, l_power, l_TP_form,    &
-       &            l_double_curl, l_PressGraph, l_probe
+       &            l_double_curl, l_PressGraph, l_probe, l_AB1
    use movie_data, only: t_movieS
    use radialLoop, only: radialLoopG
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag, lm_per_rank, &
@@ -1223,6 +1223,11 @@ contains
          if ( lVerbose ) write(*,*) '! starting lm-loop!'
          if ( lVerbose ) write(*,*) '! No of lm-blocks:',nLMBs
 
+         if ( n_time_step == 1 .and. l_AB1 ) then
+            if (rank == 0 ) write(*,*) '! 1st order Adams-Bashforth for 1st time step'
+            w1 = one
+            l_AB1 = .false.
+         end if
          call LMLoop(w1,coex,time,dt,lMat,lRmsNext,lPressNext,dVxVhLM_LMloc, &
               &      dVxBhLM_LMloc,dVSrLM_LMloc,dVPrLM_LMloc,dVXirLM_LMloc,  &
               &      dsdt_LMloc,dwdt_LMloc,dzdt_LMloc,dpdt_LMloc,dxidt_LMloc,&

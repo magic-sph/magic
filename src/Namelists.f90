@@ -302,6 +302,7 @@ contains
       l_SRIC   =.false.
       l_SRMA   =.false.
       l_Ri     =.false.
+      l_AB1    =.false.
 
       if ( mode == 1 ) then
          !-- Only convection:

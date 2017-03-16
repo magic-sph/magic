@@ -34,6 +34,11 @@ module fields_average_mod
    use legendre_spec_to_grid, only: legTF
    use radial_der_even, only: get_drNS_even, get_ddrNS_even
    use radial_der, only: get_dr
+   use fieldsLast, only: dwdtLast_LMloc, dpdtLast_LMloc, dzdtLast_lo,     &
+       &                 dsdtLast_LMloc, dxidtLast_LMloc, dbdtLast_LMloc, &
+       &                 djdtLast_LMloc, dbdt_icLast_LMloc,               &
+       &                 djdt_icLast_LMloc
+   use storeCheckPoints, only: store
  
    implicit none
  
@@ -77,6 +82,8 @@ contains
       if ( l_chemical_conv ) then
          allocate( xi_ave(llm:ulm,n_r_max) )
          bytes_allocated = bytes_allocated+(ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      else
+         allocate( xi_ave(1,1) )
       end if
 
       if ( rank == 0 ) then
@@ -117,7 +124,7 @@ contains
 
    end subroutine finalize_fields_average_mod
 !----------------------------------------------------------------------------
-   subroutine fields_average(nAve,l_stop_time,                        &
+   subroutine fields_average(simtime,dt,dtNew,nAve,l_stop_time,       &
       &                      time_passed,time_norm,omega_ic,omega_ma, &
       &                      w,z,p,s,xi,b,aj,b_ic,aj_ic)
       !
@@ -130,6 +137,8 @@ contains
       real(cp),    intent(in) :: time_passed  ! time passed since last log
       real(cp),    intent(in) :: time_norm    ! time passed since start of time loop
       real(cp),    intent(in) :: omega_ic,omega_ma
+      real(cp),    intent(in) :: dt,dtNew
+      real(cp),    intent(in) :: simtime
       complex(cp), intent(in) :: w(llm:ulm,n_r_max)
       complex(cp), intent(in) :: z(llm:ulm,n_r_max)
       complex(cp), intent(in) :: p(llm:ulm,n_r_max)
@@ -576,6 +585,13 @@ contains
             call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &
                  &        'T_lmr_ave.',omega_ma,omega_ic)
          end if
+
+         !--- Store checkpoint file
+         call store(simtime,dt,dtNew,-1,l_stop_time,.false.,.true.,         &
+              &     w_ave,z_ave,p_ave,s_ave,xi_ave,b_ave,aj_ave,b_ic_ave,   &
+              &     aj_ic_ave,dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,    &
+              &     dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,          &
+              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
 
          ! if ( l_chemical_conv ) then
             ! call write_Pot(time,s_ave,z_ave,b_ic_ave,aj_ic_ave,nTpotSets,   &

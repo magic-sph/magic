@@ -494,9 +494,9 @@ contains
                     &                timeNormLog,b_LMloc,aj_LMloc,db_LMloc,'B')
             end if
   
-            call fields_average(nLogs,l_stop_time,timePassedLog,timeNormLog, &
-                 &              omega_ic,omega_ma,w_LMloc,z_LMloc,p_LMloc,   &
-                 &              s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,           &
+            call fields_average(time,dt,dtNew,nLogs,l_stop_time,timePassedLog, &
+                 &              timeNormLog,omega_ic,omega_ma,w_LMloc,z_LMloc, &
+                 &              p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,     &
                  &              b_ic_LMloc,aj_ic_LMloc)
             PERFOFF
             if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  averages  on rank ",rank
@@ -720,11 +720,11 @@ contains
       ! Writing of the restart file
       !
       if ( l_store ) then
-         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,w_LMloc,&
-              &     z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,b_ic_LMloc,&
-              &     aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,dpdtLast_LMloc,       &
-              &     dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,djdtLast_LMloc,&
-              &     dbdt_icLast_LMloc,djdt_icLast_LMloc)
+         call store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,.false.,&
+              &     w_LMloc,z_LMloc,p_LMloc,s_LMloc,xi_LMloc,b_LMloc,aj_LMloc,   &
+              &     b_ic_LMloc,aj_ic_LMloc,dwdtLast_LMloc,dzdtLast_lo,           &
+              &     dpdtLast_LMloc,dsdtLast_LMloc,dxidtLast_LMloc,dbdtLast_LMloc,&
+              &     djdtLast_LMloc,dbdt_icLast_LMloc,djdt_icLast_LMloc)
       end if
   
   

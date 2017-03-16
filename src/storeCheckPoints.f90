@@ -33,9 +33,9 @@ module storeCheckPoints
 
 contains
 
-   subroutine store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,  &
-              &     w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdtLast,dzdtLast,dpdtLast, &
-              &     dsdtLast,dxidtLast,dbdtLast,djdtLast,dbdt_icLast,      &
+   subroutine store(time,dt,dtNew,n_time_step,l_stop_time,l_new_rst_file,     &
+              &     l_ave_file,w,z,p,s,xi,b,aj,b_ic,aj_ic,dwdtLast,dzdtLast,  &
+              &     dpdtLast,dsdtLast,dxidtLast,dbdtLast,djdtLast,dbdt_icLast,&
               &     djdt_icLast)
       !
       ! This subroutine stores the results in a checkpoint file.
@@ -51,6 +51,7 @@ contains
       real(cp),    intent(in) :: time,dt,dtNew
       integer,     intent(in) :: n_time_step
       logical,     intent(in) :: l_stop_time
+      logical,     intent(in) :: l_ave_file
       logical,     intent(in) :: l_new_rst_file
 
       !-- Input of scalar fields to be stored:
@@ -81,11 +82,15 @@ contains
 
       version = 1
 
-      if ( l_stop_time .or. .not.l_new_rst_file ) then
-         rst_file="checkpoint_end."//tag
-      else if ( l_new_rst_file ) then
-         call dble2str(time,string)
-         rst_file='checkpoint_t='//trim(string)//'.'//tag
+      if ( l_ave_file ) then
+         rst_file="checkpoint_ave."//tag
+      else
+         if ( l_stop_time .or. .not.l_new_rst_file ) then
+            rst_file="checkpoint_end."//tag
+         else if ( l_new_rst_file ) then
+            call dble2str(time,string)
+            rst_file='checkpoint_t='//trim(string)//'.'//tag
+         end if
       end if
 
       if ( rank == 0 ) then
