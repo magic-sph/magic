@@ -6,7 +6,7 @@ module fields_average_mod
    use truncation
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use radial_data, only: n_r_cmb
+   use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: chebt_ic, chebt_ic_even, r, dr_fac_ic, &
        &                       rscheme_oc
    use blocking,only: lmStartB, lmStopB, sizeThetaB, nThetaBs, lm2, nfs
@@ -55,8 +55,9 @@ module fields_average_mod
    complex(cp), allocatable :: aj_ic_ave(:,:)
  
    ! on rank 0 we also allocate the following fields
-   complex(cp), allocatable :: db_ave_global(:),aj_ave_global(:)
-   complex(cp), allocatable :: w_ave_global(:),dw_ave_global(:)
+   complex(cp), allocatable :: b_ave_global(:), bICB(:)
+   complex(cp), allocatable :: db_ave_global(:), aj_ave_global(:)
+   complex(cp), allocatable :: w_ave_global(:), dw_ave_global(:)
    complex(cp), allocatable :: z_ave_global(:), s_ave_global(:)
    complex(cp), allocatable :: p_ave_global(:), xi_ave_global(:)
  
@@ -87,6 +88,8 @@ contains
       end if
 
       if ( rank == 0 ) then
+         allocate( bICB(1:lm_max) )
+         allocate( b_ave_global(1:lm_max) )
          allocate( db_ave_global(1:lm_max) )
          allocate( aj_ave_global(1:lm_max) )
          allocate( w_ave_global(1:lm_max) )
@@ -94,12 +97,14 @@ contains
          allocate( z_ave_global(1:lm_max) )
          allocate( s_ave_global(1:lm_max) )
          allocate( p_ave_global(1:lm_max) )
-         bytes_allocated = bytes_allocated+7*lm_max*SIZEOF_DEF_COMPLEX
+         bytes_allocated = bytes_allocated+9*lm_max*SIZEOF_DEF_COMPLEX
          if ( l_chemical_conv ) then
             allocate( xi_ave_global(1:lm_max) )
             bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
          end if
       else
+         allocate( bICB(1) )
+         allocate( b_ave_global(1) )
          allocate( db_ave_global(1) )
          allocate( aj_ave_global(1) )
          allocate( w_ave_global(1) )
@@ -119,6 +124,7 @@ contains
       deallocate( w_ave, z_ave, s_ave, p_ave, b_ave, aj_ave, b_ic_ave )
       deallocate( aj_ic_ave, db_ave_global, aj_ave_global, w_ave_global )
       deallocate( dw_ave_global, z_ave_global, s_ave_global, p_ave_global )
+      deallocate( b_ave_global, bICB )
 
       if ( l_chemical_conv ) deallocate( xi_ave, xi_ave_global )
 
@@ -156,7 +162,6 @@ contains
       complex(cp) :: ddb_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
       complex(cp) :: aj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
       complex(cp) :: dj_ic_ave_global(1:lm_maxMag,n_r_ic_maxMag)
-      complex(cp) :: b_ave_global(1:lm_maxMag,n_r_maxMag)
 
       !----- Time averaged fields:
       complex(cp) :: dw_ave(llm:ulm,n_r_max)
@@ -440,14 +445,15 @@ contains
                  &        0,sizeThetaB,lGraphHeader)
          end if
 
-         !----- Transform and output of data:
-         ! b_ave is different as it is again used later for graphOut_IC
+         !-- This will be needed for the inner core
          if ( l_mag ) then
-            call gather_all_from_lo_to_rank0(gt_OC,b_ave,b_ave_global)
+            call gather_from_lo_to_rank0(b_ave(llm,n_r_icb),bICB)
          end if
+
          !----- Outer core:
          do nR=1,n_r_max
             if ( l_mag ) then
+               call gather_from_lo_to_rank0(b_ave(llm,nR),b_ave_global)
                call gather_from_lo_to_rank0(db_ave(llm,nR),db_ave_global)
                call gather_from_lo_to_rank0(aj_ave(llm,nR),aj_ave_global)
             end if
@@ -464,9 +470,9 @@ contains
 
             if ( rank == 0 ) then
                if ( l_mag ) then
-                  call legPrep(b_ave_global(1,nR),db_ave_global,db_ave_global, &
-                       &       aj_ave_global,aj_ave_global,dLh,lm_max,         &
-                       &       l_max,minc,r(nR),.false.,.true.,                &
+                  call legPrep(b_ave_global,db_ave_global,db_ave_global, &
+                       &       aj_ave_global,aj_ave_global,dLh,lm_max,   &
+                       &       l_max,minc,r(nR),.false.,.true.,          &
                        &       dLhb,bhG,bhC,dLhb,bhG,bhC)
                end if
                call legPrep(w_ave_global,dw_ave_global,dw_ave_global, &
@@ -476,13 +482,11 @@ contains
 
 #ifdef WITH_SHTNS
                if ( l_mag ) then
-                  call torpol_to_spat(b_ave_global(:, nR), db_ave_global, &
-                                      aj_ave_global, &
-                                      Br, Bt, Bp)
+                  call torpol_to_spat(b_ave_global, db_ave_global, &
+                       &              aj_ave_global, Br, Bt, Bp)
                end if
                call torpol_to_spat(w_ave_global, dw_ave_global, &
-                                   z_ave_global, &
-                                   Vr, Vt, Vp)
+                    &              z_ave_global, Vr, Vt, Vp)
                call scal_to_spat(p_ave_global, Prer)
                call scal_to_spat(s_ave_global, Sr)
                if ( l_chemical_conv ) then
@@ -548,7 +552,7 @@ contains
             if ( rank == 0 ) then
                call graphOut_IC(b_ic_ave_global,db_ic_ave_global,   &
                     &           ddb_ic_ave_global,aj_ic_ave_global, &
-                    &           dj_ic_ave_global,b_ave_global)
+                    &           dj_ic_ave_global,bICB)
             end if
          end if
 
