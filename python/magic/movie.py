@@ -440,7 +440,6 @@ class Movie:
                                  abs(self.data[ifield, k, ...].min()))
                     vmin = cut * vmin
                     vmax = -vmin
-                    print vmin, vmax, levels
                     cs = np.linspace(vmin, vmax, levels)
                 if self.surftype in ['r_constant', 'theta_constant']:
                     if deminc:
