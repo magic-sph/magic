@@ -4,7 +4,7 @@ module useful
    !
 
    use precision_mod
-   use parallel_mod, only: rank, MPI_COMM_WORLD, ierr
+   use parallel_mod
    use output_data, only: n_log_file, log_file
    use logic, only: l_save_out
    use constants, only: half, one, two
