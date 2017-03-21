@@ -16,7 +16,7 @@ module spectra
        &            l_energy_modes
    use output_data, only: tag, log_file, n_log_file, m_max_modes
    use LMLoop_data,only: llm, ulm, llmMag, ulmMag
-   use useful, only: cc2real, cc22real
+   use useful, only: cc2real, cc22real, abortRun
    use integration, only: rInt_R, rIntIC
    use constants, only: pi, vol_oc, half, one, four
 
@@ -307,8 +307,7 @@ contains
             else if ( BV == 'V' ) then
                outFile='kin_spec_ave.'//tag
             else
-               write(*,*) 'WRONG BV INPUT TO spectrum_average!'
-               stop
+               call abortRun('Wrong BV input to spectrum_average!')
             end if
             open(newunit=nOut, file=outFile, status='unknown')
             if ( BV == 'B' ) then

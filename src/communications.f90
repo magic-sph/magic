@@ -13,6 +13,7 @@ module communications
    use radial_data, only: nRstart, nRstop
    use logic, only: l_mag, l_conv, l_heat, l_chemical_conv, &
        &            l_mag_kin, l_TP_form, l_double_curl
+   use useful, only: abortRun
  
    implicit none
  
@@ -973,7 +974,7 @@ contains
                ! just copy
                do i=1,self%count
                   arr_LMLoc(llm:ulm,nRstart:nRstop,i)= &
-                           arr_Rloc(llm:ulm,nRstart:nRstop,i)
+                  &        arr_Rloc(llm:ulm,nRstart:nRstop,i)
                end do
             else
                call MPI_Irecv(arr_LMloc(llm,1+nR_per_rank*recv_pe,1),    &
@@ -1081,8 +1082,7 @@ contains
       integer :: nR,l,m
   
       if (n_procs > 1) then
-         print*,"lm2lo not yet parallelized"
-         stop
+         call abortRun('lm2lo not yet parallelized')
       end if
   
       if ( .not. l_axi ) then
@@ -1112,8 +1112,7 @@ contains
       integer :: nR,l,m
   
       if (n_procs > 1) then
-         print*,"lo2lm not yet parallelized"
-         stop
+         call abortRun('lo2lm not yet parallelized')
       end if
   
       if ( .not. l_axi ) then

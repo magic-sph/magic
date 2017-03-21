@@ -13,7 +13,7 @@ module movie_data
    use horizontal_data, only: theta, phi
    use output_data, only: n_log_file, log_file, tag
    use charmanip, only: capitalize,delete_string, str2dble,length_to_blank
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use constants, only: pi, one
    use mem_alloc, only: bytes_allocated
     
@@ -94,13 +94,6 @@ contains
                end do
             end if
          end if
-         if ( l_dtBmovie .and. ldtBMem == 0 ) then
-            call logWrite('! You required dtB caculation.')
-            call logWrite('! Please set ldtBMem=1 in truncation.f')
-            call logWrite('! This is needed to reserve memory.')
-            stop
-         end if
-
       end if
 
    end subroutine initialize_movie_data
@@ -390,6 +383,7 @@ contains
       !--- Local variables:
       logical :: lEquator
       integer :: length,length_fn,lengthC
+      character(len=200) :: message
       character(len=80) :: string,word,stringC
       character(len=80) :: file_name
       character(len=50) :: typeStr
@@ -857,8 +851,7 @@ contains
          else if ( index(string,'ENTROPY') /= 0 .or. index(string,'TEM') /= 0 ) then
             ns=index(string,'S')
             if ( string(ns:ns+2) == 'SUR' ) then
-               write(*,*) '! No surface T field available !'
-               stop
+               call abortRun('! No surface T field available !')
             end if
             n_type=21
             typeStr=' temperature field '
@@ -869,8 +862,7 @@ contains
               index(string,'HEAT' ) /= 0 ) .or. index(string,'HEATT') /= 0 ) then
             ns=index(string,'S')
             if ( string(ns:ns+2) == 'SUR' ) then
-               write(*,*) '! No surface T field available !'
-               stop
+               call abortRun('! No surface T field available !')
             end if
             n_type=22
             typeStr=' radial convective heat transport '
@@ -888,8 +880,7 @@ contains
          else if ( index(string,'HEATF') /= 0 ) then
             ns=index(string,'S')
             if ( string(ns:ns+2) == 'SUR' ) then
-               write(*,*) '! No surface T field available !'
-               stop
+               call abortRun('! No surface T field available !')
             end if
             n_type=110
             typeStr=' radial heat transport '
@@ -906,9 +897,8 @@ contains
             n_fields=1
             n_field_type(1)=51
          else
-            write(*,*) 'Couldnt interpret movie field from'
-            write(*,*) '! string:',string
-            stop
+            message = 'Couldnt interpret movie field from string:'//string
+            call abortRun(message)
          end if
     
     
@@ -1113,10 +1103,8 @@ contains
             const=rad*phi(n_const)
     
          else
-            write(*,*) 'Couldnt interpret movie surface from'
-            write(*,*) '! string:',string
-            write(*,*) '! file name:',file_name
-            stop
+            message = 'Couldnt interpret movie surface from string:'//string
+            call abortRun(message)
          end if
     
          if ( n_field_type(1) == 54 .and.                    &
@@ -1124,7 +1112,7 @@ contains
               index(string,'AX') /= 0 ) ) then
             write(*,*) 'Sorry, can only prepare movie file for'
             write(*,*) 'phi component of LF in 3d or for phi-cut.'
-            stop
+            call abortRun('Stop run in movie')
          end if
     
          !--- Now store the necessary information:
@@ -1359,8 +1347,7 @@ contains
                local_end  =local_start+nR_per_rank*n_phi_max-1
                if (rank == n_procs-1) local_end = local_start+nR_on_last_rank*n_phi_max-1
                if (local_end > n_stop) then
-                  write(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
-                  stop
+                  call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
                   recvcounts(irank) = nR_per_rank*n_phi_max
@@ -1390,8 +1377,7 @@ contains
                if (rank == n_procs-1) local_end = local_start+ &
                                                   nR_on_last_rank*n_theta_max-1
                if (local_end > n_stop) then
-                  write(*,"(A,2I7)") "local_end exceeds n_stop: ",local_end,n_stop
-                  stop
+                  call abortRun('local_end exceeds n_stop')
                end if
                do irank=0,n_procs-1
                   recvcounts(irank) = nR_per_rank*n_theta_max

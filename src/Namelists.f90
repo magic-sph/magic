@@ -19,6 +19,7 @@ module Namelists
    use charmanip, only: length_to_blank,capitalize
    use blocking, only: cacheblock_size_in_B
    use probe_mod
+   use useful, only: abortRun
 
    implicit none
  
@@ -154,18 +155,14 @@ contains
       ! get the filename of the input file as first argument from the command line
       argument_count = command_argument_count()
       if (argument_count == 0) then
-         write(*,"(A,/,A)") "The filename of the input file       &
-              &              must be provided as first argument.",&
-              &             "Aborting!"
-         stop
+         call abortRun('The filename of the input file must be provided as first argument')
       else
          call get_command_argument(1,input_filename)
 
          inquire(file = input_filename, exist = nml_exist)
 
          if (.not. nml_exist) then
-            if (rank == 0) write(*,*) '! Input namelist file not found!'
-            stop
+            call abortRun('! Input namelist file not found!')
          end if
 
          open(newunit=inputHandle,file=trim(input_filename))
@@ -461,8 +458,7 @@ contains
       call capitalize(interior_model)
 
       if ( strat > 0.0_cp .and. DissNb > 0.0_cp ) then
-         write(*,*) '! Please give either strat or DissNb in the input Namelist!'
-         stop
+         call abortRun('! Please give either strat or DissNb in the input Namelist!')
       end if
 
       if ( strat > 0.0_cp .or. DissNb > 0.0_cp ) l_anel= .true. 
@@ -495,42 +491,32 @@ contains
 
       !-- New checking of magnetic boundary condition.
       if ( kbotb > 4 ) then
-         write(*,*) '! Only outer boundary conditions kbotb<=4 implemented!'
-         stop
+         call abortRun('! Only outer boundary conditions kbotb<=4 implemented!')
       end if
       if ( sigma_ratio == 0.0_cp ) then
          l_cond_ic=.false.
          if ( kbotb == 3 ) then
-            write(*,*) '! For an insulating  IC with sigma_ratio=0   !'
-            write(*,*) '! boundary condition kbotb=3 is not appropriate!'
-            stop
+            call abortRun('! For an insulating  IC with sigma_ratio=0, kbotb=3 is not appropriate')
          end if
       else
          l_cond_ic=.true.      ! tell the code to use a conducting inner core
          if ( kbotb  /=  3 ) then
-            write(*,*) '! For a conducting IC with sigma_ratio>0   !'
-            write(*,*) '! boundary condition kbotb=3 is appropriate!'
-            stop
+            call abortRun('! For a conducting IC with sigma_ratio>0, kbotb=3 is appropriate')
          end if
       end if
 
       if ( ktopb > 4 ) then
-         write(*,*) '! Only outer boundary conditions ktopb<=4 implemented!'
-         stop
+         call abortRun('! Only outer boundary conditions ktopb<=4 implemented!')
       end if
       if ( conductance_ma == 0.0_cp ) then
          l_cond_ma=.false.
          if ( ktopb == 3 ) then
-            write(*,*) '! For an insulating mantle with conductance_ma=0 !'
-            write(*,*) '! boundary condition ktopb=3 is not appropriate!'
-            stop
+            call abortRun('! For an insulating mantle with conductance_ma=0, ktopb=3 is not appropriate')
          end if
       else
          l_cond_ma=.true.      ! tell the code to use a conducting mantle
          if ( ktopb  /=  3 ) then
-            write(*,*) '! For a conducting mantle with conductance_ma>0   !'
-            write(*,*) '! boundary condition ktopb=3 is appropriate!'
-            stop
+            call abortRun('! For a conducting mantle with conductance_ma>0, ktopb=3 is appropriate')
          end if
       end if
 
@@ -555,25 +541,17 @@ contains
       !--- Stuff for current carrying loop at equator
 
       if (l_curr .and. amp_curr == 0.0_cp) then
-         write(*,*) '! For runs with l_curr !'
-         write(*,*) '! please provide amp_curr !'
-         stop
+         call abortRun('! For runs with l_curr please provide amp_curr')
       end if
 
       !--- Stuff for spherical magnetosphere boundary: rrMP=r(magnetosphere)/r_core
       if ( n_imp /= 0 ) imagcon=0
       if ( n_imp == 1 .and. rrMP <= one ) then
-         write(*,*) '! For runs with n_imp=1!'
-         write(*,*) '! please provide rrMP>1!'
-         stop
+         call abortRun('! For runs with n_imp=1 please provide rrMP>1')
       else if ( n_imp >= 2 .and. amp_imp == 0.0_cp ) then
-         write(*,*) '! For runs with n_imp>=2!'
-         write(*,*) '! please provide amp_imp!'
-         stop
+         call abortRun('! For runs with n_imp>=2 please provide amp_imp')
       else if ((n_imp == 2 .or. n_imp ==3) .and. l_imp <= 0) then
-         write(*,*) '! For runs with n_imp=2 or n_imp=3'
-         write(*,*) '! l_imp must be >=0'
-         stop
+         call abortRun('! For runs with n_imp=2 or n_imp=3 l_imp must be >=0')
       end if
       if ( imagcon /= 0 .and. tmagcon == 0 ) tmagcon=1.0e18_cp
 

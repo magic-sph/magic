@@ -127,21 +127,21 @@ contains
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
                   c(jb+j)= c1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    +(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  -(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  +(sin60*(a(ib+i)-a(ic+i))) )
                   d(jb+j)= s1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    +(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  -(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  +(sin60*(a(ib+i)-a(ic+i))) )
                   c(jc+j)= c2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    -(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  +(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  -(sin60*(a(ib+i)-a(ic+i))) )
                   d(jc+j)= s2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    -(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  +(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  -(sin60*(a(ib+i)-a(ic+i))) )
                end do
             end do
          end do
@@ -195,17 +195,17 @@ contains
                   c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
                   d(ja+j)=(b(ia+i)+b(ic+i))+(b(ib+i)+b(id+i))
                   c(jc+j)= c2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))) &
-                          -s2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+                  &       -s2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
                   d(jc+j)= s2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))) &
-                          +c2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+                  &       +c2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
                   c(jb+j)= c1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i))) &
-                          -s1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+                  &       -s1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
                   d(jb+j)= s1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i))) &
-                          +c1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+                  &       +c1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
                   c(jd+j)= c3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i))) &
-                          -s3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+                  &       -s3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
                   d(jd+j)= s3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i))) &
-                          +c3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+                  &       +c3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
                end do
             end do
          end do
@@ -230,37 +230,37 @@ contains
                c(ja+i)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                d(ja+i)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
                c(jb+i)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))   &
-                               -cos36*(a(ic+i)+a(id+i)) ) &
-                             -( sin72*(b(ib+i)-b(ie+i)) + &
-                                sin36*(b(ic+i)-b(id+i)) )
+               &               -cos36*(a(ic+i)+a(id+i)) ) &
+               &             -( sin72*(b(ib+i)-b(ie+i)) + &
+               &                sin36*(b(ic+i)-b(id+i)) )
                c(je+i)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))   &
-                               -cos36*(a(ic+i)+a(id+i)) ) &
-                             +( sin72*(b(ib+i)-b(ie+i)) + &
-                                sin36*(b(ic+i)-b(id+i)) )
+               &               -cos36*(a(ic+i)+a(id+i)) ) &
+               &             +( sin72*(b(ib+i)-b(ie+i)) + &
+               &                sin36*(b(ic+i)-b(id+i)) )
                d(jb+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   &
-                               -cos36*(b(ic+i)+b(id+i)) ) &
-                             +( sin72*(a(ib+i)-a(ie+i)) + &
-                                sin36*(a(ic+i)-a(id+i)) )
+               &               -cos36*(b(ic+i)+b(id+i)) ) &
+               &             +( sin72*(a(ib+i)-a(ie+i)) + &
+               &                sin36*(a(ic+i)-a(id+i)) )
                d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   & 
-                               -cos36*(b(ic+i)+b(id+i)) ) &
-                             -( sin72*(a(ib+i)-a(ie+i)) + &
-                                sin36*(a(ic+i)-a(id+i)) )
+               &               -cos36*(b(ic+i)+b(id+i)) ) &
+               &             -( sin72*(a(ib+i)-a(ie+i)) + &
+               &                sin36*(a(ic+i)-a(id+i)) )
                c(jc+i)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))   &
-                               +cos72*(a(ic+i)+a(id+i)) ) &
-                             -( sin36*(b(ib+i)-b(ie+i)) - &
-                                sin72*(b(ic+i)-b(id+i)) )
+               &               +cos72*(a(ic+i)+a(id+i)) ) &
+               &             -( sin36*(b(ib+i)-b(ie+i)) - &
+               &                sin72*(b(ic+i)-b(id+i)) )
                c(jd+i)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))   &
-                               +cos72*(a(ic+i)+a(id+i)) ) &
-                             +( sin36*(b(ib+i)-b(ie+i)) - &
-                                sin72*(b(ic+i)-b(id+i)) )
+               &               +cos72*(a(ic+i)+a(id+i)) ) &
+               &             +( sin36*(b(ib+i)-b(ie+i)) - &
+               &                sin72*(b(ic+i)-b(id+i)) )
                d(jc+i)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))   &
-                               +cos72*(b(ic+i)+b(id+i)) ) &
-                             +( sin36*(a(ib+i)-a(ie+i)) - &
-                    sin72*(a(ic+i)-a(id+i)) )
+               &               +cos72*(b(ic+i)+b(id+i)) ) &
+               &             +( sin36*(a(ib+i)-a(ie+i)) - &
+               &                sin72*(a(ic+i)-a(id+i)) )
                d(jd+i)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))   &
-                               +cos72*(b(ic+i)+b(id+i)) ) &
-                             -( sin36*(a(ib+i)-a(ie+i)) - &
-                                sin72*(a(ic+i)-a(id+i)) )
+               &               +cos72*(b(ic+i)+b(id+i)) ) &
+               &             -( sin36*(a(ib+i)-a(ie+i)) - &
+               &                sin72*(a(ic+i)-a(id+i)) )
             end do
          end do
     
@@ -290,69 +290,69 @@ contains
                   c(ja+j)=a(ia+i) + (a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                   d(ja+j)=b(ia+i) + (b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
                   c(jb+j)=c1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    -( sin72*(b(ib+i)-b(ie+i))     &
-                                     + sin36*(b(ic+i)-b(id+i)) ) ) &
-                         -s1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    +( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin72*(b(ib+i)-b(ie+i))     &
+                  &                  + sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   d(jb+j)=s1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    -( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         +c1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    +( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   c(je+j)=c4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    +( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         -s4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    -( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   d(je+j)=s4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    +( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         +c4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    -( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   c(jc+j)=c2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    -( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         -s2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    +( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   d(jc+j)=s2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    -( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         +c2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    +( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   c(jd+j)=c3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    +( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         -s3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    -( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   d(jd+j)=s3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    +( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         +c3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    -( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                end do
             end do
          end do
@@ -477,21 +477,21 @@ contains
                   c(ja+j)=a(ia+i)+(a(ib+i)+a(ic+i))
                   d(ja+j)=b(ia+i)+(b(ib+i)+b(ic+i))
                   c(jb+j)= c1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    +(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  -(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       -s1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  +(sin60*(a(ib+i)-a(ic+i))) )
                   d(jb+j)= s1*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    -(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    +(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  -(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       +c1*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  +(sin60*(a(ib+i)-a(ic+i))) )
                   c(jc+j)= c2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    -(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  +(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       -s2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  -(sin60*(a(ib+i)-a(ic+i))) )
                   d(jc+j)= s2*((a(ia+i)-half*(a(ib+i)+a(ic+i)))   &
-                                    +(sin60*(b(ib+i)-b(ic+i))) ) &
-                          +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
-                                    -(sin60*(a(ib+i)-a(ic+i))) )
+                  &                  +(sin60*(b(ib+i)-b(ic+i))) ) &
+                  &       +c2*((b(ia+i)-half*(b(ib+i)+b(ic+i)))   &
+                  &                  -(sin60*(a(ib+i)-a(ic+i))) )
                end do
             end do
          end do
@@ -545,17 +545,17 @@ contains
                   c(ja+j)=(a(ia+i)+a(ic+i))+(a(ib+i)+a(id+i))
                   d(ja+j)=(b(ia+i)+b(ic+i))+(b(ib+i)+b(id+i))
                   c(jc+j)= c2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))) &
-                          -s2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+                  &       -s2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
                   d(jc+j)= s2*((a(ia+i)+a(ic+i))-(a(ib+i)+a(id+i))) &
-                          +c2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
+                  &       +c2*((b(ia+i)+b(ic+i))-(b(ib+i)+b(id+i)))
                   c(jb+j)= c1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i))) &
-                          -s1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+                  &       -s1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
                   d(jb+j)= s1*((a(ia+i)-a(ic+i))-(b(ib+i)-b(id+i))) &
-                          +c1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
+                  &       +c1*((b(ia+i)-b(ic+i))+(a(ib+i)-a(id+i)))
                   c(jd+j)= c3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i))) &
-                          -s3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+                  &       -s3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
                   d(jd+j)= s3*((a(ia+i)-a(ic+i))+(b(ib+i)-b(id+i))) &
-                          +c3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
+                  &       +c3*((b(ia+i)-b(ic+i))-(a(ib+i)-a(id+i)))
                end do
             end do
          end do
@@ -580,37 +580,37 @@ contains
                c(ja+i)=a(ia+i)+(a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                d(ja+i)=b(ia+i)+(b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
                c(jb+i)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))   &
-                               -cos36*(a(ic+i)+a(id+i)) ) &
-                             -( sin72*(b(ib+i)-b(ie+i)) + &
-                                sin36*(b(ic+i)-b(id+i)) )
+               &               -cos36*(a(ic+i)+a(id+i)) ) &
+               &             -( sin72*(b(ib+i)-b(ie+i)) + &
+               &                sin36*(b(ic+i)-b(id+i)) )
                c(je+i)=(a(ia+i)+cos72*(a(ib+i)+a(ie+i))   &
-                               -cos36*(a(ic+i)+a(id+i)) ) &
-                             +( sin72*(b(ib+i)-b(ie+i)) + &
-                                sin36*(b(ic+i)-b(id+i)) )
+               &               -cos36*(a(ic+i)+a(id+i)) ) &
+               &             +( sin72*(b(ib+i)-b(ie+i)) + &
+               &                sin36*(b(ic+i)-b(id+i)) )
                d(jb+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   &
-                               -cos36*(b(ic+i)+b(id+i)) ) &
-                             +( sin72*(a(ib+i)-a(ie+i)) + &
-                                sin36*(a(ic+i)-a(id+i)) )
+               &               -cos36*(b(ic+i)+b(id+i)) ) &
+               &             +( sin72*(a(ib+i)-a(ie+i)) + &
+               &                sin36*(a(ic+i)-a(id+i)) )
                d(je+i)=(b(ia+i)+cos72*(b(ib+i)+b(ie+i))   & 
-                               -cos36*(b(ic+i)+b(id+i)) ) &
-                             -( sin72*(a(ib+i)-a(ie+i)) + &
-                                sin36*(a(ic+i)-a(id+i)) )
+               &               -cos36*(b(ic+i)+b(id+i)) ) &
+               &             -( sin72*(a(ib+i)-a(ie+i)) + &
+               &                sin36*(a(ic+i)-a(id+i)) )
                c(jc+i)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))   &
-                               +cos72*(a(ic+i)+a(id+i)) ) &
-                             -( sin36*(b(ib+i)-b(ie+i)) - &
-                                sin72*(b(ic+i)-b(id+i)) )
+               &               +cos72*(a(ic+i)+a(id+i)) ) &
+               &             -( sin36*(b(ib+i)-b(ie+i)) - &
+               &                sin72*(b(ic+i)-b(id+i)) )
                c(jd+i)=(a(ia+i)-cos36*(a(ib+i)+a(ie+i))   &
-                               +cos72*(a(ic+i)+a(id+i)) ) &
-                             +( sin36*(b(ib+i)-b(ie+i)) - &
-                                sin72*(b(ic+i)-b(id+i)) )
+               &               +cos72*(a(ic+i)+a(id+i)) ) &
+               &             +( sin36*(b(ib+i)-b(ie+i)) - &
+               &                sin72*(b(ic+i)-b(id+i)) )
                d(jc+i)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))   &
-                               +cos72*(b(ic+i)+b(id+i)) ) &
-                             +( sin36*(a(ib+i)-a(ie+i)) - &
-                    sin72*(a(ic+i)-a(id+i)) )
+               &               +cos72*(b(ic+i)+b(id+i)) ) &
+               &             +( sin36*(a(ib+i)-a(ie+i)) - &
+               &    sin72*(a(ic+i)-a(id+i)) )
                d(jd+i)=(b(ia+i)-cos36*(b(ib+i)+b(ie+i))   &
-                               +cos72*(b(ic+i)+b(id+i)) ) &
-                             -( sin36*(a(ib+i)-a(ie+i)) - &
-                                sin72*(a(ic+i)-a(id+i)) )
+               &               +cos72*(b(ic+i)+b(id+i)) ) &
+               &             -( sin36*(a(ib+i)-a(ie+i)) - &
+               &                sin72*(a(ic+i)-a(id+i)) )
             end do
          end do
     
@@ -640,69 +640,69 @@ contains
                   c(ja+j)=a(ia+i) + (a(ib+i)+a(ie+i))+(a(ic+i)+a(id+i))
                   d(ja+j)=b(ia+i) + (b(ib+i)+b(ie+i))+(b(ic+i)+b(id+i))
                   c(jb+j)=c1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    -( sin72*(b(ib+i)-b(ie+i))     &
-                                     + sin36*(b(ic+i)-b(id+i)) ) ) &
-                         -s1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    +( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin72*(b(ib+i)-b(ie+i))     &
+                  &                  + sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   d(jb+j)=s1*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    -( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         +c1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    +( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c1*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   c(je+j)=c4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    +( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         -s4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    -( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   d(je+j)=s4*((a(ia+i)+cos72*(a(ib+i)+a(ie+i))     &
-                                      -cos36*(a(ic+i)+a(id+i)) )   &
-                                    +( sin72*(b(ib+i)-b(ie+i))     &
-                                      +sin36*(b(ic+i)-b(id+i)) ) ) &
-                         +c4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
-                                      -cos36*(b(ic+i)+b(id+i)) )   &
-                                    -( sin72*(a(ib+i)-a(ie+i))     &
-                                      +sin36*(a(ic+i)-a(id+i)) ) )
+                  &                   -cos36*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin72*(b(ib+i)-b(ie+i))     &
+                  &                   +sin36*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c4*((b(ia+i)+cos72*(b(ib+i)+b(ie+i))     &
+                  &                   -cos36*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin72*(a(ib+i)-a(ie+i))     &
+                  &                   +sin36*(a(ic+i)-a(id+i)) ) )
                   c(jc+j)=c2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    -( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         -s2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    +( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   d(jc+j)=s2*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    -( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         +c2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    +( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 -( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c2*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 +( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   c(jd+j)=c3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    +( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         -s3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    -( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      -s3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                   d(jd+j)=s3*((a(ia+i)-cos36*(a(ib+i)+a(ie+i))     &
-                                      +cos72*(a(ic+i)+a(id+i)) )   &
-                                    +( sin36*(b(ib+i)-b(ie+i))     &
-                                      -sin72*(b(ic+i)-b(id+i)) ) ) &
-                         +c3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
-                                      +cos72*(b(ic+i)+b(id+i)) )   &
-                                    -( sin36*(a(ib+i)-a(ie+i))     &
-                                      -sin72*(a(ic+i)-a(id+i)) ) )
+                  &                   +cos72*(a(ic+i)+a(id+i)) )   &
+                  &                 +( sin36*(b(ib+i)-b(ie+i))     &
+                  &                   -sin72*(b(ic+i)-b(id+i)) ) ) &
+                  &      +c3*((b(ia+i)-cos36*(b(ib+i)+b(ie+i))     &
+                  &                   +cos72*(b(ic+i)+b(id+i)) )   &
+                  &                 -( sin36*(a(ib+i)-a(ie+i))     &
+                  &                   -sin72*(a(ic+i)-a(id+i)) ) )
                end do
             end do
          end do

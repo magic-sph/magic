@@ -2,6 +2,7 @@ module plms_theta
 
    use precision_mod
    use constants, only: osq4pi, one, two
+   use useful, only: abortRun
 
    implicit none
 
@@ -99,9 +100,7 @@ contains
           !----- Now store it:
             pos=pos+1
             if ( pos > ndim_plma ) then
-               write(*,*) '! Dimension ndim_plma too small'
-               write(*,*) '! in subroutine plm_theta!'
-               stop
+               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
             end if
             plma(pos) = dnorm*plm
                
@@ -136,9 +135,7 @@ contains
          l=m
          pos=pos+1
          if ( pos > ndim_plma ) then
-            write(*,*) '! Dimension ndim_plma too small'
-            write(*,*) '! in subroutine plm_theta!'
-            stop
+            call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
          end if
          if ( m < max_degree ) then
             if( norm == 0 .OR. norm == 2 ) then
@@ -159,9 +156,7 @@ contains
 
             pos=pos+1
             if ( pos > ndim_plma ) then
-               write(*,*) '! Dimension ndim_plma too small'
-               write(*,*) '! in subroutine plm_theta!'
-               stop
+               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
             end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                   &
@@ -188,9 +183,7 @@ contains
             l=max_degree
             pos=pos+1
             if ( pos > ndim_plma ) then
-               write(*,*) '! Dimension ndim_plma too small'
-               write(*,*) '! in subroutine plm_theta!'
-               stop
+               call abortRun('! Dimension ndim_plma too small in subroutine plm_theta')
             end if
             if( norm == 0 .OR. norm == 2 ) then
                dtheta_plma(pos)=                   &

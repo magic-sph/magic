@@ -28,7 +28,7 @@ module outTO_mod
    use integration, only: rInt_R
    use plms_theta, only: plm_theta
    use TO_helpers, only: getPAStr, get_PAS, getAStr
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use legendre_grid_to_spec, only: legTFAS, legTFAS2
    use chebInt_mod, only: chebInt, chebIntInit
    use cosine_transform_odd
@@ -1144,7 +1144,7 @@ contains
          if ( lTOZwrite ) close(n_toz_file)
          if ( l_TOZave .and. nTOsets > 1 ) close (n_tozm_file)
 
-         if ( lStopRun ) stop
+         if ( lStopRun ) call abortRun('Stop run in out_TO')
 
          !------ Create Derivatives:
          f1=one/(12.0_cp*dsZ)

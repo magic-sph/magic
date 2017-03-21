@@ -29,7 +29,7 @@ module readCheckPoints
    use radial_scheme, only: type_rscheme
    use finite_differences, only: type_fd
    use cosine_transform_odd, only: costf_odd_t
-   use useful, only: polynomial_interpolation
+   use useful, only: polynomial_interpolation, abortRun
    use constants, only: one
 
 
@@ -117,9 +117,7 @@ contains
             open(newunit=n_start_file, file=start_file, status='old', &
             &    form='unformatted')
          else
-            write(*,*)
-            write(*,*) '! The restart file does not exist !'
-            stop
+            call abortRun('! The restart file does not exist !')
          end if
        
          sigma_ratio_old=0.0_cp  ! assume non conducting inner core !
@@ -587,7 +585,7 @@ contains
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
                write(*,*) '! Change inform accordingly!'
-               stop
+               call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform >= 4 .and. inform <= 6 .and. lMagMem == 1 )then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
@@ -596,7 +594,7 @@ contains
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
                write(*,*) '! Change inform accordingly!'
-               stop
+               call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform == 7 .or. inform == 8 ) then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
@@ -609,7 +607,7 @@ contains
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
                write(*,*) '! Change inform accordingly!'
-               stop
+               call abortRun('! Stop run in readStartFields')
             end if
          else if ( inform > 8 ) then
             read(n_start_file,iostat=ioerr) lorentz_torque_ic, &
@@ -623,7 +621,7 @@ contains
                write(*,*) '! Could not read last line in input file!'
                write(*,*) '! Data missing or wrong format!'
                write(*,*) '! Change inform accordingly!'
-               stop
+               call abortRun('! Stop run in readStartFields')
             end if
          else
             !-- These could possibly be calcualted from the B-field
@@ -816,9 +814,7 @@ contains
             open(newunit=n_start_file, file=start_file, status='old', &
             &    form='unformatted')
          else
-            write(*,*)
-            write(*,*) '! The restart file does not exist !'
-            stop
+            call abortRun('! The restart file does not exist !')
          end if
 
          if ( index(start_file, 'checkpoint_ave') /= 0 ) then
@@ -1444,7 +1440,7 @@ contains
 
          !-- Write info to STdoUT:
          write(*,'('' ! Old/New  l_max= '',2I4,''  m_max= '',2I4,     &
-              &       ''  minc= '',2I3,''  lm_max= '',2I5/)')         &
+              &       ''  minc= '',2I3,''  lm_max= '',2I8/)')         &
               &           l_max_old,l_max,m_max_old,m_max,            &
               &           minc_old,minc,lm_max_old,lm_max
          if ( n_r_max_old /= n_r_max )                                &

@@ -10,6 +10,7 @@ module finite_differences
    use useful, only: logWrite
    use mem_alloc, only: bytes_allocated
    use radial_scheme, only: type_rscheme
+   use useful, only: abortRun
 
    implicit none
 
@@ -159,10 +160,7 @@ contains
       if ( r(n_r_max) /= ricb ) then
 
          if ( abs(r(n_r_max)-ricb) > dr_before ) then
-            if ( rank == 0 ) then
-               write(*,*) 'Wrong internal radius!'
-            end if
-            stop
+            call abortRun('! Wrong internal radius')
          else
             r(n_r_max)=ricb
          end if

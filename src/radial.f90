@@ -21,7 +21,7 @@ module radial_functions
    use finite_differences, only: type_fd
    use radial_der, only: get_dr
    use mem_alloc, only: bytes_allocated
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use parallel_mod, only: rank
    use output_data, only: tag
 
@@ -255,7 +255,6 @@ contains
          end do
          close(fileHandle)
       end if
-      !stop
 
       or1=one/r         ! 1/r
       or2=or1*or1       ! 1/r**2
@@ -796,7 +795,7 @@ contains
                write(*,*) '! for variable thermal conductivity  '
                write(*,*) '! considering radratio < 0.2 may lead'
                write(*,*) '! to strange profiles'
-               stop
+               call abortRun('Stop the run in radial.f90')
             end if
             a0 = -0.32839722_cp
             a1 =  one
@@ -1018,8 +1017,7 @@ contains
       call sgefa(workMat,n_r_max,n_r_max,workPivot,info)
 
       if ( info /= 0 ) then
-         write(*,*) '! Singular Matrix in getBackground!'
-         stop '20'
+         call abortRun('! Singular Matrix in getBackground!')
       end if
 
       do n_r=2,n_r_max

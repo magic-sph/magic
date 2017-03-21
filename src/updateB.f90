@@ -33,6 +33,7 @@ module updateB_mod
    use fields, only: work_LMloc
    use radial_der_even, only: get_ddr_even
    use radial_der, only: get_dr, get_ddr
+   use useful, only: abortRun
    
    implicit none
 
@@ -376,8 +377,7 @@ contains
                   if ( m1 == 0 ) then   ! Magnetoconvection boundary conditions
                      if ( imagcon /= 0 .and. tmagcon <= time ) then
                         if ( l_LCR ) then
-                           write(*,*) 'LCR not compatible with imposed field!'
-                           stop
+                           call abortRun('LCR not compatible with imposed field!')
                         end if
                         if ( l1 == 2 .and. imagcon > 0 .and. imagcon  /=  12 ) then
                            rhs2(1,lmB,threadid)      =cmplx(bpeaktop,0.0_cp,kind=cp)
@@ -398,8 +398,7 @@ contains
                     if (l_curr .and. (mod(l1,2) /= 0) ) then    !Current carrying loop around equator of sphere, only odd harmonics
                         
                         if ( l_LCR ) then
-                           write(*,*) 'LCR not compatible with imposed field!'
-                           stop
+                           call abortRun('LCR not compatible with imposed field!')
                         end if                          
 
                         !General normalization for spherical harmonics of degree l and order 0
@@ -419,8 +418,7 @@ contains
 
                      if ( n_imp > 1 .and. l1 == l_imp ) then
                          if ( l_LCR ) then
-                            write(*,*) 'LCR not compatible with imposed field!'
-                            stop
+                            call abortRun('LCR not compatible with imposed field!')
                          end if
                          ! General normalization for degree l and order 0
                          yl0_norm = half*sqrt((2*l1+1)/pi)   
@@ -912,8 +910,7 @@ contains
             &                       rscheme_oc%rMat(1,nR_out) + &
             &       conductance_ma*rscheme_oc%drMat(1,nR_out) )
          else if ( ktopb == 2 ) then
-            write(*,*) '! Boundary condition ktopb=2 not defined!'
-            stop
+            call abortRun('! Boundary condition ktopb=2 not defined!')
          else if ( ktopb == 4 ) then
 
             !----- pseudo vacuum condition, field has only
@@ -957,8 +954,7 @@ contains
             bMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
          else if ( l == 3 .and. imagcon == -10 ) then
             if ( l_LCR ) then
-               write(*,*) 'Imposed field not compatible with weak conducting region!'
-               stop
+               call abortRun('Imposed field not compatible with weak conducting region!')
             end if
             jMat(1,nR_out)      =  rscheme_oc%rnorm * rscheme_oc%rMat(1,nR_out)
             jMat(n_r_max,nR_out)=  rscheme_oc%rnorm * rscheme_oc%rMat(n_r_max,nR_out)
@@ -967,8 +963,7 @@ contains
             !   not fixed but compensates the internal field so that the
             !   radial field component vanishes at r/r_cmb=rrMP
             if ( l_LCR ) then
-               write(*,*) 'Imposed field not compatible with weak conducting region!'
-               stop
+               call abortRun('Imposed field not compatible with weak conducting region!')
             end if
             rRatio=rrMP**real(2*l+1,kind=cp)
             bMat(1,nR_out)=            rscheme_oc%rnorm * (     &
@@ -1173,15 +1168,13 @@ contains
       call sgefa(bMat,n_r_tot,nRall,bPivot,info)
 
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix bmat in get_bmat.'
-         stop '32'
+         call abortRun('Singular matrix bMat in get_bmat')
       end if
 
       !----- LU decomposition:
       call sgefa(jMat,n_r_tot,nRall,jPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix ajmat in get_bmat!'
-         stop '33'
+         call abortRun('! Singular matrix ajmat in get_bmat!')
       end if
 
    end subroutine get_bMat

@@ -32,7 +32,7 @@ module init_fields
    use radial_data, only: n_r_icb, n_r_cmb, nRstart, nRstop
    use constants, only: pi, y10_norm, c_z10_omega_ic, c_z10_omega_ma, osq4pi, &
        &                zero, one, two, three, four, third, half
-   use useful, only: random
+   use useful, only: random, abortRun
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag
 #ifdef WITH_SHTNS
    use shtns
@@ -551,12 +551,12 @@ contains
          if ( mod(m,minc) /= 0 ) then
             write(*,*) '! Wave number of mode for entropy initialisation'
             write(*,*) '! not compatible with phi-symmetry:',m
-            stop
+            call abortRun('Stop run in init')
          end if
          if ( l > l_max .or. l < m ) then
             write(*,*) '! Degree of mode for entropy initialisation'
             write(*,*) '! > l_max or < m !',l
-            stop
+            call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
          if( (lm>=lmStartB(rank+1)) .and. (lm<=lmStopB(rank+1)) ) then
@@ -575,13 +575,13 @@ contains
             if ( mod(m,minc) /= 0 ) then
                write(*,*) '! Wave number of mode for entropy initialisation'
                write(*,*) '! not compatible with phi-symmetry:',m
-               stop
+               call abortRun('Stop run in init')
             end if
             l=init_s2/100
             if ( l > l_max .or. l < m ) then
                write(*,*) '! Degree of mode for entropy initialisation'
                write(*,*) '! > l_max or < m !',l
-               stop
+               call abortRun('Stop run in init')
             end if
 
             lm=lo_map%lm2(l,m)
@@ -613,8 +613,7 @@ contains
       !-- Now care for the prescribed boundary condition:
 
       if ( minc /= 1 ) then
-         write(*,*) '! impS doesnt work for minc /= 1'
-         stop
+         call abortRun('! impS doesnt work for minc /= 1')
       end if
 
       if ( abs(impS) == 1 ) then
@@ -684,7 +683,7 @@ contains
          write(*,*) '! No relative amplitudes possible!'
          write(*,*) '! for impS<0 because the mean value!'
          write(*,*) '! is zero! Refince s_top?'
-         stop
+         call abortRun('Stop run in init')
       end if
       if ( impS > 0 ) s00P=one
 
@@ -870,12 +869,12 @@ contains
          if ( mod(m,minc) /= 0 ) then
             write(*,*) '! Wave number of mode for chemical composition initialisation'
             write(*,*) '! not compatible with phi-symmetry:',m
-            stop
+            call abortRun('Stop run in init')
          end if
          if ( l > l_max .or. l < m ) then
             write(*,*) '! Degree of mode for chemical composition initialisation'
             write(*,*) '! > l_max or < m !',l
-            stop
+            call abortRun('Stop run in init')
          end if
          lm=lo_map%lm2(l,m)
 
@@ -895,13 +894,13 @@ contains
             if ( mod(m,minc) /= 0 ) then
                write(*,*) '! Wave number of mode for chemical composition initialisation'
                write(*,*) '! not compatible with phi-symmetry:',m
-               stop
+               call abortRun('Stop run in init')
             end if
             l=init_xi2/100
             if ( l > l_max .or. l < m ) then
                write(*,*) '! Degree of mode for chemical composition initialisation'
                write(*,*) '! > l_max or < m !',l
-               stop
+               call abortRun('Stop run in init')
             end if
 
             lm=lo_map%lm2(l,m)
@@ -932,8 +931,7 @@ contains
 
       !-- Now care for the prescribed boundary condition:
       if ( minc /= 1 ) then
-         write(*,*) '! impXi doesnt work for minc /= 1'
-         stop
+         call abortRun('! impXi doesnt work for minc /= 1')
       end if
 
       if ( abs(impXi) == 1 ) then
@@ -1003,7 +1001,7 @@ contains
          write(*,*) '! No relative amplitudes possible!'
          write(*,*) '! for impXi<0 because the mean value!'
          write(*,*) '! is zero! Refince xi_top?'
-         stop
+         call abortRun('Stop run in init')
       end if
       if ( impXi > 0 ) xi00P=one
 
@@ -1418,8 +1416,7 @@ contains
       else if ( init_b1 == 10 ) then  ! only equatorial dipole
 
        if ( l1m1 <= 0 ) then
-          write(*,*) '! Can not initialize l=1,m=1 !'
-          stop
+          call abortRun('! Can not initialize l=1,m=1 !')
        end if
 
        if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
@@ -1483,8 +1480,7 @@ contains
          end if
 
          if ( l1m1 <= 0 ) then
-            write(*,*) '! Cannot initialize l=1,m=1 !'
-            stop
+            call abortRun('! Cannot initialize l=1,m=1 !')
          end if
 
          if ( lmStartB(rank+1) <= l1m1 .and. lmStopB(rank+1) >= l1m1 ) then ! select processor
@@ -1663,8 +1659,7 @@ contains
       !----- invert matrix:
       call sgefa(jMat(:,:),n_r_tot,n_r_real,jPivot(:),info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix jMat in j_cond.'
-         stop
+         call abortRun('Singular matrix jMat in j_cond.')
       end if
        
       !----- zero RHS, except BC's
@@ -1772,8 +1767,7 @@ contains
       !-- Invert matrix:
       call sgefa(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular Matrix xi0Mat in init_xi!'
-         stop
+         call abortRun('! Singular Matrix xi0Mat in init_xi!')
       end if
        
       !-- Set source terms in RHS:
@@ -2068,8 +2062,7 @@ contains
       !-- Invert matrix:
       call sgefa(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular Matrix pt0Mat in pt_cond!'
-         stop
+         call abortRun('! Singular Matrix pt0Mat in pt_cond!')
       end if
        
       !-- Set source terms in RHS:
@@ -2365,8 +2358,7 @@ contains
       !-- Invert matrix:
       call sgefa(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular Matrix ps0Mat in ps_cond!'
-         stop
+         call abortRun('! Singular Matrix ps0Mat in ps_cond!')
       end if
        
       !-- Set source terms in RHS:

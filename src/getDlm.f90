@@ -14,6 +14,7 @@ module getDlm_mod
    use LMLoop_data,only: llm, ulm
    use useful, only: cc2real, cc22real
    use integration, only: rInt_R
+   use useful, only: abortRun
    
    implicit none
  
@@ -115,8 +116,7 @@ contains
          end do    ! radial grid points
          lFirst=1
       else
-         write(*,*) 'Wrong switch in s_getDlm.f'
-         stop
+         call abortRun('Wrong switch in getDlm')
       end if
 
       ! reduce to rank 0

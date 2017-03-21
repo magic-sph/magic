@@ -4,7 +4,7 @@ module useful
    !
 
    use precision_mod
-   use parallel_mod, only: rank
+   use parallel_mod, only: rank, MPI_COMM_WORLD, ierr
    use output_data, only: n_log_file, log_file
    use logic, only: l_save_out
    use constants, only: half, one, two
@@ -14,7 +14,7 @@ module useful
    private
 
    public :: l_correct_step, random, factorise, cc2real, cc22real, &
-   &         logWrite, getMSD2, polynomial_interpolation
+   &         logWrite, getMSD2, polynomial_interpolation, abortRun
 
 contains
 
@@ -53,9 +53,9 @@ contains
   
   
       if ( n_step /= 0 .and. n_intervals /= 0 ) then
-         write(*,*) '! ERROR MESSAGE FROM FUNCTION L_CORRECT_STEP:'
-         write(*,*) '! EITHER N_STEP OR N_INTERVAL HAVE TO BE ZERO!'
-         stop
+         write(*,*) '! Error message from function l_correct_step:'
+         write(*,*) '! Either n_step or n_interval have to be zero!'
+         call abortRun('Stop run in l_correct_step')
       end if
   
       l_correct_step=.false.
@@ -156,13 +156,14 @@ contains
       integer, intent(out) :: factor(*) ! list of factors used
   
       !-- Local variables:
+      character(len=14) :: str
       integer :: n_rest,n_fac
       integer :: factor_tot,factor_test
   
       if ( n < 1 )  then
          write(*,*) '! Error message from factorise:'
          write(*,*) '! n should be larger than 0.'
-         stop
+         call abortRun('Stop run in factorise')
       else if ( n == 1 ) then
          n_factors=0
          factor(1)=0
@@ -185,8 +186,8 @@ contains
       end do
   
       if ( n_rest /= 1 ) then
-         write(*,*) 'Sorry, no factorisation possible of:',n
-         stop
+         write(str,*) n
+         call abortRun('Sorry, no factorisation possible of:'//trim(adjustl(str)))
       end if
 
    end subroutine factorise
@@ -332,7 +333,7 @@ contains
             hp       =xold(n_st+n_st_out)-xnew
             work_diff=work1(n_st+1)-work2(n_st)
             den=ho-hp
-            if ( den == 0.0_cp ) stop
+            if ( den == 0.0_cp ) call abortRun('Stop in polynomial interpolation')
             den        =work_diff/den
             work2(n_st)=hp*den
             work1(n_st)=ho*den
@@ -349,5 +350,37 @@ contains
       deallocate( work1, work2 )
 
    end subroutine polynomial_interpolation_real
+!----------------------------------------------------------------------------
+   subroutine abortRun(message)
+      !
+      ! This routine properly terminates a run
+      !
+
+      !-- Input variable
+      character(len=*), intent(in) :: message
+
+      !-- Local variables:
+      integer :: code
+
+      code = 32
+
+      if ( rank == 0 ) then
+         write(*,*) 
+         write(*,*) 
+         write(*,*) 
+         write(*,*) '! Something went wrong, MagIC will stop now'
+         write(*,*) '! See below the error message:'
+         write(*,*) 
+         write(*,*) message
+         write(*,*) 
+      end if
+
+#ifdef WITH_MPI
+      call MPI_Abort(MPI_COMM_WORLD, code, ierr)
+#else
+      stop
+#endif
+
+   end subroutine abortRun
 !----------------------------------------------------------------------------
 end module useful

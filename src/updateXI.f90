@@ -19,6 +19,7 @@ module updateXi_mod
    use constants, only: zero, one, two
    use fields, only: work_LMloc
    use mem_alloc, only: bytes_allocated
+   use useful, only: abortRun
 
    implicit none
 
@@ -458,8 +459,7 @@ contains
       !---- LU decomposition:
       call sgefa(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix xiMat0!'
-         stop '28'
+         call abortRun('! Singular matrix xiMat0!')
       end if
 
    end subroutine get_Xi0Mat
@@ -559,8 +559,7 @@ contains
       !----- LU decomposition:
       call sgefa(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix xiMat!'
-         stop
+         call abortRun('Singular matrix xiMat!')
       end if
             
    end subroutine get_Ximat

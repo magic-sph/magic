@@ -296,7 +296,7 @@ timing.o: timing.f90
 # cancelling the implicit rule for .F files
 #%.f: %.F
 
-truncation.o          : precision_mod.o logic.o
+truncation.o          : precision_mod.o logic.o useful.o
 magnetic_energy.o     : truncation.o blocking.o horizontal.o\
                         phys_param.o num_param.o constants.o radial.o\
                         logic.o output_data.o movie.o special.o\
@@ -570,7 +570,7 @@ special.o             : precision_mod.o mem_alloc.o truncation.o
 probes.o              : parallel.o precision_mod.o truncation.o radial.o num_param.o\
                         blocking.o horizontal.o output_data.o constants.o
 radial_data.o         : truncation.o parallel.o logic.o
-plms.o                : constants.o precision_mod.o
+plms.o                : constants.o precision_mod.o useful.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
 			init_fields.o output_data.o parallel.o \

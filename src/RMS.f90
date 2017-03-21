@@ -33,7 +33,7 @@ module RMS
        &                  hInt2dPolLM
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
-   use useful, only: getMSD2
+   use useful, only: getMSD2, abortRun
                                                                   
    implicit none
  
@@ -302,8 +302,7 @@ contains
          end if
       end do
       if ( lStop ) then
-         write(*,*) 'No nS found in init_rNB!'
-         stop
+         call abortRun('No nS found in init_rNB!')
       end if
       nS=nS-1
       n_r_max2=n_r_max-2*nS
@@ -324,8 +323,7 @@ contains
             end if
          end do
          if ( lStop ) then
-            write(*,*) 'No n_r_max2 found in init_rNB!'
-            stop
+            call abortRun('No n_r_max2 found in init_rNB!')
          end if
        
          n_r_max2=nRs(n)

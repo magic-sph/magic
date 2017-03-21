@@ -6,9 +6,9 @@ module fft
    !
 
    use precision_mod
-   use useful, only: factorise
+   use useful, only: factorise, abortRun
    use constants, only: pi, sin36, sin60, sin72, cos36, cos72, &
-                        one, two, half
+       &                one, two, half
    use truncation
    use blocking
    use parallel_mod
@@ -55,13 +55,13 @@ contains
       if ( n <= 3 ) then
          write(*,*) '! Message from subroutine init_fft:'
          write(*,*) '! Sorry, I need more than 3 grid points!'
-         stop
+         call abortRun('Stop run in fft')
       end if
       if ( mod(n,4) /= 0 ) then
          write(*,*) '! Note from subroutine init_fft:'
          write(*,*) '! Number of data points has to be'
          write(*,*) '! a mutiple of 4!'
-         stop
+         call abortRun('Stop run in fft')
       end if
 
       nFacs=4  ! factors to be tried
@@ -75,7 +75,7 @@ contains
          write(*,*) '! Message from subroutine init_fft:'
          write(*,*) '! Please increas nFacsA!'
          write(*,*) '! Should be >= ',nFactors
-         stop
+         call abortRun('Stop run in fft')
       end if
 
       !-- Sort in ascending order:
@@ -102,7 +102,7 @@ contains
          write(*,*) '! Increase dimension of array i_fft_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',nFactors+1
-         stop
+         call abortRun('Stop run in fft')
       end if
       i_fft_init(1)=nFactors
       do i=1,nFactors
@@ -117,7 +117,7 @@ contains
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',n+j
          write(*,*) '! But is only       :',nd
-         stop
+         call abortRun('Stop run in fft')
       end if
       dPhi=two*pi/real(n,cp)
       do i=1,n,2
@@ -268,12 +268,12 @@ contains
          write(*,*) 'ERROR IN fftJW'
          write(*,*) 'NOTE: first dim of work array has to be'
          write(*,*) '      identical to first dim of a!'
-         stop
+         call abortRun('Stop run in fft')
       end if
       if ( nsize > wd2 ) then
          write(*,*) 'TOO SMALL WORK ARRAY IN fftJW!'
          write(*,*) 'SECOND DIM SHOULD BE >=:',nsize
-         stop
+         call abortRun('Stop run in fft')
       end if
   
       nFactors=i_fft_init(1)
@@ -285,13 +285,13 @@ contains
          write(*,*) 'ERROR IN fftJW'
          write(*,*) 'NOTE: first dim of input array a has to be'
          write(*,*) '      at least n+2!'
-         stop
+         call abortRun('Stop run in fft')
       end if
       if ( nrp < wd1 ) then
          write(*,*) 'ERROR IN fftJW'
          write(*,*) 'NOTE: first dim of work array a has to be'
          write(*,*) '      at least n+2!'
-         stop
+         call abortRun('Stop run in fft')
       end if
   
   
@@ -484,7 +484,6 @@ contains
       !
       !     reduction for factor 2
       !
-      !     if(la /= 1) stop 'call to wpass2 with la  /=  1'
       !
   
       !-- input/ouput:
@@ -575,7 +574,7 @@ contains
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass3!'
             write(*,*) 'Should be at least:',m
-            stop
+            call abortRun('Stop run in fft')
          end if
          kc=(im-1)/la
          kk=kc*la
@@ -687,7 +686,7 @@ contains
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass4!'
             write(*,*) 'Should be at least:',m
-            stop
+            call abortRun('Stop run in fft')
          end if
          kc=(im-1)/la
          kk=kc*la
@@ -808,7 +807,7 @@ contains
          if ( im > mdim ) then
             write(*,*) 'Please increase mdim in wpass5!'
             write(*,*) 'Should be at least:',m
-            stop
+            call abortRun('Stop run in fft')
          end if
          kc=(im-1)/la
          kk=kc*la

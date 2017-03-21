@@ -5,6 +5,7 @@ module truncation
 
    use precision_mod, only: cp
    use logic, only: l_finite_diff
+   use useful, only: abortRun
 
    implicit none
 
@@ -147,75 +148,42 @@ contains
       !  MPI: called only by the processor responsible for output !  
 
       if ( minc < 1 ) then
-         write(*,*)
-         write(*,*) '! Wave number minc should be > 0!'
-         stop
+         call abortRun('! Wave number minc should be > 0!')
       end if
       if ( mod(n_phi_tot,minc) /= 0 .and. (.not. l_axi) ) then
-         write(*,*)
-         write(*,*) '! Number of longitude grid points n_phi_tot'
-         write(*,*) '! must be a multiple of minc !!'
-         stop
+         call abortRun('! Number of longitude grid points n_phi_tot must be a multiple of minc')
       end if
       if ( mod(n_phi_max,4) /= 0 .and. (.not. l_axi) ) then
-         write(*,*)
-         write(*,*) '! Number of longitude grid points n_phi_tot/minc'
-         write(*,*) '! must be a multiple of 4!!'
-         stop
+         call abortRun('! Number of longitude grid points n_phi_tot/minc must be a multiple of 4')
       end if
       if ( mod(n_phi_tot,16) /= 0 .and. (.not. l_axi) ) then
-         write(*,*)
-         write(*,*) '! Number of longitude grid points n_phi_tot'
-         write(*,*) '! must be a multiple of 16!!'
-         stop
+         call abortRun('! Number of longitude grid points n_phi_tot must be a multiple of 16')
       end if
       if ( n_phi_max/2 <= 2 .and. (.not. l_axi) ) then
-         write(*,*)
-         write(*,*) '! Number of longitude grid points n_phi_tot'
-         write(*,*) '! must be larger than 2*minc!!',n_phi_max
-         stop
+         call abortRun('! Number of longitude grid points n_phi_tot must be larger than 2*minc')
       end if
 
       !-- Checking radial grid:
       if ( .not. l_finite_diff ) then
          if ( mod(n_r_max-1,4) /= 0 ) then
-            write(*,*)
-            write(*,*) '! Number n_r_max-1 should be a multiple '
-            write(*,*) '! of 4 !!'
-            stop
+            call abortRun('! Number n_r_max-1 should be a multiple of 4')
          end if
       end if
 
       if ( n_theta_max <= 2 ) then
-         write(*,*)
-         write(*,*) '! Number of latitude grid points n_theta_max'
-         write(*,*) '! must be larger than 2!!'
-         stop
+         call abortRun('! Number of latitude grid points n_theta_max must be larger than 2')
       end if
       if ( mod(n_theta_max,4) /= 0 ) then
-         write(*,*)
-         write(*,*) '! Number n_theta_max of latitude grid points be a multiple '
-         write(*,*) '! must be a multiple of 4 !!'
-         stop
+         call abortRun('! Number n_theta_max of latitude grid points be a multiple must be a multiple of 4')
       end if
       if ( n_cheb_max > n_r_max ) then
-         write(*,*)
-         write(*,*) '! n_cheb_max should be <= n_r_max!'
-         stop
+         call abortRun('! n_cheb_max should be <= n_r_max!')
       end if
       if ( n_cheb_max < 1 ) then
-         write(*,*)
-         write(*,*) '! n_cheb_max should be > 1!'
-         stop
+         call abortRun('! n_cheb_max should be > 1!')
       end if
       if ( (n_phi_max+1)*n_theta_max > lm_max_real*(n_r_max+2) ) then
-         write(*,*)
-         write(*,*) '! (n_phi_max+1)*n_theta_max > lm_max_real*(n_r_max+2) !'
-         stop '12'
-      end if
-      if ( n_r_tot > 2*n_r_max ) then
-         write(*,*) 'Increase dimension of rhs1 and rhs2 to n_r_tot=', n_r_tot
-         stop
+         call abortRun('! (n_phi_max+1)*n_theta_max > lm_max_real*(n_r_max+2) !')
       end if
 
    end subroutine checkTruncation

@@ -4,6 +4,7 @@ module algebra
    use omp_lib
    use precision_mod
    use constants, only: one
+   use useful, only: abortRun
 
 #ifdef WITH_LIKWID
 #include "likwid_f90.h"
@@ -293,7 +294,7 @@ contains
       integer :: nm1,k,kp1,l,i,j
       real(cp) :: help
 
-      if ( n <= 1 ) stop '45'
+      if ( n <= 1 ) call abortRun('Stop run in sgefa')
 
       info=0
       nm1 =n-1

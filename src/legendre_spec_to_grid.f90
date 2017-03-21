@@ -14,6 +14,7 @@ module legendre_spec_to_grid
    use constants, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
+   use useful, only: abortRun
 
    implicit none
  
@@ -1321,9 +1322,9 @@ contains
             do m=0,l_max,minc
                mc=mc+1
                if ( mc > nrp/2 ) then
-                  write(*,*) 'nrp too small in s_legTF!'
+                  write(*,*) 'nrp too small in legTF!'
                   write(*,*) 'Increase nrp in calling routine!'
-                  stop
+                  call abortRun('Stop run in legTF')
                end if
                vrES =zero
                vrEA =zero
@@ -1367,9 +1368,9 @@ contains
          else
             mc=mc+1
             if ( mc > nrp/2 ) then
-               write(*,*) 'nrp too small in s_legTF!'
+               write(*,*) 'nrp too small in legTF!'
                write(*,*) 'Increase nrp in calling routine!'
-               stop
+               call abortRun('Stop run in legTF')
             end if
             vrES =zero
             vrEA =zero

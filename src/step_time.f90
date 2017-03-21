@@ -54,7 +54,7 @@ module step_time_mod
        &                  n_time_hits, n_graph_file
    use output_mod, only: output
    use charmanip, only: capitalize, dble2str
-   use useful, only: l_correct_step, logWrite
+   use useful, only: l_correct_step, logWrite, abortRun
    use communications, only: get_global_sum, r2lo_redist_start, lm2r_type,  &
        &                     lo2r_redist_wait, r2lm_type, lo2r_field,       &
        &                     lo2r_flow, scatter_from_rank0_to_lo, lo2r_xi,  &
@@ -1157,7 +1157,7 @@ contains
                &    " ! I THUS stop THE RUN !"
                if ( l_save_out ) close(n_log_file)
             end if
-            stop
+            call abortRun('Stop run in steptime')
          end if
          if ( l_new_dtNext ) then
             !------ Writing info and getting new weights:

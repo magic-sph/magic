@@ -15,7 +15,7 @@ module blocking
    use LMmapping, only: mappings, allocate_mappings, deallocate_mappings,           &
        &                allocate_subblocks_mappings, deallocate_subblocks_mappings, &
        &                subblocks_mappings
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use constants, only: one
  
    implicit none
@@ -166,7 +166,7 @@ contains
                write(*,*) 'n_procs :',n_procs
                write(*,*) 'n_r_max-1:',n_r_max-1
             end if
-            stop
+            call abortRun('Stop run in blocking')
          end if
       end if
 
@@ -281,7 +281,7 @@ contains
             write(*,*) '! nfs            =',nfs
             write(*,*) '! n_theta_max/nfs=',n_theta_max/nfs
             write(*,*) '! Please decrease sizeThetaBI or nBDown in m_blocking.F90!'
-            stop
+            call abortRun('Stop run in blocking')
          end if
 #else
          call get_theta_blocking_cache(n_theta_max,nrp,cacheblock_size_in_B, &
@@ -465,17 +465,17 @@ contains
       if ( lStop ) then
          write(*,*) '! Increase sizeLMB2max in m_blocking.F90!'
          write(*,*) '! to at least:',size
-         stop
+         call abortRun('Stop run in blocking')
       end if
 
       do m=0,m_max,minc
          do l=m,l_max
             if ( check(l,m) == 0 ) then
                write(*,*) 'Warning, forgotten l,m:',l,m,map%lm2(l,m)
-               stop
+               call abortRun('Stop run in blocking')
             else if ( check(l,m) > 1 ) then
                write(*,*) 'Warning, too much l,m:',l,m,check(l,m)
-               stop
+               call abortRun('Stop run in blocking')
             end if
          end do
       end do
@@ -530,11 +530,11 @@ contains
       end do
       if ( lm /= map%lm_max ) then
          write(*,"(2(A,I6))") 'Wrong lm=',lm," != map%lm_max = ",map%lm_max
-         stop
+         call abortRun('Stop run in blocking')
       end if
       if ( lmP /= map%lmP_max ) then
          write(*,*) 'Wrong lmP!'
-         stop
+         call abortRun('Stop run in blocking')
       end if
       do lm=1,map%lm_max
          l=map%lm2l(lm)
@@ -645,11 +645,10 @@ contains
       if ( lm /= map%lm_max ) then
          write(*,"(2(A,I6))") 'get_lorder_lm_blocking: Wrong lm = ',lm, &
                               " != map%lm_max = ",map%lm_max
-         stop
+         call abortRun('Stop run in blocking')
       end if
       if ( lmP /= map%lmP_max ) then
-         write(*,*) 'Wrong lmP!'
-         stop
+         call abortRun('Wrong lmP!')
       end if
       do lm=1,map%lm_max
          l=map%lm2l(lm)
@@ -856,7 +855,7 @@ contains
       if ( lm-1 /= map%lm_max ) then
          write(*,"(2(A,I6))") 'get_snake_lm_blocking: Wrong lm-1 = ',lm-1,&
               & " != map%lm_max = ",map%lm_max
-         stop
+         call abortRun('Stop run in blocking')
       end if
 
       l=map%l_max+1    ! Extra l for lmP
@@ -872,8 +871,7 @@ contains
       end do
 
       if ( lmP-1 /= map%lmP_max ) then
-         write(*,*) 'Wrong lmP!'
-         stop
+         call abortRun('Wrong lmP!')
       end if
 
       do lm=1,map%lm_max

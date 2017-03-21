@@ -34,7 +34,7 @@ module preCalculations
        &                          ChemFac, raxi
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
-   use useful, only: logWrite
+   use useful, only: logWrite, abortRun
    use special, only: l_curr, fac_loop
 
    implicit none
@@ -418,7 +418,7 @@ contains
                write(*,*) '! flux into the inner core.'
                write(*,*) '! This is unrealistic!'
                write(*,*) '! Use s_bot(l=0,m=0)<0 !'
-               stop
+               call abortRun('Stop run in preCalc')
             end if
     
             !--- |epsc0|=1 signifies that the heat production rate is used as
@@ -437,7 +437,7 @@ contains
                      write(*,*) '! the outer core need to balance  '
                      write(*,*) '! the flux from the ICB. Thus we  '
                      write(*,*) '! need epsc<0 !                   '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   bots(0,0)=epsc*pr*facIH/(four*pi*r_icb**2 * botconduc )
                   call logWrite( &
@@ -451,7 +451,7 @@ contains
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epsc0>0.                        '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   if ( abs(real(tops(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
@@ -468,7 +468,7 @@ contains
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epsc0>0.                        '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   help=four*pi*opr*facIH *            &
                        (r_icb**2*real(bots(0,0))*botconduc - &
@@ -477,7 +477,7 @@ contains
                      write(*,*) '! NOTE: when flux BC through the '
                      write(*,*) '! ICB and CMB are used the sources '
                      write(*,*) '! have to balance the total flux.'
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
     
                end if
@@ -502,7 +502,7 @@ contains
                   write(*,*) '! NOTE: when flux BC through the '
                   write(*,*) '! ICB and/or CMB is used the sources '
                   write(*,*) '! have to balance it.'
-                  stop
+                  call abortRun('Stop run in preCalc')
                end if
             end if
     
@@ -606,7 +606,7 @@ contains
                write(*,*) '! flux into the inner core.'
                write(*,*) '! This is unrealistic!'
                write(*,*) '! Use xi_bot(l=0,m=0)<0 !'
-               stop
+               call abortRun('Stop run in preCalc')
             end if
     
             if ( abs(epscxi0) == one ) then
@@ -621,7 +621,7 @@ contains
                      write(*,*) '! the outer core need to balance  '
                      write(*,*) '! the flux from the ICB. Thus we  '
                      write(*,*) '! need epscxi<0 !                   '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   botxi(0,0)=epscxi*sc*facIH/(four*pi*r_icb**2*botconduc)
                   call logWrite( &
@@ -635,7 +635,7 @@ contains
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epscxi0>0.                        '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   if ( abs(real(topxi(0,0))) == sq4pi ) &
                        call logWrite('! You intend to use the CMB flux as buoy. scale??')
@@ -652,7 +652,7 @@ contains
                      write(*,*) '! ICB is zero we need sources in  '
                      write(*,*) '! the outer core which means      '
                      write(*,*) '! epscxi0>0.                      '
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
                   help=four*pi/sc/facIH *            &
                        (r_icb**2*real(botxi(0,0))*botconduc - &
@@ -661,7 +661,7 @@ contains
                      write(*,*) '! NOTE: when flux BC through the '
                      write(*,*) '! ICB and CMB are used the sources '
                      write(*,*) '! have to balance the total flux.'
-                     stop
+                     call abortRun('Stop run in preCalc')
                   end if
     
                end if
@@ -686,7 +686,7 @@ contains
                   write(*,*) '! NOTE: when flux BC through the '
                   write(*,*) '! ICB and/or CMB is used the sources '
                   write(*,*) '! have to balance it.'
-                  stop
+                  call abortRun('Stop run in preCalc')
                end if
             end if
     
@@ -958,7 +958,7 @@ contains
             write(*,*) '! output ',string
             write(*,*) '! is:',n_t_max
             write(*,*) '! Increase n_time_hits in c_output.f!'
-            stop
+            call abortRun('Stop run in get_hit_times')
          end if
 
          l_t=.true.
@@ -1034,8 +1034,7 @@ contains
          end if
       end if
       if ( mode > 11 ) then
-         if ( rank == 0 ) write(*,'(/," Mode > 11 not implemented ! ")')
-         stop
+         call abortRun('Mode > 11 not implemented !')
       end if
 
       if (rank == 0) then

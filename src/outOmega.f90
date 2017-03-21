@@ -14,6 +14,7 @@ module omega
    use output_data, only: tag
    use plms_theta, only: plm_theta
    use cosine_transform_odd
+   use useful, only: abortRun
    use constants, only: one, two, half
  
    implicit none
@@ -159,7 +160,7 @@ contains
          if ( l+1 > lmMax ) then
             write(*,*) '! lmMax too small in ln2rt!'
             write(*,*) '! lm',l+1,lMax
-            stop
+            call abortRun('Stop run in lnPAS2tr')
          end if
          do nCheb=1,nChebMax
             ftr=ftr+f(l+1,nCheb)*dthetaPlm(l+1)*cheb(nCheb)

@@ -355,10 +355,6 @@ contains
       rank_has_l1m0=.false. ! set default
       sr_tag=46378 !arbitray send-recv tag
       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
-         !if (rank /= 0) then
-         !   PRINT*,"in get_power, l1m0 is not on rank 0!"
-         !   stop
-         !end if
          if ( l_rot_IC ) then
             z10ICB  =real(z(l1m0,n_r_ICB))
             drz10ICB=real(dz(l1m0,n_r_ICB))

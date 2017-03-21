@@ -130,6 +130,7 @@ program magic
    use outMisc_mod, only: initialize_outMisc_mod, finalize_outMisc_mod
    use outRot, only: initialize_outRot, finalize_outRot
    use mem_alloc
+   use useful, only: abortRun
    use probe_mod, only: initialize_probes, finalize_probes
    !use rIterThetaBlocking_mod,ONLY: initialize_rIterThetaBlocking
 #ifdef WITH_LIKWID
@@ -156,6 +157,8 @@ program magic
    ! MPI specific variables
 #ifdef WITHOMP
    integer :: required_level,provided_level
+   character(len=100) :: message
+   character(len=14) :: str, str_1
 #endif
 
 #ifdef WITH_MPI
@@ -165,7 +168,11 @@ program magic
    if (provided_level < required_level) then
       print*,"We need at least thread level ",required_level, &
       &      ", but have ",provided_level
-      stop
+      write(str,*) required_level
+      write(str_1,*) provided_level
+      message = 'We need at least thread level'//trim(adjustl(str))//&
+      &         ', but have'//trim(adjustl(str_1))
+      call abortRun(message)
    end if
 #else
    call mpi_init(ierr)

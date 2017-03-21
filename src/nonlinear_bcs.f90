@@ -15,6 +15,7 @@ module nonlinear_bcs
 #ifdef WITH_SHTNS
    use shtns, only: spat_to_SH
 #endif
+   use useful, only: abortRun
 
    implicit none
 
@@ -186,8 +187,7 @@ contains
          end do
 
       else
-         write(*,*) 'Wrong input of bc into s_get_b_nl_bcs.f'
-         stop
+         call abortRun('Wrong input of bc into get_b_nl_bcs')
       end if
                
    end subroutine get_b_nl_bcs

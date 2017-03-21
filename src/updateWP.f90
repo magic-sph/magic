@@ -27,6 +27,7 @@ module updateWP_mod
    use integration, only: rInt_R
    use fields, only: work_LMloc
    use constants, only: zero, one, two, three, four, third, half
+   use useful, only: abortRun
 
    implicit none
 
@@ -906,8 +907,7 @@ contains
 
       call sgefa(wpMat,2*n_r_max,2*n_r_max,wpPivot,info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix wpmat!'
-         stop '35'
+         call abortRun('Singular matrix wpMat!')
       end if
 
    end subroutine get_wpMat
@@ -1061,8 +1061,7 @@ contains
       call sgefa(wMat,2*n_r_max,2*n_r_max,wPivot,info)
 
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix wMat!'
-         stop '37'
+         call abortRun('Singular matrix wMat!')
       end if
 
    end subroutine get_wMat
@@ -1142,8 +1141,7 @@ contains
       !---- LU decomposition:
       call sgefa(pMat,n_r_max,n_r_max,pPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix p0Mat!'
-         stop '29'
+         call abortRun('! Singular matrix p0Mat!')
       end if
 
    end subroutine get_p0Mat

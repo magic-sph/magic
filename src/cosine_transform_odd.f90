@@ -5,7 +5,7 @@ module cosine_transform_odd
    use truncation, only: lm_max, lm_max_real
    use fft_fac_mod, only: fft_fac_complex, fft_fac_real
    use constants, only: half, one, two, pi, sin36, cos36, sin60, sin72, cos72
-   use useful, only: factorise
+   use useful, only: factorise, abortRun
 
    implicit none
 
@@ -54,14 +54,14 @@ contains
       if ( n <= 3 ) then
          write(*,*) '! Message from subroutine init_costf1:'
          write(*,*) '! Sorry, I need more than 3 grid points!'
-         stop
+         call abortRun('Stop in cost_odd')
       end if
 
       if ( mod(n-1,4) /= 0 ) then
          write(*,*) '! Note from subroutine init_costf1:'
          write(*,*) '! Number of data points -1 has to be'
          write(*,*) '! a mutiple of 4!'
-         stop
+         call abortRun('Stop in cost_odd')
       end if
 
       if ( nd < 2*n+5 ) then
@@ -69,7 +69,7 @@ contains
          write(*,*) '! Increase dimension of array d_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',2*n+5
-         stop
+         call abortRun('Stop in cost_odd')
       end if
 
       if ( ni < n+1 ) then
@@ -77,7 +77,7 @@ contains
          write(*,*) '! Increase dimension of array i_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',n+1
-         stop
+         call abortRun('Stop in cost_odd')
       end if
 
       !-- first information stored in i_costf_init is the dimension:
@@ -110,7 +110,7 @@ contains
          write(*,*) '! Increase dimension of array i_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',n+1+n_factors
-         stop
+         call abortRun('Stop in cost_odd')
       end if
       this%i_costf_init(n+2)=n_factors
       do j=1,n_factors

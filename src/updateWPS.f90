@@ -28,6 +28,7 @@ module updateWPS_mod
    use radial_der, only: get_dddr, get_ddr, get_dr
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
    use fields, only: work_LMloc
+   use useful, only: abortRun
 
    implicit none
 
@@ -915,8 +916,7 @@ contains
 
       call sgefa(wpsMat,3*n_r_max,3*n_r_max,wpsPivot,info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix wpsMat!'
-         stop '35'
+         call abortRun('Singular matrix wpsMat!')
       end if
 
    end subroutine get_wpsMat
@@ -1167,8 +1167,7 @@ contains
       !---- LU decomposition:
       call sgefa(psMat,2*n_r_max,2*n_r_max,psPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix ps0Mat!'
-         stop '29'
+         call abortRun('! Singular matrix ps0Mat!')
       end if
 
    end subroutine get_ps0Mat

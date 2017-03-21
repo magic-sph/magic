@@ -28,6 +28,7 @@ module updateWPT_mod
    use radial_der, only: get_dddr, get_ddr, get_dr
    use fields, only: work_LMloc
    use constants, only: zero, one, two, three, four, third, half, pi, osq4pi
+   use useful, only: abortRun
 
    implicit none
 
@@ -927,8 +928,7 @@ contains
 
       call sgefa(wptMat,3*n_r_max,3*n_r_max,wptPivot,info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix wptMat!'
-         stop '35'
+         call abortRun('Singular matrix wptMat!')
       end if
 
    end subroutine get_wptMat
@@ -1186,8 +1186,7 @@ contains
       !---- LU decomposition:
       call sgefa(ptMat,2*n_r_max,2*n_r_max,ptPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix pt0Mat!'
-         stop '29'
+         call abortRun('! Singular matrix pt0Mat!')
       end if
 
    end subroutine get_pt0Mat

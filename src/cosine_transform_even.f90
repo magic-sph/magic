@@ -5,7 +5,7 @@ module cosine_transform_even
    use truncation, only: lm_max
    use fft_fac_mod, only: fft_fac_complex
    use constants, only: half, one, two, pi, sin36, cos36, sin60, sin72, cos72
-   use useful, only: factorise
+   use useful, only: factorise, abortRun
 
    implicit none
 
@@ -50,14 +50,14 @@ contains
       if ( n <= 3 ) then
          write(*,*) '! Note from subroutine init_costf2:'
          write(*,*) '! Sorry, I need more than 3 grid points!'
-         stop
+         call abortRun('Stop run in costf_even')
       end if
 
       if ( mod(n,4) /= 0 ) then
          write(*,*) '! Note from subroutine init_costf2:'
          write(*,*) '! Number of data points -1 has to be'
          write(*,*) '! a mutiple of 4!'
-         stop
+         call abortRun('Stop run in costf_even')
       end if
 
       if ( nd < 2*n+n/2+5 ) then
@@ -65,7 +65,7 @@ contains
          write(*,*) '! Increase dimension of array d_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',2*n+n/2+5
-         stop
+         call abortRun('Stop run in costf_even')
       end if
 
       if ( ni < n+1 ) then
@@ -73,7 +73,7 @@ contains
          write(*,*) '! Increase dimension of array i_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',n
-         stop
+         call abortRun('Stop run in costf_even')
       end if
 
 
@@ -105,7 +105,7 @@ contains
          write(*,*) '! Increase dimension of array i_costf_init'
          write(*,*) '! in calling routine.'
          write(*,*) '! Should be at least:',n+2+n_factors
-         stop
+         call abortRun('Stop run in costf_even')
       end if
       this%i_costf_init(n+2)=n_factors
       do j=1,n_factors
@@ -298,15 +298,15 @@ contains
             fac=this%i_costf_init(n+2+n_fac)
             if ( l_f2_data ) then
                !-- Vpassm returns complex transform of f2's on f's:
-               call fft_fac_complex(f2(1,1),f2(1,2),f(1,1),f(1,2),  &
-                            this%d_costf_init(n+1),n_f_max,              &
-                            n_f_start,n_f_stop,n_O2,fac,fac_tot)
+               call fft_fac_complex(f2(1,1),f2(1,2),f(1,1),f(1,2),      &
+                    &               this%d_costf_init(n+1),n_f_max,     &
+                    &               n_f_start,n_f_stop,n_O2,fac,fac_tot)
                l_f2_data=.false.
             else
                !-- Vpassm returns complex transform of f's on f2's:
-               call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),  &
-                            this%d_costf_init(n+1),n_f_max,              &
-                            n_f_start,n_f_stop,n_O2,fac,fac_tot)
+               call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),      &
+                    &               this%d_costf_init(n+1),n_f_max,     &
+                    &               n_f_start,n_f_stop,n_O2,fac,fac_tot)
                l_f2_data=.true.
             end if
             fac_tot=fac_tot*fac
@@ -483,15 +483,15 @@ contains
 
             if ( l_f2_data ) then
                !-- Vpassm returns complex transform of f2's on f's:
-               call fft_fac_complex(f2(1,1),f2(1,2),f(1,1),f(1,2),  &
-                            this%d_costf_init(n+1),n_f_max,n_f_start,    &
-                            n_f_stop,n_O2,fac,fac_tot)
+               call fft_fac_complex(f2(1,1),f2(1,2),f(1,1),f(1,2),            &
+                    &               this%d_costf_init(n+1),n_f_max,n_f_start, &
+                    &               n_f_stop,n_O2,fac,fac_tot)
                l_f2_data=.false.
             else
                !-- Vpassm returns complex transform of f's on f2's:
-               call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),  &
-                            this%d_costf_init(n+1),n_f_max,n_f_start,    &
-                            n_f_stop,n_O2,fac,fac_tot)
+               call fft_fac_complex(f(1,1),f(1,2),f2(1,1),f2(1,2),            &
+                    &               this%d_costf_init(n+1),n_f_max,n_f_start, &
+                    &               n_f_stop,n_O2,fac,fac_tot)
                l_f2_data=.true.
             end if
             fac_tot=fac_tot*fac

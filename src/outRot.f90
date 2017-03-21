@@ -18,6 +18,7 @@ module outRot
    use integration, only: rInt_R
    use horizontal_data, only: cosTheta, gauss
    use special, only: BIC, lGrenoble
+   use useful, only: abortRun
 
    implicit none
 
@@ -174,10 +175,6 @@ contains
                         lmStartB(rank+1),lmStopB(rank+1),l1m0
     
       if ( lmStartB(rank+1) <= l1m0 .and. lmStopB(rank+1) >= l1m0 ) then
-         !if (rank /= 0) then
-         !   PRINT*,"in s_write_rot, l1m0 not on rank 0"
-         !   stop
-         !end if
          !-- Calculating viscous torques:
          if ( l_rot_ic .and. kbotv == 2 ) then
             call get_viscous_torque(viscous_torque_ic, &
@@ -655,9 +652,7 @@ contains
       if ( size(vals_on_rank0) < n_lm_vals ) then
          write(*,"(2(A,I4))") "write_rot: length of vals_on_rank0=",size(vals_on_rank0),&
               &" must be >= size(lm_vals)=",n_lm_vals
-#ifdef WITH_MPI
-         call mpi_abort(MPI_COMM_WORLD,43,ierr)
-#endif
+         call abortRun('Stop in sendvals_to_rank0')
       end if
 
       do ilm=1,n_lm_vals

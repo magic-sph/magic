@@ -29,6 +29,7 @@ module out_movie
    use constants, only: zero, one, two
    use out_dtB_frame, only: write_dtB_frame
    use output_data, only: runid
+   use useful, only: abortRun
 
    implicit none
 
@@ -312,8 +313,7 @@ contains
             !------ Write frames:
             if ( .not. lStoreMov(n_movie) ) then
                if ( n_type == 99 ) then
-                  write(*,*) '! Use TO output for Lorentz force!'
-                  stop
+                  call abortRun('! Use TO output for Lorentz force!')
                else
                   call write_dtB_frame(n_movie,b,db,aj,dj,b_ic,db_ic,aj_ic,dj_ic)
                end if

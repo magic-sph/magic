@@ -6,6 +6,7 @@ module chebInt_mod
    use cosine_transform_odd
    use radial_der, only: get_dcheb
    use constants, only: two, four, half
+   use useful, only: abortRun
 
    implicit none
 
@@ -98,7 +99,7 @@ contains
       if ( nGridPointsMax < nGridPoints ) then
          write(*,*) '! nGridPointsMax too small in chebIntInit!'
          write(*,*) '! Should be at least:',nGridPoints
-         stop
+         call abortRun('Stop run in chebIntInit')
       end if
 
       allocate( zCheb(nGridPoints) )

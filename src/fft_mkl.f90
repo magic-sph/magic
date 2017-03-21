@@ -97,7 +97,6 @@ contains
          !PRINT*,"Calling fft_thetab with real array and dir /= -1. & 
          !        Don't know what to do!"
          !call TRACEBACKQQ
-         !stop
       end if
       PERFOFF
 

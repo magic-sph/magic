@@ -619,15 +619,7 @@ contains
 
       l1m0=lo_map%lm2(1,0)
       l1m1=lo_map%lm2(1,1)
-      !if ((l1m0 < lmStartB(1)).or.(l1m0 > lmStopB(1))) then
-      !   if (rank == 0) PRINT*,"in get_e_mag, dipole part: l1m0 not on rank 0"
-      !   stop
-      !end if
-      !if (  ( l1m1 > 0).and.&
-      !     &( (l1m1 < lmStartB(1)).or.(l1m1 > lmStopB(1)) ) ) then
-      !   if (rank == 0) PRINT*,"in get_e_mag, dipole part: l1m1 not on rank 0:"
-      !   stop
-      !end if
+
       rank_has_l1m0=.false.
       rank_has_l1m1=.false.
       !write(*,"(I5,A,2I5,A,2I5)") rank,": l1m0,l1m1 = ",l1m0,l1m1,&

@@ -29,6 +29,7 @@ module updateZ_mod
    use RMS_helpers, only: hInt2Tor
    use radial_der, only: get_ddr
    use fields, only: work_LMloc
+   use useful, only: abortRun
    use special
     
    implicit none
@@ -846,9 +847,7 @@ contains
       call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
 
       if ( info /= 0 ) then
-         write(*,*) 'ERROR MESSAGE FROM subroutine GET_z10MAT:'
-         write(*,*) 'singular matrix z10Mat!'
-         stop
+         call abortRun('Error from get_z10Mat: singular matrix!')
       end if
 
    end subroutine get_z10Mat
@@ -879,6 +878,8 @@ contains
       integer :: nR,nR_out
       integer :: info
       real(cp) :: O_dt,dLh
+      character(len=80) :: message
+      character(len=14) :: str, str_1
 
 #ifdef MATRIX_CHECK
       integer :: i,j
@@ -986,8 +987,11 @@ contains
       call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
 
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix zmat for l=',l,", info = ",info
-         stop '34'
+         write(str, *) l
+         write(str_1, *) info
+         message='Singular matrix zmat for l='//trim(adjustl(str))//&
+         &       ', info = '//trim(adjustl(str_1))
+         call abortRun(message)
       end if
 
    end subroutine get_zMat

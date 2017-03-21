@@ -20,6 +20,7 @@ module updateS_mod
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
+   use useful, only: abortRun
 
    implicit none
 
@@ -777,8 +778,7 @@ contains
       !---- LU decomposition:
       call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
       if ( info /= 0 ) then
-         write(*,*) '! Singular matrix sMat0!'
-         STOP '28'
+         call abortRun('! Singular matrix sMat0!')
       end if
 
    end subroutine get_s0Mat
@@ -921,8 +921,7 @@ contains
 !----- LU decomposition:
       call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
       if ( info /= 0 ) then
-         write(*,*) 'Singular matrix sMat!'
-         stop
+         call abortRun('Singular matrix sMat!')
       end if
             
    end subroutine get_Smat
