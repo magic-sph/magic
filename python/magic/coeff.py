@@ -3,7 +3,9 @@ from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from .spectralTransforms import SpectralTransforms
 from magic.setup import labTex
+import copy
 
 
 def deriv(x, y, axis=0):
@@ -81,9 +83,9 @@ class MagicCoeffCmb(MagicSetup):
     >>> print(cmb.ell, cmb.glm) # print \ell and g_{\ell m}
     >>> print(cmb.glm[:, cmb.idx[1, 0]]) # time-series of the axisymmetric dipole
     >>> plot(cmb.time, cmb.dglmdt[:, cmb.idx[2, 0]]) # Secular variation of the quadrupole
-    >>> # Display the time-evolution of the CMB field (requires shtns)
+    >>> # Display the time-evolution of the CMB field
     >>> cmb.movieCmb(levels=12, cm='seismic')
-    >>> # Save the time-evolution of the CMB field (requires shtns)
+    >>> # Save the time-evolution of the CMB field
     >>> cmb.movieCmb(levels=12, cm='seismic', png=True)
     """
     
@@ -224,6 +226,27 @@ class MagicCoeffCmb(MagicSetup):
         if iplot:
             self.plot()
 
+    def __add__(self, new):
+        """
+        Built-in function to sum two cmb files
+
+        .. note:: So far this function only works for two cmb files with the same 
+                  grid sizes. At some point, we might introduce grid extrapolation 
+                  to allow any summation/
+        """
+
+        out = copy.deepcopy(new)
+        out.nstep = new.nstep+self.nstep
+        out.time = np.concatenate((self.time, new.time), axis=0)
+        out.blm = np.concatenate((self.blm, new.blm), axis=0)
+        out.glm = np.concatenate((self.glm, new.glm), axis=0)
+        out.hlm = np.concatenate((self.hlm, new.hlm), axis=0)
+        out.El = np.concatenate((self.El, new.El), axis=0)
+        out.Em = np.concatenate((self.Em, new.Em), axis=0)
+        out.ESVl = np.concatenate((self.ESVl, new.ESVl), axis=0)
+
+        return out
+
     def plot(self):
         """
         Display some results when iplot is set to True
@@ -303,7 +326,7 @@ class MagicCoeffCmb(MagicSetup):
                        norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
 
         polar_opt_threshold = 1e-10
-        nlat = max((self.l_max_cmb*(3/2/2)*2),192)
+        nlat = max(int(self.l_max_cmb*(3./2./2.)*2.),192)
         nphi = 2*nlat/self.minc
         nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
 
@@ -371,8 +394,6 @@ class MagicCoeffCmb(MagicSetup):
         """
         Plotting function (it can also write the png files)
 
-        .. warning:: the python bindings of `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ are mandatory to use this plotting function!
-
         :param levels: number of contour levels
         :type levels: int
         :param cm: name of the colormap
@@ -407,34 +428,24 @@ class MagicCoeffCmb(MagicSetup):
         :type removeMean: bool
         """
 
-        # The python bindings of shtns are mandatory to use this function !!!
-        import shtns
-
         if removeMean:
             blmCut = self.blm-self.blm.mean(axis=0)
         else:
             blmCut = self.blm
 
-        # Define shtns setup
-        sh = shtns.sht(int(self.l_max_cmb), int(self.m_max_cmb/self.minc), 
-                       mres=int(self.minc), 
-                       norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
-
-        polar_opt_threshold = 1e-10
-        nlat = max((self.l_max_cmb*(3/2/2)*2),192)
+        nlat = max(int(self.l_max_cmb*(3./2./2.)*2.),192)
         nphi = 2*nlat/self.minc
-        nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
+
+        # Define spectral transform setup
+        sh = SpectralTransforms(l_max=self.l_max_cmb, minc=self.minc,
+                                lm_max=self.lm_max_cmb, 
+				n_theta_max=nlat)
 
         # Transform data on grid space
         BrCMB = np.zeros((self.nstep, nphi, nlat), precision)
         for k in range(self.nstep):
-            tmp = sh.synth(blmCut[k, :]*sh.l*(sh.l+1)/self.rcmb**2)
-            tmp = tmp.T # Longitude, Latitude
-
-            if shtns_lib == 'shtns-magic':
-                BrCMB[k, ...] = rearangeLat(tmp)
-            else:
-                BrCMB[k, ...] = tmp
+	
+            BrCMB[k, ...] = sh.spec_spat(blmCut[k, :]*self.ell*(sh.ell+1)/self.rcmb**2)
 
         if png:
             plt.ioff()
