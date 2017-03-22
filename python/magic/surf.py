@@ -473,7 +473,7 @@ class Surf:
             data, label = selectField(self.gr, field, labTex)
 
         if field not in ('vortz', 'vopot', 'jz', 'vortzfluct'):
-            equator = data[:, self.gr.ntheta/2,:]
+            equator = data[:,int(self.gr.ntheta/2),:]
 
         equator = symmetrize(equator, self.gr.minc)
 
