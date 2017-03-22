@@ -62,7 +62,7 @@ contains
          & dtstart,dtMax,courfac,alffac,intfac,n_cour_step, &
          & difnu,difeta,difkap,difchem,ldif,ldifexp,        &
          & l_correct_AMe,l_correct_AMz,tEND,l_non_rot,      &
-         & l_newmap,alph1,alph2,                            &
+         & l_newmap,alph1,alph2,l_cour_alf_damp,            &
          & runHours,runMinutes,runSeconds,                  &
          & cacheblock_size_in_B,anelastic_flavour,          &
          & thermo_variable,radial_scheme,polo_flow_eq
@@ -758,6 +758,7 @@ contains
       write(n_out,'(''  dtMax           ='',ES14.6,'','')') tScale*dtMax
       write(n_out,'(''  courfac         ='',ES14.6,'','')') courfac
       write(n_out,'(''  alffac          ='',ES14.6,'','')')  alffac
+      write(n_out,'(''  l_cour_alf_damp ='',l3,'','')') l_cour_alf_damp
       write(n_out,'(''  intfac          ='',ES14.6,'','')')  intfac
       write(n_out,'(''  n_cour_step     ='',i5,'','')') n_cour_step
       write(n_out,'(''  difnu           ='',ES14.6,'','')') difnu
@@ -1128,6 +1129,7 @@ contains
       dtstart       =0.0_cp
       dtMax         =1.0e-4_cp
       courfac       =2.5_cp
+      l_cour_alf_damp=.true. ! By default, use Christensen's (GJI, 1999) CFL
       alffac        =one
       intfac        =0.15_cp
       n_cour_step   =10

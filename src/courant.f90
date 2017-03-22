@@ -9,7 +9,7 @@ module courant_mod
    use num_param, only: courfac, delxr2, delxh2, alffac
    use blocking, only: nfs
    use horizontal_data, only: osn2
-   use logic, only: l_mag, l_mag_LF, l_mag_kin
+   use logic, only: l_mag, l_mag_LF, l_mag_kin, l_cour_alf_damp
    use useful, only: logWrite
    use constants, only: half, one, two
 
@@ -68,9 +68,13 @@ contains
       real(cp) :: O_r_E_2,O_r_E_4
       real(cp) :: cf2,af2
     
-    
-      valri2=(half*(one+opm))**2/delxr2(n_r)
-      valhi2=(half*(one+opm))**2/delxh2(n_r)
+      if ( l_cour_alf_damp ) then
+         valri2=(half*(one+opm))**2/delxr2(n_r)
+         valhi2=(half*(one+opm))**2/delxh2(n_r)
+      else
+         valri2=0.0_cp
+         valhi2=0.0_cp
+      end if
     
       vr2max=0.0_cp
       vh2max=0.0_cp

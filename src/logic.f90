@@ -89,5 +89,6 @@ module logic
    logical :: l_finite_diff ! Use finite differences for the radial scheme
    logical :: l_double_curl ! Use the double-curl of the NS equation to get the poloidal equation
    logical :: l_AB1  ! 1st order Adams Bashforth
+   logical :: l_cour_alf_damp ! Modify Alven Courant condition based on Christensen et al., GJI, 1999 (.true. by default)
 
 end module logic

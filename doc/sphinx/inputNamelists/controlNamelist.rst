@@ -86,6 +86,9 @@ Time step control
 A modified courant criteria including a modified Alfven-velocity is used to
 account for the magnetic field. The relative and absolute importance of flow
 and Alfven-velocity can be controled by **courfac** and **alffac** respectively.
+The parameter **l_cour_alf_damp** allows to choose wheter the actual Alven speed
+is used to estimate the Courant condition or if damping (see Christensen et al.,
+GJI, 1999) is included.
 
 * **dtstart** (default :f:var:`dtstart=0.0 <dtstart>`) is a real, which is used as the initial time step if the starting solution is initialized (see below) and :math:`\hbox{dtstart}>0`.
 
@@ -94,6 +97,11 @@ and Alfven-velocity can be controled by **courfac** and **alffac** respectively.
 * **courfac** (default :f:var:`courfac=2.5 <courfac>`) is a real used to scale velocity in courant criteria.
 
 * **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in courant criteria.
+
+* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves
+is taken into account when estimating the Courant condition (see Christensen
+et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead
+to spurious oscillations/instabilities of the code.
 
 * **n_cour_step** (default :f:var:`n_cour_step=10 <n_cour_step>`) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step>0``.
 
