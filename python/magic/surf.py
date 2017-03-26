@@ -574,9 +574,12 @@ class Surf:
             th2D = np.zeros_like(rr2D)
             data = np.zeros_like(rr2D)
             if hasattr(self.gr, 'strat'):
-                temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
-                           self.gr.polind,
-                           g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
+                if (self.gr.strat != 0.):
+                    temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
+                               self.gr.polind,
+                               g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
+                else:
+                    rho = 1.
             else:
                 rho = 1.
             vrm = self.gr.vr.mean(axis=0)*rho
