@@ -163,17 +163,52 @@ by the subroutine :f:subr:`output <output_mod/output()>`.
    +---------------+------------------------------------------------------------------+
 
 
+.. _secEarthLikeFile:
+
+``earth_like.TAG``
+------------------
+
+This  contains informations about the Earth-likeness of the CMB radial magnetic
+field. This file is written by the subroutine :f:subr:`get_e_mag <magnetic_energy/get_e_mag()>`.
+
+.. note:: This file is **only** calculated when
+          :ref:`l_earth_like=.true. <varl_earth_like>`.
+
+..
+
+   +---------------+--------------------------------------------------------------+
+   | No. of column | Contents                                                     |
+   +===============+==============================================================+
+   | 1             | time                                                         |
+   +---------------+--------------------------------------------------------------+
+   | 2             | Ratio of axial dipole to non-dipole component at the CMB     |
+   +---------------+--------------------------------------------------------------+
+   | 3             | Equatorial symmetry of the CMB field (odd/even ratio)        |
+   +---------------+--------------------------------------------------------------+
+   | 4             | Zonality: zonal to non-zonal ratio of the CMB field          |
+   +---------------+--------------------------------------------------------------+
+   | 5             | Magnetic flux concentration at the CMB                       |
+   +---------------+--------------------------------------------------------------+
+
+The details of the calculations are given in (`Christensen et al., 2010 <http://dx.doi.org/10.1016/j.epsl.2010.06.009>`_).
+
+This file can be read using :py:class:`MagicTs <magic.MagicTs>` with the following options:
+
+   >>> # To stack all the earth_like.TAG files of the current directory
+   >>> ts = MagicTs(field='earth_like', all=True)
+
+
 
 .. _secGeosFile:
 
 ``geos.TAG``
 ------------
 
-This files contains informations about the geostrophy of the flow.
+This file contains informations about the geostrophy of the flow.
 This file is written by the subroutine :f:subr:`getEgeos <egeos_mod/getegeos()>`.  
 
 .. note:: This file is **only** calculated when 
-          when :ref:`l_par=.true. <varl_par>`.
+          :ref:`l_par=.true. <varl_par>`.
 
 ..
 

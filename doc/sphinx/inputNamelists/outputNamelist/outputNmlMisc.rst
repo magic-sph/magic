@@ -53,6 +53,21 @@ Angular momentum
 
 * **l_AM** (default :f:var:`l_AM=.false. <l_am>`) is a logical. When set to ``.true.``, this logical enables the calculation of angular momentum. The time series are stored in :ref:`AM.TAG <secAMFile>`.
 
+.. _varl_earth_like:
+
+Earth-likeness of the CMB field
++++++++++++++++++++++++++++++++
+
+* **l_earth_likeness** (default :f:var:`l_earth_likeness=.false.
+<l_earth_likeness>`) is a logical. When set to ``.true.``, this logical
+enables the calculation of the Earth-likeness of the CMB magnetic field
+following (`Christensen et al., 2010 <http://dx.doi.org/10.1016/j.epsl.2010.06.009>`_).
+The time series of the four criteria are stored in :ref:`earth_like.TAG <secEarthLikeFile>`.
+
+* **l_max_comp** (default :f:var:`l_max_comp=8 <l_max_comp>`) is an integer. This is
+the maximum spherical harmonic degree used to calculate the Earth-likeness of the CMB
+field.
+
 .. _varl_drift:
 
 Drift rates
