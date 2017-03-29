@@ -24,6 +24,7 @@ class MagicTs(MagicSetup):
        * Velocity square: :ref:`u_square.TAG <secu_squareFile>`
        * Angular momentum: :ref:`AM.TAG <secAMFile>`
        * Power budget: :ref:`power.TAG <secpowerFile>`
+       * Earth-likeness of the CMB field: :ref:`earth_like.TAG <secEarthLikeFile>`
        * Parallel and perpendicular decomposition: :ref:`perpPar.TAG <secperpParFile>`
        * RMS force balance: :ref:`dtVrms.TAG <secdtVrmsFile>`
        * RMS induction terms: :ref:`dtBrms.TAG <secdtBrmsFile>`
@@ -288,6 +289,15 @@ class MagicTs(MagicSetup):
             self.helnaS = data[:, 6]
             self.helnaRMSN = data[:, 7]
             self.helnaRMSS = data[:, 8]
+        elif self.field == 'earth_like':
+            self.time = data[:, 0]
+            self.axial_dipole = data[:, 1]
+            self.symmetry = data[:, 2]
+            self.zonality = data[:, 3]
+            self.flux_concentration = data[:, 4]
+            self.chi_square = ((np.log(self.axial_dipole)-np.log(1.4))/np.log(2.))**2+\
+                              ((np.log(self.zonality)-np.log(0.15))/np.log(2.5))**2+\
+                              ((np.log(self.flux_concentration)-np.log(1.5))/np.log(1.75))**2
         elif self.field == 'u_square':
             self.time = data[:, 0]
             self.ekin_pol = data[:, 1]
@@ -475,9 +485,25 @@ class MagicTs(MagicSetup):
                 ax = fig.add_subplot(111)
                 ax.plot(self.time, self.dipolarity, label='Dipolarity')
                 ax.plot(self.time, self.dip_cmb, label='Dipolarity CMB')
-                ax.legend(loc='upper right')
+                ax.legend(loc='upper right', frameon=False)
                 ax.set_xlabel('Time')
                 ax.set_ylabel('Dipolarity')
+        elif self.field == 'earth_like':
+            fig = plt.figure()
+            ax = fig.add_subplot(111)
+            ax.plot(self.time, self.axial_dipole, label='AD/NAD')
+            ax.plot(self.time, self.symmetry, label='O/E')
+            ax.plot(self.time, self.zonality, label='Z/NZ')
+            ax.plot(self.time, self.flux_concentration, label='FCF')
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Rating parameters')
+            ax.legend(loc='upper right', frameon=False)
+
+            fig1 = plt.figure()
+            ax1 = fig1.add_subplot(111)
+            ax1.plot(self.time, self.chi_square)
+            ax.set_xlabel('Time')
+            ax.set_ylabel('Chi square')
         elif self.field == 'misc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
