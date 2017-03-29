@@ -1354,7 +1354,7 @@ contains
             tOmega_ma1=time+tShift_ma1
             tOmega_ma2=time+tShift_ma2
             omega_ma=omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                     omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+            &        omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
             if ( rank == 0 ) then
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'

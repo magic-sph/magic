@@ -68,6 +68,7 @@ module output_data
    integer, public, allocatable :: n_coeff_r(:)
    integer, public :: n_r_array(100)
    integer, public :: l_max_cmb
+   integer, public :: l_max_comp ! Maximum spherical harmonic degree to estimate Earth-likeness
    integer, public :: l_max_r
    integer, public :: n_r_step
    integer, public :: m_max_modes

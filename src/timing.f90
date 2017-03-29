@@ -51,7 +51,7 @@ contains
 #ifdef WITH_MPI
       dbl_seconds = MPI_Wtime()
 #else
-      call SYSTEM_CLOCK(count,countRate,countMax)
+      call system_clock(count,countRate,countMax)
       dbl_seconds=real(count,kind=cp)/real(countRate,kind=cp)
 #endif
   

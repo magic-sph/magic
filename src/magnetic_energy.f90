@@ -3,7 +3,8 @@ module magnetic_energy
    use parallel_mod
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max
+   use truncation, only: n_r_maxMag, n_r_ic_maxMag, n_r_max, n_r_ic_max, &
+       &                 lm_max, minc
    use radial_data, only: n_r_cmb
    use radial_functions, only: r_icb, r_cmb, r_ic, dr_fac_ic, chebt_ic, &
        &                       sigma, orho1, r, or2, rscheme_oc
@@ -11,34 +12,52 @@ module magnetic_energy
    use num_param, only: eScale, tScale
    use blocking, only: st_map, lo_map, lmStartB, lmStopB
    use horizontal_data, only: dLh
-   use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out
+   use logic, only: l_cond_ic, l_mag, l_mag_LF, l_save_out, l_earth_likeness
    use movie_data, only: movieDipColat, movieDipLon, movieDipStrength, &
        &                 movieDipStrengthGeo
-   use output_data, only: tag
-   use constants, only: pi, zero, one, two, half, four
+   use output_data, only: tag, l_max_comp
+   use constants, only: pi, zero, one, two, half, four, osq4pi
    use special, only: n_imp, rrMP
    use LMLoop_data, only: llmMag, ulmMag
    use integration, only: rInt_R,rIntIC
    use useful, only: cc2real,cc22real
+   use plms_theta, only: plm_theta
+   use communications, only: gather_from_lo_to_rank0
  
    implicit none
  
    private
  
+   integer :: n_theta_max_comp
+   integer :: n_phi_max_comp
+   integer :: lm_max_comp
+   real(cp), allocatable :: Plm_comp(:,:)
+
    real(cp), allocatable :: e_dipA(:)    ! Time-averaged dipole (l=1) energy
    real(cp), allocatable :: e_pA(:)      ! Time-averaged poloidal energy
    real(cp), allocatable :: e_p_asA(:)   ! Time-averaged axisymmetric poloidal energy
    real(cp), allocatable :: e_tA(:)      ! Time-averaged toroidal energy
    real(cp), allocatable :: e_t_asA(:)   ! Time-averaged axisymmetric toroidal energy
+   complex(cp), allocatable :: bCMB(:)
 
    integer :: n_dipole_file, n_e_mag_ic_file, n_e_mag_oc_file
+   integer :: n_compliance_file
    character(len=72) :: dipole_file, e_mag_ic_file, e_mag_oc_file
+   character(len=72) :: earth_compliance_file
  
    public :: initialize_magnetic_energy, get_e_mag, finalize_magnetic_energy
   
 contains
 
    subroutine initialize_magnetic_energy
+      !
+      ! Open diagnostic files and allocate memory
+      !
+
+      !-- Local variables
+      integer :: lm, nTheta, l, m
+      real(cp) :: theta
+      real(cp), allocatable :: plma(:), dtheta_plma(:)
 
       allocate( e_dipA(n_r_max) )
       allocate( e_pA(n_r_max),e_p_asA(n_r_max) )
@@ -53,11 +72,61 @@ contains
          open(newunit=n_e_mag_ic_file, file=e_mag_ic_file, status='new')
          open(newunit=n_dipole_file, file=dipole_file, status='new')
       end if
-    
+
+      if ( l_earth_likeness ) then
+         if ( rank == 0 ) then
+            earth_compliance_file='earth_like.'//tag
+            if ( .not. l_save_out ) then
+               open(newunit=n_compliance_file, file=earth_compliance_file, &
+               &    status='new')
+            end if
+            allocate( bCMB(lm_max) )
+            bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
+
+            !-- Define a regularly spaced theta-grid
+            !-- to estimate Br skewness
+            n_theta_max_comp = 5*l_max_comp
+            n_phi_max_comp = 2*n_theta_max_comp
+            lm_max_comp=l_max_comp*(l_max_comp+1)/minc-&
+            &           l_max_comp*(l_max_comp-minc)/(2*minc)+1
+            !-- Plm_comp are values of associated Legendre functions for equidistant
+            !-- grid points in theta  (theta = pi*(ith-0.5)/nth,  ith= 1  ... nth)
+            allocate( Plm_comp(lm_max_comp,1:n_theta_max_comp) )
+
+            !-- Temporary arrays
+            allocate( plma(lm_max_comp), dtheta_plma(lm_max_comp) )
+            do nTheta=1,n_theta_max_comp
+               theta = pi*(nTheta-half)/real(n_theta_max_comp,cp)
+               !-- Schmidt normalisation --!
+               call plm_theta(theta, l_max_comp, l_max_comp, minc, &
+                    &         plma, dtheta_plma, lm_max_comp, 1)
+               lm = 1
+               do m=0,l_max_comp,minc
+                  do l=m,l_max_comp
+                     Plm_comp(lm,nTheta)=plma(lm)
+                     lm = lm+1
+                  end do
+               end do
+            end do
+            !
+            deallocate( plma, dtheta_plma )
+         else
+            allocate( bCMB(1) )
+         end if
+      end if
+
    end subroutine initialize_magnetic_energy
 !----------------------------------------------------------------------------
    subroutine finalize_magnetic_energy
+      !
+      ! Close file and deallocates global arrays
+      !
 
+      if ( l_earth_likeness ) then
+         if ( rank == 0 ) deallocate( Plm_comp )
+         deallocate( bCMB )
+         if ( .not. l_save_out ) close(n_compliance_file)
+      end if
       deallocate( e_dipA, e_pA, e_p_asA, e_tA, e_t_asA)
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
@@ -77,7 +146,8 @@ contains
       !
       !  calculates magnetic energy  = 1/2 Integral(B^2 dV)
       !  integration in theta,phi by summation over harmonic coeffs.
-      !  integration in r by Chebycheff integrals
+      !  integration in r by Chebyshev integrals or Simpson rule
+      !  depending whether FD or Cheb is used.
       !
 
       !-- Input of variables:
@@ -144,6 +214,11 @@ contains
       real(cp) :: e_p_es,e_t_es,e_es_cmb,e_as_cmb
       real(cp) :: e_p_eas,e_t_eas,e_eas_cmb
 
+      real(cp) :: ad, nad, sym, asym, zon, nzon, br_skew
+      real(cp) :: fluxConcentration
+      real(cp) :: ad_global, nad_global, sym_global, asym_global
+      real(cp) :: zon_global, nzon_global
+
       real(cp) :: e_dip_cmb,eTot,eDR
       real(cp) :: theta_dip,phi_dip
 
@@ -164,7 +239,6 @@ contains
       sr_tag=18654
 
       l_geo=11   ! max degree for geomagnetic field seen on Earth  
-      ! surface
 
       e_p      =0.0_cp
       e_t      =0.0_cp
@@ -182,6 +256,12 @@ contains
       e_eas_geo=0.0_cp
       Dip      =0.0_cp
       DipCMB   =0.0_cp
+      ad       =0.0_cp
+      nad      =0.0_cp
+      sym      =0.0_cp
+      asym     =0.0_cp
+      zon      =0.0_cp
+      nzon     =0.0_cp
 
       if ( .not.( l_mag .or. l_mag_LF ) ) return
 
@@ -233,8 +313,32 @@ contains
                     &                 e_eas_geo=e_eas_geo+e_p_temp
             end if
 
-            if ( l == 1 .and. m == 0 ) e_dipole_ax_r(nR)=e_p_temp
-            if ( l == 1 )  e_dipole_r(nR)=e_dipole_r(nR)+e_p_temp
+            if ( l == 1 .and. m == 0 ) then
+               e_dipole_ax_r(nR)=e_p_temp
+               if ( nR == n_r_cmb ) ad = e_dipole_ax_r(nR)
+            end if
+            if ( l == 1 ) e_dipole_r(nR)=e_dipole_r(nR)+e_p_temp
+
+            if ( l_earth_likeness ) then
+               if ( l <= l_max_comp .and. nR == n_r_cmb ) then
+                  if ( l /= 1 .or. m /= 0 ) then
+                     nad = nad + e_p_temp
+                  end if
+               end if
+
+               if ( nR ==  n_r_cmb .and. l >= 2 .and. l <= l_max_comp ) then
+                  if ( mod(l+m,2) == 1 ) then
+                     sym = sym + e_p_temp
+                  else
+                     asym = asym+e_p_temp
+                  end if
+                  if ( m == 0 ) then
+                     zon = zon + e_p_temp
+                  else
+                     nzon = nzon + e_p_temp
+                  end if
+               end if
+            end if
 
          end do    ! do loop over lms in block 
 
@@ -280,6 +384,21 @@ contains
            & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
       call MPI_Reduce(e_eas_geo, e_eas_geo_global,1, &
            & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+      if ( l_earth_likeness ) then
+         call MPI_Reduce(ad,ad_global,1,MPI_DEF_REAL,MPI_SUM,0,    &
+              &          MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(nad,nad_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
+              &          MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(sym,sym_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
+              &          MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(asym,asym_global,1,MPI_DEF_REAL,MPI_SUM,0,&
+              &          MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(zon,zon_global,1,MPI_DEF_REAL,MPI_SUM,0,  &
+              &          MPI_COMM_WORLD,ierr)
+         call MPI_Reduce(nzon,nzon_global,1,MPI_DEF_REAL,MPI_SUM,0,&
+              &          MPI_COMM_WORLD,ierr)
+      end if
 #else
       e_p_r_global        =e_p_r
       e_t_r_global        =e_t_r
@@ -296,7 +415,17 @@ contains
       e_es_geo_global     =e_es_geo
       e_as_geo_global     =e_as_geo
       e_eas_geo_global    =e_eas_geo
+      if ( l_earth_likeness ) then
+         ad_global           =ad
+         nad_global          =nad
+         sym_global          =sym
+         asym_global         =asym
+         zon_global          =zon
+         nzon_global         =nzon
+      end if
 #endif
+
+      if ( l_earth_likeness ) call gather_from_lo_to_rank0(b(:,n_r_cmb), bCMB)
 
       if ( rank == 0 ) then
          !-- Get Values at CMB:
@@ -592,14 +721,14 @@ contains
                open(newunit=n_e_mag_oc_file, file=e_mag_oc_file, &
                &    status='unknown', position='append')
             end if
-            write(n_e_mag_oc_file,'(1P,ES20.12,12ES16.8)')               &
-                 &                             time*tScale,              &! 1
-                 &                             e_p,e_t,                  &! 2,3
-                 &                             e_p_as,e_t_as,            &! 4,5
-                 &                             e_p_os,e_p_as_os,         &! 6,7
-                 &                             e_p_es,e_t_es,            &! 8,9
-                 &                             e_p_eas,e_t_eas,          &! 10,11
-                 &                             e_p_e,e_p_as_e    ! 12,13
+            write(n_e_mag_oc_file,'(1P,ES20.12,12ES16.8)')   &
+                 &                        time*tScale,       &! 1
+                 &                        e_p,e_t,           &! 2,3
+                 &                        e_p_as,e_t_as,     &! 4,5
+                 &                        e_p_os,e_p_as_os,  &! 6,7
+                 &                        e_p_es,e_t_es,     &! 8,9
+                 &                        e_p_eas,e_t_eas,   &! 10,11
+                 &                        e_p_e,e_p_as_e      ! 12,13
             if ( l_save_out ) close(n_e_mag_oc_file)
          end if
 
@@ -711,8 +840,40 @@ contains
                  &       (e_cmb-e_es_cmb)/e_cmb,           &! 17
                  &       (e_cmb-e_as_cmb)/e_cmb,           &! 18
                  &       (e_geo-e_es_geo)/e_geo,           &! 19
-                 &       (e_geo-e_as_geo)/e_geo        ! 20
+                 &       (e_geo-e_as_geo)/e_geo             ! 20
             if ( l_save_out ) close(n_dipole_file)
+
+            if ( l_earth_likeness ) then
+               if ( l_save_out ) then
+                  open(newunit=n_compliance_file, file=earth_compliance_file,  &
+                  &    status='unknown', position='append')
+               end if
+
+               call get_Br_skew(bCMB,br_skew)
+               fluxConcentration = br_skew-one
+
+               if ( nad_global /= 0.0_cp ) then
+                  ad=ad_global/nad_global
+               else
+                  ad=0.0_cp
+               end if
+               if ( asym_global /= 0.0_cp ) then
+                  sym=sym_global/asym_global
+               else
+                  sym=0.0_cp
+               end if
+               if ( nzon_global /= 0.0_cp ) then
+                  zon=zon_global/nzon_global
+               else
+                  zon=0.0_cp
+               end if
+               write(n_compliance_file,'(1P,ES20.12,4ES16.8)')    &
+                    &       time*tScale, ad,                      &
+                    &       sym, zon, fluxConcentration
+
+               if ( l_save_out ) close(n_compliance_file)
+            end if
+
          end if
          ! Store values needed for movie output:
          movieDipColat      =theta_dip
@@ -721,7 +882,72 @@ contains
          movieDipStrengthGeo=e_dip_cmb/e_geo
       end if
 
-
    end subroutine get_e_mag
+!----------------------------------------------------------------------------
+   subroutine get_Br_skew(bCMB,Br_skew)
+      !
+      ! This subroutine calculates the skewness of the radial magnetic field
+      ! at the outer boundary. 
+      ! bskew :=  <B^4> / <B^2>^2   where <..> is average over the surface
+      !
+
+      !-- Input variable
+      complex(cp), intent(in) :: bCMB(lm_max)
+
+      !-- Output variable
+      real(cp), intent(out) :: Br_skew
+
+      !-- Local variables
+      real(cp) :: br(n_theta_max_comp, n_phi_max_comp)
+      real(cp) :: glm, hlm, phi, fac
+      real(cp) :: sinTh, sinTh_m, Br2tmp, Br2s, Br4s, Br2, Br4
+      integer :: nPhi, m, l, nTheta, lm, lm1
+
+      br(:,:) = 0.0_cp
+      !-- First compute Br on the equidistant physical grid
+      do nPhi=1,n_phi_max_comp
+         phi = two*pi*(nPhi-1)/real(n_phi_max_comp,kind=cp)
+         lm1 = 1
+         do m=0,l_max_comp,minc
+            do l=m,l_max_comp
+               lm=st_map%lm2(l,m)
+               fac = (-one)**(m)*l*sqrt(two*l+one)*osq4pi
+               if ( m > 0 ) fac = fac*sqrt(two)
+               glm =  fac*real(bCMB(lm))
+               hlm = -fac*aimag(bCMB(lm))
+               
+               do nTheta=1,n_theta_max_comp
+                  br(nTheta,nPhi)=br(nTheta,nPhi)+Plm_comp(lm1,nTheta)*( &
+                  &               glm*cos(m*phi)+hlm*sin(m*phi))*(l+1)/r(n_r_cmb)**2
+               end do
+               lm1 = lm1+1
+            end do
+         end do
+      end do
+
+      !-- Then calculate skewness
+      Br2 = 0.0_cp
+      Br4 = 0.0_cp
+      sinTh_m = 0.0_cp
+      do nTheta=1,n_theta_max_comp
+         sinTh=sin(pi*(nTheta-half)/real(n_theta_max_comp,cp))
+         sinTh_m=sinTh_m+sinTh
+
+         Br2s = 0.0_cp
+         Br4s = 0.0_cp
+         do nPhi=1,n_phi_max_comp
+            Br2tmp = br(nTheta,nPhi)*br(nTheta,nPhi)
+            Br2s = Br2s+Br2tmp
+            Br4s = Br4s+Br2tmp*Br2tmp
+         end do
+         Br2=Br2+Br2s*sinTh
+         Br4=Br4+Br4s*sinTh
+      end do
+      Br2=Br2/(sinTh_m*real(n_phi_max_comp,kind=cp))
+      Br4=Br4/(sinTh_m*real(n_phi_max_comp,kind=cp))
+
+      Br_skew= Br4/(Br2*Br2)
+
+   end subroutine get_Br_skew
 !----------------------------------------------------------------------------
 end module magnetic_energy

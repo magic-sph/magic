@@ -121,7 +121,8 @@ contains
          & l_PV,l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,    &
          & l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
          & r_probe,theta_probe,n_phi_probes,n_probe_step,     &
-         & n_probe_out,t_probe_start,t_probe_stop,dt_probe
+         & n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
+         & l_earth_likeness,l_max_comp
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1014,6 +1015,8 @@ contains
       do n=1,n_coeff_r_max
          write(n_out,'(''  n_coeff_r       ='',i3,'','')') n_coeff_r(n)
       end do
+      write(n_out,'(''  l_earth_likeness='',l3,'','')') l_earth_likeness
+      write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
@@ -1350,6 +1353,10 @@ contains
       t_r_field_start=0.0_cp
       t_r_field_stop =0.0_cp
       dt_r_field     =0.0_cp
+
+      !----- Compute Earth-likeness (Christensen et al. EPSL 2010)
+      l_earth_likeness=.false.
+      l_max_comp    =8
 
       !----- Output of distribution of energies over m's
       l_energy_modes=.false. ! to get emag and ekin for different m
