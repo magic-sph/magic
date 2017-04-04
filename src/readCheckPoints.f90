@@ -225,10 +225,6 @@ contains
 
          call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
 
-         !--
-         !-- There's possibly an issue when the Chebyshev mapping was used in
-         !-- the old grid. So far get_grid uses l_newmap as a global quantity
-         !--
          call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
               &                       ratio2, r_old)
 
@@ -881,10 +877,6 @@ contains
 
          call rscheme_oc_old%initialize(n_r_max_old, n_in, n_in_2)
 
-         !--
-         !-- There's possibly an issue when the Chebyshev mapping was used in
-         !-- the old grid. So far get_grid uses l_newmap as a global quantity
-         !--
          call rscheme_oc_old%get_grid(n_r_max_old, r_icb_old, r_cmb_old, ratio1, &
               &                       ratio2, r_old)
 
@@ -1509,7 +1501,8 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( dim1 /= n_r_max_old .or. &
+               if ( dim1 /= n_r_max_old .or.                                        &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
                &    rscheme_oc%version /= rscheme_oc_old%version ) then
 
                   do nR=1,n_r_max_old  ! copy on help arrays
@@ -1584,6 +1577,7 @@ contains
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
                if ( n_r_max /= n_r_max_old .or. &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
                &    rscheme_oc%version /= rscheme_oc_old%version ) then
 
                   do nR=1,n_r_max_old  ! copy on help arrays
@@ -1691,7 +1685,8 @@ contains
          do lm=lmStart,lmStop
             lmo=lm2lmo(lm)
             if ( lmo > 0 ) then
-               if ( n_rad_tot /= n_r_max_old .or. &
+               if ( n_rad_tot /= n_r_max_old .or.                                   &
+               &    rscheme_oc%order_boundary /= rscheme_oc_old%order_boundary .or. &
                &    rscheme_oc%version /= rscheme_oc_old%version ) then
                   do nR=1,n_r_max_old  ! copy on help arrays
                      n=lmo+(nR-1)*lm_max_old
@@ -1767,7 +1762,9 @@ contains
 
       !-- If **both** the old and the new schemes are Chebyshev, we can
       !-- use costf to get the new data
-      if ( rscheme_oc%version == 'cheb' .and. rscheme_oc_old%version == 'cheb' ) then
+      !-- Both have also to use the same mapping (order_boundary is a proxy of l_map
+      if ( rscheme_oc%version == 'cheb' .and. rscheme_oc_old%version == 'cheb' &
+      &   .and. rscheme_oc%order_boundary == rscheme_oc_old%order_boundary  ) then
 
          !-- Guess the boundary values, since they have not been stored:
          if ( .not. l_IC .and. lBc ) then

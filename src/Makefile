@@ -332,7 +332,7 @@ fields_average.o      : truncation.o output_data.o blocking.o\
                         radial_derivatives.o radial_derivatives_even.o\
                         spectra.o kinetic_energy.o out_graph_file.o\
                         magnetic_energy.o legendre_spec_to_grid.o\
-                        $(FFT_OBJS) out_coeff.o\
+                        $(FFT_OBJS) out_coeff.o storeCheckPoints.o\
                         legendre_helpers.o mem_alloc.o
 get_nl.o              : truncation.o horizontal.o logic.o\
                         phys_param.o radial.o blocking.o mem_alloc.o
@@ -382,7 +382,7 @@ outMisc.o             : truncation.o num_param.o phys_param.o logic.o\
                         output_data.o blocking.o constants.o radial.o\
                         horizontal.o legendre_spec_to_grid.o\
                         integration.o startFields.o
-chebyshev_polynoms.o  : constants.o logic.o precision_mod.o
+chebyshev_polynoms.o  : constants.o logic.o precision_mod.o num_param.o
 rIteration.o          : precision_mod.o
 radialLoop.o          : truncation.o blocking.o parallel.o\
                         phys_param.o logic.o output_data.o\
@@ -548,7 +548,7 @@ horizontal.o          : truncation.o phys_param.o num_param.o precision_mod.o\
 RMS.o	              : truncation.o blocking.o mem_alloc.o
 init_fields.o         : truncation.o blocking.o radial.o horizontal.o\
                         constants.o logic.o $(FFT_OBJS) legendre_grid_to_spec.o\
-                        useful.o phys_param.o LMLoop_data.o\
+                        useful.o phys_param.o LMLoop_data.o communications.o\
                         cosine_transform_odd.o mem_alloc.o parallel.o
 movie.o               : truncation.o parallel.o radial_data.o\
                         output_data.o logic.o radial.o mem_alloc.o\
@@ -561,7 +561,7 @@ dtB.o                 : truncation.o radial_data.o parallel.o \
 TO.o                  : truncation.o blocking.o horizontal.o\
                         radial_data.o phys_param.o radial.o logic.o\
                         legendre_grid_to_spec.o mem_alloc.o
-$(LAPACK_OBJS)        : precision_mod.o constants.o
+$(LAPACK_OBJS)        : precision_mod.o constants.o useful.o
 dt_fieldsLast.o       : truncation.o LMLoop_data.o precision_mod.o\
                         mem_alloc.o
 fields.o              : truncation.o LMLoop_data.o radial_data.o\

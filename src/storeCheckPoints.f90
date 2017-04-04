@@ -10,11 +10,11 @@ module storeCheckPoints
    use truncation, only: n_r_max,n_r_ic_max,minc,nalias,n_theta_max,n_phi_tot, &
        &                 lm_max,lm_maxMag,n_r_maxMag,n_r_ic_maxMag,l_max,      &
        &                 fd_stretch, fd_ratio
-   use radial_functions, only: rscheme_oc, alph1, alph2
+   use radial_functions, only: rscheme_oc
    use physical_parameters, only: ra, pr, prmag, radratio, ek, sigma_ratio, &
        &                          raxi, sc
    use LMLoop_data, only: llm,ulm, llmMag, ulmMag
-   use num_param, only: tScale
+   use num_param, only: tScale, alph1, alph2
    use fieldsLast, only: d_omega_ma_dtLast,d_omega_ic_dtLast, &
        &                 lorentz_torque_maLast,lorentz_torque_icLast
    use init_fields, only: inform,omega_ic1,omegaOsz_ic1,tOmega_ic1, &

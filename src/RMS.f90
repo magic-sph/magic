@@ -17,14 +17,13 @@ module RMS
        &                 lm_max_dtB, fd_ratio, fd_stretch
    use physical_parameters, only: ra, ek, pr, prmag, radratio
    use radial_data, only: nRstop, nRstart
-   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb, alph1, alph2
+   use radial_functions, only: rscheme_oc, r, r_cmb, r_icb
    use logic, only: l_save_out, l_heat, l_conv_nl, l_mag_LF, l_conv, &
        &            l_corr, l_mag, l_finite_diff, l_newmap
-   use num_param, only: tScale
+   use num_param, only: tScale, alph1, alph2
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
    use integration, only: rInt_R
-   use chebyshev_polynoms_mod, only: cheb_grid
    use radial_der, only: get_dr, get_drNS
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd

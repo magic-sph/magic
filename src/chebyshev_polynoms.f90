@@ -3,6 +3,7 @@ module chebyshev_polynoms_mod
    use precision_mod
    use logic, only: l_newmap
    use constants, only: pi, half, one, two, four
+   use num_param, only: map_function
  
    implicit none
  
@@ -85,7 +86,7 @@ contains
 
    end subroutine get_chebs_even
 !------------------------------------------------------------------------------
-   subroutine cheb_grid(a,b,n,x,y,a1,a2,x0,lbd)
+   subroutine cheb_grid(a,b,n,x,y,a1,a2,x0,lbd,l_map)
       !
       !   Given the interval [a,b] the routine returns the
       !   n+1 points that should be used to support a
@@ -103,6 +104,7 @@ contains
       real(cp), intent(in) :: a,b   ! interval boundaries
       integer,  intent(in) :: n ! degree of Cheb polynomial to be represented by the grid points
       real(cp), intent(in) :: a1,a2,x0,lbd
+      logical,  intent(in) :: l_map ! Chebyshev mapping
 
       !-- Output variables
       real(cp), intent(out) :: x(*) ! grid points in interval [a,b]
@@ -114,11 +116,17 @@ contains
        
       bma=half*(b-a)
       bpa=half*(a+b)
-       
+
       do k=1,n+1
          y(k)=cos( pi*real(k-1,cp)/real(n,cp) )
-         if ( l_newmap ) then
-            x(k)=(a2+tan(lbd*(y(k)-x0))/a1)/2 + bpa
+         if ( l_map ) then
+            if ( index(map_function, 'TAN') /= 0 .or.    &
+            &   index(map_function, 'BAY') /= 0 ) then
+               x(k)=half*(a2+tan(lbd*(y(k)-x0))/a1) + bpa
+            else if ( index(map_function, 'ARCSIN') /= 0 .or. &
+            &         index(map_function, 'KTL') /= 0 ) then
+               x(k)=half*asin(a1*y(k))/asin(a1)+bpa
+            end if
          else
             x(k)=bma * y(k) + bpa
          end if

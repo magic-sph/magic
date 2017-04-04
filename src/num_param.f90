@@ -61,6 +61,12 @@ module num_param
    integer, public :: runTime(4)       ! Running time
    integer, public :: runTimeStart(4)  ! Wall clock time of start of the run
 
+   !-- For the nonlinear mapping)
+   real(cp), public :: alph1  ! Input parameter for non-linear map to define degree of spacing (0.0:2.0)
+   real(cp), public :: alph2  ! Input parameter for non-linear map to define central point of different spacing (-1.0:1.0)
+   character(len=72), public :: map_function ! Mapping family: either tangent or arcsin
+
+
    public :: initialize_num_param      ! Subroutine that allocates auxiliary arrays delxr2 and delxh2
    public :: finalize_num_param        ! Subroutine that deallocates arrays
 

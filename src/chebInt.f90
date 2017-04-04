@@ -106,7 +106,8 @@ contains
       !-- Calculate nGridPoints grid points z(*) in interval [zMin,zMax]
       !   zCheb are the grid points in the cheb interval [-1,1]
       !   These are not really needed for the integration.
-      call cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.0_cp,0.0_cp,0.0_cp,0.0_cp)
+      call cheb_grid(zMin,zMax,nGridPoints-1,z,zCheb,0.0_cp,0.0_cp,0.0_cp, &
+           &         0.0_cp,.false.)
       z(nGridPoints+1:nGridPointsMax)=0.0_cp
 
       deallocate( zCheb )

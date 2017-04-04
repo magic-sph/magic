@@ -9,6 +9,7 @@ module chebyshev
    use useful, only: factorise
    use chebyshev_polynoms_mod, only: cheb_grid
    use cosine_transform_odd, only: costf_odd_t
+   use num_param, only: map_function
 
    implicit none
 
@@ -108,7 +109,7 @@ contains
 
       !--
       !-- There's possibly an issue when the Chebyshev mapping was used in
-      !-- the old grid. So far get_grid uses l_newmap as a global quantity
+      !-- the old grid and a different mapping is used on the new one
       !--
 
       if ( this%l_map ) then
@@ -123,22 +124,41 @@ contains
       end if
 
       call cheb_grid(ricb,rcmb,n_r_max-1,r,this%r_cheb,this%alpha1,this%alpha2, &
-           &         paraX0,lambd)
+           &         paraX0,lambd,this%l_map)
 
       if ( this%l_map ) then
 
-         do n_r=1,n_r_max
-            this%drx(n_r)  =                         (two*this%alpha1) /      &
-            &    ((one+this%alpha1**2*(two*r(n_r)-ricb-rcmb-this%alpha2)**2)* &
-            &    lambd)
-            this%ddrx(n_r) =-(8.0_cp*this%alpha1**3*(two*r(n_r)-ricb-rcmb-this%alpha2)) / &
-            &    ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+this%alpha2)**2)**2*     &
-            &    lambd)
-            this%dddrx(n_r)=(16.0_cp*this%alpha1**3*(-one+three*this%alpha1**2*     &
-            &                           (-two*r(n_r)+ricb+rcmb+this%alpha2)**2)) /  &
-            &      ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+this%alpha2)**2)**3* &
-            &       lambd)
-         end do
+         !-- Tangent mapping (see Bayliss et al. 1992)
+         if ( index(map_function, 'TAN') /= 0 .or.      &
+         &    index(map_function, 'BAY') /= 0 ) then
+
+            do n_r=1,n_r_max
+               this%drx(n_r)  =                         (two*this%alpha1) /        &
+               &    ((one+this%alpha1**2*(two*r(n_r)-ricb-rcmb-this%alpha2)**2)*   &
+               &    lambd)
+               this%ddrx(n_r) =-(8.0_cp*this%alpha1**3*(two*r(n_r)-ricb-rcmb-      &
+               &               this%alpha2)) / ((one+this%alpha1**2*(-two*r(n_r)+  &
+               &               ricb+rcmb+this%alpha2)**2)**2*lambd)
+               this%dddrx(n_r)=(16.0_cp*this%alpha1**3*(-one+three*this%alpha1**2* &
+               &               (-two*r(n_r)+ricb+rcmb+this%alpha2)**2)) /          &
+               &               ((one+this%alpha1**2*(-two*r(n_r)+ricb+rcmb+        &
+               &               this%alpha2)**2)**3*lambd)
+            end do
+
+         !-- Arcsin mapping (see Kosloff and Tal-Ezer, 1993)
+         else if ( index(map_function, 'ARCSIN') /= 0 .or. &
+         &         index(map_function, 'KTL') /= 0 ) then
+
+            do n_r=1,n_r_max
+               this%drx(n_r)  =two*asin(this%alpha1)/this%alpha1*sqrt(one-         &
+               &               this%alpha1**2*this%r_cheb(n_r)**2)
+               this%ddrx(n_r) =-four*asin(this%alpha1)**2*this%r_cheb(n_r)
+               this%dddrx(n_r)=-8.0_cp*asin(this%alpha1)**3*                       &
+               &               sqrt(one-this%alpha1**2*this%r_cheb(n_r)**2)/       &
+               &               this%alpha1
+            end do
+
+         end if
 
       else
 
