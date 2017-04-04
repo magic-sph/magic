@@ -98,10 +98,7 @@ GJI, 1999) is included.
 
 * **alffac** (default :f:var:`alffac=1.0 <alffac>`) is a  real, used to scale Alfven-velocity in courant criteria.
 
-* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves
-is taken into account when estimating the Courant condition (see Christensen
-et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead
-to spurious oscillations/instabilities of the code.
+* **l_cour_alf_damp** (default :f:var:`l_cour_alf_damp=.true. <l_cour_alf_damp>`) is a logical. This is used to decide whether the damping of the Alven waves is taken into account when estimating the Courant condition (see Christensen et al., GJI, 1999). At low Ekman numbers, this criterion might actually lead to spurious oscillations/instabilities of the code.
 
 * **n_cour_step** (default :f:var:`n_cour_step=10 <n_cour_step>`) is an integer. This is the number of time steps before consecutive checking of courant criteria. Note: the courant criteria is checked always after the time step has been changed if ``n_cour_step>0``.
 
@@ -174,15 +171,31 @@ In MagIC, one can either use finite differences or Chebyshev polynomials for the
   | radial_scheme='FD'    | Use finite differences         |
   +-----------------------+--------------------------------+
 
-When Chebyshev polynomials are used, it is also possible to use a non-linear mapping function to concentrate/diperse grid points around a point inside the domain. For a full description, see Bayliss and Turkel (1990). The function that re-distributes the collocation points is
+When Chebyshev polynomials are used, it is also possible to use a non-linear
+mapping function to concentrate/diperse grid points around a point inside the
+domain. 
+
+
+* **l_newmap** (default :f:var:`l_newmap=.false. <l_newmap>`) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
+
+* **map_function** (default :f:var:`map_function='arcsin' <map_function>`) is a character string. This allows to select which mapping function is used:
+
+  +-----------------------+-----------------------------------------------------------------------------------------------------------+
+  | map_function='TAN'    | Use a tangent mapping  (see `Bayliss and Turkel 1992 <https://doi.org/10.1016/0021-9991(92)90012-N>`_)    |
+  +-----------------------+-----------------------------------------------------------------------------------------------------------+
+  | map_function='ARCSIN' | Use finite differences (see `Kosloff and Tal-Ezer 1993 <https://doi.org/10.1006/jcph.1993.1044>`_)        |
+  +-----------------------+-----------------------------------------------------------------------------------------------------------+
+
+If the tangent mapping is used, the function that re-distributes the collocation 
+points is expressed by
 
 .. math::
-   r=\alpha_2+\left[ \frac{\textrm{tan}^{-1}\left(\lambda(r_{cheb}-x_0)\right)}{\alpha_1} \right] \textrm{ ,}
+   r=\frac{1}{2}\left(\alpha_2+\frac{\textrm{tan}\left[\lambda(r_{cheb}-x_0)\right]}{\alpha_1}\right) + \frac{r_i+r_o}{2} \textrm{ ,}
 
 where the Gauss-Lobatto collocation points are
 
 .. math::
-   r_{cheb}&=\textrm{cos}\left( \frac{\pi(k-1)}{n_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
+   r_{cheb}&=\textrm{cos}\left( \frac{\pi(k-1)}{N_r} \right) \textrm{ , }\;\; k=1,2,...,n_r \textrm{ , }\; n_r=n\_r\_max
 
 and :math:`r\!\in\![r_i,r_o]`, :math:`r_{cheb}\!\in\![-1.0,1.0]`. The parameters to calculate :math:`r` are
 
@@ -193,9 +206,25 @@ and :math:`r\!\in\![r_i,r_o]`, :math:`r_{cheb}\!\in\![-1.0,1.0]`. The parameters
 
 The coefficient :math:`\alpha_1` determines the degree of concentration/dispersion of the grid points around :math:`r_{cheb}\!=\!\alpha_2`. If :math:`\alpha_1` is too high, the :math:`r` function becomes nearly discontinuous. To avoid numerical problems, :math:`\alpha_1` should remain close to unity.
 
-* **l_newmap** (default :f:var:`l_newmap=.false. <l_newmap>`) is a logical. A radial mapping can be applied to the Chebyshev grid when ``l_newmap`` is set to ``.true.``. The radial profile of the mapping function is then stored during the initialisation of the code in the file :ref:`rNM.TAG <secMappingFile>`.
+If the arcsin mapping is used, the function that re-distributes the collocation points
+is given by
 
-* **alph1** (default :f:var:`alph1=2.0 <alph1>`) is a real. This is a control parameter of the mapping function.
+.. math::
+   r=\frac{1}{2}\left[ \frac{\textrm{arcin}\left(\alpha_1 r_{cheb}\right)}{\textrm{arcsin} \alpha_1} \right]+\frac{r_i+r_o}{2} \textrm{ ,}
+
+In the Kosloff and Tal-Ezer mapping, :math:`\alpha_1` transforms the Gauss-Lobatto
+grid into a more regularly-spaced grid. When :math:`\alpha_1 \rightarrow 0` one 
+recovers the Gauss-Lobatto grid, while :math:`\alpha_1 \rightarrow 1` yields a
+regular grid. 
+
+.. warning:: The Kosloff-Tal-Ezer mapping becomes singular when :math:`\alpha_1=1`.
+             Acceptable values are :math:`0<\alpha_1<1`. Note that the error increases
+	     as :math:`\epsilon=\left(\frac{1-\sqrt{1-\alpha_1^2}}{\alpha_1}\right)^{N_r}`.
+
+..
+
+
+* **alph1** (default :f:var:`alph1=0.8 <alph1>`) is a real. This is a control parameter of the mapping function.
 
 * **alph2** (default :f:var:`alph2=0.0 <alph2>`) is a real. This is a control parameter of the mapping function.
 

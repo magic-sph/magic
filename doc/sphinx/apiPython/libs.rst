@@ -3,7 +3,7 @@
 Spectral tansforms
 ------------------
 
-.. autmodule:: magic.spectraltransforms
+.. automodule:: magic.spectralTransforms
    :members:
 
 Plotting functions
