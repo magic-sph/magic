@@ -444,7 +444,7 @@ class MagicTs(MagicSetup):
             ax.plot(self.time, self.dipolarity, ls='--', c='#30a2da',
                     label='Axisym dipolarity')
             ax.plot(self.time, self.dipTot_cmb, ls='-', c='#6d904f',
-                    label='Total dipoloarity CMB')
+                    label='Total dipolarity CMB')
             ax.plot(self.time, self.dip_cmb, ls='--', c='#6d904f',
                     label='Axisym dipolarity')
             ax.plot(self.time, self.dip_l11, ls='-', c='#fc4f30',
