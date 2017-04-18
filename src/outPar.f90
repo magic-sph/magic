@@ -378,7 +378,7 @@ contains
                RolR(nR)=RoR(nR)
             end if
             if ( l_mag_nl ) then
-               RmR(nR)=ReR(nR)*prmag*sigma(nR)*r(nR)*r(nR)
+               RmR(nR)=ReR(nR)*prmag*sigma(nR)
             else
                RmR(nR)=ReR(nR)
             end if
@@ -390,7 +390,7 @@ contains
          dlVu2cMeanR=dlVu2cMeanR+timePassed*dlVRu2c
          RolMeanR   =RolMeanR   +timePassed*RolR
          RolMeanRu2 =RolMeanRu2 +timePassed*RolRu2
-         RmMeanR    =RmMeanR    +timePassed*RmR*sqrt(mass/rho0)*or2
+         RmMeanR    =RmMeanR    +timePassed*RmR*sqrt(mass/rho0)
          !write(*,"(A,ES20.12)") "dlVcMeanR(n_r_icb) = ",dlVcMeanR(n_r_icb)
          ! this is to get u2 value for RmR(r) to plot in parR.tag
          ! and also remove r**2, so it has to be volume-averaged 
