@@ -89,7 +89,7 @@ class MagicCoeffCmb(MagicSetup):
     >>> cmb.movieCmb(levels=12, cm='seismic', png=True)
     """
     
-    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True,
+    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True, lCut=None,
                  precision='Float64', ave=False, sv=False, quiet=False):
         """
         A class to read the B_coeff_cmb files
@@ -110,6 +110,8 @@ class MagicCoeffCmb(MagicSetup):
         :type sv: bool
         :param quiet: verbose when toggled to True (default is True)
         :type quiet: bool
+        :param lCut: reduce the spherical harmonic truncation to l <= lCut
+        :type lCut: int
         """
 
         logFiles = scanDir('log.*')
@@ -167,6 +169,11 @@ class MagicCoeffCmb(MagicSetup):
         self.blm[:, 1:self.l_max_cmb+1] = data[:, 1:self.l_max_cmb+1]
         self.blm[:, self.l_max_cmb+1:] = data[:, self.l_max_cmb+1::2]+\
                                          1j*data[:, self.l_max_cmb+2::2]
+
+        # Truncate!
+        if lCut is not None:
+            if lCut < self.l_max_cmb:
+                self.truncate(lCut)
 
         # Get time
         self.time = np.zeros(self.nstep, precision)
@@ -246,6 +253,43 @@ class MagicCoeffCmb(MagicSetup):
         out.ESVl = np.concatenate((self.ESVl, new.ESVl), axis=0)
 
         return out
+
+    def truncate(self, lCut):
+        """
+        :param lCut: truncate to spherical harmonic degree lCut
+        :type lCut: int
+        """
+        self.l_max_cmb = lCut
+        self.m_max_cmb = int((self.l_max_cmb/self.minc)*self.minc)
+        self.lm_max_cmb = self.m_max_cmb*(self.l_max_cmb+1)/self.minc - \
+                        self.m_max_cmb*(self.m_max_cmb-self.minc)/(2*self.minc) + \
+                        self.l_max_cmb-self.m_max_cmb+1
+
+        # Get indices location
+        idx_new = np.zeros((self.l_max_cmb+1, self.m_max_cmb+1), 'i')
+        ell_new = np.zeros(self.lm_max_cmb, 'i')
+        ms_new = np.zeros(self.lm_max_cmb, 'i')
+        idx_new[0:self.l_max_cmb+2, 0] = np.arange(self.l_max_cmb+1)
+        ell_new[0:self.l_max_cmb+2] = np.arange(self.l_max_cmb+2)
+        k = self.l_max_cmb+1
+        for m in range(self.minc, self.l_max_cmb+1, self.minc):
+            for l in range(m, self.l_max_cmb+1):
+                idx_new[l, m] = k
+                ell_new[idx_new[l,m]] = l
+                ms_new[idx_new[l,m]] = m
+                k +=1
+
+        blm_new = np.zeros((self.nstep, self.lm_max_cmb), 'Complex64')
+        for l in range(1, self.l_max_cmb+1):
+            for m in range(0, l+1, self.minc):
+                lm = idx_new[l, m]
+                blm_new[:, lm] = self.blm[:, self.idx[l,m]]
+
+        self.idx = idx_new
+        self.ell = ell_new
+        self.ms = ms_new
+        self.blm = blm_new
+
 
     def plot(self):
         """
@@ -439,7 +483,7 @@ class MagicCoeffCmb(MagicSetup):
         # Define spectral transform setup
         sh = SpectralTransforms(l_max=self.l_max_cmb, minc=self.minc,
                                 lm_max=self.lm_max_cmb, 
-				n_theta_max=nlat)
+                                n_theta_max=nlat)
 
         # Transform data on grid space
         BrCMB = np.zeros((self.nstep, nphi, nlat), precision)
@@ -500,6 +544,9 @@ class MagicCoeffCmb(MagicSetup):
                                colors=['k', 'k'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
+                #ax.text(0.12, 0.9, 't=%.6f' % self.time[0], fontsize=16,
+                        #horizontalalignment='right',
+                        #verticalalignment='center', transform = ax.transAxes)
 
                 if mer:
                     for lat0 in circles:
@@ -531,6 +578,9 @@ class MagicCoeffCmb(MagicSetup):
                                linestyles=['-', '-'], linewidths=[0.7, 0.7])
                 ax.plot(xxout, yyout, 'k-', lw=1.5)
                 ax.plot(xxin, yyin, 'k-', lw=1.5)
+                #ax.text(0.12, 0.9, 't=%.6f' % self.time[k], fontsize=16,
+                        #horizontalalignment='right',
+                        #verticalalignment='center', transform = ax.transAxes)
 
                 if mer:
                     for lat0 in circles:
