@@ -40,7 +40,6 @@ module output_mod
    use outMisc_mod, only: outHelicity, outHeat
    use geos_mod, only: getEgeos, outPV
    use outRot, only: write_rot
-   use charmanip, only: dble2str, length_to_blank
    use omega, only: outOmega
    use integration, only: rInt_R
    use outPar_mod, only: outPar, outPerpPar
@@ -109,7 +108,7 @@ contains
 
    subroutine initialize_output
 
-      integer :: n, length
+      integer :: n
       character(len=72) :: string
 
       if ( l_mag ) then
@@ -134,13 +133,10 @@ contains
          end if
 
          do n=1,n_coeff_r_max
-            write(string,'(''V_coeff_r'',i1,''.'')') n
-            length=length_to_blank(string)
-            v_r_file(n)=string(1:length)//tag
+            write(string,*) n
+            v_r_file(n)='V_coeff_r'//trim(adjustl(string))//'.'//tag
             if ( l_mag ) then
-               write(string,'(''B_coeff_r'',i1,''.'')') n
-               length=length_to_blank(string)
-               B_r_file(n)=string(1:length)//tag
+               B_r_file(n)='B_coeff_r'//trim(adjustl(string))//'.'//tag
             end if
          end do
 
@@ -150,9 +146,8 @@ contains
             n_T_r_sets=0
 
             do n=1,n_coeff_r_max
-               write(string,'(''T_coeff_r'',i1,''.'')') n
-               length=length_to_blank(string)
-               t_r_file(n)=string(1:length)//tag
+               write(string,*) n
+               t_r_file(n)='T_coeff_r'//trim(adjustl(string))//'.'//tag
             end do
          end if
 
