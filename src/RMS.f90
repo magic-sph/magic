@@ -24,7 +24,7 @@ module RMS
    use horizontal_data, only: phi, theta_ord
    use constants, only: zero, one, half, four, third, vol_oc, pi
    use integration, only: rInt_R
-   use radial_der, only: get_dr, get_drNS
+   use radial_der, only: get_dr
    use output_data, only: rDea, rCut, tag, runid
    use cosine_transform_odd
    use LMLoop_data, only: llm, ulm, llmMag, ulmMag

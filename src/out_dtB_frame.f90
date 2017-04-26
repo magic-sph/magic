@@ -16,7 +16,7 @@ module out_dtB_frame
    use fft
    use constants, only: zero, one, ci
    use radial_der_even, only: get_drNS_even
-   use radial_der, only: get_drNS
+   use radial_der, only: get_dr
 
    implicit none
 
@@ -70,7 +70,7 @@ contains
       real(cp) :: const,rMov
     
       complex(cp) :: workA(lm_max_dtB,n_r_max_dtB)
-      complex(cp) :: workB(lm_max_dtB,n_r_max_dtB)
+      complex(cp) :: workB(lm_max_dtB,n_r_ic_max_dtB)
     
       logical :: l_loop
     
@@ -188,27 +188,26 @@ contains
     
             !------ Calculate needed radial derivatives:
             if ( n_field_type == 35 ) then
-               call get_drNS(PstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(PstrLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 36 ) then
-               call get_drNS(PadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(PadvLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 37 ) then
-               call get_drNS(PdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
-    
+               call get_dr(PdifLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 38 ) then
-               call get_drNS(TstrLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(TstrLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 39 ) then
-               call get_drNS(TomeLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(TomeLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 40 ) then
-               call get_drNS(TadvLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(TadvLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             else if ( n_field_type == 41 ) then
-               call get_drNS(TdifLM,workA,lm_max,1,lm_max, &
-                             n_r_max,n_cheb_max,workB,rscheme_oc)
+               call get_dr(TdifLM,workA,lm_max,1,lm_max, &
+                    &      n_r_max,rscheme_oc,nocopy=.true.)
             end if
     
             if ( n_surface == 0 ) then
@@ -607,6 +606,9 @@ contains
       real(cp) :: O_sint,O_r_E_2
       real(cp) :: sign
       complex(cp) :: cs1(lm_max),cs2(lm_max)
+#ifdef WITH_SHTNS
+      complex(cp) :: zeros(lm_max)
+#endif
       complex(cp) :: Br_1,Bt_1,Bp_1
       complex(cp) :: Br_n,Bt_n,Bp_n
       complex(cp) :: Br_s,Bt_s,Bp_s
@@ -666,6 +668,7 @@ contains
          end do
       endif
 
+#ifndef WITH_SHTNS
       !-- Calculate northern and southern hemisphere components:
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
 
@@ -742,6 +745,16 @@ contains
       call fft_thetab(Br,1)
       call fft_thetab(Bt,1)
       call fft_thetab(Bp,1)
+#else
+      do m=0,m_max,minc
+         do l=m,l_max
+            lm=lm2(l,m)
+            zeros(lm)=zero
+         end do
+      end do
+
+      call shtns_qst_to_spat(cs1, cs2, zeros, Br, Bt, Bp)
+#endif
             
    end subroutine get_Bpol
 !-------------------------------------------------------------------------------------
@@ -774,6 +787,9 @@ contains
       real(cp) :: O_sint
       real(cp) :: sign
       complex(cp) :: cs1(lm_max)
+#ifdef WITH_SHTNS
+      complex(cp) :: zeros(lm_max)
+#endif
       complex(cp) :: Bt_1,Bp_1
       complex(cp) :: Bt_n,Bp_n
       complex(cp) :: Bt_s,Bp_s
@@ -810,9 +826,13 @@ contains
          do l=m,l_max
             lm=lm2(l,m)
             cs1(lm)=rDep(l)*Tlm(lm)
+#ifdef WITH_SHTNS
+            zeros(lm)=0.0_cp
+#endif
          end do
       end do
 
+#ifndef WITH_SHTNS
       !-- Calculate northern and southern hemisphere components:
       do n_theta=1,n_theta_block,2 ! loop over thetas in northers HS
 
@@ -877,6 +897,9 @@ contains
       !-- Transform m 2 phi:
       call fft_thetab(Bt,1)
       call fft_thetab(Bp,1)
+#else
+      call shtns_sphtor_to_spat(zeros, cs1, Bt, Bp)
+#endif
             
    end subroutine get_Btor
 !-------------------------------------------------------------------------------------
@@ -917,13 +940,14 @@ contains
       end do
        
       !-- Multiplication with l(l+1)/r**2 for radial component:
-      cs1(1)=0.0_cp
+      cs1(1)=zero
       do lm=2,lm_max
          cs1(lm)=alm(lm)
          if ( lrComp ) cs1(lm)=cs1(lm)*O_r_E_2*dLh(lm)
          if ( lIC )    cs1(lm)=rRatio**D_lP1(lm)*cs1(lm)
       end do
 
+#ifndef WITH_SHTNS
       !-- Transform l 2 theta:
       nThetaHS=(nThetaStart-1)/2  ! last theta in one HS
       do nThetaN=1,sizeThetaB,2
@@ -949,6 +973,9 @@ contains
 
       !-- Transform m 2 phi:
       call fft_thetab(aij,1)
+#else
+      call shtns_SH_to_spat(cs1, aij)
+#endif
 
    end subroutine lm2pt
 !---------------------------------------------------------------------------------
