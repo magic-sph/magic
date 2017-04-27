@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize
+from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -434,7 +434,7 @@ class MagicCoeffCmb(MagicSetup):
 
     def movieCmb(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
-                 precision='Float64', shtns_lib='shtns', contour=False, mer=False):
+                 precision='Float64', contour=False, mer=False):
         """
         Plotting function (it can also write the png files)
 
@@ -461,9 +461,6 @@ class MagicCoeffCmb(MagicSetup):
         :type deminc: bool
         :param precision: single or double precision
         :type precision: char
-        :param shtns_lib: version of shtns library used: can be either 'shtns'
-                          or 'shtns-magic'
-        :type shtns_lib: char
         :param contour: also display the solid contour levels when set to True
         :type contour: bool
         :param mer: display meridians and circles when set to True
@@ -487,9 +484,10 @@ class MagicCoeffCmb(MagicSetup):
 
         # Transform data on grid space
         BrCMB = np.zeros((self.nstep, nphi, nlat), precision)
-        for k in range(self.nstep):
-	
+        print('Spectral -> Spatial transform')
+        for k in progressbar(range(self.nstep)):
             BrCMB[k, ...] = sh.spec_spat(blmCut[k, :]*self.ell*(sh.ell+1)/self.rcmb**2)
+        print('Done')
 
         if png:
             plt.ioff()
@@ -837,7 +835,7 @@ class MagicCoeffR(MagicSetup):
 
     def movieRad(self, cut=0.5, levels=12, cm='RdYlBu_r', png=False, step=1,
                  normed=False, dpi=80, bgcolor=None, deminc=True, removeMean=False,
-                 precision='Float64', shtns_lib='shtns', contour=False, mer=False):
+                 precision='Float64', contour=False, mer=False):
         """
         Plotting function (it can also write the png files)
 
@@ -866,9 +864,6 @@ class MagicCoeffR(MagicSetup):
         :type deminc: bool
         :param precision: single or double precision
         :type precision: char
-        :param shtns_lib: version of shtns library used: can be either 'shtns'
-                          or 'shtns-magic'
-        :type shtns_lib: char
         :param contour: also display the solid contour levels when set to True
         :type contour: bool
         :param mer: display meridians and circles when set to True
@@ -877,34 +872,35 @@ class MagicCoeffR(MagicSetup):
         :type removeMean: bool
         """
 
-        # The python bindings of shtns are mandatory to use this function !!!
-        import shtns
-
         if removeMean:
             dataCut = self.wlm-self.wlm.mean(axis=0)
         else:
             dataCut = self.wlm
 
+        nlat = max(int(self.l_max_r*(3./2./2.)*2.),192)
+        nphi = 2*nlat/self.minc
+
+        # Define spectral transform setup
+        sh = SpectralTransforms(l_max=self.l_max_r, minc=self.minc,
+                                lm_max=self.lm_max_r, 
+                                n_theta_max=nlat)
+
+        """
+        # The python bindings of shtns are mandatory to use this function !!!
+        import shtns
+
         # Define shtns setup
         sh = shtns.sht(int(self.l_max_r), int(self.m_max_r/self.minc), 
                        mres=int(self.minc), 
                        norm=shtns.sht_orthonormal | shtns.SHT_NO_CS_PHASE)
-
-        polar_opt_threshold = 1e-10
-        nlat = max((self.l_max_r*(3/2/2)*2),192)
-        nphi = 2*nlat/self.minc
-        nlat, nphi = sh.set_grid(nlat, nphi, polar_opt=polar_opt_threshold)
+        """
 
         # Transform data on grid space
         data = np.zeros((self.nstep, nphi, nlat), precision)
-        for k in range(self.nstep):
-            tmp = sh.synth(dataCut[k, :]*sh.l*(sh.l+1)/self.radius**2)
-            tmp = tmp.T # Longitude, Latitude
-
-            if shtns_lib == 'shtns-magic':
-                data[k, ...] = rearangeLat(tmp)
-            else:
-                data[k, ...] = tmp
+        print('Spectral -> Spatial transform')
+        for k in progressbar(range(self.nstep)):
+            data[k, ...] = sh.spec_spat(dataCut[k, :]*self.ell*(self.ell+1)/self.radius**2)
+        print('Done')
 
         if png:
             plt.ioff()
