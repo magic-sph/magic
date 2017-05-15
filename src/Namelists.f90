@@ -1359,7 +1359,7 @@ contains
       l_r_fieldT    =.false.
       l_max_r       =l_max
       n_r_step      =2
-      do n=1,n_coeff_r_max
+      do n=1,size(n_r_array)
          n_r_array(n)=0
       end do
       n_r_field_step =0

@@ -423,7 +423,7 @@ output.o              : truncation.o blocking.o phys_param.o\
                         outRot.o kinetic_energy.o magnetic_energy.o\
                         spectra.o fields_average.o power.o getDlm.o\
                         useful.o out_TO.o outMisc.o out_graph_file.o\
-                        char_manip.o storeCheckPoints.o\
+                        storeCheckPoints.o\
                         integration.o outOmega.o parallel.o \
                         communications.o out_coeff.o outPar.o dtB.o\
                         store_movie_IC.o RMS.o
