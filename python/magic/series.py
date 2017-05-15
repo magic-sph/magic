@@ -45,6 +45,8 @@ class MagicTs(MagicSetup):
 
     def __init__(self, datadir='.', field='e_kin', iplot=True, all=False, tag=None):
         """
+        :param datadir: working directory
+        :type datadir: str
         :param field: the file you want to plot
         :type field: str
         :param iplot: when set to True, display the plots (default True)

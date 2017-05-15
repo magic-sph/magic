@@ -30,6 +30,8 @@ class MagicRadial(MagicSetup):
 
     def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None):
         """
+        :param datadir: working directory
+        :type datadir: str
         :param field: the field you want to plot
         :type field: str
         :param iplot: to plot the output, default is True
