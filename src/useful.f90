@@ -364,16 +364,14 @@ contains
 
       code = 32
 
-      if ( rank == 0 ) then
-         write(*,*) 
-         write(*,*) 
-         write(*,*) 
-         write(*,*) '! Something went wrong, MagIC will stop now'
-         write(*,*) '! See below the error message:'
-         write(*,*) 
-         write(*,*) message
-         write(*,*) 
-      end if
+      write(*,*) 
+      write(*,*) 
+      write(*,*) 
+      write(*,*) '! Something went wrong, MagIC will stop now'
+      write(*,*) '! See below the error message:'
+      write(*,*) 
+      write(*,*) message
+      write(*,*) 
 
 #ifdef WITH_MPI
       call MPI_Abort(MPI_COMM_WORLD, code, ierr)
