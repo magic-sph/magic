@@ -47,8 +47,8 @@ if (! $?_sourceme) then		# called for the fist time?
   endif
 
   # For reading binary outputs
-  setenv F_UFMTENDIAN "big"
-  setenv GFORTRAN_CONVERT_UNIT "big_endian"
+  #setenv F_UFMTENDIAN "big"
+  #setenv GFORTRAN_CONVERT_UNIT "big_endian"
 
 endif
 

@@ -72,8 +72,8 @@ if [ -z $_sourceme ]; then	# called for the first time?
   fi
 
   # For reading binary outputs
-  export F_UFMTENDIAN='big'
-  export GFORTRAN_CONVERT_UNIT='big_endian'
+  #export F_UFMTENDIAN='big'
+  #export GFORTRAN_CONVERT_UNIT='big_endian'
 fi
 
 if [ -n $MAGIC_HOME ]; then
