@@ -5,6 +5,7 @@ from .log import MagicSetup
 from .libmagic import scanDir
 from magic.setup import buildSo
 import glob
+from .npfile import *
 
 if buildSo:
     try:
@@ -17,12 +18,29 @@ if buildSo:
             import magic.greader_double2 as Gdble
         readingMode = 'f2py'
     except ImportError:
-        from .npfile import *
         readingMode = 'python'
     #print('read with %s' % readingMode)
 else:
-    from .npfile import *
     readingMode = 'python'
+
+def getGraphEndianness(filename):
+    """
+    This function determines the endianness of the graphic files
+
+    :param filename: input of the filename
+    :type filename: str
+    :returns: the endianness of the file ('B'='big_endian' or 'l'='little_endian')
+    :rtype: str
+    """
+    f = npfile(filename, endian='B')
+    try:
+        f.fort_read('S20')
+        endian = 'B'
+    except TypeError:
+        endian = 'l'
+    f.close()
+
+    return endian
 
 class MagicGraph(MagicSetup):
     """
@@ -45,12 +63,9 @@ class MagicGraph(MagicSetup):
     >>> gr = MagicGraph(ave=True, tag='N0m2', precision='Float64')
     """
 
-    def __init__(self, ivar=None, datadir='.', format='B', quiet=True, 
+    def __init__(self, ivar=None, datadir='.', quiet=True, 
                  ave=False, tag=None, precision='Float32'):
         """
-        :param format: format of binary output: 'n' (native), 'B' (big endian)
-                       or 'l' (little endian), (default 'B')
-        :type format: str
         :param ave: when set to True, it tries to find an average G file (G_ave.TAG)
         :type ave: bool
         :param ivar: the number of the G file
@@ -105,6 +120,9 @@ class MagicGraph(MagicSetup):
             print('No such file')
             return
 
+        # Get file endianness
+        endian = getGraphEndianness(filename)
+
         if readingMode != 'python':
 
             if self.precision == 'Float32':
@@ -112,7 +130,7 @@ class MagicGraph(MagicSetup):
             elif self.precision == 'Float64':
                 G = Gdble.greader_double
 
-            G.readg(filename)
+            G.readg(filename, endian=endian)
             self.nr = int(G.nr)
             self.ntheta = int(G.nt)
             self.npI = int(G.np)
@@ -141,7 +159,7 @@ class MagicGraph(MagicSetup):
                 self.Bphi = G.bp
         else:
             #read data
-            inline = npfile(filename, endian=format)
+            inline = npfile(filename, endian=endian)
 
             # read the header
             version = inline.fort_read('|S20')[0]

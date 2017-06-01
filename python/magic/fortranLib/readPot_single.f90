@@ -10,14 +10,18 @@ module potreader_single
 
 contains
 
-   subroutine readPot(filename, l_read_tor)
+   subroutine readPot(filename, endian, l_read_tor)
 
-      !-- Input variable
+      !-- Input variables
       character(len=*), intent(in) :: filename
+      character(len=1), intent(in) :: endian
       logical,          intent(in) :: l_read_tor
 
-
-      open(unit=10, file=filename, form='unformatted')
+      if ( endian == 'B' ) then
+         open(unit=10, file=filename, form='unformatted', convert='big_endian')
+      else
+         open(unit=10, file=filename, form='unformatted', convert='little_endian')
+      end if
 
       !-- Header
       read(10) l_max, n_r_max, n_r_ic_max, minc, lm_max

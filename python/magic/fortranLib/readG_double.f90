@@ -12,9 +12,11 @@ module greader_double
 
 contains
 
-   subroutine readG(filename)
+   subroutine readG(filename,endian)
 
+      !-- Input variables
       character(len=*), intent(in) :: filename
+      character(len=1), intent(in) :: endian
    
       !-- Local variables
       integer :: i,j,nth_loc
@@ -24,7 +26,12 @@ contains
       real(kind=8) :: nrF,ntF,npF,mincF,nricF,nThetasBsF
       real(kind=8), allocatable :: dummy(:,:)
    
-      open(unit=10, file=filename,form='unformatted')
+      if ( endian == 'B' ) then
+         open(unit=10, file=filename, form='unformatted', convert='big_endian')
+      else
+         open(unit=10, file=filename, form='unformatted', convert='little_endian')
+      end if
+
       read(10) version
       read(10) runid
       read(10) time,nrF,ntF,npF,nricF,mincF,nThetasBsF,ra,ek,pr,prmag, &

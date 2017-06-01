@@ -7,6 +7,7 @@ from .plotlib import radialContour, merContour, equatContour
 import os, re, sys, time
 import numpy as np
 import matplotlib.pyplot as plt
+from .npfile import *
 
 if buildSo:
     if sys.version_info.major == 3:
@@ -16,10 +17,27 @@ if buildSo:
 
     readingMode = 'f2py'
 else:
-    import npfile
     readingMode = 'python'
 
 
+def getPotEndianness(filename):
+    """
+    This function determines the endianness of the potential files
+
+    :param filename: input of the filename
+    :type filename: str
+    :returns: the endianness of the file ('B'='big_endian' or 'l'='little_endian')
+    :rtype: str
+    """
+    f = npfile(filename, endian='B')
+    try:
+        f.fort_read('i4')
+        endian = 'B'
+    except TypeError:
+        endian = 'l'
+    f.close()
+
+    return endian
 
 
 class MagicPotential(MagicSetup):
@@ -108,10 +126,14 @@ class MagicPotential(MagicSetup):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
+        
+        # Determine file endianness
+        endian = getPotEndianness(filename)
+
         t1 = time.time()
         if readingMode  == 'python':
 
-            infile = npfile(filename, endian='B')
+            infile = npfile(filename, endian=endian)
 
             # Read header
             self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
@@ -122,6 +144,7 @@ class MagicPotential(MagicSetup):
                          self.omega_ma, self.omega_ic = infile.fort_read(precision)
             self.time = infile.fort_read(precision)
             dat = infile.fort_read(precision)
+
             # Read radius and density
             self.radius = dat[:self.n_r_max]
             self.rho0 = dat[self.n_r_max:]
@@ -145,7 +168,7 @@ class MagicPotential(MagicSetup):
                 l_read_tor = False
 
             Prd = Psngl.potreader_single
-            Prd.readpot(filename, l_read_tor)
+            Prd.readpot(filename, endian, l_read_tor)
             self.n_r_max = Prd.n_r_max
             self.l_max = Prd.l_max
             self.n_r_ic_max = Prd.n_r_ic_max
