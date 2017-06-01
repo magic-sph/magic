@@ -17,7 +17,7 @@ class SpectralTransforms(object):
     from spectral to physical space. It works in two steps: one first needs
     to initialize the transform
 
-    >>> sh = SpecTransform( l_max=256, lm_max=33153, n_theta_max=384)
+    >>> sh = SpectralTransforms( l_max=256, lm_max=33153, n_theta_max=384)
     >>> print(Tlm[:, 10].shape) # lm_max (Temperature at ir=10)
     >>> T = sh.spec_spat(Tlm) # T[n_phi_max, n_theta_max]
     """

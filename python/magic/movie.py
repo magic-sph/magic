@@ -9,6 +9,32 @@ from .npfile import *
 from magic.libmagic import symmetrize
 from magic.plotlib import hammer2cart
 
+def getNlines(file_name, endian='B', precision='Float32'):
+    """
+    This function determines the number of lines of a binary file.
+
+    :param file_name: name of the input file
+    :type file_name: str
+    :param endian: endianness of the file ('B' or 'l')
+    :type endian: str
+    :param precision: precision of the data contained in the input file ('Float32' or
+                      'Float64')
+    :type endian: str
+    :returns: the number of lines
+    :rtype: int
+    """
+
+    f = npfile(file_name, endian=endian)
+    n_lines = 0
+    while 1:
+        try:
+            f.fort_read(precision)
+            n_lines += 1
+        except TypeError:
+            break
+
+    f.close()
+    return n_lines
 
 
 class Movie:
@@ -106,30 +132,9 @@ class Movie:
         mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(filename)[0]
 
-        # DETERMINE THE NUMBER OF LINES BY READING THE LOG FILE
-        logfile = open('log.%s' % end, 'r')
-        mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
-        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
-        for line in logfile.readlines():
-            if mot.match(line):
-                nlines = int(mot.findall(line)[0])
-            elif mot2.match(line):
-                nlines = int(mot2.findall(line)[0])
-        logfile.close()
-        
-        if lastvar is None:
-            self.var2 = nlines
-        else:
-            self.var2 = lastvar
-        if str(nvar) == 'all':
-            self.nvar = nlines
-            self.var2 = nlines
-        else:
-            self.nvar = nvar
-
-        # READ the movie file 
+        # Read the movie file 
         infile = npfile(filename, endian='B')
-        # HEADER
+        # Header
         version = infile.fort_read('|S64')
         n_type, n_surface, const, n_fields = infile.fort_read(precision)
         movtype = infile.fort_read(precision)
@@ -142,7 +147,7 @@ class Movie:
         self.movtype = int(movtype[0])
         n_surface = int(n_surface)
 
-        # RUN PARAMETERS
+        # Run parameters
         runid = infile.fort_read('|S64')
         n_r_mov_tot, n_r_max, n_theta_max, n_phi_tot, self.minc, self.ra, \
              self.ek, self.pr, self.prmag, self.radratio, self.tScale =   \
@@ -153,11 +158,39 @@ class Movie:
         self.n_theta_max = int(n_theta_max)
         self.n_phi_tot = int(n_phi_tot)
 
-        # GRID
+        # Grid
         self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max] # remove inner core
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
+
+        # Determine the number of lines by reading the log.TAG file
+        logfile = open('log.%s' % end, 'r')
+        mot = re.compile(r'  ! WRITING MOVIE FRAME NO\s*(\d*).*')
+        mot2 = re.compile(r' ! WRITING TO MOVIE FRAME NO\s*(\d*).*')
+        nlines = 0
+        for line in logfile.readlines():
+            if mot.match(line):
+                nlines = int(mot.findall(line)[0])
+            elif mot2.match(line):
+                nlines = int(mot2.findall(line)[0])
+        logfile.close()
+
+        # In case no 'nlines' can be determined from the log file:
+        if nlines == 0:
+            nlines = getNlines(filename, endian='B', precision=precision)
+            nlines -= 8 # Remove 8 lines of header
+            nlines  /= (self.n_fields+1) 
+        
+        if lastvar is None:
+            self.var2 = nlines
+        else:
+            self.var2 = lastvar
+        if str(nvar) == 'all':
+            self.nvar = nlines
+            self.var2 = nlines
+        else:
+            self.nvar = nvar
 
         if n_surface == 0:
             self.surftype = '3d volume'
@@ -191,7 +224,7 @@ class Movie:
 
         self.time = np.zeros(self.nvar, precision)
 
-        # READ the data
+        # Read the data
 
         # If one skip the beginning, nevertheless read but do not store
         for i in range(self.var2-self.nvar):
@@ -255,7 +288,7 @@ class Movie:
 
         .. note:: So far this function only works for two movies with the same 
                   grid sizes. At some point, we might introduce grid extrapolation 
-                  to allow any summation/
+                  to allow any summation
         """
         out = copy.deepcopy(new)
         out.time = np.concatenate((self.time, new.time), axis=0)
