@@ -272,7 +272,11 @@ contains
       !-- symmetrize
       if ( n_ph > 1 ) then
          br(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
-         br(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(br(n_phi_max/2:2:-1,1:n_theta_max))
+         do nThetaN=1,n_theta_max
+            do n_m=n_phi_max/2+2,n_phi_max
+               br(n_m,nThetaN)=conjg(br(n_phi_max-n_m+2,nThetaN))
+            end do
+         end do
       end if
 
    end subroutine specspat_scal
@@ -319,7 +323,11 @@ contains
       !-- symmetrize
       if ( n_ph > 1 ) then
          dpoldt(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
-         dpoldt(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(dpoldt(n_phi_max/2:2:-1,1:n_theta_max))
+         do nThetaN=1,n_theta_max
+            do n_m=n_phi_max/2+2,n_phi_max
+               dpoldt(n_m,nThetaN)=conjg(dpoldt(n_phi_max-n_m+2,nThetaN))
+            end do
+         end do
       end if
 
    end subroutine specspat_dtheta
@@ -368,7 +376,11 @@ contains
       !-- symmetrize
       if ( n_ph > 1 ) then
          dpoldp(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
-         dpoldp(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(dpoldp(n_phi_max/2:2:-1,1:n_theta_max))
+         do nThetaN=1,n_theta_max
+            do n_m=n_phi_max/2+2,n_phi_max
+               dpoldp(n_m,nThetaN)=conjg(dpoldp(n_phi_max-n_m+2,nThetaN))
+            end do
+         end do
       end if
 
    end subroutine specspat_dphi
@@ -421,8 +433,8 @@ contains
 
       !-- Local variables
       integer :: nThetaNHS,nThetaN,nThetaS,n_m,lm,lms,n_m_max_loc
-      real(kind=8) :: PlmG(lm_max), PlmC(lm_max)
-      complex(kind=8) :: vhG(lm_max), vhC(lm_max)
+      real(kind=8), allocatable :: PlmG(:), PlmC(:)
+      complex(kind=8), allocatable :: vhG(:), vhC(:)
       complex(kind=8) :: vhN1,vhS1,vhN2,vhS2, ii
 
       if ( n_ph == 1 ) then ! Axisymmetric case
@@ -431,8 +443,10 @@ contains
          n_m_max_loc = n_m_max
       end if
 
-
       ii = (0.d0, 1.d0)
+
+      if ( allocated(PlmG) ) deallocate( PlmG, PlmC, vhG, vhC )
+      allocate( PlmG(lm_max), PlmC(lm_max), vhG(lm_max), vhC(lm_max) )
 
       do lm=1,lm_max
          vhG(lm)=dpoldrLM(lm)-ii*torLM(lm)
@@ -486,12 +500,18 @@ contains
          enddo
       enddo
 
+      deallocate( PlmG, PlmC, vhG, vhC )
+
       !-- symmetrize
       if ( n_ph > 1 ) then
          bt(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
-         bt(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(bt(n_phi_max/2:2:-1,1:n_theta_max))
          bp(n_m_max+1:n_phi_max/2+1,1:n_theta_max)=(0.d0,0.d0)
-         bp(n_phi_max/2+2:n_phi_max,1:n_theta_max)=conjg(bp(n_phi_max/2:2:-1,1:n_theta_max))
+         do nThetaN=1,n_theta_max
+            do n_m=n_phi_max/2+2,n_phi_max
+               bt(n_m,nThetaN)=conjg(bt(n_phi_max-n_m+2,nThetaN))
+               bp(n_m,nThetaN)=conjg(bp(n_phi_max-n_m+2,nThetaN))
+            end do
+         end do
       end if
 
    end subroutine specspat_vec
