@@ -342,7 +342,7 @@ out_movie_file.o      : truncation.o output_data.o blocking.o\
                         out_dtB_frame.o parallel.o communications.o
 storeCheckPoints.o    : truncation.o phys_param.o num_param.o logic.o\
                         output_data.o init_fields.o dt_fieldsLast.o\
-                        communications.o parallel.o
+                        communications.o parallel.o char_manip.o
 updateS.o             : truncation.o blocking.o horizontal.o\
                         phys_param.o radial.o logic.o output_data.o\
                         init_fields.o constants.o mem_alloc.o\
@@ -573,7 +573,7 @@ radial_data.o         : truncation.o parallel.o logic.o
 plms.o                : constants.o precision_mod.o useful.o
 $(FFT_OBJS)           : truncation.o blocking.o useful.o constants.o
 Namelists.o           : constants.o truncation.o phys_param.o num_param.o logic.o \
-			init_fields.o output_data.o parallel.o \
+			init_fields.o output_data.o parallel.o movie.o\
 			TO.o special.o radial.o char_manip.o probes.o
 
 ifeq ($(USE_MPI),yes)
