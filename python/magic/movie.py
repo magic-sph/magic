@@ -216,7 +216,7 @@ class Movie:
                 shape = (n_r_mov_tot+2, self.n_theta_max)
             elif self.movtype in [4, 5, 6, 7, 16, 17, 18, 47, 54]:
                 shape = (self.n_r_max, 2*self.n_theta_max)
-            elif self.movtype in [10, 11, 12, 19, 92]:
+            elif self.movtype in [10, 11, 12, 19, 92, 94, 95]:
                 shape = (self.n_r_max, self.n_theta_max)
             # Inner core is not stored here
             self.data = np.zeros((self.n_fields, self.nvar, self.n_theta_max,
@@ -259,7 +259,7 @@ class Movie:
                         dat = dat[:, :self.n_theta_max].T
                         self.data[ll, k, :, ::2] = dat[:, :n_r_max/2+1]
                         self.data[ll, k, :, 1::2] = dat[:, n_r_max/2+1:]
-                    elif self.movtype in [10, 11, 12, 19, 92]:
+                    elif self.movtype in [10, 11, 12, 19, 92, 94, 95]:
                         self.data[ll, k, ...] = dat.T
                 else:
                     self.data[ll, k, ...] = dat.T

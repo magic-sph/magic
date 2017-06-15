@@ -264,7 +264,6 @@ contains
                     &       real(const,kind=outp), real(n_fields,kind=outp)
                write(n_out) (real(n_movie_field_type(n,n_movie),kind=outp),n=1,n_fields)
        
-       
                !------ Combine OC and IC radial grid points:
                n_r_mov_tot=n_r_max
                do n_r=1,n_r_max
@@ -813,6 +812,36 @@ contains
                fl(1)=fl(1)+drSr(n_phi,n_theta_b)
             end do
             frames(n_0+n_theta) =phi_norm*fl(1)
+         end do
+    
+      else if ( n_field_type == 94 ) then
+    
+         !--- Axisymmetric v_s=cos(theta)*v_r+sin(theta)*v_theta
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+sinTheta(n_theta_cal)*or1(n_r)*  vr(n_phi,n_theta_b)+ &
+               &     cosTheta(n_theta_cal)*O_sin_theta(n_theta_cal)*             &
+               &                                            vt(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta)=phi_norm*fl(1)*orho1(n_r)*or1(n_r)
+         end do
+
+      else if ( n_field_type == 95 ) then
+    
+         !--- Axisymmetric v_s*v_phi
+         do n_theta_b=1,n_theta_block
+            n_theta_cal=n_theta_b+n_theta_start-1
+            n_theta =n_theta_cal2ord(n_theta_cal)
+            fl(1)=0.0_cp
+            do n_phi=1,n_phi_max   ! Average over phis
+               fl(1)=fl(1)+or1(n_r)*  vr(n_phi,n_theta_b)*vp(n_phi,n_theta_b) + &
+               &     cosTheta(n_theta_cal)*O_sin_theta_E2(n_theta_cal)*         &
+               &                      vt(n_phi,n_theta_b)*vp(n_phi,n_theta_b)
+            end do
+            frames(n_0+n_theta)=phi_norm*fl(1)*orho2(n_r)*or2(n_r)
          end do
     
       else if ( n_field_type == 16 ) then

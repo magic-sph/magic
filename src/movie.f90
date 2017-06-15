@@ -822,6 +822,22 @@ contains
                n_fields=1
                n_field_type(1)=48
             end if
+         else if ( index(string,'VS') /= 0 ) then
+            if ( index(string,'AX') /= 0 ) then
+               n_type=115
+               typeStr=' axisym. s-component of velocity '
+               file_name='AVS_'
+               n_fields=1
+               n_field_type(1)=94
+            end if
+         else if ( index(string,'REYS') /= 0 ) then
+            if ( index(string,'AX') /= 0 ) then
+               n_type=116
+               typeStr=' axisym. vs*vphi '
+               file_name='AReyS_'
+               n_fields=1
+               n_field_type(1)=95
+            end if
          else if ( index(string,'VZ') /= 0 ) then
             n_type=94
             typeStr=' z-component of velocity '
