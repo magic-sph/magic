@@ -33,8 +33,8 @@ def sph2cart_scal(scals, radius, nx=96, ny=96, nz=96, minc=1):
               and the grid spacing
     :rtype: (numpy.ndarray[nscals,nz,ny,nx],float,float)
     """
-    nscals, np, nt, nr = scals.shape
-    phi = np.linspace(-np.pi/minc, np.pi/minc, np)
+    nscals, nphi, nt, nr = scals.shape
+    phi = np.linspace(-np.pi/minc, np.pi/minc, nphi)
     theta = np.linspace(0., np.pi, nt)
     # Cube: take care of the sqrt(3.) !!!
     gridMax = radius.max()
@@ -97,8 +97,8 @@ def sph2cart_vec(vecr, vect, vecp, radius, nx=96, ny=96, nz=96, minc=1):
     :returns: a tuple that contains the three vectors components
     :rtype: (numpy.ndarray[nvecs,nz,ny,nx],...)
     """
-    nvecs, np, nt, nr = vecr.shape
-    phi = np.linspace(-np.pi/minc, np.pi/minc, np)
+    nvecs, nphi, nt, nr = vecr.shape
+    phi = np.linspace(-np.pi/minc, np.pi/minc, nphi)
     theta = np.linspace(0., np.pi, nt)
     # Cube: take care of the sqrt(3.) !!!
     gridMax = radius.max()
