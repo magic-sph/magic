@@ -102,7 +102,7 @@ connects to the electrical conductivity :math:`\sigma` via :math:`\lambda =
 1/(\mu_0\sigma)`.  The thermodynamics properties appearing in :eq:`EOS1` are
 the thermal expansivity at constant pressure (and composition) 
  
-.. math:: \alpha = \dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial T}\right)_{p,\xi}, 
+.. math:: \alpha = -\dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial T}\right)_{p,\xi}, 
    :label: alpha
 
 the compressibility at constant temperature  
@@ -114,7 +114,7 @@ and an equivalent parameter :math:`\delta` for the dependence of
 density on composition:
 
 .. math::
-   \delta = \dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial \xi}\right)_{p,T},
+   \delta = -\dfrac{1}{\rho}\left(\dfrac{\partial\rho}{\partial \xi}\right)_{p,T},
    :label: delta
 
 

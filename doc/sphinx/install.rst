@@ -57,7 +57,7 @@ into your ``.bash_profile`` (or ``.profile`` or ``.zprofile`` or ``.cshrc``):
 
    $ source whereverYouCheckedOut/magic/sourceme.sh
 
-To get started, you then need to compile the code
+To get started, you then need to compile the code. 
 
 Setting up compiler options and compiling
 =========================================
@@ -69,9 +69,10 @@ solution is provided via the manual edition of a ``Makefile``.
 Generic compiling options
 -------------------------
 
-For both build systems (cmake or make), several build options can be toggled using
+For both build systems (CMake or make), several build options can be toggled using
 the following available options:
 
+* ``ARCH`` Set it to '64' for 64 bit architecture or to '32' for 32 bit architecture
 * ``PRECISION`` Set it to 'dble' for double-precision calculations or to 'sngl' for single-precision calculations
 * ``OUT_PREC`` Set it to 'dble' for double-precision in binary outputs or to 'sngl' for single precision
 * ``USE_MPI`` Set to ``yes`` to use MPI, set it to ``no`` if you want a serial version of the code .
@@ -80,8 +81,7 @@ the following available options:
 * ``USE_FFTLIB`` This option lets you select the library you want to use for Fast Fourier Transforms. This can be set to 'JW' or 'MKL'. 'JW' refers to the inbuilt library by **J** ohannes **W** icht, while 'MKL' refers to the `Intel Math Kernel Library <https://software.intel.com/en-us/intel-mkl>`_. Use 'JW' if you don't have Intel MKL installed.
 * ``USE_LAPACKLIB`` This option allows you to select the library you want to use for LU factorisation. This can be set to 'JW', 'MKL' or 'LAPACK'. 'JW' refers to the built-in library, while 'MKL' refers to the `Intel Math Kernel Library <https://software.intel.com/en-us/intel-mkl>`_ and 'LAPACK' to the `Lapack library <http://www.netlib.org/lapack>`_
 * ``USE_SHTNS`` Set to ``yes`` to use `SHTns <https://bitbucket.org/bputigny/shtns-magic>`_ library for spherical harmonics transforms. The helper script ``install-shtns.sh`` is available in the ``bin`` directory to help installing SHTns.
-* ``PRODRUN`` Set it to ``yes`` for production run, ``no`` for debugging.
-* ``DEBUG``   Set to ``all`` to enable the full debug flags. *While running in debugging mode, set* ``PRODRUN`` *to* ``no``. 
+* ``CMAKE_BUILD_TYPE``   Set to ``Debug`` to enable the full debug flags.
 
 .. warning:: MagIC cannot run with openMP alone, therefore a configuration of the form
           ``USE_MPI=no``, ``USE_OMP=yes`` will be overwritten to force ``USE_OMP=no``

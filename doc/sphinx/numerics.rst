@@ -100,8 +100,8 @@ while the curl of :math:`\tilde{\rho}\vec{u}` is expressed by
 Using the horizontal part of the divergence operator
 
 .. math::
-   \vec{\nabla}_H = r\sin \dfrac{\partial (\sin\theta}{\partial \theta}\;\vec{e}_\theta 
-   + r\sin \dfrac{\partial}{\partial \phi}\;\vec{e}_\phi
+   \vec{\nabla}_H = \dfrac{1}{r\sin\theta} \dfrac{\partial}{\partial \theta}\sin\theta\;\vec{e}_\theta 
+   + \dfrac{1}{r\sin\theta} \dfrac{\partial}{\partial \phi}\;\vec{e}_\phi
 
 above expressions can be simplified to 
 
@@ -141,7 +141,7 @@ reads
 This means that
 
 .. math::
-  Y_{\ell}^{m}(\theta,\phi) = \sqrt{\dfrac{1}{2\pi}}\dfrac{(2\ell+1)(\ell-|m|)!}{2(\ell+|m|)!}
+  Y_{\ell}^{m}(\theta,\phi) = \left(\dfrac{(2\ell+1)}{4\pi}\dfrac{(\ell-|m|)!}{(\ell+|m|)!}\right)^{1/2}
   P_\ell^m(\cos{\theta})\,e^{i m \phi}\,(-1)^m,
 
 As an example, the spherical harmonic representation of the
