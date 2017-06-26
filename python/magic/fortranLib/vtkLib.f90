@@ -41,7 +41,9 @@ subroutine pvts_scal(filename,radius,scalars,scalcodes,nfiles,minc,np,nt,nr,nsca
 
    call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
-   open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream')
+   open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream', &
+   &    convert='big_endian')
+
    buffer = '<?xml version="1.0"?>'//lf 
    write(ivtk) trim(buffer)
    buffer = '<VTKFile type="PStructuredGrid" version="0.1" &
@@ -166,7 +168,9 @@ subroutine pvts(filename,radius,vecr,vect,vecp,scalars,scalcodes,veccodes,&
 
    call getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
 
-   open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream')
+   open(unit=ivtk,file=trim(filename)//'.pvts',form='unformatted', access='stream', &
+   &    convert='big_endian')
+
    buffer = '<?xml version="1.0"?>'//lf 
    write(ivtk) trim(buffer)
    buffer = '<VTKFile type="PStructuredGrid" version="0.1" &
@@ -289,7 +293,8 @@ subroutine partXMLVts(filename,xyz,scals,scalnames,nscals,vecs,vecnames,nvecs,&
    nbytes_scal   = nnos*sizeof(floatSize)
    nbytes_vec    = 3*nnos*sizeof(floatSize)
 
-   open(unit=ivtk,file=filename,form='unformatted', access='stream')
+   open(unit=ivtk,file=filename,form='unformatted', access='stream', &
+   &    convert='big_endian')
 
    buffer = '<?xml version="1.0"?>'//lf 
    write(ivtk) trim(buffer)
@@ -568,7 +573,8 @@ subroutine WriteXMLFormat(filename,xyz,scals,scalnames,vecs, &
    nbytes_scal   = nnos * sizeof(floatSize)
    nbytes_vec    = 3  * nnos * sizeof(floatSize)
 
-   open(unit=ivtk,file=trim(filename)//'.vts',form='unformatted', access='stream')
+   open(unit=ivtk,file=trim(filename)//'.vts',form='unformatted', access='stream', &
+   &    convert='big_endian')
 
    buffer = '<?xml version="1.0"?>'//lf 
    write(ivtk) trim(buffer)
@@ -772,7 +778,8 @@ subroutine WriteXmlVTI(filename,scals,scalnames,vecs,vecnames, &
    nbytes_scal   = int( nnos * sizeof(floatSize)     )
    nbytes_vec    = int( 3  * nnos * sizeof(floatSize))
 
-   open(unit=ivtk,file=trim(filename)//'.vti',form='unformatted',access='stream')
+   open(unit=ivtk,file=trim(filename)//'.vti',form='unformatted',access='stream', &
+   &    convert='big_endian')
 
    buffer = '<?xml version="1.0"?>'//lf 
    write(ivtk) trim(buffer)
