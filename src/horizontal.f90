@@ -425,9 +425,9 @@ contains
          end do
      
          !----- Another zero found
-         theta_ord(i)              =acos(sinThMean+sinThDiff*z)
+         theta_ord(i)           =acos(sinThMean+sinThDiff*z)
          theta_ord(n_th_max+1-i)=acos(sinThMean-sinThDiff*z)
-         gauss(i)                  =two*sinThDiff/((one-z*z)*pp*pp)
+         gauss(i)               =two*sinThDiff/((one-z*z)*pp*pp)
          gauss(n_th_max+1-i)    =gauss(i)
     
       end do
