@@ -11,7 +11,7 @@ terminate its execution:
    * **END**: Changing the word ``NOT`` to ``END`` will cause the code to
      finish after the current time step and write all the outputs as if it was
      programmed to finish at that time from the start. This will thus normally
-     produce the :ref:`rst_end.TAG <secRestartFile>` file that will possibly
+     produce the :ref:`checkpoint_end.TAG <secRestartFile>` file that will possibly
      allow you to continue this run later at your convenience.
 
 
@@ -21,7 +21,7 @@ terminate its execution:
 
 
    * **RST**: Changing the word ``NOT`` to ``RST`` will cause the code to produce
-     a restart file :ref:`rst_t#.TAG <secRestartFile>`. The keyword will then be
+     a restart file :ref:`checkpoint_t#.TAG <secRestartFile>`. The keyword will then be
      restored to ``NOT`` once the restart file has been written.
 
 

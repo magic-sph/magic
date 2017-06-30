@@ -80,7 +80,7 @@ and the structure of the different type of output files:
       :ref:`*_mov.TAG <secMovieFile>`.
 
    9. Checkpoints outputs that will allow the code to restart. Those files are named
-      **restart files**: :ref:`rst_end.TAG <secRestartFile>`.
+      **restart files**: :ref:`checkpoint_end.TAG <secRestartFile>`.
 
    10. **Time-evolution of the poloidal and toroidal coefficients** at diffent depths:
 

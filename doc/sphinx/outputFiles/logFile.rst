@@ -31,7 +31,7 @@ of appearance:
    
    * **Writing of graphic, movie, restart and spectra files**: displays the time
      step and tells the user whenever a :ref:`G_#.TAG <secGraphFile>`,
-     :ref:`rst_#.TAG <secRestartFile>` or :ref:`spectra <secSpecFiles>` file or a
+     :ref:`checkpoint_#.TAG <secRestartFile>` or :ref:`spectra <secSpecFiles>` file or a
      :ref:`movie frame <secMovieFile>` is written disk.
    
    * **Energies**: gives kinetic and magnetic energies (total, poloidal, toroidal,

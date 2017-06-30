@@ -41,7 +41,7 @@ various additional diagnostics (:ref:`heat.TAG <secHeatFile>`):
 Restart files
 -------------
 
-The **rst** outputs controls the output of restart files (:ref:`rst_t_#.TAG <secRestartFile>`) (i.e. check points in time from which the code could be restarted):
+The **rst** outputs controls the output of restart files (:ref:`checkpoint_t_#.TAG <secRestartFile>`) (i.e. check points in time from which the code could be restarted):
 
 .. _varn_rst_step:
 

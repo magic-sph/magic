@@ -88,8 +88,8 @@ to initiate and quickly run one of the anelastic benchmarks by (`Jones et al., 2
       kbotv       =1,
      /
      &start_field
-      l_start_file=.FALSE.,
-      start_file  ="rst_end.CJ3",
+      l_start_file=.false.,
+      start_file  ="checkpoint_end.CJ3",
       init_s1     =1919,         ! Initial entropy perturbation pattern
       amp_s1      =0.01,         ! Amplitude of the initial perturbation
      /
@@ -97,7 +97,7 @@ to initiate and quickly run one of the anelastic benchmarks by (`Jones et al., 2
       n_log_step  =50,           ! Store time series every 50 time steps
       n_graphs    =1,            ! 1 G_#.TAG file produced at the end of the run
       n_specs     =5,            ! 5 spectra produced during the run
-      n_rsts      =1,            ! 1 rst_end.TAG file produced at the end of the run
+      n_rsts      =1,            ! 1 checkpoint_end.TAG file produced at the end of the run
       runid       ="C.Jones bench", 
      /
      &mantle

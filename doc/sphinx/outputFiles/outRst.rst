@@ -1,7 +1,7 @@
 .. _secRestartFile:
 
-Restart files ``rst_*.TAG``
-===========================
+Restart files ``checkpoint_*.TAG``
+===================================
 
 .. note:: These frequency of writing these files are determined by the standard
  inputs mentioned in the section on :ref:`restart files <secRstIn>` in the
