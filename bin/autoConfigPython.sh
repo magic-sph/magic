@@ -18,7 +18,7 @@ endspin() {
 # Determines where matplotlib is installed
 hasPython2Mpl() {
   if hash python2 2>/dev/null; then
-    local cmd=`python2 $MAGIC_HOME/bin/testBackend.py 2>&1`
+    local cmd=`python2 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -32,7 +32,7 @@ hasPython2Mpl() {
 
 hasPython3Mpl() {
   if hash python3 2>/dev/null; then
-    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2>&1`
+    local cmd=`python3 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
     if [ -n "$cmd" ]; then
       local backendValue=$cmd;
     else
@@ -45,13 +45,22 @@ hasPython3Mpl() {
 }
 
 # Figure out which f2py executable is available on your machine
-whichf2py () {
-  if hash f2py3 2>/dev/null; then
-    local f2pyExec="f2py3";
-  elif hash f2py2 2>/dev/null; then
+hasf2py2 () {
+  if hash f2py2 2>/dev/null; then
     local f2pyExec="f2py2";
   elif hash f2py 2>/dev/null; then
     local f2pyExec="f2py";
+  elif hash f2py2.7 2>/dev/null; then
+    local f2pyExec="f2py2.7";
+  else
+    local f2pyExec="NotFound";
+  fi
+  echo $f2pyExec
+}
+
+hasf2py3 () {
+  if hash f2py3 2>/dev/null; then
+    local f2pyExec="f2py3";
   else
     local f2pyExec="NotFound";
   fi
@@ -102,7 +111,25 @@ whichf2pycompiler () {
 # Check whether you can build the fortran libraries
 buildLibs () {
 
-  local f2pyExec=$(whichf2py)
+  local f2py2Exec=$(hasf2py2)
+  local f2py3Exec=$(hasf2py3)
+
+  if [ $f2py2Exec != "NotFound" ]; then
+    if [ $f2py3Exec != "NotFound" ]; then
+      echo "f2py is installed for both python2 and python3"
+      echo "f2py2 is selected"
+    fi
+    local f2pyExec=$f2py2Exec
+  else
+    if [ $f2py3Exec == "NotFound" ]; then
+      echo "f2py was not found"
+      echo "f2py can't be set in $MAGIC_HOME/python/magic/magic.cfg"
+      local f2pyExec="NotFound"
+    else
+      local f2pyExec=$f2py3Exec
+    fi
+  fi
+
   if [ $f2pyExec != "NotFound" ]; then
     sed -i "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
 
