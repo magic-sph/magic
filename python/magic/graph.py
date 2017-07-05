@@ -143,8 +143,8 @@ class MagicGraph(MagicSetup):
             self.radratio = G.radratio
             self.sigma = G.sigma
             if self.npI == self.ntheta*2:
-                self.npI = self.npI/self.minc
-            self.nphi = self.npI*self.minc +1
+                self.npI = int(self.npI/self.minc)
+            self.nphi = int(self.npI*self.minc+1)
             self.radius = G.radius
             self.colatitude = G.colat
             self.entropy = G.entropy
