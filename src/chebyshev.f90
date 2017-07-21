@@ -2,8 +2,7 @@ module chebyshev
 
    use precision_mod
    use mem_alloc, only: bytes_allocated
-   use constants, only: half, one, two, three, four, pi, sin36, &
-       &                cos36, sin60, sin72, cos72
+   use constants, only: half, one, two, three, four, pi
    use LMLoop_data, only: llm,ulm
    use radial_scheme, only: type_rscheme
    use useful, only: factorise

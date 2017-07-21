@@ -378,20 +378,23 @@ contains
             call fft_thetab(gsa%CFt2,-1)
             call fft_thetab(gsa%CFp2,-1)
          end if
-         call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
+         !call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
+         call legTF_spher_tor(nThetaStart,nl_lm%CFp2LM,nl_lm%CFt2LM,gsa%CFp2,gsa%CFt2)
          if ( l_conv_nl ) then
             if ( .not. l_axi ) then
                call fft_thetab(gsa%Advt2,-1)
                call fft_thetab(gsa%Advp2,-1)
             end if
-            call legTF2(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,gsa%Advp2)
+            !call legTF_spher_tor(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,gsa%Advp2)
+            call legTF_spher_tor(nThetaStart,nl_lm%Advp2LM,nl_lm%Advt2LM,gsa%Advp2,gsa%Advt2)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
             if ( .not. l_axi ) then
                call fft_thetab(gsa%LFt2,-1)
                call fft_thetab(gsa%LFp2,-1)
             end if
-            call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
+            !call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
+            call legTF_spher_tor(nThetaStart,nl_lm%LFp2LM,nl_lm%LFt2LM,gsa%LFp2,gsa%LFt2)
          end if
       end if
 

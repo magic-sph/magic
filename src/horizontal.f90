@@ -40,6 +40,7 @@ module horizontal_data
    !-- Legendres:
    real(cp), public, allocatable :: Plm(:,:)
    real(cp), public, allocatable :: wPlm(:,:)
+   real(cp), public, allocatable :: wdPlm(:,:)
    real(cp), public, allocatable :: dPlm(:,:)
    real(cp), public, allocatable :: gauss(:)
    real(cp), public, allocatable :: dPl0Eq(:)
@@ -89,6 +90,7 @@ contains
       !-- Legendres:
       allocate( Plm(lm_max,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
+      allocate( wdPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
@@ -122,7 +124,7 @@ contains
 
       deallocate( sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
-      deallocate( Plm, wPlm, dPlm, gauss, dPl0Eq )
+      deallocate( Plm, wPlm, wdPlm, dPlm, gauss, dPl0Eq )
       deallocate( dPhi, dPhi0, dPhi02, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )
@@ -178,7 +180,8 @@ contains
                Plm(lm,n_theta) =plma(lmP)
                dPlm(lm,n_theta)=dtheta_plma(lmP)
             end if
-            wPlm(lmP,n_theta)=two*pi*gauss(n_theta)*plma(lmP)
+            wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
+            wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
          end do
 
          ! Get dP for all degrees and order m=0 at the equator only

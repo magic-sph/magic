@@ -16,7 +16,7 @@ module shtns
 
    public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
              torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
-             torpol_to_dphspat, spat_to_SH
+             torpol_to_dphspat, spat_to_SH, spat_to_sphertor
 
 contains
 
@@ -186,5 +186,18 @@ contains
       call shtns_load_cfg(0)
 
    end subroutine spat_to_SH
+!------------------------------------------------------------------------------
+   subroutine spat_to_sphertor(f,g,fLM,gLM)
+
+      real(cp), intent(in) :: f(n_phi_max,n_theta_max)
+      real(cp), intent(in) :: g(n_phi_max,n_theta_max)
+      complex(cp), intent(out) :: fLM(lm_max)
+      complex(cp), intent(out) :: gLM(lm_max)
+
+      call shtns_load_cfg(1)
+      call shtns_spat_to_sphtor(f,g,fLM,gLM)
+      call shtns_load_cfg(0)
+
+   end subroutine spat_to_sphertor
 !------------------------------------------------------------------------------
 end module shtns

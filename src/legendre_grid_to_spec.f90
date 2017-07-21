@@ -4,13 +4,14 @@ module legendre_grid_to_spec
    use precision_mod
    use truncation, only: n_m_max, nrp, lmP_max, n_theta_max
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP
+   use horizontal_data, only: lStartP, wPlm, lmOddP, lStopP, wdPlm, D_mc2m
+   use constants, only: ci
 
    implicit none
 
    private
 
-   public :: legTF1, legTF2, legTF3, legTFAS, legTFAS2
+   public :: legTF1, legTF2, legTF3, legTFAS, legTFAS2, legTF_spher_tor
 
 contains
 
@@ -406,6 +407,181 @@ contains
       !PERFOFF
    end subroutine legTF3
 !------------------------------------------------------------------------
+   subroutine legTF_spher_tor(nThetaStart,f1LM,f2LM,f1TM,f2TM)
+      !
+      !  Vector Legendre transform
+      !  vt(n_r,n_theta,m), vp(n_r,n_theta,m) to Spheroidal(n_r,l,m)
+      !  and Toroidal(n_r,l,m)
+      !
+
+      !-- Input variables:
+      integer,  intent(in) :: nThetaStart ! First no of theta on block
+      real(cp), intent(in) :: f1TM(nrp,nfs),f2TM(nrp,nfs)
+
+      !-- Output variables:
+      complex(cp), intent(inout) :: f1LM(lmP_max),f2LM(lmP_max)
+
+      !-- Local variables:
+      integer :: nThetaN     ! No. of theta in NHS
+      integer :: nThetaS     ! No. of theta in SHS
+      integer :: nThetaNHS   ! No. of thetas in one HS only
+      integer :: nThetaB1    ! No. of theta in block
+      integer :: nThetaB2    ! No. of theta in block
+      integer :: nTheta1     ! No. of theta (in one HS)
+      integer :: nTheta2     ! No. of theta (in one HS)
+      integer :: nThetaMin   ! Where to start in block
+
+      integer :: mc          ! counter of spherical order
+      integer :: lmS,lm      ! counter of spherical mode
+
+      complex(cp) :: f1ES(n_m_max,nfs/2),f1ES1,f1ES2
+      complex(cp) :: f1EA(n_m_max,nfs/2),f1EA1,f1EA2
+      complex(cp) :: f2ES(n_m_max,nfs/2),f2ES1,f2ES2
+      complex(cp) :: f2EA(n_m_max,nfs/2),f2EA1,f2EA2
+
+      real(cp) :: dm
+
+      !PERFON('legTF_spher_tor')
+      !-- Unscrambles equatorially symmetric and antisymmetric contributions:
+      nThetaNHS=0
+      do nThetaN=1,sizeThetaB,2 ! thetas in NHS
+         nThetaS=nThetaN+1      ! thetas in SHS
+         nThetaNHS=nThetaNHS+1  ! thetas counted in NHS only
+         do mc=1,n_m_max        ! counts spherical harmonic orders
+            f1ES(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f1EA(mc,nThetaNHS)=cmplx(f1TM(2*mc-1,nThetaN),f1TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f1TM(2*mc-1,nThetaS),f1TM(2*mc,nThetaS),kind=cp)
+            f2ES(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) + &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+            f2EA(mc,nThetaNHS)=cmplx(f2TM(2*mc-1,nThetaN),f2TM(2*mc,nThetaN),kind=cp) - &
+                               cmplx(f2TM(2*mc-1,nThetaS),f2TM(2*mc,nThetaS),kind=cp)
+         end do
+      end do
+
+      !- Start with first two thetas for first theta block:
+      if ( nThetaStart == 1 ) then
+
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStopP(mc)
+            f1ES1=f1ES(mc,1)
+            f1ES2=f1ES(mc,2)
+            f2ES1=f2ES(mc,1)
+            f2ES2=f2ES(mc,2)
+            f1EA1=f1EA(mc,1)
+            f1EA2=f1EA(mc,2)
+            f2EA1=f2EA(mc,1)
+            f2EA2=f2EA(mc,2)
+            do lm=lStartP(mc),lmS-1,2
+               f1LM(lm)=-ci*dm*f1ES1* wPlm(lm,1)-ci*dm*f1ES2* wPlm(lm,2) &
+               &              +f2EA1*wdPlm(lm,1)+      f2EA2*wdPlm(lm,2)
+               f2LM(lm)=      -f1EA1*wdPlm(lm,1)-      f1EA2*wdPlm(lm,2) &
+               &        -ci*dm*f2ES1* wPlm(lm,1)-ci*dm*f2ES2* wPlm(lm,2)
+            end do
+            if ( lmOddP(mc) ) then
+               f1LM(lmS)=-ci*dm*f1ES1* wPlm(lmS,1)-ci*dm*f1ES2* wPlm(lmS,2) &
+               &               +f2EA1*wdPlm(lmS,1)+      f2EA2*wdPlm(lmS,2)
+               f2LM(lmS)=      -f1EA1*wdPlm(lmS,1)-      f1EA2*wdPlm(lmS,2) &
+               &         -ci*dm*f2ES1* wPlm(lmS,1)-ci*dm*f2ES2* wPlm(lmS,2)
+            end if
+         end do
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStopP(mc)
+            lmS=lStopP(mc)
+            f1ES1=f1ES(mc,1)
+            f1ES2=f1ES(mc,2)
+            f2ES1=f2ES(mc,1)
+            f2ES2=f2ES(mc,2)
+            f1EA1=f1EA(mc,1)
+            f1EA2=f1EA(mc,2)
+            f2EA1=f2EA(mc,1)
+            f2EA2=f2EA(mc,2)
+            do lm=lStartP(mc),lmS-1,2
+               f1LM(lm+1)=-ci*dm*f1EA1* wPlm(lm+1,1)-ci*dm*f1EA2* wPlm(lm+1,2) &
+               &                +f2ES1*wdPlm(lm+1,1)+      f2ES2*wdPlm(lm+1,2)
+               f2LM(lm+1)=      -f1ES1*wdPlm(lm+1,1)-      f1ES2*wdPlm(lm+1,2) &
+               &          -ci*dm*f2EA1* wPlm(lm+1,1)-ci*dm*f2EA2* wPlm(lm+1,2)
+            end do
+         end do
+           
+         if ( sizeThetaB <= 4 ) return !RETURN
+
+       end if
+
+      !-- Loop over half of the thetas with step 2 unrolling:
+      nThetaMin=1
+      if ( nThetaStart == 1 ) nThetaMin=3
+      nTheta1=(nThetaStart-1)/2+nThetaMin-2 ! NHS thetas covered before
+      do nThetaB1=nThetaMin,sizeThetaB/2,2
+         nThetaB2=nThetaB1+1
+         nTheta1 =nTheta1+2
+         nTheta2 =nTheta1+1
+
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStopP(mc)
+            f1ES1=f1ES(mc,nThetaB1)
+            f1ES2=f1ES(mc,nThetaB2)
+            f1EA1=f1EA(mc,nThetaB1)
+            f1EA2=f1EA(mc,nThetaB2)
+            f2ES1=f2ES(mc,nThetaB1)
+            f2ES2=f2ES(mc,nThetaB2)
+            f2EA1=f2EA(mc,nThetaB1)
+            f2EA2=f2EA(mc,nThetaB2)
+            do lm=lStartP(mc),lmS-1,2
+               f1LM(lm)  =f1LM(lm)-ci*dm*f1ES1* wPlm(lm,nTheta1)      &
+               &                  -ci*dm*f1ES2* wPlm(lm,nTheta2)      &
+               &                  +      f2EA1*wdPlm(lm,nTheta1)      &
+               &                  +      f2EA2*wdPlm(lm,nTheta2) 
+               f1LM(lm+1)=f1LM(lm+1)-ci*dm*f1EA1* wPlm(lm+1,nTheta1)  &
+               &                    -ci*dm*f1EA2* wPlm(lm+1,nTheta2)  &
+               &                    +      f2ES1*wdPlm(lm+1,nTheta1)  &
+               &                    +      f2ES2*wdPlm(lm+1,nTheta2)
+            end do
+            if ( lmOddP(mc) ) then
+               f1LM(lmS)=f1LM(lmS)-ci*dm*f1ES1* wPlm(lmS,nTheta1) &
+               &                  -ci*dm*f1ES2* wPlm(lmS,nTheta2) &
+               &                  +      f2EA1*wdPlm(lmS,nTheta1) &
+               &                  +      f2EA2*wdPlm(lmS,nTheta2)
+            end if
+         end do
+         do mc=1,n_m_max
+            dm = D_mc2m(mc)
+            lmS=lStopP(mc)
+            f1ES1=f1ES(mc,nThetaB1)
+            f1ES2=f1ES(mc,nThetaB2)
+            f1EA1=f1EA(mc,nThetaB1)
+            f1EA2=f1EA(mc,nThetaB2)
+            f2ES1=f2ES(mc,nThetaB1)
+            f2ES2=f2ES(mc,nThetaB2)
+            f2EA1=f2EA(mc,nThetaB1)
+            f2EA2=f2EA(mc,nThetaB2)
+            do lm=lStartP(mc),lmS-1,2
+               f2LM(lm)  =f2LM(lm)-      f1EA1*wdPlm(lm,nTheta1) &
+               &                  -      f1EA2*wdPlm(lm,nTheta2) &
+               &                  -ci*dm*f2ES1* wPlm(lm,nTheta1) &
+               &                  -ci*dm*f2ES2* wPlm(lm,nTheta2)
+               f2LM(lm+1)=f2LM(lm+1)-      f1ES1*wdPlm(lm+1,nTheta1) &
+               &                    -      f1ES2*wdPlm(lm+1,nTheta2) &
+               &                    -ci*dm*f2EA1* wPlm(lm+1,nTheta1) &
+               &                    -ci*dm*f2EA2* wPlm(lm+1,nTheta2)
+            end do
+            if ( lmOddP(mc) ) then
+               f2LM(lmS)=f2LM(lmS)-      f1EA1*wdPlm(lmS,nTheta1) &
+               &                  -      f1EA2*wdPlm(lmS,nTheta2) &
+               &                  -ci*dm*f2ES1* wPlm(lmS,nTheta1) &
+               &                  -ci*dm*f2ES2* wPlm(lmS,nTheta2)
+            end if
+         end do
+
+      end do  !  loop over theta in block
+
+      !PERFOFF
+
+   end subroutine legTF_spher_tor
+!------------------------------------------------------------------------
    subroutine legTFAS(flm1,ft1,lmMax,nThetaStart,sizeThetaB)
       !
       !  Legendre transform (n_r,n_theta,m) to (n_r,l,m)                  
@@ -415,8 +591,6 @@ contains
       !  by summation over theta points in on theta block:                
       !  n_theta_min,..,n_theta_min+n_theta_block-1                   
       !
-
-      implicit none
 
       !-- Input variables:
       integer,  intent(in) :: lmMax          ! Number of modes to be processed

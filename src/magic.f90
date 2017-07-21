@@ -148,6 +148,8 @@ program magic
    integer :: n                   ! counter
    integer :: nO                  ! output unit
    integer(lip) :: local_bytes_used
+   integer :: values(8)
+   character(len=72) :: date
    real(cp) :: time
    real(cp) :: dt
    real(cp) :: dtNew
@@ -191,7 +193,10 @@ program magic
       call wallTime(runTimeStart)
       write(*,*)
       write(*,*) '!--- Program MagIC ', trim(codeVersion), ' ---!'
-      call writeTime(6,'! Started at:',runTimeStart)
+      call date_and_time(values=values)
+      write(date, '(i4,''/'',i0.2,''/'',i0.2,'' '', i0.2,'':'',i0.2,'':'',i0.2)') &
+      &     values(1), values(2), values(3), values(5), values(6), values(7)
+      write(6, *) '!  Start time:  ', date
    end if
 
    !--- Read input parameters:

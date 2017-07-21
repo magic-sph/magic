@@ -530,9 +530,11 @@ contains
             if ( lRmsCalc ) then
     
                if ( l_conv_nl ) then
-                  call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map)
-                  call hIntRms(this%Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map)
-                  call hIntRms(this%Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map)
+                  call hIntRms(AdvPol,nR,1,lm_max,0,Adv2hInt(:,nR),st_map, .false.)
+                  call hIntRms(this%Advt2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
+                       &       .true.)
+                  call hIntRms(this%Advp2LM,nR,1,lmP_max,1,Adv2hInt(:,nR),st_map, &
+                       &       .true.)
                end if
 
                lm  =1
@@ -569,26 +571,28 @@ contains
 
                if ( l_TP_form .or. l_anelastic_liquid ) then
                   call hIntRms(leg_helper%dpR,nR,1,lm_max,0, &
-                       &       Pre2hInt(:,nR),st_map)
+                       &       Pre2hInt(:,nR),st_map,.false.)
                else
                   call hIntRms(leg_helper%dpR-beta(nR)*leg_helper%preR,&
-                       &       nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
+                       &       nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
                end if
-               call hIntRms(dpt,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
-               call hIntRms(dpp,nR,1,lm_max,0,Pre2hInt(:,nR),st_map)
+               call hIntRms(dpt,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.true.)
+               call hIntRms(dpp,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.true.)
 
                ! rho* grad(p/rho) = grad(p) - beta*p
                if ( ra /= 0.0_cp ) &
-                  call hIntRms(Buo,nR,1,lm_max,0,Buo2hInt(:,nR),st_map)
+                  call hIntRms(Buo,nR,1,lm_max,0,Buo2hInt(:,nR),st_map,.false.)
                if ( l_corr ) then
-                  call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map)
-                  call hIntRms(this%CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map)
-                  calL hIntRms(this%CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR),st_map)
+                  call hIntRms(CorPol,nR,1,lm_max,0,Cor2hInt(:,nR),st_map,.false.)
+                  call hIntRms(this%CFt2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
+                       &       st_map,.true.)
+                  calL hIntRms(this%CFp2LM,nR,1,lmP_max,1,Cor2hInt(:,nR), &
+                       &       st_map,.true.)
                end if
                if ( l_mag_LF .and. nR>n_r_LCR ) then
-                  call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map)
-                  call hIntRms(this%LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map)
-                  call hIntRms(this%LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map)
+                  call hIntRms(LFPol,nR,1,lm_max,0,LF2hInt(:,nR),st_map,.false.)
+                  call hIntRms(this%LFt2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
+                  call hIntRms(this%LFp2LM,nR,1,lmP_max,1,LF2hInt(:,nR),st_map,.true.)
                end if
 
                do lm=1,lm_max
@@ -600,12 +604,12 @@ contains
                   CIA(lm)=Arc(lm)+AdvPol(lm)
                   !CIA(lm)=CorPol(lm)+Buo(lm)+AdvPol(lm)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
+               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
+               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
+               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
 
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
@@ -617,12 +621,12 @@ contains
                   CIA(lm)=Arc(lm)+this%Advt2LM(lmP)
                   !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
+               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
+               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
+               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
     
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
@@ -634,12 +638,12 @@ contains
                   CIA(lm)=Arc(lm)+this%Advp2LM(lmP)
                   !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map)
+               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
+               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
+               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
+               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
 
             end if
 

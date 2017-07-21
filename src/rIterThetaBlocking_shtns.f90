@@ -661,17 +661,21 @@ contains
       end if
 
       if ( this%lRmsCalc ) then
-         call spat_to_SH(gsa%p1, nl_lm%p1LM)
-         call spat_to_SH(gsa%p2, nl_lm%p2LM)
-         call spat_to_SH(gsa%CFt2, nl_lm%CFt2LM)
-         call spat_to_SH(gsa%CFp2, nl_lm%CFp2LM)
+         !call spat_to_SH(gsa%p1, nl_lm%p1LM)
+         !call spat_to_SH(gsa%p2, nl_lm%p2LM)
+         call spat_to_sphertor(gsa%p1, gsa%p2, nl_lm%p1LM, nl_lm%p2LM)
+         !call spat_to_SH(gsa%CFt2, nl_lm%CFt2LM)
+         !call spat_to_SH(gsa%CFp2, nl_lm%CFp2LM)
+         call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM)
          if ( l_conv_nl ) then
-            call spat_to_SH(gsa%Advt2, nl_lm%Advt2LM)
-            call spat_to_SH(gsa%Advp2, nl_lm%Advp2LM)
+            !call spat_to_SH(gsa%Advt2, nl_lm%Advt2LM)
+            !call spat_to_SH(gsa%Advp2, nl_lm%Advp2LM)
+            call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, nl_lm%Advp2LM)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            call spat_to_SH(gsa%LFt2, nl_lm%LFt2LM)
-            call spat_to_SH(gsa%LFp2, nl_lm%LFp2LM)
+            !call spat_to_SH(gsa%LFt2, nl_lm%LFt2LM)
+            !call spat_to_SH(gsa%LFp2, nl_lm%LFp2LM)
+            call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, nl_lm%LFp2LM)
          end if
       end if
 

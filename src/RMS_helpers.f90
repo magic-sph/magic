@@ -261,12 +261,13 @@ contains
 
    end subroutine hInt2PolLM
 !-----------------------------------------------------------------------------
-   subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map)
+   subroutine hIntRms(f,nR,lmStart,lmStop,lmP,f2hInt,map,sphertor)
 
       !-- Input variables
       complex(cp),    intent(in) :: f(*)
       integer,        intent(in) :: nR, lmStart, lmStop, lmP
       type(mappings), intent(in) :: map
+      logical,        intent(in) :: sphertor
 
       !-- Output variables
       real(cp),       intent(inout) :: f2hInt(0:l_max)
@@ -286,7 +287,21 @@ contains
          end if
 
          if ( l <= l_max ) then
-            help=rE2*cc2real(f(lm),m)
+            if ( sphertor ) then
+               ! The l(l+1) factor comes from the orthogonality properties of
+               ! vector spherical harmonics
+#ifdef WITH_SHTNS
+               help=rE2*cc2real(f(lm),m)*l*(l+one)!*l*(l+1) 
+#else
+               if ( l /= 0 ) then
+                  help=rE2*cc2real(f(lm),m)/(l*(l+one)) 
+               else
+                  help=rE2*cc2real(f(lm),m)
+               end if
+#endif
+            else
+               help=rE2*cc2real(f(lm),m)
+            end if
             f2hInt(l)=f2hInt(l)+help
          end if
       end do
