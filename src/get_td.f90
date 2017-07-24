@@ -272,9 +272,9 @@ contains
             end if
             if ( l_corr ) then
                CorPol_loc=two*CorFac*or1(nR) * dTheta2A(lm)* z_Rloc(lmA,nR)
-               CorTor_loc= two*CorFac*or2(nR) * ( &
-                    dTheta3A(lm)*dw_Rloc(lmA,nR) + &
-                    or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
+               CorTor_loc= two*CorFac*or2(nR) * (                 &
+               &                dTheta3A(lm)*dw_Rloc(lmA,nR) +    &
+               &        or1(nR)*dTheta4A(lm)* w_Rloc(lmA,nR) )
             else
                CorPol_loc=zero
                CorTor_loc=zero
@@ -397,7 +397,7 @@ contains
                         CorPol_loc= two*CorFac*or1(nR) * ( &
                         &            dPhi0(lm)*dw_Rloc(lm,nR)  )
                      else if ( l == m ) then
-                        CorPol_loc = two*CorFac*or1(nR) * ( &
+                        CorPol_loc = two*CorFac*or1(nR) * (  &
                         &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
                         &     dTheta2A(lm)*z_Rloc(lmA,nR) )
                      end if
@@ -439,7 +439,7 @@ contains
                            CorPol_loc= two*CorFac*or1(nR) * ( &
                            &            dPhi0(lm)*dw_Rloc(lm,nR)  )
                         else if ( l == m ) then
-                           CorPol_loc = two*CorFac*or1(nR) * ( &
+                           CorPol_loc = two*CorFac*or1(nR) * (  &
                            &        dPhi0(lm)*dw_Rloc(lm,nR)  + &
                            &     dTheta2A(lm)*z_Rloc(lmA,nR) )
                         end if
@@ -641,25 +641,25 @@ contains
                   if ( l_corr ) then
                      !PERFON('td_cv2c')
                      if ( l < l_max .and. l > m ) then
-                        CorPol_loc=                    two*CorFac*or2(nR) * &
-                             &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                             &                  +or1(nR)*leg_helper%dLhw(lm) &
-                             &                                             ) &
-                             &                  +dTheta3A(lm)*z_Rloc(lmA,nR) &
-                             &                  +dTheta3S(lm)*z_Rloc(lmS,nR) &
-                             &               )
+                        CorPol_loc=                    two*CorFac*or2(nR) *  &
+                        &                    ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
+                        &                       +or1(nR)*leg_helper%dLhw(lm) &
+                        &                                                  ) &
+                        &                       +dTheta3A(lm)*z_Rloc(lmA,nR) &
+                        &                       +dTheta3S(lm)*z_Rloc(lmS,nR) &
+                        &                    )
        
                      else if ( l == l_max ) then
                         CorPol_loc=  two*CorFac*or2(nR) * ( -dPhi0(lm) *  &
                                     ( dw_Rloc(lm,nR) + or1(nR)*leg_helper%dLhw(lm) ) )
        
                      else if ( l == m ) then
-                        CorPol_loc=                    two*CorFac*or2(nR) * &
-                             &               ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
-                             &                  +or1(nR)*leg_helper%dLhw(lm) &
-                             &                                              )&
-                             &                 +dTheta3A(lm)*z_Rloc(lmA,nR)  &
-                             &               )
+                        CorPol_loc=                    two*CorFac*or2(nR) *  &
+                        &                    ( -dPhi0(lm) * ( dw_Rloc(lm,nR) &
+                        &                       +or1(nR)*leg_helper%dLhw(lm) &
+                        &                                                   )&
+                        &                      +dTheta3A(lm)*z_Rloc(lmA,nR)  &
+                        &                    )
        
                      end if
                      !PERFOFF
@@ -670,11 +670,11 @@ contains
                      !PERFON('td_cv2nl')
                      if ( l > m ) then
                         AdvPol_loc= dTheta1S(lm)*this%AdvtLM(lmPS) - &
-                                    dTheta1A(lm)*this%AdvtLM(lmPA) + &
-                                        dPhi(lm)*this%AdvpLM(lmP)
+                        &           dTheta1A(lm)*this%AdvtLM(lmPA) + &
+                        &               dPhi(lm)*this%AdvpLM(lmP)
                      else if ( l == m ) then
                         AdvPol_loc=-dTheta1A(lm)*this%AdvtLM(lmPA) + &
-                                        dPhi(lm)*this%AdvpLM(lmP)
+                        &               dPhi(lm)*this%AdvpLM(lmP)
                      end if
                      !PERFOFF
                   else
@@ -747,28 +747,28 @@ contains
     
                if ( l > m ) then
                   dsdt_loc= -dTheta1S(lm)*this%VStLM(lmPS) &
-                       &    +dTheta1A(lm)*this%VStLM(lmPA) &
-                       &    -dPhi(lm)*this%VSpLM(lmP)
+                  &         +dTheta1A(lm)*this%VStLM(lmPA) &
+                  &         -dPhi(lm)*this%VSpLM(lmP)
                else if ( l == m ) then
                   dsdt_loc=  dTheta1A(lm)*this%VStLM(lmPA) &
-                       &     -dPhi(lm)*this%VSpLM(lmP)
+                  &          -dPhi(lm)*this%VSpLM(lmP)
                end if
                !PERFOFF
                !PERFON('td_h2')
                if ( l_anel ) then
                   if ( l_anelastic_liquid .or. l_TP_form ) then
                      dsdt_loc = dsdt_loc+ &
-                          &     ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
+                     &          ViscHeatFac*hdif_V(lm)*temp0(nR)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
                         dsdt_loc = dsdt_loc+ &
-                             &     OhmLossFac*hdif_B(lm)*temp0(nR)*this%OhmLossLM(lmP)
+                        &          OhmLossFac*hdif_B(lm)*temp0(nR)*this%OhmLossLM(lmP)
                      end if
                   else
                      dsdt_loc = dsdt_loc+ &
-                          &     ViscHeatFac*hdif_V(lm)*this%ViscHeatLM(lmP)
+                     &          ViscHeatFac*hdif_V(lm)*this%ViscHeatLM(lmP)
                      if ( l_mag_nl ) then
                         dsdt_loc = dsdt_loc+ &
-                             &     OhmLossFac*hdif_B(lm)*this%OhmLossLM(lmP)
+                        &          OhmLossFac*hdif_B(lm)*this%OhmLossLM(lmP)
                      end if
                   end if
                end if
@@ -815,11 +815,11 @@ contains
     
                if ( l > m ) then
                   dxidt_loc= -dTheta1S(lm)*this%VXitLM(lmPS) &
-                       &     +dTheta1A(lm)*this%VXitLM(lmPA) &
-                       &     -dPhi(lm)*this%VXipLM(lmP)
+                  &          +dTheta1A(lm)*this%VXitLM(lmPA) &
+                  &          -dPhi(lm)*this%VXipLM(lmP)
                else if ( l == m ) then
                   dxidt_loc=  dTheta1A(lm)*this%VXitLM(lmPA) &
-                       &     -dPhi(lm)*this%VXipLM(lmP)
+                  &          -dPhi(lm)*this%VXipLM(lmP)
                end if
                !PERFOFF
                dVXirLM(lm)=this%VXirLM(lmP)
@@ -858,11 +858,11 @@ contains
                !PERFON('td_mnl1')
                if ( l > m ) then
                   dbdt(lm)=  dTheta1S(lm)*this%VxBpLM(lmPS) &
-                       &    -dTheta1A(lm)*this%VxBpLM(lmPA) &
-                       &    -dPhi(lm)    *this%VxBtLM(lmP)
+                  &         -dTheta1A(lm)*this%VxBpLM(lmPA) &
+                  &         -dPhi(lm)    *this%VxBtLM(lmP)
                else if ( l == m ) then
                   dbdt(lm)= -dTheta1A(lm)*this%VxBpLM(lmPA) &
-                       &    -dPhi(lm)    *this%VxBtLM(lmP)
+                  &         -dPhi(lm)    *this%VxBtLM(lmP)
                end if
                !PERFOFF
     
@@ -877,13 +877,13 @@ contains
                !PERFON('td_mnl2')
                if ( l > m ) then
                   dVxBhLM(lm)=            r(nR)*r(nR)* ( &
-                       dTheta1S(lm)*this%VxBtLM(lmPS) -  &
-                       dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                       dPhi(lm)*this%VxBpLM(lmP)  )
+                  &    dTheta1S(lm)*this%VxBtLM(lmPS) -  &
+                  &    dTheta1A(lm)*this%VxBtLM(lmPA) +  &
+                  &    dPhi(lm)*this%VxBpLM(lmP)  )
                else if ( l == m ) then
                   dVxBhLM(lm)=              r(nR)*r(nR)* ( &
-                       - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                       dPhi(lm)*this%VxBpLM(lmP)  )
+                  &    - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
+                  &    dPhi(lm)*this%VxBpLM(lmP)  )
                end if
                !PERFOFF
             end do
@@ -916,13 +916,13 @@ contains
                lmPA=lmP2lmPA(lmP)   ! l+1
                if ( l > m ) then
                   dVxBhLM(lm)=r(nR)*r(nR)* (               &
-                       & dTheta1S(lm)*this%VxBtLM(lmPS) -  &
-                       & dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                       &     dPhi(lm)*this%VxBpLM(lmP)  )
+                  &      dTheta1S(lm)*this%VxBtLM(lmPS) -  &
+                  &      dTheta1A(lm)*this%VxBtLM(lmPA) +  &
+                  &          dPhi(lm)*this%VxBpLM(lmP)  )
                else if ( l == m ) then ! (l-1) not allowed !
                   dVxBhLM(lm)=r(nR)*r(nR)* (               &
-                       - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
-                       dPhi(lm)*this%VxBpLM(lmP)  )
+                  &    - dTheta1A(lm)*this%VxBtLM(lmPA) +  &
+                  &    dPhi(lm)*this%VxBpLM(lmP)  )
                end if
                dVSrLM(lm)=zero
             end do
