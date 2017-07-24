@@ -44,7 +44,7 @@ module grid_space_arrays_mod
       real(cp), allocatable :: Advt2(:,:), Advp2(:,:)
       real(cp), allocatable :: LFt2(:,:), LFp2(:,:)
       real(cp), allocatable :: CFt2(:,:), CFp2(:,:)
-      real(cp), allocatable :: p1(:,:), p2(:,:)
+      real(cp), allocatable :: dpdtc(:,:), dpdpc(:,:)
 
       !----- Fields calculated from these help arrays by legtf:
       real(cp), pointer :: vrc(:,:), vtc(:,:), vpc(:,:)
@@ -134,8 +134,8 @@ contains
          allocate ( this%LFp2(nrp,nfs) )
          allocate ( this%CFt2(nrp,nfs) )
          allocate ( this%CFp2(nrp,nfs) )
-         allocate ( this%p1(nrp,nfs) )
-         allocate ( this%p2(nrp,nfs) )
+         allocate ( this%dpdtc(nrp,nfs) )
+         allocate ( this%dpdpc(nrp,nfs) )
          bytes_allocated=bytes_allocated + 8*nrp*nfs*SIZEOF_DEF_REAL
       end if
       !write(*,"(A,I15,A)") "grid_space_arrays: allocated ",bytes_allocated,"B."
@@ -187,8 +187,8 @@ contains
          deallocate ( this%LFp2 )
          deallocate ( this%CFt2 )
          deallocate ( this%CFp2 )
-         deallocate ( this%p1 )
-         deallocate ( this%p2 )
+         deallocate ( this%dpdtc )
+         deallocate ( this%dpdpc )
       end if
 
    end subroutine finalize
@@ -565,8 +565,8 @@ contains
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
             do nPhi=1,n_phi_max
-               this%p1(nPhi,nThetaB)=this%pc(nPhi,nThetaB)!/snt
-               this%p2(nPhi,nThetaB)=cnt*snt*this%p1(nPhi,nThetaB)
+               this%dpdtc(nPhi,nThetaB)=this%dpdtc(nPhi,nThetaB)/r(nR)
+               this%dpdpc(nPhi,nThetaB)=this%dpdpc(nPhi,nThetaB)/r(nR)
                this%CFt2(nPhi,nThetaB)=-two*CorFac*cnt*this%vpc(nPhi,nThetaB)/r(nR)
                this%CFp2(nPhi,nThetaB)= two*CorFac*snt* (                &
                &                     cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
@@ -935,8 +935,8 @@ contains
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
             do nPhi=1,n_phi_max
-               this%p1(nPhi,nThetaB)=this%pc(nPhi,nThetaB)/snt
-               this%p2(nPhi,nThetaB)=cnt*this%p1(nPhi,nThetaB)
+               this%dpdtc(nPhi,nThetaB)=this%dpdtc(nPhi,nThetaB)/snt/snt
+               this%dpdpc(nPhi,nThetaB)=this%dpdpc(nPhi,nThetaB)/snt/snt
                this%CFt2(nPhi,nThetaB)=-2*CorFac *cnt*this%vpc(nPhi,nThetaB)/rsnt/snt
                this%CFp2(nPhi,nThetaB)=2*CorFac * (                      &
                                      cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
@@ -951,10 +951,10 @@ contains
                   this%LFt2(nPhi,nThetaB)=r(nR)*this%LFt(nPhi,nThetaB)
                   this%LFp2(nPhi,nThetaB)=r(nR)*this%LFp(nPhi,nThetaB)
                end if
-               this%p1(n_phi_max+1,nThetaB)=0.0_cp
-               this%p1(n_phi_max+2,nThetaB)=0.0_cp
-               this%p2(n_phi_max+1,nThetaB)=0.0_cp
-               this%p2(n_phi_max+2,nThetaB)=0.0_cp
+               this%dpdtc(n_phi_max+1,nThetaB)=0.0_cp
+               this%dpdtc(n_phi_max+2,nThetaB)=0.0_cp
+               this%dpdtc(n_phi_max+1,nThetaB)=0.0_cp
+               this%dpdpc(n_phi_max+2,nThetaB)=0.0_cp
                this%CFt2(n_phi_max+1,nThetaB)=0.0_cp
                this%CFt2(n_phi_max+2,nThetaB)=0.0_cp
                this%CFp2(n_phi_max+1,nThetaB)=0.0_cp

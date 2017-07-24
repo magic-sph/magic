@@ -370,10 +370,10 @@ contains
 
       if ( this%lRmsCalc ) then
          if ( .not. l_axi ) then
-            call fft_thetab(gsa%p1,-1)
-            call fft_thetab(gsa%p2,-1)
+            call fft_thetab(gsa%dpdtc,-1)
+            call fft_thetab(gsa%dpdpc,-1)
          end if
-         call legTF2(nThetaStart,nl_lm%p1LM,nl_lm%p2LM,gsa%p1,gsa%p2)
+         call legTF2(nThetaStart,nl_lm%PFt2LM,nl_lm%PFp2LM,gsa%dpdtc,gsa%dpdpc)
          if ( .not. l_axi ) then
             call fft_thetab(gsa%CFt2,-1)
             call fft_thetab(gsa%CFp2,-1)

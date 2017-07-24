@@ -71,18 +71,18 @@ contains
          gradsAS(nThetaB)=0.0_cp
          do nPhi=1,n_phi_max
             uh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(     &
-                          vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+  &
-                          vp(nPhi,nThetaB)*vp(nPhi,nThetaB)  )
+            &             vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+  &
+            &             vp(nPhi,nThetaB)*vp(nPhi,nThetaB)  )
             duh=or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)*(            &
-                                 dvtdr(nPhi,nThetaB)*vt(nPhi,nThetaB)-&
-                 (or1(nR)+beta(nR))*vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+&
-                                 dvpdr(nPhi,nThetaB)*vp(nPhi,nThetaB)-&
-                 (or1(nR)+beta(nR))*vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
+            &                    dvtdr(nPhi,nThetaB)*vt(nPhi,nThetaB)-&
+            &    (or1(nR)+beta(nR))*vt(nPhi,nThetaB)*vt(nPhi,nThetaB)+&
+            &                    dvpdr(nPhi,nThetaB)*vp(nPhi,nThetaB)-&
+            &    (or1(nR)+beta(nR))*vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
     
             grads =  dsdr(nPhi,nThetaB)*dsdr(nPhi,nThetaB)          &
-                   +or2(nR)*O_sin_theta_E2(nTheta)*(                &
-                           dsdt(nPhi,nThetaB)*dsdt(nPhi,nThetaB)    &
-                          +dsdp(nPhi,nThetaB)*dsdp(nPhi,nThetaB) ) 
+            &      +or2(nR)*O_sin_theta_E2(nTheta)*(                &
+            &              dsdt(nPhi,nThetaB)*dsdt(nPhi,nThetaB)    &
+            &             +dsdp(nPhi,nThetaB)*dsdp(nPhi,nThetaB) ) 
     
             uhAS(nThetaB)=uhAS(nThetaB)+sqrt(uh)
             if (uh /= 0.0_cp) then
@@ -175,26 +175,26 @@ contains
     
          do nPhi=1,n_phi_max
             Eperp=half*or2(nR)*orho2(nR)*(                                           &
-                    or2(nR)*sn2(nThetaNHS)*      vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
-                    (osn2(nThetaNHS)-one)*       vt(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
-                    two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
-                    osn2(nThetaNHS)*                vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
+            &       or2(nR)*sn2(nThetaNHS)*      vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
+            &       (osn2(nThetaNHS)-one)*       vt(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) + &
+            &       osn2(nThetaNHS)*                vp(nPhi,nThetaB)*vp(nPhi,nThetaB) )
     
             Epar =half*or2(nR)*orho2(nR)*(                                           &
-                    or2(nR)*(one-sn2(nThetaNHS))*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
-                                                 vt(nPhi,nThetaB)*vt(nPhi,nThetaB) - &
-                    two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) )
+            &       or2(nR)*(one-sn2(nThetaNHS))*vr(nPhi,nThetaB)*vr(nPhi,nThetaB) + &
+            &                                    vt(nPhi,nThetaB)*vt(nPhi,nThetaB) - &
+            &       two*or1(nR)*cosTheta(nTheta)*vr(nPhi,nThetaB)*vt(nPhi,nThetaB) )
     
             Eperpaxi=half*or2(nR)*orho2(nR)*(                  &
-                      or2(nR)*sn2(nThetaNHS)*      vras*vras + &
-                      (osn2(nThetaNHS)-one)*       vtas*vtas + &
-                      two*or1(nR)*cosTheta(nTheta)*vras*vtas + &
-                      osn2(nThetaNHS)*             vpas*vpas )
+            &         or2(nR)*sn2(nThetaNHS)*      vras*vras + &
+            &         (osn2(nThetaNHS)-one)*       vtas*vtas + &
+            &         two*or1(nR)*cosTheta(nTheta)*vras*vtas + &
+            &         osn2(nThetaNHS)*             vpas*vpas )
     
             Eparaxi =half*or2(nR)*orho2(nR)*(                  &
-                      or2(nR)*(one-sn2(nThetaNHS))*vras*vras + &
-                                                   vtas*vtas - &
-                      two*or1(nR)*cosTheta(nTheta)*vras*vtas )
+            &         or2(nR)*(one-sn2(nThetaNHS))*vras*vras + &
+            &                                      vtas*vtas - &
+            &         two*or1(nR)*cosTheta(nTheta)*vras*vtas )
     
             EperpAS(nThetaB)   =   EperpAS(nThetaB)+Eperp
             EparAS(nThetaB)    =    EparAS(nThetaB)+Epar
@@ -221,7 +221,7 @@ contains
 ! #else
       call legTFAS2(EperpLMr,EparLMr,EperpAS,EparAS,l_max+1,nThetaStart,sizeThetaB)
       call legTFAS2(EperpaxiLMr,EparaxiLMr,EperpaxiAS,EparaxiAS,l_max+1, &
-                    nThetaStart,sizeThetaB)
+           &        nThetaStart,sizeThetaB)
 ! #endif
 
    end subroutine get_perpPar
@@ -342,14 +342,14 @@ contains
             fpoyn=0.0_cp
             do nPhi=1,n_phi_max
                 fres =osn2(nThetaNHS)*(                              &
-                               cbt(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                               cbp(nPhi,nThetaB)*bt(nPhi,nThetaB) )
+                &              cbt(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
+                &              cbp(nPhi,nThetaB)*bt(nPhi,nThetaB) )
     
                 fpoyn=-orho1(nR)*or2(nR)*osn2(nThetaNHS)*(                        &
-                            vp(nPhi,nThetaB)*br(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                            vr(nPhi,nThetaB)*bp(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
-                            vr(nPhi,nThetaB)*bt(nPhi,nThetaB)*bt(nPhi,nThetaB)  + &
-                            vt(nPhi,nThetaB)*br(nPhi,nThetaB)*bt(nPhi,nThetaB) )
+                &           vp(nPhi,nThetaB)*br(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
+                &           vr(nPhi,nThetaB)*bp(nPhi,nThetaB)*bp(nPhi,nThetaB)  - &
+                &           vr(nPhi,nThetaB)*bt(nPhi,nThetaB)*bt(nPhi,nThetaB)  + &
+                &           vt(nPhi,nThetaB)*br(nPhi,nThetaB)*bt(nPhi,nThetaB) )
     
                 fresAS(nThetaB) = fresAS(nThetaB)+fres
                 fpoynAS(nThetaB)=fpoynAS(nThetaB)+fpoyn
@@ -473,24 +473,24 @@ contains
             vpna   =   vp(nPhi,nThetaB)-vpas
             dvrdpna=dvrdp(nPhi,nThetaB)-dvrdpas
             dvpdrna=dvpdr(nPhi,nThetaB)-beta(nR)*vp(nPhi,nThetaB) &
-                    -dvpdras+beta(nR)*vpas
+            &       -dvpdras+beta(nR)*vpas
             dvtdrna=dvtdr(nPhi,nThetaB)-beta(nR)*vt(nPhi,nThetaB) &
-                    -dvtdras+beta(nR)*vtas
+            &       -dvtdras+beta(nR)*vtas
             dvrdtna=dvrdt(nPhi,nThetaB)-dvrdtas
             Hel=or4(nR)*orho2(nR)*vr(nPhi,nThetaB)*cvr(nPhi,nThetaB) + &
-                           or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-                                                    vt(nPhi,nThetaB) * &
-                                       ( or2(nR)*dvrdp(nPhi,nThetaB) - &
-                                                 dvpdr(nPhi,nThetaB) + &
-                                      beta(nR)*   vp(nPhi,nThetaB) ) + &
-                                                    vp(nPhi,nThetaB) * &
-                                       (         dvtdr(nPhi,nThetaB) - &
-                                        beta(nR)*   vt(nPhi,nThetaB) - &
-                                         or2(nR)*dvrdt(nPhi,nThetaB) ) )
+            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                                       vt(nPhi,nThetaB) * &
+            &                          ( or2(nR)*dvrdp(nPhi,nThetaB) - &
+            &                                    dvpdr(nPhi,nThetaB) + &
+            &                         beta(nR)*   vp(nPhi,nThetaB) ) + &
+            &                                       vp(nPhi,nThetaB) * &
+            &                          (         dvtdr(nPhi,nThetaB) - &
+            &                           beta(nR)*   vt(nPhi,nThetaB) - &
+            &                            or2(nR)*dvrdt(nPhi,nThetaB) ) )
             Helna=                      or4(nR)*orho2(nR)*vrna*cvrna + &
-                           or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
-                                    vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
-                                    vpna*( dvtdrna-or2(nR)*dvrdtna ) )
+            &              or2(nR)*orho2(nR)*O_sin_theta_E2(nTheta)* ( &
+            &                       vtna*( or2(nR)*dvrdpna-dvpdrna ) + &
+            &                       vpna*( dvtdrna-or2(nR)*dvrdtna ) )
 
             HelAS(nThetaB)   =HelAS(nThetaB) +Hel
             Hel2AS(nThetaB)  =Hel2AS(nThetaB)+Hel*Hel
@@ -560,26 +560,26 @@ contains
          viscAS(nThetaB)=0.0_cp
          do nPhi=1,n_phi_max
             vischeat=         or2(nR)*orho1(nR)*visc(nR)*(        &
-                  two*(                     dvrdr(nPhi,nThetaB) - & ! (1)
-                  (two*or1(nR)+beta(nR))*vr(nphi,nThetaB) )**2  + &
-                  two*( csn2*                  vt(nPhi,nThetaB) + &
-                                            dvpdp(nphi,nThetaB) + &
-                                            dvrdr(nPhi,nThetaB) - & ! (2)
-                  or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-                  two*(                     dvpdp(nphi,nThetaB) + &
-                        csn2*                  vt(nPhi,nThetaB) + & ! (3)
-                  or1(nR)*               vr(nPhi,nThetaB) )**2  + &
-                       ( two*               dvtdp(nPhi,nThetaB) + &
-                                              cvr(nPhi,nThetaB) - & ! (6)
-                   two*csn2*             vp(nPhi,nThetaB) )**2  + &
-                                              osn2(nThetaNHS) * ( &
-                      ( r(nR)*              dvtdr(nPhi,nThetaB) - &
-                        (two+beta(nR)*r(nR))*  vt(nPhi,nThetaB) + & ! (4)
-                  or1(nR)*            dvrdt(nPhi,nThetaB) )**2  + &
-                      ( r(nR)*              dvpdr(nPhi,nThetaB) - &
-                        (two+beta(nR)*r(nR))*  vp(nPhi,nThetaB) + & ! (5)
-                  or1(nR)*            dvrdp(nPhi,nThetaB) )**2 )- &
-                 two*third*(  beta(nR)*        vr(nPhi,nThetaB) )**2 )
+            &     two*(                     dvrdr(nPhi,nThetaB) - & ! (1)
+            &     (two*or1(nR)+beta(nR))*vr(nphi,nThetaB) )**2  + &
+            &     two*( csn2*                  vt(nPhi,nThetaB) + &
+            &                               dvpdp(nphi,nThetaB) + &
+            &                               dvrdr(nPhi,nThetaB) - & ! (2)
+            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
+            &     two*(                     dvpdp(nphi,nThetaB) + &
+            &           csn2*                  vt(nPhi,nThetaB) + & ! (3)
+            &     or1(nR)*               vr(nPhi,nThetaB) )**2  + &
+            &          ( two*               dvtdp(nPhi,nThetaB) + &
+            &                                 cvr(nPhi,nThetaB) - & ! (6)
+            &      two*csn2*             vp(nPhi,nThetaB) )**2  + &
+            &                                 osn2(nThetaNHS) * ( &
+            &         ( r(nR)*              dvtdr(nPhi,nThetaB) - &
+            &           (two+beta(nR)*r(nR))*  vt(nPhi,nThetaB) + & ! (4)
+            &     or1(nR)*            dvrdt(nPhi,nThetaB) )**2  + &
+            &         ( r(nR)*              dvpdr(nPhi,nThetaB) - &
+            &           (two+beta(nR)*r(nR))*  vp(nPhi,nThetaB) + & ! (5)
+            &     or1(nR)*            dvrdp(nPhi,nThetaB) )**2 )- &
+            &    two*third*(  beta(nR)*        vr(nPhi,nThetaB) )**2 )
 
             viscAS(nThetaB)=viscAS(nThetaB)+vischeat
          end do

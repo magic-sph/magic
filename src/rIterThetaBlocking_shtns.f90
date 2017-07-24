@@ -461,8 +461,7 @@ contains
          if ( l_heat ) then
             call scal_to_spat(s_Rloc(:, nR), gsa%sc)
             if ( this%lViscBcCalc ) then
-               call scal_to_grad_spat(s_Rloc(:, nR), gsa%dsdtc, &
-                                      gsa%dsdpc)
+               call scal_to_grad_spat(s_Rloc(:, nR), gsa%dsdtc, gsa%dsdpc)
                if (this%nR == n_r_cmb .and. ktops==1) then
                   gsa%dsdtc=0.0_cp
                   gsa%dsdpc=0.0_cp
@@ -472,6 +471,10 @@ contains
                   gsa%dsdpc=0.0_cp
                end if
             end if
+         end if
+
+         if ( this%lRmsCalc ) then
+            call scal_to_grad_spat(p_Rloc(:, nR), gsa%dpdtc, gsa%dpdpc)
          end if
 
          if ( this%lPressCalc ) then ! Pressure
@@ -487,43 +490,31 @@ contains
          endif
          if ( this%nBc == 0 ) then
             call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
-                                gsa%vrc, &
-                                gsa%vtc, &
-                                gsa%vpc)
+                 &              gsa%vrc, gsa%vtc, gsa%vpc)
             if ( this%lDeriv ) then
                call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
-                                   gsa%dvrdrc, &
-                                   gsa%dvtdrc, &
-                                   gsa%dvpdrc)
+                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
 
                call pol_to_curlr_spat(z_Rloc(:, nR), gsa%cvrc)
 
-               call pol_to_grad_spat(w_Rloc(:, nR), &
-                                     gsa%dvrdtc, &
-                                     gsa%dvrdpc)
+               call pol_to_grad_spat(w_Rloc(:, nR), gsa%dvrdtc, gsa%dvrdpc)
                call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
-                                      gsa%dvtdpc, &
-                                      gsa%dvpdpc)
+                    &                 gsa%dvtdpc, gsa%dvpdpc)
 
             end if
          else if ( this%nBc == 1 ) then ! Stress free
              ! TODO don't compute vrc as it is set to 0 afterward
             call torpol_to_spat(w_Rloc(:, nR), dw_Rloc(:, nR),  z_Rloc(:, nR), &
-                                gsa%vrc, &
-                                gsa%vtc, &
-                                gsa%vpc)
+                 &              gsa%vrc, gsa%vtc, gsa%vpc)
             gsa%vrc = 0.0_cp
             if ( this%lDeriv ) then
                gsa%dvrdtc = 0.0_cp
                gsa%dvrdpc = 0.0_cp
                call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
-                                   gsa%dvrdrc, &
-                                   gsa%dvtdrc, &
-                                   gsa%dvpdrc)
+                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
                call pol_to_curlr_spat(z_Rloc(:, nR), gsa%cvrc)
                call torpol_to_dphspat(dw_Rloc(:, nR),  z_Rloc(:, nR), &
-                                      gsa%dvtdpc, &
-                                      gsa%dvpdpc)
+                    &                 gsa%dvtdpc, gsa%dvpdpc)
             end if
          else if ( this%nBc == 2 ) then
             if ( this%nR == n_r_cmb ) then
@@ -539,24 +530,19 @@ contains
             end if
             if ( this%lDeriv ) then
                call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &
-                                   gsa%dvrdrc, &
-                                   gsa%dvtdrc, &
-                                   gsa%dvpdrc)
+                    &              gsa%dvrdrc, gsa%dvtdrc, gsa%dvpdrc)
             end if
          end if
       end if
+
       if ( l_mag .or. l_mag_LF ) then
          call torpol_to_spat(b_Rloc(:, nR), db_Rloc(:, nR),  aj_Rloc(:, nR),    &
-                             gsa%brc,                           &
-                             gsa%btc,                           &
-                             gsa%bpc)
+              &              gsa%brc, gsa%btc, gsa%bpc)
 
          if ( this%lDeriv ) then
             call torpol_to_curl_spat(b_Rloc(:, nR), ddb_Rloc(:, nR),        &
-                                     aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
-                                     gsa%cbrc,                              &
-                                     gsa%cbtc,                              &
-                                     gsa%cbpc)
+                 &                   aj_Rloc(:, nR), dj_Rloc(:, nR), nR,    &
+                 &                   gsa%cbrc, gsa%cbtc, gsa%cbpc)
          end if
       end if
 
@@ -661,20 +647,12 @@ contains
       end if
 
       if ( this%lRmsCalc ) then
-         !call spat_to_SH(gsa%p1, nl_lm%p1LM)
-         !call spat_to_SH(gsa%p2, nl_lm%p2LM)
-         call spat_to_sphertor(gsa%p1, gsa%p2, nl_lm%p1LM, nl_lm%p2LM)
-         !call spat_to_SH(gsa%CFt2, nl_lm%CFt2LM)
-         !call spat_to_SH(gsa%CFp2, nl_lm%CFp2LM)
+         call spat_to_sphertor(gsa%dpdtc, gsa%dpdpc, nl_lm%PFt2LM, nl_lm%PFp2LM)
          call spat_to_sphertor(gsa%CFt2, gsa%CFp2, nl_lm%CFt2LM, nl_lm%CFp2LM)
          if ( l_conv_nl ) then
-            !call spat_to_SH(gsa%Advt2, nl_lm%Advt2LM)
-            !call spat_to_SH(gsa%Advp2, nl_lm%Advp2LM)
             call spat_to_sphertor(gsa%Advt2, gsa%Advp2, nl_lm%Advt2LM, nl_lm%Advp2LM)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
-            !call spat_to_SH(gsa%LFt2, nl_lm%LFt2LM)
-            !call spat_to_SH(gsa%LFp2, nl_lm%LFp2LM)
             call spat_to_sphertor(gsa%LFt2, gsa%LFp2, nl_lm%LFt2LM, nl_lm%LFp2LM)
          end if
       end if

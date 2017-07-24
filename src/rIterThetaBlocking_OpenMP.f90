@@ -614,8 +614,8 @@ contains
       !$OMP SECTION
       if ( this%lRmsCalc ) then
          do iThread=1,this%nThreads-1
-            this%nl_lm(0)%p1LM=this%nl_lm(0)%p1LM+this%nl_lm(iThread)%p1LM
-            this%nl_lm(0)%p2LM=this%nl_lm(0)%p2LM+this%nl_lm(iThread)%p2LM
+            this%nl_lm(0)%PFt2LM=this%nl_lm(0)%PFt2LM+this%nl_lm(iThread)%PFt2LM
+            this%nl_lm(0)%PFp2LM=this%nl_lm(0)%PFp2LM+this%nl_lm(iThread)%PFp2LM
             this%nl_lm(0)%Advt2LM=this%nl_lm(0)%Advt2LM+this%nl_lm(iThread)%Advt2LM
             this%nl_lm(0)%Advp2LM=this%nl_lm(0)%Advp2LM+this%nl_lm(iThread)%Advp2LM
             this%nl_lm(0)%LFt2LM=this%nl_lm(0)%LFt2LM+this%nl_lm(iThread)%LFt2LM

@@ -10,7 +10,7 @@ module horizontal_data
    use physical_parameters, only: ek
    use num_param, only: difeta, difnu, difkap, ldif, ldifexp, difchem
    use blocking, only: lmP2l, lmP2lm, lm2l, lm2m
-   use logic, only: l_non_rot
+   use logic, only: l_non_rot, l_RMS
    use plms_theta, only: plm_theta
    use fft
    use constants, only: pi, zero, one, two, half
@@ -90,12 +90,16 @@ contains
       !-- Legendres:
       allocate( Plm(lm_max,n_theta_max/2) )
       allocate( wPlm(lmP_max,n_theta_max/2) )
-      allocate( wdPlm(lmP_max,n_theta_max/2) )
       allocate( dPlm(lm_max,n_theta_max/2) )
       allocate( gauss(n_theta_max) )
       allocate( dPl0Eq(l_max+1) )
       bytes_allocated = bytes_allocated+(lm_max*n_theta_max+ &
                         lmP_max*n_theta_max/2+n_theta_max+l_max+1)*SIZEOF_DEF_REAL
+
+      if ( l_RMS ) then
+         allocate( wdPlm(lmP_max,n_theta_max/2) )
+         bytes_allocated = bytes_allocated*lmP_max*n_theta_max/2*SIZEOF_DEF_REAL
+      end if
 
       !-- Arrays depending on l and m:
       allocate( dPhi(lm_max) )
@@ -124,7 +128,8 @@ contains
 
       deallocate( sinTheta, cosTheta, theta, theta_ord, n_theta_cal2ord )
       deallocate( sn2, osn2, cosn2, osn1, O_sin_theta, O_sin_theta_E2, phi )
-      deallocate( Plm, wPlm, wdPlm, dPlm, gauss, dPl0Eq )
+      deallocate( Plm, wPlm, dPlm, gauss, dPl0Eq )
+      if ( l_RMS ) deallocate( wdPlm )
       deallocate( dPhi, dPhi0, dPhi02, dLh, dTheta1S, dTheta1A )
       deallocate( dTheta2S, dTheta2A, dTheta3S, dTheta3A, dTheta4S, dTheta4A )
       deallocate( D_m, D_l, D_lP1, D_mc2m, hdif_B, hdif_V, hdif_S, hdif_Xi )

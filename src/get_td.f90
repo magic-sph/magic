@@ -45,7 +45,7 @@ module nonlinear_lm_mod
       complex(cp), allocatable :: Advt2LM(:), Advp2LM(:)
       complex(cp), allocatable :: LFt2LM(:), LFp2LM(:)
       complex(cp), allocatable :: CFt2LM(:), CFp2LM(:)
-      complex(cp), allocatable :: p1LM(:), p2LM(:)
+      complex(cp), allocatable :: PFt2LM(:), PFp2LM(:)
  
    contains
  
@@ -100,8 +100,8 @@ contains
          allocate( this%LFp2LM(lmP_max) )
          allocate( this%CFt2LM(lmP_max) )
          allocate( this%CFp2LM(lmP_max) )
-         allocate( this%p1LM(lmP_max) )
-         allocate( this%p2LM(lmP_max) )
+         allocate( this%PFt2LM(lmP_max) )
+         allocate( this%PFp2LM(lmP_max) )
          bytes_allocated = bytes_allocated + 8*lmP_max*SIZEOF_DEF_COMPLEX
       end if
 
@@ -144,8 +144,8 @@ contains
          deallocate( this%LFp2LM )
          deallocate( this%CFt2LM )
          deallocate( this%CFp2LM )
-         deallocate( this%p1LM )
-         deallocate( this%p2LM )
+         deallocate( this%PFt2LM )
+         deallocate( this%PFp2LM )
       end if
 
    end subroutine finalize
@@ -186,8 +186,8 @@ contains
          this%LFt2LM =zero
          this%CFt2LM =zero
          this%CFp2LM =zero
-         this%p1LM   =zero
-         this%p2LM   =zero
+         this%PFt2LM =zero
+         this%PFp2LM =zero
       end if
 
    end subroutine set_zero
@@ -240,7 +240,7 @@ contains
       complex(cp) :: LFPol(lm_max),LFTor(lm_max)
       complex(cp) :: Geo(lm_max),CLF(lm_max),PLF(lm_max)
       complex(cp) :: Arc(lm_max),Mag(lm_max),CIA(lm_max)
-      complex(cp) :: dpt(lm_max),dpp(lm_max), Buo(lm_max)
+      complex(cp) :: Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
       complex(cp) :: dsdt_loc, dxidt_loc
     
@@ -537,38 +537,6 @@ contains
                        &       .true.)
                end if
 
-               lm  =1
-               dpt(lm)=zero
-               dpp(lm)=zero
-
-               !PERFON('td_cv3')
-               !$OMP PARALLEL do default(none) &
-               !$OMP private(lm,l,m,lmP,lmPS,lmPA) &
-               !$OMP shared(or1,dTheta1A,dTheta1S,this,dpt,dpp,dPhi,nR) &
-               !$OMP shared(lm2l,lm2m,lm2lmP,lmP2lmPS,lmP2lmPA,l_max,lm_max)
-               do lm=2,lm_max
-                  l   =lm2l(lm)
-                  m   =lm2m(lm)
-                  lmP =lm2lmP(lm)
-                  lmPS=lmP2lmPS(lmP)
-                  lmPA=lmP2lmPA(lmP)
-                  if ( l<l_max .and. l>m ) then
-                     dpt(lm)=               or1(nR)* (      &
-                     &      -dTheta1A(lm)*this%p1LM(lmPA) + &
-                     &       dTheta1S(lm)*this%p1LM(lmPS) - &
-                     &                    this%p2LM(lmP)  )                                  
-                  else if ( l == l_max ) then
-                     dpt(lm)=zero
-                  else if ( l == m ) then
-                     dpt(lm)=                or1(nR)* (       &
-                     &        -dTheta1A(lm)*this%p1LM(lmPA) - &
-                     &                      this%p2LM(lmP)  )
-                  end if
-                  dpp(lm)=or1(nR)*dPhi(lm)*this%p1LM(lmP)
-               end do
-               !$OMP END PARALLEL DO
-               !PERFOFF
-
                if ( l_TP_form .or. l_anelastic_liquid ) then
                   call hIntRms(leg_helper%dpR,nR,1,lm_max,0, &
                        &       Pre2hInt(:,nR),st_map,.false.)
@@ -576,8 +544,8 @@ contains
                   call hIntRms(leg_helper%dpR-beta(nR)*leg_helper%preR,&
                        &       nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.false.)
                end if
-               call hIntRms(dpt,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.true.)
-               call hIntRms(dpp,nR,1,lm_max,0,Pre2hInt(:,nR),st_map,.true.)
+               call hIntRms(this%PFt2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
+               call hIntRms(this%PFp2LM,nR,1,lmP_max,1,Pre2hInt(:,nR),st_map,.true.)
 
                ! rho* grad(p/rho) = grad(p) - beta*p
                if ( ra /= 0.0_cp ) &
@@ -613,37 +581,37 @@ contains
 
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
-                  Geo(lm)=-this%CFt2LM(lmP)-dpt(lm)
+                  Geo(lm)=-this%CFt2LM(lmP)-this%PFt2LM(lmP)
                   CLF(lm)=-this%CFt2LM(lmP)+this%LFt2LM(lmP)
-                  PLF(lm)=this%LFt2LM(lmP)-dpt(lm)
+                  PLF(lm)=this%LFt2LM(lmP)-this%PFt2LM(lmP)
                   Mag(lm)=Geo(lm)+this%LFt2LM(lmP)
                   Arc(lm)=Mag(lm)
                   CIA(lm)=Arc(lm)+this%Advt2LM(lmP)
                   !CIA(lm)=-this%CFt2LM(lmP)+this%Advt2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
+               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
+               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
+               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
+               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
+               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
     
                do lm=1,lm_max
                   lmP =lm2lmP(lm)
-                  Geo(lm)=-this%CFp2LM(lmP)-dpp(lm)
+                  Geo(lm)=-this%CFp2LM(lmP)-this%PFp2LM(lmP)
                   CLF(lm)=-this%CFp2LM(lmP)+this%LFp2LM(lmP)
-                  PLF(lm)=this%LFp2LM(lmP)-dpp(lm)
+                  PLF(lm)=this%LFp2LM(lmP)-this%PFp2LM(lmP)
                   Mag(lm)=Geo(lm)+this%LFp2LM(lmP)
                   Arc(lm)=Mag(lm)
                   CIA(lm)=Arc(lm)+this%Advp2LM(lmP)
                   !CIA(lm)=-this%CFp2LM(lmP)+this%Advp2LM(lmP)
                end do
-               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.false.)
-               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.false.)
-               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.false.)
-               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.false.)
-               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.false.)
+               call hIntRms(Geo,nR,1,lm_max,0,Geo2hInt(:,nR),st_map,.true.)
+               call hIntRms(CLF,nR,1,lm_max,0,CLF2hInt(:,nR),st_map,.true.)
+               call hIntRms(PLF,nR,1,lm_max,0,PLF2hInt(:,nR),st_map,.true.)
+               call hIntRms(Mag,nR,1,lm_max,0,Mag2hInt(:,nR),st_map,.true.)
+               call hIntRms(Arc,nR,1,lm_max,0,Arc2hInt(:,nR),st_map,.true.)
+               call hIntRms(CIA,nR,1,lm_max,0,CIA2hInt(:,nR),st_map,.true.)
 
             end if
 
@@ -750,7 +718,7 @@ contains
                else
                   if ( l_mag_nl ) then
                      dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*this%ViscHeatLM(1)+ &
-                                        OhmLossFac*hdif_B(1)*this%OhmLossLM(1)
+                     &                  OhmLossFac*hdif_B(1)*this%OhmLossLM(1)
                   else
                      dsdt_loc=dsdt_loc+ViscHeatFac*hdif_V(1)*this%ViscHeatLM(1)
                   end if

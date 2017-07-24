@@ -3,9 +3,9 @@ module shtns
    use precision_mod, only: cp
    use constants, only: ci
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-                         minc, lm_max, n_m_max, nrp
-   use horizontal_data, only: dLh, gauss, theta_ord, D_m, O_sin_theta_E2
-   use radial_functions, only: r
+       &                 minc, lm_max
+   use horizontal_data, only: dLh, D_m, O_sin_theta_E2
+   use radial_functions, only: or2
    use parallel_mod
 
    implicit none
@@ -15,8 +15,8 @@ module shtns
    private
 
    public :: init_shtns, scal_to_spat, scal_to_grad_spat, pol_to_grad_spat, &
-             torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
-             torpol_to_dphspat, spat_to_SH, spat_to_sphertor
+   &         torpol_to_spat, pol_to_curlr_spat, torpol_to_curl_spat,        &
+   &         torpol_to_dphspat, spat_to_SH, spat_to_sphertor
 
 contains
 
@@ -44,7 +44,7 @@ contains
 
       call shtns_set_size(l_max+1, m_max/minc, minc, norm)
       call shtns_precompute(SHT_QUICK_INIT, SHT_PHI_CONTIGUOUS, &
-                            1.e-10_cp, n_theta_max, n_phi_max)
+           &                1.e-10_cp, n_theta_max, n_phi_max)
       call shtns_save_cfg(1)
 
       call shtns_load_cfg(0)
@@ -155,7 +155,7 @@ contains
    end subroutine pol_to_curlr_spat
 !------------------------------------------------------------------------------
    subroutine torpol_to_curl_spat(Blm, ddBlm, Jlm, dJlm, nR, &
-                                 cvrc, cvtc, cvpc)
+              &                  cvrc, cvtc, cvpc)
       complex(cp), intent(in) :: Blm(lm_max), ddBlm(lm_max)
       complex(cp), intent(in) :: Jlm(lm_max), dJlm(lm_max)
       integer, intent(in) :: nR
@@ -169,7 +169,7 @@ contains
 
       do lm = 1, lm_max
          Qlm(lm) = dLh(lm) * Jlm(lm)
-         Tlm(lm) = 1/r(nR)**2 * dLh(lm) * Blm(lm) - ddBlm(lm)
+         Tlm(lm) = or2(nR) * dLh(lm) * Blm(lm) - ddBlm(lm)
       end do
 
       call shtns_qst_to_spat(Qlm, dJlm, Tlm, cvrc, cvtc, cvpc)
