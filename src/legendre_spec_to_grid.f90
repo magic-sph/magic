@@ -10,7 +10,6 @@ module legendre_spec_to_grid
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
        &                      osn2
-   use logic, only: l_heat, l_chemical_conv
    use constants, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
@@ -25,11 +24,9 @@ module legendre_spec_to_grid
 
 contains
 
-   subroutine legTFG(nBc,lDeriv,nThetaStart,                  &
-              &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,   &
-              &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,             &
-              &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,           &
-              &      xic,leg_helper)
+   subroutine legTFG(nBc,lDeriv,nThetaStart,vrc,vtc,vpc,dvrdrc,   &
+              &      dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,dvtdpc,     &
+              &      dvpdpc,brc,btc,bpc,cbrc,cbtc,cbpc,leg_helper)
       !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
       !    where nTheta numbers the colatitudes and l is the degree of
@@ -82,8 +79,6 @@ contains
       real(cp), intent(out) :: cvrc(nrp,nfs)
       real(cp), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
       real(cp), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
-      real(cp), intent(out) :: sc(nrp,nfs)
-      real(cp), intent(out) :: xic(nrp,nfs)
     
       !------ Legendre Polynomials 
       real(cp) :: PlmG(lm_max)
@@ -117,44 +112,6 @@ contains
          do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-    
-            PERFON_I('TFG_1')
-            if ( l_heat ) then
-               ! the original version has shown to be the fastest
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  sES=zero  ! One equatorial symmetry
-                  sEA=zero  ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
-                     sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-                  sc(2*mc-1,nThetaN)= real(sES+sEA)
-                  sc(2*mc  ,nThetaN)=aimag(sES+sEA)
-                  sc(2*mc-1,nThetaS)= real(sES-sEA)
-                  sc(2*mc  ,nThetaS)=aimag(sES-sEA)
-               end do
-
-            end if ! l_heat
-            PERFOFF_I
-
-            if ( l_chemical_conv ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  xiES=zero  ! One equatorial symmetry
-                  xiEA=zero  ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
-                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
-                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
-                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
-                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
-                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
-               end do
-            end if
     
             !--- Loop over all orders m: (numbered by mc)
             PERFON_I('TFG_2')
@@ -441,10 +398,6 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.0_cp
-                  if ( l_chemical_conv ) then
-                     xic(mc,nThetaN)=0.0_cp
-                  end if
                   vrc(mc,nThetaN)   =0.0_cp
                   vtc(mc,nThetaN)   =0.0_cp
                   vpc(mc,nThetaN)   =0.0_cp
@@ -477,40 +430,6 @@ contains
          do nThetaN=1,sizeThetaB,2
             nThetaS=nThetaN+1
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-    
-            if ( l_heat ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  sES=zero    ! One equatorial symmetry
-                  sEA=zero    ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
-                     sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-                  sc(2*mc-1,nThetaN)= real(sES+sEA)
-                  sc(2*mc  ,nThetaN)=aimag(sES+sEA)
-                  sc(2*mc-1,nThetaS)= real(sES-sEA)
-                  sc(2*mc  ,nThetaS)=aimag(sES-sEA)
-               end do
-            end if
-
-            if ( l_chemical_conv ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  xiES=zero    ! One equatorial symmetry
-                  xiEA=zero    ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
-                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
-                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
-                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
-                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
-                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
-               end do
-            end if
     
             do mc=1,n_m_max
                dm =D_mc2m(mc)
@@ -611,10 +530,6 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN) =0.0_cp
-                  if ( l_chemical_conv ) then
-                     xic(mc,nThetaN)=0.0_cp
-                  end if
                   brc(mc,nThetaN)=0.0_cp
                   btc(mc,nThetaN)=0.0_cp
                   bpc(mc,nThetaN)=0.0_cp
@@ -634,11 +549,8 @@ contains
     
    end subroutine legTFG
 !------------------------------------------------------------------------------
-   subroutine legTFGnomag(nBc,lDeriv,     &  
-       &                 nThetaStart,vrc,vtc,vpc,                &
-       &                 dvrdrc,dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,&
-       &                 dvtdpc,dvpdpc,sc,   &
-       &                 xic,leg_helper)
+   subroutine legTFGnomag(nBc,lDeriv,nThetaStart,vrc,vtc,vpc,dvrdrc,dvtdrc, &
+              &           dvpdrc,cvrc,dvrdtc,dvrdpc,dvtdpc,dvpdpc,leg_helper)
       !
       ! Same as legTFG for non-magnetic cases
       !
@@ -658,8 +570,6 @@ contains
       real(cp), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp, nfs)
       real(cp), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
       real(cp), intent(out) :: cvrc(nrp,nfs)
-      real(cp), intent(out) :: sc(nrp,nfs)
-      real(cp), intent(out) :: xic(nrp,nfs)
     
       !------ Legendre Polynomials
       real(cp) :: PlmG(lm_max)
@@ -688,41 +598,6 @@ contains
          do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
             nThetaS  =nThetaN+1      ! same theta but for southern HS
             nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
-    
-            if ( l_heat ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  sES=zero  ! One equatorial symmetry
-                  sEA=zero  ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
-                     sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-                  sc(2*mc-1,nThetaN)= real(sES+sEA)
-                  sc(2*mc  ,nThetaN)=aimag(sES+sEA)
-                  sc(2*mc-1,nThetaS)= real(sES-sEA)
-                  sc(2*mc  ,nThetaS)=aimag(sES-sEA)
-               end do
-    
-            end if
-
-            if ( l_chemical_conv ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  xiES=zero  ! One equatorial symmetry
-                  xiEA=zero  ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
-                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
-                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
-                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
-                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
-                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
-               end do
-            end if
     
             !--- Loop over all oders m: (numbered by mc)
             do mc=1,n_m_max
@@ -896,10 +771,6 @@ contains
          if ( n_m_max < nrp/2 ) then
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN)=0.0_cp
-                  if ( l_chemical_conv ) then
-                     xic(mc,nThetaN)=0.0_cp
-                  end if
                   vrc(mc,nThetaN)   =0.0_cp
                   vtc(mc,nThetaN)   =0.0_cp
                   vpc(mc,nThetaN)   =0.0_cp
@@ -924,40 +795,6 @@ contains
          do nThetaN=1,sizeThetaB,2
             nThetaS=nThetaN+1
             nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-    
-            if ( l_heat ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  sES=zero    ! One equatorial symmetry
-                  sEA=zero    ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     sES=sES+leg_helper%sR(lm)  *Plm(lm,nThetaNHS)
-                     sEA=sEA+leg_helper%sR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) sES=sES+leg_helper%sR(lmS)*Plm(lmS,nThetaNHS)
-                  sc(2*mc-1,nThetaN)= real(sES+sEA)
-                  sc(2*mc  ,nThetaN)=aimag(sES+sEA)
-                  sc(2*mc-1,nThetaS)= real(sES-sEA)
-                  sc(2*mc  ,nThetaS)=aimag(sES-sEA)
-               end do
-            end if
-
-            if ( l_chemical_conv ) then
-               do mc=1,n_m_max
-                  lmS=lStop(mc)
-                  xiES=zero    ! One equatorial symmetry
-                  xiEA=zero    ! The other equatorial symmetry
-                  do lm=lStart(mc),lmS-1,2
-                     xiES=xiES+leg_helper%xiR(lm)  *Plm(lm,nThetaNHS)
-                     xiEA=xiEA+leg_helper%xiR(lm+1)*Plm(lm+1,nThetaNHS)
-                  end do
-                  if ( lmOdd(mc) ) xiES=xiES+leg_helper%xiR(lmS)*Plm(lmS,nThetaNHS)
-                  xic(2*mc-1,nThetaN)= real(xiES+xiEA)
-                  xic(2*mc  ,nThetaN)=aimag(xiES+xiEA)
-                  xic(2*mc-1,nThetaS)= real(xiES-xiEA)
-                  xic(2*mc  ,nThetaS)=aimag(xiES-xiEA)
-               end do
-            end if
     
             if ( nBc == 1 ) then
     
@@ -1009,18 +846,6 @@ contains
     
          !-- Zero out terms with index mc > n_m_max :
          if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  sc(mc,nThetaN) =0.0_cp
-               end do
-            end do
-            if ( l_chemical_conv ) then
-               do nThetaN=1,sizeThetaB
-                  do mc=2*n_m_max+1,nrp
-                     xic(mc,nThetaN)=0.0_cp
-                  end do
-               end do
-            end if
             if ( nBc == 1 ) then
                do nThetaN=1,sizeThetaB
                   do mc=2*n_m_max+1,nrp
@@ -1383,6 +1208,10 @@ contains
    end subroutine legTF
 !------------------------------------------------------------------------------
    subroutine leg_scal_to_spat(nThetaStart, Slm, sc)
+      !
+      ! Legendre transform from (l) to (theta) for a scalar input field
+      !
+
 
       !-- Input variable
       integer,     intent(in) :: nThetaStart
@@ -1428,6 +1257,9 @@ contains
    end subroutine leg_scal_to_spat
 !------------------------------------------------------------------------------
    subroutine leg_scal_to_grad_spat(nThetaStart, slm, gradtc, gradpc)
+      !
+      ! Transform s(l) into dsdt(theta) and dsdp(theta)
+      !
 
       !-- Input variable
       integer,     intent(in) :: nThetaStart

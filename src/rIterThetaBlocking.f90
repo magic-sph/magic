@@ -117,14 +117,11 @@ contains
       if ( l_mag ) then
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
-         call legTFG(this%nBc,this%lDeriv,           &
-              &      nThetaStart,                     &
-              &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
-              &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
-              &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
-              &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                &
-              &      gsa%cbtc,gsa%cbpc,gsa%sc,               &
-              &      gsa%xic, this%leg_helper)
+         call legTFG(this%nBc,this%lDeriv,nThetaStart,gsa%vrc,gsa%vtc,  &
+              &      gsa%vpc,gsa%dvrdrc,gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc, &
+              &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,       &
+              &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                  &
+              &      gsa%cbtc, gsa%cbpc, this%leg_helper)
          !LIKWID_OFF('legTFG')
          !PERFOFF
          if (DEBUG_OUTPUT) then
@@ -136,15 +133,20 @@ contains
       else
          !PERFON('legTFGnm')
          !LIKWID_ON('legTFGnm')
-         call legTFGnomag(this%nBc,this%lDeriv,            & 
-              &           nThetaStart,                      &
-              &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
-              &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
+         call legTFGnomag(this%nBc,this%lDeriv,nThetaStart,gsa%vrc,gsa%vtc, &
+              &           gsa%vpc,gsa%dvrdrc,gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,&
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
-              &           gsa%sc,gsa%xic,                  &
               &           this%leg_helper)
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
+      end if
+
+      if ( l_heat ) then
+         call leg_scal_to_spat(nThetaStart, this%leg_helper%sR, gsa%sc)
+      end if
+
+      if ( l_chemical_conv ) then
+         call leg_scal_to_spat(nThetaStart, this%leg_helper%xiR, gsa%xic)
       end if
 
       if ( this%lPressCalc ) then
@@ -162,7 +164,7 @@ contains
 
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
-         if ( l_heat ) then
+         if ( l_heat ) then 
             if ( .not. l_axi ) call fft_thetab(gsa%sc,1)
             if ( this%lViscBcCalc ) then
                if ( .not. l_axi ) then
@@ -369,12 +371,11 @@ contains
             call legTF3(nThetaStart,nl_lm%VxBrLM,nl_lm%VxBtLM,nl_lm%VxBpLM, &
                  &       gsa%VxBr,gsa%VxBt,gsa%VxBp)
          else
-            !write(*,"(I4,A,ES20.13)") this%nR,", VxBt = ",sum(VxBt*VxBt)
             if ( .not. l_axi ) then
                call fft_thetab(gsa%VxBt,-1)
                call fft_thetab(gsa%VxBp,-1)
             end if
-            call legTF2(nThetaStart,nl_lm%VxBtLM,nl_lm%VxBpLM,              &
+            call legTF2(nThetaStart,nl_lm%VxBtLM,nl_lm%VxBpLM,   &
                  &      gsa%VxBt,gsa%VxBp)
          end if
          !PERFOFF
@@ -390,23 +391,23 @@ contains
             call fft_thetab(gsa%CFt2,-1)
             call fft_thetab(gsa%CFp2,-1)
          end if
-         !call legTF2(nThetaStart,nl_lm%CFt2LM,nl_lm%CFp2LM,gsa%CFt2,gsa%CFp2)
-         call legTF_spher_tor(nThetaStart,nl_lm%CFp2LM,nl_lm%CFt2LM,gsa%CFp2,gsa%CFt2)
+         call legTF_spher_tor(nThetaStart,nl_lm%CFp2LM,nl_lm%CFt2LM, &
+              &               gsa%CFp2,gsa%CFt2)
          if ( l_conv_nl ) then
             if ( .not. l_axi ) then
                call fft_thetab(gsa%Advt2,-1)
                call fft_thetab(gsa%Advp2,-1)
             end if
-            !call legTF_spher_tor(nThetaStart,nl_lm%Advt2LM,nl_lm%Advp2LM,gsa%Advt2,gsa%Advp2)
-            call legTF_spher_tor(nThetaStart,nl_lm%Advp2LM,nl_lm%Advt2LM,gsa%Advp2,gsa%Advt2)
+            call legTF_spher_tor(nThetaStart,nl_lm%Advp2LM,nl_lm%Advt2LM, &
+                 &               gsa%Advp2,gsa%Advt2)
          end if
          if ( l_mag_nl .and. this%nR>n_r_LCR ) then
             if ( .not. l_axi ) then
                call fft_thetab(gsa%LFt2,-1)
                call fft_thetab(gsa%LFp2,-1)
             end if
-            !call legTF2(nThetaStart,nl_lm%LFt2LM,nl_lm%LFp2LM,gsa%LFt2,gsa%LFp2)
-            call legTF_spher_tor(nThetaStart,nl_lm%LFp2LM,nl_lm%LFt2LM,gsa%LFp2,gsa%LFt2)
+            call legTF_spher_tor(nThetaStart,nl_lm%LFp2LM,nl_lm%LFt2LM, &
+                 &               gsa%LFp2,gsa%LFt2)
          end if
       end if
 

@@ -410,7 +410,7 @@ LMLoop.o              : truncation.o blocking.o parallel.o\
 debugging.o           : precision_mod.o
 timing.o              : parallel.o precision_mod.o
 LMLoop_data.o         : parallel.o blocking.o logic.o
-legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o logic.o\
+legendre_spec_to_grid.o: truncation.o blocking.o horizontal.o\
                          constants.o legendre_helpers.o
 radial_derivatives.o  : cosine_transform_odd.o constants.o precision_mod.o
 legendre_helpers.o    : truncation.o num_param.o radial.o horizontal.o\
