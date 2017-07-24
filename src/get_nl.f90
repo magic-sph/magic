@@ -935,8 +935,8 @@ contains
             cnt=cosTheta(nTheta)
             rsnt=r(nR)*snt
             do nPhi=1,n_phi_max
-               this%dpdtc(nPhi,nThetaB)=this%dpdtc(nPhi,nThetaB)/snt/snt
-               this%dpdpc(nPhi,nThetaB)=this%dpdpc(nPhi,nThetaB)/snt/snt
+               this%dpdtc(nPhi,nThetaB)=this%dpdtc(nPhi,nThetaB)/r(nR)/snt/snt
+               this%dpdpc(nPhi,nThetaB)=this%dpdpc(nPhi,nThetaB)/r(nR)/snt/snt
                this%CFt2(nPhi,nThetaB)=-2*CorFac *cnt*this%vpc(nPhi,nThetaB)/rsnt/snt
                this%CFp2(nPhi,nThetaB)=2*CorFac * (                      &
                                      cnt*this%vtc(nPhi,nThetaB)/rsnt +   &
@@ -944,8 +944,6 @@ contains
                if ( l_conv_nl ) then
                   this%Advt2(nPhi,nThetaB)=r(nR)*this%Advt(nPhi,nThetaB)
                   this%Advp2(nPhi,nThetaB)=r(nR)*this%Advp(nPhi,nThetaB)
-                  !this%Advt2(nPhi,nThetaB)=rsnt*this%Advt(nPhi,nThetaB)
-                  !this%Advp2(nPhi,nThetaB)=rsnt*this%Advp(nPhi,nThetaB)
                end if
                if ( l_mag_LF .and. nR > n_r_LCR ) then
                   this%LFt2(nPhi,nThetaB)=r(nR)*this%LFt(nPhi,nThetaB)
@@ -953,7 +951,7 @@ contains
                end if
                this%dpdtc(n_phi_max+1,nThetaB)=0.0_cp
                this%dpdtc(n_phi_max+2,nThetaB)=0.0_cp
-               this%dpdtc(n_phi_max+1,nThetaB)=0.0_cp
+               this%dpdpc(n_phi_max+1,nThetaB)=0.0_cp
                this%dpdpc(n_phi_max+2,nThetaB)=0.0_cp
                this%CFt2(n_phi_max+1,nThetaB)=0.0_cp
                this%CFt2(n_phi_max+2,nThetaB)=0.0_cp

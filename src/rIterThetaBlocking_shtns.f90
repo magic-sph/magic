@@ -165,23 +165,23 @@ contains
       br_vp_lm_cmb=zero
       br_vt_lm_icb=zero
       br_vp_lm_icb=zero
-      HelLMr=0.0_cp
-      Hel2LMr=0.0_cp
-      HelnaLMr=0.0_cp
-      Helna2LMr=0.0_cp
-      viscLMr=0.0_cp
-      uhLMr = 0.0_cp
-      duhLMr = 0.0_cp
-      gradsLMr = 0.0_cp
-      fconvLMr=0.0_cp
-      fkinLMr=0.0_cp
-      fviscLMr=0.0_cp
-      fpoynLMr=0.0_cp
-      fresLMr=0.0_cp
-      EperpLMr=0.0_cp
-      EparLMr=0.0_cp
+      HelLMr     =0.0_cp
+      Hel2LMr    =0.0_cp
+      HelnaLMr   =0.0_cp
+      Helna2LMr  =0.0_cp
+      viscLMr    =0.0_cp
+      uhLMr      =0.0_cp
+      duhLMr     =0.0_cp
+      gradsLMr   =0.0_cp
+      fconvLMr   =0.0_cp
+      fkinLMr    =0.0_cp
+      fviscLMr   =0.0_cp
+      fpoynLMr   =0.0_cp
+      fresLMr    =0.0_cp
+      EperpLMr   =0.0_cp
+      EparLMr    =0.0_cp
       EperpaxiLMr=0.0_cp
-      EparaxiLMr=0.0_cp
+      EparaxiLMr =0.0_cp
 
       call this%nl_lm%set_zero()
 
@@ -639,7 +639,6 @@ contains
             call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
             call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
          else
-            !write(*,"(I4,A,ES20.13)") this%nR,", VxBt = ",sum(VxBt*VxBt)
             call spat_to_SH(gsa%VxBt, nl_lm%VxBtLM)
             call spat_to_SH(gsa%VxBp, nl_lm%VxBpLM)
          end if

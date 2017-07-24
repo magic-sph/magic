@@ -162,6 +162,11 @@ contains
               &                     gsa%dsdtc, gsa%dsdpc)
       end if
 
+      if ( this%lRmsCalc ) then
+         call leg_scal_to_grad_spat(nThetaStart, this%leg_helper%preR, &
+              &                     gsa%dpdtc, gsa%dpdpc)
+      end if
+
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):
       if ( l_conv .or. l_mag_kin ) then
          if ( l_heat ) then 
@@ -190,6 +195,12 @@ contains
          if ( l_HT .or. this%lViscBcCalc ) then
             if ( .not. l_axi ) call fft_thetab(gsa%drSc,1)
          endif
+         if ( thIs%lRmsCalc ) then
+            if ( .not. l_axi ) then
+               call fft_thetab(gsa%dpdtc,1)
+               call fft_thetab(gsa%dpdpc,1)
+            end if
+         end if
          if ( this%nBc == 0 ) then
             if ( .not. l_axi ) then
                call fft_thetab(gsa%vrc,1)
@@ -386,7 +397,8 @@ contains
             call fft_thetab(gsa%dpdtc,-1)
             call fft_thetab(gsa%dpdpc,-1)
          end if
-         call legTF2(nThetaStart,nl_lm%PFt2LM,nl_lm%PFp2LM,gsa%dpdtc,gsa%dpdpc)
+         call legTF_spher_tor(nThetaStart,nl_lm%PFp2LM,nl_lm%PFt2LM,gsa%dpdpc, &
+              &               gsa%dpdtc)
          if ( .not. l_axi ) then
             call fft_thetab(gsa%CFt2,-1)
             call fft_thetab(gsa%CFp2,-1)
