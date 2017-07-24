@@ -86,8 +86,7 @@ contains
     
       !-- Local variables:
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-      complex(cp) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
-      complex(cp) :: xiES, xiEA
+      complex(cp) :: brES,brEA,cbrES,cbrEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
       real(cp) :: dm,dmT
@@ -577,8 +576,6 @@ contains
     
       !-- Local:
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
-      complex(cp) :: sES,sEA,drsES,drsEA,pES,pEA
-      complex(cp) :: xiES,xiEA
     
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
@@ -1223,7 +1220,6 @@ contains
       !-- Local variables
       integer :: mc, lm, lmS
       integer :: nThetaN, nThetaS, nThetaNHS
-      real(cp) :: dm
       complex(cp) :: sES, sEA
 
       nThetaNHS=(nThetaStart-1)/2
