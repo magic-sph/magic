@@ -12,14 +12,15 @@ module rIterThetaBlocking_mod
        &                 n_phi_maxStr,n_theta_maxStr,n_r_maxStr, &
        &                 lm_maxMag,l_axi
    use blocking, only: nfs
-   use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_ht,l_anel,l_mag_LF,    &
+   use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
        &            l_movie_oc, l_chemical_conv, l_TP_form
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
-   use legendre_spec_to_grid, only: legTFG, legTFGnomag
+   use legendre_spec_to_grid, only: legTFG, legTFGnomag, leg_scal_to_grad_spat, &
+       &                            leg_scal_to_spat
    use leg_helper_mod, only: leg_helper_t
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
@@ -116,15 +117,14 @@ contains
       if ( l_mag ) then
          !PERFON('legTFG')
          !LIKWID_ON('legTFG')
-         call legTFG(this%nBc,this%lDeriv,this%lViscBcCalc,           &
-              &      this%lPressCalc,nThetaStart,                     &
+         call legTFG(this%nBc,this%lDeriv,           &
+              &      nThetaStart,                     &
               &      gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,              &
               &      gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                  &
               &      gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,     &
               &      gsa%brc,gsa%btc,gsa%bpc,gsa%cbrc,                &
-              &      gsa%cbtc,gsa%cbpc,gsa%sc,gsa%drSc,               &
-              &      gsa%dsdtc, gsa%dsdpc, gsa%pc, gsa%xic,           &
-              &      this%leg_helper)
+              &      gsa%cbtc,gsa%cbpc,gsa%sc,               &
+              &      gsa%xic, this%leg_helper)
          !LIKWID_OFF('legTFG')
          !PERFOFF
          if (DEBUG_OUTPUT) then
@@ -136,16 +136,28 @@ contains
       else
          !PERFON('legTFGnm')
          !LIKWID_ON('legTFGnm')
-         call legTFGnomag(this%nBc,this%lDeriv,this%lViscBcCalc,            & 
-              &           this%lPressCalc,nThetaStart,                      &
+         call legTFGnomag(this%nBc,this%lDeriv,            & 
+              &           nThetaStart,                      &
               &           gsa%vrc,gsa%vtc,gsa%vpc,gsa%dvrdrc,               &
               &           gsa%dvtdrc,gsa%dvpdrc,gsa%cvrc,                   &
               &           gsa%dvrdtc,gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,      &
-              &           gsa%sc,gsa%drSc,                                  &
-              &           gsa%dsdtc, gsa%dsdpc,gsa%pc, gsa%xic,             &
+              &           gsa%sc,gsa%xic,                  &
               &           this%leg_helper)
          !LIKWID_OFF('legTFGnm')
          !PERFOFF
+      end if
+
+      if ( this%lPressCalc ) then
+         call leg_scal_to_spat(nThetaStart, this%leg_helper%preR, gsa%pc)
+      end if
+
+      if ( l_HT .or. this%lViscBcCalc ) then
+         call leg_scal_to_spat(nThetaStart, this%leg_helper%dsR, gsa%drSc)
+      end if
+
+      if ( this%lViscBcCalc ) then
+         call leg_scal_to_grad_spat(nThetaStart, this%leg_helper%sR, &
+              &                     gsa%dsdtc, gsa%dsdpc)
       end if
 
       !------ Fourier transform from (r,theta,m) to (r,theta,phi):

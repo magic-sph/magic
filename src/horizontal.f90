@@ -186,7 +186,7 @@ contains
                dPlm(lm,n_theta)=dtheta_plma(lmP)
             end if
             wPlm(lmP,n_theta) =two*pi*gauss(n_theta)*plma(lmP)
-            wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
+            if ( l_RMS ) wdPlm(lmP,n_theta)=two*pi*gauss(n_theta)*dtheta_plma(lmP)
          end do
 
          ! Get dP for all degrees and order m=0 at the equator only

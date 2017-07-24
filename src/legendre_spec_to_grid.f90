@@ -10,7 +10,7 @@ module legendre_spec_to_grid
    use blocking, only: nfs, sizeThetaB, lm2mc, lm2
    use horizontal_data, only: Plm, dPlm, lStart, lStop, lmOdd, D_mc2m, &
        &                      osn2
-   use logic, only: l_heat, l_ht, l_chemical_conv
+   use logic, only: l_heat, l_chemical_conv
    use constants, only: zero, half, one
    use parallel_mod, only: rank
    use leg_helper_mod, only: leg_helper_t
@@ -20,15 +20,16 @@ module legendre_spec_to_grid
  
    private
 
-   public :: legTFG, legTFGnomag, legTF, lmAS2pt
+   public :: legTFG, legTFGnomag, legTF, lmAS2pt, leg_scal_to_grad_spat, &
+   &         leg_scal_to_spat
 
 contains
 
-   subroutine legTFG(nBc,lDeriv,lViscBcCalc,lPressCalc,nThetaStart,    &
-              &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,            &
-              &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,                      &
-              &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,                    &
-              &      drSc,dsdtc,dsdpc,pc,xic,leg_helper)
+   subroutine legTFG(nBc,lDeriv,nThetaStart,                  &
+              &      vrc,vtc,vpc,dvrdrc,dvtdrc,dvpdrc,cvrc,   &
+              &      dvrdtc,dvrdpc,dvtdpc,dvpdpc,             &
+              &      brc,btc,bpc,cbrc,cbtc,cbpc,sc,           &
+              &      xic,leg_helper)
       !
       !    Legendre transform from (nR,l,m) to (nR,nTheta,m) [spectral to grid]
       !    where nTheta numbers the colatitudes and l is the degree of
@@ -60,13 +61,13 @@ contains
       !      * Plm            : associated Legendre polynomials
       !      * dPlm           : sin(theta) d Plm / d theta
       !      * osn2           : 1/sin(theta)^2
-      !      * vrc, ...., drSc: (output) components in (nTheta,m)-space
+      !      * vrc, ....,     : (output) components in (nTheta,m)-space
       !      * dLhw,....,cbhC : (input) help arrays calculated in s_legPrep.f
       !
       
       !-- Input variables:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lViscBcCalc,lPressCalc
+      logical, intent(in) :: lDeriv
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -81,8 +82,7 @@ contains
       real(cp), intent(out) :: cvrc(nrp,nfs)
       real(cp), intent(out) :: brc(nrp,nfs), btc(nrp,nfs), bpc(nrp,nfs)
       real(cp), intent(out) :: cbrc(nrp,nfs), cbtc(nrp,nfs), cbpc(nrp,nfs)
-      real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp,nfs), pc(nrp,nfs)
-      real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
+      real(cp), intent(out) :: sc(nrp,nfs)
       real(cp), intent(out) :: xic(nrp,nfs)
     
       !------ Legendre Polynomials 
@@ -93,7 +93,6 @@ contains
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
       complex(cp) :: brES,brEA,cbrES,cbrEA,sES,sEA,drsES,drsEA,pES,pEA
       complex(cp) :: xiES, xiEA
-      complex(cp) :: dsdtES,dsdtEA
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
       real(cp) :: dm,dmT
@@ -137,34 +136,6 @@ contains
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
 
-               if ( lViscBcCalc ) then
-                  do mc=1,n_m_max
-                     dm =D_mc2m(mc)
-                     lmS=lStop(mc)
-                     dsdtES=zero
-                     dsdtEA=zero
-                     do lm=lStart(mc),lmS-1,2
-                        dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
-                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
-                     end do
-                     if ( lmOdd(mc) ) then
-                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
-                     end if
-                     dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
-                     dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
-                     dsdtc(2*mc-1,nThetaS)= real(dsdtES-dsdtEA)
-                     dsdtc(2*mc  ,nThetaS)=aimag(dsdtES-dsdtEA)
-                  end do
-    
-                  do mc=1,n_m_max
-                     dm=D_mc2m(mc)
-                     dsdpc(2*mc-1,nThetaN)=-dm*sc(2*mc  ,nThetaN)
-                     dsdpc(2*mc  ,nThetaN)= dm*sc(2*mc-1,nThetaN)
-                     dsdpc(2*mc-1,nThetaS)=-dm*sc(2*mc  ,nThetaS)
-                     dsdpc(2*mc  ,nThetaS)= dm*sc(2*mc-1,nThetaS)
-                  end do
-    
-               end if ! thermal dissipation layer
             end if ! l_heat
             PERFOFF_I
 
@@ -471,10 +442,6 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   sc(mc,nThetaN)=0.0_cp
-                  if ( lViscBcCalc) then
-                     dsdtc(mc,nThetaN)=0.0_cp
-                     dsdpc(mc,nThetaN)=0.0_cp
-                  end if
                   if ( l_chemical_conv ) then
                      xic(mc,nThetaN)=0.0_cp
                   end if
@@ -665,75 +632,12 @@ contains
          !PERFOFF
       end if  ! boundary ? nBc?
     
-    
-      if ( l_HT .or. lViscBcCalc ) then    ! For movie output !
-         nThetaNHS=(nThetaStart-1)/2
-    
-         !-- Caculate radial derivate of S for heatflux:
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
-            nThetaS  =nThetaN+1  ! same theta but at other HS
-            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-            do mc=1,n_m_max
-               lmS=lStop(mc)
-               drsES=zero
-               drsEA=zero
-               do lm=lStart(mc),lmS-1,2
-                  drsES=drsES+leg_helper%dsR(lm)*Plm(lm,nThetaNHS)
-                  drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) drsES=drsES+leg_helper%dsR(lmS)*Plm(lmS,nThetaNHS)
-               drSc(2*mc-1,nThetaN)= real(drsES+drsEA)
-               drSc(2*mc  ,nThetaN)=aimag(drsES+drsEA)
-               drSc(2*mc-1,nThetaS)= real(drsES-drsEA)
-               drSc(2*mc  ,nThetaS)=aimag(drsES-drsEA)
-            end do
-         end do
-         !-- Zero out terms with index mc > n_m_max:
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  drSc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-    
-      end if
-
-      if ( lPressCalc ) then
-         nThetaNHS=(nThetaStart-1)/2
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
-            nThetaS  =nThetaN+1  ! same theta but at other HS
-            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-            do mc=1,n_m_max
-               lmS=lStop(mc)
-               pES=zero ! One equatorial symmetry
-               pEA=zero ! The other equatorial symmetry
-               do lm=lStart(mc),lmS-1,2
-                  pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
-                  pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-               pc(2*mc-1,nThetaN)= real(pES+pEA)
-               pc(2*mc  ,nThetaN)=aimag(pES+pEA)
-               pc(2*mc-1,nThetaS)= real(pES-pEA)
-               pc(2*mc  ,nThetaS)=aimag(pES-pEA)
-            end do
-         end do
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  pc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-      end if
-
    end subroutine legTFG
 !------------------------------------------------------------------------------
-   subroutine legTFGnomag(nBc,lDeriv,lViscBcCalc,lPressCalc,     &  
+   subroutine legTFGnomag(nBc,lDeriv,     &  
        &                 nThetaStart,vrc,vtc,vpc,                &
        &                 dvrdrc,dvtdrc,dvpdrc,cvrc,dvrdtc,dvrdpc,&
-       &                 dvtdpc,dvpdpc,sc,drSc,dsdtc,dsdpc,pc,   &
+       &                 dvtdpc,dvpdpc,sc,   &
        &                 xic,leg_helper)
       !
       ! Same as legTFG for non-magnetic cases
@@ -741,7 +645,7 @@ contains
 
       !-- Input:
       integer, intent(in) :: nBc
-      logical, intent(in) :: lDeriv,lViscBcCalc,lPressCalc
+      logical, intent(in) :: lDeriv
       integer, intent(in) :: nThetaStart
     
       !----- Stuff precomputed in legPrep:
@@ -753,10 +657,9 @@ contains
       real(cp), intent(out) :: dvrdrc(nrp,nfs), dvtdrc(nrp,nfs), dvpdrc(nrp,nfs)
       real(cp), intent(out) :: dvrdtc(nrp,nfs), dvrdpc(nrp, nfs)
       real(cp), intent(out) :: dvtdpc(nrp,nfs), dvpdpc(nrp, nfs)
-      real(cp), intent(out) :: cvrc(nrp,nfs), pc(nrp,nfs)
-      real(cp), intent(out) :: sc(nrp,nfs), drSc(nrp, nfs)
+      real(cp), intent(out) :: cvrc(nrp,nfs)
+      real(cp), intent(out) :: sc(nrp,nfs)
       real(cp), intent(out) :: xic(nrp,nfs)
-      real(cp), intent(out) :: dsdtc(nrp,nfs), dsdpc(nrp,nfs)
     
       !------ Legendre Polynomials
       real(cp) :: PlmG(lm_max)
@@ -766,7 +669,6 @@ contains
       complex(cp) :: vrES,vrEA,dvrdrES,dvrdrEA,dvrdtES,dvrdtEA,cvrES,cvrEA
       complex(cp) :: sES,sEA,drsES,drsEA,pES,pEA
       complex(cp) :: xiES,xiEA
-      complex(cp) :: dsdtES,dsdtEA
     
       integer :: nThetaN,nThetaS,nThetaNHS
       integer :: mc,lm,lmS
@@ -802,35 +704,6 @@ contains
                   sc(2*mc-1,nThetaS)= real(sES-sEA)
                   sc(2*mc  ,nThetaS)=aimag(sES-sEA)
                end do
-    
-               if ( lViscBcCalc ) then
-                  do mc=1,n_m_max
-                     dm =D_mc2m(mc)
-                     lmS=lStop(mc)
-                     dsdtES=zero
-                     dsdtEA=zero
-                     do lm=lStart(mc),lmS-1,2
-                        dsdtEA =dsdtEA + leg_helper%sR(lm)*  dPlm(lm,nThetaNHS)
-                        dsdtES =dsdtES + leg_helper%sR(lm+1)*dPlm(lm+1,nThetaNHS)
-                     end do
-                     if ( lmOdd(mc) ) then
-                        dsdtEA =dsdtEA + leg_helper%sR(lmS)*dPlm(lmS,nThetaNHS)
-                     end if
-                     dsdtc(2*mc-1,nThetaN)= real(dsdtES+dsdtEA)
-                     dsdtc(2*mc  ,nThetaN)=aimag(dsdtES+dsdtEA)
-                     dsdtc(2*mc-1,nThetaS)= real(dsdtES-dsdtEA)
-                     dsdtc(2*mc  ,nThetaS)=aimag(dsdtES-dsdtEA)
-                  end do
-    
-                  do mc=1,n_m_max
-                     dm=D_mc2m(mc)
-                     dsdpc(2*mc-1,nThetaN)=-dm*sc(2*mc  ,nThetaN)
-                     dsdpc(2*mc  ,nThetaN)= dm*sc(2*mc-1,nThetaN)
-                     dsdpc(2*mc-1,nThetaS)=-dm*sc(2*mc  ,nThetaS)
-                     dsdpc(2*mc  ,nThetaS)= dm*sc(2*mc-1,nThetaS)
-                  end do
-    
-               end if ! thermal dissipation layer
     
             end if
 
@@ -1024,10 +897,6 @@ contains
             do nThetaN=1,sizeThetaB
                do mc=2*n_m_max+1,nrp
                   sc(mc,nThetaN)=0.0_cp
-                  if ( lViscBcCalc) then
-                     dsdtc(mc,nThetaN)=0.0_cp
-                     dsdpc(mc,nThetaN)=0.0_cp
-                  end if
                   if ( l_chemical_conv ) then
                      xic(mc,nThetaN)=0.0_cp
                   end if
@@ -1164,69 +1033,6 @@ contains
     
       end if  ! boundary ? nBc?
     
-    
-      if ( l_HT .or. lViscBcCalc ) then    ! For movie output !
-         nThetaNHS=(nThetaStart-1)/2
-    
-         !-- Caculate radial derivate of S for heatflux:
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
-            nThetaS  =nThetaN+1  ! same theta but at other HS
-            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-            do mc=1,n_m_max
-               lmS=lStop(mc)
-               drsES=zero
-               drsEA=zero
-               do lm=lStart(mc),lmS-1,2
-                  drsES=drsES+leg_helper%dsR(lm)*Plm(lm,nThetaNHS)
-                  drsEA=drsEA+leg_helper%dsR(lm+1)*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) drsES=drsES+leg_helper%dsR(lmS)*Plm(lmS,nThetaNHS)
-               drSc(2*mc-1,nThetaN)= real(drsES+drsEA)
-               drSc(2*mc  ,nThetaN)=aimag(drsES+drsEA)
-               drSc(2*mc-1,nThetaS)= real(drsES-drsEA)
-               drSc(2*mc  ,nThetaS)=aimag(drsES-drsEA)
-            end do
-         end do
-         !-- Zero out terms with index mc > n_m_max:
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  drSc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-    
-      end if
-
-      if ( lPressCalc ) then
-         nThetaNHS=(nThetaStart-1)/2
-         do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
-            nThetaS  =nThetaN+1  ! same theta but at other HS
-            nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
-            do mc=1,n_m_max
-               lmS=lStop(mc)
-               pES=zero ! One equatorial symmetry
-               pEA=zero ! The other equatorial symmetry
-               do lm=lStart(mc),lmS-1,2
-                  pES=pES+leg_helper%preR(lm)  *Plm(lm,nThetaNHS)
-                  pEA=pEA+leg_helper%preR(lm+1)*Plm(lm+1,nThetaNHS)
-               end do
-               if ( lmOdd(mc) ) pES=pES+leg_helper%preR(lmS)*Plm(lmS,nThetaNHS)
-               pc(2*mc-1,nThetaN)= real(pES+pEA)
-               pc(2*mc  ,nThetaN)=aimag(pES+pEA)
-               pc(2*mc-1,nThetaS)= real(pES-pEA)
-               pc(2*mc  ,nThetaS)=aimag(pES-pEA)
-            end do
-         end do
-         if ( n_m_max < nrp/2 ) then
-            do nThetaN=1,sizeThetaB
-               do mc=2*n_m_max+1,nrp
-                  pc(mc,nThetaN)=0.0_cp
-               end do
-            end do  ! loop over nThetaN (theta)
-         end if
-      end if
-
    end subroutine legTFGnomag
 !------------------------------------------------------------------------------
    subroutine legTF(dLhw,vhG,vhC,dLhz,cvhG,cvhC,l_max,minc, &
@@ -1575,6 +1381,112 @@ contains
       end if
 
    end subroutine legTF
+!------------------------------------------------------------------------------
+   subroutine leg_scal_to_spat(nThetaStart, Slm, sc)
+
+      !-- Input variable
+      integer,     intent(in) :: nThetaStart
+      complex(cp), intent(in) :: Slm(lm_max)
+
+      !-- Output variables
+      real(cp), intent(out) :: sc(nrp,nfs)
+
+      !-- Local variables
+      integer :: mc, lm, lmS
+      integer :: nThetaN, nThetaS, nThetaNHS
+      real(cp) :: dm
+      complex(cp) :: sES, sEA
+
+      nThetaNHS=(nThetaStart-1)/2
+      do nThetaN=1,sizeThetaB,2   ! Loop over thetas for one HS
+         nThetaS  =nThetaN+1  ! same theta but at other HS
+         nThetaNHS=nThetaNHS+1  ! ic-index of northern hemisph. point
+         do mc=1,n_m_max
+            lmS=lStop(mc)
+            sES=zero ! One equatorial symmetry
+            sEA=zero ! The other equatorial symmetry
+            do lm=lStart(mc),lmS-1,2
+               sES=sES+Slm(lm)  *Plm(lm,nThetaNHS)
+               sEA=sEA+Slm(lm+1)*Plm(lm+1,nThetaNHS)
+            end do
+            if ( lmOdd(mc) ) sES=sES+Slm(lmS)*Plm(lmS,nThetaNHS)
+            sc(2*mc-1,nThetaN)= real(sES+sEA)
+            sc(2*mc  ,nThetaN)=aimag(sES+sEA)
+            sc(2*mc-1,nThetaS)= real(sES-sEA)
+            sc(2*mc  ,nThetaS)=aimag(sES-sEA)
+         end do
+      end do
+
+      if ( n_m_max < nrp/2 ) then
+         do nThetaN=1,sizeThetaB
+            do mc=2*n_m_max+1,nrp
+               sc(mc,nThetaN)=0.0_cp
+            end do
+         end do  ! loop over nThetaN (theta)
+      end if
+
+   end subroutine leg_scal_to_spat
+!------------------------------------------------------------------------------
+   subroutine leg_scal_to_grad_spat(nThetaStart, slm, gradtc, gradpc)
+
+      !-- Input variable
+      integer,     intent(in) :: nThetaStart
+      complex(cp), intent(in) :: Slm(lm_max)
+
+      !-- Output variables
+      real(cp), intent(out) :: gradtc(nrp,nfs), gradpc(nrp,nfs)
+
+      !-- Local variables
+      integer :: mc, lm, lmS
+      integer :: nThetaN, nThetaS, nThetaNHS
+      real(cp) :: dm
+      complex(cp) :: gradtcES, gradtcEA, sES, sEA
+
+      nThetaNHS=(nThetaStart-1)/2
+
+      do nThetaN=1,sizeThetaB,2   ! Loop over thetas for north HS
+         nThetaS  =nThetaN+1      ! same theta but for southern HS
+         nThetaNHS=nThetaNHS+1    ! theta-index of northern hemisph. point
+         do mc=1,n_m_max
+            dm =D_mc2m(mc)
+            lmS=lStop(mc)
+            sES=zero  ! One equatorial symmetry
+            sEA=zero  ! The other equatorial symmetry
+            gradtcES=zero
+            gradtcEA=zero
+            do lm=lStart(mc),lmS-1,2
+               gradtcEA=gradtcEA + Slm(lm)*  dPlm(lm  ,nThetaNHS)
+               gradtcES=gradtcES + Slm(lm+1)*dPlm(lm+1,nThetaNHS)
+               sES     =sES      + Slm(lm)  * Plm(lm  ,nThetaNHS)
+               sEA     =sEA      + Slm(lm+1)* Plm(lm+1,nThetaNHS)
+            end do
+            if ( lmOdd(mc) ) then
+               gradtcEA=gradtcEA + Slm(lmS)*dPlm(lmS,nThetaNHS)
+               sES     =sES      + Slm(lmS)* Plm(lmS,nThetaNHS)
+            end if
+            gradtc(2*mc-1,nThetaN)= real(gradtcES+gradtcEA)
+            gradtc(2*mc  ,nThetaN)=aimag(gradtcES+gradtcEA)
+            gradtc(2*mc-1,nThetaS)= real(gradtcES-gradtcEA)
+            gradtc(2*mc  ,nThetaS)=aimag(gradtcES-gradtcEA)
+
+            gradpc(2*mc-1,nThetaN)=-dm*aimag(sES+sEA)
+            gradpc(2*mc  ,nThetaN)= dm* real(sES+sEA)
+            gradpc(2*mc-1,nThetaS)=-dm*aimag(sES-sEA)
+            gradpc(2*mc  ,nThetaS)= dm* real(sES-sEA)
+         end do
+    
+      end do
+
+      if ( n_m_max < nrp/2 ) then
+         do nThetaN=1,sizeThetaB
+            do mc=2*n_m_max+1,nrp
+               gradtc(mc,nThetaN)=0.0_cp
+               gradpc(mc,nThetaN)=0.0_cp
+            end do
+         end do  ! loop over nThetaN (theta)
+      end if
+
+   end subroutine leg_scal_to_grad_spat
 !------------------------------------------------------------------------------
    subroutine lmAS2pt(alm,aij,nThetaStart,nThetaBlockSize)
       !
