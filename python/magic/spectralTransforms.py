@@ -40,7 +40,7 @@ class SpectralTransforms(object):
         self.lm_max = self._legF90.lm_max
         self.n_theta_max = self._legF90.n_theta_max
         self.n_phi_max = self._legF90.n_phi_max
-        self.m_max = (self.l_max/self.minc) * self.minc
+        self.m_max = int((self.l_max/self.minc) * self.minc)
 
         print('Spectral transform setup:')
         print('l_max, m_max, minc, lm_max: %i, %i, %i, %i' % (self.l_max, self.m_max,
@@ -74,7 +74,7 @@ class SpectralTransforms(object):
         >>> print(vr.shape) # n_phi, n_theta
         >>> vt, vp = spec_spat_equat(dwdrlmr, zlmr)
         """
-        if kwargs.has_key('l_axi'):
+        if 'l_axi' in kwargs:
             l_axi = kwargs['l_axi']
             if l_axi:
                 n_phi = 1

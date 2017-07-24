@@ -11,9 +11,9 @@ from .npfile import *
 
 if buildSo:
     if sys.version_info.major == 3:
-        import lmrreader_single3 as Psngl
+        import magic.lmrreader_single3 as Psngl
     elif  sys.version_info.major == 2:
-        import lmrreader_single2 as Psngl
+        import magic.lmrreader_single2 as Psngl
 
     readingMode = 'f2py'
 else:
@@ -138,8 +138,8 @@ class MagicPotential(MagicSetup):
             # Read header
             self.l_max, self.n_r_max, self.n_r_ic_max, self.minc, \
                                           self.lm_max = infile.fort_read('i4')
-            self.m_max = (self.l_max/self.minc)*self.minc
-            self.n_m_max = self.m_max/self.minc+1
+            self.m_max = int((self.l_max/self.minc)*self.minc)
+            self.n_m_max = int(self.m_max/self.minc+1)
             self.ra, self.ek, self.pr, self.prmag, self.radratio, self.sigma_ratio, \
                          self.omega_ma, self.omega_ic = infile.fort_read(precision)
             self.time = infile.fort_read(precision)
@@ -174,8 +174,8 @@ class MagicPotential(MagicSetup):
             self.n_r_ic_max = Prd.n_r_ic_max
             self.minc = Prd.minc
             self.lm_max = Prd.lm_max
-            self.m_max = (self.l_max/self.minc)*self.minc
-            self.n_m_max = self.m_max/self.minc+1
+            self.m_max = int((self.l_max/self.minc)*self.minc)
+            self.n_m_max = int(self.m_max/self.minc+1)
             self.ra = Prd.ra
             self.ek = Prd.ek
             self.radratio = Prd.radratio
@@ -193,10 +193,10 @@ class MagicPotential(MagicSetup):
         t2 = time.time()
         print('Time to read %s: %.2f' % (filename, t2-t1))
 
-        self.n_theta_max = 3*self.l_max/2
+        self.n_theta_max = int(3*self.l_max/2)
         if self.n_theta_max % 2: # odd number
             self.n_theta_max += 1
-        self.n_phi_max = 2*self.n_theta_max/self.minc
+        self.n_phi_max = int(2*self.n_theta_max/self.minc)
         t1 = time.time()
         self.sh = SpectralTransforms(l_max=self.l_max, minc=self.minc,
                                      lm_max=self.lm_max, n_theta_max=self.n_theta_max)

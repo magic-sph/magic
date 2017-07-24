@@ -265,16 +265,16 @@ class Graph2Vtk:
 
         # Change default scalars and vectors in non-magnetic cases
         if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
-            if keyScal.has_key('emag'):
+            if 'emag' in keyScal:
                 keyScal.__delitem__('emag')
-            if keyScal.has_key('br'):
+            if 'br' in keyScal:
                 keyScal.__delitem__('br')
-            if keyScal.has_key('Br'):
+            if 'Br' in keyScal:
                 keyScal.__delitem__('Br')
 
         self.scalNames = np.zeros(len(scals), 'i')
         for k, scal in enumerate(scals):
-            if keyScal.has_key(scal):
+            if scal in keyScal:
                 self.scalNames[k] = keyScal[scal]
             else:
                 self.scalNames[k] = 0
@@ -301,18 +301,18 @@ class Graph2Vtk:
         keyVec['Bfluct'] = 4
 
         if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
-            if keyVec.has_key('bfluct'):
+            if 'bfluc' in keyVec:
                 keyVec.__delitem__('bfluct')
-            if keyVec.has_key('Bfluct'):
+            if 'Bfluct' in keyVec:
                 keyVec.__delitem__('Bfluct')
-            if keyVec.has_key('b'):
+            if 'b' in keyVec:
                 keyVec.__delitem__('b')
-            if keyVec.has_key('B'):
+            if 'B'in keyVec:
                 keyVec.__delitem__('B')
 
         self.vecNames = np.zeros(len(vecs), 'i')
         for k, vec in enumerate(vecs):
-            if keyVec.has_key(vec):
+            if vec in keyVec:
                 self.vecNames[k] = keyVec[vec]
             else:
                 self.vecNames[k] = 0
