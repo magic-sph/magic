@@ -6,7 +6,7 @@ import copy
 import numpy as np
 import matplotlib.pyplot as plt
 from .npfile import *
-from magic.libmagic import symmetrize
+from magic.libmagic import symmetrize, chebgrid
 from magic.plotlib import hammer2cart
 
 def getNlines(file_name, endian='B', precision='Float32'):
@@ -161,6 +161,10 @@ class Movie:
         # Grid
         self.radius = infile.fort_read(precision)
         self.radius = self.radius[:self.n_r_max] # remove inner core
+        # Overwrite radius to ensure double-precision of the grid (useful for Cheb der)
+        rout = 1./(1.-self.radratio)
+        rin = self.radratio/(1.-self.radratio)
+        self.radius = chebgrid(self.n_r_max-1, rout, rin)
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
@@ -291,10 +295,16 @@ class Movie:
                   to allow any summation
         """
         out = copy.deepcopy(new)
-        out.time = np.concatenate((self.time, new.time), axis=0)
-        out.data = np.concatenate((self.data, new.data), axis=1)
-        out.nvar = self.nvar+new.nvar
-        out.var2 = out.nvar
+        if new.time[0] == self.time[-1]:
+            out.time = np.concatenate((self.time, new.time[1:]), axis=0)
+            out.data = np.concatenate((self.data, new.data[:, 1:, ...]), axis=1)
+            out.nvar = self.nvar+new.nvar-1
+            out.var2 = out.nvar
+        else:
+            out.time = np.concatenate((self.time, new.time), axis=0)
+            out.data = np.concatenate((self.data, new.data), axis=1)
+            out.nvar = self.nvar+new.nvar
+            out.var2 = out.nvar
         return out
 
     def avgStd(self, ifield=0, std=False, cut=0.5, levels=12, cmap='RdYlBu_r'):
