@@ -69,9 +69,9 @@ def cut(dat, vmax=None, vmin=None):
     return dat
 
 
-def equatContour( data, radius, label=None, levels=defaultLevels, cm=defaultCm,
-                  normed=True, vmax=None, vmin=None, cbar=True, tit=True,
-                  normRad=False):
+def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
+                 cm=defaultCm, normed=True, vmax=None, vmin=None, cbar=True,
+                 tit=True, normRad=False, deminc=True):
     """
     Plot the equatorial cut of a given field
 
@@ -79,6 +79,8 @@ def equatContour( data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :type data: numpy.ndarray
     :param radius: the input radius
     :type radius: numpy.ndarray
+    :param minc: azimuthal symmetry
+    :type minc: int
     :param label: the name of the input physical quantity you want to
                   display
     :type label: str
@@ -100,11 +102,17 @@ def equatContour( data, radius, label=None, levels=defaultLevels, cm=defaultCm,
     :param normed: when set to True, the colormap is centered around zero.
                    Default is True, except for entropy/temperature plots.
     :type normed: bool
+    :param deminc: a logical to indicate if one wants do get rid of the
+                   possible azimuthal symmetry
+    :type deminc: bool
     """
 
     nphi, ntheta = data.shape
 
-    phi = np.linspace(0., 2.*np.pi, nphi)
+    if deminc:
+        phi = np.linspace(0., 2.*np.pi, nphi)
+    else:
+        phi = np.linspace(0., 2.*np.pi/minc, nphi)
     rr, pphi = np.meshgrid(radius, phi)
     xx = rr * np.cos(pphi)
     yy = rr * np.sin(pphi)
@@ -138,9 +146,32 @@ def equatContour( data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         cs = levels
         im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
+
     ax.plot(radius[0]*np.cos(phi), radius[0]*np.sin(phi), 'k-', lw=1.5)
     ax.plot(radius[-1]*np.cos(phi), radius[-1]*np.sin(phi), 'k-', lw=1.5)
 
+    if not deminc and minc > 1:
+        ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
+        xa = radius[-1]*np.cos(2.*np.pi/minc)
+        ya = radius[-1]*np.sin(2.*np.pi/minc)
+        xb = radius[0]*np.cos(2.*np.pi/minc)
+        x = np.linspace(xa, xb, 32)
+        y = np.tan(2.*np.pi/minc)*(x-xa)+ya
+        ax.plot(x, y, 'k-', lw=1.5)
+        ax.plot(radius, np.zeros_like(radius), 'k-', lw=1.5)
+
+    if xx.min() < 0:
+        ax.set_xlim(1.01*xx.min(), 1.01*xx.max())
+    elif xx.min() == 0.:
+        ax.set_xlim(xx.min()-0.01, 1.01*xx.max())
+    else:
+        ax.set_xlim(0.99*xx.min(), 1.01*xx.max())
+    if yy.min() < 0:
+        ax.set_ylim(1.01*yy.min(), 1.01*yy.max())
+    elif yy.min() == 0.:
+        ax.set_ylim(yy.min()-0.01, 1.01*yy.max())
+    else:
+        ax.set_ylim(0.99*yy.min(), 1.01*yy.max())
     ax.axis('off')
 
     # Add the colorbar at the right place

@@ -410,8 +410,9 @@ class MagicPotential(MagicSetup):
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
-        fig, xx, yy = equatContour( equator, self.radius, label, levels, cm,
-                                    normed, vmax, vmin, cbar, tit, normRad)
+        fig, xx, yy = equatContour( equator, self.radius, self.minc, label, 
+                                    levels, cm, normed, vmax, vmin, cbar, tit,
+                                    normRad )
         ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line

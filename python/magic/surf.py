@@ -480,8 +480,9 @@ class Surf:
         if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
 
-        fig, xx, yy = equatContour( equator, self.gr.radius, label, levels, cm, 
-                                    normed, vmax, vmin, cbar, tit, normRad)
+        fig, xx, yy = equatContour( equator, self.gr.radius, self.gr.minc, label, 
+                                    levels, cm, normed, vmax, vmin, cbar, tit,
+                                    normRad)
         ax = fig.get_axes()[0]
 
         # Variable conductivity: add a dashed line
