@@ -788,7 +788,7 @@ def sderavg(data, eta=0.35, spectral=True, colat=None, exclude=False):
     return ds
 
 
-def cylSder(radius, data):
+def cylSder(radius, data, order=4):
     """
     This function computes the s derivative of an input array defined on
     a regularly-spaced cylindrical grid.
@@ -800,14 +800,27 @@ def cylSder(radius, data):
     :type radius: numpy.ndarray
     :param data: input data
     :type data: numpy.ndarray
+    :param order: order of the finite-difference scheme (possible values are 2 or 4)
+    :type order: int
     :returns: s derivative
     :rtype: numpy.ndarray
     """
     ns = data.shape[-1]
-    ds = radius.max()/(ns-1.)
-    der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/(2.*ds)
-    der[..., 0] = (data[..., 1]-data[..., 0])/ds
-    der[..., -1] = (data[..., -1]-data[..., -2])/ds
+    ds = (radius.max()-radius.min())/(ns-1.)
+    if order == 2:
+        der = (np.roll(data, -1,  axis=-1)-np.roll(data, 1, axis=-1))/(2.*ds)
+        der[..., 0] = (data[..., 1]-data[..., 0])/ds
+        der[..., -1] = (data[..., -1]-data[..., -2])/ds
+    elif order == 4:
+        der = (   -np.roll(data,-2,axis=-1) \
+               +8.*np.roll(data,-1,axis=-1) \
+               -8.*np.roll(data, 1,axis=-1) \
+                  +np.roll(data, 2,axis=-1)   )/(12.*ds)
+        der[..., 1] = (data[..., 2]-data[..., 0])/(2.*ds)
+        der[..., -2] = (data[..., -1]-data[..., -3])/(2.*ds)
+        der[..., 0] = (data[..., 1]-data[..., 0])/ds
+        der[..., -1] = (data[..., -1]-data[..., -2])/ds
+
     return der
 
 def cylZder(z, data):
