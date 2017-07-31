@@ -164,7 +164,8 @@ class Movie:
         # Overwrite radius to ensure double-precision of the grid (useful for Cheb der)
         rout = 1./(1.-self.radratio)
         rin = self.radratio/(1.-self.radratio)
-        self.radius = chebgrid(self.n_r_max-1, rout, rin)
+        self.radius *= rout
+        #self.radius = chebgrid(self.n_r_max-1, rout, rin)
         self.theta = infile.fort_read(precision)
         self.phi = infile.fort_read(precision)
 
