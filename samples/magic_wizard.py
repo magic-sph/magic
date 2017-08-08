@@ -40,7 +40,7 @@ def getParser():
                         version='%(prog)s '+__version__, 
                         help="Show program's version number and exit.")
     parser.add_argument('--level', action='store', dest='test_level', type=int,
-                        default=-1, help='Test level')
+                        default=-1, help='Test level, use -2 for more info')
     parser.add_argument('--use-debug-flags', action='store_true', 
                         dest='use_debug_flags', 
                         default=False, help='Use compilation debug flags')
@@ -344,6 +344,49 @@ def getSuite(startdir, cmd, precision, args):
 
     return suite
 
+def printLevelInfo():
+
+        print("Level                               Test Description                               ")
+        print("                                                                                   ")
+
+        print("  0                 Boussinesq benchmark (start), non-conducting IC                ")
+        print("                    Variable transport properties (anelastic, both Cheb and FD)    ")
+        print("                    Test finite differences (restart from Cheb)                    ")
+        print("                    Boussinesq benchmark: saturated state                          ")
+        print("                    Double-diffusive convection (Breuer et al.)                    ")
+        print("                    Test running an axisymmetric Couette flow                      ")
+        print("                                                                                   ")
+        print("                                                                                   ")
+
+
+        print("  1                 Test restarting from a check point                             ")
+        print("                    Test various truncations                                       ")
+        print("                    Test the remapping of the grid at restart                      ")
+        print("                    Test classical time-series outputs                             ")
+        print("                    Test time-averaged radial profiles                             ")
+        print("                                                                                   ")
+        print("                                                                                   ")
+
+
+        print("  2                 Anelastic non-magnetic benchmark (Jones et al.)                ")
+        print("                                                                                   ")
+        print("                                                                                   ")
+
+
+        print("  3                 Heat flux pattern at the outer boundary                        ")
+        print("                    Anelastic with zero Gruneisen (isothermal)                     ")
+        print("                    Conducting and rotating inner core                             ")
+        print("                    Anelastic model with variable conductivity                     ")
+        print("                                                                                   ")
+        print("                                                                                   ")
+
+
+        print("  4                 Test coeff outputs                                             ")
+        print("                    Test r.m.s. force balance calculation                          ")
+        print("                    Test Graphic and Movie outputs                                 ")
+        print("                    Test TO and Geos outputs                                       ")
+
+
 
 if __name__ == '__main__':
     precision = 1e-8 # relative tolerance between expected and actual result
@@ -361,7 +404,11 @@ if __name__ == '__main__':
     print('----------------------')
     get_env(args)
 
-    # Run cmake
+    if args.test_level == -2:
+        printLevelInfo()
+        sys.exit()
+
+# Run cmake
     print('1. cmake configuration')
     print('----------------------')
     cmake(args, startdir, execDir)
