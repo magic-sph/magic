@@ -245,9 +245,9 @@ contains
          if ( n_e_sets == 1 ) then
             timeTot=one
             e_pA   =e_p_r_global
-            e_p_asA=e_p_r_global
+            e_p_asA=e_p_as_r_global
             e_tA   =e_t_r_global
-            e_t_asA=e_t_r_global
+            e_t_asA=e_t_as_r_global
          else if ( n_e_sets == 2 ) then
             dt      =time-timeLast
             timeTot =two*dt

@@ -442,9 +442,9 @@ contains
             do nR=1,n_r_max
                e_dipA(nR) =e_dipole_r_global(nR)
                e_pA(nR)   =e_p_r_global(nR)
-               e_p_asA(nR)=e_p_r_global(nR)
+               e_p_asA(nR)=e_p_as_r_global(nR)
                e_tA(nR)   =e_t_r_global(nR)
-               e_t_asA(nR)=e_t_r_global(nR)
+               e_t_asA(nR)=e_t_as_r_global(nR)
             end do
          else if ( n_e_sets == 2 ) then
             dt=time-timeLast
