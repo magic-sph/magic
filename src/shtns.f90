@@ -3,7 +3,7 @@ module shtns
    use precision_mod, only: cp
    use constants, only: ci
    use truncation, only: m_max, l_max, n_theta_max, n_phi_max, &
-       &                 minc, lm_max
+       &                 minc, lm_max, lmP_max
    use horizontal_data, only: dLh, D_m, O_sin_theta_E2
    use radial_functions, only: or2
    use parallel_mod
@@ -179,7 +179,7 @@ contains
    subroutine spat_to_SH(f, fLM)
 
       real(cp), intent(in) :: f(n_phi_max, n_theta_max)
-      complex(cp), intent(out) :: fLM(lm_max)
+      complex(cp), intent(out) :: fLM(lmP_max)
 
       call shtns_load_cfg(1)
       call shtns_spat_to_sh(f, fLM)
@@ -191,8 +191,8 @@ contains
 
       real(cp), intent(in) :: f(n_phi_max,n_theta_max)
       real(cp), intent(in) :: g(n_phi_max,n_theta_max)
-      complex(cp), intent(out) :: fLM(lm_max)
-      complex(cp), intent(out) :: gLM(lm_max)
+      complex(cp), intent(out) :: fLM(lmP_max)
+      complex(cp), intent(out) :: gLM(lmP_max)
 
       call shtns_load_cfg(1)
       call shtns_spat_to_sphtor(f,g,fLM,gLM)
