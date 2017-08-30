@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 import numpy as np
 import matplotlib.pyplot as plt
-from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize
+from .libmagic import anelprof, cylSder, cylZder, phideravg, symmetrize, progressbar
 from .plotlib import cut
 from magic import MagicGraph, MagicSetup
 from magic.setup import labTex
 from scipy.ndimage import map_coordinates
 from scipy.interpolate import interp1d
 import os, pickle
-
 
 
 def sph2cyl_plane(data, rad, ns, nz):
@@ -115,8 +114,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
         nphi = input[0].shape[0]
         phi = np.linspace(0., 2.*np.pi/minc, nphi)
         output = np.zeros((nphi, ns-2), dtype=input[0].dtype)
-        for iphi in range(nphi):
-            print(iphi)
+        for iphi in progressbar(range(nphi)):
             Z, S, out2D = sph2cyl_plane([input[0][iphi, ...]], radius, ns, nz)
             S = S[:, 1:-1]
             Z = Z[:, 1:-1]
@@ -200,8 +198,7 @@ def sph2cyl(g, ns=None, nz=None):
     vr_cyl = np.zeros((g.npI, nz, ns), dtype=g.vr.dtype)
     vp_cyl = np.zeros_like(vr_cyl)
     vt_cyl = np.zeros_like(vr_cyl)
-    for k in range(g.npI):
-        print(k)
+    for k in progressbar(range(g.npI)):
         dat = map_coordinates(g.vphi[k, :, ::-1], coords, order=3)
         dat[new_r > radius.max()] = 0.
         dat[new_r < radius.min()] = 0.
