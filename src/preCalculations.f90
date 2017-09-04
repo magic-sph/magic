@@ -5,7 +5,7 @@ module preCalculations
    use output_data
    use precision_mod
    use truncation, only: n_r_max, l_max, minc, n_r_ic_max, nalias, &
-       &                 n_cheb_ic_max, m_max, minc, n_cheb_max,   &
+       &                 n_cheb_ic_max, m_max, n_cheb_max,         &
        &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
