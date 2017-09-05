@@ -12,7 +12,7 @@ if [ -z $MAGIC_HOME ]; then
   # Try to identify position of the code's home directory:
   #
 
-  if [ `echo $SHELL | grep 'ksh'` ]; then
+  if [ `grep 'ksh' $SHELL` ]; then
     _sourcecmd="${.sh.file}"
   else
     _sourcecmd="${BASH_SOURCE:-$0}"
