@@ -4,7 +4,6 @@ sudo: required
 addons:
     apt:
         sources:
-            - kalakris-cmake
             - ubuntu-toolchain-r-test
         packages:
             - gfortran-5
