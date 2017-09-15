@@ -419,7 +419,7 @@ contains
          do nThetaB=1,sizeThetaB
             nThetaNHS=(nThetaB+1)/2
             posnalp=-two*oek*po*sin(prec_angle)*osn1(nThetaNHS)
-            cnt=cosTheta(nThetaB)
+            cnt=cosTheta(nTheta)
             do nPhi=1,n_phi_max
                this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
                &                                  this%vpc(nPhi,nThetaB)*cnt  &
