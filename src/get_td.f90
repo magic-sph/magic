@@ -318,7 +318,7 @@ contains
             !PERFON('td_cv1')
             !$OMP PARALLEL do default(none) &
             !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
-            !$OMP private(AdvPol_loc,CorPol_loc,PreTor_loc,AdvTor_loc,CorTor_loc) &
+            !$OMP private(AdvPol_loc,CorPol_loc,PrecTor_loc,AdvTor_loc,CorTor_loc) &
             !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmPS,lmP2lmPA) &
             !$OMP shared(lm_max,l_corr,l_max,l_conv_nl,lRmsCalc,l_mag_LF) &
             !$OMP shared(CorPol,AdvPol,LFPol,AdvTor,LFTor,z_Rloc,nR) &
@@ -327,7 +327,8 @@ contains
             !$OMP shared(dTheta3A,dTheta4A,dTheta3S,dTheta4S,dTheta1S,dTheta1A) &
             !$OMP shared(dwdt,dzdt,rho0,rgrav,BuoFac,l_TP_form,temp0) &
             !$OMP shared(l_anelastic_liquid,alpha0,ThExpNb,ViscHeatFac,ogrun) &
-            !$OMP shared(beta,orho1,r,or4,ddw_Rloc,dVxVhLM,dz_Rloc,dLh)
+            !$OMP shared(beta,orho1,r,or4,ddw_Rloc,dVxVhLM,dz_Rloc,dLh,po) &
+            !$OMP shared(l_precession,oek,time,prec_angle,precession_fac)
             do lm=2,lm_max
                l   =lm2l(lm)
                m   =lm2m(lm)
