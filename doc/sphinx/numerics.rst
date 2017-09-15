@@ -142,7 +142,7 @@ This means that
 
 .. math::
   Y_{\ell}^{m}(\theta,\phi) = \left(\dfrac{(2\ell+1)}{4\pi}\dfrac{(\ell-|m|)!}{(\ell+|m|)!}\right)^{1/2}
-  P_\ell^m(\cos{\theta})\,e^{i m \phi}\,(-1)^m,
+  P_\ell^m(\cos{\theta})\,e^{i m \phi},
 
 As an example, the spherical harmonic representation of the
 magnetic poloidal potential :math:`g(r,\theta,\phi)`, truncated at degree and order
