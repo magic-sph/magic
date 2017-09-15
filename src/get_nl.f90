@@ -423,9 +423,9 @@ contains
             do nPhi=1,n_phi_max
                this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
                &                                  this%vpc(nPhi,nThetaB)*cnt  &
-               &            +sin(oeK*time+phi(nPhi))*this%vtc(nPhi,nThetaB))
-               this%PCt(nPhi,nThetaB)= (-posnalp)*or2(nR)*(                   &
-               &               cos(oeK*time+phi(nPhi))*this%vpc(nPhi,nThetaB) &
+               &            +sin(oek*time+phi(nPhi))*this%vtc(nPhi,nThetaB))
+               this%PCt(nPhi,nThetaB)=   -posnalp*or2(nR)*(                   &
+               &               cos(oek*time+phi(nPhi))*this%vpc(nPhi,nThetaB) &
                &      +sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nPhi,nThetaB) )
                this%PCp(nPhi,nThetaB)= posnalp*cos(oek*time+phi(nPhi))*       &
                &              or2(nR)*(      this%vtc(nPhi,nThetaB)-          &

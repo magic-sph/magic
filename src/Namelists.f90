@@ -490,11 +490,14 @@ contains
          l_mag_LF =.false.
       end if
 
+      !-- If Poincaré number is not zero precession in turned on
       if ( po == 0.0_cp ) then
          l_precession = .false.
       else
          l_precession = .true.
       end if
+
+      if ( l_precession ) prec_angle = prec_angle*pi/180.0_cp
 
       !-- New checking of magnetic boundary condition.
       if ( kbotb > 4 ) then
