@@ -825,7 +825,6 @@ contains
       end if     ! chemical composition equation required ?
 
       if ( l_precession .and. nBc == 0 ) then
-
          nTheta=nThetaLast
          do nThetaB=1,sizeThetaB
             nTheta=nTheta+1
@@ -834,9 +833,9 @@ contains
             cnt=cosTheta(nTheta)
             do nPhi=1,n_phi_max
                this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
-               &                                  this%vpc(nPhi,nThetaB)*cnt &
+               &                                  this%vpc(nPhi,nThetaB)*cnt  &
                &            +sin(oek*time+phi(nPhi))*this%vtc(nPhi,nThetaB))
-               this%PCt(nPhi,nThetaB)= (-posnalp)*or2(nR)*(                   &
+               this%PCt(nPhi,nThetaB)= -posnalp*or2(nR)*(                     &
                &               cos(oek*time+phi(nPhi))*this%vpc(nPhi,nThetaB) &
                &      +sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nPhi,nThetaB) )
                this%PCp(nPhi,nThetaB)= posnalp*cos(oek*time+phi(nPhi))*       &
@@ -850,7 +849,6 @@ contains
             this%PCp(n_phi_max+1,nThetaB)=0.0_cp
             this%PCp(n_phi_max+2,nThetaB)=0.0_cp
          end do ! theta loop
-
       end if ! precession term required ?
 
       if ( l_mag_nl ) then
