@@ -204,7 +204,8 @@ contains
                 this%lRmsCalc ) then 
             !write(*,"(I4,A,ES20.13)") this%nR,", vp = ",sum(real(conjg(vpc)*vpc))
             PERFON('get_nl')
-            call this%gsa%get_nl(this%nR, this%nBc, nThetaStart, this%lRmsCalc)
+            call this%gsa%get_nl(time, this%nR, this%nBc, nThetaStart, &
+                 &               this%lRmsCalc)
             PERFOFF
   
             call this%transform_to_lm_space(nThetaStart,nThetaStop,this%gsa,this%nl_lm)
@@ -397,9 +398,10 @@ contains
       !write(*,"(A,I4,4ES20.13)") "before_td: ",this%nR,SUM(this%nl_lm%VxBtLM),&
       !     & SUM(this%nl_lm%VxBpLM)
       PERFON('get_td')
-      call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,this%lPressCalc, &
-           &                 dVSrLM,dVPrLM,dVXirLM,dVxVhLM,dVxBhLM,dwdt,dzdt,&
-           &                 dpdt,dsdt,dxidt,dbdt,djdt,this%leg_helper)
+      call this%nl_lm%get_td(time,this%nR,this%nBc,this%lRmsCalc,            &
+           &                 this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,  &
+           &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,    &
+           &                 this%leg_helper)
       PERFOFF
       !do lm=1,lm_max
       !   write(*,"(2(I3,A),2ES20.12)") this%nR,": dwdt(",lm,") = ",dwdt(lm)

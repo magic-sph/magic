@@ -15,7 +15,7 @@ module rIterThetaBlocking_mod
    use logic, only: l_mag,l_conv,l_mag_kin,l_heat,l_HT,l_anel,l_mag_LF,    &
        &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic, &
        &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,  &
-       &            l_movie_oc, l_chemical_conv, l_TP_form
+       &            l_movie_oc, l_chemical_conv, l_TP_form, l_precession
    use radial_data,only: n_r_cmb, n_r_icb, nRstart, nRstop
    use radial_functions, only: or2, orho1
    use fft
@@ -311,6 +311,17 @@ contains
                   end do
                end do
             end if
+         end if
+
+         if ( l_precession ) then 
+            do nTheta=1,this%sizeThetaB
+               do nPhi=1,nrp
+                  gsa%Advr(nPhi,nTheta)=gsa%Advr(nPhi,nTheta) + gsa%PCr(nPhi,nTheta)
+                  gsa%Advt(nPhi,nTheta)=gsa%Advt(nPhi,nTheta) + gsa%PCt(nPhi,nTheta)
+                  gsa%Advp(nPhi,nTheta)=gsa%Advp(nPhi,nTheta) + gsa%PCp(nPhi,nTheta)
+               end do
+            end do
+
          end if
 
          if ( .not. l_axi ) then

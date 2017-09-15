@@ -10,12 +10,13 @@ module nonlinear_lm_mod
    use truncation, only: lm_max, l_max, lm_maxMag, lmP_max
    use logic, only : l_anel, l_conv_nl, l_corr, l_heat, l_anelastic_liquid, &
        &             l_mag_nl, l_mag_kin, l_mag_LF, l_conv, l_mag, l_RMS,   &
-       &             l_chemical_conv, l_TP_form, l_single_matrix, l_double_curl
+       &             l_chemical_conv, l_TP_form, l_single_matrix,           &
+       &             l_double_curl, l_precession
    use radial_functions, only: r, or2, or1, beta, rho0, rgrav, epscProf, &
        &                       or4, temp0, alpha0, ogrun, orho1
    use physical_parameters, only: CorFac, ra, epsc, ViscHeatFac, &
        &                          OhmLossFac, n_r_LCR, epscXi,   &
-       &                          BuoFac, ThExpNb
+       &                          BuoFac, ThExpNb, oek, po, prec_angle
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, lm2lmA, &
        &               lm2lmS, st_map
    use horizontal_data, only: dLh, dTheta1S, dTheta1A, dPhi, dTheta2A, &
@@ -25,12 +26,14 @@ module nonlinear_lm_mod
        &          Geo2hInt, Mag2hInt, Arc2hInt, CLF2hInt, PLF2hInt, &
        &          CIA2hInt
    use leg_helper_mod, only: leg_helper_t
-   use constants, only: zero, two
+   use constants, only: zero, two, third, pi
    use fields, only: w_Rloc, dw_Rloc, ddw_Rloc, z_Rloc, dz_Rloc
    use RMS_helpers, only: hIntRms
     
 
    implicit none
+
+   real(cp) :: precession_fac
  
    type :: nonlinear_lm_t
       !----- Nonlinear terms in lm-space: 
@@ -103,6 +106,12 @@ contains
          allocate( this%PFt2LM(lmP_max) )
          allocate( this%PFp2LM(lmP_max) )
          bytes_allocated = bytes_allocated + 8*lmP_max*SIZEOF_DEF_COMPLEX
+      end if
+
+      if ( l_precession ) then
+         precession_fac = sqrt(8.0_cp*third*pi)
+      else
+         precession_fac = 0.0_cp
       end if
 
    end subroutine initialize
@@ -202,9 +211,9 @@ contains
 
    end subroutine output
 !----------------------------------------------------------------------------
-   subroutine get_td(this,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVPrLM,dVXirLM, &
-              &      dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,   &
-              &      leg_helper)
+   subroutine get_td(this,time,nR,nBc,lRmsCalc,lPressCalc,dVSrLM,dVPrLM,    &
+              &      dVXirLM,dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,&
+              &      djdt,leg_helper)
       !
       !  Purpose of this to calculate time derivatives
       !  dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt
@@ -216,6 +225,7 @@ contains
       !-- Input of variables:
       class(nonlinear_lm_t) :: this
 
+      real(cp),           intent(in) :: time
       integer,            intent(in) :: nR
       integer,            intent(in) :: nBc ! signifies boundary conditions
       logical,            intent(in) :: lRmsCalc
@@ -242,6 +252,7 @@ contains
       complex(cp) :: Arc(lm_max),Mag(lm_max),CIA(lm_max)
       complex(cp) :: Buo(lm_max)
       complex(cp) :: AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc
+      complex(cp) :: PrecTor_loc
       complex(cp) :: dsdt_loc, dxidt_loc
     
       integer, parameter :: DOUBLE_COMPLEX_PER_CACHELINE=4
@@ -307,7 +318,7 @@ contains
             !PERFON('td_cv1')
             !$OMP PARALLEL do default(none) &
             !$OMP private(lm,l,m,lmS,lmA,lmP,lmPS,lmPA) &
-            !$OMP private(AdvPol_loc,CorPol_loc,AdvTor_loc,CorTor_loc) &
+            !$OMP private(AdvPol_loc,CorPol_loc,PreTor_loc,AdvTor_loc,CorTor_loc) &
             !$OMP shared(lm2l,lm2m,lm2lmS,lm2lmA,lm2lmP,lmP2lmPS,lmP2lmPA) &
             !$OMP shared(lm_max,l_corr,l_max,l_conv_nl,lRmsCalc,l_mag_LF) &
             !$OMP shared(CorPol,AdvPol,LFPol,AdvTor,LFTor,z_Rloc,nR) &
@@ -500,7 +511,13 @@ contains
                   AdvTor_loc=zero
                end if
     
-               dzdt(lm)=CorTor_loc+AdvTor_loc
+               if ( l_precession .and. l==1 .and. m==1 ) then
+                  PrecTor_loc=precession_fac*po*oek*oek*sin(prec_angle)*  &
+                  &           cmplx(-sin(oek*time),cos(oek*time),kind=cp)
+               else
+                  PrecTor_loc=zero
+               end if
+               dzdt(lm)=CorTor_loc+AdvTor_loc+PrecTor_loc
                ! until here
     
                if ( lRmsCalc ) then

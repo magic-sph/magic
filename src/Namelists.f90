@@ -76,7 +76,7 @@ contains
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
          & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
-         & nVarEntropyGrad,l_isothermal,ktopp
+         & nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -490,6 +490,12 @@ contains
          l_mag_LF =.false.
       end if
 
+      if ( po == 0.0_cp ) then
+         l_precession = .false.
+      else
+         l_precession = .true.
+      end if
+
       !-- New checking of magnetic boundary condition.
       if ( kbotb > 4 ) then
          call abortRun('! Only outer boundary conditions kbotb<=4 implemented!')
@@ -806,6 +812,8 @@ contains
       write(n_out,'(''  sc              ='',ES14.6,'','')') sc
       write(n_out,'(''  prmag           ='',ES14.6,'','')') prmag
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
+      write(n_out,'(''  po              ='',ES14.6,'','')') po
+      write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb
@@ -1190,6 +1198,8 @@ contains
       pr         =one
       sc         =10.0_cp
       prmag      =5.0_cp
+      po         =0.0_cp
+      prec_angle =23.5_cp
       epsc0      =0.0_cp
       epscxi0    =0.0_cp
       radratio   =0.35_cp

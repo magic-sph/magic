@@ -16,7 +16,8 @@ module preCalculations
        &            l_cmb_field, l_storeTpot, l_storeVpot, l_storeBpot,&
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
-       &            l_temperature_diff, l_chemical_conv, l_probe
+       &            l_temperature_diff, l_chemical_conv, l_probe,      &
+       &            l_precession
    use radial_functions, only: rscheme_oc, temp0, r_CMB,                   &
        &                       r_surface, visc, r, r_ICB,                  &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -29,9 +30,9 @@ module preCalculations
        &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
        &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
        &                          ktops, kbots, interior_model, r_LCR,     &
-       &                          n_r_LCR, mode, tmagcon, GrunNb,          &
+       &                          n_r_LCR, mode, tmagcon, GrunNb, oek,     &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
-       &                          ChemFac, raxi
+       &                          ChemFac, raxi, Po, prec_angle
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
@@ -139,6 +140,10 @@ contains
             LFfac=0.0_cp
          end if
       end if
+
+      oek = CorFac
+
+      if ( l_precession ) CorFac = CorFac*(one+po*cos(prec_angle))
     
       ! Note: BuoFac is the factor used in front of the buoyancy force.
       !       In the scaling used here its

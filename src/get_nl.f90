@@ -18,13 +18,13 @@ module grid_space_arrays_mod
    use truncation, only: nrp, n_phi_max
    use radial_functions, only: or2, orho1, beta, otemp1, visc, r, &
        &                       lambda, or4, or1, alpha0, temp0
-   use physical_parameters, only: LFfac, n_r_LCR, CorFac,  &
-       &                          ThExpNb, ViscHeatFac
+   use physical_parameters, only: LFfac, n_r_LCR, CorFac, prec_angle,  &
+       &                          ThExpNb, ViscHeatFac, oek, po
    use blocking, only: nfs, sizeThetaB
-   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta
+   use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi 
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_RMS, l_chemical_conv, l_TP_form
+       &            l_RMS, l_chemical_conv, l_TP_form, l_precession
 
    implicit none
 
@@ -34,6 +34,7 @@ module grid_space_arrays_mod
       !----- Nonlinear terms in phi/theta space: 
       real(cp), allocatable :: Advr(:,:), Advt(:,:), Advp(:,:)
       real(cp), allocatable :: LFr(:,:), LFt(:,:), LFp(:,:)
+      real(cp), allocatable :: PCr(:,:), PCt(:,:), PCp(:,:)
       real(cp), allocatable :: VxBr(:,:), VxBt(:,:), VxBp(:,:)
       real(cp), allocatable :: VSr(:,:), VSt(:,:), VSp(:,:)
       real(cp), allocatable :: VXir(:,:), VXit(:,:), VXip(:,:)
@@ -95,6 +96,13 @@ contains
       if ( l_TP_form ) then
          allocate( this%VPr(nrp,nfs) )
          bytes_allocated=bytes_allocated + nrp*nfs*SIZEOF_DEF_REAL
+      end if
+
+      if ( l_precession ) then
+         allocate( this%PCr(nrp,nfs) )
+         allocate( this%PCt(nrp,nfs) )
+         allocate( this%PCp(nrp,nfs) )
+         bytes_allocated=bytes_allocated + 3*nrp*nfs*SIZEOF_DEF_REAL
       end if
 
       if ( l_chemical_conv ) then
@@ -159,11 +167,8 @@ contains
       deallocate( this%VSt )
       deallocate( this%VSp )
       if ( l_TP_form ) deallocate( this%VPr )
-      if ( l_chemical_conv ) then
-         deallocate( this%VXir )
-         deallocate( this%VXit )
-         deallocate( this%VXip )
-      end if
+      if ( l_chemical_conv ) deallocate( this%VXir, this%VXit, this%VXip )
+      if ( l_precession ) deallocate( this%PCr, this%PCt, this%PCp )
       deallocate( this%ViscHeat )
       deallocate( this%OhmLoss )
 
@@ -212,7 +217,7 @@ contains
    end subroutine output_nl_input
 !----------------------------------------------------------------------------
 #ifdef WITH_SHTNS
-   subroutine get_nl_shtns(this, nR, nBc, lRmsCalc)
+   subroutine get_nl_shtns(this, time, nR, nBc, lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -229,14 +234,15 @@ contains
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      integer, intent(in) :: nR
-      logical, intent(in) :: lRmsCalc
-      integer, intent(in) :: nBc
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: nR
+      logical,  intent(in) :: lRmsCalc
+      integer,  intent(in) :: nBc
 
       !-- Local variables:
       integer :: nThetaB, nThetaNHS, nTheta
       integer :: nPhi
-      real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt
+      real(cp) :: or2sn2, or4sn2, csn2, cnt, rsnt, snt, posnalp
 
 
       if ( l_mag_LF .and. (nBc == 0 .or. lRmsCalc) .and. nR>n_r_LCR ) then
@@ -404,6 +410,31 @@ contains
          end do  ! theta loop
          !$OMP END PARALLEL DO
       end if     ! chemical composition equation required ?
+
+      if ( l_precession .and. nBc == 0 ) then
+
+         !$OMP PARALLEL DO default(none) &
+         !$OMP& private(nThetaB, nTheta, nPhi, nThetaNHS) &
+         !$OMP& shared(this, or2, osn, cosTheta, sizeThetaB, nR, n_phi_max)
+         do nThetaB=1,sizeThetaB
+            nThetaNHS=(nThetaB+1)/2
+            posnalp=-two*oek*po*sin(prec_angle)*osn1(nThetaNHS)
+            cnt=cosTheta(nThetaB)
+            do nPhi=1,n_phi_max
+               this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
+               &                                  this%vpc(nPhi,nThetaB)*cnt  &
+               &            +sin(oeK*time+phi(nPhi))*this%vtc(nPhi,nThetaB))
+               this%PCt(nPhi,nThetaB)= (-posnalp)*or2(nR)*(                   &
+               &               cos(oeK*time+phi(nPhi))*this%vpc(nPhi,nThetaB) &
+               &      +sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nPhi,nThetaB) )
+               this%PCp(nPhi,nThetaB)= posnalp*cos(oek*time+phi(nPhi))*       &
+               &              or2(nR)*(      this%vtc(nPhi,nThetaB)-          &
+               &                     or1(nR)*this%vrc(nPhi,nThetaB)*cnt)
+            end do
+         end do ! theta loop
+         !$OMP END PARALLEL DO
+
+      end if ! precession term required ?
 
       if ( l_mag_nl ) then
 
@@ -588,7 +619,7 @@ contains
    end subroutine get_nl_shtns
 #endif
 !----------------------------------------------------------------------------
-   subroutine get_nl(this,nR,nBc,nThetaStart,lRmsCalc)
+   subroutine get_nl(this,time,nR,nBc,nThetaStart,lRmsCalc)
       !
       !  calculates non-linear products in grid-space for radial
       !  level nR and returns them in arrays wnlr1-3, snlr1-3, bnlr1-3
@@ -605,16 +636,17 @@ contains
       class(grid_space_arrays_t) :: this
 
       !-- Input of variables:
-      integer, intent(in) :: nR
-      integer, intent(in) :: nBc
-      integer, intent(in) :: nThetaStart
-      logical, intent(in) :: lRmsCalc
+      real(cp), intent(in) :: time
+      integer,  intent(in) :: nR
+      integer,  intent(in) :: nBc
+      integer,  intent(in) :: nThetaStart
+      logical,  intent(in) :: lRmsCalc
 
       !-- Local variables:
       integer :: nTheta
       integer :: nThetaLast,nThetaB,nThetaNHS
       integer :: nPhi
-      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt
+      real(cp) :: or2sn2,or4sn2,csn2,snt,cnt,rsnt,posnalp
 
       nThetaLast=nThetaStart-1
 
@@ -791,6 +823,35 @@ contains
             this%VXip(n_phi_max+2,nThetaB)=0.0_cp
          end do  ! theta loop
       end if     ! chemical composition equation required ?
+
+      if ( l_precession .and. nBc == 0 ) then
+
+         nTheta=nThetaLast
+         do nThetaB=1,sizeThetaB
+            nTheta=nTheta+1
+            nThetaNHS=(nTheta+1)/2
+            posnalp=-two*oek*po*sin(prec_angle)*osn1(nThetaNHS)
+            cnt=cosTheta(nTheta)
+            do nPhi=1,n_phi_max
+               this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
+               &                                  this%vpc(nPhi,nThetaB)*cnt &
+               &            +sin(oek*time+phi(nPhi))*this%vtc(nPhi,nThetaB))
+               this%PCt(nPhi,nThetaB)= (-posnalp)*or2(nR)*(                   &
+               &               cos(oek*time+phi(nPhi))*this%vpc(nPhi,nThetaB) &
+               &      +sin(oek*time+phi(nPhi))*or1(nR)*this%vrc(nPhi,nThetaB) )
+               this%PCp(nPhi,nThetaB)= posnalp*cos(oek*time+phi(nPhi))*       &
+               &              or2(nR)*(      this%vtc(nPhi,nThetaB)-          &
+               &                     or1(nR)*this%vrc(nPhi,nThetaB)*cnt)
+            end do
+            this%PCr(n_phi_max+1,nThetaB)=0.0_cp
+            this%PCr(n_phi_max+2,nThetaB)=0.0_cp
+            this%PCt(n_phi_max+1,nThetaB)=0.0_cp
+            this%PCt(n_phi_max+2,nThetaB)=0.0_cp
+            this%PCp(n_phi_max+1,nThetaB)=0.0_cp
+            this%PCp(n_phi_max+2,nThetaB)=0.0_cp
+         end do ! theta loop
+
+      end if ! precession term required ?
 
       if ( l_mag_nl ) then
 

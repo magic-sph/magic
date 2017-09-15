@@ -13,7 +13,8 @@ module rIterThetaBlocking_shtns_mod
        &            l_mag_LF, l_conv_nl, l_mag_nl, l_b_nl_cmb,       &
        &            l_b_nl_icb, l_rot_ic, l_cond_ic, l_rot_ma,       &
        &            l_cond_ma, l_dtB, l_store_frame, l_movie_oc,     &
-       &            l_TO, l_chemical_conv, l_TP_form, l_probe
+       &            l_TO, l_chemical_conv, l_TP_form, l_probe,       &
+       &            l_precession
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -192,7 +193,7 @@ contains
             this%lRmsCalc ) then
 
          PERFON('get_nl')
-         call this%gsa%get_nl_shtns(this%nR, this%nBc, this%lRmsCalc)
+         call this%gsa%get_nl_shtns(time, this%nR, this%nBc, this%lRmsCalc)
          PERFOFF
 
          call this%transform_to_lm_space_shtns(this%gsa, this%nl_lm)
@@ -419,10 +420,10 @@ contains
       !write(*,"(A,I4,2ES20.13)") "before_td: ", &
       !     &  this%nR,sum(real(conjg(VxBtLM)*VxBtLM)),sum(real(conjg(VxBpLM)*VxBpLM))
       !PERFON('get_td')
-      call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc, this%lPressCalc, &
-           &                 dVSrLM, dVPrLM, dVXirLM, dVxVhLM, dVxBhLM,         &
-           &                 dwdt, dzdt, dpdt, dsdt, dxidt, dbdt, djdt,         &
-           &                 this%leg_helper)
+      call this%nl_lm%get_td(time, this%nR, this%nBc, this%lRmsCalc,     &
+           &                 this%lPressCalc, dVSrLM, dVPrLM, dVXirLM,   &
+           &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
+           &                 dxidt, dbdt, djdt, this%leg_helper)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &
@@ -590,6 +591,17 @@ contains
                   end do
                end do
             end if
+         end if
+
+         if ( l_precession ) then
+            do nTheta=1,this%sizeThetaB
+               do nPhi=1, n_phi_max
+                  gsa%Advr(nPhi, nTheta)=gsa%Advr(nPhi, nTheta) + gsa%PCr(nPhi, nTheta)
+                  gsa%Advt(nPhi, nTheta)=gsa%Advt(nPhi, nTheta) + gsa%PCt(nPhi, nTheta)
+                  gsa%Advp(nPhi, nTheta)=gsa%Advp(nPhi, nTheta) + gsa%PCp(nPhi, nTheta)
+               end do
+            end do
+
          end if
 
          call spat_to_SH(gsa%Advr, nl_lm%AdvrLM)

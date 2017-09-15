@@ -69,6 +69,7 @@ module physical_parameters
    real(cp) :: rho_ratio_ic   ! Same density as outer core
    real(cp) :: rho_ratio_ma   ! Same density as outer core
    real(cp) :: opr            ! Inverse of Prandtl number
+   real(cp) :: oek            ! Inverse of the Ekman number
    real(cp) :: osc            ! Inverse of Schmidt number (i.e. chemical Prandtl number)
    real(cp) :: opm            ! Inverse of magnetic Prandtl number
    real(cp) :: CorFac         ! Inverse of ekScaled
@@ -96,5 +97,7 @@ module physical_parameters
    !-- To avoid circular dependence
    integer :: imagcon         ! Imposed magnetic field for magnetoconvection, at the boundaries
    real(cp) :: tmagcon        ! Time for magnetoconvection calculation
+   real(cp) :: po             ! Poincaré number
+   real(cp) :: prec_angle     ! Precession angle
 
 end module physical_parameters
