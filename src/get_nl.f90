@@ -414,12 +414,13 @@ contains
       if ( l_precession .and. nBc == 0 ) then
 
          !$OMP PARALLEL DO default(none) &
-         !$OMP& private(nThetaB, nTheta, nPhi, nThetaNHS) &
-         !$OMP& shared(this, or2, osn, cosTheta, sizeThetaB, nR, n_phi_max)
+         !$OMP& private(nThetaB, nPhi, nThetaNHS, cnt, posnalp) &
+         !$OMP& shared(this, or2, osn1, cosTheta, sizeThetaB, nR, n_phi_max) &
+         !$OMP& shared(oek, time, phi, po, r, or1, prec_angle)
          do nThetaB=1,sizeThetaB
             nThetaNHS=(nThetaB+1)/2
             posnalp=-two*oek*po*sin(prec_angle)*osn1(nThetaNHS)
-            cnt=cosTheta(nTheta)
+            cnt=cosTheta(nThetaB)
             do nPhi=1,n_phi_max
                this%PCr(nPhi,nThetaB)=posnalp*r(nR)*(cos(oek*time+phi(nPhi))* &
                &                                  this%vpc(nPhi,nThetaB)*cnt  &
