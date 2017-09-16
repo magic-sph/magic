@@ -482,8 +482,11 @@ contains
             call spectrum_average(nLogs,l_stop_time,timePassedLog,  &
                  &                timeNormLog,w_LMloc,z_LMloc,      &
                  &                dw_LMloc,'V')
-            call spectrum_temp_average(nLogs,l_stop_time,timePassedLog, &
-                 &                     timeNormLog,s_LMloc,ds_LMloc)
+
+            if ( l_heat ) then
+               call spectrum_temp_average(nLogs,l_stop_time,timePassedLog, &
+                    &                     timeNormLog,s_LMloc,ds_LMloc)
+            end if
   
             if ( l_mag ) then
                call spectrum_average(nLogs,l_stop_time,timePassedLog, &
@@ -587,7 +590,7 @@ contains
          n_spec=n_spec+1
          call spectrum(time,n_spec,w_LMloc,dw_LMloc,z_LMloc,b_LMloc,  &
               &        db_LMloc,aj_LMloc,b_ic_LMloc,db_ic_LMloc,aj_ic_LMloc)
-         call spectrum_temp(time,n_spec,s_LMloc,ds_LMloc)
+         if ( l_heat ) call spectrum_temp(time,n_spec,s_LMloc,ds_LMloc)
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on rank ",rank
       end if
   
