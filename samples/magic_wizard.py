@@ -10,6 +10,7 @@ import unittest
 import testOutputs.unitTest
 import testRadialOutputs.unitTest
 import boussBenchSat.unitTest
+import precession.unitTest
 import dynamo_benchmark.unitTest
 import varProps.unitTest
 import finite_differences.unitTest
@@ -252,6 +253,12 @@ def getSuite(startdir, cmd, precision, args):
                                                   % startdir, 
                                                   execCmd=cmd,
                                                   precision=precision))
+        # Precession with Po=-0.01
+        suite.addTest(precession.unitTest.PrecessionTest(
+                                                  'outputFileDiff',
+                                                  '%s/precession' % startdir, 
+                                                  execCmd=cmd,
+                                                  precision=precision))
     if args.test_level in [-1, 1]:
         # Test restart file capabilities
         suite.addTest(testRestart.unitTest.TestRestart('outputFileDiff',
@@ -355,6 +362,7 @@ def printLevelInfo():
         print("                    Boussinesq benchmark: saturated state                          ")
         print("                    Double-diffusive convection (Breuer et al.)                    ")
         print("                    Test running an axisymmetric Couette flow                      ")
+        print("                    Test precession with Po=-0.01 and E=1e-3                       ")
         print("                                                                                   ")
         print("                                                                                   ")
 
