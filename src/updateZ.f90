@@ -9,18 +9,19 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, LFfac
+   use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek
    use num_param, only: alpha, AMstart
    use torsional_oscillations, only: ddzASL
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
                      & lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_V
-   use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, &
-                    l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_RMS
+   use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
+       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_RMS
    use RMS, only: DifTor2hInt, dtVTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
-       &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four
+       &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
+       &                pi, third
    use parallel_mod
    use algebra, only: cgeslML, cgesl, sgefa
    use LMLoop_data, only: llm,ulm
@@ -176,6 +177,7 @@ contains
       complex(cp) :: corr_l1m1      ! correction factor for z(l=1,m=1)
       real(cp) :: r_E_2             ! =r**2
       real(cp) :: nomi              ! nominator for Z10 AM correction
+      real(cp) :: prec_fac
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: i                  ! counter
       logical :: l10
@@ -197,6 +199,12 @@ contains
       !     &", z = ",get_global_sum( z ),&
       !     &", dzdtLast = ",get_global_sum( dzdtLast )
       !call mpi_barrier(MPI_COMM_WORLD,ierr)
+
+      if ( l_precession ) then
+         prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
+      else
+         prec_fac=0.0_cp
+      end if
     
       if ( .not. l_update_v ) return
     
@@ -416,6 +424,10 @@ contains
                      &                     lm2m(lm1)))*or2(nR)*z(lm1,nR) + &
                      &                     w1*dzdt(lm1,nR) +               &
                      &                     w2*dzdtLast(lm1,nR)
+                     if ( l_precession .and. l1 == 1 .and. m1 == 1 ) then
+                        rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
+                        &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
+                     end if
 #ifdef WITH_PRECOND_Z
                      rhs1(nR,lmB,threadid)=zMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif

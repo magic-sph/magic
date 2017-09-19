@@ -514,11 +514,11 @@ contains
     
                if ( l_precession .and. l==1 .and. m==1 ) then
                   PrecTor_loc=precession_fac*po*oek*oek*sin(prec_angle)*  &
-                  &           cmplx(-sin(oek*time),cos(oek*time),kind=cp)
+                  &           cmplx(sin(oek*time),-cos(oek*time),kind=cp)
                else
                   PrecTor_loc=zero
                end if
-               dzdt(lm)=CorTor_loc+AdvTor_loc+PrecTor_loc
+               dzdt(lm)=CorTor_loc+AdvTor_loc!+PrecTor_loc
                ! until here
     
                if ( lRmsCalc ) then
