@@ -38,6 +38,14 @@ Dimensionless control parameters
   .. math::
      Pm = \frac{\nu}{\lambda}
 
+* **po** (default :f:var:`po=0.0 <po>`) is a real. This is the Poincaré number expressed by
+
+  .. math::
+     Po = \frac{\Omega_p}{\Omega}
+
+* **prec_angle** (default :f:var:`prec_angle=23.5 <prec_angle>`) is a real. This is the angle between the precession and the rotation axes expressed in degrees.
+
+
 * **radratio** (default :f:var:`radratio=0.35 <radratio>`) is a real. This is the ratio of the inner core radius :math:`r_i` to the outer core radius :math:`r_o`:
 
   .. math::
