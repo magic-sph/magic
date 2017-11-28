@@ -900,8 +900,13 @@ class Surf:
                 rr2D[i, :] = self.gr.radius
                 th2D[i, :] = self.gr.colatitude[i]
             s2D = rr2D * np.sin(th2D)
-            norm = self.gr.radius[0]**2/self.gr.ek
-            data = (self.gr.vphi*s2D+1./self.gr.ek*s2D**2)/norm
+            if self.gr.ek > 0:                                    # Outer boundary rotating
+                norm = self.gr.radius[0]**2/self.gr.ek
+                data = (self.gr.vphi*s2D+1./self.gr.ek*s2D**2)/norm
+            else:                                                # Outer boundary non-rotating, ek = -1
+                norm = self.gr.omega_ic1*self.gr.radius[-1]**2
+                data = (self.gr.vphi*s2D)/norm
+
         elif field in ('Cr', 'cr'):
             if hasattr(self.gr, 'strat'):
                 temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
