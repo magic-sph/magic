@@ -66,6 +66,7 @@ module RMS
    real(cp), public, allocatable :: Geo2hInt(:,:)
    real(cp), public, allocatable :: Mag2hInt(:,:)
    real(cp), public, allocatable :: Arc2hInt(:,:)
+   real(cp), public, allocatable :: ArcMag2hInt(:,:)
    real(cp), public, allocatable :: CIA2hInt(:,:)
    real(cp), public, allocatable :: CLF2hInt(:,:)
    real(cp), public, allocatable :: PLF2hInt(:,:)
@@ -81,6 +82,7 @@ module RMS
    real(cp), allocatable :: GeoRmsL_TA(:), GeoRmsL_SD(:), GeoRmsSD(:)
    real(cp), allocatable :: MagRmsL_TA(:), MagRmsL_SD(:), MagRmsSD(:)
    real(cp), allocatable :: ArcRmsL_TA(:), ArcRmsL_SD(:), ArcRmsSD(:)
+   real(cp), allocatable :: ArcMagRmsL_TA(:), ArcMagRmsL_SD(:), ArcMagRmsSD(:)
    real(cp), allocatable :: CIARmsL_TA(:), CIARmsL_SD(:), CIARmsSD(:)
    real(cp), allocatable :: CLFRmsL_TA(:), CLFRmsL_SD(:), CLFRmsSD(:)
    real(cp), allocatable :: PLFRmsL_TA(:), PLFRmsL_SD(:), PLFRmsSD(:)
@@ -129,10 +131,11 @@ contains
       allocate( Geo2hInt(0:l_max,n_r_max) )
       allocate( Mag2hInt(0:l_max,n_r_max) )
       allocate( Arc2hInt(0:l_max,n_r_max) )
+      allocate( ArcMag2hInt(0:l_max,n_r_max) )
       allocate( CIA2hInt(0:l_max,n_r_max) )
       allocate( CLF2hInt(0:l_max,n_r_max) )
       allocate( PLF2hInt(0:l_max,n_r_max) )
-      bytes_allocated = bytes_allocated+ 11*(l_max+1)*n_r_max*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+ 12*(l_max+1)*n_r_max*SIZEOF_DEF_REAL
 
       allocate( dtVRmsL_TA(0:l_max), dtVRmsL_SD(0:l_max), dtVRmsSD(0:l_max) )
       allocate( CorRmsL_TA(0:l_max), CorRmsL_SD(0:l_max), CorRmsSD(0:l_max) )
@@ -144,10 +147,11 @@ contains
       allocate( GeoRmsL_TA(0:l_max), GeoRmsL_SD(0:l_max), GeoRmsSD(0:l_max) )
       allocate( MagRmsL_TA(0:l_max), MagRmsL_SD(0:l_max), MagRmsSD(0:l_max) )
       allocate( ArcRmsL_TA(0:l_max), ArcRmsL_SD(0:l_max), ArcRmsSD(0:l_max) )
+      allocate( ArcMagRmsL_TA(0:l_max),ArcMagRmsL_SD(0:l_max),ArcMagRmsSD(0:l_max) )
       allocate( CIARmsL_TA(0:l_max), CIARmsL_SD(0:l_max), CIARmsSD(0:l_max) )
       allocate( CLFRmsL_TA(0:l_max), CLFRmsL_SD(0:l_max), CLFRmsSD(0:l_max) )
       allocate( PLFRmsL_TA(0:l_max), PLFRmsL_SD(0:l_max), PLFRmsSD(0:l_max) )
-      bytes_allocated = bytes_allocated+ 39*(l_max+1)*SIZEOF_DEF_REAL
+      bytes_allocated = bytes_allocated+ 42*(l_max+1)*SIZEOF_DEF_REAL
 
       if ( .not. l_finite_diff ) then
          allocate ( type_cheb_odd :: rscheme_RMS )
@@ -178,7 +182,7 @@ contains
       deallocate( Adv2hInt, Cor2hInt, LF2hInt )
       deallocate( Buo2hInt, Pre2hInt, Geo2hInt)
       deallocate( Mag2hInt, Arc2hInt, CIA2hInt)
-      deallocate( CLF2hInt, PLF2hInt)
+      deallocate( CLF2hInt, PLF2hInt, ArcMag2hInt)
       deallocate( dtVRmsL_TA, dtVRmsL_SD, dtVRmsSD )
       deallocate( CorRmsL_TA, CorRmsL_SD, CorRmsSD )
       deallocate( LFRmsL_TA, LFRmsL_SD, LFRmsSD )
@@ -188,6 +192,7 @@ contains
       deallocate( PreRmsL_TA, PreRmsL_SD, PreRmsSD )
       deallocate( GeoRmsL_TA, GeoRmsL_SD, GeoRmsSD )
       deallocate( MagRmsL_TA, MagRmsL_SD, MagRmsSD )
+      deallocate( ArcMagRmsL_TA, ArcMagRmsL_SD, ArcMagRmsSD )
       deallocate( ArcRmsL_TA, ArcRmsL_SD, ArcRmsSD )
       deallocate( CIARmsL_TA, CIARmsL_SD, CIARmsSD )
       deallocate( CLFRmsL_TA, CLFRmsL_SD, CLFRmsSD )
@@ -230,17 +235,18 @@ contains
 
       do nR=1,n_r_max
          do l=0,l_max
-            Adv2hInt(l,nR)  =0.0_cp
-            Cor2hInt(l,nR)  =0.0_cp
-            LF2hInt(l,nR)   =0.0_cp
-            Buo2hInt(l,nR)  =0.0_cp
-            Pre2hInt(l,nR)  =0.0_cp
-            Geo2hInt(l,nR)  =0.0_cp
-            Mag2hInt(l,nR)  =0.0_cp
-            Arc2hInt(l,nR)  =0.0_cp
-            CIA2hInt(l,nR)  =0.0_cp
-            CLF2hInt(l,nR)  =0.0_cp
-            PLF2hInt(l,nR)  =0.0_cp
+            Adv2hInt(l,nR)   =0.0_cp
+            Cor2hInt(l,nR)   =0.0_cp
+            LF2hInt(l,nR)    =0.0_cp
+            Buo2hInt(l,nR)   =0.0_cp
+            Pre2hInt(l,nR)   =0.0_cp
+            Geo2hInt(l,nR)   =0.0_cp
+            Mag2hInt(l,nR)   =0.0_cp
+            Arc2hInt(l,nR)   =0.0_cp
+            ArcMag2hInt(l,nR)=0.0_cp
+            CIA2hInt(l,nR)   =0.0_cp
+            CLF2hInt(l,nR)   =0.0_cp
+            PLF2hInt(l,nR)   =0.0_cp
          end do
       end do
       do nR=1,n_r_max
@@ -405,6 +411,7 @@ contains
       real(cp) :: GeoRms,GeoRmsL
       real(cp) :: MagRms,MagRmsL
       real(cp) :: ArcRms,ArcRmsL
+      real(cp) :: ArcMagRms,ArcMagRmsL
       real(cp) :: CIARms,CIARmsL
       real(cp) :: CLFRms,CLFRmsL
       real(cp) :: PLFRms,PLFRmsL
@@ -491,6 +498,8 @@ contains
            & Mag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & Arc2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
+           & ArcMag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
            & CIA2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
       call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
@@ -659,7 +668,23 @@ contains
          end if
          PLFRms=sqrt(PLFRms/volC)
 
-         !-- Archimedian balance:
+         !-- Buoyancy/Pressure/Coriolis/Lorentz balance:
+         ArcMagRms=0.0_cp
+         if ( l_conv_nl ) then
+            do l=0,l_max
+               do nR=1,n_r_max
+                  Rms(nR)=ArcMag2hInt(l,nR)
+               end do
+               ArcMagRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
+               ArcMagRms =ArcMagRms+ArcMagRmsL
+               ArcMagRmsL=sqrt(ArcMagRmsL/volC)
+               call getMSD2(ArcMagRmsL_TA(l),ArcMagRmsL_SD(l),ArcMagRmsL, &
+                            nRMS_sets,timePassed,timeNorm)
+            end do
+         end if
+         ArcMagRms=sqrt(ArcMagRms/volC)
+
+         !-- Buoyancy/Pressure/Coriolis balance:
          ArcRms=0.0_cp
          if ( l_conv_nl ) then
             do l=0,l_max
@@ -730,11 +755,12 @@ contains
             open(newunit=n_dtvrms_file, file=dtvrms_file, &
             &    form='formatted', status='unknown', position='append')
          end if
-         write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,6ES14.6)')&
+         write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,7ES14.6)')&
          &    time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
          &    BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
          &    MagRms/(CorRms+PreRms+LFRms),                 &
-         &    ArcRms/(CorRms+PreRms+LFRms+BuoRms),          &
+         &    ArcRms/(CorRms+PreRms+BuoRms),                &
+         &    ArcMagRms/(CorRms+PreRms+LFRms+BuoRms),       &
          &    CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms), &
          &    CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
          if ( l_save_out) then
@@ -743,48 +769,50 @@ contains
 
          !-- RMS time averaged spectra
          do l=0,l_max
-            dtVRmsSD(l)=sqrt(dtVRmsL_SD(l)/timeNorm)
-            CorRmsSD(l)=sqrt(CorRmsL_SD(l)/timeNorm)
-            AdvRmsSD(l)=sqrt(AdvRmsL_SD(l)/timeNorm)
-            DifRmsSD(l)=sqrt(DifRmsL_SD(l)/timeNorm)
-            BuoRmsSD(l)=sqrt(BuoRmsL_SD(l)/timeNorm)
-            PreRmsSD(l)=sqrt(PreRmsL_SD(l)/timeNorm)
-            GeoRmsSD(l)=sqrt(GeoRmsL_SD(l)/timeNorm)
-            ArcRmsSD(l)=sqrt(ArcRmsL_SD(l)/timeNorm)
-            CIARmsSD(l)=sqrt(CIARmsL_SD(l)/timeNorm)
+            dtVRmsSD(l)   =sqrt(dtVRmsL_SD(l)/timeNorm)
+            CorRmsSD(l)   =sqrt(CorRmsL_SD(l)/timeNorm)
+            AdvRmsSD(l)   =sqrt(AdvRmsL_SD(l)/timeNorm)
+            DifRmsSD(l)   =sqrt(DifRmsL_SD(l)/timeNorm)
+            BuoRmsSD(l)   =sqrt(BuoRmsL_SD(l)/timeNorm)
+            PreRmsSD(l)   =sqrt(PreRmsL_SD(l)/timeNorm)
+            GeoRmsSD(l)   =sqrt(GeoRmsL_SD(l)/timeNorm)
+            ArcRmsSD(l)   =sqrt(ArcRmsL_SD(l)/timeNorm)
+            ArcMagRmsSD(l)=sqrt(ArcMagRmsL_SD(l)/timeNorm)
+            CIARmsSD(l)   =sqrt(CIARmsL_SD(l)/timeNorm)
             if ( l_mag_LF ) then
                LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
                MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
                CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
                PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
             end if 
-            dtVRmsL_TA(l)=max(dtVRmsL_TA(l),eps)
-            CorRmsL_TA(l)=max(CorRmsL_TA(l),eps)
-            LFRmsL_TA(l) =max(LFRmsL_TA(l),eps)
-            AdvRmsL_TA(l)=max(AdvRmsL_TA(l),eps)
-            DifRmsL_TA(l)=max(DifRmsL_TA(l),eps)
-            BuoRmsL_TA(l)=max(BuoRmsL_TA(l),eps)
-            PreRmsL_TA(l)=max(PreRmsL_TA(l),eps)
-            GeoRmsL_TA(l)=max(GeoRmsL_TA(l),eps)
-            MagRmsL_TA(l)=max(MagRmsL_TA(l),eps)
-            ArcRmsL_TA(l)=max(ArcRmsL_TA(l),eps)
-            CIARmsL_TA(l)=max(CIARmsL_TA(l),eps)
-            CLFRmsL_TA(l)=max(CLFRmsL_TA(l),eps)
-            PLFRmsL_TA(l)=max(PLFRmsL_TA(l),eps)
+            dtVRmsL_TA(l)   =max(dtVRmsL_TA(l),eps)
+            CorRmsL_TA(l)   =max(CorRmsL_TA(l),eps)
+            LFRmsL_TA(l)    =max(LFRmsL_TA(l),eps)
+            AdvRmsL_TA(l)   =max(AdvRmsL_TA(l),eps)
+            DifRmsL_TA(l)   =max(DifRmsL_TA(l),eps)
+            BuoRmsL_TA(l)   =max(BuoRmsL_TA(l),eps)
+            PreRmsL_TA(l)   =max(PreRmsL_TA(l),eps)
+            GeoRmsL_TA(l)   =max(GeoRmsL_TA(l),eps)
+            MagRmsL_TA(l)   =max(MagRmsL_TA(l),eps)
+            ArcRmsL_TA(l)   =max(ArcRmsL_TA(l),eps)
+            ArcMagRmsL_TA(l)=max(ArcMagRmsL_TA(l),eps)
+            CIARmsL_TA(l)   =max(CIARmsL_TA(l),eps)
+            CLFRmsL_TA(l)   =max(CLFRmsL_TA(l),eps)
+            PLFRmsL_TA(l)   =max(PLFRmsL_TA(l),eps)
          end do
 
          fileName='dtVrms_spec.'//tag
          open(newunit=fileHandle,file=fileName,form='formatted', &
          &    status='unknown')
          do l=0,l_max
-            write(fileHandle,'(1P,I4,26ES16.8)') l+1,                        &
+            write(fileHandle,'(1P,I4,28ES16.8)') l+1,                        &
             &     dtVRmsL_TA(l),CorRmsL_TA(l),LFRmsL_TA(l),AdvRmsL_TA(l),    &
             &     DifRmsL_TA(l),BuoRmsL_TA(l),PreRmsL_TA(l),GeoRmsL_TA(l),   &
-            &     MagRmsL_TA(l),ArcRmsL_TA(l),CLFRmsL_TA(l),PLFRmsL_TA(l),   &
-            &     CIARmsL_TA(l),dtVRmsSD(l),CorRmsSD(l),LFRmsSD(l),          &
-            &     AdvRmsSD(l),DifRmsSD(l),BuoRmsSD(l),PreRmsSD(l),           &
-            &     GeoRmsSD(l),MagRmsSD(l),ArcRmsSD(l),CLFRmsSD(l),           &
-            &     PLFRmsSD(l),CIARmsSD(l)
+            &     MagRmsL_TA(l),ArcRmsL_TA(l),ArcMagRmsL_TA(l),CLFRmsL_TA(l),&
+            &     PLFRmsL_TA(l),CIARmsL_TA(l),dtVRmsSD(l),CorRmsSD(l),       &
+            &     LFRmsSD(l),AdvRmsSD(l),DifRmsSD(l),BuoRmsSD(l),PreRmsSD(l),&
+            &     GeoRmsSD(l),MagRmsSD(l),ArcRmsSD(l),ArcMagRmsSD(l),        &
+            &     CLFRmsSD(l),PLFRmsSD(l),CIARmsSD(l)
          end do
          close(fileHandle)
     

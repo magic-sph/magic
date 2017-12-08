@@ -22,7 +22,6 @@ contains
 
    subroutine init_shtns()
 
-      integer :: nlm
       integer :: norm
 
       if ( rank == 0 ) then

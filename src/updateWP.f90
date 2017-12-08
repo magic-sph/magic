@@ -163,7 +163,6 @@ contains
 
       if ( .not. l_update_v ) return
 
-      
       nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
       sizeLMB2(1:,1:) => lo_sub_map%sizeLMB2
       lm22lm(1:,1:,1:) => lo_sub_map%lm22lm
