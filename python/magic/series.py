@@ -98,7 +98,10 @@ class MagicTs(MagicSetup):
                         else: # Remove first line, that is already here
                             data = np.vstack((data, datanew[1:,:]))
                     else: # If the number of columns has changed
-                        if self.field in ('AM', 'dtVrms', 'power', 'dtBrms'):
+                        if self.field == 'dtVrms':
+                            data = np.insert(data, 10, 0., axis=1)
+                            data = np.vstack((data, datanew))
+                        elif self.field in ('AM', 'power', 'dtBrms'):
                             data = np.vstack((data, datanew[:, 0:ncolRef]))
                         else: # Remove first line that is already here
                             data = np.vstack((data, datanew[1:, 0:ncolRef]))
@@ -150,7 +153,10 @@ class MagicTs(MagicSetup):
                             if self.field in ('power'):
                                 data = np.vstack((data, datanew[:, (0,1,3,4,5,6,
                                                                     7,8,9,10)]))
-                            elif self.field in ('AM', 'dtVrms', 'dtBrms'):
+                            elif self.field == 'dtVrms':
+                                data = np.insert(data, 10, 0., axis=1)
+                                data = np.vstack((data, datanew))
+                            elif self.field in ('AM', 'dtBrms'):
                                 data = np.vstack((data, datanew[:, 0:ncolRef]))
                             else: # Remove first line that is already here
                                 data = np.vstack((data, datanew[1:, 0:ncolRef]))
@@ -329,10 +335,19 @@ class MagicTs(MagicSetup):
             self.PreRms = data[:, 7]
             self.geos = data[:, 8] # geostrophic balance
             self.mageos = data[:, 9] # magnetostrophic balance
-            self.arc = data[:, 10] # archimedean balance
-            self.corLor = data[:, 11] # Coriolis/Lorentz
-            self.preLor = data[:, 12] # Pressure/Lorentz
-            self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
+            try:
+                self.arc    = data[:, 10] # Coriolis/Pressure/Buoyancy
+                self.arcMag = data[:, 11] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archmedean
+            except IndexError:
+                self.arcMag = data[:, 10] # Coriolis/Pressure/Buoyancy/Lorentz
+                self.corLor = data[:, 11] # Coriolis/Lorentz
+                self.preLor = data[:, 12] # Pressure/Lorentz
+                self.cia = data[:, 13] # Coriolis/Inertia/Archmedean
+                self.arc = np.zeros_like(self.geos)
+
         elif self.field in ('dtBrms'):
             self.time = data[:, 0]
             self.dtBpolRms = data[:, 1]
@@ -589,6 +604,7 @@ class MagicTs(MagicSetup):
             ax.semilogy(self.time, self.geos, label='Geostrophic balance')
             ax.semilogy(self.time, self.mageos, label='Magnetostrophic')
             ax.semilogy(self.time, self.arc, label='Archimedean')
+            ax.semilogy(self.time, self.arcMag, label='Archimedean+Lorentz')
             ax.semilogy(self.time, self.corLor, label='Coriolis/Lorentz')
             ax.semilogy(self.time, self.preLor, label='Pressure/Lorentz')
             ax.legend(loc='best', frameon=False)

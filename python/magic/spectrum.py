@@ -146,20 +146,46 @@ class MagicSpectrum(MagicSetup):
             self.PreRms = data[:, 7]
             self.geos = data[:, 8] # geostrophic balance
             self.mageos = data[:, 9] # magnetostrophic balance
-            self.arc = data[:, 10] # archimedean balance
-            self.corLor = data[:, 11] # Coriolis/Lorentz
-            self.preLor = data[:, 12] # Pressure/Lorentz
-            self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
-            self.dtVRms_SD = data[:, 14]
-            self.CorRms_SD = data[:, 15]
-            self.LFRms_SD = data[:, 16]
-            self.AdvRms_SD = data[:, 17]
-            self.DifRms_SD = data[:, 18]
-            self.BuoRms_SD = data[:, 19]
-            self.PreRms_SD = data[:, 20]
-            self.geos_SD = data[:, 21]
-            self.mageos_SD = data[:, 22]
-            self.arc_SD = data[:, 23]
+            try:
+                self.arc = data[:, 10] # Pressure/Coriolis/Buoyancy
+                self.arcMag = data[:, 11] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 12] # Coriolis/Lorentz
+                self.preLor = data[:, 13] # Pressure/Lorentz
+                self.cia = data[:, 14] # Coriolis/Inertia/Archimedean
+                self.dtVRms_SD = data[:, 15]
+                self.CorRms_SD = data[:, 16]
+                self.LFRms_SD = data[:, 17]
+                self.AdvRms_SD = data[:, 18]
+                self.DifRms_SD = data[:, 19]
+                self.BuoRms_SD = data[:, 20]
+                self.PreRms_SD = data[:, 21]
+                self.geos_SD = data[:, 22]
+                self.mageos_SD = data[:, 23]
+                self.arc_SD = data[:, 24]
+                self.arcMag_SD = data[:, 25]
+                self.corLor_SD = data[:, 26]
+                self.preLor_SD = data[:, 27]
+                self.cia_SD = data[:, 28]
+            except IndexError:
+                self.arcMag = data[:, 10] # Pressure/Coriolis/Lorentz/Buoyancy
+                self.corLor = data[:, 11] # Coriolis/Lorentz
+                self.preLor = data[:, 12] # Pressure/Lorentz
+                self.cia = data[:, 13] # Coriolis/Inertia/Archimedean
+                self.dtVRms_SD = data[:, 14]
+                self.CorRms_SD = data[:, 15]
+                self.LFRms_SD = data[:, 16]
+                self.AdvRms_SD = data[:, 17]
+                self.DifRms_SD = data[:, 18]
+                self.BuoRms_SD = data[:, 19]
+                self.PreRms_SD = data[:, 20]
+                self.geos_SD = data[:, 21]
+                self.mageos_SD = data[:, 22]
+                self.arc_SD = data[:, 23]
+                self.corLor_SD = data[:, 24]
+                self.preLor_SD = data[:, 25]
+                self.cia_SD = data[:, 26]
+                self.arc = np.zeros_like(self.cia)
+                self.arc_SD = np.zeros_like(self.cia)
 
         if iplot:
             self.plot()
