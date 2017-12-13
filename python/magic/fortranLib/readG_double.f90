@@ -156,29 +156,29 @@ contains
    
       !rearanging hemispherical data
       do i=1,nr
-         dummy = entropy(:,:,i)
+         dummy(:,:) = entropy(:,:,i)
          do j=1,nt/2
             entropy(:,j,i)=dummy(:,2*(j-1)+1)
             entropy(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
          end do
-         dummy = vr(:,:,i)
+         dummy(:,:) = vr(:,:,i)
          do j=1,nt/2
             vr(:,j,i)=dummy(:,2*(j-1)+1)
             vr(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
          end do
-         dummy = vt(:,:,i)
+         dummy(:,:) = vt(:,:,i)
          do j=1,nt/2
             vt(:,j,i)=dummy(:,2*(j-1)+1)
             vt(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
          end do
-         dummy = vp(:,:,i)
+         dummy(:,:) = vp(:,:,i)
          do j=1,nt/2
             vp(:,j,i)=dummy(:,2*(j-1)+1)
             vp(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
          end do
          if ( version=='Graphout_Version_11' .or. version=='Graphout_Version_12'&
               .or. version=='Graphout_Version_5' .or. version=='Graphout_Version_6' ) then
-            dummy = xi(:,:,i)
+            dummy(:,:) = xi(:,:,i)
             do j=1,nt/2
                xi(:,j,i)=dummy(:,2*(j-1)+1)
                xi(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
@@ -186,24 +186,24 @@ contains
          end if
          if ( version=='Graphout_Version_10' .or. version=='Graphout_Version_8'&
             & .or. version=='Graphout_Version_12' .or. version=='Graphout_Version_6' ) then
-            dummy = pre(:,:,i)
+            dummy(:,:) = pre(:,:,i)
             do j=1,nt/2
                pre(:,j,i)=dummy(:,2*(j-1)+1)
                pre(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
             end do
          end if
          if ( prmag /= 0 ) then
-            dummy = Br(:,:,i)
+            dummy(:,:) = Br(:,:,i)
             do j=1,nt/2
                Br(:,j,i)=dummy(:,2*(j-1)+1)
                Br(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
             end do
-            dummy = Bt(:,:,i)
+            dummy(:,:) = Bt(:,:,i)
             do j=1,nt/2
                Bt(:,j,i)=dummy(:,2*(j-1)+1)
                Bt(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
             end do
-            dummy = Bp(:,:,i)
+            dummy(:,:) = Bp(:,:,i)
             do j=1,nt/2
                Bp(:,j,i)=dummy(:,2*(j-1)+1)
                Bp(:,j+nt/2,i)=dummy(:,nt-1-2*(j-1)+1)
@@ -213,7 +213,7 @@ contains
    
       deallocate(dummy)
    
-      radius = radius/(1.-radratio)
+      radius(:) = radius(:)/(1.-radratio)
    
    end subroutine readG
 !----------------------------------------------------------------------------
