@@ -100,6 +100,7 @@ class MagicTs(MagicSetup):
                     else: # If the number of columns has changed
                         if self.field == 'dtVrms':
                             data = np.insert(data, 10, 0., axis=1)
+                            nColRef += 1
                             data = np.vstack((data, datanew))
                         elif self.field in ('AM', 'power', 'dtBrms'):
                             data = np.vstack((data, datanew[:, 0:ncolRef]))
@@ -155,6 +156,7 @@ class MagicTs(MagicSetup):
                                                                     7,8,9,10)]))
                             elif self.field == 'dtVrms':
                                 data = np.insert(data, 10, 0., axis=1)
+                                ncolRef += 1
                                 data = np.vstack((data, datanew))
                             elif self.field in ('AM', 'dtBrms'):
                                 data = np.vstack((data, datanew[:, 0:ncolRef]))
