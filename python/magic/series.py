@@ -238,6 +238,8 @@ class MagicTs(MagicSetup):
             self.dip_cmb = data[:, 6]
             self.dlV = data[:, 7]
             self.dmV = data[:, 8]
+            self.lvDiss = data[:, 11]
+            self.lbDiss = data[:, 12]
             self.dlB = data[:, 13]
             self.dmB = data[:, 14]
             self.els_cmb = data[:, 15]
@@ -817,6 +819,10 @@ class AvgField:
                                      ts2.dmV[ind:], std=True)
             self.dlVc, self.dlVc_std = avgField(ts2.time[ind:],
                                        ts2.dlVc[ind:], std=True)
+            self.lvDiss, self.lvDiss_std = avgField(ts2.time[ind:],
+                                       ts2.lvDiss[ind:], std=True)
+            self.lbDiss, self.lbDiss_std = avgField(ts2.time[ind:],
+                                       ts2.lbDiss[ind:], std=True)
 
         else:
             self.dip = avgField(ts2.time[ind:], ts2.dipolarity[ind:])
@@ -830,6 +836,8 @@ class AvgField:
             self.dlV = avgField(ts2.time[ind:], ts2.dlV[ind:])
             self.dmV = avgField(ts2.time[ind:], ts2.dmV[ind:])
             self.dlVc = avgField(ts2.time[ind:], ts2.dlVc[ind:])
+            self.lvDiss = avgField(ts2.time[ind:], ts2.lvDiss[ind:])
+            self.lbDiss = avgField(ts2.time[ind:], ts2.lbDiss[ind:])
 
         # heat.TAG file
         if len(glob.glob('heat.*')) > 0:
