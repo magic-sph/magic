@@ -58,6 +58,12 @@ hasf2py2 () {
   echo $f2pyExec
 }
 
+whichPython () {
+  local cmd=`python -c 'import sys; print(sys.version_info[0])'`
+  local pythonVersion=$cmd;
+  echo $pythonVersion
+}
+
 hasf2py3 () {
   if hash f2py3 2>/dev/null; then
     local f2pyExec="f2py3";
@@ -111,15 +117,20 @@ whichf2pycompiler () {
 # Check whether you can build the fortran libraries
 buildLibs () {
 
+  local pythonVersion=$(whichPython)
   local f2py2Exec=$(hasf2py2)
   local f2py3Exec=$(hasf2py3)
 
   if [ $f2py2Exec != "NotFound" ]; then
     if [ $f2py3Exec != "NotFound" ]; then
-      echo "f2py is installed for both python2 and python3"
-      echo "f2py2 is selected"
+      if [ $pythonVersion  == "3" ]; then
+	local f2pyExec=$f2py3Exec
+      else
+        local f2pyExec=$f2py2Exec
+      fi
+    else
+      local f2pyExec=$f2py2Exec
     fi
-    local f2pyExec=$f2py2Exec
   else
     if [ $f2py3Exec == "NotFound" ]; then
       echo "f2py was not found"
