@@ -756,7 +756,7 @@ contains
             &    form='formatted', status='unknown', position='append')
          end if
          write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,7ES14.6)')&
-         &    time, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
+         &    time*tScale, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
          &    BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
          &    MagRms/(CorRms+PreRms+LFRms),                 &
          &    ArcRms/(CorRms+PreRms+BuoRms),                &
@@ -1091,9 +1091,9 @@ contains
             open(newunit=n_dtbrms_file, file=dtbrms_file,  &
             &    form='formatted', status='unknown', position='append')
          end if
-         write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')            &
-              time, dtBPolRms, dtBTorRms, PdynRms, TdynRms,      &
-              PdifRms, TdifRms, TomeRms/TdynRms,                 &
+         write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')              &
+              time*tScale, dtBPolRms, dtBTorRms, PdynRms, TdynRms, &
+              PdifRms, TdifRms, TomeRms/TdynRms,                   &
               TomeAsRms/TdynRms,  DdynRms,DdynAsRms
          if ( l_save_out) close(n_dtbrms_file)
 
