@@ -514,7 +514,7 @@ contains
                   eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtE    =(eTot-eTotOld)/timePassedLog
                   dtEint =dtEint+timePassedLog*(eTot-eTotOld)
-                  write(n_dtE_file,'(ES20.12,3ES16.6)') time,dtE,         &
+                  write(n_dtE_file,'(ES20.12,3ES16.6)') timeScaled,dtE,         &
                        &                    dtEint/timeNormLog,dtE/eTot
                   if ( l_save_out ) close(n_dtE_file)
                else
@@ -870,7 +870,7 @@ contains
                &    position='append')
             end if
             write(n_par_file,'(ES20.12,18ES16.8)')  &
-                 &                   time,          &! 1) time
+                 &                   timeScaled,    &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number 
                  &                     El,          &! 3) Elsasser number
                  &                    Rol,          &! 4) local Rossby number
