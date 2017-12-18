@@ -261,11 +261,11 @@ contains
                &    position='append')
             end if
             write(n_driftVD_file,'(1P,2X,ES20.12,24ES12.4)') &
-                 time, (zvals_on_rank0(ilm,1),ilm=1,4),   &
+                 time*tScale, (zvals_on_rank0(ilm,1),ilm=1,4),   &
                  (zvals_on_rank0(ilm,2),ilm=1,4),         &
                  (zvals_on_rank0(ilm,3),ilm=1,4)
             write(n_driftVQ_file,'(1P,2X,ES20.12,24ES12.4)') &
-                 time, (zvals_on_rank0(ilm,1),ilm=5,8),   &
+                 time*tScale, (zvals_on_rank0(ilm,1),ilm=5,8),   &
                  (zvals_on_rank0(ilm,2),ilm=5,8),         &
                  (zvals_on_rank0(ilm,3),ilm=5,8)
             if ( l_save_out ) then
@@ -288,10 +288,10 @@ contains
                   &    position='append')
                end if
                write(n_driftBD_file,'(1P,2X,ES20.12,16ES12.4)') &
-                    time, (bvals_on_rank0(ilm,1),ilm=5,8),   &
+                    time*tScale, (bvals_on_rank0(ilm,1),ilm=5,8),   &
                     (bvals_on_rank0(ilm,2),ilm=5,8)
                write(n_driftBQ_file,'(1P,2X,ES20.12,16ES12.4)') &
-                    time, (bvals_on_rank0(ilm,1),ilm=1,4),   &
+                    time*tScale, (bvals_on_rank0(ilm,1),ilm=1,4),   &
                     (bvals_on_rank0(ilm,2),ilm=1,4)
                if ( l_save_out ) then
                   close(n_driftBD_file)
@@ -424,7 +424,7 @@ contains
                &    position='append')
             end if
             write(n_inerP_file,'(1P,2X,ES20.12,21ES12.4)') &
-                 time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
+                 time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             if ( l_save_out ) close(n_inerP_file)
          end if
     
@@ -437,7 +437,7 @@ contains
                &    position='append')
             end if
             write(n_inerT_file,'(1P,2X,ES20.12,21ES12.4)') &
-                 time, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
+                 time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
             if ( l_save_out ) close(n_inerT_file)
          end if
     
