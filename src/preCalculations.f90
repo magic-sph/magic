@@ -75,6 +75,9 @@ contains
       else if ( n_tScale == 2 ) then
          !----- Thermal time scale:
          tScale=one/pr
+      else if ( n_tScale == 3 ) then
+         !----- Rotational time scale:
+         tScale=one/ek  ! or ekScaled ? (not defined yet...)
       end if
       if ( n_lScale == 0 ) then
          !----- Outer Core:
