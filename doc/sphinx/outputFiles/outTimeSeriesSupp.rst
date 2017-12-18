@@ -624,7 +624,7 @@ calculated by the subroutine :f:subr:`outPerpPar <outpar_mod/outperppar()>`.
    +---------------+-----------------------------------------------------------------+
    | No. of column | Contents                                                        |
    +===============+=================================================================+
-   | 1             | radial level                                                    |
+   | 1             | time                                                            |
    +---------------+-----------------------------------------------------------------+
    | 2             | Total kinetic energy perpendicular to the rotation axis:        |
    |               | :math:`\frac{1}{2}\langle u_s^2+u_\phi^2 \rangle_V`             |
