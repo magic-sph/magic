@@ -52,13 +52,15 @@ Default scales
 
 * **n_tScale** (default :f:var:`n_tScale=0 <n_tscale>`) is an integer, which determines the time scaling
 
-  +-------------+---------------------------+
-  | n_tScale=0  | Use viscous time scale.   |
-  +-------------+---------------------------+
-  | n_tScale=1  | Use magnetic time scale.  |
-  +-------------+---------------------------+
-  | n_tScale=2  | Use thermal time scale.   |
-  +-------------+---------------------------+
+  +-------------+----------------------------+---------------------+
+  | n_tScale=0  | Use viscous time scale.    | :math:`d^2/\nu`     |
+  +-------------+----------------------------+---------------------+
+  | n_tScale=1  | Use magnetic time scale.   | :math:`d^2/\eta`    |
+  +-------------+----------------------------+---------------------+
+  | n_tScale=2  | Use thermal time scale.    | :math:`d^2/\kappa`  |
+  +-------------+----------------------------+---------------------+
+  | n_tScale=3  | Use rotational time scale. | :math:`\Omega^{-1}` |
+  +-------------+----------------------------+---------------------+
 
 * **n_lScale** (default :f:var:`n_lScale=0 <n_lscale>`) is an integer which determines the reference length scale.
 
