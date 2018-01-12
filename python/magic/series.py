@@ -764,6 +764,9 @@ class AvgField:
         mask = np.where(abs(ts.time-tstart) == min(abs(ts.time-tstart)), 1, 0)
         ind = np.nonzero(mask)[0][0]
 
+        ## raynaud
+        self.integration_time = ts.time[ind:][-1]-ts.time[ind:][0]
+
         if self.std:
             self.ekin_pol_avg, self.ekin_pol_std = avgField(ts.time[ind:],
                                                    ts.ekin_pol[ind:], std=True)
@@ -857,6 +860,9 @@ class AvgField:
                     self.nuss, self.nuss_std = avgField(ts3.time[ind:], nuss[ind:], std=True)
                 else:
                     self.nuss = avgField(ts3.time[ind:], nuss[ind:])
+                    ## raynaud
+                    self.nubot = avgField(ts3.time[ind:],ts3.botnuss[ind:])
+                    self.nutop = avgField(ts3.time[ind:],ts3.topnuss[ind:])
 
         if self.mode == 0 or self.mode == 8:
             # Emag OC file

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import re
 import os
-
+import numpy as np
 
 class MagicSetup:
     """
@@ -72,6 +72,28 @@ class MagicSetup:
         if logFile.match(nml):
             self.tag = logFile.search(nml).groups()[0]
 
+        try:
+            # ##############################################
+            # Anelastic Benchmark, Jones et al, 2011, Icarus
+            # ##############################################
+            self.cylinder =  np.arcsin(self.radratio)
+            self.WO = ((self.radratio + 1.)
+                       /((self.radratio
+                          *np.exp(self.strat/self.polind) +1.)))
+            self.WI = (self.radratio + 1. - self.WO)/self.radratio
+            self.c0 = (2*self.WO - self.radratio -1.)/(1 - self.radratio)
+            self.c1 = (1+self.radratio)*(1-self.WO)/(1-self.radratio)**2
+            if self.n_lScale==0:
+                self.R_out = 1./(1. - self.radratio)
+                self.R_inn = self.R_out - 1.
+                self.vol = 4./3.*np.pi*(
+                    self.R_out**3 - self.R_inn**3)
+
+        except AttributeError as err:
+            ## may be not a "standard" anelastic run
+            ## check default values or look at the log.TAG file
+            if not quiet:
+                print(err)
 
     #def __repr__(self):
         #st = 'Welcome in the run %s\n' % self.tag

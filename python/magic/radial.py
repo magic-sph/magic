@@ -28,7 +28,7 @@ class MagicRadial(MagicSetup):
     >>> print(rad.radius, rad.ekin_pol_axi) # print radius and poloidal energy
     """
 
-    def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None):
+    def __init__(self, datadir='.', field='eKin', iplot=True, tag=None, tags=None, normalize_radius=False):
         """
         :param datadir: working directory
         :type datadir: str
@@ -71,6 +71,8 @@ class MagicRadial(MagicSetup):
             self.name = 'perpParR'
         else:
             print('No corresponding radial profiles... Try again')
+
+        self.normalize_radius = normalize_radius
 
         if tags is None:
             if tag is not None:
@@ -195,6 +197,15 @@ class MagicRadial(MagicSetup):
                 self.dsdr = data[:, 6]
             except IndexError:
                 self.dsdr = np.zeros_like(self.radius)
+            try:
+                self.divkgradT = data[:, 7]
+            except IndexError:
+                self.divkgradT = np.zeros_like(self.radius)
+            try:
+                self.alpha0 = data[:, 8]
+            except IndexError:
+                self.alpha0 = np.zeros_like(self.radius)
+
         elif self.name == 'varDiff':
             self.radius = data[:, 0]
             self.conduc = data[:, 1]
@@ -284,6 +295,11 @@ class MagicRadial(MagicSetup):
         """
         Display the result when ``iplot=True``
         """
+        if self.normalize_radius:
+            x_axis = self.radius/self.radius[0]
+        else:
+            x_axis = self.radius
+
         if self.name == 'eKinR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -333,28 +349,28 @@ class MagicRadial(MagicSetup):
         elif self.name == 'anel':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.semilogy(self.radius, self.temp0, label='Temperature')
-            ax.semilogy(self.radius, self.rho0, label='Density')
+            ax.semilogy(x_axis, self.temp0, label='Temperature')
+            ax.semilogy(x_axis, self.rho0, label='Density')
             ax.set_ylabel('Reference state')
             ax.set_xlabel('Radius')
-            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.set_xlim(x_axis.min(), x_axis.max())
             ax.legend(loc='best', frameon=False)
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.radius, self.beta, label='beta')
-            ax.plot(self.radius, self.dbeta, label='dbeta/dr')
+            ax.plot(x_axis, self.beta, label='beta')
+            ax.plot(x_axis, self.dbeta, label='dbeta/dr')
             ax.set_xlabel('Radius')
             ax.set_ylabel('Derivatives of rho')
-            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.set_xlim(x_axis.min(), x_axis.max())
             ax.legend(loc='best', frameon=False)
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.radius, self.grav)
+            ax.plot(x_axis, self.grav)
             ax.set_xlabel('Radius')
-            ax.set_xlabel('Gravity')
-            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.set_ylabel('Gravity')
+            ax.set_xlim(x_axis.min(), x_axis.max())
         elif self.name == 'varDiff':
             fig = plt.figure()
             ax = fig.add_subplot(111)
