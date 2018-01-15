@@ -461,6 +461,18 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
+      else if ( index(interior_model,'PNS') /= 0 ) then
+         ! TO DO: from Michael Gabler
+         allocate( coeffDens(6), coeffTemp(6) )
+         coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
+            &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
+
+         coeffTemp = [1.02100249_cp,-0.60750867_cp,3.23371939_cp,   &
+            &         -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
+
       else if ( index(interior_model,'EARTH') /= 0 ) then
          DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
          ThExpNb=0.0566_cp ! Co = \alpha_O T_O
