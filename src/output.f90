@@ -870,7 +870,7 @@ contains
                &    position='append')
             end if
             write(n_par_file,'(ES20.12,18ES16.8)')  &
-                 &                   timeScaled,    &! 1) time
+                 &             timeScaled,          &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number 
                  &                     El,          &! 3) Elsasser number
                  &                    Rol,          &! 4) local Rossby number
