@@ -447,18 +447,18 @@ class MagicRadial(MagicSetup):
         elif self.name == 'parR':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.radius, self.rm)
-            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.plot(x_axis, self.rm)
+            ax.set_xlim(x_axis.min(), x_axis.max())
             ax.set_xlabel('Radius')
             ax.set_ylabel('Rm')
 
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.radius, self.rol, label='Rol')
-            ax.plot(self.radius, self.urol, label='u Rol')
+            ax.plot(x_axis, self.rol, label='Rol')
+            ax.plot(x_axis, self.urol, label='u Rol')
             ax.set_xlabel('Radius')
             ax.set_ylabel('Rol')
-            ax.set_xlim(self.radius.min(), self.radius.max())
+            ax.set_xlim(x_axis.min(), x_axis.max())
             ax.legend(loc='best', frameon=False)
         elif self.name == 'fluxesR':
             fig = plt.figure()
