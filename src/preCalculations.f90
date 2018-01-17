@@ -78,6 +78,9 @@ contains
       else if ( n_tScale == 3 ) then
          !----- Rotational time scale:
          tScale=one/ek  ! or ekScaled ? (not defined yet...)
+         if ( rank==0 ) then
+            print*, 'Warning: rotational timescale, be sure to set dtmax large enough !'
+         end if
       end if
       if ( n_lScale == 0 ) then
          !----- Outer Core:
