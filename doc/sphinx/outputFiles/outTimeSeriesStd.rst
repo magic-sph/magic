@@ -278,7 +278,7 @@ This file is written by the subroutine :f:subr:`output <output_mod/output()>`.
    +---------------+-----------------------------------------+ 
    | 14            | Magnetic length scale dlB               |
    +---------------+-----------------------------------------+ 
-   | 15            | Magnetic length scale dlB               |
+   | 15            | Magnetic length scale dmB               |
    +---------------+-----------------------------------------+ 
    | 16            | Elsasser number at CMB                  |
    +---------------+-----------------------------------------+ 
