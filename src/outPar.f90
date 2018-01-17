@@ -17,6 +17,7 @@ module outPar_mod
    use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
        &                          opr, kbots, ktops, ThExpNb
+   use num_param, only: eScale
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
        &                       rscheme_oc, orho1, dLalpha0,       &
@@ -370,7 +371,8 @@ contains
 
       if ( rank == 0 ) then
          do nR=1,n_r_max
-            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass))
+            ! Re must be independant of the timescale
+            ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass)/eScale)
             RoR(nR)=ReR(nR)*ek
             if ( dlVR(nR) /= 0.0_cp ) then
                RolR(nR)=RoR(nR)/dlVR(nR)

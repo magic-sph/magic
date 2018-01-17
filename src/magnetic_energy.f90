@@ -527,7 +527,8 @@ contains
          e_t_eas    =fac*e_t_eas
          e_dipole   =fac*e_dipole
          e_dipole_ax=fac*e_dipole_ax
-         elsAnel    =eScale*elsAnel
+         ! Elsasser must not change with scalings
+         !elsAnel    =eScale*elsAnel
 
          e_cmb          =fac*e_cmb
          e_dip_cmb      =fac*e_dip_cmb

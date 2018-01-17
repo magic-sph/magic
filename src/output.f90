@@ -11,7 +11,7 @@ module output_mod
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag,    &
        &                  n_r_cmb, n_r_icb
    use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
-   use num_param, only: tScale
+   use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
    use logic, only: l_average, l_mag, l_power, l_anel, l_mag_LF, lVerbose, &
@@ -802,9 +802,9 @@ contains
             !    performed for l_log=.true.
   
             !----- Getting the property parameters:
-            Re     = sqrt(two*e_kin/vol_oc)/sqrt(mass)
+            Re     = sqrt(two*e_kin/vol_oc/eScale)/sqrt(mass)
             if ( abs(e_kin_nas) <= 10.0_cp * epsilon(mass) ) e_kin_nas=0.0_cp
-            ReConv = sqrt(two*e_kin_nas/vol_oc)/sqrt(mass)
+            ReConv = sqrt(two*e_kin_nas/vol_oc/eScale)/sqrt(mass)
   
             if ( l_non_rot ) then
                Ro=0.0_cp
@@ -840,6 +840,8 @@ contains
             if ( l_mag .or. l_mag_LF ) then
                El   =elsAnel/vol_oc
                ElCmb=two*e_mag_cmb/surf_cmb/LFfac*sigma(n_r_cmb)*orho1(n_r_cmb)
+               ! Elsasser must not depend of timescale
+               ElCmb=ElCmb/eScale
             else
                El   =0.0_cp
                ElCmb=0.0_cp
@@ -870,7 +872,7 @@ contains
                &    position='append')
             end if
             write(n_par_file,'(ES20.12,18ES16.8)')  &
-                 &                   timeScaled,    &! 1) time
+                 &             timeScaled,          &! 1) time
                  &                     Rm,          &! 2) (magnetic) Reynolds number 
                  &                     El,          &! 3) Elsasser number
                  &                    Rol,          &! 4) local Rossby number
