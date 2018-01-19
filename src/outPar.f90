@@ -16,7 +16,7 @@ module outPar_mod
    use horizontal_data, only: gauss
    use fields, only: s_Rloc, ds_Rloc, p_Rloc, dp_Rloc
    use physical_parameters, only: ek, prmag, OhmLossFac, ViscHeatFac, &
-       &                          opr, kbots, ktops, ThExpNb
+       &                          opr, kbots, ktops, ThExpNb, ekScaled
    use num_param, only: eScale
    use constants, only: pi, mass, osq4pi, sq4pi, half, two, four
    use radial_functions, only: r, or2, sigma, rho0, kappa, temp0, &
@@ -373,7 +373,7 @@ contains
          do nR=1,n_r_max
             ! Re must be independant of the timescale
             ReR(nR)=sqrt(two*ekinR(nR)*or2(nR)/(4*pi*mass)/eScale)
-            RoR(nR)=ReR(nR)*ek
+            RoR(nR)=ReR(nR)*ekScaled
             if ( dlVR(nR) /= 0.0_cp ) then
                RolR(nR)=RoR(nR)/dlVR(nR)
             else

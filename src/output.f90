@@ -10,7 +10,7 @@ module output_mod
        &                       orho1, sigma
    use radial_data, only: nRstart, nRstop, nRstartMag, nRstopMag,    &
        &                  n_r_cmb, n_r_icb
-   use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac
+   use physical_parameters, only: opm,ek,ktopv,prmag,nVarCond,LFfac,ekScaled
    use num_param, only: tScale,eScale
    use blocking, only: st_map, lm2, lo_map
    use horizontal_data, only: dLh,hdif_B,dPl0Eq
@@ -810,8 +810,8 @@ contains
                Ro=0.0_cp
                RoConv=0.0_cp
             else
-               Ro=Re*ek
-               RoConv=ReConv*ek
+               Ro=Re*ekScaled
+               RoConv=ReConv*ekScaled
             end if
   
             if ( dlV /= 0.0_cp ) then
