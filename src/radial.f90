@@ -463,6 +463,7 @@ contains
 
       else if ( index(interior_model,'PNS') /= 0 ) then
          ! TO DO: from Michael Gabler
+         ! be careful to be consistent with radratio input
          allocate( coeffDens(6), coeffTemp(6) )
          coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
             &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
