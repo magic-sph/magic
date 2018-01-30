@@ -521,9 +521,18 @@ contains
          l_anel=.true.
       else if ( index(interior_model, 'MESA_5M_ZAMS') /= 0 ) then
          l_anel=.true.
-      else if ( index(interior_model, 'PNS') /= 0 ) then
+      else if ( index(interior_model, 'PNS_0V2S') /= 0 ) then
          ! Proto-Neutron Star interior model
+         ! at time 0.2s
          l_anel=.true.
+         radratio    = 0.46D0
+         r_cut_model = 1.0D0
+      else if ( index(interior_model, 'PNS_1S') /= 0 ) then
+         ! Proto-Neutron Star interior model
+         ! at time 1s
+         l_anel=.true.
+         radratio    = 0.60D0
+         r_cut_model = 1.0D0
       end if
 
       !-- If anelastic, the curl formulation is set to .false.

@@ -461,15 +461,24 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
-      else if ( index(interior_model,'PNS') /= 0 ) then
-         ! TO DO: from Michael Gabler
-         ! be careful to be consistent with radratio input
+      else if ( index(interior_model,'PNS_0V2S') /= 0 ) then
          allocate( coeffDens(6), coeffTemp(6) )
-         coeffDens = [1.01038678_cp,-0.17615484_cp,-1.50567127_cp,  &
-            &         -1.65738032_cp,4.20394427_cp,-1.87394994_cp]
+         coeffDens = [ 59.62268063_cp, -217.70124346_cp, &
+              375.50063468_cp, -373.12779855_cp, 203.17403157_cp, -46.46897763_cp]
 
-         coeffTemp = [1.02100249_cp,-0.60750867_cp,3.23371939_cp,   &
-            &         -12.80774142_cp,15.37629271_cp,-6.19288785_cp]
+         coeffTemp = [-1.97868071_cp,   47.94900753_cp, -138.94186903_cp,  &
+              176.44670046_cp, -109.98867268_cp,   27.51435739_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
+
+      else if ( index(interior_model,'PNS_1S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) )
+         coeffDens = [ 40.16045646_cp, -109.48920696_cp,  186.02134783_cp, &
+              -204.74056538_cp, 105.44630174_cp,  -16.39774328_cp]
+
+         coeffTemp = [ -20.1583557_cp, 160.49531633_cp, -412.24886308_cp, &
+              520.77920394_cp, -334.07999285_cp, 86.21287296_cp]
 
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
