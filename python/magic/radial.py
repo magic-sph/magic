@@ -403,7 +403,7 @@ class MagicRadial(MagicSetup):
             
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            axplot(self.radius, self.dLvisc, label='dLvisc')
+            ax.plot(self.radius, self.dLvisc, label='dLvisc')
             ax.set_xlabel('Radius')
             ax.set_ylabel(r'$d\ln\nu / dr$')
             ax.set_xlim(self.radius.min(), self.radius.max())
