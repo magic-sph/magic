@@ -250,16 +250,20 @@ Viscosity
 
 * **nVarVisc** (default :f:var:`nVarVisc=0 <nvarvisc>`) is an integer. This is used to change the radial-dependence of the viscosity:
 
-  +----------------+-------------------------------------------------------------------------+
-  | ``nVarVisc=0`` | Constant kinematic viscosity :math:`\nu`                                |
-  +----------------+-------------------------------------------------------------------------+
-  | ``nVarVisc=1`` | Constant dynamic viscosity, i.e.                                        |
-  |                |    .. math:: \nu =\frac{\tilde{\rho}_o}{\tilde{\rho}(r)}                |
-  +----------------+-------------------------------------------------------------------------+
-  | ``nVarVisc=2`` | Radial profile of the form:                                             |
-  |                |    .. math:: \nu=\left(\frac{\tilde{\rho}(r)}                           |
-  |                |              {\tilde{\rho}_i}\right)^{\alpha}                           |
-  +----------------+-------------------------------------------------------------------------+
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarVisc=0`` | Constant kinematic viscosity :math:`\nu`                                   |
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarVisc=1`` | Constant dynamic viscosity, i.e.                                           |
+  |                |    .. math:: \nu =\frac{\tilde{\rho}_o}{\tilde{\rho}(r)}                   |
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarVisc=2`` | Radial profile of the form:                                                |
+  |                |    .. math:: \nu=\left(\frac{\tilde{\rho}(r)}                              |
+  |                |              {\tilde{\rho}_i}\right)^{\alpha}                              |
+  +----------------+----------------------------------------------------------------------------+
+  | ``nVarVisc=3`` | Radial profile of the form:                                                |
+  |                |    .. math:: \nu= \left(\frac{\tilde{T}(r)}{\tilde{T}_o}\right)^2          |
+  |                |                   \left(\frac{\tilde{\rho}(r)}{\tilde{\rho}_o}\right)^{-2} |
+  +----------------+----------------------------------------------------------------------------+
 
   where :math:`\alpha` is an exponent set by the namelist input variable ``difExp``.
 
