@@ -1182,13 +1182,21 @@ contains
          dLvisc(:)=slopeVisc*(half*ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2&
          &         +one)/(half*ampVisc+(half*ampVisc-half)*tanh(slopeVisc*(r(:)-   &
          &         rStrat))+half)
-         
+
          ddLvisc(:)=-slopeVisc**2*(half*ampVisc-half)**2*(-tanh(slopeVisc*(r(:)- &
          &          rStrat))**2+one)**2/(half*ampVisc+(half*ampVisc-half)*       &
          &          tanh(slopeVisc*(r(:)-rStrat))+half)**2-2*slopeVisc**2*(half* &
          &          ampVisc-half)*(-tanh(slopeVisc*(r(:)-rStrat))**2+one)*tanh(  &
          &          slopeVisc*(r(:)-rStrat))/(half*ampVisc+(half*ampVisc-half)*  &
          &          tanh(slopeVisc*(r(:)-rStrat))+half)
+      else if ( nVarVisc == 5 ) then
+         ! Neutrino viscosity
+         ! Guilet et al, MNRAS 447, 3992-4003 (2015)
+         ! Eq. (10)
+         visc = temp0**2*rho0**(-2)
+         call get_dr(visc,dvisc,n_r_max,rscheme_oc)
+         dLvisc(:)=dvisc(:)/visc(:)
+         call get_dr(dLvisc,ddLvisc,n_r_max,rscheme_oc)
       end if
 
       if ( l_anelastic_liquid .or. l_non_adia ) then
