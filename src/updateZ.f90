@@ -9,14 +9,16 @@ module updateZ_mod
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: visc, or1, or2, rscheme_oc, dLvisc, beta, &
        &                       rho0, r_icb, r_cmb, r, beta, dbeta
-   use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek
+   use physical_parameters, only: kbotv, ktopv, LFfac, prec_angle, po, oek, &
+       &                          po_diff, diff_prec_angle
    use num_param, only: alpha, AMstart
    use torsional_oscillations, only: ddzASL
    use blocking, only: nLMBs,lo_sub_map,lo_map,st_map,st_sub_map, &
                      & lmStartB,lmStopB
    use horizontal_data, only: dLh, hdif_V
    use logic, only: l_rot_ma, l_rot_ic, l_SRMA, l_SRIC, l_z10mat, l_precession, &
-       &            l_correct_AMe, l_correct_AMz, l_update_v, l_TO, l_RMS
+       &            l_diff_prec, l_correct_AMe, l_correct_AMz, l_update_v, l_TO,&
+       &            l_RMS
    use RMS, only: DifTor2hInt, dtVTor2hInt
    use constants, only: c_lorentz_ma, c_lorentz_ic, c_dt_z10_ma, c_dt_z10_ic, &
        &                c_moi_ma, c_moi_ic, c_z10_omega_ma, c_z10_omega_ic,   &
@@ -177,7 +179,7 @@ contains
       complex(cp) :: corr_l1m1      ! correction factor for z(l=1,m=1)
       real(cp) :: r_E_2             ! =r**2
       real(cp) :: nomi              ! nominator for Z10 AM correction
-      real(cp) :: prec_fac
+      real(cp) :: prec_fac,diff_prec_fac
       integer :: l1m0,l1m1          ! position of (l=1,m=0) and (l=1,m=1) in lm.
       integer :: i                  ! counter
       logical :: l10
@@ -203,9 +205,15 @@ contains
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
-         prec_fac=0.0_cp
+         prec_fac = zero
       end if
-    
+
+      if (l_diff_prec) then
+         diff_prec_fac=two*sqrt(8.0_cp*pi*third)*oek*sin(diff_prec_angle)
+      else
+         diff_prec_fac=zero
+      end if
+
       if ( .not. l_update_v ) return
     
       nLMBs2(1:nLMBs) => lo_sub_map%nLMBs2
@@ -309,6 +317,8 @@ contains
                      tOmega_ma2=time+tShift_ma2
                      omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
                      &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
+                     if ( l_diff_prec ) omega_ma = omega_ma +           &
+                     &                             oek*(cos(diff_prec_angle) - 1)
                      rhs(1)=omega_ma
                   else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                      d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
@@ -323,6 +333,8 @@ contains
                      tOmega_ic2=time+tShift_ic2
                      omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
                      &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
+                     if ( l_diff_prec ) omega_ic = omega_ic +           &
+                     &                             oek*(cos(diff_prec_angle) - 1)
                      rhs(n_r_max)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                      d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
@@ -419,6 +431,13 @@ contains
                      end if
                   end if
 
+                  if ( l_diff_prec .and. l1 == 1 .and. m1 == 1 ) then
+                     rhs1(1,lmB,threadid)       =rhs1(1,lmB,threadid)+diff_prec_fac* &
+                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
+                     rhs1(n_r_max,lmB,threadid) =rhs1(n_r_max,lmB,threadid)+diff_prec_fac* &
+                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
+                  end if
+
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(lm2l(lm1),  &
                      &                     lm2m(lm1)))*or2(nR)*z(lm1,nR) + &
@@ -428,6 +447,7 @@ contains
                         rhs1(nR,lmB,threadid)=rhs1(nR,lmB,threadid)+prec_fac* &
                         &    cmplx(sin(oek*time),-cos(oek*time),kind=cp)
                      end if
+
 #ifdef WITH_PRECOND_Z
                      rhs1(nR,lmB,threadid)=zMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif

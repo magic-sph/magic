@@ -76,7 +76,8 @@ contains
          & strat,polind,DissNb,g0,g1,g2,r_cut_model,thickStrat, &
          & epsS,slopeStrat,rStrat,ampStrat,cmbHflux,r_LCR,      &
          & nVarDiff,nVarVisc,difExp,nVarEps,interior_model,     &
-         & nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle
+         & nVarEntropyGrad,l_isothermal,ktopp,po,prec_angle,    &
+         & po_diff,diff_prec_angle
 
       namelist/B_external/                                    &
          & rrMP,amp_imp,expo_imp,bmax_imp,n_imp,l_imp,        &
@@ -498,6 +499,18 @@ contains
       end if
 
       if ( l_precession ) prec_angle = prec_angle*pi/180.0_cp
+
+      !-- Same as above for differential precession
+
+      if ( po_diff == 0.0_cp ) then
+         l_diff_prec = .false.
+      else
+         l_diff_prec = .true.
+         l_rot_ma = .true.
+         l_rot_ic = .true.
+      end if
+
+      if ( l_diff_prec ) diff_prec_angle = diff_prec_angle*pi/180.0_cp
 
       !-- New checking of magnetic boundary condition.
       if ( kbotb > 4 ) then
@@ -1203,6 +1216,8 @@ contains
       prmag      =5.0_cp
       po         =0.0_cp
       prec_angle =23.5_cp
+      po_diff    =0.0_cp
+      diff_prec_angle =23.5_cp
       epsc0      =0.0_cp
       epscxi0    =0.0_cp
       radratio   =0.35_cp
@@ -1488,7 +1503,7 @@ contains
       sDens         =one     ! relative s-grid point density 
       zDens         =one     ! relative z-grid point density 
 
-      !----- Potential vortivity:
+      !----- Potential vorticity:
       l_PV          =.false.
 
       !----- Different output, output times same as for log outout:

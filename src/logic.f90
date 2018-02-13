@@ -92,5 +92,6 @@ module logic
    logical :: l_cour_alf_damp ! Modify Alven Courant condition based on Christensen et al., GJI, 1999 (.true. by default)
    logical :: l_earth_likeness ! Compute the Earth-likeness of the CMB field following Christensen et al., EPSL, 2010
    logical :: l_precession ! Use precession
+   logical :: l_diff_prec  ! Use differential precession
 
 end module logic
