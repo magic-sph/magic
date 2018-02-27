@@ -205,13 +205,13 @@ contains
       if ( l_precession ) then
          prec_fac=sqrt(8.0_cp*pi*third)*po*oek*oek*sin(prec_angle)
       else
-         prec_fac = zero
+         prec_fac = 0.0_cp
       end if
 
       if (l_diff_prec) then
          diff_prec_fac=two*sqrt(8.0_cp*pi*third)*oek*sin(diff_prec_angle)
       else
-         diff_prec_fac=zero
+         diff_prec_fac = 0.0_cp
       end if
 
       if ( .not. l_update_v ) return

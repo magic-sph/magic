@@ -1450,8 +1450,13 @@ contains
          do lm=llm,ulm
             l1=lo_map%lm2l(lm)
             m1=lo_map%lm2m(lm)
-            bR=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
-            bI=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
+            if ( l1 > 0 ) then
+               bR=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
+               bI=(-one+two*random(0.0_cp))*amp_b1/(real(l1,cp))**(bExp-1)
+            else
+               bR=0.0_cp
+               bI=0.0_cp
+            end if
             if ( m1 == 0 ) bI=0.0_cp
             do n_r=1,n_r_max
                b(lm,n_r)=b(lm,n_r) + cmplx(bR*b1(n_r),bI*b1(n_r),kind=cp)
