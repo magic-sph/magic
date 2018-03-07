@@ -527,7 +527,7 @@ contains
          l_anel=.true.
          nVarVisc=3
          nVarDiff=6
-         radratio    = 0.46D0
+         radratio    = 0.5D0
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_1S') /= 0 ) then
          ! Proto-Neutron Star interior model
