@@ -508,6 +508,8 @@ contains
          l_diff_prec = .true.
          l_rot_ma = .true.
          l_rot_ic = .true.
+         l_SRMA = .true.
+         l_SRIC = .true.
       end if
 
       if ( l_diff_prec ) diff_prec_angle = diff_prec_angle*pi/180.0_cp

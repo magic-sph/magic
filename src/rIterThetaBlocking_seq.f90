@@ -197,7 +197,7 @@ contains
          !write(*,"(I3,A,I4,A,I4)") nThetaB,". theta block from ",nThetaStart," to ", &
          !      & nThetaStop
   
-         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa)
+         call this%transform_to_grid_space(nThetaStart,nThetaStop,this%gsa,time)
   
          !--------- Calculation of nonlinear products in grid space:
          if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &

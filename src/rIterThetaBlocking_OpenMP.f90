@@ -258,7 +258,7 @@ contains
 
          !PERFON('lm2grid')
          call this%transform_to_grid_space(nThetaStart,nThetaStop,&
-              &                            this%gsa(threadid))
+              &                            this%gsa(threadid),time)
          !PERFOFF
 
          !--------- Calculation of nonlinear products in grid space:

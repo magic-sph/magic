@@ -9,7 +9,7 @@ module preCalculations
        &                 lm_max, n_phi_max, n_theta_max
    use init_fields, only: bots, tops, s_bot, s_top, n_s_bounds,    &
        &                  l_reset_t, topxi, botxi, xi_bot, xi_top, &
-       &                  n_xi_bounds
+       &                  n_xi_bounds, omega_diff
    use parallel_mod, only: rank
    use logic, only: l_mag, l_cond_ic, l_non_rot, l_mag_LF, l_newmap,   &
        &            l_anel, l_heat, l_time_hits,  l_anelastic_liquid,  &
@@ -17,7 +17,7 @@ module preCalculations
        &            l_save_out, l_TO, l_TOmovie, l_r_field, l_movie,   &
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
        &            l_temperature_diff, l_chemical_conv, l_probe,      &
-       &            l_precession
+       &            l_precession, l_diff_prec
    use radial_functions, only: rscheme_oc, temp0, r_CMB,                   &
        &                       r_surface, visc, r, r_ICB,                  &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
@@ -32,7 +32,7 @@ module preCalculations
        &                          ktops, kbots, interior_model, r_LCR,     &
        &                          n_r_LCR, mode, tmagcon, GrunNb, oek,     &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
-       &                          ChemFac, raxi, Po, prec_angle
+       &                          ChemFac, raxi, Po, prec_angle, diff_prec_angle
    use horizontal_data, only: horizontal
    use integration, only: rInt_R
    use useful, only: logWrite, abortRun
@@ -306,7 +306,15 @@ contains
          delmin=min((r(n_r-1)-r(n_r)),(r(n_r)-r(n_r+1)))
          delxr2(n_r)=delmin*delmin
       end do
-    
+
+      !Differential precession of mantle and outer core
+
+      if ( l_diff_prec ) then
+         omega_diff = oek * (cos(diff_prec_angle) - 1)
+      else
+         omega_diff = 0.0_cp
+      end if
+
       !-- Constants used for rotating core or mantle:
       y10_norm=half*sqrt(three/pi)  ! y10=y10_norm * cos(theta)
       y11_norm=half*sqrt(1.5_cp/pi) ! y11=y11_norm * sin(theta)

@@ -102,11 +102,12 @@ contains
 
    end subroutine set_ThetaBlocking
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa)
+   subroutine transform_to_grid_space(this,nThetaStart,nThetaStop,gsa,time)
 
       class(rIterThetaBlocking_t), target :: this
       integer, intent(in) :: nThetaStart,nThetaStop
       type(grid_space_arrays_t) :: gsa
+      real(cp), intent(in) :: time
 
       ! Local variables
       integer :: nTheta
@@ -241,12 +242,12 @@ contains
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart)
+                    &                nThetaStart,time)
             else if ( this%nR == n_r_icb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                nThetaStart)
+                    &                nThetaStart,time)
             end if
             if ( this%lDeriv .and. ( .not. l_axi ) ) then
                call fft_thetab(gsa%dvrdrc,1)
