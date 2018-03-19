@@ -208,11 +208,11 @@ contains
          prec_fac = 0.0_cp
       end if
 
-!      if (l_diff_prec) then
-!         diff_prec_fac=two*sqrt(8.0_cp*pi*third)*oek*sin(diff_prec_angle)
-!      else
-!         diff_prec_fac = 0.0_cp
-!      end if
+      if (l_diff_prec) then
+         diff_prec_fac=two*sqrt(8.0_cp*pi*third)*oek*sin(diff_prec_angle)
+      else
+         diff_prec_fac = 0.0_cp
+      end if
 
       if ( .not. l_update_v ) return
     
@@ -429,12 +429,12 @@ contains
                      end if
                   end if
 
-!                  if ( l_diff_prec .and. l1 == 1 .and. m1 == 1 ) then
-!                     rhs1(1,lmB,threadid)       =rhs1(1,lmB,threadid)+diff_prec_fac* &
-!                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
-!                     rhs1(n_r_max,lmB,threadid) =rhs1(n_r_max,lmB,threadid)+diff_prec_fac* &
-!                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
-!                  end if
+                  if ( l_diff_prec .and. l1 == 1 .and. m1 == 1 ) then
+                     rhs1(1,lmB,threadid)       =rhs1(1,lmB,threadid)+diff_prec_fac* &
+                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
+                     rhs1(n_r_max,lmB,threadid) =rhs1(n_r_max,lmB,threadid)+diff_prec_fac* &
+                     &    cmplx(-cos(po_diff*oek*time),sin(po_diff*oek*time),kind=cp)
+                  end if
 
                   do nR=2,n_r_max-1
                      rhs1(nR,lmB,threadid)=O_dt*dLh(st_map%lm2(lm2l(lm1),  &
