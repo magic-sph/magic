@@ -24,7 +24,8 @@ module grid_space_arrays_mod
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi 
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_RMS, l_chemical_conv, l_TP_form, l_precession, l_diff_prec
+       &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
+       &            l_diff_prec
 
    implicit none
 
