@@ -257,7 +257,7 @@ contains
 
       do nTheta=1,sizeThetaB
          nThetaCalc = nThetaStart + nTheta - 1
-         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere=odd n_theta
+         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
          do nPhi=1,n_phi_max
 
                cosPhi = cos(phi(nPhi))
@@ -266,17 +266,17 @@ contains
 
                vrr(nPhi,nTheta)=0.0_cp
 
-               vtr(nPhi,nTheta)=r2*rho0(nR)*sinTheta(nThetaNHS)*(omx * sinPhi &
+               vtr(nPhi,nTheta)=r2*rho0(nR)*sinTheta(nThetaCalc)*(omx * sinPhi &
                &                                               - omy * cosPhi)
 
                vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omz                   &
-               &              - r2*rho0(nR)*sinTheta(nThetaNHS)*cosTheta(nThetaCalc) &
+               &              - r2*rho0(nR)*sinTheta(nThetaCalc)*cosTheta(nThetaCalc) &
                &              * (omx * cosPhi + omy * sinPhi)
 
             if ( lDeriv ) then
                cvrr(nPhi,nTheta)  =r2*rho0(nR) *                         &
                &         (two*cosTheta(nThetaCalc) * omz                     &
-               &     -(O_sin_theta(nThetaNHS) * (cos2 - sn2(nThetaNHS))) &
+               &     -(O_sin_theta(nThetaCalc) * (cos2 - sn2(nThetaNHS))) &
                &       * ( omx * cosPhi + omy * sinPhi ) )
                dvrdtr(nPhi,nTheta)=0.0_cp
                dvrdpr(nPhi,nTheta)=0.0_cp
