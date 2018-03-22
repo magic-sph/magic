@@ -832,6 +832,8 @@ contains
       write(n_out,'(''  ek              ='',ES14.6,'','')') ek
       write(n_out,'(''  po              ='',ES14.6,'','')') po
       write(n_out,'(''  prec_angle      ='',ES14.6,'','')') prec_angle
+      write(n_out,'(''  po_diff         ='',ES14.6,'','')') po_diff
+      write(n_out,'(''  diff_prec_angle ='',ES14.6,'','')') diff_prec_angle
       write(n_out,'(''  epsc0           ='',ES14.6,'','')') epsc0/sq4pi
       write(n_out,'(''  epscxi0         ='',ES14.6,'','')') epscxi0/sq4pi
       write(n_out,'(''  DissNb          ='',ES14.6,'','')') DissNb
