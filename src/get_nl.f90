@@ -505,7 +505,7 @@ contains
             !----- During differential precession, vt /= 0 too.
             !$OMP PARALLEL DO default(none) &
             !$OMP& private(nThetaB, nPhi, nThetaNHS, or4sn2) &
-            !$OMP& shared(this, sizeThetaB, or4, orho1, n_phi_max, nR, osn2)
+            !$OMP& shared(this, sizeThetaB, or4, orho1, n_phi_max, nR, osn2, l_diff_prec)
             do nThetaB=1,sizeThetaB
                nThetaNHS=(nThetaB+1)/2
                or4sn2   =or4(nR)*osn2(nThetaNHS)
