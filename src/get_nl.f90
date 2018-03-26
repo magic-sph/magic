@@ -24,7 +24,8 @@ module grid_space_arrays_mod
    use horizontal_data, only: osn2, cosn2, sinTheta, cosTheta, osn1, phi 
    use constants, only: two, third
    use logic, only: l_conv_nl, l_heat_nl, l_mag_nl, l_anel, l_mag_LF, &
-       &            l_RMS, l_chemical_conv, l_TP_form, l_precession
+       &            l_RMS, l_chemical_conv, l_TP_form, l_precession,  &
+       &            l_diff_prec
 
    implicit none
 
@@ -501,9 +502,10 @@ contains
          else if ( nBc == 2 ) then  ! rigid boundary :
 
             !----- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+            !----- During differential precession, vt /= 0 too.
             !$OMP PARALLEL DO default(none) &
             !$OMP& private(nThetaB, nPhi, nThetaNHS, or4sn2) &
-            !$OMP& shared(this, sizeThetaB, or4, orho1, n_phi_max, nR, osn2)
+            !$OMP& shared(this, sizeThetaB, or4, orho1, n_phi_max, nR, osn2, l_diff_prec)
             do nThetaB=1,sizeThetaB
                nThetaNHS=(nThetaB+1)/2
                or4sn2   =or4(nR)*osn2(nThetaNHS)
@@ -511,6 +513,10 @@ contains
                   this%VxBt(nPhi,nThetaB)= or4sn2 * orho1(nR) * &
                   &    this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                   this%VxBp(nPhi,nThetaB)= 0.0_cp
+
+                  if ( l_diff_prec )                             &
+                  this%VxBp(nPhi,nThetaB)= -or4sn2 * orho1(nR) * &
+                  &    this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                end do
                ! this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
                ! this%VxBt(n_phi_max+2,nThetaB)=0.0_cp
@@ -910,6 +916,7 @@ contains
          else if ( nBc == 2 ) then  ! rigid boundary :
 
             !----- Only vp /= 0 at boundary allowed (rotation of boundaries about z-axis):
+            !----- During differential precession, vt /= 0 too.
             nTheta=nThetaLast
             do nThetaB=1,sizeThetaB
                nTheta   =nTheta+1
@@ -919,6 +926,10 @@ contains
                   this%VxBt(nPhi,nThetaB)= or4sn2 * orho1(nR) * &
                   &    this%vpc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                   this%VxBp(nPhi,nThetaB)= 0.0_cp
+
+                  if ( l_diff_prec )                             &
+                  this%VxBp(nPhi,nThetaB)= -or4sn2 * orho1(nR) * &
+                  &    this%vtc(nPhi,nThetaB)*this%brc(nPhi,nThetaB)
                end do
                this%VxBt(n_phi_max+1,nThetaB)=0.0_cp
                this%VxBt(n_phi_max+2,nThetaB)=0.0_cp

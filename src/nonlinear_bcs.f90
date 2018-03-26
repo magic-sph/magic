@@ -6,12 +6,14 @@ module nonlinear_bcs
    use radial_functions, only: r_cmb, r_icb, rho0
    use blocking, only: lm2l, lm2m, lm2lmP, lmP2lmPS, lmP2lmPA, nfs, &
        &               sizeThetaB
-   use physical_parameters, only: sigma_ratio, conductance_ma, prmag
+   use physical_parameters, only: sigma_ratio, conductance_ma, prmag,&
+       &                          po_diff, diff_prec_angle, oek
    use horizontal_data, only: dTheta1S, dTheta1A, dPhi, O_sin_theta, &
-       &                      dLh, sn2, cosTheta
+       &                      dLh, sn2, cosTheta, sinTheta, phi
    use fft, only: fft_thetab
    use legendre_grid_to_spec, only: legTF2
    use constants, only: two
+   use logic, only: l_diff_prec
 #ifdef WITH_SHTNS
    use shtns, only: spat_to_SH
 #endif
@@ -70,7 +72,7 @@ contains
       real(cp) :: fac          ! 1/( r**2 sin(theta)**2 )
     
       n_theta=n_theta_min-1 ! n_theta needed for O_sin_theta_E_2
-    
+
 #ifdef WITH_SHTNS
       !$OMP PARALLEL DO default(shared) &
       !$OMP& private(n_theta_rel,n_phi,fac,n_theta)
@@ -101,7 +103,8 @@ contains
          call fft_thetab(br_vt, -1)
          call fft_thetab(br_vp, -1)
       end if
-    
+
+
       !-- Legendre transform contribution of thetas in block:
       call legTF2(n_theta_min,br_vt_lm,br_vp_lm,br_vt,br_vp)
 #endif
@@ -194,7 +197,7 @@ contains
 !-------------------------------------------------------------------------
    subroutine v_rigid_boundary(nR,omega,lDeriv,vrr,vtr,vpr,      &
             &                  cvrr,dvrdtr,dvrdpr,dvtdpr,dvpdpr, &
-            &                  nThetaStart)
+            &                  nThetaStart,time)
       !
       !  Purpose of this subroutine is to set the velocities and their    
       !  derivatives at a fixed boundary.                                 
@@ -211,6 +214,7 @@ contains
               
       !-- Input of boundary rotation rate
       real(cp), intent(in) :: omega
+      real(cp), intent(in) :: time
 
       !-- output:
       real(cp), intent(out) :: vrr(nrp,nfs)
@@ -224,8 +228,11 @@ contains
 
       !-- Local variables:
       real(cp) :: r2
-      integer :: nThetaCalc,nTheta,nThetaNHS
+      real(cp) :: omx,omy,omz
+      real(cp) :: sinPhi,cosPhi,cos2
+      integer :: nTheta,nThetaNHS,nThetaCalc
       integer :: nPhi
+
 
       if ( nR == n_r_cmb ) then
          r2=r_cmb*r_cmb
@@ -233,29 +240,52 @@ contains
          r2=r_icb*r_icb
       else
          write(*,*)
-         write(*,*) '! v_rigid boundary called for a grid'
-         write(*,*) '! points which is not a boundary !  '
+         write(*,*) '! v_rigid boundary called for grid'
+         write(*,*) '! point which is not a boundary !  '
          return
       end if
 
-      nThetaCalc=nThetaStart-1
+      omz = omega
+
+      if (l_diff_prec) then
+         omx = oek * sin(diff_prec_angle) * cos(po_diff * oek * time)
+         omy = oek * sin(diff_prec_angle) * sin(po_diff * oek * time)
+      else
+         omx = 0.0_cp
+         omy = 0.0_cp
+      end if
+
       do nTheta=1,sizeThetaB
-         nThetaCalc=nThetaCalc+1
-         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere=odd n_theta
+         nThetaCalc = nThetaStart + nTheta - 1
+         nThetaNHS =(nThetaCalc+1)/2 ! northern hemisphere,sn2 has size n_theta_max/2
          do nPhi=1,n_phi_max
-            vrr(nPhi,nTheta)=0.0_cp
-            vtr(nPhi,nTheta)=0.0_cp
-            vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omega
+
+               cosPhi = cos(phi(nPhi))
+               sinPhi = sin(phi(nPhi))
+               cos2 = cosTheta(nThetaCalc)**2
+
+               vrr(nPhi,nTheta)=0.0_cp
+
+               vtr(nPhi,nTheta)=r2*rho0(nR)*sinTheta(nThetaCalc)*(omx * sinPhi &
+               &                                               - omy * cosPhi)
+
+               vpr(nPhi,nTheta)=r2*rho0(nR)*sn2(nThetaNHS)*omz                   &
+               &              - r2*rho0(nR)*sinTheta(nThetaCalc)*cosTheta(nThetaCalc) &
+               &              * (omx * cosPhi + omy * sinPhi)
+
             if ( lDeriv ) then
-               cvrr(nPhi,nTheta)  =r2*rho0(nR)*two*cosTheta(nThetaCalc)*omega
+               cvrr(nPhi,nTheta)  =r2*rho0(nR) *                         &
+               &         (two*cosTheta(nThetaCalc) * omz                     &
+               &     -(O_sin_theta(nThetaCalc) * (cos2 - sn2(nThetaNHS))) &
+               &       * ( omx * cosPhi + omy * sinPhi ) )
                dvrdtr(nPhi,nTheta)=0.0_cp
                dvrdpr(nPhi,nTheta)=0.0_cp
-               dvtdpr(nPhi,nTheta)=0.0_cp
-               dvpdpr(nPhi,nTheta)=0.0_cp
+               dvtdpr(nPhi,nTheta)=r2*rho0(nR) * (omx * cosPhi + omy * sinPhi)
+               dvpdpr(nPhi,nTheta)=r2*rho0(nR) * (omx * sinPhi - omy * cosPhi) &
+               &                     * cosTheta(nThetaCalc)
             end if
          end do
       end do
-
    end subroutine v_rigid_boundary
 !-------------------------------------------------------------------------
 end module nonlinear_bcs

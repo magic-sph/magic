@@ -20,7 +20,7 @@ module init_fields
        &                      phi, cosTheta, hdif_B, D_lP1
    use logic, only: l_rot_ic, l_rot_ma, l_SRIC, l_SRMA, l_cond_ic,  &
        &            l_temperature_diff, l_chemical_conv, l_TP_form, &
-       &            l_anelastic_liquid, l_non_adia
+       &            l_anelastic_liquid, l_non_adia, l_diff_prec
    use radial_functions, only: r_icb, r, r_cmb, r_ic, or1, jVarCon,    &
        &                       lambda, or2, dLlambda, or3, cheb_ic,    &
        &                       dcheb_ic, d2cheb_ic, cheb_norm_ic, or1, &
@@ -45,7 +45,8 @@ module init_fields
        &                          epsc, ViscHeatFac, ThExpNb,             &
        &                          impXi, n_impXi_max, n_impXi, phiXi,     &
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
-       &                          kbotxi, ktopxi, BuoFac, ktopp
+       &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
+       &                          diff_prec_angle
    use algebra, only: sgesl, sgefa, cgesl
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
@@ -85,6 +86,7 @@ module init_fields
    real(cp), public :: omega_ma2,omegaOsz_ma2,tShift_ma2,tOmega_ma2
    real(cp), public :: omega_ic1,omegaOsz_ic1,tShift_ic1,tOmega_ic1
    real(cp), public :: omega_ic2,omegaOsz_ic2,tShift_ic2,tOmega_ic2
+   real(cp), public :: omega_diff
 
    !----- About start-file:
    logical, public :: l_start_file     ! taking fields from startfile ?
@@ -368,7 +370,7 @@ contains
          end do
     
       end if
-    
+
       !----- Caring for IC and mantle rotation rates if this
       !      has not been done already in read_start_file.f:
       if ( ( .not. l_start_file ) ) then
@@ -378,9 +380,11 @@ contains
          if ( (l1m0>=lmStartB(rank+1)) .and. (l1m0<=lmStopB(rank+1)) ) then
 
             write(*,*) '! NO STARTFILE READ, SETTING Z10!'
+
+
             if ( l_SRIC .or. l_rot_ic .and. omega_ic1 /= 0.0_cp ) then
                omega_ic=omega_ic1*cos(omegaOsz_ic1*tShift_ic1) + &
-               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2)
+               &        omega_ic2*cos(omegaOsz_ic2*tShift_ic2) + omega_diff
                write(*,*)
                write(*,*) '! I use prescribed inner core rotation rate:'
                write(*,*) '! omega_ic=',omega_ic
@@ -392,7 +396,8 @@ contains
             end if
             if ( l_SRMA .or. l_rot_ma .and. omega_ma1 /= 0.0_cp ) then
                omega_ma=omega_ma1*cos(omegaOsz_ma1*tShift_ma1) + &
-               &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2)
+               &        omega_ma2*cos(omegaOsz_ma2*tShift_ma2) + omega_diff
+
                write(*,*)
                write(*,*) '! I use prescribed mantle rotation rate:'
                write(*,*) '! omega_ma=',omega_ma
@@ -410,8 +415,9 @@ contains
 #endif
 
       else
-         if ( nRotIc == 2 ) omega_ic=omega_ic1
-         if ( nRotMa == 2 ) omega_ma=omega_ma1
+         if ( nRotIc == 2 ) omega_ic=omega_ic1 + omega_diff
+         if ( nRotMa == 2 ) omega_ma=omega_ma1 + omega_diff
+
       end if
     
    end subroutine initV

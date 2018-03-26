@@ -186,7 +186,7 @@ contains
 
       call this%nl_lm%set_zero()
 
-      call this%transform_to_grid_space_shtns(this%gsa)
+      call this%transform_to_grid_space_shtns(this%gsa, time)
 
       !--------- Calculation of nonlinear products in grid space:
       if ( (.not.this%isRadialBoundaryPoint) .or. this%lMagNlBc .or. &
@@ -450,10 +450,11 @@ contains
       end if
     end subroutine do_iteration_ThetaBlocking_shtns
 !-------------------------------------------------------------------------------
-   subroutine transform_to_grid_space_shtns(this, gsa)
+   subroutine transform_to_grid_space_shtns(this, gsa, time)
 
       class(rIterThetaBlocking_shtns_t) :: this
       type(grid_space_arrays_t) :: gsa
+      real(cp), intent(in) :: time
 
       integer :: nR
       nR = this%nR
@@ -522,12 +523,12 @@ contains
                call v_rigid_boundary(this%nR,this%leg_helper%omegaMA,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                1)
+                    &                1,time)
             else if ( this%nR == n_r_icb ) then
                call v_rigid_boundary(this%nR,this%leg_helper%omegaIC,this%lDeriv, &
                     &                gsa%vrc,gsa%vtc,gsa%vpc,gsa%cvrc,gsa%dvrdtc, &
                     &                gsa%dvrdpc,gsa%dvtdpc,gsa%dvpdpc,            &
-                    &                1)
+                    &                1,time)
             end if
             if ( this%lDeriv ) then
                call torpol_to_spat(dw_Rloc(:, nR), ddw_Rloc(:, nR), dz_Rloc(:, nR), &

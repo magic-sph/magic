@@ -316,9 +316,8 @@ contains
                      tOmega_ma1=time+tShift_ma1
                      tOmega_ma2=time+tShift_ma2
                      omega_ma= omega_ma1*cos(omegaOsz_ma1*tOmega_ma1) + &
-                     &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2)
-                     if ( l_diff_prec ) omega_ma = omega_ma +           &
-                     &                             oek*(cos(diff_prec_angle) - 1)
+                     &         omega_ma2*cos(omegaOsz_ma2*tOmega_ma2) + &
+                     &         omega_diff
                      rhs(1)=omega_ma
                   else if ( ktopv == 2 .and. l_rot_ma ) then  ! time integration
                      d_omega_ma_dt=LFfac*c_lorentz_ma*lorentz_torque_ma
@@ -332,9 +331,8 @@ contains
                      tOmega_ic1=time+tShift_ic1
                      tOmega_ic2=time+tShift_ic2
                      omega_ic= omega_ic1*cos(omegaOsz_ic1*tOmega_ic1) + &
-                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2)
-                     if ( l_diff_prec ) omega_ic = omega_ic +           &
-                     &                             oek*(cos(diff_prec_angle) - 1)
+                     &         omega_ic2*cos(omegaOsz_ic2*tOmega_ic2) + &
+                     &         omega_diff
                      rhs(n_r_max)=omega_ic
                   else if ( kbotv == 2 .and. l_rot_ic ) then  ! time integration
                      d_omega_ic_dt = LFfac*c_lorentz_ic*lorentz_torque_ic
