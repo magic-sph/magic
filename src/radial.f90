@@ -483,6 +483,17 @@ contains
          call polynomialBackground(coeffDens,coeffTemp)
          deallocate( coeffDens, coeffTemp)
 
+      else if ( index(interior_model,'PNS_5S') /= 0 ) then
+         allocate( coeffDens(6), coeffTemp(6) )
+         coeffDens = [5.56892773949_cp, -0.532496149403_cp, -1.63704759716_cp, &
+              -10.02819404_cp, 13.8052508126_cp, -6.16775910685_cp]
+
+         coeffTemp = [4.32220656771_cp, -0.729605496043_cp, 0.860028766401_cp, &
+              -9.29530062905_cp, 9.28443065708_cp, -3.44528845237_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp)
+         deallocate( coeffDens, coeffTemp)
+
       else if ( index(interior_model,'EARTH') /= 0 ) then
          DissNb =0.3929_cp ! Di = \alpha_O g d / c_p
          ThExpNb=0.0566_cp ! Co = \alpha_O T_O
@@ -1066,6 +1077,7 @@ contains
              &         rStrat))+half)
          else if (nVarDiff == 8) then ! PNS thermal diffusivity
             ! warning: reversed order for coefficients a_i
+            ! compared to nVarDiff==3 above
             if ( index(interior_model,'PNS_0V2S') /= 0 ) then
                a0 = -15.4045660979
                a1 = 167.416944961
@@ -1084,6 +1096,15 @@ contains
                a5 = 160897.639922
                a6 = -70265.4062536
                a7 = 13117.1344588
+            else if ( index(interior_model, 'PNS_5S') /= 0 ) then
+               a0 = 0.0556428940038
+               a1 = 1.57277204681
+               a2 = -17.4234841566
+               a3 = 92.3174440711
+               a4 = -256.540091374
+               a5 = 387.399928018
+               a6 = -299.886696812
+               a7 = 93.4823970453
             else
                call abortRun('Stop the run in radial.f90. Thermal diffusivity profile is not defined !')
             endif
