@@ -527,6 +527,7 @@ contains
          l_anel=.true.
          nVarVisc=3
          nVarDiff=6
+         nVarCond=5
          radratio    = 0.5D0
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_1S') /= 0 ) then

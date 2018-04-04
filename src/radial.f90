@@ -970,6 +970,12 @@ contains
              sigma=one/lambda
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
+          else if ( nVarCond == 5 ) then
+          ! 'PNS magnetic diffusivity profile'
+          lambda = temp0**2
+          sigma = one/lambda
+          call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+          dLlambda=dsigma/lambda
           end if
       end if
 
