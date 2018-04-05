@@ -404,9 +404,9 @@ class Surf:
             rrloc, pphiloc = np.meshgrid(self.gr.radius, philoc)
             vpfluct = self.gr.vphi-self.gr.vphi.mean(axis=0)
             vrfluct = self.gr.vr-self.gr.vr.mean(axis=0)
-            dr = rderavg(rrloc*vpfluct[:,self.gr.ntheta/2,:], spectral=False,
+            dr = rderavg(rrloc*vpfluct[:,self.gr.ntheta//2,:], spectral=False,
                          eta=self.gr.radratio, exclude=True)
-            equator = 1./rrloc*(dr-phideravg(vrfluct[:,self.gr.ntheta/2,:], self.gr.minc))
+            equator = 1./rrloc*(dr-phideravg(vrfluct[:,self.gr.ntheta//2,:], self.gr.minc))
             if labTex:
                 label = r"$\omega_z'$"
             else:
@@ -414,9 +414,9 @@ class Surf:
         elif field in ('vortz'):
             philoc = np.linspace(0., 2.*np.pi/self.gr.minc, self.gr.npI)
             rrloc, pphiloc = np.meshgrid(self.gr.radius, philoc)
-            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta/2,:], spectral=False,
+            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta//2,:], spectral=False,
                          eta=self.gr.radratio, exclude=True)
-            equator = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta/2,:], self.gr.minc))
+            equator = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta//2,:], self.gr.minc))
             if labTex:
                 label = r'$\omega_z$'
             else:
@@ -424,9 +424,9 @@ class Surf:
         elif field in ('jz'):
             philoc = np.linspace(0., 2.*np.pi/self.gr.minc, self.gr.npI)
             rrloc, pphiloc = np.meshgrid(self.gr.radius, philoc)
-            dr = rderavg(rrloc*self.gr.Bphi[:,self.gr.ntheta/2,:], spectral=False,
+            dr = rderavg(rrloc*self.gr.Bphi[:,self.gr.ntheta//2,:], spectral=False,
                          eta=self.gr.radratio, exclude=True)
-            equator = 1./rrloc*(dr - phideravg(self.gr.Br[:,self.gr.ntheta/2,:], self.gr.minc))
+            equator = 1./rrloc*(dr - phideravg(self.gr.Br[:,self.gr.ntheta//2,:], self.gr.minc))
             if labTex:
                 label = r'$j_z$'
             else:
@@ -434,9 +434,9 @@ class Surf:
         elif field in ('vopot'):
             philoc = np.linspace(0., 2.*np.pi/self.gr.minc, self.gr.npI)
             rrloc, pphiloc = np.meshgrid(self.gr.radius, philoc)
-            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta/2,:], spectral=False,
+            dr = rderavg(rrloc*self.gr.vphi[:,self.gr.ntheta//2,:], spectral=False,
                          eta=self.gr.radratio, exclude=True)
-            wz = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta/2,:], self.gr.minc))
+            wz = 1./rrloc*(dr - phideravg(self.gr.vr[:,self.gr.ntheta//2,:], self.gr.minc))
             temp0, rho0, beta = anelprof(self.gr.radius, self.gr.strat,
                                          self.gr.polind, self.gr.g0, self.gr.g1,
                                          self.gr.g2)
