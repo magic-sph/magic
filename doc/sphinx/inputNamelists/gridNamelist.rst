@@ -10,7 +10,7 @@ Outer Core
 
 .. _varn_r_max:
 
-* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). If Chebyshev polynomials are used for the radial integration scheme, there are some constraints on the value of `n_r_max`: first of all it must be of the form ``4*n+1``, where ``n`` is an integer; and second the prime decomposition of `n_r_max` should only contain multiple of 3, 4 and 5 (this second condition comes from the Chebyshev transforms). This constraint does not exist when finite differences are used.
+* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). If Chebyshev polynomials are used for the radial integration scheme, there are some constraints on the value of `n_r_max`: first of all it must be of the form ``4*n+1``, where ``n`` is an integer; and second the prime decomposition of `n_r_max-1` should only contain multiple of 3, 4 and 5 (this second condition comes from the Chebyshev transforms). This constraint does not exist when finite differences are used.
 
   .. note:: If Chebyshev polynomials are used, the possible values for :f:var:`n_r_max` below 220 are hence: 17, 21, 25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121, 129, 145, 161, 181, 193, 201, 217,...
 
