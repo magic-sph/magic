@@ -1122,6 +1122,8 @@ contains
                     + a5*rrOcmb**5 + a6*rrOcmb**6 &
                     + a7*rrOcmb**7
             end do
+            kappatop=kappa(1) ! normalise by the value at the top
+            kappa=kappa/kappatop
             call get_dr(kappa,dkappa,n_r_max,rscheme_oc)
             dLkappa=dkappa/kappa
          end if
