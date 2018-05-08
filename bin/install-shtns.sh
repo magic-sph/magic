@@ -14,5 +14,13 @@ else
   cd shtns-3.0-r618
 fi
 
-./configure --prefix=$HOME/local --enable-openmp --enable-magic-layout
+if [[ -n $MKLROOT ]]
+then
+   echo "MKL found, installing with MKL"
+   ./configure --prefix=$HOME/local --enable-openmp --enable-magic-layout --enable-mkl
+else
+   echo "MKL not found, will try to install with FFTW"
+   ./configure --prefix=$HOME/local --enable-openmp --enable-magic-layout
+fi
+
 make install -j
