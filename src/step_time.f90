@@ -849,6 +849,20 @@ contains
                if ( l_save_out ) close(n_log_file)
             end if
 #ifdef WITH_MPI
+            !-- Enable collective buffering
+            call MPI_Info_set(info, "romio_cb_write", "automatic",ierr)
+            call MPI_Info_set(info, "romio_cb_read", "automatic",ierr)
+
+            !-- Disable data sieving (let the filesystem handles it)
+            call MPI_Info_set(info, "romio_ds_write", "disable",ierr)
+            call MPI_Info_set(info, "romio_ds_read", "disable",ierr)
+
+            !-- Set the stripping unit to 4M
+            call MPI_Info_set(info, "stripping_unit", "4194304",ierr)
+
+            !-- Set the buffer size to 4M
+            call MPI_Info_set(info,"cb_buffer_size","4194304",ierr)
+
             call MPI_File_open(MPI_COMM_WORLD,graph_file,             &
                  &             IOR(MPI_MODE_WRONLY,MPI_MODE_CREATE),  &
                  &             MPI_INFO_NULL,graph_mpi_fh,ierr)
