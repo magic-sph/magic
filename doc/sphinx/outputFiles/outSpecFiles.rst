@@ -221,27 +221,27 @@ This file contains the time-average kinetic energy spectra as well as squared qu
 to allow a possible further reconstruction of the standard deviation. 
 This file is written by the subroutine :f:subr:`spectrum_average <spectra/spectrum_average()>`.
 
-   +---------------+-----------------------------------------------------------+
-   | No. of column | Contents                                                  |
-   +===============+===========================================================+
-   | 1             | degree / order                                            |
-   +---------------+-----------------------------------------------------------+
-   | 2             | Time-averaged poloidal kinetic energy versus degree       |
-   +---------------+-----------------------------------------------------------+
-   | 3             | Time-averaged poloidal kinetic energy versus order        |
-   +---------------+-----------------------------------------------------------+
-   | 4             | Time-averaged toroidal kinetic energy versus degree       |
-   +---------------+-----------------------------------------------------------+
-   | 5             | Time-averaged toroidal kinetic energy versus order        |
-   +---------------+-----------------------------------------------------------+
-   | 6             | Time-averaged poloidal kinetic energy square versus degree|
-   +---------------+-----------------------------------------------------------+
-   | 7             | Time-averaged poloidal kinetic energy square versus order |
-   +---------------+-----------------------------------------------------------+
-   | 8             | Time-averaged toroidal kinetic energy square versus degree|
-   +---------------+-----------------------------------------------------------+
-   | 9             | Time-averaged toroidal kinetic energy square versus order |
-   +---------------+-----------------------------------------------------------+
+   +---------------+------------------------------------------------------------+
+   | No. of column | Contents                                                   |
+   +===============+============================================================+
+   | 1             | degree / order                                             |
+   +---------------+------------------------------------------------------------+
+   | 2             | Time-averaged poloidal kinetic energy versus degree        |
+   +---------------+------------------------------------------------------------+
+   | 3             | Time-averaged poloidal kinetic energy versus order         |
+   +---------------+------------------------------------------------------------+
+   | 4             | Time-averaged toroidal kinetic energy versus degree        |
+   +---------------+------------------------------------------------------------+
+   | 5             | Time-averaged toroidal kinetic energy versus order         |
+   +---------------+------------------------------------------------------------+
+   | 6             | Standard deviation of poloidal kinetic energy versus degree|
+   +---------------+------------------------------------------------------------+
+   | 7             | Standard deviation of poloidal kinetic energy versus order |
+   +---------------+------------------------------------------------------------+
+   | 8             | Standard deviation of toroidal kinetic energy versus degree|
+   +---------------+------------------------------------------------------------+
+   | 9             | Standard deviation of toroidal kinetic energy versus order |
+   +---------------+------------------------------------------------------------+
 
 This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with the following options:
 
@@ -276,35 +276,23 @@ subroutine :f:subr:`spectrum_average <spectra/spectrum_average()>`.
    +---------------+------------------------------------------------------------------------+
    | 7             | Time-averaged poloidal magnetic energy at the CMB versus order         |
    +---------------+------------------------------------------------------------------------+
-   | 8             | Time-averaged poloidal magnetic energy in the outer core + its standard|
-   |               | deviation versus degree                                                |
+   | 8             | Standard deviation of the poloidal magnetic energy in the outer        |
+   |               | core versus degree                                                     |
    +---------------+------------------------------------------------------------------------+
-   | 9             | Time-averaged poloidal magnetic energy in the outer core - its standard|
-   |               | deviation versus degree                                                |
+   | 9             | Standard deviation of the poloidal magnetic energy in the outer core   |
+   |               | versus order                                                           |
    +---------------+------------------------------------------------------------------------+
-   | 10            | Time-averaged poloidal magnetic energy in the outer core + its standard|
-   |               | deviation versus order                                                 |
+   | 10            | Standard deviation of the toroidal magnetic energy in the outer core   |
+   |               | versus degree                                                          |
    +---------------+------------------------------------------------------------------------+
-   | 11            | Time-averaged poloidal magnetic energy in the outer core - its standard|
-   |               | deviation versus order                                                 |
+   | 11            | Standard deviation of the toroidal magnetic energy in the outer core   |
+   |               | versus order                                                           |
    +---------------+------------------------------------------------------------------------+
-   | 12            | Time-averaged toroidal magnetic energy in the outer core + its standard|
-   |               | deviation versus degree                                                |
+   | 12            | Standard deviation of the magnetic energy at the CMB                   |
+   |               | versus degree                                                          |
    +---------------+------------------------------------------------------------------------+
-   | 13            | Time-averaged toroidal magnetic energy in the outer core - its standard|
-   |               | deviation versus degree                                                |
-   +---------------+------------------------------------------------------------------------+
-   | 14            | Time-averaged toroidal magnetic energy in the outer core + its standard|
-   |               | deviation versus order                                                 |
-   +---------------+------------------------------------------------------------------------+
-   | 15            | Time-averaged toroidal magnetic energy in the outer core - its standard|
-   |               | deviation versus order                                                 |
-   +---------------+------------------------------------------------------------------------+
-   | 16            | Time-averaged poloidal magnetic energy at the CMB + its standard       |
-   |               | deviation versus order                                                 |
-   +---------------+------------------------------------------------------------------------+
-   | 17            | Time-averaged poloidal magnetic energy at the CMB - its standard       |
-   |               | deviation versus order                                                 |
+   | 13            | Standard deviation of the magnetic energy at the CMB                   |
+   |               | versus order                                                           |
    +---------------+------------------------------------------------------------------------+
 
 
@@ -327,24 +315,41 @@ deviation. It is written by the subroutine :f:subr:`spectrum_temp_average <spect
    +---------------+-----------------------------------------------------------+
    | No. of column | Contents                                                  |
    +===============+===========================================================+
-   | 1             | Spherical harmonic degree                                 |
+   | 1             | Spherical harmonic degree/order                           |
    +---------------+-----------------------------------------------------------+
    | 2             | Time-averaged RMS temperature/entropy versus degree       |
    +---------------+-----------------------------------------------------------+
-   | 3             | Standard deviation of the temperature/entropy versus      |
-   |               | degree                                                    |
+   | 3             | Time-averaged RMS temperature/entropy versus order        |
    +---------------+-----------------------------------------------------------+
    | 4             | Time-averaged RMS temperature/entropy at the ICB versus   |
    |               | degree                                                    |
    +---------------+-----------------------------------------------------------+
-   | 5             | Standard deviation of the temperature/entropy at the ICB  |
-   |               | versus degree                                             |
+   | 5             | Time-averaged RMS temperature/entropy at the ICB versus   |
+   |               | order                                                     |
    +---------------+-----------------------------------------------------------+
    | 6             | Time-averaged temperature/entropy gradient at the ICB     |
    |               | versus degree                                             |
    +---------------+-----------------------------------------------------------+
-   | 7             | Standard deviation of the temperature/entropy gradient    |
+   | 7             | Time-averaged temperature/entropy gradient at the ICB     |
+   |               | versus order                                              |
+   +---------------+-----------------------------------------------------------+
+   | 8             | Standard deviation of the temperature/entropy versus      |
+   |               | degree                                                    |
+   +---------------+-----------------------------------------------------------+
+   | 9             | Standard deviation of the temperature/entropy versus      |
+   |               | order                                                     |
+   +---------------+-----------------------------------------------------------+
+   | 10            | Standard deviation of the temperature/entropy at the ICB  |
+   |               | versus degree                                             |
+   +---------------+-----------------------------------------------------------+
+   | 11            | Standard deviation of the temperature/entropy at the ICB  |
+   |               | versus order                                              |
+   +---------------+-----------------------------------------------------------+
+   | 12            | Standard deviation of the temperature/entropy gradient    |
    |               | at the ICB  versus degree                                 |
+   +---------------+-----------------------------------------------------------+
+   | 13            | Standard deviation of the temperature/entropy gradient    |
+   |               | at the ICB  versus order                                  |
    +---------------+-----------------------------------------------------------+
 
 .. _secTimeSpectraFiles:
