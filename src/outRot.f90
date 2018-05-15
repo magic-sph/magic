@@ -218,11 +218,11 @@ contains
                open(newunit=n_SRIC_file, file=SRIC_file, status='unknown', &
                &    position='append')
             end if
-            write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')   &
-                 time*tScale,omega_ic/tScale,              &
-                 (powerLor+powerVis)*vScale*vScale/tScale, &
-                 powerVis*vScale*vScale/tScale,            &
-                 powerLor*vScale*vScale/tScale
+            write(n_SRIC_file,'(1p,2x,ES20.12,4ES17.6)')    &
+            &     time*tScale,omega_ic/tScale,              &
+            &     (powerLor+powerVis)*vScale*vScale/tScale, &
+            &     powerVis*vScale*vScale/tScale,            &
+            &     powerLor*vScale*vScale/tScale
             if ( l_save_out ) close(n_SRIC_file)
          end if
          if ( l_SRMA ) then
@@ -232,11 +232,11 @@ contains
                open(newunit=n_SRMA_file, file=SRMA_file, status='unknown', &
                &    position='append')
             end if
-            write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')   &
-                 time*tScale, omega_ma/tScale,             &
-                 (powerLor+powerVis)*vScale*vScale/tScale, &
-                 powerVis*vScale*vScale/tScale,            &
-                 powerLor*vScale*vScale/tScale
+            write(n_SRMA_file,'(1p,2x,ES20.12,4ES17.6)')    &
+            &     time*tScale, omega_ma/tScale,             &
+            &     (powerLor+powerVis)*vScale*vScale/tScale, &
+            &     powerVis*vScale*vScale/tScale,            &
+            &     powerLor*vScale*vScale/tScale
             if ( l_save_out ) close(n_SRMA_file)
          end if
       end if
@@ -260,14 +260,14 @@ contains
                open(newunit=n_driftVQ_file, file=driftVQ_file, status='unknown', &
                &    position='append')
             end if
-            write(n_driftVD_file,'(1P,2X,ES20.12,24ES12.4)') &
-                 time*tScale, (zvals_on_rank0(ilm,1),ilm=1,4),   &
-                 (zvals_on_rank0(ilm,2),ilm=1,4),         &
-                 (zvals_on_rank0(ilm,3),ilm=1,4)
-            write(n_driftVQ_file,'(1P,2X,ES20.12,24ES12.4)') &
-                 time*tScale, (zvals_on_rank0(ilm,1),ilm=5,8),   &
-                 (zvals_on_rank0(ilm,2),ilm=5,8),         &
-                 (zvals_on_rank0(ilm,3),ilm=5,8)
+            write(n_driftVD_file,'(1P,2X,ES20.12,24ES12.4)')      &
+            &     time*tScale, (zvals_on_rank0(ilm,1),ilm=1,4),   &
+            &     (zvals_on_rank0(ilm,2),ilm=1,4),                &
+            &     (zvals_on_rank0(ilm,3),ilm=1,4)
+            write(n_driftVQ_file,'(1P,2X,ES20.12,24ES12.4)')      &
+            &     time*tScale, (zvals_on_rank0(ilm,1),ilm=5,8),   &
+            &     (zvals_on_rank0(ilm,2),ilm=5,8),                &
+            &     (zvals_on_rank0(ilm,3),ilm=5,8)
             if ( l_save_out ) then
                close(n_driftVD_file)
                close(n_driftVQ_file)
@@ -282,17 +282,17 @@ contains
     
             if ( rank == 0 ) then
                if ( l_save_out ) then
-                  open(newunit=n_driftBD_file, file=driftBD_file, status='unknown', &
+                  open(newunit=n_driftBD_file, file=driftBD_file, status='unknown',&
                   &    position='append')
-                  open(newunit=n_driftBQ_file, file=driftBQ_file, status='unknown', &
+                  open(newunit=n_driftBQ_file, file=driftBQ_file, status='unknown',&
                   &    position='append')
                end if
-               write(n_driftBD_file,'(1P,2X,ES20.12,16ES12.4)') &
-                    time*tScale, (bvals_on_rank0(ilm,1),ilm=5,8),   &
-                    (bvals_on_rank0(ilm,2),ilm=5,8)
-               write(n_driftBQ_file,'(1P,2X,ES20.12,16ES12.4)') &
-                    time*tScale, (bvals_on_rank0(ilm,1),ilm=1,4),   &
-                    (bvals_on_rank0(ilm,2),ilm=1,4)
+               write(n_driftBD_file,'(1P,2X,ES20.12,16ES12.4)')     &
+               &     time*tScale, (bvals_on_rank0(ilm,1),ilm=5,8),  &
+               &     (bvals_on_rank0(ilm,2),ilm=5,8)
+               write(n_driftBQ_file,'(1P,2X,ES20.12,16ES12.4)')     &
+               &     time*tScale, (bvals_on_rank0(ilm,1),ilm=1,4),  &
+               &     (bvals_on_rank0(ilm,2),ilm=1,4)
                if ( l_save_out ) then
                   close(n_driftBD_file)
                   close(n_driftBQ_file)
@@ -307,13 +307,13 @@ contains
                open(newunit=n_rot_file, file=rot_file, status='unknown', &
                &    position='append')
             end if
-            write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)') &
-                 time*tScale, omega_ic/tScale,          &
-                 lScale**2*vScale*lorentz_torque_ic,    &
-                 lScale**2*vScale*viscous_torque_ic,    &
-                 omega_ma/tScale,                       &
-                 lScale**2*vScale*lorentz_torque_ma,    &
-                 -lScale**2*vScale*viscous_torque_ma
+            write(n_rot_file,'(1P,2X,ES20.12,6ES14.6)')  &
+            &     time*tScale, omega_ic/tScale,          &
+            &     lScale**2*vScale*lorentz_torque_ic,    &
+            &     lScale**2*vScale*viscous_torque_ic,    &
+            &     omega_ma/tScale,                       &
+            &     lScale**2*vScale*lorentz_torque_ma,    &
+            &     -lScale**2*vScale*viscous_torque_ma
             if ( l_save_out ) close(n_rot_file)
          end if
       end if
@@ -331,7 +331,7 @@ contains
 #ifdef WITH_MPI
             if (rank /= 0) then
                call MPI_Send(z10,n_r_max,MPI_DEF_COMPLEX,0,sr_tag, & 
-                             MPI_COMM_WORLD,ierr)
+                    &        MPI_COMM_WORLD,ierr)
             end if
 #endif
          end if
@@ -345,7 +345,7 @@ contains
 #ifdef WITH_MPI
                if ( rank /= 0 ) then
                   call MPI_Send(z11,n_r_max,MPI_DEF_COMPLEX,0, &
-                              & sr_tag+1,MPI_COMM_WORLD,ierr)
+                       &        sr_tag+1,MPI_COMM_WORLD,ierr)
                end if
 #endif
             end if
@@ -359,19 +359,19 @@ contains
          if ( rank == 0 ) then
 #ifdef WITH_MPI
             if ( .not. rank_has_l1m0 ) then
-               call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,&
-                    &        MPI_ANY_SOURCE,sr_tag,MPI_COMM_WORLD,status,ierr)
+               call MPI_Recv(z10,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &
+                    &        sr_tag,MPI_COMM_WORLD,status,ierr)
             end if
             if ( l1m1 > 0 ) then
                if ( .not. rank_has_l1m1 ) then
-                  call MPI_Recv(z11,n_r_max,MPI_DEF_COMPLEX,&
-                       &        MPI_ANY_SOURCE,sr_tag+1,MPI_COMM_WORLD,status,ierr)
+                  call MPI_Recv(z11,n_r_max,MPI_DEF_COMPLEX,MPI_ANY_SOURCE, &
+                       &        sr_tag+1,MPI_COMM_WORLD,status,ierr)
                end if
             end if
 #endif
     
             call get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
-                                    angular_moment_ic,angular_moment_ma)
+                 &                  angular_moment_ic,angular_moment_ma)
             if ( l_save_out ) then
                open(newunit=n_angular_file, file=angular_file, status='unknown', &
                &    position='append')
@@ -379,8 +379,8 @@ contains
             AMz=angular_moment_oc(3)+angular_moment_ic(3)+angular_moment_ma(3)
             if ( abs(AMz) < tolerance ) AMz=0.0_cp
             eKinAMz=half*(angular_moment_oc(3)**2/c_moi_oc + &
-                          angular_moment_ic(3)**2/c_moi_ic + &
-                          angular_moment_ma(3)**2/c_moi_ma )
+            &             angular_moment_ic(3)**2/c_moi_ic + &
+            &             angular_moment_ma(3)**2/c_moi_ma )
             if ( abs(eKinAMz) < tolerance ) eKinAMz=0.0_cp
             eKinIC=half*angular_moment_ic(3)**2/c_moi_ic
             eKinOC=half*angular_moment_oc(3)**2/c_moi_oc
@@ -389,12 +389,12 @@ contains
                !write(*,"(A,4ES22.15)") "col9 = ",eKinAMz,eKinAMzLast, &
                !     &                  dt,(eKinAMz-eKinAMzLast)
                write(n_angular_file,'(1p,2x,ES20.12,5ES14.6,3ES20.12)', advance='no') &
-                    & time*tScale, angular_moment_oc,                                 &
-                    & angular_moment_ic(3), angular_moment_ma(3),                     &
-                    & AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz
+               &     time*tScale, angular_moment_oc,                                  &
+               &     angular_moment_ic(3), angular_moment_ma(3),                      &
+               &     AMz,(AMz-AMzLast)/AMzLast/dt,eKinAMz
                if (eKinAMzLast /= 0.0_cp) then
                   write(n_angular_file,'(1ES20.12)', advance='no') &
-                    & (eKinAMz-eKinAMzLast)/eKinAMzLast/dt
+                  &     (eKinAMz-eKinAMzLast)/eKinAMzLast/dt
                else
                   write(n_angular_file,'(1ES20.12)', advance='no') 0.0
                end if
@@ -424,7 +424,7 @@ contains
                &    position='append')
             end if
             write(n_inerP_file,'(1P,2X,ES20.12,21ES12.4)') &
-                 time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
+            &    time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals )
             if ( l_save_out ) close(n_inerP_file)
          end if
     
@@ -437,7 +437,7 @@ contains
                &    position='append')
             end if
             write(n_inerT_file,'(1P,2X,ES20.12,21ES12.4)') &
-                 time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
+            &    time*tScale, ( real(vals_on_rank0_1d(ilm)),ilm=1,n_lm_vals ) 
             if ( l_save_out ) close(n_inerT_file)
          end if
     
@@ -482,7 +482,7 @@ contains
    end subroutine get_viscous_torque_complex
 !-----------------------------------------------------------------------
    subroutine get_lorentz_torque(lorentz_torque,nThetaStart, &
-                                 sizeThetaB,br,bp,nR)
+              &                  sizeThetaB,br,bp,nR)
       !
       !  Purpose of this subroutine is to calculate the lorentz torque    
       !  on mantle or inner core respectively.                            
@@ -557,7 +557,7 @@ contains
             !                          gauss(nThetaNHS) * &
             !       (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
             lorentz_torque=lorentz_torque + fac * gauss(nThetaNHS) * &
-                   (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
+            &              (br(nPhi,nThetaB)-b0r)*bp(nPhi,nThetaB)
          end do
          !lorentz_torque_local = lorentz_torque_local + gauss(nThetaNHS)*phisum
       end do
@@ -572,7 +572,7 @@ contains
 !-----------------------------------------------------------------------
 
    subroutine get_angular_moment(z10,z11,omega_ic,omega_ma,angular_moment_oc, &
-                                 angular_moment_ic,angular_moment_ma)
+              &                  angular_moment_ic,angular_moment_ma)
       !
       !    Calculates angular momentum of outer core, inner core and      
       !    mantle. For outer core we need z(l=1|m=0,1|r), for             
@@ -666,11 +666,11 @@ contains
 #ifdef WITH_MPI
             if (lmStartB(rank+1) <= lm .and. lm <= lmStopB(rank+1)) then
                call MPI_Send(field(lm,n_r),1,MPI_DEF_COMPLEX,&
-                    & 0,tag,MPI_COMM_WORLD,ierr)
+                    &        0,tag,MPI_COMM_WORLD,ierr)
             end if
             if (rank == 0) then
                call MPI_Recv(vals_on_rank0(ilm),1,MPI_DEF_COMPLEX,&
-                    & MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
+                    &        MPI_ANY_SOURCE,tag,MPI_COMM_WORLD,status,ierr)
             end if
 #endif
          end if

@@ -462,9 +462,9 @@ contains
          powerDiffOld=powerDiff
          powerDiff   =(buoy+buoy_chem+powerIC+powerMA+viscDiss+ohmDiss)
 
-         powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
-         eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
          if ( abs(powerDiffOld) > 10.0_cp*epsilon(timePassed) ) then
+            powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
+            eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
             if ( l_save_out ) then
                open(newunit=n_power_file, file=power_file, status='unknown', &
                &    position='append')

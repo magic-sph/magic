@@ -514,8 +514,8 @@ contains
                   eTot   =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
                   dtE    =(eTot-eTotOld)/timePassedLog
                   dtEint =dtEint+timePassedLog*(eTot-eTotOld)
-                  write(n_dtE_file,'(ES20.12,3ES16.6)') timeScaled,dtE,         &
-                       &                    dtEint/timeNormLog,dtE/eTot
+                  write(n_dtE_file,'(ES20.12,3ES16.6)') timeScaled,dtE,   &
+                  &     dtEint/timeNormLog,dtE/eTot
                   if ( l_save_out ) close(n_dtE_file)
                else
                   eTot  =e_kin+e_mag+e_mag_ic+e_mag_os+eKinIC+eKinMA
@@ -848,13 +848,13 @@ contains
             end if
             if ( l_power ) then
                if ( visDiss /= 0.0_cp ) then
-                  lvDiss=sqrt(e_kin/abs(visDiss))            ! Viscous diffusion
+                  lvDiss=sqrt(two*e_kin/abs(visDiss)) ! Viscous dissipation lengthscale
                else
                   lvDiss=0.0_cp
                end if
                if ( l_mag .or. l_mag_LF ) then
                   if ( ohmDiss /= 0.0_cp ) then
-                     lbDiss=sqrt((e_mag+e_mag_ic)/abs(ohmDiss)) ! Ohmic diffusion 
+                     lbDiss=sqrt(two*opm*(e_mag+e_mag_ic)/abs(ohmDiss)) ! Ohmic dissipation lengthscale
                   else
                      lbDiss=0.0_cp
                   end if
