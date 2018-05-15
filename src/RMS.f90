@@ -32,7 +32,7 @@ module RMS
        &                  hInt2dPolLM
    use dtB_mod, only: PdifLM_LMloc, TdifLM_LMloc, PstrLM_LMloc, PadvLM_LMloc, &
        &              TadvLM_LMloc, TstrLM_LMloc, TomeLM_LMloc
-   use useful, only: getMSD2, abortRun
+   use useful, only: get_mean_sd, abortRun
                                                                   
    implicit none
  
@@ -106,22 +106,22 @@ contains
       allocate( dtBTor2hInt(llmMag:ulmMag,n_r_maxMag,nThreadsMax) )
       allocate( dtBPolLMr(llmMag:ulmMag,n_r_maxMag) )
       bytes_allocated = bytes_allocated+ &
-                        2*(ulmMag-llmMag+1)*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
-                        (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
+      &                 2*(ulmMag-llmMag+1)*n_r_maxMag*nThreadsMax*SIZEOF_DEF_REAL+&
+      &                 (llmMag-ulmMag+1)*n_r_maxMag*SIZEOF_DEF_COMPLEX
     
       allocate( dtVPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVTor2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( dtVPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
-                        2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      &                 2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
+      &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
 
       allocate( DifPol2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifTor2hInt(0:l_max,n_r_max,nThreadsMax) )
       allocate( DifPolLMr(llm:ulm,n_r_max) )
       bytes_allocated = bytes_allocated+ &
-                        2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
-                        (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
+      &                 2*(l_max+1)*n_r_max*nThreadsMax*SIZEOF_DEF_REAL+&
+      &                 (ulm-llm+1)*n_r_max*SIZEOF_DEF_COMPLEX
     
       allocate( Adv2hInt(0:l_max,n_r_max) )
       allocate( Cor2hInt(0:l_max,n_r_max) )
@@ -219,10 +219,10 @@ contains
       do n=1,1
          do nR=1,n_r_max
             do l=0,l_max
-               dtVPol2hInt(l,nR,n)  =0.0_cp
-               dtVTor2hInt(l,nR,n)  =0.0_cp
-               DifPol2hInt(l,nR,n)  =0.0_cp
-               DifTor2hInt(l,nR,n)  =0.0_cp
+               dtVPol2hInt(l,nR,n)=0.0_cp
+               dtVTor2hInt(l,nR,n)=0.0_cp
+               DifPol2hInt(l,nR,n)=0.0_cp
+               DifTor2hInt(l,nR,n)=0.0_cp
             end do
          end do
          do nR=1,n_r_maxMag
@@ -263,8 +263,7 @@ contains
 
    end subroutine zeroRms
 !----------------------------------------------------------------------------
-   subroutine init_rNB(r,rCut,rDea,r2,n_r_max2,n_cheb_max2, &
-        &              nS,rscheme_RMS)
+   subroutine init_rNB(r,rCut,rDea,r2,n_r_max2,n_cheb_max2,nS,rscheme_RMS)
       !
       ! Prepares the usage of a cut back radial grid where nS points
       ! on both boundaries are discarded.
@@ -315,11 +314,11 @@ contains
       if ( .not. l_finite_diff ) then
          ! Allowed number of radial grid points:
          nRs = [25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121,  &
-                129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
-                321, 325, 361, 385, 401, 433, 481, 501, 513, 541, 577,  &
-                601, 641, 649, 721, 769, 801, 865, 901, 961, 973, 1001, &
-                1025, 1081, 1153, 1201, 1281, 1297, 1441, 1501, 1537,   &
-                1601, 1621, 1729, 1801, 1921, 1945, 2001, 2049]
+         &      129, 145, 161, 181, 193, 201, 217, 241, 257, 289, 301,  &
+         &      321, 325, 361, 385, 401, 433, 481, 501, 513, 541, 577,  &
+         &      601, 641, 649, 721, 769, 801, 865, 901, 961, 973, 1001, &
+         &      1025, 1081, 1153, 1201, 1281, 1297, 1441, 1501, 1537,   &
+         &      1601, 1621, 1729, 1801, 1921, 1945, 2001, 2049]
          lStop=.true.
          do n=size(nRs),1,-1
             if ( nRs(n) <= n_r_max2 ) then
@@ -432,17 +431,16 @@ contains
       !-- Diffusion
       DifRms=0.0_cp
       if ( rscheme_RMS%version == 'cheb' ) then
-         call get_dr(DifPolLMr(llm:,nRC:),workA(llm:,nRC:), &
-              &      ulm-llm+1,1,ulm-llm+1, &
+         call get_dr(DifPolLMr(llm:,nRC:),workA(llm:,nRC:),ulm-llm+1,1,ulm-llm+1, &
               &      n_r_maxC,rscheme_RMS,nocopy=.true.)
       else
-         call get_dr(DifPolLMr(llm:,:),workA(llm:,:), &
-              &      ulm-llm+1,1,ulm-llm+1,n_r_max,rscheme_RMS)
+         call get_dr(DifPolLMr(llm:,:),workA(llm:,:),ulm-llm+1,1,ulm-llm+1, &
+              &      n_r_max,rscheme_RMS)
       end if
 
       do nR=1,n_r_maxC
-         call hInt2dPol( workA(llm:,nR+nCut),llm,ulm,DifPol2hInt(:,nR+nCut,1), &
-              &           lo_map )
+         call hInt2dPol(workA(llm:,nR+nCut),llm,ulm,DifPol2hInt(:,nR+nCut,1), &
+              &         lo_map)
       end do
 #ifdef WITH_MPI
       call MPI_Reduce(DifPol2hInt(:,:,1),global_sum,n_r_max*(l_max+1), &
@@ -482,30 +480,42 @@ contains
       do irank=0,n_procs-1
          displs(irank) = irank*nR_per_rank*(l_max+1)
       end do
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Cor2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Adv2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & LF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Buo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Pre2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Geo2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Mag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & Arc2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & ArcMag2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CIA2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & CLF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
-      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,&
-           & PLF2hInt,recvcounts,displs,MPI_DEF_REAL,MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Cor2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Adv2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              LF2hInt,recvcounts,displs,MPI_DEF_REAL,    &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Buo2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Pre2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Geo2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Mag2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              Arc2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              ArcMag2hInt,recvcounts,displs,MPI_DEF_REAL,&
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              CIA2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              CLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
+      call MPI_AllgatherV(MPI_IN_PLACE,sendcount,MPI_DEF_REAL,       &
+           &              PLF2hInt,recvcounts,displs,MPI_DEF_REAL,   &
+           &              MPI_COMM_WORLD,ierr)
     
       ! The following fields are LM distributed and have to be gathered:
       ! dtVPolLMr, DifPolLMr
@@ -538,8 +548,8 @@ contains
                !-- Finish Rms for mode l
                CorRmsL=sqrt(CorRmsL/volC)
                !-- Calculate time average and SD for mode l:
-               call getMSD2(CorRmsL_TA(l),CorRmsL_SD(l),CorRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(CorRmsL_TA(l),CorRmsL_SD(l),CorRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          CorRms=sqrt(CorRms/volC)
@@ -554,8 +564,8 @@ contains
                AdvRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                AdvRms =AdvRms+AdvRmsL
                AdvRmsL=sqrt(AdvRmsL/volC)
-               call getMSD2(AdvRmsL_TA(l),AdvRmsL_SD(l),AdvRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(AdvRmsL_TA(l),AdvRmsL_SD(l),AdvRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          AdvRms=sqrt(AdvRms/volC)
@@ -570,8 +580,8 @@ contains
                LFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                LFRms =LFRms+LFRmsL
                LFRmsL=sqrt(LFRmsL/volC)
-               call getMSD2(LFRmsL_TA(l),LFRmsL_SD(l),LFRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(LFRmsL_TA(l),LFRmsL_SD(l),LFRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          LFRms=sqrt(LFRms/volC)
@@ -586,8 +596,8 @@ contains
                BuoRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                BuoRms =BuoRms+BuoRmsL
                BuoRmsL=sqrt(BuoRmsL/volC)
-               call getMSD2(BuoRmsL_TA(l),BuoRmsL_SD(l),BuoRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(BuoRmsL_TA(l),BuoRmsL_SD(l),BuoRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          BuoRms=sqrt(BuoRms/volC)
@@ -601,8 +611,8 @@ contains
             PreRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             PreRms =PreRms+PreRmsL
             PreRmsL=sqrt(PreRmsL/volC)
-            call getMSD2(PreRmsL_TA(l),PreRmsL_SD(l),PreRmsL, &
-                         nRMS_sets,timePassed,timeNorm)
+            call get_mean_sd(PreRmsL_TA(l),PreRmsL_SD(l),PreRmsL, &
+                 &           nRMS_sets,timePassed,timeNorm)
          end do
          PreRms=sqrt(PreRms/volC)
 
@@ -615,8 +625,8 @@ contains
             GeoRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             GeoRms =GeoRms+GeoRmsL
             GeoRmsL=sqrt(GeoRmsL/volC)
-            call getMSD2(GeoRmsL_TA(l),GeoRmsL_SD(l),GeoRmsL, &
-                         nRMS_sets,timePassed,timeNorm)
+            call get_mean_sd(GeoRmsL_TA(l),GeoRmsL_SD(l),GeoRmsL, &
+                 &           nRMS_sets,timePassed,timeNorm)
          end do
          GeoRms=sqrt(GeoRms/volC)
 
@@ -630,8 +640,8 @@ contains
                MagRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                MagRms =MagRms+MagRmsL
                MagRmsL=sqrt(MagRmsL/volC)
-               call getMSD2(MagRmsL_TA(l),MagRmsL_SD(l),MagRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(MagRmsL_TA(l),MagRmsL_SD(l),MagRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          MagRms=sqrt(MagRms/volC)
@@ -646,8 +656,8 @@ contains
                CLFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                CLFRms =CLFRms+CLFRmsL
                CLFRmsL=sqrt(CLFRmsL/volC)
-               call getMSD2(CLFRmsL_TA(l),CLFRmsL_SD(l),CLFRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(CLFRmsL_TA(l),CLFRmsL_SD(l),CLFRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          CLFRms=sqrt(CLFRms/volC)
@@ -662,8 +672,8 @@ contains
                PLFRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                PLFRms =PLFRms+PLFRmsL
                PLFRmsL=sqrt(PLFRmsL/volC)
-               call getMSD2(PLFRmsL_TA(l),PLFRmsL_SD(l),PLFRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(PLFRmsL_TA(l),PLFRmsL_SD(l),PLFRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          PLFRms=sqrt(PLFRms/volC)
@@ -678,8 +688,8 @@ contains
                ArcMagRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                ArcMagRms =ArcMagRms+ArcMagRmsL
                ArcMagRmsL=sqrt(ArcMagRmsL/volC)
-               call getMSD2(ArcMagRmsL_TA(l),ArcMagRmsL_SD(l),ArcMagRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(ArcMagRmsL_TA(l),ArcMagRmsL_SD(l),ArcMagRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          ArcMagRms=sqrt(ArcMagRms/volC)
@@ -694,8 +704,8 @@ contains
                ArcRmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                ArcRms =ArcRms+ArcRmsL
                ArcRmsL=sqrt(ArcRmsL/volC)
-               call getMSD2(ArcRmsL_TA(l),ArcRmsL_SD(l),ArcRmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(ArcRmsL_TA(l),ArcRmsL_SD(l),ArcRmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          ArcRms=sqrt(ArcRms/volC)
@@ -710,8 +720,8 @@ contains
                CIARmsL=rInt_R(Rms(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
                CIARms =CIARms+CIARmsL
                CIARmsL=sqrt(CIARmsL/volC)
-               call getMSD2(CIARmsL_TA(l),CIARmsL_SD(l),CIARmsL, &
-                            nRMS_sets,timePassed,timeNorm)
+               call get_mean_sd(CIARmsL_TA(l),CIARmsL_SD(l),CIARmsL, &
+                    &           nRMS_sets,timePassed,timeNorm)
             end do
          end if
          CIARms=sqrt(CIARms/volC)
@@ -728,8 +738,8 @@ contains
            DifRmsL=rInt_R(Dif2hInt(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
            DifRms =DifRms+DifRmsL
            DifRmsL=sqrt(DifRmsL/volC)
-           call getMSD2(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
-                        nRMS_sets,timePassed,timeNorm)
+           call get_mean_sd(DifRmsL_TA(l),DifRmsL_SD(l),DifRmsL, &
+                &           nRMS_sets,timePassed,timeNorm)
          end do
          DifRms=sqrt(DifRms/volC)
 
@@ -745,8 +755,8 @@ contains
             dtVRmsL=rInt_R(dtV2hInt(nRC:n_r_max-nRC+1),rC,rscheme_RMS)
             dtV_Rms =dtV_Rms+dtVRmsL
             dtVRmsL=sqrt(dtVRmsL/volC)
-            call getMSD2(dtVRmsL_TA(l),dtVRmsL_SD(l),dtVRmsL, &
-                 &       nRMS_sets,timePassed,timeNorm)
+            call get_mean_sd(dtVRmsL_TA(l),dtVRmsL_SD(l),dtVRmsL, &
+                 &           nRMS_sets,timePassed,timeNorm)
          end do
          dtV_Rms=sqrt(dtV_Rms/volC)
     
@@ -755,55 +765,52 @@ contains
             open(newunit=n_dtvrms_file, file=dtvrms_file, &
             &    form='formatted', status='unknown', position='append')
          end if
-         write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,7ES14.6)')&
-         &    time*tScale, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
-         &    BuoRms, PreRms, GeoRms/(CorRms+PreRms),       &
-         &    MagRms/(CorRms+PreRms+LFRms),                 &
-         &    ArcRms/(CorRms+PreRms+BuoRms),                &
-         &    ArcMagRms/(CorRms+PreRms+LFRms+BuoRms),       &
-         &    CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms), &
-         &    CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
+         write(n_dtvrms_file,'(1P,ES20.12,7ES16.8,7ES14.6)')        &
+         &     time*tScale, dtV_Rms, CorRms, LFRms, AdvRms, DifRms, &
+         &     BuoRms, PreRms, GeoRms/(CorRms+PreRms),              &
+         &     MagRms/(CorRms+PreRms+LFRms),                        &
+         &     ArcRms/(CorRms+PreRms+BuoRms),                       &
+         &     ArcMagRms/(CorRms+PreRms+LFRms+BuoRms),              &
+         &     CLFRms/(CorRms+LFRms), PLFRms/(PreRms+LFRms),        &
+         &     CIARms/(CorRms+PreRms+BuoRms+AdvRms+LFRms)
          if ( l_save_out) then
             close(n_dtvrms_file)
          end if
 
          !-- RMS time averaged spectra
-         do l=0,l_max
-            dtVRmsSD(l)   =sqrt(dtVRmsL_SD(l)/timeNorm)
-            CorRmsSD(l)   =sqrt(CorRmsL_SD(l)/timeNorm)
-            AdvRmsSD(l)   =sqrt(AdvRmsL_SD(l)/timeNorm)
-            DifRmsSD(l)   =sqrt(DifRmsL_SD(l)/timeNorm)
-            BuoRmsSD(l)   =sqrt(BuoRmsL_SD(l)/timeNorm)
-            PreRmsSD(l)   =sqrt(PreRmsL_SD(l)/timeNorm)
-            GeoRmsSD(l)   =sqrt(GeoRmsL_SD(l)/timeNorm)
-            ArcRmsSD(l)   =sqrt(ArcRmsL_SD(l)/timeNorm)
-            ArcMagRmsSD(l)=sqrt(ArcMagRmsL_SD(l)/timeNorm)
-            CIARmsSD(l)   =sqrt(CIARmsL_SD(l)/timeNorm)
-            if ( l_mag_LF ) then
-               LFRmsSD(l) =sqrt(LFRmsL_SD(l)/timeNorm)
-               MagRmsSD(l)=sqrt(MagRmsL_SD(l)/timeNorm)
-               CLFRmsSD(l)=sqrt(CLFRmsL_SD(l)/timeNorm)
-               PLFRmsSD(l)=sqrt(PLFRmsL_SD(l)/timeNorm)
-            end if 
-            dtVRmsL_TA(l)   =max(dtVRmsL_TA(l),eps)
-            CorRmsL_TA(l)   =max(CorRmsL_TA(l),eps)
-            LFRmsL_TA(l)    =max(LFRmsL_TA(l),eps)
-            AdvRmsL_TA(l)   =max(AdvRmsL_TA(l),eps)
-            DifRmsL_TA(l)   =max(DifRmsL_TA(l),eps)
-            BuoRmsL_TA(l)   =max(BuoRmsL_TA(l),eps)
-            PreRmsL_TA(l)   =max(PreRmsL_TA(l),eps)
-            GeoRmsL_TA(l)   =max(GeoRmsL_TA(l),eps)
-            MagRmsL_TA(l)   =max(MagRmsL_TA(l),eps)
-            ArcRmsL_TA(l)   =max(ArcRmsL_TA(l),eps)
-            ArcMagRmsL_TA(l)=max(ArcMagRmsL_TA(l),eps)
-            CIARmsL_TA(l)   =max(CIARmsL_TA(l),eps)
-            CLFRmsL_TA(l)   =max(CLFRmsL_TA(l),eps)
-            PLFRmsL_TA(l)   =max(PLFRmsL_TA(l),eps)
-         end do
+         dtVRmsSD(:)   =sqrt(dtVRmsL_SD(:)/timeNorm)
+         CorRmsSD(:)   =sqrt(CorRmsL_SD(:)/timeNorm)
+         AdvRmsSD(:)   =sqrt(AdvRmsL_SD(:)/timeNorm)
+         DifRmsSD(:)   =sqrt(DifRmsL_SD(:)/timeNorm)
+         BuoRmsSD(:)   =sqrt(BuoRmsL_SD(:)/timeNorm)
+         PreRmsSD(:)   =sqrt(PreRmsL_SD(:)/timeNorm)
+         GeoRmsSD(:)   =sqrt(GeoRmsL_SD(:)/timeNorm)
+         ArcRmsSD(:)   =sqrt(ArcRmsL_SD(:)/timeNorm)
+         ArcMagRmsSD(:)=sqrt(ArcMagRmsL_SD(:)/timeNorm)
+         CIARmsSD(:)   =sqrt(CIARmsL_SD(:)/timeNorm)
+         if ( l_mag_LF ) then
+            LFRmsSD(:) =sqrt(LFRmsL_SD(:)/timeNorm)
+            MagRmsSD(:)=sqrt(MagRmsL_SD(:)/timeNorm)
+            CLFRmsSD(:)=sqrt(CLFRmsL_SD(:)/timeNorm)
+            PLFRmsSD(:)=sqrt(PLFRmsL_SD(:)/timeNorm)
+         end if 
+         dtVRmsL_TA(:)   =max(dtVRmsL_TA(:),eps)
+         CorRmsL_TA(:)   =max(CorRmsL_TA(:),eps)
+         LFRmsL_TA(:)    =max(LFRmsL_TA(:),eps)
+         AdvRmsL_TA(:)   =max(AdvRmsL_TA(:),eps)
+         DifRmsL_TA(:)   =max(DifRmsL_TA(:),eps)
+         BuoRmsL_TA(:)   =max(BuoRmsL_TA(:),eps)
+         PreRmsL_TA(:)   =max(PreRmsL_TA(:),eps)
+         GeoRmsL_TA(:)   =max(GeoRmsL_TA(:),eps)
+         MagRmsL_TA(:)   =max(MagRmsL_TA(:),eps)
+         ArcRmsL_TA(:)   =max(ArcRmsL_TA(:),eps)
+         ArcMagRmsL_TA(:)=max(ArcMagRmsL_TA(:),eps)
+         CIARmsL_TA(:)   =max(CIARmsL_TA(:),eps)
+         CLFRmsL_TA(:)   =max(CLFRmsL_TA(:),eps)
+         PLFRmsL_TA(:)   =max(PLFRmsL_TA(:),eps)
 
          fileName='dtVrms_spec.'//tag
-         open(newunit=fileHandle,file=fileName,form='formatted', &
-         &    status='unknown')
+         open(newunit=fileHandle,file=fileName,form='formatted',status='unknown')
          do l=0,l_max
             write(fileHandle,'(1P,I4,28ES16.8)') l+1,                        &
             &     dtVRmsL_TA(l),CorRmsL_TA(l),LFRmsL_TA(l),AdvRmsL_TA(l),    &
@@ -1091,10 +1098,10 @@ contains
             open(newunit=n_dtbrms_file, file=dtbrms_file,  &
             &    form='formatted', status='unknown', position='append')
          end if
-         write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')              &
-              time*tScale, dtBPolRms, dtBTorRms, PdynRms, TdynRms, &
-              PdifRms, TdifRms, TomeRms/TdynRms,                   &
-              TomeAsRms/TdynRms,  DdynRms,DdynAsRms
+         write(n_dtbrms_file,'(1P,ES20.12,10ES16.8)')               &
+         &     time*tScale, dtBPolRms, dtBTorRms, PdynRms, TdynRms, &
+         &     PdifRms, TdifRms, TomeRms/TdynRms,                   &
+         &     TomeAsRms/TdynRms,  DdynRms,DdynAsRms
          if ( l_save_out) close(n_dtbrms_file)
 
       end if

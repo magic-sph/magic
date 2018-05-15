@@ -13,8 +13,13 @@ module useful
 
    private
 
+   interface get_mean_sd
+      module procedure :: get_mean_sd_scalar
+      module procedure :: get_mean_sd_vector
+   end interface get_mean_sd
+
    public :: l_correct_step, random, factorise, cc2real, cc22real, &
-   &         logWrite, getMSD2, polynomial_interpolation, abortRun
+   &         logWrite, polynomial_interpolation, abortRun, get_mean_sd
 
 contains
 
@@ -237,7 +242,45 @@ contains
 
    end subroutine logWrite
 !----------------------------------------------------------------------------
-   subroutine getMSD2(mean,SD,x,n,dt,totalTime)
+   subroutine get_mean_sd_vector(mean,SD,x,n,dt,totalTime)
+      ! This subroutine computes the mean and standard deviation according 
+      ! to a method introduced by Donald Knuth (1962). I rederived his formulas
+      ! for a variable time step. On output SD still needs to be normalized with 
+      ! the totalTime and then you have to take the square root!!
+      ! The input integer counts the number of calls. For n=1 initialisation
+      ! is necessary.
+
+      !-- Input variables:
+      real(cp), intent(in) :: x(:)         ! quantity to be averaged
+      real(cp), intent(in) :: dt        ! time since last averaging step
+      real(cp), intent(in) :: totalTime ! total averaging time up to now
+      integer,  intent(in) :: n         ! number of calls( only n=1 needed)
+
+      !-- Output variables:
+      real(cp), intent(out) :: mean(:)     ! Time-average
+      real(cp), intent(out) :: SD(:)       ! Standard-deviation
+
+      !-- Local variable:
+      integer :: npoints
+      real(cp), allocatable :: delta(:)
+
+      npoints = size(x)
+      allocate( delta(npoints) )
+
+      if ( n == 1) then
+         mean(:)=x(:)
+         sd(:)  =0.0_cp
+      else
+         delta(:)=x(:)-mean(:)
+         mean(:) =mean(:)+delta(:)*dt/totalTime
+         SD(:)   =SD(:)+dt*delta(:)*(x(:)-mean(:))
+      end if
+
+      deallocate( delta )
+
+   end subroutine get_mean_sd_vector
+!----------------------------------------------------------------------------
+   subroutine get_mean_sd_scalar(mean,SD,x,n,dt,totalTime)
       ! This subroutine computes the mean and standard deviation according 
       ! to a method introduced by Donald Knuth (1962). I rederived his formulas
       ! for a variable time step. On output SD still needs to be normalized with 
@@ -267,7 +310,7 @@ contains
          SD=SD+dt*delta*(x-mean)
       end if
 
-   end subroutine getMSD2
+   end subroutine get_mean_sd_scalar
 !----------------------------------------------------------------------------
    subroutine polynomial_interpolation(xold, yold, xnew ,ynew)
 

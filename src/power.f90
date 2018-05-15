@@ -20,9 +20,9 @@ module power
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
-   use useful, only: cc2real,cc22real
-   use LMLoop_data,only: llm,ulm,llmMag,ulmMag
-   use integration, only: rInt_R,rIntIC
+   use useful, only: cc2real, cc22real, get_mean_sd
+   use LMLoop_data,only: llm, ulm, llmMag, ulmMag
+   use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
    use constants, only: one, two, half
    use legendre_spec_to_grid, only: lmAS2pt
@@ -31,12 +31,18 @@ module power
 
    private
 
-   real(cp), allocatable :: buoMeanR(:)       ! Buoyancy power (thermal)
-   real(cp), allocatable :: buo_chem_MeanR(:) ! Buoyancy power (chemical)
-   real(cp), allocatable :: viscHeatMeanR(:)  ! Viscous dissipation
-   real(cp), allocatable :: ohmDissR(:)       ! Ohmic dissipation
-   integer :: n_power_file
+   real(cp), allocatable :: buoR_mean(:)  ! time-averaged buoyancy power (thermal)
+   real(cp), allocatable :: buoR_SD(:)    ! standard deviation of buoyancy power (thermal)
+   real(cp), allocatable :: buo_chemR_mean(:) ! time-averaged buoyancy power (chemical)
+   real(cp), allocatable :: buo_chemR_SD(:)   ! standard deviation buoyancy power (chemical)
+   real(cp), allocatable :: viscHeatR_mean(:)  ! time-averaged viscous dissipation
+   real(cp), allocatable :: viscHeatR_SD(:)    ! standard deviation viscous dissipation
+   real(cp), allocatable :: ohmDissR_mean(:)   ! time-averaged ohmic dissipation
+   real(cp), allocatable :: ohmDissR_SD(:)     ! standard deviation ohmic dissipation
+   real(cp) :: powerDiff, eDiffInt
+   integer :: n_power_file, n_calls
    character(len=72) :: power_file
+
 
    public :: initialize_output_power, get_power, finalize_output_power
 
@@ -47,16 +53,24 @@ contains
       ! Memory allocation
       !
 
-      allocate( buoMeanR(n_r_max) )
-      allocate( ohmDissR(n_r_max) )
-      allocate( viscHeatMeanR(n_r_max) )
-      allocate( buo_chem_MeanR(n_r_max) )
-      bytes_allocated = bytes_allocated+4*n_r_max*SIZEOF_DEF_REAL
+      allocate( ohmDissR_mean(n_r_max), ohmDissR_SD(n_r_max) )
+      allocate( buoR_mean(n_r_max), buoR_SD(n_r_max) )
+      allocate( viscHeatR_mean(n_r_max), viscHeatR_SD(n_r_max) )
+      allocate( buo_chemR_mean(n_r_max), buo_chemR_SD(n_r_max) )
+      bytes_allocated = bytes_allocated+8*n_r_max*SIZEOF_DEF_REAL
 
-      buoMeanR(:)       = 0.0_cp
-      ohmDissR(:)       = 0.0_cp
-      viscHeatMeanR(:)  = 0.0_cp
-      buo_chem_MeanR(:) = 0.0_cp
+      buoR_mean(:)     =0.0_cp
+      buoR_SD(:)       =0.0_cp
+      ohmDissR_mean(:) =0.0_cp
+      ohmDissR_SD(:)   =0.0_cp
+      viscHeatR_mean(:)=0.0_cp
+      viscHeatR_SD(:)  =0.0_cp
+      buo_chemR_mean(:)=0.0_cp
+      buo_chemR_SD(:)  =0.0_cp
+
+      n_calls = 0
+      powerDiff=0.0_cp
+      eDiffInt =0.0_cp
 
       power_file='power.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
@@ -67,7 +81,8 @@ contains
 !----------------------------------------------------------------------------
    subroutine finalize_output_power
 
-      deallocate( buoMeanR, ohmDissR, viscHeatMeanR, buo_chem_MeanR )
+      deallocate( buoR_mean, buoR_SD, ohmDissR_mean, ohmDissR_SD )
+      deallocate( viscHeatR_mean, viscHeatR_SD, buo_chemR_mean, buo_chemR_SD )
 
       if ( rank == 0 .and. (.not. l_save_out) ) then
          close(n_power_file)
@@ -138,11 +153,9 @@ contains
       complex(cp) :: laplace,Bh
 
       character(len=76) :: fileName
-      character(len=7), save :: marker
       real(cp) :: z10ICB,z10CMB,drz10ICB,drz10CMB
       real(cp) :: powerIC,powerMA
       real(cp) :: powerDiffOld,powerDiffT
-      real(cp), save :: powerDiff, eDiffInt,tStart
 
       logical :: rank_has_l1m0
       integer :: sr_tag, fileHandle
@@ -150,12 +163,6 @@ contains
       integer :: i,sendcount,recvcounts(0:n_procs-1),displs(0:n_procs-1)
       integer :: status(MPI_STATUS_SIZE)
 #endif
-
-      if ( marker /= 'started' ) then
-         tStart   =time
-         powerDiff=0.0_cp
-         eDiffInt =0.0_cp
-      end if
 
       do n_r=nRstart,nRstop
          viscHeatR(n_r)=0.0_cp
@@ -166,7 +173,7 @@ contains
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2
-               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*visc(nThetaBlock)
+               viscHeatR(n_r)=viscHeatR(n_r)+gauss(nThetaNHS)*eScale*visc(nThetaBlock)
             end do
          end do
       end do
@@ -193,7 +200,7 @@ contains
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
                laplace=dLh(st_map%lm2(l,m))*or2(n_r)*b(lm,n_r)-ddb(lm,n_r)
-               curlB2_r(n_r)=curlB2_r(n_r) +  &
+               curlB2_r(n_r)=curlB2_r(n_r) +  LFfac*opm*eScale*              &
                &             dLh(st_map%lm2(l,m))*lambda(n_r)*(              &
                &             dLh(st_map%lm2(l,m))*or2(n_r)*                  &
                &             cc2real(aj(lm,n_r),m) + cc2real(dj(lm,n_r),m) + &
@@ -207,7 +214,7 @@ contains
                do lm=max(2,llm),ulm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) +                                 &
+                  buoy_r(n_r)=buoy_r(n_r) + eScale*                         &
                   &           dLh(st_map%lm2(l,m))*BuoFac*rgrav(n_r)*       &
                   &           ( otemp1(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m) &
                   &           -ViscHeatFac*ThExpNb*alpha0(n_r)*orho1(n_r)*  &
@@ -217,7 +224,7 @@ contains
                do lm=max(2,llm),ulm
                   l=lo_map%lm2l(lm)
                   m=lo_map%lm2m(lm)
-                  buoy_r(n_r)=buoy_r(n_r) +                         &
+                  buoy_r(n_r)=buoy_r(n_r) + eScale*                 &
                   &           dLh(st_map%lm2(l,m))*BuoFac*          &
                   &           rgrav(n_r)*cc22real(w(lm,n_r),s(lm,n_r),m)
                end do
@@ -228,7 +235,7 @@ contains
             do lm=max(2,llm),ulm
                l=lo_map%lm2l(lm)
                m=lo_map%lm2m(lm)
-               buoy_chem_r(n_r)=buoy_chem_r(n_r) +                      &
+               buoy_chem_r(n_r)=buoy_chem_r(n_r) + eScale*              &
                &                dLh(st_map%lm2(l,m))*ChemFac*           &
                &                rgrav(n_r)*cc22real(w(lm,n_r),xi(lm,n_r),m)
             end do
@@ -237,15 +244,18 @@ contains
       end do    ! radial grid points
 
 #ifdef WITH_MPI
-      if ( l_mag ) call MPI_Reduce(curlB2_r, curlB2_r_global, n_r_max,&
-                   &               MPI_DEF_REAL, MPI_SUM, 0,          &
-                   &               MPI_COMM_WORLD, ierr)
-      if ( l_heat ) call MPI_Reduce(buoy_r, buoy_r_global, n_r_max,   &
-                    &               MPI_DEF_REAL, MPI_SUM, 0,         &
-                    &               MPI_COMM_WORLD, ierr)
-      if ( l_chemical_conv ) call MPI_Reduce(buoy_chem_r, buoy_chem_r_global, &
-                             &               n_r_max, MPI_DEF_REAL, MPI_SUM,  &
-                             &               0, MPI_COMM_WORLD, ierr)
+      if ( l_mag ) then
+         call MPI_Reduce(curlB2_r,curlB2_r_global,n_r_max,MPI_DEF_REAL, &
+              &          MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      end if
+      if ( l_heat ) then
+         call MPI_Reduce(buoy_r,buoy_r_global,n_r_max,MPI_DEF_REAL,MPI_SUM, &
+              &          0,MPI_COMM_WORLD,ierr)
+      end if
+      if ( l_chemical_conv ) then
+         call MPI_Reduce(buoy_chem_r,buoy_chem_r_global,n_r_max,MPI_DEF_REAL,&
+              &          MPI_SUM,0,MPI_COMM_WORLD, ierr)
+      end if
       !if ( l_conv ) call MPI_Reduce(curlU2_r,curlU2_r_global,n_r_max,&
       !     & MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
 
@@ -263,42 +273,43 @@ contains
 
 #else
       !if ( l_conv ) curlU2_r_global=curlU2_r
-      if ( l_mag )  curlB2_r_global=curlB2_r
-      if ( l_heat ) buoy_r_global  =buoy_r
-      if ( l_chemical_conv ) buoy_chem_r_global = buoy_chem_r
+      if ( l_mag )  curlB2_r_global(:)=curlB2_r(:)
+      if ( l_heat ) buoy_r_global(:)=buoy_r(:)
+      if ( l_chemical_conv ) buoy_chem_r_global(:) = buoy_chem_r(:)
 
       if ( l_conv ) viscHeatR_global(:)=viscHeatR(:)
 #endif
 
       if ( rank == 0 ) then
+         n_calls = n_calls+1
          !-- Transform to cheb space:
          if ( l_conv ) then
             !curlU2MeanR=curlU2MeanR+timePassed*curlU2_r_global*eScale
             !curlU2=rInt_R(curlU2_r_global,r,rscheme_oc)
-            viscHeatMeanR=viscHeatMeanR+timePassed*viscHeatR_global*eScale
+            call get_mean_sd(viscHeatR_mean, viscHeatR_SD, viscHeatR_global, &
+                 &           n_calls, timePassed, timeNorm)
             viscHeat=rInt_R(viscHeatR_global,r,rscheme_oc)
-            viscHeat=eScale*viscHeat
          else
             viscHeat=0.0_cp
          end if
          if ( l_mag )  then
-            ohmDissR=ohmDissR+timePassed*curlB2_r_global*LFfac*opm*eScale
+            call get_mean_sd(ohmDissR_mean, ohmDissR_SD, curlB2_r_global, n_calls, &
+                 &           timePassed, timeNorm)
             curlB2=rInt_R(curlB2_r_global,r,rscheme_oc)
-            curlB2=LFfac*opm*eScale*curlB2
          else
             curlB2=0.0_cp
          end if
          if ( l_heat ) then
-            buoMeanR=buoMeanR+timePassed*buoy_r_global*eScale
+            call get_mean_sd(buoR_mean, buoR_SD, buoy_r_global, n_calls, &
+                 &           timePassed, timeNorm)
             buoy=rInt_R(buoy_r_global,r,rscheme_oc)
-            buoy=eScale*buoy
          else
             buoy=0.0_cp
          end if
          if ( l_chemical_conv ) then
-            buo_chem_MeanR=buo_chem_MeanR+timePassed*buoy_chem_r_global*eScale
+            call get_mean_sd(buo_chemR_mean, buo_chemR_SD, buoy_chem_r_global, &
+                 &           n_calls, timePassed, timeNorm)
             buoy_chem=rInt_R(buoy_chem_r_global,r,rscheme_oc)
-            buoy_chem=eScale*buoy_chem
          else
             buoy_chem=0.0_cp
          end if
@@ -316,7 +327,7 @@ contains
                m=lo_map%lm2m(lm)
                Bh=(l+one)*O_r_ic(n_r)*aj_ic(lm,n_r)+dj_ic(lm,n_r)
                laplace=-ddb_ic(lm,n_r) - two*(l+one)*O_r_ic(n_r)*db_ic(lm,n_r)
-               curlB2_rIC(n_r)=curlB2_rIC(n_r) +                          &
+               curlB2_rIC(n_r)=curlB2_rIC(n_r) + LFfac*opm*eScale*        &
                &               dLh(st_map%lm2(l,m))*r_ratio**(2*l+2) *  ( &
                &               dLh(st_map%lm2(l,m))*O_r_ic2(n_r)*         &
                &               cc2real(aj_ic(lm,n_r),m) +                 &
@@ -328,12 +339,11 @@ contains
          call MPI_Reduce(curlB2_rIC, curlB2_rIC_global, n_r_ic_max, &
               &          MPI_DEF_REAL, MPI_SUM, 0, MPI_COMM_WORLD, ierr)
 #else
-         curlB2_rIC_global=curlB2_rIC
+         curlB2_rIC_global(:)=curlB2_rIC(:)
 #endif
 
          if ( rank == 0 ) then
             curlB2_IC=rIntIC(curlB2_rIC_global,n_r_ic_max,dr_fac_ic,chebt_ic)
-            curlB2_IC=LFfac*opm*eScale*curlB2_IC
          end if
       else
          if ( rank == 0 ) then
@@ -349,7 +359,7 @@ contains
       !  If the rotation rates of inner core of mantle are kept
       !  fixed, the viscous dissipation may actually be a power source if
       !  the radial derivatives drz10 are negative (positive) at the
-      !  ICB (CMB)! The energy transfere is described by the very
+      !  ICB (CMB)! The energy transfer is described by the very
       !  correction terms.
       l1m0=lo_map%lm2(1,0)
       rank_has_l1m0=.false. ! set default
@@ -452,44 +462,53 @@ contains
          powerDiffOld=powerDiff
          powerDiff   =(buoy+buoy_chem+powerIC+powerMA+viscDiss+ohmDiss)
 
-         if ( marker == 'started' ) then
-            powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
-            eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
+         powerDiffT  =1.5_cp*powerDiff-half*powerDiffOld
+         eDiffInt=eDiffInt+timePassed*timePassed*powerDiffT
+         if ( abs(powerDiffOld) > 10.0_cp*epsilon(timePassed) ) then
             if ( l_save_out ) then
                open(newunit=n_power_file, file=power_file, status='unknown', &
                &    position='append')
             end if
-            write(n_power_file,'(1P,ES20.12,10ES16.8)')  &
-            &    time*tScale, buoy, buoy_chem,           &
-            &     -two*z10ICB*drz10ICB,                  &
-            &    two*z10CMB*drz10CMB, viscDiss,          &
-            &    ohmDiss, powerMA, powerIC, powerDiff,   &
-            &    eDiffInt/timeNorm
+            write(n_power_file,'(1P,ES20.12,10ES16.8)')   &
+            &     time*tScale, buoy, buoy_chem,           &
+            &     -two*z10ICB*drz10ICB,                   &
+            &     two*z10CMB*drz10CMB, viscDiss,          &
+            &     ohmDiss, powerMA, powerIC, powerDiff,   &
+            &     eDiffInt/timeNorm
             if ( l_save_out ) close(n_power_file)
-         else
-            marker='started'
          end if
 
          if ( l_stop_time ) then
-            buoMeanR(:)=buoMeanR(:)/timeNorm
-            buoMeanR(1)      =0.0_cp ! Ensure this is really zero on the boundaries
-            buoMeanR(n_r_max)=0.0_cp
+            ! buoMeanR(:)=buoMeanR(:)/timeNorm
+            buoR_mean(1)      =0.0_cp ! Ensure this is really zero on the boundaries
+            buoR_mean(n_r_max)=0.0_cp
+            buoR_SD(1)        =0.0_cp 
+            buoR_SD(n_r_max)  =0.0_cp
             if ( l_chemical_conv ) then
-               buo_chem_MeanR(:)=buo_chem_MeanR(:)/timeNorm
-               buo_chem_MeanR(1)=0.0_cp
-               buo_chem_MeanR(n_r_max)=0.0_cp
+               buo_chemR_mean(1)      =0.0_cp
+               buo_chemR_mean(n_r_max)=0.0_cp
+               buo_chemR_SD(1)        =0.0_cp
+               buo_chemR_SD(n_r_max)  =0.0_cp
             end if
-            ohmDissR(:)     =ohmDissR(:)/timeNorm
-            viscHeatMeanR(:)=viscHeatMeanR(:)/timeNorm
+            
+            buoR_SD(:)     =sqrt(buoR_SD(:)/timeNorm)
+            ohmDissR_SD(:) =sqrt(ohmDissR_SD(:)/timeNorm)
+            viscHeatR_SD(:)=sqrt(viscHeatR_SD(:)/timeNorm)
+            buo_chemR_SD(:)=sqrt(buo_chemR_SD(:)/timeNorm)
+
             fileName='powerR.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,4ES15.7)')  &
-                    &   r(n_r),               & ! 1) radius
-                    &   buoMeanR(n_r),        & ! 2) Buo power
-                    &   buo_chem_MeanR(n_r),  & ! 3) Chem power
-                    &   viscHeatMeanR(n_r),   & ! 4) Viscous heating
-                    &   ohmDissR(n_r)           ! 5) Ohmic dissipation
+               write(fileHandle,'(ES20.10,8ES15.7)') &
+               &     r(n_r),                         & ! 1) radius
+               &     buoR_mean(n_r),                 & ! 2) Buo power
+               &     buo_chemR_mean(n_r),            & ! 3) Chem power
+               &     viscHeatR_mean(n_r),            & ! 4) Viscous heating
+               &     ohmDissR_mean(n_r),             & ! 5) Ohmic dissipation
+               &     buoR_SD(n_r),                   & ! 6) Buo power
+               &     buo_chemR_SD(n_r),              & ! 7) Chem power
+               &     viscHeatR_SD(n_r),              & ! 8) Viscous heating
+               &     ohmDissR_SD(n_r)                  ! 9) Ohmic dissipation
             end do
             close(fileHandle)
          end if
