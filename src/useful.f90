@@ -251,14 +251,14 @@ contains
       ! is necessary.
 
       !-- Input variables:
-      real(cp), intent(in) :: x(:)         ! quantity to be averaged
+      real(cp), intent(in) :: x(:)      ! quantity to be averaged
       real(cp), intent(in) :: dt        ! time since last averaging step
       real(cp), intent(in) :: totalTime ! total averaging time up to now
       integer,  intent(in) :: n         ! number of calls( only n=1 needed)
 
       !-- Output variables:
-      real(cp), intent(out) :: mean(:)     ! Time-average
-      real(cp), intent(out) :: SD(:)       ! Standard-deviation
+      real(cp), intent(inout) :: mean(:)     ! Time-average
+      real(cp), intent(inout) :: SD(:)       ! Standard-deviation
 
       !-- Local variable:
       integer :: npoints
@@ -269,7 +269,7 @@ contains
 
       if ( n == 1) then
          mean(:)=x(:)
-         sd(:)  =0.0_cp
+         SD(:)  =0.0_cp
       else
          delta(:)=x(:)-mean(:)
          mean(:) =mean(:)+delta(:)*dt/totalTime
@@ -295,15 +295,15 @@ contains
       integer,  intent(in) :: n         ! number of calls( only n=1 needed)
 
       !-- Output variables:
-      real(cp), intent(out) :: mean     ! Time-average
-      real(cp), intent(out) :: SD       ! Standard-deviation
+      real(cp), intent(inout) :: mean     ! Time-average
+      real(cp), intent(inout) :: SD       ! Standard-deviation
 
       !-- Local variable:
       real(cp) :: delta
 
       if ( n == 1) then
          mean=x
-         sd=0.0_cp
+         SD=0.0_cp
       else
          delta=x-mean
          mean=mean+delta*dt/totalTime
