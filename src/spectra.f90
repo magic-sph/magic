@@ -50,8 +50,7 @@ module spectra
 
  
    public :: initialize_spectra, spectrum, spectrum_average,     &
-   &         spectrum_temp, spectrum_temp_average, get_amplitude,&
-   &         finalize_spectra
+   &         spectrum_temp, get_amplitude, finalize_spectra
 
 contains
 
@@ -809,19 +808,24 @@ contains
     
    end subroutine spectrum
 !----------------------------------------------------------------------------
-   subroutine spectrum_temp_average(n_time_ave,l_stop_time,time_passed,  &
-              &                     time_norm,s,ds)
+   subroutine spectrum_temp(n_spec,time,l_avg,n_time_ave,l_stop_time,       &
+              &             time_passed,time_norm,s,ds)
 
       !-- Direct input:
+      real(cp),     intent(in) :: time
       integer,     intent(in) :: n_time_ave
+      integer,     intent(in) :: n_spec
       logical,     intent(in) :: l_stop_time
       real(cp),    intent(in) :: time_passed
       real(cp),    intent(in) :: time_norm
       complex(cp), intent(in) :: s(llm:ulm,n_r_max)
       complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
+      logical,     intent(in) :: l_avg
 
       !-- Local:
       character(len=72) :: outFile
+      character(len=14) :: string
+      character(len=72) :: spec_file
       integer :: n_r,lm,l,m,lc,mc
       real(cp) :: T_temp
       real(cp) :: dT_temp
@@ -918,180 +922,70 @@ contains
             dT_ICB_m(m)=facICB*dT_ICB_m_global(m)
          end do
 
-         !-- Averaging:
-         call get_mean_sd(T_l_ave, T_l_SD, T_l, n_time_ave, time_passed, time_norm)
-         call get_mean_sd(T_ICB_l_ave, T_ICB_l_SD, T_ICB_l, n_time_ave, &
-              &           time_passed, time_norm)
-         call get_mean_sd(dT_ICB_l_ave, dT_ICB_l_SD, dT_ICB_l, n_time_ave, &
-              &           time_passed, time_norm)
-         call get_mean_sd(T_m_ave, T_m_SD, T_l, n_time_ave, time_passed, time_norm)
-         call get_mean_sd(T_ICB_m_ave, T_ICB_m_SD, T_ICB_l, n_time_ave, &
-              &           time_passed, time_norm)
-         call get_mean_sd(dT_ICB_m_ave, dT_ICB_m_SD, dT_ICB_l, n_time_ave, &
-              &           time_passed, time_norm)
+         if ( l_avg ) then
+            !-- Averaging:
+            call get_mean_sd(T_l_ave, T_l_SD, T_l, n_time_ave, time_passed, time_norm)
+            call get_mean_sd(T_ICB_l_ave, T_ICB_l_SD, T_ICB_l, n_time_ave, &
+                 &           time_passed, time_norm)
+            call get_mean_sd(dT_ICB_l_ave, dT_ICB_l_SD, dT_ICB_l, n_time_ave, &
+                 &           time_passed, time_norm)
+            call get_mean_sd(T_m_ave, T_m_SD, T_l, n_time_ave, time_passed, time_norm)
+            call get_mean_sd(T_ICB_m_ave, T_ICB_m_SD, T_ICB_l, n_time_ave, &
+                 &           time_passed, time_norm)
+            call get_mean_sd(dT_ICB_m_ave, dT_ICB_m_SD, dT_ICB_l, n_time_ave, &
+                 &           time_passed, time_norm)
 
-         !-- Output:
-         if ( l_stop_time ) then
+            !-- Output:
+            if ( l_stop_time ) then
 
-            T_l_SD(:)     =sqrt(T_l_SD(:)/time_norm)
-            T_ICB_l_SD(:) =sqrt(T_ICB_l_SD(:)/time_norm)
-            dT_ICB_l_SD(:)=sqrt(dT_ICB_l_SD(:)/time_norm)
-            T_m_SD(:)     =sqrt(T_m_SD(:)/time_norm)
-            T_ICB_m_SD(:) =sqrt(T_ICB_m_SD(:)/time_norm)
-            dT_ICB_m_SD(:)=sqrt(dT_ICB_m_SD(:)/time_norm)
+               T_l_SD(:)     =sqrt(T_l_SD(:)/time_norm)
+               T_ICB_l_SD(:) =sqrt(T_ICB_l_SD(:)/time_norm)
+               dT_ICB_l_SD(:)=sqrt(dT_ICB_l_SD(:)/time_norm)
+               T_m_SD(:)     =sqrt(T_m_SD(:)/time_norm)
+               T_ICB_m_SD(:) =sqrt(T_ICB_m_SD(:)/time_norm)
+               dT_ICB_m_SD(:)=sqrt(dT_ICB_m_SD(:)/time_norm)
 
-            !------ Output:
-            outFile='T_spec_ave.'//tag
-            open(newunit=nOut,file=outFile,status='unknown')
-            do l=1,l_max+1
-               write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave(l), T_m_ave(l),  &
-               &                              T_ICB_l_ave(l), T_ICB_m_ave(l),  &
-               &                            dT_ICB_l_ave(l), dT_ICB_m_ave(l),  &
-               &                                        T_l_SD(l), T_m_SD(l),  &
-               &                                T_ICB_l_SD(l), T_ICB_m_SD(l),  &
-               &                              dT_ICB_l_SD(l), dT_ICB_m_SD(l)
-            end do
-            close(nOut)
+               !------ Output:
+               spec_file='T_spec_ave.'//tag
+               open(newunit=nOut,file=spec_file,status='unknown')
+               do l=1,l_max+1
+                  write(nOut,'(2X,1P,I4,12ES16.8)') l-1, T_l_ave(l), T_m_ave(l),  &
+                  &                              T_ICB_l_ave(l), T_ICB_m_ave(l),  &
+                  &                            dT_ICB_l_ave(l), dT_ICB_m_ave(l),  &
+                  &                                        T_l_SD(l), T_m_SD(l),  &
+                  &                                T_ICB_l_SD(l), T_ICB_m_SD(l),  &
+                  &                              dT_ICB_l_SD(l), dT_ICB_m_SD(l)
+               end do
+               close(nOut)
 
-            if ( l_save_out ) then
-               open(newunit=n_log_file, file=log_file, status='unknown', &
-               &    position='append')
+               if ( l_save_out ) then
+                  open(newunit=n_log_file, file=log_file, status='unknown', &
+                  &    position='append')
+               end if
+               write(n_log_file,"(/,A,A)")  &
+               &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', spec_file
+               write(n_log_file,"(A,I5)")  &
+               &    ' !              No. of averaged spectra: ', n_time_ave
+               if ( l_save_out ) close(n_log_file)
+
             end if
-            write(n_log_file,"(/,A,A)")  &
-            &    ' ! TIME AVERAGED T/C SPECTRA STORED IN FILE: ', outFile
-            write(n_log_file,"(A,I5)")  &
-            &    ' !              No. of averaged spectra: ', n_time_ave
-            if ( l_save_out ) close(n_log_file)
+
+         else ! Just one spectrum
+
+            !-- Output into files:
+            write(string, *) n_spec
+            spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
+            open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
+            write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)')  &
+            &     time*tScale
+            do l=0,l_max
+               write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1),   &
+               &                                    T_ICB_l(l+1), T_ICB_m(l+1),   &
+               &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
+            end do
+            close(n_temp_spec_file)
 
          end if
-      end if
-
-   end subroutine spectrum_temp_average
-!----------------------------------------------------------------------------
-   subroutine spectrum_temp(time,n_spec,s,ds)
-      !
-      !  calculates spectra of temperature and composition
-      !
-
-      !-- Input variables:
-      integer,         intent(in) :: n_spec     ! number of spectrum/call, file
-      real(cp),    intent(in) :: time
-      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
-      complex(cp), intent(in) :: ds(llm:ulm,n_r_max)
-
-      !-- Output variables
-      real(cp) :: T_l(l_max+1)
-      real(cp) :: T_m(l_max+1)
-      real(cp) :: T_ICB_l(l_max+1),T_ICB_l_global(l_max+1)
-      real(cp) :: T_ICB_m(l_max+1),T_ICB_m_global(l_max+1)
-      real(cp) :: dT_ICB_l(l_max+1),dT_ICB_l_global(l_max+1)
-      real(cp) :: dT_ICB_m(l_max+1),dT_ICB_m_global(l_max+1)
-
-      !-- Local variables
-      character(len=14) :: string
-      character(len=72) :: spec_file
-      integer :: n_r,lm,l,mc,m,lc
-      real(cp) :: T_temp
-      real(cp) :: dT_temp
-      real(cp) :: surf_ICB
-      real(cp) :: fac,facICB
-
-      real(cp) :: T_r_l(n_r_max,l_max+1),T_r_l_global(n_r_max,l_max+1)
-      real(cp) :: T_r_m(n_r_max,l_max+1),T_r_m_global(n_r_max,l_max+1)
-
-
-      T_l(:)     =0.0_cp
-      T_ICB_l(:) =0.0_cp
-      dT_ICB_l(:)=0.0_cp
-      T_m(:)     =0.0_cp
-      T_ICB_m(:) =0.0_cp
-      dT_ICB_m(:)=0.0_cp
-
-      do n_r=1,n_r_max
-
-         do l=1,l_max+1
-            T_r_l(n_r,l)=0.0_cp
-            T_ICB_l(l)  =0.0_cp
-            dT_ICB_l(l) =0.0_cp
-            T_r_m(n_r,l)=0.0_cp
-            T_ICB_m(l)  =0.0_cp
-            dT_ICB_m(l) =0.0_cp
-         end do
-
-         do lm=llm,ulm
-            l =lo_map%lm2l(lm)
-            m =lo_map%lm2m(lm)
-            lc=l+1
-            mc=m+1
-
-            T_temp =sqrt(cc2real(s(lm,n_r),m))/or2(n_r)
-            dT_temp=sqrt(cc2real(ds(lm,n_r),m))/or2(n_r)
-            !----- l-spectra:
-            T_r_l(n_r,lc)=T_r_l(n_r,lc) + T_temp
-            !----- m-spectra:
-            T_r_m(n_r,mc)=T_r_m(n_r,mc) + T_temp
-
-            !----- ICB spectra:
-            if ( n_r == n_r_icb ) then
-               T_ICB_l(lc) =T_ICB_l(lc) +T_temp
-               T_ICB_m(mc) =T_ICB_m(mc) +T_temp
-               dT_ICB_l(lc)=dT_ICB_l(lc)+dT_temp
-               dT_ICB_m(mc)=dT_ICB_m(mc)+dT_temp
-            end if
-         end do
-
-      end do
-
-      ! reduction over all ranks
-#ifdef WITH_MPI
-      call MPI_Reduce(T_r_l,T_r_l_global,n_r_max*(l_max+1),      &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_r_m,T_r_m_global,n_r_max*(l_max+1),      &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_ICB_l,T_ICB_l_global,l_max+1,            &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(T_ICB_m,T_ICB_m_global,l_max+1,            &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(dT_ICB_l,dT_ICB_l_global,l_max+1,          &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-      call MPI_Reduce(dT_ICB_m,dT_ICB_m_global,l_max+1,          &
-           &          MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
-#else
-      T_r_l_global(:,:) =T_r_l(:,:)
-      T_r_m_global(:,:) =T_r_m(:,:)
-      T_ICB_l_global(:) =T_ICB_l(:)
-      T_ICB_m_global(:) =T_ICB_m(:)
-      dT_ICB_l_global(:)=dT_ICB_l(:)
-      dT_ICB_m_global(:)=dT_ICB_m(:)
-#endif
-
-      if ( rank == 0 ) then
-         !-- Radial Integrals:
-         surf_ICB =four*pi*r_icb*r_icb
-         fac      =one/vol_oc
-         facICB   =one/surf_ICB
-         do l=1,l_max+1
-            T_l(l)=fac*rInt_R(T_r_l_global(:,l),r,rscheme_oc)
-            T_ICB_l(l)=facICB*T_ICB_l_global(l)
-            dT_ICB_l(l)=facICB*dT_ICB_l_global(l)
-         end do
-         do m=1,l_max+1 ! Note: counter m is actual order+1
-            T_m(m)=fac*rInt_R(T_r_m_global(:,m),r,rscheme_oc)
-            T_ICB_m(m)=facICB*T_ICB_m_global(m)
-            dT_ICB_m(m)=facICB*dT_ICB_m_global(m)
-         end do
-
-         !-- Output into files:
-         write(string, *) n_spec
-         spec_file='T_spec_'//trim(adjustl(string))//'.'//tag
-         open(newunit=n_temp_spec_file, file=spec_file, status='unknown')
-         write(n_temp_spec_file,'(1x,''TC spectra at time:'', ES20.12)') time*tScale
-         do l=0,l_max
-            write(n_temp_spec_file,'(1P,I4,6ES12.4)') l, T_l(l+1), T_m(l+1),   &
-            &                                    T_ICB_l(l+1), T_ICB_m(l+1),   &
-            &                                  dT_ICB_l(l+1), dT_ICB_m(l+1)
-         end do
-         close(n_temp_spec_file)
 
       end if
 

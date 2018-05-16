@@ -119,15 +119,15 @@ contains
       !       already axisymmetric !
       do n_r=nRstart,nRstop
          r2=r(n_r)*r(n_r)
-         HelNr(n_r) =0.0_cp
-         HelSr(n_r) =0.0_cp
+         HelNr(n_r)   =0.0_cp
+         HelSr(n_r)   =0.0_cp
          HelnaNr(n_r) =0.0_cp
          HelnaSr(n_r) =0.0_cp
-         HelEAr(n_r)=0.0_cp
-         Hel2Nr(n_r) =0.0_cp
-         Hel2Sr(n_r) =0.0_cp
-         Helna2Nr(n_r) =0.0_cp
-         Helna2Sr(n_r) =0.0_cp
+         HelEAr(n_r)  =0.0_cp
+         Hel2Nr(n_r)  =0.0_cp
+         Hel2Sr(n_r)  =0.0_cp
+         Helna2Nr(n_r)=0.0_cp
+         Helna2Sr(n_r)=0.0_cp
  
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
@@ -255,9 +255,9 @@ contains
             &    status='unknown', position='append')
          end if
 
-         write(n_helicity_file,'(1P,ES20.12,8ES16.8)')    &
-              & timeScaled,HelN, HelS, HelRMSN, HelRMSS,  &
-              & HelnaN, HelnaS, HelnaRMSN, HelnaRMSS
+         write(n_helicity_file,'(1P,ES20.12,8ES16.8)')   &
+         &     timeScaled,HelN, HelS, HelRMSN, HelRMSS,  &
+         &     HelnaN, HelnaS, HelnaRMSN, HelnaRMSS
 
          if ( l_save_out ) close(n_helicity_file)
             

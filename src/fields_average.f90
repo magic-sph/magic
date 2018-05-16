@@ -367,7 +367,8 @@ contains
               &        b_ic_ave,db_ic_ave,aj_ic_ave)  
 
          if ( l_heat ) then
-            call spectrum_temp(time,n_spec,s_ave,ds_ave)
+            call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
+                 &             0.0_cp,0.0_cp,s_ave,ds_ave)
          end if
          if ( l_save_out ) then
             open(newunit=n_log_file, file=log_file, status='unknown', &

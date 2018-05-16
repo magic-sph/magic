@@ -20,7 +20,7 @@ module power
        &            l_conv, l_cond_ic, l_heat, l_mag, l_TP_form,    &
        &            l_chemical_conv, l_anelastic_liquid
    use output_data, only: tag
-   use useful, only: cc2real, cc22real, get_mean_sd
+   use useful, only: cc2real, cc22real, get_mean_sd, round_off
    use LMLoop_data,only: llm, ulm, llmMag, ulmMag
    use integration, only: rInt_R, rIntIC
    use outRot, only: get_viscous_torque
@@ -499,16 +499,13 @@ contains
             fileName='powerR.'//tag
             open(newunit=fileHandle, file=fileName, status='unknown')
             do n_r=1,n_r_max
-               write(fileHandle,'(ES20.10,8ES15.7)') &
-               &     r(n_r),                         & ! 1) radius
-               &     buoR_mean(n_r),                 & ! 2) Buo power
-               &     buo_chemR_mean(n_r),            & ! 3) Chem power
-               &     viscHeatR_mean(n_r),            & ! 4) Viscous heating
-               &     ohmDissR_mean(n_r),             & ! 5) Ohmic dissipation
-               &     buoR_SD(n_r),                   & ! 6) Buo power
-               &     buo_chemR_SD(n_r),              & ! 7) Chem power
-               &     viscHeatR_SD(n_r),              & ! 8) Viscous heating
-               &     ohmDissR_SD(n_r)                  ! 9) Ohmic dissipation
+               write(fileHandle,'(ES20.10,4ES15.7, 4ES13.5)')          &
+               &     r(n_r),buoR_mean(n_r),buo_chemR_mean(n_r),        &
+               &     viscHeatR_mean(n_r),ohmDissR_mean(n_r),           &
+               &     round_off(buoR_SD(n_r),buoR_mean(n_r)),           &
+               &     round_off(buo_chemR_SD(n_r),buo_chemR_mean(n_r)), &
+               &     round_off(viscHeatR_SD(n_r),viscHeatR_mean(n_r)), &
+               &     round_off(ohmDissR_SD(n_r),ohmDissR_mean(n_r))   
             end do
             close(fileHandle)
          end if

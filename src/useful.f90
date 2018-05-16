@@ -18,7 +18,7 @@ module useful
       module procedure :: get_mean_sd_vector
    end interface get_mean_sd
 
-   public :: l_correct_step, random, factorise, cc2real, cc22real, &
+   public :: l_correct_step, random, factorise, cc2real, cc22real, round_off, &
    &         logWrite, polynomial_interpolation, abortRun, get_mean_sd
 
 contains
@@ -423,5 +423,19 @@ contains
 #endif
 
    end subroutine abortRun
+!----------------------------------------------------------------------------
+   real(cp) function round_off(param, ref)
+
+      !-- Input variable
+      real(cp), intent(in) :: param        ! parameter to be checked
+      real(cp), intent(in) :: ref          ! reference value
+
+      if ( abs(param) < 1.0e3_cp*epsilon(one)*abs(ref) ) then
+         round_off = 0.0_cp
+      else
+         round_off = param
+      end if
+
+   end function round_off
 !----------------------------------------------------------------------------
 end module useful
