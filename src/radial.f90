@@ -971,12 +971,22 @@ contains
              call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
              dLlambda=dsigma/lambda
           else if ( nVarCond == 5 ) then
-          ! 'PNS magnetic diffusivity profile'
-          ! this formula assume generate protons
-          lambda = temp0**2/rho0**(3./2.)
-          sigma = one/lambda
-          call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
-          dLlambda=dsigma/lambda
+             ! 'PNS magnetic diffusivity profile'
+             ! this formula assume generate protons
+             lambda = temp0**2/rho0**(3./2.)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
+          else if ( nVarCond == 6 ) then
+             ! PNS magnetic diffusivity profile
+             ! degenerate relativistic electrons
+             ! non degenerate protons
+             ! Thompson & Duncan, ApJ (1993)
+             ! This formula neglect the Ye dependence
+             lambda = rho0**(-1./3.)
+             sigma = one/lambda
+             call get_dr(lambda,dsigma,n_r_max,rscheme_oc)
+             dLlambda=dsigma/lambda
           end if
       end if
 
