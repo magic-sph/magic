@@ -115,8 +115,14 @@ class ThetaHeat(MagicSetup):
             file.close()
         else:
             file = open(pickleName, 'r')
-            self.colat, self.tempmean, self.tempstd, \
-                        self.fluxmean, self.fluxstd = pickle.load(file)
+            dat = pickle.load(file)
+            if len(dat) == 5:
+                self.colat, self.tempmean, self.tempstd, \
+                            self.fluxmean, self.fluxstd = dat
+            else:
+                self.colat, self.tempmean, self.fluxmean = dat
+                self.fluxstd = np.zeros_like(self.fluxmean)
+                self.tempstd = np.zeros_like(self.fluxmean)
             file.close()
 
         self.ri = self.radratio/(1.-self.radratio)
