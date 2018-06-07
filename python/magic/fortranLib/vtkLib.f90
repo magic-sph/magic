@@ -393,6 +393,7 @@ subroutine getCode(scalcodes,scalnames,nscals,veccodes,vecnames,nvecs)
       if ( scalcodes(i) == 10) scalnames(i) = 'Kinetic energy'
       if ( scalcodes(i) == 11) scalnames(i) = 'Radial mag. field'
       if ( scalcodes(i) == 12) scalnames(i) = 'Cyl Radial Velocity'
+      if ( scalcodes(i) == 13) scalnames(i) = 'Colatitude'
    end do
 
    do i=1,nvecs

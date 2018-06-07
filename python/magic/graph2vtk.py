@@ -182,7 +182,7 @@ class Graph2Vtk:
         :type gr: magic.MagicGraph
         :param scals: a list that contains the possible input scalars: 'entropy',
                       'vr', 'vp', 'tfluct', 'vortz', 'vortzfluct', 'ekin',
-                      'emag', 'vortr'
+                      'emag', 'vortr', 'colat'
         :type scals: list(str)
         :param vecs: a list that contains the possible input vectors: 'u', 
                      'b', 'ufluct', 'bfluct'
@@ -262,6 +262,8 @@ class Graph2Vtk:
         keyScal['vs'] = 12
         keyScal['Vs'] = 12
         keyScal['us'] = 12
+        keyScal['colat'] = 13
+        keyScal['theta'] = 13
 
         # Change default scalars and vectors in non-magnetic cases
         if gr.mode == 1 or gr.mode == 7 or gr.mode == 10:
@@ -450,9 +452,19 @@ class Graph2Vtk:
                 vs = gr.vr * np.sin(th3D) + gr.vtheta * np.cos(th3D)
 
                 if deminc:
-                    self.scals[k, :, :, 0:gr.nr] = symmetrize(vs[..., ::-1],gr.minc)
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(vs[..., ::-1], gr.minc)
                 else:
                     self.scals[k, :, :, 0:gr.nr] = vs[..., ::-1]
+
+            elif index == 13: # Colatitude
+                th3D = np.zeros_like(gr.vphi)
+                for i in range(gr.ntheta):
+                    th3D[:, i, :] = gr.colatitude[i]
+
+                if deminc:
+                    self.scals[k, :, :, 0:gr.nr] = symmetrize(th3D[..., ::-1], gr.minc)
+                else:
+                    self.scals[k, :, :, 0:gr.nr] = th3D[..., ::-1]
 
             if potExtra:
                 if index == 2:
@@ -573,6 +585,9 @@ class Graph2Vtk:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
                 vts_scal(filename, self.radius, self.scals, self.scalNames,
                          self.minc)
+            elif nFiles > 1:
+                pvts_scal(filename, self.radius, self.scals, self.scalNames, 
+                          nFiles, self.minc)
 
             else:
                 pvts_scal(filename, self.radius, self.scals, self.scalNames, 
@@ -581,7 +596,9 @@ class Graph2Vtk:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
                 vts(filename, self.radius, self.vecr, self.vect, self.vecp,
                     self.scals, self.scalNames, self.vecNames, self.minc)
-
+            elif nFiles > 1:
+                pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
+                     self.scals, self.scalNames, self.vecNames, nFiles, self.minc)
             else:
                 pvts(filename, self.radius, self.vecr, self.vect, self.vecp,
                      self.scals, self.scalNames, self.vecNames, 8, self.minc)
