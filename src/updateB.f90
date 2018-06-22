@@ -513,6 +513,9 @@ contains
                         rhs2(nR,2*lmB,threadid)  =aimag(ddb(lm1,nR))
                      end if
                   end do
+                  !! overwrite when perfect conductor
+                  if ( ktopb==2 ) rhs1(2,lmB,threadid)        = 0.0_cp
+                  if ( kbotb==2 ) rhs1(n_r_max-1,lmB,threadid)= 0.0_cp
 
                   !-- Overwrite RHS when perfect conductor
                   if ( ktopb == 2 ) then
