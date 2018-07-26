@@ -11,7 +11,7 @@ from .libmagic import scanDir
 
 class TOMovie:
     """
-    This class allows to read and display the :ref:`TO_mov.TAG <secTO_movieFile>` 
+    This class allows to read and display the :ref:`TO_mov.TAG <secTO_movieFile>`
     generated when :ref:`l_TOmovie=.true. <varl_TOmovie>` is True.
 
     >>> # This will allow you to pick up one TO_mov files among the existing ones
@@ -41,7 +41,7 @@ class TOMovie:
                           Float64 for double precision
         :type precision: str
         """
-                 
+
         if file == None:
             dat = glob.glob('TO_mov.*')
             str1 = 'Which TO movie do you want ?\n'
@@ -70,7 +70,7 @@ class TOMovie:
 
         self.nvar = nlines
 
-        # READ the movie file 
+        # READ the movie file
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
@@ -246,7 +246,7 @@ class TOMovie:
                 if k == 0:
                     ax1 = fig.add_subplot(181)
                     ax1.axis('off')
-                    im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1, 
+                    im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1,
                                      cmap=cmap, extend='both')
                     ax1.plot(xxout, yyout, 'k-', lw=1.5)
                     ax1.plot(xxin, yyin, 'k-', lw=1.5)
@@ -254,7 +254,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax2 = fig.add_subplot(182)
                     ax2.axis('off')
-                    im = ax2.contourf(xx, yy, self.adv[k, ...], cs, 
+                    im = ax2.contourf(xx, yy, self.adv[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax2.plot(xxout, yyout, 'k-', lw=1.5)
                     ax2.plot(xxin, yyin, 'k-', lw=1.5)
@@ -262,7 +262,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax3 = fig.add_subplot(183)
                     ax3.axis('off')
-                    im = ax3.contourf(xx, yy, self.rey[k, ...], cs, 
+                    im = ax3.contourf(xx, yy, self.rey[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax3.plot(xxout, yyout, 'k-', lw=1.5)
                     ax3.plot(xxin, yyin, 'k-', lw=1.5)
@@ -270,7 +270,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax4 = fig.add_subplot(184)
                     ax4.axis('off')
-                    im = ax4.contourf(xx, yy, self.visc[k, ...], cs, 
+                    im = ax4.contourf(xx, yy, self.visc[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax4.plot(xxout, yyout, 'k-', lw=1.5)
                     ax4.plot(xxin, yyin, 'k-', lw=1.5)
@@ -278,7 +278,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax5 = fig.add_subplot(185)
                     ax5.axis('off')
-                    im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs, 
+                    im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax5.plot(xxout, yyout, 'k-', lw=1.5)
                     ax5.plot(xxin, yyin, 'k-', lw=1.5)
@@ -286,7 +286,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax6 = fig.add_subplot(186)
                     ax6.axis('off')
-                    im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs, 
+                    im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax6.plot(xxout, yyout, 'k-', lw=1.5)
                     ax6.plot(xxin, yyin, 'k-', lw=1.5)
@@ -294,7 +294,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax7 = fig.add_subplot(187)
                     ax7.axis('off')
-                    im = ax7.contourf(xx, yy, bal, cs, 
+                    im = ax7.contourf(xx, yy, bal, cs,
                                      cmap=cmap, extend='both')
                     ax7.plot(xxout, yyout, 'k-', lw=1.5)
                     ax7.plot(xxin, yyin, 'k-', lw=1.5)
@@ -302,7 +302,7 @@ class TOMovie:
                                   verticalalignment='center')
                     ax8 = fig.add_subplot(188)
                     ax8.axis('off')
-                    im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs, 
+                    im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs,
                                      cmap=cmap, extend='both')
                     ax8.plot(xxout, yyout, 'k-', lw=1.5)
                     ax8.plot(xxin, yyin, 'k-', lw=1.5)
@@ -313,28 +313,28 @@ class TOMovie:
                     man.canvas.draw()
                 else:
                     plt.cla()
-                    im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1, 
+                    im = ax1.contourf(xx, yy, self.asVphi[k, ...], cs1,
                                      cmap=cmap, extend='both')
-                    im = ax2.contourf(xx, yy, self.adv[k, ...], cs, 
+                    im = ax2.contourf(xx, yy, self.adv[k, ...], cs,
                                      cmap=cmap, extend='both')
-                    im = ax3.contourf(xx, yy, self.rey[k, ...], cs, 
+                    im = ax3.contourf(xx, yy, self.rey[k, ...], cs,
                                      cmap=cmap, extend='both')
-                    im = ax4.contourf(xx, yy, self.visc[k, ...], cs, 
+                    im = ax4.contourf(xx, yy, self.visc[k, ...], cs,
                                      cmap=cmap, extend='both')
-                    im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs, 
+                    im = ax5.contourf(xx, yy, self.lorentz[k, ...], cs,
                                      cmap=cmap, extend='both')
-                    im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs, 
+                    im = ax6.contourf(xx, yy, self.coriolis[k, ...], cs,
                                      cmap=cmap, extend='both')
-                    im = ax7.contourf(xx, yy, bal, cs, 
+                    im = ax7.contourf(xx, yy, bal, cs,
                                      cmap=cmap, extend='both')
-                    im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs, 
+                    im = ax8.contourf(xx, yy, self.dtVp[k, ...], cs,
                                      cmap=cmap, extend='both')
 
                     plt.axis('off')
                     man.canvas.draw()
 
             #plt.ioff()
-            
+
 class MagicTOZ(MagicSetup):
     """
     This class can be used to read the TOZ.TAG files produced by the TO outputs
@@ -411,7 +411,7 @@ class MagicTOZ(MagicSetup):
             self.time, self.nSmax, self.omega_ic, \
                        self.omega_oc = infile.fort_read(precision)
         self.nSmax = int(self.nSmax)
-        
+
         self.cylRad = infile.fort_read(precision)
 
         self.zall = np.zeros((2*self.nSmax, self.nSmax), dtype=precision)
@@ -446,7 +446,7 @@ class MagicTOZ(MagicSetup):
         S = np.zeros_like(self.zall)
         for i in range(2*self.nSmax):
             S[i,:] = self.cylRad
-        
+
         #plt.contourf(S, self.zall, self.vp)
         #self.zall -= self.zall.min()
         #im = plt.contourf(S, self.zall, self.Cor)

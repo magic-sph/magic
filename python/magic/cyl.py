@@ -12,7 +12,7 @@ import os, pickle
 
 def sph2cyl_plane(data, rad, ns, nz):
     """
-    This function extrapolates a phi-slice of a spherical shell on 
+    This function extrapolates a phi-slice of a spherical shell on
     a cylindrical grid
 
     >>> # Read G_1.test
@@ -76,7 +76,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     grid). This works well for 2-D (phi-slice) arrays. In case of 3-D arrays, only
     one element is allowed (too demanding otherwise).
 
-    :param input: a list of 2-D or 3-D arrays 
+    :param input: a list of 2-D or 3-D arrays
     :type input: list(numpy.ndarray)
     :param radius: spherical radius
     :type radius: numpy.ndarray
@@ -84,7 +84,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     :type ns: int
     :param minc: azimuthal symmetry
     :type minc: int
-    :param save: a boolean to specify if one wants to save the outputs into 
+    :param save: a boolean to specify if one wants to save the outputs into
                  a pickle (default is True)
     :type save: bool
     :param filename: name of the output pickle when save=True
@@ -104,7 +104,7 @@ def zavg(input, radius, ns, minc, save=True, filename='vp.pickle', normed=True):
     z = np.linspace(-ro, ro, nz)
     cylRad = np.linspace(0., ro, ns)
     cylRad = cylRad[1:-1]
-    
+
     height = np.zeros_like(cylRad)
     height[cylRad>=ri] = 2.*np.sqrt(ro**2-cylRad[cylRad>=ri]**2)
     height[cylRad<ri] = 2.*(np.sqrt(ro**2-cylRad[cylRad<ri]**2)\
@@ -224,7 +224,7 @@ def sph2cyl(g, ns=None, nz=None):
 class Cyl(MagicSetup):
     """
     This class allows to extrapolate a given :ref:`graphic file <secGraphFile>`
-    on a cylindrical grid. Once done, the extrapolated file is stored in 
+    on a cylindrical grid. Once done, the extrapolated file is stored in
     a python.pickle file. It is then possible to display 2-D cuts of the extrapolated
     arrays (radial cuts, phi-averages, equatorial cuts, z-averages and phi-slices)
 
@@ -254,7 +254,7 @@ class Cyl(MagicSetup):
         :type ns: int
         """
         MagicSetup.__init__(self, datadir)
-         
+
         self.datadir = datadir
 
         filename = '%sG_%i.%s' % ('cyl', ivar, self.tag)
@@ -272,12 +272,12 @@ class Cyl(MagicSetup):
             self.minc = gr.minc
             self.ro = gr.radius[0]
             self.ri = gr.radius[-1]
-            self.S, self.Z, self.vs, self.vphi, self.vz = sph2cyl(gr, 
+            self.S, self.Z, self.vs, self.vphi, self.vz = sph2cyl(gr,
                                     self.ns, self.nz)
             file = open(filename, 'wb')
             pickle.dump([self.ns, self.nz, self.nphi, self.npI, self.minc], file)
             pickle.dump([self.ro, self.ri], file)
-            pickle.dump([self.S, self.Z, self.vs, self.vphi, self.vz], 
+            pickle.dump([self.S, self.Z, self.vs, self.vphi, self.vz],
                         file)
             file.close()
         else:
@@ -289,15 +289,15 @@ class Cyl(MagicSetup):
                          pickle.load(file)
             file.close()
         self.radius = np.linspace(0., self.ro, self.ns)
-        temp0, rho0, beta0 = anelprof(np.linspace(self.ro, self.ri, self.ns), 
+        temp0, rho0, beta0 = anelprof(np.linspace(self.ro, self.ri, self.ns),
                                      self.strat, self.polind)
         rho = np.zeros((self.nphi/2, self.ns), dtype=self.vr.dtype)
         beta = np.zeros_like(rho)
         for i in range(self.nphi/2):
             rho[i, :] = rho0
             beta[i, :] = beta0
-        Z, S, [rho, beta] = sph2cyl_plane([rho,beta], 
-                                 np.linspace(self.ro, self.ri, self.ns), 
+        Z, S, [rho, beta] = sph2cyl_plane([rho,beta],
+                                 np.linspace(self.ro, self.ri, self.ns),
                                  self.ns, self.nz)
         self.rho = np.zeros_like(self.vs)
         self.beta = np.zeros_like(self.vs)
@@ -306,7 +306,7 @@ class Cyl(MagicSetup):
             self.beta[i, ...] = beta
         self.z = np.linspace(-self.ro, self.ro, self.nz)
 
-    def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None, 
+    def surf(self, field='Bphi', r=0.85, vmin=None, vmax=None,
              levels=16, cm='RdYlBu_r', normed=True, figsize=None):
         """
         Plot the surface distribution of an input field at a given
@@ -362,7 +362,7 @@ class Cyl(MagicSetup):
 
         fig = plt.figure()
         ax = fig.add_subplot(111)
-        im = ax.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap, 
+        im = ax.contourf(phi, self.z, data[..., indPlot].T, levels, cmap=cmap,
                         aa=True)
         rad = self.radius[indPlot] * (1. - self.ri/self.ro)
         if labTex:
@@ -376,8 +376,8 @@ class Cyl(MagicSetup):
         cbar = plt.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
-            im.set_clim(-max(abs(data[..., indPlot].max()), 
-                             abs(data[..., indPlot].min())), 
+            im.set_clim(-max(abs(data[..., indPlot].max()),
+                             abs(data[..., indPlot].min())),
                          max(abs(data[..., indPlot].max()),
                              abs(data[..., indPlot].min())))
 
@@ -444,7 +444,7 @@ class Cyl(MagicSetup):
                 label = 'beta vr'
         elif field in ('Cr', 'cr'):
             vp = self.vphi.copy()-self.vphi.mean(axis=0) # convective vp
-            data =  self.rho * self.vs * vp 
+            data =  self.rho * self.vs * vp
             if labTex:
                 label = r'$\langle \rho v_s v_\phi\rangle$'
             else:
@@ -470,7 +470,7 @@ class Cyl(MagicSetup):
         fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
-            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+            im.set_clim(-max(abs(equator.max()), abs(equator.min())),
                          max(abs(equator.max()), abs(equator.min())))
 
     def avg(self, field='Bphi', levels=16, cm='RdYlBu_r', normed=True,
@@ -556,7 +556,7 @@ class Cyl(MagicSetup):
         fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
-            im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
+            im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())),
                          max(abs(phiavg.max()), abs(phiavg.min())))
 
     def avgz(self, field='vs', levels=16, cm='RdYlBu_r', normed=True, vmin=None,
@@ -727,8 +727,8 @@ class Cyl(MagicSetup):
         equator = np.zeros((self.npI, self.ns), dtype=self.vs.dtype)
         for i, rad in enumerate(self.radius):
             if rad <= self.ri:
-                zo = np.sqrt(self.ro**2-rad**2) 
-                zi = np.sqrt(self.ri**2-rad**2) 
+                zo = np.sqrt(self.ro**2-rad**2)
+                zi = np.sqrt(self.ri**2-rad**2)
                 m1 = abs(self.z) <= zo
                 m2 = abs(self.z) >= zi
                 equator[:, i] = data[:, m1*m2, i].mean(axis=1)
@@ -741,7 +741,7 @@ class Cyl(MagicSetup):
                    np.mean(vr[:, m1*m2, i]**2, axis=1)\
                  * np.mean(self.vs[:, m1*m2, i]**2, axis=1))
             elif rad > self.ri and rad < self.ro:
-                zo = np.sqrt(self.ro**2-rad**2) 
+                zo = np.sqrt(self.ro**2-rad**2)
                 m1 = self.z >= -zo
                 m2 = self.z <= zo
                 equator[:, i] = data[:, m1*m2, i].mean(axis=1)
@@ -783,10 +783,10 @@ class Cyl(MagicSetup):
             ax.set_xlim(0, self.radius.max())
 
         if field not in ['entropy', 's', 'S'] and normed is True:
-            im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+            im.set_clim(-max(abs(equator.max()), abs(equator.min())),
                          max(abs(equator.max()), abs(equator.min())))
 
-    def slice(self, field='Bphi', lon_0=0., levels=16, cm='RdYlBu_r', 
+    def slice(self, field='Bphi', lon_0=0., levels=16, cm='RdYlBu_r',
               normed=True):
         """
         Plot an azimuthal slice of a given field.
@@ -835,7 +835,7 @@ class Cyl(MagicSetup):
         phi = np.linspace(0., 360, self.nphi)
 
         lon_0 = np.asarray(lon_0)
-        
+
         cmap = plt.get_cmap(cm)
 
         if len(lon_0) > 1:
@@ -874,7 +874,7 @@ class Cyl(MagicSetup):
             fig.colorbar(im)
 
         if field not in ['entropy', 's', 'S'] and normed is True:
-            im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+            im.set_clim(-max(abs(phislice.max()), abs(phislice.min())),
                          max(abs(phislice.max()), abs(phislice.min())))
 
 

@@ -20,7 +20,7 @@ class Butterfly:
     radial cuts (like Br_CMB_mov.TAG) or azimuthal-average (like AB_mov.TAG).
 
     >>> # Read Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg
-    >>> t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1, 
+    >>> t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1,
                        iplot=False)
     >>> # Plot it
     >>> t1.plot(levels=33, cm='seismic', cut=0.6)
@@ -42,7 +42,7 @@ class Butterfly:
         :type nvar: int
         :param lastvar: the number of the last time step to be read
         :type lastvar: int
-        :param step: the stepping between two lines             
+        :param step: the stepping between two lines
         :type step: int
         :param levels: the number of contour levels
         :type levels: int
@@ -91,7 +91,7 @@ class Butterfly:
         else:
             self.nvar = nvar
 
-        # READ the movie file 
+        # READ the movie file
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
@@ -198,7 +198,7 @@ class Butterfly:
         :param contour: when set to True, display contour levels (pylab.contourf),
                         when set to False, display an image (pylab.imshow)
         :type contour: bool
-        :param renorm: when set to True, it re-bins the time series in case of 
+        :param renorm: when set to True, it re-bins the time series in case of
                        irregularly time-spaced data
         :type renorm: bool
         :param mesh: when renorm=True, factor of regriding: NewTime = mesh*OldTime
@@ -210,7 +210,7 @@ class Butterfly:
         ax = fig.add_subplot(111)
         vmax = max(abs(self.data.max()), abs(self.data.min()))
         if contour:
-            im = ax.contourf(self.time, self.theta*180/np.pi, self.data[::-1,:], 
+            im = ax.contourf(self.time, self.theta*180/np.pi, self.data[::-1,:],
                             levels, cmap=cm, aa=True)
         else:
             extent = self.time.min(), self.time.max(), -90, 90
@@ -221,12 +221,12 @@ class Butterfly:
                 for i in range(self.data.shape[0]):
                     tckp = S.splrep(self.time, self.data[i, :])
                     data[i, :] = S.splev(x, tckp)
-                im = ax.imshow(data, origin='upper', aspect='auto', 
+                im = ax.imshow(data, origin='upper', aspect='auto',
                            cmap=cm, extent=extent, interpolation='bicubic')
                 #im = ax.contourf(zi[:-1, :],  cmap=cm)
                 #vmax = max(abs(zi.max()), abs(zi.min()))
             else:
-                im = ax.imshow(self.data, origin='upper', aspect='auto', 
+                im = ax.imshow(self.data, origin='upper', aspect='auto',
                            cmap=cm, extent=extent, interpolation='bicubic')
         im.set_clim(-cut*vmax, cut*vmax)
         ax.set_xlabel('Time')
@@ -240,7 +240,7 @@ class Butterfly:
             #ax.text(0.05, 0.9, 'a)', transform =ax.transAxes)
         ax.set_yticks([-90,-45,0,45,90])
         if labTex:
-            ax.set_yticklabels(['$-90^\circ$', '$-45^\circ$', '$0^\circ$', 
+            ax.set_yticklabels(['$-90^\circ$', '$-45^\circ$', '$0^\circ$',
                                 '$45^\circ$', '$90^\circ$'])
         else:
             ax.set_yticklabels(['-90', '-45', '0', '45', '90'])
@@ -257,7 +257,7 @@ class Butterfly:
         >>> # Fourier analysis
         >>> b1.fourier2D()
 
-        :param renorm: when set to True, it rebins the time series in case of 
+        :param renorm: when set to True, it rebins the time series in case of
                        irregularly spaced data
         :type renorm: bool
         """
@@ -299,8 +299,7 @@ class Butterfly:
 
 
 if __name__ == '__main__':
-    t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1, 
+    t1 = Butterfly(file='Br_CMB_mov.ccondAnelN3MagRa2e7Pm2ggg', step=1,
                    iplot=False)
     t1.plot()
     plt.show()
-

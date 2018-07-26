@@ -10,7 +10,7 @@ def selectField(obj, field, labTex=True):
     This function selects for you which field you want to display. It actually
     allows to avoid possible variables miss-spelling: i.e. 'Bphi'='bp'='Bp'='bphi'
 
-    :param obj: a graphic output file 
+    :param obj: a graphic output file
     :type obj: :py:class:`magic.MagicGraph`
     :param field: the name of the field one wants to select
     :type field: str
@@ -204,7 +204,7 @@ def avgField(time, field, tstart=None, std=False):
         mask = np.where(abs(time-tstart) == min(abs(time-tstart)), 1, 0)
         ind = np.nonzero(mask)[0][0]
     else: # the whole input array is taken!
-        ind = 0 
+        ind = 0
     fac = 1./(time[-1]-time[ind])
     avgField = fac*np.trapz(field[ind:], time[ind:])
 
@@ -238,7 +238,7 @@ def writeVpEq(par, tstart):
     avgReEq = fac*np.trapz(par.reEquat[ind:], par.time[ind:])
     roEq = avgReEq*par.ek*(1.-par.radratio)
     avgRolC = fac*np.trapz(par.rolc[ind:], par.time[ind:])
-    st = '%10.3e%5.2f%6.2f%11.3e%11.3e%11.3e' % (par.ek, par.strat, par.pr, 
+    st = '%10.3e%5.2f%6.2f%11.3e%11.3e%11.3e' % (par.ek, par.strat, par.pr,
                                                  par.ra, roEq, avgRolC)
     return st
 
@@ -263,7 +263,7 @@ def progressbar(it, prefix="", size=60):
         x = int(size*_i/count)
         sys.stdout.write("%s[%s%s] %i/%i\r" % (prefix, "#"*x, "."*(size-x), _i, count))
         sys.stdout.flush()
-    
+
     _show(0)
     for i, item in enumerate(it):
         yield item
@@ -336,7 +336,7 @@ def symmetrize(data, ms, reversed=False):
 
 def fast_read(file, skiplines=0, binary=False, precision='Float64'):
     """
-    This function reads an input ascii table 
+    This function reads an input ascii table
     (can read both formatted or unformatted fortran)
 
     >>> # Read 'e_kin.test', skip the first 10 lines
@@ -438,7 +438,7 @@ def chebgrid(nr, a, b):
     return rr
 
 def matder(nr, z1, z2):
-    """ 
+    """
     This function calculates the derivative in Chebyshev space.
 
     >>> r_icb = 0.5 ; r_cmb = 1.5; n_r_max=65
@@ -464,12 +464,12 @@ def matder(nr, z1, z2):
     for i in range(nrp):
         for j in range(nrp):
             w1[i, j] = spdel(i, j, nr, zl)
-     
+
     return w1
 
 
 def intcheb(f, nr, z1, z2):
-    """ 
+    """
     This function integrates an input function f defined on the Gauss-Lobatto grid.
 
     >>> print(intcheb(f, 65, 0.5, 1.5))
@@ -487,17 +487,17 @@ def intcheb(f, nr, z1, z2):
     """
     func = lambda i, j: 2.*np.cos(np.pi*i*j/nr)/nr
     w1 = np.fromfunction(func, (nr+1, nr+1))
-     
+
     w1[:, 0] = w1[:, 0]/2.
     w1[:, nr] = w1[:, nr]/2.
     w1[0, :] = w1[0, :]/2.
     w1[nr, :] = w1[nr, :]/2.
-     
+
     w2 = np.dot(w1, f)
     int = 0.
     for i in range(0, nr+1, 2):
         int = int-(z2-z1)/(i**2-1)*w2[i]
-     
+
     return int
 
 
@@ -510,7 +510,7 @@ def spdel(kr, jr, nr, zl):
         fac = -1.
         k = 0.
         j = nr-jr
-     
+
     spdel = fac*dnum(k, j, nr)/den(k, j, nr)
     return -spdel*(2./zl)
 
@@ -524,12 +524,12 @@ def dnum(k, j, nr):
             if j == 0:
                 dnum = 1./3.*float(nr*nr)+1./6.
             return dnum
-     
+
         dnum = 0.5*(float(nr)+0.5)*((float(nr)+0.5)+(1./np.tan(np.pi*float(j) \
                /float(2.*nr)))**2)+1./8.-0.25/(np.sin(np.pi*float(j)/ \
                float(2*nr))**2) - 0.5*float(nr*nr)
         return dnum
-     
+
     dnum = ff(k+j, nr)+ff(k-j, nr)
     return dnum
 
@@ -537,12 +537,12 @@ def ff(i, nr):
     if i == 0:
         return 0
     ff = float(nr)*0.5/np.tan(np.pi*float(i)/float(2.*nr))
-     
+
     a = i % 2
     if a == 0:
         ff = -ff
     return ff
- 
+
 def den(k, j, nr):
     if k == 0:
         den = 0.5*float(nr)
@@ -552,7 +552,7 @@ def den(k, j, nr):
         if (j == 0 or j == nr):
             den = 1.
         return den
-     
+
     den = float(nr)*np.sin(np.pi*float(k)/float(nr))
     if (j == 0 or j == nr):
         den = 2.*den

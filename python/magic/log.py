@@ -63,7 +63,7 @@ class MagicSetup:
             elif valueInt.match(rhs):
                 rhs = int(rhs)
             setattr(self, lhs, rhs)
-            
+
         self.ra = float(self.ra)
         if not quiet:
             print(self)

@@ -64,8 +64,8 @@ class SpectralTransforms(object):
     def spec_spat(self, *args, **kwargs):
         """
         This subroutine computes a transfrom from spectral to spatial
-        for all latitudes. It returns either  one or two 2-D arrays 
-        (dimension(n_phi_max,n_theta_max)) depending if only the poloidal 
+        for all latitudes. It returns either  one or two 2-D arrays
+        (dimension(n_phi_max,n_theta_max)) depending if only the poloidal
         or both the poloidal and the toroidal potentials are given as
         input quantities.
 
@@ -154,7 +154,7 @@ class SpectralTransforms(object):
     def spec_spat_equat(self, *args):
         """
         This subroutine computes a transfrom from spectral to spatial
-        at the equator. It returns either one or two 1-D arrays 
+        at the equator. It returns either one or two 1-D arrays
         (dimension(n_phi_max)) depending if only the poloidal or both the
         poloidal and the toroidal potentials are given as input quantities.
 
@@ -188,7 +188,7 @@ class SpectralTransforms(object):
     def spat_spec(self, input):
         """
         This subroutine computes a transfrom from spatial representation
-        (n_phi,n_theta) to spectral representation (lm_max). It returns 
+        (n_phi,n_theta) to spectral representation (lm_max). It returns
         one complex 1-D array (dimension(n_phi_max))
 
         >>> gr = MagicGraph()

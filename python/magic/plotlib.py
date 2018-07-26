@@ -42,7 +42,7 @@ def hammer2cart(ttheta, pphi, colat=False):
 
 def cut(dat, vmax=None, vmin=None):
     """
-    This functions truncates the values of an input array that are beyond 
+    This functions truncates the values of an input array that are beyond
     vmax or below vmin and replace them by vmax and vmin, respectively.
 
     >>> # Keep only values between -1e3 and 1e3
@@ -184,7 +184,7 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
             cax = fig.add_axes([0.85, 0.5-0.7*h/2., 0.03, 0.7*h])
         mir = fig.colorbar(im, cax=cax)
 
-    # Normalise data 
+    # Normalise data
     if normed:
         im.set_clim(-max(abs(data.max()), abs(data.min())),
                      max(abs(data.max()), abs(data.min())))
@@ -278,7 +278,7 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
 
 
 def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None,
-                  vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, 
+                  vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm,
                   normed=True, cbar=True, tit=True, lines=False):
     """
     Plot the radial cut of a given field
@@ -436,4 +436,3 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                      max(abs(data.max()), abs(data.min())))
 
     return fig
-

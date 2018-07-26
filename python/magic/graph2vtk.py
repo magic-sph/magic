@@ -154,7 +154,7 @@ class Graph2Vtk:
     """
     This class allows to transform an input graphic file to a file format
     readable by paraview/visit or mayavi. It also allows to compute a possible
-    potential extrapolation of the field lines in an arbitrary outer 
+    potential extrapolation of the field lines in an arbitrary outer
     spherical shell domain
 
     >>> # Load a graphic file
@@ -171,7 +171,7 @@ class Graph2Vtk:
     >>> Graph2Vtk(gr, outType='vti', nx=128, ny=128, nz=128)
     """
 
-    def __init__(self, gr, filename='out', scals=['vr', 'emag', 'tfluct'], 
+    def __init__(self, gr, filename='out', scals=['vr', 'emag', 'tfluct'],
                  vecs=['u', 'B'], potExtra=False, ratio_out=2, nrout=32,
                  deminc=True, outType='vts', nFiles=1, nx=96, ny=96, nz=96,
                  labFrame=False):
@@ -184,7 +184,7 @@ class Graph2Vtk:
                       'vr', 'vp', 'tfluct', 'vortz', 'vortzfluct', 'ekin',
                       'emag', 'vortr', 'colat'
         :type scals: list(str)
-        :param vecs: a list that contains the possible input vectors: 'u', 
+        :param vecs: a list that contains the possible input vectors: 'u',
                      'b', 'ufluct', 'bfluct'
         :type vecs: list(str)
         :param potExtra: when set to True, calculates the potential extrapolation
@@ -328,7 +328,7 @@ class Graph2Vtk:
         if potExtra and nrout != 0:
             rcmb = gr.radius[0]
             brCMB = gr.Br[..., 0]
-            pot = ExtraPot(rcmb, brCMB, gr.minc, ratio_out=ratio_out, 
+            pot = ExtraPot(rcmb, brCMB, gr.minc, ratio_out=ratio_out,
                            nrout=nrout, cutCMB=True, deminc=deminc)
             self.radius = np.concatenate((gr.radius[::-1], pot.rout))
         #----------------------------------------
@@ -586,11 +586,11 @@ class Graph2Vtk:
                 vts_scal(filename, self.radius, self.scals, self.scalNames,
                          self.minc)
             elif nFiles > 1:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames, 
+                pvts_scal(filename, self.radius, self.scals, self.scalNames,
                           nFiles, self.minc)
 
             else:
-                pvts_scal(filename, self.radius, self.scals, self.scalNames, 
+                pvts_scal(filename, self.radius, self.scals, self.scalNames,
                           8, self.minc)
         else:
             if nFiles == 1 and np.size(self.scals)+3*np.size(self.vecr) < 512**3:
@@ -626,7 +626,7 @@ class Graph2Vtk:
         else:
             vecx, vecy, vecz = sph2cart_vec(self.vecr, self.vect, self.vecp, \
                                         self.radius, nx, ny, nz, self.minc)
-            vti(filename, vecx, vecy, vecz, scals_cart, self.scalNames, 
+            vti(filename, vecx, vecy, vecz, scals_cart, self.scalNames,
                 self.vecNames, self.minc, gridMax, spacing)
 
 
@@ -634,5 +634,3 @@ if __name__ == '__main__':
     ivar = 1
     g = MagicGraph(ivar=ivar)
     Graph2Vtk(g, scals=['tfluct', 'emag'], vecs=['b'], potExtra=True)
-
-

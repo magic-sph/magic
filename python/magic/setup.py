@@ -51,7 +51,7 @@ plt.rc('ytick.minor', size=3.5, width=1)
 plt.rc('axes.formatter', limits=(-5,5))
 if mpl.__version__ >= '1.5':
     from cycler import cycler
-    colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8', 
+    colors = ['#30a2da', '#6d904f', '#fc4f30', '#e5ae38', '#7a68a6','#ffb5b8',
               '#8b8b8b', '#988ed5']
     plt.rc('axes', prop_cycle=(cycler('color', colors)))
 else:
@@ -115,7 +115,7 @@ if buildSo:
                  '--fcompiler=%s' % fcompiler,
                  '--compiler=%s' % ccompiler,
                  '--opt=%s' % f90options,
-                 '-c', '-m', 
+                 '-c', '-m',
                  'greader_double%i' % pythonVersion,
                  'readG_double.f90'],  stderr=sp.PIPE, stdout=sp.PIPE)
         if pythonVersion == 3:

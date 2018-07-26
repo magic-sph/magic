@@ -18,7 +18,7 @@ class MagicRSpec(MagicSetup):
 
     def __init__(self, tag, field='Br', precision='Float32', avg=False):
         """
-        :param tag: if you specify a pattern, it tries to read the corresponding 
+        :param tag: if you specify a pattern, it tries to read the corresponding
                     files and stack them.
         :type tag: str
         :param field: nature of the radial spectra. Possible choices are
@@ -104,7 +104,7 @@ class MagicRSpec(MagicSetup):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         ax.plot(self.radius, self.e_pol[:, :, 0].mean(axis=0), 'b-', label='Dip.')
-        ax.plot(self.radius, abs(self.e_pol_axi[:, :, 0].mean(axis=0)), 'b--', 
+        ax.plot(self.radius, abs(self.e_pol_axi[:, :, 0].mean(axis=0)), 'b--',
                 label='Dip. axi.')
 
         ax.plot(self.radius, self.e_pol[:, :, 1].mean(axis=0), 'r-', label='Quad.')

@@ -27,7 +27,7 @@ def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
     :param ro: the outer core radius
     :type ro: float
     :returns: four floats: thickness of the bottom boundary layer,
-              thickness of the top boundary layer, extrapolated value of uh 
+              thickness of the top boundary layer, extrapolated value of uh
               at the bottom boundary layer, extrapolated value of uh at the
               top boundary layer
     :rtype: list
@@ -41,7 +41,7 @@ def getAccuratePeaks(rad, uh, uhTop, uhBot, ri, ro):
     ind = argrelextrema(newy, np.greater)[0]
     bcTopUh = ro-newx[ind]
     topUh = newy[ind]
-    
+
     idxT = np.nonzero(np.where(uh==uhBot, 1, 0))[0][0]
     x = rad[idxT-3:idxT+4]
     y =  uh[idxT-3:idxT+4]
@@ -124,7 +124,7 @@ def integBotTop(rad, field, ri, ro, lambdai, lambdao, normed=False):
     :param lambdao: thickness of the outer boundary layer
     :type lambdao: float
     :param normed: when set to True, the outputs are normalised by the volumes
-                   of the boundary layers. In that case, the outputs are 
+                   of the boundary layers. In that case, the outputs are
                    volume-averaged quantities.
     :type normed: bool
     :returns: two floats that contains the bottom and top boundary layers
@@ -170,11 +170,11 @@ class BLayers(MagicSetup):
     using several classical methods (slope method, peak values, dissipation
     rates, etc.). It uses the following files:
 
-       * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>` 
+       * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>`
        * Power budget: :ref:`powerR.TAG <secPowerRfile>`
        * Radial profiles used for boundary layers: :ref:`bLayersR.TAG <secBLayersRfile>`
 
-    This function can thus **only** be used when both 
+    This function can thus **only** be used when both
     :ref:`powerR.TAG <secPowerRfile>` and :ref:`bLayersR.TAG <secBLayersRfile>`
     exist in the working directory.
 
@@ -263,13 +263,13 @@ class BLayers(MagicSetup):
         vol_oc = 4./3.* np.pi * (self.ro**3-self.ri**3)
         self.rey_fluct = np.sqrt(2.*e2fluct/vol_oc)
 
-        self.reh = 4.*np.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1, 
+        self.reh = 4.*np.pi*intcheb(self.rad**2*self.uh, len(self.rad)-1,
                         self.ri, self.ro)/(4./3.*np.pi*(self.ro**3-self.ri**3))
 
         # Thermal dissipation boundary layer
         if hasattr(par, 'dissS'):
             self.dissS = par.dissS
-            self.epsT = -4.*np.pi*intcheb(self.rad**2*self.dissS, len(self.rad)-1, 
+            self.epsT = -4.*np.pi*intcheb(self.rad**2*self.dissS, len(self.rad)-1,
                                          self.ro, self.ri)
             self.epsTR = 4.*np.pi*self.rad**2*self.dissS
             ind = getMaxima(-abs(self.epsTR-self.epsT))
@@ -277,7 +277,7 @@ class BLayers(MagicSetup):
             try:
                 self.dissTopS = self.ro-self.rad[ind[0]]
                 self.dissBotS = self.rad[ind[-1]]-self.ri
-                self.dissEpsTbl, self.dissEpsTbulk = integBulkBc(self.rad, self.epsTR, 
+                self.dissEpsTbl, self.dissEpsTbulk = integBulkBc(self.rad, self.epsTR,
                              self.ri, self.ro, self.dissBotS, self.dissTopS)
             except IndexError:
                 self.dissTopS = self.ro
@@ -296,7 +296,7 @@ class BLayers(MagicSetup):
             self.bcTopVarS = 1.
             self.bcBotVarS = 1.
         if hasattr(self, 'epsT'):
-            self.varSEpsTbl, self.varSEpsTbulk = integBulkBc(self.rad, self.epsTR, 
+            self.varSEpsTbl, self.varSEpsTbulk = integBulkBc(self.rad, self.epsTR,
                          self.ri, self.ro, self.bcBotVarS, self.bcTopVarS)
             print('var(S) bl, bulk', self.varSEpsTbl/self.epsT, self.varSEpsTbulk/self.epsT)
 
@@ -334,11 +334,11 @@ class BLayers(MagicSetup):
         self.bcBotSlope = self.bcBotSlope - self.ri
 
         if hasattr(self, 'epsT'):
-            self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.rad, self.epsTR, 
+            self.slopeEpsTbl, self.slopeEpsTbulk = integBulkBc(self.rad, self.epsTR,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope)
 
             print('slopes bl, bulk', self.slopeEpsTbl/self.epsT, self.slopeEpsTbulk/self.epsT)
-            
+
         pow = MagicRadial(field='powerR', iplot=False, tags=tags)
         self.vi = pow.viscDiss
         self.buo = pow.buoPower
@@ -356,7 +356,7 @@ class BLayers(MagicSetup):
             self.dissTopV = self.ro-self.rad[ind[0]]
             self.dissBotV = self.rad[ind[-1]]-self.ri
         try:
-            self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.rad, self.vi, 
+            self.dissEpsVbl, self.dissEpsVbulk = integBulkBc(self.rad, self.vi,
                              self.ri, self.ro, self.dissBotV, self.dissTopV)
         except AttributeError:
             self.dissTopV = 0.
@@ -434,10 +434,10 @@ class BLayers(MagicSetup):
             self.uhTopSlope = -self.uhTop/slopeT
             self.uhBotSlope = self.uhBot/slopeB
 
-            self.slopeEpsUbl, self.slopeEpsUbulk = integBulkBc(self.rad, self.vi, 
+            self.slopeEpsUbl, self.slopeEpsUbulk = integBulkBc(self.rad, self.vi,
                          self.ri, self.ro, self.uhBotSlope, self.uhTopSlope)
 
-        self.uhEpsVbl, self.uhEpsVbulk = integBulkBc(self.rad, self.vi, 
+        self.uhEpsVbl, self.uhEpsVbulk = integBulkBc(self.rad, self.vi,
                          self.ri, self.ro, self.bcBotduh, self.bcTopduh)
         print('uh bl, bulk', self.uhEpsVbl/self.epsV, self.uhEpsVbulk/self.epsV)
 
@@ -456,19 +456,19 @@ class BLayers(MagicSetup):
         except IndexError:
             self.rolTop = 0.
 
-        self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*np.pi*RolC*self.rad**2, 
+        self.rolbl, self.rolbulk = integBulkBc(self.rad, 4.*np.pi*RolC*self.rad**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rebl, self.rebulk = integBulkBc(self.rad, 4.*np.pi*ReR*self.rad**2, 
+        self.rebl, self.rebulk = integBulkBc(self.rad, 4.*np.pi*ReR*self.rad**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*np.pi*self.rad**2, 
+        self.lengthbl, self.lengthbulk = integBulkBc(self.rad, self.dl*4.*np.pi*self.rad**2,
                                      self.ri, self.ro, self.bcBotSlope, self.bcTopSlope,
                                      normed=True)
 
-        self.rehbl, self.rehbulk = integBulkBc(self.rad, self.uh*4.*np.pi*self.rad**2, 
+        self.rehbl, self.rehbulk = integBulkBc(self.rad, self.uh*4.*np.pi*self.rad**2,
                                      self.ri, self.ro, self.bcBotduh, self.bcTopduh,
                                      normed=True)
 
@@ -481,10 +481,10 @@ class BLayers(MagicSetup):
 
         par.dlVc[0] = 0.
         par.dlVc[-1] = 0.
-        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*par.dlVc, 
+        self.lBot, self.lTop = integBotTop(self.rad, 4.*np.pi*self.rad**2*par.dlVc,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
-        uhbm, utbm = integBotTop(self.rad, 4.*np.pi*self.uh, 
+        uhbm, utbm = integBotTop(self.rad, 4.*np.pi*self.uh,
                          self.ri, self.ro, self.bcBotSlope, self.bcTopSlope, normed=True)
 
         # Convective Rol in the thermal boundary Layer
@@ -503,21 +503,21 @@ class BLayers(MagicSetup):
             RePerp = np.sqrt(2.*abs(perpPar.Eperp))
             RePar = np.sqrt(2.*abs(perpPar.Epar))
 
-            self.reperpbl, self.reperpbulk = integBulkBc(self.rad, 
-                                             4.*np.pi*RePerp*self.rad**2, 
-                                             self.ri, self.ro, self.bcBotSlope, 
+            self.reperpbl, self.reperpbulk = integBulkBc(self.rad,
+                                             4.*np.pi*RePerp*self.rad**2,
+                                             self.ri, self.ro, self.bcBotSlope,
                                              self.bcTopSlope, normed=True)
-            self.reparbl, self.reparbulk = integBulkBc(self.rad, 
-                                           4.*np.pi*RePar*self.rad**2, 
-                                           self.ri, self.ro, self.bcBotSlope, 
+            self.reparbl, self.reparbulk = integBulkBc(self.rad,
+                                           4.*np.pi*RePar*self.rad**2,
+                                           self.ri, self.ro, self.bcBotSlope,
                                            self.bcTopSlope, normed=True)
-            self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.rad, 
-                                                   4.*np.pi*RePerpNas*self.rad**2, 
+            self.reperpnasbl, self.reperpnasbulk = integBulkBc(self.rad,
+                                                   4.*np.pi*RePerpNas*self.rad**2,
                                                    self.ri, self.ro,
                                                    self.bcBotSlope,
                                                    self.bcTopSlope, normed=True)
             self.reparnasbl, self.reparnasbulk = integBulkBc(self.rad,
-                                                 4.*np.pi*ReParNas*self.rad**2, 
+                                                 4.*np.pi*ReParNas*self.rad**2,
                                                  self.ri, self.ro,
                                                  self.bcBotSlope, self.bcTopSlope,
                                                  normed=True)
@@ -620,7 +620,7 @@ class BLayers(MagicSetup):
         else:
             ek = self.ek
         if self.mode == 0:
-            st ='%9.3e%9.2e%9.2e%9.2e%5.2f' % (self.ra, ek, self.pr, self.prmag, 
+            st ='%9.3e%9.2e%9.2e%9.2e%5.2f' % (self.ra, ek, self.pr, self.prmag,
                                              self.strat)
         else:
             st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr, self.radratio)

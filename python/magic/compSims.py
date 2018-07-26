@@ -12,7 +12,7 @@ class CompSims:
     This class allows to compare an analyse several DNS simultaneously. It is possible
     to compare time-series or :ref:`graphic files <secGraphFile>`. To set it up, you
     first need to create a file that contains the list of directories you want to analyse:
- 
+
     .. code-block:: bash
 
        $ cat inputList
@@ -311,17 +311,17 @@ class CompSims:
                                   cmap=cmap, aa=True)
             else:
                 cs = self.levels
-                im = ax.contourf(xx, yy, data[..., indPlot], cs, 
+                im = ax.contourf(xx, yy, data[..., indPlot], cs,
                                   cmap=cmap, aa=True)
             rad = gr.radius[indPlot] * (1. - gr.radratio)
-            ax.set_title('%s, r/ro=%.3f, Ra=%.1e' % (label, rad, gr.ra), 
+            ax.set_title('%s, r/ro=%.3f, Ra=%.1e' % (label, rad, gr.ra),
                     fontsize=10)
             ax.axis('off')
 
 
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(data[..., indPlot].max()), 
-                                 abs(data[..., indPlot].min())), 
+                im.set_clim(-max(abs(data[..., indPlot].max()),
+                                 abs(data[..., indPlot].min())),
                              max(abs(data[..., indPlot].max()),
                                  abs(data[..., indPlot].min())))
             iplot += 1
@@ -392,7 +392,7 @@ class CompSims:
                 im = ax.contour(xx, yy, equator, self.levels, colors='k',
                                 linewidths=0.5)
             else:
-                if self.cut != 1:    
+                if self.cut != 1:
                     self.normed = False
                     vmin = - max(abs(equator.max()), abs(equator.min()))
                     vmin = self.cut*vmin
@@ -430,7 +430,7 @@ class CompSims:
             #fig.colorbar(im)
 
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(equator.max()), abs(equator.min())), 
+                im.set_clim(-max(abs(equator.max()), abs(equator.min())),
                              max(abs(equator.max()), abs(equator.min())))
             iplot += 1
         os.chdir(self.workdir)
@@ -488,7 +488,7 @@ class CompSims:
 
             #label += ' Ra = %.1e' % gr.ra
             label = 'Ra = %.1e' % gr.ra
-            
+
             if self.field not in ('Cr', 'cr', 'ra', 'ratio', 'Cz', 'cz'):
                 phiavg = data.mean(axis=0)
             else:
@@ -516,12 +516,12 @@ class CompSims:
                     if th >= np.arcsin(gr.radratio)  and \
                        th <= np.pi - np.arcsin(gr.radratio):
                         # Outside tangent cylinder
-                        val = trapz(dat[rr >= ri/np.sin(th)], 
+                        val = trapz(dat[rr >= ri/np.sin(th)],
                                     rr[rr >= ri/np.sin(th)])
                         outTC = np.append(outTC, val)
                         integ = np.append(integ, th)
                         # Inside tangent cylinder
-                        val = trapz(dat[rr < ri/np.sin(th)], 
+                        val = trapz(dat[rr < ri/np.sin(th)],
                                     rr[rr < ri/np.sin(th)])
                         inTC = np.append(inTC, val)
                     else:
@@ -542,10 +542,10 @@ class CompSims:
 
             ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
             if self.bw:
-                im = ax.contour(xx, yy, phiavg, self.levels, colors='k', 
+                im = ax.contour(xx, yy, phiavg, self.levels, colors='k',
                                 linewidths=0.5)
             else:
-                if self.cut != 1:    
+                if self.cut != 1:
                     self.normed = False
                     vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
                     vmin = self.cut*vmin
@@ -563,7 +563,7 @@ class CompSims:
 
             ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
             ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
-            
+
             # Variable conductivity
             if hasattr(gr, 'nVarCond'):
                 if gr.nVarCond == 2:
@@ -598,7 +598,7 @@ class CompSims:
                               #verticalalignment='center',
                               #transform = ax.transAxes)
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
+                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())),
                              max(abs(phiavg.max()), abs(phiavg.min())))
 
             iplot += 1
@@ -641,7 +641,7 @@ class CompSims:
 
             #label += ' Ra = %.1e' % gr.ra
             label = 'Ra = %.1e' % gr.ra
-            
+
             phiavg = data[0, ...]
 
             th = np.linspace(0., np.pi, gr.ntheta)
@@ -666,7 +666,7 @@ class CompSims:
             """
 
             ax = plt.subplot(self.nrow, self.ncol, iplot, frameon=False)
-            if self.cut != 1:    
+            if self.cut != 1:
                 self.normed = False
                 vmin = - max(abs(phiavg.max()), abs(phiavg.min()))
                 vmin = self.cut*vmin
@@ -683,7 +683,7 @@ class CompSims:
 
             ax.plot([0., 0], [gr.radius[-1], gr.radius[0]], 'k-')
             ax.plot([0., 0], [-gr.radius[-1], -gr.radius[0]], 'k-')
-            
+
             # Variable conductivity
             if hasattr(gr, 'nVarCond'):
                 if gr.nVarCond == 2:
@@ -713,7 +713,7 @@ class CompSims:
                               #verticalalignment='center',
                               #transform = ax.transAxes)
             if self.field not in ['entropy', 's', 'S'] and self.normed is True:
-                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())), 
+                im.set_clim(-max(abs(phiavg.max()), abs(phiavg.min())),
                              max(abs(phiavg.max()), abs(phiavg.min())))
 
             iplot += 1

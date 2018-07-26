@@ -10,11 +10,11 @@ from scipy.integrate import simps, trapz
 class ThetaHeat(MagicSetup):
     """
     This class allows to conduct some analysis of the latitudinal
-    variation of the heat transfer. It relies on the movie files 
+    variation of the heat transfer. It relies on the movie files
     :ref:`ATmov.TAG <secMovieFile>` and :ref:`AHF_mov.TAG <secMovieFile>`.
-    As it's a bit time-consuming, the calculations are stored in a 
+    As it's a bit time-consuming, the calculations are stored in a
     python.pickle file to quicken future usage of the data.
-    
+
     This function can **only** be used when
     :ref:`bLayersR.TAG <secBLayersRfile>` exist in the working directory.
 
@@ -65,7 +65,7 @@ class ThetaHeat(MagicSetup):
         else:
             logFiles = scanDir('log.*')
             MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
-        
+
 
         if not os.path.exists(pickleName):
             # reading ATmov
@@ -103,9 +103,9 @@ class ThetaHeat(MagicSetup):
                 self.fluxmean = m1.data[0, ...].mean(axis=0)
                 self.fluxstd = m1.data[0, ...].std(axis=0)
             else:
-                self.fluxmean = rderavg(self.tempmean, eta=self.radratio, 
+                self.fluxmean = rderavg(self.tempmean, eta=self.radratio,
                                         exclude=False, spectral=False)
-                self.fluxstd = rderavg(self.tempstd, eta=self.radratio, 
+                self.fluxstd = rderavg(self.tempstd, eta=self.radratio,
                                         exclude=False, spectral=False)
 
             # Pickle saving
@@ -242,7 +242,7 @@ class ThetaHeat(MagicSetup):
 
 
         # Inside and outside TC
-        angleTC = np.arcsin(self.ri/self.ro) 
+        angleTC = np.arcsin(self.ri/self.ro)
         mask2D = (th2D<=angleTC)
         mask = (self.colat<=angleTC)
         fac = 1./simps(np.sin(self.colat[mask]), self.colat[mask])
@@ -281,7 +281,7 @@ class ThetaHeat(MagicSetup):
             st ='%9.3e%9.2e%9.2e%9.2e%5.2f' % (self.ra, ek, self.pr, self.prmag,
                                                self.strat)
         else:
-            st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr, 
+            st = '%.3e%12.5e%5.2f%6.2f%6.2f' % (self.ra, ek, self.strat, self.pr,
                                                 self.radratio)
 
         st += '%12.5e' % (self.nuss)
@@ -327,7 +327,7 @@ class ThetaHeat(MagicSetup):
         ax1.fill(xs, ys, facecolor='#aec7e8', edgecolor='None')
         ax1.plot(self.colat*180./np.pi, self.nusstopmean, ls='-', color='#1f77b4',\
                  lw=2, label='Top Nu')
-                          
+
         xs, ys = mlab.poly_between(self.colat*180./np.pi, self.nussbotmean-self.nussbotstd,\
                                    self.nussbotmean+self.nussbotstd)
         ax1.fill(xs, ys, facecolor='#ffbb78', edgecolor='None')

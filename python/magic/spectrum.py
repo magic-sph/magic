@@ -12,10 +12,10 @@ class MagicSpectrum(MagicSetup):
     """
     This class can be used to read and display the spectra:
 
-        * Kinetic energy spectra: :ref:`kin_spec_#.TAG <secKinSpecFile>` 
+        * Kinetic energy spectra: :ref:`kin_spec_#.TAG <secKinSpecFile>`
         * Magnetic energy spectra: :ref:`mag_spec_#.TAG <secMagSpecFile>`
-        * Spectra of the velocity square: :ref:`u2_spec_#.TAG <secu2SpecFile>` 
-    
+        * Spectra of the velocity square: :ref:`u2_spec_#.TAG <secu2SpecFile>`
+
     >>> # display the content of kin_spec_1.tag
     >>> # where tag is the most recent file in the current directory
     >>> sp = MagicSpectrum(field='e_kin', ispec=1)
@@ -23,7 +23,7 @@ class MagicSpectrum(MagicSetup):
     >>> sp = MagicSpectrum(field='e_mag', tag='test', ave=True, gather=True)
     """
 
-    def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None, 
+    def __init__(self, datadir='.', field='e_kin', iplot=True, ispec=None,
                  ave=False, gather=False, tag=None):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
@@ -39,7 +39,7 @@ class MagicSpectrum(MagicSetup):
         :param ave: plot a time-averaged spectrum when set to True
         :type ave: bool
         :param gather: gather the spectra on the same figure when set to True,
-                       display one figure per spectrum when set to False, 
+                       display one figure per spectrum when set to False,
                        (default is False)
         :type gather: bool
         :param datadir: current working directory
@@ -210,7 +210,7 @@ class MagicSpectrum(MagicSetup):
                 ax = fig.add_subplot(212)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                           label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
                           label='toroidal')
                 if labTex:
                     ax.set_xlabel('Order $m+1$')
@@ -262,7 +262,7 @@ class MagicSpectrum(MagicSetup):
                 ax = fig.add_subplot(212)
                 ax.loglog(self.index[::self.minc]+1, self.ekin_polm[::self.minc],
                           label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc], 
+                ax.loglog(self.index[::self.minc]+1, self.ekin_torm[::self.minc],
                           label='toroidal')
                 if labTex:
                     ax.set_xlabel('Order $m+1$')
@@ -348,10 +348,10 @@ class MagicSpectrum(MagicSetup):
 
                 fig = plt.figure()
                 ax = fig.add_subplot(111)
-                ax.loglog(self.index[::self.minc]+1, 
+                ax.loglog(self.index[::self.minc]+1,
                           self.emag_polm[::self.minc]/self.emag_polm.max(),
                           label='poloidal')
-                ax.loglog(self.index[::self.minc]+1, 
+                ax.loglog(self.index[::self.minc]+1,
                           self.emag_torm[::self.minc]/self.emag_torm.max(),
                           label='toroidal')
                 ax.loglog(self.index[::self.minc]+1,
@@ -396,7 +396,7 @@ class MagicSpectrum2D(MagicSetup):
         * Kinetic energy spectra: :ref:`2D_kin_spec_#.TAG <sec2DSpectra>`
         * Velocity square spectra: :ref:`2D_u2_spec_#.TAG <sec2DSpectra>`
         * Magnetic energy spectra: :ref:`2D_mag_spec_#.TAG <sec2DSpectra>`
-    
+
     >>> # display the content of 2D_kin_spec_1.tag
     >>> # where tag is the most recent file in the current directory
     >>> sp = MagicSpectrum2D(field='e_kin', ispec=1, levels=17, cm='seismic')
@@ -404,7 +404,7 @@ class MagicSpectrum2D(MagicSetup):
     >>> sp = MagicSpectrum2D(field='e_mag', tag='test', ispec=3)
     """
 
-    def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None, 
+    def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None,
                  tag=None, cm='jet', levels=33, precision='Float64'):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
@@ -414,7 +414,7 @@ class MagicSpectrum2D(MagicSetup):
         :type iplot: bool
         :param ispec: the number of the spectrum you want to plot
         :type ispec: int
-        :param tag: file suffix (tag=, if not specified the most recent one 
+        :param tag: file suffix (tag=, if not specified the most recent one
                     in the current directory is chosen
         :type tag: str
         :param cm: name of the colormap (default='jet')
@@ -502,7 +502,7 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_pol_l).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax0.contourf(self.ell[1:], self.rad, np.log10(self.e_pol_l.T), 
+        im = ax0.contourf(self.ell[1:], self.rad, np.log10(self.e_pol_l.T),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig0.colorbar(im)
         if labTex:
@@ -519,7 +519,7 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_tor_l).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax1.contourf(self.ell[1:], self.rad, np.log10(self.e_tor_l.T), 
+        im = ax1.contourf(self.ell[1:], self.rad, np.log10(self.e_tor_l.T),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig1.colorbar(im)
         if labTex:
@@ -536,8 +536,8 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_pol_m).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax2.contourf(self.ell[::self.minc]+1, self.rad, 
-                          np.log10(self.e_pol_m[::self.minc,:].T), 
+        im = ax2.contourf(self.ell[::self.minc]+1, self.rad,
+                          np.log10(self.e_pol_m[::self.minc,:].T),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig2.colorbar(im)
         if labTex:
@@ -554,8 +554,8 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_tor_m).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax3.contourf(self.ell[::self.minc]+1, self.rad, 
-                          np.log10(self.e_tor_m[::self.minc,:].T), 
+        im = ax3.contourf(self.ell[::self.minc]+1, self.rad,
+                          np.log10(self.e_tor_m[::self.minc,:].T),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig3.colorbar(im)
         if labTex:
@@ -566,4 +566,3 @@ class MagicSpectrum2D(MagicSetup):
             ax3.set_ylabel('Radius')
         ax3.set_xscale('log')
         ax3.set_title('E tor')
-

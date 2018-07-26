@@ -14,8 +14,8 @@ elif  sys.version_info.major == 2:
 
 class Movie3D:
     """
-    This class allows to read the 3D movie files :ref:`(B|V)_3D_.TAG<secMovieFile>`  and 
-    transform them into a series of VTS files ``./vtsFiles/B3D_#.TAG`` that can be further 
+    This class allows to read the 3D movie files :ref:`(B|V)_3D_.TAG<secMovieFile>`  and
+    transform them into a series of VTS files ``./vtsFiles/B3D_#.TAG`` that can be further
     read using paraview.
 
     >>> Movie3D(file='B_3D.TAG')
@@ -83,7 +83,7 @@ class Movie3D:
         vecNames = np.r_[3]
         scalNames = np.r_[-1]
 
-        # READ the movie file 
+        # READ the movie file
         infile = npfile(filename, endian='B')
         # HEADER
         version = infile.fort_read('|S64')
@@ -121,7 +121,7 @@ class Movie3D:
 
         self.time = np.zeros(self.nvar, precision)
         if potExtra:
-            scals = np.zeros((n_r_mov_tot+1+nrout, self.n_theta_max, 
+            scals = np.zeros((n_r_mov_tot+1+nrout, self.n_theta_max,
                              self.n_phi_tot*minc+1,1),'f')
         else:
             scals = np.zeros((n_r_mov_tot+2, self.n_theta_max, self.n_phi_tot*minc+1,1),'f')
@@ -163,13 +163,13 @@ class Movie3D:
                 brCMB = tmp[0, :, :]
                 brCMB = brCMB.T
                 if potExtra:
-                    vecr[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, 
+                    vecr[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
                                                                 reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vect[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, 
+                    vect[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
                                                                 reversed=True)
                     tmp = infile.fort_read(precision, shape=shape)
-                    vecp[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, 
+                    vecp[nrout-1:nrout+n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc,
                                                                 reversed=True)
                 else:
                     vecr[0:n_r_mov_tot+2,:,:,0] = symmetrize(tmp, minc, reversed=True)
@@ -185,7 +185,7 @@ class Movie3D:
                 bt = vect.T
                 bp = vecp.T
                 if potExtra:
-                    pot = ExtraPot(rcmb, brCMB, minc, ratio_out=ratio_out, 
+                    pot = ExtraPot(rcmb, brCMB, minc, ratio_out=ratio_out,
                                    nrout=nrout, cutCMB=True, deminc=True)
                     br[0, ..., n_r_mov_tot+2:] = pot.brout
                     bt[0, ..., n_r_mov_tot+2:] = pot.btout
@@ -207,4 +207,3 @@ if __name__ == '__main__':
     from magic import MagicGraph
 
     t1 = Movie3D(file='B_3D_mov.CJ2')
-

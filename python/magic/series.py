@@ -9,8 +9,8 @@ from .libmagic import fast_read, scanDir, avgField
 
 class MagicTs(MagicSetup):
     """
-    This python class is used to read and plot the different time series 
-    written by the code: 
+    This python class is used to read and plot the different time series
+    written by the code:
 
        * Kinetic energy: :ref:`e_kin.TAG <secEkinFile>`
        * Magnetic energy of the outer core: :ref:`e_mag_oc.TAG <secEmagocFile>`
@@ -37,7 +37,7 @@ class MagicTs(MagicSetup):
     >>>
     >>> # stack **all** the power.TAG file found in the directory
     >>> ts = MagicTs(field='power', all=True)
-    >>> print(ts.time, ts.buoPower) # print time and buoyancy power 
+    >>> print(ts.time, ts.buoPower) # print time and buoyancy power
     >>>
     >>> # If you only want to read the file ``heat.N0m2z``
     >>> ts = MagicTs(field='heat', tag='N0m2z', iplot=False)
@@ -70,7 +70,7 @@ class MagicTs(MagicSetup):
             if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % tag)
-            # Or the tag is a bit more complicated and we need to find 
+            # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
                 mask = re.compile(r'%s\.(.*)' % self.field)
@@ -413,7 +413,7 @@ class MagicTs(MagicSetup):
                     label='ekin pol')
             ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
                     label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da', 
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
                     label='ekin pol axi')
             ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
                     label='ekin tor axi')
@@ -428,7 +428,7 @@ class MagicTs(MagicSetup):
                     label='emag pol')
             ax.plot(self.time, self.emagoc_tor, ls='-', c='#fc4f30',
                     label='emag tor')
-            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da', 
+            ax.plot(self.time, self.emagoc_pol_axi, ls='--', c='#30a2da',
                     label='emag pol axi')
             ax.plot(self.time, self.emagoc_tor_axi, ls='--', c='#fc4f30',
                     label='emag tor axi')
@@ -443,7 +443,7 @@ class MagicTs(MagicSetup):
                     label='emagic pol')
             ax.plot(self.time, self.emagic_tor, ls='-', c='#fc4f30',
                     label='emagic tor')
-            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da', 
+            ax.plot(self.time, self.emagic_pol_axi, ls='--', c='#30a2da',
                     label='emagic pol axi')
             ax.plot(self.time, self.emagic_tor_axi, ls='--', c='#fc4f30',
                     label='emagic tor axi')
@@ -570,7 +570,7 @@ class MagicTs(MagicSetup):
                     label='ekin pol')
             ax.plot(self.time, self.ekin_tor, ls='-', c='#fc4f30',
                     label='ekin tor')
-            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da', 
+            ax.plot(self.time, self.ekin_pol_axi, ls='--', c='#30a2da',
                     label='ekin pol axi')
             ax.plot(self.time, self.ekin_tor_axi, ls='--', c='#fc4f30',
                     label='ekin tor axi')
@@ -622,7 +622,7 @@ class MagicTs(MagicSetup):
                     label='ekin perp')
             ax.plot(self.time, self.epar, ls='-', c='#fc4f30',
                     label='ekin par')
-            ax.plot(self.time, self.eperp_axi, ls='--', c='#30a2da', 
+            ax.plot(self.time, self.eperp_axi, ls='--', c='#30a2da',
                     label='ekin perp axi')
             ax.plot(self.time, self.epar_axi, ls='--', c='#fc4f30',
                     label='ekin par axi')
@@ -670,7 +670,7 @@ class MagicTs(MagicSetup):
             ax = fig.add_subplot(111)
             ax.semilogy(self.time, self.DynTorRms, label='Induction')
             ax.semilogy(self.time, self.DifTorRms, label='Diffusion')
-            ax.semilogy(self.time, self.omEffect*self.DynTorRms, 
+            ax.semilogy(self.time, self.omEffect*self.DynTorRms,
                         label='Omega effect')
             ax.semilogy(self.time, self.dtBtorRms, label='Time derivative', )
             ax.legend(loc='best', frameon=False)
@@ -694,7 +694,7 @@ class MagicTs(MagicSetup):
             print(self.coeffs.shape)
             for k in range(self.coeffs.shape[1]):
                 ax.semilogy(self.time, self.coeffs[:, k], label='m=%i'%k)
-            ax.set_xlabel('Time')  
+            ax.set_xlabel('Time')
             if self.coeffs.shape[1] < 20:
                 ax.legend(loc='best', frameon=False)
             if self.field == 'am_mag_pol':
@@ -730,12 +730,12 @@ class AvgField:
         """
         :param tstart: the starting time for averaging
         :type tstart: float
-        :param tag: if you specify an input tag (generic regExp pattern), 
-                    the averaging process will only happen on the time series 
+        :param tag: if you specify an input tag (generic regExp pattern),
+                    the averaging process will only happen on the time series
                     that match this input pattern
         :type tag: str
-        :param dipExtra: if this parameter is set to ``True``, then additional 
-                         values extracted from :ref:`dipole.TAG <secDipoleFile>` 
+        :param dipExtra: if this parameter is set to ``True``, then additional
+                         values extracted from :ref:`dipole.TAG <secDipoleFile>`
                          are also computed
         :type dipExtra: bool
 
@@ -866,9 +866,9 @@ class AvgField:
 
         if self.mode == 0 or self.mode == 8:
             # Emag OC file
-            ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False, 
+            ts4 = MagicTs(field='e_mag_oc', all=True, iplot=False,
                           tag=tag)
-            mask = np.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)), 
+            mask = np.where(abs(ts4.time-tstart) == min(abs(ts4.time-tstart)),
                            1, 0)
             ind = np.nonzero(mask)[0][0]
             emag_es = ts4.emagoc_pol_es+ts4.emagoc_tor_es
@@ -878,7 +878,7 @@ class AvgField:
                                               ts4.emagoc_pol[ind:], std=True)
                 self.emag_tor_avg, self.emag_tor_std = avgField(ts4.time[ind:],
                                               ts4.emagoc_tor[ind:], std=True)
-                self.emag_pola_avg, self.emag_pola_std = avgField(ts4.time[ind:], 
+                self.emag_pola_avg, self.emag_pola_std = avgField(ts4.time[ind:],
                                               ts4.emagoc_pol_axi[ind:], std=True)
                 self.emag_tora_avg, self.emag_tora_std = avgField(ts4.time[ind:],
                                               ts4.emagoc_tor_axi[ind:], std=True)
@@ -887,7 +887,7 @@ class AvgField:
             else:
                 self.emag_pol_avg = avgField(ts4.time[ind:], ts4.emagoc_pol[ind:])
                 self.emag_tor_avg = avgField(ts4.time[ind:], ts4.emagoc_tor[ind:])
-                self.emag_pola_avg = avgField(ts4.time[ind:], 
+                self.emag_pola_avg = avgField(ts4.time[ind:],
                                               ts4.emagoc_pol_axi[ind:])
                 self.emag_tora_avg = avgField(ts4.time[ind:],
                                               ts4.emagoc_tor_axi[ind:])
@@ -896,7 +896,7 @@ class AvgField:
             if self.dipExtra:
                 # dipole.TAG files
                 ts5 = MagicTs(field='dipole', all=True, iplot=False, tag=tag)
-                mask = np.where(abs(ts5.time-tstart) == min(abs(ts5.time-tstart)), 
+                mask = np.where(abs(ts5.time-tstart) == min(abs(ts5.time-tstart)),
                                1, 0)
                 ind = np.nonzero(mask)[0][0]
 
@@ -919,7 +919,7 @@ class AvgField:
             # power.TAG files
             tspow = MagicTs(field='power', all=True, iplot=False,
                             tag=tag)
-            mask = np.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)), 
+            mask = np.where(abs(tspow.time-tstart) == min(abs(tspow.time-tstart)),
                            1, 0)
             ind = np.nonzero(mask)[0][0]
 
@@ -1061,7 +1061,7 @@ class AvgField:
                    self.u2_pol_std, self.u2_tor_std, self.u2_pola_std, \
                    self.u2_tora_std, self.emag_pol_std, self.emag_tor_std, \
                    self.emag_pola_std, self.emag_tora_std, self.emag_es_std)
-             
+
             st +='%8.2f%8.2f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e%7.3f%9.2e%9.2e%9.2e%9.2e%9.2e%9.2e' % \
                 (self.reynolds, self.ureynolds, self.rol, self.urol, \
                  self.dip, self.dipCMB, self.els, self.elsCMB, self.nuss, \
@@ -1103,7 +1103,7 @@ class AvgField:
                 self.u2_tora = self.ekin_tora_avg
                 self.urol = self.rol
                 self.ureynolds = self.reynolds
-                
+
                 if self.std:
                     self.u2_pol_std = self.ekin_pol_std
                     self.u2_tor_std = self.ekin_tor_std

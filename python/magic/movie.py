@@ -47,7 +47,7 @@ class Movie:
     >>> # and lets you decide which one you want to read
 
     >>> # Reads and display AV_mov.test
-    >>> m = Movie(filed='AV_mov.test') 
+    >>> m = Movie(filed='AV_mov.test')
     >>> print(m.data) # access to the data
 
     >>> # Read three movie files (no display)
@@ -66,7 +66,7 @@ class Movie:
 
     def __init__(self, file=None, iplot=True, step=1, png=False,
                  lastvar=None, nvar='all', levels=12, cm='RdYlBu_r', cut=0.5,
-                 bgcolor=None, fluct=False, normed=False, avg=False, 
+                 bgcolor=None, fluct=False, normed=False, avg=False,
                  std=False, dpi=80, normRad=False, precision='Float32',
                  deminc=True, ifield=0):
         """
@@ -132,7 +132,7 @@ class Movie:
         mot = re.compile(r'.*[Mm]ov\.(.*)')
         end = mot.findall(filename)[0]
 
-        # Read the movie file 
+        # Read the movie file
         infile = npfile(filename, endian='B')
         # Header
         version = infile.fort_read('|S64')
@@ -185,8 +185,8 @@ class Movie:
         if nlines == 0:
             nlines = getNlines(filename, endian='B', precision=precision)
             nlines -= 8 # Remove 8 lines of header
-            nlines  /= (self.n_fields+1) 
-        
+            nlines  /= (self.n_fields+1)
+
         if lastvar is None:
             self.var2 = nlines
         else:
@@ -291,8 +291,8 @@ class Movie:
         """
         Built-in function to sum two movies
 
-        .. note:: So far this function only works for two movies with the same 
-                  grid sizes. At some point, we might introduce grid extrapolation 
+        .. note:: So far this function only works for two movies with the same
+                  grid sizes. At some point, we might introduce grid extrapolation
                   to allow any summation
         """
         out = copy.deepcopy(new)
@@ -379,7 +379,7 @@ class Movie:
         ax.plot(xxin, yyin, 'k-', lw=1.5)
         ax.axis('off')
 
-    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1, 
+    def plot(self, ifield=0, cut=0.5, levels=12, cmap='RdYlBu_r', png=False, step=1,
              normed=False, dpi=80, bgcolor=None, deminc=True):
         """
         Plotting function (it can also write the png files)
@@ -531,7 +531,7 @@ class Movie:
                 else:
                     fig.savefig(filename, dpi=dpi)
 
-    def timeLongitude(self, ifield=0, removeMean=True, lat0=0., levels=12, 
+    def timeLongitude(self, ifield=0, removeMean=True, lat0=0., levels=12,
                       cm='RdYlBu_r', deminc=True):
         """
         Plot the time-longitude diagram (input latitude can be chosen)

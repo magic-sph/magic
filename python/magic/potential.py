@@ -45,7 +45,7 @@ class MagicPotential(MagicSetup):
     This class allows to load and display the content of the potential
     files: :ref:`V_lmr.TAG <secVpotFile>`, :ref:`B_lmr.TAG <secBpotFile>`
     and :ref:`T_lmr.TAG <secTpotFile>`. This class allows to transform
-    the poloidal/toroidal potential in spectral space to the physical 
+    the poloidal/toroidal potential in spectral space to the physical
     quantities in the physical space. It allows to plot radial and
     equatorial cuts as well as phi-averages.
 
@@ -64,7 +64,7 @@ class MagicPotential(MagicSetup):
     >>> p.surf(field='vt', r=0.8)
     """
 
-    def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None, 
+    def __init__(self, field='V', datadir='.', tag=None, ave=False, ipot=None,
                  precision='Float32'):
         """
         :param field: 'B', 'V' or 'T' (magnetic field, velocity field or temperature)
@@ -126,7 +126,7 @@ class MagicPotential(MagicSetup):
                 MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                     nml='log.%s' % ending)
 
-        
+
         # Determine file endianness
         endian = getPotEndianness(filename)
 
@@ -162,7 +162,7 @@ class MagicPotential(MagicSetup):
 
         else: # F2py reader
 
-            if ( field != 'T' and field != 'Xi' ): 
+            if ( field != 'T' and field != 'Xi' ):
                 l_read_tor = True
             else:
                 l_read_tor = False
@@ -301,7 +301,7 @@ class MagicPotential(MagicSetup):
                 label = 'Bphi'
         t2 = time.time()
         print('Transform time (avg): %.2f' % (t2-t1))
-        
+
         if field in ('temperature', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
@@ -410,7 +410,7 @@ class MagicPotential(MagicSetup):
         if field in ('temperature', 't', 'T', 'entropy', 's', 'S', 'u2', 'b2', 'nrj'):
             normed = False
 
-        fig, xx, yy = equatContour( equator, self.radius, self.minc, label, 
+        fig, xx, yy = equatContour( equator, self.radius, self.minc, label,
                                     levels, cm, normed, vmax, vmin, cbar, tit,
                                     normRad )
         ax = fig.get_axes()[0]
@@ -434,7 +434,7 @@ class MagicPotential(MagicSetup):
 
            >>> # Control the limit of the colormap from -1e3 to 1e3
            >>> p.surf(field='vp', r=1., vmin=-1e3, vmax=1e3, levels=33)
-    
+
         :param field: the name of the field you want to display
         :type field: str
         :param proj: the type of projection. Default is Hammer, in case

@@ -61,15 +61,15 @@ class Surf:
 
             s3D = rr3D * np.sin(th3D)
             dtheta = thetaderavg(self.gr.vphi*s3D)
-            dr = rderavg(self.gr.vphi*s3D, eta=self.gr.radratio, spectral=True, 
+            dr = rderavg(self.gr.vphi*s3D, eta=self.gr.radratio, spectral=True,
                          exclude=False)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dtheta
             vs = self.gr.vr * np.sin(th3D) + self.gr.vtheta * np.cos(th3D) # 'vs'
             self.vortz = -1./s3D*phideravg(vs, self.gr.minc)+ds/s3D
             del dr, dtheta, ds, rr3D, th3D, s3D
 
-    def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None, 
-             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, lon_shift=0, 
+    def surf(self, field='Bphi', proj='hammer', lon_0=0., r=0.85, vmax=None,
+             vmin=None, lat_0=30., levels=defaultLevels, cm=defaultCm, lon_shift=0,
              normed=True, cbar=True, tit=True, lines=False):
         """
         Plot the surface distribution of an input field at a given
@@ -287,7 +287,7 @@ class Surf:
                  (np.roll(self.gr.Btheta,-1,axis=0)-np.roll(self.gr.Btheta,1,axis=0))/\
                  (rr3D*np.sin(th3D)*dphi)
 
-            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, 0, :] = Or[:, 1, :]
             Or[:, -1, :] = Or[:, -2, :]
             Ot[..., 0] = Ot[..., 1]
             Ot[..., -1] = Ot[..., -2]
@@ -323,7 +323,7 @@ class Surf:
                 rr3D[:, :, i] = self.gr.radius[i]
             s3D = rr3D*np.sin(th3D)
             dth = thetaderavg(self.gr.vphi*rr3D*np.sin(th3D))
-            dr = rderavg(self.gr.vphi*rr3D*np.sin(th3D), eta=self.gr.radratio, 
+            dr = rderavg(self.gr.vphi*rr3D*np.sin(th3D), eta=self.gr.radratio,
                          spectral=True, exclude=False)
             ds = np.sin(th3D)*dr + np.cos(th3D)/rr3D*dth
             data = -1./(rr3D*np.sin(th3D))*phideravg(self.gr.vr*np.sin(th3D)+self.gr.vtheta*np.cos(th3D), self.gr.minc)+ds/(rr3D*np.sin(th3D))
@@ -480,7 +480,7 @@ class Surf:
         if field in ['entropy', 's', 'S', 'u2', 'b2', 'nrj', 'temperature']:
             normed = False
 
-        fig, xx, yy = equatContour( equator, self.gr.radius, self.gr.minc, label, 
+        fig, xx, yy = equatContour( equator, self.gr.radius, self.gr.minc, label,
                                     levels, cm, normed, vmax, vmin, cbar, tit,
                                     normRad)
         ax = fig.get_axes()[0]
@@ -492,7 +492,7 @@ class Surf:
                 ax.plot(radi*np.cos(phi), radi*np.sin(phi), 'k--', lw=1.5)
 
         # If avg is requested, then display an additional figure
-        # with azimutal average 
+        # with azimutal average
         if avg:
             fig1 = plt.figure()
             ax1 = fig1.add_subplot(111)
@@ -576,7 +576,7 @@ class Surf:
             data = np.zeros_like(rr2D)
             if hasattr(self.gr, 'strat'):
                 if (self.gr.strat != 0.):
-                    temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
+                    temp, rho, beta = anelprof(self.gr.radius, self.gr.strat,
                                self.gr.polind,
                                g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
                 else:
@@ -604,7 +604,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), 
+            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
                            dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
@@ -618,7 +618,7 @@ class Surf:
             vr = self.gr.vr
             vt = self.gr.vtheta
             thlin = np.linspace(0., np.pi, self.gr.ntheta)
-            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr), 
+            th3D = np.zeros((self.gr.npI, self.gr.ntheta, self.gr.nr),
                            dtype=self.precision)
             for i in range(self.gr.ntheta):
                 th3D[:, i, :] = thlin[i]
@@ -679,7 +679,7 @@ class Surf:
                  (np.roll(self.gr.Btheta,-1,axis=0)-np.roll(self.gr.Btheta,1,axis=0))/\
                  (rr3D*np.sin(th3D)*dphi)
 
-            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, 0, :] = Or[:, 1, :]
             Or[:, -1, :] = Or[:, -2, :]
             Ot[..., 0] = Ot[..., 1]
             Ot[..., -1] = Ot[..., -2]
@@ -704,7 +704,7 @@ class Surf:
             vrm = self.gr.vr.mean(axis=0)
             vtm = self.gr.vtheta.mean(axis=0)
             vpm = self.gr.vphi.mean(axis=0)
-            dvpdr = rderavg(vpm, eta=self.gr.radratio, spectral=True, 
+            dvpdr = rderavg(vpm, eta=self.gr.radratio, spectral=True,
                             exclude=False)
             dvpdt = thetaderavg(vpm)
             # B. Brown
@@ -712,7 +712,7 @@ class Surf:
             #data = brm*dvpdr+btm/rr2D*dvpdt+vrm*bpm/rr2D+\
                    #vtm*bpm*np.cos(th2D)/(np.sin(th2D)*rr2D)
             # M. Schrinner and U. Christensen
-            # Phi component of curl <Vphi> x <B> 
+            # Phi component of curl <Vphi> x <B>
             data = brm*dvpdr+btm/rr2D*dvpdt-vpm*brm/rr2D-\
                    vpm*btm*np.cos(th2D)/(np.sin(th2D)*rr2D)
         elif field in ('flux'):
@@ -754,7 +754,7 @@ class Surf:
                  (np.roll(vt,-1,axis=0)-np.roll(vt,1,axis=0))/\
                  (rr3D*np.sin(th3D)*dphi)
 
-            wr[:, 0, :] = wr[:, 1, :] 
+            wr[:, 0, :] = wr[:, 1, :]
             wr[:, -1, :] = wr[:, -2, :]
             wt[..., 0] = wt[..., 1]
             wt[..., -1] = wt[..., -2]
@@ -815,7 +815,7 @@ class Surf:
                  (np.roll(self.gr.vtheta,-1,axis=0)-np.roll(self.gr.vtheta,1,axis=0))/\
                  (rr3D*np.sin(th3D)*dphi)
 
-            wr[:, 0, :] = wr[:, 1, :] 
+            wr[:, 0, :] = wr[:, 1, :]
             wr[:, -1, :] = wr[:, -2, :]
             wt[..., 0] = wt[..., 1]
             wt[..., -1] = wt[..., -2]
@@ -849,7 +849,7 @@ class Surf:
             rr2D = np.zeros((self.gr.ntheta, self.gr.nr), dtype=self.precision)
             th2D = np.zeros_like(rr2D)
             data = np.zeros_like(rr2D)
-            temp, rho, beta = anelprof(self.gr.radius, self.gr.strat, 
+            temp, rho, beta = anelprof(self.gr.radius, self.gr.strat,
                            self.gr.polind,
                            g0=self.gr.g0, g1=self.gr.g1, g2=self.gr.g2)
             vrm = self.gr.vr.mean(axis=0)*rho
@@ -872,7 +872,7 @@ class Surf:
             label = 'Ratio'
             data = self.gr.vphi**2#/(self.gr.vphi**2+\
                    #self.gr.vtheta**2+self.gr.vr**2)
-            denom = np.mean(self.gr.vphi**2+ self.gr.vtheta**2+self.gr.vr**2, 
+            denom = np.mean(self.gr.vphi**2+ self.gr.vtheta**2+self.gr.vr**2,
                            axis=0)
             #denom = 1.
         elif field in ('beta'):
@@ -1079,7 +1079,7 @@ class Surf:
                        linewidths=[0.8, 0.8])
         elif tor:
             toroLines = self.gr.Bphi.mean(axis=0)
-            ax.contour(xx, yy, toroLines, polLevels, colors=['k'], 
+            ax.contour(xx, yy, toroLines, polLevels, colors=['k'],
                        linewidths=[0.8])
         elif mer:
             maxMeri = abs(meriLines).max()
@@ -1096,7 +1096,7 @@ class Surf:
                 ax.plot(radi*np.sin(th), radi*np.cos(th), 'k--')
 
 
-    def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=defaultCm, 
+    def slice(self, field='Bphi', lon_0=0., levels=defaultLevels, cm=defaultCm,
               normed=True, vmin=None, vmax=None, cbar=True, tit=True,
               grid=False, nGridLevs=16, normRad=False):
         """
@@ -1214,7 +1214,7 @@ class Surf:
                  (np.roll(self.gr.Btheta,-1,axis=0)-np.roll(self.gr.Btheta,1,axis=0))/\
                  (rr3D*np.sin(th3D)*dphi)
 
-            Or[:, 0, :] = Or[:, 1, :] 
+            Or[:, 0, :] = Or[:, 1, :]
             Or[:, -1, :] = Or[:, -2, :]
             Ot[..., 0] = Ot[..., 1]
             Ot[..., -1] = Ot[..., -2]
@@ -1361,14 +1361,14 @@ class Surf:
                 if vmax is not None or vmin is not None:
                     normed = False
                     cs = np.linspace(vmin, vmax, levels)
-                    im = ax.contourf(xx, yy, phislice, cs, cmap=cmap, 
+                    im = ax.contourf(xx, yy, phislice, cs, cmap=cmap,
                                      extend='both')
                 else:
                     cs = levels
                     im = ax.contourf(xx, yy, phislice, cs, cmap=cmap)
                 ax.plot(self.gr.radius[0]*np.cos(th), self.gr.radius[0]*np.sin(th),
                    'k-')
-                ax.plot(self.gr.radius[-1]*np.cos(th), 
+                ax.plot(self.gr.radius[-1]*np.cos(th),
                         self.gr.radius[-1]*np.sin(th), 'k-')
                 ax.plot([0., 0], [self.gr.radius[-1], self.gr.radius[0]], 'k-')
                 ax.plot([0., 0], [-self.gr.radius[-1], -self.gr.radius[0]], 'k-')
@@ -1381,7 +1381,7 @@ class Surf:
                       transform = ax.transAxes)
                 #fig.colorbar(im)
                 if field not in ['entropy', 's', 'S'] and normed is True:
-                    im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+                    im.set_clim(-max(abs(phislice.max()), abs(phislice.min())),
                                  max(abs(phislice.max()), abs(phislice.min())))
 
         else:
@@ -1442,9 +1442,9 @@ class Surf:
             if hasattr(self.gr, 'epsS'):
                 if self.gr.epsS != 0:
                     rad = MagicRadial(field='anel', iplot=False)
-                    idx = np.nonzero(np.where(abs(rad.dsdr)==abs(rad.dsdr).min(), 
+                    idx = np.nonzero(np.where(abs(rad.dsdr)==abs(rad.dsdr).min(),
                                 1, 0))[0][0]
-                    ax.plot(self.gr.radius[idx]*np.cos(th), 
+                    ax.plot(self.gr.radius[idx]*np.cos(th),
                             self.gr.radius[idx]*np.sin(th), 'k--', lw=2)
 
             if grid:
@@ -1464,7 +1464,7 @@ class Surf:
 
             # Normalise the data
             if field not in ['entropy', 's', 'S'] and normed is True:
-                im.set_clim(-max(abs(phislice.max()), abs(phislice.min())), 
+                im.set_clim(-max(abs(phislice.max()), abs(phislice.min())),
                              max(abs(phislice.max()), abs(phislice.min())))
 
 
@@ -1521,32 +1521,32 @@ def report(nvar=1, levels=defaultLevels, lclean=True):
     plt.savefig('equ_vr.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu_r', levels=levels, r=r1, proj='moll', 
+    s.surf(field='vp', cm='RdYlBu_r', levels=levels, r=r1, proj='moll',
            normed=False)
     plt.savefig('surf_vp.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r2, proj='moll', 
+    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r2, proj='moll',
            normed=False)
     plt.savefig('surf_vp_08.png')
     plt.close()
 
-    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r3, proj='moll', 
+    s.surf(field='vp', cm='RdYlBu', levels=levels, r=r3, proj='moll',
            normed=False)
     plt.savefig('surf_vp_06.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r1, proj='moll', 
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r1, proj='moll',
            normed=False)
     plt.savefig('surf_vr.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r2, proj='moll', 
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r2, proj='moll',
            normed=False)
     plt.savefig('surf_vr_08.png')
     plt.close()
 
-    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r3, proj='moll', 
+    s.surf(field='vr', cm='RdYlBu', levels=levels, r=r3, proj='moll',
            normed=False)
     plt.savefig('surf_vr_06.png')
     plt.close()

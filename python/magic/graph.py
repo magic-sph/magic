@@ -45,7 +45,7 @@ def getGraphEndianness(filename):
 class MagicGraph(MagicSetup):
     """
     This class allows to read the 3-D graphic outputs of the MagIC code
-    (:ref:`G_#.TAG <secGraphFile>` and G_ave.TAG) files. Those are 
+    (:ref:`G_#.TAG <secGraphFile>` and G_ave.TAG) files. Those are
     binary unformatted outputs, there are therefore two ways to load them:
 
        * If buildLib=True in magic.cfg and the fortran libraries were correctly
@@ -63,7 +63,7 @@ class MagicGraph(MagicSetup):
     >>> gr = MagicGraph(ave=True, tag='N0m2', precision='Float64')
     """
 
-    def __init__(self, ivar=None, datadir='.', quiet=True, 
+    def __init__(self, ivar=None, datadir='.', quiet=True,
                  ave=False, tag=None, precision='Float32'):
         """
         :param ave: when set to True, it tries to find an average G file (G_ave.TAG)
@@ -180,9 +180,9 @@ class MagicGraph(MagicSetup):
             self.nThetaBs = int(nThetaBs)
 
             if not quiet:
-                print('Rayleigh = %.1e, Ekman = %.1e, Prandtl = %.1e' % (self.ra, 
+                print('Rayleigh = %.1e, Ekman = %.1e, Prandtl = %.1e' % (self.ra,
                               self.ek, self.pr))
-                print('nr = %i, nth = %i, nphi = %i' % (self.nr, self.ntheta, 
+                print('nr = %i, nth = %i, nphi = %i' % (self.nr, self.ntheta,
                               self.npI))
 
             self.colatitude = inline.fort_read(self.precision)
@@ -220,7 +220,7 @@ class MagicGraph(MagicSetup):
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         vphi[:,ilat1:ilat2+1,ir] = data.T
                         if version == b'Graphout_Version_10':
-                            data = inline.fort_read(self.precision, 
+                            data = inline.fort_read(self.precision,
                                                     shape=(nth_loc,self.npI))
                             pressure[:,ilat1:ilat2+1,ir] = data.T
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
@@ -240,7 +240,7 @@ class MagicGraph(MagicSetup):
                         data = inline.fort_read(self.precision, shape=(nth_loc,self.npI))
                         vphi[:,ilat1:ilat2+1,ir] = data.T
                         if version == b'Graphout_Version_10':
-                            data = inline.fort_read(self.precision, 
+                            data = inline.fort_read(self.precision,
                                                     shape=(nth_loc,self.npI))
                             pressure[:,ilat1:ilat2+1,ir] = data.T
                 else:
@@ -337,12 +337,12 @@ class MagicGraph(MagicSetup):
         This function is used to unfold the colatitudes
 
         :param field: input array with MagIC ordering of colatitudes (i.e.
-                      successively Northern Hemisphere and Southern 
+                      successively Northern Hemisphere and Southern
                       Hemisphere)
         :type field: numpy.ndarray
         :return: an array with the regular ordering of the colatitudes
         :rtype: numpy.ndarray
         """
-        even = field[:, ::2, :] 
+        even = field[:, ::2, :]
         odd = field[:, 1::2, :]
         return np.concatenate((even, odd[:, ::-1, :]), axis=1)

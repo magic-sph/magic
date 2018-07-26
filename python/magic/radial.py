@@ -8,10 +8,10 @@ from .libmagic import fast_read,scanDir
 
 class MagicRadial(MagicSetup):
     """
-    This class can be used to read and display the time and 
+    This class can be used to read and display the time and
     horizontally averaged files:
 
-        * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>` 
+        * Kinetic energy: :ref:`eKinR.TAG <secEkinRFile>`
         * Magnetic energy: :ref:`eMagR.TAG <secEmagRfile>`
         * Anelastic reference state: :ref:`anel.TAG <secAnelFile>`
         * Variable electrical conductivity: :ref:`varCond.TAG <secVarCondFile>`
@@ -79,7 +79,7 @@ class MagicRadial(MagicSetup):
                 file = '%s.%s' % (self.name, tag)
                 filename = os.path.join(datadir, file)
                 if os.path.exists('log.%s' % tag):
-                    MagicSetup.__init__(self, datadir=datadir, quiet=True, 
+                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                         nml='log.%s' % tag)
             else:
                 pattern = os.path.join(datadir, '%s.*'% self.name)
@@ -90,7 +90,7 @@ class MagicRadial(MagicSetup):
                 ending = mask.search(files[-1]).groups(0)[0]
                 if os.path.exists('log.%s' % ending):
                     try:
-                        MagicSetup.__init__(self, datadir=datadir, quiet=True, 
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                         nml='log.%s' % ending)
                     except AttributeError:
                         pass
@@ -395,7 +395,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlabel('Radius')
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
-            
+
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.dLkappa, label='dLkappa')
@@ -414,7 +414,7 @@ class MagicRadial(MagicSetup):
             ax.set_xlabel('Radius')
             ax.set_xlim(self.radius.min(), self.radius.max())
             ax.legend(loc='best', frameon=False)
-            
+
             fig = plt.figure()
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.dLvisc, label='dLvisc')
@@ -445,7 +445,7 @@ class MagicRadial(MagicSetup):
             ax = fig.add_subplot(111)
             ax.plot(self.radius, self.entropy, label='entropy')
             ax.twinx()
-            ax.plot(self.radius, self.varS/self.varS.max(), 
+            ax.plot(self.radius, self.varS/self.varS.max(),
                     label='entropy variance')
             ax.set_xlabel('Radius')
             ax.set_xlim(self.radius.min(), self.radius.max())
