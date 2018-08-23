@@ -29,31 +29,29 @@ contains
       read(10) time
 
       !-- Radius and density
-      if ( .not. allocated(radius) ) then
-         allocate( radius(n_r_max), rho0(n_r_max) )
-      end if
+      if (allocated(radius)) then
+         deallocate (radius)
+         deallocate (rho0)
+      endif
+      allocate( radius(n_r_max), rho0(n_r_max) )
       read(10) radius, rho0
 
       !-- Poloidal potential
-      if ( .not. allocated(pol) ) then
-         allocate( pol(lm_max, n_r_max) )
+      if ( allocated(pol) ) then
+         deallocate(pol)
       end if
-
+      allocate( pol(lm_max, n_r_max) )
       read(10) pol
 
       !-- Toroidal potential
       if ( l_read_tor ) then
-
-         if ( .not. allocated(tor) ) then
-            allocate( tor(lm_max, n_r_max) )
+         if ( allocated(tor) ) then
+            deallocate(tor)
          end if
-
+         allocate( tor(lm_max, n_r_max) )
          read(10) tor
       end if
-
       close(10)
-
-
    end subroutine readPot
 
 end module potreader_single

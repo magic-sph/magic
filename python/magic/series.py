@@ -421,6 +421,7 @@ class MagicTs(MagicSetup):
             ax.legend(loc='best', frameon=False)
             ax.set_xlabel('Time')
             ax.set_ylabel('Ekin')
+
         elif self.field == 'e_mag_oc':
             fig = plt.figure()
             ax = fig.add_subplot(111)
@@ -453,7 +454,7 @@ class MagicTs(MagicSetup):
         elif self.field == 'dipole':
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.plot(self.time, self.theta_dip, label='theta_dip')
+            ax.plot(self.time, self.theta_dip, label=r'$theta_{dip}$')
             #ax.plot(self.time, self.phi_dip, 'r-', label='phi_dip')
             ax.set_ylabel('Dipole angle')
             ax.set_xlabel('Time')
