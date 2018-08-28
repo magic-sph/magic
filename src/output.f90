@@ -593,6 +593,22 @@ contains
             call spectrum_temp(n_spec,time,.false.,nLogs,l_stop_time,     &
                  &             timePassedLog,timeNormLog,s_LMloc,ds_LMloc)
          end if
+         if ( rank == 0 ) then
+            write(*,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)')&
+            &    " ! Storing spectra:",                  &
+            &    "             at time=",timeScaled,     &
+            &    "            step no.=",n_time_step
+
+            if ( l_save_out ) then
+               open(newunit=n_log_file, file=log_file, status='unknown', &
+               &    position='append')
+            end if
+            write(n_log_file,'(1p,/,A,/,A,ES20.10,/,A,i15,/,A,A)') &
+            &    " ! Storing spectra:",                            &
+            &    "             at time=",timeScaled,               &
+            &    "            step no.=",n_time_step
+            if ( l_save_out ) close(n_log_file)
+         end if
          if (DEBUG_OUTPUT) write(*,"(A,I6)") "Written  spectrum  on rank ",rank
       end if
   
