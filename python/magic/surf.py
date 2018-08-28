@@ -1384,6 +1384,12 @@ class Surf:
                     im.set_clim(-max(abs(phislice.max()), abs(phislice.min())),
                                  max(abs(phislice.max()), abs(phislice.min())))
 
+                #To avoid white lines on pdfs
+
+                for c in im.collections:
+                    c.set_edgecolor("face")
+
+
         else:
             ind = np.nonzero(np.where(abs(phi-lon_0[0]) \
                             == min(abs(phi-lon_0[0])), 1, 0))
@@ -1466,6 +1472,12 @@ class Surf:
             if field not in ['entropy', 's', 'S'] and normed is True:
                 im.set_clim(-max(abs(phislice.max()), abs(phislice.min())),
                              max(abs(phislice.max()), abs(phislice.min())))
+
+            #To avoid white lines on pdfs
+
+            for c in im.collections:
+                c.set_edgecolor("face")
+
 
 
 def report(nvar=1, levels=defaultLevels, lclean=True):

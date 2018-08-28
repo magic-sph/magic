@@ -189,6 +189,11 @@ def equatContour(data, radius, minc=1, label=None, levels=defaultLevels,
         im.set_clim(-max(abs(data.max()), abs(data.min())),
                      max(abs(data.max()), abs(data.min())))
 
+    #To avoid white lines on pdfs
+
+    for c in im.collections:
+        c.set_edgecolor("face")
+
     return fig, xx, yy
 
 
@@ -252,6 +257,12 @@ def merContour(data, radius, label=None, levels=defaultLevels, cm=defaultCm,
         cs = levels
         im = ax.contourf(xx, yy, data, cs, cmap=cmap)
         #im = ax.pcolormesh(xx, yy, data, cmap=cmap, antialiased=True)
+
+    #To avoid white lines on pdfs
+
+    for c in im.collections:
+        c.set_edgecolor("face")
+
 
     ax.plot(radius[0]*np.sin(th), radius[0]*np.cos(th), 'k-')
     ax.plot(radius[-1]*np.sin(th), radius[-1]*np.cos(th), 'k-')
@@ -420,6 +431,7 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
                 ax.contour(x, y, data, 1, colors=['k'])
             #im = ax.pcolormesh(x, y, data, cmap=cmap, antialiased=True)
 
+
     # Add the colorbar at the right place
     pos = ax.get_position()
     l, b, w, h = pos.bounds
@@ -434,5 +446,10 @@ def radialContour(data, rad=0.85, label=None, proj='hammer', lon_0=0., vmax=None
     if normed:
         im.set_clim(-max(abs(data.max()), abs(data.min())),
                      max(abs(data.max()), abs(data.min())))
+
+    #To avoid white lines on pdfs
+
+    for c in im.collections:
+        c.set_edgecolor("face")
 
     return fig
