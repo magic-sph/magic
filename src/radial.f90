@@ -462,15 +462,19 @@ contains
          deallocate( coeffDens, coeffTemp)
 
       else if ( index(interior_model,'PNS_0V2S') /= 0 ) then
-         allocate( coeffDens(6), coeffTemp(6) )
+         allocate( coeffDens(6), coeffTemp(6) , coeffGrav(6) )
          coeffDens = [ 59.62268063_cp, -217.70124346_cp, &
               375.50063468_cp, -373.12779855_cp, 203.17403157_cp, -46.46897763_cp]
 
          coeffTemp = [-1.97868071_cp,   47.94900753_cp, -138.94186903_cp,  &
               176.44670046_cp, -109.98867268_cp,   27.51435739_cp]
 
-         call polynomialBackground(coeffDens,coeffTemp)
-         deallocate( coeffDens, coeffTemp)
+         coeffGrav = [4.923996388662253_cp, -1.293518887100434_cp, &
+              &     -26.037072977949265_cp, 55.59002270949802_cp,  &
+              &     -45.9222941604744_cp, 13.739417490581724_cp]
+
+         call polynomialBackground(coeffDens,coeffTemp,coeffGrav)
+         deallocate( coeffDens, coeffTemp, coeffGrav )
 
       else if ( index(interior_model,'PNS_1S') /= 0 ) then
          allocate( coeffDens(6), coeffTemp(6) )
