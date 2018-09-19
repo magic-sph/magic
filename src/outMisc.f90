@@ -13,13 +13,14 @@ module outMisc_mod
        &                       r_cmb,temp0, r, rho0, dLtemp0,    &
        &                       dLalpha0, beta, orho1, alpha0,    &
        &                       otemp1, ogrun, rscheme_oc
-   use physical_parameters, only: ViscHeatFac, ThExpNb
+   use physical_parameters, only: ViscHeatFac, ThExpNb, oek, GrunNb
    use num_param, only: lScale
    use blocking, only: nThetaBs, nfs, sizeThetaB, llm, ulm
    use mean_sd, only: mean_sd_type
    use horizontal_data, only: gauss
    use logic, only: l_save_out, l_anelastic_liquid, l_heat, l_hel, &
-       &            l_temperature_diff, l_chemical_conv, l_mag_hel
+       &            l_temperature_diff, l_chemical_conv, l_mag_hel,&
+       &            l_gw
    use output_data, only: tag
    use constants, only: pi, vol_oc, osq4pi, sq4pi, one, two, four
    use start_fields, only: topcond, botcond, deltacond, topxicond, botxicond, &
@@ -38,10 +39,11 @@ module outMisc_mod
 
    type(mean_sd_type) :: TMeanR, SMeanR, PMeanR, XiMeanR,RhoMeanR
    integer :: n_heat_file, n_helicity_file, n_magHel_file, n_calls
-   character(len=72) :: heat_file, helicity_file, magHel_file
-
+   integer :: n_gw_S_file, n_gw_P_file
+   character(len=72) :: heat_file, helicity_file, magHel_file, &
+        &               gw_S_file, gw_P_file
    public :: outHelicity, outHeat, initialize_outMisc_mod, finalize_outMisc_mod
-   public :: outMagneticHelicity
+   public :: outMagneticHelicity, outGWentropy, outGWpressure
 
 contains
 
@@ -59,6 +61,8 @@ contains
       helicity_file='helicity.'//tag
       heat_file    ='heat.'//tag
       magHel_file  ='helicity_mag.'//tag
+      gw_P_file    ='gwPressure.'//tag
+      gw_S_file    ='gwEntropy.'//tag
       if ( rank == 0 .and. (.not. l_save_out) ) then
          if ( l_hel ) then
             open(newunit=n_helicity_file, file=helicity_file, status='new')
@@ -69,9 +73,16 @@ contains
          if (l_mag_hel) then
             open(newunit=n_magHel_file, file=magHel_file, status='new')
          end if
+         if ( l_gw ) then
+            open(newunit=n_gw_P_file, file=gw_P_file, &
+                 status='new',form='unformatted')
+            if ( l_heat .or. l_chemical_conv ) then
+               open(newunit=n_gw_S_file, file=gw_S_file, &
+                    status='new',form='unformatted')
+            end if
+         endif
       end if
-
-   end subroutine initialize_outMisc_mod
+    end subroutine initialize_outMisc_mod
 !---------------------------------------------------------------------------
    subroutine finalize_outMisc_mod
 
@@ -88,8 +99,11 @@ contains
          if ( l_hel ) close(n_helicity_file)
          if ( l_mag_hel ) close(n_magHel_file)
          if ( l_heat .or. l_chemical_conv ) close(n_heat_file)
+         if (l_gw) then
+            close(n_gw_P_file)
+            if ( l_heat .or. l_chemical_conv ) close(n_gw_S_file)
+         end if
       end if
-
    end subroutine finalize_outMisc_mod
 !---------------------------------------------------------------------------
    subroutine outHelicity(timeScaled,HelLMr,Hel2LMr,HelnaLMr,Helna2LMr)
@@ -246,7 +260,388 @@ contains
 
       end if
 
-   end subroutine outHelicity
+    end subroutine outHelicity
+!---------------------------------------------------------------------------
+    subroutine outGWentropy(timeScaled,s)
+      !-- Input of variables:
+      real(cp),    intent(in) :: timeScaled
+      !-- Input of scalar fields:
+      complex(cp), intent(in) :: s(llm:ulm,n_r_max)
+
+      !-- Local stuff:
+      integer :: nR, ierr
+      integer :: lm20,lm21,lm22
+      complex(cp) :: J
+      real(cp)    :: r2, prefactor
+      !-- entropy contributions to density fluctuations
+      real(cp) :: Qc_entropy_20_r(n_r_max)
+      real(cp) :: Qc_entropy_21_r(n_r_max)
+      real(cp) :: Qs_entropy_21_r(n_r_max)
+      real(cp) :: Qc_entropy_22_r(n_r_max)
+      real(cp) :: Qs_entropy_22_r(n_r_max)
+
+      real(cp) :: Qc_entropy_20_r_global(n_r_max)
+      real(cp) :: Qc_entropy_21_r_global(n_r_max)
+      real(cp) :: Qs_entropy_21_r_global(n_r_max)
+      real(cp) :: Qc_entropy_22_r_global(n_r_max)
+      real(cp) :: Qs_entropy_22_r_global(n_r_max)
+
+      real(cp) :: Qc_entropy_20
+      real(cp) :: Qc_entropy_21
+      real(cp) :: Qs_entropy_21
+      real(cp) :: Qc_entropy_22
+      real(cp) :: Qs_entropy_22
+
+      !-- phi derivative
+      real(cp) :: dPhiQc_entropy_21_r(n_r_max)
+      real(cp) :: dPhiQs_entropy_21_r(n_r_max)
+      real(cp) :: dPhiQc_entropy_22_r(n_r_max)
+      real(cp) :: dPhiQs_entropy_22_r(n_r_max)
+      real(cp) :: dPhiQc_entropy_21_r_global(n_r_max)
+      real(cp) :: dPhiQs_entropy_21_r_global(n_r_max)
+      real(cp) :: dPhiQc_entropy_22_r_global(n_r_max)
+      real(cp) :: dPhiQs_entropy_22_r_global(n_r_max)
+      real(cp) :: dPhiQc_entropy_21
+      real(cp) :: dPhiQs_entropy_21
+      real(cp) :: dPhiQc_entropy_22
+      real(cp) :: dPhiQs_entropy_22
+      !-- 2nd phi derivative
+      real(cp) :: ddPhiQc_entropy_21_r(n_r_max)
+      real(cp) :: ddPhiQs_entropy_21_r(n_r_max)
+      real(cp) :: ddPhiQc_entropy_22_r(n_r_max)
+      real(cp) :: ddPhiQs_entropy_22_r(n_r_max)
+      real(cp) :: ddPhiQc_entropy_21_r_global(n_r_max)
+      real(cp) :: ddPhiQs_entropy_21_r_global(n_r_max)
+      real(cp) :: ddPhiQc_entropy_22_r_global(n_r_max)
+      real(cp) :: ddPhiQs_entropy_22_r_global(n_r_max)
+      real(cp) :: ddPhiQc_entropy_21
+      real(cp) :: ddPhiQs_entropy_21
+      real(cp) :: ddPhiQc_entropy_22
+      real(cp) :: ddPhiQs_entropy_22
+
+      !-- constant
+      J = cmplx(0.0D+00,1.0D+00)
+      !-- quadrupole indexes
+      lm20 = lo_map%lm2(2,0)
+      lm21 = lo_map%lm2(2,1)
+      lm22 = lo_map%lm2(2,2)
+
+      !-- radial loop
+      do nR=1,n_r_max
+         r2 = r(nR)*r(nR)
+         Qc_entropy_20_r(nR)=0.0
+         Qc_entropy_21_r(nR)=0.0
+         Qs_entropy_21_r(nR)=0.0
+         Qc_entropy_22_r(nR)=0.0
+         Qs_entropy_22_r(nR)=0.0
+         !-- dphi
+         dPhiQc_entropy_21_r(nR)=0.0
+         dPhiQs_entropy_21_r(nR)=0.0
+         dPhiQc_entropy_22_r(nR)=0.0
+         dPhiQs_entropy_22_r(nR)=0.0
+         !-- ddphi
+         ddPhiQc_entropy_21_r(nR)=0.0
+         ddPhiQs_entropy_21_r(nR)=0.0
+         ddPhiQc_entropy_22_r(nR)=0.0
+         ddPhiQs_entropy_22_r(nR)=0.0
+
+         if ( l_anelastic_liquid .or. l_TP_form ) then
+            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+            !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
+            !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
+            !      &               real(p(1,n_r)) )
+            prefactor = -osq4pi*ThExpNb*alpha0(nR)*rho0(nR)
+         else
+            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+            !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
+            !      &               ogrun(n_r)*real(p(1,n_r)) )
+            prefactor = -osq4pi*ThExpNb*alpha0(nR)*rho0(nR)*temp0(nR)
+         end if
+         Qc_entropy_20_r(nR) = r2*prefactor* real(s(lm20,nR))
+         Qc_entropy_21_r(nR) = r2*prefactor* real(s(lm21,nR))
+         Qc_entropy_22_r(nR) = r2*prefactor* real(s(lm22,nR))
+         Qs_entropy_21_r(nR) = r2*prefactor*aimag(s(lm21,nR))
+         Qs_entropy_22_r(nR) = r2*prefactor*aimag(s(lm22,nR))
+         !-- dphi
+         dPhiQc_entropy_21_r(nR)  = r2*prefactor* real(  J*s(lm21,nR))
+         dPhiQc_entropy_22_r(nR)  = r2*prefactor* real(2*J*s(lm22,nR))
+         dPhiQs_entropy_21_r(nR)  = r2*prefactor*aimag(  J*s(lm21,nR))
+         dPhiQs_entropy_22_r(nR)  = r2*prefactor*aimag(2*J*s(lm22,nR))
+         !-- ddphi
+         ddPhiQc_entropy_21_r(nR) = r2*prefactor* real(  -s(lm21,nR))
+         ddPhiQc_entropy_22_r(nR) = r2*prefactor* real(-4*s(lm22,nR))
+         ddPhiQs_entropy_21_r(nR) = r2*prefactor*aimag(  -s(lm21,nR))
+         ddPhiQs_entropy_22_r(nR) = r2*prefactor*aimag(-4*s(lm22,nR))
+      end do
+
+      ! reduce over the ranks
+#ifdef WITH_MPI
+      call MPI_Reduce(Qc_entropy_20_r, Qc_entropy_20_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qc_entropy_21_r, Qc_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qc_entropy_22_r, Qc_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qs_entropy_21_r, Qs_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qs_entropy_22_r, Qs_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_Reduce(dPhiQc_entropy_21_r, dPhiQc_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQc_entropy_22_r, dPhiQc_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQs_entropy_21_r, dPhiQs_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQs_entropy_22_r, dPhiQs_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_Reduce(ddPhiQc_entropy_21_r, ddPhiQc_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQc_entropy_22_r, ddPhiQc_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQs_entropy_21_r, ddPhiQs_entropy_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQs_entropy_22_r, ddPhiQs_entropy_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+#else
+      Qc_entropy_20_r_global = Qc_entropy_20_r
+      Qc_entropy_21_r_global = Qc_entropy_21_r
+      Qc_entropy_22_r_global = Qc_entropy_22_r
+      Qs_entropy_21_r_global = Qs_entropy_21_r
+      Qs_entropy_22_r_global = Qs_entropy_22_r
+
+      dPhiQc_entropy_21_r_global = dPhiQc_entropy_21_r
+      dPhiQc_entropy_22_r_global = dPhiQc_entropy_22_r
+      dPhiQs_entropy_21_r_global = dPhiQs_entropy_21_r
+      dPhiQs_entropy_22_r_global = dPhiQs_entropy_22_r
+
+      ddPhiQc_entropy_21_r_global = ddPhiQc_entropy_21_r
+      ddPhiQc_entropy_22_r_global = ddPhiQc_entropy_22_r
+      ddPhiQs_entropy_21_r_global = ddPhiQs_entropy_21_r
+      ddPhiQs_entropy_22_r_global = ddPhiQs_entropy_22_r
+#endif
+
+      if ( rank == 0 ) then
+         !-- Radial Integrals:
+         Qc_entropy_20 = rInt_R(Qc_entropy_20_r_global,r,rscheme_oc)
+         Qc_entropy_21 = rInt_R(Qc_entropy_21_r_global,r,rscheme_oc)
+         Qc_entropy_22 = rInt_R(Qc_entropy_22_r_global,r,rscheme_oc)
+         Qs_entropy_21 = rInt_R(Qs_entropy_21_r_global,r,rscheme_oc)
+         Qs_entropy_22 = rInt_R(Qs_entropy_22_r_global,r,rscheme_oc)
+
+         dPhiQc_entropy_21 = 2*oek * rInt_R(dPhiQc_entropy_21_r_global,r,rscheme_oc)
+         dPhiQc_entropy_22 = 2*oek * rInt_R(dPhiQc_entropy_22_r_global,r,rscheme_oc)
+         dPhiQs_entropy_21 = 2*oek * rInt_R(dPhiQs_entropy_21_r_global,r,rscheme_oc)
+         dPhiQs_entropy_22 = 2*oek * rInt_R(dPhiQs_entropy_22_r_global,r,rscheme_oc)
+
+         ddPhiQc_entropy_21 = oek**2 * rInt_R(ddPhiQc_entropy_21_r_global,r,rscheme_oc)
+         ddPhiQc_entropy_22 = oek**2 * rInt_R(ddPhiQc_entropy_22_r_global,r,rscheme_oc)
+         ddPhiQs_entropy_21 = oek**2 * rInt_R(ddPhiQs_entropy_21_r_global,r,rscheme_oc)
+         ddPhiQs_entropy_22 = oek**2 * rInt_R(ddPhiQs_entropy_22_r_global,r,rscheme_oc)
+
+         !-- Write outputs
+         if ( l_save_out ) then
+            open(newunit=n_gw_S_file, file=gw_S_file,      &
+                 &    status='unknown', position='append', &
+                 &    form='unformatted')
+         end if
+         write(n_gw_S_file)  timeScaled,                 & ! 1
+              &      Qc_entropy_20,                      & ! 2
+              &      Qc_entropy_21,      Qs_entropy_21,  & ! 3,4
+              &      Qc_entropy_22,      Qs_entropy_22,  & ! 5,6
+              &  dPhiQc_entropy_21,  dPhiQs_entropy_21,  & ! 7,8
+              &  dPhiQc_entropy_22,  dPhiQs_entropy_22,  & ! 9,10
+              & ddPhiQc_entropy_21, ddPhiQs_entropy_21,  & ! 11,12
+              & ddPhiQc_entropy_22, ddPhiQs_entropy_22     ! 13,14
+
+         if ( l_save_out ) close(n_gw_S_file)
+      end if
+
+    end subroutine outGWentropy
+
+    subroutine outGWpressure(timeScaled,p)
+      !
+      ! This subroutine is used to compute the coefficient
+      ! that appear in the quadrupole formula describing
+      ! the gravitational wave signal due to density fluctuations
+      !
+
+      !-- Input of variables:
+      real(cp),    intent(in) :: timeScaled
+      !-- Input of scalar fields:
+      complex(cp), intent(in) :: p(llm:ulm,n_r_max)
+
+      !-- Local stuff:
+      integer :: nR, ierr
+      integer :: lm20,lm21,lm22
+      complex(cp) :: J
+      real(cp)    :: r2, prefactor
+      !-- pressure contributions to density fluctuations
+      real(cp) :: Qc_pressure_20_r(n_r_max)
+      real(cp) :: Qc_pressure_21_r(n_r_max)
+      real(cp) :: Qs_pressure_21_r(n_r_max)
+      real(cp) :: Qc_pressure_22_r(n_r_max)
+      real(cp) :: Qs_pressure_22_r(n_r_max)
+
+      real(cp) :: Qc_pressure_20_r_global(n_r_max)
+      real(cp) :: Qc_pressure_21_r_global(n_r_max)
+      real(cp) :: Qs_pressure_21_r_global(n_r_max)
+      real(cp) :: Qc_pressure_22_r_global(n_r_max)
+      real(cp) :: Qs_pressure_22_r_global(n_r_max)
+
+      real(cp) :: Qc_pressure_20
+      real(cp) :: Qc_pressure_21
+      real(cp) :: Qs_pressure_21
+      real(cp) :: Qc_pressure_22
+      real(cp) :: Qs_pressure_22
+
+      !-- phi derivative
+      real(cp) :: dPhiQc_pressure_21_r(n_r_max)
+      real(cp) :: dPhiQs_pressure_21_r(n_r_max)
+      real(cp) :: dPhiQc_pressure_22_r(n_r_max)
+      real(cp) :: dPhiQs_pressure_22_r(n_r_max)
+      real(cp) :: dPhiQc_pressure_21_r_global(n_r_max)
+      real(cp) :: dPhiQs_pressure_21_r_global(n_r_max)
+      real(cp) :: dPhiQc_pressure_22_r_global(n_r_max)
+      real(cp) :: dPhiQs_pressure_22_r_global(n_r_max)
+      real(cp) :: dPhiQc_pressure_21
+      real(cp) :: dPhiQs_pressure_21
+      real(cp) :: dPhiQc_pressure_22
+      real(cp) :: dPhiQs_pressure_22
+      !-- 2nd phi derivative
+      real(cp) :: ddPhiQc_pressure_21_r(n_r_max)
+      real(cp) :: ddPhiQs_pressure_21_r(n_r_max)
+      real(cp) :: ddPhiQc_pressure_22_r(n_r_max)
+      real(cp) :: ddPhiQs_pressure_22_r(n_r_max)
+      real(cp) :: ddPhiQc_pressure_21_r_global(n_r_max)
+      real(cp) :: ddPhiQs_pressure_21_r_global(n_r_max)
+      real(cp) :: ddPhiQc_pressure_22_r_global(n_r_max)
+      real(cp) :: ddPhiQs_pressure_22_r_global(n_r_max)
+      real(cp) :: ddPhiQc_pressure_21
+      real(cp) :: ddPhiQs_pressure_21
+      real(cp) :: ddPhiQc_pressure_22
+      real(cp) :: ddPhiQs_pressure_22
+
+      !-- constant
+      J = cmplx(0.0D+00,1.0D+00)
+      !-- quadrupole indexes
+      lm20 = lo_map%lm2(2,0)
+      lm21 = lo_map%lm2(2,1)
+      lm22 = lo_map%lm2(2,2)
+
+      !-- radial loop
+      do nR=1,n_r_max
+         r2 = r(nR)*r(nR)
+         Qc_pressure_20_r(nR)=0.0
+         Qc_pressure_21_r(nR)=0.0
+         Qs_pressure_21_r(nR)=0.0
+         Qc_pressure_22_r(nR)=0.0
+         Qs_pressure_22_r(nR)=0.0
+         !-- dphi
+         dPhiQc_pressure_21_r(nR)=0.0
+         dPhiQs_pressure_21_r(nR)=0.0
+         dPhiQc_pressure_22_r(nR)=0.0
+         dPhiQs_pressure_22_r(nR)=0.0
+         !-- ddphi
+         ddPhiQc_pressure_21_r(nR)=0.0
+         ddPhiQs_pressure_21_r(nR)=0.0
+         ddPhiQc_pressure_22_r(nR)=0.0
+         ddPhiQs_pressure_22_r(nR)=0.0
+
+         if ( l_anelastic_liquid .or. l_TP_form ) then
+            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+            !      &               real(s(1,n_r))+ViscHeatFac*(ThExpNb*     &
+            !      &               alpha0(n_r)*temp0(n_r)+ogrun(n_r))*      &
+            !      &               real(p(1,n_r)) )
+            prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*(ThExpNb*alpha0(nR)*temp0(nR)+ogrun(nR))
+         else
+            ! rhoprime(n_r) = osq4pi*ThExpNb*alpha0(n_r)*( -rho0(n_r)* &
+            !      &               temp0(n_r)*real(s(1,n_r))+ViscHeatFac*   &
+            !      &               ogrun(n_r)*real(p(1,n_r)) )
+            !prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*ogrun(nR)
+            !-- Rem: ogrun normalized at the outer radius in radial
+            ! but it is then rescaled in preCalculation
+            prefactor = osq4pi*ViscHeatFac*alpha0(nR)*ogrun(nR)
+            !prefactor = osq4pi*ViscHeatFac*alpha0(nR)*beta(nR)/dLtemp0(nR) ! equivalent formula if adiabatic background
+         end if
+
+         Qc_pressure_20_r(nR) = r2*prefactor* real(p(lm20,nR))
+         Qc_pressure_21_r(nR) = r2*prefactor* real(p(lm21,nR))
+         Qc_pressure_22_r(nR) = r2*prefactor* real(p(lm22,nR))
+         Qs_pressure_21_r(nR) = r2*prefactor*aimag(p(lm21,nR))
+         Qs_pressure_22_r(nR) = r2*prefactor*aimag(p(lm22,nR))
+         !-- dphi
+         dPhiQc_pressure_21_r(nR)  = r2*prefactor* real(  J*p(lm21,nR))
+         dPhiQc_pressure_22_r(nR)  = r2*prefactor* real(2*J*p(lm22,nR))
+         dPhiQs_pressure_21_r(nR)  = r2*prefactor*aimag(  J*p(lm21,nR))
+         dPhiQs_pressure_22_r(nR)  = r2*prefactor*aimag(2*J*p(lm22,nR))
+         !-- ddphi
+         ddPhiQc_pressure_21_r(nR) = r2*prefactor* real(  -p(lm21,nR))
+         ddPhiQc_pressure_22_r(nR) = r2*prefactor* real(-4*p(lm22,nR))
+         ddPhiQs_pressure_21_r(nR) = r2*prefactor*aimag(  -p(lm21,nR))
+         ddPhiQs_pressure_22_r(nR) = r2*prefactor*aimag(-4*p(lm22,nR))
+      end do
+
+      ! reduce over the ranks
+#ifdef WITH_MPI
+      call MPI_Reduce(Qc_pressure_20_r, Qc_pressure_20_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qc_pressure_21_r, Qc_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qc_pressure_22_r, Qc_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qs_pressure_21_r, Qs_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(Qs_pressure_22_r, Qs_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_Reduce(dPhiQc_pressure_21_r, dPhiQc_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQc_pressure_22_r, dPhiQc_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQs_pressure_21_r, dPhiQs_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(dPhiQs_pressure_22_r, dPhiQs_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+
+      call MPI_Reduce(ddPhiQc_pressure_21_r, ddPhiQc_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQc_pressure_22_r, ddPhiQc_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQs_pressure_21_r, ddPhiQs_pressure_21_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+      call MPI_Reduce(ddPhiQs_pressure_22_r, ddPhiQs_pressure_22_r_global, n_r_max,MPI_DEF_REAL,MPI_SUM,0,MPI_COMM_WORLD,ierr)
+#else
+      Qc_pressure_20_r_global = Qc_pressure_20_r
+      Qc_pressure_21_r_global = Qc_pressure_21_r
+      Qc_pressure_22_r_global = Qc_pressure_22_r
+      Qs_pressure_21_r_global = Qs_pressure_21_r
+      Qs_pressure_22_r_global = Qs_pressure_22_r
+
+      dPhiQc_pressure_21_r_global = dPhiQc_pressure_21_r
+      dPhiQc_pressure_22_r_global = dPhiQc_pressure_22_r
+      dPhiQs_pressure_21_r_global = dPhiQs_pressure_21_r
+      dPhiQs_pressure_22_r_global = dPhiQs_pressure_22_r
+
+      ddPhiQc_pressure_21_r_global = ddPhiQc_pressure_21_r
+      ddPhiQc_pressure_22_r_global = ddPhiQc_pressure_22_r
+      ddPhiQs_pressure_21_r_global = ddPhiQs_pressure_21_r
+      ddPhiQs_pressure_22_r_global = ddPhiQs_pressure_22_r
+#endif
+
+      if ( rank == 0 ) then
+         !-- Radial Integrals:
+         Qc_pressure_20 = rInt_R(Qc_pressure_20_r_global,r,rscheme_oc)
+         Qc_pressure_21 = rInt_R(Qc_pressure_21_r_global,r,rscheme_oc)
+         Qc_pressure_22 = rInt_R(Qc_pressure_22_r_global,r,rscheme_oc)
+         Qs_pressure_21 = rInt_R(Qs_pressure_21_r_global,r,rscheme_oc)
+         Qs_pressure_22 = rInt_R(Qs_pressure_22_r_global,r,rscheme_oc)
+
+         dPhiQc_pressure_21 = 2*oek * rInt_R(dPhiQc_pressure_21_r_global,r,rscheme_oc)
+         dPhiQc_pressure_22 = 2*oek * rInt_R(dPhiQc_pressure_22_r_global,r,rscheme_oc)
+         dPhiQs_pressure_21 = 2*oek * rInt_R(dPhiQs_pressure_21_r_global,r,rscheme_oc)
+         dPhiQs_pressure_22 = 2*oek * rInt_R(dPhiQs_pressure_22_r_global,r,rscheme_oc)
+
+         ddPhiQc_pressure_21 = oek**2 * rInt_R(ddPhiQc_pressure_21_r_global,r,rscheme_oc)
+         ddPhiQc_pressure_22 = oek**2 * rInt_R(ddPhiQc_pressure_22_r_global,r,rscheme_oc)
+         ddPhiQs_pressure_21 = oek**2 * rInt_R(ddPhiQs_pressure_21_r_global,r,rscheme_oc)
+         ddPhiQs_pressure_22 = oek**2 * rInt_R(ddPhiQs_pressure_22_r_global,r,rscheme_oc)
+
+         !-- Write outputs
+         if ( l_save_out ) then
+            open(newunit=n_gw_P_file, file=gw_P_file,      &
+                 &    status='unknown', position='append', &
+                 &    form='unformatted')
+         end if
+         write(n_gw_P_file)  timeScaled,                   & ! 1
+              &      Qc_pressure_20,                       & ! 2
+              &      Qc_pressure_21,      Qs_pressure_21,  & ! 3,4
+              &      Qc_pressure_22,      Qs_pressure_22,  & ! 5,6
+              &  dPhiQc_pressure_21,  dPhiQs_pressure_21,  & ! 7,8
+              &  dPhiQc_pressure_22,  dPhiQs_pressure_22,  & ! 9,10
+              & ddPhiQc_pressure_21, ddPhiQs_pressure_21,  & ! 11,12
+              & ddPhiQc_pressure_22, ddPhiQs_pressure_22     ! 13,14
+
+         if ( l_save_out ) close(n_gw_P_file)
+      end if
+    end subroutine outGWpressure
 !---------------------------------------------------------------------------
    subroutine outMagneticHelicity(timeScaled,magHelLMr)
 

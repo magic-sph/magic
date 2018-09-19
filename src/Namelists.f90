@@ -122,7 +122,7 @@ contains
       &    l_cmb_field,l_rMagSpec,l_DTrMagSpec,               &
       &    l_dt_cmb_field,l_max_cmb,l_r_field,l_r_fieldT,     &
       &    n_r_step,l_max_r,n_r_array,l_TO,l_TOmovie,l_hel,   &
-      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,         &
+      &    lVerbose,l_AM,l_power,l_drift,sDens,zDens,l_gw,    &
       &    l_RMS,l_par,l_corrMov,rCut,rDea,                   &
       &    l_iner,l_viscBcCalc,l_fluxProfs,l_perpPar,         &
       &    l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
@@ -1153,6 +1153,7 @@ contains
       write(n_out,'(''  l_max_comp      ='',i3,'','')') l_max_comp
       write(n_out,'(''  l_hel           ='',l3,'','')') l_hel
       write(n_out,'(''  l_mag_hel       ='',l3,'','')') l_mag_hel
+      write(n_out,'(''  l_gw            ='',l3,'','')') l_gw
       write(n_out,'(''  l_AM            ='',l3,'','')') l_AM
       write(n_out,'(''  l_power         ='',l3,'','')') l_power
       write(n_out,'(''  l_viscBcCalc    ='',l3,'','')') l_viscBcCalc
@@ -1583,6 +1584,7 @@ contains
       !----- Different output, output times same as for log outout:
       l_hel         =.false. ! Helicity in misc.TAG
       l_mag_hel     =.false. ! Magnetic helicity
+      l_gw          =.false. ! Gravitational wave outputs in gwPressure.TAG, gwEntropy.TAG
       l_AM          =.false. ! Angular moment in AM.TAG
       l_power       =.false. ! power budget in power.TAG and dtE.TAG
       l_viscBcCalc  =.false. ! dissipation layer for stress-free BCs

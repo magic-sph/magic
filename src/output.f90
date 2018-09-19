@@ -19,7 +19,7 @@ module output_mod
        &            l_cmb_field, l_dt_cmb_field, l_save_out, l_non_rot,    &
        &            l_perpPar, l_energy_modes, l_heat, l_hel, l_par,       &
        &            l_chemical_conv, l_movie, l_full_sphere, l_spec_avg,   &
-       &            l_mag_hel
+       &            l_mag_hel, l_gw
    use fields, only: omega_ic, omega_ma, b_ic,db_ic, ddb_ic, aj_ic, dj_ic,   &
        &             ddj_ic, w_LMloc, dw_LMloc, ddw_LMloc, p_LMloc, xi_LMloc,&
        &             s_LMloc, ds_LMloc, z_LMloc, dz_LMloc, b_LMloc,          &
@@ -39,7 +39,8 @@ module output_mod
    use output_data, only: tag, l_max_cmb, n_coeff_r, l_max_r, n_coeff_r_max,&
        &                  n_r_array, n_r_step,  n_log_file, log_file
    use constants, only: vol_oc, vol_ic, mass, surf_cmb, two, three
-   use outMisc_mod, only: outHelicity, outHeat, outMagneticHelicity
+   use outMisc_mod, only: outHelicity, outHeat, outMagneticHelicity, &
+       &                  outGWentropy, outGWpressure
    use geos_mod, only: getEgeos
    use outRot, only: write_rot
    use omega, only: outOmega
@@ -579,6 +580,12 @@ contains
 
          if ( l_mag_hel ) then
             call outMagneticHelicity(timeScaled,magHelLMr)
+
+         if (l_gw) then
+            call outGWpressure(timeScaled,p_LMloc)
+            if ( l_heat .or. l_chemical_conv ) then
+               call outGWentropy(timeScaled,s_LMloc)
+            end if
          end if
 
          if ( l_par ) then
