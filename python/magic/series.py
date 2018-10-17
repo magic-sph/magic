@@ -73,10 +73,12 @@ class MagicTs(MagicSetup):
             # Or the tag is a bit more complicated and we need to find
             # the corresponding log file
             else:
-                mask = re.compile(r'%s\.(.*)' % self.field)
+                pattern = os.path.join(datadir, '%s' % self.field)
+                mask = re.compile(r'%s\.(.*)' % pattern)
                 if mask.match(files[-1]):
                     ending = mask.search(files[-1]).groups(0)[0]
-                    if logFiles.__contains__('log.%s' % ending):
+                    pattern = os.path.join(datadir, 'log.%s' % ending)
+                    if logFiles.__contains__(pattern):
                         MagicSetup.__init__(self, datadir=datadir, quiet=True,
                                             nml='log.%s' % ending)
 
@@ -383,7 +385,7 @@ class MagicTs(MagicSetup):
                 self.ohmDiss = data[:, 5]
                 self.icPower = data[:, 6]
                 self.mantlePower = data[:, 7]
-            if (self.buoPower+self.buoPower_chem).max() != 0:
+            if abs(self.ohmDiss).max() != 0:
                  self.fohm = -self.ohmDiss/(self.buoPower+self.buoPower_chem)
         elif self.field in ('SRIC'):
             self.time = data[:,0]
