@@ -525,16 +525,16 @@ contains
          ! Proto-Neutron Star interior model
          ! at time 0.2s
          l_anel=.true.
-         nVarVisc=3
-         nVarDiff=6
+         ! nVarVisc=3
+         ! nVarDiff=6
          radratio    = 0.5D0
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_1S') /= 0 ) then
          ! Proto-Neutron Star interior model
          ! at time 1s
          l_anel=.true.
-         nVarVisc=3
-         nVarDiff=6
+         !nVarVisc=3
+         !nVarDiff=6
          radratio    = 0.60D0
          r_cut_model = 1.0D0
       else if ( index(interior_model, 'PNS_5S') /= 0 ) then
