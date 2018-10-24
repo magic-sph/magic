@@ -840,7 +840,7 @@ contains
       write(n_out,'(''  strat           ='',ES14.6,'','')') strat
       write(n_out,'(''  polind          ='',ES14.6,'','')') polind
       write(n_out,'(''  ThExpNb         ='',ES14.6,'','')') ThExpNb
-      write(n_out,'(''  GrunNb          ='',ES14.6,'','')') GrunNb
+      !write(n_out,'(''  GrunNb          ='',ES14.6,'','')') GrunNb
       write(n_out,'(''  epsS            ='',ES14.6,'','')') epsS
       write(n_out,'(''  cmbHflux        ='',ES14.6,'','')') cmbHflux
       write(n_out,'(''  slopeStrat      ='',ES14.6,'','')') slopeStrat

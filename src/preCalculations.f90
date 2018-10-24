@@ -18,19 +18,19 @@ module preCalculations
        &            l_LCR, l_dt_cmb_field, l_storePot, l_non_adia,     &
        &            l_temperature_diff, l_chemical_conv, l_probe,      &
        &            l_precession, l_diff_prec
-   use radial_functions, only: rscheme_oc, temp0, r_CMB,                   &
-       &                       r_surface, visc, r, r_ICB,                  &
+   use radial_functions, only: rscheme_oc, temp0, r_CMB, ogrun,            &
+       &                       r_surface, visc, r, r_ICB, dLtemp0,         &
        &                       beta, rho0, rgrav, dbeta, alpha0,           &
        &                       dentropy0, sigma, lambda, dLkappa, kappa,   &
        &                       dLvisc, dLlambda, divKtemp0, radial,        &
-       &                       transportProperties, ogrun
+       &                       transportProperties
    use physical_parameters, only: nVarEps, pr, prmag, ra, rascaled, ek,    &
        &                          ekscaled, opr, opm, o_sr, radratio,      &
        &                          sigma_ratio, CorFac, LFfac, BuoFac,      &
        &                          PolInd, nVarCond, nVarDiff, nVarVisc,    &
        &                          rho_ratio_ic, rho_ratio_ma, epsc, epsc0, &
        &                          ktops, kbots, interior_model, r_LCR,     &
-       &                          n_r_LCR, mode, tmagcon, GrunNb, oek,     &
+       &                          n_r_LCR, mode, tmagcon, oek,             &
        &                          ktopxi, kbotxi, epscxi, epscxi0, sc, osc,&
        &                          ChemFac, raxi, Po, prec_angle, diff_prec_angle
    use horizontal_data, only: horizontal
@@ -177,13 +177,7 @@ contains
     
       !-- Calculate radial functions for all threads (chebs,r,.....):
 
-      call radial
-
-      if ( GrunNb /= 0.0_cp ) then
-         ogrun(:)=ogrun(:)/GrunNb
-      else
-         ogrun(:)=0.0_cp
-      end if
+      call radial()
 
       if ( ( l_newmap ) .and. (rank == 0) ) then
          fileName='rNM.'//tag
@@ -203,14 +197,14 @@ contains
          ! Write the equilibrium setup in anel.tag
          fileName='anel.'//tag
          open(newunit=fileHandle, file=fileName, status='unknown')
-         write(fileHandle,'(9a15)') 'radius', 'temp0', 'rho0', 'beta',         &
-         &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)',&
-         &                          'alpha'
+         write(fileHandle,'(11a15)') 'radius', 'temp0', 'rho0', 'beta',         &
+         &                          'dbeta', 'grav', 'ds0/dr', 'div(k grad T)', &
+         &                          'alpha', 'ogrun', 'dLtemp0'
          do n_r=1,n_r_max
-            write(fileHandle,'(9ES16.8)') r(n_r), temp0(n_r), rho0(n_r),    &
-            &                             beta(n_r), dbeta(n_r), rgrav(n_r),&
-            &                             dentropy0(n_r), divKtemp0(n_r),   &
-            &                             alpha0(n_r)
+            write(fileHandle,'(11ES16.8)') r(n_r), temp0(n_r), rho0(n_r),    &
+            &                             beta(n_r), dbeta(n_r), rgrav(n_r), &
+            &                             dentropy0(n_r), divKtemp0(n_r),    &
+            &                             alpha0(n_r), ogrun(n_r), dLtemp0(n_r)
          end do
          close(fileHandle)
       end if
