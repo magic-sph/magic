@@ -219,6 +219,14 @@ class MagicRadial(MagicSetup):
                 self.alpha0 = data[:, 8]
             except IndexError:
                 self.alpha0 = np.zeros_like(self.radius)
+            try:
+                self.ogrun = data[:, 9]
+            except IndexError:
+                self.ogrun = np.zeros_like(self.radius)
+            try:
+                self.dLtemp0 = data[:, 10]
+            except IndexError:
+                self.dLtemp0 = np.zeros_like(self.radius)
 
         elif self.name == 'varDiff':
             self.radius = data[:, 0]
