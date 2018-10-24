@@ -823,7 +823,6 @@ contains
       logical,     intent(in) :: l_avg
 
       !-- Local:
-      character(len=72) :: outFile
       character(len=14) :: string
       character(len=72) :: spec_file
       integer :: n_r,lm,l,m,lc,mc

@@ -1050,28 +1050,38 @@ contains
 
    end subroutine getBackground
 !------------------------------------------------------------------------------
-   subroutine polynomialBackground(coeffDens,coeffTemp)
+   subroutine polynomialBackground(coeffDens,coeffTemp,coeffGrav)
       !
       ! This subroutine allows to calculate a reference state based on an input
       ! polynomial function.
       !
 
       !-- Input variables
-      real(cp), intent(in) :: coeffDens(:)
-      real(cp), intent(in) :: coeffTemp(:)
+      real(cp),           intent(in) :: coeffDens(:)
+      real(cp),           intent(in) :: coeffTemp(:)
+      real(cp), optional, intent(in) :: coeffGrav(:)
 
       !-- Local variables
       real(cp) :: rrOcmb(n_r_max),gravFit(n_r_max)
       real(cp) :: drho0(n_r_max),dtemp0(n_r_max)
+      integer :: nGrav,nDens,nTemp,i
 
-      integer ::  nDens,nTemp,i
-
-      nDens = size(coeffDens)
-      nTemp = size(coeffTemp)
       rrOcmb(:) = r(:)*r_cut_model/r_cmb
-      gravFit(:)=four*rrOcmb(:)-three*rrOcmb(:)**2
+
+      !-- Assemble gravity profile
+      if ( present(coeffGrav) ) then
+         nGrav=size(coeffGrav)
+         gravFit(:)=0.0_cp
+         do i=1,nGrav
+            gravFit(:) = gravFit(:)+coeffGrav(i)*rrOcmb(:)**(i-1)
+         end do
+      else
+         gravFit(:)=four*rrOcmb(:)-three*rrOcmb(:)**2
+      end if
 
       ! Set to zero initially
+      nDens = size(coeffDens)
+      nTemp = size(coeffTemp)
       rho0(:) =0.0_cp
       temp0(:)=0.0_cp
 
@@ -1094,7 +1104,7 @@ contains
       alpha0(:)=-dtemp0(:)/(gravFit(:)*temp0(:))
 
       ! Dissipation number
-      DissNb=alpha0(1)
+      DissNb   =alpha0(1)
       alpha0(:)=alpha0(:)/alpha0(1)
 
       ! Adiabatic: buoyancy term is linked to the temperature gradient
