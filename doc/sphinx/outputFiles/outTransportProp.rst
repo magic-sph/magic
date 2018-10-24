@@ -31,7 +31,7 @@ temperature, gravity, etc.).
    +----------------+---------------------------------------------------------+
    | 3              | density: :math:`\tilde{\rho}(r)`                        |
    +----------------+---------------------------------------------------------+
-   | 4              | radial derivative of the density:                       |
+   | 4              | radial derivative of the log of the density:            |
    |                | :math:`\beta={\rm d} \ln\tilde{\rho}/{\rm d} r`         |
    +----------------+---------------------------------------------------------+
    | 5              | radial derivative of :math:`\beta`:                     |
@@ -43,6 +43,12 @@ temperature, gravity, etc.).
    +----------------+---------------------------------------------------------+
    | 8              | thermal diffusion operator:                             |
    |                | :math:`\nabla \cdot (K(r)\tilde{T}(r)\nabla s_0)`       |
+   +----------------+---------------------------------------------------------+
+   | 9              | inverse of the Gruneisen parameter :math`1/\Gamma`:     |
+   |                | :math:`(\partial\ln\tilde{\rho}/\partial\ln\tilde{T})_S`|
+   +----------------+---------------------------------------------------------+
+   | 10             | radial derivative of the log of temperature:            |
+   |                | :math:`\beta={\rm d} \ln\tilde{T}/{\rm d} r`            |
    +----------------+---------------------------------------------------------+
 
 This file can be read using :py:class:`MagicRadial <magic.MagicRadial>` with the following options:
