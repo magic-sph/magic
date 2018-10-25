@@ -148,9 +148,9 @@ contains
 
       !PERFON('upS_fin')
       !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
-      !$OMP shared(all_lms,per_thread,lmStart,lmStop) &
-      !$OMP shared(dVSrLM,dsdt,orho1,or2) &
+      !$OMP private(iThread,start_lm,stop_lm,nR,lm)       &
+      !$OMP shared(all_lms,per_thread,lmStart,lmStop)     &
+      !$OMP shared(dVSrLM,dsdt,orho1,or2,dentropy0,w,dLh) &
       !$OMP shared(n_r_max,rscheme_oc,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -178,7 +178,9 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*work_LMloc(lm,nR))
+            dsdt(lm,nR)=orho1(nR)*(dsdt(lm,nR)-or2(nR)*work_LMloc(lm,nR)- &
+            &           dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(nR)*       &
+            &           dentropy0(nR)*w(lm,nR))
          end do
       end do
       !$OMP end do
@@ -215,10 +217,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
+                    &        sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    sMat(1,1,l1),sPivot(1,l1))
+                    &        sMat(1,1,l1),sPivot(1,l1))
 #endif
                lSmat(l1)=.true.
                !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -248,9 +250,8 @@ contains
                   rhs(1)=      real(tops(0,0))
                   rhs(n_r_max)=real(bots(0,0))
                   do nR=2,n_r_max-1
-                     rhs(nR)=real(s(lm1,nR))*O_dt+ &
-                     &    w1*real(dsdt(lm1,nR))  + &
-                     &    w2*real(dsdtLast(lm1,nR))
+                     rhs(nR)=real(s(lm1,nR))*O_dt+w1*real(dsdt(lm1,nR))  + &
+                     &       w2*real(dsdtLast(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S0
@@ -269,11 +270,8 @@ contains
                   rhs1(n_r_max,lmB,threadid)=sMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt +            &
-                         &                w1*dsdt(lm1,nR) +            &
-                         &                w2*dsdtLast(lm1,nR) -        &
-                         &  alpha*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) &
-                         &  *or2(nR)*orho1(nR)*dentropy0(nR)*w(lm1,nR)
+                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt+w1*dsdt(lm1,nR)  &
+                     &                     +w2*dsdtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
                      rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif
@@ -309,7 +307,7 @@ contains
                   else
                      do n_r_out=1,rscheme_oc%n_max
                         s(lm1,n_r_out)= cmplx(real(rhs1(n_r_out,lmB,threadid)), &
-                                       &     0.0_cp,kind=cp)
+                        &                    0.0_cp,kind=cp)
                      end do
                   end if
                end if
@@ -349,7 +347,7 @@ contains
       !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
       !$OMP shared(n_r_cmb,n_r_icb,dsdt,coex,opr,hdif_S) &
       !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1) &
-      !$OMP shared(dentropy0,dLkappa,dLh,or2)
+      !$OMP shared(dLkappa,dLh,or2)
       !$OMP DO
       do iThread=0,nThreads-1
          start_lm=lmStart+iThread*per_thread
@@ -365,15 +363,13 @@ contains
       !$OMP do private(nR,lm1)
       do nR=n_r_cmb+1,n_r_icb-1
          do lm1=lmStart,lmStop
-            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
-                 & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
-                 &   kappa(nR) *                   ( work_LMloc(lm1,nR) &
-                 &   + ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) ) &
-                 &                                         * ds(lm1,nR) &
-                 &   - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)     &
-                 &                                         *  s(lm1,nR) &
-                 &   )+coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)&
-                 &    *orho1(nR)*dentropy0(nR)*               w(lm1,nR)
+            dsdtLast(lm1,nR)=                              dsdt(lm1,nR) &
+            &      - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1))) * &
+            &        kappa(nR) *                   ( work_LMloc(lm1,nR) &
+            &        + ( beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR) ) &
+            &                                              * ds(lm1,nR) &
+            &        - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)     &
+            &                                              *  s(lm1,nR) )
          end do
       end do
       !$OMP end do
@@ -444,10 +440,10 @@ contains
 
       !PERFON('upS_fin')
       !$OMP PARALLEL  &
-      !$OMP private(iThread,start_lm,stop_lm,nR,lm) &
-      !$OMP shared(all_lms,per_thread) &
-      !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1) &
-      !$OMP shared(dLtemp0,or2,lmStart,lmStop) &
+      !$OMP private(iThread,start_lm,stop_lm,nR,lm)        &
+      !$OMP shared(all_lms,per_thread)                     &
+      !$OMP shared(dVSrLM,rscheme_oc,dsdt,orho1,dentropy0) &
+      !$OMP shared(dLtemp0,w,or2,lmStart,lmStop,temp0,dLh) &
       !$OMP shared(n_r_max,work_LMloc,nThreads,llm,ulm)
       !$OMP SINGLE
 #ifdef WITHOMP
@@ -475,9 +471,12 @@ contains
       !$OMP DO
       do nR=1,n_r_max
          do lm=lmStart,lmStop
-            dsdt(lm,nR)=          orho1(nR)*dsdt(lm,nR)  - & 
-                &     or2(nR)*orho1(nR)*work_LMloc(lm,nR) + &
-                &         or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR)
+            dsdt(lm,nR)=           orho1(nR)*        dsdt(lm,nR) - & 
+            &        or2(nR)*orho1(nR)*        work_LMloc(lm,nR) + &
+            &        or2(nR)*orho1(nR)*dLtemp0(nR)*dVSrLM(lm,nR) - &
+            &        dLh(st_map%lm2(lm2l(lm),lm2m(lm)))*or2(nR)*   &
+            &        orho1(nR)*temp0(nR)*dentropy0(nR)*w(lm,nR)
+
          end do
       end do
       !$OMP end do
@@ -514,10 +513,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                             sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
+                    &        sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                             sMat(1,1,l1),sPivot(1,l1))
+                    &        sMat(1,1,l1),sPivot(1,l1))
 #endif
                lSmat(l1)=.true.
              !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -547,9 +546,8 @@ contains
                   rhs(1)=      real(tops(0,0))
                   rhs(n_r_max)=real(bots(0,0))
                   do nR=2,n_r_max-1
-                     rhs(nR)=real(s(lm1,nR))*O_dt+ &
-                          w1*real(dsdt(lm1,nR)) + &
-                          w2*real(dsdtLast(lm1,nR))
+                     rhs(nR)=real(s(lm1,nR))*O_dt+w1*real(dsdt(lm1,nR)) + &
+                     &       w2*real(dsdtLast(lm1,nR))
                   end do
 
 #ifdef WITH_PRECOND_S0
@@ -568,12 +566,8 @@ contains
                   rhs1(n_r_max,lmB,threadid)=sMat_fac(1,l1)*rhs1(n_r_max,lmB,threadid)
 #endif
                   do nR=2,n_r_max-1
-                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt +            &
-                         &                w1*dsdt(lm1,nR) +            &
-                         &            w2*dsdtLast(lm1,nR) -            &
-                         &  alpha*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1))) &
-                         &  *or2(nR)*orho1(nR)*temp0(nR)*              &
-                         &        dentropy0(nR)*w(lm1,nR)
+                     rhs1(nR,lmB,threadid)=s(lm1,nR)*O_dt + w1*dsdt(lm1,nR)  &
+                     &                     + w2*dsdtLast(lm1,nR)
 #ifdef WITH_PRECOND_S
                      rhs1(nR,lmB,threadid) = sMat_fac(nR,l1)*rhs1(nR,lmB,threadid)
 #endif
@@ -646,9 +640,9 @@ contains
       !$OMP private(iThread,start_lm,stop_lm) &
       !$OMP shared(per_thread,nThreads) &
       !$OMP shared(s,ds,w,dsdtLast,rscheme_oc) &
-      !$OMP shared(n_r_max,work_LMloc,llm,ulm,temp0) &
-      !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S,dentropy0) &
-      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,dLtemp0,or1,dLkappa,dLh,or2) &
+      !$OMP shared(n_r_max,work_LMloc,llm,ulm) &
+      !$OMP shared(n_r_cmb,n_r_icb,lmStart,lmStop,dsdt,coex,opr,hdif_S) &
+      !$OMP shared(st_map,lm2l,lm2m,kappa,beta,or1,dLkappa,dLh,or2) &
       !$OMP shared(orho1)
       !$OMP DO
       do iThread=0,nThreads-1
@@ -666,12 +660,10 @@ contains
       do nR=n_r_cmb+1,n_r_icb-1
          do lm1=lmStart,lmStop
            dsdtLast(lm1,nR)=dsdt(lm1,nR) &
-                & - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
-                &   (                                         work_LMloc(lm1,nR) &
-                &           + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *  ds(lm1,nR) &
-                &     - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) &
-                &   ) + coex*dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)        &
-                &           *orho1(nR)*temp0(nR)*dentropy0(nR)*        w(lm1,nR)
+           &      - coex*opr*hdif_S(st_map%lm2(lm2l(lm1),lm2m(lm1)))*kappa(nR) * &
+           &        (                                         work_LMloc(lm1,nR) &
+           &                + ( beta(nR)+two*or1(nR)+dLkappa(nR) ) *  ds(lm1,nR) &
+           &          - dLh(st_map%lm2(lm2l(lm1),lm2m(lm1)))*or2(nR)*  s(lm1,nR) ) 
          end do
       end do
       !$OMP end do
@@ -740,20 +732,20 @@ contains
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
                sMat(nR,nR_out)= rscheme_oc%rnorm * (                          &
-              &                             O_dt*rscheme_oc%rMat(nR,nR_out) - & 
-              &       alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-              &  (beta(nR)+two*or1(nR)+dLkappa(nR))*                          &
-              &                                 rscheme_oc%drMat(nR,nR_out) ) )
+               &                            O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+               &      alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
+               & (beta(nR)+two*or1(nR)+dLkappa(nR))*                          &
+               &                                rscheme_oc%drMat(nR,nR_out) ) )
             end do
          end do
       else
          do nR_out=1,n_r_max
             do nR=2,n_r_max-1
                sMat(nR,nR_out)= rscheme_oc%rnorm * (                         &
-              &                            O_dt*rscheme_oc%rMat(nR,nR_out) - & 
-              &      alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
-              &  (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*             &
-              &                                rscheme_oc%drMat(nR,nR_out) ) )
+               &                           O_dt*rscheme_oc%rMat(nR,nR_out) - & 
+               &     alpha*opr*kappa(nR)*(    rscheme_oc%d2rMat(nR,nR_out) + &
+               & (beta(nR)+dLtemp0(nR)+two*or1(nR)+dLkappa(nR))*             &
+               &                               rscheme_oc%drMat(nR,nR_out) ) )
             end do
          end do
       end if
