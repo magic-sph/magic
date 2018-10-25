@@ -550,7 +550,7 @@ contains
             !prefactor = osq4pi*ThExpNb*alpha0(nR)*ViscHeatFac*ogrun(nR)
             !-- Rem: ogrun normalized at the outer radius in radial
             ! but it is then rescaled in preCalculation
-            prefactor = osq4pi*ViscHeatFac*alpha0(nR)*ogrun(nR)
+            prefactor = osq4pi*ThExpNb*ViscHeatFac*alpha0(nR)*ogrun(nR)
             !prefactor = osq4pi*ViscHeatFac*alpha0(nR)*beta(nR)/dLtemp0(nR) ! equivalent formula if adiabatic background
          end if
 
