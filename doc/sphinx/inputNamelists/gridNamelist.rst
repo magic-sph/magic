@@ -10,13 +10,11 @@ Outer Core
 
 .. _varn_r_max:
 
-* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). If Chebyshev polynomials are used for the radial integration scheme, there are some constraints on the value of `n_r_max`: first of all it must be of the form ``4*n+1``, where ``n`` is an integer; and second the prime decomposition of `n_r_max-1` should only contain multiple of 3, 4 and 5 (this second condition comes from the Chebyshev transforms). This constraint does not exist when finite differences are used.
+* **n_r_max** (default :f:var:`n_r_max=33 <n_r_max>`) is an integer which gives the number of grid points in the radial direction in the outer core (:math:`[r_i,r_o]`). If Chebyshev polynomials are used for the radial integration scheme, there are some constraints on the value of `n_r_max`: first of all it must be of the form ``4*n+1``, where ``n`` is an integer; and second the prime decomposition of `n_r_max-1` should only contain multiple of 3, 4 and 5 (this second condition comes from the limitations of the built-in discrete cosine transforms). This constraint is released when finite differences are used.
 
   .. note:: If Chebyshev polynomials are used, the possible values for :f:var:`n_r_max` below 220 are hence: 17, 21, 25, 33, 37, 41, 49, 61, 65, 73, 81, 97, 101, 109, 121, 129, 145, 161, 181, 193, 201, 217,...
 
 * **n_cheb_max** (default :f:var:`n_cheb_max=31 <n_cheb_max>`) is an integer which is the number of terms in the Chebyshev polynomial expansion to be used in the radial direction - the highest degree of Chebyshev polynomial used being ``n_cheb_max-1``. Note that ``n_cheb_max <= n_r_max``. This quantity will not be used if finite differences are used.
-
-  .. note:: Adopting ``n_cheb_max=n_r_max-2`` is usually a good choice
 
 * **n_phi_tot** (default :f:var:`n_phi_tot=192 <n_phi_tot>`) is an integer which gives the number of longitudinal/azimuthal grid points. It has the following constraints:
  
