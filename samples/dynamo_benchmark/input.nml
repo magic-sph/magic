@@ -1,9 +1,9 @@
 &grid
  n_r_max     =33,
- n_cheb_max  =31,
+ n_cheb_max  =33,
  n_phi_tot   =48,
  n_r_ic_max  =17,
-n_cheb_ic_max=15,
+n_cheb_ic_max=17,
  nalias      =20,
  minc        =1,
 /
@@ -20,7 +20,7 @@ n_cheb_ic_max=15,
  runMinutes  =00,
 /
 &phys_param
- ra          =1.1D5,
+ ra          =1.0D5,
  ek          =1.0D-3,
  pr          =1.0D0,
  prmag       =5.0D0,
@@ -31,7 +31,7 @@ n_cheb_ic_max=15,
  kbotv       =2,
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="NONE",
  init_b1     =3,
  amp_b1      =5,
@@ -43,13 +43,13 @@ n_cheb_ic_max=15,
  n_graphs    =1,
  n_rsts      =1,
  n_stores    =0,
- runid       ="Benchmark 2",
- l_movie     =.TRUE.,
+ runid       ="Benchmark 1",
+ l_movie     =.true.,
  movie(1)    ="Bp AX",
  l_RMS       =.FALSE.,
- l_TO        =.TRUE.,
- l_iner      =.TRUE.,
- l_drift     =.TRUE.,
+ l_TO        =.true.,
+ l_iner      =.true.,
+ l_drift     =.true.,
 /
 &mantle 
  nRotMa      =0

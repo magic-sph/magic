@@ -1,6 +1,6 @@
 &grid
  n_r_max     =49,
- n_cheb_max  =47,
+ n_cheb_max  =49,
  n_phi_tot   =128,
  n_r_ic_max  =17,
 n_cheb_ic_max=15,

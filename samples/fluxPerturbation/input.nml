@@ -1,6 +1,6 @@
 &grid
  n_r_max     =33,
- n_cheb_max  =31,
+ n_cheb_max  =33,
  n_phi_tot   =192,
  n_r_ic_max  =13,
 n_cheb_ic_max=11,
@@ -33,7 +33,7 @@ n_cheb_ic_max=11,
  s_bot       = 0 0 0.0 0.0, 
 /
 &start_field
- l_start_file=.FALSE.,
+ l_start_file=.false.,
  start_file  ="NONE",
  init_s1     =0100,
  amp_s1      =0.5,  
@@ -42,7 +42,7 @@ n_cheb_ic_max=11,
  n_log_step  =10,
  n_graphs    =3,
  n_rsts      =3,
- runid       ="IHBF",
+ runid       ="Inhomogeneous heat flux",
 /
 &mantle 
  nRotMa      =0,
