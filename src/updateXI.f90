@@ -14,7 +14,7 @@ module updateXi_mod
    use logic, only: l_update_xi
    use LMLoop_data, only: llm,ulm
    use parallel_mod, only: rank,chunksize
-   use algebra, only: cgeslML,sgesl, sgefa
+   use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use constants, only: zero, one, two
    use fields, only: work_LMloc
@@ -254,7 +254,7 @@ contains
                   rhs = xi0Mat_fac*rhs
 #endif
 
-                  call sgesl(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
+                  call solve_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
 
                else ! l1  /=  0
                   lmB=lmB+1
@@ -279,8 +279,8 @@ contains
 
             !PERFON('upXi_sol')
             if ( lmB  >  lmB0 ) then
-               call cgeslML(xiMat(:,:,l1),n_r_max,n_r_max, &
-                    &       xiPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(xiMat(:,:,l1),n_r_max,n_r_max, &
+                    &         xiPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -347,9 +347,9 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
+         call get_ddr(xi, dxi, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
          call rscheme_oc%costf1(xi,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(xi, dxi, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1,&
-              &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
 
@@ -457,7 +457,7 @@ contains
 #endif
     
       !---- LU decomposition:
-      call sgefa(xiMat,n_r_max,n_r_max,xiPivot,info)
+      call prepare_mat(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular matrix xiMat0!')
       end if
@@ -557,7 +557,7 @@ contains
 #endif
 
       !----- LU decomposition:
-      call sgefa(xiMat,n_r_max,n_r_max,xiPivot,info)
+      call prepare_mat(xiMat,n_r_max,n_r_max,xiPivot,info)
       if ( info /= 0 ) then
          call abortRun('Singular matrix xiMat!')
       end if

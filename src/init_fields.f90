@@ -47,7 +47,7 @@ module init_fields
        &                          thetaXi, peakXi, widthXi, osc, epscxi,  &
        &                          kbotxi, ktopxi, BuoFac, ktopp, oek,     &
        &                          diff_prec_angle
-   use algebra, only: sgesl, sgefa, cgesl
+   use algebra, only: prepare_mat, solve_mat
    use legendre_grid_to_spec, only: legTF1
    use cosine_transform_odd
 
@@ -709,8 +709,8 @@ contains
                end if
             end do
          end do
-        call sgefa(mata,n_impS_max,n_impS,pivot,info)
-        call sgesl(mata,n_impS_max,n_impS,pivot,amp)
+        call prepare_mat(mata,n_impS_max,n_impS,pivot,info)
+        call solve_mat(mata,n_impS_max,n_impS,pivot,amp)
       end if
       s00=0.0_cp
       do nS=1,n_impS
@@ -1027,8 +1027,8 @@ contains
                end if
             end do
          end do
-        call sgefa(mata,n_impXi_max,n_impXi,pivot,info)
-        call sgesl(mata,n_impXi_max,n_impXi,pivot,amp)
+        call prepare_mat(mata,n_impXi_max,n_impXi,pivot,info)
+        call solve_mat(mata,n_impXi_max,n_impXi,pivot,amp)
       end if
       xi00=0.0_cp
       do nXi=1,n_impXi
@@ -1668,7 +1668,7 @@ contains
       end if ! conducting inner core ?
 
       !----- invert matrix:
-      call sgefa(jMat(:,:),n_r_tot,n_r_real,jPivot(:),info)
+      call prepare_mat(jMat,n_r_tot,n_r_real,jPivot,info)
       if ( info /= 0 ) then
          call abortRun('Singular matrix jMat in j_cond.')
       end if
@@ -1681,7 +1681,7 @@ contains
       if ( .not. l_cond_ic ) rhs(n_r_max)=bpeakbot  ! Inner boundary
        
       !----- solve linear system:
-      call cgesl(jMat(1,1),n_r_tot,n_r_real,jPivot(1),rhs)
+      call solve_mat(jMat,n_r_tot,n_r_real,jPivot,rhs)
 
       !----- copy result for OC:
       do n_r_out=1,rscheme_oc%n_max
@@ -1776,7 +1776,7 @@ contains
       end do
        
       !-- Invert matrix:
-      call sgefa(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
+      call prepare_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix xi0Mat in init_xi!')
       end if
@@ -1795,7 +1795,7 @@ contains
       rhs(n_r_max)=real(botxi(0,0))
        
       !-- Solve for s0:
-      call sgesl(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
+      call solve_mat(xi0Mat,n_r_max,n_r_max,xi0Pivot,rhs)
        
       !-- Copy result to s0:
       do n_r=1,n_r_max
@@ -2071,7 +2071,7 @@ contains
 
 
       !-- Invert matrix:
-      call sgefa(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,info)
+      call prepare_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix pt0Mat in pt_cond!')
       end if
@@ -2096,7 +2096,7 @@ contains
       rhs(:) = pt0Mat_fac*rhs
 
       !-- Solve for t0 and p0
-      call sgesl(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
+      call solve_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
 
       !-- Copy result to t0 and p0:
       do n_r=1,n_r_max
@@ -2365,7 +2365,7 @@ contains
       end do
 
       !-- Invert matrix:
-      call sgefa(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,info)
+      call prepare_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix ps0Mat in ps_cond!')
       end if
@@ -2390,7 +2390,7 @@ contains
       rhs(:)=ps0Mat_fac*rhs
 
       !-- Solve for s0 and p0
-      call sgesl(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
+      call solve_mat(ps0Mat,2*n_r_max,2*n_r_max,ps0Pivot,rhs)
        
       !-- Copy result to s0 and p0
       do n_r=1,n_r_max

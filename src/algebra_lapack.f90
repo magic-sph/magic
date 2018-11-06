@@ -6,11 +6,17 @@ module algebra
 
    private
 
-   public :: sgefa, sgesl, cgesl, cgeslML
+   public :: prepare_mat, solve_mat
+
+   interface solve_mat
+      module procedure solve_mat_real_rhs
+      module procedure solve_mat_complex_rhs
+      module procedure solve_mat_complex_rhs_multi
+   end interface solve_mat
 
 contains
 
-   subroutine cgesl(a,len_a,n,pivot,rhs)
+   subroutine solve_mat_complex_rhs(a,len_a,n,pivot,rhs)
       !
       !  This routine does the backward substitution into a lu-decomposed real 
       !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
@@ -25,17 +31,31 @@ contains
 
       !-- Output variables
       complex(cp), intent(inout) :: rhs(n) ! on input RHS of problem
-      integer :: info
+
+      !-- Local variables:
+      real(cp) :: tmpr(n), tmpi(n)
+      integer :: info, i
+
+      do i=1,n
+         tmpr(i) = real(rhs(i))
+         tmpi(i) = aimag(rhs(i))
+      end do
 
 #if (DEFAULT_PRECISION==sngl)
-      call cgetrs('N',n,1,cmplx(a,0.0_cp,kind=cp),len_a,pivot,rhs,n,info)
+      call sgetrs('N',n,1,a,len_a,pivot,tmpr,n,info)
+      call sgetrs('N',n,1,a,len_a,pivot,tmpi,n,info)
 #elif (DEFAULT_PRECISION==dble)
-      call zgetrs('N',n,1,cmplx(a,0.0_cp,kind=cp),len_a,pivot,rhs,n,info)
+      call dgetrs('N',n,1,a,len_a,pivot,tmpr,n,info)
+      call dgetrs('N',n,1,a,len_a,pivot,tmpi,n,info)
 #endif
 
-   end subroutine cgesl
+      do i=1,n
+         rhs(i)=cmplx(tmpr(i),tmpi(i),kind=cp)
+      end do
+
+   end subroutine solve_mat_complex_rhs
 !-----------------------------------------------------------------------------
-   subroutine cgeslML(a,len_a,n,pivot,rhs,nRHSs)
+   subroutine solve_mat_complex_rhs_multi(a,len_a,n,pivot,rhs,nRHSs)
       !
       !  This routine does the backward substitution into a lu-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex 
@@ -50,19 +70,36 @@ contains
       integer,  intent(in) :: nRHSs       ! number of right-hand sides
 
       complex(cp), intent(inout) :: rhs(:,:) ! on input RHS of problem
-      integer :: info
+
+      !-- Local variables:
+      real(cp) :: tmpr(n,nRHSs), tmpi(n,nRHSs)
+      integer :: info, i, j
+
+      do j=1,nRHSs
+         do i=1,n
+            tmpr(i,j) = real(rhs(i,j))
+            tmpi(i,j) = aimag(rhs(i,j))
+         end do
+      end do
 
 #if (DEFAULT_PRECISION==sngl)
-      call cgetrs('N',n,nRHSs,cmplx(a(1:n,1:n),0.0_cp,kind=cp),n,pivot(1:n), &
-                  rhs(1:n,:),n,info)
+      call sgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),tmpr(1:n,:),n,info)
+      call sgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),tmpi(1:n,:),n,info)
 #elif (DEFAULT_PRECISION==dble)
-      call zgetrs('N',n,nRHSs,cmplx(a(1:n,1:n),0.0_cp,kind=cp),n,pivot(1:n), &
-                  rhs(1:n,:),n,info)
+      call dgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),tmpr(1:n,:),n,info)
+      call dgetrs('N',n,nRHSs,a(1:n,1:n),n,pivot(1:n),tmpi(1:n,:),n,info)
 #endif
 
-   end subroutine cgeslML
+      do j=1,nRHSs
+         do i=1,n
+            rhs(i,j)=cmplx(tmpr(i,j),tmpi(i,j),kind=cp)
+         end do
+      end do
+
+
+   end subroutine solve_mat_complex_rhs_multi
 !-----------------------------------------------------------------------------
-   subroutine sgesl(a,len_a,n,pivot,rhs)
+   subroutine solve_mat_real_rhs(a,len_a,n,pivot,rhs)
       !
       !     like the linpack routine
       !     backward substitution of vector b into lu-decomposed matrix a
@@ -87,9 +124,9 @@ contains
       call dgetrs('N',n,1,a,len_a,pivot,rhs,n,info)
 #endif
 
-   end subroutine sgesl
+   end subroutine solve_mat_real_rhs
 !-----------------------------------------------------------------------------
-   subroutine sgefa(a,len_a,n,pivot,info)
+   subroutine prepare_mat(a,len_a,n,pivot,info)
       !
       !     like the linpack routine
       !
@@ -110,6 +147,6 @@ contains
       call dgetrf(n,n,a(1:n,1:n),n,pivot(1:n),info)
 #endif
 
-   end subroutine sgefa
+   end subroutine prepare_mat
 !-----------------------------------------------------------------------------
 end module algebra

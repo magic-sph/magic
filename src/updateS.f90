@@ -16,7 +16,7 @@ module updateS_mod
    use logic, only: l_update_s, l_anelastic_liquid
    use LMLoop_data, only: llm, ulm
    use parallel_mod, only: rank,chunksize
-   use algebra, only: cgeslML,sgesl, sgefa
+   use algebra, only: prepare_mat, solve_mat
    use radial_der, only: get_ddr, get_dr
    use fields, only:  work_LMloc
    use constants, only: zero, one, two
@@ -258,7 +258,7 @@ contains
                   rhs = s0Mat_fac*rhs
 #endif
 
-                  call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+                  call solve_mat(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
 
                else ! l1  /=  0
                   lmB=lmB+1
@@ -282,8 +282,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call cgeslML(sMat(:,:,l1),n_r_max,n_r_max, &
-                    &       sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(sMat(:,:,l1),n_r_max,n_r_max, &
+                    &         sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -353,9 +353,9 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
+         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &        n_r_max, rscheme_oc)
       end do
       !$OMP end do
 
@@ -554,7 +554,7 @@ contains
                   rhs = s0Mat_fac*rhs
 #endif
 
-                  call sgesl(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
+                  call solve_mat(s0Mat,n_r_max,n_r_max,s0Pivot,rhs)
 
                else ! l1  /=  0
                   lmB=lmB+1
@@ -578,8 +578,8 @@ contains
 
             !PERFON('upS_sol')
             if ( lmB  >  lmB0 ) then
-               call cgeslML(sMat(1,1,l1),n_r_max,n_r_max, &
-                    &       sPivot(1,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(sMat(:,:,l1),n_r_max,n_r_max, &
+                    &         sPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
 
@@ -649,9 +649,9 @@ contains
          start_lm=lmStart+iThread*per_thread
          stop_lm = start_lm+per_thread-1
          if (iThread == nThreads-1) stop_lm=lmStop
+         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, &
+              &       stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
          call rscheme_oc%costf1(s,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(s, ds, work_LMloc, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max, rscheme_oc)
       end do
       !$OMP end do
 
@@ -768,7 +768,7 @@ contains
 #endif
     
       !---- LU decomposition:
-      call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
+      call prepare_mat(sMat,n_r_max,n_r_max,sPivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular matrix sMat0!')
       end if
@@ -911,7 +911,7 @@ contains
 #endif
 
 !----- LU decomposition:
-      call sgefa(sMat,n_r_max,n_r_max,sPivot,info)
+      call prepare_mat(sMat,n_r_max,n_r_max,sPivot,info)
       if ( info /= 0 ) then
          call abortRun('Singular matrix sMat!')
       end if

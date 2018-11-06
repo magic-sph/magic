@@ -16,11 +16,17 @@ module algebra
 
    real(cp), parameter :: zero_tolerance=1.0e-15_cp
 
-   public :: sgefa, sgesl, cgesl, cgeslML
+   public :: prepare_mat, solve_mat
+
+   interface solve_mat
+      module procedure solve_mat_real_rhs
+      module procedure solve_mat_complex_rhs
+      module procedure solve_mat_complex_rhs_multi
+   end interface solve_mat
 
 contains
 
-   subroutine cgesl(a,ia,n,ip,bc1)
+   subroutine solve_mat_complex_rhs(a,ia,n,ip,bc1)
       !
       !  This routine does the backward substitution into a lu-decomposed real 
       !  matrix a (to solve a * x = bc1) were bc1 is the right hand side  
@@ -82,9 +88,9 @@ contains
          bc1(1)=bc1(1)*a(1,1)
       end if
 
-   end subroutine cgesl
+   end subroutine solve_mat_complex_rhs
 !-----------------------------------------------------------------------------
-   subroutine cgeslML(a,ia,n,ip,bc,nRHSs)
+   subroutine solve_mat_complex_rhs_multi(a,ia,n,ip,bc,nRHSs)
       !
       !  This routine does the backward substitution into a lu-decomposed real
       !  matrix a (to solve a * x = bc ) simultaneously for nRHSs complex 
@@ -199,9 +205,9 @@ contains
       end if
       LIKWID_OFF('cgeslML_1')
 
-   end subroutine cgeslML
+   end subroutine solve_mat_complex_rhs_multi
 !-----------------------------------------------------------------------------
-   subroutine sgesl(a,ia,n,ip,b)
+   subroutine solve_mat_real_rhs(a,ia,n,ip,b)
       !
       !     like the linpack routine
       !     backward substitution of vector b into lu-decomposed matrix a
@@ -267,9 +273,9 @@ contains
          b(1)=b(1)*a(1,1)
       end if
 
-   end subroutine sgesl
+   end subroutine solve_mat_real_rhs
 !-----------------------------------------------------------------------------
-   subroutine sgefa(a,ia,n,ip,info)
+   subroutine prepare_mat(a,ia,n,ip,info)
       !
       !     like the linpack routine
       !
@@ -344,6 +350,6 @@ contains
          a(i,i)=one/a(i,i)
       end do
 
-   end subroutine sgefa
+   end subroutine prepare_mat
 !-----------------------------------------------------------------------------
 end module algebra

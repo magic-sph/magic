@@ -21,7 +21,7 @@ module updateWPT_mod
    use logic, only: l_update_v, l_temperature_diff, l_RMS
    use RMS, only: DifPol2hInt, dtVPolLMr, dtVPol2hInt, DifPolLMr
    use RMS_helpers, only:  hInt2Pol
-   use algebra, only: cgeslML, sgefa, sgesl
+   use algebra, only: prepare_mat, solve_mat
    use LMLoop_data, only: llm, ulm
    use communications, only: get_global_sum
    use parallel_mod, only: chunksize, rank
@@ -301,7 +301,7 @@ contains
                      rhs(nR)=rhs(nR)*pt0Mat_fac(nR,1)
                   end do
 
-                  call sgesl(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
+                  call solve_mat(pt0Mat,2*n_r_max,2*n_r_max,pt0Pivot,rhs)
 
                   do nR=1,2*n_r_max
                      rhs(nR)=rhs(nR)*pt0Mat_fac(nR,2)
@@ -345,9 +345,9 @@ contains
                      rhs1(nR,lm,threadid)=rhs1(nR,lm,threadid)*wptMat_fac(nR,1,l1)
                   end do
                end do
-               call cgeslML(wptMat(:,:,l1),3*n_r_max,3*n_r_max,        &
-                    &       wptPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),&
-                    &       lmB-lmB0)
+               call solve_mat(wptMat(:,:,l1),3*n_r_max,3*n_r_max,        &
+                    &         wptPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),&
+                    &         lmB-lmB0)
                ! rescale the solution with mat_fac(:,2)
                do lm=lmB0+1,lmB
                   do nR=1,3*n_r_max
@@ -449,18 +449,18 @@ contains
 
          !-- Transform to radial space and get radial derivatives
          !   using dwdtLast, dpdtLast as work arrays:
+         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
+              &         stop_lm-llm+1, n_r_max, rscheme_oc, l_dct_in=.false.)
+
+         call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max,rscheme_oc, l_dct_in=.false.)
+
+         call get_ddr(tt, dtt, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
+              &       n_r_max,rscheme_oc, l_dct_in=.false.)
 
          call rscheme_oc%costf1(w,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_dddr( w, dw, ddw, work_LMloc, ulm-llm+1, start_lm-llm+1,  &
-              &         stop_lm-llm+1, n_r_max, rscheme_oc)
-
          call rscheme_oc%costf1(p,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr( p, dp, workC, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,rscheme_oc)
-
          call rscheme_oc%costf1(tt,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
-         call get_ddr(tt, dtt, workB, ulm-llm+1, start_lm-llm+1, stop_lm-llm+1, &
-              &       n_r_max,rscheme_oc)
 
       end do
       !$OMP end do
@@ -926,7 +926,7 @@ contains
          wptMat(:,nR) = wptMat(:,nR)*wptMat_fac(nR,2)
       end do
 
-      call sgefa(wptMat,3*n_r_max,3*n_r_max,wptPivot,info)
+      call prepare_mat(wptMat,3*n_r_max,3*n_r_max,wptPivot,info)
       if ( info /= 0 ) then
          call abortRun('Singular matrix wptMat!')
       end if
@@ -1179,7 +1179,7 @@ contains
       end do
 
       !---- LU decomposition:
-      call sgefa(ptMat,2*n_r_max,2*n_r_max,ptPivot,info)
+      call prepare_mat(ptMat,2*n_r_max,2*n_r_max,ptPivot,info)
       if ( info /= 0 ) then
          call abortRun('! Singular matrix pt0Mat!')
       end if

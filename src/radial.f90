@@ -6,7 +6,7 @@ module radial_functions
 
    use truncation, only: n_r_max, n_cheb_max, n_r_ic_max, fd_ratio, &
        &                 fd_stretch, fd_order, fd_order_bound
-   use algebra, only: sgesl,sgefa
+   use algebra, only: prepare_mat, solve_mat
    use constants, only: sq4pi, one, two, three, four, half
    use physical_parameters
    use logic, only: l_mag, l_cond_ic, l_heat, l_anelastic_liquid,  &
@@ -1013,7 +1013,7 @@ contains
       end do
 
 
-      call sgefa(workMat,n_r_max,n_r_max,workPivot,info)
+      call prepare_mat(workMat,n_r_max,n_r_max,workPivot,info)
 
       if ( info /= 0 ) then
          call abortRun('! Singular Matrix in getBackground!')
@@ -1029,7 +1029,7 @@ contains
       end do
 
       !-- Solve for s0:
-      call sgesl(workMat,n_r_max,n_r_max,workPivot,rhs)
+      call solve_mat(workMat,n_r_max,n_r_max,workPivot,rhs)
 
       !-- Copy result to s0:
       do n_r=1,n_r_max

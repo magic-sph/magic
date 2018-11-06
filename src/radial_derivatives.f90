@@ -327,7 +327,7 @@ contains
    end subroutine get_dr_real_1d
 !------------------------------------------------------------------------------
    subroutine get_dr_complex(f,df,n_f_max,n_f_start,n_f_stop, &
-              &              n_r_max,r_scheme,nocopy)
+              &              n_r_max,r_scheme,nocopy,l_dct_in)
       !
       !  Returns first radial derivative df of the input function f.      
       !  Array f(n_f_max,*) may contain several functions numbered by     
@@ -344,15 +344,22 @@ contains
       integer,             intent(in) :: n_f_stop         ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
       logical, optional,   intent(in) :: nocopy
+      logical, optional,   intent(in) :: l_dct_in
     
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
     
       !-- Local:
       integer :: n_r,n_f,od
-      logical :: copy_array
+      logical :: copy_array, l_dct_in_loc
     
       if ( r_scheme%version == 'cheb' ) then
+
+         if ( present(l_dct_in) ) then
+            l_dct_in_loc=l_dct_in
+         else
+            l_dct_in_loc=.true.
+         end if
 
          if ( present(nocopy) ) then
             copy_array=.false.
@@ -368,7 +375,9 @@ contains
             end do
        
             !-- Transform f to cheb space:
-            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+            if ( l_dct_in_loc ) then
+               call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+            end if
           
             !-- Get derivatives:
             call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
@@ -380,14 +389,18 @@ contains
          else
 
             !-- Transform f to cheb space:
-            call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+            if ( l_dct_in_loc ) then
+               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+            end if
           
             !-- Get derivatives:
             call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
                  &         r_scheme%n_max,one)
           
             !-- Transform back:
-            call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+            if ( l_dct_in_loc ) then
+               call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
+            end if
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
 
          end if
@@ -436,7 +449,8 @@ contains
 
    end subroutine get_dr_complex
 !------------------------------------------------------------------------------
-   subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme)
+   subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme, &
+              &       l_dct_in)
       !
       !  Returns first radial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -453,6 +467,7 @@ contains
       integer,             intent(in) :: n_f_start     ! first function to be treated
       integer,             intent(in) :: n_f_stop      ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
+      logical, optional,   intent(in) :: l_dct_in
     
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)   ! first derivative of f
@@ -460,8 +475,15 @@ contains
     
       !-- Local variables:
       integer :: n_r,n_f,od
+      logical :: l_dct_in_loc
 
       if ( r_scheme%version == 'cheb' ) then
+
+         if ( present(l_dct_in) ) then
+            l_dct_in_loc=l_dct_in
+         else
+            l_dct_in_loc=.true.
+         end if
     
          !-- Copy input functions:
          do n_r=1,n_r_max
@@ -471,7 +493,9 @@ contains
          end do
     
          !-- Transform f to cheb space:
-         call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+         if ( l_dct_in_loc ) then
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+         end if
     
          !-- Get derivatives:
          call get_ddcheb(work,df,ddf,n_f_max,n_f_start,n_f_stop, &
@@ -545,7 +569,7 @@ contains
    end subroutine get_ddr
 !------------------------------------------------------------------------------
    subroutine get_dddr(f,df,ddf,dddf,n_f_max,n_f_start,n_f_stop, &
-              &        n_r_max,r_scheme)
+              &        n_r_max,r_scheme,l_dct_in)
       !
       !  Returns first radial derivative df, the second radial deriv. ddf,
       !  and the third radial derivative dddf of the input function f.    
@@ -562,6 +586,7 @@ contains
       integer,             intent(in) :: n_f_start       ! first function to be treated
       integer,             intent(in) :: n_f_stop        ! last function to be treated
       class(type_rscheme), intent(in) :: r_scheme
+      logical, optional,   intent(in) :: l_dct_in
     
       !-- Output variables:
       complex(cp), intent(out) :: df(n_f_max,n_r_max)    ! first derivative of f
@@ -570,8 +595,15 @@ contains
 
       !-- Local variables
       integer :: n_r,n_f,od
+      logical :: l_dct_in_loc
 
       if ( r_scheme%version == 'cheb' ) then
+
+         if ( present(l_dct_in) ) then
+            l_dct_in_loc=l_dct_in
+         else
+            l_dct_in_loc=.true.
+         end if
 
          !-- Copy input functions:
          do n_r=1,n_r_max
@@ -581,7 +613,9 @@ contains
          end do
 
          !-- Transform f to cheb space:
-         call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+         if ( l_dct_in_loc ) then
+            call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
+         end if
 
          !-- Get derivatives:
          call get_dddcheb(work,df,ddf,dddf,n_f_max,n_f_start,n_f_stop,  &

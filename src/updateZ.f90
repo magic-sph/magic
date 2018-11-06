@@ -25,7 +25,7 @@ module updateZ_mod
        &                c_moi_oc, y10_norm, y11_norm, zero, one, two, four,   &
        &                pi, third
    use parallel_mod
-   use algebra, only: cgeslML, cgesl, sgefa
+   use algebra, only: prepare_mat, solve_mat
    use LMLoop_data, only: llm,ulm
    use communications, only:get_global_sum
    use outRot, only: get_angular_moment
@@ -368,7 +368,7 @@ contains
                      !        & EXPONENT(AIMAG(rhs(nR))),FRACTION(AIMAG(rhs(nR)))
                      !end do
                   end if
-                  call cgesl(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
+                  call solve_mat(z10Mat,n_r_max,n_r_max,z10Pivot,rhs)
                   if ( DEBUG_OUTPUT ) then
                      !do nR=1,n_r_max
                      !   write(*,"(3I4,A,2(I4,F20.16))")                        &
@@ -456,8 +456,8 @@ contains
 
             !PERFON('upZ_sol')
             if ( lmB > lmB0 ) then
-               call cgeslML(zMat(:,:,l1),n_r_max,n_r_max, &
-                    &       zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
+               call solve_mat(zMat(:,:,l1),n_r_max,n_r_max, &
+                    &         zPivot(:,l1),rhs1(:,lmB0+1:lmB,threadid),lmB-lmB0)
             end if
             !PERFOFF
             if ( lRmsNext ) then ! Store old z
@@ -542,9 +542,9 @@ contains
          if (iThread == nThreads-1) stop_lm=lmStop
          !write(*,"(3(A,I5))") "thread ",omp_get_thread_num()," from ",start_lm," to ",stop_lm
          !-- Get derivatives:
-         call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
          call get_ddr(z, dz, work_LMloc, ulm-llm+1, start_lm-llm+1,     &
-              &       stop_lm-llm+1,n_r_max, rscheme_oc)
+              &       stop_lm-llm+1,n_r_max, rscheme_oc, l_dct_in=.false.)
+         call rscheme_oc%costf1(z,ulm-llm+1,start_lm-llm+1,stop_lm-llm+1)
       end do
       !$OMP end do
       !$OMP END PARALLEL
@@ -874,7 +874,7 @@ contains
 #endif
 
 !-- LU-decomposition of z10mat:
-      call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
+      call prepare_mat(zMat,n_r_max,n_r_max,zPivot,info)
 
       if ( info /= 0 ) then
          call abortRun('Error from get_z10Mat: singular matrix!')
@@ -1014,7 +1014,7 @@ contains
 #endif
 
   !----- LU decomposition:
-      call sgefa(zMat,n_r_max,n_r_max,zPivot,info)
+      call prepare_mat(zMat,n_r_max,n_r_max,zPivot,info)
 
       if ( info /= 0 ) then
          write(str, *) l
