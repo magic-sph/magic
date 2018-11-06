@@ -1069,11 +1069,6 @@ contains
             ptMat(n_r_max,nR_out_p)=0.0_cp
          end if
 
-         if ( rscheme_oc%version == 'cheb' ) then
-            ptMat(2*n_r_max,nR_out)  =0.0_cp
-            ptMat(2*n_r_max,nR_out_p)=0.0_cp
-         end if
-
       end do
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)

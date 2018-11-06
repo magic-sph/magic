@@ -63,7 +63,7 @@ contains
    subroutine get_dcheb_complex(f,df,n_f_max,n_f_start,n_f_stop, &
               &                 n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns chebychev coeffitiens of first derivative df and second  
+      !  Returns Chebyshev coeffitients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
       !  columns in array f(n_f_max,n_r_max).                             
       !
@@ -91,8 +91,14 @@ contains
             df(n_f,n_cheb)=zero
          end do
       end do
+
+      !-- First Coefficient
       n_cheb  =n_cheb_max-1
-      fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      if ( n_r_max == n_cheb_max ) then
+         fac_cheb=d_fac*real(n_cheb,kind=cp)
+      else
+         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      end if
       do n_f=n_f_start,n_f_stop
          df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
       end do
@@ -127,7 +133,13 @@ contains
          df(n_cheb)=0.0_cp
       end do
       n_cheb  =n_cheb_max-1
-      fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+
+      !-- First coefficient
+      if ( n_r_max == n_cheb_max ) then
+         fac_cheb=d_fac*real(n_cheb,kind=cp)
+      else
+         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      end if
       df(n_cheb)=fac_cheb*f(n_cheb+1)
 
       !----- Recursion
@@ -141,7 +153,7 @@ contains
    subroutine get_ddcheb(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
               &          n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns chebychev coefficents of first derivative df and second  
+      !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
       !  columns in array f(n_c_tot,n_r_max).                             
       !
@@ -170,10 +182,16 @@ contains
             ddf(n_f,n_cheb)=zero
          end do
       end do
+
+      !-- First coefficients:
       n_cheb=n_cheb_max-1
-      fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      if ( n_cheb_max == n_r_max ) then
+         fac_cheb=d_fac*real(n_cheb,kind=cp)
+      else
+         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      end if
       do n_f=n_f_start,n_f_stop
-         df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
+         df(n_f,n_cheb) =fac_cheb*f(n_f,n_cheb+1)
          ddf(n_f,n_cheb)=zero
       end do
     
@@ -181,7 +199,7 @@ contains
       do n_cheb=n_cheb_max-2,1,-1
          fac_cheb=d_fac*real(2*n_cheb,kind=cp)
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=df(n_f,n_cheb+2) + fac_cheb*f(n_f,n_cheb+1)
+            df(n_f,n_cheb) = df(n_f,n_cheb+2) + fac_cheb* f(n_f,n_cheb+1)
             ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2) + fac_cheb*df(n_f,n_cheb+1)
          end do
       end do
@@ -217,16 +235,22 @@ contains
       !----- initialize derivatives:
       do n_cheb=n_cheb_max,n_r_max
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=zero
-            ddf(n_f,n_cheb)=zero
+            df(n_f,n_cheb)  =zero
+            ddf(n_f,n_cheb) =zero
             dddf(n_f,n_cheb)=zero
          end do
       end do
+
+      !-- First coefficients
       n_cheb=n_cheb_max-1
-      fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      if ( n_cheb_max == n_r_max ) then
+         fac_cheb=d_fac*real(n_cheb,kind=cp)
+      else
+         fac_cheb=d_fac*real(2*n_cheb,kind=cp)
+      end if
       do n_f=n_f_start,n_f_stop
-         df(n_f,n_cheb)=fac_cheb*f(n_f,n_cheb+1)
-         ddf(n_f,n_cheb)=zero
+         df(n_f,n_cheb)  =fac_cheb*f(n_f,n_cheb+1)
+         ddf(n_f,n_cheb) =zero
          dddf(n_f,n_cheb)=zero
       end do
 
@@ -234,9 +258,9 @@ contains
       do n_cheb=n_cheb_max-2,1,-1
          fac_cheb=d_fac*real(2*n_cheb,kind=cp)
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=df(n_f,n_cheb+2)    + fac_cheb*f(n_f,n_cheb+1)
-            ddf(n_f,n_cheb)=ddf(n_f,n_cheb+2)  + fac_cheb*df(n_f,n_cheb+1)
-            dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2)+ fac_cheb*ddf(n_f,n_cheb+1)
+            df(n_f,n_cheb)  =  df(n_f,n_cheb+2) + fac_cheb*  f(n_f,n_cheb+1)
+            ddf(n_f,n_cheb) = ddf(n_f,n_cheb+2) + fac_cheb* df(n_f,n_cheb+1)
+            dddf(n_f,n_cheb)=dddf(n_f,n_cheb+2) + fac_cheb*ddf(n_f,n_cheb+1)
          end do
       end do
 
@@ -347,8 +371,8 @@ contains
             call r_scheme%costf1(work,n_f_max,n_f_start,n_f_stop)
           
             !-- Get derivatives:
-            call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme%n_max, &
-                 &         one)
+            call get_dcheb(work,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
+                 &         r_scheme%n_max,one)
           
             !-- Transform back:
             call r_scheme%costf1(df,n_f_max,n_f_start,n_f_stop)
@@ -359,8 +383,8 @@ contains
             call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
           
             !-- Get derivatives:
-            call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme%n_max, &
-                 &         one)
+            call get_dcheb(f,df,n_f_max,n_f_start,n_f_stop,n_r_max, &
+                 &         r_scheme%n_max,one)
           
             !-- Transform back:
             call r_scheme%costf1(f,n_f_max,n_f_start,n_f_stop)
@@ -412,8 +436,7 @@ contains
 
    end subroutine get_dr_complex
 !------------------------------------------------------------------------------
-   subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-              &       n_r_max,r_scheme)
+   subroutine get_ddr(f,df,ddf,n_f_max,n_f_start,n_f_stop,n_r_max,r_scheme)
       !
       !  Returns first radial derivative df and second radial             
       !  derivative ddf of the input function f.                          

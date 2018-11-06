@@ -13,9 +13,9 @@ module radial_der_even
 
 contains
 
-   subroutine get_ddr_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                           n_r_max,n_cheb_max,dr_fac,work1,work2, &
-                           chebt_odd, chebt_even)
+   subroutine get_ddr_even(f,df,ddf,n_f_max,n_f_start,n_f_stop,   &
+              &            n_r_max,n_cheb_max,dr_fac,work1,work2, &
+              &            chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -28,13 +28,13 @@ contains
       !
 
       !-- Input variables:
-      integer,            intent(in) :: n_r_max       ! number of radial grid points
-      integer,            intent(in) :: n_f_max       ! first dim of f
+      integer,            intent(in) :: n_r_max    ! number of radial grid points
+      integer,            intent(in) :: n_f_max    ! first dim of f
       complex(cp),        intent(in) :: f(n_f_max,n_r_max)
-      integer,            intent(in) :: n_f_start     ! first function to be treated
-      integer,            intent(in) :: n_f_stop      ! last function to be treated
-      integer,            intent(in) :: n_cheb_max    ! number of cheb modes
-      real(cp),           intent(in) :: dr_fac        ! mapping factor
+      integer,            intent(in) :: n_f_start  ! first function to be treated
+      integer,            intent(in) :: n_f_stop   ! last function to be treated
+      integer,            intent(in) :: n_cheb_max ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac     ! mapping factor
       type(costf_odd_t),  intent(in) :: chebt_odd
       type(costf_even_t), intent(in) :: chebt_even
 
@@ -60,7 +60,7 @@ contains
 
       !-- Get derivatives:
       call get_ddcheb_even(work2,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                           n_r_max,n_cheb_max,dr_fac)
+           &               n_r_max,n_cheb_max,dr_fac)
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
@@ -70,8 +70,8 @@ contains
    end subroutine get_ddr_even
 !------------------------------------------------------------------------------
    subroutine get_drNS_even(f,df,n_f_max,n_f_start,n_f_stop, &
-                            n_r_max,n_cheb_max,dr_fac,work1, &
-                            chebt_odd, chebt_even)
+              &             n_r_max,n_cheb_max,dr_fac,work1, &
+              &             chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -84,12 +84,12 @@ contains
       !
 
       !-- Input variables:
-      integer,            intent(in) :: n_f_max         ! first dim of f
-      integer,            intent(in) :: n_f_start       ! first function to be treated
-      integer,            intent(in) :: n_f_stop        ! last function to be treated
-      integer,            intent(in) :: n_r_max         ! number of radial grid points
-      integer,            intent(in) :: n_cheb_max      ! number of cheb modes
-      real(cp),           intent(in) :: dr_fac          ! mapping factor
+      integer,            intent(in) :: n_f_max    ! first dim of f
+      integer,            intent(in) :: n_f_start  ! first function to be treated
+      integer,            intent(in) :: n_f_stop   ! last function to be treated
+      integer,            intent(in) :: n_r_max    ! number of radial grid points
+      integer,            intent(in) :: n_cheb_max ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac     ! mapping factor
       type(costf_odd_t),  intent(in) :: chebt_odd
       type(costf_even_t), intent(in) :: chebt_even
 
@@ -104,7 +104,7 @@ contains
 
       !-- Get derivatives:
       call get_dcheb_even(f,df,n_f_max,n_f_start,n_f_stop, &
-                          n_r_max,n_cheb_max,dr_fac)
+           &              n_r_max,n_cheb_max,dr_fac)
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
@@ -115,8 +115,8 @@ contains
    end subroutine get_drNS_even
 !------------------------------------------------------------------------------
    subroutine get_ddrNS_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                             n_r_max,n_cheb_max,dr_fac,work1,     &
-                             chebt_odd, chebt_even)
+              &              n_r_max,n_cheb_max,dr_fac,work1,     &
+              &              chebt_odd, chebt_even)
       !
       !  Returns first rarial derivative df and second radial             
       !  derivative ddf of the input function f.                          
@@ -129,12 +129,12 @@ contains
       !
 
       !-- Input variables:
-      integer,            intent(in) :: n_f_max        ! first dim of f
-      integer,            intent(in) :: n_f_start      ! first function to be treated
-      integer,            intent(in) :: n_f_stop       ! last function to be treated
-      integer,            intent(in) :: n_r_max        ! number of radial grid points
-      integer,            intent(in) :: n_cheb_max     ! number of cheb modes
-      real(cp),           intent(in) :: dr_fac         ! mapping factor
+      integer,            intent(in) :: n_f_max    ! first dim of f
+      integer,            intent(in) :: n_f_start  ! first function to be treated
+      integer,            intent(in) :: n_f_stop   ! last function to be treated
+      integer,            intent(in) :: n_r_max    ! number of radial grid points
+      integer,            intent(in) :: n_cheb_max ! number of cheb modes
+      real(cp),           intent(in) :: dr_fac     ! mapping factor
       type(costf_odd_t),  intent(in) :: chebt_odd
       type(costf_even_t), intent(in) :: chebt_even
 
@@ -151,7 +151,7 @@ contains
 
       !-- Get derivatives:
       call get_ddcheb_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                           n_r_max,n_cheb_max,dr_fac)
+           &               n_r_max,n_cheb_max,dr_fac)
 
       !-- Transform back, note the different transform used for df,
       !   cause df is odd:
@@ -162,9 +162,9 @@ contains
    end subroutine get_ddrNS_even
 !------------------------------------------------------------------------------
    subroutine get_dcheb_even(f,df,n_f_max,n_f_start,n_f_stop, &
-                             n_r_max,n_cheb_max,d_fac)
+              &              n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns chebychev coeffitiens of first derivative df and second  
+      !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
       !  columns in array f(n_f_max,n_r_max).                             
       !
@@ -192,8 +192,19 @@ contains
          end do
       end do
 
+      !-- First coefficient
+      n_cheb  =n_cheb_max-1
+      if ( n_r_max == n_cheb_max ) then
+         fac_cheb_odd=d_fac*real(2*n_cheb,kind=cp)
+      else
+         fac_cheb_odd=d_fac*real(4*n_cheb,kind=cp)
+      end if
+      do n_f=n_f_start,n_f_stop
+         df(n_f,n_cheb)=fac_cheb_odd*f(n_f,n_cheb+1)
+      end do
+
       !----- Recursion
-      do n_cheb=n_cheb_max-1,1,-1
+      do n_cheb=n_cheb_max-2,1,-1
          fac_cheb_odd=d_fac*real(4*n_cheb,kind=cp)
          do n_f=n_f_start,n_f_stop
             df(n_f,n_cheb)=df(n_f,n_cheb+1) + fac_cheb_odd*f(n_f,n_cheb+1)
@@ -203,9 +214,9 @@ contains
    end subroutine get_dcheb_even
 !------------------------------------------------------------------------------
    subroutine get_ddcheb_even(f,df,ddf,n_f_max,n_f_start,n_f_stop, &
-                              n_r_max,n_cheb_max,d_fac)
+              &               n_r_max,n_cheb_max,d_fac)
       !
-      !  Returns chebychev coeffitiens of first derivative df and second  
+      !  Returns Chebyshev coefficients of first derivative df and second  
       !  derivative ddf for a function whose cheb-coeff. are given as     
       !  columns in array f(n_f_max,n_r_max).                             
       !
@@ -231,17 +242,30 @@ contains
       !----- initialize inner core derivatives:
       do n_cheb=n_cheb_max,n_r_max
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb)=zero
+            df(n_f,n_cheb) =zero
             ddf(n_f,n_cheb)=zero
          end do
       end do
 
-      !----- Recursion
-      do n_cheb=n_cheb_max-1,1,-1
+      !-- First coefficient
+      n_cheb=n_cheb_max-1
+      if ( n_cheb_max == n_r_max ) then
+         fac_cheb_odd=d_fac*real(2*n_cheb,kind=cp)
+      else
          fac_cheb_odd=d_fac*real(4*n_cheb,kind=cp)
+      end if
+      fac_cheb_even=d_fac*real(4*n_cheb-2,kind=cp)
+      do n_f=n_f_start,n_f_stop
+         df(n_f,n_cheb) =fac_cheb_odd * f(n_f,n_cheb+1)
+         ddf(n_f,n_cheb)=fac_cheb_even*df(n_f,n_cheb)
+      end do
+
+      !----- Recursion
+      do n_cheb=n_cheb_max-2,1,-1
+         fac_cheb_odd =d_fac*real(4*n_cheb,kind=cp)
          fac_cheb_even=d_fac*real(4*n_cheb-2,kind=cp)
          do n_f=n_f_start,n_f_stop
-            df(n_f,n_cheb) = df(n_f,n_cheb+1) + fac_cheb_odd*f(n_f,n_cheb+1)
+            df(n_f,n_cheb) = df(n_f,n_cheb+1) + fac_cheb_odd * f(n_f,n_cheb+1)
             ddf(n_f,n_cheb)=ddf(n_f,n_cheb+1) + fac_cheb_even*df(n_f,n_cheb)
          end do
       end do

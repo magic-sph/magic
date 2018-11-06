@@ -1051,10 +1051,6 @@ contains
             &            beta(n_r_max))*rscheme_oc%rMat(n_r_max,nR_out) )
          end if
 
-         if ( rscheme_oc%version == 'cheb' ) then
-            psMat(2*n_r_max,nR_out)  =0.0_cp
-            psMat(2*n_r_max,nR_out_p)=0.0_cp
-         end if
       end do
 
       ! In case density perturbations feed back on pressure (non-Boussinesq)

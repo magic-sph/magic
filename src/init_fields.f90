@@ -2258,9 +2258,7 @@ contains
          end if
 
          if ( rscheme_oc%version == 'cheb' ) then
-            ps0Mat(n_r_max+1,n_r_out) =0.0_cp
-            ps0Mat(2*n_r_max,n_r_out) =0.0_cp
-            ps0Mat(2*n_r_max,n_r_out_p)=0.0_cp
+            ps0Mat(n_r_max+1,n_r_out)=0.0_cp
          end if
 
       end do
