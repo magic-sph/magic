@@ -416,7 +416,7 @@ if __name__ == '__main__':
         printLevelInfo()
         sys.exit()
 
-# Run cmake
+    # Run cmake
     print('1. cmake configuration')
     print('----------------------')
     cmake(args, startdir, execDir)
