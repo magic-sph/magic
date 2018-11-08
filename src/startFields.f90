@@ -2,7 +2,7 @@
 module start_fields
 
 #ifdef WITH_MPI
-   use mpi
+   use mpimod
 #endif
    use truncation
    use precision_mod

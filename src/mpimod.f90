@@ -1,5 +1,6 @@
-module mpi
+module mpimod
 #ifdef WITH_MPI
-   include "mpif.h"
+   ! include "mpif.h"
+   use mpi
 #endif
-end module mpi
+end module mpimod

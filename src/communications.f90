@@ -2,7 +2,7 @@
 module communications
 
 #ifdef WITH_MPI
-   use mpi
+   use mpimod
 #endif
    use precision_mod
    use mem_alloc, only: memWrite, bytes_allocated

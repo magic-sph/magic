@@ -4,7 +4,7 @@ module precision_mod
    !
 
 #ifdef WITH_MPI
-   use mpi
+   use mpimod
 #endif
 
    implicit none

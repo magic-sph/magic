@@ -79,14 +79,14 @@ contains
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == iproc ) then
-               call MPI_Send(bytes_alloc,1,MPI_LONG,0,sr_tag+iproc, &
+               call MPI_Send(bytes_alloc,1,MPI_INTEGER8,0,sr_tag+iproc, &
                              MPI_COMM_WORLD,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == 0 ) then
-               call MPI_Recv(bytes_other_proc,1,MPI_LONG,iproc,sr_tag+iproc, &
+               call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
                              MPI_COMM_WORLD,status,ierr)
                if ( n_procs > 8 .and. iproc == n_procs -2 ) then
                   write(n_memory_file, *) "               ..."
@@ -131,14 +131,14 @@ contains
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == iproc ) then
-               call MPI_Send(bytes_allocated,1,MPI_LONG,0,sr_tag+iproc, &
+               call MPI_Send(bytes_allocated,1,MPI_INTEGER8,0,sr_tag+iproc, &
                              MPI_COMM_WORLD,ierr)
             end if
          end do
          do i=1,n_ranks_print
             iproc=ranks_selected(i)
             if ( rank == 0 ) then
-               call MPI_Recv(bytes_other_proc,1,MPI_LONG,iproc,sr_tag+iproc, &
+               call MPI_Recv(bytes_other_proc,1,MPI_INTEGER8,iproc,sr_tag+iproc, &
                              MPI_COMM_WORLD,status,ierr)
                if ( n_procs > 8 .and. iproc == n_procs-2 ) then
                   write(n_memory_file, *) "               ..."
