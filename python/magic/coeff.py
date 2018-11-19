@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 from magic import npfile, scanDir, MagicSetup, hammer2cart, symmetrize, progressbar
-import os
+import os, re
 import numpy as np
 import matplotlib.pyplot as plt
 from .spectralTransforms import SpectralTransforms
@@ -89,8 +89,9 @@ class MagicCoeffCmb(MagicSetup):
     >>> cmb.movieCmb(levels=12, cm='seismic', png=True)
     """
 
-    def __init__(self, tag, ratio_cmb_surface=1, scale_b=1, iplot=True, lCut=None,
-                 precision='Float64', ave=False, sv=False, quiet=False):
+    def __init__(self, tag=None, datadir='.', ratio_cmb_surface=1, scale_b=1,
+                 iplot=True, lCut=None, precision='Float64', ave=False, sv=False,
+                 quiet=False):
         """
         A class to read the B_coeff_cmb files
 
@@ -112,24 +113,54 @@ class MagicCoeffCmb(MagicSetup):
         :type quiet: bool
         :param lCut: reduce the spherical harmonic truncation to l <= lCut
         :type lCut: int
+        :param datadir: working directory
+        :type datadir: str
         """
+        pattern = os.path.join(datadir, 'log.*')
+        logFiles = scanDir(pattern)
 
-        logFiles = scanDir('log.*')
-        if len(logFiles) != 0:
-            MagicSetup.__init__(self, quiet=True, nml=logFiles[-1])
+        if ave:
+            self.name = 'B_coeff_cmb_ave'
+        elif sv:
+            self.name = 'B_coeff_dt_cmb'
         else:
-            str1 = 'Aspect ratio ?\n'
-            self.radratio = float(input(str1))
+            self.name = 'B_coeff_cmb'
+
+        if tag is not None:
+            pattern = os.path.join(datadir,  '%s.%s' % (self.name, tag))
+            files = scanDir(pattern)
+
+            # Either the log.tag directly exists and the setup is easy to obtain
+            if os.path.exists(os.path.join(datadir, 'log.%s' % tag)):
+                MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % tag)
+            # Or the tag is a bit more complicated and we need to find 
+            # the corresponding log file
+            else:
+                pattern = os.path.join(datadir, '%s' % self.name)
+                mask = re.compile(r'%s\.(.*)' % pattern)
+                if mask.match(files[-1]):
+                    ending = mask.search(files[-1]).groups(0)[0]
+                    pattern = os.path.join(datadir, 'log.%s' % ending)
+                    if logFiles.__contains__(pattern):
+                        MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                            nml='log.%s' % ending)
+        else:
+            pattern = os.path.join(datadir, '%s.*' % self.name)
+            files = scanDir(pattern)
+            filename = files[-1]
+            # Determine the setup
+            mask = re.compile(r'%s\.(.*)' % self.name)
+            ending = mask.search(files[-1]).groups(0)[0]
+            if os.path.exists('log.%s' % ending):
+                try:
+                    MagicSetup.__init__(self, datadir=datadir, quiet=True,
+                                    nml='log.%s' % ending)
+                except AttributeError:
+                    pass
 
         self.rcmb = 1./(1.-self.radratio)
         ricb = self.radratio/(1.-self.radratio)
-
-        if ave:
-            files = scanDir('B_coeff_cmb_ave.%s' % tag)
-        elif sv:
-            files = scanDir('B_coeff_dt_cmb.%s' % tag)
-        else:
-            files = scanDir('B_coeff_cmb.%s' % tag)
 
         # Read the B_coeff files (by stacking the different tags)
         data = []
@@ -298,7 +329,7 @@ class MagicCoeffCmb(MagicSetup):
         ell = np.arange(self.l_max_cmb+1)
         fig = plt.figure()
         ax = fig.add_subplot(211)
-        ax.semilogy(ell[1:], self.ElM[1:], 'b-o')
+        ax.semilogy(ell[1:], self.ElM[1:], marker='o')
         if labTex:
             ax.set_xlabel(r'$\ell$')
         else:
@@ -308,7 +339,7 @@ class MagicCoeffCmb(MagicSetup):
 
         ax1 = fig.add_subplot(212)
         ax1.semilogy(ell[0:self.m_max_cmb+1:self.minc], self.EmM[::self.minc],
-                     'b-o')
+                     marker='o')
         if labTex:
             ax1.set_xlabel(r'$m$')
         else:
@@ -317,7 +348,7 @@ class MagicCoeffCmb(MagicSetup):
 
         fig1 = plt.figure()
         ax = fig1.add_subplot(111)
-        ax.loglog(ell[1:], self.taul, 'b-o')
+        ax.loglog(ell[1:], self.taul, marker='o')
         if labTex:
             ax.set_xlabel(r'$\ell$')
             ax.set_ylabel(r'$\tau_\ell$')
