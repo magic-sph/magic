@@ -328,12 +328,12 @@ contains
             if ( .not. lBmat(l1) ) then
 #ifdef WITH_PRECOND_BJ
                call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)),           &
-                    &        bMat(1,1,l1),bPivot(1,l1), bMat_fac(1,l1),&
-                    &        jMat(1,1,l1),jPivot(1,l1), jMat_fac(1,l1))
+                    &        bMat(:,:,l1),bPivot(:,l1), bMat_fac(:,l1),&
+                    &        jMat(:,:,l1),jPivot(:,l1), jMat_fac(:,l1))
 #else
                call get_bMat(dt,l1,hdif_B(st_map%lm2(l1,0)), &
-                    &        bMat(1,1,l1),bPivot(1,l1),      &
-                    &        jMat(1,1,l1),jPivot(1,l1) )
+                    &        bMat(:,:,l1),bPivot(:,l1),      &
+                    &        jMat(:,:,l1),jPivot(:,l1) )
 #endif
                lBmat(l1)=.true.
             end if

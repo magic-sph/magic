@@ -1032,21 +1032,21 @@ contains
     
          !             !------ Convert from lm to theta block and store in outBlock:
          !             if ( nField == 1 ) then
-         !                call get_RAS(PstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_RAS(PstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 2 ) then
          !                ! Note that PadvLM stores PdynLM=PstrLM+PadvLM at this point!
-         !                call get_RAS(PdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_RAS(PdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 3 ) then
          !                ! Note that PdynLM stores PdifLM at this point!
-         !                call get_RAS(PdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_RAS(PdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 4 ) then
-         !                call get_PASLM(TstrLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_PASLM(TstrLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 5 ) then
-         !                call get_PASLM(TdynLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_PASLM(TdynLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 6 ) then
-         !                call get_PASLM(TomeLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_PASLM(TomeLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             else if ( nField == 7 ) then
-         !                call get_PASLM(TdifLM(1,nR),outBlock,rS,nThetaStart,sizeThetaB)
+         !                call get_PASLM(TdifLM(:,nR),outBlock,rS,nThetaStart,sizeThetaB)
          !             end if
     
          !             !------ Storage of field in fout for theta block

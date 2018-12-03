@@ -214,10 +214,10 @@ contains
       do k=1,n_r_max  ! do loop over the n_r grid points !
 
          !----- set first two chebs:
-         this%rMat(1,k)=one
-         this%rMat(2,k)=this%r_cheb(k)
-         this%drMat(1,k)=0.0_cp
-         this%drMat(2,k)=this%drx(k)
+         this%rMat(1,k)  =one
+         this%rMat(2,k)  =this%r_cheb(k)
+         this%drMat(1,k) =0.0_cp
+         this%drMat(2,k) =this%drx(k)
          this%d2rMat(1,k)=0.0_cp
          this%d2rMat(2,k)=this%ddrx(k)
          this%d3rMat(1,k)=0.0_cp
@@ -226,19 +226,19 @@ contains
          !----- now construct the rest with a recursion:
          do n=3,n_r_max ! do loop over the (n-1) order of the chebs
 
-            this%rMat(n,k)=    two*this%r_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
-            this%drMat(n,k)=   two*this%drx(k)*this%rMat(n-1,k) + &
-            &                        two*this%r_cheb(k)*this%drMat(n-1,k) - &
-            &                                 this%drMat(n-2,k)
+            this%rMat(n,k) =two*this%r_cheb(k)*this%rMat(n-1,k)-this%rMat(n-2,k)
+            this%drMat(n,k)=    two*this%drx(k)*this%rMat(n-1,k) + &
+            &               two*this%r_cheb(k)*this%drMat(n-1,k) - &
+            &                                  this%drMat(n-2,k)
             this%d2rMat(n,k)=  two*this%ddrx(k)*this%rMat(n-1,k) + &
-            &                four*this%drx(k)*this%drMat(n-1,k) + &
-            &                       two*this%r_cheb(k)*this%d2rMat(n-1,k) - &
-            &                                this%d2rMat(n-2,k)
+            &                 four*this%drx(k)*this%drMat(n-1,k) + &
+            &              two*this%r_cheb(k)*this%d2rMat(n-1,k) - &
+            &                                 this%d2rMat(n-2,k)
             this%d3rMat(n,k)=  two*this%dddrx(k)*this%rMat(n-1,k) + &
-            &              6.0_cp*this%ddrx(k)*this%drMat(n-1,k) + &
-            &             6.0_cp*this%drx(k)*this%d2rMat(n-1,k) + &
-            &                       two*this%r_cheb(k)*this%d3rMat(n-1,k) - &
-            &                                this%d3rMat(n-2,k)
+            &               6.0_cp*this%ddrx(k)*this%drMat(n-1,k) + &
+            &               6.0_cp*this%drx(k)*this%d2rMat(n-1,k) + &
+            &               two*this%r_cheb(k)*this%d3rMat(n-1,k) - &
+            &                                  this%d3rMat(n-2,k)
 
          end do
 

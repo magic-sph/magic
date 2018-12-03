@@ -215,10 +215,10 @@ contains
             if ( .not. lXimat(l1) ) then
 #ifdef WITH_PRECOND_S
                 call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)), &
-                     xiMat(1,1,l1),xiPivot(1,l1),xiMat_fac(1,l1))
+                     &         xiMat(:,:,l1),xiPivot(:,l1),xiMat_fac(:,l1))
 #else
                 call get_xiMat(dt,l1,hdif_Xi(st_map%lm2(l1,0)), &
-                     xiMat(1,1,l1),xiPivot(1,l1))
+                     &         xiMat(:,:,l1),xiPivot(:,l1))
 #endif
                 lXimat(l1)=.true.
              end if

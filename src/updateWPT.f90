@@ -257,8 +257,8 @@ contains
             if ( .not. lWPTmat(l1) ) then
                call get_wptMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
                     &          hdif_S(st_map%lm2(l1,0)),       &
-                    &          wptMat(1,1,l1),wptPivot(1,l1),  &
-                    &          wptMat_fac(1,1,l1))
+                    &          wptMat(:,:,l1),wptPivot(:,l1),  &
+                    &          wptMat_fac(:,:,l1))
                lWPTmat(l1)=.true.
             end if
          end if

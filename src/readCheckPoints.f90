@@ -306,14 +306,14 @@ contains
 
       !-- Scatter everything
       do nR=1,n_r_max
-         call scatter_from_rank0_to_lo(workA(1,nR),w(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(workB(1,nR),z(llm:ulm,nR))
-         call scatter_from_rank0_to_lo(workC(1,nR),p(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workA(:,nR),w(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workB(:,nR),z(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workC(:,nR),p(llm:ulm,nR))
          if ( l_heat ) then
-            call scatter_from_rank0_to_lo(workD(1,nR),s(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workD(:,nR),s(llm:ulm,nR))
          end if
          if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(workE(1,nR),xi(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workE(:,nR),xi(llm:ulm,nR))
          end if
       end do
 
@@ -355,15 +355,15 @@ contains
       !-- Scatter everything
       do nR=1,n_r_max
          !write(*,"(8X,A,I4)") "nR = ",nR
-         call scatter_from_rank0_to_lo(workA(1,nR),dwdt(llm,nR))
-         call scatter_from_rank0_to_lo(workB(1,nR),dzdt(llm,nR))
-         call scatter_from_rank0_to_lo(workC(1,nR),dpdt(llm,nR))
+         call scatter_from_rank0_to_lo(workA(:,nR),dwdt(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workB(:,nR),dzdt(llm:ulm,nR))
+         call scatter_from_rank0_to_lo(workC(:,nR),dpdt(llm:ulm,nR))
          if ( l_heat ) then
-            call scatter_from_rank0_to_lo(workD(1,nR),dsdt(llm,nR))
+            call scatter_from_rank0_to_lo(workD(:,nR),dsdt(llm:ulm,nR))
          end if
 
          if ( l_chemical_conv ) then
-            call scatter_from_rank0_to_lo(workE(1,nR),dxidt(llm,nR))
+            call scatter_from_rank0_to_lo(workE(:,nR),dxidt(llm:ulm,nR))
          end if
       end do
 
@@ -418,10 +418,10 @@ contains
       !-- Scatter everything
       if ( l_mag_old .and. l_mag ) then
          do nR=1,n_r_maxMag
-            call scatter_from_rank0_to_lo(workA(1,nR),aj(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(workB(1,nR),dbdt(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(workC(1,nR),djdt(llm:ulm,nR))
-            call scatter_from_rank0_to_lo(workD(1,nR),b(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workA(:,nR),aj(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workB(:,nR),dbdt(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workC(:,nR),djdt(llm:ulm,nR))
+            call scatter_from_rank0_to_lo(workD(:,nR),b(llm:ulm,nR))
          end do
       end if
 
@@ -523,10 +523,10 @@ contains
                end if
 
                do nR=1,n_r_ic_max
-                  call scatter_from_rank0_to_lo(workA(1,nR),aj_ic(llm,nR))
-                  call scatter_from_rank0_to_lo(workB(1,nR),dbdt_ic(llm,nR))
-                  call scatter_from_rank0_to_lo(workC(1,nR),djdt_ic(llm,nR))
-                  call scatter_from_rank0_to_lo(workD(1,nR),b_ic(llm,nR))
+                  call scatter_from_rank0_to_lo(workA(:,nR),aj_ic(llm:ulm,nR))
+                  call scatter_from_rank0_to_lo(workB(:,nR),dbdt_ic(llm:ulm,nR))
+                  call scatter_from_rank0_to_lo(workC(:,nR),djdt_ic(llm:ulm,nR))
+                  call scatter_from_rank0_to_lo(workD(:,nR),b_ic(llm:ulm,nR))
                end do
 
             else if ( l_cond_ic ) then

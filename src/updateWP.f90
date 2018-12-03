@@ -254,10 +254,10 @@ contains
                !PERFON('upWP_mat')
                if ( l_double_curl ) then
                   call get_wMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                       &         wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
+                       &        wpMat(:,:,l1),wpPivot(:,l1),wpMat_fac(:,:,l1))
                else
                   call get_wpMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                       &        wpMat(1,1,l1),wpPivot(1,l1),wpMat_fac(1,1,l1))
+                       &         wpMat(:,:,l1),wpPivot(:,l1),wpMat_fac(:,:,l1))
                end if
                lWPmat(l1)=.true.
                !PERFOFF

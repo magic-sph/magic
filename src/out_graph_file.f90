@@ -847,14 +847,14 @@ contains
       do nR=2,n_r_ic_max  ! nR=1 is ICB
     
          if ( l_cond_ic ) then
-            call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                 &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+            call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                 &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
                  &          l_max,minc,r_ic(nR),r_ICB,.false.,   &
                  &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                  &          cbhG,cbhC)
          else
-            call legPrep_IC(bICB(:),db_ic(1,1),ddb_ic(1,1),aj_ic(1,1), &
-                 &          dj_ic(1,1),dLh,lm_max,l_max,minc,r_ic(nR), &
+            call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),aj_ic(:,1), &
+                 &          dj_ic(:,1),dLh,lm_max,l_max,minc,r_ic(nR), &
                  &          r_ICB,.false.,.true.,l_cond_ic,dLhb,bhG,   &
                  &          bhC,dLhj,cbhG,cbhC)
          end if
@@ -1013,7 +1013,7 @@ contains
 
          call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_OUT_REAL,1, &
                              MPI_INTEGER,status,ierr)
-         call MPI_FILE_WRITE(graph_mpi_fh,dummy(1,n_theta),n_phis, &
+         call MPI_FILE_WRITE(graph_mpi_fh,dummy(:,n_theta),n_phis, &
                              MPI_OUT_REAL,status,ierr)
          call MPI_FILE_WRITE(graph_mpi_fh,n_phis*SIZEOF_OUT_REAL,1, &
                              MPI_INTEGER,status,ierr)

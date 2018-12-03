@@ -821,7 +821,8 @@ contains
   
             !----- Getting the property parameters:
             Re     = sqrt(two*e_kin/vol_oc/eScale)/sqrt(mass)
-            if ( abs(e_kin_nas) <= 10.0_cp * epsilon(mass) ) e_kin_nas=0.0_cp
+            if ( ( abs(e_kin_nas) <= 10.0_cp * epsilon(mass) ) .or. &
+            &     e_kin_nas < 0.0_cp ) e_kin_nas=0.0_cp
             ReConv = sqrt(two*e_kin_nas/vol_oc/eScale)/sqrt(mass)
   
             if ( l_non_rot ) then

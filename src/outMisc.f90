@@ -132,10 +132,10 @@ contains
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
-            call lmAS2pt(HelLMr(1,n_r),Hel,nThetaStart,sizeThetaB)
-            call lmAS2pt(Hel2LMr(1,n_r),Hel2,nThetaStart,sizeThetaB)
-            call lmAS2pt(HelnaLMr(1,n_r),Helna,nThetaStart,sizeThetaB)
-            call lmAS2pt(Helna2LMr(1,n_r),Helna2,nThetaStart,sizeThetaB)
+            call lmAS2pt(HelLMr(:,n_r),Hel,nThetaStart,sizeThetaB)
+            call lmAS2pt(Hel2LMr(:,n_r),Hel2,nThetaStart,sizeThetaB)
+            call lmAS2pt(HelnaLMr(:,n_r),Helna,nThetaStart,sizeThetaB)
+            call lmAS2pt(Helna2LMr(:,n_r),Helna2,nThetaStart,sizeThetaB)
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2

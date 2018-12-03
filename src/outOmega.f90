@@ -60,7 +60,7 @@ contains
 
       !--- Transform to lm-space for all radial grid points:
       do nR=1,n_r_max
-         dzVpLMr_loc(1,nR)=0.0_cp
+         dzVpLMr_loc(:,nR)=0.0_cp
          do lm=llm,ulm
             l=lo_map%lm2l(lm)
             m=lo_map%lm2m(lm)

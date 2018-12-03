@@ -257,10 +257,10 @@ contains
             if ( .not. lZmat(l1) ) then
 #ifdef WITH_PRECOND_Z
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(1,1,l1),zPivot(1,l1),zMat_fac(1,l1))
+                    &        zMat(:,:,l1),zPivot(:,l1),zMat_fac(:,l1))
 #else
                call get_zMat(dt,l1,hdif_V(st_map%lm2(l1,0)), &
-                    &        zMat(1,1,l1),zPivot(1,l1))
+                    &        zMat(:,:,l1),zPivot(:,l1))
 #endif
                lZmat(l1)=.true.
             !write(*,"(A,I3,A,2ES20.12)") "zMat(",l1,") = ",SUM(zMat(:,:,l1))

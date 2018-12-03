@@ -217,10 +217,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
+                    &        sMat(:,:,l1),sPivot(:,l1),sMat_fac(:,l1))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(1,1,l1),sPivot(1,l1))
+                    &        sMat(:,:,l1),sPivot(:,l1))
 #endif
                lSmat(l1)=.true.
                !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )
@@ -513,10 +513,10 @@ contains
             if ( .not. lSmat(l1) ) then
 #ifdef WITH_PRECOND_S
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(1,1,l1),sPivot(1,l1),sMat_fac(1,l1))
+                    &        sMat(:,:,l1),sPivot(:,l1),sMat_fac(:,l1))
 #else
                call get_sMat(dt,l1,hdif_S(st_map%lm2(l1,0)), &
-                    &        sMat(1,1,l1),sPivot(1,l1))
+                    &        sMat(:,:,l1),sPivot(:,l1))
 #endif
                lSmat(l1)=.true.
              !write(*,"(A,I3,ES22.14)") "sMat: ",l1,SUM( sMat(:,:,l1) )

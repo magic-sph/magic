@@ -169,7 +169,7 @@ contains
          do n=1,nThetaBs ! Loop over theta blocks
             nTheta=(n-1)*sizeThetaB
             nThetaStart=nTheta+1
-            call lmAS2pt(viscLMr(1,n_r),visc,nThetaStart,sizeThetaB)
+            call lmAS2pt(viscLMr(:,n_r),visc,nThetaStart,sizeThetaB)
             do nThetaBlock=1,sizeThetaB
                nTheta=nTheta+1
                nThetaNHS=(nTheta+1)/2

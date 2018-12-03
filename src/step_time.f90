@@ -404,18 +404,10 @@ contains
       integer :: nR_i1,nR_i2
       ! MPI related variables
       integer :: info
-      !integer :: lmStart_on_rank,lmStop_on_rank,nR
       integer, allocatable :: recvcounts(:),displs(:)
-      !character(len=MPI_max_ERROR_STRING) :: error_string
       integer :: nLMB
-      !integer :: nR,length_of_error
 
-      complex(cp), pointer :: ptr_dbdt_CMB(:)
-      !real(cp) :: start_time, end_time
-
-      !integer :: signal_window
       integer(lip) :: time_in_ms
-
 
       if ( lVerbose ) write(*,'(/,'' ! STARTING STEP_TIME !'')')
 
@@ -1076,9 +1068,9 @@ contains
          ! ==================================================================
          if ( lVerbose ) write(*,*) "! start output"
          PERFON('output')
-         if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
-            ptr_dbdt_CMB => dbdt_Rloc(:,n_r_cmb)
-            call scatter_from_rank0_to_lo(ptr_dbdt_CMB, dbdt_CMB_LMloc)
+         !if ( nRstart <= n_r_cmb .and. l_cmb .and. l_dt_cmb_field ) then
+         if ( l_cmb .and. l_dt_cmb_field ) then
+            call scatter_from_rank0_to_lo(dbdt_Rloc(:,n_r_cmb), dbdt_CMB_LMloc)
          end if
          if ( lVerbose ) write(*,*) "! start real output"
          call output(time,dt,dtNew,n_time_step,l_stop_time,                &

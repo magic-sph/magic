@@ -8,8 +8,7 @@ module out_movie_IC
    use radial_functions, only: r_ic, r_ICB, O_r_ic2, O_r_ic
    use physical_parameters, only: LFfac
    use blocking, only: sizeThetaB, nThetaBs, nfs
-   use horizontal_data, only: dLh, Plm, dPlm, n_theta_cal2ord, &
-       &                      O_sin_theta
+   use horizontal_data, only: dLh, Plm, dPlm, n_theta_cal2ord, O_sin_theta
    use logic, only: l_cond_ic
    use movie_data, only: frames, n_movie_field_stop, n_movie_field_start, &
        &                 n_movie_type, n_movie_const, n_movie_fields_ic,  &
@@ -91,14 +90,14 @@ contains
             do nR=2,n_r_ic_max-1
     
                if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
                else
-                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
-                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
+                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
@@ -164,8 +163,8 @@ contains
                               n_o=n_o_r+(nTheta-1)*n_phi_max
                               do nPhi=1,n_phi_max
                                  frames(nPhi+n_o)= help*O_sin_theta(nThetaC) * &
-                                      ( cBrB(nPhi,nThetaR)*BtB(nPhi,nThetaR) - &
-                                        cBtB(nPhi,nThetaR)*BrB(nPhi,nThetaR) )
+                                 &    ( cBrB(nPhi,nThetaR)*BtB(nPhi,nThetaR) - &
+                                 &      cBtB(nPhi,nThetaR)*BrB(nPhi,nThetaR) )
                               end do
                            end do
                         end if
@@ -183,14 +182,14 @@ contains
             nR=abs(n_const)
     
             if ( l_cond_ic ) then
-               call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                    &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+               call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                    &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
                     &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                     &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                     &          cbhG,cbhC)
             else
-               call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
-                    &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+               call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
+                    &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
                     &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                     &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                     &          cbhG,cbhC)
@@ -258,14 +257,14 @@ contains
             do nR=2,n_r_ic_max-1
     
                if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
                else
-                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
-                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
+                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
@@ -335,14 +334,14 @@ contains
             do nR=2,n_r_ic_max-1
     
                if ( l_cond_ic ) then
-                  call legPrep_IC(b_ic(1,nR),db_ic(1,nR),ddb_ic(1,nR), &
-                       &          aj_ic(1,nR),dj_ic(1,nR),dLh,lm_max,  &
+                  call legPrep_IC(b_ic(:,nR),db_ic(:,nR),ddb_ic(:,nR), &
+                       &          aj_ic(:,nR),dj_ic(:,nR),dLh,lm_max,  &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
                else
-                  call legPrep_IC(bICB(1),db_ic(1,1),ddb_ic(1,1),      &
-                       &          aj_ic(1,1),dj_ic(1,1),dLh,lm_max,    &
+                  call legPrep_IC(bICB(:),db_ic(:,1),ddb_ic(:,1),      &
+                       &          aj_ic(:,1),dj_ic(:,1),dLh,lm_max,    &
                        &          l_max,minc,r_ic(nR),r_ICB,.true.,    &
                        &          .true.,l_cond_ic,dLhb,bhG,bhC,dLhj,  &
                        &          cbhG,cbhC)
@@ -366,8 +365,8 @@ contains
                   else
                      !------ Preform Legendre transform:
                      call legTF(dLhb,bhG,bhC,dLhj,cbhG,cbhC,l_max,minc, & 
-                                nThetaStart,sizeThetaB,Plm,dPlm,.true., &
-                                .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
+                          &     nThetaStart,sizeThetaB,Plm,dPlm,.true., &
+                          &     .true.,BrB,BtB,BpB,cBrB,cBtB,cBpB)
                      if ( .not. l_axi ) then
                         call fft_thetab(BrB,1)
                         call fft_thetab(BtB,1)
@@ -399,20 +398,20 @@ contains
                               nThetaC=nThetaStart-1+nThetaR
                               nTheta=n_theta_cal2ord(nThetaC)
                               n_o=n_o_r+nTheta
-                              frames(n_o)=BtB(nPhi0,nThetaR) * &
-                                          O_r_ic(nR)*O_sin_theta(nThetaC)
+                              frames(n_o)=BtB(nPhi0,nThetaR) *                &
+                              &           O_r_ic(nR)*O_sin_theta(nThetaC)
                               frames(n_o+n_field_size)=BtB(nPhi180,nThetaR) * &
-                                            O_r_ic(nR)*O_sin_theta(nThetaC)
+                              &             O_r_ic(nR)*O_sin_theta(nThetaC)
                           end do
                         else if ( n_field_type == 3 ) then
                             do nThetaR=1,sizeThetaB
                                nThetaC=nThetaStart-1+nThetaR
                                nTheta=n_theta_cal2ord(nThetaC)
                                n_o=n_o_r+nTheta
-                               frames(n_o)=BpB(nPhi0,nThetaR) * &
-                                           O_r_ic(nR)*O_sin_theta(nThetaC)
+                               frames(n_o)=BpB(nPhi0,nThetaR) *                 &
+                               &           O_r_ic(nR)*O_sin_theta(nThetaC)
                                frames(n_o+n_field_size)= BpB(nPhi180,nThetaR) * &
-                                                 O_r_ic(nR)*O_sin_theta(nThetaC)
+                               &                 O_r_ic(nR)*O_sin_theta(nThetaC)
                            end do
                         else if ( n_field_type == 8 ) then
                            do nThetaR=1,sizeThetaB
@@ -440,11 +439,11 @@ contains
                               nTheta=n_theta_cal2ord(nThetaC)
                               n_o=n_o_r+nTheta
                               frames(n_o)=        help*O_sin_theta(nThetaC) * &
-                                   ( cBrB(nPhi0,nThetaR)*BtB(nPhi0,nThetaR) - &
-                                     cBtB(nPhi0,nThetaR)*BrB(nPhi0,nThetaR) )
+                              &    ( cBrB(nPhi0,nThetaR)*BtB(nPhi0,nThetaR) - &
+                              &      cBtB(nPhi0,nThetaR)*BrB(nPhi0,nThetaR) )
                               frames(n_o)=            help*O_sin_theta(nThetaC) * &
-                                   ( cBrB(nPhi180,nThetaR)*BtB(nPhi180,nThetaR) - &
-                                     cBtB(nPhi180,nThetaR)*BrB(nPhi180,nThetaR) )
+                              &    ( cBrB(nPhi180,nThetaR)*BtB(nPhi180,nThetaR) - &
+                              &      cBtB(nPhi180,nThetaR)*BrB(nPhi180,nThetaR) )
                            end do
                         else
                            do nThetaR=1,sizeThetaB

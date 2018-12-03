@@ -769,8 +769,6 @@ contains
          end do
       end do
 
-      print*, rank, tops(10:11,3:4)
-
    end subroutine initS
 !---------------------------------------------------------------------------
    subroutine initXi(xi)
