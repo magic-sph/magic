@@ -7,12 +7,12 @@ module rIterThetaBlocking_OpenMP_mod
    use rIterThetaBlocking_mod, only: rIterThetaBlocking_t
 
    use truncation, only: lm_max, lmP_max, nrp, l_max, lmP_max_dtB,&
-                   &     n_phi_maxStr, n_theta_maxStr, n_r_maxStr
+       &                 n_phi_maxStr, n_theta_maxStr, n_r_maxStr
    use blocking, only: nfs
    use logic, only: l_mag, l_conv, l_mag_kin, l_heat, l_ht, l_anel, l_mag_LF, &
-              &     l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
-              &     l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
-              &     l_movie_oc, l_TO, l_chemical_conv, l_TP_form, l_probe
+       &            l_conv_nl, l_mag_nl, l_b_nl_cmb, l_b_nl_icb, l_rot_ic,    &
+       &            l_cond_ic, l_rot_ma, l_cond_ma, l_dtB, l_store_frame,     &
+       &            l_movie_oc, l_TO, l_chemical_conv, l_TP_form, l_probe
    use radial_data, only: n_r_cmb, n_r_icb
    use radial_functions, only: or2, orho1
    use constants, only: zero
@@ -119,14 +119,14 @@ contains
    end subroutine finalize_rIterThetaBlocking_OpenMP
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_OpenMP(this,nR,nBc,time,dt,dtLast,&
-        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
-        &                 dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
-        &                 br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
-        &                 lorentz_torque_ic, lorentz_torque_ma,            &
-        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
-        &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
-        &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
-        &                 EparaxiLMr)
+              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,     &
+              &           dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,      &
+              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,          &
+              &           lorentz_torque_ic, lorentz_torque_ma,            &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
+              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+              &           EparaxiLMr)
 
       class(rIterThetaBlocking_OpenMP_t) :: this
       integer,  intent(in) :: nR,nBc
@@ -173,8 +173,8 @@ contains
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc,&
-           &                        this%lPressCalc,this%l_frame,this%lTOnext, &
-           &                        this%lTOnext2,this%lTOcalc)
+           &                        this%l_frame,this%lTOnext,this%lTOnext2,   &
+           &                        this%lTOcalc)
       !PERFOFF
 
       !if (DEBUG_OUTPUT) then
@@ -438,22 +438,22 @@ contains
 
          if ( this%lFluxProfCalc ) then
              call get_fluxes(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc,   &
-                    &        this%gsa(threadid)%vpc,this%gsa(threadid)%dvrdrc,&
-                    &        this%gsa(threadid)%dvtdrc,                       &
-                    &        this%gsa(threadid)%dvpdrc,                       &
-                    &        this%gsa(threadid)%dvrdtc,                       &
-                    &        this%gsa(threadid)%dvrdpc,this%gsa(threadid)%sc, &
-                    &        this%gsa(threadid)%pc,this%gsa(threadid)%brc,    &
-                    &        this%gsa(threadid)%btc,this%gsa(threadid)%bpc,   &
-                    &        this%gsa(threadid)%cbtc,this%gsa(threadid)%cbpc, &
-                    &        fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,   &
-                    &        nThetaStart)
+                  &          this%gsa(threadid)%vpc,this%gsa(threadid)%dvrdrc,&
+                  &          this%gsa(threadid)%dvtdrc,                       &
+                  &          this%gsa(threadid)%dvpdrc,                       &
+                  &          this%gsa(threadid)%dvrdtc,                       &
+                  &          this%gsa(threadid)%dvrdpc,this%gsa(threadid)%sc, &
+                  &          this%gsa(threadid)%pc,this%gsa(threadid)%brc,    &
+                  &          this%gsa(threadid)%btc,this%gsa(threadid)%bpc,   &
+                  &          this%gsa(threadid)%cbtc,this%gsa(threadid)%cbpc, &
+                  &          fconvLMr,fkinLMr,fviscLMr,fpoynLMr,fresLMr,nR,   &
+                  &          nThetaStart)
          end if
 
          if ( this%lPerpParCalc ) then
              call get_perpPar(this%gsa(threadid)%vrc,this%gsa(threadid)%vtc, &
-                    &         this%gsa(threadid)%vpc,EperpLMr,EparLMr,       &
-                    &         EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
+                  &           this%gsa(threadid)%vpc,EperpLMr,EparLMr,       &
+                  &           EperpaxiLMr,EparaxiLMr,nR,nThetaStart)
          end if
 
 
@@ -590,24 +590,24 @@ contains
       !$OMP SECTION
       do iThread=1,this%nThreads-1
          this%nl_lm(0)%ViscHeatLM=this%nl_lm(0)%ViscHeatLM +  &
-                                  this%nl_lm(iThread)%ViscHeatLM
+         &                        this%nl_lm(iThread)%ViscHeatLM
          this%nl_lm(0)%OhmLossLM=this%nl_lm(0)%OhmLossLM +    &
-                                 this%nl_lm(iThread)%OhmLossLM
+         &                       this%nl_lm(iThread)%OhmLossLM
          this%lorentz_torque_ma(0) = this%lorentz_torque_ma(0) + &
-                                     this%lorentz_torque_ma(iThread)
+         &                           this%lorentz_torque_ma(iThread)
       end do
 
       !$OMP SECTION
       if ( this%lTOCalc ) then
          do iThread=1,this%nThreads-1
             this%TO_arrays(0)%dzRstrLM=this%TO_arrays(0)%dzRstrLM + &
-                                       this%TO_arrays(iThread)%dzRstrLM
+            &                          this%TO_arrays(iThread)%dzRstrLM
             this%TO_arrays(0)%dzAstrLM=this%TO_arrays(0)%dzAstrLM + &
-                                       this%TO_arrays(iThread)%dzAstrLM
+            &                          this%TO_arrays(iThread)%dzAstrLM
             this%TO_arrays(0)%dzCorLM=this%TO_arrays(0)%dzCorLM + &
-                                       this%TO_arrays(iThread)%dzCorLM
+            &                          this%TO_arrays(iThread)%dzCorLM
             this%TO_arrays(0)%dzLFLM=this%TO_arrays(0)%dzLFLM + &
-                                       this%TO_arrays(iThread)%dzLFLM
+            &                          this%TO_arrays(iThread)%dzLFLM
          end do
       end if
 
@@ -629,33 +629,33 @@ contains
       if ( l_dtB ) then
          do iThread=1,this%nThreads-1
             this%dtB_arrays(0)%BtVrLM = this%dtB_arrays(0)%BtVrLM + &
-                                        this%dtB_arrays(iThread)%BtVrLM
+            &                           this%dtB_arrays(iThread)%BtVrLM
             this%dtB_arrays(0)%BpVrLM = this%dtB_arrays(0)%BpVrLM + &
-                                        this%dtB_arrays(iThread)%BpVrLM
+            &                           this%dtB_arrays(iThread)%BpVrLM
             this%dtB_arrays(0)%BrVtLM = this%dtB_arrays(0)%BrVtLM + &
-                                        this%dtB_arrays(iThread)%BrVtLM
+            &                           this%dtB_arrays(iThread)%BrVtLM
             this%dtB_arrays(0)%BrVpLM = this%dtB_arrays(0)%BrVpLM + &
-                                        this%dtB_arrays(iThread)%BrVpLM
+            &                           this%dtB_arrays(iThread)%BrVpLM
             this%dtB_arrays(0)%BtVpLM = this%dtB_arrays(0)%BtVpLM + &
-                                        this%dtB_arrays(iThread)%BtVpLM
+            &                           this%dtB_arrays(iThread)%BtVpLM
             this%dtB_arrays(0)%BpVtLM = this%dtB_arrays(0)%BpVtLM + &
-                                        this%dtB_arrays(iThread)%BpVtLM
+            &                           this%dtB_arrays(iThread)%BpVtLM
             this%dtB_arrays(0)%BrVZLM = this%dtB_arrays(0)%BrVZLM + &
-                                        this%dtB_arrays(iThread)%BrVZLM
+            &                           this%dtB_arrays(iThread)%BrVZLM
             this%dtB_arrays(0)%BtVZLM = this%dtB_arrays(0)%BtVZLM + &
-                                        this%dtB_arrays(iThread)%BtVZLM
+            &                           this%dtB_arrays(iThread)%BtVZLM
             this%dtB_arrays(0)%BtVpCotLM = this%dtB_arrays(0)%BtVpCotLM + &
-                                           this%dtB_arrays(iThread)%BtVpCotLM
+            &                              this%dtB_arrays(iThread)%BtVpCotLM
             this%dtB_arrays(0)%BpVtCotLM = this%dtB_arrays(0)%BpVtCotLM + &
-                                           this%dtB_arrays(iThread)%BpVtCotLM
+            &                              this%dtB_arrays(iThread)%BpVtCotLM
             this%dtB_arrays(0)%BtVZcotLM = this%dtB_arrays(0)%BtVZcotLM + &
-                                           this%dtB_arrays(iThread)%BtVZcotLM
+            &                              this%dtB_arrays(iThread)%BtVZcotLM
             this%dtB_arrays(0)%BtVpSn2LM = this%dtB_arrays(0)%BtVpSn2LM + &
-                                           this%dtB_arrays(iThread)%BtVpSn2LM
+            &                              this%dtB_arrays(iThread)%BtVpSn2LM
             this%dtB_arrays(0)%BpVtSn2LM = this%dtB_arrays(0)%BpVtSn2LM + &
-                                           this%dtB_arrays(iThread)%BpVtSn2LM
+            &                              this%dtB_arrays(iThread)%BpVtSn2LM
             this%dtB_arrays(0)%BtVZsn2LM = this%dtB_arrays(0)%BtVZsn2LM + &
-                                           this%dtB_arrays(iThread)%BtVZsn2LM
+            &                              this%dtB_arrays(iThread)%BtVZsn2LM
          end do
       end if
 
@@ -700,7 +700,7 @@ contains
       call this%nl_lm(0)%get_td(this%nR,this%nBc,this%lRmsCalc,             &
            &                    this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,      &
            &                    dVxVhLM,dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,  &
-           &                    dbdt,djdt,this%leg_helper)
+           &                    dbdt,djdt)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

@@ -84,14 +84,14 @@ contains
    end subroutine finalize_rIterThetaBlocking_seq
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_seq(this,nR,nBc,time,dt,dtLast,&
-        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,  &
-        &                 dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,   &
-        &                 br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
-        &                 lorentz_torque_ic, lorentz_torque_ma,         &
-        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
-        &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
-        &                 fviscLMr,fpoynLMr,fresLMr,EperpLMr,EparLMr,   &
-        &                 EperpaxiLMr,EparaxiLmr)
+              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,dVxVhLM,  &
+              &           dVxBhLM,dVSrLM,dVPrLM,dVXirLM,br_vt_lm_cmb,   &
+              &           br_vp_lm_cmb,br_vt_lm_icb,br_vp_lm_icb,       &
+              &           lorentz_torque_ic, lorentz_torque_ma,         &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,    &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,       &
+              &           fviscLMr,fpoynLMr,fresLMr,EperpLMr,EparLMr,   &
+              &           EperpaxiLMr,EparaxiLmr)
 
       class(rIterThetaBlocking_seq_t) :: this
   
@@ -150,8 +150,8 @@ contains
       end if
   
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-               &                    this%lPressCalc,this%l_frame,this%lTOnext,  &
-               &                    this%lTOnext2,this%lTOcalc)
+           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
+           &                        this%lTOcalc)
       PERFOFF
 
       lorentz_torque_ma = 0.0_cp
@@ -400,8 +400,7 @@ contains
       PERFON('get_td')
       call this%nl_lm%get_td(this%nR,this%nBc,this%lRmsCalc,                 &
            &                 this%lPressCalc,dVSrLM,dVPrLM,dVXirLM,dVxVhLM,  &
-           &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt,    &
-           &                 this%leg_helper)
+           &                 dVxBhLM,dwdt,dzdt,dpdt,dsdt,dxidt,dbdt,djdt)
       PERFOFF
       !do lm=1,lm_max
       !   write(*,"(2(I3,A),2ES20.12)") this%nR,": dwdt(",lm,") = ",dwdt(lm)

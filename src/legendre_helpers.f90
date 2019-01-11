@@ -9,12 +9,9 @@ module leg_helper_mod
    use special, only: lGrenoble, b0, db0, ddb0
    use blocking, only: lm2l, lm2m, lm2
    use horizontal_data, only: dLh
-   use logic, only: l_conv, l_mag_kin, l_heat, l_mag, l_movie_oc,    &
-       &            l_mag_LF, l_fluxProfs, l_chemical_conv
-   use fields, only: s_Rloc,ds_Rloc, z_Rloc,dz_Rloc, p_Rloc,dp_Rloc, &
-       &             b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc,dj_Rloc,       &
-       &             w_Rloc,dw_Rloc,ddw_Rloc, omega_ic,omega_ma,     &
-       &             xi_Rloc
+   use logic, only: l_conv, l_mag_kin, l_mag, l_movie_oc, l_mag_LF
+   use fields, only: z_Rloc,dz_Rloc, b_Rloc,db_Rloc,ddb_Rloc, aj_Rloc, &
+       &             dj_Rloc, w_Rloc, dw_Rloc, ddw_Rloc, omega_ic,omega_ma
    use constants, only: zero, one, two
 
    implicit none
@@ -28,12 +25,10 @@ module leg_helper_mod
       complex(cp), allocatable :: dLhw(:), dLhdw(:), dLhz(:), dLhb(:), dLhj(:)
       complex(cp), allocatable :: vhG(:), vhC(:), dvhdrG(:), dvhdrC(:)
       complex(cp), allocatable :: bhG(:), bhC(:), cbhG(:), cbhC(:)
-      !----- R-distributed versions of scalar fields (see c_fields.f):
-      complex(cp), allocatable :: sR(:), dsR(:), preR(:), dpR(:)
-      complex(cp), allocatable :: xiR(:)
+      complex(cp), allocatable :: bCMB(:)
+      !----- R-distributed versions of scalar fields (see fields.f90):
       real(cp), allocatable :: zAS(:), dzAS(:), ddzAS(:) ! used in TO
       real(cp) :: omegaIC,omegaMA
-      complex(cp), allocatable :: bCMB(:)
    contains
 
       procedure :: initialize
@@ -51,6 +46,7 @@ contains
       class(leg_helper_t) :: this
       integer,intent(in) :: lm_max,lm_maxMag,l_max
 
+#ifndef WITH_SHTNS
       allocate( this%dLhw(lm_max) )
       allocate( this%dLhdw(lm_max) )
       allocate( this%dLhz(lm_max) )
@@ -66,15 +62,7 @@ contains
       allocate( this%cbhG(lm_maxMag) )
       allocate( this%cbhC(lm_maxMag) )
       bytes_allocated = bytes_allocated+4*lm_maxMag*SIZEOF_DEF_COMPLEX
-      !----- R-distributed versions of scalar fields (see c_fields.f):
-      allocate( this%sR(lm_max),this%dsR(lm_max) )
-      allocate( this%preR(lm_max),this%dpR(lm_max) )
-      bytes_allocated = bytes_allocated+4*lm_max*SIZEOF_DEF_COMPLEX
-
-      if ( l_chemical_conv ) then
-         allocate( this%xiR(lm_max) )
-         bytes_allocated = bytes_allocated+lm_max*SIZEOF_DEF_COMPLEX
-      end if
+#endif
 
       allocate( this%zAS(l_max+1),this%dzAS(l_max+1),this%ddzAS(l_max+1) ) ! used in TO
       bytes_allocated = bytes_allocated+3*(l_max+1)*SIZEOF_DEF_REAL
@@ -88,18 +76,18 @@ contains
 
       class(leg_helper_t) :: this
 
+#ifndef WITH_SHTNS
       deallocate( this%dLhw, this%dLhdw, this%dLhz, this%dLhb, this%dLhj )
       deallocate( this%vhG, this%vhC, this%dvhdrG, this%dvhdrC )
-      deallocate( this%bhG, this%bhC, this%cbhG, this%cbhC, this%sR, this%dsR )
-      deallocate( this%preR, this%dpR, this%zAS, this%dzAS, this%ddzAS )
+      deallocate( this%bhG, this%bhC, this%cbhG, this%cbhC )
+#endif
+      deallocate( this%zAS, this%dzAS, this%ddzAS )
       deallocate( this%bCMB )
-
-      if ( l_chemical_conv ) deallocate( this%xiR )
 
    end subroutine finalize
 !------------------------------------------------------------------------------
-   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,lPressCalc,l_frame, &
-        &              lTOnext,lTOnext2,lTOcalc)
+   subroutine legPrepG(this,nR,nBc,lDeriv,lRmsCalc,l_frame,lTOnext,lTOnext2, &
+              &        lTOcalc)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
       !  from (r,l,m) space to (r,theta,m) space by calculating           
@@ -120,7 +108,6 @@ contains
       integer, intent(in) :: nBc         ! boundary condition
       logical, intent(in) :: lDeriv      ! get also field derivatives !
       logical, intent(in) :: lRmsCalc    ! Rms force balance ?
-      logical, intent(in) :: lPressCalc  ! Pressure ?
       logical, intent(in) :: l_frame     ! Calculate movie frame?
       logical, intent(in) :: lTOnext     ! for TO output
       logical, intent(in) :: lTOnext2
@@ -136,19 +123,9 @@ contains
 
       if ( nR == n_r_icb ) this%omegaIC=omega_ic
       if ( nR == n_r_cmb ) this%omegaMA=omega_ma
+
       if ( l_conv .or. l_mag_kin ) then
 
-         if ( l_heat ) then
-            do lm=1,lm_max
-               this%sR(lm) =s_Rloc(lm,nR)   
-               this%dsR(lm)=ds_Rloc(lm,nR)  ! used for plotting and Rms
-            end do
-         end if
-         if ( l_chemical_conv ) then
-            do lm=1,lm_max
-               this%xiR(lm)=xi_Rloc(lm,nR) 
-            end do
-         end if
          if ( lTOnext .or. lTOnext2 .or. lTOCalc ) then
             do lm=1,lm_max
                l=lm2l(lm)
@@ -160,12 +137,6 @@ contains
                end if
             end do
          end if
-         if ( lPressCalc ) then
-            do lm=1,lm_max
-               this%preR(lm)= p_Rloc(lm,nR) ! used for Rms in get_td (anelastic)
-               this%dpR(lm) =dp_Rloc(lm,nR) ! used for Rms in get_td
-            end do
-         end if
          if ( l_mag .and. l_frame .and. l_movie_oc .and. nR == n_r_cmb ) then
             this%bCMB(1)=zero ! used in s_store_movie_frame.f
             do lm=2,lm_max
@@ -173,6 +144,7 @@ contains
             end do
          end if
 
+#ifndef WITH_SHTNS
          if ( nBc /= 2 ) then ! nBc=2 is flag for fixed boundary
             this%dLhw(1)=zero
             this%vhG(1) =zero
@@ -206,9 +178,11 @@ contains
                     cmplx(-aimag(dz_Rloc(lm,nR)),real(dz_Rloc(lm,nR)),kind=cp)
             end do
          end if
+#endif
 
       end if
 
+#ifndef WITH_SHTNS
       if ( l_mag .or. l_mag_LF ) then
 
          !PRINT*,"aj: ",SUM(ABS(aj(:,nR))),SUM(ABS(dLh))
@@ -247,12 +221,12 @@ contains
          end if
 
       end if   ! magnetic terms required ?
+#endif
 
    end subroutine legPrepG
 !------------------------------------------------------------------------------
-   subroutine legPrep(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
-                      r,lDeriv,lHor,dLhw,vhG,vhC,dLhz,cvhG,&
-                      cvhC)
+   subroutine legPrep(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc,r,lDeriv,lHor,dLhw, &
+              &       vhG,vhC,dLhz,cvhG,cvhC)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
       !  from (r,l,m) space to (r,theta,m) space by calculating           
@@ -277,9 +251,9 @@ contains
       logical,     intent(in) :: lDeriv
 
       !-- Output variable:
-      complex(cp), intent(out) :: dLhw(*),dLhz(*)
-      complex(cp), intent(out) :: vhG(*),vhC(*)
-      complex(cp), intent(out) :: cvhG(*),cvhC(*)
+      complex(cp), intent(out) :: dLhw(lm_max),dLhz(lm_max)
+      complex(cp), intent(out) :: vhG(lm_max),vhC(lm_max)
+      complex(cp), intent(out) :: cvhG(lm_max),cvhC(lm_max)
 
       !-- Local variables:
       integer :: lm,l,m
@@ -323,9 +297,8 @@ contains
 
    end subroutine legPrep
 !------------------------------------------------------------------------------
-   subroutine legPrep_IC(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc, &
-                         r,r_ICB,lDeriv,lHor,lCondIC,dLhw,vhG,&
-                         vhC,dLhz,cvhG,cvhC)
+   subroutine legPrep_IC(w,dw,ddw,z,dz,dLh,lm_max,l_max,minc,r,r_ICB,lDeriv, &
+              &          lHor,lCondIC,dLhw,vhG,vhC,dLhz,cvhG,cvhC)
       !
       !  Purpose of this subroutine is to prepare Legendre transforms     
       !  from (r,l,m) space to (r,theta,m) space by calculating           

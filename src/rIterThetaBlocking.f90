@@ -22,6 +22,7 @@ module rIterThetaBlocking_mod
    use legendre_spec_to_grid, only: legTFG, legTFGnomag, leg_scal_to_grad_spat, &
        &                            leg_scal_to_spat
    use leg_helper_mod, only: leg_helper_t
+   use fields, only: s_Rloc, ds_Rloc, xi_Rloc, p_Rloc
    use nonlinear_lm_mod, only:nonlinear_lm_t
    use grid_space_arrays_mod, only: grid_space_arrays_t
    use physical_parameters, only: kbots,ktops,n_r_LCR
@@ -75,8 +76,8 @@ contains
       allocate( this%BpLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       allocate( this%BzLast(n_phi_maxStr,n_theta_maxStr,nRstart:nRstop) )
       bytes_allocated = bytes_allocated+ &
-                       3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*& 
-                       SIZEOF_DEF_REAL
+      &                3*n_phi_maxStr*n_theta_maxStr*(nRstop-nRstart+1)*& 
+      &                SIZEOF_DEF_REAL
 
    end subroutine allocate_common_arrays
 !-------------------------------------------------------------------------------
@@ -143,28 +144,28 @@ contains
       end if
 
       if ( l_heat ) then
-         call leg_scal_to_spat(nThetaStart, this%leg_helper%sR, gsa%sc)
+         call leg_scal_to_spat(nThetaStart, s_Rloc(:,this%nR), gsa%sc)
       end if
 
       if ( l_chemical_conv ) then
-         call leg_scal_to_spat(nThetaStart, this%leg_helper%xiR, gsa%xic)
+         call leg_scal_to_spat(nThetaStart, xi_Rloc(:,this%nR), gsa%xic)
       end if
 
       if ( this%lPressCalc ) then
-         call leg_scal_to_spat(nThetaStart, this%leg_helper%preR, gsa%pc)
+         call leg_scal_to_spat(nThetaStart, p_Rloc(:,this%nR), gsa%pc)
       end if
 
       if ( l_HT .or. this%lViscBcCalc ) then
-         call leg_scal_to_spat(nThetaStart, this%leg_helper%dsR, gsa%drSc)
+         call leg_scal_to_spat(nThetaStart, ds_Rloc(:,this%nR), gsa%drSc)
       end if
 
       if ( this%lViscBcCalc ) then
-         call leg_scal_to_grad_spat(nThetaStart, this%leg_helper%sR, &
+         call leg_scal_to_grad_spat(nThetaStart, s_Rloc(:,this%nR), &
               &                     gsa%dsdtc, gsa%dsdpc)
       end if
 
       if ( this%lRmsCalc ) then
-         call leg_scal_to_grad_spat(nThetaStart, this%leg_helper%preR, &
+         call leg_scal_to_grad_spat(nThetaStart, p_Rloc(:,this%nR), &
               &                     gsa%dpdtc, gsa%dpdpc)
       end if
 

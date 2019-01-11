@@ -6,8 +6,8 @@ module radialLoop
    use truncation, only: lm_max, lm_maxMag, l_max, l_maxMag, lmP_max
    use physical_parameters, only: ktopv, kbotv
    use blocking, only: nThetaBs, sizeThetaB
-   use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic,    &
-       &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,               &
+   use logic, only: l_dtB, l_mag, l_mag_LF, lVerbose, l_rot_ma, l_rot_ic, &
+       &            l_cond_ic, l_mag_kin, l_cond_ma, l_mag_nl,            &
        &            l_single_matrix, l_double_curl, l_chemical_conv
    use constants, only: zero
    use parallel_mod, only: rank, n_procs
@@ -243,18 +243,18 @@ contains
                !nR  = n_r_cmb
                nBc = ktopv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame .or. lPerpParCalc   &
-            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &          lPowerCalc
+               &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
+               &       lPowerCalc
             else
                cycle   ! Nothing needs to be done by thread one !
             end if
-         elseif ( nR == n_r_icb ) then
+         else if ( nR == n_r_icb ) then
             if ( lOutBc ) then
                !nR = n_r_icb
                nBc = kbotv
                lDeriv= lTOCalc .or. lHelCalc .or. l_frame  .or. lPerpParCalc  &
-            &          .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
-            &          lPowerCalc
+               &       .or. lViscBcCalc .or. lFluxProfCalc .or. lRmsCalc .or. &
+               &       lPowerCalc
             else
                cycle
             end if

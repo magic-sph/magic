@@ -98,15 +98,15 @@ contains
    end subroutine finalize_rIterThetaBlocking_shtns
 !------------------------------------------------------------------------------
    subroutine do_iteration_ThetaBlocking_shtns(this,nR,nBc,time,dt,dtLast, &
-        &                 dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,             &
-        &                 dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,           &
-        &                 br_vt_lm_cmb,br_vp_lm_cmb,                       &
-        &                 br_vt_lm_icb,br_vp_lm_icb,                       &
-        &                 lorentz_torque_ic, lorentz_torque_ma,            &
-        &                 HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
-        &                 uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
-        &                 fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
-        &                 EparaxiLMr)
+              &           dsdt,dwdt,dzdt,dpdt,dxidt,dbdt,djdt,             &
+              &           dVxVhLM,dVxBhLM,dVSrLM,dVPrLM,dVXirLM,           &
+              &           br_vt_lm_cmb,br_vp_lm_cmb,                       &
+              &           br_vt_lm_icb,br_vp_lm_icb,                       &
+              &           lorentz_torque_ic, lorentz_torque_ma,            &
+              &           HelLMr,Hel2LMr,HelnaLMr,Helna2LMr,viscLMr,       &
+              &           uhLMr,duhLMr,gradsLMr,fconvLMr,fkinLMr,fviscLMr, &
+              &           fpoynLMr,fresLMr,EperpLMr,EparLMr,EperpaxiLMr,   &
+              &           EparaxiLMr)
 
       class(rIterThetaBlocking_shtns_t) :: this
       integer,  intent(in) :: nR,nBc
@@ -148,8 +148,8 @@ contains
       end if
 
       call this%leg_helper%legPrepG(this%nR,this%nBc,this%lDeriv,this%lRmsCalc, &
-           &                        this%lPressCalc,this%l_frame,this%lTOnext,  &
-           &                        this%lTOnext2,this%lTOcalc)
+           &                        this%l_frame,this%lTOnext,this%lTOnext2,    &
+           &                        this%lTOcalc)
 
       if (DEBUG_OUTPUT) then
          write(*,"(I3,A,I1,2(A,L1))") this%nR,": nBc = ", &
@@ -383,10 +383,10 @@ contains
       !--------- Torsional oscillation terms:
       PERFON('TO_terms')
       if ( ( this%lTONext .or. this%lTONext2 ) .and. l_mag ) then
-         call getTOnext(this%leg_helper%zAS,this%gsa%brc,   &
-              &         this%gsa%btc,this%gsa%bpc,&
+         call getTOnext(this%leg_helper%zAS,this%gsa%brc,             &
+              &         this%gsa%btc,this%gsa%bpc,                    &
               &         this%lTONext,this%lTONext2,dt,dtLast,this%nR, &
-              &         1 ,this%sizeThetaB,this%BsLast,      &
+              &         1 ,this%sizeThetaB,this%BsLast,               &
               &         this%BpLast,this%BzLast)
       end if
 
@@ -423,7 +423,7 @@ contains
       call this%nl_lm%get_td(this%nR, this%nBc, this%lRmsCalc,           &
            &                 this%lPressCalc, dVSrLM, dVPrLM, dVXirLM,   &
            &                 dVxVhLM, dVxBhLM, dwdt, dzdt, dpdt, dsdt,   &
-           &                 dxidt, dbdt, djdt, this%leg_helper)
+           &                 dxidt, dbdt, djdt)
 
       !PERFOFF
       !write(*,"(A,I4,ES20.13)") "after_td:  ", &

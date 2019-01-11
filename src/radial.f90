@@ -677,8 +677,8 @@ contains
          !      at the n_r_ic_max first points in r_ic [r_icb,0].
          !      NOTE invers order in r_ic!
          call get_chebs_even(n_r_ic_max,-r_icb,r_icb,r_cheb_ic, &
-                                   n_r_ic_max,cheb_ic,dcheb_ic, &
-                                d2cheb_ic,n_r_ic_max,n_r_ic_max)
+              &                    n_r_ic_max,cheb_ic,dcheb_ic, &
+              &                 d2cheb_ic,n_r_ic_max,n_r_ic_max)
 
          !----- Initialize transforms:
          call chebt_ic_even%initialize(n_r_ic_max-1,nDi_costf2_ic,nDd_costf2_ic)
