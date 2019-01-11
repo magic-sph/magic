@@ -521,7 +521,7 @@ contains
                thetaZ       =atan2(sZ(nS),zZ_Sloc(nZ,nS))
                OsinTS(nZ,nS)=one/sin(thetaZ)
                call plm_theta(thetaZ,l_max,0,minc,                    &
-                    &         PlmS(1,nZ,nS),dPlmS(1,nZ,nS),l_max+1,2)
+                    &         PlmS(:,nZ,nS),dPlmS(:,nZ,nS),l_max+1,2)
             end do
          end if
 
