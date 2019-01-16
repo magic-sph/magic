@@ -370,14 +370,14 @@ class MagicSpectrum(MagicSetup):
             ax = fig.add_subplot(111)
             ax.loglog(self.index, self.CorRms, label='Coriolis')
             ax.loglog(self.index, self.PreRms, label='Pressure')
-            if self.LFRms.max() > 0.:
+            if self.LFRms.max() > 1e-11:
                 ax.loglog(self.index, self.LFRms, label='Lorentz')
             ax.loglog(self.index, self.BuoRms, label='Buoyancy')
             ax.loglog(self.index, self.AdvRms, label='Advection')
             ax.loglog(self.index, self.DifRms, label='Viscosity')
             ax.loglog(self.index, self.geos, label='Coriolis-Pressure')
             ax.loglog(self.index, self.dtVRms, label='Time derivative')
-            #ax.loglog(self.index, self.arc, 'b--', label='Coriolis-Pressure-Buoyancy')
+            ax.loglog(self.index, self.arcMag, ls='--', label='Coriolis-Pressure-Buoyancy-Lorentz')
 
             if labTex:
                 ax.set_xlabel('$\ell+1$')
@@ -385,7 +385,7 @@ class MagicSpectrum(MagicSetup):
                 ax.set_xlabel('l+1')
             ax.set_ylabel('RMS forces')
             ax.set_xlim(self.index.min(), self.index.max())
-            ax.legend(loc='upper right', frameon=False)
+            ax.legend(loc='lower right', frameon=False, ncol=2)
 
 
 class MagicSpectrum2D(MagicSetup):
