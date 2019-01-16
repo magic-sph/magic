@@ -16,6 +16,21 @@ endspin() {
 }
 
 # Determines where matplotlib is installed
+hasPythonMplDarwin() {
+  if hash python 2>/dev/null; then
+    local cmd=`python $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
+    if [ -n "$cmd" ]; then
+      local backendValue=$cmd;
+    else
+      local backendValue="NotFound";
+    fi
+  else
+    local backendValue="NotFound";
+  fi
+  echo $backendValue
+
+}
+
 hasPython2Mpl() {
   if hash python2 2>/dev/null; then
     local cmd=`python2 $MAGIC_HOME/bin/testBackend.py 2> /dev/null`
@@ -73,6 +88,17 @@ hasf2py3 () {
   echo $f2pyExec
 }
 
+# Set sed command depending on OS type
+
+whichSed () {
+
+  if [[ $OSTYPE == *"darwin"* ]]; then
+      SED='sed -i -e'
+  else
+      SED='sed -i'
+  fi
+}
+
 # Awk magics to find out what are the available fortran compilers
 whichf2pycompiler () {
   local pattern=`$1 -c --help-fcompiler | awk '/Compilers available/{flag=0}flag;/compilers found/{flag=1}' | awk -F'[=| ]' '{print $4}'`
@@ -84,28 +110,28 @@ whichf2pycompiler () {
     local arr=($pattern)
     for compiler in "${arr[@]}"; do
       if [ $compiler == "intelem" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
         break
       elif [ $compiler == "intele" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
         break
       elif [ $compiler == "intel" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
         break
       elif [ $compiler == "gnu95" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
       elif [ $compiler == "pg" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
       elif [ $compiler == "nag" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
       elif [ $compiler == "gnu" ]; then
-        sed -i "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
+        $SED "s/fcompiler.*/fcompiler = $compiler/g" $MAGIC_HOME/python/magic/magic.cfg
         local selectedCompiler=$compiler;
       fi
     done
@@ -142,13 +168,13 @@ buildLibs () {
   fi
 
   if [ $f2pyExec != "NotFound" ]; then
-    sed -i "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
+    $SED "s/f2pyexec.*/f2pyexec = $f2pyExec/g" $MAGIC_HOME/python/magic/magic.cfg
 
     local selectedCompiler=$(whichf2pycompiler $f2pyExec)
     if [ $selectedCompiler == "NotFound" ]; then
-      sed -i "s/buildLib.*/buildLib = False/g" $MAGIC_HOME/python/magic/magic.cfg
+      $SED "s/buildLib.*/buildLib = False/g" $MAGIC_HOME/python/magic/magic.cfg
     else
-      sed -i "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
+      $SED "s/buildLib.*/buildLib = True/g" $MAGIC_HOME/python/magic/magic.cfg
     fi
   fi
 }
@@ -158,25 +184,38 @@ getBackend () {
   
   local backend2=$(hasPython2Mpl);
   local backend3=$(hasPython3Mpl);
+  local backendDarwin=$(hasPythonMplDarwin);
 
-  if [ $backend2 != "NotFound" ]; then
-    if [ $backend3 != "NotFound" ]; then
-      echo "matplotlib is installed for both python2 and python3"
-      echo "python2 is selected"
-    fi
-    local backendValue=$backend2
-  else
-    if [ $backend3 == "NotFound" ]; then
+
+  if [[ $OSTYPE == *"darwin"* ]]; then
+    if [ $backendDarwin == "NotFound" ]; then
       echo "matplotlib was not found"
       echo "the backend can't be set in $MAGIC_HOME/python/magic/magic.cfg"
       local backendValue="NotFound"
     else
-      local backendValue=$backend3
+      local backendValue=$backendDarwin
     fi
-  fi
+  else
+    if [ $backend2 != "NotFound" ]; then
+      if [ $backend3 != "NotFound" ]; then
+        echo "matplotlib is installed for both python2 and python3"
+        echo "python2 is selected"
+      fi
+      local backendValue=$backend2
+    else 
+      if [ $backend3 == "NotFound" ]; then
+        echo "matplotlib was not found"
+        echo "the backend can't be set in $MAGIC_HOME/python/magic/magic.cfg"
+        local backendValue="NotFound"
+      else
+        local backendValue=$backend3
+      fi
+    fi
+  fi 
+
 
   if [ $backendValue != "NotFound" ]; then
-      sed -i "s/backend.*/backend = $backendValue/g" $MAGIC_HOME/python/magic/magic.cfg
+      $SED "s/backend.*/backend = $backendValue/g" $MAGIC_HOME/python/magic/magic.cfg
   fi
 }
 
@@ -186,7 +225,7 @@ ifGWDG() {
  
   if [[ $host_name == *"gwd"* ]]
   then
-      sed -i "s/ccompiler.*/ccompiler = intelem/g" $MAGIC_HOME/python/magic/magic.cfg
+      $SED "s/ccompiler.*/ccompiler = intelem/g" $MAGIC_HOME/python/magic/magic.cfg
   fi
 
 }
@@ -198,8 +237,13 @@ if [ ! -f $MAGIC_HOME/python/magic/magic.cfg ]; then
     cp $MAGIC_HOME/python/magic/magic.cfg.default $MAGIC_HOME/python/magic/magic.cfg
     echo "Trying to setup your PATH in $MAGIC_HOME/python/magic/magic.cfg..."
     echo "It might take some seconds, but it's gonna happen only once."
+    whichSed
     buildLibs
     getBackend
     ifGWDG
   fi
+fi
+
+if [[ $OSTYPE == *"darwin"* ]];then
+    rm $MAGIC_HOME/python/magic/magic.cfg-e
 fi

@@ -15,37 +15,44 @@ def getMyMatplotlibEnv():
         backend = ''
         warnings.filterwarnings('error')
 
-        # GTKAgg is the default one
-        try:
+        if sys.platform == 'darwin':  #OSX
             try:
-                plt.switch_backend('GTKAgg')
-                return 'GTKAgg'
-            except Warning:
-                pass
-        except ImportError:
-            pass
-
-        # Qt4
-        try:
+                plt.switch_backend('macosx')
+                return 'macosx'
+            except ImportError:
+                return ''
+        else:
+            # GTKAgg is the default one
             try:
-                plt.switch_backend('Qt4Agg')
-                return 'Qt4Agg'
-            except Warning:
+                try:
+                    plt.switch_backend('GTKAgg')
+                    return 'GTKAgg'
+                except Warning:
+                    pass
+            except ImportError:
                 pass
-        except ImportError:
-            pass
 
-        # TkAgg is the fallback value
-        try:
+            # Qt4
             try:
-                plt.switch_backend('TkAgg')
-                return 'TkAgg'
-            except Warning:
+                try:
+                    plt.switch_backend('Qt4Agg')
+                    return 'Qt4Agg'
+                except Warning:
+                    pass
+            except ImportError:
                 pass
-        except ImportError:
-            pass
 
-        return ''
+            # TkAgg is the fallback value
+            try:
+                try:
+                    plt.switch_backend('TkAgg')
+                    return 'TkAgg'
+                except Warning:
+                    pass
+            except ImportError:
+                pass
+
+            return ''
 
     except ImportError:
         return ''
