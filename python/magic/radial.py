@@ -125,7 +125,7 @@ class MagicRadial(MagicSetup):
 
                     elif self.name == 'powerR':
                         data = fast_read(filename, skiplines=0)*(nml.stop_time-nml.start_time)
-                        if data.shape[1] == 4: # in that case insert an extra column
+                        if data.shape[1] == 8 or data.shape[1] == 4: # in that case insert an extra column
                             zero = np.zeros(data.shape[0], 'Float64')
                             data = np.insert(data, 1, zero, axis=1)
 
@@ -149,7 +149,7 @@ class MagicRadial(MagicSetup):
                     elif self.name == 'powerR':
                         if os.path.exists(filename):
                             dat = fast_read(filename, skiplines=0)
-                            if dat.shape[1] == 4: # in that case insert an extra column
+                            if dat.shape[1] == 8 or da.shape[1] == 4: # in that case insert an extra column
                                 zero = np.zeros(dat.shape[0], 'Float64')
                                 dat = np.insert(dat, 1, zero, axis=1)
                             data += dat*(nml.stop_time-nml.start_time)
@@ -249,11 +249,12 @@ class MagicRadial(MagicSetup):
         elif self.name == 'powerR':
             self.radius = data[:, 0]
             self.buoPower = data[:, 1]
-            if data.shape[1] == 5:
+            print(data.shape)
+            if data.shape[1] == 9 or data.shape[1] == 5:
                 self.buoPower_chem = data[:, 2]
                 self.viscDiss = data[:, 3]
                 self.ohmDiss = data[:, 4]
-            elif data.shape[1] == 4:
+            elif data.shape[1] == 8 or data.shape[1] == 4:
                 self.viscDiss = data[:, 2]
                 self.ohmDiss = data[:, 3]
         elif self.name == 'parrad':
