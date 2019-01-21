@@ -249,7 +249,6 @@ class MagicRadial(MagicSetup):
         elif self.name == 'powerR':
             self.radius = data[:, 0]
             self.buoPower = data[:, 1]
-            print(data.shape)
             if data.shape[1] == 9 or data.shape[1] == 5:
                 self.buoPower_chem = data[:, 2]
                 self.viscDiss = data[:, 3]
