@@ -244,6 +244,6 @@ if [ ! -f $MAGIC_HOME/python/magic/magic.cfg ]; then
   fi
 fi
 
-if [[ $OSTYPE == *"darwin"* ]];then
+if [[ -f $MAGIC_HOME/python/magic/magic.cfg-e ]];then
     rm $MAGIC_HOME/python/magic/magic.cfg-e
 fi
