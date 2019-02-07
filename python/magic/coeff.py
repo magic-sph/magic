@@ -505,8 +505,8 @@ class MagicCoeffCmb(MagicSetup):
         else:
             blmCut = self.blm
 
-        nlat = max(int(self.l_max_cmb*(3./2./2.)*2.),192)
-        nphi = 2*nlat/self.minc
+        nlat = int(max(int(self.l_max_cmb*(3./2./2.)*2.),192))
+        nphi = int(2*nlat/self.minc)
 
         # Define spectral transform setup
         sh = SpectralTransforms(l_max=self.l_max_cmb, minc=self.minc,
