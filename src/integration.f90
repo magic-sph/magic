@@ -79,7 +79,7 @@ contains
 
          !-- Transform to cheb space:
          call r_scheme%costf1(f2)
-         f2(1)      =half*f2(1)
+         f2(1)    =half*f2(1)
          f2(nRmax)=half*f2(nRmax)
 
          !-- Sum contribution:
