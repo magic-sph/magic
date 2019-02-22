@@ -123,7 +123,7 @@ contains
          & l_PressGraph,l_energy_modes,m_max_modes,l_probe,   &
          & r_probe,theta_probe,n_phi_probes,n_probe_step,     &
          & n_probe_out,t_probe_start,t_probe_stop,dt_probe,   &
-         & l_earth_likeness,l_max_comp
+         & l_earth_likeness,l_max_comp,l_2D_spectra
 
       namelist/mantle/conductance_ma,nRotMa,rho_ratio_ma, &
          & omega_ma1,omegaOsz_ma1,tShift_ma1,             &
@@ -1079,6 +1079,7 @@ contains
       write(n_out,'(''  l_corrMov       ='',l3,'','')') l_corrMov
       write(n_out,'(''  rCut            ='',ES14.6,'','')') rCut
       write(n_out,'(''  rDea            ='',ES14.6,'','')') rDea
+      write(n_out,'(''  l_2D_spectra    ='',l3,'','')') l_2D_spectra
       write(n_out,*) "/"
 
       write(n_out,*) "&mantle"
@@ -1374,6 +1375,7 @@ contains
       t_spec_start  =0.0_cp
       t_spec_stop   =0.0_cp
       dt_spec       =0.0_cp
+      l_2D_spectra  =.false.  ! Produce r-l-spectra
 
       !----- Output of poloidal magnetic field potential at CMB:
       !      also stored at times of movie frames
