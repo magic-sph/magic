@@ -107,7 +107,21 @@ class MagicSpectrum(MagicSetup):
             data = fast_read(filename)
 
         self.index = data[:, 0]
-        if self.name == 'kin_spec_ave' or self.name == 'kin_spec_':
+        if self.name == 'kin_spec_':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+        elif self.name == 'kin_spec_ave':
+            self.ekin_poll = data[:, 1]
+            self.ekin_polm = data[:, 2]
+            self.ekin_torl = data[:, 3]
+            self.ekin_torm = data[:, 4]
+            self.ekin_poll_SD = data[:, 5]
+            self.ekin_polm_SD = data[:, 6]
+            self.ekin_torl_SD = data[:, 7]
+            self.ekin_torm_SD = data[:, 8]
+        elif self.name == 'u2_spec_ave':
             self.ekin_poll = data[:, 1]
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
@@ -117,6 +131,10 @@ class MagicSpectrum(MagicSetup):
             self.ekin_polm = data[:, 2]
             self.ekin_torl = data[:, 3]
             self.ekin_torm = data[:, 4]
+            self.ekin_poll_SD = data[:, 5]
+            self.ekin_polm_SD = data[:, 6]
+            self.ekin_torl_SD = data[:, 7]
+            self.ekin_torm_SD = data[:, 8]
         elif self.name == 'mag_spec_':
             self.emag_poll = data[:, 1]
             self.emag_polm = data[:, 2]
@@ -136,6 +154,12 @@ class MagicSpectrum(MagicSetup):
             self.emag_torm = data[:, 4]
             self.emagcmb_l = data[:, 5]
             self.emagcmb_m = data[:, 6]
+            self.emag_poll_SD = data[:, 7]
+            self.emag_polm_SD = data[:, 8]
+            self.emag_torl_SD = data[:, 9]
+            self.emag_torm_SD = data[:, 10]
+            self.emagcmb_l_SD = data[:, 11]
+            self.emagcmb_m_SD = data[:, 12]
         elif self.name == 'dtVrms_spec':
             self.dtVRms = data[:, 1]
             self.CorRms = data[:, 2]
@@ -405,7 +429,7 @@ class MagicSpectrum2D(MagicSetup):
     """
 
     def __init__(self, datadir='.', field='e_mag', iplot=True, ispec=None,
-                 tag=None, cm='jet', levels=33, precision='Float64'):
+                 tag=None, cm='jet', levels=33, precision='Float64', ave=False):
         """
         :param field: the spectrum you want to plot, 'e_kin' for kinetic
                       energy, 'e_mag' for magnetic
@@ -425,14 +449,26 @@ class MagicSpectrum2D(MagicSetup):
         :type precision: str
         :param datadir: current working directory
         :type datadir: str
+        :param ave: plot a time-averaged spectrum when set to True
+        :type ave: bool
         """
 
-        if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR'):
-            self.name = '2D_kin_spec_'
-        elif field in ('u2'):
-            self.name = '2D_u2_spec_'
-        elif field in('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR'):
-            self.name = '2D_mag_spec_'
+        if field in ('eKin', 'ekin', 'e_kin', 'Ekin', 'E_kin', 'eKinR', 'kin'):
+            if ave:
+                self.name = '2D_kin_spec_ave'
+            else:
+                self.name = '2D_kin_spec_'
+        elif field in('eMag', 'emag', 'e_mag', 'Emag', 'E_mag', 'eMagR', 'mag'):
+            if ave:
+                self.name = '2D_mag_spec_ave'
+            else:
+                self.name = '2D_mag_spec_'
+
+        if ave:
+            self.version = 'ave'
+        else:
+            self.version = 'snap'
+
 
         if tag is not None:
             if ispec is not None:
@@ -472,9 +508,13 @@ class MagicSpectrum2D(MagicSetup):
 
         file = npfile(filename, endian='B')
 
-        out = file.fort_read('%s,3i4' % precision)[0]
-        self.time = out[0]
-        self.n_r_max, self.l_max, self.minc = out[1]
+        if self.version == 'snap':
+            out = file.fort_read('%s,3i4' % precision)[0]
+            self.time = out[0]
+            self.n_r_max, self.l_max, self.minc = out[1]
+        elif self.version == 'ave':
+            self.n_r_max, self.l_max, self.minc = file.fort_read('3i4')[0]
+            self.time = -1.
         self.rad = file.fort_read(precision, shape=(self.n_r_max))
         self.e_pol_l = file.fort_read(precision, shape=(self.l_max, self.n_r_max))
         self.e_pol_m = file.fort_read(precision, shape=(self.l_max+1, self.n_r_max))
