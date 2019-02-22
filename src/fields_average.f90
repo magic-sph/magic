@@ -53,7 +53,6 @@ module fields_average_mod
    complex(cp), allocatable :: aj_ave(:,:)
    complex(cp), allocatable :: b_ic_ave(:,:)
    complex(cp), allocatable :: aj_ic_ave(:,:)
- 
    ! on rank 0 we also allocate the following fields
    complex(cp), allocatable :: b_ave_global(:), bICB(:)
    complex(cp), allocatable :: db_ave_global(:), aj_ave_global(:)
@@ -362,9 +361,9 @@ contains
          !----- Get averaged spectra:
          !      Note: average spectra will be in file no 0
          n_spec=0
-         call spectrum(time,n_spec,w_ave,dw_ave,z_ave, &
-              &        b_ave,db_ave,aj_ave,            &
-              &        b_ic_ave,db_ic_ave,aj_ic_ave)  
+         call spectrum(n_spec,time,.false.,nAve,l_stop_time,time_passed, &
+              &        time_norm,w_ave,dw_ave,z_ave,b_ave,db_ave,        &
+              &        aj_ave,b_ic_ave,db_ic_ave,aj_ic_ave)
 
          if ( l_heat ) then
             call spectrum_temp(n_spec,time,.false.,0,l_stop_time,     &
