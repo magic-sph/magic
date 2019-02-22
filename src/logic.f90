@@ -39,6 +39,7 @@ module logic
    logical :: l_storeVpot    ! Switch for storing velocity field potentials
    logical :: l_storeTpot    ! Switch for storing entropy field potentials
    logical :: l_storePot     ! Switch for storing all field potentials
+   logical :: l_2D_spectra   ! Switch for storing of r-l-spectra
    logical :: l_r_field      ! Switch for radial coefficients
    logical :: l_r_fieldT     ! Switch for radial T coefficients
    logical :: l_b_nl_cmb     ! Switch for non-linear magnetic field at OC
