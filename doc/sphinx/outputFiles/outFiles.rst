@@ -69,7 +69,8 @@ and the structure of the different type of output files:
          * Time-averaged kinetic energy: :ref:`kin_spec_ave.TAG <secKinSpecAveFile>`,
          * Time-averaged magnetic energy: :ref:`mag_spec_ave.TAG <secMagSpecAveFile>`,
          * Time-averaged temperature/entropy: :ref:`T_spec_ave.TAG <secTempSpecAveFile>`,
-	 * 2-D ([r,\ell] and [r,m]) spectra: :ref:`2D_[mag|kin|u2]_spec_#.TAG <sec2DSpectra>`.
+	 * 2-D ([r,\ell] and [r,m]) spectra: :ref:`2D_[mag|kin]_spec_#.TAG <sec2DSpectra>`.
+	 * Time-averaged 2-D ([r,\ell] and [r,m]) spectra: :ref:`2D_[mag|kin]_spec_ave.TAG <sec2DSpectra>`.
 
    7. Output snapshot that contains the 3-D components of the velocity field, the magnetic
       field and the temperature/entropy. Those files are named **graphic files**

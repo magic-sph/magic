@@ -132,6 +132,13 @@ The **spec** outputs controls the output of spectra: kinetic energy spectra (:re
 
 * **t_spec_stop** (default :f:var:`t_spec_stop=0.0 <t_spec_stop>`) is a real, which defines the time to stop writing spectra.
 
+.. _varl_2D_spectra:
+
+* **l_2D_spectra** (default :f:var:`l_2D_spectra.false. <l_2d_spectra>`) is a 
+  logical. When set to ``.true.``, this logical enables the calculation of 2-D
+  spectra in the :math:`(r,\ell)` and in the :math:`(r,m)` parameter spaces. 
+  Those data are stored in the files named :ref:`2D_[mag|kin]_spec_#.TAG <sec2DSpectra>`.
+
 
 Movie files
 -----------

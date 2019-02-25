@@ -130,15 +130,19 @@ This file contains the temperature/entropy spectra. It is written by the subrout
 
 .. _sec2DSpectra:
 
-2D spectra `[2D_kin|mag|u2_spec]_#.TAG`
----------------------------------------
+2D spectra ``2D_[kin|mag]_spec_#.TAG`` and ``2D_[kin|mag]_spec_ave.TAG``
+---------------------------------------------------------------------------
+
+.. note:: Those files are **only** written when :ref:`l_2D_spectra=.true. <varl_2D_spectra>`. The time-averaged files also require that :ref:`l_average=.true. <varl_average>`.
 
 Those files contain 2-D spectra in the :math:`(r,\ell)` and in the
 :math:`(r,m)` planes.  In other words, the poloidal and toroidal energies
 versus degree :math:`\ell` or versus order :math:`m` are computed for all
-radii. There are three kinds of those files that correspond to the
-aforementioned spectra, namely **2D_kin_spec_#.TAG**, **2D_mag_spec_#.TAG**
-and **2D_u2_spec_#.TAG**. The calculations are done in the subroutine
+radii. There are two kinds of those files that correspond to the
+aforementioned spectra, namely **2D_kin_spec_#.TAG**, **2D_mag_spec_#.TAG**.
+In case time-averages are requested, **2D_kin_spec_ave.TAG** and
+**2D_mag_spec_ave.TAG** will also be stored. The calculations are done 
+in the subroutine
 :f:subr:`spectrum <spectra/spectrum()>`. The structure of the output files 
 are same for these three outputs. They are stored as fortran unformatted files.
 
@@ -204,7 +208,7 @@ Those files can be read using the python class :py:class:`MagicSpectrum2D <magic
 the following options:
 
    >>> # Read the file 2D_mag_spec_3.ext
-   >>> sp = MagicRSpec(tag='ext', field=e_mag', ispec=3)
+   >>> sp = MagicSpectrum2D(tag='ext', field='e_mag', ispec=3)
    >>> # Print e_pol_l and e_tor_m
    >>> print(sp.e_pol_l, sp.e_tor_m)
 
@@ -219,7 +223,7 @@ the following options:
 
 This file contains the time-average kinetic energy spectra as well as squared quantities
 to allow a possible further reconstruction of the standard deviation. 
-This file is written by the subroutine :f:subr:`spectrum_average <spectra/spectrum_average()>`.
+This file is written by the subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+------------------------------------------------------------+
    | No. of column | Contents                                                   |
@@ -257,7 +261,7 @@ This file can be read using :py:class:`MagicSpectrum <magic.MagicSpectrum>` with
           the run is magnetic
 
 This file contains the time-average magnetic energy spectra. This file is written by the
-subroutine :f:subr:`spectrum_average <spectra/spectrum_average()>`.
+subroutine :f:subr:`spectrum <spectra/spectrum()>`.
 
    +---------------+------------------------------------------------------------------------+
    | No. of column | Contents                                                               |
