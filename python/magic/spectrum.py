@@ -540,18 +540,18 @@ class MagicSpectrum2D(MagicSetup):
         fig0 = plt.figure()
         ax0 = fig0.add_subplot(111)
         vmax = np.log10(self.e_pol_l).max()
-        vmin = vmax-14
+        vmin = vmax-7
         levs = np.linspace(vmin, vmax, levels)
-        im = ax0.contourf(self.ell[1:], self.rad, np.log10(self.e_pol_l.T),
+        im = ax0.contourf(self.rad, self.ell[1:], np.log10(self.e_pol_l),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig0.colorbar(im)
         if labTex:
-            ax0.set_xlabel('Degree $\ell$')
-            ax0.set_ylabel('Radius $r$')
+            ax0.set_ylabel('Degree $\ell$')
+            ax0.set_xlabel('Radius $r$')
         else:
-            ax0.set_xlabel('Degree l')
-            ax0.set_ylabel('Radius')
-        ax0.set_xscale('log')
+            ax0.set_ylabel('Degree l')
+            ax0.set_xlabel('Radius')
+        ax0.set_yscale('log')
         ax0.set_title('E pol')
 
         fig1 = plt.figure()
@@ -559,16 +559,16 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_tor_l).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax1.contourf(self.ell[1:], self.rad, np.log10(self.e_tor_l.T),
+        im = ax1.contourf(self.rad, self.ell[1:], np.log10(self.e_tor_l),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig1.colorbar(im)
         if labTex:
-            ax1.set_xlabel('Degree $\ell$')
-            ax1.set_ylabel('Radius $r$')
+            ax1.set_ylabel('Degree $\ell$')
+            ax1.set_xlabel('Radius $r$')
         else:
-            ax1.set_xlabel('Degree l')
-            ax1.set_ylabel('Radius')
-        ax1.set_xscale('log')
+            ax1.set_ylabel('Degree l')
+            ax1.set_xlabel('Radius')
+        ax1.set_yscale('log')
         ax1.set_title('E tor')
 
         fig2 = plt.figure()
@@ -576,17 +576,17 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_pol_m).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax2.contourf(self.ell[::self.minc]+1, self.rad,
-                          np.log10(self.e_pol_m[::self.minc,:].T),
+        im = ax2.contourf(self.rad, self.ell[::self.minc]+1,
+                          np.log10(self.e_pol_m[::self.minc,:]),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig2.colorbar(im)
         if labTex:
-            ax2.set_xlabel('Order $m+1$')
-            ax2.set_ylabel('Radius $r$')
+            ax2.set_ylabel('Order $m+1$')
+            ax2.set_xlabel('Radius $r$')
         else:
-            ax2.set_xlabel('Order m+1')
-            ax2.set_ylabel('Radius')
-        ax2.set_xscale('log')
+            ax2.set_ylabel('Order m+1')
+            ax2.set_xlabel('Radius')
+        ax2.set_yscale('log')
         ax2.set_title('E pol')
 
         fig3 = plt.figure()
@@ -594,15 +594,15 @@ class MagicSpectrum2D(MagicSetup):
         vmax = np.log10(self.e_tor_m).max()
         vmin = vmax-14
         levs = np.linspace(vmin, vmax, levels)
-        im = ax3.contourf(self.ell[::self.minc]+1, self.rad,
-                          np.log10(self.e_tor_m[::self.minc,:].T),
+        im = ax3.contourf(self.rad, self.ell[::self.minc]+1,
+                          np.log10(self.e_tor_m[::self.minc,:]),
                           levs, cmap=plt.get_cmap(cm), extend='both')
         fig3.colorbar(im)
         if labTex:
-            ax3.set_xlabel('Order $m+1$')
-            ax3.set_ylabel('Radius $r$')
+            ax3.set_ylabel('Order $m+1$')
+            ax3.set_xlabel('Radius $r$')
         else:
-            ax3.set_xlabel('Order m+1')
-            ax3.set_ylabel('Radius')
-        ax3.set_xscale('log')
+            ax3.set_ylabel('Order m+1')
+            ax3.set_xlabel('Radius')
+        ax3.set_yscale('log')
         ax3.set_title('E tor')
