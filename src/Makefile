@@ -482,7 +482,7 @@ cosine_transform_odd.o : truncation.o fft_fac.o constants.o useful.o\
 readCheckPoints.o     : truncation.o blocking.o phys_param.o\
                         init_fields.o constants.o radial.o\
                         logic.o cosine_transform_odd.o finite_differences.o\
-                        chebyshev.o radial_scheme.o
+                        chebyshev.o radial_scheme.o num_param.o
 radial_derivatives_even.o : cosine_transform_odd.o precision_mod.o constants.o\
                         cosine_transform_even.o
 updateZ.o             : truncation.o blocking.o phys_param.o\
